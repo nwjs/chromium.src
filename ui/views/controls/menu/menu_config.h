@@ -9,26 +9,28 @@
 #include "ui/gfx/font.h"
 #include "ui/views/views_export.h"
 
+namespace ui {
+class NativeTheme;
+}
+
 namespace views {
 
 // Layout type information for menu items. Use the instance() method to obtain
 // the MenuConfig for the current platform.
 struct VIEWS_EXPORT MenuConfig {
-  MenuConfig();
+  explicit MenuConfig(const ui::NativeTheme* theme);
   ~MenuConfig();
 
-  // Resets the single shared MenuConfig instance. The next time instance() is
-  // invoked a new MenuConfig is created and configured.
-  static void Reset();
-
-  // Returns the single shared MenuConfig instance, creating if necessary.
-  static const MenuConfig& instance();
+  static const MenuConfig& instance(const ui::NativeTheme* theme);
 
   // Font used by menus.
   gfx::Font font;
 
   // Normal text color.
   SkColor text_color;
+
+  // Color for the arrow to scroll bookmarks.
+  SkColor arrow_color;
 
   // Submenu horizontal margin size.
   int submenu_horizontal_margin_size;
@@ -122,9 +124,16 @@ struct VIEWS_EXPORT MenuConfig {
   // True if the context menu's should be offset from the cursor position.
   bool offset_context_menus;
 
+  const ui::NativeTheme* native_theme;
+
  private:
   // Configures a MenuConfig as appropriate for the current platform.
-  void Init();
+  void Init(const ui::NativeTheme* theme);
+
+  // TODO: temporary until we standardize.
+#if defined(USE_AURA)
+  void InitAura();
+#endif
 };
 
 }  // namespace views

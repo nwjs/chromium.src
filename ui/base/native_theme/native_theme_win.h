@@ -85,7 +85,7 @@ class UI_EXPORT NativeThemeWin : public NativeTheme {
   bool IsClassicTheme(ThemeName name) const;
 
   // Gets our singleton instance.
-  static const NativeThemeWin* instance();
+  static NativeThemeWin* instance();
 
   HRESULT PaintTextField(HDC hdc,
                          int part_id,
@@ -95,10 +95,6 @@ class UI_EXPORT NativeThemeWin : public NativeTheme {
                          COLORREF color,
                          bool fill_content_area,
                          bool draw_edges) const;
-
- private:
-  NativeThemeWin();
-  ~NativeThemeWin();
 
   // NativeTheme Implementation:
   virtual gfx::Size GetPartSize(Part part,
@@ -110,6 +106,10 @@ class UI_EXPORT NativeThemeWin : public NativeTheme {
                      const gfx::Rect& rect,
                      const ExtraParams& extra) const OVERRIDE;
   virtual SkColor GetSystemColor(ColorId color_id) const OVERRIDE;
+
+ private:
+  NativeThemeWin();
+  ~NativeThemeWin();
 
   // Paint directly to canvas' HDC.
   void PaintDirect(SkCanvas* canvas,

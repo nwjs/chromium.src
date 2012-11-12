@@ -31,13 +31,13 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/png_codec.h"
 
+using content::SocketPermissionRequest;
 using extensions::APIPermission;
 using extensions::APIPermissionSet;
 using extensions::Extension;
 using extensions::Feature;
 using extensions::PermissionSet;
 using extensions::SocketPermission;
-using extensions::SocketPermissionData;
 
 namespace keys = extension_manifest_keys;
 namespace values = extension_manifest_values;
@@ -448,7 +448,7 @@ TEST(ExtensionTest, EffectiveHostPermissions) {
 }
 
 static bool CheckSocketPermission(scoped_refptr<Extension> extension,
-    SocketPermissionData::OperationType type,
+    SocketPermissionRequest::OperationType type,
     const char* host,
     int port) {
   SocketPermission::CheckParam param(type, host, port);
@@ -464,8 +464,8 @@ TEST(ExtensionTest, SocketPermissions) {
   std::string error;
 
   extension = LoadManifest("socket_permissions", "empty.json");
-  EXPECT_FALSE(CheckSocketPermission(
-        extension, SocketPermissionData::TCP_CONNECT, "www.example.com", 80));
+  EXPECT_FALSE(CheckSocketPermission(extension,
+      SocketPermissionRequest::TCP_CONNECT, "www.example.com", 80));
 
   extension = LoadManifestUnchecked("socket_permissions",
                                     "socket1.json",
@@ -476,17 +476,19 @@ TEST(ExtensionTest, SocketPermissions) {
         errors::kInvalidPermission, "socket"), error);
 
   extension = LoadManifest("socket_permissions", "socket2.json");
-  EXPECT_TRUE(CheckSocketPermission(
-        extension, SocketPermissionData::TCP_CONNECT, "www.example.com", 80));
+  EXPECT_TRUE(CheckSocketPermission(extension,
+      SocketPermissionRequest::TCP_CONNECT, "www.example.com", 80));
   EXPECT_FALSE(CheckSocketPermission(
-        extension, SocketPermissionData::UDP_BIND, "", 80));
+        extension, SocketPermissionRequest::UDP_BIND, "", 80));
   EXPECT_TRUE(CheckSocketPermission(
-        extension, SocketPermissionData::UDP_BIND, "", 8888));
+        extension, SocketPermissionRequest::UDP_BIND, "", 8888));
 
   EXPECT_FALSE(CheckSocketPermission(
-        extension, SocketPermissionData::UDP_SEND_TO, "example.com", 1900));
+        extension, SocketPermissionRequest::UDP_SEND_TO, "example.com", 1900));
   EXPECT_TRUE(CheckSocketPermission(
-        extension, SocketPermissionData::UDP_SEND_TO, "239.255.255.250", 1900));
+        extension,
+        SocketPermissionRequest::UDP_SEND_TO,
+        "239.255.255.250", 1900));
 }
 
 // Returns a copy of |source| resized to |size| x |size|.
@@ -1160,13 +1162,64 @@ TEST(ExtensionTest, OnlyDisplayAppsInLauncher) {
                             Extension::INTERNAL, 0, FilePath(),
                             Extension::NO_FLAGS));
 
-  EXPECT_FALSE(extension->ShouldDisplayInLauncher());
+  EXPECT_FALSE(extension->ShouldDisplayInAppLauncher());
+  EXPECT_FALSE(extension->ShouldDisplayInNewTabPage());
 
   scoped_refptr<Extension> app(
       MakeSyncTestExtension(APP, GURL(), GURL("http://www.google.com"),
                             Extension::INTERNAL, 0, FilePath(),
                             Extension::NO_FLAGS));
-  EXPECT_TRUE(app->ShouldDisplayInLauncher());
+  EXPECT_TRUE(app->ShouldDisplayInAppLauncher());
+  EXPECT_TRUE(app->ShouldDisplayInNewTabPage());
+}
+
+TEST(ExtensionTest, DisplayInXManifestProperties) {
+  DictionaryValue manifest;
+  manifest.SetString(keys::kName, "TestComponentApp");
+  manifest.SetString(keys::kVersion, "0.0.0.0");
+  manifest.SetString(keys::kApp, "true");
+  manifest.SetString(keys::kPlatformAppBackgroundPage, "");
+
+  std::string error;
+  scoped_refptr<Extension> app;
+
+  // Default to true.
+  app = Extension::Create(
+      FilePath(), Extension::COMPONENT, manifest, 0, &error);
+  EXPECT_EQ(error, std::string());
+  EXPECT_TRUE(app->ShouldDisplayInAppLauncher());
+  EXPECT_TRUE(app->ShouldDisplayInNewTabPage());
+
+  // Value display_in_NTP defaults to display_in_launcher.
+  manifest.SetBoolean(keys::kDisplayInLauncher, false);
+  app = Extension::Create(
+      FilePath(), Extension::COMPONENT, manifest, 0, &error);
+  EXPECT_EQ(error, std::string());
+  EXPECT_FALSE(app->ShouldDisplayInAppLauncher());
+  EXPECT_FALSE(app->ShouldDisplayInNewTabPage());
+
+  // Value display_in_NTP = true overriding display_in_launcher = false.
+  manifest.SetBoolean(keys::kDisplayInNewTabPage, true);
+  app = Extension::Create(
+      FilePath(), Extension::COMPONENT, manifest, 0, &error);
+  EXPECT_EQ(error, std::string());
+  EXPECT_FALSE(app->ShouldDisplayInAppLauncher());
+  EXPECT_TRUE(app->ShouldDisplayInNewTabPage());
+
+  // Value display_in_NTP = false only, overrides default = true.
+  manifest.Remove(keys::kDisplayInLauncher, NULL);
+  manifest.SetBoolean(keys::kDisplayInNewTabPage, false);
+  app = Extension::Create(
+      FilePath(), Extension::COMPONENT, manifest, 0, &error);
+  EXPECT_EQ(error, std::string());
+  EXPECT_TRUE(app->ShouldDisplayInAppLauncher());
+  EXPECT_FALSE(app->ShouldDisplayInNewTabPage());
+
+  // Error checking.
+  manifest.SetString(keys::kDisplayInNewTabPage, "invalid");
+  app = Extension::Create(
+      FilePath(), Extension::COMPONENT, manifest, 0, &error);
+  EXPECT_EQ(error, std::string(errors::kInvalidDisplayInNewTabPage));
 }
 
 TEST(ExtensionTest, OnlySyncInternal) {

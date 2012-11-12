@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/render_pass.h"
 
 #include "cc/checkerboard_draw_quad.h"
@@ -19,8 +17,7 @@ using WebKit::WebFilterOperations;
 using WebKit::WebTransformationMatrix;
 using WebKitTests::TestRenderPass;
 
-using namespace cc;
-
+namespace cc {
 namespace {
 
 struct RenderPassSize {
@@ -84,4 +81,5 @@ TEST(RenderPassTest, copyShouldBeIdenticalExceptIdAndQuads)
     EXPECT_EQ(sizeof(RenderPassSize), sizeof(RenderPass));
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

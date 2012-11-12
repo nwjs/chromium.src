@@ -51,7 +51,7 @@ class MenuManagerTest : public testing::Test {
 
   virtual void TearDown() OVERRIDE {
     prefs_.pref_service()->CommitPendingWrite();
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   // Returns a test item.

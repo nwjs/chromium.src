@@ -20,7 +20,6 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "googleurl/src/gurl.h"
-#include "webkit/dom_storage/dom_storage_context.h"
 #include "webkit/quota/quota_types.h"
 
 class ExtensionSpecialStoragePolicy;
@@ -41,6 +40,11 @@ class URLRequestContextGetter;
 
 namespace quota {
 class QuotaManager;
+}
+
+namespace dom_storage {
+struct LocalStorageUsageInfo;
+struct SessionStorageUsageInfo;
 }
 
 // BrowsingDataRemover is responsible for removing data related to browsing:
@@ -225,13 +229,24 @@ class BrowsingDataRemover : public content::NotificationObserver,
   // object.
   void NotifyAndDeleteIfDone();
 
-  // Callback when the network history has been deleted. Invokes
-  // NotifyAndDeleteIfDone.
-  void ClearedNetworkHistory();
+  // Callback when the hostname resolution cache has been cleared.
+  // Clears the respective waiting flag and invokes NotifyAndDeleteIfDone.
+  void OnClearedHostnameResolutionCache();
 
-  // Invoked on the IO thread to clear the HostCache, speculative data about
-  // subresources on visited sites, and initial navigation history.
-  void ClearNetworkingHistory(IOThread* io_thread);
+  // Invoked on the IO thread to clear the hostname resolution cache.
+  void ClearHostnameResolutionCacheOnIOThread(IOThread* io_thread);
+
+  // Callback when speculative data in the network Predictor has been cleared.
+  // Clears the respective waiting flag and invokes NotifyAndDeleteIfDone.
+  void OnClearedNetworkPredictor();
+
+  // Invoked on the IO thread to clear speculative data related to hostname
+  // pre-resolution from the network Predictor.
+  void ClearNetworkPredictorOnIOThread();
+
+  // Callback when network related data in ProfileIOData has been cleared.
+  // Clears the respective waiting flag and invokes NotifyAndDeleteIfDone.
+  void OnClearedNetworkingHistory();
 
   // Callback when the cache has been deleted. Invokes NotifyAndDeleteIfDone.
   void ClearedCache();
@@ -259,16 +274,14 @@ class BrowsingDataRemover : public content::NotificationObserver,
 
   // Callback to deal with the list gathered in ClearLocalStorageOnUIThread.
   void OnGotLocalStorageUsageInfo(
-      const std::vector<
-          dom_storage::DomStorageContext::LocalStorageUsageInfo>& infos);
+      const std::vector<dom_storage::LocalStorageUsageInfo>& infos);
 
   // Invoked on the UI thread to delete session storage.
   void ClearSessionStorageOnUIThread();
 
   // Callback to deal with the list gathered in ClearSessionStorageOnUIThread.
   void OnGotSessionStorageUsageInfo(
-      const std::vector<
-          dom_storage::DomStorageContext::SessionStorageUsageInfo>& infos);
+      const std::vector<dom_storage::SessionStorageUsageInfo>& infos);
 
   // Invoked on the IO thread to delete all storage types managed by the quota
   // system: AppCache, Databases, FileSystems.
@@ -360,18 +373,20 @@ class BrowsingDataRemover : public content::NotificationObserver,
   // True if we're waiting for various data to be deleted.
   // These may only be accessed from UI thread in order to avoid races!
   bool waiting_for_clear_cache_;
-  bool waiting_for_clear_nacl_cache_;
+  bool waiting_for_clear_content_licenses_;
   // Non-zero if waiting for cookies to be cleared.
   int waiting_for_clear_cookies_count_;
+  bool waiting_for_clear_form_;
   bool waiting_for_clear_history_;
+  bool waiting_for_clear_hostname_resolution_cache_;
   bool waiting_for_clear_local_storage_;
-  bool waiting_for_clear_session_storage_;
+  bool waiting_for_clear_nacl_cache_;
+  bool waiting_for_clear_network_predictor_;
   bool waiting_for_clear_networking_history_;
-  bool waiting_for_clear_server_bound_certs_;
   bool waiting_for_clear_plugin_data_;
   bool waiting_for_clear_quota_managed_data_;
-  bool waiting_for_clear_content_licenses_;
-  bool waiting_for_clear_form_;
+  bool waiting_for_clear_server_bound_certs_;
+  bool waiting_for_clear_session_storage_;
 
   // Tracking how many origins need to be deleted, and whether we're finished
   // gathering origins.

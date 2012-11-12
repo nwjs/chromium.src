@@ -15,13 +15,15 @@
 #include "third_party/skia/include/core/SkRect.h"
 #include "ui/base/accessibility/accessibility_types.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/interpolated_transform.h"
 #include "ui/gfx/path.h"
-#include "ui/gfx/point3.h"
+#include "ui/gfx/point_conversions.h"
+#include "ui/gfx/point3_f.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gfx/transform.h"
 #include "ui/views/background.h"
@@ -161,6 +163,7 @@ void View::AddChildViewAt(View* view, int index) {
 
   // If |view| has a parent, remove it from its parent.
   View* parent = view->parent_;
+  const ui::NativeTheme* old_theme = view->GetNativeTheme();
   if (parent) {
     if (parent == this) {
       ReorderChildView(view, index);
@@ -181,8 +184,13 @@ void View::AddChildViewAt(View* view, int index) {
 
   view->PropagateAddNotifications(this, view);
   UpdateTooltip();
-  if (GetWidget())
+  views::Widget* widget = GetWidget();
+  if (widget) {
     RegisterChildrenForVisibleBoundsNotification(view);
+    const ui::NativeTheme* new_theme = widget->GetNativeTheme();
+    if (new_theme != old_theme)
+      PropagateNativeThemeChanged(new_theme);
+  }
 
   if (layout_manager_.get())
     layout_manager_->ViewAdded(this, view);
@@ -622,8 +630,8 @@ void View::ConvertPointToTarget(const View* source,
 
   // API defines NULL |source| as returning the point in screen coordinates.
   if (!source) {
-    *point = point->Subtract(
-        root->GetWidget()->GetClientAreaBoundsInScreen().origin());
+    *point -=
+        root->GetWidget()->GetClientAreaBoundsInScreen().OffsetFromOrigin();
   }
 }
 
@@ -652,8 +660,7 @@ void View::ConvertPointToScreen(const View* src, gfx::Point* p) {
   const Widget* widget = src->GetWidget();
   if (widget) {
     ConvertPointToWidget(src, p);
-    gfx::Rect r = widget->GetClientAreaBoundsInScreen();
-    p->SetPoint(p->x() + r.x(), p->y() + r.y());
+    *p += widget->GetClientAreaBoundsInScreen().OffsetFromOrigin();
   }
 }
 
@@ -665,15 +672,14 @@ void View::ConvertPointFromScreen(const View* dst, gfx::Point* p) {
   const views::Widget* widget = dst->GetWidget();
   if (!widget)
     return;
-  const gfx::Rect r = widget->GetClientAreaBoundsInScreen();
-  p->Offset(-r.x(), -r.y());
+  *p -= widget->GetClientAreaBoundsInScreen().OffsetFromOrigin();
   views::View::ConvertPointFromWidget(dst, p);
 }
 
 gfx::Rect View::ConvertRectToParent(const gfx::Rect& rect) const {
   gfx::Rect x_rect = rect;
   GetTransform().TransformRect(&x_rect);
-  x_rect.Offset(GetMirroredPosition());
+  x_rect.Offset(GetMirroredPosition().OffsetFromOrigin());
   return x_rect;
 }
 
@@ -724,7 +730,7 @@ void View::Paint(gfx::Canvas* canvas) {
 
   // Non-empty clip, translate the graphics such that 0,0 corresponds to
   // where this view is located (related to its parent).
-  canvas->Translate(GetMirroredPosition());
+  canvas->Translate(GetMirroredPosition().OffsetFromOrigin());
   canvas->Transform(GetTransform());
 
   PaintCommon(canvas);
@@ -733,6 +739,11 @@ void View::Paint(gfx::Canvas* canvas) {
 ui::ThemeProvider* View::GetThemeProvider() const {
   const Widget* widget = GetWidget();
   return widget ? widget->GetThemeProvider() : NULL;
+}
+
+const ui::NativeTheme* View::GetNativeTheme() const {
+  const Widget* widget = GetWidget();
+  return widget ? widget->GetNativeTheme() : ui::NativeTheme::instance();
 }
 
 // Accelerated Painting --------------------------------------------------------
@@ -833,14 +844,6 @@ void View::OnMouseEntered(const ui::MouseEvent& event) {
 void View::OnMouseExited(const ui::MouseEvent& event) {
 }
 
-ui::TouchStatus View::OnTouchEvent(const ui::TouchEvent& event) {
-  return ui::TOUCH_STATUS_UNKNOWN;
-}
-
-ui::EventResult View::OnGestureEvent(const ui::GestureEvent& event) {
-  return ui::ER_UNHANDLED;
-}
-
 void View::SetMouseHandler(View* new_mouse_handler) {
   // |new_mouse_handler| may be NULL.
   if (parent_)
@@ -859,8 +862,24 @@ bool View::OnMouseWheel(const ui::MouseWheelEvent& event) {
   return false;
 }
 
-bool View::OnScrollEvent(const ui::ScrollEvent& event) {
-  return false;
+ui::EventResult View::OnKeyEvent(ui::KeyEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult View::OnMouseEvent(ui::MouseEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult View::OnScrollEvent(ui::ScrollEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult View::OnTouchEvent(ui::TouchEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult View::OnGestureEvent(ui::GestureEvent* event) {
+  return ui::ER_UNHANDLED;
 }
 
 ui::TextInputClient* View::GetTextInputClient() {
@@ -870,6 +889,14 @@ ui::TextInputClient* View::GetTextInputClient() {
 InputMethod* View::GetInputMethod() {
   Widget* widget = GetWidget();
   return widget ? widget->GetInputMethod() : NULL;
+}
+
+bool View::CanAcceptEvents() {
+  return IsDrawn();
+}
+
+ui::EventTarget* View::GetParentTarget() {
+  return parent_;
 }
 
 // Accelerators ----------------------------------------------------------------
@@ -1040,9 +1067,9 @@ void View::OnDragDone() {
 }
 
 // static
-bool View::ExceededDragThreshold(int delta_x, int delta_y) {
-  return (abs(delta_x) > GetHorizontalDragThreshold() ||
-          abs(delta_y) > GetVerticalDragThreshold());
+bool View::ExceededDragThreshold(const gfx::Vector2d& delta) {
+  return (abs(delta.x()) > GetHorizontalDragThreshold() ||
+          abs(delta.y()) > GetVerticalDragThreshold());
 }
 
 // Scrolling -------------------------------------------------------------------
@@ -1382,40 +1409,40 @@ std::string View::DoPrintViewGraph(bool first, View* view_with_children) {
   // Node characteristics.
   char p[kMaxPointerStringLength];
 
-  size_t baseNameIndex = GetClassName().find_last_of('/');
-  if (baseNameIndex == std::string::npos)
-    baseNameIndex = 0;
+  size_t base_name_index = GetClassName().find_last_of('/');
+  if (base_name_index == std::string::npos)
+    base_name_index = 0;
   else
-    baseNameIndex++;
+    base_name_index++;
 
   char bounds_buffer[512];
 
   // Information about current node.
   base::snprintf(p, arraysize(bounds_buffer), "%p", view_with_children);
   result.append("  N");
-  result.append(p+2);
+  result.append(p + 2);
   result.append(" [label=\"");
 
-  result.append(GetClassName().substr(baseNameIndex).c_str());
+  result.append(GetClassName().substr(base_name_index).c_str());
 
   base::snprintf(bounds_buffer,
                  arraysize(bounds_buffer),
                  "\\n bounds: (%d, %d), (%dx%d)",
-                 this->bounds().x(),
-                 this->bounds().y(),
-                 this->bounds().width(),
-                 this->bounds().height());
+                 bounds().x(),
+                 bounds().y(),
+                 bounds().width(),
+                 bounds().height());
   result.append(bounds_buffer);
 
   if (GetTransform().HasChange()) {
     gfx::Point translation;
     float rotation;
-    gfx::Point3f scale;
+    gfx::Point3F scale;
     if (ui::InterpolatedTransform::FactorTRS(GetTransform(),
                                              &translation,
                                              &rotation,
                                              &scale)) {
-      if (translation != gfx::Point(0, 0)) {
+      if (!translation.IsOrigin()) {
         base::snprintf(bounds_buffer,
                        arraysize(bounds_buffer),
                        "\\n translation: (%d, %d)",
@@ -1431,7 +1458,7 @@ std::string View::DoPrintViewGraph(bool first, View* view_with_children) {
         result.append(bounds_buffer);
       }
 
-      if (scale.AsPoint() != gfx::Point(0, 0)) {
+      if (!gfx::ToFlooredPoint(scale.AsPointF()).IsOrigin()) {
         base::snprintf(bounds_buffer,
                        arraysize(bounds_buffer),
                        "\\n scale: (%2.4f, %2.4f)",
@@ -1462,9 +1489,9 @@ std::string View::DoPrintViewGraph(bool first, View* view_with_children) {
 
     base::snprintf(pp, kMaxPointerStringLength, "%p", parent_);
     result.append("  N");
-    result.append(pp+2);
+    result.append(pp + 2);
     result.append(" -> N");
-    result.append(p+2);
+    result.append(p + 2);
     result.append("\n");
   }
 
@@ -1526,7 +1553,7 @@ void View::PaintCommon(gfx::Canvas* canvas) {
     // request the canvas to be flipped.
     ScopedCanvas scoped(canvas);
     if (FlipCanvasOnPaintForRTLUI()) {
-      canvas->Translate(gfx::Point(width(), 0));
+      canvas->Translate(gfx::Vector2d(width(), 0));
       canvas->Scale(-1, 1);
     }
 
@@ -1638,6 +1665,12 @@ void View::ViewHierarchyChangedImpl(bool register_accelerators,
 
   ViewHierarchyChanged(is_add, parent, child);
   parent->needs_layout_ = true;
+}
+
+void View::PropagateNativeThemeChanged(const ui::NativeTheme* theme) {
+  for (int i = 0, count = child_count(); i < count; ++i)
+    child_at(i)->PropagateNativeThemeChanged(theme);
+  OnNativeThemeChanged(theme);
 }
 
 // Size and disposition --------------------------------------------------------
@@ -1786,9 +1819,9 @@ bool View::ConvertPointForAncestor(const View* ancestor,
   gfx::Transform trans;
   // TODO(sad): Have some way of caching the transformation results.
   bool result = GetTransformRelativeTo(ancestor, &trans);
-  gfx::Point3f p(*point);
+  gfx::Point3F p(*point);
   trans.TransformPoint(p);
-  *point = p.AsPoint();
+  *point = gfx::ToFlooredPoint(p.AsPointF());
   return result;
 }
 
@@ -1796,9 +1829,9 @@ bool View::ConvertPointFromAncestor(const View* ancestor,
                                     gfx::Point* point) const {
   gfx::Transform trans;
   bool result = GetTransformRelativeTo(ancestor, &trans);
-  gfx::Point3f p(*point);
+  gfx::Point3F p(*point);
   trans.TransformPointReverse(p);
-  *point = p.AsPoint();
+  *point = gfx::ToFlooredPoint(p.AsPointF());
   return result;
 }
 
@@ -1938,13 +1971,14 @@ bool View::ProcessMouseDragged(const ui::MouseEvent& event,
   // done.
   ContextMenuController* context_menu_controller = context_menu_controller_;
   const bool possible_drag = drag_info->possible_drag;
-  if (possible_drag && ExceededDragThreshold(
-      drag_info->start_pt.x() - event.x(),
-      drag_info->start_pt.y() - event.y())) {
+  if (possible_drag &&
+      ExceededDragThreshold(drag_info->start_pt - event.location())) {
     if (!drag_controller_ ||
         drag_controller_->CanStartDragForView(
-            this, drag_info->start_pt, event.location()))
-      DoDrag(event, drag_info->start_pt);
+            this, drag_info->start_pt, event.location())) {
+      DoDrag(event, drag_info->start_pt,
+          ui::DragDropTypes::DRAG_EVENT_SOURCE_MOUSE);
+    }
   } else {
     if (OnMouseDragged(event))
       return true;
@@ -1970,21 +2004,19 @@ void View::ProcessMouseReleased(const ui::MouseEvent& event) {
   // WARNING: we may have been deleted.
 }
 
-ui::TouchStatus View::ProcessTouchEvent(const ui::TouchEvent& event) {
-  // TODO(rjkroege): Implement a grab scheme similar to as as is found in
-  //                 MousePressed.
+ui::EventResult View::ProcessTouchEvent(ui::TouchEvent* event) {
   return OnTouchEvent(event);
 }
 
-ui::EventResult View::ProcessGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult View::ProcessGestureEvent(ui::GestureEvent* event) {
   ui::EventResult status = OnGestureEvent(event);
   if (status != ui::ER_UNHANDLED)
     return status;
 
   if (context_menu_controller_ &&
-      (event.type() == ui::ET_GESTURE_LONG_PRESS ||
-       event.type() == ui::ET_GESTURE_TWO_FINGER_TAP)) {
-    gfx::Point location(event.location());
+      (event->type() == ui::ET_GESTURE_LONG_PRESS ||
+       event->type() == ui::ET_GESTURE_TWO_FINGER_TAP)) {
+    gfx::Point location(event->location());
     ConvertPointToScreen(this, &location);
     ShowContextMenu(location, true);
     return ui::ER_CONSUMED;
@@ -2114,7 +2146,9 @@ void View::UpdateTooltip() {
 
 // Drag and drop ---------------------------------------------------------------
 
-bool View::DoDrag(const ui::LocatedEvent& event, const gfx::Point& press_pt) {
+bool View::DoDrag(const ui::LocatedEvent& event,
+                  const gfx::Point& press_pt,
+                  ui::DragDropTypes::DragEventSource source) {
 #if !defined(OS_MACOSX)
   int drag_operations = GetDragOperations(press_pt);
   if (drag_operations == ui::DragDropTypes::DRAG_NONE)
@@ -2127,7 +2161,8 @@ bool View::DoDrag(const ui::LocatedEvent& event, const gfx::Point& press_pt) {
   // the RootView can detect it and avoid calling us back.
   gfx::Point widget_location(event.location());
   ConvertPointToWidget(this, &widget_location);
-  GetWidget()->RunShellDrag(this, data, widget_location, drag_operations);
+  GetWidget()->RunShellDrag(this, data, widget_location, drag_operations,
+      source);
   return true;
 #else
   return false;

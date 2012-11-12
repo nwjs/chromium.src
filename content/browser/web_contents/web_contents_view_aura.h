@@ -80,7 +80,8 @@ class CONTENT_EXPORT WebContentsViewAura
   virtual void StartDragging(const WebDropData& drop_data,
                              WebKit::WebDragOperationsMask operations,
                              const gfx::ImageSkia& image,
-                             const gfx::Point& image_offset) OVERRIDE;
+                             const gfx::Vector2d& image_offset,
+                             const DragEventSourceInfo& event_info) OVERRIDE;
   virtual void UpdateDragCursor(WebKit::WebDragOperation operation) OVERRIDE;
   virtual void GotFocus() OVERRIDE;
   virtual void TakeFocus(bool reverse) OVERRIDE;
@@ -129,6 +130,8 @@ class CONTENT_EXPORT WebContentsViewAura
   scoped_ptr<WebContentsViewDelegate> delegate_;
 
   WebKit::WebDragOperationsMask current_drag_op_;
+
+  scoped_ptr<WebDropData> current_drop_data_;
 
   WebDragDestDelegate* drag_dest_delegate_;
 

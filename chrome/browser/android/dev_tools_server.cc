@@ -18,6 +18,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_version_info.h"
 #include "content/public/browser/android/devtools_auth.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_http_handler.h"
 #include "content/public/browser/devtools_http_handler_delegate.h"
 #include "jni/DevToolsServer_jni.h"
@@ -48,8 +49,7 @@ class DevToolsServerDelegate : public content::DevToolsHttpHandlerDelegate {
         FROM_HERE,
         base::Bind(&DevToolsServerDelegate::PopulatePageThumbnails));
     return ResourceBundle::GetSharedInstance().GetRawDataResource(
-        IDR_DEVTOOLS_DISCOVERY_PAGE_HTML,
-        ui::SCALE_FACTOR_NONE).as_string();
+        IDR_DEVTOOLS_DISCOVERY_PAGE_HTML).as_string();
   }
 
   virtual bool BundlesFrontendResources() {

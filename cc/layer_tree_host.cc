@@ -2,11 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_tree_host.h"
 
-#include "Region.h"
 #include "base/debug/trace_event.h"
 #include "base/message_loop.h"
 #include "cc/font_atlas.h"
@@ -19,15 +16,16 @@
 #include "cc/layer_tree_host_client.h"
 #include "cc/layer_tree_host_common.h"
 #include "cc/layer_tree_host_impl.h"
+#include "cc/math_util.h"
 #include "cc/occlusion_tracker.h"
 #include "cc/overdraw_metrics.h"
 #include "cc/settings.h"
 #include "cc/single_thread_proxy.h"
+#include "cc/thread.h"
 #include "cc/thread_proxy.h"
 #include "cc/tree_synchronizer.h"
 
 using namespace std;
-using WebKit::WebTransformationMatrix;
 
 namespace {
 static int numLayerTreeInstances;
@@ -39,7 +37,6 @@ bool LayerTreeHost::s_needsFilterContext = false;
 
 LayerTreeSettings::LayerTreeSettings()
     : acceleratePainting(false)
-    , showFPSCounter(false)
     , showPlatformLayerTree(false)
     , showPaintRects(false)
     , showPropertyChangedRects(false)
@@ -50,9 +47,9 @@ LayerTreeSettings::LayerTreeSettings()
     , renderVSyncEnabled(true)
     , refreshRate(0)
     , maxPartialTextureUpdates(std::numeric_limits<size_t>::max())
-    , defaultTileSize(IntSize(256, 256))
-    , maxUntiledLayerSize(IntSize(512, 512))
-    , minimumOcclusionTrackingSize(IntSize(160, 160))
+    , defaultTileSize(gfx::Size(256, 256))
+    , maxUntiledLayerSize(gfx::Size(512, 512))
+    , minimumOcclusionTrackingSize(gfx::Size(160, 160))
 {
 }
 
@@ -83,10 +80,10 @@ bool LayerTreeHost::anyLayerTreeHostInstanceExists()
     return numLayerTreeInstances > 0;
 }
 
-scoped_ptr<LayerTreeHost> LayerTreeHost::create(LayerTreeHostClient* client, const LayerTreeSettings& settings)
+scoped_ptr<LayerTreeHost> LayerTreeHost::create(LayerTreeHostClient* client, const LayerTreeSettings& settings, scoped_ptr<Thread> implThread)
 {
     scoped_ptr<LayerTreeHost> layerTreeHost(new LayerTreeHost(client, settings));
-    if (!layerTreeHost->initialize())
+    if (!layerTreeHost->initialize(implThread.Pass()))
         return scoped_ptr<LayerTreeHost>();
     return layerTreeHost.Pass();
 }
@@ -112,16 +109,15 @@ LayerTreeHost::LayerTreeHost(LayerTreeHostClient* client, const LayerTreeSetting
     , m_hasTransparentBackground(false)
     , m_partialTextureUpdateRequests(0)
 {
-    DCHECK(Proxy::isMainThread());
     numLayerTreeInstances++;
 }
 
-bool LayerTreeHost::initialize()
+bool LayerTreeHost::initialize(scoped_ptr<Thread> implThread)
 {
     TRACE_EVENT0("cc", "LayerTreeHost::initialize");
 
-    if (Proxy::hasImplThread())
-        m_proxy = ThreadProxy::create(this);
+    if (implThread)
+        m_proxy = ThreadProxy::create(this, implThread.Pass());
     else
         m_proxy = SingleThreadProxy::create(this);
     m_proxy->start();
@@ -133,11 +129,10 @@ LayerTreeHost::~LayerTreeHost()
 {
     if (m_rootLayer)
         m_rootLayer->setLayerTreeHost(0);
-    DCHECK(Proxy::isMainThread());
+    DCHECK(m_proxy);
+    DCHECK(m_proxy->isMainThread());
     TRACE_EVENT0("cc", "LayerTreeHost::~LayerTreeHost");
-    DCHECK(m_proxy.get());
     m_proxy->stop();
-    m_proxy.reset();
     numLayerTreeInstances--;
     RateLimiterMap::iterator it = m_rateLimiters.begin();
     if (it != m_rateLimiters.end())
@@ -164,15 +159,15 @@ void LayerTreeHost::initializeRenderer()
     // Update m_settings based on partial update capability.
     m_settings.maxPartialTextureUpdates = min(m_settings.maxPartialTextureUpdates, m_proxy->maxPartialTextureUpdates());
 
-    m_contentsTextureManager = PrioritizedTextureManager::create(0, m_proxy->rendererCapabilities().maxTextureSize, Renderer::ContentPool);
-    m_surfaceMemoryPlaceholder = m_contentsTextureManager->createTexture(IntSize(), GL_RGBA);
+    m_contentsTextureManager = PrioritizedResourceManager::create(0, m_proxy->rendererCapabilities().maxTextureSize, Renderer::ContentPool, m_proxy.get());
+    m_surfaceMemoryPlaceholder = m_contentsTextureManager->createTexture(gfx::Size(), GL_RGBA);
 
     m_rendererInitialized = true;
 
-    m_settings.defaultTileSize = IntSize(min(m_settings.defaultTileSize.width(), m_proxy->rendererCapabilities().maxTextureSize),
-                                         min(m_settings.defaultTileSize.height(), m_proxy->rendererCapabilities().maxTextureSize));
-    m_settings.maxUntiledLayerSize = IntSize(min(m_settings.maxUntiledLayerSize.width(), m_proxy->rendererCapabilities().maxTextureSize),
-                                             min(m_settings.maxUntiledLayerSize.height(), m_proxy->rendererCapabilities().maxTextureSize));
+    m_settings.defaultTileSize = gfx::Size(min(m_settings.defaultTileSize.width(), m_proxy->rendererCapabilities().maxTextureSize),
+                                           min(m_settings.defaultTileSize.height(), m_proxy->rendererCapabilities().maxTextureSize));
+    m_settings.maxUntiledLayerSize = gfx::Size(min(m_settings.maxUntiledLayerSize.width(), m_proxy->rendererCapabilities().maxTextureSize),
+                                               min(m_settings.maxUntiledLayerSize.height(), m_proxy->rendererCapabilities().maxTextureSize));
 }
 
 LayerTreeHost::RecreateResult LayerTreeHost::recreateContext()
@@ -199,7 +194,7 @@ LayerTreeHost::RecreateResult LayerTreeHost::recreateContext()
         // FIXME: The single thread does not self-schedule context
         // recreation. So force another recreation attempt to happen by requesting
         // another commit.
-        if (!Proxy::hasImplThread())
+        if (!m_proxy->hasImplThread())
             setNeedsCommit();
         return RecreateFailedButTryAgain;
     }
@@ -212,14 +207,14 @@ LayerTreeHost::RecreateResult LayerTreeHost::recreateContext()
 
 void LayerTreeHost::deleteContentsTexturesOnImplThread(ResourceProvider* resourceProvider)
 {
-    DCHECK(Proxy::isImplThread());
+    DCHECK(m_proxy->isImplThread());
     if (m_rendererInitialized)
         m_contentsTextureManager->clearAllMemory(resourceProvider);
 }
 
 void LayerTreeHost::acquireLayerTextures()
 {
-    DCHECK(Proxy::isMainThread());
+    DCHECK(m_proxy->isMainThread());
     m_proxy->acquireLayerTextures();
 }
 
@@ -240,7 +235,7 @@ void LayerTreeHost::layout()
 
 void LayerTreeHost::beginCommitOnImplThread(LayerTreeHostImpl* hostImpl)
 {
-    DCHECK(Proxy::isImplThread());
+    DCHECK(m_proxy->isImplThread());
     TRACE_EVENT0("cc", "LayerTreeHost::commitTo");
 }
 
@@ -251,7 +246,7 @@ void LayerTreeHost::beginCommitOnImplThread(LayerTreeHostImpl* hostImpl)
 // after the commit, but on the main thread.
 void LayerTreeHost::finishCommitOnImplThread(LayerTreeHostImpl* hostImpl)
 {
-    DCHECK(Proxy::isImplThread());
+    DCHECK(m_proxy->isImplThread());
 
     m_contentsTextureManager->updateBackingsInDrawingImplTree();
     ResourceProvider::debugNotifyEnterZone(0xA000000);
@@ -280,25 +275,33 @@ void LayerTreeHost::finishCommitOnImplThread(LayerTreeHostImpl* hostImpl)
     m_commitNumber++;
 }
 
+void LayerTreeHost::createHUDLayerIfNeeded()
+{
+    if (!m_hudLayer)
+        m_hudLayer = HeadsUpDisplayLayer::create();
+}
+
+void LayerTreeHost::setShowFPSCounter(bool show)
+{
+    createHUDLayerIfNeeded();
+    m_hudLayer->setShowFPSCounter(show);
+}
+
 void LayerTreeHost::setFontAtlas(scoped_ptr<FontAtlas> fontAtlas)
 {
-    m_fontAtlas = fontAtlas.Pass();
-    setNeedsCommit();
+    createHUDLayerIfNeeded();
+    m_hudLayer->setFontAtlas(fontAtlas.Pass());
 }
 
 void LayerTreeHost::willCommit()
 {
     m_client->willCommit();
-    if (m_rootLayer && m_settings.showDebugInfo()) {
-        if (!m_hudLayer)
-            m_hudLayer = HeadsUpDisplayLayer::create();
 
-        if (m_fontAtlas.get())
-            m_hudLayer->setFontAtlas(m_fontAtlas.Pass());
+    if (m_settings.showDebugInfo())
+        createHUDLayerIfNeeded();
 
-        if (!m_hudLayer->parent())
-            m_rootLayer->addChild(m_hudLayer);
-    }
+    if (m_rootLayer && m_hudLayer && !m_hudLayer->parent())
+        m_rootLayer->addChild(m_hudLayer);
 }
 
 void LayerTreeHost::commitComplete()
@@ -318,19 +321,19 @@ scoped_ptr<InputHandler> LayerTreeHost::createInputHandler()
 
 scoped_ptr<LayerTreeHostImpl> LayerTreeHost::createLayerTreeHostImpl(LayerTreeHostImplClient* client)
 {
-    return LayerTreeHostImpl::create(m_settings, client);
+    return LayerTreeHostImpl::create(m_settings, client, m_proxy.get());
 }
 
 void LayerTreeHost::didLoseContext()
 {
     TRACE_EVENT0("cc", "LayerTreeHost::didLoseContext");
-    DCHECK(Proxy::isMainThread());
+    DCHECK(m_proxy->isMainThread());
     m_contextLost = true;
     m_numFailedRecreateAttempts = 0;
     setNeedsCommit();
 }
 
-bool LayerTreeHost::compositeAndReadback(void *pixels, const IntRect& rect)
+bool LayerTreeHost::compositeAndReadback(void *pixels, const gfx::Rect& rect)
 {
     m_triggerIdleUpdates = false;
     bool ret = m_proxy->compositeAndReadback(pixels, rect);
@@ -367,7 +370,7 @@ const RendererCapabilities& LayerTreeHost::rendererCapabilities() const
 
 void LayerTreeHost::setNeedsAnimate()
 {
-    DCHECK(Proxy::hasImplThread());
+    DCHECK(m_proxy->hasImplThread());
     m_proxy->setNeedsAnimate();
 }
 
@@ -383,7 +386,7 @@ void LayerTreeHost::setNeedsCommit()
 void LayerTreeHost::setNeedsRedraw()
 {
     m_proxy->setNeedsRedraw();
-    if (!ThreadProxy::implThread())
+    if (!m_proxy->implThread())
         m_client->scheduleComposite();
 }
 
@@ -394,7 +397,7 @@ bool LayerTreeHost::commitRequested() const
 
 void LayerTreeHost::setAnimationEvents(scoped_ptr<AnimationEventsVector> events, base::Time wallClockTime)
 {
-    DCHECK(ThreadProxy::isMainThread());
+    DCHECK(m_proxy->isMainThread());
     setAnimationEventsRecursive(*events.get(), m_rootLayer.get(), wallClockTime);
 }
 
@@ -421,7 +424,7 @@ void LayerTreeHost::setRootLayer(scoped_refptr<Layer> rootLayer)
     setNeedsCommit();
 }
 
-void LayerTreeHost::setViewportSize(const IntSize& layoutViewportSize, const IntSize& deviceViewportSize)
+void LayerTreeHost::setViewportSize(const gfx::Size& layoutViewportSize, const gfx::Size& deviceViewportSize)
 {
     if (layoutViewportSize == m_layoutViewportSize && deviceViewportSize == m_deviceViewportSize)
         return;
@@ -451,9 +454,9 @@ void LayerTreeHost::setVisible(bool visible)
     m_proxy->setVisible(visible);
 }
 
-void LayerTreeHost::startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration)
+void LayerTreeHost::startPageScaleAnimation(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration)
 {
-    m_proxy->startPageScaleAnimation(targetPosition, useAnchor, scale, duration);
+    m_proxy->startPageScaleAnimation(targetOffset, useAnchor, scale, duration);
 }
 
 void LayerTreeHost::loseContext(int numTimes)
@@ -463,15 +466,17 @@ void LayerTreeHost::loseContext(int numTimes)
     m_proxy->loseContext();
 }
 
-PrioritizedTextureManager* LayerTreeHost::contentsTextureManager() const
+PrioritizedResourceManager* LayerTreeHost::contentsTextureManager() const
 {
     return m_contentsTextureManager.get();
 }
 
 void LayerTreeHost::composite()
 {
-    DCHECK(!ThreadProxy::implThread());
-    static_cast<SingleThreadProxy*>(m_proxy.get())->compositeImmediately();
+    if (!m_proxy->hasImplThread())
+        static_cast<SingleThreadProxy*>(m_proxy.get())->compositeImmediately();
+    else
+        setNeedsCommit();
 }
 
 void LayerTreeHost::scheduleComposite()
@@ -502,7 +507,7 @@ void LayerTreeHost::updateLayers(ResourceUpdateQueue& queue, size_t memoryAlloca
     if (!rootLayer())
         return;
 
-    if (layoutViewportSize().isEmpty())
+    if (layoutViewportSize().IsEmpty())
         return;
 
     m_contentsTextureManager->setMaxMemoryLimitBytes(memoryAllocationLimitBytes);
@@ -620,7 +625,7 @@ size_t LayerTreeHost::calculateMemoryForRenderSurfaces(const LayerList& updateLi
         Layer* renderSurfaceLayer = updateList[i].get();
         RenderSurface* renderSurface = renderSurfaceLayer->renderSurface();
 
-        size_t bytes = Texture::memorySizeBytes(renderSurface->contentRect().size(), GL_RGBA);
+        size_t bytes = Resource::memorySizeBytes(renderSurface->contentRect().size(), GL_RGBA);
         contentsTextureBytes += bytes;
 
         if (renderSurfaceLayer->backgroundFilters().isEmpty())
@@ -629,7 +634,7 @@ size_t LayerTreeHost::calculateMemoryForRenderSurfaces(const LayerList& updateLi
         if (bytes > maxBackgroundTextureBytes)
             maxBackgroundTextureBytes = bytes;
         if (!readbackBytes)
-            readbackBytes = Texture::memorySizeBytes(m_deviceViewportSize, GL_RGBA);
+            readbackBytes = Resource::memorySizeBytes(m_deviceViewportSize, GL_RGBA);
     }
     return readbackBytes + maxBackgroundTextureBytes + contentsTextureBytes;
 }
@@ -661,7 +666,7 @@ bool LayerTreeHost::paintLayerContents(const LayerList& renderSurfaceLayerList, 
     typedef LayerIterator<Layer, LayerList, RenderSurface, LayerIteratorActions::FrontToBack> LayerIteratorType;
 
     bool needMoreUpdates = false;
-    bool recordMetricsForFrame = true; // FIXME: In the future, disable this when about:tracing is off.
+    bool recordMetricsForFrame = base::debug::TraceLog::GetInstance() && base::debug::TraceLog::GetInstance()->IsEnabled();
     OcclusionTracker occlusionTracker(m_rootLayer->renderSurface()->contentRect(), recordMetricsForFrame);
     occlusionTracker.setMinimumTrackingSize(m_settings.minimumOcclusionTrackingSize);
 
@@ -675,7 +680,7 @@ bool LayerTreeHost::paintLayerContents(const LayerList& renderSurfaceLayerList, 
             DCHECK(it->renderSurface()->drawOpacity() || it->renderSurface()->drawOpacityIsAnimating());
             needMoreUpdates |= paintMasksForRenderSurface(*it, queue);
         } else if (it.representsItself()) {
-            DCHECK(!it->bounds().isEmpty());
+            DCHECK(!it->bounds().IsEmpty());
             it->update(queue, &occlusionTracker, m_renderingStats);
             needMoreUpdates |= it->needMoreUpdates();
         }
@@ -694,7 +699,7 @@ void LayerTreeHost::applyScrollAndScale(const ScrollAndScaleSet& info)
         return;
 
     Layer* rootScrollLayer = findFirstScrollableLayer(m_rootLayer.get());
-    IntSize rootScrollDelta;
+    gfx::Vector2d rootScrollDelta;
 
     for (size_t i = 0; i < info.scrolls.size(); ++i) {
         Layer* layer = LayerTreeHostCommon::findLayerInSubtree(m_rootLayer.get(), info.scrolls[i].layerId);
@@ -703,10 +708,31 @@ void LayerTreeHost::applyScrollAndScale(const ScrollAndScaleSet& info)
         if (layer == rootScrollLayer)
             rootScrollDelta += info.scrolls[i].scrollDelta;
         else
-            layer->setScrollPosition(layer->scrollPosition() + info.scrolls[i].scrollDelta);
+            layer->setScrollOffset(layer->scrollOffset() + info.scrolls[i].scrollDelta);
     }
-    if (!rootScrollDelta.isZero() || info.pageScaleDelta != 1)
+    if (!rootScrollDelta.IsZero() || info.pageScaleDelta != 1)
         m_client->applyScrollAndScale(rootScrollDelta, info.pageScaleDelta);
+}
+
+gfx::PointF LayerTreeHost::adjustEventPointForPinchZoom(const gfx::PointF& point)
+    const
+{
+    WebKit::WebTransformationMatrix inverseImplTransform = m_implTransform;
+    // TODO(wjmaclean) Need to determine why the next two lines are
+    // necessary for this to work ... it seems like just inverting
+    // m_implTransform should be sufficient.
+    DCHECK(inverseImplTransform.m11());
+    DCHECK(inverseImplTransform.m22());
+    inverseImplTransform.setM41(inverseImplTransform.m41()
+        / inverseImplTransform.m11());
+    inverseImplTransform.setM42(inverseImplTransform.m42()
+        / inverseImplTransform.m22());
+    inverseImplTransform = inverseImplTransform.inverse();
+    bool wasClipped = false;
+    gfx::PointF adjustedPoint = MathUtil::projectPoint(inverseImplTransform, point, wasClipped);
+    DCHECK(!wasClipped);
+
+    return adjustedPoint;
 }
 
 void LayerTreeHost::setImplTransform(const WebKit::WebTransformationMatrix& transform)
@@ -724,7 +750,7 @@ void LayerTreeHost::startRateLimiter(WebKit::WebGraphicsContext3D* context)
     if (it != m_rateLimiters.end())
         it->second->start();
     else {
-        scoped_refptr<RateLimiter> rateLimiter = RateLimiter::create(context, this);
+        scoped_refptr<RateLimiter> rateLimiter = RateLimiter::create(context, this, m_proxy->mainThread());
         m_rateLimiters[context] = rateLimiter;
         rateLimiter->start();
     }
@@ -818,4 +844,4 @@ void LayerTreeHost::setAnimationEventsRecursive(const AnimationEventsVector& eve
         setAnimationEventsRecursive(events, layer->children()[childIndex].get(), wallClockTime);
 }
 
-} // namespace cc
+}  // namespace cc

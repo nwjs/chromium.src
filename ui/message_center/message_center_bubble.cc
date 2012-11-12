@@ -9,6 +9,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/size.h"
 #include "ui/message_center/message_view.h"
+#include "ui/message_center/message_view_factory.h"
 #include "ui/views/controls/button/text_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/scroll_view.h"
@@ -194,9 +195,10 @@ class MessageCenterContentsView : public views::View {
     size_t num_children = 0;
     for (NotificationList::Notifications::const_iterator iter =
              notifications.begin(); iter != notifications.end(); ++iter) {
-      MessageView* view = new MessageView(
-          list_delegate_, *iter, scroller_->GetScrollBarWidth());
+      MessageView* view =
+          MessageViewFactory::ViewForNotification(*iter, list_delegate_);
       view->set_scroller(scroller_);
+      view->SetUpView();
       scroll_content_->AddChildView(view);
       if (++num_children >=
           NotificationList::kMaxVisibleMessageCenterNotifications) {
@@ -207,7 +209,6 @@ class MessageCenterContentsView : public views::View {
       views::Label* label = new views::Label(l10n_util::GetStringUTF16(
           IDS_MESSAGE_CENTER_NO_MESSAGES));
       label->SetFont(label->font().DeriveFont(1));
-      label->SetHorizontalAlignment(views::Label::ALIGN_CENTER);
       label->SetEnabledColor(SK_ColorGRAY);
       scroll_content_->AddChildView(label);
       button_view_->SetCloseAllVisible(false);

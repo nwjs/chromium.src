@@ -37,6 +37,7 @@
 #include "net/base/net_module.h"
 #include "net/base/net_util.h"
 #include "net/base/ssl_connection_status_flags.h"
+#include "net/base/test_data_directory.h"
 #include "net/base/test_root_certs.h"
 #include "net/base/upload_data.h"
 #include "net/cookies/cookie_monster.h"
@@ -53,6 +54,7 @@
 #include "net/socket/ssl_client_socket.h"
 #include "net/test/test_server.h"
 #include "net/url_request/ftp_protocol_handler.h"
+#include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_file_dir_job.h"
 #include "net/url_request/url_request_http_job.h"
@@ -1742,6 +1744,104 @@ TEST_F(URLRequestTest, DoNotSaveCookies_ViaPolicy_Async) {
   }
 }
 
+// FixedDateNetworkDelegate swaps out the server's HTTP Date response header
+// value for the |fixed_date| argument given to the constructor.
+class FixedDateNetworkDelegate : public TestNetworkDelegate {
+ public:
+  explicit FixedDateNetworkDelegate(const std::string& fixed_date)
+      : fixed_date_(fixed_date) {}
+  virtual ~FixedDateNetworkDelegate() {}
+
+  // net::NetworkDelegate implementation
+  virtual int OnHeadersReceived(
+      net::URLRequest* request,
+      const net::CompletionCallback& callback,
+      const net::HttpResponseHeaders* original_response_headers,
+      scoped_refptr<net::HttpResponseHeaders>* override_response_headers)
+      OVERRIDE;
+
+ private:
+  std::string fixed_date_;
+
+  DISALLOW_COPY_AND_ASSIGN(FixedDateNetworkDelegate);
+};
+
+int FixedDateNetworkDelegate::OnHeadersReceived(
+    net::URLRequest* request,
+    const net::CompletionCallback& callback,
+    const net::HttpResponseHeaders* original_response_headers,
+    scoped_refptr<net::HttpResponseHeaders>* override_response_headers) {
+  net::HttpResponseHeaders* new_response_headers =
+      new net::HttpResponseHeaders(original_response_headers->raw_headers());
+
+  new_response_headers->RemoveHeader("Date");
+  new_response_headers->AddHeader("Date: " + fixed_date_);
+
+  *override_response_headers = new_response_headers;
+  return TestNetworkDelegate::OnHeadersReceived(request,
+                                                callback,
+                                                original_response_headers,
+                                                override_response_headers);
+}
+
+// Test that cookie expiration times are adjusted for server/client clock
+// skew and that we handle incorrect timezone specifier "UTC" in HTTP Date
+// headers by defaulting to GMT. (crbug.com/135131)
+TEST_F(URLRequestTest, AcceptClockSkewCookieWithWrongDateTimezone) {
+  LocalHttpTestServer test_server;
+  ASSERT_TRUE(test_server.Start());
+
+  // Set up an expired cookie.
+  {
+    TestNetworkDelegate network_delegate;
+    default_context_.set_network_delegate(&network_delegate);
+    TestDelegate d;
+    URLRequest req(test_server.GetURL(
+        "set-cookie?StillGood=1;expires=Mon,18-Apr-1977,22:50:13,GMT"),
+        &d,
+        &default_context_);
+    req.Start();
+    MessageLoop::current()->Run();
+  }
+  // Verify that the cookie is not set.
+  {
+    TestNetworkDelegate network_delegate;
+    default_context_.set_network_delegate(&network_delegate);
+    TestDelegate d;
+    URLRequest req(
+        test_server.GetURL("echoheader?Cookie"), &d, &default_context_);
+    req.Start();
+    MessageLoop::current()->Run();
+
+    EXPECT_TRUE(d.data_received().find("StillGood=1") == std::string::npos);
+  }
+  // Set up a cookie with clock skew and "UTC" HTTP Date timezone specifier.
+  {
+    FixedDateNetworkDelegate network_delegate("18-Apr-1977 22:49:13 UTC");
+    default_context_.set_network_delegate(&network_delegate);
+    TestDelegate d;
+    URLRequest req(test_server.GetURL(
+        "set-cookie?StillGood=1;expires=Mon,18-Apr-1977,22:50:13,GMT"),
+        &d,
+        &default_context_);
+    req.Start();
+    MessageLoop::current()->Run();
+  }
+  // Verify that the cookie is set.
+  {
+    TestNetworkDelegate network_delegate;
+    default_context_.set_network_delegate(&network_delegate);
+    TestDelegate d;
+    URLRequest req(
+        test_server.GetURL("echoheader?Cookie"), &d, &default_context_);
+    req.Start();
+    MessageLoop::current()->Run();
+
+    EXPECT_TRUE(d.data_received().find("StillGood=1") != std::string::npos);
+  }
+}
+
+
 // Check that it is impossible to change the referrer in the extra headers of
 // an URLRequest.
 TEST_F(URLRequestTest, DoNotOverrideReferrer) {
@@ -2793,6 +2893,43 @@ TEST_F(URLRequestTestHTTP, MultipleRedirectTest) {
   EXPECT_EQ(destination_url, req.url_chain()[2]);
 }
 
+namespace {
+
+const char kExtraHeader[] = "Allow-Snafu";
+const char kExtraValue[] = "fubar";
+
+class RedirectWithAdditionalHeadersDelegate : public TestDelegate {
+  void OnReceivedRedirect(net::URLRequest* request,
+                          const GURL& new_url,
+                          bool* defer_redirect) {
+    TestDelegate::OnReceivedRedirect(request, new_url, defer_redirect);
+    request->SetExtraRequestHeaderByName(kExtraHeader, kExtraValue, false);
+  }
+};
+
+}  // namespace
+
+TEST_F(URLRequestTestHTTP, RedirectWithAdditionalHeadersTest) {
+  ASSERT_TRUE(test_server_.Start());
+
+  GURL destination_url = test_server_.GetURL(
+      "echoheader?" + std::string(kExtraHeader));
+  GURL original_url = test_server_.GetURL(
+      "server-redirect?" + destination_url.spec());
+  RedirectWithAdditionalHeadersDelegate d;
+  URLRequest req(original_url, &d, &default_context_);
+  req.Start();
+  MessageLoop::current()->Run();
+
+  std::string value;
+  const HttpRequestHeaders& headers = req.extra_request_headers();
+  EXPECT_TRUE(headers.GetHeader(kExtraHeader, &value));
+  EXPECT_EQ(kExtraValue, value);
+  EXPECT_FALSE(req.is_pending());
+  EXPECT_FALSE(req.is_redirecting());
+  EXPECT_EQ(kExtraValue, d.data_received());
+}
+
 TEST_F(URLRequestTestHTTP, CancelTest) {
   TestDelegate d;
   {
@@ -3532,10 +3669,11 @@ TEST_F(URLRequestTestHTTP, InterceptPost307RedirectPost) {
 TEST_F(URLRequestTestHTTP, DefaultAcceptLanguage) {
   ASSERT_TRUE(test_server_.Start());
 
+  StaticHttpUserAgentSettings settings("en", EmptyString(), EmptyString());
   TestNetworkDelegate network_delegate;  // must outlive URLRequests
   TestURLRequestContext context(true);
   context.set_network_delegate(&network_delegate);
-  context.set_accept_language("en");
+  context.set_http_user_agent_settings(&settings);
   context.Init();
 
   TestDelegate d;
@@ -3550,13 +3688,15 @@ TEST_F(URLRequestTestHTTP, DefaultAcceptLanguage) {
 TEST_F(URLRequestTestHTTP, EmptyAcceptLanguage) {
   ASSERT_TRUE(test_server_.Start());
 
+  StaticHttpUserAgentSettings settings(
+      EmptyString(), EmptyString(), EmptyString());
   TestNetworkDelegate network_delegate;  // must outlive URLRequests
   TestURLRequestContext context(true);
   context.set_network_delegate(&network_delegate);
   context.Init();
   // We override the language after initialization because empty entries
   // get overridden by Init().
-  context.set_accept_language("");
+  context.set_http_user_agent_settings(&settings);
 
   TestDelegate d;
   URLRequest req(
@@ -3620,10 +3760,11 @@ TEST_F(URLRequestTestHTTP, OverrideAcceptEncoding) {
 TEST_F(URLRequestTestHTTP, DefaultAcceptCharset) {
   ASSERT_TRUE(test_server_.Start());
 
+  StaticHttpUserAgentSettings settings(EmptyString(), "en", EmptyString());
   TestNetworkDelegate network_delegate;  // must outlive URLRequests
   TestURLRequestContext context(true);
   context.set_network_delegate(&network_delegate);
-  context.set_accept_charset("en");
+  context.set_http_user_agent_settings(&settings);
   context.Init();
 
   TestDelegate d;
@@ -3639,13 +3780,15 @@ TEST_F(URLRequestTestHTTP, DefaultAcceptCharset) {
 TEST_F(URLRequestTestHTTP, EmptyAcceptCharset) {
   ASSERT_TRUE(test_server_.Start());
 
+  StaticHttpUserAgentSettings settings(
+      EmptyString(), EmptyString(), EmptyString());
   TestNetworkDelegate network_delegate;  // must outlive URLRequests
   TestURLRequestContext context(true);
   context.set_network_delegate(&network_delegate);
   context.Init();
   // We override the accepted charset after initialization because empty
   // entries get overridden otherwise.
-  context.set_accept_charset("");
+  context.set_http_user_agent_settings(&settings);
 
   TestDelegate d;
   URLRequest req(test_server_.GetURL("echoheader?Accept-Charset"),
@@ -3704,6 +3847,37 @@ TEST_F(URLRequestTestHTTP, OverrideUserAgent) {
   // the 'chromeframe' suffix which is added to the user agent before the
   // closing parentheses.
   EXPECT_TRUE(StartsWithASCII(d.data_received(), "Lynx (textmode", true));
+}
+
+// Check that a NULL HttpUserAgentSettings causes the corresponding empty
+// User-Agent header to be sent but does not send the Accept-Language and
+// Accept-Charset headers.
+TEST_F(URLRequestTestHTTP, EmptyHttpUserAgentSettings) {
+  ASSERT_TRUE(test_server_.Start());
+
+  TestNetworkDelegate network_delegate;  // must outlive URLRequests
+  TestURLRequestContext context(true);
+  context.set_network_delegate(&network_delegate);
+  context.Init();
+  // We override the HttpUserAgentSettings after initialization because empty
+  // entries get overridden by Init().
+  context.set_http_user_agent_settings(NULL);
+
+  struct {
+    const char* request;
+    const char* expected_response;
+  } tests[] = { { "echoheader?Accept-Language", "None" },
+                { "echoheader?Accept-Charset", "None" },
+                { "echoheader?User-Agent", "" } };
+
+  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(tests); i++) {
+    TestDelegate d;
+    URLRequest req(test_server_.GetURL(tests[i].request), &d, &context);
+    req.Start();
+    MessageLoop::current()->Run();
+    EXPECT_EQ(tests[i].expected_response, d.data_received())
+        << " Request = \"" << tests[i].request << "\"";
+  }
 }
 
 class HTTPSRequestTest : public testing::Test {

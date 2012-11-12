@@ -24,7 +24,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 #include "chrome/browser/ui/views/toolbar_view.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
@@ -117,7 +116,7 @@ views::ImageButton* CreateCloseButton(views::ButtonListener* listener) {
 views::Label* CreateLabel() {
   views::Label* label = new views::Label();
   label->SetEnabledColor(kEnabledLabelColor);
-  label->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   return label;
 }
 
@@ -140,7 +139,7 @@ views::Link* CreateLink() {
   views::Link* link = new views::Link();
   link->SetEnabledColor(kEnabledLinkColor);
   link->SetDisabledColor(kDisabledLinkColor);
-  link->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  link->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   return link;
 }
 
@@ -505,7 +504,7 @@ WaitingView::WaitingView(views::ButtonListener* listener,
                             kMessageBuiltinTopPadding);
   layout->StartRow(0, CONTENT_ROW);
   views::Label* label = CreateLabel();
-  label->SetHorizontalAlignment(views::Label::ALIGN_CENTER);
+  label->SetHorizontalAlignment(gfx::ALIGN_CENTER);
   label->SetText(l10n_util::GetStringUTF16(IDS_INTENT_PICKER_WAIT_FOR_CWS));
   layout->AddView(label);
 
@@ -1084,7 +1083,7 @@ WebIntentPickerViews::WebIntentPickerViews(TabContents* tab_contents,
       choose_another_service_link_(NULL),
       waiting_view_(NULL),
       can_close_(true) {
-  bool enable_chrome_style = chrome::IsFramelessConstrainedDialogEnabled();
+  bool enable_chrome_style = true;
   use_close_button_ = enable_chrome_style;
 
   model_->set_observer(this);

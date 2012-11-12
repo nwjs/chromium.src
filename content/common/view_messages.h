@@ -45,6 +45,7 @@
 #include "ui/gfx/point.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/rect_f.h"
+#include "ui/gfx/vector2d.h"
 #include "webkit/glue/webcookie.h"
 #include "webkit/glue/webmenuitem.h"
 #include "webkit/glue/webpreferences.h"
@@ -320,6 +321,9 @@ IPC_STRUCT_TRAITS_BEGIN(content::FileChooserParams)
   IPC_STRUCT_TRAITS_MEMBER(title)
   IPC_STRUCT_TRAITS_MEMBER(default_file_name)
   IPC_STRUCT_TRAITS_MEMBER(accept_types)
+#if defined(OS_ANDROID)
+  IPC_STRUCT_TRAITS_MEMBER(capture)
+#endif
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FrameNavigateParams)
@@ -586,7 +590,7 @@ IPC_STRUCT_BEGIN(ViewHostMsg_UpdateRect_Params)
   IPC_STRUCT_MEMBER(gfx::Rect, scroll_rect)
 
   // The scroll offset of the render view.
-  IPC_STRUCT_MEMBER(gfx::Point, scroll_offset)
+  IPC_STRUCT_MEMBER(gfx::Vector2d, scroll_offset)
 
   // The regions of the bitmap (in view coords) that contain updated pixels.
   // In the case of scrolling, this includes the scroll damage rect.
@@ -766,9 +770,6 @@ IPC_STRUCT_BEGIN(ViewMsg_Navigate_Params)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewMsg_New_Params)
-  // The parent window's id.
-  IPC_STRUCT_MEMBER(gfx::NativeViewId, parent_window)
-
   // Renderer-wide preferences.
   IPC_STRUCT_MEMBER(content::RendererPreferences, renderer_preferences)
 
@@ -859,8 +860,7 @@ IPC_MESSAGE_CONTROL1(ViewMsg_New,
 // Reply in response to ViewHostMsg_ShowView or ViewHostMsg_ShowWidget.
 // similar to the new command, but used when the renderer created a view
 // first, and we need to update it.
-IPC_MESSAGE_ROUTED1(ViewMsg_CreatingNew_ACK,
-                    gfx::NativeViewId /* parent_hwnd */)
+IPC_MESSAGE_ROUTED0(ViewMsg_CreatingNew_ACK)
 
 // Sends updated preferences to the renderer.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetRendererPrefs,
@@ -1262,6 +1262,10 @@ IPC_MESSAGE_ROUTED0(ViewMsg_MoveOrResizeStarted)
 IPC_MESSAGE_ROUTED1(ViewMsg_ScreenInfoChanged,
                     WebKit::WebScreenInfo /* screen_info */)
 
+IPC_MESSAGE_ROUTED2(ViewMsg_UpdateScreenRects,
+                    gfx::Rect /* view_screen_rect */,
+                    gfx::Rect /* window_screen_rect */)
+
 // Reply to ViewHostMsg_RequestMove, ViewHostMsg_ShowView, and
 // ViewHostMsg_ShowWidget to inform the renderer that the browser has
 // processed the move.  The browser may have ignored the move, but it finished
@@ -1413,6 +1417,14 @@ IPC_MESSAGE_ROUTED0(ViewMsg_UndoScrollFocusedEditableNodeIntoView)
 // Message sent when the renderer changed the background color for the view.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_DidChangeBodyBackgroundColor,
                     uint32  /* bg_color */)
+
+// Information about current document scroll, scale and size. Sent on a
+// best-effort basis.
+IPC_MESSAGE_ROUTED3(ViewHostMsg_UpdateFrameInfo,
+                    gfx::Vector2d /* scroll_offset */,
+                    float /* page_scale_factor */,
+                    gfx::Size /* content_size */)
+
 #elif defined(OS_MACOSX)
 // Let the RenderView know its window has changed visibility.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetWindowVisibility,
@@ -1533,6 +1545,10 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_RenderViewGone,
 // this message.  Otherwise, the browser will generates a ViewMsg_Close
 // message to close the view.
 IPC_MESSAGE_ROUTED0(ViewHostMsg_Close)
+
+// Send in response to a ViewMsg_UpdateScreenRects so that the renderer can
+// throttle these messages.
+IPC_MESSAGE_ROUTED0(ViewHostMsg_UpdateScreenRects_ACK)
 
 // Sent by the renderer process to request that the browser move the view.
 // This corresponds to the window.resizeTo() and window.moveTo() APIs, and
@@ -1753,13 +1769,6 @@ IPC_MESSAGE_ROUTED0(ViewHostMsg_Blur)
 IPC_MESSAGE_ROUTED1(ViewHostMsg_FocusedNodeChanged,
     bool /* is_editable_node */)
 
-// Returns the window location of the given window.
-// TODO(shess): Provide a mapping from reply_msg->routing_id() to
-// HWND so that we can eliminate the NativeViewId parameter.
-IPC_SYNC_MESSAGE_ROUTED1_1(ViewHostMsg_GetWindowRect,
-                           gfx::NativeViewId /* window */,
-                           gfx::Rect /* Out: Window location */)
-
 IPC_MESSAGE_ROUTED1(ViewHostMsg_SetCursor,
                     WebCursor)
 
@@ -1826,6 +1835,14 @@ IPC_SYNC_MESSAGE_CONTROL4_2(ViewHostMsg_OpenChannelToPlugin,
                             std::string /* mime_type */,
                             IPC::ChannelHandle /* channel_handle */,
                             webkit::WebPluginInfo /* info */)
+
+#if defined(OS_WIN)
+IPC_MESSAGE_ROUTED1(ViewHostMsg_WindowlessPluginDummyWindowCreated,
+                    gfx::NativeViewId /* dummy_activation_window */)
+
+IPC_MESSAGE_ROUTED1(ViewHostMsg_WindowlessPluginDummyWindowDestroyed,
+                    gfx::NativeViewId /* dummy_activation_window */)
+#endif
 
 // Get the list of proxies to use for |url|, as a semicolon delimited list
 // of "<TYPE> <HOST>:<PORT>" | "DIRECT".
@@ -1953,27 +1970,29 @@ IPC_SYNC_MESSAGE_CONTROL1_2(ViewHostMsg_OpenChannelToPepperPlugin,
                             IPC::ChannelHandle /* handle to channel */,
                             int /* plugin_child_id */)
 
-// Notification that a native (non-NaCl) plugin has created a new plugin
-// instance. The parameters indicate the plugin process ID that we're creating
-// the instance for, and the routing ID of the render view that the plugin
-// instance is associated with. This allows us to create a mapping in the
-// browser process for what objects a given PP_Instance is associated with.
+// Notification that a plugin has created a new plugin instance. The parameters
+// indicate the plugin process ID that we're creating the instance for, and the
+// routing ID of the render view that the plugin instance is associated with.
+// This allows us to create a mapping in the browser process for what objects a
+// given PP_Instance is associated with.
 //
 // This message must be sync even though it returns no parameters to avoid
 // a race condition with the plugin process. The plugin process sends messages
 // to the browser that assume the browser knows about the instance. We need to
-// sure that the browser actually knows about the instance before we tell the
-// plugin to run.
-IPC_SYNC_MESSAGE_CONTROL3_0(ViewHostMsg_DidCreateOutOfProcessPepperInstance,
+// make sure that the browser actually knows about the instance before we tell
+// the plugin to run.
+IPC_SYNC_MESSAGE_CONTROL4_0(ViewHostMsg_DidCreateOutOfProcessPepperInstance,
                             int /* plugin_child_id */,
                             int32 /* pp_instance */,
-                            int /* view_routing_id */)
+                            int /* view_routing_id */,
+                            bool /* is_external */)
 
-// Notification that a native (non-NaCl) plugin has destroyed an instance. This
-// is the opposite if the "DidCreate" version above.
-IPC_MESSAGE_CONTROL2(ViewHostMsg_DidDeleteOutOfProcessPepperInstance,
+// Notification that a plugin has destroyed an instance. This is the opposite of
+// the "DidCreate" message above.
+IPC_MESSAGE_CONTROL3(ViewHostMsg_DidDeleteOutOfProcessPepperInstance,
                      int /* plugin_child_id */,
-                     int32 /* pp_instance */)
+                     int32 /* pp_instance */,
+                     bool /* is_external */)
 
 // A renderer sends this to the browser process when it wants to
 // create a ppapi broker.  The browser will create the broker process
@@ -2060,13 +2079,6 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_EnumerateDirectory,
 // true) focusable element.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_TakeFocus,
                     bool /* reverse */)
-
-// Returns the window location of the window this widget is embeded.
-// TODO(shess): Provide a mapping from reply_msg->routing_id() to
-// HWND so that we can eliminate the NativeViewId parameter.
-IPC_SYNC_MESSAGE_ROUTED1_1(ViewHostMsg_GetRootWindowRect,
-                           gfx::NativeViewId /* window */,
-                           gfx::Rect /* Out: Window location */)
 
 // Required for updating text input state.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_TextInputStateChanged,

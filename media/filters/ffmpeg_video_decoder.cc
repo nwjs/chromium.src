@@ -91,11 +91,12 @@ int FFmpegVideoDecoder::GetVideoBuffer(AVCodecContext* codec_context,
     natural_size = demuxer_stream_->video_decoder_config().natural_size();
   }
 
-  if (!VideoFrame::IsValidConfig(format, size, natural_size))
+  if (!VideoFrame::IsValidConfig(format, size, gfx::Rect(size), natural_size))
     return AVERROR(EINVAL);
 
   scoped_refptr<VideoFrame> video_frame =
-      VideoFrame::CreateFrame(format, size, natural_size, kNoTimestamp());
+      VideoFrame::CreateFrame(format, size, gfx::Rect(size), natural_size,
+                              kNoTimestamp());
 
   for (int i = 0; i < 3; i++) {
     frame->base[i] = video_frame->data(i);
@@ -133,8 +134,7 @@ static void ReleaseVideoBufferImpl(AVCodecContext* s, AVFrame* frame) {
 void FFmpegVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
                                     const PipelineStatusCB& status_cb,
                                     const StatisticsCB& statistics_cb) {
-  // Ensure FFmpeg has been initialized
-  FFmpegGlue::GetInstance();
+  FFmpegGlue::InitializeFFmpeg();
 
   if (!message_loop_) {
     message_loop_ = base::ResetAndReturn(&message_loop_factory_cb_).Run();

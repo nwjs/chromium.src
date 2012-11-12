@@ -10,12 +10,17 @@
 # ANDROID_SDK_BUILD=1 will then be defined and used in the rest of the setup to
 # specifiy build type.
 
+# Source functions script.  The file is in the same directory as this script.
+. "$(dirname $BASH_SOURCE)"/envsetup_functions.sh
+
+export ANDROID_SDK_BUILD=1  # Default to SDK build.
+
+process_options "$@"
+
 # When building WebView as part of Android we can't use the SDK. Other builds
 # default to using the SDK.
 if [[ "${CHROME_ANDROID_BUILD_WEBVIEW}" -eq 1 ]]; then
   export ANDROID_SDK_BUILD=0
-else
-  export ANDROID_SDK_BUILD=1
 fi
 
 if [[ "${ANDROID_SDK_BUILD}" -eq 1 ]]; then
@@ -55,10 +60,10 @@ fi
 # Android sdk platform version to use
 export ANDROID_SDK_VERSION=16
 
-# Source functions script.  The file is in the same directory as this script.
-. "$(dirname $BASH_SOURCE)"/envsetup_functions.sh
-
 if [[ "${ANDROID_SDK_BUILD}" -eq 1 ]]; then
+  if [[ -z "${TARGET_ARCH}" ]]; then
+    return 1
+  fi
   sdk_build_init
 # Sets up environment for building Chromium for Android with source. Expects
 # android environment setup and lunch.

@@ -25,12 +25,16 @@
 #include "ui/gfx/shadow_value.h"
 #include "ui/views/background.h"
 
+namespace {
+
+const char kViewClassName[] = "views/Label";
+
+// The padding for the focus border when rendering focused text.
+const int kFocusBorderPadding = 1;
+
+}  // namespace
+
 namespace views {
-
-// static
-const char Label::kViewClassName[] = "views/Label";
-
-const int Label::kFocusBorderPadding = 1;
 
 Label::Label() {
   Init(string16(), GetDefaultFont());
@@ -59,14 +63,8 @@ void Label::SetText(const string16& text) {
     return;
   text_ = text;
   text_size_valid_ = false;
-  is_email_ = false;
   PreferredSizeChanged();
   SchedulePaint();
-}
-
-void Label::SetEmail(const string16& email) {
-  SetText(email);
-  is_email_ = true;
 }
 
 void Label::SetAutoColorReadabilityEnabled(bool enabled) {
@@ -76,16 +74,19 @@ void Label::SetAutoColorReadabilityEnabled(bool enabled) {
 
 void Label::SetEnabledColor(SkColor color) {
   requested_enabled_color_ = color;
+  enabled_color_set_ = true;
   RecalculateColors();
 }
 
 void Label::SetDisabledColor(SkColor color) {
   requested_disabled_color_ = color;
+  disabled_color_set_ = true;
   RecalculateColors();
 }
 
 void Label::SetBackgroundColor(SkColor color) {
   background_color_ = color;
+  background_color_set_ = true;
   RecalculateColors();
 }
 
@@ -103,15 +104,17 @@ void Label::ClearEmbellishing() {
   has_shadow_ = false;
 }
 
-void Label::SetHorizontalAlignment(Alignment alignment) {
+void Label::SetHorizontalAlignment(gfx::HorizontalAlignment alignment) {
   // If the View's UI layout is right-to-left and directionality_mode_ is
   // USE_UI_DIRECTIONALITY, we need to flip the alignment so that the alignment
   // settings take into account the text directionality.
   if (base::i18n::IsRTL() && (directionality_mode_ == USE_UI_DIRECTIONALITY) &&
-      (alignment != ALIGN_CENTER))
-    alignment = (alignment == ALIGN_LEFT) ? ALIGN_RIGHT : ALIGN_LEFT;
-  if (horiz_alignment_ != alignment) {
-    horiz_alignment_ = alignment;
+      (alignment != gfx::ALIGN_CENTER)) {
+    alignment = (alignment == gfx::ALIGN_LEFT) ?
+        gfx::ALIGN_RIGHT : gfx::ALIGN_LEFT;
+  }
+  if (horizontal_alignment_ != alignment) {
+    horizontal_alignment_ = alignment;
     SchedulePaint();
   }
 }
@@ -140,7 +143,6 @@ void Label::SetElideBehavior(ElideBehavior elide_behavior) {
   if (elide_behavior != elide_behavior_) {
     elide_behavior_ = elide_behavior;
     text_size_valid_ = false;
-    is_email_ = false;
     PreferredSizeChanged();
     SchedulePaint();
   }
@@ -148,14 +150,6 @@ void Label::SetElideBehavior(ElideBehavior elide_behavior) {
 
 void Label::SetTooltipText(const string16& tooltip_text) {
   tooltip_text_ = tooltip_text;
-}
-
-void Label::SetMouseOverBackground(Background* background) {
-  mouse_over_background_.reset(background);
-}
-
-const Background* Label::GetMouseOverBackground() const {
-  return mouse_over_background_.get();
 }
 
 void Label::SizeToFit(int max_width) {
@@ -189,7 +183,7 @@ void Label::SetHasFocusBorder(bool has_focus_border) {
 
 gfx::Insets Label::GetInsets() const {
   gfx::Insets insets = View::GetInsets();
-  if (focusable() || has_focus_border_)  {
+  if (focusable() || has_focus_border_) {
     insets += gfx::Insets(kFocusBorderPadding, kFocusBorderPadding,
                           kFocusBorderPadding, kFocusBorderPadding);
   }
@@ -233,18 +227,6 @@ bool Label::HitTestRect(const gfx::Rect& rect) const {
   return false;
 }
 
-void Label::OnMouseMoved(const ui::MouseEvent& event) {
-  UpdateContainsMouse(event);
-}
-
-void Label::OnMouseEntered(const ui::MouseEvent& event) {
-  UpdateContainsMouse(event);
-}
-
-void Label::OnMouseExited(const ui::MouseEvent& event) {
-  SetContainsMouse(false);
-}
-
 bool Label::GetTooltipText(const gfx::Point& p, string16* tooltip) const {
   DCHECK(tooltip);
 
@@ -281,7 +263,7 @@ void Label::PaintText(gfx::Canvas* canvas,
       enabled() ? actual_enabled_color_ : actual_disabled_color_,
       text_bounds, flags, shadows);
 
-  if (HasFocus() || paint_as_focused_) {
+  if (HasFocus()) {
     gfx::Rect focus_bounds = text_bounds;
     focus_bounds.Inset(-kFocusBorderPadding, -kFocusBorderPadding);
     canvas->DrawFocusRect(focus_bounds);
@@ -328,12 +310,8 @@ void Label::OnPaint(gfx::Canvas* canvas) {
   PaintText(canvas, paint_text, text_bounds, flags);
 }
 
-void Label::OnPaintBackground(gfx::Canvas* canvas) {
-  const Background* bg = contains_mouse_ ? GetMouseOverBackground() : NULL;
-  if (!bg)
-    bg = background();
-  if (bg)
-    bg->Paint(canvas, this);
+void Label::OnNativeThemeChanged(const ui::NativeTheme* theme) {
+  UpdateColorsFromTheme(theme);
 }
 
 // static
@@ -342,25 +320,17 @@ gfx::Font Label::GetDefaultFont() {
 }
 
 void Label::Init(const string16& text, const gfx::Font& font) {
-  contains_mouse_ = false;
   font_ = font;
   text_size_valid_ = false;
-  requested_enabled_color_ = ui::NativeTheme::instance()->GetSystemColor(
-      ui::NativeTheme::kColorId_LabelEnabledColor);
-  requested_disabled_color_ = ui::NativeTheme::instance()->GetSystemColor(
-      ui::NativeTheme::kColorId_LabelDisabledColor);
-  background_color_ = ui::NativeTheme::instance()->GetSystemColor(
-      ui::NativeTheme::kColorId_LabelBackgroundColor);
+  enabled_color_set_ = disabled_color_set_ = background_color_set_ = false;
   auto_color_readability_ = true;
-  RecalculateColors();
-  horiz_alignment_ = ALIGN_CENTER;
+  UpdateColorsFromTheme(ui::NativeTheme::instance());
+  horizontal_alignment_ = gfx::ALIGN_CENTER;
   is_multi_line_ = false;
   allow_character_break_ = false;
   elide_behavior_ = NO_ELIDE;
-  is_email_ = false;
   collapse_when_hidden_ = false;
   directionality_mode_ = USE_UI_DIRECTIONALITY;
-  paint_as_focused_ = false;
   has_focus_border_ = false;
   enabled_shadow_color_ = 0;
   disabled_shadow_color_ = 0;
@@ -381,18 +351,6 @@ void Label::RecalculateColors() {
       requested_disabled_color_;
 }
 
-void Label::UpdateContainsMouse(const ui::MouseEvent& event) {
-  SetContainsMouse(GetTextBounds().Contains(event.x(), event.y()));
-}
-
-void Label::SetContainsMouse(bool contains_mouse) {
-  if (contains_mouse_ == contains_mouse)
-    return;
-  contains_mouse_ = contains_mouse;
-  if (GetMouseOverBackground())
-    SchedulePaint();
-}
-
 gfx::Rect Label::GetTextBounds() const {
   gfx::Rect available_rect(GetAvailableRect());
   gfx::Size text_size(GetTextSize());
@@ -400,10 +358,10 @@ gfx::Rect Label::GetTextBounds() const {
 
   gfx::Insets insets = GetInsets();
   gfx::Point text_origin(insets.left(), insets.top());
-  switch (horiz_alignment_) {
-    case ALIGN_LEFT:
+  switch (horizontal_alignment_) {
+    case gfx::ALIGN_LEFT:
       break;
-    case ALIGN_CENTER:
+    case gfx::ALIGN_CENTER:
       // We put any extra margin pixel on the left rather than the right.  We
       // used to do this because measurement on Windows used
       // GetTextExtentPoint32(), which could report a value one too large on the
@@ -411,7 +369,7 @@ gfx::Rect Label::GetTextBounds() const {
       text_origin.Offset((available_rect.width() + 1 - text_size.width()) / 2,
                          0);
       break;
-    case ALIGN_RIGHT:
+    case gfx::ALIGN_RIGHT:
       text_origin.set_x(available_rect.right() - text_size.width());
       break;
     default:
@@ -453,14 +411,14 @@ int Label::ComputeDrawStringFlags() const {
 #endif
   if (allow_character_break_)
     flags |= gfx::Canvas::CHARACTER_BREAK;
-  switch (horiz_alignment_) {
-    case ALIGN_LEFT:
+  switch (horizontal_alignment_) {
+    case gfx::ALIGN_LEFT:
       flags |= gfx::Canvas::TEXT_ALIGN_LEFT;
       break;
-    case ALIGN_CENTER:
+    case gfx::ALIGN_CENTER:
       flags |= gfx::Canvas::TEXT_ALIGN_CENTER;
       break;
-    case ALIGN_RIGHT:
+    case gfx::ALIGN_RIGHT:
       flags |= gfx::Canvas::TEXT_ALIGN_RIGHT;
       break;
   }
@@ -469,9 +427,8 @@ int Label::ComputeDrawStringFlags() const {
 }
 
 gfx::Rect Label::GetAvailableRect() const {
-  gfx::Rect bounds(gfx::Point(), size());
-  gfx::Insets insets(GetInsets());
-  bounds.Inset(insets.left(), insets.top(), insets.right(), insets.bottom());
+  gfx::Rect bounds(size());
+  bounds.Inset(GetInsets());
   return bounds;
 }
 
@@ -481,7 +438,7 @@ void Label::CalculateDrawStringParams(string16* paint_text,
   DCHECK(paint_text && text_bounds && flags);
 
   // TODO(msw): Use ElideRectangleText to support eliding multi-line text.
-  if (is_email_) {
+  if (elide_behavior_ == ELIDE_AS_EMAIL) {
     *paint_text = ui::ElideEmail(text_, font_, GetAvailableRect().width());
   } else if (elide_behavior_ == ELIDE_IN_MIDDLE) {
     *paint_text = ui::ElideText(text_, font_, GetAvailableRect().width(),
@@ -495,6 +452,22 @@ void Label::CalculateDrawStringParams(string16* paint_text,
 
   *text_bounds = GetTextBounds();
   *flags = ComputeDrawStringFlags();
+}
+
+void Label::UpdateColorsFromTheme(const ui::NativeTheme* theme) {
+  if (!enabled_color_set_) {
+    requested_enabled_color_ = theme->GetSystemColor(
+        ui::NativeTheme::kColorId_LabelEnabledColor);
+  }
+  if (!disabled_color_set_) {
+    requested_disabled_color_ = theme->GetSystemColor(
+        ui::NativeTheme::kColorId_LabelDisabledColor);
+  }
+  if (!background_color_set_) {
+    background_color_ = theme->GetSystemColor(
+        ui::NativeTheme::kColorId_LabelBackgroundColor);
+  }
+  RecalculateColors();
 }
 
 }  // namespace views

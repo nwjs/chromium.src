@@ -17,7 +17,6 @@
 #include "chrome/browser/infobars/infobar_container.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/search/search_types.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/unhandled_keyboard_event_handler.h"
@@ -233,10 +232,6 @@ class BrowserView : public BrowserWindow,
   }
 #endif
 
-  BookmarkBarView* bookmark_bar() const {
-    return bookmark_bar_view_.get();
-  }
-
   // Overridden from BrowserWindow:
   virtual void Show() OVERRIDE;
   virtual void ShowInactive() OVERRIDE;
@@ -301,6 +296,7 @@ class BrowserView : public BrowserWindow,
   virtual void ShowBackgroundPages() OVERRIDE;
   virtual void ShowBookmarkBubble(const GURL& url,
                                   bool already_bookmarked) OVERRIDE;
+  virtual void ShowBookmarkPrompt() OVERRIDE;
   virtual void ShowChromeToMobileBubble() OVERRIDE;
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   virtual void ShowOneClickSigninBubble(
@@ -355,7 +351,8 @@ class BrowserView : public BrowserWindow,
   virtual ToolbarView* GetToolbarView() const OVERRIDE;
 
   // Overridden from TabStripModelObserver:
-  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
   virtual void TabDeactivated(TabContents* contents) OVERRIDE;
   virtual void ActiveTabChanged(TabContents* old_contents,
                                 TabContents* new_contents,
@@ -415,12 +412,6 @@ class BrowserView : public BrowserWindow,
   // Returns the resource ID to use for the OTR icon, which depends on
   // which layout is being shown and whether we are full-screen.
   int GetOTRIconResourceID() const;
-
-  // Forces the LocationBarContainer to the top of the native window stacking
-  // order. This is needed for the Instant extended API when the location bar
-  // can be placed over web contents.
-  // Used by |InstantPreviewControllerViews| which manages the instant preview.
-  void RestackLocationBarContainer();
 
  protected:
   // Appends to |toolbars| a pointer to each AccessiblePaneView that
@@ -567,6 +558,9 @@ class BrowserView : public BrowserWindow,
   // Shows the next app-modal dialog box, if there is one to be shown, or moves
   // an existing showing one to the front.
   void ActivateAppModalDialog() const;
+
+  // If search mode is |MODE_NTP| and bookmark bar is visible, stack it at top.
+  void MaybeStackBookmarkBarAtTop();
 
   // Last focused view that issued a tab traversal.
   int last_focused_view_storage_id_;

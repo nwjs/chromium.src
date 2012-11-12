@@ -270,7 +270,9 @@ void TrayBackgroundView::SetBorder() {
   // Change the border padding for different shelf alignment.
   if (shelf_alignment() == SHELF_ALIGNMENT_BOTTOM) {
     set_border(views::Border::CreateEmptyBorder(
-        0, 0, kPaddingFromBottomOfScreenBottomAlignment,
+        0, 0,
+        on_edge ? kPaddingFromBottomOfScreenBottomAlignment :
+                  kPaddingFromBottomOfScreenBottomAlignment - 1,
         on_edge ? kPaddingFromRightEdgeOfScreenBottomAlignment : 0));
   } else if (shelf_alignment() == SHELF_ALIGNMENT_LEFT) {
     set_border(views::Border::CreateEmptyBorder(
@@ -292,7 +294,7 @@ void TrayBackgroundView::InitializeBubbleAnimations(
       ash::WINDOW_VISIBILITY_ANIMATION_TYPE_FADE);
   ash::SetWindowVisibilityAnimationTransition(
       bubble_widget->GetNativeWindow(),
-      ash::ANIMATE_BOTH);
+      ash::ANIMATE_HIDE);
   ash::SetWindowVisibilityAnimationDuration(
       bubble_widget->GetNativeWindow(),
       base::TimeDelta::FromMilliseconds(kAnimationDurationForPopupMS));

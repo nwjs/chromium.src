@@ -24,7 +24,6 @@
 #define IPC_MESSAGE_START PluginMsgStart
 
 IPC_STRUCT_BEGIN(PluginMsg_Init_Params)
-  IPC_STRUCT_MEMBER(gfx::NativeViewId, containing_window)
   IPC_STRUCT_MEMBER(GURL,  url)
   IPC_STRUCT_MEMBER(GURL,  page_url)
   IPC_STRUCT_MEMBER(std::vector<std::string>, arg_names)
@@ -55,11 +54,9 @@ IPC_STRUCT_END()
 IPC_STRUCT_BEGIN(PluginMsg_UpdateGeometry_Param)
   IPC_STRUCT_MEMBER(gfx::Rect, window_rect)
   IPC_STRUCT_MEMBER(gfx::Rect, clip_rect)
-  IPC_STRUCT_MEMBER(bool, transparent)
   IPC_STRUCT_MEMBER(TransportDIB::Handle, windowless_buffer0)
   IPC_STRUCT_MEMBER(TransportDIB::Handle, windowless_buffer1)
   IPC_STRUCT_MEMBER(int, windowless_buffer_index)
-  IPC_STRUCT_MEMBER(TransportDIB::Handle, background_buffer)
 IPC_STRUCT_END()
 
 //-----------------------------------------------------------------------------
@@ -275,10 +272,10 @@ IPC_MESSAGE_ROUTED2(PluginMsg_HTTPRangeRequestReply,
                     int /* range_request_id */)
 
 IPC_MESSAGE_CONTROL1(PluginMsg_SignalModalDialogEvent,
-                     gfx::NativeViewId /* containing_window */)
+                     int /* render_view_id */)
 
 IPC_MESSAGE_CONTROL1(PluginMsg_ResetModalDialogEvent,
-                     gfx::NativeViewId /* containing_window */)
+                     int /* render_view_id */)
 
 #if defined(OS_MACOSX)
 // This message, used only on 10.6 and later, transmits the "fake"
@@ -308,8 +305,9 @@ IPC_SYNC_MESSAGE_ROUTED1_0(PluginHostMsg_SetWindow,
 // passed in for windowless plugins and is used to indicate if messages
 // are to be pumped in sync calls to the plugin process. Currently used
 // in HandleEvent calls.
-IPC_SYNC_MESSAGE_ROUTED1_0(PluginHostMsg_SetWindowlessPumpEvent,
-                           HANDLE /* modal_loop_pump_messages_event */)
+IPC_SYNC_MESSAGE_ROUTED2_0(PluginHostMsg_SetWindowlessData,
+                           HANDLE /* modal_loop_pump_messages_event */,
+                           gfx::NativeViewId /* dummy_activation_window*/)
 
 // Send the IME status retrieved from a windowless plug-in. A windowless plug-in
 // uses the IME attached to a browser process as a renderer does. A plug-in

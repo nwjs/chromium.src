@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CACHING_BITMAP_CANVAS_LAYER_UPDATER_H_
-#define CACHING_BITMAP_CANVAS_LAYER_UPDATER_H_
+#ifndef CC_CACHING_BITMAP_CONTENT_LAYER_UPDATER_H_
+#define CC_CACHING_BITMAP_CONTENT_LAYER_UPDATER_H_
 
 #include "base/compiler_specific.h"
 #include "cc/bitmap_content_layer_updater.h"
@@ -16,11 +16,11 @@ class CachingBitmapContentLayerUpdater
   static scoped_refptr<CachingBitmapContentLayerUpdater> Create(
       scoped_ptr<LayerPainter>);
 
-  virtual void prepareToUpdate(const IntRect& content_rect,
-                               const IntSize& tile_size,
+  virtual void prepareToUpdate(const gfx::Rect& content_rect,
+                               const gfx::Size& tile_size,
                                float contents_width_scale,
                                float contents_height_scale,
-                               IntRect& resulting_opaque_rect,
+                               gfx::Rect& resulting_opaque_rect,
                                RenderingStats&) OVERRIDE;
 
   bool pixelsDidChange() const;
@@ -36,4 +36,4 @@ class CachingBitmapContentLayerUpdater
 
 }  // namespace cc
 
-#endif  // CACHING_BITMAP_CANVAS_LAYER_UPDATER_H_
+#endif  // CC_CACHING_BITMAP_CONTENT_LAYER_UPDATER_H_

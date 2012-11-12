@@ -490,7 +490,7 @@ const char* const kChromeDebugURLs[] = {
   kChromeUICrashURL,
   kChromeUIKillURL,
   kChromeUIHangURL,
-  kChromeUIShorthangURL,
+  content::kChromeUIShorthangURL,
   kChromeUIGpuCleanURL,
   kChromeUIGpuCrashURL,
   kChromeUIGpuHangURL,
@@ -500,5 +500,9 @@ const int kNumberOfChromeDebugURLs =
 
 const char kExtensionScheme[] = "chrome-extension";
 const char kExtensionResourceScheme[] = "chrome-extension-resource";
+
+// Google SafeSearch query parameters.
+const char kSafeSearchSafeParameter[] = "safe=active";
+const char kSafeSearchSsuiParameter[] = "ssui=on";
 
 }  // namespace chrome

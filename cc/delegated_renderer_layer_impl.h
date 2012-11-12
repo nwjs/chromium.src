@@ -2,15 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCDelegatedRendererLayerImpl_h
-#define CCDelegatedRendererLayerImpl_h
+#ifndef CC_DELEGATED_RENDERER_LAYER_IMPL_H_
+#define CC_DELEGATED_RENDERER_LAYER_IMPL_H_
 
+#include "cc/cc_export.h"
 #include "cc/layer_impl.h"
 #include "cc/scoped_ptr_vector.h"
 
 namespace cc {
 
-class DelegatedRendererLayerImpl : public LayerImpl {
+class CC_EXPORT DelegatedRendererLayerImpl : public LayerImpl {
 public:
     static scoped_ptr<DelegatedRendererLayerImpl> create(int id) { return make_scoped_ptr(new DelegatedRendererLayerImpl(id)); }
     virtual ~DelegatedRendererLayerImpl();
@@ -45,4 +46,4 @@ private:
 
 }
 
-#endif // CCDelegatedRendererLayerImpl_h
+#endif  // CC_DELEGATED_RENDERER_LAYER_IMPL_H_

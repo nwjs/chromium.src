@@ -1185,30 +1185,26 @@ void BrowserWindowGtk::ConfirmBrowserCloseWithPendingDownloads() {
 void BrowserWindowGtk::Observe(int type,
                                const content::NotificationSource& source,
                                const content::NotificationDetails& details) {
-  switch (type) {
-    case chrome::NOTIFICATION_PREF_CHANGED: {
-      std::string* pref_name = content::Details<std::string>(details).ptr();
-      if (*pref_name == prefs::kUseCustomChromeFrame) {
-        UpdateCustomFrame();
-        ui::SetHideTitlebarWhenMaximizedProperty(
-            ui::GetX11WindowFromGtkWidget(GTK_WIDGET(window_)),
-            UseCustomFrame() ? ui::HIDE_TITLEBAR_WHEN_MAXIMIZED
-                             : ui::SHOW_TITLEBAR_WHEN_MAXIMIZED);
-      } else {
-        NOTREACHED() << "Got pref change notification we didn't register for!";
-      }
-      break;
-    }
-    case chrome::NOTIFICATION_PROFILE_CACHED_INFO_CHANGED:
-      // The profile avatar icon may have changed.
-      gtk_util::SetWindowIcon(window_, browser_->profile());
-      break;
-    default:
-      break;
+  DCHECK_EQ(chrome::NOTIFICATION_PROFILE_CACHED_INFO_CHANGED, type);
+  // The profile avatar icon may have changed.
+  gtk_util::SetWindowIcon(window_, browser_->profile());
+}
+
+void BrowserWindowGtk::OnPreferenceChanged(PrefServiceBase* service,
+                                           const std::string& pref_name) {
+  if (pref_name == prefs::kUseCustomChromeFrame) {
+    UpdateCustomFrame();
+    ui::SetHideTitlebarWhenMaximizedProperty(
+        ui::GetX11WindowFromGtkWidget(GTK_WIDGET(window_)),
+        UseCustomFrame() ?
+            ui::HIDE_TITLEBAR_WHEN_MAXIMIZED :
+            ui::SHOW_TITLEBAR_WHEN_MAXIMIZED);
+  } else {
+    NOTREACHED() << "Got pref change notification we didn't register for!";
   }
 }
 
-void BrowserWindowGtk::TabDetachedAt(TabContents* contents, int index) {
+void BrowserWindowGtk::TabDetachedAt(WebContents* contents, int index) {
   // We use index here rather than comparing |contents| because by this time
   // the model has already removed |contents| from its list, so
   // chrome::GetActiveWebContents(browser_.get()) will return NULL or something
@@ -2325,8 +2321,10 @@ void BrowserWindowGtk::UpdateDevToolsForContents(WebContents* contents) {
 
   // Replace tab contents.
   if (devtools_window_ != new_devtools_window) {
-    if (devtools_window_)
-      devtools_container_->DetachTab(devtools_window_->tab_contents());
+    if (devtools_window_) {
+      devtools_container_->DetachTab(
+          devtools_window_->tab_contents()->web_contents());
+    }
     devtools_container_->SetTab(
         new_devtools_window ? new_devtools_window->tab_contents() : NULL);
     if (new_devtools_window) {

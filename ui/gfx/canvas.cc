@@ -29,8 +29,8 @@ Canvas::Canvas(const gfx::Size& size,
       : scale_factor_(scale_factor),
         owned_canvas_(NULL),
         canvas_(NULL) {
-  gfx::Size pixel_size = gfx::ToFlooredSize(size.Scale(
-      ui::GetScaleFactorScale(scale_factor)));
+  gfx::Size pixel_size = gfx::ToFlooredSize(
+      gfx::ScaleSize(size, ui::GetScaleFactorScale(scale_factor)));
   owned_canvas_.reset(new skia::PlatformCanvas(pixel_size.width(),
                                                pixel_size.height(),
                                                is_opaque));
@@ -77,7 +77,7 @@ void Canvas::RecreateBackingCanvas(const gfx::Size& size,
                                    bool is_opaque) {
   scale_factor_ = scale_factor;
   gfx::Size pixel_size = gfx::ToFlooredSize(
-      size.Scale(ui::GetScaleFactorScale(scale_factor)));
+      gfx::ScaleSize(size, ui::GetScaleFactorScale(scale_factor)));
   owned_canvas_.reset(new skia::PlatformCanvas(pixel_size.width(),
                                                pixel_size.height(),
                                                is_opaque));
@@ -190,8 +190,8 @@ bool Canvas::GetClipBounds(gfx::Rect* bounds) {
   return has_non_empty_clip;
 }
 
-void Canvas::Translate(const gfx::Point& point) {
-  canvas_->translate(SkIntToScalar(point.x()), SkIntToScalar(point.y()));
+void Canvas::Translate(const gfx::Vector2d& offset) {
+  canvas_->translate(SkIntToScalar(offset.x()), SkIntToScalar(offset.y()));
 }
 
 void Canvas::Scale(int x_scale, int y_scale) {

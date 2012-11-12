@@ -115,6 +115,13 @@ void ExtensionInstallUIDefault::OnInstallSuccess(const Extension* extension,
   if (skip_post_install_ui_)
     return;
 
+  if (!profile_) {
+    // TODO(zelidrag): Figure out what exact conditions cause crash
+    // http://crbug.com/159437 and write browser test to cover it.
+    NOTREACHED();
+    return;
+  }
+
   if (extension->is_theme()) {
     ShowThemeInfoBar(previous_theme_id_, previous_using_native_theme_,
                      extension, profile_);
@@ -126,7 +133,7 @@ void ExtensionInstallUIDefault::OnInstallSuccess(const Extension* extension,
   Profile* current_profile = profile_->GetOriginalProfile();
   Browser* browser = browser::FindOrCreateTabbedBrowser(current_profile);
   if (browser->tab_count() == 0)
-    chrome::AddBlankTab(browser, true);
+    chrome::AddBlankTabAt(browser, -1, true);
   browser->window()->Show();
 
   bool use_bubble_for_apps = false;
@@ -151,7 +158,7 @@ void ExtensionInstallUIDefault::OnInstallFailure(
   if (disable_failure_ui_for_tests || skip_post_install_ui_)
     return;
 
-  Browser* browser = browser::FindLastActiveWithProfile(profile_);
+  Browser* browser = chrome::FindLastActiveWithProfile(profile_);
   WebContents* web_contents = chrome::GetActiveWebContents(browser);
   if (!web_contents)
     return;
@@ -177,7 +184,7 @@ void ExtensionInstallUIDefault::ShowThemeInfoBar(
     return;
 
   // Get last active tabbed browser of profile.
-  Browser* browser = browser::FindTabbedBrowser(profile, true);
+  Browser* browser = browser::FindTabbedBrowserDeprecated(profile, true);
   if (!browser)
     return;
 
@@ -278,6 +285,6 @@ ExtensionInstallPrompt* ExtensionInstallUI::CreateInstallPromptWithBrowser(
 // static
 ExtensionInstallPrompt* ExtensionInstallUI::CreateInstallPromptWithProfile(
     Profile* profile) {
-  Browser* browser = browser::FindLastActiveWithProfile(profile);
+  Browser* browser = chrome::FindLastActiveWithProfile(profile);
   return CreateInstallPromptWithBrowser(browser);
 }

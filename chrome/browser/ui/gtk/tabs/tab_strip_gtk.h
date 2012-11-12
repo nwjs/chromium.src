@@ -109,10 +109,11 @@ class TabStripGtk : public TabStripModelObserver,
 
  protected:
   // TabStripModelObserver implementation:
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
                              bool foreground) OVERRIDE;
-  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
   virtual void TabMoved(TabContents* contents,
                         int from_index,
                         int to_index) OVERRIDE;
@@ -129,9 +130,9 @@ class TabStripGtk : public TabStripModelObserver,
                              TabContents* old_contents,
                              TabContents* new_contents,
                              int index) OVERRIDE;
-  virtual void TabMiniStateChanged(TabContents* contents,
+  virtual void TabMiniStateChanged(content::WebContents* contents,
                                    int index) OVERRIDE;
-  virtual void TabBlockedStateChanged(TabContents* contents,
+  virtual void TabBlockedStateChanged(content::WebContents* contents,
                                       int index) OVERRIDE;
 
   // TabGtk::TabDelegate implementation:

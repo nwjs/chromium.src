@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCRendererGL_h
-#define CCRendererGL_h
+#ifndef CC_GL_RENDERER_H_
+#define CC_GL_RENDERER_H_
 
+#include "cc/cc_export.h"
 #include "cc/checkerboard_draw_quad.h"
 #include "cc/debug_border_draw_quad.h"
 #include "cc/direct_renderer.h"
@@ -14,6 +15,7 @@
 #include "cc/solid_color_draw_quad.h"
 #include "cc/tile_draw_quad.h"
 #include "cc/yuv_video_draw_quad.h"
+#include "ui/gfx/quad_f.h"
 
 namespace WebKit {
 class WebGraphicsContext3D;
@@ -21,17 +23,17 @@ class WebGraphicsContext3D;
 
 namespace cc {
 
-class ScopedTexture;
+class ScopedResource;
 class StreamVideoDrawQuad;
 class TextureDrawQuad;
 class GeometryBinding;
 class ScopedEnsureFramebufferAllocation;
 
 // Class that handles drawing of composited render layers using GL.
-class GLRenderer : public DirectRenderer,
-                     public WebKit::WebGraphicsContext3D::WebGraphicsSwapBuffersCompleteCallbackCHROMIUM,
-                     public WebKit::WebGraphicsContext3D::WebGraphicsMemoryAllocationChangedCallbackCHROMIUM ,
-                     public WebKit::WebGraphicsContext3D::WebGraphicsContextLostCallback {
+class CC_EXPORT GLRenderer : public DirectRenderer,
+                             public NON_EXPORTED_BASE(WebKit::WebGraphicsContext3D::WebGraphicsSwapBuffersCompleteCallbackCHROMIUM),
+                             public NON_EXPORTED_BASE(WebKit::WebGraphicsContext3D::WebGraphicsMemoryAllocationChangedCallbackCHROMIUM),
+                             public NON_EXPORTED_BASE(WebKit::WebGraphicsContext3D::WebGraphicsContextLostCallback) {
 public:
     static scoped_ptr<GLRenderer> create(RendererClient*, ResourceProvider*);
 
@@ -50,7 +52,7 @@ public:
     // puts backbuffer onscreen
     virtual bool swapBuffers() OVERRIDE;
 
-    virtual void getFramebufferPixels(void *pixels, const IntRect&) OVERRIDE;
+    virtual void getFramebufferPixels(void *pixels, const gfx::Rect&) OVERRIDE;
 
     virtual bool isContextLost() OVERRIDE;
 
@@ -66,17 +68,16 @@ protected:
     bool isFramebufferDiscarded() const { return m_isFramebufferDiscarded; }
     bool initialize();
 
-    const FloatQuad& sharedGeometryQuad() const { return m_sharedGeometryQuad; }
+    const gfx::QuadF& sharedGeometryQuad() const { return m_sharedGeometryQuad; }
     const GeometryBinding* sharedGeometry() const { return m_sharedGeometry.get(); }
 
-    bool getFramebufferTexture(ScopedTexture*, const IntRect& deviceRect);
+    bool getFramebufferTexture(ScopedResource*, const gfx::Rect& deviceRect);
     void releaseRenderPassTextures();
 
     virtual void bindFramebufferToOutputSurface(DrawingFrame&) OVERRIDE;
-    virtual bool bindFramebufferToTexture(DrawingFrame&, const ScopedTexture*, const gfx::Rect& framebufferRect) OVERRIDE;
+    virtual bool bindFramebufferToTexture(DrawingFrame&, const ScopedResource*, const gfx::Rect& framebufferRect) OVERRIDE;
     virtual void setDrawViewportSize(const gfx::Size&) OVERRIDE;
-    virtual void enableScissorTestRect(const gfx::Rect& scissorRect) OVERRIDE;
-    virtual void disableScissorTest() OVERRIDE;
+    virtual void setScissorTestRect(const gfx::Rect& scissorRect) OVERRIDE;
     virtual void clearFramebuffer(DrawingFrame&) OVERRIDE;
     virtual void drawQuad(DrawingFrame&, const DrawQuad*) OVERRIDE;
     virtual void beginDrawingFrame(DrawingFrame&) OVERRIDE;
@@ -89,7 +90,10 @@ private:
 
     void drawCheckerboardQuad(const DrawingFrame&, const CheckerboardDrawQuad*);
     void drawDebugBorderQuad(const DrawingFrame&, const DebugBorderDrawQuad*);
-    scoped_ptr<ScopedTexture> drawBackgroundFilters(DrawingFrame&, const RenderPassDrawQuad*, const WebKit::WebFilterOperations&, const WebKit::WebTransformationMatrix& deviceTransform);
+    scoped_ptr<ScopedResource> drawBackgroundFilters(
+        DrawingFrame&, const RenderPassDrawQuad*, const WebKit::WebFilterOperations&,
+        const WebKit::WebTransformationMatrix& contentsDeviceTransform,
+        const WebKit::WebTransformationMatrix& contentsDeviceTransformInverse);
     void drawRenderPassQuad(DrawingFrame&, const RenderPassDrawQuad*);
     void drawSolidColorQuad(const DrawingFrame&, const SolidColorDrawQuad*);
     void drawStreamVideoQuad(const DrawingFrame&, const StreamVideoDrawQuad*);
@@ -99,12 +103,12 @@ private:
     void drawYUVVideoQuad(const DrawingFrame&, const YUVVideoDrawQuad*);
 
     void setShaderOpacity(float opacity, int alphaLocation);
-    void setShaderFloatQuad(const FloatQuad&, int quadLocation);
+    void setShaderQuadF(const gfx::QuadF&, int quadLocation);
     void drawQuadGeometry(const DrawingFrame&, const WebKit::WebTransformationMatrix& drawTransform, const gfx::RectF& quadRect, int matrixLocation);
 
     void copyTextureToFramebuffer(const DrawingFrame&, int textureId, const gfx::Rect&, const WebKit::WebTransformationMatrix& drawMatrix);
 
-    bool useScopedTexture(DrawingFrame&, const ScopedTexture*, const gfx::Rect& viewportRect);
+    bool useScopedTexture(DrawingFrame&, const ScopedResource*, const gfx::Rect& viewportRect);
 
     bool makeContextCurrent();
 
@@ -116,7 +120,6 @@ private:
 
     // WebKit::WebGraphicsContext3D::WebGraphicsMemoryAllocationChangedCallbackCHROMIUM implementation.
     virtual void onMemoryAllocationChanged(WebKit::WebGraphicsMemoryAllocation) OVERRIDE;
-    void onMemoryAllocationChangedOnImplThread(WebKit::WebGraphicsMemoryAllocation);
     void discardFramebuffer();
     void ensureFramebuffer();
     void enforceMemoryPolicy();
@@ -129,7 +132,7 @@ private:
     unsigned m_offscreenFramebufferId;
 
     scoped_ptr<GeometryBinding> m_sharedGeometry;
-    FloatQuad m_sharedGeometryQuad;
+    gfx::QuadF m_sharedGeometryQuad;
 
     // This block of bindings defines all of the programs used by the compositor itself.
 
@@ -233,4 +236,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_GL_RENDERER_H_

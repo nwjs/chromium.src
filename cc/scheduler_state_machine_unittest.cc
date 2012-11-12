@@ -2,14 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scheduler_state_machine.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
 
-using namespace cc;
-
+namespace cc {
 namespace {
 
 const SchedulerStateMachine::CommitState allCommitStates[] = {
@@ -870,4 +867,5 @@ TEST(SchedulerStateMachineTest, TestBeginFrameWhenContextLost)
     EXPECT_EQ(SchedulerStateMachine::ACTION_BEGIN_FRAME, state.nextAction());
 }
 
-}
+}  // namespace
+}  // namespace cc

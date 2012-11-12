@@ -62,33 +62,39 @@ void ForeignSessionHandler::RegisterUserPrefs(PrefService* prefs) {
 }
 
 // static
-void ForeignSessionHandler::OpenForeignSession(
+void ForeignSessionHandler::OpenForeignSessionTab(
     content::WebUI* web_ui,
     const std::string& session_string_value,
     SessionID::id_type window_num,
     SessionID::id_type tab_id,
     const WindowOpenDisposition& disposition) {
-
   SessionModelAssociator* associator = GetModelAssociator(web_ui);
   if (!associator)
     return;
 
-  if (tab_id != kInvalidId) {
-    // We don't actually care about |window_num|, this is just a sanity check.
-    DCHECK_LT(kInvalidId, window_num);
-    const SessionTab* tab;
-    if (!associator->GetForeignTab(session_string_value, tab_id, &tab)) {
-      LOG(ERROR) << "Failed to load foreign tab.";
-      return;
-    }
-    if (tab->navigations.empty()) {
-      LOG(ERROR) << "Foreign tab no longer has valid navigations.";
-      return;
-    }
-    SessionRestore::RestoreForeignSessionTab(
-        web_ui->GetWebContents(), *tab, disposition);
+  // We don't actually care about |window_num|, this is just a sanity check.
+  DCHECK_LT(kInvalidId, window_num);
+  const SessionTab* tab;
+  if (!associator->GetForeignTab(session_string_value, tab_id, &tab)) {
+    LOG(ERROR) << "Failed to load foreign tab.";
     return;
   }
+  if (tab->navigations.empty()) {
+    LOG(ERROR) << "Foreign tab no longer has valid navigations.";
+    return;
+  }
+  SessionRestore::RestoreForeignSessionTab(
+      web_ui->GetWebContents(), *tab, disposition);
+}
+
+// static
+void ForeignSessionHandler::OpenForeignSessionWindows(
+    content::WebUI* web_ui,
+    const std::string& session_string_value,
+    SessionID::id_type window_num) {
+  SessionModelAssociator* associator = GetModelAssociator(web_ui);
+  if (!associator)
+    return;
 
   std::vector<const SessionWindow*> windows;
   // Note: we don't own the ForeignSessions themselves.
@@ -150,6 +156,9 @@ SessionModelAssociator* ForeignSessionHandler::GetModelAssociator(
 
 void ForeignSessionHandler::RegisterMessages() {
   Init();
+  web_ui()->RegisterMessageCallback("deleteForeignSession",
+      base::Bind(&ForeignSessionHandler::HandleDeleteForeignSession,
+                 base::Unretained(this)));
   web_ui()->RegisterMessageCallback("getForeignSessions",
       base::Bind(&ForeignSessionHandler::HandleGetForeignSessions,
                  base::Unretained(this)));
@@ -306,11 +315,32 @@ void ForeignSessionHandler::HandleOpenForeignSession(const ListValue* args) {
     return;
   }
 
-  WindowOpenDisposition disposition =
-      web_ui_util::GetDispositionFromClick(args, 3);
+  if (tab_id != kInvalidId) {
+    WindowOpenDisposition disposition =
+        web_ui_util::GetDispositionFromClick(args, 3);
+    OpenForeignSessionTab(
+        web_ui(), session_string_value, window_num, tab_id, disposition);
+  } else {
+    OpenForeignSessionWindows(web_ui(), session_string_value, window_num);
+  }
+}
 
-  OpenForeignSession(
-      web_ui(), session_string_value, window_num, tab_id, disposition);
+void ForeignSessionHandler::HandleDeleteForeignSession(const ListValue* args) {
+  if (args->GetSize() != 1U) {
+    LOG(ERROR) << "Wrong number of args to deleteForeignSession";
+    return;
+  }
+
+  // Get the session tag argument (required).
+  std::string session_tag;
+  if (!args->GetString(0, &session_tag)) {
+    LOG(ERROR) << "Unable to extract session tag";
+    return;
+  }
+
+  SessionModelAssociator* associator = GetModelAssociator(web_ui());
+  if (associator)
+    associator->DeleteForeignSession(session_tag);
 }
 
 void ForeignSessionHandler::HandleSetForeignSessionCollapsed(

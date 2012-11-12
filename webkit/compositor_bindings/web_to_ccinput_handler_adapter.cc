@@ -2,14 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "web_to_ccinput_handler_adapter.h"
 
-#include "cc/stubs/int_point.h"
-#include "cc/stubs/int_size.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebInputHandlerClient.h"
-#include "webcore_convert.h"
 
 #define COMPILE_ASSERT_MATCHING_ENUM(webkit_name, cc_name) \
     COMPILE_ASSERT(int(WebKit::webkit_name) == int(cc::cc_name), mismatching_enums)
@@ -49,12 +44,12 @@ public:
 
     virtual ScrollStatus scrollBegin(WebPoint point, ScrollInputType type) OVERRIDE
     {
-        return static_cast<WebInputHandlerClient::ScrollStatus>(m_client->scrollBegin(convert(point), static_cast<cc::InputHandlerClient::ScrollInputType>(type)));
+        return static_cast<WebInputHandlerClient::ScrollStatus>(m_client->scrollBegin(point, static_cast<cc::InputHandlerClient::ScrollInputType>(type)));
     }
 
     virtual void scrollBy(WebPoint point, WebSize offset) OVERRIDE
     {
-        m_client->scrollBy(convert(point), convert(offset));
+        m_client->scrollBy(point, offset);
     }
 
     virtual void scrollEnd() OVERRIDE
@@ -69,7 +64,7 @@ public:
 
     virtual void pinchGestureUpdate(float magnifyDelta, WebPoint anchor) OVERRIDE
     {
-        m_client->pinchGestureUpdate(magnifyDelta, convert(anchor));
+        m_client->pinchGestureUpdate(magnifyDelta, anchor);
     }
 
     virtual void pinchGestureEnd() OVERRIDE
@@ -85,7 +80,7 @@ public:
     {
         base::TimeTicks startTime = base::TimeTicks::FromInternalValue(startTimeSec * base::Time::kMicrosecondsPerSecond);
         base::TimeDelta duration = base::TimeDelta::FromMicroseconds(durationSec * base::Time::kMicrosecondsPerSecond);
-        m_client->startPageScaleAnimation(convert(targetPosition), anchorPoint, pageScale, startTime, duration);
+        m_client->startPageScaleAnimation(targetPosition, anchorPoint, pageScale, startTime, duration);
     }
 
     virtual void scheduleAnimation() OVERRIDE
@@ -110,4 +105,4 @@ void WebToCCInputHandlerAdapter::animate(base::TimeTicks time)
     m_handler->animate(monotonicTimeSeconds);
 }
 
-}
+}  // namespace WebKit

@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/extensions/media_galleries_dialog_views.h"
 
-#include "base/command_line.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/views/constrained_window_views.h"
 #include "chrome/common/chrome_switches.h"
@@ -18,6 +17,8 @@
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
 #include "ui/views/view.h"
+#include "ui/views/window/dialog_client_view.h"
+
 
 namespace chrome {
 
@@ -28,19 +29,6 @@ namespace {
 
 // Heading font size correction.
 const int kHeadingFontSizeDelta = 1;
-
-// A border with zero left inset.
-class MediaGalleriesCheckboxBorder : public views::TextButtonNativeThemeBorder {
- public:
-  explicit MediaGalleriesCheckboxBorder(views::NativeThemeDelegate* delegate)
-      : views::TextButtonNativeThemeBorder(delegate) {}
-  virtual ~MediaGalleriesCheckboxBorder() {}
-
-  virtual void GetInsets(gfx::Insets* insets) const OVERRIDE {
-    views::TextButtonNativeThemeBorder::GetInsets(insets);
-    insets->Set(insets->top(), 0, insets->bottom(), insets->right());
-  }
-};
 
 }  // namespace
 
@@ -55,8 +43,7 @@ MediaGalleriesDialogViews::MediaGalleriesDialogViews(
       accepted_(false),
       // Enable this once chrome style constrained windows work on shell
       // windows. http://crbug.com/156694
-      enable_chrome_style_(CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableFramelessConstrainedDialogs)) {
+      enable_chrome_style_(UseChromeStyleDialogs()) {
   InitChildViews();
 
   // Ownership of |contents_| is handed off by this call. |window_| will take
@@ -92,7 +79,7 @@ void MediaGalleriesDialogViews::InitChildViews() {
     views::Label* header = new views::Label(controller_->GetHeader());
     header->SetFont(header->font().DeriveFont(kHeadingFontSizeDelta,
                                               gfx::Font::BOLD));
-    header->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    header->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     layout->StartRow(0, column_set_id);
     layout->AddView(header);
   }
@@ -100,7 +87,7 @@ void MediaGalleriesDialogViews::InitChildViews() {
   // Message text.
   views::Label* subtext = new views::Label(controller_->GetSubtext());
   subtext->SetMultiLine(true);
-  subtext->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  subtext->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   layout->StartRowWithPadding(0, column_set_id,
                               0, views::kRelatedControlVerticalSpacing);
   layout->AddView(subtext);
@@ -143,7 +130,6 @@ bool MediaGalleriesDialogViews::AddOrUpdateGallery(
   }
 
   views::Checkbox* checkbox = new views::Checkbox(gallery->display_name);
-  checkbox->set_border(new MediaGalleriesCheckboxBorder(checkbox));
   checkbox->set_listener(this);
   checkbox->SetTooltipText(gallery->AbsolutePath().LossyDisplayName());
   checkbox_container_->AddChildView(checkbox);

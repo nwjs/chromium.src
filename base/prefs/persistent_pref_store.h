@@ -7,12 +7,13 @@
 
 #include <string>
 
+#include "base/prefs/base_prefs_export.h"
 #include "base/prefs/pref_store.h"
 
 // This interface is complementary to the PrefStore interface, declaring
 // additional functionality that adds support for setting values and persisting
 // the data to some backing store.
-class PersistentPrefStore : public PrefStore {
+class BASE_PREFS_EXPORT PersistentPrefStore : public PrefStore {
  public:
   // Unique integer code for each type of error so we can report them
   // distinctly in a histogram.
@@ -40,8 +41,8 @@ class PersistentPrefStore : public PrefStore {
   };
 
   // Equivalent to PrefStore::GetValue but returns a mutable value.
-  virtual ReadResult GetMutableValue(const std::string& key,
-                                     base::Value** result) = 0;
+  virtual bool GetMutableValue(const std::string& key,
+                               base::Value** result) = 0;
 
   // Triggers a value changed notification. This function needs to be called
   // if one retrieves a list or dictionary with GetMutableValue and change its

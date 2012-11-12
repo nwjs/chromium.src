@@ -54,6 +54,7 @@
 
 using WebKit::WebCompositionUnderline;
 using WebKit::WebCursorInfo;
+using WebKit::WebGestureEvent;
 using WebKit::WebInputEvent;
 using WebKit::WebMouseEvent;
 using WebKit::WebNavigationPolicy;
@@ -82,8 +83,7 @@ RenderWidget::RenderWidget(WebKit::WebPopupType popup_type,
       surface_id_(0),
       webwidget_(NULL),
       opener_id_(MSG_ROUTING_NONE),
-      host_window_(0),
-      host_window_set_(false),
+      init_complete_(false),
       current_paint_buf_(NULL),
       next_paint_flags_(0),
       filtered_time_per_frame_(0.0f),
@@ -201,14 +201,11 @@ void RenderWidget::DoInit(int32 opener_id,
   }
 }
 
-// This is used to complete pending inits and non-pending inits. For non-
-// pending cases, the parent will be the same as the current parent. This
-// indicates we do not need to reparent or anything.
-void RenderWidget::CompleteInit(gfx::NativeViewId parent_hwnd) {
+// This is used to complete pending inits and non-pending inits.
+void RenderWidget::CompleteInit() {
   DCHECK(routing_id_ != MSG_ROUTING_NONE);
 
-  host_window_ = parent_hwnd;
-  host_window_set_ = true;
+  init_complete_ = true;
 
   if (webwidget_) {
     webwidget_->setCompositorSurfaceReady();
@@ -260,6 +257,7 @@ bool RenderWidget::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_SetTextDirection, OnSetTextDirection)
     IPC_MESSAGE_HANDLER(ViewMsg_Move_ACK, OnRequestMoveAck)
     IPC_MESSAGE_HANDLER(ViewMsg_ScreenInfoChanged, OnScreenInfoChanged)
+    IPC_MESSAGE_HANDLER(ViewMsg_UpdateScreenRects, OnUpdateScreenRects)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -361,11 +359,10 @@ void RenderWidget::OnClose() {
 
 // Got a response from the browser after the renderer decided to create a new
 // view.
-void RenderWidget::OnCreatingNewAck(
-    gfx::NativeViewId parent) {
+void RenderWidget::OnCreatingNewAck() {
   DCHECK(routing_id_ != MSG_ROUTING_NONE);
 
-  CompleteInit(parent);
+  CompleteInit();
 }
 
 void RenderWidget::OnResize(const gfx::Size& new_size,
@@ -585,6 +582,12 @@ void RenderWidget::OnHandleInputEvent(const IPC::Message& message) {
     prevent_default = WillHandleMouseEvent(mouse_event);
   }
 
+  if (WebInputEvent::isGestureEventType(input_event->type)) {
+    const WebGestureEvent& gesture_event =
+        *static_cast<const WebGestureEvent*>(input_event);
+    prevent_default = prevent_default || WillHandleGestureEvent(gesture_event);
+  }
+
   bool processed = prevent_default;
   if (input_event->type != WebInputEvent::Char || !suppress_next_char_events_) {
     suppress_next_char_events_ = false;
@@ -666,6 +669,13 @@ void RenderWidget::PaintRect(const gfx::Rect& rect,
                              skia::PlatformCanvas* canvas) {
   TRACE_EVENT2("renderer", "PaintRect",
                "width", rect.width(), "height", rect.height());
+
+  const bool kEnableGpuBenchmarking =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableGpuBenchmarking);
+  base::TimeTicks rasterize_begin_ticks;
+  if (kEnableGpuBenchmarking)
+    rasterize_begin_ticks = base::TimeTicks::HighResNow();
   canvas->save();
 
   // Bring the canvas into the coordinate system of the paint rect.
@@ -721,22 +731,35 @@ void RenderWidget::PaintRect(const gfx::Rect& rect,
     // WebKit and filling the background (which can be slow) and just painting
     // the plugin. Unlike the DoDeferredUpdate case, an extra copy is still
     // required.
-    base::TimeTicks paint_begin_ticks = base::TimeTicks::Now();
+    base::TimeTicks paint_begin_ticks;
+    if (kEnableGpuBenchmarking)
+      paint_begin_ticks = base::TimeTicks::HighResNow();
+
     SkAutoCanvasRestore auto_restore(canvas, true);
     canvas->scale(device_scale_factor_, device_scale_factor_);
     optimized_instance->Paint(webkit_glue::ToWebCanvas(canvas),
                               optimized_copy_location, rect);
     canvas->restore();
-    base::TimeDelta paint_time = base::TimeTicks::Now() - paint_begin_ticks;
-    if (!is_accelerated_compositing_active_)
-      software_stats_.totalPaintTimeInSeconds += paint_time.InSecondsF();
+    if (kEnableGpuBenchmarking) {
+      base::TimeDelta paint_time =
+          base::TimeTicks::HighResNow() - paint_begin_ticks;
+      if (!is_accelerated_compositing_active_)
+        software_stats_.totalPaintTimeInSeconds += paint_time.InSecondsF();
+    }
   } else {
     // Normal painting case.
-    base::TimeTicks paint_begin_ticks = base::TimeTicks::Now();
+    base::TimeTicks paint_begin_ticks;
+    if (kEnableGpuBenchmarking)
+      paint_begin_ticks = base::TimeTicks::HighResNow();
+
     webwidget_->paint(webkit_glue::ToWebCanvas(canvas), rect);
-    base::TimeDelta paint_time = base::TimeTicks::Now() - paint_begin_ticks;
-    if (!is_accelerated_compositing_active_)
-      software_stats_.totalPaintTimeInSeconds += paint_time.InSecondsF();
+
+    if (kEnableGpuBenchmarking) {
+      base::TimeDelta paint_time =
+          base::TimeTicks::HighResNow() - paint_begin_ticks;
+      if (!is_accelerated_compositing_active_)
+        software_stats_.totalPaintTimeInSeconds += paint_time.InSecondsF();
+    }
 
     // Flush to underlying bitmap.  TODO(darin): is this needed?
     skia::GetTopDevice(*canvas)->accessBitmap(false);
@@ -744,6 +767,16 @@ void RenderWidget::PaintRect(const gfx::Rect& rect,
 
   PaintDebugBorder(rect, canvas);
   canvas->restore();
+
+  if (kEnableGpuBenchmarking) {
+    base::TimeDelta rasterize_time =
+        base::TimeTicks::HighResNow() - rasterize_begin_ticks;
+    software_stats_.totalRasterizeTimeInSeconds += rasterize_time.InSecondsF();
+
+    int64 num_pixels_processed = rect.width() * rect.height();
+    software_stats_.totalPixelsPainted += num_pixels_processed;
+    software_stats_.totalPixelsRasterized += num_pixels_processed;
+  }
 }
 
 void RenderWidget::PaintDebugBorder(const gfx::Rect& rect,
@@ -861,8 +894,8 @@ void RenderWidget::DoDeferredUpdate() {
   if (!webwidget_)
     return;
 
-  if (!host_window_set_) {
-    TRACE_EVENT0("renderer", "EarlyOut_NoHostWindow");
+  if (!init_complete_) {
+    TRACE_EVENT0("renderer", "EarlyOut_InitNotComplete");
     return;
   }
   if (update_reply_pending_) {
@@ -1153,6 +1186,11 @@ void RenderWidget::didAutoResize(const WebSize& new_size) {
   if (size_.width() != new_size.width || size_.height() != new_size.height) {
     size_ = new_size;
     need_update_rect_for_auto_resize_ = true;
+    // If we don't clear PaintAggregator after changing autoResize state, then
+    // we might end up in a situation where bitmap_rect is larger than the
+    // view_size. By clearing PaintAggregator, we ensure that we don't end up
+    // with invalid damage rects.
+    paint_aggregator_.ClearPendingUpdate();
   }
 }
 
@@ -1357,14 +1395,7 @@ WebRect RenderWidget::windowRect() {
   if (pending_window_rect_count_)
     return pending_window_rect_;
 
-#if defined(OS_ANDROID)
-  // Short circuit of the sync RPC call.
-  return gfx::Rect(size_);
-#else
-  gfx::Rect rect;
-  Send(new ViewHostMsg_GetWindowRect(routing_id_, host_window_, &rect));
-  return rect;
-#endif
+  return view_screen_rect_;
 }
 
 void RenderWidget::setToolTipText(const WebKit::WebString& text,
@@ -1396,14 +1427,7 @@ WebRect RenderWidget::rootWindowRect() {
     return pending_window_rect_;
   }
 
-#if defined(OS_ANDROID)
-  // Short circuit of the sync RPC call.
-  return gfx::Rect(size_);
-#else
-  gfx::Rect rect;
-  Send(new ViewHostMsg_GetRootWindowRect(routing_id_, host_window_, &rect));
-  return rect;
-#endif
+  return window_screen_rect_;
 }
 
 WebRect RenderWidget::windowResizerRect() {
@@ -1520,9 +1544,9 @@ void RenderWidget::OnMsgPaintAtSize(const TransportDIB::Handle& dib_handle,
       TransportDIB::CreateWithHandle(dib_handle));
 
   gfx::Size page_size_in_pixel = gfx::ToFlooredSize(
-      page_size.Scale(device_scale_factor_));
+      gfx::ScaleSize(page_size, device_scale_factor_));
   gfx::Size desired_size_in_pixel = gfx::ToFlooredSize(
-      desired_size.Scale(device_scale_factor_));
+      gfx::ScaleSize(desired_size, device_scale_factor_));
   gfx::Size canvas_size = page_size_in_pixel;
   float x_scale = static_cast<float>(desired_size_in_pixel.width()) /
                   static_cast<float>(canvas_size.width());
@@ -1616,6 +1640,13 @@ void RenderWidget::OnScreenInfoChanged(
   screen_info_ = screen_info;
 }
 
+void RenderWidget::OnUpdateScreenRects(const gfx::Rect& view_screen_rect,
+                                       const gfx::Rect& window_screen_rect) {
+  view_screen_rect_ = view_screen_rect;
+  window_screen_rect_ = window_screen_rect;
+  Send(new ViewHostMsg_UpdateScreenRects_ACK(routing_id()));
+}
+
 webkit::ppapi::PluginInstance* RenderWidget::GetBitmapForOptimizedPluginPaint(
     const gfx::Rect& paint_bounds,
     TransportDIB** dib,
@@ -1626,9 +1657,9 @@ webkit::ppapi::PluginInstance* RenderWidget::GetBitmapForOptimizedPluginPaint(
   return NULL;
 }
 
-gfx::Point RenderWidget::GetScrollOffset() {
+gfx::Vector2d RenderWidget::GetScrollOffset() {
   // Bare RenderWidgets don't support scroll offset.
-  return gfx::Point(0, 0);
+  return gfx::Vector2d();
 }
 
 void RenderWidget::SetHidden(bool hidden) {
@@ -1798,6 +1829,10 @@ COMPILE_ASSERT(int(WebKit::WebTextInputTypeTime) == \
                int(ui::TEXT_INPUT_TYPE_TIME), mismatching_enum);
 COMPILE_ASSERT(int(WebKit::WebTextInputTypeWeek) == \
                int(ui::TEXT_INPUT_TYPE_WEEK), mismatching_enum);
+COMPILE_ASSERT(int(WebKit::WebTextInputTypeTextArea) == \
+               int(ui::TEXT_INPUT_TYPE_TEXT_AREA), mismatching_enums);
+COMPILE_ASSERT(int(WebKit::WebTextInputTypeContentEditable) == \
+               int(ui::TEXT_INPUT_TYPE_CONTENT_EDITABLE), mismatching_enums);
 
 ui::TextInputType RenderWidget::WebKitToUiTextInputType(
     WebKit::WebTextInputType type) {
@@ -1890,6 +1925,10 @@ void RenderWidget::GetRenderingStats(WebKit::WebRenderingStats& stats) const {
   stats.numAnimationFrames += software_stats_.numAnimationFrames;
   stats.numFramesSentToScreen += software_stats_.numFramesSentToScreen;
   stats.totalPaintTimeInSeconds += software_stats_.totalPaintTimeInSeconds;
+  stats.totalPixelsPainted += software_stats_.totalPixelsPainted;
+  stats.totalRasterizeTimeInSeconds +=
+      software_stats_.totalRasterizeTimeInSeconds;
+  stats.totalPixelsRasterized += software_stats_.totalPixelsRasterized;
 }
 
 bool RenderWidget::GetGpuRenderingStats(GpuRenderingStats* stats) const {
@@ -1920,6 +1959,11 @@ void RenderWidget::BeginSmoothScroll(
 }
 
 bool RenderWidget::WillHandleMouseEvent(const WebKit::WebMouseEvent& event) {
+  return false;
+}
+
+bool RenderWidget::WillHandleGestureEvent(
+    const WebKit::WebGestureEvent& event) {
   return false;
 }
 

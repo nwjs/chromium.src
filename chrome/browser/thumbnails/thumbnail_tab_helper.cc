@@ -88,8 +88,8 @@ gfx::Size GetCopySizeForThumbnail(content::RenderWidgetHostView* view) {
       ui::GetScaleFactorForNativeView(view->GetNativeView());
   switch (scale_factor) {
     case ui::SCALE_FACTOR_100P:
-      copy_size = gfx::ToFlooredSize(
-          copy_size.Scale(ui::GetScaleFactorScale(ui::SCALE_FACTOR_200P)));
+      copy_size = gfx::ToFlooredSize(gfx::ScaleSize(
+          copy_size, ui::GetScaleFactorScale(ui::SCALE_FACTOR_200P)));
       break;
     case ui::SCALE_FACTOR_200P:
       // Use the size as-is.
@@ -97,8 +97,8 @@ gfx::Size GetCopySizeForThumbnail(content::RenderWidgetHostView* view) {
     default:
       DLOG(WARNING) << "Unsupported scale factor. Use the same copy size as "
                     << "ui::SCALE_FACTOR_100P";
-      copy_size = gfx::ToFlooredSize(
-          copy_size.Scale(ui::GetScaleFactorScale(ui::SCALE_FACTOR_200P)));
+      copy_size = gfx::ToFlooredSize(gfx::ScaleSize(
+          copy_size, ui::GetScaleFactorScale(ui::SCALE_FACTOR_200P)));
       break;
   }
   return copy_size;
@@ -107,12 +107,13 @@ gfx::Size GetCopySizeForThumbnail(content::RenderWidgetHostView* view) {
 // Returns the size of the thumbnail stored in the database in pixel.
 gfx::Size GetThumbnailSizeInPixel() {
   gfx::Size thumbnail_size(kThumbnailWidth, kThumbnailHeight);
-  // Determine the resolution of the thumbnail based on the primary monitor.
-  // TODO(oshima): Use device's default scale factor.
-  gfx::Display primary_display =
-      gfx::Screen::GetNativeScreen()->GetPrimaryDisplay();
-  return gfx::ToFlooredSize(
-      thumbnail_size.Scale(primary_display.device_scale_factor()));
+  // Determine the resolution of the thumbnail based on the maximum scale
+  // factor.
+  // TODO(mazda|oshima): Update thumbnail when the max scale factor changes.
+  // crbug.com/159157.
+  float max_scale_factor =
+      ui::GetScaleFactorScale(ui::GetMaxScaleFactor());
+  return gfx::ToFlooredSize(gfx::ScaleSize(thumbnail_size, max_scale_factor));
 }
 
 // Returns the clipping rectangle that is used for creating a thumbnail with
@@ -216,11 +217,24 @@ SkBitmap CreateThumbnail(
 
 }  // namespace
 
+ThumbnailTabHelper::ThumbnailingContext::ThumbnailingContext(
+    content::WebContents* web_contents,
+    bool load_interrupted)
+    : browser_context(web_contents->GetBrowserContext()),
+      url(web_contents->GetURL()),
+      clip_result(kUnprocessed) {
+  score.at_top =
+      (web_contents->GetRenderViewHost()->GetLastScrollOffset().y() == 0);
+  score.load_completed = !web_contents->IsLoading() && !load_interrupted;
+}
+
+ThumbnailTabHelper::ThumbnailingContext::~ThumbnailingContext() {
+}
+
 ThumbnailTabHelper::ThumbnailTabHelper(content::WebContents* contents)
     : content::WebContentsObserver(contents),
       enabled_(true),
-      load_interrupted_(false),
-      weak_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
+      load_interrupted_(false) {
   // Even though we deal in RenderWidgetHosts, we only care about its
   // subclass, RenderViewHost when it is in a tab. We don't make thumbnails
   // for RenderViewHosts that aren't in tabs, or RenderWidgetHosts that
@@ -350,31 +364,26 @@ void ThumbnailTabHelper::UpdateThumbnailIfNecessary(
 }
 
 void ThumbnailTabHelper::UpdateThumbnail(
-    WebContents* web_contents, const SkBitmap& thumbnail,
-    const ClipResult& clip_result) {
+    ThumbnailingContext* context,
+    const SkBitmap& thumbnail) {
   Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+      Profile::FromBrowserContext(context->browser_context);
   scoped_refptr<thumbnails::ThumbnailService> thumbnail_service =
       ThumbnailServiceFactory::GetForProfile(profile);
 
   if (!thumbnail_service)
     return;
 
-  // Compute the thumbnail score.
-  ThumbnailScore score;
-  score.at_top =
-      (web_contents->GetRenderViewHost()->GetLastScrollOffset().y() == 0);
-  score.boring_score = ThumbnailTabHelper::CalculateBoringScore(thumbnail);
-  score.good_clipping =
-      (clip_result == ThumbnailTabHelper::kWiderThanTall ||
-       clip_result == ThumbnailTabHelper::kTallerThanWide ||
-       clip_result == ThumbnailTabHelper::kNotClipped);
-  score.load_completed = (!load_interrupted_ && !web_contents->IsLoading());
+  context->score.boring_score = CalculateBoringScore(thumbnail);
+  context->score.good_clipping =
+      (context->clip_result == ThumbnailTabHelper::kWiderThanTall ||
+       context->clip_result == ThumbnailTabHelper::kTallerThanWide ||
+       context->clip_result == ThumbnailTabHelper::kNotClipped);
 
   gfx::Image image(thumbnail);
-  const GURL& url = web_contents->GetURL();
-  thumbnail_service->SetPageThumbnail(url, image, score);
-  VLOG(1) << "Thumbnail taken for " << url << ": " << score.ToString();
+  thumbnail_service->SetPageThumbnail(context->url, image, context->score);
+  VLOG(1) << "Thumbnail taken for " << context->url << ": "
+          << context->score.ToString();
 }
 
 void ThumbnailTabHelper::AsyncUpdateThumbnail(
@@ -390,14 +399,14 @@ void ThumbnailTabHelper::AsyncUpdateThumbnail(
     // available in the browser when accelerated compositing is active, so ask
     // the renderer to send a snapshot for creating the thumbnail.
     if (base::win::GetVersion() < base::win::VERSION_VISTA) {
+      scoped_refptr<ThumbnailingContext> context(
+          new ThumbnailingContext(web_contents, load_interrupted_));
       gfx::Size view_size =
           render_widget_host->GetView()->GetViewBounds().size();
       g_browser_process->GetRenderWidgetSnapshotTaker()->AskForSnapshot(
           render_widget_host,
           base::Bind(&ThumbnailTabHelper::UpdateThumbnailWithBitmap,
-                     weak_factory_.GetWeakPtr(),
-                     web_contents,
-                     ThumbnailTabHelper::kUnprocessed),
+                     context),
           view_size,
           view_size);
     }
@@ -410,26 +419,26 @@ void ThumbnailTabHelper::AsyncUpdateThumbnail(
   // thumbnails.
   int scrollbar_size = gfx::scrollbar_size();
   copy_rect.Inset(0, 0, scrollbar_size, scrollbar_size);
-  ClipResult clip_result = ThumbnailTabHelper::kUnprocessed;
+
+  scoped_refptr<ThumbnailingContext> context(
+      new ThumbnailingContext(web_contents, load_interrupted_));
   copy_rect = GetClippingRect(copy_rect.size(),
                               gfx::Size(kThumbnailWidth, kThumbnailHeight),
-                              &clip_result);
+                              &context->clip_result);
+
   gfx::Size copy_size = GetCopySizeForThumbnail(view);
   skia::PlatformBitmap* temp_bitmap = new skia::PlatformBitmap;
   render_widget_host->CopyFromBackingStore(
       copy_rect,
       copy_size,
       base::Bind(&ThumbnailTabHelper::UpdateThumbnailWithCanvas,
-                 weak_factory_.GetWeakPtr(),
-                 web_contents,
-                 clip_result,
+                 context,
                  base::Owned(temp_bitmap)),
       temp_bitmap);
 }
 
 void ThumbnailTabHelper::UpdateThumbnailWithBitmap(
-    WebContents* web_contents,
-    ClipResult clip_result,
+    ThumbnailingContext* context,
     const SkBitmap& bitmap) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
   if (bitmap.isNull() || bitmap.empty())
@@ -437,13 +446,13 @@ void ThumbnailTabHelper::UpdateThumbnailWithBitmap(
 
   SkBitmap thumbnail = CreateThumbnail(bitmap,
                                        GetThumbnailSizeInPixel(),
-                                       &clip_result);
-  UpdateThumbnail(web_contents, thumbnail, clip_result);
+                                       &context->clip_result);
+
+  UpdateThumbnail(context, thumbnail);
 }
 
 void ThumbnailTabHelper::UpdateThumbnailWithCanvas(
-    WebContents* web_contents,
-    ClipResult clip_result,
+    ThumbnailingContext* context,
     skia::PlatformBitmap* temp_bitmap,
     bool succeeded) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
@@ -451,7 +460,7 @@ void ThumbnailTabHelper::UpdateThumbnailWithCanvas(
     return;
 
   SkBitmap bitmap = temp_bitmap->GetBitmap();
-  UpdateThumbnailWithBitmap(web_contents, clip_result, bitmap);
+  UpdateThumbnailWithBitmap(context, bitmap);
 }
 
 void ThumbnailTabHelper::DidStartLoading(

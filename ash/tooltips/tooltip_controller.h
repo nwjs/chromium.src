@@ -46,7 +46,7 @@ class ASH_EXPORT TooltipController : public aura::client::TooltipClient,
                                  ui::KeyEvent* event) OVERRIDE;
   virtual bool PreHandleMouseEvent(aura::Window* target,
                                    ui::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus PreHandleTouchEvent(
+  virtual ui::EventResult PreHandleTouchEvent(
       aura::Window* target,
       ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult PreHandleGestureEvent(aura::Window* target,
@@ -54,6 +54,8 @@ class ASH_EXPORT TooltipController : public aura::client::TooltipClient,
 
   // Overridden from aura::WindowObserver.
   virtual void OnWindowDestroyed(aura::Window* window) OVERRIDE;
+
+  gfx::Point mouse_location() const { return curr_mouse_loc_; }
 
  private:
   friend class ash::test::TooltipControllerTest;

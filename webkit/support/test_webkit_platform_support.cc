@@ -46,6 +46,7 @@
 #include "webkit/support/webkit_support.h"
 #include "webkit/support/weburl_loader_mock_factory.h"
 #include "webkit/support/web_audio_device_mock.h"
+#include "webkit/support/web_gesture_curve_mock.h"
 #include "webkit/tools/test_shell/mock_webclipboard_impl.h"
 #include "webkit/tools/test_shell/simple_appcache_system.h"
 #include "webkit/tools/test_shell/simple_file_system.h"
@@ -304,6 +305,10 @@ WebKit::WebString TestWebKitPlatformSupport::queryLocalizedString(
       return ASCIIToUTF16("<<CalendarClear>>");
     case WebKit::WebLocalizedString::CalendarToday:
       return ASCIIToUTF16("<<CalendarToday>>");
+    case WebKit::WebLocalizedString::ThisMonthButtonLabel:
+      return ASCIIToUTF16("<<ThisMonthLabel>>");
+    case WebKit::WebLocalizedString::ThisWeekButtonLabel:
+      return ASCIIToUTF16("<<ThisWeekLabel>>");
     default:
       return WebKitPlatformSupportImpl::queryLocalizedString(name);
   }
@@ -589,4 +594,12 @@ size_t TestWebKitPlatformSupport::computeLastHyphenLocation(
     }
   }
   return 0;
+}
+
+WebKit::WebGestureCurve* TestWebKitPlatformSupport::createFlingAnimationCurve(
+    int device_source,
+    const WebKit::WebFloatPoint& velocity,
+    const WebKit::WebSize& cumulative_scroll) {
+  // Caller will retain and release.
+  return new WebGestureCurveMock(velocity, cumulative_scroll);
 }

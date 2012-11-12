@@ -23,9 +23,11 @@
 
 namespace aura {
 class DesktopActivationClient;
+class DesktopCursorClient;
 class DesktopDispatcherClient;
 class FocusManager;
 namespace client {
+class DefaultCaptureClient;
 class ScreenPositionClient;
 }
 namespace shared {
@@ -35,14 +37,12 @@ class InputMethodEventFilter;
 }
 
 namespace views {
-class DesktopCaptureClient;
 class X11DesktopWindowMoveClient;
 class X11WindowEventFilter;
 
 class VIEWS_EXPORT DesktopRootWindowHostLinux
     : public DesktopRootWindowHost,
       public aura::RootWindowHost,
-      public aura::client::CursorClient,
       public views::internal::InputMethodDelegate,
       public MessageLoop::Dispatcher {
  public:
@@ -52,8 +52,15 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
       const gfx::Rect& initial_bounds);
   virtual ~DesktopRootWindowHostLinux();
 
-  // A way of converting an xwindows |xid| into a |content_window_|.
+  // A way of converting an X11 |xid| host window into a |content_window_|.
   static aura::Window* GetContentWindowForXID(XID xid);
+
+  // A way of converting an X11 |xid| host window into this object.
+  static DesktopRootWindowHostLinux* GetHostForXID(XID xid);
+
+  // Called by X11DesktopHandler to notify us that the native windowing system
+  // has changed our activation.
+  void HandleNativeWidgetActivationChanged(bool active);
 
  private:
   // Initializes our X11 surface to draw on. This method performs all
@@ -75,10 +82,6 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
 
   // Checks if the window manager has set a specific state.
   bool HasWMSpecProperty(const char* property) const;
-
-  // Sets the cursor on |xwindow_| to |cursor|.  Does not check or update
-  // |current_cursor_|.
-  void SetCursorInternal(gfx::NativeCursor cursor);
 
   // Called when another DRWHL takes capture, or when capture is released
   // entirely.
@@ -124,7 +127,7 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
   virtual void SetWindowTitle(const string16& title) OVERRIDE;
   virtual void ClearNativeFocus() OVERRIDE;
   virtual Widget::MoveLoopResult RunMoveLoop(
-      const gfx::Point& drag_offset) OVERRIDE;
+      const gfx::Vector2d& drag_offset) OVERRIDE;
   virtual void EndMoveLoop() OVERRIDE;
   virtual void SetVisibilityChangedAnimationsEnabled(bool value) OVERRIDE;
   virtual bool ShouldUseNativeFrame() OVERRIDE;
@@ -171,14 +174,6 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
   virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
   virtual void PrepareForShutdown() OVERRIDE;
 
-  // Overridden from aura::CursorClient:
-  // Note: other methods are just set on aura::RootWindowHost:
-  virtual void ShowCursor(bool show) OVERRIDE;
-  virtual bool IsCursorVisible() const OVERRIDE;
-  virtual void SetDeviceScaleFactor(float device_scale_factor) OVERRIDE;
-  virtual void LockCursor() OVERRIDE;
-  virtual void UnlockCursor() OVERRIDE;
-
   // Overridden from views::internal::InputMethodDelegate:
   virtual void DispatchKeyEventPostIME(const ui::KeyEvent& key) OVERRIDE;
 
@@ -213,19 +208,15 @@ class VIEWS_EXPORT DesktopRootWindowHostLinux
   aura::RootWindow* root_window_;
 
   // aura:: objects that we own.
-  scoped_ptr<DesktopCaptureClient> capture_client_;
+  scoped_ptr<aura::client::DefaultCaptureClient> capture_client_;
+  scoped_ptr<aura::FocusManager> focus_manager_;
   scoped_ptr<aura::DesktopActivationClient> activation_client_;
+  scoped_ptr<aura::DesktopCursorClient> cursor_client_;
   scoped_ptr<aura::DesktopDispatcherClient> dispatcher_client_;
   scoped_ptr<aura::client::ScreenPositionClient> position_client_;
 
-  // Translates custom bitmaps provided by the webpage into X11 cursors.
-  ui::CursorLoaderX11 cursor_loader_;
-
   // Current Aura cursor.
   gfx::NativeCursor current_cursor_;
-
-  // Is the cursor currently shown?
-  bool cursor_shown_;
 
   // The invisible cursor.
   ::Cursor invisible_cursor_;

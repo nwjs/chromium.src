@@ -22,6 +22,7 @@ class DecryptorClient;
 
 namespace webkit {
 namespace ppapi {
+class ContentDecryptorDelegate;
 class PluginInstance;
 }
 }
@@ -34,8 +35,8 @@ namespace webkit_media {
 class PpapiDecryptor : public media::Decryptor {
  public:
   PpapiDecryptor(
-    media::DecryptorClient* client,
-    const scoped_refptr<webkit::ppapi::PluginInstance>& plugin_instance);
+      media::DecryptorClient* client,
+      const scoped_refptr<webkit::ppapi::PluginInstance>& plugin_instance);
   virtual ~PpapiDecryptor();
 
   // media::Decryptor implementation.
@@ -51,18 +52,18 @@ class PpapiDecryptor : public media::Decryptor {
                       const std::string& session_id) OVERRIDE;
   virtual void CancelKeyRequest(const std::string& key_system,
                                 const std::string& session_id) OVERRIDE;
+  virtual void RegisterKeyAddedCB(StreamType stream_type,
+                                  const KeyAddedCB& key_added_cb) OVERRIDE;
   virtual void Decrypt(StreamType stream_type,
                        const scoped_refptr<media::DecoderBuffer>& encrypted,
                        const DecryptCB& decrypt_cb) OVERRIDE;
   virtual void CancelDecrypt(StreamType stream_type) OVERRIDE;
   virtual void InitializeAudioDecoder(
       scoped_ptr<media::AudioDecoderConfig> config,
-      const DecoderInitCB& init_cb,
-      const KeyAddedCB& key_added_cb) OVERRIDE;
+      const DecoderInitCB& init_cb) OVERRIDE;
   virtual void InitializeVideoDecoder(
       scoped_ptr<media::VideoDecoderConfig> config,
-      const DecoderInitCB& init_cb,
-      const KeyAddedCB& key_added_cb) OVERRIDE;
+      const DecoderInitCB& init_cb) OVERRIDE;
   virtual void DecryptAndDecodeAudio(
       const scoped_refptr<media::DecoderBuffer>& encrypted,
       const AudioDecodeCB& audio_decode_cb) OVERRIDE;
@@ -76,12 +77,17 @@ class PpapiDecryptor : public media::Decryptor {
   void ReportFailureToCallPlugin(const std::string& key_system,
                                  const std::string& session_id);
 
-  void OnDecoderInitialized(StreamType stream_type,
-                            const KeyAddedCB& key_added_cb,
-                            bool success);
+  void OnDecoderInitialized(StreamType stream_type, bool success);
 
   media::DecryptorClient* client_;
-  scoped_refptr<webkit::ppapi::PluginInstance> cdm_plugin_;
+
+  // Hold a reference of the plugin instance to make sure the plugin outlives
+  // the |plugin_cdm_delegate_|. This is needed because |plugin_cdm_delegate_|
+  // is owned by the |plugin_instance_|.
+  scoped_refptr<webkit::ppapi::PluginInstance> plugin_instance_;
+
+  webkit::ppapi::ContentDecryptorDelegate* plugin_cdm_delegate_;
+
   scoped_refptr<base::MessageLoopProxy> render_loop_proxy_;
 
   DecoderInitCB audio_decoder_init_cb_;

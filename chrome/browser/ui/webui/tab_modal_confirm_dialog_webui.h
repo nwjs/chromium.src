@@ -15,8 +15,10 @@
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
 
-namespace ui {
 class ConstrainedWebDialogDelegate;
+
+namespace content {
+class WebContents;
 }
 
 // Displays a tab-modal dialog, i.e. a dialog that will block the current page
@@ -29,7 +31,7 @@ class TabModalConfirmDialogWebUI : public TabModalConfirmDialog,
  public:
   TabModalConfirmDialogWebUI(
       TabModalConfirmDialogDelegate* dialog_delegate,
-      TabContents* tab_contents);
+      content::WebContents* web_contents);
 
   // ui::WebDialogDelegate implementation.
   virtual ui::ModalType GetDialogModalType() const OVERRIDE;
@@ -44,7 +46,7 @@ class TabModalConfirmDialogWebUI : public TabModalConfirmDialog,
                                bool* out_close_dialog) OVERRIDE;
   virtual bool ShouldShowDialogTitle() const OVERRIDE;
 
-  ui::ConstrainedWebDialogDelegate* constrained_web_dialog_delegate() {
+  ConstrainedWebDialogDelegate* constrained_web_dialog_delegate() {
     return constrained_web_dialog_delegate_;
   }
 
@@ -58,7 +60,7 @@ class TabModalConfirmDialogWebUI : public TabModalConfirmDialog,
   scoped_ptr<TabModalConfirmDialogDelegate> delegate_;
 
   // Deletes itself.
-  ui::ConstrainedWebDialogDelegate* constrained_web_dialog_delegate_;
+  ConstrainedWebDialogDelegate* constrained_web_dialog_delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(TabModalConfirmDialogWebUI);
 };

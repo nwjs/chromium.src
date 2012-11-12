@@ -9,20 +9,6 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 
-class Browser;
-class DockInfo;
-class GURL;
-class TabContents;
-
-namespace content {
-struct Referrer;
-class SiteInstance;
-}
-
-namespace gfx {
-class Rect;
-}
-
 namespace chrome {
 
 class BrowserTabStripModelDelegate : public TabStripModelDelegate {
@@ -32,26 +18,19 @@ class BrowserTabStripModelDelegate : public TabStripModelDelegate {
 
  private:
   // Overridden from TabStripModelDelegate:
-  virtual TabContents* AddBlankTab(bool foreground) OVERRIDE;
-  virtual TabContents* AddBlankTabAt(int index, bool foreground) OVERRIDE;
+  virtual void AddBlankTabAt(int index, bool foreground) OVERRIDE;
   virtual Browser* CreateNewStripWithContents(
-      TabContents* detached_contents,
+      const std::vector<NewStripContents>& contentses,
       const gfx::Rect& window_bounds,
       const DockInfo& dock_info,
       bool maximize) OVERRIDE;
   virtual int GetDragActions() const OVERRIDE;
-  virtual TabContents* CreateTabContentsForURL(
-      const GURL& url,
-      const content::Referrer& referrer,
-      Profile* profile,
-      content::PageTransition transition,
-      bool defer_load,
-      content::SiteInstance* instance) const OVERRIDE;
   virtual bool CanDuplicateContentsAt(int index) OVERRIDE;
   virtual void DuplicateContentsAt(int index) OVERRIDE;
   virtual void CloseFrameAfterDragSession() OVERRIDE;
-  virtual void CreateHistoricalTab(TabContents* contents) OVERRIDE;
-  virtual bool RunUnloadListenerBeforeClosing(TabContents* contents) OVERRIDE;
+  virtual void CreateHistoricalTab(content::WebContents* contents) OVERRIDE;
+  virtual bool RunUnloadListenerBeforeClosing(
+      content::WebContents* contents) OVERRIDE;
   virtual bool CanBookmarkAllTabs() const OVERRIDE;
   virtual void BookmarkAllTabs() OVERRIDE;
   virtual bool CanRestoreTab() OVERRIDE;

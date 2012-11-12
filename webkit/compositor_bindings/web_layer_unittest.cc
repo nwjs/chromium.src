@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
 #include <public/WebLayer.h>
 
+#include "cc/thread.h"
 #include "cc/test/compositor_fake_web_graphics_context_3d.h"
 #include "web_layer_impl.h"
+#include "web_layer_tree_view_impl.h"
 #include "web_layer_tree_view_test_common.h"
 #include <public/WebContentLayer.h>
 #include <public/WebContentLayerClient.h>
@@ -33,7 +34,11 @@ namespace {
 
 class MockWebContentLayerClient : public WebContentLayerClient {
 public:
+#if WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
+    MOCK_METHOD4(paintContents, void(WebCanvas*, const WebRect& clip, bool canPaintLCDText, WebFloatRect& opaque));
+#else
     MOCK_METHOD3(paintContents, void(WebCanvas*, const WebRect& clip, WebFloatRect& opaque));
+#endif  // WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
 };
 
 class WebLayerTest : public Test {
@@ -46,7 +51,9 @@ public:
     {
         m_rootLayer.reset(WebLayer::create());
         EXPECT_CALL(m_client, scheduleComposite()).Times(AnyNumber());
-        m_view.reset(WebLayerTreeView::create(&m_client, *m_rootLayer, WebLayerTreeView::Settings()));
+        m_view.reset(new WebLayerTreeViewImpl(&m_client));
+        EXPECT_TRUE(m_view->initialize(WebLayerTreeView::Settings(), scoped_ptr<cc::Thread>(NULL)));
+        m_view->setRootLayer(*m_rootLayer);
         EXPECT_TRUE(m_view);
         Mock::VerifyAndClearExpectations(&m_client);
     }
@@ -62,7 +69,7 @@ public:
 protected:
     MockWebLayerTreeViewClient m_client;
     scoped_ptr<WebLayer> m_rootLayer;
-    scoped_ptr<WebLayerTreeView> m_view;
+    scoped_ptr<WebLayerTreeViewImpl> m_view;
 };
 
 // Tests that the client gets called to ask for a composite if we change the
@@ -144,7 +151,12 @@ TEST_F(WebLayerTest, Client)
 
     // Content layer.
     MockWebContentLayerClient contentClient;
+#if WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
+    EXPECT_CALL(contentClient, paintContents(_, _, _, _)).Times(AnyNumber());
+#else
     EXPECT_CALL(contentClient, paintContents(_, _, _)).Times(AnyNumber());
+#endif  // WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
+                                             
     EXPECT_CALL(m_client, scheduleComposite()).Times(AnyNumber());
     scoped_ptr<WebContentLayer> contentLayer(WebContentLayer::create(&contentClient));
     m_rootLayer->addChild(contentLayer->layer());

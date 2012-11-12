@@ -8,6 +8,7 @@
 
 #include "ash/ash_switches.h"
 #include "ash/shell.h"
+#include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/cursor_manager.h"
 #include "base/command_line.h"
 #include "base/location.h"
@@ -74,12 +75,18 @@ int GetMaxWidth(int x, int y) {
 }
 
 // Creates a widget of type TYPE_TOOLTIP
-views::Widget* CreateTooltip() {
+views::Widget* CreateTooltip(const gfx::Point location) {
   views::Widget* widget = new views::Widget;
   views::Widget::InitParams params;
   // For aura, since we set the type to TOOLTIP_TYPE, the widget will get
   // auto-parented to the MenuAndTooltipsContainer.
   params.type = views::Widget::InitParams::TYPE_TOOLTIP;
+#if !defined(OS_CHROMEOS)
+  // We need to pass the right root window so that the views delegate
+  // can create the right type of widget.
+  params.parent = ash::wm::GetRootWindowAt(location);
+  DCHECK(params.parent);
+#endif
   params.keep_on_top = true;
   params.accept_events = false;
   widget->Init(params);
@@ -94,7 +101,8 @@ namespace internal {
 // Displays a widget with tooltip using a views::Label.
 class TooltipController::Tooltip : public views::WidgetObserver {
  public:
-  Tooltip() : widget_(NULL) {
+  Tooltip(TooltipController* controller)
+      : controller_(controller), widget_(NULL) {
     label_.set_background(
         views::Background::CreateSolidBackground(kTooltipBackground));
     if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAuraNoShadows)) {
@@ -153,6 +161,7 @@ class TooltipController::Tooltip : public views::WidgetObserver {
 
  private:
   views::Label label_;
+  TooltipController* controller_;
   views::Widget* widget_;
 
   // Adjusts the bounds given by the arguments to fit inside the desktop
@@ -185,7 +194,7 @@ class TooltipController::Tooltip : public views::WidgetObserver {
 
   views::Widget* GetWidget() {
     if (!widget_) {
-      widget_ = CreateTooltip();
+      widget_ = CreateTooltip(controller_->mouse_location());
       widget_->SetContentsView(&label_);
       widget_->AddObserver(this);
     }
@@ -292,7 +301,7 @@ bool TooltipController::PreHandleMouseEvent(aura::Window* target,
   return false;
 }
 
-ui::TouchStatus TooltipController::PreHandleTouchEvent(
+ui::EventResult TooltipController::PreHandleTouchEvent(
     aura::Window* target,
     ui::TouchEvent* event) {
   // TODO(varunjain): need to properly implement tooltips for
@@ -303,7 +312,7 @@ ui::TouchStatus TooltipController::PreHandleTouchEvent(
   if (tooltip_window_)
     tooltip_window_->RemoveObserver(this);
   tooltip_window_ = NULL;
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult TooltipController::PreHandleGestureEvent(
@@ -450,9 +459,8 @@ void TooltipController::UpdateIfRequired() {
       GetTooltip()->Hide();
     } else {
       string16 tooltip_text(tooltip_text_);
-      gfx::Point widget_loc = curr_mouse_loc_;
-      widget_loc = widget_loc.Add(
-          tooltip_window_->GetBoundsInScreen().origin());
+      gfx::Point widget_loc = curr_mouse_loc_ +
+          tooltip_window_->GetBoundsInScreen().OffsetFromOrigin();
       GetTooltip()->SetText(tooltip_text, widget_loc);
       GetTooltip()->Show();
       tooltip_shown_timer_.Start(FROM_HERE,
@@ -472,7 +480,7 @@ bool TooltipController::IsDragDropInProgress() {
 
 TooltipController::Tooltip* TooltipController::GetTooltip() {
   if (!tooltip_.get())
-    tooltip_.reset(new Tooltip);
+    tooltip_.reset(new Tooltip(this));
   return tooltip_.get();
 }
 

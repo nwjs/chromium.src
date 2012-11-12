@@ -27,6 +27,7 @@
 #include "chrome/browser/component_updater/component_updater_configurator.h"
 #include "chrome/browser/component_updater/component_updater_service.h"
 #include "chrome/browser/debugger/remote_debugging_server.h"
+#include "chrome/browser/defaults.h"
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/download/download_status_updater.h"
 #include "chrome/browser/extensions/event_router_forwarder.h"
@@ -57,6 +58,7 @@
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/browser/thumbnails/render_widget_snapshot_taker.h"
+#include "chrome/browser/ui/bookmarks/bookmark_prompt_controller.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_content_client.h"
@@ -558,6 +560,14 @@ DownloadStatusUpdater* BrowserProcessImpl::download_status_updater() {
   return download_status_updater_.get();
 }
 
+BookmarkPromptController* BrowserProcessImpl::bookmark_prompt_controller() {
+#if defined(OS_ANDROID)
+  return NULL;
+#else
+  return bookmark_prompt_controller_.get();
+#endif
+}
+
 DownloadRequestLimiter* BrowserProcessImpl::download_request_limiter() {
   DCHECK(CalledOnValidThread());
   if (!download_request_limiter_)
@@ -600,27 +610,14 @@ safe_browsing::ClientSideDetectionService*
   return NULL;
 }
 
-bool BrowserProcessImpl::plugin_finder_disabled() const {
-  if (plugin_finder_disabled_pref_.get())
-    return plugin_finder_disabled_pref_->GetValue();
-  else
-    return false;
-}
-
-void BrowserProcessImpl::Observe(int type,
-                                 const content::NotificationSource& source,
-                                 const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
-    std::string* pref = content::Details<std::string>(details).ptr();
-    if (*pref == prefs::kDefaultBrowserSettingEnabled) {
-      ApplyDefaultBrowserPolicy();
-    } else if (*pref == prefs::kDisabledSchemes) {
-      ApplyDisabledSchemesPolicy();
-    } else if (*pref == prefs::kAllowCrossOriginAuthPrompt) {
-      ApplyAllowCrossOriginAuthPromptPolicy();
-    }
-  } else {
-    NOTREACHED();
+void BrowserProcessImpl::OnPreferenceChanged(PrefServiceBase* service,
+                                             const std::string& pref) {
+  if (pref == prefs::kDefaultBrowserSettingEnabled) {
+    ApplyDefaultBrowserPolicy();
+  } else if (pref == prefs::kDisabledSchemes) {
+    ApplyDisabledSchemesPolicy();
+  } else if (pref == prefs::kAllowCrossOriginAuthPrompt) {
+    ApplyAllowCrossOriginAuthPromptPolicy();
   }
 }
 
@@ -730,17 +727,8 @@ void BrowserProcessImpl::CreateLocalState() {
                                     false);
   pref_change_registrar_.Add(prefs::kDefaultBrowserSettingEnabled, this);
 
-  // Initialize the preference for the plugin finder policy.
-  // This preference is only needed on the IO thread so make it available there.
-  local_state_->RegisterBooleanPref(prefs::kDisablePluginFinder, false);
-  plugin_finder_disabled_pref_.reset(new BooleanPrefMember);
-  plugin_finder_disabled_pref_->Init(prefs::kDisablePluginFinder,
-                                   local_state_.get(), NULL);
-  plugin_finder_disabled_pref_->MoveToThread(
-      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
-
-  // Another policy that needs to be defined before the net subsystem is
-  // initialized is MaxConnectionsPerProxy so we do it here.
+  // This policy needs to be defined before the net subsystem is initialized,
+  // so we do it here.
   local_state_->RegisterIntegerPref(prefs::kMaxConnectionsPerProxy,
                                     net::kDefaultMaxSocketsPerProxyServer);
   int max_per_proxy = local_state_->GetInteger(prefs::kMaxConnectionsPerProxy);
@@ -813,6 +801,11 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
     plugins_resource_service_ = new PluginsResourceService(local_state());
     plugins_resource_service_->StartAfterDelay();
   }
+#endif
+
+#if !defined(OS_ANDROID)
+  if (browser_defaults::bookmarks_enabled)
+    bookmark_prompt_controller_.reset(new BookmarkPromptController());
 #endif
 }
 

@@ -361,6 +361,22 @@
    ...
    fun:ssl_InitSessionCacheLocks
 }
+{
+   FileStream::Context can leak through WorkerPool by design (Linux)
+   Heapcheck:Leak
+   fun:net::FileStream::FileStream
+}
+{
+   FileStream::Context can leak through WorkerPool by design (CrOS)
+   Heapcheck:Leak
+   fun:FileStream
+}
+{
+   Tasks posted to WorkerPool can leak by design
+   Heapcheck:Leak
+   fun:base::internal::PostTaskAndReplyImpl::PostTaskAndReply
+   fun:base::WorkerPool::PostTaskAndReply
+}
 
 #-----------------------------------------------------------------------
 # 3. Suppressions for real chromium bugs that are not yet fixed.
@@ -1407,13 +1423,6 @@
    fun:TestingProfile::CreateWebDataService
 }
 {
-   bug_129392
-   Heapcheck:Leak
-   fun:::ChromeTestSuiteInitializer::SetUpHostResolver
-   fun:::ChromeTestSuiteInitializer::OnTestStart
-   fun:testing::internal::TestEventRepeater::OnTestStart
-}
-{
   bug_130640_a
   Heapcheck:Leak
   ...
@@ -1424,6 +1433,14 @@
   Heapcheck:Leak
   ...
   fun:GtkThemeService::GetDefaultFavicon
+}
+{
+  bug_132431
+  Heapcheck:Leak
+  ...
+  fun:gfx::::LoadDefaults
+  ...
+  fun:::ChromeToMobileServiceTest_RequirementsToEnable_Test::TestBody
 }
 {
    bug_134527
@@ -1531,7 +1548,6 @@
    fun:::TestWebFrameClient::didClearWindowObject
    fun:WebKit::FrameLoaderClientImpl::dispatchDidClearWindowObjectInWorld
    fun:WebCore::FrameLoader::dispatchDidClearWindowObjectInWorld
-   fun:WebCore::V8DOMWindowShell::initializeIfNeeded
 }
 {
    bug_151907
@@ -1581,34 +1597,49 @@
    fun:GeolocationInfoBarQueueControllerTests::SetUp
 }
 {
-   bug_122183
-   Heapcheck:Leak
-   ...
-   fun:BrowserWithTestWindowTest::AddTab
-   fun:::ChromeToMobileServiceTest_RequirementsToEnable_Test::TestBody
-}
-{
    bug_157885
    Heapcheck:Leak
    ...
    fun:dom_storage::DomStorageContext::CreateSessionNamespace
 }
 {
-  bug_157669a
-  Heapcheck:Leak
-  ...
-  fun:VisitedLinkEventListener::Add
-  fun:VisitedLinkMaster::AddFingerprint
-  fun:VisitedLinkMaster::TryToAddURL
-  fun:VisitedLinkMaster::AddURL
-  fun:VisitedLinkEventsTest*
+   bug_159191
+   Heapcheck:Leak
+   ...
+   fun:FontConfigDirect::FontConfigDirect
+   fun:GetFcImpl
+   fun:SkFontHost::CreateTypeface
+   fun:SkTypeface::GetDefaultTypeface
+   fun:SkScalerContext::MakeRec
+   fun:SkPaint::descriptorProc
+   fun:SkPaint::detachCache
+   fun:SkAutoGlyphCache::SkAutoGlyphCache
+   fun:SkDraw::drawText
+   fun:SkDevice::drawText
+   fun:SkCanvas::drawText
+   fun:media::FakeVideoCaptureDevice::OnCaptureTask
+}
+# Need to figure out if the bug_159551 leaks are intentional or not.
+{
+   bug_159551_message_loop
+   Heapcheck:Leak
+   fun:MessageLoop::MessageLoop
+   ...
+   fun:testing::internal::TestFactoryImpl::CreateTest
 }
 {
-  bug_157669b
-  Heapcheck:Leak
-  ...
-  fun:::BuildVisitedLinkMaster
-  fun:ProfileKeyedServiceFactory::GetServiceForProfile
-  fun:ProfileKeyedServiceFactory::SetTestingFactoryAndUse
-  fun:VisitedLinkEventsTest::SetUp
+   bug_159551_bind_cros
+   Heapcheck:Leak
+   fun:base::Bind
+   fun:net::FileStream::Context::CloseAndDelete
+   fun:net::FileStream::Context::Orphan
+   fun:~FileStream
+}
+{
+   bug_159551_bind_linux
+   Heapcheck:Leak
+   fun:base::Bind
+   fun:net::FileStream::Context::CloseAndDelete
+   fun:net::FileStream::Context::Orphan
+   fun:net::FileStream::~FileStream
 }

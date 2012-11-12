@@ -101,7 +101,7 @@ LauncherTooltipManager::LauncherTooltipBubble::LauncherTooltipBubble(
         root_window, ash::internal::kShellWindowId_SettingBubbleContainer));
   }
   label_ = new views::Label;
-  label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   label_->SetEnabledColor(kTooltipTextColor);
   label_->SetElideBehavior(views::Label::ELIDE_AT_END);
   AddChildView(label_);
@@ -295,11 +295,11 @@ bool LauncherTooltipManager::PreHandleMouseEvent(aura::Window* target,
   return false;
 }
 
-ui::TouchStatus LauncherTooltipManager::PreHandleTouchEvent(
+ui::EventResult LauncherTooltipManager::PreHandleTouchEvent(
     aura::Window* target, ui::TouchEvent* event) {
   if (widget_ && widget_->IsVisible() && widget_->GetNativeWindow() != target)
     Close();
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult LauncherTooltipManager::PreHandleGestureEvent(

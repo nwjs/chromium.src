@@ -23,9 +23,11 @@
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/extensions/native_shell_window.h"
 #include "chrome/browser/ui/intents/web_intent_picker_controller.h"
+#include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/view_type_utils.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/extensions/api/app_window.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_messages.h"
 #include "chrome/common/extensions/request_media_access_permission_helper.h"
@@ -45,6 +47,8 @@
 #include "content/public/common/media_stream_request.h"
 #include "content/public/common/renderer_preferences.h"
 #include "third_party/skia/include/core/SkRegion.h"
+
+namespace app_window = extensions::api::app_window;
 
 using content::BrowserThread;
 using content::ConsoleMessageLevel;
@@ -71,7 +75,7 @@ void SuspendRenderViewHost(RenderViewHost* rvh) {
 
 ShellWindow::CreateParams::CreateParams()
   : frame(ShellWindow::CreateParams::FRAME_CHROME),
-    bounds(-1, -1, kDefaultWidth, kDefaultHeight),
+    bounds(INT_MIN, INT_MIN, INT_MIN, INT_MIN),
     restore_position(true), restore_size(true),
     creator_process_id(0), hidden(false) {
 }
@@ -105,6 +109,7 @@ void ShellWindow::Init(const GURL& url,
       profile(), SiteInstance::CreateForURL(profile(), url), MSG_ROUTING_NONE,
       NULL));
   ConstrainedWindowTabHelper::CreateForWebContents(web_contents_.get());
+  CoreTabHelper::CreateForWebContents(web_contents_.get());
   FaviconTabHelper::CreateForWebContents(web_contents_.get());
   WebIntentPickerController::CreateForWebContents(web_contents_.get());
 
@@ -115,10 +120,15 @@ void ShellWindow::Init(const GURL& url,
       browser_handles_all_top_level_requests = true;
   web_contents_->GetRenderViewHost()->SyncRendererPrefs();
 
-  native_window_.reset(NativeShellWindow::Create(this, params));
+  gfx::Rect bounds = params.bounds;
 
-  if (!params.hidden)
-    GetBaseWindow()->Show();
+  if (bounds.width() == INT_MIN)
+    bounds.set_width(kDefaultWidth);
+  if (bounds.height() == INT_MIN)
+    bounds.set_height(kDefaultHeight);
+
+  // If left and top are left undefined, the native shell window will center
+  // the window on the main screen in a platform-defined manner.
 
   if (!params.window_key.empty()) {
     window_key_ = params.window_key;
@@ -130,17 +140,22 @@ void ShellWindow::Init(const GURL& url,
       gfx::Rect cached_bounds;
       if (cache->GetGeometry(extension()->id(), params.window_key,
                              &cached_bounds)) {
-        gfx::Rect bounds = native_window_->GetBounds();
-
         if (params.restore_position)
           bounds.set_origin(cached_bounds.origin());
         if (params.restore_size)
           bounds.set_size(cached_bounds.size());
-
-        native_window_->SetBounds(bounds);
       }
     }
   }
+
+  ShellWindow::CreateParams new_params = params;
+  new_params.bounds = bounds;
+
+  native_window_.reset(NativeShellWindow::Create(this, new_params));
+  SaveWindowPosition();
+
+  if (!params.hidden)
+    GetBaseWindow()->Show();
 
   // If the new view is in the same process as the creator, block the created
   // RVH from loading anything until the background page has had a chance to do
@@ -432,6 +447,10 @@ ShellWindow::GetExtensionWindowController() const {
   return NULL;
 }
 
+content::WebContents* ShellWindow::GetAssociatedWebContents() const {
+  return web_contents_.get();
+}
+
 extensions::ActiveTabPermissionGranter*
     ShellWindow::GetActiveTabPermissionGranter() {
   // Shell windows don't support the activeTab permission.
@@ -450,9 +469,31 @@ void ShellWindow::AddMessageToDevToolsConsole(ConsoleMessageLevel level,
       rvh->GetRoutingID(), level, message));
 }
 
-void ShellWindow::SaveWindowPosition()
-{
+void ShellWindow::SendBoundsUpdate() {
+  if (!native_window_ || !web_contents_)
+    return;
+  gfx::Rect bounds = native_window_->GetBounds();
+  content::RenderViewHost* rvh = web_contents_->GetRenderViewHost();
+  ListValue args;
+  app_window::Bounds update;
+  update.left.reset(new int(bounds.x()));
+  update.top.reset(new int(bounds.y()));
+  update.width.reset(new int(bounds.width()));
+  update.height.reset(new int(bounds.height()));
+  args.Append(update.ToValue().release());
+  rvh->Send(new ExtensionMsg_MessageInvoke(rvh->GetRoutingID(),
+                                           extension_->id(),
+                                           "updateAppWindowBounds",
+                                           args,
+                                           GURL(),
+                                           false));
+}
+
+void ShellWindow::SaveWindowPosition() {
+  SendBoundsUpdate();
   if (window_key_.empty())
+    return;
+  if (!native_window_)
     return;
 
   extensions::ShellWindowGeometryCache* cache =

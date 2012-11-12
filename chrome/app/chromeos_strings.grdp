@@ -745,6 +745,9 @@ Press any key to continue exploring.
   <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_SCREEN_MAGNIFIER_PARTIAL" desc="In the settings tab, the option indication the screen magnifier is set to partial.">
     Partial
   </message>
+  <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_TOUCHPAD_TAP_DRAGGING_DESCRIPTION" desc="In the settings tab, the text next to the checkbox for tap dragging.">
+    Enable tap dragging
+  </message>
   <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_VIRTUAL_KEYBOARD_DESCRIPTION" desc="In the settings tab, the text next to the checkbox for virtual keyboard.">
     Enable virtual keyboard
   </message>
@@ -915,6 +918,9 @@ Press any key to continue exploring.
   </message>
   <message name="IDS_OPTIONS_CHANGE_PICTURE_TAKE_PHOTO" desc="The text on the button to take photo of the current user.">
     Take photo
+  </message>
+  <message name="IDS_OPTIONS_CHANGE_PICTURE_CAPTURED_PHOTO" desc="The accessible text on the icon in the user image grid for a camera photo, when a photo has been captured.">
+    Photo captured from camera
   </message>
   <message name="IDS_OPTIONS_CHANGE_PICTURE_DISCARD_PHOTO" desc="The text on the button to discard the captured photo of the current user.">
     Discard photo
@@ -2038,6 +2044,10 @@ Press any key to continue exploring.
   <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_KEY_LEFT_ALT_LABEL"
            desc="The label for 'Customize modifier keys' overlay">
     Alt
+  </message>
+  <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_KEY_CAPS_LOCK_LABEL"
+           desc="The label for 'Customize modifier keys' overlay">
+    Caps Lock
   </message>
   <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_KEY_SEARCH"
            desc="The dropdown list item for 'Customize modifier keys' overlay">
@@ -3457,5 +3467,11 @@ Battery full
   </message>
   <message name="IDS_LOGIN_MANAGED_REPORTING_HINT" desc="Text for the hint on reporting features displayed in the enterprise notification bar on the login screen.">
     Device usage may be tracked.
+  </message>
+  <message name="IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE" desc="Name for the flag to switch lock animations direction.">
+    New lock animations direction.
+  </message>
+  <message name="IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE_DESCRIPTION" desc="Description for the flag to switch lock animations direction.">
+    Changes direction of animation of user pod after lock for new lock animations.
   </message>
 </grit-part>

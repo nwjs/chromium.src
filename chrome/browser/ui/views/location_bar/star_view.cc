@@ -64,19 +64,8 @@ void StarView::OnMouseReleased(const ui::MouseEvent& event) {
     UMA_HISTOGRAM_ENUMERATION("Bookmarks.EntryPoint",
                               bookmark_utils::ENTRY_POINT_STAR_MOUSE,
                               bookmark_utils::ENTRY_POINT_LIMIT);
-    command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE);
+    command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE_FROM_STAR);
   }
-}
-
-ui::EventResult StarView::OnGestureEvent(const ui::GestureEvent& event) {
-  if (event.type() == ui::ET_GESTURE_TAP) {
-    UMA_HISTOGRAM_ENUMERATION("Bookmarks.EntryPoint",
-                              bookmark_utils::ENTRY_POINT_STAR_GESTURE,
-                              bookmark_utils::ENTRY_POINT_LIMIT);
-    command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE);
-    return ui::ER_CONSUMED;
-  }
-  return ui::ER_UNHANDLED;
 }
 
 bool StarView::OnKeyPressed(const ui::KeyEvent& event) {
@@ -85,8 +74,19 @@ bool StarView::OnKeyPressed(const ui::KeyEvent& event) {
     UMA_HISTOGRAM_ENUMERATION("Bookmarks.EntryPoint",
                               bookmark_utils::ENTRY_POINT_STAR_KEY,
                               bookmark_utils::ENTRY_POINT_LIMIT);
-    command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE);
+    command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE_FROM_STAR);
     return true;
   }
   return false;
+}
+
+ui::EventResult StarView::OnGestureEvent(ui::GestureEvent* event) {
+  if (event->type() == ui::ET_GESTURE_TAP) {
+    UMA_HISTOGRAM_ENUMERATION("Bookmarks.EntryPoint",
+                              bookmark_utils::ENTRY_POINT_STAR_GESTURE,
+                              bookmark_utils::ENTRY_POINT_LIMIT);
+    command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE_FROM_STAR);
+    return ui::ER_CONSUMED;
+  }
+  return ui::ER_UNHANDLED;
 }

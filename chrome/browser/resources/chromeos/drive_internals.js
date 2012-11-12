@@ -145,10 +145,6 @@ function updateAccountMetadata(accountMetadata) {
       quotaUsedInMb + ' / ' + quotaTotalInMb + ' (MB)';
   $('account-largest-changestamp-remote').textContent =
       accountMetadata['account-largest-changestamp-remote'];
-  $('account-largest-changestamp-local').textContent =
-      accountMetadata['account-largest-changestamp-local'];
-  $('account-metadata-origin').textContent =
-      accountMetadata['account-metadata-origin'];
 
   var installedAppContainer = $('account-installed-apps');
   for (var i = 0; i < accountMetadata['installed-apps'].length; i++) {
@@ -162,6 +158,33 @@ function updateAccountMetadata(accountMetadata) {
 
     installedAppContainer.appendChild(tr);
   }
+}
+
+/**
+ * Updates the local cache information about account metadata.
+ * @param {Object} localMetadata Dictionary describing account metadata.
+ */
+function updateLocalMetadata(localMetadata) {
+  $('account-largest-changestamp-local').textContent =
+      localMetadata['account-largest-changestamp-local'];
+  $('account-metadata-loaded').textContent =
+      localMetadata['account-metadata-loaded'].toString() +
+      (localMetadata['account-metadata-refreshing'] ? ' (refreshing)' : '');
+}
+
+/**
+ * Updates the summary about delta update status.
+ * @param {Object} deltaUpdateStatus Dictionary describing delta update status.
+ */
+function updateDeltaUpdateStatus(deltaUpdateStatus) {
+  $('push-notification-enabled').textContent =
+        deltaUpdateStatus['push-notification-enabled'];
+  $('polling-interval-sec').textContent =
+        deltaUpdateStatus['polling-interval-sec'];
+  $('last-update-check-time').textContent =
+        deltaUpdateStatus['last-update-check-time'];
+  $('last-update-check-error').textContent =
+        deltaUpdateStatus['last-update-check-error'];
 }
 
 /**

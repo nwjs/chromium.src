@@ -406,14 +406,6 @@ enum NotificationType {
   // to policy.  Source and details are unused.
   NOTIFICATION_DEFAULT_SEARCH_POLICY_CHANGED,
 
-  // This is sent to a pref observer when a pref is changed. The source is the
-  // PrefService and the details a std::string of the changed path.
-  NOTIFICATION_PREF_CHANGED,
-
-  // This is broadcast after the preference subsystem has completed
-  // asynchronous initalization of a PrefService.
-  NOTIFICATION_PREF_INITIALIZATION_COMPLETED,
-
   // The state of a web resource has been changed. A resource may have been
   // added, removed, or altered. Source is WebResourceService, and the
   // details are NoDetails.
@@ -930,7 +922,8 @@ enum NotificationType {
   NOTIFICATION_GOOGLE_SIGNIN_FAILED,
 
   // Sent when the currently signed-in user for a user has been signed out.
-  // The source is the Profile. There are no details.
+  // The source is the Profile. The details are a
+  // GoogleServiceSignoutDetails object.
   NOTIFICATION_GOOGLE_SIGNED_OUT,
 
   // Autofill Notifications --------------------------------------------------
@@ -1266,13 +1259,6 @@ enum NotificationType {
   // The source is the SearchViewController whose animation is finished.
   // No details.
   NOTIFICATION_SEARCH_VIEW_CONTROLLER_ANIMATION_FINISHED,
-
-  // NTP for Instant Extended API.
-  // Sent when vertical offset of NTP background theme image in content view
-  // needs to be changed via |background_position| in new_tab_theme.css.
-  // The source is the Profile for the content view.
-  // Details is a the y-pos of |background_position| of new_tab_theme.css.
-  NOTIFICATION_NTP_BACKGROUND_THEME_Y_POS_CHANGED,
 
   // Note:-
   // Currently only Content and Chrome define and use notifications.

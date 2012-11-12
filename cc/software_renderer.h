@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCRendererSoftware_h
-#define CCRendererSoftware_h
+#ifndef CC_SOFTWARE_RENDERER_H_
+#define CC_SOFTWARE_RENDERER_H_
 
 #include "base/basictypes.h"
+#include "cc/cc_export.h"
 #include "cc/direct_renderer.h"
 
 namespace WebKit {
@@ -22,7 +23,7 @@ class TextureDrawQuad;
 class TileDrawQuad;
 class RenderPassDrawQuad;
 
-class SoftwareRenderer : public DirectRenderer {
+class CC_EXPORT SoftwareRenderer : public DirectRenderer {
 public:
     static scoped_ptr<SoftwareRenderer> create(RendererClient*, ResourceProvider*, WebKit::WebCompositorSoftwareOutputDevice*);
     virtual ~SoftwareRenderer();
@@ -35,7 +36,7 @@ public:
 
     virtual bool swapBuffers() OVERRIDE;
 
-    virtual void getFramebufferPixels(void *pixels, const IntRect&) OVERRIDE;
+    virtual void getFramebufferPixels(void *pixels, const gfx::Rect&) OVERRIDE;
 
     virtual void setVisible(bool) OVERRIDE;
 
@@ -43,10 +44,9 @@ public:
 
 protected:
     virtual void bindFramebufferToOutputSurface(DrawingFrame&) OVERRIDE;
-    virtual bool bindFramebufferToTexture(DrawingFrame&, const ScopedTexture*, const gfx::Rect& framebufferRect) OVERRIDE;
+    virtual bool bindFramebufferToTexture(DrawingFrame&, const ScopedResource*, const gfx::Rect& framebufferRect) OVERRIDE;
     virtual void setDrawViewportSize(const gfx::Size&) OVERRIDE;
-    virtual void enableScissorTestRect(const gfx::Rect& scissorRect) OVERRIDE;
-    virtual void disableScissorTest() OVERRIDE;
+    virtual void setScissorTestRect(const gfx::Rect& scissorRect) OVERRIDE;
     virtual void clearFramebuffer(DrawingFrame&) OVERRIDE;
     virtual void drawQuad(DrawingFrame&, const DrawQuad*) OVERRIDE;
     virtual void beginDrawingFrame(DrawingFrame&) OVERRIDE;
@@ -79,4 +79,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_SOFTWARE_RENDERER_H_

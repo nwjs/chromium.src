@@ -6,12 +6,40 @@
 
 #include "base/logging.h"
 #include "ui/base/events/event.h"
+#include "ui/base/native_theme/native_theme.h"
+#include "ui/views/border.h"
 #include "ui/views/controls/scrollbar/native_scroll_bar.h"
 #include "ui/views/widget/root_view.h"
 
 namespace views {
 
 const char* const ScrollView::kViewClassName = "views/ScrollView";
+
+namespace {
+
+// Subclass of ScrollView that resets the border when the theme changes.
+class ScrollViewWithBorder : public views::ScrollView {
+ public:
+  ScrollViewWithBorder() {
+    SetThemeSpecificState();
+  }
+
+  // View overrides;
+  virtual void OnNativeThemeChanged(const ui::NativeTheme* theme) OVERRIDE {
+    SetThemeSpecificState();
+  }
+
+ private:
+  void SetThemeSpecificState() {
+    set_border(Border::CreateSolidBorder(
+        1, GetNativeTheme()->GetSystemColor(
+            ui::NativeTheme::kColorId_UnfocusedBorderColor)));
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(ScrollViewWithBorder);
+};
+
+}  // namespace
 
 // Viewport contains the contents View of the ScrollView.
 class Viewport : public View {
@@ -64,6 +92,11 @@ ScrollView::~ScrollView() {
 
   if (resize_corner_ && !resize_corner_->parent())
     delete resize_corner_;
+}
+
+// static
+ScrollView* ScrollView::CreateScrollViewWithBorder() {
+  return new ScrollViewWithBorder();
 }
 
 void ScrollView::SetContents(View* a_view) {
@@ -400,23 +433,23 @@ bool ScrollView::OnKeyPressed(const ui::KeyEvent& event) {
   return processed;
 }
 
-ui::EventResult ScrollView::OnGestureEvent(const ui::GestureEvent& event) {
+ui::EventResult ScrollView::OnGestureEvent(ui::GestureEvent* event) {
   ui::EventResult status = ui::ER_UNHANDLED;
 
   // If the event happened on one of the scrollbars, then those events are
   // sent directly to the scrollbars. Otherwise, only scroll events are sent to
   // the scrollbars.
-  bool scroll_event = event.type() == ui::ET_GESTURE_SCROLL_UPDATE ||
-                      event.type() == ui::ET_GESTURE_SCROLL_BEGIN ||
-                      event.type() == ui::ET_GESTURE_SCROLL_END ||
-                      event.type() == ui::ET_SCROLL_FLING_START;
+  bool scroll_event = event->type() == ui::ET_GESTURE_SCROLL_UPDATE ||
+                      event->type() == ui::ET_GESTURE_SCROLL_BEGIN ||
+                      event->type() == ui::ET_GESTURE_SCROLL_END ||
+                      event->type() == ui::ET_SCROLL_FLING_START;
 
   if (vert_sb_->visible()) {
-    if (vert_sb_->bounds().Contains(event.location()) || scroll_event)
+    if (vert_sb_->bounds().Contains(event->location()) || scroll_event)
       status = vert_sb_->OnGestureEvent(event);
   }
   if (status == ui::ER_UNHANDLED && horiz_sb_->visible()) {
-    if (horiz_sb_->bounds().Contains(event.location()) || scroll_event)
+    if (horiz_sb_->bounds().Contains(event->location()) || scroll_event)
       status = horiz_sb_->OnGestureEvent(event);
   }
   return status;

@@ -38,7 +38,7 @@ namespace tray {
 class IMEDefaultView : public TrayItemMore {
  public:
   explicit IMEDefaultView(SystemTrayItem* owner)
-      : TrayItemMore(owner) {
+      : TrayItemMore(owner, true) {
     ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
 
     SetImage(bundle.GetImageNamed(
@@ -222,7 +222,7 @@ class IMENotificationView : public TrayNotificationView {
             IDS_ASH_STATUS_TRAY_IME_TURNED_ON_BUBBLE,
             current.medium_name));
     label->SetMultiLine(true);
-    label->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     return label;
   }
 

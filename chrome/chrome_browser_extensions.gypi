@@ -14,7 +14,6 @@
       # have the same dependencies. Once browser_extensions is untangled from
       # browser, then we can clean up these dependencies.
       'dependencies': [
-        'app/policy/cloud_policy_codegen.gyp:policy',
         '../sync/protocol/sync_proto.gyp:sync_proto',
         'chrome_resources.gyp:chrome_extra_resources',
         'chrome_resources.gyp:chrome_resources',
@@ -130,6 +129,7 @@
         'browser/extensions/api/declarative/rules_registry_with_cache.h',
         'browser/extensions/api/declarative/test_rules_registry.cc',
         'browser/extensions/api/declarative/test_rules_registry.h',
+        'browser/extensions/api/declarative_webrequest/request_stage.cc',
         'browser/extensions/api/declarative_webrequest/request_stage.h',
         'browser/extensions/api/declarative_webrequest/webrequest_action.cc',
         'browser/extensions/api/declarative_webrequest/webrequest_action.h',
@@ -182,6 +182,8 @@
         'browser/extensions/api/idle/idle_api_constants.h',
         'browser/extensions/api/idltest/idltest_api.cc',
         'browser/extensions/api/idltest/idltest_api.h',
+        'browser/extensions/api/input/input.cc',
+        'browser/extensions/api/input/input.h',
         'browser/extensions/api/input_ime/input_ime_api.cc',
         'browser/extensions/api/input_ime/input_ime_api.h',
         'browser/extensions/api/managed_mode/managed_mode_api.cc',
@@ -209,6 +211,8 @@
         'browser/extensions/api/messaging/native_message_port.h',
         'browser/extensions/api/metrics/metrics.cc',
         'browser/extensions/api/metrics/metrics.h',
+        'browser/extensions/api/module/module.cc',
+        'browser/extensions/api/module/module.h',
         'browser/extensions/api/notification/notification_api.cc',
         'browser/extensions/api/notification/notification_api.h',
         'browser/extensions/api/offscreen_tabs/offscreen_tabs_api.cc',
@@ -233,6 +237,8 @@
         'browser/extensions/api/processes/processes_api.h',
         'browser/extensions/api/processes/processes_api_constants.cc',
         'browser/extensions/api/processes/processes_api_constants.h',
+        'browser/extensions/api/processes/processes_api_factory.cc',
+        'browser/extensions/api/processes/processes_api_factory.h',
         'browser/extensions/api/proxy/proxy_api.cc',
         'browser/extensions/api/proxy/proxy_api.h',
         'browser/extensions/api/proxy/proxy_api_constants.cc',
@@ -340,6 +346,8 @@
         'browser/extensions/api/web_socket_proxy_private/web_socket_proxy_private_api.h',
         'browser/extensions/api/webstore_private/webstore_private_api.cc',
         'browser/extensions/api/webstore_private/webstore_private_api.h',
+        'browser/extensions/app_host_installer_win.cc',
+        'browser/extensions/app_host_installer_win.h',
         'browser/extensions/app_notification.cc',
         'browser/extensions/app_notification.h',
         'browser/extensions/app_notification_manager.cc',
@@ -366,8 +374,6 @@
         'browser/extensions/bluetooth_event_router.cc',
         'browser/extensions/bluetooth_event_router.h',
         'browser/extensions/browser_action_test_util.h',
-        'browser/extensions/browser_action_test_util_gtk.cc',
-        'browser/extensions/browser_action_test_util_mac.mm',
         'browser/extensions/browser_event_router.cc',
         'browser/extensions/browser_event_router.h',
         'browser/extensions/browser_extension_window_controller.cc',
@@ -447,8 +453,6 @@
         'browser/extensions/extension_info_map.h',
         'browser/extensions/extension_infobar_delegate.cc',
         'browser/extensions/extension_infobar_delegate.h',
-        'browser/extensions/extension_input_api.cc',
-        'browser/extensions/extension_input_api.h',
         'browser/extensions/extension_input_method_api.cc',
         'browser/extensions/extension_input_method_api.h',
         'browser/extensions/extension_input_module_constants.cc',
@@ -461,8 +465,6 @@
         'browser/extensions/extension_install_ui_default.h',
         'browser/extensions/extension_keybinding_registry.cc',
         'browser/extensions/extension_keybinding_registry.h',
-        'browser/extensions/extension_module.cc',
-        'browser/extensions/extension_module.h',
         'browser/extensions/extension_pref_store.cc',
         'browser/extensions/extension_pref_store.h',
         'browser/extensions/extension_pref_value_map.cc',
@@ -689,6 +691,7 @@
             ['include', '^browser/extensions/api/declarative/rules_registry_with_cache.cc'],
             ['include', '^browser/extensions/api/declarative/substring_set_matcher.cc'],
             ['include', '^browser/extensions/api/declarative/url_matcher.cc'],
+            ['include', '^browser/extensions/api/declarative_webrequest/request_stage.cc'],
             ['include', '^browser/extensions/api/declarative_webrequest/webrequest_action.cc'],
             ['include', '^browser/extensions/api/declarative_webrequest/webrequest_condition.cc'],
             ['include', '^browser/extensions/api/declarative_webrequest/webrequest_condition_attribute.cc'],
@@ -752,7 +755,11 @@
             '../third_party/undoview/undoview.gyp:undoview',
           ],
         }],
-        ['configuration_policy==0', {
+        ['configuration_policy==1', {
+          'dependencies': [
+            'app/policy/cloud_policy_codegen.gyp:policy',
+          ],
+        }, {  # configuration_policy==0
           'sources!': [
             'browser/extensions/settings/managed_value_store_cache.cc',
             'browser/extensions/settings/managed_value_store_cache.h',
@@ -760,6 +767,7 @@
         }],
         ['OS=="win"', {
           'dependencies': [
+            'launcher_support',
             '../third_party/iaccessible2/iaccessible2.gyp:iaccessible2',
             '../third_party/isimpledom/isimpledom.gyp:isimpledom',
           ],
@@ -781,7 +789,6 @@
                 ['include', '^browser/extensions/'],
 
                 # Other excluded stuff.
-                ['exclude', '^browser/extensions/browser_action_test_util_gtk.cc'],
                 ['exclude', '^browser/extensions/extension_host_mac.h'],
                 ['exclude', '^browser/extensions/extension_host_mac.mm'],
                 ['exclude', '^browser/extensions/external_registry_loader_win.cc'],
@@ -792,16 +799,13 @@
             # (Required because of the '^browser/extensions/' include above)
             ['toolkit_views==0', {
               'sources/': [
-                ['exclude', '^browser/extensions/extension_input_api.cc'],
-                ['exclude', '^browser/extensions/extension_input_api.h'],
+                ['exclude', '^browser/extensions/api/input/input.cc'],
+                ['exclude', '^browser/extensions/api/input/input.h'],
                 ['exclude', '^browser/extensions/key_identifier_conversion_views.cc'],
                 ['exclude', '^browser/extensions/key_identifier_conversion_views.h'],
               ],
             }],
             ['chromeos==1',{
-              'sources/': [
-                ['exclude', '^browser/extensions/extension_tts_api_linux.cc'],
-              ],
               'dependencies': [
                 '../dbus/dbus.gyp:dbus',
                 '../third_party/protobuf/protobuf.gyp:protobuf_lite',

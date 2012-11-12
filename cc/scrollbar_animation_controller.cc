@@ -2,20 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scrollbar_animation_controller.h"
 
-#include "cc/scrollbar_layer_impl.h"
 #include "base/time.h"
+#include "build/build_config.h"
+#include "cc/scrollbar_layer_impl.h"
 
-#if OS(ANDROID)
+#if defined(OS_ANDROID)
 #include "cc/scrollbar_animation_controller_linear_fade.h"
 #endif
 
 namespace cc {
 
-#if OS(ANDROID)
+#if defined(OS_ANDROID)
 scoped_ptr<ScrollbarAnimationController> ScrollbarAnimationController::create(LayerImpl* scrollLayer)
 {
     static const double fadeoutDelay = 0.3;
@@ -65,10 +64,10 @@ void ScrollbarAnimationController::updateScrollOffset(LayerImpl* scrollLayer)
     updateScrollOffsetAtTime(scrollLayer, (base::TimeTicks::Now() - base::TimeTicks()).InSecondsF());
 }
 
-IntSize ScrollbarAnimationController::getScrollLayerBounds(const LayerImpl* scrollLayer)
+gfx::Size ScrollbarAnimationController::getScrollLayerBounds(const LayerImpl* scrollLayer)
 {
     if (!scrollLayer->children().size())
-        return IntSize();
+        return gfx::Size();
     // Copy & paste from LayerTreeHostImpl...
     // FIXME: Hardcoding the first child here is weird. Think of
     // a cleaner way to get the contentBounds on the Impl side.
@@ -77,21 +76,21 @@ IntSize ScrollbarAnimationController::getScrollLayerBounds(const LayerImpl* scro
 
 void ScrollbarAnimationController::updateScrollOffsetAtTime(LayerImpl* scrollLayer, double)
 {
-    m_currentPos = scrollLayer->scrollPosition() + scrollLayer->scrollDelta();
+    m_currentOffset = scrollLayer->scrollOffset() + scrollLayer->scrollDelta();
     m_totalSize = getScrollLayerBounds(scrollLayer);
-    m_maximum = scrollLayer->maxScrollPosition();
+    m_maximum = scrollLayer->maxScrollOffset();
 
     if (m_horizontalScrollbarLayer) {
-        m_horizontalScrollbarLayer->setCurrentPos(m_currentPos.x());
+        m_horizontalScrollbarLayer->setCurrentPos(m_currentOffset.x());
         m_horizontalScrollbarLayer->setTotalSize(m_totalSize.width());
-        m_horizontalScrollbarLayer->setMaximum(m_maximum.width());
+        m_horizontalScrollbarLayer->setMaximum(m_maximum.x());
     }
 
     if (m_verticalScrollbarLayer) {
-        m_verticalScrollbarLayer->setCurrentPos(m_currentPos.y());
+        m_verticalScrollbarLayer->setCurrentPos(m_currentOffset.y());
         m_verticalScrollbarLayer->setTotalSize(m_totalSize.height());
-        m_verticalScrollbarLayer->setMaximum(m_maximum.height());
+        m_verticalScrollbarLayer->setMaximum(m_maximum.y());
     }
 }
 
-} // namespace cc
+}  // namespace cc

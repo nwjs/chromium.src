@@ -57,16 +57,6 @@ public class ContentVideoView extends FrameLayout implements MediaPlayerControl,
     // Type needs to be kept in sync with surface_texture_peer.h.
     private static final int SET_VIDEO_SURFACE_TEXTURE = 1;
 
-    /** Unspecified media player error.
-     * @see android.media.MediaPlayer.OnErrorListener
-     */
-    public static final int MEDIA_ERROR_UNKNOWN = 0;
-
-    /** Media server died. In this case, the application must release the
-     * MediaPlayer object and instantiate a new one.
-     */
-    public static final int MEDIA_ERROR_SERVER_DIED = 1;
-
     /** The video is streamed and its container is not valid for progressive
      * playback i.e the video's index (e.g moov atom) is not at the start of the
      * file.
@@ -139,7 +129,7 @@ public class ContentVideoView extends FrameLayout implements MediaPlayerControl,
         }
     }
 
-    private class ProgressView extends LinearLayout {
+    private static class ProgressView extends LinearLayout {
 
         private ProgressBar mProgressBar;
         private TextView mTextView;
@@ -155,6 +145,32 @@ public class ContentVideoView extends FrameLayout implements MediaPlayerControl,
             mTextView.setText(mVideoLoadingText);
             addView(mProgressBar);
             addView(mTextView);
+        }
+    }
+
+    private static class FullScreenMediaController extends MediaController {
+
+        View mVideoView;
+
+        public FullScreenMediaController(Context context, View video) {
+            super(context);
+            mVideoView = video;
+        }
+
+        @Override
+        public void show() {
+            super.show();
+            if (mVideoView != null) {
+                mVideoView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+            }
+        }
+
+        @Override
+        public void hide() {
+            if (mVideoView != null) {
+                mVideoView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+            }
+            super.hide();
         }
     }
 
@@ -316,6 +332,7 @@ public class ContentVideoView extends FrameLayout implements MediaPlayerControl,
                 // ensure the controller will get repositioned later
                 mMediaController.hide();
             }
+            mMediaController.show();
         }
     }
 
@@ -356,7 +373,7 @@ public class ContentVideoView extends FrameLayout implements MediaPlayerControl,
     public void openVideo() {
         if (mSurfaceHolder != null) {
             mCurrentState = STATE_IDLE;
-            setMediaController(new MediaController(getChromeActivity()));
+            setMediaController(new FullScreenMediaController(getChromeActivity(), this));
             if (mNativeContentVideoView != 0) {
                 nativeUpdateMediaMetadata(mNativeContentVideoView);
             }
@@ -365,8 +382,6 @@ public class ContentVideoView extends FrameLayout implements MediaPlayerControl,
                 nativeSetSurface(mNativeContentVideoView,
                                  mSurfaceHolder.getSurface());
             }
-            requestLayout();
-            invalidate();
         }
     }
 

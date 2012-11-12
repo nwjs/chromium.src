@@ -37,14 +37,32 @@ class CHROMEOS_EXPORT ShillServiceClient {
  public:
   typedef ShillClientHelper::PropertyChangedHandler PropertyChangedHandler;
   typedef ShillClientHelper::DictionaryValueCallback DictionaryValueCallback;
+  typedef ShillClientHelper::ListValueCallback ListValueCallback;
   typedef ShillClientHelper::ErrorCallback ErrorCallback;
 
+  // Interface for setting up services for testing. Accessed through
+  // GetTestInterface(), only implemented in the stub implementation.
+  class TestInterface {
+   public:
+    virtual void AddService(const std::string& service_path,
+                            const std::string& name,
+                            const std::string& type,
+                            const std::string& state) = 0;
+    virtual void RemoveService(const std::string& service_path) = 0;
+    virtual void SetServiceProperty(const std::string& service_path,
+                                    const std::string& property,
+                                    const base::Value& value) = 0;
+    virtual void ClearServices() = 0;
+
+   protected:
+    ~TestInterface() {}
+  };
   virtual ~ShillServiceClient();
 
   // Factory function, creates a new instance which is owned by the caller.
   // For normal usage, access the singleton via DBusThreadManager::Get().
   static ShillServiceClient* Create(DBusClientImplementationType type,
-                                       dbus::Bus* bus);
+                                    dbus::Bus* bus);
 
   // Adds a property changed |observer| to the service at |service_path|.
   virtual void AddPropertyChangedObserver(
@@ -75,6 +93,13 @@ class CHROMEOS_EXPORT ShillServiceClient {
                              const std::string& name,
                              const base::Closure& callback,
                              const ErrorCallback& error_callback) = 0;
+
+  // Calls ClearProperties method.
+  // |callback| is called after the method call succeeds.
+  virtual void ClearProperties(const dbus::ObjectPath& service_path,
+                               const std::vector<std::string>& names,
+                               const ListValueCallback& callback,
+                               const ErrorCallback& error_callback) = 0;
 
   // Calls Connect method.
   // |callback| is called after the method call succeeds.
@@ -110,6 +135,9 @@ class CHROMEOS_EXPORT ShillServiceClient {
   virtual bool CallActivateCellularModemAndBlock(
       const dbus::ObjectPath& service_path,
       const std::string& carrier) = 0;
+
+  // Returns an interface for testing (stub only), or returns NULL.
+  virtual TestInterface* GetTestInterface() = 0;
 
  protected:
   // Create() should be used instead.

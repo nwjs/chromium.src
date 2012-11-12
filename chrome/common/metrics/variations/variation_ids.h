@@ -113,10 +113,11 @@ enum VariationID {
   kInstantIDInstant = 3310024,
 
   // Instant dummy field trial.
-  kDummyInstantIDDefault       = 3310025,
-  kDummyInstantIDControl       = 3310026,
-  kDummyInstantIDExperimentOne = 3310027,
-  kDummyInstantIDExperimentTwo = 3310028,
+  kDummyInstantIDDefault         = 3310025,
+  kDummyInstantIDControl         = 3310026,
+  kDummyInstantIDExperimentOne   = 3310027,
+  kDummyInstantIDExperimentTwo   = 3310028,
+  kDummyInstantIDExperimentThree = 3310049,
 
   // Name: OmniboxSearchSuggestStarted2012Q4
   // Range: 3310029 - 3310048
@@ -127,6 +128,17 @@ enum VariationID {
   // reuse experiment IDs.
   kSuggestTrialStarted2012Q4IDMin = 3310029,
   kSuggestTrialStarted2012Q4IDMax = 3310048,
+
+  // Name: Instant channel field trial.
+  // Range: 3310050 - 3310059
+  kChannelInstantIDBeta   = 3310050,
+  kChannelInstantIDDev    = 3310051,
+  kChannelInstantIDStable = 3310052,
+
+  // NEXT ID: When adding new IDs, please add them above this section, starting
+  // with the value of kNextID, and updating kNextID to (end of your reserved
+  // range) + 1.
+  kNextID = 3310060,
 
 
   // USABLE IDs END HERE.

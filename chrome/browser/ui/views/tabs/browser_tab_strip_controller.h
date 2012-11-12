@@ -8,12 +8,10 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "chrome/browser/ui/search/search_model_observer.h"
-#include "chrome/browser/ui/search/toolbar_search_animator_observer.h"
+#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/ui/tabs/hover_tab_selector.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
-#include "content/public/browser/notification_observer.h"
 
 class BaseTab;
 class Browser;
@@ -28,12 +26,9 @@ class WebContents;
 
 // An implementation of TabStripController that sources data from the
 // TabContentses in a TabStripModel.
-class BrowserTabStripController
-    : public TabStripController,
-      public TabStripModelObserver,
-      public content::NotificationObserver,
-      public chrome::search::SearchModelObserver,
-      public chrome::search::ToolbarSearchAnimatorObserver {
+class BrowserTabStripController : public TabStripController,
+                                  public TabStripModelObserver,
+                                  public PrefObserver {
  public:
   BrowserTabStripController(Browser* browser, TabStripModel* model);
   virtual ~BrowserTabStripController();
@@ -72,17 +67,14 @@ class BrowserTabStripController
                            const GURL& url) OVERRIDE;
   virtual bool IsCompatibleWith(TabStrip* other) const OVERRIDE;
   virtual void CreateNewTab() OVERRIDE;
-  virtual void ClickActiveTab(int index) OVERRIDE;
   virtual bool IsIncognito() OVERRIDE;
   virtual void LayoutTypeMaybeChanged() OVERRIDE;
-  virtual bool IsInstantExtendedAPIEnabled() OVERRIDE;
-  virtual bool ShouldShowWhiteNTP() OVERRIDE;
 
   // TabStripModelObserver implementation:
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int model_index,
                              bool is_active) OVERRIDE;
-  virtual void TabDetachedAt(TabContents* contents,
+  virtual void TabDetachedAt(content::WebContents* contents,
                              int model_index) OVERRIDE;
   virtual void TabSelectionChanged(
       TabStripModel* tab_strip_model,
@@ -97,27 +89,16 @@ class BrowserTabStripController
                              TabContents* old_contents,
                              TabContents* new_contents,
                              int model_index) OVERRIDE;
-  virtual void TabPinnedStateChanged(TabContents* contents,
+  virtual void TabPinnedStateChanged(content::WebContents* contents,
                                      int model_index) OVERRIDE;
-  virtual void TabMiniStateChanged(TabContents* contents,
+  virtual void TabMiniStateChanged(content::WebContents* contents,
                                    int model_index) OVERRIDE;
-  virtual void TabBlockedStateChanged(TabContents* contents,
+  virtual void TabBlockedStateChanged(content::WebContents* contents,
                                       int model_index) OVERRIDE;
 
-  // chrome::search::SearchModelObserver implementation:
-  virtual void ModeChanged(const chrome::search::Mode& old_mode,
-                           const chrome::search::Mode& new_mode) OVERRIDE;
-
-  // chrome::search::ToolbarSearchAnimatorObserver implementation:
-  virtual void OnToolbarBackgroundAnimatorProgressed() OVERRIDE;
-  virtual void OnToolbarBackgroundAnimatorCanceled(
-      content::WebContents* web_contents) OVERRIDE;
-  virtual void OnToolbarSeparatorChanged() OVERRIDE {}
-
-  // content::NotificationObserver implementation:
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+  // PrefObserver implementation:
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
  protected:
   // The context in which SetTabRendererDataFromModel is being called.
@@ -152,7 +133,7 @@ class BrowserTabStripController
       BaseTab* tab);
 
   // Adds a tab.
-  void AddTab(TabContents* contents, int index, bool is_active);
+  void AddTab(content::WebContents* contents, int index, bool is_active);
 
   // Resets the tabstrips layout type from prefs.
   void UpdateLayoutType();

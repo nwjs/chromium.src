@@ -52,6 +52,14 @@ const int kShowSideloadWipeoutBubbleMax = 3;
 // How many extensions to show in the bubble (max).
 const int kMaxExtensionsToShow = 7;
 
+// UMA histogram constants.
+enum UmaWipeoutHistogramOptions {
+  ACTION_LEARN_MORE = 0,
+  ACTION_SETTINGS_PAGE,
+  ACTION_DISMISS,
+  ACTION_BOUNDARY, // Must be the last value.
+};
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -116,39 +124,42 @@ DisabledExtensionsView::DisabledExtensionsView(
 DisabledExtensionsView::~DisabledExtensionsView() {
 }
 
-void DisabledExtensionsView::DontShowBubbleAgain() {
+void DisabledExtensionsView::DismissBubble() {
   IntegerPrefMember sideload_wipeout_bubble_shown;
   sideload_wipeout_bubble_shown.Init(
       prefs::kExtensionsSideloadWipeoutBubbleShown,
       browser_->profile()->GetPrefs(), NULL);
   sideload_wipeout_bubble_shown.SetValue(kShowSideloadWipeoutBubbleMax);
+
+  GetWidget()->Close();
+  content::RecordAction(
+      UserMetricsAction("DisabledExtensionNotificationDismissed"));
 }
 
 void DisabledExtensionsView::ButtonPressed(views::Button* sender,
                                            const ui::Event& event) {
   if (sender == settings_button_) {
-    content::RecordAction(
-        UserMetricsAction("DisabledExtension_SettingsButton"));
+    UMA_HISTOGRAM_ENUMERATION("DisabledExtension.UserSelection",
+                              ACTION_SETTINGS_PAGE, ACTION_BOUNDARY);
     browser_->OpenURL(
         content::OpenURLParams(GURL(chrome::kChromeUIExtensionsURL),
                                content::Referrer(),
                                NEW_FOREGROUND_TAB,
                                content::PAGE_TRANSITION_LINK,
                                false));
-
-  } else if (sender == dismiss_button_) {
-    content::RecordAction(UserMetricsAction("DisabledExtension_Dismiss"));
   } else {
-    NOTREACHED();
+    DCHECK_EQ(dismiss_button_, sender);
+    UMA_HISTOGRAM_ENUMERATION("DisabledExtension.UserSelection",
+                              ACTION_DISMISS, ACTION_BOUNDARY);
   }
 
-  DontShowBubbleAgain();
-  GetWidget()->Close();
+  DismissBubble();
 }
 
-void DisabledExtensionsView::LinkClicked(
-    views::Link* source, int event_flags) {
-  content::RecordAction(UserMetricsAction("DisabledExtension_LearnMore"));
+void DisabledExtensionsView::LinkClicked(views::Link* source,
+                                         int event_flags) {
+  UMA_HISTOGRAM_ENUMERATION("DisabledExtension.UserSelection",
+                            ACTION_LEARN_MORE, ACTION_BOUNDARY);
   browser_->OpenURL(
       content::OpenURLParams(GURL(chrome::kSideloadWipeoutHelpURL),
                              content::Referrer(),
@@ -156,8 +167,7 @@ void DisabledExtensionsView::LinkClicked(
                              content::PAGE_TRANSITION_LINK,
                              false));
 
-  DontShowBubbleAgain();
-  GetWidget()->Close();
+  DismissBubble();
 }
 
 void DisabledExtensionsView::GetAccessibleState(
@@ -165,8 +175,9 @@ void DisabledExtensionsView::GetAccessibleState(
   state->role = ui::AccessibilityTypes::ROLE_ALERT;
 }
 
-void DisabledExtensionsView::ViewHierarchyChanged(
-    bool is_add, View* parent, View* child) {
+void DisabledExtensionsView::ViewHierarchyChanged(bool is_add,
+                                                  View* parent,
+                                                  View* child) {
   if (is_add && child == this) {
     GetWidget()->NotifyAccessibilityEvent(
         this, ui::AccessibilityTypes::EVENT_ALERT, true);
@@ -217,7 +228,7 @@ void DisabledExtensionsView::Init() {
 
   views::Label* message = new views::Label();
   message->SetMultiLine(true);
-  message->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  message->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   message->SetText(
       l10n_util::GetStringUTF16(IDS_OPTIONS_SIDELOAD_WIPEOUT_WHAT_HAPPENED));
   message->SizeToFit(views::Widget::GetLocalizedContentsWidth(
@@ -237,7 +248,7 @@ void DisabledExtensionsView::Init() {
       0, kHeadlineMessagePadding);
   views::Label* extensions = new views::Label();
   extensions->SetMultiLine(true);
-  extensions->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  extensions->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   extensions->SetFont(extensions->font().DeriveFont(0, gfx::Font::ITALIC));
 
   std::vector<string16> extension_list;
@@ -267,7 +278,7 @@ void DisabledExtensionsView::Init() {
       0, text_column_set_id, 0, kHeadlineMessagePadding);
   views::Label* recourse = new views::Label();
   recourse->SetMultiLine(true);
-  recourse->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  recourse->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   recourse->SetText(
       l10n_util::GetStringUTF16(IDS_OPTIONS_SIDELOAD_WIPEOUT_RECOURSE));
   recourse->SizeToFit(views::Widget::GetLocalizedContentsWidth(

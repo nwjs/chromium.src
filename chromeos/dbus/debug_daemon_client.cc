@@ -12,6 +12,7 @@
 #include "base/chromeos/chromeos_version.h"
 #include "base/eintr_wrapper.h"
 #include "base/memory/ref_counted_memory.h"
+#include "base/message_loop.h"
 #include "base/platform_file.h"
 #include "base/string_util.h"
 #include "base/threading/worker_pool.h"
@@ -51,9 +52,7 @@ class PipeReader {
   }
 
   virtual ~PipeReader() {
-    if (pipe_fd_[0] != -1)
-      if (HANDLE_EINTR(close(pipe_fd_[0])) < 0)
-        PLOG(ERROR) << "close[0]";
+    // Don't close pipe_fd_[0] as it's closed by data_stream_.
     if (pipe_fd_[1] != -1)
       if (HANDLE_EINTR(close(pipe_fd_[1])) < 0)
         PLOG(ERROR) << "close[1]";
@@ -246,14 +245,26 @@ class DebugDaemonClientImpl : public DebugDaemonClient {
                    callback));
   }
 
-  virtual void GetAllLogs(const GetAllLogsCallback& callback)
+  virtual void GetAllLogs(const GetLogsCallback& callback)
       OVERRIDE {
     dbus::MethodCall method_call(debugd::kDebugdInterface,
-                                 "GetAllLogs");
+                                 debugd::kGetAllLogs);
     debugdaemon_proxy_->CallMethod(
         &method_call,
         dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
         base::Bind(&DebugDaemonClientImpl::OnGetAllLogs,
+                   weak_ptr_factory_.GetWeakPtr(),
+                   callback));
+  }
+
+  virtual void GetUserLogFiles(
+      const GetLogsCallback& callback) OVERRIDE {
+    dbus::MethodCall method_call(debugd::kDebugdInterface,
+                                 debugd::kGetUserLogFiles);
+    debugdaemon_proxy_->CallMethod(
+        &method_call,
+        dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::Bind(&DebugDaemonClientImpl::OnGetUserLogFiles,
                    weak_ptr_factory_.GetWeakPtr(),
                    callback));
   }
@@ -395,7 +406,7 @@ class DebugDaemonClientImpl : public DebugDaemonClient {
   }
 
   void OnGetModemStatus(const GetModemStatusCallback& callback,
-                          dbus::Response* response) {
+                        dbus::Response* response) {
     std::string status;
     if (response && dbus::MessageReader(response).PopString(&status))
       callback.Run(true, status);
@@ -412,7 +423,7 @@ class DebugDaemonClientImpl : public DebugDaemonClient {
       callback.Run(false, "");
   }
 
-  void OnGetAllLogs(const GetAllLogsCallback& callback,
+  void OnGetAllLogs(const GetLogsCallback& callback,
                     dbus::Response* response) {
     std::map<std::string, std::string> logs;
     bool broken = false; // did we see a broken (k,v) pair?
@@ -433,6 +444,11 @@ class DebugDaemonClientImpl : public DebugDaemonClient {
       logs[key] = value;
     }
     callback.Run(!sub_reader.HasMoreData() && !broken, logs);
+  }
+
+  void OnGetUserLogFiles(const GetLogsCallback& callback,
+                         dbus::Response* response) {
+    return OnGetAllLogs(callback, response);
   }
 
   // Called when a response for StartSystemTracing() is received.
@@ -522,28 +538,39 @@ class DebugDaemonClientStubImpl : public DebugDaemonClient {
   virtual void GetRoutes(bool numeric, bool ipv6,
                          const GetRoutesCallback& callback) OVERRIDE {
     std::vector<std::string> empty;
-    callback.Run(false, empty);
+    MessageLoop::current()->PostTask(FROM_HERE,
+                                     base::Bind(callback, false, empty));
   }
   virtual void GetNetworkStatus(const GetNetworkStatusCallback& callback)
       OVERRIDE {
-    callback.Run(false, "");
+    MessageLoop::current()->PostTask(FROM_HERE,
+                                     base::Bind(callback, false, ""));
   }
   virtual void GetModemStatus(const GetModemStatusCallback& callback)
       OVERRIDE {
-    callback.Run(false, "");
+    MessageLoop::current()->PostTask(FROM_HERE,
+                                     base::Bind(callback, false, ""));
   }
   virtual void GetNetworkInterfaces(
       const GetNetworkInterfacesCallback& callback) OVERRIDE {
-    callback.Run(false, "");
+    MessageLoop::current()->PostTask(FROM_HERE,
+                                     base::Bind(callback, false, ""));
   }
-  virtual void GetAllLogs(const GetAllLogsCallback& callback) OVERRIDE {
+  virtual void GetAllLogs(const GetLogsCallback& callback) OVERRIDE {
     std::map<std::string, std::string> empty;
-    callback.Run(false, empty);
+    MessageLoop::current()->PostTask(FROM_HERE,
+                                     base::Bind(callback, false, empty));
+  }
+  virtual void GetUserLogFiles(const GetLogsCallback& callback) OVERRIDE {
+    std::map<std::string, std::string> empty;
+    MessageLoop::current()->PostTask(FROM_HERE,
+                                     base::Bind(callback, false, empty));
   }
 
   virtual void TestICMP(const std::string& ip_address,
                         const TestICMPCallback& callback) OVERRIDE {
-    callback.Run(false, "");
+    MessageLoop::current()->PostTask(FROM_HERE,
+                                     base::Bind(callback, false, ""));
   }
 };
 

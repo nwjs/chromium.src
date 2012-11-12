@@ -426,9 +426,7 @@ bool DownloadItemView::OnMouseDragged(const ui::MouseEvent& event) {
                                     widget ? widget->GetNativeView() : NULL);
       }
     }
-  } else if (ExceededDragThreshold(
-                 event.location().x() - drag_start_point_.x(),
-                 event.location().y() - drag_start_point_.y())) {
+  } else if (ExceededDragThreshold(event.location() - drag_start_point_)) {
     dragging_ = true;
   }
   return true;
@@ -481,22 +479,6 @@ bool DownloadItemView::OnKeyPressed(const ui::KeyEvent& event) {
   return false;
 }
 
-ui::EventResult DownloadItemView::OnGestureEvent(
-    const ui::GestureEvent& event) {
-  if (event.type() == ui::ET_GESTURE_TAP_DOWN) {
-    HandlePressEvent(event, true);
-    return ui::ER_CONSUMED;
-  }
-
-  if (event.type() == ui::ET_GESTURE_TAP) {
-    HandleClickEvent(event, true);
-    return ui::ER_CONSUMED;
-  }
-
-  SetState(NORMAL, NORMAL);
-  return views::View::OnGestureEvent(event);
-}
-
 bool DownloadItemView::GetTooltipText(const gfx::Point& p,
                                       string16* tooltip) const {
   if (IsShowingWarningDialog()) {
@@ -521,6 +503,21 @@ void DownloadItemView::GetAccessibleState(ui::AccessibleViewState* state) {
 
 void DownloadItemView::OnThemeChanged() {
   UpdateColorsFromTheme();
+}
+
+ui::EventResult DownloadItemView::OnGestureEvent(ui::GestureEvent* event) {
+  if (event->type() == ui::ET_GESTURE_TAP_DOWN) {
+    HandlePressEvent(*event, true);
+    return ui::ER_CONSUMED;
+  }
+
+  if (event->type() == ui::ET_GESTURE_TAP) {
+    HandleClickEvent(*event, true);
+    return ui::ER_CONSUMED;
+  }
+
+  SetState(NORMAL, NORMAL);
+  return views::View::OnGestureEvent(event);
 }
 
 void DownloadItemView::ShowContextMenuForView(View* source,
@@ -676,7 +673,7 @@ void DownloadItemView::OnPaint(gfx::Canvas* canvas) {
     // (hot_)body_image_set->bottom_left, and drop_down_image_set,
     // for RTL UI, we flip the canvas to draw those images mirrored.
     // Consequently, we do not need to mirror the x-axis of those images.
-    canvas->Translate(gfx::Point(width(), 0));
+    canvas->Translate(gfx::Vector2d(width(), 0));
     canvas->Scale(-1, 1);
   }
   PaintImages(canvas,
@@ -1076,7 +1073,7 @@ void DownloadItemView::ShowWarningDialog() {
   string16 dangerous_label = model_->GetWarningText(font_, kTextWidth);
   dangerous_download_label_ = new views::Label(dangerous_label);
   dangerous_download_label_->SetMultiLine(true);
-  dangerous_download_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  dangerous_download_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   dangerous_download_label_->SetAutoColorReadabilityEnabled(false);
   AddChildView(dangerous_download_label_);
   SizeLabelToMinWidth();

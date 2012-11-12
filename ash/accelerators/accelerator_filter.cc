@@ -79,6 +79,11 @@ bool AcceleratorFilter::PreHandleKeyEvent(aura::Window* target,
                               event->flags() & kModifierFlagMask);
   accelerator.set_type(type);
 
+  // Fill out context object so AcceleratorController will know what
+  // was the previous accelerator or if the current accelerator is repeated.
+  Shell::GetInstance()->accelerator_controller()->context()->
+      UpdateContext(accelerator);
+
   if (!ShouldProcessAcceleratorsNow(accelerator, target))
     return false;
   return Shell::GetInstance()->accelerator_controller()->Process(accelerator);
@@ -89,10 +94,10 @@ bool AcceleratorFilter::PreHandleMouseEvent(aura::Window* target,
   return false;
 }
 
-ui::TouchStatus AcceleratorFilter::PreHandleTouchEvent(
+ui::EventResult AcceleratorFilter::PreHandleTouchEvent(
     aura::Window* target,
     ui::TouchEvent* event) {
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult AcceleratorFilter::PreHandleGestureEvent(

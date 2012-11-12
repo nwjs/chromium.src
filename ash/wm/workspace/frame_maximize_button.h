@@ -64,8 +64,9 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton,
   virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(
-      const ui::GestureEvent& event) OVERRIDE;
+
+  // ui::EventHandler overrides:
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Unit test overwrite: Change the UI delay used for the bubble show up.
   void set_bubble_appearance_delay_ms(int bubble_appearance_delay_ms) {
@@ -106,7 +107,10 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton,
 
   // Updates |snap_type_| based on a mouse drag. If |select_default| is set,
   // the single button click default setting of the snap sizer should be used.
-  void UpdateSnap(const gfx::Point& location, bool select_default);
+  // Set |is_touch| to true to make touch snapping at the corners possible.
+  void UpdateSnap(const gfx::Point& location,
+                  bool select_default,
+                  bool is_touch);
 
   // Returns the type of snap based on the specified location.
   SnapType SnapTypeForLocation(const gfx::Point& location) const;
@@ -143,6 +147,9 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton,
 
   // Location of the press.
   gfx::Point press_location_;
+
+  // True if the press was triggered by a gesture/touch.
+  bool press_is_gesture_;
 
   // Current snap type.
   SnapType snap_type_;

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
 #include "web_layer_impl.h"
 
 #include "SkMatrix44.h"
@@ -12,12 +11,12 @@
 #include "base/string_util.h"
 #include "cc/active_animation.h"
 #include "cc/layer.h"
+#include "cc/region.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebFloatPoint.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebFloatRect.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebSize.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebTransformationMatrix.h"
 #include "web_animation_impl.h"
-#include "webcore_convert.h"
 
 using cc::ActiveAnimation;
 using cc::Layer;
@@ -89,7 +88,7 @@ int WebLayerImpl::id() const
 
 void WebLayerImpl::invalidateRect(const WebFloatRect& rect)
 {
-    m_layer->setNeedsDisplayRect(convert(rect));
+    m_layer->setNeedsDisplayRect(rect);
 }
 
 void WebLayerImpl::invalidate()
@@ -124,12 +123,12 @@ void WebLayerImpl::removeAllChildren()
 
 void WebLayerImpl::setAnchorPoint(const WebFloatPoint& anchorPoint)
 {
-    m_layer->setAnchorPoint(convert(anchorPoint));
+    m_layer->setAnchorPoint(anchorPoint);
 }
 
 WebFloatPoint WebLayerImpl::anchorPoint() const
 {
-    return WebFloatPoint(m_layer->anchorPoint().x(), m_layer->anchorPoint().y());
+    return m_layer->anchorPoint();
 }
 
 void WebLayerImpl::setAnchorPointZ(float anchorPointZ)
@@ -144,12 +143,12 @@ float WebLayerImpl::anchorPointZ() const
 
 void WebLayerImpl::setBounds(const WebSize& size)
 {
-    m_layer->setBounds(convert(size));
+    m_layer->setBounds(size);
 }
 
 WebSize WebLayerImpl::bounds() const
 {
-    return convert(m_layer->bounds());
+    return m_layer->bounds();
 }
 
 void WebLayerImpl::setMasksToBounds(bool masksToBounds)
@@ -194,12 +193,12 @@ bool WebLayerImpl::opaque() const
 
 void WebLayerImpl::setPosition(const WebFloatPoint& position)
 {
-    m_layer->setPosition(convert(position));
+    m_layer->setPosition(position);
 }
 
 WebFloatPoint WebLayerImpl::position() const
 {
-    return WebFloatPoint(m_layer->position().x(), m_layer->position().y());
+    return m_layer->position();
 }
 
 void WebLayerImpl::setSublayerTransform(const SkMatrix44& matrix)
@@ -334,7 +333,7 @@ bool WebLayerImpl::hasActiveAnimation()
 
 void WebLayerImpl::transferAnimationsTo(WebLayer* other)
 {
-    ASSERT(other);
+    DCHECK(other);
     static_cast<WebLayerImpl*>(other)->m_layer->setLayerAnimationController(m_layer->releaseLayerAnimationController());
 }
 
@@ -345,22 +344,22 @@ void WebLayerImpl::setForceRenderSurface(bool forceRenderSurface)
 
 void WebLayerImpl::setScrollPosition(WebPoint position)
 {
-    m_layer->setScrollPosition(convert(position));
+    m_layer->setScrollOffset(gfx::Point(position).OffsetFromOrigin());
 }
 
 WebPoint WebLayerImpl::scrollPosition() const
 {
-    return WebPoint(m_layer->scrollPosition().x(), m_layer->scrollPosition().y());
+    return gfx::PointAtOffsetFromOrigin(m_layer->scrollOffset());
 }
 
 void WebLayerImpl::setMaxScrollPosition(WebSize maxScrollPosition)
 {
-    m_layer->setMaxScrollPosition(convert(maxScrollPosition));
+    m_layer->setMaxScrollOffset(maxScrollPosition);
 }
 
 WebSize WebLayerImpl::maxScrollPosition() const
 {
-    return convert(m_layer->maxScrollPosition());
+    return m_layer->maxScrollOffset();
 }
 
 void WebLayerImpl::setScrollable(bool scrollable)
@@ -395,21 +394,48 @@ bool WebLayerImpl::shouldScrollOnMainThread() const
 
 void WebLayerImpl::setNonFastScrollableRegion(const WebVector<WebRect>& rects)
 {
-    WebCore::Region region;
-    for (size_t i = 0; i < rects.size(); ++i) {
-        WebCore::IntRect rect = convert(rects[i]);
-        region.unite(rect);
-    }
+    cc::Region region;
+    for (size_t i = 0; i < rects.size(); ++i)
+        region.Union(rects[i]);
     m_layer->setNonFastScrollableRegion(region);
-
 }
 
 WebVector<WebRect> WebLayerImpl::nonFastScrollableRegion() const
 {
-    Vector<WebCore::IntRect> regionRects = m_layer->nonFastScrollableRegion().rects();
-    WebVector<WebRect> result(regionRects.size());
-    for (size_t i = 0; i < regionRects.size(); ++i)
-        result[i] = convert(regionRects[i]);
+    size_t numRects = 0;
+    for (cc::Region::Iterator regionRects(m_layer->nonFastScrollableRegion()); regionRects.has_rect(); regionRects.next())
+        ++numRects;
+
+    WebVector<WebRect> result(numRects);
+    size_t i = 0;
+    for (cc::Region::Iterator regionRects(m_layer->nonFastScrollableRegion()); regionRects.has_rect(); regionRects.next()) {
+        result[i] = regionRects.rect();
+        ++i;
+    }
+    return result;
+}
+
+void WebLayerImpl::setTouchEventHandlerRegion(const WebVector<WebRect>& rects)
+{
+    cc::Region region;
+    for (size_t i = 0; i < rects.size(); ++i)
+        region.Union(rects[i]);
+    m_layer->setTouchEventHandlerRegion(region);
+}
+
+WebVector<WebRect> WebLayerImpl::touchEventHandlerRegion() const
+{
+    size_t numRects = 0;
+    for (cc::Region::Iterator regionRects(m_layer->touchEventHandlerRegion()); regionRects.has_rect(); regionRects.next())
+        ++numRects;
+
+
+    WebVector<WebRect> result(numRects);
+    size_t i = 0;
+    for (cc::Region::Iterator regionRects(m_layer->touchEventHandlerRegion()); regionRects.has_rect(); regionRects.next()) {
+        result[i] = regionRects.rect();
+        ++i;
+    }
     return result;
 }
 

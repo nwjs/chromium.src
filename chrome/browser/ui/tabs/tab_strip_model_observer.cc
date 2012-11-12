@@ -4,17 +4,19 @@
 
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 
-void TabStripModelObserver::TabInsertedAt(TabContents* contents,
+using content::WebContents;
+
+void TabStripModelObserver::TabInsertedAt(WebContents* contents,
                                           int index,
                                           bool foreground) {
 }
 
 void TabStripModelObserver::TabClosingAt(TabStripModel* tab_strip_model,
-                                         TabContents* contents,
+                                         WebContents* contents,
                                          int index) {
 }
 
-void TabStripModelObserver::TabDetachedAt(TabContents* contents,
+void TabStripModelObserver::TabDetachedAt(WebContents* contents,
                                           int index) {
 }
 
@@ -48,20 +50,18 @@ void TabStripModelObserver::TabReplacedAt(TabStripModel* tab_strip_model,
                                           int index) {
 }
 
-void TabStripModelObserver::TabPinnedStateChanged(TabContents* contents,
+void TabStripModelObserver::TabPinnedStateChanged(WebContents* contents,
                                                   int index) {
 }
 
-void TabStripModelObserver::TabMiniStateChanged(TabContents* contents,
+void TabStripModelObserver::TabMiniStateChanged(WebContents* contents,
                                                 int index) {
 }
 
-void TabStripModelObserver::TabBlockedStateChanged(TabContents* contents,
+void TabStripModelObserver::TabBlockedStateChanged(WebContents* contents,
                                                    int index) {
 }
 
 void TabStripModelObserver::TabStripEmpty() {}
 
 void TabStripModelObserver::TabStripModelDeleted() {}
-
-void TabStripModelObserver::ActiveTabClicked(int index) {}

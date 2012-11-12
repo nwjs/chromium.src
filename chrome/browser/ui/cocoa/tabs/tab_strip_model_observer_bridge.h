@@ -28,13 +28,14 @@ class TabStripModelObserverBridge : public TabStripModelObserver {
   virtual ~TabStripModelObserverBridge();
 
   // Overridden from TabStripModelObserver
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
                              bool foreground) OVERRIDE;
   virtual void TabClosingAt(TabStripModel* tab_strip_model,
-                            TabContents* contents,
+                            content::WebContents* contents,
                             int index) OVERRIDE;
-  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
   virtual void ActiveTabChanged(TabContents* old_contents,
                                 TabContents* new_contents,
                                 int index,
@@ -48,7 +49,7 @@ class TabStripModelObserverBridge : public TabStripModelObserver {
                              TabContents* old_contents,
                              TabContents* new_contents,
                              int index) OVERRIDE;
-  virtual void TabMiniStateChanged(TabContents* contents,
+  virtual void TabMiniStateChanged(content::WebContents* contents,
                                    int index) OVERRIDE;
   virtual void TabStripEmpty() OVERRIDE;
   virtual void TabStripModelDeleted() OVERRIDE;

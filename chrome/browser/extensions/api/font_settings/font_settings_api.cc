@@ -20,6 +20,7 @@
 #include "chrome/common/extensions/api/font_settings.h"
 #include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/pref_names_util.h"
 #include "content/public/browser/font_list_async.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
@@ -55,7 +56,6 @@ const char kOnMinimumFontSizeChanged[] =
 
 // Format for font name preference paths.
 const char kWebKitFontPrefFormat[] = "webkit.webprefs.fonts.%s.%s";
-const char kWebKitFontPrefPrefix[] = "webkit.webprefs.fonts.";
 
 // Gets the font name preference path for |generic_family| and |script|. If
 // |script| is NULL, uses prefs::kWebKitCommonScript.
@@ -68,22 +68,6 @@ std::string GetFontNamePrefPath(fonts::GenericFamily generic_family_enum,
   return StringPrintf(kWebKitFontPrefFormat,
                       generic_family.c_str(),
                       script.c_str());
-}
-
-// Extracts the generic family and script from font name pref path |pref_path|.
-bool ParseFontNamePrefPath(std::string pref_path,
-                           std::string* generic_family,
-                           std::string* script) {
-  if (!StartsWithASCII(pref_path, kWebKitFontPrefPrefix, true))
-    return false;
-
-  size_t start = strlen(kWebKitFontPrefPrefix);
-  size_t pos = pref_path.find('.', start);
-  if (pos == std::string::npos || pos + 1 == pref_path.length())
-    return false;
-  *generic_family = pref_path.substr(start, pos - start);
-  *script = pref_path.substr(pos + 1);
-  return true;
 }
 
 // Returns the localized name of a font so that it can be matched within the
@@ -103,7 +87,7 @@ std::string MaybeGetLocalizedFontName(const std::string& font_name) {
 // Registers |obs| to observe per-script font prefs under the path |map_name|.
 void RegisterFontFamilyMapObserver(PrefChangeRegistrar* registrar,
                                    const char* map_name,
-                                   content::NotificationObserver* obs) {
+                                   PrefObserver* obs) {
   for (size_t i = 0; i < prefs::kWebKitScriptsForFontFamilyMapsLength; ++i) {
     const char* script = prefs::kWebKitScriptsForFontFamilyMaps[i];
     std::string pref_name = base::StringPrintf("%s.%s", map_name, script);
@@ -114,11 +98,7 @@ void RegisterFontFamilyMapObserver(PrefChangeRegistrar* registrar,
 }  // namespace
 
 FontSettingsEventRouter::FontSettingsEventRouter(
-    Profile* profile) : profile_(profile) {}
-
-FontSettingsEventRouter::~FontSettingsEventRouter() {}
-
-void FontSettingsEventRouter::Init() {
+    Profile* profile) : profile_(profile) {
   registrar_.Init(profile_->GetPrefs());
 
   AddPrefToObserve(prefs::kWebKitDefaultFixedFontSize,
@@ -147,41 +127,35 @@ void FontSettingsEventRouter::Init() {
                                 prefs::kWebKitPictographFontFamilyMap, this);
 }
 
+FontSettingsEventRouter::~FontSettingsEventRouter() {}
+
 void FontSettingsEventRouter::AddPrefToObserve(const char* pref_name,
-                                                        const char* event_name,
-                                                        const char* key) {
+                                               const char* event_name,
+                                               const char* key) {
   registrar_.Add(pref_name, this);
   pref_event_map_[pref_name] = std::make_pair(event_name, key);
 }
 
-void FontSettingsEventRouter::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  if (type != chrome::NOTIFICATION_PREF_CHANGED) {
-    NOTREACHED();
-    return;
-  }
-
-  PrefService* pref_service = content::Source<PrefService>(source).ptr();
+void FontSettingsEventRouter::OnPreferenceChanged(
+    PrefServiceBase* pref_service,
+    const std::string& pref_name) {
   bool incognito = (pref_service != profile_->GetPrefs());
   // We're only observing pref changes on the regular profile.
   DCHECK(!incognito);
-  const std::string* pref_name =
-      content::Details<const std::string>(details).ptr();
 
-  PrefEventMap::iterator iter = pref_event_map_.find(*pref_name);
+  PrefEventMap::iterator iter = pref_event_map_.find(pref_name);
   if (iter != pref_event_map_.end()) {
     const std::string& event_name = iter->second.first;
     const std::string& key = iter->second.second;
-    OnFontPrefChanged(pref_service, *pref_name, event_name, key, incognito);
+    OnFontPrefChanged(pref_service, pref_name, event_name, key, incognito);
     return;
   }
 
   std::string generic_family;
   std::string script;
-  if (ParseFontNamePrefPath(*pref_name, &generic_family, &script)) {
-    OnFontNamePrefChanged(pref_service, *pref_name, generic_family, script,
+  if (pref_names_util::ParseFontNamePrefPath(pref_name, &generic_family,
+                                             &script)) {
+    OnFontNamePrefChanged(pref_service, pref_name, generic_family, script,
                           incognito);
     return;
   }
@@ -190,12 +164,12 @@ void FontSettingsEventRouter::Observe(
 }
 
 void FontSettingsEventRouter::OnFontNamePrefChanged(
-    PrefService* pref_service,
+    PrefServiceBase* pref_service,
     const std::string& pref_name,
     const std::string& generic_family,
     const std::string& script,
     bool incognito) {
-  const PrefService::Preference* pref = pref_service->FindPreference(
+  const PrefServiceBase::Preference* pref = pref_service->FindPreference(
       pref_name.c_str());
   CHECK(pref);
 
@@ -223,12 +197,12 @@ void FontSettingsEventRouter::OnFontNamePrefChanged(
 }
 
 void FontSettingsEventRouter::OnFontPrefChanged(
-    PrefService* pref_service,
+    PrefServiceBase* pref_service,
     const std::string& pref_name,
     const std::string& event_name,
     const std::string& key,
     bool incognito) {
-  const PrefService::Preference* pref = pref_service->FindPreference(
+  const PrefServiceBase::Preference* pref = pref_service->FindPreference(
       pref_name.c_str());
   CHECK(pref);
 

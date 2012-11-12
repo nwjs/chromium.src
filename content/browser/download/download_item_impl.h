@@ -99,6 +99,7 @@ class CONTENT_EXPORT DownloadItemImpl
   virtual PageTransition GetTransitionType() const OVERRIDE;
   virtual const std::string& GetLastModifiedTime() const OVERRIDE;
   virtual const std::string& GetETag() const OVERRIDE;
+  virtual bool IsSavePackageDownload() const OVERRIDE;
   virtual const FilePath& GetFullPath() const OVERRIDE;
   virtual const FilePath& GetTargetFilePath() const OVERRIDE;
   virtual const FilePath& GetForcedFilePath() const OVERRIDE;
@@ -128,7 +129,6 @@ class CONTENT_EXPORT DownloadItemImpl
   virtual DownloadPersistentStoreInfo GetPersistentStoreInfo() const OVERRIDE;
   virtual BrowserContext* GetBrowserContext() const OVERRIDE;
   virtual WebContents* GetWebContents() const OVERRIDE;
-  virtual void DelayedDownloadOpened(bool auto_opened) OVERRIDE;
   virtual void OnContentCheckCompleted(DownloadDangerType danger_type) OVERRIDE;
   virtual void SetOpenWhenComplete(bool open) OVERRIDE;
   virtual void SetIsTemporary(bool temporary) OVERRIDE;
@@ -164,15 +164,11 @@ class CONTENT_EXPORT DownloadItemImpl
 
   virtual void OnDownloadedFileRemoved();
 
-  // Indicate that an error has occurred on the download.
-  virtual void Interrupt(DownloadInterruptReason reason);
-
   // Provide a weak pointer reference to a DownloadDestinationObserver
   // for use by download destinations.
   base::WeakPtr<DownloadDestinationObserver> DestinationObserverAsWeakPtr();
 
   // For dispatching on whether we're dealing with a SavePackage download.
-  virtual bool IsSavePackageDownload() const;
 
   // DownloadItemImpl routines only needed by SavePackage ----------------------
 
@@ -277,11 +273,9 @@ class CONTENT_EXPORT DownloadItemImpl
   void OnDownloadRenamedToFinalName(DownloadInterruptReason reason,
                                     const FilePath& full_path);
 
-  void ReleaseDownloadFile();
-
-  // TODO(rdsmith,asanka): Move the AnnotateWithSourceInformation() call to the
-  //     final rename and eliminate the interrupt reason callback.
-  void OnDownloadFileReleased(DownloadInterruptReason reason);
+  // Called if the embedder took over opening a download, to indicate that
+  // the download has been opened.
+  virtual void DelayedDownloadOpened(bool auto_opened);
 
   // Called when the entire download operation (including renaming etc)
   // is completed.
@@ -289,15 +283,14 @@ class CONTENT_EXPORT DownloadItemImpl
 
   // Helper routines -----------------------------------------------------------
 
+  // Indicate that an error has occurred on the download.
+  virtual void Interrupt(DownloadInterruptReason reason);
+
   // Cancel the DownloadFile if we have it.
   void CancelDownloadFile();
 
   // Check if a download is ready for completion.
   bool IsDownloadReadyForCompletion();
-
-  // Returns true if the download still needs to be renamed to
-  // GetTargetFilePath().
-  bool NeedsRename() const;
 
   // Call to transition state; all state transitions should go through this.
   void TransitionTo(DownloadInternalState new_state);

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/damage_tracker.h"
 
 #include "cc/layer_impl.h"
@@ -32,26 +30,25 @@ DamageTracker::~DamageTracker()
 {
 }
 
-static inline void expandRectWithFilters(FloatRect& rect, const WebKit::WebFilterOperations& filters)
+static inline void expandRectWithFilters(gfx::RectF& rect, const WebKit::WebFilterOperations& filters)
 {
     int top, right, bottom, left;
     filters.getOutsets(top, right, bottom, left);
-    rect.move(-left, -top);
-    rect.expand(left + right, top + bottom);
+    rect.Inset(-left, -top, -right, -bottom);
 }
 
-static inline void expandDamageRectInsideRectWithFilters(FloatRect& damageRect, const FloatRect& preFilterRect, const WebKit::WebFilterOperations& filters)
+static inline void expandDamageRectInsideRectWithFilters(gfx::RectF& damageRect, const gfx::RectF& preFilterRect, const WebKit::WebFilterOperations& filters)
 {
-    FloatRect expandedDamageRect = damageRect;
+    gfx::RectF expandedDamageRect = damageRect;
     expandRectWithFilters(expandedDamageRect, filters);
-    FloatRect filterRect = preFilterRect;
+    gfx::RectF filterRect = preFilterRect;
     expandRectWithFilters(filterRect, filters);
 
-    expandedDamageRect.intersect(filterRect);
-    damageRect.unite(expandedDamageRect);
+    expandedDamageRect.Intersect(filterRect);
+    damageRect.Union(expandedDamageRect);
 }
 
-void DamageTracker::updateDamageTrackingState(const std::vector<LayerImpl*>& layerList, int targetSurfaceLayerID, bool targetSurfacePropertyChangedOnlyFromDescendant, const IntRect& targetSurfaceContentRect, LayerImpl* targetSurfaceMaskLayer, const WebKit::WebFilterOperations& filters, SkImageFilter* filter)
+void DamageTracker::updateDamageTrackingState(const std::vector<LayerImpl*>& layerList, int targetSurfaceLayerID, bool targetSurfacePropertyChangedOnlyFromDescendant, const gfx::Rect& targetSurfaceContentRect, LayerImpl* targetSurfaceMaskLayer, const WebKit::WebFilterOperations& filters, SkImageFilter* filter)
 {
     //
     // This function computes the "damage rect" of a target surface, and updates the state
@@ -119,11 +116,11 @@ void DamageTracker::updateDamageTrackingState(const std::vector<LayerImpl*>& lay
     // These functions cannot be bypassed with early-exits, even if we know what the
     // damage will be for this frame, because we need to update the damage tracker state
     // to correctly track the next frame.
-    FloatRect damageFromActiveLayers = trackDamageFromActiveLayers(layerList, targetSurfaceLayerID);
-    FloatRect damageFromSurfaceMask = trackDamageFromSurfaceMask(targetSurfaceMaskLayer);
-    FloatRect damageFromLeftoverRects = trackDamageFromLeftoverRects();
+    gfx::RectF damageFromActiveLayers = trackDamageFromActiveLayers(layerList, targetSurfaceLayerID);
+    gfx::RectF damageFromSurfaceMask = trackDamageFromSurfaceMask(targetSurfaceMaskLayer);
+    gfx::RectF damageFromLeftoverRects = trackDamageFromLeftoverRects();
 
-    FloatRect damageRectForThisUpdate;
+    gfx::RectF damageRectForThisUpdate;
 
     if (m_forceFullDamageNextUpdate || targetSurfacePropertyChangedOnlyFromDescendant) {
         damageRectForThisUpdate = targetSurfaceContentRect;
@@ -131,8 +128,8 @@ void DamageTracker::updateDamageTrackingState(const std::vector<LayerImpl*>& lay
     } else {
         // FIXME: can we clamp this damage to the surface's content rect? (affects performance, but not correctness)
         damageRectForThisUpdate = damageFromActiveLayers;
-        damageRectForThisUpdate.uniteIfNonZero(damageFromSurfaceMask);
-        damageRectForThisUpdate.uniteIfNonZero(damageFromLeftoverRects);
+        damageRectForThisUpdate.Union(damageFromSurfaceMask);
+        damageRectForThisUpdate.Union(damageFromLeftoverRects);
 
         if (filters.hasFilterThatMovesPixels()) {
             expandRectWithFilters(damageRectForThisUpdate, filters);
@@ -144,7 +141,7 @@ void DamageTracker::updateDamageTrackingState(const std::vector<LayerImpl*>& lay
     }
 
     // Damage accumulates until we are notified that we actually did draw on that frame.
-    m_currentDamageRect.uniteIfNonZero(damageRectForThisUpdate);
+    m_currentDamageRect.Union(damageRectForThisUpdate);
 
     // The next history map becomes the current map for the next frame. Note this must
     // happen every frame to correctly track changes, even if damage accumulates over
@@ -152,19 +149,19 @@ void DamageTracker::updateDamageTrackingState(const std::vector<LayerImpl*>& lay
     swap(m_currentRectHistory, m_nextRectHistory);
 }
 
-FloatRect DamageTracker::removeRectFromCurrentFrame(int layerID, bool& layerIsNew)
+gfx::RectF DamageTracker::removeRectFromCurrentFrame(int layerID, bool& layerIsNew)
 {
     RectMap::iterator iter = m_currentRectHistory->find(layerID);
     layerIsNew = iter == m_currentRectHistory->end();
     if (layerIsNew)
-        return FloatRect();
+        return gfx::RectF();
 
-    FloatRect ret = iter->second;
+    gfx::RectF ret = iter->second;
     m_currentRectHistory->erase(iter);
     return ret;
 }
 
-void DamageTracker::saveRectForNextFrame(int layerID, const FloatRect& targetSpaceRect)
+void DamageTracker::saveRectForNextFrame(int layerID, const gfx::RectF& targetSpaceRect)
 {
     // This layer should not yet exist in next frame's history.
     DCHECK(layerID > 0);
@@ -172,9 +169,9 @@ void DamageTracker::saveRectForNextFrame(int layerID, const FloatRect& targetSpa
     (*m_nextRectHistory)[layerID] = targetSpaceRect;
 }
 
-FloatRect DamageTracker::trackDamageFromActiveLayers(const std::vector<LayerImpl*>& layerList, int targetSurfaceLayerID)
+gfx::RectF DamageTracker::trackDamageFromActiveLayers(const std::vector<LayerImpl*>& layerList, int targetSurfaceLayerID)
 {
-    FloatRect damageRect = FloatRect();
+    gfx::RectF damageRect = gfx::RectF();
 
     for (unsigned layerIndex = 0; layerIndex < layerList.size(); ++layerIndex) {
         // Visit layers in back-to-front order.
@@ -189,9 +186,9 @@ FloatRect DamageTracker::trackDamageFromActiveLayers(const std::vector<LayerImpl
     return damageRect;
 }
 
-FloatRect DamageTracker::trackDamageFromSurfaceMask(LayerImpl* targetSurfaceMaskLayer)
+gfx::RectF DamageTracker::trackDamageFromSurfaceMask(LayerImpl* targetSurfaceMaskLayer)
 {
-    FloatRect damageRect = FloatRect();
+    gfx::RectF damageRect = gfx::RectF();
 
     if (!targetSurfaceMaskLayer)
         return damageRect;
@@ -199,22 +196,22 @@ FloatRect DamageTracker::trackDamageFromSurfaceMask(LayerImpl* targetSurfaceMask
     // Currently, if there is any change to the mask, we choose to damage the entire
     // surface. This could potentially be optimized later, but it is not expected to be a
     // common case.
-    if (targetSurfaceMaskLayer->layerPropertyChanged() || !targetSurfaceMaskLayer->updateRect().isEmpty())
-        damageRect = FloatRect(FloatPoint::zero(), FloatSize(targetSurfaceMaskLayer->bounds()));
+    if (targetSurfaceMaskLayer->layerPropertyChanged() || !targetSurfaceMaskLayer->updateRect().IsEmpty())
+        damageRect = gfx::RectF(gfx::PointF(), targetSurfaceMaskLayer->bounds());
 
     return damageRect;
 }
 
-FloatRect DamageTracker::trackDamageFromLeftoverRects()
+gfx::RectF DamageTracker::trackDamageFromLeftoverRects()
 {
     // After computing damage for all active layers, any leftover items in the current
     // rect history correspond to layers/surfaces that no longer exist. So, these regions
     // are now exposed on the target surface.
 
-    FloatRect damageRect = FloatRect();
+    gfx::RectF damageRect = gfx::RectF();
 
     for (RectMap::iterator it = m_currentRectHistory->begin(); it != m_currentRectHistory->end(); ++it)
-        damageRect.unite(it->second);
+        damageRect.Union(it->second);
 
     m_currentRectHistory->clear();
 
@@ -233,7 +230,7 @@ static bool layerNeedsToRedrawOntoItsTargetSurface(LayerImpl* layer)
     return layer->layerPropertyChanged() || layer->layerSurfacePropertyChanged();
 }
 
-void DamageTracker::extendDamageForLayer(LayerImpl* layer, FloatRect& targetDamageRect)
+void DamageTracker::extendDamageForLayer(LayerImpl* layer, gfx::RectF& targetDamageRect)
 {
     // There are two ways that a layer can damage a region of the target surface:
     //   1. Property change (e.g. opacity, position, transforms):
@@ -252,32 +249,28 @@ void DamageTracker::extendDamageForLayer(LayerImpl* layer, FloatRect& targetDama
     // extendDamageForRenderSurface() must be called instead.
 
     bool layerIsNew = false;
-    FloatRect oldRectInTargetSpace = removeRectFromCurrentFrame(layer->id(), layerIsNew);
+    gfx::RectF oldRectInTargetSpace = removeRectFromCurrentFrame(layer->id(), layerIsNew);
 
-    FloatRect rectInTargetSpace = MathUtil::mapClippedRect(layer->drawTransform(), FloatRect(FloatPoint::zero(), layer->contentBounds()));
+    gfx::RectF rectInTargetSpace = MathUtil::mapClippedRect(layer->drawTransform(), gfx::RectF(gfx::PointF(), layer->contentBounds()));
     saveRectForNextFrame(layer->id(), rectInTargetSpace);
 
     if (layerIsNew || layerNeedsToRedrawOntoItsTargetSurface(layer)) {
         // If a layer is new or has changed, then its entire layer rect affects the target surface.
-        targetDamageRect.uniteIfNonZero(rectInTargetSpace);
+        targetDamageRect.Union(rectInTargetSpace);
 
         // The layer's old region is now exposed on the target surface, too.
         // Note oldRectInTargetSpace is already in target space.
-        targetDamageRect.uniteIfNonZero(oldRectInTargetSpace);
-    } else if (!layer->updateRect().isEmpty()) {
-        // If the layer properties havent changed, then the the target surface is only
+        targetDamageRect.Union(oldRectInTargetSpace);
+    } else if (!layer->updateRect().IsEmpty()) {
+        // If the layer properties haven't changed, then the the target surface is only
         // affected by the layer's update area, which could be empty.
-        FloatRect updateContentRect = layer->updateRect();
-        float widthScale = layer->contentBounds().width() / static_cast<float>(layer->bounds().width());
-        float heightScale = layer->contentBounds().height() / static_cast<float>(layer->bounds().height());
-        updateContentRect.scale(widthScale, heightScale);
-
-        FloatRect updateRectInTargetSpace = MathUtil::mapClippedRect(layer->drawTransform(), updateContentRect);
-        targetDamageRect.uniteIfNonZero(updateRectInTargetSpace);
+        gfx::RectF updateContentRect = layer->layerRectToContentRect(layer->updateRect());
+        gfx::RectF updateRectInTargetSpace = MathUtil::mapClippedRect(layer->drawTransform(), updateContentRect);
+        targetDamageRect.Union(updateRectInTargetSpace);
     }
 }
 
-void DamageTracker::extendDamageForRenderSurface(LayerImpl* layer, FloatRect& targetDamageRect)
+void DamageTracker::extendDamageForRenderSurface(LayerImpl* layer, gfx::RectF& targetDamageRect)
 {
     // There are two ways a "descendant surface" can damage regions of the "target surface":
     //   1. Property change:
@@ -294,32 +287,32 @@ void DamageTracker::extendDamageForRenderSurface(LayerImpl* layer, FloatRect& ta
     RenderSurfaceImpl* renderSurface = layer->renderSurface();
 
     bool surfaceIsNew = false;
-    FloatRect oldSurfaceRect = removeRectFromCurrentFrame(layer->id(), surfaceIsNew);
+    gfx::RectF oldSurfaceRect = removeRectFromCurrentFrame(layer->id(), surfaceIsNew);
 
-    FloatRect surfaceRectInTargetSpace = renderSurface->drawableContentRect(); // already includes replica if it exists.
+    gfx::RectF surfaceRectInTargetSpace = renderSurface->drawableContentRect(); // already includes replica if it exists.
     saveRectForNextFrame(layer->id(), surfaceRectInTargetSpace);
 
-    FloatRect damageRectInLocalSpace;
+    gfx::RectF damageRectInLocalSpace;
     if (surfaceIsNew || renderSurface->surfacePropertyChanged() || layer->layerSurfacePropertyChanged()) {
         // The entire surface contributes damage.
         damageRectInLocalSpace = renderSurface->contentRect();
 
         // The surface's old region is now exposed on the target surface, too.
-        targetDamageRect.uniteIfNonZero(oldSurfaceRect);
+        targetDamageRect.Union(oldSurfaceRect);
     } else {
         // Only the surface's damageRect will damage the target surface.
         damageRectInLocalSpace = renderSurface->damageTracker()->currentDamageRect();
     }
 
     // If there was damage, transform it to target space, and possibly contribute its reflection if needed.
-    if (!damageRectInLocalSpace.isEmpty()) {
+    if (!damageRectInLocalSpace.IsEmpty()) {
         const WebTransformationMatrix& drawTransform = renderSurface->drawTransform();
-        FloatRect damageRectInTargetSpace = MathUtil::mapClippedRect(drawTransform, damageRectInLocalSpace);
-        targetDamageRect.uniteIfNonZero(damageRectInTargetSpace);
+        gfx::RectF damageRectInTargetSpace = MathUtil::mapClippedRect(drawTransform, damageRectInLocalSpace);
+        targetDamageRect.Union(damageRectInTargetSpace);
 
         if (layer->replicaLayer()) {
             const WebTransformationMatrix& replicaDrawTransform = renderSurface->replicaDrawTransform();
-            targetDamageRect.uniteIfNonZero(MathUtil::mapClippedRect(replicaDrawTransform, damageRectInLocalSpace));
+            targetDamageRect.Union(MathUtil::mapClippedRect(replicaDrawTransform, damageRectInLocalSpace));
         }
     }
 
@@ -331,12 +324,12 @@ void DamageTracker::extendDamageForRenderSurface(LayerImpl* layer, FloatRect& ta
         removeRectFromCurrentFrame(replicaMaskLayer->id(), replicaIsNew);
 
         const WebTransformationMatrix& replicaDrawTransform = renderSurface->replicaDrawTransform();
-        FloatRect replicaMaskLayerRect = MathUtil::mapClippedRect(replicaDrawTransform, FloatRect(FloatPoint::zero(), FloatSize(replicaMaskLayer->bounds().width(), replicaMaskLayer->bounds().height())));
+        gfx::RectF replicaMaskLayerRect = MathUtil::mapClippedRect(replicaDrawTransform, gfx::RectF(gfx::PointF(), replicaMaskLayer->bounds()));
         saveRectForNextFrame(replicaMaskLayer->id(), replicaMaskLayerRect);
 
         // In the current implementation, a change in the replica mask damages the entire replica region.
-        if (replicaIsNew || replicaMaskLayer->layerPropertyChanged() || !replicaMaskLayer->updateRect().isEmpty())
-            targetDamageRect.uniteIfNonZero(replicaMaskLayerRect);
+        if (replicaIsNew || replicaMaskLayer->layerPropertyChanged() || !replicaMaskLayer->updateRect().IsEmpty())
+            targetDamageRect.Union(replicaMaskLayerRect);
     }
 
     // If the layer has a background filter, this may cause pixels in our surface to be expanded, so we will need to expand any damage
@@ -348,4 +341,3 @@ void DamageTracker::extendDamageForRenderSurface(LayerImpl* layer, FloatRect& ta
 }
 
 }  // namespace cc
-

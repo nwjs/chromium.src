@@ -18,6 +18,11 @@ const char kChrome[] = "chrome";
 // Install Chrome App Host.
 const char kChromeAppHost[] = "app-host";
 
+// Install Chrome App Launcher, which subsumes Chrome App Host, i.e.,
+// App Launcher install converts App Host to App Launcher, and all subsequent
+// App Host updates/uninstalls become App Launcher updates/uninstalls.
+const char kChromeAppLauncher[] = "app-launcher";
+
 // Install Chrome Frame.
 const char kChromeFrame[] = "chrome-frame";
 
@@ -127,6 +132,12 @@ const char kRegisterChromeBrowser[] = "register-chrome-browser";
 // registration work.
 const char kRegisterChromeBrowserSuffix[] = "register-chrome-browser-suffix";
 
+// Specify the path to the dev build of chrome.exe the user wants to install
+// (register and install Start menu shortcut for) on the system. This will
+// always result in a user-level install and will make this install default
+// browser.
+const char kRegisterDevChrome[] = "register-dev-chrome";
+
 // Switch to allow an extra URL protocol to be registered. This option is used
 // in conjunction with kRegisterChromeBrowser to specify an extra protocol
 // in addition to the standard set of protocols.
@@ -222,6 +233,7 @@ const wchar_t kInstallerSuccessLaunchCmdLine[] =
 // command line.
 const char kGoogleUpdateIsMachineEnvVar[] = "GoogleUpdateIsMachine";
 
+const wchar_t kOptionAppHostIsLauncher[] = L"app-host-is-launcher";
 const wchar_t kOptionMultiInstall[] = L"multi-install";
 const wchar_t kOptionReadyMode[] = L"ready-mode";
 

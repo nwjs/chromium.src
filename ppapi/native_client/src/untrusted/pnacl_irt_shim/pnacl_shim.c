@@ -3,13 +3,14 @@
  * found in the LICENSE file.
  */
 
-/* Last generated from IDL: Mon Oct 29 11:08:12 2012. */
+/* Last generated from IDL: Fri Nov  9 15:24:06 2012. */
 #include "ppapi/generators/pnacl_shim.h"
 
 #include "ppapi/c/ppb.h"
 #include "ppapi/c/dev/ppb_audio_input_dev.h"
 #include "ppapi/c/dev/ppb_buffer_dev.h"
 #include "ppapi/c/dev/ppb_console_dev.h"
+#include "ppapi/c/dev/ppb_crypto_dev.h"
 #include "ppapi/c/dev/ppb_cursor_control_dev.h"
 #include "ppapi/c/dev/ppb_device_ref_dev.h"
 #include "ppapi/c/dev/ppb_file_chooser_dev.h"
@@ -31,6 +32,7 @@
 #include "ppapi/c/dev/ppb_view_dev.h"
 #include "ppapi/c/dev/ppb_widget_dev.h"
 #include "ppapi/c/dev/ppb_zoom_dev.h"
+#include "ppapi/c/dev/ppp_network_state_dev.h"
 #include "ppapi/c/dev/ppp_printing_dev.h"
 #include "ppapi/c/dev/ppp_text_input_dev.h"
 #include "ppapi/c/dev/ppp_video_capture_dev.h"
@@ -74,7 +76,6 @@
 #include "ppapi/c/private/ppb_flash_fullscreen.h"
 #include "ppapi/c/private/ppb_flash_message_loop.h"
 #include "ppapi/c/private/ppb_flash_print.h"
-#include "ppapi/c/private/ppb_flash_tcp_socket.h"
 #include "ppapi/c/private/ppb_gpu_blacklist_private.h"
 #include "ppapi/c/private/ppb_host_resolver_private.h"
 #include "ppapi/c/private/ppb_instance_private.h"
@@ -90,7 +91,6 @@
 #include "ppapi/c/private/ppp_content_decryptor_private.h"
 #include "ppapi/c/private/ppp_flash_browser_operations.h"
 #include "ppapi/c/private/ppp_instance_private.h"
-#include "ppapi/c/trusted/ppb_audio_input_trusted_dev.h"
 #include "ppapi/c/trusted/ppb_audio_trusted.h"
 #include "ppapi/c/trusted/ppb_broker_trusted.h"
 #include "ppapi/c/trusted/ppb_browser_font_trusted.h"
@@ -150,7 +150,6 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_Instance_1_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_Instance_1_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_Messaging_1_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_MouseLock_1_0;
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioInputTrusted_Dev_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioTrusted_0_6;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_BrokerTrusted_0_2;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_BrowserFont_Trusted_1_0;
@@ -161,10 +160,10 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FileChooserTrusted_0_6;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FileIOTrusted_0_4;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_ImageDataTrusted_0_4;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_URLLoaderTrusted_0_3;
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioInput_Dev_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioInput_Dev_0_2;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Buffer_Dev_0_4;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Console_Dev_0_1;
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Crypto_Dev_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_CursorControl_Dev_0_4;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_DeviceRef_Dev_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FileChooser_Dev_0_5;
@@ -195,6 +194,7 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_View_Dev_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Widget_Dev_0_3;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Widget_Dev_0_4;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Zoom_Dev_0_2;
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_NetworkState_Dev_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_Printing_Dev_0_6;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_TextInput_Dev_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_VideoCapture_Dev_0_1;
@@ -212,15 +212,14 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_12_3;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_12_4;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_12_5;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_12_6;
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_4_0;
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_5_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_DeviceID_1_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_FontFile_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FlashFullscreen_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_FlashFullscreen_1_0;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_MessageLoop_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Print_1_0;
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_GpuBlacklist_Private_0_2;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_HostResolver_Private_0_1;
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Instance_Private_0_1;
@@ -1101,34 +1100,6 @@ static void Pnacl_M14_PPP_Messaging_HandleMessage(PP_Instance instance, struct P
 
 /* Not generating wrapper methods for PPP_MouseLock_1_0 */
 
-/* Begin wrapper methods for PPB_AudioInputTrusted_Dev_0_1 */
-
-static __attribute__((pnaclcall))
-PP_Resource Pnacl_M17_PPB_AudioInputTrusted_Dev_CreateTrusted(PP_Instance instance) {
-  const struct PPB_AudioInputTrusted_Dev_0_1 *iface = Pnacl_WrapperInfo_PPB_AudioInputTrusted_Dev_0_1.real_iface;
-  return iface->CreateTrusted(instance);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M17_PPB_AudioInputTrusted_Dev_Open(PP_Resource audio_input, PP_Resource config, struct PP_CompletionCallback create_callback) {
-  const struct PPB_AudioInputTrusted_Dev_0_1 *iface = Pnacl_WrapperInfo_PPB_AudioInputTrusted_Dev_0_1.real_iface;
-  return iface->Open(audio_input, config, create_callback);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M17_PPB_AudioInputTrusted_Dev_GetSyncSocket(PP_Resource audio_input, int* sync_socket) {
-  const struct PPB_AudioInputTrusted_Dev_0_1 *iface = Pnacl_WrapperInfo_PPB_AudioInputTrusted_Dev_0_1.real_iface;
-  return iface->GetSyncSocket(audio_input, sync_socket);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M17_PPB_AudioInputTrusted_Dev_GetSharedMemory(PP_Resource audio_input, int* shm_handle, uint32_t* shm_size) {
-  const struct PPB_AudioInputTrusted_Dev_0_1 *iface = Pnacl_WrapperInfo_PPB_AudioInputTrusted_Dev_0_1.real_iface;
-  return iface->GetSharedMemory(audio_input, shm_handle, shm_size);
-}
-
-/* End wrapper methods for PPB_AudioInputTrusted_Dev_0_1 */
-
 /* Begin wrapper methods for PPB_AudioTrusted_0_6 */
 
 static __attribute__((pnaclcall))
@@ -1307,8 +1278,6 @@ int32_t Pnacl_M14_PPB_FileIOTrusted_WillSetLength(PP_Resource file_io, int64_t l
 
 /* Not generating wrapper methods for PPB_URLLoaderTrusted_0_3 */
 
-/* Not generating wrapper methods for PPB_AudioInput_Dev_0_1 */
-
 /* Begin wrapper methods for PPB_AudioInput_Dev_0_2 */
 
 static __attribute__((pnaclcall))
@@ -1378,6 +1347,8 @@ void Pnacl_M14_PPB_Console_Dev_LogWithSource(PP_Instance instance, PP_LogLevel_D
 }
 
 /* End wrapper methods for PPB_Console_Dev_0_1 */
+
+/* Not generating wrapper methods for PPB_Crypto_Dev_0_1 */
 
 /* Not generating wrapper methods for PPB_CursorControl_Dev_0_4 */
 
@@ -1938,6 +1909,8 @@ void Pnacl_M14_PPB_VideoDecoder_Dev_Destroy(PP_Resource video_decoder) {
 /* Not generating wrapper methods for PPB_Widget_Dev_0_4 */
 
 /* Not generating wrapper methods for PPB_Zoom_Dev_0_2 */
+
+/* Not generating wrapper methods for PPP_NetworkState_Dev_0_1 */
 
 /* Not generating wrapper methods for PPP_Printing_Dev_0_6 */
 
@@ -2633,28 +2606,6 @@ int32_t Pnacl_M24_PPB_Flash_EnumerateVideoCaptureDevices(PP_Instance instance, P
 
 /* End wrapper methods for PPB_Flash_12_6 */
 
-/* Begin wrapper methods for PPB_Flash_Clipboard_3_0 */
-
-static __attribute__((pnaclcall))
-PP_Bool Pnacl_M17_PPB_Flash_Clipboard_IsFormatAvailable(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, PP_Flash_Clipboard_Format format) {
-  const struct PPB_Flash_Clipboard_3_0 *iface = Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0.real_iface;
-  return iface->IsFormatAvailable(instance_id, clipboard_type, format);
-}
-
-static __attribute__((pnaclcall))
-struct PP_Var Pnacl_M17_PPB_Flash_Clipboard_ReadPlainText(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type) {
-  const struct PPB_Flash_Clipboard_3_0 *iface = Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0.real_iface;
-  return iface->ReadPlainText(instance_id, clipboard_type);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M17_PPB_Flash_Clipboard_WritePlainText(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, struct PP_Var text) {
-  const struct PPB_Flash_Clipboard_3_0 *iface = Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0.real_iface;
-  return iface->WritePlainText(instance_id, clipboard_type, text);
-}
-
-/* End wrapper methods for PPB_Flash_Clipboard_3_0 */
-
 /* Begin wrapper methods for PPB_Flash_Clipboard_4_0 */
 
 static __attribute__((pnaclcall))
@@ -2676,6 +2627,34 @@ int32_t Pnacl_M19_PPB_Flash_Clipboard_WriteData(PP_Instance instance_id, PP_Flas
 }
 
 /* End wrapper methods for PPB_Flash_Clipboard_4_0 */
+
+/* Begin wrapper methods for PPB_Flash_Clipboard_5_0 */
+
+static __attribute__((pnaclcall))
+uint32_t Pnacl_M24_PPB_Flash_Clipboard_RegisterCustomFormat(PP_Instance instance_id, const char* format_name) {
+  const struct PPB_Flash_Clipboard_5_0 *iface = Pnacl_WrapperInfo_PPB_Flash_Clipboard_5_0.real_iface;
+  return iface->RegisterCustomFormat(instance_id, format_name);
+}
+
+static __attribute__((pnaclcall))
+PP_Bool Pnacl_M24_PPB_Flash_Clipboard_IsFormatAvailable(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, uint32_t format) {
+  const struct PPB_Flash_Clipboard_5_0 *iface = Pnacl_WrapperInfo_PPB_Flash_Clipboard_5_0.real_iface;
+  return iface->IsFormatAvailable(instance_id, clipboard_type, format);
+}
+
+static __attribute__((pnaclcall))
+struct PP_Var Pnacl_M24_PPB_Flash_Clipboard_ReadData(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, uint32_t format) {
+  const struct PPB_Flash_Clipboard_5_0 *iface = Pnacl_WrapperInfo_PPB_Flash_Clipboard_5_0.real_iface;
+  return iface->ReadData(instance_id, clipboard_type, format);
+}
+
+static __attribute__((pnaclcall))
+int32_t Pnacl_M24_PPB_Flash_Clipboard_WriteData(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, uint32_t data_item_count, const uint32_t formats[], const struct PP_Var data_items[]) {
+  const struct PPB_Flash_Clipboard_5_0 *iface = Pnacl_WrapperInfo_PPB_Flash_Clipboard_5_0.real_iface;
+  return iface->WriteData(instance_id, clipboard_type, data_item_count, formats, data_items);
+}
+
+/* End wrapper methods for PPB_Flash_Clipboard_5_0 */
 
 /* Begin wrapper methods for PPB_Flash_DeviceID_1_0 */
 
@@ -2702,70 +2681,6 @@ int32_t Pnacl_M21_PPB_Flash_DeviceID_GetDeviceID(PP_Resource device_id, struct P
 /* Not generating wrapper methods for PPB_Flash_MessageLoop_0_1 */
 
 /* Not generating wrapper methods for PPB_Flash_Print_1_0 */
-
-/* Begin wrapper methods for PPB_Flash_TCPSocket_0_2 */
-
-static __attribute__((pnaclcall))
-PP_Resource Pnacl_M15_PPB_Flash_TCPSocket_Create(PP_Instance instance) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->Create(instance);
-}
-
-static __attribute__((pnaclcall))
-PP_Bool Pnacl_M15_PPB_Flash_TCPSocket_IsFlashTCPSocket(PP_Resource resource) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->IsFlashTCPSocket(resource);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M15_PPB_Flash_TCPSocket_Connect(PP_Resource tcp_socket, const char* host, uint16_t port, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->Connect(tcp_socket, host, port, callback);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M15_PPB_Flash_TCPSocket_ConnectWithNetAddress(PP_Resource tcp_socket, const struct PP_NetAddress_Private* addr, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->ConnectWithNetAddress(tcp_socket, addr, callback);
-}
-
-static __attribute__((pnaclcall))
-PP_Bool Pnacl_M15_PPB_Flash_TCPSocket_GetLocalAddress(PP_Resource tcp_socket, struct PP_NetAddress_Private* local_addr) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->GetLocalAddress(tcp_socket, local_addr);
-}
-
-static __attribute__((pnaclcall))
-PP_Bool Pnacl_M15_PPB_Flash_TCPSocket_GetRemoteAddress(PP_Resource tcp_socket, struct PP_NetAddress_Private* remote_addr) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->GetRemoteAddress(tcp_socket, remote_addr);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M15_PPB_Flash_TCPSocket_SSLHandshake(PP_Resource tcp_socket, const char* server_name, uint16_t server_port, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->SSLHandshake(tcp_socket, server_name, server_port, callback);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M15_PPB_Flash_TCPSocket_Read(PP_Resource tcp_socket, char* buffer, int32_t bytes_to_read, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->Read(tcp_socket, buffer, bytes_to_read, callback);
-}
-
-static __attribute__((pnaclcall))
-int32_t Pnacl_M15_PPB_Flash_TCPSocket_Write(PP_Resource tcp_socket, const char* buffer, int32_t bytes_to_write, struct PP_CompletionCallback callback) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  return iface->Write(tcp_socket, buffer, bytes_to_write, callback);
-}
-
-static __attribute__((pnaclcall))
-void Pnacl_M15_PPB_Flash_TCPSocket_Disconnect(PP_Resource tcp_socket) {
-  const struct PPB_Flash_TCPSocket_0_2 *iface = Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2.real_iface;
-  iface->Disconnect(tcp_socket);
-}
-
-/* End wrapper methods for PPB_Flash_TCPSocket_0_2 */
 
 /* Not generating wrapper methods for PPB_GpuBlacklist_Private_0_2 */
 
@@ -3730,13 +3645,6 @@ struct PPP_Messaging_1_0 Pnacl_Wrappers_PPP_Messaging_1_0 = {
 
 /* Not generating wrapper interface for PPP_MouseLock_1_0 */
 
-struct PPB_AudioInputTrusted_Dev_0_1 Pnacl_Wrappers_PPB_AudioInputTrusted_Dev_0_1 = {
-    .CreateTrusted = (PP_Resource (*)(PP_Instance instance))&Pnacl_M17_PPB_AudioInputTrusted_Dev_CreateTrusted,
-    .Open = (int32_t (*)(PP_Resource audio_input, PP_Resource config, struct PP_CompletionCallback create_callback))&Pnacl_M17_PPB_AudioInputTrusted_Dev_Open,
-    .GetSyncSocket = (int32_t (*)(PP_Resource audio_input, int* sync_socket))&Pnacl_M17_PPB_AudioInputTrusted_Dev_GetSyncSocket,
-    .GetSharedMemory = (int32_t (*)(PP_Resource audio_input, int* shm_handle, uint32_t* shm_size))&Pnacl_M17_PPB_AudioInputTrusted_Dev_GetSharedMemory
-};
-
 struct PPB_AudioTrusted_0_6 Pnacl_Wrappers_PPB_AudioTrusted_0_6 = {
     .CreateTrusted = (PP_Resource (*)(PP_Instance instance))&Pnacl_M14_PPB_AudioTrusted_CreateTrusted,
     .Open = (int32_t (*)(PP_Resource audio, PP_Resource config, struct PP_CompletionCallback create_callback))&Pnacl_M14_PPB_AudioTrusted_Open,
@@ -3788,8 +3696,6 @@ struct PPB_FileIOTrusted_0_4 Pnacl_Wrappers_PPB_FileIOTrusted_0_4 = {
 
 /* Not generating wrapper interface for PPB_URLLoaderTrusted_0_3 */
 
-/* Not generating wrapper interface for PPB_AudioInput_Dev_0_1 */
-
 struct PPB_AudioInput_Dev_0_2 Pnacl_Wrappers_PPB_AudioInput_Dev_0_2 = {
     .Create = (PP_Resource (*)(PP_Instance instance))&Pnacl_M19_PPB_AudioInput_Dev_Create,
     .IsAudioInput = (PP_Bool (*)(PP_Resource resource))&Pnacl_M19_PPB_AudioInput_Dev_IsAudioInput,
@@ -3807,6 +3713,8 @@ struct PPB_Console_Dev_0_1 Pnacl_Wrappers_PPB_Console_Dev_0_1 = {
     .Log = (void (*)(PP_Instance instance, PP_LogLevel_Dev level, struct PP_Var value))&Pnacl_M14_PPB_Console_Dev_Log,
     .LogWithSource = (void (*)(PP_Instance instance, PP_LogLevel_Dev level, struct PP_Var source, struct PP_Var value))&Pnacl_M14_PPB_Console_Dev_LogWithSource
 };
+
+/* Not generating wrapper interface for PPB_Crypto_Dev_0_1 */
 
 /* Not generating wrapper interface for PPB_CursorControl_Dev_0_4 */
 
@@ -3960,6 +3868,8 @@ struct PPB_VideoDecoder_Dev_0_16 Pnacl_Wrappers_PPB_VideoDecoder_Dev_0_16 = {
 
 /* Not generating wrapper interface for PPB_Zoom_Dev_0_2 */
 
+/* Not generating wrapper interface for PPP_NetworkState_Dev_0_1 */
+
 /* Not generating wrapper interface for PPP_Printing_Dev_0_6 */
 
 /* Not generating wrapper interface for PPP_TextInput_Dev_0_1 */
@@ -4110,16 +4020,17 @@ struct PPB_Flash_12_6 Pnacl_Wrappers_PPB_Flash_12_6 = {
     .EnumerateVideoCaptureDevices = (int32_t (*)(PP_Instance instance, PP_Resource video_capture, struct PP_ArrayOutput devices))&Pnacl_M24_PPB_Flash_EnumerateVideoCaptureDevices
 };
 
-struct PPB_Flash_Clipboard_3_0 Pnacl_Wrappers_PPB_Flash_Clipboard_3_0 = {
-    .IsFormatAvailable = (PP_Bool (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, PP_Flash_Clipboard_Format format))&Pnacl_M17_PPB_Flash_Clipboard_IsFormatAvailable,
-    .ReadPlainText = (struct PP_Var (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type))&Pnacl_M17_PPB_Flash_Clipboard_ReadPlainText,
-    .WritePlainText = (int32_t (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, struct PP_Var text))&Pnacl_M17_PPB_Flash_Clipboard_WritePlainText
-};
-
 struct PPB_Flash_Clipboard_4_0 Pnacl_Wrappers_PPB_Flash_Clipboard_4_0 = {
     .IsFormatAvailable = (PP_Bool (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, PP_Flash_Clipboard_Format format))&Pnacl_M19_PPB_Flash_Clipboard_IsFormatAvailable,
     .ReadData = (struct PP_Var (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, PP_Flash_Clipboard_Format format))&Pnacl_M19_PPB_Flash_Clipboard_ReadData,
     .WriteData = (int32_t (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, uint32_t data_item_count, const PP_Flash_Clipboard_Format formats[], const struct PP_Var data_items[]))&Pnacl_M19_PPB_Flash_Clipboard_WriteData
+};
+
+struct PPB_Flash_Clipboard_5_0 Pnacl_Wrappers_PPB_Flash_Clipboard_5_0 = {
+    .RegisterCustomFormat = (uint32_t (*)(PP_Instance instance_id, const char* format_name))&Pnacl_M24_PPB_Flash_Clipboard_RegisterCustomFormat,
+    .IsFormatAvailable = (PP_Bool (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, uint32_t format))&Pnacl_M24_PPB_Flash_Clipboard_IsFormatAvailable,
+    .ReadData = (struct PP_Var (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, uint32_t format))&Pnacl_M24_PPB_Flash_Clipboard_ReadData,
+    .WriteData = (int32_t (*)(PP_Instance instance_id, PP_Flash_Clipboard_Type clipboard_type, uint32_t data_item_count, const uint32_t formats[], const struct PP_Var data_items[]))&Pnacl_M24_PPB_Flash_Clipboard_WriteData
 };
 
 struct PPB_Flash_DeviceID_1_0 Pnacl_Wrappers_PPB_Flash_DeviceID_1_0 = {
@@ -4136,19 +4047,6 @@ struct PPB_Flash_DeviceID_1_0 Pnacl_Wrappers_PPB_Flash_DeviceID_1_0 = {
 /* Not generating wrapper interface for PPB_Flash_MessageLoop_0_1 */
 
 /* Not generating wrapper interface for PPB_Flash_Print_1_0 */
-
-struct PPB_Flash_TCPSocket_0_2 Pnacl_Wrappers_PPB_Flash_TCPSocket_0_2 = {
-    .Create = (PP_Resource (*)(PP_Instance instance))&Pnacl_M15_PPB_Flash_TCPSocket_Create,
-    .IsFlashTCPSocket = (PP_Bool (*)(PP_Resource resource))&Pnacl_M15_PPB_Flash_TCPSocket_IsFlashTCPSocket,
-    .Connect = (int32_t (*)(PP_Resource tcp_socket, const char* host, uint16_t port, struct PP_CompletionCallback callback))&Pnacl_M15_PPB_Flash_TCPSocket_Connect,
-    .ConnectWithNetAddress = (int32_t (*)(PP_Resource tcp_socket, const struct PP_NetAddress_Private* addr, struct PP_CompletionCallback callback))&Pnacl_M15_PPB_Flash_TCPSocket_ConnectWithNetAddress,
-    .GetLocalAddress = (PP_Bool (*)(PP_Resource tcp_socket, struct PP_NetAddress_Private* local_addr))&Pnacl_M15_PPB_Flash_TCPSocket_GetLocalAddress,
-    .GetRemoteAddress = (PP_Bool (*)(PP_Resource tcp_socket, struct PP_NetAddress_Private* remote_addr))&Pnacl_M15_PPB_Flash_TCPSocket_GetRemoteAddress,
-    .SSLHandshake = (int32_t (*)(PP_Resource tcp_socket, const char* server_name, uint16_t server_port, struct PP_CompletionCallback callback))&Pnacl_M15_PPB_Flash_TCPSocket_SSLHandshake,
-    .Read = (int32_t (*)(PP_Resource tcp_socket, char* buffer, int32_t bytes_to_read, struct PP_CompletionCallback callback))&Pnacl_M15_PPB_Flash_TCPSocket_Read,
-    .Write = (int32_t (*)(PP_Resource tcp_socket, const char* buffer, int32_t bytes_to_write, struct PP_CompletionCallback callback))&Pnacl_M15_PPB_Flash_TCPSocket_Write,
-    .Disconnect = (void (*)(PP_Resource tcp_socket))&Pnacl_M15_PPB_Flash_TCPSocket_Disconnect
-};
 
 /* Not generating wrapper interface for PPB_GpuBlacklist_Private_0_2 */
 
@@ -4544,12 +4442,6 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_MouseLock_1_0 = {
   .real_iface = NULL
 };
 
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioInputTrusted_Dev_0_1 = {
-  .iface_macro = PPB_AUDIO_INPUT_TRUSTED_DEV_INTERFACE_0_1,
-  .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_AudioInputTrusted_Dev_0_1,
-  .real_iface = NULL
-};
-
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioTrusted_0_6 = {
   .iface_macro = PPB_AUDIO_TRUSTED_INTERFACE_0_6,
   .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_AudioTrusted_0_6,
@@ -4610,12 +4502,6 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_URLLoaderTrusted_0_3 = {
   .real_iface = NULL
 };
 
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioInput_Dev_0_1 = {
-  .iface_macro = PPB_AUDIO_INPUT_DEV_INTERFACE_0_1,
-  .wrapped_iface = NULL /* Still need slot for real_iface */,
-  .real_iface = NULL
-};
-
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_AudioInput_Dev_0_2 = {
   .iface_macro = PPB_AUDIO_INPUT_DEV_INTERFACE_0_2,
   .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_AudioInput_Dev_0_2,
@@ -4631,6 +4517,12 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Buffer_Dev_0_4 = {
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Console_Dev_0_1 = {
   .iface_macro = PPB_CONSOLE_DEV_INTERFACE_0_1,
   .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_Console_Dev_0_1,
+  .real_iface = NULL
+};
+
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Crypto_Dev_0_1 = {
+  .iface_macro = PPB_CRYPTO_DEV_INTERFACE_0_1,
+  .wrapped_iface = NULL /* Still need slot for real_iface */,
   .real_iface = NULL
 };
 
@@ -4814,6 +4706,12 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Zoom_Dev_0_2 = {
   .real_iface = NULL
 };
 
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_NetworkState_Dev_0_1 = {
+  .iface_macro = PPP_NETWORK_STATE_DEV_INTERFACE_0_1,
+  .wrapped_iface = NULL /* Still need slot for real_iface */,
+  .real_iface = NULL
+};
+
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPP_Printing_Dev_0_6 = {
   .iface_macro = PPP_PRINTING_DEV_INTERFACE_0_6,
   .wrapped_iface = NULL /* Still need slot for real_iface */,
@@ -4916,15 +4814,15 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_12_6 = {
   .real_iface = NULL
 };
 
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0 = {
-  .iface_macro = PPB_FLASH_CLIPBOARD_INTERFACE_3_0,
-  .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_Flash_Clipboard_3_0,
-  .real_iface = NULL
-};
-
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_4_0 = {
   .iface_macro = PPB_FLASH_CLIPBOARD_INTERFACE_4_0,
   .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_Flash_Clipboard_4_0,
+  .real_iface = NULL
+};
+
+static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Clipboard_5_0 = {
+  .iface_macro = PPB_FLASH_CLIPBOARD_INTERFACE_5_0,
+  .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_Flash_Clipboard_5_0,
   .real_iface = NULL
 };
 
@@ -4961,12 +4859,6 @@ static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_MessageLoop_0_1 = {
 static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_Print_1_0 = {
   .iface_macro = PPB_FLASH_PRINT_INTERFACE_1_0,
   .wrapped_iface = NULL /* Still need slot for real_iface */,
-  .real_iface = NULL
-};
-
-static struct __PnaclWrapperInfo Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2 = {
-  .iface_macro = PPB_FLASH_TCPSOCKET_INTERFACE_0_2,
-  .wrapped_iface = (void *) &Pnacl_Wrappers_PPB_Flash_TCPSocket_0_2,
   .real_iface = NULL
 };
 
@@ -5134,7 +5026,6 @@ static struct __PnaclWrapperInfo *s_ppb_wrappers[] = {
   &Pnacl_WrapperInfo_PPB_VarArrayBuffer_1_0,
   &Pnacl_WrapperInfo_PPB_View_1_0,
   &Pnacl_WrapperInfo_PPB_WebSocket_1_0,
-  &Pnacl_WrapperInfo_PPB_AudioInputTrusted_Dev_0_1,
   &Pnacl_WrapperInfo_PPB_AudioTrusted_0_6,
   &Pnacl_WrapperInfo_PPB_BrokerTrusted_0_2,
   &Pnacl_WrapperInfo_PPB_BrowserFont_Trusted_1_0,
@@ -5145,10 +5036,10 @@ static struct __PnaclWrapperInfo *s_ppb_wrappers[] = {
   &Pnacl_WrapperInfo_PPB_FileIOTrusted_0_4,
   &Pnacl_WrapperInfo_PPB_ImageDataTrusted_0_4,
   &Pnacl_WrapperInfo_PPB_URLLoaderTrusted_0_3,
-  &Pnacl_WrapperInfo_PPB_AudioInput_Dev_0_1,
   &Pnacl_WrapperInfo_PPB_AudioInput_Dev_0_2,
   &Pnacl_WrapperInfo_PPB_Buffer_Dev_0_4,
   &Pnacl_WrapperInfo_PPB_Console_Dev_0_1,
+  &Pnacl_WrapperInfo_PPB_Crypto_Dev_0_1,
   &Pnacl_WrapperInfo_PPB_CursorControl_Dev_0_4,
   &Pnacl_WrapperInfo_PPB_DeviceRef_Dev_0_1,
   &Pnacl_WrapperInfo_PPB_FileChooser_Dev_0_5,
@@ -5188,15 +5079,14 @@ static struct __PnaclWrapperInfo *s_ppb_wrappers[] = {
   &Pnacl_WrapperInfo_PPB_Flash_12_4,
   &Pnacl_WrapperInfo_PPB_Flash_12_5,
   &Pnacl_WrapperInfo_PPB_Flash_12_6,
-  &Pnacl_WrapperInfo_PPB_Flash_Clipboard_3_0,
   &Pnacl_WrapperInfo_PPB_Flash_Clipboard_4_0,
+  &Pnacl_WrapperInfo_PPB_Flash_Clipboard_5_0,
   &Pnacl_WrapperInfo_PPB_Flash_DeviceID_1_0,
   &Pnacl_WrapperInfo_PPB_Flash_FontFile_0_1,
   &Pnacl_WrapperInfo_PPB_FlashFullscreen_0_1,
   &Pnacl_WrapperInfo_PPB_FlashFullscreen_1_0,
   &Pnacl_WrapperInfo_PPB_Flash_MessageLoop_0_1,
   &Pnacl_WrapperInfo_PPB_Flash_Print_1_0,
-  &Pnacl_WrapperInfo_PPB_Flash_TCPSocket_0_2,
   &Pnacl_WrapperInfo_PPB_GpuBlacklist_Private_0_2,
   &Pnacl_WrapperInfo_PPB_HostResolver_Private_0_1,
   &Pnacl_WrapperInfo_PPB_Instance_Private_0_1,
@@ -5224,6 +5114,7 @@ static struct __PnaclWrapperInfo *s_ppp_wrappers[] = {
   &Pnacl_WrapperInfo_PPP_Instance_1_1,
   &Pnacl_WrapperInfo_PPP_Messaging_1_0,
   &Pnacl_WrapperInfo_PPP_MouseLock_1_0,
+  &Pnacl_WrapperInfo_PPP_NetworkState_Dev_0_1,
   &Pnacl_WrapperInfo_PPP_Printing_Dev_0_6,
   &Pnacl_WrapperInfo_PPP_TextInput_Dev_0_1,
   &Pnacl_WrapperInfo_PPP_VideoCapture_Dev_0_1,

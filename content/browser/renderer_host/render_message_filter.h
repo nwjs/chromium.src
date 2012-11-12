@@ -40,6 +40,7 @@ struct WebScreenInfo;
 namespace base {
 class ProcessMetrics;
 class SharedMemory;
+class TaskRunner;
 }
 
 namespace gfx {
@@ -89,9 +90,8 @@ class RenderMessageFilter : public BrowserMessageFilter {
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  bool* message_was_ok) OVERRIDE;
   virtual void OnDestruct() const OVERRIDE;
-  virtual void OverrideThreadForMessage(
-      const IPC::Message& message,
-      BrowserThread::ID* thread) OVERRIDE;
+  virtual base::TaskRunner* OverrideTaskRunnerForMessage(
+      const IPC::Message& message) OVERRIDE;
 
   bool OffTheRecord() const;
 
@@ -143,13 +143,6 @@ class RenderMessageFilter : public BrowserMessageFilter {
   void SendLoadFontReply(IPC::Message* reply, FontLoader::Result* result);
 #endif
 
-#if defined(OS_WIN) && !defined(USE_AURA)
-  // On Windows, we handle these on the IO thread to avoid a deadlock with
-  // plugins.  On non-Windows systems, we need to handle them on the UI thread.
-  void OnGetWindowRect(gfx::NativeViewId window, gfx::Rect* rect);
-  void OnGetRootWindowRect(gfx::NativeViewId window, gfx::Rect* rect);
-#endif
-
   void OnGetPlugins(bool refresh, IPC::Message* reply_msg);
   void GetPluginsCallback(IPC::Message* reply_msg,
                           const std::vector<webkit::WebPluginInfo>& plugins);
@@ -169,9 +162,11 @@ class RenderMessageFilter : public BrowserMessageFilter {
                                    IPC::Message* reply_msg);
   void OnDidCreateOutOfProcessPepperInstance(int plugin_child_id,
                                              int32 pp_instance,
-                                             int render_view_id);
+                                             int render_view_id,
+                                             bool is_external);
   void OnDidDeleteOutOfProcessPepperInstance(int plugin_child_id,
-                                             int32 pp_instance);
+                                             int32 pp_instance,
+                                             bool is_external);
   void OnOpenChannelToPpapiBroker(int routing_id,
                                   int request_id,
                                   const FilePath& path);

@@ -140,6 +140,9 @@ Chrome supports. -->
       <message name="IDS_PRODUCT_DESCRIPTION" desc="Browser description">
         Google Chrome is a web browser that runs webpages and applications with lightning speed. It's fast, stable, and easy to use. Browse the web more safely with malware and phishing protection built into Google Chrome.
       </message>
+      <message name="IDS_APP_LAUNCHER_PRODUCT_DESCRIPTION" desc="App Launcher description">
+        Google Chrome App Launcher is a standalone platform for Chrome apps.
+      </message>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_PRODUCT_OS_NAME" desc="The Chrome OS application name">
           Google Chrome OS
@@ -208,9 +211,6 @@ Chrome supports. -->
       <message name="IDS_BROWSER_WINDOW_TITLE_FORMAT" desc="The format for titles displayed in tabs and popup windows">
         <ph name="PAGE_TITLE">$1<ex>Google</ex></ph> - Google Chrome
       </message>
-      <message name="IDS_BROWSER_WINDOW_TITLE_FORMAT_NO_LOGO" desc="The format for titles displayed when the window has no distributor logo displayed">
-        <ph name="PAGE_TITLE">$1<ex>Google</ex></ph>
-      </message>
       <if expr="not pp_ifdef('chromeos')">
         <message name="IDS_GET_HELP_USING_CHROME" desc="Text of the button which takes the user to the Chrome help page.">
           Get help with using Chrome
@@ -271,6 +271,9 @@ Chrome supports. -->
       </message>
       <message name="IDS_UNINSTALL_CHROME" desc="The text of the shortcut in the Start Menu for uninstalling chrome.">
         Uninstall Google Chrome
+      </message>
+      <message name="IDS_UNINSTALL_APP_LAUNCHER" desc="The text of the shortcut in the Start Menu for uninstalling App Launcher.">
+        Uninstall Google Chrome App Launcher
       </message>
       <message name="IDS_FIRSTRUN_DLG_TITLE" desc="Dialog title for first-run dialog">
         Welcome to Google Chrome
@@ -473,6 +476,9 @@ Google Chrome is unable to recover your settings.
       <message name="IDS_SHORTCUT_TOOLTIP" desc="Text for the hover-on tooltip for the Google Chrome shortcuts.">
         Access the Internet
       </message>
+      <message name="IDS_APP_LAUNCHER_SHORTCUT_TOOLTIP" desc="Text for the hover-on tooltip for the App Launcher shortcut.">
+        Launch Chrome apps
+      </message>
       <message name="IDS_UNINSTALL_DELETE_PROFILE" desc="Text to show user to ask whether to delete all the profile data also during uninstallation.">
         Also delete your browsing data?
       </message>
@@ -581,6 +587,12 @@ Google Chrome is unable to recover your settings.
           Chrome Captive Portal detector
 	</message>
       </if>
+      <message name="IDS_FLAGS_SHOW_APP_LIST_SHORTCUT_NAME" desc="Name for the flag to show the Chrome app list shortcut in the taskbar.">
+        Show Chrome Apps Launcher.
+      </message>
+      <message name="IDS_FLAGS_SHOW_APP_LIST_SHORTCUT_DESCRIPTION" desc="Description for the flag to show the Chrome app list shortcut in the taskbar.">
+        Show a shortcut to the Chrome Apps Launcher in the Windows TaskBar.
+      </message>
 
       <!-- Obsolete System info bar -->
       <message name="IDS_SYSTEM_OBSOLETE_MESSAGE" desc="Message shown when your OS is no longer supported. This messages is followed by a 'Learn more' link.">
@@ -839,6 +851,11 @@ For Google Chrome, processes used to display diagnostics information (such as th
           Show the Chrome menu
         </message>
      </if>
+
+      <!-- App list -->
+      <message name="IDS_APP_LIST_SHORTCUT_NAME" desc="Name for the Chrome App List to appear in the taskbar and in any shortcuts to it.">
+        Chrome Apps Launcher
+      </message>
     </messages>
   </release>
 </grit>

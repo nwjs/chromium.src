@@ -488,6 +488,11 @@ const char kEnableDevToolsExperiments[]     = "enable-devtools-experiments";
 // Enables Drive v2 API instead of Google Documents List API.
 const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
 
+// Enables an interactive autocomplete UI and a way to invoke this UI from
+// WebKit by enabling HTMLFormElement#requestAutocomplete (and associated
+// autocomplete* events and logic).
+const char kEnableInteractiveAutocomplete[] = "enable-interactive-autocomplete";
+
 // Enables extensions to be easily installed from sites other than the web
 // store. Without this flag, they can still be installed, but must be manually
 // dragged onto chrome://extensions/.
@@ -496,6 +501,10 @@ const char kEasyOffStoreExtensionInstall[] = "easy-off-store-extension-install";
 // Enables extension APIs that are in development.
 const char kEnableExperimentalExtensionApis[] =
     "enable-experimental-extension-apis";
+
+// Enable autofill for new elements like checkboxes. crbug.com/157636
+const char kEnableExperimentalFormFilling[] =
+    "enable-experimental-form-filling";
 
 // Enables logging for extension activity.
 const char kEnableExtensionActivityLogging[] =
@@ -510,10 +519,8 @@ const char kExtensionsInActionBox[]         = "extensions-in-action-box";
 // Enables experimental timeline API.
 const char kEnableExtensionTimelineApi[]    = "enable-extension-timeline-api";
 
-// Applies a new frameless window style to any dialog based on
-// ConstrainedWindowViews.
-const char kEnableFramelessConstrainedDialogs[] =
-    "enable-frameless-constrained-dialogs";
+// Applies the chrome style to any dialog based on ConstrainedWindowViews.
+const char kEnableChromeStyleDialogs[]      = "enable-chrome-style-dialogs";
 
 // By default, cookies are not allowed on file://. They are needed for testing,
 // for example page cycler and layout tests. See bug 1157243.
@@ -571,8 +578,9 @@ const char kEnableNaClDebug[]               = "enable-nacl-debug";
 // if manifest URL does not match any pattern.
 const char kNaClDebugMask[]                 = "nacl-debug-mask";
 
-// Enables the Chrome IPC-based Proxy for NaCl.
-const char kEnableNaClIPCProxy[]            = "enable-nacl-ipc-proxy";
+// Enables the SRPC Proxy for NaCl. The default is the Chrome IPC based  proxy.
+// TODO(bbudge) remove this after we switch to IPC and remove SRPC.
+const char kEnableNaClSRPCProxy[]           = "enable-nacl-srpc-proxy";
 
 // Enables hardware exception handling via debugger process.
 const char kEnableNaClExceptionHandling[]   = "enable-nacl-exception-handling";
@@ -641,6 +649,10 @@ const char kEnableStackedTabStrip[]         = "enable-stacked-tab-strip";
 // Enables experimental suggestions pane in New Tab page.
 const char kEnableSuggestionsTabPage[]      = "enable-suggestions-ntp";
 
+// Enables syncing of history delete directives.
+const char kEnableSyncHistoryDeleteDirectives[] =
+    "enable-sync-history-delete-directives";
+
 // Disables syncing browser sessions. Will override kEnableSyncTabs.
 const char kDisableSyncTabs[]               = "disable-sync-tabs";
 
@@ -657,9 +669,6 @@ const char kEnableWatchdog[]                = "enable-watchdog";
 
 // Uses WebSocket over SPDY.
 const char kEnableWebSocketOverSpdy[]       = "enable-websocket-over-spdy";
-
-// Enable <webview> in Chrome Apps.
-const char kEnableWebView[]                 = "enable-webview";
 
 // Explicitly allows additional ports using a comma-separated list of port
 // numbers.
@@ -1165,6 +1174,9 @@ const char kSetToken[]                      = "set-token";
 // If true the app list will be shown.
 const char kShowAppList[]                   = "show-app-list";
 
+// If true an app list shortcut will be shown in the taskbar.
+const char kShowAppListShortcut[]           = "show-app-list-shortcut";
+
 // Annotates forms with Autofill field type predictions.
 const char kShowAutofillTypePredictions[]   = "show-autofill-type-predictions";
 
@@ -1401,9 +1413,6 @@ const char kDisableLoginAnimations[]        = "disable-login-animations";
 // Disables new OOBE/sign in design.
 const char kDisableNewOobe[]                = "disable-new-oobe";
 
-// Disables the new wallpaper picker UI.
-const char kDisableNewWallpaperUI[]         = "disable-new-wallpaper-picker-ui";
-
 // Avoid doing animations upon oobe.
 const char kDisableOobeAnimation[]          = "disable-oobe-animation";
 
@@ -1443,6 +1452,10 @@ const char kEnableStaticIPConfig[]          = "enable-static-ip-config";
 
 // Passed to Chrome on first boot. Not passed on restart after sign out.
 const char kFirstBoot[] = "first-boot";
+
+// If true, the Chromebook has a Chrome OS keyboard. Don't use the flag for
+// Chromeboxes.
+const char kHasChromeOSKeyboard[]           = "has-chromeos-keyboard";
 
 // Path for the screensaver used in Kiosk mode
 const char kKioskModeScreensaverPath[]      = "kiosk-mode-screensaver-path";
@@ -1503,6 +1516,9 @@ const char kEnterpriseEnrollmentInitialModulus[] =
 const char kEnterpriseEnrollmentModulusLimit[] =
     "enterprise-enrollment-modulus-limit";
 
+// Loads the File Manager as a packaged app.
+const char kFileManagerPackaged[] = "file-manager-packaged";
+
 #ifndef NDEBUG
 // Skips all other OOBE pages after user login.
 const char kOobeSkipPostLogin[]             = "oobe-skip-postlogin";
@@ -1556,6 +1572,12 @@ const char kForceImmersive[]                 = "force-immersive";
 // Windows 8 and higher.  Used when relaunching metro Chrome.
 const char kForceDesktop[]                   = "force-desktop";
 
+// Allows for disabling the overlapped I/O for TCP reads.
+// Possible values are "on" or "off".
+// The default is "on" which matches the existing behavior.
+// "off" switches to use non-blocking reads and WSAEventSelect.
+const char kOverlappedRead[]                 = "overlapped-reads";
+
 // Relaunches metro Chrome on Windows 8 and higher using a given shortcut.
 const char kRelaunchShortcut[]               = "relaunch-shortcut";
 
@@ -1595,14 +1617,15 @@ const char kEnablePrintPreview[]            = "enable-print-preview";
 
 namespace chrome {
 
-bool IsFramelessConstrainedDialogEnabled() {
+bool UseChromeStyleDialogs() {
 #if defined(OS_MACOSX)
   return true;
 #elif defined(OS_WIN)
-  return true;
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableChromeStyleDialogs);
 #else
   return CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableFramelessConstrainedDialogs);
+      switches::kEnableChromeStyleDialogs);
 #endif
 }
 

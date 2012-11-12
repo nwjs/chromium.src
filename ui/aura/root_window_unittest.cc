@@ -103,10 +103,10 @@ class EventCountFilter : public EventFilter {
     num_mouse_events_++;
     return true;
   }
-  virtual ui::TouchStatus PreHandleTouchEvent(
+  virtual ui::EventResult PreHandleTouchEvent(
       Window* target, ui::TouchEvent* event) OVERRIDE {
     num_touch_events_++;
-    return ui::TOUCH_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
   virtual ui::EventResult PreHandleGestureEvent(
       Window* target, ui::GestureEvent* event) OVERRIDE {
@@ -407,12 +407,12 @@ TEST_F(RootWindowTest, IgnoreUnknownKeys) {
   EventCountFilter* filter = new EventCountFilter;
   root_window()->SetEventFilter(filter);  // passes ownership
 
-  ui::KeyEvent unknown_event(ui::ET_KEY_PRESSED, ui::VKEY_UNKNOWN, 0);
+  ui::KeyEvent unknown_event(ui::ET_KEY_PRESSED, ui::VKEY_UNKNOWN, 0, false);
   EXPECT_FALSE(root_window()->AsRootWindowHostDelegate()->OnHostKeyEvent(
       &unknown_event));
   EXPECT_EQ(0, filter->num_key_events());
 
-  ui::KeyEvent known_event(ui::ET_KEY_PRESSED, ui::VKEY_A, 0);
+  ui::KeyEvent known_event(ui::ET_KEY_PRESSED, ui::VKEY_A, 0, false);
   EXPECT_TRUE(root_window()->AsRootWindowHostDelegate()->OnHostKeyEvent(
       &known_event));
   EXPECT_EQ(1, filter->num_key_events());
@@ -459,11 +459,11 @@ class EventFilterRecorder : public EventFilter {
     events_.push_back(event->type());
     return true;
   }
-  virtual ui::TouchStatus PreHandleTouchEvent(
+  virtual ui::EventResult PreHandleTouchEvent(
       Window* target,
       ui::TouchEvent* event) OVERRIDE {
     events_.push_back(event->type());
-    return ui::TOUCH_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   }
   virtual ui::EventResult PreHandleGestureEvent(
       Window* target,

@@ -24,13 +24,6 @@ namespace dom_storage {
 
 static const int kSessionStoraceScavengingSeconds = 60;
 
-DomStorageContext::LocalStorageUsageInfo::LocalStorageUsageInfo()
-    : data_size(0) {}
-DomStorageContext::LocalStorageUsageInfo::~LocalStorageUsageInfo() {}
-
-DomStorageContext::SessionStorageUsageInfo::SessionStorageUsageInfo() {}
-DomStorageContext::SessionStorageUsageInfo::~SessionStorageUsageInfo() {}
-
 DomStorageContext::DomStorageContext(
     const FilePath& localstorage_directory,
     const FilePath& sessionstorage_directory,
@@ -279,9 +272,13 @@ void DomStorageContext::DeleteSessionNamespace(
               base::IgnoreResult(&SessionStorageDatabase::DeleteNamespace),
               session_storage_database_,
               persistent_namespace_id));
-    } else if (!scavenging_started_) {
-      // Protect the persistent namespace ID from scavenging.
-      protected_persistent_session_ids_.insert(persistent_namespace_id);
+    } else {
+      // Ensure that the data gets committed before we shut down.
+      it->second->Shutdown();
+      if (!scavenging_started_) {
+        // Protect the persistent namespace ID from scavenging.
+        protected_persistent_session_ids_.insert(persistent_namespace_id);
+      }
     }
   }
   persistent_namespace_id_to_namespace_id_.erase(persistent_namespace_id);

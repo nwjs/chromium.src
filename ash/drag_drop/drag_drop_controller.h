@@ -49,10 +49,13 @@ class ASH_EXPORT DragDropController
   }
 
   // Overridden from aura::client::DragDropClient:
-  virtual int StartDragAndDrop(const ui::OSExchangeData& data,
-                               aura::RootWindow* root_window,
-                               const gfx::Point& root_location,
-                               int operation) OVERRIDE;
+  virtual int StartDragAndDrop(
+      const ui::OSExchangeData& data,
+      aura::RootWindow* root_window,
+      aura::Window* source_window,
+      const gfx::Point& root_location,
+      int operation,
+      ui::DragDropTypes::DragEventSource source) OVERRIDE;
   virtual void DragUpdate(aura::Window* target,
                           const ui::LocatedEvent& event) OVERRIDE;
   virtual void Drop(aura::Window* target,
@@ -65,7 +68,7 @@ class ASH_EXPORT DragDropController
                                  ui::KeyEvent* event) OVERRIDE;
   virtual bool PreHandleMouseEvent(aura::Window* target,
                                    ui::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus PreHandleTouchEvent(
+  virtual ui::EventResult PreHandleTouchEvent(
       aura::Window* target,
       ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult PreHandleGestureEvent(
@@ -88,7 +91,7 @@ class ASH_EXPORT DragDropController
   void Cleanup();
 
   scoped_ptr<DragImageView> drag_image_;
-  gfx::Point drag_image_offset_;
+  gfx::Vector2d drag_image_offset_;
   const ui::OSExchangeData* drag_data_;
   int drag_operation_;
 

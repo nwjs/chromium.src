@@ -43,6 +43,7 @@
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_client_view.h"
 
 namespace {
 
@@ -98,7 +99,7 @@ void AppInfoView::Init(const string16& title_text,
 
   title_ = new views::Label(title_text);
   title_->SetMultiLine(true);
-  title_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   title_->SetFont(ui::ResourceBundle::GetSharedInstance().GetFont(
       ui::ResourceBundle::BaseFont).DeriveFont(0, gfx::Font::BOLD));
 
@@ -126,7 +127,7 @@ void AppInfoView::PrepareDescriptionLabel(const string16& description) {
   } else {
     description_ = new views::Label(text);
     description_->SetMultiLine(true);
-    description_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    description_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   }
 }
 
@@ -255,7 +256,7 @@ void CreateApplicationShortcutView::InitControls() {
                                          *shortcut_info_.favicon.ToSkBitmap());
   create_shortcuts_label_ = new views::Label(
       l10n_util::GetStringUTF16(IDS_CREATE_SHORTCUTS_LABEL));
-  create_shortcuts_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  create_shortcuts_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
 
   desktop_check_box_ = AddCheckbox(
       l10n_util::GetStringUTF16(IDS_CREATE_SHORTCUTS_DESKTOP_CHKBOX),
@@ -295,7 +296,7 @@ void CreateApplicationShortcutView::InitControls() {
 
   static const int kTableColumnSetId = 1;
   column_set = layout->AddColumnSet(kTableColumnSetId);
-  column_set->AddPaddingColumn(5.0f, 10);
+  column_set->AddPaddingColumn(0, views::kPanelHorizIndentation);
   column_set->AddColumn(views::GridLayout::FILL, views::GridLayout::FILL,
                         100.0f, views::GridLayout::USE_PREF, 0, 0);
 

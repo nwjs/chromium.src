@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/software_renderer.h"
 
 #include "cc/debug_border_draw_quad.h"
@@ -128,7 +126,7 @@ void SoftwareRenderer::bindFramebufferToOutputSurface(DrawingFrame& frame)
     m_skCurrentCanvas = m_skRootCanvas.get();
 }
 
-bool SoftwareRenderer::bindFramebufferToTexture(DrawingFrame& frame, const ScopedTexture* texture, const gfx::Rect& framebufferRect)
+bool SoftwareRenderer::bindFramebufferToTexture(DrawingFrame& frame, const ScopedResource* texture, const gfx::Rect& framebufferRect)
 {
     m_currentFramebufferLock = make_scoped_ptr(new ResourceProvider::ScopedWriteLockSoftware(m_resourceProvider, texture->id()));
     m_skCurrentCanvas = m_currentFramebufferLock->skCanvas();
@@ -138,15 +136,9 @@ bool SoftwareRenderer::bindFramebufferToTexture(DrawingFrame& frame, const Scope
     return true;
 }
 
-void SoftwareRenderer::enableScissorTestRect(const gfx::Rect& scissorRect)
+void SoftwareRenderer::setScissorTestRect(const gfx::Rect& scissorRect)
 {
     m_skCurrentCanvas->clipRect(toSkRect(scissorRect), SkRegion::kReplace_Op);
-}
-
-void SoftwareRenderer::disableScissorTest()
-{
-    gfx::Rect canvasRect(gfx::Point(), viewportSize());
-    m_skCurrentCanvas->clipRect(toSkRect(canvasRect), SkRegion::kReplace_Op);
 }
 
 void SoftwareRenderer::clearFramebuffer(DrawingFrame& frame)
@@ -174,7 +166,7 @@ bool SoftwareRenderer::isSoftwareResource(ResourceProvider::ResourceId id) const
         return true;
     }
 
-    CRASH();
+    LOG(FATAL) << "Invalid resource type.";
     return false;
 }
 
@@ -257,10 +249,12 @@ void SoftwareRenderer::drawTextureQuad(const DrawingFrame& frame, const TextureD
     ResourceProvider::ScopedReadLockSoftware lock(m_resourceProvider, quad->resourceId());
     const SkBitmap* bitmap = lock.skBitmap();
     gfx::RectF uvRect = gfx::ScaleRect(quad->uvRect(), bitmap->width(), bitmap->height());
-    SkIRect skUvRect = toSkIRect(gfx::ToEnclosingRect(uvRect));
+    SkRect skUvRect = toSkRect(uvRect);
     if (quad->flipped())
         m_skCurrentCanvas->scale(1, -1);
-    m_skCurrentCanvas->drawBitmapRect(*bitmap, &skUvRect, toSkRect(quadVertexRect()), &m_skCurrentPaint);
+    m_skCurrentCanvas->drawBitmapRectToRect(*bitmap, &skUvRect,
+                                            toSkRect(quadVertexRect()),
+                                            &m_skCurrentPaint);
 }
 
 void SoftwareRenderer::drawTileQuad(const DrawingFrame& frame, const TileDrawQuad* quad)
@@ -268,13 +262,19 @@ void SoftwareRenderer::drawTileQuad(const DrawingFrame& frame, const TileDrawQua
     DCHECK(isSoftwareResource(quad->resourceId()));
     ResourceProvider::ScopedReadLockSoftware lock(m_resourceProvider, quad->resourceId());
 
-    SkIRect uvRect = toSkIRect(gfx::Rect(quad->textureOffset(), quad->quadRect().size()));
-    m_skCurrentCanvas->drawBitmapRect(*lock.skBitmap(), &uvRect, toSkRect(quadVertexRect()), &m_skCurrentPaint);
+    SkRect uvRect = SkRect::MakeXYWH(
+        quad->textureOffset().x(), quad->textureOffset().y(),
+        quad->quadRect().width(), quad->quadRect().height());
+    if (quad->textureFilter() != GL_NEAREST)
+        m_skCurrentPaint.setFilterBitmap(true);
+    m_skCurrentCanvas->drawBitmapRectToRect(*lock.skBitmap(), &uvRect,
+                                            toSkRect(quadVertexRect()),
+                                            &m_skCurrentPaint);
 }
 
 void SoftwareRenderer::drawRenderPassQuad(const DrawingFrame& frame, const RenderPassDrawQuad* quad)
 {
-    CachedTexture* contentTexture = m_renderPassTextures.get(quad->renderPassId());
+    CachedResource* contentTexture = m_renderPassTextures.get(quad->renderPassId());
     if (!contentTexture || !contentTexture->id())
         return;
 
@@ -339,16 +339,16 @@ void SoftwareRenderer::drawUnsupportedQuad(const DrawingFrame& frame, const Draw
 
 bool SoftwareRenderer::swapBuffers()
 {
-    if (Proxy::hasImplThread())
+    if (m_client->hasImplThread())
         m_client->onSwapBuffersComplete();
     return true;
 }
 
-void SoftwareRenderer::getFramebufferPixels(void *pixels, const IntRect& rect)
+void SoftwareRenderer::getFramebufferPixels(void *pixels, const gfx::Rect& rect)
 {
     SkBitmap fullBitmap = m_outputDevice->lock(false)->getSkBitmap();
     SkBitmap subsetBitmap;
-    SkIRect invertRect = SkIRect::MakeXYWH(rect.x(), viewportSize().height() - rect.maxY(), rect.width(), rect.height());
+    SkIRect invertRect = SkIRect::MakeXYWH(rect.x(), viewportSize().height() - rect.bottom(), rect.width(), rect.height());
     fullBitmap.extractSubset(&subsetBitmap, invertRect);
     subsetBitmap.copyPixelsTo(pixels, rect.width() * rect.height() * 4, rect.width() * 4);
     m_outputDevice->unlock();
@@ -361,4 +361,4 @@ void SoftwareRenderer::setVisible(bool visible)
     m_visible = visible;
 }
 
-}
+}  // namespace cc

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/bitmap_skpicture_content_layer_updater.h"
 
 #include "base/time.h"
@@ -15,13 +13,13 @@
 
 namespace cc {
 
-BitmapSkPictureContentLayerUpdater::Resource::Resource(BitmapSkPictureContentLayerUpdater* updater, scoped_ptr<PrioritizedTexture> texture)
+BitmapSkPictureContentLayerUpdater::Resource::Resource(BitmapSkPictureContentLayerUpdater* updater, scoped_ptr<PrioritizedResource> texture)
     : ContentLayerUpdater::Resource(texture.Pass())
     , m_updater(updater)
 {
 }
 
-void BitmapSkPictureContentLayerUpdater::Resource::update(ResourceUpdateQueue& queue, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate, RenderingStats& stats)
+void BitmapSkPictureContentLayerUpdater::Resource::update(ResourceUpdateQueue& queue, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate, RenderingStats& stats)
 {
     m_bitmap.setConfig(SkBitmap::kARGB_8888_Config, sourceRect.width(), sourceRect.height());
     m_bitmap.allocPixels();
@@ -54,12 +52,12 @@ BitmapSkPictureContentLayerUpdater::~BitmapSkPictureContentLayerUpdater()
 {
 }
 
-scoped_ptr<LayerUpdater::Resource> BitmapSkPictureContentLayerUpdater::createResource(PrioritizedTextureManager* manager)
+scoped_ptr<LayerUpdater::Resource> BitmapSkPictureContentLayerUpdater::createResource(PrioritizedResourceManager* manager)
 {
-    return scoped_ptr<LayerUpdater::Resource>(new Resource(this, PrioritizedTexture::create(manager)));
+    return scoped_ptr<LayerUpdater::Resource>(new Resource(this, PrioritizedResource::create(manager)));
 }
 
-void BitmapSkPictureContentLayerUpdater::paintContentsRect(SkCanvas* canvas, const IntRect& sourceRect, RenderingStats& stats)
+void BitmapSkPictureContentLayerUpdater::paintContentsRect(SkCanvas* canvas, const gfx::Rect& sourceRect, RenderingStats& stats)
 {
     // Translate the origin of contentRect to that of sourceRect.
     canvas->translate(contentRect().x() - sourceRect.x(),
@@ -67,6 +65,7 @@ void BitmapSkPictureContentLayerUpdater::paintContentsRect(SkCanvas* canvas, con
     base::TimeTicks rasterizeBeginTime = base::TimeTicks::Now();
     drawPicture(canvas);
     stats.totalRasterizeTimeInSeconds += (base::TimeTicks::Now() - rasterizeBeginTime).InSecondsF();
+    stats.totalPixelsRasterized += sourceRect.width() * sourceRect.height();
 }
 
-} // namespace cc
+}  // namespace cc

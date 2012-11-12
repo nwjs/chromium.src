@@ -165,20 +165,6 @@ const char kWebKitOldCursiveFontFamily[] =
     "webkit.webprefs.cursive_font_family";
 const char kWebKitOldFantasyFontFamily[] =
     "webkit.webprefs.fantasy_font_family";
-const char kWebKitStandardFontFamilyMap[] =
-    "webkit.webprefs.fonts.standard";
-const char kWebKitFixedFontFamilyMap[] =
-    "webkit.webprefs.fonts.fixed";
-const char kWebKitSerifFontFamilyMap[] =
-    "webkit.webprefs.fonts.serif";
-const char kWebKitSansSerifFontFamilyMap[] =
-    "webkit.webprefs.fonts.sansserif";
-const char kWebKitCursiveFontFamilyMap[] =
-    "webkit.webprefs.fonts.cursive";
-const char kWebKitFantasyFontFamilyMap[] =
-    "webkit.webprefs.fonts.fantasy";
-const char kWebKitPictographFontFamilyMap[] =
-    "webkit.webprefs.fonts.pictograph";
 
 // If these change, the corresponding enums in the extension API
 // experimental.fontSettings.json must also change.
@@ -205,7 +191,23 @@ const char* const kWebKitScriptsForFontFamilyMaps[] = {
 const size_t kWebKitScriptsForFontFamilyMapsLength =
     arraysize(kWebKitScriptsForFontFamilyMaps);
 
-// WebKit preferences.
+// Strings for WebKit font family preferences. If these change, the pref prefix
+// in pref_names_util.cc and the pref format in font_settings_api.cc must also
+// change.
+const char kWebKitStandardFontFamilyMap[] =
+    "webkit.webprefs.fonts.standard";
+const char kWebKitFixedFontFamilyMap[] =
+    "webkit.webprefs.fonts.fixed";
+const char kWebKitSerifFontFamilyMap[] =
+    "webkit.webprefs.fonts.serif";
+const char kWebKitSansSerifFontFamilyMap[] =
+    "webkit.webprefs.fonts.sansserif";
+const char kWebKitCursiveFontFamilyMap[] =
+    "webkit.webprefs.fonts.cursive";
+const char kWebKitFantasyFontFamilyMap[] =
+    "webkit.webprefs.fonts.fantasy";
+const char kWebKitPictographFontFamilyMap[] =
+    "webkit.webprefs.fonts.pictograph";
 const char kWebKitStandardFontFamilyArabic[] =
     "webkit.webprefs.fonts.standard.Arab";
 const char kWebKitFixedFontFamilyArabic[] =
@@ -265,6 +267,7 @@ const char kWebKitSerifFontFamilyTraditionalHan[] =
 const char kWebKitSansSerifFontFamilyTraditionalHan[] =
     "webkit.webprefs.fonts.sansserif.Hant";
 
+// WebKit preferences.
 const char kWebKitWebSecurityEnabled[] = "webkit.webprefs.web_security_enabled";
 const char kWebKitDomPasteEnabled[] = "webkit.webprefs.dom_paste_enabled";
 const char kWebKitShrinksStandaloneImagesToFit[] =
@@ -484,17 +487,6 @@ const char kInstantConfirmDialogShown[] = "instant.confirm_dialog_shown";
 // Boolean pref indicating if instant is enabled.
 const char kInstantEnabled[] = "instant.enabled";
 
-// Double pref for a scaling factor used to slow down animations.
-const char kInstantUIAnimationScaleFactor[] =
-    "instant_ui.animation_scale_factor";
-
-// Boolean pref indicating if Instant search provider logo should be shown.
-const char kInstantUIShowSearchProviderLogo[] =
-    "instant_ui.show_search_provider_logo";
-
-// Boolean pref indicating a white NTP background is desired.
-const char kInstantUIShowWhiteNTP[] = "instant_ui.show_white_ntp";
-
 // Prefix URL for the experimental Instant ZeroSuggest provider.
 const char kInstantUIZeroSuggestUrlPrefix[] =
     "instant_ui.zero_suggest_url_prefix";
@@ -535,6 +527,9 @@ const char kAudioVolumePercent[] = "settings.audio.volume_percent";
 
 // A boolean pref set to true if touchpad tap-to-click is enabled.
 const char kTapToClickEnabled[] = "settings.touchpad.enable_tap_to_click";
+
+// A boolean pref set to true if touchpad tap-dragging is enabled.
+const char kTapDraggingEnabled[] = "settings.touchpad.enable_tap_dragging";
 
 // A boolean pref set to true if touchpad three-finger-click is enabled.
 const char kEnableTouchpadThreeFingerClick[] =
@@ -715,6 +710,8 @@ const char kLanguageRemapControlKeyTo[] =
     "settings.language.xkb_remap_control_key_to";
 const char kLanguageRemapAltKeyTo[] =
     "settings.language.xkb_remap_alt_key_to";
+const char kLanguageRemapCapsLockKeyTo[] =
+    "settings.language.remap_caps_lock_key_to";
 
 // A boolean pref which determines whether key repeat is enabled.
 const char kLanguageXkbAutoRepeatEnabled[] =
@@ -845,6 +842,9 @@ const char kSpeechRecognitionTrayNotificationShownContexts[] =
 // Boolean controlling whether history saving is disabled.
 const char kSavingBrowserHistoryDisabled[] = "history.saving_disabled";
 
+// Boolean controlling whether SafeSearch is mandatory for Google Web Searches.
+const char kForceSafeSearch[] = "settings.force_safesearch";
+
 #if defined(TOOLKIT_GTK)
 // GTK specific preference on whether we should match the system GTK theme.
 const char kUsesSystemTheme[] = "extensions.theme.use_system";
@@ -920,6 +920,11 @@ const char kPluginsMetadata[] = "plugins.metadata";
 
 // Last update time of plug-ins resource cache.
 const char kPluginsResourceCacheUpdate[] = "plugins.resource_cache_update";
+#endif
+
+#if defined(ENABLE_WEB_INTENTS)
+// Boolean that is true if Web Intents is enabled.
+const char kWebIntentsEnabled[] = "webintents.enabled";
 #endif
 
 // Boolean that indicates whether we should check if we are the default browser
@@ -1181,6 +1186,13 @@ const char kMetricsOngoingLogsXml[] =
     "user_experience_metrics.ongoing_logs";
 const char kMetricsOngoingLogsProto[] =
     "user_experience_metrics.ongoing_logs_as_protobufs";
+
+// Boolean that is true when bookmark prompt is enabled.
+const char kBookmarkPromptEnabled[] = "bookmark_prompt_enabled";
+
+// Number of times bookmark prompt displayed.
+const char kBookmarkPromptImpressionCount[] =
+    "bookmark_prompt_impression_count";
 
 // String serialized form of variations seed protobuf.
 const char kVariationsSeed[] = "variations_seed";
@@ -2041,9 +2053,6 @@ const char kRecoveryComponentVersion[] = "recovery_component.version";
 // troubleshooting.
 const char kComponentUpdaterState[] = "component_updater.state";
 
-// Boolean that is true if Web Intents is enabled.
-const char kWebIntentsEnabled[] = "webintents.enabled";
-
 // The next media gallery ID to assign.
 const char kMediaGalleriesUniqueId[] = "media_galleries.gallery_id";
 
@@ -2068,13 +2077,8 @@ const char kShelfAutoHideBehaviorLocal[] = "auto_hide_behavior_local";
 const char kUseDefaultPinnedApps[] = "use_default_pinned_apps";
 const char kPinnedLauncherApps[] =
     "pinned_launcher_apps";
-
-// Boolean value indicating whether launcher should run sync animation.
-// Note this is an unsyncable pref value used as a flag per profile because sync
-// animation should only run once for new ChromeOS login (i.e. once per created
-// profile on ChromeOS device).
-const char kLauncherShouldRunSyncAnimation[] =
-    "launcher_should_run_sync_animation";
+// Boolean value indicating whether to show a logout button in the ash tray.
+const char kShowLogoutButtonInTray[] = "show_logout_button_in_tray";
 
 const char kLongPressTimeInSeconds[] =
     "gesture.long_press_time_in_seconds";

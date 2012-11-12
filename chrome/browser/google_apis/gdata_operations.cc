@@ -12,6 +12,7 @@
 #include "chrome/common/net/url_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/base/escape.h"
+#include "net/http/http_response_headers.h"
 #include "net/http/http_util.h"
 #include "third_party/libxml/chromium/libxml_utils.h"
 
@@ -573,7 +574,7 @@ void AuthorizeAppsOperation::ParseResponse(
   if (xml_reader.Load(data)) {
     while (xml_reader.Read()) {
       if (xml_reader.NodeName() == DocumentEntry::GetEntryNodeName()) {
-        entry.reset(DocumentEntry::CreateFromXml(&xml_reader));
+        entry = DocumentEntry::CreateFromXml(&xml_reader);
         break;
       }
     }
@@ -846,7 +847,7 @@ void ResumeUploadOperation::ProcessURLFetchResults(const URLFetcher* source) {
     if (xml_reader.Load(response_content)) {
       while (xml_reader.Read()) {
         if (xml_reader.NodeName() == DocumentEntry::GetEntryNodeName()) {
-          entry.reset(DocumentEntry::CreateFromXml(&xml_reader));
+          entry = DocumentEntry::CreateFromXml(&xml_reader);
           break;
         }
       }

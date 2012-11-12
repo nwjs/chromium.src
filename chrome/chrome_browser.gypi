@@ -10,11 +10,8 @@
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
       'dependencies': [
-        'app/policy/cloud_policy_codegen.gyp:policy',
-        'autofill_regexes',
-        'browser/component/components.gyp:navigation_interception',
-        'browser/performance_monitor/performance_monitor.gyp:performance_monitor',
-        'browser_extensions',
+        # NOTE: New dependencies should generally be added in the OS!="ios"
+        # dependencies block below, rather than here.
         'browser_ui',
         'cert_logger_proto',
         'chrome_resources.gyp:chrome_extra_resources',
@@ -23,59 +20,38 @@
         'chrome_resources.gyp:platform_locale_settings',
         'chrome_resources.gyp:theme_resources',
         'common',
-        'common/extensions/api/api.gyp:api',
         'common_net',
-        'debugger',
         'feedback_proto',
         'in_memory_url_index_cache_proto',
-        'installer_util',
         'safe_browsing_proto',
         'safe_browsing_report_proto',
-        'sync_file_system_proto',
         'variations_seed_proto',
         '../build/temp_gyp/googleurl.gyp:googleurl',
+        '../cc/cc.gyp:cc',
         '../content/content.gyp:content_browser',
         '../content/content.gyp:content_common',
         '../crypto/crypto.gyp:crypto',
         '../google_apis/google_apis.gyp:google_apis',
         '../media/media.gyp:media',
-        '../net/net.gyp:net_with_v8',
-        '../ppapi/ppapi_internal.gyp:ppapi_ipc',  # For PpapiMsg_LoadPlugin
-        '../printing/printing.gyp:printing',
         '../skia/skia.gyp:skia',
         '../sync/protocol/sync_proto.gyp:sync_proto',
         # TODO(akalin): Depend only on syncapi_service from sync.
         '../sync/sync.gyp:syncapi_core',
         '../sync/sync.gyp:syncapi_service',
         '../sync/sync.gyp:sync_notifier',
-        '../third_party/adobe/flash/flash_player.gyp:flapper_version_h',
         '../third_party/bzip2/bzip2.gyp:bzip2',
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation',
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_proto_cpp',
-        '../third_party/cld/cld.gyp:cld',
-        '../third_party/expat/expat.gyp:expat',
-        '../third_party/hunspell/hunspell.gyp:hunspell',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
-        '../third_party/leveldatabase/leveldatabase.gyp:leveldatabase',
-        '../third_party/libjingle/libjingle.gyp:libjingle',
-        '../third_party/libphonenumber/libphonenumber.gyp:libphonenumber',
         '../third_party/libusb/libusb.gyp:libusb',
         '../third_party/libxml/libxml.gyp:libxml',
-        '../third_party/npapi/npapi.gyp:npapi',
-        '../third_party/re2/re2.gyp:re2',
         '../third_party/zlib/zlib.gyp:minizip',
         '../third_party/zlib/zlib.gyp:zlib',
         '../ui/base/strings/ui_strings.gyp:ui_strings',
-        '../ui/surface/surface.gyp:surface',
         '../ui/ui.gyp:ui',
         '../ui/ui.gyp:ui_resources',
-        '../ui/web_dialogs/web_dialogs.gyp:web_dialogs',
-        '../v8/tools/gyp/v8.gyp:v8',
-        '../webkit/support/webkit_support.gyp:glue',
         '../webkit/support/webkit_support.gyp:user_agent',
-        '../webkit/support/webkit_support.gyp:webkit_resources',
-        '../webkit/support/webkit_support.gyp:webkit_storage',
       ],
       'include_dirs': [
         '..',
@@ -83,14 +59,6 @@
         # Needed by pepper_flash_component_installer.cc.
         '<(SHARED_INTERMEDIATE_DIR)',
       ],
-      'defines': [
-        '<@(nacl_defines)',
-      ],
-      'direct_dependent_settings': {
-        'defines': [
-          '<@(nacl_defines)',
-        ],
-      },
       'export_dependent_settings': [
         '../sync/sync.gyp:sync_notifier',
       ],
@@ -122,10 +90,7 @@
         'browser/android/crash_dump_manager.h',
         'browser/android/dev_tools_server.cc',
         'browser/android/dev_tools_server.h',
-        'browser/android/google_location_settings_helper.cc',
         'browser/android/google_location_settings_helper.h',
-        'browser/android/google_location_settings_helper_factory.cc',
-        'browser/android/google_location_settings_helper_factory.h',
         'browser/android/intent_helper.cc',
         'browser/android/intent_helper.h',
         'browser/android/process_utils.cc',
@@ -373,6 +338,8 @@
         'browser/bookmarks/bookmark_node_data.h',
         'browser/bookmarks/bookmark_pasteboard_helper_mac.h',
         'browser/bookmarks/bookmark_pasteboard_helper_mac.mm',
+        'browser/bookmarks/bookmark_prompt_prefs.cc',
+        'browser/bookmarks/bookmark_prompt_prefs.h',
         'browser/bookmarks/bookmark_storage.cc',
         'browser/bookmarks/bookmark_storage.h',
         'browser/bookmarks/bookmark_utils.cc',
@@ -421,6 +388,8 @@
         'browser/browsing_data/browsing_data_server_bound_cert_helper.h',
         'browser/browsing_data/browsing_data_cookie_helper.cc',
         'browser/browsing_data/browsing_data_cookie_helper.h',
+        'browser/browsing_data/cookies_tree_model.cc',
+        'browser/browsing_data/cookies_tree_model.h',
         'browser/feedback/feedback_data.cc',
         'browser/feedback/feedback_data.h',
         'browser/feedback/feedback_util.cc',
@@ -530,8 +499,6 @@
         'browser/content_settings/local_shared_objects_container.h',
         'browser/content_settings/tab_specific_content_settings.cc',
         'browser/content_settings/tab_specific_content_settings.h',
-        'browser/cookies_tree_model.cc',
-        'browser/cookies_tree_model.h',
         'browser/crash_upload_list.cc',
         'browser/crash_upload_list.h',
         'browser/crash_upload_list_win.cc',
@@ -620,6 +587,9 @@
         'browser/external_protocol/external_protocol_observer.cc',
         'browser/external_protocol/external_protocol_observer.h',
         'browser/external_tab/external_tab_container.h',
+        'browser/favicon/favicon_download_helper.cc',
+        'browser/favicon/favicon_download_helper.h',
+        'browser/favicon/favicon_download_helper_delegate.h',
         'browser/favicon/favicon_handler.cc',
         'browser/favicon/favicon_handler.h',
         'browser/favicon/favicon_handler_delegate.h',
@@ -970,6 +940,7 @@
         'browser/intents/web_intents_reporting.h',
         'browser/intents/web_intents_util.cc',
         'browser/intents/web_intents_util.h',
+        'browser/intents/web_intents_util_stub.cc',
         'browser/internal_auth.cc',
         'browser/internal_auth.h',
         'browser/intranet_redirect_detector.cc',
@@ -1067,9 +1038,13 @@
         'browser/net/about_protocol_handler.h',
         'browser/net/async_dns_field_trial.cc',
         'browser/net/async_dns_field_trial.h',
+        'browser/net/basic_http_user_agent_settings.cc',
+        'browser/net/basic_http_user_agent_settings.h',
         'browser/net/chrome_cookie_notification_details.h',
         'browser/net/chrome_fraudulent_certificate_reporter.cc',
         'browser/net/chrome_fraudulent_certificate_reporter.h',
+        'browser/net/chrome_http_user_agent_settings.cc',
+        'browser/net/chrome_http_user_agent_settings.h',
         'browser/net/chrome_net_log.cc',
         'browser/net/chrome_net_log.h',
         'browser/net/chrome_network_delegate.cc',
@@ -1353,6 +1328,8 @@
         'browser/policy/enterprise_metrics.h',
         'browser/policy/managed_mode_policy_provider.cc',
         'browser/policy/managed_mode_policy_provider.h',
+        'browser/policy/message_util.cc',
+        'browser/policy/message_util.h',
         'browser/policy/network_configuration_updater.cc',
         'browser/policy/network_configuration_updater.h',
         'browser/policy/policy_bundle.cc',
@@ -1363,6 +1340,8 @@
         'browser/policy/policy_loader_mac.h',
         'browser/policy/policy_loader_win.cc',
         'browser/policy/policy_loader_win.h',
+        'browser/policy/policy_map.cc',
+        'browser/policy/policy_map.h',
         'browser/policy/policy_notifier.cc',
         'browser/policy/policy_notifier.h',
         'browser/policy/policy_path_parser.h',
@@ -1667,10 +1646,14 @@
         'browser/safe_browsing/malware_details_cache.h',
         'browser/safe_browsing/malware_details_history.cc',
         'browser/safe_browsing/malware_details_history.h',
+        'browser/safe_browsing/ping_manager.cc',
+        'browser/safe_browsing/ping_manager.h',
         'browser/safe_browsing/prefix_set.cc',
         'browser/safe_browsing/prefix_set.h',
         'browser/safe_browsing/protocol_manager.cc',
         'browser/safe_browsing/protocol_manager.h',
+        'browser/safe_browsing/protocol_manager_helper.cc',
+        'browser/safe_browsing/protocol_manager_helper.h',
         'browser/safe_browsing/protocol_parser.cc',
         'browser/safe_browsing/protocol_parser.h',
         'browser/safe_browsing/safe_browsing_blocking_page.cc',
@@ -1761,6 +1744,8 @@
         'browser/signin/signin_manager.h',
         'browser/signin/signin_manager_factory.cc',
         'browser/signin/signin_manager_factory.h',
+        'browser/signin/signin_names_io_thread.cc',
+        'browser/signin/signin_names_io_thread.h',
         'browser/signin/signin_tracker.cc',
         'browser/signin/signin_tracker.h',
         'browser/signin/token_service.cc',
@@ -1802,6 +1787,8 @@
         'browser/spellchecker/spellcheck_host_impl.h',
         'browser/spellchecker/spellcheck_host_metrics.cc',
         'browser/spellchecker/spellcheck_host_metrics.h',
+        'browser/spellchecker/spellcheck_hunspell_dictionary.cc',
+        'browser/spellchecker/spellcheck_hunspell_dictionary.h',
         'browser/spellchecker/spellcheck_message_filter.cc',
         'browser/spellchecker/spellcheck_message_filter.h',
         'browser/spellchecker/spellcheck_message_filter_mac.cc',
@@ -1964,11 +1951,12 @@
         'browser/sync/sync_ui_util_mac.h',
         'browser/sync/sync_ui_util_mac.mm',
         'browser/sync/user_selectable_sync_type.h',
+        'browser/sync_file_system/drive_file_sync_client.cc',
+        'browser/sync_file_system/drive_file_sync_client.h',
+        'browser/sync_file_system/drive_file_sync_util.cc',
+        'browser/sync_file_system/drive_file_sync_util.h',
         'browser/sync_file_system/drive_metadata_store.cc',
         'browser/sync_file_system/drive_metadata_store.h',
-        'browser/sync_file_system/drive_sync_client.cc',
-        'browser/sync_file_system/drive_sync_client.h',
-        'browser/sync_file_system/change_observer_interface.h',
         'browser/sync_file_system/local_change_processor.h',
         'browser/sync_file_system/local_file_sync_service.cc',
         'browser/sync_file_system/local_file_sync_service.h',
@@ -1984,6 +1972,8 @@
         'browser/system_monitor/media_storage_util.h',
         'browser/system_monitor/media_transfer_protocol_device_observer_linux.cc',
         'browser/system_monitor/media_transfer_protocol_device_observer_linux.h',
+        'browser/system_monitor/portable_device_watcher_win.cc',
+        'browser/system_monitor/portable_device_watcher_win.h',
         'browser/system_monitor/removable_device_constants.cc',
         'browser/system_monitor/removable_device_constants.h',
         'browser/system_monitor/removable_device_notifications_chromeos.cc',
@@ -2167,23 +2157,66 @@
 
         # This file is generated by the autofill_regexes action.
         '<(SHARED_INTERMEDIATE_DIR)/autofill_regex_constants.cc',
-
-        # TODO(joi): Move to 'base_prefs' target in base/base.gyp once
-        # Prefs move is complete and dependencies have been broken.
-        '../base/prefs/default_pref_store.cc',
-        '../base/prefs/default_pref_store.h',
-        '../base/prefs/overlay_user_pref_store.cc',
-        '../base/prefs/overlay_user_pref_store.h',
-        '../base/prefs/pref_notifier.h',
-        '../base/prefs/pref_value_map.cc',
-        '../base/prefs/pref_value_map.h',
-        '../base/prefs/public/pref_change_registrar.cc',
-        '../base/prefs/public/pref_change_registrar.h',
-        '../base/prefs/public/pref_service_base.h',
-        '../base/prefs/value_map_pref_store.cc',
-        '../base/prefs/value_map_pref_store.h',
       ],
       'conditions': [
+        ['OS != "ios"', {
+          'dependencies': [
+            'autofill_regexes',
+            'browser/performance_monitor/performance_monitor.gyp:performance_monitor',
+            'browser_extensions',
+            'common/extensions/api/api.gyp:api',
+            'debugger',
+            'installer_util',
+            'sync_file_system_proto',
+            '../content/content.gyp:navigation_interception',
+            '../net/net.gyp:net_with_v8',
+            '../ppapi/ppapi_internal.gyp:ppapi_ipc',  # For PpapiMsg_LoadPlugin
+            '../printing/printing.gyp:printing',
+            '../third_party/adobe/flash/flash_player.gyp:flapper_version_h',
+            '../third_party/expat/expat.gyp:expat',
+            '../third_party/hunspell/hunspell.gyp:hunspell',
+            '../third_party/leveldatabase/leveldatabase.gyp:leveldatabase',
+            '../third_party/libjingle/libjingle.gyp:libjingle',
+            '../third_party/libphonenumber/libphonenumber.gyp:libphonenumber',
+            '../third_party/npapi/npapi.gyp:npapi',
+            '../third_party/re2/re2.gyp:re2',
+            '../ui/surface/surface.gyp:surface',
+            '../ui/web_dialogs/web_dialogs.gyp:web_dialogs',
+            '../v8/tools/gyp/v8.gyp:v8',
+            '../webkit/support/webkit_support.gyp:glue',
+            '../webkit/support/webkit_support.gyp:webkit_resources',
+            '../webkit/support/webkit_support.gyp:webkit_storage',
+          ],
+          'defines': [
+            '<@(nacl_defines)',
+          ],
+          'direct_dependent_settings': {
+            'defines': [
+              '<@(nacl_defines)',
+            ],
+          },
+        }, {  # OS == "ios"
+          'dependencies': [
+            '../net/net.gyp:net',
+          ],
+          'sources/': [
+            # Exclude everything but iOS-specific files.
+            ['exclude', '\\.(cc|mm)$'],
+            ['include', '_ios\\.(cc|mm)$'],
+            ['include', '(^|/)ios/'],
+            # TODO(ios): Add files here as they are updated to compile on iOS.
+          ],
+          'link_settings': {
+            'libraries': [
+              '$(SDKROOT)/System/Library/Frameworks/CoreTelephony.framework',
+              '$(SDKROOT)/System/Library/Frameworks/CoreText.framework',
+              '$(SDKROOT)/System/Library/Frameworks/MobileCoreServices.framework',
+              '$(SDKROOT)/System/Library/Frameworks/QuartzCore.framework',
+            ],
+            # CoreImage is iOS 5+, but iOS 4.3 is still supported.
+            'xcode_settings': {'OTHER_LDFLAGS': ['-weak_framework CoreImage']},
+          },
+        }],
         ['enable_one_click_signin==0', {
           'sources!': [
             'browser/api/infobars/one_click_signin_infobar_delegate.cc',
@@ -2269,11 +2302,16 @@
             'browser/policy/policy_service_stub.cc',
             'browser/policy/policy_service_stub.h',
           ],
+          'dependencies': [
+            'app/policy/cloud_policy_codegen.gyp:policy',
+          ],
         }, {  # configuration_policy==0
           'sources/': [
             ['exclude', '^browser/policy/'],
             ['exclude', 'browser/value_store/policy_value_store.cc'],
             ['exclude', 'browser/value_store/policy_value_store.h'],
+            ['include', 'browser/policy/policy_map.cc'],
+            ['include', 'browser/policy/policy_map.h'],
             ['include', 'browser/policy/policy_service.cc'],
             ['include', 'browser/policy/policy_service.h'],
             ['include', 'browser/policy/policy_service_stub.cc'],
@@ -2356,8 +2394,6 @@
             ['exclude', 'browser/icon_loader_linux.cc'],
             ['exclude', 'browser/icon_manager_linux.cc'],
             ['exclude', 'browser/idle_linux.cc'],
-            ['exclude', 'browser/media_gallery/media_transfer_protocol_manager_linux.cc'],
-            ['exclude', 'browser/media_gallery/media_transfer_protocol_manager_linux.h'],
             ['exclude', 'browser/password_manager/native_backend_gnome_x.cc'],
             ['exclude', 'browser/password_manager/native_backend_gnome_x.h'],
             ['exclude', 'browser/password_manager/native_backend_kwallet_x.cc'],
@@ -2439,14 +2475,14 @@
             '../ui/gl/gl.gyp:gl',
           ],
         }],
-        ['os_posix == 1 and OS != "mac" and OS != "android"', {
+        ['os_posix == 1 and OS != "mac" and OS != "ios" and OS != "android"', {
           'link_settings': {
             'libraries': [
               '-lXss',
             ],
           },
         }],
-        ['os_posix == 1 and OS != "mac"', {
+        ['os_posix == 1 and OS != "mac" and OS != "ios"', {
           'sources': [ 'browser/crash_handler_host_linux.h', ],
           'conditions': [
             ['linux_breakpad==1', {
@@ -2525,6 +2561,16 @@
             ['exclude', '^browser/notifications/'],
           ],
         }],
+        ['enable_web_intents==0', {
+          'sources/': [
+            ['exclude', '^browser/intents/'],
+            ['include', '^browser/intents/web_intents_util_stub.cc'],
+          ],
+        }, {  # enable_web_intents==1
+          'sources!': [
+            'browser/intents/web_intents_util_stub.cc',
+          ],
+        }],
         ['enable_themes==0', {
           'sources!': [
             'browser/sync/glue/theme_data_type_controller.cc',
@@ -2536,6 +2582,16 @@
         ['enable_automation!=1', {
           'sources/': [
             ['exclude', '^browser/automation/'],
+          ],
+        }],
+        ['enable_language_detection==0', {
+          'sources!': [
+            'browser/language_usage_metrics.cc',
+            'browser/language_usage_metrics.h',
+          ],
+        }, {   # enable_language_detection==1
+          'dependencies': [
+            '../third_party/cld/cld.gyp:cld',
           ],
         }],
         ['enable_printing!=1', {
@@ -2759,7 +2815,7 @@
                 ['include', '^browser/printing/print_dialog_gtk.h'],
               ],
             }],
-            ['os_posix == 1 and OS != "mac" and OS != "android" and gcc_version == 45', {
+            ['os_posix == 1 and OS != "mac" and OS != "ios" and OS != "android" and gcc_version == 45', {
               # Avoid gcc 4.5 miscompilation of template_url.cc
               # as per http://crbug.com/41887
               'cflags': [
@@ -2931,8 +2987,6 @@
             'android/java/src/org/chromium/chrome/browser/ChromeWebContentsDelegateAndroid.java',
             'android/java/src/org/chromium/chrome/browser/ContentViewUtil.java',
             'android/java/src/org/chromium/chrome/browser/DevToolsServer.java',
-            'android/java/src/org/chromium/chrome/browser/GoogleLocationSettingsHelper.java',
-            'android/java/src/org/chromium/chrome/browser/GoogleLocationSettingsHelperStub.java',
             'android/java/src/org/chromium/chrome/browser/IntentHelper.java',
             'android/java/src/org/chromium/chrome/browser/JavascriptAppModalDialog.java',
             'android/java/src/org/chromium/chrome/browser/ProcessUtils.java',

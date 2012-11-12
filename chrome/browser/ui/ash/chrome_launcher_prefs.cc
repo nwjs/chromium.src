@@ -62,8 +62,8 @@ void RegisterChromeLauncherUserPrefs(PrefService* user_prefs) {
   user_prefs->RegisterStringPref(prefs::kShelfAlignmentLocal,
                                  std::string(),
                                  PrefService::UNSYNCABLE_PREF);
-  user_prefs->RegisterBooleanPref(prefs::kLauncherShouldRunSyncAnimation,
-                                  true,
+  user_prefs->RegisterBooleanPref(prefs::kShowLogoutButtonInTray,
+                                  false,
                                   PrefService::UNSYNCABLE_PREF);
 }
 

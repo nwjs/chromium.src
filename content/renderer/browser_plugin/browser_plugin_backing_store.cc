@@ -20,7 +20,7 @@ BrowserPluginBackingStore::BrowserPluginBackingStore(
     float scale_factor)
     : size_(size),
       scale_factor_(scale_factor) {
-  gfx::Size pixel_size = gfx::ToFlooredSize(size.Scale(scale_factor));
+  gfx::Size pixel_size = gfx::ToFlooredSize(gfx::ScaleSize(size, scale_factor));
   bitmap_.setConfig(SkBitmap::kARGB_8888_Config,
       pixel_size.width(), pixel_size.height());
   bitmap_.allocPixels();
@@ -90,6 +90,10 @@ void BrowserPluginBackingStore::ScrollBackingStore(
   int h = pixel_rect.height() + abs(pixel_dy);
   SkIRect rect = SkIRect::MakeXYWH(x, y, w, h);
   bitmap_.scrollRect(&rect, pixel_dx, pixel_dy);
+}
+
+void BrowserPluginBackingStore::Clear(SkColor clear_color) {
+  canvas_->clear(clear_color);
 }
 
 }  // namespace content

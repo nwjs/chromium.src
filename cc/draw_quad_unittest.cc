@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/draw_quad.h"
 
 #include "cc/checkerboard_draw_quad.h"
@@ -21,8 +19,7 @@
 
 using WebKit::WebTransformationMatrix;
 
-using namespace cc;
-
+namespace cc {
 namespace {
 
 TEST(DrawQuadTest, copySharedQuadState)
@@ -62,7 +59,6 @@ scoped_ptr<SharedQuadState> createSharedQuadState()
 
 void compareDrawQuad(DrawQuad* quad, DrawQuad* copy, SharedQuadState* copySharedState)
 {
-    EXPECT_EQ(quad->size(), copy->size());
     EXPECT_EQ(quad->material(), copy->material());
     EXPECT_EQ(quad->isDebugQuad(), copy->isDebugQuad());
     EXPECT_RECT_EQ(quad->quadRect(), copy->quadRect());
@@ -254,7 +250,7 @@ TEST(DrawQuadTest, copyTileDrawQuad)
 {
     gfx::Rect opaqueRect(33, 44, 22, 33);
     unsigned resourceId = 104;
-    gfx::Point textureOffset(-31, 47);
+    gfx::Vector2d textureOffset(-31, 47);
     gfx::Size textureSize(85, 32);
     GLint textureFilter = 82;
     bool swizzleContents = true;
@@ -279,36 +275,33 @@ TEST(DrawQuadTest, copyTileDrawQuad)
 
 TEST(DrawQuadTest, copyYUVVideoDrawQuad)
 {
+    gfx::SizeF texScale(0.75, 0.5);
     VideoLayerImpl::FramePlane yPlane;
     yPlane.resourceId = 45;
-    yPlane.size = IntSize(34, 23);
+    yPlane.size = gfx::Size(34, 23);
     yPlane.format = 8;
-    yPlane.visibleSize = IntSize(623, 235);
     VideoLayerImpl::FramePlane uPlane;
     uPlane.resourceId = 532;
-    uPlane.size = IntSize(134, 16);
+    uPlane.size = gfx::Size(134, 16);
     uPlane.format = 2;
-    uPlane.visibleSize = IntSize(126, 27);
     VideoLayerImpl::FramePlane vPlane;
     vPlane.resourceId = 4;
-    vPlane.size = IntSize(456, 486);
+    vPlane.size = gfx::Size(456, 486);
     vPlane.format = 46;
-    vPlane.visibleSize = IntSize(19, 45);
 
     CREATE_SHARED_STATE();
-    CREATE_QUAD_3(YUVVideoDrawQuad, yPlane, uPlane, vPlane);
+    CREATE_QUAD_4(YUVVideoDrawQuad, texScale, yPlane, uPlane, vPlane);
+    EXPECT_EQ(texScale, copyQuad->texScale());
     EXPECT_EQ(yPlane.resourceId, copyQuad->yPlane().resourceId);
     EXPECT_EQ(yPlane.size, copyQuad->yPlane().size);
     EXPECT_EQ(yPlane.format, copyQuad->yPlane().format);
-    EXPECT_EQ(yPlane.visibleSize, copyQuad->yPlane().visibleSize);
     EXPECT_EQ(uPlane.resourceId, copyQuad->uPlane().resourceId);
     EXPECT_EQ(uPlane.size, copyQuad->uPlane().size);
     EXPECT_EQ(uPlane.format, copyQuad->uPlane().format);
-    EXPECT_EQ(uPlane.visibleSize, copyQuad->uPlane().visibleSize);
     EXPECT_EQ(vPlane.resourceId, copyQuad->vPlane().resourceId);
     EXPECT_EQ(vPlane.size, copyQuad->vPlane().size);
     EXPECT_EQ(vPlane.format, copyQuad->vPlane().format);
-    EXPECT_EQ(vPlane.visibleSize, copyQuad->vPlane().visibleSize);
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

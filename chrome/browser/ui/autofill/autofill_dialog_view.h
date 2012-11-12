@@ -5,7 +5,9 @@
 #ifndef CHROME_BROWSER_UI_AUTOFILL_AUTOFILL_DIALOG_VIEW_H_
 #define CHROME_BROWSER_UI_AUTOFILL_AUTOFILL_DIALOG_VIEW_H_
 
-class AutofillDialogController;
+#include "chrome/browser/ui/autofill/autofill_dialog_controller.h"
+
+namespace autofill {
 
 // An interface for the dialog that appears when a site initiates an Autofill
 // action via the imperative autocomplete API.
@@ -16,9 +18,20 @@ class AutofillDialogView {
   // Shows the dialog.
   virtual void Show() = 0;
 
+  // Returns the index into the suggestion model for |section|.
+  virtual int GetSuggestionSelection(DialogSection section) = 0;
+
+  // Fills |output| with data the user manually input.
+  virtual void GetUserInput(DialogSection section, DetailOutputMap* output) = 0;
+
+  // Returns the state of the "use billing address for shipping" checkbox.
+  virtual bool UseBillingForShipping() = 0;
+
   // Factory function to create the dialog (implemented once per view
   // implementation). |controller| will own the created dialog.
   static AutofillDialogView* Create(AutofillDialogController* controller);
 };
+
+}  // namespace autofill
 
 #endif  // CHROME_BROWSER_UI_AUTOFILL_AUTOFILL_DIALOG_VIEW_H_

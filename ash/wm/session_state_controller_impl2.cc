@@ -69,9 +69,21 @@ void SessionStateControllerImpl2::OnLockStateChanged(bool locked) {
   system_is_locked_ = locked;
 
   if (locked) {
-    animator_->StartAnimation(
-        internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
-        internal::SessionStateAnimator::ANIMATION_LOWER);
+    base::Callback<void(void)> callback =
+        base::Bind(&SessionStateControllerImpl2::OnLockScreenAnimationFinished,
+        base::Unretained(this));
+    if (CommandLine::ForCurrentProcess()->
+        HasSwitch(ash::switches::kAshReverseNewLockAnimations)) {
+      animator_->StartAnimationWithCallback(
+          internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
+          internal::SessionStateAnimator::ANIMATION_DROP,
+          callback);
+    } else {
+      animator_->StartAnimationWithCallback(
+          internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
+          internal::SessionStateAnimator::ANIMATION_RAISE_TO_SCREEN,
+          callback);
+    }
     lock_timer_.Stop();
     lock_fail_timer_.Stop();
 
@@ -83,7 +95,19 @@ void SessionStateControllerImpl2::OnLockStateChanged(bool locked) {
     animator_->StartAnimation(
         internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS |
         internal::SessionStateAnimator::LAUNCHER,
-        internal::SessionStateAnimator::ANIMATION_LOWER);
+        internal::SessionStateAnimator::ANIMATION_DROP);
+  }
+}
+
+void SessionStateControllerImpl2::SetLockScreenDisplayedCallback(
+    base::Closure& callback) {
+  lock_screen_displayed_callback_ = callback;
+}
+
+void SessionStateControllerImpl2::OnLockScreenAnimationFinished() {
+  if (!lock_screen_displayed_callback_.is_null()) {
+    lock_screen_displayed_callback_.Run();
+    lock_screen_displayed_callback_.Reset();
   }
 }
 
@@ -94,19 +118,19 @@ void SessionStateControllerImpl2::OnStartingLock() {
   animator_->StartAnimation(
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS |
       internal::SessionStateAnimator::LAUNCHER,
-      internal::SessionStateAnimator::ANIMATION_RAISE);
+      internal::SessionStateAnimator::ANIMATION_LIFT);
 
   // Hide the screen locker containers so we can raise them later.
   animator_->StartAnimation(
       internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_HIDE);
+      internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY);
 }
 
 void SessionStateControllerImpl2::StartLockAnimationAndLockImmediately() {
   animator_->StartAnimation(
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS |
       internal::SessionStateAnimator::LAUNCHER,
-      internal::SessionStateAnimator::ANIMATION_RAISE);
+      internal::SessionStateAnimator::ANIMATION_LIFT);
   OnLockTimeout();
 }
 
@@ -116,7 +140,7 @@ void SessionStateControllerImpl2::StartLockAnimation(bool shutdown_after_lock) {
   animator_->StartAnimation(
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS |
       internal::SessionStateAnimator::LAUNCHER,
-      internal::SessionStateAnimator::ANIMATION_RAISE);
+      internal::SessionStateAnimator::ANIMATION_LIFT);
   StartLockTimer();
 }
 
@@ -153,8 +177,9 @@ void SessionStateControllerImpl2::CancelLockAnimation() {
     return;
   shutdown_after_lock_ = false;
   animator_->StartAnimation(
-      internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_LOWER);
+      internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS |
+      internal::SessionStateAnimator::LAUNCHER,
+      internal::SessionStateAnimator::ANIMATION_DROP);
   lock_timer_.Stop();
 }
 
@@ -239,7 +264,7 @@ void SessionStateControllerImpl2::OnLockFailTimeout() {
   animator_->StartAnimation(
       internal::SessionStateAnimator::LAUNCHER |
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_LOWER);
+      internal::SessionStateAnimator::ANIMATION_DROP);
 }
 
 void SessionStateControllerImpl2::StartLockToShutdownTimer() {
@@ -294,10 +319,18 @@ void SessionStateControllerImpl2::OnRealShutdownTimeout() {
 
 void SessionStateControllerImpl2::OnLockScreenHide(
   base::Callback<void(void)>& callback) {
-  animator_->StartAnimationWithCallback(
-      internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_RAISE,
-      callback);
+  if (CommandLine::ForCurrentProcess()->
+      HasSwitch(ash::switches::kAshReverseNewLockAnimations)) {
+    animator_->StartAnimationWithCallback(
+        internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
+        internal::SessionStateAnimator::ANIMATION_LIFT,
+        callback);
+  } else {
+    animator_->StartAnimationWithCallback(
+        internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
+        internal::SessionStateAnimator::ANIMATION_LOWER_BELOW_SCREEN,
+        callback);
+  }
 }
 
 }  // namespace ash

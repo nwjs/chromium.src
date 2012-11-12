@@ -3,9 +3,10 @@
 // found in the LICENSE file.
 
 
-#ifndef BitmapContentLayerUpdater_h
-#define BitmapContentLayerUpdater_h
+#ifndef CC_BITMAP_CONTENT_LAYER_UPDATER_H_
+#define CC_BITMAP_CONTENT_LAYER_UPDATER_H_
 
+#include "cc/cc_export.h"
 #include "cc/content_layer_updater.h"
 
 class SkCanvas;
@@ -17,14 +18,14 @@ class LayerPainter;
 // This class rasterizes the contentRect into a skia bitmap canvas. It then updates
 // textures by copying from the canvas into the texture, using MapSubImage if
 // possible.
-class BitmapContentLayerUpdater : public ContentLayerUpdater {
+class CC_EXPORT BitmapContentLayerUpdater : public ContentLayerUpdater {
 public:
     class Resource : public LayerUpdater::Resource {
     public:
-        Resource(BitmapContentLayerUpdater*, scoped_ptr<PrioritizedTexture>);
+        Resource(BitmapContentLayerUpdater*, scoped_ptr<PrioritizedResource>);
         virtual ~Resource();
 
-        virtual void update(ResourceUpdateQueue&, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate, RenderingStats&) OVERRIDE;
+        virtual void update(ResourceUpdateQueue&, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate, RenderingStats&) OVERRIDE;
 
     private:
         BitmapContentLayerUpdater* updater() { return m_updater; }
@@ -34,9 +35,9 @@ public:
 
     static scoped_refptr<BitmapContentLayerUpdater> create(scoped_ptr<LayerPainter>);
 
-    virtual scoped_ptr<LayerUpdater::Resource> createResource(PrioritizedTextureManager*) OVERRIDE;
-    virtual void prepareToUpdate(const IntRect& contentRect, const IntSize& tileSize, float contentsWidthScale, float contentsHeightScale, IntRect& resultingOpaqueRect, RenderingStats&) OVERRIDE;
-    void updateTexture(ResourceUpdateQueue&, PrioritizedTexture*, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate);
+    virtual scoped_ptr<LayerUpdater::Resource> createResource(PrioritizedResourceManager*) OVERRIDE;
+    virtual void prepareToUpdate(const gfx::Rect& contentRect, const gfx::Size& tileSize, float contentsWidthScale, float contentsHeightScale, gfx::Rect& resultingOpaqueRect, RenderingStats&) OVERRIDE;
+    void updateTexture(ResourceUpdateQueue&, PrioritizedResource*, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate);
 
     virtual void setOpaque(bool) OVERRIDE;
 
@@ -45,10 +46,10 @@ protected:
     virtual ~BitmapContentLayerUpdater();
 
     scoped_ptr<SkCanvas> m_canvas;
-    IntSize m_canvasSize;
+    gfx::Size m_canvasSize;
     bool m_opaque;
 };
 
 }  // namespace cc
 
-#endif  // BitmapContentLayerUpdater_h
+#endif  // CC_BITMAP_CONTENT_LAYER_UPDATER_H_

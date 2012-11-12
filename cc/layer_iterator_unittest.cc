@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_iterator.h"
 
 #include "cc/layer.h"
@@ -12,13 +10,13 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebTransformationMatrix.h>
 
-using namespace cc;
 using WebKit::WebTransformationMatrix;
 using ::testing::Mock;
 using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::AnyNumber;
 
+namespace cc {
 namespace {
 
 class TestLayer : public Layer {
@@ -37,9 +35,9 @@ private:
         : Layer()
         , m_drawsContent(true)
     {
-        setBounds(IntSize(100, 100));
-        setPosition(IntPoint());
-        setAnchorPoint(IntPoint());
+        setBounds(gfx::Size(100, 100));
+        setPosition(gfx::Point());
+        setAnchorPoint(gfx::Point());
     }
     virtual ~TestLayer()
     {
@@ -211,7 +209,7 @@ TEST(LayerIteratorTest, complexTreeMultiSurface)
     scoped_refptr<TestLayer> root231 = TestLayer::create();
 
     rootLayer->createRenderSurface();
-    rootLayer->renderSurface()->setContentRect(IntRect(IntPoint(), rootLayer->bounds()));
+    rootLayer->renderSurface()->setContentRect(gfx::Rect(gfx::Point(), rootLayer->bounds()));
 
     rootLayer->addChild(root1);
     rootLayer->addChild(root2);
@@ -252,4 +250,5 @@ TEST(LayerIteratorTest, complexTreeMultiSurface)
     EXPECT_COUNT(root3, -1, -1, 0);
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

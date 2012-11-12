@@ -24,6 +24,7 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
+#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -47,8 +48,16 @@ struct GoogleServiceSigninSuccessDetails {
   std::string password;
 };
 
+// Details for the Notification type NOTIFICATION_GOOGLE_SIGNED_OUT.
+struct GoogleServiceSignoutDetails {
+  explicit GoogleServiceSignoutDetails(const std::string& in_username)
+      : username(in_username) {}
+  std::string username;
+};
+
 class SigninManager : public GaiaAuthConsumer,
                       public content::NotificationObserver,
+                      public PrefObserver,
                       public ProfileKeyedService {
  public:
   // Returns true if the cookie policy for the given profile allows cookies
@@ -145,6 +154,10 @@ class SigninManager : public GaiaAuthConsumer,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // PrefObserver
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
  protected:
   // Weak pointer to parent profile (protected so FakeSigninManager can access

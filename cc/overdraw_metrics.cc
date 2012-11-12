@@ -2,17 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/overdraw_metrics.h"
 
-#include "FloatQuad.h"
-#include "IntRect.h"
 #include "base/debug/trace_event.h"
 #include "base/metrics/histogram.h"
 #include "cc/layer_tree_host.h"
 #include "cc/layer_tree_host_impl.h"
 #include "cc/math_util.h"
+#include "ui/gfx/quad_f.h"
+#include "ui/gfx/rect.h"
 #include <public/WebTransformationMatrix.h>
 
 using WebKit::WebTransformationMatrix;
@@ -33,33 +31,7 @@ OverdrawMetrics::OverdrawMetrics(bool recordMetricsForFrame)
 {
 }
 
-static inline float wedgeProduct(const FloatPoint& p1, const FloatPoint& p2)
-{
-    return p1.x() * p2.y() - p1.y() * p2.x();
-}
-
-// Calculates area of an arbitrary convex polygon with up to 8 points.
-static inline float polygonArea(const FloatPoint points[8], int numPoints)
-{
-    if (numPoints < 3)
-        return 0;
-
-    float area = 0;
-    for (int i = 0; i < numPoints; ++i)
-        area += wedgeProduct(points[i], points[(i+1)%numPoints]);
-    return fabs(0.5f * area);
-}
-
-// Takes a given quad, maps it by the given transformation, and gives the area of the resulting polygon.
-static inline float areaOfMappedQuad(const WebTransformationMatrix& transform, const FloatQuad& quad)
-{
-    FloatPoint clippedQuad[8];
-    int numVerticesInClippedQuad = 0;
-    MathUtil::mapClippedQuad(transform, quad, clippedQuad, numVerticesInClippedQuad);
-    return polygonArea(clippedQuad, numVerticesInClippedQuad);
-}
-
-void OverdrawMetrics::didPaint(const IntRect& paintedRect)
+void OverdrawMetrics::didPaint(const gfx::Rect& paintedRect)
 {
     if (!m_recordMetricsForFrame)
         return;
@@ -73,13 +45,15 @@ void OverdrawMetrics::didCullTilesForUpload(int count)
         m_tilesCulledForUpload += count;
 }
 
-void OverdrawMetrics::didUpload(const WebTransformationMatrix& transformToTarget, const IntRect& uploadRect, const IntRect& opaqueRect)
+void OverdrawMetrics::didUpload(const WebTransformationMatrix& transformToTarget, const gfx::Rect& uploadRect, const gfx::Rect& opaqueRect)
 {
     if (!m_recordMetricsForFrame)
         return;
 
-    float uploadArea = areaOfMappedQuad(transformToTarget, FloatQuad(uploadRect));
-    float uploadOpaqueArea = areaOfMappedQuad(transformToTarget, FloatQuad(intersection(opaqueRect, uploadRect)));
+    gfx::Rect uploadOpaqueRect = gfx::IntersectRects(opaqueRect, uploadRect);
+
+    float uploadArea = static_cast<float>(uploadRect.width()) * uploadRect.height();
+    float uploadOpaqueArea = static_cast<float>(uploadOpaqueRect.width()) * uploadOpaqueRect.height();
 
     m_pixelsUploadedOpaque += uploadOpaqueArea;
     m_pixelsUploadedTranslucent += uploadArea - uploadOpaqueArea;
@@ -101,24 +75,26 @@ void OverdrawMetrics::didUseRenderSurfaceTextureMemoryBytes(size_t renderSurface
     m_renderSurfaceTextureUseBytes += renderSurfaceUseBytes;
 }
 
-void OverdrawMetrics::didCullForDrawing(const WebTransformationMatrix& transformToTarget, const IntRect& beforeCullRect, const IntRect& afterCullRect)
+void OverdrawMetrics::didCullForDrawing(const WebTransformationMatrix& transformToTarget, const gfx::Rect& beforeCullRect, const gfx::Rect& afterCullRect)
 {
     if (!m_recordMetricsForFrame)
         return;
 
-    float beforeCullArea = areaOfMappedQuad(transformToTarget, FloatQuad(beforeCullRect));
-    float afterCullArea = areaOfMappedQuad(transformToTarget, FloatQuad(afterCullRect));
+    float beforeCullArea = static_cast<float>(beforeCullRect.width()) * beforeCullRect.height();
+    float afterCullArea = static_cast<float>(afterCullRect.width()) * afterCullRect.height();
 
     m_pixelsCulledForDrawing += beforeCullArea - afterCullArea;
 }
 
-void OverdrawMetrics::didDraw(const WebTransformationMatrix& transformToTarget, const IntRect& afterCullRect, const IntRect& opaqueRect)
+void OverdrawMetrics::didDraw(const WebTransformationMatrix& transformToTarget, const gfx::Rect& afterCullRect, const gfx::Rect& opaqueRect)
 {
     if (!m_recordMetricsForFrame)
         return;
 
-    float afterCullArea = areaOfMappedQuad(transformToTarget, FloatQuad(afterCullRect));
-    float afterCullOpaqueArea = areaOfMappedQuad(transformToTarget, FloatQuad(intersection(opaqueRect, afterCullRect)));
+    gfx::Rect afterCullOpaqueRect = gfx::IntersectRects(opaqueRect, afterCullRect);
+
+    float afterCullArea = static_cast<float>(afterCullRect.width()) * afterCullRect.height();
+    float afterCullOpaqueArea = static_cast<float>(afterCullOpaqueRect.width()) * afterCullOpaqueRect.height();
 
     m_pixelsDrawnOpaque += afterCullOpaqueArea;
     m_pixelsDrawnTranslucent += afterCullArea - afterCullOpaqueArea;
@@ -183,4 +159,4 @@ void OverdrawMetrics::recordMetricsInternal(MetricsType metricsType, const Layer
     }
 }
 
-} // namespace cc
+}  // namespace cc

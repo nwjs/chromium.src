@@ -50,10 +50,15 @@ const char kLoadRedirectEventName[] = "loadredirect";
 const char kLoadStartEventName[] = "loadstart";
 const char kLoadStopEventName[] = "loadstop";
 const char kNewURL[] = "newUrl";
+const char kNewHeight[] = "newHeight";
+const char kNewWidth[] = "newWidth";
 const char kOldURL[] = "oldUrl";
+const char kOldHeight[] = "oldHeight";
+const char kOldWidth[] = "oldWidth";
 const char kPartitionAttribute[] = "partition";
 const char kPersistPrefix[] = "persist:";
 const char kProcessId[] = "processId";
+const char kSizeChangedEventName[] = "sizechanged";
 const char kSrcAttribute[] = "src";
 const char kType[] = "type";
 const char kURL[] = "url";
@@ -90,11 +95,18 @@ BrowserPlugin::BrowserPlugin(
       guest_crashed_(false),
       resize_pending_(false),
       navigate_src_sent_(false),
+      auto_size_(false),
+      max_height_(0),
+      max_width_(0),
+      min_height_(0),
+      min_width_(0),
       process_id_(-1),
       persist_storage_(false),
       content_window_routing_id_(MSG_ROUTING_NONE),
-      focused_(false),
+      plugin_focused_(false),
+      embedder_focused_(false),
       visible_(true),
+      size_changed_in_flight_(false),
       current_nav_entry_index_(0),
       nav_entry_count_(0) {
   BrowserPluginManager::Get()->AddBrowserPlugin(instance_id, this);
@@ -121,10 +133,6 @@ void BrowserPlugin::Cleanup() {
     FreeDamageBuffer();
 }
 
-std::string BrowserPlugin::GetSrcAttribute() const {
-  return src_;
-}
-
 void BrowserPlugin::SetSrcAttribute(const std::string& src) {
   if (src.empty() || (src == src_ && !guest_crashed_))
     return;
@@ -133,14 +141,17 @@ void BrowserPlugin::SetSrcAttribute(const std::string& src) {
   // after creation. If |src| is empty, we can delay the creation until we
   // acutally need it.
   if (!navigate_src_sent_) {
+    BrowserPluginHostMsg_CreateGuest_Params params;
+    params.storage_partition_id = storage_partition_id_;
+    params.persist_storage = persist_storage_;
+    params.focused = ShouldGuestBeFocused();
+    params.visible = visible_;
+    PopulateAutoSizeParameters(&params.auto_size);
     BrowserPluginManager::Get()->Send(
         new BrowserPluginHostMsg_CreateGuest(
             render_view_routing_id_,
             instance_id_,
-            storage_partition_id_,
-            persist_storage_,
-            focused_,
-            visible_));
+            params));
   }
 
   scoped_ptr<BrowserPluginHostMsg_ResizeGuest_Params> params(
@@ -158,6 +169,123 @@ void BrowserPlugin::SetSrcAttribute(const std::string& src) {
   // so this value is used for enforcing this.
   navigate_src_sent_ = true;
   src_ = src;
+}
+
+void BrowserPlugin::SetAutoSizeAttribute(bool auto_size) {
+  if (auto_size_ == auto_size)
+    return;
+  auto_size_ = auto_size;
+  last_view_size_ = plugin_rect_.size();
+  UpdateGuestAutoSizeState();
+}
+
+void BrowserPlugin::PopulateAutoSizeParameters(
+    BrowserPluginHostMsg_AutoSize_Params* params) {
+  // If maxWidth or maxHeight have not been set, set them to the container size.
+  max_height_ = max_height_ ? max_height_ : height();
+  max_width_ = max_width_ ? max_width_ : width();
+  // minWidth should not be bigger than maxWidth, and minHeight should not be
+  // bigger than maxHeight.
+  min_height_ = std::min(min_height_, max_height_);
+  min_width_ = std::min(min_width_, max_width_);
+  params->enable = auto_size_;
+  params->max_size = gfx::Size(max_width_, max_height_);
+  params->min_size = gfx::Size(min_width_, min_height_);
+}
+
+void BrowserPlugin::UpdateGuestAutoSizeState() {
+  if (!navigate_src_sent_)
+    return;
+  BrowserPluginHostMsg_AutoSize_Params auto_size_params;
+  PopulateAutoSizeParameters(&auto_size_params);
+  BrowserPluginHostMsg_ResizeGuest_Params resize_params;
+  int view_width = auto_size_params.max_size.width();
+  int view_height = auto_size_params.max_size.height();
+  if (!auto_size_params.enable) {
+    view_width = width();
+    view_height = height();
+  }
+  TransportDIB* new_damage_buffer =
+      PopulateResizeGuestParameters(&resize_params, view_width, view_height);
+  // AutoSize initiates a resize so we don't want to issue another resize,
+  // we just want to make sure the damage buffer has been updated.
+  resize_params.resize_pending = true;
+  DCHECK(new_damage_buffer);
+  BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_SetAutoSize(
+      render_view_routing_id_,
+      instance_id_,
+      auto_size_params,
+      resize_params));
+  if (damage_buffer_)
+    FreeDamageBuffer();
+  damage_buffer_ = new_damage_buffer;
+}
+
+void BrowserPlugin::SizeChangedDueToAutoSize(const gfx::Size& old_view_size) {
+  size_changed_in_flight_ = false;
+  if (!HasListeners(kSizeChangedEventName))
+    return;
+
+  WebKit::WebElement plugin = container()->element();
+  v8::HandleScope handle_scope;
+  v8::Context::Scope context_scope(
+      plugin.document().frame()->mainWorldScriptContext());
+
+  // Construct the sizechanged event object.
+  v8::Local<v8::Object> event = v8::Object::New();
+  event->Set(v8::String::New(kOldHeight, sizeof(kOldHeight) - 1),
+             v8::Integer::New(old_view_size.height()),
+             v8::ReadOnly);
+  event->Set(v8::String::New(kOldWidth, sizeof(kOldWidth) - 1),
+             v8::Integer::New(old_view_size.width()),
+             v8::ReadOnly);
+  event->Set(v8::String::New(kNewHeight, sizeof(kNewHeight) - 1),
+             v8::Integer::New(last_view_size_.height()),
+             v8::ReadOnly);
+  event->Set(v8::String::New(kNewWidth, sizeof(kNewWidth) - 1),
+             v8::Integer::New(last_view_size_.width()),
+             v8::ReadOnly);
+  TriggerEvent(kSizeChangedEventName, &event);
+}
+
+void BrowserPlugin::SetMaxHeightAttribute(int max_height) {
+  if (max_height_ == max_height)
+    return;
+  max_height_ = max_height;
+  if (!auto_size_)
+    return;
+  UpdateGuestAutoSizeState();
+}
+
+void BrowserPlugin::SetMaxWidthAttribute(int max_width) {
+  if (max_width_ == max_width)
+    return;
+  max_width_ = max_width;
+  if (!auto_size_)
+    return;
+  UpdateGuestAutoSizeState();
+}
+
+void BrowserPlugin::SetMinHeightAttribute(int min_height) {
+  if (min_height_ == min_height)
+    return;
+  min_height_ = min_height;
+  if (!auto_size_)
+     return;
+  UpdateGuestAutoSizeState();
+}
+
+void BrowserPlugin::SetMinWidthAttribute(int min_width) {
+  if (min_width_ == min_width)
+    return;
+  min_width_ = min_width;
+  if (!auto_size_)
+     return;
+  UpdateGuestAutoSizeState();
+}
+
+bool BrowserPlugin::InAutoSizeBounds(const gfx::Size& size) const {
+  return size.width() <= max_width_ && size.height() <= max_height_;
 }
 
 NPObject* BrowserPlugin::GetContentWindow() const {
@@ -253,6 +381,7 @@ void BrowserPlugin::InitializeEvents() {
   event_listener_map_[kLoadRedirectEventName] = EventListeners();
   event_listener_map_[kLoadStartEventName] = EventListeners();
   event_listener_map_[kLoadStopEventName] = EventListeners();
+  event_listener_map_[kSizeChangedEventName] = EventListeners();
 }
 
 void BrowserPlugin::RemoveEventListeners() {
@@ -278,9 +407,6 @@ void BrowserPlugin::TriggerEvent(const std::string& event_name,
                                  v8::Local<v8::Object>* event) {
   WebKit::WebElement plugin = container()->element();
 
-  // TODO(fsamuel): Copying the event listeners is insufficent because
-  // new persistent handles are not created when the copy constructor is
-  // called. See http://crbug.com/155044.
   const EventListeners& listeners = event_listener_map_[event_name.c_str()];
   // A v8::Local copy of the listeners is created from the v8::Persistent
   // listeners before firing them. This is to ensure that if one of these
@@ -360,11 +486,17 @@ void BrowserPlugin::Reload() {
                                       instance_id_));
 }
 
+void BrowserPlugin::SetCursor(const WebCursor& cursor) {
+  cursor_ = cursor;
+}
+
 void BrowserPlugin::UpdateRect(
     int message_id,
     const BrowserPluginMsg_UpdateRect_Params& params) {
-  if (width() != params.view_size.width() ||
-      height() != params.view_size.height()) {
+  if ((!auto_size_ &&
+       (width() != params.view_size.width() ||
+        height() != params.view_size.height())) ||
+      (auto_size_ && (!InAutoSizeBounds(params.view_size)))) {
     BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_UpdateRect_ACK(
         render_view_routing_id_,
         instance_id_,
@@ -372,16 +504,44 @@ void BrowserPlugin::UpdateRect(
         gfx::Size(width(), height())));
     return;
   }
+  // If the view size has changed since we last updated.
+  if (auto_size_ && (params.view_size != last_view_size_)) {
+    if (backing_store_)
+      backing_store_->Clear(SK_ColorWHITE);
+    gfx::Size old_view_size = last_view_size_;
+    last_view_size_ = params.view_size;
+    // Schedule a SizeChanged instead of calling it directly to ensure that
+    // the backing store has been updated before the developer attempts to
+    // resize to avoid flicker. |size_changed_in_flight_| acts as a form of
+    // flow control for SizeChanged events. If the guest's view size is changing
+    // rapidly before a SizeChanged event fires, then we avoid scheduling
+    // another SizedChanged event. SizedChanged reads the new size from
+    // |last_view_size_| so we can be sure that it always fires an event
+    // with the last seen view size.
+    if (container_ && !size_changed_in_flight_) {
+      size_changed_in_flight_ = true;
+      MessageLoop::current()->PostTask(
+          FROM_HERE,
+          base::Bind(&BrowserPlugin::SizeChangedDueToAutoSize,
+                     base::Unretained(this),
+                     old_view_size));
+   }
+  }
 
   float backing_store_scale_factor =
       backing_store_.get() ? backing_store_->GetScaleFactor() : 1.0f;
 
-  if (params.is_resize_ack ||
-      backing_store_scale_factor != params.scale_factor) {
+  if (!backing_store_ || params.is_resize_ack ||
+      (backing_store_scale_factor != params.scale_factor) ||
+      params.view_size.width() > backing_store_->GetSize().width() ||
+      params.view_size.height() > backing_store_->GetSize().height()) {
+    int backing_store_width = auto_size_ ? max_width_ : width();
+    int backing_store_height = auto_size_ ? max_height_: height();
     resize_pending_ = !params.is_resize_ack;
     backing_store_.reset(
-        new BrowserPluginBackingStore(gfx::Size(width(), height()),
-                                      params.scale_factor));
+        new BrowserPluginBackingStore(
+            gfx::Size(backing_store_width, backing_store_height),
+            params.scale_factor));
   }
 
   // Update the backing store.
@@ -560,9 +720,33 @@ void BrowserPlugin::LoadRedirect(const GURL& old_url,
 }
 
 void BrowserPlugin::AdvanceFocus(bool reverse) {
-  // We do not have a RenderView when we are testing.
-  if (render_view_)
-    render_view_->GetWebView()->advanceFocus(reverse);
+  DCHECK(render_view_);
+  render_view_->GetWebView()->advanceFocus(reverse);
+}
+
+void BrowserPlugin::SetEmbedderFocus(bool focused) {
+  if (embedder_focused_ == focused)
+    return;
+
+  bool old_guest_focus_state = ShouldGuestBeFocused();
+  embedder_focused_ = focused;
+
+  if (ShouldGuestBeFocused() != old_guest_focus_state)
+    UpdateGuestFocus();
+}
+
+void BrowserPlugin::UpdateGuestFocus() {
+  if (!navigate_src_sent_)
+    return;
+  bool should_be_focused = ShouldGuestBeFocused();
+  BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_SetFocus(
+      render_view_routing_id_,
+      instance_id_,
+      should_be_focused));
+}
+
+bool BrowserPlugin::ShouldGuestBeFocused() const {
+  return plugin_focused_ && embedder_focused_;
 }
 
 void BrowserPlugin::GuestContentWindowReady(int content_window_routing_id) {
@@ -688,42 +872,18 @@ void BrowserPlugin::updateGeometry(
   int old_width = width();
   int old_height = height();
   plugin_rect_ = window_rect;
-  if (old_width == window_rect.width &&
-      old_height == window_rect.height) {
+  if (auto_size_ || (old_width == window_rect.width &&
+                     old_height == window_rect.height)) {
     return;
   }
-
-  const size_t stride = skia::PlatformCanvas::StrideForWidth(window_rect.width);
-  // Make sure the size of the damage buffer is at least four bytes so that we
-  // can fit in a magic word to verify that the memory is shared correctly.
-  size_t size =
-      std::max(sizeof(unsigned int),
-               static_cast<size_t>(window_rect.height *
-                                   stride *
-                                   GetDeviceScaleFactor() *
-                                   GetDeviceScaleFactor()));
-
-  // Don't drop the old damage buffer until after we've made sure that the
-  // browser process has dropped it.
-  TransportDIB* new_damage_buffer = CreateTransportDIB(size);
   pending_resize_params_.reset();
 
   scoped_ptr<BrowserPluginHostMsg_ResizeGuest_Params> params(
       new BrowserPluginHostMsg_ResizeGuest_Params);
-  params->damage_buffer_id = new_damage_buffer->id();
-#if defined(OS_MACOSX)
-  // |damage_buffer_id| is not enough to retrieve the damage buffer (on browser
-  // side) since we don't let the browser cache the damage buffer. We need a
-  // handle to the damage buffer for this.
-  params->damage_buffer_handle = new_damage_buffer->handle();
-#endif
-#if defined(OS_WIN)
-  params->damage_buffer_size = size;
-#endif
-  params->width = window_rect.width;
-  params->height = window_rect.height;
-  params->resize_pending = resize_pending_;
-  params->scale_factor = GetDeviceScaleFactor();
+
+  TransportDIB* new_damage_buffer =
+      PopulateResizeGuestParameters(params.get(), width(), height());
+  DCHECK(new_damage_buffer);
 
   if (navigate_src_sent_) {
     BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_ResizeGuest(
@@ -754,6 +914,39 @@ void BrowserPlugin::FreeDamageBuffer() {
   RenderProcess::current()->FreeTransportDIB(damage_buffer_);
   damage_buffer_ = NULL;
 #endif
+}
+
+TransportDIB* BrowserPlugin::PopulateResizeGuestParameters(
+    BrowserPluginHostMsg_ResizeGuest_Params* params,
+    int view_width, int view_height) {
+  const size_t stride = skia::PlatformCanvas::StrideForWidth(view_width);
+  // Make sure the size of the damage buffer is at least four bytes so that we
+  // can fit in a magic word to verify that the memory is shared correctly.
+  size_t size =
+      std::max(sizeof(unsigned int),
+               static_cast<size_t>(view_height *
+                                   stride *
+                                   GetDeviceScaleFactor() *
+                                   GetDeviceScaleFactor()));
+
+  // Don't drop the old damage buffer until after we've made sure that the
+  // browser process has dropped it.
+  TransportDIB* new_damage_buffer = CreateTransportDIB(size);
+  params->damage_buffer_id = new_damage_buffer->id();
+#if defined(OS_MACOSX)
+  // |damage_buffer_id| is not enough to retrieve the damage buffer (on browser
+  // side) since we don't let the browser cache the damage buffer. We need a
+  // handle to the damage buffer for this.
+  params->damage_buffer_handle = new_damage_buffer->handle();
+#endif
+#if defined(OS_WIN)
+  params->damage_buffer_size = size;
+#endif
+  params->width = view_width;
+  params->height = view_height;
+  params->resize_pending = resize_pending_;
+  params->scale_factor = GetDeviceScaleFactor();
+  return new_damage_buffer;
 }
 
 BrowserPluginHostMsg_ResizeGuest_Params*
@@ -804,17 +997,14 @@ TransportDIB* BrowserPlugin::CreateTransportDIB(const size_t size) {
 }
 
 void BrowserPlugin::updateFocus(bool focused) {
-  if (focused_ == focused)
+  if (plugin_focused_ == focused)
     return;
 
-  focused_ = focused;
-  if (!navigate_src_sent_)
-    return;
+  bool old_guest_focus_state = ShouldGuestBeFocused();
+  plugin_focused_ = focused;
 
-  BrowserPluginManager::Get()->Send(new BrowserPluginHostMsg_SetFocus(
-      render_view_routing_id_,
-      instance_id_,
-      focused));
+  if (ShouldGuestBeFocused() != old_guest_focus_state)
+    UpdateGuestFocus();
 }
 
 void BrowserPlugin::updateVisibility(bool visible) {
@@ -844,14 +1034,13 @@ bool BrowserPlugin::handleInputEvent(const WebKit::WebInputEvent& event,
   IPC::Message* message =
       new BrowserPluginHostMsg_HandleInputEvent(
           render_view_routing_id_,
-          &handled,
-          &cursor);
+          &handled);
   message->WriteInt(instance_id_);
   message->WriteData(reinterpret_cast<const char*>(&plugin_rect_),
                      sizeof(gfx::Rect));
   message->WriteData(reinterpret_cast<const char*>(&event), event.size);
   BrowserPluginManager::Get()->Send(message);
-  cursor.GetCursorInfo(&cursor_info);
+  cursor_.GetCursorInfo(&cursor_info);
   return handled;
 }
 

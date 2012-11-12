@@ -19,6 +19,7 @@
 #include "base/path_service.h"
 #include "base/process.h"
 #include "base/process_util.h"
+#include "base/sequenced_task_runner.h"
 #include "base/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time.h"
@@ -1126,10 +1127,10 @@ void TestingAutomationProvider::OpenNewBrowserWindowOfType(
     int type, bool show, IPC::Message* reply_message) {
   new BrowserOpenedNotificationObserver(this, reply_message, false);
   // We may have no current browser windows open so don't rely on
-  // asking an existing browser to execute the IDC_NEWWINDOW command
+  // asking an existing browser to execute the IDC_NEWWINDOW command.
   Browser* browser = new Browser(
       Browser::CreateParams(static_cast<Browser::Type>(type), profile_));
-  chrome::AddBlankTab(browser, true);
+  chrome::AddBlankTabAt(browser, -1, true);
   if (show)
     browser->window()->Show();
 }
@@ -1146,7 +1147,7 @@ void TestingAutomationProvider::OpenNewBrowserWindow(
   new BrowserOpenedNotificationObserver(this, reply_message, true);
   Browser* browser = new Browser(
       Browser::CreateParams(Browser::TYPE_TABBED, profile_));
-  chrome::AddBlankTab(browser, true);
+  chrome::AddBlankTabAt(browser, -1, true);
   if (show)
     browser->window()->Show();
 }
@@ -1288,7 +1289,9 @@ void TestingAutomationProvider::GetBookmarksAsJSON(
     return;
   }
   scoped_refptr<BookmarkStorage> storage(
-      new BookmarkStorage(browser->profile(), bookmark_model));
+      new BookmarkStorage(browser->profile(),
+                          bookmark_model,
+                          browser->profile()->GetIOTaskRunner()));
   if (!storage->SerializeData(&bookmarks_as_json)) {
     reply.SendError("Failed to serialize bookmarks");
     return;
@@ -2713,14 +2716,12 @@ void TestingAutomationProvider::PerformActionOnDownload(
       prefs->DisableAutoOpenBasedOnExtension(path);
     AutomationJSONReply(this, reply_message).SendSuccess(NULL);
   } else if (action == "remove") {
-    download_manager->AddObserver(
-        new AutomationProviderDownloadModelChangedObserver(
-            this, reply_message, download_manager));
+    new AutomationProviderDownloadModelChangedObserver(
+        this, reply_message, download_manager);
     selected_item->Remove();
   } else if (action == "decline_dangerous_download") {
-    download_manager->AddObserver(
-        new AutomationProviderDownloadModelChangedObserver(
-            this, reply_message, download_manager));
+    new AutomationProviderDownloadModelChangedObserver(
+        this, reply_message, download_manager);
     selected_item->Delete(DownloadItem::DELETE_DUE_TO_USER_DISCARD);
   } else if (action == "save_dangerous_download") {
     selected_item->AddObserver(new AutomationProviderDownloadUpdatedObserver(
@@ -4553,7 +4554,7 @@ void TestingAutomationProvider::GetNTPInfo(
     DictionaryValue* args,
     IPC::Message* reply_message) {
   // This observer will delete itself.
-  new NTPInfoObserver(this, reply_message, &consumer_);
+  new NTPInfoObserver(this, reply_message);
 }
 
 void TestingAutomationProvider::RemoveNTPMostVisitedThumbnail(

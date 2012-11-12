@@ -419,7 +419,7 @@ bool RenderThreadImpl::Send(IPC::Message* msg) {
   bool notify_webkit_of_modal_loop = true;  // default value
   std::swap(notify_webkit_of_modal_loop, notify_webkit_of_modal_loop_);
 
-  gfx::NativeViewId host_window = 0;
+  int render_view_id = MSG_ROUTING_NONE;
 
   if (pumping_events) {
     if (suspend_webkit_shared_timer)
@@ -431,18 +431,18 @@ bool RenderThreadImpl::Send(IPC::Message* msg) {
     RenderWidget* widget =
         static_cast<RenderWidget*>(ResolveRoute(msg->routing_id()));
     if (widget) {
-      host_window = widget->host_window();
+      render_view_id = widget->routing_id();
       PluginChannelHost::Broadcast(
-          new PluginMsg_SignalModalDialogEvent(host_window));
+          new PluginMsg_SignalModalDialogEvent(render_view_id));
     }
   }
 
   bool rv = ChildThread::Send(msg);
 
   if (pumping_events) {
-    if (host_window) {
+    if (render_view_id != MSG_ROUTING_NONE) {
       PluginChannelHost::Broadcast(
-          new PluginMsg_ResetModalDialogEvent(host_window));
+          new PluginMsg_ResetModalDialogEvent(render_view_id));
     }
 
     if (notify_webkit_of_modal_loop)
@@ -634,8 +634,6 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
 
   WebKit::WebRuntimeFeatures::enableMediaStream(true);
   WebKit::WebRuntimeFeatures::enablePeerConnection(true);
-  WebKit::WebRuntimeFeatures::enableDeprecatedPeerConnection(
-      command_line.HasSwitch(switches::kEnableDeprecatedPeerConnection));
 
   WebKit::WebRuntimeFeatures::enableFullScreenAPI(
       !command_line.HasSwitch(switches::kDisableFullScreen));
@@ -998,7 +996,6 @@ void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
   EnsureWebKitInitialized();
   // When bringing in render_view, also bring in webkit's glue and jsbindings.
   RenderViewImpl::Create(
-      params.parent_window,
       params.opener_route_id,
       params.renderer_preferences,
       params.web_preferences,

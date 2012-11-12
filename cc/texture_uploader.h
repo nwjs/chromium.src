@@ -5,25 +5,35 @@
 #ifndef CC_TEXTURE_UPLOADER_H_
 #define CC_TEXTURE_UPLOADER_H_
 
-#include "IntRect.h"
+#include <set>
+
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/scoped_ptr_deque.h"
-#include <set>
 #include "third_party/khronos/GLES2/gl2.h"
 
 namespace WebKit {
 class WebGraphicsContext3D;
 }
 
+namespace gfx {
+class Rect;
+class Size;
+class Vector2d;
+}
+
 namespace cc {
 
-class TextureUploader {
+class CC_EXPORT TextureUploader {
 public:
     static scoped_ptr<TextureUploader> create(
-        WebKit::WebGraphicsContext3D* context, bool useMapTexSubImage)
+        WebKit::WebGraphicsContext3D* context,
+        bool useMapTexSubImage,
+        bool useShallowFlush)
     {
-        return make_scoped_ptr(new TextureUploader(context, useMapTexSubImage));
+        return make_scoped_ptr(
+            new TextureUploader(context, useMapTexSubImage, useShallowFlush));
     }
     ~TextureUploader();
 
@@ -35,12 +45,14 @@ public:
     // imageRect, expressed in the same coordinate system as imageRect. Let 
     // image be a buffer for imageRect. This function will copy the region
     // corresponding to sourceRect to destOffset in this sub-image.
-    void upload(const uint8_t* image,
-                const IntRect& content_rect,
-                const IntRect& source_rect,
-                const IntSize& dest_offset,
+    void upload(const uint8* image,
+                const gfx::Rect& content_rect,
+                const gfx::Rect& source_rect,
+                const gfx::Vector2d& dest_offset,
                 GLenum format,
-                IntSize size);
+                const gfx::Size& size);
+
+    void flush();
 
 private:
     class Query {
@@ -67,21 +79,23 @@ private:
         bool m_isNonBlocking;
     };
 
-    TextureUploader(WebKit::WebGraphicsContext3D*, bool useMapTexSubImage);
+    TextureUploader(WebKit::WebGraphicsContext3D*,
+                    bool useMapTexSubImage,
+                    bool useShallowFlush);
 
     void beginQuery();
     void endQuery();
     void processQueries();
 
-    void uploadWithTexSubImage(const uint8_t* image,
-                               const IntRect& image_rect,
-                               const IntRect& source_rect,
-                               const IntSize& dest_offset,
+    void uploadWithTexSubImage(const uint8* image,
+                               const gfx::Rect& image_rect,
+                               const gfx::Rect& source_rect,
+                               const gfx::Vector2d& dest_offset,
                                GLenum format);
-    void uploadWithMapTexSubImage(const uint8_t* image,
-                                  const IntRect& image_rect,
-                                  const IntRect& source_rect,
-                                  const IntSize& dest_offset,
+    void uploadWithMapTexSubImage(const uint8* image,
+                                  const gfx::Rect& image_rect,
+                                  const gfx::Rect& source_rect,
+                                  const gfx::Vector2d& dest_offset,
                                   GLenum format);
 
     WebKit::WebGraphicsContext3D* m_context;
@@ -92,7 +106,10 @@ private:
 
     bool m_useMapTexSubImage;
     size_t m_subImageSize;
-    scoped_array<uint8_t> m_subImage;
+    scoped_array<uint8> m_subImage;
+
+    bool m_useShallowFlush;
+    size_t m_numTextureUploadsSinceLastFlush;
 
     DISALLOW_COPY_AND_ASSIGN(TextureUploader);
 };

@@ -8,7 +8,7 @@
 #include "android_webview/browser/aw_request_interceptor.h"
 #include "android_webview/browser/net/aw_network_delegate.h"
 #include "android_webview/browser/net/aw_url_request_job_factory.h"
-#include "android_webview/browser/net/register_android_protocols.h"
+#include "android_webview/browser/net/init_native_callback.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/resource_context.h"
@@ -84,6 +84,13 @@ void AwURLRequestContextGetter::Init() {
   builder.set_network_delegate(new AwNetworkDelegate());
   builder.set_ftp_enabled(false);  // Android WebView does not support ftp yet.
   builder.set_proxy_config_service(proxy_config_service_.release());
+  builder.set_accept_language(net::HttpUtil::GenerateAcceptLanguageHeader(
+      content::GetContentClient()->browser()->GetAcceptLangs(
+          browser_context_)));
+
+  // TODO(boliu): Values from chrome/app/resources/locale_settings_en-GB.xtb
+  builder.set_accept_charset(
+      net::HttpUtil::GenerateAcceptCharsetHeader("ISO-8859-1"));
 
   net::URLRequestContextBuilder::HttpCacheParams cache_params;
   cache_params.type = net::URLRequestContextBuilder::HttpCacheParams::DISK;
@@ -94,15 +101,6 @@ void AwURLRequestContextGetter::Init() {
 
   url_request_context_.reset(builder.Build());
 
-  url_request_context_->set_accept_language(
-      net::HttpUtil::GenerateAcceptLanguageHeader(
-          content::GetContentClient()->browser()->GetAcceptLangs(
-              browser_context_)));
-
-  // TODO(boliu): Values from chrome/app/resources/locale_settings_en-GB.xtb
-  url_request_context_->set_accept_charset(
-      net::HttpUtil::GenerateAcceptCharsetHeader("ISO-8859-1"));
-
   job_factory_.reset(new AwURLRequestJobFactory);
   bool set_protocol = job_factory_->SetProtocolHandler(
       chrome::kFileScheme, new net::FileProtocolHandler());
@@ -110,9 +108,11 @@ void AwURLRequestContextGetter::Init() {
   set_protocol = job_factory_->SetProtocolHandler(
       chrome::kDataScheme, new net::DataProtocolHandler());
   DCHECK(set_protocol);
-  RegisterAndroidProtocolsOnIOThread(job_factory_.get());
   job_factory_->AddInterceptor(new AwRequestInterceptor());
   url_request_context_->set_job_factory(job_factory_.get());
+
+  OnNetworkStackInitialized(url_request_context_.get(),
+                            job_factory_.get());
 }
 
 content::ResourceContext* AwURLRequestContextGetter::GetResourceContext() {

@@ -5,6 +5,7 @@
 #include "chrome/browser/autofill/autofill_popup_view.h"
 
 #include "base/memory/scoped_ptr.h"
+#include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/autofill/test_autofill_external_delegate.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -25,13 +26,21 @@ using testing::_;
 
 namespace {
 
-class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
+class MockAutofillExternalDelegate :
+      public autofill::TestAutofillExternalDelegate {
  public:
-  MockAutofillExternalDelegate() : TestAutofillExternalDelegate(NULL, NULL) {}
+  explicit MockAutofillExternalDelegate(content::WebContents* web_contents) :
+      TestAutofillExternalDelegate(
+          web_contents,
+          AutofillManager::FromWebContents(web_contents)) {}
   ~MockAutofillExternalDelegate() {}
 
   virtual void SelectAutofillSuggestionAtIndex(int unique_id)
       OVERRIDE {}
+
+  virtual void ClearPreviewedForm() OVERRIDE {}
+
+  MOCK_METHOD0(HideAutofillPopupInternal, void());
 };
 
 class TestAutofillPopupView : public AutofillPopupView {
@@ -47,11 +56,9 @@ class TestAutofillPopupView : public AutofillPopupView {
  protected:
   virtual void ShowInternal() OVERRIDE {}
 
-  virtual void HideInternal() OVERRIDE {}
-
   virtual void InvalidateRow(size_t row) OVERRIDE {}
 
-  virtual void ResizePopup() OVERRIDE {}
+  virtual void UpdateBoundsAndRedrawPopupInternal() OVERRIDE {}
 };
 
 }  // namespace
@@ -65,20 +72,25 @@ class AutofillPopupViewBrowserTest : public InProcessBrowserTest {
     web_contents_ = chrome::GetActiveWebContents(browser());
     ASSERT_TRUE(web_contents_ != NULL);
 
+    autofill_external_delegate_.reset(new MockAutofillExternalDelegate(
+        web_contents_));
     autofill_popup_view_.reset(new TestAutofillPopupView(
         web_contents_,
-        &autofill_external_delegate_));
+        autofill_external_delegate_.get()));
   }
 
  protected:
   content::WebContents* web_contents_;
   scoped_ptr<TestAutofillPopupView> autofill_popup_view_;
-  MockAutofillExternalDelegate autofill_external_delegate_;
+  scoped_ptr<MockAutofillExternalDelegate> autofill_external_delegate_;
 };
 
 IN_PROC_BROWSER_TEST_F(AutofillPopupViewBrowserTest,
                        SwitchTabAndHideAutofillPopup) {
-  EXPECT_CALL(*autofill_popup_view_, Hide()).Times(AtLeast(1));
+  EXPECT_CALL(*autofill_external_delegate_,
+              HideAutofillPopupInternal()).Times(AtLeast(1));
+
+  autofill::GenerateTestAutofillPopup(autofill_external_delegate_.get());
 
   content::WindowedNotificationObserver observer(
       content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED,
@@ -92,7 +104,10 @@ IN_PROC_BROWSER_TEST_F(AutofillPopupViewBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(AutofillPopupViewBrowserTest,
                        TestPageNavigationHidingAutofillPopup) {
-  EXPECT_CALL(*autofill_popup_view_, Hide()).Times(AtLeast(1));
+  EXPECT_CALL(*autofill_external_delegate_,
+              HideAutofillPopupInternal()).Times(AtLeast(1));
+
+  autofill::GenerateTestAutofillPopup(autofill_external_delegate_.get());
 
   content::WindowedNotificationObserver observer(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED,

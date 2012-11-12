@@ -191,4 +191,6 @@
     "includes": [27500],
     "structures": [28000],
   },
+
+  # Resource ids starting at 31000 are reserved for projects built on Chromium.
 }

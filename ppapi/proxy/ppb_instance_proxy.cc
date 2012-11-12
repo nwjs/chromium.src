@@ -15,6 +15,7 @@
 #include "ppapi/c/private/pp_content_decryptor.h"
 #include "ppapi/proxy/content_decryptor_private_serializer.h"
 #include "ppapi/proxy/enter_proxy.h"
+#include "ppapi/proxy/flash_clipboard_resource.h"
 #include "ppapi/proxy/flash_resource.h"
 #include "ppapi/proxy/gamepad_resource.h"
 #include "ppapi/proxy/host_dispatcher.h"
@@ -190,15 +191,20 @@ bool PPB_Instance_Proxy::OnMessageReceived(const IPC::Message& msg) {
 
 PP_Bool PPB_Instance_Proxy::BindGraphics(PP_Instance instance,
                                          PP_Resource device) {
-  Resource* object =
-      PpapiGlobals::Get()->GetResourceTracker()->GetResource(device);
-  if (!object || object->pp_instance() != instance)
-    return PP_FALSE;
+  // If device is 0, pass a null HostResource. This signals the host to unbind
+  // all devices.
+  HostResource host_resource;
+  if (device) {
+    Resource* resource =
+        PpapiGlobals::Get()->GetResourceTracker()->GetResource(device);
+    if (!resource || resource->pp_instance() != instance)
+      return PP_FALSE;
+    host_resource = resource->host_resource();
+  }
 
   PP_Bool result = PP_FALSE;
   dispatcher()->Send(new PpapiHostMsg_PPBInstance_BindGraphics(
-      API_ID_PPB_INSTANCE, instance, object->host_resource(),
-      &result));
+      API_ID_PPB_INSTANCE, instance, host_resource, &result));
   return result;
 }
 
@@ -321,6 +327,8 @@ thunk::PPB_Flash_API* PPB_Instance_Proxy::GetFlashAPI() {
   return static_cast<PPB_Flash_Proxy*>(ip);
 }
 
+// TODO(raymes): We can most likely cut down this boilerplate for grabbing
+// singleton resource APIs.
 thunk::PPB_Flash_Functions_API* PPB_Instance_Proxy::GetFlashFunctionsAPI(
     PP_Instance instance) {
 #if !defined(OS_NACL) && !defined(NACL_WIN64)
@@ -336,6 +344,29 @@ thunk::PPB_Flash_Functions_API* PPB_Instance_Proxy::GetFlashFunctionsAPI(
     data->flash_resource = new FlashResource(connection, instance);
   }
   return data->flash_resource.get();
+#else
+  // Flash functions aren't implemented for nacl.
+  NOTIMPLEMENTED();
+  return NULL;
+#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
+}
+
+thunk::PPB_Flash_Clipboard_API* PPB_Instance_Proxy::GetFlashClipboardAPI(
+    PP_Instance instance) {
+#if !defined(OS_NACL) && !defined(NACL_WIN64)
+  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
+      GetInstanceData(instance);
+  if (!data)
+    return NULL;
+
+  if (!data->flash_clipboard_resource.get()) {
+    Connection connection(
+        PluginGlobals::Get()->plugin_proxy_delegate()->GetBrowserSender(),
+        dispatcher());
+    data->flash_clipboard_resource =
+        new FlashClipboardResource(connection, instance);
+  }
+  return data->flash_clipboard_resource.get();
 #else
   // Flash functions aren't implemented for nacl.
   NOTIMPLEMENTED();
@@ -1140,7 +1171,7 @@ void PPB_Instance_Proxy::OnPluginMsgMouseLockComplete(PP_Instance instance,
     NOTREACHED();
     return;
   }
-  TrackedCallback::ClearAndRun(&(data->mouse_lock_callback), result);
+  data->mouse_lock_callback->Run(result);
 }
 
 void PPB_Instance_Proxy::MouseLockCompleteInHost(int32_t result,

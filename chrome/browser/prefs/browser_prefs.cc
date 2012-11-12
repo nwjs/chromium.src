@@ -8,6 +8,7 @@
 #include "chrome/browser/accessibility/invert_bubble_prefs.h"
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/background/background_mode_manager.h"
+#include "chrome/browser/bookmarks/bookmark_prompt_prefs.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chrome_content_browser_client.h"
@@ -41,6 +42,7 @@
 #include "chrome/browser/page_info_model.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/pepper_flash_settings_manager.h"
+#include "chrome/browser/plugins/plugin_finder.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
@@ -151,6 +153,7 @@ void RegisterLocalState(PrefService* local_state) {
   KeywordEditorController::RegisterPrefs(local_state);
   MetricsLog::RegisterPrefs(local_state);
   MetricsService::RegisterPrefs(local_state);
+  PluginFinder::RegisterPrefs(local_state);
   PrefProxyConfigTrackerImpl::RegisterPrefs(local_state);
   ProfileInfoCache::RegisterPrefs(local_state);
   ProfileManager::RegisterPrefs(local_state);
@@ -216,6 +219,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   // User prefs
   AlternateErrorPageTabObserver::RegisterUserPrefs(user_prefs);
   AutofillManager::RegisterUserPrefs(user_prefs);
+  BookmarkPromptPrefs::RegisterUserPrefs(user_prefs);
   bookmark_utils::RegisterUserPrefs(user_prefs);
   ChromeContentBrowserClient::RegisterUserPrefs(user_prefs);
   ChromeVersionService::RegisterUserPrefs(user_prefs);
@@ -242,11 +246,14 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   SessionStartupPref::RegisterUserPrefs(user_prefs);
   TemplateURLPrepopulateData::RegisterUserPrefs(user_prefs);
   TranslatePrefs::RegisterUserPrefs(user_prefs);
-  web_intents::RegisterUserPrefs(user_prefs);
   InstantUI::RegisterUserPrefs(user_prefs);
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
   policy::URLBlacklistManager::RegisterPrefs(user_prefs);
+#endif
+
+#if defined(ENABLE_WEB_INTENTS)
+  web_intents::RegisterUserPrefs(user_prefs);
 #endif
 
 #if defined(TOOLKIT_VIEWS)
@@ -257,9 +264,6 @@ void RegisterUserPrefs(PrefService* user_prefs) {
 
 #if defined(OS_ANDROID)
   geolocation::RegisterUserPrefs(user_prefs);
-#endif
-
-#if defined(OS_ANDROID)
   PromoHandler::RegisterUserPrefs(user_prefs);
 #endif
 

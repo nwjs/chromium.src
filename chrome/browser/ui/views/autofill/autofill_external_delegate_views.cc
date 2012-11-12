@@ -25,8 +25,10 @@ AutofillExternalDelegateViews::AutofillExternalDelegateViews(
 }
 
 AutofillExternalDelegateViews::~AutofillExternalDelegateViews() {
-  if (popup_view_)
+  if (popup_view_) {
+    popup_view_->ClearExternalDelegate();
     popup_view_->Hide();
+  }
 }
 
 void AutofillExternalDelegateViews::InvalidateView() {
@@ -57,7 +59,7 @@ void AutofillExternalDelegateViews::ApplyAutofillSuggestions(
 
 void AutofillExternalDelegateViews::SetBounds(const gfx::Rect& bounds) {
   CreateViewIfNeeded();
-  popup_view_->SetBoundsRect(bounds);
+  popup_view_->SetElementBounds(bounds);
 }
 
 void AutofillExternalDelegateViews::CreateViewIfNeeded() {

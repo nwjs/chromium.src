@@ -26,13 +26,13 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen.h"
-#include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen_actor.h"
 #include "chrome/browser/chromeos/login/login_status_consumer.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/options/take_photo_dialog.h"
 #endif  // defined(OS_CHROMEOS)
 #include "chrome/browser/common/cancelable_request.h"
+#include "chrome/browser/download/all_download_item_notifier.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/importer/importer_data_types.h"
@@ -317,11 +317,12 @@ class TabCountChangeObserver : public TabStripModelObserver {
                          IPC::Message* reply_message,
                          int target_tab_count);
   // Implementation of TabStripModelObserver.
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
-                             bool foreground);
-  virtual void TabDetachedAt(TabContents* contents, int index);
-  virtual void TabStripModelDeleted();
+                             bool foreground) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
+  virtual void TabStripModelDeleted() OVERRIDE;
 
  private:
   virtual ~TabCountChangeObserver();
@@ -940,19 +941,16 @@ class VirtualConnectObserver
 // Waits for enterprise device enrollment to complete and returns the status to
 // the automation provider.
 class EnrollmentObserver
-    : public chromeos::EnterpriseEnrollmentScreenActor::Observer {
+    : public chromeos::EnterpriseEnrollmentScreen::TestingObserver {
  public:
   EnrollmentObserver(AutomationProvider* automation,
-      IPC::Message* reply_message,
-      chromeos::EnterpriseEnrollmentScreenActor* enrollment_screen_actor,
-      chromeos::EnterpriseEnrollmentScreen* enrollment_screen);
+                     IPC::Message* reply_message,
+                     chromeos::EnterpriseEnrollmentScreen* enrollment_screen);
 
   virtual ~EnrollmentObserver();
 
-  // chromeos::EnterpriseEnrollmentScreenActor::Observer implementation.
-  virtual void OnEnrollmentComplete(
-      chromeos::EnterpriseEnrollmentScreenActor* enrollment_screen_actor,
-      bool succeeded);
+  // chromeos::EnterpriseEnrollmentScreen::Observer implementation.
+  virtual void OnEnrollmentComplete(bool succeeded);
 
  private:
   base::WeakPtr<AutomationProvider> automation_;
@@ -1070,7 +1068,7 @@ class AutomationProviderDownloadUpdatedObserver
 // Allows the automation provider to wait until the download model has changed
 // (because a new download has been added or removed).
 class AutomationProviderDownloadModelChangedObserver
-    : public content::DownloadManager::Observer {
+    : public AllDownloadItemNotifier::Observer {
  public:
   AutomationProviderDownloadModelChangedObserver(
       AutomationProvider* provider,
@@ -1078,12 +1076,17 @@ class AutomationProviderDownloadModelChangedObserver
       content::DownloadManager* download_manager);
   virtual ~AutomationProviderDownloadModelChangedObserver();
 
-  virtual void ModelChanged(content::DownloadManager* manager) OVERRIDE;
+  virtual void OnDownloadCreated(
+      content::DownloadManager* manager, content::DownloadItem* item) OVERRIDE;
+  virtual void OnDownloadRemoved(
+      content::DownloadManager* manager, content::DownloadItem* item) OVERRIDE;
 
  private:
+  void ModelChanged();
+
   base::WeakPtr<AutomationProvider> provider_;
   scoped_ptr<IPC::Message> reply_message_;
-  content::DownloadManager* download_manager_;
+  AllDownloadItemNotifier notifier_;
 
   DISALLOW_COPY_AND_ASSIGN(AutomationProviderDownloadModelChangedObserver);
 };
@@ -1376,9 +1379,7 @@ class AutomationMouseEventProcessor : public content::RenderViewHostObserver,
 
 class NTPInfoObserver : public content::NotificationObserver {
  public:
-  NTPInfoObserver(AutomationProvider* automation,
-                  IPC::Message* reply_message,
-                  CancelableRequestConsumer* consumer);
+  NTPInfoObserver(AutomationProvider* automation, IPC::Message* reply_message);
   virtual ~NTPInfoObserver();
 
   // Overridden from content::NotificationObserver:
@@ -1392,7 +1393,6 @@ class NTPInfoObserver : public content::NotificationObserver {
 
   base::WeakPtr<AutomationProvider> automation_;
   scoped_ptr<IPC::Message> reply_message_;
-  CancelableRequestConsumer* consumer_;
   CancelableRequestProvider::Handle request_;
   scoped_ptr<base::DictionaryValue> ntp_info_;
   history::TopSites* top_sites_;

@@ -31,6 +31,8 @@
 #include "ui/surface/transport_dib.h"
 #include "webkit/glue/webdropdata.h"
 
+struct BrowserPluginHostMsg_AutoSize_Params;
+struct BrowserPluginHostMsg_CreateGuest_Params;
 struct BrowserPluginHostMsg_ResizeGuest_Params;
 
 namespace WebKit {
@@ -69,10 +71,7 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
   // Creates a new guest.
   void CreateGuest(RenderViewHost* render_view_host,
                    int instance_id,
-                   std::string storage_partition_id,
-                   bool persist_storage,
-                   bool focused,
-                   bool visible);
+                   const BrowserPluginHostMsg_CreateGuest_Params& params);
 
   // Navigates in a guest (new or existing).
   void NavigateGuest(
@@ -118,6 +117,10 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
                         const WebDropData& drop_data,
                         WebKit::WebDragOperationsMask drag_mask,
                         const gfx::Point& location);
+  void SetAutoSize(
+      int instance_id,
+      const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+      const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params);
 
   bool visible() const { return visible_; }
 
@@ -140,11 +143,6 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
   virtual void AddGuest(int instance_id, WebContents* guest_web_contents);
   void DestroyGuestByInstanceID(int instance_id);
   void DestroyGuests();
-
-  // Returns the transport DIB associated with the dib in resize |params|.
-  TransportDIB* GetDamageBuffer(
-      RenderViewHost* render_view_host,
-      const BrowserPluginHostMsg_ResizeGuest_Params& params);
 
   // Called when visiblity of web_contents changes, so the embedder will
   // show/hide its guest.

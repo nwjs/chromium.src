@@ -46,7 +46,6 @@
 #include "chrome/browser/google/google_search_counter.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/jankometer.h"
-#include "chrome/browser/language_usage_metrics.h"
 #include "chrome/browser/managed_mode/managed_mode.h"
 #include "chrome/browser/metrics/field_trial_synchronizer.h"
 #include "chrome/browser/metrics/metrics_log.h"
@@ -168,6 +167,10 @@
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
 #include "policy/policy_constants.h"
+#endif
+
+#if defined(ENABLE_LANGUAGE_DETECTION)
+#include "chrome/browser/language_usage_metrics.h"
 #endif
 
 #if defined(ENABLE_RLZ)
@@ -578,8 +581,11 @@ void ChromeBrowserMainParts::SetupMetricsAndFieldTrials() {
       browser_process_->variations_service();
   variations_service->CreateTrialsFromSeed(browser_process_->local_state());
 
-  browser_field_trials_.SetupFieldTrials(
-      local_state_->IsManagedPreference(prefs::kMaxConnectionsPerProxy));
+  const int64 install_date = local_state_->GetInt64(
+      prefs::kUninstallMetricsInstallDate);
+  // This must be called after the pref is initialized.
+  DCHECK(install_date);
+  browser_field_trials_.SetupFieldTrials(base::Time::FromTimeT(install_date));
 
   SetupPlatformFieldTrials();
 
@@ -594,8 +600,15 @@ void ChromeBrowserMainParts::SetupMetricsAndFieldTrials() {
 
 void ChromeBrowserMainParts::StartMetricsRecording() {
   MetricsService* metrics = g_browser_process->metrics_service();
+
+  bool enable_benchmarking =
+      parsed_command_line_.HasSwitch(switches::kEnableBenchmarking);
+  // TODO(stevet): This is a temporary histogram used to investigate an issue
+  // with logging. Remove this when investigations are complete.
+  UMA_HISTOGRAM_BOOLEAN("UMA.FieldTrialsEnabledBenchmarking",
+                        enable_benchmarking);
   if (parsed_command_line_.HasSwitch(switches::kMetricsRecordingOnly) ||
-      parsed_command_line_.HasSwitch(switches::kEnableBenchmarking)) {
+      enable_benchmarking) {
     // If we're testing then we don't care what the user preference is, we turn
     // on recording, but not reporting, otherwise tests fail.
     metrics->StartRecordingForTests();
@@ -1244,7 +1257,8 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // notification to the user.
   if (NetworkProfileBubble::ShouldCheckNetworkProfile(profile_)) {
     content::BrowserThread::PostTask(content::BrowserThread::FILE, FROM_HERE,
-        base::Bind(&NetworkProfileBubble::CheckNetworkProfile, profile_));
+        base::Bind(&NetworkProfileBubble::CheckNetworkProfile,
+                   profile_->GetPath()));
   }
 #endif  // OS_WIN
 
@@ -1285,7 +1299,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // Prime the RLZ cache for the home page access point so that its avaiable
   // for the startup page if needed (i.e., when the startup page is set to
   // the home page).
-  RLZTracker::GetAccessPointRlz(rlz_lib::CHROME_HOME_PAGE, NULL);
+  RLZTracker::GetAccessPointRlz(RLZTracker::CHROME_HOME_PAGE, NULL);
 #endif  // defined(ENABLE_RLZ)
 
   // Configure modules that need access to resources.
@@ -1346,10 +1360,12 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   HandleTestParameters(parsed_command_line());
   RecordBreakpadStatusUMA(browser_process_->metrics_service());
   about_flags::RecordUMAStatistics(local_state_);
+#if defined(ENABLE_LANGUAGE_DETECTION)
   LanguageUsageMetrics::RecordAcceptLanguages(
       profile_->GetPrefs()->GetString(prefs::kAcceptLanguages));
   LanguageUsageMetrics::RecordApplicationLanguage(
       browser_process_->GetApplicationLocale());
+#endif
 
   // The extension service may be available at this point. If the command line
   // specifies --uninstall-extension, attempt the uninstall extension startup

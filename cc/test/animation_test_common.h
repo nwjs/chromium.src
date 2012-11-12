@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCAnimationTestCommon_h
-#define CCAnimationTestCommon_h
+#ifndef CC_TEST_ANIMATION_TEST_COMMON_H_
+#define CC_TEST_ANIMATION_TEST_COMMON_H_
 
-#include "IntSize.h"
 #include "cc/active_animation.h"
 #include "cc/animation_curve.h"
 #include "cc/layer_animation_controller.h"
@@ -78,15 +77,15 @@ private:
     WebKit::WebTransformationMatrix m_transform;
 };
 
-void addOpacityTransitionToController(cc::LayerAnimationController&, double duration, float startOpacity, float endOpacity, bool useTimingFunction);
-void addAnimatedTransformToController(cc::LayerAnimationController&, double duration, int deltaX, int deltaY);
+int addOpacityTransitionToController(cc::LayerAnimationController&, double duration, float startOpacity, float endOpacity, bool useTimingFunction);
+int addAnimatedTransformToController(cc::LayerAnimationController&, double duration, int deltaX, int deltaY);
 
-void addOpacityTransitionToLayer(cc::Layer&, double duration, float startOpacity, float endOpacity, bool useTimingFunction);
-void addOpacityTransitionToLayer(cc::LayerImpl&, double duration, float startOpacity, float endOpacity, bool useTimingFunction);
+int addOpacityTransitionToLayer(cc::Layer&, double duration, float startOpacity, float endOpacity, bool useTimingFunction);
+int addOpacityTransitionToLayer(cc::LayerImpl&, double duration, float startOpacity, float endOpacity, bool useTimingFunction);
 
-void addAnimatedTransformToLayer(cc::Layer&, double duration, int deltaX, int deltaY);
-void addAnimatedTransformToLayer(cc::LayerImpl&, double duration, int deltaX, int deltaY);
+int addAnimatedTransformToLayer(cc::Layer&, double duration, int deltaX, int deltaY);
+int addAnimatedTransformToLayer(cc::LayerImpl&, double duration, int deltaX, int deltaY);
 
 } // namespace WebKitTests
 
-#endif // CCAnimationTesctCommon_h
+#endif  // CC_TEST_ANIMATION_TEST_COMMON_H_

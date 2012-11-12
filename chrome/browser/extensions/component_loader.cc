@@ -25,7 +25,6 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "grit/browser_resources.h"
-#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 #if defined(OFFICIAL_BUILD)
@@ -127,8 +126,7 @@ std::string ComponentLoader::Add(int manifest_resource_id,
                                  const FilePath& root_directory) {
   std::string manifest_contents =
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          manifest_resource_id,
-          ui::SCALE_FACTOR_NONE).as_string();
+          manifest_resource_id).as_string();
   return Add(manifest_contents, root_directory);
 }
 
@@ -236,16 +234,19 @@ bool ComponentLoader::Exists(const std::string& id) const {
 
 void ComponentLoader::AddFileManagerExtension() {
 #if defined(FILE_MANAGER_EXTENSION)
-#ifndef NDEBUG
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  int manifest_id = command_line->HasSwitch(switches::kFileManagerPackaged) ?
+      IDR_FILEMANAGER_MANIFEST :
+      IDR_FILEMANAGER_MANIFEST_V1;
+#ifndef NDEBUG
   if (command_line->HasSwitch(switches::kFileManagerExtensionPath)) {
     FilePath filemgr_extension_path(
         command_line->GetSwitchValuePath(switches::kFileManagerExtensionPath));
-    Add(IDR_FILEMANAGER_MANIFEST, filemgr_extension_path);
+    Add(manifest_id, filemgr_extension_path);
     return;
   }
 #endif  // NDEBUG
-  Add(IDR_FILEMANAGER_MANIFEST, FilePath(FILE_PATH_LITERAL("file_manager")));
+  Add(manifest_id, FilePath(FILE_PATH_LITERAL("file_manager")));
 #endif  // defined(FILE_MANAGER_EXTENSION)
 }
 
@@ -275,8 +276,7 @@ void ComponentLoader::AddOrReloadEnterpriseWebStore() {
   if (!enterprise_webstore_url.empty()) {
     std::string manifest_contents =
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_ENTERPRISE_WEBSTORE_MANIFEST,
-          ui::SCALE_FACTOR_NONE).as_string();
+          IDR_ENTERPRISE_WEBSTORE_MANIFEST).as_string();
 
     // The manifest is missing some values that are provided by policy.
     DictionaryValue* manifest = ParseManifest(manifest_contents);
@@ -293,8 +293,7 @@ void ComponentLoader::AddChromeApp() {
 #if defined(USE_ASH)
   std::string manifest_contents =
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_CHROME_APP_MANIFEST,
-          ui::SCALE_FACTOR_NONE).as_string();
+          IDR_CHROME_APP_MANIFEST).as_string();
 
   // The Value is kept for the lifetime of the ComponentLoader. This is
   // required in case LoadAll() is called again.
@@ -327,11 +326,8 @@ void ComponentLoader::AddDefaultComponentExtensions() {
 #endif
 
 #if defined(OS_CHROMEOS)
-  if (!CommandLine::ForCurrentProcess()->
-          HasSwitch(switches::kDisableNewWallpaperUI)) {
-    Add(IDR_WALLPAPERMANAGER_MANIFEST,
-        FilePath(FILE_PATH_LITERAL("chromeos/wallpaper_manager")));
-  }
+  Add(IDR_WALLPAPERMANAGER_MANIFEST,
+      FilePath(FILE_PATH_LITERAL("chromeos/wallpaper_manager")));
 #endif
 
 #if defined(FILE_MANAGER_EXTENSION)
@@ -407,20 +403,10 @@ void ComponentLoader::AddDefaultComponentExtensions() {
   AddScriptBubble();
 }
 
-void ComponentLoader::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
-    const std::string* name =
-        content::Details<const std::string>(details).ptr();
-    if (*name == prefs::kEnterpriseWebStoreURL)
-      AddOrReloadEnterpriseWebStore();
-    else
-      NOTREACHED();
-  } else {
-    NOTREACHED();
-  }
+void ComponentLoader::OnPreferenceChanged(PrefServiceBase* service,
+                                          const std::string& pref_name) {
+  DCHECK_EQ(std::string(prefs::kEnterpriseWebStoreURL), pref_name);
+  AddOrReloadEnterpriseWebStore();
 }
 
 // static

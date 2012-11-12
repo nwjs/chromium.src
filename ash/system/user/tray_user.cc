@@ -33,6 +33,7 @@ namespace {
 
 const int kUserInfoVerticalPadding = 10;
 const int kUserIconSize = 27;
+const int kProfileRoundedCornerRadius = 2;
 
 }  // namespace
 
@@ -82,6 +83,7 @@ class RoundedImageView : public views::View {
     SkPath path;
     path.addRoundRect(gfx::RectToSkRect(image_bounds), kRadius, kRadius);
     SkPaint paint;
+    paint.setAntiAlias(true);
     paint.setXfermodeMode(SkXfermode::kSrcOver_Mode);
     canvas->DrawImageInPath(resized_, image_bounds.x(), image_bounds.y(),
                             path, paint);
@@ -129,16 +131,8 @@ class UserView : public views::View,
 
   // Create container for buttons.
   void AddButtonContainer() {
-    bool guest = login_ == ash::user::LOGGED_IN_GUEST;
-    bool kiosk = login_ == ash::user::LOGGED_IN_KIOSK;
-
-    ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-
-    TrayPopupTextButton* button =
-        new TrayPopupTextButton(this, bundle.GetLocalizedString(
-          guest ? IDS_ASH_STATUS_TRAY_EXIT_GUEST :
-          kiosk ? IDS_ASH_STATUS_TRAY_EXIT_KIOSK :
-                  IDS_ASH_STATUS_TRAY_SIGN_OUT));
+    TrayPopupTextButton* button = new TrayPopupTextButton(this,
+        ash::user::GetLocalizedSignOutStringForStatus(login_));
     container_->AddTextButton(button);
     signout_ = button;
   }
@@ -158,12 +152,12 @@ class UserView : public views::View,
           bundle.GetLocalizedString(IDS_ASH_STATUS_TRAY_KIOSK_LABEL));
       label->set_border(views::Border::CreateEmptyBorder(
             0, 4, 0, 1));
-      label->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+      label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       user_info_->AddChildView(label);
       return;
     }
 
-    RoundedImageView* image = new RoundedImageView(kTrayRoundedBorderRadius);
+    RoundedImageView* image = new RoundedImageView(kProfileRoundedCornerRadius);
     image->SetImage(ash::Shell::GetInstance()->tray_delegate()->GetUserImage(),
         gfx::Size(kUserIconSize, kUserIconSize));
     user_info_->AddChildView(image);
@@ -174,12 +168,12 @@ class UserView : public views::View,
     ash::SystemTrayDelegate* tray =
         ash::Shell::GetInstance()->tray_delegate();
     username_ = new views::Label(tray->GetUserDisplayName());
-    username_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    username_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     user->AddChildView(username_);
 
     email_ = new views::Label(UTF8ToUTF16(tray->GetUserEmail()));
     email_->SetFont(username_->font().DeriveFont(-1));
-    email_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    email_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     email_->SetEnabled(false);
     user->AddChildView(email_);
 
@@ -267,7 +261,7 @@ views::View* TrayUser::CreateTrayView(user::LoginStatus status) {
     label_->SetText(bundle.GetLocalizedString(IDS_ASH_STATUS_TRAY_GUEST_LABEL));
     SetupLabelForTray(label_);
   } else {
-    avatar_ = new tray::RoundedImageView(kTrayRoundedBorderRadius);
+    avatar_ = new tray::RoundedImageView(kProfileRoundedCornerRadius);
   }
   UpdateAfterLoginStatusChange(status);
   return avatar_ ? static_cast<views::View*>(avatar_)
@@ -304,6 +298,7 @@ void TrayUser::UpdateAfterLoginStatusChange(user::LoginStatus status) {
     case user::LOGGED_IN_LOCKED:
     case user::LOGGED_IN_USER:
     case user::LOGGED_IN_OWNER:
+    case user::LOGGED_IN_PUBLIC:
       avatar_->SetImage(
           ash::Shell::GetInstance()->tray_delegate()->GetUserImage(),
           gfx::Size(kUserIconSize, kUserIconSize));
@@ -323,7 +318,13 @@ void TrayUser::UpdateAfterLoginStatusChange(user::LoginStatus status) {
 
 void TrayUser::UpdateAfterShelfAlignmentChange(ShelfAlignment alignment) {
   if (avatar_) {
-    SetTrayImageItemBorder(avatar_, alignment);
+    if (alignment == SHELF_ALIGNMENT_BOTTOM) {
+      avatar_->set_border(views::Border::CreateEmptyBorder(
+          0, kTrayImageItemHorizontalPaddingBottomAlignment + 2,
+          0, kTrayImageItemHorizontalPaddingBottomAlignment));
+    } else {
+        SetTrayImageItemBorder(avatar_, alignment);
+    }
   } else {
     if (alignment == SHELF_ALIGNMENT_BOTTOM) {
       label_->set_border(views::Border::CreateEmptyBorder(

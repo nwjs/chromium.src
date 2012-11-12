@@ -2,11 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/quad_culler.h"
 
-#include "Region.h"
 #include "cc/append_quads_data.h"
 #include "cc/debug_border_draw_quad.h"
 #include "cc/layer_impl.h"
@@ -47,14 +44,14 @@ SharedQuadState* QuadCuller::useSharedQuadState(scoped_ptr<SharedQuadState> shar
     return m_currentSharedQuadState;
 }
 
-static inline bool appendQuadInternal(scoped_ptr<DrawQuad> drawQuad, const IntRect& culledRect, QuadList& quadList, const OcclusionTrackerImpl& occlusionTracker, bool createDebugBorderQuads)
+static inline bool appendQuadInternal(scoped_ptr<DrawQuad> drawQuad, const gfx::Rect& culledRect, QuadList& quadList, const OcclusionTrackerImpl& occlusionTracker, bool createDebugBorderQuads)
 {
-    bool keepQuad = !culledRect.isEmpty();
+    bool keepQuad = !culledRect.IsEmpty();
     if (keepQuad)
         drawQuad->setQuadVisibleRect(culledRect);
 
-    occlusionTracker.overdrawMetrics().didCullForDrawing(drawQuad->quadTransform(), cc::IntRect(drawQuad->quadRect()), culledRect);
-    occlusionTracker.overdrawMetrics().didDraw(drawQuad->quadTransform(), culledRect, cc::IntRect(drawQuad->opaqueRect()));
+    occlusionTracker.overdrawMetrics().didCullForDrawing(drawQuad->quadTransform(), drawQuad->quadRect(), culledRect);
+    occlusionTracker.overdrawMetrics().didDraw(drawQuad->quadTransform(), culledRect, drawQuad->opaqueRect());
 
     if (keepQuad) {
         if (createDebugBorderQuads && !drawQuad->isDebugQuad() && drawQuad->quadVisibleRect() != drawQuad->quadRect()) {
@@ -75,18 +72,18 @@ bool QuadCuller::append(scoped_ptr<DrawQuad> drawQuad, AppendQuadsData& appendQu
     DCHECK(!m_sharedQuadStateList.isEmpty());
     DCHECK(m_sharedQuadStateList.last() == m_currentSharedQuadState);
 
-    IntRect culledRect;
+    gfx::Rect culledRect;
     bool hasOcclusionFromOutsideTargetSurface;
     bool implDrawTransformIsUnknown = false;
 
     if (m_forSurface)
-        culledRect = m_occlusionTracker->unoccludedContributingSurfaceContentRect(m_layer, false, cc::IntRect(drawQuad->quadRect()), &hasOcclusionFromOutsideTargetSurface);
+        culledRect = m_occlusionTracker->unoccludedContributingSurfaceContentRect(m_layer, false, drawQuad->quadRect(), &hasOcclusionFromOutsideTargetSurface);
     else
-        culledRect = m_occlusionTracker->unoccludedContentRect(m_layer->renderTarget(), cc::IntRect(drawQuad->quadRect()), drawQuad->quadTransform(), implDrawTransformIsUnknown, cc::IntRect(drawQuad->clippedRectInTarget()), &hasOcclusionFromOutsideTargetSurface);
+        culledRect = m_occlusionTracker->unoccludedContentRect(m_layer->renderTarget(), drawQuad->quadRect(), drawQuad->quadTransform(), implDrawTransformIsUnknown, drawQuad->clippedRectInTarget(), &hasOcclusionFromOutsideTargetSurface);
 
     appendQuadsData.hadOcclusionFromOutsideTargetSurface |= hasOcclusionFromOutsideTargetSurface;
 
     return appendQuadInternal(drawQuad.Pass(), culledRect, m_quadList, *m_occlusionTracker, m_showCullingWithDebugBorderQuads);
 }
 
-} // namespace cc
+}  // namespace cc

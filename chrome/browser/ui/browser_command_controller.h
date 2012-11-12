@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_BROWSER_COMMAND_CONTROLLER_H_
 
 #include "base/prefs/public/pref_change_registrar.h"
+#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/sync/profile_sync_service_observer.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/sessions/tab_restore_service_observer.h"
@@ -27,6 +28,7 @@ namespace chrome {
 
 class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
                                  public content::NotificationObserver,
+                                 public PrefObserver,
                                  public TabStripModelObserver,
                                  public TabRestoreServiceObserver,
                                  public ProfileSyncServiceObserver {
@@ -86,11 +88,16 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // Overridden from PrefObserver:
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
+
   // Overridden from TabStripModelObserver:
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
                              bool foreground) OVERRIDE;
-  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
   virtual void TabReplacedAt(TabStripModel* tab_strip_model,
                              TabContents* old_contents,
                              TabContents* new_contents,
@@ -154,8 +161,8 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
 
   // Add/remove observers for interstitial attachment/detachment from
   // |contents|.
-  void AddInterstitialObservers(TabContents* contents);
-  void RemoveInterstitialObservers(TabContents* contents);
+  void AddInterstitialObservers(content::WebContents* contents);
+  void RemoveInterstitialObservers(content::WebContents* contents);
 
   inline BrowserWindow* window();
   inline Profile* profile();

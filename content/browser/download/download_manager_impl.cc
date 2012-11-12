@@ -82,6 +82,15 @@ void BeginDownload(scoped_ptr<DownloadUrlParameters> params) {
     request->SetExtraRequestHeaderByName(
         iter->first, iter->second, false/*overwrite*/);
   }
+
+  scoped_ptr<DownloadSaveInfo> save_info(new DownloadSaveInfo());
+  save_info->file_path = params->file_path();
+  save_info->suggested_name = params->suggested_name();
+  save_info->offset = params->offset();
+  save_info->hash_state = params->hash_state();
+  save_info->prompt_for_save_location = params->prompt();
+  save_info->file_stream = params->GetFileStream();
+
   params->resource_dispatcher_host()->BeginDownload(
       request.Pass(),
       params->content_initiated(),
@@ -89,7 +98,7 @@ void BeginDownload(scoped_ptr<DownloadUrlParameters> params) {
       params->render_process_host_id(),
       params->render_view_host_routing_id(),
       params->prefer_cache(),
-      params->GetSaveInfo(),
+      save_info.Pass(),
       params->callback());
 }
 
@@ -221,11 +230,15 @@ bool DownloadManagerImpl::ShouldOpenFileBasedOnExtension(const FilePath& path) {
   return delegate_->ShouldOpenFileBasedOnExtension(path);
 }
 
-bool DownloadManagerImpl::ShouldOpenDownload(DownloadItemImpl* item) {
+bool DownloadManagerImpl::ShouldOpenDownload(
+    DownloadItemImpl* item, const ShouldOpenDownloadCallback& callback) {
   if (!delegate_)
     return true;
 
-  return delegate_->ShouldOpenDownload(item);
+  // Relies on DownloadItemImplDelegate::ShouldOpenDownloadCallback and
+  // DownloadManagerDelegate::DownloadOpenDelayedCallback "just happening"
+  // to have the same type :-}.
+  return delegate_->ShouldOpenDownload(item, callback);
 }
 
 void DownloadManagerImpl::SetDelegate(DownloadManagerDelegate* delegate) {
@@ -331,7 +344,7 @@ DownloadItem* DownloadManagerImpl::StartDownload(
       file_factory_->CreateFile(
           info->save_info.Pass(), default_download_directory,
           info->url(), info->referrer_url,
-          info->received_bytes, delegate_->GenerateFileHash(),
+          delegate_->GenerateFileHash(),
           stream.Pass(), bound_net_log,
           download->DestinationObserverAsWeakPtr()));
   download->Start(download_file.Pass());
@@ -527,7 +540,6 @@ int DownloadManagerImpl::RemoveDownloadItems(
     delete download;
     downloads_.erase(download_id);
   }
-  NotifyModelChanged();
   return static_cast<int>(pending_deletes.size());
 }
 
@@ -596,10 +608,6 @@ void DownloadManagerImpl::DownloadUrl(
 
 void DownloadManagerImpl::AddObserver(Observer* observer) {
   observers_.AddObserver(observer);
-  // TODO: It is the responsibility of the observers to query the
-  // DownloadManager. Remove the following call from here and update all
-  // observers.
-  observer->ModelChanged(this);
 }
 
 void DownloadManagerImpl::RemoveObserver(Observer* observer) {
@@ -627,7 +635,6 @@ void DownloadManagerImpl::OnPersistentStoreQueryComplete(
     VLOG(20) << __FUNCTION__ << "()" << i << ">"
              << " download = " << download->DebugString(true);
   }
-  NotifyModelChanged();
   CheckForHistoryFilesRemoval();
 }
 
@@ -646,9 +653,6 @@ void DownloadManagerImpl::AddDownloadItemToHistory(DownloadItemImpl* download,
   // Show in the appropriate browser UI.
   // This includes buttons to save or cancel, for a dangerous download.
   ShowDownloadInBrowser(download);
-
-  // Inform interested objects about the new download.
-  NotifyModelChanged();
 }
 
 void DownloadManagerImpl::OnItemAddedToPersistentStore(int32 download_id,
@@ -723,10 +727,6 @@ int DownloadManagerImpl::InProgressCount() const {
       ++count;
   }
   return count;
-}
-
-void DownloadManagerImpl::NotifyModelChanged() {
-  FOR_EACH_OBSERVER(Observer, observers_, ModelChanged(this));
 }
 
 DownloadItem* DownloadManagerImpl::GetDownload(int download_id) {

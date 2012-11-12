@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_sorter.h"
 
 #include "cc/layer_impl.h"
@@ -12,9 +10,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebTransformationMatrix.h>
 
-using namespace cc;
 using WebKit::WebTransformationMatrix;
 
+namespace cc {
 namespace {
 
 // Note: In the following overlap tests, the "camera" is looking down the negative Z axis,
@@ -178,7 +176,7 @@ TEST(LayerSorterTest, LayersUnderPathologicalPerspectiveTransform)
 
     // Sanity check that the test case actually covers the intended scenario, where part
     // of layer B go behind the w = 0 plane.
-    FloatQuad testQuad = FloatQuad(FloatRect(FloatPoint(-0.5, -0.5), FloatSize(1, 1)));
+    gfx::QuadF testQuad = gfx::QuadF(gfx::RectF(-0.5, -0.5, 1, 1));
     bool clipped = false;
     MathUtil::mapQuad(perspectiveMatrix * transformB, testQuad, clipped);
     ASSERT_TRUE(clipped);
@@ -189,8 +187,6 @@ TEST(LayerSorterTest, LayersUnderPathologicalPerspectiveTransform)
 
 TEST(LayerSorterTest, verifyExistingOrderingPreservedWhenNoZDiff)
 {
-    DebugScopedSetImplThread thisScopeIsOnImplThread;
-
     // If there is no reason to re-sort the layers (i.e. no 3d z difference), then the
     // existing ordering provided on input should be retained. This test covers the fix in
     // https://bugs.webkit.org/show_bug.cgi?id=75046. Before this fix, ordering was
@@ -214,28 +210,28 @@ TEST(LayerSorterTest, verifyExistingOrderingPreservedWhenNoZDiff)
     WebTransformationMatrix FrontMatrix;
     FrontMatrix.translate3d(0, 0, 1);
 
-    layer1->setBounds(IntSize(10, 10));
-    layer1->setContentBounds(IntSize(10, 10));
+    layer1->setBounds(gfx::Size(10, 10));
+    layer1->setContentBounds(gfx::Size(10, 10));
     layer1->setDrawTransform(BehindMatrix);
     layer1->setDrawsContent(true);
 
-    layer2->setBounds(IntSize(20, 20));
-    layer2->setContentBounds(IntSize(20, 20));
+    layer2->setBounds(gfx::Size(20, 20));
+    layer2->setContentBounds(gfx::Size(20, 20));
     layer2->setDrawTransform(BehindMatrix);
     layer2->setDrawsContent(true);
 
-    layer3->setBounds(IntSize(30, 30));
-    layer3->setContentBounds(IntSize(30, 30));
+    layer3->setBounds(gfx::Size(30, 30));
+    layer3->setContentBounds(gfx::Size(30, 30));
     layer3->setDrawTransform(FrontMatrix);
     layer3->setDrawsContent(true);
 
-    layer4->setBounds(IntSize(40, 40));
-    layer4->setContentBounds(IntSize(40, 40));
+    layer4->setBounds(gfx::Size(40, 40));
+    layer4->setContentBounds(gfx::Size(40, 40));
     layer4->setDrawTransform(FrontMatrix);
     layer4->setDrawsContent(true);
 
-    layer5->setBounds(IntSize(50, 50));
-    layer5->setContentBounds(IntSize(50, 50));
+    layer5->setBounds(gfx::Size(50, 50));
+    layer5->setContentBounds(gfx::Size(50, 50));
     layer5->setDrawTransform(BehindMatrix);
     layer5->setDrawsContent(true);
 
@@ -264,4 +260,5 @@ TEST(LayerSorterTest, verifyExistingOrderingPreservedWhenNoZDiff)
     EXPECT_EQ(5, layerList[4]->id());
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

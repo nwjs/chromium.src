@@ -170,11 +170,6 @@ static void ConfigureCrtc(Display* display,
                    kRotate,
                    outputs,
                    num_outputs);
-  if (num_outputs == 1) {
-    // We are enabling a display so make sure it is turned on.
-    CHECK(DPMSEnable(display));
-    CHECK(DPMSForceLevel(display, DPMSModeOn));
-  }
 }
 
 // Called to set the frame buffer (underling XRR "screen") size.  Has a
@@ -343,8 +338,10 @@ static bool EnterState(Display* display,
     case 1: {
       // Re-allocate the framebuffer to fit.
       XRRModeInfo* mode_info = ModeInfoForID(screen, outputs[0].native_mode);
-      if (mode_info == NULL)
+      if (mode_info == NULL) {
+        UMA_HISTOGRAM_COUNTS("Display.EnterState.single_failures", 1);
         return false;
+      }
 
       int width = mode_info->width;
       int height = mode_info->height;
@@ -371,8 +368,10 @@ static bool EnterState(Display* display,
 
       if (STATE_DUAL_MIRROR == new_state) {
         XRRModeInfo* mode_info = ModeInfoForID(screen, outputs[0].mirror_mode);
-        if (mode_info == NULL)
+        if (mode_info == NULL) {
+          UMA_HISTOGRAM_COUNTS("Display.EnterState.mirror_failures", 1);
           return false;
+        }
 
         int width = mode_info->width;
         int height = mode_info->height;
@@ -399,8 +398,10 @@ static bool EnterState(Display* display,
             ModeInfoForID(screen, outputs[0].native_mode);
         XRRModeInfo* secondary_mode_info =
             ModeInfoForID(screen, outputs[1].native_mode);
-        if (primary_mode_info == NULL || secondary_mode_info == NULL)
+        if (primary_mode_info == NULL || secondary_mode_info == NULL) {
+          UMA_HISTOGRAM_COUNTS("Display.EnterState.dual_failures", 1);
           return false;
+        }
 
         int width =
             std::max<int>(primary_mode_info->width, secondary_mode_info->width);
@@ -526,14 +527,19 @@ void OutputConfigurator::Init(bool is_panel_fitting_enabled) {
                  starting_state,
                  outputs,
                  connected_output_count_)) {
-    output_state_ =
-        InferCurrentState(display, screen, outputs, connected_output_count_);
+    output_state_ = starting_state;
   }
   bool is_projecting = IsProjecting(outputs, connected_output_count_);
 
   // Find xrandr_event_base_ since we need it to interpret events, later.
   int error_base_ignored = 0;
   XRRQueryExtension(display, &xrandr_event_base_, &error_base_ignored);
+
+  // Force the DPMS on chrome startup as the driver doesn't always detect
+  // that all displays are on when signing out.
+  CHECK(DPMSEnable(display));
+  CHECK(DPMSForceLevel(display, DPMSModeOn));
+
   // Relinquish X resources.
   XRRFreeScreenResources(screen);
   XUngrabServer(display);
@@ -614,7 +620,7 @@ bool OutputConfigurator::ScreenPowerSet(bool power_on, bool all_displays) {
                    outputs,
                    connected_output_count_)) {
       // Force the DPMS on since the driver doesn't always detect that it should
-      // turn on.
+      // turn on. This is needed when coming back from idle suspend.
       CHECK(DPMSEnable(display));
       CHECK(DPMSForceLevel(display, DPMSModeOn));
 
@@ -657,7 +663,7 @@ bool OutputConfigurator::ScreenPowerSet(bool power_on, bool all_displays) {
   }
 
   // Force the DPMS on since the driver doesn't always detect that it should
-  // turn on.
+  // turn on. This is needed when coming back from idle suspend.
   if (power_on) {
     CHECK(DPMSEnable(display));
     CHECK(DPMSForceLevel(display, DPMSModeOn));

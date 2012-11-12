@@ -39,7 +39,6 @@ class CONTENT_EXPORT DownloadFileImpl : virtual public DownloadFile {
     const FilePath& default_downloads_directory,
     const GURL& url,
     const GURL& referrer_url,
-    int64 received_bytes,
     bool calculate_hash,
     scoped_ptr<ByteStreamReader> stream,
     const net::BoundNetLog& bound_net_log,
@@ -50,10 +49,13 @@ class CONTENT_EXPORT DownloadFileImpl : virtual public DownloadFile {
 
   // DownloadFile functions.
   virtual void Initialize(const InitializeCallback& callback) OVERRIDE;
-  virtual void Rename(const FilePath& full_path,
-                      bool overwrite_existing_file,
-                      const RenameCompletionCallback& callback) OVERRIDE;
-  virtual void Detach(const DetachCompletionCallback& callback) OVERRIDE;
+  virtual void RenameAndUniquify(
+      const FilePath& full_path,
+      const RenameCompletionCallback& callback) OVERRIDE;
+  virtual void RenameAndAnnotate(
+      const FilePath& full_path,
+      const RenameCompletionCallback& callback) OVERRIDE;
+  virtual void Detach() OVERRIDE;
   virtual void Cancel() OVERRIDE;
   virtual FilePath FullPath() const OVERRIDE;
   virtual bool InProgress() const OVERRIDE;

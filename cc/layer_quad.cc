@@ -2,26 +2,25 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_quad.h"
 
 #include "base/logging.h"
+#include "ui/gfx/quad_f.h"
 
 namespace cc {
 
-LayerQuad::Edge::Edge(const FloatPoint& p, const FloatPoint& q)
+LayerQuad::Edge::Edge(const gfx::PointF& p, const gfx::PointF& q)
 {
     DCHECK(p != q);
 
-    FloatPoint tangent(p.y() - q.y(), q.x() - p.x());
+    gfx::Vector2dF tangent(p.y() - q.y(), q.x() - p.x());
     float cross2 = p.x() * q.y() - q.x() * p.y();
 
     set(tangent.x(), tangent.y(), cross2);
-    scale(1.0f / tangent.length());
+    scale(1.0f / tangent.Length());
 }
 
-LayerQuad::LayerQuad(const FloatQuad& quad)
+LayerQuad::LayerQuad(const gfx::QuadF& quad)
 {
     // Create edges.
     m_left = Edge(quad.p4(), quad.p1());
@@ -29,7 +28,7 @@ LayerQuad::LayerQuad(const FloatQuad& quad)
     m_top = Edge(quad.p1(), quad.p2());
     m_bottom = Edge(quad.p3(), quad.p4());
 
-    float sign = quad.isCounterclockwise() ? -1 : 1;
+    float sign = quad.IsCounterClockwise() ? -1 : 1;
     m_left.scale(sign);
     m_right.scale(sign);
     m_top.scale(sign);
@@ -44,9 +43,9 @@ LayerQuad::LayerQuad(const Edge& left, const Edge& top, const Edge& right, const
 {
 }
 
-FloatQuad LayerQuad::floatQuad() const
+gfx::QuadF LayerQuad::ToQuadF() const
 {
-    return FloatQuad(m_left.intersect(m_top),
+    return gfx::QuadF(m_left.intersect(m_top),
                      m_top.intersect(m_right),
                      m_right.intersect(m_bottom),
                      m_bottom.intersect(m_left));

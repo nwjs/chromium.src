@@ -8,7 +8,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/spellcheck_messages.h"
 #include "chrome/common/spellcheck_result.h"
-#include "chrome/renderer/chrome_content_renderer_client.h"
 #include "chrome/renderer/spellchecker/spellcheck.h"
 #include "content/public/renderer/render_view.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
@@ -64,65 +63,26 @@ void CreateTextCheckingResults(
 
 }  // namespace
 
-SpellCheckProvider::DocumentTag::DocumentTag(IPC::Sender* sender,
-                                             int routing_id)
-    : has_tag_(false),
-      tag_(0),
-      sender_(sender),
-      routing_id_(routing_id) {
-}
-
-#if defined(OS_MACOSX)
-SpellCheckProvider::DocumentTag::~DocumentTag() {
-  // Tell the spellchecker that the document is closed.
-  if (has_tag_) {
-    sender_->Send(new SpellCheckHostMsg_DocumentWithTagClosed(
-        routing_id_, tag_));
-  }
-}
-
-// Gets document tag, initializes |tag| if necessary.
-int SpellCheckProvider::DocumentTag::GetTag() {
-  // TODO(darin): There's actually no reason for this to be here.  We should
-  // have the browser side manage the document tag.
-  if (!has_tag_) {
-    // Make the call to get the tag.
-    sender_->Send(new SpellCheckHostMsg_GetDocumentTag(
-        routing_id_, &tag_));
-    has_tag_ = true;
-  }
-
-  return tag_;
-}
-#else
-SpellCheckProvider::DocumentTag::~DocumentTag() {}
-int SpellCheckProvider::DocumentTag::GetTag() {
-  // Quiet compiler about unused variables.
-  (void)sender_;
-  (void)routing_id_;
-  (void)has_tag_;
-
-  return tag_;
-}
-#endif
-
-
 SpellCheckProvider::SpellCheckProvider(
     content::RenderView* render_view,
-    chrome::ChromeContentRendererClient* renderer_client)
+    SpellCheck* spellcheck)
     : content::RenderViewObserver(render_view),
-      document_tag_(this, this->routing_id()),
+      content::RenderViewObserverTracker<SpellCheckProvider>(render_view),
       spelling_panel_visible_(false),
-      chrome_content_renderer_client_(renderer_client) {
+      spellcheck_(spellcheck) {
   if (render_view)  // NULL in unit tests.
     render_view->GetWebView()->setSpellCheckClient(this);
 }
 
-SpellCheckProvider::~SpellCheckProvider() {}
+SpellCheckProvider::~SpellCheckProvider() {
+#if defined(OS_MACOSX)
+  Send(new SpellCheckHostMsg_DocumentClosed(
+      routing_id(), routing_id()));
+#endif
+}
 
 void SpellCheckProvider::RequestTextChecking(
     const WebString& text,
-    int document_tag,
     WebTextCheckingCompletion* completion) {
 #if defined(OS_MACOSX)
   // Text check (unified request for grammar and spell check) is only
@@ -132,7 +92,6 @@ void SpellCheckProvider::RequestTextChecking(
   Send(new SpellCheckHostMsg_RequestTextCheck(
       routing_id(),
       text_check_completions_.Add(completion),
-      document_tag,
       text));
 #else
   // Ignore invalid requests.
@@ -205,10 +164,10 @@ void SpellCheckProvider::spellCheck(
     WebVector<WebString>* optional_suggestions) {
   string16 word(text);
   // Will be NULL during unit tests.
-  if (chrome_content_renderer_client_) {
+  if (spellcheck_) {
     std::vector<string16> suggestions;
-    chrome_content_renderer_client_->spellcheck()->SpellCheckWord(
-        word.c_str(), word.size(), document_tag_.GetTag(),
+    spellcheck_->SpellCheckWord(
+        word.c_str(), word.size(), routing_id(),
         &offset, &length, optional_suggestions ? & suggestions : NULL);
     if (optional_suggestions)
       *optional_suggestions = suggestions;
@@ -233,30 +192,26 @@ void SpellCheckProvider::checkTextOfParagraph(
   if (!(mask & WebKit::WebTextCheckingTypeSpelling))
     return;
 
-  document_tag_.GetTag();
-
   // Will be NULL during unit tets.
-  if (!chrome_content_renderer_client_)
+  if (!spellcheck_)
     return;
 
-  chrome_content_renderer_client_->spellcheck()->SpellCheckParagraph(
-      string16(text), results);
+  spellcheck_->SpellCheckParagraph(string16(text), results);
 #endif
 }
 
 void SpellCheckProvider::requestCheckingOfText(
     const WebString& text,
     WebTextCheckingCompletion* completion) {
-  RequestTextChecking(text, document_tag_.GetTag(), completion);
+  RequestTextChecking(text, completion);
 }
 
 WebString SpellCheckProvider::autoCorrectWord(const WebString& word) {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   if (command_line.HasSwitch(switches::kEnableSpellingAutoCorrect)) {
     // Will be NULL during unit tests.
-    if (chrome_content_renderer_client_) {
-      return chrome_content_renderer_client_->spellcheck()->
-          GetAutoCorrectionWord(word, document_tag_.GetTag());
+    if (spellcheck_) {
+      return spellcheck_->GetAutoCorrectionWord(word, routing_id());
     }
   }
   return string16();
@@ -295,10 +250,9 @@ void SpellCheckProvider::OnRespondSpellingService(
 
   // If |succeeded| is false, we use local spellcheck as a fallback.
   if (!succeeded) {
-    // |chrome_content_renderer_client| may be NULL in unit tests.
-    if (chrome_content_renderer_client_) {
-      chrome_content_renderer_client_->spellcheck()->RequestTextChecking(
-          line, offset, completion);
+    // |spellcheck_| may be NULL in unit tests.
+    if (spellcheck_) {
+      spellcheck_->RequestTextChecking(line, offset, completion);
       return;
     }
   }
@@ -306,8 +260,8 @@ void SpellCheckProvider::OnRespondSpellingService(
   // Double-check the returned spellchecking results with our spellchecker to
   // visualize the differences between ours and the on-line spellchecker.
   WebKit::WebVector<WebKit::WebTextCheckingResult> textcheck_results;
-  if (chrome_content_renderer_client_) {
-    chrome_content_renderer_client_->spellcheck()->CreateTextCheckingResults(
+  if (spellcheck_) {
+    spellcheck_->CreateTextCheckingResults(
         offset, line, results, &textcheck_results);
   } else {
     CreateTextCheckingResults(offset, results, &textcheck_results);
@@ -345,7 +299,6 @@ void SpellCheckProvider::OnAdvanceToNextMisspelling() {
 
 void SpellCheckProvider::OnRespondTextCheck(
     int identifier,
-    int tag,
     const std::vector<SpellCheckResult>& results) {
   WebTextCheckingCompletion* completion =
       text_check_completions_.Lookup(identifier);

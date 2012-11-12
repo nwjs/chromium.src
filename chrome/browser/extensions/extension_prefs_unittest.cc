@@ -15,6 +15,7 @@
 #include "chrome/browser/extensions/extension_pref_value_map.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
+#include "chrome/browser/prefs/pref_observer_mock.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/extensions/permissions/permission_set.h"
@@ -73,7 +74,7 @@ void ExtensionPrefsTest::TearDown() {
   RegisterPreferences();
   Verify();
   prefs_.pref_service()->CommitPendingWrite();
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
 }
 
 // Tests the LastPingDay/SetLastPingDay functions.
@@ -491,7 +492,8 @@ class ExtensionPrefsBlacklist : public ExtensionPrefsTest {
       std::string name = "test" + base::IntToString(i);
       extensions_.push_back(prefs_.AddExtension(name));
     }
-    EXPECT_EQ(NULL, prefs()->GetInstalledExtensionInfo(not_installed_id_));
+    EXPECT_EQ(NULL,
+              prefs()->GetInstalledExtensionInfo(not_installed_id_).get());
 
     ExtensionList::const_iterator iter;
     for (iter = extensions_.begin(); iter != extensions_.end(); ++iter) {
@@ -543,7 +545,8 @@ class ExtensionPrefsAcknowledgment : public ExtensionPrefsTest {
       std::string name = "test" + base::IntToString(i);
       extensions_.push_back(prefs_.AddExtension(name));
     }
-    EXPECT_EQ(NULL, prefs()->GetInstalledExtensionInfo(not_installed_id_));
+    EXPECT_EQ(NULL,
+              prefs()->GetInstalledExtensionInfo(not_installed_id_).get());
 
     ExtensionList::const_iterator iter;
     for (iter = extensions_.begin(); iter != extensions_.end(); ++iter) {
@@ -650,24 +653,38 @@ class ExtensionPrefsIdleInstallInfo : public ExtensionPrefsTest {
  public:
   // Sets idle install information for one test extension.
   void SetIdleInfo(std::string id, int num) {
-    prefs()->SetIdleInstallInfo(id,
-                                basedir_.AppendASCII(base::IntToString(num)),
-                                "1." + base::IntToString(num),
-                                now_ + TimeDelta::FromSeconds(num));
+    DictionaryValue manifest;
+    manifest.SetString(extension_manifest_keys::kName, "test");
+    manifest.SetString(extension_manifest_keys::kVersion,
+                       "1." + base::IntToString(num));
+    FilePath path = prefs_.extensions_dir().AppendASCII(base::IntToString(num));
+    std::string errors;
+    scoped_refptr<Extension> extension = Extension::Create(
+        path, Extension::INTERNAL, manifest, Extension::NO_FLAGS, id, &errors);
+    ASSERT_TRUE(extension) << errors;
+    ASSERT_EQ(id, extension->id());
+    prefs()->SetIdleInstallInfo(extension.get(), Extension::ENABLED);
   }
 
   // Verifies that we get back expected idle install information previously
   // set by SetIdleInfo.
   void VerifyIdleInfo(std::string id, int num) {
-    FilePath crx_path;
+    scoped_ptr<ExtensionInfo> info(prefs()->GetIdleInstallInfo(id));
+    ASSERT_TRUE(info);
     std::string version;
-    base::Time fetch_time;
-    ASSERT_TRUE(prefs()->GetIdleInstallInfo(id, &crx_path, &version,
-                                            &fetch_time));
-    ASSERT_EQ(crx_path.value(),
-              basedir_.AppendASCII(base::IntToString(num)).value());
+    ASSERT_TRUE(info->extension_manifest->GetString("version", &version));
     ASSERT_EQ("1." + base::IntToString(num), version);
-    ASSERT_TRUE(fetch_time == now_ + TimeDelta::FromSeconds(num));
+    ASSERT_EQ(base::IntToString(num),
+              info->extension_path.BaseName().MaybeAsASCII());
+  }
+
+  bool HasInfoForId(extensions::ExtensionPrefs::ExtensionsInfo* info,
+                    const std::string& id) {
+    for (size_t i = 0; i < info->size(); ++i) {
+      if (info->at(i)->extension_id == id)
+        return true;
+    }
+    return false;
   }
 
   virtual void Initialize() {
@@ -683,21 +700,22 @@ class ExtensionPrefsIdleInstallInfo : public ExtensionPrefsTest {
     SetIdleInfo(id2_, 2);
     VerifyIdleInfo(id1_, 1);
     VerifyIdleInfo(id2_, 2);
-    std::set<std::string> ids = prefs()->GetIdleInstallInfoIds();
-    EXPECT_EQ(2u, ids.size());
-    EXPECT_TRUE(ContainsKey(ids, id1_));
-    EXPECT_TRUE(ContainsKey(ids, id2_));
+    scoped_ptr<extensions::ExtensionPrefs::ExtensionsInfo> info(
+        prefs()->GetAllIdleInstallInfo());
+    EXPECT_EQ(2u, info->size());
+    EXPECT_TRUE(HasInfoForId(info.get(), id1_));
+    EXPECT_TRUE(HasInfoForId(info.get(), id2_));
     prefs()->RemoveIdleInstallInfo(id1_);
     prefs()->RemoveIdleInstallInfo(id2_);
-    ids = prefs()->GetIdleInstallInfoIds();
-    EXPECT_TRUE(ids.empty());
+    info = prefs()->GetAllIdleInstallInfo();
+    EXPECT_TRUE(info->empty());
 
     // Try getting/removing info for an id that used to have info set.
-    EXPECT_FALSE(prefs()->GetIdleInstallInfo(id1_, NULL, NULL, NULL));
+    EXPECT_FALSE(prefs()->GetIdleInstallInfo(id1_));
     EXPECT_FALSE(prefs()->RemoveIdleInstallInfo(id1_));
 
     // Try getting/removing info for an id that has not yet had any info set.
-    EXPECT_FALSE(prefs()->GetIdleInstallInfo(id3_, NULL, NULL, NULL));
+    EXPECT_FALSE(prefs()->GetIdleInstallInfo(id3_));
     EXPECT_FALSE(prefs()->RemoveIdleInstallInfo(id3_));
 
     // Set info for 4 extensions, then remove for one of them.
@@ -714,17 +732,18 @@ class ExtensionPrefsIdleInstallInfo : public ExtensionPrefsTest {
 
   virtual void Verify() {
     // Make sure the info for the 3 extensions we expect is present.
-    std::set<std::string> ids = prefs()->GetIdleInstallInfoIds();
-    EXPECT_EQ(3u, ids.size());
-    EXPECT_TRUE(ContainsKey(ids, id1_));
-    EXPECT_TRUE(ContainsKey(ids, id2_));
-    EXPECT_TRUE(ContainsKey(ids, id4_));
+    scoped_ptr<extensions::ExtensionPrefs::ExtensionsInfo> info(
+        prefs()->GetAllIdleInstallInfo());
+    EXPECT_EQ(3u, info->size());
+    EXPECT_TRUE(HasInfoForId(info.get(), id1_));
+    EXPECT_TRUE(HasInfoForId(info.get(), id2_));
+    EXPECT_TRUE(HasInfoForId(info.get(), id4_));
     VerifyIdleInfo(id1_, 1);
     VerifyIdleInfo(id2_, 2);
     VerifyIdleInfo(id4_, 4);
 
     // Make sure there isn't info the for the one extension id we removed.
-    EXPECT_FALSE(prefs()->GetIdleInstallInfo(id3_, NULL, NULL, NULL));
+    EXPECT_FALSE(prefs()->GetIdleInstallInfo(id3_));
   }
 
  protected:
@@ -1052,60 +1071,60 @@ class ExtensionPrefsNotifyWhenNeeded : public ExtensionPrefsPrepopulatedTest {
     using testing::Mock;
     using testing::StrEq;
 
-    content::MockNotificationObserver observer;
+    PrefObserverMock observer;
     PrefChangeRegistrar registrar;
     registrar.Init(prefs()->pref_service());
     registrar.Add(kPref1, &observer);
 
-    content::MockNotificationObserver incognito_observer;
+    PrefObserverMock incognito_observer;
     scoped_ptr<PrefService> incog_prefs(prefs_.CreateIncognitoPrefService());
     PrefChangeRegistrar incognito_registrar;
     incognito_registrar.Init(incog_prefs.get());
     incognito_registrar.Add(kPref1, &incognito_observer);
 
     // Write value and check notification.
-    EXPECT_CALL(observer, Observe(_, _, _));
-    EXPECT_CALL(incognito_observer, Observe(_, _, _));
+    EXPECT_CALL(observer, OnPreferenceChanged(_, _));
+    EXPECT_CALL(incognito_observer, OnPreferenceChanged(_, _));
     InstallExtControlledPref(ext1_, kPref1,
         Value::CreateStringValue("https://www.chromium.org"));
     Mock::VerifyAndClearExpectations(&observer);
     Mock::VerifyAndClearExpectations(&incognito_observer);
 
     // Write same value.
-    EXPECT_CALL(observer, Observe(_, _, _)).Times(0);
-    EXPECT_CALL(incognito_observer, Observe(_, _, _)).Times(0);
+    EXPECT_CALL(observer, OnPreferenceChanged(_, _)).Times(0);
+    EXPECT_CALL(incognito_observer, OnPreferenceChanged(_, _)).Times(0);
     InstallExtControlledPref(ext1_, kPref1,
         Value::CreateStringValue("https://www.chromium.org"));
     Mock::VerifyAndClearExpectations(&observer);
     Mock::VerifyAndClearExpectations(&incognito_observer);
 
     // Change value.
-    EXPECT_CALL(observer, Observe(_, _, _));
-    EXPECT_CALL(incognito_observer, Observe(_, _, _));
+    EXPECT_CALL(observer, OnPreferenceChanged(_, _));
+    EXPECT_CALL(incognito_observer, OnPreferenceChanged(_, _));
     InstallExtControlledPref(ext1_, kPref1,
         Value::CreateStringValue("chrome://newtab"));
     Mock::VerifyAndClearExpectations(&observer);
     Mock::VerifyAndClearExpectations(&incognito_observer);
 
     // Change only incognito persistent value.
-    EXPECT_CALL(observer, Observe(_, _, _)).Times(0);
-    EXPECT_CALL(incognito_observer, Observe(_, _, _));
+    EXPECT_CALL(observer, OnPreferenceChanged(_, _)).Times(0);
+    EXPECT_CALL(incognito_observer, OnPreferenceChanged(_, _));
     InstallExtControlledPrefIncognito(ext1_, kPref1,
         Value::CreateStringValue("chrome://newtab2"));
     Mock::VerifyAndClearExpectations(&observer);
     Mock::VerifyAndClearExpectations(&incognito_observer);
 
     // Change only incognito session-only value.
-    EXPECT_CALL(observer, Observe(_, _, _)).Times(0);
-    EXPECT_CALL(incognito_observer, Observe(_, _, _));
+    EXPECT_CALL(observer, OnPreferenceChanged(_, _)).Times(0);
+    EXPECT_CALL(incognito_observer, OnPreferenceChanged(_, _));
     InstallExtControlledPrefIncognito(ext1_, kPref1,
         Value::CreateStringValue("chrome://newtab3"));
     Mock::VerifyAndClearExpectations(&observer);
     Mock::VerifyAndClearExpectations(&incognito_observer);
 
     // Uninstall.
-    EXPECT_CALL(observer, Observe(_, _, _));
-    EXPECT_CALL(incognito_observer, Observe(_, _, _));
+    EXPECT_CALL(observer, OnPreferenceChanged(_, _));
+    EXPECT_CALL(incognito_observer, OnPreferenceChanged(_, _));
     UninstallExtension(ext1_->id());
     Mock::VerifyAndClearExpectations(&observer);
     Mock::VerifyAndClearExpectations(&incognito_observer);

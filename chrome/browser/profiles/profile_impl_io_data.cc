@@ -51,34 +51,11 @@ ProfileImplIOData::Handle::Handle(Profile* profile)
 
 ProfileImplIOData::Handle::~Handle() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  if (main_request_context_getter_)
-    main_request_context_getter_->CleanupOnUIThread();
-  if (media_request_context_getter_)
-    media_request_context_getter_->CleanupOnUIThread();
-  if (extensions_request_context_getter_)
-    extensions_request_context_getter_->CleanupOnUIThread();
-
   if (io_data_->predictor_.get() != NULL) {
     // io_data_->predictor_ might be NULL if Init() was never called
     // (i.e. we shut down before ProfileImpl::DoFinalInit() got called).
     PrefService* user_prefs = profile_->GetPrefs();
     io_data_->predictor_->ShutdownOnUIThread(user_prefs);
-  }
-
-  // Clean up all isolated app request contexts.
-  for (ChromeURLRequestContextGetterMap::iterator iter =
-           app_request_context_getter_map_.begin();
-       iter != app_request_context_getter_map_.end();
-       ++iter) {
-    iter->second->CleanupOnUIThread();
-  }
-
-  // Clean up all isolated media request contexts.
-  for (ChromeURLRequestContextGetterMap::iterator iter =
-           isolated_media_request_context_getter_map_.begin();
-       iter != isolated_media_request_context_getter_map_.end();
-       ++iter) {
-    iter->second->CleanupOnUIThread();
   }
 
   if (io_data_->http_server_properties_manager())
@@ -211,9 +188,9 @@ ProfileImplIOData::Handle::GetIsolatedAppRequestContextGetter(
     const FilePath& partition_path,
     bool in_memory) const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // TODO(nasko): Check that the partition_path is not the same as the
-  // base profile path. We expect isolated partition, which will never go
-  // to the default profile path.
+  // Check that the partition_path is not the same as the base profile path. We
+  // expect isolated partition, which will never go to the default profile path.
+  CHECK(partition_path != profile_->GetPath());
   LazyInitialize();
 
   // Keep a map of request context getters, one per requested storage partition.
@@ -243,10 +220,7 @@ ProfileImplIOData::Handle::GetIsolatedMediaRequestContextGetter(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   // We must have a non-default path, or this will act like the default media
   // context.
-  //
-  // TODO(nasko): Check that the partition_path is not the same as the
-  // base profile path. We expect isolated partition, which will never go
-  // to the default profile path.
+  CHECK(partition_path != profile_->GetPath());
   LazyInitialize();
 
   // Keep a map of request context getters, one per requested storage partition.
@@ -269,7 +243,8 @@ ProfileImplIOData::Handle::GetIsolatedMediaRequestContextGetter(
 }
 
 void ProfileImplIOData::Handle::ClearNetworkingHistorySince(
-    base::Time time) {
+    base::Time time,
+    const base::Closure& completion) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   LazyInitialize();
 
@@ -278,7 +253,8 @@ void ProfileImplIOData::Handle::ClearNetworkingHistorySince(
       base::Bind(
           &ProfileImplIOData::ClearNetworkingHistorySinceOnIOThread,
           base::Unretained(io_data_),
-          time));
+          time,
+          completion));
 }
 
 void ProfileImplIOData::Handle::LazyInitialize() const {
@@ -677,12 +653,13 @@ void ProfileImplIOData::SetUpJobFactory(
 }
 
 void ProfileImplIOData::ClearNetworkingHistorySinceOnIOThread(
-    base::Time time) {
+    base::Time time,
+    const base::Closure& completion) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   LazyInitialize();
 
   DCHECK(transport_security_state());
-  transport_security_state()->DeleteSince(time);
+  transport_security_state()->DeleteSince(time);  // Completes synchronously.
   DCHECK(http_server_properties_manager());
-  http_server_properties_manager()->Clear();
+  http_server_properties_manager()->Clear(completion);
 }

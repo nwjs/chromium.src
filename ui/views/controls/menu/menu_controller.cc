@@ -12,8 +12,10 @@
 #include "ui/base/dragdrop/drag_utils.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/events/event_constants.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/controls/button/menu_button.h"
@@ -329,6 +331,7 @@ MenuItemView* MenuController::Run(Widget* parent,
   message_loop_depth_++;
   DCHECK_LE(message_loop_depth_, 2);
 #if defined(USE_AURA)
+  // TODO(sky): deal with NULL |parent|. NULL only happens on win.
   root_window_ = parent->GetNativeWindow()->GetRootWindow();
 
   // Observe activation changes to close the window if another window is
@@ -450,10 +453,8 @@ void MenuController::OnMouseDragged(SubmenuView* source,
     return;
 
   if (possible_drag_) {
-    if (View::ExceededDragThreshold(event.x() - press_pt_.x(),
-                                    event.y() - press_pt_.y())) {
+    if (View::ExceededDragThreshold(event.location() - press_pt_))
       StartDrag(source, press_pt_);
-    }
     return;
   }
   MenuItemView* mouse_menu = NULL;
@@ -494,7 +495,8 @@ void MenuController::OnMouseReleased(SubmenuView* source,
       SendMouseReleaseToActiveView(source, event);
       return;
     }
-    if (part.menu->GetDelegate()->IsTriggerableEvent(part.menu, event)) {
+    if (!part.menu->NonIconChildViewsCount() &&
+        part.menu->GetDelegate()->IsTriggerableEvent(part.menu, event)) {
       Accept(part.menu, event.flags());
       return;
     }
@@ -527,21 +529,21 @@ bool MenuController::OnMouseWheel(SubmenuView* source,
 
 ui::EventResult MenuController::OnGestureEvent(
     SubmenuView* source,
-    const ui::GestureEvent& event) {
-  MenuPart part = GetMenuPart(source, event.location());
-  if (event.type() == ui::ET_GESTURE_TAP_DOWN) {
-    SetSelectionOnPointerDown(source, event);
+    ui::GestureEvent* event) {
+  MenuPart part = GetMenuPart(source, event->location());
+  if (event->type() == ui::ET_GESTURE_TAP_DOWN) {
+    SetSelectionOnPointerDown(source, *event);
     return ui::ER_CONSUMED;
-  } else if (event.type() == ui::ET_GESTURE_LONG_PRESS) {
+  } else if (event->type() == ui::ET_GESTURE_LONG_PRESS) {
     if (part.type == MenuPart::MENU_ITEM && part.menu) {
-      if (ShowContextMenu(part.menu, source, event))
+      if (ShowContextMenu(part.menu, source, *event))
         return ui::ER_CONSUMED;
     }
-  } else if (event.type() == ui::ET_GESTURE_TAP) {
+  } else if (event->type() == ui::ET_GESTURE_TAP) {
     if (!part.is_scroll() && part.menu &&
         !(part.menu->HasSubmenu())) {
       if (part.menu->GetDelegate()->IsTriggerableEvent(
-          part.menu, event)) {
+          part.menu, *event)) {
         Accept(part.menu, 0);
       }
       return ui::ER_CONSUMED;
@@ -859,12 +861,15 @@ void MenuController::StartDrag(SubmenuView* source,
 
   OSExchangeData data;
   item->GetDelegate()->WriteDragData(item, &data);
-  drag_utils::SetDragImageOnDataObject(*canvas, item->size(), press_loc,
+  drag_utils::SetDragImageOnDataObject(*canvas, item->size(),
+                                       press_loc.OffsetFromOrigin(),
                                        &data);
   StopScrolling();
   int drag_ops = item->GetDelegate()->GetDragOperations(item);
   drag_in_progress_ = true;
-  item->GetWidget()->RunShellDrag(NULL, data, widget_loc, drag_ops);
+  // TODO(varunjain): Properly determine and send DRAG_EVENT_SOURCE below.
+  item->GetWidget()->RunShellDrag(NULL, data, widget_loc, drag_ops,
+      ui::DragDropTypes::DRAG_EVENT_SOURCE_MOUSE);
   drag_in_progress_ = false;
 
   if (GetActiveInstance() == this) {
@@ -1034,7 +1039,8 @@ bool MenuController::OnKeyDown(ui::KeyboardCode key_code) {
   return true;
 }
 
-MenuController::MenuController(bool blocking,
+MenuController::MenuController(ui::NativeTheme* theme,
+                               bool blocking,
                                internal::MenuControllerDelegate* delegate)
     : blocking_run_(blocking),
       showing_(false),
@@ -1056,7 +1062,8 @@ MenuController::MenuController(bool blocking,
       menu_button_(NULL),
       active_mouse_view_(NULL),
       delegate_(delegate),
-      message_loop_depth_(0) {
+      message_loop_depth_(0),
+      menu_config_(theme) {
   active_instance_ = this;
 }
 
@@ -1151,7 +1158,7 @@ bool MenuController::ShowSiblingMenu(SubmenuView* source,
   gfx::NativeWindow window_under_mouse =
       GetScreen()->GetWindowAtCursorScreenPoint();
   // TODO(oshima): Replace with views only API.
-  if (window_under_mouse != owner_->GetNativeWindow())
+  if (!owner_ || window_under_mouse != owner_->GetNativeWindow())
     return false;
 
   // The user moved the mouse outside the menu and over the owning window. See
@@ -1193,7 +1200,8 @@ bool MenuController::ShowSiblingMenu(SubmenuView* source,
                                   button->width(), button->height() - 1),
                         anchor, state_.context_menu);
   alt_menu->PrepareForRun(
-      has_mnemonics, source->GetMenuItem()->GetRootMenuItem()->show_mnemonics_);
+      false, has_mnemonics,
+      source->GetMenuItem()->GetRootMenuItem()->show_mnemonics_);
   alt_menu->controller_ = this;
   SetSelection(alt_menu, SELECTION_OPEN_SUBMENU | SELECTION_UPDATE_IMMEDIATELY);
   return true;

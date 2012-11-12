@@ -66,8 +66,12 @@
         'base/l10n/l10n_util_mac_unittest.mm',
         'base/l10n/l10n_util_unittest.cc',
         'base/models/tree_node_iterator_unittest.cc',
+        'base/range/range_mac_unittest.mm',
+        'base/range/range_unittest.cc',
+        'base/range/range_win_unittest.cc',
         'base/resource/data_pack_literal.cc',
         'base/resource/data_pack_unittest.cc',
+        'base/resource/resource_bundle_unittest.cc',
         'base/text/text_elider_unittest.cc',
         'gfx/codec/png_codec_unittest.cc',
         'gfx/color_utils_unittest.cc',
@@ -81,6 +85,8 @@
         'gfx/image/image_unittest_util_mac.mm',
         'gfx/insets_unittest.cc',
         'gfx/point_unittest.cc',
+        'gfx/point3_unittest.cc',
+        'gfx/quad_unittest.cc',
         'gfx/rect_unittest.cc',
         'gfx/safe_integer_conversions_unittest.cc',
         'gfx/screen_unittest.cc',
@@ -88,6 +94,8 @@
         'gfx/size_unittest.cc',
         'gfx/skbitmap_operations_unittest.cc',
         'gfx/skia_util_unittest.cc',
+        'gfx/vector2d_unittest.cc',
+        'gfx/vector3d_unittest.cc',
         'test/run_all_unittests.cc',
         'test/test_suite.cc',
         'test/test_suite.h',
@@ -109,10 +117,6 @@
         'base/gtk/menu_label_accelerator_util_unittest.cc',
         'base/models/list_model_unittest.cc',
         'base/models/tree_node_model_unittest.cc',
-        'base/range/range_mac_unittest.mm',
-        'base/range/range_unittest.cc',
-        'base/range/range_win_unittest.cc',
-        'base/resource/resource_bundle_unittest.cc',
         'base/test/data/resource.h',
         'base/text/bytes_formatting_unittest.cc',
         'base/text/utf16_indexing_unittest.cc',
@@ -141,6 +145,12 @@
         }, {  # OS=="ios"
           'sources' : [
             '<@(_common_sources)',
+          ],
+          # The ResourceBundle unittest expects a locale.pak file to exist in
+          # the bundle for English-US. Copy it in from where it was generated
+          # by ui_strings.gyp:ui_unittest_strings.
+          'mac_bundle_resources': [
+            '<(PRODUCT_DIR)/ui_unittests_strings/en.lproj/locale.pak',
           ],
         }],
         ['OS == "win"', {
@@ -196,11 +206,15 @@
             '../testing/android/native_test.gyp:native_test_native_code',
           ],
         }],
+        ['use_glib == 1 or OS == "ios"', {
+          'dependencies': [
+            'base/strings/ui_strings.gyp:ui_unittest_strings',
+          ],
+        }],
         ['use_glib == 1', {
           'dependencies': [
             '../build/linux/system.gyp:pangocairo',
             '../tools/xdisplaycheck/xdisplaycheck.gyp:xdisplaycheck',
-            'base/strings/ui_strings.gyp:ui_unittest_strings',
           ],
           'conditions': [
             ['linux_use_tcmalloc==1', {
@@ -252,16 +266,16 @@
           ],
         }],
       ],
-    },
-  ],
-  'target_conditions': [
-    ['OS == "ios"', {
-      'sources/': [
-        # Pull in specific Mac files for iOS (which have been filtered out
-        # by file name rules).
-        ['include', '^base/l10n/l10n_util_mac_unittest\\.mm$'],
+      'target_conditions': [
+        ['OS == "ios"', {
+          'sources/': [
+            # Pull in specific Mac files for iOS (which have been filtered out
+            # by file name rules).
+            ['include', '^base/l10n/l10n_util_mac_unittest\\.mm$'],
+          ],
+        }],
       ],
-    }],
+    },
   ],
   'conditions': [
     # Special target to wrap a gtest_target_type==shared_library

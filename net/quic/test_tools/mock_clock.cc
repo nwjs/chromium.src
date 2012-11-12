@@ -6,14 +6,25 @@
 
 namespace net {
 
-MockClock::MockClock() : now_(0) {
+MockClock::MockClock() {
 }
 
 MockClock::~MockClock() {
 }
 
-uint64 MockClock::NowInUsec() {
+void MockClock::AdvanceTime(QuicTime::Delta delta) {
+  CHECK_LE(0, delta.ToMicroseconds());
+  now_ = now_.Add(delta);
+}
+
+QuicTime MockClock::Now() const {
   return now_;
+}
+
+base::TimeTicks MockClock::NowInTicks() const {
+  base::TimeTicks ticks;
+  return ticks + base::TimeDelta::FromMicroseconds(
+      now_.Subtract(QuicTime()).ToMicroseconds());
 }
 
 }  // namespace net

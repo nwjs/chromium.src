@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/delegated_renderer_layer_impl.h"
 
 #include "cc/append_quads_data.h"
@@ -154,7 +152,7 @@ void DelegatedRendererLayerImpl::appendRenderPassQuads(QuadSink& quadSink, Appen
               // This layer must be drawing to a renderTarget other than itself.
               DCHECK(renderTarget() != this);
 
-              copiedSharedQuadState->clippedRectInTarget = MathUtil::mapClippedRect(drawTransform(), cc::IntRect(copiedSharedQuadState->clippedRectInTarget));
+              copiedSharedQuadState->clippedRectInTarget = MathUtil::mapClippedRect(drawTransform(), copiedSharedQuadState->clippedRectInTarget);
               copiedSharedQuadState->quadTransform = copiedSharedQuadState->quadTransform * drawTransform();
               copiedSharedQuadState->opacity *= drawOpacity();
             }
@@ -182,4 +180,4 @@ const char* DelegatedRendererLayerImpl::layerTypeAsString() const
     return "DelegatedRendererLayer";
 }
 
-}
+}  // namespace cc

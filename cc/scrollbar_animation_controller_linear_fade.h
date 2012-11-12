@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCScrollbarAnimationControllerLinearFade_h
-#define CCScrollbarAnimationControllerLinearFade_h
+#ifndef CC_SCROLLBAR_ANIMATION_CONTROLLER_LINEAR_FADE_H_
+#define CC_SCROLLBAR_ANIMATION_CONTROLLER_LINEAR_FADE_H_
 
+#include "cc/cc_export.h"
 #include "cc/scrollbar_animation_controller.h"
 
 namespace cc {
 
-class ScrollbarAnimationControllerLinearFade : public ScrollbarAnimationController {
+class CC_EXPORT ScrollbarAnimationControllerLinearFade : public ScrollbarAnimationController {
 public:
     static scoped_ptr<ScrollbarAnimationControllerLinearFade> create(LayerImpl* scrollLayer, double fadeoutDelay, double fadeoutLength);
 
@@ -36,4 +37,4 @@ private:
 
 } // namespace cc
 
-#endif // CCScrollbarAnimationControllerLinearFade_h
+#endif  // CC_SCROLLBAR_ANIMATION_CONTROLLER_LINEAR_FADE_H_

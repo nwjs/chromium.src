@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scrollbar_layer_impl.h"
 
 #include "cc/quad_sink.h"
 #include "cc/scrollbar_animation_controller.h"
 #include "cc/texture_draw_quad.h"
+#include "ui/gfx/rect_conversions.h"
 
 using WebKit::WebRect;
 using WebKit::WebScrollbar;
@@ -66,19 +65,26 @@ void ScrollbarLayerImpl::setScrollbarData(WebScrollbar* scrollbar)
     m_geometry->update(scrollbar);
 }
 
-static FloatRect toUVRect(const WebRect& r, const IntRect& bounds)
+static gfx::RectF toUVRect(const gfx::Rect& r, const gfx::Rect& bounds)
 {
-    return FloatRect(static_cast<float>(r.x) / bounds.width(), static_cast<float>(r.y) / bounds.height(),
-                     static_cast<float>(r.width) / bounds.width(), static_cast<float>(r.height) / bounds.height());
+    return gfx::ScaleRect(r, 1.0 / bounds.width(), 1.0 / bounds.height());
+}
+
+gfx::Rect ScrollbarLayerImpl::scrollbarLayerRectToContentRect(const gfx::Rect& layerRect) const
+{
+    // Don't intersect with the bounds as in layerRectToContentRect() because
+    // layerRect here might be in coordinates of the containing layer.
+    gfx::RectF contentRect = gfx::ScaleRect(layerRect, contentsScaleX(), contentsScaleY());
+    return gfx::ToEnclosingRect(contentRect);
 }
 
 void ScrollbarLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuadsData)
 {
     bool premultipledAlpha = false;
     bool flipped = false;
-    FloatRect uvRect(0, 0, 1, 1);
-    IntRect boundsRect(IntPoint(), bounds());
-    IntRect contentBoundsRect(IntPoint(), contentBounds());
+    gfx::RectF uvRect(0, 0, 1, 1);
+    gfx::Rect boundsRect(gfx::Point(), bounds());
+    gfx::Rect contentBoundsRect(gfx::Point(), contentBounds());
 
     SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(createSharedQuadState());
     appendDebugBorderQuad(quadSink, sharedQuadState, appendQuadsData);
@@ -89,7 +95,7 @@ void ScrollbarLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& append
         thumbRect = WebRect();
 
     if (m_thumbResourceId && !thumbRect.isEmpty()) {
-        scoped_ptr<TextureDrawQuad> quad = TextureDrawQuad::create(sharedQuadState, layerRectToContentRect(thumbRect), m_thumbResourceId, premultipledAlpha, uvRect, flipped);
+        scoped_ptr<TextureDrawQuad> quad = TextureDrawQuad::create(sharedQuadState, scrollbarLayerRectToContentRect(thumbRect), m_thumbResourceId, premultipledAlpha, uvRect, flipped);
         quad->setNeedsBlending();
         quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
     }
@@ -99,12 +105,12 @@ void ScrollbarLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& append
 
     // We only paint the track in two parts if we were given a texture for the forward track part.
     if (m_foreTrackResourceId && !foreTrackRect.isEmpty())
-        quadSink.append(TextureDrawQuad::create(sharedQuadState, layerRectToContentRect(foreTrackRect), m_foreTrackResourceId, premultipledAlpha, toUVRect(foreTrackRect, boundsRect), flipped).PassAs<DrawQuad>(), appendQuadsData);
+        quadSink.append(TextureDrawQuad::create(sharedQuadState, scrollbarLayerRectToContentRect(foreTrackRect), m_foreTrackResourceId, premultipledAlpha, toUVRect(foreTrackRect, boundsRect), flipped).PassAs<DrawQuad>(), appendQuadsData);
 
     // Order matters here: since the back track texture is being drawn to the entire contents rect, we must append it after the thumb and
     // fore track quads. The back track texture contains (and displays) the buttons.
-    if (!contentBoundsRect.isEmpty())
-        quadSink.append(TextureDrawQuad::create(sharedQuadState, IntRect(contentBoundsRect), m_backTrackResourceId, premultipledAlpha, uvRect, flipped).PassAs<DrawQuad>(), appendQuadsData);
+    if (!contentBoundsRect.IsEmpty())
+        quadSink.append(TextureDrawQuad::create(sharedQuadState, gfx::Rect(contentBoundsRect), m_backTrackResourceId, premultipledAlpha, uvRect, flipped).PassAs<DrawQuad>(), appendQuadsData);
 }
 
 void ScrollbarLayerImpl::didLoseContext()
@@ -199,4 +205,4 @@ const char* ScrollbarLayerImpl::layerTypeAsString() const
     return "ScrollbarLayer";
 }
 
-}
+}  // namespace cc

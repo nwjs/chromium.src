@@ -394,21 +394,14 @@ WebContentsImpl* WebContentsImpl::CreateWithOpener(
   return new_contents;
 }
 
-WebContentsImpl* WebContentsImpl::CreateGuest(BrowserContext* browser_context,
-                                              const std::string& host_url,
-                                              int guest_instance_id,
-                                              bool focused,
-                                              bool visible) {
-  // The SiteInstance of a given guest is based on the fact that it's a guest
-  // in addition to which platform application the guest belongs to, rather
-  // than the URL that the guest is being navigated to.
-  GURL guest_site(
-      base::StringPrintf("%s://%s", chrome::kGuestScheme, host_url.c_str()));
-  SiteInstance* guest_site_instance =
-      SiteInstance::CreateForURL(browser_context, guest_site);
+WebContentsImpl* WebContentsImpl::CreateGuest(
+    BrowserContext* browser_context,
+    SiteInstance* site_instance,
+    int guest_instance_id,
+    const BrowserPluginHostMsg_CreateGuest_Params& params) {
   WebContentsImpl* new_contents = WebContentsImpl::Create(
       browser_context,
-      guest_site_instance,
+      site_instance,
       MSG_ROUTING_NONE,
       NULL);  // base WebContents
   WebContentsImpl* new_contents_impl =
@@ -421,8 +414,7 @@ WebContentsImpl* WebContentsImpl::CreateGuest(BrowserContext* browser_context,
           guest_instance_id,
           new_contents_impl,
           new_contents_impl->GetRenderViewHost(),
-          focused,
-          visible));
+          params));
   return new_contents;
 }
 
@@ -2330,10 +2322,7 @@ void WebContentsImpl::OnPpapiBrokerPermissionResult(int request_id,
 
 void WebContentsImpl::OnBrowserPluginCreateGuest(
     int instance_id,
-    const std::string& storage_partition_id,
-    bool persist_storage,
-    bool focused,
-    bool visible) {
+    const BrowserPluginHostMsg_CreateGuest_Params& params) {
   // This creates a BrowserPluginEmbedder, which handles all the BrowserPlugin
   // specific messages for this WebContents (through its
   // BrowserPluginEmbedderHelper). This means that any message from browser
@@ -2351,10 +2340,7 @@ void WebContentsImpl::OnBrowserPluginCreateGuest(
       BrowserPluginEmbedder::Create(this, GetRenderViewHost()));
   browser_plugin_embedder_->CreateGuest(GetRenderViewHost(),
                                         instance_id,
-                                        storage_partition_id,
-                                        persist_storage,
-                                        focused,
-                                        visible);
+                                        params);
 }
 
 // Notifies the RenderWidgetHost instance about the fact that the page is
@@ -3318,15 +3304,14 @@ void WebContentsImpl::SaveURL(const GURL& url,
     if (entry)
       post_id = entry->GetPostID();
   }
-  scoped_ptr<DownloadSaveInfo> save_info(new DownloadSaveInfo());
-  save_info->prompt_for_save_location = true;
   scoped_ptr<DownloadUrlParameters> params(
-      DownloadUrlParameters::FromWebContents(this, url, save_info.Pass()));
+      DownloadUrlParameters::FromWebContents(this, url));
   params->set_referrer(referrer);
   params->set_post_id(post_id);
   params->set_prefer_cache(true);
   if (post_id >= 0)
     params->set_method("POST");
+  params->set_prompt(true);
   dlm->DownloadUrl(params.Pass());
 }
 

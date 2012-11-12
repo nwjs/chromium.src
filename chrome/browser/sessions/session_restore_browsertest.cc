@@ -181,7 +181,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, NoSessionRestoreNewWindowChromeOS) {
   ui_test_utils::NavigateToURL(browser(), url);
 
   Browser* incognito_browser = CreateIncognitoBrowser();
-  chrome::AddBlankTab(incognito_browser, true);
+  chrome::AddBlankTabAt(incognito_browser, -1, true);
   incognito_browser->window()->Show();
 
   // Close the normal browser. After this we only have the incognito window
@@ -374,7 +374,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, IncognitotoNonIncognito) {
 
   // Create a new incognito window.
   Browser* incognito_browser = CreateIncognitoBrowser();
-  chrome::AddBlankTab(incognito_browser, true);
+  chrome::AddBlankTabAt(incognito_browser, -1, true);
   incognito_browser->window()->Show();
 
   // Close the normal browser. After this we only have the incognito window
@@ -647,23 +647,6 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, ClosedTabStaysClosed) {
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
   chrome::CloseTab(browser());
 
-  Browser* new_browser = QuitBrowserAndRestore(browser(), 1);
-
-  AssertOneWindowWithOneTab(new_browser);
-  ASSERT_EQ(url1_, chrome::GetActiveWebContents(new_browser)->GetURL());
-}
-
-// Test to verify that the print preview tab is not restored.
-IN_PROC_BROWSER_TEST_F(SessionRestoreTest, DontRestorePrintPreviewTabTest) {
-  ui_test_utils::NavigateToURL(browser(), url1_);
-
-  // Append the print preview tab.
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL(chrome::kChromeUIPrintURL), NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
-
-  // Restart and make sure we have only one window with one tab and the url
-  // is url1_.
   Browser* new_browser = QuitBrowserAndRestore(browser(), 1);
 
   AssertOneWindowWithOneTab(new_browser);

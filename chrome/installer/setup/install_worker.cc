@@ -621,6 +621,8 @@ void AddUninstallShortcutWorkItems(const InstallerState& installer_state,
                                          install_path.value(),
                                          true);
 
+    // TODO(huangs): Generalize this, so app_host.exe can get its own icon,
+    // and not rely on chrome.exe's.
     // DisplayIcon, NoModify and NoRepair
     string16 chrome_icon = ShellUtil::GetChromeIcon(
         product.distribution(),
@@ -1099,7 +1101,7 @@ void AddInstallWorkItems(const InstallationState& original_state,
     AddVersionKeyWorkItems(root, product.distribution(), new_version,
                            add_language_identifier, install_list);
 
-    AddDelegateExecuteWorkItems(installer_state, src_path, new_version,
+    AddDelegateExecuteWorkItems(installer_state, target_path, new_version,
                                 product, install_list);
 
     AddActiveSetupWorkItems(installer_state, setup_path, new_version, product,
@@ -1114,9 +1116,9 @@ void AddInstallWorkItems(const InstallationState& original_state,
   // Copy over brand, usagestats, and other values.
   AddGoogleUpdateWorkItems(original_state, installer_state, install_list);
 
-  AddQuickEnableApplicationHostWorkItems(installer_state, original_state,
-                                         setup_path, new_version,
-                                         install_list);
+  AddQuickEnableApplicationLauncherWorkItems(installer_state, original_state,
+                                             setup_path, new_version,
+                                             install_list);
 
   AddQuickEnableChromeFrameWorkItems(installer_state, original_state,
                                      setup_path, new_version, install_list);
@@ -1303,7 +1305,7 @@ void AddChromeFrameWorkItems(const InstallationState& original_state,
 }
 
 void AddDelegateExecuteWorkItems(const InstallerState& installer_state,
-                                 const FilePath& src_path,
+                                 const FilePath& target_path,
                                  const Version& new_version,
                                  const Product& product,
                                  WorkItemList* list) {
@@ -1342,12 +1344,8 @@ void AddDelegateExecuteWorkItems(const InstallerState& installer_state,
                                 );
 
   // Add work items to register the handler iff it is present.
-  // TODO(grt): Remove the extra check for the .exe when it is no longer
-  // possible to build Chrome without the DelegateExecute verb handler.
   // See also shell_util.cc's GetProgIdEntries.
-  if (installer_state.operation() != InstallerState::UNINSTALL &&
-      file_util::PathExists(src_path.AppendASCII(new_version.GetString())
-          .Append(kDelegateExecuteExe))) {
+  if (installer_state.operation() != InstallerState::UNINSTALL) {
     VLOG(1) << "Adding registration items for DelegateExecute verb handler.";
 
     // Force COM to flush its cache containing the path to the old handler.
@@ -1355,8 +1353,9 @@ void AddDelegateExecuteWorkItems(const InstallerState& installer_state,
                                          handler_class_uuid));
 
     // The path to the exe (in the version directory).
-    FilePath delegate_execute(
-        installer_state.target_path().AppendASCII(new_version.GetString()));
+    FilePath delegate_execute(target_path);
+    if (new_version.IsValid())
+      delegate_execute = delegate_execute.AppendASCII(new_version.GetString());
     delegate_execute = delegate_execute.Append(kDelegateExecuteExe);
 
     // Command-line featuring the quoted path to the exe.
@@ -1556,7 +1555,7 @@ void AddQuickEnableChromeFrameWorkItems(const InstallerState& installer_state,
                                  work_item_list);
 }
 
-void AddQuickEnableApplicationHostWorkItems(
+void AddQuickEnableApplicationLauncherWorkItems(
     const InstallerState& installer_state,
     const InstallationState& machine_state,
     const FilePath& setup_path,
@@ -1566,11 +1565,11 @@ void AddQuickEnableApplicationHostWorkItems(
 
   CommandLine cmd_line(CommandLine::NO_PROGRAM);
   cmd_line.AppendSwitch(switches::kMultiInstall);
-  cmd_line.AppendSwitch(switches::kChromeAppHost);
+  cmd_line.AppendSwitch(switches::kChromeAppLauncher);
   cmd_line.AppendSwitch(switches::kEnsureGoogleUpdatePresent);
 
   // For system-level binaries there is no way to keep the command state in sync
-  // with the installation/uninstallation of the Application Host (which is
+  // with the installation/uninstallation of the Application Launcher (which is
   // always at user-level).
   // So we pass false for 'have_child_product' to cause this command to always
   // be installed if the Chrome Binaries are installed.

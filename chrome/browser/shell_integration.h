@@ -26,7 +26,8 @@ class ShellIntegration {
   // Chrome as the default browser. Returns false if the flow cannot be
   // initialized, if it is not supported (introduced for Windows 8) or if the
   // user cancels the operation. This is a blocking call and requires a FILE
-  // thread.
+  // thread. If Chrome is already default browser, no interactive dialog will be
+  // shown and this method returns true.
   static bool SetAsDefaultBrowserInteractive();
 
   // Sets Chrome as the default client application for the given protocol
@@ -37,7 +38,8 @@ class ShellIntegration {
   // Chrome as the default handler for |protocol|. Returns false if the flow
   // cannot be initialized, if it is not supported (introduced for Windows 8)
   // or if the user cancels the operation. This is a blocking call and requires
-  // a FILE thread.
+  // a FILE thread. If Chrome is already default for |protocol|, no interactive
+  // dialog will be shown and this method returns true.
   static bool SetAsDefaultProtocolClientInteractive(
       const std::string& protocol);
 
@@ -140,6 +142,9 @@ class ShellIntegration {
   // Generates an application user model ID (AppUserModelId) for Chromium by
   // calling GetAppModelIdForProfile() with ShellUtil::GetAppId() as app_name.
   static string16 GetChromiumModelIdForProfile(const FilePath& profile_path);
+
+  // Get the AppUserModelId for the App List, for the profile in |profile_path|.
+  static string16 GetAppListAppModelIdForProfile(const FilePath& profile_path);
 
   // Returns the path to the Chromium icon. This is used to specify the icon
   // to use for the taskbar group on Win 7.

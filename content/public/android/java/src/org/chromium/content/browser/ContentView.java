@@ -40,6 +40,7 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     public static final int PAGE_TRANSITION_LINK = 0;
     public static final int PAGE_TRANSITION_TYPED = 1;
     public static final int PAGE_TRANSITION_AUTO_BOOKMARK = 2;
+    public static final int PAGE_TRANSITION_GENERATED = 5;
     public static final int PAGE_TRANSITION_START_PAGE = 6;
     // Flag that should be ORed to the page transition when a navigation is initiated from the
     // omnibox.
@@ -542,6 +543,14 @@ public class ContentView extends FrameLayout implements ContentViewCore.Internal
     @Override
     public void onScrollChanged(int l, int t, int oldl, int oldt) {
         super.onScrollChanged(l, t, oldl, oldt);
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        TraceEvent.begin();
+        super.onSizeChanged(w, h, ow, oh);
+        mContentViewCore.onSizeChanged(w, h, ow, oh);
+        TraceEvent.end();
     }
 
     @Override

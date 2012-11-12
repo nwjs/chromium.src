@@ -21,7 +21,9 @@
 
 #if defined(USE_AURA)
 #include "ui/aura/client/activation_change_observer.h"
+#endif
 
+#if defined(USE_AURA)
 namespace aura {
 class RootWindow;
 class Window;
@@ -29,6 +31,7 @@ class Window;
 #endif
 
 namespace ui {
+class NativeTheme;
 class OSExchangeData;
 }
 namespace gfx {
@@ -122,7 +125,7 @@ class VIEWS_EXPORT MenuController
   bool OnMouseWheel(SubmenuView* source, const ui::MouseWheelEvent& event);
 #endif
   ui::EventResult OnGestureEvent(SubmenuView* source,
-                                   const ui::GestureEvent& event);
+                                 ui::GestureEvent* event);
 
   bool GetDropFormats(
       SubmenuView* source,
@@ -267,7 +270,9 @@ class VIEWS_EXPORT MenuController
 
   // Creates a MenuController. If |blocking| is true a nested message loop is
   // started in |Run|.
-  MenuController(bool blocking, internal::MenuControllerDelegate* delegate);
+  MenuController(ui::NativeTheme* theme,
+                 bool blocking,
+                 internal::MenuControllerDelegate* delegate);
 
   virtual ~MenuController();
 
@@ -522,6 +527,7 @@ class VIEWS_EXPORT MenuController
   MenuDelegate::DropPosition drop_position_;
 
   // Owner of child windows.
+  // WARNING: this may be NULL.
   Widget* owner_;
 
 #if defined(USE_AURA)
@@ -563,6 +569,8 @@ class VIEWS_EXPORT MenuController
   // How deep we are in nested message loops. This should be at most 2 (when
   // showing a context menu from a menu).
   int message_loop_depth_;
+
+  views::MenuConfig menu_config_;
 
   DISALLOW_COPY_AND_ASSIGN(MenuController);
 };

@@ -26,8 +26,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   TestBrowserPluginGuest(int instance_id,
                          WebContentsImpl* web_contents,
                          RenderViewHost* render_view_host,
-                         bool focused,
-                         bool visible);
+                         const BrowserPluginHostMsg_CreateGuest_Params& params);
   virtual ~TestBrowserPluginGuest();
 
   WebContentsImpl* web_contents() const;
@@ -64,6 +63,8 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   void WaitForDamageBufferWithSize(const gfx::Size& size);
   // Waits for focus to reach this guest.
   void WaitForFocus();
+  // Waits for blur to reach this guest.
+  void WaitForBlur();
   // Waits for focus to move out of this guest.
   void WaitForAdvanceFocus();
   // Waits until the guest is hidden.
@@ -78,6 +79,8 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   void WaitForInput();
   // Waits until 'loadstop' is observed.
   void WaitForLoadStop();
+  // Waits until UpdateRect with a particular |view_size| is observed.
+  void WaitForViewSize(const gfx::Size& view_size);
 
  private:
   // Overridden methods from BrowserPluginGuest to intercept in test objects.
@@ -87,6 +90,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   int damage_buffer_call_count_;
   bool exit_observed_;
   bool focus_observed_;
+  bool blur_observed_;
   bool advance_focus_observed_;
   bool was_hidden_observed_;
   bool stop_observed_;
@@ -94,6 +98,8 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   bool set_damage_buffer_observed_;
   bool input_observed_;
   bool load_stop_observed_;
+  gfx::Size last_view_size_observed_;
+  gfx::Size expected_auto_view_size_;
 
   // For WaitForDamageBufferWithSize().
   bool waiting_for_damage_buffer_with_size_;
@@ -103,6 +109,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   scoped_refptr<MessageLoopRunner> send_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> crash_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> focus_message_loop_runner_;
+  scoped_refptr<MessageLoopRunner> blur_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> advance_focus_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> was_hidden_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> reload_message_loop_runner_;
@@ -110,6 +117,7 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   scoped_refptr<MessageLoopRunner> damage_buffer_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> input_message_loop_runner_;
   scoped_refptr<MessageLoopRunner> load_stop_message_loop_runner_;
+  scoped_refptr<MessageLoopRunner> auto_view_size_message_loop_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(TestBrowserPluginGuest);
 };

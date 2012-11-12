@@ -417,11 +417,11 @@ const Experiment kExperiments[] = {
   // TODO(bbudge): When NaCl switches to the IPC-based proxy, remove this
   // flag entry.
   {
-    "enable-nacl-ipc-proxy",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_ENABLE_NACL_IPC_PROXY_NAME,
-    IDS_FLAGS_ENABLE_NACL_IPC_PROXY_DESCRIPTION,
+    "enable-nacl-srpc-proxy",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ENABLE_NACL_SRPC_PROXY_NAME,
+    IDS_FLAGS_ENABLE_NACL_SRPC_PROXY_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableNaClIPCProxy)
+    SINGLE_VALUE_TYPE(switches::kEnableNaClSRPCProxy)
   },
   {
     "enable-scripted-speech",  // FLAGS:RECORD_UMA
@@ -764,7 +764,7 @@ const Experiment kExperiments[] = {
     "enable-tab-capture",
     IDS_ENABLE_TAB_CAPTURE_NAME,
     IDS_ENABLE_TAB_CAPTURE_DESCRIPTION,
-    kOsMac | kOsLinux,
+    kOsWin | kOsMac | kOsLinux | kOsCrOS,
     MULTI_VALUE_TYPE(kTabCaptureChoices)
   },
 #if defined(OS_CHROMEOS)
@@ -866,13 +866,6 @@ const Experiment kExperiments[] = {
 #endif  // defined(USE_ASH)
 #if defined(OS_CHROMEOS)
   {
-    "disable-new-wallpaper-picker-ui",
-    IDS_FLAGS_DISABLE_NEW_WALLPAPER_UI_NAME,
-    IDS_FLAGS_DISABLE_NEW_WALLPAPER_UI_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kDisableNewWallpaperUI)
-  },
-  {
     "disable-html5-camera",
     IDS_FLAGS_DISABLE_HTML5_CAMERA,
     IDS_FLAGS_DISABLE_HTML5_CAMERA_DESCRIPTION,
@@ -928,6 +921,20 @@ const Experiment kExperiments[] = {
     kOsCrOS,
     SINGLE_VALUE_TYPE(ash::switches::kAshNewLockAnimationsEnabled),
   },
+  {
+    "new-lock-animations-reverse",
+    IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE,
+    IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshReverseNewLockAnimations),
+  },
+  {
+    "file-manager-packaged",
+    IDS_FLAGS_FILE_MANAGER_PACKAGED_NAME,
+    IDS_FLAGS_FILE_MANAGER_PACKAGED_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kFileManagerPackaged),
+  },
 #endif
   {
     "enable-views-textfield",
@@ -944,11 +951,11 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kOldCheckboxStyle),
   },
   {
-    "enable-frameless-constrained-dialogs",
+    "enable-chrome-style-dialogs",
     IDS_FLAGS_ENABLE_FRAMELESS_DIALOG_NAME,
     IDS_FLAGS_ENABLE_FRAMELESS_DIALOG_DESCRIPTION,
     kOsWin | kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableFramelessConstrainedDialogs),
+    SINGLE_VALUE_TYPE(switches::kEnableChromeStyleDialogs),
   },
   { "disable-accelerated-video-decode",
     IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_NAME,
@@ -993,6 +1000,14 @@ const Experiment kExperiments[] = {
     kOsCrOS,
     SINGLE_VALUE_TYPE(ash::switches::kAshEnableAdvancedGestures),
   },
+#if defined(OS_LINUX)
+  { "ash-enable-memory-monitor",
+      IDS_FLAGS_ENABLE_MEMORY_MONITOR_NAME,
+      IDS_FLAGS_ENABLE_MEMORY_MONITOR_DESCRIPTION,
+      kOsCrOS,
+      SINGLE_VALUE_TYPE(ash::switches::kAshEnableMemoryMonitor),
+  },
+#endif
 #endif
 #if defined(OS_CHROMEOS)
   {
@@ -1069,6 +1084,27 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_WEB_INTENTS_INVOCATION_ENABLED_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kWebIntentsInvocationEnabled)
+  },
+  {
+    "show-app-list-shortcut",
+    IDS_FLAGS_SHOW_APP_LIST_SHORTCUT_NAME,
+    IDS_FLAGS_SHOW_APP_LIST_SHORTCUT_DESCRIPTION,
+    kOsWin,
+    SINGLE_VALUE_TYPE(switches::kShowAppListShortcut)
+  },
+  {
+    "enable-experimental-form-filling",
+    IDS_FLAGS_ENABLE_EXPERIMENTAL_FORM_FILLING_NAME,
+    IDS_FLAGS_ENABLE_EXPERIMENTAL_FORM_FILLING_DESCRIPTION,
+    kOsWin | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableExperimentalFormFilling)
+  },
+  {
+    "enable-interactive-autocomplete",
+    IDS_FLAGS_ENABLE_INTERACTIVE_AUTOCOMPLETE_NAME,
+    IDS_FLAGS_ENABLE_INTERACTIVE_AUTOCOMPLETE_DESCRIPTION,
+    kOsWin | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableInteractiveAutocomplete)
   },
 };
 

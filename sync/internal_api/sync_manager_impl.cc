@@ -167,7 +167,7 @@ SyncManagerImpl::SyncManagerImpl(const std::string& name)
       weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       change_delegate_(NULL),
       initialized_(false),
-      observing_ip_address_changes_(false),
+      observing_network_connectivity_changes_(false),
       invalidator_state_(DEFAULT_INVALIDATION_ERROR),
       throttled_data_type_tracker_(&allstatus_),
       traffic_recorder_(kMaxMessagesToRecord, kMaxMessageSizeToRecord),
@@ -268,14 +268,6 @@ bool SyncManagerImpl::VisiblePropertiesDiffer(
   if (VisiblePositionsDiffer(mutation))
     return true;
   return false;
-}
-
-bool SyncManagerImpl::ChangeBuffersAreEmpty() {
-  for (int i = 0; i < MODEL_TYPE_COUNT; ++i) {
-    if (!change_buffers_[i].IsEmpty())
-      return false;
-  }
-  return true;
 }
 
 void SyncManagerImpl::ThrowUnrecoverableError() {
@@ -415,7 +407,9 @@ void SyncManagerImpl::Init(
     FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
                       OnInitializationComplete(
                           MakeWeakHandle(weak_ptr_factory_.GetWeakPtr()),
-                          false, syncer::ModelTypeSet()));
+                          MakeWeakHandle(
+                              debug_info_event_listener_.GetWeakPtr()),
+                          false, ModelTypeSet()));
     LOG(ERROR) << "Sync manager initialization failed!";
     return;
   }
@@ -465,13 +459,15 @@ void SyncManagerImpl::Init(
   initialized_ = true;
 
   net::NetworkChangeNotifier::AddIPAddressObserver(this);
-  observing_ip_address_changes_ = true;
+  net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
+  observing_network_connectivity_changes_ = true;
 
   UpdateCredentials(credentials);
 
   FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
                     OnInitializationComplete(
                         MakeWeakHandle(weak_ptr_factory_.GetWeakPtr()),
+                        MakeWeakHandle(debug_info_event_listener_.GetWeakPtr()),
                         true, InitialSyncEndedTypes()));
 }
 
@@ -604,7 +600,7 @@ void SyncManagerImpl::UpdateCredentials(
   DCHECK(!credentials.email.empty());
   DCHECK(!credentials.sync_token.empty());
 
-  observing_ip_address_changes_ = true;
+  observing_network_connectivity_changes_ = true;
   if (!connection_manager_->set_auth_token(credentials.sync_token))
     return;  // Auth token is known to be invalid, so exit early.
 
@@ -694,7 +690,8 @@ void SyncManagerImpl::ShutdownOnSyncThread() {
   connection_manager_.reset();
 
   net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
-  observing_ip_address_changes_ = false;
+  net::NetworkChangeNotifier::RemoveConnectionTypeObserver(this);
+  observing_network_connectivity_changes_ = false;
 
   if (initialized_ && directory()) {
     directory()->SaveChanges();
@@ -713,16 +710,25 @@ void SyncManagerImpl::ShutdownOnSyncThread() {
 }
 
 void SyncManagerImpl::OnIPAddressChanged() {
-  DVLOG(1) << "IP address change detected";
-  if (!observing_ip_address_changes_) {
+  if (!observing_network_connectivity_changes_) {
     DVLOG(1) << "IP address change dropped.";
     return;
   }
-
-  OnIPAddressChangedImpl();
+  DVLOG(1) << "IP address change detected.";
+  OnNetworkConnectivityChangedImpl();
 }
 
-void SyncManagerImpl::OnIPAddressChangedImpl() {
+void SyncManagerImpl::OnConnectionTypeChanged(
+  net::NetworkChangeNotifier::ConnectionType) {
+  if (!observing_network_connectivity_changes_) {
+    DVLOG(1) << "Connection type change dropped.";
+    return;
+  }
+  DVLOG(1) << "Connection type change detected.";
+  OnNetworkConnectivityChangedImpl();
+}
+
+void SyncManagerImpl::OnNetworkConnectivityChangedImpl() {
   DCHECK(thread_checker_.CalledOnValidThread());
   scheduler_->OnConnectionStatusChange();
 }
@@ -737,7 +743,7 @@ void SyncManagerImpl::OnServerConnectionEvent(
   }
 
   if (event.connection_code == HttpResponse::SYNC_AUTH_ERROR) {
-    observing_ip_address_changes_ = false;
+    observing_network_connectivity_changes_ = false;
     FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
                       OnConnectionStatusChange(CONNECTION_AUTH_ERROR));
   }
@@ -774,7 +780,7 @@ SyncManagerImpl::HandleTransactionEndingChangeEvent(
   // This notification happens immediately before a syncable WriteTransaction
   // falls out of scope. It happens while the channel mutex is still held,
   // and while the transaction mutex is held, so it cannot be re-entrant.
-  if (!change_delegate_ || ChangeBuffersAreEmpty())
+  if (!change_delegate_ || change_records_.empty())
     return ModelTypeSet();
 
   // This will continue the WriteTransaction using a read only wrapper.
@@ -784,40 +790,28 @@ SyncManagerImpl::HandleTransactionEndingChangeEvent(
   ReadTransaction read_trans(GetUserShare(), trans);
 
   ModelTypeSet models_with_changes;
-  for (int i = FIRST_REAL_MODEL_TYPE; i < MODEL_TYPE_COUNT; ++i) {
-    const ModelType type = ModelTypeFromInt(i);
-    if (change_buffers_[type].IsEmpty())
-      continue;
-
-    ImmutableChangeRecordList ordered_changes;
-    // TODO(akalin): Propagate up the error further (see
-    // http://crbug.com/100907).
-    CHECK(change_buffers_[type].GetAllChangesInTreeOrder(&read_trans,
-                                                         &ordered_changes));
-    if (!ordered_changes.Get().empty()) {
-      // Increment transaction version so that change processor can read
-      // updated value and set it in native model after changes are applied.
-      trans->directory()->IncrementTransactionVersion(type);
-
-      change_delegate_->
-          OnChangesApplied(type,
-                           trans->directory()->GetTransactionVersion(type),
-                           &read_trans, ordered_changes);
-      change_observer_.Call(FROM_HERE,
-          &SyncManager::ChangeObserver::OnChangesApplied,
-          type, write_transaction_info.Get().id, ordered_changes);
-      models_with_changes.Put(type);
-    }
-    change_buffers_[i].Clear();
+  for (ChangeRecordMap::const_iterator it = change_records_.begin();
+      it != change_records_.end(); ++it) {
+    DCHECK(!it->second.Get().empty());
+    ModelType type = ModelTypeFromInt(it->first);
+    change_delegate_->
+        OnChangesApplied(type, trans->directory()->GetTransactionVersion(type),
+                         &read_trans, it->second);
+    change_observer_.Call(FROM_HERE,
+        &SyncManager::ChangeObserver::OnChangesApplied,
+        type, write_transaction_info.Get().id, it->second);
+    models_with_changes.Put(type);
   }
+  change_records_.clear();
   return models_with_changes;
 }
 
 void SyncManagerImpl::HandleCalculateChangesChangeEventFromSyncApi(
     const ImmutableWriteTransactionInfo& write_transaction_info,
-    syncable::BaseTransaction* trans) {
+    syncable::BaseTransaction* trans,
+    std::vector<int64>* entries_changed) {
   // We have been notified about a user action changing a sync model.
-  LOG_IF(WARNING, !ChangeBuffersAreEmpty()) <<
+  LOG_IF(WARNING, !change_records_.empty()) <<
       "CALCULATE_CHANGES called with unapplied old changes.";
 
   // The mutated model type, or UNSPECIFIED if nothing was mutated.
@@ -841,6 +835,7 @@ void SyncManagerImpl::HandleCalculateChangesChangeEventFromSyncApi(
     // Found real mutation.
     if (model_type != UNSPECIFIED) {
       mutated_model_types.Put(model_type);
+      entries_changed->push_back(it->second.mutated.ref(syncable::META_HANDLE));
     }
   }
 
@@ -889,11 +884,14 @@ void SyncManagerImpl::SetExtraChangeRecordData(int64 id,
 
 void SyncManagerImpl::HandleCalculateChangesChangeEventFromSyncer(
     const ImmutableWriteTransactionInfo& write_transaction_info,
-    syncable::BaseTransaction* trans) {
+    syncable::BaseTransaction* trans,
+    std::vector<int64>* entries_changed) {
   // We only expect one notification per sync step, so change_buffers_ should
   // contain no pending entries.
-  LOG_IF(WARNING, !ChangeBuffersAreEmpty()) <<
+  LOG_IF(WARNING, !change_records_.empty()) <<
       "CALCULATE_CHANGES called with unapplied old changes.";
+
+  ChangeReorderBuffer change_buffers[MODEL_TYPE_COUNT];
 
   Cryptographer* crypto = directory()->GetCryptographer(trans);
   const syncable::ImmutableEntryKernelMutationMap& mutations =
@@ -911,17 +909,30 @@ void SyncManagerImpl::HandleCalculateChangesChangeEventFromSyncer(
 
     int64 handle = it->first;
     if (exists_now && !existed_before)
-      change_buffers_[type].PushAddedItem(handle);
+      change_buffers[type].PushAddedItem(handle);
     else if (!exists_now && existed_before)
-      change_buffers_[type].PushDeletedItem(handle);
+      change_buffers[type].PushDeletedItem(handle);
     else if (exists_now && existed_before &&
              VisiblePropertiesDiffer(it->second, crypto)) {
-      change_buffers_[type].PushUpdatedItem(
+      change_buffers[type].PushUpdatedItem(
           handle, VisiblePositionsDiffer(it->second));
     }
 
-    SetExtraChangeRecordData(handle, type, &change_buffers_[type], crypto,
+    SetExtraChangeRecordData(handle, type, &change_buffers[type], crypto,
                              it->second.original, existed_before, exists_now);
+  }
+
+  ReadTransaction read_trans(GetUserShare(), trans);
+  for (int i = FIRST_REAL_MODEL_TYPE; i < MODEL_TYPE_COUNT; ++i) {
+    if (!change_buffers[i].IsEmpty()) {
+      if (change_buffers[i].GetAllChangesInTreeOrder(&read_trans,
+                                                     &(change_records_[i]))) {
+        for (size_t j = 0; j < change_records_[i].Get().size(); ++j)
+          entries_changed->push_back((change_records_[i].Get())[j].id);
+      }
+      if (change_records_[i].Get().empty())
+        change_records_.erase(i);
+    }
   }
 }
 
@@ -962,16 +973,11 @@ void SyncManagerImpl::OnSyncEngineEvent(const SyncEngineEvent& event) {
       return;
     }
 
-    if (!event.snapshot.has_more_to_sync()) {
-      DVLOG(1) << "Sending OnSyncCycleCompleted";
-      FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
-                        OnSyncCycleCompleted(event.snapshot));
-    }
+    DVLOG(1) << "Sending OnSyncCycleCompleted";
+    FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
+                      OnSyncCycleCompleted(event.snapshot));
 
     // This is here for tests, which are still using p2p notifications.
-    //
-    // TODO(chron): Consider changing this back to track has_more_to_sync
-    // only notify peers if a successful commit has occurred.
     bool is_notifiable_commit =
         (event.snapshot.model_neutral_state().num_successful_commits > 0);
     if (is_notifiable_commit) {

@@ -482,13 +482,13 @@ TabCountChangeObserver::~TabCountChangeObserver() {
   tab_strip_model_->RemoveObserver(this);
 }
 
-void TabCountChangeObserver::TabInsertedAt(TabContents* contents,
+void TabCountChangeObserver::TabInsertedAt(WebContents* contents,
                                            int index,
                                            bool foreground) {
   CheckTabCount();
 }
 
-void TabCountChangeObserver::TabDetachedAt(TabContents* contents,
+void TabCountChangeObserver::TabDetachedAt(WebContents* contents,
                                            int index) {
   CheckTabCount();
 }
@@ -1392,21 +1392,26 @@ AutomationProviderDownloadModelChangedObserver(
     DownloadManager* download_manager)
     : provider_(provider->AsWeakPtr()),
       reply_message_(reply_message),
-      download_manager_(download_manager) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(notifier_(download_manager, this)) {
 }
 
 AutomationProviderDownloadModelChangedObserver::
     ~AutomationProviderDownloadModelChangedObserver() {}
 
-void AutomationProviderDownloadModelChangedObserver::ModelChanged(
-    DownloadManager* manager) {
-  DCHECK_EQ(manager, download_manager_);
-
-  download_manager_->RemoveObserver(this);
-
+void AutomationProviderDownloadModelChangedObserver::ModelChanged() {
   if (provider_)
     AutomationJSONReply(provider_, reply_message_.release()).SendSuccess(NULL);
   delete this;
+}
+
+void AutomationProviderDownloadModelChangedObserver::OnDownloadCreated(
+    DownloadManager* manager, DownloadItem* item) {
+  ModelChanged();
+}
+
+void AutomationProviderDownloadModelChangedObserver::OnDownloadRemoved(
+    DownloadManager* manager, DownloadItem* item) {
+  ModelChanged();
 }
 
 AllDownloadsCompleteObserver::AllDownloadsCompleteObserver(
@@ -1943,13 +1948,10 @@ std::vector<DictionaryValue*>* GetAppInfoFromExtensions(
 
 }  // namespace
 
-NTPInfoObserver::NTPInfoObserver(
-    AutomationProvider* automation,
-    IPC::Message* reply_message,
-    CancelableRequestConsumer* consumer)
+NTPInfoObserver::NTPInfoObserver(AutomationProvider* automation,
+                                 IPC::Message* reply_message)
     : automation_(automation->AsWeakPtr()),
       reply_message_(reply_message),
-      consumer_(consumer),
       request_(0),
       ntp_info_(new DictionaryValue) {
   top_sites_ = automation_->profile()->GetTopSites();
@@ -2044,7 +2046,6 @@ void NTPInfoObserver::Observe(int type,
           details);
     if (request_ == *request_details.ptr()) {
       top_sites_->GetMostVisitedURLs(
-          consumer_,
           base::Bind(&NTPInfoObserver::OnTopSitesReceived,
                      base::Unretained(this)));
     }

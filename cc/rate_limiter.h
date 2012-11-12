@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef RateLimiter_h
-#define RateLimiter_h
+#ifndef CC_RATE_LIMITER_H_
+#define CC_RATE_LIMITER_H_
 
 #include "base/memory/ref_counted.h"
 
@@ -12,6 +12,8 @@ class WebGraphicsContext3D;
 }
 
 namespace cc {
+
+class Thread;
 
 class RateLimiterClient {
 public:
@@ -24,7 +26,7 @@ public:
 // compositor.
 class RateLimiter : public base::RefCounted<RateLimiter> {
 public:
-    static scoped_refptr<RateLimiter> create(WebKit::WebGraphicsContext3D*, RateLimiterClient*);
+    static scoped_refptr<RateLimiter> create(WebKit::WebGraphicsContext3D*, RateLimiterClient*, Thread*);
 
     void start();
 
@@ -32,7 +34,7 @@ public:
     void stop();
 
 private:
-    RateLimiter(WebKit::WebGraphicsContext3D*, RateLimiterClient*);
+    RateLimiter(WebKit::WebGraphicsContext3D*, RateLimiterClient*, Thread*);
     ~RateLimiter();
     friend class base::RefCounted<RateLimiter>;
 
@@ -43,7 +45,8 @@ private:
     WebKit::WebGraphicsContext3D* m_context;
     bool m_active;
     RateLimiterClient *m_client;
+    Thread* m_thread;
 };
 
 }
-#endif
+#endif  // CC_RATE_LIMITER_H_

@@ -7,11 +7,17 @@
 
 #include <string>
 
+#include "base/callback.h"
 #include "base/memory/ref_counted.h"
 #include "build/build_config.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/size.h"
 #include "ui/gl/gl_export.h"
+
+namespace base {
+class TimeDelta;
+class TimeTicks;
+}
 
 namespace gfx {
 
@@ -102,6 +108,18 @@ class GL_EXPORT GLSurface : public base::RefCounted<GLSurface> {
   // Get the GL pixel format of the surface, if available.
   virtual unsigned GetFormat();
 
+  typedef base::Callback<void(const base::TimeTicks timebase,
+                              const base::TimeDelta interval)>
+      UpdateVSyncCallback;
+
+  // Get the time of the most recent screen refresh, along with the time
+  // between consecutive refreshes. The callback is called as soon as
+  // the data is available: it could be immediately from this method,
+  // later via a PostTask to the current MessageLoop, or never (if we have
+  // no data source). We provide the strong guarantee that the callback will
+  // not be called once the instance of this class is destroyed.
+  virtual void GetVSyncParameters(const UpdateVSyncCallback& callback);
+
   // Create a GL surface that renders directly to a view.
   static scoped_refptr<GLSurface> CreateViewGLSurface(
       bool software,
@@ -153,6 +171,7 @@ class GL_EXPORT GLSurfaceAdapter : public GLSurface {
   virtual void* GetDisplay() OVERRIDE;
   virtual void* GetConfig() OVERRIDE;
   virtual unsigned GetFormat() OVERRIDE;
+  virtual void GetVSyncParameters(const UpdateVSyncCallback& callback) OVERRIDE;
 
   GLSurface* surface() const { return surface_.get(); }
 

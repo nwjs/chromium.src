@@ -62,10 +62,6 @@ name=http://code.google.com/p/drmemory/issues/detail?id=68 (UNADDR 2)
 ...
 ntdll.dll!RtlValidateUnicodeString
 
-UNADDRESSABLE ACCESS
-name=http://crbug.com/131304
-avutil-51.dll!ff_vector_fmul_sse
-
 ############################
 # TODO(timurrrr): investigate these
 UNADDRESSABLE ACCESS
@@ -241,12 +237,6 @@ name=prefetches in igdumd32.dll
 instruction=prefetch*
 igdumd32.dll!*
 
-# prefetch of unaddressable memory in ffmpeg
-WARNING
-name=http://crbug.com/134979 prefetches in ffmpeg
-instruction=prefetch*
-avcodec-*.dll!*
-
 UNADDRESSABLE ACCESS
 name=http://code.google.com/p/drmemory/issues/detail?id=582 bizarre cl-generated read-beyond-TOS
 instruction=mov    0xfffffffc(%esp) -> %eax
@@ -400,3 +390,12 @@ content.dll!*
 KERNEL32.dll!*
 ntdll.dll!*
 ntdll.dll!*
+
+GDI USAGE ERROR
+name=http://crbug.com/160477
+system call NtGdiDeleteObjectApp
+GDI32.dll!DeleteDC
+*!base::win::CreateDCTraits::CloseHandle
+*!base::win::GenericScopedHandle<base::win::CreateDCTraits,base::win::VerifierTraits>::Close
+*!base::win::GenericScopedHandle<base::win::CreateDCTraits,base::win::VerifierTraits>::~GenericScopedHandle<base::win::CreateDCTraits,base::win::VerifierTraits>
+*!remoting::`anonymous namespace'::VideoFrameCapturerWin::~VideoFrameCapturerWin

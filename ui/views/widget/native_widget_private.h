@@ -17,6 +17,7 @@ class Rect;
 }
 
 namespace ui {
+class NativeTheme;
 class OSExchangeData;
 }
 
@@ -204,15 +205,18 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget {
   virtual void RunShellDrag(View* view,
                             const ui::OSExchangeData& data,
                             const gfx::Point& location,
-                            int operation) = 0;
+                            int operation,
+                            ui::DragDropTypes::DragEventSource source) = 0;
   virtual void SchedulePaintInRect(const gfx::Rect& rect) = 0;
   virtual void SetCursor(gfx::NativeCursor cursor) = 0;
   virtual void ClearNativeFocus() = 0;
   virtual gfx::Rect GetWorkAreaBoundsInScreen() const = 0;
   virtual void SetInactiveRenderingDisabled(bool value) = 0;
-  virtual Widget::MoveLoopResult RunMoveLoop(const gfx::Point& drag_offset) = 0;
+  virtual Widget::MoveLoopResult RunMoveLoop(
+      const gfx::Vector2d& drag_offset) = 0;
   virtual void EndMoveLoop() = 0;
   virtual void SetVisibilityChangedAnimationsEnabled(bool value) = 0;
+  virtual ui::NativeTheme* GetNativeTheme() const = 0;
 
   // Overridden from NativeWidget:
   virtual internal::NativeWidgetPrivate* AsNativeWidgetPrivate() OVERRIDE;

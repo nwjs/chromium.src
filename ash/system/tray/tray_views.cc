@@ -67,8 +67,7 @@ class SpecialPopupRowBorder : public views::Border {
   virtual ~SpecialPopupRowBorder() {}
 
  private:
-  virtual void Paint(const views::View& view,
-                     gfx::Canvas* canvas) const OVERRIDE {
+  virtual void Paint(const views::View& view, gfx::Canvas* canvas) OVERRIDE {
     views::Painter::PaintPainterAt(canvas, painter_.get(),
         gfx::Rect(gfx::Size(view.width(), kBorderHeight)));
   }
@@ -152,10 +151,9 @@ void ActionableView::OnPaintFocusBorder(gfx::Canvas* canvas) {
     DrawBorder(canvas, GetLocalBounds());
 }
 
-ui::EventResult ActionableView::OnGestureEvent(
-    const ui::GestureEvent& event) {
-  if (event.type() == ui::ET_GESTURE_TAP) {
-    return PerformAction(event) ? ui::ER_CONSUMED :
+ui::EventResult ActionableView::OnGestureEvent(ui::GestureEvent* event) {
+  if (event->type() == ui::ET_GESTURE_TAP) {
+    return PerformAction(*event) ? ui::ER_CONSUMED :
                                   ui::ER_UNHANDLED;
   }
   return ui::ER_UNHANDLED;
@@ -216,7 +214,7 @@ void HoverHighlightView::AddLabel(const string16& text,
     left_margin = margin;
   text_label_->set_border(
       views::Border::CreateEmptyBorder(5, left_margin, 5, right_margin));
-  text_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  text_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   text_label_->SetFont(text_label_->font().DeriveFont(0, style));
   text_label_->SetDisabledColor(SkColorSetARGB(127, 0, 0, 0));
   if (text_default_color_)

@@ -213,11 +213,9 @@ void TestRenderWidgetHostView::WillWmDestroy() {
 void TestRenderWidgetHostView::StartContentIntent(const GURL&) {}
 #endif
 
-#if defined(OS_POSIX) || defined(USE_AURA)
 gfx::Rect TestRenderWidgetHostView::GetBoundsInRootWindow() {
   return gfx::Rect();
 }
-#endif
 
 #if defined(TOOLKIT_GTK)
 GdkEventButton* TestRenderWidgetHostView::GetLastMouseDown() {
@@ -355,7 +353,9 @@ void TestRenderViewHost::SimulateWasShown() {
 void TestRenderViewHost::TestOnMsgStartDragging(
     const WebDropData& drop_data) {
   WebKit::WebDragOperationsMask drag_operation = WebKit::WebDragOperationEvery;
-  OnMsgStartDragging(drop_data, drag_operation, SkBitmap(), gfx::Point());
+  DragEventSourceInfo event_info;
+  OnMsgStartDragging(drop_data, drag_operation, SkBitmap(), gfx::Vector2d(),
+                     event_info);
 }
 
 void TestRenderViewHost::set_simulate_fetch_via_proxy(bool proxy) {

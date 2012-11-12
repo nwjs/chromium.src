@@ -178,6 +178,9 @@ class HostProcess
   void SigTermHandler(int signal_number);
 #endif
 
+  // Asks the daemon to inject Secure Attention Sequence to the console.
+  void SendSasToConsole();
+
   void ShutdownHostProcess();
 
   // Applies the host config, returning true if successful.
@@ -475,6 +478,21 @@ void HostProcess::StartHostProcess() {
     return;
   }
 
+#if defined(OS_LINUX)
+  // TODO(sergeyu): Pass configuration parameters to the Linux-specific version
+  // of DesktopEnvironmentFactory when we have it.
+  remoting::VideoFrameCapturer::EnableXDamage(true);
+
+  // If an audio pipe is specific on the command-line then initialize
+  // AudioCapturerLinux to capture from it.
+  FilePath audio_pipe_name = CommandLine::ForCurrentProcess()->
+      GetSwitchValuePath(kAudioPipeSwitchName);
+  if (!audio_pipe_name.empty()) {
+    remoting::AudioCapturerLinux::InitializePipeReader(
+        context_->audio_task_runner(), audio_pipe_name);
+  }
+#endif  // defined(OS_LINUX)
+
   // Create a desktop environment factory appropriate to the build type &
   // platform.
 #if defined(OS_WIN)
@@ -490,7 +508,8 @@ void HostProcess::StartHostProcess() {
 #else // !defined(REMOTING_MULTI_PROCESS)
   DesktopEnvironmentFactory* desktop_environment_factory =
       new SessionDesktopEnvironmentFactory(
-          context_->input_task_runner(), context_->ui_task_runner());
+          context_->input_task_runner(), context_->ui_task_runner(),
+          base::Bind(&HostProcess::SendSasToConsole, base::Unretained(this)));
 #endif  // !defined(REMOTING_MULTI_PROCESS)
 
 #else  // !defined(OS_WIN)
@@ -535,6 +554,13 @@ void HostProcess::StartHostProcess() {
 
 int HostProcess::get_exit_code() const {
   return exit_code_;
+}
+
+void HostProcess::SendSasToConsole() {
+  DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
+
+  if (daemon_channel_)
+    daemon_channel_->Send(new ChromotingNetworkDaemonMsg_SendSasToConsole());
 }
 
 void HostProcess::ShutdownHostProcess() {
@@ -764,6 +790,7 @@ void HostProcess::StartHost() {
       desktop_environment_factory_.get(),
       CreateHostSessionManager(network_settings,
                                context_->url_request_context_getter()),
+      context_->audio_task_runner(),
       context_->capture_task_runner(),
       context_->encode_task_runner(),
       context_->network_task_runner());
@@ -946,14 +973,6 @@ int main(int argc, char** argv) {
       new remoting::ChromotingHostContext(
           new remoting::AutoThreadTaskRunner(message_loop.message_loop_proxy(),
                                              quit_message_loop)));
-
-#if defined(OS_LINUX)
-  // TODO(sergeyu): Pass configuration parameters to the Linux-specific version
-  // of DesktopEnvironmentFactory when we have it.
-  remoting::VideoFrameCapturer::EnableXDamage(true);
-  remoting::AudioCapturerLinux::SetPipeName(CommandLine::ForCurrentProcess()->
-      GetSwitchValuePath(kAudioPipeSwitchName));
-#endif  // defined(OS_LINUX)
 
   if (!context->Start())
     return remoting::kInitializationFailed;

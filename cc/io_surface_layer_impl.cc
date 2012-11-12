@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/io_surface_layer_impl.h"
 
 #include "base/stringprintf.h"
@@ -79,7 +77,7 @@ void IOSurfaceLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& append
     SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(createSharedQuadState());
     appendDebugBorderQuad(quadSink, sharedQuadState, appendQuadsData);
 
-    IntRect quadRect(IntPoint(), contentBounds());
+    gfx::Rect quadRect(gfx::Point(), contentBounds());
     quadSink.append(IOSurfaceDrawQuad::create(sharedQuadState, quadRect, m_ioSurfaceSize, m_ioSurfaceTextureId, IOSurfaceDrawQuad::Flipped).PassAs<DrawQuad>(), appendQuadsData);
 }
 
@@ -98,7 +96,7 @@ void IOSurfaceLayerImpl::didLoseContext()
     m_ioSurfaceChanged = true;
 }
 
-void IOSurfaceLayerImpl::setIOSurfaceProperties(unsigned ioSurfaceId, const IntSize& size)
+void IOSurfaceLayerImpl::setIOSurfaceProperties(unsigned ioSurfaceId, const gfx::Size& size)
 {
     if (m_ioSurfaceId != ioSurfaceId)
         m_ioSurfaceChanged = true;
@@ -112,4 +110,4 @@ const char* IOSurfaceLayerImpl::layerTypeAsString() const
     return "IOSurfaceLayer";
 }
 
-}
+}  // namespace cc

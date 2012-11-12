@@ -23,10 +23,6 @@
 #include "ui/base/ime/win/tsf_bridge.h"
 #endif
 
-#if defined(OS_ANDROID)
-#include "content/browser/android/surface_texture_peer_browser_impl.h"
-#endif
-
 bool g_exited_main_message_loop = false;
 
 namespace content {
@@ -59,7 +55,7 @@ class BrowserMainRunnerImpl : public BrowserMainRunner {
 #if defined(OS_WIN)
     if (parameters.command_line.HasSwitch(
             switches::kEnableTextServicesFramework)) {
-      base::win::SetForceToUseTsf();
+      base::win::SetForceToUseTSF();
     }
 #endif  // OS_WIN
 
@@ -91,15 +87,9 @@ class BrowserMainRunnerImpl : public BrowserMainRunner {
     base::allocator::SetupSubprocessAllocator();
 #endif
     ole_initializer_.reset(new ui::ScopedOleInitializer);
-    if (base::win::IsTsfAwareRequired())
-      ui::TsfBridge::Initialize();
+    if (base::win::IsTSFAwareRequired())
+      ui::TSFBridge::Initialize();
 #endif  // OS_WIN
-
-#if defined(OS_ANDROID)
-    SurfaceTexturePeer::InitInstance(new SurfaceTexturePeerBrowserImpl(
-        parameters.command_line.HasSwitch(
-            switches::kMediaPlayerInRenderProcess)));
-#endif
 
     main_loop_->CreateThreads();
     int result_code = main_loop_->GetResultCode();
@@ -127,8 +117,8 @@ class BrowserMainRunnerImpl : public BrowserMainRunner {
       main_loop_->ShutdownThreadsAndCleanUp();
 
 #if defined(OS_WIN)
-    if (base::win::IsTsfAwareRequired())
-      ui::TsfBridge::GetInstance()->Shutdown();
+    if (base::win::IsTSFAwareRequired())
+      ui::TSFBridge::GetInstance()->Shutdown();
     ole_initializer_.reset(NULL);
 #endif
 

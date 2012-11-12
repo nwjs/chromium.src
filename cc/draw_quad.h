@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCDrawQuad_h
-#define CCDrawQuad_h
+#ifndef CC_DRAW_QUAD_H_
+#define CC_DRAW_QUAD_H_
 
+#include "cc/cc_export.h"
 #include "cc/shared_quad_state.h"
 
 namespace cc {
@@ -23,7 +24,7 @@ namespace cc {
 // materials need different bits of per-quad data to render, classes that derive
 // from DrawQuad store additional data in their derived instance. The Material
 // enum is used to "safely" downcast to the derived class.
-class DrawQuad {
+class CC_EXPORT DrawQuad {
 public:
     enum Material {
         Invalid,
@@ -54,10 +55,6 @@ public:
     bool isDebugQuad() const { return m_material == DebugBorder; }
 
     Material material() const { return m_material; }
-
-    // Returns transfer size of this object based on the derived class (by
-    // looking at the material type).
-    unsigned size() const;
 
     scoped_ptr<DrawQuad> copy(const SharedQuadState* copiedSharedQuadState) const;
 
@@ -93,4 +90,4 @@ protected:
 
 }
 
-#endif
+#endif  // CC_DRAW_QUAD_H_

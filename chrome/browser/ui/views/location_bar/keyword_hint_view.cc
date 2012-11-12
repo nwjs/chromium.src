@@ -12,7 +12,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -28,9 +27,11 @@ static const int kTabImageYOffset = 1;
 // The tab key image.
 static const gfx::ImageSkia* kTabButtonImage = NULL;
 
-KeywordHintView::KeywordHintView(Profile* profile) : profile_(profile) {
-  leading_label_ = CreateLabel();
-  trailing_label_ = CreateLabel();
+KeywordHintView::KeywordHintView(Profile* profile,
+                                 const LocationBarView* location_bar_view)
+    : profile_(profile) {
+  leading_label_ = CreateLabel(location_bar_view);
+  trailing_label_ = CreateLabel(location_bar_view);
 
   if (!kTabButtonImage) {
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
@@ -130,16 +131,13 @@ void KeywordHintView::Layout() {
   }
 }
 
-views::Label* KeywordHintView::CreateLabel() {
+views::Label* KeywordHintView::CreateLabel(
+    const LocationBarView* location_bar_view) {
   views::Label* label = new views::Label();
-  bool instant_extended_api_enabled =
-      chrome::search::IsInstantExtendedAPIEnabled(profile_);
-  label->SetBackgroundColor(LocationBarView::GetColor(
-      instant_extended_api_enabled, ToolbarModel::NONE,
-      LocationBarView::BACKGROUND));
-  label->SetEnabledColor(LocationBarView::GetColor(
-      instant_extended_api_enabled, ToolbarModel::NONE,
-      LocationBarView::DEEMPHASIZED_TEXT));
+  label->SetBackgroundColor(location_bar_view->GetColor(
+      ToolbarModel::NONE, LocationBarView::BACKGROUND));
+  label->SetEnabledColor(location_bar_view->GetColor(
+      ToolbarModel::NONE, LocationBarView::DEEMPHASIZED_TEXT));
   AddChildView(label);
   return label;
 }

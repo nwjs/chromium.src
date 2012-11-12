@@ -4,6 +4,22 @@
  * found in the LICENSE file.
  */
 
+/**
+ * @private
+ */
+var gTransformOutgoingSdp = function(sdp) { return sdp; }
+
+/**
+ * Sets the transform to apply just before setting the local description and
+ * sending to the peer.
+ *
+ * @param transformFunction A function which takes one SDP string as argument
+ *     and returns the modified SDP string.
+ */
+function setOutgoingSdpTransform(transformFunction) {
+  gTransformOutgoingSdp = transformFunction;
+}
+
 // Public interface towards the other javascript files, such as
 // message_handling.js. The contract for these functions is described in
 // message_handling.js.
@@ -58,7 +74,11 @@ function setupCall(peerConnection) {
   peerConnection.createOffer(
       setLocalAndSendMessage_,
       function () { success_('createOffer'); },
-      getCurrentMediaHints());
+      { 'mandatory': {
+          'OfferToReceiveVideo': 'true',
+          'OfferToReceiveAudio': 'true',
+        }
+      });
 }
 
 function answerCall(peerConnection, message) {
@@ -84,10 +104,12 @@ function iceCallback_(event) {
 
 /** @private */
 function setLocalAndSendMessage_(session_description) {
+  session_description.sdp = gTransformOutgoingSdp(session_description.sdp);
   peerConnection.setLocalDescription(
     session_description,
     function() { success_('setLocalDescription'); },
     function() { failure_('setLocalDescription'); });
+  debug("Sending SDP message:\n" + session_description.sdp);
   sendToPeer(gRemotePeerId, JSON.stringify(session_description));
 }
 

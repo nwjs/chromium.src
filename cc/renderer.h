@@ -2,33 +2,34 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCRenderer_h
-#define CCRenderer_h
+#ifndef CC_RENDERER_H_
+#define CC_RENDERER_H_
 
-#include "FloatQuad.h"
 #include "base/basictypes.h"
+#include "cc/cc_export.h"
 #include "cc/layer_tree_host.h"
 #include "cc/managed_memory_policy.h"
 #include "cc/render_pass.h"
 
 namespace cc {
 
-class ScopedTexture;
+class ScopedResource;
 
-class RendererClient {
+class CC_EXPORT RendererClient {
 public:
-    virtual const IntSize& deviceViewportSize() const = 0;
+    virtual const gfx::Size& deviceViewportSize() const = 0;
     virtual const LayerTreeSettings& settings() const = 0;
     virtual void didLoseContext() = 0;
     virtual void onSwapBuffersComplete() = 0;
     virtual void setFullRootLayerDamage() = 0;
     virtual void setManagedMemoryPolicy(const ManagedMemoryPolicy& policy) = 0;
     virtual void enforceManagedMemoryPolicy(const ManagedMemoryPolicy& policy) = 0;
+    virtual bool hasImplThread() const = 0;
 protected:
     virtual ~RendererClient() { }
 };
 
-class Renderer {
+class CC_EXPORT Renderer {
 public:
     // This enum defines the various resource pools for the ResourceProvider
     // where textures get allocated.
@@ -61,7 +62,7 @@ public:
     // puts backbuffer onscreen
     virtual bool swapBuffers() = 0;
 
-    virtual void getFramebufferPixels(void *pixels, const IntRect&) = 0;
+    virtual void getFramebufferPixels(void *pixels, const gfx::Rect&) = 0;
 
     virtual bool isContextLost();
 
@@ -82,4 +83,4 @@ protected:
 
 }
 
-#endif // CCRenderer_h
+#endif  // CC_RENDERER_H_

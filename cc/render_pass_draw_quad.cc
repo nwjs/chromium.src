@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/render_pass_draw_quad.h"
 
 namespace cc {
@@ -36,14 +34,9 @@ const RenderPassDrawQuad* RenderPassDrawQuad::materialCast(const DrawQuad* quad)
 
 scoped_ptr<RenderPassDrawQuad> RenderPassDrawQuad::copy(const SharedQuadState* copiedSharedQuadState, RenderPass::Id copiedRenderPassId) const
 {
-    unsigned bytes = size();
-    DCHECK(bytes > 0);
-
-    scoped_ptr<RenderPassDrawQuad> copyQuad(reinterpret_cast<RenderPassDrawQuad*>(new char[bytes]));
-    memcpy(copyQuad.get(), this, bytes);
+    scoped_ptr<RenderPassDrawQuad> copyQuad(new RenderPassDrawQuad(*materialCast(this)));
     copyQuad->setSharedQuadState(copiedSharedQuadState);
     copyQuad->m_renderPassId = copiedRenderPassId;
-
     return copyQuad.Pass();
 }
 

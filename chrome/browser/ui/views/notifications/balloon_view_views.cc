@@ -27,7 +27,6 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/insets.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/path.h"
 #include "ui/views/bubble/bubble_border.h"
@@ -39,7 +38,6 @@
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/native/native_view_host.h"
-#include "ui/views/painter.h"
 #include "ui/views/widget/widget.h"
 
 #if defined(OS_CHROMEOS)
@@ -380,7 +378,7 @@ void BalloonViewImpl::Show(Balloon* balloon) {
   source_label_->SetFont(rb.GetFont(ui::ResourceBundle::SmallFont));
   source_label_->SetBackgroundColor(kControlBarBackgroundColor);
   source_label_->SetEnabledColor(kControlBarTextColor);
-  source_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  source_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   source_label_->SetElideBehavior(views::Label::ELIDE_AT_END);
   source_label_->SetBoundsRect(GetLabelBounds());
 

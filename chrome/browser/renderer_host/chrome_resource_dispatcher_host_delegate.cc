@@ -46,7 +46,7 @@
 #include "third_party/protobuf/src/google/protobuf/repeated_field.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/component/navigation_interception/intercept_navigation_delegate.h"
+#include "content/components/navigation_interception/intercept_navigation_delegate.h"
 #endif
 
 // TODO(oshima): Enable this for other platforms.
@@ -144,7 +144,7 @@ void ChromeResourceDispatcherHostDelegate::RequestBeginning(
 #if defined(OS_ANDROID)
   if (!is_prerendering && resource_type == ResourceType::MAIN_FRAME) {
     throttles->push_back(
-        navigation_interception::InterceptNavigationDelegate::CreateThrottleFor(
+        content::InterceptNavigationDelegate::CreateThrottleFor(
             request));
   }
 #endif
@@ -158,6 +158,13 @@ void ChromeResourceDispatcherHostDelegate::RequestBeginning(
 #endif
 
   AppendChromeMetricsHeaders(request, resource_context, resource_type);
+
+#if defined(ENABLE_ONE_CLICK_SIGNIN)
+  // TODO(rogerta): this call also needs to be made on each new redirect
+  // request.  However, URLRequest does not yet support changing the headers
+  // for redirects.  This is being tracked in crbug.com/157154.
+  AppendChromeSyncGaiaHeader(request, resource_context);
+#endif
 
   AppendStandardResourceThrottles(request,
                                   resource_context,
@@ -331,6 +338,18 @@ void ChromeResourceDispatcherHostDelegate::AppendChromeMetricsHeaders(
   }
 }
 
+#if defined(ENABLE_ONE_CLICK_SIGNIN)
+void ChromeResourceDispatcherHostDelegate::AppendChromeSyncGaiaHeader(
+    net::URLRequest* request,
+    content::ResourceContext* resource_context) {
+  ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
+  if (OneClickSigninHelper::CanOfferOnIOThread(request->url(), request,
+                                               io_data)) {
+    request->SetExtraRequestHeaderByName("Allow-Chrome-SignIn", "1", false);
+  }
+}
+#endif
+
 bool ChromeResourceDispatcherHostDelegate::ShouldForceDownloadResource(
     const GURL& url, const std::string& mime_type) {
   // Special-case user scripts to get downloaded instead of viewed.
@@ -436,9 +455,9 @@ void ChromeResourceDispatcherHostDelegate::InitVariationIDsCacheIfNeeded() {
   // that could cause registered FieldTrials to be missed.
   base::FieldTrialList::AddObserver(this);
 
-  base::FieldTrial::SelectedGroups initial_groups;
-  base::FieldTrialList::GetFieldTrialSelectedGroups(&initial_groups);
-  for (base::FieldTrial::SelectedGroups::const_iterator it =
+  base::FieldTrial::ActiveGroups initial_groups;
+  base::FieldTrialList::GetActiveFieldTrialGroups(&initial_groups);
+  for (base::FieldTrial::ActiveGroups::const_iterator it =
        initial_groups.begin(); it != initial_groups.end(); ++it) {
     chrome_variations::VariationID id =
         chrome_variations::GetGoogleVariationID(it->trial, it->group);

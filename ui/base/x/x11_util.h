@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/event_types.h"
 #include "ui/base/events/event_constants.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/ui_export.h"
 #include "ui/gfx/point.h"
 
@@ -71,10 +73,6 @@ UI_EXPORT bool QueryRenderSupport(Display* dpy);
 
 // Return the default screen number for the display
 int GetDefaultScreen(Display* display);
-
-// TODO(xiyuan): Fix the stale XCursorCache problem per http://crbug.com/102759.
-// A special cursor that makes GetXCursor below to clear its XCursorCache.
-const int kCursorClearXCursorCache = -1;
 
 // Returns an X11 Cursor, sharable across the process.
 // |cursor_shape| is an X font cursor shape, see XCreateFontCursor().
@@ -191,6 +189,9 @@ static const int kAllDesktops = -1;
 // Queries the desktop |window| is on, kAllDesktops if sticky. Returns false if
 // property not found.
 bool GetWindowDesktop(XID window, int* desktop);
+
+// Translates an X11 error code into a printable string.
+UI_EXPORT std::string GetX11ErrorString(Display* display, int err);
 
 // Implementers of this interface receive a notification for every X window of
 // the main display.

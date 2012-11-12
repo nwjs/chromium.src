@@ -53,12 +53,7 @@
 #include "grit/generated_resources.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
-
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/user_manager.h"
-#endif
 
 using WebKit::WebDragOperation;
 using WebKit::WebDragOperationsMask;
@@ -336,7 +331,7 @@ void ExtensionHost::InsertInfobarCSS() {
 
   static const base::StringPiece css(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-      IDR_EXTENSIONS_INFOBAR_CSS, ui::SCALE_FACTOR_NONE));
+      IDR_EXTENSIONS_INFOBAR_CSS));
 
   render_view_host()->InsertCSS(string16(), css.as_string());
 }
@@ -414,14 +409,6 @@ void ExtensionHost::CloseContents(WebContents* contents) {
     Close();
   }
 }
-
-#if defined(OS_CHROMEOS)
-bool ExtensionHost::ShouldSuppressDialogs() {
-  // Prevent extensions from creating dialogs while user session hasn't
-  // started yet.
-  return !chromeos::UserManager::Get()->IsSessionStarted();
-}
-#endif
 
 void ExtensionHost::OnStartDownload(
     content::WebContents* source, content::DownloadItem* download) {

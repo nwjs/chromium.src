@@ -78,7 +78,7 @@ bool PopIBusLookupTable(dbus::MessageReader* reader, IBusLookupTable* table) {
                  << "The 1st dictionary entry should be string.";
       return false;
     }
-    if (key != "mozc.candidates")
+    if (key != "show_window_at_composition")
       continue;
 
     dbus::MessageReader variant_reader(NULL);
@@ -95,16 +95,11 @@ bool PopIBusLookupTable(dbus::MessageReader* reader, IBusLookupTable* table) {
       return false;
     }
 
-    uint8* bytes = NULL;
-    size_t length = 0;
-    if (!sub_variant_reader.PopArrayOfBytes(&bytes, &length)) {
-      LOG(ERROR) << "Invalid mozc.candidates structure: "
-                 << "The mozc.candidates contains array of bytes.";
-      return false;
-    }
+    bool show_window_at_composition = false;
+    if (!sub_variant_reader.PopBool(&show_window_at_composition))
+      continue;  // Ignores other field.
 
-    table->set_serialized_mozc_candidates_data(
-        std::string(reinterpret_cast<char*>(bytes), length));
+    table->set_show_window_at_composition(show_window_at_composition);
   }
 
   uint32 page_size = 0;
@@ -156,15 +151,17 @@ bool PopIBusLookupTable(dbus::MessageReader* reader, IBusLookupTable* table) {
 
   std::vector<IBusLookupTable::Entry>* candidates = table->mutable_candidates();
   while (text_array_reader.HasMoreData()) {
-    std::string candidate_text;
+    ibus::IBusText candidate_text;
     // The attributes in IBusText are not used in Chrome.
-    if (!PopStringFromIBusText(&text_array_reader, &candidate_text)) {
+    if (!PopIBusText(&text_array_reader, &candidate_text)) {
       LOG(ERROR) << "Invalid variant structure[IBusLookupTable]: "
                  << "6th argument should be array of IBusText.";
       return false;
     }
     IBusLookupTable::Entry entry;
-    entry.value = candidate_text;
+    entry.value = candidate_text.text();
+    entry.annotation = candidate_text.annotation();
+    entry.description = candidate_text.description();
     candidates->push_back(entry);
   }
 
@@ -209,6 +206,12 @@ IBusLookupTable::IBusLookupTable()
 }
 
 IBusLookupTable::~IBusLookupTable() {
+}
+
+IBusLookupTable::Entry::Entry() {
+}
+
+IBusLookupTable::Entry::~Entry() {
 }
 
 }  // namespace ibus

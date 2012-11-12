@@ -29,6 +29,7 @@ class Font;
 
 namespace ui {
 class MenuModel;
+class NativeTheme;
 }
 
 namespace views {
@@ -320,12 +321,6 @@ class VIEWS_EXPORT MenuItemView : public View {
     use_right_margin_ = use_right_margin;
   }
 
-  // Sets MenuConfig to be used instead of default one.
-  // Setting |menu_config_| to NULL will make menu to use a default MenuConfig.
-  void set_menu_config(const MenuConfig* menu_config) {
-    menu_config_.reset(menu_config);
-  }
-
   // Returns a reference to MenuConfig to be used with this menu.
   const MenuConfig& GetMenuConfig() const;
 
@@ -350,6 +345,8 @@ class VIEWS_EXPORT MenuItemView : public View {
  private:
   friend class internal::MenuRunnerImpl;  // For access to ~MenuItemView.
 
+  enum PaintButtonMode { PB_NORMAL, PB_FOR_DRAG };
+
   // Calculates all sizes that we can from the OS.
   //
   // This is invoked prior to Running a menu.
@@ -362,8 +359,10 @@ class VIEWS_EXPORT MenuItemView : public View {
             MenuDelegate* delegate);
 
   // The RunXXX methods call into this to set up the necessary state before
-  // running.
-  void PrepareForRun(bool has_mnemonics, bool show_mnemonics);
+  // running. |is_first_menu| is true if no menus are currently showing.
+  void PrepareForRun(bool is_first_menu,
+                     bool has_mnemonics,
+                     bool show_mnemonics);
 
   // Returns the flags passed to DrawStringInt.
   int GetDrawStringFlags();
@@ -385,7 +384,6 @@ class VIEWS_EXPORT MenuItemView : public View {
 
   // Actual paint implementation. If mode is PB_FOR_DRAG, portions of the menu
   // are not rendered.
-  enum PaintButtonMode { PB_NORMAL, PB_FOR_DRAG };
   void PaintButton(gfx::Canvas* canvas, PaintButtonMode mode);
 
 #if defined(OS_WIN)
@@ -396,6 +394,10 @@ class VIEWS_EXPORT MenuItemView : public View {
                   ui::NativeTheme::State state,
                   SelectionState selection_state,
                   const MenuConfig& config);
+#endif
+
+#if defined(USE_AURA)
+  void PaintButtonAura(gfx::Canvas* canvas, PaintButtonMode mode);
 #endif
 
   // Paints the accelerator.
@@ -508,10 +510,6 @@ class VIEWS_EXPORT MenuItemView : public View {
   // If set to false, the right margin will be removed for menu lines
   // containing other elements.
   bool use_right_margin_;
-
-  // |menu_config_| to replace default one, could be NULL,
-  // applies to root menu item only.
-  scoped_ptr<const MenuConfig> menu_config_;
 
   DISALLOW_COPY_AND_ASSIGN(MenuItemView);
 };

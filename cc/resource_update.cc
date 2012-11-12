@@ -2,20 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/resource_update.h"
 
 #include "base/logging.h"
 
 namespace cc {
 
-ResourceUpdate ResourceUpdate::Create(PrioritizedTexture* texture,
+ResourceUpdate ResourceUpdate::Create(PrioritizedResource* texture,
                                       const SkBitmap* bitmap,
-                                      IntRect content_rect,
-                                      IntRect source_rect,
-                                      IntSize dest_offset) {
-    CHECK(content_rect.contains(source_rect));
+                                      gfx::Rect content_rect,
+                                      gfx::Rect source_rect,
+                                      gfx::Vector2d dest_offset) {
+    CHECK(content_rect.Contains(source_rect));
     ResourceUpdate update;
     update.texture = texture;
     update.bitmap = bitmap;
@@ -25,12 +23,12 @@ ResourceUpdate ResourceUpdate::Create(PrioritizedTexture* texture,
     return update;
 }
 
-ResourceUpdate ResourceUpdate::CreateFromPicture(PrioritizedTexture* texture,
+ResourceUpdate ResourceUpdate::CreateFromPicture(PrioritizedResource* texture,
                                                  SkPicture* picture,
-                                                 IntRect content_rect,
-                                                 IntRect source_rect,
-                                                 IntSize dest_offset) {
-    CHECK(content_rect.contains(source_rect));
+                                                 gfx::Rect content_rect,
+                                                 gfx::Rect source_rect,
+                                                 gfx::Vector2d dest_offset) {
+    CHECK(content_rect.Contains(source_rect));
     ResourceUpdate update;
     update.texture = texture;
     update.picture = picture;

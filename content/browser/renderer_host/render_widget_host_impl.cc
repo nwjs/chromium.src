@@ -55,6 +55,7 @@
 #include "webkit/glue/webcursor.h"
 #include "webkit/glue/webpreferences.h"
 #include "webkit/plugins/npapi/webplugin.h"
+#include "webkit/plugins/npapi/webplugin_delegate_impl.h"
 
 #if defined(TOOLKIT_GTK)
 #include "content/browser/renderer_host/backing_store_gtk.h"
@@ -65,6 +66,7 @@
 using base::Time;
 using base::TimeDelta;
 using base::TimeTicks;
+using webkit::npapi::WebPluginDelegateImpl;
 using WebKit::WebGestureEvent;
 using WebKit::WebInputEvent;
 using WebKit::WebKeyboardEvent;
@@ -131,6 +133,7 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(RenderWidgetHostDelegate* delegate,
       repaint_ack_pending_(false),
       resize_ack_pending_(false),
       should_auto_resize_(false),
+      waiting_for_screen_rects_ack_(false),
       mouse_move_pending_(false),
       mouse_wheel_pending_(false),
       select_range_pending_(false),
@@ -249,6 +252,26 @@ void RenderWidgetHostImpl::ResetSizeAndRepaintPendingFlags() {
   in_flight_size_.SetSize(0, 0);
 }
 
+void RenderWidgetHostImpl::SendScreenRects() {
+  if (waiting_for_screen_rects_ack_)
+    return;
+
+  if (is_hidden_) {
+    // On GTK, this comes in for backgrounded tabs. Ignore, to match what
+    // happens on Win & Mac, and when the view is shown it'll call this again.
+    return;
+  }
+
+  if (!view_)
+    return;
+
+  last_view_screen_rect_ = view_->GetViewBounds();
+  last_window_screen_rect_ = view_->GetBoundsInRootWindow();
+  Send(new ViewMsg_UpdateScreenRects(
+      GetRoutingID(), last_view_screen_rect_, last_window_screen_rect_));
+  waiting_for_screen_rects_ack_ = true;
+}
+
 void RenderWidgetHostImpl::Init() {
   DCHECK(process_->HasConnection());
 
@@ -258,7 +281,7 @@ void RenderWidgetHostImpl::Init() {
       surface_id_, GetCompositingSurface());
 
   // Send the ack along with the information on placement.
-  Send(new ViewMsg_CreatingNew_ACK(routing_id_, GetNativeViewId()));
+  Send(new ViewMsg_CreatingNew_ACK(routing_id_));
   GetProcess()->ResumeRequestsForView(routing_id_);
 
   WasResized();
@@ -291,6 +314,8 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_RenderViewReady, OnMsgRenderViewReady)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RenderViewGone, OnMsgRenderViewGone)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Close, OnMsgClose)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateScreenRects_ACK,
+                        OnMsgUpdateScreenRectsAck)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RequestMove, OnMsgRequestMove)
     IPC_MESSAGE_HANDLER(ViewHostMsg_SetTooltipText, OnMsgSetTooltipText)
     IPC_MESSAGE_HANDLER(ViewHostMsg_PaintAtSize_ACK, OnMsgPaintAtSizeAck)
@@ -318,10 +343,6 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_UnlockMouse, OnMsgUnlockMouse)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ShowDisambiguationPopup,
                         OnMsgShowDisambiguationPopup)
-#if defined(OS_POSIX) || defined(USE_AURA)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_GetWindowRect, OnMsgGetWindowRect)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_GetRootWindowRect, OnMsgGetRootWindowRect)
-#endif
 #if defined(OS_MACOSX)
     IPC_MESSAGE_HANDLER(ViewHostMsg_PluginFocusChanged,
                         OnMsgPluginFocusChanged)
@@ -338,11 +359,21 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_AcceleratedSurfaceBuffersSwapped,
                         OnAcceleratedSurfaceBuffersSwapped)
 #endif
+#if defined(OS_ANDROID)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateFrameInfo,
+                        OnMsgUpdateFrameInfo)
+#endif
 #if defined(TOOLKIT_GTK)
     IPC_MESSAGE_HANDLER(ViewHostMsg_CreatePluginContainer,
                         OnMsgCreatePluginContainer)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DestroyPluginContainer,
                         OnMsgDestroyPluginContainer)
+#endif
+#if defined(OS_WIN)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_WindowlessPluginDummyWindowCreated,
+                        OnWindowlessPluginDummyWindowCreated)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_WindowlessPluginDummyWindowDestroyed,
+                        OnWindowlessPluginDummyWindowDestroyed)
 #endif
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
@@ -384,6 +415,8 @@ void RenderWidgetHostImpl::WasShown() {
   if (!is_hidden_)
     return;
   is_hidden_ = false;
+
+  SendScreenRects();
 
   BackingStore* backing_store = BackingStoreManager::Lookup(this);
   // If we already have a backing store for this widget, then we don't need to
@@ -1130,6 +1163,8 @@ void RenderWidgetHostImpl::RendererExited(base::TerminationStatus status,
   // from a crashed renderer.
   renderer_initialized_ = false;
 
+  waiting_for_screen_rects_ack_ = false;
+
   // Must reset these to ensure that mouse move/wheel events work with a new
   // renderer.
   mouse_move_pending_ = false;
@@ -1317,6 +1352,7 @@ void RenderWidgetHostImpl::RendererIsResponsive() {
 }
 
 void RenderWidgetHostImpl::OnMsgRenderViewReady() {
+  SendScreenRects();
   WasResized();
 }
 
@@ -1361,6 +1397,19 @@ void RenderWidgetHostImpl::OnMsgSetTooltipText(
   }
   if (GetView())
     view_->SetTooltipText(wrapped_tooltip_text);
+}
+
+void RenderWidgetHostImpl::OnMsgUpdateScreenRectsAck() {
+  waiting_for_screen_rects_ack_ = false;
+  if (!view_)
+    return;
+
+  if (view_->GetViewBounds() == last_view_screen_rect_ &&
+      view_->GetBoundsInRootWindow() == last_window_screen_rect_) {
+    return;
+  }
+
+  SendScreenRects();
 }
 
 void RenderWidgetHostImpl::OnMsgRequestMove(const gfx::Rect& pos) {
@@ -1450,7 +1499,7 @@ void RenderWidgetHostImpl::OnMsgUpdateRect(
   if (dib) {
     DCHECK(!params.bitmap_rect.IsEmpty());
     gfx::Size pixel_size = gfx::ToFlooredSize(
-        params.bitmap_rect.size().Scale(params.scale_factor));
+        gfx::ScaleSize(params.bitmap_rect.size(), params.scale_factor));
     const size_t size = pixel_size.height() * pixel_size.width() * 4;
     if (dib->size() < size) {
       DLOG(WARNING) << "Transport DIB too small for given rectangle";
@@ -1839,26 +1888,57 @@ void RenderWidgetHostImpl::OnMsgShowDisambiguationPopup(
     const gfx::Rect& rect,
     const gfx::Size& size,
     const TransportDIB::Id& id) {
+  DCHECK(!rect.IsEmpty());
+  DCHECK(!size.IsEmpty());
+
   TransportDIB* dib = process_->GetTransportDIB(id);
+  DCHECK(dib->memory());
+  DCHECK(dib->size() == SkBitmap::ComputeSize(SkBitmap::kARGB_8888_Config,
+                                              size.width(), size.height()));
 
-  // TODO(trchen): implement the platform-specific disambiguation popup
+  SkBitmap zoomed_bitmap;
+  zoomed_bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+      size.width(), size.height());
+  zoomed_bitmap.setPixels(dib->memory());
+
+#if defined(OS_ANDROID)
+  if (view_)
+    view_->ShowDisambiguationPopup(rect, zoomed_bitmap);
+#else
   NOTIMPLEMENTED();
+#endif
 
+  zoomed_bitmap.setPixels(0);
   Send(new ViewMsg_ReleaseDisambiguationPopupDIB(GetRoutingID(),
                                                  dib->handle()));
 }
 
-#if defined(OS_POSIX) || defined(USE_AURA)
-void RenderWidgetHostImpl::OnMsgGetWindowRect(gfx::NativeViewId window_id,
-                                              gfx::Rect* results) {
-  if (view_)
-    *results = view_->GetViewBounds();
+#if defined(OS_WIN)
+void RenderWidgetHostImpl::OnWindowlessPluginDummyWindowCreated(
+    gfx::NativeViewId dummy_activation_window) {
+  HWND hwnd = reinterpret_cast<HWND>(dummy_activation_window);
+  if (!IsWindow(hwnd) ||
+      !WebPluginDelegateImpl::IsDummyActivationWindow(hwnd)) {
+    // This may happen as a result of a race condition when the plugin is going
+    // away.
+    return;
+  }
+
+  SetParent(hwnd, reinterpret_cast<HWND>(GetNativeViewId()));
+  dummy_windows_for_activation_.push_back(hwnd);
 }
 
-void RenderWidgetHostImpl::OnMsgGetRootWindowRect(gfx::NativeViewId window_id,
-                                                  gfx::Rect* results) {
-  if (view_)
-    *results = view_->GetBoundsInRootWindow();
+void RenderWidgetHostImpl::OnWindowlessPluginDummyWindowDestroyed(
+    gfx::NativeViewId dummy_activation_window) {
+  HWND hwnd = reinterpret_cast<HWND>(dummy_activation_window);
+  std::list<HWND>::iterator i = dummy_windows_for_activation_.begin();
+  for (; i != dummy_windows_for_activation_.end(); ++i) {
+    if ((*i) == hwnd) {
+      dummy_windows_for_activation_.erase(i);
+      return;
+    }
+  }
+  NOTREACHED() << "Unknown dummy window";
 }
 #endif
 
@@ -1975,7 +2055,7 @@ void RenderWidgetHostImpl::ActivateDeferredPluginHandles() {
 #endif
 }
 
-const gfx::Point& RenderWidgetHostImpl::GetLastScrollOffset() const {
+const gfx::Vector2d& RenderWidgetHostImpl::GetLastScrollOffset() const {
   return last_scroll_offset_;
 }
 
@@ -2144,6 +2224,19 @@ void RenderWidgetHostImpl::AcknowledgeSwapBuffersToRenderer() {
 }
 
 #if defined(USE_AURA)
+
+void RenderWidgetHostImpl::ParentChanged(gfx::NativeViewId new_parent) {
+#if defined(OS_WIN)
+  HWND hwnd = reinterpret_cast<HWND>(new_parent);
+  if (!hwnd)
+    hwnd = WebPluginDelegateImpl::GetDefaultWindowParent();
+  for (std::list<HWND>::iterator i = dummy_windows_for_activation_.begin();
+        i != dummy_windows_for_activation_.end(); ++i) {
+    SetParent(*i, hwnd);
+  }
+#endif
+}
+
 // static
 void RenderWidgetHostImpl::SendFrontSurfaceIsProtected(
     bool is_protected,

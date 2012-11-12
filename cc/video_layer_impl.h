@@ -2,15 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCVideoLayerImpl_h
-#define CCVideoLayerImpl_h
+#ifndef CC_VIDEO_LAYER_IMPL_H_
+#define CC_VIDEO_LAYER_IMPL_H_
 
-#include "IntSize.h"
 #include "base/callback.h"
 #include "base/synchronization/lock.h"
+#include "cc/cc_export.h"
 #include "cc/layer_impl.h"
 #include "media/base/video_frame.h"
 #include "third_party/khronos/GLES2/gl2.h"
+#include "ui/gfx/size.h"
 #include <public/WebTransformationMatrix.h>
 #include <public/WebVideoFrameProvider.h>
 
@@ -27,8 +28,8 @@ namespace cc {
 class LayerTreeHostImpl;
 class VideoLayerImpl;
 
-class VideoLayerImpl : public LayerImpl
-                     , public WebKit::WebVideoFrameProvider::Client {
+class CC_EXPORT VideoLayerImpl : public LayerImpl
+                               , public WebKit::WebVideoFrameProvider::Client {
 public:
     typedef base::Callback<media::VideoFrame* (WebKit::WebVideoFrame*)> FrameUnwrapper;
 
@@ -43,8 +44,6 @@ public:
     virtual void appendQuads(QuadSink&, AppendQuadsData&) OVERRIDE;
     virtual void didDraw(ResourceProvider*) OVERRIDE;
 
-    virtual void dumpLayerProperties(std::string*, int indent) const OVERRIDE;
-
     // WebKit::WebVideoFrameProvider::Client implementation.
     virtual void stopUsingProvider(); // Callable on any thread.
     virtual void didReceiveFrame(); // Callable on impl thread.
@@ -56,9 +55,8 @@ public:
 
     struct FramePlane {
         ResourceProvider::ResourceId resourceId;
-        IntSize size;
+        gfx::Size size;
         GLenum format;
-        IntSize visibleSize;
 
         FramePlane() : resourceId(0) { }
 
@@ -98,4 +96,4 @@ private:
 
 }  // namespace cc
 
-#endif // CCVideoLayerImpl_h
+#endif  // CC_VIDEO_LAYER_IMPL_H_

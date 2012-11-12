@@ -9,6 +9,7 @@
 
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/ref_counted.h"
 #include "net/base/net_export.h"
 
 namespace disk_cache {
@@ -40,24 +41,23 @@ class Storage;
 // mutating functions cannot be called on the object after that.
 //
 // Segment can only be used as a log, i.e. all writes are laid out sequentially
-// on a segment.  As a result, write APIs do not take an offset, but can return
-// an offset of where the write took place.  The entries living on a segment are
-// expected to consist of data part and header part where the header holds
-// enough information to identify all the data belonging to it.  The difference
-// between WriteData and WriteHeader is that writes issued with the latter have
-// their offsets saved in the metadata, which can later be retrieved.  Thus, it
-// is up to the client to specify data layout and associate the header with
-// data.  For example the client may issue WriteData calls and save the offsets
-// which then can be written using WriteHeader.  Note that it is possible to
-// write entries using just WriteHeader as well, for example if it is an entry
-// of the format where header specifies the length of the following data.
-// Before attempting to write an entry, the client should call CanHold to make
-// sure that there is enough space in the segment.
+// on a segment.  As a result, WriteData() function does not take an offset, but
+// can return an offset of where the write took place.
+//
+// Once the entries are written to the Segment and Close() called on it and the
+// object destroyed, we should later be able to instantiate a read-only Segment
+// object and recreate all the entries that were previously written to it.  To
+// achieve this, a tiny region of Segment is used for its metadata and Segment
+// provides two calls for interacting with metadata: StoreOffset() and
+// GetOffsets().  The former can be used to store an offset that was returned by
+// WriteData() and the latter can be used to retrieve all the offsets that were
+// stored in the Segment.  Before attempting to write an entry, the client
+// should call CanHold() to make sure that there is enough space in the segment.
 //
 // ReadData can be called over the range that was previously written with
-// WriteData/WriteHeader.  Reading from area that was not written will fail.
+// WriteData.  Reading from area that was not written will fail.
 
-class NET_EXPORT_PRIVATE Segment {
+class NET_EXPORT_PRIVATE Segment : public base::RefCounted<Segment> {
  public:
   // |index| is the index of this segment on |storage|.  If the storage size is
   // X and the segment size is Y, where X >> Y and X % Y == 0, then the valid
@@ -65,9 +65,8 @@ class NET_EXPORT_PRIVATE Segment {
   // |index| is given value Z, then it covers bytes on storage starting at the
   // offset Z*Y and ending at the offset Z*Y+Y-1.
   Segment(int32 index, bool read_only, Storage* storage);
-  ~Segment();
 
-  const std::vector<int32>& header_offsets() const { return header_offsets_; }
+  std::vector<int32> GetOffsets() const { return offsets_; }
 
   // Performs segment initialization.  Must be the first function called on the
   // segment and further calls should be made only if it is successful.
@@ -78,16 +77,12 @@ class NET_EXPORT_PRIVATE Segment {
   // block for a long time.
   bool WriteData(const void* buffer, int32 size, int32* offset);
 
-  // Writes |header| of |size| bytes, returns false if fails and true if
-  // succeeds and sets the |offset|, if it is not NULL.  Can block for a long
-  // time.  The difference between this function and WriteData is that the
-  // offset of this write operation is saved in the segment metadata and can
-  // later be retrieved via |header_offsets|.
-  bool WriteHeader(const void* header, int32 size, int32* offset);
-
   // Reads |size| bytes of data living at |offset| into |buffer|, returns true
   // on success and false on failure.
   bool ReadData(void* buffer, int32 size, int32 offset) const;
+
+  // Stores the offset in the metadata.
+  void StoreOffset(int32 offset);
 
   // Closes the segment, returns true on success and false on failure.  Closing
   // a segment makes it immutable.
@@ -97,13 +92,16 @@ class NET_EXPORT_PRIVATE Segment {
   bool CanHold(int32 size) const;
 
  private:
+  friend class base::RefCounted<Segment>;
+  ~Segment();
+
   bool read_only_;  // Indicates whether the segment can be written to.
   bool init_;  // Indicates whether segment was initialized.
   Storage* storage_;  // Storage on which the segment resides.
   const int32 offset_;  // Offset of the segment on |storage_|.
   const int32 summary_offset_;  // Offset of the segment summary.
   int32 write_offset_;  // Current write offset.
-  std::vector<int32> header_offsets_;
+  std::vector<int32> offsets_;
 
   DISALLOW_COPY_AND_ASSIGN(Segment);
 };

@@ -16,15 +16,12 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "google/cacheinvalidation/types.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 using ::testing::_;
 using ::testing::SaveArg;
 using ::testing::StrictMock;
-
-// TODO(dcheng): This is hardcoded for now since the svn export is not done yet.
-// Once it's done, use ipc::invalidation::ObjectSource::CHROME_PUSH_MESSAGING.
-const int kSourceId = 1030;
 
 namespace extensions {
 
@@ -60,8 +57,8 @@ IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, EventDispatch) {
   const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("push_messaging"));
   ASSERT_TRUE(extension);
-  extensions::LaunchPlatformApp(
-      browser()->profile(), extension, NULL, FilePath());
+  ui_test_utils::NavigateToURL(
+      browser(), extension->GetResourceURL("event_dispatch.html"));
   EXPECT_TRUE(ready.WaitUntilSatisfied());
 
   GetEventRouter()->TriggerMessageForTest(extension->id(), 1, "payload");
@@ -79,8 +76,8 @@ IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, ReceivesPush) {
   const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("push_messaging"));
   ASSERT_TRUE(extension);
-  extensions::LaunchPlatformApp(
-      browser()->profile(), extension, NULL, FilePath());
+  ui_test_utils::NavigateToURL(
+      browser(), extension->GetResourceURL("event_dispatch.html"));
   EXPECT_TRUE(ready.WaitUntilSatisfied());
 
   ProfileSyncService* pss = ProfileSyncServiceFactory::GetForProfile(
@@ -92,7 +89,8 @@ IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, ReceivesPush) {
   id += extension->id();
   id += "/1";
 
-  invalidation::ObjectId object_id(kSourceId, id);
+  invalidation::ObjectId object_id(
+      ipc::invalidation::ObjectSource::CHROME_PUSH_MESSAGING, id);
 
   pss->EmitInvalidationForTest(object_id, "payload");
   EXPECT_TRUE(catcher.GetNextResult()) << catcher.message();
@@ -106,7 +104,7 @@ IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, AutoRegistration) {
   StrictMock<MockInvalidationMapper>* unsafe_mapper = mapper.get();
   // PushMessagingEventRouter owns the mapper now.
   GetEventRouter()->SetMapperForTest(
-          mapper.PassAs<PushMessagingInvalidationMapper>());
+      mapper.PassAs<PushMessagingInvalidationMapper>());
 
   std::string extension_id;
   EXPECT_CALL(*unsafe_mapper, RegisterExtension(_))
@@ -137,21 +135,17 @@ IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, Restart) {
   EXPECT_EQ(1U, handler->GetRegisteredExtensionsForTest().size());
 }
 
-// Test the GetChannelId API.
+// Test that GetChannelId fails if no user is signed in.
 IN_PROC_BROWSER_TEST_F(PushMessagingApiTest, GetChannelId) {
   ResultCatcher catcher;
   catcher.RestrictToProfile(browser()->profile());
 
   const extensions::Extension* extension =
-      LoadExtension(test_data_dir_.AppendASCII("get_channel_id"));
+      LoadExtension(test_data_dir_.AppendASCII("push_messaging"));
   ASSERT_TRUE(extension);
-  extensions::LaunchPlatformApp(
-      browser()->profile(), extension, NULL, FilePath());
+  ui_test_utils::NavigateToURL(
+      browser(), extension->GetResourceURL("get_channel_id.html"));
 
-  // Just loading the page will cause a getChannelId call.
-  // It should fail because no user is logged in.
-
-  // Check the result of the test.
   EXPECT_TRUE(catcher.GetNextResult()) << catcher.message();
 }
 

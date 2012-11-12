@@ -51,6 +51,9 @@
   <link rel="stylesheet" href="certificate_manager.css">
   <link rel="stylesheet" href="certificate_tree.css">
 </if>
+<if expr="is_win">
+  <link rel="stylesheet" href="options_settings_app.css">
+</if>
 <script src="chrome://resources/css/tree.css.js"></script>
 <script src="chrome://resources/js/cr.js"></script>
 <script src="chrome://resources/js/event_tracker.js"></script>
@@ -110,9 +113,6 @@
     <include src="chromeos/pointer_overlay.html">
     <include src="factory_reset_overlay.html">
   </if>
-  <if expr="pp_ifdef('chromeos') and pp_ifdef('use_ash')">
-    <include src="chromeos/set_wallpaper_options.html">
-  </if>
   <if expr="pp_ifdef('use_nss')">
     <include src="certificate_manager.html">
   </if>
@@ -159,6 +159,9 @@
   </div>
 </div>
 
+<if expr="is_win">
+  <script src="chrome://settings-frame/options_settings_app.js"></script>
+</if>
 <script src="chrome://resources/js/i18n_template2.js"></script>
 </body>
 </html>

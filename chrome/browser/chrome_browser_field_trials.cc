@@ -17,6 +17,7 @@
 #include "chrome/browser/autocomplete/autocomplete_field_trial.h"
 #include "chrome/browser/chrome_gpu_util.h"
 #include "chrome/browser/google/google_util.h"
+#include "chrome/browser/metrics/variations/variations_service.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/safe_browsing/safe_browsing_blocking_page.h"
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
@@ -28,6 +29,7 @@
 #include "ui/base/layout.h"
 
 #if defined(OS_WIN)
+#include "net/socket/tcp_client_socket_win.h"
 #include "ui/base/win/dpi.h"  // For DisableNewTabFieldTrialIfNecesssary.
 #endif  // defined(OS_WIN)
 
@@ -59,7 +61,7 @@ void SetupSingleUniformityFieldTrial(
       base::FieldTrialList::FactoryGetFieldTrial(
           trial_name, divisor, kDefaultGroupName, 2015, 1, 1, NULL));
   if (one_time_randomized)
-      trial->UseOneTimeRandomization();
+    trial->UseOneTimeRandomization();
   chrome_variations::AssociateGoogleVariationID(trial_name, kDefaultGroupName,
       trial_base_id);
   // Loop starts with group 1 because the field trial automatically creates a
@@ -78,6 +80,27 @@ void SetupSingleUniformityFieldTrial(
   // where the default group never gets chosen if we don't "use" the trial.
   const int chosen_group = trial->group();
   DVLOG(1) << "Chosen Group: " << chosen_group;
+}
+
+// Setup a 50% uniformity trial for new installs only. This is accomplished by
+// disabling the trial on clients that were installed before a specified date.
+void SetupNewInstallUniformityTrial(const base::Time& install_date) {
+  const base::Time::Exploded kStartDate = {
+    2012, 11, 0, 6,  // Nov 6, 2012
+    0, 0, 0, 0       // 00:00:00.000
+  };
+  scoped_refptr<base::FieldTrial> trial(
+      base::FieldTrialList::FactoryGetFieldTrial(
+          "UMA-New-Install-Uniformity-Trial", 100, "Disabled",
+          2015, 1, 1, NULL));
+  trial->UseOneTimeRandomization();
+  trial->AppendGroup("Control", 50);
+  trial->AppendGroup("Experiment", 50);
+  const base::Time start_date = base::Time::FromLocalExploded(kStartDate);
+  if (install_date < start_date)
+    trial->Disable();
+  else
+    trial->group();
 }
 
 void SetSocketReusePolicy(int warmest_socket_trial_group,
@@ -100,21 +123,23 @@ ChromeBrowserFieldTrials::ChromeBrowserFieldTrials(
 ChromeBrowserFieldTrials::~ChromeBrowserFieldTrials() {
 }
 
-void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
+void ChromeBrowserFieldTrials::SetupFieldTrials(
+    const base::Time& install_time) {
   prerender::ConfigurePrefetchAndPrerender(parsed_command_line_);
   SpdyFieldTrial();
   WarmConnectionFieldTrial();
   AutoLaunchChromeFieldTrial();
   gpu_util::InitializeCompositingFieldTrial();
-  SetupUniformityFieldTrials();
+  SetupUniformityFieldTrials(install_time);
   AutocompleteFieldTrial::Activate();
   DisableNewTabFieldTrialIfNecesssary();
-  SetUpSafeBrowsingInterstitialFieldTrial();
   SetUpInfiniteCacheFieldTrial();
   SetUpCacheSensitivityAnalysisFieldTrial();
+  WindowsOverlappedTCPReadsFieldTrial();
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   OneClickSigninHelper::InitializeFieldTrial();
 #endif
+  InstantiateDynamicTrials();
 }
 
 // When --use-spdy not set, users will be in A/B test for spdy.
@@ -208,7 +233,8 @@ void ChromeBrowserFieldTrials::AutoLaunchChromeFieldTrial() {
   }
 }
 
-void ChromeBrowserFieldTrials::SetupUniformityFieldTrials() {
+void ChromeBrowserFieldTrials::SetupUniformityFieldTrials(
+    const base::Time& install_date) {
   // One field trial will be created for each entry in this array. The i'th
   // field trial will have |trial_sizes[i]| groups in it, including the default
   // group. Each group will have a probability of 1/|trial_sizes[i]|.
@@ -237,6 +263,8 @@ void ChromeBrowserFieldTrials::SetupUniformityFieldTrials() {
       "UMA-Session-Randomized-Uniformity-Trial-%d-Percent";
   SetupSingleUniformityFieldTrial(false, kSessionRandomizedTrialName,
       chrome_variations::kUniformitySessionRandomized5PercentBase, 20);
+
+  SetupNewInstallUniformityTrial(install_date);
 }
 
 void ChromeBrowserFieldTrials::DisableNewTabFieldTrialIfNecesssary() {
@@ -253,16 +281,6 @@ void ChromeBrowserFieldTrials::DisableNewTabFieldTrialIfNecesssary() {
     if (ui::GetDisplayLayout() != ui::LAYOUT_DESKTOP || using_hidpi_assets)
       trial->Disable();
   }
-}
-
-void ChromeBrowserFieldTrials::SetUpSafeBrowsingInterstitialFieldTrial() {
-  const base::FieldTrial::Probability kDivisor = 100;
-  const base::FieldTrial::Probability kVersion2Probability = 50;  // 50% prob.
-  scoped_refptr<base::FieldTrial> trial(
-      base::FieldTrialList::FactoryGetFieldTrial("SBInterstitial", kDivisor,
-                                                 "V1", 2012, 10, 23, NULL));
-  trial->UseOneTimeRandomization();
-  trial->AppendGroup("V2", kVersion2Probability);
 }
 
 void ChromeBrowserFieldTrials::SetUpInfiniteCacheFieldTrial() {
@@ -306,4 +324,36 @@ void ChromeBrowserFieldTrials::SetUpCacheSensitivityAnalysisFieldTrial() {
   trial->AppendGroup("200B", sensitivity_analysis_probability);
   trial->AppendGroup("400A", sensitivity_analysis_probability);
   trial->AppendGroup("400B", sensitivity_analysis_probability);
+}
+
+void ChromeBrowserFieldTrials::WindowsOverlappedTCPReadsFieldTrial() {
+#if defined(OS_WIN)
+  if (parsed_command_line_.HasSwitch(switches::kOverlappedRead)) {
+    std::string option =
+        parsed_command_line_.GetSwitchValueASCII(switches::kOverlappedRead);
+    if (LowerCaseEqualsASCII(option, "off"))
+      net::TCPClientSocketWin::DisableOverlappedReads();
+  } else {
+    const base::FieldTrial::Probability kDivisor = 2;  // 1 in 2 chance
+    const base::FieldTrial::Probability kOverlappedReadProbability = 1;
+    scoped_refptr<base::FieldTrial> overlapped_reads_trial(
+        base::FieldTrialList::FactoryGetFieldTrial("OverlappedReadImpact",
+            kDivisor, "OverlappedReadEnabled", 2013, 6, 1, NULL));
+    int overlapped_reads_disabled_group =
+        overlapped_reads_trial->AppendGroup("OverlappedReadDisabled",
+                                            kOverlappedReadProbability);
+    int assigned_group = overlapped_reads_trial->group();
+    if (assigned_group == overlapped_reads_disabled_group)
+      net::TCPClientSocketWin::DisableOverlappedReads();
+  }
+#endif
+}
+
+void ChromeBrowserFieldTrials::InstantiateDynamicTrials() {
+  // Call |FindValue()| on the trials below, which may come from the server, to
+  // ensure they get marked as "used" for the purposes of data reporting.
+  base::FieldTrialList::FindValue("UMA-Dynamic-Binary-Uniformity-Trial");
+  base::FieldTrialList::FindValue("UMA-Dynamic-Uniformity-Trial");
+  base::FieldTrialList::FindValue("InstantDummy");
+  base::FieldTrialList::FindValue("InstantChannel");
 }

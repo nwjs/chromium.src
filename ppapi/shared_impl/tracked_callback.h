@@ -11,16 +11,17 @@
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "base/synchronization/condition_variable.h"
 #include "ppapi/c/pp_completion_callback.h"
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/shared_impl/ppapi_shared_export.h"
+#include "ppapi/shared_impl/ppb_message_loop_shared.h"
 
 namespace ppapi {
 
 class CallbackTracker;
+class MessageLoopShared;
 class Resource;
 
 namespace thunk {
@@ -74,8 +75,13 @@ class PPAPI_SHARED_EXPORT TrackedCallback
   // marked as to be aborted (by |PostAbort()|), |result| will be ignored and
   // the callback will be run with result |PP_ERROR_ABORTED|.
   //
-  // See also ClearAndRun().
+  // Run() will invoke the call immediately, if invoked from the target thread
+  // (as determined by target_loop_). If invoked on a different thread, the
+  // callback will be scheduled to run later on target_loop_.
   void Run(int32_t result);
+  // PostRun is like Run(), except it guarantees that the callback will be run
+  // later. In particular, if you invoke PostRun on the same thread on which the
+  // callback is targeted to run, it will *not* be run immediately.
   void PostRun(int32_t result);
 
   void BlockUntilRun();
@@ -99,17 +105,6 @@ class PPAPI_SHARED_EXPORT TrackedCallback
   // of the callback (which may still be out-standing via a PostAbort).
   static bool IsPending(const scoped_refptr<TrackedCallback>& callback);
 
-  // Runs the given callback, clearing the given scoped_refptr before execution.
-  // This is useful for cases where there can be only one pending callback, and
-  // the presence of the callback indicates one is pending. Such code would
-  // normally want to clear it before execution so the plugin can issue a new
-  // request.
-  static void ClearAndRun(scoped_refptr<TrackedCallback>* callback,
-                          int32_t result);
-
-  // Same as ClearAndRun except it calls Abort().
-  static void ClearAndAbort(scoped_refptr<TrackedCallback>* callback);
-
  protected:
   bool is_blocking() {
     return !callback_.func;
@@ -121,6 +116,9 @@ class PPAPI_SHARED_EXPORT TrackedCallback
   bool is_optional() {
     return (callback_.func &&
             (callback_.flags & PP_COMPLETIONCALLBACK_FLAG_OPTIONAL));
+  }
+  bool has_null_target_loop() const {
+    return target_loop_ == NULL;
   }
 
  private:
@@ -142,17 +140,19 @@ class PPAPI_SHARED_EXPORT TrackedCallback
   friend class base::RefCountedThreadSafe<TrackedCallback>;
   virtual ~TrackedCallback();
 
-  // Factory used by |PostAbort()| and |PostRun()|. Note that it's safe to
-  // cancel any pending posted tasks on destruction -- before it's destroyed,
-  // the "owning" |CallbackTracker| must have gone through and done
-  // (synchronous) |Abort()|s.
-  base::WeakPtrFactory<TrackedCallback> weak_ptr_factory_;
+  // Flag used by |PostAbort()| and |PostRun()| to check that we don't schedule
+  // the callback more than once.
+  bool is_scheduled_;
 
   scoped_refptr<CallbackTracker> tracker_;
   PP_Resource resource_id_;
   bool completed_;
   bool aborted_;
   PP_CompletionCallback callback_;
+
+  // The MessageLoopShared on which this callback should be run. This will be
+  // NULL if we're in-process.
+  scoped_refptr<MessageLoopShared> target_loop_;
 
   int32_t result_for_blocked_callback_;
   // Used for pausing/waking the blocked thread if this is a blocking completion

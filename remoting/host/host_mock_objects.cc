@@ -17,13 +17,16 @@ MockVideoFrameCapturer::MockVideoFrameCapturer() {}
 
 MockVideoFrameCapturer::~MockVideoFrameCapturer() {}
 
-MockCaptureCompletedCallback::MockCaptureCompletedCallback() {}
+MockVideoFrameCapturerDelegate::MockVideoFrameCapturerDelegate() {
+}
 
-MockCaptureCompletedCallback::~MockCaptureCompletedCallback() {}
+MockVideoFrameCapturerDelegate::~MockVideoFrameCapturerDelegate() {
+}
 
-void MockCaptureCompletedCallback::CaptureCompleted(
-    scoped_refptr<CaptureData> capture_data) {
-  CaptureCompletedPtr(capture_data.get());
+void MockVideoFrameCapturerDelegate::OnCursorShapeChanged(
+    scoped_ptr<protocol::CursorShapeInfo> cursor_shape) {
+  // Notify the mock method.
+  OnCursorShapeChangedPtr(cursor_shape.get());
 }
 
 MockDesktopEnvironmentFactory::MockDesktopEnvironmentFactory()
@@ -44,11 +47,6 @@ MockEventExecutor::~MockEventExecutor() {}
 void MockEventExecutor::Start(
     scoped_ptr<protocol::ClipboardStub> client_clipboard) {
   StartPtr(client_clipboard.get());
-}
-
-void MockEventExecutor::StopAndDelete() {
-  StopAndDeleteMock();
-  delete this;
 }
 
 MockDisconnectWindow::MockDisconnectWindow() {}

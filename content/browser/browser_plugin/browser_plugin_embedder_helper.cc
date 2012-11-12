@@ -53,6 +53,7 @@ bool BrowserPluginEmbedderHelper::OnMessageReceived(
                         OnSetGuestVisibility)
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_DragStatusUpdate,
                         OnDragStatusUpdate)
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_SetAutoSize, OnSetAutoSize)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -92,8 +93,10 @@ void BrowserPluginEmbedderHelper::OnHandleInputEvent(
 
   // Convert the window coordinates into screen coordinates.
   gfx::Rect guest_screen_rect(*guest_rect);
-  if (rvh->GetView())
-    guest_screen_rect.Offset(rvh->GetView()->GetViewBounds().origin());
+  if (rvh->GetView()) {
+    guest_screen_rect.Offset(
+        rvh->GetView()->GetViewBounds().OffsetFromOrigin());
+  }
 
   IPC::Message* reply_message =
       IPC::SyncMessage::GenerateReply(&message);
@@ -106,19 +109,11 @@ void BrowserPluginEmbedderHelper::OnHandleInputEvent(
 
 void BrowserPluginEmbedderHelper::OnCreateGuest(
     int instance_id,
-    const std::string& storage_partition_id,
-    bool persist_storage,
-    bool focused,
-    bool visible) {
+    const BrowserPluginHostMsg_CreateGuest_Params& params) {
   // The first BrowserPluginHostMsg_CreateGuest message is handled in
   // WebContentsImpl. All subsequent BrowserPluginHostMsg_CreateGuest
   // messages are handled here.
-  embedder_->CreateGuest(render_view_host(),
-                         instance_id,
-                         storage_partition_id,
-                         persist_storage,
-                         focused,
-                         visible);
+  embedder_->CreateGuest(render_view_host(), instance_id, params);
 }
 
 void BrowserPluginEmbedderHelper::OnNavigateGuest(
@@ -174,6 +169,13 @@ void BrowserPluginEmbedderHelper::OnDragStatusUpdate(
     const gfx::Point& location) {
   embedder_->DragStatusUpdate(instance_id, drag_status, drop_data, drag_mask,
       location);
+}
+
+void BrowserPluginEmbedderHelper::OnSetAutoSize(
+    int instance_id,
+    const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+    const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params) {
+  embedder_->SetAutoSize(instance_id, auto_size_params, resize_guest_params);
 }
 
 }  // namespace content

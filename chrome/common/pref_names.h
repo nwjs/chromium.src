@@ -74,6 +74,13 @@ extern const char kWebKitSansSerifFontFamily[];
 extern const char kWebKitCursiveFontFamily[];
 extern const char kWebKitFantasyFontFamily[];
 extern const char kWebKitPictographFontFamily[];
+
+// ISO 15924 four-letter script codes that per-script font prefs are supported
+// for.
+extern const char* const kWebKitScriptsForFontFamilyMaps[];
+extern const size_t kWebKitScriptsForFontFamilyMapsLength;
+
+// Per-script font pref prefixes.
 extern const char kWebKitStandardFontFamilyMap[];
 extern const char kWebKitFixedFontFamilyMap[];
 extern const char kWebKitSerifFontFamilyMap[];
@@ -81,11 +88,6 @@ extern const char kWebKitSansSerifFontFamilyMap[];
 extern const char kWebKitCursiveFontFamilyMap[];
 extern const char kWebKitFantasyFontFamilyMap[];
 extern const char kWebKitPictographFontFamilyMap[];
-
-// ISO 15924 four-letter script codes that per-script font prefs are supported
-// for.
-extern const char* const kWebKitScriptsForFontFamilyMaps[];
-extern const size_t kWebKitScriptsForFontFamilyMapsLength;
 
 // Per-script font prefs that have defaults, for easy reference when registering
 // the defaults.
@@ -183,9 +185,6 @@ extern const char kUrlBlacklist[];
 extern const char kUrlWhitelist[];
 extern const char kInstantConfirmDialogShown[];
 extern const char kInstantEnabled[];
-extern const char kInstantUIAnimationScaleFactor[];
-extern const char kInstantUIShowSearchProviderLogo[];
-extern const char kInstantUIShowWhiteNTP[];
 extern const char kInstantUIZeroSuggestUrlPrefix[];
 extern const char kMultipleProfilePrefMigration[];
 extern const char kNetworkPredictionEnabled[];
@@ -194,6 +193,7 @@ extern const char kDefaultAppsInstallState[];
 extern const char kAudioMute[];
 extern const char kAudioVolumePercent[];
 extern const char kTapToClickEnabled[];
+extern const char kTapDraggingEnabled[];
 extern const char kEnableTouchpadThreeFingerClick[];
 extern const char kEnableTouchpadThreeFingerSwipe[];
 extern const char kNaturalScroll[];
@@ -257,6 +257,7 @@ extern const char kLanguageMozcUseAutoImeTurnOff[];
 extern const char kLanguageMozcUseHistorySuggest[];
 extern const char kLanguageMozcUseDictionarySuggest[];
 extern const char kLanguageMozcSuggestionsSize[];
+extern const char kLanguageRemapCapsLockKeyTo[];
 extern const char kLanguageRemapSearchKeyTo[];
 extern const char kLanguageRemapControlKeyTo[];
 extern const char kLanguageRemapAltKeyTo[];
@@ -301,6 +302,7 @@ extern const char kSpeechRecognitionTrayNotificationShownContexts[];
 extern const char kEnabledLabsExperiments[];
 extern const char kEnableAutoSpellCorrect[];
 extern const char kSavingBrowserHistoryDisabled[];
+extern const char kForceSafeSearch[];
 extern const char kDeleteTimePeriod[];
 #if defined(TOOLKIT_GTK)
 extern const char kUsesSystemTheme[];
@@ -410,6 +412,9 @@ extern const char kMetricsInitialLogsXml[];
 extern const char kMetricsInitialLogsProto[];
 extern const char kMetricsOngoingLogsXml[];
 extern const char kMetricsOngoingLogsProto[];
+
+extern const char kBookmarkPromptEnabled[];
+extern const char kBookmarkPromptImpressionCount[];
 
 extern const char kVariationsSeed[];
 extern const char kVariationsSeedDate[];
@@ -737,7 +742,9 @@ extern const char kFactoryResetRequested[];
 extern const char kRecoveryComponentVersion[];
 extern const char kComponentUpdaterState[];
 
+#if defined(ENABLE_WEB_INTENTS)
 extern const char kWebIntentsEnabled[];
+#endif
 
 extern const char kMediaGalleriesUniqueId[];
 extern const char kMediaGalleriesRememberedGalleries[];
@@ -749,8 +756,7 @@ extern const char kShelfAutoHideBehavior[];
 extern const char kShelfAutoHideBehaviorLocal[];
 extern const char kUseDefaultPinnedApps[];
 extern const char kPinnedLauncherApps[];
-
-extern const char kLauncherShouldRunSyncAnimation[];
+extern const char kShowLogoutButtonInTray[];
 
 extern const char kLongPressTimeInSeconds[];
 extern const char kMaxDistanceBetweenTapsForDoubleTap[];

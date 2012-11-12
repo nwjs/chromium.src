@@ -26,6 +26,7 @@
 #include "chrome/browser/extensions/api/managed_mode/managed_mode_api.h"
 #include "chrome/browser/extensions/api/management/management_api.h"
 #include "chrome/browser/extensions/api/metrics/metrics.h"
+#include "chrome/browser/extensions/api/module/module.h"
 #include "chrome/browser/extensions/api/offscreen_tabs/offscreen_tabs_api.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/extensions/api/page_capture/page_capture_api.h"
@@ -43,7 +44,6 @@
 #include "chrome/browser/extensions/api/web_request/web_request_api.h"
 #include "chrome/browser/extensions/api/web_socket_proxy_private/web_socket_proxy_private_api.h"
 #include "chrome/browser/extensions/api/webstore_private/webstore_private_api.h"
-#include "chrome/browser/extensions/extension_module.h"
 #include "chrome/browser/extensions/settings/settings_api.h"
 #include "chrome/browser/extensions/system/system_api.h"
 #include "chrome/browser/history/history_extension_api.h"
@@ -56,7 +56,7 @@
 #include "chrome/common/extensions/api/generated_api.h"
 
 #if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/extensions/extension_input_api.h"
+#include "chrome/browser/extensions/api/input/input.h"
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -284,7 +284,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
 
 #if defined(TOOLKIT_VIEWS)
   // Input.
-  RegisterFunction<SendKeyboardEventInputFunction>();
+  RegisterFunction<extensions::SendKeyboardEventInputFunction>();
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -321,9 +321,9 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<UninstallFunction>();
 
   // Extension module.
-  RegisterFunction<SetUpdateUrlDataFunction>();
-  RegisterFunction<IsAllowedIncognitoAccessFunction>();
-  RegisterFunction<IsAllowedFileSchemeAccessFunction>();
+  RegisterFunction<extensions::SetUpdateUrlDataFunction>();
+  RegisterFunction<extensions::IsAllowedIncognitoAccessFunction>();
+  RegisterFunction<extensions::IsAllowedFileSchemeAccessFunction>();
 
   // WebstorePrivate.
   RegisterFunction<extensions::GetBrowserLoginFunction>();
@@ -386,6 +386,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<SetPreferencesFunction>();
   RegisterFunction<SearchDriveFunction>();
   RegisterFunction<ClearDriveCacheFunction>();
+  RegisterFunction<ReloadDriveFunction>();
   RegisterFunction<GetNetworkConnectionStateFunction>();
   RegisterFunction<RequestDirectoryRefreshFunction>();
   RegisterFunction<SetLastModifiedFunction>();
@@ -403,6 +404,8 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<WallpaperStringsFunction>();
   RegisterFunction<WallpaperSetWallpaperFunction>();
   RegisterFunction<WallpaperSetCustomWallpaperFunction>();
+  RegisterFunction<WallpaperMinimizeInactiveWindowsFunction>();
+  RegisterFunction<WallpaperRestoreMinimizedWindowsFunction>();
 
   // InputMethod
   RegisterFunction<GetInputMethodFunction>();
@@ -511,6 +514,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
 
   // Runtime
   RegisterFunction<extensions::RuntimeGetBackgroundPageFunction>();
+  RegisterFunction<extensions::RuntimeReloadFunction>();
 
   // Generated APIs
   extensions::api::GeneratedFunctionRegistry::RegisterAll(this);

@@ -2,14 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/video_layer_impl.h"
 
 #include "base/logging.h"
 #include "cc/io_surface_draw_quad.h"
 #include "cc/layer_tree_host_impl.h"
-#include "cc/proxy.h"
 #include "cc/quad_sink.h"
 #include "cc/resource_provider.h"
 #include "cc/stream_video_draw_quad.h"
@@ -43,14 +40,12 @@ VideoLayerImpl::VideoLayerImpl(int id, WebKit::WebVideoFrameProvider* provider,
     // thread is blocked. That makes this a thread-safe call to set the video
     // frame provider client that does not require a lock. The same is true of
     // the call in the destructor.
-    DCHECK(Proxy::isMainThreadBlocked());
     m_provider->setVideoFrameProviderClient(this);
 }
 
 VideoLayerImpl::~VideoLayerImpl()
 {
     // See comment in constructor for why this doesn't need a lock.
-    DCHECK(Proxy::isMainThreadBlocked());
     if (m_provider) {
         m_provider->setVideoFrameProviderClient(0);
         m_provider = 0;
@@ -119,7 +114,6 @@ size_t VideoLayerImpl::numPlanes() const
 
 void VideoLayerImpl::willDraw(ResourceProvider* resourceProvider)
 {
-    DCHECK(Proxy::isImplThread());
     LayerImpl::willDraw(resourceProvider);
 
     // Explicitly acquire and release the provider mutex so it can be held from
@@ -140,7 +134,6 @@ void VideoLayerImpl::willDraw(ResourceProvider* resourceProvider)
 
 void VideoLayerImpl::willDrawInternal(ResourceProvider* resourceProvider)
 {
-    DCHECK(Proxy::isImplThread());
     DCHECK(!m_externalTextureResource);
 
     if (!m_provider) {
@@ -155,6 +148,12 @@ void VideoLayerImpl::willDrawInternal(ResourceProvider* resourceProvider)
         return;
 
     m_format = convertVFCFormatToGLenum(*m_frame);
+
+    // If these fail, we'll have to add draw logic that handles offset bitmap/
+    // texture UVs.  For now, just expect (0, 0) offset, since all our decoders
+    // so far don't offset.
+    DCHECK_EQ(m_frame->visible_rect().x(), 0);
+    DCHECK_EQ(m_frame->visible_rect().y(), 0);
 
     if (m_format == GL_INVALID_VALUE) {
         m_provider->putCurrentFrame(m_webFrame);
@@ -191,8 +190,6 @@ void VideoLayerImpl::willDrawInternal(ResourceProvider* resourceProvider)
 
 void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuadsData)
 {
-    DCHECK(Proxy::isImplThread());
-
     if (!m_frame)
         return;
 
@@ -202,7 +199,15 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
     // FIXME: When we pass quads out of process, we need to double-buffer, or
     // otherwise synchonize use of all textures in the quad.
 
-    gfx::Rect quadRect(contentBounds());
+    gfx::Rect quadRect(gfx::Point(), contentBounds());
+    gfx::Rect visibleRect = m_frame->visible_rect();
+    gfx::Size codedSize = m_frame->coded_size();
+
+    // pixels for macroblocked formats.
+    const float texWidthScale =
+        static_cast<float>(visibleRect.width()) / codedSize.width();
+    const float texHeightScale =
+        static_cast<float>(visibleRect.height()) / codedSize.height();
 
     switch (m_format) {
     case GL_LUMINANCE: {
@@ -210,7 +215,9 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
         const FramePlane& yPlane = m_framePlanes[media::VideoFrame::kYPlane];
         const FramePlane& uPlane = m_framePlanes[media::VideoFrame::kUPlane];
         const FramePlane& vPlane = m_framePlanes[media::VideoFrame::kVPlane];
-        scoped_ptr<YUVVideoDrawQuad> yuvVideoQuad = YUVVideoDrawQuad::create(sharedQuadState, quadRect, yPlane, uPlane, vPlane);
+        gfx::SizeF texScale(texWidthScale, texHeightScale);
+        scoped_ptr<YUVVideoDrawQuad> yuvVideoQuad = YUVVideoDrawQuad::create(
+            sharedQuadState, quadRect, texScale, yPlane, uPlane, vPlane);
         quadSink.append(yuvVideoQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
@@ -218,8 +225,7 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
         // RGBA software decoder.
         const FramePlane& plane = m_framePlanes[media::VideoFrame::kRGBPlane];
         bool premultipliedAlpha = true;
-        float widthScaleFactor = static_cast<float>(plane.visibleSize.width()) / plane.size.width();
-        gfx::RectF uvRect(widthScaleFactor, 1);
+        gfx::RectF uvRect(0, 0, texWidthScale, texHeightScale);
         bool flipped = false;
         scoped_ptr<TextureDrawQuad> textureQuad = TextureDrawQuad::create(sharedQuadState, quadRect, plane.resourceId, premultipliedAlpha, uvRect, flipped);
         quadSink.append(textureQuad.PassAs<DrawQuad>(), appendQuadsData);
@@ -228,20 +234,26 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
     case GL_TEXTURE_2D: {
         // NativeTexture hardware decoder.
         bool premultipliedAlpha = true;
-        gfx::RectF uvRect(1, 1);
+        gfx::RectF uvRect(0, 0, texWidthScale, texHeightScale);
         bool flipped = false;
         scoped_ptr<TextureDrawQuad> textureQuad = TextureDrawQuad::create(sharedQuadState, quadRect, m_externalTextureResource, premultipliedAlpha, uvRect, flipped);
         quadSink.append(textureQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
     case GL_TEXTURE_RECTANGLE_ARB: {
-        scoped_ptr<IOSurfaceDrawQuad> ioSurfaceQuad = IOSurfaceDrawQuad::create(sharedQuadState, quadRect, m_frame->data_size(), m_frame->texture_id(), IOSurfaceDrawQuad::Unflipped);
+        gfx::Size visibleSize(visibleRect.width(), visibleRect.height());
+        scoped_ptr<IOSurfaceDrawQuad> ioSurfaceQuad = IOSurfaceDrawQuad::create(sharedQuadState, quadRect, visibleSize, m_frame->texture_id(), IOSurfaceDrawQuad::Unflipped);
         quadSink.append(ioSurfaceQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
     case GL_TEXTURE_EXTERNAL_OES: {
         // StreamTexture hardware decoder.
-        scoped_ptr<StreamVideoDrawQuad> streamVideoQuad = StreamVideoDrawQuad::create(sharedQuadState, quadRect, m_frame->texture_id(), m_streamTextureMatrix);
+        WebKit::WebTransformationMatrix transform(m_streamTextureMatrix);
+        transform.scaleNonUniform(texWidthScale, texHeightScale);
+        scoped_ptr<StreamVideoDrawQuad> streamVideoQuad =
+            StreamVideoDrawQuad::create(sharedQuadState, quadRect,
+                                        m_frame->texture_id(),
+                                        transform);
         quadSink.append(streamVideoQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
@@ -253,7 +265,6 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
 
 void VideoLayerImpl::didDraw(ResourceProvider* resourceProvider)
 {
-    DCHECK(Proxy::isImplThread());
     LayerImpl::didDraw(resourceProvider);
 
     if (!m_frame)
@@ -275,43 +286,28 @@ void VideoLayerImpl::didDraw(ResourceProvider* resourceProvider)
     m_providerLock.Release();
 }
 
-static int videoFrameDimension(int originalDimension, size_t plane, int format)
-{
-    if (format == media::VideoFrame::YV12 && plane != media::VideoFrame::kYPlane)
-        return originalDimension / 2;
-    return originalDimension;
-}
-
-static bool hasPaddingBytes(const media::VideoFrame& frame, size_t plane)
-{
-    return frame.stride(plane) > videoFrameDimension(frame.data_size().width(), plane, frame.format());
-}
-
-IntSize computeVisibleSize(const media::VideoFrame& frame, size_t plane)
-{
-    int visibleWidth = videoFrameDimension(frame.data_size().width(), plane, frame.format());
-    int originalWidth = visibleWidth;
-    int visibleHeight = videoFrameDimension(frame.data_size().height(), plane, frame.format());
-
-    // When there are dead pixels at the edge of the texture, decrease
-    // the frame width by 1 to prevent the rightmost pixels from
-    // interpolating with the dead pixels.
-    if (hasPaddingBytes(frame, plane))
-        --visibleWidth;
-
-    // In YV12, every 2x2 square of Y values corresponds to one U and
-    // one V value. If we decrease the width of the UV plane, we must decrease the
-    // width of the Y texture by 2 for proper alignment. This must happen
-    // always, even if Y's texture does not have padding bytes.
-    if (plane == media::VideoFrame::kYPlane && frame.format() == media::VideoFrame::YV12) {
-        if (hasPaddingBytes(frame, media::VideoFrame::kUPlane))
-            visibleWidth = originalWidth - 2;
+static gfx::Size videoFrameDimension(media::VideoFrame* frame, int plane) {
+    gfx::Size dimensions = frame->coded_size();
+    switch (frame->format()) {
+    case media::VideoFrame::YV12:
+        if (plane != media::VideoFrame::kYPlane) {
+            dimensions.set_width(dimensions.width() / 2);
+            dimensions.set_height(dimensions.height() / 2);
+        }
+        break;
+    case media::VideoFrame::YV16:
+        if (plane != media::VideoFrame::kYPlane) {
+            dimensions.set_width(dimensions.width() / 2);
+        }
+        break;
+    default:
+        break;
     }
-
-    return IntSize(visibleWidth, visibleHeight);
+    return dimensions;
 }
 
-bool VideoLayerImpl::FramePlane::allocateData(ResourceProvider* resourceProvider)
+bool VideoLayerImpl::FramePlane::allocateData(
+    ResourceProvider* resourceProvider)
 {
     if (resourceId)
         return true;
@@ -333,12 +329,15 @@ bool VideoLayerImpl::allocatePlaneData(ResourceProvider* resourceProvider)
 {
     const int maxTextureSize = resourceProvider->maxTextureSize();
     const size_t planeCount = numPlanes();
-    for (size_t planeIndex = 0; planeIndex < planeCount; ++planeIndex) {
-        VideoLayerImpl::FramePlane& plane = m_framePlanes[planeIndex];
+    for (unsigned planeIdx = 0; planeIdx < planeCount; ++planeIdx) {
+        VideoLayerImpl::FramePlane& plane = m_framePlanes[planeIdx];
 
-        IntSize requiredTextureSize(m_frame->stride(planeIndex), videoFrameDimension(m_frame->data_size().height(), planeIndex, m_frame->format()));
-        // FIXME: Remove the test against maxTextureSize when tiled layers are implemented.
-        if (requiredTextureSize.isZero() || requiredTextureSize.width() > maxTextureSize || requiredTextureSize.height() > maxTextureSize)
+        gfx::Size requiredTextureSize = videoFrameDimension(m_frame, planeIdx);
+        // FIXME: Remove the test against maxTextureSize when tiled layers are
+        // implemented.
+        if (requiredTextureSize.IsEmpty() ||
+            requiredTextureSize.width() > maxTextureSize ||
+            requiredTextureSize.height() > maxTextureSize)
             return false;
 
         if (plane.size != requiredTextureSize || plane.format != m_format) {
@@ -347,11 +346,8 @@ bool VideoLayerImpl::allocatePlaneData(ResourceProvider* resourceProvider)
             plane.format = m_format;
         }
 
-        if (!plane.resourceId) {
-            if (!plane.allocateData(resourceProvider))
-                return false;
-            plane.visibleSize = computeVisibleSize(*m_frame, planeIndex);
-        }
+        if (!plane.allocateData(resourceProvider))
+            return false;
     }
     return true;
 }
@@ -367,15 +363,17 @@ bool VideoLayerImpl::copyPlaneData(ResourceProvider* resourceProvider)
             m_videoRenderer.reset(new media::SkCanvasVideoRenderer);
         VideoLayerImpl::FramePlane& plane = m_framePlanes[media::VideoFrame::kRGBPlane];
         ResourceProvider::ScopedWriteLockSoftware lock(resourceProvider, plane.resourceId);
-        m_videoRenderer->Paint(m_frame, lock.skCanvas(), gfx::Rect(plane.size), 0xFF);
+        m_videoRenderer->Paint(m_frame, lock.skCanvas(), m_frame->visible_rect(), 0xFF);
         return true;
     }
 
     for (size_t planeIndex = 0; planeIndex < planeCount; ++planeIndex) {
         VideoLayerImpl::FramePlane& plane = m_framePlanes[planeIndex];
+        // Only non-FormatNativeTexture planes should need upload.
+        DCHECK_EQ(plane.format, GL_LUMINANCE);
         const uint8_t* softwarePlanePixels = m_frame->data(planeIndex);
-        IntRect planeRect(IntPoint(), plane.size);
-        resourceProvider->upload(plane.resourceId, softwarePlanePixels, planeRect, planeRect, IntSize());
+        gfx::Rect planeRect(gfx::Point(), plane.size);
+        resourceProvider->setPixels(plane.resourceId, softwarePlanePixels, planeRect, planeRect, gfx::Vector2d());
     }
     return true;
 }
@@ -418,16 +416,9 @@ void VideoLayerImpl::setNeedsRedraw()
     layerTreeHostImpl()->setNeedsRedraw();
 }
 
-void VideoLayerImpl::dumpLayerProperties(std::string* str, int indent) const
-{
-    str->append(indentString(indent));
-    str->append("video layer\n");
-    LayerImpl::dumpLayerProperties(str, indent);
-}
-
 const char* VideoLayerImpl::layerTypeAsString() const
 {
     return "VideoLayer";
 }
 
-}
+}  // namespace cc

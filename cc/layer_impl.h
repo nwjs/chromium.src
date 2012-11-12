@@ -2,25 +2,27 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCLayerImpl_h
-#define CCLayerImpl_h
+#ifndef CC_LAYER_IMPL_H_
+#define CC_LAYER_IMPL_H_
 
-#include "FloatRect.h"
-#include "IntRect.h"
-#include "Region.h"
+#include <string>
+
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/input_handler.h"
 #include "cc/layer_animation_controller.h"
+#include "cc/region.h"
 #include "cc/render_pass.h"
 #include "cc/render_surface_impl.h"
 #include "cc/resource_provider.h"
 #include "cc/scoped_ptr_vector.h"
 #include "cc/shared_quad_state.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/rect_f.h"
 #include <public/WebFilterOperations.h>
 #include <public/WebTransformationMatrix.h>
-#include <string>
 
 namespace cc {
 
@@ -34,7 +36,7 @@ class Layer;
 
 struct AppendQuadsData;
 
-class LayerImpl : public LayerAnimationControllerClient {
+class CC_EXPORT LayerImpl : public LayerAnimationControllerClient {
 public:
     static scoped_ptr<LayerImpl> create(int id)
     {
@@ -95,8 +97,8 @@ public:
     // Returns true if any of the layer's descendants has content to draw.
     virtual bool descendantDrawsContent();
 
-    void setAnchorPoint(const FloatPoint&);
-    const FloatPoint& anchorPoint() const { return m_anchorPoint; }
+    void setAnchorPoint(const gfx::PointF&);
+    const gfx::PointF& anchorPoint() const { return m_anchorPoint; }
 
     void setAnchorPointZ(float);
     float anchorPointZ() const { return m_anchorPointZ; }
@@ -122,8 +124,8 @@ public:
     void setOpacity(float);
     bool opacityIsAnimating() const;
 
-    void setPosition(const FloatPoint&);
-    const FloatPoint& position() const { return m_position; }
+    void setPosition(const gfx::PointF&);
+    const gfx::PointF& position() const { return m_position; }
 
     void setIsContainerForFixedPositionLayers(bool isContainerForFixedPositionLayers) { m_isContainerForFixedPositionLayers = isContainerForFixedPositionLayers; }
     bool isContainerForFixedPositionLayers() const { return m_isContainerForFixedPositionLayers; }
@@ -167,29 +169,39 @@ public:
     LayerImpl* renderTarget() const { DCHECK(!m_renderTarget || m_renderTarget->renderSurface()); return m_renderTarget; }
     void setRenderTarget(LayerImpl* target) { m_renderTarget = target; }
 
-    void setBounds(const IntSize&);
-    const IntSize& bounds() const { return m_bounds; }
+    // The client should be responsible for setting bounds, contentBounds and
+    // contentsScale to appropriate values. LayerImpl doesn't calculate any of
+    // them from the other values.
 
-    const IntSize& contentBounds() const { return m_contentBounds; }
-    void setContentBounds(const IntSize&);
+    void setBounds(const gfx::Size&);
+    const gfx::Size& bounds() const { return m_bounds; }
 
-    const IntPoint& scrollPosition() const { return m_scrollPosition; }
-    void setScrollPosition(const IntPoint&);
+    // ContentBounds may be [0, 1) pixels larger than bounds * contentsScale.
+    // Don't calculate scale from it. Use contentsScale instead for accuracy.
+    void setContentBounds(const gfx::Size&);
+    gfx::Size contentBounds() const { return m_contentBounds; }
 
-    const IntSize& maxScrollPosition() const {return m_maxScrollPosition; }
-    void setMaxScrollPosition(const IntSize&);
+    float contentsScaleX() const { return m_contentsScaleX; }
+    float contentsScaleY() const { return m_contentsScaleY; }
+    void setContentsScale(float contentsScaleX, float contentsScaleY);
 
-    const FloatSize& scrollDelta() const { return m_scrollDelta; }
-    void setScrollDelta(const FloatSize&);
+    gfx::Vector2d scrollOffset() const { return m_scrollOffset; }
+    void setScrollOffset(gfx::Vector2d);
+
+    gfx::Vector2d maxScrollOffset() const {return m_maxScrollOffset; }
+    void setMaxScrollOffset(gfx::Vector2d);
+
+    const gfx::Vector2dF& scrollDelta() const { return m_scrollDelta; }
+    void setScrollDelta(const gfx::Vector2dF&);
 
     const WebKit::WebTransformationMatrix& implTransform() const { return m_implTransform; }
     void setImplTransform(const WebKit::WebTransformationMatrix& transform);
 
-    const IntSize& sentScrollDelta() const { return m_sentScrollDelta; }
-    void setSentScrollDelta(const IntSize& sentScrollDelta) { m_sentScrollDelta = sentScrollDelta; }
+    const gfx::Vector2d& sentScrollDelta() const { return m_sentScrollDelta; }
+    void setSentScrollDelta(const gfx::Vector2d& sentScrollDelta) { m_sentScrollDelta = sentScrollDelta; }
 
     // Returns the delta of the scroll that was outside of the bounds of the initial scroll
-    FloatSize scrollBy(const FloatSize& scroll);
+    gfx::Vector2dF scrollBy(const gfx::Vector2dF& scroll);
 
     bool scrollable() const { return m_scrollable; }
     void setScrollable(bool scrollable) { m_scrollable = scrollable; }
@@ -203,13 +215,16 @@ public:
     const Region& nonFastScrollableRegion() const { return m_nonFastScrollableRegion; }
     void setNonFastScrollableRegion(const Region& region) { m_nonFastScrollableRegion = region; }
 
+    const Region& touchEventHandlerRegion() const { return m_touchEventHandlerRegion; }
+    void setTouchEventHandlerRegion(const Region& region) { m_touchEventHandlerRegion = region; }
+
     void setDrawCheckerboardForMissingTiles(bool checkerboard) { m_drawCheckerboardForMissingTiles = checkerboard; }
     bool drawCheckerboardForMissingTiles() const;
 
-    InputHandlerClient::ScrollStatus tryScroll(const IntPoint& viewportPoint, InputHandlerClient::ScrollInputType) const;
+    InputHandlerClient::ScrollStatus tryScroll(const gfx::PointF& screenSpacePoint, InputHandlerClient::ScrollInputType) const;
 
-    const IntRect& visibleContentRect() const { return m_visibleContentRect; }
-    void setVisibleContentRect(const IntRect& visibleContentRect) { m_visibleContentRect = visibleContentRect; }
+    const gfx::Rect& visibleContentRect() const { return m_visibleContentRect; }
+    void setVisibleContentRect(const gfx::Rect& visibleContentRect) { m_visibleContentRect = visibleContentRect; }
 
     bool doubleSided() const { return m_doubleSided; }
     void setDoubleSided(bool);
@@ -227,10 +242,10 @@ public:
     bool screenSpaceTransformIsAnimating() const { return m_screenSpaceTransformIsAnimating; }
     void setScreenSpaceTransformIsAnimating(bool animating) { m_screenSpaceTransformIsAnimating = animating; }
 
-    const IntRect& drawableContentRect() const { return m_drawableContentRect; }
-    void setDrawableContentRect(const IntRect& rect) { m_drawableContentRect = rect; }
-    const FloatRect& updateRect() const { return m_updateRect; }
-    void setUpdateRect(const FloatRect& updateRect) { m_updateRect = updateRect; }
+    const gfx::Rect& drawableContentRect() const { return m_drawableContentRect; }
+    void setDrawableContentRect(const gfx::Rect& rect) { m_drawableContentRect = rect; }
+    const gfx::RectF& updateRect() const { return m_updateRect; }
+    void setUpdateRect(const gfx::RectF& updateRect) { m_updateRect = updateRect; }
 
     std::string layerTreeAsText() const;
 
@@ -260,12 +275,12 @@ public:
     ScrollbarLayerImpl* verticalScrollbarLayer() const;
     void setVerticalScrollbarLayer(ScrollbarLayerImpl*);
 
+    gfx::Rect layerRectToContentRect(const gfx::RectF& layerRect) const;
+
 protected:
     explicit LayerImpl(int);
 
     void appendDebugBorderQuad(QuadSink&, const SharedQuadState*, AppendQuadsData&) const;
-
-    IntRect layerRectToContentRect(const WebKit::WebRect& layerRect);
 
     virtual void dumpLayerProperties(std::string*, int indent) const;
     static std::string indentString(int indent);
@@ -296,15 +311,18 @@ private:
     LayerTreeHostImpl* m_layerTreeHostImpl;
 
     // Properties synchronized from the associated Layer.
-    FloatPoint m_anchorPoint;
+    gfx::PointF m_anchorPoint;
     float m_anchorPointZ;
-    IntSize m_bounds;
-    IntSize m_contentBounds;
-    IntPoint m_scrollPosition;
+    gfx::Size m_bounds;
+    gfx::Size m_contentBounds;
+    float m_contentsScaleX;
+    float m_contentsScaleY;
+    gfx::Vector2d m_scrollOffset;
     bool m_scrollable;
     bool m_shouldScrollOnMainThread;
     bool m_haveWheelEventHandlers;
     Region m_nonFastScrollableRegion;
+    Region m_touchEventHandlerRegion;
     SkColor m_backgroundColor;
 
     // Whether the "back" of this layer should draw.
@@ -320,11 +338,11 @@ private:
     bool m_layerSurfacePropertyChanged;
 
     // Uses layer's content space.
-    IntRect m_visibleContentRect;
+    gfx::Rect m_visibleContentRect;
     bool m_masksToBounds;
     bool m_contentsOpaque;
     float m_opacity;
-    FloatPoint m_position;
+    gfx::PointF m_position;
     bool m_preserves3D;
     bool m_useParentBackfaceVisibility;
     bool m_drawCheckerboardForMissingTiles;
@@ -340,9 +358,9 @@ private:
     // This is true if the layer should be fixed to the closest ancestor container.
     bool m_fixedToContainerLayer;
 
-    FloatSize m_scrollDelta;
-    IntSize m_sentScrollDelta;
-    IntSize m_maxScrollPosition;
+    gfx::Vector2dF m_scrollDelta;
+    gfx::Vector2d m_sentScrollDelta;
+    gfx::Vector2d m_maxScrollOffset;
     WebKit::WebTransformationMatrix m_implTransform;
 
     // The layer whose coordinate space this layer draws into. This can be
@@ -382,22 +400,24 @@ private:
 
     // Hierarchical bounding rect containing the layer and its descendants.
     // Uses target surface's space.
-    IntRect m_drawableContentRect;
+    gfx::Rect m_drawableContentRect;
 
     // Rect indicating what was repainted/updated during update.
     // Note that plugin layers bypass this and leave it empty.
     // Uses layer's content space.
-    FloatRect m_updateRect;
+    gfx::RectF m_updateRect;
 
     // Manages animations for this layer.
     scoped_ptr<LayerAnimationController> m_layerAnimationController;
 
     // Manages scrollbars for this layer
     scoped_ptr<ScrollbarAnimationController> m_scrollbarAnimationController;
+
+    DISALLOW_COPY_AND_ASSIGN(LayerImpl);
 };
 
 void sortLayers(std::vector<LayerImpl*>::iterator first, std::vector<LayerImpl*>::iterator end, LayerSorter*);
 
 }
 
-#endif // CCLayerImpl_h
+#endif  // CC_LAYER_IMPL_H_

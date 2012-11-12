@@ -17,6 +17,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/common/content_export.h"
 #include "ui/aura/client/activation_delegate.h"
+#include "ui/aura/display_observer.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/compositor/compositor_observer.h"
@@ -29,6 +30,7 @@ class WindowTracker;
 
 namespace gfx {
 class Canvas;
+class Display;
 }
 
 namespace ui {
@@ -46,6 +48,7 @@ class RenderWidgetHostViewAura
     : public RenderWidgetHostViewBase,
       public ui::CompositorObserver,
       public ui::TextInputClient,
+      public aura::DisplayObserver,
       public aura::WindowDelegate,
       public aura::client::ActivationDelegate,
       public ImageTransportFactoryObserver,
@@ -75,7 +78,7 @@ class RenderWidgetHostViewAura
   virtual void WasShown() OVERRIDE;
   virtual void WasHidden() OVERRIDE;
   virtual void MovePluginWindows(
-      const gfx::Point& scroll_offset,
+      const gfx::Vector2d& scroll_offset,
       const std::vector<webkit::npapi::WebPluginGeometry>& moves) OVERRIDE;
   virtual void Focus() OVERRIDE;
   virtual void Blur() OVERRIDE;
@@ -159,6 +162,11 @@ class RenderWidgetHostViewAura
       base::i18n::TextDirection direction) OVERRIDE;
   virtual void ExtendSelectionAndDelete(size_t before, size_t after) OVERRIDE;
 
+  // Overridden from aura::DisplayObserver:
+  virtual void OnDisplayBoundsChanged(const gfx::Display& display) OVERRIDE;
+  virtual void OnDisplayAdded(const gfx::Display& new_display) OVERRIDE;
+  virtual void OnDisplayRemoved(const gfx::Display& old_display) OVERRIDE;
+
   // Overridden from aura::WindowDelegate:
   virtual gfx::Size GetMinimumSize() const OVERRIDE;
   virtual void OnBoundsChanged(const gfx::Rect& old_bounds,
@@ -200,6 +208,7 @@ class RenderWidgetHostViewAura
 
  private:
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostViewAuraTest, TouchEventState);
+  FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostViewAuraTest, TouchEventSyncAsync);
 
   class WindowObserver;
   friend class WindowObserver;
@@ -251,6 +260,9 @@ class RenderWidgetHostViewAura
                                     bool presented,
                                     ui::Compositor* compositor);
 
+  // Called when window_ gets added to a new window tree.
+  void AddingToRootWindow();
+
   // Called when window_ is removed from the window tree.
   void RemovingFromRootWindow();
 
@@ -266,8 +278,10 @@ class RenderWidgetHostViewAura
 
   // Called after async thumbnailer task completes.  Used to call
   // AdjustSurfaceProtection.
-  void CopyFromCompositingSurfaceFinished(base::Callback<void(bool)> callback,
-                                          bool result);
+  static void CopyFromCompositingSurfaceFinished(
+      base::WeakPtr<RenderWidgetHostViewAura> render_widget_host_view,
+      const base::Callback<void(bool)>& callback,
+      bool result);
 
   ui::Compositor* GetCompositor();
 
@@ -343,7 +357,7 @@ class RenderWidgetHostViewAura
   bool current_surface_is_protected_;
   bool current_surface_in_use_by_compositor_;
 
-  std::vector<base::Callback<void(bool)> > pending_thumbnail_tasks_;
+  int pending_thumbnail_tasks_;
 
   // This id increments every time surface_is_protected changes. We tag IPC
   // messages which rely on protection state with this id to stay in sync.

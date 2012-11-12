@@ -1401,7 +1401,7 @@ void AddMountFunction::GetLocalPathsResponseOnUIThread(
       drive::DriveSystemServiceFactory::GetForProfile(profile_);
   drive::DriveCache* cache = system_service ? system_service->cache() : NULL;
   if (cache && cache->IsUnderDriveCacheDirectory(source_path)) {
-    cache->SetMountedStateOnUIThread(
+    cache->SetMountedState(
         source_path,
         true,
         base::Bind(&AddMountFunction::OnMountedStateSet, this, mount_type_str,
@@ -1967,6 +1967,7 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, GDATA_SHOW_HOSTED_FILES_OPTION);
   SET_STRING(IDS_FILE_BROWSER, GDATA_MOBILE_CONNECTION_OPTION);
   SET_STRING(IDS_FILE_BROWSER, GDATA_CLEAR_LOCAL_CACHE);
+  SET_STRING(IDS_FILE_BROWSER, GDATA_RELOAD);
   SET_STRING(IDS_FILE_BROWSER, GDATA_SPACE_AVAILABLE);
   SET_STRING(IDS_FILE_BROWSER, GDATA_SPACE_AVAILABLE_LONG);
   SET_STRING(IDS_FILE_BROWSER, GDATA_WAITING_FOR_SPACE_INFO);
@@ -1981,11 +1982,10 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, SELECT_SAVEAS_FILE_TITLE);
 
   SET_STRING(IDS_FILE_BROWSER, COMPUTING_SELECTION);
-  SET_STRING(IDS_FILE_BROWSER, ONE_FILE_SELECTED);
-  SET_STRING(IDS_FILE_BROWSER, ONE_DIRECTORY_SELECTED);
   SET_STRING(IDS_FILE_BROWSER, MANY_FILES_SELECTED);
   SET_STRING(IDS_FILE_BROWSER, MANY_DIRECTORIES_SELECTED);
   SET_STRING(IDS_FILE_BROWSER, MANY_ENTRIES_SELECTED);
+  SET_STRING(IDS_FILE_BROWSER, CALCULATING_SIZE);
 
   SET_STRING(IDS_FILE_BROWSER, OFFLINE_HEADER);
   SET_STRING(IDS_FILE_BROWSER, OFFLINE_MESSAGE);
@@ -2308,7 +2308,7 @@ void GetDriveFilePropertiesFunction::OnOperationComplete(
     VLOG(2) << "Drive File Properties:\n" << result_json;
   }
 
-  system_service->cache()->GetCacheEntryOnUIThread(
+  system_service->cache()->GetCacheEntry(
       entry_proto->resource_id(),
       file_specific_info.file_md5(),
       base::Bind(
@@ -2375,9 +2375,9 @@ void PinDriveFileFunction::DoOperation(
                  base::Passed(&entry_proto));
 
   if (set_pin_)
-    system_service->cache()->PinOnUIThread(resource_id, md5, callback);
+    system_service->cache()->Pin(resource_id, md5, callback);
   else
-    system_service->cache()->UnpinOnUIThread(resource_id, md5, callback);
+    system_service->cache()->Unpin(resource_id, md5, callback);
 }
 
 void PinDriveFileFunction::OnPinStateSet(
@@ -2837,6 +2837,19 @@ bool ClearDriveCacheFunction::RunImpl() {
   // TODO(yoshiki): Receive a callback from JS-side and pass it to
   // ClearCacheAndRemountFileSystem(). http://crbug.com/140511
   system_service->ClearCacheAndRemountFileSystem(base::Callback<void(bool)>());
+
+  SendResponse(true);
+  return true;
+}
+
+bool ReloadDriveFunction::RunImpl() {
+  // |system_service| is NULL if Drive is disabled.
+  drive::DriveSystemService* system_service =
+      drive::DriveSystemServiceFactory::GetForProfile(profile_);
+  if (!system_service)
+    return false;
+
+  system_service->ReloadAndRemountFileSystem();
 
   SendResponse(true);
   return true;

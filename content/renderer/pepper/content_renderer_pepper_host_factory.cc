@@ -5,7 +5,9 @@
 #include "content/renderer/pepper/content_renderer_pepper_host_factory.h"
 
 #include "base/logging.h"
+#include "content/renderer/pepper/pepper_audio_input_host.h"
 #include "content/renderer/pepper/pepper_file_chooser_host.h"
+#include "content/renderer/pepper/pepper_flash_clipboard_host.h"
 #include "content/renderer/pepper/pepper_flash_host.h"
 #include "content/renderer/pepper/pepper_websocket_host.h"
 #include "content/renderer/pepper/renderer_ppapi_host_impl.h"
@@ -51,6 +53,9 @@ scoped_ptr<ResourceHost> ContentRendererPepperHostFactory::CreateResourceHost(
   // on the command line, making it difficult to test) are incorrect.
   /*if (GetPermissions().HasPermission(ppapi::PERMISSION_DEV))*/ {
     switch (message.type()) {
+      case PpapiHostMsg_AudioInput_Create::ID:
+        return scoped_ptr<ResourceHost>(new PepperAudioInputHost(
+            host_, instance, params.pp_resource()));
       case PpapiHostMsg_FileChooser_Create::ID:
         return scoped_ptr<ResourceHost>(new PepperFileChooserHost(
             host_, instance, params.pp_resource()));
@@ -62,6 +67,9 @@ scoped_ptr<ResourceHost> ContentRendererPepperHostFactory::CreateResourceHost(
     switch (message.type()) {
       case PpapiHostMsg_Flash_Create::ID:
         return scoped_ptr<ResourceHost>(new PepperFlashHost(
+            host_, instance, params.pp_resource()));
+      case PpapiHostMsg_FlashClipboard_Create::ID:
+        return scoped_ptr<ResourceHost>(new PepperFlashClipboardHost(
             host_, instance, params.pp_resource()));
     }
   }

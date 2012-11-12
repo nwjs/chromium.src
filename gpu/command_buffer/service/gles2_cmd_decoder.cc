@@ -513,6 +513,7 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
   virtual GLES2Util* GetGLES2Util() OVERRIDE { return &util_; }
   virtual gfx::GLContext* GetGLContext() OVERRIDE { return context_.get(); }
   virtual ContextGroup* GetContextGroup() OVERRIDE { return group_.get(); }
+  virtual void RestoreState() const OVERRIDE;
   virtual QueryManager* GetQueryManager() OVERRIDE {
     return query_manager_.get();
   }
@@ -967,12 +968,13 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
       GLint* real_location, GLenum* type, GLsizei* count);
 
   // Gets the service id for any simulated backbuffer fbo.
-  GLuint GetBackbufferServiceId();
+  GLuint GetBackbufferServiceId() const;
 
   // Helper for glGetBooleanv, glGetFloatv and glGetIntegerv
   bool GetHelper(GLenum pname, GLint* params, GLsizei* num_written);
   // Same as GetHelper except for auto-generated state.
-  bool GetState(GLenum pname, GLint* params, GLsizei* num_written);
+  bool GetStateAsGLint(GLenum pname, GLint* params, GLsizei* num_written);
+  bool GetStateAsGLfloat(GLenum pname, GLfloat* params, GLsizei* num_written);
 
   // Wrapper for glCreateProgram
   bool CreateProgramHelper(GLuint client_id);
@@ -1556,6 +1558,10 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
 
   scoped_ptr<CopyTextureCHROMIUMResourceManager> copy_texture_CHROMIUM_;
 
+  // Cached values of the currently assigned viewport dimensions.
+  GLsizei viewport_max_width_;
+  GLsizei viewport_max_height_;
+
   // Command buffer stats.
   int texture_upload_count_;
   base::TimeDelta total_texture_upload_time_;
@@ -1941,6 +1947,8 @@ GLES2DecoderImpl::GLES2DecoderImpl(ContextGroup* group)
       force_webgl_glsl_validation_(false),
       derivatives_explicitly_enabled_(false),
       compile_shader_always_succeeds_(false),
+      viewport_max_width_(0),
+      viewport_max_height_(0),
       texture_upload_count_(0) {
   DCHECK(group);
 
@@ -2041,9 +2049,8 @@ bool GLES2DecoderImpl::Initialize(
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glGenBuffersARB(1, &fixed_attrib_buffer_id_);
 
-  state_.texture_units.reset(
-      new TextureUnit[group_->max_texture_units()]);
-  for (uint32 tt = 0; tt < group_->max_texture_units(); ++tt) {
+  state_.texture_units.resize(group_->max_texture_units());
+  for (uint32 tt = 0; tt < state_.texture_units.size(); ++tt) {
     glActiveTexture(GL_TEXTURE0 + tt);
     // We want the last bind to be 2D.
     TextureManager::TextureInfo* info;
@@ -2234,8 +2241,8 @@ bool GLES2DecoderImpl::Initialize(
 
   GLint viewport_params[4] = { 0 };
   glGetIntegerv(GL_MAX_VIEWPORT_DIMS, viewport_params);
-  state_.viewport_max_width = viewport_params[0];
-  state_.viewport_max_height = viewport_params[1];
+  viewport_max_width_ = viewport_params[0];
+  viewport_max_height_ = viewport_params[1];
 
   state_.scissor_width = state_.viewport_width;
   state_.scissor_height = state_.viewport_height;
@@ -2481,7 +2488,7 @@ void GLES2DecoderImpl::DeleteTexturesHelper(
         clear_state_dirty_ = true;
       }
       // Unbind texture from texture units.
-      for (size_t jj = 0; jj < group_->max_texture_units(); ++jj) {
+      for (size_t jj = 0; jj < state_.texture_units.size(); ++jj) {
         state_.texture_units[jj].Unbind(texture);
       }
       // Unbind from current framebuffers.
@@ -2608,7 +2615,8 @@ bool GLES2DecoderImpl::CheckFramebufferValid(
       texture_manager()->HaveUnclearedMips()) {
     if (!framebuffer->IsCleared()) {
       // Can we clear them?
-      if (glCheckFramebufferStatusEXT(target) != GL_FRAMEBUFFER_COMPLETE) {
+      if (framebuffer->GetStatus(texture_manager(), target) !=
+          GL_FRAMEBUFFER_COMPLETE) {
         SetGLError(
             GL_INVALID_FRAMEBUFFER_OPERATION, func_name,
             "framebuffer incomplete (clear)");
@@ -2619,7 +2627,8 @@ bool GLES2DecoderImpl::CheckFramebufferValid(
   }
 
   if (!framebuffer_manager()->IsComplete(framebuffer)) {
-    if (glCheckFramebufferStatusEXT(target) != GL_FRAMEBUFFER_COMPLETE) {
+    if (framebuffer->GetStatus(texture_manager(), target) !=
+        GL_FRAMEBUFFER_COMPLETE) {
       SetGLError(
           GL_INVALID_FRAMEBUFFER_OPERATION, func_name,
           "framebuffer incomplete (check)");
@@ -2778,7 +2787,7 @@ void GLES2DecoderImpl::Destroy(bool have_context) {
   // Unbind everything.
   state_.vertex_attrib_manager = NULL;
   default_vertex_attrib_manager_ = NULL;
-  state_.texture_units.reset();
+  state_.texture_units.clear();
   state_.bound_array_buffer = NULL;
   state_.current_query = NULL;
   state_.current_program = NULL;
@@ -3233,7 +3242,7 @@ void GLES2DecoderImpl::DoFlush() {
 
 void GLES2DecoderImpl::DoActiveTexture(GLenum texture_unit) {
   GLuint texture_index = texture_unit - GL_TEXTURE0;
-  if (texture_index >= group_->max_texture_units()) {
+  if (texture_index >= state_.texture_units.size()) {
     SetGLErrorInvalidEnum(
         "glActiveTexture", texture_unit, "texture_unit");
     return;
@@ -3347,10 +3356,20 @@ void GLES2DecoderImpl::BindAndApplyTextureParameters(
   glTexParameteri(info->target(), GL_TEXTURE_WRAP_T, info->wrap_t());
 }
 
-GLuint GLES2DecoderImpl::GetBackbufferServiceId() {
+GLuint GLES2DecoderImpl::GetBackbufferServiceId() const {
   return (offscreen_target_frame_buffer_.get()) ?
       offscreen_target_frame_buffer_->id() :
-      surface_->GetBackingFrameBufferObject();
+      (surface_ ? surface_->GetBackingFrameBufferObject() : 0);
+}
+
+void GLES2DecoderImpl::RestoreState() const {
+  state_.RestoreState();
+
+  // TODO: Restore multisample bindings
+  GLuint service_id = state_.bound_draw_framebuffer ?
+      state_.bound_draw_framebuffer->service_id() :
+      GetBackbufferServiceId();
+  glBindFramebufferEXT(GL_FRAMEBUFFER, service_id);
 }
 
 void GLES2DecoderImpl::DoBindFramebuffer(GLenum target, GLuint client_id) {
@@ -3586,9 +3605,6 @@ bool GLES2DecoderImpl::GetHelper(
         }
         return true;
       }
-  }
-  if (GetState(pname, params, num_written)) {
-    return true;
   }
   switch (pname) {
     case GL_MAX_VIEWPORT_DIMS:
@@ -3851,15 +3867,20 @@ bool GLES2DecoderImpl::GetHelper(
 
 bool GLES2DecoderImpl::GetNumValuesReturnedForGLGet(
     GLenum pname, GLsizei* num_values) {
+  if (GetStateAsGLint(pname, NULL, num_values)) {
+    return true;
+  }
   return GetHelper(pname, NULL, num_values);
 }
 
 void GLES2DecoderImpl::DoGetBooleanv(GLenum pname, GLboolean* params) {
   DCHECK(params);
   GLsizei num_written = 0;
-  if (GetHelper(pname, NULL, &num_written)) {
+  if (GetNumValuesReturnedForGLGet(pname, &num_written)) {
     scoped_array<GLint> values(new GLint[num_written]);
-    GetHelper(pname, values.get(), &num_written);
+    if (!GetStateAsGLint(pname, values.get(), &num_written)) {
+      GetHelper(pname, values.get(), &num_written);
+    }
     for (GLsizei ii = 0; ii < num_written; ++ii) {
       params[ii] = static_cast<GLboolean>(values[ii]);
     }
@@ -3871,21 +3892,24 @@ void GLES2DecoderImpl::DoGetBooleanv(GLenum pname, GLboolean* params) {
 void GLES2DecoderImpl::DoGetFloatv(GLenum pname, GLfloat* params) {
   DCHECK(params);
   GLsizei num_written = 0;
-  if (GetHelper(pname, NULL, &num_written)) {
-    scoped_array<GLint> values(new GLint[num_written]);
-    GetHelper(pname, values.get(), &num_written);
-    for (GLsizei ii = 0; ii < num_written; ++ii) {
-      params[ii] = static_cast<GLfloat>(values[ii]);
+  if (!GetStateAsGLfloat(pname, params, &num_written)) {
+    if (GetHelper(pname, NULL, &num_written)) {
+      scoped_array<GLint> values(new GLint[num_written]);
+      GetHelper(pname, values.get(), &num_written);
+      for (GLsizei ii = 0; ii < num_written; ++ii) {
+        params[ii] = static_cast<GLfloat>(values[ii]);
+      }
+    } else {
+      glGetFloatv(pname, params);
     }
-  } else {
-    glGetFloatv(pname, params);
   }
 }
 
 void GLES2DecoderImpl::DoGetIntegerv(GLenum pname, GLint* params) {
   DCHECK(params);
   GLsizei num_written;
-  if (!GetHelper(pname, params, &num_written)) {
+  if (!GetStateAsGLint(pname, params, &num_written) &&
+      !GetHelper(pname, params, &num_written)) {
     glGetIntegerv(pname, params);
   }
 }
@@ -4349,7 +4373,7 @@ GLenum GLES2DecoderImpl::DoCheckFramebufferStatus(GLenum target) {
   if (completeness != GL_FRAMEBUFFER_COMPLETE) {
     return completeness;
   }
-  return glCheckFramebufferStatusEXT(target);
+  return framebuffer->GetStatus(texture_manager(), target);
 }
 
 void GLES2DecoderImpl::DoFramebufferTexture2D(
@@ -4723,7 +4747,7 @@ void GLES2DecoderImpl::DoUniform1i(GLint fake_location, GLint v0) {
     return;
   }
   if (!state_.current_program->SetSamplers(
-      group_->max_texture_units(), fake_location, 1, &v0)) {
+      state_.texture_units.size(), fake_location, 1, &v0)) {
     SetGLError(GL_INVALID_VALUE, "glUniform1i", "texture unit out of range");
     return;
   }
@@ -4741,7 +4765,7 @@ void GLES2DecoderImpl::DoUniform1iv(
   if (type == GL_SAMPLER_2D || type == GL_SAMPLER_2D_RECT_ARB ||
       type == GL_SAMPLER_CUBE || type == GL_SAMPLER_EXTERNAL_OES) {
     if (!state_.current_program->SetSamplers(
-          group_->max_texture_units(), fake_location, count, value)) {
+          state_.texture_units.size(), fake_location, count, value)) {
       SetGLError(GL_INVALID_VALUE, "glUniform1iv", "texture unit out of range");
       return;
     }
@@ -5053,7 +5077,7 @@ bool GLES2DecoderImpl::SetBlackTextureForNonRenderableTextures() {
     DCHECK(uniform_info);
     for (size_t jj = 0; jj < uniform_info->texture_units.size(); ++jj) {
       GLuint texture_unit_index = uniform_info->texture_units[jj];
-      if (texture_unit_index < group_->max_texture_units()) {
+      if (texture_unit_index < state_.texture_units.size()) {
         TextureUnit& texture_unit = state_.texture_units[texture_unit_index];
         TextureManager::TextureInfo* texture_info =
             texture_unit.GetInfoForSamplerType(uniform_info->type);
@@ -5087,7 +5111,7 @@ void GLES2DecoderImpl::RestoreStateForNonRenderableTextures() {
     DCHECK(uniform_info);
     for (size_t jj = 0; jj < uniform_info->texture_units.size(); ++jj) {
       GLuint texture_unit_index = uniform_info->texture_units[jj];
-      if (texture_unit_index < group_->max_texture_units()) {
+      if (texture_unit_index < state_.texture_units.size()) {
         TextureUnit& texture_unit = state_.texture_units[texture_unit_index];
         TextureManager::TextureInfo* texture_info =
             uniform_info->type == GL_SAMPLER_2D ?
@@ -5125,7 +5149,7 @@ bool GLES2DecoderImpl::ClearUnclearedTextures() {
       DCHECK(uniform_info);
       for (size_t jj = 0; jj < uniform_info->texture_units.size(); ++jj) {
         GLuint texture_unit_index = uniform_info->texture_units[jj];
-        if (texture_unit_index < group_->max_texture_units()) {
+        if (texture_unit_index < state_.texture_units.size()) {
           TextureUnit& texture_unit = state_.texture_units[texture_unit_index];
           TextureManager::TextureInfo* texture_info =
               texture_unit.GetInfoForSamplerType(uniform_info->type);
@@ -6213,8 +6237,8 @@ void GLES2DecoderImpl::DoViewport(GLint x, GLint y, GLsizei width,
                                   GLsizei height) {
   state_.viewport_x = x;
   state_.viewport_y = y;
-  state_.viewport_width = std::min(width, state_.viewport_max_width);
-  state_.viewport_height = std::min(height, state_.viewport_max_height);
+  state_.viewport_width = std::min(width, viewport_max_width_);
+  state_.viewport_height = std::min(height, viewport_max_height_);
   glViewport(x, y, width, height);
 }
 
@@ -8385,7 +8409,8 @@ error::Error GLES2DecoderImpl::HandleGetMultipleIntegervCHROMIUM(
   GLint* start = results;
   for (GLuint ii = 0; ii < count; ++ii) {
     GLsizei num_written = 0;
-    if (!GetHelper(enums[ii], results, &num_written)) {
+    if (!GetStateAsGLint(enums[ii], results, &num_written) &&
+        !GetHelper(enums[ii], results, &num_written)) {
       glGetIntegerv(enums[ii], results);
     }
     results += num_written;

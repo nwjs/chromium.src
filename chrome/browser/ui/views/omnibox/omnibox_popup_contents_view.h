@@ -70,8 +70,9 @@ class OmniboxPopupContentsView : public views::View,
   virtual void OnMouseMoved(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(
-      const ui::GestureEvent& event) OVERRIDE;
+
+  // Overridden from ui::EventHandler:
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
  protected:
   OmniboxPopupContentsView(const gfx::Font& font,
@@ -143,6 +144,8 @@ class OmniboxPopupContentsView : public views::View,
 
   // Returns the target bounds given the specified content height.
   gfx::Rect CalculateTargetBounds(int h);
+
+  OmniboxResultView* result_view_at(size_t i);
 
   // The popup that contains this view.  We create this, but it deletes itself
   // when its window is destroyed.  This is a WeakPtr because it's possible for

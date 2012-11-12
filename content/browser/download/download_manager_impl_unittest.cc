@@ -85,7 +85,6 @@ class MockDownloadItemImpl : public DownloadItemImpl {
   MOCK_METHOD3(UpdateProgress, void(int64, int64, const std::string&));
   MOCK_METHOD1(Cancel, void(bool));
   MOCK_METHOD0(MarkAsComplete, void());
-  MOCK_METHOD1(DelayedDownloadOpened, void(bool));
   MOCK_METHOD1(OnAllDataSaved, void(const std::string&));
   MOCK_METHOD0(OnDownloadedFileRemoved, void());
   MOCK_METHOD0(MaybeCompleteDownload, void());
@@ -96,7 +95,6 @@ class MockDownloadItemImpl : public DownloadItemImpl {
 
   MOCK_METHOD1(MockStart, void(DownloadFile*));
 
-  MOCK_METHOD1(Interrupt, void(DownloadInterruptReason));
   MOCK_METHOD1(Delete, void(DeleteReason));
   MOCK_METHOD0(Remove, void());
   MOCK_CONST_METHOD1(TimeRemaining, bool(base::TimeDelta*));
@@ -163,8 +161,9 @@ class MockDownloadItemImpl : public DownloadItemImpl {
   MOCK_CONST_METHOD0(GetFileNameToReportUser, FilePath());
   MOCK_METHOD1(SetDisplayName, void(const FilePath&));
   MOCK_CONST_METHOD0(GetUserVerifiedFilePath, FilePath());
-  MOCK_CONST_METHOD1(DebugString, std::string(bool));
   MOCK_METHOD0(MockDownloadOpenForTesting, void());
+  // May be called when vlog is on.
+  virtual std::string DebugString(bool verbose) const OVERRIDE { return ""; }
 };
 
 class MockDownloadManagerDelegate : public DownloadManagerDelegate {
@@ -181,7 +180,8 @@ class MockDownloadManagerDelegate : public DownloadManagerDelegate {
   MOCK_METHOD1(ShouldOpenFileBasedOnExtension, bool(const FilePath&));
   MOCK_METHOD2(ShouldCompleteDownload,
                bool(DownloadItem*, const base::Closure&));
-  MOCK_METHOD1(ShouldOpenDownload, bool(DownloadItem*));
+  MOCK_METHOD2(ShouldOpenDownload,
+               bool(DownloadItem*, const DownloadOpenDelayedCallback&));
   MOCK_METHOD0(GenerateFileHash, bool());
   MOCK_METHOD1(AddItemToPersistentStore, void(DownloadItem*));
   MOCK_METHOD1(UpdateItemInPersistentStore, void(DownloadItem*));
@@ -342,10 +342,10 @@ class MockDownloadFileFactory
   virtual ~MockDownloadFileFactory() {}
 
   // Overridden method from DownloadFileFactory
-  MOCK_METHOD9(MockCreateFile, DownloadFile*(
+  MOCK_METHOD8(MockCreateFile, DownloadFile*(
     const DownloadSaveInfo&,
     const FilePath&,
-    const GURL&, const GURL&, int64, bool,
+    const GURL&, const GURL&, bool,
     ByteStreamReader*,
     const net::BoundNetLog&,
     base::WeakPtr<DownloadDestinationObserver>));
@@ -355,13 +355,12 @@ class MockDownloadFileFactory
       const FilePath& default_download_directory,
       const GURL& url,
       const GURL& referrer_url,
-      int64 received_bytes,
       bool calculate_hash,
       scoped_ptr<ByteStreamReader> stream,
       const net::BoundNetLog& bound_net_log,
       base::WeakPtr<DownloadDestinationObserver> observer) {
     return MockCreateFile(*save_info.get(), default_download_directory, url,
-                          referrer_url, received_bytes, calculate_hash,
+                          referrer_url, calculate_hash,
                           stream.get(), bound_net_log, observer);
   }
 };
@@ -401,7 +400,6 @@ class MockDownloadManagerObserver : public DownloadManager::Observer {
   ~MockDownloadManagerObserver() {}
   MOCK_METHOD2(OnDownloadCreated, void(
         DownloadManager*, DownloadItem*));
-  MOCK_METHOD1(ModelChanged, void(DownloadManager*));
   MOCK_METHOD1(ManagerGoingDown, void(DownloadManager*));
   MOCK_METHOD2(SelectFileDialogDisplayed, void(
         DownloadManager*, int32));
@@ -447,8 +445,6 @@ class DownloadManagerTest : public testing::Test {
         scoped_ptr<DownloadFileFactory>(
             mock_download_file_factory_.get()).Pass());
     observer_.reset(new MockDownloadManagerObserver());
-    EXPECT_CALL(GetMockObserver(), ModelChanged(download_manager_.get()))
-        .WillOnce(Return());
     download_manager_->AddObserver(observer_.get());
     download_manager_->SetDelegate(mock_download_manager_delegate_.get());
     download_manager_->Init(mock_browser_context_.get());
@@ -467,10 +463,10 @@ class DownloadManagerTest : public testing::Test {
 
     download_manager_->Shutdown();
     download_manager_ = NULL;
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
     ASSERT_EQ(NULL, mock_download_item_factory_.get());
     ASSERT_EQ(NULL, mock_download_file_factory_.get());
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
     mock_download_manager_delegate_.reset();
     mock_browser_context_.reset();
   }
@@ -616,7 +612,7 @@ TEST_F(DownloadManagerTest, StartDownload) {
   EXPECT_CALL(GetMockDownloadManagerDelegate(), GenerateFileHash())
       .WillOnce(Return(true));
   EXPECT_CALL(*mock_download_file_factory_.get(),
-              MockCreateFile(Ref(*info->save_info.get()), _, _, _, 0, true,
+              MockCreateFile(Ref(*info->save_info.get()), _, _, _, true,
                              stream.get(), _, _));
 
   download_manager_->StartDownload(info.Pass(), stream.Pass());
@@ -680,8 +676,6 @@ TEST_F(DownloadManagerTest, OnDownloadStopped_Persisted) {
   // Put a mock we have a handle to on the download manager.
   MockDownloadItemImpl& item(AddItemToManager());
   int64 db_handle = 0x7;
-  EXPECT_CALL(GetMockObserver(), ModelChanged(download_manager_.get()))
-      .WillOnce(Return());
   AddItemToHistory(item, db_handle);
 
   EXPECT_CALL(item, IsPersisted())

@@ -8,6 +8,7 @@
 #include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/gtest_prod_util.h"
+#include "base/time.h"
 
 class ChromeBrowserFieldTrials {
  public:
@@ -15,7 +16,10 @@ class ChromeBrowserFieldTrials {
   ~ChromeBrowserFieldTrials();
 
   // Add an invocation of your field trial init function to this method.
-  void SetupFieldTrials(bool proxy_policy_is_set);
+  // |install_time| is the time this browser was installed (or the last time
+  // prefs was reset). |install_time| is used by trials that are only created
+  // for new installs of the browser.
+  void SetupFieldTrials(const base::Time& install_time);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(BrowserMainTest,
@@ -40,19 +44,24 @@ class ChromeBrowserFieldTrials {
   // A collection of one-time-randomized and session-randomized field trials
   // intended to test the uniformity and correctness of the field trial control,
   // bucketing and reporting systems.
-  void SetupUniformityFieldTrials();
+  void SetupUniformityFieldTrials(const base::Time& install_date);
 
   // Disables the new tab field trial if not running in desktop mode.
   void DisableNewTabFieldTrialIfNecesssary();
-
-  // Sets up the Safe Browsing interstitial redesign trial.
-  void SetUpSafeBrowsingInterstitialFieldTrial();
 
   // Sets up the InfiniteCache field trial.
   void SetUpInfiniteCacheFieldTrial();
 
   // Sets up field trials for doing Cache Sensitivity Analysis.
   void SetUpCacheSensitivityAnalysisFieldTrial();
+
+  // A field trial to determine the impact of using non-blocking reads for
+  // TCP sockets on Windows instead of overlapped I/O.
+  void WindowsOverlappedTCPReadsFieldTrial();
+
+  // Instantiates dynamic trials by querying their state, to ensure they get
+  // reported as used.
+  void InstantiateDynamicTrials();
 
   const CommandLine& parsed_command_line_;
 

@@ -45,6 +45,14 @@ class ScreenLockerDelegate {
   // Close message bubble to clear error messages.
   virtual void ClearErrors() = 0;
 
+  // Allows to have visual effects once unlock authentication is successful,
+  // Must call ScreenLocker::UnlockOnLoginSuccess() once all effects are done.
+  virtual void AnimateAuthenticationSuccess() = 0;
+
+  // Allows to have visual effects once screen locker is fully displayed (after
+  // all window animations are done).
+  virtual void ProcessFullyDisplayedAnimations() = 0;
+
   // Returns the native window displaying the lock screen.
   virtual gfx::NativeWindow GetNativeWindow() const = 0;
 

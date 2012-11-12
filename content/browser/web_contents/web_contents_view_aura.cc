@@ -30,6 +30,7 @@
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_aura.h"
 #include "ui/base/events/event.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/hit_test.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/screen.h"
@@ -398,7 +399,7 @@ void WebContentsViewAura::RestoreFocus() {
 }
 
 WebDropData* WebContentsViewAura::GetDropData() const {
-  return NULL;
+  return current_drop_data_.get();
 }
 
 bool WebContentsViewAura::IsEventTracking() const {
@@ -437,7 +438,8 @@ void WebContentsViewAura::StartDragging(
     const WebDropData& drop_data,
     WebKit::WebDragOperationsMask operations,
     const gfx::ImageSkia& image,
-    const gfx::Point& image_offset) {
+    const gfx::Vector2d& image_offset,
+    const DragEventSourceInfo& event_info) {
   aura::RootWindow* root_window = GetNativeView()->GetRootWindow();
   if (!aura::client::GetDragDropClient(root_window))
     return;
@@ -457,15 +459,11 @@ void WebContentsViewAura::StartDragging(
   // updates while in the system DoDragDrop loop.
   int result_op = 0;
   {
-    // TODO(sad): Avoid using GetCursorScreenPoint here, since the drag may not
-    // always start from a mouse-event (e.g. a touch or gesture event could
-    // initiate the drag). The location information should be carried over from
-    // webkit. http://crbug.com/114754
-    gfx::Point location(
-        gfx::Screen::GetScreenFor(GetNativeView())->GetCursorScreenPoint());
     MessageLoop::ScopedNestableTaskAllower allow(MessageLoop::current());
     result_op = aura::client::GetDragDropClient(root_window)->StartDragAndDrop(
-        data, root_window, location, ConvertFromWeb(operations));
+        data, root_window, GetContentNativeView(),
+        event_info.event_location, ConvertFromWeb(operations),
+        event_info.event_source);
   }
 
   // Bail out immediately if the contents view window is gone. Note that it is
@@ -629,15 +627,16 @@ void WebContentsViewAura::OnDragEntered(const ui::DropTargetEvent& event) {
   if (drag_dest_delegate_)
     drag_dest_delegate_->DragInitialize(web_contents_);
 
-  WebDropData drop_data;
-  PrepareWebDropData(&drop_data, event.data());
+  current_drop_data_.reset(new WebDropData());
+
+  PrepareWebDropData(current_drop_data_.get(), event.data());
   WebKit::WebDragOperationsMask op = ConvertToWeb(event.source_operations());
 
   gfx::Point screen_pt =
       gfx::Screen::GetScreenFor(GetNativeView())->GetCursorScreenPoint();
   current_rvh_for_drag_ = web_contents_->GetRenderViewHost();
   web_contents_->GetRenderViewHost()->DragTargetDragEnter(
-      drop_data, event.location(), screen_pt, op,
+      *current_drop_data_.get(), event.location(), screen_pt, op,
       ConvertAuraEventFlagsToWebInputEventModifiers(event.flags()));
 
   if (drag_dest_delegate_) {
@@ -672,6 +671,8 @@ void WebContentsViewAura::OnDragExited() {
   web_contents_->GetRenderViewHost()->DragTargetDragLeave();
   if (drag_dest_delegate_)
     drag_dest_delegate_->OnDragLeave();
+
+  current_drop_data_.reset();
 }
 
 int WebContentsViewAura::OnPerformDrop(const ui::DropTargetEvent& event) {
@@ -685,6 +686,7 @@ int WebContentsViewAura::OnPerformDrop(const ui::DropTargetEvent& event) {
       ConvertAuraEventFlagsToWebInputEventModifiers(event.flags()));
   if (drag_dest_delegate_)
     drag_dest_delegate_->OnDrop();
+  current_drop_data_.reset();
   return current_drag_op_;
 }
 

@@ -123,6 +123,7 @@ class UI_EXPORT Event {
       case ET_GESTURE_PINCH_END:
       case ET_GESTURE_PINCH_UPDATE:
       case ET_GESTURE_LONG_PRESS:
+      case ET_GESTURE_LONG_TAP:
       case ET_GESTURE_MULTIFINGER_SWIPE:
         return true;
 
@@ -368,6 +369,7 @@ class UI_EXPORT MouseWheelEvent : public MouseEvent {
 
   explicit MouseWheelEvent(const base::NativeEvent& native_event);
   explicit MouseWheelEvent(const ScrollEvent& scroll_event);
+  MouseWheelEvent(const MouseEvent& mouse_event, int offset);
 
   template <class T>
   MouseWheelEvent(const MouseWheelEvent& model,
@@ -480,7 +482,7 @@ class UI_EXPORT KeyEvent : public Event {
   KeyEvent(const base::NativeEvent& native_event, bool is_char);
 
   // Used for synthetic events in testing.
-  KeyEvent(EventType type, KeyboardCode key_code, int flags);
+  KeyEvent(EventType type, KeyboardCode key_code, int flags, bool is_char);
 
   // These setters allow an I18N virtual keyboard to fabricate a keyboard event
   // which does not have a corresponding KeyboardCode (example: U+00E1 Latin

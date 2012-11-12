@@ -16,7 +16,8 @@
 #include "base/timer.h"
 #include "content/common/content_export.h"
 #include "content/renderer/paint_aggregator.h"
-#include "ipc/ipc_channel.h"
+#include "ipc/ipc_listener.h"
+#include "ipc/ipc_sender.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebRenderingStats.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositionUnderline.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
@@ -40,6 +41,7 @@ class SyncMessage;
 }
 
 namespace WebKit {
+class WebGestureEvent;
 class WebMouseEvent;
 class WebTouchEvent;
 }
@@ -100,7 +102,6 @@ class CONTENT_EXPORT RenderWidget
   // May return NULL when the window is closing.
   WebKit::WebWidget* webwidget() const { return webwidget_; }
 
-  gfx::NativeViewId host_window() const { return host_window_; }
   gfx::Size size() const { return size_; }
   bool has_focus() const { return has_focus_; }
   bool is_fullscreen() const { return is_fullscreen_; }
@@ -212,7 +213,7 @@ class CONTENT_EXPORT RenderWidget
               IPC::SyncMessage* create_widget_message);
 
   // Finishes creation of a pending view started with Init.
-  void CompleteInit(gfx::NativeViewId parent);
+  void CompleteInit();
 
   // Sets whether this RenderWidget has been swapped out to be displayed by
   // a RenderWidget in a different process.  If so, no new IPC messages will be
@@ -251,7 +252,7 @@ class CONTENT_EXPORT RenderWidget
 
   // RenderWidget IPC message handlers
   void OnClose();
-  void OnCreatingNewAck(gfx::NativeViewId parent);
+  void OnCreatingNewAck();
   virtual void OnResize(const gfx::Size& new_size,
                         const gfx::Rect& resizer_rect,
                         bool is_fullscreen);
@@ -284,6 +285,8 @@ class CONTENT_EXPORT RenderWidget
   void OnSetTextDirection(WebKit::WebTextDirection direction);
   void OnGetFPS();
   void OnScreenInfoChanged(const WebKit::WebScreenInfo& screen_info);
+  void OnUpdateScreenRects(const gfx::Rect& view_screen_rect,
+                           const gfx::Rect& window_screen_rect);
 
   // Override points to notify derived classes that a paint has happened.
   // WillInitiatePaint happens when we're about to generate a new bitmap and
@@ -330,7 +333,7 @@ class CONTENT_EXPORT RenderWidget
 
   // Gets the scroll offset of this widget, if this widget has a notion of
   // scroll offset.
-  virtual gfx::Point GetScrollOffset();
+  virtual gfx::Vector2d GetScrollOffset();
 
   // Sets the "hidden" state of this widget.  All accesses to is_hidden_ should
   // use this method so that we can properly inform the RenderThread of our
@@ -413,6 +416,12 @@ class CONTENT_EXPORT RenderWidget
   // won't be sent to WebKit or trigger DidHandleMouseEvent().
   virtual bool WillHandleMouseEvent(const WebKit::WebMouseEvent& event);
 
+  // Called by OnHandleInputEvent() to notify subclasses that a gesture event is
+  // about to be handled.
+  // Returns true if no further handling is needed. In that case, the event
+  // won't be sent to WebKit.
+  virtual bool WillHandleGestureEvent(const WebKit::WebGestureEvent& event);
+
   // Called by OnHandleInputEvent() to notify subclasses that a mouse event was
   // just handled.
   virtual void DidHandleMouseEvent(const WebKit::WebMouseEvent& event) {}
@@ -446,9 +455,7 @@ class CONTENT_EXPORT RenderWidget
   // The position where this view should be initially shown.
   gfx::Rect initial_pos_;
 
-  // The window we are embedded within.  TODO(darin): kill this.
-  gfx::NativeViewId host_window_;
-  bool host_window_set_;
+  bool init_complete_;
 
   // We store the current cursor object so we can avoid spamming SetCursor
   // messages.
@@ -557,10 +564,14 @@ class CONTENT_EXPORT RenderWidget
   // A custom background for the widget.
   SkBitmap background_;
 
-  // While we are waiting for the browser to update window sizes,
-  // we track the pending size temporarily.
+  // While we are waiting for the browser to update window sizes, we track the
+  // pending size temporarily.
   int pending_window_rect_count_;
   WebKit::WebRect pending_window_rect_;
+
+  // The screen rects of the view and the window that contains it.
+  gfx::Rect view_screen_rect_;
+  gfx::Rect window_screen_rect_;
 
   scoped_ptr<IPC::Message> pending_input_event_ack_;
 

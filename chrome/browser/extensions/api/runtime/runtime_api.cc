@@ -22,6 +22,7 @@ namespace {
 
 const char kOnStartupEvent[] = "runtime.onStartup";
 const char kOnInstalledEvent[] = "runtime.onInstalled";
+const char kOnUpdateAvailableEvent[] = "runtime.onUpdateAvailable";
 const char kNoBackgroundPageError[] = "You do not have a background page.";
 const char kPageLoadError[] = "Background page failed to load.";
 const char kInstallReason[] = "reason";
@@ -108,6 +109,21 @@ void RuntimeEventRouter::DispatchOnInstalledEvent(
                                                   extension_id);
 }
 
+// static
+void RuntimeEventRouter::DispatchOnUpdateAvailableEvent(
+    Profile* profile,
+    const std::string& extension_id,
+    const DictionaryValue* manifest) {
+  ExtensionSystem* system = ExtensionSystem::Get(profile);
+  if (!system)
+    return;
+
+  scoped_ptr<ListValue> args(new ListValue);
+  args->Append(manifest->DeepCopy());
+  system->event_router()->DispatchEventToExtension(
+      extension_id, kOnUpdateAvailableEvent, args.Pass(), NULL, GURL());
+}
+
 bool RuntimeGetBackgroundPageFunction::RunImpl() {
   ExtensionHost* host =
       ExtensionSystem::Get(profile())->process_manager()->
@@ -135,6 +151,17 @@ void RuntimeGetBackgroundPageFunction::OnPageLoaded(ExtensionHost* host) {
     error_ = kPageLoadError;
     SendResponse(false);
   }
+}
+
+bool RuntimeReloadFunction::RunImpl() {
+  // We can't call ReloadExtension directly, since when this method finishes
+  // it tries to decrease the reference count for the extension, which fails
+  // if the extension has already been reloaded; so instead we post a task.
+  MessageLoop::current()->PostTask(FROM_HERE,
+      base::Bind(&ExtensionService::ReloadExtension,
+                 profile()->GetExtensionService()->AsWeakPtr(),
+                 extension_id()));
+  return true;
 }
 
 }   // namespace extensions

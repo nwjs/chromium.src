@@ -54,8 +54,9 @@ class ShellWindow : public content::NotificationObserver,
     ~CreateParams();
 
     Frame frame;
-    // Specify the initial bounds of the window. If empty, the window will be a
-    // default size.
+    // Specify the initial bounds of the window. INT_MIN designates
+    // 'unspecified' for any coordinate, and should be replaced with a default
+    // value.
     gfx::Rect bounds;
     // Specify if bounds should be restored from a previous time.
     bool restore_position;
@@ -103,8 +104,9 @@ class ShellWindow : public content::NotificationObserver,
   // invoke this method instead of using "delete this".
   void OnNativeClose();
 
-  // Save the window position in the prefs.
-  virtual void SaveWindowPosition();
+  // Should be called by native implementations when the window size/position
+  // has changed.
+  void SaveWindowPosition();
 
  protected:
   ShellWindow(Profile* profile,
@@ -166,6 +168,7 @@ class ShellWindow : public content::NotificationObserver,
   // ExtensionFunctionDispatcher::Delegate implementation.
   virtual extensions::WindowController* GetExtensionWindowController() const
       OVERRIDE;
+  virtual content::WebContents* GetAssociatedWebContents() const OVERRIDE;
 
   // Message handlers.
   void OnRequest(const ExtensionHostMsg_Request_Params& params);
@@ -173,6 +176,9 @@ class ShellWindow : public content::NotificationObserver,
   // Helper method to add a message to the renderer's DevTools console.
   void AddMessageToDevToolsConsole(content::ConsoleMessageLevel level,
                                    const std::string& message);
+
+  // Sends an update message with the current bounds to the renderer.
+  void SendBoundsUpdate();
 
   virtual void UpdateDraggableRegions(
     const std::vector<extensions::DraggableRegion>& regions);

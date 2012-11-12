@@ -36,6 +36,7 @@
     'public/browser/access_token_store.h',
     'public/browser/android/compositor.h',
     'public/browser/android/content_view_core.h',
+    'public/browser/android/content_view_layer_renderer.h',
     'public/browser/android/devtools_auth.h',
     'public/browser/android/download_controller_android.h',
     'public/browser/android/draw_delegate.h',
@@ -123,7 +124,6 @@
     'public/browser/page_navigator.cc',
     'public/browser/page_navigator.h',
     'public/browser/pepper_flash_settings_helper.h',
-    'public/browser/pepper_helper.h',
     'public/browser/plugin_data_remover.h',
     'public/browser/plugin_service_filter.h',
     'public/browser/plugin_service.h',
@@ -216,6 +216,8 @@
     'browser/android/content_video_view.h',
     'browser/android/content_view_core_impl.cc',
     'browser/android/content_view_core_impl.h',
+    'browser/android/content_view_render_view.cc',
+    'browser/android/content_view_render_view.h',
     'browser/android/content_view_statics.cc',
     'browser/android/content_view_statics.h',
     'browser/android/cookie_getter_impl.cc',
@@ -511,7 +513,6 @@
     'browser/notification_service_impl.h',
     'browser/pepper_flash_settings_helper_impl.cc',
     'browser/pepper_flash_settings_helper_impl.h',
-    'browser/pepper_helper.cc',
     'browser/plugin_data_remover_impl.cc',
     'browser/plugin_data_remover_impl.h',
     'browser/plugin_loader_posix.cc',
@@ -669,7 +670,6 @@
     'browser/renderer_host/redirect_to_file_resource_handler.h',
     'browser/renderer_host/render_message_filter.cc',
     'browser/renderer_host/render_message_filter.h',
-    'browser/renderer_host/render_message_filter_win.cc',
     'browser/renderer_host/render_process_host_impl.cc',
     'browser/renderer_host/render_process_host_impl.h',
     'browser/renderer_host/render_sandbox_host_linux.cc',
@@ -687,6 +687,7 @@
     'browser/renderer_host/render_widget_host_gtk.cc',
     'browser/renderer_host/render_widget_host_impl.cc',
     'browser/renderer_host/render_widget_host_impl.h',
+    'browser/renderer_host/render_widget_host_impl_android.cc',
     'browser/renderer_host/render_widget_host_mac.cc',
     'browser/renderer_host/render_widget_host_view_android.cc',
     'browser/renderer_host/render_widget_host_view_android.h',
@@ -915,11 +916,11 @@
     }, {  # OS!="ios"
       'dependencies': [
         'browser/debugger/devtools_resources.gyp:devtools_resources',
+        '../cc/cc.gyp:cc',
         '../net/net.gyp:http_server',
         '../ppapi/ppapi_internal.gyp:ppapi_ipc',
         '../printing/printing.gyp:printing',
         '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
-        '../third_party/libyuv/libyuv.gyp:libyuv',
         '../ui/surface/surface.gyp:surface',
         '../webkit/support/webkit_support.gyp:webkit_resources',
         '../webkit/support/webkit_support.gyp:webkit_storage',
@@ -929,6 +930,11 @@
     ['OS!="mac" and OS!="ios"', {
       'dependencies': [
         '../sandbox/sandbox.gyp:sandbox',
+      ],
+    }],
+    ['OS!="android" and OS!="ios"', {
+      'dependencies': [
+        '../third_party/libyuv/libyuv.gyp:libyuv',
       ],
     }],
     ['enable_webrtc==1', {
@@ -1083,7 +1089,6 @@
         ['exclude', '^browser/renderer_host/render_widget_host.h'],
         ['exclude', '^browser/renderer_host/render_widget_host_view_win.cc'],
         ['exclude', '^browser/renderer_host/render_widget_host_view_win.h'],
-        ['exclude', '^browser/renderer_host/render_message_filter_win.cc'],
         ['exclude', '^browser/renderer_host/tap_suppression_controller.cc'],
         ['exclude', '^browser/web_contents/web_contents_drag_win.cc'],
         ['exclude', '^browser/web_contents/web_contents_drag_win.h'],

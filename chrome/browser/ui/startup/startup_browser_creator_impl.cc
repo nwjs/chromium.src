@@ -362,6 +362,7 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
     }
   }
 
+  app_list_controller::CheckAppListTaskbarShortcut();
   if (command_line_.HasSwitch(switches::kShowAppList)) {
     app_list_controller::ShowAppList();
     return true;
@@ -622,8 +623,8 @@ void StartupBrowserCreatorImpl::ProcessLaunchURLs(
       return;
   } else if (!command_line_.HasSwitch(switches::kOpenInNewWindow)) {
     // Always open a list of urls in a window on the native desktop.
-    browser = browser::FindBrowserWithProfile(profile_,
-                                              chrome::HOST_DESKTOP_TYPE_NATIVE);
+    browser = browser::FindTabbedBrowser(profile_, false,
+                                         chrome::HOST_DESKTOP_TYPE_NATIVE);
   }
   // This will launch a browser; prevent session restore.
   in_synchronous_profile_launch = true;
@@ -856,7 +857,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
     if (process_startup &&
         google_util::IsGoogleHomePageUrl(tabs[i].url.spec())) {
       params.extra_headers = RLZTracker::GetAccessPointHttpHeader(
-          rlz_lib::CHROME_HOME_PAGE);
+          RLZTracker::CHROME_HOME_PAGE);
     }
 #endif
 
@@ -867,7 +868,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
   if (!chrome::GetActiveWebContents(browser)) {
     // TODO: this is a work around for 110909. Figure out why it's needed.
     if (!browser->tab_count())
-      chrome::AddBlankTab(browser, true);
+      chrome::AddBlankTabAt(browser, -1, true);
     else
       chrome::ActivateTabAt(browser, 0, false);
   }
@@ -956,10 +957,16 @@ void StartupBrowserCreatorImpl::AddStartupURLs(
   // If the sync promo page is going to be displayed then insert it at the front
   // of the list.
   if (SyncPromoUI::ShouldShowSyncPromoAtStartup(profile_, is_first_run_)) {
+    GURL continue_url;
+    if (!CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kUseWebBasedSigninFlow)) {
+      continue_url = GURL(chrome::kChromeUINewTabURL);
+    }
+
     SyncPromoUI::DidShowSyncPromoAtStartup(profile_);
     GURL old_url = (*startup_urls)[0];
     (*startup_urls)[0] =
-        SyncPromoUI::GetSyncPromoURL(GURL(chrome::kChromeUINewTabURL),
+        SyncPromoUI::GetSyncPromoURL(continue_url,
                                      SyncPromoUI::SOURCE_START_PAGE,
                                      false);
 

@@ -484,7 +484,7 @@ void Widget::SetVisibilityChangedAnimationsEnabled(bool value) {
   native_widget_->SetVisibilityChangedAnimationsEnabled(value);
 }
 
-Widget::MoveLoopResult Widget::RunMoveLoop(const gfx::Point& drag_offset) {
+Widget::MoveLoopResult Widget::RunMoveLoop(const gfx::Vector2d& drag_offset) {
   return native_widget_->RunMoveLoop(drag_offset);
 }
 
@@ -673,6 +673,10 @@ ui::ThemeProvider* Widget::GetThemeProvider() const {
   return default_theme_provider_.get();
 }
 
+const ui::NativeTheme* Widget::GetNativeTheme() const {
+  return native_widget_->GetNativeTheme();
+}
+
 FocusManager* Widget::GetFocusManager() {
   Widget* toplevel_widget = GetTopLevelWidget();
   return toplevel_widget ? toplevel_widget->focus_manager_.get() : NULL;
@@ -705,9 +709,10 @@ InputMethod* Widget::GetInputMethod() {
 void Widget::RunShellDrag(View* view,
                           const ui::OSExchangeData& data,
                           const gfx::Point& location,
-                          int operation) {
+                          int operation,
+                          ui::DragDropTypes::DragEventSource source) {
   dragged_view_ = view;
-  native_widget_->RunShellDrag(view, data, location, operation);
+  native_widget_->RunShellDrag(view, data, location, operation, source);
   // If the view is removed during the drag operation, dragged_view_ is set to
   // NULL.
   if (view && dragged_view_ == view) {
@@ -1087,7 +1092,8 @@ int Widget::GetNonClientComponent(const gfx::Point& point) {
 
 bool Widget::OnKeyEvent(const ui::KeyEvent& event) {
   ScopedEvent scoped(this, event);
-  return static_cast<internal::RootView*>(GetRootView())->OnKeyEvent(event);
+  return static_cast<internal::RootView*>(GetRootView())->
+      DispatchKeyEvent(event) != ui::ER_UNHANDLED;
 }
 
 bool Widget::OnMouseEvent(const ui::MouseEvent& event) {
@@ -1133,9 +1139,6 @@ bool Widget::OnMouseEvent(const ui::MouseEvent& event) {
     case ui::ET_MOUSEWHEEL:
       return GetRootView()->OnMouseWheel(
           reinterpret_cast<const ui::MouseWheelEvent&>(event));
-    case ui::ET_SCROLL:
-      return GetRootView()->OnScrollEvent(
-          reinterpret_cast<const ui::ScrollEvent&>(event));
     default:
       return false;
   }
@@ -1149,14 +1152,21 @@ void Widget::OnMouseCaptureLost() {
   is_mouse_button_pressed_ = false;
 }
 
-ui::TouchStatus Widget::OnTouchEvent(const ui::TouchEvent& event) {
-  ScopedEvent scoped(this, event);
-  return GetRootView()->OnTouchEvent(event);
+ui::EventResult Widget::OnTouchEvent(ui::TouchEvent* event) {
+  ScopedEvent scoped(this, *event);
+  return static_cast<internal::RootView*>(GetRootView())->
+      DispatchTouchEvent(event);
 }
 
-ui::EventResult Widget::OnGestureEvent(const ui::GestureEvent& event) {
-  ScopedEvent scoped(this, event);
-  switch (event.type()) {
+ui::EventResult Widget::OnScrollEvent(ui::ScrollEvent* event) {
+  ScopedEvent scoped(this, *event);
+  return static_cast<internal::RootView*>(GetRootView())->
+      DispatchScrollEvent(event);
+}
+
+ui::EventResult Widget::OnGestureEvent(ui::GestureEvent* event) {
+  ScopedEvent scoped(this, *event);
+  switch (event->type()) {
     case ui::ET_GESTURE_TAP_DOWN:
       is_touch_down_ = true;
       // We explicitly don't capture here. Not capturing enables multiple
@@ -1165,7 +1175,7 @@ ui::EventResult Widget::OnGestureEvent(const ui::GestureEvent& event) {
       break;
 
     case ui::ET_GESTURE_END:
-      if (event.details().touch_points() == 1) {
+      if (event->details().touch_points() == 1) {
         is_touch_down_ = false;
         if (ShouldReleaseCaptureOnMouseReleased())
           ReleaseCapture();
@@ -1175,7 +1185,8 @@ ui::EventResult Widget::OnGestureEvent(const ui::GestureEvent& event) {
     default:
       break;
   }
-  return GetRootView()->OnGestureEvent(event);
+  return static_cast<internal::RootView*>(GetRootView())->
+      DispatchGestureEvent(event);
 }
 
 bool Widget::ExecuteCommand(int command_id) {

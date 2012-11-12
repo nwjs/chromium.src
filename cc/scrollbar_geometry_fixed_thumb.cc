@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scrollbar_geometry_fixed_thumb.h"
 
 #include <cmath>
@@ -30,9 +28,9 @@ void ScrollbarGeometryFixedThumb::update(WebScrollbar* scrollbar)
     int length = ScrollbarGeometryStub::thumbLength(scrollbar);
 
     if (scrollbar->orientation() == WebScrollbar::Horizontal)
-        m_thumbSize = IntSize(length, scrollbar->size().height);
+        m_thumbSize = gfx::Size(length, scrollbar->size().height);
     else
-        m_thumbSize = IntSize(scrollbar->size().width, length);
+        m_thumbSize = gfx::Size(scrollbar->size().width, length);
 }
 
 WebScrollbarThemeGeometry* ScrollbarGeometryFixedThumb::clone() const
@@ -91,4 +89,4 @@ ScrollbarGeometryFixedThumb::ScrollbarGeometryFixedThumb(scoped_ptr<WebScrollbar
 {
 }
 
-}
+}  // namespace cc

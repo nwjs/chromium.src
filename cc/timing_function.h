@@ -2,16 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCTimingFunction_h
-#define CCTimingFunction_h
+#ifndef CC_TIMING_FUNCTION_H_
+#define CC_TIMING_FUNCTION_H_
 
-#include "UnitBezier.h"
 #include "cc/animation_curve.h"
+#include "cc/cc_export.h"
+#include "third_party/skia/include/core/SkScalar.h"
 
 namespace cc {
 
 // See http://www.w3.org/TR/css3-transitions/.
-class TimingFunction : public FloatAnimationCurve {
+class CC_EXPORT TimingFunction : public FloatAnimationCurve {
 public:
     virtual ~TimingFunction();
 
@@ -22,7 +23,7 @@ protected:
     TimingFunction();
 };
 
-class CubicBezierTimingFunction : public TimingFunction {
+class CC_EXPORT CubicBezierTimingFunction : public TimingFunction {
 public:
     static scoped_ptr<CubicBezierTimingFunction> create(double x1, double y1, double x2, double y2);
     virtual ~CubicBezierTimingFunction();
@@ -34,29 +35,32 @@ public:
 protected:
     CubicBezierTimingFunction(double x1, double y1, double x2, double y2);
 
-    UnitBezier m_curve;
+    SkScalar m_x1;
+    SkScalar m_y1;
+    SkScalar m_x2;
+    SkScalar m_y2;
 };
 
-class EaseTimingFunction {
+class CC_EXPORT EaseTimingFunction {
 public:
     static scoped_ptr<TimingFunction> create();
 };
 
-class EaseInTimingFunction {
+class CC_EXPORT EaseInTimingFunction {
 public:
     static scoped_ptr<TimingFunction> create();
 };
 
-class EaseOutTimingFunction {
+class CC_EXPORT EaseOutTimingFunction {
 public:
     static scoped_ptr<TimingFunction> create();
 };
 
-class EaseInOutTimingFunction {
+class CC_EXPORT EaseInOutTimingFunction {
 public:
     static scoped_ptr<TimingFunction> create();
 };
 
 } // namespace cc
 
-#endif // CCTimingFunction_h
+#endif  // CC_TIMING_FUNCTION_H_

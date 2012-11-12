@@ -5,6 +5,9 @@
 #include "net/base/host_cache.h"
 
 #include "base/logging.h"
+#include "base/metrics/field_trial.h"
+#include "base/metrics/histogram.h"
+#include "base/string_number_conversions.h"
 #include "net/base/net_errors.h"
 
 namespace net {
@@ -80,15 +83,35 @@ const HostCache::EntryMap& HostCache::entries() const {
 
 // static
 scoped_ptr<HostCache> HostCache::CreateDefaultCache() {
-#if defined(OS_CHROMEOS)
-  // Increase HostCache size for the duration of the async DNS field trial.
-  // http://crbug.com/143454
-  // TODO(szym): Determine the best size. http://crbug.com/114277
-  static const size_t kMaxHostCacheEntries = 1000;
-#else
-  static const size_t kMaxHostCacheEntries = 100;
-#endif
-  return make_scoped_ptr(new HostCache(kMaxHostCacheEntries));
+  // Cache capacity is determined by the field trial.
+  const size_t kSaneMaxEntries = 1 << 20;
+  size_t max_entries = 0;
+  if (!base::StringToSizeT(base::FieldTrialList::FindFullName("HostCacheSize"),
+                           &max_entries) || max_entries > kSaneMaxEntries) {
+    max_entries = 100;
+  }
+  return make_scoped_ptr(new HostCache(max_entries));
+}
+
+void HostCache::EvictionHandler::Handle(
+    const Key& key,
+    const Entry& entry,
+    const base::TimeTicks& expiration,
+    const base::TimeTicks& now,
+    bool on_get) const {
+  if (on_get) {
+    DCHECK(now >= expiration);
+    UMA_HISTOGRAM_CUSTOM_TIMES("DNS.CacheExpiredOnGet", now - expiration,
+        base::TimeDelta::FromSeconds(1), base::TimeDelta::FromDays(1), 100);
+    return;
+  }
+  if (expiration > now) {
+    UMA_HISTOGRAM_CUSTOM_TIMES("DNS.CacheEvicted", expiration - now,
+        base::TimeDelta::FromSeconds(1), base::TimeDelta::FromDays(1), 100);
+  } else {
+    UMA_HISTOGRAM_CUSTOM_TIMES("DNS.CacheExpired", now - expiration,
+        base::TimeDelta::FromSeconds(1), base::TimeDelta::FromDays(1), 100);
+  }
 }
 
 }  // namespace net

@@ -9,7 +9,7 @@
 
 #include "ash/accelerators/focus_manager_factory.h"
 #include "ash/ash_switches.h"
-#include "ash/caps_lock_delegate_stub.h"
+#include "ash/caps_lock_delegate.h"
 #include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/desktop_background/desktop_background_resources.h"
 #include "ash/desktop_background/desktop_background_view.h"
@@ -27,6 +27,7 @@
 #include "ash/shell_factory.h"
 #include "ash/shell_window_ids.h"
 #include "ash/system/status_area_widget.h"
+#include "ash/system/tray/system_tray_delegate.h"
 #include "ash/tooltips/tooltip_controller.h"
 #include "ash/touch/touch_observer_hud.h"
 #include "ash/wm/activation_controller.h"
@@ -119,6 +120,13 @@ class DummyUserWallpaperDelegate : public UserWallpaperDelegate {
     return WINDOW_VISIBILITY_ANIMATION_TYPE_FADE;
   }
 
+  virtual bool ShouldShowInitialAnimation() OVERRIDE {
+    return false;
+  }
+
+  virtual void UpdateWallpaper() OVERRIDE {
+  }
+
   virtual void InitializeWallpaper() OVERRIDE {
     ash::Shell::GetInstance()->desktop_background_controller()->
         CreateEmptyWallpaper();
@@ -190,6 +198,7 @@ Shell::Shell(ShellDelegate* delegate)
 #endif  // defined(OS_CHROMEOS)
       browser_context_(NULL),
       simulate_modal_window_open_for_testing_(false) {
+  DCHECK(delegate_.get());
   ANNOTATE_LEAKING_OBJECT_PTR(screen_);  // see crbug.com/156466
   gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_ALTERNATE, screen_);
   if (!gfx::Screen::GetScreenByType(gfx::SCREEN_TYPE_NATIVE))
@@ -242,6 +251,9 @@ Shell::~Shell() {
   // container is now on top of launcher container and released after it.
   // TODO(xiyuan): Move it back when app list container is no longer needed.
   app_list_controller_.reset();
+
+  // Destroy SystemTrayDelegate before destroying the status area(s).
+  system_tray_delegate_.reset();
 
   // Destroy all child windows including widgets.
   display_controller_->CloseChildWindows();
@@ -355,9 +367,13 @@ const aura::Window* Shell::GetContainer(const aura::RootWindow* root_window,
 // static
 std::vector<aura::Window*> Shell::GetAllContainers(int container_id) {
   std::vector<aura::Window*> containers;
-  aura::Window* container = GetPrimaryRootWindow()->GetChildById(container_id);
-  if (container)
-    containers.push_back(container);
+  RootWindowList root_windows = GetAllRootWindows();
+  for (RootWindowList::const_iterator it = root_windows.begin();
+       it != root_windows.end(); ++it) {
+    aura::Window* container = (*it)->GetChildById(container_id);
+    if (container)
+      containers.push_back(container);
+  }
   return containers;
 }
 
@@ -423,7 +439,7 @@ void Shell::Init() {
       new internal::RootWindowController(root_window);
   root_window_controller->CreateContainers();
   root_window_controller->CreateSystemBackground(
-      delegate_.get() ? delegate_->IsFirstRunAfterBoot() : false);
+      delegate_->IsFirstRunAfterBoot());
 
   CommandLine* command_line = CommandLine::ForCurrentProcess();
 
@@ -441,8 +457,7 @@ void Shell::Init() {
   stacking_controller_.reset(new internal::StackingController);
   visibility_controller_.reset(new internal::VisibilityController);
   drag_drop_controller_.reset(new internal::DragDropController);
-  if (delegate_.get())
-    user_action_client_.reset(delegate_->CreateUserActionClient());
+  user_action_client_.reset(delegate_->CreateUserActionClient());
   window_modality_controller_.reset(new internal::WindowModalityController);
   AddEnvEventFilter(window_modality_controller_.get());
 
@@ -464,23 +479,28 @@ void Shell::Init() {
 
   // This controller needs to be set before SetupManagedWindowMode.
   desktop_background_controller_.reset(new DesktopBackgroundController());
-  if (delegate_.get())
-    user_wallpaper_delegate_.reset(delegate_->CreateUserWallpaperDelegate());
+  user_wallpaper_delegate_.reset(delegate_->CreateUserWallpaperDelegate());
   if (!user_wallpaper_delegate_.get())
     user_wallpaper_delegate_.reset(new DummyUserWallpaperDelegate());
 
   // StatusAreaWidget uses Shell's CapsLockDelegate.
-  if (delegate_.get())
-    caps_lock_delegate_.reset(delegate_->CreateCapsLockDelegate());
-  else
-    caps_lock_delegate_.reset(new CapsLockDelegateStub);
+  caps_lock_delegate_.reset(delegate_->CreateCapsLockDelegate());
 
   if (!command_line->HasSwitch(switches::kAuraNoShadows)) {
     resize_shadow_controller_.reset(new internal::ResizeShadowController());
     shadow_controller_.reset(new internal::ShadowController());
   }
 
+  // Initialize system_tray_delegate_ before initializing StatusAreaWidget.
+  system_tray_delegate_.reset(delegate()->CreateSystemTrayDelegate());
+  if (!system_tray_delegate_.get())
+    system_tray_delegate_.reset(SystemTrayDelegate::CreateDummyDelegate());
+
+  // Creates StatusAreaWidget.
   root_window_controller->InitForPrimaryDisplay();
+
+  // Initialize system_tray_delegate_ after StatusAreaWidget is created.
+  system_tray_delegate_->Initialize();
 
   display_controller_->InitSecondaryDisplays();
 
@@ -519,7 +539,7 @@ void Shell::RemoveEnvEventFilter(aura::EventFilter* filter) {
 
 void Shell::ShowContextMenu(const gfx::Point& location_in_screen) {
   // No context menus if user have not logged in.
-  if (!delegate_.get() || !delegate_->IsUserLoggedIn())
+  if (!delegate_->IsUserLoggedIn())
     return;
   // No context menus when screen is locked.
   if (IsScreenLocked())
@@ -546,17 +566,25 @@ aura::Window* Shell::GetAppListWindow() {
 }
 
 bool Shell::IsScreenLocked() const {
-  return !delegate_.get() || delegate_->IsScreenLocked();
+  return delegate_->IsScreenLocked();
 }
 
 bool Shell::IsModalWindowOpen() const {
   if (simulate_modal_window_open_for_testing_)
     return true;
-  // TODO(oshima): Walk though all root windows.
-  const aura::Window* modal_container = GetContainer(
-      GetPrimaryRootWindow(),
+  const std::vector<aura::Window*> containers = GetAllContainers(
       internal::kShellWindowId_SystemModalContainer);
-  return !modal_container->children().empty();
+  for (std::vector<aura::Window*>::const_iterator cit = containers.begin();
+       cit != containers.end(); ++cit) {
+    for (aura::Window::Windows::const_iterator wit = (*cit)->children().begin();
+         wit != (*cit)->children().end(); ++wit) {
+      if ((*wit)->GetProperty(aura::client::kModalKey) ==
+          ui::MODAL_TYPE_SYSTEM && (*wit)->TargetVisibility()) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 views::NonClientFrameView* Shell::CreateDefaultNonClientFrameView(
@@ -710,15 +738,6 @@ internal::StatusAreaWidget* Shell::status_area_widget() {
   return GetPrimaryRootWindowController()->status_area_widget();
 }
 
-SystemTrayDelegate* Shell::tray_delegate() {
-  // TODO(oshima): Decouple system tray and its delegate.
-  // We assume in throughout the code that this will not return NULL. If code
-  // triggers this for valid reasons, it should test status_area_widget first.
-  internal::StatusAreaWidget* status_area = status_area_widget();
-  CHECK(status_area);
-  return status_area->system_tray_delegate();
-}
-
 SystemTray* Shell::system_tray() {
   // We assume in throughout the code that this will not return NULL. If code
   // triggers this for valid reasons, it should test status_area_widget first.
@@ -732,6 +751,10 @@ void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
   internal::RootWindowController* controller =
       new internal::RootWindowController(root);
   controller->CreateContainers();
+  // Pass false for the |is_first_run_after_boot| parameter so we'll show a
+  // black background on this display instead of trying to mimic the boot splash
+  // screen.
+  controller->CreateSystemBackground(false);
   InitRootWindowController(controller);
   if (IsLauncherPerDisplayEnabled())
     controller->InitForPrimaryDisplay();

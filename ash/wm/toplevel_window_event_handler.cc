@@ -21,7 +21,7 @@
 #include "ui/aura/window_observer.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/base/events/event.h"
-#include "ui/base/events/event_functions.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/ui_base_types.h"
@@ -225,7 +225,8 @@ ui::EventResult ToplevelWindowEventHandler::OnGestureEvent(
         internal::SnapSizer sizer(target,
             gfx::Point(),
             event->details().velocity_x() < 0 ? internal::SnapSizer::LEFT_EDGE :
-            internal::SnapSizer::RIGHT_EDGE);
+            internal::SnapSizer::RIGHT_EDGE,
+            internal::SnapSizer::OTHER_INPUT);
 
         ui::ScopedLayerAnimationSettings scoped_setter(
             target->layer()->GetAnimator());
@@ -244,7 +245,7 @@ ui::EventResult ToplevelWindowEventHandler::OnGestureEvent(
 
 aura::client::WindowMoveResult ToplevelWindowEventHandler::RunMoveLoop(
     aura::Window* source,
-    const gfx::Point& drag_offset) {
+    const gfx::Vector2d& drag_offset) {
   DCHECK(!in_move_loop_);  // Can only handle one nested loop at a time.
   in_move_loop_ = true;
   move_cancelled_ = false;

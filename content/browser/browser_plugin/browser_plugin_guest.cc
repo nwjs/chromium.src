@@ -22,6 +22,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/resource_request_details.h"
 #include "content/public/browser/user_metrics.h"
+#include "content/public/browser/web_contents_view.h"
 #include "content/public/common/result_codes.h"
 #include "content/browser/browser_plugin/browser_plugin_host_factory.h"
 #include "net/base/net_errors.h"
@@ -39,11 +40,11 @@ namespace {
 const int kGuestHangTimeoutMs = 5000;
 }
 
-BrowserPluginGuest::BrowserPluginGuest(int instance_id,
-                                       WebContentsImpl* web_contents,
-                                       RenderViewHost* render_view_host,
-                                       bool focused,
-                                       bool visible)
+BrowserPluginGuest::BrowserPluginGuest(
+    int instance_id,
+    WebContentsImpl* web_contents,
+    RenderViewHost* render_view_host,
+    const BrowserPluginHostMsg_CreateGuest_Params& params)
     : WebContentsObserver(web_contents),
       embedder_web_contents_(NULL),
       instance_id_(instance_id),
@@ -54,8 +55,11 @@ BrowserPluginGuest::BrowserPluginGuest(int instance_id,
       pending_update_counter_(0),
       guest_hang_timeout_(
           base::TimeDelta::FromMilliseconds(kGuestHangTimeoutMs)),
-      focused_(focused),
-      visible_(visible) {
+      focused_(params.focused),
+      visible_(params.visible),
+      auto_size_(params.auto_size.enable),
+      max_auto_size_(params.auto_size.max_size),
+      min_auto_size_(params.auto_size.min_size) {
   DCHECK(web_contents);
   // |render_view_host| manages the ownership of this BrowserPluginGuestHelper.
   new BrowserPluginGuestHelper(this, render_view_host);
@@ -73,18 +77,16 @@ BrowserPluginGuest* BrowserPluginGuest::Create(
     int instance_id,
     WebContentsImpl* web_contents,
     content::RenderViewHost* render_view_host,
-    bool focused,
-    bool visible) {
+    const BrowserPluginHostMsg_CreateGuest_Params& params) {
   RecordAction(UserMetricsAction("BrowserPlugin.Guest.Create"));
   if (factory_) {
     return factory_->CreateBrowserPluginGuest(instance_id,
                                               web_contents,
                                               render_view_host,
-                                              focused,
-                                              visible);
+                                              params);
   }
   return new BrowserPluginGuest(
-      instance_id, web_contents, render_view_host, focused, visible);
+      instance_id, web_contents, render_view_host, params);
 }
 
 void BrowserPluginGuest::Observe(int type,
@@ -190,6 +192,23 @@ void BrowserPluginGuest::DragStatusUpdate(WebKit::WebDragStatus drag_status,
   }
 }
 
+void BrowserPluginGuest::SetAutoSize(
+    const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+    const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params) {
+  auto_size_ = auto_size_params.enable;
+  max_auto_size_ = auto_size_params.max_size;
+  min_auto_size_ = auto_size_params.min_size;
+  if (auto_size_) {
+    web_contents()->GetRenderViewHost()->EnableAutoResize(
+        min_auto_size_, max_auto_size_);
+  } else {
+    web_contents()->GetRenderViewHost()->DisableAutoResize(
+        gfx::Size(resize_guest_params.width, resize_guest_params.height));
+  }
+  // We call resize here to update the damage buffer.
+  Resize(embedder_web_contents_->GetRenderViewHost(), resize_guest_params);
+}
+
 void BrowserPluginGuest::UpdateDragCursor(WebKit::WebDragOperation operation) {
   RenderViewHostImpl* embedder_render_view_host =
       static_cast<RenderViewHostImpl*>(
@@ -212,6 +231,58 @@ void BrowserPluginGuest::Terminate() {
   base::KillProcess(process_handle, RESULT_CODE_KILLED, false);
 }
 
+void BrowserPluginGuest::Resize(
+    RenderViewHost* embedder_rvh,
+    const BrowserPluginHostMsg_ResizeGuest_Params& params) {
+  if (!TransportDIB::is_valid_id(params.damage_buffer_id)) {
+    // Invalid transport dib, so just resize the WebContents.
+    if (params.width && params.height) {
+      web_contents()->GetView()->SizeContents(gfx::Size(params.width,
+                                                        params.height));
+    }
+    return;
+  }
+  TransportDIB* damage_buffer =
+      GetDamageBufferFromEmbedder(embedder_rvh, params);
+  SetDamageBuffer(damage_buffer,
+#if defined(OS_WIN)
+                  params.damage_buffer_size,
+#endif
+                  gfx::Size(params.width, params.height),
+                  params.scale_factor);
+  if (!params.resize_pending) {
+    web_contents()->GetView()->SizeContents(gfx::Size(params.width,
+                                                      params.height));
+  }
+}
+
+TransportDIB* BrowserPluginGuest::GetDamageBufferFromEmbedder(
+    RenderViewHost* embedder_rvh,
+    const BrowserPluginHostMsg_ResizeGuest_Params& params) {
+  TransportDIB* damage_buffer = NULL;
+#if defined(OS_WIN)
+  // On Windows we need to duplicate the handle from the remote process.
+  HANDLE section;
+  DuplicateHandle(embedder_rvh->GetProcess()->GetHandle(),
+                  params.damage_buffer_id.handle,
+                  GetCurrentProcess(),
+                  &section,
+                  STANDARD_RIGHTS_REQUIRED | FILE_MAP_READ | FILE_MAP_WRITE,
+                  FALSE,
+                  0);
+  damage_buffer = TransportDIB::Map(section);
+#elif defined(OS_MACOSX)
+  // On OSX, we need the handle to map the transport dib.
+  damage_buffer = TransportDIB::Map(params.damage_buffer_handle);
+#elif defined(OS_ANDROID)
+  damage_buffer = TransportDIB::Map(params.damage_buffer_id);
+#elif defined(OS_POSIX)
+  damage_buffer = TransportDIB::Map(params.damage_buffer_id.shmkey);
+#endif  // defined(OS_POSIX)
+  DCHECK(damage_buffer);
+  return damage_buffer;
+}
+
 void BrowserPluginGuest::SetDamageBuffer(
     TransportDIB* damage_buffer,
 #if defined(OS_WIN)
@@ -230,6 +301,11 @@ void BrowserPluginGuest::SetDamageBuffer(
   damage_buffer_scale_factor_ = scale_factor;
 }
 
+bool BrowserPluginGuest::InAutoSizeBounds(const gfx::Size& size) const {
+  return size.width() <= max_auto_size_.width() &&
+      size.height() <= max_auto_size_.height();
+}
+
 void BrowserPluginGuest::UpdateRect(
     RenderViewHost* render_view_host,
     const ViewHostMsg_UpdateRect_Params& params) {
@@ -242,14 +318,16 @@ void BrowserPluginGuest::UpdateRect(
   if (!params.needs_ack)
     return;
 
-  // Only copy damage if the guest's view size is equal to the damage buffer's
-  // size and the guest's scale factor is equal to the damage buffer's scale
-  // factor.
+  // Only copy damage if the guest is in autosize mode and the guest's view size
+  // is less than the maximum size or the guest's view size is equal to the
+  // damage buffer's size and the guest's scale factor is equal to the damage
+  // buffer's scale factor.
   // The scaling change can happen due to asynchronous updates of the DPI on a
   // resolution change.
-  if (params.view_size.width() == damage_view_size().width() &&
-      params.view_size.height() == damage_view_size().height() &&
-      params.scale_factor == damage_buffer_scale_factor()) {
+  if (((auto_size_ && InAutoSizeBounds(params.view_size)) ||
+      (params.view_size.width() == damage_view_size().width() &&
+       params.view_size.height() == damage_view_size().height())) &&
+       params.scale_factor == damage_buffer_scale_factor()) {
     TransportDIB* dib = render_view_host->GetProcess()->
         GetTransportDIB(params.bitmap);
     if (dib) {
@@ -335,7 +413,7 @@ void BrowserPluginGuest::HandleInputEvent(RenderViewHost* render_view_host,
     // won't get sent to the guest. Reply immediately with handled = false so
     // embedder doesn't hang.
     BrowserPluginHostMsg_HandleInputEvent::WriteReplyParams(
-        reply_message, false /* handled */, cursor_);
+        reply_message, false /* handled */);
     SendMessageToEmbedder(reply_message);
     return;
   }
@@ -358,8 +436,7 @@ void BrowserPluginGuest::HandleInputEventAck(RenderViewHost* render_view_host,
   DCHECK(pending_input_event_reply_.get());
   IPC::Message* reply_message = pending_input_event_reply_.release();
   BrowserPluginHostMsg_HandleInputEvent::WriteReplyParams(reply_message,
-                                                          handled,
-                                                          cursor_);
+                                                          handled);
   SendMessageToEmbedder(reply_message);
 }
 
@@ -387,13 +464,13 @@ void BrowserPluginGuest::ShowWidget(RenderViewHost* render_view_host,
                                     int route_id,
                                     const gfx::Rect& initial_pos) {
   gfx::Rect screen_pos(initial_pos);
-  screen_pos.Offset(guest_rect_.origin());
+  screen_pos.Offset(guest_rect_.OffsetFromOrigin());
   static_cast<WebContentsImpl*>(web_contents())->ShowCreatedWidget(route_id,
                                                                    screen_pos);
 }
 
 void BrowserPluginGuest::SetCursor(const WebCursor& cursor) {
-  cursor_ = cursor;
+  SendMessageToEmbedder(new BrowserPluginMsg_SetCursor(instance_id(), cursor));
 }
 
 void BrowserPluginGuest::DidStartProvisionalLoadForFrame(
@@ -470,14 +547,19 @@ void BrowserPluginGuest::RenderViewReady() {
   bool embedder_visible =
       embedder_web_contents_->GetBrowserPluginEmbedder()->visible();
   SetVisibility(embedder_visible, visible());
+  if (auto_size_) {
+    web_contents()->GetRenderViewHost()->EnableAutoResize(
+        min_auto_size_, max_auto_size_);
+  } else {
+    web_contents()->GetRenderViewHost()->DisableAutoResize(damage_view_size_);
+  }
 }
 
 void BrowserPluginGuest::RenderViewGone(base::TerminationStatus status) {
   if (pending_input_event_reply_.get()) {
     IPC::Message* reply_message = pending_input_event_reply_.release();
     BrowserPluginHostMsg_HandleInputEvent::WriteReplyParams(reply_message,
-                                                            false,
-                                                            cursor_);
+                                                            false);
     SendMessageToEmbedder(reply_message);
   }
   int process_id = web_contents()->GetRenderProcessHost()->GetID();

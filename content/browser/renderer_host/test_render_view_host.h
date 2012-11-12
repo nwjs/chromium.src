@@ -88,7 +88,7 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
   virtual void WasShown() OVERRIDE {}
   virtual void WasHidden() OVERRIDE {}
   virtual void MovePluginWindows(
-      const gfx::Point& scroll_offset,
+      const gfx::Vector2d& scroll_offset,
       const std::vector<webkit::npapi::WebPluginGeometry>& moves) OVERRIDE {}
   virtual void Focus() OVERRIDE {}
   virtual void Blur() OVERRIDE {}
@@ -142,10 +142,13 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
       TransportDIB::Handle transport_dib) OVERRIDE;
 #elif defined(OS_ANDROID)
   virtual void StartContentIntent(const GURL&) OVERRIDE;
+  virtual void ShowDisambiguationPopup(
+      const gfx::Rect& target_rect,
+      const SkBitmap& zoomed_bitmap) OVERRIDE {}
   virtual void SetCachedBackgroundColor(SkColor color) OVERRIDE {}
   virtual void SetCachedPageScaleFactorLimits(float minimum_scale,
                                               float maximum_scale) OVERRIDE {}
-  virtual void UpdateFrameInfo(const gfx::Point& scroll_offset,
+  virtual void UpdateFrameInfo(const gfx::Vector2d& scroll_offset,
                                float page_scale_factor,
                                const gfx::Size& content_size) OVERRIDE {}
   virtual void HasTouchEventHandlers(bool need_touch_events) OVERRIDE {}
@@ -154,8 +157,8 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
 #endif
 #if defined(OS_POSIX) || defined(USE_AURA)
   virtual void GetScreenInfo(WebKit::WebScreenInfo* results) OVERRIDE {}
-  virtual gfx::Rect GetBoundsInRootWindow() OVERRIDE;
 #endif
+  virtual gfx::Rect GetBoundsInRootWindow() OVERRIDE;
   virtual void SetHasHorizontalScrollbar(
       bool has_horizontal_scrollbar) OVERRIDE { }
   virtual void SetScrollOffsetPinning(

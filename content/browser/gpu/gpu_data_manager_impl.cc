@@ -185,6 +185,10 @@ bool GpuDataManagerImpl::IsCompleteGpuInfoAvailable() const {
 }
 
 void GpuDataManagerImpl::UpdateGpuInfo(const GPUInfo& gpu_info) {
+  // No further update of gpu_info if falling back to software renderer.
+  if (software_rendering_)
+    return;
+
   GetContentClient()->SetGpuInfo(gpu_info);
 
   if (gpu_blacklist_.get()) {
@@ -346,8 +350,8 @@ void GpuDataManagerImpl::AppendRendererCommandLine(
     if (!command_line->HasSwitch(switches::kDisableExperimentalWebGL))
       command_line->AppendSwitch(switches::kDisableExperimentalWebGL);
 #endif
-    if (!command_line->HasSwitch(switches::kDisablePepper3dForUntrustedUse))
-      command_line->AppendSwitch(switches::kDisablePepper3dForUntrustedUse);
+    if (!command_line->HasSwitch(switches::kDisablePepper3d))
+      command_line->AppendSwitch(switches::kDisablePepper3d);
   }
   if ((flags & GPU_FEATURE_TYPE_MULTISAMPLING) &&
       !command_line->HasSwitch(switches::kDisableGLMultisampling))

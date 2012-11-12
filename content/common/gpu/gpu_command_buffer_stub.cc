@@ -47,6 +47,7 @@ class GpuCommandBufferMemoryTracker : public gpu::gles2::MemoryTracker {
   GpuCommandBufferMemoryTracker(GpuChannel* channel) {
     gpu_memory_manager_tracking_group_ = new GpuMemoryTrackingGroup(
         channel->renderer_pid(),
+        this,
         channel->gpu_channel_manager()->gpu_memory_manager());
   }
 
@@ -87,16 +88,6 @@ const int64 kHandleMoreWorkPeriodMs = 2;
 const int64 kHandleMoreWorkPeriodBusyMs = 1;
 
 }  // namespace
-
-GpuCommandBufferStub::MemoryManagerState::MemoryManagerState(
-    bool has_surface,
-    bool visible,
-    base::TimeTicks last_used_time)
-    : has_surface(has_surface),
-      visible(visible),
-      client_has_memory_allocation_changed_callback(false),
-      last_used_time(last_used_time) {
-}
 
 GpuCommandBufferStub::GpuCommandBufferStub(
     GpuChannel* channel,
@@ -142,8 +133,6 @@ GpuCommandBufferStub::GpuCommandBufferStub(
         new GpuCommandBufferMemoryTracker(channel),
         true);
   }
-  memory_manager_state_.reset(new GpuCommandBufferStubBase::MemoryManagerState(
-      surface_id != 0, true, base::TimeTicks::Now()));
   if (handle_.sync_point)
     OnWaitSyncPoint(handle_.sync_point);
 }
@@ -153,6 +142,10 @@ GpuCommandBufferStub::~GpuCommandBufferStub() {
 
   GpuChannelManager* gpu_channel_manager = channel_->gpu_channel_manager();
   gpu_channel_manager->Send(new GpuHostMsg_DestroyCommandBuffer(surface_id()));
+}
+
+GpuMemoryManager* GpuCommandBufferStub::GetMemoryManager() {
+    return channel()->gpu_channel_manager()->gpu_memory_manager();
 }
 
 bool GpuCommandBufferStub::OnMessageReceived(const IPC::Message& message) {
@@ -305,6 +298,8 @@ bool GpuCommandBufferStub::MakeCurrent() {
 }
 
 void GpuCommandBufferStub::Destroy() {
+  GetMemoryManager()->RemoveClient(this);
+
   while (!sync_points_.empty())
     OnRetireSyncPoint(sync_points_.front());
 
@@ -333,8 +328,6 @@ void GpuCommandBufferStub::Destroy() {
 
   context_ = NULL;
   surface_ = NULL;
-
-  channel_->gpu_channel_manager()->gpu_memory_manager()->ScheduleManage(false);
 }
 
 void GpuCommandBufferStub::OnInitializeFailed(IPC::Message* reply_message) {
@@ -471,8 +464,6 @@ void GpuCommandBufferStub::OnInitialize(
 
   GpuCommandBufferMsg_Initialize::WriteReplyParams(reply_message, true);
   Send(reply_message);
-
-  channel_->gpu_channel_manager()->gpu_memory_manager()->ScheduleManage(true);
 }
 
 void GpuCommandBufferStub::OnSetGetBuffer(
@@ -708,10 +699,8 @@ void GpuCommandBufferStub::OnDestroyVideoDecoder(int decoder_route_id) {
 
 void GpuCommandBufferStub::OnSetSurfaceVisible(bool visible) {
   TRACE_EVENT0("gpu", "GpuCommandBufferStub::OnSetSurfaceVisible");
-  memory_manager_state_->visible = visible;
-  memory_manager_state_->last_used_time = base::TimeTicks::Now();
-  channel_->gpu_channel_manager()->gpu_memory_manager()->
-      ScheduleManage(visible);
+  GetMemoryManager()->
+      SetClientVisible(this, visible);
 }
 
 void GpuCommandBufferStub::OnDiscardBackbuffer() {
@@ -779,7 +768,8 @@ void GpuCommandBufferStub::OnReceivedClientManagedMemoryStats(
   TRACE_EVENT0(
       "gpu",
       "GpuCommandBufferStub::OnReceivedClientManagedMemoryStats");
-  memory_manager_state_->managed_memory_stats = stats;
+  GetMemoryManager()->
+      SetClientManagedMemoryStats(this, stats);
 }
 
 void GpuCommandBufferStub::OnSetClientHasMemoryAllocationChangedCallback(
@@ -787,10 +777,16 @@ void GpuCommandBufferStub::OnSetClientHasMemoryAllocationChangedCallback(
   TRACE_EVENT0(
       "gpu",
       "GpuCommandBufferStub::OnSetClientHasMemoryAllocationChangedCallback");
-  memory_manager_state_->client_has_memory_allocation_changed_callback =
-      has_callback;
-  channel_->gpu_channel_manager()->gpu_memory_manager()->
-      ScheduleManage(false);
+  if (has_callback) {
+    GetMemoryManager()->AddClient(
+        this,
+        surface_id_ != 0,
+        true,
+        base::TimeTicks::Now());
+  } else {
+    GetMemoryManager()->RemoveClient(
+        this);
+  }
 }
 
 void GpuCommandBufferStub::SendConsoleMessage(
@@ -834,16 +830,10 @@ gfx::Size GpuCommandBufferStub::GetSurfaceSize() const {
   return surface_->GetSize();
 }
 
-bool GpuCommandBufferStub::IsInSameContextShareGroup(
-    const GpuCommandBufferStubBase& other) const {
-  return context_group_ ==
-      static_cast<const GpuCommandBufferStub&>(other).context_group_;
+gpu::gles2::MemoryTracker* GpuCommandBufferStub::GetMemoryTracker() const {
+  return context_group_->memory_tracker();
 }
 
-const GpuCommandBufferStubBase::MemoryManagerState&
-    GpuCommandBufferStub::memory_manager_state() const {
-  return *memory_manager_state_.get();
-}
 void GpuCommandBufferStub::SetMemoryAllocation(
     const GpuMemoryAllocation& allocation) {
   Send(new GpuCommandBufferMsg_SetMemoryAllocation(

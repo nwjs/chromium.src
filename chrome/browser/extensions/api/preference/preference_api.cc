@@ -253,20 +253,12 @@ PreferenceEventRouter::PreferenceEventRouter(Profile* profile)
 
 PreferenceEventRouter::~PreferenceEventRouter() { }
 
-void PreferenceEventRouter::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
-    const std::string* pref_key =
-        content::Details<const std::string>(details).ptr();
-    OnPrefChanged(content::Source<PrefService>(source).ptr(), *pref_key);
-  } else {
-    NOTREACHED();
-  }
+void PreferenceEventRouter::OnPreferenceChanged(PrefServiceBase* service,
+                                                const std::string& pref_name) {
+  OnPrefChanged(service, pref_name);
 }
 
-void PreferenceEventRouter::OnPrefChanged(PrefService* pref_service,
+void PreferenceEventRouter::OnPrefChanged(PrefServiceBase* pref_service,
                                           const std::string& browser_pref) {
   bool incognito = (pref_service != profile_->GetPrefs());
 
@@ -279,7 +271,7 @@ void PreferenceEventRouter::OnPrefChanged(PrefService* pref_service,
   ListValue args;
   DictionaryValue* dict = new DictionaryValue();
   args.Append(dict);
-  const PrefService::Preference* pref =
+  const PrefServiceBase::Preference* pref =
       pref_service->FindPreference(browser_pref.c_str());
   CHECK(pref);
   ExtensionService* extension_service = profile_->GetExtensionService();

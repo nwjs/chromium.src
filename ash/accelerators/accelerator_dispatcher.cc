@@ -22,6 +22,7 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/events/event.h"
 #include "ui/base/events/event_constants.h"
+#include "ui/base/events/event_utils.h"
 
 namespace ash {
 namespace {
@@ -76,7 +77,6 @@ bool AcceleratorDispatcher::Dispatch(const base::NativeEvent& event) {
     DCHECK(event_rewriter);
     if (event_rewriter->PreHandleKeyEvent(associated_window_, &key_event))
       return true;
-
     ash::AcceleratorController* accelerator_controller =
         ash::Shell::GetInstance()->accelerator_controller();
     if (accelerator_controller) {
@@ -84,6 +84,10 @@ bool AcceleratorDispatcher::Dispatch(const base::NativeEvent& event) {
                                   key_event.flags() & kModifierMask);
       if (key_event.type() == ui::ET_KEY_RELEASED)
         accelerator.set_type(ui::ET_KEY_RELEASED);
+      // Fill out context object so AcceleratorController will know what
+      // was the previous accelerator or if the current accelerator is repeated.
+      Shell::GetInstance()->accelerator_controller()->context()->
+          UpdateContext(accelerator);
       if (accelerator_controller->Process(accelerator))
         return true;
     }

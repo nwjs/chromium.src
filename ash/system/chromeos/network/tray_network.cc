@@ -114,8 +114,8 @@ class NetworkTrayView : public TrayItemView {
 
 class NetworkDefaultView : public TrayItemMore {
  public:
-  explicit NetworkDefaultView(SystemTrayItem* owner)
-      : TrayItemMore(owner) {
+  NetworkDefaultView(SystemTrayItem* owner, bool show_more)
+      : TrayItemMore(owner, show_more) {
     Update();
   }
 
@@ -379,7 +379,7 @@ class NetworkWifiDetailedView : public NetworkDetailedView {
     views::Label* label =
         new views::Label(bundle.GetLocalizedString(string_id));
     label->SetMultiLine(true);
-    label->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     AddChildView(label);
   }
 
@@ -413,14 +413,14 @@ class NetworkMessageView : public views::View,
 
     if (!network_msg.title.empty()) {
       views::Label* title = new views::Label(network_msg.title);
-      title->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+      title->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       title->SetFont(title->font().DeriveFont(0, gfx::Font::BOLD));
       AddChildView(title);
     }
 
     if (!network_msg.message.empty()) {
       views::Label* message = new views::Label(network_msg.message);
-      message->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+      message->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       message->SetMultiLine(true);
       message->SizeToFit(kTrayNotificationContentsWidth);
       AddChildView(message);
@@ -431,7 +431,7 @@ class NetworkMessageView : public views::View,
         views::Link* link = new views::Link(network_msg.links[i]);
         link->set_id(i);
         link->set_listener(this);
-        link->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+        link->SetHorizontalAlignment(gfx::ALIGN_LEFT);
         link->SetMultiLine(true);
         link->SizeToFit(kTrayNotificationContentsWidth);
         AddChildView(link);
@@ -525,7 +525,8 @@ views::View* TrayNetwork::CreateTrayView(user::LoginStatus status) {
 
 views::View* TrayNetwork::CreateDefaultView(user::LoginStatus status) {
   CHECK(default_ == NULL);
-  default_ = new tray::NetworkDefaultView(this);
+  default_ =
+      new tray::NetworkDefaultView(this, status != user::LOGGED_IN_LOCKED);
   return default_;
 }
 

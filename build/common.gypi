@@ -249,10 +249,11 @@
       # See https://sites.google.com/a/chromium.org/dev/developers/testing/addresssanitizer
       'asan%': 0,
 
-      # Enable building with TSAN (Clang's -fthread-sanitizer option).
-      # -fthread-sanitizer only works with clang, but tsan=1 implies clang=1
+      # Enable building with TSAN (Clang's -fsanitize=thread option).
+      # -fsanitize=thread only works with clang, but tsan=1 implies clang=1
       # See http://clang.llvm.org/docs/ThreadSanitizer.html
       'tsan%': 0,
+      'tsan_blacklist%': '<(PRODUCT_DIR)/../../tools/valgrind/tsan_v2/ignores.txt',
 
       # Use a modified version of Clang to intercept allocated types and sizes
       # for allocated objects. clang_type_profiler=1 implies clang=1.
@@ -286,6 +287,9 @@
       # Enable browser automation.
       'enable_automation%': 1,
 
+      # Enable language detection.
+      'enable_language_detection%': 1,
+
       # Enable printing support and UI.
       'enable_printing%': 1,
 
@@ -299,7 +303,7 @@
       # PPAPI by default does not support plugins making calls off the main
       # thread. Set to 1 to turn on experimental support for out-of-process
       # plugins to make call of the main thread.
-      'enable_pepper_threading%': 0,
+      'enable_pepper_threading%': 1,
 
       # Enables use of the session service, which is enabled by default.
       # Support for disabling depends on the platform.
@@ -459,6 +463,7 @@
 
         ['OS=="android"', {
           'enable_extensions%': 0,
+          'enable_language_detection%': 0,
           'enable_printing%': 0,
           'enable_themes%': 0,
           'enable_webrtc%': 0,
@@ -471,11 +476,14 @@
           'disable_ftp_support%': 1,
           'enable_automation%': 0,
           'enable_extensions%': 0,
+          'enable_language_detection%': 0,
           'enable_printing%': 0,
+          'enable_session_service%': 0,
           'enable_themes%': 0,
           'enable_webrtc%': 0,
           'notifications%': 0,
           'remoting%': 0,
+          'safe_browsing%': 0,
         }],
 
         # Use GPU accelerated cross process image transport by default
@@ -520,7 +528,7 @@
           'linux_use_gold_flags%': 0,
         }],
 
-        ['OS=="android"', {
+        ['OS=="android" or OS=="ios"', {
           'enable_captive_portal_detection%': 0,
         }, {
           'enable_captive_portal_detection%': 1,
@@ -632,6 +640,7 @@
     'clang_use_chrome_plugins%': '<(clang_use_chrome_plugins)',
     'asan%': '<(asan)',
     'tsan%': '<(tsan)',
+    'tsan_blacklist%': '<(tsan_blacklist)',
     'clang_type_profiler%': '<(clang_type_profiler)',
     'order_profiling%': '<(order_profiling)',
     'order_text_section%': '<(order_text_section)',
@@ -651,6 +660,7 @@
     'test_isolation_outdir%': '<(test_isolation_outdir)',
     'enable_automation%': '<(enable_automation)',
     'enable_printing%': '<(enable_printing)',
+    'enable_language_detection%': '<(enable_language_detection)',
     'enable_captive_portal_detection%': '<(enable_captive_portal_detection)',
     'disable_ftp_support%': '<(disable_ftp_support)',
     'enable_task_manager%': '<(enable_task_manager)',
@@ -664,6 +674,9 @@
     'google_api_key%': '<(google_api_key)',
     'google_default_client_id%': '<(google_default_client_id)',
     'google_default_client_secret%': '<(google_default_client_secret)',
+
+    # Use system protobuf instead of bundled one.
+    'use_system_protobuf%': 0,
 
     # Use system yasm instead of bundled one.
     'use_system_yasm%': 0,
@@ -792,6 +805,9 @@
 
     # Enable TCMalloc.
     'linux_use_tcmalloc%': 1,
+
+    # Disable TCMalloc's debugallocation.
+    'linux_use_debugallocation%': 0,
 
     # Disable TCMalloc's heapchecker.
     'linux_use_heapchecker%': 0,
@@ -956,6 +972,7 @@
       }],  # os_posix==1 and OS!="mac" and OS!="ios"
       ['OS=="ios"', {
         'disable_nacl%': 1,
+        'enable_background%': 0,
         'enable_gpu%': 0,
         'enable_task_manager%': 0,
         'icu_use_data_file_flag%': 1,
@@ -1605,35 +1622,57 @@
         'defines': ['ENABLE_HIDPI=1'],
       }],
       ['fastbuild!=0', {
-
+        # Clang creates chubby debug information, which makes linking very
+        # slow. For now, don't create debug information with clang.  See
+        # http://crbug.com/70000
         'conditions': [
-          # For Windows and Mac, we don't genererate debug information.
-          ['OS=="win" or OS=="mac"', {
-            'msvs_settings': {
-              'VCLinkerTool': {
-                'GenerateDebugInformation': 'false',
-              },
-              'VCCLCompilerTool': {
-                'DebugInformationFormat': '0',
-              }
-            },
-            'xcode_settings': {
-              'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
-            },
-          }, { # else: OS != "win", generate less debug information.
-            'variables': {
-              'debug_extra_cflags': '-g1',
-            },
-          }],
-          # Clang creates chubby debug information, which makes linking very
-          # slow. For now, don't create debug information with clang.  See
-          # http://crbug.com/70000
-          ['(OS=="linux" or OS=="android") and clang==1', {
-            'variables': {
-              'debug_extra_cflags': '-g0',
-            },
-          }],
-        ],  # conditions for fastbuild.
+          ['clang==1', {
+            'conditions': [
+              ['OS=="linux"', {
+                'variables': {
+                  'debug_extra_cflags': '-g0',
+                },
+              }],
+              # Android builds symbols on release by default, disable them.
+              ['OS=="android"', {
+                'variables': {
+                  'debug_extra_cflags': '-g0',
+                  'release_extra_cflags': '-g0',
+                },
+              }],
+            ],
+          }, { # else clang!=1
+            'conditions': [
+              # For Windows and Mac, we don't genererate debug information.
+              ['OS=="win"', {
+                'msvs_settings': {
+                  'VCLinkerTool': {
+                    'GenerateDebugInformation': 'false',
+                  },
+                  'VCCLCompilerTool': {
+                    'DebugInformationFormat': '0',
+                  },
+                },
+              }],
+              ['OS=="mac"', {
+                'xcode_settings': {
+                  'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
+                },
+              }],
+              ['OS=="linux"', {
+                'variables': {
+                  'debug_extra_cflags': '-g1',
+                },
+              }],
+              ['OS=="android"', {
+                'variables': {
+                  'debug_extra_cflags': '-g1',
+                  'release_extra_cflags': '-g1',
+                },
+              }],
+            ],
+          }], # clang!=1
+        ],
       }],  # fastbuild!=0
       ['dcheck_always_on!=0', {
         'defines': ['DCHECK_ALWAYS_ON=1'],
@@ -1772,6 +1811,9 @@
       ['enable_automation==1', {
         'defines': ['ENABLE_AUTOMATION=1'],
       }],
+      ['enable_language_detection==1', {
+        'defines': ['ENABLE_LANGUAGE_DETECTION=1'],
+      }],
       ['enable_printing==1', {
         'defines': ['ENABLE_PRINTING=1'],
       }],
@@ -1895,9 +1937,10 @@
            # Rules for excluding e.g. foo_win.cc from the build on non-Windows.
           'filename_rules.gypi',
         ],
-        # In Chromium code, we define __STDC_FORMAT_MACROS in order to get the
+        # In Chromium code, we define __STDC_foo_MACROS in order to get the
         # C99 macros on Mac and Linux.
         'defines': [
+          '__STDC_CONSTANT_MACROS',
           '__STDC_FORMAT_MACROS',
         ],
         'conditions': [
@@ -2119,7 +2162,7 @@
           ['msvs_use_common_release', {
             'includes': ['release.gypi'],
           }],
-          ['release_valgrind_build==0', {
+          ['release_valgrind_build==0 and tsan==0', {
             'defines': [
               'NVALGRIND',
               'DYNAMIC_ANNOTATIONS_ENABLED=0',
@@ -2133,7 +2176,7 @@
           ['win_use_allocator_shim==0', {
             'defines': ['NO_TCMALLOC'],
           }],
-          ['OS=="linux"', {
+          ['OS=="linux" or OS=="android"', {
             'target_conditions': [
               ['_toolset=="target"', {
                 'cflags': [
@@ -2531,21 +2574,11 @@
               # Warns on switches on enums that cover all enum values but
               # also contain a default: branch. Chrome is full of that.
               '-Wno-covered-switch-default',
-
-              # TODO(thakis): Remove this once http://crbug.com/151927 is fixed.
-              '-Wno-tautological-constant-out-of-range-compare',
             ],
             'cflags!': [
               # Clang doesn't seem to know know this flag.
               '-mfpmath=sse',
             ],
-          }],
-          ['OS=="android"', {
-            'cflags!': [
-              # Clang ARM does not support the following option.
-              # TODO: Add this flag back http://crbug.com/157195.
-              '-Wno-tautological-constant-out-of-range-compare',
-            ]
           }],
           ['clang==1 and clang_use_chrome_plugins==1', {
             'cflags': [
@@ -2574,6 +2607,8 @@
                 'cflags': [
                   '-faddress-sanitizer',
                   '-fno-omit-frame-pointer',
+                  # See http://crbug.com/159580
+                  '-w',
                 ],
                 'ldflags': [
                   '-faddress-sanitizer',
@@ -2588,16 +2623,18 @@
             'target_conditions': [
               ['_toolset=="target"', {
                 'cflags': [
-                  '-fthread-sanitizer',
+                  '-fsanitize=thread',
                   '-fno-omit-frame-pointer',
                   '-fPIE',
+                  '-mllvm', '-tsan-blacklist=<(tsan_blacklist)',
                 ],
                 'ldflags': [
-                  '-fthread-sanitizer',
+                  '-fsanitize=thread',
                 ],
                 'defines': [
                   'THREAD_SANITIZER',
                   'DYNAMIC_ANNOTATIONS_EXTERNAL_IMPL=1',
+                  'WTF_USE_DYNAMIC_ANNOTATIONS_NOIMPL=1',
                 ],
                 'target_conditions': [
                   ['_type=="executable"', {
@@ -2837,6 +2874,15 @@
                   }],
                 ],
               }],
+              ['asan==1', {
+                'cflags': [
+                  # Android build relies on -Wl,--gc-sections removing
+                  # unreachable code. ASan instrumentation for globals inhibits
+                  # this and results in a library with unresolvable relocations.
+                  # TODO(eugenis): find a way to reenable this.
+                  '-mllvm -asan-globals=0',
+                ],
+              }],
               ['android_build_type==0', {
                 'defines': [
                   # The NDK has these things, but doesn't define the constants
@@ -2958,6 +3004,16 @@
                   # Do not add any libraries after this!
                   '<(android_ndk_lib)/crtend_android.o',
                 ],
+                'conditions': [
+                  ['asan==1', {
+                    'cflags': [
+                      '-fPIE',
+                    ],
+                    'ldflags': [
+                      '-pie',
+                    ],
+                  }],
+                ],
               }],
               ['_type=="shared_library" or _type=="loadable_module"', {
                 'ldflags': [
@@ -2980,6 +3036,8 @@
               # binaries on x86_64 host is problematic.
               # TODO(eugenis): re-enable.
               '-faddress-sanitizer',
+              # See http://crbug.com/159580
+              '-w',
             ],
             'ldflags!': [
               '-faddress-sanitizer',
@@ -3064,9 +3122,6 @@
                 # Warns on switches on enums that cover all enum values but
                 # also contain a default: branch. Chrome is full of that.
                 '-Wno-covered-switch-default',
-
-                # TODO(thakis): Remove this once http://crbug.com/151927 is fixed.
-                '-Wno-tautological-constant-out-of-range-compare',
               ],
             }],
             ['clang==1 and clang_use_chrome_plugins==1', {
@@ -3102,6 +3157,8 @@
             'xcode_settings': {
               'OTHER_CFLAGS': [
                 '-faddress-sanitizer',
+                # See http://crbug.com/159580
+                '-w',
               ],
             },
             'defines': [
@@ -3304,6 +3361,12 @@
                 'xcode_settings': {
                   'DEPLOYMENT_POSTPROCESSING': 'YES',
                   'STRIP_INSTALLED_PRODUCT': 'YES',
+                },
+              },
+              'Debug_Base': {
+                'xcode_settings': {
+                  # Remove dSYM to reduce build time.
+                  'DEBUG_INFORMATION_FORMAT': 'dwarf',
                 },
               },
             },
@@ -3677,8 +3740,9 @@
         ],
       }],
       ['OS=="ios"', {
-        # Just build armv7 since iOS 4.3+ only supports armv7.
         'ARCHS': '$(ARCHS_UNIVERSAL_IPHONE_OS)',
+        # Just build armv7, until armv7s is correctly tested.
+        'VALID_ARCHS': 'armv7 i386',
         'IPHONEOS_DEPLOYMENT_TARGET': '<(ios_deployment_target)',
         # Target both iPhone and iPad.
         'TARGETED_DEVICE_FAMILY': '1,2',

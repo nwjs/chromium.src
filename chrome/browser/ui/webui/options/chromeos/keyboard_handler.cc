@@ -4,8 +4,11 @@
 
 #include "chrome/browser/ui/webui/options/chromeos/keyboard_handler.h"
 
+#include "base/command_line.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/input_method/xkeyboard.h"
+#include "chrome/common/chrome_switches.h"
+#include "content/public/browser/web_ui.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -30,6 +33,7 @@ const char* kDataValuesNames[] = {
   "remapSearchKeyToValue",
   "remapControlKeyToValue",
   "remapAltKeyToValue",
+  "remapCapsLockKeyToValue",
 };
 }  // namespace
 
@@ -56,6 +60,9 @@ void KeyboardHandler::GetLocalizedValues(DictionaryValue* localized_strings) {
   localized_strings->SetString("remapAltKeyToContent",
       l10n_util::GetStringUTF16(
           IDS_OPTIONS_SETTINGS_LANGUAGES_KEY_LEFT_ALT_LABEL));
+  localized_strings->SetString("remapCapsLockKeyToContent",
+      l10n_util::GetStringUTF16(
+          IDS_OPTIONS_SETTINGS_LANGUAGES_KEY_CAPS_LOCK_LABEL));
 
   for (size_t i = 0; i < arraysize(kDataValuesNames); ++i) {
     ListValue* list_value = new ListValue();
@@ -65,6 +72,7 @@ void KeyboardHandler::GetLocalizedValues(DictionaryValue* localized_strings) {
       const int message_id = kModifierKeysSelectItems[j].message_id;
       // Only the seach key can be remapped to the caps lock key.
       if (kDataValuesNames[i] != std::string("remapSearchKeyToValue") &&
+          kDataValuesNames[i] != std::string("remapCapsLockKeyToValue") &&
           value == input_method::kCapsLockKey) {
         continue;
       }
@@ -76,6 +84,15 @@ void KeyboardHandler::GetLocalizedValues(DictionaryValue* localized_strings) {
     }
     localized_strings->Set(kDataValuesNames[i], list_value);
   }
+}
+
+void KeyboardHandler::InitializePage() {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kHasChromeOSKeyboard))
+    return;
+  const base::FundamentalValue show_options(true);
+  web_ui()->CallJavascriptFunction(
+      "options.KeyboardOverlay.showCapsLockOptions", show_options);
 }
 
 }  // namespace options

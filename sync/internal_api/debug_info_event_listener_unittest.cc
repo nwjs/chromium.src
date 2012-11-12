@@ -17,17 +17,21 @@ TEST_F(DebugInfoEventListenerTest, VerifyEventsAdded) {
   ASSERT_EQ(debug_info_event_listener.events_.size(), 1U);
   const sync_pb::DebugEventInfo& debug_info =
       debug_info_event_listener.events_.back();
-  ASSERT_TRUE(debug_info.has_type());
-  ASSERT_EQ(debug_info.type(), sync_pb::DebugEventInfo::ENCRYPTION_COMPLETE);
+  ASSERT_TRUE(debug_info.has_singleton_event());
+  ASSERT_EQ(debug_info.singleton_event(),
+            sync_pb::DebugEventInfo::ENCRYPTION_COMPLETE);
 }
 
 TEST_F(DebugInfoEventListenerTest, VerifyQueueSize) {
   DebugInfoEventListener debug_info_event_listener;
-  for (int i = 0; i < 10; ++i) {
+  for (unsigned int i = 0; i < 2*kMaxEntries; ++i) {
     debug_info_event_listener.CreateAndAddEvent(
         sync_pb::DebugEventInfo::ENCRYPTION_COMPLETE);
   }
-  ASSERT_EQ(debug_info_event_listener.events_.size(), kMaxEntries);
+  sync_pb::DebugInfo debug_info;
+  debug_info_event_listener.GetAndClearDebugInfo(&debug_info);
+  ASSERT_TRUE(debug_info.events_dropped());
+  ASSERT_EQ(static_cast<int>(kMaxEntries), debug_info.events_size());
 }
 
 TEST_F(DebugInfoEventListenerTest, VerifyGetAndClearEvents) {
@@ -39,9 +43,9 @@ TEST_F(DebugInfoEventListenerTest, VerifyGetAndClearEvents) {
   debug_info_event_listener.GetAndClearDebugInfo(&debug_info);
   ASSERT_EQ(debug_info_event_listener.events_.size(), 0U);
   ASSERT_EQ(debug_info.events_size(), 1);
-  ASSERT_TRUE(debug_info.events(0).has_type());
-  ASSERT_EQ(debug_info.events(0).type(),
-      sync_pb::DebugEventInfo::ENCRYPTION_COMPLETE);
+  ASSERT_TRUE(debug_info.events(0).has_singleton_event());
+  ASSERT_EQ(debug_info.events(0).singleton_event(),
+            sync_pb::DebugEventInfo::ENCRYPTION_COMPLETE);
 }
 
 }  // namespace syncer

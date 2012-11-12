@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCActiveAnimation_h
-#define CCActiveAnimation_h
+#ifndef CC_ACTIVE_ANIMATION_H_
+#define CC_ACTIVE_ANIMATION_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 
 namespace cc {
 
@@ -15,7 +16,7 @@ class AnimationCurve;
 // An ActiveAnimation, contains all the state required to play an AnimationCurve.
 // Specifically, the affected property, the run state (paused, finished, etc.),
 // loop count, last pause time, and the total time spent paused.
-class ActiveAnimation {
+class CC_EXPORT ActiveAnimation {
 public:
     // Animations begin in one of the 'waiting' states. Animations waiting for the next tick
     // will start the next time the controller animates. Animations waiting for target
@@ -158,4 +159,4 @@ private:
 
 } // namespace cc
 
-#endif // CCActiveAnimation_h
+#endif  // CC_ACTIVE_ANIMATION_H_

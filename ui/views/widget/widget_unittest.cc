@@ -5,10 +5,12 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
+#include "base/utf_string_conversions.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/point.h"
 #include "ui/views/bubble/bubble_delegate.h"
+#include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/test/test_views_delegate.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/views_delegate.h"
@@ -125,9 +127,8 @@ class GestureCaptureView : public View {
 
  private:
   // Overridden from View:
-  virtual ui::EventResult OnGestureEvent(
-      const ui::GestureEvent& event) OVERRIDE {
-    if (event.type() == ui::ET_GESTURE_BEGIN) {
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
+    if (event->type() == ui::ET_GESTURE_BEGIN) {
       GetWidget()->SetCapture(this);
       return ui::ER_CONSUMED;
     }
@@ -951,7 +952,7 @@ TEST_F(WidgetTest, ResetCaptureOnGestureEnd) {
   ui::GestureEvent end(ui::ET_GESTURE_END,
       15, 15, 0, base::TimeDelta(),
       ui::GestureEventDetails(ui::ET_GESTURE_END, 0, 0), 1);
-  toplevel->OnGestureEvent(begin);
+  toplevel->OnGestureEvent(&begin);
 
   // Now try to click on |mouse|. Since |gesture| will have capture, |mouse|
   // will not receive the event.
@@ -967,7 +968,7 @@ TEST_F(WidgetTest, ResetCaptureOnGestureEnd) {
 
   // The end of the gesture should release the capture, and pressing on |mouse|
   // should now reach |mouse|.
-  toplevel->OnGestureEvent(end);
+  toplevel->OnGestureEvent(&end);
   toplevel->OnMouseEvent(press);
   toplevel->OnMouseEvent(release);
   EXPECT_EQ(1, mouse->pressed());
@@ -975,6 +976,31 @@ TEST_F(WidgetTest, ResetCaptureOnGestureEnd) {
   toplevel->Close();
   RunPendingMessages();
 }
+
+#if defined(USE_AURA)
+// The key-event propagation from Widget happens differently on aura and
+// non-aura systems because of the difference in IME. So this test works only on
+// aura.
+TEST_F(WidgetTest, KeyboardInputEvent) {
+  Widget* toplevel = CreateTopLevelPlatformWidget();
+  View* container = new View;
+  toplevel->SetContentsView(container);
+
+  Textfield* textfield = new Textfield();
+  textfield->SetText(ASCIIToUTF16("some text"));
+  container->AddChildView(textfield);
+  toplevel->Show();
+  textfield->RequestFocus();
+
+  // The press gets handled. The release doesn't have an effect.
+  ui::KeyEvent backspace_p(ui::ET_KEY_PRESSED, ui::VKEY_DELETE, 0, false);
+  EXPECT_TRUE(toplevel->OnKeyEvent(backspace_p));
+  ui::KeyEvent backspace_r(ui::ET_KEY_RELEASED, ui::VKEY_DELETE, 0, false);
+  EXPECT_FALSE(toplevel->OnKeyEvent(backspace_r));
+
+  toplevel->Close();
+}
+#endif  // defined(USE_AURA)
 
 }  // namespace
 }  // namespace views

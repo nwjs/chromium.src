@@ -12,11 +12,11 @@ import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.InterceptedRequestData;
 import org.chromium.android_webview.test.util.CommonResources;
 import org.chromium.android_webview.test.util.JSUtils;
-import org.chromium.android_webview.test.util.TestWebServer;
 import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.test.util.CallbackHelper;
 import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnPageFinishedHelper;
 import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnPageStartedHelper;
+import org.chromium.net.test.util.TestWebServer;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -132,7 +132,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testCalledWithCorrectUrl() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -158,7 +158,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testOnLoadResourceCalledWithCorrectUrl() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -178,7 +178,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testDoesNotCrashOnInvalidData() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -238,7 +238,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testDoesNotCrashOnEmptyStream() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -267,7 +267,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testCanInterceptMainFrame() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -291,7 +291,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testDoesNotChangeReportedUrl() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -313,7 +313,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
 
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testCalledForImage() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -339,7 +339,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testCalledForIframe() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -361,7 +361,7 @@ public class AwContentsClientShouldInterceptRequestTest extends AndroidWebViewTe
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testCalledForUnsupportedSchemes() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =

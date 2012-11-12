@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCTimeSource_h
-#define CCTimeSource_h
+#ifndef CC_TIME_SOURCE_H_
+#define CC_TIME_SOURCE_H_
 
 #include "base/memory/ref_counted.h"
 #include "base/time.h"
+#include "cc/cc_export.h"
 
 namespace cc {
 
@@ -25,7 +26,7 @@ protected:
 //
 // Be sure to call setActive(false) before releasing your reference to the
 // timer, or it will keep on ticking!
-class TimeSource : public base::RefCounted<TimeSource> {
+class CC_EXPORT TimeSource : public base::RefCounted<TimeSource> {
 public:
     virtual void setClient(TimeSourceClient*) = 0;
     virtual void setActive(bool) = 0;
@@ -42,4 +43,4 @@ private:
 };
 
 }
-#endif  // CCTimeSource_h
+#endif  // CC_TIME_SOURCE_H_

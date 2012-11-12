@@ -92,7 +92,6 @@ PPB_URLLoader_API* PPB_URLLoader_Impl::AsPPB_URLLoader_API() {
 }
 
 void PPB_URLLoader_Impl::InstanceWasDeleted() {
-  Resource::InstanceWasDeleted();
   loader_.reset();
 }
 
@@ -374,6 +373,9 @@ void PPB_URLLoader_Impl::didFail(WebURLLoader* loader,
     // TODO(bbudge): Extend pp_errors.h to cover interesting network errors
     // from the net error domain.
     switch (error.reason) {
+      case net::ERR_ABORTED:
+        pp_error = PP_ERROR_ABORTED;
+        break;
       case net::ERR_ACCESS_DENIED:
       case net::ERR_NETWORK_ACCESS_DENIED:
         pp_error = PP_ERROR_NOACCESS;
@@ -445,7 +447,7 @@ void PPB_URLLoader_Impl::RunCallback(int32_t result) {
   // callbacks get called in an unexpected order.
   user_buffer_ = NULL;
   user_buffer_size_ = 0;
-  TrackedCallback::ClearAndRun(&pending_callback_, result);
+  pending_callback_->Run(result);
 }
 
 size_t PPB_URLLoader_Impl::FillUserBuffer() {

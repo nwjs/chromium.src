@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scoped_thread_proxy.h"
 
 #include "base/bind.h"
@@ -43,4 +41,4 @@ void ScopedThreadProxy::runTaskIfNotShutdown(base::Closure cb)
     cb.Run();
 }
 
-}
+}  // namespace cc

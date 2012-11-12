@@ -7,6 +7,14 @@
 namespace ash {
 namespace switches {
 
+// Enables an animated transition from the boot splash screen (Chrome logo on a
+// white background) to the login screen.  Implies
+// |kAshCopyHostBackgroundAtBoot| and doesn't make much sense if used in
+// conjunction with |kDisableBootAnimation| (since the transition begins at the
+// same time as the white/grayscale login screen animation).
+const char kAshAnimateFromBootSplashScreen[] =
+    "ash-animate-from-boot-splash-screen";
+
 // Variation of boot animation that uses Tween::EASE_OUT_2.
 const char kAshBootAnimationFunction2[] = "ash-boot-animation-function2";
 
@@ -38,6 +46,11 @@ const char kAshDisablePanelFitting[] = "ash-disable-panel-fitting";
 // Enable advanced gestures (e.g. for window management).
 const char kAshEnableAdvancedGestures[] = "ash-enable-advanced-gestures";
 
+#if defined(OS_LINUX)
+// Enable memory monitoring.
+const char kAshEnableMemoryMonitor[] = "ash-enable-memory-monitor";
+#endif
+
 // Enables the Oak tree viewer.
 const char kAshEnableOak[] = "ash-enable-oak";
 
@@ -49,6 +62,9 @@ const char kAshLauncherPerDisplay[] = "ash-launcher-per-display";
 
 // If present new lock animations are enabled.
 const char kAshNewLockAnimationsEnabled[] = "ash-new-lock-animations-enabled";
+
+// If present animations for lock screen are reversed.
+const char kAshReverseNewLockAnimations[] = "ash-reverse-new-lock-animations";
 
 // Specifies the layout mode and offsets for the secondary display for
 // testing. The format is "<t|r|b|l>,<offset>" where t=TOP, r=RIGHT,

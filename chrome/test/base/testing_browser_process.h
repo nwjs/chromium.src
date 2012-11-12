@@ -88,7 +88,6 @@ class TestingBrowserProcess : public BrowserProcess {
   virtual void SetApplicationLocale(const std::string& app_locale) OVERRIDE;
   virtual DownloadStatusUpdater* download_status_updater() OVERRIDE;
   virtual DownloadRequestLimiter* download_request_limiter() OVERRIDE;
-  virtual bool plugin_finder_disabled() const OVERRIDE;
 
 #if (defined(OS_WIN) || defined(OS_LINUX)) && !defined(OS_CHROMEOS)
   virtual void StartAutoupdateTimer() OVERRIDE {}
@@ -98,6 +97,7 @@ class TestingBrowserProcess : public BrowserProcess {
   virtual prerender::PrerenderTracker* prerender_tracker() OVERRIDE;
   virtual ComponentUpdateService* component_updater() OVERRIDE;
   virtual CRLSetFetcher* crl_set_fetcher() OVERRIDE;
+  virtual BookmarkPromptController* bookmark_prompt_controller() OVERRIDE;
 
   // Set the local state for tests. Consumer is responsible for cleaning it up
   // afterwards (using ScopedTestingLocalState, for example).
@@ -106,6 +106,7 @@ class TestingBrowserProcess : public BrowserProcess {
   void SetIOThread(IOThread* io_thread);
   void SetBrowserPolicyConnector(policy::BrowserPolicyConnector* connector);
   void SetSafeBrowsingService(SafeBrowsingService* sb_service);
+  void SetBookmarkPromptController(BookmarkPromptController* controller);
 
  private:
   scoped_ptr<content::NotificationService> notification_service_;
@@ -128,6 +129,7 @@ class TestingBrowserProcess : public BrowserProcess {
   scoped_ptr<RenderWidgetSnapshotTaker> render_widget_snapshot_taker_;
   IOThread* io_thread_;
   scoped_refptr<SafeBrowsingService> sb_service_;
+  scoped_ptr<BookmarkPromptController> bookmark_prompt_controller_;
 
   DISALLOW_COPY_AND_ASSIGN(TestingBrowserProcess);
 };

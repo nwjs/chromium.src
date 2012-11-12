@@ -97,20 +97,9 @@ bool FakeBaseTabStripController::IsCompatibleWith(TabStrip* other) const {
 void FakeBaseTabStripController::CreateNewTab() {
 }
 
-void FakeBaseTabStripController::ClickActiveTab(int index) {
-}
-
 bool FakeBaseTabStripController::IsIncognito() {
   return false;
 }
 
 void FakeBaseTabStripController::LayoutTypeMaybeChanged() {
-}
-
-bool FakeBaseTabStripController::IsInstantExtendedAPIEnabled() {
-  return false;
-}
-
-bool FakeBaseTabStripController::ShouldShowWhiteNTP() {
-  return false;
 }

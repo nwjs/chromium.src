@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scheduler.h"
 
 #include "base/logging.h"
@@ -11,9 +9,9 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using namespace cc;
 using namespace WebKitTests;
 
+namespace cc {
 namespace {
 
 class FakeSchedulerClient : public SchedulerClient {
@@ -467,4 +465,5 @@ TEST(SchedulerTest, NoBeginFrameWhenSwapFailsDuringForcedCommit)
     EXPECT_EQ(0, controllerPtr->numFramesPending());
 }
 
-}
+}  // namespace
+}  // namespace cc

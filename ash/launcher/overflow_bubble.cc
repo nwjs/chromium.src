@@ -8,6 +8,7 @@
 
 #include "ash/launcher/launcher_types.h"
 #include "ash/launcher/launcher_view.h"
+#include "ash/system/tray/system_tray.h"
 #include "ash/shell.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/screen.h"
@@ -77,14 +78,16 @@ class OverflowBubbleView : public views::BubbleDelegateView {
   virtual void Layout() OVERRIDE;
   virtual void ChildPreferredSizeChanged(views::View* child) OVERRIDE;
   virtual bool OnMouseWheel(const ui::MouseWheelEvent& event) OVERRIDE;
-  virtual bool OnScrollEvent(const ui::ScrollEvent& event) OVERRIDE;
+
+  // ui::EventHandler overrides:
+  virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
 
   // views::BubbleDelegate overrides:
   virtual gfx::Rect GetBubbleBounds() OVERRIDE;
 
   ShelfAlignment shelf_alignment_;
   LauncherView* launcher_view_;  // Owned by views hierarchy.
-  gfx::Point scroll_offset_;
+  gfx::Vector2d scroll_offset_;
 
   DISALLOW_COPY_AND_ASSIGN(OverflowBubbleView);
 };
@@ -166,8 +169,8 @@ gfx::Size OverflowBubbleView::GetPreferredSize() {
 }
 
 void OverflowBubbleView::Layout() {
-  const gfx::Point origin(-scroll_offset_.x(), -scroll_offset_.y());
-  launcher_view_->SetBoundsRect(gfx::Rect(origin, GetContentsSize()));
+  launcher_view_->SetBoundsRect(gfx::Rect(
+      gfx::PointAtOffsetFromOrigin(-scroll_offset_), GetContentsSize()));
 }
 
 void OverflowBubbleView::ChildPreferredSizeChanged(views::View* child) {
@@ -189,11 +192,11 @@ bool OverflowBubbleView::OnMouseWheel(const ui::MouseWheelEvent& event) {
   return true;
 }
 
-bool OverflowBubbleView::OnScrollEvent(const ui::ScrollEvent& event) {
-  ScrollByXOffset(-event.x_offset());
-  ScrollByYOffset(-event.y_offset());
+ui::EventResult OverflowBubbleView::OnScrollEvent(ui::ScrollEvent* event) {
+  ScrollByXOffset(-event->x_offset());
+  ScrollByYOffset(-event->y_offset());
   Layout();
-  return true;
+  return ui::ER_HANDLED;
 }
 
 gfx::Rect OverflowBubbleView::GetBubbleBounds() {
@@ -267,6 +270,8 @@ void OverflowBubble::Show(LauncherDelegate* delegate,
                                   overflow_start_index);
 
   bubble_ = bubble_view;
+  ash::Shell::GetInstance()->system_tray()->InitializeBubbleAnimations(
+      bubble_->GetWidget());
   bubble_->GetWidget()->AddObserver(this);
   bubble_->GetWidget()->Show();
 }

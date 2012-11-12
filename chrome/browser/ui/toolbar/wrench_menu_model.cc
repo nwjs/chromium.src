@@ -213,12 +213,14 @@ void ToolsMenuModel::Build(Browser* browser) {
 // WrenchMenuModel
 
 WrenchMenuModel::WrenchMenuModel(ui::AcceleratorProvider* provider,
-                                 Browser* browser)
+                                 Browser* browser,
+                                 bool is_new_menu,
+                                 bool supports_new_separators)
     : ALLOW_THIS_IN_INITIALIZER_LIST(ui::SimpleMenuModel(this)),
       provider_(provider),
       browser_(browser),
       tab_strip_model_(browser_->tab_strip_model()) {
-  Build();
+  Build(is_new_menu, supports_new_separators);
   UpdateZoomControls();
 
   tab_strip_model_->AddObserver(this);
@@ -271,7 +273,7 @@ string16 WrenchMenuModel::GetLabelForCommandId(int command_id) const {
       MetroPinTabHelper* tab_helper =
           web_contents ? MetroPinTabHelper::FromWebContents(web_contents)
                        : NULL;
-      if (tab_helper && tab_helper->is_pinned())
+      if (tab_helper && tab_helper->IsPinned())
         string_id = IDS_UNPIN_FROM_START_SCREEN;
       return l10n_util::GetStringUTF16(string_id);
     }
@@ -461,14 +463,7 @@ WrenchMenuModel::WrenchMenuModel()
       tab_strip_model_(NULL) {
 }
 
-void WrenchMenuModel::Build() {
-  // TODO(skuhne): Remove special casing when only the new menu style is left.
-#if defined(USE_AURA)
-  bool is_new_menu = true;
-#else
-  bool is_new_menu = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
-#endif
-
+void WrenchMenuModel::Build(bool is_new_menu, bool supports_new_separators) {
 #if defined(USE_AURA)
   if (is_new_menu)
     AddSeparator(ui::SPACING_SEPARATOR);
@@ -623,10 +618,8 @@ void WrenchMenuModel::Build() {
     AddItemWithStringId(IDC_EXIT, IDS_EXIT);
   }
 
-#if defined(USE_AURA)
-  if (is_new_menu)
+  if (is_new_menu && supports_new_separators)
     AddSeparator(ui::SPACING_SEPARATOR);
-#endif
 }
 
 void WrenchMenuModel::AddGlobalErrorMenuItems() {

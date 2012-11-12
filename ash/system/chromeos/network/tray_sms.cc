@@ -52,7 +52,7 @@ namespace internal {
 class TraySms::SmsDefaultView : public TrayItemMore {
  public:
   explicit SmsDefaultView(TraySms* tray)
-      : TrayItemMore(tray),
+      : TrayItemMore(tray, true),
         tray_(tray) {
     SetImage(ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
         IDR_AURA_UBER_TRAY_SMS));
@@ -94,12 +94,12 @@ class TraySms::SmsMessageView : public views::View,
     number_label_ = new views::Label(
         l10n_util::GetStringFUTF16(IDS_ASH_STATUS_TRAY_SMS_NUMBER,
                                    UTF8ToUTF16(number)));
-    number_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    number_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     number_label_->SetFont(
         number_label_->font().DeriveFont(0, gfx::Font::BOLD));
 
     message_label_ = new views::Label(UTF8ToUTF16(message));
-    message_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+    message_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     message_label_->SetMultiLine(true);
 
     if (view_type == VIEW_DETAILED)

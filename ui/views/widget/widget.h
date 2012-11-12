@@ -45,9 +45,9 @@ namespace ui {
 class Accelerator;
 class Compositor;
 class Layer;
+class NativeTheme;
 class OSExchangeData;
 class ThemeProvider;
-enum TouchStatus;
 }
 
 namespace views {
@@ -331,7 +331,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // the move completes. |drag_offset| is the offset from the top left corner
   // of the window to the point where the cursor is dragging, and is used to
   // offset the bounds of the window from the cursor.
-  MoveLoopResult RunMoveLoop(const gfx::Point& drag_offset);
+  MoveLoopResult RunMoveLoop(const gfx::Vector2d& drag_offset);
 
   // Stops a previously started move loop. This is not immediate.
   void EndMoveLoop();
@@ -432,6 +432,12 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Returns the ThemeProvider that provides theme resources for this Widget.
   virtual ui::ThemeProvider* GetThemeProvider() const;
 
+  ui::NativeTheme* GetNativeTheme() {
+    return const_cast<ui::NativeTheme*>(
+        const_cast<const Widget*>(this)->GetNativeTheme());
+  }
+  const ui::NativeTheme* GetNativeTheme() const;
+
   // Returns the FocusManager for this widget.
   // Note that all widgets in a widget hierarchy share the same focus manager.
   FocusManager* GetFocusManager();
@@ -450,7 +456,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void RunShellDrag(View* view,
                     const ui::OSExchangeData& data,
                     const gfx::Point& location,
-                    int operation);
+                    int operation,
+                    ui::DragDropTypes::DragEventSource source);
 
   // Returns the view that requested the current drag operation via
   // RunShellDrag(), or NULL if there is no such view or drag operation.
@@ -649,9 +656,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   virtual bool OnKeyEvent(const ui::KeyEvent& event) OVERRIDE;
   virtual bool OnMouseEvent(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual ui::TouchStatus OnTouchEvent(const ui::TouchEvent& event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(
-      const ui::GestureEvent& event) OVERRIDE;
+  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
   virtual bool ExecuteCommand(int command_id) OVERRIDE;
   virtual InputMethod* GetInputMethodDirect() OVERRIDE;
   virtual const std::vector<ui::Layer*>& GetRootLayers() OVERRIDE;

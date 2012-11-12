@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "managed_memory_policy.h"
 
 #include "priority_calculator.h"
@@ -42,4 +40,4 @@ bool ManagedMemoryPolicy::operator!=(const ManagedMemoryPolicy& other) const
     return !(*this == other);
 }
 
-} // namespace cc
+}  // namespace cc

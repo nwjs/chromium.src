@@ -99,8 +99,7 @@ class HistoryServiceMock : public HistoryService {
   virtual ~HistoryServiceMock() {}
 };
 
-scoped_refptr<RefcountedProfileKeyedService> BuildHistoryService(
-    Profile* profile) {
+ProfileKeyedService* BuildHistoryService(Profile* profile) {
   return new HistoryServiceMock(profile);
 }
 
@@ -175,7 +174,7 @@ class ProfileSyncServiceTypedUrlTest : public AbstractProfileSyncServiceTest {
     history_backend_ = new HistoryBackendMock();
     history_service_ = static_cast<HistoryServiceMock*>(
         HistoryServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-            &profile_, BuildHistoryService).get());
+            &profile_, BuildHistoryService));
     EXPECT_CALL((*history_service_), ScheduleDBTask(_, _))
         .WillRepeatedly(RunTaskOnDBThread(&history_thread_,
                                           history_backend_.get()));
@@ -221,7 +220,7 @@ class ProfileSyncServiceTypedUrlTest : public AbstractProfileSyncServiceTest {
                                               data_type_controller,
                                               &error_handler_,
                                               &model_associator));
-      EXPECT_CALL(*factory, CreateDataTypeManager(_, _, _)).
+      EXPECT_CALL(*factory, CreateDataTypeManager(_, _, _, _)).
           WillOnce(ReturnNewDataTypeManager());
 
       token_service_->IssueAuthTokenForTest(
@@ -995,6 +994,58 @@ TEST_F(ProfileSyncServiceTypedUrlTest, IgnoreLocalFileURL) {
 
   // We should ignore the local file urls (existing and updated),
   // and only be left with the updated http url.
+  ASSERT_EQ(1U, new_sync_entries.size());
+  EXPECT_TRUE(URLsEqual(updated_url_entry, new_sync_entries[0]));
+}
+
+TEST_F(ProfileSyncServiceTypedUrlTest, IgnoreLocalhostURL) {
+  history::VisitVector original_visits;
+  // Create http and localhost url.
+  history::URLRow url_entry(MakeTypedUrlEntry("http://yey.com",
+                                              "yey", 12, 15, false,
+                                              &original_visits));
+  history::URLRow localhost_entry(MakeTypedUrlEntry("http://localhost",
+                                              "localhost", 12, 15, false,
+                                              &original_visits));
+
+  history::URLRows original_entries;
+  original_entries.push_back(url_entry);
+  original_entries.push_back(localhost_entry);
+
+  EXPECT_CALL((*history_backend_.get()), GetAllTypedURLs(_)).
+      WillRepeatedly(DoAll(SetArgumentPointee<0>(original_entries),
+                     Return(true)));
+  EXPECT_CALL((*history_backend_.get()), GetMostRecentVisitsForURL(_, _, _)).
+      WillRepeatedly(DoAll(SetArgumentPointee<2>(original_visits),
+                     Return(true)));
+  CreateRootHelper create_root(this, syncer::TYPED_URLS);
+  StartSyncService(create_root.callback());
+
+  history::VisitVector updated_visits;
+  // Update the previous entries and add a new localhost.
+  history::URLRow updated_url_entry(MakeTypedUrlEntry("http://yey.com",
+                                                  "yey", 20, 15, false,
+                                                  &updated_visits));
+  history::URLRow updated_localhost_entry(MakeTypedUrlEntry(
+                                                  "http://localhost:80",
+                                                  "localhost", 20, 15, false,
+                                                  &original_visits));
+  history::URLRow localhost_ip_entry(MakeTypedUrlEntry("http://127.0.0.1",
+                                                  "localhost", 12, 15, false,
+                                                  &original_visits));
+  history::URLsModifiedDetails details;
+  details.changed_urls.push_back(updated_url_entry);
+  details.changed_urls.push_back(updated_localhost_entry);
+  details.changed_urls.push_back(localhost_ip_entry);
+  scoped_refptr<ThreadNotifier> notifier(new ThreadNotifier(&history_thread_));
+  notifier->Notify(chrome::NOTIFICATION_HISTORY_URLS_MODIFIED,
+                   content::Source<Profile>(&profile_),
+                   content::Details<history::URLsModifiedDetails>(&details));
+
+  history::URLRows new_sync_entries;
+  GetTypedUrlsFromSyncDB(&new_sync_entries);
+
+  // We should ignore the localhost urls and left only with http url.
   ASSERT_EQ(1U, new_sync_entries.size());
   EXPECT_TRUE(URLsEqual(updated_url_entry, new_sync_entries[0]));
 }

@@ -46,6 +46,15 @@ const int kWindowContainerIds[] = {
     kShellWindowId_StatusContainer,
 };
 
+bool BelongsToContainerWithEqualOrGreaterId(const aura::Window* window,
+                                            int container_id) {
+  for (; window; window = window->parent()) {
+    if (window->id() >= container_id)
+      return true;
+  }
+  return false;
+}
+
 // Returns true if children of |window| can be activated.
 // These are the only containers in which windows can receive focus.
 bool SupportsChildActivation(aura::Window* window) {
@@ -88,7 +97,8 @@ bool VisibilityMatches(aura::Window* window, ActivateVisibilityType type) {
       window->TargetVisibility();
   return visible || wm::IsWindowMinimized(window) ||
       (window->TargetVisibility() &&
-       window->parent()->id() == kShellWindowId_WorkspaceContainer);
+        (window->parent()->id() == kShellWindowId_WorkspaceContainer ||
+         window->parent()->id() == kShellWindowId_LockScreenContainer));
 }
 
 // Returns true if |window| can be activated or deactivated.
@@ -101,7 +111,10 @@ bool CanActivateWindowWithEvent(aura::Window* window,
       VisibilityMatches(window, visibility_type) &&
       (!aura::client::GetActivationDelegate(window) ||
         aura::client::GetActivationDelegate(window)->ShouldActivate(event)) &&
-      SupportsChildActivation(window->parent());
+      SupportsChildActivation(window->parent()) &&
+      (BelongsToContainerWithEqualOrGreaterId(
+          window, kShellWindowId_SystemModalContainer) ||
+       !Shell::GetInstance()->IsModalWindowOpen());
 }
 
 // When a modal window is activated, we bring its entire transient parent chain
@@ -357,7 +370,7 @@ aura::Window* ActivationController::GetTopmostWindowToActivate(
 aura::Window* ActivationController::GetTopmostWindowToActivateInContainer(
     aura::Window* container,
     aura::Window* ignore) const {
-  // Workspace2 has an extra level of windows that needs to be special cased.
+  // Workspace has an extra level of windows that needs to be special cased.
   if (container->id() == kShellWindowId_DefaultContainer) {
     for (aura::Window::Windows::const_reverse_iterator i =
              container->children().rbegin();

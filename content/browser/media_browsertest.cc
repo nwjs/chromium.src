@@ -34,14 +34,6 @@ class MediaTest : public testing::WithParamInterface<bool>,
     ASSERT_NO_FATAL_FAILURE(PlayMedia("video", media_file, http));
   }
 
- protected:
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    // TODO(dalecurtis): Not all Buildbots have viable audio devices, so disable
-    // audio to prevent tests from hanging; e.g., a device which is hardware
-    // muted.  See http://crbug.com/120749
-    command_line->AppendSwitch(switches::kDisableAudio);
-  }
-
  private:
   GURL GetTestURL(const char* tag, const char* media_file, bool http) {
     if (http) {
@@ -148,16 +140,9 @@ IN_PROC_BROWSER_TEST_P(MediaTest, VideoBearWavPcm) {
   PlayAudio("bear_pcm.wav", GetParam());
 }
 
-#if defined(OS_MACOSX)
-// TODO(dalecurtis): Flaky on Mac 10.6.  http://crbug.com/142896
-IN_PROC_BROWSER_TEST_P(MediaTest, FLAKY_VideoTulipWebm) {
-  PlayVideo("tulip2.webm", GetParam());
-}
-#else
 IN_PROC_BROWSER_TEST_P(MediaTest, VideoTulipWebm) {
   PlayVideo("tulip2.webm", GetParam());
 }
-#endif
 
 INSTANTIATE_TEST_CASE_P(File, MediaTest, ::testing::Values(false));
 INSTANTIATE_TEST_CASE_P(Http, MediaTest, ::testing::Values(true));
@@ -168,14 +153,6 @@ class MediaLayoutTest : public InProcessBrowserLayoutTest {
       FilePath(), FilePath().AppendASCII("media")) {
   }
   virtual ~MediaLayoutTest() {}
-
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    InProcessBrowserLayoutTest::SetUpCommandLine(command_line);
-    // TODO(dalecurtis): Not all Buildbots have viable audio devices, so disable
-    // audio to prevent tests from hanging; e.g., a device which is hardware
-    // muted.  See http://crbug.com/120749
-    command_line->AppendSwitch(switches::kDisableAudio);
-  }
 };
 
 // Each browser test can only correspond to a single layout test, otherwise the

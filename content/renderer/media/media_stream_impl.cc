@@ -214,9 +214,9 @@ bool MediaStreamImpl::CheckMediaStream(const GURL& url) {
     return false;  // This is not a valid stream.
 
   webrtc::MediaStreamInterface* stream = GetNativeMediaStream(descriptor);
-  if (stream && stream->video_tracks() && stream->video_tracks()->count() > 0)
-    return true;
-  return false;
+  return stream &&
+         ((stream->video_tracks() && stream->video_tracks()->count() > 0) ||
+          (stream->audio_tracks() && stream->audio_tracks()->count() > 0));
 }
 
 scoped_refptr<webkit_media::VideoFrameProvider>
@@ -495,11 +495,13 @@ void MediaStreamImpl::FrameWillClose(WebKit::WebFrame* frame) {
       // If the request is generated, it means that the MediaStreamDispatcher
       // has generated a stream for us and we need to let the
       // MediaStreamDispatcher know that the stream is no longer wanted.
-      // If not, we just delete the request object and handle
-      // the MediaStreamDispatcher event in OnStreamGenerated.
+      // If not, we cancel the request and delete the request object.
       if ((*request_it)->generated) {
         media_stream_dispatcher_->StopStream(
             UTF16ToUTF8((*request_it)->descriptor.label()));
+      } else {
+        media_stream_dispatcher_->CancelGenerateStream(
+            (*request_it)->request_id);
       }
       request_it = user_media_requests_.erase(request_it);
     } else {

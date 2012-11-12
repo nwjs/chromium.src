@@ -94,7 +94,7 @@ class SyncSchedulerTest : public testing::Test {
    public:
     MockDelayProvider() : BackoffDelayProvider(
         TimeDelta::FromSeconds(kInitialBackoffRetrySeconds),
-        TimeDelta::FromSeconds(kInitialBackoffShortRetrySeconds)) {
+        TimeDelta::FromSeconds(kInitialBackoffImmediateRetrySeconds)) {
     }
 
     MOCK_METHOD1(GetDelay, TimeDelta(const TimeDelta&));
@@ -1159,6 +1159,36 @@ TEST_F(SyncSchedulerTest, ServerConnectionChangeDuringBackoff) {
   connection()->UpdateConnectionStatus();
   scheduler()->OnConnectionStatusChange();
   MessageLoop::current()->RunAllPending();
+}
+
+TEST_F(SyncSchedulerTest, ConnectionChangeCanaryPreemptedByNudge) {
+  UseMockDelayProvider();
+  EXPECT_CALL(*delay(), GetDelay(_))
+      .WillRepeatedly(Return(TimeDelta::FromMilliseconds(0)));
+
+  StartSyncScheduler(SyncScheduler::NORMAL_MODE);
+  connection()->SetServerNotReachable();
+  connection()->UpdateConnectionStatus();
+
+  EXPECT_CALL(*syncer(), SyncShare(_,_,_))
+    .WillOnce(DoAll(Invoke(sessions::test_util::SimulateConnectionFailure),
+                    Return(true)))
+    .WillOnce(DoAll(Invoke(sessions::test_util::SimulateSuccess),
+                    QuitLoopNowAction()));
+
+  scheduler()->ScheduleNudgeAsync(
+      zero(), NUDGE_SOURCE_LOCAL, ModelTypeSet(BOOKMARKS), FROM_HERE);
+
+  PumpLoop();  // Run the nudge, that will fail and schedule a quick retry.
+  ASSERT_TRUE(scheduler()->IsBackingOff());
+
+  // Before we run the scheduled canary, trigger a server connection change.
+  connection()->SetServerReachable();
+  connection()->UpdateConnectionStatus();
+  scheduler()->OnConnectionStatusChange();
+  scheduler()->ScheduleNudgeAsync(
+      zero(), NUDGE_SOURCE_LOCAL, ModelTypeSet(BOOKMARKS), FROM_HERE);
+  MessageLoop::current()->RunUntilIdle();
 }
 
 }  // namespace syncer

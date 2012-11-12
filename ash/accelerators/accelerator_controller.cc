@@ -29,6 +29,7 @@
 #include "ash/shell_window_ids.h"
 #include "ash/system/brightness/brightness_control_delegate.h"
 #include "ash/system/keyboard_brightness/keyboard_brightness_control_delegate.h"
+#include "ash/system/status_area_widget.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_delegate.h"
 #include "ash/volume_control_delegate.h"
@@ -133,37 +134,6 @@ void HandleSwapPrimaryDisplay() {
 }
 
 #endif  // defined(OS_CHROMEOS)
-
-bool HandleExit() {
-  ShellDelegate* delegate = Shell::GetInstance()->delegate();
-  if (!delegate)
-    return false;
-  delegate->Exit();
-  return true;
-}
-
-bool HandleNewTab() {
-  Shell::GetInstance()->delegate()->NewTab();
-  return true;
-}
-
-bool HandleNewWindow(bool is_incognito) {
-  ShellDelegate* delegate = Shell::GetInstance()->delegate();
-  if (!delegate)
-    return false;
-  delegate->NewWindow(is_incognito);
-  return true;
-}
-
-bool HandleRestoreTab() {
-  Shell::GetInstance()->delegate()->RestoreTab();
-  return true;
-}
-
-bool HandleShowTaskManager() {
-  Shell::GetInstance()->delegate()->ShowTaskManager();
-  return true;
-}
 
 bool HandleRotatePaneFocus(Shell::Direction direction) {
   if (!Shell::GetInstance()->delegate()->RotatePaneFocus(direction)) {
@@ -338,15 +308,24 @@ bool HandlePrintWindowHierarchy() {
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
+// AcceleratorControllerContext, public:
+
+AcceleratorControllerContext::AcceleratorControllerContext() {
+  current_accelerator_.set_type(ui::ET_UNKNOWN);
+  previous_accelerator_.set_type(ui::ET_UNKNOWN);
+}
+
+void AcceleratorControllerContext::UpdateContext(
+    const ui::Accelerator& accelerator) {
+  previous_accelerator_ = current_accelerator_;
+  current_accelerator_ = accelerator;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // AcceleratorController, public:
 
 AcceleratorController::AcceleratorController()
-    : accelerator_manager_(new ui::AcceleratorManager),
-      toggle_maximized_suppressed_(false),
-      cycle_backward_linear_suppressed_(false),
-      cycle_forward_linear_suppressed_(false),
-      cycle_backward_mru_suppressed_(false),
-      cycle_forward_mru_suppressed_(false) {
+    : accelerator_manager_(new ui::AcceleratorManager) {
   Init();
 }
 
@@ -366,6 +345,8 @@ void AcceleratorController::Init() {
     actions_allowed_at_modal_window_.insert(kActionsAllowedAtModalWindow[i]);
   for (size_t i = 0; i < kReservedActionsLength; ++i)
     reserved_actions_.insert(kReservedActions[i]);
+  for (size_t i = 0; i < kNonrepeatableActionsLength; ++i)
+    nonrepeatable_actions_.insert(kNonrepeatableActions[i]);
 
   RegisterAccelerators(kAcceleratorData, kAcceleratorDataLength);
 
@@ -425,7 +406,7 @@ bool AcceleratorController::PerformAction(int action,
   ash::Shell* shell = ash::Shell::GetInstance();
   bool at_login_screen = false;
 #if defined(OS_CHROMEOS)
-  at_login_screen = shell->delegate() && !shell->delegate()->IsSessionStarted();
+  at_login_screen = !shell->delegate()->IsSessionStarted();
 #endif
   if (at_login_screen &&
       actions_allowed_at_login_screen_.find(action) ==
@@ -447,62 +428,44 @@ bool AcceleratorController::PerformAction(int action,
     return true;
   }
   const ui::KeyboardCode key_code = accelerator.key_code();
+  // PerformAction() is performed from gesture controllers and passes
+  // empty Accelerator() instance as the second argument. Such events
+  // should never be suspended.
+  const bool gesture_event = key_code == ui::VKEY_UNKNOWN;
 
-  const ui::AcceleratorManagerContext& context =
-      accelerator_manager_->GetContext();
-  const ui::EventType last_event_type = context.GetLastEventType();
+  // Ignore accelerators invoked as repeated (while holding a key for a long
+  // time, if their handling is nonrepeatable.
+  if (nonrepeatable_actions_.find(action) != nonrepeatable_actions_.end() &&
+      context_.repeated() && !gesture_event) {
+    return true;
+  }
+  // Type of the previous accelerator. Used by NEXT_IME and DISABLE_CAPS_LOCK.
+  const ui::EventType previous_event_type =
+    context_.previous_accelerator().type();
 
   // You *MUST* return true when some action is performed. Otherwise, this
   // function might be called *twice*, via BrowserView::PreHandleKeyboardEvent
   // and BrowserView::HandleKeyboardEvent, for a single accelerator press.
   switch (action) {
-    case CYCLE_BACKWARD_MRU_PRESSED:
-      if (cycle_backward_mru_suppressed_)
-        return true;
-      // Temporarily disable the feature until crbug.com/158213 is fixed.
-      // TODO(mtomasz): Reenable the feature.
-      // cycle_backward_mru_suppressed_ = true;
+    case CYCLE_BACKWARD_MRU:
       if (key_code == ui::VKEY_TAB && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_PREVWINDOW_TAB);
       return HandleCycleWindowMRU(WindowCycleController::BACKWARD,
                                   accelerator.IsAltDown());
-    case CYCLE_BACKWARD_MRU_RELEASED:
-      cycle_backward_mru_suppressed_ = false;
-      return true;
-    case CYCLE_FORWARD_MRU_PRESSED:
-      if (cycle_forward_mru_suppressed_)
-        return true;
-      // Temporarily disable the feature until crbug.com/158213 is fixed.
-      // TODO(mtomasz): Reenable the feature.
-      // cycle_forward_mru_suppressed_ = true;
+    case CYCLE_FORWARD_MRU:
       if (key_code == ui::VKEY_TAB && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEXTWINDOW_TAB);
       return HandleCycleWindowMRU(WindowCycleController::FORWARD,
                                   accelerator.IsAltDown());
-    case CYCLE_FORWARD_MRU_RELEASED:
-      cycle_forward_mru_suppressed_ = false;
-      return true;
-    case CYCLE_BACKWARD_LINEAR_PRESSED:
-      if (cycle_backward_linear_suppressed_)
-        return true;
-      cycle_backward_linear_suppressed_ = true;
+    case CYCLE_BACKWARD_LINEAR:
       if (key_code == ui::VKEY_F5 && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_PREVWINDOW_F5);
       HandleCycleWindowLinear(CYCLE_BACKWARD);
       return true;
-    case CYCLE_BACKWARD_LINEAR_RELEASED:
-      cycle_backward_linear_suppressed_ = false;
-      return true;
-    case CYCLE_FORWARD_LINEAR_PRESSED:
-      if (cycle_forward_linear_suppressed_)
-        return true;
-      cycle_forward_linear_suppressed_ = true;
+    case CYCLE_FORWARD_LINEAR:
       if (key_code == ui::VKEY_F5 && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEXTWINDOW_F5);
       HandleCycleWindowLinear(CYCLE_FORWARD);
-      return true;
-    case CYCLE_FORWARD_LINEAR_RELEASED:
-      cycle_forward_linear_suppressed_ = false;
       return true;
 #if defined(OS_CHROMEOS)
     case CYCLE_DISPLAY_MODE:
@@ -530,17 +493,22 @@ bool AcceleratorController::PerformAction(int action,
       ash::Shell::GetInstance()->delegate()->OpenFeedbackPage();
       return true;
     case EXIT:
-      return HandleExit();
+      Shell::GetInstance()->delegate()->Exit();
+      return true;
     case NEW_INCOGNITO_WINDOW:
-      return HandleNewWindow(true /* is_incognito */);
+      Shell::GetInstance()->delegate()->NewWindow(true /* is_incognito */);
+      return true;
     case NEW_TAB:
       if (key_code == ui::VKEY_T && shell->delegate())
         shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEWTAB_T);
-      return HandleNewTab();
+      Shell::GetInstance()->delegate()->NewTab();
+      return true;
     case NEW_WINDOW:
-      return HandleNewWindow(false /* is_incognito */);
+      Shell::GetInstance()->delegate()->NewWindow(false /* is_incognito */);
+      return true;
     case RESTORE_TAB:
-      return HandleRestoreTab();
+      Shell::GetInstance()->delegate()->RestoreTab();
+      return true;
     case TAKE_SCREENSHOT:
       if (screenshot_delegate_.get() &&
           screenshot_delegate_->CanTakeScreenshot()) {
@@ -569,7 +537,7 @@ bool AcceleratorController::PerformAction(int action,
       return true;
     case DISABLE_CAPS_LOCK:
       // See: case NEXT_IME.
-      if (last_event_type == ui::ET_KEY_RELEASED) {
+      if (previous_event_type == ui::ET_KEY_RELEASED) {
         // We totally ignore this accelerator.
         return false;
       }
@@ -619,11 +587,15 @@ bool AcceleratorController::PerformAction(int action,
       return HandleRotatePaneFocus(Shell::FORWARD);
     case FOCUS_PREVIOUS_PANE:
       return HandleRotatePaneFocus(Shell::BACKWARD);
-    case FOCUS_SYSTEM_TRAY:
-      if (shell->system_tray())
+    case FOCUS_SYSTEM_TRAY: {
+      internal::StatusAreaWidget* status_area =
+          ash::Shell::GetInstance()->status_area_widget();
+      if (status_area) {
         return shell->focus_cycler()->FocusWidget(
-            shell->system_tray()->GetWidget());
+            status_area->system_tray()->GetWidget());
+      }
       break;
+    }
     case SHOW_KEYBOARD_OVERLAY:
       ash::Shell::GetInstance()->delegate()->ShowKeyboardOverlay();
       return true;
@@ -635,14 +607,24 @@ bool AcceleratorController::PerformAction(int action,
       }
       break;
     case SHOW_TASK_MANAGER:
-      return HandleShowTaskManager();
+      Shell::GetInstance()->delegate()->ShowTaskManager();
+      return true;
     case NEXT_IME:
       // This check is necessary e.g. not to process the Shift+Alt+
       // ET_KEY_RELEASED accelerator for Chrome OS (see ash/accelerators/
       // accelerator_controller.cc) when Shift+Alt+Tab is pressed and then Tab
       // is released.
-      if (last_event_type == ui::ET_KEY_RELEASED) {
+      if (previous_event_type == ui::ET_KEY_RELEASED &&
+          // Workaround for crbug.com/139556. CJK IME users tend to press
+          // Enter (or Space) and Shift+Alt almost at the same time to commit
+          // an IME string and then switch from the IME to the English layout.
+          // This workaround allows the user to trigger NEXT_IME even if the
+          // user presses Shift+Alt before releasing Enter.
+          // TODO(nona|mazda): Fix crbug.com/139556 in a cleaner way.
+          context_.previous_accelerator().key_code() != ui::VKEY_RETURN &&
+          context_.previous_accelerator().key_code() != ui::VKEY_SPACE) {
         // We totally ignore this accelerator.
+        // TODO(mazda): Fix crbug.com/158217
         return false;
       }
       if (ime_control_delegate_.get())
@@ -697,7 +679,8 @@ bool AcceleratorController::PerformAction(int action,
       internal::SnapSizer sizer(window,
           gfx::Point(),
           action == WINDOW_SNAP_LEFT ? internal::SnapSizer::LEFT_EDGE :
-                                       internal::SnapSizer::RIGHT_EDGE);
+                                       internal::SnapSizer::RIGHT_EDGE,
+          internal::SnapSizer::OTHER_INPUT);
       if (wm::IsWindowFullscreen(window) ||
           wm::IsWindowMaximized(window)) {
         // Before we can set the bounds we need to restore the window.
@@ -730,21 +713,12 @@ bool AcceleratorController::PerformAction(int action,
       }
       break;
     }
-    case TOGGLE_MAXIMIZED_PRESSED: {
-      // We do not want to toggle maximization on the acceleration key
-      // repeating.
-      if (toggle_maximized_suppressed_)
-        return true;
-      toggle_maximized_suppressed_ = true;
+    case TOGGLE_MAXIMIZED: {
       if (key_code == ui::VKEY_F4 && shell->delegate()) {
         shell->delegate()->RecordUserMetricsAction(
             UMA_ACCEL_MAXIMIZE_RESTORE_F4);
       }
       shell->delegate()->ToggleMaximized();
-      return true;
-    }
-    case TOGGLE_MAXIMIZED_RELEASED: {
-      toggle_maximized_suppressed_ = false;
       return true;
     }
     case WINDOW_POSITION_CENTER: {

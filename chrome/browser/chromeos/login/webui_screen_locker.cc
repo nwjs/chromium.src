@@ -102,6 +102,14 @@ void WebUIScreenLocker::ShowErrorMessage(
                   help_topic_id);
 }
 
+void WebUIScreenLocker::AnimateAuthenticationSuccess() {
+  GetWebUI()->CallJavascriptFunction("cr.ui.Oobe.animateAuthenticationSuccess");
+}
+
+void WebUIScreenLocker::ProcessFullyDisplayedAnimations() {
+  GetWebUI()->CallJavascriptFunction("cr.ui.Oobe.animateOnceFullyDisplayed");
+}
+
 void WebUIScreenLocker::ClearErrors() {
   GetWebUI()->CallJavascriptFunction("cr.ui.Oobe.clearErrors");
 }

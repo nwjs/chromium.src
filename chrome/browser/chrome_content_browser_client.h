@@ -43,15 +43,18 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::WebContents* web_contents,
       content::RenderViewHostDelegateView** render_view_host_delegate_view)
           OVERRIDE;
-  virtual std::string GetStoragePartitionIdForChildProcess(
-      content::BrowserContext* browser_context,
-      int child_process_id) OVERRIDE;
   virtual std::string GetStoragePartitionIdForSite(
       content::BrowserContext* browser_context,
       const GURL& site) OVERRIDE;
   virtual bool IsValidStoragePartitionId(
       content::BrowserContext* browser_context,
       const std::string& partition_id) OVERRIDE;
+  virtual void GetStoragePartitionConfigForSite(
+      content::BrowserContext* browser_context,
+      const GURL& site,
+      std::string* partition_domain,
+      std::string* partition_name,
+      bool* in_memory) OVERRIDE;
   virtual content::WebContentsViewDelegate* GetWebContentsViewDelegate(
       content::WebContents* web_contents) OVERRIDE;
   virtual void RenderViewHostCreated(
@@ -205,8 +208,12 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   virtual std::string GetDefaultDownloadName() OVERRIDE;
   virtual void DidCreatePpapiPlugin(
       content::BrowserPpapiHost* browser_host) OVERRIDE;
-  virtual bool AllowPepperSocketAPI(content::BrowserContext* browser_context,
-                                    const GURL& url) OVERRIDE;
+  virtual content::BrowserPpapiHost* GetExternalBrowserPpapiHost(
+      int plugin_process_id) OVERRIDE;
+  virtual bool AllowPepperSocketAPI(
+      content::BrowserContext* browser_context,
+      const GURL& url,
+      const content::SocketPermissionRequest& params) OVERRIDE;
   virtual bool AllowPepperPrivateFileAPI() OVERRIDE;
   virtual FilePath GetHyphenDictionaryDirectory() OVERRIDE;
 
@@ -232,12 +239,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
  private:
   // Sets io_thread_application_locale_ to the given value.
   void SetApplicationLocaleOnIOThread(const std::string& locale);
-
-  // Helper function for getting the storage partition id from an Extension
-  // object.
-  std::string GetStoragePartitionIdForExtension(
-    content::BrowserContext* browser_context,
-    const extensions::Extension* extension);
 
 #if defined(OS_ANDROID)
   void InitCrashDumpManager();

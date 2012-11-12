@@ -45,7 +45,7 @@ namespace {
 
 const int64 kLotsOfSpace = kMinFreeSpace * 10;
 
-// Callback for DriveCache::StoreOnUIThread used in RemoveStaleCacheFiles test.
+// Callback for DriveCache::Store used in RemoveStaleCacheFiles test.
 // Verifies that the result is not an error.
 void VerifyCacheFileState(DriveFileError error,
                           const std::string& resource_id,
@@ -87,7 +87,7 @@ class StaleCacheFilesRemoverTest : public testing::Test {
     blocking_task_runner_ =
         pool->GetSequencedTaskRunner(pool->GetSequenceToken());
 
-    cache_ = DriveCache::CreateDriveCacheOnUIThread(
+    cache_ = DriveCache::CreateDriveCache(
         DriveCache::GetCacheRootPath(profile_.get()), blocking_task_runner_);
 
     mock_uploader_.reset(new StrictMock<google_apis::MockDriveUploader>);
@@ -108,7 +108,7 @@ class StaleCacheFilesRemoverTest : public testing::Test {
     file_system_->AddObserver(mock_directory_observer_.get());
 
     file_system_->Initialize();
-    cache_->RequestInitializeOnUIThreadForTesting();
+    cache_->RequestInitializeForTesting();
 
     stale_cache_files_remover_.reset(new StaleCacheFilesRemover(file_system_,
                                                                 cache_));
@@ -125,19 +125,11 @@ class StaleCacheFilesRemoverTest : public testing::Test {
     delete mock_drive_service_;
     mock_drive_service_ = NULL;
     SetFreeDiskSpaceGetterForTesting(NULL);
-    cache_->DestroyOnUIThread();
+    cache_->Destroy();
     // The cache destruction requires to post a task to the blocking pool.
     google_apis::test_util::RunBlockingPoolTask();
 
     profile_.reset(NULL);
-  }
-
-  // Loads test json file as root ("/drive") element.
-  void LoadRootFeedDocument(const std::string& filename) {
-    test_util::LoadChangeFeed(filename,
-                              file_system_,
-                              0,
-                              root_feed_changestamp_++);
   }
 
   MessageLoopForUI message_loop_;
@@ -170,9 +162,8 @@ TEST_F(StaleCacheFilesRemoverTest, RemoveStaleCacheFiles) {
       .Times(AtLeast(1)).WillRepeatedly(Return(kLotsOfSpace));
 
   // Create a stale cache file.
-  cache_->StoreOnUIThread(resource_id, md5, dummy_file,
-                          DriveCache::FILE_OPERATION_COPY,
-                          base::Bind(&VerifyCacheFileState));
+  cache_->Store(resource_id, md5, dummy_file, DriveCache::FILE_OPERATION_COPY,
+                base::Bind(&VerifyCacheFileState));
   google_apis::test_util::RunBlockingPoolTask();
 
   // Verify that the cache file exists.
@@ -183,9 +174,9 @@ TEST_F(StaleCacheFilesRemoverTest, RemoveStaleCacheFiles) {
   EXPECT_TRUE(file_util::PathExists(path));
 
   // Verify that the corresponding file entry doesn't exist.
-  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(2);
   EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "", _, _))
-      .Times(1);
+      .Times(2);
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
   DriveFileError error(DRIVE_FILE_OK);
@@ -209,8 +200,8 @@ TEST_F(StaleCacheFilesRemoverTest, RemoveStaleCacheFiles) {
   EXPECT_EQ(DRIVE_FILE_ERROR_NOT_FOUND, error);
   EXPECT_FALSE(entry_proto.get());
 
-  // Load a root feed.
-  LoadRootFeedDocument("gdata/root_feed.json");
+  // Load a root feed again to kick the StaleCacheFilesRemover.
+  file_system_->Reload();
 
   // Wait for StaleCacheFilesRemover to finish cleaning up the stale file.
   google_apis::test_util::RunBlockingPoolTask();

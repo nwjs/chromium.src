@@ -51,7 +51,6 @@
 #include "net/base/load_flags.h"
 #include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
-#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 #ifdef FILE_MANAGER_EXTENSION
@@ -409,16 +408,15 @@ void TranslateManager::Observe(int type,
       delete pref_change_registrar;
       break;
     }
-    case chrome::NOTIFICATION_PREF_CHANGED: {
-      DCHECK(*content::Details<std::string>(details).ptr() ==
-             prefs::kAcceptLanguages);
-      PrefService* prefs = content::Source<PrefService>(source).ptr();
-      InitAcceptLanguages(prefs);
-      break;
-    }
     default:
       NOTREACHED();
   }
+}
+
+void TranslateManager::OnPreferenceChanged(PrefServiceBase* service,
+                                           const std::string& pref_name) {
+  DCHECK_EQ(std::string(prefs::kAcceptLanguages), pref_name);
+  InitAcceptLanguages(service);
 }
 
 void TranslateManager::OnURLFetchComplete(const net::URLFetcher* source) {
@@ -438,8 +436,7 @@ void TranslateManager::OnURLFetchComplete(const net::URLFetcher* source) {
         translate_script_request_pending_.release());
     if (!error) {
       base::StringPiece str = ResourceBundle::GetSharedInstance().
-          GetRawDataResource(IDR_TRANSLATE_JS,
-                             ui::SCALE_FACTOR_NONE);
+          GetRawDataResource(IDR_TRANSLATE_JS);
       DCHECK(translate_script_.empty());
       str.CopyToString(&translate_script_);
       std::string data;
@@ -789,7 +786,7 @@ bool TranslateManager::IsAcceptLanguage(WebContents* web_contents,
   return iter->second.count(language) != 0;
 }
 
-void TranslateManager::InitAcceptLanguages(PrefService* prefs) {
+void TranslateManager::InitAcceptLanguages(PrefServiceBase* prefs) {
   // We have been asked for this profile, build the languages.
   std::string accept_langs_str = prefs->GetString(prefs::kAcceptLanguages);
   std::vector<std::string> accept_langs_list;

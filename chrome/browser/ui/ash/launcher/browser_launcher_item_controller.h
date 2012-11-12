@@ -87,10 +87,11 @@ class BrowserLauncherItemController : public LauncherItemController,
                                 TabContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
                              bool foreground) OVERRIDE;
-  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
   virtual void TabChangedAt(
       TabContents* tab,
       int index,
@@ -125,7 +126,7 @@ class BrowserLauncherItemController : public LauncherItemController,
   // Updates the launcher from |tab|.
   void UpdateLauncher(TabContents* tab);
 
-  void UpdateAppState(TabContents* tab);
+  void UpdateAppState(content::WebContents* tab);
 
   ash::LauncherModel* launcher_model();
 

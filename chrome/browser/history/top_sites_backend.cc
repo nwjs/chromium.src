@@ -5,10 +5,12 @@
 #include "chrome/browser/history/top_sites_backend.h"
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/memory/ref_counted.h"
 #include "chrome/browser/history/top_sites_database.h"
+#include "chrome/common/cancelable_task_tracker.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
@@ -32,18 +34,18 @@ void TopSitesBackend::Shutdown() {
       base::Bind(&TopSitesBackend::ShutdownDBOnDBThread, this));
 }
 
-TopSitesBackend::Handle TopSitesBackend::GetMostVisitedThumbnails(
-    CancelableRequestConsumerBase* consumer,
-    const GetMostVisitedThumbnailsCallback& callback) {
-  GetMostVisitedThumbnailsRequest* request =
-      new GetMostVisitedThumbnailsRequest(callback);
-  request->value = new MostVisitedThumbnails;
-  AddRequest(request, consumer);
-  BrowserThread::PostTask(
-      BrowserThread::DB, FROM_HERE,
-      base::Bind(&TopSitesBackend::GetMostVisitedThumbnailsOnDBThread, this,
-                 make_scoped_refptr(request)));
-  return request->handle();
+void TopSitesBackend::GetMostVisitedThumbnails(
+      const GetMostVisitedThumbnailsCallback& callback,
+      CancelableTaskTracker* tracker) {
+  scoped_refptr<MostVisitedThumbnails> thumbnails = new MostVisitedThumbnails();
+  bool* need_history_migration = new bool(false);
+
+  tracker->PostTaskAndReply(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::DB),
+      FROM_HERE,
+      base::Bind(&TopSitesBackend::GetMostVisitedThumbnailsOnDBThread,
+                 this, thumbnails, need_history_migration),
+      base::Bind(callback, thumbnails, base::Owned(need_history_migration)));
 }
 
 void TopSitesBackend::UpdateTopSites(const TopSitesDelta& delta) {
@@ -67,16 +69,13 @@ void TopSitesBackend::ResetDatabase() {
       base::Bind(&TopSitesBackend::ResetDatabaseOnDBThread, this, db_path_));
 }
 
-TopSitesBackend::Handle TopSitesBackend::DoEmptyRequest(
-    CancelableRequestConsumerBase* consumer,
-    const EmptyRequestCallback& callback) {
-  EmptyRequestRequest* request = new EmptyRequestRequest(callback);
-  AddRequest(request, consumer);
-  BrowserThread::PostTask(
-      BrowserThread::DB, FROM_HERE,
-      base::Bind(&TopSitesBackend::DoEmptyRequestOnDBThread, this,
-                 make_scoped_refptr(request)));
-  return request->handle();
+void TopSitesBackend::DoEmptyRequest(const base::Closure& reply,
+                                     CancelableTaskTracker* tracker) {
+  tracker->PostTaskAndReply(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::DB),
+      FROM_HERE,
+      base::Bind(&base::DoNothing),
+      reply);
 }
 
 TopSitesBackend::~TopSitesBackend() {
@@ -98,20 +97,16 @@ void TopSitesBackend::ShutdownDBOnDBThread() {
 }
 
 void TopSitesBackend::GetMostVisitedThumbnailsOnDBThread(
-    scoped_refptr<GetMostVisitedThumbnailsRequest> request) {
+    scoped_refptr<MostVisitedThumbnails> thumbnails,
+    bool* need_history_migration) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::DB));
 
-  if (request->canceled())
-    return;
-
-  bool may_need_history_migration = false;
+  *need_history_migration = false;
   if (db_.get()) {
-    db_->GetPageThumbnails(&(request->value->most_visited),
-                           &(request->value->url_to_images_map));
-    may_need_history_migration = db_->may_need_history_migration();
+    db_->GetPageThumbnails(&(thumbnails->most_visited),
+                           &(thumbnails->url_to_images_map));
+    *need_history_migration = db_->may_need_history_migration();
   }
-  request->ForwardResult(request->handle(), request->value,
-                         may_need_history_migration);
 }
 
 void TopSitesBackend::UpdateTopSitesOnDBThread(const TopSitesDelta& delta) {
@@ -143,11 +138,6 @@ void TopSitesBackend::ResetDatabaseOnDBThread(const FilePath& file_path) {
   file_util::Delete(db_path_, false);
   db_.reset(new TopSitesDatabase());
   InitDBOnDBThread(db_path_);
-}
-
-void TopSitesBackend::DoEmptyRequestOnDBThread(
-    scoped_refptr<EmptyRequestRequest> request) {
-  request->ForwardResult(request->handle());
 }
 
 }  // namespace history

@@ -9,6 +9,10 @@ class TabContents;
 class TabStripModel;
 class TabStripSelectionModel;
 
+namespace content {
+class WebContents;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // TabStripModelObserver
@@ -38,24 +42,24 @@ class TabStripModelObserver {
     ALL
   };
 
-  // A new TabContents was inserted into the TabStripModel at the
+  // A new WebContents was inserted into the TabStripModel at the
   // specified index. |foreground| is whether or not it was opened in the
   // foreground (selected).
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
                              bool foreground);
 
-  // The specified TabContents at |index| is being closed (and eventually
-  // destroyed). |tab_strip_model| is the TabStripModel the tab was part of.
+  // The specified WebContents at |index| is being closed (and eventually
+  // destroyed). |tab_strip_model| is the TabStripModel that contained the tab.
   virtual void TabClosingAt(TabStripModel* tab_strip_model,
-                            TabContents* contents,
+                            content::WebContents* contents,
                             int index);
 
-  // The specified TabContents at |index| is being detached, perhaps to
+  // The specified WebContents at |index| is being detached, perhaps to
   // be inserted in another TabStripModel. The implementer should take whatever
-  // action is necessary to deal with the TabContents no longer being
+  // action is necessary to deal with the WebContents no longer being
   // present.
-  virtual void TabDetachedAt(TabContents* contents, int index);
+  virtual void TabDetachedAt(content::WebContents* contents, int index);
 
   // The active TabContents is about to change from |old_contents|.
   // This gives observers a chance to prepare for an impending switch before it
@@ -72,6 +76,8 @@ class TabStripModelObserver {
   // but does change the selection. In this case |ActiveTabChanged| is not sent.
   // If you care about any changes to the selection, override
   // TabSelectionChanged.
+  // Note: |old_contents| will be NULL if there was no contents previously
+  // active.
   virtual void ActiveTabChanged(TabContents* old_contents,
                                 TabContents* new_contents,
                                 int index,
@@ -108,18 +114,19 @@ class TabStripModelObserver {
 
   // Invoked when the pinned state of a tab changes. See note in
   // TabMiniStateChanged as to how this relates to TabMiniStateChanged.
-  virtual void TabPinnedStateChanged(TabContents* contents, int index);
+  virtual void TabPinnedStateChanged(content::WebContents* contents, int index);
 
   // Invoked if the mini state of a tab changes.
-  // NOTE: this is sent when the pinned state of a non-app tab changes and is
+  // NOTE: This is sent when the pinned state of a non-app tab changes and is
   // sent in addition to TabPinnedStateChanged. UI code typically need not care
   // about TabPinnedStateChanged, but instead this.
-  virtual void TabMiniStateChanged(TabContents* contents, int index);
+  virtual void TabMiniStateChanged(content::WebContents* contents, int index);
 
   // Invoked when the blocked state of a tab changes.
   // NOTE: This is invoked when a tab becomes blocked/unblocked by a tab modal
   // window.
-  virtual void TabBlockedStateChanged(TabContents* contents, int index);
+  virtual void TabBlockedStateChanged(content::WebContents* contents,
+                                      int index);
 
   // The TabStripModel now no longer has any tabs. The implementer may
   // use this as a trigger to try and close the window containing the
@@ -129,10 +136,6 @@ class TabStripModelObserver {
   // Sent when the tabstrip model is about to be deleted and any reference held
   // must be dropped.
   virtual void TabStripModelDeleted();
-
-  // Invoked when an active/selected tab at |index| is selected again (ie - the
-  // active/foreground tab is clicked).
-  virtual void ActiveTabClicked(int index);
 
  protected:
   virtual ~TabStripModelObserver() {}

@@ -8,6 +8,7 @@
 #include "ui/base/ui_export.h"
 #include "ui/gfx/point_base.h"
 #include "ui/gfx/point_f.h"
+#include "ui/gfx/vector2d.h"
 
 #if defined(OS_WIN)
 typedef unsigned long DWORD;
@@ -21,7 +22,7 @@ typedef struct tagPOINT POINT;
 namespace gfx {
 
 // A point has an x and y coordinate.
-class UI_EXPORT Point : public PointBase<Point, int> {
+class UI_EXPORT Point : public PointBase<Point, int, Vector2d> {
  public:
   Point();
   Point(int x, int y);
@@ -48,14 +49,6 @@ class UI_EXPORT Point : public PointBase<Point, int> {
     return PointF(x(), y());
   }
 
-  PointF Scale(float scale) const WARN_UNUSED_RESULT {
-    return Scale(scale, scale);
-  }
-
-  PointF Scale(float x_scale, float y_scale) const WARN_UNUSED_RESULT {
-    return PointF(x() * x_scale, y() * y_scale);
-  }
-
   // Returns a string representation of point.
   std::string ToString() const;
 };
@@ -68,16 +61,28 @@ inline bool operator!=(const Point& lhs, const Point& rhs) {
   return !(lhs == rhs);
 }
 
-inline Point operator+(Point lhs, Point rhs) {
-  return lhs.Add(rhs);
+inline Point operator+(const Point& lhs, const Vector2d& rhs) {
+  Point result(lhs);
+  result += rhs;
+  return result;
 }
 
-inline Point operator-(Point lhs, Point rhs) {
-  return lhs.Subtract(rhs);
+inline Point operator-(const Point& lhs, const Vector2d& rhs) {
+  Point result(lhs);
+  result -= rhs;
+  return result;
+}
+
+inline Vector2d operator-(const Point& lhs, const Point& rhs) {
+  return Vector2d(lhs.x() - rhs.x(), lhs.y() - rhs.y());
+}
+
+inline Point PointAtOffsetFromOrigin(const Vector2d& offset_from_origin) {
+  return Point(offset_from_origin.x(), offset_from_origin.y());
 }
 
 #if !defined(COMPILER_MSVC)
-extern template class PointBase<Point, int>;
+extern template class PointBase<Point, int, Vector2d>;
 #endif
 
 }  // namespace gfx

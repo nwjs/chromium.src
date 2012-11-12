@@ -2,21 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCPriorityCalculator_h
-#define CCPriorityCalculator_h
+#ifndef CC_PRIORITY_CALCULATOR_H_
+#define CC_PRIORITY_CALCULATOR_H_
 
-#include "IntRect.h"
-#include "IntSize.h"
+#include "cc/cc_export.h"
+
+namespace gfx {
+class Rect;
+}
 
 namespace cc {
 
-class PriorityCalculator {
+class CC_EXPORT PriorityCalculator {
 public:
     static int uiPriority(bool drawsToRootSurface);
     static int visiblePriority(bool drawsToRootSurface);
     static int renderSurfacePriority();
     static int lingeringPriority(int previousPriority);
-    static int priorityFromDistance(const IntRect& visibleRect, const IntRect& textureRect, bool drawsToRootSurface);
+    static int priorityFromDistance(const gfx::Rect& visibleRect, const gfx::Rect& textureRect, bool drawsToRootSurface);
     static int smallAnimatedLayerMinPriority();
 
     static int highestPriority();
@@ -33,4 +36,4 @@ public:
 
 }
 
-#endif
+#endif  // CC_PRIORITY_CALCULATOR_H_

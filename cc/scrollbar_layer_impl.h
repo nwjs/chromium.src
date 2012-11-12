@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCScrollbarLayerImpl_h
-#define CCScrollbarLayerImpl_h
+#ifndef CC_SCROLLBAR_LAYER_IMPL_H_
+#define CC_SCROLLBAR_LAYER_IMPL_H_
 
+#include "cc/cc_export.h"
 #include "cc/layer_impl.h"
 #include "cc/scrollbar_geometry_fixed_thumb.h"
 #include <public/WebRect.h>
@@ -15,7 +16,7 @@ namespace cc {
 
 class ScrollView;
 
-class ScrollbarLayerImpl : public LayerImpl {
+class CC_EXPORT ScrollbarLayerImpl : public LayerImpl {
 public:
     static scoped_ptr<ScrollbarLayerImpl> create(int id);
     virtual ~ScrollbarLayerImpl();
@@ -77,6 +78,8 @@ private:
 
     virtual const char* layerTypeAsString() const OVERRIDE;
 
+    gfx::Rect scrollbarLayerRectToContentRect(const gfx::Rect& layerRect) const;
+
     Scrollbar m_scrollbar;
 
     ResourceProvider::ResourceId m_backTrackResourceId;
@@ -105,4 +108,4 @@ private:
 };
 
 }
-#endif
+#endif  // CC_SCROLLBAR_LAYER_IMPL_H_

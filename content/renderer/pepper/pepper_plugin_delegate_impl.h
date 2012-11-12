@@ -391,7 +391,6 @@ class PepperPluginDelegateImpl
       PP_DeviceType_Dev type,
       const EnumerateDevicesCallback& callback) OVERRIDE;
   virtual void StopEnumerateDevices(int request_id) OVERRIDE;
-  virtual webkit_glue::ClipboardClient* CreateClipboardClient() const OVERRIDE;
   virtual std::string GetDeviceID() OVERRIDE;
   virtual PP_FlashLSORestrictions GetLocalDataRestrictions(
       const GURL& document_url,
@@ -478,7 +477,8 @@ class PepperPluginDelegateImpl
       const FilePath& path,
       ppapi::PpapiPermissions permissions,
       const IPC::ChannelHandle& channel_handle,
-      int plugin_child_id);
+      int plugin_child_id,
+      bool is_external);
 
   // ContextMenuClient implementation.
   virtual void OnMenuAction(int request_id, unsigned action) OVERRIDE;

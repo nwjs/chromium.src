@@ -15,6 +15,7 @@
 #include "base/process.h"
 #include "chrome/common/nacl_types.h"
 #include "content/public/browser/browser_child_process_host_delegate.h"
+#include "content/public/browser/browser_child_process_host_iterator.h"
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_channel_handle.h"
 #include "net/base/tcp_listen_socket.h"
@@ -26,6 +27,7 @@ class ExtensionInfoMap;
 
 namespace content {
 class BrowserChildProcessHost;
+class BrowserPpapiHost;
 }
 
 namespace IPC {
@@ -42,8 +44,13 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
  public:
   // manifest_url: the URL of the manifest of the Native Client plugin being
   // executed.
+  // render_view_id: RenderView routing id, to control access to private APIs.
+  // permission_bits: controls which interfaces the NaCl plugin can use.
   // off_the_record: was the process launched from an incognito renderer?
-  NaClProcessHost(const GURL& manifest_url, bool off_the_record);
+  NaClProcessHost(const GURL& manifest_url,
+                  int render_view_id,
+                  uint32 permission_bits,
+                  bool off_the_record);
   virtual ~NaClProcessHost();
 
   // Do any minimal work that must be done at browser startup.
@@ -64,6 +71,9 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
 #endif
 
   bool Send(IPC::Message* msg);
+
+  content::BrowserChildProcessHost* process() { return process_.get(); }
+  content::BrowserPpapiHost* browser_ppapi_host() { return ppapi_host_.get(); }
 
  private:
   friend class PluginListener;
@@ -193,6 +203,10 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
   scoped_ptr<IPC::ChannelProxy> ipc_proxy_channel_;
   // Plugin listener, to forward browser channel messages to us.
   PluginListener ipc_plugin_listener_;
+  // Browser host for plugin process.
+  scoped_ptr<content::BrowserPpapiHost> ppapi_host_;
+
+  int render_view_id_;
 
   DISALLOW_COPY_AND_ASSIGN(NaClProcessHost);
 };

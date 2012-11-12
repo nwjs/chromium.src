@@ -101,7 +101,7 @@ BrowserToolbarGtk::BrowserToolbarGtk(Browser* browser, BrowserWindowGtk* window)
       is_wrench_menu_model_valid_(true),
       browser_(browser),
       window_(window) {
-  wrench_menu_model_.reset(new WrenchMenuModel(this, browser_));
+  wrench_menu_model_.reset(new WrenchMenuModel(this, browser_, false, false));
 
   chrome::AddCommandObserver(browser_, IDC_BACK, this);
   chrome::AddCommandObserver(browser_, IDC_FORWARD, this);
@@ -250,6 +250,7 @@ void BrowserToolbarGtk::Init(GtkWindow* top_level_window) {
     if (actions_toolbar_->button_count() == 0)
       gtk_widget_hide(actions_toolbar_->widget());
   }
+
   // Initialize pref-dependent UI state.
   NotifyPrefChanged(NULL);
 
@@ -368,9 +369,7 @@ bool BrowserToolbarGtk::GetAcceleratorForCommandId(
 void BrowserToolbarGtk::Observe(int type,
                                 const content::NotificationSource& source,
                                 const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
-    NotifyPrefChanged(content::Details<std::string>(details).ptr());
-  } else if (type == chrome::NOTIFICATION_BROWSER_THEME_CHANGED) {
+  if (type == chrome::NOTIFICATION_BROWSER_THEME_CHANGED) {
     // Update the spacing around the menu buttons
     bool use_gtk = theme_service_->UsingNativeTheme();
     int border = use_gtk ? 0 : 2;
@@ -424,6 +423,11 @@ void BrowserToolbarGtk::Observe(int type,
   } else {
     NOTREACHED();
   }
+}
+
+void BrowserToolbarGtk::OnPreferenceChanged(PrefServiceBase* service,
+                                            const std::string& pref_name) {
+  NotifyPrefChanged(&pref_name);
 }
 
 // BrowserToolbarGtk, public ---------------------------------------------------
@@ -669,7 +673,7 @@ bool BrowserToolbarGtk::ShouldOnlyShowLocation() const {
 }
 
 void BrowserToolbarGtk::RebuildWrenchMenu() {
-  wrench_menu_model_.reset(new WrenchMenuModel(this, browser_));
+  wrench_menu_model_.reset(new WrenchMenuModel(this, browser_, false, false));
   wrench_menu_.reset(new MenuGtk(this, wrench_menu_model_.get()));
   // The bookmark menu model needs to be able to force the wrench menu to close.
   wrench_menu_model_->bookmark_sub_menu_model()->SetMenuGtk(wrench_menu_.get());

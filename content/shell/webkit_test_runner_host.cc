@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "base/command_line.h"
+#include "base/file_util.h"
 #include "base/message_loop.h"
 #include "base/run_loop.h"
 #include "content/public/browser/navigation_controller.h"
@@ -93,9 +94,13 @@ void WebKitTestResultPrinter::PrintImageFooter() {
 }
 
 void WebKitTestResultPrinter::AddMessage(const std::string& message) {
+  AddMessageRaw(message + "\n");
+}
+
+void WebKitTestResultPrinter::AddMessageRaw(const std::string& message) {
   if (state_ != IN_TEXT_BLOCK)
     return;
-  *output_ << message << "\n";
+  *output_ << message;
 }
 
 void WebKitTestResultPrinter::AddErrorMessage(const std::string& message) {
@@ -136,11 +141,18 @@ WebKitTestController::~WebKitTestController() {
 
 bool WebKitTestController::PrepareForLayoutTest(
     const GURL& test_url,
+    const FilePath& current_working_directory,
     bool enable_pixel_dumping,
     const std::string& expected_pixel_hash) {
   DCHECK(CalledOnValidThread());
+  current_working_directory_ = current_working_directory;
   enable_pixel_dumping_ = enable_pixel_dumping;
   expected_pixel_hash_ = expected_pixel_hash;
+  if (test_url.spec().find("/dumpAsText/") != std::string::npos ||
+      test_url.spec().find("\\dumpAsText\\") != std::string::npos) {
+    dump_as_text_ = true;
+    enable_pixel_dumping_ = false;
+  }
   printer_->reset();
   printer_->PrintTextHeader();
   content::ShellBrowserContext* browser_context =
@@ -152,6 +164,7 @@ bool WebKitTestController::PrepareForLayoutTest(
       NULL,
       MSG_ROUTING_NONE,
       NULL);
+  did_set_as_main_window_ = false;
   Observe(main_window_->web_contents());
   return true;
 }
@@ -168,12 +181,14 @@ bool WebKitTestController::ResetAfterLayoutTest() {
   is_printing_ = false;
   should_stay_on_page_after_handling_before_unload_ = false;
   wait_until_done_ = false;
+  did_set_as_main_window_ = false;
   watchdog_.Cancel();
   if (main_window_) {
     Observe(NULL);
     main_window_ = NULL;
   }
   Shell::CloseAllWindows();
+  Send(new ShellViewMsg_ResetAll);
   return true;
 }
 
@@ -214,6 +229,7 @@ bool WebKitTestController::OnMessageReceived(const IPC::Message& message) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(WebKitTestController, message)
     IPC_MESSAGE_HANDLER(ShellViewHostMsg_DidFinishLoad, OnDidFinishLoad)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_PrintMessage, OnPrintMessage)
     IPC_MESSAGE_HANDLER(ShellViewHostMsg_TextDump, OnTextDump)
     IPC_MESSAGE_HANDLER(ShellViewHostMsg_ImageDump, OnImageDump)
     IPC_MESSAGE_UNHANDLED(handled = false)
@@ -224,6 +240,18 @@ bool WebKitTestController::OnMessageReceived(const IPC::Message& message) {
 
 void WebKitTestController::PluginCrashed(const FilePath& plugin_path) {
   printer_->AddErrorMessage("#CRASHED - plugin");
+}
+
+void WebKitTestController::RenderViewReady() {
+  RenderViewHost* render_view_host =
+      main_window_->web_contents()->GetRenderViewHost();
+  render_view_host->Send(new ShellViewMsg_SetCurrentWorkingDirectory(
+      render_view_host->GetRoutingID(), current_working_directory_));
+  if (did_set_as_main_window_)
+    return;
+  render_view_host->Send(new ShellViewMsg_SetIsMainWindow(
+      render_view_host->GetRoutingID()));
+  did_set_as_main_window_ = true;
 }
 
 void WebKitTestController::RenderViewGone(base::TerminationStatus status) {
@@ -319,6 +347,10 @@ void WebKitTestController::OnTextDump(const std::string& dump) {
     printer_->PrintImageFooter();
     MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
   }
+}
+
+void WebKitTestController::OnPrintMessage(const std::string& message) {
+  printer_->AddMessageRaw(message);
 }
 
 // WebKitTestRunnerHost -------------------------------------------------------

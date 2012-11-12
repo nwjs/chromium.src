@@ -15,13 +15,13 @@ import android.util.Pair;
 
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.test.util.CommonResources;
-import org.chromium.android_webview.test.util.TestWebServer;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.browser.test.util.CallbackHelper;
 import org.chromium.content.browser.test.util.Criteria;
 import org.chromium.content.browser.test.util.CriteriaHelper;
+import org.chromium.net.test.util.TestWebServer;
 
 import java.io.InputStream;
 import java.net.URL;
@@ -38,7 +38,7 @@ public class AwContentsTest extends AndroidWebViewTestBase {
     private TestAwContentsClient mContentsClient = new TestAwContentsClient();
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     @UiThreadTest
     public void testCreateDestroy() throws Throwable {
         // NOTE this test runs on UI thread, so we cannot call any async methods.
@@ -70,7 +70,7 @@ public class AwContentsTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testDocumentHasImages() throws Throwable {
         AwTestContainerView testView = createAwTestContainerViewOnMainSync(mContentsClient);
         AwContents awContents = testView.getAwContents();
@@ -103,7 +103,7 @@ public class AwContentsTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testClearCacheMemoryAndDisk() throws Throwable {
         final TestAwContentsClient contentClient = new TestAwContentsClient();
         final AwTestContainerView testContainer =
@@ -157,7 +157,7 @@ public class AwContentsTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testClearCacheInQuickSuccession() throws Throwable {
         final AwTestContainerView testContainer =
                 createAwTestContainerViewOnMainSync(false, new TestAwContentsClient());
@@ -178,7 +178,7 @@ public class AwContentsTest extends AndroidWebViewTestBase {
 
     /**
      * @SmallTest
-     * @Feature({"Android-WebView"})
+     * @Feature({"AndroidWebView"})
      * BUG 6094807
      */
     @DisabledTest

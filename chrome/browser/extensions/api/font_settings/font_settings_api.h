@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "base/prefs/public/pref_change_registrar.h"
+#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/extensions/extension_function.h"
 #include "chrome/browser/prefs/pref_service.h"
 
@@ -20,18 +21,13 @@ namespace extensions {
 
 // This class observes pref changed events on a profile and dispatches the
 // corresponding extension API events to extensions.
-class FontSettingsEventRouter : public content::NotificationObserver {
+class FontSettingsEventRouter : public PrefObserver {
  public:
   // Constructor for observing pref changed events on |profile|. Stores a
   // pointer to |profile| but does not take ownership. |profile| must be
-  // non-NULL and remain alive for the lifetime of the instance. Init() must be
-  // called to start observing pref changed events.
+  // non-NULL and remain alive for the lifetime of the instance.
   explicit FontSettingsEventRouter(Profile* profile);
   virtual ~FontSettingsEventRouter();
-
-  // Starts observing pref changed events on the profile. Must not be called
-  // more than once.
-  void Init();
 
  private:
   typedef std::pair<std::string, std::string> EventAndKeyPair;
@@ -48,17 +44,16 @@ class FontSettingsEventRouter : public content::NotificationObserver {
                         const char* event_name,
                         const char* key);
 
-  // content::NotificationObserver implementation.
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+  // PrefObserver implementation.
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
   // Dispatches a changed event for the font setting for |generic_family| and
   // |script| to extensions. The new value of the setting is the value of
   // browser pref |pref_name|. If the pref changed on the incognito profile,
   // |incognito| must be set to true for extensions to get the appropriate
   // event.
-  void OnFontNamePrefChanged(PrefService* pref_service,
+  void OnFontNamePrefChanged(PrefServiceBase* pref_service,
                              const std::string& pref_name,
                              const std::string& generic_family,
                              const std::string& script,
@@ -70,7 +65,7 @@ class FontSettingsEventRouter : public content::NotificationObserver {
   // under the key |key|. If the pref changed on the incognito profile,
   // |incognito| must be set to true for extensions to get the appropriate
   // event.
-  void OnFontPrefChanged(PrefService* pref_service,
+  void OnFontPrefChanged(PrefServiceBase* pref_service,
                          const std::string& pref_name,
                          const std::string& event_name,
                          const std::string& key,

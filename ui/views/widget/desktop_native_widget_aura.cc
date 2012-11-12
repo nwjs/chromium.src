@@ -10,7 +10,9 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/window.h"
+#include "ui/aura/window_property.h"
 #include "ui/base/hit_test.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/ime/input_method.h"
@@ -19,7 +21,13 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_aura_utils.h"
 
+DECLARE_EXPORTED_WINDOW_PROPERTY_TYPE(VIEWS_EXPORT,
+                                      views::DesktopNativeWidgetAura*);
+
 namespace views {
+
+DEFINE_WINDOW_PROPERTY_KEY(DesktopNativeWidgetAura*,
+                           kDesktopNativeWidgetAuraKey, NULL);
 
 namespace {
 
@@ -59,6 +67,7 @@ DesktopNativeWidgetAura::DesktopNativeWidgetAura(
       desktop_root_window_host_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(window_(new aura::Window(this))),
       native_widget_delegate_(delegate) {
+  window_->SetProperty(kDesktopNativeWidgetAuraKey, this);
 }
 
 DesktopNativeWidgetAura::~DesktopNativeWidgetAura() {
@@ -66,6 +75,12 @@ DesktopNativeWidgetAura::~DesktopNativeWidgetAura() {
     delete native_widget_delegate_;
   else
     CloseNow();
+}
+
+// static
+DesktopNativeWidgetAura* DesktopNativeWidgetAura::ForWindow(
+    aura::Window* window) {
+  return window->GetProperty(kDesktopNativeWidgetAuraKey);
 }
 
 void DesktopNativeWidgetAura::OnHostClosed() {
@@ -356,7 +371,8 @@ bool DesktopNativeWidgetAura::IsAccessibleWidget() const {
 void DesktopNativeWidgetAura::RunShellDrag(View* view,
                             const ui::OSExchangeData& data,
                             const gfx::Point& location,
-                            int operation) {
+                            int operation,
+                            ui::DragDropTypes::DragEventSource source) {
 }
 
 void DesktopNativeWidgetAura::SchedulePaintInRect(const gfx::Rect& rect) {
@@ -386,7 +402,7 @@ void DesktopNativeWidgetAura::SetInactiveRenderingDisabled(bool value) {
 }
 
 Widget::MoveLoopResult DesktopNativeWidgetAura::RunMoveLoop(
-      const gfx::Point& drag_offset) {
+      const gfx::Vector2d& drag_offset) {
   return desktop_root_window_host_->RunMoveLoop(drag_offset);
 }
 
@@ -397,6 +413,10 @@ void DesktopNativeWidgetAura::EndMoveLoop() {
 void DesktopNativeWidgetAura::SetVisibilityChangedAnimationsEnabled(
     bool value) {
   desktop_root_window_host_->SetVisibilityChangedAnimationsEnabled(value);
+}
+
+ui::NativeTheme* DesktopNativeWidgetAura::GetNativeTheme() const {
+  return DesktopRootWindowHost::GetNativeTheme(window_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -492,6 +512,10 @@ scoped_refptr<ui::Texture> DesktopNativeWidgetAura::CopyTexture() {
 // DesktopNativeWidgetAura, ui::EventHandler implementation:
 
 ui::EventResult DesktopNativeWidgetAura::OnKeyEvent(ui::KeyEvent* event) {
+  if (GetWidget()->HasFocusManager() &&
+      !GetWidget()->GetFocusManager()->OnKeyEvent(*event)) {
+    return ui::ER_CONSUMED;
+  }
   if (event->is_char()) {
     // If a ui::InputMethod object is attached to the root window, character
     // events are handled inside the object and are not passed to this function.
@@ -528,13 +552,12 @@ ui::EventResult DesktopNativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
 }
 
 ui::EventResult DesktopNativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
-  ui::TouchStatus status = native_widget_delegate_->OnTouchEvent(*event);
-  return ui::EventResultFromTouchStatus(status);
+  return native_widget_delegate_->OnTouchEvent(event);
 }
 
 ui::EventResult DesktopNativeWidgetAura::OnGestureEvent(
     ui::GestureEvent* event) {
-  return native_widget_delegate_->OnGestureEvent(*event);
+  return native_widget_delegate_->OnGestureEvent(event);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -20,9 +20,13 @@ cr.define('options', function() {
     this.pageDiv = $(this.pageDivName);
     this.tab = null;
     this.lastFocusedElement = null;
+
+    // Offset of page container in pixels, to allow room for side menu.
+    // Simplified settings pages can override this if they don't use the menu.
+    this.horizontalOffset = DEFAULT_HORIZONTAL_OFFSET;
   }
 
-  /** @const */ var HORIZONTAL_OFFSET = 155;
+  /** @const */ var DEFAULT_HORIZONTAL_OFFSET = 155;
 
   /**
    * This is the absolute difference maintained between standard and
@@ -152,6 +156,10 @@ cr.define('options', function() {
     // Update tab title.
     this.setTitle_(targetPage.title);
 
+    // Update focus if any other control was focused before.
+    if (document.activeElement != document.body)
+      targetPage.focus();
+
     // Notify pages if they were shown.
     for (var i = 0; i < allPageNames.length; ++i) {
       var name = allPageNames[i];
@@ -256,7 +264,17 @@ cr.define('options', function() {
     // Update tab title.
     this.setTitle_(overlay.title);
 
+    // Change focus to the overlay if any other control was focused before.
+    if (document.activeElement != document.body)
+      overlay.focus();
+
     $('searchBox').setAttribute('aria-hidden', true);
+
+    if ($('search-field').value == '') {
+      var section = overlay.associatedSection;
+      if (section)
+        options.BrowserOptions.scrollToSection(section);
+    }
 
     return true;
   };
@@ -652,10 +670,14 @@ cr.define('options', function() {
    */
   OptionsPage.updateFrozenElementHorizontalPosition_ = function(e) {
     if (isRTL())
-      e.style.right = HORIZONTAL_OFFSET + 'px';
+      e.style.right = this.horizontalOffset + 'px';
     else
-      e.style.left = HORIZONTAL_OFFSET - document.body.scrollLeft + 'px';
+      e.style.left = this.horizontalOffset - document.body.scrollLeft + 'px';
   };
+
+  OptionsPage.setHorizontalOffset = function(value) {
+    this.horizontalOffset = value;
+  }
 
   OptionsPage.setClearPluginLSODataEnabled = function(enabled) {
     if (enabled) {
@@ -704,6 +726,22 @@ cr.define('options', function() {
      * Initializes page content.
      */
     initializePage: function() {},
+
+    /**
+     * Sets focus on the first focusable element. Override for a custom focus
+     * strategy.
+     */
+    focus: function() {
+      var elements = this.pageDiv.querySelectorAll(
+          'input, list, select, textarea, button');
+      for (var i = 0; i < elements.length; i++) {
+        var element = elements[i];
+        // Try to focus. If fails, then continue.
+        element.focus();
+        if (document.activeElement == element)
+          return;
+      }
+    },
 
     /**
      * Gets the container div for this page if it is an overlay.

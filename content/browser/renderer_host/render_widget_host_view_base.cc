@@ -25,6 +25,8 @@
 #include "webkit/plugins/npapi/plugin_constants_win.h"
 #include "webkit/plugins/npapi/webplugin.h"
 #include "webkit/plugins/npapi/webplugin_delegate_impl.h"
+
+using webkit::npapi::WebPluginDelegateImpl;
 #endif
 
 #if defined(TOOLKIT_GTK)
@@ -110,8 +112,13 @@ LRESULT CALLBACK PluginWrapperWindowProc(HWND window, unsigned int message,
   return ::DefWindowProc(window, message, wparam, lparam);
 }
 
+bool IsPluginWrapperWindow(HWND window) {
+  return ui::GetClassNameW(window) ==
+      string16(webkit::npapi::kWrapperNativeWindowClassName);
+}
+
 // Create an intermediate window between the given HWND and its parent.
-HWND ReparentWindow(HWND window) {
+HWND ReparentWindow(HWND window, HWND parent) {
   static ATOM atom = 0;
   static HMODULE instance = NULL;
   if (!atom) {
@@ -134,26 +141,26 @@ HWND ReparentWindow(HWND window) {
   }
   DCHECK(atom);
 
-  HWND orig_parent = ::GetParent(window);
-  HWND parent = CreateWindowEx(
+  HWND new_parent = CreateWindowEx(
       WS_EX_LEFT | WS_EX_LTRREADING | WS_EX_RIGHTSCROLLBAR,
       MAKEINTATOM(atom), 0,
       WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-      0, 0, 0, 0, orig_parent, 0, instance, 0);
-  ui::CheckWindowCreated(parent);
-  ::SetParent(window, parent);
+      0, 0, 0, 0, parent, 0, instance, 0);
+  ui::CheckWindowCreated(new_parent);
+  ::SetParent(window, new_parent);
   // How many times we try to find a PluginProcessHost whose process matches
   // the HWND.
   static const int kMaxTries = 5;
   BrowserThread::PostTask(
       BrowserThread::IO,
       FROM_HERE,
-      base::Bind(&NotifyPluginProcessHostHelper, window, parent, kMaxTries));
-  return parent;
+      base::Bind(&NotifyPluginProcessHostHelper, window, new_parent,
+                 kMaxTries));
+  return new_parent;
 }
 
 BOOL CALLBACK PainEnumChildProc(HWND hwnd, LPARAM lparam) {
-  if (!webkit::npapi::WebPluginDelegateImpl::IsPluginDelegateWindow(hwnd))
+  if (!WebPluginDelegateImpl::IsPluginDelegateWindow(hwnd))
     return TRUE;
 
   gfx::Rect* rect = reinterpret_cast<gfx::Rect*>(lparam);
@@ -179,7 +186,7 @@ BOOL CALLBACK DetachPluginWindowsCallbackInternal(HWND window, LPARAM param) {
 
 // static
 void RenderWidgetHostViewBase::DetachPluginWindowsCallback(HWND window) {
-  if (webkit::npapi::WebPluginDelegateImpl::IsPluginDelegateWindow(window) &&
+  if (WebPluginDelegateImpl::IsPluginDelegateWindow(window) &&
       !IsHungAppWindow(window)) {
     ::ShowWindow(window, SW_HIDE);
     SetParent(window, NULL);
@@ -220,24 +227,31 @@ void RenderWidgetHostViewBase::MovePluginWindowsHelper(
     if (!::IsWindow(window))
       continue;
 
+    if (!WebPluginDelegateImpl::IsPluginDelegateWindow(window)) {
+      // The renderer should only be trying to move plugin windows. However,
+      // this may happen as a result of a race condition (i.e. even after the
+      // check right above), so we ignore it.
+      continue;
+    }
+
     if (oop_plugins) {
-      if (cur_parent == parent) {
-        // The plugin window is a direct child of this window, add an
-        // intermediate window that lives on this thread to speed up scrolling.
-        // Note this only works with out of process plugins since we depend on
+      if (cur_parent == WebPluginDelegateImpl::GetDefaultWindowParent()) {
+        // The plugin window hasn't been parented yet, add an intermediate
+        // window that lives on this thread to speed up scrolling. Note this
+        // only works with out of process plugins since we depend on
         // PluginProcessHost to destroy the intermediate HWNDs.
-        cur_parent = ReparentWindow(window);
+        cur_parent = ReparentWindow(window, parent);
         ::ShowWindow(window, SW_SHOW);  // Window was created hidden.
-      } else if (::GetParent(cur_parent) != parent) {
-        // The renderer should only be trying to move windows that are children
-        // of its render widget window. However, this may happen as a result of
-        // a race condition, so we ignore it and not kill the plugin process.
-        continue;
+      } else {
+        CHECK(IsPluginWrapperWindow(cur_parent));
       }
 
       // We move the intermediate parent window which doesn't result in cross-
       // process synchronous Windows messages.
       window = cur_parent;
+    } else {
+      if (cur_parent == WebPluginDelegateImpl::GetDefaultWindowParent())
+        SetParent(window, parent);
     }
 
     if (move.visible)
@@ -392,6 +406,13 @@ void RenderWidgetHostViewBase::SetBrowserAccessibilityManager(
 }
 
 void RenderWidgetHostViewBase::UpdateScreenInfo(gfx::NativeView view) {
+  RenderWidgetHostImpl* impl = NULL;
+  if (GetRenderWidgetHost())
+    impl = RenderWidgetHostImpl::From(GetRenderWidgetHost());
+
+  if (impl)
+    impl->SendScreenRects();
+
   gfx::Display display =
       gfx::Screen::GetScreenFor(view)->GetDisplayNearestPoint(
           GetViewBounds().origin());
@@ -400,12 +421,9 @@ void RenderWidgetHostViewBase::UpdateScreenInfo(gfx::NativeView view) {
     return;
   current_display_area_ = display.bounds();
   current_device_scale_factor_ = display.device_scale_factor();
-  if (GetRenderWidgetHost()) {
-    RenderWidgetHostImpl* impl =
-        RenderWidgetHostImpl::From(GetRenderWidgetHost());
+  if (impl)
     impl->NotifyScreenInfoChanged();
   }
-}
 
 class BasicMouseWheelSmoothScrollGesture
     : public SmoothScrollGesture {

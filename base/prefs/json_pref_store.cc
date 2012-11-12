@@ -100,7 +100,8 @@ void FileThreadDeserializer::HandleErrors(
     PersistentPrefStore::PrefReadError* error) {
   *error = PersistentPrefStore::PREF_READ_ERROR_NONE;
   if (!value) {
-    DVLOG(1) << "Error while loading JSON file: " << error_msg;
+    DVLOG(1) << "Error while loading JSON file: " << error_msg
+             << ", file: " << path.value();
     switch (error_code) {
       case JSONFileValueSerializer::JSON_ACCESS_DENIED:
         *error = PersistentPrefStore::PREF_READ_ERROR_ACCESS_DENIED;
@@ -161,15 +162,15 @@ JsonPrefStore::JsonPrefStore(const FilePath& filename,
       read_error_(PREF_READ_ERROR_OTHER) {
 }
 
-PrefStore::ReadResult JsonPrefStore::GetValue(const std::string& key,
-                                              const Value** result) const {
+bool JsonPrefStore::GetValue(const std::string& key,
+                             const Value** result) const {
   Value* tmp = NULL;
-  if (prefs_->Get(key, &tmp)) {
-    if (result)
-      *result = tmp;
-    return READ_OK;
-  }
-  return READ_NO_VALUE;
+  if (!prefs_->Get(key, &tmp))
+    return false;
+
+  if (result)
+    *result = tmp;
+  return true;
 }
 
 void JsonPrefStore::AddObserver(PrefStore::Observer* observer) {
@@ -188,9 +189,9 @@ bool JsonPrefStore::IsInitializationComplete() const {
   return initialized_;
 }
 
-PrefStore::ReadResult JsonPrefStore::GetMutableValue(const std::string& key,
-                                                     Value** result) {
-  return prefs_->Get(key, result) ? READ_OK : READ_NO_VALUE;
+bool JsonPrefStore::GetMutableValue(const std::string& key,
+                                    Value** result) {
+  return prefs_->Get(key, result);
 }
 
 void JsonPrefStore::SetValue(const std::string& key, Value* value) {

@@ -17,6 +17,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
+#include "base/prefs/public/pref_observer.h"
 #include "base/string16.h"
 #include "chrome/browser/extensions/app_shortcut_manager.h"
 #include "chrome/browser/extensions/app_sync_bundle.h"
@@ -140,7 +141,8 @@ class ExtensionServiceInterface : public syncer::SyncableService {
 class ExtensionService
     : public ExtensionServiceInterface,
       public extensions::ExternalProviderInterface::VisitorInterface,
-      public content::NotificationObserver {
+      public content::NotificationObserver,
+      public PrefObserver {
  public:
   // The name of the directory inside the profile where extensions are
   // installed to.
@@ -417,7 +419,17 @@ class ExtensionService
   void OnExtensionInstalled(
       const extensions::Extension* extension,
       const syncer::StringOrdinal& page_ordinal,
-      bool has_requirement_errors);
+      bool has_requirement_errors,
+      bool wait_for_idle);
+
+  // Finishes installation of an update for an extension with the specified id,
+  // when installation of that extension was previously delayed because the
+  // extension was in use.
+  void FinishInstallation(const std::string& extension_id);
+
+  // Similar to FinishInstallation, but first checks if there still is an update
+  // pending for the extension, and makes sure the extension is still idle.
+  void MaybeFinishInstallation(const std::string& extension_id);
 
   // Initializes the |extension|'s active permission set and disables the
   // extension if the privilege level has increased (e.g., due to an upgrade).
@@ -605,6 +617,11 @@ class ExtensionService
   // acknowledged.
   void AcknowledgeExternalExtension(const std::string& id);
 
+  // Returns true if this extension is an external one that has yet to be
+  // marked as acknowledged.
+  bool IsUnacknowledgedExternalExtension(
+      const extensions::Extension* extension);
+
   // Opens the Extensions page because the user wants to get more details
   // about the alerts.
   void HandleExtensionAlertDetails();
@@ -620,6 +637,10 @@ class ExtensionService
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // PrefObserver
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
   // Whether there are any apps installed. Component apps are not included.
   bool HasApps() const;
@@ -780,6 +801,10 @@ class ExtensionService
   // (or upgraded) extension.
   bool ShouldEnableOnInstall(const extensions::Extension* extension);
 
+  // Helper to determine if an extension is idle, and it should be safe
+  // to update the extension.
+  bool IsExtensionIdle(const std::string& extension_id) const;
+
   // The normal profile associated with this ExtensionService.
   Profile* profile_;
 
@@ -800,6 +825,9 @@ class ExtensionService
 
   // The list of installed extensions that have been terminated.
   ExtensionSet terminated_extensions_;
+
+  // The list of extension updates that are waiting to be installed.
+  ExtensionSet pending_extension_updates_;
 
   // Hold the set of pending extensions.
   extensions::PendingExtensionManager pending_extension_manager_;
@@ -869,6 +897,8 @@ class ExtensionService
   // Flag to make sure event routers are only initialized once.
   bool event_routers_initialized_;
 
+  // TODO(yoz): None of these should be owned by ExtensionService.
+  // crbug.com/159265
   scoped_ptr<HistoryExtensionEventRouter> history_event_router_;
 
   scoped_ptr<extensions::BrowserEventRouter> browser_event_router_;

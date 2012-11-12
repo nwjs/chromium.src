@@ -72,12 +72,12 @@ bool SystemGestureEventFilter::PreHandleMouseEvent(aura::Window* target,
   return false;
 }
 
-ui::TouchStatus SystemGestureEventFilter::PreHandleTouchEvent(
+ui::EventResult SystemGestureEventFilter::PreHandleTouchEvent(
     aura::Window* target,
     ui::TouchEvent* event) {
   touch_uma_.RecordTouchEvent(target, *event);
   long_press_affordance_->ProcessEvent(target, event, event->touch_id());
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult SystemGestureEventFilter::PreHandleGestureEvent(
@@ -115,13 +115,8 @@ ui::EventResult SystemGestureEventFilter::PreHandleGestureEvent(
         SystemPinchHandler::kSystemGesturePoints) {
       ash::AcceleratorController* accelerator =
           ash::Shell::GetInstance()->accelerator_controller();
-      if (accelerator->PerformAction(CYCLE_FORWARD_MRU_PRESSED,
-                                     ui::Accelerator())) {
-        accelerator->PerformAction(CYCLE_FORWARD_MRU_RELEASED,
-                                   ui::Accelerator());
+      if (accelerator->PerformAction(CYCLE_FORWARD_MRU, ui::Accelerator()))
         return ui::ER_CONSUMED;
-      }
-      accelerator->PerformAction(CYCLE_FORWARD_MRU_RELEASED, ui::Accelerator());
     }
     return ui::ER_UNHANDLED;
   }

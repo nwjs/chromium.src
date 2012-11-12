@@ -50,8 +50,6 @@ using base::win::RegKey;
 
 namespace {
 
-typedef ShellUtil::ChromeShortcutProperties ChromeShortcutProperties;
-
 // An enum used to tell QuickIsChromeRegistered() which level of registration
 // the caller wants to confirm.
 enum RegistrationConfirmationLevel {
@@ -226,12 +224,9 @@ class RegistryEntry {
         ShellUtil::GetBrowserModelId(
             dist, InstallUtil::IsPerUserInstall(chrome_exe.c_str())));
     string16 delegate_guid;
-    // TODO(grt): remove HasDelegateExecuteHandler when the exe is ever-present;
-    // see also install_worker.cc's AddDelegateExecuteWorkItems.
     bool set_delegate_execute =
         IsChromeMetroSupported() &&
-        dist->GetCommandExecuteImplClsid(&delegate_guid) &&
-        InstallUtil::HasDelegateExecuteHandler(dist, chrome_exe);
+        dist->GetCommandExecuteImplClsid(&delegate_guid);
 
     // DelegateExecute ProgId. Needed for Chrome Metro in Windows 8.
     if (set_delegate_execute) {
@@ -917,7 +912,7 @@ bool RegisterChromeAsDefaultProtocolClientXPStyle(BrowserDistribution* dist,
 // return value is suffixed with ".lnk".
 string16 ExtractShortcutNameFromProperties(
     BrowserDistribution* dist,
-    const ChromeShortcutProperties& properties) {
+    const ShellUtil::ShortcutProperties& properties) {
   DCHECK(dist);
   string16 shortcut_name;
   if (properties.has_shortcut_name())
@@ -931,26 +926,37 @@ string16 ExtractShortcutNameFromProperties(
   return shortcut_name;
 }
 
-// Returns a ShortcutProperties struct containing the properties to set on the
-// shortcut based on the provided ChromeShortcutProperties. If |operation| is
-// to create, some properties might be given a default if not set in
-// |properties| (see individual setters in ChromeShortcutProperties for
-// details).
-base::win::ShortcutProperties GetShortcutPropertiesFromChromeShortcutProperties(
-    BrowserDistribution* dist,
-    const ChromeShortcutProperties& properties,
-    base::win::ShortcutOperation operation) {
-  bool create = (operation == base::win::SHORTCUT_CREATE_ALWAYS ||
-                 operation == base::win::SHORTCUT_REPLACE_EXISTING);
-  // |chrome_exe| is mandatory when creating the shortcut.
-  DCHECK(!create || properties.has_chrome_exe());
+// Converts ShellUtil::ShortcutOperation to the best-matching value in
+// base::win::ShortcutOperation.
+base::win::ShortcutOperation TranslateShortcutOperation(
+    ShellUtil::ShortcutOperation operation) {
+  switch (operation) {
+    case ShellUtil::SHELL_SHORTCUT_CREATE_ALWAYS:  // Falls through.
+    case ShellUtil::SHELL_SHORTCUT_CREATE_IF_NO_SYSTEM_LEVEL:
+      return base::win::SHORTCUT_CREATE_ALWAYS;
 
+    case ShellUtil::SHELL_SHORTCUT_UPDATE_EXISTING:
+      return base::win::SHORTCUT_UPDATE_EXISTING;
+
+    case ShellUtil::SHELL_SHORTCUT_REPLACE_EXISTING:
+      return base::win::SHORTCUT_REPLACE_EXISTING;
+
+    default:
+      NOTREACHED();
+      return base::win::SHORTCUT_REPLACE_EXISTING;
+  }
+}
+
+// Returns a base::win::ShortcutProperties struct containing the properties
+// to set on the shortcut based on the provided ShellUtil::ShortcutProperties.
+base::win::ShortcutProperties TranslateShortcutProperties(
+    const ShellUtil::ShortcutProperties& properties) {
   base::win::ShortcutProperties shortcut_properties;
 
-  if (properties.has_chrome_exe()) {
-    shortcut_properties.set_target(properties.chrome_exe);
-    DCHECK(!properties.chrome_exe.DirName().empty());
-    shortcut_properties.set_working_dir(properties.chrome_exe.DirName());
+  if (properties.has_target()) {
+    shortcut_properties.set_target(properties.target);
+    DCHECK(!properties.target.DirName().empty());
+    shortcut_properties.set_working_dir(properties.target.DirName());
   }
 
   if (properties.has_arguments())
@@ -958,31 +964,12 @@ base::win::ShortcutProperties GetShortcutPropertiesFromChromeShortcutProperties(
 
   if (properties.has_description())
     shortcut_properties.set_description(properties.description);
-  else if (create)
-    shortcut_properties.set_description(dist->GetAppDescription());
 
-  if (properties.has_icon()) {
-    shortcut_properties.set_icon(properties.icon, 0);
-  } else if (create) {
-    int icon_index = dist->GetIconIndex();
-    FilePath prefs_path(properties.chrome_exe.DirName().AppendASCII(
-        installer::kDefaultMasterPrefs));
-    if (file_util::PathExists(prefs_path)) {
-      installer::MasterPreferences prefs(prefs_path);
-      prefs.GetInt(installer::master_preferences::kChromeShortcutIconIndex,
-                   &icon_index);
-    }
-    shortcut_properties.set_icon(properties.chrome_exe, icon_index);
-  }
+  if (properties.has_icon())
+    shortcut_properties.set_icon(properties.icon, properties.icon_index);
 
-  if (properties.has_app_id()) {
+  if (properties.has_app_id())
     shortcut_properties.set_app_id(properties.app_id);
-  } else if (create) {
-    bool is_per_user_install =
-        InstallUtil::IsPerUserInstall(properties.chrome_exe.value().c_str());
-    shortcut_properties.set_app_id(
-        ShellUtil::GetBrowserModelId(dist, is_per_user_install));
-  }
 
   if (properties.has_dual_mode())
     shortcut_properties.set_dual_mode(properties.dual_mode);
@@ -1225,22 +1212,22 @@ bool ShellUtil::QuickIsChromeRegisteredInHKLM(BrowserDistribution* dist,
                                  CONFIRM_SHELL_REGISTRATION_IN_HKLM);
 }
 
-bool ShellUtil::GetShortcutPath(ChromeShortcutLocation location,
+bool ShellUtil::GetShortcutPath(ShellUtil::ShortcutLocation location,
                                 BrowserDistribution* dist,
                                 ShellChange level,
                                 FilePath* path) {
   int dir_key = -1;
   bool add_folder_for_dist = false;
   switch (location) {
-    case SHORTCUT_DESKTOP:
+    case SHORTCUT_LOCATION_DESKTOP:
       dir_key = (level == CURRENT_USER) ? base::DIR_USER_DESKTOP :
                                           base::DIR_COMMON_DESKTOP;
       break;
-    case SHORTCUT_QUICK_LAUNCH:
+    case SHORTCUT_LOCATION_QUICK_LAUNCH:
       dir_key = (level == CURRENT_USER) ? base::DIR_USER_QUICK_LAUNCH :
                                           base::DIR_DEFAULT_USER_QUICK_LAUNCH;
       break;
-    case SHORTCUT_START_MENU:
+    case SHORTCUT_LOCATION_START_MENU:
       dir_key = (level == CURRENT_USER) ? base::DIR_START_MENU :
                                           base::DIR_COMMON_START_MENU;
       add_folder_for_dist = true;
@@ -1261,16 +1248,16 @@ bool ShellUtil::GetShortcutPath(ChromeShortcutLocation location,
   return true;
 }
 
-bool ShellUtil::CreateOrUpdateChromeShortcut(
-    ShellUtil::ChromeShortcutLocation location,
+bool ShellUtil::CreateOrUpdateShortcut(
+    ShellUtil::ShortcutLocation location,
     BrowserDistribution* dist,
-    const ChromeShortcutProperties& properties,
-    ChromeShortcutOperation operation) {
+    const ShellUtil::ShortcutProperties& properties,
+    ShellUtil::ShortcutOperation operation) {
   DCHECK(dist);
   // |pin_to_taskbar| is only acknowledged when first creating the shortcut.
   DCHECK(!properties.pin_to_taskbar ||
-         operation == SHORTCUT_CREATE_ALWAYS ||
-         operation == SHORTCUT_CREATE_IF_NO_SYSTEM_LEVEL);
+         operation == SHELL_SHORTCUT_CREATE_ALWAYS ||
+         operation == SHELL_SHORTCUT_CREATE_IF_NO_SYSTEM_LEVEL);
 
   FilePath user_shortcut_path;
   FilePath system_shortcut_path;
@@ -1290,7 +1277,7 @@ bool ShellUtil::CreateOrUpdateChromeShortcut(
   if (properties.level == SYSTEM_LEVEL) {
     // Install the system-level shortcut if requested.
     chosen_path = &system_shortcut_path;
-  } else if (operation != SHORTCUT_CREATE_IF_NO_SYSTEM_LEVEL ||
+  } else if (operation != SHELL_SHORTCUT_CREATE_IF_NO_SYSTEM_LEVEL ||
              !file_util::PathExists(system_shortcut_path)){
     // Otherwise install the user-level shortcut, unless the system-level
     // variant of this shortcut is present on the machine and |operation| states
@@ -1307,12 +1294,7 @@ bool ShellUtil::CreateOrUpdateChromeShortcut(
     return true;
 
   base::win::ShortcutOperation shortcut_operation =
-      (operation == SHORTCUT_UPDATE_EXISTING ?
-           base::win::SHORTCUT_UPDATE_EXISTING :
-           (operation == SHORTCUT_REPLACE_EXISTING ?
-                base::win::SHORTCUT_REPLACE_EXISTING :
-                base::win::SHORTCUT_CREATE_ALWAYS));
-
+      TranslateShortcutOperation(operation);
   // Make sure the parent directories exist when creating the shortcut.
   if (shortcut_operation == base::win::SHORTCUT_CREATE_ALWAYS &&
       !file_util::CreateDirectory(chosen_path->DirName())) {
@@ -1321,8 +1303,7 @@ bool ShellUtil::CreateOrUpdateChromeShortcut(
   }
 
   base::win::ShortcutProperties shortcut_properties(
-      GetShortcutPropertiesFromChromeShortcutProperties(dist, properties,
-                                                        shortcut_operation));
+      TranslateShortcutProperties(properties));
   bool ret = base::win::CreateOrUpdateShortcutLink(
       *chosen_path, shortcut_properties, shortcut_operation);
 
@@ -1590,19 +1571,21 @@ bool ShellUtil::ShowMakeChromeDefaultSystemUI(BrowserDistribution* dist,
   if (!RegisterChromeBrowser(dist, chrome_exe, string16(), true))
       return false;
 
-  // On Windows 8, you can't set yourself as the default handler
-  // programatically. In other words IApplicationAssociationRegistration
-  // has been rendered useless. What you can do is to launch
-  // "Set Program Associations" section of the "Default Programs"
-  // control panel, which is a mess, or pop the concise "How you want to open
-  // webpages?" dialog.  We choose the latter.
-  // Return true only when the user took an action and there was no error.
-  const bool ret = LaunchSelectDefaultProtocolHandlerDialog(L"http");
-
-  if (ret && GetChromeDefaultState() == IS_DEFAULT)
+  bool succeeded = true;
+  bool is_default = (GetChromeDefaultState() == IS_DEFAULT);
+  if (!is_default) {
+    // On Windows 8, you can't set yourself as the default handler
+    // programatically. In other words IApplicationAssociationRegistration
+    // has been rendered useless. What you can do is to launch
+    // "Set Program Associations" section of the "Default Programs"
+    // control panel, which is a mess, or pop the concise "How you want to open
+    // webpages?" dialog.  We choose the latter.
+    succeeded = LaunchSelectDefaultProtocolHandlerDialog(L"http");
+    is_default = (succeeded && GetChromeDefaultState() == IS_DEFAULT);
+  }
+  if (succeeded && is_default)
     RegisterChromeAsDefaultXPStyle(dist, CURRENT_USER, chrome_exe);
-
-  return ret;
+  return succeeded;
 }
 
 bool ShellUtil::MakeChromeDefaultProtocolClient(BrowserDistribution* dist,
@@ -1661,19 +1644,23 @@ bool ShellUtil::ShowMakeChromeDefaultProtocolClientSystemUI(
   if (!RegisterChromeForProtocol(dist, chrome_exe, string16(), protocol, true))
     return false;
 
-  // On Windows 8, you can't set yourself as the default handler
-  // programatically. In other words IApplicationAssociationRegistration
-  // has been rendered useless. What you can do is to launch
-  // "Set Program Associations" section of the "Default Programs"
-  // control panel, which is a mess, or pop the concise "How you want to open
-  // links of this type (protocol)?" dialog.  We choose the latter.
-  // Return true only when the user took an action and there was no error.
-  const bool ret = LaunchSelectDefaultProtocolHandlerDialog(protocol.c_str());
-
-  if (ret && GetChromeDefaultProtocolClientState(protocol) == IS_DEFAULT)
+  bool succeeded = true;
+  bool is_default = (
+      GetChromeDefaultProtocolClientState(protocol) == IS_DEFAULT);
+  if (!is_default) {
+    // On Windows 8, you can't set yourself as the default handler
+    // programatically. In other words IApplicationAssociationRegistration
+    // has been rendered useless. What you can do is to launch
+    // "Set Program Associations" section of the "Default Programs"
+    // control panel, which is a mess, or pop the concise "How you want to open
+    // links of this type (protocol)?" dialog.  We choose the latter.
+    succeeded = LaunchSelectDefaultProtocolHandlerDialog(protocol.c_str());
+    is_default = (succeeded &&
+                  GetChromeDefaultProtocolClientState(protocol) == IS_DEFAULT);
+  }
+  if (succeeded && is_default)
     RegisterChromeAsDefaultProtocolClientXPStyle(dist, chrome_exe, protocol);
-
-  return ret;
+  return succeeded;
 }
 
 bool ShellUtil::RegisterChromeBrowser(BrowserDistribution* dist,
@@ -1699,9 +1686,10 @@ bool ShellUtil::RegisterChromeBrowser(BrowserDistribution* dist,
   bool user_level = InstallUtil::IsPerUserInstall(chrome_exe.c_str());
   HKEY root = DetermineRegistrationRoot(user_level);
 
-  // Do the full registration if we can do it at user-level or if the user is an
-  // admin.
+  bool result = true;
   if (root == HKEY_CURRENT_USER || IsUserAnAdmin()) {
+    // Do the full registration if we can do it at user-level or if the user is
+    // an admin.
     ScopedVector<RegistryEntry> progid_and_appreg_entries;
     ScopedVector<RegistryEntry> shell_entries;
     RegistryEntry::GetProgIdEntries(dist, chrome_exe, suffix,
@@ -1710,44 +1698,45 @@ bool ShellUtil::RegisterChromeBrowser(BrowserDistribution* dist,
                                              &progid_and_appreg_entries);
     RegistryEntry::GetShellIntegrationEntries(
         dist, chrome_exe, suffix, &shell_entries);
-    return AddRegistryEntries(root, progid_and_appreg_entries) &&
-           AddRegistryEntries(root, shell_entries);
-  }
-
-  // If the user is not an admin and OS is between Vista and Windows 7
-  // inclusively, try to elevate and register. This is only intended for
-  // user-level installs as system-level installs should always be run with
-  // admin rights.
-  if (elevate_if_not_admin &&
-      base::win::GetVersion() >= base::win::VERSION_VISTA &&
-      ElevateAndRegisterChrome(dist, chrome_exe, suffix, L""))
-    return true;
-
-  // If we got to this point then all we can do is create ProgId and basic app
-  // registrations under HKCU.
-  ScopedVector<RegistryEntry> entries;
-  RegistryEntry::GetProgIdEntries(dist, chrome_exe, string16(), &entries);
-  // Prefer to use |suffix|; unless Chrome's ProgIds are already registered with
-  // no suffix (as per the old registration style): in which case some other
-  // registry entries could refer to them and since we were not able to set our
-  // HKLM entries above, we are better off not altering these here.
-  if (!AreEntriesRegistered(entries, RegistryEntry::LOOK_IN_HKCU)) {
-    if (!suffix.empty()) {
-      entries.clear();
-      RegistryEntry::GetProgIdEntries(dist, chrome_exe, suffix, &entries);
-      RegistryEntry::GetAppRegistrationEntries(chrome_exe, suffix, &entries);
-    }
-    return AddRegistryEntries(HKEY_CURRENT_USER, entries);
+    result = (AddRegistryEntries(root, progid_and_appreg_entries) &&
+              AddRegistryEntries(root, shell_entries));
+  } else if (elevate_if_not_admin &&
+             base::win::GetVersion() >= base::win::VERSION_VISTA &&
+             ElevateAndRegisterChrome(dist, chrome_exe, suffix, L"")) {
+    // If the user is not an admin and OS is between Vista and Windows 7
+    // inclusively, try to elevate and register. This is only intended for
+    // user-level installs as system-level installs should always be run with
+    // admin rights.
+    result = true;
   } else {
-    // The ProgId is registered unsuffixed in HKCU, also register the app with
-    // Windows in HKCU (this was not done in the old registration style and
-    // thus needs to be done after the above check for the unsuffixed
-    // registration).
-    entries.clear();
-    RegistryEntry::GetAppRegistrationEntries(chrome_exe, string16(), &entries);
-    return AddRegistryEntries(HKEY_CURRENT_USER, entries);
+    // If we got to this point then all we can do is create ProgId and basic app
+    // registrations under HKCU.
+    ScopedVector<RegistryEntry> entries;
+    RegistryEntry::GetProgIdEntries(dist, chrome_exe, string16(), &entries);
+    // Prefer to use |suffix|; unless Chrome's ProgIds are already registered
+    // with no suffix (as per the old registration style): in which case some
+    // other registry entries could refer to them and since we were not able to
+    // set our HKLM entries above, we are better off not altering these here.
+    if (!AreEntriesRegistered(entries, RegistryEntry::LOOK_IN_HKCU)) {
+      if (!suffix.empty()) {
+        entries.clear();
+        RegistryEntry::GetProgIdEntries(dist, chrome_exe, suffix, &entries);
+        RegistryEntry::GetAppRegistrationEntries(chrome_exe, suffix, &entries);
+      }
+      result = AddRegistryEntries(HKEY_CURRENT_USER, entries);
+    } else {
+      // The ProgId is registered unsuffixed in HKCU, also register the app with
+      // Windows in HKCU (this was not done in the old registration style and
+      // thus needs to be done after the above check for the unsuffixed
+      // registration).
+      entries.clear();
+      RegistryEntry::GetAppRegistrationEntries(chrome_exe, string16(),
+                                               &entries);
+      result = AddRegistryEntries(HKEY_CURRENT_USER, entries);
+    }
   }
-  return true;
+  SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+  return result;
 }
 
 bool ShellUtil::RegisterChromeForProtocol(BrowserDistribution* dist,
@@ -1793,13 +1782,12 @@ bool ShellUtil::RegisterChromeForProtocol(BrowserDistribution* dist,
   }
 }
 
-bool ShellUtil::RemoveChromeShortcut(
-    ChromeShortcutLocation location,
-    BrowserDistribution* dist,
-    const string16& chrome_exe,
-    ShellChange level,
-    const string16* shortcut_name) {
-  bool delete_folder = (location == SHORTCUT_START_MENU);
+bool ShellUtil::RemoveShortcut(ShellUtil::ShortcutLocation location,
+                               BrowserDistribution* dist,
+                               const string16& target_exe,
+                               ShellChange level,
+                               const string16* shortcut_name) {
+  bool delete_folder = (location == SHORTCUT_LOCATION_START_MENU);
 
   FilePath shortcut_folder;
   if (!GetShortcutPath(location, dist, level, &shortcut_folder) ||
@@ -1829,7 +1817,7 @@ bool ShellUtil::RemoveChromeShortcut(
     return false;
   }
 
-  if (InstallUtil::ProgramCompare(FilePath(chrome_exe)).Evaluate(read_target)) {
+  if (InstallUtil::ProgramCompare(FilePath(target_exe)).Evaluate(read_target)) {
     // Unpin the shortcut if it was ever pinned by the user or the installer.
     VLOG(1) << "Trying to unpin " << shortcut_path.value();
     if (!base::win::TaskbarUnpinShortcutLink(shortcut_path.value().c_str())) {
@@ -1842,13 +1830,44 @@ bool ShellUtil::RemoveChromeShortcut(
       return file_util::Delete(shortcut_path, false);
   }
 
-  // The shortcut at |shortcut_path| doesn't point to |chrome_exe|, act as if
+  // The shortcut at |shortcut_path| doesn't point to |target_exe|, act as if
   // our shortcut had been deleted.
   return true;
 }
 
-void ShellUtil::RemoveChromeStartScreenShortcuts(BrowserDistribution* dist,
-                                                 const string16& chrome_exe) {
+void ShellUtil::RemoveTaskbarShortcuts(const string16& target_exe) {
+  if (base::win::GetVersion() < base::win::VERSION_WIN7)
+    return;
+
+  FilePath taskbar_pins_path;
+  if (!PathService::Get(base::DIR_TASKBAR_PINS, &taskbar_pins_path) ||
+      !file_util::PathExists(taskbar_pins_path)) {
+    LOG(ERROR) << "Couldn't find path to taskbar pins.";
+    return;
+  }
+
+  file_util::FileEnumerator shortcuts_enum(
+      taskbar_pins_path, false,
+      file_util::FileEnumerator::FILES, FILE_PATH_LITERAL("*.lnk"));
+
+  FilePath target_path(target_exe);
+  InstallUtil::ProgramCompare target_compare(target_path);
+  for (FilePath shortcut_path = shortcuts_enum.Next(); !shortcut_path.empty();
+       shortcut_path = shortcuts_enum.Next()) {
+    FilePath read_target;
+    if (!base::win::ResolveShortcut(shortcut_path, &read_target, NULL)) {
+      LOG(ERROR) << "Couldn't resolve shortcut at " << shortcut_path.value();
+      continue;
+    }
+    if (target_compare.Evaluate(read_target.value())) {
+      // Unpin this shortcut if it points to |target_exe|.
+      base::win::TaskbarUnpinShortcutLink(shortcut_path.value().c_str());
+    }
+  }
+}
+
+void ShellUtil::RemoveStartScreenShortcuts(BrowserDistribution* dist,
+                                           const string16& target_exe) {
   if (base::win::GetVersion() < base::win::VERSION_WIN8)
     return;
 
@@ -1861,7 +1880,7 @@ void ShellUtil::RemoveChromeStartScreenShortcuts(BrowserDistribution* dist,
 
   app_shortcuts_path = app_shortcuts_path.Append(
       GetBrowserModelId(dist,
-                        InstallUtil::IsPerUserInstall(chrome_exe.c_str())));
+                        InstallUtil::IsPerUserInstall(target_exe.c_str())));
   if (!file_util::DirectoryExists(app_shortcuts_path)) {
     VLOG(1) << "No start screen shortcuts to delete.";
     return;

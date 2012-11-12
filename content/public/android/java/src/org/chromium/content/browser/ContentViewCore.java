@@ -5,6 +5,7 @@
 package org.chromium.content.browser;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
@@ -27,6 +28,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Surface;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
@@ -71,7 +73,7 @@ public class ContentViewCore implements MotionEventDelegate {
 
     // To avoid checkerboard, we clamp the fling velocity based on the maximum number of tiles
     // should be allowed to upload per 100ms.
-    private final int mMaxNumUploadTiles = 12;
+    private final int mMaxNumUploadTiles;
 
     // Personality of the ContentView.
     private final int mPersonality;
@@ -167,6 +169,10 @@ public class ContentViewCore implements MotionEventDelegate {
     // Cached content size from the native
     private int mContentWidth;
     private int mContentHeight;
+
+    // Cached size of the viewport
+    private int mViewportWidth;
+    private int mViewportHeight;
 
     // Cached page scale factor from native
     private float mNativePageScaleFactor = 1.0f;
@@ -290,6 +296,30 @@ public class ContentViewCore implements MotionEventDelegate {
 
         mPersonality = personality;
         HeapStatsLogger.init(mContext.getApplicationContext());
+
+        // We should set this constant based on the GPU performance. As it doesn't exist in the
+        // framework yet, we use the memory class as an indicator. Here are some good values that
+        // we determined via manual experimentation:
+        //
+        // Device            Screen size        Memory class   Tiles per 100ms
+        // ================= ================== ============== =====================
+        // Nexus S            480 x  800         128            9 (3 rows portrait)
+        // Galaxy Nexus       720 x 1280         256           12 (3 rows portrait)
+        // Nexus 7           1280 x  800         384           18 (3 rows landscape)
+        // Nexus 10          2560 x 1600         512           44 (4 rows landscape)
+        //
+        // Here is a spreadsheet with the data, plus a curve fit:
+        // https://docs.google.com/a/chromium.org/spreadsheet/pub?key=0AlNYk7HM2CgQdG1vUWRVWkU3ODRTc1B2SVF3ZTJBUkE&output=html
+        // That gives us tiles-per-100ms of 8, 13, 22, 37 for the devices listed above.
+        // Not too bad, and it should behave reasonably sensibly for unknown devices.
+        // If you want to tweak these constants, please update the spreadsheet appropriately.
+        //
+        // The curve is y = b * m^x, with coefficients as follows:
+        double b = 4.70009671080384;
+        double m = 1.00404437546897;
+        int memoryClass = ((ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE))
+                .getLargeMemoryClass();
+        mMaxNumUploadTiles = (int) Math.round(b * Math.pow(m, memoryClass));
     }
 
     /**
@@ -531,7 +561,7 @@ public class ContentViewCore implements MotionEventDelegate {
         mImeAdapter = createImeAdapter(mContext);
         mKeyboardConnected = mContainerView.getResources().getConfiguration().keyboard
                 != Configuration.KEYBOARD_NOKEYS;
-        mVSyncMonitor = new VSyncMonitor(mContext, mContainerView, mVSyncListener);
+        mVSyncMonitor = new VSyncMonitor(mContext, mVSyncListener);
         TraceEvent.end();
     }
 
@@ -584,12 +614,12 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public void destroy() {
         hidePopupDialog();
+        if (mVSyncMonitor != null) mVSyncMonitor.unregisterListener();
         if (mNativeContentViewCore != 0) {
             nativeOnJavaContentViewCoreDestroyed(mNativeContentViewCore);
         }
         mNativeContentViewCore = 0;
         mContentSettings = null;
-        mVSyncMonitor.stop();
     }
 
     /**
@@ -711,12 +741,14 @@ public class ContentViewCore implements MotionEventDelegate {
         return null;
     }
 
+    @CalledByNative
     public int getWidth() {
-        return mContainerView.getWidth();
+        return mViewportWidth;
     }
 
+    @CalledByNative
     public int getHeight() {
-        return mContainerView.getHeight();
+        return mViewportHeight;
     }
 
     /**
@@ -738,7 +770,7 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     public Bitmap getBitmap(int width, int height) {
-        if (getWidth() == 0 || getHeight() == 0) return null;
+        if (width == 0 || height == 0 || getWidth() == 0 || getHeight() == 0) return null;
 
         Bitmap b = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
 
@@ -746,9 +778,9 @@ public class ContentViewCore implements MotionEventDelegate {
                 nativePopulateBitmapFromCompositor(mNativeContentViewCore, b)) {
             // If we successfully grabbed a bitmap, check if we have to draw the Android overlay
             // components as well.
-            if (mContainerView.getParent() != null &&
-                    mContainerView.getVisibility() == View.VISIBLE) {
+            if (mContainerView.getChildCount() > 0) {
                 Canvas c = new Canvas(b);
+                c.scale(1.0f, -1.0f, width / 2.0f, height / 2.0f);
                 c.scale(width / (float) getWidth(), height / (float) getHeight());
                 mContainerView.draw(c);
             }
@@ -1146,9 +1178,20 @@ public class ContentViewCore implements MotionEventDelegate {
     @SuppressWarnings("javadoc")
     public void onSizeChanged(int w, int h, int ow, int oh) {
         mPopupZoomer.hide(false);
+
+        updateAfterSizeChanged();
+
         // Update the content size to make sure it is at least the View size
         if (mContentWidth < w) mContentWidth = w;
         if (mContentHeight < h) mContentHeight = h;
+
+        if (mViewportWidth != w || mViewportHeight != h) {
+            mViewportWidth = w;
+            mViewportHeight = h;
+            if (mNativeContentViewCore != 0) {
+                nativeSetSize(mNativeContentViewCore, mViewportWidth, mViewportHeight);
+            }
+        }
     }
 
     public void updateAfterSizeChanged() {
@@ -1160,6 +1203,11 @@ public class ContentViewCore implements MotionEventDelegate {
         } else if (mUnfocusOnNextSizeChanged) {
             undoScrollFocusedEditableNodeIntoViewIfNeeded(true);
             mUnfocusOnNextSizeChanged = false;
+        }
+
+        if (mNeedUpdateOrientationChanged) {
+            sendOrientationChangeEvent();
+            mNeedUpdateOrientationChanged = false;
         }
     }
 
@@ -1484,6 +1532,41 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     /**
+     * Get the screen orientation from the OS and push it to WebKit.
+     *
+     * TODO(husky): Add a hook for mock orientations.
+     *
+     * TODO(husky): Currently each new tab starts with an orientation of 0 until you actually
+     * rotate the device. This is wrong if you actually started in landscape mode. To fix this, we
+     * need to push the correct orientation, but only after WebKit's Frame object has been fully
+     * initialized. Need to find a good time to do that. onPageFinished() would probably work but
+     * it isn't implemented yet.
+     */
+    private void sendOrientationChangeEvent() {
+        if (mNativeContentViewCore == 0) return;
+
+        WindowManager windowManager =
+                (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+        switch (windowManager.getDefaultDisplay().getRotation()) {
+            case Surface.ROTATION_90:
+                nativeSendOrientationChangeEvent(mNativeContentViewCore, 90);
+                break;
+            case Surface.ROTATION_180:
+                nativeSendOrientationChangeEvent(mNativeContentViewCore, 180);
+                break;
+            case Surface.ROTATION_270:
+                nativeSendOrientationChangeEvent(mNativeContentViewCore, -90);
+                break;
+            case Surface.ROTATION_0:
+                nativeSendOrientationChangeEvent(mNativeContentViewCore, 0);
+                break;
+            default:
+                Log.w(TAG, "Unknown rotation!");
+                break;
+        }
+    }
+
+    /**
      * Register the delegate to be used when content can not be handled by
      * the rendering engine, and should be downloaded instead. This will replace
      * the current delegate, if any.
@@ -1768,6 +1851,13 @@ public class ContentViewCore implements MotionEventDelegate {
     private void showSelectPopup(String[] items, int[] enabled, boolean multiple,
             int[] selectedIndices) {
         SelectPopupDialog.show(this, items, enabled, multiple, selectedIndices);
+    }
+
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private void showDisambiguationPopup(Rect targetRect, Bitmap zoomedBitmap) {
+        mPopupZoomer.setBitmap(zoomedBitmap);
+        mPopupZoomer.show(targetRect);
     }
 
     @SuppressWarnings("unused")
@@ -2171,8 +2261,17 @@ public class ContentViewCore implements MotionEventDelegate {
      * @param tickTimeMicros The latest vsync tick time in microseconds.
      * @param intervalMicros The vsync interval in microseconds.
      */
+    public void updateVSync(long tickTimeMicros, long intervalMicros) {
+        if (mNativeContentViewCore != 0) {
+            nativeUpdateVSyncParameters(mNativeContentViewCore, tickTimeMicros, intervalMicros);
+        }
+    }
+
+    /**
+     *  Temporary shim for updateVSync.
+     */
     public void UpdateVSync(long tickTimeMicros, long intervalMicros) {
-        nativeUpdateVSyncParameters(mNativeContentViewCore, tickTimeMicros, intervalMicros);
+        updateVSync(tickTimeMicros, intervalMicros);
     }
 
     private native int nativeInit(boolean hardwareAccelerated, int webContentsPtr,
@@ -2205,6 +2304,9 @@ public class ContentViewCore implements MotionEventDelegate {
     private native boolean nativeCrashed(int nativeContentViewCoreImpl);
 
     private native void nativeSetFocus(int nativeContentViewCoreImpl, boolean focused);
+
+    private native void nativeSendOrientationChangeEvent(
+            int nativeContentViewCoreImpl, int orientation);
 
     private native boolean nativeSendTouchEvent(
             int nativeContentViewCoreImpl, long timeMs, int action, TouchPoint[] pts);
@@ -2307,4 +2409,6 @@ public class ContentViewCore implements MotionEventDelegate {
 
     private native boolean nativePopulateBitmapFromCompositor(int nativeContentViewCoreImpl,
             Bitmap bitmap);
+
+    private native void nativeSetSize(int nativeContentViewCoreImpl, int width, int height);
 }

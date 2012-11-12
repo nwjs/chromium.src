@@ -23,6 +23,7 @@
 #include "ui/aura/window_observer.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/events/event.h"
+#include "ui/base/native_theme/native_theme_aura.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
@@ -44,6 +45,10 @@
 #include "base/win/scoped_gdi_object.h"
 #include "base/win/win_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
+#endif
+
+#if !defined(OS_CHROMEOS)
+#include "ui/views/widget/desktop_root_window_host.h"
 #endif
 
 namespace views {
@@ -554,8 +559,9 @@ bool NativeWidgetAura::IsAccessibleWidget() const {
 void NativeWidgetAura::RunShellDrag(View* view,
                                     const ui::OSExchangeData& data,
                                     const gfx::Point& location,
-                                    int operation) {
-  views::RunShellDrag(window_, data, location, operation);
+                                    int operation,
+                                    ui::DragDropTypes::DragEventSource source) {
+  views::RunShellDrag(window_, data, location, operation, source);
 }
 
 void NativeWidgetAura::SchedulePaintInRect(const gfx::Rect& rect) {
@@ -592,7 +598,7 @@ void NativeWidgetAura::SetInactiveRenderingDisabled(bool value) {
 }
 
 Widget::MoveLoopResult NativeWidgetAura::RunMoveLoop(
-    const gfx::Point& drag_offset) {
+    const gfx::Vector2d& drag_offset) {
   if (window_->parent() &&
       aura::client::GetWindowMoveClient(window_->parent())) {
     SetCapture();
@@ -613,6 +619,13 @@ void NativeWidgetAura::EndMoveLoop() {
 
 void NativeWidgetAura::SetVisibilityChangedAnimationsEnabled(bool value) {
   window_->SetProperty(aura::client::kAnimationsDisabledKey, !value);
+}
+
+ui::NativeTheme* NativeWidgetAura::GetNativeTheme() const {
+#if !defined(OS_CHROMEOS)
+  return DesktopRootWindowHost::GetNativeTheme(window_);
+#endif
+  return ui::NativeThemeAura::instance();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -782,7 +795,7 @@ ui::EventResult NativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
     return delegate_->OnMouseEvent(*event) ? ui::ER_HANDLED : ui::ER_UNHANDLED;
 
   if (event->type() == ui::ET_SCROLL) {
-    if (delegate_->OnMouseEvent(*event))
+    if (delegate_->OnScrollEvent(static_cast<ui::ScrollEvent*>(event)))
       return ui::ER_HANDLED;
 
     // Convert unprocessed scroll events into wheel events.
@@ -796,13 +809,12 @@ ui::EventResult NativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
 
 ui::EventResult NativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
   DCHECK(window_->IsVisible());
-  ui::TouchStatus status = delegate_->OnTouchEvent(*event);
-  return ui::EventResultFromTouchStatus(status);
+  return delegate_->OnTouchEvent(event);
 }
 
 ui::EventResult NativeWidgetAura::OnGestureEvent(ui::GestureEvent* event) {
   DCHECK(window_->IsVisible());
-  return delegate_->OnGestureEvent(*event);
+  return delegate_->OnGestureEvent(event);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

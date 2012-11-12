@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCTiledLayerImpl_h
-#define CCTiledLayerImpl_h
+#ifndef CC_TILED_LAYER_IMPL_H_
+#define CC_TILED_LAYER_IMPL_H_
 
+#include "cc/cc_export.h"
 #include "cc/layer_impl.h"
 #include <public/WebTransformationMatrix.h>
 
@@ -13,7 +14,7 @@ namespace cc {
 class LayerTilingData;
 class DrawableTile;
 
-class TiledLayerImpl : public LayerImpl {
+class CC_EXPORT TiledLayerImpl : public LayerImpl {
 public:
     static scoped_ptr<TiledLayerImpl> create(int id)
     {
@@ -29,7 +30,7 @@ public:
 
     void setSkipsDraw(bool skipsDraw) { m_skipsDraw = skipsDraw; }
     void setTilingData(const LayerTilingData& tiler);
-    void pushTileProperties(int, int, ResourceProvider::ResourceId, const IntRect& opaqueRect, bool contentsSwizzled);
+    void pushTileProperties(int, int, ResourceProvider::ResourceId, const gfx::Rect& opaqueRect, bool contentsSwizzled);
     void pushInvalidTile(int, int);
 
     virtual Region visibleContentOpaqueRegion() const OVERRIDE;
@@ -55,4 +56,4 @@ private:
 
 }
 
-#endif // CCTiledLayerImpl_h
+#endif  // CC_TILED_LAYER_IMPL_H_

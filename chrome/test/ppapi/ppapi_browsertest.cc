@@ -162,10 +162,10 @@ IN_PROC_BROWSER_TEST_F(PPAPIBrokerInfoBarTest, Deny) {
   GURL url = GetTestFileUrl("Broker_ConnectPermissionDenied");
   RunTestURL(url);
 
-  // It should *not* set a content settings exception for the site.
+  // It should also set a content settings exception for the site.
   HostContentSettingsMap* content_settings =
       browser()->profile()->GetHostContentSettingsMap();
-  EXPECT_EQ(CONTENT_SETTING_ASK,
+  EXPECT_EQ(CONTENT_SETTING_BLOCK,
             content_settings->GetContentSetting(
                 url, url, CONTENT_SETTINGS_TYPE_PPAPI_BROKER, std::string()));
 }
@@ -522,8 +522,9 @@ TEST_PPAPI_OUT_OF_PROCESS_VIA_HTTP(FileIO_ReadWriteSetLength)
 TEST_PPAPI_OUT_OF_PROCESS_VIA_HTTP(FileIO_TouchQuery)
 TEST_PPAPI_OUT_OF_PROCESS_VIA_HTTP(FileIO_WillWriteWillSetLength)
 
-// PPAPINaclTest.FileIO_ParallelReads is flaky on Mac. http://crbug.com/121104
-#if defined(OS_MACOSX)
+// PPAPINaclTest.FileIO_ParallelReads is flaky on Mac and Windows.
+// http://crbug.com/121104
+#if defined(OS_MACOSX) || defined(OS_WIN)
 #define MAYBE_FileIO_ParallelReads DISABLED_FileIO_ParallelReads
 #else
 #define MAYBE_FileIO_ParallelReads FileIO_ParallelReads
@@ -536,8 +537,16 @@ TEST_PPAPI_OUT_OF_PROCESS_VIA_HTTP(FileIO_WillWriteWillSetLength)
 #define MAYBE_NACL_FileIO_TouchQuery FileIO_TouchQuery
 #endif
 
+// PPAPINaclTest.FileIO_AbortCalls is often flaky on Windows.
+// http://crbug.com/160034
+#if defined(OS_WIN)
+#define MAYBE_FileIO_AbortCalls DISABLED_FileIO_AbortCalls
+#else
+#define MAYBE_FileIO_AbortCalls FileIO_AbortCalls
+#endif
+
 TEST_PPAPI_NACL_VIA_HTTP(FileIO_Open)
-TEST_PPAPI_NACL_VIA_HTTP(FileIO_AbortCalls)
+TEST_PPAPI_NACL_VIA_HTTP(MAYBE_FileIO_AbortCalls)
 TEST_PPAPI_NACL_VIA_HTTP(MAYBE_FileIO_ParallelReads)
 TEST_PPAPI_NACL_VIA_HTTP(FileIO_ParallelWrites)
 TEST_PPAPI_NACL_VIA_HTTP(FileIO_NotAllowMixedReadWrite)
@@ -598,9 +607,6 @@ TEST_PPAPI_IN_PROCESS_VIA_HTTP(MAYBE_Fullscreen)
 TEST_PPAPI_OUT_OF_PROCESS_VIA_HTTP(MAYBE_Fullscreen)
 TEST_PPAPI_NACL_VIA_HTTP(MAYBE_Fullscreen)
 
-TEST_PPAPI_IN_PROCESS(FlashClipboard)
-TEST_PPAPI_OUT_OF_PROCESS(FlashClipboard)
-
 TEST_PPAPI_IN_PROCESS(X509CertificatePrivate)
 TEST_PPAPI_OUT_OF_PROCESS(X509CertificatePrivate)
 
@@ -642,38 +648,13 @@ TEST_PPAPI_OUT_OF_PROCESS(NetAddressPrivate_GetPort)
 TEST_PPAPI_OUT_OF_PROCESS(NetAddressPrivate_GetAddress)
 TEST_PPAPI_OUT_OF_PROCESS(NetAddressPrivate_GetScopeID)
 
-// Frequently timing out on Windows. http://crbug.com/115440
-#if defined(OS_WIN)
-#define MAYBE_NetAddressPrivateUntrusted_Describe \
-  DISABLED_NetAddressPrivateUntrusted_Describe
-#define MAYBE_NetAddressPrivateUntrusted_ReplacePort \
-  DISABLED_NetAddressPrivateUntrusted_ReplacePort
-#define MAYBE_NetAddressPrivateUntrusted_GetPort \
-  DISABLED_NetAddressPrivateUntrusted_GetPort
-#else
-#define MAYBE_NetAddressPrivateUntrusted_Describe \
-  NetAddressPrivateUntrusted_Describe
-#define MAYBE_NetAddressPrivateUntrusted_ReplacePort \
-  NetAddressPrivateUntrusted_ReplacePort
-#define MAYBE_NetAddressPrivateUntrusted_GetPort \
-  NetAddressPrivateUntrusted_GetPort
-#endif
-
-// PPAPINaClTest.NetAddressPrivateUntrusted_GetFamily timing out frequently on
-// Windows and Mac. http://crbug.com/130380
-#if defined(OS_WIN) || defined(OS_MACOSX)
-#define MAYBE_NetAddressPrivateUntrusted_GetFamily DISABLED_NetAddressPrivateUntrusted_GetFamily
-#else
-#define MAYBE_NetAddressPrivateUntrusted_GetFamily NetAddressPrivateUntrusted_GetFamily
-#endif
-
 TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_AreEqual)
 TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_AreHostsEqual)
-TEST_PPAPI_NACL_VIA_HTTP(MAYBE_NetAddressPrivateUntrusted_Describe)
-TEST_PPAPI_NACL_VIA_HTTP(MAYBE_NetAddressPrivateUntrusted_ReplacePort)
+TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_Describe)
+TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_ReplacePort)
 TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_GetAnyAddress)
-TEST_PPAPI_NACL_VIA_HTTP(MAYBE_NetAddressPrivateUntrusted_GetFamily)
-TEST_PPAPI_NACL_VIA_HTTP(MAYBE_NetAddressPrivateUntrusted_GetPort)
+TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_GetFamily)
+TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_GetPort)
 TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_GetAddress)
 
 TEST_PPAPI_IN_PROCESS(NetworkMonitorPrivate_Basic)
@@ -708,6 +689,7 @@ TEST_PPAPI_OUT_OF_PROCESS(Flash_GetSetting)
 // No in-process test for SetCrashData.
 TEST_PPAPI_OUT_OF_PROCESS(Flash_SetCrashData)
 
+// NaCl based PPAPI tests with WebSocket server
 TEST_PPAPI_IN_PROCESS(WebSocket_IsWebSocket)
 TEST_PPAPI_IN_PROCESS(WebSocket_UninitializedPropertiesAccess)
 TEST_PPAPI_IN_PROCESS(WebSocket_InvalidConnect)
@@ -936,7 +918,8 @@ TEST_PPAPI_OUT_OF_PROCESS(MessageLoop_Basics)
 TEST_PPAPI_OUT_OF_PROCESS(MessageLoop_Post)
 #endif
 
-// Only enabled in out-of-process mode.
+// Going forward, Flash APIs will only work out-of-process.
+TEST_PPAPI_OUT_OF_PROCESS(FlashClipboard)
 TEST_PPAPI_OUT_OF_PROCESS(FlashFile_CreateTemporaryFile)
 
 #endif // ADDRESS_SANITIZER

@@ -101,7 +101,13 @@ class SpellCheckHost {
   static int GetSpellCheckLanguages(Profile* profile,
                                     std::vector<std::string>* languages);
 
- protected:
+  // Computes a vector of strings which are to be displayed in the context
+  // menu from |accept_languages| and |dictionary_language|.
+  static void GetSpellCheckLanguagesFromAcceptLanguages(
+      const std::vector<std::string>& accept_languages,
+      const std::string& dictionary_language,
+      std::vector<std::string>* languages);
+
   // Signals the event attached by AttachTestEvent() to report the specified
   // event to browser tests. This function is called by this class and its
   // derived classes to report their status. This function does not do anything

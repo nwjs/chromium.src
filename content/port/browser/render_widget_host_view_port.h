@@ -79,7 +79,7 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
   // Moves all plugin windows as described in the given list.
   // |scroll_offset| is the scroll offset of the render view.
   virtual void MovePluginWindows(
-      const gfx::Point& scroll_offset,
+      const gfx::Vector2d& scroll_offset,
       const std::vector<webkit::npapi::WebPluginGeometry>& moves) = 0;
 
   // Take focus from the associated View component.
@@ -227,9 +227,11 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
 #endif
 
 #if defined(OS_ANDROID)
+  virtual void ShowDisambiguationPopup(const gfx::Rect& target_rect,
+                                       const SkBitmap& zoomed_bitmap) = 0;
   virtual void SetCachedPageScaleFactorLimits(float minimum_scale,
                                               float maximum_scale) = 0;
-  virtual void UpdateFrameInfo(const gfx::Point& scroll_offset,
+  virtual void UpdateFrameInfo(const gfx::Vector2d& scroll_offset,
                                float page_scale_factor,
                                const gfx::Size& content_size) = 0;
   virtual void HasTouchEventHandlers(bool need_touch_events) = 0;
@@ -254,8 +256,10 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
   static void GetDefaultScreenInfo(
       WebKit::WebScreenInfo* results);
   virtual void GetScreenInfo(WebKit::WebScreenInfo* results) = 0;
-  virtual gfx::Rect GetBoundsInRootWindow() = 0;
 #endif
+
+  // Gets the bounds of the window, in screen coordinates.
+  virtual gfx::Rect GetBoundsInRootWindow() = 0;
 
   virtual gfx::GLSurfaceHandle GetCompositingSurface() = 0;
 

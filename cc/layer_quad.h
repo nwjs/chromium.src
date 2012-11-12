@@ -3,17 +3,21 @@
 // found in the LICENSE file.
 
 
-#ifndef CCLayerQuad_h
-#define CCLayerQuad_h
+#ifndef CC_LAYER_QUAD_H_
+#define CC_LAYER_QUAD_H_
 
-#include "FloatPoint3D.h"
-#include "FloatQuad.h"
+#include "cc/cc_export.h"
+#include "ui/gfx/point_f.h"
+
+namespace gfx {
+class QuadF;
+}
 
 static const float kAntiAliasingInflateDistance = 0.5f;
 
 namespace cc {
 
-class LayerQuad {
+class CC_EXPORT LayerQuad {
 public:
     class Edge {
     public:
@@ -23,7 +27,7 @@ public:
             , m_z(0)
         {
         }
-        Edge(const FloatPoint&, const FloatPoint&);
+        Edge(const gfx::PointF&, const gfx::PointF&);
 
         float x() const { return m_x; }
         float y() const { return m_y; }
@@ -60,9 +64,9 @@ public:
         }
         void scale(float s) { scale(s, s, s); }
 
-        FloatPoint intersect(const Edge& e) const
+        gfx::PointF intersect(const Edge& e) const
         {
-            return FloatPoint(
+            return gfx::PointF(
                 (y() * e.z() - e.y() * z()) / (x() * e.y() - e.x() * y()),
                 (x() * e.z() - e.x() * z()) / (e.x() * y() - x() * e.y()));
         }
@@ -74,7 +78,7 @@ public:
     };
 
     LayerQuad(const Edge& left, const Edge& top, const Edge& right, const Edge& bottom);
-    LayerQuad(const FloatQuad&);
+    LayerQuad(const gfx::QuadF&);
 
     Edge left() const { return m_left; }
     Edge top() const { return m_top; }
@@ -86,7 +90,7 @@ public:
     void inflate(float d) { inflateX(d); inflateY(d); }
     void inflateAntiAliasingDistance() { inflate(kAntiAliasingInflateDistance); }
 
-    FloatQuad floatQuad() const;
+    gfx::QuadF ToQuadF() const;
 
     void toFloatArray(float[12]) const;
 
@@ -99,4 +103,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_LAYER_QUAD_H_

@@ -2,15 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/test/tiled_layer_test_common.h"
 
-using namespace cc;
+using cc::LayerTilingData;
+using cc::LayerUpdater;
+using cc::PriorityCalculator;
+using cc::PrioritizedResource;
+using cc::PrioritizedResourceManager;
+using cc::RenderingStats;
+using cc::ResourceUpdate;
+using cc::ResourceUpdateQueue;
 
 namespace WebKitTests {
 
-FakeLayerUpdater::Resource::Resource(FakeLayerUpdater* layer, scoped_ptr<PrioritizedTexture> texture)
+FakeLayerUpdater::Resource::Resource(FakeLayerUpdater* layer, scoped_ptr<PrioritizedResource> texture)
     : LayerUpdater::Resource(texture.Pass())
     , m_layer(layer)
 {
@@ -22,11 +27,11 @@ FakeLayerUpdater::Resource::~Resource()
 {
 }
 
-void FakeLayerUpdater::Resource::update(ResourceUpdateQueue& queue, const IntRect&, const IntSize&, bool partialUpdate, RenderingStats&)
+void FakeLayerUpdater::Resource::update(ResourceUpdateQueue& queue, const gfx::Rect&, const gfx::Vector2d&, bool partialUpdate, RenderingStats&)
 {
-    const IntRect rect(0, 0, 10, 10);
+    const gfx::Rect rect(0, 0, 10, 10);
     ResourceUpdate upload = ResourceUpdate::Create(
-        texture(), &m_bitmap, rect, rect, IntSize());
+        texture(), &m_bitmap, rect, rect, gfx::Vector2d());
     if (partialUpdate)
         queue.appendPartialUpload(upload);
     else
@@ -45,27 +50,27 @@ FakeLayerUpdater::~FakeLayerUpdater()
 {
 }
 
-void FakeLayerUpdater::prepareToUpdate(const IntRect& contentRect, const IntSize&, float, float, IntRect& resultingOpaqueRect, RenderingStats&)
+void FakeLayerUpdater::prepareToUpdate(const gfx::Rect& contentRect, const gfx::Size&, float, float, gfx::Rect& resultingOpaqueRect, RenderingStats&)
 {
     m_prepareCount++;
     m_lastUpdateRect = contentRect;
-    if (!m_rectToInvalidate.isEmpty()) {
+    if (!m_rectToInvalidate.IsEmpty()) {
         m_layer->invalidateContentRect(m_rectToInvalidate);
-        m_rectToInvalidate = IntRect();
+        m_rectToInvalidate = gfx::Rect();
         m_layer = NULL;
     }
     resultingOpaqueRect = m_opaquePaintRect;
 }
 
-void FakeLayerUpdater::setRectToInvalidate(const IntRect& rect, FakeTiledLayer* layer)
+void FakeLayerUpdater::setRectToInvalidate(const gfx::Rect& rect, FakeTiledLayer* layer)
 {
     m_rectToInvalidate = rect;
     m_layer = layer;
 }
 
-scoped_ptr<LayerUpdater::Resource> FakeLayerUpdater::createResource(PrioritizedTextureManager* manager)
+scoped_ptr<LayerUpdater::Resource> FakeLayerUpdater::createResource(PrioritizedResourceManager* manager)
 {
-    return scoped_ptr<LayerUpdater::Resource>(new Resource(this, PrioritizedTexture::create(manager)));
+    return scoped_ptr<LayerUpdater::Resource>(new Resource(this, PrioritizedResource::create(manager)));
 }
 
 FakeTiledLayerImpl::FakeTiledLayerImpl(int id)
@@ -77,10 +82,10 @@ FakeTiledLayerImpl::~FakeTiledLayerImpl()
 {
 }
 
-FakeTiledLayer::FakeTiledLayer(PrioritizedTextureManager* textureManager)
+FakeTiledLayer::FakeTiledLayer(PrioritizedResourceManager* resourceManager)
     : TiledLayer()
     , m_fakeUpdater(make_scoped_refptr(new FakeLayerUpdater))
-    , m_textureManager(textureManager)
+    , m_resourceManager(resourceManager)
 {
     setTileSize(tileSize());
     setTextureFormat(GL_RGBA);
@@ -88,8 +93,8 @@ FakeTiledLayer::FakeTiledLayer(PrioritizedTextureManager* textureManager)
     setIsDrawable(true); // So that we don't get false positives if any of these tests expect to return false from drawsContent() for other reasons.
 }
 
-FakeTiledLayerWithScaledBounds::FakeTiledLayerWithScaledBounds(PrioritizedTextureManager* textureManager)
-    : FakeTiledLayer(textureManager)
+FakeTiledLayerWithScaledBounds::FakeTiledLayerWithScaledBounds(PrioritizedResourceManager* resourceManager)
+    : FakeTiledLayer(resourceManager)
 {
 }
 
@@ -101,7 +106,7 @@ FakeTiledLayer::~FakeTiledLayer()
 {
 }
 
-void FakeTiledLayer::setNeedsDisplayRect(const FloatRect& rect)
+void FakeTiledLayer::setNeedsDisplayRect(const gfx::RectF& rect)
 {
     m_lastNeedsDisplayRect = rect;
     TiledLayer::setNeedsDisplayRect(rect);
@@ -124,9 +129,9 @@ void FakeTiledLayer::setTexturePriorities(const PriorityCalculator& calculator)
     }
 }
 
-cc::PrioritizedTextureManager* FakeTiledLayer::textureManager() const
+cc::PrioritizedResourceManager* FakeTiledLayer::resourceManager() const
 {
-    return m_textureManager;
+    return m_resourceManager;
 }
 
 cc::LayerUpdater* FakeTiledLayer::updater() const
@@ -134,9 +139,24 @@ cc::LayerUpdater* FakeTiledLayer::updater() const
     return m_fakeUpdater.get();
 }
 
-cc::IntSize FakeTiledLayerWithScaledBounds::contentBounds() const
+gfx::Size FakeTiledLayerWithScaledBounds::contentBounds() const
 {
     return m_forcedContentBounds;
+}
+
+float FakeTiledLayerWithScaledBounds::contentsScaleX() const
+{
+    return static_cast<float>(m_forcedContentBounds.width()) / bounds().width();
+}
+
+float FakeTiledLayerWithScaledBounds::contentsScaleY() const
+{
+    return static_cast<float>(m_forcedContentBounds.height()) / bounds().height();
+}
+
+void FakeTiledLayerWithScaledBounds::setContentsScale(float)
+{
+    NOTREACHED();
 }
 
 } // namespace

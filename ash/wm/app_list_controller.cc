@@ -205,7 +205,8 @@ void AppListController::ScheduleAnimation() {
 
   ui::ScopedLayerAnimationSettings animation(layer->GetAnimator());
   animation.SetTransitionDuration(
-      base::TimeDelta::FromMilliseconds(kAnimationDurationMs));
+      base::TimeDelta::FromMilliseconds(
+          is_visible_ ? 0 : kAnimationDurationMs));
   animation.AddObserver(this);
 
   layer->SetOpacity(is_visible_ ? 1.0 : 0.0);
@@ -259,10 +260,10 @@ bool AppListController::PreHandleMouseEvent(aura::Window* target,
   return false;
 }
 
-ui::TouchStatus AppListController::PreHandleTouchEvent(
+ui::EventResult AppListController::PreHandleTouchEvent(
     aura::Window* target,
     ui::TouchEvent* event) {
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult AppListController::PreHandleGestureEvent(

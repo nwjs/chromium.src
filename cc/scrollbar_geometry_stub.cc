@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scrollbar_geometry_stub.h"
 
 using WebKit::WebRect;
@@ -106,4 +104,4 @@ void ScrollbarGeometryStub::splitTrack(WebScrollbar* scrollbar, const WebRect& u
     m_geometry->splitTrack(scrollbar, unconstrainedTrackRect, beforeThumbRect, thumbRect, afterThumbRect);
 }
 
-}
+}  // namespace cc

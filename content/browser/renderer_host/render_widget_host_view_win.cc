@@ -52,6 +52,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/win/WebInputEventFactory.h"
 #include "ui/base/events/event.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/ime/composition_text.h"
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/base/text/text_elider.h"
@@ -286,6 +287,7 @@ class TouchEventFromWebTouchPoint : public ui::TouchEvent {
     set_radius(touch_point.radiusX, touch_point.radiusY);
     set_rotation_angle(touch_point.rotationAngle);
     set_force(touch_point.force);
+    set_flags(ui::GetModifiersFromKeyState());
   }
 
   virtual ~TouchEventFromWebTouchPoint() {}
@@ -537,7 +539,7 @@ RenderWidgetHostViewWin::GetNativeViewAccessible() {
 }
 
 void RenderWidgetHostViewWin::MovePluginWindows(
-    const gfx::Point& scroll_offset,
+    const gfx::Vector2d& scroll_offset,
     const std::vector<webkit::npapi::WebPluginGeometry>& plugin_window_moves) {
   MovePluginWindowsHelper(m_hWnd, plugin_window_moves);
 }
@@ -713,9 +715,8 @@ void RenderWidgetHostViewWin::Redraw() {
   RedrawWindow(NULL, damage_region, RDW_UPDATENOW | RDW_NOCHILDREN);
 
   // Send the invalid rect in screen coordinates.
-  gfx::Rect screen_rect = GetViewBounds();
   gfx::Rect invalid_screen_rect(damage_bounds);
-  invalid_screen_rect.Offset(screen_rect.x(), screen_rect.y());
+  invalid_screen_rect.Offset(GetViewBounds().OffsetFromOrigin());
 
   PaintPluginWindowsHelper(m_hWnd, invalid_screen_rect);
 }
@@ -918,7 +919,7 @@ void RenderWidgetHostViewWin::SetScrollOffsetPinning(
 
 void RenderWidgetHostViewWin::SetCompositionText(
     const ui::CompositionText& composition) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return;
   }
@@ -938,7 +939,7 @@ void RenderWidgetHostViewWin::SetCompositionText(
 }
 
 void RenderWidgetHostViewWin::ConfirmCompositionText()  {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return;
   }
@@ -947,7 +948,7 @@ void RenderWidgetHostViewWin::ConfirmCompositionText()  {
 }
 
 void RenderWidgetHostViewWin::ClearCompositionText() {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return;
   }
@@ -956,7 +957,7 @@ void RenderWidgetHostViewWin::ClearCompositionText() {
 }
 
 void RenderWidgetHostViewWin::InsertText(const string16& text) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return;
   }
@@ -965,7 +966,7 @@ void RenderWidgetHostViewWin::InsertText(const string16& text) {
 }
 
 void RenderWidgetHostViewWin::InsertChar(char16 ch, int flags) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return;
   }
@@ -974,7 +975,7 @@ void RenderWidgetHostViewWin::InsertChar(char16 ch, int flags) {
 }
 
 ui::TextInputType RenderWidgetHostViewWin::GetTextInputType() const {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return ui::TEXT_INPUT_TYPE_NONE;
   }
@@ -982,7 +983,7 @@ ui::TextInputType RenderWidgetHostViewWin::GetTextInputType() const {
 }
 
 bool RenderWidgetHostViewWin::CanComposeInline() const {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -992,7 +993,7 @@ bool RenderWidgetHostViewWin::CanComposeInline() const {
 }
 
 gfx::Rect RenderWidgetHostViewWin::GetCaretBounds() {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return gfx::Rect(0, 0, 0, 0);
   }
@@ -1003,7 +1004,7 @@ gfx::Rect RenderWidgetHostViewWin::GetCaretBounds() {
 
 bool RenderWidgetHostViewWin::GetCompositionCharacterBounds(
     uint32 index, gfx::Rect* rect) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1017,7 +1018,7 @@ bool RenderWidgetHostViewWin::GetCompositionCharacterBounds(
 }
 
 bool RenderWidgetHostViewWin::HasCompositionText() {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1027,7 +1028,7 @@ bool RenderWidgetHostViewWin::HasCompositionText() {
 }
 
 bool RenderWidgetHostViewWin::GetTextRange(ui::Range* range) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1037,7 +1038,7 @@ bool RenderWidgetHostViewWin::GetTextRange(ui::Range* range) {
 }
 
 bool RenderWidgetHostViewWin::GetCompositionTextRange(ui::Range* range) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1047,7 +1048,7 @@ bool RenderWidgetHostViewWin::GetCompositionTextRange(ui::Range* range) {
 }
 
 bool RenderWidgetHostViewWin::GetSelectionRange(ui::Range* range) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1057,7 +1058,7 @@ bool RenderWidgetHostViewWin::GetSelectionRange(ui::Range* range) {
 }
 
 bool RenderWidgetHostViewWin::SetSelectionRange(const ui::Range& range) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1067,7 +1068,7 @@ bool RenderWidgetHostViewWin::SetSelectionRange(const ui::Range& range) {
 }
 
 bool RenderWidgetHostViewWin::DeleteRange(const ui::Range& range) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1078,7 +1079,7 @@ bool RenderWidgetHostViewWin::DeleteRange(const ui::Range& range) {
 
 bool RenderWidgetHostViewWin::GetTextFromRange(const ui::Range& range,
                                                string16* text) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1099,7 +1100,7 @@ bool RenderWidgetHostViewWin::GetTextFromRange(const ui::Range& range,
 }
 
 void RenderWidgetHostViewWin::OnInputMethodChanged() {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return;
   }
@@ -1109,7 +1110,7 @@ void RenderWidgetHostViewWin::OnInputMethodChanged() {
 
 bool RenderWidgetHostViewWin::ChangeTextDirectionAndLayoutAlignment(
       base::i18n::TextDirection direction) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return false;
   }
@@ -1121,7 +1122,7 @@ bool RenderWidgetHostViewWin::ChangeTextDirectionAndLayoutAlignment(
 void RenderWidgetHostViewWin::ExtendSelectionAndDelete(
     size_t before,
     size_t after) {
-  if (!base::win::IsTsfAwareRequired()) {
+  if (!base::win::IsTSFAwareRequired()) {
     NOTREACHED();
     return;
   }
@@ -1327,7 +1328,7 @@ void RenderWidgetHostViewWin::DrawBackground(const RECT& dirty_rect,
   if (!background_.empty()) {
     gfx::Rect dirty_area(dirty_rect);
     gfx::Canvas canvas(dirty_area.size(), ui::SCALE_FACTOR_100P, true);
-    canvas.Translate(gfx::Point().Subtract(dirty_area.origin()));
+    canvas.Translate(-dirty_area.OffsetFromOrigin());
 
     gfx::Rect dc_rect(dc->m_ps.rcPaint);
     // TODO(pkotwicz): Fix |background_| such that it is an ImageSkia.
@@ -1388,8 +1389,8 @@ void RenderWidgetHostViewWin::OnSetFocus(HWND window) {
   render_widget_host_->GotFocus();
   render_widget_host_->SetActive(true);
 
-  if (base::win::IsTsfAwareRequired())
-    ui::TsfBridge::GetInstance()->SetFocusedClient(m_hWnd, this);
+  if (base::win::IsTSFAwareRequired())
+    ui::TSFBridge::GetInstance()->SetFocusedClient(m_hWnd, this);
 }
 
 void RenderWidgetHostViewWin::OnKillFocus(HWND window) {
@@ -1402,8 +1403,8 @@ void RenderWidgetHostViewWin::OnKillFocus(HWND window) {
 
   last_touch_location_ = gfx::Point(-1, -1);
 
-  if (base::win::IsTsfAwareRequired())
-    ui::TsfBridge::GetInstance()->RemoveFocusedClient(this);
+  if (base::win::IsTSFAwareRequired())
+    ui::TSFBridge::GetInstance()->RemoveFocusedClient(this);
 }
 
 void RenderWidgetHostViewWin::OnCaptureChanged(HWND window) {
@@ -1710,8 +1711,8 @@ LRESULT RenderWidgetHostViewWin::OnMouseEvent(UINT message, WPARAM wparam,
       case WM_RBUTTONDOWN:
         // Finish the ongoing composition whenever a mouse click happens.
         // It matches IE's behavior.
-        if (base::win::IsTsfAwareRequired()) {
-          ui::TsfBridge::GetInstance()->CancelComposition();
+        if (base::win::IsTSFAwareRequired()) {
+          ui::TSFBridge::GetInstance()->CancelComposition();
         } else {
           ime_input_.CleanupComposition(m_hWnd);
         }
@@ -2103,8 +2104,8 @@ LRESULT RenderWidgetHostViewWin::OnTouchEvent(UINT message, WPARAM wparam,
   TRACE_EVENT0("browser", "RenderWidgetHostViewWin::OnTouchEvent");
   // Finish the ongoing composition whenever a touch event happens.
   // It matches IE's behavior.
-  if (base::win::IsTsfAwareRequired()) {
-    ui::TsfBridge::GetInstance()->CancelComposition();
+  if (base::win::IsTSFAwareRequired()) {
+    ui::TSFBridge::GetInstance()->CancelComposition();
   } else {
     ime_input_.CleanupComposition(m_hWnd);
   }
@@ -2370,6 +2371,23 @@ void RenderWidgetHostViewWin::AcceleratedPaint(HDC dc) {
     render_widget_host_->ScheduleComposite();
   if (accelerated_surface_.get())
     accelerated_surface_->Present(dc);
+}
+
+gfx::Rect RenderWidgetHostViewWin::GetBoundsInRootWindow() {
+  RECT window_rect = {0};
+  HWND root_window = GetAncestor(m_hWnd, GA_ROOT);
+  ::GetWindowRect(root_window, &window_rect);
+  gfx::Rect rect(window_rect);
+
+  // Maximized windows are outdented from the work area by the frame thickness
+  // even though this "frame" is not painted.  This confuses code (and people)
+  // that think of a maximized window as corresponding exactly to the work area.
+  // Correct for this by subtracting the frame thickness back off.
+  if (::IsZoomed(root_window)) {
+    rect.Inset(GetSystemMetrics(SM_CXSIZEFRAME),
+               GetSystemMetrics(SM_CYSIZEFRAME));
+  }
+  return rect;
 }
 
 // Creates a HWND within the RenderWidgetHostView that will serve as a host
@@ -2977,8 +2995,8 @@ LRESULT RenderWidgetHostViewWin::OnQueryCharPosition(
 }
 
 void RenderWidgetHostViewWin::UpdateIMEState() {
-  if (base::win::IsTsfAwareRequired()) {
-    ui::TsfBridge::GetInstance()->OnTextInputTypeChanged(this);
+  if (base::win::IsTSFAwareRequired()) {
+    ui::TSFBridge::GetInstance()->OnTextInputTypeChanged(this);
     return;
   }
   if (text_input_type_ != ui::TEXT_INPUT_TYPE_NONE &&

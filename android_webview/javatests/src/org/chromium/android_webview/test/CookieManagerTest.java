@@ -11,11 +11,11 @@ import android.util.Pair;
 
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.CookieManager;
-import org.chromium.android_webview.test.util.TestWebServer;
 import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.test.util.Criteria;
 import org.chromium.content.browser.test.util.CriteriaHelper;
 import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnEvaluateJavaScriptResultHelper;
+import org.chromium.net.test.util.TestWebServer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,7 +48,7 @@ public class CookieManagerTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView", "Privacy"})
+    @Feature({"AndroidWebView", "Privacy"})
     public void testAllowFileSchemeCookies() throws Throwable {
         assertFalse(CookieManager.allowFileSchemeCookies());
         CookieManager.setAcceptFileSchemeCookies(true);
@@ -58,7 +58,7 @@ public class CookieManagerTest extends AndroidWebViewTestBase {
     }
 
     @MediumTest
-    @Feature({"Android-WebView", "Privacy"})
+    @Feature({"AndroidWebView", "Privacy"})
     public void testAcceptCookie() throws Throwable {
         TestWebServer webServer = null;
         try {
@@ -153,7 +153,7 @@ public class CookieManagerTest extends AndroidWebViewTestBase {
     }
 
     @MediumTest
-    @Feature({"Android-WebView", "Privacy"})
+    @Feature({"AndroidWebView", "Privacy"})
     public void testRemoveAllCookie() throws InterruptedException {
         // enable cookie
         mCookieManager.setAcceptCookie(true);
@@ -186,7 +186,7 @@ public class CookieManagerTest extends AndroidWebViewTestBase {
     }
 
     @MediumTest
-    @Feature({"Android-WebView", "Privacy"})
+    @Feature({"AndroidWebView", "Privacy"})
     @SuppressWarnings("deprecation")
     public void testCookieExpiration() throws InterruptedException {
         // enable cookie

@@ -56,10 +56,13 @@ DragDropController::~DragDropController() {
     drag_image_.reset();
 }
 
-int DragDropController::StartDragAndDrop(const ui::OSExchangeData& data,
-                                         aura::RootWindow* root_window,
-                                         const gfx::Point& root_location,
-                                         int operation) {
+int DragDropController::StartDragAndDrop(
+    const ui::OSExchangeData& data,
+    aura::RootWindow* root_window,
+    aura::Window* source_window,
+    const gfx::Point& root_location,
+    int operation,
+    ui::DragDropTypes::DragEventSource source) {
   DCHECK(!IsDragDropInProgress());
 
   drag_drop_tracker_.reset(new DragDropTracker);
@@ -73,12 +76,12 @@ int DragDropController::StartDragAndDrop(const ui::OSExchangeData& data,
   drag_image_->SetImage(provider.drag_image());
   drag_image_offset_ = provider.drag_image_offset();
   drag_image_->SetBoundsInScreen(gfx::Rect(
-        root_location.Subtract(drag_image_offset_),
+        root_location - drag_image_offset_,
         drag_image_->GetPreferredSize()));
   drag_image_->SetWidgetVisible(true);
 
   drag_window_ = NULL;
-  drag_start_location_ = root_location.Subtract(drag_image_offset_);
+  drag_start_location_ = root_location - drag_image_offset_;
 
 #if !defined(OS_MACOSX)
   if (should_block_during_drag_drop_) {
@@ -137,7 +140,7 @@ void DragDropController::DragUpdate(aura::Window* target,
     ash::wm::ConvertPointToScreen(target->GetRootWindow(),
                                   &root_location_in_screen);
     drag_image_->SetScreenPosition(
-        root_location_in_screen.Subtract(drag_image_offset_));
+        root_location_in_screen - drag_image_offset_);
   }
 }
 
@@ -229,14 +232,14 @@ bool DragDropController::PreHandleMouseEvent(aura::Window* target,
   return true;
 }
 
-ui::TouchStatus DragDropController::PreHandleTouchEvent(
+ui::EventResult DragDropController::PreHandleTouchEvent(
     aura::Window* target,
     ui::TouchEvent* event) {
   // TODO(sad): Also check for the touch-id.
   // TODO(varunjain): Add code for supporting drag-and-drop across displays
   // (http://crbug.com/114755).
   if (!IsDragDropInProgress())
-    return ui::TOUCH_STATUS_UNKNOWN;
+    return ui::ER_UNHANDLED;
   switch (event->type()) {
     case ui::ET_TOUCH_MOVED:
       DragUpdate(target, *event);
@@ -248,9 +251,9 @@ ui::TouchStatus DragDropController::PreHandleTouchEvent(
       DragCancel();
       break;
     default:
-      return ui::TOUCH_STATUS_UNKNOWN;
+      return ui::ER_UNHANDLED;
   }
-  return ui::TOUCH_STATUS_CONTINUE;
+  return ui::ER_CONSUMED;
 }
 
 ui::EventResult DragDropController::PreHandleGestureEvent(

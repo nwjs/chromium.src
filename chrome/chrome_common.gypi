@@ -29,6 +29,7 @@
         'metrics_proto',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/base/base.gyp:base_i18n',
+        '<(DEPTH)/base/base.gyp:base_prefs',
         '<(DEPTH)/base/base.gyp:base_static',
         '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(DEPTH)/chrome/chrome_resources.gyp:chrome_resources',
@@ -67,6 +68,8 @@
         'common/badge_util.cc',
         'common/badge_util.h',
         'common/bzip2_error_handler.cc',
+        'common/cancelable_task_tracker.cc',
+        'common/cancelable_task_tracker.h',
         'common/child_process_logging.h',
         'common/child_process_logging_mac.mm',
         'common/child_process_logging_posix.cc',
@@ -78,6 +81,7 @@
         'common/chrome_sandbox_type_mac.h',
         'common/chrome_utility_messages.h',
         'common/chrome_version_info.cc',
+        'common/chrome_version_info_android.cc',
         'common/chrome_version_info_chromeos.cc',
         'common/chrome_version_info_posix.cc',
         'common/chrome_version_info_mac.mm',
@@ -268,6 +272,8 @@
         'common/password_generation_util.h',
         'common/pepper_flash.cc',
         'common/pepper_flash.h',
+        'common/pref_names_util.cc',
+        'common/pref_names_util.h',
         'common/print_messages.cc',
         'common/print_messages.h',
         'common/profiling.cc',
@@ -315,14 +321,6 @@
         'common/zip_internal.h',
         'common/zip_reader.cc',
         'common/zip_reader.h',
-
-        # TODO(joi): Move to 'base_prefs' target in base/base.gyp once
-        # Prefs move is complete and dependencies have been broken.
-        '../base/prefs/json_pref_store.cc',
-        '../base/prefs/json_pref_store.h',
-        '../base/prefs/persistent_pref_store.h',
-        '../base/prefs/pref_store.cc',
-        '../base/prefs/pref_store.h',
       ],
       'conditions': [
         ['OS != "ios"', {
@@ -363,7 +361,11 @@
         }],
         ['OS=="android"', {
           'sources/': [
+            ['exclude', '^common/chrome_version_info_posix.cc'],
             ['exclude', '^common/service_'],
+          ],
+          'dependencies!': [
+            '<(DEPTH)/chrome/app/policy/cloud_policy_codegen.gyp:policy',
           ],
         }],
         ['OS=="win"', {

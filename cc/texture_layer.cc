@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/texture_layer.h"
 
 #include "third_party/khronos/GLES2/gl2.h"
@@ -52,7 +50,7 @@ void TextureLayer::setFlipped(bool flipped)
     setNeedsCommit();
 }
 
-void TextureLayer::setUVRect(const FloatRect& rect)
+void TextureLayer::setUVRect(const gfx::RectF& rect)
 {
     m_uvRect = rect;
     setNeedsCommit();
@@ -90,7 +88,7 @@ void TextureLayer::willModifyTexture()
     }
 }
 
-void TextureLayer::setNeedsDisplayRect(const FloatRect& dirtyRect)
+void TextureLayer::setNeedsDisplayRect(const gfx::RectF& dirtyRect)
 {
     Layer::setNeedsDisplayRect(dirtyRect);
 
@@ -132,4 +130,4 @@ void TextureLayer::pushPropertiesTo(LayerImpl* layer)
     m_contentCommitted = drawsContent();
 }
 
-}
+}  // namespace cc

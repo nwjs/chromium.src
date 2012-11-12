@@ -291,7 +291,13 @@ IN_PROC_BROWSER_TEST_F(LauncherPlatformAppBrowserTest, MultipleWindows) {
   ASSERT_EQ(item_count, launcher_->model()->item_count());
 }
 
-IN_PROC_BROWSER_TEST_F(LauncherPlatformAppBrowserTest, MultipleApps) {
+// Times out on ChromeOS: http://crbug.com/159394
+#if defined(OS_CHROMEOS)
+#define MAYBE_MultipleApps DISABLED_MultipleApps
+#else
+#define MAYBE_MultipleApps MultipleApps
+#endif
+IN_PROC_BROWSER_TEST_F(LauncherPlatformAppBrowserTest, MAYBE_MultipleApps) {
   int item_count = launcher_->model()->item_count();
 
   // First run app.
@@ -337,7 +343,13 @@ IN_PROC_BROWSER_TEST_F(LauncherPlatformAppBrowserTest, MultipleApps) {
 
 // Confirm that app windows can be reactivated by clicking their icons and that
 // the correct activation order is maintained.
-IN_PROC_BROWSER_TEST_F(LauncherPlatformAppBrowserTest, WindowActivation) {
+// Times out on ChromeOS: http://crbug.com/159394
+#if defined(OS_CHROMEOS)
+#define MAYBE_WindowActivation DISABLED_WindowActivation
+#else
+#define MAYBE_WindowActivation WindowActivation
+#endif
+IN_PROC_BROWSER_TEST_F(LauncherPlatformAppBrowserTest, MAYBE_WindowActivation) {
   int item_count = launcher_->model()->item_count();
 
   // First run app.

@@ -99,13 +99,10 @@ void CloudPolicyRefreshScheduler::OnStoreError(CloudPolicyStore* store) {
   // error is required. NB: Changes to is_managed fire OnStoreLoaded().
 }
 
-void CloudPolicyRefreshScheduler::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  DCHECK_EQ(chrome::NOTIFICATION_PREF_CHANGED, type);
-  DCHECK_EQ(refresh_delay_.GetPrefName(),
-            *content::Details<std::string>(details).ptr());
+void CloudPolicyRefreshScheduler::OnPreferenceChanged(
+    PrefServiceBase* service,
+    const std::string& pref_name) {
+  DCHECK_EQ(refresh_delay_.GetPrefName(), pref_name);
 
   ScheduleRefresh();
 }
@@ -171,7 +168,7 @@ void CloudPolicyRefreshScheduler::ScheduleRefresh() {
     case DM_STATUS_SERVICE_DEVICE_NOT_FOUND:
     case DM_STATUS_SERVICE_INVALID_SERIAL_NUMBER:
     case DM_STATUS_SERVICE_DEVICE_ID_CONFLICT:
-    case DM_STATUS_MISSING_LICENSES:
+    case DM_STATUS_SERVICE_MISSING_LICENSES:
       // Need a re-registration, no use in retrying.
       return;
   }

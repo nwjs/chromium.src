@@ -73,7 +73,7 @@
   },
   "commands": {
     "channel": "beta",
-    "extension_types": ["extension", "packaged_app"],
+    "extension_types": ["extension", "packaged_app", "platform_app"],
     "min_manifest_version": 2
   },
   "content_security_policy": {
@@ -115,9 +115,18 @@
     "extension_types": ["packaged_app", "platform_app"],
     "location": "component"
   },
+  "display_in_new_tab_page": {
+    "channel": "stable",
+    "extension_types": ["packaged_app", "platform_app"],
+    "location": "component"
+  },
   "file_browser_handlers": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
+  },
+  "file_handlers": {
+    "channel": "stable",
+    "extension_types": ["platform_app"]
   },
   "homepage_url": {
     "channel": "stable",

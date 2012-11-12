@@ -2,16 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/frame_rate_controller.h"
 
 #include "cc/test/scheduler_test_common.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using namespace cc;
 using namespace WebKitTests;
 
+namespace cc {
 namespace {
 
 class FakeFrameRateControllerClient : public cc::FrameRateControllerClient {
@@ -167,4 +165,5 @@ TEST(FrameRateControllerTest, TestFrameThrottling_Unthrottled)
     EXPECT_TRUE(client.vsyncTicked());
 }
 
-}
+}  // namespace
+}  // namespace cc

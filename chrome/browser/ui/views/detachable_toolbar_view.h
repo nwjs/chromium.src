@@ -7,10 +7,6 @@
 
 #include "ui/views/accessible_pane_view.h"
 
-namespace gfx {
-class ImageSkia;
-}
-
 struct SkRect;
 
 // DetachableToolbarView contains functionality common to views that can detach
@@ -37,12 +33,9 @@ class DetachableToolbarView : public views::AccessiblePaneView {
   // Paints the background (including the theme image behind content area) when
   // the bar/shelf is attached to the top toolbar.  |background_origin| is the
   // origin to use for painting the theme image.
-  static void PaintBackgroundAttachedMode(
-      gfx::Canvas* canvas,
-      views::View* view,
-      const gfx::Point& background_origin,
-      SkColor toolbar_background_color,
-      gfx::ImageSkia* toolbar_background_image);
+  static void PaintBackgroundAttachedMode(gfx::Canvas* canvas,
+                                          views::View* view,
+                                          const gfx::Point& background_origin);
 
   // Calculate the rect for the content area of the bar/shelf. This is only
   // needed when the bar/shelf is detached from the Chrome frame (otherwise the
@@ -57,9 +50,15 @@ class DetachableToolbarView : public views::AccessiblePaneView {
                                    double* roundness,
                                    views::View* view);
 
-  // Paint the horizontal border separating the shelf/bar from the page content.
+  // Paint the horizontal border separating the shelf/bar from the page content,
+  // with COLOR_TOOLBAR_SEPARATOR.
   static void PaintHorizontalBorder(gfx::Canvas* canvas,
                                     DetachableToolbarView* view);
+
+  // Similar to PaintHorizontalBorder but with the specified |border_color|.
+  static void PaintHorizontalBorderWithColor(gfx::Canvas* canvas,
+                                             DetachableToolbarView* view,
+                                             SkColor border_color);
 
   // Paint the background of the content area (the surface behind the
   // bookmarks). |rect| is the rectangle to paint the background within.

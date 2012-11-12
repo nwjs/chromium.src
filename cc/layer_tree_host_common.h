@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCLayerTreeHostCommon_h
-#define CCLayerTreeHostCommon_h
+#ifndef CC_LAYER_TREE_HOST_COMMON_H_
+#define CC_LAYER_TREE_HOST_COMMON_H_
 
 #include "base/memory/ref_counted.h"
+#include "cc/cc_export.h"
 #include "cc/scoped_ptr_vector.h"
-#include "IntRect.h"
-#include "IntSize.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/vector2d.h"
 #include <public/WebTransformationMatrix.h>
 
 namespace cc {
@@ -17,15 +18,15 @@ class LayerImpl;
 class LayerSorter;
 class Layer;
 
-class LayerTreeHostCommon {
+class CC_EXPORT LayerTreeHostCommon {
 public:
-    static IntRect calculateVisibleRect(const IntRect& targetSurfaceRect, const IntRect& layerBoundRect, const WebKit::WebTransformationMatrix&);
+    static gfx::Rect calculateVisibleRect(const gfx::Rect& targetSurfaceRect, const gfx::Rect& layerBoundRect, const WebKit::WebTransformationMatrix&);
 
-    static void calculateDrawTransforms(Layer* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, int maxTextureSize, std::vector<scoped_refptr<Layer> >& renderSurfaceLayerList);
-    static void calculateDrawTransforms(LayerImpl* rootLayer, const IntSize& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, LayerSorter*, int maxTextureSize, std::vector<LayerImpl*>& renderSurfaceLayerList);
+    static void calculateDrawTransforms(Layer* rootLayer, const gfx::Size& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, int maxTextureSize, std::vector<scoped_refptr<Layer> >& renderSurfaceLayerList);
+    static void calculateDrawTransforms(LayerImpl* rootLayer, const gfx::Size& deviceViewportSize, float deviceScaleFactor, float pageScaleFactor, LayerSorter*, int maxTextureSize, std::vector<LayerImpl*>& renderSurfaceLayerList);
 
     // Performs hit testing for a given renderSurfaceLayerList.
-    static LayerImpl* findLayerThatIsHitByPoint(const IntPoint& screenSpacePoint, std::vector<LayerImpl*>& renderSurfaceLayerList);
+    static LayerImpl* findLayerThatIsHitByPoint(const gfx::PointF& screenSpacePoint, std::vector<LayerImpl*>& renderSurfaceLayerList);
 
     template<typename LayerType> static bool renderSurfaceContributesToTarget(LayerType*, int targetSurfaceLayerID);
 
@@ -45,11 +46,11 @@ public:
 
     struct ScrollUpdateInfo {
         int layerId;
-        IntSize scrollDelta;
+        gfx::Vector2d scrollDelta;
     };
 };
 
-struct ScrollAndScaleSet {
+struct CC_EXPORT ScrollAndScaleSet {
     ScrollAndScaleSet();
     ~ScrollAndScaleSet();
 
@@ -92,4 +93,4 @@ LayerType* LayerTreeHostCommon::findLayerInSubtree(LayerType* rootLayer, int lay
 
 }  // namespace cc
 
-#endif
+#endif  // CC_LAYER_TREE_HOST_COMMON_H_

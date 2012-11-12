@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "caching_bitmap_content_layer_updater.h"
 
 #include "cc/layer_painter.h"
@@ -30,11 +28,11 @@ CachingBitmapContentLayerUpdater::
 }
 
 void CachingBitmapContentLayerUpdater::prepareToUpdate(
-    const IntRect& content_rect,
-    const IntSize& tile_size,
+    const gfx::Rect& content_rect,
+    const gfx::Size& tile_size,
     float contents_width_scale,
     float contents_height_scale,
-    IntRect& resulting_opaque_rect,
+    gfx::Rect& resulting_opaque_rect,
     RenderingStats& stats) {
   BitmapContentLayerUpdater::prepareToUpdate(content_rect,
                                                    tile_size,

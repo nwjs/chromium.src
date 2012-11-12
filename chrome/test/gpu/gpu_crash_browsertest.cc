@@ -13,6 +13,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_launcher_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/common/content_paths.h"
 #include "content/public/test/browser_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gl/gl_implementation.h"
@@ -39,7 +40,7 @@ class GPUCrashTest : public InProcessBrowserTest {
   }
   virtual void SetUpInProcessBrowserTestFixture() {
     FilePath test_dir;
-    ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_dir));
+    ASSERT_TRUE(PathService::Get(content::DIR_TEST_DATA, &test_dir));
     gpu_test_dir_ = test_dir.AppendASCII("gpu");
   }
   FilePath gpu_test_dir_;

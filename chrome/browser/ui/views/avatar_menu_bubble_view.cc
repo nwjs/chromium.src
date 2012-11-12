@@ -249,18 +249,16 @@ ProfileItemView::ProfileItemView(const AvatarMenuModel::Item& item,
   const int kNameFontDelta = 1;
   name_label_ = new views::Label(item_.name,
                                  base_font.DeriveFont(kNameFontDelta, style));
-  name_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  name_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   AddChildView(name_label_);
 
   // Add a label to show the sync state.
   const int kStateFontDelta = -1;
-  sync_state_label_ = new views::Label();
+  sync_state_label_ = new views::Label(item_.sync_state);
   if (item_.signed_in)
-    sync_state_label_->SetEmail(item.sync_state);
-  else
-    sync_state_label_->SetText(item_.sync_state);
+    sync_state_label_->SetElideBehavior(views::Label::ELIDE_AS_EMAIL);
   sync_state_label_->SetFont(base_font.DeriveFont(kStateFontDelta));
-  sync_state_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  sync_state_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   sync_state_label_->SetEnabled(false);
   AddChildView(sync_state_label_);
 
@@ -268,7 +266,7 @@ ProfileItemView::ProfileItemView(const AvatarMenuModel::Item& item,
   edit_link_ = new EditProfileLink(
       l10n_util::GetStringUTF16(IDS_PROFILES_EDIT_PROFILE_LINK), this);
   edit_link_->set_listener(edit_profile_listener);
-  edit_link_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  edit_link_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   edit_link_->SetEnabledColor(SkColorSetRGB(0xe3, 0xed, 0xf6));
   edit_link_->SetHasFocusBorder(true);
   AddChildView(edit_link_);
@@ -548,7 +546,7 @@ void AvatarMenuBubbleView::OnAvatarMenuModelChanged(
   add_profile_link_ = new views::Link(
       l10n_util::GetStringUTF16(IDS_PROFILES_CREATE_NEW_PROFILE_LINK));
   add_profile_link_->set_listener(this);
-  add_profile_link_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  add_profile_link_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   add_profile_link_->SetBackgroundColor(color());
   add_profile_link_->SetEnabledColor(SkColorSetRGB(0xe3, 0xed, 0xf6));
   AddChildView(add_profile_link_);

@@ -31,11 +31,15 @@ class ForeignSessionHandler : public content::WebUIMessageHandler,
 
   static void RegisterUserPrefs(PrefService* prefs);
 
-  static void OpenForeignSession(content::WebUI* web_ui,
-                                 const std::string& session_string_value,
-                                 SessionID::id_type window_num,
-                                 SessionID::id_type tab_id,
-                                 const WindowOpenDisposition& disposition);
+  static void OpenForeignSessionTab(content::WebUI* web_ui,
+                                    const std::string& session_string_value,
+                                    SessionID::id_type window_num,
+                                    SessionID::id_type tab_id,
+                                    const WindowOpenDisposition& disposition);
+
+  static void OpenForeignSessionWindows(content::WebUI* web_ui,
+                                        const std::string& session_string_value,
+                                        SessionID::id_type window_num);
 
   // Helper method to create JSON compatible objects from Session objects.
   static bool SessionTabToValue(const SessionTab& tab,
@@ -68,6 +72,12 @@ class ForeignSessionHandler : public content::WebUIMessageHandler,
   // This is a javascript callback handler, and it is also called when the sync
   // model has changed and the new tab page needs to reflect the changes.
   void HandleGetForeignSessions(const ListValue* args);
+
+  // Delete a foreign session. This will remove it from the list of foreign
+  // sessions on all devices. It will reappear if the session is re-activated
+  // on the original device.
+  // This is a javascript callback handler.
+  void HandleDeleteForeignSession(const ListValue* args);
 
   void HandleSetForeignSessionCollapsed(const ListValue* args);
 

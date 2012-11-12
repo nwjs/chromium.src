@@ -58,18 +58,12 @@ chrome.app.runtime.onLaunched.addListener(function() {
      }));
    },
 
-   function testUpdateWindowWidth() {
+   function testContentSize() {
      chrome.app.window.create('test.html',
-         {width:512, height:384, frame:'custom'},
-         callbackPass(function(win) {
-       chrome.test.assertEq(512, win.contentWindow.innerWidth);
-       chrome.test.assertEq(384, win.contentWindow.innerHeight);
-       var oldWidth = win.contentWindow.outerWidth;
-       var oldHeight = win.contentWindow.outerHeight;
-       win.contentWindow.resizeBy(-256, 0);
-       chrome.test.assertEq(oldWidth - 256, win.contentWindow.outerWidth);
-       chrome.test.assertEq(oldHeight, win.contentWindow.outerHeight);
-       win.contentWindow.close();
+         {width: 250, height: 200}, callbackPass(function(win) {
+       chrome.test.assertEq(250, win.contentWindow.innerWidth);
+       chrome.test.assertEq(200, win.contentWindow.innerHeight);
+       win.close();
      }));
    },
 

@@ -14,6 +14,12 @@
           }, {
             'skia_support_gpu': 1,
           }],
+
+          ['inside_chromium_build==0', {
+            'webkit_src_dir': '<(DEPTH)/../../..',
+          },{
+            'webkit_src_dir': '<(DEPTH)/third_party/WebKit',
+          }],
         ],
 
         'optimize': 'max',
@@ -216,26 +222,15 @@
         'GR_AGGRESSIVE_SHADER_OPTS=1',
         'SK_DISABLE_FAST_AA_STROKE_RECT',
         'SK_DEFERRED_CANVAS_USES_GPIPE=1',
-        
+
         # this flag can be removed entirely once this has baked for a while
         'SK_ALLOW_OVER_32K_BITMAPS',
-
-        # temporary for landing Skia rev 3077 with minimal layout test breakage
-        'SK_SIMPLE_TWOCOLOR_VERTICAL_GRADIENTS',
 
         # skia uses static initializers to initialize the serialization logic
         # of its "pictures" library. This is currently not used in chrome; if
         # it ever gets used the processes that use it need to call
         # SkGraphics::Init().
         'SK_ALLOW_STATIC_GLOBAL_INITIALIZERS=0',
-
-        # Temporarily disable the Skia fix in
-        # http://code.google.com/p/skia/source/detail?r=3037 ; enabling that
-        # fix will require substantial rebaselining.
-        'SK_DRAW_POS_TEXT_IGNORE_SUBPIXEL_LEFT_ALIGN_FIX',
-
-        # Temporarily ignore fix to antialias coverage, until we can rebaseline
-        'SK_USE_LEGACY_AA_COVERAGE',
 
         # Temporarily keep old int-srcrect behavior, until we determine if
         # the few failures are a bug or not.
@@ -292,7 +287,7 @@
             'SK_GAMMA_CONTRAST=0.0',
           ],
         }],
-        
+
         # For POSIX platforms, prefer the Mutex implementation provided by Skia
         # since it does not generate static initializers.
         [ 'OS == "android" or OS == "linux" or OS == "mac" or OS == "ios"', {
@@ -319,6 +314,9 @@
         [ 'OS != "ios"', {
           'sources/': [
             ['exclude', '_ios\\.(cc|cpp|mm?)$'],
+          ],
+          'dependencies': [
+            '<(webkit_src_dir)/Source/WebKit/chromium/skia_webkit.gyp:skia_webkit',
           ],
         }],
         [ 'OS != "mac"', {
@@ -348,7 +346,7 @@
             '__ARM_HAVE_NEON',
           ],
         }],
-        [ 'target_arch == "arm"', {
+        [ 'target_arch == "arm" or target_arch == "mipsel"', {
           'sources!': [
             '../third_party/skia/src/opts/opts_check_SSE2.cpp'
           ],
@@ -660,7 +658,8 @@
         '../third_party/skia/src/core',
       ],
       'conditions': [
-        [ 'os_posix == 1 and OS != "mac" and OS != "android" and target_arch != "arm"', {
+        [ 'os_posix == 1 and OS != "mac" and OS != "android" and \
+           target_arch != "arm" and target_arch != "mipsel"', {
           'cflags': [
             '-msse2',
           ],
@@ -670,7 +669,7 @@
             'SK_BUILD_FOR_ANDROID_NDK',
           ],
         }],
-        [ 'target_arch != "arm"', {
+        [ 'target_arch != "arm" and target_arch != "mipsel"', {
           'sources': [
             '../third_party/skia/src/opts/SkBitmapProcState_opts_SSE2.cpp',
             '../third_party/skia/src/opts/SkBlitRect_opts_SSE2.cpp',
@@ -685,8 +684,8 @@
               ],
             }],
           ],
-        },
-        {  # arm
+        }],
+        [ 'target_arch == "arm"', {
           'conditions': [
             [ 'armv7 == 1', {
               'defines': [
@@ -718,9 +717,6 @@
           ],
           'sources': [
             '../third_party/skia/src/opts/SkBitmapProcState_opts_arm.cpp',
-            '../third_party/skia/src/opts/SkBlitRow_opts_arm.cpp',
-            '../third_party/skia/src/opts/SkBlitRow_opts_arm.h',
-            '../third_party/skia/src/opts/opts_check_arm.cpp',
           ],
         }],
         [ 'armv7 == 1 and arm_neon == 0', {
@@ -737,14 +733,29 @@
             '../third_party/skia/src/opts/SkBitmapProcState_matrix_clamp_neon.h',
             '../third_party/skia/src/opts/SkBitmapProcState_matrix_repeat_neon.h',
             '../third_party/skia/src/opts/SkBlitRow_opts_arm_neon.cpp',
-        ],
+          ],
         }],
-        [ 'target_arch == "arm" and armv7 != 1', {
+        [ 'target_arch == "arm" and armv7 == 0', {
           'sources': [
             '../third_party/skia/src/opts/SkBlitRow_opts_none.cpp',
+            '../third_party/skia/src/opts/SkUtils_opts_none.cpp',
           ],
-          'sources!': [
+        }],
+        [ 'target_arch == "arm" and armv7 == 1', {
+          'sources': [
             '../third_party/skia/src/opts/SkBlitRow_opts_arm.cpp',
+            '../third_party/skia/src/opts/SkBlitRow_opts_arm.h',
+            '../third_party/skia/src/opts/opts_check_arm.cpp',
+          ],
+        }],
+        [ 'target_arch == "mipsel"',{
+          'cflags': [
+            '-fomit-frame-pointer',
+          ],
+          'sources': [
+            '../third_party/skia/src/opts/SkBitmapProcState_opts_none.cpp',
+            '../third_party/skia/src/opts/SkBlitRow_opts_none.cpp',
+            '../third_party/skia/src/opts/SkUtils_opts_none.cpp',
           ],
         }],
       ],

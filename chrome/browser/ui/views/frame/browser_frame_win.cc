@@ -177,10 +177,9 @@ bool BrowserFrameWin::GetClientAreaInsets(gfx::Insets* insets) const {
 }
 
 void BrowserFrameWin::HandleFrameChanged() {
-  // We need to update the glass region on or off before the base class adjusts
-  // the window region.
-  UpdateDWMFrame();
+  // Handle window frame layout changes, then set the updated glass region.
   NativeWidgetWin::HandleFrameChanged();
+  UpdateDWMFrame();
 }
 
 bool BrowserFrameWin::PreHandleMSG(UINT message,
@@ -407,8 +406,8 @@ void BrowserFrameWin::ButtonPressed(views::Button* sender,
 
   DCHECK(profile_to_switch_to);
 
-  Browser* browser_to_switch_to =
-      browser::FindTabbedBrowser(profile_to_switch_to, false);
+  Browser* browser_to_switch_to = browser::FindTabbedBrowser(
+      profile_to_switch_to, false, chrome::HOST_DESKTOP_TYPE_NATIVE);
 
   DCHECK(browser_to_switch_to);
 
@@ -455,7 +454,7 @@ void BrowserFrameWin::UpdateDWMFrame() {
     }
     // In maximized mode, we only have a titlebar strip of glass, no side/bottom
     // borders.
-    if (!browser_view_->IsFullscreen()) {
+    if (!IsFullscreen()) {
       gfx::Rect tabstrip_bounds(
           browser_frame_->GetBoundsForTabStrip(browser_view_->tabstrip()));
       margins.cyTopHeight = tabstrip_bounds.bottom() + kDWMFrameTopOffset;

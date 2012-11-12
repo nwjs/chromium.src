@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/skpicture_content_layer_updater.h"
 
 #include "base/debug/trace_event.h"
@@ -13,7 +11,7 @@
 
 namespace cc {
 
-SkPictureContentLayerUpdater::Resource::Resource(SkPictureContentLayerUpdater* updater, scoped_ptr<PrioritizedTexture> texture)
+SkPictureContentLayerUpdater::Resource::Resource(SkPictureContentLayerUpdater* updater, scoped_ptr<PrioritizedResource> texture)
     : LayerUpdater::Resource(texture.Pass())
     , m_updater(updater)
 {
@@ -23,7 +21,7 @@ SkPictureContentLayerUpdater::Resource::~Resource()
 {
 }
 
-void SkPictureContentLayerUpdater::Resource::update(ResourceUpdateQueue& queue, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate, RenderingStats&)
+void SkPictureContentLayerUpdater::Resource::update(ResourceUpdateQueue& queue, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate, RenderingStats&)
 {
     updater()->updateTexture(queue, texture(), sourceRect, destOffset, partialUpdate);
 }
@@ -43,12 +41,12 @@ scoped_refptr<SkPictureContentLayerUpdater> SkPictureContentLayerUpdater::create
     return make_scoped_refptr(new SkPictureContentLayerUpdater(painter.Pass()));
 }
 
-scoped_ptr<LayerUpdater::Resource> SkPictureContentLayerUpdater::createResource(PrioritizedTextureManager* manager)
+scoped_ptr<LayerUpdater::Resource> SkPictureContentLayerUpdater::createResource(PrioritizedResourceManager* manager)
 {
-    return scoped_ptr<LayerUpdater::Resource>(new Resource(this, PrioritizedTexture::create(manager)));
+    return scoped_ptr<LayerUpdater::Resource>(new Resource(this, PrioritizedResource::create(manager)));
 }
 
-void SkPictureContentLayerUpdater::prepareToUpdate(const IntRect& contentRect, const IntSize&, float contentsWidthScale, float contentsHeightScale, IntRect& resultingOpaqueRect, RenderingStats& stats)
+void SkPictureContentLayerUpdater::prepareToUpdate(const gfx::Rect& contentRect, const gfx::Size&, float contentsWidthScale, float contentsHeightScale, gfx::Rect& resultingOpaqueRect, RenderingStats& stats)
 {
     SkCanvas* canvas = m_picture.beginRecording(contentRect.width(), contentRect.height());
     paintContents(canvas, contentRect, contentsWidthScale, contentsHeightScale, resultingOpaqueRect, stats);
@@ -61,7 +59,7 @@ void SkPictureContentLayerUpdater::drawPicture(SkCanvas* canvas)
     canvas->drawPicture(m_picture);
 }
 
-void SkPictureContentLayerUpdater::updateTexture(ResourceUpdateQueue& queue, PrioritizedTexture* texture, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate)
+void SkPictureContentLayerUpdater::updateTexture(ResourceUpdateQueue& queue, PrioritizedResource* texture, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate)
 {
     ResourceUpdate upload = ResourceUpdate::CreateFromPicture(
         texture, &m_picture, contentRect(), sourceRect, destOffset);
@@ -76,4 +74,4 @@ void SkPictureContentLayerUpdater::setOpaque(bool opaque)
     m_layerIsOpaque = opaque;
 }
 
-} // namespace cc
+}  // namespace cc

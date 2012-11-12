@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
+#include "base/metrics/field_trial.h"
 #include "base/string_util.h"
 #include "chrome/common/chrome_switches.h"
 
@@ -34,20 +35,18 @@ class CommonSwitches {
         // TODO(finnur): When enabling this, only enable for OS_WIN.
         sideload_wipeout(
             switches::kSideloadWipeout,
-            FeatureSwitch::DEFAULT_DISABLED),
+            base::FieldTrialList::FindFullName("SideloadWipeout") == "Enabled" ?
+                FeatureSwitch::DEFAULT_ENABLED :
+                FeatureSwitch::DEFAULT_DISABLED),
         prompt_for_external_extensions(
             switches::kPromptForExternalExtensions,
-            FeatureSwitch::DEFAULT_DISABLED),
+            base::FieldTrialList::FindFullName("SideloadWipeout") == "Enabled" ?
+                FeatureSwitch::DEFAULT_ENABLED :
+                FeatureSwitch::DEFAULT_DISABLED),
         tab_capture(
             switches::kTabCapture,
             FeatureSwitch::DEFAULT_DISABLED)
   {
-// Disabling easy off-store installation is not yet implemented for Aura. Not
-// sure what the Aura equivalent for this UI is.
-#if defined(USE_AURA)
-    easy_off_store_install.SetOverrideValue(FeatureSwitch::OVERRIDE_ENABLED);
-#endif
-
     if (!action_box.IsEnabled()){
       extensions_in_action_box.SetOverrideValue(
           FeatureSwitch::OVERRIDE_DISABLED);

@@ -146,21 +146,21 @@ TEST_F(LauncherTooltipManagerTest, ShouldHideForEvents) {
   aura::EventFilter* event_filter = GetEventFilter();
 
   // Should not hide for key events.
-  ui::KeyEvent key_event(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE);
+  ui::KeyEvent key_event(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE, false);
   EXPECT_FALSE(event_filter->PreHandleKeyEvent(root_window, &key_event));
   EXPECT_TRUE(TooltipIsVisible());
 
   // Should hide for touch events.
   ui::TouchEvent touch_event(
       ui::ET_TOUCH_PRESSED, gfx::Point(), 0, base::TimeDelta());
-  EXPECT_EQ(ui::TOUCH_STATUS_UNKNOWN,
+  EXPECT_EQ(ui::ER_UNHANDLED,
             event_filter->PreHandleTouchEvent(root_window, &touch_event));
   EXPECT_FALSE(TooltipIsVisible());
 
   // Shouldn't hide if the touch happens on the tooltip.
   ShowImmediately();
   views::Widget* tooltip_widget = GetTooltipWidget();
-  EXPECT_EQ(ui::TOUCH_STATUS_UNKNOWN,
+  EXPECT_EQ(ui::ER_UNHANDLED,
             event_filter->PreHandleTouchEvent(
                 tooltip_widget->GetNativeWindow(), &touch_event));
   EXPECT_TRUE(TooltipIsVisible());
@@ -195,7 +195,7 @@ TEST_F(LauncherTooltipManagerTest, HideForMouseEvent) {
   EXPECT_TRUE(TooltipIsVisible());
 
   // Should hide if the mouse is out of the tooltip.
-  test_api.set_location(tooltip_rect.origin().Add(gfx::Point(-1, -1)));
+  test_api.set_location(tooltip_rect.origin() + gfx::Vector2d(-1, -1));
   EXPECT_FALSE(event_filter->PreHandleMouseEvent(root_window, &mouse_event));
   RunAllPendingInMessageLoop();
   EXPECT_FALSE(TooltipIsVisible());

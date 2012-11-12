@@ -5,6 +5,8 @@
 package org.chromium.media;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.Manifest.permission;
 import android.media.MediaPlayer;
 
 import org.chromium.base.CalledByNative;
@@ -21,10 +23,14 @@ class MediaPlayerListener implements MediaPlayer.OnPreparedListener,
                                      MediaPlayer.OnErrorListener {
     // These values are mirrored as enums in media/base/android/media_player_bridge.h.
     // Please ensure they stay in sync.
-    private static final int MEDIA_ERROR_UNKNOWN = 0;
-    private static final int MEDIA_ERROR_SERVER_DIED = 1;
+    private static final int MEDIA_ERROR_FORMAT = 0;
+    private static final int MEDIA_ERROR_DECODE = 1;
     private static final int MEDIA_ERROR_NOT_VALID_FOR_PROGRESSIVE_PLAYBACK = 2;
     private static final int MEDIA_ERROR_INVALID_CODE = 3;
+
+    // These values are copied from android media player.
+    public static final int MEDIA_ERROR_MALFORMED = -1007;
+    public static final int MEDIA_ERROR_TIMED_OUT = -110;
 
     // Used to determine the class instance to dispatch the native call to.
     private int mNativeMediaPlayerListener = 0;
@@ -38,10 +44,20 @@ class MediaPlayerListener implements MediaPlayer.OnPreparedListener,
         int errorType;
         switch (what) {
             case MediaPlayer.MEDIA_ERROR_UNKNOWN:
-                errorType = MEDIA_ERROR_UNKNOWN;
+                switch (extra) {
+                    case MEDIA_ERROR_MALFORMED:
+                        errorType = MEDIA_ERROR_DECODE;
+                        break;
+                    case MEDIA_ERROR_TIMED_OUT:
+                        errorType = MEDIA_ERROR_INVALID_CODE;
+                        break;
+                    default:
+                        errorType = MEDIA_ERROR_FORMAT;
+                        break;
+                }
                 break;
             case MediaPlayer.MEDIA_ERROR_SERVER_DIED:
-                errorType = MEDIA_ERROR_SERVER_DIED;
+                errorType = MEDIA_ERROR_DECODE;
                 break;
             case MediaPlayer.MEDIA_ERROR_NOT_VALID_FOR_PROGRESSIVE_PLAYBACK:
                 errorType = MEDIA_ERROR_NOT_VALID_FOR_PROGRESSIVE_PLAYBACK;
@@ -93,7 +109,10 @@ class MediaPlayerListener implements MediaPlayer.OnPreparedListener,
         mediaPlayer.setOnPreparedListener(listener);
         mediaPlayer.setOnSeekCompleteListener(listener);
         mediaPlayer.setOnVideoSizeChangedListener(listener);
-        mediaPlayer.setWakeMode(context, android.os.PowerManager.FULL_WAKE_LOCK);
+        if (PackageManager.PERMISSION_GRANTED ==
+                context.checkCallingPermission(permission.WAKE_LOCK)) {
+            mediaPlayer.setWakeMode(context, android.os.PowerManager.FULL_WAKE_LOCK);
+        }
     }
 
     /**

@@ -2,8 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from chrome_remote_control import multi_page_benchmark
-from chrome_remote_control import util
+from telemetry import multi_page_benchmark
+from telemetry import util
 
 def _Mean(l):
   return float(sum(l)) / len(l) if len(l) > 0 else 0.0
@@ -26,6 +26,6 @@ decodeURIComponent(formElement.value.split("?")[1]);
     for key in result_dict:
       if key == 'v':
         continue
-      results.Add(key, 'ms', result_dict[key])
+      results.Add(key, 'ms', result_dict[key], data_type='unimportant')
       total += _Mean(result_dict[key])
     results.Add('Total', 'ms', total)

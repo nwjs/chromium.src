@@ -20,6 +20,7 @@
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/range/range.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
@@ -112,8 +113,7 @@ bool NativeTextfieldViews::OnMousePressed(const ui::MouseEvent& event) {
 
 bool NativeTextfieldViews::ExceededDragThresholdFromLastClickLocation(
     const ui::MouseEvent& event) {
-  gfx::Point location_delta = event.location().Subtract(last_click_location_);
-  return ExceededDragThreshold(location_delta.x(), location_delta.y());
+  return ExceededDragThreshold(event.location() - last_click_location_);
 }
 
 bool NativeTextfieldViews::OnMouseDragged(const ui::MouseEvent& event) {
@@ -145,20 +145,19 @@ void NativeTextfieldViews::OnMouseReleased(const ui::MouseEvent& event) {
   OnAfterUserAction();
 }
 
-ui::EventResult NativeTextfieldViews::OnGestureEvent(
-    const ui::GestureEvent& event) {
+ui::EventResult NativeTextfieldViews::OnGestureEvent(ui::GestureEvent* event) {
   ui::EventResult status = textfield_->OnGestureEvent(event);
   if (status != ui::ER_UNHANDLED)
     return status;
 
-  switch (event.type()) {
+  switch (event->type()) {
     case ui::ET_GESTURE_TAP_DOWN:
       OnBeforeUserAction();
       textfield_->RequestFocus();
       // We don't deselect if the point is in the selection
       // because TAP_DOWN may turn into a LONG_PRESS.
-      if (!GetRenderText()->IsPointInSelection(event.location()) &&
-          MoveCursorTo(event.location(), false))
+      if (!GetRenderText()->IsPointInSelection(event->location()) &&
+          MoveCursorTo(event->location(), false))
         SchedulePaint();
       OnAfterUserAction();
       return ui::ER_CONSUMED;
@@ -167,7 +166,7 @@ ui::EventResult NativeTextfieldViews::OnGestureEvent(
       return ui::ER_CONSUMED;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       OnBeforeUserAction();
-      if (MoveCursorTo(event.location(), true))
+      if (MoveCursorTo(event->location(), true))
         SchedulePaint();
       OnAfterUserAction();
       return ui::ER_CONSUMED;
@@ -274,6 +273,18 @@ void NativeTextfieldViews::OnFocus() {
 
 void NativeTextfieldViews::OnBlur() {
   NOTREACHED();
+}
+
+void NativeTextfieldViews::OnNativeThemeChanged(const ui::NativeTheme* theme) {
+  gfx::RenderText* render_text = GetRenderText();
+  render_text->set_selection_color(
+      theme->GetSystemColor(ui::NativeTheme::kColorId_TextfieldSelectionColor));
+  render_text->set_selection_background_focused_color(
+      theme->GetSystemColor(
+          ui::NativeTheme::kColorId_TextfieldSelectionBackgroundFocused));
+  render_text->set_selection_background_unfocused_color(
+      theme->GetSystemColor(
+              ui::NativeTheme::kColorId_TextfieldSelectionBackgroundUnfocused));
 }
 
 void NativeTextfieldViews::SelectRect(const gfx::Point& start,

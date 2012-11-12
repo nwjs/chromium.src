@@ -10,9 +10,9 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
+#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/command_observer.h"
-#include "chrome/browser/ui/search/search_model_observer.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/reload_button.h"
@@ -25,15 +25,8 @@
 
 class BrowserActionsContainer;
 class Browser;
-class LocationBarContainer;
 class WrenchMenu;
 class WrenchMenuModel;
-
-namespace chrome {
-namespace search {
-class SearchModel;
-}
-}
 
 namespace views {
 class MenuListener;
@@ -44,11 +37,11 @@ class ToolbarView : public views::AccessiblePaneView,
                     public views::MenuButtonListener,
                     public ui::AcceleratorProvider,
                     public LocationBarView::Delegate,
-                    public chrome::search::SearchModelObserver,
                     public content::NotificationObserver,
                     public CommandObserver,
                     public views::ButtonListener,
-                    public views::WidgetObserver {
+                    public views::WidgetObserver,
+                    public PrefObserver {
  public:
   // The view class name.
   static const char kViewClassName[];
@@ -56,9 +49,8 @@ class ToolbarView : public views::AccessiblePaneView,
   explicit ToolbarView(Browser* browser);
   virtual ~ToolbarView();
 
-  // Create the contents of the Browser Toolbar. |location_bar_parent| is the
-  // view the LocationBarContainer is added to.
-  void Init(views::View* location_bar_parent);
+  // Create the contents of the Browser Toolbar.
+  void Init();
 
   // Updates the toolbar (and transitively the location bar) with the states of
   // the specified |tab|.  If |should_restore_state| is true, we're switching
@@ -94,9 +86,6 @@ class ToolbarView : public views::AccessiblePaneView,
   BrowserActionsContainer* browser_actions() const { return browser_actions_; }
   ReloadButton* reload_button() const { return reload_; }
   LocationBarView* location_bar() const { return location_bar_; }
-  LocationBarContainer* location_bar_container() const {
-    return location_bar_container_;
-  }
   views::MenuButton* app_menu() const { return app_menu_; }
 
   // Overridden from AccessiblePaneView
@@ -122,10 +111,6 @@ class ToolbarView : public views::AccessiblePaneView,
                             bool show_history) OVERRIDE;
   virtual void OnInputInProgress(bool in_progress) OVERRIDE;
 
-  // Overridden from chrome::search::SearchModelObserver:
-  virtual void ModeChanged(const chrome::search::Mode& old_mode,
-                           const chrome::search::Mode& new_mode) OVERRIDE;
-
   // Overridden from CommandObserver:
   virtual void EnabledStateChangedForCommand(int id, bool enabled) OVERRIDE;
 
@@ -141,6 +126,10 @@ class ToolbarView : public views::AccessiblePaneView,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // Overridden from PrefObserver:
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
   // Overridden from ui::AcceleratorProvider:
   virtual bool GetAcceleratorForCommandId(
@@ -175,8 +164,6 @@ class ToolbarView : public views::AccessiblePaneView,
   // Overridden from AccessiblePaneView
   virtual bool SetPaneFocusAndFocusDefault() OVERRIDE;
   virtual void RemovePaneFocus() OVERRIDE;
-  virtual View* GetParentForFocusSearch(View* v) OVERRIDE;
-  virtual bool ContainsForFocusSearch(View* root, const View* v) OVERRIDE;
 
  private:
   // Types of display mode this toolbar can have.
@@ -215,10 +202,6 @@ class ToolbarView : public views::AccessiblePaneView,
   // unacknowledged background pages in the system.
   gfx::ImageSkia GetBackgroundPageBadge();
 
-  // Sets the bounds of the LocationBarContainer. |bounds| is in the coordinates
-  // of |this|.
-  void SetLocationBarContainerBounds(const gfx::Rect& bounds);
-
   // The model that contains the security level, text, icon to display...
   ToolbarModel* model_;
 
@@ -228,7 +211,6 @@ class ToolbarView : public views::AccessiblePaneView,
   ReloadButton* reload_;
   views::ImageButton* home_;
   LocationBarView* location_bar_;
-  LocationBarContainer* location_bar_container_;
   BrowserActionsContainer* browser_actions_;
   views::MenuButton* app_menu_;
   Browser* browser_;

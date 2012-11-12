@@ -3,20 +3,23 @@
 // found in the LICENSE file.
 
 
-#ifndef SolidColorLayerChromium_h
-#define SolidColorLayerChromium_h
+#ifndef CC_SOLID_COLOR_LAYER_H_
+#define CC_SOLID_COLOR_LAYER_H_
 
+#include "cc/cc_export.h"
 #include "cc/layer.h"
 
 namespace cc {
 
 // A Layer that renders a solid color. The color is specified by using
 // setBackgroundColor() on the base class.
-class SolidColorLayer : public Layer {
+class CC_EXPORT SolidColorLayer : public Layer {
 public:
     static scoped_refptr<SolidColorLayer> create();
 
     virtual scoped_ptr<LayerImpl> createLayerImpl() OVERRIDE;
+
+    virtual void setBackgroundColor(SkColor) OVERRIDE;
 
 protected:
     SolidColorLayer();
@@ -26,4 +29,4 @@ private:
 };
 
 }
-#endif
+#endif  // CC_SOLID_COLOR_LAYER_H_

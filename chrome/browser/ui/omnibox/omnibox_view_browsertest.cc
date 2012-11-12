@@ -92,6 +92,7 @@ const char *kBlockedHostnames[] = {
   "*.abc.com",
   "def",
   "*.def.com",
+  "*.site.com",
   "history",
   "z"
 };
@@ -113,9 +114,16 @@ const struct TestHistoryEntry {
   {"http://www.bar.com/7", "Page 7", kSearchText, 4, 4, false },
   {"http://www.bar.com/8", "Page 8", kSearchText, 3, 3, false },
   {"http://www.bar.com/9", "Page 9", kSearchText, 2, 2, false },
+  {"http://www.site.com/path/1", "Site 1", kSearchText, 4, 4, false },
+  {"http://www.site.com/path/2", "Site 2", kSearchText, 3, 3, false },
+  {"http://www.site.com/path/3", "Site 3", kSearchText, 2, 2, false },
 
   // To trigger inline autocomplete.
   {"http://www.def.com", "Page def", kSearchText, 10000, 10000, true },
+
+  // Used in particular for the desired TLD test.  This makes it test
+  // the interesting case when there's an intranet host with the same
+  // name as the .com.
   {"http://bar/", "Bar", kSearchText, 1, 0, false },
 };
 
@@ -1007,7 +1015,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
     string16 old_text = omnibox_view->GetText();
 
     // Input something that can match history items.
-    omnibox_view->SetUserText(ASCIIToUTF16("bar"));
+    omnibox_view->SetUserText(ASCIIToUTF16("site.com/p"));
     ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
     ASSERT_TRUE(popup_model->IsOpen());
 
@@ -1018,7 +1026,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
     ASSERT_GE(popup_model->result().size(), 3U);
 
     string16 user_text = omnibox_view->GetText();
-    ASSERT_EQ(ASCIIToUTF16("bar"), user_text);
+    ASSERT_EQ(ASCIIToUTF16("site.com/p"), user_text);
     omnibox_view->SelectAll(true);
     ASSERT_TRUE(omnibox_view->IsSelectAll());
 
@@ -1297,16 +1305,14 @@ class OmniboxViewTest : public InProcessBrowserTest,
   // If |release_offset| differs from |press_offset|, the mouse will be moved
   // between the press and release.
   void ClickFocusViewOrigin(ui_controls::MouseButton button,
-                            const gfx::Point& press_offset,
-                            const gfx::Point& release_offset) {
+                            const gfx::Vector2d& press_offset,
+                            const gfx::Vector2d& release_offset) {
     gfx::Point focus_view_origin = GetFocusView()->GetBoundsInScreen().origin();
-    gfx::Point press_point = focus_view_origin;
-    press_point.Offset(press_offset.x(), press_offset.y());
+    gfx::Point press_point = focus_view_origin + press_offset;
     ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(press_point));
     ASSERT_TRUE(ui_test_utils::SendMouseEventsSync(button, ui_controls::DOWN));
 
-    gfx::Point release_point = focus_view_origin;
-    release_point.Offset(release_offset.x(), release_offset.y());
+    gfx::Point release_point = focus_view_origin  + release_offset;
     if (release_point != press_point)
       ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(release_point));
     ASSERT_TRUE(ui_test_utils::SendMouseEventsSync(button, ui_controls::UP));
@@ -1347,9 +1353,16 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, MAYBE_BackspaceInKeywordMode) {
   BackspaceInKeywordModeTest();
 }
 
-IN_PROC_BROWSER_TEST_F(OmniboxViewTest, Escape) {
+// http://crbug.com/158913
+#if defined(OS_CHROMEOS)
+#define MAYBE_Escape DISABLED_Escape
+#else
+#define MAYBE_Escape Escape
+#endif
+IN_PROC_BROWSER_TEST_F(OmniboxViewTest, MAYBE_Escape) {
   EscapeTest();
 }
+#undef MAYBE_ESCAPE
 
 // http://crbug.com/131179
 #if defined(OS_LINUX)
@@ -1616,7 +1629,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_SelectAllOnClick) {
   OmniboxView* omnibox_view = NULL;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
   omnibox_view->SetUserText(ASCIIToUTF16("http://www.google.com/"));
-  const gfx::Point kClickOffset(2, 2);
+  const gfx::Vector2d kClickOffset(2, 2);
 
   // Take the focus away from the omnibox.
   ASSERT_NO_FATAL_FAILURE(ClickBrowserWindowCenter());
@@ -1650,7 +1663,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_SelectAllOnClick) {
   // Click in a different spot in the omnibox.  It should keep the focus but
   // lose the selection.
   omnibox_view->SelectAll(false);
-  const gfx::Point kSecondClickOffset(kClickOffset.x() + 10, kClickOffset.y());
+  const gfx::Vector2d kSecondClickOffset(kClickOffset.x() + 10,
+                                         kClickOffset.y());
   ASSERT_NO_FATAL_FAILURE(
       ClickFocusViewOrigin(
           ui_controls::LEFT, kSecondClickOffset, kSecondClickOffset));
@@ -1660,7 +1674,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_SelectAllOnClick) {
   // Take the focus away and click in the omnibox again, but drag a bit before
   // releasing.  We should focus the omnibox but not select all of its text.
   ASSERT_NO_FATAL_FAILURE(ClickBrowserWindowCenter());
-  const gfx::Point kReleaseOffset(kClickOffset.x() + 10, kClickOffset.y());
+  const gfx::Vector2d kReleaseOffset(kClickOffset.x() + 10, kClickOffset.y());
   ASSERT_NO_FATAL_FAILURE(
       ClickFocusViewOrigin(ui_controls::LEFT, kClickOffset, kReleaseOffset));
   EXPECT_FALSE(omnibox_view->IsSelectAll());

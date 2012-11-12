@@ -171,8 +171,7 @@ void DecryptingAudioDecoder::SetDecryptor(Decryptor* decryptor) {
   state_ = kPendingDecoderInit;
   decryptor_->InitializeAudioDecoder(
       scoped_config.Pass(),
-      BIND_TO_LOOP(&DecryptingAudioDecoder::FinishInitialization),
-      BIND_TO_LOOP(&DecryptingAudioDecoder::OnKeyAdded));
+      BIND_TO_LOOP(&DecryptingAudioDecoder::FinishInitialization));
 }
 
 void DecryptingAudioDecoder::FinishInitialization(bool success) {
@@ -197,6 +196,9 @@ void DecryptingAudioDecoder::FinishInitialization(bool success) {
   const int kBitsPerByte = 8;
   bytes_per_sample_ = ChannelLayoutToChannelCount(channel_layout_) *
       bits_per_channel_ / kBitsPerByte;
+
+  decryptor_->RegisterKeyAddedCB(
+      Decryptor::kAudio, BIND_TO_LOOP(&DecryptingAudioDecoder::OnKeyAdded));
 
   state_ = kIdle;
   base::ResetAndReturn(&init_cb_).Run(PIPELINE_OK);
@@ -432,8 +434,10 @@ void DecryptingAudioDecoder::EnqueueFrames(
     base::TimeDelta cur_timestamp = output_timestamp_base_ +
         NumberOfSamplesToDuration(total_samples_decoded_);
     if (IsOutOfSync(cur_timestamp, frame->GetTimestamp())) {
-      DVLOG(1)  << "Timestamp returned by the decoder does not match the input "
-                << "timestamp and number of samples decoded.";
+      DVLOG(1)  << "Timestamp returned by the decoder ("
+                << frame->GetTimestamp().InMilliseconds() << " ms)"
+                << " does not match the input timestamp and number of samples"
+                << " decoded (" << cur_timestamp.InMilliseconds() << " ms).";
     }
     frame->SetTimestamp(cur_timestamp);
 

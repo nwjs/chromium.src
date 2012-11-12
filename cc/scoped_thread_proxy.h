@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCScopedThreadProxy_h
-#define CCScopedThreadProxy_h
+#ifndef CC_SCOPED_THREAD_PROXY_H_
+#define CC_SCOPED_THREAD_PROXY_H_
 
 #include "base/memory/ref_counted.h"
 #include "base/callback.h"
+#include "cc/cc_export.h"
 #include "cc/thread.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -23,7 +24,7 @@ namespace cc {
 // Implementation note: Unlike ScopedRunnableMethodFactory in Chromium, pending tasks are not cancelled by actually
 // destroying the proxy. Instead each pending task holds a reference to the proxy to avoid maintaining an explicit
 // list of outstanding tasks.
-class ScopedThreadProxy : public base::RefCountedThreadSafe<ScopedThreadProxy> {
+class CC_EXPORT ScopedThreadProxy : public base::RefCountedThreadSafe<ScopedThreadProxy> {
 public:
     static scoped_refptr<ScopedThreadProxy> create(cc::Thread* targetThread)
     {
@@ -50,4 +51,4 @@ private:
 
 }  // namespace cc
 
-#endif
+#endif  // CC_SCOPED_THREAD_PROXY_H_

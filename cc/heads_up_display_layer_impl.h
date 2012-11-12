@@ -2,15 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCHeadsUpDisplayLayerImpl_h
-#define CCHeadsUpDisplayLayerImpl_h
+#ifndef CC_HEADS_UP_DISPLAY_LAYER_IMPL_H_
+#define CC_HEADS_UP_DISPLAY_LAYER_IMPL_H_
 
 #include "base/memory/scoped_ptr.h"
+#include "base/time.h"
+#include "cc/cc_export.h"
 #include "cc/font_atlas.h"
 #include "cc/layer_impl.h"
-#include "cc/scoped_texture.h"
+#include "cc/scoped_resource.h"
 
 class SkCanvas;
+class SkPaint;
+struct SkRect;
 
 namespace cc {
 
@@ -18,7 +22,7 @@ class DebugRectHistory;
 class FontAtlas;
 class FrameRateCounter;
 
-class HeadsUpDisplayLayerImpl : public LayerImpl {
+class CC_EXPORT HeadsUpDisplayLayerImpl : public LayerImpl {
 public:
     static scoped_ptr<HeadsUpDisplayLayerImpl> create(int id)
     {
@@ -27,6 +31,7 @@ public:
     virtual ~HeadsUpDisplayLayerImpl();
 
     void setFontAtlas(scoped_ptr<FontAtlas>);
+    void setShowFPSCounter(bool);
 
     virtual void willDraw(ResourceProvider*) OVERRIDE;
     virtual void appendQuads(QuadSink&, AppendQuadsData&) OVERRIDE;
@@ -43,15 +48,23 @@ private:
     virtual const char* layerTypeAsString() const OVERRIDE;
 
     void drawHudContents(SkCanvas*);
-    void drawFPSCounter(SkCanvas*, FrameRateCounter*, int top, int height);
-    void drawFPSCounterText(SkCanvas*, FrameRateCounter*, int top, int width, int height);
+    int drawFPSCounter(SkCanvas*, FrameRateCounter*);
+    void drawFPSCounterText(SkCanvas*, SkPaint&, FrameRateCounter*, SkRect);
+    void drawFPSCounterGraph(SkCanvas*, SkPaint&, FrameRateCounter*, SkRect);
     void drawDebugRects(SkCanvas*, DebugRectHistory*);
 
     scoped_ptr<FontAtlas> m_fontAtlas;
-    scoped_ptr<ScopedTexture> m_hudTexture;
+    scoped_ptr<ScopedResource> m_hudTexture;
     scoped_ptr<SkCanvas> m_hudCanvas;
+
+    double m_averageFPS;
+    double m_stdDeviation;
+
+    base::TimeTicks textUpdateTime;
+
+    bool m_showFPSCounter;
 };
 
 }  // namespace cc
 
-#endif // CCHeadsUpDisplayLayerImpl_h
+#endif  // CC_HEADS_UP_DISPLAY_LAYER_IMPL_H_

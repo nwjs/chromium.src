@@ -2,19 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCLayerTreeHostImpl_h
-#define CCLayerTreeHostImpl_h
+#ifndef CC_LAYER_TREE_HOST_IMPL_H_
+#define CC_LAYER_TREE_HOST_IMPL_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "cc/animation_events.h"
+#include "cc/cc_export.h"
 #include "cc/input_handler.h"
 #include "cc/layer_sorter.h"
 #include "cc/render_pass.h"
 #include "cc/render_pass_sink.h"
 #include "cc/renderer.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/gfx/rect.h"
 #include <public/WebCompositorOutputSurfaceClient.h>
 
 namespace cc {
@@ -74,15 +76,15 @@ public:
                                      float maxPageScaleFactor);
 
     // Returns the bounds and offset of the scaled and translated viewport to use for pinch-zoom.
-    FloatRect bounds() const;
-    const FloatPoint& scrollDelta() const { return m_pinchViewportScrollDelta; }
+    gfx::RectF bounds() const;
+    const gfx::Vector2dF& scrollDelta() const { return m_pinchViewportScrollDelta; }
 
-    void setLayoutViewportSize(const FloatSize& size) { m_layoutViewportSize = size; }
+    void setLayoutViewportSize(const gfx::SizeF& size) { m_layoutViewportSize = size; }
 
     // Apply the scroll offset in layout space to the offset of the pinch-zoom viewport. The viewport cannot be
     // scrolled outside of the layout viewport bounds. Returns the component of the scroll that is un-applied due to
     // this constraint.
-    FloatSize applyScroll(FloatSize&);
+    gfx::Vector2dF applyScroll(const gfx::Vector2dF&);
 
     WebKit::WebTransformationMatrix implTransform() const;
 
@@ -93,35 +95,35 @@ private:
     float m_maxPageScaleFactor;
     float m_minPageScaleFactor;
 
-    FloatPoint m_pinchViewportScrollDelta;
-    FloatSize m_layoutViewportSize;
+    gfx::Vector2dF m_pinchViewportScrollDelta;
+    gfx::SizeF m_layoutViewportSize;
 };
 
 // LayerTreeHostImpl owns the LayerImpl tree as well as associated rendering state
-class LayerTreeHostImpl : public InputHandlerClient,
-                            public RendererClient,
-                            public WebKit::WebCompositorOutputSurfaceClient {
+class CC_EXPORT LayerTreeHostImpl : public InputHandlerClient,
+                                    public RendererClient,
+                                    public NON_EXPORTED_BASE(WebKit::WebCompositorOutputSurfaceClient) {
     typedef std::vector<LayerImpl*> LayerList;
 
 public:
-    static scoped_ptr<LayerTreeHostImpl> create(const LayerTreeSettings&, LayerTreeHostImplClient*);
+    static scoped_ptr<LayerTreeHostImpl> create(const LayerTreeSettings&, LayerTreeHostImplClient*, Proxy*);
     virtual ~LayerTreeHostImpl();
 
     // InputHandlerClient implementation
-    virtual InputHandlerClient::ScrollStatus scrollBegin(const IntPoint&, InputHandlerClient::ScrollInputType) OVERRIDE;
-    virtual void scrollBy(const IntPoint&, const IntSize&) OVERRIDE;
+    virtual InputHandlerClient::ScrollStatus scrollBegin(gfx::Point, InputHandlerClient::ScrollInputType) OVERRIDE;
+    virtual void scrollBy(gfx::Point, gfx::Vector2d) OVERRIDE;
     virtual void scrollEnd() OVERRIDE;
     virtual void pinchGestureBegin() OVERRIDE;
-    virtual void pinchGestureUpdate(float, const IntPoint&) OVERRIDE;
+    virtual void pinchGestureUpdate(float, gfx::Point) OVERRIDE;
     virtual void pinchGestureEnd() OVERRIDE;
-    virtual void startPageScaleAnimation(const IntSize& targetPosition, bool anchorPoint, float pageScale, base::TimeTicks startTime, base::TimeDelta duration) OVERRIDE;
+    virtual void startPageScaleAnimation(gfx::Vector2d targetPosition, bool anchorPoint, float pageScale, base::TimeTicks startTime, base::TimeDelta duration) OVERRIDE;
     virtual void scheduleAnimation() OVERRIDE;
 
-    struct FrameData : public RenderPassSink {
+    struct CC_EXPORT FrameData : public RenderPassSink {
         FrameData();
         ~FrameData();
 
-        std::vector<IntRect> occludingScreenSpaceRects;
+        std::vector<gfx::Rect> occludingScreenSpaceRects;
         RenderPassList renderPasses;
         RenderPassIdHashMap renderPassesById;
         LayerList* renderSurfaceLayerList;
@@ -146,13 +148,14 @@ public:
     void didDrawAllLayers(const FrameData&);
 
     // RendererClient implementation
-    virtual const IntSize& deviceViewportSize() const OVERRIDE;
+    virtual const gfx::Size& deviceViewportSize() const OVERRIDE;
     virtual const LayerTreeSettings& settings() const OVERRIDE;
     virtual void didLoseContext() OVERRIDE;
     virtual void onSwapBuffersComplete() OVERRIDE;
     virtual void setFullRootLayerDamage() OVERRIDE;
     virtual void setManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE;
     virtual void enforceManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE;
+    virtual bool hasImplThread() const OVERRIDE;
 
     // WebCompositorOutputSurfaceClient implementation.
     virtual void onVSyncParametersChanged(double monotonicTimebase, double intervalInSeconds) OVERRIDE;
@@ -173,7 +176,7 @@ public:
 
     bool swapBuffers();
 
-    void readback(void* pixels, const IntRect&);
+    void readback(void* pixels, const gfx::Rect&);
 
     void setRootLayer(scoped_ptr<LayerImpl>);
     LayerImpl* rootLayer() { return m_rootLayerImpl.get(); }
@@ -198,8 +201,8 @@ public:
     void resetContentsTexturesPurged();
     size_t memoryAllocationLimitBytes() const { return m_managedMemoryPolicy.bytesLimitWhenVisible; }
 
-    void setViewportSize(const IntSize& layoutViewportSize, const IntSize& deviceViewportSize);
-    const IntSize& layoutViewportSize() const { return m_layoutViewportSize; }
+    void setViewportSize(const gfx::Size& layoutViewportSize, const gfx::Size& deviceViewportSize);
+    const gfx::Size& layoutViewportSize() const { return m_layoutViewportSize; }
 
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
     void setDeviceScaleFactor(float);
@@ -210,7 +213,7 @@ public:
     scoped_ptr<ScrollAndScaleSet> processScrollDeltas();
     WebKit::WebTransformationMatrix implTransform() const;
 
-    void startPageScaleAnimation(const IntSize& tragetPosition, bool useAnchor, float scale, base::TimeDelta duration);
+    void startPageScaleAnimation(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration);
 
     SkColor backgroundColor() const { return m_backgroundColor; }
     void setBackgroundColor(SkColor color) { m_backgroundColor = color; }
@@ -230,8 +233,9 @@ public:
     FrameRateCounter* fpsCounter() const { return m_fpsCounter.get(); }
     DebugRectHistory* debugRectHistory() const { return m_debugRectHistory.get(); }
     ResourceProvider* resourceProvider() const { return m_resourceProvider.get(); }
+    Proxy* proxy() const { return m_proxy; }
 
-    class CullRenderPassesWithCachedTextures {
+    class CC_EXPORT CullRenderPassesWithCachedTextures {
     public:
         bool shouldRemoveRenderPass(const RenderPassDrawQuad&, const FrameData&) const;
 
@@ -247,7 +251,7 @@ public:
         Renderer& m_renderer;
     };
 
-    class CullRenderPassesWithNoQuads {
+    class CC_EXPORT CullRenderPassesWithNoQuads {
     public:
         bool shouldRemoveRenderPass(const RenderPassDrawQuad&, const FrameData&) const;
 
@@ -262,7 +266,7 @@ public:
     static void removeRenderPasses(RenderPassCuller, FrameData&);
 
 protected:
-    LayerTreeHostImpl(const LayerTreeSettings&, LayerTreeHostImplClient*);
+    LayerTreeHostImpl(const LayerTreeSettings&, LayerTreeHostImplClient*, Proxy*);
 
     void animatePageScale(base::TimeTicks monotonicTime);
     void animateScrollbars(base::TimeTicks monotonicTime);
@@ -277,15 +281,16 @@ protected:
     virtual base::TimeDelta lowFrequencyAnimationInterval() const;
 
     LayerTreeHostImplClient* m_client;
+    Proxy* m_proxy;
     int m_sourceFrameNumber;
 
 private:
     void computeDoubleTapZoomDeltas(ScrollAndScaleSet* scrollInfo);
     void computePinchZoomDeltas(ScrollAndScaleSet* scrollInfo);
-    void makeScrollAndScaleSet(ScrollAndScaleSet* scrollInfo, const IntSize& scrollOffset, float pageScale);
+    void makeScrollAndScaleSet(ScrollAndScaleSet* scrollInfo, gfx::Vector2d scrollOffset, float pageScale);
 
     void setPageScaleDelta(float);
-    void updateMaxScrollPosition();
+    void updateMaxScrollOffset();
     void trackDamageForAllSurfaces(LayerImpl* rootDrawLayer, const LayerList& renderSurfaceLayerList);
 
     // Returns false if the frame should not be displayed. This function should
@@ -294,7 +299,7 @@ private:
     bool calculateRenderPasses(FrameData&);
     void animateLayersRecursive(LayerImpl*, base::TimeTicks monotonicTime, base::Time wallClockTime, AnimationEventsVector*, bool& didAnimate, bool& needsAnimateLayers);
     void setBackgroundTickingEnabled(bool);
-    IntSize contentSize() const;
+    gfx::Size contentSize() const;
 
     void sendDidLoseContextRecursive(LayerImpl*);
     void clearRenderSurfaces();
@@ -315,8 +320,8 @@ private:
     int m_scrollingLayerIdFromPreviousTree;
     bool m_scrollDeltaIsInViewportSpace;
     LayerTreeSettings m_settings;
-    IntSize m_layoutViewportSize;
-    IntSize m_deviceViewportSize;
+    gfx::Size m_layoutViewportSize;
+    gfx::Size m_deviceViewportSize;
     float m_deviceScaleFactor;
     bool m_visible;
     bool m_contentsTexturesPurged;
@@ -328,7 +333,7 @@ private:
     // If this is true, it is necessary to traverse the layer tree ticking the animators.
     bool m_needsAnimateLayers;
     bool m_pinchGestureActive;
-    IntPoint m_previousPinchAnchor;
+    gfx::Point m_previousPinchAnchor;
 
     scoped_ptr<PageScaleAnimation> m_pageScaleAnimation;
 
@@ -354,4 +359,4 @@ private:
 
 }  // namespace cc
 
-#endif
+#endif  // CC_LAYER_TREE_HOST_IMPL_H_

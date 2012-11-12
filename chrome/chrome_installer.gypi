@@ -74,10 +74,12 @@
           'dependencies': [
             'installer_util',
             'installer_util_strings',
+            'installer/upgrade_test.gyp:alternate_version_generator_lib',
             '../base/base.gyp:base',
             '../base/base.gyp:base_i18n',
             '../base/base.gyp:test_support_base',
             '../build/temp_gyp/googleurl.gyp:googleurl',
+            '../chrome/chrome.gyp:chrome_version_resources',
             '../content/content.gyp:content_common',
             '../testing/gmock.gyp:gmock',
             '../testing/gtest.gyp:gtest',
@@ -88,8 +90,8 @@
           'sources': [
             'installer/setup/compat_checks_unittest.cc',
             'installer/setup/setup_constants.cc',
-            'installer/util/channel_info_unittest.cc',
             'installer/util/callback_work_item_unittest.cc',
+            'installer/util/channel_info_unittest.cc',
             'installer/util/copy_reg_key_work_item_unittest.cc',
             'installer/util/copy_tree_work_item_unittest.cc',
             'installer/util/create_dir_work_item_unittest.cc',
@@ -104,10 +106,12 @@
             'installer/util/google_chrome_distribution_unittest.cc',
             'installer/util/google_update_settings_unittest.cc',
             'installer/util/install_util_unittest.cc',
-            'installer/util/installation_validator_unittest.cc',
             'installer/util/installation_validation_helper.cc',
             'installer/util/installation_validation_helper.h',
+            'installer/util/installation_validator_unittest.cc',
             'installer/util/installer_state_unittest.cc',
+            'installer/util/installer_util_test_common.cc',
+            'installer/util/installer_util_test_common.h',
             'installer/util/installer_util_unittests.rc',
             'installer/util/installer_util_unittests_resource.h',
             'installer/util/language_selector_unittest.cc',
@@ -115,9 +119,9 @@
             'installer/util/lzma_util_unittest.cc',
             'installer/util/master_preferences_unittest.cc',
             'installer/util/move_tree_work_item_unittest.cc',
-            'installer/util/product_unittest.h',
-            'installer/util/product_unittest.cc',
             'installer/util/product_state_unittest.cc',
+            'installer/util/product_unittest.cc',
+            'installer/util/product_unittest.h',
             'installer/util/registry_key_backup_unittest.cc',
             'installer/util/registry_test_data.cc',
             'installer/util/registry_test_data.h',
@@ -127,6 +131,7 @@
             'installer/util/shell_util_unittest.cc',
             'installer/util/wmi_unittest.cc',
             'installer/util/work_item_list_unittest.cc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome_version/other_version.rc',
           ],
           'msvs_settings': {
             'VCManifestTool': {
@@ -545,6 +550,7 @@
             'rpm_arch': 'i386',
             'packaging_files_binaries': [
               '<(PRODUCT_DIR)/nacl_irt_x86_32.nexe',
+              '<(PRODUCT_DIR)/nacl_ipc_irt_x86_32.nexe',
             ],
           }],
           ['target_arch=="x64"', {
@@ -552,6 +558,7 @@
             'rpm_arch': 'x86_64',
             'packaging_files_binaries': [
               '<(PRODUCT_DIR)/nacl_irt_x86_64.nexe',
+              '<(PRODUCT_DIR)/nacl_ipc_irt_x86_64.nexe',
             ],
           }],
           ['target_arch=="arm"', {

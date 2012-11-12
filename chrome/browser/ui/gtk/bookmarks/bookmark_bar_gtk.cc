@@ -980,12 +980,13 @@ void BookmarkBarGtk::Observe(int type,
     }
 
     SetOverflowButtonAppearance();
-  } else if (type == chrome::NOTIFICATION_PREF_CHANGED) {
-    const std::string& pref_name =
-        *content::Details<std::string>(details).ptr();
-    if (pref_name == prefs::kEditBookmarksEnabled)
-      OnEditBookmarksEnabledChanged();
   }
+}
+
+void BookmarkBarGtk::OnPreferenceChanged(PrefServiceBase* service,
+                                         const std::string& pref_name) {
+  if (pref_name == prefs::kEditBookmarksEnabled)
+    OnEditBookmarksEnabledChanged();
 }
 
 GtkWidget* BookmarkBarGtk::CreateBookmarkButton(const BookmarkNode* node) {
@@ -1176,8 +1177,8 @@ void BookmarkBarGtk::OnButtonDragBegin(GtkWidget* button,
   gtk_widget_size_request(drag_icon_, &req);
   gfx::Rect button_rect = gtk_util::WidgetBounds(button);
   gfx::Point drag_icon_relative =
-      gfx::Rect(req.width, req.height).CenterPoint().Add(
-          (last_pressed_coordinates_.Subtract(button_rect.CenterPoint())));
+      gfx::Rect(req.width, req.height).CenterPoint() +
+      (last_pressed_coordinates_ - button_rect.CenterPoint());
   gtk_drag_set_icon_widget(drag_context, drag_icon_,
                            drag_icon_relative.x(),
                            drag_icon_relative.y());
@@ -1420,7 +1421,7 @@ gboolean BookmarkBarGtk::OnEventBoxExpose(GtkWidget* widget,
     gfx::Rect area = gtk_widget_get_has_window(widget) ?
                      gfx::Rect(0, 0, allocation.width, allocation.height) :
                      gfx::Rect(allocation);
-    NtpBackgroundUtil::PaintBackgroundDetachedMode(browser_->profile(), &canvas,
+    NtpBackgroundUtil::PaintBackgroundDetachedMode(theme_provider, &canvas,
         area, tab_contents_size.height());
   }
 

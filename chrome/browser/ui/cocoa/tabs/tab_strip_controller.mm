@@ -357,6 +357,7 @@ private:
   DCHECK(view && switchView && browser && delegate);
   if ((self = [super init])) {
     tabStripView_.reset([view retain]);
+    [tabStripView_ setController:self];
     switchView_ = switchView;
     browser_ = browser;
     tabStripModel_ = browser_->tab_strip_model();
@@ -490,6 +491,8 @@ private:
 }
 
 - (void)dealloc {
+  [tabStripView_ setController:nil];
+
   if (trackingArea_.get())
     [tabStripView_ removeTrackingArea:trackingArea_.get()];
 
@@ -611,7 +614,7 @@ private:
   content::RecordAction(UserMetricsAction("NewTab_Button"));
   UMA_HISTOGRAM_ENUMERATION("Tab.NewTab", TabStripModel::NEW_TAB_BUTTON,
                             TabStripModel::NEW_TAB_ENUM_COUNT);
-  tabStripModel_->delegate()->AddBlankTab(true);
+  tabStripModel_->delegate()->AddBlankTabAt(-1, true);
 }
 
 // (Private) Returns the number of open tabs in the tab strip. This is the

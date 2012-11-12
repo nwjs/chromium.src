@@ -244,7 +244,7 @@ void QueryResults::AddURLUsageAtIndex(const GURL& url, size_t index) {
   }
 
   // Need to add a new entry for this URL.
-  StackVector<size_t, 4> new_list;
+  base::StackVector<size_t, 4> new_list;
   new_list->push_back(index);
   url_to_results_[url] = new_list;
 }
@@ -446,5 +446,9 @@ ImportedFaviconUsage::ImportedFaviconUsage() {
 
 ImportedFaviconUsage::~ImportedFaviconUsage() {
 }
+
+// VisitDatabaseObserver -------------------------------------------------------
+
+VisitDatabaseObserver::~VisitDatabaseObserver() {}
 
 }  // namespace history

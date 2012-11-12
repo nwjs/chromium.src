@@ -461,6 +461,13 @@ bool CommandBufferProxyImpl::SignalSyncPoint(uint32 sync_point,
   return true;
 }
 
+
+bool CommandBufferProxyImpl::GenerateMailboxNames(
+    unsigned num,
+    std::vector<std::string>* names) {
+  return channel_->GenerateMailboxNames(num, names);
+}
+
 bool CommandBufferProxyImpl::SetParent(
     CommandBufferProxy* parent_command_buffer,
     uint32 parent_texture_id) {
@@ -566,6 +573,9 @@ void CommandBufferProxyImpl::TryUpdateState() {
 
 void CommandBufferProxyImpl::SendManagedMemoryStats(
     const GpuManagedMemoryStats& stats) {
+  if (last_state_.error != gpu::error::kNoError)
+    return;
+
   Send(new GpuCommandBufferMsg_SendClientManagedMemoryStats(route_id_,
                                                             stats));
 }

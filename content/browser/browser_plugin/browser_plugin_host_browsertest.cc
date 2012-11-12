@@ -74,6 +74,13 @@ const char kHTMLForGuestAcceptDrag[] =
     "    ondrop=\"dropped();\">"
     "</textarea>"
     "</body></html>";
+const char kHTMLForGuestWithSize[] =
+    "data:text/html,"
+    "<html>"
+    "<body style=\"margin: 0px;\">"
+    "<img style=\"width: 100%; height: 400px;\"/>"
+    "</body>"
+    "</html>";
 
 std::string GetHTMLForGuestWithTitle(const std::string& title) {
   return StringPrintf(kHTMLForGuestWithTitle, title.c_str());
@@ -91,13 +98,11 @@ class TestBrowserPluginHostFactory : public BrowserPluginHostFactory {
       int instance_id,
       WebContentsImpl* web_contents,
       RenderViewHost* render_view_host,
-      bool focused,
-      bool visible) OVERRIDE {
+      const BrowserPluginHostMsg_CreateGuest_Params& params) OVERRIDE {
     return new TestBrowserPluginGuest(instance_id,
                                       web_contents,
                                       render_view_host,
-                                      focused,
-                                      visible);
+                                      params);
   }
 
   // Also keeps track of number of instances created.
@@ -149,13 +154,12 @@ class TestShortHangTimeoutGuestFactory : public TestBrowserPluginHostFactory {
       int instance_id,
       WebContentsImpl* web_contents,
       RenderViewHost* render_view_host,
-      bool focused,
-      bool visible) OVERRIDE {
-    BrowserPluginGuest* guest = new TestBrowserPluginGuest(instance_id,
-                                                         web_contents,
-                                                         render_view_host,
-                                                         focused,
-                                                         visible);
+      const BrowserPluginHostMsg_CreateGuest_Params& params) OVERRIDE {
+    BrowserPluginGuest* guest =
+        new TestBrowserPluginGuest(instance_id,
+                                   web_contents,
+                                   render_view_host,
+                                   params);
     guest->set_guest_hang_timeout_for_testing(TestTimeouts::tiny_timeout());
     return guest;
   }
@@ -287,6 +291,8 @@ class BrowserPluginHostTest : public ContentBrowserTest {
         shell()->web_contents());
     RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
         embedder_web_contents->GetRenderViewHost());
+    // Focus the embedder.
+    rvh->Focus();
 
     // Allow the test to do some operations on the embedder before we perform
     // the first navigation of the guest.
@@ -1106,6 +1112,90 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, FocusPreservation) {
     bool result = false;
     ASSERT_TRUE(value->GetAsBoolean(&result));
     EXPECT_TRUE(result);
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, FocusTracksEmbedder) {
+  const char* kEmbedderURL = "files/browser_plugin_embedder.html";
+  StartBrowserPluginTest(kEmbedderURL, kHTMLForGuest, true, "");
+  RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
+      test_embedder()->web_contents()->GetRenderViewHost());
+  RenderViewHostImpl* guest_rvh = static_cast<RenderViewHostImpl*>(
+      test_guest()->web_contents()->GetRenderViewHost());
+  {
+    // Focus the BrowserPlugin. This will have the effect of also focusing the
+    // current guest.
+    ExecuteSyncJSFunction(
+        rvh, ASCIIToUTF16("document.getElementById('plugin').focus();"));
+    // Verify that key presses go to the guest.
+    SimulateSpaceKeyPress(test_embedder()->web_contents());
+    test_guest()->WaitForInput();
+    // Verify that the guest is focused.
+    scoped_ptr<base::Value> value(
+        guest_rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("document.hasFocus()")));
+    bool result = false;
+    ASSERT_TRUE(value->GetAsBoolean(&result));
+    EXPECT_TRUE(result);
+  }
+  // Blur the embedder.
+  test_embedder()->web_contents()->GetRenderViewHost()->Blur();
+  test_guest()->WaitForBlur();
+}
+
+// This test verifies that if a browser plugin is in autosize mode before
+// navigation then the guest starts auto-sized.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, AutoSizeBeforeNavigation) {
+  const char* kEmbedderURL = "files/browser_plugin_embedder.html";
+  const std::string embedder_code =
+      "document.getElementById('plugin').minWidth = 300;"
+      "document.getElementById('plugin').minHeight = 200;"
+      "document.getElementById('plugin').maxWidth = 600;"
+      "document.getElementById('plugin').maxHeight = 400;"
+      "document.getElementById('plugin').autoSize = true;";
+  StartBrowserPluginTest(
+      kEmbedderURL, kHTMLForGuestWithSize, true, embedder_code);
+  // Verify that the guest has been auto-sized.
+  test_guest()->WaitForViewSize(gfx::Size(300, 400));
+}
+
+// This test verifies that enabling autosize resizes the guest and triggers
+// a 'sizechanged' event.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, AutoSizeAfterNavigation) {
+  const char* kEmbedderURL = "files/browser_plugin_embedder.html";
+  StartBrowserPluginTest(
+      kEmbedderURL, kHTMLForGuestWithSize, true, "");
+  RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
+      test_embedder()->web_contents()->GetRenderViewHost());
+
+  {
+    const string16 expected_title = ASCIIToUTF16("AutoSize(300, 400)");
+    content::TitleWatcher title_watcher(test_embedder()->web_contents(),
+                                        expected_title);
+    ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+        "document.getElementById('plugin').minWidth = 300;"
+        "document.getElementById('plugin').minHeight = 200;"
+        "document.getElementById('plugin').maxWidth = 600;"
+        "document.getElementById('plugin').maxHeight = 400;"
+        "document.getElementById('plugin').autoSize = true;"));
+    string16 actual_title = title_watcher.WaitAndGetTitle();
+    EXPECT_EQ(expected_title, actual_title);
+  }
+  {
+    // Change the minWidth and verify that it causes relayout.
+    const string16 expected_title = ASCIIToUTF16("AutoSize(350, 400)");
+    content::TitleWatcher title_watcher(test_embedder()->web_contents(),
+                                        expected_title);
+    ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+        "document.getElementById('plugin').minWidth = 350;"));
+    string16 actual_title = title_watcher.WaitAndGetTitle();
+    EXPECT_EQ(expected_title, actual_title);
+  }
+  {
+    // Turn off autoSize and verify that the guest resizes to fit the contaienr.
+    ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
+        "document.getElementById('plugin').autoSize = false;"));
+    test_guest()->WaitForViewSize(gfx::Size(640, 480));
   }
 }
 

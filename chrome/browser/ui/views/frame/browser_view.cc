@@ -14,6 +14,8 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/chrome_dll_resource.h"
+#include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -42,10 +44,10 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window_state.h"
+#include "chrome/browser/ui/ntp_background_util.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
-#include "chrome/browser/ui/ntp_background_util.h"
 #include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/search/search_delegate.h"
 #include "chrome/browser/ui/search/search_model.h"
@@ -66,7 +68,6 @@
 #include "chrome/browser/ui/views/frame/instant_preview_controller_views.h"
 #include "chrome/browser/ui/views/fullscreen_exit_bubble_views.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_container.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_views.h"
@@ -77,7 +78,6 @@
 #include "chrome/browser/ui/views/toolbar_view.h"
 #include "chrome/browser/ui/views/update_recommended_message_box.h"
 #include "chrome/browser/ui/views/website_settings/website_settings_popup_view.h"
-#include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -101,6 +101,7 @@
 #include "grit/webkit_resources.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -222,6 +223,8 @@ BookmarkExtensionBackground::BookmarkExtensionBackground(
 
 void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
                                         views::View* view) const {
+  ui::ThemeProvider* tp = host_view_->GetThemeProvider();
+
   // If search mode is |NTP|, bookmark bar is detached and floating on top of
   // the content view (in z-order) and below the "Most Visited" thumbnails (in
   // the y-direction).  It's visually nicer without the bookmark background, so
@@ -229,10 +232,31 @@ void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
   // each bookmark button is part of the content view.
   const chrome::search::Mode& search_mode =
       browser_view_->browser()->search_model()->mode();
-  if (search_mode.is_ntp())
+  if (search_mode.is_ntp()) {
+    BookmarkModel* bookmark_model =
+        BookmarkModelFactory::GetForProfile(browser_->profile());
+    if (bookmark_model && bookmark_model->HasBookmarks()) {
+      // If a theme is being used, paint the theme background color at maximum
+      // 80% opacity to make the the bookmark bar more legible;
+      // otherwise, use a transparent background.
+      if (tp->HasCustomImage(IDR_THEME_NTP_BACKGROUND)) {
+        const U8CPU kBackgroundOpacity = 204;  // 80% opacity
+        SkColor color = tp->GetColor(ThemeService::COLOR_NTP_BACKGROUND);
+        if (gfx::IsInvertedColorScheme())
+          color = color_utils::InvertColor(color);
+        if (SkColorGetA(color) > kBackgroundOpacity)
+          color = SkColorSetA(color, kBackgroundOpacity);
+        canvas->DrawColor(color);
+        DetachableToolbarView::PaintHorizontalBorder(canvas, host_view_);
+      } else {
+        const SkColor kBorderColor = SkColorSetARGB(25, 0, 0, 0);  // 10% black
+        DetachableToolbarView::PaintHorizontalBorderWithColor(
+            canvas, host_view_, kBorderColor);
+      }
+    }
     return;
+  }
 
-  ui::ThemeProvider* tp = host_view_->GetThemeProvider();
   int toolbar_overlap = host_view_->GetToolbarOverlap();
   // The client edge is drawn below the toolbar bounds.
   if (toolbar_overlap)
@@ -244,7 +268,7 @@ void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
     if (contents && contents->GetView())
       height = contents->GetView()->GetContainerSize().height();
     NtpBackgroundUtil::PaintBackgroundDetachedMode(
-        browser_->profile(), canvas,
+        tp, canvas,
         gfx::Rect(0, toolbar_overlap, host_view_->width(),
                   host_view_->height() - toolbar_overlap),
         height);
@@ -270,20 +294,10 @@ void BookmarkExtensionBackground::Paint(gfx::Canvas* canvas,
     if (!toolbar_overlap)
       DetachableToolbarView::PaintHorizontalBorder(canvas, host_view_);
   } else {
-    Profile* profile = browser_view_->browser()->profile();
-    bool is_instant_extended_api_enabled =
-        chrome::search::IsInstantExtendedAPIEnabled(profile);
-    bool use_ntp_background_theme = false;
     DetachableToolbarView::PaintBackgroundAttachedMode(canvas, host_view_,
         browser_view_->OffsetPointForToolbarBackgroundImage(
-            gfx::Point(host_view_->GetMirroredX(), host_view_->y())),
-        chrome::search::GetToolbarBackgroundColor(profile, search_mode.mode),
-        chrome::search::GetTopChromeBackgroundImage(tp,
-            is_instant_extended_api_enabled, search_mode.mode,
-            InstantUI::ShouldShowWhiteNTP(profile), &use_ntp_background_theme));
-    // For instant extended API, only draw bookmark separator for |MODE_DFEAULT|
-    // mode.
-    if (host_view_->height() >= toolbar_overlap && search_mode.is_default())
+            gfx::Point(host_view_->GetMirroredX(), host_view_->y())));
+    if (host_view_->height() >= toolbar_overlap)
       DetachableToolbarView::PaintHorizontalBorder(canvas, host_view_);
   }
 }
@@ -460,7 +474,7 @@ gfx::Point BrowserView::OffsetPointForToolbarBackgroundImage(
   // The background image starts tiling horizontally at the window left edge and
   // vertically at the top edge of the horizontal tab strip (or where it would
   // be).  We expect our parent's origin to be the window origin.
-  gfx::Point window_point(point.Add(GetMirroredPosition()));
+  gfx::Point window_point(point + GetMirroredPosition().OffsetFromOrigin());
   window_point.Offset(frame_->GetThemeBackgroundXInset(),
                       -frame_->GetTabStripInsets(false).top);
   return window_point;
@@ -1119,6 +1133,10 @@ void BrowserView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
                                  browser_->profile(), url, !already_bookmarked);
 }
 
+void BrowserView::ShowBookmarkPrompt() {
+  GetLocationBarView()->ShowBookmarkPrompt();
+}
+
 void BrowserView::ShowChromeToMobileBubble() {
   GetLocationBarView()->ShowChromeToMobileBubble();
 }
@@ -1383,7 +1401,7 @@ ToolbarView* BrowserView::GetToolbarView() const {
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, TabStripModelObserver implementation:
 
-void BrowserView::TabDetachedAt(TabContents* contents, int index) {
+void BrowserView::TabDetachedAt(WebContents* contents, int index) {
   // We use index here rather than comparing |contents| because by this time
   // the model has already removed |contents| from its list, so
   // browser_->GetActiveWebContents() will return NULL or something else.
@@ -1450,8 +1468,18 @@ void BrowserView::ActiveTabChanged(TabContents* old_contents,
   // toggling the size of the main WebContents.
   UpdateDevToolsForContents(new_contents);
 
-  if (change_tab_contents)
+  if (change_tab_contents) {
     contents_container_->SetWebContents(new_contents->web_contents());
+#if defined(USE_AURA)
+    // Put the Instant preview back on top in case it is showing custom new tab
+    // page content.
+    if (contents_->preview_web_contents()) {
+      ui::Layer* preview_layer =
+          contents_->preview_web_contents()->GetNativeView()->layer();
+      preview_layer->parent()->StackAtTop(preview_layer);
+    }
+#endif
+  }
 
   if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
       GetWidget()->IsVisible()) {
@@ -1463,10 +1491,7 @@ void BrowserView::ActiveTabChanged(TabContents* old_contents,
   // Update all the UI bits.
   UpdateTitleBar();
 
-  // Restacking needs to happen after other UI updates. This restores special
-  // "widget" stacking that governs the SearchViewController's NTP "content"
-  // area.
-  RestackLocationBarContainer();
+  MaybeStackBookmarkBarAtTop();
 
   // No need to update Toolbar because it's already updated in
   // browser.cc.
@@ -1828,6 +1853,8 @@ void BrowserView::Layout() {
 
   // The status bubble position requires that all other layout finish first.
   LayoutStatusBubble();
+
+  MaybeStackBookmarkBarAtTop();
 }
 
 void BrowserView::PaintChildren(gfx::Canvas* canvas) {
@@ -1845,7 +1872,7 @@ void BrowserView::PaintChildren(gfx::Canvas* canvas) {
 void BrowserView::ViewHierarchyChanged(bool is_add,
                                        views::View* parent,
                                        views::View* child) {
-  if (is_add && child == this && GetWidget() && !initialized_) {
+  if (!initialized_ && is_add && child == this && GetWidget()) {
     Init();
     initialized_ = true;
   }
@@ -1863,10 +1890,7 @@ void BrowserView::GetAccessibleState(ui::AccessibleViewState* state) {
 SkColor BrowserView::GetInfoBarSeparatorColor() const {
   // NOTE: Keep this in sync with ToolbarView::OnPaint()!
   return (IsTabStripVisible() || !frame_->ShouldUseNativeFrame()) ?
-      ThemeService::GetDefaultColor(
-          chrome::search::IsInstantExtendedAPIEnabled(browser()->profile()) ?
-              ThemeService::COLOR_SEARCH_SEPARATOR_LINE :
-                  ThemeService::COLOR_TOOLBAR_SEPARATOR) :
+      ThemeService::GetDefaultColor(ThemeService::COLOR_TOOLBAR_SEPARATOR) :
       SK_ColorBLACK;
 }
 
@@ -1941,7 +1965,7 @@ void BrowserView::Init() {
   BrowserTabStripController* tabstrip_controller =
       new BrowserTabStripController(browser_.get(),
                                     browser_->tab_strip_model());
-  tabstrip_ = new TabStrip(tabstrip_controller, browser_->profile());
+  tabstrip_ = new TabStrip(tabstrip_controller);
   AddChildView(tabstrip_);
   tabstrip_controller->InitFromModel(tabstrip_);
 
@@ -1955,8 +1979,7 @@ void BrowserView::Init() {
 
   toolbar_ = new ToolbarView(browser_.get());
   AddChildView(toolbar_);
-
-  toolbar_->Init(this);
+  toolbar_->Init();
 
   preview_controller_.reset(
       new InstantPreviewControllerViews(browser(), this, contents_));
@@ -1993,8 +2016,6 @@ void BrowserView::Init() {
     jumplist_->AddObserver(browser_->profile());
   }
 #endif
-
-  ReorderChildView(toolbar_->location_bar_container(), child_count() - 1);
 
   // We're now initialized and ready to process Layout requests.
   ignore_layout_ = false;
@@ -2140,11 +2161,6 @@ void BrowserView::ShowDevToolsContainer() {
   UpdateDevToolsSplitPosition();
   contents_split_->InvalidateLayout();
   Layout();
-  // In NTP search mode, schedule a repaint of toolbar and tabstrip.
-  if (browser()->search_model()->mode().is_ntp()) {
-    toolbar_->SchedulePaint();
-    tabstrip_->SchedulePaint();
-  }
 }
 
 void BrowserView::HideDevToolsContainer() {
@@ -2153,11 +2169,6 @@ void BrowserView::HideDevToolsContainer() {
   devtools_container_->SetVisible(false);
   contents_split_->InvalidateLayout();
   Layout();
-  // In NTP search mode, schedule a repaint of toolbar and tabstrip.
-  if (browser()->search_model()->mode().is_ntp()) {
-    toolbar_->SchedulePaint();
-    tabstrip_->SchedulePaint();
-  }
 }
 
 void BrowserView::UpdateDevToolsSplitPosition() {
@@ -2547,25 +2558,6 @@ void BrowserView::ShowPasswordGenerationBubble(
   bubble->Show();
 }
 
-void BrowserView::RestackLocationBarContainer() {
-  if (preview_controller_ && preview_controller_->preview_container() &&
-      preview_controller_->preview_container()->web_contents()) {
-#if defined(USE_AURA)
-    // Keep the preview on top so that a doodle can be shown on the NTP in
-    // InstantExtended mode.
-    ui::Layer* native_view_layer =
-        preview_controller_->preview_container()->web_contents()->
-            GetNativeView()->layer();
-    native_view_layer->parent()->StackAtTop(native_view_layer);
-#else
-  // TODO(mad): http://crbug.com/156866 Properly stack views.
-#endif
-  }
-
-  toolbar_->location_bar_container()->StackAtTop();
-  infobar_container_->StackAtTop();
-}
-
 bool BrowserView::DoCutCopyPaste(void (content::RenderWidgetHost::*method)()) {
 #if defined(USE_AURA)
   WebContents* contents = chrome::GetActiveWebContents(browser_.get());
@@ -2595,4 +2587,9 @@ void BrowserView::ActivateAppModalDialog() const {
   }
 
   AppModalDialogQueue::GetInstance()->ActivateModalDialog();
+}
+
+void BrowserView::MaybeStackBookmarkBarAtTop() {
+  if (bookmark_bar_view_.get())
+    bookmark_bar_view_->MaybeStackAtTop();
 }

@@ -21,7 +21,7 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/window_property.h"
-#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/rect.h"
@@ -253,13 +253,13 @@ void MultiDisplayManager::OnNativeDisplaysChanged(
           new_display.device_scale_factor()) {
         changed_display_indices.push_back(new_iter - new_displays.begin());
       }
-      // TODO(oshima): This is ugly. Simplify these operations.
-      // If the display is primary, then simpy use 0,0. Otherwise,
-      // use the origin currently used.
-      if ((*new_iter).id() != current_primary.id()) {
-        new_display.set_bounds(gfx::Rect(current_display.bounds().origin(),
-                                         new_display.bounds().size()));
-      }
+      // If the display is primary, then simpy set the origin to (0,0).
+      // The secondary display's bounds will be updated by
+      // |DisplayController::UpdateDisplayBoundsForLayout|, so no need
+      // to change there.
+      if ((*new_iter).id() == current_primary.id())
+        new_display.set_bounds(gfx::Rect(new_display.bounds().size()));
+
       new_display.UpdateWorkAreaFromInsets(current_display.GetWorkAreaInsets());
       ++curr_iter;
       ++new_iter;
@@ -283,6 +283,8 @@ void MultiDisplayManager::OnNativeDisplaysChanged(
   }
 
   displays_ = new_displays;
+  RefreshDisplayNames();
+
   // Temporarily add displays to be removed because display object
   // being removed are accessed during shutting down the root.
   displays_.insert(displays_.end(), removed_displays.begin(),
@@ -373,29 +375,14 @@ const gfx::Display& MultiDisplayManager::GetDisplayMatching(
 
 std::string MultiDisplayManager::GetDisplayNameFor(
     const gfx::Display& display) {
-  if (HasInternalDisplay() && IsInternalDisplayId(display.id())) {
-    ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-    return UTF16ToUTF8(
-        bundle.GetLocalizedString(IDS_ASH_INTERNAL_DISPLAY_NAME));
-  }
+  if (!display.is_valid())
+    return l10n_util::GetStringUTF8(IDS_ASH_STATUS_TRAY_UNKNOWN_DISPLAY_NAME);
 
-#if defined(USE_X11)
-  std::vector<XID> outputs;
-  if (display.id() != gfx::Display::kInvalidDisplayID &&
-      ui::GetOutputDeviceHandles(&outputs)) {
-    for (size_t i = 0; i < outputs.size(); ++i) {
-      uint16 manufacturer_id = 0;
-      uint32 serial_number = 0;
-      std::string name;
-      if (ui::GetOutputDeviceData(
-              outputs[i], &manufacturer_id, &serial_number, &name) &&
-          display.id() ==
-          gfx::Display::GetID(manufacturer_id, serial_number)) {
-        return name;
-      }
-    }
-  }
-#endif
+  std::map<int64, std::string>::const_iterator iter =
+      display_names_.find(display.id());
+  if (iter != display_names_.end())
+    return iter->second;
+
   return base::StringPrintf("Display %d", static_cast<int>(display.id()));
 }
 
@@ -425,6 +412,8 @@ void MultiDisplayManager::Init() {
     }
   }
 #endif
+
+  RefreshDisplayNames();
 
 #if defined(OS_WIN)
   if (base::win::GetVersion() >= base::win::VERSION_WIN8)
@@ -460,9 +449,10 @@ void MultiDisplayManager::ScaleDisplayImpl() {
        iter != displays_.end(); ++iter) {
     gfx::Display display = *iter;
     float factor = display.device_scale_factor() == 1.0f ? 2.0f : 1.0f;
-    display.SetScaleAndBounds(
-        factor, gfx::Rect(display.bounds_in_pixel().origin(),
-                          gfx::ToFlooredSize(display.size().Scale(factor))));
+    gfx::Point display_origin = display.bounds_in_pixel().origin();
+    gfx::Size display_size = gfx::ToFlooredSize(
+        gfx::ScaleSize(display.size(), factor));
+    display.SetScaleAndBounds(factor, gfx::Rect(display_origin, display_size));
     new_displays.push_back(display);
   }
   OnNativeDisplaysChanged(new_displays);
@@ -511,7 +501,7 @@ void MultiDisplayManager::EnsurePointerInDisplays() {
     return;
   gfx::Point location_in_screen = Shell::GetScreen()->GetCursorScreenPoint();
   gfx::Point target_location;
-  int64 closest_distance = -1;
+  int64 closest_distance_squared = -1;
 
   for (DisplayList::const_iterator iter = displays_.begin();
        iter != displays_.end(); ++iter) {
@@ -522,14 +512,16 @@ void MultiDisplayManager::EnsurePointerInDisplays() {
       break;
     }
     gfx::Point center = display_bounds.CenterPoint();
-    gfx::Point diff = center.Subtract(location_in_screen);
-    // Use the distance from the center of the dislay. This is not
+    // Use the distance squared from the center of the dislay. This is not
     // exactly "closest" display, but good enough to pick one
     // appropriate (and there are at most two displays).
-    int64 distance = diff.x() * diff.x() + diff.y() * diff.y();
-    if (closest_distance < 0 || closest_distance > distance) {
+    // We don't care about actual distance, only relative to other displays, so
+    // using the LengthSquared() is cheaper than Length().
+    int64 distance_squared = (center - location_in_screen).LengthSquared();
+    if (closest_distance_squared < 0 ||
+        closest_distance_squared > distance_squared) {
       target_location = center;
-      closest_distance = distance;
+      closest_distance_squared = distance_squared;
     }
   }
 
@@ -539,6 +531,37 @@ void MultiDisplayManager::EnsurePointerInDisplays() {
   client->ConvertPointFromScreen(root_window, &target_location);
 
   root_window->MoveCursorTo(target_location);
+}
+
+void MultiDisplayManager::RefreshDisplayNames() {
+  display_names_.clear();
+
+#if defined(OS_CHROMEOS)
+  if (!base::chromeos::IsRunningOnChromeOS())
+    return;
+#endif
+
+#if defined(USE_X11)
+  std::vector<XID> outputs;
+  if (!ui::GetOutputDeviceHandles(&outputs))
+    return;
+
+  for (size_t i = 0; i < outputs.size(); ++i) {
+    uint16 manufacturer_id = 0;
+    uint32 serial_number = 0;
+    std::string name;
+    if (ui::GetOutputDeviceData(
+            outputs[i], &manufacturer_id, &serial_number, &name)) {
+      int64 id = gfx::Display::GetID(manufacturer_id, serial_number);
+      if (IsInternalDisplayId(id)) {
+        display_names_[id] =
+            l10n_util::GetStringUTF8(IDS_ASH_INTERNAL_DISPLAY_NAME);
+      } else {
+        display_names_[id] = name;
+      }
+    }
+  }
+#endif
 }
 
 void MultiDisplayManager::SetDisplayIdsForTest(DisplayList* to_update) const {

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCFrameRateCounter_h
-#define CCFrameRateCounter_h
+#ifndef CC_FRAME_RATE_COUNTER_H_
+#define CC_FRAME_RATE_COUNTER_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -15,7 +15,7 @@ namespace cc {
 // intelligently compute average frames per second (and standard deviation).
 class FrameRateCounter {
 public:
-    static scoped_ptr<FrameRateCounter> create();
+    static scoped_ptr<FrameRateCounter> create(bool hasImplThread);
 
     void markBeginningOfFrame(base::TimeTicks timestamp);
     void markEndOfFrame();
@@ -25,7 +25,8 @@ public:
 
     // n = 0 returns the oldest frame retained in the history,
     // while n = timeStampHistorySize() - 1 returns the timestamp most recent frame.
-    base::TimeTicks timeStampOfRecentFrame(int n);
+    // FIXME: Returns most recent timestamp for n = 0 when called between markBeginningOfFrame and markEndOfFrame calls.
+    base::TimeTicks timeStampOfRecentFrame(int n) const;
 
     // This is a heuristic that can be used to ignore frames in a reasonable way. Returns
     // true if the given frame interval is too fast or too slow, based on constant thresholds.
@@ -34,7 +35,7 @@ public:
     int droppedFrameCount() const { return m_droppedFrameCount; }
 
 private:
-    FrameRateCounter();
+    explicit FrameRateCounter(bool hasImplThread);
 
     base::TimeDelta frameInterval(int frameNumber) const;
     int frameIndex(int frameNumber) const;
@@ -51,7 +52,9 @@ private:
     // FIXME: Determine this threshold based on monitor refresh rate, crbug.com/138642.
     static const double kDroppedFrameTime;
 
-    static const int kTimeStampHistorySize = 120;
+    static const int kTimeStampHistorySize = 170;
+
+    bool m_hasImplThread;
 
     int m_currentFrameNumber;
     base::TimeTicks m_timeStampHistory[kTimeStampHistorySize];
@@ -63,4 +66,4 @@ private:
 
 }  // namespace cc
 
-#endif
+#endif  // CC_FRAME_RATE_COUNTER_H_

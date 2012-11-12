@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCLayerIterator_h
-#define CCLayerIterator_h
-
-#include "cc/layer_tree_host_common.h"
+#ifndef CC_LAYER_ITERATOR_H_
+#define CC_LAYER_ITERATOR_H_
 
 #include "base/memory/ref_counted.h"
+#include "cc/cc_export.h"
+#include "cc/layer_tree_host_common.h"
 
 namespace cc {
 
@@ -168,9 +168,9 @@ private:
 };
 
 // Orderings for iterating over the RenderSurfaceImpl-Layer tree.
-struct LayerIteratorActions {
+struct CC_EXPORT LayerIteratorActions {
     // Walks layers sorted by z-order from back to front.
-    class BackToFront {
+    class CC_EXPORT BackToFront {
     public:
         template <typename LayerType, typename LayerList, typename RenderSurfaceType, typename ActionType>
         void begin(LayerIterator<LayerType, LayerList, RenderSurfaceType, ActionType>&);
@@ -186,7 +186,7 @@ struct LayerIteratorActions {
     };
 
     // Walks layers sorted by z-order from front to back
-    class FrontToBack {
+    class CC_EXPORT FrontToBack {
     public:
         template <typename LayerType, typename LayerList, typename RenderSurfaceType, typename ActionType>
         void begin(LayerIterator<LayerType, LayerList, RenderSurfaceType, ActionType>&);
@@ -205,4 +205,4 @@ struct LayerIteratorActions {
 
 } // namespace cc
 
-#endif
+#endif  // CC_LAYER_ITERATOR_H_

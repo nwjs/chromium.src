@@ -11,6 +11,7 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_property.h"
 #include "ui/base/events/event.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/gfx/point_conversions.h"
 
 #if defined(USE_XI2_MT)
@@ -71,6 +72,7 @@ enum UMAEventType {
   UMA_ET_GESTURE_SCROLL_UPDATE_4P,
   UMA_ET_GESTURE_PINCH_UPDATE_3,
   UMA_ET_GESTURE_PINCH_UPDATE_4P,
+  UMA_ET_GESTURE_LONG_TAP,
   // NOTE: Add new event types only immediately above this line. Make sure to
   // update the enum list in tools/histogram/histograms.xml accordingly.
   UMA_ET_COUNT
@@ -218,6 +220,8 @@ UMAEventType UMAEventTypeFromEvent(const ui::Event& event) {
     }
     case ui::ET_GESTURE_LONG_PRESS:
       return UMA_ET_GESTURE_LONG_PRESS;
+    case ui::ET_GESTURE_LONG_TAP:
+      return UMA_ET_GESTURE_LONG_TAP;
     case ui::ET_GESTURE_MULTIFINGER_SWIPE: {
       const ui::GestureEvent& gesture =
           static_cast<const ui::GestureEvent&>(event);
@@ -314,7 +318,7 @@ void TouchUMA::RecordTouchEvent(aura::Window* target,
     position = ui::EventLocationFromNative(event.native_event());
 #endif
     position = gfx::ToFlooredPoint(
-        position.Scale(1. / target->layer()->device_scale_factor()));
+        gfx::ScalePoint(position, 1. / target->layer()->device_scale_factor()));
   }
 
   position.set_x(std::min(bounds.width() - 1, std::max(0, position.x())));

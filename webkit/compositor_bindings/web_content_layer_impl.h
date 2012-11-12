@@ -5,11 +5,6 @@
 #ifndef WebContentLayerImpl_h
 #define WebContentLayerImpl_h
 
-// FIXME: WebContentLayer should forward declare this
-namespace WebKit {
-class WebLayer;
-}
-
 #include "base/memory/scoped_ptr.h"
 #include "cc/content_layer_client.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebContentLayer.h"
@@ -41,7 +36,7 @@ protected:
     virtual ~WebContentLayerImpl();
 
     // ContentLayerClient implementation.
-    virtual void paintContents(SkCanvas*, const cc::IntRect& clip, cc::FloatRect& opaque) OVERRIDE;
+    virtual void paintContents(SkCanvas*, const gfx::Rect& clip, gfx::RectF& opaque) OVERRIDE;
 
     scoped_ptr<WebLayerImpl> m_layer;
     WebContentLayerClient* m_client;

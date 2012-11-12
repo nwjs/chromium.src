@@ -28,6 +28,7 @@
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_client_view.h"
 
 namespace chromeos {
 
@@ -220,7 +221,7 @@ void WimaxConfigView::Init(WimaxNetwork* wimax) {
   layout->AddView(new views::Label(l10n_util::GetStringUTF16(
       IDS_OPTIONS_SETTINGS_INTERNET_TAB_NETWORK)));
   views::Label* label = new views::Label(UTF8ToUTF16(wimax->name()));
-  label->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   layout->AddView(label);
   layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
 
@@ -322,7 +323,7 @@ void WimaxConfigView::Init(WimaxNetwork* wimax) {
   layout->StartRow(0, column_view_set_id);
   layout->SkipColumns(1);
   error_label_ = new views::Label();
-  error_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  error_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   error_label_->SetEnabledColor(SK_ColorRED);
   layout->AddView(error_label_);
 

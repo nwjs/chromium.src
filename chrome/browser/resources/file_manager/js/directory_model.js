@@ -564,25 +564,14 @@ DirectoryModel.prototype.findIndexByName_ = function(name) {
 DirectoryModel.prototype.renameEntry = function(entry, newName,
                                                 errorCallback,
                                                 opt_successCallback) {
-  var self = this;
   var currentDirPath = this.getCurrentDirPath();
-  function onSuccess(newEntry) {
-    self.currentDirContents_.prefetchMetadata([newEntry], function() {
-      // Do not change anything or call the callback if current
-      // directory changed.
-      if (currentDirPath != self.getCurrentDirPath())
-        return;
-
-      var index = self.findIndexByName_(entry.name);
-      if (index >= 0)
-        self.getFileList().splice(index, 1, newEntry);
-      self.selectEntry(newEntry.name);
-      // If the entry doesn't exist in the list it mean that it updated from
-      // outside (probably by directory rescan).
-      if (opt_successCallback)
+  var onSuccess = function(newEntry) {
+    this.currentDirContents_.prefetchMetadata([newEntry], function() {
+      // Do not call the callback if current directory has changed.
+      if (currentDirPath == this.getCurrentDirPath() && opt_successCallback)
         opt_successCallback();
-    });
-  }
+    }.bind(this));
+  }.bind(this);
 
   function onParentFound(parentEntry) {
     entry.moveTo(parentEntry, newName, onSuccess, errorCallback);
@@ -1266,16 +1255,16 @@ function FileWatcher(root, directoryModel, volumeManager) {
   this.watchedDirectoryEntry_ = null;
   this.updateWatchedDirectoryBound_ =
       this.updateWatchedDirectory_.bind(this);
-  this.onFileChangedBound_ =
-      this.onFileChanged_.bind(this);
+  this.onDirectoryChangedBound_ =
+      this.onDirectoryChanged_.bind(this);
 }
 
 /**
  * Starts watching.
  */
 FileWatcher.prototype.start = function() {
-  chrome.fileBrowserPrivate.onFileChanged.addListener(
-        this.onFileChangedBound_);
+  chrome.fileBrowserPrivate.onDirectoryChanged.addListener(
+        this.onDirectoryChangedBound_);
 
   this.dm_.addEventListener('directory-changed',
       this.updateWatchedDirectoryBound_);
@@ -1289,8 +1278,8 @@ FileWatcher.prototype.start = function() {
  * Stops watching (must be called before page unload).
  */
 FileWatcher.prototype.stop = function() {
-  chrome.fileBrowserPrivate.onFileChanged.removeListener(
-        this.onFileChangedBound_);
+  chrome.fileBrowserPrivate.onDirectoryChanged.removeListener(
+        this.onDirectoryChangedBound_);
 
   this.dm_.removeEventListener('directory-changed',
       this.updateWatchedDirectoryBound_);
@@ -1302,11 +1291,11 @@ FileWatcher.prototype.stop = function() {
 };
 
 /**
- * @param {Object} event chrome.fileBrowserPrivate.onFileChanged event.
+ * @param {Object} event chrome.fileBrowserPrivate.onDirectoryChanged event.
  * @private
  */
-FileWatcher.prototype.onFileChanged_ = function(event) {
-  if (encodeURI(event.fileUrl) == this.watchedDirectoryEntry_.toURL())
+FileWatcher.prototype.onDirectoryChanged_ = function(event) {
+  if (encodeURI(event.directoryUrl) == this.watchedDirectoryEntry_.toURL())
     this.onFileInWatchedDirectoryChanged();
 };
 

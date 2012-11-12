@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "base/hash_tables.h"
 #include "base/timer.h"
 #include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/history/visit_database.h"
@@ -22,7 +23,7 @@ class PrerenderManager;
 // predictions.
 // At this point, the class is not actually creating prerenders, but just
 // recording timing stats about the effect prerendering would have.
-class PrerenderLocalPredictor : history::VisitDatabaseObserver {
+class PrerenderLocalPredictor : public history::VisitDatabaseObserver {
  public:
   enum Event {
     EVENT_CONSTRUCTED = 0,
@@ -47,6 +48,10 @@ class PrerenderLocalPredictor : history::VisitDatabaseObserver {
     EVENT_PRERENDER_URL_LOOKUP_RESULT_CONTAINS_LOGIN = 19,
     EVENT_START_URL_LOOKUP = 20,
     EVENT_ADD_VISIT_NOT_ROOTPAGE = 21,
+    EVENT_URL_WHITELIST_ERROR = 22,
+    EVENT_URL_WHITELIST_OK = 23,
+    EVENT_PRERENDER_URL_LOOKUP_RESULT_ON_WHITELIST = 24,
+    EVENT_PRERENDER_URL_LOOKUP_RESULT_ON_WHITELIST_ROOT_PAGE = 25,
     EVENT_MAX_VALUE
   };
 
@@ -55,6 +60,8 @@ class PrerenderLocalPredictor : history::VisitDatabaseObserver {
   // PrerenderManager is destroyed.
   explicit PrerenderLocalPredictor(PrerenderManager* prerender_manager);
   virtual ~PrerenderLocalPredictor();
+
+  void Shutdown();
 
   // history::VisitDatabaseObserver implementation
   virtual void OnAddVisit(const history::BriefVisitInfo& info) OVERRIDE;
@@ -88,20 +95,18 @@ class PrerenderLocalPredictor : history::VisitDatabaseObserver {
   // database thread early on when Chrome is starting up.
   static const int kInitDelayMs = 5 * 1000;
 
+  // Whether we're registered with the history service as a
+  // history::VisitDatabaseObserver.
+  bool is_visit_database_observer_;
+
   CancelableRequestConsumer history_db_consumer_;
 
   scoped_ptr<std::vector<history::BriefVisitInfo> > visit_history_;
 
-  // We keep a reference to the HistoryService which we registered to
-  // observe.  On destruction, we have to remove ourselves from that history
-  // service.  We can't just grab the HistoryService from the profile, because
-  // the profile may have already given up its reference to it.  Doing nothing
-  // in this case may cause crashes, because the HistoryService may outlive the
-  // the PrerenderLocalPredictor.
-  scoped_refptr<HistoryService> observing_history_service_;
-
   scoped_ptr<PrerenderData> current_prerender_;
   scoped_ptr<PrerenderData> last_swapped_in_prerender_;
+
+  base::hash_set<int64> url_whitelist_;
 
   DISALLOW_COPY_AND_ASSIGN(PrerenderLocalPredictor);
 };

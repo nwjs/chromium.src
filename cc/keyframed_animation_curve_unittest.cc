@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/keyframed_animation_curve.h"
 
 #include "testing/gmock/include/gmock/gmock.h"
@@ -11,9 +9,9 @@
 #include <public/WebTransformOperations.h>
 #include <public/WebTransformationMatrix.h>
 
-using namespace cc;
 using WebKit::WebTransformationMatrix;
 
+namespace cc {
 namespace {
 
 void expectTranslateX(double translateX, const WebTransformationMatrix& matrix)
@@ -197,10 +195,11 @@ TEST(KeyframedAnimationCurveTest, CubicBezierTimingFunction)
     EXPECT_FLOAT_EQ(0, curve->getValue(0));
     EXPECT_LT(0, curve->getValue(0.25));
     EXPECT_GT(0.25, curve->getValue(0.25));
-    EXPECT_FLOAT_EQ(0.5, curve->getValue(0.5));
+    EXPECT_NEAR(curve->getValue(0.5), 0.5, 0.00015);
     EXPECT_LT(0.75, curve->getValue(0.75));
     EXPECT_GT(1, curve->getValue(0.75));
     EXPECT_FLOAT_EQ(1, curve->getValue(1));
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

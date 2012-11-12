@@ -11,13 +11,14 @@
 
 #include "base/callback_forward.h"
 #include "content/public/browser/file_descriptor_info.h"
+#include "content/public/common/socket_permission_request.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/window_container_type.h"
 #include "net/cookies/canonical_cookie.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebNotificationPresenter.h"
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
-#include "base/global_descriptors_posix.h"
+#include "base/posix/global_descriptors.h"
 #endif
 
 
@@ -262,23 +263,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual net::URLRequestContext* OverrideRequestContextForURL(
       const GURL& url, ResourceContext* context);
 
-  // Allow the embedder to specify storage parititon id associated with a child
-  // process.
-  //
-  // Child processes that have different storage partition identifiers will
-  // behave as if they belong to different web browsers and not be able to
-  // access each other's cookies, local storage, etc.  IDs must only fit the
-  // pattern [a-z0-9]* (lowercase letters or digits).
-  //
-  // Returns the empty string for the regular storage partition.
-  virtual std::string GetStoragePartitionIdForChildProcess(
-      content::BrowserContext* browser_context,
-      int child_process_id);
-
-  // Same as GetStoragePartitionIdForChildProcess(), but uses a site instead.
-  //
-  // TODO(ajwong): Replace all uses of GetStoragePartitionIdForChildProcess()
-  // with this one.
+  // Allow the embedder to specify a string version of the storage partition
+  // config with a site.
   virtual std::string GetStoragePartitionIdForSite(
       content::BrowserContext* browser_context,
       const GURL& site);
@@ -288,6 +274,21 @@ class CONTENT_EXPORT ContentBrowserClient {
   // GetStoragePartitionIdForChildProcess().
   virtual bool IsValidStoragePartitionId(BrowserContext* browser_context,
                                          const std::string& partition_id);
+
+  // Allows the embedder to provide a storage parititon configuration for a
+  // site. A storage partition configuration includes a domain of the embedder's
+  // choice, an optional name within that domain, and whether the partition is
+  // in-memory only. The |partition_domain| is [a-z]* UTF-8 string, specifying
+  // the domain in which partitions live (similar to namespace). Within a
+  // domain, partitions can be uniquely identified by the combination of
+  // |partition_name| and |in_memory| values. When a partition is not to be
+  // persisted, the |in_memory| value must be set to true.
+  virtual void GetStoragePartitionConfigForSite(
+      content::BrowserContext* browser_context,
+      const GURL& site,
+      std::string* partition_domain,
+      std::string* partition_name,
+      bool* in_memory);
 
   // Create and return a new quota permission context.
   virtual QuotaPermissionContext* CreateQuotaPermissionContext();
@@ -435,15 +436,20 @@ class CONTENT_EXPORT ContentBrowserClient {
   // else we should do with the file.
   virtual std::string GetDefaultDownloadName();
 
-  // Notifification that a pepper plugin has just been spawned. This allows the
+  // Notification that a pepper plugin has just been spawned. This allows the
   // embedder to add filters onto the host to implement interfaces.
   // This is called on the IO thread.
   virtual void DidCreatePpapiPlugin(BrowserPpapiHost* browser_host) {}
 
+  // Gets the host for an external out-of-process plugin.
+  virtual content::BrowserPpapiHost* GetExternalBrowserPpapiHost(
+      int plugin_child_id);
+
   // Returns true if renderer processes can use Pepper TCP/UDP sockets from
-  // the given origin.
+  // the given origin and connection type.
   virtual bool AllowPepperSocketAPI(BrowserContext* browser_context,
-                                    const GURL& url);
+                                    const GURL& url,
+                                    const SocketPermissionRequest& params);
 
   // Returns true if renderer processes can use private Pepper File APIs.
   virtual bool AllowPepperPrivateFileAPI();

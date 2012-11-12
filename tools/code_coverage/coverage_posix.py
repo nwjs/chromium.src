@@ -648,6 +648,11 @@ class Coverage(object):
       # executable. So skip this test from adding into coverage_bundles.py.
       if testname == 'pyautolib':
         continue
+      # Random tests are failing in browser_tests. Disabling it for now.
+      # crbug.com/159748
+      if testname == 'browser_tests' and self.options.bundles:
+        logging.info('Skipping browser_tests from running')
+        continue
       self.tests += [os.path.join(self.directory, testname)]
       if gtest_filter:
         self.test_filters[testname] = gtest_filter
@@ -762,6 +767,12 @@ class Coverage(object):
                        '--directory', self.directory_parent,
                        '--zerocounters'])
       shutil.rmtree(os.path.join(self.directory, 'coverage'))
+      if self.options.all_unittests:
+        if os.path.exists(os.path.join(self.directory, 'unittests_coverage')):
+          shutil.rmtree(os.path.join(self.directory, 'unittests_coverage'))
+      else:
+        if os.path.exists(os.path.join(self.directory, 'total_coverage')):
+          shutil.rmtree(os.path.join(self.directory, 'total_coverage'))
 
   def BeforeRunOneTest(self, testname):
     """Do things before running each test."""
@@ -948,6 +959,12 @@ class Coverage(object):
       del os.environ['DISPLAY']
       self.xvfb_pid = 0
 
+  def CopyCoverageFileToDestination(self, coverage_folder):
+    coverage_dir = os.path.join(self.directory, coverage_folder)
+    if not os.path.exists(coverage_dir):
+      os.makedirs(coverage_dir)
+    shutil.copyfile(self.coverage_info_file, os.path.join(coverage_dir,
+                                                          'coverage.info'))
 
   def GenerateLcovPosix(self):
     """Convert profile data to lcov on Mac or Linux."""
@@ -991,6 +1008,14 @@ class Coverage(object):
         sys.exit(retcode)
     if self.IsLinux():
       os.chdir(start_dir)
+
+    # Copy the unittests coverage information to a different folder.
+    if self.options.all_unittests:
+      self.CopyCoverageFileToDestination('unittests_coverage')
+    else:
+      # Save the overall coverage information.
+      self.CopyCoverageFileToDestination('total_coverage')
+
     if not os.path.exists(self.coverage_info_file):
       logging.fatal('%s was not created.  Coverage run failed.' %
                     self.coverage_info_file)

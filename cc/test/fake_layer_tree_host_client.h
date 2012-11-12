@@ -1,10 +1,8 @@
 // Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-#ifndef FakeCCLayerTreeHostClient_h
-#define FakeCCLayerTreeHostClient_h
-
-#include "config.h"
+#ifndef CC_TEST_FAKE_LAYER_TREE_HOST_CLIENT_H_
+#define CC_TEST_FAKE_LAYER_TREE_HOST_CLIENT_H_
 
 #include "base/memory/scoped_ptr.h"
 #include "cc/input_handler.h"
@@ -20,7 +18,7 @@ public:
     virtual void didBeginFrame() OVERRIDE { }
     virtual void animate(double monotonicFrameBeginTime) OVERRIDE { }
     virtual void layout() OVERRIDE { }
-    virtual void applyScrollAndScale(const IntSize& scrollDelta, float pageScale) OVERRIDE { }
+    virtual void applyScrollAndScale(gfx::Vector2d scrollDelta, float pageScale) OVERRIDE { }
 
     virtual scoped_ptr<WebKit::WebCompositorOutputSurface> createOutputSurface() OVERRIDE;
     virtual void didRecreateOutputSurface(bool success) OVERRIDE { }
@@ -35,4 +33,4 @@ public:
 };
 
 }
-#endif // FakeCCLayerTreeHostClient_h
+#endif  // CC_TEST_FAKE_LAYER_TREE_HOST_CLIENT_H_

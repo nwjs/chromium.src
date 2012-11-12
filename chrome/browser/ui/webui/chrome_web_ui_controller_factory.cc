@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/about_ui.h"
 #include "chrome/browser/ui/webui/bookmarks_ui.h"
+#include "chrome/browser/ui/webui/constrained_web_dialog_ui.h"
 #include "chrome/browser/ui/webui/crashes_ui.h"
 #include "chrome/browser/ui/webui/devtools_ui.h"
 #include "chrome/browser/ui/webui/downloads_ui.h"
@@ -41,7 +42,6 @@
 #include "chrome/browser/ui/webui/options/options_ui.h"
 #include "chrome/browser/ui/webui/performance_monitor/performance_monitor_ui.h"
 #include "chrome/browser/ui/webui/plugins_ui.h"
-#include "chrome/browser/ui/webui/policy_ui.h"
 #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/browser/ui/webui/profiler_ui.h"
@@ -61,8 +61,11 @@
 #include "content/public/common/content_client.h"
 #include "googleurl/src/gurl.h"
 #include "ui/gfx/favicon_size.h"
-#include "ui/web_dialogs/constrained_web_dialog_ui.h"
 #include "ui/web_dialogs/web_dialog_ui.h"
+
+#if defined(ENABLE_CONFIGURATION_POLICY)
+#include "chrome/browser/ui/webui/policy_ui.h"
+#endif
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/ui/webui/welcome_ui_android.h"
@@ -105,7 +108,6 @@
 
 using content::WebUI;
 using content::WebUIController;
-using ui::ConstrainedWebDialogUI;
 using ui::ExternalWebDialogUI;
 using ui::WebDialogUI;
 
@@ -457,7 +459,7 @@ bool ChromeWebUIControllerFactory::IsURLAcceptableForWebUI(
       url == GURL(chrome::kChromeUICrashURL) ||
       url == GURL(chrome::kChromeUIKillURL) ||
       url == GURL(chrome::kChromeUIHangURL) ||
-      url == GURL(chrome::kChromeUIShorthangURL) ||
+      url == GURL(content::kChromeUIShorthangURL) ||
       // Data URLs are usually not allowed in WebUI for security reasons.
       // BalloonHosts are one exception needed by ChromeOS, and are safe because
       // they cannot be scripted by other pages.

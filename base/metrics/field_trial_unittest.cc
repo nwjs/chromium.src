@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/message_loop.h"
 #include "base/metrics/field_trial.h"
 #include "base/rand_util.h"
 #include "base/stringprintf.h"
@@ -10,18 +11,52 @@
 
 namespace base {
 
+namespace {
+
+// Default group name used by several tests.
+const char kDefaultGroupName[] = "DefaultGroup";
+
+// FieldTrialList::Observer implementation for testing.
+class TestFieldTrialObserver : public FieldTrialList::Observer {
+ public:
+  TestFieldTrialObserver() {
+    FieldTrialList::AddObserver(this);
+  }
+
+  virtual ~TestFieldTrialObserver() {
+    FieldTrialList::RemoveObserver(this);
+  }
+
+  virtual void OnFieldTrialGroupFinalized(const std::string& trial,
+                                          const std::string& group) OVERRIDE {
+    trial_name_ = trial;
+    group_name_ = group;
+  }
+
+  const std::string& trial_name() const { return trial_name_; }
+  const std::string& group_name() const { return group_name_; }
+
+ private:
+  std::string trial_name_;
+  std::string group_name_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestFieldTrialObserver);
+};
+
+}  // namespace
+
 class FieldTrialTest : public testing::Test {
  public:
   FieldTrialTest() : trial_list_(NULL) {
     Time now = Time::NowFromSystemTime();
-    TimeDelta oneYear = TimeDelta::FromDays(365);
+    TimeDelta one_year = TimeDelta::FromDays(365);
     Time::Exploded exploded;
 
-    Time next_year_time = now + oneYear;
+    Time next_year_time = now + one_year;
     next_year_time.LocalExplode(&exploded);
     next_year_ = exploded.year;
 
-    Time last_year_time = now - oneYear;
+    Time last_year_time = now - one_year;
     last_year_time.LocalExplode(&exploded);
     last_year_ = exploded.year;
   }
@@ -29,6 +64,7 @@ class FieldTrialTest : public testing::Test {
  protected:
   int next_year_;
   int last_year_;
+  MessageLoop message_loop_;
 
  private:
   FieldTrialList trial_list_;
@@ -222,14 +258,14 @@ TEST_F(FieldTrialTest, DisableProbability) {
   EXPECT_EQ(default_group_name, trial->group_name());
 }
 
-TEST_F(FieldTrialTest, SelectedGroups) {
+TEST_F(FieldTrialTest, ActiveGroups) {
   std::string no_group("No Group");
   scoped_refptr<FieldTrial> trial(FieldTrialList::FactoryGetFieldTrial(
       no_group, 10, "Default", next_year_, 12, 31, NULL));
 
   // There is no winner yet, so no NameGroupId should be returned.
-  FieldTrial::SelectedGroup selected_group;
-  EXPECT_FALSE(trial->GetSelectedGroup(&selected_group));
+  FieldTrial::ActiveGroup active_group;
+  EXPECT_FALSE(trial->GetActiveGroup(&active_group));
 
   // Create a single winning group.
   std::string one_winner("One Winner");
@@ -237,9 +273,12 @@ TEST_F(FieldTrialTest, SelectedGroups) {
       one_winner, 10, "Default", next_year_, 12, 31, NULL);
   std::string winner("Winner");
   trial->AppendGroup(winner, 10);
-  EXPECT_TRUE(trial->GetSelectedGroup(&selected_group));
-  EXPECT_EQ(one_winner, selected_group.trial);
-  EXPECT_EQ(winner, selected_group.group);
+  EXPECT_FALSE(trial->GetActiveGroup(&active_group));
+  // Finalize the group selection by accessing the selected group.
+  trial->group();
+  EXPECT_TRUE(trial->GetActiveGroup(&active_group));
+  EXPECT_EQ(one_winner, active_group.trial);
+  EXPECT_EQ(winner, active_group.group);
 
   std::string multi_group("MultiGroup");
   scoped_refptr<FieldTrial> multi_group_trial =
@@ -249,22 +288,61 @@ TEST_F(FieldTrialTest, SelectedGroups) {
   multi_group_trial->AppendGroup("Me", 3);
   multi_group_trial->AppendGroup("You", 3);
   multi_group_trial->AppendGroup("Them", 3);
-  EXPECT_TRUE(multi_group_trial->GetSelectedGroup(&selected_group));
-  EXPECT_EQ(multi_group, selected_group.trial);
-  EXPECT_EQ(multi_group_trial->group_name(), selected_group.group);
+  EXPECT_FALSE(multi_group_trial->GetActiveGroup(&active_group));
+  // Finalize the group selection by accessing the selected group.
+  multi_group_trial->group();
+  EXPECT_TRUE(multi_group_trial->GetActiveGroup(&active_group));
+  EXPECT_EQ(multi_group, active_group.trial);
+  EXPECT_EQ(multi_group_trial->group_name(), active_group.group);
 
   // Now check if the list is built properly...
-  std::vector<FieldTrial::SelectedGroup> selected_groups;
-  FieldTrialList::GetFieldTrialSelectedGroups(&selected_groups);
-  EXPECT_EQ(2U, selected_groups.size());
-  for (size_t i = 0; i < selected_groups.size(); ++i) {
+  FieldTrial::ActiveGroups active_groups;
+  FieldTrialList::GetActiveFieldTrialGroups(&active_groups);
+  EXPECT_EQ(2U, active_groups.size());
+  for (size_t i = 0; i < active_groups.size(); ++i) {
     // Order is not guaranteed, so check all values.
-    EXPECT_NE(no_group, selected_groups[i].trial);
-    EXPECT_TRUE(one_winner != selected_groups[i].trial ||
-                winner == selected_groups[i].group);
-    EXPECT_TRUE(multi_group != selected_groups[i].trial ||
-                multi_group_trial->group_name() == selected_groups[i].group);
+    EXPECT_NE(no_group, active_groups[i].trial);
+    EXPECT_TRUE(one_winner != active_groups[i].trial ||
+                winner == active_groups[i].group);
+    EXPECT_TRUE(multi_group != active_groups[i].trial ||
+                multi_group_trial->group_name() == active_groups[i].group);
   }
+}
+
+TEST_F(FieldTrialTest, ActiveGroupsNotFinalized) {
+  const char kTrialName[] = "TestTrial";
+  const char kSecondaryGroupName[] = "SecondaryGroup";
+
+  int default_group = -1;
+  FieldTrial* trial =
+      FieldTrialList::FactoryGetFieldTrial(kTrialName, 100, kDefaultGroupName,
+                                           next_year_, 12, 31, &default_group);
+  const int secondary_group = trial->AppendGroup(kSecondaryGroupName, 50);
+
+  // Before |group()| is called, |GetActiveGroup()| should return false.
+  FieldTrial::ActiveGroup active_group;
+  EXPECT_FALSE(trial->GetActiveGroup(&active_group));
+
+  // |GetActiveFieldTrialGroups()| should also not include the trial.
+  FieldTrial::ActiveGroups active_groups;
+  FieldTrialList::GetActiveFieldTrialGroups(&active_groups);
+  EXPECT_TRUE(active_groups.empty());
+
+  // After |group()| has been called, both APIs should succeed.
+  const int chosen_group = trial->group();
+  EXPECT_TRUE(chosen_group == default_group || chosen_group == secondary_group);
+
+  EXPECT_TRUE(trial->GetActiveGroup(&active_group));
+  EXPECT_EQ(kTrialName, active_group.trial);
+  if (chosen_group == default_group)
+    EXPECT_EQ(kDefaultGroupName, active_group.group);
+  else
+    EXPECT_EQ(kSecondaryGroupName, active_group.group);
+
+  FieldTrialList::GetActiveFieldTrialGroups(&active_groups);
+  ASSERT_EQ(1U, active_groups.size());
+  EXPECT_EQ(kTrialName, active_groups[0].trial);
+  EXPECT_EQ(active_group.group, active_groups[0].group);
 }
 
 TEST_F(FieldTrialTest, Save) {
@@ -281,6 +359,8 @@ TEST_F(FieldTrialTest, Save) {
 
   // Create a winning group.
   trial->AppendGroup("Winner", 10);
+  // Finalize the group selection by accessing the selected group.
+  trial->group();
   FieldTrialList::StatesToString(&save_string);
   EXPECT_EQ("Some name/Winner/", save_string);
   save_string.clear();
@@ -289,15 +369,27 @@ TEST_F(FieldTrialTest, Save) {
   FieldTrial* trial2 = FieldTrialList::FactoryGetFieldTrial(
       "xxx", 10, "Default xxx", next_year_, 12, 31, NULL);
   trial2->AppendGroup("yyyy", 10);
+  // Finalize the group selection by accessing the selected group.
+  trial2->group();
 
   FieldTrialList::StatesToString(&save_string);
   // We assume names are alphabetized... though this is not critical.
   EXPECT_EQ("Some name/Winner/xxx/yyyy/", save_string);
+  save_string.clear();
+
+  // Create a third trial with only the default group.
+  FieldTrial* trial3 = FieldTrialList::FactoryGetFieldTrial(
+      "zzz", 10, "default", next_year_, 12, 31, NULL);
+  // Finalize the group selection by accessing the selected group.
+  trial3->group();
+
+  FieldTrialList::StatesToString(&save_string);
+  EXPECT_EQ("Some name/Winner/xxx/yyyy/zzz/default/", save_string);
 }
 
 TEST_F(FieldTrialTest, Restore) {
-  EXPECT_TRUE(FieldTrialList::Find("Some_name") == NULL);
-  EXPECT_TRUE(FieldTrialList::Find("xxx") == NULL);
+  ASSERT_FALSE(FieldTrialList::TrialExists("Some_name"));
+  ASSERT_FALSE(FieldTrialList::TrialExists("xxx"));
 
   FieldTrialList::CreateTrialsFromString("Some_name/Winner/xxx/yyyy/");
 
@@ -325,6 +417,8 @@ TEST_F(FieldTrialTest, DuplicateRestore) {
   FieldTrial* trial = FieldTrialList::FactoryGetFieldTrial(
       "Some name", 10, "Default some name", next_year_, 12, 31, NULL);
   trial->AppendGroup("Winner", 10);
+  // Finalize the group selection by accessing the selected group.
+  trial->group();
   std::string save_string;
   FieldTrialList::StatesToString(&save_string);
   EXPECT_EQ("Some name/Winner/", save_string);
@@ -337,7 +431,7 @@ TEST_F(FieldTrialTest, DuplicateRestore) {
 }
 
 TEST_F(FieldTrialTest, CreateFieldTrial) {
-  EXPECT_TRUE(FieldTrialList::Find("Some_name") == NULL);
+  ASSERT_FALSE(FieldTrialList::TrialExists("Some_name"));
 
   FieldTrialList::CreateFieldTrial("Some_name", "Winner");
 
@@ -383,7 +477,6 @@ TEST_F(FieldTrialTest, DisableAfterInitialization) {
       FieldTrialList::FactoryGetFieldTrial("trial", 100, "default",
                                             next_year_, 12, 31, NULL);
   trial->AppendGroup("non_default", 100);
-  ASSERT_EQ("non_default", trial->group_name());
   trial->Disable();
   ASSERT_EQ("default", trial->group_name());
 }
@@ -458,5 +551,99 @@ TEST_F(FieldTrialTest, SetForced) {
   EXPECT_EQ(forced_group, other_hard_coded_trial->group());
   EXPECT_EQ(forced_group, would_win_group);
 }
+
+TEST_F(FieldTrialTest, Observe) {
+  const char kTrialName[] = "TrialToObserve1";
+  const char kSecondaryGroupName[] = "SecondaryGroup";
+
+  TestFieldTrialObserver observer;
+  int default_group = -1;
+  FieldTrial* trial =
+      FieldTrialList::FactoryGetFieldTrial(kTrialName, 100, kDefaultGroupName,
+                                           next_year_, 12, 31, &default_group);
+  const int secondary_group = trial->AppendGroup(kSecondaryGroupName, 50);
+  const int chosen_group = trial->group();
+  EXPECT_TRUE(chosen_group == default_group || chosen_group == secondary_group);
+
+  message_loop_.RunAllPending();
+  EXPECT_EQ(kTrialName, observer.trial_name());
+  if (chosen_group == default_group)
+    EXPECT_EQ(kDefaultGroupName, observer.group_name());
+  else
+    EXPECT_EQ(kSecondaryGroupName, observer.group_name());
+}
+
+TEST_F(FieldTrialTest, ObserveDisabled) {
+  const char kTrialName[] = "TrialToObserve2";
+
+  TestFieldTrialObserver observer;
+  int default_group = -1;
+  FieldTrial* trial =
+      FieldTrialList::FactoryGetFieldTrial(kTrialName, 100, kDefaultGroupName,
+                                           next_year_, 12, 31, &default_group);
+  trial->AppendGroup("A", 25);
+  trial->AppendGroup("B", 25);
+  trial->AppendGroup("C", 25);
+  trial->Disable();
+
+  // Observer shouldn't be notified of a disabled trial.
+  message_loop_.RunAllPending();
+  EXPECT_TRUE(observer.trial_name().empty());
+  EXPECT_TRUE(observer.group_name().empty());
+
+  // Observer shouldn't be notified even after a |group()| call.
+  EXPECT_EQ(default_group, trial->group());
+  message_loop_.RunAllPending();
+  EXPECT_TRUE(observer.trial_name().empty());
+  EXPECT_TRUE(observer.group_name().empty());
+}
+
+TEST_F(FieldTrialTest, ObserveForcedDisabled) {
+  const char kTrialName[] = "TrialToObserve3";
+
+  TestFieldTrialObserver observer;
+  int default_group = -1;
+  FieldTrial* trial =
+      FieldTrialList::FactoryGetFieldTrial(kTrialName, 100, kDefaultGroupName,
+                                           next_year_, 12, 31, &default_group);
+  trial->AppendGroup("A", 25);
+  trial->AppendGroup("B", 25);
+  trial->AppendGroup("C", 25);
+  trial->SetForced();
+  trial->Disable();
+
+  // Observer shouldn't be notified of a disabled trial, even when forced.
+  message_loop_.RunAllPending();
+  EXPECT_TRUE(observer.trial_name().empty());
+  EXPECT_TRUE(observer.group_name().empty());
+
+  // Observer shouldn't be notified even after a |group()| call.
+  EXPECT_EQ(default_group, trial->group());
+  message_loop_.RunAllPending();
+  EXPECT_TRUE(observer.trial_name().empty());
+  EXPECT_TRUE(observer.group_name().empty());
+}
+
+TEST_F(FieldTrialTest, DisabledTrialNotActive) {
+  const char kTrialName[] = "DisabledTrial";
+  ASSERT_FALSE(FieldTrialList::TrialExists(kTrialName));
+
+  FieldTrial* trial =
+      FieldTrialList::FactoryGetFieldTrial(kTrialName, 100, kDefaultGroupName,
+                                           next_year_, 12, 31, NULL);
+  trial->AppendGroup("X", 50);
+  trial->Disable();
+
+  // Ensure the trial is not listed as active.
+  FieldTrial::ActiveGroups active_groups;
+  FieldTrialList::GetActiveFieldTrialGroups(&active_groups);
+  EXPECT_TRUE(active_groups.empty());
+
+  // Ensure the trial is not listed in the |StatesToString()| result.
+  std::string states;
+  FieldTrialList::StatesToString(&states);
+  EXPECT_TRUE(states.empty());
+}
+
 
 }  // namespace base

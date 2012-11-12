@@ -513,7 +513,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_AnimateBounds) {
   // dragged.
   gfx::Point mouse_location(panel->GetBounds().origin());
   panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
-  panel_testing->DragTitlebar(mouse_location.Add(gfx::Point(-100, 5)));
+  panel_testing->DragTitlebar(mouse_location + gfx::Vector2d(-100, 5));
   EXPECT_FALSE(panel_testing->IsAnimatingBounds());
   panel_testing->FinishDragTitlebar();
 
@@ -1504,13 +1504,15 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
   params.url = GURL("data:text/html;charset=utf-8,<!doctype html><body>");
   Panel* panel = CreatePanelWithParams(params);
 
+  // Ensure panel has auto resized to original web content size.
+  WaitForStableInitialSize initial_resize(panel);
+  initial_resize.Wait();
+
   int initial_width = panel->GetBounds().width();
   int initial_height = panel->GetBounds().height();
 
   // Inject some HTML content into the panel.
-  content::WindowedNotificationObserver enlarge(
-      chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
-      content::Source<Panel>(panel));
+  WaitForAutoResizeWider enlarge(panel);
   EXPECT_TRUE(content::ExecuteJavaScript(
       panel->GetWebContents()->GetRenderViewHost(),
       std::wstring(),

@@ -11,13 +11,11 @@
 
 class Browser;
 class DockInfo;
-class GURL;
-class Profile;
-class TabContents;
+
 namespace content {
-class SiteInstance;
-struct Referrer;
+class WebContents;
 }
+
 namespace gfx {
 class Rect;
 }
@@ -28,7 +26,7 @@ class Rect;
 //
 //  A delegate interface that the TabStripModel uses to perform work that it
 //  can't do itself, such as obtain a container HWND for creating new
-//  TabContentses, creating new TabStripModels for detached tabs, etc.
+//  WebContentses, creating new TabStripModels for detached tabs, etc.
 //
 //  This interface is typically implemented by the controller that instantiates
 //  the TabStripModel (in our case the Browser object).
@@ -43,36 +41,34 @@ class TabStripModelDelegate {
 
   virtual ~TabStripModelDelegate() {}
 
-  // Adds what the delegate considers to be a blank tab to the model.
-  virtual TabContents* AddBlankTab(bool foreground) = 0;
-  virtual TabContents* AddBlankTabAt(int index, bool foreground) = 0;
+  // Adds what the delegate considers to be a blank tab to the model. An |index|
+  // value of -1 means to append the contents to the end of the tab strip.
+  virtual void AddBlankTabAt(int index, bool foreground) = 0;
 
-  // Asks for a new TabStripModel to be created and the given tab contents to
+  // Asks for a new TabStripModel to be created and the given web contentses to
   // be added to it. Its size and position are reflected in |window_bounds|.
   // If |dock_info|'s type is other than NONE, the newly created window should
   // be docked as identified by |dock_info|. Returns the Browser object
   // representing the newly created window and tab strip. This does not
-  // show the window, it's up to the caller to do so.
-  virtual Browser* CreateNewStripWithContents(TabContents* contents,
-                                              const gfx::Rect& window_bounds,
-                                              const DockInfo& dock_info,
-                                              bool maximize) = 0;
+  // show the window; it's up to the caller to do so.
+  //
+  // TODO(avi): This is a layering violation; the TabStripModel should not know
+  // about the Browser type. At least fix so that this returns a
+  // TabStripModelDelegate, or perhaps even move this code elsewhere.
+  struct NewStripContents {
+    // The WebContents to add.
+    content::WebContents* web_contents;
+    // A bitmask of TabStripModel::AddTabTypes to apply to the added contents.
+    int add_types;
+  };
+  virtual Browser* CreateNewStripWithContents(
+      const std::vector<NewStripContents>& contentses,
+      const gfx::Rect& window_bounds,
+      const DockInfo& dock_info,
+      bool maximize) = 0;
 
   // Determines what drag actions are possible for the specified strip.
   virtual int GetDragActions() const = 0;
-
-  // Creates an appropriate TabContents for the given URL. This is
-  // handled by the delegate since the TabContents may require special
-  // circumstances to exist for it to be constructed (e.g. a parent HWND).
-  // If |defer_load| is true, the navigation controller doesn't load the url.
-  // If |instance| is not null, its process is used to render the tab.
-  virtual TabContents* CreateTabContentsForURL(
-      const GURL& url,
-      const content::Referrer& referrer,
-      Profile* profile,
-      content::PageTransition transition,
-      bool defer_load,
-      content::SiteInstance* instance) const = 0;
 
   // Returns whether some contents can be duplicated.
   virtual bool CanDuplicateContentsAt(int index) = 0;
@@ -86,15 +82,16 @@ class TabStripModelDelegate {
   virtual void CloseFrameAfterDragSession() = 0;
 
   // Creates an entry in the historical tab database for the specified
-  // TabContents.
-  virtual void CreateHistoricalTab(TabContents* contents) = 0;
+  // WebContents.
+  virtual void CreateHistoricalTab(content::WebContents* contents) = 0;
 
-  // Runs any unload listeners associated with the specified TabContents
+  // Runs any unload listeners associated with the specified WebContents
   // before it is closed. If there are unload listeners that need to be run,
   // this function returns true and the TabStripModel will wait before closing
-  // the TabContents. If it returns false, there are no unload listeners
-  // and the TabStripModel can close the TabContents immediately.
-  virtual bool RunUnloadListenerBeforeClosing(TabContents* contents) = 0;
+  // the WebContents. If it returns false, there are no unload listeners
+  // and the TabStripModel will close the WebContents immediately.
+  virtual bool RunUnloadListenerBeforeClosing(
+      content::WebContents* contents) = 0;
 
   // Returns true if a tab can be restored.
   virtual bool CanRestoreTab() = 0;

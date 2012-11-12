@@ -33,6 +33,7 @@
 #include "net/base/ssl_config_service_defaults.h"
 #include "net/base/ssl_info.h"
 #include "net/base/test_completion_callback.h"
+#include "net/base/test_data_directory.h"
 #include "net/base/upload_file_element_reader.h"
 #include "net/http/http_auth_handler_digest.h"
 #include "net/http/http_auth_handler_mock.h"
@@ -1188,6 +1189,89 @@ TEST_F(HttpNetworkTransactionSpdy3Test, NonKeepAliveConnectionEOF) {
   SimpleGetHelperResult out = SimpleGetHelper(data_reads,
                                               arraysize(data_reads));
   EXPECT_EQ(ERR_EMPTY_RESPONSE, out.rv);
+}
+
+// Next 2 cases (KeepAliveEarlyClose and KeepAliveEarlyClose2) are regression
+// tests. There was a bug causing HttpNetworkTransaction to hang in the
+// destructor in such situations.
+// See http://crbug.com/154712 and http://crbug.com/156609.
+TEST_F(HttpNetworkTransactionSpdy3Test, KeepAliveEarlyClose) {
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("http://www.google.com/");
+  request.load_flags = 0;
+
+  SessionDependencies session_deps;
+  scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps));
+  scoped_ptr<HttpTransaction> trans(new HttpNetworkTransaction(session));
+
+  MockRead data_reads[] = {
+    MockRead("HTTP/1.0 200 OK\r\n"),
+    MockRead("Connection: keep-alive\r\n"),
+    MockRead("Content-Length: 100\r\n\r\n"),
+    MockRead("hello"),
+    MockRead(SYNCHRONOUS, 0),
+  };
+  StaticSocketDataProvider data(data_reads, arraysize(data_reads), NULL, 0);
+  session_deps.socket_factory.AddSocketDataProvider(&data);
+
+  TestCompletionCallback callback;
+
+  int rv = trans->Start(&request, callback.callback(), BoundNetLog());
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+
+  rv = callback.WaitForResult();
+  EXPECT_EQ(OK, rv);
+
+  scoped_refptr<IOBufferWithSize> io_buf(new IOBufferWithSize(100));
+  rv = trans->Read(io_buf, io_buf->size(), callback.callback());
+  if (rv == ERR_IO_PENDING)
+    rv = callback.WaitForResult();
+  EXPECT_EQ(5, rv);
+  rv = trans->Read(io_buf, io_buf->size(), callback.callback());
+  EXPECT_EQ(ERR_CONTENT_LENGTH_MISMATCH, rv);
+
+  trans.reset();
+  MessageLoop::current()->RunUntilIdle();
+  EXPECT_EQ(0, GetIdleSocketCountInTransportSocketPool(session.get()));
+}
+
+TEST_F(HttpNetworkTransactionSpdy3Test, KeepAliveEarlyClose2) {
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("http://www.google.com/");
+  request.load_flags = 0;
+
+  SessionDependencies session_deps;
+  scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps));
+  scoped_ptr<HttpTransaction> trans(new HttpNetworkTransaction(session));
+
+  MockRead data_reads[] = {
+    MockRead("HTTP/1.0 200 OK\r\n"),
+    MockRead("Connection: keep-alive\r\n"),
+    MockRead("Content-Length: 100\r\n\r\n"),
+    MockRead(SYNCHRONOUS, 0),
+  };
+  StaticSocketDataProvider data(data_reads, arraysize(data_reads), NULL, 0);
+  session_deps.socket_factory.AddSocketDataProvider(&data);
+
+  TestCompletionCallback callback;
+
+  int rv = trans->Start(&request, callback.callback(), BoundNetLog());
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+
+  rv = callback.WaitForResult();
+  EXPECT_EQ(OK, rv);
+
+  scoped_refptr<IOBufferWithSize> io_buf(new IOBufferWithSize(100));
+  rv = trans->Read(io_buf, io_buf->size(), callback.callback());
+  if (rv == ERR_IO_PENDING)
+    rv = callback.WaitForResult();
+  EXPECT_EQ(ERR_CONTENT_LENGTH_MISMATCH, rv);
+
+  trans.reset();
+  MessageLoop::current()->RunUntilIdle();
+  EXPECT_EQ(0, GetIdleSocketCountInTransportSocketPool(session.get()));
 }
 
 // Test that we correctly reuse a keep-alive connection after not explicitly
@@ -7222,6 +7306,7 @@ TEST_F(HttpNetworkTransactionSpdy3Test, UseAlternateProtocolForNpnSpdy) {
     MockRead("HTTP/1.1 200 OK\r\n"),
     MockRead(kAlternateProtocolHttpHeader),
     MockRead("hello world"),
+    MockRead(SYNCHRONOUS, ERR_TEST_PEER_CLOSE_AFTER_NEXT_MOCK_READ),
     MockRead(ASYNC, OK),
   };
 
@@ -7310,6 +7395,7 @@ TEST_F(HttpNetworkTransactionSpdy3Test, AlternateProtocolWithSpdyLateBinding) {
     MockRead("HTTP/1.1 200 OK\r\n"),
     MockRead(kAlternateProtocolHttpHeader),
     MockRead("hello world"),
+    MockRead(SYNCHRONOUS, ERR_TEST_PEER_CLOSE_AFTER_NEXT_MOCK_READ),
     MockRead(ASYNC, OK),
   };
 
@@ -7425,6 +7511,7 @@ TEST_F(HttpNetworkTransactionSpdy3Test, StallAlternateProtocolForNpnSpdy) {
     MockRead("HTTP/1.1 200 OK\r\n"),
     MockRead(kAlternateProtocolHttpHeader),
     MockRead("hello world"),
+    MockRead(SYNCHRONOUS, ERR_TEST_PEER_CLOSE_AFTER_NEXT_MOCK_READ),
     MockRead(ASYNC, OK),
   };
 
@@ -7558,6 +7645,7 @@ TEST_F(HttpNetworkTransactionSpdy3Test,
     MockRead("HTTP/1.1 200 OK\r\n"),
     MockRead(kAlternateProtocolHttpHeader),
     MockRead("hello world"),
+    MockRead(SYNCHRONOUS, ERR_TEST_PEER_CLOSE_AFTER_NEXT_MOCK_READ),
     MockRead(ASYNC, OK),
   };
 

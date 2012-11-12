@@ -4,6 +4,7 @@
 
 #include "ash/system/tray/system_tray.h"
 
+#include "ash/ash_switches.h"
 #include "ash/shell.h"
 #include "ash/shell/panel_window.h"
 #include "ash/shell_window_ids.h"
@@ -15,6 +16,8 @@
 #include "ash/system/drive/tray_drive.h"
 #include "ash/system/ime/tray_ime.h"
 #include "ash/system/locale/tray_locale.h"
+#include "ash/system/logout_button/tray_logout_button.h"
+#include "ash/system/monitor/tray_monitor.h"
 #include "ash/system/power/power_status_observer.h"
 #include "ash/system/power/power_supply_status.h"
 #include "ash/system/power/tray_power.h"
@@ -30,6 +33,7 @@
 #include "ash/system/user/login_status.h"
 #include "ash/system/user/tray_user.h"
 #include "ash/wm/shelf_layout_manager.h"
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/timer.h"
 #include "base/utf_string_conversions.h"
@@ -112,6 +116,7 @@ SystemTray::SystemTray(internal::StatusAreaWidget* status_area_widget)
       drive_observer_(NULL),
       ime_observer_(NULL),
       locale_observer_(NULL),
+      logout_button_observer_(NULL),
 #if defined(OS_CHROMEOS)
       network_observer_(NULL),
       vpn_observer_(NULL),
@@ -141,13 +146,15 @@ void SystemTray::CreateItems() {
   internal::TrayBrightness* tray_brightness = new internal::TrayBrightness();
   internal::TrayDate* tray_date = new internal::TrayDate();
   internal::TrayPower* tray_power = new internal::TrayPower();
+  internal::TrayIME* tray_ime = new internal::TrayIME;
   internal::TrayUser* tray_user = new internal::TrayUser;
   internal::TrayAccessibility* tray_accessibility =
       new internal::TrayAccessibility;
   internal::TrayCapsLock* tray_caps_lock = new internal::TrayCapsLock;
   internal::TrayDrive* tray_drive = new internal::TrayDrive;
-  internal::TrayIME* tray_ime = new internal::TrayIME;
   internal::TrayLocale* tray_locale = new internal::TrayLocale;
+  internal::TrayLogoutButton* tray_logout_button =
+      new internal::TrayLogoutButton();
   internal::TrayUpdate* tray_update = new internal::TrayUpdate;
   internal::TraySettings* tray_settings = new internal::TraySettings();
 
@@ -160,6 +167,7 @@ void SystemTray::CreateItems() {
   drive_observer_ = tray_drive;
   ime_observer_ = tray_ime;
   locale_observer_ = tray_locale;
+  logout_button_observer_ = tray_logout_button;
   power_status_observers_.AddObserver(tray_power);
   power_status_observers_.AddObserver(tray_settings);
   update_observer_ = tray_update;
@@ -175,7 +183,9 @@ void SystemTray::CreateItems() {
   sms_observer_ = tray_sms;
 #endif
 
+  AddTrayItem(tray_logout_button);
   AddTrayItem(tray_user);
+  AddTrayItem(tray_ime);
   AddTrayItem(tray_power);
 #if defined(OS_CHROMEOS)
   AddTrayItem(tray_network);
@@ -184,7 +194,6 @@ void SystemTray::CreateItems() {
 #endif
   AddTrayItem(tray_bluetooth);
   AddTrayItem(tray_drive);
-  AddTrayItem(tray_ime);
   AddTrayItem(tray_locale);
 #if defined(OS_CHROMEOS)
   AddTrayItem(tray_display);
@@ -196,6 +205,14 @@ void SystemTray::CreateItems() {
   AddTrayItem(tray_caps_lock);
   AddTrayItem(tray_settings);
   AddTrayItem(tray_date);
+
+#if defined(OS_LINUX)
+  // Add memory monitor if enabled.
+  CommandLine* cmd = CommandLine::ForCurrentProcess();
+  if (cmd->HasSwitch(ash::switches::kAshEnableMemoryMonitor))
+    AddTrayItem(new internal::TrayMonitor);
+#endif
+
   SetVisible(ash::Shell::GetInstance()->tray_delegate()->
       GetTrayVisibilityOnStartup());
 }

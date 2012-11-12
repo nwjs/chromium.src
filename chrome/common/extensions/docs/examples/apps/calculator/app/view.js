@@ -5,20 +5,17 @@
  **/
 
 function View(window) {
-  var buttons = window.document.querySelectorAll('#calculator .buttons button');
-  Array.prototype.forEach.call(buttons, function(button) {
-    button.onclick = function(event) {
-      var button = event.target.dataset.button;
-      if (this.onButton)
-        this.onButton.call(this, button);
-    }.bind(this);
+  this.display = window.document.querySelector('#calculator-display');
+  this.buttons = window.document.querySelectorAll('#calculator-buttons button');
+  window.addEventListener('keydown', this.handleKey_.bind(this));
+  Array.prototype.forEach.call(this.buttons, function(button) {
+    button.addEventListener('click', this.handleClick_.bind(this));
+    button.addEventListener('mousedown', this.handleMouse_.bind(this));
+    button.addEventListener('touchstart', this.handleTouch_.bind(this));
+    button.addEventListener('touchmove', this.handleTouch_.bind(this));
+    button.addEventListener('touchend', this.handleTouchEnd_.bind(this));
+    button.addEventListener('touchcancel', this.handleTouchEnd_.bind(this));
   }, this);
-  this.display = window.document.querySelector('#calculator .display');
-  window.onkeydown = function(event) {
-    var key = event.shiftKey ? ('^' + event.which) : event.which;
-    if (this.onKey)
-      this.onKey.call(this, key);
-  }.bind(this);
 }
 
 View.prototype.clearDisplay = function(values) {
@@ -27,16 +24,18 @@ View.prototype.clearDisplay = function(values) {
 };
 
 View.prototype.addResults = function(values) {
-  this.appendChild_(this.display, 'div', 'hr');
+  this.appendChild_(this.display, null, 'div', 'hr');
   this.addValues(values);
 };
 
 View.prototype.addValues = function(values) {
   var equation = this.makeElement_('div', 'equation');
-  this.appendChild_(equation, 'div', 'accumulator', values.accumulator);
-  this.appendChild_(equation, 'div', 'operation');
-  this.appendChild_(equation.children[1], 'span', 'operator', values.operator);
-  this.appendChild_(equation.children[1], 'span', 'operand', values.operand);
+  this.appendChild_(equation, null, 'span', 'accumulator', values.accumulator);
+  this.appendChild_(equation, null, 'span', 'operation');
+  this.appendChild_(equation, '.operation', 'span', 'operator');
+  this.appendChild_(equation, '.operation', 'span', 'operand', values.operand);
+  this.appendChild_(equation, '.operator', 'div', 'spacer');
+  this.appendChild_(equation, '.operator', 'div', 'value', values.operator);
   this.setAttribute_(equation, '.accumulator', 'aria-hidden', 'true');
   this.display.appendChild(equation).scrollIntoView();
 };
@@ -44,7 +43,7 @@ View.prototype.addValues = function(values) {
 View.prototype.setValues = function(values) {
   var equation = this.display.lastElementChild;
   this.setContent_(equation, '.accumulator', values.accumulator || '');
-  this.setContent_(equation, '.operator', values.operator || '');
+  this.setContent_(equation, '.operator .value', values.operator || '');
   this.setContent_(equation, '.operand', values.operand || '');
 };
 
@@ -52,10 +51,72 @@ View.prototype.getValues = function() {
   var equation = this.display.lastElementChild;
   return {
     accumulator: this.getContent_(equation, '.accumulator') || null,
-    operator: this.getContent_(equation, '.operator') || null,
+    operator: this.getContent_(equation, '.operator .value') || null,
     operand: this.getContent_(equation, '.operand') || null,
   };
 };
+
+/** @private */
+View.prototype.handleKey_ = function(event) {
+  this.onKey.call(this, event.shiftKey ? ('^' + event.which) : event.which);
+}
+
+/** @private */
+View.prototype.handleClick_ = function(event) {
+  this.onButton.call(this, event.target.dataset.button)
+}
+
+/** @private */
+View.prototype.handleMouse_ = function(event) {
+  event.target.setAttribute('data-active', 'mouse');
+}
+
+/** @private */
+View.prototype.handleTouch_ = function(event) {
+  event.preventDefault();
+  this.handleTouchChange_(event.touches[0]);
+}
+
+/** @private */
+View.prototype.handleTouchEnd_ = function(event) {
+  this.handleTouchChange_(null);
+}
+
+/** @private */
+View.prototype.handleTouchChange_ = function(location) {
+  var previous = this.touched;
+  if (!this.isInButton_(previous, location)) {
+    this.touched = this.findButtonContaining_(location);
+    if (previous)
+      previous.removeAttribute('data-active');
+    if (this.touched) {
+      this.touched.setAttribute('data-active', 'touch');
+      this.onButton.call(this, this.touched.dataset.button);
+    }
+  }
+}
+
+/** @private */
+View.prototype.findButtonContaining_ = function(location) {
+  var found;
+  for (var i = 0; location && i < this.buttons.length && !found; ++i) {
+    if (this.isInButton_(this.buttons[i], location))
+      found = this.buttons[i];
+  }
+  return found;
+}
+
+/** @private */
+View.prototype.isInButton_ = function(button, location) {
+  var bounds = location && button && button.getClientRects()[0];
+  var x = bounds && location.clientX;
+  var y = bounds && location.clientY;
+  var x1 = bounds && bounds.left;
+  var x2 = bounds && bounds.right;
+  var y1 = bounds && bounds.top;
+  var y2 = bounds && bounds.bottom;
+  return (bounds && x >= x1 && x < x2 && y >= y1 && y < y2);
+}
 
 /** @private */
 View.prototype.makeElement_ = function(tag, classes, content) {
@@ -66,7 +127,8 @@ View.prototype.makeElement_ = function(tag, classes, content) {
 };
 
 /** @private */
-View.prototype.appendChild_ = function(parent, tag, classes, content) {
+View.prototype.appendChild_ = function(root, selector, tag, classes, content) {
+  var parent = (root && selector) ? root.querySelector(selector) : root;
   parent.appendChild(this.makeElement_(tag, classes, content));
 };
 

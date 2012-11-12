@@ -44,10 +44,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #endif
 
-#if defined(TOOLKIT_GTK)
-#include "chrome/browser/ui/gtk/view_id_util.h"
-#endif
-
 #if defined(OS_WIN)
 #include <Psapi.h>
 #include <windows.h>
@@ -75,7 +71,7 @@ using content::WebContents;
 #if defined(OS_LINUX) || defined(OS_MACOSX)
 // TODO(jcampan): http://crbug.com/23683 for linux.
 // TODO(suzhe): http://crbug.com/49737 for mac.
-#define MAYBE_TabsRememberFocusFindInPage FAILS_TabsRememberFocusFindInPage
+#define MAYBE_TabsRememberFocusFindInPage DISABLED_TabsRememberFocusFindInPage
 #elif defined(OS_WIN)
 // Flaky, http://crbug.com/62537.
 #define MAYBE_TabsRememberFocusFindInPage DISABLED_TabsRememberFocusFindInPage
@@ -278,7 +274,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_BrowsersRememberFocus) {
   // Open a new browser window.
   Browser* browser2 = new Browser(Browser::CreateParams(browser()->profile()));
   ASSERT_TRUE(browser2);
-  chrome::AddBlankTab(browser2, true);
+  chrome::AddBlankTabAt(browser2, -1, true);
   browser2->window()->Show();
   ui_test_utils::NavigateToURL(browser2, url);
 
@@ -394,7 +390,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_TabsRememberFocusFindInPage) {
   ui_test_utils::NavigateToURL(browser(), url);
 
   chrome::Find(browser());
-  ui_test_utils::FindInPage(chrome::GetActiveTabContents(browser()),
+  ui_test_utils::FindInPage(chrome::GetActiveWebContents(browser()),
                             ASCIIToUTF16("a"), true, false, NULL, NULL);
   ASSERT_TRUE(IsViewFocused(VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
 
@@ -432,7 +428,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest,
   // Open a new browser window.
   Browser* browser2 = new Browser(Browser::CreateParams(browser()->profile()));
   ASSERT_TRUE(browser2);
-  chrome::AddBlankTab(browser2, true);
+  chrome::AddBlankTabAt(browser2, -1, true);
   browser2->window()->Show();
 
   Browser* focused_browser = NULL;
@@ -776,13 +772,8 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, InterstitialFocus) {
 }
 
 // Make sure Find box can request focus, even when it is already open.
-// Flaky on mac and valgrind. http://crbug.com/67301.
-#if defined(OS_MACOSX)
-#define MAYBE_FindFocusTest DISABLED_FindFocusTest
-#else
-#define MAYBE_FindFocusTest FindFocusTest
-#endif
-IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_FindFocusTest) {
+// Disabled due to flakiness. http://crbug.com/67301.
+IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_FindFocusTest) {
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_TRUE(test_server()->Start());
 

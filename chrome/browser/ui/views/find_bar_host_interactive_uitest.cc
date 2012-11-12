@@ -138,7 +138,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, FocusRestore) {
   chrome::Find(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
-  ui_test_utils::FindInPage(chrome::GetActiveTabContents(browser()),
+  ui_test_utils::FindInPage(chrome::GetActiveWebContents(browser()),
                             ASCIIToUTF16("a"), true, false, NULL, NULL);
   browser()->GetFindBarController()->EndFindSession(
       FindBarController::kKeepSelectionOnPage,
@@ -162,7 +162,8 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, FocusRestore) {
 }
 
 #if defined(OS_WIN)
-#define MAYBE_FocusRestoreOnTabSwitch FLAKY_FocusRestoreOnTabSwitch
+// crbug.com/128724
+#define MAYBE_FocusRestoreOnTabSwitch DISABLED_FocusRestoreOnTabSwitch
 #else
 #define MAYBE_FocusRestoreOnTabSwitch FocusRestoreOnTabSwitch
 #endif
@@ -181,7 +182,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_FocusRestoreOnTabSwitch) {
       browser()->GetFindBarController()->find_bar()->GetFindBarTesting();
 
   // Search for 'a'.
-  ui_test_utils::FindInPage(chrome::GetActiveTabContents(browser()),
+  ui_test_utils::FindInPage(chrome::GetActiveWebContents(browser()),
                             ASCIIToUTF16("a"), true, false, NULL, NULL);
   EXPECT_TRUE(ASCIIToUTF16("a") == find_bar->GetFindSelectedText());
 
@@ -198,7 +199,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_FocusRestoreOnTabSwitch) {
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
 
   // Search for 'b'.
-  ui_test_utils::FindInPage(chrome::GetActiveTabContents(browser()),
+  ui_test_utils::FindInPage(chrome::GetActiveWebContents(browser()),
                             ASCIIToUTF16("b"), true, false, NULL, NULL);
   EXPECT_TRUE(ASCIIToUTF16("b") == find_bar->GetFindSelectedText());
 

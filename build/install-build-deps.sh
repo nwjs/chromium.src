@@ -60,13 +60,13 @@ dev_list="apache2.2-bin bison curl elfutils fakeroot flex g++ gperf
           language-pack-fr libapache2-mod-php5 libasound2-dev libbz2-dev
           libcairo2-dev libcups2-dev libcurl4-gnutls-dev libelf-dev
           libgconf2-dev libgl1-mesa-dev libglib2.0-dev libglu1-mesa-dev
-          libgnome-keyring-dev libgtk2.0-dev libkrb5-dev libnspr4-dev
-          libnss3-dev libpam0g-dev libpci-dev libsctp-dev libsqlite3-dev
-          libssl-dev libudev-dev libwww-perl libxslt1-dev libxss-dev libxt-dev
-          libxtst-dev mesa-common-dev patch perl php5-cgi pkg-config python
-          python-cherrypy3 python-dev python-psutil rpm ruby subversion
-          ttf-dejavu-core ttf-indic-fonts ttf-kochi-gothic ttf-kochi-mincho
-          ttf-thai-tlwg wdiff git-core $chromeos_dev_list"
+          libgnome-keyring-dev libgtk2.0-dev libwebkit-dev libkrb5-dev
+          libnspr4-dev libnss3-dev libpam0g-dev libpci-dev libsctp-dev
+          libsqlite3-dev libssl-dev libudev-dev libwww-perl libxslt1-dev
+          libxss-dev libxt-dev libxtst-dev mesa-common-dev patch perl php5-cgi
+          pkg-config python python-cherrypy3 python-dev python-psutil rpm ruby
+          subversion ttf-dejavu-core ttf-indic-fonts ttf-kochi-gothic
+          ttf-kochi-mincho ttf-thai-tlwg wdiff git-core $chromeos_dev_list"
 
 # 64-bit systems need a minimum set of 32-bit compat packages for the pre-built
 # NaCl binaries. These are always needed, regardless of whether or not we want
@@ -225,27 +225,34 @@ fi
 
 # Install 32bit backwards compatibility support for 64bit systems
 if [ "$(uname -m)" = "x86_64" ]; then
-  if test "$do_inst_lib32" = ""
-  then
-    echo "We no longer recommend that you use this script to install"
-    echo "32bit libraries on a 64bit system. Instead, consider using"
-    echo "the install-chroot.sh script to help you set up a 32bit"
-    echo "environment for building and testing 32bit versions of Chrome."
-    echo
-    echo "If you nonetheless want to try installing 32bit libraries"
-    echo "directly, you can do so by explicitly passing the --lib32"
-    echo "option to install-build-deps.sh."
-  fi
   if test "$do_inst_lib32" != "1"
   then
-    echo "Exiting without installing any 32bit libraries."
+    echo "NOTE: If you were expecting the option to install 32bit libs,"
+    echo "please run with the --lib32 flag."
+    echo
+    echo "Installation complete."
     exit 0
   fi
 
-  echo "N.B. the code for installing 32bit libraries on a 64bit"
-  echo "     system is no longer actively maintained and might"
-  echo "     not work with modern versions of Ubuntu or Debian."
+  echo "WARNING"
   echo
+  echo "We no longer recommend that you use this script to install"
+  echo "32bit libraries on a 64bit system. Instead, consider using the"
+  echo "install-chroot.sh script to help you set up a 32bit environment"
+  echo "for building and testing 32bit versions of Chrome."
+  echo
+  echo "The code for installing 32bit libraries on a 64bit system is"
+  echo "unmaintained and might not work with modern versions of Ubuntu"
+  echo "or Debian."
+  echo
+  echo -n "Are you sure you want to proceed (y/N) "
+  if yes_no 1; then
+    do_inst_lib32=1
+  fi
+  if test "$do_inst_lib32" != "1"
+  then
+    exit 0
+  fi
 
   # Standard 32bit compatibility libraries
   echo "First, installing the limited existing 32-bit support..."

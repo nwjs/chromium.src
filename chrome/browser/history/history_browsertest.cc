@@ -91,11 +91,8 @@ class HistoryBrowserTest : public InProcessBrowserTest {
     scoped_refptr<HistoryDBTask> task(new WaitForHistoryTask());
     HistoryService* history =
         HistoryServiceFactory::GetForProfile(GetProfile(),
-                                                Profile::EXPLICIT_ACCESS);
-    BrowserThread::PostTask(BrowserThread::UI,
-                            FROM_HERE,
-                            base::Bind(&HistoryService::ScheduleDBTask,
-                                       history, task, &request_consumer));
+                                             Profile::EXPLICIT_ACCESS);
+    history->HistoryService::ScheduleDBTask(task, &request_consumer);
     content::RunMessageLoop();
   }
 
@@ -276,7 +273,7 @@ IN_PROC_BROWSER_TEST_F(HistoryBrowserTest, HistorySearchXSS) {
   // so that we're not susceptible (less susceptible?) to a race condition.
   // Should a race condition ever trigger, it won't result in flakiness.
   int num = ui_test_utils::FindInPage(
-      chrome::GetActiveTabContents(browser()), ASCIIToUTF16("<img"), true,
+      chrome::GetActiveWebContents(browser()), ASCIIToUTF16("<img"), true,
       true, NULL, NULL);
   EXPECT_GT(num, 0);
   EXPECT_EQ(ASCIIToUTF16("History"),

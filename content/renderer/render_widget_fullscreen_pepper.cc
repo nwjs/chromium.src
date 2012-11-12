@@ -508,7 +508,8 @@ void RenderWidgetFullscreenPepper::OnResize(const gfx::Size& size,
                                             const gfx::Rect& resizer_rect,
                                             bool is_fullscreen) {
   if (context_) {
-    gfx::Size pixel_size = gfx::ToFlooredSize(size.Scale(deviceScaleFactor()));
+    gfx::Size pixel_size = gfx::ToFlooredSize(
+        gfx::ScaleSize(size, deviceScaleFactor()));
     context_->reshape(pixel_size.width(), pixel_size.height());
     context_->viewport(0, 0, pixel_size.width(), pixel_size.height());
   }
@@ -533,6 +534,7 @@ void RenderWidgetFullscreenPepper::CreateContext() {
   attributes.stencil = false;
   attributes.antialias = false;
   attributes.shareResources = false;
+  attributes.preferDiscreteGPU = true;
   context_ = WebGraphicsContext3DCommandBufferImpl::CreateViewContext(
       RenderThreadImpl::current(),
       surface_id(),
@@ -600,7 +602,8 @@ const float kTexCoords[] = {
 }  // anonymous namespace
 
 bool RenderWidgetFullscreenPepper::InitContext() {
-  gfx::Size pixel_size = gfx::ToFlooredSize(size().Scale(deviceScaleFactor()));
+  gfx::Size pixel_size = gfx::ToFlooredSize(
+      gfx::ScaleSize(size(), deviceScaleFactor()));
   context_->reshape(pixel_size.width(), pixel_size.height());
   context_->viewport(0, 0, pixel_size.width(), pixel_size.height());
 

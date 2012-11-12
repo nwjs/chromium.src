@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 
-#ifndef SkPictureContentLayerUpdater_h
-#define SkPictureContentLayerUpdater_h
+#ifndef CC_SKPICTURE_CONTENT_LAYER_UPDATER_H_
+#define CC_SKPICTURE_CONTENT_LAYER_UPDATER_H_
 
 #include "cc/content_layer_updater.h"
 #include "third_party/skia/include/core/SkPicture.h"
@@ -24,10 +24,10 @@ class SkPictureContentLayerUpdater : public ContentLayerUpdater {
 public:
     class Resource : public LayerUpdater::Resource {
     public:
-        Resource(SkPictureContentLayerUpdater*, scoped_ptr<PrioritizedTexture>);
+        Resource(SkPictureContentLayerUpdater*, scoped_ptr<PrioritizedResource>);
         virtual ~Resource();
 
-        virtual void update(ResourceUpdateQueue&, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate, RenderingStats&) OVERRIDE;
+        virtual void update(ResourceUpdateQueue&, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate, RenderingStats&) OVERRIDE;
 
     private:
         SkPictureContentLayerUpdater* updater() { return m_updater; }
@@ -37,16 +37,16 @@ public:
 
     static scoped_refptr<SkPictureContentLayerUpdater> create(scoped_ptr<LayerPainter>);
 
-    virtual scoped_ptr<LayerUpdater::Resource> createResource(PrioritizedTextureManager*) OVERRIDE;
+    virtual scoped_ptr<LayerUpdater::Resource> createResource(PrioritizedResourceManager*) OVERRIDE;
     virtual void setOpaque(bool) OVERRIDE;
 
 protected:
     explicit SkPictureContentLayerUpdater(scoped_ptr<LayerPainter>);
     virtual ~SkPictureContentLayerUpdater();
 
-    virtual void prepareToUpdate(const IntRect& contentRect, const IntSize& tileSize, float contentsWidthScale, float contentsHeightScale, IntRect& resultingOpaqueRect, RenderingStats&) OVERRIDE;
+    virtual void prepareToUpdate(const gfx::Rect& contentRect, const gfx::Size& tileSize, float contentsWidthScale, float contentsHeightScale, gfx::Rect& resultingOpaqueRect, RenderingStats&) OVERRIDE;
     void drawPicture(SkCanvas*);
-    void updateTexture(ResourceUpdateQueue& queue, PrioritizedTexture* texture, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate);
+    void updateTexture(ResourceUpdateQueue& queue, PrioritizedResource* texture, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate);
 
     bool layerIsOpaque() const { return m_layerIsOpaque; }
 
@@ -58,4 +58,4 @@ private:
 };
 
 } // namespace cc
-#endif // SkPictureContentLayerUpdater_h
+#endif  // CC_SKPICTURE_CONTENT_LAYER_UPDATER_H_

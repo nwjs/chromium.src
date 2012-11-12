@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef DelegatedRendererLayerChromium_h
-#define DelegatedRendererLayerChromium_h
+#ifndef CC_DELEGATED_RENDERER_LAYER_H_
+#define CC_DELEGATED_RENDERER_LAYER_H_
 
+#include "cc/cc_export.h"
 #include "cc/layer.h"
 
 namespace cc {
 
-class DelegatedRendererLayer : public Layer {
+class CC_EXPORT DelegatedRendererLayer : public Layer {
 public:
     static scoped_refptr<DelegatedRendererLayer> create();
 
@@ -23,4 +24,4 @@ private:
 };
 
 }
-#endif
+#endif  // CC_DELEGATED_RENDERER_LAYER_H_

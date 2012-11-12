@@ -24,7 +24,6 @@ MSVC_PUSH_DISABLE_WARNING(4244);
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
-#include <libavformat/url.h>
 #include <libavutil/avutil.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/log.h>
@@ -103,10 +102,6 @@ VideoCodec CodecIDToVideoCodec(CodecID codec_id);
 
 // Converts an FFmpeg audio codec ID into its corresponding supported codec id.
 AudioCodec CodecIDToAudioCodec(CodecID codec_id);
-
-// Closes & destroys all AVStreams in the context and then closes &
-// destroys the AVFormatContext.
-void DestroyAVFormatContext(AVFormatContext* format_context);
 
 }  // namespace media
 

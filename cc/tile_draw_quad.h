@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCTileDrawQuad_h
-#define CCTileDrawQuad_h
+#ifndef CC_TILE_DRAW_QUAD_H_
+#define CC_TILE_DRAW_QUAD_H_
 
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/draw_quad.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include "ui/gfx/point.h"
@@ -15,12 +16,12 @@ namespace cc {
 
 #pragma pack(push, 4)
 
-class TileDrawQuad : public DrawQuad {
+class CC_EXPORT TileDrawQuad : public DrawQuad {
 public:
-    static scoped_ptr<TileDrawQuad> create(const SharedQuadState*, const gfx::Rect& quadRect, const gfx::Rect& opaqueRect, unsigned resourceId, const gfx::Point& textureOffset, const gfx::Size& textureSize, GLint textureFilter, bool swizzleContents, bool leftEdgeAA, bool topEdgeAA, bool rightEdgeAA, bool bottomEdgeAA);
+    static scoped_ptr<TileDrawQuad> create(const SharedQuadState*, const gfx::Rect& quadRect, const gfx::Rect& opaqueRect, unsigned resourceId, const gfx::Vector2d& textureOffset, const gfx::Size& textureSize, GLint textureFilter, bool swizzleContents, bool leftEdgeAA, bool topEdgeAA, bool rightEdgeAA, bool bottomEdgeAA);
 
     unsigned resourceId() const { return m_resourceId; }
-    gfx::Point textureOffset() const { return m_textureOffset; }
+    gfx::Vector2d textureOffset() const { return m_textureOffset; }
     gfx::Size textureSize() const { return m_textureSize; }
     GLint textureFilter() const { return m_textureFilter; }
     bool swizzleContents() const { return m_swizzleContents; }
@@ -34,10 +35,10 @@ public:
 
     static const TileDrawQuad* materialCast(const DrawQuad*);
 private:
-    TileDrawQuad(const SharedQuadState*, const gfx::Rect& quadRect, const gfx::Rect& opaqueRect, unsigned resourceId, const gfx::Point& textureOffset, const gfx::Size& textureSize, GLint textureFilter, bool swizzleContents, bool leftEdgeAA, bool topEdgeAA, bool rightEdgeAA, bool bottomEdgeAA);
+    TileDrawQuad(const SharedQuadState*, const gfx::Rect& quadRect, const gfx::Rect& opaqueRect, unsigned resourceId, const gfx::Vector2d& textureOffset, const gfx::Size& textureSize, GLint textureFilter, bool swizzleContents, bool leftEdgeAA, bool topEdgeAA, bool rightEdgeAA, bool bottomEdgeAA);
 
     unsigned m_resourceId;
-    gfx::Point m_textureOffset;
+    gfx::Vector2d m_textureOffset;
     gfx::Size m_textureSize;
     GLint m_textureFilter;
     bool m_swizzleContents;
@@ -51,4 +52,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_TILE_DRAW_QUAD_H_

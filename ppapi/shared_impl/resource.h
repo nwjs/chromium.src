@@ -22,7 +22,6 @@
   F(PPB_Audio_API) \
   F(PPB_AudioConfig_API) \
   F(PPB_AudioInput_API) \
-  F(PPB_AudioInputTrusted_API) \
   F(PPB_AudioTrusted_API) \
   F(PPB_Broker_API) \
   F(PPB_BrowserFont_Trusted_API) \
@@ -35,6 +34,7 @@
   F(PPB_FileRef_API) \
   F(PPB_FileSystem_API) \
   F(PPB_Find_API) \
+  F(PPB_Flash_Clipboard_API) \
   F(PPB_Flash_DeviceID_API) \
   F(PPB_Flash_FontFile_API) \
   F(PPB_Flash_Functions_API) \
@@ -155,7 +155,10 @@ class PPAPI_SHARED_EXPORT Resource : public base::RefCounted<Resource> {
   // was released. For a few types of resources, the resource could still
   // stay alive if there are other references held by the PPAPI implementation
   // (possibly for callbacks and things).
-  virtual void LastPluginRefWasDeleted();
+  //
+  // Note that subclasses except PluginResource should override
+  // LastPluginRefWasDeleted() to be notified.
+  virtual void NotifyLastPluginRefWasDeleted();
 
   // Called by the resource tracker when the instance is going away but the
   // object is still alive (this is not the common case, since it requires
@@ -166,8 +169,9 @@ class PPAPI_SHARED_EXPORT Resource : public base::RefCounted<Resource> {
   // background processing (like maybe network loads) on behalf of the plugin
   // and you want to stop that when the plugin is deleted.
   //
-  // Be sure to call this version which clears the instance ID.
-  virtual void InstanceWasDeleted();
+  // Note that subclasses except PluginResource should override
+  // InstanceWasDeleted() to be notified.
+  virtual void NotifyInstanceWasDeleted();
 
   // Dynamic casting for this object. Returns the pointer to the given type if
   // it's supported. Derived classes override the functions they support to
@@ -196,6 +200,10 @@ class PPAPI_SHARED_EXPORT Resource : public base::RefCounted<Resource> {
  protected:
   // Logs a message to the console from this resource.
   void Log(PP_LogLevel_Dev level, const std::string& message);
+
+  // Notifications for subclasses.
+  virtual void LastPluginRefWasDeleted() {}
+  virtual void InstanceWasDeleted() {}
 
  private:
   // See the getters above.

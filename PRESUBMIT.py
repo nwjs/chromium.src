@@ -116,7 +116,7 @@ _BANNED_OBJC_FUNCTIONS = (
 _BANNED_CPP_FUNCTIONS = (
     # Make sure that gtest's FRIEND_TEST() macro is not used; the
     # FRIEND_TEST_ALL_PREFIXES() macro from base/gtest_prod_util.h should be
-    # used instead since that allows for FLAKY_, FAILS_ and DISABLED_ prefixes.
+    # used instead since that allows for FLAKY_ and DISABLED_ prefixes.
     (
       'FRIEND_TEST(',
       (
@@ -142,11 +142,11 @@ _BANNED_CPP_FUNCTIONS = (
       False,
     ),
     (
-      'browser::FindLastActiveWithProfile',
+      'chrome::FindLastActiveWithProfile',
       (
        'This function is deprecated and we\'re working on removing it. Pass',
        'more context to get a Browser*, like a WebContents, window, or session',
-       'id. Talk to ben@ or jam@ for more information.',
+       'id. Talk to robertshield@ for more information.',
       ),
       True,
     ),
@@ -155,7 +155,7 @@ _BANNED_CPP_FUNCTIONS = (
       (
        'This function is deprecated and we\'re working on removing it. Pass',
        'more context to get a Browser*, like a WebContents, window, or session',
-       'id. Talk to ben@ or jam@ for more information.',
+       'id. Talk to robertshield@ for more information.',
       ),
       True,
     ),
@@ -164,16 +164,24 @@ _BANNED_CPP_FUNCTIONS = (
       (
        'This function is deprecated and we\'re working on removing it. Pass',
        'more context to get a Browser*, like a WebContents, window, or session',
-       'id. Talk to ben@ or jam@ for more information.',
+       'id. Talk to robertshield@ for more information.',
       ),
       True,
     ),
     (
-      'browser::FindTabbedBrowser',
+      'browser::FindTabbedBrowserDeprecated',
       (
        'This function is deprecated and we\'re working on removing it. Pass',
        'more context to get a Browser*, like a WebContents, window, or session',
-       'id. Talk to ben@ or jam@ for more information.',
+       'id. Talk to robertshield@ for more information.',
+      ),
+      True,
+    ),
+    (
+      'RunAllPending()',
+      (
+       'This function is deprecated and we\'re working on removing it. Rename',
+       'to RunUntilIdle',
       ),
       True,
     ),
@@ -628,24 +636,32 @@ def GetPreferredTrySlaves(project, change):
   if all(re.search('(^|[/_])win[/_.]', f) for f in files):
     return ['win_rel']
   if all(re.search('(^|[/_])android[/_.]', f) for f in files):
-    return ['android_dbg']
+    return ['android_dbg', 'android_clang_dbg']
   if all(re.search('^native_client_sdk', f) for f in files):
     return ['linux_nacl_sdk', 'win_nacl_sdk', 'mac_nacl_sdk']
   if all(re.search('[/_]ios[/_.]', f) for f in files):
     return ['ios_rel_device', 'ios_dbg_simulator']
 
-  trybots = ['win_rel', 'linux_rel', 'mac_rel', 'linux_clang:compile',
-             'linux_chromeos', 'android_dbg', 'linux_asan', 'mac_asan',
-             'ios_rel_device', 'ios_dbg_simulator']
+  trybots = [
+      'android_clang_dbg',
+      'android_dbg',
+      'ios_dbg_simulator',
+      'ios_rel_device',
+      'linux_asan',
+      'linux_chromeos',
+      'linux_clang:compile',
+      'linux_rel',
+      'mac_asan',
+      'mac_rel',
+      'win_rel',
+  ]
 
   # Match things like path/aura/file.cc and path/file_aura.cc.
   # Same for ash and chromeos.
   if any(re.search('[/_](ash|aura)', f) for f in files):
-    trybots += ['linux_chromeos', 'linux_chromeos_clang:compile', 'win_aura',
+    trybots += ['linux_chromeos_clang:compile', 'win_aura',
                 'linux_chromeos_asan']
-  else:
-    if any(re.search('[/_]chromeos', f) for f in files):
-      trybots += ['linux_chromeos', 'linux_chromeos_clang:compile',
-                  'linux_chromeos_asan']
+  elif any(re.search('[/_]chromeos', f) for f in files):
+    trybots += ['linux_chromeos_clang:compile', 'linux_chromeos_asan']
 
   return trybots

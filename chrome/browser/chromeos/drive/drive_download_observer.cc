@@ -35,6 +35,18 @@ const int64 kStreamingFileSize = 1 << 20;  // 1MB
 const char kUploadingKey[] = "Uploading";
 const char kGDataPathKey[] = "GDataPath";
 
+void ResetDownloadUserData(DownloadItem* download) {
+  download->SetUserData(&kUploadingKey, NULL);
+  download->SetUserData(&kGDataPathKey, NULL);
+}
+
+DownloadItem* GetDownload(
+    AllDownloadItemNotifier* notifier,
+    int32 download_id) {
+  return ((notifier && notifier->GetManager()) ?
+      notifier->GetManager()->GetDownload(download_id) : NULL);
+}
+
 // User Data stored in DownloadItem for ongoing uploads.
 class UploadingUserData : public DownloadCompletionBlocker {
  public:
@@ -91,8 +103,7 @@ class DriveUserData : public base::SupportsUserData::Data {
 
 // Extracts UploadingUserData* from |download|.
 UploadingUserData* GetUploadingUserData(DownloadItem* download) {
-  return static_cast<UploadingUserData*>(
-      download->GetUserData(&kUploadingKey));
+  return static_cast<UploadingUserData*>(download->GetUserData(&kUploadingKey));
 }
 
 const UploadingUserData* GetUploadingUserData(const DownloadItem* download) {
@@ -102,8 +113,7 @@ const UploadingUserData* GetUploadingUserData(const DownloadItem* download) {
 
 // Extracts DriveUserData* from |download|.
 DriveUserData* GetDriveUserData(DownloadItem* download) {
-  return static_cast<DriveUserData*>(
-      download->GetUserData(&kGDataPathKey));
+  return static_cast<DriveUserData*>(download->GetUserData(&kGDataPathKey));
 }
 
 const DriveUserData* GetDriveUserData(const DownloadItem* download) {
@@ -125,8 +135,22 @@ DriveSystemService* GetSystemService(Profile* profile) {
   return system_service;
 }
 
+// Creates a temporary file |drive_tmp_download_path| in
+// |drive_tmp_download_dir|. Must be called on a thread that allows file
+// operations.
+void GetDriveTempDownloadPath(const FilePath& drive_tmp_download_dir,
+                              FilePath* drive_tmp_download_path) {
+  bool created = file_util::CreateDirectory(drive_tmp_download_dir);
+  DCHECK(created) << "Can not create temp download directory at "
+                  << drive_tmp_download_dir.value();
+  created = file_util::CreateTemporaryFileInDir(drive_tmp_download_dir,
+                                                drive_tmp_download_path);
+  DCHECK(created) << "Temporary download file creation failed";
+}
+
 // Substitutes virtual drive path for local temporary path.
-void SubstituteDriveDownloadPathInternal(Profile* profile,
+void SubstituteDriveDownloadPathInternal(
+    Profile* profile,
     const DriveDownloadObserver::SubstituteDriveDownloadPathCallback&
         callback) {
   DVLOG(1) << "SubstituteDriveDownloadPathInternal";
@@ -139,7 +163,7 @@ void SubstituteDriveDownloadPathInternal(Profile* profile,
   FilePath* drive_tmp_download_path(new FilePath());
   BrowserThread::GetBlockingPool()->PostTaskAndReply(
       FROM_HERE,
-      base::Bind(&DriveDownloadObserver::GetDriveTempDownloadPath,
+      base::Bind(&GetDriveTempDownloadPath,
                  drive_tmp_download_dir,
                  drive_tmp_download_path),
       base::Bind(&RunSubstituteDriveDownloadCallback,
@@ -148,11 +172,13 @@ void SubstituteDriveDownloadPathInternal(Profile* profile,
 }
 
 // Callback for DriveFileSystem::CreateDirectory.
-void OnCreateDirectory(const base::Closure& substitute_callback,
-                       DriveFileError error) {
+void OnCreateDirectory(
+    Profile* profile,
+    const DriveDownloadObserver::SubstituteDriveDownloadPathCallback& callback,
+    DriveFileError error) {
   DVLOG(1) << "OnCreateDirectory " << error;
   if (error == DRIVE_FILE_OK) {
-    substitute_callback.Run();
+    SubstituteDriveDownloadPathInternal(profile, callback);
   } else {
     // TODO(achuith): Handle this.
     NOTREACHED();
@@ -160,9 +186,10 @@ void OnCreateDirectory(const base::Closure& substitute_callback,
 }
 
 // Callback for DriveFileSystem::GetEntryInfoByPath.
-void OnEntryFound(Profile* profile,
+void OnEntryFound(
+    Profile* profile,
     const FilePath& drive_dir_path,
-    const base::Closure& substitute_callback,
+    const DriveDownloadObserver::SubstituteDriveDownloadPathCallback& callback,
     DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto) {
   if (error == DRIVE_FILE_ERROR_NOT_FOUND) {
@@ -170,36 +197,18 @@ void OnEntryFound(Profile* profile,
     const bool is_exclusive = false, is_recursive = true;
     GetSystemService(profile)->file_system()->CreateDirectory(
         drive_dir_path, is_exclusive, is_recursive,
-        base::Bind(&OnCreateDirectory, substitute_callback));
+        base::Bind(&OnCreateDirectory, profile, callback));
   } else if (error == DRIVE_FILE_OK) {
-    substitute_callback.Run();
+    SubstituteDriveDownloadPathInternal(profile, callback);
   } else {
     // TODO(achuith): Handle this.
     NOTREACHED();
   }
 }
 
-// Callback for DriveServiceInterface::Authenticate.
-void OnAuthenticate(Profile* profile,
-                    const FilePath& drive_path,
-                    const base::Closure& substitute_callback,
-                    google_apis::GDataErrorCode error,
-                    const std::string& token) {
-  DVLOG(1) << "OnAuthenticate";
-
-  if (error == google_apis::HTTP_SUCCESS) {
-    const FilePath drive_dir_path =
-        util::ExtractDrivePath(drive_path.DirName());
-    // Ensure the directory exists. This also forces DriveFileSystem to
-    // initialize DriveRootDirectory.
-    GetSystemService(profile)->file_system()->GetEntryInfoByPath(
-        drive_dir_path,
-        base::Bind(&OnEntryFound, profile, drive_dir_path,
-                   substitute_callback));
-  } else {
-    // TODO(achuith): Handle this.
-    NOTREACHED();
-  }
+// Callback for DriveFileSystem::UpdateEntryData.
+void OnEntryUpdated(DriveFileError error) {
+  LOG_IF(ERROR, error != DRIVE_FILE_OK) << "Failed to update entry: " << error;
 }
 
 }  // namespace
@@ -209,27 +218,18 @@ DriveDownloadObserver::DriveDownloadObserver(
     DriveFileSystemInterface* file_system)
     : drive_uploader_(uploader),
       file_system_(file_system),
-      download_manager_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
 }
 
 DriveDownloadObserver::~DriveDownloadObserver() {
-  if (download_manager_)
-    download_manager_->RemoveObserver(this);
-
-  for (DownloadMap::iterator iter = pending_downloads_.begin();
-       iter != pending_downloads_.end(); ++iter) {
-    DetachFromDownload(iter->second);
-  }
 }
 
 void DriveDownloadObserver::Initialize(
     DownloadManager* download_manager,
     const FilePath& drive_tmp_download_path) {
   DCHECK(!drive_tmp_download_path.empty());
-  download_manager_ = download_manager;
-  if (download_manager_)
-    download_manager_->AddObserver(this);
+  if (download_manager)
+    notifier_.reset(new AllDownloadItemNotifier(download_manager, this));
   drive_tmp_download_path_ = drive_tmp_download_path;
 }
 
@@ -242,16 +242,18 @@ void DriveDownloadObserver::SubstituteDriveDownloadPath(Profile* profile,
   SetDownloadParams(drive_path, download);
 
   if (util::IsUnderDriveMountPoint(drive_path)) {
-    // Can't access drive if we're not authenticated.
+    // Can't access drive if the directory does not exist on Drive.
     // We set off a chain of callbacks as follows:
-    // DriveServiceInterface::Authenticate
-    //   OnAuthenticate calls DriveFileSystem::GetEntryInfoByPath
-    //     OnEntryFound calls DriveFileSystem::CreateDirectory (if necessary)
-    //       OnCreateDirectory calls SubstituteDriveDownloadPathInternal
-    GetSystemService(profile)->drive_service()->Authenticate(
-        base::Bind(&OnAuthenticate, profile, drive_path,
-                   base::Bind(&SubstituteDriveDownloadPathInternal,
-                              profile, callback)));
+    // DriveFileSystem::GetEntryInfoByPath
+    //   OnEntryFound calls DriveFileSystem::CreateDirectory (if necessary)
+    //     OnCreateDirectory calls SubstituteDriveDownloadPathInternal
+    const FilePath drive_dir_path =
+        util::ExtractDrivePath(drive_path.DirName());
+    // Ensure the directory exists. This also forces DriveFileSystem to
+    // initialize DriveRootDirectory.
+    GetSystemService(profile)->file_system()->GetEntryInfoByPath(
+        drive_dir_path,
+        base::Bind(&OnEntryFound, profile, drive_dir_path, callback));
   } else {
     callback.Run(drive_path);
   }
@@ -340,105 +342,39 @@ int DriveDownloadObserver::PercentComplete(const DownloadItem* download) {
   return -1;
 }
 
-// |drive_tmp_download_path| is set to a temporary local download path in
-// ~/GCache/v1/tmp/downloads/
-// static
-void DriveDownloadObserver::GetDriveTempDownloadPath(
-    const FilePath& drive_tmp_download_dir,
-    FilePath* drive_tmp_download_path) {
-  bool created = file_util::CreateDirectory(drive_tmp_download_dir);
-  DCHECK(created) << "Can not create temp download directory at "
-                  << drive_tmp_download_dir.value();
-  created = file_util::CreateTemporaryFileInDir(drive_tmp_download_dir,
-                                                drive_tmp_download_path);
-  DCHECK(created) << "Temporary download file creation failed";
-}
-
-void DriveDownloadObserver::ManagerGoingDown(
-    DownloadManager* download_manager) {
-  download_manager->RemoveObserver(this);
-  download_manager_ = NULL;
-}
-
-void DriveDownloadObserver::ModelChanged(DownloadManager* download_manager) {
+void DriveDownloadObserver::OnDownloadUpdated(
+    DownloadManager* manager, DownloadItem* download) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  DownloadManager::DownloadVector downloads;
-  // Drive downloads are considered temporary downloads.
-  download_manager->GetAllDownloads(&downloads);
-  for (size_t i = 0; i < downloads.size(); ++i) {
-    // Only accept downloads that have the Drive meta data associated with
-    // them. Otherwise we might trip over non-Drive downloads being saved to
-    // drive_tmp_download_path_.
-    if (downloads[i]->IsTemporary() &&
-        (downloads[i]->GetTargetFilePath().DirName() ==
-         drive_tmp_download_path_) &&
-        IsDriveDownload(downloads[i]))
-      OnDownloadUpdated(downloads[i]);
-  }
-}
-
-void DriveDownloadObserver::OnDownloadUpdated(DownloadItem* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  // Drive downloads are considered temporary downloads. Only accept downloads
+  // that have the Drive meta data associated with them. Otherwise we might trip
+  // over non-Drive downloads being saved to drive_tmp_download_path_.
+  if (!download->IsTemporary() ||
+      (download->GetTargetFilePath().DirName() != drive_tmp_download_path_) ||
+      !IsDriveDownload(download))
+    return;
 
   const DownloadItem::DownloadState state = download->GetState();
   switch (state) {
     case DownloadItem::IN_PROGRESS:
-      AddPendingDownload(download);
       UploadDownloadItem(download);
       break;
 
     case DownloadItem::COMPLETE:
       UploadDownloadItem(download);
       MoveFileToDriveCache(download);
-      RemovePendingDownload(download);
+      ResetDownloadUserData(download);
       break;
 
     // TODO(achuith): Stop the pending upload and delete the file.
     case DownloadItem::CANCELLED:
     case DownloadItem::INTERRUPTED:
-      RemovePendingDownload(download);
+      ResetDownloadUserData(download);
       break;
 
     default:
       NOTREACHED();
   }
-
-  DVLOG(1) << "Number of pending downloads=" << pending_downloads_.size();
-}
-
-void DriveDownloadObserver::OnDownloadDestroyed(DownloadItem* download) {
-  RemovePendingDownload(download);
-}
-
-void DriveDownloadObserver::AddPendingDownload(DownloadItem* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  // Add ourself as an observer of this download if we've never seen it before.
-  if (pending_downloads_.count(download->GetId()) == 0) {
-    pending_downloads_[download->GetId()] = download;
-    download->AddObserver(this);
-    DVLOG(1) << "new download total bytes=" << download->GetTotalBytes()
-             << ", full path=" << download->GetFullPath().value()
-             << ", mime type=" << download->GetMimeType();
-  }
-}
-
-void DriveDownloadObserver::RemovePendingDownload(DownloadItem* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!download->IsInProgress());
-
-  DownloadMap::iterator it = pending_downloads_.find(download->GetId());
-  if (it != pending_downloads_.end()) {
-    DetachFromDownload(download);
-    pending_downloads_.erase(it);
-  }
-}
-
-void DriveDownloadObserver::DetachFromDownload(DownloadItem* download) {
-  download->SetUserData(&kUploadingKey, NULL);
-  download->SetUserData(&kGDataPathKey, NULL);
-  download->RemoveObserver(this);
 }
 
 void DriveDownloadObserver::UploadDownloadItem(DownloadItem* download) {
@@ -472,11 +408,12 @@ void DriveDownloadObserver::UpdateUpload(DownloadItem* download) {
 bool DriveDownloadObserver::ShouldUpload(DownloadItem* download) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  // Upload if the item is in pending_downloads_,
+  // Upload if the item is either in progress or complete,
   // has a filename,
   // is complete or large enough to stream, and,
   // is not already being uploaded.
-  return (pending_downloads_.count(download->GetId()) != 0) &&
+  return ((download->GetState() == DownloadItem::IN_PROGRESS) ||
+          (download->GetState() == DownloadItem::COMPLETE)) &&
          !download->GetFullPath().empty() &&
          (download->AllDataSaved() ||
           download->GetReceivedBytes() > kStreamingFileSize) &&
@@ -547,14 +484,11 @@ void DriveDownloadObserver::CreateUploaderParamsAfterCheckExistence(
     uploader_params->upload_location = GURL(entry_proto->upload_url());
     uploader_params->title = "";
 
-    // Look up the DownloadItem for the |download_id|.
-    DownloadMap::iterator iter = pending_downloads_.find(download_id);
-    if (iter == pending_downloads_.end()) {
+    DownloadItem* download_item = GetDownload(notifier_.get(), download_id);
+    if (!download_item) {
       DVLOG(1) << "Pending download not found" << download_id;
       return;
     }
-    DownloadItem* download_item = iter->second;
-
     UploadingUserData* upload_data = GetUploadingUserData(download_item);
     DCHECK(upload_data);
 
@@ -604,14 +538,12 @@ void DriveDownloadObserver::StartUpload(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(uploader_params.get());
 
-  // Look up the DownloadItem for the |download_id|.
-  DownloadMap::iterator iter = pending_downloads_.find(download_id);
-  if (iter == pending_downloads_.end()) {
+  DownloadItem* download_item = GetDownload(notifier_.get(), download_id);
+  if (!download_item) {
     DVLOG(1) << "Pending download not found" << download_id;
     return;
   }
   DVLOG(1) << "Starting upload for download ID " << download_id;
-  DownloadItem* download_item = iter->second;
 
   UploadingUserData* upload_data = GetUploadingUserData(download_item);
   DCHECK(upload_data);
@@ -643,15 +575,13 @@ void DriveDownloadObserver::StartUpload(
 
 void DriveDownloadObserver::OnUploaderReady(int32 download_id,
                                             int32 upload_id) {
-  // Look up the DownloadItem for the |download_id|.
-  DownloadMap::iterator iter = pending_downloads_.find(download_id);
-  if (iter == pending_downloads_.end()) {
+  DownloadItem* download_item = GetDownload(notifier_.get(), download_id);
+  if (!download_item) {
     DVLOG(1) << "Pending download not found" << download_id;
     return;
   }
   DVLOG(1) << "Uploader for download id: " << download_id
            << "ready with the upload id: " << upload_id;
-  DownloadItem* download_item = iter->second;
 
   UploadingUserData* upload_data = GetUploadingUserData(download_item);
   DCHECK(upload_data);
@@ -672,14 +602,12 @@ void DriveDownloadObserver::OnUploadComplete(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(document_entry.get());
 
-  // Look up the DownloadItem for the |download_id|.
-  DownloadMap::iterator iter = pending_downloads_.find(download_id);
-  if (iter == pending_downloads_.end()) {
+  DownloadItem* download_item = GetDownload(notifier_.get(), download_id);
+  if (!download_item) {
     DVLOG(1) << "Pending download not found" << download_id;
     return;
   }
   DVLOG(1) << "Completing upload for download ID " << download_id;
-  DownloadItem* download_item = iter->second;
 
   UploadingUserData* upload_data = GetUploadingUserData(download_item);
   DCHECK(upload_data);
@@ -710,21 +638,18 @@ void DriveDownloadObserver::MoveFileToDriveCache(DownloadItem* download) {
   }
 
   if (upload_data->is_overwrite()) {
-    file_system_->UpdateEntryData(upload_data->resource_id(),
-                                  upload_data->md5(),
-                                  entry.Pass(),
+    file_system_->UpdateEntryData(entry.Pass(),
                                   download->GetTargetFilePath(),
-                                  base::Bind(&base::DoNothing));
+                                  base::Bind(&OnEntryUpdated));
   } else {
     // Move downloaded file to drive cache. Note that |content_file_path| should
     // use the final target path (download->GetTargetFilePath()) when the
     // download item has transitioned to the DownloadItem::COMPLETE state.
-    file_system_->AddUploadedFile(google_apis::UPLOAD_NEW_FILE,
-                                  upload_data->virtual_dir_path(),
+    file_system_->AddUploadedFile(upload_data->virtual_dir_path(),
                                   entry.Pass(),
                                   download->GetTargetFilePath(),
                                   DriveCache::FILE_OPERATION_MOVE,
-                                  base::Bind(&base::DoNothing));
+                                  base::Bind(&OnEntryUpdated));
   }
 }
 

@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCLayerTreeHost_h
-#define CCLayerTreeHost_h
+#ifndef CC_LAYER_TREE_HOST_H_
+#define CC_LAYER_TREE_HOST_H_
 
 #include <limits>
 
-#include "IntRect.h"
 #include "base/basictypes.h"
 #include "base/cancelable_callback.h"
 #include "base/hash_tables.h"
@@ -15,16 +14,18 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "cc/animation_events.h"
+#include "cc/cc_export.h"
 #include "cc/graphics_context.h"
 #include "cc/layer_tree_host_client.h"
 #include "cc/layer_tree_host_common.h"
 #include "cc/occlusion_tracker.h"
-#include "cc/prioritized_texture_manager.h"
+#include "cc/prioritized_resource_manager.h"
 #include "cc/proxy.h"
 #include "cc/rate_limiter.h"
 #include "cc/rendering_stats.h"
 #include "cc/scoped_ptr_vector.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/gfx/rect.h"
 
 #if defined(COMPILER_GCC)
 namespace BASE_HASH_NAMESPACE {
@@ -43,18 +44,17 @@ class FontAtlas;
 class Layer;
 class LayerTreeHostImpl;
 class LayerTreeHostImplClient;
-class PrioritizedTextureManager;
+class PrioritizedResourceManager;
 class ResourceUpdateQueue;
 class HeadsUpDisplayLayer;
 class Region;
 struct ScrollAndScaleSet;
 
-struct LayerTreeSettings {
+struct CC_EXPORT LayerTreeSettings {
     LayerTreeSettings();
     ~LayerTreeSettings();
 
     bool acceleratePainting;
-    bool showFPSCounter;
     bool showPlatformLayerTree;
     bool showPaintRects;
     bool showPropertyChangedRects;
@@ -65,16 +65,16 @@ struct LayerTreeSettings {
     bool renderVSyncEnabled;
     double refreshRate;
     size_t maxPartialTextureUpdates;
-    IntSize defaultTileSize;
-    IntSize maxUntiledLayerSize;
-    IntSize minimumOcclusionTrackingSize;
+    gfx::Size defaultTileSize;
+    gfx::Size maxUntiledLayerSize;
+    gfx::Size minimumOcclusionTrackingSize;
 
-    bool showDebugInfo() const { return showPlatformLayerTree || showFPSCounter || showDebugRects(); }
+    bool showDebugInfo() const { return showPlatformLayerTree || showDebugRects(); }
     bool showDebugRects() const { return showPaintRects || showPropertyChangedRects || showSurfaceDamageRects || showScreenSpaceRects || showReplicaScreenSpaceRects || showOccludingRects; }
 };
 
 // Provides information on an Impl's rendering capabilities back to the LayerTreeHost
-struct RendererCapabilities {
+struct CC_EXPORT RendererCapabilities {
     RendererCapabilities();
     ~RendererCapabilities();
 
@@ -90,9 +90,9 @@ struct RendererCapabilities {
     int maxTextureSize;
 };
 
-class LayerTreeHost : public RateLimiterClient {
+class CC_EXPORT LayerTreeHost : public RateLimiterClient {
 public:
-    static scoped_ptr<LayerTreeHost> create(LayerTreeHostClient*, const LayerTreeSettings&);
+    static scoped_ptr<LayerTreeHost> create(LayerTreeHostClient*, const LayerTreeSettings&, scoped_ptr<Thread> implThread);
     virtual ~LayerTreeHost();
 
     void setSurfaceReady();
@@ -133,14 +133,15 @@ public:
 
     LayerTreeHostClient* client() { return m_client; }
 
-    // Only used when compositing on the main thread.
     void composite();
+
+    // Only used when compositing on the main thread.
     void scheduleComposite();
 
     // Composites and attempts to read back the result into the provided
     // buffer. If it wasn't possible, e.g. due to context lost, will return
     // false.
-    bool compositeAndReadback(void *pixels, const IntRect&);
+    bool compositeAndReadback(void *pixels, const gfx::Rect&);
 
     void finishAllRendering();
 
@@ -173,10 +174,10 @@ public:
 
     const LayerTreeSettings& settings() const { return m_settings; }
 
-    void setViewportSize(const IntSize& layoutViewportSize, const IntSize& deviceViewportSize);
+    void setViewportSize(const gfx::Size& layoutViewportSize, const gfx::Size& deviceViewportSize);
 
-    const IntSize& layoutViewportSize() const { return m_layoutViewportSize; }
-    const IntSize& deviceViewportSize() const { return m_deviceViewportSize; }
+    const gfx::Size& layoutViewportSize() const { return m_layoutViewportSize; }
+    const gfx::Size& deviceViewportSize() const { return m_deviceViewportSize; }
 
     void setPageScaleFactorAndLimits(float pageScaleFactor, float minPageScaleFactor, float maxPageScaleFactor);
 
@@ -184,14 +185,15 @@ public:
 
     void setHasTransparentBackground(bool transparent) { m_hasTransparentBackground = transparent; }
 
-    PrioritizedTextureManager* contentsTextureManager() const;
+    PrioritizedResourceManager* contentsTextureManager() const;
 
     bool visible() const { return m_visible; }
     void setVisible(bool);
 
-    void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration);
+    void startPageScaleAnimation(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration);
 
     void applyScrollAndScale(const ScrollAndScaleSet&);
+    gfx::PointF adjustEventPointForPinchZoom(const gfx::PointF&) const;
     void setImplTransform(const WebKit::WebTransformationMatrix&);
 
     void startRateLimiter(WebKit::WebGraphicsContext3D*);
@@ -206,13 +208,16 @@ public:
     void setDeviceScaleFactor(float);
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
 
+    void setShowFPSCounter(bool show);
     void setFontAtlas(scoped_ptr<FontAtlas>);
 
     HeadsUpDisplayLayer* hudLayer() const { return m_hudLayer.get(); }
 
+    Proxy* proxy() const { return m_proxy.get(); }
+
 protected:
     LayerTreeHost(LayerTreeHostClient*, const LayerTreeSettings&);
-    bool initialize();
+    bool initialize(scoped_ptr<Thread> implThread);
 
 private:
     typedef std::vector<scoped_refptr<Layer> > LayerList;
@@ -235,17 +240,19 @@ private:
     bool animateLayersRecursive(Layer* current, base::TimeTicks time);
     void setAnimationEventsRecursive(const AnimationEventsVector&, Layer*, base::Time wallClockTime);
 
+    void createHUDLayerIfNeeded();
+
     bool m_animating;
     bool m_needsAnimateLayers;
 
     base::CancelableClosure m_prepaintCallback;
 
     LayerTreeHostClient* m_client;
+    scoped_ptr<Proxy> m_proxy;
 
     int m_commitNumber;
     RenderingStats m_renderingStats;
 
-    scoped_ptr<Proxy> m_proxy;
     bool m_rendererInitialized;
     bool m_contextLost;
     int m_numTimesRecreateShouldFail;
@@ -253,15 +260,14 @@ private:
 
     scoped_refptr<Layer> m_rootLayer;
     scoped_refptr<HeadsUpDisplayLayer> m_hudLayer;
-    scoped_ptr<FontAtlas> m_fontAtlas;
 
-    scoped_ptr<PrioritizedTextureManager> m_contentsTextureManager;
-    scoped_ptr<PrioritizedTexture> m_surfaceMemoryPlaceholder;
+    scoped_ptr<PrioritizedResourceManager> m_contentsTextureManager;
+    scoped_ptr<PrioritizedResource> m_surfaceMemoryPlaceholder;
 
     LayerTreeSettings m_settings;
 
-    IntSize m_layoutViewportSize;
-    IntSize m_deviceViewportSize;
+    gfx::Size m_layoutViewportSize;
+    gfx::Size m_deviceViewportSize;
     float m_deviceScaleFactor;
 
     bool m_visible;
@@ -277,7 +283,7 @@ private:
     SkColor m_backgroundColor;
     bool m_hasTransparentBackground;
 
-    typedef ScopedPtrVector<PrioritizedTexture> TextureList;
+    typedef ScopedPtrVector<PrioritizedResource> TextureList;
     size_t m_partialTextureUpdateRequests;
 
     static bool s_needsFilterContext;
@@ -287,4 +293,4 @@ private:
 
 }  // namespace cc
 
-#endif
+#endif  // CC_LAYER_TREE_HOST_H_

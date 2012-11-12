@@ -25,9 +25,10 @@ InstantPreviewControllerViews::InstantPreviewControllerViews(
 InstantPreviewControllerViews::~InstantPreviewControllerViews() {
 }
 
-void InstantPreviewControllerViews::DisplayStateChanged(
+void InstantPreviewControllerViews::PreviewStateChanged(
     const InstantModel& model) {
-  if (model.is_ready()) {
+  if (model.preview_state() == InstantModel::QUERY_RESULTS ||
+      model.preview_state() == InstantModel::CUSTOM_NTP_CONTENT) {
     ShowInstant(model.GetPreviewContents(),
                 model.height(), model.height_units());
   } else {
@@ -46,7 +47,6 @@ void InstantPreviewControllerViews::ShowInstant(TabContents* preview,
                         preview->web_contents(),
                         height, units);
   preview_container_->SetWebContents(preview->web_contents());
-  browser_view_->RestackLocationBarContainer();
 }
 
 void InstantPreviewControllerViews::HideInstant() {

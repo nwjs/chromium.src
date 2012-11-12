@@ -2,9 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/priority_calculator.h"
+#include "ui/gfx/rect.h"
 
 using namespace std;
 
@@ -71,9 +70,9 @@ int PriorityCalculator::lingeringPriority(int previousPriority)
 }
 
 namespace {
-int manhattanDistance(const IntRect& a, const IntRect& b)
+int manhattanDistance(const gfx::Rect& a, const gfx::Rect& b)
 {
-    IntRect c = unionRect(a, b);
+    gfx::Rect c = gfx::UnionRects(a, b);
     int x = max(0, c.width() - a.width() - b.width() + 1);
     int y = max(0, c.height() - a.height() - b.height() + 1);
     return (x + y);
@@ -81,7 +80,7 @@ int manhattanDistance(const IntRect& a, const IntRect& b)
 }
 
 // static
-int PriorityCalculator::priorityFromDistance(const IntRect& visibleRect, const IntRect& textureRect, bool drawsToRootSurface)
+int PriorityCalculator::priorityFromDistance(const gfx::Rect& visibleRect, const gfx::Rect& textureRect, bool drawsToRootSurface)
 {
     int distance = manhattanDistance(visibleRect, textureRect);
     if (!distance)
@@ -131,4 +130,4 @@ int PriorityCalculator::allowEverythingCutoff()
     return everythingPriorityCutoff;
 }
 
-} // cc
+}  // namespace cc

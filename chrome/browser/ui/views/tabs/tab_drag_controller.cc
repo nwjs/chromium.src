@@ -37,6 +37,7 @@
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/slide_animation.h"
 #include "ui/base/events/event_constants.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image_skia.h"
@@ -112,7 +113,7 @@ class DockView : public views::View {
     bool rtl_ui = base::i18n::IsRTL();
     if (rtl_ui) {
       // Flip canvas to draw the mirrored tab images for RTL UI.
-      canvas->Translate(gfx::Point(width(), 0));
+      canvas->Translate(gfx::Vector2d(width(), 0));
       canvas->Scale(-1, 1);
     }
     int x_of_active_tab = width() / 2 + kTabSpacing / 2;
@@ -504,8 +505,7 @@ void TabDragController::Drag(const gfx::Point& point_in_screen) {
     Attach(source_tabstrip_, gfx::Point());
     if (detach_into_browser_ && static_cast<int>(drag_data_.size()) ==
         GetModel(source_tabstrip_)->count()) {
-      gfx::Point dragged_view_point = GetWindowOffset(point_in_screen);
-      RunMoveLoop(dragged_view_point);
+      RunMoveLoop(GetWindowOffset(point_in_screen));
       return;
     }
   }
@@ -1305,8 +1305,7 @@ void TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
     // All the tabs in a browser are being dragged but all the tabs weren't
     // initially being dragged. For this to happen the user would have to
     // start dragging a set of tabs, the other tabs close, then detach.
-    gfx::Point dragged_view_point = GetWindowOffset(point_in_screen);
-    RunMoveLoop(dragged_view_point);
+    RunMoveLoop(GetWindowOffset(point_in_screen));
     return;
   }
 
@@ -1320,7 +1319,7 @@ void TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
   std::vector<gfx::Rect> drag_bounds =
       CalculateBoundsForDraggedTabs(attached_point.x());
 
-  gfx::Point drag_offset;
+  gfx::Vector2d drag_offset;
   Browser* browser = CreateBrowserForDrag(
       attached_tabstrip_, point_in_screen, &drag_offset, &drag_bounds);
   Detach(DONT_RELEASE_CAPTURE);
@@ -1343,7 +1342,7 @@ void TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
   RunMoveLoop(drag_offset);
 }
 
-void TabDragController::RunMoveLoop(const gfx::Point& drag_offset) {
+void TabDragController::RunMoveLoop(const gfx::Vector2d& drag_offset) {
   // If the user drags the whole window we'll assume they are going to attach to
   // another window and therefor want to reorder.
   move_behavior_ = REORDER;
@@ -1788,10 +1787,12 @@ void TabDragController::CompleteDrag() {
           break;
       }
     }
-    // Compel the model to construct a new window for the detached WebContents.
+    // Compel the model to construct a new window for the detached
+    // WebContentses.
     views::Widget* widget = source_tabstrip_->GetWidget();
     gfx::Rect window_bounds(widget->GetRestoredBounds());
     window_bounds.set_origin(GetWindowCreatePoint(last_point_in_screen_));
+
     // When modifying the following if statement, please make sure not to
     // introduce issue listed in http://crbug.com/6223 comment #11.
     bool rtl_ui = base::i18n::IsRTL();
@@ -1802,21 +1803,19 @@ void TabDragController::CompleteDrag() {
       window_bounds.set_x(window_bounds.x() - window_bounds.width());
     }
     AutoReset<bool> setter(&is_mutating_, true);
+
+    std::vector<TabStripModelDelegate::NewStripContents> contentses;
+    for (size_t i = 0; i < drag_data_.size(); ++i) {
+      TabStripModelDelegate::NewStripContents item;
+      item.web_contents = drag_data_[i].contents->web_contents();
+      item.add_types = drag_data_[i].pinned ? TabStripModel::ADD_PINNED
+                                            : TabStripModel::ADD_NONE;
+      contentses.push_back(item);
+    };
+
     Browser* new_browser =
         GetModel(source_tabstrip_)->delegate()->CreateNewStripWithContents(
-            drag_data_[0].contents, window_bounds, dock_info_,
-            widget->IsMaximized());
-    TabStripModel* new_model = new_browser->tab_strip_model();
-    new_model->SetTabPinned(
-        new_model->GetIndexOfTabContents(drag_data_[0].contents),
-        drag_data_[0].pinned);
-    for (size_t i = 1; i < drag_data_.size(); ++i) {
-      new_model->InsertTabContentsAt(
-          static_cast<int>(i),
-          drag_data_[i].contents,
-          drag_data_[i].pinned ? TabStripModel::ADD_PINNED :
-                                 TabStripModel::ADD_NONE);
-    }
+            contentses, window_bounds, dock_info_, widget->IsMaximized());
     ResetSelection(new_browser->tab_strip_model());
     new_browser->window()->Show();
   }
@@ -1979,7 +1978,7 @@ bool TabDragController::AreTabsConsecutive() {
 Browser* TabDragController::CreateBrowserForDrag(
     TabStrip* source,
     const gfx::Point& point_in_screen,
-    gfx::Point* drag_offset,
+    gfx::Vector2d* drag_offset,
     std::vector<gfx::Rect>* drag_bounds) {
   gfx::Point center(0, source->height() / 2);
   views::View::ConvertPointToWidget(source, &center);
@@ -2006,7 +2005,7 @@ Browser* TabDragController::CreateBrowserForDrag(
       break; // Nothing to do for DETACH_ABOVE_OR_BELOW.
   }
 
-  *drag_offset = point_in_screen.Subtract(new_bounds.origin());
+  *drag_offset = point_in_screen - new_bounds.origin();
 
   Browser::CreateParams create_params(
       Browser::TYPE_TABBED,
@@ -2040,13 +2039,13 @@ gfx::Point TabDragController::GetCursorScreenPoint() {
   return screen_->GetCursorScreenPoint();
 }
 
-gfx::Point TabDragController::GetWindowOffset(
+gfx::Vector2d TabDragController::GetWindowOffset(
     const gfx::Point& point_in_screen) {
   TabStrip* owning_tabstrip = (attached_tabstrip_ && detach_into_browser_) ?
       attached_tabstrip_ : source_tabstrip_;
   views::View* toplevel_view = owning_tabstrip->GetWidget()->GetContentsView();
 
-  gfx::Point offset = point_in_screen;
-  views::View::ConvertPointFromScreen(toplevel_view, &offset);
-  return offset;
+  gfx::Point point = point_in_screen;
+  views::View::ConvertPointFromScreen(toplevel_view, &point);
+  return point.OffsetFromOrigin();
 }

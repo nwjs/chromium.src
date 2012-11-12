@@ -9,6 +9,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/automation/automation_util.h"
 #include "chrome/browser/debugger/devtools_window.h"
+#include "chrome/browser/extensions/api/permissions/permissions_api.h"
 #include "chrome/browser/extensions/app_restore_service_factory.h"
 #include "chrome/browser/extensions/app_restore_service.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -153,7 +155,13 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, CreateAndCloseShellWindow) {
 }
 
 // Tests that platform apps can be launched in incognito mode without crashing.
-IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, LaunchAppIncognito) {
+// Times out on ChromeOS: http://crbug.com/159392
+#if defined(OS_CHROMEOS)
+#define MAYBE_LaunchAppIncognito DISABLED_LaunchAppIncognito
+#else
+#define MAYBE_LaunchAppIncognito LaunchAppIncognito
+#endif
+IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, MAYBE_LaunchAppIncognito) {
   Browser* browser_incognito = ui_test_utils::OpenURLOffTheRecord(
       browser()->profile(), GURL("about:blank"));
 
@@ -527,14 +535,6 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, LaunchWithRelativeFile) {
   }
 }
 
-// Tests that no launch data is sent through if the platform app provides
-// an intent with the wrong action.
-IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, LaunchWithWrongIntent) {
-  SetCommandLineArg(kTestFilePath);
-  ASSERT_TRUE(RunPlatformAppTest("platform_apps/launch_wrong_intent"))
-      << message_;
-}
-
 // Tests that no launch data is sent through if the file is of the wrong MIME
 // type.
 IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, LaunchWithWrongType) {
@@ -607,9 +607,14 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, MutationEventsDisabled) {
 
 // Test that windows created with an id will remember and restore their
 // geometry when opening new windows.
-// Flaky, see http://crbug.com/155459.
+// Disabled due to flakiness on linux, see http://crbug.com/155459.
+#if defined(OS_LINUX) || defined(OS_CHROMEOS)
+#define MAYBE_ShellWindowRestorePosition DISABLED_ShellWindowRestorePosition
+#else
+#define MAYBE_ShellWindowRestorePosition FLAKY_ShellWindowRestorePosition
+#endif
 IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest,
-                       FLAKY_ShellWindowRestorePosition) {
+                       MAYBE_ShellWindowRestorePosition) {
   ExtensionTestMessageListener page2_listener("WaitForPage2", true);
   ExtensionTestMessageListener page3_listener("WaitForPage3", true);
   ExtensionTestMessageListener done_listener("Done1", false);
@@ -706,26 +711,28 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, RunningAppsAreRecorded) {
   restart_listener.WaitUntilSatisfied();
 }
 
-// Tests that relaunching an app with devtools open reopens devtools.
-#ifdef NDEBUG
-#define MAYBE_DevToolsOpenedWithReload DevToolsOpenedWithReload
-#else
-// This is currently expected to fail in debug builds due to a segfault in
-// WebKit triggered by a dereference between #ifndef NDEBUG guards see
-// http://crbug.com/157097 .
-// The test is disabled because of timeouts, see http://crbug.com/158283.
-#define MAYBE_DevToolsOpenedWithReload DISABLED_DevToolsOpenedWithReload
-#endif
+namespace {
 
-IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, MAYBE_DevToolsOpenedWithReload) {
+class PlatformAppDevToolsBrowserTest : public PlatformAppBrowserTest {
+ protected:
+  enum TestFlags {
+    RELAUNCH = 0x1,
+    HAS_ID = 0x2,
+  };
+  // Runs a test inside a harness that opens DevTools on a shell window.
+  void RunTestWithDevTools(const char* name, int test_flags);
+};
+
+void PlatformAppDevToolsBrowserTest::RunTestWithDevTools(
+    const char* name, int test_flags) {
   using content::DevToolsAgentHostRegistry;
-
   ExtensionTestMessageListener launched_listener("Launched", false);
-  const Extension* extension = LoadAndLaunchPlatformApp("minimal_id");
+  const Extension* extension = LoadAndLaunchPlatformApp(name);
   ASSERT_TRUE(extension);
   ASSERT_TRUE(launched_listener.WaitUntilSatisfied());
   ShellWindow* window = GetFirstShellWindow();
   ASSERT_TRUE(window);
+  ASSERT_EQ(window->window_key().empty(), (test_flags & HAS_ID) == 0);
   content::RenderViewHost* rvh = window->web_contents()->GetRenderViewHost();
   ASSERT_TRUE(rvh);
 
@@ -739,25 +746,84 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, MAYBE_DevToolsOpenedWithReload) {
   loaded_observer.Wait();
   ASSERT_TRUE(DevToolsAgentHostRegistry::HasDevToolsAgentHost(rvh));
 
-  // Close the ShellWindow, and ensure it is gone.
-  CloseShellWindow(window);
-  ASSERT_FALSE(GetFirstShellWindow());
+  if (test_flags & RELAUNCH) {
+    // Close the ShellWindow, and ensure it is gone.
+    CloseShellWindow(window);
+    ASSERT_FALSE(GetFirstShellWindow());
 
-  // Relaunch the app and get a new ShellWindow.
-  content::WindowedNotificationObserver app_loaded_observer(
-      content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
-      content::NotificationService::AllSources());
-  application_launch::OpenApplication(application_launch::LaunchParams(
-      browser()->profile(), extension, extension_misc::LAUNCH_NONE,
-      NEW_WINDOW));
-  app_loaded_observer.Wait();
-  window = GetFirstShellWindow();
-  ASSERT_TRUE(window);
+    // Relaunch the app and get a new ShellWindow.
+    content::WindowedNotificationObserver app_loaded_observer(
+        content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
+        content::NotificationService::AllSources());
+    application_launch::OpenApplication(application_launch::LaunchParams(
+        browser()->profile(), extension, extension_misc::LAUNCH_NONE,
+        NEW_WINDOW));
+    app_loaded_observer.Wait();
+    window = GetFirstShellWindow();
+    ASSERT_TRUE(window);
 
-  // DevTools should have reopened with the relaunch.
-  rvh = window->web_contents()->GetRenderViewHost();
-  ASSERT_TRUE(rvh);
-  ASSERT_TRUE(DevToolsAgentHostRegistry::HasDevToolsAgentHost(rvh));
+    // DevTools should have reopened with the relaunch.
+    rvh = window->web_contents()->GetRenderViewHost();
+    ASSERT_TRUE(rvh);
+    ASSERT_TRUE(DevToolsAgentHostRegistry::HasDevToolsAgentHost(rvh));
+  }
+}
+
+}  // namespace
+
+IN_PROC_BROWSER_TEST_F(PlatformAppDevToolsBrowserTest, ReOpenedWithID) {
+  RunTestWithDevTools("minimal_id", RELAUNCH | HAS_ID);
+}
+
+IN_PROC_BROWSER_TEST_F(PlatformAppDevToolsBrowserTest, ReOpenedWithURL) {
+  RunTestWithDevTools("minimal", RELAUNCH);
+}
+
+// Test that showing a permission request as a constrained window works and is
+// correctly parented.
+#if defined(OS_MACOSX)
+#define MAYBE_ConstrainedWindowRequest DISABLED_ConstrainedWindowRequest
+#else
+// TODO(sail): Enable this on other platforms once http://crbug.com/95455 is
+// fixed.
+#define MAYBE_ConstrainedWindowRequest DISABLED_ConstrainedWindowRequest
+#endif
+
+IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, MAYBE_ConstrainedWindowRequest) {
+  RequestPermissionsFunction::SetIgnoreUserGestureForTests(true);
+  const Extension* extension =
+      LoadAndLaunchPlatformApp("optional_permission_request");
+  ASSERT_TRUE(extension) << "Failed to load extension.";
+
+  WebContents* web_contents = GetFirstShellWindowWebContents();
+  ASSERT_TRUE(web_contents);
+
+  // Verify that the shell window has a constrained window attached.
+  ConstrainedWindowTabHelper* constrained_window_tab_helper =
+      ConstrainedWindowTabHelper::FromWebContents(web_contents);
+  EXPECT_EQ(1u, constrained_window_tab_helper->constrained_window_count());
+
+  // Close the constrained window and wait for the reply to the permission
+  // request.
+  ExtensionTestMessageListener listener("PermissionRequestDone", false);
+  constrained_window_tab_helper->CloseConstrainedWindows();
+  ASSERT_TRUE(listener.WaitUntilSatisfied());
+}
+
+// Tests that an app calling chrome.runtime.reload will reload the app and
+// relaunch it if it was running.
+IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest, ReloadRelaunches) {
+  ExtensionTestMessageListener launched_listener("Launched", true);
+  const Extension* extension = LoadAndLaunchPlatformApp("reload");
+  ASSERT_TRUE(extension);
+  ASSERT_TRUE(launched_listener.WaitUntilSatisfied());
+  ASSERT_TRUE(GetFirstShellWindow());
+
+  // Now tell the app to reload itself
+  ExtensionTestMessageListener launched_listener2("Launched", false);
+  launched_listener.Reply("reload");
+  ASSERT_TRUE(launched_listener2.WaitUntilSatisfied());
+  ASSERT_TRUE(GetFirstShellWindow());
 }
 
 }  // namespace extensions

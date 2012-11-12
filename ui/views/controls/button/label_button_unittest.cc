@@ -5,6 +5,8 @@
 #include "base/utf_string_conversions.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/font.h"
+#include "ui/gfx/size.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/test/views_test_base.h"
 
@@ -33,7 +35,7 @@ TEST_F(LabelButtonTest, Init) {
   EXPECT_TRUE(button.GetImage(CustomButton::BS_DISABLED).isNull());
 
   EXPECT_EQ(text, button.GetText());
-  EXPECT_EQ(Label::ALIGN_LEFT, button.GetHorizontalAlignment());
+  EXPECT_EQ(gfx::ALIGN_LEFT, button.GetHorizontalAlignment());
   EXPECT_FALSE(button.default_button());
   EXPECT_FALSE(button.native_theme());
   EXPECT_EQ(CustomButton::BS_NORMAL, button.state());
@@ -133,15 +135,15 @@ TEST_F(LabelButtonTest, LabelAndImage) {
   // (A proper parent view or layout manager would Layout on its invalidations).
   button.SetSize(button.GetPreferredSize());
   button.Layout();
-  EXPECT_EQ(Label::ALIGN_LEFT, button.GetHorizontalAlignment());
+  EXPECT_EQ(gfx::ALIGN_LEFT, button.GetHorizontalAlignment());
   EXPECT_LT(button.image_->bounds().right(), button.label_->bounds().x());
-  button.SetHorizontalAlignment(Label::ALIGN_CENTER);
+  button.SetHorizontalAlignment(gfx::ALIGN_CENTER);
   button.Layout();
-  EXPECT_EQ(Label::ALIGN_CENTER, button.GetHorizontalAlignment());
+  EXPECT_EQ(gfx::ALIGN_CENTER, button.GetHorizontalAlignment());
   EXPECT_LT(button.image_->bounds().right(), button.label_->bounds().x());
-  button.SetHorizontalAlignment(Label::ALIGN_RIGHT);
+  button.SetHorizontalAlignment(gfx::ALIGN_RIGHT);
   button.Layout();
-  EXPECT_EQ(Label::ALIGN_RIGHT, button.GetHorizontalAlignment());
+  EXPECT_EQ(gfx::ALIGN_RIGHT, button.GetHorizontalAlignment());
   EXPECT_LT(button.label_->bounds().right(), button.image_->bounds().x());
 
   button.SetText(string16());
@@ -160,6 +162,28 @@ TEST_F(LabelButtonTest, LabelAndImage) {
   EXPECT_LT(button.GetPreferredSize().width(), text_width);
   EXPECT_LT(button.GetPreferredSize().width(), image_size);
   EXPECT_LT(button.GetPreferredSize().height(), image_size);
+}
+
+TEST_F(LabelButtonTest, Font) {
+  const string16 text(ASCIIToUTF16("abc"));
+  LabelButton button(NULL, text);
+
+  const gfx::Font original_font = button.GetFont();
+  const gfx::Font large_font = original_font.DeriveFont(100);
+  const int original_width = button.GetPreferredSize().width();
+  const int original_height = button.GetPreferredSize().height();
+
+  // The button size increases when the font size is increased.
+  button.SetFont(large_font);
+  EXPECT_GT(button.GetPreferredSize().width(), original_width);
+  EXPECT_GT(button.GetPreferredSize().height(), original_height);
+
+  // The button returns to its original size when the minimal size is cleared
+  // and the original font size is restored.
+  button.set_min_size(gfx::Size());
+  button.SetFont(original_font);
+  EXPECT_EQ(original_width, button.GetPreferredSize().width());
+  EXPECT_EQ(original_height, button.GetPreferredSize().height());
 }
 
 }  // namespace views

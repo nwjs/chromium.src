@@ -121,8 +121,8 @@ struct AutocompleteEditState : public base::SupportsUserData::Data {
 // Returns true if the current point is far enough from the origin that it
 // would be considered a drag.
 bool IsDrag(const POINT& origin, const POINT& current) {
-  return views::View::ExceededDragThreshold(current.x - origin.x,
-                                            current.y - origin.y);
+  return views::View::ExceededDragThreshold(
+      gfx::Point(current) - gfx::Point(origin));
 }
 
 // Write |text| and an optional |url| to the clipboard.
@@ -474,14 +474,13 @@ OmniboxViewWin::OmniboxViewWin(OmniboxEditController* controller,
       initiated_drag_(false),
       drop_highlight_position_(-1),
       ime_candidate_window_open_(false),
-      background_color_(skia::SkColorToCOLORREF(LocationBarView::GetColor(
-          chrome::search::IsInstantExtendedAPIEnabled(parent_view_->profile()),
+      background_color_(skia::SkColorToCOLORREF(parent_view->GetColor(
           ToolbarModel::NONE, LocationBarView::BACKGROUND))),
       security_level_(ToolbarModel::NONE),
       text_object_model_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(
-          tsf_event_router_(base::win::IsTsfAwareRequired() ?
-              new ui::TsfEventRouter(this) : NULL)) {
+          tsf_event_router_(base::win::IsTSFAwareRequired() ?
+              new ui::TSFEventRouter(this) : NULL)) {
   if (!loaded_library_module_)
     loaded_library_module_ = LoadLibrary(kRichEditDLLName);
 
@@ -1395,7 +1394,7 @@ void OmniboxViewWin::OnCopy() {
 }
 
 LRESULT OmniboxViewWin::OnCreate(const CREATESTRUCTW* /*create_struct*/) {
-  if (base::win::IsTsfAwareRequired()) {
+  if (base::win::IsTSFAwareRequired()) {
     // Enable TSF support of RichEdit.
     SetEditStyle(SES_USECTF, SES_USECTF);
   }
@@ -1410,7 +1409,7 @@ LRESULT OmniboxViewWin::OnCreate(const CREATESTRUCTW* /*create_struct*/) {
   // to guarantee we've always called OnBeforePossibleChange() before
   // OnAfterPossibleChange(), we therefore call that here.  Note that multiple
   // (i.e. unmatched) calls to this function in a row are safe.
-  if (base::win::IsTsfAwareRequired())
+  if (base::win::IsTSFAwareRequired())
     OnBeforePossibleChange();
   return 0;
 }
@@ -1955,7 +1954,7 @@ void OmniboxViewWin::OnSetFocus(HWND focus_wnd) {
     // Document manager created by RichEdit can be obtained only after
     // WM_SETFOCUS event is handled.
     tsf_event_router_->SetManager(
-        ui::TsfBridge::GetInstance()->GetThreadManager());
+        ui::TSFBridge::GetInstance()->GetThreadManager());
     SetMsgHandled(true);
   }
 }
@@ -2370,8 +2369,7 @@ void OmniboxViewWin::EmphasizeURLComponents() {
   // If we're going to emphasize parts of the text, then the baseline state
   // should be "de-emphasized".  If not, then everything should be rendered in
   // the standard text color.
-  cf.crTextColor = skia::SkColorToCOLORREF(LocationBarView::GetColor(
-      instant_extended_api_enabled,
+  cf.crTextColor = skia::SkColorToCOLORREF(parent_view_->GetColor(
       security_level_,
       emphasize ? LocationBarView::DEEMPHASIZED_TEXT : LocationBarView::TEXT));
   // NOTE: Don't use SetDefaultCharFormat() instead of the below; that sets the
@@ -2382,23 +2380,22 @@ void OmniboxViewWin::EmphasizeURLComponents() {
 
   if (emphasize) {
     // We've found a host name, give it more emphasis.
-    cf.crTextColor = skia::SkColorToCOLORREF(LocationBarView::GetColor(
-        instant_extended_api_enabled, security_level_, LocationBarView::TEXT));
+    cf.crTextColor = skia::SkColorToCOLORREF(parent_view_->GetColor(
+        security_level_, LocationBarView::TEXT));
     SetSelection(host.begin, host.end());
     SetSelectionCharFormat(cf);
   }
 
   // Emphasize the scheme for security UI display purposes (if necessary).
   insecure_scheme_component_.reset();
-  if (!model()->user_input_in_progress() && scheme.is_nonempty() &&
-      (security_level_ != ToolbarModel::NONE)) {
+  if (!model()->user_input_in_progress() && model()->CurrentTextIsURL() &&
+      scheme.is_nonempty() && (security_level_ != ToolbarModel::NONE)) {
     if (security_level_ == ToolbarModel::SECURITY_ERROR) {
       insecure_scheme_component_.begin = scheme.begin;
       insecure_scheme_component_.len = scheme.len;
     }
-    cf.crTextColor = skia::SkColorToCOLORREF(LocationBarView::GetColor(
-        instant_extended_api_enabled, security_level_,
-        LocationBarView::SECURITY_TEXT));
+    cf.crTextColor = skia::SkColorToCOLORREF(parent_view_->GetColor(
+        security_level_, LocationBarView::SECURITY_TEXT));
     SetSelection(scheme.begin, scheme.end());
     SetSelectionCharFormat(cf);
   }
@@ -2497,9 +2494,8 @@ void OmniboxViewWin::DrawSlashForInsecureScheme(HDC hdc,
   sk_canvas->save();
   if (selection_rect.isEmpty() ||
       sk_canvas->clipRect(selection_rect, SkRegion::kDifference_Op)) {
-    paint.setColor(LocationBarView::GetColor(instant_extended_api_enabled,
-                                             security_level_,
-                                             LocationBarView::SECURITY_TEXT));
+    paint.setColor(parent_view_->GetColor(security_level_,
+                                          LocationBarView::SECURITY_TEXT));
     sk_canvas->drawLine(start_point.fX, start_point.fY,
                         end_point.fX, end_point.fY, paint);
   }
@@ -2507,9 +2503,8 @@ void OmniboxViewWin::DrawSlashForInsecureScheme(HDC hdc,
 
   // Draw the selected portion of the stroke.
   if (!selection_rect.isEmpty() && sk_canvas->clipRect(selection_rect)) {
-    paint.setColor(LocationBarView::GetColor(instant_extended_api_enabled,
-                                             security_level_,
-                                             LocationBarView::SELECTED_TEXT));
+    paint.setColor(parent_view_->GetColor(security_level_,
+                                          LocationBarView::SELECTED_TEXT));
     sk_canvas->drawLine(start_point.fX, start_point.fY,
                         end_point.fX, end_point.fY, paint);
   }

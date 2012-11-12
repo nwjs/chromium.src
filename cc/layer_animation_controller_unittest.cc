@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_animation_controller.h"
 
 #include "cc/active_animation.h"
@@ -13,10 +11,10 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebTransformationMatrix.h>
 
-using namespace cc;
 using namespace WebKitTests;
 using WebKit::WebTransformationMatrix;
 
+namespace cc {
 namespace {
 
 void expectTranslateX(double translateX, const WebTransformationMatrix& matrix)
@@ -126,7 +124,7 @@ TEST(LayerAnimationControllerTest, doNotSyncFinishedAnimation)
 
     EXPECT_FALSE(controllerImpl->getActiveAnimation(0, ActiveAnimation::Opacity));
 
-    addOpacityTransitionToController(*controller, 1, 0, 1, false);
+    int animationId = addOpacityTransitionToController(*controller, 1, 0, 1, false);
 
     controller->pushAnimationUpdatesTo(controllerImpl.get());
 
@@ -138,14 +136,14 @@ TEST(LayerAnimationControllerTest, doNotSyncFinishedAnimation)
     controller->notifyAnimationStarted(animationStartedEvent);
 
     // Force animation to complete on impl thread.
-    controllerImpl->removeAnimation(0);
+    controllerImpl->removeAnimation(animationId);
 
-    EXPECT_FALSE(controllerImpl->getActiveAnimation(0, ActiveAnimation::Opacity));
+    EXPECT_FALSE(controllerImpl->getActiveAnimation(animationId, ActiveAnimation::Opacity));
 
     controller->pushAnimationUpdatesTo(controllerImpl.get());
 
     // Even though the main thread has a 'new' animation, it should not be pushed because the animation has already completed on the impl thread.
-    EXPECT_FALSE(controllerImpl->getActiveAnimation(0, ActiveAnimation::Opacity));
+    EXPECT_FALSE(controllerImpl->getActiveAnimation(animationId, ActiveAnimation::Opacity));
 }
 
 // Tests that transitioning opacity from 0 to 1 works as expected.
@@ -558,4 +556,5 @@ TEST(LayerAnimationControllerTest, ForceSyncWhenSynchronizedStartTimeNeeded)
     EXPECT_EQ(ActiveAnimation::WaitingForTargetAvailability, activeAnimation->runState());
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

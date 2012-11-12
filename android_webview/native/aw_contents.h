@@ -9,6 +9,7 @@
 #include <string>
 
 #include "android_webview/browser/find_helper.h"
+#include "android_webview/public/browser/draw_gl.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/android/jni_helper.h"
 #include "base/memory/scoped_ptr.h"
@@ -41,6 +42,8 @@ class AwContents : public FindHelper::Listener {
              bool private_browsing);
   virtual ~AwContents();
 
+  void DrawGL(AwDrawGLInfo* draw_info);
+
   void RunJavaScriptDialog(
       content::JavaScriptMessageType message_type,
       const GURL& origin_url,
@@ -68,6 +71,9 @@ class AwContents : public FindHelper::Listener {
   void SetInterceptNavigationDelegate(JNIEnv* env, jobject obj,
                                       jobject delegate);
   base::android::ScopedJavaLocalRef<jbyteArray> GetCertificate(
+      JNIEnv* env, jobject obj);
+  void RequestNewHitTestDataAt(JNIEnv* env, jobject obj, jint x, jint y);
+  base::android::ScopedJavaLocalRef<jobject> GetLastHitTestData(
       JNIEnv* env, jobject obj);
 
   // Find-in-page API and related methods.

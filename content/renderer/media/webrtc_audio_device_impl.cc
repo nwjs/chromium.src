@@ -20,8 +20,10 @@ using media::ChannelLayout;
 
 namespace content {
 
-static const int64 kMillisecondsBetweenProcessCalls = 5000;
-static const double kMaxVolumeLevel = 255.0;
+namespace {
+
+const int64 kMillisecondsBetweenProcessCalls = 5000;
+const double kMaxVolumeLevel = 255.0;
 
 // Supported hardware sample rates for input and output sides.
 #if defined(OS_WIN) || defined(OS_MACOSX)
@@ -29,14 +31,17 @@ static const double kMaxVolumeLevel = 255.0;
 // for its current sample rate (set by the user) on Windows and Mac OS X.
 // The listed rates below adds restrictions and WebRtcAudioDeviceImpl::Init()
 // will fail if the user selects any rate outside these ranges.
-static int kValidInputRates[] = {96000, 48000, 44100, 32000, 16000, 8000};
+int kValidInputRates[] = {96000, 48000, 44100, 32000, 16000, 8000};
 #elif defined(OS_LINUX) || defined(OS_OPENBSD)
 // media::GetAudioInput[Output]HardwareSampleRate() is hardcoded to return
 // 48000 in both directions on Linux.
-static int kValidInputRates[] = {48000};
+int kValidInputRates[] = {48000};
+#elif defined(OS_ANDROID)
+// On Android, the most popular sampling rate is 16000.
+int kValidInputRates[] = {48000, 44100, 16000};
+#else
+int kValidInputRates[] = {44100};
 #endif
-
-namespace {
 
 // Helper enum used for histogramming buffer sizes expressed in number of
 // audio frames. This enumerator covers all supported sizes for all platforms.
@@ -218,6 +223,16 @@ void WebRtcAudioDeviceImpl::RenderData(uint8* audio_data,
 
 void WebRtcAudioDeviceImpl::SetRenderFormat(const AudioParameters& params) {
   output_audio_parameters_ = params;
+}
+
+void WebRtcAudioDeviceImpl::RemoveRenderer(WebRtcAudioRenderer* renderer) {
+  DCHECK(renderer);
+  base::AutoLock auto_lock(lock_);
+  if (renderer != renderer_)
+    return;
+
+  renderer_ = NULL;
+  playing_ = false;
 }
 
 void WebRtcAudioDeviceImpl::Capture(media::AudioBus* audio_bus,
@@ -666,16 +681,12 @@ int32_t WebRtcAudioDeviceImpl::StartPlayout() {
     // renderer_ pointer over to a local variable, release the lock, and call
     // Play() using the local variable.
     base::AutoLock auto_lock(lock_);
-    if (!renderer_)
-      return -1;
-
-    renderer_->Play();
+    if (renderer_)
+      renderer_->Play();
   }
 
   playing_ = true;
-
   start_render_time_ = base::Time::Now();
-
   return 0;
 }
 
@@ -697,10 +708,8 @@ int32_t WebRtcAudioDeviceImpl::StopPlayout() {
     base::AutoLock auto_lock(lock_);
     // TODO(xians): transfer ownership of the renderer_ pointer over to a local
     // variable, release the lock, and call Pause() using the local variable.
-    if (!renderer_)
-      return -1;
-
-    renderer_->Pause();
+    if (renderer_)
+      renderer_->Pause();
   }
 
   playing_ = false;

@@ -17,8 +17,9 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/observer_list.h"
+#include "base/timer.h"
 #include "googleurl/src/gurl.h"
-#include "webkit/fileapi/syncable/file_change.h"
 #include "webkit/fileapi/syncable/local_file_sync_status.h"
 #include "webkit/fileapi/syncable/sync_callbacks.h"
 #include "webkit/fileapi/syncable/sync_status_code.h"
@@ -33,6 +34,8 @@ namespace fileapi {
 class FileChange;
 class FileSystemContext;
 class LocalFileChangeTracker;
+struct LocalFileSyncInfo;
+class LocalOriginChangeObserver;
 class SyncableFileOperationRunner;
 
 // This class works as a bridge between LocalFileSyncService (which is a
@@ -45,9 +48,8 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
       public LocalFileSyncStatus::Observer {
  public:
   typedef base::Callback<void(SyncStatusCode status,
-                              SyncFileType file_type,
-                              const FileChangeList& changes)>
-      ChangeListCallback;
+                              const LocalFileSyncInfo& sync_file_info)>
+      LocalFileSyncInfoCallback;
 
   LocalFileSyncContext(base::SingleThreadTaskRunner* ui_task_runner,
                        base::SingleThreadTaskRunner* io_task_runner);
@@ -59,11 +61,23 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
   void MaybeInitializeFileSystemContext(const GURL& source_url,
                                         const std::string& service_name,
                                         FileSystemContext* file_system_context,
-                                        const StatusCallback& callback);
+                                        const SyncStatusCallback& callback);
 
   // Called when the corresponding LocalFileSyncService exits.
   // This method must be called on UI thread.
   void ShutdownOnUIThread();
+
+  // Picks a file for next local sync and returns it after disabling writes
+  // for the file.
+  // This method must be called on UI thread.
+  void GetFileForLocalSync(FileSystemContext* file_system_context,
+                           const LocalFileSyncInfoCallback& callback);
+
+  // Notifies the sync context that the local sync has finished (either
+  // successfully or with an error) for |url|.
+  // This method must be called on UI thread.
+  void FinalizeSyncForURL(FileSystemContext* file_system_context,
+                          const FileSystemURL& url);
 
   // Prepares for sync |url| by disabling writes on |url|.
   // If the target |url| is being written and cannot start sync it
@@ -73,7 +87,7 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
   // This method must be called on UI thread.
   void PrepareForSync(FileSystemContext* file_system_context,
                       const FileSystemURL& url,
-                      const ChangeListCallback& callback);
+                      const LocalFileSyncInfoCallback& callback);
 
   // Registers |url| to wait until sync is enabled for |url|.
   // |on_syncable_callback| is to be called when |url| becomes syncable
@@ -94,7 +108,17 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
       const FileChange& change,
       const FilePath& local_path,
       const FileSystemURL& url,
-      const StatusCallback& callback);
+      const SyncStatusCallback& callback);
+
+  // This must be called on UI thread.
+  void GetFileMetadata(
+      FileSystemContext* file_system_context,
+      const FileSystemURL& url,
+      const SyncFileMetadataCallback& callback);
+
+  // They must be called on UI thread.
+  void AddOriginChangeObserver(LocalOriginChangeObserver* observer);
+  void RemoveOriginChangeObserver(LocalOriginChangeObserver* observer);
 
   // OperationRunner is accessible only on IO thread.
   base::WeakPtr<SyncableFileOperationRunner> operation_runner() const;
@@ -102,19 +126,36 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
   // SyncContext is accessible only on IO thread.
   LocalFileSyncStatus* sync_status() const;
 
+  // For testing; override the duration to notify changes from the
+  // default value.
+  void set_mock_notify_changes_duration_in_sec(int duration) {
+    mock_notify_changes_duration_in_sec_ = duration;
+  }
+
  protected:
   // LocalFileSyncStatus::Observer overrides. They are called on IO thread.
   virtual void OnSyncEnabled(const FileSystemURL& url) OVERRIDE;
   virtual void OnWriteEnabled(const FileSystemURL& url) OVERRIDE;
 
  private:
-  typedef std::deque<StatusCallback> StatusCallbackQueue;
+  typedef std::deque<SyncStatusCallback> StatusCallbackQueue;
   friend class base::RefCountedThreadSafe<LocalFileSyncContext>;
   friend class CannedSyncableFileSystem;
 
   virtual ~LocalFileSyncContext();
 
   void ShutdownOnIOThread();
+
+  // Adds |origin| to the internal origin set that have pending changes
+  // (origins_with_pending_changes_) and start timer to eventually call
+  // NotifyAvailableChangesOnIOThread. This is called on IO thread.
+  void OnNumberOfAvailableChangesUpdatedOnIOThread(const GURL& origin);
+
+  // Called by the internal timer on IO thread to notify changes to UI thread.
+  void NotifyAvailableChangesOnIOThread();
+
+  // Called from NotifyAvailableChangesOnIOThread.
+  void NotifyAvailableChanges(const std::set<GURL>& origins);
 
   // Helper routines for MaybeInitializeFileSystemContext.
   void InitializeFileSystemContextOnIOThread(
@@ -124,7 +165,7 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
   SyncStatusCode InitializeChangeTrackerOnFileThread(
       scoped_ptr<LocalFileChangeTracker>* tracker_ptr,
       FileSystemContext* file_system_context);
-  void DidInitializeChangeTracker(
+  void DidInitializeChangeTrackerOnIOThread(
       scoped_ptr<LocalFileChangeTracker>* tracker_ptr,
       const GURL& source_url,
       const std::string& service_name,
@@ -135,16 +176,43 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
       FileSystemContext* file_system_context,
       SyncStatusCode status);
 
-  // Helper routines for PrepareForSync.
-  void DidGetWritingStatusForPrepareForSync(
+  // Helper routines for GetFileForLocalSync.
+  void GetNextURLsForSyncOnFileThread(
+      FileSystemContext* file_system_context,
+      std::deque<FileSystemURL>* urls);
+  void TryPrepareForLocalSync(
+      FileSystemContext* file_system_context,
+      std::deque<FileSystemURL>* urls,
+      const LocalFileSyncInfoCallback& callback);
+  void DidTryPrepareForLocalSync(
+      FileSystemContext* file_system_context,
+      std::deque<FileSystemURL>* remaining_urls,
+      const LocalFileSyncInfoCallback& callback,
+      SyncStatusCode status,
+      const LocalFileSyncInfo& sync_file_info);
+
+  // Callback routine for PrepareForSync and GetFileForLocalSync.
+  void DidGetWritingStatusForSync(
       FileSystemContext* file_system_context,
       SyncStatusCode status,
       const FileSystemURL& url,
-      const ChangeListCallback& callback);
+      const LocalFileSyncInfoCallback& callback);
 
+  // Helper routine for FinalizeSyncForURL.
+  void EnableWritingOnIOThread(const FileSystemURL& url);
+
+  // Callback routine for ApplyRemoteChange.
   void DidApplyRemoteChange(
-      const StatusCallback& callback_on_ui,
+      const SyncStatusCallback& callback_on_ui,
       base::PlatformFileError file_error);
+
+  void DidGetFileMetadata(
+      const SyncFileMetadataCallback& callback,
+      base::PlatformFileError file_error,
+      const base::PlatformFileInfo& file_info,
+      const FilePath& platform_path);
+
+  base::TimeDelta NotifyChangesDuration();
 
   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
@@ -172,6 +240,15 @@ class WEBKIT_STORAGE_EXPORT LocalFileSyncContext
   // Accessed only on IO thread.
   FileSystemURL url_waiting_sync_on_io_;
   base::Closure url_syncable_callback_;
+
+  // Used only on IO thread for available changes notifications.
+  base::Time last_notified_changes_;
+  scoped_ptr<base::OneShotTimer<LocalFileSyncContext> > timer_on_io_;
+  std::set<GURL> origins_with_pending_changes_;
+
+  ObserverList<LocalOriginChangeObserver> origin_change_observers_;
+
+  int mock_notify_changes_duration_in_sec_;
 
   DISALLOW_COPY_AND_ASSIGN(LocalFileSyncContext);
 };

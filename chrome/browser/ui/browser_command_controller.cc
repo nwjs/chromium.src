@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_utils.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
@@ -35,6 +36,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_restriction.h"
 #include "content/public/common/url_constants.h"
@@ -48,7 +50,6 @@
 #include "chrome/browser/ui/ash/ash_util.h"
 #endif
 
-using content::WebContents;
 using content::NavigationEntry;
 using content::NavigationController;
 using content::WebContents;
@@ -411,9 +412,11 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_WIN8_DESKTOP_RESTART:
       browser::AttemptRestartWithModeSwitch();
+      content::RecordAction(content::UserMetricsAction("Win8DesktopRestart"));
       break;
     case IDC_WIN8_METRO_RESTART:
       new SwichToMetroUIHandler;
+      content::RecordAction(content::UserMetricsAction("Win8MetroRestart"));
       break;
 #endif
 
@@ -432,6 +435,9 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_BOOKMARK_PAGE:
       BookmarkCurrentPage(browser_);
+      break;
+    case IDC_BOOKMARK_PAGE_FROM_STAR:
+      BookmarkCurrentPageFromStar(browser_);
       break;
     case IDC_PIN_TO_START_SCREEN:
       TogglePagePinnedToStartScreen(browser_);
@@ -664,29 +670,6 @@ void BrowserCommandController::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   switch (type) {
-    case NOTIFICATION_PREF_CHANGED: {
-      const std::string& pref_name =
-          *content::Details<std::string>(details).ptr();
-      if (pref_name == prefs::kPrintingEnabled) {
-        UpdatePrintingState();
-      } else if (pref_name == prefs::kIncognitoModeAvailability) {
-        UpdateCommandsForIncognitoAvailability();
-      } else if (pref_name == prefs::kDevToolsDisabled) {
-        UpdateCommandsForDevTools();
-      } else if (pref_name == prefs::kEditBookmarksEnabled) {
-        UpdateCommandsForBookmarkEditing();
-      } else if (pref_name == prefs::kShowBookmarkBar) {
-        UpdateCommandsForBookmarkBar();
-      } else if (pref_name == prefs::kAllowFileSelectionDialogs) {
-        UpdateSaveAsState();
-        UpdateOpenFileState();
-      } else if (pref_name == prefs::kInManagedMode) {
-        UpdateCommandsForMultipleProfiles();
-      } else {
-        NOTREACHED();
-      }
-      break;
-    }
     case content::NOTIFICATION_INTERSTITIAL_ATTACHED:
       UpdateCommandsForTabState();
       break;
@@ -701,15 +684,41 @@ void BrowserCommandController::Observe(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// PrefObserver implementation:
+
+void BrowserCommandController::OnPreferenceChanged(
+    PrefServiceBase* service,
+    const std::string& pref_name) {
+  if (pref_name == prefs::kPrintingEnabled) {
+    UpdatePrintingState();
+  } else if (pref_name == prefs::kIncognitoModeAvailability) {
+    UpdateCommandsForIncognitoAvailability();
+  } else if (pref_name == prefs::kDevToolsDisabled) {
+    UpdateCommandsForDevTools();
+  } else if (pref_name == prefs::kEditBookmarksEnabled) {
+    UpdateCommandsForBookmarkEditing();
+  } else if (pref_name == prefs::kShowBookmarkBar) {
+    UpdateCommandsForBookmarkBar();
+  } else if (pref_name == prefs::kAllowFileSelectionDialogs) {
+    UpdateSaveAsState();
+    UpdateOpenFileState();
+  } else if (pref_name == prefs::kInManagedMode) {
+    UpdateCommandsForMultipleProfiles();
+  } else {
+    NOTREACHED();
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // BrowserCommandController, TabStripModelObserver implementation:
 
-void BrowserCommandController::TabInsertedAt(TabContents* contents,
+void BrowserCommandController::TabInsertedAt(WebContents* contents,
                                              int index,
                                              bool foreground) {
   AddInterstitialObservers(contents);
 }
 
-void BrowserCommandController::TabDetachedAt(TabContents* contents, int index) {
+void BrowserCommandController::TabDetachedAt(WebContents* contents, int index) {
   RemoveInterstitialObservers(contents);
 }
 
@@ -717,8 +726,8 @@ void BrowserCommandController::TabReplacedAt(TabStripModel* tab_strip_model,
                                              TabContents* old_contents,
                                              TabContents* new_contents,
                                              int index) {
-  RemoveInterstitialObservers(old_contents);
-  AddInterstitialObservers(new_contents);
+  RemoveInterstitialObservers(old_contents->web_contents());
+  AddInterstitialObservers(new_contents->web_contents());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -853,9 +862,6 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_HOME, normal_window);
 
   // Window management commands
-  // TODO(rohitrao): Disable fullscreen on non-Lion?
-  command_updater_.UpdateCommandEnabled(IDC_FULLSCREEN,
-      !(browser_->is_type_panel() && browser_->is_app()));
   command_updater_.UpdateCommandEnabled(IDC_SELECT_NEXT_TAB, normal_window);
   command_updater_.UpdateCommandEnabled(IDC_SELECT_PREVIOUS_TAB,
                                         normal_window);
@@ -878,11 +884,7 @@ void BrowserCommandController::InitCommandState() {
       IDC_WIN8_DESKTOP_RESTART : IDC_WIN8_METRO_RESTART;
   command_updater_.UpdateCommandEnabled(restart_mode, normal_window);
 #endif
-#if defined(OS_MACOSX)
   command_updater_.UpdateCommandEnabled(IDC_TABPOSE, normal_window);
-  command_updater_.UpdateCommandEnabled(IDC_PRESENTATION_MODE,
-      !(browser_->is_type_panel() && browser_->is_app()));
-#endif
 
   // Find-in-page
   command_updater_.UpdateCommandEnabled(IDC_FIND, !browser_->is_devtools());
@@ -1096,9 +1098,20 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode(
 #endif
 
   // Disable explicit fullscreen toggling when in metro snap mode.
-  command_updater_.UpdateCommandEnabled(
-      IDC_FULLSCREEN,
-      fullscreen_mode != FULLSCREEN_METRO_SNAP);
+  bool fullscreen_enabled = !browser_->is_type_panel() &&
+                            !browser_->is_app() &&
+                            fullscreen_mode != FULLSCREEN_METRO_SNAP;
+#if defined(OS_MACOSX)
+  // The Mac implementation doesn't support switching to fullscreen while
+  // a tab modal dialog is displayed.
+  int tabIndex = chrome::IndexOfFirstBlockedTab(browser_->tab_strip_model());
+  bool has_blocked_tab = tabIndex != browser_->tab_strip_model()->count();
+  fullscreen_enabled &= !has_blocked_tab;
+#endif
+
+  command_updater_.UpdateCommandEnabled(IDC_FULLSCREEN, fullscreen_enabled);
+  command_updater_.UpdateCommandEnabled(IDC_PRESENTATION_MODE,
+                                        fullscreen_enabled);
 
   UpdateCommandsForBookmarkBar();
   UpdateCommandsForMultipleProfiles();
@@ -1151,19 +1164,19 @@ void BrowserCommandController::UpdateReloadStopState(bool is_loading,
   command_updater_.UpdateCommandEnabled(IDC_STOP, is_loading);
 }
 
-void BrowserCommandController::AddInterstitialObservers(TabContents* contents) {
+void BrowserCommandController::AddInterstitialObservers(WebContents* contents) {
   registrar_.Add(this, content::NOTIFICATION_INTERSTITIAL_ATTACHED,
-                 content::Source<WebContents>(contents->web_contents()));
+                 content::Source<WebContents>(contents));
   registrar_.Add(this, content::NOTIFICATION_INTERSTITIAL_DETACHED,
-                 content::Source<WebContents>(contents->web_contents()));
+                 content::Source<WebContents>(contents));
 }
 
 void BrowserCommandController::RemoveInterstitialObservers(
-    TabContents* contents) {
+    WebContents* contents) {
   registrar_.Remove(this, content::NOTIFICATION_INTERSTITIAL_ATTACHED,
-                    content::Source<WebContents>(contents->web_contents()));
+                    content::Source<WebContents>(contents));
   registrar_.Remove(this, content::NOTIFICATION_INTERSTITIAL_DETACHED,
-                    content::Source<WebContents>(contents->web_contents()));
+                    content::Source<WebContents>(contents));
 }
 
 BrowserWindow* BrowserCommandController::window() {

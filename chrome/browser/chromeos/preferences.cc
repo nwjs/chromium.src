@@ -30,10 +30,9 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "content/public/browser/notification_details.h"
-#include "content/public/browser/notification_source.h"
 #include "googleurl/src/gurl.h"
 #include "ui/base/events/event_constants.h"
+#include "ui/base/events/event_utils.h"
 #include "unicode/timezone.h"
 
 namespace chromeos {
@@ -68,6 +67,9 @@ void Preferences::RegisterUserPrefs(PrefService* prefs) {
 
   prefs->RegisterBooleanPref(prefs::kTapToClickEnabled,
                              true,
+                             PrefService::SYNCABLE_PREF);
+  prefs->RegisterBooleanPref(prefs::kTapDraggingEnabled,
+                             false,
                              PrefService::SYNCABLE_PREF);
   prefs->RegisterBooleanPref(prefs::kEnableTouchpadThreeFingerClick,
                              false,
@@ -228,6 +230,9 @@ void Preferences::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterIntegerPref(prefs::kLanguageRemapAltKeyTo,
                              input_method::kAltKey,
                              PrefService::SYNCABLE_PREF);
+  prefs->RegisterIntegerPref(prefs::kLanguageRemapCapsLockKeyTo,
+                             input_method::kCapsLockKey,
+                             PrefService::SYNCABLE_PREF);
   // We don't sync the following keyboard prefs since they are not user-
   // configurable.
   prefs->RegisterBooleanPref(prefs::kLanguageXkbAutoRepeatEnabled,
@@ -286,6 +291,7 @@ void Preferences::InitUserPrefs(PrefService* prefs) {
   prefs_ = prefs;
 
   tap_to_click_enabled_.Init(prefs::kTapToClickEnabled, prefs, this);
+  tap_dragging_enabled_.Init(prefs::kTapDraggingEnabled, prefs, this);
   three_finger_click_enabled_.Init(prefs::kEnableTouchpadThreeFingerClick,
       prefs, this);
   three_finger_swipe_enabled_.Init(prefs::kEnableTouchpadThreeFingerSwipe,
@@ -386,11 +392,9 @@ void Preferences::SetInputMethodListForTesting() {
   SetInputMethodList();
 }
 
-void Preferences::Observe(int type,
-                          const content::NotificationSource& source,
-                          const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_PREF_CHANGED)
-    NotifyPrefChanged(content::Details<std::string>(details).ptr());
+void Preferences::OnPreferenceChanged(PrefServiceBase* service,
+                                      const std::string& pref_name) {
+  NotifyPrefChanged(&pref_name);
 }
 
 void Preferences::NotifyPrefChanged(const std::string* pref_name) {
@@ -408,6 +412,14 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
       if (prefs->GetBoolean(prefs::kOwnerTapToClickEnabled) != enabled)
         prefs->SetBoolean(prefs::kOwnerTapToClickEnabled, enabled);
     }
+  }
+  if (!pref_name || *pref_name == prefs::kTapDraggingEnabled) {
+    const bool enabled = tap_dragging_enabled_.GetValue();
+    system::touchpad_settings::SetTapDragging(enabled);
+    if (pref_name)
+      UMA_HISTOGRAM_BOOLEAN("Touchpad.TapDragging.Changed", enabled);
+    else
+      UMA_HISTOGRAM_BOOLEAN("Touchpad.TapDragging.Started", enabled);
   }
   if (!pref_name || *pref_name == prefs::kEnableTouchpadThreeFingerClick) {
     const bool enabled = three_finger_click_enabled_.GetValue();

@@ -2,15 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef TextureCopier_h
-#define TextureCopier_h
+#ifndef CC_TEXTURE_COPIER_H_
+#define CC_TEXTURE_COPIER_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/program_binding.h"
 #include "cc/shader.h"
-#include "IntSize.h"
 #include "third_party/khronos/GLES2/gl2.h"
+#include "ui/gfx/size.h"
 
 namespace WebKit {
 class WebGraphicsContext3D;
@@ -18,12 +19,12 @@ class WebGraphicsContext3D;
 
 namespace cc {
 
-class TextureCopier {
+class CC_EXPORT TextureCopier {
 public:
     struct Parameters {
         unsigned sourceTexture;
         unsigned destTexture;
-        IntSize size;
+        gfx::Size size;
     };
     // Copy the base level contents of |sourceTexture| to |destTexture|. Both texture objects
     // must be complete and have a base level of |size| dimensions. The color formats do not need
@@ -34,7 +35,7 @@ public:
     virtual ~TextureCopier() { }
 };
 
-class AcceleratedTextureCopier : public TextureCopier {
+class CC_EXPORT AcceleratedTextureCopier : public TextureCopier {
 public:
     static scoped_ptr<AcceleratedTextureCopier> create(WebKit::WebGraphicsContext3D* context, bool usingBindUniforms)
     {
@@ -62,4 +63,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_TEXTURE_COPIER_H_

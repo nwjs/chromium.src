@@ -178,6 +178,7 @@ class TestingProfile : public Profile {
 
   // content::BrowserContext
   virtual FilePath GetPath() OVERRIDE;
+  virtual scoped_refptr<base::SequencedTaskRunner> GetIOTaskRunner() OVERRIDE;
   virtual bool IsOffTheRecord() const OVERRIDE;
   virtual content::DownloadManagerDelegate*
       GetDownloadManagerDelegate() OVERRIDE;
@@ -292,7 +293,9 @@ class TestingProfile : public Profile {
   void BlockUntilHistoryProcessesPendingRequests();
 
   virtual chrome_browser_net::Predictor* GetNetworkPredictor() OVERRIDE;
-  virtual void ClearNetworkingHistorySince(base::Time time) OVERRIDE;
+  virtual void ClearNetworkingHistorySince(
+      base::Time time,
+      const base::Closure& completion) OVERRIDE;
   virtual GURL GetHomePage() OVERRIDE;
 
   virtual PrefService* GetOffTheRecordPrefs() OVERRIDE;

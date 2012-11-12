@@ -20,6 +20,17 @@ html[oobe=new] #login-header-bar {
   background-image: url('chrome://theme/IDR_LAUNCHER_BACKGROUND');
 }
 
+html[oobe=new][screen=lock][lockanimations=new] .login-header-bar-hidden {
+  opacity: 0;
+}
+html[oobe=new][screen=lock][lockanimations=new] .login-header-bar-animate-fast {
+  -webkit-transition: opacity 200ms ease-out;
+}
+
+html[oobe=new][screen=lock][lockanimations=new] .login-header-bar-animate-slow {
+  -webkit-transition: opacity 1s ease-out;
+}
+
 html[oobe=new] .header-bar-item:first-child {
   -webkit-padding-start: 15px;
 }

@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCThreadProxy_h
-#define CCThreadProxy_h
+#ifndef CC_THREAD_PROXY_H_
+#define CC_THREAD_PROXY_H_
 
+#include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "cc/animation_events.h"
 #include "cc/completion_event.h"
@@ -24,13 +25,13 @@ class Thread;
 
 class ThreadProxy : public Proxy, LayerTreeHostImplClient, SchedulerClient, ResourceUpdateControllerClient {
 public:
-    static scoped_ptr<Proxy> create(LayerTreeHost*);
+    static scoped_ptr<Proxy> create(LayerTreeHost*, scoped_ptr<Thread> implThread);
 
     virtual ~ThreadProxy();
 
     // Proxy implementation
-    virtual bool compositeAndReadback(void *pixels, const IntRect&) OVERRIDE;
-    virtual void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration) OVERRIDE;
+    virtual bool compositeAndReadback(void *pixels, const gfx::Rect&) OVERRIDE;
+    virtual void startPageScaleAnimation(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration) OVERRIDE;
     virtual void finishAllRendering() OVERRIDE;
     virtual bool isStarted() const OVERRIDE;
     virtual bool initializeContext() OVERRIDE;
@@ -77,7 +78,7 @@ public:
     virtual void readyToFinalizeTextureUpdates() OVERRIDE;
 
 private:
-    explicit ThreadProxy(LayerTreeHost*);
+    ThreadProxy(LayerTreeHost*, scoped_ptr<Thread> implThread);
 
     // Set on impl thread, read on main thread.
     struct BeginFrameAndCommitState {
@@ -87,7 +88,7 @@ private:
         base::TimeTicks monotonicFrameBeginTime;
         scoped_ptr<ScrollAndScaleSet> scrollInfo;
         WebKit::WebTransformationMatrix implTransform;
-        PrioritizedTextureManager::BackingList evictedContentsTexturesBackings;
+        PrioritizedResourceManager::BackingList evictedContentsTexturesBackings;
         size_t memoryAllocationLimitBytes;
     };
     scoped_ptr<BeginFrameAndCommitState> m_pendingBeginFrameRequest;
@@ -96,7 +97,7 @@ private:
     void beginFrame();
     void didCommitAndDrawFrame();
     void didCompleteSwapBuffers();
-    void setAnimationEvents(AnimationEventsVector*, base::Time wallClockTime);
+    void setAnimationEvents(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime);
     void beginContextRecreation();
     void tryToRecreateContext();
 
@@ -105,23 +106,23 @@ private:
         CompletionEvent completion;
         bool success;
         void* pixels;
-        IntRect rect;
+        gfx::Rect rect;
     };
     void forceBeginFrameOnImplThread(CompletionEvent*);
     void beginFrameCompleteOnImplThread(CompletionEvent*, ResourceUpdateQueue*);
     void beginFrameAbortedOnImplThread();
     void requestReadbackOnImplThread(ReadbackRequest*);
-    void requestStartPageScaleAnimationOnImplThread(IntSize targetPosition, bool useAnchor, float scale, base::TimeDelta duration);
+    void requestStartPageScaleAnimationOnImplThread(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration);
     void finishAllRenderingOnImplThread(CompletionEvent*);
     void initializeImplOnImplThread(CompletionEvent*, InputHandler*);
     void setSurfaceReadyOnImplThread();
     void setVisibleOnImplThread(CompletionEvent*, bool);
-    void initializeContextOnImplThread(GraphicsContext*);
+    void initializeContextOnImplThread(scoped_ptr<GraphicsContext>);
     void initializeRendererOnImplThread(CompletionEvent*, bool* initializeSucceeded, RendererCapabilities*);
     void layerTreeHostClosedOnImplThread(CompletionEvent*);
     void setFullRootLayerDamageOnImplThread();
     void acquireLayerTexturesForMainThreadOnImplThread(CompletionEvent*);
-    void recreateContextOnImplThread(CompletionEvent*, GraphicsContext*, bool* recreateSucceeded, RendererCapabilities*);
+    void recreateContextOnImplThread(CompletionEvent*, scoped_ptr<GraphicsContext>, bool* recreateSucceeded, RendererCapabilities*);
     void renderingStatsOnImplThread(CompletionEvent*, RenderingStats*);
     ScheduledActionDrawAndSwapResult scheduledActionDrawAndSwapInternal(bool forcedDraw);
     void forceSerializeOnSwapBuffersOnImplThread(CompletionEvent*);
@@ -180,4 +181,4 @@ private:
 
 }  // namespace cc
 
-#endif
+#endif  // CC_THREAD_PROXY_H_

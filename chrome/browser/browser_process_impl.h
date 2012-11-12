@@ -17,11 +17,10 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
+#include "base/prefs/public/pref_observer.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/timer.h"
-#include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/browser_process.h"
-#include "content/public/browser/notification_observer.h"
 
 class ChromeNetLog;
 class ChromeResourceDispatcherHostDelegate;
@@ -44,7 +43,7 @@ class PolicyService;
 // Real implementation of BrowserProcess that creates and returns the services.
 class BrowserProcessImpl : public BrowserProcess,
                            public base::NonThreadSafe,
-                           public content::NotificationObserver {
+                           public PrefObserver {
  public:
   // |local_state_task_runner| must be a shutdown-blocking task runner.
   BrowserProcessImpl(base::SequencedTaskRunner* local_state_task_runner,
@@ -110,7 +109,6 @@ class BrowserProcessImpl : public BrowserProcess,
   virtual SafeBrowsingService* safe_browsing_service() OVERRIDE;
   virtual safe_browsing::ClientSideDetectionService*
       safe_browsing_detection_service() OVERRIDE;
-  virtual bool plugin_finder_disabled() const OVERRIDE;
 
 #if (defined(OS_WIN) || defined(OS_LINUX)) && !defined(OS_CHROMEOS)
   virtual void StartAutoupdateTimer() OVERRIDE;
@@ -120,11 +118,11 @@ class BrowserProcessImpl : public BrowserProcess,
   virtual prerender::PrerenderTracker* prerender_tracker() OVERRIDE;
   virtual ComponentUpdateService* component_updater() OVERRIDE;
   virtual CRLSetFetcher* crl_set_fetcher() OVERRIDE;
+  virtual BookmarkPromptController* bookmark_prompt_controller() OVERRIDE;
 
-  // content::NotificationObserver implementation.
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+  // PrefObserver implementation.
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
  private:
   void CreateMetricsService();
@@ -183,6 +181,9 @@ class BrowserProcessImpl : public BrowserProcess,
 
 #if !defined(OS_ANDROID)
   scoped_ptr<RemoteDebuggingServer> remote_debugging_server_;
+
+  // Bookmark prompt controller displays the prompt for frequently visited URL.
+  scoped_ptr<BookmarkPromptController> bookmark_prompt_controller_;
 #endif
 
   scoped_refptr<printing::PrintPreviewTabController>
@@ -247,9 +248,6 @@ class BrowserProcessImpl : public BrowserProcess,
 
   scoped_ptr<ChromeResourceDispatcherHostDelegate>
       resource_dispatcher_host_delegate_;
-
-  // Monitors the state of the 'DisablePluginFinder' policy.
-  scoped_ptr<BooleanPrefMember> plugin_finder_disabled_pref_;
 
 #if (defined(OS_WIN) || defined(OS_LINUX)) && !defined(OS_CHROMEOS)
   base::RepeatingTimer<BrowserProcessImpl> autoupdate_timer_;

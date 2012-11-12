@@ -5,10 +5,12 @@
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
 
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/field_trial.h"
 #include "base/string_split.h"
+#include "base/supports_user_data.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/api/infobars/one_click_signin_infobar_delegate.h"
 #include "chrome/browser/browser_process.h"
@@ -18,9 +20,11 @@
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
+#include "chrome/browser/profiles/profile_io_data.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/signin_manager.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
+#include "chrome/browser/signin/signin_names_io_thread.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/tab_contents/tab_util.h"
@@ -29,6 +33,7 @@
 #include "chrome/browser/ui/sync/one_click_signin_histogram.h"
 #include "chrome/browser/ui/sync/one_click_signin_sync_starter.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -39,11 +44,13 @@
 #include "content/public/common/frame_navigate_params.h"
 #include "content/public/common/page_transition_types.h"
 #include "content/public/common/password_form.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "googleurl/src/gurl.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "net/base/escape.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/url_request/url_request.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -58,23 +65,97 @@ namespace {
 bool use_blue_on_white = false;
 
 // Start syncing with the given user information.
-void StartSync(content::WebContents* web_contents,
+void StartSync(Browser* browser,
+               OneClickSigninHelper::AutoAccept auto_accept,
                const std::string& session_index,
                const std::string& email,
                const std::string& password,
                OneClickSigninSyncStarter::StartSyncMode start_mode) {
   // The starter deletes itself once its done.
-  Browser* browser = browser::FindBrowserWithWebContents(web_contents);
   new OneClickSigninSyncStarter(browser, session_index, email, password,
                                 start_mode);
+
+  int action = one_click_signin::HISTOGRAM_MAX;
+  switch (auto_accept) {
+    case OneClickSigninHelper::AUTO_ACCEPT:
+      action =
+          start_mode == OneClickSigninSyncStarter::SYNC_WITH_DEFAULT_SETTINGS ?
+              one_click_signin::HISTOGRAM_AUTO_WITH_DEFAULTS :
+              one_click_signin::HISTOGRAM_AUTO_WITH_ADVANCED;
+      break;
+    case OneClickSigninHelper::NO_AUTO_ACCEPT:
+      action =
+          start_mode == OneClickSigninSyncStarter::SYNC_WITH_DEFAULT_SETTINGS ?
+              one_click_signin::HISTOGRAM_WITH_DEFAULTS :
+              one_click_signin::HISTOGRAM_WITH_ADVANCED;
+      break;
+    case OneClickSigninHelper::CONFIGURE:
+      DCHECK(start_mode == OneClickSigninSyncStarter::CONFIGURE_SYNC_FIRST);
+      action = one_click_signin::HISTOGRAM_AUTO_WITH_ADVANCED;
+      break;
+    default:
+      NOTREACHED() << "Invalid auto_accept: " << auto_accept;
+      break;
+  }
+
+  UMA_HISTOGRAM_ENUMERATION("AutoLogin.Reverse", action,
+                            one_click_signin::HISTOGRAM_MAX);
 }
 
-bool IsGaiaSignonRealm(const GURL& url) {
-  if (!url.SchemeIsSecure())
-    return false;
-
-  return url == GURL(GaiaUrls::GetInstance()->gaia_origin_url());
+bool UseWebBasedSigninFlow() {
+  static const bool use_web_based_singin_flow =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUseWebBasedSigninFlow);
+  return use_web_based_singin_flow;
 }
+
+// This class is associated as user data with a given URLRequest object, in
+// order to pass information from one response to another during the process
+// of signing the user into their Gaia account.  This class is only meant
+// to be used from the IO thread.
+class OneClickSigninRequestUserData : public base::SupportsUserData::Data {
+ public:
+  const std::string& email() const { return email_; }
+
+  // Associates signin information with the request.  Overwrites existing
+  // information if any.
+  static void AssociateWithRequest(base::SupportsUserData* request,
+                                   const std::string& email);
+
+  // Gets the one-click sign in information associated with the request.
+  static OneClickSigninRequestUserData* FromRequest(
+      base::SupportsUserData* request);
+
+ private:
+  // Key used when setting this object on the request.
+  static const void* const kUserDataKey;
+
+  explicit OneClickSigninRequestUserData(const std::string& email)
+      : email_(email) {
+  }
+
+  std::string email_;
+
+  DISALLOW_COPY_AND_ASSIGN(OneClickSigninRequestUserData);
+};
+
+// static
+void OneClickSigninRequestUserData::AssociateWithRequest(
+    base::SupportsUserData* request,
+    const std::string& email) {
+  request->SetUserData(kUserDataKey, new OneClickSigninRequestUserData(email));
+}
+
+// static
+OneClickSigninRequestUserData* OneClickSigninRequestUserData::FromRequest(
+    base::SupportsUserData* request) {
+  return static_cast<OneClickSigninRequestUserData*>(
+      request->GetUserData(kUserDataKey));
+}
+
+const void* const OneClickSigninRequestUserData::kUserDataKey =
+    static_cast<const void* const>(
+        &OneClickSigninRequestUserData::kUserDataKey);
 
 }  // namespace
 
@@ -180,9 +261,11 @@ bool OneClickInfoBarDelegateImpl::Accept() {
   // this profile.
   DisableOneClickSignIn();
   content::WebContents* web_contents = owner()->GetWebContents();
+  Browser* browser = browser::FindBrowserWithWebContents(web_contents);
   RecordHistogramAction(one_click_signin::HISTOGRAM_ACCEPTED);
   browser::FindBrowserWithWebContents(web_contents)->window()->
-      ShowOneClickSigninBubble(base::Bind(&StartSync, web_contents,
+      ShowOneClickSigninBubble(base::Bind(&StartSync, browser,
+                                          OneClickSigninHelper::NO_AUTO_ACCEPT,
                                           session_index_, email_, password_));
   button_pressed_ = true;
   return true;
@@ -247,16 +330,26 @@ void OneClickInfoBarDelegateImpl::RecordHistogramAction(int action) {
 }
 
 OneClickSigninHelper::OneClickSigninHelper(content::WebContents* web_contents)
-    : content::WebContentsObserver(web_contents) {
+    : content::WebContentsObserver(web_contents),
+      auto_accept_(NO_AUTO_ACCEPT) {
 }
 
 OneClickSigninHelper::~OneClickSigninHelper() {
 }
 
 // static
+void OneClickSigninHelper::AssociateWithRequestForTesting(
+    base::SupportsUserData* request,
+    const std::string& email) {
+  OneClickSigninRequestUserData::AssociateWithRequest(request, email);
+}
+
+// static
 bool OneClickSigninHelper::CanOffer(content::WebContents* web_contents,
                                     const std::string& email,
                                     bool check_connected) {
+  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+
   if (!web_contents)
     return false;
 
@@ -338,6 +431,70 @@ bool OneClickSigninHelper::CanOffer(content::WebContents* web_contents,
 }
 
 // static
+bool OneClickSigninHelper::CanOfferOnIOThread(const GURL& url,
+                                              base::SupportsUserData* request,
+                                              ProfileIOData* io_data) {
+  if (!io_data)
+    return false;
+
+  if (!UseWebBasedSigninFlow())
+    return false;
+
+  if (!ProfileSyncService::IsSyncEnabled())
+    return false;
+
+  // Check for incognito before other parts of the io_data, since those
+  // members may not be initalized.
+  if (io_data->is_incognito())
+    return false;
+
+  if (!io_data->reverse_autologin_enabled()->GetValue())
+    return false;
+
+  if (!gaia::IsGaiaSignonRealm(url.GetOrigin()))
+    return false;
+
+  if (!io_data->google_services_username()->GetValue().empty())
+    return false;
+
+  if (!SigninManager::AreSigninCookiesAllowed(io_data->GetCookieSettings()))
+    return false;
+
+  if (!io_data->reverse_autologin_enabled()->GetValue())
+    return false;
+
+  // The checks below depend on chrome already knowing what account the user
+  // signed in with.  This happens only after receiving the response containing
+  // the Google-Accounts-SignIn header.  Until then, if there is even a chance
+  // that we want to connect the profile, chrome needs to tell Gaia that
+  // it should offer the interstitial.  Therefore missing one click data on
+  // the request means can offer is true.
+  OneClickSigninRequestUserData* one_click_data =
+      OneClickSigninRequestUserData::FromRequest(request);
+  if (one_click_data) {
+    if (!SigninManager::IsAllowedUsername(one_click_data->email(),
+            io_data->google_services_username_pattern()->GetValue())) {
+      return false;
+    }
+
+    std::vector<std::string> rejected_emails =
+        io_data->one_click_signin_rejected_email_list()->GetValue();
+    if (std::count_if(rejected_emails.begin(), rejected_emails.end(),
+                      std::bind2nd(std::equal_to<std::string>(),
+                                   one_click_data->email())) > 0) {
+      return false;
+    }
+
+    if (io_data->signin_names()->GetEmails().count(
+            UTF8ToUTF16(one_click_data->email())) > 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// static
 void OneClickSigninHelper::InitializeFieldTrial() {
   scoped_refptr<base::FieldTrial> trial(
       base::FieldTrialList::FactoryGetFieldTrial("OneClickSignIn", 100,
@@ -356,44 +513,85 @@ void OneClickSigninHelper::InitializeFieldTrial() {
 void OneClickSigninHelper::ShowInfoBarIfPossible(net::URLRequest* request,
                                                  int child_id,
                                                  int route_id) {
-  // See if the response contains the Google-Accounts-SignIn header.
-  std::string value;
-  request->GetResponseHeaderByName("Google-Accounts-SignIn", &value);
-  if (value.empty())
+  std::string google_chrome_signin_value;
+  std::string google_accounts_signin_value;
+  request->GetResponseHeaderByName("Google-Chrome-SignIn",
+                                   &google_chrome_signin_value);
+  request->GetResponseHeaderByName("Google-Accounts-SignIn",
+                                   &google_accounts_signin_value);
+
+  if (!UseWebBasedSigninFlow() && google_accounts_signin_value.empty())
     return;
 
-  if (!IsGaiaSignonRealm(request->original_url().GetOrigin()))
+  if (!gaia::IsGaiaSignonRealm(request->original_url().GetOrigin()))
     return;
 
-  std::vector<std::pair<std::string, std::string> > pairs;
-  if (!base::SplitStringIntoKeyValuePairs(value, '=', ',', &pairs))
-    return;
+  const bool parsing_google_chrome_signin =
+      google_accounts_signin_value.empty();
 
-  // Parse the information from the value string.
+  const std::string& value = parsing_google_chrome_signin ?
+      google_chrome_signin_value : google_accounts_signin_value;
+
+  std::vector<std::string> tokens;
+  base::SplitString(value, ',', &tokens);
+
+  AutoAccept auto_accept = NO_AUTO_ACCEPT;
   std::string email;
   std::string session_index;
-  for (size_t i = 0; i < pairs.size(); ++i) {
-    const std::pair<std::string, std::string>& pair = pairs[i];
-    if (pair.first == "email") {
-      TrimString(pair.second, "\"", &email);
-    } else if (pair.first == "sessionindex") {
-      session_index = pair.second;
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    const std::string& token = tokens[i];
+    if (parsing_google_chrome_signin) {
+      if (token == "accepted") {
+        auto_accept = AUTO_ACCEPT;
+        continue;
+      } else if (token == "configure") {
+        auto_accept = CONFIGURE;
+        continue;
+      } else if (token == "rejected-for-profile") {
+        auto_accept = REJECTED_FOR_PROFILE;
+        continue;
+      }
+    }
+
+    std::string key;
+    std::vector<std::string> values;
+
+    if (!base::SplitStringIntoKeyValues(token, '=', &key, &values))
+      continue;
+
+    if (values.size() != 1)
+      continue;
+
+    if (key == "email") {
+      TrimString(values[0], "\"", &email);
+    } else if (key == "sessionindex") {
+      session_index = values[0];
     }
   }
 
   if (email.empty() || session_index.empty())
     return;
 
-  content::BrowserThread::PostTask(
-      content::BrowserThread::UI, FROM_HERE,
-      base::Bind(&OneClickSigninHelper::ShowInfoBarUIThread, session_index,
-                 email, child_id, route_id));
+  // Later in the chain of this request, we'll need to check the email address
+  // in the IO thread (see CanOfferOnIOThread).  So save the email address as
+  // user data on the request (only for web-based flow).
+  if (UseWebBasedSigninFlow() && !parsing_google_chrome_signin) {
+    OneClickSigninRequestUserData::AssociateWithRequest(request, email);
+  }
+
+  if (!UseWebBasedSigninFlow() || parsing_google_chrome_signin) {
+    content::BrowserThread::PostTask(
+        content::BrowserThread::UI, FROM_HERE,
+        base::Bind(&OneClickSigninHelper::ShowInfoBarUIThread, session_index,
+                   email, auto_accept, child_id, route_id));
+  }
 }
 
 // static
 void OneClickSigninHelper::ShowInfoBarUIThread(
     const std::string& session_index,
     const std::string& email,
+    AutoAccept auto_accept,
     int child_id,
     int route_id) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
@@ -406,14 +604,15 @@ void OneClickSigninHelper::ShowInfoBarUIThread(
   if (!web_contents || !CanOffer(web_contents, email, true))
     return;
 
-  OneClickSigninHelper* one_click_signin_tab_helper =
+  // Save the email in the one-click signin manager.  The manager may
+  // not exist if the contents is incognito or if the profile is already
+  // connected to a Google account.
+  OneClickSigninHelper* helper =
       OneClickSigninHelper::FromWebContents(web_contents);
-  // The manager may not exist if the contents is incognito or if the profile is
-  // already connected to a Google account.
-  if (!one_click_signin_tab_helper)
-    return;
-
-  one_click_signin_tab_helper->SaveSessionIndexAndEmail(session_index, email);
+  if (helper) {
+    helper->SaveSessionIndexAndEmail(session_index, email);
+    helper->auto_accept_ = auto_accept;
+  }
 }
 
 void OneClickSigninHelper::DidNavigateAnyFrame(
@@ -421,8 +620,10 @@ void OneClickSigninHelper::DidNavigateAnyFrame(
     const content::FrameNavigateParams& params) {
   // We only need to scrape the password for Gaia logins.
   const content::PasswordForm& form = params.password_form;
-  if (form.origin.is_valid() && IsGaiaSignonRealm(GURL(form.signon_realm)))
+  if (form.origin.is_valid() &&
+      gaia::IsGaiaSignonRealm(GURL(form.signon_realm))) {
     SavePassword(UTF16ToUTF8(params.password_form.password_value));
+  }
 }
 
 void OneClickSigninHelper::DidStopLoading(
@@ -430,12 +631,33 @@ void OneClickSigninHelper::DidStopLoading(
   if (email_.empty() || password_.empty())
     return;
 
+  Browser* browser = browser::FindBrowserWithWebContents(web_contents());
   InfoBarTabHelper* infobar_tab_helper =
       InfoBarTabHelper::FromWebContents(web_contents());
 
-  infobar_tab_helper->AddInfoBar(
-      new OneClickInfoBarDelegateImpl(infobar_tab_helper,
-                                      session_index_, email_, password_));
+  switch (auto_accept_) {
+    case AUTO_ACCEPT:
+      browser->window()->ShowOneClickSigninBubble(
+          base::Bind(&StartSync, browser, auto_accept_, session_index_,
+                     email_, password_));
+      break;
+    case NO_AUTO_ACCEPT:
+      infobar_tab_helper->AddInfoBar(
+          new OneClickInfoBarDelegateImpl(infobar_tab_helper, session_index_,
+                                          email_, password_));
+      break;
+    case CONFIGURE:
+      StartSync(browser, auto_accept_, session_index_, email_, password_,
+                OneClickSigninSyncStarter::CONFIGURE_SYNC_FIRST);
+      break;
+    case REJECTED_FOR_PROFILE:
+      UMA_HISTOGRAM_ENUMERATION("AutoLogin.Reverse",
+                                one_click_signin::HISTOGRAM_REJECTED,
+                                one_click_signin::HISTOGRAM_MAX);
+      break;
+    default:
+      break;
+  }
 
   email_.clear();
   password_.clear();

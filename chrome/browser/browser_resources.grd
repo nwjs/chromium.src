@@ -152,11 +152,18 @@
         <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_mac.json" type="BINDATA" />
       </if>
       <if expr="is_linux">
-        <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_linux.json" type="BINDATA" />
+        <if expr="pp_ifdef('chromeos')">
+          <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_chromeos.json" type="BINDATA" />
+        </if>
+        <if expr="not pp_ifdef('chromeos')">
+          <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_linux.json" type="BINDATA" />
+        </if>
       </if>
       <include name="IDR_POLICY_CSS" file="resources\policy.css" type="BINDATA"/>
       <include name="IDR_POLICY_HTML" file="resources\policy.html" flattenhtml="true" allowexternalscript="true" type="BINDATA"/>
       <include name="IDR_POLICY_JS" file="resources\policy.js" type="BINDATA"/>
+      <include name="IDR_PRERENDER_URL_WHITELIST"
+	       file="resources\prerender_url_whitelist.dat" type="BINDATA"/>
       <if expr="pp_ifdef('enable_printing')">
         <include name="IDR_PRINT_PREVIEW_HTML" file="resources\print_preview\print_preview.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_PRINT_PREVIEW_JS" file="resources\print_preview\print_preview.js" flattenhtml="true" type="BINDATA" />
@@ -177,9 +184,7 @@
       </if>
       <include name="IDR_PROFILER_HTML" file="resources\profiler\profiler.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_PROFILER_JS" file="resources\profiler\profiler.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_SAFE_BROWSING_MALWARE_BLOCK" file="resources\safe_browsing_malware_block.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_SAFE_BROWSING_MULTIPLE_THREAT_BLOCK" file="resources\safe_browsing_multiple_threat_block.html" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_SAFE_BROWSING_PHISHING_BLOCK" file="resources\safe_browsing_phishing_block.html" flattenhtml="true" type="BINDATA" />
       <if expr="is_win">
         <include name="IDR_SETTINGS_APP_MANIFEST" file="resources\settings_app\manifest.json" type="BINDATA" />
       </if>
@@ -264,6 +269,7 @@
       </if>
       <if expr="pp_ifdef('file_manager_extension')">
         <include name="IDR_FILEMANAGER_MANIFEST" file="resources\file_manager\manifest.json" type="BINDATA" />
+        <include name="IDR_FILEMANAGER_MANIFEST_V1" file="resources\file_manager\manifest_v1.json" type="BINDATA" />
       </if>
       <if expr="pp_ifdef('chromeos')">
         <include name="IDR_WALLPAPERMANAGER_MANIFEST" file="resources\chromeos\wallpaper_manager\manifest.json" type="BINDATA" />

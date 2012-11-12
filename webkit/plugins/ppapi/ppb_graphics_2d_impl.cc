@@ -211,8 +211,6 @@ PPB_Graphics2D_Impl::AsPPB_Graphics2D_API() {
 }
 
 void PPB_Graphics2D_Impl::LastPluginRefWasDeleted() {
-  Resource::LastPluginRefWasDeleted();
-
   // Abort any pending callbacks.
   unpainted_flush_callback_.PostAbort();
   painted_flush_callback_.PostAbort();
@@ -565,7 +563,8 @@ void PPB_Graphics2D_Impl::Paint(WebKit::WebCanvas* canvas,
   SkAutoCanvasRestore auto_restore(canvas, true);
   canvas->clipRect(sk_invalidate_rect);
   gfx::Size pixel_image_size(image_data_->width(), image_data_->height());
-  gfx::Size image_size = gfx::ToFlooredSize(pixel_image_size.Scale(scale_));
+  gfx::Size image_size = gfx::ToFlooredSize(
+      gfx::ScaleSize(pixel_image_size, scale_));
 
   PluginInstance* plugin_instance = ResourceHelper::GetPluginInstance(this);
   if (!plugin_instance)
@@ -651,14 +650,14 @@ bool PPB_Graphics2D_Impl::ConvertToLogicalPixels(float scale,
   if (delta) {
     gfx::Point original_delta = *delta;
     float inverse_scale = 1.0f / scale;
-    *delta = gfx::ToFlooredPoint(delta->Scale(scale));
+    *delta = gfx::ToFlooredPoint(gfx::ScalePoint(*delta, scale));
 
     gfx::Rect inverse_scaled_rect =
         gfx::ToEnclosingRect(gfx::ScaleRect(*op_rect, inverse_scale));
     if (original_rect != inverse_scaled_rect)
       return false;
     gfx::Point inverse_scaled_point =
-        gfx::ToFlooredPoint(delta->Scale(inverse_scale));
+        gfx::ToFlooredPoint(gfx::ScalePoint(*delta, inverse_scale));
     if (original_delta != inverse_scaled_point)
       return false;
   }
@@ -705,8 +704,7 @@ void PPB_Graphics2D_Impl::ExecutePaintImageData(PPB_ImageData_Impl* image,
 void PPB_Graphics2D_Impl::ExecuteScroll(const gfx::Rect& clip,
                                         int dx, int dy,
                                         gfx::Rect* invalidated_rect) {
-  gfx::ScrollCanvas(image_data_->GetCanvas(),
-                    clip, gfx::Point(dx, dy));
+  gfx::ScrollCanvas(image_data_->GetCanvas(), clip, gfx::Vector2d(dx, dy));
   *invalidated_rect = clip;
 }
 

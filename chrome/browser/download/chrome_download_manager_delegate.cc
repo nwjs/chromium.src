@@ -261,7 +261,7 @@ WebContents* ChromeDownloadManagerDelegate::
 #else
   // Start the download in the last active browser. This is not ideal but better
   // than fully hiding the download from the user.
-  Browser* last_active = browser::FindLastActiveWithProfile(profile_);
+  Browser* last_active = chrome::FindLastActiveWithProfile(profile_);
   return last_active ? chrome::GetActiveWebContents(last_active) : NULL;
 #endif
 }
@@ -352,21 +352,20 @@ bool ChromeDownloadManagerDelegate::ShouldCompleteDownload(
       this, item->GetId(), user_complete_callback));
 }
 
-bool ChromeDownloadManagerDelegate::ShouldOpenDownload(DownloadItem* item) {
+bool ChromeDownloadManagerDelegate::ShouldOpenDownload(
+    DownloadItem* item, const content::DownloadOpenDelayedCallback& callback) {
   if (download_crx_util::IsExtensionDownload(*item)) {
     scoped_refptr<extensions::CrxInstaller> crx_installer =
         download_crx_util::OpenChromeExtension(profile_, *item);
 
-    // CRX_INSTALLER_DONE will fire when the install completes.  Observe()
-    // will call DelayedDownloadOpened() on this item.  If this DownloadItem
-    // is not around when CRX_INSTALLER_DONE fires, Complete() will not be
-    // called.
+    // CRX_INSTALLER_DONE will fire when the install completes.  At that
+    // time, Observe() will call the passed callback.
     registrar_.Add(
         this,
         chrome::NOTIFICATION_CRX_INSTALLER_DONE,
         content::Source<extensions::CrxInstaller>(crx_installer.get()));
 
-    crx_installers_[crx_installer.get()] = item->GetId();
+    crx_installers_[crx_installer.get()] = callback;
     // The status text and percent complete indicator will change now
     // that we are installing a CRX.  Update observers so that they pick
     // up the change.
@@ -376,7 +375,7 @@ bool ChromeDownloadManagerDelegate::ShouldOpenDownload(DownloadItem* item) {
 
   if (ShouldOpenWithWebIntents(item)) {
     OpenWithWebIntent(item);
-    item->DelayedDownloadOpened(true /* did_open */);
+    callback.Run(true);
     return false;
   }
 
@@ -397,24 +396,11 @@ bool ChromeDownloadManagerDelegate::ShouldOpenWithWebIntents(
   if (item->GetTargetDisposition() == DownloadItem::TARGET_DISPOSITION_PROMPT)
     return false;
 
+#if !defined(OS_CHROMEOS)
   std::string mime_type = item->GetMimeType();
 
-#if defined(OS_CHROMEOS)
-  if (mime_type == "application/msword" ||
-      mime_type == "application/vnd.ms-powerpoint" ||
-      mime_type == "application/vnd.ms-excel" ||
-      mime_type == "application/vnd.openxmlformats-officedocument."
-                   "wordprocessingml.document" ||
-      mime_type == "application/vnd.openxmlformats-officedocument."
-                   "presentationml.presentation" ||
-      mime_type == "application/vnd.openxmlformats-officedocument."
-                   "spreadsheetml.sheet") {
-    return true;
-  }
-#endif  // defined(OS_CHROMEOS)
-
-  // If QuickOffice extension is installed, use web intents to handle the
-  // downloaded file.
+  // If QuickOffice extension is installed, and we're not on ChromeOS,use web
+  // intents to handle the downloaded file.
   const char kQuickOfficeExtensionId[] = "gbkeegbaiigmenfmjfclcdgdpimamgkj";
   const char kQuickOfficeDevExtensionId[] = "ionpfmkccalenbmnddpbmocokhaknphg";
   ExtensionServiceInterface* extension_service =
@@ -444,6 +430,7 @@ bool ChromeDownloadManagerDelegate::ShouldOpenWithWebIntents(
       return true;
     }
   }
+#endif  // !defined(OS_CHROMEOS)
 
   return false;
 }
@@ -701,12 +688,9 @@ void ChromeDownloadManagerDelegate::Observe(
 
   scoped_refptr<extensions::CrxInstaller> installer =
       content::Source<extensions::CrxInstaller>(source).ptr();
-  int download_id = crx_installers_[installer];
+  content::DownloadOpenDelayedCallback callback = crx_installers_[installer];
   crx_installers_.erase(installer.get());
-
-  DownloadItem* item = download_manager_->GetDownload(download_id);
-  if (item)
-    item->DelayedDownloadOpened(installer->did_handle_successfully());
+  callback.Run(installer->did_handle_successfully());
 }
 
 void ChromeDownloadManagerDelegate::CheckVisitedReferrerBeforeDone(

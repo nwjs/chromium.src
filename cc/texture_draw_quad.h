@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCTextureDrawQuad_h
-#define CCTextureDrawQuad_h
+#ifndef CC_TEXTURE_DRAW_QUAD_H_
+#define CC_TEXTURE_DRAW_QUAD_H_
 
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/draw_quad.h"
 #include "ui/gfx/rect_f.h"
 
@@ -13,7 +14,7 @@ namespace cc {
 
 #pragma pack(push, 4)
 
-class TextureDrawQuad : public DrawQuad {
+class CC_EXPORT TextureDrawQuad : public DrawQuad {
 public:
     static scoped_ptr<TextureDrawQuad> create(const SharedQuadState*, const gfx::Rect&, unsigned resourceId, bool premultipliedAlpha, const gfx::RectF& uvRect, bool flipped);
     gfx::RectF uvRect() const { return m_uvRect; }
@@ -38,4 +39,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_TEXTURE_DRAW_QUAD_H_

@@ -1219,7 +1219,7 @@ ErrorCode BaselinePolicy(int sysno) {
 }
 
 // x86_64 only for now. Needs to be adapted and tested for i386/ARM.
-ErrorCode GpuProcessPolicy_x86_64(int sysno) {
+ErrorCode GpuProcessPolicy_x86_64(int sysno, void *) {
   switch(sysno) {
     case __NR_ioctl:
       return ErrorCode(ErrorCode::ERR_ALLOWED);
@@ -1247,7 +1247,7 @@ ErrorCode GpuProcessPolicy_x86_64(int sysno) {
   }
 }
 
-ErrorCode RendererOrWorkerProcessPolicy_x86_64(int sysno) {
+ErrorCode RendererOrWorkerProcessPolicy(int sysno, void *) {
   switch (sysno) {
     case __NR_ioctl:  // TODO(jln) investigate legitimate use in the renderer
                       // and see if alternatives can be used.
@@ -1269,6 +1269,8 @@ ErrorCode RendererOrWorkerProcessPolicy_x86_64(int sysno) {
     case __NR_times:
     case __NR_uname:
       return ErrorCode(ErrorCode::ERR_ALLOWED);
+    case __NR_prlimit64:
+      return ErrorCode(EPERM);  // See crbug.com/160157.
     default:
 #if defined(__x86_64__) || defined(__arm__)
       if (IsSystemVSharedMemory(sysno))
@@ -1281,7 +1283,7 @@ ErrorCode RendererOrWorkerProcessPolicy_x86_64(int sysno) {
 }
 
 // x86_64 and ARM for now. Needs to be adapted and tested for i386.
-ErrorCode FlashProcessPolicy(int sysno) {
+ErrorCode FlashProcessPolicy(int sysno, void *) {
   switch (sysno) {
     case __NR_sched_getaffinity:
     case __NR_sched_setscheduler:
@@ -1302,7 +1304,7 @@ ErrorCode FlashProcessPolicy(int sysno) {
   }
 }
 
-ErrorCode BlacklistDebugAndNumaPolicy(int sysno) {
+ErrorCode BlacklistDebugAndNumaPolicy(int sysno, void *) {
   if (!Sandbox::isValidSyscallNumber(sysno)) {
     // TODO(jln) we should not have to do that in a trivial policy.
     return ErrorCode(ENOSYS);
@@ -1317,7 +1319,7 @@ ErrorCode BlacklistDebugAndNumaPolicy(int sysno) {
 // Allow all syscalls.
 // This will still deny x32 or IA32 calls in 64 bits mode or
 // 64 bits system calls in compatibility mode.
-ErrorCode AllowAllPolicy(int sysno) {
+ErrorCode AllowAllPolicy(int sysno, void *) {
   if (!Sandbox::isValidSyscallNumber(sysno)) {
     // TODO(jln) we should not have to do that in a trivial policy.
     return ErrorCode(ENOSYS);
@@ -1365,10 +1367,7 @@ Sandbox::EvaluateSyscall GetProcessSyscallPolicy(
 
   if (process_type == switches::kRendererProcess ||
       process_type == switches::kWorkerProcess) {
-    if (IsArchitectureArm())
-      return BlacklistDebugAndNumaPolicy;
-    else
-      return RendererOrWorkerProcessPolicy_x86_64;
+    return RendererOrWorkerProcessPolicy;
   }
 
   if (process_type == switches::kUtilityProcess) {

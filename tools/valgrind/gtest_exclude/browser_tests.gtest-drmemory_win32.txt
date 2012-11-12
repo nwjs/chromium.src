@@ -30,7 +30,6 @@ IsolatedAppTest.*
 ProxyBrowserTest.*
 RedirectTest.*
 SafeBrowsingBlockingPageTest.*
-SafeBrowsingBlockingPageV2Test.*
 SSLUITest.*
 SSLUITestIgnoreCertErrors.*
 # DrM-i#1052-c#3
@@ -175,6 +174,12 @@ FastShutdown.*
 IPBTP/InProcessBrowserTestP.*
 FormStructureBrowserTest.*
 AutomationMiscBrowserTest.*
+# DrM-i#1052-c#31
+ExtensionApiNewTabTest.*
+RestoreOnStartupPolicyTestInstance*
+# DrM-i#1052-c#33
+TabCaptureApiTest.*
+TopSitesExtensionTest.*
 
 # Failed tests from debug build
 # DrM-i#1052-c#21
@@ -222,3 +227,5 @@ SystemInfoStorageApiTest.*
 # DrM-i#1052-c#28
 PanelExtensionBrowserTest.*
 ToolbarViewTest.*
+# DrM-i#1052-c#32
+ExtensionOverrideTest.*

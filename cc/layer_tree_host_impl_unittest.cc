@@ -2,19 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_tree_host_impl.h"
+
+#include <cmath>
 
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/hash_tables.h"
 #include "cc/delegated_renderer_layer_impl.h"
+#include "cc/geometry.h"
 #include "cc/gl_renderer.h"
 #include "cc/heads_up_display_layer_impl.h"
 #include "cc/io_surface_layer_impl.h"
 #include "cc/layer_impl.h"
 #include "cc/layer_tiling_data.h"
+#include "cc/math_util.h"
 #include "cc/quad_sink.h"
 #include "cc/render_pass_draw_quad.h"
 #include "cc/scrollbar_geometry_fixed_thumb.h"
@@ -23,6 +25,7 @@
 #include "cc/single_thread_proxy.h"
 #include "cc/solid_color_draw_quad.h"
 #include "cc/test/animation_test_common.h"
+#include "cc/test/fake_proxy.h"
 #include "cc/test/fake_web_compositor_output_surface.h"
 #include "cc/test/fake_web_graphics_context_3d.h"
 #include "cc/test/fake_web_scrollbar_theme_geometry.h"
@@ -39,10 +42,11 @@
 #include "media/base/video_frame.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/size_conversions.h"
+#include "ui/gfx/vector2d_conversions.h"
 #include <public/WebVideoFrame.h>
 #include <public/WebVideoFrameProvider.h>
 
-using namespace cc;
 using namespace LayerTestCommon;
 using namespace WebKit;
 using namespace WebKitTests;
@@ -54,6 +58,7 @@ using ::testing::AnyNumber;
 using ::testing::AtLeast;
 using ::testing::_;
 
+namespace cc {
 namespace {
 
 // This test is parametrized to run all tests with the
@@ -62,7 +67,10 @@ class LayerTreeHostImplTest : public testing::TestWithParam<bool>,
                                 public LayerTreeHostImplClient {
 public:
     LayerTreeHostImplTest()
-        : m_onCanDrawStateChangedCalled(false)
+        : m_proxy(scoped_ptr<Thread>(NULL))
+        , m_alwaysImplThread(&m_proxy)
+        , m_alwaysMainThreadBlocked(&m_proxy)
+        , m_onCanDrawStateChangedCalled(false)
         , m_didRequestCommit(false)
         , m_didRequestRedraw(false)
         , m_reduceMemoryResult(true)
@@ -74,11 +82,11 @@ public:
     {
         Settings::setPageScalePinchZoomEnabled(GetParam());
         LayerTreeSettings settings;
-        settings.minimumOcclusionTrackingSize = IntSize();
+        settings.minimumOcclusionTrackingSize = gfx::Size();
 
-        m_hostImpl = LayerTreeHostImpl::create(settings, this);
+        m_hostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
         m_hostImpl->initializeRenderer(createContext());
-        m_hostImpl->setViewportSize(IntSize(10, 10), IntSize(10, 10));
+        m_hostImpl->setViewportSize(gfx::Size(10, 10), gfx::Size(10, 10));
     }
 
     virtual void TearDown()
@@ -102,18 +110,18 @@ public:
         Settings::setPartialSwapEnabled(partialSwap);
 
         LayerTreeSettings settings;
-        settings.minimumOcclusionTrackingSize = IntSize();
+        settings.minimumOcclusionTrackingSize = gfx::Size();
 
-        scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+        scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
         myHostImpl->initializeRenderer(graphicsContext.Pass());
-        myHostImpl->setViewportSize(IntSize(10, 10), IntSize(10, 10));
+        myHostImpl->setViewportSize(gfx::Size(10, 10), gfx::Size(10, 10));
 
-        root->setAnchorPoint(FloatPoint(0, 0));
-        root->setPosition(FloatPoint(0, 0));
-        root->setBounds(IntSize(10, 10));
-        root->setContentBounds(IntSize(10, 10));
-        root->setVisibleContentRect(IntRect(0, 0, 10, 10));
+        root->setAnchorPoint(gfx::PointF(0, 0));
+        root->setPosition(gfx::PointF(0, 0));
+        root->setBounds(gfx::Size(10, 10));
+        root->setContentBounds(gfx::Size(10, 10));
+        root->setVisibleContentRect(gfx::Rect(0, 0, 10, 10));
         root->setDrawsContent(true);
         myHostImpl->setRootLayer(root.Pass());
         return myHostImpl.Pass();
@@ -121,55 +129,54 @@ public:
 
     static void expectClearedScrollDeltasRecursive(LayerImpl* layer)
     {
-        ASSERT_EQ(layer->scrollDelta(), IntSize());
+        ASSERT_EQ(layer->scrollDelta(), gfx::Vector2d());
         for (size_t i = 0; i < layer->children().size(); ++i)
             expectClearedScrollDeltasRecursive(layer->children()[i]);
     }
 
-    static void expectContains(const ScrollAndScaleSet& scrollInfo, int id, const IntSize& scrollDelta)
+    static void expectContains(const ScrollAndScaleSet& scrollInfo, int id, const gfx::Vector2d& scrollDelta)
     {
         int timesEncountered = 0;
 
         for (size_t i = 0; i < scrollInfo.scrolls.size(); ++i) {
             if (scrollInfo.scrolls[i].layerId != id)
                 continue;
-            EXPECT_EQ(scrollDelta.width(), scrollInfo.scrolls[i].scrollDelta.width());
-            EXPECT_EQ(scrollDelta.height(), scrollInfo.scrolls[i].scrollDelta.height());
+            EXPECT_VECTOR_EQ(scrollDelta, scrollInfo.scrolls[i].scrollDelta);
             timesEncountered++;
         }
 
         ASSERT_EQ(timesEncountered, 1);
     }
 
-    void setupScrollAndContentsLayers(const IntSize& contentSize)
+    void setupScrollAndContentsLayers(const gfx::Size& contentSize)
     {
         scoped_ptr<LayerImpl> root = LayerImpl::create(1);
         root->setScrollable(true);
-        root->setScrollPosition(IntPoint(0, 0));
-        root->setMaxScrollPosition(contentSize);
+        root->setScrollOffset(gfx::Vector2d(0, 0));
+        root->setMaxScrollOffset(gfx::Vector2d(contentSize.width(), contentSize.height()));
         root->setBounds(contentSize);
         root->setContentBounds(contentSize);
-        root->setPosition(FloatPoint(0, 0));
-        root->setAnchorPoint(FloatPoint(0, 0));
+        root->setPosition(gfx::PointF(0, 0));
+        root->setAnchorPoint(gfx::PointF(0, 0));
 
         scoped_ptr<LayerImpl> contents = LayerImpl::create(2);
         contents->setDrawsContent(true);
         contents->setBounds(contentSize);
         contents->setContentBounds(contentSize);
-        contents->setPosition(FloatPoint(0, 0));
-        contents->setAnchorPoint(FloatPoint(0, 0));
+        contents->setPosition(gfx::PointF(0, 0));
+        contents->setAnchorPoint(gfx::PointF(0, 0));
         root->addChild(contents.Pass());
         m_hostImpl->setRootLayer(root.Pass());
     }
 
-    static scoped_ptr<LayerImpl> createScrollableLayer(int id, const IntSize& size)
+    static scoped_ptr<LayerImpl> createScrollableLayer(int id, const gfx::Size& size)
     {
         scoped_ptr<LayerImpl> layer = LayerImpl::create(id);
         layer->setScrollable(true);
         layer->setDrawsContent(true);
         layer->setBounds(size);
         layer->setContentBounds(size);
-        layer->setMaxScrollPosition(IntSize(size.width() * 2, size.height() * 2));
+        layer->setMaxScrollOffset(gfx::Vector2d(size.width() * 2, size.height() * 2));
         return layer.Pass();
     }
 
@@ -188,6 +195,7 @@ protected:
         return FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new FakeWebGraphicsContext3D)).PassAs<GraphicsContext>();
     }
 
+    FakeProxy m_proxy;
     DebugScopedSetImplThread m_alwaysImplThread;
     DebugScopedSetMainThreadBlocked m_alwaysMainThreadBlocked;
 
@@ -212,7 +220,7 @@ TEST_P(LayerTreeHostImplTest, notifyIfCanDrawChanged)
     EXPECT_FALSE(m_hostImpl->canDraw());
     m_onCanDrawStateChangedCalled = false;
 
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
     EXPECT_TRUE(m_hostImpl->canDraw());
     EXPECT_TRUE(m_onCanDrawStateChangedCalled);
     m_onCanDrawStateChangedCalled = false;
@@ -223,18 +231,18 @@ TEST_P(LayerTreeHostImplTest, notifyIfCanDrawChanged)
     EXPECT_TRUE(m_onCanDrawStateChangedCalled);
     m_onCanDrawStateChangedCalled = false;
 
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
     EXPECT_TRUE(m_hostImpl->canDraw());
     EXPECT_TRUE(m_onCanDrawStateChangedCalled);
     m_onCanDrawStateChangedCalled = false;
 
     // Toggle the device viewport size to make sure it toggles canDraw.
-    m_hostImpl->setViewportSize(IntSize(100, 100), IntSize(0, 0));
+    m_hostImpl->setViewportSize(gfx::Size(100, 100), gfx::Size(0, 0));
     EXPECT_FALSE(m_hostImpl->canDraw());
     EXPECT_TRUE(m_onCanDrawStateChangedCalled);
     m_onCanDrawStateChangedCalled = false;
 
-    m_hostImpl->setViewportSize(IntSize(100, 100), IntSize(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(100, 100), gfx::Size(100, 100));
     EXPECT_TRUE(m_hostImpl->canDraw());
     EXPECT_TRUE(m_onCanDrawStateChangedCalled);
     m_onCanDrawStateChangedCalled = false;
@@ -298,13 +306,13 @@ TEST_P(LayerTreeHostImplTest, scrollDeltaTreeButNoChanges)
 
 TEST_P(LayerTreeHostImplTest, scrollDeltaRepeatedScrolls)
 {
-    IntPoint scrollPosition(20, 30);
-    IntSize scrollDelta(11, -15);
+    gfx::Vector2d scrollOffset(20, 30);
+    gfx::Vector2d scrollDelta(11, -15);
     {
         scoped_ptr<LayerImpl> root = LayerImpl::create(1);
-        root->setScrollPosition(scrollPosition);
+        root->setScrollOffset(scrollOffset);
         root->setScrollable(true);
-        root->setMaxScrollPosition(IntSize(100, 100));
+        root->setMaxScrollOffset(gfx::Vector2d(100, 100));
         root->scrollBy(scrollDelta);
         m_hostImpl->setRootLayer(root.Pass());
     }
@@ -314,29 +322,29 @@ TEST_P(LayerTreeHostImplTest, scrollDeltaRepeatedScrolls)
 
     scrollInfo = m_hostImpl->processScrollDeltas();
     ASSERT_EQ(scrollInfo->scrolls.size(), 1u);
-    EXPECT_EQ(root->sentScrollDelta(), scrollDelta);
+    EXPECT_VECTOR_EQ(root->sentScrollDelta(), scrollDelta);
     expectContains(*scrollInfo, root->id(), scrollDelta);
 
-    IntSize scrollDelta2(-5, 27);
+    gfx::Vector2d scrollDelta2(-5, 27);
     root->scrollBy(scrollDelta2);
     scrollInfo = m_hostImpl->processScrollDeltas();
     ASSERT_EQ(scrollInfo->scrolls.size(), 1u);
-    EXPECT_EQ(root->sentScrollDelta(), scrollDelta + scrollDelta2);
+    EXPECT_VECTOR_EQ(root->sentScrollDelta(), scrollDelta + scrollDelta2);
     expectContains(*scrollInfo, root->id(), scrollDelta + scrollDelta2);
 
-    root->scrollBy(IntSize());
+    root->scrollBy(gfx::Vector2d());
     scrollInfo = m_hostImpl->processScrollDeltas();
     EXPECT_EQ(root->sentScrollDelta(), scrollDelta + scrollDelta2);
 }
 
 TEST_P(LayerTreeHostImplTest, scrollRootCallsCommitAndRedraw)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), IntSize(0, 10));
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, 10));
     m_hostImpl->scrollEnd();
     EXPECT_TRUE(m_didRequestRedraw);
     EXPECT_TRUE(m_didRequestCommit);
@@ -345,41 +353,41 @@ TEST_P(LayerTreeHostImplTest, scrollRootCallsCommitAndRedraw)
 TEST_P(LayerTreeHostImplTest, scrollWithoutRootLayer)
 {
     // We should not crash when trying to scroll an empty layer tree.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
 }
 
 TEST_P(LayerTreeHostImplTest, scrollWithoutRenderer)
 {
     LayerTreeSettings settings;
-    m_hostImpl = LayerTreeHostImpl::create(settings, this);
+    m_hostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Initialization will fail here.
     m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new FakeWebGraphicsContext3DMakeCurrentFails)).PassAs<GraphicsContext>());
-    m_hostImpl->setViewportSize(IntSize(10, 10), IntSize(10, 10));
+    m_hostImpl->setViewportSize(gfx::Size(10, 10), gfx::Size(10, 10));
 
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
 
     // We should not crash when trying to scroll after the renderer initialization fails.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
 }
 
 TEST_P(LayerTreeHostImplTest, replaceTreeWhileScrolling)
 {
     const int scrollLayerId = 1;
 
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
     // We should not crash if the tree is replaced while we are scrolling.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
     m_hostImpl->detachLayerTree();
 
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
 
     // We should still be scrolling, because the scrolled layer also exists in the new tree.
-    IntSize scrollDelta(0, 10);
-    m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+    gfx::Vector2d scrollDelta(0, 10);
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
     m_hostImpl->scrollEnd();
     scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
     expectContains(*scrollInfo, scrollLayerId, scrollDelta);
@@ -387,102 +395,105 @@ TEST_P(LayerTreeHostImplTest, replaceTreeWhileScrolling)
 
 TEST_P(LayerTreeHostImplTest, clearRootRenderSurfaceAndScroll)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
     // We should be able to scroll even if the root layer loses its render surface after the most
     // recent render.
     m_hostImpl->rootLayer()->clearRenderSurface();
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
 }
 
 TEST_P(LayerTreeHostImplTest, wheelEventHandlers)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
     LayerImpl* root = m_hostImpl->rootLayer();
 
     root->setHaveWheelEventHandlers(true);
 
     // With registered event handlers, wheel scrolls have to go to the main thread.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
 
     // But gesture scrolls can still be handled.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
 }
 
 TEST_P(LayerTreeHostImplTest, shouldScrollOnMainThread)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
     LayerImpl* root = m_hostImpl->rootLayer();
 
     root->setShouldScrollOnMainThread(true);
 
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollOnMainThread);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollOnMainThread);
 }
 
 TEST_P(LayerTreeHostImplTest, nonFastScrollableRegionBasic)
 {
-    setupScrollAndContentsLayers(IntSize(200, 200));
-    m_hostImpl->setViewportSize(IntSize(100, 100), IntSize(100, 100));
-    initializeRendererAndDrawFrame();
-    LayerImpl* root = m_hostImpl->rootLayer();
+    setupScrollAndContentsLayers(gfx::Size(200, 200));
+    m_hostImpl->setViewportSize(gfx::Size(100, 100), gfx::Size(100, 100));
 
-    root->setNonFastScrollableRegion(IntRect(0, 0, 50, 50));
+    LayerImpl* root = m_hostImpl->rootLayer();
+    root->setContentsScale(2, 2);
+    root->setNonFastScrollableRegion(gfx::Rect(0, 0, 50, 50));
+
+    initializeRendererAndDrawFrame();
 
     // All scroll types inside the non-fast scrollable region should fail.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(25, 25), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(25, 25), InputHandlerClient::Gesture), InputHandlerClient::ScrollOnMainThread);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(25, 25), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(25, 25), InputHandlerClient::Gesture), InputHandlerClient::ScrollOnMainThread);
 
     // All scroll types outside this region should succeed.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(75, 75), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), IntSize(0, 10));
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(75, 75), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, 10));
     m_hostImpl->scrollEnd();
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(75, 75), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), IntSize(0, 10));
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(75, 75), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, 10));
     m_hostImpl->scrollEnd();
 }
 
 TEST_P(LayerTreeHostImplTest, nonFastScrollableRegionWithOffset)
 {
-    setupScrollAndContentsLayers(IntSize(200, 200));
-    m_hostImpl->setViewportSize(IntSize(100, 100), IntSize(100, 100));
-    LayerImpl* root = m_hostImpl->rootLayer();
+    setupScrollAndContentsLayers(gfx::Size(200, 200));
+    m_hostImpl->setViewportSize(gfx::Size(100, 100), gfx::Size(100, 100));
 
-    root->setNonFastScrollableRegion(IntRect(0, 0, 50, 50));
-    root->setPosition(FloatPoint(-25, 0));
+    LayerImpl* root = m_hostImpl->rootLayer();
+    root->setContentsScale(2, 2);
+    root->setNonFastScrollableRegion(gfx::Rect(0, 0, 50, 50));
+    root->setPosition(gfx::PointF(-25, 0));
+
     initializeRendererAndDrawFrame();
 
     // This point would fall into the non-fast scrollable region except that we've moved the layer down by 25 pixels.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(40, 10), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), IntSize(0, 1));
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(40, 10), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, 1));
     m_hostImpl->scrollEnd();
 
     // This point is still inside the non-fast region.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(10, 10), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(10, 10), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
 }
 
-TEST_P(LayerTreeHostImplTest, maxScrollPositionChangedByDeviceScaleFactor)
+TEST_P(LayerTreeHostImplTest, maxScrollOffsetChangedByDeviceScaleFactor)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
 
     float deviceScaleFactor = 2;
-    IntSize layoutViewport(25, 25);
-    IntSize deviceViewport(layoutViewport);
-    deviceViewport.scale(deviceScaleFactor);
+    gfx::Size layoutViewport(25, 25);
+    gfx::Size deviceViewport(gfx::ToFlooredSize(gfx::ScaleSize(layoutViewport, deviceScaleFactor)));
     m_hostImpl->setViewportSize(layoutViewport, deviceViewport);
     m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
-    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollPosition(), IntSize(25, 25));
+    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollOffset(), gfx::Vector2d(25, 25));
 
     deviceScaleFactor = 1;
     m_hostImpl->setViewportSize(layoutViewport, layoutViewport);
     m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
-    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollPosition(), IntSize(75, 75));
+    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollOffset(), gfx::Vector2d(75, 75));
 }
 
 TEST_P(LayerTreeHostImplTest, implPinchZoom)
@@ -491,8 +502,8 @@ TEST_P(LayerTreeHostImplTest, implPinchZoom)
     if (!Settings::pageScalePinchZoomEnabled())
         return;
 
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
     LayerImpl* scrollLayer = m_hostImpl->rootScrollLayer();
@@ -505,11 +516,11 @@ TEST_P(LayerTreeHostImplTest, implPinchZoom)
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollDelta(IntSize());
+        scrollLayer->setScrollDelta(gfx::Vector2d());
 
         float pageScaleDelta = 2;
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(pageScaleDelta, IntPoint(50, 50));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(50, 50));
         m_hostImpl->pinchGestureEnd();
         EXPECT_TRUE(m_didRequestRedraw);
         EXPECT_TRUE(m_didRequestCommit);
@@ -517,7 +528,7 @@ TEST_P(LayerTreeHostImplTest, implPinchZoom)
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
 
-        EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollPosition(), IntSize(50, 50));
+        EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollOffset(), gfx::Vector2d(50, 50));
     }
 
     // Scrolling after a pinch gesture should always be in local space.  The scroll deltas do not
@@ -525,16 +536,16 @@ TEST_P(LayerTreeHostImplTest, implPinchZoom)
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollDelta(IntSize());
+        scrollLayer->setScrollDelta(gfx::Vector2d());
 
         float pageScaleDelta = 2;
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(pageScaleDelta, IntPoint(0, 0));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(0, 0));
         m_hostImpl->pinchGestureEnd();
 
-        IntSize scrollDelta(0, 10);
-        EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-        m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+        gfx::Vector2d scrollDelta(0, 10);
+        EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+        m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
         m_hostImpl->scrollEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
@@ -544,8 +555,8 @@ TEST_P(LayerTreeHostImplTest, implPinchZoom)
 
 TEST_P(LayerTreeHostImplTest, pinchGesture)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
     LayerImpl* scrollLayer = m_hostImpl->rootScrollLayer();
@@ -559,11 +570,11 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollDelta(IntSize());
+        scrollLayer->setScrollDelta(gfx::Vector2d());
 
         float pageScaleDelta = 2;
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(pageScaleDelta, IntPoint(50, 50));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(50, 50));
         m_hostImpl->pinchGestureEnd();
         EXPECT_TRUE(m_didRequestRedraw);
         EXPECT_TRUE(m_didRequestCommit);
@@ -576,11 +587,11 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollDelta(IntSize());
+        scrollLayer->setScrollDelta(gfx::Vector2d());
         float pageScaleDelta = 10;
 
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(pageScaleDelta, IntPoint(50, 50));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(50, 50));
         m_hostImpl->pinchGestureEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
@@ -591,12 +602,12 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollDelta(IntSize());
-        scrollLayer->setScrollPosition(IntPoint(50, 50));
+        scrollLayer->setScrollDelta(gfx::Vector2d());
+        scrollLayer->setScrollOffset(gfx::Vector2d(50, 50));
 
         float pageScaleDelta = 0.1f;
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(pageScaleDelta, IntPoint(0, 0));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(0, 0));
         m_hostImpl->pinchGestureEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
@@ -604,7 +615,7 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
 
         if (!Settings::pageScalePinchZoomEnabled()) {
             // Pushed to (0,0) via clamping against contents layer size.
-            expectContains(*scrollInfo, scrollLayer->id(), IntSize(-50, -50));
+            expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-50, -50));
         } else {
             EXPECT_TRUE(scrollInfo->scrolls.empty());
         }
@@ -614,31 +625,31 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollDelta(IntSize());
-        scrollLayer->setScrollPosition(IntPoint(20, 20));
+        scrollLayer->setScrollDelta(gfx::Vector2d());
+        scrollLayer->setScrollOffset(gfx::Vector2d(20, 20));
 
         float pageScaleDelta = 1;
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(pageScaleDelta, IntPoint(10, 10));
-        m_hostImpl->pinchGestureUpdate(pageScaleDelta, IntPoint(20, 20));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(10, 10));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(20, 20));
         m_hostImpl->pinchGestureEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
-        expectContains(*scrollInfo, scrollLayer->id(), IntSize(-10, -10));
+        expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-10, -10));
     }
 }
 
 TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
     LayerImpl* scrollLayer = m_hostImpl->rootScrollLayer();
     DCHECK(scrollLayer);
 
-    const float minPageScale = Settings::pageScalePinchZoomEnabled() ? 1 : 0.5;
+    const float minPageScale = 0.5;
     const float maxPageScale = 4;
     const base::TimeTicks startTime = base::TimeTicks() + base::TimeDelta::FromSeconds(1);
     const base::TimeDelta duration = base::TimeDelta::FromMilliseconds(100);
@@ -650,9 +661,9 @@ TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollPosition(IntPoint(50, 50));
+        scrollLayer->setScrollOffset(gfx::Vector2d(50, 50));
 
-        m_hostImpl->startPageScaleAnimation(IntSize(0, 0), false, 2, startTime, duration);
+        m_hostImpl->startPageScaleAnimation(gfx::Vector2d(0, 0), false, 2, startTime, duration);
         m_hostImpl->animate(halfwayThroughAnimation, base::Time());
         EXPECT_TRUE(m_didRequestRedraw);
         m_hostImpl->animate(endTime, base::Time());
@@ -660,16 +671,16 @@ TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, 2);
-        expectContains(*scrollInfo, scrollLayer->id(), IntSize(-50, -50));
+        expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-50, -50));
     }
 
     // Anchor zoom-out
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
-        scrollLayer->setScrollPosition(IntPoint(50, 50));
+        scrollLayer->setScrollOffset(gfx::Vector2d(50, 50));
 
-        m_hostImpl->startPageScaleAnimation(IntSize(25, 25), true, minPageScale, startTime, duration);
+        m_hostImpl->startPageScaleAnimation(gfx::Vector2d(25, 25), true, minPageScale, startTime, duration);
         m_hostImpl->animate(endTime, base::Time());
         EXPECT_TRUE(m_didRequestRedraw);
         EXPECT_TRUE(m_didRequestCommit);
@@ -677,14 +688,14 @@ TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
         // Pushed to (0,0) via clamping against contents layer size.
-        expectContains(*scrollInfo, scrollLayer->id(), IntSize(-50, -50));
+        expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-50, -50));
     }
 }
 
 TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
     LayerImpl* scrollLayer = m_hostImpl->rootScrollLayer();
@@ -699,7 +710,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         const float zoomInDelta = 2;
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(zoomInDelta, IntPoint(50, 50));
+        m_hostImpl->pinchGestureUpdate(zoomInDelta, gfx::Point(50, 50));
 
         // Because we are pinch zooming in, we shouldn't get any scroll or page
         // scale deltas.
@@ -712,7 +723,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, zoomInDelta);
         if (!Settings::pageScalePinchZoomEnabled()) {
-            expectContains(*scrollInfo, scrollLayer->id(), IntSize(25, 25));
+            expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(25, 25));
         } else {
             EXPECT_TRUE(scrollInfo->scrolls.empty());
         }
@@ -724,14 +735,14 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         const float zoomOutDelta = 0.75;
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         m_hostImpl->pinchGestureBegin();
-        m_hostImpl->pinchGestureUpdate(zoomOutDelta, IntPoint(50, 50));
+        m_hostImpl->pinchGestureUpdate(zoomOutDelta, gfx::Point(50, 50));
 
         // Since we are pinch zooming out, we should get an update to zoom all
         // the way out to the minimum page scale.
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         if (!Settings::pageScalePinchZoomEnabled()) {
             EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
-            expectContains(*scrollInfo, scrollLayer->id(), IntSize(0, 0));
+            expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(0, 0));
         } else {
             EXPECT_EQ(scrollInfo->pageScaleDelta, 1);
             EXPECT_TRUE(scrollInfo->scrolls.empty());
@@ -742,51 +753,50 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         scrollInfo = m_hostImpl->processScrollDeltas();
         if (Settings::pageScalePinchZoomEnabled()) {
             EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
-            expectContains(*scrollInfo, scrollLayer->id(), IntSize(25, 25));
+            expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(25, 25));
         } else {
             EXPECT_EQ(scrollInfo->pageScaleDelta, zoomOutDelta);
-            expectContains(*scrollInfo, scrollLayer->id(), IntSize(8, 8));
+            expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(8, 8));
         }
     }
 }
 
 TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhileAnimatingPageScale)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
-    m_hostImpl->setViewportSize(IntSize(50, 50), IntSize(50, 50));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
+    m_hostImpl->setViewportSize(gfx::Size(50, 50), gfx::Size(50, 50));
     initializeRendererAndDrawFrame();
 
     LayerImpl* scrollLayer = m_hostImpl->rootScrollLayer();
     DCHECK(scrollLayer);
 
-    const float minPageScale = Settings::pageScalePinchZoomEnabled() ? 1 : 0.5;
+    const float minPageScale = 0.5;
     const float maxPageScale = 4;
     const base::TimeTicks startTime = base::TimeTicks() + base::TimeDelta::FromSeconds(1);
     const base::TimeDelta duration = base::TimeDelta::FromMilliseconds(100);
     const base::TimeTicks halfwayThroughAnimation = startTime + duration / 2;
     const base::TimeTicks endTime = startTime + duration;
-    // Start a page scale animation.
+
     const float pageScaleDelta = 2;
+    gfx::Vector2d target(25, 25);
+    gfx::Vector2d scaledTarget = target;
+    if (!Settings::pageScalePinchZoomEnabled())
+      scaledTarget = gfx::Vector2d(12, 12);
+
     m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
-    m_hostImpl->startPageScaleAnimation(IntSize(50, 50), false, pageScaleDelta, startTime, duration);
+    m_hostImpl->startPageScaleAnimation(target, false, pageScaleDelta, startTime, duration);
 
     // We should immediately get the final zoom and scroll values for the
     // animation.
     m_hostImpl->animate(halfwayThroughAnimation, base::Time());
     scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
-
-    if (!Settings::pageScalePinchZoomEnabled()) {
-        EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
-        expectContains(*scrollInfo, scrollLayer->id(), IntSize(25, 25));
-    } else {
-        EXPECT_EQ(scrollInfo->pageScaleDelta, 1);
-        EXPECT_TRUE(scrollInfo->scrolls.empty());
-    }
+    EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
+    expectContains(*scrollInfo, scrollLayer->id(), scaledTarget);
 
     // Scrolling during the animation is ignored.
-    const IntSize scrollDelta(0, 10);
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(25, 25), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+    const gfx::Vector2d scrollDelta(0, 10);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(target.x(), target.y()), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
     m_hostImpl->scrollEnd();
 
     // The final page scale and scroll deltas should match what we got
@@ -794,7 +804,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhileAnimatingPage
     m_hostImpl->animate(endTime, base::Time());
     scrollInfo = m_hostImpl->processScrollDeltas();
     EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
-    expectContains(*scrollInfo, scrollLayer->id(), IntSize(25, 25));
+    expectContains(*scrollInfo, scrollLayer->id(), scaledTarget);
 }
 
 class DidDrawCheckLayer : public TiledLayerImpl {
@@ -826,14 +836,14 @@ protected:
         , m_didDrawCalled(false)
         , m_willDrawCalled(false)
     {
-        setAnchorPoint(FloatPoint(0, 0));
-        setBounds(IntSize(10, 10));
-        setContentBounds(IntSize(10, 10));
+        setAnchorPoint(gfx::PointF(0, 0));
+        setBounds(gfx::Size(10, 10));
+        setContentBounds(gfx::Size(10, 10));
         setDrawsContent(true);
         setSkipsDraw(false);
-        setVisibleContentRect(IntRect(0, 0, 10, 10));
+        setVisibleContentRect(gfx::Rect(0, 0, 10, 10));
 
-        scoped_ptr<LayerTilingData> tiler = LayerTilingData::create(IntSize(100, 100), LayerTilingData::HasBorderTexels);
+        scoped_ptr<LayerTilingData> tiler = LayerTilingData::create(gfx::Size(100, 100), LayerTilingData::HasBorderTexels);
         tiler->setBounds(contentBounds());
         setTilingData(*tiler.get());
     }
@@ -854,9 +864,9 @@ TEST_P(LayerTreeHostImplTest, didDrawNotCalledOnHiddenLayer)
     root->addChild(DidDrawCheckLayer::create(2));
     DidDrawCheckLayer* layer = static_cast<DidDrawCheckLayer*>(root->children()[0]);
     // Ensure visibleContentRect for layer is empty
-    layer->setPosition(FloatPoint(100, 100));
-    layer->setBounds(IntSize(10, 10));
-    layer->setContentBounds(IntSize(10, 10));
+    layer->setPosition(gfx::PointF(100, 100));
+    layer->setBounds(gfx::Size(10, 10));
+    layer->setContentBounds(gfx::Size(10, 10));
 
     LayerTreeHostImpl::FrameData frame;
 
@@ -870,10 +880,10 @@ TEST_P(LayerTreeHostImplTest, didDrawNotCalledOnHiddenLayer)
     EXPECT_FALSE(layer->willDrawCalled());
     EXPECT_FALSE(layer->didDrawCalled());
 
-    EXPECT_TRUE(layer->visibleContentRect().isEmpty());
+    EXPECT_TRUE(layer->visibleContentRect().IsEmpty());
 
     // Ensure visibleContentRect for layer layer is not empty
-    layer->setPosition(FloatPoint(0, 0));
+    layer->setPosition(gfx::PointF(0, 0));
 
     EXPECT_FALSE(layer->willDrawCalled());
     EXPECT_FALSE(layer->didDrawCalled());
@@ -885,12 +895,12 @@ TEST_P(LayerTreeHostImplTest, didDrawNotCalledOnHiddenLayer)
     EXPECT_TRUE(layer->willDrawCalled());
     EXPECT_TRUE(layer->didDrawCalled());
 
-    EXPECT_FALSE(layer->visibleContentRect().isEmpty());
+    EXPECT_FALSE(layer->visibleContentRect().IsEmpty());
 }
 
 TEST_P(LayerTreeHostImplTest, willDrawNotCalledOnOccludedLayer)
 {
-    IntSize bigSize(1000, 1000);
+    gfx::Size bigSize(1000, 1000);
     m_hostImpl->setViewportSize(bigSize, bigSize);
 
     m_hostImpl->setRootLayer(DidDrawCheckLayer::create(1));
@@ -965,13 +975,13 @@ private:
     explicit MissingTextureAnimatingLayer(int id, bool tileMissing, bool skipsDraw, bool animating, ResourceProvider* resourceProvider)
         : DidDrawCheckLayer(id)
     {
-        scoped_ptr<LayerTilingData> tilingData = LayerTilingData::create(IntSize(10, 10), LayerTilingData::NoBorderTexels);
+        scoped_ptr<LayerTilingData> tilingData = LayerTilingData::create(gfx::Size(10, 10), LayerTilingData::NoBorderTexels);
         tilingData->setBounds(bounds());
         setTilingData(*tilingData.get());
         setSkipsDraw(skipsDraw);
         if (!tileMissing) {
-            ResourceProvider::ResourceId resource = resourceProvider->createResource(Renderer::ContentPool, IntSize(), GL_RGBA, ResourceProvider::TextureUsageAny);
-            pushTileProperties(0, 0, resource, IntRect(), false);
+            ResourceProvider::ResourceId resource = resourceProvider->createResource(Renderer::ContentPool, gfx::Size(), GL_RGBA, ResourceProvider::TextureUsageAny);
+            pushTileProperties(0, 0, resource, gfx::Rect(), false);
         }
         if (animating)
             addAnimatedTransformToLayer(*this, 10, 3, 0);
@@ -1027,7 +1037,7 @@ TEST_P(LayerTreeHostImplTest, scrollRootIgnored)
     initializeRendererAndDrawFrame();
 
     // Scroll event is ignored because layer is not scrollable.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
     EXPECT_FALSE(m_didRequestRedraw);
     EXPECT_FALSE(m_didRequestCommit);
 }
@@ -1036,31 +1046,32 @@ TEST_P(LayerTreeHostImplTest, scrollNonCompositedRoot)
 {
     // Test the configuration where a non-composited root layer is embedded in a
     // scrollable outer layer.
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
 
     scoped_ptr<LayerImpl> contentLayer = LayerImpl::create(1);
     contentLayer->setUseLCDText(true);
     contentLayer->setDrawsContent(true);
-    contentLayer->setPosition(FloatPoint(0, 0));
-    contentLayer->setAnchorPoint(FloatPoint(0, 0));
+    contentLayer->setPosition(gfx::PointF(0, 0));
+    contentLayer->setAnchorPoint(gfx::PointF(0, 0));
     contentLayer->setBounds(surfaceSize);
-    contentLayer->setContentBounds(IntSize(surfaceSize.width() * 2, surfaceSize.height() * 2));
+    contentLayer->setContentBounds(gfx::Size(surfaceSize.width() * 2, surfaceSize.height() * 2));
+    contentLayer->setContentsScale(2, 2);
 
     scoped_ptr<LayerImpl> scrollLayer = LayerImpl::create(2);
     scrollLayer->setScrollable(true);
-    scrollLayer->setMaxScrollPosition(surfaceSize);
+    scrollLayer->setMaxScrollOffset(gfx::Vector2d(surfaceSize.width(), surfaceSize.height()));
     scrollLayer->setBounds(surfaceSize);
     scrollLayer->setContentBounds(surfaceSize);
-    scrollLayer->setPosition(FloatPoint(0, 0));
-    scrollLayer->setAnchorPoint(FloatPoint(0, 0));
+    scrollLayer->setPosition(gfx::PointF(0, 0));
+    scrollLayer->setAnchorPoint(gfx::PointF(0, 0));
     scrollLayer->addChild(contentLayer.Pass());
 
     m_hostImpl->setRootLayer(scrollLayer.Pass());
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
 
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), IntSize(0, 10));
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, 10));
     m_hostImpl->scrollEnd();
     EXPECT_TRUE(m_didRequestRedraw);
     EXPECT_TRUE(m_didRequestCommit);
@@ -1068,7 +1079,7 @@ TEST_P(LayerTreeHostImplTest, scrollNonCompositedRoot)
 
 TEST_P(LayerTreeHostImplTest, scrollChildCallsCommitAndRedraw)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     root->setBounds(surfaceSize);
     root->setContentBounds(surfaceSize);
@@ -1077,8 +1088,8 @@ TEST_P(LayerTreeHostImplTest, scrollChildCallsCommitAndRedraw)
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
 
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), IntSize(0, 10));
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, 10));
     m_hostImpl->scrollEnd();
     EXPECT_TRUE(m_didRequestRedraw);
     EXPECT_TRUE(m_didRequestCommit);
@@ -1086,7 +1097,7 @@ TEST_P(LayerTreeHostImplTest, scrollChildCallsCommitAndRedraw)
 
 TEST_P(LayerTreeHostImplTest, scrollMissesChild)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     root->addChild(createScrollableLayer(2, surfaceSize));
     m_hostImpl->setRootLayer(root.Pass());
@@ -1094,14 +1105,14 @@ TEST_P(LayerTreeHostImplTest, scrollMissesChild)
     initializeRendererAndDrawFrame();
 
     // Scroll event is ignored because the input coordinate is outside the layer boundaries.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(15, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(15, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
     EXPECT_FALSE(m_didRequestRedraw);
     EXPECT_FALSE(m_didRequestCommit);
 }
 
 TEST_P(LayerTreeHostImplTest, scrollMissesBackfacingChild)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     scoped_ptr<LayerImpl> child = createScrollableLayer(2, surfaceSize);
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
@@ -1117,14 +1128,14 @@ TEST_P(LayerTreeHostImplTest, scrollMissesBackfacingChild)
 
     // Scroll event is ignored because the scrollable layer is not facing the viewer and there is
     // nothing scrollable behind it.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollIgnored);
     EXPECT_FALSE(m_didRequestRedraw);
     EXPECT_FALSE(m_didRequestCommit);
 }
 
 TEST_P(LayerTreeHostImplTest, scrollBlockedByContentLayer)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     scoped_ptr<LayerImpl> contentLayer = createScrollableLayer(1, surfaceSize);
     contentLayer->setShouldScrollOnMainThread(true);
     contentLayer->setScrollable(false);
@@ -1137,23 +1148,23 @@ TEST_P(LayerTreeHostImplTest, scrollBlockedByContentLayer)
     initializeRendererAndDrawFrame();
 
     // Scrolling fails because the content layer is asking to be scrolled on the main thread.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
 }
 
 TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnMainThread)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     float pageScale = 2;
     scoped_ptr<LayerImpl> root = createScrollableLayer(1, surfaceSize);
     m_hostImpl->setRootLayer(root.Pass());
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
 
-    IntSize scrollDelta(0, 10);
-    IntSize expectedScrollDelta(scrollDelta);
-    IntSize expectedMaxScroll(m_hostImpl->rootLayer()->maxScrollPosition());
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+    gfx::Vector2d scrollDelta(0, 10);
+    gfx::Vector2d expectedScrollDelta(scrollDelta);
+    gfx::Vector2d expectedMaxScroll(m_hostImpl->rootLayer()->maxScrollOffset());
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
     m_hostImpl->scrollEnd();
 
     // Set new page scale from main thread.
@@ -1161,13 +1172,13 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnMainThread)
 
     if (!Settings::pageScalePinchZoomEnabled()) {
         // The scale should apply to the scroll delta.
-        expectedScrollDelta.scale(pageScale);
+        expectedScrollDelta = gfx::ToFlooredVector2d(gfx::ScaleVector2d(expectedScrollDelta, pageScale));
     }
     scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
     expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
 
     // The scroll range should also have been updated.
-    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollPosition(), expectedMaxScroll);
+    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollOffset(), expectedMaxScroll);
 
     // The page scale delta remains constant because the impl thread did not scale.
     EXPECT_EQ(m_hostImpl->rootLayer()->implTransform(), WebTransformationMatrix());
@@ -1175,7 +1186,7 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnMainThread)
 
 TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnImplThread)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     float pageScale = 2;
     scoped_ptr<LayerImpl> root = createScrollableLayer(1, surfaceSize);
     m_hostImpl->setRootLayer(root.Pass());
@@ -1183,16 +1194,16 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnImplThread)
     m_hostImpl->setPageScaleFactorAndLimits(1, 1, pageScale);
     initializeRendererAndDrawFrame();
 
-    IntSize scrollDelta(0, 10);
-    IntSize expectedScrollDelta(scrollDelta);
-    IntSize expectedMaxScroll(m_hostImpl->rootLayer()->maxScrollPosition());
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+    gfx::Vector2d scrollDelta(0, 10);
+    gfx::Vector2d expectedScrollDelta(scrollDelta);
+    gfx::Vector2d expectedMaxScroll(m_hostImpl->rootLayer()->maxScrollOffset());
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
     m_hostImpl->scrollEnd();
 
     // Set new page scale on impl thread by pinching.
     m_hostImpl->pinchGestureBegin();
-    m_hostImpl->pinchGestureUpdate(pageScale, IntPoint());
+    m_hostImpl->pinchGestureUpdate(pageScale, gfx::Point());
     m_hostImpl->pinchGestureEnd();
     m_hostImpl->updateRootScrollLayerImplTransform();
 
@@ -1201,7 +1212,7 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnImplThread)
     expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
 
     // The scroll range should also have been updated.
-    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollPosition(), expectedMaxScroll);
+    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollOffset(), expectedMaxScroll);
 
     // The page scale delta should match the new scale on the impl side.
     WebTransformationMatrix expectedScale;
@@ -1211,7 +1222,7 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnImplThread)
 
 TEST_P(LayerTreeHostImplTest, pageScaleDeltaAppliedToRootScrollLayerOnly)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     float defaultPageScale = 1;
     WebTransformationMatrix defaultPageScaleMatrix;
 
@@ -1230,7 +1241,7 @@ TEST_P(LayerTreeHostImplTest, pageScaleDeltaAppliedToRootScrollLayerOnly)
 
     // Set new page scale on impl thread by pinching.
     m_hostImpl->pinchGestureBegin();
-    m_hostImpl->pinchGestureUpdate(newPageScale, IntPoint());
+    m_hostImpl->pinchGestureUpdate(newPageScale, gfx::Point());
     m_hostImpl->pinchGestureEnd();
     m_hostImpl->updateRootScrollLayerImplTransform();
 
@@ -1256,7 +1267,7 @@ TEST_P(LayerTreeHostImplTest, pageScaleDeltaAppliedToRootScrollLayerOnly)
 
 TEST_P(LayerTreeHostImplTest, scrollChildAndChangePageScaleOnMainThread)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     root->setBounds(surfaceSize);
     root->setContentBounds(surfaceSize);
@@ -1270,11 +1281,11 @@ TEST_P(LayerTreeHostImplTest, scrollChildAndChangePageScaleOnMainThread)
 
     LayerImpl* child = m_hostImpl->rootLayer()->children()[0];
 
-    IntSize scrollDelta(0, 10);
-    IntSize expectedScrollDelta(scrollDelta);
-    IntSize expectedMaxScroll(child->maxScrollPosition());
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+    gfx::Vector2d scrollDelta(0, 10);
+    gfx::Vector2d expectedScrollDelta(scrollDelta);
+    gfx::Vector2d expectedMaxScroll(child->maxScrollOffset());
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
     m_hostImpl->scrollEnd();
 
     float pageScale = 2;
@@ -1284,13 +1295,13 @@ TEST_P(LayerTreeHostImplTest, scrollChildAndChangePageScaleOnMainThread)
 
     if (!Settings::pageScalePinchZoomEnabled()) {
         // The scale should apply to the scroll delta.
-        expectedScrollDelta.scale(pageScale);
+        expectedScrollDelta = gfx::ToFlooredVector2d(gfx::ScaleVector2d(expectedScrollDelta, pageScale));
     }
     scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
     expectContains(*scrollInfo.get(), scrollLayerId, expectedScrollDelta);
 
     // The scroll range should not have changed.
-    EXPECT_EQ(child->maxScrollPosition(), expectedMaxScroll);
+    EXPECT_EQ(child->maxScrollOffset(), expectedMaxScroll);
 
     // The page scale delta remains constant because the impl thread did not scale.
     WebTransformationMatrix identityTransform;
@@ -1302,14 +1313,14 @@ TEST_P(LayerTreeHostImplTest, scrollChildBeyondLimit)
     // Scroll a child layer beyond its maximum scroll range and make sure the
     // parent layer is scrolled on the axis on which the child was unable to
     // scroll.
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     scoped_ptr<LayerImpl> root = createScrollableLayer(1, surfaceSize);
 
     scoped_ptr<LayerImpl> grandChild = createScrollableLayer(3, surfaceSize);
-    grandChild->setScrollPosition(IntPoint(0, 5));
+    grandChild->setScrollOffset(gfx::Vector2d(0, 5));
 
     scoped_ptr<LayerImpl> child = createScrollableLayer(2, surfaceSize);
-    child->setScrollPosition(IntPoint(3, 0));
+    child->setScrollOffset(gfx::Vector2d(3, 0));
     child->addChild(grandChild.Pass());
 
     root->addChild(child.Pass());
@@ -1317,9 +1328,9 @@ TEST_P(LayerTreeHostImplTest, scrollChildBeyondLimit)
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
     {
-        IntSize scrollDelta(-8, -7);
-        EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-        m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+        gfx::Vector2d scrollDelta(-8, -7);
+        EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+        m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
         m_hostImpl->scrollEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
@@ -1327,10 +1338,10 @@ TEST_P(LayerTreeHostImplTest, scrollChildBeyondLimit)
         // The grand child should have scrolled up to its limit.
         LayerImpl* child = m_hostImpl->rootLayer()->children()[0];
         LayerImpl* grandChild = child->children()[0];
-        expectContains(*scrollInfo.get(), grandChild->id(), IntSize(0, -5));
+        expectContains(*scrollInfo.get(), grandChild->id(), gfx::Vector2d(0, -5));
 
         // The child should have only scrolled on the other axis.
-        expectContains(*scrollInfo.get(), child->id(), IntSize(-3, 0));
+        expectContains(*scrollInfo.get(), child->id(), gfx::Vector2d(-3, 0));
     }
 }
 
@@ -1338,7 +1349,7 @@ TEST_P(LayerTreeHostImplTest, scrollEventBubbling)
 {
     // When we try to scroll a non-scrollable child layer, the scroll delta
     // should be applied to one of its ancestors if possible.
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     scoped_ptr<LayerImpl> root = createScrollableLayer(1, surfaceSize);
     scoped_ptr<LayerImpl> child = createScrollableLayer(2, surfaceSize);
 
@@ -1349,9 +1360,9 @@ TEST_P(LayerTreeHostImplTest, scrollEventBubbling)
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
     {
-        IntSize scrollDelta(0, 4);
-        EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-        m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+        gfx::Vector2d scrollDelta(0, 4);
+        EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+        m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
         m_hostImpl->scrollEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
@@ -1364,7 +1375,7 @@ TEST_P(LayerTreeHostImplTest, scrollEventBubbling)
 
 TEST_P(LayerTreeHostImplTest, scrollBeforeRedraw)
 {
-    IntSize surfaceSize(10, 10);
+    gfx::Size surfaceSize(10, 10);
     m_hostImpl->setRootLayer(createScrollableLayer(1, surfaceSize));
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
 
@@ -1374,37 +1385,37 @@ TEST_P(LayerTreeHostImplTest, scrollBeforeRedraw)
     m_hostImpl->setRootLayer(createScrollableLayer(2, surfaceSize));
 
     // Scrolling should still work even though we did not draw yet.
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(5, 5), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
 }
 
 TEST_P(LayerTreeHostImplTest, scrollAxisAlignedRotatedLayer)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
 
     // Rotate the root layer 90 degrees counter-clockwise about its center.
     WebTransformationMatrix rotateTransform;
     rotateTransform.rotate(-90);
     m_hostImpl->rootLayer()->setTransform(rotateTransform);
 
-    IntSize surfaceSize(50, 50);
+    gfx::Size surfaceSize(50, 50);
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
 
     // Scroll to the right in screen coordinates with a gesture.
-    IntSize gestureScrollDelta(10, 0);
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), gestureScrollDelta);
+    gfx::Vector2d gestureScrollDelta(10, 0);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), gestureScrollDelta);
     m_hostImpl->scrollEnd();
 
     // The layer should have scrolled down in its local coordinates.
     scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
-    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), IntSize(0, gestureScrollDelta.width()));
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), gfx::Vector2d(0, gestureScrollDelta.x()));
 
     // Reset and scroll down with the wheel.
-    m_hostImpl->rootLayer()->setScrollDelta(FloatSize());
-    IntSize wheelScrollDelta(0, 10);
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), wheelScrollDelta);
+    m_hostImpl->rootLayer()->setScrollDelta(gfx::Vector2dF());
+    gfx::Vector2d wheelScrollDelta(0, 10);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), wheelScrollDelta);
     m_hostImpl->scrollEnd();
 
     // The layer should have scrolled down in its local coordinates.
@@ -1414,7 +1425,7 @@ TEST_P(LayerTreeHostImplTest, scrollAxisAlignedRotatedLayer)
 
 TEST_P(LayerTreeHostImplTest, scrollNonAxisAlignedRotatedLayer)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
     int childLayerId = 3;
     float childLayerAngle = -20;
 
@@ -1427,23 +1438,23 @@ TEST_P(LayerTreeHostImplTest, scrollNonAxisAlignedRotatedLayer)
     child->setTransform(rotateTransform);
 
     // Only allow vertical scrolling.
-    child->setMaxScrollPosition(IntSize(0, child->contentBounds().height()));
+    child->setMaxScrollOffset(gfx::Vector2d(0, child->contentBounds().height()));
     m_hostImpl->rootLayer()->addChild(child.Pass());
 
-    IntSize surfaceSize(50, 50);
+    gfx::Size surfaceSize(50, 50);
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
 
     {
         // Scroll down in screen coordinates with a gesture.
-        IntSize gestureScrollDelta(0, 10);
-        EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
-        m_hostImpl->scrollBy(IntPoint(), gestureScrollDelta);
+        gfx::Vector2d gestureScrollDelta(0, 10);
+        EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
+        m_hostImpl->scrollBy(gfx::Point(), gestureScrollDelta);
         m_hostImpl->scrollEnd();
 
         // The child layer should have scrolled down in its local coordinates an amount proportional to
         // the angle between it and the input scroll delta.
-        IntSize expectedScrollDelta(0, gestureScrollDelta.height() * cosf(deg2rad(childLayerAngle)));
+        gfx::Vector2d expectedScrollDelta(0, gestureScrollDelta.y() * std::cos(MathUtil::Deg2Rad(childLayerAngle)));
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         expectContains(*scrollInfo.get(), childLayerId, expectedScrollDelta);
 
@@ -1454,28 +1465,28 @@ TEST_P(LayerTreeHostImplTest, scrollNonAxisAlignedRotatedLayer)
 
     {
         // Now reset and scroll the same amount horizontally.
-        m_hostImpl->rootLayer()->children()[1]->setScrollDelta(FloatSize());
-        IntSize gestureScrollDelta(10, 0);
-        EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
-        m_hostImpl->scrollBy(IntPoint(), gestureScrollDelta);
+        m_hostImpl->rootLayer()->children()[1]->setScrollDelta(gfx::Vector2dF());
+        gfx::Vector2d gestureScrollDelta(10, 0);
+        EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
+        m_hostImpl->scrollBy(gfx::Point(), gestureScrollDelta);
         m_hostImpl->scrollEnd();
 
         // The child layer should have scrolled down in its local coordinates an amount proportional to
         // the angle between it and the input scroll delta.
-        IntSize expectedScrollDelta(0, -gestureScrollDelta.width() * sinf(deg2rad(childLayerAngle)));
+        gfx::Vector2d expectedScrollDelta(0, -gestureScrollDelta.x() * std::sin(MathUtil::Deg2Rad(childLayerAngle)));
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         expectContains(*scrollInfo.get(), childLayerId, expectedScrollDelta);
 
         // The root layer should have scrolled more, since the input scroll delta was mostly
         // orthogonal to the child layer's vertical scroll axis.
-        IntSize expectedRootScrollDelta(gestureScrollDelta.width() * pow(cosf(deg2rad(childLayerAngle)), 2), 0);
+        gfx::Vector2d expectedRootScrollDelta(gestureScrollDelta.x() * std::pow(std::cos(MathUtil::Deg2Rad(childLayerAngle)), 2), 0);
         expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedRootScrollDelta);
     }
 }
 
 TEST_P(LayerTreeHostImplTest, scrollScaledLayer)
 {
-    setupScrollAndContentsLayers(IntSize(100, 100));
+    setupScrollAndContentsLayers(gfx::Size(100, 100));
 
     // Scale the layer to twice its normal size.
     int scale = 2;
@@ -1483,25 +1494,25 @@ TEST_P(LayerTreeHostImplTest, scrollScaledLayer)
     scaleTransform.scale(scale);
     m_hostImpl->rootLayer()->setTransform(scaleTransform);
 
-    IntSize surfaceSize(50, 50);
+    gfx::Size surfaceSize(50, 50);
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
     initializeRendererAndDrawFrame();
 
     // Scroll down in screen coordinates with a gesture.
-    IntSize scrollDelta(0, 10);
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), scrollDelta);
+    gfx::Vector2d scrollDelta(0, 10);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
     m_hostImpl->scrollEnd();
 
     // The layer should have scrolled down in its local coordinates, but half he amount.
     scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
-    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), IntSize(0, scrollDelta.height() / scale));
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), gfx::Vector2d(0, scrollDelta.y() / scale));
 
     // Reset and scroll down with the wheel.
-    m_hostImpl->rootLayer()->setScrollDelta(FloatSize());
-    IntSize wheelScrollDelta(0, 10);
-    EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
-    m_hostImpl->scrollBy(IntPoint(), wheelScrollDelta);
+    m_hostImpl->rootLayer()->setScrollDelta(gfx::Vector2dF());
+    gfx::Vector2d wheelScrollDelta(0, 10);
+    EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Wheel), InputHandlerClient::ScrollStarted);
+    m_hostImpl->scrollBy(gfx::Point(), wheelScrollDelta);
     m_hostImpl->scrollEnd();
 
     // The scale should not have been applied to the scroll delta.
@@ -1539,14 +1550,14 @@ public:
     {
         m_quadsAppended = true;
 
-        IntRect opaqueRect;
+        gfx::Rect opaqueRect;
         if (contentsOpaque())
             opaqueRect = m_quadRect;
         else
             opaqueRect = m_opaqueContentRect;
 
         SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(createSharedQuadState());
-        scoped_ptr<TileDrawQuad> testBlendingDrawQuad = TileDrawQuad::create(sharedQuadState, m_quadRect, opaqueRect, m_resourceId, IntPoint(), IntSize(1, 1), 0, false, false, false, false, false);
+        scoped_ptr<TileDrawQuad> testBlendingDrawQuad = TileDrawQuad::create(sharedQuadState, m_quadRect, opaqueRect, m_resourceId, gfx::Vector2d(), gfx::Size(1, 1), 0, false, false, false, false, false);
         testBlendingDrawQuad->setQuadVisibleRect(m_quadVisibleRect);
         EXPECT_EQ(m_blend, testBlendingDrawQuad->needsBlending());
         EXPECT_EQ(m_hasRenderSurface, !!renderSurface());
@@ -1562,9 +1573,9 @@ public:
 
     bool quadsAppended() const { return m_quadsAppended; }
 
-    void setQuadRect(const IntRect& rect) { m_quadRect = rect; }
-    void setQuadVisibleRect(const IntRect& rect) { m_quadVisibleRect = rect; }
-    void setOpaqueContentRect(const IntRect& rect) { m_opaqueContentRect = rect; }
+    void setQuadRect(const gfx::Rect& rect) { m_quadRect = rect; }
+    void setQuadVisibleRect(const gfx::Rect& rect) { m_quadVisibleRect = rect; }
+    void setOpaqueContentRect(const gfx::Rect& rect) { m_opaqueContentRect = rect; }
 
 private:
     explicit BlendStateCheckLayer(int id, ResourceProvider* resourceProvider)
@@ -1574,20 +1585,20 @@ private:
         , m_quadsAppended(false)
         , m_quadRect(5, 5, 5, 5)
         , m_quadVisibleRect(5, 5, 5, 5)
-        , m_resourceId(resourceProvider->createResource(Renderer::ContentPool, IntSize(1, 1), GL_RGBA, ResourceProvider::TextureUsageAny))
+        , m_resourceId(resourceProvider->createResource(Renderer::ContentPool, gfx::Size(1, 1), GL_RGBA, ResourceProvider::TextureUsageAny))
     {
-        setAnchorPoint(FloatPoint(0, 0));
-        setBounds(IntSize(10, 10));
-        setContentBounds(IntSize(10, 10));
+        setAnchorPoint(gfx::PointF(0, 0));
+        setBounds(gfx::Size(10, 10));
+        setContentBounds(gfx::Size(10, 10));
         setDrawsContent(true);
     }
 
     bool m_blend;
     bool m_hasRenderSurface;
     bool m_quadsAppended;
-    IntRect m_quadRect;
-    IntRect m_opaqueContentRect;
-    IntRect m_quadVisibleRect;
+    gfx::Rect m_quadRect;
+    gfx::Rect m_opaqueContentRect;
+    gfx::Rect m_quadVisibleRect;
     ResourceProvider::ResourceId m_resourceId;
 };
 
@@ -1595,8 +1606,8 @@ TEST_P(LayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 {
     {
         scoped_ptr<LayerImpl> root = LayerImpl::create(1);
-        root->setAnchorPoint(FloatPoint(0, 0));
-        root->setBounds(IntSize(10, 10));
+        root->setAnchorPoint(gfx::PointF(0, 0));
+        root->setBounds(gfx::Size(10, 10));
         root->setContentBounds(root->bounds());
         root->setDrawsContent(false);
         m_hostImpl->setRootLayer(root.Pass());
@@ -1605,7 +1616,7 @@ TEST_P(LayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 
     root->addChild(BlendStateCheckLayer::create(2, m_hostImpl->resourceProvider()));
     BlendStateCheckLayer* layer1 = static_cast<BlendStateCheckLayer*>(root->children()[0]);
-    layer1->setPosition(FloatPoint(2, 2));
+    layer1->setPosition(gfx::PointF(2, 2));
 
     LayerTreeHostImpl::FrameData frame;
 
@@ -1645,7 +1656,7 @@ TEST_P(LayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 
     layer1->addChild(BlendStateCheckLayer::create(3, m_hostImpl->resourceProvider()));
     BlendStateCheckLayer* layer2 = static_cast<BlendStateCheckLayer*>(layer1->children()[0]);
-    layer2->setPosition(FloatPoint(4, 4));
+    layer2->setPosition(gfx::PointF(4, 4));
 
     // 2 opaque layers, drawn without blending.
     layer1->setContentsOpaque(true);
@@ -1739,9 +1750,9 @@ TEST_P(LayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 
     // Layer with partially opaque contents, drawn with blending.
     layer1->setContentsOpaque(false);
-    layer1->setQuadRect(IntRect(5, 5, 5, 5));
-    layer1->setQuadVisibleRect(IntRect(5, 5, 5, 5));
-    layer1->setOpaqueContentRect(IntRect(5, 5, 2, 5));
+    layer1->setQuadRect(gfx::Rect(5, 5, 5, 5));
+    layer1->setQuadVisibleRect(gfx::Rect(5, 5, 5, 5));
+    layer1->setOpaqueContentRect(gfx::Rect(5, 5, 2, 5));
     layer1->setExpectation(true, false);
     EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
     m_hostImpl->drawLayers(frame);
@@ -1750,9 +1761,9 @@ TEST_P(LayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 
     // Layer with partially opaque contents partially culled, drawn with blending.
     layer1->setContentsOpaque(false);
-    layer1->setQuadRect(IntRect(5, 5, 5, 5));
-    layer1->setQuadVisibleRect(IntRect(5, 5, 5, 2));
-    layer1->setOpaqueContentRect(IntRect(5, 5, 2, 5));
+    layer1->setQuadRect(gfx::Rect(5, 5, 5, 5));
+    layer1->setQuadVisibleRect(gfx::Rect(5, 5, 5, 2));
+    layer1->setOpaqueContentRect(gfx::Rect(5, 5, 2, 5));
     layer1->setExpectation(true, false);
     EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
     m_hostImpl->drawLayers(frame);
@@ -1761,9 +1772,9 @@ TEST_P(LayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 
     // Layer with partially opaque contents culled, drawn with blending.
     layer1->setContentsOpaque(false);
-    layer1->setQuadRect(IntRect(5, 5, 5, 5));
-    layer1->setQuadVisibleRect(IntRect(7, 5, 3, 5));
-    layer1->setOpaqueContentRect(IntRect(5, 5, 2, 5));
+    layer1->setQuadRect(gfx::Rect(5, 5, 5, 5));
+    layer1->setQuadVisibleRect(gfx::Rect(7, 5, 3, 5));
+    layer1->setOpaqueContentRect(gfx::Rect(5, 5, 2, 5));
     layer1->setExpectation(true, false);
     EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
     m_hostImpl->drawLayers(frame);
@@ -1772,9 +1783,9 @@ TEST_P(LayerTreeHostImplTest, blendingOffWhenDrawingOpaqueLayers)
 
     // Layer with partially opaque contents and translucent contents culled, drawn without blending.
     layer1->setContentsOpaque(false);
-    layer1->setQuadRect(IntRect(5, 5, 5, 5));
-    layer1->setQuadVisibleRect(IntRect(5, 5, 2, 5));
-    layer1->setOpaqueContentRect(IntRect(5, 5, 2, 5));
+    layer1->setQuadRect(gfx::Rect(5, 5, 5, 5));
+    layer1->setQuadVisibleRect(gfx::Rect(5, 5, 2, 5));
+    layer1->setOpaqueContentRect(gfx::Rect(5, 5, 2, 5));
     layer1->setExpectation(false, false);
     EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
     m_hostImpl->drawLayers(frame);
@@ -1788,7 +1799,7 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
     m_hostImpl->initializeRenderer(createContext());
     m_hostImpl->setBackgroundColor(SK_ColorGRAY);
 
-    IntSize viewportSize(1000, 1000);
+    gfx::Size viewportSize(1000, 1000);
     m_hostImpl->setViewportSize(viewportSize, viewportSize);
 
     m_hostImpl->setRootLayer(LayerImpl::create(1));
@@ -1799,12 +1810,12 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
 
     // No gutter rects
     {
-        IntRect layerRect(0, 0, 1000, 1000);
-        child->setPosition(layerRect.location());
+        gfx::Rect layerRect(0, 0, 1000, 1000);
+        child->setPosition(layerRect.origin());
         child->setBounds(layerRect.size());
         child->setContentBounds(layerRect.size());
-        child->setQuadRect(IntRect(IntPoint(), layerRect.size()));
-        child->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
+        child->setQuadRect(gfx::Rect(gfx::Point(), layerRect.size()));
+        child->setQuadVisibleRect(gfx::Rect(gfx::Point(), layerRect.size()));
 
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
@@ -1816,18 +1827,18 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         EXPECT_EQ(0u, numGutterQuads);
         EXPECT_EQ(1u, frame.renderPasses[0]->quadList().size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(IntPoint::zero(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), gfx::Rect(gfx::Point(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
     // Empty visible content area (fullscreen gutter rect)
     {
-        IntRect layerRect(0, 0, 0, 0);
-        child->setPosition(layerRect.location());
+        gfx::Rect layerRect(0, 0, 0, 0);
+        child->setPosition(layerRect.origin());
         child->setBounds(layerRect.size());
         child->setContentBounds(layerRect.size());
-        child->setQuadRect(IntRect(IntPoint(), layerRect.size()));
-        child->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
+        child->setQuadRect(gfx::Rect(gfx::Point(), layerRect.size()));
+        child->setQuadVisibleRect(gfx::Rect(gfx::Point(), layerRect.size()));
 
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
@@ -1840,18 +1851,18 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         EXPECT_EQ(1u, numGutterQuads);
         EXPECT_EQ(1u, frame.renderPasses[0]->quadList().size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(IntPoint::zero(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), gfx::Rect(gfx::Point(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
     // Content area in middle of clip rect (four surrounding gutter rects)
     {
-        IntRect layerRect(500, 500, 200, 200);
-        child->setPosition(layerRect.location());
+        gfx::Rect layerRect(500, 500, 200, 200);
+        child->setPosition(layerRect.origin());
         child->setBounds(layerRect.size());
         child->setContentBounds(layerRect.size());
-        child->setQuadRect(IntRect(IntPoint(), layerRect.size()));
-        child->setQuadVisibleRect(IntRect(IntPoint(), layerRect.size()));
+        child->setQuadRect(gfx::Rect(gfx::Point(), layerRect.size()));
+        child->setQuadVisibleRect(gfx::Rect(gfx::Point(), layerRect.size()));
 
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
@@ -1863,7 +1874,7 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         EXPECT_EQ(4u, numGutterQuads);
         EXPECT_EQ(5u, frame.renderPasses[0]->quadList().size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), IntRect(IntPoint::zero(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), gfx::Rect(gfx::Point(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
@@ -1902,8 +1913,8 @@ TEST_P(LayerTreeHostImplTest, reshapeNotCalledUntilDraw)
     m_hostImpl->initializeRenderer(outputSurface.Pass());
 
     scoped_ptr<LayerImpl> root = FakeDrawableLayerImpl::create(1);
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setBounds(IntSize(10, 10));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setBounds(gfx::Size(10, 10));
     root->setDrawsContent(true);
     m_hostImpl->setRootLayer(root.Pass());
     EXPECT_FALSE(reshapeTracker->reshapeCalled());
@@ -1919,7 +1930,7 @@ class PartialSwapTrackerContext : public FakeWebGraphicsContext3D {
 public:
     virtual void postSubBufferCHROMIUM(int x, int y, int width, int height)
     {
-        m_partialSwapRect = IntRect(x, y, width, height);
+        m_partialSwapRect = gfx::Rect(x, y, width, height);
     }
 
     virtual WebString getString(WGC3Denum name)
@@ -1930,10 +1941,10 @@ public:
         return WebString();
     }
 
-    IntRect partialSwapRect() const { return m_partialSwapRect; }
+    gfx::Rect partialSwapRect() const { return m_partialSwapRect; }
 
 private:
-    IntRect m_partialSwapRect;
+    gfx::Rect m_partialSwapRect;
 };
 
 // Make sure damage tracking propagates all the way to the graphics context,
@@ -1947,20 +1958,20 @@ TEST_P(LayerTreeHostImplTest, partialSwapReceivesDamageRect)
     // that we can force partial swap enabled.
     LayerTreeSettings settings;
     Settings::setPartialSwapEnabled(true);
-    scoped_ptr<LayerTreeHostImpl> layerTreeHostImpl = LayerTreeHostImpl::create(settings, this);
+    scoped_ptr<LayerTreeHostImpl> layerTreeHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
     layerTreeHostImpl->initializeRenderer(outputSurface.Pass());
-    layerTreeHostImpl->setViewportSize(IntSize(500, 500), IntSize(500, 500));
+    layerTreeHostImpl->setViewportSize(gfx::Size(500, 500), gfx::Size(500, 500));
 
     scoped_ptr<LayerImpl> root = FakeDrawableLayerImpl::create(1);
     scoped_ptr<LayerImpl> child = FakeDrawableLayerImpl::create(2);
-    child->setPosition(FloatPoint(12, 13));
-    child->setAnchorPoint(FloatPoint(0, 0));
-    child->setBounds(IntSize(14, 15));
-    child->setContentBounds(IntSize(14, 15));
+    child->setPosition(gfx::PointF(12, 13));
+    child->setAnchorPoint(gfx::PointF(0, 0));
+    child->setBounds(gfx::Size(14, 15));
+    child->setContentBounds(gfx::Size(14, 15));
     child->setDrawsContent(true);
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setBounds(IntSize(500, 500));
-    root->setContentBounds(IntSize(500, 500));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setBounds(gfx::Size(500, 500));
+    root->setContentBounds(gfx::Size(500, 500));
     root->setDrawsContent(true);
     root->addChild(child.Pass());
     layerTreeHostImpl->setRootLayer(root.Pass());
@@ -1972,8 +1983,8 @@ TEST_P(LayerTreeHostImplTest, partialSwapReceivesDamageRect)
     layerTreeHostImpl->drawLayers(frame);
     layerTreeHostImpl->didDrawAllLayers(frame);
     layerTreeHostImpl->swapBuffers();
-    IntRect actualSwapRect = partialSwapTracker->partialSwapRect();
-    IntRect expectedSwapRect = IntRect(IntPoint::zero(), IntSize(500, 500));
+    gfx::Rect actualSwapRect = partialSwapTracker->partialSwapRect();
+    gfx::Rect expectedSwapRect = gfx::Rect(gfx::Point(), gfx::Size(500, 500));
     EXPECT_EQ(expectedSwapRect.x(), actualSwapRect.x());
     EXPECT_EQ(expectedSwapRect.y(), actualSwapRect.y());
     EXPECT_EQ(expectedSwapRect.width(), actualSwapRect.width());
@@ -1981,31 +1992,31 @@ TEST_P(LayerTreeHostImplTest, partialSwapReceivesDamageRect)
 
     // Second frame, only the damaged area should get swapped. Damage should be the union
     // of old and new child rects.
-    // expected damage rect: IntRect(IntPoint::zero(), IntSize(26, 28));
+    // expected damage rect: gfx::Rect(gfx::Point(), gfx::Size(26, 28));
     // expected swap rect: vertically flipped, with origin at bottom left corner.
-    layerTreeHostImpl->rootLayer()->children()[0]->setPosition(FloatPoint(0, 0));
+    layerTreeHostImpl->rootLayer()->children()[0]->setPosition(gfx::PointF(0, 0));
     EXPECT_TRUE(layerTreeHostImpl->prepareToDraw(frame));
     layerTreeHostImpl->drawLayers(frame);
     m_hostImpl->didDrawAllLayers(frame);
     layerTreeHostImpl->swapBuffers();
     actualSwapRect = partialSwapTracker->partialSwapRect();
-    expectedSwapRect = IntRect(IntPoint(0, 500-28), IntSize(26, 28));
+    expectedSwapRect = gfx::Rect(gfx::Point(0, 500-28), gfx::Size(26, 28));
     EXPECT_EQ(expectedSwapRect.x(), actualSwapRect.x());
     EXPECT_EQ(expectedSwapRect.y(), actualSwapRect.y());
     EXPECT_EQ(expectedSwapRect.width(), actualSwapRect.width());
     EXPECT_EQ(expectedSwapRect.height(), actualSwapRect.height());
 
     // Make sure that partial swap is constrained to the viewport dimensions
-    // expected damage rect: IntRect(IntPoint::zero(), IntSize(500, 500));
+    // expected damage rect: gfx::Rect(gfx::Point(), gfx::Size(500, 500));
     // expected swap rect: flipped damage rect, but also clamped to viewport
-    layerTreeHostImpl->setViewportSize(IntSize(10, 10), IntSize(10, 10));
+    layerTreeHostImpl->setViewportSize(gfx::Size(10, 10), gfx::Size(10, 10));
     layerTreeHostImpl->rootLayer()->setOpacity(0.7f); // this will damage everything
     EXPECT_TRUE(layerTreeHostImpl->prepareToDraw(frame));
     layerTreeHostImpl->drawLayers(frame);
     m_hostImpl->didDrawAllLayers(frame);
     layerTreeHostImpl->swapBuffers();
     actualSwapRect = partialSwapTracker->partialSwapRect();
-    expectedSwapRect = IntRect(IntPoint::zero(), IntSize(10, 10));
+    expectedSwapRect = gfx::Rect(gfx::Point(), gfx::Size(10, 10));
     EXPECT_EQ(expectedSwapRect.x(), actualSwapRect.x());
     EXPECT_EQ(expectedSwapRect.y(), actualSwapRect.y());
     EXPECT_EQ(expectedSwapRect.width(), actualSwapRect.width());
@@ -2016,13 +2027,13 @@ TEST_P(LayerTreeHostImplTest, rootLayerDoesntCreateExtraSurface)
 {
     scoped_ptr<LayerImpl> root = FakeDrawableLayerImpl::create(1);
     scoped_ptr<LayerImpl> child = FakeDrawableLayerImpl::create(2);
-    child->setAnchorPoint(FloatPoint(0, 0));
-    child->setBounds(IntSize(10, 10));
-    child->setContentBounds(IntSize(10, 10));
+    child->setAnchorPoint(gfx::PointF(0, 0));
+    child->setBounds(gfx::Size(10, 10));
+    child->setContentBounds(gfx::Size(10, 10));
     child->setDrawsContent(true);
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setBounds(IntSize(10, 10));
-    root->setContentBounds(IntSize(10, 10));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setBounds(gfx::Size(10, 10));
+    root->setContentBounds(gfx::Size(10, 10));
     root->setDrawsContent(true);
     root->setOpacity(0.7f);
     root->addChild(child.Pass());
@@ -2048,7 +2059,7 @@ public:
         SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(createSharedQuadState());
 
         SkColor gray = SkColorSetRGB(100, 100, 100);
-        IntRect quadRect(IntPoint(0, 0), contentBounds());
+        gfx::Rect quadRect(gfx::Point(0, 0), contentBounds());
         scoped_ptr<SolidColorDrawQuad> myQuad = SolidColorDrawQuad::create(sharedQuadState, quadRect, gray);
         quadSink.append(myQuad.PassAs<DrawQuad>(), appendQuadsData);
     }
@@ -2191,7 +2202,7 @@ TEST_P(LayerTreeHostImplTest, partialSwap)
     Mock::VerifyAndClearExpectations(&mockContext);
 
     // Damage a portion of the frame.
-    myHostImpl->rootLayer()->setUpdateRect(IntRect(0, 0, 2, 3));
+    myHostImpl->rootLayer()->setUpdateRect(gfx::Rect(0, 0, 2, 3));
 
     // The second frame will be partially-swapped (the y coordinates are flipped).
     harness.mustSetScissor(0, 7, 2, 3);
@@ -2227,16 +2238,16 @@ public:
     }
 };
 
-static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, LayerTreeHostImplClient* client)
+static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, LayerTreeHostImplClient* client, Proxy* proxy)
 {
     Settings::setPartialSwapEnabled(partialSwap);
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
     LayerTreeSettings settings;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, client);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, client, proxy);
     myHostImpl->initializeRenderer(context.Pass());
-    myHostImpl->setViewportSize(IntSize(100, 100), IntSize(100, 100));
+    myHostImpl->setViewportSize(gfx::Size(100, 100), gfx::Size(100, 100));
 
     /*
       Layers are created as follows:
@@ -2260,30 +2271,30 @@ static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, Lay
     scoped_ptr<LayerImpl> child = LayerImpl::create(2);
     scoped_ptr<LayerImpl> grandChild = FakeLayerWithQuads::create(3);
 
-    IntRect rootRect(0, 0, 100, 100);
-    IntRect childRect(10, 10, 50, 50);
-    IntRect grandChildRect(5, 5, 150, 150);
+    gfx::Rect rootRect(0, 0, 100, 100);
+    gfx::Rect childRect(10, 10, 50, 50);
+    gfx::Rect grandChildRect(5, 5, 150, 150);
 
     root->createRenderSurface();
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(rootRect.x(), rootRect.y()));
-    root->setBounds(IntSize(rootRect.width(), rootRect.height()));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(rootRect.x(), rootRect.y()));
+    root->setBounds(gfx::Size(rootRect.width(), rootRect.height()));
     root->setContentBounds(root->bounds());
     root->setVisibleContentRect(rootRect);
     root->setDrawsContent(false);
-    root->renderSurface()->setContentRect(IntRect(IntPoint(), IntSize(rootRect.width(), rootRect.height())));
+    root->renderSurface()->setContentRect(gfx::Rect(gfx::Point(), gfx::Size(rootRect.width(), rootRect.height())));
 
-    child->setAnchorPoint(FloatPoint(0, 0));
-    child->setPosition(FloatPoint(childRect.x(), childRect.y()));
+    child->setAnchorPoint(gfx::PointF(0, 0));
+    child->setPosition(gfx::PointF(childRect.x(), childRect.y()));
     child->setOpacity(0.5f);
-    child->setBounds(IntSize(childRect.width(), childRect.height()));
+    child->setBounds(gfx::Size(childRect.width(), childRect.height()));
     child->setContentBounds(child->bounds());
     child->setVisibleContentRect(childRect);
     child->setDrawsContent(false);
 
-    grandChild->setAnchorPoint(FloatPoint(0, 0));
-    grandChild->setPosition(IntPoint(grandChildRect.x(), grandChildRect.y()));
-    grandChild->setBounds(IntSize(grandChildRect.width(), grandChildRect.height()));
+    grandChild->setAnchorPoint(gfx::PointF(0, 0));
+    grandChild->setPosition(gfx::Point(grandChildRect.x(), grandChildRect.y()));
+    grandChild->setBounds(gfx::Size(grandChildRect.width(), grandChildRect.height()));
     grandChild->setContentBounds(grandChild->bounds());
     grandChild->setVisibleContentRect(grandChildRect);
     grandChild->setDrawsContent(true);
@@ -2297,7 +2308,7 @@ static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, Lay
 
 TEST_P(LayerTreeHostImplTest, contributingLayerEmptyScissorPartialSwap)
 {
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(true, this);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(true, this, &m_proxy);
 
     {
         LayerTreeHostImpl::FrameData frame;
@@ -2318,7 +2329,7 @@ TEST_P(LayerTreeHostImplTest, contributingLayerEmptyScissorPartialSwap)
 
 TEST_P(LayerTreeHostImplTest, contributingLayerEmptyScissorNoPartialSwap)
 {
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(false, this);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(false, this, &m_proxy);
 
     {
         LayerTreeHostImpl::FrameData frame;
@@ -2384,7 +2395,7 @@ TEST_P(LayerTreeHostImplTest, contextLostAndRestoredNotificationSentToAllLayers)
 TEST_P(LayerTreeHostImplTest, finishAllRenderingAfterContextLost)
 {
     LayerTreeSettings settings;
-    m_hostImpl = LayerTreeHostImpl::create(settings, this);
+    m_hostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // The context initialization will fail, but we should still be able to call finishAllRendering() without any ill effects.
     m_hostImpl->initializeRenderer(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new FakeWebGraphicsContext3DMakeCurrentFails)).PassAs<GraphicsContext>());
@@ -2408,7 +2419,7 @@ private:
 TEST_P(LayerTreeHostImplTest, contextLostDuringInitialize)
 {
     LayerTreeSettings settings;
-    m_hostImpl = LayerTreeHostImpl::create(settings, this);
+    m_hostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Initialize into a known successful state.
     EXPECT_TRUE(m_hostImpl->initializeRenderer(createContext()));
@@ -2552,6 +2563,8 @@ public:
     virtual const void* data(unsigned plane) const { NOTREACHED(); return NULL; }
     virtual unsigned textureId() const { NOTREACHED(); return 0; }
     virtual unsigned textureTarget() const { NOTREACHED(); return 0; }
+    virtual WebKit::WebRect visibleRect() const { NOTREACHED(); return WebKit::WebRect(0, 0, 0, 0); }
+    virtual WebKit::WebSize textureSize() const { NOTREACHED(); return WebKit::WebSize(4, 4); }
 
     static VideoFrame* toVideoFrame(WebVideoFrame* web_video_frame) {
         FakeVideoFrame* wrapped_frame =
@@ -2630,7 +2643,7 @@ public:
     {
         DCHECK(provider);
         int pool = 0;
-        IntSize size(10, 10);
+        gfx::Size size(10, 10);
         GLenum format = GL_RGBA;
         ResourceProvider::TextureUsageHint hint = ResourceProvider::TextureUsageAny;
         setScrollbarGeometry(ScrollbarGeometryFixedThumb::create(FakeWebScrollbarThemeGeometryNonEmpty::create()));
@@ -2649,11 +2662,11 @@ protected:
 
 static inline scoped_ptr<RenderPass> createRenderPassWithResource(ResourceProvider* provider)
 {
-    ResourceProvider::ResourceId resourceId = provider->createResource(0, IntSize(1, 1), GL_RGBA, ResourceProvider::TextureUsageAny);
+    ResourceProvider::ResourceId resourceId = provider->createResource(0, gfx::Size(1, 1), GL_RGBA, ResourceProvider::TextureUsageAny);
 
-    scoped_ptr<TestRenderPass> pass = TestRenderPass::create(RenderPass::Id(1, 1), IntRect(0, 0, 1, 1), WebTransformationMatrix());
-    scoped_ptr<SharedQuadState> sharedState = SharedQuadState::create(WebTransformationMatrix(), IntRect(0, 0, 1, 1), IntRect(0, 0, 1, 1), 1, false);
-    scoped_ptr<TextureDrawQuad> quad = TextureDrawQuad::create(sharedState.get(), IntRect(0, 0, 1, 1), resourceId, false, FloatRect(0, 0, 1, 1), false);
+    scoped_ptr<TestRenderPass> pass = TestRenderPass::create(RenderPass::Id(1, 1), gfx::Rect(0, 0, 1, 1), WebTransformationMatrix());
+    scoped_ptr<SharedQuadState> sharedState = SharedQuadState::create(WebTransformationMatrix(), gfx::Rect(0, 0, 1, 1), gfx::Rect(0, 0, 1, 1), 1, false);
+    scoped_ptr<TextureDrawQuad> quad = TextureDrawQuad::create(sharedState.get(), gfx::Rect(0, 0, 1, 1), resourceId, false, gfx::RectF(0, 0, 1, 1), false);
 
     pass->appendSharedQuadState(sharedState.Pass());
     pass->appendQuad(quad.PassAs<DrawQuad>());
@@ -2666,42 +2679,42 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     int layerId = 1;
 
     scoped_ptr<LayerImpl> rootLayer(LayerImpl::create(layerId++));
-    rootLayer->setBounds(IntSize(10, 10));
-    rootLayer->setAnchorPoint(FloatPoint(0, 0));
+    rootLayer->setBounds(gfx::Size(10, 10));
+    rootLayer->setAnchorPoint(gfx::PointF(0, 0));
 
     scoped_ptr<TiledLayerImpl> tileLayer = TiledLayerImpl::create(layerId++);
-    tileLayer->setBounds(IntSize(10, 10));
-    tileLayer->setAnchorPoint(FloatPoint(0, 0));
-    tileLayer->setContentBounds(IntSize(10, 10));
+    tileLayer->setBounds(gfx::Size(10, 10));
+    tileLayer->setAnchorPoint(gfx::PointF(0, 0));
+    tileLayer->setContentBounds(gfx::Size(10, 10));
     tileLayer->setDrawsContent(true);
     tileLayer->setSkipsDraw(false);
-    scoped_ptr<LayerTilingData> tilingData(LayerTilingData::create(IntSize(10, 10), LayerTilingData::NoBorderTexels));
-    tilingData->setBounds(IntSize(10, 10));
+    scoped_ptr<LayerTilingData> tilingData(LayerTilingData::create(gfx::Size(10, 10), LayerTilingData::NoBorderTexels));
+    tilingData->setBounds(gfx::Size(10, 10));
     tileLayer->setTilingData(*tilingData);
-    tileLayer->pushTileProperties(0, 0, 1, IntRect(0, 0, 10, 10), false);
+    tileLayer->pushTileProperties(0, 0, 1, gfx::Rect(0, 0, 10, 10), false);
     rootLayer->addChild(tileLayer.PassAs<LayerImpl>());
 
     scoped_ptr<TextureLayerImpl> textureLayer = TextureLayerImpl::create(layerId++);
-    textureLayer->setBounds(IntSize(10, 10));
-    textureLayer->setAnchorPoint(FloatPoint(0, 0));
-    textureLayer->setContentBounds(IntSize(10, 10));
+    textureLayer->setBounds(gfx::Size(10, 10));
+    textureLayer->setAnchorPoint(gfx::PointF(0, 0));
+    textureLayer->setContentBounds(gfx::Size(10, 10));
     textureLayer->setDrawsContent(true);
     textureLayer->setTextureId(1);
     rootLayer->addChild(textureLayer.PassAs<LayerImpl>());
 
     scoped_ptr<TiledLayerImpl> maskLayer = TiledLayerImpl::create(layerId++);
-    maskLayer->setBounds(IntSize(10, 10));
-    maskLayer->setAnchorPoint(FloatPoint(0, 0));
-    maskLayer->setContentBounds(IntSize(10, 10));
+    maskLayer->setBounds(gfx::Size(10, 10));
+    maskLayer->setAnchorPoint(gfx::PointF(0, 0));
+    maskLayer->setContentBounds(gfx::Size(10, 10));
     maskLayer->setDrawsContent(true);
     maskLayer->setSkipsDraw(false);
     maskLayer->setTilingData(*tilingData);
-    maskLayer->pushTileProperties(0, 0, 1, IntRect(0, 0, 10, 10), false);
+    maskLayer->pushTileProperties(0, 0, 1, gfx::Rect(0, 0, 10, 10), false);
 
     scoped_ptr<TextureLayerImpl> textureLayerWithMask = TextureLayerImpl::create(layerId++);
-    textureLayerWithMask->setBounds(IntSize(10, 10));
-    textureLayerWithMask->setAnchorPoint(FloatPoint(0, 0));
-    textureLayerWithMask->setContentBounds(IntSize(10, 10));
+    textureLayerWithMask->setBounds(gfx::Size(10, 10));
+    textureLayerWithMask->setAnchorPoint(gfx::PointF(0, 0));
+    textureLayerWithMask->setContentBounds(gfx::Size(10, 10));
     textureLayerWithMask->setDrawsContent(true);
     textureLayerWithMask->setTextureId(1);
     textureLayerWithMask->setMaskLayer(maskLayer.PassAs<LayerImpl>());
@@ -2714,53 +2727,60 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
         base::Bind(FakeVideoFrame::toVideoFrame);
     FakeVideoFrameProvider provider;
     provider.setFrame(&videoFrame);
-    scoped_ptr<VideoLayerImpl> videoLayer =
-        VideoLayerImpl::create(layerId++, &provider, unwrapper);
-    videoLayer->setBounds(IntSize(10, 10));
-    videoLayer->setAnchorPoint(FloatPoint(0, 0));
-    videoLayer->setContentBounds(IntSize(10, 10));
+    scoped_ptr<VideoLayerImpl> videoLayer = VideoLayerImpl::create(layerId++, &provider, unwrapper);
+    videoLayer->setBounds(gfx::Size(10, 10));
+    videoLayer->setAnchorPoint(gfx::PointF(0, 0));
+    videoLayer->setContentBounds(gfx::Size(10, 10));
     videoLayer->setDrawsContent(true);
     videoLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(videoLayer.PassAs<LayerImpl>());
 
+    FakeVideoFrameProvider providerScaled;
+    scoped_ptr<VideoLayerImpl> videoLayerScaled = VideoLayerImpl::create(layerId++, &providerScaled, unwrapper);
+    videoLayerScaled->setBounds(gfx::Size(10, 10));
+    videoLayerScaled->setAnchorPoint(gfx::PointF(0, 0));
+    videoLayerScaled->setContentBounds(gfx::Size(10, 10));
+    videoLayerScaled->setDrawsContent(true);
+    videoLayerScaled->setLayerTreeHostImpl(m_hostImpl.get());
+    rootLayer->addChild(videoLayerScaled.PassAs<LayerImpl>());
+
     FakeVideoFrameProvider hwProvider;
-    scoped_ptr<VideoLayerImpl> hwVideoLayer =
-        VideoLayerImpl::create(layerId++, &hwProvider, unwrapper);
-    hwVideoLayer->setBounds(IntSize(10, 10));
-    hwVideoLayer->setAnchorPoint(FloatPoint(0, 0));
-    hwVideoLayer->setContentBounds(IntSize(10, 10));
+    scoped_ptr<VideoLayerImpl> hwVideoLayer = VideoLayerImpl::create(layerId++, &hwProvider, unwrapper);
+    hwVideoLayer->setBounds(gfx::Size(10, 10));
+    hwVideoLayer->setAnchorPoint(gfx::PointF(0, 0));
+    hwVideoLayer->setContentBounds(gfx::Size(10, 10));
     hwVideoLayer->setDrawsContent(true);
     hwVideoLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(hwVideoLayer.PassAs<LayerImpl>());
 
     scoped_ptr<IOSurfaceLayerImpl> ioSurfaceLayer = IOSurfaceLayerImpl::create(layerId++);
-    ioSurfaceLayer->setBounds(IntSize(10, 10));
-    ioSurfaceLayer->setAnchorPoint(FloatPoint(0, 0));
-    ioSurfaceLayer->setContentBounds(IntSize(10, 10));
+    ioSurfaceLayer->setBounds(gfx::Size(10, 10));
+    ioSurfaceLayer->setAnchorPoint(gfx::PointF(0, 0));
+    ioSurfaceLayer->setContentBounds(gfx::Size(10, 10));
     ioSurfaceLayer->setDrawsContent(true);
-    ioSurfaceLayer->setIOSurfaceProperties(1, IntSize(10, 10));
+    ioSurfaceLayer->setIOSurfaceProperties(1, gfx::Size(10, 10));
     ioSurfaceLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(ioSurfaceLayer.PassAs<LayerImpl>());
 
     scoped_ptr<HeadsUpDisplayLayerImpl> hudLayer = HeadsUpDisplayLayerImpl::create(layerId++);
-    hudLayer->setBounds(IntSize(10, 10));
-    hudLayer->setAnchorPoint(FloatPoint(0, 0));
-    hudLayer->setContentBounds(IntSize(10, 10));
+    hudLayer->setBounds(gfx::Size(10, 10));
+    hudLayer->setAnchorPoint(gfx::PointF(0, 0));
+    hudLayer->setContentBounds(gfx::Size(10, 10));
     hudLayer->setDrawsContent(true);
     hudLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(hudLayer.PassAs<LayerImpl>());
 
     scoped_ptr<FakeScrollbarLayerImpl> scrollbarLayer(FakeScrollbarLayerImpl::create(layerId++));
-    scrollbarLayer->setBounds(IntSize(10, 10));
-    scrollbarLayer->setContentBounds(IntSize(10, 10));
+    scrollbarLayer->setBounds(gfx::Size(10, 10));
+    scrollbarLayer->setContentBounds(gfx::Size(10, 10));
     scrollbarLayer->setDrawsContent(true);
     scrollbarLayer->setLayerTreeHostImpl(m_hostImpl.get());
     scrollbarLayer->createResources(m_hostImpl->resourceProvider());
     rootLayer->addChild(scrollbarLayer.PassAs<LayerImpl>());
 
     scoped_ptr<DelegatedRendererLayerImpl> delegatedRendererLayer(DelegatedRendererLayerImpl::create(layerId++));
-    delegatedRendererLayer->setBounds(IntSize(10, 10));
-    delegatedRendererLayer->setContentBounds(IntSize(10, 10));
+    delegatedRendererLayer->setBounds(gfx::Size(10, 10));
+    delegatedRendererLayer->setContentBounds(gfx::Size(10, 10));
     delegatedRendererLayer->setDrawsContent(true);
     delegatedRendererLayer->setLayerTreeHostImpl(m_hostImpl.get());
     ScopedPtrVector<RenderPass> passList;
@@ -2776,9 +2796,17 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
         VideoFrame::WrapNativeTexture(
             m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture(),
             GL_TEXTURE_2D,
-            gfx::Size(4, 4), gfx::Size(4, 4), base::TimeDelta(),
+            gfx::Size(4, 4), gfx::Rect(0, 0, 4, 4), gfx::Size(4, 4), base::TimeDelta(),
             VideoFrame::ReadPixelsCB(), base::Closure()));
     hwProvider.setFrame(&hwVideoFrame);
+
+    FakeVideoFrame videoFrameScaled(
+        VideoFrame::WrapNativeTexture(
+            m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture(),
+            GL_TEXTURE_2D,
+            gfx::Size(4, 4), gfx::Rect(0, 0, 3, 2), gfx::Size(4, 4), base::TimeDelta(),
+            VideoFrame::ReadPixelsCB(), base::Closure()));
+    providerScaled.setFrame(&videoFrameScaled);
 
     m_hostImpl->setRootLayer(rootLayer.Pass());
 
@@ -2802,6 +2830,7 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     // The WebVideoFrameProvider is expected to recreate its textures after a
     // lost context (or not serve a frame).
     hwProvider.setFrame(0);
+    providerScaled.setFrame(0);
 
     EXPECT_TRUE(m_hostImpl->prepareToDraw(frame));
     m_hostImpl->drawLayers(frame);
@@ -2812,7 +2841,7 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
         VideoFrame::WrapNativeTexture(
             m_hostImpl->resourceProvider()->graphicsContext3D()->createTexture(),
             GL_TEXTURE_2D,
-            gfx::Size(4, 4), gfx::Size(4, 4), base::TimeDelta(),
+            gfx::Size(4, 4), gfx::Rect(0, 0, 4, 4), gfx::Size(4, 4), base::TimeDelta(),
             VideoFrame::ReadPixelsCB(), base::Closure()));
     hwProvider.setFrame(&hwVideoFrame2);
 
@@ -2866,25 +2895,25 @@ private:
 TEST_P(LayerTreeHostImplTest, layersFreeTextures)
 {
     scoped_ptr<LayerImpl> rootLayer(LayerImpl::create(1));
-    rootLayer->setBounds(IntSize(10, 10));
-    rootLayer->setAnchorPoint(FloatPoint(0, 0));
+    rootLayer->setBounds(gfx::Size(10, 10));
+    rootLayer->setAnchorPoint(gfx::PointF(0, 0));
 
     scoped_ptr<TiledLayerImpl> tileLayer = TiledLayerImpl::create(2);
-    tileLayer->setBounds(IntSize(10, 10));
-    tileLayer->setAnchorPoint(FloatPoint(0, 0));
-    tileLayer->setContentBounds(IntSize(10, 10));
+    tileLayer->setBounds(gfx::Size(10, 10));
+    tileLayer->setAnchorPoint(gfx::PointF(0, 0));
+    tileLayer->setContentBounds(gfx::Size(10, 10));
     tileLayer->setDrawsContent(true);
     tileLayer->setSkipsDraw(false);
-    scoped_ptr<LayerTilingData> tilingData(LayerTilingData::create(IntSize(10, 10), LayerTilingData::NoBorderTexels));
-    tilingData->setBounds(IntSize(10, 10));
+    scoped_ptr<LayerTilingData> tilingData(LayerTilingData::create(gfx::Size(10, 10), LayerTilingData::NoBorderTexels));
+    tilingData->setBounds(gfx::Size(10, 10));
     tileLayer->setTilingData(*tilingData);
-    tileLayer->pushTileProperties(0, 0, 1, IntRect(0, 0, 10, 10), false);
+    tileLayer->pushTileProperties(0, 0, 1, gfx::Rect(0, 0, 10, 10), false);
     rootLayer->addChild(tileLayer.PassAs<LayerImpl>());
 
     scoped_ptr<TextureLayerImpl> textureLayer = TextureLayerImpl::create(3);
-    textureLayer->setBounds(IntSize(10, 10));
-    textureLayer->setAnchorPoint(FloatPoint(0, 0));
-    textureLayer->setContentBounds(IntSize(10, 10));
+    textureLayer->setBounds(gfx::Size(10, 10));
+    textureLayer->setAnchorPoint(gfx::PointF(0, 0));
+    textureLayer->setContentBounds(gfx::Size(10, 10));
     textureLayer->setDrawsContent(true);
     textureLayer->setTextureId(1);
     rootLayer->addChild(textureLayer.PassAs<LayerImpl>());
@@ -2892,21 +2921,20 @@ TEST_P(LayerTreeHostImplTest, layersFreeTextures)
     VideoLayerImpl::FrameUnwrapper unwrapper =
         base::Bind(FakeVideoFrame::toVideoFrame);
     FakeVideoFrameProvider provider;
-    scoped_ptr<VideoLayerImpl> videoLayer =
-        VideoLayerImpl::create(4, &provider, unwrapper);
-    videoLayer->setBounds(IntSize(10, 10));
-    videoLayer->setAnchorPoint(FloatPoint(0, 0));
-    videoLayer->setContentBounds(IntSize(10, 10));
+    scoped_ptr<VideoLayerImpl> videoLayer = VideoLayerImpl::create(4, &provider, unwrapper);
+    videoLayer->setBounds(gfx::Size(10, 10));
+    videoLayer->setAnchorPoint(gfx::PointF(0, 0));
+    videoLayer->setContentBounds(gfx::Size(10, 10));
     videoLayer->setDrawsContent(true);
     videoLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(videoLayer.PassAs<LayerImpl>());
 
     scoped_ptr<IOSurfaceLayerImpl> ioSurfaceLayer = IOSurfaceLayerImpl::create(5);
-    ioSurfaceLayer->setBounds(IntSize(10, 10));
-    ioSurfaceLayer->setAnchorPoint(FloatPoint(0, 0));
-    ioSurfaceLayer->setContentBounds(IntSize(10, 10));
+    ioSurfaceLayer->setBounds(gfx::Size(10, 10));
+    ioSurfaceLayer->setAnchorPoint(gfx::PointF(0, 0));
+    ioSurfaceLayer->setContentBounds(gfx::Size(10, 10));
     ioSurfaceLayer->setDrawsContent(true);
-    ioSurfaceLayer->setIOSurfaceProperties(1, IntSize(10, 10));
+    ioSurfaceLayer->setIOSurfaceProperties(1, gfx::Size(10, 10));
     ioSurfaceLayer->setLayerTreeHostImpl(m_hostImpl.get());
     rootLayer->addChild(ioSurfaceLayer.PassAs<LayerImpl>());
 
@@ -2966,12 +2994,12 @@ TEST_P(LayerTreeHostImplTest, hasTransparentBackground)
     Mock::VerifyAndClearExpectations(&mockContext);
 }
 
-static void addDrawingLayerTo(LayerImpl* parent, int id, const IntRect& layerRect, LayerImpl** result)
+static void addDrawingLayerTo(LayerImpl* parent, int id, const gfx::Rect& layerRect, LayerImpl** result)
 {
     scoped_ptr<LayerImpl> layer = FakeLayerWithQuads::create(id);
     LayerImpl* layerPtr = layer.get();
-    layerPtr->setAnchorPoint(FloatPoint(0, 0));
-    layerPtr->setPosition(FloatPoint(layerRect.location()));
+    layerPtr->setAnchorPoint(gfx::PointF(0, 0));
+    layerPtr->setPosition(gfx::PointF(layerRect.origin()));
     layerPtr->setBounds(layerRect.size());
     layerPtr->setContentBounds(layerRect.size());
     layerPtr->setDrawsContent(true); // only children draw content
@@ -2981,7 +3009,7 @@ static void addDrawingLayerTo(LayerImpl* parent, int id, const IntRect& layerRec
         *result = layerPtr;
 }
 
-static void setupLayersForTextureCaching(LayerTreeHostImpl* layerTreeHostImpl, LayerImpl*& rootPtr, LayerImpl*& intermediateLayerPtr, LayerImpl*& surfaceLayerPtr, LayerImpl*& childPtr, const IntSize& rootSize)
+static void setupLayersForTextureCaching(LayerTreeHostImpl* layerTreeHostImpl, LayerImpl*& rootPtr, LayerImpl*& intermediateLayerPtr, LayerImpl*& surfaceLayerPtr, LayerImpl*& childPtr, const gfx::Size& rootSize)
 {
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
@@ -2991,24 +3019,24 @@ static void setupLayersForTextureCaching(LayerTreeHostImpl* layerTreeHostImpl, L
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     rootPtr = root.get();
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(0, 0));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(0, 0));
     root->setBounds(rootSize);
     root->setContentBounds(rootSize);
     root->setDrawsContent(true);
     layerTreeHostImpl->setRootLayer(root.Pass());
 
-    addDrawingLayerTo(rootPtr, 2, IntRect(10, 10, rootSize.width(), rootSize.height()), &intermediateLayerPtr);
+    addDrawingLayerTo(rootPtr, 2, gfx::Rect(10, 10, rootSize.width(), rootSize.height()), &intermediateLayerPtr);
     intermediateLayerPtr->setDrawsContent(false); // only children draw content
 
     // Surface layer is the layer that changes its opacity
     // It will contain other layers that draw content.
-    addDrawingLayerTo(intermediateLayerPtr, 3, IntRect(10, 10, rootSize.width(), rootSize.height()), &surfaceLayerPtr);
+    addDrawingLayerTo(intermediateLayerPtr, 3, gfx::Rect(10, 10, rootSize.width(), rootSize.height()), &surfaceLayerPtr);
     surfaceLayerPtr->setDrawsContent(false); // only children draw content
     surfaceLayerPtr->setOpacity(0.5f); // This will cause it to have a surface
 
     // Child of the surface layer will produce some quads
-    addDrawingLayerTo(surfaceLayerPtr, 4, IntRect(5, 5, rootSize.width() - 25, rootSize.height() - 25), &childPtr);
+    addDrawingLayerTo(surfaceLayerPtr, 4, gfx::Rect(5, 5, rootSize.width() - 25, rootSize.height() - 25), &childPtr);
 }
 
 class GLRendererWithReleaseTextures : public GLRenderer {
@@ -3021,39 +3049,39 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithClipping)
     Settings::setPartialSwapEnabled(true);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     LayerImpl* rootPtr;
     LayerImpl* surfaceLayerPtr;
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
-    IntSize rootSize(100, 100);
+    gfx::Size rootSize(100, 100);
 
     myHostImpl->initializeRenderer(context.Pass());
-    myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
+    myHostImpl->setViewportSize(gfx::Size(rootSize.width(), rootSize.height()), gfx::Size(rootSize.width(), rootSize.height()));
 
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     rootPtr = root.get();
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(0, 0));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(0, 0));
     root->setBounds(rootSize);
     root->setContentBounds(rootSize);
     root->setDrawsContent(true);
     root->setMasksToBounds(true);
     myHostImpl->setRootLayer(root.Pass());
 
-    addDrawingLayerTo(rootPtr, 3, IntRect(0, 0, rootSize.width(), rootSize.height()), &surfaceLayerPtr);
+    addDrawingLayerTo(rootPtr, 3, gfx::Rect(0, 0, rootSize.width(), rootSize.height()), &surfaceLayerPtr);
     surfaceLayerPtr->setDrawsContent(false);
 
     // Surface layer is the layer that changes its opacity
     // It will contain other layers that draw content.
     surfaceLayerPtr->setOpacity(0.5f); // This will cause it to have a surface
 
-    addDrawingLayerTo(surfaceLayerPtr, 4, IntRect(0, 0, 100, 3), 0);
-    addDrawingLayerTo(surfaceLayerPtr, 5, IntRect(0, 97, 100, 3), 0);
+    addDrawingLayerTo(surfaceLayerPtr, 4, gfx::Rect(0, 0, 100, 3), 0);
+    addDrawingLayerTo(surfaceLayerPtr, 5, gfx::Rect(0, 97, 100, 3), 0);
 
     // Rotation will put part of the child ouside the bounds of the root layer.
     // Nevertheless, the child layers should be drawn.
@@ -3080,7 +3108,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithClipping)
         EXPECT_LT(quadVisibleRect.width(), 100);
 
         // Verify that the render surface texture is *not* clipped.
-        EXPECT_RECT_EQ(IntRect(0, 0, 100, 100), frame.renderPasses[0]->outputRect());
+        EXPECT_RECT_EQ(gfx::Rect(0, 0, 100, 100), frame.renderPasses[0]->outputRect());
 
         EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
         RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
@@ -3118,8 +3146,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
     Settings::setPartialSwapEnabled(false);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Layers are structure as follows:
     //
@@ -3141,32 +3169,32 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
-    IntSize rootSize(1000, 1000);
+    gfx::Size rootSize(1000, 1000);
 
     myHostImpl->initializeRenderer(context.Pass());
-    myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
+    myHostImpl->setViewportSize(gfx::Size(rootSize.width(), rootSize.height()), gfx::Size(rootSize.width(), rootSize.height()));
 
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     rootPtr = root.get();
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(0, 0));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(0, 0));
     root->setBounds(rootSize);
     root->setContentBounds(rootSize);
     root->setDrawsContent(true);
     root->setMasksToBounds(true);
     myHostImpl->setRootLayer(root.Pass());
 
-    addDrawingLayerTo(rootPtr, 2, IntRect(300, 300, 300, 300), &layerS1Ptr);
+    addDrawingLayerTo(rootPtr, 2, gfx::Rect(300, 300, 300, 300), &layerS1Ptr);
     layerS1Ptr->setForceRenderSurface(true);
 
-    addDrawingLayerTo(layerS1Ptr, 3, IntRect(10, 10, 10, 10), 0); // L11
-    addDrawingLayerTo(layerS1Ptr, 4, IntRect(0, 0, 30, 30), 0); // L12
+    addDrawingLayerTo(layerS1Ptr, 3, gfx::Rect(10, 10, 10, 10), 0); // L11
+    addDrawingLayerTo(layerS1Ptr, 4, gfx::Rect(0, 0, 30, 30), 0); // L12
 
-    addDrawingLayerTo(rootPtr, 5, IntRect(550, 250, 300, 400), &layerS2Ptr);
+    addDrawingLayerTo(rootPtr, 5, gfx::Rect(550, 250, 300, 400), &layerS2Ptr);
     layerS2Ptr->setForceRenderSurface(true);
 
-    addDrawingLayerTo(layerS2Ptr, 6, IntRect(20, 20, 5, 5), 0); // L21
+    addDrawingLayerTo(layerS2Ptr, 6, gfx::Rect(20, 20, 5, 5), 0); // L21
 
     // Initial draw - must receive all quads
     {
@@ -3234,8 +3262,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
     Settings::setPartialSwapEnabled(false);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Layers are structure as follows:
     //
@@ -3254,33 +3282,33 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
-    IntSize rootSize(1000, 1000);
+    gfx::Size rootSize(1000, 1000);
 
     myHostImpl->initializeRenderer(context.Pass());
-    myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
+    myHostImpl->setViewportSize(gfx::Size(rootSize.width(), rootSize.height()), gfx::Size(rootSize.width(), rootSize.height()));
 
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     rootPtr = root.get();
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(0, 0));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(0, 0));
     root->setBounds(rootSize);
     root->setContentBounds(rootSize);
     root->setDrawsContent(true);
     root->setMasksToBounds(true);
     myHostImpl->setRootLayer(root.Pass());
 
-    addDrawingLayerTo(rootPtr, 2, IntRect(0, 0, 800, 800), &layerS1Ptr);
+    addDrawingLayerTo(rootPtr, 2, gfx::Rect(0, 0, 800, 800), &layerS1Ptr);
     layerS1Ptr->setForceRenderSurface(true);
     layerS1Ptr->setDrawsContent(false);
 
-    addDrawingLayerTo(layerS1Ptr, 3, IntRect(0, 0, 300, 300), 0); // L11
-    addDrawingLayerTo(layerS1Ptr, 4, IntRect(0, 500, 300, 300), 0); // L12
-    addDrawingLayerTo(layerS1Ptr, 5, IntRect(500, 0, 300, 300), 0); // L13
-    addDrawingLayerTo(layerS1Ptr, 6, IntRect(500, 500, 300, 300), 0); // L14
-    addDrawingLayerTo(layerS1Ptr, 9, IntRect(500, 500, 300, 300), 0); // L14
+    addDrawingLayerTo(layerS1Ptr, 3, gfx::Rect(0, 0, 300, 300), 0); // L11
+    addDrawingLayerTo(layerS1Ptr, 4, gfx::Rect(0, 500, 300, 300), 0); // L12
+    addDrawingLayerTo(layerS1Ptr, 5, gfx::Rect(500, 0, 300, 300), 0); // L13
+    addDrawingLayerTo(layerS1Ptr, 6, gfx::Rect(500, 500, 300, 300), 0); // L14
+    addDrawingLayerTo(layerS1Ptr, 9, gfx::Rect(500, 500, 300, 300), 0); // L14
 
-    addDrawingLayerTo(rootPtr, 7, IntRect(450, 450, 450, 450), &layerS2Ptr);
+    addDrawingLayerTo(rootPtr, 7, gfx::Rect(450, 450, 450, 450), &layerS2Ptr);
     layerS2Ptr->setForceRenderSurface(true);
 
     // Initial draw - must receive all quads
@@ -3350,8 +3378,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
     Settings::setPartialSwapEnabled(false);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Layers are structured as follows:
     //
@@ -3368,29 +3396,29 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
-    IntSize rootSize(1000, 1000);
+    gfx::Size rootSize(1000, 1000);
 
     myHostImpl->initializeRenderer(context.Pass());
-    myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
+    myHostImpl->setViewportSize(gfx::Size(rootSize.width(), rootSize.height()), gfx::Size(rootSize.width(), rootSize.height()));
 
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     rootPtr = root.get();
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(0, 0));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(0, 0));
     root->setBounds(rootSize);
     root->setContentBounds(rootSize);
     root->setDrawsContent(true);
     root->setMasksToBounds(true);
     myHostImpl->setRootLayer(root.Pass());
 
-    addDrawingLayerTo(rootPtr, 2, IntRect(0, 0, 400, 400), &layerS1Ptr);
+    addDrawingLayerTo(rootPtr, 2, gfx::Rect(0, 0, 400, 400), &layerS1Ptr);
     layerS1Ptr->setForceRenderSurface(true);
 
-    addDrawingLayerTo(layerS1Ptr, 3, IntRect(0, 0, 300, 300), 0); // L11
-    addDrawingLayerTo(layerS1Ptr, 4, IntRect(100, 0, 300, 300), 0); // L12
+    addDrawingLayerTo(layerS1Ptr, 3, gfx::Rect(0, 0, 300, 300), 0); // L11
+    addDrawingLayerTo(layerS1Ptr, 4, gfx::Rect(100, 0, 300, 300), 0); // L12
 
-    addDrawingLayerTo(rootPtr, 7, IntRect(200, 0, 300, 300), &layerS2Ptr);
+    addDrawingLayerTo(rootPtr, 7, gfx::Rect(200, 0, 300, 300), &layerS2Ptr);
     layerS2Ptr->setForceRenderSurface(true);
 
     // Initial draw - must receive all quads
@@ -3439,7 +3467,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
     Settings::setPartialSwapEnabled(false);
 
     LayerTreeSettings settings;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Layers are structured as follows:
     //
@@ -3451,23 +3479,23 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
-    IntSize rootSize(1000, 1000);
+    gfx::Size rootSize(1000, 1000);
 
     myHostImpl->initializeRenderer(context.Pass());
-    myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
+    myHostImpl->setViewportSize(gfx::Size(rootSize.width(), rootSize.height()), gfx::Size(rootSize.width(), rootSize.height()));
 
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     rootPtr = root.get();
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(0, 0));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(0, 0));
     root->setBounds(rootSize);
     root->setContentBounds(rootSize);
     root->setDrawsContent(true);
     root->setMasksToBounds(true);
     myHostImpl->setRootLayer(root.Pass());
 
-    addDrawingLayerTo(rootPtr, 2, IntRect(0, 0, 400, 400), &layerS1Ptr);
+    addDrawingLayerTo(rootPtr, 2, gfx::Rect(0, 0, 400, 400), &layerS1Ptr);
     layerS1Ptr->setForceRenderSurface(true);
     WebTransformationMatrix transform = layerS1Ptr->transform();
     transform.translate(200, 200);
@@ -3475,7 +3503,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
     transform.translate(-200, -200);
     layerS1Ptr->setTransform(transform);
 
-    addDrawingLayerTo(layerS1Ptr, 3, IntRect(200, 0, 200, 400), 0); // L11
+    addDrawingLayerTo(layerS1Ptr, 3, gfx::Rect(200, 0, 200, 400), 0); // L11
 
     // Initial draw - must receive all quads
     {
@@ -3513,8 +3541,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
     Settings::setPartialSwapEnabled(true);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Layers are structure as follows:
     //
@@ -3536,32 +3564,32 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
-    IntSize rootSize(1000, 1000);
+    gfx::Size rootSize(1000, 1000);
 
     myHostImpl->initializeRenderer(context.Pass());
-    myHostImpl->setViewportSize(IntSize(rootSize.width(), rootSize.height()), IntSize(rootSize.width(), rootSize.height()));
+    myHostImpl->setViewportSize(gfx::Size(rootSize.width(), rootSize.height()), gfx::Size(rootSize.width(), rootSize.height()));
 
     scoped_ptr<LayerImpl> root = LayerImpl::create(1);
     rootPtr = root.get();
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(0, 0));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(0, 0));
     root->setBounds(rootSize);
     root->setContentBounds(rootSize);
     root->setDrawsContent(true);
     root->setMasksToBounds(true);
     myHostImpl->setRootLayer(root.Pass());
 
-    addDrawingLayerTo(rootPtr, 2, IntRect(300, 300, 300, 300), &layerS1Ptr);
+    addDrawingLayerTo(rootPtr, 2, gfx::Rect(300, 300, 300, 300), &layerS1Ptr);
     layerS1Ptr->setForceRenderSurface(true);
 
-    addDrawingLayerTo(layerS1Ptr, 3, IntRect(10, 10, 10, 10), 0); // L11
-    addDrawingLayerTo(layerS1Ptr, 4, IntRect(0, 0, 30, 30), 0); // L12
+    addDrawingLayerTo(layerS1Ptr, 3, gfx::Rect(10, 10, 10, 10), 0); // L11
+    addDrawingLayerTo(layerS1Ptr, 4, gfx::Rect(0, 0, 30, 30), 0); // L12
 
-    addDrawingLayerTo(rootPtr, 5, IntRect(550, 250, 300, 400), &layerS2Ptr);
+    addDrawingLayerTo(rootPtr, 5, gfx::Rect(550, 250, 300, 400), &layerS2Ptr);
     layerS2Ptr->setForceRenderSurface(true);
 
-    addDrawingLayerTo(layerS2Ptr, 6, IntRect(20, 20, 5, 5), 0); // L21
+    addDrawingLayerTo(layerS2Ptr, 6, gfx::Rect(20, 20, 5, 5), 0); // L21
 
     // Initial draw - must receive all quads
     {
@@ -3626,8 +3654,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithScissor)
     Settings::setPartialSwapEnabled(false);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     /*
       Layers are created as follows:
@@ -3651,36 +3679,36 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithScissor)
     scoped_ptr<TiledLayerImpl> child = TiledLayerImpl::create(2);
     scoped_ptr<LayerImpl> grandChild = LayerImpl::create(3);
 
-    IntRect rootRect(0, 0, 100, 100);
-    IntRect childRect(10, 10, 50, 50);
-    IntRect grandChildRect(5, 5, 150, 150);
+    gfx::Rect rootRect(0, 0, 100, 100);
+    gfx::Rect childRect(10, 10, 50, 50);
+    gfx::Rect grandChildRect(5, 5, 150, 150);
 
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
     myHostImpl->initializeRenderer(context.Pass());
 
-    root->setAnchorPoint(FloatPoint(0, 0));
-    root->setPosition(FloatPoint(rootRect.x(), rootRect.y()));
-    root->setBounds(IntSize(rootRect.width(), rootRect.height()));
+    root->setAnchorPoint(gfx::PointF(0, 0));
+    root->setPosition(gfx::PointF(rootRect.x(), rootRect.y()));
+    root->setBounds(gfx::Size(rootRect.width(), rootRect.height()));
     root->setContentBounds(root->bounds());
     root->setDrawsContent(true);
     root->setMasksToBounds(true);
 
-    child->setAnchorPoint(FloatPoint(0, 0));
-    child->setPosition(FloatPoint(childRect.x(), childRect.y()));
+    child->setAnchorPoint(gfx::PointF(0, 0));
+    child->setPosition(gfx::PointF(childRect.x(), childRect.y()));
     child->setOpacity(0.5);
-    child->setBounds(IntSize(childRect.width(), childRect.height()));
+    child->setBounds(gfx::Size(childRect.width(), childRect.height()));
     child->setContentBounds(child->bounds());
     child->setDrawsContent(true);
     child->setSkipsDraw(false);
 
     // child layer has 10x10 tiles.
-    scoped_ptr<LayerTilingData> tiler = LayerTilingData::create(IntSize(10, 10), LayerTilingData::HasBorderTexels);
+    scoped_ptr<LayerTilingData> tiler = LayerTilingData::create(gfx::Size(10, 10), LayerTilingData::HasBorderTexels);
     tiler->setBounds(child->contentBounds());
     child->setTilingData(*tiler.get());
 
-    grandChild->setAnchorPoint(FloatPoint(0, 0));
-    grandChild->setPosition(IntPoint(grandChildRect.x(), grandChildRect.y()));
-    grandChild->setBounds(IntSize(grandChildRect.width(), grandChildRect.height()));
+    grandChild->setAnchorPoint(gfx::PointF(0, 0));
+    grandChild->setPosition(gfx::Point(grandChildRect.x(), grandChildRect.y()));
+    grandChild->setBounds(gfx::Size(grandChildRect.width(), grandChildRect.height()));
     grandChild->setContentBounds(grandChild->bounds());
     grandChild->setDrawsContent(true);
 
@@ -3715,7 +3743,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithScissor)
     EXPECT_TRUE(myHostImpl->renderer()->haveCachedResourcesForRenderPassId(childPassId));
 
     // Damage a single tile of surface 2.
-    childPtr->setUpdateRect(IntRect(10, 10, 10, 10));
+    childPtr->setUpdateRect(gfx::Rect(10, 10, 10, 10));
 
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3733,15 +3761,15 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
     Settings::setPartialSwapEnabled(true);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     LayerImpl* rootPtr;
     LayerImpl* intermediateLayerPtr;
     LayerImpl* surfaceLayerPtr;
     LayerImpl* childPtr;
 
-    setupLayersForTextureCaching(myHostImpl.get(), rootPtr, intermediateLayerPtr, surfaceLayerPtr, childPtr, IntSize(100, 100));
+    setupLayersForTextureCaching(myHostImpl.get(), rootPtr, intermediateLayerPtr, surfaceLayerPtr, childPtr, gfx::Size(100, 100));
 
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3894,15 +3922,15 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
     Settings::setPartialSwapEnabled(false);
 
     LayerTreeSettings settings;
-    settings.minimumOcclusionTrackingSize = IntSize();
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this);
+    settings.minimumOcclusionTrackingSize = gfx::Size();
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     LayerImpl* rootPtr;
     LayerImpl* intermediateLayerPtr;
     LayerImpl* surfaceLayerPtr;
     LayerImpl* childPtr;
 
-    setupLayersForTextureCaching(myHostImpl.get(), rootPtr, intermediateLayerPtr, surfaceLayerPtr, childPtr, IntSize(100, 100));
+    setupLayersForTextureCaching(myHostImpl.get(), rootPtr, intermediateLayerPtr, surfaceLayerPtr, childPtr, gfx::Size(100, 100));
 
     {
         LayerTreeHostImpl::FrameData frame;
@@ -4087,9 +4115,9 @@ struct RenderPassRemovalTestData : public LayerTreeHostImpl::FrameData {
 
 class TestRenderer : public GLRenderer, public RendererClient {
 public:
-    static scoped_ptr<TestRenderer> create(ResourceProvider* resourceProvider)
+    static scoped_ptr<TestRenderer> create(ResourceProvider* resourceProvider, Proxy* proxy)
     {
-        scoped_ptr<TestRenderer> renderer(new TestRenderer(resourceProvider));
+        scoped_ptr<TestRenderer> renderer(new TestRenderer(resourceProvider, proxy));
         if (!renderer->initialize())
             return scoped_ptr<TestRenderer>();
 
@@ -4102,20 +4130,21 @@ public:
     virtual bool haveCachedResourcesForRenderPassId(RenderPass::Id id) const OVERRIDE { return m_textures.count(id); }
 
     // RendererClient implementation.
-    virtual const IntSize& deviceViewportSize() const OVERRIDE { return m_viewportSize; }
+    virtual const gfx::Size& deviceViewportSize() const OVERRIDE { return m_viewportSize; }
     virtual const LayerTreeSettings& settings() const OVERRIDE { return m_settings; }
     virtual void didLoseContext() OVERRIDE { }
     virtual void onSwapBuffersComplete() OVERRIDE { }
     virtual void setFullRootLayerDamage() OVERRIDE { }
     virtual void setManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE { }
     virtual void enforceManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE { }
+    virtual bool hasImplThread() const OVERRIDE { return false; }
 
 protected:
-    TestRenderer(ResourceProvider* resourceProvider) : GLRenderer(this, resourceProvider) { }
+    TestRenderer(ResourceProvider* resourceProvider, Proxy* proxy) : GLRenderer(this, resourceProvider) { }
 
 private:
     LayerTreeSettings m_settings;
-    IntSize m_viewportSize;
+    gfx::Size m_viewportSize;
     base::hash_set<RenderPass::Id> m_textures;
 };
 
@@ -4124,13 +4153,13 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
     renderer->clearCachedTextures();
 
     // One shared state for all quads - we don't need the correct details
-    testData.sharedQuadState = SharedQuadState::create(WebTransformationMatrix(), IntRect(), IntRect(), 1.0, true);
+    testData.sharedQuadState = SharedQuadState::create(WebTransformationMatrix(), gfx::Rect(), gfx::Rect(), 1.0, true);
 
     const char* currentChar = testScript;
 
     // Pre-create root pass
     RenderPass::Id rootRenderPassId = RenderPass::Id(testScript[0], testScript[1]);
-    testData.renderPassCache.add(rootRenderPassId, TestRenderPass::create(rootRenderPassId, IntRect(), WebTransformationMatrix()));
+    testData.renderPassCache.add(rootRenderPassId, TestRenderPass::create(rootRenderPassId, gfx::Rect(), WebTransformationMatrix()));
     while (*currentChar) {
         int layerId = *currentChar;
         currentChar++;
@@ -4150,7 +4179,7 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
         while (*currentChar && *currentChar != '\n') {
             if (*currentChar == 's') {
                 // Solid color draw quad
-                scoped_ptr<SolidColorDrawQuad> quad = SolidColorDrawQuad::create(testData.sharedQuadState.get(), IntRect(0, 0, 10, 10), SK_ColorWHITE);
+                scoped_ptr<SolidColorDrawQuad> quad = SolidColorDrawQuad::create(testData.sharedQuadState.get(), gfx::Rect(0, 0, 10, 10), SK_ColorWHITE);
                 
                 renderPass->appendQuad(quad.PassAs<DrawQuad>());
                 currentChar++;
@@ -4187,11 +4216,11 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
                     if (hasTexture)
                         renderer->setHaveCachedResourcesForRenderPassId(newRenderPassId);
 
-                    testData.renderPassCache.add(newRenderPassId, TestRenderPass::create(newRenderPassId, IntRect(), WebTransformationMatrix()));
+                    testData.renderPassCache.add(newRenderPassId, TestRenderPass::create(newRenderPassId, gfx::Rect(), WebTransformationMatrix()));
                 }
 
-                IntRect quadRect = IntRect(0, 0, 1, 1);
-                IntRect contentsChangedRect = contentsChanged ? quadRect : IntRect();
+                gfx::Rect quadRect = gfx::Rect(0, 0, 1, 1);
+                gfx::Rect contentsChangedRect = contentsChanged ? quadRect : gfx::Rect();
                 scoped_ptr<RenderPassDrawQuad> quad = RenderPassDrawQuad::create(testData.sharedQuadState.get(), quadRect, newRenderPassId, isReplica, 1, contentsChangedRect, 1, 1, 0, 0);
                 renderPass->appendQuad(quad.PassAs<DrawQuad>());
             }
@@ -4395,7 +4424,7 @@ TEST_P(LayerTreeHostImplTest, testRemoveRenderPasses)
     ASSERT_TRUE(context->context3D());
     scoped_ptr<ResourceProvider> resourceProvider(ResourceProvider::create(context.get()));
 
-    scoped_ptr<TestRenderer> renderer(TestRenderer::create(resourceProvider.get()));
+    scoped_ptr<TestRenderer> renderer(TestRenderer::create(resourceProvider.get(), &m_proxy));
 
     int testCaseIndex = 0;
     while (removeRenderPassesCases[testCaseIndex].name) {
@@ -4411,4 +4440,5 @@ INSTANTIATE_TEST_CASE_P(LayerTreeHostImplTests,
                         LayerTreeHostImplTest,
                         ::testing::Values(false, true));
 
-} // namespace
+}  // namespace
+}  // namespace cc

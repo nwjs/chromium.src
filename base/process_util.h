@@ -37,9 +37,12 @@ typedef struct _malloc_zone_t malloc_zone_t;
 #include <vector>
 
 #include "base/base_export.h"
-#include "base/file_descriptor_shuffle.h"
 #include "base/file_path.h"
 #include "base/process.h"
+
+#if defined(OS_POSIX)
+#include "base/posix/file_descriptor_shuffle.h"
+#endif
 
 class CommandLine;
 
@@ -816,6 +819,10 @@ struct BASE_EXPORT SystemMemoryInfoKB {
   int active_file;
   int inactive_file;
   int shmem;
+
+  // Gem data will be -1 if not supported.
+  int gem_objects;
+  long long gem_size;
 };
 // Retrieves data from /proc/meminfo about system-wide memory consumption.
 // Fills in the provided |meminfo| structure. Returns true on success.
@@ -841,11 +848,6 @@ BASE_EXPORT void EnableTerminationOnHeapCorruption();
 
 // Turns on process termination if memory runs out.
 BASE_EXPORT void EnableTerminationOnOutOfMemory();
-
-// Enables stack dump to console output on exception and signals.
-// When enabled, the process will quit immediately. This is meant to be used in
-// unit_tests only! This is not thread-safe: only call from main thread.
-BASE_EXPORT bool EnableInProcessStackDumping();
 
 // If supported on the platform, and the user has sufficent rights, increase
 // the current process's scheduling priority to a high priority.

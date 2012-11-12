@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_sorter.h"
 
+#include <algorithm>
 #include <deque>
 #include <limits>
 #include <vector>
@@ -20,18 +19,18 @@ using WebKit::WebTransformationMatrix;
 
 namespace cc {
 
-inline static float perpProduct(const FloatSize& u, const FloatSize& v)
+inline static float perpProduct(const gfx::Vector2dF& u, const gfx::Vector2dF& v)
 {
-    return u.width() * v.height() - u.height() * v.width();
+    return u.x() * v.y() - u.y() * v.x();
 }
 
 // Tests if two edges defined by their endpoints (a,b) and (c,d) intersect. Returns true and the
 // point of intersection if they do and false otherwise.
-static bool edgeEdgeTest(const FloatPoint& a, const FloatPoint& b, const FloatPoint& c, const FloatPoint& d, FloatPoint& r)
+static bool edgeEdgeTest(const gfx::PointF& a, const gfx::PointF& b, const gfx::PointF& c, const gfx::PointF& d, gfx::PointF& r)
 {
-    FloatSize u = b - a;
-    FloatSize v = d - c;
-    FloatSize w = a - c;
+    gfx::Vector2dF u = b - a;
+    gfx::Vector2dF v = d - c;
+    gfx::Vector2dF w = a - c;
 
     float denom = perpProduct(u, v);
 
@@ -49,7 +48,7 @@ static bool edgeEdgeTest(const FloatPoint& a, const FloatPoint& b, const FloatPo
     if (t < 0 || t > 1)
         return false;
 
-    u.scale(s);
+    u.Scale(s);
     r = a + u;
     return true;
 }
@@ -81,25 +80,25 @@ LayerSorter::ABCompareResult LayerSorter::checkOverlap(LayerShape* a, LayerShape
     weight = 0;
 
     // Early out if the projected bounds don't overlap.
-    if (!a->projectedBounds.intersects(b->projectedBounds))
+    if (!a->projectedBounds.Intersects(b->projectedBounds))
         return None;
 
-    FloatPoint aPoints[4] = {a->projectedQuad.p1(), a->projectedQuad.p2(), a->projectedQuad.p3(), a->projectedQuad.p4() };
-    FloatPoint bPoints[4] = {b->projectedQuad.p1(), b->projectedQuad.p2(), b->projectedQuad.p3(), b->projectedQuad.p4() };
+    gfx::PointF aPoints[4] = {a->projectedQuad.p1(), a->projectedQuad.p2(), a->projectedQuad.p3(), a->projectedQuad.p4() };
+    gfx::PointF bPoints[4] = {b->projectedQuad.p1(), b->projectedQuad.p2(), b->projectedQuad.p3(), b->projectedQuad.p4() };
 
     // Make a list of points that inside both layer quad projections.
-    std::vector<FloatPoint> overlapPoints;
+    std::vector<gfx::PointF> overlapPoints;
 
     // Check all four corners of one layer against the other layer's quad.
     for (int i = 0; i < 4; ++i) {
-        if (a->projectedQuad.containsPoint(bPoints[i]))
+        if (a->projectedQuad.Contains(bPoints[i]))
             overlapPoints.push_back(bPoints[i]);
-        if (b->projectedQuad.containsPoint(aPoints[i]))
+        if (b->projectedQuad.Contains(aPoints[i]))
             overlapPoints.push_back(aPoints[i]);
     }
 
     // Check all the edges of one layer for intersection with the other layer's edges.
-    FloatPoint r;
+    gfx::PointF r;
     for (int ea = 0; ea < 4; ++ea)
         for (int eb = 0; eb < 4; ++eb)
             if (edgeEdgeTest(aPoints[ea], aPoints[(ea + 1) % 4],
@@ -149,16 +148,16 @@ LayerShape::LayerShape()
 
 LayerShape::LayerShape(float width, float height, const WebTransformationMatrix& drawTransform)
 {
-    FloatQuad layerQuad(FloatRect(0, 0, width, height));
+    gfx::QuadF layerQuad(gfx::RectF(0, 0, width, height));
 
     // Compute the projection of the layer quad onto the z = 0 plane.
 
-    FloatPoint clippedQuad[8];
+    gfx::PointF clippedQuad[8];
     int numVerticesInClippedQuad;
     MathUtil::mapClippedQuad(drawTransform, layerQuad, clippedQuad, numVerticesInClippedQuad);
 
     if (numVerticesInClippedQuad < 3) {
-        projectedBounds = FloatRect();
+        projectedBounds = gfx::RectF();
         return;
     }
 
@@ -169,38 +168,42 @@ LayerShape::LayerShape(float width, float height, const WebTransformationMatrix&
     // sorting it is equally correct to take a subsection of the polygon that can be made
     // into a quad. This will only be incorrect in the case of intersecting layers, which
     // are not supported yet anyway.
-    projectedQuad.setP1(clippedQuad[0]);
-    projectedQuad.setP2(clippedQuad[1]);
-    projectedQuad.setP3(clippedQuad[2]);
+    projectedQuad.set_p1(clippedQuad[0]);
+    projectedQuad.set_p2(clippedQuad[1]);
+    projectedQuad.set_p3(clippedQuad[2]);
     if (numVerticesInClippedQuad >= 4)
-        projectedQuad.setP4(clippedQuad[3]);
+        projectedQuad.set_p4(clippedQuad[3]);
     else
-        projectedQuad.setP4(clippedQuad[2]); // this will be a degenerate quad that is actually a triangle.
+        projectedQuad.set_p4(clippedQuad[2]); // this will be a degenerate quad that is actually a triangle.
 
     // Compute the normal of the layer's plane.
     bool clipped = false;
-    FloatPoint3D c1 = MathUtil::mapPoint(drawTransform, FloatPoint3D(0, 0, 0), clipped);
-    FloatPoint3D c2 = MathUtil::mapPoint(drawTransform, FloatPoint3D(0, 1, 0), clipped);
-    FloatPoint3D c3 = MathUtil::mapPoint(drawTransform, FloatPoint3D(1, 0, 0), clipped);
+    gfx::Point3F c1 = MathUtil::mapPoint(drawTransform, gfx::Point3F(0, 0, 0), clipped);
+    gfx::Point3F c2 = MathUtil::mapPoint(drawTransform, gfx::Point3F(0, 1, 0), clipped);
+    gfx::Point3F c3 = MathUtil::mapPoint(drawTransform, gfx::Point3F(1, 0, 0), clipped);
     // FIXME: Deal with clipping.
-    FloatPoint3D c12 = c2 - c1;
-    FloatPoint3D c13 = c3 - c1;
-    layerNormal = c13.cross(c12);
+    gfx::Vector3dF c12 = c2 - c1;
+    gfx::Vector3dF c13 = c3 - c1;
+    layerNormal = gfx::CrossProduct(c13, c12);
 
     transformOrigin = c1;
+}
+
+LayerShape::~LayerShape()
+{
 }
 
 // Returns the Z coordinate of a point on the layer that projects
 // to point p which lies on the z = 0 plane. It does it by computing the
 // intersection of a line starting from p along the Z axis and the plane
 // of the layer.
-float LayerShape::layerZFromProjectedPoint(const FloatPoint& p) const
+float LayerShape::layerZFromProjectedPoint(const gfx::PointF& p) const
 {
-    const FloatPoint3D zAxis(0, 0, 1);
-    FloatPoint3D w = FloatPoint3D(p) - transformOrigin;
+    gfx::Vector3dF zAxis(0, 0, 1);
+    gfx::Vector3dF w = gfx::Point3F(p) - transformOrigin;
 
-    float d = layerNormal.dot(zAxis);
-    float n = -layerNormal.dot(w);
+    float d = gfx::DotProduct(layerNormal, zAxis);
+    float n = -gfx::DotProduct(layerNormal, w);
 
     // Check if layer is parallel to the z = 0 axis which will make it
     // invisible and hence returning zero is fine.
@@ -409,4 +412,4 @@ void LayerSorter::sort(LayerList::iterator first, LayerList::iterator last)
     m_activeEdges.clear();
 }
 
-}
+}  // namespace cc

@@ -175,6 +175,11 @@ void SigninManager::SetAuthenticatedUsername(const std::string& username) {
   // TODO(tim): We could go further in ensuring kGoogleServicesUsername and
   // authenticated_username_ are consistent once established (e.g. remove
   // authenticated_username_ altogether). Bug 107160.
+
+  // Go ahead and update the last signed in username here as well. Once a
+  // user is signed in the two preferences should match. Doing it here as
+  // opposed to on signin allows us to catch the upgrade scenario.
+  profile_->GetPrefs()->SetString(prefs::kGoogleServicesLastUsername, username);
 }
 
 bool SigninManager::PrepareForSignin(SigninType type,
@@ -354,6 +359,8 @@ void SigninManager::SignOut() {
     return;
   }
 
+  GoogleServiceSignoutDetails details(authenticated_username_);
+
   ClearTransientSigninData();
   authenticated_username_.clear();
   profile_->GetPrefs()->ClearPref(prefs::kGoogleServicesUsername);
@@ -364,7 +371,7 @@ void SigninManager::SignOut() {
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_GOOGLE_SIGNED_OUT,
       content::Source<Profile>(profile_),
-      content::NotificationService::NoDetails());
+      content::Details<const GoogleServiceSignoutDetails>(&details));
 }
 
 bool SigninManager::AuthInProgress() const {
@@ -455,11 +462,6 @@ void SigninManager::OnGetUserInfoSuccess(const UserInfoMap& data) {
     possibly_invalid_username_.clear();
     profile_->GetPrefs()->SetString(prefs::kGoogleServicesUsername,
                                     authenticated_username_);
-
-    // Also overwrite the last username at this point.
-    profile_->GetPrefs()->SetString(prefs::kGoogleServicesLastUsername,
-                                    authenticated_username_);
-
   }
   UserInfoMap::const_iterator service_iter = data.find(kGetInfoServicesKey);
   if (service_iter == data.end()) {
@@ -506,17 +508,6 @@ void SigninManager::Observe(int type,
                             const content::NotificationSource& source,
                             const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_PREF_CHANGED:
-      DCHECK(*content::Details<std::string>(details).ptr() ==
-             prefs::kGoogleServicesUsernamePattern);
-      if (!authenticated_username_.empty() &&
-          !IsAllowedUsername(authenticated_username_)) {
-        // Signed in user is invalid according to the current policy so sign
-        // the user out.
-        SignOut();
-      }
-      break;
-
 #if !defined(OS_CHROMEOS)
     case chrome::NOTIFICATION_TOKEN_AVAILABLE: {
       TokenService::TokenAvailableDetails* tok_details =
@@ -546,3 +537,13 @@ void SigninManager::Observe(int type,
   }
 }
 
+void SigninManager::OnPreferenceChanged(PrefServiceBase* service,
+                                        const std::string& pref_name) {
+  DCHECK_EQ(std::string(prefs::kGoogleServicesUsernamePattern), pref_name);
+  if (!authenticated_username_.empty() &&
+      !IsAllowedUsername(authenticated_username_)) {
+    // Signed in user is invalid according to the current policy so sign
+    // the user out.
+    SignOut();
+  }
+}

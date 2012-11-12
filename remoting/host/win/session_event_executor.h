@@ -5,13 +5,11 @@
 #ifndef REMOTING_HOST_WIN_SESSION_EVENT_EXECUTOR_H_
 #define REMOTING_HOST_WIN_SESSION_EVENT_EXECUTOR_H_
 
-#include <set>
-
 #include "base/basictypes.h"
+#include "base/callback_forward.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/memory/weak_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "remoting/host/event_executor.h"
-#include "remoting/host/win/scoped_thread_desktop.h"
 
 namespace base {
 class SingleThreadTaskRunner;
@@ -19,19 +17,23 @@ class SingleThreadTaskRunner;
 
 namespace remoting {
 
-class SasInjector;
-
+// Monitors and passes key/mouse events to a nested event executor. Injects
+// Secure Attention Sequence (SAS) when Ctrl+Alt+Del key combination has been
+// detected.
 class SessionEventExecutorWin : public EventExecutor {
  public:
+  // |inject_sas| is invoked on |inject_sas_task_runner| to generate SAS on
+  // Vista+.
   SessionEventExecutorWin(
-      scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
-      scoped_ptr<EventExecutor> nested_executor);
-  ~SessionEventExecutorWin();
+      scoped_refptr<base::SingleThreadTaskRunner> input_task_runner,
+      scoped_ptr<EventExecutor> nested_executor,
+      scoped_refptr<base::SingleThreadTaskRunner> inject_sas_task_runner,
+      const base::Closure& inject_sas);
+  virtual ~SessionEventExecutorWin();
 
   // EventExecutor implementation.
   virtual void Start(
       scoped_ptr<protocol::ClipboardStub> client_clipboard) OVERRIDE;
-  virtual void StopAndDelete() OVERRIDE;
 
   // protocol::ClipboardStub implementation.
   virtual void InjectClipboardEvent(
@@ -42,24 +44,9 @@ class SessionEventExecutorWin : public EventExecutor {
   virtual void InjectMouseEvent(const protocol::MouseEvent& event) OVERRIDE;
 
  private:
-  // Switches to the desktop receiving a user input if different from
-  // the current one.
-  void SwitchToInputDesktop();
-
-  // Pointer to the next event executor.
-  scoped_ptr<EventExecutor> nested_executor_;
-
-  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
-
-  ScopedThreadDesktop desktop_;
-
-  scoped_ptr<SasInjector> sas_injector_;
-
-  // Keys currently pressed by the client, used to detect Ctrl-Alt-Del.
-  std::set<uint32> pressed_keys_;
-
-  base::WeakPtrFactory<SessionEventExecutorWin> weak_ptr_factory_;
-  base::WeakPtr<SessionEventExecutorWin> weak_ptr_;
+  // The actual implementation resides in SessionEventExecutorWin::Core class.
+  class Core;
+  scoped_refptr<Core> core_;
 
   DISALLOW_COPY_AND_ASSIGN(SessionEventExecutorWin);
 };

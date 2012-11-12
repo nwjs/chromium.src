@@ -187,7 +187,7 @@ class ShelfLayoutManagerTest : public ash::test::AshTestBase {
 
 // Fails on Mac only.  Need to be implemented.  http://crbug.com/111279.
 #if defined(OS_MACOSX)
-#define MAYBE_SetVisible FAILS_SetVisible
+#define MAYBE_SetVisible DISABLED_SetVisible
 #else
 #define MAYBE_SetVisible SetVisible
 #endif
@@ -970,7 +970,7 @@ TEST_F(ShelfLayoutManagerTest, BubbleEnlargesShelfMouseHitArea) {
     }
     // Move the pointer over the edge of the shelf.
     generator.MoveMouseTo(
-        center.x(), status_area_widget->GetWindowBoundsInScreen().y() - 7);
+        center.x(), status_area_widget->GetWindowBoundsInScreen().y() - 8);
     shelf->UpdateVisibilityState();
     if (i) {
       EXPECT_TRUE(shelf->IsVisible());

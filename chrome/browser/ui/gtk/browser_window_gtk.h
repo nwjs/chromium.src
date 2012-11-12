@@ -12,6 +12,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/prefs/public/pref_observer.h"
 #include "base/timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/api/prefs/pref_member.h"
@@ -60,6 +61,7 @@ class Extension;
 class BrowserWindowGtk
     : public BrowserWindow,
       public content::NotificationObserver,
+      public PrefObserver,
       public TabStripModelObserver,
       public ui::ActiveWindowWatcherXObserver,
       public InfoBarContainer::Delegate,
@@ -181,8 +183,13 @@ class BrowserWindowGtk
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // Overridden from PrefObserver:
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
+
   // Overridden from TabStripModelObserver:
-  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
   virtual void ActiveTabChanged(TabContents* old_contents,
                                 TabContents* new_contents,
                                 int index,

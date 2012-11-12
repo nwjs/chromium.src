@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/direct_renderer.h"
 
 #include <vector>
@@ -66,9 +64,9 @@ DirectRenderer::DrawingFrame::~DrawingFrame()
 
 //
 // static
-FloatRect DirectRenderer::quadVertexRect()
+gfx::RectF DirectRenderer::quadVertexRect()
 {
-    return FloatRect(-0.5, -0.5, 1, 1);
+    return gfx::RectF(-0.5, -0.5, 1, 1);
 }
 
 // static
@@ -122,7 +120,7 @@ void DirectRenderer::decideRenderPassAllocationsForFrame(const RenderPassList& r
         renderPassesInFrame.insert(std::pair<RenderPass::Id, const RenderPass*>(renderPassesInDrawOrder[i]->id(), renderPassesInDrawOrder[i]));
 
     std::vector<RenderPass::Id> passesToDelete;
-    ScopedPtrHashMap<RenderPass::Id, CachedTexture>::const_iterator passIterator;
+    ScopedPtrHashMap<RenderPass::Id, CachedResource>::const_iterator passIterator;
     for (passIterator = m_renderPassTextures.begin(); passIterator != m_renderPassTextures.end(); ++passIterator) {
         base::hash_map<RenderPass::Id, const RenderPass*>::const_iterator it = renderPassesInFrame.find(passIterator->first);
         if (it == renderPassesInFrame.end()) {
@@ -131,9 +129,9 @@ void DirectRenderer::decideRenderPassAllocationsForFrame(const RenderPassList& r
         }
 
         const RenderPass* renderPassInFrame = it->second;
-        const IntSize& requiredSize = renderPassTextureSize(renderPassInFrame);
+        const gfx::Size& requiredSize = renderPassTextureSize(renderPassInFrame);
         GLenum requiredFormat = renderPassTextureFormat(renderPassInFrame);
-        CachedTexture* texture = passIterator->second;
+        CachedResource* texture = passIterator->second;
         DCHECK(texture);
 
         if (texture->id() && (texture->size() != requiredSize || texture->format() != requiredFormat))
@@ -146,7 +144,7 @@ void DirectRenderer::decideRenderPassAllocationsForFrame(const RenderPassList& r
 
     for (size_t i = 0; i < renderPassesInDrawOrder.size(); ++i) {
         if (!m_renderPassTextures.contains(renderPassesInDrawOrder[i]->id())) {
-          scoped_ptr<CachedTexture> texture = CachedTexture::create(m_resourceProvider);
+          scoped_ptr<CachedResource> texture = CachedResource::create(m_resourceProvider);
             m_renderPassTextures.set(renderPassesInDrawOrder[i]->id(), texture.Pass());
         }
     }
@@ -177,23 +175,23 @@ void DirectRenderer::drawRenderPass(DrawingFrame& frame, const RenderPass* rende
     frame.scissorRectInRenderPassSpace = frame.currentRenderPass->outputRect();
     if (frame.rootDamageRect != frame.rootRenderPass->outputRect()) {
         WebTransformationMatrix inverseTransformToRoot = frame.currentRenderPass->transformToRootTarget().inverse();
-        gfx::RectF damageRectInRenderPassSpace = MathUtil::projectClippedRect(inverseTransformToRoot, cc::FloatRect(frame.rootDamageRect));
+        gfx::RectF damageRectInRenderPassSpace = MathUtil::projectClippedRect(inverseTransformToRoot, frame.rootDamageRect);
         frame.scissorRectInRenderPassSpace.Intersect(damageRectInRenderPassSpace);
     }
 
-    enableScissorTestRect(moveScissorToWindowSpace(frame, frame.scissorRectInRenderPassSpace));
+    setScissorTestRect(moveScissorToWindowSpace(frame, frame.scissorRectInRenderPassSpace));
     clearFramebuffer(frame);
 
     const QuadList& quadList = renderPass->quadList();
     for (QuadList::constBackToFrontIterator it = quadList.backToFrontBegin(); it != quadList.backToFrontEnd(); ++it) {
         gfx::RectF quadScissorRect = gfx::IntersectRects(frame.scissorRectInRenderPassSpace, (*it)->clippedRectInTarget());
         if (!quadScissorRect.IsEmpty()) {
-            enableScissorTestRect(moveScissorToWindowSpace(frame, quadScissorRect));
+            setScissorTestRect(moveScissorToWindowSpace(frame, quadScissorRect));
             drawQuad(frame, *it);
         }
     }
 
-    CachedTexture* texture = m_renderPassTextures.get(renderPass->id());
+    CachedResource* texture = m_renderPassTextures.get(renderPass->id());
     if (texture)
         texture->setIsComplete(!renderPass->hasOcclusionFromOutsideTargetSurface());
 }
@@ -210,7 +208,7 @@ bool DirectRenderer::useRenderPass(DrawingFrame& frame, const RenderPass* render
         return true;
     }
 
-    CachedTexture* texture = m_renderPassTextures.get(renderPass->id());
+    CachedResource* texture = m_renderPassTextures.get(renderPass->id());
     DCHECK(texture);
     if (!texture->id() && !texture->allocate(Renderer::ImplPool, renderPassTextureSize(renderPass), renderPassTextureFormat(renderPass), ResourceProvider::TextureUsageFramebuffer))
         return false;
@@ -220,14 +218,14 @@ bool DirectRenderer::useRenderPass(DrawingFrame& frame, const RenderPass* render
 
 bool DirectRenderer::haveCachedResourcesForRenderPassId(RenderPass::Id id) const
 {
-    CachedTexture* texture = m_renderPassTextures.get(id);
+    CachedResource* texture = m_renderPassTextures.get(id);
     return texture && texture->id() && texture->isComplete();
 }
 
 // static
-IntSize DirectRenderer::renderPassTextureSize(const RenderPass* pass)
+gfx::Size DirectRenderer::renderPassTextureSize(const RenderPass* pass)
 {
-    return cc::IntSize(pass->outputRect().size());
+    return pass->outputRect().size();
 }
 
 // static
@@ -236,4 +234,4 @@ GLenum DirectRenderer::renderPassTextureFormat(const RenderPass*)
     return GL_RGBA;
 }
 
-}
+}  // namespace cc

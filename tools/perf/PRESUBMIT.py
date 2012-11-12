@@ -11,7 +11,7 @@ def _CommonChecks(input_api, output_api):
   results = []
   old_sys_path = sys.path
   try:
-    sys.path = [os.path.join('..', 'chrome_remote_control')] + sys.path
+    sys.path = [os.path.join('..', 'telemetry')] + sys.path
     results.extend(input_api.canned_checks.RunPylint(
         input_api, output_api,
         black_list=PYLINT_BLACKLIST,

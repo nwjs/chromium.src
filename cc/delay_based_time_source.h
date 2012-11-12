@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCDelayBasedTimeSource_h
-#define CCDelayBasedTimeSource_h
+#ifndef CC_DELAY_BASED_TIME_SOURCE_H_
+#define CC_DELAY_BASED_TIME_SOURCE_H_
 
 #include "base/memory/weak_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/time_source.h"
 
 namespace cc {
 
 // This timer implements a time source that achieves the specified interval
 // in face of millisecond-precision delayed callbacks and random queueing delays.
-class DelayBasedTimeSource : public TimeSource {
+class CC_EXPORT DelayBasedTimeSource : public TimeSource {
 public:
     static scoped_refptr<DelayBasedTimeSource> create(base::TimeDelta interval, Thread* thread);
 
@@ -75,4 +76,4 @@ protected:
 
 }  // namespace cc
 
-#endif // CCDelayBasedTimeSource_h
+#endif  // CC_DELAY_BASED_TIME_SOURCE_H_

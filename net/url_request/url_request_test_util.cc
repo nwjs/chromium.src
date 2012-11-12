@@ -16,6 +16,7 @@
 #include "net/base/server_bound_cert_service.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_server_properties_impl.h"
+#include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request_job_factory_impl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -113,10 +114,11 @@ void TestURLRequestContext::Init() {
             new net::DefaultServerBoundCertStore(NULL),
             base::WorkerPool::GetTaskRunner(true)));
   }
-  if (accept_language().empty())
-    set_accept_language("en-us,fr");
-  if (accept_charset().empty())
-    set_accept_charset("iso-8859-1,*,utf-8");
+  if (!http_user_agent_settings()) {
+    context_storage_.set_http_user_agent_settings(
+        new net::StaticHttpUserAgentSettings(
+            "en-us,fr", "iso-8859-1,*,utf-8", EmptyString()));
+  }
   if (!job_factory())
     context_storage_.set_job_factory(new net::URLRequestJobFactoryImpl);
 }
@@ -180,6 +182,7 @@ TestDelegate::~TestDelegate() {}
 void TestDelegate::OnReceivedRedirect(net::URLRequest* request,
                                       const GURL& new_url,
                                       bool* defer_redirect) {
+  EXPECT_TRUE(request->is_redirecting());
   received_redirect_count_++;
   if (quit_on_redirect_) {
     *defer_redirect = true;
@@ -216,6 +219,7 @@ void TestDelegate::OnSSLCertificateError(net::URLRequest* request,
 void TestDelegate::OnResponseStarted(net::URLRequest* request) {
   // It doesn't make sense for the request to have IO pending at this point.
   DCHECK(!request->status().is_io_pending());
+  EXPECT_FALSE(request->is_redirecting());
 
   response_started_count_++;
   if (cancel_in_rs_) {

@@ -5,12 +5,17 @@
 {
   'variables': {
     'content_shell_product_name': 'Content Shell',
+    # The "19" is so that sites that sniff for version think that this is
+    # something reasonably current; the "77.34.5" is a hint that this isn't a
+    # standard Chrome.
+    'content_shell_version': '19.77.34.5',
   },
   'targets': [
     {
       'target_name': 'content_shell_lib',
       'type': 'static_library',
       'defines!': ['CONTENT_IMPLEMENTATION'],
+      'defines': ['CONTENT_SHELL_VERSION="<(content_shell_version)"'],
       'variables': {
         'chromium_code': 1,
       },
@@ -39,6 +44,7 @@
         '../webkit/support/webkit_support.gyp:webkit_support',
         '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
         '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit_test_support',
+        '<(webkit_src_dir)/Tools/DumpRenderTree/DumpRenderTree.gyp/DumpRenderTree.gyp:TestRunner',
       ],
       'include_dirs': [
         '..',
@@ -148,6 +154,11 @@
             },
           },
         }],  # OS=="win"
+        ['OS=="linux"', {
+          'dependencies': [
+            '../build/linux/system.gyp:fontconfig',
+          ],
+        }],
         ['OS=="android"', {
           'dependencies': [
             'content_shell_jni_headers',
@@ -184,6 +195,7 @@
         }],  # use_aura==1
         ['chromeos==1', {
           'dependencies': [
+            '../ash/ash.gyp:ash',
             '../chromeos/chromeos.gyp:chromeos',
            ],
         }], # chromeos==1
@@ -286,7 +298,6 @@
         'content_shell_lib',
         'content_shell_pak',
         '../third_party/mesa/mesa.gyp:osmesa',
-        '<(webkit_src_dir)/Tools/DumpRenderTree/DumpRenderTree.gyp/DumpRenderTree.gyp:TestRunner_resources',
       ],
       'include_dirs': [
         '..',
@@ -383,7 +394,8 @@
               # Modify the Info.plist as needed.
               'postbuild_name': 'Tweak Info.plist',
               'action': ['../build/mac/tweak_info_plist.py',
-                         '--scm=1'],
+                         '--scm=1',
+                         '--version=<(content_shell_version)'],
             },
             {
               # This postbuid step is responsible for creating the following
@@ -507,7 +519,8 @@
               'action': ['../build/mac/tweak_info_plist.py',
                          '--breakpad=0',
                          '--keystone=0',
-                         '--scm=0'],
+                         '--scm=0',
+                         '--version=<(content_shell_version)'],
             },
             {
               # Make sure there isn't any Objective-C in the helper app's

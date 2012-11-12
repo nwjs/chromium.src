@@ -15,6 +15,10 @@ function FileCopyManager(root) {
   this.cancelCallback_ = null;
   this.root_ = root;
   this.unloadTimeout_ = null;
+
+  window.addEventListener('error', function(e) {
+    this.log_('Unhandled error: ', e.message, e.filename + ':' + e.lineno);
+  }.bind(this));
 }
 
 var fileCopyManagerInstance = null;
@@ -278,6 +282,9 @@ FileCopyManager.prototype.getStatus = function() {
  * @param {Object} eventArgs An object with arbitrary event parameters.
  */
 FileCopyManager.prototype.sendEvent_ = function(eventName, eventArgs) {
+  if (this.cancelRequested_)
+    return;  // Swallow events until cancellation complete.
+
   var windows = chrome.extension.getViews();
   for (var i = 0; i < windows.length; i++) {
     var w = windows[i];
@@ -344,7 +351,6 @@ FileCopyManager.prototype.resetQueue_ = function() {
 
   this.copyTasks_ = [];
   this.cancelObservers_ = [];
-  this.cancelRequested_ = false;
 };
 
 /**
@@ -357,6 +363,11 @@ FileCopyManager.prototype.requestCancel = function(opt_callback) {
     this.cancelCallback_();
   if (opt_callback)
     this.cancelObservers_.push(opt_callback);
+
+  // If there is any active task it will eventually call maybeCancel_.
+  // Otherwise call it right now.
+  if (this.copyTasks_.length == 0)
+    this.doCancel_();
 };
 
 /**
@@ -364,8 +375,9 @@ FileCopyManager.prototype.requestCancel = function(opt_callback) {
  * @private
  */
 FileCopyManager.prototype.doCancel_ = function() {
-  this.sendProgressEvent_('CANCELLED');
   this.resetQueue_();
+  this.cancelRequested_ = false;
+  this.sendProgressEvent_('CANCELLED');
 };
 
 /**
@@ -511,6 +523,7 @@ FileCopyManager.prototype.queueCopy = function(sourceDirEntry,
   copyTask.setEntries(entries, function() {
     self.copyTasks_.push(copyTask);
     if (self.copyTasks_.length == 1) {
+      // Assume self.cancelRequested_ == false.
       // This moved us from 0 to 1 active tasks, let the servicing begin!
       self.serviceAllTasks_();
     } else {
@@ -532,11 +545,15 @@ FileCopyManager.prototype.serviceAllTasks_ = function() {
   var self = this;
 
   function onTaskError(err) {
+    if (self.maybeCancel_())
+      return;
     self.sendProgressEvent_('ERROR', err);
     self.resetQueue_();
   }
 
   function onTaskSuccess(task) {
+    if (self.maybeCancel_())
+      return;
     if (!self.copyTasks_.length) {
       // All tasks have been serviced, clean up and exit.
       self.sendProgressEvent_('SUCCESS');
@@ -568,9 +585,6 @@ FileCopyManager.prototype.serviceAllTasks_ = function() {
  */
 FileCopyManager.prototype.serviceNextTask_ = function(
     successCallback, errorCallback) {
-  if (this.maybeCancel_())
-    return;
-
   var self = this;
   var task = this.copyTasks_[0];
 
@@ -798,65 +812,93 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
       return;
     }
 
-    if (task.sourceOnGData && task.targetOnGData) {
-      // TODO(benchan): DriveFileSystem has not implemented directory copy,
-      // and thus we only call FileEntry.copyTo() for files. Revisit this
-      // code when DriveFileSystem supports directory copy.
-      if (!sourceEntry.isDirectory) {
-        resolveDirAndBaseName(
-            targetDirEntry, targetRelativePath,
-            function(dirEntry, fileName) {
-              sourceEntry.copyTo(dirEntry, fileName,
-                  onFilesystemCopyComplete.bind(self, sourceEntry),
-                  onFilesystemError);
-            },
-            onFilesystemError);
-        return;
-      }
-    }
-
-    // TODO(benchan): Until DriveFileSystem supports FileWriter, we use the
-    // transferFile API to copy files into or out from a gdata file system.
+    // TODO(benchan): DriveFileSystem has not implemented directory copy,
+    // and thus we only call FileEntry.copyTo() for files. Revisit this
+    // code when DriveFileSystem supports directory copy.
     if (sourceEntry.isFile && (task.sourceOnGData || task.targetOnGData)) {
       var sourceFileUrl = sourceEntry.toURL();
       var targetFileUrl = targetDirEntry.toURL() + '/' +
                           encodeURIComponent(targetRelativePath);
       var transferedBytes = 0;
 
-      function onFileTransferCompleted() {
-        self.cancelCallback_ = null;
+      function onStartTransfer() {
+        chrome.fileBrowserPrivate.onFileTransfersUpdated.addListener(
+            onFileTransfersUpdated);
+      }
+
+      function onFailTransfer(err) {
         chrome.fileBrowserPrivate.onFileTransfersUpdated.removeListener(
             onFileTransfersUpdated);
+
+        self.log_('Error copying ' + sourceFileUrl + ' to ' + targetFileUrl);
+        onFilesystemError(err);
+      }
+
+      function onSuccessTransfer(targetEntry) {
+        chrome.fileBrowserPrivate.onFileTransfersUpdated.removeListener(
+            onFileTransfersUpdated);
+
+        targetEntry.getMetadata(function(metadata) {
+          if (metadata.size > transferedBytes)
+            onCopyProgress(sourceEntry, metadata.size - transferedBytes);
+          onFilesystemCopyComplete(sourceEntry, targetEntry);
+        });
+      }
+
+      var downTransfer = 0;
+      function onFileTransfersUpdated(statusList) {
+        for (var i = 0; i < statusList.length; i++) {
+          var s = statusList[i];
+          if (s.fileUrl == sourceFileUrl || s.fileUrl == targetFileUrl) {
+            var processed = s.processed;
+
+            // It becomes tricky when both the sides are on Drive.
+            // Currently, it is implemented by download followed by upload.
+            // Note, however, download will not happen if the file is cached.
+            if (task.sourceOnGData && task.targetOnGData) {
+              if (s.fileUrl == sourceFileUrl) {
+                // Download transfer is detected. Let's halve the progress.
+                downTransfer = processed = (s.processed >> 1);
+              } else {
+                // If download transfer has been detected, the upload transfer
+                // is stacked on top of it after halving. Otherwise, just use
+                // the upload transfer as-is.
+                processed = downTransfer > 0 ?
+                   downTransfer + (s.processed >> 1) : s.processed;
+              }
+            }
+
+            if (processed > transferedBytes) {
+              onCopyProgress(sourceEntry, processed - transferedBytes);
+              transferedBytes = processed;
+            }
+          }
+        }
+      }
+
+      if (task.sourceOnGData && task.targetOnGData) {
+        resolveDirAndBaseName(
+            targetDirEntry, targetRelativePath,
+            function(dirEntry, fileName) {
+              onStartTransfer();
+              sourceEntry.copyTo(dirEntry, fileName, onSuccessTransfer,
+                                                     onFailTransfer);
+            },
+            onFilesystemError);
+        return;
+      }
+
+      function onFileTransferCompleted() {
+        self.cancelCallback_ = null;
         if (chrome.extension.lastError) {
-          self.log_(
-              'Error copying ' + sourceFileUrl + ' to ' + targetFileUrl);
-          onFilesystemError({
+          onFailTransfer({
             code: chrome.extension.lastError.message,
             toGDrive: task.targetOnGData,
             sourceFileUrl: sourceFileUrl
           });
         } else {
-          targetDirEntry.getFile(targetRelativePath, {},
-              function(targetEntry) {
-                targetEntry.getMetadata(function(metadata) {
-                  if (metadata.size > transferedBytes)
-                    onCopyProgress(sourceEntry,
-                                   metadata.size - transferedBytes);
-                  onFilesystemCopyComplete(sourceEntry, targetEntry);
-                });
-              },
-              onFilesystemError);
-        }
-      }
-
-      function onFileTransfersUpdated(statusList) {
-        for (var i = 0; i < statusList.length; i++) {
-          var s = statusList[i];
-          if ((s.fileUrl == sourceFileUrl || s.fileUrl == targetFileUrl) &&
-              s.processed > transferedBytes) {
-            onCopyProgress(sourceEntry, s.processed - transferedBytes);
-            transferedBytes = s.processed;
-          }
+          targetDirEntry.getFile(targetRelativePath, {}, onSuccessTransfer,
+                                                         onFailTransfer);
         }
       }
 
@@ -871,12 +913,11 @@ FileCopyManager.prototype.serviceNextTaskEntry_ = function(
           chrome.fileBrowserPrivate.cancelFileTransfers([targetFileUrl],
                                                         function() {});
         }
-
-        self.doCancel_();
       };
 
-      chrome.fileBrowserPrivate.onFileTransfersUpdated.addListener(
-          onFileTransfersUpdated);
+      // TODO(benchan): Until DriveFileSystem supports FileWriter, we use the
+      // transferFile API to copy files into or out from a gdata file system.
+      onStartTransfer();
       chrome.fileBrowserPrivate.transferFile(
           sourceFileUrl, targetFileUrl, onFileTransferCompleted);
       return;
@@ -989,7 +1030,7 @@ FileCopyManager.prototype.copyEntry_ = function(sourceEntry,
 /**
  * Timeout before files are really deleted (to allow undo).
  */
-FileCopyManager.DELETE_TIMEOUT = 15 * 1000;
+FileCopyManager.DELETE_TIMEOUT = 30 * 1000;
 
 /**
  * Schedules the files deletion.

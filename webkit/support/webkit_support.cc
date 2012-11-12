@@ -10,6 +10,7 @@
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
+#include "base/debug/stack_trace.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/i18n/icu_util.h"
@@ -297,7 +298,7 @@ TestEnvironment* test_environment;
 
 void SetUpTestEnvironmentImpl(bool unit_test_mode,
                               WebKit::Platform* shadow_platform_delegate) {
-  base::EnableInProcessStackDumping();
+  base::debug::EnableInProcessStackDumping();
   base::EnableTerminationOnHeapCorruption();
 
   // Initialize the singleton CommandLine with fixed values.  Some code refer to
@@ -636,10 +637,12 @@ WebURL CreateURLForPathOrURL(const std::string& path_or_url_in_nativemb) {
   if (url.is_valid() && url.has_scheme())
     return WebURL(url);
 #if defined(OS_WIN)
-  return net::FilePathToFileURL(FilePath(wide_path_or_url));
+  FilePath path(wide_path_or_url);
 #else
-  return net::FilePathToFileURL(FilePath(path_or_url_in_nativemb));
+  FilePath path(path_or_url_in_nativemb);
 #endif
+  file_util::AbsolutePath(&path);
+  return net::FilePathToFileURL(path);
 }
 
 WebURL RewriteLayoutTestsURL(const std::string& utf8_url) {

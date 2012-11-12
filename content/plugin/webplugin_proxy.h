@@ -53,7 +53,6 @@ class WebPluginProxy : public webkit::npapi::WebPlugin {
   WebPluginProxy(PluginChannel* channel,
                  int route_id,
                  const GURL& page_url,
-                 gfx::NativeViewId containing_window,
                  int host_render_view_routing_id);
   virtual ~WebPluginProxy();
 
@@ -67,7 +66,8 @@ class WebPluginProxy : public webkit::npapi::WebPlugin {
 
   virtual void WillDestroyWindow(gfx::PluginWindowHandle window) OVERRIDE;
 #if defined(OS_WIN)
-  void SetWindowlessPumpEvent(HANDLE pump_messages_event);
+  void SetWindowlessData(HANDLE pump_messages_event,
+                         gfx::NativeViewId dummy_activation_window);
 #endif
 
   virtual void CancelResource(unsigned long id) OVERRIDE;
@@ -119,9 +119,7 @@ class WebPluginProxy : public webkit::npapi::WebPlugin {
                       const gfx::Rect& clip_rect,
                       const TransportDIB::Handle& windowless_buffer0,
                       const TransportDIB::Handle& windowless_buffer1,
-                      int windowless_buffer_index,
-                      const TransportDIB::Handle& background_buffer,
-                      bool transparent);
+                      int windowless_buffer_index);
   virtual void CancelDocumentLoad() OVERRIDE;
   virtual void InitiateHTTPRangeRequest(
       const char* url, const char* range_info, int range_request_id) OVERRIDE;
@@ -130,7 +128,6 @@ class WebPluginProxy : public webkit::npapi::WebPlugin {
   virtual bool IsOffTheRecord() OVERRIDE;
   virtual void ResourceClientDeleted(
       webkit::npapi::WebPluginResourceClient* resource_client) OVERRIDE;
-  gfx::NativeViewId containing_window() { return containing_window_; }
 
 #if defined(OS_MACOSX)
   virtual void FocusChanged(bool focused) OVERRIDE;
@@ -241,7 +238,6 @@ class WebPluginProxy : public webkit::npapi::WebPlugin {
   // Updates the shared memory sections where windowless plugins paint.
   void SetWindowlessBuffers(const TransportDIB::Handle& windowless_buffer0,
                             const TransportDIB::Handle& windowless_buffer1,
-                            const TransportDIB::Handle& background_buffer,
                             const gfx::Rect& window_rect);
 
 #if defined(OS_MACOSX)
@@ -272,7 +268,6 @@ class WebPluginProxy : public webkit::npapi::WebPlugin {
   webkit::npapi::WebPluginDelegateImpl* delegate_;
   gfx::Rect damaged_rect_;
   bool waiting_for_paint_;
-  gfx::NativeViewId containing_window_;
   // The url of the main frame hosting the plugin.
   GURL page_url_;
 
@@ -281,21 +276,16 @@ class WebPluginProxy : public webkit::npapi::WebPlugin {
   // fields are for the front-buffer and back-buffer of a buffer flipping system
   // and windowless_buffer_index_ identifies which set we are using as the
   // back-buffer at any given time.
-  bool transparent_;
   int windowless_buffer_index_;
 #if defined(OS_MACOSX)
   scoped_ptr<TransportDIB> windowless_dibs_[2];
-  scoped_ptr<TransportDIB> background_dib_;
   base::mac::ScopedCFTypeRef<CGContextRef> windowless_contexts_[2];
-  base::mac::ScopedCFTypeRef<CGContextRef> background_context_;
   scoped_ptr<WebPluginAcceleratedSurfaceProxy> accelerated_surface_;
 #else
   SkAutoTUnref<skia::PlatformCanvas> windowless_canvases_[2];
-  SkAutoTUnref<skia::PlatformCanvas> background_canvas_;
 
 #if defined(USE_X11)
   scoped_refptr<SharedTransportDIB> windowless_dibs_[2];
-  scoped_refptr<SharedTransportDIB> background_dib_;
   // If we can use SHM pixmaps for windowless plugin painting or not.
   bool use_shm_pixmap_;
   // The SHM pixmaps for windowless plugin painting.

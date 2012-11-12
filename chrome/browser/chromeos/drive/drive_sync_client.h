@@ -11,12 +11,12 @@
 
 #include "base/callback_forward.h"
 #include "base/memory/weak_ptr.h"
+#include "base/prefs/public/pref_observer.h"
 #include "base/time.h"
 #include "chrome/browser/chromeos/drive/drive_cache.h"
 #include "chrome/browser/chromeos/drive/drive_cache_observer.h"
 #include "chrome/browser/chromeos/drive/drive_file_system_observer.h"
 #include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
-#include "content/public/browser/notification_observer.h"
 #include "net/base/network_change_notifier.h"
 
 class Profile;
@@ -45,7 +45,7 @@ class DriveSyncClientObserver;
 class DriveSyncClient
     : public DriveFileSystemObserver,
       public DriveCacheObserver,
-      public content::NotificationObserver,
+      public PrefObserver,
       public net::NetworkChangeNotifier::ConnectionTypeObserver {
  public:
   // Types of sync tasks.
@@ -135,16 +135,16 @@ class DriveSyncClient
   bool ShouldStopSyncLoop();
 
   // Called when the resource IDs of files in the backlog are obtained.
-  void OnGetResourceIdsOfBacklog(
-      const std::vector<std::string>& to_fetch,
-      const std::vector<std::string>& to_upload);
+  void OnGetResourceIdsOfBacklog(const std::vector<std::string>* to_fetch,
+                                 const std::vector<std::string>* to_upload);
 
-  // Called when the resource IDs of pinned files are obtained.
-  void OnGetResourceIdsOfExistingPinnedFiles(
-    const std::vector<std::string>& resource_ids);
+  // Called when the resource ID of a pinned file is obtained.
+  void OnGetResourceIdOfExistingPinnedFile(const std::string& resource_id,
+                                           const DriveCacheEntry& cache_entry);
 
   // Called when a file entry is obtained.
   void OnGetEntryInfoByResourceId(const std::string& resource_id,
+                                  const DriveCacheEntry& cache_entry,
                                   DriveFileError error,
                                   const FilePath& file_path,
                                   scoped_ptr<DriveEntryProto> entry_proto);
@@ -178,10 +178,9 @@ class DriveSyncClient
   void OnUploadFileComplete(const std::string& resource_id,
                             DriveFileError error);
 
-  // content::NotificationObserver override.
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+  // PrefObserver override.
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
   // net::NetworkChangeNotifier::ConnectionTypeObserver override.
   virtual void OnConnectionTypeChanged(

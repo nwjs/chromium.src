@@ -44,6 +44,87 @@ using WebKit::WebTouchPoint;
 
 namespace content {
 
+// MockRenderWidgetHost ----------------------------------------------------
+
+class MockRenderWidgetHost : public RenderWidgetHostImpl {
+ public:
+  MockRenderWidgetHost(
+      RenderWidgetHostDelegate* delegate,
+      RenderProcessHost* process,
+      int routing_id)
+      : RenderWidgetHostImpl(delegate, process, routing_id),
+        unresponsive_timer_fired_(false) {
+  }
+
+  // Allow poking at a few private members.
+  using RenderWidgetHostImpl::OnMsgPaintAtSizeAck;
+  using RenderWidgetHostImpl::OnMsgUpdateRect;
+  using RenderWidgetHostImpl::RendererExited;
+  using RenderWidgetHostImpl::in_flight_size_;
+  using RenderWidgetHostImpl::is_hidden_;
+  using RenderWidgetHostImpl::resize_ack_pending_;
+  using RenderWidgetHostImpl::gesture_event_filter_;
+  using RenderWidgetHostImpl::touch_event_queue_;
+
+  bool unresponsive_timer_fired() const {
+    return unresponsive_timer_fired_;
+  }
+
+  void set_hung_renderer_delay_ms(int delay_ms) {
+    hung_renderer_delay_ms_ = delay_ms;
+  }
+
+  WebGestureEvent GestureEventLastQueueEvent() {
+    return gesture_event_filter_->coalesced_gesture_events_.back();
+  }
+
+  unsigned GestureEventLastQueueEventSize() {
+    return gesture_event_filter_->coalesced_gesture_events_.size();
+  }
+
+  unsigned GestureEventDebouncingQueueSize() {
+    return gesture_event_filter_->debouncing_deferral_queue_.size();
+  }
+
+  WebGestureEvent GestureEventQueueEventAt(int i) {
+    return gesture_event_filter_->coalesced_gesture_events_.at(i);
+  }
+
+  bool ScrollingInProgress() {
+    return gesture_event_filter_->scrolling_in_progress_;
+  }
+
+  bool FlingInProgress() {
+    return gesture_event_filter_->fling_in_progress_;
+  }
+
+  void set_maximum_tap_gap_time_ms(int delay_ms) {
+    gesture_event_filter_->maximum_tap_gap_time_ms_ = delay_ms;
+  }
+
+  void set_debounce_interval_time_ms(int delay_ms) {
+    gesture_event_filter_->debounce_interval_time_ms_ = delay_ms;
+  }
+
+  size_t TouchEventQueueSize() {
+    return touch_event_queue_->GetQueueSize();
+  }
+
+  const WebTouchEvent& latest_event() const {
+    return touch_event_queue_->GetLatestEvent();
+  }
+
+ protected:
+  virtual void NotifyRendererUnresponsive() OVERRIDE {
+    unresponsive_timer_fired_ = true;
+  }
+
+ private:
+  bool unresponsive_timer_fired_;
+};
+
+namespace  {
+
 #if defined(OS_WIN) || defined(USE_AURA)
 bool TouchEventsAreEquivalent(const ui::TouchEvent& first,
                               const ui::TouchEvent& second) {
@@ -258,85 +339,6 @@ class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
   WebInputEvent::Type unhandled_keyboard_event_type_;
 };
 
-// MockRenderWidgetHost ----------------------------------------------------
-
-class MockRenderWidgetHost : public RenderWidgetHostImpl {
- public:
-  MockRenderWidgetHost(
-      RenderWidgetHostDelegate* delegate,
-      RenderProcessHost* process,
-      int routing_id)
-      : RenderWidgetHostImpl(delegate, process, routing_id),
-        unresponsive_timer_fired_(false) {
-  }
-
-  // Allow poking at a few private members.
-  using RenderWidgetHostImpl::OnMsgPaintAtSizeAck;
-  using RenderWidgetHostImpl::OnMsgUpdateRect;
-  using RenderWidgetHostImpl::RendererExited;
-  using RenderWidgetHostImpl::in_flight_size_;
-  using RenderWidgetHostImpl::is_hidden_;
-  using RenderWidgetHostImpl::resize_ack_pending_;
-  using RenderWidgetHostImpl::gesture_event_filter_;
-  using RenderWidgetHostImpl::touch_event_queue_;
-
-  bool unresponsive_timer_fired() const {
-    return unresponsive_timer_fired_;
-  }
-
-  void set_hung_renderer_delay_ms(int delay_ms) {
-    hung_renderer_delay_ms_ = delay_ms;
-  }
-
-  WebGestureEvent GestureEventLastQueueEvent() {
-    return gesture_event_filter_->coalesced_gesture_events_.back();
-  }
-
-  unsigned GestureEventLastQueueEventSize() {
-    return gesture_event_filter_->coalesced_gesture_events_.size();
-  }
-
-  unsigned GestureEventDebouncingQueueSize() {
-    return gesture_event_filter_->debouncing_deferral_queue_.size();
-  }
-
-  WebGestureEvent GestureEventQueueEventAt(int i) {
-    return gesture_event_filter_->coalesced_gesture_events_.at(i);
-  }
-
-  bool ScrollingInProgress() {
-    return gesture_event_filter_->scrolling_in_progress_;
-  }
-
-  bool FlingInProgress() {
-    return gesture_event_filter_->fling_in_progress_;
-  }
-
-  void set_maximum_tap_gap_time_ms(int delay_ms) {
-    gesture_event_filter_->maximum_tap_gap_time_ms_ = delay_ms;
-  }
-
-  void set_debounce_interval_time_ms(int delay_ms) {
-    gesture_event_filter_->debounce_interval_time_ms_ = delay_ms;
-  }
-
-  size_t TouchEventQueueSize() {
-    return touch_event_queue_->GetQueueSize();
-  }
-
-  const WebTouchEvent& latest_event() const {
-    return touch_event_queue_->GetLatestEvent();
-  }
-
- protected:
-  virtual void NotifyRendererUnresponsive() OVERRIDE {
-    unresponsive_timer_fired_ = true;
-  }
-
- private:
-  bool unresponsive_timer_fired_;
-};
-
 // MockPaintingObserver --------------------------------------------------------
 
 class MockPaintingObserver : public NotificationObserver {
@@ -406,7 +408,7 @@ class RenderWidgetHostTest : public testing::Test {
 #endif
 
     // Process all pending tasks to avoid leaks.
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
   }
 
   void SendInputEventACK(WebInputEvent::Type type, bool processed) {
@@ -525,6 +527,8 @@ class RenderWidgetHostTest : public testing::Test {
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostTest);
 };
+
+}  // namespace
 
 // -----------------------------------------------------------------------------
 
@@ -825,7 +829,7 @@ TEST_F(RenderWidgetHostTest, PaintAtSize) {
 
 // Fails on Linux Aura, see http://crbug.com/100344
 #if defined(USE_AURA) && !defined(OS_WIN)
-#define MAYBE_HandleKeyEventsWeSent FAILS_HandleKeyEventsWeSent
+#define MAYBE_HandleKeyEventsWeSent DISABLED_HandleKeyEventsWeSent
 #else
 #define MAYBE_HandleKeyEventsWeSent HandleKeyEventsWeSent
 #endif
@@ -928,7 +932,7 @@ TEST_F(RenderWidgetHostTest, CoalescesWheelEvents) {
   // The coalesced events can queue up a delayed ack
   // so that additional input events can be processed before
   // we turn off coalescing.
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(1U, process_->sink().message_count());
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(
                   ViewMsg_HandleInputEvent::ID));
@@ -936,7 +940,7 @@ TEST_F(RenderWidgetHostTest, CoalescesWheelEvents) {
 
   // One more time.
   SendInputEventACK(WebInputEvent::MouseWheel, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(1U, process_->sink().message_count());
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(
                   ViewMsg_HandleInputEvent::ID));
@@ -944,7 +948,7 @@ TEST_F(RenderWidgetHostTest, CoalescesWheelEvents) {
 
   // After the final ack, the queue should be empty.
   SendInputEventACK(WebInputEvent::MouseWheel, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(0U, process_->sink().message_count());
 }
 
@@ -995,7 +999,7 @@ TEST_F(RenderWidgetHostTest, CoalescesGesturesEvents) {
 
   // Check that the ACK sends the second message.
   SendInputEventACK(WebInputEvent::GestureScrollBegin, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(1U, process_->sink().message_count());
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(
               ViewMsg_HandleInputEvent::ID));
@@ -1003,7 +1007,7 @@ TEST_F(RenderWidgetHostTest, CoalescesGesturesEvents) {
 
   // Ack for queued coalesced event.
   SendInputEventACK(WebInputEvent::GestureScrollUpdate, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(1U, process_->sink().message_count());
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(
               ViewMsg_HandleInputEvent::ID));
@@ -1011,7 +1015,7 @@ TEST_F(RenderWidgetHostTest, CoalescesGesturesEvents) {
 
   // Ack for queued uncoalesced event.
   SendInputEventACK(WebInputEvent::GestureScrollUpdate, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(1U, process_->sink().message_count());
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(
               ViewMsg_HandleInputEvent::ID));
@@ -1019,7 +1023,7 @@ TEST_F(RenderWidgetHostTest, CoalescesGesturesEvents) {
 
   // After the final ack, the queue should be empty.
   SendInputEventACK(WebInputEvent::GestureScrollEnd, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(0U, process_->sink().message_count());
 }
 
@@ -1037,12 +1041,12 @@ TEST_F(RenderWidgetHostTest, GestureFlingCancelsFiltered) {
   SimulateGestureFlingStartEvent(0, -10);
   EXPECT_TRUE(host_->FlingInProgress());
   SendInputEventACK(WebInputEvent::GestureFlingStart, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   SimulateGestureEvent(WebInputEvent::GestureFlingCancel);
   EXPECT_FALSE(host_->FlingInProgress());
   EXPECT_EQ(2U, process_->sink().message_count());
   SendInputEventACK(WebInputEvent::GestureFlingCancel, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(0U, host_->GestureEventLastQueueEventSize());
 
   // GFC before previous GFS is acked.
@@ -1056,9 +1060,9 @@ TEST_F(RenderWidgetHostTest, GestureFlingCancelsFiltered) {
 
   // Advance state realistically.
   SendInputEventACK(WebInputEvent::GestureFlingStart, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   SendInputEventACK(WebInputEvent::GestureFlingCancel, true);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(0U, host_->GestureEventLastQueueEventSize());
 
   // GFS is added to the queue if another event is pending
@@ -1577,6 +1581,47 @@ TEST_F(RenderWidgetHostTest, TouchEventQueueMultiTouch) {
   const WebTouchEvent& event = host_->latest_event();
   EXPECT_EQ(WebTouchPoint::StateMoved, event.touches[0].state);
   EXPECT_EQ(WebTouchPoint::StateMoved, event.touches[1].state);
+}
+
+// Tests that if a touch-event queue is destroyed in response to a touch-event
+// in the renderer, then there is no crash when the ACK for that touch-event
+// comes back.
+TEST_F(RenderWidgetHostTest, TouchEventAckAfterQueueFlushed) {
+  // First, install a touch-event handler and send some touch-events to the
+  // renderer.
+  process_->sink().ClearMessages();
+  host_->OnMessageReceived(ViewHostMsg_HasTouchEventHandlers(0, true));
+  EXPECT_EQ(0U, process_->sink().message_count());
+  EXPECT_EQ(0U, host_->TouchEventQueueSize());
+  EXPECT_TRUE(host_->ShouldForwardTouchEvent());
+
+  PressTouchPoint(1, 1);
+  SendTouchEvent();
+  EXPECT_EQ(1U, process_->sink().message_count());
+  EXPECT_EQ(1U, host_->TouchEventQueueSize());
+  process_->sink().ClearMessages();
+
+  MoveTouchPoint(0, 10, 10);
+  SendTouchEvent();
+  EXPECT_EQ(0U, process_->sink().message_count());
+  EXPECT_EQ(2U, host_->TouchEventQueueSize());
+
+  // Receive an ACK for the press. This should cause the queued touch-move to
+  // be sent to the renderer.
+  SendInputEventACK(WebInputEvent::TouchStart, true);
+  EXPECT_EQ(1U, process_->sink().message_count());
+  EXPECT_EQ(1U, host_->TouchEventQueueSize());
+  process_->sink().ClearMessages();
+
+  // Uninstall the touch-event handler. This will cause the queue to be flushed.
+  host_->OnMessageReceived(ViewHostMsg_HasTouchEventHandlers(0, false));
+  EXPECT_EQ(0U, process_->sink().message_count());
+  EXPECT_EQ(0U, host_->TouchEventQueueSize());
+
+  // Now receive an ACK for the move.
+  SendInputEventACK(WebInputEvent::TouchMove, true);
+  EXPECT_EQ(0U, process_->sink().message_count());
+  EXPECT_EQ(0U, host_->TouchEventQueueSize());
 }
 
 #if defined(OS_WIN) || defined(USE_AURA)

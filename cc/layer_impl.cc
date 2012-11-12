@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer_impl.h"
 
 #include "base/debug/trace_event.h"
 #include "base/stringprintf.h"
 #include "cc/debug_border_draw_quad.h"
+#include "cc/geometry.h"
 #include "cc/layer_sorter.h"
 #include "cc/math_util.h"
 #include "cc/proxy.h"
@@ -16,6 +15,8 @@
 #include "cc/scrollbar_animation_controller.h"
 #include "cc/settings.h"
 #include "third_party/skia/include/core/SkImageFilter.h"
+#include "ui/gfx/point_conversions.h"
+#include "ui/gfx/rect_conversions.h"
 
 using WebKit::WebTransformationMatrix;
 
@@ -29,6 +30,8 @@ LayerImpl::LayerImpl(int id)
     , m_layerTreeHostImpl(0)
     , m_anchorPoint(0.5, 0.5)
     , m_anchorPointZ(0)
+    , m_contentsScaleX(1.0)
+    , m_contentsScaleY(1.0)
     , m_scrollable(false)
     , m_shouldScrollOnMainThread(false)
     , m_haveWheelEventHandlers(false)
@@ -61,13 +64,11 @@ LayerImpl::LayerImpl(int id)
 #endif
     , m_layerAnimationController(LayerAnimationController::create(this))
 {
-    DCHECK(Proxy::isImplThread());
     DCHECK(m_layerId > 0);
 }
 
 LayerImpl::~LayerImpl()
 {
-    DCHECK(Proxy::isImplThread());
 #ifndef NDEBUG
     DCHECK(!m_betweenWillDrawAndDidDraw);
 #endif
@@ -150,7 +151,7 @@ void LayerImpl::appendDebugBorderQuad(QuadSink& quadList, const SharedQuadState*
     if (!hasDebugBorders())
         return;
 
-    IntRect contentRect(IntPoint(), contentBounds());
+    gfx::Rect contentRect(gfx::Point(), contentBounds());
     quadList.append(DebugBorderDrawQuad::create(sharedQuadState, contentRect, debugBorderColor(), debugBorderWidth()).PassAs<DrawQuad>(), appendQuadsData);
 }
 
@@ -175,13 +176,15 @@ ResourceProvider::ResourceId LayerImpl::contentsResourceId() const
     return 0;
 }
 
-FloatSize LayerImpl::scrollBy(const FloatSize& scroll)
+gfx::Vector2dF LayerImpl::scrollBy(const gfx::Vector2dF& scroll)
 {
-    IntSize minDelta = -toSize(m_scrollPosition);
-    IntSize maxDelta = m_maxScrollPosition - toSize(m_scrollPosition);
+    gfx::Vector2dF minDelta = -m_scrollOffset;
+    gfx::Vector2dF maxDelta = m_maxScrollOffset - m_scrollOffset;
     // Clamp newDelta so that position + delta stays within scroll bounds.
-    FloatSize newDelta = (m_scrollDelta + scroll).expandedTo(minDelta).shrunkTo(maxDelta);
-    FloatSize unscrolled = m_scrollDelta + scroll - newDelta;
+    gfx::Vector2dF newDelta = (m_scrollDelta + scroll);
+    newDelta.ClampToMin(minDelta);
+    newDelta.ClampToMax(maxDelta);
+    gfx::Vector2dF unscrolled = m_scrollDelta + scroll - newDelta;
 
     if (m_scrollDelta == newDelta)
         return unscrolled;
@@ -194,7 +197,7 @@ FloatSize LayerImpl::scrollBy(const FloatSize& scroll)
     return unscrolled;
 }
 
-InputHandlerClient::ScrollStatus LayerImpl::tryScroll(const IntPoint& screenSpacePoint, InputHandlerClient::ScrollInputType type) const
+InputHandlerClient::ScrollStatus LayerImpl::tryScroll(const gfx::PointF& screenSpacePoint, InputHandlerClient::ScrollInputType type) const
 {
     if (shouldScrollOnMainThread()) {
         TRACE_EVENT0("cc", "LayerImpl::tryScroll: Failed shouldScrollOnMainThread");
@@ -206,10 +209,11 @@ InputHandlerClient::ScrollStatus LayerImpl::tryScroll(const IntPoint& screenSpac
         return InputHandlerClient::ScrollIgnored;
     }
 
-    if (!nonFastScrollableRegion().isEmpty()) {
+    if (!nonFastScrollableRegion().IsEmpty()) {
         bool clipped = false;
-        FloatPoint hitTestPointInLocalSpace = MathUtil::projectPoint(screenSpaceTransform().inverse(), FloatPoint(screenSpacePoint), clipped);
-        if (!clipped && nonFastScrollableRegion().contains(flooredIntPoint(hitTestPointInLocalSpace))) {
+        gfx::PointF hitTestPointInContentSpace = MathUtil::projectPoint(screenSpaceTransform().inverse(), screenSpacePoint, clipped);
+        gfx::PointF hitTestPointInLayerSpace = gfx::ScalePoint(hitTestPointInContentSpace, 1 / contentsScaleX(), 1 / contentsScaleY());
+        if (!clipped && nonFastScrollableRegion().Contains(gfx::ToRoundedPoint(hitTestPointInLayerSpace))) {
             TRACE_EVENT0("cc", "LayerImpl::tryScroll: Failed nonFastScrollableRegion");
             return InputHandlerClient::ScrollOnMainThread;
         }
@@ -233,13 +237,13 @@ bool LayerImpl::drawCheckerboardForMissingTiles() const
     return m_drawCheckerboardForMissingTiles && !Settings::backgroundColorInsteadOfCheckerboard();
 }
 
-IntRect LayerImpl::layerRectToContentRect(const WebKit::WebRect& layerRect)
+gfx::Rect LayerImpl::layerRectToContentRect(const gfx::RectF& layerRect) const
 {
-    float widthScale = static_cast<float>(contentBounds().width()) / bounds().width();
-    float heightScale = static_cast<float>(contentBounds().height()) / bounds().height();
-    FloatRect contentRect(layerRect.x, layerRect.y, layerRect.width, layerRect.height);
-    contentRect.scale(widthScale, heightScale);
-    return enclosingIntRect(contentRect);
+    gfx::RectF contentRect = gfx::ScaleRect(layerRect, contentsScaleX(), contentsScaleY());
+    // Intersect with content rect to avoid the extra pixel because for some
+    // values x and y, ceil((x / y) * y) may be x + 1.
+    contentRect.Intersect(gfx::Rect(gfx::Point(), contentBounds()));
+    return gfx::ToEnclosingRect(contentRect);
 }
 
 std::string LayerImpl::indentString(int indent)
@@ -263,6 +267,12 @@ void LayerImpl::dumpLayerProperties(std::string* str, int indent) const
         str->append(indentStr);
         base::StringAppendF(str, "renderTarget: %d\n", m_renderTarget->m_layerId);
     }
+
+    str->append(indentStr);
+    base::StringAppendF(str, "position: %f, %f\n", m_position.x(), m_position.y());
+
+    str->append(indentStr);
+    base::StringAppendF(str, "contentsOpaque: %d\n", m_contentsOpaque);
 
     str->append(indentStr);
     base::StringAppendF(str, "drawTransform: %f, %f, %f, %f  //  %f, %f, %f, %f  //  %f, %f, %f, %f  //  %f, %f, %f, %f\n",
@@ -356,7 +366,7 @@ void LayerImpl::resetAllChangeTrackingForSubtree()
     m_layerPropertyChanged = false;
     m_layerSurfacePropertyChanged = false;
 
-    m_updateRect = FloatRect();
+    m_updateRect = gfx::RectF();
 
     if (m_renderSurface)
         m_renderSurface->resetPropertyChangedFlag();
@@ -401,7 +411,7 @@ void LayerImpl::setTransformFromAnimation(const WebTransformationMatrix& transfo
     setTransform(transform);
 }
 
-void LayerImpl::setBounds(const IntSize& bounds)
+void LayerImpl::setBounds(const gfx::Size& bounds)
 {
     if (m_bounds == bounds)
         return;
@@ -447,7 +457,7 @@ void LayerImpl::setDrawsContent(bool drawsContent)
     m_layerPropertyChanged = true;
 }
 
-void LayerImpl::setAnchorPoint(const FloatPoint& anchorPoint)
+void LayerImpl::setAnchorPoint(const gfx::PointF& anchorPoint)
 {
     if (m_anchorPoint == anchorPoint)
         return;
@@ -535,7 +545,7 @@ bool LayerImpl::opacityIsAnimating() const
     return m_layerAnimationController->isAnimatingProperty(ActiveAnimation::Opacity);
 }
 
-void LayerImpl::setPosition(const FloatPoint& position)
+void LayerImpl::setPosition(const gfx::PointF& position)
 {
     if (m_position == position)
         return;
@@ -600,7 +610,7 @@ bool LayerImpl::hasDebugBorders() const
     return SkColorGetA(m_debugBorderColor) && debugBorderWidth() > 0;
 }
 
-void LayerImpl::setContentBounds(const IntSize& contentBounds)
+void LayerImpl::setContentBounds(const gfx::Size& contentBounds)
 {
     if (m_contentBounds == contentBounds)
         return;
@@ -609,16 +619,26 @@ void LayerImpl::setContentBounds(const IntSize& contentBounds)
     m_layerPropertyChanged = true;
 }
 
-void LayerImpl::setScrollPosition(const IntPoint& scrollPosition)
+void LayerImpl::setContentsScale(float contentsScaleX, float contentsScaleY)
 {
-    if (m_scrollPosition == scrollPosition)
+    if (m_contentsScaleX == contentsScaleX && m_contentsScaleY == contentsScaleY)
         return;
 
-    m_scrollPosition = scrollPosition;
+    m_contentsScaleX = contentsScaleX;
+    m_contentsScaleY = contentsScaleY;
+    m_layerPropertyChanged = true;
+}
+
+void LayerImpl::setScrollOffset(gfx::Vector2d scrollOffset)
+{
+    if (m_scrollOffset == scrollOffset)
+        return;
+
+    m_scrollOffset = scrollOffset;
     noteLayerPropertyChangedForSubtree();
 }
 
-void LayerImpl::setScrollDelta(const FloatSize& scrollDelta)
+void LayerImpl::setScrollDelta(const gfx::Vector2dF& scrollDelta)
 {
     if (m_scrollDelta == scrollDelta)
         return;
@@ -656,9 +676,9 @@ void LayerImpl::didLoseContext()
 {
 }
 
-void LayerImpl::setMaxScrollPosition(const IntSize& maxScrollPosition)
+void LayerImpl::setMaxScrollOffset(gfx::Vector2d maxScrollOffset)
 {
-    m_maxScrollPosition = maxScrollPosition;
+    m_maxScrollOffset = maxScrollOffset;
 
     if (!m_scrollbarAnimationController)
         return;
@@ -691,4 +711,4 @@ void LayerImpl::setVerticalScrollbarLayer(ScrollbarLayerImpl* scrollbarLayer)
     m_scrollbarAnimationController->updateScrollOffset(this);
 }
 
-}
+}  // namespace cc

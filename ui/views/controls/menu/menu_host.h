@@ -7,7 +7,6 @@
 
 #include "base/compiler_specific.h"
 #include "ui/gfx/rect.h"
-#include "ui/views/controls/menu/native_menu_host_delegate.h"
 #include "ui/views/widget/widget.h"
 
 namespace views {
@@ -30,6 +29,7 @@ class MenuHost : public Widget {
   virtual ~MenuHost();
 
   // Initializes and shows the MenuHost.
+  // WARNING: |parent| may be NULL.
   void InitMenuHost(Widget* parent,
                     const gfx::Rect& bounds,
                     View* contents_view,

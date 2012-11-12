@@ -8,6 +8,7 @@
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
+#include "ash/test/cursor_manager_test_api.h"
 #include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
@@ -56,12 +57,18 @@ gfx::Display GetSecondaryDisplay() {
       Shell::GetAllRootWindows()[1]);
 }
 
-void SetSecondaryDisplayLayout(DisplayLayout::Position position) {
+void SetSecondaryDisplayLayoutAndOffset(DisplayLayout::Position position,
+                                        int offset) {
   DisplayController* display_controller =
       Shell::GetInstance()->display_controller();
   DisplayLayout layout = display_controller->default_display_layout();
   layout.position = position;
+  layout.offset = offset;
   display_controller->SetDefaultDisplayLayout(layout);
+}
+
+void SetSecondaryDisplayLayout(DisplayLayout::Position position) {
+  SetSecondaryDisplayLayoutAndOffset(position, 0);
 }
 
 }  // namespace
@@ -89,7 +96,7 @@ TEST_F(DisplayControllerTest, MAYBE_SecondaryDisplayLayout) {
   gfx::Insets insets(5, 5, 5, 5);
   secondary_display->UpdateWorkAreaFromInsets(insets);
 
-  // Default layout is LEFT.
+  // Default layout is RIGHT.
   EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
   EXPECT_EQ("500,0 400x400", GetSecondaryDisplay().bounds().ToString());
   EXPECT_EQ("505,5 390x390", GetSecondaryDisplay().work_area().ToString());
@@ -114,6 +121,41 @@ TEST_F(DisplayControllerTest, MAYBE_SecondaryDisplayLayout) {
   EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
   EXPECT_EQ("0,-400 400x400", GetSecondaryDisplay().bounds().ToString());
   EXPECT_EQ("5,-395 390x390", GetSecondaryDisplay().work_area().ToString());
+
+  // Layout to the right with an offset.
+  SetSecondaryDisplayLayoutAndOffset(DisplayLayout::RIGHT, 300);
+  EXPECT_EQ(1, observer.CountAndReset());  // resize and add
+  EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
+  EXPECT_EQ("500,300 400x400", GetSecondaryDisplay().bounds().ToString());
+
+  // Keep the minimum 100.
+  SetSecondaryDisplayLayoutAndOffset(DisplayLayout::RIGHT, 490);
+  EXPECT_EQ(1, observer.CountAndReset());  // resize and add
+  EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
+  EXPECT_EQ("500,400 400x400", GetSecondaryDisplay().bounds().ToString());
+
+  SetSecondaryDisplayLayoutAndOffset(DisplayLayout::RIGHT, -400);
+  EXPECT_EQ(1, observer.CountAndReset());  // resize and add
+  EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
+  EXPECT_EQ("500,-300 400x400", GetSecondaryDisplay().bounds().ToString());
+
+  //  Layout to the bottom with an offset.
+  SetSecondaryDisplayLayoutAndOffset(DisplayLayout::BOTTOM, -200);
+  EXPECT_EQ(1, observer.CountAndReset());  // resize and add
+  EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
+  EXPECT_EQ("-200,500 400x400", GetSecondaryDisplay().bounds().ToString());
+
+  // Keep the minimum 100.
+  SetSecondaryDisplayLayoutAndOffset(DisplayLayout::BOTTOM, 490);
+  EXPECT_EQ(1, observer.CountAndReset());  // resize and add
+  EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
+  EXPECT_EQ("400,500 400x400", GetSecondaryDisplay().bounds().ToString());
+
+  SetSecondaryDisplayLayoutAndOffset(DisplayLayout::BOTTOM, -400);
+  EXPECT_EQ(1, observer.CountAndReset());  // resize and add
+  EXPECT_EQ("0,0 500x500", GetPrimaryDisplay().bounds().ToString());
+  EXPECT_EQ("-300,500 400x400", GetSecondaryDisplay().bounds().ToString());
+
 }
 
 TEST_F(DisplayControllerTest, MAYBE_BoundsUpdated) {
@@ -214,6 +256,13 @@ TEST_F(DisplayControllerTest, SwapPrimary) {
   EXPECT_EQ(primary_display.id(),
             Shell::GetScreen()->GetDisplayNearestWindow(NULL).id());
 
+#if !defined(OS_WIN)
+  EXPECT_EQ("0,0 200x200", primary_display.bounds().ToString());
+  EXPECT_EQ("0,0 200x152", primary_display.work_area().ToString());
+  EXPECT_EQ("200,0 300x300", secondary_display.bounds().ToString());
+  EXPECT_EQ("200,0 300x300", secondary_display.work_area().ToString());
+#endif
+
   // Switch primary and secondary
   display_controller->SetPrimaryDisplay(secondary_display);
   EXPECT_EQ(secondary_display.id(),
@@ -233,6 +282,16 @@ TEST_F(DisplayControllerTest, SwapPrimary) {
       display_controller->GetRootWindowForDisplayId(primary_display.id()));
   EXPECT_TRUE(primary_root->Contains(launcher_window));
   EXPECT_FALSE(secondary_root->Contains(launcher_window));
+
+#if !defined(OS_WIN)
+  // Test if the bounds are correctly swapped.
+  gfx::Display swapped_primary = Shell::GetScreen()->GetPrimaryDisplay();
+  gfx::Display swapped_secondary = ScreenAsh::GetSecondaryDisplay();
+  EXPECT_EQ("0,0 300x300", swapped_primary.bounds().ToString());
+  EXPECT_EQ("0,0 300x252", swapped_primary.work_area().ToString());
+  EXPECT_EQ("-200,-50 200x200", swapped_secondary.bounds().ToString());
+  EXPECT_EQ("-200,-50 200x200", swapped_secondary.work_area().ToString());
+#endif
 
   const DisplayLayout& inverted_layout =
       display_controller->GetLayoutForDisplay(primary_display);
@@ -373,6 +432,58 @@ TEST_F(DisplayControllerTest, SwapPrimaryById) {
       primary_root,
       display_controller->GetRootWindowForDisplayId(third_display.id()));
   EXPECT_TRUE(primary_root->Contains(launcher_window));
+}
+
+TEST_F(DisplayControllerTest, CursorDeviceScaleFactorSwapPrimary) {
+  DisplayController* display_controller =
+      Shell::GetInstance()->display_controller();
+
+  UpdateDisplay("200x200,200x200*2");
+  gfx::Display primary_display = Shell::GetScreen()->GetPrimaryDisplay();
+  gfx::Display secondary_display = ScreenAsh::GetSecondaryDisplay();
+
+  aura::RootWindow* primary_root =
+      display_controller->GetRootWindowForDisplayId(primary_display.id());
+  aura::RootWindow* secondary_root =
+      display_controller->GetRootWindowForDisplayId(secondary_display.id());
+  EXPECT_NE(primary_root, secondary_root);
+
+  test::CursorManagerTestApi test_api(Shell::GetInstance()->cursor_manager());
+
+  EXPECT_EQ(1.0f,
+            primary_root->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
+  primary_root->MoveCursorTo(gfx::Point(50, 50));
+  EXPECT_EQ(1.0f, test_api.GetDeviceScaleFactor());
+  EXPECT_EQ(2.0f,
+            secondary_root->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
+  secondary_root->MoveCursorTo(gfx::Point(50, 50));
+  EXPECT_EQ(2.0f, test_api.GetDeviceScaleFactor());
+
+  // Switch primary and secondary
+  display_controller->SetPrimaryDisplay(secondary_display);
+
+  // Cursor's device scale factor should be updated accroding to the swap of
+  // primary and secondary.
+  EXPECT_EQ(1.0f,
+            secondary_root->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
+  secondary_root->MoveCursorTo(gfx::Point(50, 50));
+  EXPECT_EQ(1.0f, test_api.GetDeviceScaleFactor());
+  primary_root->MoveCursorTo(gfx::Point(50, 50));
+  EXPECT_EQ(2.0f,
+            primary_root->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
+  EXPECT_EQ(2.0f, test_api.GetDeviceScaleFactor());
+
+  // Deleting 2nd display.
+  UpdateDisplay("200x200");
+  RunAllPendingInMessageLoop();  // RootWindow is deleted in a posted task.
+
+  // Cursor's device scale factor should be updated even without moving cursor.
+  EXPECT_EQ(1.0f, test_api.GetDeviceScaleFactor());
+
+  primary_root->MoveCursorTo(gfx::Point(50, 50));
+  EXPECT_EQ(1.0f,
+            primary_root->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
+  EXPECT_EQ(1.0f, test_api.GetDeviceScaleFactor());
 }
 
 TEST_F(DisplayControllerTest, MAYBE_UpdateDisplayWithHostOrigin) {

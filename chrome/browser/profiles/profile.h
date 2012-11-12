@@ -35,6 +35,7 @@ class TabContentsProvider;
 }
 
 namespace base {
+class SequencedTaskRunner;
 class Time;
 }
 
@@ -140,6 +141,10 @@ class Profile : public content::BrowserContext {
   // time.
   static void RegisterUserPrefs(PrefService* prefs);
 
+  // Gets task runner for I/O operations associated with |profile|.
+  static scoped_refptr<base::SequencedTaskRunner> GetTaskRunnerForProfile(
+      Profile* profile);
+
   // Create a new profile given a path. If |create_mode| is
   // CREATE_MODE_ASYNCHRONOUS then the profile is initialized asynchronously.
   static Profile* CreateProfile(const FilePath& path,
@@ -156,6 +161,10 @@ class Profile : public content::BrowserContext {
 
   // Typesafe upcast.
   virtual TestingProfile* AsTestingProfile();
+
+  // Returns sequenced task runner where browser context dependent I/O
+  // operations should be performed.
+  virtual scoped_refptr<base::SequencedTaskRunner> GetIOTaskRunner() = 0;
 
   // Returns the name associated with this profile. This name is displayed in
   // the browser frame.
@@ -294,10 +303,13 @@ class Profile : public content::BrowserContext {
   virtual chrome_browser_net::Predictor* GetNetworkPredictor() = 0;
 
   // Deletes all network related data since |time|. It deletes transport
-  // security state since |time| and it also delete HttpServerProperties data.
-  // The implementation is free to run this on a background thread, so when this
-  // method returns data is not guaranteed to be deleted.
-  virtual void ClearNetworkingHistorySince(base::Time time) = 0;
+  // security state since |time| and it also deletes HttpServerProperties data.
+  // Works asynchronously, however if the |completion| callback is non-null, it
+  // will be posted on the UI thread once the removal process completes.
+  // Be aware that theoretically it is possible that |completion| will be
+  // invoked after the Profile instance has been destroyed.
+  virtual void ClearNetworkingHistorySince(base::Time time,
+                                           const base::Closure& completion) = 0;
 
   // Returns the home page for this profile.
   virtual GURL GetHomePage() = 0;

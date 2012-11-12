@@ -7,6 +7,7 @@
 #include "ash/launcher/launcher_types.h"
 #include "ash/system/tray/system_tray_delegate.h"
 #include "ash/wm/window_util.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/extensions/api/terminal/terminal_extension_helper.h"
@@ -181,7 +182,8 @@ void ChromeShellDelegate::NewTab() {
 void ChromeShellDelegate::NewWindow(bool is_incognito) {
   Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
   chrome::NewEmptyWindow(
-      is_incognito ? profile->GetOffTheRecordProfile() : profile);
+      is_incognito ? profile->GetOffTheRecordProfile() : profile,
+      chrome::HOST_DESKTOP_TYPE_ASH);
 }
 
 void ChromeShellDelegate::ToggleMaximized() {
@@ -202,13 +204,14 @@ void ChromeShellDelegate::OpenFileManager(bool as_dialog) {
     Browser* browser =
         browser::FindBrowserWithWindow(ash::wm::GetActiveWindow());
     // Open the select file dialog only if there is an active browser where the
-    // selected file is displayed. Otherwise open a file manager in a tab.
+    // selected file is displayed.
     if (browser) {
       browser->OpenFile();
       return;
     }
+  } else {
+    file_manager_util::OpenApplication();
   }
-  file_manager_util::OpenApplication();
 #endif
 }
 
@@ -342,10 +345,9 @@ ash::LauncherDelegate* ChromeShellDelegate::CreateLauncherDelegate(
   return launcher_delegate_;
 }
 
-ash::SystemTrayDelegate* ChromeShellDelegate::CreateSystemTrayDelegate(
-    ash::SystemTray* tray) {
+ash::SystemTrayDelegate* ChromeShellDelegate::CreateSystemTrayDelegate() {
 #if defined(OS_CHROMEOS)
-  return chromeos::CreateSystemTrayDelegate(tray);
+  return chromeos::CreateSystemTrayDelegate();
 #else
   return NULL;
 #endif

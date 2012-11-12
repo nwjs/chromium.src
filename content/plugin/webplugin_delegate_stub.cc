@@ -163,30 +163,9 @@ void WebPluginDelegateStub::OnInit(const PluginMsg_Init_Params& params,
   FilePath path =
       command_line.GetSwitchValuePath(switches::kPluginPath);
 
-  gfx::PluginWindowHandle parent = gfx::kNullPluginWindow;
-#if defined(USE_AURA)
-#if defined(OS_WIN)
-  // Copy of gfx::NativeViewFromId that's defined without Aura.
-  parent = reinterpret_cast<HWND>(params.containing_window);
-#else
-  // Nothing.
-#endif
-#elif defined(OS_WIN)
-  parent = gfx::NativeViewFromId(params.containing_window);
-#elif defined(OS_LINUX)
-  // This code is disabled, See issue 17110.
-  // The problem is that the XID can change at arbitrary times (e.g. when the
-  // tab is detached then reattached), so we need to be able to track these
-  // changes, and let the PluginInstance know.
-  // PluginThread::current()->Send(new PluginProcessHostMsg_MapNativeViewId(
-  //    params.containing_window, &parent));
-#endif
-
   webplugin_ = new WebPluginProxy(
-      channel_, instance_id_, page_url_, params.containing_window,
-      params.host_render_view_routing_id);
-  delegate_ = webkit::npapi::WebPluginDelegateImpl::Create(
-      path, mime_type_, parent);
+      channel_, instance_id_, page_url_, params.host_render_view_routing_id);
+  delegate_ = webkit::npapi::WebPluginDelegateImpl::Create(path, mime_type_);
   if (delegate_) {
     webplugin_->set_delegate(delegate_);
     std::vector<std::string> arg_names = params.arg_names;
@@ -284,8 +263,7 @@ void WebPluginDelegateStub::OnUpdateGeometry(
   webplugin_->UpdateGeometry(
       param.window_rect, param.clip_rect,
       param.windowless_buffer0, param.windowless_buffer1,
-      param.windowless_buffer_index, param.background_buffer,
-      param.transparent);
+      param.windowless_buffer_index);
 }
 
 void WebPluginDelegateStub::OnGetPluginScriptableObject(int* route_id) {
@@ -300,8 +278,8 @@ void WebPluginDelegateStub::OnGetPluginScriptableObject(int* route_id) {
   // delegate. It will delete itself sooner if the proxy tells it that it has
   // been released, or if the channel to the proxy is closed.
   NPObjectStub* scriptable_stub = new NPObjectStub(
-      object, channel_.get(), *route_id, webplugin_->containing_window(),
-      page_url_);
+      object, channel_.get(), *route_id,
+      webplugin_->host_render_view_routing_id(), page_url_);
   plugin_scriptable_object_ = scriptable_stub->AsWeakPtr();
 
   // Release ref added by GetPluginScriptableObject (our stub holds its own).

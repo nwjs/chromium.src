@@ -11,6 +11,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/prefs/public/pref_observer.h"
 #include "base/timer.h"
 #include "chrome/browser/chromeos/drive/drive_cache.h"
 #include "chrome/browser/chromeos/drive/drive_feed_loader_observer.h"
@@ -18,7 +19,6 @@
 #include "chrome/browser/chromeos/drive/file_system/drive_operations.h"
 #include "chrome/browser/chromeos/drive/file_system/operation_observer.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
-#include "content/public/browser/notification_observer.h"
 
 class PrefChangeRegistrar;
 
@@ -53,7 +53,7 @@ class RemoveOperation;
 class DriveFileSystem : public DriveFileSystemInterface,
                         public DriveFeedLoaderObserver,
                         public file_system::OperationObserver,
-                        public content::NotificationObserver {
+                        public PrefObserver {
  public:
   DriveFileSystem(Profile* profile,
                   DriveCache* cache,
@@ -129,24 +129,20 @@ class DriveFileSystem : public DriveFileSystemInterface,
       const FilePath& directory_path) OVERRIDE;
   virtual void GetAvailableSpace(
       const GetAvailableSpaceCallback& callback) OVERRIDE;
-  virtual void AddUploadedFile(google_apis::UploadMode upload_mode,
-                               const FilePath& directory_path,
+  virtual void AddUploadedFile(const FilePath& directory_path,
                                scoped_ptr<google_apis::DocumentEntry> doc_entry,
                                const FilePath& file_content_path,
                                DriveCache::FileOperationType cache_operation,
-                               const base::Closure& callback) OVERRIDE;
-  virtual void UpdateEntryData(const std::string& resource_id,
-                               const std::string& md5,
-                               scoped_ptr<google_apis::DocumentEntry> entry,
+                               const FileOperationCallback& callback) OVERRIDE;
+  virtual void UpdateEntryData(scoped_ptr<google_apis::DocumentEntry> entry,
                                const FilePath& file_content_path,
-                               const base::Closure& callback) OVERRIDE;
+                               const FileOperationCallback& callback) OVERRIDE;
   virtual DriveFileSystemMetadata GetMetadata() const OVERRIDE;
   virtual void Reload() OVERRIDE;
 
-  // content::NotificationObserver implementation.
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+  // PrefObserver implementation.
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
   // file_system::OperationObserver overrides.
   virtual void OnDirectoryChangedByOperation(
@@ -240,12 +236,9 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // Struct used for AddUploadedFile.
   struct AddUploadedFileParams;
 
-  // Struct used by UpdateEntryData.
-  struct UpdateEntryParams;
-
-  // Initializes DriveResourceMetadata and DriveFeedLoader instances. This is a
-  // part of the initialization.
-  void InitializeResourceMetadataAndFeedLoader();
+  // Initializes DriveResourceMetadata and related instances (DriveFeedLoader
+  // and DriveOperations). This is a part of the initialization.
+  void ResetResourceMetadata();
 
   // Callback passed to |LoadFeedFromServer| from |Search| method.
   // |callback| is that should be run with data received from
@@ -414,13 +407,8 @@ class DriveFileSystem : public DriveFileSystemInterface,
       DriveFileError error,
       const FilePath& directory_path);
 
-  // Continues to add an uploaded file after existing entry has been deleted.
-  void ContinueAddUploadedFile(scoped_ptr<AddUploadedFileParams> params,
-                               DriveFileError error,
-                               const FilePath& file_path);
-
   // Adds the uploaded file to the cache.
-  void AddUploadedFileToCache(scoped_ptr<AddUploadedFileParams> params,
+  void AddUploadedFileToCache(const AddUploadedFileParams& params,
                               DriveFileError error,
                               const FilePath& file_path);
 
@@ -582,6 +570,12 @@ class DriveFileSystem : public DriveFileSystemInterface,
       const FilePath& file_path,
       scoped_ptr<google_apis::DocumentEntry> document_entry);
 
+  // Part of UpdateFileByResourceId().
+  void OnUpdatedFileRefreshed(const FileOperationCallback& callback,
+                              DriveFileError error,
+                              const FilePath& drive_file_path,
+                              scoped_ptr<DriveEntryProto> entry_proto);
+
   // The following functions are used to forward calls to asynchronous public
   // member functions to UI thread.
   void SearchAsyncOnUIThread(const std::string& search_query,
@@ -630,15 +624,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
                                  scoped_ptr<LoadFeedParams> params,
                                  DriveFileError error);
   void GetAvailableSpaceOnUIThread(const GetAvailableSpaceCallback& callback);
-  void AddUploadedFileOnUIThread(
-      google_apis::UploadMode upload_mode,
-      const FilePath& directory_path,
-      scoped_ptr<google_apis::DocumentEntry> doc_entry,
-      const FilePath& file_content_path,
-      DriveCache::FileOperationType cache_operation,
-      const base::Closure& callback);
-  void UpdateEntryDataOnUIThread(const UpdateEntryParams& params,
-                                 scoped_ptr<google_apis::DocumentEntry> entry);
 
   // Part of CreateDirectory(). Called after
   // FindFirstMissingParentDirectory() is complete.
@@ -677,12 +662,12 @@ class DriveFileSystem : public DriveFileSystemInterface,
       DriveFileError error,
       scoped_ptr<DriveEntryProto> entry_proto);
 
-  // Part of UpdateEntryDataOnUIThread(). Called after RefreshFile is complete.
-  void UpdateCacheEntryOnUIThread(
-      const UpdateEntryParams& params,
-      DriveFileError error,
-      const FilePath& drive_file_path,
-      scoped_ptr<DriveEntryProto> entry_proto);
+  // Part of UpdateEntryData(). Called after RefreshFile is complete.
+  void UpdateCacheEntry(const FilePath& file_content_path,
+                        const FileOperationCallback& callback,
+                        DriveFileError error,
+                        const FilePath& drive_file_path,
+                        scoped_ptr<DriveEntryProto> entry_proto);
 
   // Part of GetEntryByResourceId and GetEntryByPath. Checks whether there is a
   // local dirty cache for the entry, and if there is, replace the
@@ -728,6 +713,12 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // Periodic timer for checking updates.
   base::Timer update_timer_;
 
+  // Time of the last update check.
+  base::Time last_update_check_time_;
+
+  // Error of the last update check.
+  DriveFileError last_update_check_error_;
+
   // True if hosted documents should be hidden.
   bool hide_hosted_docs_;
 
@@ -747,6 +738,12 @@ class DriveFileSystem : public DriveFileSystemInterface,
 
   scoped_ptr<DriveScheduler> scheduler_;
 
+  // Polling interval for checking updates in seconds.
+  int polling_interval_sec_;
+
+  // True if push notification is enabled.
+  bool push_notification_enabled_;
+
   // WeakPtrFactory and WeakPtr bound to the UI thread.
   // Note: These should remain the last member so they'll be destroyed and
   // invalidate the weak pointers before any other members are destroyed.
@@ -754,9 +751,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // Unlike other classes, we need this as we need this to redirect a task
   // from IO thread to UI thread.
   base::WeakPtr<DriveFileSystem> ui_weak_ptr_;
-
-  // Polling interval for checking updates in seconds.
-  int polling_interval_sec_;
 };
 
 }  // namespace drive

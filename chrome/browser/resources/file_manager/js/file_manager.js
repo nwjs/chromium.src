@@ -18,7 +18,7 @@ function FileManager(dialogDom) {
   this.filesystem_ = null;
   this.params_ = location.search ?
                  JSON.parse(decodeURIComponent(location.search.substr(1))) :
-                 {};
+                 window.launchData || {};
   this.listType_ = null;
   this.showDelayTimeout_ = null;
 
@@ -27,6 +27,7 @@ function FileManager(dialogDom) {
 
   this.document_ = dialogDom.ownerDocument;
   this.dialogType = this.params_.type || DialogType.FULL_PAGE;
+  this.startupPrefName_ = 'file-manager-' + this.dialogType;
 
   // Optional list of file types.
   this.fileTypes_ = this.params_.typeList || [];
@@ -336,10 +337,11 @@ DialogType.isModal = function(type) {
     metrics.startInterval('Load.FileSystem');
 
     var self = this;
-    var downcount = 2;
+    var downcount = 3;
+    var startupPrefs = {};
     function done() {
       if (--downcount == 0)
-        self.init_();
+        self.init_(startupPrefs);
     }
 
     chrome.fileBrowserPrivate.requestLocalFileSystem(function(filesystem) {
@@ -350,15 +352,21 @@ DialogType.isModal = function(type) {
 
     // GDATA preferences should be initialized before creating DirectoryModel
     // to tot rebuild the roots list.
-    this.updateNetworkStateAndPreferences_(function() {
+    this.updateNetworkStateAndPreferences_(done);
+
+    util.platform.getPreference(this.startupPrefName_, function(value) {
+      try {
+        startupPrefs = JSON.parse(value);
+      } catch (ignore) {}
       done();
-    });
+    }.bind(this));
   };
 
   /**
+   * @param {Object} prefs Preferences.
    * Continue initializing the file manager after resolving roots.
    */
-  FileManager.prototype.init_ = function() {
+  FileManager.prototype.init_ = function(prefs) {
     metrics.startInterval('Load.DOM');
 
     this.metadataCache_ = MetadataCache.createFull();
@@ -378,7 +386,7 @@ DialogType.isModal = function(type) {
     this.table_.startBatchUpdates();
     this.grid_.startBatchUpdates();
 
-    this.initFileList_();
+    this.initFileList_(prefs);
     this.initDialogs_();
     this.bannersController_ = new FileListBannerController(
         this.directoryModel_, this.volumeManager_, this.document_);
@@ -386,7 +394,9 @@ DialogType.isModal = function(type) {
                                              this.onResize_.bind(this));
 
     window.addEventListener('popstate', this.onPopState_.bind(this));
-    window.addEventListener('unload', this.onUnload_.bind(this));
+    // TODO: handle window closing properly for apps v2.
+    if (!util.platform.v2())
+      window.addEventListener('unload', this.onUnload_.bind(this));
 
     var dm = this.directoryModel_;
     dm.addEventListener('directory-changed',
@@ -409,12 +419,9 @@ DialogType.isModal = function(type) {
 
     this.selectionHandler_.onSelectionChanged();
 
-    var sortField =
-        window.localStorage['sort-field-' + this.dialogType] ||
-        'modificationTime';
-    var sortDirection =
-        window.localStorage['sort-direction-' + this.dialogType] || 'desc';
-    this.directoryModel_.sortFileList(sortField, sortDirection);
+    this.directoryModel_.sortFileList(
+        prefs.sortField || 'modificationTime',
+        prefs.sortDirection || 'desc');
 
     this.setupCurrentDirectory_(true /* page loading */);
 
@@ -464,6 +471,8 @@ DialogType.isModal = function(type) {
 
     this.butterBar_ = new ButterBar(this.dialogDom_, this.copyManager_,
         this.metadataCache_);
+    this.directoryModel_.addEventListener('directory-changed',
+        this.butterBar_.forceDeleteAndHide.bind(this.butterBar_));
 
     // CopyManager and ButterBar are required for 'Delete' operation in
     // Open and Save dialogs. But drag-n-drop and copy-paste are not needed.
@@ -564,6 +573,9 @@ DialogType.isModal = function(type) {
     CommandUtil.registerCommand(doc, 'gdata-clear-local-cache',
         Commands.gdataClearCacheCommand, this);
 
+    CommandUtil.registerCommand(doc, 'gdata-reload',
+        Commands.gdataReloadCommand, this);
+
     CommandUtil.registerCommand(doc, 'gdata-go-to-drive',
         Commands.gdataGoToDriveCommand, this);
 
@@ -597,10 +609,10 @@ DialogType.isModal = function(type) {
    */
   FileManager.prototype.registerInputCommands_ = function(node) {
     var defaultCommand = Commands.defaultCommand;
-    CommandUtil.registerCommand(node, 'cut', defaultCommand, this.document_);
-    CommandUtil.registerCommand(node, 'copy', defaultCommand, this.document_);
-    CommandUtil.registerCommand(node, 'paste', defaultCommand, this.document_);
-    CommandUtil.registerCommand(node, 'delete', defaultCommand, this.document_);
+    CommandUtil.forceDefaultHandler(node, 'cut');
+    CommandUtil.forceDefaultHandler(node, 'copy');
+    CommandUtil.forceDefaultHandler(node, 'paste');
+    CommandUtil.forceDefaultHandler(node, 'delete');
   };
 
   /**
@@ -626,16 +638,14 @@ DialogType.isModal = function(type) {
       e.preventDefault();
     });
 
-    this.document_.defaultView.addEventListener('beforeunload',
-        this.onBeforeUnload_.bind(this));
+    // TODO: handle window closing properly for apps v2.
+    if (!util.platform.v2())
+      this.document_.defaultView.addEventListener('beforeunload',
+          this.onBeforeUnload_.bind(this));
 
     this.dialogDom_.addEventListener('click',
                                      this.onExternalLinkClick_.bind(this));
     // Cache nodes we'll be manipulating.
-    this.previewThumbnails_ =
-        this.dialogDom_.querySelector('.preview-thumbnails');
-    this.previewPanel_ = this.dialogDom_.querySelector('.preview-panel');
-    this.previewSummary_ = this.dialogDom_.querySelector('.preview-summary');
     this.filenameInput_ = this.dialogDom_.querySelector(
         '#filename-input-box input');
     this.taskItems_ = this.dialogDom_.querySelector('#tasks');
@@ -663,9 +673,6 @@ DialogType.isModal = function(type) {
 
     this.document_.addEventListener('keydown', this.onKeyDown_.bind(this));
     this.document_.addEventListener('keyup', this.onKeyUp_.bind(this));
-    // Disable the default browser context menu.
-    this.document_.addEventListener('contextmenu',
-                                    function(e) { e.preventDefault() });
 
     this.renameInput_ = this.document_.createElement('input');
     this.renameInput_.className = 'rename';
@@ -747,8 +754,9 @@ DialogType.isModal = function(type) {
 
   /**
    * Constructs table and grid (heavy operation).
+   * @param {Object} prefs Preferences.
    **/
-  FileManager.prototype.initFileList_ = function() {
+  FileManager.prototype.initFileList_ = function(prefs) {
     // Always sharing the data model between the detail/thumb views confuses
     // them.  Instead we maintain this bogus data model, and hook it up to the
     // view that is not in use.
@@ -791,7 +799,7 @@ DialogType.isModal = function(type) {
     dataModel.addEventListener('splice',
                                this.onDataModelSplice_.bind(this));
     dataModel.addEventListener('permuted',
-                               this.onDataModelPermuted_.bind(this));
+                               this.updateStartupPrefs_.bind(this));
 
     this.directoryModel_.getFileListSelection().addEventListener('change',
         this.selectionHandler_.onSelectionChanged.bind(
@@ -801,15 +809,11 @@ DialogType.isModal = function(type) {
     this.initGrid_();
     this.initRootsList_();
 
-    var listType = FileManager.ListType.DETAIL;
-    if (DialogType.isModal(this.dialogType))
-      listType = window.localStorage['listType-' + this.dialogType] ||
-          FileManager.ListType.DETAIL;
-    this.setListType(listType);
+    this.setListType(prefs.listType || FileManager.ListType.DETAIL);
 
     this.textSearchState_ = {text: '', date: new Date()};
 
-    this.closeOnUnmount_ = this.params_.mountTriggered;
+    this.closeOnUnmount_ = (this.params_.action == 'auto-open');
 
     if (this.closeOnUnmount_) {
       this.volumeManager_.addEventListener('externally-unmounted',
@@ -845,11 +849,15 @@ DialogType.isModal = function(type) {
     this.selectionHandler_.updateSelectAllCheckboxState();
   };
 
-  FileManager.prototype.onDataModelPermuted_ = function(event) {
+  FileManager.prototype.updateStartupPrefs_ = function() {
     var sortStatus = this.directoryModel_.getFileList().sortStatus;
-    window.localStorage['sort-field-' + this.dialogType] = sortStatus.field;
-    window.localStorage['sort-direction-' + this.dialogType] =
-        sortStatus.direction;
+    var prefs = {
+      sortField: sortStatus.field,
+      sortDirection: sortStatus.direction
+    };
+    if (DialogType.isModal(this.dialogType))
+      prefs.listType = this.listType;
+    util.platform.setPreference(this.startupPrefName_, JSON.stringify(prefs));
   };
 
   /**
@@ -934,9 +942,6 @@ DialogType.isModal = function(type) {
     if (type && type == this.listType_)
       return;
 
-    if (DialogType.isModal(this.dialogType))
-      window.localStorage['listType-' + this.dialogType] = type;
-
     this.table_.list.startBatchUpdates();
     this.grid_.startBatchUpdates();
 
@@ -973,6 +978,7 @@ DialogType.isModal = function(type) {
     }
 
     this.listType_ = type;
+    this.updateStartupPrefs_();
     this.updateColumnModel_();
     this.onResize_();
 
@@ -1218,7 +1224,7 @@ DialogType.isModal = function(type) {
   };
 
   FileManager.prototype.updateWindowState_ = function() {
-    chrome.windows.getCurrent(function(wnd) {
+    util.platform.getWindowStatus(function(wnd) {
       if (wnd.state == 'maximized') {
         this.dialogDom_.setAttribute('maximized', 'maximized');
       } else {
@@ -1262,9 +1268,8 @@ DialogType.isModal = function(type) {
     // In the FULL_PAGE mode if the hash path points to a file we might have
     // to invoke a task after selecting it.
     // If the file path is in params_ we only want to select the file.
-    var invokeHandlers = pageLoading && !this.params_.selectOnly &&
-        this.dialogType == DialogType.FULL_PAGE &&
-        !!location.hash;
+    var invokeHandlers = pageLoading && (this.params_.action != 'select') &&
+        this.dialogType == DialogType.FULL_PAGE;
 
     if (PathUtil.getRootType(path) === RootType.GDATA) {
       var tracker = this.directoryModel_.createDirectoryChangeTracker();
@@ -1527,7 +1532,7 @@ DialogType.isModal = function(type) {
     // Failing to fetch a thumbnail likely means that the thumbnail URL
     // is now stale. Request a refresh of the current directory, to get
     // the new thumbnail URLs. Once the directory is refreshed, we'll get
-    // notified via onFileChanged event.
+    // notified via onDirectoryChanged event.
     var onImageLoadError = this.fileWatcher_.requestMetadataRefresh.bind(
         this.fileWatcher_, imageUrl);
 
@@ -2144,9 +2149,7 @@ DialogType.isModal = function(type) {
         // If the file manager opened automatically when a usb drive inserted,
         // user have never changed current volume (that implies the current
         // directory is still on the device) then close this tab.
-        chrome.tabs.getCurrent(function(tab) {
-          chrome.tabs.remove(tab.id);
-        });
+        util.platform.closeWindow();
       }
     }
   };

@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCThread_h
-#define CCThread_h
+#ifndef CC_THREAD_H_
+#define CC_THREAD_H_
 
 #include "base/callback.h"
 #include "base/basictypes.h"
+#include "cc/cc_export.h"
 
 namespace cc {
 
 // Thread provides basic infrastructure for messaging with the compositor in a
 // platform-neutral way.
-class Thread {
+class CC_EXPORT Thread {
 public:
     virtual ~Thread() { }
 
@@ -27,4 +28,4 @@ public:
 
 }
 
-#endif
+#endif  // CC_THREAD_H_

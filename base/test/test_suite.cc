@@ -10,6 +10,7 @@
 #include "base/command_line.h"
 #include "base/debug/debug_on_start_win.h"
 #include "base/debug/debugger.h"
+#include "base/debug/stack_trace.h"
 #include "base/file_path.h"
 #include "base/i18n/icu_util.h"
 #include "base/logging.h"
@@ -128,11 +129,6 @@ bool TestSuite::IsMarkedFlaky(const testing::TestInfo& test) {
 }
 
 // static
-bool TestSuite::IsMarkedFailing(const testing::TestInfo& test) {
-  return strncmp(test.name(), "FAILS_", 6) == 0;
-}
-
-// static
 bool TestSuite::IsMarkedMaybe(const testing::TestInfo& test) {
   return strncmp(test.name(), "MAYBE_", 6) == 0;
 }
@@ -141,7 +137,7 @@ bool TestSuite::IsMarkedMaybe(const testing::TestInfo& test) {
 bool TestSuite::ShouldIgnoreFailure(const testing::TestInfo& test) {
   if (CommandLine::ForCurrentProcess()->HasSwitch(kStrictFailureHandling))
     return false;
-  return IsMarkedFlaky(test) || IsMarkedFailing(test);
+  return IsMarkedFlaky(test);
 }
 
 // static
@@ -207,13 +203,6 @@ int TestSuite::Run() {
   if (flaky_count) {
     printf("  YOU HAVE %d FLAKY %s\n\n", flaky_count,
            flaky_count == 1 ? "TEST" : "TESTS");
-  }
-
-  // Display the number of tests with ignored failures (FAILS).
-  int failing_count = GetTestCount(&TestSuite::IsMarkedFailing);
-  if (failing_count) {
-    printf("  YOU HAVE %d %s with ignored failures (FAILS prefix)\n\n",
-           failing_count, failing_count == 1 ? "test" : "tests");
   }
 
 #if defined(OS_MACOSX)
@@ -282,7 +271,7 @@ void TestSuite::Initialize() {
   logging::SetLogItems(true, true, true, true);
 #endif  // else defined(OS_ANDROID)
 
-  CHECK(base::EnableInProcessStackDumping());
+  CHECK(base::debug::EnableInProcessStackDumping());
 #if defined(OS_WIN)
   // Make sure we run with high resolution timer to minimize differences
   // between production code and test code.

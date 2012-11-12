@@ -2,20 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/texture_uploader.h"
 
-#include "cc/prioritized_texture.h"
+#include "cc/prioritized_resource.h"
 #include "cc/test/fake_web_graphics_context_3d.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include "third_party/khronos/GLES2/gl2ext.h"
 
-using namespace cc;
 using namespace WebKit;
 
+namespace cc {
 namespace {
 
 class FakeWebGraphicsContext3DWithQueryTesting : public FakeWebGraphicsContext3D {
@@ -44,11 +42,11 @@ private:
 
 void uploadTexture(TextureUploader* uploader)
 {
-    IntSize size(256, 256);
+    gfx::Size size(256, 256);
     uploader->upload(NULL,
-                     IntRect(IntPoint(0, 0), size),
-                     IntRect(IntPoint(0, 0), size),
-                     IntSize(),
+                     gfx::Rect(gfx::Point(0, 0), size),
+                     gfx::Rect(gfx::Point(0, 0), size),
+                     gfx::Vector2d(),
                      GL_RGBA,
                      size);
 }
@@ -56,7 +54,7 @@ void uploadTexture(TextureUploader* uploader)
 TEST(TextureUploaderTest, NumBlockingUploads)
 {
     scoped_ptr<FakeWebGraphicsContext3DWithQueryTesting> fakeContext(new FakeWebGraphicsContext3DWithQueryTesting);
-    scoped_ptr<TextureUploader> uploader = TextureUploader::create(fakeContext.get(), false);
+    scoped_ptr<TextureUploader> uploader = TextureUploader::create(fakeContext.get(), false, false);
 
     fakeContext->setResultAvailable(0);
     EXPECT_EQ(0, uploader->numBlockingUploads());
@@ -77,7 +75,7 @@ TEST(TextureUploaderTest, NumBlockingUploads)
 TEST(TextureUploaderTest, MarkPendingUploadsAsNonBlocking)
 {
     scoped_ptr<FakeWebGraphicsContext3DWithQueryTesting> fakeContext(new FakeWebGraphicsContext3DWithQueryTesting);
-    scoped_ptr<TextureUploader> uploader = TextureUploader::create(fakeContext.get(), false);
+    scoped_ptr<TextureUploader> uploader = TextureUploader::create(fakeContext.get(), false, false);
 
     fakeContext->setResultAvailable(0);
     EXPECT_EQ(0, uploader->numBlockingUploads());
@@ -97,4 +95,5 @@ TEST(TextureUploaderTest, MarkPendingUploadsAsNonBlocking)
     EXPECT_EQ(0, uploader->numBlockingUploads());
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

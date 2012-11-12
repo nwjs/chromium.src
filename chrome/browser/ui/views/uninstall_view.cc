@@ -53,7 +53,7 @@ void UninstallView::SetupControls() {
   layout->StartRow(0, column_set_id);
   confirm_label_ = new views::Label(
       l10n_util::GetStringUTF16(IDS_UNINSTALL_VERIFY));
-  confirm_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
+  confirm_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   layout->AddView(confirm_label_);
 
   layout->AddPaddingRow(0, views::kUnrelatedControlVerticalSpacing);
@@ -61,7 +61,7 @@ void UninstallView::SetupControls() {
   // The "delete profile" check box.
   ++column_set_id;
   column_set = layout->AddColumnSet(column_set_id);
-  column_set->AddPaddingColumn(0, views::kRelatedControlHorizontalSpacing);
+  column_set->AddPaddingColumn(0, views::kPanelHorizIndentation);
   column_set->AddColumn(GridLayout::LEADING, GridLayout::CENTER, 0,
                         GridLayout::USE_PREF, 0, 0);
   layout->StartRow(0, column_set_id);

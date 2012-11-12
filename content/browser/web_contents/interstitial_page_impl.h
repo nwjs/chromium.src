@@ -74,6 +74,12 @@ class CONTENT_EXPORT InterstitialPageImpl
   }
   bool reload_on_dont_proceed() const { return reload_on_dont_proceed_; }
 
+#if defined(OS_ANDROID)
+  // Android shares a single platform window for all tabs, so we need to expose
+  // the RenderViewHost to properly route gestures to the interstitial.
+  RenderViewHost* GetRenderViewHost() const;
+#endif
+
  protected:
   // NotificationObserver method:
   virtual void Observe(int type,
@@ -115,9 +121,14 @@ class CONTENT_EXPORT InterstitialPageImpl
       const ContextMenuParams& params,
       ContextMenuSourceType type) OVERRIDE;
 
+#if defined(OS_ANDROID)
+  virtual void AttachLayer(WebKit::WebLayer* layer) OVERRIDE;
+  virtual void RemoveLayer(WebKit::WebLayer* layer) OVERRIDE;
+#endif
+
   // RenderWidgetHostDelegate implementation:
   virtual void RenderWidgetDeleted(
-      content::RenderWidgetHostImpl* render_widget_host) OVERRIDE;
+      RenderWidgetHostImpl* render_widget_host) OVERRIDE;
   virtual bool PreHandleKeyboardEvent(
       const NativeWebKeyboardEvent& event,
       bool* is_keyboard_shortcut) OVERRIDE;
@@ -148,7 +159,7 @@ class CONTENT_EXPORT InterstitialPageImpl
   void Disable();
 
   // Shutdown the RVH.  We will be deleted by the time this method returns.
-  void Shutdown(content::RenderViewHostImpl* render_view_host);
+  void Shutdown(RenderViewHostImpl* render_view_host);
 
   // Executes the passed action on the ResourceDispatcher (on the IO thread).
   // Used to block/resume/cancel requests for the RenderViewHost hidden by this

@@ -18,8 +18,13 @@
 class BookmarkMenuDelegate;
 class Browser;
 
+namespace ui {
+class NativeTheme;
+}
+
 namespace views {
 class MenuButton;
+struct MenuConfig;
 class MenuItemView;
 class MenuRunner;
 class View;
@@ -30,7 +35,10 @@ class WrenchMenu : public views::MenuDelegate,
                    public BaseBookmarkModelObserver,
                    public content::NotificationObserver {
  public:
-  explicit WrenchMenu(Browser* browser);
+  // TODO: remove |use_new_menu| and |supports_new_separators|.
+  WrenchMenu(Browser* browser,
+             bool use_new_menu,
+             bool supports_new_separators);
   virtual ~WrenchMenu();
 
   void Init(ui::MenuModel* model);
@@ -40,6 +48,10 @@ class WrenchMenu : public views::MenuDelegate,
 
   // Whether the menu is currently visible to the user.
   bool IsShowing();
+
+  const views::MenuConfig& GetMenuConfig() const;
+
+  bool use_new_menu() const { return use_new_menu_; }
 
   // MenuDelegate overrides:
   virtual string16 GetTooltipText(int id, const gfx::Point& p) const OVERRIDE;
@@ -152,6 +164,10 @@ class WrenchMenu : public views::MenuDelegate,
   int first_bookmark_command_id_;
 
   content::NotificationRegistrar registrar_;
+
+  const bool use_new_menu_;
+
+  const bool supports_new_separators_;
 
   DISALLOW_COPY_AND_ASSIGN(WrenchMenu);
 };

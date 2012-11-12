@@ -17,6 +17,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
+#include "content/common/drag_event_source_info.h"
 #include "content/common/edit_command.h"
 #include "content/common/gpu/client/webgraphicscontext3d_command_buffer_impl.h"
 #include "content/common/navigation_gesture.h"
@@ -195,14 +196,11 @@ class RenderViewImpl : public RenderWidget,
                        public WebGraphicsContext3DSwapBuffersClient,
                        public base::SupportsWeakPtr<RenderViewImpl> {
  public:
-  // Creates a new RenderView.  The parent_hwnd specifies a HWND to use as the
-  // parent of the WebView HWND that will be created.  If this is a blocked
-  // popup or as a new tab, opener_id is the routing ID of the RenderView
-  // responsible for creating this RenderView (corresponding to parent_hwnd).
-  // |counter| is either a currently initialized counter, or NULL (in which case
-  // we treat this RenderView as a top level window).
+  // Creates a new RenderView. If this is a blocked popup or as a new tab,
+  // opener_id is the routing ID of the RenderView responsible for creating this
+  // RenderView. |counter| is either a currently initialized counter, or NULL
+  // (in which case we treat this RenderView as a top level window).
   CONTENT_EXPORT static RenderViewImpl* Create(
-      gfx::NativeViewId parent_hwnd,
       int32 opener_id,
       const RendererPreferences& renderer_prefs,
       const webkit_glue::WebPreferences& webkit_prefs,
@@ -694,6 +692,9 @@ class RenderViewImpl : public RenderWidget,
       const WebKit::WebURLRequest& request,
       WebKit::WebNavigationPolicy policy) OVERRIDE;
   virtual void Repaint(const gfx::Size& size) OVERRIDE;
+  virtual void SetEditCommandForNextKeyEvent(const std::string& name,
+                                             const std::string& value) OVERRIDE;
+  virtual void ClearEditCommands() OVERRIDE;
 
   // webkit_glue::WebPluginPageDelegate implementation -------------------------
 
@@ -740,10 +741,12 @@ class RenderViewImpl : public RenderWidget,
       gfx::Rect* location,
       gfx::Rect* clip,
       float* scale_factor) OVERRIDE;
-  virtual gfx::Point GetScrollOffset() OVERRIDE;
+  virtual gfx::Vector2d GetScrollOffset() OVERRIDE;
   virtual void DidHandleKeyEvent() OVERRIDE;
   virtual bool WillHandleMouseEvent(
       const WebKit::WebMouseEvent& event) OVERRIDE;
+  virtual bool WillHandleGestureEvent(
+      const WebKit::WebGestureEvent& event) OVERRIDE;
   virtual void DidHandleMouseEvent(const WebKit::WebMouseEvent& event) OVERRIDE;
   virtual void DidHandleTouchEvent(const WebKit::WebTouchEvent& event) OVERRIDE;
   virtual void OnSetFocus(bool enable) OVERRIDE;
@@ -813,8 +816,7 @@ class RenderViewImpl : public RenderWidget,
     CONNECTION_ERROR,
   };
 
-  RenderViewImpl(gfx::NativeViewId parent_hwnd,
-                 int32 opener_id,
+  RenderViewImpl(int32 opener_id,
                  const RendererPreferences& renderer_prefs,
                  const webkit_glue::WebPreferences& webkit_prefs,
                  SharedRenderViewCounter* counter,
@@ -1105,11 +1107,6 @@ class RenderViewImpl : public RenderWidget,
   bool IsBackForwardToStaleEntry(const ViewMsg_Navigate_Params& params,
                                  bool is_reload);
 
-#if defined(OS_ANDROID)
-  // Launch an Android content intent with the given URL.
-  void LaunchAndroidContentIntent(const GURL& intent_url, size_t request_id);
-#endif
-
   bool MaybeLoadAlternateErrorPage(WebKit::WebFrame* frame,
                                    const WebKit::WebURLError& error,
                                    bool replace);
@@ -1132,6 +1129,15 @@ class RenderViewImpl : public RenderWidget,
   // Processes the command-line flags --enable-pinch and
   // --enable-pinch-in-compositor
   void ProcessAcceleratedPinchZoomFlags(const CommandLine& command_line);
+
+#if defined(OS_ANDROID)
+  // Launch an Android content intent with the given URL.
+  void LaunchAndroidContentIntent(const GURL& intent_url, size_t request_id);
+
+  // Send ViewHostMsg_UpdateFrameInfo to report scale/scroll/size changes.
+  void ScheduleUpdateFrameInfo();
+  void SendUpdateFrameInfo();
+#endif
 
   // Sends a reply to the current find operation handling if it was a
   // synchronous find request.
@@ -1404,6 +1410,9 @@ class RenderViewImpl : public RenderWidget,
   // have the actual content.
   SkColor body_background_color_;
 
+  // True if SendUpdateFrameInfo is pending.
+  bool update_frame_info_scheduled_;
+
   // Expected id of the next content intent launched. Used to prevent scheduled
   // intents to be launched if aborted.
   size_t expected_content_intent_id_;
@@ -1535,6 +1544,11 @@ class RenderViewImpl : public RenderWidget,
   // NOTE: pepper_delegate_ should be last member because its constructor calls
   // AddObservers method of RenderViewImpl from c-tor.
   PepperPluginDelegateImpl pepper_delegate_;
+
+  // This field stores drag/drop related info for the event that is currently
+  // being handled. If the current event results in starting a drag/drop
+  // session, this info is sent to the browser along with other drag/drop info.
+  DragEventSourceInfo possible_drag_event_info_;
 
   // ---------------------------------------------------------------------------
   // ADDING NEW DATA? Please see if it fits appropriately in one of the above

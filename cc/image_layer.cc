@@ -2,81 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/image_layer.h"
 
 #include "base/compiler_specific.h"
+#include "cc/image_layer_updater.h"
 #include "cc/layer_updater.h"
 #include "cc/layer_tree_host.h"
 #include "cc/resource_update_queue.h"
 
 namespace cc {
-
-class ImageLayerUpdater : public LayerUpdater {
-public:
-    class Resource : public LayerUpdater::Resource {
-    public:
-        Resource(ImageLayerUpdater* updater, scoped_ptr<PrioritizedTexture> texture)
-            : LayerUpdater::Resource(texture.Pass())
-            , m_updater(updater)
-        {
-        }
-
-        virtual void update(ResourceUpdateQueue& queue, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate, RenderingStats&) OVERRIDE
-        {
-            updater()->updateTexture(queue, texture(), sourceRect, destOffset, partialUpdate);
-        }
-
-    private:
-        ImageLayerUpdater* updater() { return m_updater; }
-
-        ImageLayerUpdater* m_updater;
-    };
-
-    static scoped_refptr<ImageLayerUpdater> create()
-    {
-        return make_scoped_refptr(new ImageLayerUpdater());
-    }
-
-    virtual scoped_ptr<LayerUpdater::Resource> createResource(
-        PrioritizedTextureManager* manager) OVERRIDE
-    {
-        return scoped_ptr<LayerUpdater::Resource>(new Resource(this, PrioritizedTexture::create(manager)));
-    }
-
-    void updateTexture(ResourceUpdateQueue& queue, PrioritizedTexture* texture, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate)
-    {
-        // Source rect should never go outside the image pixels, even if this
-        // is requested because the texture extends outside the image.
-        IntRect clippedSourceRect = sourceRect;
-        IntRect imageRect = IntRect(0, 0, m_bitmap.width(), m_bitmap.height());
-        clippedSourceRect.intersect(imageRect);
-
-        IntSize clippedDestOffset = destOffset + IntSize(clippedSourceRect.location() - sourceRect.location());
-
-        ResourceUpdate upload = ResourceUpdate::Create(texture,
-                                                       &m_bitmap,
-                                                       imageRect,
-                                                       clippedSourceRect,
-                                                       clippedDestOffset);
-        if (partialUpdate)
-            queue.appendPartialUpload(upload);
-        else
-            queue.appendFullUpload(upload);
-    }
-
-    void setBitmap(const SkBitmap& bitmap)
-    {
-        m_bitmap = bitmap;
-    }
-
-private:
-    ImageLayerUpdater() { }
-    virtual ~ImageLayerUpdater() { }
-
-    SkBitmap m_bitmap;
-};
 
 scoped_refptr<ImageLayer> ImageLayer::create()
 {
@@ -119,7 +53,7 @@ void ImageLayer::update(ResourceUpdateQueue& queue, const OcclusionTracker* occl
     if (m_needsDisplay) {
         m_updater->setBitmap(m_bitmap);
         updateTileSizeAndTilingOption();
-        invalidateContentRect(IntRect(IntPoint(), contentBounds()));
+        invalidateContentRect(gfx::Rect(gfx::Point(), contentBounds()));
         m_needsDisplay = false;
     }
     TiledLayer::update(queue, occlusion, stats);
@@ -140,9 +74,9 @@ LayerUpdater* ImageLayer::updater() const
     return m_updater.get();
 }
 
-IntSize ImageLayer::contentBounds() const
+gfx::Size ImageLayer::contentBounds() const
 {
-    return IntSize(m_bitmap.width(), m_bitmap.height());
+    return gfx::Size(m_bitmap.width(), m_bitmap.height());
 }
 
 bool ImageLayer::drawsContent() const
@@ -150,10 +84,18 @@ bool ImageLayer::drawsContent() const
     return !m_bitmap.isNull() && TiledLayer::drawsContent();
 }
 
-bool ImageLayer::needsContentsScale() const
+float ImageLayer::contentsScaleX() const
 {
-    // Contents scale is not need for image layer because this can be done in compositor more efficiently.
-    return false;
+    if (bounds().IsEmpty() || contentBounds().IsEmpty())
+        return 1;
+    return static_cast<float>(m_bitmap.width()) / bounds().width();
 }
 
+float ImageLayer::contentsScaleY() const
+{
+    if (bounds().IsEmpty() || contentBounds().IsEmpty())
+        return 1;
+    return static_cast<float>(m_bitmap.height()) / bounds().height();
 }
+
+}  // namespace cc

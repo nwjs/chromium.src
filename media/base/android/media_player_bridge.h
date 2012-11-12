@@ -15,6 +15,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
 #include "base/timer.h"
+#include "media/base/media_export.h"
 #include "media/base/android/media_player_listener.h"
 
 namespace media {
@@ -29,12 +30,12 @@ class MediaPlayerBridgeManager;
 // Pause(), SeekTo() gets called. As a result, media information may not
 // be available until one of those operations is performed. After that, we
 // will cache those information in case the mediaplayer gets released.
-class MediaPlayerBridge {
+class MEDIA_EXPORT MediaPlayerBridge {
  public:
   // Error types for MediaErrorCB.
   enum MediaErrorType {
-    MEDIA_ERROR_UNKNOWN,
-    MEDIA_ERROR_SERVER_DIED,
+    MEDIA_ERROR_FORMAT,
+    MEDIA_ERROR_DECODE,
     MEDIA_ERROR_NOT_VALID_FOR_PROGRESSIVE_PLAYBACK,
     MEDIA_ERROR_INVALID_CODE,
   };

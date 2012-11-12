@@ -72,6 +72,7 @@ class ClientSessionTest : public testing::Test {
 
     client_session_ = new ClientSession(
         &session_event_handler_,
+        ui_task_runner_, // Audio thread.
         ui_task_runner_, // Capture thread.
         ui_task_runner_, // Encode thread.
         ui_task_runner_, // Network thread.
@@ -81,7 +82,7 @@ class ClientSessionTest : public testing::Test {
   }
 
   virtual void TearDown() OVERRIDE {
-    // MockClientSessionEventHandler won't trigger StopAndDelete, so fake it.
+    // MockClientSessionEventHandler won't trigger Stop, so fake it.
     client_session_->Stop(base::Bind(
         &ClientSessionTest::OnClientStopped, base::Unretained(this)));
 
@@ -100,7 +101,7 @@ class ClientSessionTest : public testing::Test {
     EXPECT_CALL(*capturer, Start(_));
     EXPECT_CALL(*capturer, Stop());
     EXPECT_CALL(*capturer, InvalidateRegion(_)).Times(AnyNumber());
-    EXPECT_CALL(*capturer, CaptureInvalidRegion(_)).Times(AnyNumber());
+    EXPECT_CALL(*capturer, CaptureInvalidRegion()).Times(AnyNumber());
     EXPECT_CALL(*capturer, size_most_recent())
         .WillRepeatedly(ReturnRef(screen_size_));
 
@@ -182,7 +183,6 @@ TEST_F(ClientSessionTest, ClipboardStubFilter) {
   EXPECT_CALL(*event_executor_, InjectClipboardEvent(EqualsClipboardEvent(
       kMimeTypeTextUtf8, "b")));
   EXPECT_CALL(session_event_handler_, OnSessionClosed(_));
-  EXPECT_CALL(*event_executor_, StopAndDeleteMock());
 
   // This event should not get through to the clipboard stub,
   // because the client isn't authenticated yet.
@@ -247,7 +247,6 @@ TEST_F(ClientSessionTest, InputStubFilter) {
   EXPECT_CALL(*event_executor_, InjectKeyEvent(EqualsUsbEvent(2, false)));
   EXPECT_CALL(*event_executor_, InjectMouseEvent(EqualsMouseEvent(200, 201)));
   EXPECT_CALL(session_event_handler_, OnSessionClosed(_));
-  EXPECT_CALL(*event_executor_, StopAndDeleteMock());
 
   // These events should not get through to the input stub,
   // because the client isn't authenticated yet.
@@ -284,7 +283,6 @@ TEST_F(ClientSessionTest, LocalInputTest) {
   EXPECT_CALL(*event_executor_, InjectMouseEvent(EqualsMouseEvent(100, 101)));
   EXPECT_CALL(*event_executor_, InjectMouseEvent(EqualsMouseEvent(200, 201)));
   EXPECT_CALL(session_event_handler_, OnSessionClosed(_));
-  EXPECT_CALL(*event_executor_, StopAndDeleteMock());
 
   client_session_->OnConnectionAuthenticated(client_session_->connection());
   client_session_->OnConnectionChannelsConnected(client_session_->connection());
@@ -329,7 +327,6 @@ TEST_F(ClientSessionTest, RestoreEventState) {
   EXPECT_CALL(*event_executor_, InjectMouseEvent(EqualsMouseButtonEvent(
       protocol::MouseEvent::BUTTON_LEFT, false)));
   EXPECT_CALL(session_event_handler_, OnSessionClosed(_));
-  EXPECT_CALL(*event_executor_, StopAndDeleteMock());
 
   client_session_->OnConnectionAuthenticated(client_session_->connection());
   client_session_->OnConnectionChannelsConnected(client_session_->connection());
@@ -349,7 +346,6 @@ TEST_F(ClientSessionTest, ClampMouseEvents) {
   Expectation connected =
       EXPECT_CALL(session_event_handler_, OnSessionChannelsConnected(_));
   EXPECT_CALL(session_event_handler_, OnSessionClosed(_));
-  EXPECT_CALL(*event_executor_, StopAndDeleteMock());
 
   client_session_->OnConnectionAuthenticated(client_session_->connection());
   client_session_->OnConnectionChannelsConnected(client_session_->connection());

@@ -974,7 +974,7 @@ GtkWidget* TabStripGtk::GetWidgetForViewID(ViewID view_id) {
 ////////////////////////////////////////////////////////////////////////////////
 // TabStripGtk, TabStripModelObserver implementation:
 
-void TabStripGtk::TabInsertedAt(TabContents* contents,
+void TabStripGtk::TabInsertedAt(WebContents* contents,
                                 int index,
                                 bool foreground) {
   TRACE_EVENT0("ui::gtk", "TabStripGtk::TabInsertedAt");
@@ -991,8 +991,7 @@ void TabStripGtk::TabInsertedAt(TabContents* contents,
   // has the Tab already constructed and we can just insert it into our list
   // again.
   if (IsDragSessionActive()) {
-    tab = drag_controller_->GetDraggedTabForContents(
-        contents->web_contents());
+    tab = drag_controller_->GetDraggedTabForContents(contents);
     if (tab) {
       // If the Tab was detached, it would have been animated closed but not
       // removed, so we need to reset this property.
@@ -1016,7 +1015,7 @@ void TabStripGtk::TabInsertedAt(TabContents* contents,
   if (!contains_tab) {
     TabData d = { tab, gfx::Rect() };
     tab_data_.insert(tab_data_.begin() + index, d);
-    tab->UpdateData(contents->web_contents(), model_->IsAppTab(index), false);
+    tab->UpdateData(contents, model_->IsAppTab(index), false);
   }
   tab->set_mini(model_->IsMiniTab(index));
   tab->set_app(model_->IsAppTab(index));
@@ -1039,9 +1038,9 @@ void TabStripGtk::TabInsertedAt(TabContents* contents,
   ReStack();
 }
 
-void TabStripGtk::TabDetachedAt(TabContents* contents, int index) {
+void TabStripGtk::TabDetachedAt(WebContents* contents, int index) {
   GenerateIdealBounds();
-  StartRemoveTabAnimation(index, contents->web_contents());
+  StartRemoveTabAnimation(index, contents);
   // Have to do this _after_ calling StartRemoveTabAnimation, so that any
   // previous remove is completed fully and index is valid in sync with the
   // model index.
@@ -1142,7 +1141,7 @@ void TabStripGtk::TabReplacedAt(TabStripModel* tab_strip_model,
   TabChangedAt(new_contents, index, ALL);
 }
 
-void TabStripGtk::TabMiniStateChanged(TabContents* contents, int index) {
+void TabStripGtk::TabMiniStateChanged(WebContents* contents, int index) {
   // Don't do anything if we've already picked up the change from TabMoved.
   if (GetTabAt(index)->mini() == model_->IsMiniTab(index))
     return;
@@ -1158,8 +1157,7 @@ void TabStripGtk::TabMiniStateChanged(TabContents* contents, int index) {
   }
 }
 
-void TabStripGtk::TabBlockedStateChanged(TabContents* contents,
-                                         int index) {
+void TabStripGtk::TabBlockedStateChanged(WebContents* contents, int index) {
   GetTabAt(index)->SetBlocked(model_->IsTabBlocked(index));
 }
 
@@ -2189,7 +2187,7 @@ void TabStripGtk::OnNewTabClicked(GtkWidget* widget) {
       content::RecordAction(UserMetricsAction("NewTab_Button"));
       UMA_HISTOGRAM_ENUMERATION("Tab.NewTab", TabStripModel::NEW_TAB_BUTTON,
                                 TabStripModel::NEW_TAB_ENUM_COUNT);
-      model_->delegate()->AddBlankTab(true);
+      model_->delegate()->AddBlankTabAt(-1, true);
       break;
     case 2: {
       // On middle-click, try to parse the PRIMARY selection as a URL and load

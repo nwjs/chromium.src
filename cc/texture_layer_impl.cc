@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/texture_layer_impl.h"
 
 #include "base/stringprintf.h"
@@ -43,7 +41,7 @@ void TextureLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQu
     SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(createSharedQuadState());
     appendDebugBorderQuad(quadSink, sharedQuadState, appendQuadsData);
 
-    IntRect quadRect(IntPoint(), contentBounds());
+    gfx::Rect quadRect(gfx::Point(), contentBounds());
     quadSink.append(TextureDrawQuad::create(sharedQuadState, quadRect, m_externalTextureResource, m_premultipliedAlpha, m_uvRect, m_flipped).PassAs<DrawQuad>(), appendQuadsData);
 }
 
@@ -77,4 +75,4 @@ const char* TextureLayerImpl::layerTypeAsString() const
     return "TextureLayer";
 }
 
-}
+}  // namespace cc

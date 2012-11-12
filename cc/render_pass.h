@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCRenderPass_h
-#define CCRenderPass_h
+#ifndef CC_RENDER_PASS_H_
+#define CC_RENDER_PASS_H_
 
-#include "FloatRect.h"
 #include "base/basictypes.h"
+#include "cc/cc_export.h"
 #include "cc/draw_quad.h"
 #include "cc/hash_pair.h"
 #include "cc/scoped_ptr_hash_map.h"
@@ -45,7 +45,7 @@ public:
 
 typedef ScopedPtrVector<SharedQuadState> SharedQuadStateList;
 
-class RenderPass {
+class CC_EXPORT RenderPass {
 public:
     ~RenderPass();
 
@@ -144,4 +144,4 @@ typedef std::vector<RenderPass*> RenderPassList;
 typedef ScopedPtrHashMap<RenderPass::Id, RenderPass> RenderPassIdHashMap;
 } // namespace cc
 
-#endif
+#endif  // CC_RENDER_PASS_H_

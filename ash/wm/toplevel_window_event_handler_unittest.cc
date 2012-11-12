@@ -414,7 +414,8 @@ TEST_F(ToplevelWindowEventHandlerTest, GestureDrag) {
   EXPECT_NE(old_bounds.ToString(), target->bounds().ToString());
   {
     internal::SnapSizer sizer(target.get(), location,
-        internal::SnapSizer::RIGHT_EDGE);
+        internal::SnapSizer::RIGHT_EDGE,
+        internal::SnapSizer::OTHER_INPUT);
     EXPECT_EQ(sizer.target_bounds().ToString(), target->bounds().ToString());
   }
 
@@ -431,7 +432,8 @@ TEST_F(ToplevelWindowEventHandlerTest, GestureDrag) {
   EXPECT_NE(old_bounds.ToString(), target->bounds().ToString());
   {
     internal::SnapSizer sizer(target.get(), location,
-        internal::SnapSizer::LEFT_EDGE);
+        internal::SnapSizer::LEFT_EDGE,
+        internal::SnapSizer::OTHER_INPUT);
     EXPECT_EQ(sizer.target_bounds().ToString(), target->bounds().ToString());
   }
 
@@ -462,7 +464,7 @@ TEST_F(ToplevelWindowEventHandlerTest, GestureDrag) {
 
 // Verifies pressing escape resets the bounds to the original bounds.
 #if defined(OS_MACOSX)
-#define MAYBE_EscapeReverts FAILS_EscapeReverts
+#define MAYBE_EscapeReverts DISABLED_EscapeReverts
 #else
 #define MAYBE_EscapeReverts EscapeReverts
 #endif

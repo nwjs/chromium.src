@@ -103,8 +103,9 @@ BrowserLauncherItemController* BrowserLauncherItemController::Create(
 }
 
 void BrowserLauncherItemController::BrowserActivationStateChanged() {
-  if (tab_model_->GetActiveTabContents())
-    UpdateAppState(tab_model_->GetActiveTabContents());
+  content::WebContents* active_contents = tab_model_->GetActiveWebContents();
+  if (active_contents)
+    UpdateAppState(active_contents);
   UpdateItemStatus();
 }
 
@@ -173,19 +174,21 @@ void BrowserLauncherItemController::ActiveTabChanged(
     bool user_gesture) {
   // Update immediately on a tab change.
   if (old_contents)
-    UpdateAppState(old_contents);
-  UpdateAppState(new_contents);
+    UpdateAppState(old_contents->web_contents());
+  UpdateAppState(new_contents->web_contents());
   UpdateLauncher(new_contents);
 }
 
-void BrowserLauncherItemController::TabInsertedAt(TabContents* contents,
-                                                  int index,
-                                                  bool foreground) {
+void BrowserLauncherItemController::TabInsertedAt(
+    content::WebContents* contents,
+    int index,
+    bool foreground) {
   UpdateAppState(contents);
 }
 
-void BrowserLauncherItemController::TabDetachedAt(TabContents* contents,
-                                                  int index) {
+void BrowserLauncherItemController::TabDetachedAt(
+    content::WebContents* contents,
+    int index) {
   launcher_controller()->UpdateAppState(
       contents, ChromeLauncherController::APP_STATE_REMOVED);
 }
@@ -194,27 +197,14 @@ void BrowserLauncherItemController::TabChangedAt(
     TabContents* tab,
     int index,
     TabStripModelObserver::TabChangeType change_type) {
-  UpdateAppState(tab);
+  UpdateAppState(tab->web_contents());
   if (index != tab_model_->active_index() ||
       !(change_type != TabStripModelObserver::LOADING_ONLY &&
         change_type != TabStripModelObserver::TITLE_NOT_LOADING)) {
     return;
   }
 
-  FaviconTabHelper* favicon_tab_helper =
-      FaviconTabHelper::FromWebContents(tab->web_contents());
-  if (favicon_tab_helper->FaviconIsValid() ||
-      !favicon_tab_helper->ShouldDisplayFavicon()) {
-    // We have the favicon, update immediately.
-    UpdateLauncher(tab);
-  } else {
-    int item_index = launcher_model()->ItemIndexByID(launcher_id());
-    if (item_index == -1)
-      return;
-    ash::LauncherItem item = launcher_model()->items()[item_index];
-    item.image = gfx::ImageSkia();
-    launcher_model()->Set(item_index, item);
-  }
+  UpdateLauncher(tab);
 }
 
 void BrowserLauncherItemController::TabReplacedAt(
@@ -223,8 +213,9 @@ void BrowserLauncherItemController::TabReplacedAt(
     TabContents* new_contents,
     int index) {
   launcher_controller()->UpdateAppState(
-      old_contents, ChromeLauncherController::APP_STATE_REMOVED);
-  UpdateAppState(new_contents);
+      old_contents->web_contents(),
+      ChromeLauncherController::APP_STATE_REMOVED);
+  UpdateAppState(new_contents->web_contents());
 }
 
 void BrowserLauncherItemController::FaviconUpdated() {
@@ -301,12 +292,12 @@ void BrowserLauncherItemController::UpdateLauncher(TabContents* tab) {
   launcher_model()->Set(item_index, item);
 }
 
-void BrowserLauncherItemController::UpdateAppState(TabContents* tab) {
+void BrowserLauncherItemController::UpdateAppState(content::WebContents* tab) {
   ChromeLauncherController::AppState app_state;
 
-  if (tab_model_->GetIndexOfTabContents(tab) == TabStripModel::kNoTab) {
+  if (tab_model_->GetIndexOfWebContents(tab) == TabStripModel::kNoTab) {
     app_state = ChromeLauncherController::APP_STATE_REMOVED;
-  } else if (tab_model_->GetActiveTabContents() == tab) {
+  } else if (tab_model_->GetActiveWebContents() == tab) {
     if (ash::wm::IsActiveWindow(window_))
       app_state = ChromeLauncherController::APP_STATE_WINDOW_ACTIVE;
     else

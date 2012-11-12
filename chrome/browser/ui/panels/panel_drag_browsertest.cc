@@ -35,12 +35,12 @@ class PanelDragBrowserTest : public BasePanelBrowserTest {
   }
 
   // Drag |panel| from its origin by the offset |delta|.
-  void DragPanelByDelta(Panel* panel, const gfx::Point& delta) {
+  void DragPanelByDelta(Panel* panel, const gfx::Vector2d& delta) {
     scoped_ptr<NativePanelTesting> panel_testing(
         CreateNativePanelTesting(panel));
     gfx::Point mouse_location(panel->GetBounds().origin());
     panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
-    panel_testing->DragTitlebar(mouse_location.Add(delta));
+    panel_testing->DragTitlebar(mouse_location + delta);
     panel_testing->FinishDragTitlebar();
   }
 
@@ -55,30 +55,30 @@ class PanelDragBrowserTest : public BasePanelBrowserTest {
     panel_testing->FinishDragTitlebar();
   }
 
-  static gfx::Point GetDragDeltaToRemainDocked() {
-    return gfx::Point(
+  static gfx::Vector2d GetDragDeltaToRemainDocked() {
+    return gfx::Vector2d(
         -5,
         -(PanelDragController::GetDetachDockedPanelThreshold() / 2));
   }
 
-  static gfx::Point GetDragDeltaToDetach() {
-    return gfx::Point(
+  static gfx::Vector2d GetDragDeltaToDetach() {
+    return gfx::Vector2d(
         -20,
         -(PanelDragController::GetDetachDockedPanelThreshold() + 20));
   }
 
-  static gfx::Point GetDragDeltaToRemainDetached(Panel* panel) {
+  static gfx::Vector2d GetDragDeltaToRemainDetached(Panel* panel) {
     int distance = panel->manager()->docked_strip()->display_area().bottom() -
                    panel->GetBounds().bottom();
-    return gfx::Point(
+    return gfx::Vector2d(
         -5,
         distance - PanelDragController::GetDockDetachedPanelThreshold() * 2);
   }
 
-  static gfx::Point GetDragDeltaToAttach(Panel* panel) {
+  static gfx::Vector2d GetDragDeltaToAttach(Panel* panel) {
     int distance = panel->manager()->docked_strip()->display_area().bottom() -
                    panel->GetBounds().bottom();
-    return gfx::Point(
+    return gfx::Vector2d(
         -20,
         distance - PanelDragController::GetDockDetachedPanelThreshold() / 2);
   }
@@ -177,7 +177,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragOneDockedPanel) {
 }
 
 IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragTwoDockedPanels) {
-  static const gfx::Point small_delta(10, 0);
+  static const gfx::Vector2d small_delta(10, 0);
 
   Panel* panel1 = CreateDockedPanel("1", gfx::Rect(0, 0, 100, 100));
   Panel* panel2 = CreateDockedPanel("2", gfx::Rect(0, 0, 100, 100));
@@ -195,7 +195,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragTwoDockedPanels) {
   EXPECT_EQ(position1, panel1->GetBounds().origin());
   EXPECT_EQ(position2, panel2->GetBounds().origin());
 
-  mouse_location = mouse_location.Subtract(small_delta);
+  mouse_location = mouse_location - small_delta;
   panel1_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(mouse_location, panel1->GetBounds().origin());
   EXPECT_EQ(position2, panel2->GetBounds().origin());
@@ -211,7 +211,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragTwoDockedPanels) {
   EXPECT_EQ(position1, panel1->GetBounds().origin());
   EXPECT_EQ(position2, panel2->GetBounds().origin());
 
-  mouse_location = position2.Add(gfx::Point(1, 0));
+  mouse_location = position2 + gfx::Vector2d(1, 0);
   panel1_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(mouse_location, panel1->GetBounds().origin());
   EXPECT_EQ(position1, panel2->GetBounds().origin());
@@ -227,7 +227,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragTwoDockedPanels) {
   EXPECT_EQ(position2, panel1->GetBounds().origin());
   EXPECT_EQ(position1, panel2->GetBounds().origin());
 
-  mouse_location = mouse_location.Add(small_delta);
+  mouse_location = mouse_location + small_delta;
   panel1_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(mouse_location, panel1->GetBounds().origin());
   EXPECT_EQ(position1, panel2->GetBounds().origin());
@@ -243,7 +243,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragTwoDockedPanels) {
   EXPECT_EQ(position2, panel1->GetBounds().origin());
   EXPECT_EQ(position1, panel2->GetBounds().origin());
 
-  mouse_location = position1.Add(gfx::Point(1, 0));
+  mouse_location = position1 + gfx::Vector2d(1, 0);
   panel1_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(mouse_location, panel1->GetBounds().origin());
   EXPECT_EQ(position2, panel2->GetBounds().origin());
@@ -260,7 +260,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragTwoDockedPanels) {
   EXPECT_EQ(position1, panel1->GetBounds().origin());
   EXPECT_EQ(position2, panel2->GetBounds().origin());
 
-  mouse_location = position2.Add(gfx::Point(1, 0));
+  mouse_location = position2 + gfx::Vector2d(1, 0);
   panel1_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(mouse_location, panel1->GetBounds().origin());
   EXPECT_EQ(position1, panel2->GetBounds().origin());
@@ -294,13 +294,13 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
   EXPECT_EQ(position2, panel2->GetBounds().origin());
   EXPECT_EQ(position3, panel3->GetBounds().origin());
 
-  mouse_location = position2.Add(gfx::Point(1, 0));
+  mouse_location = position2 + gfx::Vector2d(1, 0);
   panel3_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(position1, panel1->GetBounds().origin());
   EXPECT_EQ(position3, panel2->GetBounds().origin());
   EXPECT_EQ(mouse_location, panel3->GetBounds().origin());
 
-  mouse_location = position1.Add(gfx::Point(1, 0));
+  mouse_location = position1 + gfx::Vector2d(1, 0);
   panel3_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(position2, panel1->GetBounds().origin());
   EXPECT_EQ(position3, panel2->GetBounds().origin());
@@ -323,13 +323,13 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
   EXPECT_EQ(position3, panel2->GetBounds().origin());
   EXPECT_EQ(position1, panel3->GetBounds().origin());
 
-  mouse_location = position2.Add(gfx::Point(1, 0));
+  mouse_location = position2 + gfx::Vector2d(1, 0);
   panel3_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(position1, panel1->GetBounds().origin());
   EXPECT_EQ(position3, panel2->GetBounds().origin());
   EXPECT_EQ(mouse_location, panel3->GetBounds().origin());
 
-  mouse_location = position3.Add(gfx::Point(1, 0));
+  mouse_location = position3 + gfx::Vector2d(1, 0);
   panel3_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(position1, panel1->GetBounds().origin());
   EXPECT_EQ(position2, panel2->GetBounds().origin());
@@ -349,7 +349,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
   EXPECT_EQ(position3, panel2->GetBounds().origin());
   EXPECT_EQ(position1, panel3->GetBounds().origin());
 
-  mouse_location = position1.Add(gfx::Point(1, 0));
+  mouse_location = position1 + gfx::Vector2d(1, 0);
   panel2_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(position3, panel1->GetBounds().origin());
   EXPECT_EQ(mouse_location, panel2->GetBounds().origin());
@@ -369,7 +369,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
   EXPECT_EQ(position1, panel2->GetBounds().origin());
   EXPECT_EQ(position2, panel3->GetBounds().origin());
 
-  mouse_location = position3.Add(gfx::Point(1, 0));
+  mouse_location = position3 + gfx::Vector2d(1, 0);
   panel2_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(position2, panel1->GetBounds().origin());
   EXPECT_EQ(mouse_location, panel2->GetBounds().origin());
@@ -391,7 +391,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
   EXPECT_EQ(position3, panel2->GetBounds().origin());
   EXPECT_EQ(position1, panel3->GetBounds().origin());
 
-  mouse_location = position3.Add(gfx::Point(1, 0));
+  mouse_location = position3 + gfx::Vector2d(1, 0);
   panel3_testing->DragTitlebar(mouse_location);
   EXPECT_EQ(position1, panel1->GetBounds().origin());
   EXPECT_EQ(position2, panel2->GetBounds().origin());
@@ -862,8 +862,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, Detach) {
   // Drag up the panel in a small offset that does not trigger the detach.
   // Expect that the panel is still docked and only x coordinate of its position
   // is changed.
-  gfx::Point drag_delta_to_remain_docked = GetDragDeltaToRemainDocked();
-  mouse_location = mouse_location.Add(drag_delta_to_remain_docked);
+  gfx::Vector2d drag_delta_to_remain_docked = GetDragDeltaToRemainDocked();
+  mouse_location = mouse_location + drag_delta_to_remain_docked;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(1, docked_strip->num_panels());
   ASSERT_EQ(0, detached_strip->num_panels());
@@ -874,8 +874,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, Detach) {
 
   // Continue dragging up the panel in big offset that triggers the detach.
   // Expect that the panel is previewed as detached.
-  gfx::Point drag_delta_to_detach = GetDragDeltaToDetach();
-  mouse_location = mouse_location.Add(drag_delta_to_detach);
+  gfx::Vector2d drag_delta_to_detach = GetDragDeltaToDetach();
+  mouse_location = mouse_location + drag_delta_to_detach;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(0, docked_strip->num_panels());
   ASSERT_EQ(1, detached_strip->num_panels());
@@ -917,8 +917,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAndCancel) {
   // Drag up the panel in a small offset that does not trigger the detach.
   // Expect that the panel is still docked and only x coordinate of its position
   // is changed.
-  gfx::Point drag_delta_to_remain_docked = GetDragDeltaToRemainDocked();
-  mouse_location = mouse_location.Add(drag_delta_to_remain_docked);
+  gfx::Vector2d drag_delta_to_remain_docked = GetDragDeltaToRemainDocked();
+  mouse_location = mouse_location + drag_delta_to_remain_docked;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(1, docked_strip->num_panels());
   ASSERT_EQ(0, detached_strip->num_panels());
@@ -929,8 +929,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAndCancel) {
 
   // Continue dragging up the panel in big offset that triggers the detach.
   // Expect that the panel is previewed as detached.
-  gfx::Point drag_delta_to_detach = GetDragDeltaToDetach();
-  mouse_location = mouse_location.Add(drag_delta_to_detach);
+  gfx::Vector2d drag_delta_to_detach = GetDragDeltaToDetach();
+  mouse_location = mouse_location + drag_delta_to_detach;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(0, docked_strip->num_panels());
   ASSERT_EQ(1, detached_strip->num_panels());
@@ -972,9 +972,9 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, Attach) {
 
   // Drag down the panel but not close enough to the bottom of work area.
   // Expect that the panel is still detached.
-  gfx::Point drag_delta_to_remain_detached =
+  gfx::Vector2d drag_delta_to_remain_detached =
       GetDragDeltaToRemainDetached(panel);
-  mouse_location = mouse_location.Add(drag_delta_to_remain_detached);
+  mouse_location = mouse_location + drag_delta_to_remain_detached;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(0, docked_strip->num_panels());
   ASSERT_EQ(1, detached_strip->num_panels());
@@ -986,8 +986,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, Attach) {
   // Continue dragging down the panel to make it close enough to the bottom of
   // work area.
   // Expect that the panel is previewed as docked.
-  gfx::Point drag_delta_to_attach = GetDragDeltaToAttach(panel);
-  mouse_location = mouse_location.Add(drag_delta_to_attach);
+  gfx::Vector2d drag_delta_to_attach = GetDragDeltaToAttach(panel);
+  mouse_location = mouse_location + drag_delta_to_attach;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(1, docked_strip->num_panels());
   ASSERT_EQ(0, detached_strip->num_panels());
@@ -1031,9 +1031,9 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, AttachAndCancel) {
 
   // Drag down the panel but not close enough to the bottom of work area.
   // Expect that the panel is still detached.
-  gfx::Point drag_delta_to_remain_detached =
+  gfx::Vector2d drag_delta_to_remain_detached =
       GetDragDeltaToRemainDetached(panel);
-  mouse_location = mouse_location.Add(drag_delta_to_remain_detached);
+  mouse_location = mouse_location + drag_delta_to_remain_detached;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(0, docked_strip->num_panels());
   ASSERT_EQ(1, detached_strip->num_panels());
@@ -1045,8 +1045,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, AttachAndCancel) {
   // Continue dragging down the panel to make it close enough to the bottom of
   // work area.
   // Expect that the panel is previewed as docked.
-  gfx::Point drag_delta_to_attach = GetDragDeltaToAttach(panel);
-  mouse_location = mouse_location.Add(drag_delta_to_attach);
+  gfx::Vector2d drag_delta_to_attach = GetDragDeltaToAttach(panel);
+  mouse_location = mouse_location + drag_delta_to_attach;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(1, docked_strip->num_panels());
   ASSERT_EQ(0, detached_strip->num_panels());
@@ -1085,8 +1085,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAttachAndCancel) {
 
   // Drag up the panel to trigger the detach.
   // Expect that the panel is previewed as detached.
-  gfx::Point drag_delta_to_detach = GetDragDeltaToDetach();
-  mouse_location = mouse_location.Add(drag_delta_to_detach);
+  gfx::Vector2d drag_delta_to_detach = GetDragDeltaToDetach();
+  mouse_location = mouse_location + drag_delta_to_detach;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(0, docked_strip->num_panels());
   ASSERT_EQ(1, detached_strip->num_panels());
@@ -1096,8 +1096,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAttachAndCancel) {
   EXPECT_EQ(panel_new_bounds, panel->GetBounds());
 
   // Continue dragging down the panel to trigger the re-attach.
-  gfx::Point drag_delta_to_reattach = GetDragDeltaToAttach(panel);
-  mouse_location = mouse_location.Add(drag_delta_to_reattach);
+  gfx::Vector2d drag_delta_to_reattach = GetDragDeltaToAttach(panel);
+  mouse_location = mouse_location + drag_delta_to_reattach;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(1, docked_strip->num_panels());
   ASSERT_EQ(0, detached_strip->num_panels());
@@ -1106,8 +1106,8 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAttachAndCancel) {
   EXPECT_EQ(panel_new_bounds, panel->GetBounds());
 
   // Continue dragging up the panel to trigger the detach again.
-  gfx::Point drag_delta_to_detach_again = GetDragDeltaToDetach();
-  mouse_location = mouse_location.Add(drag_delta_to_detach_again);
+  gfx::Vector2d drag_delta_to_detach_again = GetDragDeltaToDetach();
+  mouse_location = mouse_location + drag_delta_to_detach_again;
   panel_testing->DragTitlebar(mouse_location);
   ASSERT_EQ(0, docked_strip->num_panels());
   ASSERT_EQ(1, detached_strip->num_panels());
@@ -1131,7 +1131,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithSqueeze) {
   DockedPanelStrip* docked_strip = panel_manager->docked_strip();
   DetachedPanelStrip* detached_strip = panel_manager->detached_strip();
 
-  gfx::Point drag_delta_to_detach = GetDragDeltaToDetach();
+  gfx::Vector2d drag_delta_to_detach = GetDragDeltaToDetach();
 
   // Create some docked panels.
   //   docked:    P1  P2  P3  P4  P5
@@ -1157,7 +1157,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithSqueeze) {
   EXPECT_EQ(PanelStrip::DOCKED, panel4->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
   gfx::Point panel2_new_position =
-      panel2_docked_position.Add(drag_delta_to_detach);
+      panel2_docked_position + drag_delta_to_detach;
   EXPECT_EQ(panel2_new_position, panel2->GetBounds().origin());
 
   // Drag to detach the left-most docked panel.
@@ -1175,7 +1175,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithSqueeze) {
   EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
   EXPECT_EQ(panel2_new_position, panel2->GetBounds().origin());
   gfx::Point panel4_new_position =
-      panel4_docked_position.Add(drag_delta_to_detach);
+      panel4_docked_position + drag_delta_to_detach;
   EXPECT_EQ(panel4_new_position, panel4->GetBounds().origin());
 
   // Drag to detach the right-most docked panel.
@@ -1193,7 +1193,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithSqueeze) {
   EXPECT_EQ(PanelStrip::DOCKED, panel3->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DETACHED, panel4->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
-  gfx::Point panel1_new_position = docked_position1.Add(drag_delta_to_detach);
+  gfx::Point panel1_new_position = docked_position1 + drag_delta_to_detach;
   EXPECT_EQ(panel1_new_position, panel1->GetBounds().origin());
   EXPECT_EQ(panel2_new_position, panel2->GetBounds().origin());
   EXPECT_EQ(panel4_new_position, panel4->GetBounds().origin());

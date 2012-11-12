@@ -12,6 +12,7 @@
 #include "base/message_loop.h"
 #include "base/platform_file.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/threading/thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/blob/mock_blob_url_request_context.h"
@@ -19,7 +20,9 @@
 #include "webkit/fileapi/file_system_operation.h"
 #include "webkit/fileapi/isolated_context.h"
 #include "webkit/fileapi/syncable/canned_syncable_file_system.h"
+#include "webkit/fileapi/syncable/file_change.h"
 #include "webkit/fileapi/syncable/local_file_change_tracker.h"
+#include "webkit/fileapi/syncable/sync_file_metadata.h"
 #include "webkit/fileapi/syncable/sync_status_code.h"
 #include "webkit/fileapi/syncable/syncable_file_system_util.h"
 
@@ -65,11 +68,12 @@ class LocalFileSyncContextTest : public testing::Test {
   virtual void TearDown() OVERRIDE {
     EXPECT_TRUE(fileapi::RevokeSyncableFileSystem(kServiceName));
     io_thread_->Stop();
+    file_thread_->Stop();
   }
 
   void StartPrepareForSync(FileSystemContext* file_system_context,
                            const FileSystemURL& url,
-                           SyncFileType* file_type,
+                           SyncFileMetadata* metadata,
                            FileChangeList* changes) {
     ASSERT_TRUE(changes != NULL);
     ASSERT_FALSE(has_inflight_prepare_for_sync_);
@@ -79,38 +83,37 @@ class LocalFileSyncContextTest : public testing::Test {
         file_system_context,
         url,
         base::Bind(&LocalFileSyncContextTest::DidPrepareForSync,
-                   base::Unretained(this), file_type, changes));
+                   base::Unretained(this), metadata, changes));
   }
 
   SyncStatusCode PrepareForSync(FileSystemContext* file_system_context,
                                 const FileSystemURL& url,
-                                SyncFileType* file_type,
+                                SyncFileMetadata* metadata,
                                 FileChangeList* changes) {
-    StartPrepareForSync(file_system_context, url, file_type, changes);
+    StartPrepareForSync(file_system_context, url, metadata, changes);
     MessageLoop::current()->Run();
     return status_;
   }
 
   base::Closure GetPrepareForSyncClosure(FileSystemContext* file_system_context,
                                          const FileSystemURL& url,
-                                         SyncFileType* file_type,
+                                         SyncFileMetadata* metadata,
                                          FileChangeList* changes) {
     return base::Bind(&LocalFileSyncContextTest::StartPrepareForSync,
                       base::Unretained(this),
                       base::Unretained(file_system_context),
-                      url, file_type, changes);
+                      url, metadata, changes);
   }
 
-  void DidPrepareForSync(SyncFileType* file_type_out,
+  void DidPrepareForSync(SyncFileMetadata* metadata_out,
                          FileChangeList* changes_out,
                          SyncStatusCode status,
-                         SyncFileType file_type,
-                         const FileChangeList& changes) {
+                         const LocalFileSyncInfo& sync_file_info) {
     ASSERT_TRUE(ui_task_runner_->RunsTasksOnCurrentThread());
     has_inflight_prepare_for_sync_ = false;
     status_ = status;
-    *file_type_out = file_type;
-    *changes_out = changes;
+    *metadata_out = sync_file_info.metadata;
+    *changes_out = sync_file_info.changes;
     MessageLoop::current()->Quit();
   }
 
@@ -118,16 +121,16 @@ class LocalFileSyncContextTest : public testing::Test {
                                    const FileChange& change,
                                    const FilePath& local_path,
                                    const FileSystemURL& url,
-                                   const SyncFileType expected_file_type) {
+                                   SyncFileType expected_file_type) {
     SCOPED_TRACE(testing::Message() << "ApplyChange for " <<
                  url.DebugString());
 
     // First we should call PrepareForSync to disable writing.
-    SyncFileType file_type;
+    SyncFileMetadata metadata;
     FileChangeList changes;
     EXPECT_EQ(SYNC_STATUS_OK,
-              PrepareForSync(file_system_context, url, &file_type, &changes));
-    EXPECT_EQ(expected_file_type, file_type);
+              PrepareForSync(file_system_context, url, &metadata, &changes));
+    EXPECT_EQ(expected_file_type, metadata.file_type);
 
     status_ = SYNC_STATUS_UNKNOWN;
     sync_context_->ApplyRemoteChange(
@@ -236,10 +239,10 @@ TEST_F(LocalFileSyncContextTest, InitializeFileSystemContext) {
   const FileSystemURL kURL(file_system.URL("foo"));
   EXPECT_EQ(base::PLATFORM_FILE_OK, file_system.CreateFile(kURL));
 
-  std::vector<FileSystemURL> urls;
+  FileSystemURLSet urls;
   file_system.GetChangedURLsInTracker(&urls);
   ASSERT_EQ(1U, urls.size());
-  EXPECT_EQ(kURL, urls[0]);
+  EXPECT_TRUE(ContainsKey(urls, kURL));
 
   // Finishing the test.
   sync_context_->ShutdownOnUIThread();
@@ -272,10 +275,10 @@ TEST_F(LocalFileSyncContextTest, MultipleFileSystemContexts) {
   EXPECT_EQ(base::PLATFORM_FILE_OK, file_system1.CreateFile(kURL1));
 
   // file_system1's tracker must have recorded the change.
-  std::vector<FileSystemURL> urls;
+  FileSystemURLSet urls;
   file_system1.GetChangedURLsInTracker(&urls);
   ASSERT_EQ(1U, urls.size());
-  EXPECT_EQ(kURL1, urls[0]);
+  EXPECT_TRUE(ContainsKey(urls, kURL1));
 
   // file_system1's tracker must have no change.
   urls.clear();
@@ -289,30 +292,32 @@ TEST_F(LocalFileSyncContextTest, MultipleFileSystemContexts) {
   urls.clear();
   file_system1.GetChangedURLsInTracker(&urls);
   ASSERT_EQ(1U, urls.size());
-  EXPECT_EQ(kURL1, urls[0]);
+  EXPECT_TRUE(ContainsKey(urls, kURL1));
 
   // file_system2's tracker now must have the change for kURL2.
   urls.clear();
   file_system2.GetChangedURLsInTracker(&urls);
   ASSERT_EQ(1U, urls.size());
-  EXPECT_EQ(kURL2, urls[0]);
+  EXPECT_TRUE(ContainsKey(urls, kURL2));
 
-  SyncFileType file_type;
+  SyncFileMetadata metadata;
   FileChangeList changes;
   EXPECT_EQ(SYNC_STATUS_OK, PrepareForSync(file_system1.file_system_context(),
-                                           kURL1, &file_type, &changes));
+                                           kURL1, &metadata, &changes));
   EXPECT_EQ(1U, changes.size());
   EXPECT_TRUE(changes.list().back().IsFile());
   EXPECT_TRUE(changes.list().back().IsAddOrUpdate());
-  EXPECT_EQ(SYNC_FILE_TYPE_FILE, file_type);
+  EXPECT_EQ(SYNC_FILE_TYPE_FILE, metadata.file_type);
+  EXPECT_EQ(0, metadata.size);
 
   changes.clear();
   EXPECT_EQ(SYNC_STATUS_OK, PrepareForSync(file_system2.file_system_context(),
-                                           kURL2, &file_type, &changes));
+                                           kURL2, &metadata, &changes));
   EXPECT_EQ(1U, changes.size());
   EXPECT_FALSE(changes.list().back().IsFile());
   EXPECT_TRUE(changes.list().back().IsAddOrUpdate());
-  EXPECT_EQ(SYNC_FILE_TYPE_DIRECTORY, file_type);
+  EXPECT_EQ(SYNC_FILE_TYPE_DIRECTORY, metadata.file_type);
+  EXPECT_EQ(0, metadata.size);
 
   sync_context_->ShutdownOnUIThread();
   sync_context_ = NULL;
@@ -340,21 +345,22 @@ TEST_F(LocalFileSyncContextTest, PrepareSyncWhileWriting) {
   StartModifyFileOnIOThread(&file_system, kURL1);
 
   // Until the operation finishes PrepareForSync should return BUSY error.
-  SyncFileType file_type;
+  SyncFileMetadata metadata;
+  metadata.file_type = SYNC_FILE_TYPE_UNKNOWN;
   FileChangeList changes;
   EXPECT_EQ(SYNC_STATUS_FILE_BUSY,
             PrepareForSync(file_system.file_system_context(),
-                           kURL1, &file_type, &changes));
-  EXPECT_EQ(SYNC_FILE_TYPE_FILE, file_type);
+                           kURL1, &metadata, &changes));
+  EXPECT_EQ(SYNC_FILE_TYPE_FILE, metadata.file_type);
 
   // Register PrepareForSync method to be invoked when kURL1 becomes
   // syncable. (Actually this may be done after all operations are done
   // on IO thread in this test.)
-  file_type = SYNC_FILE_TYPE_UNKNOWN;
+  metadata.file_type = SYNC_FILE_TYPE_UNKNOWN;
   changes.clear();
   sync_context_->RegisterURLForWaitingSync(
       kURL1, GetPrepareForSyncClosure(file_system.file_system_context(),
-                                      kURL1, &file_type, &changes));
+                                      kURL1, &metadata, &changes));
 
   // Wait for the completion.
   EXPECT_EQ(base::PLATFORM_FILE_OK, WaitUntilModifyFileIsDone());
@@ -369,7 +375,8 @@ TEST_F(LocalFileSyncContextTest, PrepareSyncWhileWriting) {
   EXPECT_EQ(1U, changes.size());
   EXPECT_TRUE(changes.list().back().IsFile());
   EXPECT_TRUE(changes.list().back().IsAddOrUpdate());
-  EXPECT_EQ(SYNC_FILE_TYPE_FILE, file_type);
+  EXPECT_EQ(SYNC_FILE_TYPE_FILE, metadata.file_type);
+  EXPECT_EQ(1, metadata.size);
 
   sync_context_->ShutdownOnUIThread();
   sync_context_ = NULL;
@@ -402,12 +409,15 @@ TEST_F(LocalFileSyncContextTest, ApplyRemoteChangeForDeletion) {
   EXPECT_EQ(base::PLATFORM_FILE_OK, file_system.CreateFile(kChild));
 
   // file_system's change tracker must have recorded the creation.
-  std::vector<FileSystemURL> urls;
+  FileSystemURLSet urls;
   file_system.GetChangedURLsInTracker(&urls);
   ASSERT_EQ(3U, urls.size());
-  for (size_t i = 0; i < urls.size(); ++i) {
-    EXPECT_TRUE(urls[i] == kFile || urls[i] == kDir || urls[i] == kChild);
-    file_system.FinalizeSyncForURLInTracker(urls[i]);
+  ASSERT_TRUE(ContainsKey(urls, kFile));
+  ASSERT_TRUE(ContainsKey(urls, kDir));
+  ASSERT_TRUE(ContainsKey(urls, kChild));
+  for (FileSystemURLSet::iterator iter = urls.begin();
+       iter != urls.end(); ++iter) {
+    file_system.ClearChangeForURLInTracker(*iter);
   }
 
   // At this point the usage must be greater than the initial usage.
@@ -489,11 +499,11 @@ TEST_F(LocalFileSyncContextTest, ApplyRemoteChangeForAddOrUpdate) {
             file_system.DirectoryExists(kDir));
 
   // file_system's change tracker must have recorded the creation.
-  std::vector<FileSystemURL> urls;
+  FileSystemURLSet urls;
   file_system.GetChangedURLsInTracker(&urls);
   ASSERT_EQ(1U, urls.size());
-  EXPECT_EQ(kFile1, urls[0]);
-  file_system.FinalizeSyncForURLInTracker(urls[0]);
+  EXPECT_TRUE(ContainsKey(urls, kFile1));
+  file_system.ClearChangeForURLInTracker(*urls.begin());
 
   // Prepare temporary files which represent the remote file data.
   const FilePath kFilePath1(temp_dir.path().Append(FPL("file1")));

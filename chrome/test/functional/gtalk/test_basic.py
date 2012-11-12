@@ -46,19 +46,16 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
         self.WaitUntil(self.GetViewerInfo),
         msg='Timed out waiting for viewer.html to open.')
 
-    # Wait for all iframes to load.
-    self.WaitUntilResult(True,
+    # Wait for the sign-in iframe to load.
+    self.WaitUntilCondition(
         lambda: self.RunInViewer(
             'window.document.getElementsByTagName("iframe") != null && '
-            'window.document.getElementsByTagName("iframe").length > 0'),
-            msg='Timed out waiting for iframes to load.')
-
-    # Wait for viewer window to load the sign-in page.
-    self.WaitUntilCondition(
-        lambda: self.RunInViewer('window.location.href',
-                                 '//iframe[1]'),
+            'window.document.getElementsByTagName("iframe").length > 0') and
+            self.RunInViewer('window.location.href',
+                             '//iframe[1]'),
         lambda url: url and '/qsignin' in url,
         msg='Timed out waiting for /qsignin page.')
+
 
   def _SignIn(self, gtalk_version):
     """Download the extension, open the roster, and sign in"""
@@ -118,8 +115,8 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
     # Wait for the roster iframe to load.
     self.WaitUntilCondition(
         lambda: self.RunInRoster('window.location.href'),
-        lambda url: url and 'prop=aChromeExtension#p' in url,
-        msg='Timed out waiting for prop=aChromeExtension#p in url.')
+        lambda url: url and '/frame' in url,
+        msg='Timed out waiting for /frame in url.')
 
     self.WaitUntilResult(True,
         lambda: self.RunInRoster(
@@ -294,6 +291,9 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
         logging.info("\n")
         if tries < RETRIES - 1:
           self.NavigateToURL('http://accounts.google.com/Logout')
+          logging.info('Closing all moles.')
+          self.RunInAllMoles(
+              '$Press($FindByTagName($BODY(),"textarea",0), $KEYS.ESC)')
           logging.info('Retrying...')
         else:
           raise

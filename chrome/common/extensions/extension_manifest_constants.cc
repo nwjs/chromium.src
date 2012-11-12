@@ -27,12 +27,16 @@ const char kDefaultLocale[] = "default_locale";
 const char kDescription[] = "description";
 const char kDevToolsPage[] = "devtools_page";
 const char kDisplayInLauncher[] = "display_in_launcher";
+const char kDisplayInNewTabPage[] = "display_in_new_tab_page";
 const char kEventName[] = "event_name";
 const char kExcludeGlobs[] = "exclude_globs";
 const char kExcludeMatches[] = "exclude_matches";
 const char kFileAccessList[] = "file_access";
 const char kFileFilters[] = "file_filters";
 const char kFileBrowserHandlers[] = "file_browser_handlers";
+const char kFileHandlers[] = "file_handlers";
+const char kFileHandlerTitle[] = "title";
+const char kFileHandlerTypes[] = "types";
 const char kHomepageURL[] = "homepage_url";
 const char kIcons[] = "icons";
 const char kId[] = "id";
@@ -230,6 +234,8 @@ const char kInvalidDevToolsPage[] =
     "Invalid value for 'devtools_page'.";
 const char kInvalidDisplayInLauncher[] =
     "Invalid value for 'display_in_launcher'.";
+const char kInvalidDisplayInNewTabPage[] =
+    "Invalid value for 'display_in_new_tab_page'.";
 const char kInvalidExcludeMatch[] =
     "Invalid value for 'content_scripts[*].exclude_matches[*]': *";
 const char kInvalidExcludeMatches[] =
@@ -244,6 +250,14 @@ const char kInvalidFileFiltersList[] =
     "Invalid value for 'file_filters'.";
 const char kInvalidFileFilterValue[] =
     "Invalid value for 'file_filters[*]'.";
+const char kInvalidFileHandlers[] =
+    "Invalid value for 'file_handlers'.";
+const char kInvalidFileHandlerTitle[] =
+    "Invalid value for 'file_handlers[*].title'.";
+const char kInvalidFileHandlerType[] =
+    "Invalid value for 'file_handlers[*].type'.";
+const char kInvalidFileHandlerTypeElement[] =
+    "Invalid value for 'file_handlers[*].type[*]'.";
 const char kInvalidGlob[] =
     "Invalid value for 'content_scripts[*].*[*]'.";
 const char kInvalidGlobList[] =

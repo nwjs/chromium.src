@@ -16,6 +16,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
+#include "base/prefs/public/pref_observer.h"
 #include "base/string16.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/debugger/devtools_toggle_action.h"
@@ -36,6 +37,7 @@
 #include "chrome/common/content_settings.h"
 #include "chrome/common/content_settings_types.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -106,6 +108,7 @@ class Browser : public TabStripModelObserver,
                 public ZoomObserver,
                 public content::PageNavigator,
                 public content::NotificationObserver,
+                public PrefObserver,
                 public ui::SelectFileDialog::Listener,
                 public chrome::search::SearchModelObserver {
  public:
@@ -424,13 +427,14 @@ class Browser : public TabStripModelObserver,
       const content::OpenURLParams& params) OVERRIDE;
 
   // Overridden from TabStripModelObserver:
-  virtual void TabInsertedAt(TabContents* contents,
+  virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
                              bool foreground) OVERRIDE;
   virtual void TabClosingAt(TabStripModel* tab_strip_model,
-                            TabContents* contents,
+                            content::WebContents* contents,
                             int index) OVERRIDE;
-  virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
+  virtual void TabDetachedAt(content::WebContents* contents,
+                             int index) OVERRIDE;
   virtual void TabDeactivated(TabContents* contents) OVERRIDE;
   virtual void ActiveTabChanged(TabContents* old_contents,
                                 TabContents* new_contents,
@@ -443,7 +447,7 @@ class Browser : public TabStripModelObserver,
                              TabContents* old_contents,
                              TabContents* new_contents,
                              int index) OVERRIDE;
-  virtual void TabPinnedStateChanged(TabContents* contents,
+  virtual void TabPinnedStateChanged(content::WebContents* contents,
                                      int index) OVERRIDE;
   virtual void TabStripEmpty() OVERRIDE;
 
@@ -691,6 +695,10 @@ class Browser : public TabStripModelObserver,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // Overridden from PrefObserver:
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
+
   // Overridden from chrome::search::SearchModelObserver:
   virtual void ModeChanged(const chrome::search::Mode& old_mode,
                            const chrome::search::Mode& new_mode) OVERRIDE;
@@ -778,7 +786,9 @@ class Browser : public TabStripModelObserver,
   //             after a return to the message loop.
   void CloseFrame();
 
-  void TabDetachedAtImpl(TabContents* contents, int index, DetachType type);
+  void TabDetachedAtImpl(content::WebContents* contents,
+                         int index,
+                         DetachType type);
 
   // Shared code between Reload() and ReloadIgnoringCache().
   void ReloadInternal(WindowOpenDisposition disposition, bool ignore_cache);

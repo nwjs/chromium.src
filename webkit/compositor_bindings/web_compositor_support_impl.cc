@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
 #include "webkit/compositor_bindings/web_compositor_support_impl.h"
 
+#include "base/debug/trace_event.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/message_loop_proxy.h"
 #include "cc/settings.h"
+#include "cc/thread_impl.h"
 #include "webkit/compositor_bindings/web_animation_impl.h"
-#include "webkit/compositor_bindings/web_compositor_impl.h"
 #include "webkit/compositor_bindings/web_content_layer_impl.h"
 #include "webkit/compositor_bindings/web_delegated_renderer_layer_impl.h"
 #include "webkit/compositor_bindings/web_external_texture_layer_impl.h"
@@ -21,6 +22,7 @@
 #include "webkit/compositor_bindings/web_solid_color_layer_impl.h"
 #include "webkit/compositor_bindings/web_transform_animation_curve_impl.h"
 #include "webkit/compositor_bindings/web_video_layer_impl.h"
+#include "webkit/glue/webthread_impl.h"
 
 using WebKit::WebAnimation;
 using WebKit::WebAnimationCurve;
@@ -45,26 +47,36 @@ using WebKit::WebTransformAnimationCurve;
 using WebKit::WebVideoFrameProvider;
 using WebKit::WebVideoLayer;
 
-using WebKit::WebCompositorImpl;
-
 namespace webkit {
 
-WebCompositorSupportImpl::WebCompositorSupportImpl() {
+WebCompositorSupportImpl::WebCompositorSupportImpl()
+    : initialized_(false) {
 }
 
 WebCompositorSupportImpl::~WebCompositorSupportImpl() {
 }
 
-void WebCompositorSupportImpl::initialize(WebKit::WebThread* thread) {
-  WebCompositorImpl::initialize(thread);
+void WebCompositorSupportImpl::initialize(WebKit::WebThread* impl_thread) {
+  DCHECK(!initialized_);
+  initialized_ = true;
+  if (impl_thread) {
+    TRACE_EVENT_INSTANT0("test_gpu", "ThreadedCompositingInitialization");
+    impl_thread_message_loop_proxy_ =
+        static_cast<webkit_glue::WebThreadImpl*>(impl_thread)->
+            message_loop()->message_loop_proxy();
+  } else {
+    impl_thread_message_loop_proxy_ = NULL;
+  }
 }
 
 bool WebCompositorSupportImpl::isThreadingEnabled() {
-  return WebCompositorImpl::isThreadingEnabled();
+  return impl_thread_message_loop_proxy_;
 }
 
 void WebCompositorSupportImpl::shutdown() {
-  WebCompositorImpl::shutdown();
+  DCHECK(initialized_);
+  initialized_ = false;
+  impl_thread_message_loop_proxy_ = NULL;
 }
 
 void WebCompositorSupportImpl::setPerTilePaintingEnabled(bool enabled) {
@@ -86,9 +98,14 @@ void WebCompositorSupportImpl::setPageScalePinchZoomEnabled(bool enabled) {
 WebLayerTreeView* WebCompositorSupportImpl::createLayerTreeView(
     WebLayerTreeViewClient* client, const WebLayer& root,
     const WebLayerTreeView::Settings& settings) {
+  DCHECK(initialized_);
   scoped_ptr<WebKit::WebLayerTreeViewImpl> layerTreeViewImpl(
       new WebKit::WebLayerTreeViewImpl(client));
-  if (!layerTreeViewImpl->initialize(settings))
+  scoped_ptr<cc::Thread> impl_thread;
+  if (impl_thread_message_loop_proxy_)
+    impl_thread = cc::ThreadImpl::createForDifferentThread(
+        impl_thread_message_loop_proxy_);
+  if (!layerTreeViewImpl->initialize(settings, impl_thread.Pass()))
     return NULL;
   layerTreeViewImpl->setRootLayer(root);
   return layerTreeViewImpl.release();

@@ -2,20 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCFrameRateController_h
-#define CCFrameRateController_h
+#ifndef CC_FRAME_RATE_CONTROLLER_H_
+#define CC_FRAME_RATE_CONTROLLER_H_
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
+#include "cc/cc_export.h"
 
 namespace cc {
 
 class Thread;
 class TimeSource;
 
-class FrameRateControllerClient {
+class CC_EXPORT FrameRateControllerClient {
 public:
     // Throttled is true when we have a maximum number of frames pending.
     virtual void vsyncTick(bool throttled) = 0;
@@ -26,7 +27,7 @@ protected:
 
 class FrameRateControllerTimeSourceAdapter;
 
-class FrameRateController {
+class CC_EXPORT FrameRateController {
 public:
     explicit FrameRateController(scoped_refptr<TimeSource>);
     // Alternate form of FrameRateController with unthrottled frame-rate.
@@ -79,4 +80,4 @@ protected:
 
 }  // namespace cc
 
-#endif // CCFrameRateController_h
+#endif  // CC_FRAME_RATE_CONTROLLER_H_

@@ -10,29 +10,22 @@
 
 #include "base/basictypes.h"
 #include "base/observer_list.h"
+#include "base/prefs/base_prefs_export.h"
 #include "base/prefs/pref_store.h"
 #include "base/prefs/pref_value_map.h"
 
 // A basic PrefStore implementation that uses a simple name-value map for
 // storing the preference values.
-class ValueMapPrefStore : public PrefStore {
+class BASE_PREFS_EXPORT ValueMapPrefStore : public PrefStore {
  public:
-  typedef std::map<std::string, base::Value*>::iterator iterator;
-  typedef std::map<std::string, base::Value*>::const_iterator const_iterator;
-
   ValueMapPrefStore();
 
   // PrefStore overrides:
-  virtual ReadResult GetValue(const std::string& key,
-                              const base::Value** value) const OVERRIDE;
+  virtual bool GetValue(const std::string& key,
+                        const base::Value** value) const OVERRIDE;
   virtual void AddObserver(PrefStore::Observer* observer) OVERRIDE;
   virtual void RemoveObserver(PrefStore::Observer* observer) OVERRIDE;
   virtual size_t NumberOfObservers() const OVERRIDE;
-
-  iterator begin();
-  iterator end();
-  const_iterator begin() const;
-  const_iterator end() const;
 
  protected:
   virtual ~ValueMapPrefStore();

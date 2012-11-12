@@ -2,19 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/math_util.h"
 
-#include "FloatRect.h"
+#include <cmath>
+
 #include "cc/test/geometry_test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/rect_f.h"
 #include <public/WebTransformationMatrix.h>
 
-using namespace cc;
 using WebKit::WebTransformationMatrix;
 
+namespace cc {
 namespace {
 
 TEST(MathUtilTest, verifyBackfaceVisibilityBasicCases)
@@ -90,12 +91,12 @@ TEST(MathUtilTest, verifyProjectionOfPerpendicularPlane)
     transform.makeIdentity();
     transform.setM33(0);
 
-    FloatRect rect = FloatRect(0, 0, 1, 1);
-    FloatRect projectedRect = MathUtil::projectClippedRect(transform, rect);
+    gfx::RectF rect = gfx::RectF(0, 0, 1, 1);
+    gfx::RectF projectedRect = MathUtil::projectClippedRect(transform, rect);
 
     EXPECT_EQ(0, projectedRect.x());
     EXPECT_EQ(0, projectedRect.y());
-    EXPECT_TRUE(projectedRect.isEmpty());
+    EXPECT_TRUE(projectedRect.IsEmpty());
 }
 
 TEST(MathUtilTest, verifyEnclosingClippedRectUsesCorrectInitialBounds)
@@ -109,34 +110,34 @@ TEST(MathUtilTest, verifyEnclosingClippedRectUsesCorrectInitialBounds)
     // However, if there is a bug where the initial xmin/xmax/ymin/ymax are initialized to
     // numeric_limits<float>::min() (which is zero, not -flt_max) then the enclosing
     // clipped rect will be computed incorrectly.
-    FloatRect result = MathUtil::computeEnclosingClippedRect(h1, h2, h3, h4);
+    gfx::RectF result = MathUtil::computeEnclosingClippedRect(h1, h2, h3, h4);
 
-    EXPECT_FLOAT_RECT_EQ(FloatRect(FloatPoint(-100, -100), FloatSize(90, 90)), result);
+    EXPECT_FLOAT_RECT_EQ(gfx::RectF(gfx::PointF(-100, -100), gfx::SizeF(90, 90)), result);
 }
 
 TEST(MathUtilTest, verifyEnclosingRectOfVerticesUsesCorrectInitialBounds)
 {
-    FloatPoint vertices[3];
+    gfx::PointF vertices[3];
     int numVertices = 3;
 
-    vertices[0] = FloatPoint(-10, -100);
-    vertices[1] = FloatPoint(-100, -10);
-    vertices[2] = FloatPoint(-30, -30);
+    vertices[0] = gfx::PointF(-10, -100);
+    vertices[1] = gfx::PointF(-100, -10);
+    vertices[2] = gfx::PointF(-30, -30);
 
     // The bounds of the enclosing rect should be -100 to -10 for both x and y. However,
     // if there is a bug where the initial xmin/xmax/ymin/ymax are initialized to
     // numeric_limits<float>::min() (which is zero, not -flt_max) then the enclosing
     // clipped rect will be computed incorrectly.
-    FloatRect result = MathUtil::computeEnclosingRectOfVertices(vertices, numVertices);
+    gfx::RectF result = MathUtil::computeEnclosingRectOfVertices(vertices, numVertices);
 
-    EXPECT_FLOAT_RECT_EQ(FloatRect(FloatPoint(-100, -100), FloatSize(90, 90)), result);
+    EXPECT_FLOAT_RECT_EQ(gfx::RectF(gfx::PointF(-100, -100), gfx::SizeF(90, 90)), result);
 }
 
 TEST(MathUtilTest, smallestAngleBetweenVectors)
 {
-    FloatSize x(1, 0);
-    FloatSize y(0, 1);
-    FloatSize testVector(0.5, 0.5);
+    gfx::Vector2dF x(1, 0);
+    gfx::Vector2dF y(0, 1);
+    gfx::Vector2dF testVector(0.5, 0.5);
 
     // Orthogonal vectors are at an angle of 90 degress.
     EXPECT_EQ(90, MathUtil::smallestAngleBetweenVectors(x, y));
@@ -152,31 +153,32 @@ TEST(MathUtilTest, smallestAngleBetweenVectors)
     EXPECT_FLOAT_EQ(180, MathUtil::smallestAngleBetweenVectors(testVector, -testVector));
 
     // The test vector is at a known angle.
-    EXPECT_FLOAT_EQ(45, floor(MathUtil::smallestAngleBetweenVectors(testVector, x)));
-    EXPECT_FLOAT_EQ(45, floor(MathUtil::smallestAngleBetweenVectors(testVector, y)));
+    EXPECT_FLOAT_EQ(45, std::floor(MathUtil::smallestAngleBetweenVectors(testVector, x)));
+    EXPECT_FLOAT_EQ(45, std::floor(MathUtil::smallestAngleBetweenVectors(testVector, y)));
 }
 
 TEST(MathUtilTest, vectorProjection)
 {
-    FloatSize x(1, 0);
-    FloatSize y(0, 1);
-    FloatSize testVector(0.3f, 0.7f);
+    gfx::Vector2dF x(1, 0);
+    gfx::Vector2dF y(0, 1);
+    gfx::Vector2dF testVector(0.3f, 0.7f);
 
     // Orthogonal vectors project to a zero vector.
-    EXPECT_EQ(FloatSize(0, 0), MathUtil::projectVector(x, y));
-    EXPECT_EQ(FloatSize(0, 0), MathUtil::projectVector(y, x));
+    EXPECT_VECTOR_EQ(gfx::Vector2dF(0, 0), MathUtil::projectVector(x, y));
+    EXPECT_VECTOR_EQ(gfx::Vector2dF(0, 0), MathUtil::projectVector(y, x));
 
     // Projecting a vector onto the orthonormal basis gives the corresponding component of the
     // vector.
-    EXPECT_EQ(FloatSize(testVector.width(), 0), MathUtil::projectVector(testVector, x));
-    EXPECT_EQ(FloatSize(0, testVector.height()), MathUtil::projectVector(testVector, y));
+    EXPECT_VECTOR_EQ(gfx::Vector2dF(testVector.x(), 0), MathUtil::projectVector(testVector, x));
+    EXPECT_VECTOR_EQ(gfx::Vector2dF(0, testVector.y()), MathUtil::projectVector(testVector, y));
 
     // Finally check than an arbitrary vector projected to another one gives a vector parallel to
     // the second vector.
-    FloatSize targetVector(0.5, 0.2f);
-    FloatSize projectedVector = MathUtil::projectVector(testVector, targetVector);
-    EXPECT_EQ(projectedVector.width() / targetVector.width(),
-              projectedVector.height() / targetVector.height());
+    gfx::Vector2dF targetVector(0.5, 0.2f);
+    gfx::Vector2dF projectedVector = MathUtil::projectVector(testVector, targetVector);
+    EXPECT_EQ(projectedVector.x() / targetVector.x(),
+              projectedVector.y() / targetVector.y());
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

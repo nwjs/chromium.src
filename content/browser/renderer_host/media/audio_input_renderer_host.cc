@@ -213,6 +213,13 @@ void AudioInputRendererHost::OnCreateStream(
 
   media::AudioParameters audio_params(params);
 
+  if (media_stream_manager_->audio_input_device_manager()->
+      ShouldUseFakeDevice()) {
+    audio_params.Reset(media::AudioParameters::AUDIO_FAKE,
+                       params.channel_layout(), params.sample_rate(),
+                       params.bits_per_sample(), params.frames_per_buffer());
+  }
+
   DCHECK_GT(audio_params.frames_per_buffer(), 0);
   uint32 buffer_size = audio_params.GetBytesPerBuffer();
 
@@ -255,8 +262,10 @@ void AudioInputRendererHost::OnCreateStream(
     return;
   }
 
-  // Set the initial AGC state for the audio input stream.
-  entry->controller->SetAutomaticGainControl(automatic_gain_control);
+  // Set the initial AGC state for the audio input stream. Note that, the AGC
+  // is only supported in AUDIO_PCM_LOW_LATENCY mode.
+  if (params.format() == media::AudioParameters::AUDIO_PCM_LOW_LATENCY)
+    entry->controller->SetAutomaticGainControl(automatic_gain_control);
 
   // If we have created the controller successfully create a entry and add it
   // to the map.

@@ -40,6 +40,14 @@ class PPAPI_PROXY_EXPORT PluginResource : public Resource {
   // and calling it with |params| and |msg|.
   virtual void OnReplyReceived(const proxy::ResourceMessageReplyParams& params,
                                const IPC::Message& msg) OVERRIDE;
+
+  // Resource overrides.
+  // Note: Subclasses shouldn't override these methods directly. Instead, they
+  // should implement LastPluginRefWasDeleted() or InstanceWasDeleted() to get
+  // notified.
+  virtual void NotifyLastPluginRefWasDeleted() OVERRIDE;
+  virtual void NotifyInstanceWasDeleted() OVERRIDE;
+
  protected:
   enum Destination {
     RENDERER = 0,
@@ -66,16 +74,24 @@ class PPAPI_PROXY_EXPORT PluginResource : public Resource {
   // Call<PpapiPluginMsg_MyResourceType_MyReplyMessage>(
   //     BROWSER,
   //     PpapiHostMsg_MyResourceType_MyRequestMessage(),
-  //     base::Bind(&MyPluginResource::ReplyHandler, this));
+  //     base::Bind(&MyPluginResource::ReplyHandler, base::Unretained(this)));
   //
   // If a reply message to this call is received whose type does not match
   // |ReplyMsgClass| (for example, in the case of an error), the callback will
   // still be invoked but with the default values of the message parameters.
   //
   // Returns the new request's sequence number which can be used to identify
-  // the callback.
+  // the callback. This value will never be 0, which you can use to identify
+  // an invalid callback.
   //
-  // Note that all integers (including 0 and -1) are valid request IDs.
+  // Note: 1) When all plugin references to this resource are gone or the
+  //          corresponding plugin instance is deleted, all pending callbacks
+  //          are abandoned.
+  //       2) It is *not* recommended to let |callback| hold any reference to
+  //          |this|, in which it will be stored. Otherwise, this object will
+  //          live forever if we fail to clean up the callback. It is safe to
+  //          use base::Unretained(this) or a weak pointer, because this object
+  //          will outlive the callback.
   template<typename ReplyMsgClass, typename CallbackType>
   int32_t Call(Destination dest,
                const IPC::Message& msg,
@@ -119,8 +135,11 @@ class PPAPI_PROXY_EXPORT PluginResource : public Resource {
                           const IPC::Message& msg,
                           IPC::Message* reply_msg);
 
+  int32_t GetNextSequence();
+
   Connection connection_;
 
+  // Use GetNextSequence to retrieve the next value.
   int32_t next_sequence_number_;
 
   bool sent_create_to_browser_;

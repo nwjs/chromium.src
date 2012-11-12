@@ -156,8 +156,6 @@
         'sessions/debug_info_getter.h',
         'sessions/ordered_commit_set.cc',
         'sessions/ordered_commit_set.h',
-        'sessions/session_state.cc',
-        'sessions/session_state.h',
         'sessions/status_controller.cc',
         'sessions/status_controller.h',
         'sessions/sync_session.cc',
@@ -277,6 +275,8 @@
       'conditions': [
         ['OS != "android"', {
           'sources': [
+            'notifier/ack_tracker.cc',
+            'notifier/ack_tracker.h',
             'notifier/invalidation_notifier.cc',
             'notifier/invalidation_notifier.h',
             'notifier/invalidation_state_tracker.h',
@@ -329,6 +329,9 @@
         'internal_api/public/base_transaction.h',
         'internal_api/public/change_record.h',
         'internal_api/public/configure_reason.h',
+        'internal_api/public/data_type_association_stats.cc',
+        'internal_api/public/data_type_association_stats.h',
+        'internal_api/public/data_type_debug_info_listener.h',
         'internal_api/public/http_bridge.h',
         'internal_api/public/http_post_provider_factory.h',
         'internal_api/public/http_post_provider_interface.h',
@@ -437,6 +440,8 @@
         'internal_api/public/base/model_type_invalidation_map_test_util.h',
         'internal_api/public/base/model_type_test_util.cc',
         'internal_api/public/base/model_type_test_util.h',
+        'internal_api/public/sessions/sync_source_info_unittest.cc',
+        'internal_api/public/sessions/sync_session_snapshot_unittest.cc',
         'js/js_test_util.cc',
         'js/js_test_util.h',
         'sessions/test_util.cc',
@@ -621,7 +626,6 @@
           'protocol/proto_enum_conversions_unittest.cc',
           'protocol/proto_value_conversions_unittest.cc',
           'sessions/ordered_commit_set_unittest.cc',
-          'sessions/session_state_unittest.cc',
           'sessions/status_controller_unittest.cc',
           'sessions/sync_session_unittest.cc',
           'syncable/directory_backing_store_unittest.cc',
@@ -693,6 +697,7 @@
         'conditions': [
           ['OS != "android"', {
             'sources': [
+              'notifier/ack_tracker_unittest.cc',
               'notifier/fake_invalidator_unittest.cc',
               'notifier/invalidation_notifier_unittest.cc',
               'notifier/invalidator_registrar_unittest.cc',

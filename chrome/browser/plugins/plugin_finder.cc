@@ -19,7 +19,6 @@
 #include "content/public/browser/plugin_service.h"
 #include "googleurl/src/gurl.h"
 #include "grit/browser_resources.h"
-#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
@@ -136,6 +135,11 @@ PluginMetadata* CreatePluginMetadata(
 }  // namespace
 
 // static
+void PluginFinder::RegisterPrefs(PrefService* local_state) {
+  local_state->RegisterBooleanPref(prefs::kDisablePluginFinder, false);
+}
+
+// static
 PluginFinder* PluginFinder::GetInstance() {
   // PluginFinder::GetInstance() is the only method that's allowed to call
   // Singleton<PluginFinder>::get().
@@ -148,16 +152,24 @@ PluginFinder::PluginFinder() {
 
 void PluginFinder::Init() {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  plugin_list_.reset(ComputePluginList());
+  DCHECK(plugin_list_.get());
+
+  InitInternal();
+}
+
+// static
+DictionaryValue* PluginFinder::ComputePluginList() {
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   const base::DictionaryValue* metadata =
       g_browser_process->local_state()->GetDictionary(prefs::kPluginsMetadata);
-  plugin_list_.reset(
-      metadata->empty() ? LoadPluginList() : metadata->DeepCopy());
+  if (!metadata->empty())
+    return metadata->DeepCopy();
 #endif
-  if (!plugin_list_.get())
-    plugin_list_.reset(new DictionaryValue());
-
-  InitInternal();
+  base::DictionaryValue* result = LoadPluginList();
+  if (result)
+    return result;
+  return new base::DictionaryValue();
 }
 
 // static
@@ -165,7 +177,7 @@ DictionaryValue* PluginFinder::LoadPluginList() {
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
   base::StringPiece json_resource(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_PLUGIN_DB_JSON, ui::SCALE_FACTOR_NONE));
+          IDR_PLUGIN_DB_JSON));
   std::string error_str;
   scoped_ptr<base::Value> value(base::JSONReader::ReadAndReturnError(
       json_resource,
@@ -223,18 +235,18 @@ bool PluginFinder::FindPluginWithIdentifier(
     scoped_ptr<PluginMetadata>* plugin_metadata) {
   base::AutoLock lock(mutex_);
   PluginMap::const_iterator metadata_it = identifier_plugin_.find(identifier);
-  if (metadata_it != identifier_plugin_.end()) {
-    if (installer) {
-      std::map<std::string, PluginInstaller*>::const_iterator installer_it =
-          installers_.find(identifier);
-      if (installer_it != installers_.end())
-        *installer = installer_it->second;
-    }
-    *plugin_metadata = metadata_it->second->Clone();
-    return true;
-  }
+  if (metadata_it == identifier_plugin_.end())
+    return false;
+  *plugin_metadata = metadata_it->second->Clone();
 
-  return false;
+  if (installer) {
+    std::map<std::string, PluginInstaller*>::const_iterator installer_it =
+        installers_.find(identifier);
+    if (installer_it == installers_.end())
+      return false;
+    *installer = installer_it->second;
+  }
+  return true;
 }
 
 void PluginFinder::ReinitializePlugins(

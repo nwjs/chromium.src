@@ -11,17 +11,17 @@
 namespace performance_monitor {
 
 // Aggregation-Related
-string16 GetLocalizedStringFromAggregationStrategy(
-    const AggregationStrategy strategy) {
+string16 GetLocalizedStringFromAggregationMethod(
+    const AggregationMethod method) {
   int string_id = 0;
-  switch (strategy) {
-    case AGGREGATION_STRATEGY_NONE:
+  switch (method) {
+    case AGGREGATION_METHOD_NONE:
       string_id = IDS_PERFORMANCE_MONITOR_AGGREGATION_NONE_NAME;
       break;
-    case AGGREGATION_STRATEGY_MEDIAN:
+    case AGGREGATION_METHOD_MEDIAN:
       string_id = IDS_PERFORMANCE_MONITOR_AGGREGATION_MEDIAN_NAME;
       break;
-    case AGGREGATION_STRATEGY_MEAN:
+    case AGGREGATION_METHOD_MEAN:
       string_id = IDS_PERFORMANCE_MONITOR_AGGREGATION_MEAN_NAME;
       break;
     default:
@@ -31,17 +31,17 @@ string16 GetLocalizedStringFromAggregationStrategy(
   return l10n_util::GetStringUTF16(string_id);
 }
 
-string16 GetLocalizedStringForAggregationStrategyDescription(
-    const AggregationStrategy strategy) {
+string16 GetLocalizedStringForAggregationMethodDescription(
+    const AggregationMethod method) {
   int string_id = 0;
-  switch (strategy) {
-    case AGGREGATION_STRATEGY_NONE:
+  switch (method) {
+    case AGGREGATION_METHOD_NONE:
       string_id = IDS_PERFORMANCE_MONITOR_AGGREGATION_NONE_DESCRIPTION;
       break;
-    case AGGREGATION_STRATEGY_MEDIAN:
+    case AGGREGATION_METHOD_MEDIAN:
       string_id = IDS_PERFORMANCE_MONITOR_AGGREGATION_MEDIAN_DESCRIPTION;
       break;
-    case AGGREGATION_STRATEGY_MEAN:
+    case AGGREGATION_METHOD_MEAN:
       string_id = IDS_PERFORMANCE_MONITOR_AGGREGATION_MEAN_DESCRIPTION;
       break;
     default:
@@ -53,14 +53,11 @@ string16 GetLocalizedStringForAggregationStrategyDescription(
 
 // Event-Related
 string16 GetLocalizedStringFromEventCategory(const EventCategory category) {
-  if (category == EVENT_CATEGORY_CHROME) {
-    return l10n_util::GetStringFUTF16(
-        IDS_PERFORMANCE_MONITOR_CHROME_EVENT_CATEGORY,
-        l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));
-  }
-
   int string_id = 0;
   switch (category) {
+    case EVENT_CATEGORY_CHROME:
+      string_id = IDS_PRODUCT_NAME;
+      break;
     case EVENT_CATEGORY_EXTENSIONS:
       string_id = IDS_PERFORMANCE_MONITOR_EXTENSIONS_EVENT_CATEGORY;
       break;

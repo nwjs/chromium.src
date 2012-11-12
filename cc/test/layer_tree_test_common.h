@@ -34,7 +34,7 @@ public:
     virtual void drawLayersOnThread(cc::LayerTreeHostImpl*) { }
     virtual void animateLayers(cc::LayerTreeHostImpl*, base::TimeTicks monotonicTime) { }
     virtual void willAnimateLayers(cc::LayerTreeHostImpl*, base::TimeTicks monotonicTime) { }
-    virtual void applyScrollAndScale(const cc::IntSize&, float) { }
+    virtual void applyScrollAndScale(gfx::Vector2d, float) { }
     virtual void animate(base::TimeTicks monotonicTime) { }
     virtual void layout() { }
     virtual void didRecreateOutputSurface(bool succeeded) { }
@@ -114,7 +114,8 @@ protected:
 
     virtual void runTest(bool threaded);
 
-    cc::Thread* implThread() { return m_implCCThread.get(); }
+    cc::Thread* implThread() { return proxy() ? proxy()->implThread() : 0; }
+    cc::Proxy* proxy() const { return m_layerTreeHost ? m_layerTreeHost->proxy() : 0; }
 
     cc::LayerTreeSettings m_settings;
     scoped_ptr<MockLayerImplTreeHostClient> m_client;
@@ -132,7 +133,6 @@ private:
     bool m_started;
 
     scoped_ptr<cc::Thread> m_mainCCThread;
-    scoped_ptr<cc::Thread> m_implCCThread;
     scoped_ptr<base::Thread> m_implThread;
     base::CancelableClosure m_timeout;
 };
@@ -148,7 +148,7 @@ public:
 // Adapts LayerTreeHostImpl for test. Runs real code, then invokes test hooks.
 class MockLayerTreeHostImpl : public cc::LayerTreeHostImpl {
 public:
-    static scoped_ptr<MockLayerTreeHostImpl> create(TestHooks*, const cc::LayerTreeSettings&, cc::LayerTreeHostImplClient*);
+    static scoped_ptr<MockLayerTreeHostImpl> create(TestHooks*, const cc::LayerTreeSettings&, cc::LayerTreeHostImplClient*, cc::Proxy*);
 
     virtual void beginCommit() OVERRIDE;
     virtual void commitComplete() OVERRIDE;
@@ -164,7 +164,7 @@ protected:
     virtual base::TimeDelta lowFrequencyAnimationInterval() const OVERRIDE;
 
 private:
-    MockLayerTreeHostImpl(TestHooks*, const cc::LayerTreeSettings&, cc::LayerTreeHostImplClient*);
+    MockLayerTreeHostImpl(TestHooks*, const cc::LayerTreeSettings&, cc::LayerTreeHostImplClient*, cc::Proxy*);
 
     TestHooks* m_testHooks;
 };
@@ -207,4 +207,4 @@ private:
         runTest(true);                                    \
     }
 
-#endif // CC_TEST_LAYER_TREE_TEST_COMMON_H_
+#endif  // CC_TEST_LAYER_TREE_TEST_COMMON_H_

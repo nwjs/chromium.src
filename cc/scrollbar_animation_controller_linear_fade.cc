@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scrollbar_animation_controller_linear_fade.h"
 
 #include "cc/scrollbar_layer_impl.h"
@@ -51,10 +49,10 @@ void ScrollbarAnimationControllerLinearFade::didPinchGestureEndAtTime(double mon
 
 void ScrollbarAnimationControllerLinearFade::updateScrollOffsetAtTime(LayerImpl* scrollLayer, double monotonicTime)
 {
-    FloatPoint previousPos = currentPos();
+    gfx::Vector2dF previousPos = currentOffset();
     ScrollbarAnimationController::updateScrollOffsetAtTime(scrollLayer, monotonicTime);
 
-    if (previousPos == currentPos())
+    if (previousPos == currentOffset())
         return;
 
     m_lastAwakenTime = monotonicTime;
@@ -74,4 +72,4 @@ float ScrollbarAnimationControllerLinearFade::opacityAtTime(double monotonicTime
     return 0;
 }
 
-} // namespace cc
+}  // namespace cc

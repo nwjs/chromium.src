@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "ash/ash_switches.h"
 #include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/shell.h"
 #include "ash/wm/session_state_controller.h"
@@ -32,7 +33,7 @@
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -50,6 +51,11 @@ using content::BrowserThread;
 using content::UserMetricsAction;
 
 namespace {
+
+// Timeout for unlock animation guard - some animations may be required to run
+// on successful authentication before unlocking, but we want to be sure that
+// unlock happens even if animations are broken.
+const int kUnlockGuardTimeoutMs = 400;
 
 // Observer to start ScreenLocker when the screen lock
 class ScreenLockObserver : public chromeos::SessionManagerClient::Observer,
@@ -139,7 +145,8 @@ ScreenLocker::ScreenLocker(const User& user)
       locked_(false),
       start_time_(base::Time::Now()),
       login_status_consumer_(NULL),
-      incorrect_passwords_count_(0) {
+      incorrect_passwords_count_(0),
+      weak_factory_(this) {
   DCHECK(!screen_locker_);
   screen_locker_ = this;
 }
@@ -148,6 +155,13 @@ void ScreenLocker::Init() {
   authenticator_ = LoginUtils::Get()->CreateAuthenticator(this);
   delegate_.reset(new WebUIScreenLocker(this));
   delegate_->LockScreen(unlock_on_input_);
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(ash::switches::kAshNewLockAnimationsEnabled)) {
+    base::Closure callback = base::Bind(&ScreenLocker::OnFullyDisplayedCallback,
+                                        weak_factory_.GetWeakPtr());
+    ash::Shell::GetInstance()->session_state_controller()->
+        SetLockScreenDisplayedCallback(callback);
+  }
 }
 
 void ScreenLocker::OnLoginFailure(const LoginFailure& error) {
@@ -202,12 +216,47 @@ void ScreenLocker::OnLoginSuccess(
         content::Source<Profile>(profile),
         content::Details<const GoogleServiceSigninSuccessDetails>(&details));
   }
+
+  authentication_capture_.reset(new AuthenticationParametersCapture());
+  authentication_capture_->username = username;
+  authentication_capture_->pending_requests = pending_requests;
+  authentication_capture_->using_oauth = using_oauth;
+
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(ash::switches::kAshNewLockAnimationsEnabled)) {
+    // Add guard for case when something get broken in call chain to unlock
+    // for sure.
+    MessageLoop::current()->PostDelayedTask(
+        FROM_HERE,
+        base::Bind(&ScreenLocker::UnlockOnLoginSuccess,
+            weak_factory_.GetWeakPtr()),
+        base::TimeDelta::FromMilliseconds(kUnlockGuardTimeoutMs));
+    delegate_->AnimateAuthenticationSuccess();
+  } else {
+    UnlockOnLoginSuccess();
+  }
+}
+
+void ScreenLocker::UnlockOnLoginSuccess() {
+  DCHECK(MessageLoop::current()->type() == MessageLoop::TYPE_UI);
+  if (!authentication_capture_.get()) {
+    LOG(WARNING) << "Call to UnlockOnLoginSuccess without previous " <<
+      "authentication success.";
+    return;
+  }
+
   VLOG(1) << "Calling session manager's UnlockScreen D-Bus method";
   DBusThreadManager::Get()->GetSessionManagerClient()->RequestUnlockScreen();
 
-  if (login_status_consumer_)
-    login_status_consumer_->OnLoginSuccess(username, password, pending_requests,
-                                           using_oauth);
+  if (login_status_consumer_) {
+    login_status_consumer_->OnLoginSuccess(
+        authentication_capture_->username,
+        std::string(),
+        authentication_capture_->pending_requests,
+        authentication_capture_->using_oauth);
+  }
+  authentication_capture_.reset();
+  weak_factory_.InvalidateWeakPtrs();
 }
 
 void ScreenLocker::Authenticate(const string16& password) {
@@ -276,7 +325,8 @@ void ScreenLocker::Show() {
   }
 
   // Exit fullscreen.
-  Browser* browser = BrowserList::GetLastActive();
+  Browser* browser = chrome::FindLastActiveWithHostDesktopType(
+      chrome::HOST_DESKTOP_TYPE_ASH);
   // browser can be NULL if we receive a lock request before the first browser
   // window is shown.
   if (browser && browser->window()->IsFullscreen()) {
@@ -334,6 +384,9 @@ void ScreenLocker::InitClass() {
 ScreenLocker::~ScreenLocker() {
   VLOG(1) << "Destroying ScreenLocker " << this;
   DCHECK(MessageLoop::current()->type() == MessageLoop::TYPE_UI);
+
+  if (authenticator_)
+    authenticator_->SetConsumer(NULL);
   ClearErrors();
 
   VLOG(1) << "Moving desktop background to unlocked container";
@@ -375,6 +428,10 @@ void ScreenLocker::ScreenLockReady() {
       content::Details<bool>(&state));
   VLOG(1) << "Calling session manager's HandleLockScreenShown D-Bus method";
   DBusThreadManager::Get()->GetSessionManagerClient()->NotifyLockScreenShown();
+}
+
+void ScreenLocker::OnFullyDisplayedCallback() {
+  delegate_->ProcessFullyDisplayedAnimations();
 }
 
 }  // namespace chromeos

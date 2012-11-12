@@ -20,6 +20,7 @@
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 #include "content/browser/ssl/ssl_host_state.h"
+#include "content/browser/web_contents/interstitial_page_impl.h"
 #include "content/browser/web_contents/navigation_controller_impl.h"
 #include "content/browser/web_contents/navigation_entry_impl.h"
 #include "content/browser/web_contents/web_contents_view_android.h"
@@ -27,7 +28,6 @@
 #include "content/common/view_messages.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/favicon_status.h"
-#include "content/public/browser/interstitial_page.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
@@ -139,6 +139,13 @@ ContentViewCoreImpl::ContentViewCoreImpl(JNIEnv* env, jobject obj,
   DCHECK(web_contents) <<
       "A ContentViewCoreImpl should be created with a valid WebContents.";
 
+  // When a tab is restored (from a saved state), it does not have a renderer
+  // process.  We treat it like the tab is crashed. If the content is loaded
+  // when the tab is shown, tab_crashed_ will be reset.  Since
+  // RenderWidgetHostView is associated with the lifetime of the renderer
+  // process, we use it to test whether there is a renderer process.
+  tab_crashed_ = !(web_contents->GetRenderWidgetHostView());
+
   // TODO(leandrogracia): make use of the hardware_accelerated argument.
 
   InitJNI(env, obj);
@@ -238,8 +245,14 @@ void ContentViewCoreImpl::InitJNI(JNIEnv* env, jobject obj) {
 RenderWidgetHostViewAndroid*
     ContentViewCoreImpl::GetRenderWidgetHostViewAndroid() {
   RenderWidgetHostView* rwhv = NULL;
-  if (web_contents_)
+  if (web_contents_) {
     rwhv = web_contents_->GetRenderWidgetHostView();
+    if (web_contents_->ShowingInterstitialPage()) {
+      rwhv = static_cast<InterstitialPageImpl*>(
+          web_contents_->GetInterstitialPage())->
+              GetRenderViewHost()->GetView();
+    }
+  }
   return static_cast<RenderWidgetHostViewAndroid*>(rwhv);
 }
 
@@ -494,6 +507,43 @@ void ContentViewCoreImpl::StartContentIntent(const GURL& content_url) {
                                           jcontent_url.obj());
 }
 
+void ContentViewCoreImpl::ShowDisambiguationPopup(
+    const gfx::Rect& target_rect,
+    const SkBitmap& zoomed_bitmap) {
+  JNIEnv* env = AttachCurrentThread();
+
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+
+  ScopedJavaLocalRef<jobject> rect_object(env,
+      env->NewObject(java_object_->rect_clazz.obj(),
+                     java_object_->rect_constructor,
+                     target_rect.x(),
+                     target_rect.y(),
+                     target_rect.right(),
+                     target_rect.bottom()));
+  DCHECK(!rect_object.is_null());
+
+  ScopedJavaLocalRef<jobject> java_bitmap =
+      gfx::ConvertToJavaBitmap(&zoomed_bitmap);
+  DCHECK(!java_bitmap.is_null());
+
+  Java_ContentViewCore_showDisambiguationPopup(env,
+                                               obj.obj(),
+                                               rect_object.obj(),
+                                               java_bitmap.obj());
+}
+
+gfx::Rect ContentViewCoreImpl::GetBounds() const {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> j_obj = java_ref_.get(env);
+  if (j_obj.is_null())
+    return gfx::Rect();
+  return gfx::Rect(Java_ContentViewCore_getWidth(env, j_obj.obj()),
+                   Java_ContentViewCore_getHeight(env, j_obj.obj()));
+}
+
 void ContentViewCoreImpl::LoadUrl(
     NavigationController::LoadURLParams& params) {
   GetWebContents()->GetController().LoadURLWithParams(params);
@@ -624,6 +674,18 @@ void ContentViewCoreImpl::SetFocus(JNIEnv* env, jobject obj, jboolean focused) {
     GetRenderWidgetHostViewAndroid()->Focus();
   else
     GetRenderWidgetHostViewAndroid()->Blur();
+}
+
+void ContentViewCoreImpl::SendOrientationChangeEvent(JNIEnv* env,
+                                                     jobject obj,
+                                                     jint orientation) {
+  RenderWidgetHostViewAndroid* rwhv = GetRenderWidgetHostViewAndroid();
+  if (rwhv)
+    rwhv->UpdateScreenInfo(rwhv->GetNativeView());
+
+  RenderViewHostImpl* rvhi = static_cast<RenderViewHostImpl*>(
+      web_contents_->GetRenderViewHost());
+  rvhi->SendOrientationChangeEvent(orientation);
 }
 
 jboolean ContentViewCoreImpl::SendTouchEvent(JNIEnv* env,
@@ -870,7 +932,10 @@ void ContentViewCoreImpl::StopLoading(JNIEnv* env, jobject obj) {
 void ContentViewCoreImpl::Reload(JNIEnv* env, jobject obj) {
   // Set check_for_repost parameter to false as we have no repost confirmation
   // dialog ("confirm form resubmission" screen will still appear, however).
-  web_contents_->GetController().Reload(true);
+  if (web_contents_->GetController().NeedsReload())
+    web_contents_->GetController().LoadIfNecessary();
+  else
+    web_contents_->GetController().Reload(true);
   tab_crashed_ = false;
 }
 
@@ -932,6 +997,17 @@ jboolean ContentViewCoreImpl::PopulateBitmapFromCompositor(JNIEnv* env,
     return false;
 
   return view->PopulateBitmapWithContents(jbitmap);
+}
+
+void ContentViewCoreImpl::SetSize(JNIEnv* env,
+                                  jobject obj,
+                                  jint width,
+                                  jint height) {
+  RenderWidgetHostViewAndroid* view = GetRenderWidgetHostViewAndroid();
+  if (!view)
+    return;
+
+  view->SetSize(gfx::Size(width, height));
 }
 
 void ContentViewCoreImpl::ScrollFocusedEditableNodeIntoView(JNIEnv* env,

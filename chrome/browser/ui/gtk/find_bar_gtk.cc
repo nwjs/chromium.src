@@ -31,7 +31,6 @@
 #include "chrome/browser/ui/gtk/tab_contents_container_gtk.h"
 #include "chrome/browser/ui/gtk/tabs/tab_strip_gtk.h"
 #include "chrome/browser/ui/gtk/view_id_util.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/notification_source.h"
@@ -459,7 +458,7 @@ void FindBarGtk::RestoreSavedFocus() {
   if (focus_store_.widget())
     gtk_widget_grab_focus(focus_store_.widget());
   else
-    find_bar_controller_->tab_contents()->web_contents()->Focus();
+    find_bar_controller_->web_contents()->Focus();
 }
 
 FindBarTesting* FindBarGtk::GetFindBarTesting() {
@@ -588,11 +587,10 @@ int FindBarGtk::GetWidth() {
 }
 
 void FindBarGtk::FindEntryTextInContents(bool forward_search) {
-  TabContents* tab_contents = find_bar_controller_->tab_contents();
-  if (!tab_contents)
+  content::WebContents* web_contents = find_bar_controller_->web_contents();
+  if (!web_contents)
     return;
-  FindTabHelper* find_tab_helper =
-      FindTabHelper::FromWebContents(tab_contents->web_contents());
+  FindTabHelper* find_tab_helper = FindTabHelper::FromWebContents(web_contents);
 
   std::string new_contents(gtk_entry_get_text(GTK_ENTRY(text_entry_)));
 
@@ -674,12 +672,11 @@ bool FindBarGtk::MaybeForwardKeyEventToRenderer(GdkEventKey* event) {
       return false;
   }
 
-  TabContents* contents = find_bar_controller_->tab_contents();
+  content::WebContents* contents = find_bar_controller_->web_contents();
   if (!contents)
     return false;
 
-  content::RenderViewHost* render_view_host =
-      contents->web_contents()->GetRenderViewHost();
+  content::RenderViewHost* render_view_host = contents->GetRenderViewHost();
 
   // Make sure we don't have a text field element interfering with keyboard
   // input. Otherwise Up and Down arrow key strokes get eaten. "Nom Nom Nom".
@@ -798,6 +795,17 @@ gboolean FindBarGtk::OnKeyPressEvent(GtkWidget* widget, GdkEventKey* event,
       return TRUE;
     }
 
+    bool forward = (event->state & gtk_accelerator_get_default_mod_mask()) !=
+                   GDK_SHIFT_MASK;
+    find_bar->FindEntryTextInContents(forward);
+    return TRUE;
+  } else if (GDK_F3 == event->keyval) {
+    // There is a bug in GTK+ version available with Ubuntu 12.04 which causes
+    // Shift+Fn key combination getting registered as Fn when used with
+    // GTK accelerators. And this broke the search backward functionality with
+    // Shift+F3. This is a workaround to fix the search functionality till we
+    // have the GTK+ fix available. The GTK+ issue is being tracked under
+    // https://bugzilla.gnome.org/show_bug.cgi?id=661973
     bool forward = (event->state & gtk_accelerator_get_default_mod_mask()) !=
                    GDK_SHIFT_MASK;
     find_bar->FindEntryTextInContents(forward);

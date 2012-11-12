@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/render_surface.h"
 
 #include "cc/layer.h"
@@ -28,12 +26,12 @@ RenderSurface::~RenderSurface()
 {
 }
 
-FloatRect RenderSurface::drawableContentRect() const
+gfx::RectF RenderSurface::drawableContentRect() const
 {
-    FloatRect drawableContentRect = MathUtil::mapClippedRect(m_drawTransform, m_contentRect);
+    gfx::RectF drawableContentRect = MathUtil::mapClippedRect(m_drawTransform, m_contentRect);
     if (m_owningLayer->hasReplica())
-        drawableContentRect.unite(MathUtil::mapClippedRect(m_replicaDrawTransform, m_contentRect));
+        drawableContentRect.Union(MathUtil::mapClippedRect(m_replicaDrawTransform, m_contentRect));
     return drawableContentRect;
 }
 
-}
+}  // namespace cc

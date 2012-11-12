@@ -15,7 +15,8 @@ using WebKit::WebAutofillClient;
 
 namespace {
 
-class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
+class MockAutofillExternalDelegate :
+      public autofill::TestAutofillExternalDelegate {
  public:
   MockAutofillExternalDelegate() : TestAutofillExternalDelegate(NULL, NULL) {};
   virtual ~MockAutofillExternalDelegate() {};
@@ -25,6 +26,8 @@ class MockAutofillExternalDelegate : public TestAutofillExternalDelegate {
   virtual void RemoveAutocompleteEntry(const string16& value) OVERRIDE {}
   virtual void RemoveAutofillProfileOrCreditCard(int unique_id) OVERRIDE {}
   virtual void ClearPreviewedForm() OVERRIDE {}
+
+  MOCK_METHOD0(HideAutofillPopupInternal, void());
 };
 
 class TestAutofillPopupView : public AutofillPopupView {
@@ -54,12 +57,11 @@ class TestAutofillPopupView : public AutofillPopupView {
   }
 
   MOCK_METHOD1(InvalidateRow, void(size_t));
-  MOCK_METHOD0(HideInternal, void());
+  MOCK_METHOD0(Hide, void());
+  MOCK_METHOD0(UpdateBoundsAndRedrawPopupInternal, void());
 
  private:
   virtual void ShowInternal() OVERRIDE {}
-
-  virtual void ResizePopup() OVERRIDE {}
 };
 
 }  // namespace
@@ -71,11 +73,21 @@ class AutofillPopupViewUnitTest : public ::testing::Test {
   }
   virtual ~AutofillPopupViewUnitTest() {}
 
+protected:
   scoped_ptr<TestAutofillPopupView> autofill_popup_view_;
-
- private:
   MockAutofillExternalDelegate external_delegate_;
 };
+
+TEST_F(AutofillPopupViewUnitTest, SetBounds) {
+  // Ensure the popup size can be set and causes a redraw.
+  gfx::Rect popup_bounds(10, 10, 100, 100);
+
+  EXPECT_CALL(*autofill_popup_view_, UpdateBoundsAndRedrawPopupInternal());
+
+  autofill_popup_view_->SetElementBounds(popup_bounds);
+
+  EXPECT_EQ(popup_bounds, autofill_popup_view_->element_bounds());
+}
 
 TEST_F(AutofillPopupViewUnitTest, ChangeSelectedLine) {
   // Set up the popup.
@@ -128,12 +140,18 @@ TEST_F(AutofillPopupViewUnitTest, RedrawSelectedLine) {
 
 TEST_F(AutofillPopupViewUnitTest, RemoveLine) {
   // Set up the popup.
-  std::vector<string16> autofill_values(2, string16());
+  std::vector<string16> autofill_values(3, string16());
   std::vector<int> autofill_ids;
+  autofill_ids.push_back(1);
   autofill_ids.push_back(1);
   autofill_ids.push_back(WebAutofillClient::MenuItemIDAutofillOptions);
   autofill_popup_view_->Show(autofill_values, autofill_values, autofill_values,
                              autofill_ids);
+
+  // Generate a popup, so it can be hidden later. It doesn't matter what the
+  // external_delegate thinks is being shown in the process, since we are just
+  // testing the popup here.
+  autofill::GenerateTestAutofillPopup(&external_delegate_);
 
   // To remove warnings.
   EXPECT_CALL(*autofill_popup_view_, InvalidateRow(_)).Times(AtLeast(0));
@@ -147,9 +165,16 @@ TEST_F(AutofillPopupViewUnitTest, RemoveLine) {
   EXPECT_FALSE(autofill_popup_view_->RemoveSelectedLine());
   EXPECT_LE(0, autofill_popup_view_->selected_line());
 
-  // Remove the first (and only) entry. The popup should then be hidden since
-  // there are no Autofill entries left.
-  EXPECT_CALL(*autofill_popup_view_, HideInternal());
+  // Remove the first entry. The popup should be redrawn since its size has
+  // changed.
+  EXPECT_CALL(*autofill_popup_view_, UpdateBoundsAndRedrawPopupInternal());
+  autofill_popup_view_->SetSelectedLine(0);
+  EXPECT_TRUE(autofill_popup_view_->RemoveSelectedLine());
+
+  // Remove the last entry. The popup should then be hidden since there are
+  // no Autofill entries left.
+  EXPECT_CALL(external_delegate_, HideAutofillPopupInternal());
+
   autofill_popup_view_->SetSelectedLine(0);
   EXPECT_TRUE(autofill_popup_view_->RemoveSelectedLine());
 }

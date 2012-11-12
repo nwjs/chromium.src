@@ -38,7 +38,7 @@ class WindowCycleEventFilter : public aura::EventFilter {
                                  ui::KeyEvent* event) OVERRIDE;
   virtual bool PreHandleMouseEvent(aura::Window* target,
                                    ui::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus PreHandleTouchEvent(
+  virtual ui::EventResult PreHandleTouchEvent(
       aura::Window* target,
       ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult PreHandleGestureEvent(
@@ -73,10 +73,10 @@ bool WindowCycleEventFilter::PreHandleMouseEvent(
   return false;  // Not handled.
 }
 
-ui::TouchStatus WindowCycleEventFilter::PreHandleTouchEvent(
+ui::EventResult WindowCycleEventFilter::PreHandleTouchEvent(
     aura::Window* target,
     ui::TouchEvent* event) {
-  return ui::TOUCH_STATUS_UNKNOWN;  // Not handled.
+  return ui::ER_UNHANDLED;  // Not handled.
 }
 
 ui::EventResult WindowCycleEventFilter::PreHandleGestureEvent(
@@ -93,8 +93,8 @@ void AddAllChildren(aura::Window* window,
 }
 
 // Adds all the children of all of |window|s children to |windows|.
-void AddWorkspace2Children(aura::Window* window,
-                           WindowCycleList::WindowList* windows) {
+void AddWorkspaceChildren(aura::Window* window,
+                          WindowCycleList::WindowList* windows) {
   for (size_t i = 0; i < window->children().size(); ++i)
     AddAllChildren(window->children()[i], windows);
 }
@@ -106,7 +106,7 @@ void AddCycleWindows(aura::RootWindow* root,
                      WindowCycleList::WindowList* windows) {
   aura::Window* container = Shell::GetContainer(root, container_id);
   if (container_id == internal::kShellWindowId_DefaultContainer)
-    AddWorkspace2Children(container, windows);
+    AddWorkspaceChildren(container, windows);
   else
     AddAllChildren(container, windows);
 }

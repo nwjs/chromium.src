@@ -114,16 +114,18 @@ class VIEWS_EXPORT NativeWidgetAura : public internal::NativeWidgetPrivate,
   virtual void RunShellDrag(View* view,
                             const ui::OSExchangeData& data,
                             const gfx::Point& location,
-                            int operation) OVERRIDE;
+                            int operation,
+                            ui::DragDropTypes::DragEventSource source) OVERRIDE;
   virtual void SchedulePaintInRect(const gfx::Rect& rect) OVERRIDE;
   virtual void SetCursor(gfx::NativeCursor cursor) OVERRIDE;
   virtual void ClearNativeFocus() OVERRIDE;
   virtual gfx::Rect GetWorkAreaBoundsInScreen() const OVERRIDE;
   virtual void SetInactiveRenderingDisabled(bool value) OVERRIDE;
   virtual Widget::MoveLoopResult RunMoveLoop(
-      const gfx::Point& drag_offset) OVERRIDE;
+      const gfx::Vector2d& drag_offset) OVERRIDE;
   virtual void EndMoveLoop() OVERRIDE;
   virtual void SetVisibilityChangedAnimationsEnabled(bool value) OVERRIDE;
+  virtual ui::NativeTheme* GetNativeTheme() const OVERRIDE;
 
   // Overridden from views::InputMethodDelegate:
   virtual void DispatchKeyEventPostIME(const ui::KeyEvent& key) OVERRIDE;

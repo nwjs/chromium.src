@@ -33,6 +33,7 @@
 #include "base/stringprintf.h"
 #include "base/sys_byteorder.h"
 #include "base/threading/thread.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/keycodes/keyboard_code_conversion_x.h"
 #include "ui/base/touch/touch_factory.h"
 #include "ui/base/x/valuators.h"
@@ -433,12 +434,6 @@ int GetDefaultScreen(Display* display) {
 
 ::Cursor GetXCursor(int cursor_shape) {
   CR_DEFINE_STATIC_LOCAL(XCursorCache, cache, ());
-
-  if (cursor_shape == kCursorClearXCursorCache) {
-    cache.Clear();
-    return 0;
-  }
-
   return cache.GetCursor(cursor_shape);
 }
 
@@ -476,7 +471,7 @@ XcursorImage* SkBitmapToXcursorImage(const SkBitmap* cursor_image,
         skia::ImageOperations::RESIZE_BETTER,
         static_cast<int>(cursor_image->width() * scale),
         static_cast<int>(cursor_image->height() * scale));
-    hotspot_point = gfx::ToFlooredPoint(hotspot.Scale(scale));
+    hotspot_point = gfx::ToFlooredPoint(gfx::ScalePoint(hotspot, scale));
     needs_scale = true;
   }
 
@@ -925,6 +920,12 @@ XID GetHighestAncestorWindow(XID window, XID root) {
 
 bool GetWindowDesktop(XID window, int* desktop) {
   return GetIntProperty(window, "_NET_WM_DESKTOP", desktop);
+}
+
+std::string GetX11ErrorString(Display* display, int err) {
+  char buffer[256];
+  XGetErrorText(display, err, buffer, arraysize(buffer));
+  return buffer;
 }
 
 // Returns true if |window| is a named window.

@@ -9,8 +9,6 @@
 
 #include "base/compiler_specific.h"
 #include "base/string16.h"
-#include "content/public/browser/notification_registrar.h"
-#include "content/public/browser/notification_observer.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/rect.h"
 
@@ -20,14 +18,14 @@ class WebContents;
 
 class AutofillExternalDelegate;
 
-class AutofillPopupView : public content::NotificationObserver {
+class AutofillPopupView {
  public:
   explicit AutofillPopupView(content::WebContents* web_contents,
                              AutofillExternalDelegate* external_delegate_);
   virtual ~AutofillPopupView();
 
   // Hide the popup from view. Platform-indepent work.
-  virtual void Hide();
+  virtual void Hide() = 0;
 
   // Display the autofill popup and fill it in with the values passed in.
   // Platform-independent work.
@@ -36,9 +34,12 @@ class AutofillPopupView : public content::NotificationObserver {
             const std::vector<string16>& autofill_icons,
             const std::vector<int>& autofill_unique_ids);
 
-  void set_element_bounds(const gfx::Rect& bounds) {
-    element_bounds_ = bounds;
-  }
+  // Update the bounds of the popup element.
+  void SetElementBounds(const gfx::Rect& bounds);
+
+  // Sets the current Autofill pointer to NULL, used when the popup can outlive
+  // the delegate.
+  void ClearExternalDelegate();
 
   const gfx::Rect& element_bounds() { return element_bounds_; }
 
@@ -47,14 +48,11 @@ class AutofillPopupView : public content::NotificationObserver {
   // Platform-dependent work.
   virtual void ShowInternal() = 0;
 
-  // Hide the popup from view. Platform-dependent work.
-  virtual void HideInternal() = 0;
-
-  // Invalide the given row and redraw it.
+  // Invalidate the given row and redraw it.
   virtual void InvalidateRow(size_t row) = 0;
 
-  // Adjust the size of the popup to show the elements being held.
-  virtual void ResizePopup() = 0;
+  // Ensure the popup is properly placed at |element_bounds_|.
+  virtual void UpdateBoundsAndRedrawPopupInternal() = 0;
 
   AutofillExternalDelegate* external_delegate() { return external_delegate_; }
 
@@ -76,6 +74,9 @@ class AutofillPopupView : public content::NotificationObserver {
 
   int selected_line() const { return selected_line_; }
   bool delete_icon_selected() const { return delete_icon_selected_; }
+
+  // Recalculate the height and width of the popup and trigger a redraw.
+  void UpdateBoundsAndRedrawPopup();
 
   // Change which line is selected by the user, based on coordinates.
   void SetSelectedPosition(int x, int y);
@@ -155,14 +156,6 @@ class AutofillPopupView : public content::NotificationObserver {
 
   // Returns true if the popup still has non-options entries to show the user.
   bool HasAutofillEntries();
-
-  // content::NotificationObserver method override.
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
-
-  // A scoped container for notification registries.
-  content::NotificationRegistrar registrar_;
 
   AutofillExternalDelegate* external_delegate_;
 

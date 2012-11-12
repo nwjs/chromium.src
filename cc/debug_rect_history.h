@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCDebugRectHistory_h
-#define CCDebugRectHistory_h
+#ifndef CC_DEBUG_RECT_HISTORY_H_
+#define CC_DEBUG_RECT_HISTORY_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
-#include "FloatRect.h"
-#include "IntRect.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/rect_f.h"
 #include <vector>
 
 namespace cc {
@@ -38,12 +38,12 @@ struct LayerTreeSettings;
 enum DebugRectType { PaintRectType, PropertyChangedRectType, SurfaceDamageRectType, ScreenSpaceRectType, ReplicaScreenSpaceRectType, OccludingRectType };
 
 struct DebugRect {
-    DebugRect(DebugRectType newType, FloatRect newRect)
+    DebugRect(DebugRectType newType, gfx::RectF newRect)
             : type(newType)
             , rect(newRect) { }
 
     DebugRectType type;
-    FloatRect rect;
+    gfx::RectF rect;
 };
 
 // This class maintains a history of rects of various types that can be used
@@ -56,7 +56,7 @@ public:
     ~DebugRectHistory();
 
     // Note: Saving debug rects must happen before layers' change tracking is reset.
-    void saveDebugRectsForCurrentFrame(LayerImpl* rootLayer, const std::vector<LayerImpl*>& renderSurfaceLayerList, const std::vector<IntRect>& occludingScreenSpaceRects, const LayerTreeSettings&);
+    void saveDebugRectsForCurrentFrame(LayerImpl* rootLayer, const std::vector<LayerImpl*>& renderSurfaceLayerList, const std::vector<gfx::Rect>& occludingScreenSpaceRects, const LayerTreeSettings&);
 
     const std::vector<DebugRect>& debugRects() { return m_debugRects; }
 
@@ -67,7 +67,7 @@ private:
     void savePropertyChangedRects(const std::vector<LayerImpl*>& renderSurfaceLayerList);
     void saveSurfaceDamageRects(const std::vector<LayerImpl* >& renderSurfaceLayerList);
     void saveScreenSpaceRects(const std::vector<LayerImpl* >& renderSurfaceLayerList);
-    void saveOccludingRects(const std::vector<IntRect>& occludingScreenSpaceRects);
+    void saveOccludingRects(const std::vector<gfx::Rect>& occludingScreenSpaceRects);
 
     std::vector<DebugRect> m_debugRects;
 
@@ -76,4 +76,4 @@ private:
 
 }  // namespace cc
 
-#endif
+#endif  // CC_DEBUG_RECT_HISTORY_H_

@@ -16,6 +16,7 @@ class DesktopCursorClient;
 class DesktopDispatcherClient;
 class FocusManager;
 namespace client {
+class DefaultCaptureClient;
 class ScreenPositionClient;
 }
 namespace shared {
@@ -25,7 +26,6 @@ class InputMethodEventFilter;
 }
 
 namespace views {
-class DesktopCaptureClient;
 class HWNDMessageHandler;
 
 class VIEWS_EXPORT DesktopRootWindowHostWin
@@ -78,7 +78,7 @@ class VIEWS_EXPORT DesktopRootWindowHostWin
   virtual void SetWindowTitle(const string16& title) OVERRIDE;
   virtual void ClearNativeFocus() OVERRIDE;
   virtual Widget::MoveLoopResult RunMoveLoop(
-      const gfx::Point& drag_offset) OVERRIDE;
+      const gfx::Vector2d& drag_offset) OVERRIDE;
   virtual void EndMoveLoop() OVERRIDE;
   virtual void SetVisibilityChangedAnimationsEnabled(bool value) OVERRIDE;
   virtual bool ShouldUseNativeFrame() OVERRIDE;
@@ -208,7 +208,7 @@ class VIEWS_EXPORT DesktopRootWindowHostWin
   aura::RootWindow* root_window_;
 
   scoped_ptr<HWNDMessageHandler> message_handler_;
-  scoped_ptr<DesktopCaptureClient> capture_client_;
+  scoped_ptr<aura::client::DefaultCaptureClient> capture_client_;
   scoped_ptr<aura::DesktopDispatcherClient> dispatcher_client_;
   scoped_ptr<aura::FocusManager> focus_manager_;
   // Depends on focus_manager_.

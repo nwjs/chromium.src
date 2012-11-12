@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef BitmapSkPictureContentLayerUpdater_h
-#define BitmapSkPictureContentLayerUpdater_h
+#ifndef CC_BITMAP_SKPICTURE_CONTENT_LAYER_UPDATER_H_
+#define CC_BITMAP_SKPICTURE_CONTENT_LAYER_UPDATER_H_
 
 #include "cc/skpicture_content_layer_updater.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -16,9 +16,9 @@ class BitmapSkPictureContentLayerUpdater : public SkPictureContentLayerUpdater {
 public:
     class Resource : public ContentLayerUpdater::Resource {
     public:
-        Resource(BitmapSkPictureContentLayerUpdater*, scoped_ptr<PrioritizedTexture>);
+        Resource(BitmapSkPictureContentLayerUpdater*, scoped_ptr<PrioritizedResource>);
 
-        virtual void update(ResourceUpdateQueue&, const IntRect& sourceRect, const IntSize& destOffset, bool partialUpdate, RenderingStats&) OVERRIDE;
+        virtual void update(ResourceUpdateQueue&, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset, bool partialUpdate, RenderingStats&) OVERRIDE;
 
     private:
         BitmapSkPictureContentLayerUpdater* updater() { return m_updater; }
@@ -29,8 +29,8 @@ public:
 
     static scoped_refptr<BitmapSkPictureContentLayerUpdater> create(scoped_ptr<LayerPainter>);
 
-    virtual scoped_ptr<LayerUpdater::Resource> createResource(PrioritizedTextureManager*) OVERRIDE;
-    void paintContentsRect(SkCanvas*, const IntRect& sourceRect, RenderingStats&);
+    virtual scoped_ptr<LayerUpdater::Resource> createResource(PrioritizedResourceManager*) OVERRIDE;
+    void paintContentsRect(SkCanvas*, const gfx::Rect& sourceRect, RenderingStats&);
 
 private:
     explicit BitmapSkPictureContentLayerUpdater(scoped_ptr<LayerPainter>);
@@ -39,4 +39,4 @@ private:
 
 }  // namespace cc
 
-#endif  // BitmapSkPictureContentLayerUpdater_h
+#endif  // CC_BITMAP_SKPICTURE_CONTENT_LAYER_UPDATER_H_

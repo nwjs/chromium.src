@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCSettings_h
-#define CCSettings_h
+#ifndef CC_SETTINGS_H_
+#define CC_SETTINGS_H_
 
-#include "webkit/glue/webkit_glue_export.h"
+#include "cc/cc_export.h"
 
 namespace cc {
 
@@ -13,7 +13,7 @@ namespace cc {
 // LayerTreeSettings if a ui and renderer compositor might not want the same
 // setting.
 
-class Settings {
+class CC_EXPORT Settings {
 public:
     static bool perTilePaintingEnabled();
     static bool partialSwapEnabled();
@@ -32,4 +32,4 @@ public:
 
 } // namespace cc
 
-#endif // Settings_h
+#endif  // CC_SETTINGS_H_

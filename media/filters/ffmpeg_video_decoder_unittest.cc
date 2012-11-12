@@ -74,7 +74,7 @@ class FFmpegVideoDecoderTest : public testing::Test {
         demuxer_(new StrictMock<MockDemuxerStream>()),
         read_cb_(base::Bind(&FFmpegVideoDecoderTest::FrameReady,
                             base::Unretained(this))) {
-    CHECK(FFmpegGlue::GetInstance());
+    FFmpegGlue::InitializeFFmpeg();
 
     decoder_ = new FFmpegVideoDecoder(
         base::Bind(&Identity<scoped_refptr<base::MessageLoopProxy> >,
@@ -218,10 +218,12 @@ class FFmpegVideoDecoderTest : public testing::Test {
     EXPECT_EQ(VideoDecoder::kOk, status_b);
     ASSERT_TRUE(video_frame_a);
     ASSERT_TRUE(video_frame_b);
-    EXPECT_EQ(original_size.width(), video_frame_a->data_size().width());
-    EXPECT_EQ(original_size.height(), video_frame_a->data_size().height());
-    EXPECT_EQ(expected_width, video_frame_b->data_size().width());
-    EXPECT_EQ(expected_height, video_frame_b->data_size().height());
+    EXPECT_EQ(original_size.width(),
+        video_frame_a->visible_rect().size().width());
+    EXPECT_EQ(original_size.height(),
+        video_frame_a->visible_rect().size().height());
+    EXPECT_EQ(expected_width, video_frame_b->visible_rect().size().width());
+    EXPECT_EQ(expected_height, video_frame_b->visible_rect().size().height());
   }
 
   void Read(VideoDecoder::Status* status,

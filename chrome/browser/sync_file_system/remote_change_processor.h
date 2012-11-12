@@ -8,7 +8,6 @@
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
 #include "webkit/fileapi/syncable/sync_callbacks.h"
-#include "webkit/fileapi/syncable/sync_file_type.h"
 #include "webkit/fileapi/syncable/sync_status_code.h"
 
 class FilePath;
@@ -17,6 +16,7 @@ namespace fileapi {
 class FileChange;
 class FileChangeList;
 class FileSystemURL;
+class SyncFileMetadata;
 }
 
 namespace sync_file_system {
@@ -33,7 +33,7 @@ class RemoteChangeProcessor {
   // |changes| indicates a set of pending changes for the target URL.
   typedef base::Callback<void(
       fileapi::SyncStatusCode status,
-      fileapi::SyncFileType file_type,
+      const fileapi::SyncFileMetadata& metadata,
       const fileapi::FileChangeList& changes)> PrepareChangeCallback;
 
   RemoteChangeProcessor() {}
@@ -59,7 +59,7 @@ class RemoteChangeProcessor {
       const fileapi::FileChange& change,
       const FilePath& local_path,
       const fileapi::FileSystemURL& url,
-      const fileapi::StatusCallback& callback) = 0;
+      const fileapi::SyncStatusCallback& callback) = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(RemoteChangeProcessor);

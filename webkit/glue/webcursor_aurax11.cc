@@ -31,14 +31,14 @@ const ui::PlatformCursor WebCursor::GetPlatformCursor() {
     image = ui::SkBitmapToXcursorImage(&bitmap, hotspot_);
   } else {
     gfx::Size scaled_size = gfx::ToFlooredSize(
-        custom_size_.Scale(scale_factor_));
+        gfx::ScaleSize(custom_size_, scale_factor_));
     SkBitmap scaled_bitmap = skia::ImageOperations::Resize(bitmap,
         skia::ImageOperations::RESIZE_BETTER,
         scaled_size.width(),
         scaled_size.height());
-    image = ui::SkBitmapToXcursorImage(&scaled_bitmap,
-                                       gfx::ToFlooredPoint(
-                                           hotspot_.Scale(scale_factor_)));
+    gfx::Point hotspot_point = gfx::ToFlooredPoint(
+        gfx::ScalePoint(hotspot_, scale_factor_));
+    image = ui::SkBitmapToXcursorImage(&scaled_bitmap, hotspot_point);
   }
   platform_cursor_ = ui::CreateReffedCustomXCursor(image);
   return platform_cursor_;

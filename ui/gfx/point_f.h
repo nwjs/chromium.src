@@ -9,22 +9,23 @@
 
 #include "ui/base/ui_export.h"
 #include "ui/gfx/point_base.h"
+#include "ui/gfx/vector2d_f.h"
 
 namespace gfx {
 
 // A floating version of gfx::Point.
-class UI_EXPORT PointF : public PointBase<PointF, float> {
+class UI_EXPORT PointF : public PointBase<PointF, float, Vector2dF> {
  public:
   PointF();
   PointF(float x, float y);
   ~PointF();
 
-  PointF Scale(float scale) const WARN_UNUSED_RESULT {
-    return Scale(scale, scale);
+  void Scale(float scale) {
+    Scale(scale, scale);
   }
 
-  PointF Scale(float x_scale, float y_scale) const WARN_UNUSED_RESULT {
-    return PointF(x() * x_scale, y() * y_scale);
+  void Scale(float x_scale, float y_scale) {
+    SetPoint(x() * x_scale, y() * y_scale);
   }
 
   // Returns a string representation of point.
@@ -39,16 +40,34 @@ inline bool operator!=(const PointF& lhs, const PointF& rhs) {
   return !(lhs == rhs);
 }
 
-inline PointF operator+(PointF lhs, PointF rhs) {
-  return lhs.Add(rhs);
+inline PointF operator+(const PointF& lhs, const Vector2dF& rhs) {
+  PointF result(lhs);
+  result += rhs;
+  return result;
 }
 
-inline PointF operator-(PointF lhs, PointF rhs) {
-  return lhs.Subtract(rhs);
+inline PointF operator-(const PointF& lhs, const Vector2dF& rhs) {
+  PointF result(lhs);
+  result -= rhs;
+  return result;
+}
+
+inline Vector2dF operator-(const PointF& lhs, const PointF& rhs) {
+  return Vector2dF(lhs.x() - rhs.x(), lhs.y() - rhs.y());
+}
+
+inline PointF PointAtOffsetFromOrigin(const Vector2dF& offset_from_origin) {
+  return PointF(offset_from_origin.x(), offset_from_origin.y());
+}
+
+UI_EXPORT PointF ScalePoint(const PointF& p, float x_scale, float y_scale);
+
+inline PointF ScalePoint(const PointF& p, float scale) {
+  return ScalePoint(p, scale, scale);
 }
 
 #if !defined(COMPILER_MSVC)
-extern template class PointBase<PointF, float>;
+extern template class PointBase<PointF, float, Vector2dF>;
 #endif
 
 }  // namespace gfx

@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_IMPL_H_
 
 #include <deque>
+#include <list>
 #include <map>
 #include <queue>
 #include <string>
@@ -23,6 +24,7 @@
 #include "content/common/view_message_enums.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/common/page_zoom.h"
+#include "ipc/ipc_listener.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -115,7 +117,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
       const WebKit::WebMouseWheelEvent& wheel_event) OVERRIDE;
   virtual void ForwardKeyboardEvent(
       const NativeWebKeyboardEvent& key_event) OVERRIDE;
-  virtual const gfx::Point& GetLastScrollOffset() const OVERRIDE;
+  virtual const gfx::Vector2d& GetLastScrollOffset() const OVERRIDE;
   virtual RenderProcessHost* GetProcess() const OVERRIDE;
   virtual int GetRoutingID() const OVERRIDE;
   virtual RenderWidgetHostView* GetView() const OVERRIDE;
@@ -172,7 +174,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   virtual void GotFocus();
 
   // Tells the renderer it got/lost focus.
-  void Focus();
+  virtual void Focus();
   virtual void LostCapture();
 
   // Sets whether the renderer should show controls in an active state.  On all
@@ -403,6 +405,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void AcknowledgeSwapBuffersToRenderer();
 
 #if defined(USE_AURA)
+  // Called by the view when the parent changes. If a parent isn't available,
+  // NULL is used.
+  void ParentChanged(gfx::NativeViewId new_parent);
+
   // Called by the view in response to visibility changes:
   // 1. After the front surface is guarenteed to no longer be in use by the ui
   //    (protected false),
@@ -434,6 +440,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void ResetSizeAndRepaintPendingFlags();
 
   void DetachDelegate();
+
+  // Update the renderer's cache of the screen rect of the view and window.
+  void SendScreenRects();
 
  protected:
   virtual RenderWidgetHostImpl* AsRenderWidgetHostImpl() OVERRIDE;
@@ -494,7 +503,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // as opposed to visa versa.
   void SetShouldAutoResize(bool enable);
 
- protected:
   // Expose increment/decrement of the in-flight event count, so
   // RenderViewHostImpl can account for in-flight beforeunload/unload events.
   int increment_in_flight_event_count() { return ++in_flight_event_count_; }
@@ -538,6 +546,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnMsgRenderViewReady();
   void OnMsgRenderViewGone(int status, int error_code);
   void OnMsgClose();
+  void OnMsgUpdateScreenRectsAck();
   void OnMsgRequestMove(const gfx::Rect& pos);
   void OnMsgSetTooltipText(const string16& tooltip_text,
                            WebKit::WebTextDirection text_direction_hint);
@@ -578,10 +587,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
                                     const gfx::Size& size,
                                     const TransportDIB::Id& id);
 
-#if defined(OS_POSIX) || defined(USE_AURA)
-  void OnMsgGetWindowRect(gfx::NativeViewId window_id, gfx::Rect* results);
-  void OnMsgGetRootWindowRect(gfx::NativeViewId window_id, gfx::Rect* results);
-#endif
 #if defined(OS_MACOSX)
   void OnMsgPluginFocusChanged(bool focused, int plugin_id);
   void OnMsgStartPluginIme();
@@ -600,9 +605,20 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnAcceleratedSurfaceBuffersSwapped(gfx::PluginWindowHandle window,
                                           uint64 surface_handle);
 #endif
+#if defined(OS_ANDROID)
+  void OnMsgUpdateFrameInfo(const gfx::Vector2d& scroll_offset,
+                            float page_scale_factor,
+                            const gfx::Size& content_size);
+#endif
 #if defined(TOOLKIT_GTK)
   void OnMsgCreatePluginContainer(gfx::PluginWindowHandle id);
   void OnMsgDestroyPluginContainer(gfx::PluginWindowHandle id);
+#endif
+#if defined(OS_WIN)
+  void OnWindowlessPluginDummyWindowCreated(
+      gfx::NativeViewId dummy_activation_window);
+  void OnWindowlessPluginDummyWindowDestroyed(
+      gfx::NativeViewId dummy_activation_window);
 #endif
 
   // Called (either immediately or asynchronously) after we're done with our
@@ -708,6 +724,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // True if the render widget host should track the render widget's size as
   // opposed to visa versa.
   bool should_auto_resize_;
+
+  bool waiting_for_screen_rects_ack_;
+  gfx::Rect last_view_screen_rect_;
+  gfx::Rect last_window_screen_rect_;
 
   // True if a mouse move event was sent to the render view and we are waiting
   // for a corresponding ViewHostMsg_HandleInputEvent_ACK message.
@@ -819,7 +839,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   std::vector<gfx::PluginWindowHandle> deferred_plugin_handles_;
 
   // The last scroll offset of the render widget.
-  gfx::Point last_scroll_offset_;
+  gfx::Vector2d last_scroll_offset_;
 
   bool pending_mouse_lock_request_;
   bool allow_privileged_mouse_lock_;
@@ -839,6 +859,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 
   scoped_ptr<TouchEventQueue> touch_event_queue_;
   scoped_ptr<GestureEventFilter> gesture_event_filter_;
+
+#if defined(OS_WIN)
+  std::list<HWND> dummy_windows_for_activation_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostImpl);
 };

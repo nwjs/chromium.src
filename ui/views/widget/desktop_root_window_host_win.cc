@@ -7,6 +7,7 @@
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/client/default_capture_client.h"
 #include "ui/aura/desktop/desktop_activation_client.h"
 #include "ui/aura/desktop/desktop_cursor_client.h"
 #include "ui/aura/desktop/desktop_dispatcher_client.h"
@@ -16,11 +17,12 @@
 #include "ui/aura/shared/input_method_event_filter.h"
 #include "ui/aura/window_property.h"
 #include "ui/base/cursor/cursor_loader_win.h"
+#include "ui/base/native_theme/native_theme_aura.h"
+#include "ui/base/native_theme/native_theme_win.h"
 #include "ui/base/win/shell.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/path_win.h"
 #include "ui/views/ime/input_method_win.h"
-#include "ui/views/widget/desktop_capture_client.h"
 #include "ui/views/widget/desktop_native_widget_aura.h"
 #include "ui/views/widget/desktop_screen_position_client.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -31,8 +33,7 @@
 
 namespace views {
 
-DEFINE_WINDOW_PROPERTY_KEY(
-    aura::Window*, kContentWindowForRootWindow, NULL);
+DEFINE_WINDOW_PROPERTY_KEY(aura::Window*, kContentWindowForRootWindow, NULL);
 
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopRootWindowHostWin, public:
@@ -56,6 +57,21 @@ DesktopRootWindowHostWin::~DesktopRootWindowHostWin() {
 aura::Window* DesktopRootWindowHostWin::GetContentWindowForHWND(HWND hwnd) {
   aura::RootWindow* root = aura::RootWindow::GetForAcceleratedWidget(hwnd);
   return root ? root->GetProperty(kContentWindowForRootWindow) : NULL;
+}
+
+// static
+ui::NativeTheme* DesktopRootWindowHost::GetNativeTheme(aura::Window* window) {
+  // Use NativeThemeWin for windows shown on the desktop, those not on the
+  // desktop come from Ash and get NativeThemeAura.
+  aura::RootWindow* root = window->GetRootWindow();
+  if (root) {
+    HWND root_hwnd = root->GetAcceleratedWidget();
+    if (root_hwnd &&
+        DesktopRootWindowHostWin::GetContentWindowForHWND(root_hwnd)) {
+      return ui::NativeThemeWin::instance();
+    }
+  }
+  return ui::NativeThemeAura::instance();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +107,7 @@ aura::RootWindow* DesktopRootWindowHostWin::Init(
 
   native_widget_delegate_->OnNativeWidgetCreated();
 
-  capture_client_.reset(new DesktopCaptureClient);
+  capture_client_.reset(new aura::client::DefaultCaptureClient(root_window_));
   aura::client::SetCaptureClient(root_window_, capture_client_.get());
 
   focus_manager_.reset(new aura::FocusManager);
@@ -264,7 +280,7 @@ void DesktopRootWindowHostWin::ClearNativeFocus() {
 }
 
 Widget::MoveLoopResult DesktopRootWindowHostWin::RunMoveLoop(
-    const gfx::Point& drag_offset) {
+    const gfx::Vector2d& drag_offset) {
   return message_handler_->RunMoveLoop(drag_offset) ?
       Widget::MOVE_LOOP_SUCCESSFUL : Widget::MOVE_LOOP_CANCELED;
 }

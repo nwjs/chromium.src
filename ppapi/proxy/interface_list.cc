@@ -62,7 +62,6 @@
 #include "ppapi/c/private/ppb_flash_menu.h"
 #include "ppapi/c/private/ppb_flash_message_loop.h"
 #include "ppapi/c/private/ppb_flash_print.h"
-#include "ppapi/c/private/ppb_flash_tcp_socket.h"
 #include "ppapi/c/private/ppb_net_address_private.h"
 #include "ppapi/c/private/ppb_network_list_private.h"
 #include "ppapi/c/private/ppb_network_monitor_private.h"
@@ -78,7 +77,6 @@
 #include "ppapi/c/trusted/ppb_file_io_trusted.h"
 #include "ppapi/c/trusted/ppb_url_loader_trusted.h"
 #include "ppapi/proxy/interface_proxy.h"
-#include "ppapi/proxy/ppb_audio_input_proxy.h"
 #include "ppapi/proxy/ppb_audio_proxy.h"
 #include "ppapi/proxy/ppb_broker_proxy.h"
 #include "ppapi/proxy/ppb_buffer_proxy.h"
@@ -181,6 +179,7 @@ InterfaceList::InterfaceList() {
 
   {
     Permission current_required_permission = PERMISSION_NONE;
+    #include "ppapi/thunk/interfaces_ppb_private_no_permissions.h"
     #include "ppapi/thunk/interfaces_ppb_public_stable.h"
   }
 

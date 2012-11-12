@@ -153,6 +153,11 @@ void ProxyDecryptor::CancelKeyRequest(const std::string& key_system,
   decryptor_->CancelKeyRequest(key_system, session_id);
 }
 
+void ProxyDecryptor::RegisterKeyAddedCB(StreamType stream_type,
+                                        const KeyAddedCB& key_added_cb) {
+  NOTREACHED() << "KeyAddedCB should not be registered with ProxyDecryptor.";
+}
+
 void ProxyDecryptor::Decrypt(
     StreamType stream_type,
     const scoped_refptr<media::DecoderBuffer>& encrypted,
@@ -211,15 +216,13 @@ void ProxyDecryptor::CancelDecrypt(StreamType stream_type) {
 
 void ProxyDecryptor::InitializeAudioDecoder(
     scoped_ptr<media::AudioDecoderConfig> config,
-    const DecoderInitCB& init_cb,
-    const KeyAddedCB& key_added_cb) {
+    const DecoderInitCB& init_cb) {
   NOTREACHED() << "ProxyDecryptor does not support audio decoding";
 }
 
 void ProxyDecryptor::InitializeVideoDecoder(
     scoped_ptr<media::VideoDecoderConfig> config,
-    const DecoderInitCB& init_cb,
-    const KeyAddedCB& key_added_cb) {
+    const DecoderInitCB& init_cb) {
   NOTREACHED() << "ProxyDecryptor does not support video decoding";
 }
 
@@ -254,7 +257,7 @@ scoped_ptr<media::Decryptor> ProxyDecryptor::CreatePpapiDecryptor(
   const scoped_refptr<webkit::ppapi::PluginInstance>& plugin_instance =
     CreatePluginInstance(plugin_type, web_media_player_client_, web_frame_);
   if (!plugin_instance) {
-    DVLOG(1) << "PpapiDecryptor: plugin instance creation failed.";
+    DVLOG(1) << "ProxyDecryptor: plugin instance creation failed.";
     return scoped_ptr<media::Decryptor>();
   }
 

@@ -7,6 +7,8 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 
+using content::WebContents;
+
 namespace {
 
 // TODO(avi): Remove when TabStripModelObserver sends WebContents.
@@ -30,32 +32,31 @@ TabStripModelObserverBridge::~TabStripModelObserverBridge() {
   model_->RemoveObserver(this);
 }
 
-void TabStripModelObserverBridge::TabInsertedAt(TabContents* contents,
+void TabStripModelObserverBridge::TabInsertedAt(WebContents* contents,
                                                 int index,
                                                 bool foreground) {
   if ([controller_ respondsToSelector:
           @selector(insertTabWithContents:atIndex:inForeground:)]) {
-    [controller_ insertTabWithContents:WebContentsOf(contents)
+    [controller_ insertTabWithContents:contents
                                atIndex:index
                           inForeground:foreground];
   }
 }
 
 void TabStripModelObserverBridge::TabClosingAt(TabStripModel* tab_strip_model,
-                                               TabContents* contents,
+                                               WebContents* contents,
                                                int index) {
   if ([controller_ respondsToSelector:
           @selector(tabClosingWithContents:atIndex:)]) {
-    [controller_ tabClosingWithContents:WebContentsOf(contents) atIndex:index];
+    [controller_ tabClosingWithContents:contents atIndex:index];
   }
 }
 
-void TabStripModelObserverBridge::TabDetachedAt(TabContents* contents,
+void TabStripModelObserverBridge::TabDetachedAt(WebContents* contents,
                                                 int index) {
   if ([controller_ respondsToSelector:
           @selector(tabDetachedWithContents:atIndex:)]) {
-    [controller_ tabDetachedWithContents:WebContentsOf(contents)
-                                 atIndex:index];
+    [controller_ tabDetachedWithContents:contents atIndex:index];
   }
 }
 
@@ -112,11 +113,11 @@ void TabStripModelObserverBridge::TabReplacedAt(
 }
 
 void TabStripModelObserverBridge::TabMiniStateChanged(
-    TabContents* contents,
+    WebContents* contents,
     int index) {
   if ([controller_ respondsToSelector:
           @selector(tabMiniStateChangedWithContents:atIndex:)]) {
-    [controller_ tabMiniStateChangedWithContents:WebContentsOf(contents)
+    [controller_ tabMiniStateChangedWithContents:contents
                                          atIndex:index];
   }
 }

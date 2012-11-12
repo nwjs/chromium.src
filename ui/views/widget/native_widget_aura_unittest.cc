@@ -45,7 +45,7 @@ class NativeWidgetAuraTest : public testing::Test {
     root_window()->SetHostSize(gfx::Size(640, 480));
   }
   virtual void TearDown() OVERRIDE {
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
     aura_test_helper_->TearDown();
   }
 
@@ -216,11 +216,9 @@ class GestureTrackingView : public views::View {
   }
 
   // View overrides:
-  virtual ui::EventResult OnGestureEvent(
-      const ui::GestureEvent& event) OVERRIDE {
+  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
     got_gesture_event_ = true;
-    return consume_gesture_event_ ? ui::ER_CONSUMED :
-        ui::ER_UNHANDLED;
+    return consume_gesture_event_ ? ui::ER_CONSUMED : ui::ER_UNHANDLED;
   }
 
  private:

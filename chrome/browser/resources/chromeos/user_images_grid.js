@@ -260,6 +260,8 @@ cr.define('options', function() {
       this.cameraOnline = false;
       if (this.cameraVideo_)
         this.cameraVideo_.src = '';
+      if (this.cameraStream_)
+        this.cameraStream_.stop();
       // Cancel any pending getUserMedia() checks.
       this.cameraCheckInProgress_ = false;
     },
@@ -273,8 +275,12 @@ cr.define('options', function() {
      */
     handleCameraAvailable_: function(onAvailable, stream) {
       this.cameraPresent = true;
-      if (this.cameraCheckInProgress_ && onAvailable())
+      if (this.cameraCheckInProgress_ && onAvailable()) {
         this.cameraVideo_.src = window.webkitURL.createObjectURL(stream);
+        this.cameraStream_ = stream;
+      } else {
+        stream.stop();
+      }
       this.cameraCheckInProgress_ = false;
     },
 
@@ -362,7 +368,7 @@ cr.define('options', function() {
         imageUrl = UserImagesGrid.ButtonImages.TAKE_PHOTO;
       if (imageUrl) {
         this.cameraImage_ = this.cameraImage_ ?
-            this.updateItem(this.cameraImage_, imageUrl) :
+            this.updateItem(this.cameraImage_, imageUrl, this.cameraTitle_) :
             this.addItem(imageUrl, this.cameraTitle_, undefined, 0);
         this.cameraImage_.type = 'camera';
       } else {
@@ -376,12 +382,14 @@ cr.define('options', function() {
     },
 
     /**
-     * Title for the camera element. Must be set before setting |cameraImage|
-     * for the first time.
-     * @type {string}
+     * Updates the titles for the camera element.
+     * @param {string} placeholderTitle Title when showing a placeholder.
+     * @param {string} capturedImageTitle Title when showing a captured photo.
      */
-    set cameraTitle(value) {
-      return this.cameraTitle_ = value;
+    setCameraTitles: function(placeholderTitle, capturedImageTitle) {
+      this.placeholderTitle_ = placeholderTitle;
+      this.capturedImageTitle_ = capturedImageTitle;
+      this.cameraTitle_ = this.placeholderTitle_;
     },
 
     /**
@@ -503,6 +511,7 @@ cr.define('options', function() {
       var self = this;
       var previewImg = new Image();
       previewImg.addEventListener('load', function(e) {
+        self.cameraTitle_ = self.capturedImageTitle_;
         self.cameraImage = this.src;
       });
       previewImg.src = photoURL;
@@ -536,6 +545,7 @@ cr.define('options', function() {
      * Discard current photo and return to the live camera stream.
      */
     discardPhoto: function() {
+      this.cameraTitle_ = this.placeholderTitle_;
       this.cameraImage = null;
     },
 

@@ -10,6 +10,7 @@
 #include "base/bind_helpers.h"
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
+#include "base/mac/crash_logging.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #import "base/mac/scoped_nsautorelease_pool.h"
@@ -48,6 +49,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #import "ui/base/cocoa/fullscreen_window_manager.h"
 #import "ui/base/cocoa/underlay_opengl_hosting_window.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/layout.h"
 #include "ui/gfx/point.h"
 #include "ui/gfx/rect_conversions.h"
@@ -137,7 +139,7 @@ static float ScaleFactor(NSView* view) {
 - (void)keyEvent:(NSEvent*)theEvent wasKeyEquivalent:(BOOL)equiv;
 - (void)cancelChildPopups;
 - (void)windowDidChangeBackingProperties:(NSNotification*)notification;
-- (void)windowChangedScreen:(NSNotification*)notification;
+- (void)windowChangedGlobalFrame:(NSNotification*)notification;
 - (void)checkForPluginImeCancellation;
 - (void)updateTabBackingStoreScaleFactor;
 - (NSRect)firstViewRectForCharacterRange:(NSRange)theRange
@@ -289,7 +291,8 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
       can_compose_inline_(true),
       is_loading_(false),
       is_hidden_(false),
-      weak_factory_(this) {
+      weak_factory_(this),
+      fullscreen_parent_host_view_(NULL) {
   // |cocoa_view_| owns us and we will be deleted when |cocoa_view_|
   // goes away.  Since we autorelease it, our caller must put
   // |GetNativeView()| into the view hierarchy right after calling us.
@@ -301,6 +304,11 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
 RenderWidgetHostViewMac::~RenderWidgetHostViewMac() {
   AckPendingSwapBuffers();
   UnlockMouse();
+  // We are owned by RenderWidgetHostViewCocoa, so if we go away before the
+  // RenderWidgetHost does we need to tell it not to hold a stale pointer to
+  // us.
+  if (render_widget_host_)
+    render_widget_host_->SetView(NULL);
 }
 
 void RenderWidgetHostViewMac::SetDelegate(
@@ -346,6 +354,8 @@ void RenderWidgetHostViewMac::InitAsPopup(
 // will enter fullscreen instead.
 void RenderWidgetHostViewMac::InitAsFullscreen(
     RenderWidgetHostView* reference_host_view) {
+  fullscreen_parent_host_view_ =
+      static_cast<RenderWidgetHostViewMac*>(reference_host_view);
   NSWindow* parent_window = nil;
   if (reference_host_view)
     parent_window = [reference_host_view->GetNativeView() window];
@@ -485,7 +495,7 @@ gfx::NativeViewAccessible RenderWidgetHostViewMac::GetNativeViewAccessible() {
 }
 
 void RenderWidgetHostViewMac::MovePluginWindows(
-    const gfx::Point& scroll_offset,
+    const gfx::Vector2d& scroll_offset,
     const std::vector<webkit::npapi::WebPluginGeometry>& moves) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewMac::MovePluginWindows");
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -848,7 +858,8 @@ void RenderWidgetHostViewMac::CopyFromCompositingSurface(
     return;
 
   float scale = ScaleFactor(cocoa_view_);
-  gfx::Size dst_pixel_size = gfx::ToFlooredSize(dst_size.Scale(scale));
+  gfx::Size dst_pixel_size = gfx::ToFlooredSize(
+      gfx::ScaleSize(dst_size, scale));
   if (!output->Allocate(
       dst_pixel_size.width(), dst_pixel_size.height(), true))
     return;
@@ -1006,6 +1017,29 @@ bool RenderWidgetHostViewMac::CompositorSwapBuffers(uint64 surface_handle,
                                                     const gfx::Size& size) {
   if (is_hidden_)
     return true;
+
+  // TODO(shess) If the view does not have a window, or the window
+  // does not have backing, the IOSurface will log "invalid drawable"
+  // in -setView:.  It is not clear how this code is reached with such
+  // a case, so record some info into breakpad (some subset of
+  // browsers are likely to crash later for unrelated reasons).
+  // http://crbug.com/148882
+  NSWindow* window = [cocoa_view_ window];
+  if ([window windowNumber] <= 0) {
+    NSString* const kCrashKey = @"rwhvm_window";
+    if (!window) {
+      base::mac::SetCrashKeyValue(kCrashKey, @"Missing window");
+    } else {
+      NSString* value =
+          [NSString stringWithFormat:@"window %s delegate %s controller %s",
+                    object_getClassName(window),
+                    object_getClassName([window delegate]),
+                    object_getClassName([window windowController])];
+      base::mac::SetCrashKeyValue(kCrashKey, value);
+    }
+
+    return true;
+  }
 
   if (!compositing_iosurface_.get())
     compositing_iosurface_.reset(CompositingIOSurfaceMac::Create());
@@ -1405,8 +1439,15 @@ void RenderWidgetHostViewMac::GotSoftwareFrame() {
 }
 
 void RenderWidgetHostViewMac::SetActive(bool active) {
-  if (render_widget_host_)
+  if (render_widget_host_) {
     render_widget_host_->SetActive(active);
+    if (active) {
+      if (HasFocus())
+        render_widget_host_->Focus();
+    } else {
+      render_widget_host_->Blur();
+    }
+  }
   if (HasFocus())
     SetTextInputActive(active);
   if (!active) {
@@ -1504,6 +1545,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 @implementation RenderWidgetHostViewCocoa
 
 @synthesize selectedRange = selectedRange_;
+@synthesize suppressNextEscapeKeyUp = suppressNextEscapeKeyUp_;
 @synthesize markedRange = markedRange_;
 
 - (id)initWithRenderWidgetHostViewMac:(RenderWidgetHostViewMac*)r {
@@ -1528,13 +1570,6 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
            selector:@selector(globalFrameDidChange:)
                name:NSViewGlobalFrameDidChangeNotification
              object:self];
-    if ([self window]) {
-      [[NSNotificationCenter defaultCenter]
-          addObserver:self
-             selector:@selector(windowChangedScreen:)
-                 name:NSWindowDidChangeScreenNotification
-               object:[self window]];
-    }
   }
   return self;
 }
@@ -1855,7 +1890,18 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
   if (event.type == NativeWebKeyboardEvent::RawKeyDown &&
       event.windowsKeyCode == ui::VKEY_ESCAPE &&
       renderWidgetHostView_->pepper_fullscreen_window()) {
+    RenderWidgetHostViewMac* parent =
+        renderWidgetHostView_->fullscreen_parent_host_view();
+    if (parent)
+      parent->cocoa_view()->suppressNextEscapeKeyUp_ = YES;
     widgetHost->Shutdown();
+    return;
+  }
+
+  // Suppress the escape key up event if necessary.
+  if (event.windowsKeyCode == ui::VKEY_ESCAPE && suppressNextEscapeKeyUp_) {
+    if (event.type == NativeWebKeyboardEvent::KeyUp)
+      suppressNextEscapeKeyUp_ = NO;
     return;
   }
 
@@ -2078,28 +2124,40 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 - (void)viewWillMoveToWindow:(NSWindow*)newWindow {
   // We're messing with the window, so do this to ensure no flashes. This one
   // prevents a flash when the current tab is closed.
-  [[self window] disableScreenUpdatesUntilFlush];
+  NSWindow* oldWindow = [self window];
+  [oldWindow disableScreenUpdatesUntilFlush];
 
-  if ([self window]) {
-    [[NSNotificationCenter defaultCenter]
+  NSNotificationCenter* notificationCenter =
+      [NSNotificationCenter defaultCenter];
+  if (oldWindow) {
+    [notificationCenter
         removeObserver:self
                   name:NSWindowDidChangeBackingPropertiesNotification
-                object:[self window]];
-    [[NSNotificationCenter defaultCenter]
+                object:oldWindow];
+    [notificationCenter
         removeObserver:self
-                  name:NSWindowDidChangeScreenNotification
-                object:[self window]];
+                  name:NSWindowDidMoveNotification
+                object:oldWindow];
+    [notificationCenter
+        removeObserver:self
+                  name:NSWindowDidEndLiveResizeNotification
+                object:oldWindow];
   }
   if (newWindow) {
-    [[NSNotificationCenter defaultCenter]
+    [notificationCenter
         addObserver:self
            selector:@selector(windowDidChangeBackingProperties:)
                name:NSWindowDidChangeBackingPropertiesNotification
              object:newWindow];
-    [[NSNotificationCenter defaultCenter]
+    [notificationCenter
         addObserver:self
-           selector:@selector(windowChangedScreen:)
-               name:NSWindowDidChangeScreenNotification
+           selector:@selector(windowChangedGlobalFrame:)
+               name:NSWindowDidMoveNotification
+             object:newWindow];
+    [notificationCenter
+        addObserver:self
+           selector:@selector(windowChangedGlobalFrame:)
+               name:NSWindowDidEndLiveResizeNotification
              object:newWindow];
   }
 }
@@ -2154,7 +2212,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
   handlingGlobalFrameDidChange_ = NO;
 }
 
-- (void)windowChangedScreen:(NSNotification*)notification {
+- (void)windowChangedGlobalFrame:(NSNotification*)notification {
   renderWidgetHostView_->UpdateScreenInfo(
       renderWidgetHostView_->GetNativeView());
 }
@@ -2259,8 +2317,6 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
       NSRectFill(dirtyRect);
     }
 
-    // TODO(thakis): Register for backing scale factor change events and pass
-    // that on.
     renderWidgetHostView_->compositing_iosurface_->DrawIOSurface(
         self, ScaleFactor(self));
     return;

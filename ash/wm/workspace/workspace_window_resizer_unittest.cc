@@ -15,10 +15,10 @@
 #include "ash/wm/cursor_manager.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/shelf_layout_manager.h"
+#include "ash/wm/window_util.h"
 #include "ash/wm/workspace_controller.h"
 #include "ash/wm/workspace/snap_sizer.h"
 #include "ash/wm/workspace/phantom_window_controller.h"
-#include "ash/wm/workspace/workspace_layout_manager2.h"
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "ui/aura/root_window.h"
@@ -474,15 +474,47 @@ TEST_F(WorkspaceWindowResizerTest, Edge) {
               GetRestoreBoundsInScreen(window_.get())->ToString());
   }
   // Try the same with the right side.
-  scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
-      window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
-  ASSERT_TRUE(resizer.get());
-  resizer->Drag(CalculateDragPoint(*resizer, 800, 10), 0);
-  resizer->CompleteDrag(0);
-  EXPECT_EQ("80,0 720x" + base::IntToString(bottom),
-            window_->bounds().ToString());
-  ASSERT_TRUE(GetRestoreBoundsInScreen(window_.get()));
-  EXPECT_EQ("20,30 50x60", GetRestoreBoundsInScreen(window_.get())->ToString());
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 800, 10), 0);
+    resizer->CompleteDrag(0);
+    EXPECT_EQ("80,0 720x" + base::IntToString(bottom),
+              window_->bounds().ToString());
+    ASSERT_TRUE(GetRestoreBoundsInScreen(window_.get()));
+    EXPECT_EQ("20,30 50x60",
+              GetRestoreBoundsInScreen(window_.get())->ToString());
+  }
+
+#if !defined(OS_WIN)
+  // Test if the restore bounds is correct in multiple displays.
+  ClearRestoreBounds(window_.get());
+  UpdateDisplay("800x600,200x600");
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+  window_->SetBoundsInScreen(gfx::Rect(800, 10, 50, 60),
+                             ScreenAsh::GetSecondaryDisplay());
+  EXPECT_EQ(root_windows[1], window_->GetRootWindow());
+  {
+    bottom =
+        ScreenAsh::GetDisplayWorkAreaBoundsInParent(window_.get()).bottom();
+    EXPECT_EQ("800,10 50x60", window_->GetBoundsInScreen().ToString());
+
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+
+    resizer->Drag(CalculateDragPoint(*resizer, 199, 00), 0);
+    resizer->CompleteDrag(0);
+    // With the resolution of 200x600 we will hit in this case the 50% screen
+    // size setting.
+    EXPECT_EQ("100,0 100x" + base::IntToString(bottom),
+              window_->bounds().ToString());
+    EXPECT_EQ("800,10 50x60",
+              GetRestoreBoundsInScreen(window_.get())->ToString());
+  }
+#endif
 }
 
 // Verifies a window can be moved from the primary display to another.
@@ -1087,30 +1119,39 @@ TEST_F(WorkspaceWindowResizerTest, CtrlCompleteDragMoveToExactPosition) {
 
 // Check that only usable sizes get returned by the resizer.
 TEST_F(WorkspaceWindowResizerTest, TestProperSizerResolutions) {
+  // Check that we have the correct work area resolution which fits our
+  // expected test result.
+  gfx::Rect work_area(ScreenAsh::GetDisplayWorkAreaBoundsInParent(
+                          window_.get()));
+  EXPECT_EQ(800, work_area.width());
+
   window_->SetBounds(gfx::Rect(96, 112, 320, 160));
   scoped_ptr<SnapSizer> resizer(new SnapSizer(
-      window_.get(), gfx::Point(), SnapSizer::LEFT_EDGE));
+      window_.get(),
+      gfx::Point(),
+      SnapSizer::LEFT_EDGE,
+      SnapSizer::OTHER_INPUT));
   ASSERT_TRUE(resizer.get());
   shelf_layout_manager()->SetAutoHideBehavior(
       SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+
+  // Check that the list is declining and contains elements of the
+  // ideal size list [1280, 1024, 768, 640] as well as 50% and 90% the work
+  // area.
   gfx::Rect rect = resizer->GetTargetBoundsForSize(0);
   EXPECT_EQ("0,0 720x597", rect.ToString());
   rect = resizer->GetTargetBoundsForSize(1);
-  EXPECT_EQ("0,0 720x597", rect.ToString());
-  rect = resizer->GetTargetBoundsForSize(2);
-  EXPECT_EQ("0,0 720x597", rect.ToString());
-  rect = resizer->GetTargetBoundsForSize(3);
   EXPECT_EQ("0,0 640x597", rect.ToString());
+  rect = resizer->GetTargetBoundsForSize(2);
+  EXPECT_EQ("0,0 400x597", rect.ToString());
   shelf_layout_manager()->SetAutoHideBehavior(
       SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
   rect = resizer->GetTargetBoundsForSize(0);
   EXPECT_EQ("0,0 720x552", rect.ToString());
   rect = resizer->GetTargetBoundsForSize(1);
-  EXPECT_EQ("0,0 720x552", rect.ToString());
-  rect = resizer->GetTargetBoundsForSize(2);
-  EXPECT_EQ("0,0 720x552", rect.ToString());
-  rect = resizer->GetTargetBoundsForSize(3);
   EXPECT_EQ("0,0 640x552", rect.ToString());
+  rect = resizer->GetTargetBoundsForSize(2);
+  EXPECT_EQ("0,0 400x552", rect.ToString());
 }
 
 // Verifies that a dragged window will restore to its pre-maximized size.
@@ -1376,6 +1417,37 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_CursorDeviceScaleFactor) {
     EXPECT_EQ(1.0f, cursor_test_api.GetDeviceScaleFactor());
     resizer->CompleteDrag(0);
     EXPECT_EQ(1.0f, cursor_test_api.GetDeviceScaleFactor());
+  }
+}
+
+// Test that the user user moved window flag is getting properly set.
+TEST_F(WorkspaceWindowResizerTest, CheckUserWindowMangedFlags) {
+  window_->SetBounds(gfx::Rect( 0,  50, 400, 200));
+
+  std::vector<aura::Window*> no_attached_windows;
+  // Check that an abort doesn't change anything.
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, no_attached_windows));
+    ASSERT_TRUE(resizer.get());
+    // Move it 100 to the bottom.
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 100), 0);
+    EXPECT_EQ("0,150 400x200", window_->bounds().ToString());
+    resizer->RevertDrag();
+
+    EXPECT_FALSE(ash::wm::HasUserChangedWindowPositionOrSize(window_.get()));
+  }
+
+  // Check that a completed move / size does change the user coordinates.
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, no_attached_windows));
+    ASSERT_TRUE(resizer.get());
+    // Move it 100 to the bottom.
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 100), 0);
+    EXPECT_EQ("0,150 400x200", window_->bounds().ToString());
+    resizer->CompleteDrag(0);
+    EXPECT_TRUE(ash::wm::HasUserChangedWindowPositionOrSize(window_.get()));
   }
 }
 

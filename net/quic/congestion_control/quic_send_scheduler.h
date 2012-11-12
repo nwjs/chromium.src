@@ -5,7 +5,7 @@
 // The is the base class for QUIC send side congestion control.
 // It decides when we can send a QUIC packet to the wire.
 // This class handles the basic bookkeeping of sent bitrate and packet loss.
-// The acctual send side algorithm is implemented via the
+// The actual send side algorithm is implemented via the
 // SendAlgorithmInterface.
 
 #ifndef NET_QUIC_CONGESTION_CONTROL_QUIC_SEND_SCHEDULER_H_
@@ -19,6 +19,7 @@
 #include "net/quic/congestion_control/quic_receipt_metrics_collector.h"
 #include "net/quic/congestion_control/send_algorithm_interface.h"
 #include "net/quic/quic_clock.h"
+#include "net/quic/quic_time.h"
 
 namespace net {
 
@@ -28,28 +29,29 @@ const uint32 kBitrateSmoothingBuckets = 300;
 // implementation due to overflow resulting in a potential divide by zero.
 const uint32 kBitrateSmoothingPeriod = 10000;
 
-// When kUnknownWaitTime is returned, there is no need to poll the function
-// again until we receive a new event.
-const int kUnknownWaitTime = -1;
-
 class NET_EXPORT_PRIVATE QuicSendScheduler {
  public:
   class PendingPacket {
    public:
-    PendingPacket(size_t bytes, uint64 timestamp_us)
+    PendingPacket(size_t bytes, QuicTime timestamp)
         : bytes_sent_(bytes),
-          send_timestamp_us_(timestamp_us) {
+          send_timestamp_(timestamp) {
     }
     size_t BytesSent() { return bytes_sent_; }
-    uint64 SendTimestamp() { return send_timestamp_us_; }
+    QuicTime& SendTimestamp() { return send_timestamp_; }
 
    private:
     size_t bytes_sent_;
-    uint64 send_timestamp_us_;
+    QuicTime send_timestamp_;
   };
   typedef std::map<QuicPacketSequenceNumber, PendingPacket*> PendingPacketsMap;
 
-  QuicSendScheduler(QuicClock* clock, CongestionFeedbackType congestion_type);
+  // Enable pacing to prevent a large congestion window to be sent all at once,
+  // when pacing is enabled a large congestion window will be sent in multiple
+  // bursts of packet(s) instead of one big burst that might introduce packet
+  // loss.
+  QuicSendScheduler(const QuicClock* clock,
+                    CongestionFeedbackType congestion_type);
   virtual ~QuicSendScheduler();
 
   // Called when we have received an ack frame from remote peer.
@@ -66,7 +68,7 @@ class NET_EXPORT_PRIVATE QuicSendScheduler {
   // TimeUntilSend again until we receive an OnIncomingAckFrame event.
   // Note 2: Send algorithms may or may not use |retransmit| in their
   // calculations.
-  virtual int TimeUntilSend(bool retransmit);
+  virtual QuicTime::Delta TimeUntilSend(bool retransmit);
 
   // Returns the current available congestion window in bytes, the number of
   // bytes that can be sent now.
@@ -86,10 +88,10 @@ class NET_EXPORT_PRIVATE QuicSendScheduler {
   bool HasSentPacket();
   int UpdatePacketHistory();
 
-  QuicClock* clock_;
+  const QuicClock* clock_;
   int current_estimated_bandwidth_;
   int max_estimated_bandwidth_;
-  uint64 last_sent_packet_us_;
+  QuicTime last_sent_packet_;
   // To keep track of the real sent bitrate we keep track of the last sent bytes
   // by keeping an array containing the number of bytes sent in a short timespan
   // kBitrateSmoothingPeriod; multiple of these buckets kBitrateSmoothingBuckets

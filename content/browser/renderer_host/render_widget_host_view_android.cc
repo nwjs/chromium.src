@@ -11,7 +11,6 @@
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "content/browser/android/content_view_core_impl.h"
-#include "content/browser/android/draw_delegate_impl.h"
 #include "content/browser/gpu/gpu_surface_tracker.h"
 #include "content/browser/renderer_host/compositor_impl_android.h"
 #include "content/browser/renderer_host/image_transport_factory_android.h"
@@ -62,6 +61,7 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
   // RenderWidgetHost to hide.
   if (is_hidden_)
     host_->WasHidden();
+  texture_layer_->layer()->setOpaque(true);
   texture_layer_->layer()->setDrawsContent(!is_hidden_);
   host_->AttachLayer(texture_layer_->layer());
 }
@@ -115,12 +115,7 @@ void RenderWidgetHostViewAndroid::WasHidden() {
 }
 
 void RenderWidgetHostViewAndroid::SetSize(const gfx::Size& size) {
-  // Update the size of the RWH.
-  if (requested_size_.width() != size.width() ||
-      requested_size_.height() != size.height()) {
-    requested_size_ = gfx::Size(size.width(), size.height());
-    host_->WasResized();
-  }
+  host_->WasResized();
 }
 
 void RenderWidgetHostViewAndroid::SetBounds(const gfx::Rect& rect) {
@@ -198,7 +193,7 @@ RenderWidgetHostViewAndroid::GetNativeViewAccessible() {
 }
 
 void RenderWidgetHostViewAndroid::MovePluginWindows(
-    const gfx::Point& scroll_offset,
+    const gfx::Vector2d& scroll_offset,
     const std::vector<webkit::npapi::WebPluginGeometry>& moves) {
   // We don't have plugin windows on Android. Do nothing. Note: this is called
   // from RenderWidgetHost::OnMsgUpdateRect which is itself invoked while
@@ -230,10 +225,17 @@ bool RenderWidgetHostViewAndroid::IsSurfaceAvailableForCopy() const {
 }
 
 void RenderWidgetHostViewAndroid::Show() {
+  if (content_view_core_) {
+    host_->AttachLayer(texture_layer_->layer());
+    is_hidden_ = false;
+  }
+
   texture_layer_->layer()->setDrawsContent(true);
 }
 
 void RenderWidgetHostViewAndroid::Hide() {
+  is_hidden_ = true;
+
   texture_layer_->layer()->setDrawsContent(false);
 }
 
@@ -242,11 +244,10 @@ bool RenderWidgetHostViewAndroid::IsShowing() {
 }
 
 gfx::Rect RenderWidgetHostViewAndroid::GetViewBounds() const {
-  gfx::Size bounds = DrawDelegateImpl::GetInstance()->GetBounds();
-  if (!bounds.IsEmpty())
-    return gfx::Rect(bounds);
+  if (!content_view_core_)
+    return gfx::Rect();
 
-  return gfx::Rect(requested_size_);
+  return content_view_core_->GetBounds();
 }
 
 void RenderWidgetHostViewAndroid::UpdateCursor(const WebCursor& cursor) {
@@ -359,6 +360,14 @@ void RenderWidgetHostViewAndroid::CopyFromCompositingSurface(
     skia::PlatformBitmap* output) {
   NOTIMPLEMENTED();
   callback.Run(false);
+}
+
+void RenderWidgetHostViewAndroid::ShowDisambiguationPopup(
+    const gfx::Rect& target_rect, const SkBitmap& zoomed_bitmap) {
+  if (!content_view_core_)
+    return;
+
+  content_view_core_->ShowDisambiguationPopup(target_rect, zoomed_bitmap);
 }
 
 void RenderWidgetHostViewAndroid::OnAcceleratedCompositingStateChange() {
@@ -518,7 +527,7 @@ void RenderWidgetHostViewAndroid::SetCachedPageScaleFactorLimits(
 }
 
 void RenderWidgetHostViewAndroid::UpdateFrameInfo(
-    const gfx::Point& scroll_offset,
+    const gfx::Vector2d& scroll_offset,
     float page_scale_factor,
     const gfx::Size& content_size) {
   if (content_view_core_) {

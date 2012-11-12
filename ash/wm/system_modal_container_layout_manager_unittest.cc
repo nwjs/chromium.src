@@ -254,9 +254,10 @@ TEST_F(SystemModalContainerLayoutManagerTest,
   EXPECT_TRUE(wm::IsActiveWindow(transient.get()));
 
   // Now close the transient.
+  transient->Hide();
   transient.reset();
 
-  MessageLoopForUI::current()->RunAllPending();
+  MessageLoopForUI::current()->RunUntilIdle();
 
   // parent should now be active again.
   EXPECT_TRUE(wm::IsActiveWindow(parent.get()));
@@ -301,9 +302,10 @@ TEST_F(SystemModalContainerLayoutManagerTest, EventFocusContainers) {
   aura::Window* lock_modal = lock_modal_delegate->OpenTestWindow(lock.get());
   EXPECT_TRUE(wm::IsActiveWindow(lock_modal));
   e1.ClickLeftButton();
-  EXPECT_EQ(1, main_delegate->mouse_presses());
+  EXPECT_EQ(1, lock_modal_delegate->mouse_presses());
 
   // Verify that none of the other containers received any more mouse presses.
+  EXPECT_EQ(1, main_delegate->mouse_presses());
   EXPECT_EQ(1, transient_delegate->mouse_presses());
   EXPECT_EQ(1, lock_delegate->mouse_presses());
   EXPECT_EQ(1, lock_modal_delegate->mouse_presses());
@@ -456,6 +458,7 @@ TEST_F(SystemModalContainerLayoutManagerTest, MultiDisplays) {
   EXPECT_TRUE(wm::IsActiveWindow(modal1.get()));
 
   // No more modal screen.
+  modal1->Hide();
   modal1.reset();
   EXPECT_FALSE(AllRootWindowsHaveModalBackgrounds());
   EXPECT_TRUE(wm::IsActiveWindow(normal.get()));

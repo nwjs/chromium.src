@@ -247,7 +247,6 @@ bool RenderViewHostImpl::CreateRenderView(
     next_page_id = max_page_id + 1;
 
   ViewMsg_New_Params params;
-  params.parent_window = GetNativeViewId();
   params.renderer_preferences =
       delegate_->GetRendererPrefs(GetProcess()->GetBrowserContext());
   params.web_preferences = delegate_->GetWebkitPrefs();
@@ -929,6 +928,7 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
   // thread and make these messages async: http://crbug.com/149063.
   if (msg.type() != BrowserPluginHostMsg_HandleInputEvent::ID &&
       msg.type() != BrowserPluginHostMsg_ResizeGuest::ID &&
+      msg.type() != BrowserPluginHostMsg_SetAutoSize::ID &&
       !BrowserMessageFilter::CheckCanDispatchOnUI(msg, this))
     return true;
 
@@ -1040,7 +1040,7 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
                         OnShowDesktopNotification)
     IPC_MESSAGE_HANDLER(DesktopNotificationHostMsg_Cancel,
                         OnCancelDesktopNotification)
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) || defined(OS_ANDROID)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ShowPopup, OnMsgShowPopup)
 #endif
     IPC_MESSAGE_HANDLER(ViewHostMsg_RunFileChooser, OnRunFileChooser)
@@ -1149,6 +1149,7 @@ void RenderViewHostImpl::OnMsgRunModal(int opener_id, IPC::Message* reply_msg) {
 
 void RenderViewHostImpl::OnMsgRenderViewReady() {
   render_view_termination_status_ = base::TERMINATION_STATUS_STILL_RUNNING;
+  SendScreenRects();
   WasResized();
   delegate_->RenderViewReady(this);
 }
@@ -1458,7 +1459,8 @@ void RenderViewHostImpl::OnMsgStartDragging(
     const WebDropData& drop_data,
     WebDragOperationsMask drag_operations_mask,
     const SkBitmap& bitmap,
-    const gfx::Point& bitmap_offset_in_dip) {
+    const gfx::Vector2d& bitmap_offset_in_dip,
+    const DragEventSourceInfo& event_info) {
   RenderViewHostDelegateView* view = delegate_->GetDelegateView();
   if (!view)
     return;
@@ -1491,7 +1493,7 @@ void RenderViewHostImpl::OnMsgStartDragging(
   ui::ScaleFactor scale_factor = GetScaleFactorForView(GetView());
   gfx::ImageSkia image(gfx::ImageSkiaRep(bitmap, scale_factor));
   view->StartDragging(filtered_data, drag_operations_mask, image,
-      bitmap_offset_in_dip);
+      bitmap_offset_in_dip, event_info);
 }
 
 void RenderViewHostImpl::OnUpdateDragCursor(WebDragOperation current_op) {

@@ -149,7 +149,7 @@ WebGraphicsContext3DCommandBufferImpl::WebGraphicsContext3DCommandBufferImpl(
       frame_number_(0),
       bind_generates_resources_(false),
       use_echo_for_swap_ack_(true) {
-#if defined(OS_MACOSX) || defined(OS_WIN)
+#if (defined(OS_MACOSX) || defined(OS_WIN)) && !defined(USE_AURA)
   // Get ViewMsg_SwapBuffers_ACK from browser for single-threaded path.
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   use_echo_for_swap_ack_ =
@@ -758,6 +758,16 @@ void WebGraphicsContext3DCommandBufferImpl::
         WGC3Dsizei width, WGC3Dsizei height) {
   gl_->RenderbufferStorageMultisampleEXT(
       target, samples, internalformat, width, height);
+}
+
+WebGLId WebGraphicsContext3DCommandBufferImpl::createStreamTextureCHROMIUM(
+    WebGLId texture) {
+  return gl_->CreateStreamTextureCHROMIUM(texture);
+}
+
+void WebGraphicsContext3DCommandBufferImpl::destroyStreamTextureCHROMIUM(
+    WebGLId texture) {
+  gl_->DestroyStreamTextureCHROMIUM(texture);
 }
 
 // Helper macros to reduce the amount of code.
@@ -1576,7 +1586,15 @@ DELEGATE_TO_GL_3(bindUniformLocationCHROMIUM, BindUniformLocationCHROMIUM,
 
 DELEGATE_TO_GL(shallowFlushCHROMIUM,ShallowFlushCHROMIUM);
 
-DELEGATE_TO_GL_1(genMailboxCHROMIUM, GenMailboxCHROMIUM, WGC3Dbyte*)
+void WebGraphicsContext3DCommandBufferImpl::genMailboxCHROMIUM(
+    WGC3Dbyte* name) {
+  std::vector<std::string> names(1);
+  if (command_buffer_->GenerateMailboxNames(1, &names))
+    memcpy(name, names[0].c_str(), GL_MAILBOX_SIZE_CHROMIUM);
+  else
+    synthesizeGLError(GL_OUT_OF_MEMORY);
+}
+
 DELEGATE_TO_GL_2(produceTextureCHROMIUM, ProduceTextureCHROMIUM,
                  WGC3Denum, const WGC3Dbyte*)
 DELEGATE_TO_GL_2(consumeTextureCHROMIUM, ConsumeTextureCHROMIUM,

@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCOcclusionTracker_h
-#define CCOcclusionTracker_h
+#ifndef CC_OCCLUSION_TRACKER_H_
+#define CC_OCCLUSION_TRACKER_H_
 
-#include "FloatQuad.h"
-#include "Region.h"
 #include "base/basictypes.h"
+#include "cc/cc_export.h"
 #include "cc/layer_iterator.h"
+#include "cc/region.h"
+#include "ui/gfx/rect.h"
 
 namespace cc {
 class OverdrawMetrics;
@@ -23,9 +24,10 @@ class RenderSurface;
 // If the current layer owns a RenderSurfaceImpl, then occlusion on that RenderSurfaceImpl may also be queried via surfaceOccluded() and surfaceUnoccludedContentRect().
 // Finally, once finished with the layer, occlusion behind the layer should be marked by calling markOccludedBehindLayer().
 template<typename LayerType, typename RenderSurfaceType>
-class OcclusionTrackerBase {
+class CC_EXPORT OcclusionTrackerBase {
 public:
-    OcclusionTrackerBase(IntRect rootTargetRect, bool recordMetricsForFrame);
+    OcclusionTrackerBase(gfx::Rect rootTargetRect, bool recordMetricsForFrame);
+    ~OcclusionTrackerBase();
 
     // Called at the beginning of each step in the LayerIterator's front-to-back traversal.
     void enterLayer(const LayerIteratorPosition<LayerType>&);
@@ -33,24 +35,24 @@ public:
     void leaveLayer(const LayerIteratorPosition<LayerType>&);
 
     // Returns true if the given rect in content space for a layer is fully occluded in either screen space or the layer's target surface.  |renderTarget| is the contributing layer's render target, and |drawTransform|, |transformsToTargetKnown| and |clippedRectInTarget| are relative to that.
-    bool occluded(const LayerType* renderTarget, const IntRect& contentRect, const WebKit::WebTransformationMatrix& drawTransform, bool implDrawTransformIsUnknown, const IntRect& clippedRectInTarget, bool* hasOcclusionFromOutsideTargetSurface = 0) const;
+    bool occluded(const LayerType* renderTarget, const gfx::Rect& contentRect, const WebKit::WebTransformationMatrix& drawTransform, bool implDrawTransformIsUnknown, const gfx::Rect& clippedRectInTarget, bool* hasOcclusionFromOutsideTargetSurface = 0) const;
     // Gives an unoccluded sub-rect of |contentRect| in the content space of a layer. Used when considering occlusion for a layer that paints/draws something. |renderTarget| is the contributing layer's render target, and |drawTransform|, |transformsToTargetKnown| and |clippedRectInTarget| are relative to that.
-    IntRect unoccludedContentRect(const LayerType* renderTarget, const IntRect& contentRect, const WebKit::WebTransformationMatrix& drawTransform, bool implDrawTransformIsUnknown, const IntRect& clippedRectInTarget, bool* hasOcclusionFromOutsideTargetSurface = 0) const;
+    gfx::Rect unoccludedContentRect(const LayerType* renderTarget, const gfx::Rect& contentRect, const WebKit::WebTransformationMatrix& drawTransform, bool implDrawTransformIsUnknown, const gfx::Rect& clippedRectInTarget, bool* hasOcclusionFromOutsideTargetSurface = 0) const;
 
     // Gives an unoccluded sub-rect of |contentRect| in the content space of the renderTarget owned by the layer.
     // Used when considering occlusion for a contributing surface that is rendering into another target.
-    IntRect unoccludedContributingSurfaceContentRect(const LayerType*, bool forReplica, const IntRect& contentRect, bool* hasOcclusionFromOutsideTargetSurface = 0) const;
+    gfx::Rect unoccludedContributingSurfaceContentRect(const LayerType*, bool forReplica, const gfx::Rect& contentRect, bool* hasOcclusionFromOutsideTargetSurface = 0) const;
 
     // Report operations for recording overdraw metrics.
     OverdrawMetrics& overdrawMetrics() const { return *m_overdrawMetrics.get(); }
 
     // Gives the region of the screen that is not occluded by something opaque.
-    Region computeVisibleRegionInScreen() const { return subtract(Region(m_rootTargetRect), m_stack.last().occlusionInScreen); }
+    Region computeVisibleRegionInScreen() const { return SubtractRegions(m_rootTargetRect, m_stack.back().occlusionInScreen); }
 
-    void setMinimumTrackingSize(const IntSize& size) { m_minimumTrackingSize = size; }
+    void setMinimumTrackingSize(const gfx::Size& size) { m_minimumTrackingSize = size; }
 
-    // The following is used for visualization purposes.
-    void setOccludingScreenSpaceRectsContainer(std::vector<IntRect>* rects) { m_occludingScreenSpaceRects = rects; }
+    // The following is used for visualization purposes. 
+    void setOccludingScreenSpaceRectsContainer(std::vector<gfx::Rect>* rects) { m_occludingScreenSpaceRects = rects; }
 
 protected:
     struct StackObject {
@@ -68,10 +70,10 @@ protected:
     // - When we visit a layer representing itself, we add its occlusion to the current subtree, which is at the top of the stack.
     // - When we visit a layer representing a contributing surface, the current target will never be the top of the stack since we just came from the contributing surface.
     // We merge the occlusion at the top of the stack with the new current subtree. This new target is pushed onto the stack if not already there.
-    Vector<StackObject, 1> m_stack;
+    std::vector<StackObject> m_stack;
 
     // Allow tests to override this.
-    virtual IntRect layerClipRectInTarget(const LayerType*) const;
+    virtual gfx::Rect layerClipRectInTarget(const LayerType*) const;
 
 private:
     // Called when visiting a layer representing itself. If the target was not already current, then this indicates we have entered a new surface subtree.
@@ -88,19 +90,23 @@ private:
     // Add the layer's occlusion to the tracked state.
     void markOccludedBehindLayer(const LayerType*);
 
-    IntRect m_rootTargetRect;
+    gfx::Rect m_rootTargetRect;
     scoped_ptr<OverdrawMetrics> m_overdrawMetrics;
-    IntSize m_minimumTrackingSize;
+    gfx::Size m_minimumTrackingSize;
 
     // This is used for visualizing the occlusion tracking process.
-    std::vector<IntRect>* m_occludingScreenSpaceRects;
+    std::vector<gfx::Rect>* m_occludingScreenSpaceRects;
 
     DISALLOW_COPY_AND_ASSIGN(OcclusionTrackerBase);
 };
 
 typedef OcclusionTrackerBase<Layer, RenderSurface> OcclusionTracker;
 typedef OcclusionTrackerBase<LayerImpl, RenderSurfaceImpl> OcclusionTrackerImpl;
+#if !defined(COMPILER_MSVC)
+extern template class OcclusionTrackerBase<Layer, RenderSurface>;
+extern template class OcclusionTrackerBase<LayerImpl, RenderSurfaceImpl>;
+#endif
 
 }  // namespace cc
 
-#endif // CCOcclusionTracker_h
+#endif  // CC_OCCLUSION_TRACKER_H_

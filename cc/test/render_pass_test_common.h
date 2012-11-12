@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCRenderPassTestCommon_h
-#define CCRenderPassTestCommon_h
+#ifndef CC_TEST_RENDER_PASS_TEST_COMMON_H_
+#define CC_TEST_RENDER_PASS_TEST_COMMON_H_
 
 #include "cc/render_pass.h"
+
+namespace cc {
+class ResourceProvider;
+}
 
 namespace WebKitTests {
 
@@ -21,6 +25,8 @@ public:
     void appendQuad(scoped_ptr<cc::DrawQuad> quad) { m_quadList.append(quad.Pass()); }
     void appendSharedQuadState(scoped_ptr<cc::SharedQuadState> state) { m_sharedQuadStateList.append(state.Pass()); }
 
+    void appendOneOfEveryQuadType(cc::ResourceProvider*);
+
 protected:
     TestRenderPass(Id id, gfx::Rect outputRect, const WebKit::WebTransformationMatrix& transformToRootTarget)
         : RenderPass(id, outputRect, transformToRootTarget) { }
@@ -28,4 +34,4 @@ protected:
 
 }  // namespace WebKitTests
 
-#endif // CCRenderPassTestCommon_h
+#endif  // CC_TEST_RENDER_PASS_TEST_COMMON_H_

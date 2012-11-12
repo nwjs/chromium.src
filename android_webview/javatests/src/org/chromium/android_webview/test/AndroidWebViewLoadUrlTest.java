@@ -13,7 +13,7 @@ import org.chromium.android_webview.AwContents;
 import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.LoadUrlParams;
 import org.chromium.content.browser.test.util.CallbackHelper;
-import org.chromium.android_webview.test.util.TestWebServer;
+import org.chromium.net.test.util.TestWebServer;
 
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
@@ -24,7 +24,7 @@ import java.util.Map;
  */
 public class AndroidWebViewLoadUrlTest extends AndroidWebViewTestBase {
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testDataUrl() throws Throwable {
         final String expectedTitle = "dataUrlTest";
         final String data =
@@ -40,7 +40,7 @@ public class AndroidWebViewLoadUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testDataUrlBase64() throws Throwable {
         final String expectedTitle = "dataUrlTestBase64";
         final String data = "PGh0bWw+PGhlYWQ+PHRpdGxlPmRhdGFVcmxUZXN0QmFzZTY0PC90aXRsZT48" +
@@ -77,7 +77,7 @@ public class AndroidWebViewLoadUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testLoadUrlWithExtraHeaders() throws Throwable {
         final TestAwContentsClient contentsClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =

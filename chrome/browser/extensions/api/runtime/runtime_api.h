@@ -25,6 +25,12 @@ class RuntimeEventRouter {
                                        const std::string& extension_id,
                                        const Version& old_version,
                                        bool chrome_updated);
+
+  // Dispatches the onUpdateAvailable event to the given extension.
+  static void DispatchOnUpdateAvailableEvent(
+      Profile* profile,
+      const std::string& extension_id,
+      const base::DictionaryValue* manifest);
 };
 
 class RuntimeGetBackgroundPageFunction : public AsyncExtensionFunction {
@@ -37,6 +43,15 @@ class RuntimeGetBackgroundPageFunction : public AsyncExtensionFunction {
 
  private:
   void OnPageLoaded(ExtensionHost*);
+};
+
+class RuntimeReloadFunction : public SyncExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION_NAME("runtime.reload");
+
+ protected:
+  virtual ~RuntimeReloadFunction() {}
+  virtual bool RunImpl() OVERRIDE;
 };
 
 }  // namespace extensions

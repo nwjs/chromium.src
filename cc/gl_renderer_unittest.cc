@@ -2,25 +2,26 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
 #include "cc/gl_renderer.h"
 
 #include "cc/draw_quad.h"
-#include "cc/prioritized_texture_manager.h"
+#include "cc/prioritized_resource_manager.h"
 #include "cc/resource_provider.h"
 #include "cc/settings.h"
-#include "cc/single_thread_proxy.h"
 #include "cc/test/fake_web_compositor_output_surface.h"
 #include "cc/test/fake_web_graphics_context_3d.h"
 #include "cc/test/test_common.h"
+#include "cc/test/render_pass_test_common.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include <public/WebTransformationMatrix.h>
 
-using namespace cc;
 using namespace WebKit;
 using namespace WebKitTests;
+
+namespace cc {
+namespace {
 
 class FrameCountingMemoryAllocationSettingContext : public FakeWebGraphicsContext3D {
 public:
@@ -42,9 +43,6 @@ public:
     int frameCount() { return m_frame; }
     void setMemoryAllocation(WebGraphicsMemoryAllocation allocation)
     {
-        DCHECK(Proxy::isImplThread());
-        // In single threaded mode we expect this callback on main thread.
-        DebugScopedSetMainThread main;
         m_memoryAllocationChangedCallback->onMemoryAllocationChanged(allocation);
     }
 
@@ -59,23 +57,24 @@ public:
         : m_setFullRootLayerDamageCount(0)
         , m_lastCallWasSetVisibility(0)
         , m_rootLayer(LayerImpl::create(1))
-        , m_memoryAllocationLimitBytes(PrioritizedTextureManager::defaultMemoryAllocationLimit())
+        , m_memoryAllocationLimitBytes(PrioritizedResourceManager::defaultMemoryAllocationLimit())
     {
         m_rootLayer->createRenderSurface();
         RenderPass::Id renderPassId = m_rootLayer->renderSurface()->renderPassId();
-        scoped_ptr<RenderPass> rootRenderPass = RenderPass::create(renderPassId, IntRect(), WebTransformationMatrix());
+        scoped_ptr<RenderPass> rootRenderPass = RenderPass::create(renderPassId, gfx::Rect(), WebTransformationMatrix());
         m_renderPassesInDrawOrder.push_back(rootRenderPass.get());
         m_renderPasses.set(renderPassId, rootRenderPass.Pass());
     }
 
     // RendererClient methods.
-    virtual const IntSize& deviceViewportSize() const OVERRIDE { static IntSize fakeSize(1, 1); return fakeSize; }
+    virtual const gfx::Size& deviceViewportSize() const OVERRIDE { static gfx::Size fakeSize(1, 1); return fakeSize; }
     virtual const LayerTreeSettings& settings() const OVERRIDE { static LayerTreeSettings fakeSettings; return fakeSettings; }
     virtual void didLoseContext() OVERRIDE { }
     virtual void onSwapBuffersComplete() OVERRIDE { }
     virtual void setFullRootLayerDamage() OVERRIDE { m_setFullRootLayerDamageCount++; }
     virtual void setManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE { m_memoryAllocationLimitBytes = policy.bytesLimitWhenVisible; }
     virtual void enforceManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE { if (m_lastCallWasSetVisibility) *m_lastCallWasSetVisibility = false; }
+    virtual bool hasImplThread() const OVERRIDE { return false; }
 
     // Methods added for test.
     int setFullRootLayerDamageCount() const { return m_setFullRootLayerDamageCount; }
@@ -90,7 +89,6 @@ public:
 private:
     int m_setFullRootLayerDamageCount;
     bool* m_lastCallWasSetVisibility;
-    DebugScopedSetImplThread m_implThread;
     scoped_ptr<LayerImpl> m_rootLayer;
     RenderPassList m_renderPassesInDrawOrder;
     RenderPassIdHashMap m_renderPasses;
@@ -106,6 +104,8 @@ public:
     // Changing visibility to public.
     using GLRenderer::initialize;
     using GLRenderer::isFramebufferDiscarded;
+    using GLRenderer::drawQuad;
+    using GLRenderer::beginDrawingFrame;
 };
 
 class GLRendererTest : public testing::Test {
@@ -221,7 +221,7 @@ TEST_F(GLRendererTest, FramebufferDiscardedAfterReadbackWhenNotVisible)
     m_renderer.drawFrame(m_mockClient.renderPassesInDrawOrder(), m_mockClient.renderPasses());
     EXPECT_FALSE(m_renderer.isFramebufferDiscarded());
 
-    m_renderer.getFramebufferPixels(pixels, IntRect(0, 0, 1, 1));
+    m_renderer.getFramebufferPixels(pixels, gfx::Rect(0, 0, 1, 1));
     EXPECT_TRUE(m_renderer.isFramebufferDiscarded());
     EXPECT_EQ(2, m_mockClient.setFullRootLayerDamageCount());
 }
@@ -483,3 +483,58 @@ TEST(GLRendererTest2, visibilityChangeIsLastCall)
     renderer.setVisible(false);
     EXPECT_TRUE(lastCallWasSetVisiblity);
 }
+
+
+class ActiveTextureTrackingContext : public FakeWebGraphicsContext3D {
+public:
+    ActiveTextureTrackingContext()
+        : m_activeTexture(GL_INVALID_ENUM)
+    {
+    }
+
+    virtual WebString getString(WGC3Denum name)
+    {
+        if (name == GL_EXTENSIONS)
+            return WebString("GL_OES_EGL_image_external");
+        return WebString();
+    }
+
+    virtual void activeTexture(WGC3Denum texture)
+    {
+        EXPECT_NE(texture, m_activeTexture);
+        m_activeTexture = texture;
+    }
+
+    WGC3Denum activeTexture() const { return m_activeTexture; }
+
+private:
+    WGC3Denum m_activeTexture;
+};
+
+TEST(GLRendererTest2, activeTextureState)
+{
+    FakeRendererClient fakeClient;
+    scoped_ptr<GraphicsContext> outputSurface(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new ActiveTextureTrackingContext)));
+    ActiveTextureTrackingContext* context = static_cast<ActiveTextureTrackingContext*>(outputSurface->context3D());
+    scoped_ptr<ResourceProvider> resourceProvider(ResourceProvider::create(outputSurface.get()));
+    FakeRendererGL renderer(&fakeClient, resourceProvider.get());
+
+    EXPECT_TRUE(renderer.initialize());
+
+    cc::RenderPass::Id id(1, 1);
+    scoped_ptr<TestRenderPass> pass = TestRenderPass::create(id, gfx::Rect(0, 0, 100, 100), WebTransformationMatrix());
+    pass->appendOneOfEveryQuadType(resourceProvider.get());
+
+    cc::DirectRenderer::DrawingFrame drawingFrame;
+    renderer.beginDrawingFrame(drawingFrame);
+    EXPECT_EQ(context->activeTexture(), GL_TEXTURE0);
+
+    for (cc::QuadList::backToFrontIterator it = pass->quadList().backToFrontBegin();
+         it != pass->quadList().backToFrontEnd(); ++it) {
+        renderer.drawQuad(drawingFrame, *it);
+    }
+    EXPECT_EQ(context->activeTexture(), GL_TEXTURE0);
+}
+
+}  // namespace
+}  // namespace cc

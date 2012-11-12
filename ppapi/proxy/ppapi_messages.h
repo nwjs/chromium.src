@@ -32,6 +32,7 @@
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/c/pp_size.h"
 #include "ppapi/c/pp_time.h"
+#include "ppapi/c/ppb_audio_config.h"
 #include "ppapi/c/private/pp_content_decryptor.h"
 #include "ppapi/c/private/pp_private_font_charset.h"
 #include "ppapi/c/private/ppb_flash.h"
@@ -61,6 +62,7 @@
 
 #define IPC_MESSAGE_START PpapiMsgStart
 
+IPC_ENUM_TRAITS(PP_AudioSampleRate)
 IPC_ENUM_TRAITS(PP_DeviceType_Dev)
 IPC_ENUM_TRAITS(PP_DecryptorStreamType)
 IPC_ENUM_TRAITS(PP_Flash_BrowserOperations_Permission)
@@ -412,17 +414,6 @@ IPC_SYNC_MESSAGE_CONTROL2_1(PpapiMsg_ConnectToPlugin,
 // in, since some could be valid even in the error case.
 IPC_MESSAGE_ROUTED4(PpapiMsg_PPBAudio_NotifyAudioStreamCreated,
                     ppapi::HostResource /* audio_id */,
-                    int32_t /* result_code (will be != PP_OK on failure) */,
-                    ppapi::proxy::SerializedHandle /* socket_handle */,
-                    ppapi::proxy::SerializedHandle /* handle */)
-
-// PPB_AudioInput_Dev.
-IPC_MESSAGE_ROUTED3(PpapiMsg_PPBAudioInput_EnumerateDevicesACK,
-                    ppapi::HostResource /* audio_input */,
-                    int32_t /* result */,
-                    std::vector<ppapi::DeviceRefData> /* devices */)
-IPC_MESSAGE_ROUTED4(PpapiMsg_PPBAudioInput_OpenACK,
-                    ppapi::HostResource /* audio_input */,
                     int32_t /* result_code (will be != PP_OK on failure) */,
                     ppapi::proxy::SerializedHandle /* socket_handle */,
                     ppapi::proxy::SerializedHandle /* handle */)
@@ -842,23 +833,6 @@ IPC_SYNC_MESSAGE_ROUTED3_1(PpapiHostMsg_PPBAudio_Create,
 IPC_MESSAGE_ROUTED2(PpapiHostMsg_PPBAudio_StartOrStop,
                     ppapi::HostResource /* audio_id */,
                     bool /* play */)
-
-// PPB_AudioInput.
-IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBAudioInput_Create,
-                           PP_Instance /* instance */,
-                           ppapi::HostResource /* result */)
-IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBAudioInput_EnumerateDevices,
-                    ppapi::HostResource /* audio_input */)
-IPC_MESSAGE_ROUTED4(PpapiHostMsg_PPBAudioInput_Open,
-                    ppapi::HostResource /* audio_input */,
-                    std::string /* device_id */,
-                    int32_t /* sample_rate */,
-                    uint32_t /* sample_frame_count */)
-IPC_MESSAGE_ROUTED2(PpapiHostMsg_PPBAudioInput_StartOrStop,
-                    ppapi::HostResource /* audio_input */,
-                    bool /* capture */)
-IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBAudioInput_Close,
-                    ppapi::HostResource /* audio_input */)
 
 // PPB_Core.
 IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBCore_AddRefResource,
@@ -1420,21 +1394,6 @@ IPC_MESSAGE_ROUTED0(PpapiHostMsg_PPBFlash_UpdateActivity)
 IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBFlash_GetDeviceID,
                            PP_Instance /* instance */,
                            ppapi::proxy::SerializedVar /* id */)
-IPC_SYNC_MESSAGE_ROUTED3_1(PpapiHostMsg_PPBFlash_IsClipboardFormatAvailable,
-                           PP_Instance /* instance */,
-                           int /* clipboard_type */,
-                           int /* format */,
-                           bool /* result */)
-IPC_SYNC_MESSAGE_ROUTED3_1(PpapiHostMsg_PPBFlash_ReadClipboardData,
-                           PP_Instance /* instance */,
-                           int /* clipboard_type */,
-                           int /* format */,
-                           ppapi::proxy::SerializedVar /* result */)
-IPC_MESSAGE_ROUTED4(PpapiHostMsg_PPBFlash_WriteClipboardData,
-                    PP_Instance /* instance */,
-                    int /* clipboard_type */,
-                    std::vector<int> /* formats */,
-                    std::vector<ppapi::proxy::SerializedVar> /* data */)
 IPC_SYNC_MESSAGE_ROUTED3_2(PpapiHostMsg_PPBFlash_OpenFileRef,
                            PP_Instance /* instance */,
                            ppapi::HostResource /* file_ref */,
@@ -1528,7 +1487,8 @@ IPC_MESSAGE_CONTROL3(PpapiHostMsg_PPBUDPSocket_Bind,
 IPC_MESSAGE_CONTROL2(PpapiHostMsg_PPBUDPSocket_RecvFrom,
                      uint32 /* socket_id */,
                      int32_t /* num_bytes */)
-IPC_MESSAGE_CONTROL3(PpapiHostMsg_PPBUDPSocket_SendTo,
+IPC_MESSAGE_CONTROL4(PpapiHostMsg_PPBUDPSocket_SendTo,
+                     int32 /* routing_id */,
                      uint32 /* socket_id */,
                      std::string /* data */,
                      PP_NetAddress_Private /* net_addr */)
@@ -1640,7 +1600,6 @@ IPC_MESSAGE_CONTROL1(PpapiPluginMsg_Printing_GetDefaultPrintSettingsReply,
                      PP_PrintSettings_Dev /* print_settings */)
 
 // WebSocket ------------------------------------------------------------------
-
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_WebSocket_Create)
 
 // Establishes the connection to a server. This message requires
@@ -1685,9 +1644,9 @@ IPC_MESSAGE_CONTROL2(PpapiPluginMsg_WebSocket_ConnectReply,
 // finished. All arguments will be valid iff the result is PP_OK and it means
 // that the client initiated closing handshake is finished gracefully.
 IPC_MESSAGE_CONTROL4(PpapiPluginMsg_WebSocket_CloseReply,
-                     unsigned long /* buffered_amount */,
+                     uint64_t /* buffered_amount */,
                      bool /* was_clean */,
-                     unsigned short /* code */,
+                     uint16_t /* code */,
                      std::string /* reason */)
 
 // Unsolicited reply message to transmit a receiving text frame.
@@ -1703,7 +1662,7 @@ IPC_MESSAGE_CONTROL0(PpapiPluginMsg_WebSocket_ErrorReply)
 
 // Unsolicited reply message to update the buffered amount value.
 IPC_MESSAGE_CONTROL1(PpapiPluginMsg_WebSocket_BufferedAmountReply,
-                     unsigned long /* buffered_amount */)
+                     uint64_t /* buffered_amount */)
 
 // Unsolicited reply message to update |state| because of incoming external
 // events, e.g., protocol error, or unexpected network closure.
@@ -1714,12 +1673,47 @@ IPC_MESSAGE_CONTROL1(PpapiPluginMsg_WebSocket_StateReply,
 // any WebSocket_Close request. Server initiated closing handshake or
 // unexpected network errors will invoke this message.
 IPC_MESSAGE_CONTROL4(PpapiPluginMsg_WebSocket_ClosedReply,
-                     unsigned long /* buffered_amount */,
+                     uint64_t /* buffered_amount */,
                      bool /* was_clean */,
-                     unsigned short /* code */,
+                     uint16_t /* code */,
                      std::string /* reason */)
 
 #if !defined(OS_NACL) && !defined(NACL_WIN64)
+
+// Audio input.
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_AudioInput_Create)
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_AudioInput_EnumerateDevices)
+IPC_MESSAGE_CONTROL1(PpapiPluginMsg_AudioInput_EnumerateDevicesReply,
+                     std::vector<ppapi::DeviceRefData> /* devices */)
+IPC_MESSAGE_CONTROL3(PpapiHostMsg_AudioInput_Open,
+                     std::string /* device_id */,
+                     PP_AudioSampleRate /* sample_rate */,
+                     uint32_t /* sample_frame_count */)
+// Reply to an Open call. This supplies a socket handle and a shared memory
+// handle. Both handles are passed in the ReplyParams struct.
+IPC_MESSAGE_CONTROL0(PpapiPluginMsg_AudioInput_OpenReply)
+IPC_MESSAGE_CONTROL1(PpapiHostMsg_AudioInput_StartOrStop, bool /* capture */)
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_AudioInput_Close)
+
+// Flash clipboard.
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_FlashClipboard_Create)
+IPC_MESSAGE_CONTROL1(PpapiHostMsg_FlashClipboard_RegisterCustomFormat,
+                     std::string /* format_name */)
+IPC_MESSAGE_CONTROL1(PpapiPluginMsg_FlashClipboard_RegisterCustomFormatReply,
+                     uint32_t /* format */)
+IPC_MESSAGE_CONTROL2(PpapiHostMsg_FlashClipboard_IsFormatAvailable,
+                     uint32_t /* clipboard_type */,
+                     uint32_t /* format */)
+IPC_MESSAGE_CONTROL2(PpapiHostMsg_FlashClipboard_ReadData,
+                     uint32_t /* clipboard_type */,
+                     uint32_t /* format */)
+IPC_MESSAGE_CONTROL1(PpapiPluginMsg_FlashClipboard_ReadDataReply,
+                     std::string /* result */)
+IPC_MESSAGE_CONTROL3(PpapiHostMsg_FlashClipboard_WriteData,
+                     uint32_t /* clipboard_type */,
+                     std::vector<uint32_t> /* formats */,
+                     std::vector<std::string> /* data */)
+
 // Flash font file.
 IPC_MESSAGE_CONTROL2(PpapiHostMsg_FlashFontFile_Create,
                      ppapi::proxy::SerializedFontDescription /* description */,

@@ -5,23 +5,26 @@
 package org.chromium.android_webview;
 
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.net.http.SslCertificate;
 import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.webkit.ValueCallback;
 
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.ThreadUtils;
-import org.chromium.chrome.browser.component.navigation_interception.InterceptNavigationDelegate;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.LoadUrlParams;
 import org.chromium.content.browser.NavigationHistory;
 import org.chromium.content.common.CleanupReference;
+import org.chromium.content.components.navigation_interception.InterceptNavigationDelegate;
 import org.chromium.net.X509Util;
 import org.chromium.ui.gfx.NativeWindow;
 
@@ -47,6 +50,34 @@ public class AwContents {
 
     private static final String WEB_ARCHIVE_EXTENSION = ".mht";
 
+    /**
+     * WebKit hit test related data strcutre. These are used to implement
+     * getHitTestResult, requestFocusNodeHref, requestImageRef methods in WebView.
+     * All values should be updated together. The native counterpart is
+     * AwHitTestData.
+     */
+    public static class HitTestData {
+        // Used in getHitTestResult.
+        public final int hitTestResultType;
+        public final String hitTestResultExtraData;
+
+        // Used in requestFocusNodeHref (all three) and requestImageRef (only imgSrc).
+        public final String href;
+        public final String anchorText;
+        public final String imgSrc;
+
+        private HitTestData(int type,
+                            String extra,
+                            String href,
+                            String anchorText,
+                            String imgSrc) {
+            this.hitTestResultType = type;
+            this.hitTestResultExtraData = extra;
+            this.href = href;
+            this.anchorText = anchorText;
+            this.imgSrc = imgSrc;
+        }
+    }
 
     private int mNativeAwContents;
     private ContentViewCore mContentViewCore;
@@ -145,19 +176,20 @@ public class AwContents {
     /**
      * @param containerView the view-hierarchy item this object will be bound to.
      * @param internalAccessAdapter to access private methods on containerView.
-     * @param contentViewCore requires an existing but not yet initialized instance. Will be
-     *                         initialized on return.
      * @param contentsClient will receive API callbacks from this WebView Contents
      * @param privateBrowsing whether this is a private browsing instance of WebView.
      * @param isAccessFromFileURLsGrantedByDefault passed to ContentViewCore.initialize.
      */
     public AwContents(ViewGroup containerView,
             ContentViewCore.InternalAccessDelegate internalAccessAdapter,
-            ContentViewCore contentViewCore, AwContentsClient contentsClient,
+            AwContentsClient contentsClient,
             NativeWindow nativeWindow, boolean privateBrowsing,
             boolean isAccessFromFileURLsGrantedByDefault) {
+        // Note that ContentViewCore must be set up before AwContents, as ContentViewCore
+        // setup performs process initialisation work needed by AwContents.
+        mContentViewCore = new ContentViewCore(containerView.getContext(),
+                ContentViewCore.PERSONALITY_VIEW);
         mNativeAwContents = nativeInit(contentsClient.getWebContentsDelegate(), privateBrowsing);
-        mContentViewCore = contentViewCore;
         mContentsClient = contentsClient;
         mCleanupReference = new CleanupReference(this, new DestroyRunnable(mNativeAwContents));
         mIoThreadClientHandler = new IoThreadClientHandler();
@@ -193,11 +225,35 @@ public class AwContents {
     }
 
     public void destroy() {
-        if (mContentViewCore != null) {
-            mContentViewCore.destroy();
-            mContentViewCore = null;
-        }
+        mContentViewCore.destroy();
+        // We explicitly do not null out the mContentViewCore reference here
+        // because ContentViewCore already has code to deal with the case
+        // methods are called on it after it's been destroyed, and other
+        // code relies on AwContents.getContentViewCore to return non-null.
         mCleanupReference.cleanupNow();
+    }
+
+    public static int getAwDrawGLFunction() {
+        return nativeGetAwDrawGLFunction();
+    }
+
+    public int getAwDrawGLViewContext() {
+        // Using the native pointer as the returned viewContext. This is matched by the
+        // reinterpret_cast back to AwContents pointer in the native DrawGLFunction.
+        return mNativeAwContents;
+    }
+
+    public boolean onPrepareDrawGL(Canvas canvas) {
+        // TODO(joth): Ensure the HW path is setup and read any required params out of canvas.
+        Log.e(TAG, "Not implemented: AwContents.onPrepareDrawGL()");
+
+        // returning false will cause a fallback to SW path.
+        return true;
+    }
+
+    public void onDraw(Canvas canvas) {
+        // TODO(joth): Implement.
+        Log.e(TAG, "Not implemented: AwContents.onDraw()");
     }
 
     public int findAllSync(String searchString) {
@@ -341,6 +397,60 @@ public class AwContents {
         return null;
     }
 
+    /**
+     * This should be called from the onTouchEvent of the view.
+     */
+    public void considerMotionEventForHitTest(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+          int actionIndex = event.getActionIndex();
+
+          // Note this will trigger IPC back to browser even if nothing is hit.
+          nativeRequestNewHitTestDataAt(mNativeAwContents,
+                                        Math.round(event.getX(actionIndex)),
+                                        Math.round(event.getY(actionIndex)));
+        }
+    }
+
+    /**
+     * Method to return all hit test values relevant to public WebView API.
+     * Note that this expose more data than needed for WebView.getHitTestResult.
+     */
+    public HitTestData getLastHitTestResult() {
+        return nativeGetLastHitTestData(mNativeAwContents);
+    }
+
+    /**
+     * @see android.webkit.WebView#requestFocusNodeHref()
+     */
+    public void requestFocusNodeHref(Message msg) {
+        if (msg == null) {
+            return;
+        }
+
+        HitTestData hitTestData = nativeGetLastHitTestData(mNativeAwContents);
+        Bundle data = msg.getData();
+        data.putString("url", hitTestData.href);
+        data.putString("title", hitTestData.anchorText);
+        data.putString("src", hitTestData.imgSrc);
+        msg.setData(data);
+        msg.sendToTarget();
+    }
+
+    /**
+     * @see android.webkit.WebView#requestImageRef()
+     */
+    public void requestImageRef(Message msg) {
+        if (msg == null) {
+            return;
+        }
+
+        HitTestData hitTestData = nativeGetLastHitTestData(mNativeAwContents);
+        Bundle data = msg.getData();
+        data.putString("url", hitTestData.imgSrc);
+        msg.setData(data);
+        msg.sendToTarget();
+    }
+
     //--------------------------------------------------------------------------------------------
     //  Methods called from native via JNI
     //--------------------------------------------------------------------------------------------
@@ -368,6 +478,12 @@ public class AwContents {
     public void onFindResultReceived(int activeMatchOrdinal, int numberOfMatches,
             boolean isDoneCounting) {
         mContentsClient.onFindResultReceived(activeMatchOrdinal, numberOfMatches, isDoneCounting);
+    }
+
+    @CalledByNative
+    private static HitTestData createHitTestData(
+            int type, String extra, String href, String anchorText, String imgSrc) {
+        return new HitTestData(type, extra, href, anchorText, imgSrc);
     }
 
     // -------------------------------------------------------------------------------------------
@@ -449,6 +565,7 @@ public class AwContents {
     private native int nativeInit(AwWebContentsDelegate webViewWebContentsDelegate,
             boolean privateBrowsing);
     private static native void nativeDestroy(int nativeAwContents);
+    private static native int nativeGetAwDrawGLFunction();
 
     private native int nativeGetWebContents(int nativeAwContents);
 
@@ -467,4 +584,6 @@ public class AwContents {
     private native void nativeClearMatches(int nativeAwContents);
     private native void nativeClearCache(int nativeAwContents, boolean includeDiskFiles);
     private native byte[] nativeGetCertificate(int nativeAwContents);
+    private native void nativeRequestNewHitTestDataAt(int nativeAwContents, int x, int y);
+    private native HitTestData nativeGetLastHitTestData(int nativeAwContents);
 }

@@ -10,19 +10,19 @@
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 
-namespace {
+namespace content {
 
-using content::GpuDataManager;
+namespace {
 
 bool CanDoAcceleratedCompositing() {
   const GpuDataManager* gpu_data_manager = GpuDataManager::GetInstance();
-  content::GpuFeatureType blacklisted_features =
+  GpuFeatureType blacklisted_features =
       gpu_data_manager->GetBlacklistedFeatures();
 
   // Don't run the field trial if gpu access has been blocked or
   // accelerated compositing is blacklisted.
   if (!gpu_data_manager->GpuAccessAllowed() ||
-      blacklisted_features & content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING)
+      blacklisted_features & GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING)
     return false;
 
   // Check for the software rasterizer (SwiftShader).
@@ -38,8 +38,6 @@ bool CanDoAcceleratedCompositing() {
 
 }  // namespace
 
-namespace content {
-
 bool IsThreadedCompositingEnabled() {
 #if defined(OS_WIN) && defined(USE_AURA)
   // We always want compositing on Aura Windows.
@@ -47,6 +45,15 @@ bool IsThreadedCompositingEnabled() {
 #endif
 
   if (!CanDoAcceleratedCompositing())
+    return false;
+
+  const GpuDataManager* gpu_data_manager = GpuDataManager::GetInstance();
+  GpuFeatureType blacklisted_features =
+      gpu_data_manager->GetBlacklistedFeatures();
+  // Disallow threaded compositing when texture sharing is blacklisted since
+  // this triggers renderer-side readbacks for the thumbnailer / extensions.
+  // http://crbug.com/158747
+  if (blacklisted_features & GPU_FEATURE_TYPE_TEXTURE_SHARING)
     return false;
 
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
@@ -60,10 +67,9 @@ bool IsThreadedCompositingEnabled() {
     return true;
 
   base::FieldTrial* trial =
-      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
+      base::FieldTrialList::Find(kGpuCompositingFieldTrialName);
   return trial &&
-         trial->group_name() ==
-             content::kGpuCompositingFieldTrialThreadEnabledName;
+         trial->group_name() == kGpuCompositingFieldTrialThreadEnabledName;
 }
 
 bool IsForceCompositingModeEnabled() {
@@ -85,15 +91,14 @@ bool IsForceCompositingModeEnabled() {
     return true;
 
   base::FieldTrial* trial =
-      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
+      base::FieldTrialList::Find(kGpuCompositingFieldTrialName);
 
   // Force compositing is enabled in both the force compositing
   // and threaded compositing mode field trials.
   return trial &&
         (trial->group_name() ==
-            content::kGpuCompositingFieldTrialForceCompositingEnabledName ||
-         trial->group_name() ==
-            content::kGpuCompositingFieldTrialThreadEnabledName);
+            kGpuCompositingFieldTrialForceCompositingEnabledName ||
+         trial->group_name() == kGpuCompositingFieldTrialThreadEnabledName);
 }
 
 }  // namespace content

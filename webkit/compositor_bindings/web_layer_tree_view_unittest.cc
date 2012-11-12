@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "base/cancelable_callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/threading/thread.h"
@@ -46,7 +44,12 @@ public:
         initializeCompositor();
         m_rootLayer.reset(new WebLayerImpl);
         m_view.reset(new WebLayerTreeViewImpl(client()));
-        ASSERT_TRUE(m_view->initialize(WebLayerTreeView::Settings()));
+        scoped_ptr<cc::Thread> implCCThread(NULL);
+        if (m_implThread)
+            implCCThread = cc::ThreadImpl::createForDifferentThread(
+                m_implThread->message_loop_proxy());
+        ASSERT_TRUE(m_view->initialize(WebLayerTreeView::Settings(),
+                                       implCCThread.Pass()));
         m_view->setRootLayer(*m_rootLayer);
         m_view->setSurfaceReady();
     }
@@ -62,6 +65,7 @@ public:
 protected:
     scoped_ptr<WebLayer> m_rootLayer;
     scoped_ptr<WebLayerTreeViewImpl> m_view;
+    scoped_ptr<base::Thread> m_implThread;
 };
 
 class WebLayerTreeViewSingleThreadTest : public WebLayerTreeViewTestBase {
@@ -87,7 +91,6 @@ class WebLayerTreeViewThreadedTest : public WebLayerTreeViewTestBase {
 protected:
     virtual ~WebLayerTreeViewThreadedTest()
     {
-        cc::Proxy::setImplThread(0);
     }
 
     void composite()
@@ -105,8 +108,6 @@ protected:
     {
         m_implThread.reset(new base::Thread("ThreadedTest"));
         ASSERT_TRUE(m_implThread->Start());
-        m_implCCThread = cc::ThreadImpl::createForDifferentThread(m_implThread->message_loop_proxy());
-        cc::Proxy::setImplThread(m_implCCThread.get());
     }
 
     virtual WebLayerTreeViewClient* client() OVERRIDE
@@ -115,8 +116,6 @@ protected:
     }
 
     MockWebLayerTreeViewClientForThreadedTests m_client;
-    scoped_ptr<base::Thread> m_implThread;
-    scoped_ptr<cc::Thread> m_implCCThread;
     base::CancelableClosure m_timeout;
 };
 

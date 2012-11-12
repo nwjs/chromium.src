@@ -49,15 +49,6 @@ void PostGetEntryInfoWithFilePathCallbackError(
 
 }  // namespace
 
-std::string ContentOriginToString(ContentOrigin origin) {
-  switch (origin) {
-    case UNINITIALIZED: return "UNINITIALIZED";
-    case INITIALIZED: return "INITIALIZED";
-  };
-  NOTREACHED();
-  return "(unknown content origin)";
-}
-
 EntryInfoResult::EntryInfoResult() : error(DRIVE_FILE_ERROR_FAILED) {
 }
 
@@ -193,7 +184,7 @@ DriveResourceMetadata::DriveResourceMetadata()
     : blocking_task_runner_(NULL),
       serialized_size_(0),
       largest_changestamp_(0),
-      origin_(UNINITIALIZED),
+      loaded_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
   root_ = CreateDriveDirectory().Pass();
   if (!google_apis::util::IsDriveV2ApiEnabled())
@@ -601,6 +592,36 @@ void DriveResourceMetadata::RefreshDirectory(
       base::Bind(callback, DRIVE_FILE_OK, directory->GetFilePath()));
 }
 
+void DriveResourceMetadata::TakeOverEntries(
+    const std::string& source_resource_id,
+    const std::string& destination_resource_id,
+    const FileMoveCallback& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(!callback.is_null());
+
+  DriveEntry* source_entry = GetEntryByResourceId(source_resource_id);
+  DriveEntry* destination_entry = GetEntryByResourceId(destination_resource_id);
+  if (!source_entry || !destination_entry) {
+    PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_NOT_FOUND);
+    return;
+  }
+
+  DriveDirectory* source_directory = source_entry->AsDriveDirectory();
+  DriveDirectory* destination_directory = destination_entry->AsDriveDirectory();
+  if (!source_directory || !destination_directory) {
+    PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_NOT_A_DIRECTORY);
+    return;
+  }
+
+  destination_directory->TakeOverEntries(source_directory);
+
+  base::MessageLoopProxy::current()->PostTask(
+      FROM_HERE,
+      base::Bind(callback,
+                 DRIVE_FILE_OK,
+                 destination_directory->GetFilePath()));
+}
+
 void DriveResourceMetadata::InitFromDB(
     const FilePath& db_path,
     base::SequencedTaskRunner* blocking_task_runner,
@@ -726,7 +747,7 @@ void DriveResourceMetadata::InitResourceMap(
   DCHECK_EQ(resource_map.size(), resource_map_.size());
   DCHECK_EQ(resource_map.size(), serialized_resources->size());
 
-  origin_ = INITIALIZED;
+  loaded_ = true;
 
   callback.Run(DRIVE_FILE_OK);
 }
@@ -795,7 +816,7 @@ bool DriveResourceMetadata::ParseFromString(
 
   root_->FromProto(proto.drive_directory());
 
-  origin_ = INITIALIZED;
+  loaded_ = true;
   largest_changestamp_ = proto.largest_changestamp();
 
   return true;

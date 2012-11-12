@@ -7,9 +7,11 @@
 
 namespace extensions {
 
-// The stages of the web request during which a condition can be tested and
-// an action can be applied. This is required because for example the response
-// headers cannot be tested before a request has been sent.
+// The stages of the web request during which a condition could be tested and
+// an action could be applied. This is required because for example the response
+// headers cannot be tested before a request has been sent. Note that currently
+// not all stages are supported in declarative Web Request, only those marked
+// as "active" in |kActiveStages| below.
 enum RequestStage {
   ON_BEFORE_REQUEST = 1 << 0,
   ON_BEFORE_SEND_HEADERS = 1 << 1,
@@ -21,6 +23,13 @@ enum RequestStage {
   ON_COMPLETED = 1 << 7,
   ON_ERROR = 1 << 8
 };
+
+// The bitmap with active stages.
+extern const unsigned int kActiveStages;
+
+// The highest bit in |kActiveStages|. This allows to iterate over all active
+// stages in a "for" loop.
+extern const unsigned int kLastActiveStage;
 
 }  // namespace extensions
 

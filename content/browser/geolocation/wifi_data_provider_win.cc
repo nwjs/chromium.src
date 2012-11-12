@@ -27,6 +27,7 @@
 #include <winioctl.h>
 #include <wlanapi.h>
 
+#include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/windows_version.h"
 #include "content/browser/geolocation/wifi_data_provider_common.h"
@@ -101,6 +102,9 @@ class WindowsWlanApi : public WifiDataProviderCommon::WlanApiInterface {
   int GetInterfaceDataWLAN(HANDLE wlan_handle,
                            const GUID& interface_id,
                            WifiData::AccessPointDataSet* data);
+
+  // Logs number of detected wlan interfaces.
+  static void LogWlanInterfaceCount(int count);
 
   // Handle to the wlanapi.dll library.
   HINSTANCE library_;
@@ -234,6 +238,15 @@ void WindowsWlanApi::GetWLANFunctions(HINSTANCE wlan_library) {
          WlanCloseHandle_function_);
 }
 
+void WindowsWlanApi::LogWlanInterfaceCount(int count) {
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Net.Wifi.InterfaceCount",
+      count,
+      1,
+      5,
+      5);
+}
+
 bool WindowsWlanApi::GetAccessPointData(
     WifiData::AccessPointDataSet* data) {
   DCHECK(data);
@@ -249,6 +262,7 @@ bool WindowsWlanApi::GetAccessPointData(
                                   NULL,
                                   &negotiated_version,
                                   &wlan_handle) != ERROR_SUCCESS) {
+    LogWlanInterfaceCount(0);
     return false;
   }
   DCHECK(wlan_handle);
@@ -257,9 +271,12 @@ bool WindowsWlanApi::GetAccessPointData(
   WLAN_INTERFACE_INFO_LIST* interface_list = NULL;
   if ((*WlanEnumInterfaces_function_)(wlan_handle, NULL, &interface_list) !=
       ERROR_SUCCESS) {
+    LogWlanInterfaceCount(0);
     return false;
   }
   DCHECK(interface_list);
+
+  LogWlanInterfaceCount(interface_list->dwNumberOfItems);
 
   // Go through the list of interfaces and get the data for each.
   for (int i = 0; i < static_cast<int>(interface_list->dwNumberOfItems); ++i) {
@@ -297,6 +314,9 @@ int WindowsWlanApi::GetInterfaceDataWLAN(
     const GUID& interface_id,
     WifiData::AccessPointDataSet* data) {
   DCHECK(data);
+
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+
   // WlanGetNetworkBssList allocates bss_list.
   WLAN_BSS_LIST* bss_list = NULL;
   if ((*WlanGetNetworkBssList_function_)(wlan_handle,
@@ -313,6 +333,16 @@ int WindowsWlanApi::GetInterfaceDataWLAN(
   // list as NULL.
   if (!bss_list)
     return -1;
+
+  const base::TimeDelta duration = base::TimeTicks::Now() - start_time;
+
+  UMA_HISTOGRAM_CUSTOM_TIMES(
+      "Net.Wifi.ScanLatency",
+      duration,
+      base::TimeDelta::FromMilliseconds(1),
+      base::TimeDelta::FromMinutes(1),
+      100);
+
 
   int found = 0;
   for (int i = 0; i < static_cast<int>(bss_list->dwNumberOfItems); ++i) {

@@ -8,10 +8,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autofill/autofill_external_delegate.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/browser/navigation_controller.h"
-#include "content/public/browser/notification_service.h"
-#include "content/public/browser/notification_source.h"
-#include "content/public/browser/notification_types.h"
 #include "grit/webkit_resources.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAutofillClient.h"
 
@@ -72,25 +68,10 @@ AutofillPopupView::AutofillPopupView(
   if (!web_contents)
     return;
 
-  registrar_.Add(this,
-                 content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED,
-                 content::Source<content::WebContents>(web_contents));
-  registrar_.Add(
-      this,
-      content::NOTIFICATION_NAV_ENTRY_COMMITTED,
-      content::Source<content::NavigationController>(
-          &(web_contents->GetController())));
-
   label_font_ = value_font_.DeriveFont(kLabelFontSizeDelta);
 }
 
 AutofillPopupView::~AutofillPopupView() {}
-
-void AutofillPopupView::Hide() {
-  HideInternal();
-
-  external_delegate_->ClearPreviewedForm();
-}
 
 void AutofillPopupView::Show(const std::vector<string16>& autofill_values,
                              const std::vector<string16>& autofill_labels,
@@ -110,6 +91,23 @@ void AutofillPopupView::Show(const std::vector<string16>& autofill_values,
   }
 
   ShowInternal();
+}
+
+void AutofillPopupView::SetElementBounds(const gfx::Rect& bounds) {
+  element_bounds_ = bounds;
+  UpdateBoundsAndRedrawPopupInternal();
+}
+
+void AutofillPopupView::ClearExternalDelegate() {
+  external_delegate_ = NULL;
+
+}
+
+void AutofillPopupView::UpdateBoundsAndRedrawPopup() {
+  element_bounds_.set_width(GetPopupRequiredWidth());
+  element_bounds_.set_height(GetPopupRequiredHeight());
+
+  UpdateBoundsAndRedrawPopupInternal();
 }
 
 void AutofillPopupView::SetSelectedPosition(int x, int y) {
@@ -225,15 +223,14 @@ bool AutofillPopupView::RemoveSelectedLine() {
   autofill_icons_.erase(autofill_icons_.begin() + selected_line_);
   autofill_unique_ids_.erase(autofill_unique_ids_.begin() + selected_line_);
 
-  // Resize the popup.
-  ResizePopup();
-
   SetSelectedLine(kNoSelection);
 
-  external_delegate_->ClearPreviewedForm();
-
-  if (!HasAutofillEntries())
-    Hide();
+  if (HasAutofillEntries()) {
+    external_delegate_->ClearPreviewedForm();
+    UpdateBoundsAndRedrawPopup();
+  } else {
+    external_delegate_->HideAutofillPopup();
+  }
 
   return true;
 }
@@ -254,6 +251,13 @@ bool AutofillPopupView::CanDelete(int id) {
 }
 
 int AutofillPopupView::GetPopupRequiredWidth() {
+  if (value_font_.platform_font() == NULL ||
+      label_font_.platform_font() == NULL) {
+    // We can't calculate the size of the popup if the fonts
+    // aren't present.
+    return 0;
+  }
+
   int popup_width = element_bounds().width();
   DCHECK_EQ(autofill_values().size(), autofill_labels().size());
   for (size_t i = 0; i < autofill_values().size(); ++i) {
@@ -351,13 +355,3 @@ bool AutofillPopupView::HasAutofillEntries() {
        autofill_unique_ids_[0] == WebAutofillClient::MenuItemIDDataListEntry);
 }
 
-void AutofillPopupView::Observe(int type,
-                                const content::NotificationSource& source,
-                                const content::NotificationDetails& details) {
-  if (type == content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED) {
-    if (!*content::Details<bool>(details).ptr())
-      Hide();
-  } else if (type == content::NOTIFICATION_NAV_ENTRY_COMMITTED) {
-    Hide();
-  }
-}

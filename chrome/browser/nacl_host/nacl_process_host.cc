@@ -35,8 +35,8 @@
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_child_process_host.h"
+#include "content/public/browser/browser_ppapi_host.h"
 #include "content/public/browser/child_process_data.h"
-#include "content/public/browser/pepper_helper.h"
 #include "content/public/common/child_process_host.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_switches.h"
@@ -132,10 +132,12 @@ bool NaClProcessHost::PluginListener::OnMessageReceived(
   return host_->OnUntrustedMessageForwarded(msg);
 }
 
-// TODO(brettw) bug 153036 set the pepper permissions up for dev interfaces.
-NaClProcessHost::NaClProcessHost(const GURL& manifest_url, bool off_the_record)
+NaClProcessHost::NaClProcessHost(const GURL& manifest_url,
+                                 int render_view_id,
+                                 uint32 permission_bits,
+                                 bool off_the_record)
     : manifest_url_(manifest_url),
-      permissions_(ppapi::PpapiPermissions::GetForCommandLine(0)),
+      permissions_(ppapi::PpapiPermissions::GetForCommandLine(permission_bits)),
 #if defined(OS_WIN)
       process_launched_by_broker_(false),
 #elif defined(OS_LINUX)
@@ -151,7 +153,8 @@ NaClProcessHost::NaClProcessHost(const GURL& manifest_url, bool off_the_record)
       enable_debug_stub_(false),
       off_the_record_(off_the_record),
       enable_ipc_proxy_(false),
-      ALLOW_THIS_IN_INITIALIZER_LIST(ipc_plugin_listener_(this)) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(ipc_plugin_listener_(this)),
+      render_view_id_(render_view_id) {
   process_.reset(content::BrowserChildProcessHost::Create(
       content::PROCESS_TYPE_NACL_LOADER, this));
 
@@ -171,8 +174,8 @@ NaClProcessHost::NaClProcessHost(const GURL& manifest_url, bool off_the_record)
   enable_debug_stub_ = CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableNaClDebug);
 
-  enable_ipc_proxy_ = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableNaClIPCProxy);
+  enable_ipc_proxy_ = !CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableNaClSRPCProxy);
 }
 
 NaClProcessHost::~NaClProcessHost() {
@@ -756,10 +759,16 @@ void NaClProcessHost::OnPpapiChannelCreated(
                               IPC::Channel::MODE_CLIENT,
                               &ipc_plugin_listener_,
                               base::MessageLoopProxy::current()));
-    // Enable PPAPI message dispatching to the browser process.
-    content::EnablePepperSupportForChannel(
+    // Create the browser ppapi host and enable PPAPI message dispatching to the
+    // browser process.
+    content::BrowserPpapiHost::CreateExternalPluginProcess(
+        process_.get(),  // sender
+        permissions_,
+        process_->GetData().handle,
         ipc_proxy_channel_.get(),
-        chrome_render_message_filter_->GetHostResolver());
+        chrome_render_message_filter_->GetHostResolver(),
+        chrome_render_message_filter_->render_process_id(),
+        render_view_id_);
     // Send a message to create the NaCl-Renderer channel. The handle is just
     // a place holder.
     ipc_proxy_channel_->Send(

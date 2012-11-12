@@ -41,10 +41,13 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
 #include "ui/gfx/rect.h"
-#include "webkit/glue/webcursor.h"
 
+struct BrowserPluginHostMsg_AutoSize_Params;
+struct BrowserPluginHostMsg_CreateGuest_Params;
+struct BrowserPluginHostMsg_ResizeGuest_Params;
 class TransportDIB;
 struct ViewHostMsg_UpdateRect_Params;
+class WebCursor;
 struct WebDropData;
 
 namespace WebKit {
@@ -68,11 +71,11 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
  public:
   virtual ~BrowserPluginGuest();
 
-  static BrowserPluginGuest* Create(int instance_id,
-                                    WebContentsImpl* web_contents,
-                                    content::RenderViewHost* render_view_host,
-                                    bool focused,
-                                    bool visible);
+  static BrowserPluginGuest* Create(
+      int instance_id,
+      WebContentsImpl* web_contents,
+      content::RenderViewHost* render_view_host,
+      const BrowserPluginHostMsg_CreateGuest_Params& params);
 
   // Overrides factory for testing. Default (NULL) value indicates regular
   // (non-test) environment.
@@ -176,6 +179,11 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
                         WebKit::WebDragOperationsMask drag_mask,
                         const gfx::Point& location);
 
+  // Updates the autosize state of the guest.
+  void SetAutoSize(
+      const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+      const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params);
+
   // Updates the cursor during dragging.
   // During dragging, if the guest notifies to update the cursor for a drag,
   // then it is necessary to route the cursor update to the embedder correctly
@@ -187,6 +195,11 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
 
   // Kill the guest process.
   void Terminate();
+
+  // Grab the new damage buffer from the embedder, and resize the guest's
+  // web contents.
+  void Resize(RenderViewHost* embedder_rvh,
+              const BrowserPluginHostMsg_ResizeGuest_Params& params);
 
   // Overridden in tests.
   // Handles input event routed through the embedder (which is initiated in the
@@ -219,8 +232,7 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   BrowserPluginGuest(int instance_id,
                      WebContentsImpl* web_contents,
                      RenderViewHost* render_view_host,
-                     bool focused,
-                     bool visible);
+                     const BrowserPluginHostMsg_CreateGuest_Params& params);
 
   // Returns the identifier that uniquely identifies a browser plugin guest
   // within an embedder.
@@ -230,6 +242,10 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   float damage_buffer_scale_factor() const {
     return damage_buffer_scale_factor_;
   }
+  // Returns the transport DIB associated with the dib in resize |params|.
+  TransportDIB* GetDamageBufferFromEmbedder(
+      RenderViewHost* embedder_rvh,
+      const BrowserPluginHostMsg_ResizeGuest_Params& params);
 
   // Helper to send messages to embedder. Overridden in test implementation
   // since we want to intercept certain messages for testing.
@@ -240,6 +256,7 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
                     const GURL& new_url,
                     bool is_top_level);
 
+  bool InAutoSizeBounds(const gfx::Size& size) const;
   // Static factory instance (always NULL for non-test).
   static content::BrowserPluginHostFactory* factory_;
 
@@ -256,12 +273,14 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   float damage_buffer_scale_factor_;
   scoped_ptr<IPC::Message> pending_input_event_reply_;
   gfx::Rect guest_rect_;
-  WebCursor cursor_;
   IDMap<RenderViewHost> pending_updates_;
   int pending_update_counter_;
   base::TimeDelta guest_hang_timeout_;
   bool focused_;
   bool visible_;
+  bool auto_size_;
+  gfx::Size max_auto_size_;
+  gfx::Size min_auto_size_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserPluginGuest);
 };

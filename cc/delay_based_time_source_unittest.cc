@@ -2,17 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/delay_based_time_source.h"
 
 #include "cc/test/scheduler_test_common.h"
 #include "cc/thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using namespace cc;
 using namespace WebKitTests;
 
+namespace cc {
 namespace {
 
 base::TimeDelta interval()
@@ -374,4 +372,5 @@ TEST(DelayBasedTimeSource, TestDeactivateAndReactivateAfterNextTickTime)
     EXPECT_EQ(13, thread.pendingDelayMs());
 }
 
-}
+}  // namespace
+}  // namespace cc

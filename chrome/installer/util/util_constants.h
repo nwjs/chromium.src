@@ -131,6 +131,7 @@ namespace switches {
 extern const char kAutoLaunchChrome[];
 extern const char kChrome[];
 extern const char kChromeAppHost[];
+extern const char kChromeAppLauncher[];
 extern const char kChromeFrame[];
 extern const char kChromeFrameQuickEnable[];
 extern const char kChromeFrameReadyMode[];
@@ -159,6 +160,7 @@ extern const char kNewSetupExe[];
 extern const char kOnOsUpgrade[];
 extern const char kRegisterChromeBrowser[];
 extern const char kRegisterChromeBrowserSuffix[];
+extern const char kRegisterDevChrome[];
 extern const char kRegisterURLProtocol[];
 extern const char kRenameChromeExe[];
 extern const char kRemoveChromeRegistration[];
@@ -220,6 +222,7 @@ extern const char kGoogleUpdateIsMachineEnvVar[];
 // Product options.
 extern const wchar_t kOptionMultiInstall[];
 extern const wchar_t kOptionReadyMode[];
+extern const wchar_t kOptionAppHostIsLauncher[];
 
 // Chrome channel display names.
 // NOTE: Canary is not strictly a 'channel', but rather a separate product

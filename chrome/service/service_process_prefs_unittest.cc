@@ -37,7 +37,7 @@ TEST_F(ServiceProcessPrefsTest, RetrievePrefs) {
   prefs_->SetBoolean("testb", true);
   prefs_->SetString("tests", "testvalue");
   prefs_->WritePrefs();
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   prefs_->SetBoolean("testb", false);   // overwrite
   prefs_->SetString("tests", "");   // overwrite
   prefs_->ReadPrefs();

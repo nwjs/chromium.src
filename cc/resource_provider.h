@@ -2,18 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCResourceProvider_h
-#define CCResourceProvider_h
+#ifndef CC_RESOURCE_PROVIDER_H_
+#define CC_RESOURCE_PROVIDER_H_
 
-#include "IntSize.h"
 #include "base/basictypes.h"
 #include "base/hash_tables.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/threading/thread_checker.h"
+#include "cc/cc_export.h"
 #include "cc/graphics_context.h"
 #include "cc/texture_copier.h"
+#include "cc/transferable_resource.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
+#include "ui/gfx/size.h"
 #include <deque>
 #include <vector>
 
@@ -21,16 +24,18 @@ namespace WebKit {
 class WebGraphicsContext3D;
 }
 
+namespace gfx {
+class Rect;
+class Vector2d;
+}
+
 namespace cc {
 
-class IntRect;
-class LayerTextureSubImage;
-class TextureCopier;
 class TextureUploader;
 
-// Thread-safety notes: this class is not thread-safe and can only be called
-// from the thread it was created on (in practice, the compositor thread).
-class ResourceProvider {
+// This class is not thread-safe and can only be called from the thread it was
+// created on (in practice, the impl thread).
+class CC_EXPORT ResourceProvider {
 public:
     typedef unsigned ResourceId;
     typedef std::vector<ResourceId> ResourceIdArray;
@@ -39,23 +44,6 @@ public:
     enum ResourceType {
         GLTexture = 1,
         Bitmap,
-    };
-    struct Mailbox {
-        GLbyte name[64];
-    };
-    struct TransferableResource {
-        unsigned id;
-        GLenum format;
-        IntSize size;
-        Mailbox mailbox;
-    };
-    typedef std::vector<TransferableResource> TransferableResourceArray;
-    struct TransferableResourceList {
-        TransferableResourceList();
-        ~TransferableResourceList();
-
-        TransferableResourceArray resources;
-        unsigned syncPoint;
     };
 
     static scoped_ptr<ResourceProvider> create(GraphicsContext*);
@@ -78,11 +66,11 @@ public:
     ResourceType resourceType(ResourceId);
 
     // Creates a resource of the default resource type.
-    ResourceId createResource(int pool, const IntSize&, GLenum format, TextureUsageHint);
+    ResourceId createResource(int pool, const gfx::Size&, GLenum format, TextureUsageHint);
 
     // You can also explicitly create a specific resource type.
-    ResourceId createGLTexture(int pool, const IntSize&, GLenum format, TextureUsageHint);
-    ResourceId createBitmap(int pool, const IntSize&);
+    ResourceId createGLTexture(int pool, const gfx::Size&, GLenum format, TextureUsageHint);
+    ResourceId createBitmap(int pool, const gfx::Size&);
     // Wraps an external texture into a GL resource.
     ResourceId createResourceFromExternalTexture(unsigned textureId);
 
@@ -91,13 +79,14 @@ public:
     // Deletes all resources owned by a given pool.
     void deleteOwnedResources(int pool);
 
-    // Upload data from image, copying sourceRect (in image) into destRect (in the resource).
-    void upload(ResourceId, const uint8_t* image, const IntRect& imageRect, const IntRect& sourceRect, const IntSize& destOffset);
+    // Update pixels from image, copying sourceRect (in image) into destRect (in the resource).
+    void setPixels(ResourceId, const uint8_t* image, const gfx::Rect& imageRect, const gfx::Rect& sourceRect, const gfx::Vector2d& destOffset);
 
     // Check upload status.
     size_t numBlockingUploads();
     void markPendingUploadsAsNonBlocking();
     double estimatedUploadsPerSecond();
+    void flushUploads();
 
     // Flush all context operations, kicking uploads and ensuring ordering with
     // respect to other contexts.
@@ -119,16 +108,16 @@ public:
 
     // Prepares resources to be transfered to the parent, moving them to
     // mailboxes and serializing meta-data into TransferableResources.
-    // Resources are not removed from the ResourceProvider, but are markes as
+    // Resources are not removed from the ResourceProvider, but are marked as
     // "in use".
-    TransferableResourceList prepareSendToParent(const ResourceIdArray&);
+    void prepareSendToParent(const ResourceIdArray&, TransferableResourceList*);
 
     // Prepares resources to be transfered back to the child, moving them to
     // mailboxes and serializing meta-data into TransferableResources.
     // Resources are removed from the ResourceProvider. Note: the resource IDs
     // passed are in the parent namespace and will be translated to the child
     // namespace when returned.
-    TransferableResourceList prepareSendToChild(int child, const ResourceIdArray&);
+    void prepareSendToChild(int child, const ResourceIdArray&, TransferableResourceList*);
 
     // Receives resources from a child, moving them from mailboxes. Resource IDs
     // passed are in the child namespace, and will be translated to the parent
@@ -143,14 +132,11 @@ public:
     // will wait on it.
     void receiveFromParent(const TransferableResourceList&);
 
-    // Only for testing
-    size_t mailboxCount() const { return m_mailboxes.size(); }
-
     // The following lock classes are part of the ResourceProvider API and are
     // needed to read and write the resource contents. The user must ensure
     // that they only use GL locks on GL resources, etc, and this is enforced
     // by assertions.
-    class ScopedReadLockGL {
+    class CC_EXPORT ScopedReadLockGL {
     public:
         ScopedReadLockGL(ResourceProvider*, ResourceProvider::ResourceId);
         ~ScopedReadLockGL();
@@ -165,7 +151,7 @@ public:
         DISALLOW_COPY_AND_ASSIGN(ScopedReadLockGL);
     };
 
-    class ScopedWriteLockGL {
+    class CC_EXPORT ScopedWriteLockGL {
     public:
         ScopedWriteLockGL(ResourceProvider*, ResourceProvider::ResourceId);
         ~ScopedWriteLockGL();
@@ -180,7 +166,7 @@ public:
         DISALLOW_COPY_AND_ASSIGN(ScopedWriteLockGL);
     };
 
-    class ScopedReadLockSoftware {
+    class CC_EXPORT ScopedReadLockSoftware {
     public:
         ScopedReadLockSoftware(ResourceProvider*, ResourceProvider::ResourceId);
         ~ScopedReadLockSoftware();
@@ -195,7 +181,7 @@ public:
         DISALLOW_COPY_AND_ASSIGN(ScopedReadLockSoftware);
     };
 
-    class ScopedWriteLockSoftware {
+    class CC_EXPORT ScopedWriteLockSoftware {
     public:
         ScopedWriteLockSoftware(ResourceProvider*, ResourceProvider::ResourceId);
         ~ScopedWriteLockSoftware();
@@ -219,10 +205,11 @@ public:
 private:
     struct Resource {
         Resource();
-        Resource(unsigned textureId, int pool, const IntSize& size, GLenum format);
-        Resource(uint8_t* pixels, int pool, const IntSize& size, GLenum format);
+        Resource(unsigned textureId, int pool, const gfx::Size& size, GLenum format);
+        Resource(uint8_t* pixels, int pool, const gfx::Size& size, GLenum format);
 
         unsigned glId;
+        Mailbox mailbox;
         uint8_t* pixels;
         int pool;
         int lockForReadCount;
@@ -230,7 +217,7 @@ private:
         bool external;
         bool exported;
         bool markedForDeletion;
-        IntSize size;
+        gfx::Size size;
         GLenum format;
         ResourceType type;
     };
@@ -255,7 +242,6 @@ private:
     static void populateSkBitmapWithResource(SkBitmap*, const Resource*);
 
     bool transferResource(WebKit::WebGraphicsContext3D*, ResourceId, TransferableResource*);
-    void trimMailboxDeque();
     void deleteResourceInternal(ResourceMap::iterator it);
 
     GraphicsContext* m_context;
@@ -263,8 +249,6 @@ private:
     ResourceMap m_resources;
     int m_nextChild;
     ChildMap m_children;
-
-    std::deque<Mailbox> m_mailboxes;
 
     ResourceType m_defaultResourceType;
     bool m_useTextureStorageExt;
@@ -274,9 +258,11 @@ private:
     scoped_ptr<AcceleratedTextureCopier> m_textureCopier;
     int m_maxTextureSize;
 
+    base::ThreadChecker m_threadChecker;
+
     DISALLOW_COPY_AND_ASSIGN(ResourceProvider);
 };
 
 }
 
-#endif
+#endif  // CC_RESOURCE_PROVIDER_H_

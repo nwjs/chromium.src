@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef ContentLayerChromium_h
-#define ContentLayerChromium_h
+#ifndef CC_CONTENT_LAYER_H_
+#define CC_CONTENT_LAYER_H_
 
 #include "base/basictypes.h"
+#include "cc/cc_export.h"
 #include "cc/layer_painter.h"
 #include "cc/tiled_layer.h"
 
@@ -14,15 +15,13 @@ class SkCanvas;
 namespace cc {
 
 class ContentLayerClient;
-class FloatRect;
-class IntRect;
 class LayerUpdater;
 
-class ContentLayerPainter : public LayerPainter {
+class CC_EXPORT ContentLayerPainter : public LayerPainter {
 public:
     static scoped_ptr<ContentLayerPainter> create(ContentLayerClient*);
 
-    virtual void paint(SkCanvas*, const IntRect& contentRect, FloatRect& opaque) OVERRIDE;
+    virtual void paint(SkCanvas*, const gfx::Rect& contentRect, gfx::RectF& opaque) OVERRIDE;
 
 private:
     explicit ContentLayerPainter(ContentLayerClient*);
@@ -33,7 +32,7 @@ private:
 };
 
 // A layer that renders its contents into an SkCanvas.
-class ContentLayer : public TiledLayer {
+class CC_EXPORT ContentLayer : public TiledLayer {
 public:
     static scoped_refptr<ContentLayer> create(ContentLayerClient*);
 
@@ -59,4 +58,4 @@ private:
 };
 
 }
-#endif
+#endif  // CC_CONTENT_LAYER_H_

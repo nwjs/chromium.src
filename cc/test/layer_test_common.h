@@ -2,18 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCLayerTestCommon_h
-#define CCLayerTestCommon_h
+#ifndef CC_TEST_LAYER_TEST_COMMON_H_
+#define CC_TEST_LAYER_TEST_COMMON_H_
 
-#include "IntRect.h"
-#include "Region.h"
-#include "cc/render_pass.h"
+namespace cc {
+class QuadList;
+}
+
+namespace gfx {
+class Rect;
+}
 
 namespace LayerTestCommon {
 
 extern const char* quadString;
 
-void verifyQuadsExactlyCoverRect(const cc::QuadList&, const cc::IntRect&);
+void verifyQuadsExactlyCoverRect(const cc::QuadList&, const gfx::Rect&);
 
 } // namespace LayerTestCommon
-#endif // CCLayerTestCommon_h
+#endif  // CC_TEST_LAYER_TEST_COMMON_H_

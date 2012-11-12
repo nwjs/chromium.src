@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCIOSurfaceDrawQuad_h
-#define CCIOSurfaceDrawQuad_h
+#ifndef CC_IO_SURFACE_DRAW_QUAD_H_
+#define CC_IO_SURFACE_DRAW_QUAD_H_
 
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/draw_quad.h"
 #include "ui/gfx/size.h"
 
@@ -13,7 +14,7 @@ namespace cc {
 
 #pragma pack(push, 4)
 
-class IOSurfaceDrawQuad : public DrawQuad {
+class CC_EXPORT IOSurfaceDrawQuad : public DrawQuad {
 public:
     enum Orientation {
       Flipped,
@@ -39,4 +40,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_IO_SURFACE_DRAW_QUAD_H_

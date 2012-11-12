@@ -35,6 +35,10 @@ class MockShillServiceClient : public ShillServiceClient {
                                    const std::string& name,
                                    const base::Closure& callback,
                                    const ErrorCallback& error_callback));
+  MOCK_METHOD4(ClearProperties, void(const dbus::ObjectPath& service_path,
+                                     const std::vector<std::string>& names,
+                                     const ListValueCallback& callback,
+                                     const ErrorCallback& error_callback));
   MOCK_METHOD3(Connect, void(const dbus::ObjectPath& service_path,
                              const base::Closure& callback,
                              const ErrorCallback& error_callback));
@@ -52,6 +56,7 @@ class MockShillServiceClient : public ShillServiceClient {
   MOCK_METHOD2(CallActivateCellularModemAndBlock,
                bool(const dbus::ObjectPath& service_path,
                     const std::string& carrier));
+  MOCK_METHOD0(GetTestInterface, TestInterface*());
 };
 
 }  // namespace chromeos

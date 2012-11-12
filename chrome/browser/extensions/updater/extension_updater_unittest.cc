@@ -435,13 +435,13 @@ class ExtensionUpdaterTest : public testing::Test {
     // Some tests create URLRequestContextGetters, whose destruction must run
     // on the IO thread. Make sure the IO loop spins before shutdown so that
     // those objects are released.
-    RunAllPending();
+    RunUntilIdle();
     prefs_.reset();
   }
 
-  void RunAllPending() {
+  void RunUntilIdle() {
     prefs_->pref_service()->CommitPendingWrite();
-    loop_.RunAllPending();
+    loop_.RunUntilIdle();
   }
 
   void SimulateTimerFired(ExtensionUpdater* updater) {
@@ -767,7 +767,7 @@ class ExtensionUpdaterTest : public testing::Test {
     downloader.StartUpdateCheck(fetch2);
     downloader.StartUpdateCheck(fetch3);
     downloader.StartUpdateCheck(fetch4);
-    RunAllPending();
+    RunUntilIdle();
 
     // The first fetch will fail.
     fetcher = factory.GetFetcherByID(ExtensionDownloader::kManifestFetcherId);
@@ -779,7 +779,7 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->set_status(net::URLRequestStatus());
     fetcher->set_response_code(400);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
-    RunAllPending();
+    RunUntilIdle();
     Mock::VerifyAndClearExpectations(&delegate);
 
     // The second fetch gets invalid data.
@@ -794,7 +794,7 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->set_response_code(200);
     fetcher->SetResponseString(kInvalidXml);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
-    RunAllPending();
+    RunUntilIdle();
     Mock::VerifyAndClearExpectations(&delegate);
 
     // The third fetcher doesn't have an update available.
@@ -821,7 +821,7 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->set_response_code(200);
     fetcher->SetResponseString(kNoUpdate);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
-    RunAllPending();
+    RunUntilIdle();
     Mock::VerifyAndClearExpectations(&delegate);
 
     // The last fetcher has an update.
@@ -846,7 +846,7 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->set_response_code(200);
     fetcher->SetResponseString(kUpdateAvailable);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
-    RunAllPending();
+    RunUntilIdle();
     Mock::VerifyAndClearExpectations(&delegate);
 
     // Verify that the downloader decided to update this extension.
@@ -900,7 +900,7 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->SetResponseFilePath(extension_file_path);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
 
-    RunAllPending();
+    RunUntilIdle();
 
     // Expect that ExtensionUpdater asked the mock extensions service to install
     // a file with the test data for the right id.
@@ -945,7 +945,7 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->SetResponseString(extension_data);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
 
-    RunAllPending();
+    RunUntilIdle();
 
     // The updater should have called extension service to process the
     // blacklist.
@@ -1032,14 +1032,14 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->SetResponseFilePath(extension_file_path);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
 
-    RunAllPending();
+    RunUntilIdle();
 
     // Expect that the service was asked to do an install with the right data.
     FilePath tmpfile_path = service.install_path();
     EXPECT_FALSE(tmpfile_path.empty());
     EXPECT_EQ(id1, service.extension_id());
     EXPECT_EQ(url1, service.download_url());
-    RunAllPending();
+    RunUntilIdle();
 
     // Make sure the second fetch finished and asked the service to do an
     // update.
@@ -1053,7 +1053,7 @@ class ExtensionUpdaterTest : public testing::Test {
     fetcher->set_response_code(200);
     fetcher->SetResponseFilePath(extension_file_path2);
     fetcher->delegate()->OnURLFetchComplete(fetcher);
-    RunAllPending();
+    RunUntilIdle();
 
     if (updates_start_running) {
       EXPECT_TRUE(updater.crx_install_is_running_);
@@ -1245,7 +1245,7 @@ class ExtensionUpdaterTest : public testing::Test {
     EXPECT_TRUE(url1_query.find(brand_string) == std::string::npos);
 #endif
 
-    RunAllPending();
+    RunUntilIdle();
   }
 
   // This makes sure that the extension updater properly stores the results
@@ -1513,7 +1513,7 @@ TEST_F(ExtensionUpdaterTest, TestCheckSoon) {
   EXPECT_TRUE(updater.WillCheckSoon());
   updater.CheckSoon();
   EXPECT_TRUE(updater.WillCheckSoon());
-  RunAllPending();
+  RunUntilIdle();
   EXPECT_FALSE(updater.WillCheckSoon());
   updater.CheckSoon();
   EXPECT_TRUE(updater.WillCheckSoon());

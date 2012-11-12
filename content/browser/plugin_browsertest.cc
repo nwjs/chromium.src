@@ -224,7 +224,7 @@ IN_PROC_BROWSER_TEST_F(PluginTest, GetJavaScriptURL2) {
 }
 
 // Test is flaky on linux/cros/win builders.  http://crbug.com/71904
-IN_PROC_BROWSER_TEST_F(PluginTest, GetURLRedirectNotification) {
+IN_PROC_BROWSER_TEST_F(PluginTest, DISABLED_GetURLRedirectNotification) {
   LoadAndWait(GetURL("geturl_redirect_notify.html"));
 }
 
@@ -282,12 +282,7 @@ IN_PROC_BROWSER_TEST_F(PluginTest, CreateInstanceInPaint) {
 }
 
 // Tests that putting up an alert in response to a paint doesn't deadlock.
-#if defined(OS_WIN)
-#define MAYBE_AlertInWindowMessage DISABLED_AlertInWindowMessage
-#else
-#define MAYBE_AlertInWindowMessage AlertInWindowMessage
-#endif
-IN_PROC_BROWSER_TEST_F(PluginTest, MAYBE_AlertInWindowMessage) {
+IN_PROC_BROWSER_TEST_F(PluginTest, AlertInWindowMessage) {
   NavigateToURL(shell(), GetURL("alert_in_window_message.html"));
 
   WaitForAppModalDialog(shell());

@@ -44,12 +44,17 @@ class ChromeAppViewAsh
   HRESULT OnPointerReleased(winui::Core::ICoreWindow* sender,
                             winui::Core::IPointerEventArgs* args);
 
+  HRESULT OnWheel(winui::Core::ICoreWindow* sender,
+                  winui::Core::IPointerEventArgs* args);
+
   HRESULT OnKeyDown(winui::Core::ICoreWindow* sender,
                     winui::Core::IKeyEventArgs* args);
 
   HRESULT OnKeyUp(winui::Core::ICoreWindow* sender,
                   winui::Core::IKeyEventArgs* args);
 
+  HRESULT OnCharacterReceived(winui::Core::ICoreWindow* sender,
+                              winui::Core::ICharacterReceivedEventArgs* args);
 
   mswr::ComPtr<winui::Core::ICoreWindow> window_;
   mswr::ComPtr<winapp::Core::ICoreApplicationView> view_;
@@ -57,8 +62,10 @@ class ChromeAppViewAsh
   EventRegistrationToken pointermoved_token_;
   EventRegistrationToken pointerpressed_token_;
   EventRegistrationToken pointerreleased_token_;
+  EventRegistrationToken wheel_token_;
   EventRegistrationToken keydown_token_;
   EventRegistrationToken keyup_token_;
+  EventRegistrationToken character_received_token_;
 
   metro_driver::Direct3DHelper direct3d_helper_;
 

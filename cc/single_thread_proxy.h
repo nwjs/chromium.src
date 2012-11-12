@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCSingleThreadProxy_h
-#define CCSingleThreadProxy_h
+#ifndef CC_SINGLE_THREAD_PROXY_H_
+#define CC_SINGLE_THREAD_PROXY_H_
 
 #include <limits>
 
@@ -22,8 +22,8 @@ public:
     virtual ~SingleThreadProxy();
 
     // Proxy implementation
-    virtual bool compositeAndReadback(void *pixels, const IntRect&) OVERRIDE;
-    virtual void startPageScaleAnimation(const IntSize& targetPosition, bool useAnchor, float scale, base::TimeDelta duration) OVERRIDE;
+    virtual bool compositeAndReadback(void *pixels, const gfx::Rect&) OVERRIDE;
+    virtual void startPageScaleAnimation(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration) OVERRIDE;
     virtual void finishAllRendering() OVERRIDE;
     virtual bool isStarted() const OVERRIDE;
     virtual bool initializeContext() OVERRIDE;
@@ -91,42 +91,58 @@ private:
 // code is running on the impl thread to satisfy assertion checks.
 class DebugScopedSetImplThread {
 public:
-    DebugScopedSetImplThread()
+    explicit DebugScopedSetImplThread(Proxy* proxy)
+        : m_proxy(proxy)
     {
 #ifndef NDEBUG
-        Proxy::setCurrentThreadIsImplThread(true);
+        m_previousValue = m_proxy->m_implThreadIsOverridden;
+        m_proxy->setCurrentThreadIsImplThread(true);
 #endif
     }
     ~DebugScopedSetImplThread()
     {
 #ifndef NDEBUG
-        Proxy::setCurrentThreadIsImplThread(false);
+        m_proxy->setCurrentThreadIsImplThread(m_previousValue);
 #endif
     }
+private:
+    bool m_previousValue;
+    Proxy* m_proxy;
 };
 
 // For use in the single-threaded case. In debug builds, it pretends that the
 // code is running on the main thread to satisfy assertion checks.
 class DebugScopedSetMainThread {
 public:
-    DebugScopedSetMainThread()
+    explicit DebugScopedSetMainThread(Proxy* proxy)
+        : m_proxy(proxy)
     {
 #ifndef NDEBUG
-        Proxy::setCurrentThreadIsImplThread(false);
+        m_previousValue = m_proxy->m_implThreadIsOverridden;
+        m_proxy->setCurrentThreadIsImplThread(false);
 #endif
     }
     ~DebugScopedSetMainThread()
     {
 #ifndef NDEBUG
-        Proxy::setCurrentThreadIsImplThread(true);
+        m_proxy->setCurrentThreadIsImplThread(m_previousValue);
 #endif
     }
+private:
+    bool m_previousValue;
+    Proxy* m_proxy;
 };
 
 // For use in the single-threaded case. In debug builds, it pretends that the
 // code is running on the impl thread and that the main thread is blocked to
 // satisfy assertion checks
 class DebugScopedSetImplThreadAndMainThreadBlocked {
+public:
+    explicit DebugScopedSetImplThreadAndMainThreadBlocked(Proxy* proxy)
+        : m_implThread(proxy)
+        , m_mainThreadBlocked(proxy)
+    {
+    }
 private:
     DebugScopedSetImplThread m_implThread;
     DebugScopedSetMainThreadBlocked m_mainThreadBlocked;
@@ -134,4 +150,4 @@ private:
 
 } // namespace cc
 
-#endif
+#endif  // CC_SINGLE_THREAD_PROXY_H_

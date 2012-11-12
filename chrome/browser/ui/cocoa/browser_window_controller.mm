@@ -996,14 +996,6 @@ enum {
   }
 }
 
-- (BOOL)supportsFullscreen {
-  // TODO(avi, thakis): GTMWindowSheetController has no api to move
-  // tabsheets between windows. Until then, we have to prevent having to
-  // move a tabsheet between windows, e.g. no fullscreen toggling
-  NSArray* a = [[tabStripController_ sheetController] viewsWithAttachedSheets];
-  return [a count] == 0;
-}
-
 // Called to validate menu and toolbar items when this window is key. All the
 // items we care about have been set with the |-commandDispatch:| or
 // |-commandDispatchUsingKeyModifiers:| actions and a target of FirstResponder
@@ -1033,7 +1025,6 @@ enum {
             enable &= !![[static_cast<NSMenuItem*>(item) keyEquivalent] length];
           break;
         case IDC_FULLSCREEN: {
-          enable &= [self supportsFullscreen];
           if ([static_cast<NSObject*>(item) isKindOfClass:[NSMenuItem class]]) {
             NSString* menuTitle = l10n_util::GetNSString(
                 [self isFullscreen] && ![self inPresentationMode] ?
@@ -1047,7 +1038,6 @@ enum {
           break;
         }
         case IDC_PRESENTATION_MODE: {
-          enable &= [self supportsFullscreen];
           if ([static_cast<NSObject*>(item) isKindOfClass:[NSMenuItem class]]) {
             NSString* menuTitle = l10n_util::GetNSString(
                 [self inPresentationMode] ? IDS_EXIT_PRESENTATION_MAC :
@@ -1358,12 +1348,15 @@ enum {
   // Create the new window with a single tab in its model, the one being
   // dragged.
   DockInfo dockInfo;
+  TabStripModelDelegate::NewStripContents item;
+  item.web_contents = contents->web_contents();
+  item.add_types = TabStripModel::ADD_ACTIVE |
+                   (isPinned ? TabStripModel::ADD_PINNED
+                             : TabStripModel::ADD_NONE);
+  std::vector<TabStripModelDelegate::NewStripContents> contentses;
+  contentses.push_back(item);
   Browser* newBrowser = browser_->tab_strip_model()->delegate()->
-      CreateNewStripWithContents(contents, browserRect, dockInfo, false);
-
-  // Propagate the tab pinned state of the new tab (which is the only tab in
-  // this new window).
-  newBrowser->tab_strip_model()->SetTabPinned(0, isPinned);
+      CreateNewStripWithContents(contentses, browserRect, dockInfo, false);
 
   // Get the new controller by asking the new window for its delegate.
   BrowserWindowController* controller =
@@ -1950,7 +1943,7 @@ willAnimateFromState:(bookmarks::VisualState)oldState
   if (fullscreen == [self isFullscreen])
     return;
 
-  if (![self supportsFullscreen])
+  if (!chrome::IsCommandEnabled(browser_.get(), IDC_FULLSCREEN))
     return;
 
   if (base::mac::IsOSLionOrLater()) {
@@ -2023,8 +2016,10 @@ willAnimateFromState:(bookmarks::VisualState)oldState
       [self setPresentationModeInternal:YES forceDropdown:YES];
       [self releaseBarVisibilityForOwner:self withAnimation:YES delay:YES];
       // Since -windowDidEnterFullScreen: won't be called in the
-      // fullscreen --> presentation mode case, manually show the exit bubble.
+      // fullscreen --> presentation mode case, manually show the exit bubble
+      // and notify the change happened with WindowFullscreenStateChanged().
       [self showFullscreenExitBubbleIfNecessary];
+      browser_->WindowFullscreenStateChanged();
     } else {
       // If not in fullscreen mode, trigger the Lion fullscreen mode machinery.
       // Presentation mode will automatically be enabled in

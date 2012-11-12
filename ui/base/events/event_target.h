@@ -5,6 +5,7 @@
 #ifndef UI_BASE_EVENTS_EVENT_TARGET_H_
 #define UI_BASE_EVENTS_EVENT_TARGET_H_
 
+#include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "ui/base/events/event_handler.h"
 #include "ui/base/ui_export.h"
@@ -70,6 +71,13 @@ class UI_EXPORT EventTarget : public EventHandler {
     target_handler_ = handler;
   }
 
+  // Overridden from EventHandler:
+  virtual EventResult OnKeyEvent(KeyEvent* event) OVERRIDE;
+  virtual EventResult OnMouseEvent(MouseEvent* event) OVERRIDE;
+  virtual EventResult OnScrollEvent(ScrollEvent* event) OVERRIDE;
+  virtual EventResult OnTouchEvent(TouchEvent* event) OVERRIDE;
+  virtual EventResult OnGestureEvent(GestureEvent* event) OVERRIDE;
+
  private:
   friend class EventDispatcher;
 
@@ -82,13 +90,6 @@ class UI_EXPORT EventTarget : public EventHandler {
   // target. The handlers from the outermost target are last in the list, and
   // the handlers on |this| are the first in the list.
   void GetPostTargetHandlers(EventHandlerList* list);
-
-  // Overridden from EventHandler:
-  virtual EventResult OnKeyEvent(KeyEvent* event) OVERRIDE;
-  virtual EventResult OnMouseEvent(MouseEvent* event) OVERRIDE;
-  virtual EventResult OnScrollEvent(ScrollEvent* event) OVERRIDE;
-  virtual EventResult OnTouchEvent(TouchEvent* event) OVERRIDE;
-  virtual EventResult OnGestureEvent(GestureEvent* event) OVERRIDE;
 
   EventHandlerList pre_target_list_;
   EventHandlerList post_target_list_;

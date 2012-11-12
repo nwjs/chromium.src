@@ -22,6 +22,7 @@
 
 class NetPrefObserver;
 class PrefService;
+class PrefServiceBase;
 class PromoResourceService;
 class SSLConfigServiceManager;
 
@@ -47,7 +48,8 @@ class ExtensionSystem;
 
 // The default profile implementation.
 class ProfileImpl : public Profile,
-                    public content::NotificationObserver {
+                    public content::NotificationObserver,
+                    public PrefObserver {
  public:
   // Value written to prefs when the exit type is EXIT_NORMAL. Public for tests.
   static const char* const kPrefExitTypeNormal;
@@ -81,6 +83,7 @@ class ProfileImpl : public Profile,
   virtual quota::SpecialStoragePolicy* GetSpecialStoragePolicy() OVERRIDE;
 
   // Profile implementation:
+  virtual scoped_refptr<base::SequencedTaskRunner> GetIOTaskRunner() OVERRIDE;
   virtual std::string GetProfileName() OVERRIDE;
   virtual bool IsOffTheRecord() const OVERRIDE;
   virtual Profile* GetOffTheRecordProfile() OVERRIDE;
@@ -110,7 +113,9 @@ class ProfileImpl : public Profile,
   virtual FilePath last_selected_directory() OVERRIDE;
   virtual void set_last_selected_directory(const FilePath& path) OVERRIDE;
   virtual chrome_browser_net::Predictor* GetNetworkPredictor() OVERRIDE;
-  virtual void ClearNetworkingHistorySince(base::Time time) OVERRIDE;
+  virtual void ClearNetworkingHistorySince(
+      base::Time time,
+      const base::Closure& completion) OVERRIDE;
   virtual GURL GetHomePage() OVERRIDE;
   virtual bool WasCreatedByVersionOrLater(const std::string& version) OVERRIDE;
   virtual void SetExitType(ExitType exit_type) OVERRIDE;
@@ -130,6 +135,10 @@ class ProfileImpl : public Profile,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // PrefObserver implementation.
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
  private:
   friend class Profile;
@@ -152,6 +161,9 @@ class ProfileImpl : public Profile,
   void DoFinalInit(bool is_new_profile);
 
   void InitHostZoomMap();
+
+  void OnInitializationCompleted(PrefServiceBase* pref_service,
+                                 bool succeeded);
 
   // Does final prefs initialization and calls Init().
   void OnPrefsLoaded(bool success);

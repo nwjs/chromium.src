@@ -92,10 +92,10 @@ bool MouseCursorEventFilter::PreHandleMouseEvent(aura::Window* target,
       WarpMouseCursorIfNecessary(target->GetRootWindow(), point_in_screen);
 }
 
-ui::TouchStatus MouseCursorEventFilter::PreHandleTouchEvent(
+ui::EventResult MouseCursorEventFilter::PreHandleTouchEvent(
     aura::Window* target,
     ui::TouchEvent* event) {
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult MouseCursorEventFilter::PreHandleGestureEvent(
@@ -148,8 +148,6 @@ bool MouseCursorEventFilter::WarpMouseCursorIfNecessary(
   if (dst_root->bounds().Contains(point_in_dst_screen)) {
     DCHECK_NE(dst_root, root_at_point);
     dst_root->MoveCursorTo(point_in_dst_screen);
-    Shell::GetInstance()->cursor_manager()->SetDeviceScaleFactor(
-        dst_root->AsRootWindowHostDelegate()->GetDeviceScaleFactor());
     return true;
   }
   return false;

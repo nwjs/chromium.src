@@ -5,6 +5,7 @@
 #include "ui/compositor/compositor.h"
 
 #include <algorithm>
+#include <deque>
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -36,6 +37,11 @@ namespace {
 const double kDefaultRefreshRate = 60.0;
 const double kTestRefreshRate = 100.0;
 
+enum SwapType {
+  DRAW_SWAP,
+  READPIXELS_SWAP,
+};
+
 webkit_glue::WebThreadImpl* g_compositor_thread = NULL;
 
 bool test_compositor_enabled = false;
@@ -43,6 +49,61 @@ bool test_compositor_enabled = false;
 ui::ContextFactory* g_context_factory = NULL;
 
 const int kCompositorLockTimeoutMs = 67;
+
+// Adapts a pure WebGraphicsContext3D into a WebCompositorOutputSurface.
+class WebGraphicsContextToOutputSurfaceAdapter
+    : public WebKit::WebCompositorOutputSurface {
+ public:
+  explicit WebGraphicsContextToOutputSurfaceAdapter(
+      WebKit::WebGraphicsContext3D* context)
+      : context3D_(context),
+        client_(NULL) {
+  }
+
+  virtual bool bindToClient(
+      WebKit::WebCompositorOutputSurfaceClient* client) OVERRIDE {
+    DCHECK(client);
+    if (!context3D_->makeContextCurrent())
+      return false;
+    client_ = client;
+    return true;
+  }
+
+  virtual const Capabilities& capabilities() const OVERRIDE {
+    return capabilities_;
+  }
+
+  virtual WebKit::WebGraphicsContext3D* context3D() const OVERRIDE {
+    return context3D_.get();
+  }
+
+  virtual void sendFrameToParentCompositor(
+      const WebKit::WebCompositorFrame&) OVERRIDE {
+  }
+
+ private:
+  scoped_ptr<WebKit::WebGraphicsContext3D> context3D_;
+  Capabilities capabilities_;
+  WebKit::WebCompositorOutputSurfaceClient* client_;
+};
+
+class PendingSwap {
+ public:
+  PendingSwap(SwapType type, ui::PostedSwapQueue* posted_swaps);
+  ~PendingSwap();
+
+  SwapType type() const { return type_; }
+  bool posted() const { return posted_; }
+
+ private:
+  friend class ui::PostedSwapQueue;
+
+  SwapType type_;
+  bool posted_;
+  ui::PostedSwapQueue* posted_swaps_;
+
+  DISALLOW_COPY_AND_ASSIGN(PendingSwap);
+};
 
 }  // namespace
 
@@ -86,9 +147,10 @@ bool DefaultContextFactory::Initialize() {
   return true;
 }
 
-WebKit::WebGraphicsContext3D* DefaultContextFactory::CreateContext(
+WebKit::WebCompositorOutputSurface* DefaultContextFactory::CreateOutputSurface(
     Compositor* compositor) {
-  return CreateContextCommon(compositor, false);
+  return new WebGraphicsContextToOutputSurfaceAdapter(
+      CreateContextCommon(compositor, false));
 }
 
 WebKit::WebGraphicsContext3D* DefaultContextFactory::CreateOffscreenContext() {
@@ -155,12 +217,78 @@ void CompositorLock::CancelLock() {
   compositor_ = NULL;
 }
 
+class PostedSwapQueue {
+ public:
+  PostedSwapQueue() : pending_swap_(NULL) {
+  }
+
+  ~PostedSwapQueue() {
+    DCHECK(!pending_swap_);
+  }
+
+  SwapType NextPostedSwap() const {
+    return queue_.front();
+  }
+
+  bool AreSwapsPosted() const {
+    return !queue_.empty();
+  }
+
+  int NumSwapsPosted(SwapType type) const {
+    int count = 0;
+    for (std::deque<SwapType>::const_iterator it = queue_.begin();
+         it != queue_.end(); ++it) {
+      if (*it == type)
+        count++;
+    }
+    return count;
+  }
+
+  void PostSwap() {
+    DCHECK(pending_swap_);
+    queue_.push_back(pending_swap_->type());
+    pending_swap_->posted_ = true;
+  }
+
+  void EndSwap() {
+    queue_.pop_front();
+  }
+
+ private:
+  friend class ::PendingSwap;
+
+  PendingSwap* pending_swap_;
+  std::deque<SwapType> queue_;
+
+  DISALLOW_COPY_AND_ASSIGN(PostedSwapQueue);
+};
+
+}  // namespace ui
+
+namespace {
+
+PendingSwap::PendingSwap(SwapType type, ui::PostedSwapQueue* posted_swaps)
+    : type_(type), posted_(false), posted_swaps_(posted_swaps) {
+  // Only one pending swap in flight.
+  DCHECK_EQ(static_cast<PendingSwap*>(NULL), posted_swaps_->pending_swap_);
+  posted_swaps_->pending_swap_ = this;
+}
+
+PendingSwap::~PendingSwap() {
+  DCHECK_EQ(this, posted_swaps_->pending_swap_);
+  posted_swaps_->pending_swap_ = NULL;
+}
+
+}  // namespace
+
+namespace ui {
+
 Compositor::Compositor(CompositorDelegate* delegate,
                        gfx::AcceleratedWidget widget)
     : delegate_(delegate),
       root_layer_(NULL),
       widget_(widget),
-      swap_posted_(false),
+      posted_swaps_(new PostedSwapQueue()),
       device_scale_factor_(0.0f),
       last_started_frame_(0),
       last_ended_frame_(0),
@@ -253,17 +381,20 @@ void Compositor::SetHostHasTransparentBackground(
 }
 
 void Compositor::Draw(bool force_clear) {
+  DCHECK(!g_compositor_thread);
+
   if (!root_layer_)
     return;
 
   last_started_frame_++;
-  if (!g_compositor_thread && !IsLocked()) {
+  PendingSwap pending_swap(DRAW_SWAP, posted_swaps_.get());
+  if (!IsLocked()) {
     // TODO(nduca): Temporary while compositor calls
     // compositeImmediately() directly.
     layout();
     host_->composite();
   }
-  if (!g_compositor_thread && !swap_posted_)
+  if (!pending_swap.posted())
     NotifyEnd();
 }
 
@@ -282,6 +413,7 @@ bool Compositor::ReadPixels(SkBitmap* bitmap,
   SkAutoLockPixels lock_image(*bitmap);
   unsigned char* pixels = static_cast<unsigned char*>(bitmap->getPixels());
   CancelCompositorLock();
+  PendingSwap pending_swap(READPIXELS_SWAP, posted_swaps_.get());
   return host_->compositeAndReadback(pixels, bounds_in_pixel);
 }
 
@@ -313,20 +445,30 @@ bool Compositor::HasObserver(CompositorObserver* observer) {
 }
 
 void Compositor::OnSwapBuffersPosted() {
-  swap_posted_ = true;
+  DCHECK(!g_compositor_thread);
+  posted_swaps_->PostSwap();
 }
 
 void Compositor::OnSwapBuffersComplete() {
-  DCHECK(swap_posted_);
-  swap_posted_ = false;
-  NotifyEnd();
+  DCHECK(!g_compositor_thread);
+  DCHECK(posted_swaps_->AreSwapsPosted());
+  DCHECK_GE(1, posted_swaps_->NumSwapsPosted(DRAW_SWAP));
+  if (posted_swaps_->NextPostedSwap() == DRAW_SWAP)
+    NotifyEnd();
+  posted_swaps_->EndSwap();
 }
 
 void Compositor::OnSwapBuffersAborted() {
-  if (swap_posted_) {
-    swap_posted_ = false;
-    NotifyEnd();
+  DCHECK(!g_compositor_thread);
+  DCHECK_GE(1, posted_swaps_->NumSwapsPosted(DRAW_SWAP));
+
+  // We've just lost the context, so unwind all posted_swaps.
+  while (posted_swaps_->AreSwapsPosted()) {
+    if (posted_swaps_->NextPostedSwap() == DRAW_SWAP)
+      NotifyEnd();
+    posted_swaps_->EndSwap();
   }
+
   FOR_EACH_OBSERVER(CompositorObserver,
                     observer_list_,
                     OnCompositingAborted(this));
@@ -348,48 +490,6 @@ void Compositor::applyScrollAndScale(const WebKit::WebSize& scrollDelta,
                                      float scaleFactor) {
 }
 
-// Adapts a pure WebGraphicsContext3D into a WebCompositorOutputSurface.
-class WebGraphicsContextToOutputSurfaceAdapter :
-    public WebKit::WebCompositorOutputSurface {
-public:
-    explicit WebGraphicsContextToOutputSurfaceAdapter(
-        WebKit::WebGraphicsContext3D* context)
-        : m_context3D(context)
-        , m_client(0)
-    {
-    }
-
-    virtual bool bindToClient(
-        WebKit::WebCompositorOutputSurfaceClient* client) OVERRIDE
-    {
-        DCHECK(client);
-        if (!m_context3D->makeContextCurrent())
-            return false;
-        m_client = client;
-        return true;
-    }
-
-    virtual const Capabilities& capabilities() const OVERRIDE
-    {
-        return m_capabilities;
-    }
-
-    virtual WebKit::WebGraphicsContext3D* context3D() const OVERRIDE
-    {
-        return m_context3D.get();
-    }
-
-    virtual void sendFrameToParentCompositor(
-        const WebKit::WebCompositorFrame&) OVERRIDE
-    {
-    }
-
-private:
-    scoped_ptr<WebKit::WebGraphicsContext3D> m_context3D;
-    Capabilities m_capabilities;
-    WebKit::WebCompositorOutputSurfaceClient* m_client;
-};
-
 WebKit::WebCompositorOutputSurface* Compositor::createOutputSurface() {
   if (test_compositor_enabled) {
     ui::TestWebGraphicsContext3D* test_context =
@@ -397,8 +497,7 @@ WebKit::WebCompositorOutputSurface* Compositor::createOutputSurface() {
     test_context->Initialize();
     return new WebGraphicsContextToOutputSurfaceAdapter(test_context);
   } else {
-    return new WebGraphicsContextToOutputSurfaceAdapter(
-        ContextFactory::GetInstance()->CreateContext(this));
+    return ContextFactory::GetInstance()->CreateOutputSurface(this);
   }
 }
 
@@ -419,6 +518,7 @@ void Compositor::didCommitAndDrawFrame() {
 }
 
 void Compositor::didCompleteSwapBuffers() {
+  DCHECK(g_compositor_thread);
   NotifyEnd();
 }
 

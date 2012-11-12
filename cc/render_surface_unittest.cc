@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/render_surface_impl.h"
 
 #include "cc/append_quads_data.h"
@@ -18,9 +16,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include <public/WebTransformationMatrix.h>
 
-using namespace cc;
 using WebKit::WebTransformationMatrix;
 
+namespace cc {
 namespace {
 
 #define EXECUTE_AND_VERIFY_SURFACE_CHANGED(codeToTest)                  \
@@ -39,14 +37,11 @@ TEST(RenderSurfaceTest, verifySurfaceChangesAreTrackedProperly)
     // This test checks that surfacePropertyChanged() has the correct behavior.
     //
 
-    // This will fake that we are on the correct thread for testing purposes.
-    DebugScopedSetImplThread setImplThread;
-
     scoped_ptr<LayerImpl> owningLayer = LayerImpl::create(1);
     owningLayer->createRenderSurface();
     ASSERT_TRUE(owningLayer->renderSurface());
     RenderSurfaceImpl* renderSurface = owningLayer->renderSurface();
-    IntRect testRect = IntRect(IntPoint(3, 4), IntSize(5, 6));
+    gfx::Rect testRect = gfx::Rect(gfx::Point(3, 4), gfx::Size(5, 6));
     owningLayer->resetAllChangeTrackingForSubtree();
 
     // Currently, the contentRect, clipRect, and owningLayer->layerPropertyChanged() are
@@ -76,9 +71,6 @@ TEST(RenderSurfaceTest, verifySurfaceChangesAreTrackedProperly)
 
 TEST(RenderSurfaceTest, sanityCheckSurfaceCreatesCorrectSharedQuadState)
 {
-    // This will fake that we are on the correct thread for testing purposes.
-    DebugScopedSetImplThread setImplThread;
-
     scoped_ptr<LayerImpl> rootLayer = LayerImpl::create(1);
 
     scoped_ptr<LayerImpl> owningLayer = LayerImpl::create(2);
@@ -89,8 +81,8 @@ TEST(RenderSurfaceTest, sanityCheckSurfaceCreatesCorrectSharedQuadState)
 
     rootLayer->addChild(owningLayer.Pass());
 
-    IntRect contentRect = IntRect(IntPoint::zero(), IntSize(50, 50));
-    IntRect clipRect = IntRect(IntPoint(5, 5), IntSize(40, 40));
+    gfx::Rect contentRect = gfx::Rect(gfx::Point(), gfx::Size(50, 50));
+    gfx::Rect clipRect = gfx::Rect(gfx::Point(5, 5), gfx::Size(40, 40));
     WebTransformationMatrix origin;
 
     origin.translate(30, 40);
@@ -113,7 +105,7 @@ TEST(RenderSurfaceTest, sanityCheckSurfaceCreatesCorrectSharedQuadState)
 
     EXPECT_EQ(30, sharedQuadState->quadTransform.m41());
     EXPECT_EQ(40, sharedQuadState->quadTransform.m42());
-    EXPECT_RECT_EQ(contentRect, IntRect(sharedQuadState->visibleContentRect));
+    EXPECT_RECT_EQ(contentRect, gfx::Rect(sharedQuadState->visibleContentRect));
     EXPECT_EQ(1, sharedQuadState->opacity);
     EXPECT_FALSE(sharedQuadState->opaque);
 }
@@ -130,9 +122,6 @@ private:
 
 TEST(RenderSurfaceTest, sanityCheckSurfaceCreatesCorrectRenderPass)
 {
-    // This will fake that we are on the correct thread for testing purposes.
-    DebugScopedSetImplThread setImplThread;
-
     scoped_ptr<LayerImpl> rootLayer = LayerImpl::create(1);
 
     scoped_ptr<LayerImpl> owningLayer = LayerImpl::create(2);
@@ -143,7 +132,7 @@ TEST(RenderSurfaceTest, sanityCheckSurfaceCreatesCorrectRenderPass)
 
     rootLayer->addChild(owningLayer.Pass());
 
-    IntRect contentRect = IntRect(IntPoint::zero(), IntSize(50, 50));
+    gfx::Rect contentRect = gfx::Rect(gfx::Point(), gfx::Size(50, 50));
     WebTransformationMatrix origin;
     origin.translate(30, 40);
 
@@ -162,4 +151,5 @@ TEST(RenderSurfaceTest, sanityCheckSurfaceCreatesCorrectRenderPass)
     EXPECT_EQ(origin, pass->transformToRootTarget());
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

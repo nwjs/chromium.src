@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCStreamVideoDrawQuad_h
-#define CCStreamVideoDrawQuad_h
+#ifndef CC_STREAM_VIDEO_DRAW_QUAD_H_
+#define CC_STREAM_VIDEO_DRAW_QUAD_H_
 
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/draw_quad.h"
 #include <public/WebTransformationMatrix.h>
 
@@ -13,7 +14,7 @@ namespace cc {
 
 #pragma pack(push, 4)
 
-class StreamVideoDrawQuad : public DrawQuad {
+class CC_EXPORT StreamVideoDrawQuad : public DrawQuad {
 public:
     static scoped_ptr<StreamVideoDrawQuad> create(const SharedQuadState*, const gfx::Rect&, unsigned textureId, const WebKit::WebTransformationMatrix&);
 
@@ -32,4 +33,4 @@ private:
 
 }
 
-#endif
+#endif  // CC_STREAM_VIDEO_DRAW_QUAD_H_

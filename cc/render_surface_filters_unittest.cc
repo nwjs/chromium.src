@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/render_surface_filters.h"
 
 #include "cc/test/compositor_fake_web_graphics_context_3d.h"
@@ -11,9 +9,9 @@
 #include <public/WebFilterOperation.h>
 #include <public/WebFilterOperations.h>
 
-using namespace cc;
 using namespace WebKit;
 
+namespace cc {
 namespace {
 
 // Checks whether op can be combined with a following color matrix.
@@ -137,4 +135,5 @@ TEST(RenderSurfaceFiltersTest, testOptimize)
     EXPECT_EQ(3u, optimized.size());
 }
 
-} // namespace
+}  // namespace
+}  // namespace cc

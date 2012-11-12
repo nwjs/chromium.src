@@ -84,6 +84,12 @@ const int kPluginsRefreshThresholdInSeconds = 3;
 // usage only once and send it as a response for both queries.
 static const int64 kCPUUsageSampleIntervalMs = 900;
 
+// On Windows, |g_color_profile| can run on an arbitrary background thread.
+// We avoid races by using LazyInstance's constructor lock to initialize the
+// object.
+base::LazyInstance<gfx::ColorProfile>::Leaky g_color_profile =
+    LAZY_INSTANCE_INITIALIZER;
+
 // Common functionality for converting a sync renderer message to a callback
 // function in the browser. Derive from this, create it on the heap when
 // issuing your callback. When done, write your reply parameters into
@@ -335,13 +341,6 @@ bool RenderMessageFilter::OnMessageReceived(const IPC::Message& message,
                                             bool* message_was_ok) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP_EX(RenderMessageFilter, message, *message_was_ok)
-#if defined(OS_WIN) && !defined(USE_AURA)
-    // On Windows, we handle these on the IO thread to avoid a deadlock with
-    // plugins.  On non-Windows systems, we need to handle them on the UI
-    // thread.
-    IPC_MESSAGE_HANDLER(ViewHostMsg_GetWindowRect, OnGetWindowRect)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_GetRootWindowRect, OnGetRootWindowRect)
-#endif
     IPC_MESSAGE_HANDLER(ViewHostMsg_GenerateRoutingID, OnGenerateRoutingID)
     IPC_MESSAGE_HANDLER(ViewHostMsg_CreateWindow, OnMsgCreateWindow)
     IPC_MESSAGE_HANDLER(ViewHostMsg_CreateWidget, OnMsgCreateWidget)
@@ -405,13 +404,14 @@ void RenderMessageFilter::OnDestruct() const {
   BrowserThread::DeleteOnIOThread::Destruct(this);
 }
 
-void RenderMessageFilter::OverrideThreadForMessage(
-    const IPC::Message& message, BrowserThread::ID* thread) {
+base::TaskRunner* RenderMessageFilter::OverrideTaskRunnerForMessage(
+    const IPC::Message& message) {
 #if defined(OS_WIN)
   // Windows monitor profile must be read from a file.
   if (message.type() == ViewHostMsg_GetMonitorColorProfile::ID)
-    *thread = BrowserThread::FILE;
+    return BrowserThread::GetBlockingPool();
 #endif
+  return NULL;
 }
 
 bool RenderMessageFilter::OffTheRecord() const {
@@ -681,22 +681,42 @@ void RenderMessageFilter::OnOpenChannelToPepperPlugin(
 void RenderMessageFilter::OnDidCreateOutOfProcessPepperInstance(
     int plugin_child_id,
     int32 pp_instance,
-    int render_view_id) {
+    int render_view_id,
+    bool is_external) {
   // It's important that we supply the render process ID ourselves based on the
   // channel the message arrived on. We use the
   //   PP_Instance -> (process id, view id)
   // mapping to decide how to handle messages received from the (untrusted)
   // plugin, so an exploited renderer must not be able to insert fake mappings
   // that may allow it access to other render processes.
-  PpapiPluginProcessHost::DidCreateOutOfProcessInstance(
-      plugin_child_id, pp_instance, render_process_id_, render_view_id);
+  if (is_external) {
+    // We provide the BrowserPpapiHost to the embedder, so it's safe to cast.
+    BrowserPpapiHostImpl* host = static_cast<BrowserPpapiHostImpl*>(
+        GetContentClient()->browser()->GetExternalBrowserPpapiHost(
+            plugin_child_id));
+    if (host)
+      host->AddInstanceForView(pp_instance, render_process_id_, render_view_id);
+  } else {
+    PpapiPluginProcessHost::DidCreateOutOfProcessInstance(
+        plugin_child_id, pp_instance, render_process_id_, render_view_id);
+  }
 }
 
 void RenderMessageFilter::OnDidDeleteOutOfProcessPepperInstance(
     int plugin_child_id,
-    int32 pp_instance) {
-  PpapiPluginProcessHost::DidDeleteOutOfProcessInstance(
-      plugin_child_id, pp_instance);
+    int32 pp_instance,
+    bool is_external) {
+  if (is_external) {
+    // We provide the BrowserPpapiHost to the embedder, so it's safe to cast.
+    BrowserPpapiHostImpl* host = static_cast<BrowserPpapiHostImpl*>(
+        GetContentClient()->browser()->GetExternalBrowserPpapiHost(
+            plugin_child_id));
+    if (host)
+      host->DeleteInstanceForView(pp_instance);
+  } else {
+    PpapiPluginProcessHost::DidDeleteOutOfProcessInstance(
+        plugin_child_id, pp_instance);
+  }
 }
 
 void RenderMessageFilter::OnOpenChannelToPpapiBroker(int routing_id,
@@ -743,10 +763,11 @@ void RenderMessageFilter::OnGetHardwareInputChannelLayout(
 
 void RenderMessageFilter::OnGetMonitorColorProfile(std::vector<char>* profile) {
 #if defined(OS_WIN)
+  DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::IO));
   if (BackingStoreWin::ColorManagementEnabled())
     return;
 #endif
-  gfx::GetColorProfile(profile);
+  *profile = g_color_profile.Get().profile();
 }
 
 void RenderMessageFilter::OnDownloadUrl(const IPC::Message& message,

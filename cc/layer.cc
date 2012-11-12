@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/layer.h"
 
 #include "cc/active_animation.h"
@@ -13,6 +11,7 @@
 #include "cc/layer_tree_host.h"
 #include "cc/settings.h"
 #include "third_party/skia/include/core/SkImageFilter.h"
+#include "ui/gfx/rect_conversions.h"
 #include <public/WebAnimationDelegate.h>
 #include <public/WebLayerScrollClient.h>
 #include <public/WebSize.h>
@@ -40,6 +39,7 @@ Layer::Layer()
     , m_shouldScrollOnMainThread(false)
     , m_haveWheelEventHandlers(false)
     , m_nonFastScrollableRegionChanged(false)
+    , m_touchEventHandlerRegionChanged(false)
     , m_anchorPoint(0.5, 0.5)
     , m_backgroundColor(0)
     , m_debugBorderColor(0)
@@ -64,7 +64,6 @@ Layer::Layer()
     , m_renderTarget(0)
     , m_drawTransformIsAnimating(false)
     , m_screenSpaceTransformIsAnimating(false)
-    , m_contentsScale(1.0)
     , m_rasterScale(1.0)
     , m_automaticallyComputeRasterScale(false)
     , m_boundsContainPageScale(false)
@@ -120,13 +119,13 @@ void Layer::setNeedsCommit()
         m_layerTreeHost->setNeedsCommit();
 }
 
-IntRect Layer::layerRectToContentRect(const WebKit::WebRect& layerRect)
+gfx::Rect Layer::layerRectToContentRect(const gfx::RectF& layerRect) const
 {
-    float widthScale = static_cast<float>(contentBounds().width()) / bounds().width();
-    float heightScale = static_cast<float>(contentBounds().height()) / bounds().height();
-    FloatRect contentRect(layerRect.x, layerRect.y, layerRect.width, layerRect.height);
-    contentRect.scale(widthScale, heightScale);
-    return enclosingIntRect(contentRect);
+    gfx::RectF contentRect = gfx::ScaleRect(layerRect, contentsScaleX(), contentsScaleY());
+    // Intersect with content rect to avoid the extra pixel because for some
+    // values x and y, ceil((x / y) * y) may be x + 1.
+    contentRect.Intersect(gfx::Rect(gfx::Point(), contentBounds()));
+    return gfx::ToEnclosingRect(contentRect);
 }
 
 void Layer::setParent(Layer* layer)
@@ -186,8 +185,8 @@ void Layer::removeChild(Layer* child)
 
 void Layer::replaceChild(Layer* reference, scoped_refptr<Layer> newLayer)
 {
-    ASSERT_ARG(reference, reference);
-    ASSERT_ARG(reference, reference->parent() == this);
+    DCHECK(reference);
+    DCHECK_EQ(reference->parent(), this);
 
     if (reference == newLayer)
         return;
@@ -215,12 +214,12 @@ int Layer::indexOfChild(const Layer* reference)
     return -1;
 }
 
-void Layer::setBounds(const IntSize& size)
+void Layer::setBounds(const gfx::Size& size)
 {
     if (bounds() == size)
         return;
 
-    bool firstResize = bounds().isEmpty() && !size.isEmpty();
+    bool firstResize = bounds().IsEmpty() && !size.IsEmpty();
 
     m_bounds = size;
 
@@ -258,7 +257,7 @@ void Layer::setChildren(const LayerList& children)
         addChild(children[i]);
 }
 
-void Layer::setAnchorPoint(const FloatPoint& anchorPoint)
+void Layer::setAnchorPoint(const gfx::PointF& anchorPoint)
 {
     if (m_anchorPoint == anchorPoint)
         return;
@@ -282,7 +281,7 @@ void Layer::setBackgroundColor(SkColor backgroundColor)
     setNeedsCommit();
 }
 
-IntSize Layer::contentBounds() const
+gfx::Size Layer::contentBounds() const
 {
     return bounds();
 }
@@ -379,7 +378,7 @@ void Layer::setContentsOpaque(bool opaque)
     setNeedsDisplay();
 }
 
-void Layer::setPosition(const FloatPoint& position)
+void Layer::setPosition(const gfx::PointF& position)
 {
     if (m_position == position)
         return;
@@ -408,21 +407,21 @@ bool Layer::transformIsAnimating() const
     return m_layerAnimationController->isAnimatingProperty(ActiveAnimation::Transform);
 }
 
-void Layer::setScrollPosition(const IntPoint& scrollPosition)
+void Layer::setScrollOffset(gfx::Vector2d scrollOffset)
 {
-    if (m_scrollPosition == scrollPosition)
+    if (m_scrollOffset == scrollOffset)
         return;
-    m_scrollPosition = scrollPosition;
+    m_scrollOffset = scrollOffset;
     if (m_layerScrollClient)
         m_layerScrollClient->didScroll();
     setNeedsCommit();
 }
 
-void Layer::setMaxScrollPosition(const IntSize& maxScrollPosition)
+void Layer::setMaxScrollOffset(gfx::Vector2d maxScrollOffset)
 {
-    if (m_maxScrollPosition == maxScrollPosition)
+    if (m_maxScrollOffset == maxScrollOffset)
         return;
-    m_maxScrollPosition = maxScrollPosition;
+    m_maxScrollOffset = maxScrollOffset;
     setNeedsCommit();
 }
 
@@ -457,6 +456,14 @@ void Layer::setNonFastScrollableRegion(const Region& region)
     m_nonFastScrollableRegion = region;
     m_nonFastScrollableRegionChanged = true;
     setNeedsCommit();
+}
+
+void Layer::setTouchEventHandlerRegion(const Region& region)
+{
+    if (m_touchEventHandlerRegion == region)
+        return;
+    m_touchEventHandlerRegion = region;
+    m_touchEventHandlerRegionChanged = true;
 }
 
 void Layer::setDrawCheckerboardForMissingTiles(bool checkerboard)
@@ -505,14 +512,14 @@ Layer* Layer::parent() const
     return m_parent;
 }
 
-void Layer::setNeedsDisplayRect(const FloatRect& dirtyRect)
+void Layer::setNeedsDisplayRect(const gfx::RectF& dirtyRect)
 {
-    m_updateRect.unite(dirtyRect);
+    m_updateRect.Union(dirtyRect);
 
     // Simply mark the contents as dirty. For non-root layers, the call to
     // setNeedsCommit will schedule a fresh compositing pass.
     // For the root layer, setNeedsCommit has no effect.
-    if (!dirtyRect.isEmpty())
+    if (!dirtyRect.IsEmpty())
         m_needsDisplay = true;
 
     if (drawsContent())
@@ -557,6 +564,7 @@ void Layer::pushPropertiesTo(LayerImpl* layer)
     layer->setBackgroundColor(m_backgroundColor);
     layer->setBounds(m_bounds);
     layer->setContentBounds(contentBounds());
+    layer->setContentsScale(contentsScaleX(), contentsScaleY());
     layer->setDebugBorderColor(m_debugBorderColor);
     layer->setDebugBorderWidth(m_debugBorderWidth);
     layer->setDebugName(m_debugName);
@@ -578,6 +586,10 @@ void Layer::pushPropertiesTo(LayerImpl* layer)
         layer->setNonFastScrollableRegion(m_nonFastScrollableRegion);
         m_nonFastScrollableRegionChanged = false;
     }
+    if (m_touchEventHandlerRegionChanged) {
+        layer->setTouchEventHandlerRegion(m_touchEventHandlerRegion);
+        m_touchEventHandlerRegionChanged = false;
+    }
     layer->setContentsOpaque(m_contentsOpaque);
     if (!opacityIsAnimating())
         layer->setOpacity(m_opacity);
@@ -586,8 +598,8 @@ void Layer::pushPropertiesTo(LayerImpl* layer)
     layer->setFixedToContainerLayer(m_fixedToContainerLayer);
     layer->setPreserves3D(preserves3D());
     layer->setUseParentBackfaceVisibility(m_useParentBackfaceVisibility);
-    layer->setScrollPosition(m_scrollPosition);
-    layer->setMaxScrollPosition(m_maxScrollPosition);
+    layer->setScrollOffset(m_scrollOffset);
+    layer->setMaxScrollOffset(m_maxScrollOffset);
     layer->setSublayerTransform(m_sublayerTransform);
     if (!transformIsAnimating())
         layer->setTransform(m_transform);
@@ -595,11 +607,11 @@ void Layer::pushPropertiesTo(LayerImpl* layer)
     // If the main thread commits multiple times before the impl thread actually draws, then damage tracking
     // will become incorrect if we simply clobber the updateRect here. The LayerImpl's updateRect needs to
     // accumulate (i.e. union) any update changes that have occurred on the main thread.
-    m_updateRect.uniteIfNonZero(layer->updateRect());
+    m_updateRect.Union(layer->updateRect());
     layer->setUpdateRect(m_updateRect);
 
     layer->setScrollDelta(layer->scrollDelta() - layer->sentScrollDelta());
-    layer->setSentScrollDelta(IntSize());
+    layer->setSentScrollDelta(gfx::Vector2d());
 
     layer->setStackingOrderChanged(m_stackingOrderChanged);
 
@@ -612,7 +624,7 @@ void Layer::pushPropertiesTo(LayerImpl* layer)
 
     // Reset any state that should be cleared for the next update.
     m_stackingOrderChanged = false;
-    m_updateRect = FloatRect();
+    m_updateRect = gfx::RectF();
 }
 
 scoped_ptr<LayerImpl> Layer::createLayerImpl()
@@ -626,11 +638,6 @@ bool Layer::drawsContent() const
 }
 
 bool Layer::needMoreUpdates()
-{
-    return false;
-}
-
-bool Layer::needsContentsScale() const
 {
     return false;
 }
@@ -653,13 +660,14 @@ void Layer::setDebugName(const std::string& debugName)
     setNeedsCommit();
 }
 
-void Layer::setContentsScale(float contentsScale)
+float Layer::contentsScaleX() const
 {
-    if (!needsContentsScale() || m_contentsScale == contentsScale)
-        return;
-    m_contentsScale = contentsScale;
+    return 1.0;
+}
 
-    setNeedsDisplay();
+float Layer::contentsScaleY() const
+{
+    return 1.0;
 }
 
 void Layer::setRasterScale(float scale)
@@ -847,4 +855,4 @@ void sortLayers(std::vector<scoped_refptr<Layer> >::iterator, std::vector<scoped
     // Currently we don't use z-order to decide what to paint, so there's no need to actually sort Layers.
 }
 
-}
+}  // namespace cc

@@ -74,7 +74,6 @@
 #include "ppapi/c/private/ppb_flash_font_file.h"
 #include "ppapi/c/private/ppb_flash_fullscreen.h"
 #include "ppapi/c/private/ppb_flash_message_loop.h"
-#include "ppapi/c/private/ppb_flash_tcp_socket.h"
 #include "ppapi/c/private/ppb_gpu_blacklist_private.h"
 #include "ppapi/c/private/ppb_instance_private.h"
 #include "ppapi/c/private/ppb_network_list_private.h"
@@ -86,7 +85,6 @@
 #include "ppapi/c/private/ppb_udp_socket_private.h"
 #include "ppapi/c/private/ppb_uma_private.h"
 #include "ppapi/c/private/ppb_x509_certificate_private.h"
-#include "ppapi/c/trusted/ppb_audio_input_trusted_dev.h"
 #include "ppapi/c/trusted/ppb_audio_trusted.h"
 #include "ppapi/c/trusted/ppb_broker_trusted.h"
 #include "ppapi/c/trusted/ppb_browser_font_trusted.h"
@@ -286,6 +284,7 @@ const void* InternalGetInterface(const char* name) {
   #include "ppapi/thunk/interfaces_ppb_public_stable.h"
   #include "ppapi/thunk/interfaces_ppb_public_dev.h"
   #include "ppapi/thunk/interfaces_ppb_private.h"
+  #include "ppapi/thunk/interfaces_ppb_private_no_permissions.h"
   #include "ppapi/thunk/interfaces_ppb_private_flash.h"
 
   #undef UNPROXIED_API
@@ -293,8 +292,6 @@ const void* InternalGetInterface(const char* name) {
 
   // Please keep alphabetized by interface macro name with "special" stuff at
   // the bottom.
-  if (strcmp(name, PPB_AUDIO_INPUT_TRUSTED_DEV_INTERFACE_0_1) == 0)
-    return ::ppapi::thunk::GetPPB_AudioInputTrusted_0_1_Thunk();
   if (strcmp(name, PPB_AUDIO_TRUSTED_INTERFACE_0_6) == 0)
     return ::ppapi::thunk::GetPPB_AudioTrusted_0_6_Thunk();
   if (strcmp(name, PPB_BUFFER_TRUSTED_INTERFACE_0_1) == 0)
@@ -511,7 +508,7 @@ scoped_refptr<PluginModule> PluginModule::CreateModuleForNaClInstance() {
   return nacl_module;
 }
 
-void PluginModule::InitAsProxiedNaCl(PluginInstance* plugin_instance) {
+bool PluginModule::InitAsProxiedNaCl(PluginInstance* plugin_instance) {
   DCHECK(out_of_process_proxy_.get());
   // InitAsProxied (for the trusted/out-of-process case) initializes only the
   // module, and one or more instances are added later. In this case, the
@@ -521,7 +518,7 @@ void PluginModule::InitAsProxiedNaCl(PluginInstance* plugin_instance) {
   // In NaCl, we need to tell the instance to reset itself as proxied. This will
   // clear cached interface pointers and send DidCreate (etc) to the plugin
   // side of the proxy.
-  plugin_instance->ResetAsProxied(this);
+  return plugin_instance->ResetAsProxied(this);
 }
 
 // static

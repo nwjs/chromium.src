@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef GeometryBinding_h
-#define GeometryBinding_h
+#ifndef CC_GEOMETRY_BINDING_H_
+#define CC_GEOMETRY_BINDING_H_
 
-#include "FloatRect.h"
+namespace gfx {
+class RectF;
+}
 
 namespace WebKit {
 class WebGraphicsContext3D;
@@ -15,7 +17,7 @@ namespace cc {
 
 class GeometryBinding {
 public:
-    GeometryBinding(WebKit::WebGraphicsContext3D*, const FloatRect& quadVertexRect);
+    GeometryBinding(WebKit::WebGraphicsContext3D*, const gfx::RectF& quadVertexRect);
     ~GeometryBinding();
 
     bool initialized() const { return m_initialized; }
@@ -41,4 +43,4 @@ private:
 
 } // namespace cc
 
-#endif
+#endif  // CC_GEOMETRY_BINDING_H_

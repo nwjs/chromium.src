@@ -82,7 +82,8 @@ class InterstitialPageImpl::InterstitialPageRVHDelegateView
   virtual void StartDragging(const WebDropData& drop_data,
                              WebDragOperationsMask operations_allowed,
                              const gfx::ImageSkia& image,
-                             const gfx::Point& image_offset) OVERRIDE;
+                             const gfx::Vector2d& image_offset,
+                             const DragEventSourceInfo& event_info) OVERRIDE;
   virtual void UpdateDragCursor(WebDragOperation operation) OVERRIDE;
   virtual void GotFocus() OVERRIDE;
   virtual void TakeFocus(bool reverse) OVERRIDE;
@@ -627,6 +628,12 @@ RenderViewHost* InterstitialPageImpl::GetRenderViewHostForTesting() const {
   return render_view_host_;
 }
 
+#if defined(OS_ANDROID)
+RenderViewHost* InterstitialPageImpl::GetRenderViewHost() const {
+  return render_view_host_;
+}
+#endif
+
 InterstitialPageDelegate* InterstitialPageImpl::GetDelegateForTesting() {
   return delegate_.get();
 }
@@ -678,12 +685,21 @@ void InterstitialPageImpl::ShowContextMenu(
     ContextMenuSourceType type) {
 }
 
+#if defined(OS_ANDROID)
+void InterstitialPageImpl::AttachLayer(WebKit::WebLayer* layer) {
+  web_contents_->AttachLayer(layer);
+}
+
+void InterstitialPageImpl::RemoveLayer(WebKit::WebLayer* layer) {
+  web_contents_->RemoveLayer(layer);
+}
+#endif
+
 void InterstitialPageImpl::Disable() {
   enabled_ = false;
 }
 
-void InterstitialPageImpl::Shutdown(
-    content::RenderViewHostImpl* render_view_host) {
+void InterstitialPageImpl::Shutdown(RenderViewHostImpl* render_view_host) {
   render_view_host->Shutdown();
   // We are deleted now.
 }
@@ -740,7 +756,8 @@ void InterstitialPageImpl::InterstitialPageRVHDelegateView::StartDragging(
     const WebDropData& drop_data,
     WebDragOperationsMask allowed_operations,
     const gfx::ImageSkia& image,
-    const gfx::Point& image_offset) {
+    const gfx::Vector2d& image_offset,
+    const DragEventSourceInfo& event_info) {
   NOTREACHED() << "InterstitialPage does not support dragging yet.";
 }
 

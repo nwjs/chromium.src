@@ -45,11 +45,8 @@ class FakeBaseTabStripController : public TabStripController {
                            const GURL& url) OVERRIDE;
   virtual bool IsCompatibleWith(TabStrip* other) const OVERRIDE;
   virtual void CreateNewTab() OVERRIDE;
-  virtual void ClickActiveTab(int index) OVERRIDE;
   virtual bool IsIncognito() OVERRIDE;
   virtual void LayoutTypeMaybeChanged() OVERRIDE;
-  virtual bool IsInstantExtendedAPIEnabled() OVERRIDE;
-  virtual bool ShouldShowWhiteNTP() OVERRIDE;
 
  private:
   TabStrip* tab_strip_;

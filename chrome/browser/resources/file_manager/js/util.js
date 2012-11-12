@@ -584,7 +584,7 @@ util.applyTransform = function(element, transform) {
  */
 util.makeFilesystemUrl = function(path) {
   path = path.split('/').map(encodeURIComponent).join('/');
-  return 'filesystem:' + chrome.extension.getURL('external' + path);
+  return 'filesystem:' + util.platform.getURL('external' + path);
 };
 
 /**
@@ -600,13 +600,6 @@ util.extractFilePath = function(url) {
 };
 
 /**
- * @return {string} Id of the current Chrome extension.
- */
-util.getExtensionId = function() {
-  return chrome.extension.getURL('').split('/')[2];
-};
-
-/**
  * Traverses a tree up to a certain depth.
  * @param {FileEntry} root Root entry.
  * @param {function(Array.<Entry>)} callback The callback is called at the very
@@ -614,21 +607,47 @@ util.getExtensionId = function() {
  * @param {number?} max_depth Maximum depth. Pass zero to traverse everything.
  */
 util.traverseTree = function(root, callback, max_depth) {
+  var list = [];
+  util.forEachEntryInTree(root, function(entry) {
+    if (entry) {
+      list.push(entry);
+    } else {
+      callback(list);
+    }
+    return true;
+  }, max_depth);
+};
+
+/**
+ * Traverses a tree up to a certain depth, and calls a callback for each entry.
+ * @param {FileEntry} root Root entry.
+ * @param {function(Entry):boolean} callback The callback is called for each
+ *     entry, and then once with null passed. If callback returns false once,
+ *     the whole traversal is stopped.
+ * @param {number?} max_depth Maximum depth. Pass zero to traverse everything.
+ */
+util.forEachEntryInTree = function(root, callback, max_depth) {
   if (root.isFile) {
-    callback([root]);
+    if (callback(root))
+      callback(null);
     return;
   }
 
-  var result = [];
   var pending = 0;
+  var cancelled = false;
 
   function maybeDone() {
-    if (pending == 0)
-      callback(result);
+    if (pending == 0 && !cancelled)
+      callback(null);
   }
 
   function readEntry(entry, depth) {
-    result.push(entry);
+    if (cancelled) return;
+
+    if (!callback(entry)) {
+      cancelled = true;
+      return;
+    }
 
     // Do not recurse too deep and into files.
     if (entry.isFile || (max_depth != 0 && depth >= max_depth))
@@ -676,6 +695,9 @@ util.createChild = function(parent, opt_className, opt_tag) {
  *   stringified if object. If omitted the search query is left unchanged.
  */
 util.updateLocation = function(replace, path, opt_param) {
+  if (util.platform.v2())
+    return;
+
   var location = window.top.document.location;
   var history = window.top.history;
 
@@ -728,3 +750,189 @@ function str(id) {
 function strf(id, var_args) {
   return loadTimeData.getStringF.apply(loadTimeData, arguments);
 }
+
+/**
+ * Adapter object that abstracts away the the difference between Chrome app APIs
+ * v1 and v2. Is only necessary while the migration to v2 APIs is in progress.
+ */
+util.platform = {
+  /**
+   * @return {boolean} True for v2.
+   */
+  v2: function() {
+    try {
+      return !!(chrome.app && chrome.app.runtime);
+    } catch (e) {
+      console.log(new Error.stack);
+      return false;
+    }
+  },
+
+  /**
+   * @param {function(Object)} callback Function accepting a preference map.
+   */
+  getPreferences: function(callback) {
+    try {
+      callback(window.localStorage);
+    } catch (ignore) {
+      chrome.storage.local.get(callback);
+    }
+  },
+
+  /**
+   * @param {string} key Preference name.
+   * @param {function(string)} callback Function accepting the preference value.
+   */
+  getPreference: function(key, callback) {
+    try {
+      callback(window.localStorage[key]);
+    } catch (ignore) {
+      chrome.storage.local.get(function(items) {
+        callback(items[key]);
+      });
+    }
+  },
+
+  /**
+   * @param {string} key Preference name.
+   * @param {string} value Preference value.
+   * @param {function} callback Completion callback.
+   */
+  setPreference: function(key, value, opt_callback) {
+    try {
+      window.localStorage[key] = value;
+      if (opt_callback) opt_callback();
+    } catch (ignore) {
+      var items = {};
+      items[key] = value;
+      chrome.storage.local.set(items, opt_callback);
+    }
+  },
+
+  /**
+   * @param {function(Object)} callback Function accepting a status object.
+   */
+  getWindowStatus: function(callback) {
+    try {
+      chrome.windows.getCurrent(callback);
+    } catch (ignore) {
+      // TODO: fill the status object once the API is available.
+      callback({});
+    }
+  },
+
+  /**
+   * Close current window.
+   */
+  closeWindow: function() {
+    if (this.v2()) {
+      window.close();
+    } else {
+      chrome.tabs.getCurrent(function(tab) {
+        chrome.tabs.remove(tab.id);
+      });
+    }
+  },
+
+  /**
+   * @return {string} Applicaton id.
+   */
+  getAppId: function() {
+    try {
+      return chrome.extension.getURL('').split('/')[2];
+    } catch (ignore) {
+      return chrome.runtime.id;
+    }
+  },
+
+  /**
+   * @param {string} path Path relative to the extension root.
+   * @return {string} Extension-based URL.
+   */
+  getURL: function(path) {
+    try {
+      return chrome.extension.getURL(path);
+    } catch (ignore) {
+      return chrome.runtime.getURL(path);
+    }
+  },
+
+  /**
+   * Suppress default context menu in a current window.
+   */
+  suppressContextMenu: function() {
+    // For packed v2 apps the default context menu would not show until
+    // --debug-packed-apps is added to the command line.
+    // For unpacked v2 apps (used for debugging) it is ok to show the menu.
+    if (util.platform.v2())
+      return;
+
+    // For the old style app we show the menu only in the test harness mode.
+    if (!util.TEST_HARNESS)
+      document.addEventListener('contextmenu',
+          function(e) { e.preventDefault() });
+  },
+
+  /**
+   * Creates a new window.
+   * @param {string} url Window url.
+   * @param {Object} options Window options.
+   */
+  createWindow: function(url, options) {
+    if (util.platform.v2()) {
+      chrome.app.window.create(url, options);
+    } else {
+      var params = {};
+      for (var key in options) {
+        if (options.hasOwnProperty(key)) {
+          params[key] = options[key];
+        }
+      }
+      params.url = url;
+      params.type = 'popup';
+      chrome.windows.create(params);
+    }
+  }
+};
+
+/**
+ * Load Javascript resources dynamically.
+ * @param {Array.<string>} urls Array of script urls.
+ * @param {function} onload Completion callback.
+ */
+util.loadScripts = function(urls, onload) {
+  var countdown = urls.length;
+  if (!countdown) {
+    onload();
+    return;
+  }
+  function done() {
+    if (--countdown == 0)
+      onload();
+  }
+  while (urls.length) {
+    var script = document.createElement('script');
+    script.src = urls.shift();
+    document.head.appendChild(script);
+    script.onload = done;
+    script.onerror = done;
+  }
+};
+
+/**
+ * Attach page load handler.
+ * Loads mock chrome.* APIs is the real ones are not present.
+ * @param {function} handler Application-specific load handler.
+ */
+util.addPageLoadHandler = function(handler) {
+  document.addEventListener('DOMContentLoaded', function() {
+    if (chrome.fileBrowserPrivate) {
+      handler();
+    } else {
+      util.TEST_HARNESS = true;
+      util.loadScripts(['js/mock_chrome.js', 'js/file_copy_manager.js'],
+          handler);
+    }
+    util.platform.suppressContextMenu();
+  });
+};

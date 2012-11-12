@@ -19,6 +19,7 @@
 #include "content/renderer/render_view_impl.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
 
+struct BrowserPluginHostMsg_AutoSize_Params;
 struct BrowserPluginHostMsg_ResizeGuest_Params;
 struct BrowserPluginMsg_LoadCommit_Params;
 struct BrowserPluginMsg_UpdateRect_Params;
@@ -31,17 +32,39 @@ class MockBrowserPlugin;
 class CONTENT_EXPORT BrowserPlugin :
     NON_EXPORTED_BASE(public WebKit::WebPlugin) {
  public:
+  RenderViewImpl* render_view() const { return render_view_.get(); }
   // Called only by tests to clean up before we blow away the MockRenderProcess.
   void Cleanup();
 
-  // Get the src attribute value of the BrowserPlugin instance if the guest
-  // has not crashed.
-  std::string GetSrcAttribute() const;
-  // Set the src attribute value of the BrowserPlugin instance and reset
-  // the guest_crashed_ flag.
+  // Get the src attribute value of the BrowserPlugin instance.
+  std::string src_attribute() const { return src_; }
+  // Set the src attribute value of the BrowserPlugin instance.
   void SetSrcAttribute(const std::string& src);
+  // Get the autosize attribute value.
+  bool auto_size_attribute() const { return auto_size_; }
+  // Sets the autosize attribute value.
+  void SetAutoSizeAttribute(bool auto_size);
+  // Get the maxheight attribute value.
+  int max_height_attribute() const { return max_height_; }
+  // Set the maxheight attribute value.
+  void SetMaxHeightAttribute(int maxheight);
+  // Get the maxwidth attribute value.
+  int max_width_attribute() const { return max_width_; }
+  // Set the maxwidth attribute value.
+  void SetMaxWidthAttribute(int max_width);
+  // Get the minheight attribute value.
+  int min_height_attribute() const { return min_height_; }
+  // Set the minheight attribute value.
+  void SetMinHeightAttribute(int minheight);
+  // Get the minwidth attribute value.
+  int min_width_attribute() const { return min_width_; }
+  // Set the minwidth attribute value.
+  void SetMinWidthAttribute(int minwidth);
+  bool InAutoSizeBounds(const gfx::Size& size) const;
+
   // Get the guest's DOMWindow proxy.
   NPObject* GetContentWindow() const;
+
   // Returns Chrome's process ID for the current guest.
   int process_id() const { return process_id_; }
   // The partition identifier string is stored as UTF-8.
@@ -77,6 +100,12 @@ class CONTENT_EXPORT BrowserPlugin :
   // Tells the BrowserPlugin to advance the focus to the next (or previous)
   // element.
   void AdvanceFocus(bool reverse);
+  // Inform the BrowserPlugin of the focus state of the embedder RenderView.
+  void SetEmbedderFocus(bool focused);
+  // Informs the guest of an updated focus state.
+  void UpdateGuestFocus();
+  // Indicates whether the guest should be focused.
+  bool ShouldGuestBeFocused() const;
 
   // Inform the BrowserPlugin that the guest's contentWindow is ready,
   // and provide it with a routing ID to grab it.
@@ -111,6 +140,9 @@ class CONTENT_EXPORT BrowserPlugin :
   void Stop();
   // A request from Javascript has been made to reload the page.
   void Reload();
+
+  // Informs the BrowserPlugin of the cursor that the guest has requested.
+  void SetCursor(const WebCursor& cursor);
 
   // WebKit::WebPlugin implementation.
   virtual WebKit::WebPluginContainer* container() const OVERRIDE;
@@ -205,6 +237,21 @@ class CONTENT_EXPORT BrowserPlugin :
   virtual TransportDIB* CreateTransportDIB(const size_t size);
   // Frees up the damage buffer. Overridden in tests.
   virtual void FreeDamageBuffer();
+  // Populates BrowserPluginHostMsg_ResizeGuest_Params with resize state and
+  // returns the newly allocated TransportDIB.
+  TransportDIB* PopulateResizeGuestParameters(
+      BrowserPluginHostMsg_ResizeGuest_Params* params,
+      int view_width, int view_height);
+
+  // Populates BrowserPluginHostMsg_AutoSize_Params object with autosize state.
+  void PopulateAutoSizeParameters(
+      BrowserPluginHostMsg_AutoSize_Params* params);
+
+  // Informs the guest of an updated autosize state.
+  void UpdateGuestAutoSizeState();
+
+  // Informs the BrowserPlugin that guest has changed its size in autosize mode.
+  void SizeChangedDueToAutoSize(const gfx::Size& old_view_size);
 
   int instance_id_;
   base::WeakPtr<RenderViewImpl> render_view_;
@@ -225,11 +272,17 @@ class CONTENT_EXPORT BrowserPlugin :
   // True if we have ever sent a NavigateGuest message to the embedder.
   bool navigate_src_sent_;
   std::string src_;
+  bool auto_size_;
+  int max_height_;
+  int max_width_;
+  int min_height_;
+  int min_width_;
   int process_id_;
   std::string storage_partition_id_;
   bool persist_storage_;
   int content_window_routing_id_;
-  bool focused_;
+  bool plugin_focused_;
+  bool embedder_focused_;
   // Tracks the visibility of the browser plugin regardless of the whole
   // embedder RenderView's visibility.
   bool visible_;
@@ -237,9 +290,10 @@ class CONTENT_EXPORT BrowserPlugin :
   typedef std::vector<v8::Persistent<v8::Function> > EventListeners;
   typedef std::map<std::string, EventListeners> EventListenerMap;
   EventListenerMap event_listener_map_;
-#if defined(OS_WIN)
-  base::SharedMemory shared_memory_;
-#endif
+  WebCursor cursor_;
+  gfx::Size last_view_size_;
+  bool size_changed_in_flight_;
+
   // Important: Do not add more history state here.
   // We strongly discourage storing additional history state (such as page IDs)
   // in the embedder process, at the risk of having incorrect information that

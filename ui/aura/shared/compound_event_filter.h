@@ -7,8 +7,10 @@
 
 #include "base/compiler_specific.h"
 #include "base/observer_list.h"
-#include "ui/aura/aura_export.h"
 #include "ui/aura/event_filter.h"
+#include "ui/base/events/event.h"
+#include "ui/gfx/native_widget_types.h"
+#include "ui/views/views_export.h"
 
 namespace ui {
 class GestureEvent;
@@ -32,7 +34,7 @@ namespace shared {
 // consumed by any of those filters. If an event is consumed by a filter, the
 // rest of the filter(s) and CompoundEventFilter will not see the consumed
 // event.
-class AURA_EXPORT CompoundEventFilter : public EventFilter {
+class VIEWS_EXPORT CompoundEventFilter : public EventFilter {
  public:
   CompoundEventFilter();
   virtual ~CompoundEventFilter();

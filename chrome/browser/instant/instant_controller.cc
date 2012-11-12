@@ -148,6 +148,11 @@ bool NormalizeAndStripPrefix(string16* text, const string16& prefix) {
   return false;
 }
 
+InstantModel::PreviewState GetNewPreviewState(InstantShownReason reason) {
+  return reason == INSTANT_SHOWN_CUSTOM_NTP_CONTENT ?
+      InstantModel::CUSTOM_NTP_CONTENT : InstantModel::QUERY_RESULTS;
+}
+
 }  // namespace
 
 InstantController::~InstantController() {
@@ -217,19 +222,34 @@ bool InstantController::Update(const AutocompleteMatch& match,
   // Track the non-Instant search URL for this query.
   url_for_history_ = match.destination_url;
   last_transition_type_ = match.transition;
-  last_active_tab_ = active_tab;
   last_match_was_search_ = AutocompleteMatch::IsSearchType(match.type);
 
-  // In EXTENDED mode, we send only |user_text| as the query text. In all other
-  // modes, we use the entire |full_text|.
-  const string16& query_text = mode_ == EXTENDED ? user_text : full_text;
-  string16 last_query_text = mode_ == EXTENDED ?
-      last_user_text_ : last_full_text_;
+  // The last suggestion and its associated parameters can be preserved if the
+  // user continues typing the same query as the suggested text is showing.
+  // Suggestions are only reused with INSTANT_COMPLETE_NEVER behavior.
+  bool reused_suggestion = false;
+  bool user_text_changed = user_text != last_user_text_;
+  if (last_suggestion_.behavior == INSTANT_COMPLETE_NEVER &&
+      user_text_changed) {
+    if (StartsWith(user_text, last_user_text_, false)) {
+      // If the new user text is longer than the last user text, we need
+      // to normalize any added characters.
+      reused_suggestion = NormalizeAndStripPrefix(&last_suggestion_.text,
+          string16(user_text, last_user_text_.size()));
+    } else if (StartsWith(last_user_text_, user_text, false)) {
+      // If the new user text is a prefix of the last user text, no
+      // normalization is necessary.
+      last_suggestion_.text.insert(0, last_user_text_, user_text.size(),
+          last_user_text_.size() - user_text.size());
+      reused_suggestion = true;
+    }
+  }
+
   last_user_text_ = user_text;
   last_full_text_ = full_text;
 
   // Don't send an update to the loader if the query text hasn't changed.
-  if (query_text == last_query_text && verbatim == last_verbatim_) {
+  if (!user_text_changed && verbatim == last_verbatim_) {
     // Reuse the last suggestion, as it's still valid.
     browser_->SetInstantSuggestion(last_suggestion_);
 
@@ -240,23 +260,29 @@ bool InstantController::Update(const AutocompleteMatch& match,
     // 3. User arrows-up to Q or types Q again. The last text we processed is
     //    still Q, so we don't Update() the loader, but we do need to Show().
     if (loader_processed_last_update_)
-      Show(100, INSTANT_SIZE_PERCENT);
+      Show(INSTANT_SHOWN_QUERY_SUGGESTIONS, 100, INSTANT_SIZE_PERCENT);
     return true;
   }
 
   last_verbatim_ = verbatim;
   loader_processed_last_update_ = false;
-  last_suggestion_ = InstantSuggestion();
+  if (!reused_suggestion)
+    last_suggestion_ = InstantSuggestion();
+  if (model_.preview_state() == InstantModel::NOT_READY) {
+    model_.SetPreviewState(InstantModel::AWAITING_SUGGESTIONS,
+                           0, INSTANT_SIZE_PERCENT);
+  }
 
-  loader_->Update(query_text, verbatim);
+  loader_->Update(mode_ == EXTENDED ? user_text : full_text, verbatim);
 
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_INSTANT_CONTROLLER_UPDATED,
       content::Source<InstantController>(this),
       content::NotificationService::NoDetails());
 
-  // We don't have suggestions yet, but need to reset any existing "gray text".
-  browser_->SetInstantSuggestion(InstantSuggestion());
+  // We don't have new suggestions yet, but we can either reuse the existing
+  // suggestion or reset the existing "gray text".
+  browser_->SetInstantSuggestion(last_suggestion_);
 
   // Though we may have handled a URL match above, we return false here, so that
   // omnibox prerendering can kick in. TODO(sreeram): Remove this (and always
@@ -312,20 +338,23 @@ bool InstantController::OnUpOrDownKeyPressed(int count) {
   return true;
 }
 
+void InstantController::OnEscapeKeyPressed() {
+  if (model_.preview_state() != InstantModel::CUSTOM_NTP_CONTENT)
+    Hide();
+}
+
 TabContents* InstantController::GetPreviewContents() const {
   return loader_.get() ? loader_->preview_contents() : NULL;
 }
 
 void InstantController::Hide() {
-  last_active_tab_ = NULL;
-
-  // The only time when the model is not already in the desired NOT_READY state
-  // and GetPreviewContents() returns NULL is when we are in the commit path.
-  // In that case, don't change the state just yet; otherwise we may cause the
-  // preview to hide unnecessarily. Instead, the state will be set correctly
-  // after the commit is done.
+  // The only time when the preview is not already in the desired NOT_READY
+  // state and GetPreviewContents() returns NULL is when we are in the commit
+  // path. In that case, don't change the state just yet; otherwise we may
+  // cause the preview to hide unnecessarily. Instead, the state will be set
+  // correctly after the commit is done.
   if (GetPreviewContents())
-    model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
+    model_.SetPreviewState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
 
   if (GetPreviewContents() && !last_full_text_.empty()) {
     // Send a blank query to ask the preview to clear out old results.
@@ -336,7 +365,8 @@ void InstantController::Hide() {
 }
 
 bool InstantController::IsCurrent() const {
-  return !IsOutOfDate() && GetPreviewContents() &&
+  return model_.preview_state() == InstantModel::QUERY_RESULTS &&
+         GetPreviewContents() &&
          loader_->supports_instant() && last_match_was_search_;
 }
 
@@ -417,7 +447,7 @@ void InstantController::CommitCurrentPreview(InstantCommitType type) {
       content::Source<content::WebContents>(preview->web_contents()),
       content::NotificationService::NoDetails());
 
-  model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
+  model_.SetPreviewState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
 
   // Try to create another loader immediately so that it is ready for the next
   // user interaction.
@@ -434,8 +464,13 @@ void InstantController::OnAutocompleteLostFocus(
 
   loader_->OnAutocompleteLostFocus();
 
+  // It's bizarre if custom NTP content disappears when the user focuses
+  // outside the omnibox.
+  if (model_.preview_state() == InstantModel::CUSTOM_NTP_CONTENT)
+    return;
+
   // If the preview is not showing, only need to check for loader staleness.
-  if (!model_.is_ready()) {
+  if (model_.preview_state() == InstantModel::NOT_READY) {
     MaybeOnStaleLoader();
     return;
   }
@@ -518,8 +553,13 @@ void InstantController::OnAutocompleteGotFocus() {
 
 void InstantController::OnActiveTabModeChanged(bool active_tab_is_ntp) {
   active_tab_is_ntp_ = active_tab_is_ntp;
-  if (GetPreviewContents())
+  if (GetPreviewContents()) {
     loader_->OnActiveTabModeChanged(active_tab_is_ntp_);
+    // On navigation away from the NTP, hide custom content.
+    if (!active_tab_is_ntp_ &&
+        model_.preview_state() == InstantModel::CUSTOM_NTP_CONTENT)
+      Hide();
+  }
 }
 
 bool InstantController::commit_on_pointer_release() const {
@@ -529,7 +569,7 @@ bool InstantController::commit_on_pointer_release() const {
 void InstantController::SetSuggestions(
     InstantLoader* loader,
     const std::vector<InstantSuggestion>& suggestions) {
-  if (loader_ != loader || IsOutOfDate())
+  if (loader_ != loader || model_.preview_state() == InstantModel::NOT_READY)
     return;
 
   loader_processed_last_update_ = true;
@@ -553,9 +593,13 @@ void InstantController::SetSuggestions(
     // Suggestion text should be a full URL for URL suggestions, or the
     // completion of a query for query suggestions.
     if (suggestion.type == INSTANT_SUGGESTION_URL) {
-      if (!StartsWith(suggestion.text, ASCIIToUTF16("http://"), false) &&
-          !StartsWith(suggestion.text, ASCIIToUTF16("https://"), false))
-        suggestion.text = ASCIIToUTF16("http://") + suggestion.text;
+      // If the suggestion is not a valid URL, perhaps it's something like
+      // "foo.com". Try prefixing "http://". If it still isn't valid, drop it.
+      if (!GURL(suggestion.text).is_valid()) {
+        suggestion.text.insert(0, ASCIIToUTF16("http://"));
+        if (!GURL(suggestion.text).is_valid())
+          suggestion = InstantSuggestion();
+      }
     } else if (StartsWith(suggestion.text, last_user_text_, true)) {
       // The user typed an exact prefix of the suggestion.
       suggestion.text.erase(0, last_user_text_.size());
@@ -565,7 +609,7 @@ void InstantController::SetSuggestions(
       // for instance, if the user types 'i' and the suggestion is 'INSTANT',
       // suggestion 'nstant'. Otherwise, the user text really isn't a prefix,
       // so suggest nothing.
-      suggestion.text.clear();
+      suggestion = InstantSuggestion();
     }
 
     last_suggestion_ = suggestion;
@@ -577,11 +621,12 @@ void InstantController::SetSuggestions(
       browser_->SetInstantSuggestion(suggestion);
   }
 
-  Show(100, INSTANT_SIZE_PERCENT);
+  Show(INSTANT_SHOWN_QUERY_SUGGESTIONS, 100, INSTANT_SIZE_PERCENT);
 }
 
 void InstantController::CommitInstantLoader(InstantLoader* loader) {
-  if (loader_ != loader || !model_.is_ready() || IsOutOfDate())
+  if (loader_ != loader ||
+      model_.preview_state() != InstantModel::QUERY_RESULTS)
     return;
 
   CommitCurrentPreview(INSTANT_COMMIT_FOCUS_LOST);
@@ -591,14 +636,10 @@ void InstantController::ShowInstantPreview(InstantLoader* loader,
                                            InstantShownReason reason,
                                            int height,
                                            InstantSizeUnits units) {
-  // Show even if IsOutOfDate() on the extended mode NTP to enable a search
-  // provider call SetInstantPreviewHeight() to show a custom logo, e.g. a
-  // Google doodle, before the user interacts with the page.
-  if (loader_ != loader || mode_ != EXTENDED ||
-      (IsOutOfDate() && !active_tab_is_ntp_))
+  if (loader_ != loader || mode_ != EXTENDED)
     return;
 
-  Show(height, units);
+  Show(reason, height, units);
 }
 
 void InstantController::InstantLoaderPreviewLoaded(InstantLoader* loader) {
@@ -630,7 +671,7 @@ void InstantController::InstantLoaderContentsFocused(InstantLoader* loader) {
 #if defined(USE_AURA)
   // On aura the omnibox only receives a focus lost if we initiate the focus
   // change. This does that.
-  if (model_.is_ready() && !IsOutOfDate())
+  if (model_.preview_state() != InstantModel::NOT_READY)
     browser_->InstantPreviewFocused();
 #endif
 }
@@ -640,7 +681,6 @@ InstantController::InstantController(chrome::BrowserInstantController* browser,
     : browser_(browser),
       model_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       mode_(mode),
-      last_active_tab_(NULL),
       last_verbatim_(false),
       last_transition_type_(content::PAGE_TRANSITION_LINK),
       last_match_was_search_(false),
@@ -698,7 +738,7 @@ bool InstantController::CreateDefaultLoader() {
 void InstantController::OnStaleLoader() {
   // If the loader is showing, do not delete it. It will get deleted the next
   // time the autocomplete loses focus.
-  if (model_.is_ready())
+  if (model_.preview_state() != InstantModel::NOT_READY)
     return;
 
   DeleteLoader();
@@ -711,7 +751,6 @@ void InstantController::MaybeOnStaleLoader() {
 }
 
 void InstantController::DeleteLoader() {
-  last_active_tab_ = NULL;
   last_full_text_.clear();
   last_user_text_.clear();
   last_verbatim_ = false;
@@ -722,7 +761,7 @@ void InstantController::DeleteLoader() {
   url_for_history_ = GURL();
   if (GetPreviewContents()) {
     AddPreviewUsageForHistogram(mode_, PREVIEW_DELETED);
-    model_.SetDisplayState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
+    model_.SetPreviewState(InstantModel::NOT_READY, 0, INSTANT_SIZE_PERCENT);
   }
   // Schedule the deletion for later, since we may have gotten here from a call
   // within a |loader_| method (i.e., it's still on the stack). If we deleted
@@ -731,15 +770,27 @@ void InstantController::DeleteLoader() {
   MessageLoop::current()->DeleteSoon(FROM_HERE, loader_.release());
 }
 
-void InstantController::Show(int height, InstantSizeUnits units) {
-  // Call even if showing in case height changed.
-  if (!model_.is_ready())
+void InstantController::Show(InstantShownReason reason,
+                             int height,
+                             InstantSizeUnits units) {
+  // Must be on NTP to show NTP content.
+  if (reason == INSTANT_SHOWN_CUSTOM_NTP_CONTENT && !active_tab_is_ntp_)
+    return;
+
+  // Must have updated omnibox after most recent Hide() to show suggestions.
+  if (reason == INSTANT_SHOWN_QUERY_SUGGESTIONS &&
+      model_.preview_state() == InstantModel::NOT_READY)
+    return;
+
+  if (model_.preview_state() == InstantModel::NOT_READY ||
+      model_.preview_state() == InstantModel::AWAITING_SUGGESTIONS)
     AddPreviewUsageForHistogram(mode_, PREVIEW_SHOWED);
-  model_.SetDisplayState(InstantModel::QUERY_RESULTS, height, units);
+  model_.SetPreviewState(GetNewPreviewState(reason), height, units);
 }
 
 void InstantController::SendBoundsToPage() {
-  if (last_omnibox_bounds_ == omnibox_bounds_ || IsOutOfDate() ||
+  if (last_omnibox_bounds_ == omnibox_bounds_ ||
+      model_.preview_state() == InstantModel::NOT_READY ||
       !GetPreviewContents() || loader_->IsPointerDownFromActivate())
     return;
 
@@ -816,9 +867,4 @@ bool InstantController::GetInstantURL(const TemplateURL* template_url,
     return false;
 
   return true;
-}
-
-bool InstantController::IsOutOfDate() const {
-  return !last_active_tab_ ||
-         last_active_tab_ != browser_->GetActiveTabContents();
 }

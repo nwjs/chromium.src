@@ -10,7 +10,6 @@ import android.test.suitebuilder.annotation.SmallTest;
 import org.chromium.android_webview.AndroidProtocolHandler;
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.test.util.CommonResources;
-import org.chromium.android_webview.test.util.TestWebServer;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.browser.test.util.Criteria;
@@ -20,6 +19,7 @@ import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.LoadUrlParams;
 import org.chromium.content.browser.test.util.HistoryUtils;
 import org.chromium.content.browser.test.util.TestCallbackHelperContainer;
+import org.chromium.net.test.util.TestWebServer;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -94,7 +94,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
 
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testImageLoad() throws Throwable {
         TestWebServer webServer = null;
         try {
@@ -117,7 +117,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testScriptLoad() throws Throwable {
         TestWebServer webServer = null;
         try {
@@ -137,7 +137,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testSameOrigin() throws Throwable {
         TestWebServer webServer = null;
         try {
@@ -156,7 +156,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testCrossOrigin() throws Throwable {
         TestWebServer webServer = null;
         try {
@@ -179,7 +179,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testNullBaseUrl() throws Throwable {
         getContentSettingsOnUiThread(mAwContents).setJavaScriptEnabled(true);
         final String pageHtml = "<html><body onload='document.title=document.location.href'>" +
@@ -189,7 +189,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testHistoryUrl() throws Throwable {
 
         final String pageHtml = "<html><body>Hello, world!</body></html>";
@@ -207,7 +207,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testHistoryUrlIgnoredWithDataSchemeBaseUrl() throws Throwable {
         final String pageHtml = "<html><body>bar</body></html>";
         final String historyUrl = "http://history.com/";
@@ -217,7 +217,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testHistoryUrlNavigation() throws Throwable {
         TestWebServer webServer = null;
         try {
@@ -281,7 +281,7 @@ public class LoadDataWithBaseUrlTest extends AndroidWebViewTestBase {
     }
 
     @SmallTest
-    @Feature({"Android-WebView"})
+    @Feature({"AndroidWebView"})
     public void testLoadDataWithBaseUrlAccessingFile() throws Throwable {
         // Create a temporary file on the filesystem we can try to read.
         File cacheDir = getActivity().getCacheDir();

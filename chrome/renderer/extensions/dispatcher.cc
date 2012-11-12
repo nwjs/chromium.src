@@ -803,9 +803,6 @@ void Dispatcher::DidCreateScriptContext(
     module_system->Require("platformApp");
 
   if (context_type == Feature::BLESSED_EXTENSION_CONTEXT &&
-      (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableWebView) ||
-      (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableBrowserPluginForAllViewTypes))) &&
       extension->HasAPIPermission(APIPermission::kWebView)) {
     module_system->Require("webview");
   }
@@ -860,8 +857,7 @@ void Dispatcher::DidCreateDocumentElement(WebKit::WebFrame* frame) {
     // loaded in each app.
     frame->document().insertUserStyleSheet(
         WebString::fromUTF8(ResourceBundle::GetSharedInstance().
-            GetRawDataResource(IDR_PLATFORM_APP_CSS,
-                               ui::SCALE_FACTOR_NONE)),
+            GetRawDataResource(IDR_PLATFORM_APP_CSS)),
         WebDocument::UserStyleUserLevel);
   }
 }

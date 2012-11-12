@@ -2,23 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/texture_layer.h"
 
 #include "cc/layer_tree_host.h"
 #include "cc/single_thread_proxy.h"
 #include "cc/texture_layer_impl.h"
 #include "cc/test/fake_layer_tree_host_client.h"
+#include "cc/thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using namespace cc;
 using ::testing::Mock;
 using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::AnyNumber;
 
+namespace cc {
 namespace {
 
 class MockLayerImplTreeHost : public LayerTreeHost {
@@ -26,7 +25,7 @@ public:
     MockLayerImplTreeHost()
         : LayerTreeHost(&m_fakeClient, LayerTreeSettings())
     {
-        initialize();
+        initialize(scoped_ptr<Thread>(NULL));
     }
 
     MOCK_METHOD0(acquireLayerTextures, void());
@@ -92,15 +91,12 @@ TEST_F(TextureLayerTest, syncImplWhenChangingTextureId)
 
 TEST_F(TextureLayerTest, syncImplWhenDrawing)
 {
-    FloatRect dirtyRect(0, 0, 1, 1);
+    gfx::RectF dirtyRect(0, 0, 1, 1);
 
     scoped_refptr<TextureLayer> testLayer = TextureLayer::create(0);
     ASSERT_TRUE(testLayer);
     scoped_ptr<TextureLayerImpl> implLayer;
-    {
-        DebugScopedSetImplThread setImplThread;
-        implLayer = TextureLayerImpl::create(1);
-    }
+    implLayer = TextureLayerImpl::create(1);
     ASSERT_TRUE(implLayer);
 
     EXPECT_CALL(*m_layerTreeHost, acquireLayerTextures()).Times(AnyNumber());
@@ -144,11 +140,6 @@ TEST_F(TextureLayerTest, syncImplWhenDrawing)
     testLayer->willModifyTexture();
     testLayer->setNeedsDisplayRect(dirtyRect);
     Mock::VerifyAndClearExpectations(m_layerTreeHost.get());
-
-    {
-        DebugScopedSetImplThread setImplThread;
-        delete implLayer.release();
-    }
 }
 
 TEST_F(TextureLayerTest, syncImplWhenRemovingFromTree)
@@ -189,4 +180,5 @@ TEST_F(TextureLayerTest, syncImplWhenRemovingFromTree)
     Mock::VerifyAndClearExpectations(m_layerTreeHost.get());
 }
 
-} // anonymous namespace
+}  // namespace
+}  // namespace cc

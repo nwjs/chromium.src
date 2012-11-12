@@ -2,15 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCIOSurfaceLayerImpl_h
-#define CCIOSurfaceLayerImpl_h
+#ifndef CC_IO_SURFACE_LAYER_IMPL_H_
+#define CC_IO_SURFACE_LAYER_IMPL_H_
 
-#include "IntSize.h"
+#include "cc/cc_export.h"
 #include "cc/layer_impl.h"
+#include "ui/gfx/size.h"
 
 namespace cc {
 
-class IOSurfaceLayerImpl : public LayerImpl {
+class CC_EXPORT IOSurfaceLayerImpl : public LayerImpl {
 public:
     static scoped_ptr<IOSurfaceLayerImpl> create(int id)
     {
@@ -18,7 +19,7 @@ public:
     }
     virtual ~IOSurfaceLayerImpl();
 
-    void setIOSurfaceProperties(unsigned ioSurfaceId, const IntSize&);
+    void setIOSurfaceProperties(unsigned ioSurfaceId, const gfx::Size&);
 
     virtual void appendQuads(QuadSink&, AppendQuadsData&) OVERRIDE;
 
@@ -33,11 +34,11 @@ private:
     virtual const char* layerTypeAsString() const OVERRIDE;
 
     unsigned m_ioSurfaceId;
-    IntSize m_ioSurfaceSize;
+    gfx::Size m_ioSurfaceSize;
     bool m_ioSurfaceChanged;
     unsigned m_ioSurfaceTextureId;
 };
 
 }
 
-#endif // CCIOSurfaceLayerImpl_h
+#endif  // CC_IO_SURFACE_LAYER_IMPL_H_

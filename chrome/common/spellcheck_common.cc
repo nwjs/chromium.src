@@ -105,14 +105,15 @@ FilePath GetVersionedFileName(const std::string& input_language,
     {"uk-UA", "-2-0"},
     {"pt-BR", "-2-2"},  // 2-2 (Mar 2011): upgraded a dictionary.
     {"sh",    "-2-2"},  // 2-2 (Mar 2011): added a dictionary.
-    {"en-US", "-2-3"},  // 2-3 (May 2012): fixed affixes + more words.
-    {"en-CA", "-2-3"},
-    {"en-GB", "-2-3"},
-    {"en-AU", "-2-3"},
     {"ca-ES", "-2-3"},  // 2-3 (May 2012): upgraded a dictionary.
     {"sv-SE", "-2-3"},  // 2-3 (May 2012): upgraded a dictionary.
     {"af-ZA", "-2-3"},  // 2-3 (May 2012): added a dictionary.
     {"fo-FO", "-2-3"},  // 2-3 (May 2012): added a dictionary.
+    {"en-US", "-2-4"},  // 2-4 (October 2012): add more words.
+    {"en-CA", "-2-4"},
+    {"en-GB", "-2-4"},
+    {"en-AU", "-2-4"},
+
   };
 
   // Generate the bdict file name using default version string or special
@@ -148,28 +149,9 @@ std::string GetCorrespondingSpellCheckLanguage(const std::string& language) {
       return g_supported_spellchecker_languages[i].language;
   }
 
-  // Look for a match by comparing only language parts. All the 'en-RR'
-  // except for 'en-GB' exactly matched in the above loop, will match
-  // 'en-US'. This is not ideal because 'en-ZA', 'en-NZ' had
-  // better be matched with 'en-GB'. This does not handle cases like
-  // 'az-Latn-AZ' vs 'az-Arab-AZ', either, but we don't use 3-part
-  // locale ids with a script code in the middle, yet.
-  // TODO(jungshik): Add a better fallback.
-  std::string language_part(language, 0, language.find('-'));
-  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(g_supported_spellchecker_languages);
-       ++i) {
-    std::string spellcheck_language(
-        g_supported_spellchecker_languages[i].language_region);
-    if (spellcheck_language.substr(0, spellcheck_language.find('-')) ==
-        language_part) {
-      return spellcheck_language;
-    }
-  }
-
   // No match found - return blank.
   return std::string();
 }
-
 
 void SpellCheckLanguages(std::vector<std::string>* languages) {
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(g_supported_spellchecker_languages);

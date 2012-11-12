@@ -8,9 +8,9 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
-#include "ui/aura/aura_export.h"
 #include "ui/aura/event_filter.h"
 #include "ui/base/ime/input_method_delegate.h"
+#include "ui/views/views_export.h"
 
 namespace ui {
 class InputMethod;
@@ -23,7 +23,7 @@ namespace shared {
 
 // An event filter that forwards a KeyEvent to a system IME, and dispatches a
 // TranslatedKeyEvent to the root window as needed.
-class AURA_EXPORT InputMethodEventFilter
+class VIEWS_EXPORT InputMethodEventFilter
     : public EventFilter,
       public ui::internal::InputMethodDelegate {
  public:
@@ -39,7 +39,7 @@ class AURA_EXPORT InputMethodEventFilter
   virtual bool PreHandleKeyEvent(Window* target, ui::KeyEvent* event) OVERRIDE;
   virtual bool PreHandleMouseEvent(Window* target,
                                    ui::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus PreHandleTouchEvent(
+  virtual ui::EventResult PreHandleTouchEvent(
       Window* target,
       ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult PreHandleGestureEvent(

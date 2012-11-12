@@ -137,9 +137,9 @@ class MockTabStripModelObserver : public TabStripModelObserver {
   MockTabStripModelObserver() : closing_count_(0) {}
 
   virtual void TabClosingAt(TabStripModel* tab_strip_model,
-                            TabContents* contents,
+                            WebContents* contents,
                             int index) {
-    closing_count_++;
+    ++closing_count_;
   }
 
   int closing_count() const { return closing_count_; }
@@ -471,14 +471,9 @@ class BeforeUnloadAtQuitWithTwoWindows : public InProcessBrowserTest {
   }
 };
 
-// This test passes on the trybots but fails on the main waterfall.
-#if defined(OS_WIN)
-#define MAYBE_IfThisTestTimesOutItIndicatesFAILURE DISABLED_IfThisTestTimesOutItIndicatesFAILURE
-#else
-#define MAYBE_IfThisTestTimesOutItIndicatesFAILURE IfThisTestTimesOutItIndicatesFAILURE
-#endif
+// Disabled, http://crbug.com/159214 .
 IN_PROC_BROWSER_TEST_F(BeforeUnloadAtQuitWithTwoWindows,
-                       MAYBE_IfThisTestTimesOutItIndicatesFAILURE) {
+                       DISABLED_IfThisTestTimesOutItIndicatesFAILURE) {
   // In the first browser, set up a page that has a beforeunload handler.
   GURL url(std::string("data:text/html,") + kBeforeUnloadHTML);
   ui_test_utils::NavigateToURL(browser(), url);
@@ -1365,12 +1360,12 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, InterstitialCommandDisable) {
   EXPECT_TRUE(command_updater->IsCommandEnabled(IDC_ENCODING_MENU));
 
   WebContents* contents = chrome::GetActiveWebContents(browser());
-  TestInterstitialPage* interstitial = new TestInterstitialPage(
-      contents, false, GURL());
 
   content::WindowedNotificationObserver interstitial_observer(
       content::NOTIFICATION_INTERSTITIAL_ATTACHED,
       content::Source<WebContents>(contents));
+  TestInterstitialPage* interstitial = new TestInterstitialPage(
+      contents, false, GURL());
   interstitial_observer.Wait();
 
   EXPECT_TRUE(contents->ShowingInterstitialPage());
@@ -1391,6 +1386,26 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, InterstitialCommandDisable) {
   EXPECT_TRUE(command_updater->IsCommandEnabled(IDC_PRINT));
   EXPECT_TRUE(command_updater->IsCommandEnabled(IDC_SAVE_PAGE));
   EXPECT_TRUE(command_updater->IsCommandEnabled(IDC_ENCODING_MENU));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserTest, InterstitialCloseTab) {
+  WebContents* contents = chrome::GetActiveWebContents(browser());
+
+  content::WindowedNotificationObserver interstitial_observer(
+      content::NOTIFICATION_INTERSTITIAL_ATTACHED,
+      content::Source<WebContents>(contents));
+  // Interstitial will delete itself when we close the tab.
+  new TestInterstitialPage(contents, false, GURL());
+  interstitial_observer.Wait();
+
+  EXPECT_TRUE(contents->ShowingInterstitialPage());
+
+  content::WindowedNotificationObserver interstitial_detach_observer(
+      content::NOTIFICATION_INTERSTITIAL_DETACHED,
+      content::Source<WebContents>(contents));
+  chrome::CloseTab(browser());
+  interstitial_detach_observer.Wait();
+  // interstitial is deleted now.
 }
 
 class MockWebContentsObserver : public WebContentsObserver {
@@ -1464,7 +1479,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest2, NoTabsInPopups) {
   // Open a popup browser with a single blank foreground tab.
   Browser* popup_browser = new Browser(
       Browser::CreateParams(Browser::TYPE_POPUP, browser()->profile()));
-  chrome::AddBlankTab(popup_browser, true);
+  chrome::AddBlankTabAt(popup_browser, -1, true);
   EXPECT_EQ(1, popup_browser->tab_count());
 
   // Now try opening another tab in the popup browser.
@@ -1481,7 +1496,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest2, NoTabsInPopups) {
   // Open an app frame browser with a single blank foreground tab.
   Browser* app_browser = new Browser(Browser::CreateParams::CreateForApp(
       L"Test", browser()->profile(), false));
-  chrome::AddBlankTab(app_browser, true);
+  chrome::AddBlankTabAt(app_browser, -1, true);
   EXPECT_EQ(1, app_browser->tab_count());
 
   // Now try opening another tab in the app browser.
@@ -1499,7 +1514,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest2, NoTabsInPopups) {
   // Open an app frame popup browser with a single blank foreground tab.
   Browser* app_popup_browser = new Browser(Browser::CreateParams::CreateForApp(
       L"Test", browser()->profile(), false));
-  chrome::AddBlankTab(app_popup_browser, true);
+  chrome::AddBlankTabAt(app_popup_browser, -1, true);
   EXPECT_EQ(1, app_popup_browser->tab_count());
 
   // Now try opening another tab in the app popup browser.
@@ -1692,7 +1707,7 @@ IN_PROC_BROWSER_TEST_F(AppModeTest, EnableAppModeTest) {
 // Confirm about:version contains some expected content.
 IN_PROC_BROWSER_TEST_F(BrowserTest, AboutVersion) {
   ui_test_utils::NavigateToURL(browser(), GURL(chrome::kAboutVersionURL));
-  TabContents* tab = chrome::GetActiveTabContents(browser());
+  WebContents* tab = chrome::GetActiveWebContents(browser());
   ASSERT_GT(ui_test_utils::FindInPage(tab, ASCIIToUTF16("WebKit"), true, true,
                                       NULL, NULL),
             0);

@@ -34,6 +34,7 @@
 #include "ui/aura/client/stacking_client.h"
 #include "ui/aura/client/tooltip_client.h"
 #include "ui/aura/client/window_types.h"
+#include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
@@ -186,6 +187,10 @@ class RenderWidgetHostViewAura::WindowObserver : public aura::WindowObserver {
   virtual ~WindowObserver() {}
 
   // Overridden from aura::WindowObserver:
+  virtual void OnWindowAddedToRootWindow(aura::Window* window) OVERRIDE {
+    view_->AddingToRootWindow();
+  }
+
   virtual void OnWindowRemovingFromRootWindow(aura::Window* window) OVERRIDE {
     view_->RemovingFromRootWindow();
   }
@@ -286,6 +291,11 @@ RenderWidgetHostViewAura::RenderWidgetHostViewAura(RenderWidgetHost* host)
   window_->AddObserver(window_observer_.get());
   aura::client::SetTooltipText(window_, &tooltip_);
   aura::client::SetActivationDelegate(window_, this);
+  aura::DisplayManager* display_manager =
+      aura::Env::GetInstance()->display_manager();
+  // display_manager can be NULL in tests.
+  if (display_manager)
+    display_manager->AddObserver(this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -446,7 +456,7 @@ gfx::NativeViewAccessible RenderWidgetHostViewAura::GetNativeViewAccessible() {
 }
 
 void RenderWidgetHostViewAura::MovePluginWindows(
-    const gfx::Point& scroll_offset,
+    const gfx::Vector2d& scroll_offset,
     const std::vector<webkit::npapi::WebPluginGeometry>& plugin_window_moves) {
 #if defined(OS_WIN)
   // We need to clip the rectangle to the tab's viewport, otherwise we will draw
@@ -463,15 +473,15 @@ void RenderWidgetHostViewAura::MovePluginWindows(
                       view_bounds.height());
 
   for (size_t i = 0; i < moves.size(); ++i) {
-    gfx::Rect clip = moves[i].clip_rect;
-    clip.Offset(moves[i].window_rect.origin());
-    clip.Offset(scroll_offset);
+    gfx::Rect clip(moves[i].clip_rect);
+    gfx::Vector2d view_port_offset(
+        moves[i].window_rect.OffsetFromOrigin() + scroll_offset);
+    clip.Offset(view_port_offset);
     clip.Intersect(view_port);
-    clip.Offset(-moves[i].window_rect.x(), -moves[i].window_rect.y());
-    clip.Offset(-scroll_offset.x(), -scroll_offset.y());
+    clip.Offset(-view_port_offset);
     moves[i].clip_rect = clip;
 
-    moves[i].window_rect.Offset(view_bounds.origin());
+    moves[i].window_rect.Offset(view_bounds.OffsetFromOrigin());
   }
   MovePluginWindowsHelper(parent, moves);
 
@@ -696,7 +706,7 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
       &RenderWidgetHostViewAura::CopyFromCompositingSurfaceFinished,
       AsWeakPtr(),
       callback);
-  pending_thumbnail_tasks_.push_back(callback);
+  ++pending_thumbnail_tasks_;
 
   // Convert |src_subrect| from the views coordinate (upper-left origin) into
   // the OpenGL coordinate (lower-left origin).
@@ -845,7 +855,7 @@ void RenderWidgetHostViewAura::AcceleratedSurfaceBuffersSwapped(
   ui::Compositor* compositor = GetCompositor();
   if (!compositor) {
     if (!params_in_pixel.skip_ack)
-      InsertSyncPointAndACK(params_in_pixel.route_id, gpu_host_id, false, NULL);
+      InsertSyncPointAndACK(params_in_pixel.route_id, gpu_host_id, true, NULL);
   } else {
     DCHECK(image_transport_clients_.find(params_in_pixel.surface_handle) !=
            image_transport_clients_.end());
@@ -893,7 +903,7 @@ void RenderWidgetHostViewAura::AcceleratedSurfacePostSubBuffer(
 
   ui::Compositor* compositor = GetCompositor();
   if (!compositor) {
-    InsertSyncPointAndACK(params_in_pixel.route_id, gpu_host_id, false, NULL);
+    InsertSyncPointAndACK(params_in_pixel.route_id, gpu_host_id, true, NULL);
   } else {
     DCHECK(image_transport_clients_.find(params_in_pixel.surface_handle) !=
            image_transport_clients_.end());
@@ -983,7 +993,7 @@ void RenderWidgetHostViewAura::AdjustSurfaceProtection() {
       current_surface_ ||
       !host_->is_hidden() ||
       (current_surface_is_protected_ &&
-          (!pending_thumbnail_tasks_.empty() ||
+          (pending_thumbnail_tasks_ > 0 ||
               current_surface_in_use_by_compositor_));
   if (current_surface_is_protected_ == surface_is_protected)
     return;
@@ -1001,15 +1011,15 @@ void RenderWidgetHostViewAura::AdjustSurfaceProtection() {
 }
 
 void RenderWidgetHostViewAura::CopyFromCompositingSurfaceFinished(
-    base::Callback<void(bool)> callback, bool result) {
-  for (size_t i = 0; i != pending_thumbnail_tasks_.size(); ++i) {
-    if (pending_thumbnail_tasks_[i].Equals(callback)) {
-      pending_thumbnail_tasks_.erase(pending_thumbnail_tasks_.begin()+i);
-      break;
-    }
-  }
-  AdjustSurfaceProtection();
+    base::WeakPtr<RenderWidgetHostViewAura> render_widget_host_view,
+    const base::Callback<void(bool)>& callback,
+    bool result) {
   callback.Run(result);
+
+  if (!render_widget_host_view.get())
+    return;
+  --render_widget_host_view->pending_thumbnail_tasks_;
+  render_widget_host_view->AdjustSurfaceProtection();
 }
 
 void RenderWidgetHostViewAura::SetBackground(const SkBitmap& background) {
@@ -1292,6 +1302,25 @@ void RenderWidgetHostViewAura::ExtendSelectionAndDelete(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// RenderWidgetHostViewAura, aura::DisplayObserver implementation:
+
+void RenderWidgetHostViewAura::OnDisplayBoundsChanged(
+    const gfx::Display& display) {
+  gfx::Screen* screen = gfx::Screen::GetScreenFor(window_);
+  if (display.id() == screen->GetDisplayNearestWindow(window_).id()) {
+    UpdateScreenInfo(window_);
+  }
+}
+
+void RenderWidgetHostViewAura::OnDisplayAdded(
+    const gfx::Display& new_display) {
+}
+
+void RenderWidgetHostViewAura::OnDisplayRemoved(
+    const gfx::Display& old_display) {
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewAura, aura::WindowDelegate implementation:
 
 gfx::Size RenderWidgetHostViewAura::GetMinimumSize() const {
@@ -1391,6 +1420,7 @@ void RenderWidgetHostViewAura::OnDeviceScaleFactorChanged(
   if (backing_store)  // NULL in hardware path.
     backing_store->ScaleFactorChanged(device_scale_factor);
 
+  UpdateScreenInfo(window_);
   host_->SetDeviceScaleFactor(device_scale_factor);
   current_cursor_.SetScaleFactor(device_scale_factor);
 }
@@ -1476,11 +1506,14 @@ ui::EventResult RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
     // We don't have to communicate with an input method here.
     if (!event->HasNativeEvent()) {
       // Send a fabricated event, which is usually a VKEY_PROCESSKEY IME event.
-      NativeWebKeyboardEvent webkit_event(event->type(),
-                                          false /* is_char */,
-                                          event->GetCharacter(),
-                                          event->flags(),
-                                          base::Time::Now().ToDoubleT());
+      // For keys like VK_BACK/VK_LEFT, etc we need to send the raw keycode to
+      // the renderer.
+      NativeWebKeyboardEvent webkit_event(
+          event->type(),
+          false /* is_char */,
+          event->GetCharacter() ? event->GetCharacter() : event->key_code(),
+          event->flags(),
+          base::Time::Now().ToDoubleT());
       host_->ForwardKeyboardEvent(webkit_event);
     } else {
       NativeWebKeyboardEvent webkit_event(event);
@@ -1583,12 +1616,15 @@ ui::EventResult RenderWidgetHostViewAura::OnTouchEvent(ui::TouchEvent* event) {
 
   // Forward the touch event only if a touch point was updated, and there's a
   // touch-event handler in the page, and no other touch-event is in the queue.
-  ui::EventResult result = ui::ER_UNHANDLED;
+  // It is important to always consume the event if there is a touch-event
+  // handler in the page, or some touch-event is already in the queue, even if
+  // no point has been updated, to make sure that this event does not get
+  // processed by the gesture recognizer before the events in the queue.
+  ui::EventResult result = host_->ShouldForwardTouchEvent() ? ui::ER_CONSUMED :
+                                                              ui::ER_UNHANDLED;
   if (point) {
-    if (host_->ShouldForwardTouchEvent()) {
+    if (host_->ShouldForwardTouchEvent())
       host_->ForwardTouchEvent(touch_event_);
-      result = ui::ER_CONSUMED;
-    }
     UpdateWebTouchEventAfterDispatch(&touch_event_, point);
   }
 
@@ -1746,9 +1782,11 @@ RenderWidgetHostViewAura::~RenderWidgetHostViewAura() {
     popup_parent_host_view_->popup_child_host_view_ = NULL;
   }
   aura::client::SetTooltipText(window_, NULL);
-
-  for (size_t i = 0; i != pending_thumbnail_tasks_.size(); ++i)
-    pending_thumbnail_tasks_[i].Run(false);
+  aura::DisplayManager* display_manager =
+      aura::Env::GetInstance()->display_manager();
+  // display_manager can be NULL in tests.
+  if (display_manager)
+    display_manager->RemoveObserver(this);
 
   // This call is usually no-op since |this| object is already removed from the
   // Aura root window and we don't have a way to get an input method object
@@ -1882,7 +1920,13 @@ void RenderWidgetHostViewAura::InsertSyncPointAndACK(
       route_id, gpu_host_id, presented, sync_point);
 }
 
+void RenderWidgetHostViewAura::AddingToRootWindow() {
+  host_->ParentChanged(GetNativeViewId());
+  UpdateScreenInfo(window_);
+}
+
 void RenderWidgetHostViewAura::RemovingFromRootWindow() {
+  host_->ParentChanged(0);
   // We are about to disconnect ourselves from the compositor, we need to issue
   // the callbacks now, because we won't get notified when the frame is done.
   // TODO(piman): this might in theory cause a race where the GPU process starts

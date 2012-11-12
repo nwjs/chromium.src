@@ -55,6 +55,7 @@ class MockDownloadItem : public DownloadItem {
   MOCK_CONST_METHOD0(GetTransitionType, PageTransition());
   MOCK_CONST_METHOD0(GetLastModifiedTime, const std::string&());
   MOCK_CONST_METHOD0(GetETag, const std::string&());
+  MOCK_CONST_METHOD0(IsSavePackageDownload, bool());
   MOCK_CONST_METHOD0(GetFullPath, const FilePath&());
   MOCK_CONST_METHOD0(GetTargetFilePath, const FilePath&());
   MOCK_CONST_METHOD0(GetForcedFilePath, const FilePath&());
@@ -84,7 +85,6 @@ class MockDownloadItem : public DownloadItem {
   MOCK_CONST_METHOD0(GetPersistentStoreInfo, DownloadPersistentStoreInfo());
   MOCK_CONST_METHOD0(GetBrowserContext, BrowserContext*());
   MOCK_CONST_METHOD0(GetWebContents, WebContents*());
-  MOCK_METHOD1(DelayedDownloadOpened, void(bool));
   MOCK_METHOD1(OnContentCheckCompleted, void(DownloadDangerType));
   MOCK_METHOD1(SetOpenWhenComplete, void(bool));
   MOCK_METHOD1(SetIsTemporary, void(bool));

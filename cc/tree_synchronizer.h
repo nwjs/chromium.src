@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef TreeSynchronizer_h
-#define TreeSynchronizer_h
+#ifndef CC_TREE_SYNCHRONIZER_H_
+#define CC_TREE_SYNCHRONIZER_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/scoped_ptr_hash_map.h"
 
 namespace cc {
@@ -15,7 +16,7 @@ class LayerImpl;
 class LayerTreeHostImpl;
 class Layer;
 
-class TreeSynchronizer {
+class CC_EXPORT TreeSynchronizer {
 public:
     // Accepts a Layer tree and returns a reference to a LayerImpl tree that duplicates the structure
     // of the Layer tree, reusing the LayerImpls in the tree provided by oldLayerImplRoot if possible.
@@ -38,4 +39,4 @@ private:
 
 } // namespace cc
 
-#endif // TreeSynchronizer_h
+#endif  // CC_TREE_SYNCHRONIZER_H_

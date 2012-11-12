@@ -2,15 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCRenderSurface_h
-#define CCRenderSurface_h
+#ifndef CC_RENDER_SURFACE_IMPL_H_
+#define CC_RENDER_SURFACE_IMPL_H_
 
-#include "FloatRect.h"
-#include "IntRect.h"
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/render_pass.h"
 #include "cc/shared_quad_state.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/rect_f.h"
 #include <public/WebTransformationMatrix.h>
 
 namespace cc {
@@ -23,7 +24,7 @@ class LayerImpl;
 
 struct AppendQuadsData;
 
-class RenderSurfaceImpl {
+class CC_EXPORT RenderSurfaceImpl {
 public:
     explicit RenderSurfaceImpl(LayerImpl*);
     virtual ~RenderSurfaceImpl();
@@ -31,10 +32,10 @@ public:
     std::string name() const;
     void dumpSurface(std::string*, int indent) const;
 
-    FloatPoint contentRectCenter() const { return FloatRect(m_contentRect).center(); }
+    gfx::PointF contentRectCenter() const { return gfx::RectF(m_contentRect).CenterPoint(); }
 
     // Returns the rect that encloses the RenderSurfaceImpl including any reflection.
-    FloatRect drawableContentRect() const;
+    gfx::RectF drawableContentRect() const;
 
     float drawOpacity() const { return m_drawOpacity; }
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
@@ -62,13 +63,13 @@ public:
     bool screenSpaceTransformsAreAnimating() const { return m_screenSpaceTransformsAreAnimating; }
     void setScreenSpaceTransformsAreAnimating(bool animating) { m_screenSpaceTransformsAreAnimating = animating; }
 
-    void setClipRect(const IntRect&);
-    const IntRect& clipRect() const { return m_clipRect; }
+    void setClipRect(const gfx::Rect&);
+    const gfx::Rect& clipRect() const { return m_clipRect; }
 
     bool contentsChanged() const;
 
-    void setContentRect(const IntRect&);
-    const IntRect& contentRect() const { return m_contentRect; }
+    void setContentRect(const gfx::Rect&);
+    const gfx::Rect& contentRect() const { return m_contentRect; }
 
     std::vector<LayerImpl*>& layerList() { return m_layerList; }
     void addContributingDelegatedRenderPassLayer(LayerImpl*);
@@ -91,7 +92,7 @@ private:
     LayerImpl* m_owningLayer;
 
     // Uses this surface's space.
-    IntRect m_contentRect;
+    gfx::Rect m_contentRect;
     bool m_surfacePropertyChanged;
 
     float m_drawOpacity;
@@ -104,7 +105,7 @@ private:
     bool m_screenSpaceTransformsAreAnimating;
 
     // Uses the space of the surface's target surface.
-    IntRect m_clipRect;
+    gfx::Rect m_clipRect;
 
     std::vector<LayerImpl*> m_layerList;
     std::vector<DelegatedRendererLayerImpl*> m_contributingDelegatedRenderPassLayerList;
@@ -125,4 +126,4 @@ private:
 };
 
 }
-#endif
+#endif  // CC_RENDER_SURFACE_IMPL_H_

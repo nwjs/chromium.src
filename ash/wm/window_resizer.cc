@@ -8,7 +8,6 @@
 #include "ash/shell.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_util.h"
-#include "ash/wm/workspace/workspace_layout_manager2.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
@@ -114,18 +113,18 @@ WindowResizer::Details::Details()
 WindowResizer::Details::Details(aura::Window* window,
                                 const gfx::Point& location,
                                 int window_component)
-  : window(window),
-    initial_bounds(window->bounds()),
-    restore_bounds(gfx::Rect()),
-    initial_location_in_parent(location),
-    initial_opacity(window->layer()->opacity()),
-    window_component(window_component),
-    bounds_change(GetBoundsChangeForWindowComponent(window_component)),
-    position_change_direction(
-        GetPositionChangeDirectionForWindowComponent(window_component)),
-    size_change_direction(
-        GetSizeChangeDirectionForWindowComponent(window_component)),
-    is_resizable(bounds_change != kBoundsChangeDirection_None) {
+    : window(window),
+      initial_bounds_in_parent(window->bounds()),
+      restore_bounds(gfx::Rect()),
+      initial_location_in_parent(location),
+      initial_opacity(window->layer()->opacity()),
+      window_component(window_component),
+      bounds_change(GetBoundsChangeForWindowComponent(window_component)),
+      position_change_direction(
+          GetPositionChangeDirectionForWindowComponent(window_component)),
+      size_change_direction(
+          GetSizeChangeDirectionForWindowComponent(window_component)),
+      is_resizable(bounds_change != kBoundsChangeDirection_None) {
   if (wm::IsWindowNormal(window) &&
       GetRestoreBoundsInScreen(window) &&
       window_component == HTCAPTION)
@@ -173,7 +172,7 @@ gfx::Rect WindowResizer::CalculateBoundsForDrag(
     const Details& details,
     const gfx::Point& passed_location) {
   if (!details.is_resizable)
-    return details.initial_bounds;
+    return details.initial_bounds_in_parent;
 
   gfx::Point location = passed_location;
   gfx::Rect work_area =
@@ -237,7 +236,7 @@ gfx::Rect WindowResizer::CalculateBoundsForDrag(
       // However - it is not desirable to change the origin if the window would
       // be still hit by the cursor.
       if (details.initial_location_in_parent.x() >
-              details.initial_bounds.x() + details.restore_bounds.width())
+          details.initial_bounds_in_parent.x() + details.restore_bounds.width())
         new_bounds.set_x(location.x() - details.restore_bounds.width() / 2);
     }
 
@@ -277,7 +276,7 @@ bool WindowResizer::IsBottomEdge(int window_component) {
 gfx::Point WindowResizer::GetOriginForDrag(const Details& details,
                                            int delta_x,
                                            int delta_y) {
-  gfx::Point origin = details.initial_bounds.origin();
+  gfx::Point origin = details.initial_bounds_in_parent.origin();
   if (details.bounds_change & kBoundsChange_Repositions) {
     int pos_change_direction =
         GetPositionChangeDirectionForWindowComponent(details.window_component);
@@ -293,7 +292,7 @@ gfx::Point WindowResizer::GetOriginForDrag(const Details& details,
 gfx::Size WindowResizer::GetSizeForDrag(const Details& details,
                                         int* delta_x,
                                         int* delta_y) {
-  gfx::Size size = details.initial_bounds.size();
+  gfx::Size size = details.initial_bounds_in_parent.size();
   if (details.bounds_change & kBoundsChange_Resizes) {
     gfx::Size min_size = details.window->delegate()->GetMinimumSize();
     size.SetSize(GetWidthForDrag(details, min_size.width(), delta_x),
@@ -308,7 +307,7 @@ gfx::Size WindowResizer::GetSizeForDrag(const Details& details,
 int WindowResizer::GetWidthForDrag(const Details& details,
                                    int min_width,
                                    int* delta_x) {
-  int width = details.initial_bounds.width();
+  int width = details.initial_bounds_in_parent.width();
   if (details.size_change_direction & kBoundsChangeDirection_Horizontal) {
     // Along the right edge, positive delta_x increases the window size.
     int x_multiplier = IsRightEdge(details.window_component) ? 1 : -1;
@@ -318,7 +317,8 @@ int WindowResizer::GetWidthForDrag(const Details& details,
     // for the window origin computation.
     if (width < min_width) {
       width = min_width;
-      *delta_x = -x_multiplier * (details.initial_bounds.width() - min_width);
+      *delta_x = -x_multiplier * (details.initial_bounds_in_parent.width() -
+                                  min_width);
     }
 
     // And don't let the window go bigger than the display.
@@ -326,7 +326,8 @@ int WindowResizer::GetWidthForDrag(const Details& details,
         details.window).bounds().width();
     if (width > max_width) {
       width = max_width;
-      *delta_x = -x_multiplier * (details.initial_bounds.width() - max_width);
+      *delta_x = -x_multiplier * (details.initial_bounds_in_parent.width() -
+                                  max_width);
     }
   }
   return width;
@@ -336,7 +337,7 @@ int WindowResizer::GetWidthForDrag(const Details& details,
 int WindowResizer::GetHeightForDrag(const Details& details,
                                     int min_height,
                                     int* delta_y) {
-  int height = details.initial_bounds.height();
+  int height = details.initial_bounds_in_parent.height();
   if (details.size_change_direction & kBoundsChangeDirection_Vertical) {
     // Along the bottom edge, positive delta_y increases the window size.
     int y_multiplier = IsBottomEdge(details.window_component) ? 1 : -1;
@@ -346,7 +347,8 @@ int WindowResizer::GetHeightForDrag(const Details& details,
     // for the window origin computation.
     if (height < min_height) {
       height = min_height;
-      *delta_y = -y_multiplier * (details.initial_bounds.height() - min_height);
+      *delta_y = -y_multiplier * (details.initial_bounds_in_parent.height() -
+                                  min_height);
     }
 
     // And don't let the window go bigger than the display.
@@ -354,7 +356,8 @@ int WindowResizer::GetHeightForDrag(const Details& details,
         details.window).bounds().height();
     if (height > max_height) {
       height = max_height;
-      *delta_y = -y_multiplier * (details.initial_bounds.height() - max_height);
+      *delta_y = -y_multiplier * (details.initial_bounds_in_parent.height() -
+                                  max_height);
     }
   }
   return height;

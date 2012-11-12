@@ -15,6 +15,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop_proxy.h"
 #include "base/observer_list.h"
+#include "base/prefs/base_prefs_export.h"
 #include "base/prefs/persistent_pref_store.h"
 
 namespace base {
@@ -27,8 +28,9 @@ class Value;
 class FilePath;
 
 // A writable PrefStore implementation that is used for user preferences.
-class JsonPrefStore : public PersistentPrefStore,
-                      public base::ImportantFileWriter::DataSerializer {
+class BASE_PREFS_EXPORT JsonPrefStore
+    : public PersistentPrefStore,
+      public base::ImportantFileWriter::DataSerializer {
  public:
   // Returns instance of SequencedTaskRunner which guarantees that file
   // operations on the same file will be executed in sequenced order.
@@ -42,16 +44,16 @@ class JsonPrefStore : public PersistentPrefStore,
                 base::SequencedTaskRunner* sequenced_task_runner);
 
   // PrefStore overrides:
-  virtual ReadResult GetValue(const std::string& key,
-                              const base::Value** result) const OVERRIDE;
+  virtual bool GetValue(const std::string& key,
+                        const base::Value** result) const OVERRIDE;
   virtual void AddObserver(PrefStore::Observer* observer) OVERRIDE;
   virtual void RemoveObserver(PrefStore::Observer* observer) OVERRIDE;
   virtual size_t NumberOfObservers() const OVERRIDE;
   virtual bool IsInitializationComplete() const OVERRIDE;
 
   // PersistentPrefStore overrides:
-  virtual ReadResult GetMutableValue(const std::string& key,
-                                     base::Value** result) OVERRIDE;
+  virtual bool GetMutableValue(const std::string& key,
+                               base::Value** result) OVERRIDE;
   virtual void SetValue(const std::string& key, base::Value* value) OVERRIDE;
   virtual void SetValueSilently(const std::string& key,
                                 base::Value* value) OVERRIDE;

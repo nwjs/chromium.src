@@ -9,14 +9,12 @@
 
 #include "base/id_map.h"
 #include "content/public/renderer/render_view_observer.h"
+#include "content/public/renderer/render_view_observer_tracker.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSpellCheckClient.h"
 
 class RenderView;
+class SpellCheck;
 struct SpellCheckResult;
-
-namespace chrome {
-class ChromeContentRendererClient;
-}
 
 namespace WebKit {
 class WebString;
@@ -26,20 +24,21 @@ struct WebTextCheckingResult;
 
 // This class deals with invoking browser-side spellcheck mechanism
 // which is done asynchronously.
-class SpellCheckProvider : public content::RenderViewObserver,
-                           public WebKit::WebSpellCheckClient {
+class SpellCheckProvider
+    : public content::RenderViewObserver,
+      public content::RenderViewObserverTracker<SpellCheckProvider>,
+      public WebKit::WebSpellCheckClient {
  public:
   typedef IDMap<WebKit::WebTextCheckingCompletion> WebTextCheckCompletions;
 
   SpellCheckProvider(content::RenderView* render_view,
-                     chrome::ChromeContentRendererClient* render_client);
+                     SpellCheck* spellcheck);
   virtual ~SpellCheckProvider();
 
   // Requests async spell and grammar checker to the platform text
   // checker, which is available on the browser process.
   void RequestTextChecking(
       const WebKit::WebString& text,
-      int document_tag,
       WebKit::WebTextCheckingCompletion* completion);
 
   // The number of ongoing IPC requests.
@@ -47,26 +46,15 @@ class SpellCheckProvider : public content::RenderViewObserver,
     return text_check_completions_.size();
   }
 
+  // Replace shared spellcheck data.
+  void set_spellcheck(SpellCheck* spellcheck) { spellcheck_ = spellcheck; }
+
   // RenderViewObserver implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
   virtual void FocusedNodeChanged(const WebKit::WebNode& node) OVERRIDE;
 
  private:
   friend class TestingSpellCheckProvider;
-
-  // Helper class to encapsulate handling of document tags across platforms.
-  // TODO(groby): As per Darins comment, this should move browser side.
-  class DocumentTag {
-   public:
-    DocumentTag(IPC::Sender* sender, int routing_id);
-    ~DocumentTag();
-    int GetTag();
-   private:
-    bool has_tag_;
-    int tag_;
-    IPC::Sender* sender_;  // Weak ptr to SpellCheckProvider.
-    int routing_id_;  // ID for RenderView observed by SpellCheckProvider.
-  };
 
 #if !defined(OS_MACOSX)
   // Tries to satisfy a spell check request from the cache in |last_request_|.
@@ -112,7 +100,6 @@ class SpellCheckProvider : public content::RenderViewObserver,
   void OnAdvanceToNextMisspelling();
   void OnRespondTextCheck(
       int identifier,
-      int tag,
       const std::vector<SpellCheckResult>& results);
   void OnToggleSpellPanel(bool is_currently_visible);
 #endif
@@ -128,14 +115,11 @@ class SpellCheckProvider : public content::RenderViewObserver,
   WebKit::WebVector<WebKit::WebTextCheckingResult> last_results_;
 #endif
 
-  DocumentTag document_tag_;
-
   // True if the browser is showing the spelling panel for us.
   bool spelling_panel_visible_;
 
-  // The ChromeContentRendererClient used to access the SpellChecker.
-  // Weak reference.
-  chrome::ChromeContentRendererClient* chrome_content_renderer_client_;
+  // Weak pointer to shared (per RenderView) spellcheck data.
+  SpellCheck* spellcheck_;
 
   DISALLOW_COPY_AND_ASSIGN(SpellCheckProvider);
 };

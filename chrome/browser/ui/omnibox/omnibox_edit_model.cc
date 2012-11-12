@@ -351,10 +351,14 @@ string16 OmniboxEditModel::GetDesiredTLD() const {
 }
 
 bool OmniboxEditModel::CurrentTextIsURL() const {
-  // If !user_input_in_progress_, the permanent text is showing, which should
-  // always be a URL, so no further checking is needed.  By avoiding checking in
-  // this case, we avoid calling into the autocomplete providers, and thus
-  // initializing the history system, as long as possible, which speeds startup.
+  if (view_->toolbar_model()->WouldReplaceSearchURLWithSearchTerms())
+    return false;
+
+  // If current text is not composed of replaced search terms and
+  // !user_input_in_progress_, then permanent text is showing and should be a
+  // URL, so no further checking is needed.  By avoiding checking in this case,
+  // we avoid calling into the autocomplete providers, and thus initializing the
+  // history system, as long as possible, which speeds startup.
   if (!user_input_in_progress_)
     return true;
 
@@ -462,12 +466,6 @@ void OmniboxEditModel::StartAutocomplete(
 }
 
 void OmniboxEditModel::StopAutocomplete() {
-  if (popup_->IsOpen() && !in_revert_) {
-    InstantController* instant = controller_->GetInstant();
-    if (instant && !instant->commit_on_pointer_release())
-      instant->Hide();
-  }
-
   autocomplete_controller_->Stop(true);
 }
 
@@ -771,6 +769,10 @@ bool OmniboxEditModel::OnEscapeKeyPressed() {
     contents->GetController().DiscardNonCommittedEntries();
     view_->Update(NULL);
   }
+
+  // Let Instant decide whether to hide itself.
+  if (InstantController* instant = controller_->GetInstant())
+    instant->OnEscapeKeyPressed();
 
   // If the user wasn't editing, but merely had focus in the edit, allow <esc>
   // to be processed as an accelerator, so it can still be used to stop a load.
@@ -1197,7 +1199,7 @@ bool OmniboxEditModel::DoInstant(const AutocompleteMatch& match) {
   if (!instant)
     return false;
 
-  if (user_input_in_progress_ && popup_->IsOpen()) {
+  if (user_input_in_progress_) {
     // The two pieces of text we want to send Instant, viz., what the user has
     // typed, and the full omnibox text including any inline autocompletion.
     string16 user_text = user_text_;
@@ -1221,12 +1223,6 @@ bool OmniboxEditModel::DoInstant(const AutocompleteMatch& match) {
     return instant->Update(match, user_text, full_text, UseVerbatimInstant());
   }
 
-  // It's possible DoInstant() was called due to an OnChanged() event from the
-  // omnibox view if the user clicked the renderer while IME composition was
-  // active. In that case we still want to commit on mouse up, so don't call
-  // Hide().
-  if (!instant->commit_on_pointer_release())
-    instant->Hide();
   return false;
 }
 

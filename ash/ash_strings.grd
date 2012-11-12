@@ -229,6 +229,9 @@ Press Ctrl+Alt+Z to cancel.
       <message name="IDS_ASH_STATUS_TRAY_EXIT_KIOSK" desc="The label used for the button in the status tray to terminate a session kiosk mode.">
         Exit session
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_EXIT_PUBLIC" desc="The label used for the button in the status tray to terminate a public account session.">
+        End public session
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_LOCK" desc="The label used for the button in the status tray to lock the screen.">
         Lock
       </message>
@@ -349,6 +352,9 @@ Press Ctrl+Alt+Z to cancel.
       <message name="IDS_ASH_STATUS_TRAY_DISPLAY_EXTENDED" desc="The label used in the tray to show that the current status is extended.">
 	Extending screen to <ph name="DISPLAY_NAME">$1</ph>
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_UNKNOWN_DISPLAY_NAME" desc="Label shown in tray for a display whose name is unknown.">
+	Unknown Display
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_DRIVE_SYNCING" desc="The label in the tray to indicate onoing file sync operations.">
         Syncing <ph name="count">$1<ex>3</ex></ph> file(s)
       </message>
@@ -455,6 +461,7 @@ Press Shift + Alt to switch.
       <message name="IDS_ASH_WEB_NOTIFICATION_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the web notification tray (message center).">
         Message Center
       </message>
+
       <message name="IDS_ASH_MAXIMIZE_WINDOW" desc="A help text to show that when the button gets clicked the window get maximized.">
         Maximize
       </message>

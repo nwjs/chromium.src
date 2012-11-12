@@ -104,8 +104,7 @@ string16 ConfirmInstallDialogDelegate::GetAcceptButtonTitle() {
 }
 
 void ConfirmInstallDialogDelegate::OnAccepted() {
-  installer()->StartInstalling(plugin_metadata_->plugin_url(),
-                               TabContents::FromWebContents(web_contents_));
+  installer()->StartInstalling(plugin_metadata_->plugin_url(), web_contents_);
 }
 
 void ConfirmInstallDialogDelegate::OnCanceled() {
@@ -285,18 +284,15 @@ void PluginObserver::OnFindMissingPlugin(int placeholder_id,
       new PluginPlaceholderHost(this, placeholder_id,
                                 plugin_metadata->name(),
                                 installer);
-  base::Closure callback =  base::Bind(&PluginObserver::InstallMissingPlugin,
-                                       weak_ptr_factory_.GetWeakPtr(),
-                                       installer,
-                                       base::Passed(plugin_metadata->Clone()));
+  PluginInstallerInfoBarDelegate::InstallCallback callback =
+      base::Bind(&PluginObserver::InstallMissingPlugin,
+                 weak_ptr_factory_.GetWeakPtr(), installer);
   InfoBarTabHelper* infobar_helper =
       InfoBarTabHelper::FromWebContents(web_contents());
   InfoBarDelegate* delegate;
 #if !defined(OS_WIN)
   delegate = PluginInstallerInfoBarDelegate::Create(
-      infobar_helper, installer,
-      plugin_metadata.Pass(),
-      callback);
+      infobar_helper, installer, plugin_metadata.Pass(), callback);
 #else
   delegate = base::win::IsMetroProcess() ?
       new PluginMetroModeInfoBarDelegate(
@@ -305,23 +301,21 @@ void PluginObserver::OnFindMissingPlugin(int placeholder_id,
                                      plugin_metadata->name()),
           l10n_util::GetStringUTF16(IDS_WIN8_DESKTOP_RESTART)) :
       PluginInstallerInfoBarDelegate::Create(
-          infobar_helper, installer,
-          plugin_metadata.Pass(),
-          callback);
+          infobar_helper, installer, plugin_metadata.Pass(), callback);
 #endif
   infobar_helper->AddInfoBar(delegate);
 }
 
 void PluginObserver::InstallMissingPlugin(
     PluginInstaller* installer,
-    scoped_ptr<PluginMetadata> plugin_metadata) {
+    const PluginMetadata* plugin_metadata) {
   if (plugin_metadata->url_for_display()) {
     installer->OpenDownloadURL(plugin_metadata->plugin_url(), web_contents());
   } else {
     TabModalConfirmDialog::Create(
         new ConfirmInstallDialogDelegate(
-            web_contents(), installer, plugin_metadata.Pass()),
-            TabContents::FromWebContents(web_contents()));
+            web_contents(), installer, plugin_metadata->Clone()),
+        web_contents());
   }
 }
 

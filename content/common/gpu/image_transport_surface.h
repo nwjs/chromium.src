@@ -14,7 +14,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "ipc/ipc_channel.h"
+#include "ipc/ipc_listener.h"
 #include "ipc/ipc_message.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/rect.h"
@@ -88,7 +88,9 @@ class ImageTransportSurface {
   DISALLOW_COPY_AND_ASSIGN(ImageTransportSurface);
 };
 
-class ImageTransportHelper : public IPC::Listener {
+class ImageTransportHelper
+    : public IPC::Listener,
+      public base::SupportsWeakPtr<ImageTransportHelper> {
  public:
   // Takes weak pointers to objects that outlive the helper.
   ImageTransportHelper(ImageTransportSurface* surface,
@@ -114,6 +116,8 @@ class ImageTransportHelper : public IPC::Listener {
   void SendAcceleratedSurfaceRelease(
       GpuHostMsg_AcceleratedSurfaceRelease_Params params);
   void SendResizeView(const gfx::Size& size);
+  void SendUpdateVSyncParameters(
+      base::TimeTicks timebase, base::TimeDelta interval);
 
   // Whether or not we should execute more commands.
   void SetScheduled(bool is_scheduled);
@@ -185,6 +189,10 @@ class PassThroughImageTransportSurface
 
  protected:
   virtual ~PassThroughImageTransportSurface();
+
+  // If updated vsync parameters can be determined, send this information to
+  // the browser.
+  virtual void SendVSyncUpdateIfAvailable();
 
  private:
   scoped_ptr<ImageTransportHelper> helper_;

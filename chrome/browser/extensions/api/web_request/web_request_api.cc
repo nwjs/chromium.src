@@ -16,6 +16,7 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_content_browser_client.h"
+#include "chrome/browser/extensions/api/declarative_webrequest/request_stage.h"
 #include "chrome/browser/extensions/api/declarative_webrequest/webrequest_rule.h"
 #include "chrome/browser/extensions/api/declarative_webrequest/webrequest_rules_registry.h"
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api_helpers.h"
@@ -1183,6 +1184,7 @@ void ExtensionWebRequestEventRouter::GetMatchingListenersImpl(
     int tab_id,
     int window_id,
     ResourceType::Type resource_type,
+    bool is_async_request,
     bool is_request_from_extension,
     int* extra_info_spec,
     std::vector<const ExtensionWebRequestEventRouter::EventListener*>*
@@ -1221,11 +1223,11 @@ void ExtensionWebRequestEventRouter::GetMatchingListenersImpl(
     // and therefore prevent the extension from processing the request
     // handler. This is only a problem for blocking listeners.
     // http://crbug.com/105656
-    bool possibly_synchronous_xhr_from_extension =
+    bool synchronous_xhr_from_extension = !is_async_request &&
         is_request_from_extension && resource_type == ResourceType::XHR;
 
     // Only send webRequest events for URLs the extension has access to.
-    if (blocking_listener && possibly_synchronous_xhr_from_extension)
+    if (blocking_listener && synchronous_xhr_from_extension)
       continue;
 
     matching_listeners->push_back(&(*it));
@@ -1262,16 +1264,21 @@ ExtensionWebRequestEventRouter::GetMatchingListeners(
   bool is_request_from_extension =
       IsRequestFromExtension(request, extension_info_map);
 
+  const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
+  // We are conservative here and assume requests are asynchronous in case
+  // we don't have an info object. We don't want to risk a deadlock.
+  bool is_async_request = !info || info->IsAsync();
+
   GetMatchingListenersImpl(
       profile, extension_info_map, false, event_name, url,
-      tab_id, window_id, resource_type, is_request_from_extension,
-      extra_info_spec, &matching_listeners);
+      tab_id, window_id, resource_type, is_async_request,
+      is_request_from_extension, extra_info_spec, &matching_listeners);
   void* cross_profile = GetCrossProfile(profile);
   if (cross_profile) {
     GetMatchingListenersImpl(
         cross_profile, extension_info_map, true, event_name, url, tab_id,
-        window_id, resource_type, is_request_from_extension, extra_info_spec,
-        &matching_listeners);
+        window_id, resource_type, is_async_request, is_request_from_extension,
+        extra_info_spec, &matching_listeners);
   }
 
   return matching_listeners;
@@ -1477,6 +1484,10 @@ bool ExtensionWebRequestEventRouter::ProcessDeclarativeRules(
     net::URLRequest* request,
     extensions::RequestStage request_stage,
     const net::HttpResponseHeaders* original_response_headers) {
+  // If this check fails, check that the active stages are up-to-date in
+  // browser/extensions/api/declarative_webrequest/request_stage.h .
+  DCHECK(request_stage & extensions::kActiveStages);
+
   // Rules of the current |profile| may apply but we need to check also whether
   // there are applicable rules from extensions whose background page
   // spans from regular to incognito mode.

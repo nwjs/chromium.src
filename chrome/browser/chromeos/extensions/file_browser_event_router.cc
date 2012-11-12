@@ -365,8 +365,8 @@ void FileBrowserEventRouter::MountCompleted(
       drive::DriveCache* cache =
           system_service ? system_service->cache() : NULL;
       if (cache) {
-        cache->SetMountedStateOnUIThread(
-            source_path, false, drive::ChangeCacheStateCallback());
+        cache->SetMountedState(
+            source_path, false, drive::GetFileFromCacheCallback());
       }
     }
   }
@@ -385,41 +385,37 @@ void FileBrowserEventRouter::OnNetworkManagerChanged(
           scoped_ptr<ListValue>(new ListValue()), NULL, GURL());
 }
 
-void FileBrowserEventRouter::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
+void FileBrowserEventRouter::OnPreferenceChanged(PrefServiceBase* service,
+                                                 const std::string& pref_name) {
   if (!profile_ ||
       !extensions::ExtensionSystem::Get(profile_)->event_router()) {
     NOTREACHED();
     return;
   }
-  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
-    std::string* pref_name = content::Details<std::string>(details).ptr();
-    // If the policy just got disabled we have to unmount every device currently
-    // mounted. The opposite is fine - we can let the user re-plug her device to
-    // make it available.
-    if (*pref_name == prefs::kExternalStorageDisabled &&
-        profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled)) {
-      DiskMountManager* manager = DiskMountManager::GetInstance();
-      DiskMountManager::MountPointMap mounts(manager->mount_points());
-      for (DiskMountManager::MountPointMap::const_iterator it = mounts.begin();
-           it != mounts.end(); ++it) {
-        LOG(INFO) << "Unmounting " << it->second.mount_path
-                  << " because of policy.";
-        manager->UnmountPath(it->second.mount_path,
-                             chromeos::UNMOUNT_OPTIONS_NONE);
-      }
-      return;
-    } else if (*pref_name == prefs::kDisableDriveOverCellular ||
-        *pref_name == prefs::kDisableDriveHostedFiles ||
-        *pref_name == prefs::kDisableDrive ||
-        *pref_name == prefs::kUse24HourClock) {
-      extensions::ExtensionSystem::Get(profile_)->event_router()->
-          DispatchEventToRenderers(
-              extensions::event_names::kOnFileBrowserPreferencesChanged,
-              scoped_ptr<ListValue>(new ListValue()), NULL, GURL());
+
+  // If the policy just got disabled we have to unmount every device currently
+  // mounted. The opposite is fine - we can let the user re-plug her device to
+  // make it available.
+  if (pref_name == prefs::kExternalStorageDisabled &&
+      profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled)) {
+    DiskMountManager* manager = DiskMountManager::GetInstance();
+    DiskMountManager::MountPointMap mounts(manager->mount_points());
+    for (DiskMountManager::MountPointMap::const_iterator it = mounts.begin();
+         it != mounts.end(); ++it) {
+      LOG(INFO) << "Unmounting " << it->second.mount_path
+                << " because of policy.";
+      manager->UnmountPath(it->second.mount_path,
+                           chromeos::UNMOUNT_OPTIONS_NONE);
     }
+    return;
+  } else if (pref_name == prefs::kDisableDriveOverCellular ||
+             pref_name == prefs::kDisableDriveHostedFiles ||
+             pref_name == prefs::kDisableDrive ||
+             pref_name == prefs::kUse24HourClock) {
+    extensions::ExtensionSystem::Get(profile_)->event_router()->
+        DispatchEventToRenderers(
+            extensions::event_names::kOnFileBrowserPreferencesChanged,
+            scoped_ptr<ListValue>(new ListValue()), NULL, GURL());
   }
 }
 
@@ -508,12 +504,13 @@ void FileBrowserEventRouter::HandleFileWatchNotification(
   if (iter == file_watchers_.end()) {
     return;
   }
-  DispatchFolderChangeEvent(iter->second->GetVirtualPath(), got_error,
-                            iter->second->GetExtensions());
+  DispatchDirectoryChangeEvent(iter->second->GetVirtualPath(), got_error,
+                               iter->second->GetExtensions());
 }
 
-void FileBrowserEventRouter::DispatchFolderChangeEvent(
-    const FilePath& virtual_path, bool got_error,
+void FileBrowserEventRouter::DispatchDirectoryChangeEvent(
+    const FilePath& virtual_path,
+    bool got_error,
     const FileBrowserEventRouter::ExtensionUsageRegistry& extensions) {
   if (!profile_) {
     NOTREACHED();
@@ -526,17 +523,25 @@ void FileBrowserEventRouter::DispatchFolderChangeEvent(
         iter->first));
     GURL base_url = fileapi::GetFileSystemRootURI(target_origin_url,
         fileapi::kFileSystemTypeExternal);
-    GURL target_file_url = GURL(base_url.spec() + virtual_path.value());
+    GURL target_directory_url = GURL(base_url.spec() + virtual_path.value());
     scoped_ptr<ListValue> args(new ListValue());
     DictionaryValue* watch_info = new DictionaryValue();
     args->Append(watch_info);
-    watch_info->SetString("fileUrl", target_file_url.spec());
+    watch_info->SetString("directoryUrl", target_directory_url.spec());
     watch_info->SetString("eventType",
                           got_error ? kPathWatchError : kPathChanged);
 
+    // TODO(mtomasz): Pass set of entries. http://crbug.com/157834
+    ListValue* watch_info_entries = new ListValue();
+    watch_info->Set("changedEntries", watch_info_entries);
+
     extensions::ExtensionSystem::Get(profile_)->event_router()->
-        DispatchEventToExtension(iter->first,
-            extensions::event_names::kOnFileChanged, args.Pass(), NULL, GURL());
+        DispatchEventToExtension(
+            iter->first,
+            extensions::event_names::kOnDirectoryChanged,
+            args.Pass(),
+            NULL,
+            GURL());
   }
 }
 
@@ -627,7 +632,7 @@ void FileBrowserEventRouter::DispatchMountCompletedEvent(
       mount_info.mount_type == chromeos::MOUNT_TYPE_DEVICE &&
       !mount_info.mount_condition &&
       event == DiskMountManager::MOUNTING) {
-    file_manager_util::ViewRemovableDrive(FilePath(mount_info.mount_path));
+    file_manager_util::OpenActionChoiceDialog(FilePath(mount_info.mount_path));
   }
 }
 

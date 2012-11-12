@@ -17,6 +17,7 @@
 #include "base/win/scoped_hdc.h"
 #include "base/win/scoped_select_object.h"
 #include "base/win/windows_version.h"
+#include "skia/ext/bitmap_platform_device.h"
 #include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_win.h"
 #include "third_party/skia/include/core/SkCanvas.h"
@@ -191,61 +192,20 @@ bool NativeThemeWin::IsClassicTheme(ThemeName name) const {
   return !GetThemeHandle(name);
 }
 
+// TODO(sky): seems like we should default to NativeThemeWin, but that currently
+// breaks a couple of tests (FocusTraversalTest.NormalTraversal in
+// views_unittests).
+#if !defined(USE_AURA)
 // static
-const NativeTheme* NativeTheme::instance() {
+NativeTheme* NativeTheme::instance() {
   return NativeThemeWin::instance();
 }
+#endif
 
 // static
-const NativeThemeWin* NativeThemeWin::instance() {
+NativeThemeWin* NativeThemeWin::instance() {
   CR_DEFINE_STATIC_LOCAL(NativeThemeWin, s_native_theme, ());
   return &s_native_theme;
-}
-
-NativeThemeWin::NativeThemeWin()
-    : theme_dll_(LoadLibrary(L"uxtheme.dll")),
-      draw_theme_(NULL),
-      draw_theme_ex_(NULL),
-      get_theme_color_(NULL),
-      get_theme_content_rect_(NULL),
-      get_theme_part_size_(NULL),
-      open_theme_(NULL),
-      close_theme_(NULL),
-      set_theme_properties_(NULL),
-      is_theme_active_(NULL),
-      get_theme_int_(NULL) {
-  if (theme_dll_) {
-    draw_theme_ = reinterpret_cast<DrawThemeBackgroundPtr>(
-        GetProcAddress(theme_dll_, "DrawThemeBackground"));
-    draw_theme_ex_ = reinterpret_cast<DrawThemeBackgroundExPtr>(
-        GetProcAddress(theme_dll_, "DrawThemeBackgroundEx"));
-    get_theme_color_ = reinterpret_cast<GetThemeColorPtr>(
-        GetProcAddress(theme_dll_, "GetThemeColor"));
-    get_theme_content_rect_ = reinterpret_cast<GetThemeContentRectPtr>(
-        GetProcAddress(theme_dll_, "GetThemeBackgroundContentRect"));
-    get_theme_part_size_ = reinterpret_cast<GetThemePartSizePtr>(
-        GetProcAddress(theme_dll_, "GetThemePartSize"));
-    open_theme_ = reinterpret_cast<OpenThemeDataPtr>(
-        GetProcAddress(theme_dll_, "OpenThemeData"));
-    close_theme_ = reinterpret_cast<CloseThemeDataPtr>(
-        GetProcAddress(theme_dll_, "CloseThemeData"));
-    set_theme_properties_ = reinterpret_cast<SetThemeAppPropertiesPtr>(
-        GetProcAddress(theme_dll_, "SetThemeAppProperties"));
-    is_theme_active_ = reinterpret_cast<IsThemeActivePtr>(
-        GetProcAddress(theme_dll_, "IsThemeActive"));
-    get_theme_int_ = reinterpret_cast<GetThemeIntPtr>(
-        GetProcAddress(theme_dll_, "GetThemeInt"));
-  }
-  memset(theme_handles_, 0, sizeof(theme_handles_));
-}
-
-NativeThemeWin::~NativeThemeWin() {
-  if (theme_dll_) {
-    // todo (cpu): fix this soon.  Making a call to CloseHandles() here breaks
-    // certain tests and the reliability bots.
-    // CloseHandles();
-    FreeLibrary(theme_dll_);
-  }
 }
 
 gfx::Size NativeThemeWin::GetPartSize(Part part,
@@ -315,6 +275,52 @@ void NativeThemeWin::Paint(SkCanvas* canvas,
     PaintIndirect(canvas, part, state, rect, extra);
   else
     PaintDirect(canvas, part, state, rect, extra);
+}
+
+NativeThemeWin::NativeThemeWin()
+    : theme_dll_(LoadLibrary(L"uxtheme.dll")),
+      draw_theme_(NULL),
+      draw_theme_ex_(NULL),
+      get_theme_color_(NULL),
+      get_theme_content_rect_(NULL),
+      get_theme_part_size_(NULL),
+      open_theme_(NULL),
+      close_theme_(NULL),
+      set_theme_properties_(NULL),
+      is_theme_active_(NULL),
+      get_theme_int_(NULL) {
+  if (theme_dll_) {
+    draw_theme_ = reinterpret_cast<DrawThemeBackgroundPtr>(
+        GetProcAddress(theme_dll_, "DrawThemeBackground"));
+    draw_theme_ex_ = reinterpret_cast<DrawThemeBackgroundExPtr>(
+        GetProcAddress(theme_dll_, "DrawThemeBackgroundEx"));
+    get_theme_color_ = reinterpret_cast<GetThemeColorPtr>(
+        GetProcAddress(theme_dll_, "GetThemeColor"));
+    get_theme_content_rect_ = reinterpret_cast<GetThemeContentRectPtr>(
+        GetProcAddress(theme_dll_, "GetThemeBackgroundContentRect"));
+    get_theme_part_size_ = reinterpret_cast<GetThemePartSizePtr>(
+        GetProcAddress(theme_dll_, "GetThemePartSize"));
+    open_theme_ = reinterpret_cast<OpenThemeDataPtr>(
+        GetProcAddress(theme_dll_, "OpenThemeData"));
+    close_theme_ = reinterpret_cast<CloseThemeDataPtr>(
+        GetProcAddress(theme_dll_, "CloseThemeData"));
+    set_theme_properties_ = reinterpret_cast<SetThemeAppPropertiesPtr>(
+        GetProcAddress(theme_dll_, "SetThemeAppProperties"));
+    is_theme_active_ = reinterpret_cast<IsThemeActivePtr>(
+        GetProcAddress(theme_dll_, "IsThemeActive"));
+    get_theme_int_ = reinterpret_cast<GetThemeIntPtr>(
+        GetProcAddress(theme_dll_, "GetThemeInt"));
+  }
+  memset(theme_handles_, 0, sizeof(theme_handles_));
+}
+
+NativeThemeWin::~NativeThemeWin() {
+  if (theme_dll_) {
+    // todo (cpu): fix this soon.  Making a call to CloseHandles() here breaks
+    // certain tests and the reliability bots.
+    // CloseHandles();
+    FreeLibrary(theme_dll_);
+  }
 }
 
 void NativeThemeWin::PaintDirect(SkCanvas* canvas,
@@ -480,10 +486,12 @@ void NativeThemeWin::PaintIndirect(SkCanvas* canvas,
   //                  keeping a cache of the resulting bitmaps.
 
   // Create an offscreen canvas that is backed by an HDC.
-  scoped_ptr<SkCanvas> offscreen_canvas(
-      skia::CreateBitmapCanvas(rect.width(), rect.height(), false));
-  DCHECK(offscreen_canvas.get());
-  DCHECK(skia::SupportsPlatformPaint(offscreen_canvas.get()));
+  skia::BitmapPlatformDevice* device = skia::BitmapPlatformDevice::Create(
+      rect.width(), rect.height(), false, NULL);
+  DCHECK(device);
+  SkCanvas offscreen_canvas(device);
+  device->unref();
+  DCHECK(skia::SupportsPlatformPaint(&offscreen_canvas));
 
   // Some of the Windows theme drawing operations do not write correct alpha
   // values for fully-opaque pixels; instead the pixels get alpha 0. This is
@@ -493,7 +501,7 @@ void NativeThemeWin::PaintIndirect(SkCanvas* canvas,
   // which pixels get touched by the paint operation. After paint, set any
   // pixels that have alpha 0 to opaque and placeholders to fully-transparent.
   const SkColor placeholder = SkColorSetARGB(1, 0, 0, 0);
-  offscreen_canvas->clear(placeholder);
+  offscreen_canvas.clear(placeholder);
 
   // Offset destination rects to have origin (0,0).
   gfx::Rect adjusted_rect(rect.size());
@@ -511,7 +519,7 @@ void NativeThemeWin::PaintIndirect(SkCanvas* canvas,
     default: break;
   }
   // Draw the theme controls using existing HDC-drawing code.
-  PaintDirect(offscreen_canvas.get(),
+  PaintDirect(&offscreen_canvas,
               part,
               state,
               adjusted_rect,
@@ -520,7 +528,7 @@ void NativeThemeWin::PaintIndirect(SkCanvas* canvas,
   // Copy the pixels to a bitmap that has ref-counted pixel storage, which is
   // necessary to have when drawing to a SkPicture.
   const SkBitmap& hdc_bitmap =
-      offscreen_canvas->getDevice()->accessBitmap(false);
+      offscreen_canvas.getDevice()->accessBitmap(false);
   SkBitmap bitmap;
   hdc_bitmap.copyTo(&bitmap, SkBitmap::kARGB_8888_Config);
 
@@ -1568,6 +1576,20 @@ int NativeThemeWin::GetWindowsPart(Part part,
     case kWindowResizeGripper:
       part_id = SP_GRIPPER;
       break;
+    case kScrollbarDownArrow:
+    case kScrollbarLeftArrow:
+    case kScrollbarRightArrow:
+    case kScrollbarUpArrow:
+      part_id = SBP_ARROWBTN;
+      break;
+    case kScrollbarHorizontalThumb:
+      part_id = extra.scrollbar_track.is_upper ? SBP_UPPERTRACKHORZ :
+                                                 SBP_LOWERTRACKHORZ;
+      break;
+    case kScrollbarVerticalThumb:
+      part_id = extra.scrollbar_track.is_upper ? SBP_UPPERTRACKVERT :
+                                                 SBP_LOWERTRACKVERT;
+      break;
     default:
       NOTREACHED() << "Invalid part: " << part;
       break;
@@ -1682,6 +1704,112 @@ int NativeThemeWin::GetWindowsState(Part part,
         case kPressed:
         case kDisabled:
           state_id = 1;  // gripper has no windows state
+          break;
+        default:
+          NOTREACHED() << "Invalid state: " << state;
+          break;
+      }
+      break;
+    case kScrollbarDownArrow:
+      switch (state) {
+        case kNormal:
+          state_id = ABS_DOWNNORMAL;
+          break;
+        case kHovered:
+          // Mimic ScrollbarThemeChromiumWin.cpp in WebKit.
+          state_id = base::win::GetVersion() < base::win::VERSION_VISTA ?
+              ABS_DOWNHOT : ABS_DOWNHOVER;
+          break;
+        case kPressed:
+          state_id = ABS_DOWNPRESSED;
+          break;
+        case kDisabled:
+          state_id = ABS_DOWNDISABLED;
+          break;
+        default:
+          NOTREACHED() << "Invalid state: " << state;
+          break;
+      }
+      break;
+    case kScrollbarLeftArrow:
+      switch (state) {
+        case kNormal:
+          state_id = ABS_LEFTNORMAL;
+          break;
+        case kHovered:
+          // Mimic ScrollbarThemeChromiumWin.cpp in WebKit.
+          state_id = base::win::GetVersion() < base::win::VERSION_VISTA ?
+              ABS_LEFTHOT : ABS_LEFTHOVER;
+          break;
+        case kPressed:
+          state_id = ABS_LEFTPRESSED;
+          break;
+        case kDisabled:
+          state_id = ABS_LEFTDISABLED;
+          break;
+        default:
+          NOTREACHED() << "Invalid state: " << state;
+          break;
+      }
+      break;
+    case kScrollbarRightArrow:
+      switch (state) {
+        case kNormal:
+          state_id = ABS_RIGHTNORMAL;
+          break;
+        case kHovered:
+          // Mimic ScrollbarThemeChromiumWin.cpp in WebKit.
+          state_id = base::win::GetVersion() < base::win::VERSION_VISTA ?
+              ABS_RIGHTHOT : ABS_RIGHTHOVER;
+          break;
+        case kPressed:
+          state_id = ABS_RIGHTPRESSED;
+          break;
+        case kDisabled:
+          state_id = ABS_RIGHTDISABLED;
+          break;
+        default:
+          NOTREACHED() << "Invalid state: " << state;
+          break;
+      }
+      break;
+    case kScrollbarUpArrow:
+      switch (state) {
+        case kNormal:
+          state_id = ABS_UPNORMAL;
+          break;
+        case kHovered:
+          // Mimic ScrollbarThemeChromiumWin.cpp in WebKit.
+          state_id = base::win::GetVersion() < base::win::VERSION_VISTA ?
+              ABS_UPHOT : ABS_UPHOVER;
+          break;
+        case kPressed:
+          state_id = ABS_UPPRESSED;
+          break;
+        case kDisabled:
+          state_id = ABS_UPDISABLED;
+          break;
+        default:
+          NOTREACHED() << "Invalid state: " << state;
+          break;
+      }
+      break;
+    case kScrollbarHorizontalThumb:
+    case kScrollbarVerticalThumb:
+      switch (state) {
+        case kNormal:
+          state_id = SCRBS_NORMAL;
+          break;
+        case kHovered:
+          // Mimic WebKit's behaviour in ScrollbarThemeChromiumWin.cpp.
+          state_id = base::win::GetVersion() < base::win::VERSION_VISTA ?
+              SCRBS_HOT : SCRBS_HOVER;
+          break;
+        case kPressed:
+          state_id = SCRBS_PRESSED;
+          break;
+        case kDisabled:
+          state_id = SCRBS_DISABLED;
           break;
         default:
           NOTREACHED() << "Invalid state: " << state;

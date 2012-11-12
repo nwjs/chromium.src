@@ -323,8 +323,7 @@ void TestingProfile::CreateFaviconService() {
       this, BuildFaviconService);
 }
 
-static scoped_refptr<RefcountedProfileKeyedService> BuildHistoryService(
-    Profile* profile) {
+static ProfileKeyedService* BuildHistoryService(Profile* profile) {
   return new HistoryService(profile);
 }
 
@@ -338,7 +337,7 @@ void TestingProfile::CreateHistoryService(bool delete_file, bool no_db) {
   // This will create and init the history service.
   HistoryService* history_service = static_cast<HistoryService*>(
       HistoryServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          this, BuildHistoryService).get());
+          this, BuildHistoryService));
   if (!history_service->Init(this->GetPath(),
                              BookmarkModelFactory::GetForProfile(this),
                              no_db)) {
@@ -347,9 +346,9 @@ void TestingProfile::CreateHistoryService(bool delete_file, bool no_db) {
 }
 
 void TestingProfile::DestroyHistoryService() {
-  scoped_refptr<HistoryService> history_service =
+  HistoryService* history_service =
       HistoryServiceFactory::GetForProfileWithoutCreating(this);
-  if (!history_service.get())
+  if (!history_service)
     return;
 
   history_service->NotifyRenderProcessHostDestruction(0);
@@ -409,7 +408,7 @@ void TestingProfile::CreateBookmarkModel(bool delete_file) {
               this, BuildBookmarkModel));
 
   HistoryService* history_service =
-      HistoryServiceFactory::GetForProfileWithoutCreating(this).get();
+      HistoryServiceFactory::GetForProfileWithoutCreating(this);
   if (history_service) {
     history_service->history_backend_->bookmark_service_ =
         bookmark_service;
@@ -477,6 +476,10 @@ void TestingProfile::BlockUntilTopSitesLoaded() {
 
 FilePath TestingProfile::GetPath() {
   return profile_path_;
+}
+
+scoped_refptr<base::SequencedTaskRunner> TestingProfile::GetIOTaskRunner() {
+  return MessageLoop::current()->message_loop_proxy();
 }
 
 TestingPrefService* TestingProfile::GetTestingPrefService() {
@@ -609,16 +612,7 @@ net::URLRequestContextGetter* TestingProfile::GetRequestContextForRenderProcess(
     int renderer_child_id) {
   content::RenderProcessHost* rph = content::RenderProcessHost::FromID(
       renderer_child_id);
-  content::StoragePartition* storage_partition = rph->GetStoragePartition();
-
-  // TODO(nasko): Remove this conditional, once webview tag creates a proper
-  // storage partition.
-  if (rph->IsGuest()) {
-    return GetRequestContextForStoragePartition(
-        storage_partition->GetPath(), true);
-  }
-
-  return storage_partition->GetURLRequestContext();
+  return rph->GetStoragePartition()->GetURLRequestContext();
 }
 
 void TestingProfile::CreateRequestContext() {
@@ -749,9 +743,9 @@ PrefProxyConfigTracker* TestingProfile::GetProxyConfigTracker() {
 }
 
 void TestingProfile::BlockUntilHistoryProcessesPendingRequests() {
-  scoped_refptr<HistoryService> history_service =
+  HistoryService* history_service =
       HistoryServiceFactory::GetForProfile(this, Profile::EXPLICIT_ACCESS);
-  DCHECK(history_service.get());
+  DCHECK(history_service);
   DCHECK(MessageLoop::current());
 
   CancelableRequestConsumer consumer;
@@ -763,8 +757,12 @@ chrome_browser_net::Predictor* TestingProfile::GetNetworkPredictor() {
   return NULL;
 }
 
-void TestingProfile::ClearNetworkingHistorySince(base::Time time) {
-  NOTIMPLEMENTED();
+void TestingProfile::ClearNetworkingHistorySince(
+    base::Time time,
+    const base::Closure& completion) {
+  if (!completion.is_null()) {
+    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, completion);
+  }
 }
 
 GURL TestingProfile::GetHomePage() {

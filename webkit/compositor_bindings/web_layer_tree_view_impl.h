@@ -11,6 +11,7 @@
 
 namespace cc {
 class LayerTreeHost;
+class Thread;
 }
 
 namespace WebKit {
@@ -23,7 +24,7 @@ public:
     explicit WebLayerTreeViewImpl(WebLayerTreeViewClient*);
     virtual ~WebLayerTreeViewImpl();
 
-    bool initialize(const Settings&);
+    bool initialize(const Settings&, scoped_ptr<cc::Thread> implThread);
 
     // WebLayerTreeView implementation.
     virtual void setSurfaceReady() OVERRIDE;
@@ -32,6 +33,7 @@ public:
     virtual void setViewportSize(const WebSize& layoutViewportSize, const WebSize& deviceViewportSize = WebSize()) OVERRIDE;
     virtual WebSize layoutViewportSize() const OVERRIDE;
     virtual WebSize deviceViewportSize() const OVERRIDE;
+    virtual WebFloatPoint adjustEventPointForPinchZoom(const WebFloatPoint& point) const OVERRIDE;
     virtual void setDeviceScaleFactor(float) OVERRIDE;
     virtual float deviceScaleFactor() const OVERRIDE;
     virtual void setBackgroundColor(WebColor) OVERRIDE;
@@ -48,7 +50,9 @@ public:
     virtual void finishAllRendering() OVERRIDE;
     virtual void setDeferCommits(bool deferCommits) OVERRIDE;
     virtual void renderingStats(WebRenderingStats&) const OVERRIDE;
-    virtual void setFontAtlas(SkBitmap, WebRect asciiToRectTable[128], int fontHeight) OVERRIDE;
+    virtual void setShowFPSCounter(bool show);
+    virtual void setFontAtlas(SkBitmap, WebRect asciiToRectTable[128], int fontHeight);
+    virtual void setFontAtlas(WebRect asciiToRectTable[128], const SkBitmap&, int fontHeight);
     virtual void loseCompositorContext(int numTimes) OVERRIDE;
 
     // cc::LayerTreeHostClient implementation.
@@ -56,7 +60,7 @@ public:
     virtual void didBeginFrame() OVERRIDE;
     virtual void animate(double monotonicFrameBeginTime) OVERRIDE;
     virtual void layout() OVERRIDE;
-    virtual void applyScrollAndScale(const cc::IntSize& scrollDelta, float pageScale) OVERRIDE;
+    virtual void applyScrollAndScale(gfx::Vector2d scrollDelta, float pageScale) OVERRIDE;
     virtual scoped_ptr<WebCompositorOutputSurface> createOutputSurface() OVERRIDE;
     virtual void didRecreateOutputSurface(bool success) OVERRIDE;
     virtual scoped_ptr<cc::InputHandler> createInputHandler() OVERRIDE;

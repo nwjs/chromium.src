@@ -240,7 +240,9 @@ TEST_F(VisitFilterTest, IntersectTimeVectors) {
 }
 
 TEST_F(VisitFilterTest, GetVisitScore) {
-  base::Time filter_time = GetClosestMidday();
+  base::Time filter_time;
+  ASSERT_TRUE(base::Time::FromString("Tue, 24 Apr 2012, 12:00:00",
+                                     &filter_time));
   VisitFilter filter;
   VisitRow visit;
 

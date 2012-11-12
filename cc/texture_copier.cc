@@ -2,11 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/texture_copier.h"
 
 #include "base/debug/trace_event.h"
+#include "build/build_config.h"
 #include "cc/gl_renderer.h" // For the GLC() macro.
 #include "third_party/khronos/GLES2/gl2.h"
 #include <public/WebGraphicsContext3D.h>
@@ -49,11 +48,13 @@ void AcceleratedTextureCopier::copyTexture(Parameters parameters)
 {
     TRACE_EVENT0("cc", "TextureCopier::copyTexture");
 
+    GLC(m_context, m_context->disable(GL_SCISSOR_TEST));
+
     // Note: this code does not restore the viewport, bound program, 2D texture, framebuffer, buffer or blend enable.
     GLC(m_context, m_context->bindFramebuffer(GL_FRAMEBUFFER, m_fbo));
     GLC(m_context, m_context->framebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, parameters.destTexture, 0));
 
-#if OS(ANDROID)
+#if defined(OS_ANDROID)
     // Clear destination to improve performance on tiling GPUs.
     // TODO: Use EXT_discard_framebuffer or skip clearing if it isn't available.
     GLC(m_context, m_context->clear(GL_COLOR_BUFFER_BIT));
@@ -88,6 +89,8 @@ void AcceleratedTextureCopier::copyTexture(Parameters parameters)
     GLC(m_context, m_context->framebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0));
     GLC(m_context, m_context->bindFramebuffer(GL_FRAMEBUFFER, 0));
     GLC(m_context, m_context->bindTexture(GL_TEXTURE_2D, 0));
+
+    GLC(m_context, m_context->enable(GL_SCISSOR_TEST));
 }
 
 void AcceleratedTextureCopier::flush()
@@ -95,4 +98,4 @@ void AcceleratedTextureCopier::flush()
     GLC(m_context, m_context->flush());
 }
 
-}
+}  // namespace cc

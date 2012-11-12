@@ -33,7 +33,6 @@ class DownloadFileWithErrors: public DownloadFileImpl {
       const FilePath& default_download_directory,
       const GURL& url,
       const GURL& referrer_url,
-      int64 received_bytes,
       bool calculate_hash,
       scoped_ptr<ByteStreamReader> stream,
       const net::BoundNetLog& bound_net_log,
@@ -50,9 +49,12 @@ class DownloadFileWithErrors: public DownloadFileImpl {
   // DownloadFile interface.
   virtual DownloadInterruptReason AppendDataToFile(
       const char* data, size_t data_len) OVERRIDE;
-  virtual void Rename(const FilePath& full_path,
-                      bool overwrite_existing_file,
-                      const RenameCompletionCallback& callback) OVERRIDE;
+  virtual void RenameAndUniquify(
+      const FilePath& full_path,
+      const RenameCompletionCallback& callback) OVERRIDE;
+  virtual void RenameAndAnnotate(
+      const FilePath& full_path,
+      const RenameCompletionCallback& callback) OVERRIDE;
 
  private:
   // Error generating helper.
@@ -106,7 +108,6 @@ DownloadFileWithErrors::DownloadFileWithErrors(
     const FilePath& default_download_directory,
     const GURL& url,
     const GURL& referrer_url,
-    int64 received_bytes,
     bool calculate_hash,
     scoped_ptr<ByteStreamReader> stream,
     const net::BoundNetLog& bound_net_log,
@@ -117,7 +118,7 @@ DownloadFileWithErrors::DownloadFileWithErrors(
     const DestructionCallback& dtor_callback)
         : DownloadFileImpl(
             save_info.Pass(), default_download_directory, url, referrer_url,
-            received_bytes, calculate_hash, stream.Pass(), bound_net_log,
+            calculate_hash, stream.Pass(), bound_net_log,
             power_save_blocker.Pass(), observer),
           source_url_(url),
           error_info_(error_info),
@@ -152,22 +153,38 @@ DownloadInterruptReason DownloadFileWithErrors::AppendDataToFile(
       DownloadFileImpl::AppendDataToFile(data, data_len));
 }
 
-void DownloadFileWithErrors::Rename(
+void DownloadFileWithErrors::RenameAndUniquify(
     const FilePath& full_path,
-    bool overwrite_existing_file,
     const RenameCompletionCallback& callback) {
   DownloadInterruptReason error_to_return = DOWNLOAD_INTERRUPT_REASON_NONE;
   RenameCompletionCallback callback_to_use = callback;
 
   // Replace callback if the error needs to be overwritten.
   if (OverwriteError(
-          TestFileErrorInjector::FILE_OPERATION_RENAME,
+          TestFileErrorInjector::FILE_OPERATION_RENAME_UNIQUIFY,
           &error_to_return)) {
     callback_to_use = base::Bind(&RenameErrorCallback, callback,
                                  error_to_return);
   }
 
-  DownloadFileImpl::Rename(full_path, overwrite_existing_file, callback_to_use);
+  DownloadFileImpl::RenameAndUniquify(full_path, callback_to_use);
+}
+
+void DownloadFileWithErrors::RenameAndAnnotate(
+    const FilePath& full_path,
+    const RenameCompletionCallback& callback) {
+  DownloadInterruptReason error_to_return = DOWNLOAD_INTERRUPT_REASON_NONE;
+  RenameCompletionCallback callback_to_use = callback;
+
+  // Replace callback if the error needs to be overwritten.
+  if (OverwriteError(
+          TestFileErrorInjector::FILE_OPERATION_RENAME_ANNOTATE,
+          &error_to_return)) {
+    callback_to_use = base::Bind(&RenameErrorCallback, callback,
+                                 error_to_return);
+  }
+
+  DownloadFileImpl::RenameAndAnnotate(full_path, callback_to_use);
 }
 
 bool DownloadFileWithErrors::OverwriteError(
@@ -209,7 +226,6 @@ class DownloadFileWithErrorsFactory : public DownloadFileFactory {
       const FilePath& default_download_directory,
       const GURL& url,
       const GURL& referrer_url,
-      int64 received_bytes,
       bool calculate_hash,
       scoped_ptr<ByteStreamReader> stream,
       const net::BoundNetLog& bound_net_log,
@@ -244,7 +260,6 @@ DownloadFile* DownloadFileWithErrorsFactory::CreateFile(
     const FilePath& default_download_directory,
     const GURL& url,
     const GURL& referrer_url,
-    int64 received_bytes,
     bool calculate_hash,
     scoped_ptr<ByteStreamReader> stream,
     const net::BoundNetLog& bound_net_log,
@@ -270,7 +285,6 @@ DownloadFile* DownloadFileWithErrorsFactory::CreateFile(
       default_download_directory,
       url,
       referrer_url,
-      received_bytes,
       calculate_hash,
       stream.Pass(),
       bound_net_log,
@@ -420,8 +434,10 @@ std::string TestFileErrorInjector::DebugString(FileOperationCode code) {
       return "INITIALIZE";
     case FILE_OPERATION_WRITE:
       return "WRITE";
-    case FILE_OPERATION_RENAME:
-      return "RENAME";
+    case FILE_OPERATION_RENAME_UNIQUIFY:
+      return "RENAME_UNIQUIFY";
+    case FILE_OPERATION_RENAME_ANNOTATE:
+      return "RENAME_ANNOTATE";
     default:
       break;
   }

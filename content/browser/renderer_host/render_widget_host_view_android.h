@@ -56,7 +56,7 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   virtual gfx::NativeViewId GetNativeViewId() const OVERRIDE;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
   virtual void MovePluginWindows(
-      const gfx::Point& scroll_offset,
+      const gfx::Vector2d& scroll_offset,
       const std::vector<webkit::npapi::WebPluginGeometry>& moves) OVERRIDE;
   virtual void Focus() OVERRIDE;
   virtual void Blur() OVERRIDE;
@@ -120,9 +120,11 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   virtual void SetCachedBackgroundColor(SkColor color) OVERRIDE;
   virtual void SetCachedPageScaleFactorLimits(float minimum_scale,
                                               float maximum_scale) OVERRIDE;
-  virtual void UpdateFrameInfo(const gfx::Point& scroll_offset,
+  virtual void UpdateFrameInfo(const gfx::Vector2d& scroll_offset,
                                float page_scale_factor,
                                const gfx::Size& content_size) OVERRIDE;
+  virtual void ShowDisambiguationPopup(const gfx::Rect& target_rect,
+                                       const SkBitmap& zoomed_bitmap) OVERRIDE;
 
   // Non-virtual methods
   void SetContentViewCore(ContentViewCoreImpl* content_view_core);
@@ -150,10 +152,6 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
 
   // ContentViewCoreImpl is our interface to the view system.
   ContentViewCoreImpl* content_view_core_;
-
-  // The size that we want the renderer to be.  We keep this in a separate
-  // variable because resizing is async.
-  gfx::Size requested_size_;
 
   ImeAdapterAndroid ime_adapter_android_;
 

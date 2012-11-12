@@ -11,6 +11,7 @@
 #include "base/system_monitor/system_monitor.h"
 #include "base/win/windows_version.h"
 #include "ui/base/events/event.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "ui/base/native_theme/native_theme_win.h"
 #include "ui/base/win/hwnd_util.h"
@@ -668,7 +669,7 @@ bool HWNDMessageHandler::IsMaximized() const {
   return !!::IsZoomed(hwnd());
 }
 
-bool HWNDMessageHandler::RunMoveLoop(const gfx::Point& drag_offset) {
+bool HWNDMessageHandler::RunMoveLoop(const gfx::Vector2d& drag_offset) {
   ReleaseCapture();
   MoveLoopMouseWatcher watcher(this);
   SendMessage(hwnd(), WM_SYSCOMMAND, SC_MOVE | 0x0002, GetMessagePos());
@@ -1586,10 +1587,9 @@ LRESULT HWNDMessageHandler::OnNCActivate(BOOL active) {
     EnumChildWindows(hwnd(), EnumChildWindowsForRedraw, NULL);
   }
 
-  // If we're active again, we should be allowed to render as inactive, so
-  // tell the non-client view.
+  // On activation, lift any prior restriction against rendering as inactive.
   bool inactive_rendering_disabled = delegate_->IsInactiveRenderingDisabled();
-  if (IsActive())
+  if (active && inactive_rendering_disabled)
     delegate_->EnableInactiveRendering();
 
   // Avoid DefWindowProc non-client rendering over our custom frame on newer
@@ -1969,10 +1969,7 @@ void HWNDMessageHandler::OnSysCommand(UINT notification_code,
 }
 
 void HWNDMessageHandler::OnThemeChanged() {
-  // TODO(beng): resolve vis-a-vis aura.
-#if !defined(USE_AURA)
   ui::NativeThemeWin::instance()->CloseHandles();
-#endif
 }
 
 LRESULT HWNDMessageHandler::OnTouchEvent(UINT message,

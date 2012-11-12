@@ -66,19 +66,12 @@ AudioManagerBase::~AudioManagerBase() {
   DCHECK_EQ(0, num_input_streams_);
 }
 
-void AudioManagerBase::InitializeOnAudioThread() {
-  DCHECK(message_loop_->BelongsToCurrentThread());
-}
-
 string16 AudioManagerBase::GetAudioInputDeviceModel() {
   return string16();
 }
 
 scoped_refptr<base::MessageLoopProxy> AudioManagerBase::GetMessageLoop() {
-  base::AutoLock lock(audio_thread_lock_);
-  // Don't return |message_loop_| here because we don't want any new tasks to
-  // come in once we've started tearing down the audio thread.
-  return audio_thread_.get() ? audio_thread_->message_loop_proxy() : NULL;
+  return message_loop_;
 }
 
 AudioOutputStream* AudioManagerBase::MakeAudioOutputStream(

@@ -157,10 +157,6 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebGraphicsContext3D.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebHTTPBody.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebImage.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnection00Handler.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnection00HandlerClient.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnectionHandler.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnectionHandlerClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPoint.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSerializedScriptValue.h"
@@ -434,7 +430,7 @@ static void MaybeHandleDebugURL(const GURL& url) {
     for (;;) {
       base::PlatformThread::Sleep(base::TimeDelta::FromSeconds(1));
     }
-  } else if (url == GURL(chrome::kChromeUIShorthangURL)) {
+  } else if (url == GURL(kChromeUIShorthangURL)) {
     base::PlatformThread::Sleep(base::TimeDelta::FromSeconds(20));
   }
 }
@@ -541,7 +537,6 @@ int64 ExtractPostId(const WebHistoryItem& item) {
 }  // namespace
 
 RenderViewImpl::RenderViewImpl(
-    gfx::NativeViewId parent_hwnd,
     int32 opener_id,
     const RendererPreferences& renderer_prefs,
     const WebPreferences& webkit_prefs,
@@ -589,6 +584,7 @@ RenderViewImpl::RenderViewImpl(
       mouse_lock_dispatcher_(NULL),
 #if defined(OS_ANDROID)
       body_background_color_(SK_ColorWHITE),
+      update_frame_info_scheduled_(false),
       expected_content_intent_id_(0),
       media_player_proxy_(NULL),
       synchronous_find_active_match_ordinal_(-1),
@@ -662,7 +658,7 @@ RenderViewImpl::RenderViewImpl(
   // completing initialization.  Otherwise, we can finish it now.
   if (opener_id_ == MSG_ROUTING_NONE) {
     did_show_ = true;
-    CompleteInit(parent_hwnd);
+    CompleteInit();
   }
 
   g_view_map.Get().insert(std::make_pair(webview(), this));
@@ -676,8 +672,6 @@ RenderViewImpl::RenderViewImpl(
           webkit_glue::kForegroundTabTimerInterval);
 
   OnSetRendererPrefs(renderer_prefs);
-
-  host_window_ = parent_hwnd;
 
 #if defined(ENABLE_WEBRTC)
   if (!media_stream_dispatcher_)
@@ -785,7 +779,6 @@ void RenderView::ForEach(RenderViewVisitor* visitor) {
 
 /*static*/
 RenderViewImpl* RenderViewImpl::Create(
-    gfx::NativeViewId parent_hwnd,
     int32 opener_id,
     const RendererPreferences& renderer_prefs,
     const WebPreferences& webkit_prefs,
@@ -801,7 +794,6 @@ RenderViewImpl* RenderViewImpl::Create(
     AccessibilityMode accessibility_mode) {
   DCHECK(routing_id != MSG_ROUTING_NONE);
   return new RenderViewImpl(
-      parent_hwnd,
       opener_id,
       renderer_prefs,
       webkit_prefs,
@@ -1758,7 +1750,6 @@ WebView* RenderViewImpl::createView(
     return NULL;
 
   RenderViewImpl* view = RenderViewImpl::Create(
-      0,
       routing_id_,
       renderer_preferences_,
       webkit_preferences_,
@@ -2060,6 +2051,9 @@ bool RenderViewImpl::runFileChooser(
   ipc_params.accept_types.reserve(params.acceptTypes.size());
   for (size_t i = 0; i < params.acceptTypes.size(); ++i)
     ipc_params.accept_types.push_back(params.acceptTypes[i]);
+#if defined(OS_ANDROID)
+  ipc_params.capture = params.capture;
+#endif
 
   return ScheduleFileChooser(ipc_params, chooser_completion);
 }
@@ -2164,15 +2158,16 @@ void RenderViewImpl::showContextMenu(
   gfx::Rect start_rect;
   gfx::Rect end_rect;
   GetSelectionBounds(&start_rect, &end_rect);
-  gfx::Point start_point(start_rect.x(),
-                         start_rect.bottom());
-  gfx::Point end_point(end_rect.right(),
-                       end_rect.bottom());
-  params.selection_start = GetScrollOffset().Add(start_point);
-  params.selection_end = GetScrollOffset().Add(end_point);
+  params.selection_start =
+      gfx::Point(start_rect.x(), start_rect.bottom()) + GetScrollOffset();
+  params.selection_end =
+      gfx::Point(end_rect.right(), end_rect.bottom()) + GetScrollOffset();
 #endif
 
   Send(new ViewHostMsg_ContextMenu(routing_id_, params));
+
+  FOR_EACH_OBSERVER(
+      RenderViewObserver, observers_, DidRequestShowContextMenu(frame, data));
 }
 
 void RenderViewImpl::setStatusText(const WebString& text) {
@@ -2239,14 +2234,16 @@ void RenderViewImpl::startDragging(WebFrame* frame,
                                    const WebDragData& data,
                                    WebDragOperationsMask mask,
                                    const WebImage& image,
-                                   const WebPoint& imageOffset) {
+                                   const WebPoint& webImageOffset) {
   WebDropData drop_data(data);
   drop_data.referrer_policy = frame->document().referrerPolicy();
+  gfx::Vector2d imageOffset(webImageOffset.x, webImageOffset.y);
   Send(new DragHostMsg_StartDragging(routing_id_,
                                      drop_data,
                                      mask,
                                      image.getSkBitmap(),
-                                     imageOffset));
+                                     imageOffset,
+                                     possible_drag_event_info_));
 }
 
 bool RenderViewImpl::acceptsLoadDrops() {
@@ -2642,6 +2639,17 @@ void RenderViewImpl::Repaint(const gfx::Size& size) {
   OnMsgRepaint(size);
 }
 
+void RenderViewImpl::SetEditCommandForNextKeyEvent(const std::string& name,
+                                                   const std::string& value) {
+  EditCommands edit_commands;
+  edit_commands.push_back(EditCommand(name, value));
+  OnSetEditCommandsForNextKeyEvent(edit_commands);
+}
+
+void RenderViewImpl::ClearEditCommands() {
+  edit_commands_.clear();
+}
+
 void RenderViewImpl::loadURLExternally(
     WebFrame* frame, const WebURLRequest& request,
     WebNavigationPolicy policy,
@@ -2766,7 +2774,8 @@ WebNavigationPolicy RenderViewImpl::decidePolicyForNavigation(
     // must be handled by the browser process so that the correct bindings and
     // data sources can be registered.
     // Similarly, navigations to view-source URLs or within ViewSource mode
-    // must be handled by the browser process.
+    // must be handled by the browser process (except for reloads - those are
+    // safe to leave within the renderer).
     // Lastly, access to file:// URLs from non-file:// URL pages must be
     // handled by the browser so that ordinary renderer processes don't get
     // blessed with file permissions.
@@ -2776,7 +2785,8 @@ WebNavigationPolicy RenderViewImpl::decidePolicyForNavigation(
         GetContentClient()->HasWebUIScheme(url) ||
         (cumulative_bindings & BINDINGS_POLICY_WEB_UI) ||
         url.SchemeIs(chrome::kViewSourceScheme) ||
-        frame->isViewSourceModeEnabled();
+        (frame->isViewSourceModeEnabled() &&
+            type != WebKit::WebNavigationTypeReload);
 
     if (!should_fork && url.SchemeIs(chrome::kFileScheme)) {
       // Fork non-file to file opens.  Check the opener URL if this is the
@@ -3902,6 +3912,10 @@ void RenderViewImpl::didChangeContentsSize(WebFrame* frame,
     cached_has_main_frame_horizontal_scrollbar_ = has_horizontal_scrollbar;
     cached_has_main_frame_vertical_scrollbar_ = has_vertical_scrollbar;
   }
+
+#if defined(OS_ANDROID)
+  ScheduleUpdateFrameInfo();
+#endif
 }
 
 void RenderViewImpl::UpdateScrollState(WebFrame* frame) {
@@ -3930,6 +3944,11 @@ void RenderViewImpl::didChangeScrollOffset(WebFrame* frame) {
 
   FOR_EACH_OBSERVER(
       RenderViewObserver, observers_, DidChangeScrollOffset(frame));
+
+#if defined(OS_ANDROID)
+  if (webview()->mainFrame() == frame)
+    ScheduleUpdateFrameInfo();
+#endif
 }
 
 #if defined(OS_ANDROID)
@@ -4389,8 +4408,7 @@ webkit::npapi::WebPluginDelegate* RenderViewImpl::CreatePluginDelegate(
   bool in_process_plugin = RenderProcess::current()->UseInProcessPlugins();
   if (in_process_plugin) {
 #if defined(OS_WIN) && !defined(USE_AURA)
-    return webkit::npapi::WebPluginDelegateImpl::Create(
-        file_path, mime_type, gfx::NativeViewFromId(host_window_));
+    return webkit::npapi::WebPluginDelegateImpl::Create(file_path, mime_type);
 #else
     // In-proc plugins aren't supported on non-Windows.
     NOTIMPLEMENTED();
@@ -5526,9 +5544,9 @@ webkit::ppapi::PluginInstance* RenderViewImpl::GetBitmapForOptimizedPluginPaint(
       paint_bounds, dib, location, clip, scale_factor);
 }
 
-gfx::Point RenderViewImpl::GetScrollOffset() {
+gfx::Vector2d RenderViewImpl::GetScrollOffset() {
   WebSize scroll_offset = webview()->mainFrame()->scrollOffset();
-  return gfx::Point(scroll_offset.width, scroll_offset.height);
+  return gfx::Vector2d(scroll_offset.width, scroll_offset.height);
 }
 
 void RenderViewImpl::OnClearFocusedNode() {
@@ -5634,15 +5652,28 @@ void RenderViewImpl::Close() {
 }
 
 void RenderViewImpl::DidHandleKeyEvent() {
-  edit_commands_.clear();
+  ClearEditCommands();
 }
 
 bool RenderViewImpl::WillHandleMouseEvent(const WebKit::WebMouseEvent& event) {
+  possible_drag_event_info_.event_source =
+      ui::DragDropTypes::DRAG_EVENT_SOURCE_MOUSE;
+  possible_drag_event_info_.event_location =
+      gfx::Point(event.globalX, event.globalY);
   pepper_delegate_.WillHandleMouseEvent();
 
   // If the mouse is locked, only the current owner of the mouse lock can
   // process mouse events.
   return mouse_lock_dispatcher_->WillHandleMouseEvent(event);
+}
+
+bool RenderViewImpl::WillHandleGestureEvent(
+    const WebKit::WebGestureEvent& event) {
+  possible_drag_event_info_.event_source =
+      ui::DragDropTypes::DRAG_EVENT_SOURCE_TOUCH;
+  possible_drag_event_info_.event_location =
+      gfx::Point(event.globalX, event.globalY);
+  return false;
 }
 
 void RenderViewImpl::DidHandleMouseEvent(const WebMouseEvent& event) {
@@ -5735,6 +5766,8 @@ void RenderViewImpl::OnSetFocus(bool enable) {
   }
   // Notify all Pepper plugins.
   pepper_delegate_.OnSetFocus(enable);
+  // Notify all BrowserPlugins of the RenderView's focus state.
+  BrowserPluginManager::Get()->SetEmbedderFocus(this, enable);
 }
 
 void RenderViewImpl::PpapiPluginFocusChanged() {
@@ -6312,7 +6345,7 @@ bool RenderViewImpl::didTapMultipleTargets(
     return false;
 
   gfx::Size canvas_size = zoom_rect.size();
-  canvas_size = ToCeiledSize(canvas_size.Scale(scale));
+  canvas_size = ToCeiledSize(gfx::ScaleSize(canvas_size, scale));
   TransportDIB* transport_dib = NULL;
   {
     scoped_ptr<skia::PlatformCanvas> canvas(

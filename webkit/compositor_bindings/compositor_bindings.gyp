@@ -9,8 +9,6 @@
       'web_animation_curve_common.h',
       'web_animation_impl.cc',
       'web_animation_impl.h',
-      'web_compositor_impl.cc',
-      'web_compositor_impl.h',
       'web_content_layer_impl.cc',
       'web_content_layer_impl.h',
       'web_delegated_renderer_layer_impl.cc',
@@ -25,6 +23,8 @@
       'web_image_layer_impl.h',
       'web_layer_impl.cc',
       'web_layer_impl.h',
+      'web_nine_patch_layer_impl.cc',
+      'web_nine_patch_layer_impl.h',
       'web_to_ccinput_handler_adapter.cc',
       'web_to_ccinput_handler_adapter.h',
       'web_layer_tree_view_impl.cc',
@@ -45,7 +45,6 @@
       'type': 'static_library',
       'dependencies': [
         '../../skia/skia.gyp:skia',
-        '<(webkit_src_dir)/Source/WTF/WTF.gyp/WTF.gyp:wtf',
         'webkit_compositor_bindings',
       ],
       'sources': [
@@ -73,8 +72,7 @@
         '../../base/base.gyp:base',
         '../../cc/cc.gyp:cc',
         '../../skia/skia.gyp:skia',
-        # We have to depend on WTF directly to pick up the correct defines for WTF headers - for instance USE_SYSTEM_MALLOC.
-        '<(webkit_src_dir)/Source/WTF/WTF.gyp/WTF.gyp:wtf',
+        '../../ui/ui.gyp:ui',
       ],
       'include_dirs': [
         '../../cc',
@@ -83,8 +81,6 @@
       ],
       'sources': [
         '<@(webkit_compositor_bindings_sources)',
-        'webcore_convert.cc',
-        'webcore_convert.h',
       ],
     },
   ],

@@ -20,9 +20,11 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
+#include "base/prefs/public/pref_observer.h"
 #include "base/sequenced_task_runner_helpers.h"
 #include "base/synchronization/lock.h"
 #include "base/time.h"
+#include "chrome/browser/safe_browsing/protocol_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_observer.h"
@@ -33,7 +35,7 @@ class MalwareDetails;
 class PrefChangeRegistrar;
 class PrefService;
 class SafeBrowsingDatabase;
-class SafeBrowsingProtocolManager;
+class SafeBrowsingPingManager;
 class SafeBrowsingServiceFactory;
 class SafeBrowsingURLRequestContextGetter;
 
@@ -55,23 +57,11 @@ class DownloadProtectionService;
 class SafeBrowsingService
     : public base::RefCountedThreadSafe<
           SafeBrowsingService, content::BrowserThread::DeleteOnUIThread>,
-      public content::NotificationObserver {
+      public content::NotificationObserver,
+      public PrefObserver,
+      public SafeBrowsingProtocolManagerDelegate {
  public:
   class Client;
-  // Users of this service implement this interface to be notified
-  // asynchronously of the result.
-  enum UrlCheckResult {
-    SAFE,
-    URL_PHISHING,
-    URL_MALWARE,
-    BINARY_MALWARE_URL,  // Binary url leads to a malware.
-    BINARY_MALWARE_HASH,  // Binary hash indicates this is a malware.
-
-    // Url detected by the client-side phishing model.  Note that unlike the
-    // above values, this does not correspond to a downloaded list.
-    CLIENT_SIDE_PHISHING_URL,
-  };
-
   // Passed a boolean indicating whether or not it is OK to proceed with
   // loading an URL.
   typedef base::Callback<void(bool /*proceed*/)> UrlCheckCallback;
@@ -86,7 +76,7 @@ class SafeBrowsingService
     GURL original_url;
     std::vector<GURL> redirect_urls;
     bool is_subresource;
-    UrlCheckResult threat_type;
+    SBThreatType threat_type;
     UrlCheckCallback callback;
     int render_process_host_id;
     int render_view_id;
@@ -104,7 +94,7 @@ class SafeBrowsingService
     Client* client;
     bool need_get_hash;
     base::TimeTicks start;  // When check was sent to SB service.
-    UrlCheckResult result;
+    SBThreatType threat_type;
     bool is_download;  // If this check for download url or hash.
     std::vector<SBPrefix> prefix_hits;
     std::vector<SBFullHashResult> full_hits;
@@ -145,16 +135,16 @@ class SafeBrowsingService
     virtual ~Client() {}
 
     // Called when the result of checking a browse URL is known.
-    virtual void OnBrowseUrlCheckResult(const GURL& url,
-                                        UrlCheckResult result) {}
+    virtual void OnCheckBrowseUrlResult(const GURL& url,
+                                        SBThreatType threat_type) {}
 
     // Called when the result of checking a download URL is known.
-    virtual void OnDownloadUrlCheckResult(const std::vector<GURL>& url_chain,
-                                          UrlCheckResult result) {}
+    virtual void OnCheckDownloadUrlResult(const std::vector<GURL>& url_chain,
+                                          SBThreatType threat_type) {}
 
     // Called when the result of checking a download binary hash is known.
-    virtual void OnDownloadHashCheckResult(const std::string& hash,
-                                           UrlCheckResult result) {}
+    virtual void OnCheckDownloadHashResult(const std::string& hash,
+                                           SBThreatType threat_type) {}
   };
 
   // Makes the passed |factory| the factory used to instanciate
@@ -232,7 +222,7 @@ class SafeBrowsingService
                            const GURL& original_url,
                            const std::vector<GURL>& redirect_urls,
                            bool is_subresource,
-                           UrlCheckResult result,
+                           SBThreatType threat_type,
                            const UrlCheckCallback& callback,
                            int render_process_host_id,
                            int render_view_id);
@@ -250,14 +240,6 @@ class SafeBrowsingService
       SafeBrowsingCheck* check,
       const std::vector<SBFullHashResult>& full_hashes,
       bool can_cache);
-
-  // Called on the IO thread.
-  void HandleChunk(const std::string& list, SBChunkList* chunks);
-  void HandleChunkDelete(std::vector<SBChunkDelete>* chunk_deletes);
-
-  // Update management.  Called on the IO thread.
-  void UpdateStarted();
-  void UpdateFinished(bool update_succeeded);
 
   // The blocking page on the UI thread has completed.
   void OnBlockingPageDone(const std::vector<UnsafeResource>& resources,
@@ -283,9 +265,6 @@ class SafeBrowsingService
 
   net::URLRequestContextGetter* url_request_context();
 
-  // Called on the IO thread to reset the database.
-  void ResetDatabase();
-
   // Called on the IO thread to release memory.
   void PurgeMemory();
 
@@ -306,7 +285,7 @@ class SafeBrowsingService
                                      const GURL& page_url,
                                      const GURL& referrer_url,
                                      bool is_subresource,
-                                     UrlCheckResult threat_type,
+                                     SBThreatType threat_type,
                                      const std::string& post_data);
 
   // Add and remove observers.  These methods must be invoked on the UI thread.
@@ -382,11 +361,12 @@ class SafeBrowsingService
   void OnCheckDone(SafeBrowsingCheck* info);
 
   // Called on the database thread to retrieve chunks.
-  void GetAllChunksFromDatabase();
+  void GetAllChunksFromDatabase(GetChunksCallback callback);
 
   // Called on the IO thread with the results of all chunks.
   void OnGetAllChunksFromDatabase(const std::vector<SBListChunkRanges>& lists,
-                                  bool database_error);
+                                  bool database_error,
+                                  GetChunksCallback callback);
 
   // Called on the IO thread after the database reports that it added a chunk.
   void OnChunkInserted();
@@ -401,9 +381,9 @@ class SafeBrowsingService
   void HandleChunkForDatabase(const std::string& list,
                               SBChunkList* chunks);
 
-  void DeleteChunks(std::vector<SBChunkDelete>* chunk_deletes);
+  void DeleteDatabaseChunks(std::vector<SBChunkDelete>* chunk_deletes);
 
-  static UrlCheckResult GetResultFromListname(const std::string& list_name);
+  static SBThreatType GetThreatTypeFromListname(const std::string& list_name);
 
   void NotifyClientBlockingComplete(Client* client, bool proceed);
 
@@ -445,7 +425,7 @@ class SafeBrowsingService
                                        const GURL& page_url,
                                        const GURL& referrer_url,
                                        bool is_subresource,
-                                       UrlCheckResult threat_type,
+                                       SBThreatType threat_type,
                                        const std::string& post_data);
 
   // Checks the download hash on safe_browsing_thread_.
@@ -484,6 +464,19 @@ class SafeBrowsingService
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // PrefObserver override
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
+
+  // SafeBrowsingProtocolManageDelegate override
+  virtual void ResetDatabase() OVERRIDE;
+  virtual void UpdateStarted() OVERRIDE;
+  virtual void UpdateFinished(bool success) OVERRIDE;
+  virtual void GetChunks(GetChunksCallback callback) OVERRIDE;
+  virtual void AddChunks(const std::string& list, SBChunkList* chunks) OVERRIDE;
+  virtual void DeleteChunks(
+      std::vector<SBChunkDelete>* delete_chunks) OVERRIDE;
+
   // Starts following the safe browsing preference on |pref_service|.
   void AddPrefService(PrefService* pref_service);
 
@@ -521,6 +514,9 @@ class SafeBrowsingService
 
   // Handles interaction with SafeBrowsing servers.
   SafeBrowsingProtocolManager* protocol_manager_;
+
+  // Provides phishing and malware statistics.
+  SafeBrowsingPingManager* ping_manager_;
 
   // Only access this whitelist from the UI thread.
   std::vector<WhiteListedEntry> white_listed_entries_;

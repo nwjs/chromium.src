@@ -10,6 +10,8 @@
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/extensions/settings/settings_frontend.h"
+#include "chrome/browser/history/history.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/prefs/pref_model_associator.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -176,7 +178,7 @@ void ProfileSyncComponentsFactoryImpl::RegisterDesktopDataTypes(
   }
 #endif
 
-  // Search Engine sync is enabled by default.  Register only if explicitly
+  // Search Engine sync is enabled by default.  Register unless explicitly
   // disabled.
   if (!command_line_->HasSwitch(switches::kDisableSyncSearchEngines)) {
     pss->RegisterDataTypeController(
@@ -204,19 +206,32 @@ void ProfileSyncComponentsFactoryImpl::RegisterDesktopDataTypes(
         new AutofillProfileDataTypeController(this, profile_, pss));
   }
 
-  // App notifications sync is enabled by default.  Register only if
-  // explicitly disabled.
+  // App notifications sync is enabled by default.  Register unless explicitly
+  // disabled.
   if (!command_line_->HasSwitch(switches::kDisableSyncAppNotifications)) {
     pss->RegisterDataTypeController(
         new AppNotificationDataTypeController(this, profile_, pss));
   }
+
+  // History delete directives sync is disabled by default.  Register only if
+  // explicitly enabled.
+  if (command_line_->HasSwitch(switches::kEnableSyncHistoryDeleteDirectives)) {
+    pss->RegisterDataTypeController(
+        new UIDataTypeController(
+            syncer::HISTORY_DELETE_DIRECTIVES, this, profile_, pss));
+  }
 }
 
 DataTypeManager* ProfileSyncComponentsFactoryImpl::CreateDataTypeManager(
+    const syncer::WeakHandle<syncer::DataTypeDebugInfoListener>&
+        debug_info_listener,
     SyncBackendHost* backend,
     const DataTypeController::TypeMap* controllers,
     DataTypeManagerObserver* observer) {
-  return new DataTypeManagerImpl(backend, controllers, observer);
+  return new DataTypeManagerImpl(debug_info_listener,
+                                 backend,
+                                 controllers,
+                                 observer);
 }
 
 browser_sync::GenericChangeProcessor*
@@ -271,6 +286,12 @@ base::WeakPtr<syncer::SyncableService> ProfileSyncComponentsFactoryImpl::
       return ThemeServiceFactory::GetForProfile(profile_)->
           GetThemeSyncableService()->AsWeakPtr();
 #endif
+    case syncer::HISTORY_DELETE_DIRECTIVES: {
+      HistoryService* history =
+          HistoryServiceFactory::GetForProfile(
+              profile_, Profile::EXPLICIT_ACCESS);
+      return history ? history->AsWeakPtr() : base::WeakPtr<HistoryService>();
+    }
     default:
       // The following datatypes still need to be transitioned to the
       // syncer::SyncableService API:

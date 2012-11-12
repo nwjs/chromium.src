@@ -95,6 +95,7 @@ class TestRunner(BaseTestRunner):
       -  screenshot_failures: Take a screenshot for a test failure
       -  tool: Name of the Valgrind tool.
       -  wait_for_debugger: blocks until the debugger is connected.
+      -  disable_assertions: Whether to disable java assertions on the device.
       device: Attached android device.
       tests_iter: A list of tests to be run.
       coverage: Collects coverage information if opted.
@@ -120,6 +121,7 @@ class TestRunner(BaseTestRunner):
     self.save_perf_json = options.save_perf_json
     self.screenshot_failures = options.screenshot_failures
     self.wait_for_debugger = options.wait_for_debugger
+    self.disable_assertions = options.disable_assertions
 
     self.tests_iter = tests_iter
     self.coverage = coverage
@@ -241,19 +243,9 @@ class TestRunner(BaseTestRunner):
 
   def _TakeScreenshot(self, test):
     """Takes a screenshot from the device."""
-    screenshot_tool = os.path.join(constants.CHROME_DIR,
-        'third_party/android_tools/sdk/tools/monkeyrunner')
-    screenshot_script = os.path.join(constants.CHROME_DIR,
-        'build/android/monkeyrunner_screenshot.py')
-    screenshot_path = os.path.join(constants.CHROME_DIR,
-                                   'out_screenshots')
-    if not os.path.exists(screenshot_path):
-      os.mkdir(screenshot_path)
-    screenshot_name = os.path.join(screenshot_path, test + '.png')
+    screenshot_name = os.path.join(constants.SCREENSHOTS_DIR, test + '.png')
     logging.info('Taking screenshot named %s', screenshot_name)
-    cmd_helper.RunCmd([screenshot_tool, screenshot_script,
-                       '--serial', self.device,
-                       '--file', screenshot_name])
+    self.adb.TakeScreenshot(screenshot_name)
 
   def SetUp(self):
     """Sets up the test harness and device before all tests are run."""
@@ -262,7 +254,7 @@ class TestRunner(BaseTestRunner):
       logging.warning('Unable to enable java asserts for %s, non rooted device',
                       self.device)
     else:
-      if self.adb.SetJavaAssertsEnabled(enable=True):
+      if self.adb.SetJavaAssertsEnabled(enable=not self.disable_assertions):
         self.adb.Reboot(full_reboot=False)
 
     # We give different default value to launch HTTP server based on shard index

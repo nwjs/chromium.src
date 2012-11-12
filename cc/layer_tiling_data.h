@@ -3,39 +3,40 @@
 // found in the LICENSE file.
 
 
-#ifndef CCLayerTilingData_h
-#define CCLayerTilingData_h
+#ifndef CC_LAYER_TILING_DATA_H_
+#define CC_LAYER_TILING_DATA_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/cc_export.h"
 #include "cc/hash_pair.h"
+#include "cc/region.h"
 #include "cc/scoped_ptr_hash_map.h"
-#include "IntRect.h"
-#include "Region.h"
-#include "TilingData.h"
+#include "cc/tiling_data.h"
+#include "ui/gfx/rect.h"
 
 namespace cc {
 
-class LayerTilingData {
+class CC_EXPORT LayerTilingData {
 public:
     enum BorderTexelOption { HasBorderTexels, NoBorderTexels };
 
     ~LayerTilingData();
 
-    static scoped_ptr<LayerTilingData> create(const IntSize& tileSize, BorderTexelOption);
+    static scoped_ptr<LayerTilingData> create(const gfx::Size& tileSize, BorderTexelOption);
 
-    bool hasEmptyBounds() const { return m_tilingData.hasEmptyBounds(); }
-    int numTilesX() const { return m_tilingData.numTilesX(); }
-    int numTilesY() const { return m_tilingData.numTilesY(); }
-    IntRect tileBounds(int i, int j) const { return m_tilingData.tileBounds(i, j); }
-    IntPoint textureOffset(int xIndex, int yIndex) const { return m_tilingData.textureOffset(xIndex, yIndex); }
+    bool hasEmptyBounds() const { return m_tilingData.has_empty_bounds(); }
+    int numTilesX() const { return m_tilingData.num_tiles_x(); }
+    int numTilesY() const { return m_tilingData.num_tiles_y(); }
+    gfx::Rect tileBounds(int i, int j) const { return m_tilingData.TileBounds(i, j); }
+    gfx::Vector2d textureOffset(int xIndex, int yIndex) const { return m_tilingData.TextureOffset(xIndex, yIndex); }
 
     // Change the tile size. This may invalidate all the existing tiles.
-    void setTileSize(const IntSize&);
-    IntSize tileSize() const;
+    void setTileSize(const gfx::Size&);
+    gfx::Size tileSize() const;
     // Change the border texel setting. This may invalidate all existing tiles.
     void setBorderTexelOption(BorderTexelOption);
-    bool hasBorderTexels() const { return m_tilingData.borderTexels(); }
+    bool hasBorderTexels() const { return m_tilingData.border_texels(); }
 
     bool isEmpty() const { return hasEmptyBounds() || !tiles().size(); }
 
@@ -50,12 +51,12 @@ public:
         int j() const { return m_j; }
         void moveTo(int i, int j) { m_i = i; m_j = j; }
 
-        const IntRect& opaqueRect() const { return m_opaqueRect; }
-        void setOpaqueRect(const IntRect& opaqueRect) { m_opaqueRect = opaqueRect; }
+        const gfx::Rect& opaqueRect() const { return m_opaqueRect; }
+        void setOpaqueRect(const gfx::Rect& opaqueRect) { m_opaqueRect = opaqueRect; }
     private:
         int m_i;
         int m_j;
-        IntRect m_opaqueRect;
+        gfx::Rect m_opaqueRect;
         DISALLOW_COPY_AND_ASSIGN(Tile);
     };
     typedef std::pair<int, int> TileMapKey;
@@ -66,18 +67,18 @@ public:
     Tile* tileAt(int, int) const;
     const TileMap& tiles() const { return m_tiles; }
 
-    void setBounds(const IntSize&);
-    IntSize bounds() const;
+    void setBounds(const gfx::Size&);
+    gfx::Size bounds() const;
 
-    void contentRectToTileIndices(const IntRect&, int &left, int &top, int &right, int &bottom) const;
-    IntRect tileRect(const Tile*) const;
+    void contentRectToTileIndices(const gfx::Rect&, int &left, int &top, int &right, int &bottom) const;
+    gfx::Rect tileRect(const Tile*) const;
 
-    Region opaqueRegionInContentRect(const IntRect&) const;
+    Region opaqueRegionInContentRect(const gfx::Rect&) const;
 
     void reset();
 
 protected:
-    LayerTilingData(const IntSize& tileSize, BorderTexelOption);
+    LayerTilingData(const gfx::Size& tileSize, BorderTexelOption);
 
     TileMap m_tiles;
     TilingData m_tilingData;
@@ -85,4 +86,4 @@ protected:
 
 }
 
-#endif
+#endif  // CC_LAYER_TILING_DATA_H_

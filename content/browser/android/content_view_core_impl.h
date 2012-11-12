@@ -181,6 +181,7 @@ class ContentViewCoreImpl : public ContentViewCore,
   jboolean PopulateBitmapFromCompositor(JNIEnv* env,
                                         jobject obj,
                                         jobject jbitmap);
+  void SetSize(JNIEnv* env, jobject obj, jint width, jint height);
 
   // --------------------------------------------------------------------------
   // Public methods that call to Java via JNI
@@ -214,6 +215,12 @@ class ContentViewCoreImpl : public ContentViewCore,
       const gfx::Rect& end_rect, base::i18n::TextDirection end_dir);
 
   void StartContentIntent(const GURL& content_url);
+
+  // Shows the disambiguation popup
+  // |target_rect|   --> window coordinates which |zoomed_bitmap| represents
+  // |zoomed_bitmap| --> magnified image of potential touch targets
+  void ShowDisambiguationPopup(
+      const gfx::Rect& target_rect, const SkBitmap& zoomed_bitmap);
 
   // --------------------------------------------------------------------------
   // Methods called from native code

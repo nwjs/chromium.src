@@ -2,11 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/resource_update_queue.h"
 
-#include "cc/prioritized_texture.h"
+#include "cc/prioritized_resource.h"
 
 namespace cc {
 
@@ -77,4 +75,4 @@ bool ResourceUpdateQueue::hasMoreUpdates() const
     return m_fullEntries.size() || m_partialEntries.size() || m_copyEntries.size();
 }
 
-}
+}  // namespace cc

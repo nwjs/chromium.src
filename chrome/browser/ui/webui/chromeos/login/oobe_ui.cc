@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "ash/ash_switches.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
@@ -41,7 +42,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "grit/browser_resources.h"
-#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::WebContents;
@@ -115,7 +115,7 @@ void OobeUIHTMLSource::StartDataRequest(const std::string& path,
 std::string OobeUIHTMLSource::GetDataResource(int resource_id) const {
   const base::StringPiece html(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          resource_id, ui::SCALE_FACTOR_NONE));
+          resource_id));
   return jstemplate_builder::GetI18nTemplateHtml(html,
                                                  localized_strings_.get());
 }
@@ -263,6 +263,12 @@ void OobeUI::GetLocalizedStrings(base::DictionaryValue* localized_strings) {
     localized_strings->SetString("oobeType", "new");
   else
     localized_strings->SetString("oobeType", "old");
+
+  if (CommandLine::ForCurrentProcess()->
+          HasSwitch(ash::switches::kAshNewLockAnimationsEnabled))
+    localized_strings->SetString("lockAnimationsType", "new");
+  else
+    localized_strings->SetString("lockAnimationsType", "old");
 
   // If we're not doing boot animation then WebUI should trigger
   // wallpaper load on boot.

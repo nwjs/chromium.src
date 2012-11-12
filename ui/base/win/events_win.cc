@@ -9,6 +9,7 @@
 #include "base/logging.h"
 #include "base/time.h"
 #include "base/win/win_util.h"
+#include "ui/base/events/event_utils.h"
 #include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "ui/gfx/point.h"
 
@@ -349,9 +350,7 @@ int GetModifiersFromKeyState() {
 
 // Windows emulates mouse messages for touch events.
 bool IsMouseEventFromTouch(UINT message) {
-  return (message == WM_MOUSEMOVE ||
-      message == WM_LBUTTONDOWN || message == WM_LBUTTONUP ||
-      message == WM_RBUTTONDOWN || message == WM_RBUTTONUP) &&
+  return (message >= WM_MOUSEFIRST) && (message <= WM_MOUSELAST) &&
       (GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) ==
       MOUSEEVENTF_FROMTOUCH;
 }

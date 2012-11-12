@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/search_engines/template_url_service_observer.h"
@@ -79,7 +80,8 @@ class LocationBarView : public LocationBar,
                         public DropdownBarHostDelegate,
                         public chrome::search::SearchModelObserver,
                         public TemplateURLServiceObserver,
-                        public content::NotificationObserver {
+                        public content::NotificationObserver,
+                        public PrefObserver {
  public:
   // The location bar view's class name.
   static const char kViewClassName[];
@@ -170,9 +172,8 @@ class LocationBarView : public LocationBar,
 
   // Returns the appropriate color for the desired kind, based on the user's
   // system theme.
-  static SkColor GetColor(bool instant_extended_api_enabled,
-                          ToolbarModel::SecurityLevel security_level,
-                          ColorKind kind);
+  SkColor GetColor(ToolbarModel::SecurityLevel security_level,
+                   ColorKind kind) const;
 
   // Updates the location bar.  We also reset the bar's permanent text and
   // security style, and, if |tab_for_state_restoring| is non-NULL, also restore
@@ -204,6 +205,9 @@ class LocationBarView : public LocationBar,
 
   // Returns the star view. It may not be visible.
   StarView* star_view() { return star_view_; }
+
+  // Shows the bookmark prompt.
+  void ShowBookmarkPrompt();
 
   // Shows the Chrome To Mobile bubble.
   void ShowChromeToMobileBubble();
@@ -245,10 +249,6 @@ class LocationBarView : public LocationBar,
   virtual void SelectAll();
 
   const gfx::Font& font() const { return font_; }
-
-  // See description above field.
-  void set_view_to_focus(views::View* view) { view_to_focus_ = view; }
-  views::View* view_to_focus() { return view_to_focus_; }
 
 #if defined(OS_WIN) && !defined(USE_AURA)
   // Event Handlers
@@ -338,6 +338,10 @@ class LocationBarView : public LocationBar,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // Overridden from PrefObserver
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
 
   // Returns the height of the control without the top and bottom
   // edges(i.e.  the height of the edit control inside).  If
@@ -435,9 +439,6 @@ class LocationBarView : public LocationBar,
   // Draw backgrounds and borders for page actions.  Must be called
   // after layout, so the |page_action_views_| have their bounds.
   void PaintPageActionBackgrounds(gfx::Canvas* canvas);
-
-  // Draw the focus border when the search mode is |NTP|.
-  void PaintSearchNTPFocusBorder(gfx::Canvas* canvas);
 
 #if defined(USE_AURA)
   // Fade in the location bar view so the icons come in gradually.
@@ -567,10 +568,6 @@ class LocationBarView : public LocationBar,
 
   // Used to register for notifications received by NotificationObserver.
   content::NotificationRegistrar registrar_;
-
-  // The view to give focus to. This is either |this| or the
-  // LocationBarContainer.
-  views::View* view_to_focus_;
 
 #if defined(USE_AURA)
   // Observer for a fade-in animation.

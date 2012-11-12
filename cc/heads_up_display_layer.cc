@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/heads_up_display_layer.h"
 
 #include "base/debug/trace_event.h"
@@ -19,9 +17,9 @@ scoped_refptr<HeadsUpDisplayLayer> HeadsUpDisplayLayer::create()
 
 HeadsUpDisplayLayer::HeadsUpDisplayLayer()
     : Layer()
+    , m_showFPSCounter(false)
 {
-
-    setBounds(IntSize(512, 128));
+    setBounds(gfx::Size(256, 128));
 }
 
 HeadsUpDisplayLayer::~HeadsUpDisplayLayer()
@@ -33,13 +31,13 @@ void HeadsUpDisplayLayer::update(ResourceUpdateQueue&, const OcclusionTracker*, 
     const LayerTreeSettings& settings = layerTreeHost()->settings();
     int maxTextureSize = layerTreeHost()->rendererCapabilities().maxTextureSize;
 
-    IntSize bounds;
+    gfx::Size bounds;
     if (settings.showPlatformLayerTree || settings.showDebugRects()) {
-        bounds.setWidth(std::min(maxTextureSize, layerTreeHost()->deviceViewportSize().width()));
-        bounds.setHeight(std::min(maxTextureSize, layerTreeHost()->deviceViewportSize().height()));
+        int width = std::min(maxTextureSize, layerTreeHost()->deviceViewportSize().width());
+        int height = std::min(maxTextureSize, layerTreeHost()->deviceViewportSize().height());
+        bounds = gfx::Size(width, height);
     } else {
-        bounds.setWidth(512);
-        bounds.setHeight(128);
+        bounds = gfx::Size(256, 128);
     }
 
     setBounds(bounds);
@@ -56,6 +54,12 @@ void HeadsUpDisplayLayer::setFontAtlas(scoped_ptr<FontAtlas> fontAtlas)
     setNeedsCommit();
 }
 
+void HeadsUpDisplayLayer::setShowFPSCounter(bool show)
+{
+    m_showFPSCounter = show;
+    setNeedsCommit();
+}
+
 scoped_ptr<LayerImpl> HeadsUpDisplayLayer::createLayerImpl()
 {
     return HeadsUpDisplayLayerImpl::create(m_layerId).PassAs<LayerImpl>();
@@ -65,11 +69,11 @@ void HeadsUpDisplayLayer::pushPropertiesTo(LayerImpl* layerImpl)
 {
     Layer::pushPropertiesTo(layerImpl);
 
-    if (!m_fontAtlas.get())
-        return;
-
     HeadsUpDisplayLayerImpl* hudLayerImpl = static_cast<HeadsUpDisplayLayerImpl*>(layerImpl);
-    hudLayerImpl->setFontAtlas(m_fontAtlas.Pass());
+    hudLayerImpl->setShowFPSCounter(m_showFPSCounter);
+
+    if (m_fontAtlas.get())
+        hudLayerImpl->setFontAtlas(m_fontAtlas.Pass());
 }
 
-}
+}  // namespace cc

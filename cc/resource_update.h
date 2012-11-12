@@ -5,36 +5,38 @@
 #ifndef CC_RESOURCE_UPDATE_H_
 #define CC_RESOURCE_UPDATE_H_
 
-#include "IntRect.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/vector2d.h"
+#include "cc/cc_export.h"
 
 class SkBitmap;
 class SkPicture;
 
 namespace cc {
 
-class PrioritizedTexture;
+class PrioritizedResource;
 
-struct ResourceUpdate {
-    static ResourceUpdate Create(PrioritizedTexture*,
+struct CC_EXPORT ResourceUpdate {
+    static ResourceUpdate Create(PrioritizedResource*,
                                  const SkBitmap*,
-                                 IntRect content_rect,
-                                 IntRect source_rect,
-                                 IntSize dest_offset);
-    static ResourceUpdate CreateFromPicture(PrioritizedTexture*,
+                                 gfx::Rect content_rect,
+                                 gfx::Rect source_rect,
+                                 gfx::Vector2d dest_offset);
+    static ResourceUpdate CreateFromPicture(PrioritizedResource*,
                                             SkPicture*,
-                                            IntRect content_rect,
-                                            IntRect source_rect,
-                                            IntSize dest_offset);
+                                            gfx::Rect content_rect,
+                                            gfx::Rect source_rect,
+                                            gfx::Vector2d dest_offset);
 
     ResourceUpdate();
     virtual ~ResourceUpdate();
 
-    PrioritizedTexture* texture;
+    PrioritizedResource* texture;
     const SkBitmap* bitmap;
     SkPicture* picture;
-    IntRect content_rect;
-    IntRect source_rect;
-    IntSize dest_offset;
+    gfx::Rect content_rect;
+    gfx::Rect source_rect;
+    gfx::Vector2d dest_offset;
 };
 
 }

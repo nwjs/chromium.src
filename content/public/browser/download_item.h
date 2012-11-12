@@ -199,6 +199,7 @@ class CONTENT_EXPORT DownloadItem : public base::SupportsUserData {
   virtual PageTransition GetTransitionType() const = 0;
   virtual const std::string& GetLastModifiedTime() const = 0;
   virtual const std::string& GetETag() const = 0;
+  virtual bool IsSavePackageDownload() const = 0;
 
   //    Destination State accessors --------------------------------------------
 
@@ -305,10 +306,6 @@ class CONTENT_EXPORT DownloadItem : public base::SupportsUserData {
   // External state transitions/setters ----------------------------------------
   // TODO(rdsmith): These should all be removed; the download item should
   // control its own state transitions.
-
-  // Called by the delegate if it delayed opening the download after
-  // the download has actually been opened.
-  virtual void DelayedDownloadOpened(bool auto_opened) = 0;
 
   // Called if a check of the download contents was performed and the results of
   // the test are available. This should only be called after AllDataSaved() is

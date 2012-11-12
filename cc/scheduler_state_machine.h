@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCSchedulerStateMachine_h
-#define CCSchedulerStateMachine_h
+#ifndef CC_SCHEDULER_STATE_MACHINE_H_
+#define CC_SCHEDULER_STATE_MACHINE_H_
 
 #include <string>
 
 #include "base/basictypes.h"
+#include "cc/cc_export.h"
 
 namespace cc {
 
@@ -21,7 +22,7 @@ namespace cc {
 //
 // The scheduler seperates "what to do next" from the updating of its internal state to
 // make testing cleaner.
-class SchedulerStateMachine {
+class CC_EXPORT SchedulerStateMachine {
 public:
     SchedulerStateMachine();
 
@@ -158,4 +159,4 @@ protected:
 
 }
 
-#endif // CCSchedulerStateMachine_h
+#endif  // CC_SCHEDULER_STATE_MACHINE_H_

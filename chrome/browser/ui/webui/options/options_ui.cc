@@ -92,8 +92,9 @@ using content::RenderViewHost;
 
 namespace {
 
-const char kLocalizedStringsFile[] = "strings.js";
-const char kOptionsBundleJsFile[]  = "options_bundle.js";
+const char kLocalizedStringsFile[]     = "strings.js";
+const char kOptionsBundleJsFile[]      = "options_bundle.js";
+const char kOptionsSettingsAppJsFile[] = "options_settings_app.js";
 
 }  // namespace
 
@@ -147,19 +148,25 @@ void OptionsUIHTMLSource::StartDataRequest(const std::string& path,
   } else if (path == kOptionsBundleJsFile) {
     // Return (and cache) the options javascript code.
     response_bytes = ui::ResourceBundle::GetSharedInstance().
-        LoadDataResourceBytes(IDR_OPTIONS_BUNDLE_JS, ui::SCALE_FACTOR_NONE);
+        LoadDataResourceBytes(IDR_OPTIONS_BUNDLE_JS);
+  } else if (path == kOptionsSettingsAppJsFile) {
+    response_bytes = ui::ResourceBundle::GetSharedInstance().
+    LoadDataResourceBytes(IDR_OPTIONS_SETTINGS_APP_JS);
   } else {
     // Return (and cache) the main options html page as the default.
     response_bytes = ui::ResourceBundle::GetSharedInstance().
-        LoadDataResourceBytes(IDR_OPTIONS_HTML, ui::SCALE_FACTOR_NONE);
+        LoadDataResourceBytes(IDR_OPTIONS_HTML);
   }
 
   SendResponse(request_id, response_bytes);
 }
 
 std::string OptionsUIHTMLSource::GetMimeType(const std::string& path) const {
-  if (path == kLocalizedStringsFile || path == kOptionsBundleJsFile)
+  if (path == kLocalizedStringsFile ||
+      path == kOptionsBundleJsFile ||
+      path == kOptionsSettingsAppJsFile) {
     return "application/javascript";
+  }
 
   return "text/html";
 }
@@ -351,7 +358,7 @@ void OptionsUI::ProcessAutocompleteSuggestions(
 base::RefCountedMemory* OptionsUI::GetFaviconResourceBytes(
       ui::ScaleFactor scale_factor) {
   return ui::ResourceBundle::GetSharedInstance().
-      LoadDataResourceBytes(IDR_SETTINGS_FAVICON, scale_factor);
+      LoadDataResourceBytesForScale(IDR_SETTINGS_FAVICON, scale_factor);
 }
 
 void OptionsUI::InitializeHandlers() {

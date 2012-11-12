@@ -16,18 +16,23 @@
 struct PPB_NaCl_Private {
   // This function launches NaCl's sel_ldr process.  On success, the function
   // returns true, otherwise it returns false.  When it returns true, it will
-  // write |socket_count| nacl::Handles to imc_handles.  Unless
-  // EnableBackgroundSelLdrLaunch is called, this method must be invoked from
-  // the main thread.
+  // write |socket_count| nacl::Handles to imc_handles.  The |enable_ppapi_dev|
+  // parameter controls whether GetInterfaces returns 'Dev' interfaces to the
+  // NaCl plugin.
+  //
+  // Unless EnableBackgroundSelLdrLaunch is called, this method must be invoked
+  // from the main thread.
   PP_Bool (*LaunchSelLdr)(PP_Instance instance,
                           const char* alleged_url,
+                          bool enable_ppapi_dev,
                           int socket_count,
                           void* imc_handles);
 
-  // This function starts the PPAPI proxy so the nexe can communicate with the
-  // browser's renderer process. Allow 'Dev' interfaces if |allow_dev| is true.
-  PP_Bool (*StartPpapiProxy)(PP_Instance instance,
-                             bool allow_dev_interfaces);
+  // This function starts the IPC proxy so the nexe can communicate with the
+  // browser. Returns an error code from pp_errors.h. PP_ERROR_NOTSUPPORTED
+  // signals the plugin to use the SRPC proxy. PP_OK indicates the proxy started
+  // successfully. Any other error indicates the proxy couldn't be started.
+  int32_t (*StartPpapiProxy)(PP_Instance instance);
 
   // On POSIX systems, this function returns the file descriptor of
   // /dev/urandom.  On non-POSIX systems, this function returns 0.

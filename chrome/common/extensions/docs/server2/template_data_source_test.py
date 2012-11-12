@@ -36,6 +36,7 @@ class TemplateDataSourceTest(unittest.TestCase):
     self._fake_api_list_data_source_factory = _FakeFactory()
     self._fake_intro_data_source_factory = _FakeFactory()
     self._fake_samples_data_source_factory = _FakeFactory()
+    self._fake_sidenav_data_source_factory = _FakeFactory()
     self._fake_known_issues_data_source = {}
     self._object_store = InMemoryObjectStore('fake_branch')
 
@@ -57,6 +58,7 @@ class TemplateDataSourceTest(unittest.TestCase):
                                        self._fake_intro_data_source_factory,
                                        self._fake_samples_data_source_factory,
                                        self._fake_known_issues_data_source,
+                                       self._fake_sidenav_data_source_factory,
                                        cache_factory,
                                        '.',
                                        '.')
@@ -70,13 +72,13 @@ class TemplateDataSourceTest(unittest.TestCase):
         self._fake_api_data_source_factory, cache_factory)
     template_a1 = Handlebar(self._ReadLocalFile('test1.html'))
     self.assertEqual(template_a1.render({}, {'templates': {}}).text,
-        t_data_source['test1'].render({}, {'templates': {}}).text)
+        t_data_source.get('test1').render({}, {'templates': {}}).text)
 
     template_a2 = Handlebar(self._ReadLocalFile('test2.html'))
     self.assertEqual(template_a2.render({}, {'templates': {}}).text,
-        t_data_source['test2'].render({}, {'templates': {}}).text)
+        t_data_source.get('test2').render({}, {'templates': {}}).text)
 
-    self.assertEqual(None, t_data_source['junk.html'])
+    self.assertEqual(None, t_data_source.get('junk.html'))
 
   def testPartials(self):
     self._base_path = os.path.join(self._base_path, 'partials')
@@ -86,7 +88,7 @@ class TemplateDataSourceTest(unittest.TestCase):
         self._fake_api_data_source_factory, cache_factory)
     self.assertEqual(
         self._ReadLocalFile('test_expected.html'),
-        t_data_source['test_tmpl'].render(
+        t_data_source.get('test_tmpl').render(
             json.loads(self._ReadLocalFile('input.json')), t_data_source).text)
 
   def testRender(self):

@@ -422,51 +422,45 @@ void PolicyProvider::ShutdownOnUIThread() {
   prefs_ = NULL;
 }
 
-void PolicyProvider::Observe(int type,
-                             const content::NotificationSource& source,
-                             const content::NotificationDetails& details) {
+void PolicyProvider::OnPreferenceChanged(PrefServiceBase* service,
+                                         const std::string& name) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK_EQ(prefs_, service);
 
-  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
-    DCHECK_EQ(prefs_, content::Source<PrefService>(source).ptr());
-    std::string* name = content::Details<std::string>(details).ptr();
-    if (*name == prefs::kManagedDefaultCookiesSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_COOKIES);
-    } else if (*name == prefs::kManagedDefaultImagesSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_IMAGES);
-    } else if (*name == prefs::kManagedDefaultJavaScriptSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_JAVASCRIPT);
-    } else if (*name == prefs::kManagedDefaultPluginsSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_PLUGINS);
-    } else if (*name == prefs::kManagedDefaultPopupsSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_POPUPS);
-    } else if (*name == prefs::kManagedDefaultGeolocationSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_GEOLOCATION);
-    } else if (*name == prefs::kManagedDefaultNotificationsSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_NOTIFICATIONS);
-    } else if (*name == prefs::kManagedDefaultMediaStreamSetting) {
-      UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_MEDIASTREAM);
-    } else if (*name == prefs::kManagedAutoSelectCertificateForUrls ||
-        *name == prefs::kManagedCookiesAllowedForUrls ||
-        *name == prefs::kManagedCookiesBlockedForUrls ||
-        *name == prefs::kManagedCookiesSessionOnlyForUrls ||
-        *name == prefs::kManagedImagesAllowedForUrls ||
-        *name == prefs::kManagedImagesBlockedForUrls ||
-        *name == prefs::kManagedJavaScriptAllowedForUrls ||
-        *name == prefs::kManagedJavaScriptBlockedForUrls ||
-        *name == prefs::kManagedPluginsAllowedForUrls ||
-        *name == prefs::kManagedPluginsBlockedForUrls ||
-        *name == prefs::kManagedPopupsAllowedForUrls ||
-        *name == prefs::kManagedPopupsBlockedForUrls ||
-        *name == prefs::kManagedNotificationsAllowedForUrls ||
-        *name == prefs::kManagedNotificationsBlockedForUrls) {
-      ReadManagedContentSettings(true);
-      ReadManagedDefaultSettings();
-    }
-  } else {
-    NOTREACHED() << "Unexpected notification";
-    return;
+  if (name == prefs::kManagedDefaultCookiesSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_COOKIES);
+  } else if (name == prefs::kManagedDefaultImagesSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_IMAGES);
+  } else if (name == prefs::kManagedDefaultJavaScriptSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_JAVASCRIPT);
+  } else if (name == prefs::kManagedDefaultPluginsSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_PLUGINS);
+  } else if (name == prefs::kManagedDefaultPopupsSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_POPUPS);
+  } else if (name == prefs::kManagedDefaultGeolocationSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_GEOLOCATION);
+  } else if (name == prefs::kManagedDefaultNotificationsSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_NOTIFICATIONS);
+  } else if (name == prefs::kManagedDefaultMediaStreamSetting) {
+    UpdateManagedDefaultSetting(CONTENT_SETTINGS_TYPE_MEDIASTREAM);
+  } else if (name == prefs::kManagedAutoSelectCertificateForUrls ||
+             name == prefs::kManagedCookiesAllowedForUrls ||
+             name == prefs::kManagedCookiesBlockedForUrls ||
+             name == prefs::kManagedCookiesSessionOnlyForUrls ||
+             name == prefs::kManagedImagesAllowedForUrls ||
+             name == prefs::kManagedImagesBlockedForUrls ||
+             name == prefs::kManagedJavaScriptAllowedForUrls ||
+             name == prefs::kManagedJavaScriptBlockedForUrls ||
+             name == prefs::kManagedPluginsAllowedForUrls ||
+             name == prefs::kManagedPluginsBlockedForUrls ||
+             name == prefs::kManagedPopupsAllowedForUrls ||
+             name == prefs::kManagedPopupsBlockedForUrls ||
+             name == prefs::kManagedNotificationsAllowedForUrls ||
+             name == prefs::kManagedNotificationsBlockedForUrls) {
+    ReadManagedContentSettings(true);
+    ReadManagedDefaultSettings();
   }
+
   NotifyObservers(ContentSettingsPattern(),
                   ContentSettingsPattern(),
                   CONTENT_SETTINGS_TYPE_DEFAULT,

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/program_binding.h"
 
 #include "base/debug/trace_event.h"
@@ -139,4 +137,4 @@ void ProgramBindingBase::cleanupShaders(WebGraphicsContext3D* context)
     }
 }
 
-} // namespace cc
+}  // namespace cc

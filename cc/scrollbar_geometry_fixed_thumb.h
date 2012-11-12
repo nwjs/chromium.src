@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCScrollbarGeometryFixedThumb_h
-#define CCScrollbarGeometryFixedThumb_h
+#ifndef CC_SCROLLBAR_GEOMETRY_FIXED_THUMB_H_
+#define CC_SCROLLBAR_GEOMETRY_FIXED_THUMB_H_
 
-#include "IntSize.h"
+#include "cc/cc_export.h"
 #include "cc/scrollbar_geometry_stub.h"
+#include "ui/gfx/size.h"
 
 namespace cc {
 
@@ -14,7 +15,7 @@ namespace cc {
 // it always returns a fixed thumb length. This allows a page to zoom (changing
 // the total size of the scrollable area, changing the thumb length) while not
 // requiring the thumb resource to be repainted.
-class ScrollbarGeometryFixedThumb : public ScrollbarGeometryStub {
+class CC_EXPORT ScrollbarGeometryFixedThumb : public ScrollbarGeometryStub {
 public:
     static scoped_ptr<ScrollbarGeometryFixedThumb> create(scoped_ptr<WebKit::WebScrollbarThemeGeometry>);
     virtual ~ScrollbarGeometryFixedThumb();
@@ -31,9 +32,9 @@ public:
 private:
     explicit ScrollbarGeometryFixedThumb(scoped_ptr<WebKit::WebScrollbarThemeGeometry>);
 
-    IntSize m_thumbSize;
+    gfx::Size m_thumbSize;
 };
 
 }
 
-#endif
+#endif  // CC_SCROLLBAR_GEOMETRY_FIXED_THUMB_H_

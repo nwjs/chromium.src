@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CCResourceUpdateController_h
-#define CCResourceUpdateController_h
+#ifndef CC_RESOURCE_UPDATE_CONTROLLER_H_
+#define CC_RESOURCE_UPDATE_CONTROLLER_H_
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
+#include "cc/cc_export.h"
 #include "cc/resource_update_queue.h"
 
 namespace cc {
@@ -24,11 +25,11 @@ protected:
     virtual ~ResourceUpdateControllerClient() { }
 };
 
-class ResourceUpdateController {
+class CC_EXPORT ResourceUpdateController {
 public:
-    static scoped_ptr<ResourceUpdateController> create(ResourceUpdateControllerClient* client, Thread* thread, scoped_ptr<ResourceUpdateQueue> queue, ResourceProvider* resourceProvider)
+    static scoped_ptr<ResourceUpdateController> create(ResourceUpdateControllerClient* client, Thread* thread, scoped_ptr<ResourceUpdateQueue> queue, ResourceProvider* resourceProvider, bool hasImplThread)
     {
-        return make_scoped_ptr(new ResourceUpdateController(client, thread, queue.Pass(), resourceProvider));
+        return make_scoped_ptr(new ResourceUpdateController(client, thread, queue.Pass(), resourceProvider, hasImplThread));
     }
     static size_t maxPartialTextureUpdates();
 
@@ -47,12 +48,13 @@ public:
     virtual size_t updateMoreTexturesSize() const;
 
 protected:
-    ResourceUpdateController(ResourceUpdateControllerClient*, Thread*, scoped_ptr<ResourceUpdateQueue>, ResourceProvider*);
+    ResourceUpdateController(ResourceUpdateControllerClient*, Thread*, scoped_ptr<ResourceUpdateQueue>, ResourceProvider*, bool hasImplThread);
 
 private:
     static size_t maxFullUpdatesPerTick(ResourceProvider*);
 
     size_t maxBlockingUpdates() const;
+    base::TimeDelta pendingUpdateTime() const;
 
     void updateTexture(ResourceUpdate);
 
@@ -62,6 +64,7 @@ private:
     void onTimerFired();
 
     ResourceUpdateControllerClient* m_client;
+    bool m_hasImplThread;
     scoped_ptr<ResourceUpdateQueue> m_queue;
     bool m_contentsTexturesPurged;
     ResourceProvider* m_resourceProvider;
@@ -77,4 +80,4 @@ private:
 
 }  // namespace cc
 
-#endif // CCResourceUpdateController_h
+#endif  // CC_RESOURCE_UPDATE_CONTROLLER_H_

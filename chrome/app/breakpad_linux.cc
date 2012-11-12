@@ -26,9 +26,9 @@
 #include "base/command_line.h"
 #include "base/eintr_wrapper.h"
 #include "base/file_path.h"
-#include "base/global_descriptors_posix.h"
 #include "base/linux_util.h"
 #include "base/path_service.h"
+#include "base/posix/global_descriptors.h"
 #include "base/process_util.h"
 #include "base/string_util.h"
 #include "breakpad/src/client/linux/handler/exception_handler.h"
@@ -825,8 +825,7 @@ void HandleCrashDump(const BreakpadInfo& info) {
   size_t log_size;
   uint8_t* log_data;
   // Load the AddressSanitizer log into log_data.
-  LoadDataFromFile(allocator, info, info.log_filename,
-                   &logfd, &log_data, &log_size);
+  LoadDataFromFile(allocator, info.log_filename, &logfd, &log_data, &log_size);
 #endif
 
   // We need to build a MIME block for uploading to the server. Since we are

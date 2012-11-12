@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/keyframed_animation_curve.h"
 
 using WebKit::WebTransformationMatrix;
@@ -220,4 +218,4 @@ WebTransformationMatrix KeyframedTransformAnimationCurve::getValue(double t) con
     return m_keyframes[i+1]->value().blend(m_keyframes[i]->value(), progress);
 }
 
-} // namespace cc
+}  // namespace cc

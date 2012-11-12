@@ -7,6 +7,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/prefs/public/pref_change_registrar.h"
+#include "base/prefs/public/pref_observer.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -21,6 +22,7 @@ class WebContents;
 
 // Per-tab class to handle user preferences.
 class PrefsTabHelper : public content::NotificationObserver,
+                       public PrefObserver,
                        public content::WebContentsUserData<PrefsTabHelper> {
  public:
   virtual ~PrefsTabHelper();
@@ -41,10 +43,15 @@ class PrefsTabHelper : public content::NotificationObserver,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // PrefObserver overrides:
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE;
+
   // Update the WebContents's RendererPreferences.
   void UpdateRendererPreferences();
 
   Profile* GetProfile();
+  void OnWebPrefChanged(const std::string& pref_name);
 
   content::WebContents* web_contents_;
   content::NotificationRegistrar registrar_;

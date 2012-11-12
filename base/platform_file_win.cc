@@ -70,6 +70,8 @@ PlatformFile CreatePlatformFile(const FilePath& name,
     create_flags |= FILE_ATTRIBUTE_HIDDEN;
   if (flags & PLATFORM_FILE_DELETE_ON_CLOSE)
     create_flags |= FILE_FLAG_DELETE_ON_CLOSE;
+  if (flags & PLATFORM_FILE_BACKUP_SEMANTICS)
+    create_flags |= FILE_FLAG_BACKUP_SEMANTICS;
 
   HANDLE file = CreateFile(name.value().c_str(), access, sharing, NULL,
                            disposition, create_flags, NULL);
@@ -113,6 +115,21 @@ bool ClosePlatformFile(PlatformFile file) {
   return (CloseHandle(file) != 0);
 }
 
+int64 SeekPlatformFile(PlatformFile file,
+                       PlatformFileWhence whence,
+                       int64 offset) {
+  base::ThreadRestrictions::AssertIOAllowed();
+  if (file < 0 || offset < 0)
+    return -1;
+
+  LARGE_INTEGER distance, res;
+  distance.QuadPart = offset;
+  DWORD move_method = static_cast<DWORD>(whence);
+  if (!SetFilePointerEx(file, distance, &res, move_method))
+    return -1;
+  return res.QuadPart;
+}
+
 int ReadPlatformFile(PlatformFile file, int64 offset, char* data, int size) {
   base::ThreadRestrictions::AssertIOAllowed();
   if (file == kInvalidPlatformFileValue)
@@ -143,6 +160,11 @@ int ReadPlatformFileNoBestEffort(PlatformFile file, int64 offset, char* data,
   return ReadPlatformFile(file, offset, data, size);
 }
 
+int ReadPlatformFileCurPosNoBestEffort(PlatformFile file,
+                                       char* data, int size) {
+  return ReadPlatformFile(file, 0, data, size);
+}
+
 int WritePlatformFile(PlatformFile file, int64 offset,
                       const char* data, int size) {
   base::ThreadRestrictions::AssertIOAllowed();
@@ -165,6 +187,11 @@ int WritePlatformFile(PlatformFile file, int64 offset,
 
 int WritePlatformFileAtCurrentPos(PlatformFile file, const char* data,
                                   int size) {
+  return WritePlatformFile(file, 0, data, size);
+}
+
+int WritePlatformFileCurPosNoBestEffort(PlatformFile file,
+                                        const char* data, int size) {
   return WritePlatformFile(file, 0, data, size);
 }
 

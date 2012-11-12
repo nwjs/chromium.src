@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "config.h"
-
 #include "cc/scrollbar_layer.h"
 
 #include "cc/scrollbar_animation_controller.h"
@@ -16,8 +14,7 @@
 #include <public/WebScrollbarThemeGeometry.h>
 #include <public/WebScrollbarThemePainter.h>
 
-using namespace cc;
-
+namespace cc {
 namespace {
 
 class FakeWebScrollbar : public WebKit::WebScrollbar {
@@ -45,8 +42,6 @@ public:
 
 TEST(ScrollbarLayerTest, resolveScrollLayerPointer)
 {
-    DebugScopedSetImplThread impl;
-
     WebKit::WebScrollbarThemePainter painter;
 
     {
@@ -86,8 +81,6 @@ TEST(ScrollbarLayerTest, resolveScrollLayerPointer)
 
 TEST(ScrollbarLayerTest, scrollOffsetSynchronization)
 {
-    DebugScopedSetImplThread impl;
-
     WebKit::WebScrollbarThemePainter painter;
 
     scoped_ptr<WebKit::WebScrollbar> scrollbar(FakeWebScrollbar::create());
@@ -97,9 +90,9 @@ TEST(ScrollbarLayerTest, scrollOffsetSynchronization)
     layerTreeRoot->addChild(contentLayer);
     layerTreeRoot->addChild(scrollbarLayer);
 
-    layerTreeRoot->setScrollPosition(IntPoint(10, 20));
-    layerTreeRoot->setMaxScrollPosition(IntSize(30, 50));
-    contentLayer->setBounds(IntSize(100, 200));
+    layerTreeRoot->setScrollOffset(gfx::Vector2d(10, 20));
+    layerTreeRoot->setMaxScrollOffset(gfx::Vector2d(30, 50));
+    contentLayer->setBounds(gfx::Size(100, 200));
 
     scoped_ptr<LayerImpl> layerImplTreeRoot = TreeSynchronizer::synchronizeTrees(layerTreeRoot.get(), scoped_ptr<LayerImpl>(), 0);
 
@@ -109,9 +102,9 @@ TEST(ScrollbarLayerTest, scrollOffsetSynchronization)
     EXPECT_EQ(100, ccScrollbarLayer->totalSize());
     EXPECT_EQ(30, ccScrollbarLayer->maximum());
 
-    layerTreeRoot->setScrollPosition(IntPoint(100, 200));
-    layerTreeRoot->setMaxScrollPosition(IntSize(300, 500));
-    contentLayer->setBounds(IntSize(1000, 2000));
+    layerTreeRoot->setScrollOffset(gfx::Vector2d(100, 200));
+    layerTreeRoot->setMaxScrollOffset(gfx::Vector2d(300, 500));
+    contentLayer->setBounds(gfx::Size(1000, 2000));
 
     ScrollbarAnimationController* scrollbarController = layerImplTreeRoot->scrollbarAnimationController();
     layerImplTreeRoot = TreeSynchronizer::synchronizeTrees(layerTreeRoot.get(), layerImplTreeRoot.Pass(), 0);
@@ -121,11 +114,12 @@ TEST(ScrollbarLayerTest, scrollOffsetSynchronization)
     EXPECT_EQ(1000, ccScrollbarLayer->totalSize());
     EXPECT_EQ(300, ccScrollbarLayer->maximum());
 
-    layerImplTreeRoot->scrollBy(FloatSize(12, 34));
+    layerImplTreeRoot->scrollBy(gfx::Vector2d(12, 34));
 
     EXPECT_EQ(112, ccScrollbarLayer->currentPos());
     EXPECT_EQ(1000, ccScrollbarLayer->totalSize());
     EXPECT_EQ(300, ccScrollbarLayer->maximum());
 }
 
-}
+}  // namespace
+}  // namespace cc

@@ -19,12 +19,11 @@ namespace policy {
 const char ManagedModePolicyProvider::kPolicies[] = "policies";
 
 // static
-ManagedModePolicyProvider* ManagedModePolicyProvider::Create(Profile* profile) {
+ManagedModePolicyProvider* ManagedModePolicyProvider::Create(
+    Profile* profile,
+    base::SequencedTaskRunner* sequenced_task_runner) {
   FilePath path = profile->GetPath().Append(chrome::kManagedModePolicyFilename);
-  JsonPrefStore* pref_store = new JsonPrefStore(
-      path,
-      JsonPrefStore::GetTaskRunnerForFile(path,
-                                          BrowserThread::GetBlockingPool()));
+  JsonPrefStore* pref_store = new JsonPrefStore(path, sequenced_task_runner);
   return new ManagedModePolicyProvider(pref_store);
 }
 
@@ -78,20 +77,12 @@ void ManagedModePolicyProvider::OnInitializationCompleted(bool success) {
 base::DictionaryValue* ManagedModePolicyProvider::GetCachedPolicy() const {
   base::Value* value = NULL;
   base::DictionaryValue* dict = NULL;
-  PrefStore::ReadResult result = store_->GetMutableValue(kPolicies, &value);
-  switch (result) {
-    case PrefStore::READ_NO_VALUE: {
-      dict = new base::DictionaryValue;
-      store_->SetValue(kPolicies, dict);
-      break;
-    }
-    case PrefStore::READ_OK: {
-      bool success = value->GetAsDictionary(&dict);
-      DCHECK(success);
-      break;
-    }
-    default:
-      NOTREACHED();
+  if (store_->GetMutableValue(kPolicies, &value)) {
+    bool success = value->GetAsDictionary(&dict);
+    DCHECK(success);
+  } else {
+    dict = new base::DictionaryValue;
+    store_->SetValue(kPolicies, dict);
   }
 
   return dict;

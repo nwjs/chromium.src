@@ -11,9 +11,9 @@
 
 ValueMapPrefStore::ValueMapPrefStore() {}
 
-PrefStore::ReadResult ValueMapPrefStore::GetValue(const std::string& key,
-                                                  const Value** value) const {
-  return prefs_.GetValue(key, value) ? READ_OK : READ_NO_VALUE;
+bool ValueMapPrefStore::GetValue(const std::string& key,
+                                 const Value** value) const {
+  return prefs_.GetValue(key, value);
 }
 
 void ValueMapPrefStore::AddObserver(PrefStore::Observer* observer) {
@@ -26,22 +26,6 @@ void ValueMapPrefStore::RemoveObserver(PrefStore::Observer* observer) {
 
 size_t ValueMapPrefStore::NumberOfObservers() const {
   return observers_.size();
-}
-
-ValueMapPrefStore::iterator ValueMapPrefStore::begin() {
-  return prefs_.begin();
-}
-
-ValueMapPrefStore::iterator ValueMapPrefStore::end() {
-  return prefs_.end();
-}
-
-ValueMapPrefStore::const_iterator ValueMapPrefStore::begin() const {
-  return prefs_.begin();
-}
-
-ValueMapPrefStore::const_iterator ValueMapPrefStore::end() const {
-  return prefs_.end();
 }
 
 ValueMapPrefStore::~ValueMapPrefStore() {}

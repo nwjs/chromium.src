@@ -312,13 +312,6 @@ void AppLauncherHandler::Observe(int type,
       // TODO(estade): Try to get rid of this inefficient operation.
       HandleGetApps(NULL);
       break;
-    case chrome::NOTIFICATION_PREF_CHANGED: {
-      DictionaryValue dictionary;
-      FillAppDictionary(&dictionary);
-      web_ui()->CallJavascriptFunction("ntp.appsPrefChangeCallback",
-                                       dictionary);
-      break;
-    }
     case chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR: {
       CrxInstaller* crx_installer = content::Source<CrxInstaller>(source).ptr();
       if (!Profile::FromWebUI(web_ui())->IsSameProfile(
@@ -336,6 +329,14 @@ void AppLauncherHandler::Observe(int type,
   }
 }
 
+void AppLauncherHandler::OnPreferenceChanged(PrefServiceBase* service,
+                                             const std::string& pref_name) {
+  DictionaryValue dictionary;
+  FillAppDictionary(&dictionary);
+  web_ui()->CallJavascriptFunction("ntp.appsPrefChangeCallback",
+                                   dictionary);
+}
+
 void AppLauncherHandler::FillAppDictionary(DictionaryValue* dictionary) {
   // CreateAppInfo and ClearOrdinals can change the extension prefs.
   AutoReset<bool> auto_reset(&ignore_changes_, true);
@@ -345,7 +346,7 @@ void AppLauncherHandler::FillAppDictionary(DictionaryValue* dictionary) {
   for (std::set<std::string>::iterator it = visible_apps_.begin();
        it != visible_apps_.end(); ++it) {
     const Extension* extension = extension_service_->GetInstalledExtension(*it);
-    if (extension && extension->ShouldDisplayInLauncher()) {
+    if (extension && extension->ShouldDisplayInNewTabPage()) {
       DictionaryValue* app_info = GetAppInfo(extension);
       list->Append(app_info);
     }
