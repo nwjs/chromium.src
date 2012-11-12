@@ -257,7 +257,7 @@ bool DeferToExistingInstall(const FilePath& setup_exe,
 
   int exit_code = 0;
   if (!LaunchAndWaitForExistingInstall(setup_exe, command_line, &exit_code)) {
-    if (copy_prefs)
+    if (copy_prefs.get())
       copy_prefs->Rollback();
     return false;
   }
