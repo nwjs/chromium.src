@@ -770,8 +770,7 @@ void oom_killer_new() {
 // === Core Foundation CFAllocators ===
 
 bool CanGetContextForCFAllocator() {
-  return !base::mac::
-      IsOSDangerouslyLaterThanMountainLionForUseByCFAllocatorReplacement();
+  return !base::mac::IsOSLaterThanMountainLion_DontCallThis();
 }
 
 CFAllocatorContext* ContextForCFAllocator(CFAllocatorRef allocator) {
