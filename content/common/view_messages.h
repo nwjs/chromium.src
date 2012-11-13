@@ -1455,6 +1455,10 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SelectPopupMenuItem,
 IPC_MESSAGE_ROUTED1(ViewMsg_ReleaseDisambiguationPopupDIB,
                     TransportDIB::Handle /* DIB handle */)
 
+// Notifies that the render process will shutdown
+IPC_SYNC_MESSAGE_CONTROL0_1(ViewMsg_WillQuit,
+                            int /* no_use */)
+
 // -----------------------------------------------------------------------------
 // Messages sent from the renderer to the browser.
 
