@@ -212,6 +212,7 @@ class HostProcess
 
   scoped_ptr<CurtainMode> curtain_;
   scoped_ptr<CurtainingHostObserver> curtaining_host_observer_;
+  bool curtain_required_;
 
   bool restarting_;
   bool shutting_down_;
@@ -239,6 +240,7 @@ class HostProcess
 HostProcess::HostProcess(scoped_ptr<ChromotingHostContext> context)
     : context_(context.Pass()),
       allow_nat_traversal_(true),
+      curtain_required_(false),
       restarting_(false),
       shutting_down_(false),
       desktop_resizer_(DesktopResizer::Create()),
@@ -622,6 +624,8 @@ bool HostProcess::OnHostDomainPolicyUpdate(const std::string& host_domain) {
   // Returns true if the host has to be restarted after this policy update.
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
+  LOG(INFO) << "Policy sets host domain: " << host_domain;
+
   if (!host_domain.empty() &&
       !EndsWith(xmpp_login_, std::string("@") + host_domain, false)) {
     Shutdown(kInvalidHostDomainExitCode);
@@ -634,8 +638,11 @@ bool HostProcess::OnNatPolicyUpdate(bool nat_traversal_enabled) {
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
   if (allow_nat_traversal_ != nat_traversal_enabled) {
+    if (nat_traversal_enabled)
+      LOG(INFO) << "Policy enables NAT traversal.";
+    else
+      LOG(INFO) << "Policy disables NAT traversal.";
     allow_nat_traversal_ = nat_traversal_enabled;
-    LOG(INFO) << "Updated NAT policy.";
     return true;
   }
   return false;
@@ -647,10 +654,12 @@ bool HostProcess::OnCurtainPolicyUpdate(bool curtain_required) {
 
 #if defined(OS_MACOSX)
   if (curtain_required) {
-    // If curtain mode is required, then we can't currently support remoting
-    // the login screen. This is because we don't curtain the login screen
-    // and the current daemon architecture means that the connction is closed
-    // immediately after login, leaving the host system uncurtained.
+    // When curtain mode is in effect on Mac, the host process runs in the
+    // user's switched-out session, but launchd will also run an instance at
+    // the console login screen.  Even if no user is currently logged-on, we
+    // can't support remote-access to the login screen because the current host
+    // process model disconnects the client during login, which would leave
+    // the logged in session un-curtained on the console until they reconnect.
     //
     // TODO(jamiewalch): Fix this once we have implemented the multi-process
     // daemon architecture (crbug.com/134894)
@@ -660,9 +669,14 @@ bool HostProcess::OnCurtainPolicyUpdate(bool curtain_required) {
     }
   }
 #endif
-  if (curtain_->required() != curtain_required) {
-    LOG(INFO) << "Updated curtain policy.";
-    curtain_->set_required(curtain_required);
+
+  if (curtain_required_ != curtain_required) {
+    if (curtain_required)
+      LOG(ERROR) << "Policy requires curtain-mode.";
+    else
+      LOG(ERROR) << "Policy does not require curtain-mode.";
+    curtain_required_ = curtain_required;
+    curtaining_host_observer_->SetEnableCurtaining(curtain_required_);
     return true;
   }
   return false;
@@ -674,7 +688,7 @@ bool HostProcess::OnHostTalkGadgetPrefixPolicyUpdate(
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
   if (talkgadget_prefix != talkgadget_prefix_) {
-    LOG(INFO) << "Updated talkgadget policy.";
+    LOG(INFO) << "Policy sets talkgadget prefix: " << talkgadget_prefix;
     talkgadget_prefix_ = talkgadget_prefix;
     return true;
   }
@@ -749,10 +763,11 @@ void HostProcess::StartHost() {
       new ResizingHostObserver(desktop_resizer_.get(), host_));
 #endif
 
-  // Curtain mode is currently broken on Mac (the only supported platform),
-  // so it's disabled until we've had time to fully investigate.
-  //    curtaining_host_observer_.reset(new CurtainingHostObserver(
-  //          curtain_.get(), host_));
+  // Create a host observer to enable/disable curtain mode as clients connect
+  // and disconnect.
+  curtaining_host_observer_.reset(new CurtainingHostObserver(
+                                  curtain_.get(), host_));
+  curtaining_host_observer_->SetEnableCurtaining(curtain_required_);
 
   if (host_user_interface_.get()) {
     host_user_interface_->Start(
