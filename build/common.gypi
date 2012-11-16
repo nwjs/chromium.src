@@ -2104,7 +2104,7 @@
           'NDEBUG',
         ],
         'xcode_settings': {
-          #'DEAD_CODE_STRIPPING': 'YES',  # -Wl,-dead_strip
+          'DEAD_CODE_STRIPPING': 'YES',  # -Wl,-dead_strip
           'GCC_OPTIMIZATION_LEVEL': '<(mac_release_optimization)',
           'OTHER_CFLAGS': [ '<@(release_extra_cflags)', ],
         },
@@ -3071,9 +3071,9 @@
           'GCC_ENABLE_CPP_RTTI': 'NO',              # -fno-rtti
           'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
           # GCC_INLINES_ARE_PRIVATE_EXTERN maps to -fvisibility-inlines-hidden
-          #'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
+          'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
           'GCC_OBJC_CALL_CXX_CDTORS': 'YES',        # -fobjc-call-cxx-cdtors
-          #'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
+          'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
           'GCC_TREAT_WARNINGS_AS_ERRORS': 'NO',    # -Werror
           'GCC_VERSION': '4.2',
@@ -3208,11 +3208,11 @@
           ],
         },
         'target_conditions': [
-          ['_target_name!="v8" and _target_name!="v8_snapshot" and _target_name!="v8_base" and _target_name!="uv" and _target_name!="node" and _target_name!="openssl" and _target_name!="zlib"', {
+          ['_target_name=="v8" or _target_name=="v8_snapshot" or _target_name=="v8_base" or _target_name=="uv" or _target_name=="node" or _target_name=="openssl" or _target_name=="zlib"', {
             'xcode_settings': {
-              'DEAD_CODE_STRIPPING': 'YES',  # -Wl,-dead_strip
-              'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
-              'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',
+              'DEAD_CODE_STRIPPING': 'NO',  # -Wl,-dead_strip
+              'GCC_INLINES_ARE_PRIVATE_EXTERN': 'NO',
+              'GCC_SYMBOLS_PRIVATE_EXTERN': 'NO',
             },
           }],
           ['_type=="executable"', {
