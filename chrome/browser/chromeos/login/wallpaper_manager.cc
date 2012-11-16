@@ -792,6 +792,13 @@ void WallpaperManager::LoadWallpaper(const std::string& email,
     wallpaper_path = user_data_dir.Append(info.file);
   }
 
+  // Avoid loading the same file.
+  if (current_wallpaper_path_ == wallpaper_path)
+    return;
+
+  if (update_wallpaper)
+    current_wallpaper_path_ = wallpaper_path;
+
   wallpaper_loader_->Start(wallpaper_path.value(), 0,
                            base::Bind(&WallpaperManager::OnWallpaperDecoded,
                                       base::Unretained(this),
@@ -1016,7 +1023,7 @@ void WallpaperManager::OnWallpaperDecoded(const std::string& email,
                              ash::CENTER_CROPPED,
                              User::DEFAULT,
                              base::Time::Now().LocalMidnight()
-                         };
+                           };
       SetUserWallpaperInfo(email, info, true);
     } else {
       SetUserWallpaperProperties(email, User::DEFAULT,

@@ -275,6 +275,9 @@ class WallpaperManager: public system::TimezoneSettings::Observer,
   // Loads user wallpaper from its file.
   scoped_refptr<UserImageLoader> wallpaper_loader_;
 
+  // The file path of current loaded/loading custom/online wallpaper.
+  FilePath current_wallpaper_path_;
+
   // Logged-in user wallpaper type.
   User::WallpaperType current_user_wallpaper_type_;
 
