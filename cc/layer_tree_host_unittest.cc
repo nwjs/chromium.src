@@ -2517,6 +2517,48 @@ public:
 
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestCompositeAndReadbackCleanup)
 
+class LayerTreeHostTestCompositeAndReadbackAnimateCount : public LayerTreeHostTest {
+public:
+    LayerTreeHostTestCompositeAndReadbackAnimateCount()
+        : m_layoutCount(0)
+    {
+    }
+
+    virtual void animate(base::TimeTicks) OVERRIDE
+    {
+        // We shouldn't animate on the compositeAndReadback-forced commit, but we should
+        // for the setNeedsCommit-triggered commit.
+        EXPECT_EQ(1, m_layoutCount);
+    }
+
+    virtual void layout() OVERRIDE
+    {
+        m_layoutCount++;
+        if (m_layoutCount == 2)
+            endTest();
+    }
+
+    virtual void beginTest() OVERRIDE
+    {
+        m_layerTreeHost->setNeedsCommit();
+
+        char pixels[4];
+        m_layerTreeHost->compositeAndReadback(&pixels, WebCore::IntRect(0, 0, 1, 1));
+    }
+
+    virtual void afterTest() OVERRIDE
+    {
+    }
+
+private:
+    int m_layoutCount;
+};
+
+TEST_F(LayerTreeHostTestCompositeAndReadbackAnimateCount, runMultiThread)
+{
+    runTest(true);
+}
+
 class LayerTreeHostTestSurfaceNotAllocatedForLayersOutsideMemoryLimit : public LayerTreeHostTest {
 public:
     LayerTreeHostTestSurfaceNotAllocatedForLayersOutsideMemoryLimit()
