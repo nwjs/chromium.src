@@ -95,6 +95,8 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
                              TabContents* old_contents,
                              TabContents* new_contents,
                              int index) OVERRIDE;
+  virtual void TabBlockedStateChanged(TabContents* contents,
+                                      int index) OVERRIDE;
 
   // Overridden from TabRestoreServiceObserver:
   virtual void TabRestoreServiceChanged(TabRestoreService* service) OVERRIDE;
@@ -151,6 +153,9 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
   // state.  |is_loading| is true if the current WebContents is loading.
   // |force| is true if the button should change its icon immediately.
   void UpdateReloadStopState(bool is_loading, bool force);
+
+  // Updates commands for find.
+  void UpdateCommandsForFind();
 
   // Add/remove observers for interstitial attachment/detachment from
   // |contents|.
