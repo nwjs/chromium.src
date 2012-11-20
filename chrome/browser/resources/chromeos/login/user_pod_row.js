@@ -454,6 +454,14 @@ cr.define('login', function() {
       return this.children;
     },
 
+    /**
+     * Return true if user pod row has only single user pod in it.
+     * @type {boolean}
+     */
+    get isSinglePod() {
+      return this.children.length == 1;
+    },
+
     hideTitles: function() {
       for (var i = 0, pod; pod = this.pods[i]; ++i)
         pod.imageElement.title = '';
@@ -608,6 +616,10 @@ cr.define('login', function() {
       setTimeout(function() {
         $('pod-row').classList.remove('images-loading');
       }, POD_ROW_IMAGES_LOAD_TIMEOUT_MS);
+
+      // loadPods is called after user list update (for ex. after deleting user)
+      // so make sure that tooltips are updated.
+      $('pod-row').updateTitles();
 
       this.focusPod(this.preselectedPod);
     },
@@ -767,10 +779,16 @@ cr.define('login', function() {
     handleClick_: function(e) {
       if (this.disabled)
         return;
-      // Clears focus if not clicked on a pod.
+      // Clears focus if not clicked on a pod and if there's more than one pod.
       if (e.target.parentNode != this &&
-          e.target.parentNode.parentNode != this) {
+          e.target.parentNode.parentNode != this &&
+          !this.isSinglePod) {
         this.focusPod();
+      }
+
+      // Return focus back to single pod.
+      if (this.isSinglePod) {
+        this.focusPod(this.focusedPod_, true /* force */);
       }
     },
 
@@ -798,7 +816,11 @@ cr.define('login', function() {
       } else {
         // Clears pod focus when we reach here. It means new focus is neither
         // on a pod nor on a button/input for a pod.
-        this.focusPod();
+        // Do not "defocus" user pod when it is a single pod.
+        // That means that 'focused' class will not be removed and
+        // input field/button will always be visible.
+        if (!this.isSinglePod)
+          this.focusPod();
       }
     },
 
@@ -840,7 +862,8 @@ cr.define('login', function() {
           }
           break;
         case 'U+001B':  // Esc
-          this.focusPod();
+          if (!this.isSinglePod)
+            this.focusPod();
           break;
       }
     },
