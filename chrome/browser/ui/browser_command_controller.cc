@@ -725,6 +725,14 @@ void BrowserCommandController::TabReplacedAt(TabStripModel* tab_strip_model,
   AddInterstitialObservers(new_contents);
 }
 
+void BrowserCommandController::TabBlockedStateChanged(
+    content::WebContents* contents,
+    int index) {
+  PrintingStateChanged();
+  FullscreenStateChanged();
+  UpdateCommandsForFind();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserCommandController, TabRestoreServiceObserver implementation:
 
@@ -881,13 +889,6 @@ void BrowserCommandController::InitCommandState() {
 #endif
   command_updater_.UpdateCommandEnabled(IDC_TABPOSE, normal_window);
 
-  // Find-in-page
-  command_updater_.UpdateCommandEnabled(IDC_FIND, !browser_->is_devtools());
-  command_updater_.UpdateCommandEnabled(IDC_FIND_NEXT,
-                                        !browser_->is_devtools());
-  command_updater_.UpdateCommandEnabled(IDC_FIND_PREVIOUS,
-                                        !browser_->is_devtools());
-
   // Show various bits of UI
   command_updater_.UpdateCommandEnabled(IDC_CLEAR_BROWSING_DATA, normal_window);
 
@@ -996,6 +997,7 @@ void BrowserCommandController::UpdateCommandsForTabState() {
 
   UpdateCommandsForContentRestrictionState();
   UpdateCommandsForBookmarkEditing();
+  UpdateCommandsForFind();
 }
 
 void BrowserCommandController::UpdateCommandsForContentRestrictionState() {
@@ -1099,8 +1101,8 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode(
 #if defined(OS_MACOSX)
   // The Mac implementation doesn't support switching to fullscreen while
   // a tab modal dialog is displayed.
-  int tabIndex = chrome::IndexOfFirstBlockedTab(browser_->tab_strip_model());
-  bool has_blocked_tab = tabIndex != browser_->tab_strip_model()->count();
+  int tab_index = chrome::IndexOfFirstBlockedTab(browser_->tab_strip_model());
+  bool has_blocked_tab = tab_index != browser_->tab_strip_model()->count();
   fullscreen_enabled &= !has_blocked_tab;
 #endif
 
@@ -1157,6 +1159,16 @@ void BrowserCommandController::UpdateReloadStopState(bool is_loading,
                                                      bool force) {
   window()->UpdateReloadStopState(is_loading, force);
   command_updater_.UpdateCommandEnabled(IDC_STOP, is_loading);
+}
+
+void BrowserCommandController::UpdateCommandsForFind() {
+  TabStripModel* model = browser_->tab_strip_model();
+  bool enabled = !model->IsTabBlocked(model->active_index()) &&
+                 !browser_->is_devtools();
+
+  command_updater_.UpdateCommandEnabled(IDC_FIND, enabled);
+  command_updater_.UpdateCommandEnabled(IDC_FIND_NEXT, enabled);
+  command_updater_.UpdateCommandEnabled(IDC_FIND_PREVIOUS, enabled);
 }
 
 void BrowserCommandController::AddInterstitialObservers(TabContents* contents) {
