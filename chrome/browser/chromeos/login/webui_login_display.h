@@ -38,7 +38,6 @@ class WebUILoginDisplay : public LoginDisplay,
   virtual void ShowError(int error_msg_id,
                          int login_attempts,
                          HelpAppLauncher::HelpTopic help_topic_id) OVERRIDE;
-  virtual void ShowErrorScreen(LoginDisplay::SigninError error_id) OVERRIDE;
   virtual void ShowGaiaPasswordChanged(const std::string& username) OVERRIDE;
 
   // SigninScreenHandlerDelegate implementation:
