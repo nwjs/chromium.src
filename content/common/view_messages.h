@@ -7,6 +7,7 @@
 
 #include "base/process.h"
 #include "base/shared_memory.h"
+#include "base/string16.h"
 #include "content/common/content_export.h"
 #include "content/common/content_param_traits.h"
 #include "content/common/edit_command.h"
@@ -2391,3 +2392,12 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_ShowDisambiguationPopup,
                     gfx::Rect, /* Border of touched targets */
                     gfx::Size, /* Size of zoomed image */
                     TransportDIB::Id /* DIB of zoomed image */)
+
+#if defined(OS_WIN)
+// Request that the given font characters be loaded by the browser so it's
+// cached by the OS. Please see RenderMessageFilter::OnPreCacheFontCharacters
+// for details.
+IPC_SYNC_MESSAGE_CONTROL2_0(ViewHostMsg_PreCacheFontCharacters,
+                            LOGFONT /* font_data */,
+                            string16 /* characters */)
+#endif

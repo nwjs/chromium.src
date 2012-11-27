@@ -150,6 +150,11 @@ class RenderMessageFilter : public BrowserMessageFilter {
   void OnGetRootWindowRect(gfx::NativeViewId window, gfx::Rect* rect);
 #endif
 
+#if defined(OS_WIN)
+  void OnPreCacheFontCharacters(const LOGFONT& log_font,
+                                const string16& characters);
+#endif
+
   void OnGetPlugins(bool refresh, IPC::Message* reply_msg);
   void GetPluginsCallback(IPC::Message* reply_msg,
                           const std::vector<webkit::WebPluginInfo>& plugins);
