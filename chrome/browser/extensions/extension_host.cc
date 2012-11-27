@@ -637,7 +637,6 @@ void ExtensionHost::AddNewContents(WebContents* source,
         delegate->AddNewContents(
             associated_contents, new_contents, disposition, initial_pos,
             user_gesture, was_blocked);
-        return;
       }
     }
   }
