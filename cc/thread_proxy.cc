@@ -38,6 +38,7 @@ ThreadProxy::ThreadProxy(LayerTreeHost* layerTreeHost)
     : m_animateRequested(false)
     , m_commitRequested(false)
     , m_commitRequestSentToImplThread(false)
+    , m_forcedCommitRequested(false)
     , m_layerTreeHost(layerTreeHost)
     , m_rendererInitialized(false)
     , m_started(false)
@@ -52,6 +53,7 @@ ThreadProxy::ThreadProxy(LayerTreeHost* layerTreeHost)
     , m_renderVSyncEnabled(layerTreeHost->settings().renderVSyncEnabled)
     , m_totalCommitCount(0)
     , m_deferCommits(false)
+    , m_deferredCommitPending(false)
 {
     TRACE_EVENT0("cc", "ThreadProxy::ThreadProxy");
     DCHECK(isMainThread());
@@ -66,7 +68,7 @@ ThreadProxy::~ThreadProxy()
 
 bool ThreadProxy::compositeAndReadback(void *pixels, const IntRect& rect)
 {
-    TRACE_EVENT0("cc", "ThreadProxy::compositeAndReadback");
+    TRACE_EVENT0("cc", "ThreadPRoxy::compositeAndReadback");
     DCHECK(isMainThread());
     DCHECK(m_layerTreeHost);
     DCHECK(!m_deferCommits);
@@ -85,7 +87,7 @@ bool ThreadProxy::compositeAndReadback(void *pixels, const IntRect& rect)
         beginFrameCompletion.wait();
     }
     m_inCompositeAndReadback = true;
-    beginFrame(NULL);
+    beginFrame();
     m_inCompositeAndReadback = false;
 
     // Perform a synchronous readback.
@@ -336,6 +338,7 @@ void ThreadProxy::setNeedsForcedCommitOnImplThread()
 {
     DCHECK(isImplThread());
     TRACE_EVENT0("cc", "ThreadProxy::setNeedsForcedCommitOnImplThread");
+    m_schedulerOnImplThread->setNeedsCommit();
     m_schedulerOnImplThread->setNeedsForcedCommit();
 }
 
@@ -401,8 +404,10 @@ void ThreadProxy::setDeferCommits(bool deferCommits)
     else
         TRACE_EVENT_ASYNC_END0("cc", "ThreadProxy::setDeferCommits", this);
 
-    if (!m_deferCommits && m_pendingDeferredCommit)
-        m_mainThreadProxy->postTask(createThreadTask(this, &ThreadProxy::beginFrame, m_pendingDeferredCommit.release()));
+    if (!m_deferCommits && m_deferredCommitPending) {
+        m_deferredCommitPending = false;
+        m_mainThreadProxy->postTask(createThreadTask(this, &ThreadProxy::beginFrame));
+    }
 }
 
 bool ThreadProxy::commitRequested() const
@@ -483,28 +488,28 @@ void ThreadProxy::forceBeginFrameOnImplThread(CompletionEvent* completion)
     TRACE_EVENT0("cc", "ThreadProxy::forceBeginFrameOnImplThread");
     DCHECK(!m_beginFrameCompletionEventOnImplThread);
 
-    setNeedsForcedCommitOnImplThread();
     if (m_schedulerOnImplThread->commitPending()) {
         completion->signal();
         return;
     }
 
     m_beginFrameCompletionEventOnImplThread = completion;
+    setNeedsForcedCommitOnImplThread();
 }
 
 void ThreadProxy::scheduledActionBeginFrame()
 {
     TRACE_EVENT0("cc", "ThreadProxy::scheduledActionBeginFrame");
-    scoped_ptr<BeginFrameAndCommitState> beginFrameState(new BeginFrameAndCommitState);
-    beginFrameState->monotonicFrameBeginTime = base::TimeTicks::Now();
-    beginFrameState->scrollInfo = m_layerTreeHostImpl->processScrollDeltas();
-    beginFrameState->implTransform = m_layerTreeHostImpl->implTransform();
-    DCHECK_GT(m_layerTreeHostImpl->memoryAllocationLimitBytes(), 0u);
-    beginFrameState->memoryAllocationLimitBytes = m_layerTreeHostImpl->memoryAllocationLimitBytes();
+    DCHECK(!m_pendingBeginFrameRequest);
+    m_pendingBeginFrameRequest = make_scoped_ptr(new BeginFrameAndCommitState());
+    m_pendingBeginFrameRequest->monotonicFrameBeginTime = base::TimeTicks::Now();
+    m_pendingBeginFrameRequest->scrollInfo = m_layerTreeHostImpl->processScrollDeltas();
+    m_pendingBeginFrameRequest->implTransform = m_layerTreeHostImpl->implTransform();
+    m_pendingBeginFrameRequest->memoryAllocationLimitBytes = m_layerTreeHostImpl->memoryAllocationLimitBytes();
     if (m_layerTreeHost->contentsTextureManager())
-         m_layerTreeHost->contentsTextureManager()->getEvictedBackings(beginFrameState->evictedContentsTexturesBackings);
+         m_layerTreeHost->contentsTextureManager()->getEvictedBackings(m_pendingBeginFrameRequest->evictedContentsTexturesBackings);
 
-    m_mainThreadProxy->postTask(createThreadTask(this, &ThreadProxy::beginFrame, beginFrameState.release()));
+    m_mainThreadProxy->postTask(createThreadTask(this, &ThreadProxy::beginFrame));
 
     if (m_beginFrameCompletionEventOnImplThread) {
         m_beginFrameCompletionEventOnImplThread->signal();
@@ -512,23 +517,29 @@ void ThreadProxy::scheduledActionBeginFrame()
     }
 }
 
-void ThreadProxy::beginFrame(BeginFrameAndCommitState* rawBeginFrameState)
+void ThreadProxy::beginFrame()
 {
-    scoped_ptr<BeginFrameAndCommitState> beginFrameState(rawBeginFrameState);
     TRACE_EVENT0("cc", "ThreadProxy::beginFrame");
     DCHECK(isMainThread());
     if (!m_layerTreeHost)
         return;
 
     if (m_deferCommits) {
-        m_pendingDeferredCommit = beginFrameState.Pass();
+        m_deferredCommitPending = true;
         m_layerTreeHost->didDeferCommit();
         TRACE_EVENT0("cc", "EarlyOut_DeferCommits");
         return;
     }
 
+    if (!m_pendingBeginFrameRequest) {
+        TRACE_EVENT0("cc", "EarlyOut_StaleBeginFrameMessage");
+        return;
+    }
+
     if (m_layerTreeHost->needsSharedContext() && !WebSharedGraphicsContext3D::haveCompositorThreadContext())
         WebSharedGraphicsContext3D::createCompositorThreadContext();
+
+    scoped_ptr<BeginFrameAndCommitState> request(m_pendingBeginFrameRequest.Pass());
 
     // Do not notify the impl thread of commit requests that occur during
     // the apply/animate/layout part of the beginFrameAndCommit process since
@@ -543,14 +554,15 @@ void ThreadProxy::beginFrame(BeginFrameAndCommitState* rawBeginFrameState)
     // callbacks will trigger another frame.
     m_animateRequested = false;
 
-    if (beginFrameState) {
-        m_layerTreeHost->applyScrollAndScale(*beginFrameState->scrollInfo);
-        m_layerTreeHost->setImplTransform(beginFrameState->implTransform);
-    }
+    // FIXME: technically, scroll deltas need to be applied for dropped commits as well.
+    // Re-do the commit flow so that we don't send the scrollInfo on the BFAC message.
+    m_layerTreeHost->applyScrollAndScale(*request->scrollInfo);
+    m_layerTreeHost->setImplTransform(request->implTransform);
 
     if (!m_inCompositeAndReadback && !m_layerTreeHost->visible()) {
         m_commitRequested = false;
         m_commitRequestSentToImplThread = false;
+        m_forcedCommitRequested = false;
 
         TRACE_EVENT0("cc", "EarlyOut_NotVisible");
         Proxy::implThread()->postTask(createThreadTask(this, &ThreadProxy::beginFrameAbortedOnImplThread));
@@ -559,8 +571,7 @@ void ThreadProxy::beginFrame(BeginFrameAndCommitState* rawBeginFrameState)
 
     m_layerTreeHost->willBeginFrame();
 
-    if (beginFrameState)
-        m_layerTreeHost->updateAnimations(beginFrameState->monotonicFrameBeginTime);
+    m_layerTreeHost->updateAnimations(request->monotonicFrameBeginTime);
     m_layerTreeHost->layout();
 
     // Clear the commit flag after updating animations and layout here --- objects that only
@@ -568,17 +579,17 @@ void ThreadProxy::beginFrame(BeginFrameAndCommitState* rawBeginFrameState)
     // updateLayers.
     m_commitRequested = false;
     m_commitRequestSentToImplThread = false;
+    m_forcedCommitRequested = false;
 
     if (!m_layerTreeHost->initializeRendererIfNeeded()) {
         TRACE_EVENT0("cc", "EarlyOut_InitializeFailed");
         return;
     }
 
-    if (beginFrameState)
-        m_layerTreeHost->contentsTextureManager()->unlinkEvictedBackings(beginFrameState->evictedContentsTexturesBackings);
+    m_layerTreeHost->contentsTextureManager()->unlinkEvictedBackings(request->evictedContentsTexturesBackings);
 
     scoped_ptr<ResourceUpdateQueue> queue = make_scoped_ptr(new ResourceUpdateQueue);
-    m_layerTreeHost->updateLayers(*(queue.get()), beginFrameState ? beginFrameState->memoryAllocationLimitBytes : 0);
+    m_layerTreeHost->updateLayers(*(queue.get()), request->memoryAllocationLimitBytes);
 
     // Once single buffered layers are committed, they cannot be modified until
     // they are drawn by the impl thread.
@@ -991,7 +1002,6 @@ void ThreadProxy::renderingStatsOnImplThread(CompletionEvent* completion, Render
 }
 
 ThreadProxy::BeginFrameAndCommitState::BeginFrameAndCommitState()
-    : memoryAllocationLimitBytes(0)
 {
 }
 

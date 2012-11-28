@@ -53,7 +53,6 @@ void Scheduler::setNeedsCommit()
 
 void Scheduler::setNeedsForcedCommit()
 {
-    m_stateMachine.setNeedsCommit();
     m_stateMachine.setNeedsForcedCommit();
     processScheduledActions();
 }
