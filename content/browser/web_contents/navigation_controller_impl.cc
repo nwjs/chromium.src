@@ -983,8 +983,7 @@ void NavigationControllerImpl::RendererDidNavigateToExistingPage(
   //
   // Note that we need to use the "internal" version since we don't want to
   // actually change any other state, just kill the pointer.
-  if (pending_entry_)
-    DiscardNonCommittedEntriesInternal();
+  DiscardNonCommittedEntriesInternal();
 
   // If a transient entry was removed, the indices might have changed, so we
   // have to query the entry index again.
@@ -1032,8 +1031,7 @@ void NavigationControllerImpl::RendererDidNavigateInPage(
   // This replaces the existing entry since the page ID didn't change.
   *did_replace_entry = true;
 
-  if (pending_entry_)
-    DiscardNonCommittedEntriesInternal();
+  DiscardNonCommittedEntriesInternal();
 
   // If a transient entry was removed, the indices might have changed, so we
   // have to query the entry index again.
