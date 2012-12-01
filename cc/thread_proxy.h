@@ -89,7 +89,6 @@ private:
         base::TimeTicks monotonicFrameBeginTime;
         scoped_ptr<ScrollAndScaleSet> scrollInfo;
         WebKit::WebTransformationMatrix implTransform;
-        PrioritizedTextureManager::BackingList evictedContentsTexturesBackings;
         size_t memoryAllocationLimitBytes;
     };
     scoped_ptr<BeginFrameAndCommitState> m_pendingBeginFrameRequest;

@@ -93,9 +93,12 @@ public:
     };
     void textureManagerClearAllMemory(PrioritizedTextureManager* textureManager, ResourceProvider* resourceProvider)
     {
-        DebugScopedSetImplThreadAndMainThreadBlocked implThreadAndMainThreadBlocked;
-        textureManager->clearAllMemory(resourceProvider);
-        textureManager->reduceMemory(resourceProvider);
+        {
+            DebugScopedSetImplThreadAndMainThreadBlocked implThreadAndMainThreadBlocked;
+            textureManager->clearAllMemory(resourceProvider);
+            textureManager->reduceMemory(resourceProvider);
+        }
+        textureManager->unlinkAndClearEvictedBackings();
     }
     void updateTextures()
     {

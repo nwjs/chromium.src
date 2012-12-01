@@ -37,7 +37,7 @@ PrioritizedTextureManager::~PrioritizedTextureManager()
     while (m_textures.size() > 0)
         unregisterTexture(*m_textures.begin());
 
-    deleteUnlinkedEvictedBackings();
+    unlinkAndClearEvictedBackings();
     DCHECK(m_evictedBackings.empty());
 
     // Each remaining backing is a leaked opengl texture. There should be none.
@@ -308,15 +308,6 @@ void PrioritizedTextureManager::reduceMemory(ResourceProvider* resourceProvider)
                                     EvictOnlyRecyclable,
                                     UnlinkBackings,
                                     resourceProvider);
-
-    // Unlink all evicted backings
-    for (BackingList::const_iterator it = m_evictedBackings.begin(); it != m_evictedBackings.end(); ++it) {
-        if ((*it)->owner())
-            (*it)->owner()->unlink();
-    }
-
-    // And clear the list of evicted backings
-    deleteUnlinkedEvictedBackings();
 }
 
 void PrioritizedTextureManager::clearAllMemory(ResourceProvider* resourceProvider)
@@ -345,39 +336,23 @@ bool PrioritizedTextureManager::reduceMemoryOnImplThread(size_t limitBytes, int 
                                        resourceProvider);
 }
 
-void PrioritizedTextureManager::getEvictedBackings(BackingList& evictedBackings)
-{
-    DCHECK(Proxy::isImplThread());
-    evictedBackings.clear();
-    evictedBackings.insert(evictedBackings.begin(), m_evictedBackings.begin(), m_evictedBackings.end());
-}
-
-void PrioritizedTextureManager::unlinkEvictedBackings(const BackingList& evictedBackings)
+void PrioritizedTextureManager::unlinkAndClearEvictedBackings()
 {
     DCHECK(Proxy::isMainThread());
-    for (BackingList::const_iterator it = evictedBackings.begin(); it != evictedBackings.end(); ++it) {
-        PrioritizedTexture::Backing* backing = (*it);
-        if (backing->owner())
-            backing->owner()->unlink();
-    }
-}
-
-void PrioritizedTextureManager::deleteUnlinkedEvictedBackings()
-{
-    DCHECK(Proxy::isMainThread() || (Proxy::isImplThread() && Proxy::isMainThreadBlocked()));
-    BackingList newEvictedBackings;
+    base::AutoLock scoped_lock(m_evictedBackingsLock);
     for (BackingList::const_iterator it = m_evictedBackings.begin(); it != m_evictedBackings.end(); ++it) {
         PrioritizedTexture::Backing* backing = (*it);
         if (backing->owner())
-            newEvictedBackings.push_back(backing);
-        else
-            delete backing;
+            backing->owner()->unlink();
+        delete backing;
     }
-    m_evictedBackings.swap(newEvictedBackings);
+    m_evictedBackings.clear();
 }
 
 bool PrioritizedTextureManager::linkedEvictedBackingsExist() const
 {
+    DCHECK(Proxy::isImplThread() && Proxy::isMainThreadBlocked());
+    base::AutoLock scoped_lock(m_evictedBackingsLock);
     for (BackingList::const_iterator it = m_evictedBackings.begin(); it != m_evictedBackings.end(); ++it) {
         if ((*it)->owner())
             return true;
@@ -441,6 +416,7 @@ void PrioritizedTextureManager::evictFirstBackingResource(ResourceProvider* reso
     backing->deleteResource(resourceProvider);
     m_memoryUseBytes -= backing->bytes();
     m_backings.pop_front();
+    base::AutoLock scoped_lock(m_evictedBackingsLock);
     m_evictedBackings.push_back(backing);
 }
 
@@ -463,6 +439,7 @@ void PrioritizedTextureManager::assertInvariants()
     for (TextureSet::iterator it = m_textures.begin(); it != m_textures.end(); ++it) {
         PrioritizedTexture* texture = (*it);
         PrioritizedTexture::Backing* backing = texture->backing();
+        base::AutoLock scoped_lock(m_evictedBackingsLock);
         if (backing) {
             if (backing->resourceHasBeenDeleted()) {
                 DCHECK(std::find(m_backings.begin(), m_backings.end(), backing) == m_backings.end());

@@ -506,8 +506,6 @@ void ThreadProxy::scheduledActionBeginFrame()
     m_pendingBeginFrameRequest->scrollInfo = m_layerTreeHostImpl->processScrollDeltas();
     m_pendingBeginFrameRequest->implTransform = m_layerTreeHostImpl->implTransform();
     m_pendingBeginFrameRequest->memoryAllocationLimitBytes = m_layerTreeHostImpl->memoryAllocationLimitBytes();
-    if (m_layerTreeHost->contentsTextureManager())
-         m_layerTreeHost->contentsTextureManager()->getEvictedBackings(m_pendingBeginFrameRequest->evictedContentsTexturesBackings);
 
     m_mainThreadProxy->postTask(createThreadTask(this, &ThreadProxy::beginFrame));
 
@@ -568,6 +566,10 @@ void ThreadProxy::beginFrame()
         Proxy::implThread()->postTask(createThreadTask(this, &ThreadProxy::beginFrameAbortedOnImplThread));
         return;
     }
+    // Unlink any backings that the impl thread has evicted, so that we know to re-paint
+    // them in updateLayers.
+    if (m_layerTreeHost->contentsTextureManager())
+        m_layerTreeHost->contentsTextureManager()->unlinkAndClearEvictedBackings();
 
     m_layerTreeHost->willBeginFrame();
 
@@ -585,8 +587,6 @@ void ThreadProxy::beginFrame()
         TRACE_EVENT0("cc", "EarlyOut_InitializeFailed");
         return;
     }
-
-    m_layerTreeHost->contentsTextureManager()->unlinkEvictedBackings(request->evictedContentsTexturesBackings);
 
     scoped_ptr<ResourceUpdateQueue> queue = make_scoped_ptr(new ResourceUpdateQueue);
     m_layerTreeHost->updateLayers(*(queue.get()), request->memoryAllocationLimitBytes);

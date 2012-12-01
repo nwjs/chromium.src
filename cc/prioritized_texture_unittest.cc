@@ -90,6 +90,11 @@ public:
         return texture->m_backing->wasAbovePriorityCutoffAtLastPriorityUpdate();
     }
 
+    size_t evictedBackingCount(PrioritizedTextureManager* resourceManager)
+    {
+        return resourceManager->m_evictedBackings.size();
+    }
+
 protected:
     const IntSize m_textureSize;
     const GLenum m_textureFormat;
@@ -234,17 +239,15 @@ TEST_F(PrioritizedTextureTest, changePriorityCutoff)
     EXPECT_EQ(texturesMemorySize(4), textureManager->memoryAboveCutoffBytes());
 
     // Do a one-time eviction for one more texture based on priority cutoff
-    PrioritizedTextureManager::BackingList evictedBackings;
+    textureManager->unlinkAndClearEvictedBackings();
     {
         DebugScopedSetImplThreadAndMainThreadBlocked implThreadAndMainThreadBlocked;
         textureManager->reduceMemoryOnImplThread(texturesMemorySize(8), 104, resourceProvider());
-        textureManager->getEvictedBackings(evictedBackings);
-        EXPECT_EQ(0, evictedBackings.size());
+        EXPECT_EQ(0, evictedBackingCount(textureManager.get()));
         textureManager->reduceMemoryOnImplThread(texturesMemorySize(8), 103, resourceProvider());
-        textureManager->getEvictedBackings(evictedBackings);
-        EXPECT_EQ(1, evictedBackings.size());
+        EXPECT_EQ(1, evictedBackingCount(textureManager.get()));
     }
-    textureManager->unlinkEvictedBackings(evictedBackings);
+    textureManager->unlinkAndClearEvictedBackings();
     EXPECT_EQ(texturesMemorySize(3), textureManager->memoryUseBytes());
 
     // Re-allocate the the texture after the one-time drop.
