@@ -23,6 +23,7 @@ SchedulerStateMachine::SchedulerStateMachine()
     , m_needsForcedRedrawAfterNextCommit(false)
     , m_needsCommit(false)
     , m_needsForcedCommit(false)
+    , m_expectImmediateBeginFrame(false)
     , m_mainThreadNeedsLayerTextures(false)
     , m_insideVSync(false)
     , m_visible(false)
@@ -47,6 +48,7 @@ std::string SchedulerStateMachine::toString()
     base::StringAppendF(&str, "m_needsForcedRedrawAfterNextCommit = %d; ", m_needsForcedRedrawAfterNextCommit);
     base::StringAppendF(&str, "m_needsCommit = %d; ", m_needsCommit);
     base::StringAppendF(&str, "m_needsForcedCommit = %d; ", m_needsForcedCommit);
+    base::StringAppendF(&str, "m_expectImmediateBeginFrame = %d; ", m_expectImmediateBeginFrame);
     base::StringAppendF(&str, "m_mainThreadNeedsLayerTextures = %d; ", m_mainThreadNeedsLayerTextures);
     base::StringAppendF(&str, "m_insideVSync = %d; ", m_insideVSync);
     base::StringAppendF(&str, "m_visible = %d; ", m_visible);
@@ -191,8 +193,13 @@ void SchedulerStateMachine::updateState(Action action)
         m_drawIfPossibleFailed = false;
         if (m_insideVSync)
             m_lastFrameNumberWhereDrawWasCalled = m_currentFrameNumber;
-        if (m_commitState == COMMIT_STATE_WAITING_FOR_FIRST_DRAW)
-            m_commitState = COMMIT_STATE_IDLE;
+        if (m_commitState == COMMIT_STATE_WAITING_FOR_FIRST_DRAW) {
+            if (m_expectImmediateBeginFrame) {
+                m_commitState = COMMIT_STATE_FRAME_IN_PROGRESS;
+                m_expectImmediateBeginFrame = false;
+            } else
+                m_commitState = COMMIT_STATE_IDLE;
+        }
         if (m_textureState == LAYER_TEXTURE_STATE_ACQUIRED_BY_IMPL_THREAD)
             m_textureState = LAYER_TEXTURE_STATE_UNLOCKED;
         return;
@@ -282,19 +289,25 @@ void SchedulerStateMachine::setNeedsCommit()
 void SchedulerStateMachine::setNeedsForcedCommit()
 {
     m_needsForcedCommit = true;
+    m_expectImmediateBeginFrame = true;
 }
 
 void SchedulerStateMachine::beginFrameComplete()
 {
-    DCHECK(m_commitState == COMMIT_STATE_FRAME_IN_PROGRESS);
+    DCHECK(m_commitState == COMMIT_STATE_FRAME_IN_PROGRESS ||
+           (m_expectImmediateBeginFrame && m_commitState != COMMIT_STATE_IDLE)) << toString();
     m_commitState = COMMIT_STATE_READY_TO_COMMIT;
 }
 
 void SchedulerStateMachine::beginFrameAborted()
 {
     DCHECK(m_commitState == COMMIT_STATE_FRAME_IN_PROGRESS);
-    m_commitState = COMMIT_STATE_IDLE;
-    setNeedsCommit();
+    if (m_expectImmediateBeginFrame)
+        m_expectImmediateBeginFrame = false;
+    else {
+        m_commitState = COMMIT_STATE_IDLE;
+        setNeedsCommit();
+    }
 }
 
 void SchedulerStateMachine::didLoseContext()

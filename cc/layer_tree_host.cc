@@ -497,7 +497,6 @@ bool LayerTreeHost::initializeRendererIfNeeded()
 void LayerTreeHost::updateLayers(ResourceUpdateQueue& queue, size_t memoryAllocationLimitBytes)
 {
     DCHECK(m_rendererInitialized);
-    DCHECK(memoryAllocationLimitBytes);
 
     if (!rootLayer())
         return;
@@ -505,7 +504,8 @@ void LayerTreeHost::updateLayers(ResourceUpdateQueue& queue, size_t memoryAlloca
     if (layoutViewportSize().isEmpty())
         return;
 
-    m_contentsTextureManager->setMaxMemoryLimitBytes(memoryAllocationLimitBytes);
+    if (memoryAllocationLimitBytes)
+        m_contentsTextureManager->setMaxMemoryLimitBytes(memoryAllocationLimitBytes);
 
     updateLayers(rootLayer(), queue);
 }
