@@ -801,6 +801,7 @@ bool PluginInstance::Initialize(WebPluginContainer* container,
   full_frame_ = full_frame;
 
   container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  container_->setWantsWheelEvents(IsAcceptingWheelEvents());
 
   SetGPUHistogram(delegate_->GetPreferences(), arg_names, arg_values);
 
@@ -905,6 +906,13 @@ bool PluginInstance::SendCompositionEventWithUnderlineInformationToPlugin(
   handled |= PP_ToBool(plugin_input_event_interface_->HandleInputEvent(
       pp_instance(), event_resource->pp_resource()));
   return handled;
+}
+
+void PluginInstance::RequestInputEventsHelper(uint32_t event_classes) {
+  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
+    container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  if (event_classes & PP_INPUTEVENT_CLASS_WHEEL)
+    container_->setWantsWheelEvents(IsAcceptingWheelEvents());
 }
 
 bool PluginInstance::HandleCompositionStart(const string16& text) {
@@ -1418,6 +1426,11 @@ void PluginInstance::SendFocusChangeNotification() {
 bool PluginInstance::IsAcceptingTouchEvents() const {
   return (filtered_input_event_mask_ & PP_INPUTEVENT_CLASS_TOUCH) ||
       (input_event_mask_ & PP_INPUTEVENT_CLASS_TOUCH);
+}
+
+bool PluginInstance::IsAcceptingWheelEvents() const {
+  return (filtered_input_event_mask_ & PP_INPUTEVENT_CLASS_WHEEL) ||
+      (input_event_mask_ & PP_INPUTEVENT_CLASS_WHEEL);
 }
 
 void PluginInstance::ScheduleAsyncDidChangeView() {
@@ -2900,8 +2913,7 @@ int32_t PluginInstance::RequestInputEvents(PP_Instance instance,
                                            uint32_t event_classes) {
   input_event_mask_ |= event_classes;
   filtered_input_event_mask_ &= ~(event_classes);
-  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
-    container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  RequestInputEventsHelper(event_classes);
   return ValidateRequestInputEvents(false, event_classes);
 }
 
@@ -2909,8 +2921,7 @@ int32_t PluginInstance::RequestFilteringInputEvents(PP_Instance instance,
                                                     uint32_t event_classes) {
   filtered_input_event_mask_ |= event_classes;
   input_event_mask_ &= ~(event_classes);
-  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
-    container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  RequestInputEventsHelper(event_classes);
   return ValidateRequestInputEvents(true, event_classes);
 }
 
@@ -2918,8 +2929,7 @@ void PluginInstance::ClearInputEventRequest(PP_Instance instance,
                                             uint32_t event_classes) {
   input_event_mask_ &= ~(event_classes);
   filtered_input_event_mask_ &= ~(event_classes);
-  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
-    container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  RequestInputEventsHelper(event_classes);
 }
 
 void PluginInstance::ZoomChanged(PP_Instance instance, double factor) {
