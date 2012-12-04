@@ -27,6 +27,7 @@
 #include "content/public/common/ssl_status.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
+#include "net/base/net_errors.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
