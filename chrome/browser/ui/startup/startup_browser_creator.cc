@@ -34,6 +34,7 @@
 #include "chrome/browser/component_updater/recovery_component_installer.h"
 #include "chrome/browser/component_updater/swiftshader_component_installer.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
+#include "chrome/browser/extensions/startup_helper.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/net/crl_set_fetcher.h"
@@ -392,6 +393,15 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
       return false;
   }
 
+  if (command_line.HasSwitch(switches::kSilentLaunch)) {
+    std::vector<GURL> urls_to_open = GetURLsFromCommandLine(
+        command_line, cur_dir, last_used_profile);
+    size_t expected_tabs =
+        std::max(static_cast<int>(urls_to_open.size()), 0);
+    if (expected_tabs == 0)
+      silent_launch = true;
+  }
+
   if (command_line.HasSwitch(switches::kAutomationClientChannelID)) {
     std::string automation_channel_id = command_line.GetSwitchValueASCII(
         switches::kAutomationClientChannelID);
@@ -447,6 +457,14 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     std::string allowed_ports =
         command_line.GetSwitchValueASCII(switches::kExplicitlyAllowedPorts);
     net::SetExplicitlyAllowedPorts(allowed_ports);
+  }
+
+  if (command_line.HasSwitch(switches::kInstallFromWebstore)) {
+    extensions::StartupHelper helper;
+    helper.InstallFromWebstore(command_line, last_used_profile);
+    // Nothing more needs to be done, so return false to stop launching and
+    // quit.
+    return false;
   }
 
 #if defined(OS_CHROMEOS)

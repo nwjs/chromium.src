@@ -17,11 +17,9 @@ class BrowserPluginGuest;
 TestBrowserPluginGuest::TestBrowserPluginGuest(
     int instance_id,
     WebContentsImpl* web_contents,
-    RenderViewHost* render_view_host,
     const BrowserPluginHostMsg_CreateGuest_Params& params)
     : BrowserPluginGuest(instance_id,
                          web_contents,
-                         render_view_host,
                          params),
       update_rect_count_(0),
       damage_buffer_call_count_(0),
@@ -120,11 +118,13 @@ void TestBrowserPluginGuest::RenderViewGone(base::TerminationStatus status) {
 
 void TestBrowserPluginGuest::HandleInputEvent(
     RenderViewHost* render_view_host,
-    const gfx::Rect& guest_rect,
+    const gfx::Rect& guest_window_rect,
+    const gfx::Rect& guest_screen_rect,
     const WebKit::WebInputEvent& event,
     IPC::Message* reply_message) {
   BrowserPluginGuest::HandleInputEvent(render_view_host,
-                                       guest_rect,
+                                       guest_window_rect,
+                                       guest_screen_rect,
                                        event,
                                        reply_message);
   input_observed_ = true;
@@ -272,6 +272,7 @@ void TestBrowserPluginGuest::SetDamageBuffer(
     TransportDIB* damage_buffer,
 #if defined(OS_WIN)
     int damage_buffer_size,
+    TransportDIB::Handle remote_handle,
 #endif
     const gfx::Size& damage_view_size,
     float scale_factor) {
@@ -289,6 +290,7 @@ void TestBrowserPluginGuest::SetDamageBuffer(
       damage_buffer,
 #if defined(OS_WIN)
       damage_buffer_size,
+      remote_handle,
 #endif
       damage_view_size,
       scale_factor);

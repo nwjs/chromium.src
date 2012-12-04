@@ -28,6 +28,7 @@
 <script src="../ntp4/logging.js"></script>
 
 <!-- TODO(jeremycho): This is only used for notifications.  Discuss with UX. -->
+<link rel="stylesheet" href="../shared/css/bubble.css">
 <link rel="stylesheet" href="../shared/css/expandable_bubble.css">
 <link rel="stylesheet" href="../shared/css/menu.css">
 <link rel="stylesheet" href="../shared/css/menu_button.css">
@@ -39,6 +40,7 @@
 <link rel="stylesheet" href="other_devices_page.css">
 <link rel="stylesheet" href="thumbnail_page.css">
 <link rel="stylesheet" href="tile_page.css">
+<link rel="stylesheet" href="apps_page.css">
 
 <link id="themecss" rel="stylesheet">
 
@@ -52,6 +54,7 @@
 <script src="../shared/js/util.js"></script>
 <script src="../shared/js/cr.js"></script>
 <script src="../shared/js/cr/ui.js"></script>
+<script src="../shared/js/cr/ui/bubble.js"></script>
 <script src="../shared/js/cr/ui/card_slider.js"></script>
 <script src="../shared/js/cr/ui/context_menu_handler.js"></script>
 <script src="../shared/js/cr/ui/drag_wrapper.js"></script>
@@ -71,10 +74,14 @@
 <script src="most_visited_page.js"></script>
 <script src="recently_closed_page.js"></script>
 <script src="other_devices_page.js"></script>
+<script src="apps_page.js"></script>
 </head>
 
 <body id="ntp5" i18n-values=".style.fontSize:fontsize">
   <div id="bottom-panel">
+    <div id="bottom-panel-header">
+      <ul id="dot-list"></ul>
+    </div>
     <div id="card-slider-frame">
       <div id="page-list"></div>
       <div id="attribution">
@@ -83,7 +90,6 @@
       </div>
     </div>
     <div id="bottom-panel-footer">
-      <ul id="dot-list"></ul>
       <div id="bottom-panel-toolbar">
         <div id="notification-container" class="inactive" hidden>
           <div id="notification">
@@ -95,6 +101,7 @@
       </div>
     </div>
   </div>
+  <div id="promo-bubble-anchor"></div>
 </body>
 
 <!-- A div to hold all the templates, and in the darkness bind them. -->

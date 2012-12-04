@@ -5,8 +5,8 @@
 #include <algorithm>
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_l10n_util.h"
@@ -44,11 +44,13 @@ TEST(ExtensionResourceTest, CreateWithMissingResourceOnDisk) {
 }
 
 TEST(ExtensionResourceTest, ResourcesOutsideOfPath) {
-  ScopedTempDir temp;
+  base::ScopedTempDir temp;
   ASSERT_TRUE(temp.CreateUniqueTempDir());
 
   FilePath inner_dir = temp.path().AppendASCII("directory");
   ASSERT_TRUE(file_util::CreateDirectory(inner_dir));
+  FilePath sub_dir = inner_dir.AppendASCII("subdir");
+  ASSERT_TRUE(file_util::CreateDirectory(sub_dir));
   FilePath inner_file = inner_dir.AppendASCII("inner");
   FilePath outer_file = temp.path().AppendASCII("outer");
   ASSERT_TRUE(file_util::WriteFile(outer_file, "X", 1));
@@ -86,6 +88,16 @@ TEST(ExtensionResourceTest, ResourcesOutsideOfPath) {
   r4.set_follow_symlinks_anywhere();
   EXPECT_TRUE(r4.GetFilePath().empty());
 
+  // ... and not even when clever current-directory syntax is present. Note
+  // that the path for this test case can't start with the current directory
+  // component due to quirks in FilePath::Append(), and the path must exist.
+  ExtensionResource r4a(
+      extension_id, inner_dir,
+      FilePath().AppendASCII("subdir").AppendASCII(".").AppendASCII("..").
+      AppendASCII("..").AppendASCII("outer"));
+  r4a.set_follow_symlinks_anywhere();
+  EXPECT_TRUE(r4a.GetFilePath().empty());
+
 #if defined(OS_POSIX)
   // The non-packing extension should also not be able to access a resource that
   // symlinks out of the directory.
@@ -106,7 +118,7 @@ TEST(ExtensionResourceTest, ResourcesOutsideOfPath) {
 #define CreateWithAllResourcesOnDisk DISABLED_CreateWithAllResourcesOnDisk
 #endif
 TEST(ExtensionResourceTest, CreateWithAllResourcesOnDisk) {
-  ScopedTempDir temp;
+  base::ScopedTempDir temp;
   ASSERT_TRUE(temp.CreateUniqueTempDir());
 
   // Create resource in the extension root.

@@ -40,8 +40,10 @@ class VpnDefaultView : public TrayItemMore {
 
 class VpnListDetailedView : public NetworkListDetailedViewBase {
  public:
-  VpnListDetailedView(user::LoginStatus login, int header_string_id)
-      : NetworkListDetailedViewBase(login, header_string_id),
+  VpnListDetailedView(SystemTrayItem* owner,
+                      user::LoginStatus login,
+                      int header_string_id)
+      : NetworkListDetailedViewBase(owner, login, header_string_id),
         other_vpn_(NULL) {
   }
   virtual ~VpnListDetailedView() {
@@ -83,12 +85,12 @@ class VpnListDetailedView : public NetworkListDetailedViewBase {
   }
 
   virtual void AppendCustomButtonsToBottomRow(
-      TrayPopupTextButtonContainer* bottom_row) OVERRIDE {
-    other_vpn_ = new TrayPopupTextButton(
+      views::View* bottom_row) OVERRIDE {
+    other_vpn_ = new TrayPopupLabelButton(
         this,
         ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
             IDS_ASH_STATUS_TRAY_OTHER_VPN));
-    bottom_row->AddTextButton(other_vpn_);
+    bottom_row->AddChildView(other_vpn_);
   }
 
   virtual void UpdateNetworkExtra() OVERRIDE {
@@ -109,15 +111,16 @@ class VpnListDetailedView : public NetworkListDetailedViewBase {
   }
 
  private:
-  TrayPopupTextButton* other_vpn_;
+  TrayPopupLabelButton* other_vpn_;
 
   DISALLOW_COPY_AND_ASSIGN(VpnListDetailedView);
 };
 
 }  // namespace tray
 
-TrayVPN::TrayVPN()
-    : default_(NULL),
+TrayVPN::TrayVPN(SystemTray* system_tray)
+    : SystemTrayItem(system_tray),
+      default_(NULL),
       detailed_(NULL) {
 }
 
@@ -133,13 +136,20 @@ views::View* TrayVPN::CreateDefaultView(user::LoginStatus status) {
   if (status == user::LOGGED_IN_NONE)
     return NULL;
 
+  // Do not show VPN line in uber tray bubble if VPN is not configured.
+  std::vector<NetworkIconInfo> list;
+  Shell::GetInstance()->tray_delegate()->GetVirtualNetworks(&list);
+  if (list.size() == 0)
+    return NULL;
+
   default_ = new tray::VpnDefaultView(this, status != user::LOGGED_IN_LOCKED);
   return default_;
 }
 
 views::View* TrayVPN::CreateDetailedView(user::LoginStatus status) {
   CHECK(detailed_ == NULL);
-  detailed_ = new tray::VpnListDetailedView(status, IDS_ASH_STATUS_TRAY_VPN);
+  detailed_ = new tray::VpnListDetailedView(
+      this, status, IDS_ASH_STATUS_TRAY_VPN);
   detailed_->Init();
   return detailed_;
 }
@@ -172,11 +182,12 @@ void TrayVPN::OnNetworkRefresh(const NetworkIconInfo& info) {
   if (default_)
     default_->Update();
   if (detailed_)
-    detailed_->Update();
+    detailed_->ManagerChanged();
 }
 
 void TrayVPN::SetNetworkMessage(NetworkTrayDelegate* delegate,
                                    MessageType message_type,
+                                   NetworkType network_type,
                                    const string16& title,
                                    const string16& message,
                                    const std::vector<string16>& links) {

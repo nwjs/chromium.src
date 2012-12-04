@@ -25,6 +25,7 @@
 #include "base/compiler_specific.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
@@ -77,8 +78,7 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
   void NavigateGuest(
       RenderViewHost* render_view_host,
       int instance_id,
-      const std::string& src,
-      const BrowserPluginHostMsg_ResizeGuest_Params& resize_params);
+      const std::string& src);
 
   void ResizeGuest(RenderViewHost* render_view_host,
                    int instance_id,
@@ -100,13 +100,17 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
 
   // Message handlers (direct/indirect via BrowserPluginEmbedderHelper).
   // Routes update rect ack message to the appropriate guest.
-  void UpdateRectACK(int instance_id, int message_id, const gfx::Size& size);
+  void UpdateRectACK(
+      int instance_id,
+      int message_id,
+      const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+      const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params);
   void SetFocus(int instance_id, bool focused);
   // Handles input events sent from the BrowserPlugin (embedder's renderer
   // process) by passing them to appropriate guest's input handler.
   void HandleInputEvent(int instance_id,
                         RenderViewHost* render_view_host,
-                        const gfx::Rect& guest_rect,
+                        const gfx::Rect& guest_window_rect,
                         const WebKit::WebInputEvent& event,
                         IPC::Message* reply_message);
   void PluginDestroyed(int instance_id);
@@ -130,6 +134,17 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
     factory_ = factory;
   }
 
+  // Returns the RenderViewHost at a point (|x|, |y|) asynchronously via
+  // |callback|. We need a roundtrip to renderer process to get this
+  // information.
+  void GetRenderViewHostAtPosition(
+      int x,
+      int y,
+      const WebContents::GetRenderViewHostCallback& callback);
+  void PluginAtPositionResponse(int instance_id,
+                                int request_id,
+                                const gfx::Point& position);
+
  private:
   friend class TestBrowserPluginEmbedder;
 
@@ -142,7 +157,7 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
   // Adds a new guest web_contents to the embedder (overridable in test).
   virtual void AddGuest(int instance_id, WebContents* guest_web_contents);
   void DestroyGuestByInstanceID(int instance_id);
-  void DestroyGuests();
+  void CleanUp();
 
   // Called when visiblity of web_contents changes, so the embedder will
   // show/hide its guest.
@@ -159,6 +174,14 @@ class CONTENT_EXPORT BrowserPluginEmbedder : public WebContentsObserver,
   RenderViewHost* render_view_host_;
   // Tracks the visibility state of the embedder.
   bool visible_;
+  // Map that contains outstanding queries to |GetBrowserPluginAt|.
+  // We need a roundtrip to renderer process to know the answer, therefore
+  // storing these callbacks is required.
+  typedef std::map<int, WebContents::GetRenderViewHostCallback>
+      GetRenderViewHostCallbackMap;
+  GetRenderViewHostCallbackMap pending_get_render_view_callbacks_;
+  // Next request id for BrowserPluginMsg_PluginAtPositionRequest query.
+  int next_get_render_view_request_id_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserPluginEmbedder);
 };

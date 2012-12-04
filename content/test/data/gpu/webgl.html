@@ -29,15 +29,17 @@ function testHorizontalBands() {
 
 function testContextLost(e) {
   e.preventDefault();
-  setTimeout(function() {
-    extension.restoreContext();
-  }, 0);
+  if (extension) {
+    setTimeout(function() {
+      extension.restoreContext();
+    }, 0);
+  }
 }
 
 function testContextRestored() {
   gl = canvas.getContext("experimental-webgl");
   if (!gl || gl.isContextLost()) {
-    document.title = "FAILED: could not get recovered context";
+    // Might just be blocked because of infobar.
     return;
   }
   gl.clearColor(0, 0, 1, 1);

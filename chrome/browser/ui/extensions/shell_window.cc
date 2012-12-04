@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/extensions/shell_window.h"
 
 #include "base/utf_string_conversions.h"
+#include "base/values.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/shell_window_geometry_cache.h"
@@ -21,9 +22,8 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
-#include "chrome/browser/ui/extensions/native_shell_window.h"
+#include "chrome/browser/ui/extensions/native_app_window.h"
 #include "chrome/browser/ui/intents/web_intent_picker_controller.h"
-#include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/view_type_utils.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -74,9 +74,9 @@ void SuspendRenderViewHost(RenderViewHost* rvh) {
 }  // namespace
 
 ShellWindow::CreateParams::CreateParams()
-  : frame(ShellWindow::CreateParams::FRAME_CHROME),
+  : window_type(ShellWindow::WINDOW_TYPE_DEFAULT),
+    frame(ShellWindow::FRAME_CHROME),
     bounds(INT_MIN, INT_MIN, INT_MIN, INT_MIN),
-    restore_position(true), restore_size(true),
     creator_process_id(0), hidden(false) {
 }
 
@@ -86,7 +86,7 @@ ShellWindow::CreateParams::~CreateParams() {
 ShellWindow* ShellWindow::Create(Profile* profile,
                                  const extensions::Extension* extension,
                                  const GURL& url,
-                                 const ShellWindow::CreateParams& params) {
+                                 const CreateParams& params) {
   // This object will delete itself when the window is closed.
   ShellWindow* window = new ShellWindow(profile, extension);
   window->Init(url, params);
@@ -99,17 +99,19 @@ ShellWindow::ShellWindow(Profile* profile,
     : profile_(profile),
       extension_(extension),
       web_contents_(NULL),
+      window_type_(WINDOW_TYPE_DEFAULT),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           extension_function_dispatcher_(profile, this)) {
 }
 
 void ShellWindow::Init(const GURL& url,
                        const ShellWindow::CreateParams& params) {
+  window_type_ = params.window_type;
+
   web_contents_.reset(WebContents::Create(
       profile(), SiteInstance::CreateForURL(profile(), url), MSG_ROUTING_NONE,
       NULL));
   ConstrainedWindowTabHelper::CreateForWebContents(web_contents_.get());
-  CoreTabHelper::CreateForWebContents(web_contents_.get());
   FaviconTabHelper::CreateForWebContents(web_contents_.get());
   WebIntentPickerController::CreateForWebContents(web_contents_.get());
 
@@ -133,29 +135,48 @@ void ShellWindow::Init(const GURL& url,
   if (!params.window_key.empty()) {
     window_key_ = params.window_key;
 
-    if (params.restore_position || params.restore_size) {
-      extensions::ShellWindowGeometryCache* cache =
-          extensions::ExtensionSystem::Get(profile())->
-            shell_window_geometry_cache();
-      gfx::Rect cached_bounds;
-      if (cache->GetGeometry(extension()->id(), params.window_key,
-                             &cached_bounds)) {
-        if (params.restore_position)
-          bounds.set_origin(cached_bounds.origin());
-        if (params.restore_size)
-          bounds.set_size(cached_bounds.size());
-      }
-    }
+    extensions::ShellWindowGeometryCache* cache =
+        extensions::ExtensionSystem::Get(profile())->
+          shell_window_geometry_cache();
+    gfx::Rect cached_bounds;
+    if (cache->GetGeometry(extension()->id(), params.window_key,
+                           &cached_bounds))
+      bounds = cached_bounds;
   }
 
   ShellWindow::CreateParams new_params = params;
+
+  gfx::Size& minimum_size = new_params.minimum_size;
+  gfx::Size& maximum_size = new_params.maximum_size;
+
+  // In the case that minimum size > maximum size, we consider the minimum
+  // size to be more important.
+  if (maximum_size.width() && maximum_size.width() < minimum_size.width())
+    maximum_size.set_width(minimum_size.width());
+  if (maximum_size.height() && maximum_size.height() < minimum_size.height())
+    maximum_size.set_height(minimum_size.height());
+
+  if (maximum_size.width() && bounds.width() > maximum_size.width())
+    bounds.set_width(maximum_size.width());
+  if (bounds.width() != INT_MIN && bounds.width() < minimum_size.width())
+    bounds.set_width(minimum_size.width());
+
+  if (maximum_size.height() && bounds.height() > maximum_size.height())
+    bounds.set_height(maximum_size.height());
+  if (bounds.height() != INT_MIN && bounds.height() < minimum_size.height())
+    bounds.set_height(minimum_size.height());
+
   new_params.bounds = bounds;
 
-  native_window_.reset(NativeShellWindow::Create(this, new_params));
-  SaveWindowPosition();
+  native_app_window_.reset(NativeAppWindow::Create(this, new_params));
+  OnNativeWindowChanged();
 
-  if (!params.hidden)
-    GetBaseWindow()->Show();
+  if (!params.hidden) {
+    if (params.window_type == WINDOW_TYPE_PANEL)
+      GetBaseWindow()->ShowInactive();  // Panels are not activated by default.
+    else
+      GetBaseWindow()->Show();
+  }
 
   // If the new view is in the same process as the creator, block the created
   // RVH from loading anything until the background page has had a chance to do
@@ -286,7 +307,14 @@ void ShellWindow::HandleKeyboardEvent(
     WebContents* source,
     const content::NativeWebKeyboardEvent& event) {
   DCHECK_EQ(source, web_contents_);
-  native_window_->HandleKeyboardEvent(event);
+  native_app_window_->HandleKeyboardEvent(event);
+}
+
+void ShellWindow::RequestToLockMouse(WebContents* web_contents,
+                                     bool user_gesture,
+                                     bool last_unlocked_by_target) {
+  web_contents->GotResponseToLockMouseRequest(
+      extension_->HasAPIPermission(extensions::APIPermission::kPointerLock));
 }
 
 void ShellWindow::OnNativeClose() {
@@ -296,15 +324,47 @@ void ShellWindow::OnNativeClose() {
   delete this;
 }
 
-BaseWindow* ShellWindow::GetBaseWindow() {
-  return native_window_.get();
+void ShellWindow::OnNativeWindowChanged() {
+  SaveWindowPosition();
+  if (!native_app_window_ || !web_contents_)
+    return;
+  ListValue args;
+  DictionaryValue* dictionary = new DictionaryValue();
+  args.Append(dictionary);
+
+  gfx::Rect bounds = native_app_window_->GetBounds();
+  app_window::Bounds update;
+  update.left.reset(new int(bounds.x()));
+  update.top.reset(new int(bounds.y()));
+  update.width.reset(new int(bounds.width()));
+  update.height.reset(new int(bounds.height()));
+  dictionary->Set("bounds", update.ToValue().release());
+  dictionary->SetBoolean("minimized", native_app_window_->IsMinimized());
+  dictionary->SetBoolean("maximized", native_app_window_->IsMaximized());
+
+  content::RenderViewHost* rvh = web_contents_->GetRenderViewHost();
+  rvh->Send(new ExtensionMsg_MessageInvoke(rvh->GetRoutingID(),
+                                           extension_->id(),
+                                           "updateAppWindowProperties",
+                                           args,
+                                           GURL(),
+                                           false));
+}
+
+NativeAppWindow* ShellWindow::GetBaseWindow() {
+  return native_app_window_.get();
+}
+
+gfx::NativeWindow ShellWindow::GetNativeWindow() {
+  return GetBaseWindow()->GetNativeWindow();
 }
 
 string16 ShellWindow::GetTitle() const {
   // WebContents::GetTitle() will return the page's URL if there's no <title>
   // specified. However, we'd prefer to show the name of the extension in that
   // case, so we directly inspect the NavigationEntry's title.
-  if (!web_contents()->GetController().GetActiveEntry() ||
+  if (!web_contents() ||
+      !web_contents()->GetController().GetActiveEntry() ||
       web_contents()->GetController().GetActiveEntry()->GetTitle().empty())
     return UTF8ToUTF16(extension()->name());
   string16 title = web_contents()->GetTitle();
@@ -325,7 +385,7 @@ bool ShellWindow::OnMessageReceived(const IPC::Message& message) {
 
 void ShellWindow::UpdateDraggableRegions(
     const std::vector<extensions::DraggableRegion>& regions) {
-  native_window_->UpdateDraggableRegions(regions);
+  native_app_window_->UpdateDraggableRegions(regions);
 }
 
 void ShellWindow::OnImageLoaded(const gfx::Image& image,
@@ -333,7 +393,7 @@ void ShellWindow::OnImageLoaded(const gfx::Image& image,
                                 int index) {
   if (!image.IsEmpty()) {
     app_icon_ = image;
-    native_window_->UpdateWindowIcon();
+    native_app_window_->UpdateWindowIcon();
   }
   app_icon_loader_.reset();
 }
@@ -351,7 +411,7 @@ void ShellWindow::UpdateExtensionAppIcon() {
 
 void ShellWindow::CloseContents(WebContents* contents) {
   DCHECK(contents == web_contents_);
-  native_window_->Close();
+  native_app_window_->Close();
 }
 
 bool ShellWindow::ShouldSuppressDialogs() {
@@ -384,28 +444,28 @@ bool ShellWindow::IsPopupOrPanel(const WebContents* source) const {
 
 void ShellWindow::MoveContents(WebContents* source, const gfx::Rect& pos) {
   DCHECK(source == web_contents_.get());
-  native_window_->SetBounds(pos);
+  native_app_window_->SetBounds(pos);
 }
 
 void ShellWindow::NavigationStateChanged(
     const content::WebContents* source, unsigned changed_flags) {
   DCHECK(source == web_contents_.get());
   if (changed_flags & content::INVALIDATE_TYPE_TITLE)
-    native_window_->UpdateWindowTitle();
+    native_app_window_->UpdateWindowTitle();
   else if (changed_flags & content::INVALIDATE_TYPE_TAB)
-    native_window_->UpdateWindowIcon();
+    native_app_window_->UpdateWindowIcon();
 }
 
 void ShellWindow::ToggleFullscreenModeForTab(content::WebContents* source,
                                              bool enter_fullscreen) {
   DCHECK(source == web_contents_.get());
-  native_window_->SetFullscreen(enter_fullscreen);
+  native_app_window_->SetFullscreen(enter_fullscreen);
 }
 
 bool ShellWindow::IsFullscreenForTabOrPending(
     const content::WebContents* source) const {
   DCHECK(source == web_contents_.get());
-  return native_window_->IsFullscreenOrPending();
+  return native_app_window_->IsFullscreenOrPending();
 }
 
 void ShellWindow::Observe(int type,
@@ -423,7 +483,7 @@ void ShellWindow::Observe(int type,
       // TODO(jianli): once http://crbug.com/123007 is fixed, we'll no longer
       // need to make the native window (ShellWindowViews specially) update
       // the clickthrough region for the new RVH.
-      native_window_->RenderViewHostChanged();
+      native_app_window_->RenderViewHostChanged();
       break;
     }
     case chrome::NOTIFICATION_EXTENSION_UNLOADED: {
@@ -431,11 +491,11 @@ void ShellWindow::Observe(int type,
           content::Details<extensions::UnloadedExtensionInfo>(
               details)->extension;
       if (extension_ == unloaded_extension)
-        native_window_->Close();
+        native_app_window_->Close();
       break;
     }
     case chrome::NOTIFICATION_APP_TERMINATING:
-      native_window_->Close();
+      native_app_window_->Close();
       break;
     default:
       NOTREACHED() << "Received unexpected notification";
@@ -469,38 +529,18 @@ void ShellWindow::AddMessageToDevToolsConsole(ConsoleMessageLevel level,
       rvh->GetRoutingID(), level, message));
 }
 
-void ShellWindow::SendBoundsUpdate() {
-  if (!native_window_ || !web_contents_)
-    return;
-  gfx::Rect bounds = native_window_->GetBounds();
-  content::RenderViewHost* rvh = web_contents_->GetRenderViewHost();
-  ListValue args;
-  app_window::Bounds update;
-  update.left.reset(new int(bounds.x()));
-  update.top.reset(new int(bounds.y()));
-  update.width.reset(new int(bounds.width()));
-  update.height.reset(new int(bounds.height()));
-  args.Append(update.ToValue().release());
-  rvh->Send(new ExtensionMsg_MessageInvoke(rvh->GetRoutingID(),
-                                           extension_->id(),
-                                           "updateAppWindowBounds",
-                                           args,
-                                           GURL(),
-                                           false));
-}
 
 void ShellWindow::SaveWindowPosition() {
-  SendBoundsUpdate();
   if (window_key_.empty())
     return;
-  if (!native_window_)
+  if (!native_app_window_)
     return;
 
   extensions::ShellWindowGeometryCache* cache =
       extensions::ExtensionSystem::Get(profile())->
           shell_window_geometry_cache();
 
-  gfx::Rect bounds = native_window_->GetBounds();
+  gfx::Rect bounds = native_app_window_->GetBounds();
   cache->SaveGeometry(extension()->id(), window_key_, bounds);
 }
 

@@ -24,8 +24,8 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
+#include "chrome/browser/signin/about_signin_internals.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "google_apis/gaia/gaia_auth_consumer.h"
@@ -57,7 +57,6 @@ struct GoogleServiceSignoutDetails {
 
 class SigninManager : public GaiaAuthConsumer,
                       public content::NotificationObserver,
-                      public PrefObserver,
                       public ProfileKeyedService {
  public:
   // Returns true if the cookie policy for the given profile allows cookies
@@ -155,9 +154,7 @@ class SigninManager : public GaiaAuthConsumer,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // PrefObserver
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
+  AboutSigninInternals* about_signin_internals();
 
  protected:
   // Weak pointer to parent profile (protected so FakeSigninManager can access
@@ -204,6 +201,8 @@ class SigninManager : public GaiaAuthConsumer,
 
   void CleanupNotificationRegistration();
 
+  void OnGoogleServicesUsernamePatternChanged();
+
   // Result of the last client login, kept pending the lookup of the
   // canonical email.
   ClientLoginResult last_result_;
@@ -230,6 +229,11 @@ class SigninManager : public GaiaAuthConsumer,
   // with credentials.  These will be passed to TokenService so that it does
   // not need to mint new ones.
   ClientOAuthResult temp_oauth_login_tokens_;
+
+  // A class that encapsulates information relevant to the
+  // about:signin-internals page and takes care of communication
+  // with the UI front-end.
+  AboutSigninInternals about_signin_internals_;
 
   DISALLOW_COPY_AND_ASSIGN(SigninManager);
 };

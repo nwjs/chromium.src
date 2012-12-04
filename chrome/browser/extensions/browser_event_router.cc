@@ -236,6 +236,8 @@ void BrowserEventRouter::TabClosingAt(TabStripModel* tab_strip_model,
   args->Append(Value::CreateIntegerValue(tab_id));
 
   DictionaryValue* object_args = new DictionaryValue();
+  object_args->SetInteger(tab_keys::kWindowIdKey,
+                          ExtensionTabUtil::GetWindowIdOfTab(contents));
   object_args->SetBoolean(tab_keys::kWindowClosing,
                           tab_strip_model->closing_all());
   args->Append(object_args);
@@ -250,22 +252,23 @@ void BrowserEventRouter::TabClosingAt(TabStripModel* tab_strip_model,
   UnregisterForTabNotifications(contents);
 }
 
-void BrowserEventRouter::ActiveTabChanged(TabContents* old_contents,
-                                          TabContents* new_contents,
+void BrowserEventRouter::ActiveTabChanged(WebContents* old_contents,
+                                          WebContents* new_contents,
                                           int index,
                                           bool user_gesture) {
   scoped_ptr<ListValue> args(new ListValue());
-  int tab_id = ExtensionTabUtil::GetTabId(new_contents->web_contents());
+  int tab_id = ExtensionTabUtil::GetTabId(new_contents);
   args->Append(Value::CreateIntegerValue(tab_id));
 
   DictionaryValue* object_args = new DictionaryValue();
   object_args->Set(tab_keys::kWindowIdKey, Value::CreateIntegerValue(
-      ExtensionTabUtil::GetWindowIdOfTab(new_contents->web_contents())));
+      ExtensionTabUtil::GetWindowIdOfTab(new_contents)));
   args->Append(object_args);
 
   // The onActivated event replaced onActiveChanged and onSelectionChanged. The
   // deprecated events take two arguments: tabId, {windowId}.
-  Profile* profile = new_contents->profile();
+  Profile* profile =
+      Profile::FromBrowserContext(new_contents->GetBrowserContext());
   EventRouter::UserGestureState gesture = user_gesture ?
       EventRouter::USER_GESTURE_ENABLED : EventRouter::USER_GESTURE_NOT_ENABLED;
   DispatchEvent(profile, events::kOnTabSelectionChanged,
@@ -313,23 +316,23 @@ void BrowserEventRouter::TabSelectionChanged(
                 EventRouter::USER_GESTURE_UNKNOWN);
 }
 
-void BrowserEventRouter::TabMoved(TabContents* contents,
+void BrowserEventRouter::TabMoved(WebContents* contents,
                                   int from_index,
                                   int to_index) {
   scoped_ptr<ListValue> args(new ListValue());
-  args->Append(Value::CreateIntegerValue(
-      ExtensionTabUtil::GetTabId(contents->web_contents())));
+  args->Append(Value::CreateIntegerValue(ExtensionTabUtil::GetTabId(contents)));
 
   DictionaryValue* object_args = new DictionaryValue();
   object_args->Set(tab_keys::kWindowIdKey, Value::CreateIntegerValue(
-      ExtensionTabUtil::GetWindowIdOfTab(contents->web_contents())));
+      ExtensionTabUtil::GetWindowIdOfTab(contents)));
   object_args->Set(tab_keys::kFromIndexKey, Value::CreateIntegerValue(
       from_index));
   object_args->Set(tab_keys::kToIndexKey, Value::CreateIntegerValue(
       to_index));
   args->Append(object_args);
 
-  DispatchEvent(contents->profile(), events::kOnTabMoved, args.Pass(),
+  Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+  DispatchEvent(profile, events::kOnTabMoved, args.Pass(),
                 EventRouter::USER_GESTURE_UNKNOWN);
 }
 
@@ -467,20 +470,18 @@ void BrowserEventRouter::Observe(int type,
   }
 }
 
-void BrowserEventRouter::TabChangedAt(TabContents* contents,
+void BrowserEventRouter::TabChangedAt(WebContents* contents,
                                       int index,
                                       TabChangeType change_type) {
-  TabUpdated(contents->web_contents(), false);
+  TabUpdated(contents, false);
 }
 
 void BrowserEventRouter::TabReplacedAt(TabStripModel* tab_strip_model,
-                                       TabContents* old_contents,
-                                       TabContents* new_contents,
+                                       WebContents* old_contents,
+                                       WebContents* new_contents,
                                        int index) {
-  TabClosingAt(tab_strip_model, old_contents->web_contents(), index);
-  TabInsertedAt(new_contents->web_contents(),
-                index,
-                tab_strip_model->active_index() == index);
+  TabClosingAt(tab_strip_model, old_contents, index);
+  TabInsertedAt(new_contents, index, tab_strip_model->active_index() == index);
 }
 
 void BrowserEventRouter::TabPinnedStateChanged(WebContents* contents,
@@ -583,6 +584,9 @@ void BrowserEventRouter::ExtensionActionExecuted(
       break;
     case Extension::ActionInfo::TYPE_SCRIPT_BADGE:
       event_name = "scriptBadge.onClicked";
+      break;
+    case Extension::ActionInfo::TYPE_SYSTEM_INDICATOR:
+      // The System Indicator handles its own clicks.
       break;
   }
 

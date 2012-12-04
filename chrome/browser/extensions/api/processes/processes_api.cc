@@ -23,7 +23,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/task_manager.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/extensions/extension_error_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
@@ -34,6 +33,7 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/result_codes.h"
+#include "extensions/common/error_utils.h"
 
 namespace extensions {
 
@@ -508,13 +508,13 @@ ProcessesEventRouter* ProcessesAPI::processes_event_router() {
   return processes_event_router_.get();
 }
 
-void ProcessesAPI::OnListenerAdded(const std::string& event_name) {
+void ProcessesAPI::OnListenerAdded(const EventListenerInfo& details) {
   // We lazily tell the TaskManager to start updating when listeners to the
   // processes.onUpdated or processes.onUpdatedWithMemory events arrive.
   processes_event_router()->ListenerAdded();
 }
 
-void ProcessesAPI::OnListenerRemoved(const std::string& event_name) {
+void ProcessesAPI::OnListenerRemoved(const EventListenerInfo& details) {
   // If a processes.onUpdated or processes.onUpdatedWithMemory event listener
   // is removed (or a process with one exits), then we let the extension API
   // know that it has one fewer listener.
@@ -569,7 +569,7 @@ void GetProcessIdForTabFunction::GetProcessIdForTab() {
   int tab_index = -1;
   if (!ExtensionTabUtil::GetTabById(tab_id_, profile(), include_incognito(),
                                     NULL, NULL, &contents, &tab_index)) {
-    error_ = ExtensionErrorUtils::FormatErrorMessage(
+    error_ = ErrorUtils::FormatErrorMessage(
         extensions::tabs_constants::kTabNotFoundError,
         base::IntToString(tab_id_));
     SetResult(Value::CreateIntegerValue(-1));
@@ -647,7 +647,7 @@ void TerminateFunction::TerminateProcess() {
   }
 
   if (!found) {
-    error_ = ExtensionErrorUtils::FormatErrorMessage(errors::kProcessNotFound,
+    error_ = ErrorUtils::FormatErrorMessage(errors::kProcessNotFound,
         base::IntToString(process_id_));
     SendResponse(false);
   } else {

@@ -28,7 +28,9 @@ namespace {
 // partial read.
 static const int32_t kMaxReadSize = 33554432;  // 32MB
 
+#if !defined(OS_NACL)
 typedef EnterHostFromHostResourceForceCallback<PPB_FileIO_API> EnterHostFileIO;
+#endif
 typedef EnterPluginFromHostResource<PPB_FileIO_API> EnterPluginFileIO;
 
 class FileIO : public PPB_FileIO_Shared {
@@ -62,9 +64,9 @@ class FileIO : public PPB_FileIO_Shared {
       scoped_refptr<TrackedCallback> callback) OVERRIDE;
   virtual int32_t ReadValidated(
       int64_t offset,
-      char* buffer,
-      int32_t bytes_to_read,
-      scoped_refptr<TrackedCallback> callback) OVERRIDE;
+      const PP_ArrayOutput& output_array_buffer,
+      int32_t max_read_length,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
   virtual int32_t WriteValidated(
       int64_t offset,
       const char* buffer,
@@ -152,12 +154,12 @@ int32_t FileIO::TouchValidated(PP_Time last_access_time,
 }
 
 int32_t FileIO::ReadValidated(int64_t offset,
-                              char* buffer,
-                              int32_t bytes_to_read,
+                              const PP_ArrayOutput& output_array_buffer,
+                              int32_t max_read_length,
                               scoped_refptr<TrackedCallback> callback) {
   GetDispatcher()->Send(new PpapiHostMsg_PPBFileIO_Read(
-      kApiID, host_resource(), offset, bytes_to_read));
-  RegisterCallback(OPERATION_READ, callback, buffer, NULL);
+      kApiID, host_resource(), offset, max_read_length));
+  RegisterCallback(OPERATION_READ, callback, &output_array_buffer, NULL);
   return PP_OK_COMPLETIONPENDING;
 }
 
@@ -218,6 +220,7 @@ PP_Resource PPB_FileIO_Proxy::CreateProxyResource(PP_Instance instance) {
 bool PPB_FileIO_Proxy::OnMessageReceived(const IPC::Message& msg) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PPB_FileIO_Proxy, msg)
+  #if !defined(OS_NACL)
     // Plugin -> host message.
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFileIO_Create, OnHostMsgCreate)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFileIO_Open, OnHostMsgOpen)
@@ -231,7 +234,7 @@ bool PPB_FileIO_Proxy::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFileIO_WillWrite, OnHostMsgWillWrite)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFileIO_WillSetLength,
                         OnHostMsgWillSetLength)
-
+#endif  // !defined(OS_NACL)
     // Host -> plugin messages.
     IPC_MESSAGE_HANDLER(PpapiMsg_PPBFileIO_GeneralComplete,
                         OnPluginMsgGeneralComplete)
@@ -246,6 +249,7 @@ bool PPB_FileIO_Proxy::OnMessageReceived(const IPC::Message& msg) {
   return handled;
 }
 
+#if !defined(OS_NACL)
 void PPB_FileIO_Proxy::OnHostMsgCreate(PP_Instance instance,
                                        HostResource* result) {
   thunk::EnterResourceCreation enter(instance);
@@ -370,6 +374,7 @@ void PPB_FileIO_Proxy::OnHostMsgWillSetLength(const HostResource& host_resource,
   if (enter.succeeded())
     enter.SetResult(enter.object()->WillSetLength(length, enter.callback()));
 }
+#endif  // !defined(OS_NACL)
 
 void PPB_FileIO_Proxy::OnPluginMsgGeneralComplete(
     const HostResource& host_resource,
@@ -410,6 +415,7 @@ void PPB_FileIO_Proxy::OnPluginMsgReadComplete(
   }
 }
 
+#if !defined(OS_NACL)
 void PPB_FileIO_Proxy::GeneralCallbackCompleteInHost(
     int32_t pp_error,
     const HostResource& host_resource) {
@@ -445,6 +451,7 @@ void PPB_FileIO_Proxy::ReadCallbackCompleteInHost(
                                            *data));
   delete data;
 }
+#endif  // !defined(OS_NACL)
 
 }  // namespace proxy
 }  // namespace ppapi

@@ -13,6 +13,7 @@
 #include "base/debug/stack_trace.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/i18n/icu_util.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
@@ -20,7 +21,6 @@
 #include "base/message_loop.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -36,13 +36,13 @@
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLError.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCache.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystemCallbacks.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageNamespace.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLError.h"
 #if defined(TOOLKIT_GTK)
 #include "ui/base/keycodes/keyboard_code_conversion_gtk.h"
 #endif
@@ -401,6 +401,15 @@ WebKit::WebMediaPlayer* CreateMediaPlayer(
     const WebURL& url,
     WebMediaPlayerClient* client,
     webkit_media::MediaStreamClient* media_stream_client) {
+  if (media_stream_client && media_stream_client->IsMediaStream(url)) {
+    return new webkit_media::WebMediaPlayerMS(
+        frame,
+        client,
+        base::WeakPtr<webkit_media::WebMediaPlayerDelegate>(),
+        media_stream_client,
+        new media::MediaLog());
+  }
+
 #if defined(OS_ANDROID)
   return new webkit_media::WebMediaPlayerInProcessAndroid(
       frame,
@@ -416,15 +425,6 @@ WebKit::WebMediaPlayer* CreateMediaPlayer(
 
   scoped_ptr<media::FilterCollection> collection(
       new media::FilterCollection());
-
-  if (media_stream_client && media_stream_client->IsMediaStream(url)) {
-    return new webkit_media::WebMediaPlayerMS(
-        frame,
-        client,
-        base::WeakPtr<webkit_media::WebMediaPlayerDelegate>(),
-        media_stream_client,
-        new media::MediaLog());
-  }
 
   return new webkit_media::WebMediaPlayerImpl(
       frame,
@@ -710,7 +710,7 @@ WebURL LocalFileToDataURL(const WebURL& fileUrl) {
   return WebURL(GURL(kDataUrlPrefix + contents_base64));
 }
 
-// A wrapper object for exporting ScopedTempDir to be used
+// A wrapper object for exporting base::ScopedTempDir to be used
 // by webkit layout tests.
 class ScopedTempDirectoryInternal : public ScopedTempDirectory {
  public:
@@ -723,7 +723,7 @@ class ScopedTempDirectoryInternal : public ScopedTempDirectory {
   }
 
  private:
-  ScopedTempDir tempDirectory_;
+  base::ScopedTempDir tempDirectory_;
 };
 
 ScopedTempDirectory* CreateScopedTempDirectory() {

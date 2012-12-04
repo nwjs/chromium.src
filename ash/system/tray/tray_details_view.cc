@@ -4,6 +4,7 @@
 
 #include "ash/system/tray/tray_details_view.h"
 
+#include "ash/system/tray/system_tray_item.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_views.h"
 #include "ui/gfx/canvas.h"
@@ -30,8 +31,8 @@ class ScrollBorder : public views::Border {
                      kBorderLightColor);
   }
 
-  virtual void GetInsets(gfx::Insets* insets) const OVERRIDE {
-    insets->Set(0, 0, 1, 0);
+  virtual gfx::Insets GetInsets() const OVERRIDE {
+    return gfx::Insets(0, 0, 1, 0);
   }
 
   bool visible_;
@@ -39,8 +40,9 @@ class ScrollBorder : public views::Border {
   DISALLOW_COPY_AND_ASSIGN(ScrollBorder);
 };
 
-TrayDetailsView::TrayDetailsView()
-    : footer_(NULL),
+TrayDetailsView::TrayDetailsView(SystemTrayItem* owner)
+    : owner_(owner),
+      footer_(NULL),
       scroller_(NULL),
       scroll_content_(NULL),
       scroll_border_(NULL) {

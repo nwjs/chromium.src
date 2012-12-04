@@ -141,7 +141,10 @@ NSValue* GetKeyForParentWindow(NSWindow* parent_window) {
                         ordered:NSWindowAbove];
   [overlayWindow addChildWindow:sheet
                         ordered:NSWindowAbove];
-  if (showSheet && [parentWindow_ isKeyWindow])
+  // Set focus to the sheet if the parent window is main. The parent window
+  // may not have keyboard focus if it has a child window open, for example
+  // a bubble.
+  if (showSheet && [parentWindow_ isMainWindow])
     [sheet makeKeyAndOrderFront:nil];
 
   [parentView setPostsFrameChangedNotifications:YES];
@@ -179,6 +182,7 @@ NSValue* GetKeyForParentWindow(NSWindow* parent_window) {
 - (void)parentViewDidBecomeActive:(NSView*)parentView {
   [[self findSheetInfoForParentView:activeView_] hideSheet];
   activeView_.reset([parentView retain]);
+  [self updateSheetPosition:parentView];
   [[self findSheetInfoForParentView:activeView_] showSheet];
 }
 
@@ -233,15 +237,18 @@ NSValue* GetKeyForParentWindow(NSWindow* parent_window) {
 }
 
 - (void)onParentViewFrameDidChange:(NSNotification*)note {
-  [self updateSheetPosition:[note object]];
+  NSView* parentView = [note object];
+  if (![activeView_ isEqual:parentView])
+    return;
+  [self updateSheetPosition:parentView];
 }
 
 - (void)updateSheetPosition:(NSView*)parentView {
-  if (![activeView_ isEqual:parentView])
-    return;
   ConstrainedWindowSheetInfo* info =
       [self findSheetInfoForParentView:parentView];
-  DCHECK(info);
+  if (!info)
+    return;
+
   NSRect rect = [self overlayWindowFrameForParentView:parentView];
   [[info overlayWindow] setFrame:rect display:YES];
   NSPoint origin = [self originForSheetSize:[[info sheet] frame].size

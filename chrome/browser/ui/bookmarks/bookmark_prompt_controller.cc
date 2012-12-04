@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/bookmarks/bookmark_prompt_controller.h"
 
 #include "base/bind.h"
+#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
@@ -21,6 +22,8 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_version_info.h"
+#include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
@@ -163,9 +166,48 @@ void BookmarkPromptController::DisableBookmarkPrompt(
   prompt_prefs.DisableBookmarkPrompt();
 }
 
-void BookmarkPromptController::ActiveTabChanged(TabContents*,
-                                                TabContents* new_contents,
-                                                int, bool) {
+// Enable bookmark prompt controller feature for 1% of new users for one month
+// on canary. We'll change the date for stable channel once release date fixed.
+// static
+bool BookmarkPromptController::IsEnabled() {
+  // If manually create field trial available, we use it.
+  const std::string manual_group_name = base::FieldTrialList::FindFullName(
+      "BookmarkPrompt");
+  if (!manual_group_name.empty())
+    return manual_group_name == "Experiment";
+
+  if (chrome::VersionInfo::GetChannel() != chrome::VersionInfo::CHANNEL_CANARY)
+    return false;
+
+  const base::Time::Exploded kStartDate = {
+    2012, 11, 0, 20,  // Nov 20, 2012
+    0, 0, 0, 0        // 00:00:00.000
+  };
+  scoped_refptr<base::FieldTrial> trial(
+      base::FieldTrialList::FactoryGetFieldTrial(
+          "BookmarkPrompt", 100, "Disabled", 2012, 12, 21, NULL));
+  trial->UseOneTimeRandomization();
+  trial->AppendGroup("Control", 99);
+  trial->AppendGroup("Experiment", 1);
+  const base::Time start_date = base::Time::FromLocalExploded(kStartDate);
+
+  const int64 install_time = g_browser_process->local_state()->GetInt64(
+      prefs::kUninstallMetricsInstallDate);
+  // This must be called after the pref is initialized.
+  DCHECK(install_time);
+  const base::Time install_date = base::Time::FromTimeT(install_time);
+
+  if (install_date < start_date) {
+    trial->Disable();
+    return false;
+  }
+  return trial->group_name() == "Experiment";
+}
+
+void BookmarkPromptController::ActiveTabChanged(WebContents* old_contents,
+                                                WebContents* new_contents,
+                                                int index,
+                                                bool user_gesture) {
   SetWebContents(new_contents);
 }
 
@@ -276,12 +318,10 @@ void BookmarkPromptController::SetBrowser(Browser* browser) {
   browser_ = browser;
   if (browser_)
     browser_->tab_strip_model()->AddObserver(this);
-  SetWebContents(browser_ ? chrome::GetActiveTabContents(browser_) : NULL);
+  SetWebContents(browser_ ? chrome::GetActiveWebContents(browser_) : NULL);
 }
 
-void BookmarkPromptController::SetWebContents(TabContents* tab_contents) {
-  WebContents* web_contents =
-      tab_contents ? tab_contents->web_contents() : NULL;
+void BookmarkPromptController::SetWebContents(WebContents* web_contents) {
   if (web_contents_) {
     last_prompted_url_ = GURL::EmptyGURL();
     query_url_consumer_.CancelAllRequests();

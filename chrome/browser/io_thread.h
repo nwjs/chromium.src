@@ -19,11 +19,13 @@
 #include "net/base/network_change_notifier.h"
 
 class ChromeNetLog;
+class CommandLine;
 class PrefProxyConfigTrackerImpl;
 class PrefService;
 class SystemURLRequestContextGetter;
 
 namespace chrome_browser_net {
+class DnsProbeService;
 class HttpPipeliningCompatibilityClient;
 class LoadTimeStats;
 }
@@ -54,6 +56,10 @@ class URLRequestContextGetter;
 class URLRequestThrottlerManager;
 class URLSecurityManager;
 }  // namespace net
+
+namespace policy {
+class PolicyService;
+}  // namespace policy
 
 // Contains state associated with, initialized and cleaned up on, and
 // primarily used on, the IO thread.
@@ -121,10 +127,15 @@ class IOThread : public content::BrowserThreadDelegate {
     bool http_pipelining_enabled;
     uint16 testing_fixed_http_port;
     uint16 testing_fixed_https_port;
+    // NetErrorTabHelper uses |dns_probe_service| to send DNS probes when a
+    // main frame load fails with a DNS error in order to provide more useful
+    // information to the renderer so it can show a more specific error page.
+    scoped_ptr<chrome_browser_net::DnsProbeService> dns_probe_service;
   };
 
   // |net_log| must either outlive the IOThread or be NULL.
   IOThread(PrefService* local_state,
+           policy::PolicyService* policy_service,
            ChromeNetLog* net_log,
            extensions::EventRouterForwarder* extension_event_router_forwarder);
 
@@ -147,15 +158,34 @@ class IOThread : public content::BrowserThreadDelegate {
   void ClearHostCache();
 
  private:
+  // Provide SystemURLRequestContextGetter with access to
+  // InitSystemRequestContext().
+  friend class SystemURLRequestContextGetter;
+
   // BrowserThreadDelegate implementation, runs on the IO thread.
   // This handles initialization and destruction of state that must
   // live on the IO thread.
   virtual void Init() OVERRIDE;
   virtual void CleanUp() OVERRIDE;
 
-  // Provide SystemURLRequestContextGetter with access to
-  // InitSystemRequestContext().
-  friend class SystemURLRequestContextGetter;
+  void InitializeNetworkOptions(const CommandLine& parsed_command_line);
+
+  // Enable the SPDY protocol.  If this function is not called, SPDY/3
+  // will be enabled.
+  //   "off"                      : Disables SPDY support entirely.
+  //   "ssl"                      : Forces SPDY for all HTTPS requests.
+  //   "no-ssl"                   : Forces SPDY for all HTTP requests.
+  //   "no-ping"                  : Disables SPDY ping connection testing.
+  //   "exclude=<host>"           : Disables SPDY support for the host <host>.
+  //   "no-compress"              : Disables SPDY header compression.
+  //   "no-alt-protocols          : Disables alternate protocol support.
+  //   "force-alt-protocols       : Forces an alternate protocol of SPDY/2
+  //                                on port 443.
+  //   "single-domain"            : Forces all spdy traffic to a single domain.
+  //   "init-max-streams=<limit>" : Specifies the maximum number of concurrent
+  //                                streams for a SPDY session, unless the
+  //                                specifies a different value via SETTINGS.
+  void EnableSpdy(const std::string& mode);
 
   // Global state must be initialized on the IO thread, then this
   // method must be invoked on the UI thread.
@@ -176,6 +206,8 @@ class IOThread : public content::BrowserThreadDelegate {
   net::SSLConfigService* GetSSLConfigService();
 
   void ChangedToOnTheRecordOnIOThread();
+
+  void UpdateDnsClientEnabled();
 
   // The NetLog is owned by the browser process, to allow logging from other
   // threads during shutdown, but is used most frequently on the IOThread.
@@ -201,6 +233,8 @@ class IOThread : public content::BrowserThreadDelegate {
 
   BooleanPrefMember system_enable_referrers_;
 
+  BooleanPrefMember dns_client_enabled_;
+
   // Store HTTP Auth-related policies in this thread.
   std::string auth_schemes_;
   bool negotiate_disable_cname_lookup_;
@@ -224,6 +258,9 @@ class IOThread : public content::BrowserThreadDelegate {
       system_url_request_context_getter_;
 
   net::SdchManager* sdch_manager_;
+
+  // True if SPDY is disabled by policy.
+  bool is_spdy_disabled_by_policy_;
 
   base::WeakPtrFactory<IOThread> weak_factory_;
 

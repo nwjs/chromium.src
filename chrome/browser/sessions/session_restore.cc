@@ -277,7 +277,7 @@ void TabLoader::LoadNextTab() {
     tab->LoadIfNecessary();
     content::WebContents* contents = tab->GetWebContents();
     if (contents) {
-      Browser* browser = browser::FindBrowserWithWebContents(contents);
+      Browser* browser = chrome::FindBrowserWithWebContents(contents);
       if (browser && chrome::GetActiveWebContents(browser) != contents) {
         // By default tabs are marked as visible. As only the active tab is
         // visible we need to explicitly tell non-active tabs they are hidden.
@@ -622,7 +622,7 @@ class SessionRestoreImpl : public content::NotificationObserver {
     }
 
     if (use_new_window) {
-      chrome::ActivateTabAt(browser, 0, true);
+      browser->tab_strip_model()->ActivateTabAt(0, true);
       browser->window()->Show();
     }
     NotifySessionServiceOfRestoredTabs(browser, browser->tab_count());
@@ -936,8 +936,11 @@ class SessionRestoreImpl : public content::NotificationObserver {
         RestoreTab(tab, tab_index_offset + i, browser, true);
       }
     }
-    return selected_web_contents ?
-        chrome::GetIndexOfTab(browser, selected_web_contents) : 0;
+    if (selected_web_contents) {
+      return browser->tab_strip_model()->
+          GetIndexOfWebContents(selected_web_contents);
+    }
+    return 0;
   }
 
   WebContents* RestoreTab(const SessionTab& tab,
@@ -1018,7 +1021,7 @@ class SessionRestoreImpl : public content::NotificationObserver {
   void ShowBrowser(Browser* browser, int selected_tab_index) {
     DCHECK(browser);
     DCHECK(browser->tab_count());
-    chrome::ActivateTabAt(browser, selected_tab_index, true);
+    browser->tab_strip_model()->ActivateTabAt(selected_tab_index, true);
 
     if (browser_ == browser)
       return;
@@ -1059,11 +1062,9 @@ class SessionRestoreImpl : public content::NotificationObserver {
       int add_types = TabStripModel::ADD_FORCE_INDEX;
       if (i == 0)
         add_types |= TabStripModel::ADD_ACTIVE;
-      int index = chrome::GetIndexForInsertionDuringRestore(browser, i);
       chrome::NavigateParams params(browser, urls[i],
                                     content::PAGE_TRANSITION_AUTO_TOPLEVEL);
       params.disposition = i == 0 ? NEW_FOREGROUND_TAB : NEW_BACKGROUND_TAB;
-      params.tabstrip_index = index;
       params.tabstrip_add_types = add_types;
       chrome::Navigate(&params);
     }
@@ -1077,7 +1078,7 @@ class SessionRestoreImpl : public content::NotificationObserver {
     if (!session_service)
       return;
     for (int i = initial_count; i < browser->tab_count(); ++i)
-      session_service->TabRestored(chrome::GetTabContentsAt(browser, i),
+      session_service->TabRestored(chrome::GetWebContentsAt(browser, i),
                                    browser->tab_strip_model()->IsTabPinned(i));
   }
 
@@ -1172,7 +1173,7 @@ void SessionRestore::RestoreForeignSessionTab(
     content::WebContents* source_web_contents,
     const SessionTab& tab,
     WindowOpenDisposition disposition) {
-  Browser* browser = browser::FindBrowserWithWebContents(source_web_contents);
+  Browser* browser = chrome::FindBrowserWithWebContents(source_web_contents);
   Profile* profile = browser->profile();
   std::vector<GURL> gurls;
   SessionRestoreImpl restorer(profile, browser, true, false, false, gurls);

@@ -6,9 +6,12 @@
 #define CHROME_BROWSER_EXTENSIONS_UPDATER_EXTENSION_UPDATER_H_
 
 #include <list>
+#include <map>
+#include <set>
 #include <stack>
 #include <string>
 
+#include "base/callback_forward.h"
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/gtest_prod_util.h"
@@ -29,6 +32,7 @@ class Profile;
 
 namespace extensions {
 
+class Blacklist;
 class ExtensionDownloader;
 class ExtensionPrefs;
 class ExtensionUpdaterTest;
@@ -46,6 +50,31 @@ class ExtensionUpdaterTest;
 class ExtensionUpdater : public ExtensionDownloaderDelegate,
                          public content::NotificationObserver {
  public:
+  typedef base::Closure FinishedCallback;
+
+  struct CheckParams {
+    // Creates a default CheckParams instance that checks for all extensions and
+    // the extension blacklist.
+    CheckParams();
+    ~CheckParams();
+
+    // The set of extensions that should be checked for updates. If empty
+    // all extensions will be included in the update check.
+    std::list<std::string> ids;
+
+    // If true, the extension blacklist will also be updated.
+    bool check_blacklist;
+
+    // Normally extension updates get installed only when the extension is idle.
+    // Setting this to true causes any updates that are found to be installed
+    // right away.
+    bool install_immediately;
+
+    // Callback to call when the update check is complete. Can be null, if
+    // you're not interested in when this happens.
+    FinishedCallback callback;
+  };
+
   // Holds a pointer to the passed |service|, using it for querying installed
   // extensions and installing updated ones. The |frequency_seconds| parameter
   // controls how often update checks are scheduled.
@@ -53,6 +82,7 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
                    ExtensionPrefs* extension_prefs,
                    PrefService* prefs,
                    Profile* profile,
+                   Blacklist* blacklist,
                    int frequency_seconds);
 
   virtual ~ExtensionUpdater();
@@ -68,19 +98,26 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
   // already a pending task that has not yet run.
   void CheckSoon();
 
+  // Starts an update check for the specified extension soon. If a check
+  // is already running, or finished too recently without an update being
+  // installed, this method returns false and the check won't be scheduled.
+  bool CheckExtensionSoon(const std::string& extension_id,
+                          const FinishedCallback& callback);
+
   // Starts an update check right now, instead of waiting for the next
   // regularly scheduled check or a pending check from CheckSoon().
-  void CheckNow();
-
-  // Set blacklist checks on or off.
-  void set_blacklist_checks_enabled(bool enabled) {
-    blacklist_checks_enabled_ = enabled;
-  }
+  void CheckNow(const CheckParams& params);
 
   // Returns true iff CheckSoon() has been called but the update check
   // hasn't been performed yet.  This is used mostly by tests; calling
   // code should just call CheckSoon().
   bool WillCheckSoon() const;
+
+  // Changes the params that are used for the automatic periodic update checks,
+  // as well as for explicit calls to CheckSoon.
+  void set_default_check_params(const CheckParams& params) {
+    default_params_ = params;
+  }
 
  private:
   friend class ExtensionUpdaterTest;
@@ -92,13 +129,27 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
     FetchedCRXFile();
     FetchedCRXFile(const std::string& id,
                    const FilePath& path,
-                   const GURL& download_url);
+                   const GURL& download_url,
+                   const std::set<int>& request_ids);
     ~FetchedCRXFile();
 
-    std::string id;
+    std::string extension_id;
     FilePath path;
     GURL download_url;
+    std::set<int> request_ids;
   };
+
+  struct InProgressCheck {
+    InProgressCheck();
+    ~InProgressCheck();
+
+    bool install_immediately;
+    FinishedCallback callback;
+    // The ids of extensions that have in-progress update checks.
+    std::list<std::string> in_progress_ids_;
+  };
+
+  struct ThrottleInfo;
 
   // Computes when to schedule the first update check.
   base::TimeDelta DetermineFirstCheckDelay();
@@ -112,7 +163,8 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
   // Add fetch records for extensions that are installed to the downloader,
   // ignoring |pending_ids| so the extension isn't fetched again.
   void AddToDownloader(const ExtensionSet* extensions,
-                       const std::list<std::string>& pending_ids);
+                       const std::list<std::string>& pending_ids,
+                       int request_id);
 
   // BaseTimer::ReceiverMethod callback.
   void TimerFired();
@@ -121,20 +173,27 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
   void DoCheckSoon();
 
   // Implenentation of ExtensionDownloaderDelegate.
-  virtual void OnExtensionDownloadFailed(const std::string& id,
-                                         Error error,
-                                         const PingResult& ping) OVERRIDE;
+  virtual void OnExtensionDownloadFailed(
+      const std::string& id,
+      Error error,
+      const PingResult& ping,
+      const std::set<int>& request_ids) OVERRIDE;
 
-  virtual void OnExtensionDownloadFinished(const std::string& id,
-                                           const FilePath& path,
-                                           const GURL& download_url,
-                                           const std::string& version,
-                                           const PingResult& ping) OVERRIDE;
+  virtual void OnExtensionDownloadFinished(
+      const std::string& id,
+      const FilePath& path,
+      const GURL& download_url,
+      const std::string& version,
+      const PingResult& ping,
+      const std::set<int>& request_id) OVERRIDE;
 
-  virtual void OnBlacklistDownloadFinished(const std::string& data,
-                                           const std::string& package_hash,
-                                           const std::string& version,
-                                           const PingResult& ping) OVERRIDE;
+  virtual void OnBlacklistDownloadFinished(
+      const std::string& data,
+      const std::string& package_hash,
+      const std::string& version,
+      const PingResult& ping,
+      const std::set<int>& request_id) OVERRIDE;
+
   virtual bool GetPingDataForExtension(
       const std::string& id,
       ManifestFetchData::PingData* ping_data) OVERRIDE;
@@ -160,7 +219,10 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
   void NotifyStarted();
 
   // Send a notification if we're finished updating.
-  void NotifyIfFinished();
+  void NotifyIfFinished(int request_id);
+
+  void ExtensionCheckFinished(const std::string& extension_id,
+                              const FinishedCallback& callback);
 
   // Whether Start() has been called but not Stop().
   bool alive_;
@@ -180,10 +242,10 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
   ExtensionPrefs* extension_prefs_;
   PrefService* prefs_;
   Profile* profile_;
-  bool blacklist_checks_enabled_;
+  Blacklist* blacklist_;
 
-  // The ids of extensions that have in-progress update checks.
-  std::list<std::string> in_progress_ids_;
+  std::map<int, InProgressCheck> requests_in_progress_;
+  int next_request_id_;
 
   // Observes CRX installs we initiate.
   content::NotificationRegistrar registrar_;
@@ -194,6 +256,13 @@ class ExtensionUpdater : public ExtensionDownloaderDelegate,
 
   // Fetched CRX files waiting to be installed.
   std::stack<FetchedCRXFile> fetched_crx_files_;
+  FetchedCRXFile current_crx_file_;
+
+  CheckParams default_params_;
+
+  // Keeps track of when an extension tried to update itself, so we can throttle
+  // checks to prevent too many requests from being made.
+  std::map<std::string, ThrottleInfo> throttle_info_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionUpdater);
 };

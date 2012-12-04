@@ -125,8 +125,9 @@ int PreferredDropOperation(int source_operations, int operations) {
   return ui::DragDropTypes::DRAG_NONE;
 }
 
-int BookmarkDragOperation(Profile* profile, const BookmarkNode* node) {
-  PrefServiceBase* prefs = PrefServiceBase::FromBrowserContext(profile);
+int BookmarkDragOperation(content::BrowserContext* browser_context,
+                          const BookmarkNode* node) {
+  PrefServiceBase* prefs = PrefServiceBase::FromBrowserContext(browser_context);
 
   int move = ui::DragDropTypes::DRAG_MOVE;
   if (!prefs->GetBoolean(prefs::kEditBookmarksEnabled))
@@ -431,15 +432,6 @@ const BookmarkNode* ApplyEditsWithPossibleFolderChange(
   model->SetTitle(node, new_title);
 
   return node;
-}
-
-// Formerly in BookmarkBarView.
-void ToggleWhenVisible(Profile* profile) {
-  PrefServiceBase* prefs = PrefServiceBase::FromBrowserContext(profile);
-  const bool always_show = !prefs->GetBoolean(prefs::kShowBookmarkBar);
-
-  // The user changed when the bookmark bar is shown, update the preferences.
-  prefs->SetBoolean(prefs::kShowBookmarkBar, always_show);
 }
 
 void RegisterUserPrefs(PrefServiceBase* prefs) {

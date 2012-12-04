@@ -4,10 +4,10 @@
 
 #include "chrome/browser/ui/zoom/zoom_controller.h"
 
+#include "base/debug/alias.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/host_zoom_map.h"
@@ -28,7 +28,10 @@ ZoomController::ZoomController(content::WebContents* web_contents)
       observer_(NULL) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  default_zoom_level_.Init(prefs::kDefaultZoomLevel, profile->GetPrefs(), this);
+  default_zoom_level_.Init(prefs::kDefaultZoomLevel, profile->GetPrefs(),
+                           base::Bind(&ZoomController::UpdateState,
+                                      base::Unretained(this),
+                                      std::string()));
 
   content::HostZoomMap* zoom_map =
       content::HostZoomMap::GetForBrowserContext(profile);
@@ -38,17 +41,20 @@ ZoomController::ZoomController(content::WebContents* web_contents)
   UpdateState(std::string());
 }
 
-ZoomController::~ZoomController() {
-  default_zoom_level_.Destroy();
-  registrar_.RemoveAll();
-}
+ZoomController::~ZoomController() {}
 
 bool ZoomController::IsAtDefaultZoom() const {
+  if (!web_contents())
+    return true;
+
   return content::ZoomValuesEqual(web_contents()->GetZoomLevel(),
                                   default_zoom_level_.GetValue());
 }
 
 int ZoomController::GetResourceForZoomLevel() const {
+  if (!web_contents())
+    return IDR_ZOOM_MINUS;
+
   DCHECK(!IsAtDefaultZoom());
   double zoom = web_contents()->GetZoomLevel();
   return zoom > default_zoom_level_.GetValue() ? IDR_ZOOM_PLUS : IDR_ZOOM_MINUS;
@@ -69,28 +75,58 @@ void ZoomController::Observe(int type,
   UpdateState(*content::Details<std::string>(details).ptr());
 }
 
-void ZoomController::OnPreferenceChanged(PrefServiceBase* service,
-                                         const std::string& pref_name) {
-  DCHECK(pref_name == prefs::kDefaultZoomLevel);
-  UpdateState(std::string());
-}
-
 void ZoomController::UpdateState(const std::string& host) {
-  if (host.empty())
+  bug144879_.CheckIsAlive();
+
+  // TODO(dbeam): I'm not totally sure why this is happening, and there's been a
+  // bit of effort to understand with no tangible results yet. It's possible
+  // that WebContents is NULL as it's being destroyed or some other random
+  // reason that I haven't found yet. Applying band-aid. http://crbug.com/144879
+  if (!web_contents())
     return;
 
-  // Use the active navigation entry's URL instead of the WebContents' so
-  // virtual URLs work (e.g. chrome://settings). http://crbug.com/153950
-  content::NavigationEntry* active_entry =
-      web_contents()->GetController().GetActiveEntry();
-  if (!active_entry ||
-      host != net::GetHostOrSpecFromURL(active_entry->GetURL())) {
-    return;
+  // If |host| is empty, all observers should be updated.
+  if (!host.empty()) {
+    // Use the active navigation entry's URL instead of the WebContents' so
+    // virtual URLs work (e.g. chrome://settings). http://crbug.com/153950
+    content::NavigationEntry* active_entry =
+        web_contents()->GetController().GetActiveEntry();
+    if (!active_entry ||
+        host != net::GetHostOrSpecFromURL(active_entry->GetURL())) {
+      return;
+    }
   }
 
   bool dummy;
   zoom_percent_ = web_contents()->GetZoomPercent(&dummy, &dummy);
 
-  if (observer_)
+  if (observer_) {
+    observer_->CheckIsAliveForBug144879();
     observer_->OnZoomChanged(web_contents(), !host.empty());
+  }
+}
+
+HelperForBug144879::HelperForBug144879() : status_(ALIVE) {
+}
+
+HelperForBug144879::~HelperForBug144879() {
+  CheckIsAlive();
+  status_ = DEAD;
+  deletion_callstack_ = base::debug::StackTrace();
+}
+
+void HelperForBug144879::CheckIsAlive() {
+  if (status_ == ALIVE)
+    return;
+
+  // Copy interesting variables onto the stack so they are preserved in the
+  // minidump and we can inspect what went wrong.
+  Status status = status_;
+  base::debug::StackTrace deletion_callstack = deletion_callstack_;
+
+  base::debug::Alias(&status);
+  base::debug::Alias(&deletion_callstack);
+
+  // Crash!
+  CHECK(false);
 }

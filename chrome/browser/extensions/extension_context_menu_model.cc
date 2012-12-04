@@ -10,6 +10,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/extensions/management_policy.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -112,7 +113,8 @@ void ExtensionContextMenuModel::ExecuteCommand(int command_id) {
           OpenOptionsPage(extension, browser_);
       break;
     case HIDE: {
-      ExtensionService* extension_service = profile_->GetExtensionService();
+      ExtensionService* extension_service =
+          extensions::ExtensionSystem::Get(profile_)->extension_service();
       extension_service->extension_prefs()->
           SetBrowserActionVisibility(extension, false);
       break;
@@ -139,10 +141,10 @@ void ExtensionContextMenuModel::ExecuteCommand(int command_id) {
 }
 
 void ExtensionContextMenuModel::ExtensionUninstallAccepted() {
-  if (GetExtension())
-    profile_->GetExtensionService()->UninstallExtension(extension_id_, false,
-                                                        NULL);
-
+  if (GetExtension()) {
+    extensions::ExtensionSystem::Get(profile_)->extension_service()->
+        UninstallExtension(extension_id_, false, NULL);
+  }
   Release();
 }
 
@@ -177,6 +179,7 @@ void ExtensionContextMenuModel::InitMenu(const Extension* extension) {
 }
 
 const Extension* ExtensionContextMenuModel::GetExtension() const {
-  ExtensionService* extension_service = profile_->GetExtensionService();
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   return extension_service->GetExtensionById(extension_id_, false);
 }

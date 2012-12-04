@@ -175,6 +175,7 @@ unsigned int TextureImageTransportSurface::GetBackingFrameBufferObject() {
 }
 
 void TextureImageTransportSurface::SetBackbufferAllocation(bool allocation) {
+  DCHECK(!is_swap_buffers_pending_);
   if (backbuffer_suggested_allocation_ == allocation)
      return;
   backbuffer_suggested_allocation_ = allocation;
@@ -428,7 +429,7 @@ void TextureImageTransportSurface::BufferPresentedImpl(bool presented) {
   // finished with it's context when it inserts the sync point that
   // triggers this callback.
   if (helper_->MakeCurrent()) {
-    if (textures_[front()].size != textures_[back()].size ||
+    if ((presented && textures_[front()].size != textures_[back()].size) ||
         !textures_[back()].info->service_id() ||
         !textures_[back()].sent_to_client) {
       // We may get an ACK from a stale swap just to reschedule.  In that case,

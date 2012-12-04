@@ -21,6 +21,7 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/file_select_helper.h"
+#include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_modal_dialogs/javascript_dialog_creator.h"
 #include "chrome/browser/ui/browser.h"
@@ -229,7 +230,8 @@ void ExtensionHost::CreateRenderViewNow() {
   LoadInitialURL();
   if (is_background_page()) {
     DCHECK(IsRenderViewLive());
-    profile_->GetExtensionService()->DidCreateRenderViewForBackgroundPage(this);
+    extensions::ExtensionSystem::Get(profile_)->extension_service()->
+        DidCreateRenderViewForBackgroundPage(this);
   }
 }
 
@@ -245,7 +247,8 @@ const GURL& ExtensionHost::GetURL() const {
 
 void ExtensionHost::LoadInitialURL() {
   if (!is_background_page() &&
-      !profile_->GetExtensionService()->IsBackgroundPageReady(extension_)) {
+      !extensions::ExtensionSystem::Get(profile_)->extension_service()->
+          IsBackgroundPageReady(extension_)) {
     // Make sure the background page loads before any others.
     registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_BACKGROUND_PAGE_READY,
                    content::Source<Extension>(extension_));
@@ -269,7 +272,7 @@ void ExtensionHost::Observe(int type,
                             const content::NotificationDetails& details) {
   switch (type) {
     case chrome::NOTIFICATION_EXTENSION_BACKGROUND_PAGE_READY:
-      DCHECK(profile_->GetExtensionService()->
+      DCHECK(extensions::ExtensionSystem::Get(profile_)->extension_service()->
           IsBackgroundPageReady(extension_));
       LoadInitialURL();
       break;
@@ -387,7 +390,8 @@ void ExtensionHost::DocumentAvailableInMainFrame() {
 
   document_element_available_ = true;
   if (is_background_page()) {
-    profile_->GetExtensionService()->SetBackgroundPageReady(extension_);
+    extensions::ExtensionSystem::Get(profile_)->extension_service()->
+        SetBackgroundPageReady(extension_);
   } else {
     switch (extension_host_type_) {
       case chrome::VIEW_TYPE_EXTENSION_INFOBAR:
@@ -427,7 +431,7 @@ void ExtensionHost::WebIntentDispatch(
   scoped_ptr<content::WebIntentsDispatcher> dispatcher(intents_dispatcher);
 
   Browser* browser = view() ? view()->browser()
-      : browser::FindBrowserWithWebContents(web_contents);
+      : chrome::FindBrowserWithWebContents(web_contents);
 
   // For background scripts/pages, there will be no view(). In this case, we
   // want to treat the intent as a browser-initiated one and deliver it into the
@@ -626,6 +630,7 @@ void ExtensionHost::AddNewContents(WebContents* source,
         delegate->AddNewContents(
             associated_contents, new_contents, disposition, initial_pos,
             user_gesture, was_blocked);
+        return;
       }
     }
   }

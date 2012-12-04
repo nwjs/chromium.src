@@ -6,8 +6,8 @@
 
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_piece.h"
 #include "base/stringprintf.h"
 #include "googleurl/src/gurl.h"
@@ -120,7 +120,7 @@ TEST(HttpStreamParser, ShouldMergeRequestHeadersAndBody_FileBody) {
   scoped_refptr<UploadData> upload_data = new UploadData;
 
   // Create an empty temporary file.
-  ScopedTempDir temp_dir;
+  base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   FilePath temp_file_path;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir.path(),
@@ -199,9 +199,8 @@ TEST(HttpStreamParser, AsyncChunkAndAsyncSocket) {
 
   upload_data->AppendChunk(kChunk1, arraysize(kChunk1) - 1, false);
 
-  scoped_ptr<UploadDataStream> upload_stream(
-      new UploadDataStream(upload_data));
-  ASSERT_EQ(OK, upload_stream->InitSync());
+  UploadDataStream upload_stream(upload_data);
+  ASSERT_EQ(OK, upload_stream.InitSync());
 
   DeterministicSocketData data(reads, arraysize(reads),
                                writes, arraysize(writes));
@@ -223,6 +222,7 @@ TEST(HttpStreamParser, AsyncChunkAndAsyncSocket) {
   request_info.method = "GET";
   request_info.url = GURL("http://localhost");
   request_info.load_flags = LOAD_NORMAL;
+  request_info.upload_data_stream = &upload_stream;
 
   scoped_refptr<GrowableIOBuffer> read_buffer(new GrowableIOBuffer);
   HttpStreamParser parser(socket_handle.get(), &request_info, read_buffer,
@@ -237,8 +237,7 @@ TEST(HttpStreamParser, AsyncChunkAndAsyncSocket) {
   // This will attempt to Write() the initial request and headers, which will
   // complete asynchronously.
   rv = parser.SendRequest("GET /one.html HTTP/1.1\r\n", request_headers,
-                          upload_stream.get(), &response_info,
-                          callback.callback());
+                          &response_info, callback.callback());
   ASSERT_EQ(ERR_IO_PENDING, rv);
 
   // Complete the initial request write. Additionally, this should enqueue the

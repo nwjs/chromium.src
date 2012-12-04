@@ -13,7 +13,6 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/bookmarks/bookmark_model_observer.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
@@ -47,7 +46,6 @@ class BookmarkBarGtk : public ui::AnimationDelegate,
                        public BookmarkModelObserver,
                        public MenuBarHelper::Delegate,
                        public content::NotificationObserver,
-                       public PrefObserver,
                        public chrome::BookmarkBarInstructionsDelegate,
                        public BookmarkContextMenuControllerDelegate {
  public:
@@ -167,10 +165,10 @@ class BookmarkBarGtk : public ui::AnimationDelegate,
   // Queue a paint on the event box.
   void PaintEventBox();
 
-  // Finds the size of the current tab contents, if it exists and sets |size|
+  // Finds the size of the current web contents, if it exists and sets |size|
   // to the correct value. Returns false if there isn't a WebContents, a
   // condition that can happen during testing.
-  bool GetTabContentsSize(gfx::Size* size);
+  bool GetWebContentsSize(gfx::Size* size);
 
   // Connects to the "size-allocate" signal on the given widget, and causes it
   // to throb after allocation. This is called when a new item is added to the
@@ -237,11 +235,6 @@ class BookmarkBarGtk : public ui::AnimationDelegate,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
-
-  // Overridden from PrefObserver:
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
 
   GtkWidget* CreateBookmarkButton(const BookmarkNode* node);
   GtkToolItem* CreateBookmarkToolItem(const BookmarkNode* node);
@@ -391,9 +384,9 @@ class BookmarkBarGtk : public ui::AnimationDelegate,
 
   content::NotificationRegistrar registrar_;
 
-  // The size of the tab contents last time we forced a paint. We keep track
+  // The size of the web contents last time we forced a paint. We keep track
   // of this so we don't force too many paints.
-  gfx::Size last_tab_contents_size_;
+  gfx::Size last_web_contents_size_;
 
   // The last coordinates recorded by OnButtonPress; used to line up the
   // drag icon during bookmark drags.

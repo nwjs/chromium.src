@@ -6,12 +6,8 @@
 
 namespace ui {
 
-// Ordered alphabetically ignoring underscores, to align with the
-// associated list of prefs in gesture_prefs_aura.cc.
-// NOTE: When updating values here, also update
-// browser/resources/gesture_config.js for chrome://gesture config UI.
-// TODO(rbyers) unify these - crbug.com/156392
 int GestureConfiguration::default_radius_ = 15;
+float GestureConfiguration::fling_velocity_cap_ = 17000.0f;
 double GestureConfiguration::long_press_time_in_seconds_ = 1.0;
 double GestureConfiguration::semi_long_press_time_in_seconds_ = 0.4;
 double GestureConfiguration::max_distance_for_two_finger_tap_in_pixels_ = 300;
@@ -40,7 +36,15 @@ int GestureConfiguration::points_buffered_for_velocity_ = 3;
 double GestureConfiguration::rail_break_proportion_ = 15;
 double GestureConfiguration::rail_start_proportion_ = 2;
 
-// The additional acceleration to apply to touchscreen flings.
-double GestureConfiguration::touchscreen_fling_acceleration_adjustment_ = 0.85;
+// Coefficients for a function that computes fling acceleration.
+// These are empirically determined defaults. Do not adjust without
+// additional empirical validation.
+float GestureConfiguration::fling_acceleration_curve_coefficients_[
+    NumAccelParams] = {
+  0.0166667f,
+  -0.0238095f,
+  0.0452381f,
+  0.8f
+};
 
 }  // namespace ui

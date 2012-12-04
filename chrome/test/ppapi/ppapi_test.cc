@@ -19,6 +19,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -32,7 +33,6 @@
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
-#include "media/audio/audio_manager.h"
 #include "net/base/net_util.h"
 #include "net/base/test_data_directory.h"
 #include "net/test/test_server.h"
@@ -53,11 +53,6 @@ const char library_name[] = "ppapi_tests.plugin";
 #elif defined(OS_POSIX)
 const char library_name[] = "libppapi_tests.so";
 #endif
-
-bool IsAudioOutputAvailable() {
-  scoped_ptr<media::AudioManager> audio_manager(media::AudioManager::Create());
-  return audio_manager->HasAudioOutputDevices();
-}
 
 }  // namespace
 
@@ -138,6 +133,9 @@ void PPAPITestBase::SetUpCommandLine(CommandLine* command_line) {
 
   // Smooth scrolling confuses the scrollbar test.
   command_line->AppendSwitch(switches::kDisableSmoothScrolling);
+
+  // Enable threading since we test that feature.
+  command_line->AppendSwitch(switches::kEnablePepperThreading);
 }
 
 void PPAPITestBase::SetUpOnMainThread() {
@@ -208,22 +206,12 @@ void PPAPITestBase::RunTestWithWebSocketServer(const std::string& test_case) {
 
 void PPAPITestBase::RunTestIfAudioOutputAvailable(
     const std::string& test_case) {
-  if (IsAudioOutputAvailable()) {
-    RunTest(test_case);
-  } else {
-    LOG(WARNING) << "PPAPITest: " << test_case <<
-        " was not executed because there are no audio devices available.";
-  }
+  RunTest(test_case);
 }
 
 void PPAPITestBase::RunTestViaHTTPIfAudioOutputAvailable(
     const std::string& test_case) {
-  if (IsAudioOutputAvailable()) {
-    RunTestViaHTTP(test_case);
-  } else {
-    LOG(WARNING) << "PPAPITest: " << test_case <<
-        " was not executed because there are no audio devices available.";
-  }
+  RunTestViaHTTP(test_case);
 }
 
 std::string PPAPITestBase::StripPrefixes(const std::string& test_name) {
@@ -243,7 +231,7 @@ void PPAPITestBase::RunTestURL(const GURL& test_url) {
   // "PASS" or "FAIL"). This keeps us from timing out on waits for long tests.
   PPAPITestMessageHandler handler;
   JavascriptTestObserver observer(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
+      browser()->tab_strip_model()->GetActiveWebContents()->GetRenderViewHost(),
       &handler);
 
   ui_test_utils::NavigateToURL(browser(), test_url);

@@ -573,7 +573,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestWSSInvalidCertAndClose) {
   GURL slaveUrl(slaveUrlPath);
 
   // Create tabs and visit pages which keep on creating wss connections.
-  TabContents* tabs[16];
+  WebContents* tabs[16];
   for (int i = 0; i < 16; ++i) {
     tabs[i] = chrome::AddSelectedTabWithURL(browser(), slaveUrl,
                                             content::PAGE_TRANSITION_LINK);
@@ -588,7 +588,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestWSSInvalidCertAndClose) {
 
   // Close tabs which contains the test page.
   for (int i = 0; i < 16; ++i)
-    chrome::CloseWebContents(browser(), tabs[i]->web_contents());
+    chrome::CloseWebContents(browser(), tabs[i]);
   chrome::CloseWebContents(browser(), tab);
 }
 
@@ -711,15 +711,15 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, MAYBE_TestHTTPSErrorWithNoNavEntry) {
   ASSERT_TRUE(https_server_expired_.Start());
 
   GURL url = https_server_expired_.GetURL("files/ssl/google.htm");
-  TabContents* tab2 = chrome::AddSelectedTabWithURL(
+  WebContents* tab2 = chrome::AddSelectedTabWithURL(
       browser(), url, content::PAGE_TRANSITION_TYPED);
-  content::WaitForLoadStop(tab2->web_contents());
+  content::WaitForLoadStop(tab2);
 
   // Verify our assumption that there was no prior navigation.
   EXPECT_FALSE(chrome::CanGoBack(browser()));
 
   // We should have an interstitial page showing.
-  ASSERT_TRUE(tab2->web_contents()->GetInterstitialPage());
+  ASSERT_TRUE(tab2->GetInterstitialPage());
 }
 
 IN_PROC_BROWSER_TEST_F(SSLUITest, TestBadHTTPSDownload) {
@@ -728,7 +728,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestBadHTTPSDownload) {
   GURL url_non_dangerous = test_server()->GetURL("");
   GURL url_dangerous = https_server_expired_.GetURL(
       "files/downloads/dangerous/dangerous.exe");
-  ScopedTempDir downloads_directory_;
+  base::ScopedTempDir downloads_directory_;
 
   // Need empty temp dir to avoid having Chrome ask us for a new filename
   // when we've downloaded dangerous.exe one hundred times.
@@ -908,7 +908,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestDisplaysInsecureContentTwoTabs) {
   ui_test_utils::NavigateToURL(browser(),
       https_server_.GetURL("files/ssl/blank_page.html"));
 
-  TabContents* tab1 = chrome::GetActiveTabContents(browser());
+  TabContents* tab1 = browser()->tab_strip_model()->GetActiveTabContents();
 
   // This tab should be fine.
   CheckAuthenticatedState(tab1->web_contents(), false);
@@ -949,7 +949,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestRunsInsecureContentTwoTabs) {
   ui_test_utils::NavigateToURL(browser(),
       https_server_.GetURL("files/ssl/blank_page.html"));
 
-  TabContents* tab1 = chrome::GetActiveTabContents(browser());
+  TabContents* tab1 = browser()->tab_strip_model()->GetActiveTabContents();
 
   // This tab should be fine.
   CheckAuthenticatedState(tab1->web_contents(), false);

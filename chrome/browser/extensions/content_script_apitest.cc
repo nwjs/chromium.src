@@ -45,7 +45,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptFragmentNavigation) {
   ASSERT_TRUE(RunExtensionTest(extension_name)) << message_;
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptIsolatedWorlds) {
+// Times out on Linux: http://crbug.com/163097
+#if defined(OS_LINUX)
+#define MAYBE_ContentScriptIsolatedWorlds DISABLED_ContentScriptIsolatedWorlds
+#else
+#define MAYBE_ContentScriptIsolatedWorlds ContentScriptIsolatedWorlds
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, MAYBE_ContentScriptIsolatedWorlds) {
   // This extension runs various bits of script and tests that they all run in
   // the same isolated world.
   ASSERT_TRUE(StartTestServer());
@@ -126,7 +132,8 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(styles_injected);
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptCSSLocalization) {
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest,
+                       ContentScriptCSSLocalization) {
   ASSERT_TRUE(StartTestServer());
   ASSERT_TRUE(RunExtensionTest("content_scripts/css_l10n")) << message_;
 }
@@ -161,4 +168,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptPermissionsApi) {
   host_resolver()->AddRule("*.com", "127.0.0.1");
   ASSERT_TRUE(StartTestServer());
   ASSERT_TRUE(RunExtensionTest("content_scripts/permissions")) << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptBypassPageCSP) {
+  ASSERT_TRUE(StartTestServer());
+  ASSERT_TRUE(RunExtensionTest("content_scripts/bypass_page_csp")) << message_;
 }

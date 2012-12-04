@@ -22,6 +22,7 @@
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/extension_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
@@ -391,8 +392,9 @@ void AppPackUpdater::UpdateExtensionLoader() {
   scoped_ptr<base::DictionaryValue> prefs(new base::DictionaryValue());
   for (CacheEntryMap::iterator it = cached_extensions_.begin();
        it != cached_extensions_.end(); ++it) {
+    const std::string& id = it->first;
     // The screensaver isn't installed into the Profile.
-    if (it->first == screen_saver_id_)
+    if (id == screen_saver_id_)
       continue;
 
     base::DictionaryValue* dict = new base::DictionaryValue();
@@ -400,6 +402,15 @@ void AppPackUpdater::UpdateExtensionLoader() {
                     it->second.path);
     dict->SetString(extensions::ExternalProviderImpl::kExternalVersion,
                     it->second.cached_version);
+
+    // Include this optional flag if the extension's update url is the Webstore.
+    PolicyEntryMap::iterator policy_entry = app_pack_extensions_.find(id);
+    if (policy_entry != app_pack_extensions_.end() &&
+        extension_urls::IsWebstoreUpdateUrl(
+            GURL(policy_entry->second.update_url))) {
+      dict->SetBoolean(extensions::ExternalProviderImpl::kIsFromWebstore, true);
+    }
+
     prefs->Set(it->first, dict);
 
     VLOG(1) << "Updating AppPack extension loader, added " << it->second.path;
@@ -418,7 +429,7 @@ void AppPackUpdater::DownloadMissingExtensions() {
   }
   for (PolicyEntryMap::iterator it = app_pack_extensions_.begin();
        it != app_pack_extensions_.end(); ++it) {
-    downloader_->AddPendingExtension(it->first, GURL(it->second.update_url));
+    downloader_->AddPendingExtension(it->first, GURL(it->second.update_url), 0);
   }
   VLOG(1) << "Downloading AppPack update manifest now";
   downloader_->StartAllPending();
@@ -427,7 +438,8 @@ void AppPackUpdater::DownloadMissingExtensions() {
 void AppPackUpdater::OnExtensionDownloadFailed(
     const std::string& id,
     extensions::ExtensionDownloaderDelegate::Error error,
-    const extensions::ExtensionDownloaderDelegate::PingResult& ping_result) {
+    const extensions::ExtensionDownloaderDelegate::PingResult& ping_result,
+    const std::set<int>& request_ids) {
   if (error == NO_UPDATE_AVAILABLE) {
     if (!ContainsKey(cached_extensions_, id))
       LOG(ERROR) << "AppPack extension " << id << " not found on update server";
@@ -443,7 +455,8 @@ void AppPackUpdater::OnExtensionDownloadFinished(
     const FilePath& path,
     const GURL& download_url,
     const std::string& version,
-    const extensions::ExtensionDownloaderDelegate::PingResult& ping_result) {
+    const extensions::ExtensionDownloaderDelegate::PingResult& ping_result,
+    const std::set<int>& request_ids) {
   // Just downloaded the latest version, no need to do further update checks
   // for this extension.
   SetUpdateChecked(id);
@@ -462,7 +475,8 @@ void AppPackUpdater::OnBlacklistDownloadFinished(
     const std::string& data,
     const std::string& package_hash,
     const std::string& version,
-    const extensions::ExtensionDownloaderDelegate::PingResult& ping_result) {
+    const extensions::ExtensionDownloaderDelegate::PingResult& ping_result,
+    const std::set<int>& request_ids) {
   NOTREACHED();
 }
 

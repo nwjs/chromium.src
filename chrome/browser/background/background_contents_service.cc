@@ -15,6 +15,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/notification.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
@@ -82,7 +84,8 @@ class CrashNotificationDelegate : public NotificationDelegate {
       if (!service->GetAppBackgroundContents(ASCIIToUTF16(extension_id_)))
         service->LoadBackgroundContentsForExtension(profile_, extension_id_);
     } else {
-      profile_->GetExtensionService()->ReloadExtension(extension_id_);
+      extensions::ExtensionSystem::Get(profile_)->extension_service()->
+          ReloadExtension(extension_id_);
     }
 
     // Closing the balloon here should be OK, but it causes a crash on Mac
@@ -250,7 +253,8 @@ void BackgroundContentsService::Observe(
           content::Details<BackgroundContents>(details).ptr();
       Profile* profile = content::Source<Profile>(source).ptr();
       const string16& appid = GetParentApplicationId(bgcontents);
-      ExtensionService* extension_service = profile->GetExtensionService();
+      ExtensionService* extension_service =
+          extensions::ExtensionSystem::Get(profile)->extension_service();
       // extension_service can be NULL when running tests.
       if (extension_service) {
         const Extension* extension =
@@ -271,7 +275,8 @@ void BackgroundContentsService::Observe(
         // app, then blow away registered urls in the pref.
         ShutdownAssociatedBackgroundContents(ASCIIToUTF16(extension->id()));
 
-        ExtensionService* service = profile->GetExtensionService();
+        ExtensionService* service =
+            extensions::ExtensionSystem::Get(profile)->extension_service();
         if (service && service->is_ready()) {
           // Now load the manifest-specified background page. If service isn't
           // ready, then the background page will be loaded from the
@@ -297,7 +302,8 @@ void BackgroundContentsService::Observe(
             BackgroundContentsServiceFactory::GetForProfile(profile)->
                 GetParentApplicationId(bg));
         extension =
-          profile->GetExtensionService()->GetExtensionById(extension_id, false);
+          extensions::ExtensionSystem::Get(profile)->extension_service()->
+              GetExtensionById(extension_id, false);
       } else {
         extensions::ExtensionHost* extension_host =
             content::Details<extensions::ExtensionHost>(details).ptr();
@@ -369,7 +375,8 @@ void BackgroundContentsService::LoadBackgroundContentsFromPrefs(
       prefs_->GetDictionary(prefs::kRegisteredBackgroundContents);
   if (!contents)
     return;
-  ExtensionService* extensions_service = profile->GetExtensionService();
+  ExtensionService* extensions_service =
+          extensions::ExtensionSystem::Get(profile)->extension_service();
   DCHECK(extensions_service);
   for (DictionaryValue::key_iterator it = contents->begin_keys();
        it != contents->end_keys(); ++it) {
@@ -404,7 +411,8 @@ void BackgroundContentsService::LoadBackgroundContentsForExtension(
     const std::string& extension_id) {
   // First look if the manifest specifies a background page.
   const Extension* extension =
-      profile->GetExtensionService()->GetExtensionById(extension_id, false);
+      extensions::ExtensionSystem::Get(profile)->extension_service()->
+          GetExtensionById(extension_id, false);
   DCHECK(!extension || extension->is_hosted_app());
   if (extension && extension->has_background_page()) {
     LoadBackgroundContents(profile,
@@ -428,7 +436,8 @@ void BackgroundContentsService::LoadBackgroundContentsFromDictionary(
     Profile* profile,
     const std::string& extension_id,
     const DictionaryValue* contents) {
-  ExtensionService* extensions_service = profile->GetExtensionService();
+  ExtensionService* extensions_service =
+      extensions::ExtensionSystem::Get(profile)->extension_service();
   DCHECK(extensions_service);
 
   const DictionaryValue* dict;
@@ -448,8 +457,8 @@ void BackgroundContentsService::LoadBackgroundContentsFromDictionary(
 
 void BackgroundContentsService::LoadBackgroundContentsFromManifests(
     Profile* profile) {
-  const ExtensionSet* extensions =
-      profile->GetExtensionService()->extensions();
+  const ExtensionSet* extensions = extensions::ExtensionSystem::Get(profile)->
+      extension_service()->extensions();
   ExtensionSet::const_iterator iter = extensions->begin();
   for (; iter != extensions->end(); ++iter) {
     const Extension* extension = *iter;
@@ -615,7 +624,8 @@ void BackgroundContentsService::AddWebContents(
     bool user_gesture,
     bool* was_blocked) {
   Browser* browser = chrome::FindLastActiveWithProfile(
-      Profile::FromBrowserContext(new_contents->GetBrowserContext()));
+      Profile::FromBrowserContext(new_contents->GetBrowserContext()),
+      chrome::GetActiveDesktop());
   if (browser) {
     chrome::AddWebContents(browser, NULL, new_contents, disposition,
                            initial_pos, user_gesture, was_blocked);

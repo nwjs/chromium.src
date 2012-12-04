@@ -5,7 +5,8 @@
 #ifndef CHROME_BROWSER_CHROMEOS_EXTENSIONS_WALLPAPER_PRIVATE_API_H_
 #define CHROME_BROWSER_CHROMEOS_EXTENSIONS_WALLPAPER_PRIVATE_API_H_
 
-#include "ash/desktop_background/desktop_background_resources.h"
+#include "ash/desktop_background/desktop_background_controller.h"
+#include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/extensions/extension_function.h"
 #include "net/url_request/url_fetcher_delegate.h"
 #include "ui/gfx/image/image_skia.h"
@@ -63,12 +64,13 @@ class WallpaperSetWallpaperFunction : public WallpaperFunctionBase {
   void SaveToFile();
 
   // Sets wallpaper to the decoded image.
-  void SetDecodedWallpaper();
+  void SetDecodedWallpaper(scoped_ptr<gfx::ImageSkia> wallpaper);
 
   // Layout of the downloaded wallpaper.
   ash::WallpaperLayout layout_;
 
-  // The decoded wallpaper.
+  // The decoded wallpaper. It may accessed from UI thread to set wallpaper or
+  // FILE thread to resize and save wallpaper to disk.
   gfx::ImageSkia wallpaper_;
 
   // Email address of logged in user.
@@ -79,6 +81,10 @@ class WallpaperSetWallpaperFunction : public WallpaperFunctionBase {
 
   // String representation of downloaded wallpaper.
   std::string image_data_;
+
+  // Sequence token associated with wallpaper operations. Shared with
+  // WallpaperManager.
+  base::SequencedWorkerPool::SequenceToken sequence_token_;
 };
 
 class WallpaperSetCustomWallpaperFunction : public WallpaperFunctionBase {

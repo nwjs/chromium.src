@@ -20,6 +20,9 @@
 
 namespace net {
 
+class QuicCryptoStream;
+class ReliableQuicStream;
+
 class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
  public:
   QuicSession(QuicConnection* connection, bool is_server);
@@ -48,7 +51,17 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
   virtual void CloseStream(QuicStreamId stream_id);
 
   // Returns true once the crypto handshake is complete.
-  virtual bool IsHandshakeComplete();
+  virtual bool IsCryptoHandshakeComplete();
+
+  // Called by the QuicCryptoStream when the handshake completes.
+  // If |error| is QUIC_NO_ERROR then the handshake was succesful,
+  // otherwise it failed.
+  virtual void OnCryptoHandshakeComplete(QuicErrorCode error);
+
+  // Returns true if the stream existed previously and has been closed.
+  // Returns false if the stream is still active or if the stream has
+  // not yet been created.
+  bool IsClosedStream(QuicStreamId id);
 
   QuicConnection* connection() { return connection_.get(); }
   size_t num_active_requests() const { return stream_map_.size(); }
@@ -64,7 +77,8 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
 
  protected:
   // Creates a new stream, owned by the caller, to handle a peer-initiated
-  // stream.  Returns NULL if max streams have already been opened.
+  // stream.  Returns NULL and does error handling if the stream can not be
+  // created.
   virtual ReliableQuicStream* CreateIncomingReliableStream(QuicStreamId id) = 0;
 
   // Create a new stream, owned by the caller, to handle a locally-initiated
@@ -79,11 +93,6 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
 
   // Returns the stream id for a new stream.
   QuicStreamId GetNextStreamId();
-
-  // Returns true if the stream existed previously and has been closed.
-  // Returns false if the stream is still active or if the stream has
-  // not yet been created.
-  bool IsClosedStream(QuicStreamId id);
 
   ReliableQuicStream* GetIncomingReliableStream(QuicStreamId stream_id);
 

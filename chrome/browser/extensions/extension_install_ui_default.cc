@@ -13,12 +13,14 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/app_list/app_list_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -158,7 +160,8 @@ void ExtensionInstallUIDefault::OnInstallFailure(
   if (disable_failure_ui_for_tests || skip_post_install_ui_)
     return;
 
-  Browser* browser = chrome::FindLastActiveWithProfile(profile_);
+  Browser* browser = chrome::FindLastActiveWithProfile(profile_,
+      chrome::GetActiveDesktop());
   WebContents* web_contents = chrome::GetActiveWebContents(browser);
   if (!web_contents)
     return;
@@ -256,7 +259,7 @@ void ExtensionInstallUI::OpenAppInstalledUI(Browser* browser,
         content::Details<const std::string>(&app_id));
   } else {
 #if defined(USE_ASH)
-    ash::Shell::GetInstance()->ToggleAppList();
+    app_list_controller::ShowAppList();
 
     content::NotificationService::current()->Notify(
         chrome::NOTIFICATION_APP_INSTALLED_TO_APPLIST,
@@ -285,6 +288,7 @@ ExtensionInstallPrompt* ExtensionInstallUI::CreateInstallPromptWithBrowser(
 // static
 ExtensionInstallPrompt* ExtensionInstallUI::CreateInstallPromptWithProfile(
     Profile* profile) {
-  Browser* browser = chrome::FindLastActiveWithProfile(profile);
+  Browser* browser = chrome::FindLastActiveWithProfile(profile,
+      chrome::GetActiveDesktop());
   return CreateInstallPromptWithBrowser(browser);
 }

@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -145,8 +144,6 @@ LICENSE
 # Copyright Loren Merritt, Anton Mitrofanov and Jason Garrett-Glaser; ISC
 # license. Not used on Android.
 media/base/simd/x86inc.asm
-# String 'copyright' used in resources.
-media/tools/player_wtl/player_wtl.rc
 # Copyright The Chromium Authors and Netscape Communications Corporation; BSD
 # and (MPL, GPL v2 or LGPL v2) licenses. This third-party code is taken from
 # Mozilla, the license for which we already pick up from third_party/npapi/.
@@ -242,6 +239,8 @@ tools/git/update-copyrights.sh
 tools/json_schema_compiler/cpp_util.py
 # String 'copyright' used in code.
 tools/json_schema_compiler/idl_schema.py
+# String 'copyright' used in code.
+tools/json_to_struct/json_to_struct.py
 # String 'copyright' used in resources.
 tools/measure_page_load_time/ie_bho/MeasurePageLoadTime.rc
 # String 'copyright' used in code.

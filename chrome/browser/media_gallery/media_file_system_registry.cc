@@ -106,11 +106,15 @@ std::string MakeJSONFileSystemName(const string16& name,
 }
 
 std::string GetTransientIdForRemovableDeviceId(const std::string& device_id) {
+#if defined(OS_ANDROID)
+  return std::string();
+#else
   using extensions::MediaGalleriesPrivateEventRouter;
 
   if (!MediaStorageUtil::IsRemovableDevice(device_id))
     return std::string();
   return MediaGalleriesPrivateEventRouter::GetTransientIdForDeviceId(device_id);
+#endif  // OS_ANDROID
 }
 
 }  // namespace
@@ -126,51 +130,28 @@ MediaFileSystemInfo::MediaFileSystemInfo(const std::string& fs_name,
 MediaFileSystemInfo::MediaFileSystemInfo() {}
 
 #if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
-// Class to manage MTPDeviceDelegateImpl object for the attached MTP device.
-// Refcounted to reuse the same MTP device delegate entry across extensions.
-// This class supports WeakPtr (extends SupportsWeakPtr) to expose itself as
-// a weak pointer to MediaFileSystemRegistry.
-class ScopedMTPDeviceMapEntry
-    : public base::RefCounted<ScopedMTPDeviceMapEntry>,
-      public base::SupportsWeakPtr<ScopedMTPDeviceMapEntry> {
- public:
-  // |no_references_callback| is called when the last ScopedMTPDeviceMapEntry
-  // reference goes away.
-  ScopedMTPDeviceMapEntry(const FilePath::StringType& device_location,
-                          const base::Closure& no_references_callback)
-      : device_location_(device_location),
-        no_references_callback_(no_references_callback) {
-    BrowserThread::PostTask(
-        BrowserThread::IO, FROM_HERE,
-        Bind(&MTPDeviceMapService::AddDelegate,
-             base::Unretained(MTPDeviceMapService::GetInstance()),
-             device_location_,
-             make_scoped_refptr(new MTPDeviceDelegateImpl(device_location))));
-  }
+ScopedMTPDeviceMapEntry::ScopedMTPDeviceMapEntry(
+    const FilePath::StringType& device_location,
+    const base::Closure& no_references_callback)
+    : device_location_(device_location),
+      no_references_callback_(no_references_callback) {
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      Bind(&MTPDeviceMapService::AddDelegate,
+           base::Unretained(MTPDeviceMapService::GetInstance()),
+           device_location_,
+           new MTPDeviceDelegateImpl(device_location_)));
+}
 
- private:
-  // Friend declaration for ref counted implementation.
-  friend class base::RefCounted<ScopedMTPDeviceMapEntry>;
-
-  // Private because this class is ref-counted.
-  ~ScopedMTPDeviceMapEntry() {
-    BrowserThread::PostTask(
-        BrowserThread::IO, FROM_HERE,
-        Bind(&MTPDeviceMapService::RemoveDelegate,
-             base::Unretained(MTPDeviceMapService::GetInstance()),
-             device_location_));
-    no_references_callback_.Run();
-  }
-
-  // Store the MTP or PTP device location.
-  const FilePath::StringType device_location_;
-
-  // A callback to call when the last reference of this object goes away.
-  base::Closure no_references_callback_;
-
-  DISALLOW_COPY_AND_ASSIGN(ScopedMTPDeviceMapEntry);
-};
-#endif
+ScopedMTPDeviceMapEntry::~ScopedMTPDeviceMapEntry() {
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      Bind(&MTPDeviceMapService::RemoveDelegate,
+           base::Unretained(MTPDeviceMapService::GetInstance()),
+           device_location_));
+  no_references_callback_.Run();
+}
+#endif  // defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
 
 // The main owner of this class is
 // |MediaFileSystemRegistry::extension_hosts_map_|, but a callback may
@@ -245,6 +226,11 @@ class ExtensionGalleriesHost
     if (mtp_device_host != media_device_map_references_.end())
       media_device_map_references_.erase(mtp_device_host);
 #endif
+
+    if (pref_id_map_.empty()) {
+      rph_refs_.clear();
+      CleanUp();
+    }
   }
 
   // Indicate that the passed |rvh| will reference the file system ids created
@@ -265,7 +251,7 @@ class ExtensionGalleriesHost
     RenderProcessHost* rph = contents->GetRenderProcessHost();
     rph_refs_[rph].insert(contents);
     if (rph_refs_[rph].size() == 1) {
-      registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
+      registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_TERMINATED,
                      content::Source<RenderProcessHost>(rph));
     }
   }
@@ -298,8 +284,8 @@ class ExtensionGalleriesHost
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE {
     switch (type) {
-      case content::NOTIFICATION_RENDERER_PROCESS_CLOSED: {
-        OnRendererProcessClosed(
+      case content::NOTIFICATION_RENDERER_PROCESS_TERMINATED: {
+        OnRendererProcessTerminated(
             content::Source<RenderProcessHost>(source).ptr());
         break;
       }
@@ -381,12 +367,17 @@ class ExtensionGalleriesHost
       pref_id_map_[pref_id] = new_entry;
     }
 
-    RevokeOldGalleries(new_galleries);
+    if (result.size() == 0) {
+      rph_refs_.clear();
+      CleanUp();
+    } else {
+      RevokeOldGalleries(new_galleries);
+    }
 
     callback.Run(result);
   }
 
-  void OnRendererProcessClosed(const RenderProcessHost* rph) {
+  void OnRendererProcessTerminated(const RenderProcessHost* rph) {
     RenderProcessHostRefCount::const_iterator rph_info = rph_refs_.find(rph);
     DCHECK(rph_info != rph_refs_.end());
     // We're going to remove everything from the set, so we make a copy
@@ -414,25 +405,31 @@ class ExtensionGalleriesHost
     DCHECK(process_refs != rph_refs_.end());
     process_refs->second.erase(contents);
     if (process_refs->second.empty()) {
-      registrar_.Remove(this, content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
+      registrar_.Remove(this, content::NOTIFICATION_RENDERER_PROCESS_TERMINATED,
                         content::Source<RenderProcessHost>(rph));
       rph_refs_.erase(process_refs);
     }
 
-    if (rph_refs_.empty()) {
-      for (PrefIdFsInfoMap::const_iterator it = pref_id_map_.begin();
-           it != pref_id_map_.end();
-           ++it) {
-        file_system_context_->RevokeFileSystem(it->second.fsid);
-      }
-      pref_id_map_.clear();
+    if (rph_refs_.empty())
+      CleanUp();
+  }
+
+  void CleanUp() {
+    DCHECK(rph_refs_.empty());
+    for (PrefIdFsInfoMap::const_iterator it = pref_id_map_.begin();
+         it != pref_id_map_.end();
+         ++it) {
+      file_system_context_->RevokeFileSystem(it->second.fsid);
+    }
+    pref_id_map_.clear();
 
 #if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
-      media_device_map_references_.clear();
+    media_device_map_references_.clear();
 #endif
 
-      no_references_callback_.Run();
-    }
+    registrar_.RemoveAll();
+
+    no_references_callback_.Run();
   }
 
   // MediaFileSystemRegistry owns |this| and |file_system_context_|, so it's
@@ -490,7 +487,12 @@ void MediaFileSystemRegistry::GetMediaFileSystemsForExtension(
   if (!ContainsKey(pref_change_registrar_map_, profile)) {
     PrefChangeRegistrar* pref_registrar = new PrefChangeRegistrar;
     pref_registrar->Init(profile->GetPrefs());
-    pref_registrar->Add(prefs::kMediaGalleriesRememberedGalleries, this);
+    pref_registrar->Add(
+        prefs::kMediaGalleriesRememberedGalleries,
+        base::Bind(&MediaFileSystemRegistry::
+                   OnMediaGalleriesRememberedGalleriesChanged,
+                   base::Unretained(this),
+                   pref_registrar->prefs()));
     pref_change_registrar_map_[profile] = pref_registrar;
   }
 
@@ -547,6 +549,10 @@ void MediaFileSystemRegistry::OnRemovableStorageAttached(
     MediaGalleriesPreferences* preferences = GetPreferences(profile_it->first);
     preferences->AddGallery(id, name, FilePath(), false /*not user added*/);
   }
+}
+
+size_t MediaFileSystemRegistry::GetExtensionHostCountForTests() const {
+  return extension_hosts_map_.size();
 }
 
 void MediaFileSystemRegistry::OnRemovableStorageDetached(
@@ -670,13 +676,13 @@ MediaFileSystemRegistry::~MediaFileSystemRegistry() {
   SystemMonitor* system_monitor = SystemMonitor::Get();
   if (system_monitor)
     system_monitor->RemoveDevicesChangedObserver(this);
+#if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
+  DCHECK(mtp_device_delegate_map_.empty());
+#endif
 }
 
-void MediaFileSystemRegistry::OnPreferenceChanged(
-    PrefServiceBase* prefs,
-    const std::string& pref_name) {
-  DCHECK_EQ(std::string(prefs::kMediaGalleriesRememberedGalleries), pref_name);
-
+void MediaFileSystemRegistry::OnMediaGalleriesRememberedGalleriesChanged(
+    PrefServiceBase* prefs) {
   // Find the Profile that contains the source PrefService.
   PrefChangeRegistrarMap::iterator pref_change_it =
       pref_change_registrar_map_.begin();
@@ -716,23 +722,23 @@ ScopedMTPDeviceMapEntry*
 MediaFileSystemRegistry::GetOrCreateScopedMTPDeviceMapEntry(
     const FilePath::StringType& device_location) {
   MTPDeviceDelegateMap::iterator delegate_it =
-      mtp_delegate_map_.find(device_location);
-  if (delegate_it != mtp_delegate_map_.end() && delegate_it->second.get())
+      mtp_device_delegate_map_.find(device_location);
+  if (delegate_it != mtp_device_delegate_map_.end())
     return delegate_it->second;
   ScopedMTPDeviceMapEntry* mtp_device_host = new ScopedMTPDeviceMapEntry(
       device_location, base::Bind(
           &MediaFileSystemRegistry::RemoveScopedMTPDeviceMapEntry,
           base::Unretained(this), device_location));
-  mtp_delegate_map_[device_location] = mtp_device_host->AsWeakPtr();
+  mtp_device_delegate_map_[device_location] = mtp_device_host;
   return mtp_device_host;
 }
 
 void MediaFileSystemRegistry::RemoveScopedMTPDeviceMapEntry(
     const FilePath::StringType& device_location) {
   MTPDeviceDelegateMap::iterator delegate_it =
-      mtp_delegate_map_.find(device_location);
-  DCHECK(delegate_it != mtp_delegate_map_.end());
-  mtp_delegate_map_.erase(delegate_it);
+      mtp_device_delegate_map_.find(device_location);
+  DCHECK(delegate_it != mtp_device_delegate_map_.end());
+  mtp_device_delegate_map_.erase(delegate_it);
 }
 #endif
 

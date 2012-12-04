@@ -7,18 +7,22 @@
 #include "base/memory/ref_counted_memory.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/printing/print_preview_tab_controller.h"
+#include "chrome/browser/printing/print_preview_test.h"
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
+#include "content/public/browser/plugin_service.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/web_contents_tester.h"
 #include "printing/print_job_constants.h"
+#include "webkit/plugins/npapi/mock_plugin_list.h"
 
 using content::WebContents;
 using content::WebContentsTester;
@@ -40,24 +44,30 @@ size_t GetConstrainedWindowCount(TabContents* tab) {
 
 }  // namespace
 
-class PrintPreviewUIUnitTest : public BrowserWithTestWindowTest {
+class PrintPreviewUIUnitTest : public PrintPreviewTest {
  public:
-  PrintPreviewUIUnitTest() {}
-  virtual ~PrintPreviewUIUnitTest() {}
+  PrintPreviewUIUnitTest();
+  virtual ~PrintPreviewUIUnitTest();
 
  protected:
-  virtual void SetUp() OVERRIDE {
-    BrowserWithTestWindowTest::SetUp();
+  virtual void SetUp() OVERRIDE;
 
-    profile()->GetPrefs()->SetBoolean(prefs::kPrintPreviewDisabled, false);
-
-    chrome::NewTab(browser());
-  }
+  DISALLOW_COPY_AND_ASSIGN(PrintPreviewUIUnitTest);
 };
+
+PrintPreviewUIUnitTest::PrintPreviewUIUnitTest() {}
+PrintPreviewUIUnitTest::~PrintPreviewUIUnitTest() {}
+
+void PrintPreviewUIUnitTest::SetUp() {
+  PrintPreviewTest::SetUp();
+
+  chrome::NewTab(browser());
+}
 
 // Create/Get a preview tab for initiator tab.
 TEST_F(PrintPreviewUIUnitTest, PrintPreviewData) {
-  TabContents* initiator_tab = chrome::GetActiveTabContents(browser());
+  TabContents* initiator_tab =
+      browser()->tab_strip_model()->GetActiveTabContents();
   ASSERT_TRUE(initiator_tab);
   EXPECT_EQ(0U, GetConstrainedWindowCount(initiator_tab));
 
@@ -112,7 +122,8 @@ TEST_F(PrintPreviewUIUnitTest, PrintPreviewData) {
 
 // Set and get the individual draft pages.
 TEST_F(PrintPreviewUIUnitTest, PrintPreviewDraftPages) {
-  TabContents* initiator_tab = chrome::GetActiveTabContents(browser());
+  TabContents* initiator_tab =
+      browser()->tab_strip_model()->GetActiveTabContents();
   ASSERT_TRUE(initiator_tab);
 
   printing::PrintPreviewTabController* controller =
@@ -173,7 +184,8 @@ TEST_F(PrintPreviewUIUnitTest, PrintPreviewDraftPages) {
 
 // Test the browser-side print preview cancellation functionality.
 TEST_F(PrintPreviewUIUnitTest, GetCurrentPrintPreviewStatus) {
-  TabContents* initiator_tab = chrome::GetActiveTabContents(browser());
+  TabContents* initiator_tab =
+      browser()->tab_strip_model()->GetActiveTabContents();
   ASSERT_TRUE(initiator_tab);
 
   printing::PrintPreviewTabController* controller =

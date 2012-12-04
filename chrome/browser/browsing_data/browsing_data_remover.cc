@@ -241,9 +241,9 @@ void BrowsingDataRemover::RemoveImpl(int remove_mask,
             base::Time() : delete_end_;
       history_service->ExpireHistoryBetween(restrict_urls,
           delete_begin_, history_end_,
-          &request_consumer_,
           base::Bind(&BrowsingDataRemover::OnHistoryDeletionDone,
-                     base::Unretained(this)));
+                     base::Unretained(this)),
+          &history_task_tracker_);
     }
 
     // Need to clear the host cache and accumulated speculative data, as it also
@@ -342,7 +342,7 @@ void BrowsingDataRemover::RemoveImpl(int remove_mask,
                      base::Unretained(this), base::Unretained(rq_context)));
     }
 
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
     // Clear the safebrowsing cookies only if time period is for "all time".  It
     // doesn't make sense to apply the time period of deleting in the last X
     // hours/days to the safebrowsing cookies since they aren't the result of

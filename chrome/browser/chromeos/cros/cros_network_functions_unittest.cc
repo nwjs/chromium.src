@@ -7,7 +7,6 @@
 #include "base/values.h"
 #include "chrome/browser/chromeos/cros/cros_network_functions.h"
 #include "chrome/browser/chromeos/cros/sms_watcher.h"
-#include "chromeos/dbus/mock_cashew_client.h"
 #include "chromeos/dbus/mock_dbus_thread_manager.h"
 #include "chromeos/dbus/mock_shill_device_client.h"
 #include "chromeos/dbus/mock_shill_ipconfig_client.h"
@@ -95,56 +94,6 @@ class MockNetworkPropertiesWatcherCallback {
                          const base::Value& value));
 };
 
-// A mock to check arguments of CellularDataPlanWatcherCallback and ensure that
-// the callback is called exactly once.
-class MockDataPlanUpdateWatcherCallback {
- public:
-  // Creates a NetworkPropertiesWatcherCallback with expectations.
-  static DataPlanUpdateWatcherCallback CreateCallback(
-      const std::string& expected_modem_service_path,
-      const CellularDataPlanVector& expected_data_plan_vector) {
-    MockDataPlanUpdateWatcherCallback* mock_callback =
-        new MockDataPlanUpdateWatcherCallback;
-    mock_callback->expected_data_plan_vector_ = &expected_data_plan_vector;
-
-    EXPECT_CALL(*mock_callback,
-                Run(expected_modem_service_path, _))
-        .WillOnce(Invoke(mock_callback,
-                         &MockDataPlanUpdateWatcherCallback::CheckDataPlans));
-
-    return base::Bind(&MockDataPlanUpdateWatcherCallback::Run,
-                      base::Owned(mock_callback));
-  }
-
-  MOCK_METHOD2(Run, void(const std::string& modem_service_path,
-                         CellularDataPlanVector* data_plan_vector));
-
- private:
-  void CheckDataPlans(const std::string& modem_service_path,
-                      CellularDataPlanVector* data_plan_vector) {
-    ASSERT_EQ(expected_data_plan_vector_->size(), data_plan_vector->size());
-    for (size_t i = 0; i != data_plan_vector->size(); ++i) {
-      EXPECT_EQ((*expected_data_plan_vector_)[i]->plan_name,
-                (*data_plan_vector)[i]->plan_name);
-      EXPECT_EQ((*expected_data_plan_vector_)[i]->plan_type,
-                (*data_plan_vector)[i]->plan_type);
-      EXPECT_EQ((*expected_data_plan_vector_)[i]->update_time,
-                (*data_plan_vector)[i]->update_time);
-      EXPECT_EQ((*expected_data_plan_vector_)[i]->plan_start_time,
-                (*data_plan_vector)[i]->plan_start_time);
-      EXPECT_EQ((*expected_data_plan_vector_)[i]->plan_end_time,
-                (*data_plan_vector)[i]->plan_end_time);
-      EXPECT_EQ((*expected_data_plan_vector_)[i]->plan_data_bytes,
-                (*data_plan_vector)[i]->plan_data_bytes);
-      EXPECT_EQ((*expected_data_plan_vector_)[i]->data_bytes_used,
-                (*data_plan_vector)[i]->data_bytes_used);
-    }
-    delete data_plan_vector;
-  }
-
-  const CellularDataPlanVector* expected_data_plan_vector_;
-};
-
 }  // namespace
 
 // Test for cros_network_functions.cc without Libcros.
@@ -158,7 +107,6 @@ class CrosNetworkFunctionsTest : public testing::Test {
     EXPECT_CALL(*mock_dbus_thread_manager, GetSystemBus())
         .WillRepeatedly(Return(reinterpret_cast<dbus::Bus*>(NULL)));
     DBusThreadManager::InitializeForTesting(mock_dbus_thread_manager);
-    mock_cashew_client_ = mock_dbus_thread_manager->mock_cashew_client();
     mock_device_client_ =
         mock_dbus_thread_manager->mock_shill_device_client();
     mock_ipconfig_client_ =
@@ -221,7 +169,6 @@ class CrosNetworkFunctionsTest : public testing::Test {
                void(const std::string& modem_device_path, const SMS& message));
 
  protected:
-  MockCashewClient* mock_cashew_client_;
   MockShillDeviceClient* mock_device_client_;
   MockShillIPConfigClient* mock_ipconfig_client_;
   MockShillManagerClient* mock_manager_client_;
@@ -310,13 +257,6 @@ TEST_F(CrosNetworkFunctionsTest, CrosDeleteServiceFromProfile) {
   CrosDeleteServiceFromProfile(profile_path, service_path);
 }
 
-TEST_F(CrosNetworkFunctionsTest, CrosRequestCellularDataPlanUpdate) {
-  const std::string modem_service_path = "/modem/service/path";
-  EXPECT_CALL(*mock_cashew_client_,
-              RequestDataPlansUpdate(modem_service_path)).Times(1);
-  CrosRequestCellularDataPlanUpdate(modem_service_path);
-}
-
 TEST_F(CrosNetworkFunctionsTest, CrosMonitorNetworkManagerProperties) {
   const std::string key = "key";
   const int kValue = 42;
@@ -381,78 +321,16 @@ TEST_F(CrosNetworkFunctionsTest, CrosMonitorNetworkDeviceProperties) {
   delete watcher;
 }
 
-TEST_F(CrosNetworkFunctionsTest, CrosMonitorCellularDataPlan) {
-  const std::string modem_service_path = "/modem/path";
-  const int64 kUpdateTime = 123456;
-  const int64 kPlanStartTime = 234567;
-  const int64 kPlanEndTime = 345678;
-
-  CellularDataPlan* data_plan = new CellularDataPlan;
-  CellularDataPlanVector data_plans;
-  data_plan->plan_name = "plan name";
-  data_plan->plan_type = CELLULAR_DATA_PLAN_METERED_PAID;
-  data_plan->update_time = base::Time::FromInternalValue(kUpdateTime);
-  data_plan->plan_start_time = base::Time::FromInternalValue(kPlanStartTime);
-  data_plan->plan_end_time = base::Time::FromInternalValue(kPlanEndTime);
-  data_plan->plan_data_bytes = 1024*1024;
-  data_plan->data_bytes_used = 12345;
-  data_plans.push_back(data_plan);
-
-  base::DictionaryValue* data_plan_dictionary = new base::DictionaryValue;
-  data_plan_dictionary->SetWithoutPathExpansion(
-      cashew::kCellularPlanNameProperty,
-      base::Value::CreateStringValue(data_plan->plan_name));
-  data_plan_dictionary->SetWithoutPathExpansion(
-      cashew::kCellularPlanTypeProperty,
-      base::Value::CreateStringValue(cashew::kCellularDataPlanMeteredPaid));
-  data_plan_dictionary->SetWithoutPathExpansion(
-      cashew::kCellularPlanUpdateTimeProperty,
-      base::Value::CreateDoubleValue(kUpdateTime));
-  data_plan_dictionary->SetWithoutPathExpansion(
-      cashew::kCellularPlanStartProperty,
-      base::Value::CreateDoubleValue(kPlanStartTime));
-  data_plan_dictionary->SetWithoutPathExpansion(
-      cashew::kCellularPlanEndProperty,
-      base::Value::CreateDoubleValue(kPlanEndTime));
-  data_plan_dictionary->SetWithoutPathExpansion(
-      cashew::kCellularPlanDataBytesProperty,
-      base::Value::CreateDoubleValue(data_plan->plan_data_bytes));
-  data_plan_dictionary->SetWithoutPathExpansion(
-      cashew::kCellularDataBytesUsedProperty,
-      base::Value::CreateDoubleValue(data_plan->data_bytes_used));
-
-  base::ListValue data_plans_list;
-  data_plans_list.Append(data_plan_dictionary);
-
-  // Set expectations.
-  DataPlanUpdateWatcherCallback callback =
-      MockDataPlanUpdateWatcherCallback::CreateCallback(modem_service_path,
-                                                        data_plans);
-  CashewClient::DataPlansUpdateHandler arg_callback;
-  EXPECT_CALL(*mock_cashew_client_, SetDataPlansUpdateHandler(_))
-      .WillOnce(SaveArg<0>(&arg_callback));
-
-  // Start monitoring.
-  CrosNetworkWatcher* watcher = CrosMonitorCellularDataPlan(callback);
-
-  // Run callback.
-  arg_callback.Run(modem_service_path, data_plans_list);
-
-  // Stop monitoring.
-  EXPECT_CALL(*mock_cashew_client_, ResetDataPlansUpdateHandler()).Times(1);
-  delete watcher;
-}
-
 TEST_F(CrosNetworkFunctionsTest, CrosMonitorSMS) {
   const std::string dbus_connection = ":1.1";
   const dbus::ObjectPath object_path("/object/path");
   base::DictionaryValue device_properties;
   device_properties.SetWithoutPathExpansion(
       flimflam::kDBusConnectionProperty,
-      base::Value::CreateStringValue(dbus_connection));
+      new base::StringValue(dbus_connection));
   device_properties.SetWithoutPathExpansion(
       flimflam::kDBusObjectProperty,
-      base::Value::CreateStringValue(object_path.value()));
+      new base::StringValue(object_path.value()));
 
   const std::string number = "0123456789";
   const std::string text = "Hello.";
@@ -473,14 +351,14 @@ TEST_F(CrosNetworkFunctionsTest, CrosMonitorSMS) {
   const bool kComplete = true;
   base::DictionaryValue* sms_dictionary = new base::DictionaryValue;
   sms_dictionary->SetWithoutPathExpansion(
-      SMSWatcher::kNumberKey, base::Value::CreateStringValue(number));
+      SMSWatcher::kNumberKey, new base::StringValue(number));
   sms_dictionary->SetWithoutPathExpansion(
-      SMSWatcher::kTextKey, base::Value::CreateStringValue(text));
+      SMSWatcher::kTextKey, new base::StringValue(text));
   sms_dictionary->SetWithoutPathExpansion(
       SMSWatcher::kTimestampKey,
-      base::Value::CreateStringValue(timestamp_string));
+      new base::StringValue(timestamp_string));
   sms_dictionary->SetWithoutPathExpansion(SMSWatcher::kSmscKey,
-                                         base::Value::CreateStringValue(smsc));
+                                         new base::StringValue(smsc));
   sms_dictionary->SetWithoutPathExpansion(
       SMSWatcher::kValidityKey, base::Value::CreateDoubleValue(kValidity));
   sms_dictionary->SetWithoutPathExpansion(
@@ -563,8 +441,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkManagerProperties) {
   const std::string value2 = "value2";
   // Create result value.
   base::DictionaryValue result;
-  result.SetWithoutPathExpansion(key1, base::Value::CreateStringValue(value1));
-  result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
+  result.SetWithoutPathExpansion(key1, new base::StringValue(value1));
+  result.SetWithoutPathExpansion(key2, new base::StringValue(value2));
   // Set expectations.
   dictionary_value_result_ = &result;
   EXPECT_CALL(*mock_manager_client_,
@@ -585,8 +463,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkServiceProperties) {
   const std::string value2 = "value2";
   // Create result value.
   base::DictionaryValue result;
-  result.SetWithoutPathExpansion(key1, base::Value::CreateStringValue(value1));
-  result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
+  result.SetWithoutPathExpansion(key1, new base::StringValue(value1));
+  result.SetWithoutPathExpansion(key2, new base::StringValue(value2));
   // Set expectations.
   dictionary_value_result_ = &result;
   EXPECT_CALL(*mock_service_client_,
@@ -606,8 +484,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkDeviceProperties) {
   const std::string value2 = "value2";
   // Create result value.
   base::DictionaryValue result;
-  result.SetWithoutPathExpansion(key1, base::Value::CreateStringValue(value1));
-  result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
+  result.SetWithoutPathExpansion(key1, new base::StringValue(value1));
+  result.SetWithoutPathExpansion(key2, new base::StringValue(value2));
   // Set expectations.
   dictionary_value_result_ = &result;
   EXPECT_CALL(*mock_device_client_,
@@ -627,8 +505,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkProfileProperties) {
   const std::string value2 = "value2";
   // Create result value.
   base::DictionaryValue result;
-  result.SetWithoutPathExpansion(key1, base::Value::CreateStringValue(value1));
-  result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
+  result.SetWithoutPathExpansion(key1, new base::StringValue(value1));
+  result.SetWithoutPathExpansion(key2, new base::StringValue(value2));
   // Set expectations.
   dictionary_value_result_ = &result;
   EXPECT_CALL(
@@ -651,8 +529,8 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestNetworkProfileEntryProperties) {
   const std::string value2 = "value2";
   // Create result value.
   base::DictionaryValue result;
-  result.SetWithoutPathExpansion(key1, base::Value::CreateStringValue(value1));
-  result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
+  result.SetWithoutPathExpansion(key1, new base::StringValue(value1));
+  result.SetWithoutPathExpansion(key2, new base::StringValue(value2));
   // Set expectations.
   dictionary_value_result_ = &result;
   EXPECT_CALL(*mock_profile_client_,
@@ -675,23 +553,23 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestHiddenWifiNetworkProperties) {
   const std::string value2 = "value2";
   // Create result value.
   base::DictionaryValue result;
-  result.SetWithoutPathExpansion(key1, base::Value::CreateStringValue(value1));
-  result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
+  result.SetWithoutPathExpansion(key1, new base::StringValue(value1));
+  result.SetWithoutPathExpansion(key2, new base::StringValue(value2));
   dictionary_value_result_ = &result;
   // Create expected argument to ShillManagerClient::GetService.
   base::DictionaryValue properties;
   properties.SetWithoutPathExpansion(
       flimflam::kModeProperty,
-      base::Value::CreateStringValue(flimflam::kModeManaged));
+      new base::StringValue(flimflam::kModeManaged));
   properties.SetWithoutPathExpansion(
       flimflam::kTypeProperty,
-      base::Value::CreateStringValue(flimflam::kTypeWifi));
+      new base::StringValue(flimflam::kTypeWifi));
   properties.SetWithoutPathExpansion(
       flimflam::kSSIDProperty,
-      base::Value::CreateStringValue(ssid));
+      new base::StringValue(ssid));
   properties.SetWithoutPathExpansion(
       flimflam::kSecurityProperty,
-      base::Value::CreateStringValue(security));
+      new base::StringValue(security));
   // Set expectations.
   const dbus::ObjectPath service_path("/service/path");
   ObjectPathCallback callback;
@@ -720,25 +598,25 @@ TEST_F(CrosNetworkFunctionsTest, CrosRequestVirtualNetworkProperties) {
   const std::string value2 = "value2";
   // Create result value.
   base::DictionaryValue result;
-  result.SetWithoutPathExpansion(key1, base::Value::CreateStringValue(value1));
-  result.SetWithoutPathExpansion(key2, base::Value::CreateStringValue(value2));
+  result.SetWithoutPathExpansion(key1, new base::StringValue(value1));
+  result.SetWithoutPathExpansion(key2, new base::StringValue(value2));
   dictionary_value_result_ = &result;
   // Create expected argument to ShillManagerClient::GetService.
   base::DictionaryValue properties;
   properties.SetWithoutPathExpansion(
-      flimflam::kTypeProperty, base::Value::CreateStringValue("vpn"));
+      flimflam::kTypeProperty, new base::StringValue("vpn"));
   properties.SetWithoutPathExpansion(
       flimflam::kProviderNameProperty,
-      base::Value::CreateStringValue(service_name));
+      new base::StringValue(service_name));
   properties.SetWithoutPathExpansion(
       flimflam::kProviderHostProperty,
-      base::Value::CreateStringValue(server_hostname));
+      new base::StringValue(server_hostname));
   properties.SetWithoutPathExpansion(
       flimflam::kProviderTypeProperty,
-      base::Value::CreateStringValue(provider_type));
+      new base::StringValue(provider_type));
   properties.SetWithoutPathExpansion(
       flimflam::kVPNDomainProperty,
-      base::Value::CreateStringValue(service_name));
+      new base::StringValue(service_name));
 
   // Set expectations.
   const dbus::ObjectPath service_path("/service/path");
@@ -901,7 +779,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosSetOfflineMode) {
   CrosSetOfflineMode(kOffline);
 }
 
-TEST_F(CrosNetworkFunctionsTest, CrosListIPConfigs) {
+TEST_F(CrosNetworkFunctionsTest, CrosListIPConfigsAndBlock) {
   const std::string device_path = "/device/path";
   std::string ipconfig_path = "/ipconfig/path";
 
@@ -920,24 +798,24 @@ TEST_F(CrosNetworkFunctionsTest, CrosListIPConfigs) {
   const std::string hardware_address = "hardware address";
 
   base::ListValue* ipconfigs = new base::ListValue;
-  ipconfigs->Append(base::Value::CreateStringValue(ipconfig_path));
+  ipconfigs->Append(new base::StringValue(ipconfig_path));
   base::DictionaryValue* device_properties = new base::DictionaryValue;
   device_properties->SetWithoutPathExpansion(
       flimflam::kIPConfigsProperty, ipconfigs);
   device_properties->SetWithoutPathExpansion(
       flimflam::kAddressProperty,
-      base::Value::CreateStringValue(hardware_address));
+      new base::StringValue(hardware_address));
 
   base::ListValue* name_servers_list = new base::ListValue;
-  name_servers_list->Append(base::Value::CreateStringValue(name_server1));
-  name_servers_list->Append(base::Value::CreateStringValue(name_server2));
+  name_servers_list->Append(new base::StringValue(name_server1));
+  name_servers_list->Append(new base::StringValue(name_server2));
   base::DictionaryValue* ipconfig_properties = new base::DictionaryValue;
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kMethodProperty,
-      base::Value::CreateStringValue(flimflam::kTypeDHCP));
+      new base::StringValue(flimflam::kTypeDHCP));
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kAddressProperty,
-      base::Value::CreateStringValue(address));
+      new base::StringValue(address));
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kMtuProperty,
       base::Value::CreateIntegerValue(kMtu));
@@ -946,16 +824,16 @@ TEST_F(CrosNetworkFunctionsTest, CrosListIPConfigs) {
       base::Value::CreateIntegerValue(kPrefixlen));
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kBroadcastProperty,
-      base::Value::CreateStringValue(broadcast));
+      new base::StringValue(broadcast));
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kPeerAddressProperty,
-      base::Value::CreateStringValue(peer_address));
+      new base::StringValue(peer_address));
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kGatewayProperty,
-      base::Value::CreateStringValue(gateway));
+      new base::StringValue(gateway));
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kDomainNameProperty,
-      base::Value::CreateStringValue(domainname));
+      new base::StringValue(domainname));
   ipconfig_properties->SetWithoutPathExpansion(
       flimflam::kNameServersProperty, name_servers_list);
 
@@ -970,8 +848,10 @@ TEST_F(CrosNetworkFunctionsTest, CrosListIPConfigs) {
   std::vector<std::string> result_ipconfig_paths;
   std::string result_hardware_address;
   EXPECT_TRUE(
-      CrosListIPConfigs(device_path, &result_ipconfigs, &result_ipconfig_paths,
-                        &result_hardware_address));
+      CrosListIPConfigsAndBlock(device_path,
+                                &result_ipconfigs,
+                                &result_ipconfig_paths,
+                                &result_hardware_address));
 
   EXPECT_EQ(hardware_address, result_hardware_address);
   ASSERT_EQ(1U, result_ipconfigs.size());
@@ -985,27 +865,10 @@ TEST_F(CrosNetworkFunctionsTest, CrosListIPConfigs) {
   EXPECT_EQ(ipconfig_path, result_ipconfig_paths[0]);
 }
 
-TEST_F(CrosNetworkFunctionsTest, CrosAddIPConfig) {
-  const std::string device_path = "/device/path";
-  const dbus::ObjectPath result_path("/result/path");
-  EXPECT_CALL(*mock_device_client_,
-              CallAddIPConfigAndBlock(dbus::ObjectPath(device_path),
-                                      flimflam::kTypeDHCP))
-      .WillOnce(Return(result_path));
-  EXPECT_TRUE(CrosAddIPConfig(device_path, IPCONFIG_TYPE_DHCP));
-}
-
-TEST_F(CrosNetworkFunctionsTest, CrosRemoveIPConfig) {
-  const std::string path = "/path";
-  EXPECT_CALL(*mock_ipconfig_client_,
-              CallRemoveAndBlock(dbus::ObjectPath(path))).Times(1);
-  CrosRemoveIPConfig(path);
-}
-
 TEST_F(CrosNetworkFunctionsTest, CrosGetWifiAccessPoints) {
   const std::string device_path = "/device/path";
   base::ListValue* devices = new base::ListValue;
-  devices->Append(base::Value::CreateStringValue(device_path));
+  devices->Append(new base::StringValue(device_path));
   base::DictionaryValue* manager_properties = new base::DictionaryValue;
   manager_properties->SetWithoutPathExpansion(
       flimflam::kDevicesProperty, devices);
@@ -1013,7 +876,7 @@ TEST_F(CrosNetworkFunctionsTest, CrosGetWifiAccessPoints) {
   const int kScanInterval = 42;
   const std::string network_path = "/network/path";
   base::ListValue* networks = new base::ListValue;
-  networks->Append(base::Value::CreateStringValue(network_path));
+  networks->Append(new base::StringValue(network_path));
   base::DictionaryValue* device_properties = new base::DictionaryValue;
   device_properties->SetWithoutPathExpansion(
       flimflam::kNetworksProperty, networks);
@@ -1034,9 +897,9 @@ TEST_F(CrosNetworkFunctionsTest, CrosGetWifiAccessPoints) {
 
   base::DictionaryValue* network_properties = new base::DictionaryValue;
   network_properties->SetWithoutPathExpansion(
-      flimflam::kAddressProperty, base::Value::CreateStringValue(address));
+      flimflam::kAddressProperty, new base::StringValue(address));
   network_properties->SetWithoutPathExpansion(
-      flimflam::kNameProperty, base::Value::CreateStringValue(name));
+      flimflam::kNameProperty, new base::StringValue(name));
   network_properties->SetWithoutPathExpansion(
       flimflam::kSignalStrengthProperty,
       base::Value::CreateIntegerValue(kSignalStrength));

@@ -13,11 +13,17 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_observer.h"
+#include "content/public/browser/overscroll_configuration.h"
 #include "ui/base/gestures/gesture_configuration.h"
 
 using ui::GestureConfiguration;
 
 namespace {
+
+struct OverscrollPref {
+  const char* pref_name;
+  content::OverscrollConfig config;
+};
 
 // This class manages gesture configuration preferences.
 class GesturePrefsObserver : public PrefObserver,
@@ -25,6 +31,26 @@ class GesturePrefsObserver : public PrefObserver,
  public:
   explicit GesturePrefsObserver(PrefService* prefs);
   virtual ~GesturePrefsObserver();
+
+  static const OverscrollPref* GetOverscrollPrefs() {
+    using namespace content;
+    static OverscrollPref overscroll_prefs[] = {
+      { prefs::kOverscrollHorizontalThresholdComplete,
+        OVERSCROLL_CONFIG_HORIZ_THRESHOLD_COMPLETE },
+      { prefs::kOverscrollVerticalThresholdComplete,
+        OVERSCROLL_CONFIG_VERT_THRESHOLD_COMPLETE },
+      { prefs::kOverscrollMinimumThresholdStart,
+        OVERSCROLL_CONFIG_MIN_THRESHOLD_START },
+      { prefs::kOverscrollHorizontalResistThreshold,
+        OVERSCROLL_CONFIG_HORIZ_RESIST_AFTER },
+      { prefs::kOverscrollVerticalResistThreshold,
+        OVERSCROLL_CONFIG_VERT_RESIST_AFTER },
+      { NULL,
+        OVERSCROLL_CONFIG_NONE },
+    };
+
+    return overscroll_prefs;
+  }
 
   // ProfileKeyedService implementation.
   virtual void Shutdown() OVERRIDE;
@@ -36,6 +62,8 @@ class GesturePrefsObserver : public PrefObserver,
  private:
   void Update();
 
+  void UpdateOverscrollPrefs();
+
   PrefChangeRegistrar registrar_;
   PrefService* prefs_;
 
@@ -46,6 +74,11 @@ class GesturePrefsObserver : public PrefObserver,
 // Note that this collection of settings should correspond to the settings used
 // in ui/base/gestures/gesture_configuration.h
 const char* kPrefsToObserve[] = {
+  prefs::kFlingAccelerationCurveCoefficient0,
+  prefs::kFlingAccelerationCurveCoefficient1,
+  prefs::kFlingAccelerationCurveCoefficient2,
+  prefs::kFlingAccelerationCurveCoefficient3,
+  prefs::kFlingVelocityCap,
   prefs::kLongPressTimeInSeconds,
   prefs::kMaxDistanceForTwoFingerTapInPixels,
   prefs::kMaxSecondsBetweenDoubleClick,
@@ -64,7 +97,14 @@ const char* kPrefsToObserve[] = {
   prefs::kRailBreakProportion,
   prefs::kRailStartProportion,
   prefs::kSemiLongPressTimeInSeconds,
-  prefs::kTouchScreenFlingAccelerationAdjustment,
+};
+
+const char* kOverscrollPrefs[] = {
+  prefs::kOverscrollHorizontalThresholdComplete,
+  prefs::kOverscrollVerticalThresholdComplete,
+  prefs::kOverscrollMinimumThresholdStart,
+  prefs::kOverscrollHorizontalResistThreshold,
+  prefs::kOverscrollVerticalResistThreshold,
 };
 
 GesturePrefsObserver::GesturePrefsObserver(PrefService* prefs)
@@ -73,6 +113,8 @@ GesturePrefsObserver::GesturePrefsObserver(PrefService* prefs)
   registrar_.RemoveAll();
   for (size_t i = 0; i < arraysize(kPrefsToObserve); ++i)
     registrar_.Add(kPrefsToObserve[i], this);
+  for (size_t i = 0; i < arraysize(kOverscrollPrefs); ++i)
+    registrar_.Add(kOverscrollPrefs[i], this);
 }
 
 GesturePrefsObserver::~GesturePrefsObserver() {}
@@ -87,6 +129,16 @@ void GesturePrefsObserver::OnPreferenceChanged(PrefServiceBase* service,
 }
 
 void GesturePrefsObserver::Update() {
+  GestureConfiguration::set_fling_acceleration_curve_coefficients(0,
+      prefs_->GetDouble(prefs::kFlingAccelerationCurveCoefficient0));
+  GestureConfiguration::set_fling_acceleration_curve_coefficients(1,
+      prefs_->GetDouble(prefs::kFlingAccelerationCurveCoefficient1));
+  GestureConfiguration::set_fling_acceleration_curve_coefficients(2,
+      prefs_->GetDouble(prefs::kFlingAccelerationCurveCoefficient2));
+  GestureConfiguration::set_fling_acceleration_curve_coefficients(3,
+      prefs_->GetDouble(prefs::kFlingAccelerationCurveCoefficient3));
+  GestureConfiguration::set_fling_velocity_cap(
+      prefs_->GetDouble(prefs::kFlingVelocityCap));
   GestureConfiguration::set_long_press_time_in_seconds(
       prefs_->GetDouble(
           prefs::kLongPressTimeInSeconds));
@@ -144,9 +196,17 @@ void GesturePrefsObserver::Update() {
   GestureConfiguration::set_rail_start_proportion(
       prefs_->GetDouble(
           prefs::kRailStartProportion));
-  GestureConfiguration::set_touchscreen_fling_acceleration_adjustment(
-      prefs_->GetDouble(
-          prefs::kTouchScreenFlingAccelerationAdjustment));
+
+  UpdateOverscrollPrefs();
+}
+
+void GesturePrefsObserver::UpdateOverscrollPrefs() {
+  const OverscrollPref* overscroll_prefs =
+      GesturePrefsObserver::GetOverscrollPrefs();
+  for (int i = 0; overscroll_prefs[i].pref_name; ++i) {
+    content::SetOverscrollConfig(overscroll_prefs[i].config,
+        static_cast<float>(prefs_->GetDouble(overscroll_prefs[i].pref_name)));
+  }
 }
 
 }  // namespace
@@ -168,7 +228,40 @@ ProfileKeyedService* GesturePrefsObserverFactoryAura::BuildServiceInstanceFor(
   return new GesturePrefsObserver(profile->GetPrefs());
 }
 
+void GesturePrefsObserverFactoryAura::RegisterOverscrollPrefs(
+    PrefService* prefs) {
+  const OverscrollPref* overscroll_prefs =
+      GesturePrefsObserver::GetOverscrollPrefs();
+
+  for (int i = 0; overscroll_prefs[i].pref_name; ++i) {
+    prefs->RegisterDoublePref(
+        overscroll_prefs[i].pref_name,
+        content::GetOverscrollConfig(overscroll_prefs[i].config),
+        PrefService::UNSYNCABLE_PREF);
+  }
+}
+
 void GesturePrefsObserverFactoryAura::RegisterUserPrefs(PrefService* prefs) {
+  prefs->RegisterDoublePref(
+      prefs::kFlingAccelerationCurveCoefficient0,
+      GestureConfiguration::fling_acceleration_curve_coefficients(0),
+      PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterDoublePref(
+      prefs::kFlingAccelerationCurveCoefficient1,
+      GestureConfiguration::fling_acceleration_curve_coefficients(1),
+      PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterDoublePref(
+      prefs::kFlingAccelerationCurveCoefficient2,
+      GestureConfiguration::fling_acceleration_curve_coefficients(2),
+      PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterDoublePref(
+      prefs::kFlingAccelerationCurveCoefficient3,
+      GestureConfiguration::fling_acceleration_curve_coefficients(3),
+      PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterDoublePref(
+      prefs::kFlingVelocityCap,
+      GestureConfiguration::fling_velocity_cap(),
+      PrefService::UNSYNCABLE_PREF);
   prefs->RegisterDoublePref(
       prefs::kLongPressTimeInSeconds,
       GestureConfiguration::long_press_time_in_seconds(),
@@ -245,10 +338,16 @@ void GesturePrefsObserverFactoryAura::RegisterUserPrefs(PrefService* prefs) {
       prefs::kRailStartProportion,
       GestureConfiguration::rail_start_proportion(),
       PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterDoublePref(
-      prefs::kTouchScreenFlingAccelerationAdjustment,
-      GestureConfiguration::touchscreen_fling_acceleration_adjustment(),
-      PrefService::UNSYNCABLE_PREF);
+
+  // TODO(rjkroege): Remove this in M29. http://crbug.com/160243.
+  const char kTouchScreenFlingAccelerationAdjustment[] =
+      "gesture.touchscreen_fling_acceleration_adjustment";
+  prefs->RegisterDoublePref(kTouchScreenFlingAccelerationAdjustment,
+                            0.0,
+                            PrefService::UNSYNCABLE_PREF);
+  prefs->ClearPref(kTouchScreenFlingAccelerationAdjustment);
+
+  RegisterOverscrollPrefs(prefs);
 }
 
 bool GesturePrefsObserverFactoryAura::ServiceIsCreatedWithProfile() const {

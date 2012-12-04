@@ -25,6 +25,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/pepper_plugin_info.h"
 #include "content/public/common/url_constants.h"
+#include "extensions/common/constants.h"
 #include "grit/common_resources.h"
 #include "ppapi/shared_impl/ppapi_permissions.h"
 #include "remoting/client/plugin/pepper_entrypoints.h"
@@ -33,6 +34,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/plugins/plugin_constants.h"
+#include "webkit/plugins/plugin_switches.h"
 #include "webkit/user_agent/user_agent_util.h"
 
 #include "flapper_version.h"  // In SHARED_INTERMEDIATE_DIR.
@@ -104,6 +106,8 @@ const char kRemotingViewerPluginMimeType[] =
     "application/vnd.chromium.remoting-viewer";
 const char kRemotingViewerPluginMimeExtension[] = "";
 const char kRemotingViewerPluginMimeDescription[] = "";
+const uint32 kRemotingViewerPluginPermissions = ppapi::PERMISSION_PRIVATE |
+                                                ppapi::PERMISSION_DEV;
 #endif  // defined(ENABLE_REMOTING)
 
 const char kInterposeLibraryPath[] =
@@ -230,6 +234,7 @@ void ComputeBuiltInPlugins(std::vector<content::PepperPluginInfo>* plugins) {
 #if defined(ENABLE_REMOTING)
   content::PepperPluginInfo info;
   info.is_internal = true;
+  info.is_out_of_process = true;
   info.name = kRemotingViewerPluginName;
   info.description = kRemotingViewerPluginDescription;
   info.path = FilePath(kRemotingViewerPluginPath);
@@ -242,6 +247,7 @@ void ComputeBuiltInPlugins(std::vector<content::PepperPluginInfo>* plugins) {
   info.internal_entry_points.initialize_module =
       remoting::PPP_InitializeModule;
   info.internal_entry_points.shutdown_module = remoting::PPP_ShutdownModule;
+  info.permissions = kRemotingViewerPluginPermissions;
 
   plugins->push_back(info);
 #endif
@@ -308,14 +314,22 @@ void AddPepperFlashFromCommandLine(
 
 bool GetBundledPepperFlash(content::PepperPluginInfo* plugin,
                            bool* override_npapi_flash) {
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(switches::kDisablePepperThreading) &&
+      !command_line->HasSwitch(switches::kEnablePepperThreading)) {
+    chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
+    if (channel == chrome::VersionInfo::CHANNEL_CANARY)
+      command_line->AppendSwitch(switches::kEnablePepperThreading);
+  }
+
 #if defined(FLAPPER_AVAILABLE)
   // Ignore bundled Pepper Flash if there is Pepper Flash specified from the
   // command-line.
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kPpapiFlashPath))
+  if (command_line->HasSwitch(switches::kPpapiFlashPath))
     return false;
 
-  bool force_disable = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kDisableBundledPpapiFlash);
+  bool force_disable =
+      command_line->HasSwitch(switches::kDisableBundledPpapiFlash);
   if (force_disable)
     return false;
 
@@ -329,8 +343,8 @@ bool GetBundledPepperFlash(content::PepperPluginInfo* plugin,
   if (!PathService::Get(chrome::FILE_PEPPER_FLASH_PLUGIN, &flash_path))
     return false;
 
-  bool force_enable = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableBundledPpapiFlash);
+  bool force_enable =
+      command_line->HasSwitch(switches::kEnableBundledPpapiFlash);
 
   *plugin = CreatePepperFlashInfo(flash_path, FLAPPER_VERSION_STRING);
   *override_npapi_flash = force_enable || IsPepperFlashEnabledByDefault();
@@ -379,8 +393,8 @@ void ChromeContentClient::AddNPAPIPlugins(
 void ChromeContentClient::AddAdditionalSchemes(
     std::vector<std::string>* standard_schemes,
     std::vector<std::string>* savable_schemes) {
-  standard_schemes->push_back(kExtensionScheme);
-  savable_schemes->push_back(kExtensionScheme);
+  standard_schemes->push_back(extensions::kExtensionScheme);
+  savable_schemes->push_back(extensions::kExtensionScheme);
   standard_schemes->push_back(kExtensionResourceScheme);
   savable_schemes->push_back(kExtensionResourceScheme);
 #if defined(OS_CHROMEOS)

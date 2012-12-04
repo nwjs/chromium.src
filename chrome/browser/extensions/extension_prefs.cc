@@ -23,10 +23,10 @@
 #include "chrome/common/extensions/manifest.h"
 #include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/extensions/permissions/permissions_info.h"
-#include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/notification_service.h"
+#include "extensions/common/url_pattern.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -343,27 +343,54 @@ bool IsBlacklistBitSet(const DictionaryValue* ext) {
 
 }  // namespace
 
-ExtensionPrefs::ExtensionPrefs(
+//
+// TimeProvider
+//
+
+ExtensionPrefs::TimeProvider::TimeProvider() {
+}
+
+ExtensionPrefs::TimeProvider::~TimeProvider() {
+}
+
+base::Time ExtensionPrefs::TimeProvider::GetCurrentTime() const {
+  return base::Time::Now();
+}
+
+//
+// ExtensionPrefs
+//
+
+// static
+scoped_ptr<ExtensionPrefs> ExtensionPrefs::Create(
     PrefService* prefs,
     const FilePath& root_dir,
-    ExtensionPrefValueMap* extension_pref_value_map)
-    : prefs_(prefs),
-      install_directory_(root_dir),
-      extension_pref_value_map_(extension_pref_value_map),
-      ALLOW_THIS_IN_INITIALIZER_LIST(extension_sorting_(
-          new ExtensionSorting(this, prefs))),
-      content_settings_store_(new ContentSettingsStore()) {
+    ExtensionPrefValueMap* extension_pref_value_map,
+    bool extensions_disabled) {
+  return ExtensionPrefs::Create(prefs,
+                                root_dir,
+                                extension_pref_value_map,
+                                extensions_disabled,
+                                make_scoped_ptr(new TimeProvider()));
+}
+
+// static
+scoped_ptr<ExtensionPrefs> ExtensionPrefs::Create(
+    PrefService* pref_service,
+    const FilePath& root_dir,
+    ExtensionPrefValueMap* extension_pref_value_map,
+    bool extensions_disabled,
+    scoped_ptr<TimeProvider> time_provider) {
+  scoped_ptr<ExtensionPrefs> prefs(
+      new ExtensionPrefs(pref_service,
+                         root_dir,
+                         extension_pref_value_map,
+                         time_provider.Pass()));
+  prefs->Init(extensions_disabled);
+  return prefs.Pass();
 }
 
 ExtensionPrefs::~ExtensionPrefs() {
-}
-
-void ExtensionPrefs::Init(bool extensions_disabled) {
-  MakePathsRelative();
-
-  InitPrefStore(extensions_disabled);
-
-  content_settings_store_->AddObserver(this);
 }
 
 // static
@@ -670,40 +697,6 @@ void ExtensionPrefs::SetAppNotificationDisabled(
                       Value::CreateBooleanValue(value));
 }
 
-std::string ExtensionPrefs::GetDebugPolicyProviderName() const {
-#ifdef NDEBUG
-  NOTREACHED();
-  return std::string();
-#else
-  return "admin policy black/white/forcelist, via the ExtensionPrefs";
-#endif
-}
-
-bool ExtensionPrefs::UserMayLoad(const Extension* extension,
-                                 string16* error) const {
-  const DictionaryValue* ext_prefs = GetExtensionPref(extension->id());
-  bool is_google_blacklisted = ext_prefs && IsBlacklistBitSet(ext_prefs);
-
-  const base::ListValue* blacklist =
-      prefs_->GetList(prefs::kExtensionInstallDenyList);
-  const base::ListValue* whitelist =
-      prefs_->GetList(prefs::kExtensionInstallAllowList);
-  const base::ListValue* forcelist =
-      prefs_->GetList(prefs::kExtensionInstallForceList);
-  return admin_policy::UserMayLoad(is_google_blacklisted, blacklist, whitelist,
-                                   forcelist, extension, error);
-}
-
-bool ExtensionPrefs::UserMayModifySettings(const Extension* extension,
-                                           string16* error) const {
-  return admin_policy::UserMayModifySettings(extension, error);
-}
-
-bool ExtensionPrefs::MustRemainEnabled(const Extension* extension,
-                                       string16* error) const {
-  return admin_policy::MustRemainEnabled(extension, error);
-}
-
 bool ExtensionPrefs::ExtensionsBlacklistedByDefault() const {
   return admin_policy::BlacklistedByDefault(
       prefs_->GetList(prefs::kExtensionInstallDenyList));
@@ -807,6 +800,11 @@ void ExtensionPrefs::UpdateBlacklist(
   for (size_t i = 0; i < remove_pref_ids.size(); ++i) {
     DeleteExtensionPrefs(remove_pref_ids[i]);
   }
+}
+
+bool ExtensionPrefs::IsExtensionBlacklisted(const std::string& id) const {
+  const DictionaryValue* ext_prefs = GetExtensionPref(id);
+  return ext_prefs && IsBlacklistBitSet(ext_prefs);
 }
 
 namespace {
@@ -1201,12 +1199,12 @@ bool ExtensionPrefs::HasAllowFileAccessSetting(
 }
 
 ExtensionPrefs::LaunchType ExtensionPrefs::GetLaunchType(
-    const std::string& extension_id,
+    const Extension* extension,
     ExtensionPrefs::LaunchType default_pref_value) {
   int value = -1;
   LaunchType result = LAUNCH_REGULAR;
 
-  if (ReadExtensionPrefInteger(extension_id, kPrefLaunchType, &value) &&
+  if (ReadExtensionPrefInteger(extension->id(), kPrefLaunchType, &value) &&
      (value == LAUNCH_PINNED ||
       value == LAUNCH_REGULAR ||
       value == LAUNCH_FULLSCREEN ||
@@ -1219,7 +1217,7 @@ ExtensionPrefs::LaunchType ExtensionPrefs::GetLaunchType(
     // App windows are not yet supported on mac.  Pref sync could make
     // the launch type LAUNCH_WINDOW, even if there is no UI to set it
     // on mac.
-    if (result == LAUNCH_WINDOW)
+    if (!extension->is_platform_app() && result == LAUNCH_WINDOW)
       result = LAUNCH_REGULAR;
   #endif
 
@@ -1253,7 +1251,7 @@ extension_misc::LaunchContainer ExtensionPrefs::GetLaunchContainer(
     // this preference.  If no preference is set, |default_pref_value|
     // is used.
     ExtensionPrefs::LaunchType prefs_launch_type =
-        GetLaunchType(extension->id(), default_pref_value);
+        GetLaunchType(extension, default_pref_value);
 
     if (prefs_launch_type == ExtensionPrefs::LAUNCH_WINDOW) {
       // If the pref is set to launch a window (or no pref is set, and
@@ -1463,8 +1461,14 @@ void ExtensionPrefs::OnExtensionInstalled(
   CHECK(Extension::IdIsValid(id));
   ScopedExtensionPrefUpdate update(prefs_, id);
   DictionaryValue* extension_dict = update.Get();
-  const base::Time install_time = GetCurrentTime();
-  extension_dict->Set(kPrefState, Value::CreateIntegerValue(initial_state));
+  const base::Time install_time = time_provider_->GetCurrentTime();
+
+  // Leave the state blank for component extensions so that old chrome versions
+  // loading new profiles do not fail in GetInstalledExtensionInfo. Older
+  // Chrome versions would only check for an omitted state.
+  if (initial_state != Extension::ENABLED_COMPONENT)
+    extension_dict->Set(kPrefState, Value::CreateIntegerValue(initial_state));
+
   extension_dict->Set(kPrefLocation,
                       Value::CreateIntegerValue(extension->location()));
   extension_dict->Set(kPrefCreationFlags,
@@ -1653,13 +1657,14 @@ scoped_ptr<ExtensionInfo> ExtensionPrefs::GetInstalledExtensionInfo(
       !extensions->GetDictionaryWithoutPathExpansion(extension_id, &ext))
     return scoped_ptr<ExtensionInfo>();
   if (IsBlacklistBitSet(ext))
-      return scoped_ptr<ExtensionInfo>();
+    return scoped_ptr<ExtensionInfo>();
   int state_value;
-  if (!ext->GetInteger(kPrefState, &state_value)) {
-    // This can legitimately happen if we store preferences for component
-    // extensions.
+  if (!ext->GetInteger(kPrefState, &state_value) ||
+      state_value == Extension::ENABLED_COMPONENT) {
+    // Old preferences files may not have kPrefState for component extensions.
     return scoped_ptr<ExtensionInfo>();
   }
+
   if (state_value == Extension::EXTERNAL_EXTENSION_UNINSTALLED) {
     LOG(WARNING) << "External extension with id " << extension_id
                  << " has been uninstalled by the user";
@@ -1724,7 +1729,7 @@ scoped_ptr<ExtensionPrefs::ExtensionsInfo>
 void ExtensionPrefs::SetIdleInstallInfo(
     const Extension* extension,
     Extension::State initial_state) {
-  const base::Time install_time = GetCurrentTime();
+  const base::Time install_time = time_provider_->GetCurrentTime();
   DictionaryValue* extension_dict = new DictionaryValue();
   extension_dict->Set(kPrefState, Value::CreateIntegerValue(initial_state));
   extension_dict->Set(kPrefLocation,
@@ -1766,7 +1771,7 @@ bool ExtensionPrefs::FinishIdleInstallInfo(const std::string& extension_id) {
   if (!extension_dict->GetDictionary(kIdleInstallInfo, &update_dict))
     return false;
 
-  const base::Time install_time = GetCurrentTime();
+  const base::Time install_time = time_provider_->GetCurrentTime();
   extension_dict->MergeDictionary(update_dict);
   extension_dict->Set(kPrefInstallTime,
                       Value::CreateStringValue(
@@ -1905,10 +1910,6 @@ std::string ExtensionPrefs::GetUpdateUrlData(const std::string& extension_id) {
   return data;
 }
 
-base::Time ExtensionPrefs::GetCurrentTime() const {
-  return base::Time::Now();
-}
-
 void ExtensionPrefs::OnContentSettingChanged(
     const std::string& extension_id,
     bool incognito) {
@@ -2032,7 +2033,7 @@ void ExtensionPrefs::FixMissingPrefs(const ExtensionIdList& extension_ids) {
                 << *ext_id << ". It was probably installed before setting "
                 << kPrefInstallTime << " was introduced. Updating "
                 << kPrefInstallTime << " to the current time.";
-      const base::Time install_time = GetCurrentTime();
+      const base::Time install_time = time_provider_->GetCurrentTime();
       UpdateExtensionPref(*ext_id, kPrefInstallTime, Value::CreateStringValue(
           base::Int64ToString(install_time.ToInternalValue())));
     }
@@ -2236,6 +2237,28 @@ URLPatternSet ExtensionPrefs::GetAllowedInstallSites() {
   }
 
   return result;
+}
+
+ExtensionPrefs::ExtensionPrefs(
+    PrefService* prefs,
+    const FilePath& root_dir,
+    ExtensionPrefValueMap* extension_pref_value_map,
+    scoped_ptr<TimeProvider> time_provider)
+    : prefs_(prefs),
+      install_directory_(root_dir),
+      extension_pref_value_map_(extension_pref_value_map),
+      ALLOW_THIS_IN_INITIALIZER_LIST(extension_sorting_(
+          new ExtensionSorting(this, prefs))),
+      content_settings_store_(new ContentSettingsStore()),
+      time_provider_(time_provider.Pass()) {
+}
+
+void ExtensionPrefs::Init(bool extensions_disabled) {
+  MakePathsRelative();
+
+  InitPrefStore(extensions_disabled);
+
+  content_settings_store_->AddObserver(this);
 }
 
 // static

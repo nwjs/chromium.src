@@ -13,6 +13,7 @@
 #include "base/string_number_conversions.h"
 #include "content/browser/renderer_host/backing_store_aura.h"
 #include "content/browser/renderer_host/dip_util.h"
+#include "content/browser/renderer_host/overscroll_controller.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/ui_events_helper.h"
@@ -30,11 +31,11 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/cursor_client.h"
+#include "ui/aura/client/focus_client.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/client/stacking_client.h"
 #include "ui/aura/client/tooltip_client.h"
 #include "ui/aura/client/window_types.h"
-#include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
@@ -50,6 +51,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/display.h"
+#include "ui/gfx/rect_conversions.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/skia_util.h"
 
@@ -156,9 +158,7 @@ void GetScreenInfoForWindow(WebScreenInfo* results, aura::Window* window) {
   // TODO(derat|oshima): Don't hardcode this. Get this from display object.
   results->depth = 24;
   results->depthPerComponent = 8;
-  int default_dpi = display.device_scale_factor() * 160;
-  results->verticalDPI = default_dpi;
-  results->horizontalDPI = default_dpi;
+  results->deviceScaleFactor = display.device_scale_factor();
 }
 
 bool ShouldSendPinchGesture() {
@@ -173,6 +173,19 @@ bool ShouldReleaseFrontSurface() {
       CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableUIReleaseFrontSurface);
   return release_front_surface_allowed;
+}
+
+bool PointerEventActivates(const ui::Event& event) {
+  if (event.type() == ui::ET_MOUSE_PRESSED)
+    return true;
+
+  if (event.type() == ui::ET_GESTURE_BEGIN) {
+    const ui::GestureEvent& gesture =
+        static_cast<const ui::GestureEvent&>(event);
+    return gesture.details().touch_points() == 1;
+  }
+
+  return false;
 }
 
 }  // namespace
@@ -291,11 +304,7 @@ RenderWidgetHostViewAura::RenderWidgetHostViewAura(RenderWidgetHost* host)
   window_->AddObserver(window_observer_.get());
   aura::client::SetTooltipText(window_, &tooltip_);
   aura::client::SetActivationDelegate(window_, this);
-  aura::DisplayManager* display_manager =
-      aura::Env::GetInstance()->display_manager();
-  // display_manager can be NULL in tests.
-  if (display_manager)
-    display_manager->AddObserver(this);
+  gfx::Screen::GetScreenFor(window_)->AddObserver(this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -309,26 +318,38 @@ void RenderWidgetHostViewAura::InitAsChild(
 
 void RenderWidgetHostViewAura::InitAsPopup(
     RenderWidgetHostView* parent_host_view,
-    const gfx::Rect& bounds_in_display) {
+    const gfx::Rect& bounds_in_screen) {
   popup_parent_host_view_ =
       static_cast<RenderWidgetHostViewAura*>(parent_host_view);
+
+  RenderWidgetHostViewAura* old_child =
+      popup_parent_host_view_->popup_child_host_view_;
+  if (old_child) {
+    // TODO(jhorwich): Allow multiple popup_child_host_view_ per view, or
+    // similar mechanism to ensure a second popup doesn't cause the first one
+    // to never get a chance to filter events. See crbug.com/160589.
+    DCHECK(old_child->popup_parent_host_view_ == popup_parent_host_view_);
+    old_child->popup_parent_host_view_ = NULL;
+  }
   popup_parent_host_view_->popup_child_host_view_ = this;
   window_->SetType(aura::client::WINDOW_TYPE_MENU);
   window_->Init(ui::LAYER_TEXTURED);
   window_->SetName("RenderWidgetHostViewAura");
 
-  aura::Window* parent = NULL;
   aura::RootWindow* root = popup_parent_host_view_->window_->GetRootWindow();
+  window_->SetDefaultParentByRootWindow(root, bounds_in_screen);
+
+  // TODO(erg): While I could make sure details of the StackingClient are
+  // hidden behind aura, hiding the details of the ScreenPositionClient will
+  // take another effort.
   aura::client::ScreenPositionClient* screen_position_client =
       aura::client::GetScreenPositionClient(root);
+  gfx::Point origin_in_parent(bounds_in_screen.origin());
   if (screen_position_client) {
-    gfx::Point origin_in_screen(bounds_in_display.origin());
-    screen_position_client->ConvertPointToScreen(root, &origin_in_screen);
-    parent = aura::client::GetStackingClient()->GetDefaultParent(
-        window_, gfx::Rect(origin_in_screen, bounds_in_display.size()));
+    screen_position_client->ConvertPointFromScreen(
+        window_->parent(), &origin_in_parent);
   }
-  window_->SetParent(parent);
-  SetBounds(bounds_in_display);
+  SetBounds(gfx::Rect(origin_in_parent, bounds_in_screen.size()));
   Show();
 }
 
@@ -339,7 +360,9 @@ void RenderWidgetHostViewAura::InitAsFullscreen(
   window_->Init(ui::LAYER_TEXTURED);
   window_->SetName("RenderWidgetHostViewAura");
   window_->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_FULLSCREEN);
-  aura::Window* parent = NULL;
+
+  aura::RootWindow* parent = NULL;
+  gfx::Rect bounds;
   if (reference_host_view) {
     aura::Window* reference_window =
         static_cast<RenderWidgetHostViewAura*>(reference_host_view)->window_;
@@ -349,12 +372,11 @@ void RenderWidgetHostViewAura::InitAsFullscreen(
     }
     gfx::Display display = gfx::Screen::GetScreenFor(window_)->
         GetDisplayNearestWindow(reference_window);
-    aura::client::StackingClient* stacking_client =
-        aura::client::GetStackingClient();
-    if (stacking_client)
-      parent = stacking_client->GetDefaultParent(window_, display.bounds());
+    parent = reference_window->GetRootWindow();
+    bounds = display.bounds();
   }
-  window_->SetParent(parent);
+  window_->SetDefaultParentByRootWindow(parent, bounds);
+
   Show();
   Focus();
 }
@@ -500,10 +522,11 @@ void RenderWidgetHostViewAura::MovePluginWindows(
 }
 
 void RenderWidgetHostViewAura::Focus() {
-  // Make sure we have a FocusManager before attempting to Focus(). In some
+  // Make sure we have a FocusClient before attempting to Focus(). In some
   // situations we may not yet be in a valid Window hierarchy (such as reloading
-  // after out of memory discared the tab).
-  if (window_->GetFocusManager())
+  // after out of memory discarded the tab).
+  aura::client::FocusClient* client = aura::client::GetFocusClient(window_);
+  if (client)
     window_->Focus();
 }
 
@@ -572,7 +595,8 @@ void RenderWidgetHostViewAura::ImeCompositionRangeChanged(
 }
 
 void RenderWidgetHostViewAura::DidUpdateBackingStore(
-    const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
+    const gfx::Rect& scroll_rect,
+    const gfx::Vector2d& scroll_delta,
     const std::vector<gfx::Rect>& copy_rects) {
   if (accelerated_compositing_state_changed_)
     UpdateExternalTexture();
@@ -590,7 +614,7 @@ void RenderWidgetHostViewAura::DidUpdateBackingStore(
   if (paint_canvas_) {
     SkRect sk_clip_rect;
     if (paint_canvas_->sk_canvas()->getClipBounds(&sk_clip_rect))
-      clip_rect = gfx::SkRectToRect(sk_clip_rect);
+      clip_rect = gfx::ToEnclosingRect(gfx::SkRectToRectF(sk_clip_rect));
   }
 
   if (!scroll_rect.IsEmpty())
@@ -1033,12 +1057,11 @@ void RenderWidgetHostViewAura::GetScreenInfo(WebScreenInfo* results) {
 }
 
 gfx::Rect RenderWidgetHostViewAura::GetBoundsInRootWindow() {
-  return window_->GetToplevelWindow()->GetBoundsInRootWindow();
+  return window_->GetToplevelWindow()->GetBoundsInScreen();
 }
 
 void RenderWidgetHostViewAura::ProcessAckedTouchEvent(
-    const WebKit::WebTouchEvent& touch_event,
-    bool processed) {
+    const WebKit::WebTouchEvent& touch_event, InputEventAckState ack_result) {
   ScopedVector<ui::TouchEvent> events;
   if (!MakeUITouchEventsFromWebTouchEvents(touch_event, &events))
     return;
@@ -1048,7 +1071,8 @@ void RenderWidgetHostViewAura::ProcessAckedTouchEvent(
   if (!root)
     return;
 
-  ui::EventResult result = processed ? ui::ER_HANDLED : ui::ER_UNHANDLED;
+  ui::EventResult result = (ack_result ==
+      INPUT_EVENT_ACK_STATE_CONSUMED) ? ui::ER_HANDLED : ui::ER_UNHANDLED;
   for (ScopedVector<ui::TouchEvent>::iterator iter = events.begin(),
       end = events.end(); iter != end; ++iter) {
     root->ProcessedTouchEvent((*iter), window_, result);
@@ -1302,7 +1326,7 @@ void RenderWidgetHostViewAura::ExtendSelectionAndDelete(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// RenderWidgetHostViewAura, aura::DisplayObserver implementation:
+// RenderWidgetHostViewAura, gfx::DisplayObserver implementation:
 
 void RenderWidgetHostViewAura::OnDisplayBoundsChanged(
     const gfx::Display& display) {
@@ -1324,6 +1348,10 @@ void RenderWidgetHostViewAura::OnDisplayRemoved(
 // RenderWidgetHostViewAura, aura::WindowDelegate implementation:
 
 gfx::Size RenderWidgetHostViewAura::GetMinimumSize() const {
+  return gfx::Size();
+}
+
+gfx::Size RenderWidgetHostViewAura::GetMaximumSize() const {
   return gfx::Size();
 }
 
@@ -1421,7 +1449,7 @@ void RenderWidgetHostViewAura::OnDeviceScaleFactorChanged(
     backing_store->ScaleFactorChanged(device_scale_factor);
 
   UpdateScreenInfo(window_);
-  host_->SetDeviceScaleFactor(device_scale_factor);
+  host_->NotifyScreenInfoChanged();
   current_cursor_.SetScaleFactor(device_scale_factor);
 }
 
@@ -1495,7 +1523,8 @@ ui::EventResult RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
     // Focus the window we were created from.
     if (host_tracker_.get() && !host_tracker_->windows().empty()) {
       aura::Window* host = *(host_tracker_->windows().begin());
-      if (host->GetFocusManager())
+      aura::client::FocusClient* client = aura::client::GetFocusClient(host);
+      if (client)
         host->Focus();
     }
     if (!in_shutdown_) {
@@ -1525,6 +1554,7 @@ ui::EventResult RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
 
 ui::EventResult RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnMouseEvent");
+
   if (mouse_locked_) {
     // Hide the cursor if someone else has shown it.
     aura::client::CursorClient* cursor_client =
@@ -1559,26 +1589,25 @@ ui::EventResult RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
     return ui::ER_UNHANDLED;
   }
 
+  // As the overscroll is handled during scroll events from the trackpad, the
+  // RWHVA window is transformed by the overscroll controller. This transform
+  // triggers a synthetic mouse-move event to be generated (by the aura
+  // RootWindow). But this event interferes with the overscroll gesture. So,
+  // ignore such synthetic mouse-move events if an overscroll gesture is in
+  // progress.
+  if (host_->overscroll_controller() &&
+      host_->overscroll_controller()->overscroll_mode() != OVERSCROLL_NONE &&
+      event->flags() & ui::EF_IS_SYNTHESIZED &&
+      (event->type() == ui::ET_MOUSE_ENTERED ||
+       event->type() == ui::ET_MOUSE_MOVED)) {
+    return ui::ER_CONSUMED;
+  }
+
   if (event->type() == ui::ET_MOUSEWHEEL) {
     WebKit::WebMouseWheelEvent mouse_wheel_event =
         MakeWebMouseWheelEvent(static_cast<ui::MouseWheelEvent*>(event));
     if (mouse_wheel_event.deltaX != 0 || mouse_wheel_event.deltaY != 0)
       host_->ForwardWheelEvent(mouse_wheel_event);
-  } else if (event->type() == ui::ET_SCROLL) {
-    WebKit::WebGestureEvent gesture_event =
-        MakeWebGestureEventFlingCancel();
-    host_->ForwardGestureEvent(gesture_event);
-    WebKit::WebMouseWheelEvent mouse_wheel_event =
-        MakeWebMouseWheelEvent(static_cast<ui::ScrollEvent*>(event));
-    host_->ForwardWheelEvent(mouse_wheel_event);
-    RecordAction(UserMetricsAction("TrackpadScroll"));
-  } else if (event->type() == ui::ET_SCROLL_FLING_START ||
-      event->type() == ui::ET_SCROLL_FLING_CANCEL) {
-    WebKit::WebGestureEvent gesture_event =
-        MakeWebGestureEvent(static_cast<ui::ScrollEvent*>(event));
-    host_->ForwardGestureEvent(gesture_event);
-    if (event->type() == ui::ET_SCROLL_FLING_START)
-      RecordAction(UserMetricsAction("TrackpadScrollFling"));
   } else if (CanRendererHandleEvent(event)) {
     WebKit::WebMouseEvent mouse_event = MakeWebMouseEvent(event);
     ModifyEventMovementAndCoords(&mouse_event);
@@ -1608,6 +1637,28 @@ ui::EventResult RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
   return ui::ER_HANDLED;
 }
 
+ui::EventResult RenderWidgetHostViewAura::OnScrollEvent(
+    ui::ScrollEvent* event) {
+  TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnScrollEvent");
+  if (event->type() == ui::ET_SCROLL) {
+    WebKit::WebGestureEvent gesture_event =
+        MakeWebGestureEventFlingCancel();
+    host_->ForwardGestureEvent(gesture_event);
+    WebKit::WebMouseWheelEvent mouse_wheel_event =
+        MakeWebMouseWheelEvent(static_cast<ui::ScrollEvent*>(event));
+    host_->ForwardWheelEvent(mouse_wheel_event);
+    RecordAction(UserMetricsAction("TrackpadScroll"));
+  } else if (event->type() == ui::ET_SCROLL_FLING_START ||
+      event->type() == ui::ET_SCROLL_FLING_CANCEL) {
+    WebKit::WebGestureEvent gesture_event =
+        MakeWebGestureEvent(static_cast<ui::ScrollEvent*>(event));
+    host_->ForwardGestureEvent(gesture_event);
+    if (event->type() == ui::ET_SCROLL_FLING_START)
+      RecordAction(UserMetricsAction("TrackpadScrollFling"));
+  }
+  return ui::ER_HANDLED;
+}
+
 ui::EventResult RenderWidgetHostViewAura::OnTouchEvent(ui::TouchEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnTouchEvent");
   // Update the touch event first.
@@ -1631,19 +1682,20 @@ ui::EventResult RenderWidgetHostViewAura::OnTouchEvent(ui::TouchEvent* event) {
   return result;
 }
 
-ui::EventResult RenderWidgetHostViewAura::OnGestureEvent(
-    ui::GestureEvent* event) {
+void RenderWidgetHostViewAura::OnGestureEvent(ui::GestureEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnGestureEvent");
   // Pinch gestures are currently disabled by default. See crbug.com/128477.
   if ((event->type() == ui::ET_GESTURE_PINCH_BEGIN ||
       event->type() == ui::ET_GESTURE_PINCH_UPDATE ||
       event->type() == ui::ET_GESTURE_PINCH_END) && !ShouldSendPinchGesture()) {
-    return ui::ER_CONSUMED;
+    event->SetHandled();
+    return;
   }
 
   RenderViewHostDelegate* delegate = NULL;
   if (popup_type_ == WebKit::WebPopupTypeNone && !is_fullscreen_)
     delegate = RenderViewHost::From(host_)->GetDelegate();
+
   if (delegate && event->type() == ui::ET_GESTURE_BEGIN &&
       event->details().touch_points() == 1) {
     delegate->HandleGestureBegin();
@@ -1676,33 +1728,24 @@ ui::EventResult RenderWidgetHostViewAura::OnGestureEvent(
   }
 
   // If a gesture is not processed by the webpage, then WebKit processes it
-  // (e.g. generates synthetic mouse events). So CONSUMED should be returned
-  // from here to avoid any duplicate synthetic mouse-events being generated
-  // from aura.
-  return ui::ER_CONSUMED;
+  // (e.g. generates synthetic mouse events).
+  event->SetHandled();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewAura, aura::client::ActivationDelegate implementation:
 
-bool RenderWidgetHostViewAura::ShouldActivate(const ui::Event* event) {
-  bool activate = false;
-  if (event) {
-    if (event->type() == ui::ET_MOUSE_PRESSED) {
-      activate = true;
-    } else if (event->type() == ui::ET_GESTURE_BEGIN) {
-      activate = static_cast<const ui::GestureEvent*>(event)->
-          details().touch_points() == 1;
-    }
-  } else {
+bool RenderWidgetHostViewAura::ShouldActivate() const {
+  const ui::Event* event = window_->GetRootWindow()->current_event();
+  if (!event)
     return true;
-  }
-  if (activate)
-    host_->OnPointerEventActivate();
   return is_fullscreen_;
 }
 
 void RenderWidgetHostViewAura::OnActivated() {
+  const ui::Event* event = window_->GetRootWindow()->current_event();
+  if (event && PointerEventActivates(*event))
+    host_->OnPointerEventActivate();
 }
 
 void RenderWidgetHostViewAura::OnLostActive() {
@@ -1777,16 +1820,18 @@ RenderWidgetHostViewAura::~RenderWidgetHostViewAura() {
   }
   window_->RemoveObserver(window_observer_.get());
   UnlockMouse();
-  if (popup_type_ != WebKit::WebPopupTypeNone) {
-    DCHECK(popup_parent_host_view_);
+  if (popup_type_ != WebKit::WebPopupTypeNone && popup_parent_host_view_) {
+    DCHECK(popup_parent_host_view_->popup_child_host_view_ == NULL ||
+           popup_parent_host_view_->popup_child_host_view_ == this);
     popup_parent_host_view_->popup_child_host_view_ = NULL;
   }
+  if (popup_child_host_view_) {
+    DCHECK(popup_child_host_view_->popup_parent_host_view_ == NULL ||
+           popup_child_host_view_->popup_parent_host_view_ == this);
+    popup_child_host_view_->popup_parent_host_view_ = NULL;
+  }
   aura::client::SetTooltipText(window_, NULL);
-  aura::DisplayManager* display_manager =
-      aura::Env::GetInstance()->display_manager();
-  // display_manager can be NULL in tests.
-  if (display_manager)
-    display_manager->RemoveObserver(this);
+  gfx::Screen::GetScreenFor(window_)->RemoveObserver(this);
 
   // This call is usually no-op since |this| object is already removed from the
   // Aura root window and we don't have a way to get an input method object

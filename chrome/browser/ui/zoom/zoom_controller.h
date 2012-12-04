@@ -7,14 +7,12 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/prefs/pref_member.h"
+#include "chrome/browser/ui/zoom/zoom_observer.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
-
-class ZoomObserver;
 
 namespace content {
 class WebContents;
@@ -22,7 +20,6 @@ class WebContents;
 
 // Per-tab class to manage the Omnibox zoom icon.
 class ZoomController : public content::NotificationObserver,
-                       public PrefObserver,
                        public content::WebContentsObserver,
                        public content::WebContentsUserData<ZoomController> {
  public:
@@ -38,10 +35,6 @@ class ZoomController : public content::NotificationObserver,
 
   void set_observer(ZoomObserver* observer) { observer_ = observer; }
 
- private:
-  explicit ZoomController(content::WebContents* web_contents);
-  friend class content::WebContentsUserData<ZoomController>;
-
   // content::WebContentsObserver overrides:
   virtual void DidNavigateMainFrame(
       const content::LoadCommittedDetails& details,
@@ -52,9 +45,10 @@ class ZoomController : public content::NotificationObserver,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // PrefObserver overrides:
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
+ private:
+  explicit ZoomController(content::WebContents* web_contents);
+  friend class content::WebContentsUserData<ZoomController>;
+  friend class ZoomControllerTest;
 
   // Updates the zoom icon and zoom percentage based on current values and
   // notifies the observer if changes have occurred. |host| may be empty,
@@ -72,6 +66,9 @@ class ZoomController : public content::NotificationObserver,
 
   // Observer receiving notifications on state changes.
   ZoomObserver* observer_;
+
+  // TODO(eroman): temporary for investigating bug 144879.
+  HelperForBug144879 bug144879_;
 
   DISALLOW_COPY_AND_ASSIGN(ZoomController);
 };

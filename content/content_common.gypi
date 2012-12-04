@@ -89,6 +89,7 @@
     'public/common/ssl_status.cc',
     'public/common/ssl_status.h',
     'public/common/stop_find_action.h',
+    'public/common/three_d_api_types.h',
     'public/common/url_constants.cc',
     'public/common/url_constants.h',
     'public/common/url_fetcher.h',
@@ -374,6 +375,7 @@
     'common/webmessageportchannel_impl.h',
     'common/worker_messages.h',
     'common/zygote_commands_linux.h',
+    'port/common/input_event_ack_state.h',
     'public/common/common_param_traits.cc',
     'public/common/common_param_traits.h',
     'public/common/common_param_traits_macros.h',
@@ -408,6 +410,8 @@
       ],
     }, {  # OS!="ios"
       'dependencies': [
+        '../cc/cc.gyp:cc',
+        '../gpu/gpu.gyp:gles2_c_lib',
         '../gpu/gpu.gyp:gles2_implementation',
         '../gpu/gpu.gyp:gpu_ipc',
         '../ipc/ipc.gyp:ipc',
@@ -488,7 +492,7 @@
         ],
       },
     }],
-    ['target_arch != "arm" and (OS=="linux" or chromeos == 1)', {
+    ['target_arch != "arm" and chromeos == 1', {
       'sources': [
         'common/gpu/media/h264_dpb.cc',
         'common/gpu/media/h264_dpb.h',

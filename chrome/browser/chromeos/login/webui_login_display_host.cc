@@ -5,7 +5,7 @@
 #include "chrome/browser/chromeos/login/webui_login_display_host.h"
 
 #include "ash/ash_switches.h"
-#include "ash/desktop_background/desktop_background_controller.h"
+#include "ash/desktop_background/user_wallpaper_delegate.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/window_animations.h"
@@ -294,12 +294,12 @@ void WebUILoginDisplayHost::LoadURL(const GURL& url) {
 
     login_view_->Init(login_window_);
 
-    ash::SetWindowVisibilityAnimationDuration(
+    views::corewm::SetWindowVisibilityAnimationDuration(
         login_window_->GetNativeView(),
         base::TimeDelta::FromMilliseconds(kLoginFadeoutTransitionDurationMs));
-    ash::SetWindowVisibilityAnimationTransition(
+    views::corewm::SetWindowVisibilityAnimationTransition(
         login_window_->GetNativeView(),
-        ash::ANIMATE_HIDE);
+        views::corewm::ANIMATE_HIDE);
 
     login_window_->SetContentsView(login_view_);
     login_view_->UpdateWindowType();

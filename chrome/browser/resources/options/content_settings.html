@@ -378,17 +378,6 @@
         </div>
       </div>
     </section>
-    <!-- Intent registration filter -->
-    <section>
-      <h3 i18n-content="webIntentsTabLabel" class="content-settings-header">
-      </h3>
-      <div class="checkbox">
-        <label>
-          <input pref="webintents.enabled" type="checkbox">
-          <span i18n-content="allowWebIntents"></span>
-        </label>
-      </div>
-    </section>
     <!-- Pepper Flash camera and microphone filter -->
     <section id="pepper-flash-cameramic-section" class="pepper-flash-settings">
       <h3 i18n-content="pepperFlashCameramicTabLabel"></h3>
@@ -434,6 +423,14 @@
     <section>
       <h3 i18n-content="mediaStreamTabLabel"></h3>
       <div>
+        <div class="media-device-control">
+          <span i18n-content="mediaSelectMicLabel"></span>
+          <select id="media-select-mic" class="weakrtl"></select>
+        </div>
+        <div class="media-device-control">
+          <span i18n-content="mediaSelectCameraLabel"></span>
+          <select id="media-select-camera" class="weakrtl"></select>
+        </div>
         <div class="radio">
           <span class="controlled-setting-with-label">
             <input id="media-stream-ask" type="radio" name="media-stream"

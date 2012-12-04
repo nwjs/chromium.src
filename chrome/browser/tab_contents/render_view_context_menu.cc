@@ -40,7 +40,7 @@
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/speech/chrome_speech_recognition_preferences.h"
-#include "chrome/browser/spellchecker/spellcheck_host.h"
+#include "chrome/browser/spellchecker/spellcheck_service.h"
 #include "chrome/browser/spellchecker/spellcheck_host_metrics.h"
 #include "chrome/browser/tab_contents/retargeting_details.h"
 #include "chrome/browser/tab_contents/spellchecker_submenu_observer.h"
@@ -224,6 +224,10 @@ bool ShouldShowTranslateItem(const GURL& page_url) {
 
   return true;
 }
+
+void DevToolsInspectElementAt(RenderViewHost* rvh, int x, int y) {
+  DevToolsWindow::InspectElement(rvh, x, y);
+}
 }  // namespace
 
 // static
@@ -273,7 +277,7 @@ void RenderViewContextMenu::Cancel() {
   PlatformCancel();
 }
 
-static bool ExtensionPatternMatch(const URLPatternSet& patterns,
+static bool ExtensionPatternMatch(const extensions::URLPatternSet& patterns,
                                   const GURL& url) {
   // No patterns means no restriction, so that implicitly matches.
   if (patterns.is_empty())
@@ -285,7 +289,7 @@ static bool ExtensionPatternMatch(const URLPatternSet& patterns,
 bool RenderViewContextMenu::ExtensionContextAndPatternMatch(
     const content::ContextMenuParams& params,
     MenuItem::ContextList contexts,
-    const URLPatternSet& target_url_patterns) {
+    const extensions::URLPatternSet& target_url_patterns) {
   bool has_link = !params.link_url.is_empty();
   bool has_selection = !params.selection_text.empty();
   bool in_frame = !params.frame_url.is_empty();
@@ -353,7 +357,8 @@ bool RenderViewContextMenu::MenuItemMatchesParams(
 
 void RenderViewContextMenu::AppendAllExtensionItems() {
   extension_items_.Clear();
-  ExtensionService* service = profile_->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   if (!service)
     return;  // In unit-tests, we may not have an ExtensionService.
   MenuManager* menu_manager = service->menu_manager();
@@ -540,8 +545,6 @@ void RenderViewContextMenu::AppendPlatformAppItems() {
             ui::MenuModel::TYPE_SEPARATOR)
       menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
 
-    menu_model_.AddItemWithStringId(IDC_RELOAD,
-                                    IDS_CONTENT_CONTEXT_RELOAD_PAGE);
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_RELOAD_PACKAGED_APP,
                                     IDS_CONTENT_CONTEXT_RELOAD_PACKAGED_APP);
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_RESTART_PACKAGED_APP,
@@ -1025,7 +1028,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       if (source_web_contents_->GetController().GetActiveEntry() == NULL)
         return false;
       // Disabled if no browser is associated (e.g. desktop notifications).
-      if (browser::FindBrowserWithWebContents(source_web_contents_) == NULL)
+      if (chrome::FindBrowserWithWebContents(source_web_contents_) == NULL)
         return false;
       return true;
 
@@ -1215,7 +1218,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return true;
     case IDC_CONTENT_CONTEXT_VIEWFRAMEINFO:
       // Disabled if no browser is associated (e.g. desktop notifications).
-      if (browser::FindBrowserWithWebContents(source_web_contents_) == NULL)
+      if (chrome::FindBrowserWithWebContents(source_web_contents_) == NULL)
         return false;
       return true;
 
@@ -1269,7 +1272,7 @@ bool RenderViewContextMenu::IsCommandIdChecked(int id) const {
 
   if (id == IDC_CONTENT_CONTEXT_CONTROLS) {
     return (params_.media_flags &
-            WebContextMenuData::MediaControlRootElement) != 0;
+            WebContextMenuData::MediaControls) != 0;
   }
 
   // Custom items.
@@ -1350,7 +1353,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
   switch (id) {
     case IDC_CONTENT_CONTEXT_OPENLINKNEWTAB: {
       Browser* browser =
-          browser::FindBrowserWithWebContents(source_web_contents_);
+          chrome::FindBrowserWithWebContents(source_web_contents_);
       OpenURL(
           params_.link_url,
           params_.frame_url.is_empty() ? params_.page_url : params_.frame_url,
@@ -1582,7 +1585,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       NavigationController* controller = &source_web_contents_->GetController();
       NavigationEntry* nav_entry = controller->GetActiveEntry();
       Browser* browser =
-          browser::FindBrowserWithWebContents(source_web_contents_);
+          chrome::FindBrowserWithWebContents(source_web_contents_);
       chrome::ShowPageInfo(browser, source_web_contents_, nav_entry->GetURL(),
                            nav_entry->GetSSL(), true);
       break;
@@ -1622,7 +1625,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
 
     case IDC_CONTENT_CONTEXT_VIEWFRAMEINFO: {
-      Browser* browser = browser::FindBrowserWithWebContents(
+      Browser* browser = chrome::FindBrowserWithWebContents(
           source_web_contents_);
       chrome::ShowPageInfo(browser, source_web_contents_, params_.frame_url,
                            params_.security_info, false);
@@ -1837,8 +1840,8 @@ void RenderViewContextMenu::CopyImageAt(int x, int y) {
 
 void RenderViewContextMenu::Inspect(int x, int y) {
   content::RecordAction(UserMetricsAction("DevTools_InspectElement"));
-  DevToolsWindow::InspectElement(
-      source_web_contents_->GetRenderViewHost(), x, y);
+  source_web_contents_->GetRenderViewHostAtPosition(
+      x, y, base::Bind(&DevToolsInspectElementAt));
 }
 
 void RenderViewContextMenu::WriteURLToClipboard(const GURL& url) {

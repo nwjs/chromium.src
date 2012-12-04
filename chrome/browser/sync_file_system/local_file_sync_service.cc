@@ -113,6 +113,12 @@ void LocalFileSyncService::AddChangeObserver(Observer* observer) {
   change_observers_.AddObserver(observer);
 }
 
+void LocalFileSyncService::RegisterURLForWaitingSync(
+    const FileSystemURL& url,
+    const base::Closure& on_syncable_callback) {
+  sync_context_->RegisterURLForWaitingSync(url, on_syncable_callback);
+}
+
 void LocalFileSyncService::ProcessLocalChange(
     LocalChangeProcessor* processor,
     const SyncFileCallback& callback) {
@@ -132,6 +138,14 @@ void LocalFileSyncService::ProcessLocalChange(
       origin_to_contexts_[origin],
       base::Bind(&LocalFileSyncService::DidGetFileForLocalSync,
                  AsWeakPtr(), processor));
+}
+
+void LocalFileSyncService::HasPendingLocalChanges(
+    const fileapi::FileSystemURL& url,
+    const HasPendingLocalChangeCallback& callback) {
+  DCHECK(ContainsKey(origin_to_contexts_, url.origin()));
+  sync_context_->HasPendingLocalChanges(
+      origin_to_contexts_[url.origin()], url, callback);
 }
 
 void LocalFileSyncService::GetLocalFileMetadata(
@@ -213,26 +227,34 @@ void LocalFileSyncService::DidGetFileForLocalSync(
     ProcessLocalChange(processor, callback);
     return;
   }
+
+  DVLOG(1) << "ProcessLocalChange: " << sync_file_info.url.DebugString()
+           << " change:" << sync_file_info.changes.front().DebugString();
+
   DCHECK(processor);
   processor->ApplyLocalChange(
       sync_file_info.changes.front(),
       sync_file_info.local_file_path,
+      sync_file_info.metadata,
       sync_file_info.url,
       base::Bind(&LocalFileSyncService::ProcessNextChangeForURL,
                  AsWeakPtr(), processor,
-                 sync_file_info.url,
-                 sync_file_info.local_file_path,
+                 sync_file_info,
                  sync_file_info.changes.front(),
                  sync_file_info.changes.PopAndGetNewList()));
 }
 
 void LocalFileSyncService::ProcessNextChangeForURL(
     LocalChangeProcessor* processor,
-    const FileSystemURL& url,
-    const FilePath& local_file_path,
+    const LocalFileSyncInfo& sync_file_info,
     const FileChange& last_change,
     const FileChangeList& changes,
     SyncStatusCode status) {
+  DVLOG(1) << "Processed one local change: "
+           << sync_file_info.url.DebugString()
+           << " change:" << last_change.DebugString()
+           << " status:" << status;
+
   if (status == fileapi::SYNC_FILE_ERROR_NOT_FOUND &&
       last_change.change() == FileChange::FILE_CHANGE_DELETE) {
     // This must be ok (and could happen).
@@ -242,6 +264,7 @@ void LocalFileSyncService::ProcessNextChangeForURL(
   // TODO(kinuko,tzik): Handle other errors that should not be considered
   // a sync error.
 
+  const FileSystemURL& url = sync_file_info.url;
   if (status != fileapi::SYNC_STATUS_OK || changes.empty()) {
     if (status == fileapi::SYNC_STATUS_OK ||
         status == fileapi::SYNC_STATUS_HAS_CONFLICT) {
@@ -257,9 +280,12 @@ void LocalFileSyncService::ProcessNextChangeForURL(
 
   DCHECK(processor);
   processor->ApplyLocalChange(
-      changes.front(), local_file_path, url,
+      changes.front(),
+      sync_file_info.local_file_path,
+      sync_file_info.metadata,
+      url,
       base::Bind(&LocalFileSyncService::ProcessNextChangeForURL,
-                 AsWeakPtr(), processor, url, local_file_path,
+                 AsWeakPtr(), processor, sync_file_info,
                  changes.front(), changes.PopAndGetNewList()));
 }
 

@@ -48,6 +48,11 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
                                           public ui::TextInputClient,
                                           public TextfieldViewsModel::Delegate {
  public:
+  // Interval over which the cursor/caret blinks.  This represents the full
+  // cycle; the caret is shown for half of this time and hidden for the other
+  // half.
+  static const int kCursorBlinkCycleMs;
+
   explicit NativeTextfieldViews(Textfield* parent);
   virtual ~NativeTextfieldViews();
 
@@ -56,7 +61,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
   virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
   virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
   virtual bool GetDropFormats(
       int* formats,
@@ -93,6 +98,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual string16 GetText() const OVERRIDE;
   virtual void UpdateText() OVERRIDE;
   virtual void AppendText(const string16& text) OVERRIDE;
+  virtual void ReplaceSelection(const string16& text) OVERRIDE;
   virtual base::i18n::TextDirection GetTextDirection() const OVERRIDE;
   virtual string16 GetSelectedText() const OVERRIDE;
   virtual void SelectAll(bool reversed) OVERRIDE;
@@ -126,6 +132,8 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual void ApplyDefaultStyle() OVERRIDE;
   virtual void ClearEditHistory() OVERRIDE;
   virtual int GetFontHeight() OVERRIDE;
+  virtual int GetTextfieldBaseline() const OVERRIDE;
+  virtual void ExecuteTextCommand(int command_id) OVERRIDE;
 
   // ui::SimpleMenuModel::Delegate overrides
   virtual bool IsCommandIdChecked(int command_id) const OVERRIDE;

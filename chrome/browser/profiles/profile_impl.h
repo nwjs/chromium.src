@@ -46,10 +46,13 @@ namespace extensions {
 class ExtensionSystem;
 }
 
+namespace policy {
+class UserCloudPolicyManager;
+}
+
 // The default profile implementation.
 class ProfileImpl : public Profile,
-                    public content::NotificationObserver,
-                    public PrefObserver {
+                    public content::NotificationObserver {
  public:
   // Value written to prefs when the exit type is EXIT_NORMAL. Public for tests.
   static const char* const kPrefExitTypeNormal;
@@ -96,7 +99,6 @@ class ProfileImpl : public Profile,
   virtual ExtensionSpecialStoragePolicy*
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   virtual GAIAInfoUpdateService* GetGAIAInfoUpdateService() OVERRIDE;
-  virtual policy::UserCloudPolicyManager* GetUserCloudPolicyManager() OVERRIDE;
   virtual policy::ManagedModePolicyProvider*
       GetManagedModePolicyProvider() OVERRIDE;
   virtual policy::PolicyService* GetPolicyService() OVERRIDE;
@@ -136,10 +138,6 @@ class ProfileImpl : public Profile,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // PrefObserver implementation.
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
  private:
   friend class Profile;
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest,
@@ -161,6 +159,8 @@ class ProfileImpl : public Profile,
   void DoFinalInit(bool is_new_profile);
 
   void InitHostZoomMap();
+
+  void OnDefaultZoomLevelChanged();
 
   void OnInitializationCompleted(PrefServiceBase* pref_service,
                                  bool succeeded);
@@ -210,8 +210,10 @@ class ProfileImpl : public Profile,
   // |prefs_| depends on |policy_service_|, which depends on
   // |user_cloud_policy_manager_| and |managed_mode_policy_provider_|.
   // TODO(bauerb, mnissler): Once |prefs_| is a ProfileKeyedService, these
-  // should become ProfileKeyedServices as well.
+  // should become proper ProfileKeyedServices as well.
+#if !defined(OS_CHROMEOS)
   scoped_ptr<policy::UserCloudPolicyManager> cloud_policy_manager_;
+#endif
   scoped_ptr<policy::ManagedModePolicyProvider> managed_mode_policy_provider_;
 #endif
   scoped_ptr<policy::PolicyService> policy_service_;

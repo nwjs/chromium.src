@@ -6,6 +6,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/debugger/devtools_window.h"
+#include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/net/url_request_mock_util.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -25,9 +26,11 @@
 #include "chrome/browser/ui/panels/test_panel_active_state_observer.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/notification_service.h"
@@ -35,6 +38,7 @@
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/test/net/url_request_mock_http_job.h"
+#include "extensions/common/constants.h"
 #include "net/base/net_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/screen.h"
@@ -272,7 +276,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, CheckDockedPanelProperties) {
 
   // Ensure that the layout message can get a chance to be processed so that
   // the button visibility can be updated.
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   EXPECT_EQ(3, panel_manager->num_panels());
   EXPECT_TRUE(docked_strip->HasPanel(panel1));
@@ -396,8 +400,8 @@ class WaitForAutoResizeNarrower : public TestPanelNotificationObserver {
   gfx::Size initial_size_;
 };
 
-
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, AutoResize) {
+// crbug.com/160504
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, FLAKY_AutoResize) {
   PanelManager* panel_manager = PanelManager::GetInstance();
   panel_manager->enable_auto_sizing(true);
   // Bigger space is needed by this test.
@@ -907,7 +911,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, ChangeAutoHideTaskBarThickness) {
   mock_display_settings_provider()->SetDesktopBarThickness(
       DisplaySettingsProvider::DESKTOP_BAR_ALIGNED_RIGHT,
       right_bar_thickness);
-  MessageLoopForUI::current()->RunAllPending();
+  MessageLoopForUI::current()->RunUntilIdle();
   EXPECT_EQ(
       initial_starting_right_position - docked_strip->StartingRightPosition(),
       right_bar_thickness_delta);
@@ -927,7 +931,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, ChangeAutoHideTaskBarThickness) {
   mock_display_settings_provider()->SetDesktopBarThickness(
       DisplaySettingsProvider::DESKTOP_BAR_ALIGNED_RIGHT,
       right_bar_thickness);
-  MessageLoopForUI::current()->RunAllPending();
+  MessageLoopForUI::current()->RunUntilIdle();
   EXPECT_EQ(
       docked_strip->StartingRightPosition() - initial_starting_right_position,
       right_bar_thickness_delta);
@@ -939,7 +943,13 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, ChangeAutoHideTaskBarThickness) {
   panel->Close();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, ActivatePanelOrTabbedWindow) {
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_ActivatePanelOrTabbedWindow DISABLED_ActivatePanelOrTabbedWindow
+#else
+#define MAYBE_ActivatePanelOrTabbedWindow ActivatePanelOrTabbedWindow
+#endif
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_ActivatePanelOrTabbedWindow) {
   Panel* panel1 = CreatePanel("Panel1");
   Panel* panel2 = CreatePanel("Panel2");
 
@@ -992,7 +1002,14 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_ActivateDeactivateBasic) {
   // reactivated programmatically once it is deactivated.
 }
 
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, ActivateDeactivateMultiple) {
+
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_ActivateDeactivateMultiple DISABLED_ActivateDeactivateMultiple
+#else
+#define MAYBE_ActivateDeactivateMultiple ActivateDeactivateMultiple
+#endif
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_ActivateDeactivateMultiple) {
   BrowserWindow* tabbed_window = browser()->window();
 
   // Create 4 panels in the following screen layout:
@@ -1023,7 +1040,13 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, ActivateDeactivateMultiple) {
   EXPECT_FALSE(tabbed_window->IsActive());
 }
 
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionBasic) {
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_DrawAttentionBasic DISABLED_DrawAttentionBasic
+#else
+#define MAYBE_DrawAttentionBasic DrawAttentionBasic
+#endif
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_DrawAttentionBasic) {
   CreatePanelParams params("Initially Inactive", gfx::Rect(), SHOW_AS_INACTIVE);
   Panel* panel = CreatePanelWithParams(params);
   scoped_ptr<NativePanelTesting> native_panel_testing(
@@ -1035,13 +1058,13 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionBasic) {
   EXPECT_FALSE(panel->IsDrawingAttention());
   panel->FlashFrame(true);
   EXPECT_TRUE(panel->IsDrawingAttention());
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_TRUE(native_panel_testing->VerifyDrawingAttention());
 
   // Stop drawing attention.
   panel->FlashFrame(false);
   EXPECT_FALSE(panel->IsDrawingAttention());
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_FALSE(native_panel_testing->VerifyDrawingAttention());
 
   // Draw attention, then minimize. Titlebar should remain visible.
@@ -1060,7 +1083,13 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionBasic) {
   panel->Close();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionWhileMinimized) {
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_DrawAttentionWhileMinimized DISABLED_DrawAttentionWhileMinimized
+#else
+#define MAYBE_DrawAttentionWhileMinimized DrawAttentionWhileMinimized
+#endif
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_DrawAttentionWhileMinimized) {
   // Create 3 panels so we end up with an inactive panel that can
   // be made to draw attention.
   Panel* panel = CreatePanel("test panel1");
@@ -1077,7 +1106,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionWhileMinimized) {
   panel->FlashFrame(true);
   EXPECT_TRUE(panel->IsDrawingAttention());
   EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_TRUE(native_panel_testing->VerifyDrawingAttention());
 
   // Test that we cannot bring up other minimized panel if the mouse is over
@@ -1095,7 +1124,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionWhileMinimized) {
 
   // Test that the attention is cleared when activated.
   panel->Activate();
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   WaitForPanelActiveState(panel, SHOW_AS_ACTIVE);
   EXPECT_FALSE(panel->IsDrawingAttention());
   EXPECT_EQ(Panel::EXPANDED, panel->expansion_state());
@@ -1191,13 +1220,19 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionWhenActive) {
   EXPECT_FALSE(panel->IsDrawingAttention());
   panel->FlashFrame(true);
   EXPECT_FALSE(panel->IsDrawingAttention());
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_FALSE(native_panel_testing->VerifyDrawingAttention());
 
   panel->Close();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionResetOnActivate) {
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_DrawAttentionResetOnActivate DISABLED_DrawAttentionResetOnActivate
+#else
+#define MAYBE_DrawAttentionResetOnActivate DrawAttentionResetOnActivate
+#endif
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_DrawAttentionResetOnActivate) {
   // Create 2 panels so we end up with an inactive panel that can
   // be made to draw attention.
   Panel* panel = CreatePanel("test panel1");
@@ -1209,12 +1244,12 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionResetOnActivate) {
 
   panel->FlashFrame(true);
   EXPECT_TRUE(panel->IsDrawingAttention());
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_TRUE(native_panel_testing->VerifyDrawingAttention());
 
   // Test that the attention is cleared when panel gets focus.
   panel->Activate();
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   WaitForPanelActiveState(panel, SHOW_AS_ACTIVE);
   EXPECT_FALSE(panel->IsDrawingAttention());
   EXPECT_FALSE(native_panel_testing->VerifyDrawingAttention());
@@ -1223,8 +1258,14 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionResetOnActivate) {
   panel2->Close();
 }
 
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_DrawAttentionMinimizedNotResetOnActivate DISABLED_DrawAttentionMinimizedNotResetOnActivate
+#else
+#define MAYBE_DrawAttentionMinimizedNotResetOnActivate DrawAttentionMinimizedNotResetOnActivate
+#endif
 IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
-                       DrawAttentionMinimizedNotResetOnActivate) {
+                       MAYBE_DrawAttentionMinimizedNotResetOnActivate) {
   // Create 2 panels so we end up with an inactive panel that can
   // be made to draw attention.
   Panel* panel1 = CreatePanel("test panel1");
@@ -1254,7 +1295,13 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
   panel2->Close();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionResetOnClick) {
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_DrawAttentionResetOnClick DISABLED_DrawAttentionResetOnClick
+#else
+#define MAYBE_DrawAttentionResetOnClick DrawAttentionResetOnClick
+#endif
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_DrawAttentionResetOnClick) {
   // Create 2 panels so we end up with an inactive panel that can
   // be made to draw attention.
   Panel* panel = CreatePanel("test panel1");
@@ -1266,7 +1313,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionResetOnClick) {
 
   panel->FlashFrame(true);
   EXPECT_TRUE(panel->IsDrawingAttention());
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_TRUE(native_panel_testing->VerifyDrawingAttention());
 
   // Test that the attention is cleared when panel gets focus.
@@ -1274,7 +1321,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, DrawAttentionResetOnClick) {
       panel->GetBounds().origin());
   native_panel_testing->ReleaseMouseButtonTitlebar();
 
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   WaitForPanelActiveState(panel, SHOW_AS_ACTIVE);
   EXPECT_FALSE(panel->IsDrawingAttention());
   EXPECT_FALSE(native_panel_testing->VerifyDrawingAttention());
@@ -1316,7 +1363,13 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, FocusLostOnMinimize) {
   panel->Close();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelBrowserTest, CreateInactiveSwitchToActive) {
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_CreateInactiveSwitchToActive DISABLED_CreateInactiveSwitchToActive
+#else
+#define MAYBE_CreateInactiveSwitchToActive CreateInactiveSwitchToActive
+#endif
+IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_CreateInactiveSwitchToActive) {
   // Compiz will not activate initially inactive window.
   if (SkipTestIfCompizWM())
     return;
@@ -1361,12 +1414,12 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
   WaitForPanelActiveState(panel1, SHOW_AS_ACTIVE);
 
   panel1->SetExpansionState(Panel::MINIMIZED);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   WaitForPanelActiveState(panel1, SHOW_AS_INACTIVE);
   EXPECT_EQ(Panel::MINIMIZED, panel1->expansion_state());
 
   panel2->SetExpansionState(Panel::MINIMIZED);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   WaitForPanelActiveState(panel2, SHOW_AS_INACTIVE);
   EXPECT_EQ(Panel::MINIMIZED, panel2->expansion_state());
 
@@ -1382,8 +1435,14 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
   panel2->Close();
 }
 
+// http://crbug.com/143247
+#if !defined(OS_WIN)
+#define MAYBE_NonExtensionDomainPanelsCloseOnUninstall DISABLED_NonExtensionDomainPanelsCloseOnUninstall
+#else
+#define MAYBE_NonExtensionDomainPanelsCloseOnUninstall NonExtensionDomainPanelsCloseOnUninstall
+#endif
 IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
-                       NonExtensionDomainPanelsCloseOnUninstall) {
+                       MAYBE_NonExtensionDomainPanelsCloseOnUninstall) {
   // Create a test extension.
   DictionaryValue empty_value;
   scoped_refptr<Extension> extension =
@@ -1397,7 +1456,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
 
   // Create a panel with the extension as host.
   CreatePanelParams params(extension_app_name, gfx::Rect(), SHOW_AS_INACTIVE);
-  std::string extension_domain_url(chrome::kExtensionScheme);
+  std::string extension_domain_url(extensions::kExtensionScheme);
   extension_domain_url += "://";
   extension_domain_url += extension->id();
   extension_domain_url += "/hello.html";
@@ -1690,4 +1749,27 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, MAYBE_Accelerator) {
   panel->HandleKeyboardEvent(key_event);
   signal.Wait();
   EXPECT_EQ(0, panel_manager->num_panels());
+}
+
+class PanelExtensionApiTest : public ExtensionApiTest {
+ protected:
+  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
+    ExtensionApiTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(switches::kEnablePanels);
+  }
+};
+
+#if defined(OS_LINUX) || defined(USE_AURA)
+// Focus test fails if there is no window manager on Linux.
+// Aura panels have different behavior that do not apply to this test.
+#define MAYBE_FocusChangeEventOnMinimize DISABLED_FocusChangeEventOnMinimize
+#else
+#define MAYBE_FocusChangeEventOnMinimize FocusChangeEventOnMinimize
+#endif
+IN_PROC_BROWSER_TEST_F(PanelExtensionApiTest,
+                       MAYBE_FocusChangeEventOnMinimize) {
+  // This is needed so the subsequently created panels can be activated.
+  // On a Mac, it transforms background-only test process into foreground one.
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+  ASSERT_TRUE(RunExtensionTest("panels/focus_change_on_minimize")) << message_;
 }

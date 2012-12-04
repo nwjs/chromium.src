@@ -99,7 +99,8 @@
     },
     'cc': {
       'filepath': 'cc/|'\
-                  'webkit/compositor_bindings/'
+                  'webkit/compositor_bindings/|'\
+                  'content/common/cc_messages'
     },
     'chrome_frame': {
       'filepath': 'chrome_frame/',
@@ -142,6 +143,9 @@
     },
     'content': {
       'filepath': 'content/',
+    },
+    'content_shell': {
+      'filepath': 'content/shell/',
     },
     'cookie_monster': {
       'filepath': 'net/cookies/|'\
@@ -246,7 +250,7 @@
       'filepath': 'sandbox/linux/',
     },
     'linux-seccomp-bpf': {
-      'filepath': 'content/common/sandbox_init_linux.cc',
+      'filepath': 'content/common/sandbox.*linux.cc',
     },
     'locale_settings': {
       'filepath': 'chrome/app/resources/locale_settings',
@@ -318,6 +322,11 @@
     'pepper_api': {
       'filepath': 'ppapi/c/',
     },
+    'perf': {
+      'filepath': 'tools/perf' \
+                  '|tools/telemetry' \
+                  '|chrome/test/perf'
+    },
     'plugin': {
       'filepath': 'chrome/browser/plugin|chrome/plugin/|'\
         'chrome/common/plugin|webkit/glue/webplugin|webkit/glue/plugins/',
@@ -380,6 +389,9 @@
     },
     'tcmalloc': {
       'filepath': 'third_party/tcmalloc'
+    },
+    'telemetry': {
+      'filepath': 'tools/telemetry'
     },
     'tests': {
       'filepath': 'apitest|unittest|browsertest|uitest|chrome/test/',
@@ -533,8 +545,8 @@
     'contacts': ['derat+watch@chromium.org'],
     'content': ['jam@chromium.org', 'joi+watch-content@chromium.org',
                 'darin-cc@chromium.org'],
-    'cookie_monster': ['erikwright@chromium.org', 'rkn@chromium.org',
-                       'wtc@chromium.org'],
+    'content_shell': ['jochen+watch@chromium.org'],
+    'cookie_monster': ['erikwright@chromium.org'],
     'deep_memory_profiler': ['dmikurube+memory@chromium.org'],
     'devtools': ['pfeldman@chromium.org', 'yurys@chromium.org',
                  'vsevik@chromium.org'],
@@ -566,6 +578,7 @@
     'linux-sandboxing': ['agl@chromium.org', 'jln+watch@chromium.org'],
     'linux-seccomp-bpf': ['jln+watch@chromium.org'],
     'locale_settings': ['finnur+watch@chromium.org'],
+    'mac': ['sail+watch@chromium.org'],
     'media': ['feature-media-reviews@chromium.org'],
     'message_loop': ['sadrul@chromium.org'],
     'metrics': ['jar@chromium.org',
@@ -577,7 +590,8 @@
     'net_error_list': ['mmenke@chromium.org'],
     'net_log': ['mmenke@chromium.org', 'eroman@chromium.org'],
     'npapi_headers': ['stuartmorgan@chromium.org'],
-    'ntp': ['estade+watch@chromium.org', 'dbeam+watch-ntp@chromium.org'],
+    'ntp': ['estade+watch@chromium.org', 'dbeam+watch-ntp@chromium.org',
+            'pedrosimonetti+watch@chromium.org'],
     'omnibox': ['suzhe@chromium.org'],
     'options': ['dbeam+watch-options@chromium.org'],
     'panels': ['dimich@chromium.org', 'jennb@chromium.org',
@@ -585,6 +599,7 @@
     'pepper_api': ['piman+watch@chromium.org', 'darin-cc@chromium.org',
                    'ihf+watch@chromium.org', 'yzshen+watch@chromium.org',
                    'yusukes+watch@chromium.org', 'raymes+watch@chromium.org'],
+    'perf': ['chrome-speed-team+watch@google.com'],
     'plugin': ['darin-cc@chromium.org', 'jam@chromium.org',
                'stuartmorgan+watch@chromium.org'],
     'predictors': ['dominich+watch@chromium.org', 'shishir+watch@chromium.org'],
@@ -621,6 +636,7 @@
                      'creis+watch@chromium.org', 'ajwong+watch@chromium.org'],
     'task_manager': ['yoshiki+watch@chromium.org'],
     'tcmalloc': ['dmikurube+memory@chromium.org'],
+    'telemetry': ['telemetry+watch@chromium.org'],
     'tests': [],
     'textinput': ['penghuang+watch@chromium.org',
                   'suzhe@chromium.org',

@@ -100,9 +100,7 @@ void SetBoundsAnimated(aura::Window* window, const gfx::Rect& bounds) {
   if (bounds == window->GetTargetBounds())
     return;
 
-  if (window->GetProperty(aura::client::kAnimationsDisabledKey) ||
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          ash::switches::kAshWindowAnimationsDisabled)) {
+  if (views::corewm::WindowAnimationsDisabled(window)) {
     window->SetBounds(bounds);
     return;
   }
@@ -178,7 +176,7 @@ void RearrangeVisibleWindowOnShow(aura::Window* added_window) {
     gfx::Rect other_bounds = other_shown_window->bounds();
     ash::wm::SetPreAutoManageWindowBounds(other_shown_window, other_bounds);
 
-    bool move_right = other_bounds.CenterPoint().x() < work_area.width() / 2;
+    bool move_right = other_bounds.CenterPoint().x() > work_area.width() / 2;
     if (MoveRectToOneSide(work_area.width(), move_right, &other_bounds))
       SetBoundsAnimated(other_shown_window, other_bounds);
 

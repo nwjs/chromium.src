@@ -7,7 +7,7 @@
 #include <algorithm>
 
 #include "ash/ash_switches.h"
-#include "ash/display/multi_display_manager.h"
+#include "ash/display/display_manager.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/wm/coordinate_conversion.h"
@@ -34,8 +34,14 @@ namespace ash {
 namespace {
 
 // Primary display stored in global object as it can be
-// accessed after Shell is deleted.
+// accessed after Shell is deleted. A separate display instance is created
+// during the shutdown instead of always keeping two display instances
+// (one here and another one in display_manager) in sync, which is error prone.
 int64 primary_display_id = gfx::Display::kInvalidDisplayID;
+gfx::Display* primary_display_for_shutdown = NULL;
+// Keeps the number of displays during the shutdown after
+// ash::Shell:: is deleted.
+int num_displays_for_shutdown = -1;
 
 // The maximum value for 'offset' in DisplayLayout in case of outliers.  Need
 // to change this value in case to support even larger displays.
@@ -78,9 +84,8 @@ std::string GetStringFromPosition(DisplayLayout::Position position) {
   return std::string("unknown");
 }
 
-internal::MultiDisplayManager* GetDisplayManager() {
-  return static_cast<internal::MultiDisplayManager*>(
-      aura::Env::GetInstance()->display_manager());
+internal::DisplayManager* GetDisplayManager() {
+  return Shell::GetInstance()->display_manager();
 }
 
 }  // namespace
@@ -160,12 +165,20 @@ DisplayController::DisplayController()
   // Reset primary display to make sure that tests don't use
   // stale display info from previous tests.
   primary_display_id = gfx::Display::kInvalidDisplayID;
+  delete primary_display_for_shutdown;
+  primary_display_for_shutdown = NULL;
+  num_displays_for_shutdown = -1;
 
-  GetDisplayManager()->AddObserver(this);
+  Shell::GetScreen()->AddObserver(this);
 }
 
 DisplayController::~DisplayController() {
-  GetDisplayManager()->RemoveObserver(this);
+  DCHECK(!primary_display_for_shutdown);
+  primary_display_for_shutdown = new gfx::Display(
+      GetDisplayManager()->GetDisplayForId(primary_display_id));
+  num_displays_for_shutdown = GetDisplayManager()->GetNumDisplays();
+
+  Shell::GetScreen()->RemoveObserver(this);
   // Delete all root window controllers, which deletes root window
   // from the last so that the primary root window gets deleted last.
   for (std::map<int64, aura::RootWindow*>::const_reverse_iterator it =
@@ -179,14 +192,28 @@ DisplayController::~DisplayController() {
 // static
 const gfx::Display& DisplayController::GetPrimaryDisplay() {
   DCHECK_NE(primary_display_id, gfx::Display::kInvalidDisplayID);
+  if (primary_display_for_shutdown)
+    return *primary_display_for_shutdown;
   return GetDisplayManager()->GetDisplayForId(primary_display_id);
+}
+
+// static
+int DisplayController::GetNumDisplays() {
+  if (num_displays_for_shutdown >= 0)
+    return num_displays_for_shutdown;
+  return GetDisplayManager()->GetNumDisplays();
+}
+
+// static
+bool DisplayController::HasPrimaryDisplay() {
+  return primary_display_id != gfx::Display::kInvalidDisplayID;
 }
 
 void DisplayController::InitPrimaryDisplay() {
   const gfx::Display* primary_candidate = GetDisplayManager()->GetDisplayAt(0);
 #if defined(OS_CHROMEOS)
   if (base::chromeos::IsRunningOnChromeOS()) {
-    internal::MultiDisplayManager* display_manager = GetDisplayManager();
+    internal::DisplayManager* display_manager = GetDisplayManager();
     // On ChromeOS device, root windows are stacked vertically, and
     // default primary is the one on top.
     int count = display_manager->GetNumDisplays();
@@ -210,7 +237,7 @@ void DisplayController::InitPrimaryDisplay() {
 }
 
 void DisplayController::InitSecondaryDisplays() {
-  internal::MultiDisplayManager* display_manager = GetDisplayManager();
+  internal::DisplayManager* display_manager = GetDisplayManager();
   for (size_t i = 0; i < display_manager->GetNumDisplays(); ++i) {
     const gfx::Display* display = display_manager->GetDisplayAt(i);
     if (primary_display_id != display->id()) {
@@ -288,6 +315,11 @@ gfx::Insets DisplayController::GetOverscanInsets(int64 display_id) const {
   return GetDisplayManager()->GetOverscanInsets(display_id);
 }
 
+void DisplayController::SetOverscanInsets(int64 display_id,
+                                          const gfx::Insets& insets_in_dip) {
+  GetDisplayManager()->SetOverscanInsets(display_id, insets_in_dip);
+}
+
 std::vector<internal::RootWindowController*>
 DisplayController::GetAllRootWindowControllers() {
   std::vector<internal::RootWindowController*> controllers;
@@ -350,8 +382,7 @@ void DisplayController::SetPrimaryDisplayId(int64 id) {
   if (desired_primary_display_id_ == primary_display_id)
     return;
 
-  aura::DisplayManager* display_manager =
-      aura::Env::GetInstance()->display_manager();
+  internal::DisplayManager* display_manager = GetDisplayManager();
   for (size_t i = 0; i < display_manager->GetNumDisplays(); ++i) {
     gfx::Display* display = display_manager->GetDisplayAt(i);
     if (display->id() == id) {
@@ -363,7 +394,7 @@ void DisplayController::SetPrimaryDisplayId(int64 id) {
 
 void DisplayController::SetPrimaryDisplay(
     const gfx::Display& new_primary_display) {
-  internal::MultiDisplayManager* display_manager = GetDisplayManager();
+  internal::DisplayManager* display_manager = GetDisplayManager();
   DCHECK(new_primary_display.is_valid());
   DCHECK(display_manager->IsActiveDisplay(new_primary_display));
 
@@ -418,12 +449,12 @@ void DisplayController::SetPrimaryDisplay(
   displays.push_back(display_manager->GetDisplayForId(primary_display_id));
   displays.push_back(*GetSecondaryDisplay());
   GetDisplayManager()->set_force_bounds_changed(true);
-  GetDisplayManager()->OnNativeDisplaysChanged(displays);
+  GetDisplayManager()->UpdateDisplays(displays);
   GetDisplayManager()->set_force_bounds_changed(false);
 }
 
 gfx::Display* DisplayController::GetSecondaryDisplay() {
-  internal::MultiDisplayManager* display_manager = GetDisplayManager();
+  internal::DisplayManager* display_manager = GetDisplayManager();
   CHECK_EQ(2U, display_manager->GetNumDisplays());
   return display_manager->GetDisplayAt(0)->id() == primary_display_id ?
       display_manager->GetDisplayAt(1) : display_manager->GetDisplayAt(0);

@@ -11,11 +11,11 @@
 #include "base/message_loop.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/download/download_shelf.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -89,7 +89,10 @@ BrowserWindowCocoa::BrowserWindowCocoa(Browser* browser,
     attention_request_id_(0) {
 
   pref_change_registrar_.Init(browser_->profile()->GetPrefs());
-  pref_change_registrar_.Add(prefs::kShowBookmarkBar, this);
+  pref_change_registrar_.Add(
+      prefs::kShowBookmarkBar,
+      base::Bind(&BrowserWindowCocoa::OnShowBookmarkBarChanged,
+                 base::Unretained(this)));
   gfx::Rect bounds;
   chrome::GetSavedWindowBoundsAndShowState(browser_,
                                            &bounds,
@@ -104,8 +107,8 @@ void BrowserWindowCocoa::Show() {
   // browser at the time |Show()| is called. This is the natural behaviour under
   // Windows, but |-makeKeyAndOrderFront:| won't send |-windowDidBecomeMain:|
   // until we return to the runloop. Therefore any calls to
-  // |BrowserList::GetLastActive()| (for example, in bookmark_util), will return
-  // the previous browser instead if we don't explicitly set it here.
+  // |chrome::FindLastActiveWithHostDesktopType| will return the previous
+  // browser instead if we don't explicitly set it here.
   BrowserList::SetLastActive(browser_);
 
   bool is_session_restore = browser_->is_session_restore();
@@ -362,9 +365,9 @@ void BrowserWindowCocoa::UpdateReloadStopState(bool is_loading, bool force) {
   [controller_ setIsLoading:is_loading force:force];
 }
 
-void BrowserWindowCocoa::UpdateToolbar(TabContents* contents,
+void BrowserWindowCocoa::UpdateToolbar(content::WebContents* contents,
                                        bool should_restore_state) {
-  [controller_ updateToolbarWithContents:contents->web_contents()
+  [controller_ updateToolbarWithContents:contents
                       shouldRestoreState:should_restore_state ? YES : NO];
 }
 
@@ -418,7 +421,7 @@ bool BrowserWindowCocoa::IsPanel() const {
 // setting the preference sends notifications to all windows who then
 // know what to do.
 void BrowserWindowCocoa::ToggleBookmarkBar() {
-  bookmark_utils::ToggleWhenVisible(browser_->profile());
+  chrome::ToggleBookmarkBarWhenVisible(browser_->profile());
 }
 
 void BrowserWindowCocoa::AddFindBar(
@@ -501,12 +504,12 @@ void BrowserWindowCocoa::ShowPageInfo(WebContents* web_contents,
 
 void BrowserWindowCocoa::ShowWebsiteSettings(
     Profile* profile,
-    TabContents* tab_contents,
+    content::WebContents* web_contents,
     const GURL& url,
     const content::SSLStatus& ssl,
     bool show_history) {
   WebsiteSettingsUIBridge::Show(
-      window(), profile, tab_contents, url, ssl);
+      window(), profile, web_contents, url, ssl);
 }
 
 void BrowserWindowCocoa::ShowAppMenu() {
@@ -614,9 +617,7 @@ bool BrowserWindowCocoa::GetConstrainedWindowTopY(int* top_y) {
   return false;
 }
 
-void BrowserWindowCocoa::OnPreferenceChanged(PrefServiceBase* service,
-                                             const std::string& pref_name) {
-  DCHECK(pref_name == prefs::kShowBookmarkBar);
+void BrowserWindowCocoa::OnShowBookmarkBarChanged() {
   [controller_ updateBookmarkBarVisibilityWithAnimation:YES];
 }
 

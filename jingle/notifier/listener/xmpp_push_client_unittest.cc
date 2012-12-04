@@ -34,7 +34,8 @@ class XmppPushClientTest : public testing::Test {
  protected:
   XmppPushClientTest() {
     notifier_options_.request_context_getter =
-        new TestURLRequestContextGetter(message_loop_.message_loop_proxy());
+        new net::TestURLRequestContextGetter(
+            message_loop_.message_loop_proxy());
   }
 
   virtual ~XmppPushClientTest() {}
@@ -46,7 +47,7 @@ class XmppPushClientTest : public testing::Test {
 
   virtual void TearDown() OVERRIDE {
     // Clear out any messages posted by XmppPushClient.
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
     xmpp_push_client_->RemoveObserver(&mock_observer_);
     xmpp_push_client_.reset();
   }

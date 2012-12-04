@@ -4,10 +4,12 @@
 
 #include "web_layer_tree_view_impl.h"
 
+#include "base/command_line.h"
 #include "cc/font_atlas.h"
 #include "cc/input_handler.h"
 #include "cc/layer.h"
 #include "cc/layer_tree_host.h"
+#include "cc/switches.h"
 #include "cc/thread.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebGraphicsContext3D.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebInputHandler.h"
@@ -18,6 +20,7 @@
 #include "third_party/WebKit/Source/Platform/chromium/public/WebSize.h"
 #include "web_layer_impl.h"
 #include "web_to_ccinput_handler_adapter.h"
+#include "webkit/compositor_bindings/web_rendering_stats_impl.h"
 
 using namespace cc;
 
@@ -36,18 +39,20 @@ bool WebLayerTreeViewImpl::initialize(const WebLayerTreeView::Settings& webSetti
 {
     LayerTreeSettings settings;
     settings.acceleratePainting = webSettings.acceleratePainting;
-    settings.showPlatformLayerTree = webSettings.showPlatformLayerTree;
-    settings.showPaintRects = webSettings.showPaintRects;
     settings.renderVSyncEnabled = webSettings.renderVSyncEnabled;
+    settings.perTilePaintingEnabled = webSettings.perTilePaintingEnabled;
+    settings.acceleratedAnimationEnabled = webSettings.acceleratedAnimationEnabled;
+    settings.pageScalePinchZoomEnabled = webSettings.pageScalePinchZoomEnabled;
     settings.refreshRate = webSettings.refreshRate;
     settings.defaultTileSize = webSettings.defaultTileSize;
     settings.maxUntiledLayerSize = webSettings.maxUntiledLayerSize;
+    settings.initialDebugState.showFPSCounter = webSettings.showFPSCounter;
+    settings.initialDebugState.showPaintRects = webSettings.showPaintRects;
+    settings.initialDebugState.showPlatformLayerTree = webSettings.showPlatformLayerTree;
+    settings.initialDebugState.showDebugBorders = webSettings.showDebugBorders;
     m_layerTreeHost = LayerTreeHost::create(this, settings, implThread.Pass());
     if (!m_layerTreeHost.get())
         return false;
-
-    if (webSettings.showFPSCounter)
-        setShowFPSCounter(true);
     return true;
 }
 
@@ -168,38 +173,30 @@ void WebLayerTreeViewImpl::setDeferCommits(bool deferCommits)
 
 void WebLayerTreeViewImpl::renderingStats(WebRenderingStats& stats) const
 {
-    RenderingStats ccStats;
-    m_layerTreeHost->renderingStats(&ccStats);
-
-    stats.numAnimationFrames = ccStats.numAnimationFrames;
-    stats.numFramesSentToScreen = ccStats.numFramesSentToScreen;
-    stats.droppedFrameCount = ccStats.droppedFrameCount;
-    stats.totalPaintTimeInSeconds = ccStats.totalPaintTimeInSeconds;
-    stats.totalRasterizeTimeInSeconds = ccStats.totalRasterizeTimeInSeconds;
-    stats.totalCommitTimeInSeconds = ccStats.totalCommitTimeInSeconds;
-    stats.totalCommitCount = ccStats.totalCommitCount;
-    stats.totalPixelsPainted = ccStats.totalPixelsPainted;
-    stats.totalPixelsRasterized = ccStats.totalPixelsRasterized;
-    stats.numImplThreadScrolls = ccStats.numImplThreadScrolls;
-    stats.numMainThreadScrolls = ccStats.numMainThreadScrolls;
+    m_layerTreeHost->renderingStats(
+        &static_cast<WebRenderingStatsImpl&>(stats).rendering_stats);
 }
 
 void WebLayerTreeViewImpl::setShowFPSCounter(bool show)
 {
-    m_layerTreeHost->setShowFPSCounter(show);
+    LayerTreeDebugState debugState = m_layerTreeHost->debugState();
+    debugState.showFPSCounter = show;
+    m_layerTreeHost->setDebugState(debugState);
 }
 
-void WebLayerTreeViewImpl::setFontAtlas(SkBitmap bitmap, WebRect asciiToWebRectTable[128], int fontHeight) {
-    setFontAtlas(asciiToWebRectTable, bitmap, fontHeight);
-}
-
-void WebLayerTreeViewImpl::setFontAtlas(WebRect asciiToWebRectTable[128], const SkBitmap& bitmap, int fontHeight)
+scoped_ptr<FontAtlas> WebLayerTreeViewImpl::createFontAtlas()
 {
+    int fontHeight;
+    WebRect asciiToWebRectTable[128];
     gfx::Rect asciiToRectTable[128];
+    SkBitmap bitmap;
+
+    m_client->createFontAtlas(bitmap, asciiToWebRectTable, fontHeight);
+
     for (int i = 0; i < 128; ++i)
         asciiToRectTable[i] = asciiToWebRectTable[i];
-    scoped_ptr<FontAtlas> fontAtlas = FontAtlas::create(bitmap, asciiToRectTable, fontHeight);
-    m_layerTreeHost->setFontAtlas(fontAtlas.Pass());
+
+    return FontAtlas::create(bitmap, asciiToRectTable, fontHeight).Pass();
 }
 
 void WebLayerTreeViewImpl::loseCompositorContext(int numTimes)

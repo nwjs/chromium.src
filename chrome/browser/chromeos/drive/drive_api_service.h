@@ -7,12 +7,11 @@
 
 #include <string>
 
-#include "base/observer_list.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/observer_list.h"
 #include "chrome/browser/google_apis/auth_service.h"
 #include "chrome/browser/google_apis/auth_service_observer.h"
 #include "chrome/browser/google_apis/drive_service_interface.h"
-#include "chrome/browser/google_apis/gdata_operations.h"
 
 class FilePath;
 class GURL;
@@ -33,7 +32,10 @@ class DriveAPIService : public google_apis::DriveServiceInterface,
  public:
   // Instance is usually created by DriveSystemServiceFactory and owned by
   // DriveFileSystem.
-  DriveAPIService();
+  //
+  // |custom_user_agent| will be used for the User-Agent header in HTTP
+  // requests issues through the service if the value is not empty.
+  explicit DriveAPIService(const std::string& custom_user_agent);
   virtual ~DriveAPIService();
 
   // DriveServiceInterface Overrides
@@ -47,14 +49,13 @@ class DriveAPIService : public google_apis::DriveServiceInterface,
   virtual bool CancelForFilePath(const FilePath& file_path) OVERRIDE;
   virtual google_apis::OperationProgressStatusList GetProgressStatusList()
       const OVERRIDE;
-  virtual void Authenticate(
-      const google_apis::AuthStatusCallback& callback) OVERRIDE;
   virtual bool HasAccessToken() const OVERRIDE;
   virtual bool HasRefreshToken() const OVERRIDE;
   virtual void GetDocuments(
       const GURL& feed_url,
       int64 start_changestamp,
       const std::string& search_query,
+      bool shared_with_me,
       const std::string& directory_resource_id,
       const google_apis::GetDataCallback& callback) OVERRIDE;
   virtual void GetDocumentEntry(
@@ -94,7 +95,6 @@ class DriveAPIService : public google_apis::DriveServiceInterface,
       const google_apis::EntryActionCallback& callback) OVERRIDE;
   virtual void RemoveResourceFromDirectory(
       const GURL& parent_content_url,
-      const GURL& resource_url,
       const std::string& resource_id,
       const google_apis::EntryActionCallback& callback) OVERRIDE;
   virtual void AddNewDirectory(
@@ -146,6 +146,7 @@ class DriveAPIService : public google_apis::DriveServiceInterface,
   Profile* profile_;
   scoped_ptr<google_apis::OperationRunner> runner_;
   ObserverList<google_apis::DriveServiceObserver> observers_;
+  const std::string custom_user_agent_;
 
   DISALLOW_COPY_AND_ASSIGN(DriveAPIService);
 };

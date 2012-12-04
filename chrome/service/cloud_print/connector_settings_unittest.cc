@@ -7,15 +7,17 @@
 #include <string>
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop.h"
 #include "base/message_loop_proxy.h"
-#include "base/scoped_temp_dir.h"
 #include "base/values.h"
-#include "chrome/service/cloud_print/cloud_print_consts.h"
+#include "chrome/common/cloud_print/cloud_print_constants.h"
 #include "chrome/service/service_process_prefs.h"
 
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+namespace cloud_print {
 
 const char kServiceStateContent[] =
     "{"
@@ -63,7 +65,7 @@ class ConnectorSettingsTest : public testing::Test {
     return prefs;
   }
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   MessageLoop message_loop_;
   scoped_refptr<base::MessageLoopProxy> message_loop_proxy_;
 };
@@ -143,3 +145,5 @@ TEST_F(ConnectorSettingsTest, SettersTest) {
   settings.SetXmppPingTimeoutSec(1);
   EXPECT_EQ(settings.xmpp_ping_timeout_sec(), kMinimumXmppPingTimeoutSecs);
 }
+
+}  // namespace cloud_print

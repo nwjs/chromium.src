@@ -10,9 +10,8 @@
 #include "base/bind.h"
 #include "base/message_loop_proxy.h"
 #include "chrome/browser/google_apis/drive_api_operations.h"
-#include "chrome/browser/google_apis/gdata_operations.h"
-#include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/google_apis/operation_runner.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/net/url_util.h"
 #include "content/public/browser/browser_thread.h"
@@ -30,9 +29,10 @@ const char kDriveAppsReadonlyScope[] =
 
 }  // namespace
 
-DriveAPIService::DriveAPIService()
+DriveAPIService::DriveAPIService(const std::string& custom_user_agent)
     : profile_(NULL),
-      runner_(NULL) {
+      runner_(NULL),
+      custom_user_agent_(custom_user_agent) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
@@ -51,7 +51,8 @@ void DriveAPIService::Initialize(Profile* profile) {
   std::vector<std::string> scopes;
   scopes.push_back(kDriveScope);
   scopes.push_back(kDriveAppsReadonlyScope);
-  runner_.reset(new google_apis::OperationRunner(profile, scopes));
+  runner_.reset(
+      new google_apis::OperationRunner(profile, scopes, custom_user_agent_));
   runner_->Initialize();
 
   runner_->auth_service()->AddObserver(this);
@@ -89,16 +90,11 @@ DriveAPIService::GetProgressStatusList() const {
   return operation_registry()->GetProgressStatusList();
 }
 
-void DriveAPIService::Authenticate(
-    const google_apis::AuthStatusCallback& callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  runner_->Authenticate(callback);
-}
-
 void DriveAPIService::GetDocuments(
     const GURL& url,
     int64 start_changestamp,
     const std::string& search_query,
+    bool shared_with_me,
     const std::string& directory_resource_id,
     const google_apis::GetDataCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -241,7 +237,6 @@ void DriveAPIService::AddResourceToDirectory(
 
 void DriveAPIService::RemoveResourceFromDirectory(
     const GURL& parent_content_url,
-    const GURL& resource_url,
     const std::string& resource_id,
     const google_apis::EntryActionCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));

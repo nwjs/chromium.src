@@ -5,11 +5,11 @@
 #ifndef CONTENT_PUBLIC_BROWSER_WEB_CONTENTS_OBSERVER_H_
 #define CONTENT_PUBLIC_BROWSER_WEB_CONTENTS_OBSERVER_H_
 
-#include "base/callback_forward.h"
 #include "base/process_util.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/common/page_transition_types.h"
+#include "content/public/common/three_d_api_types.h"
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sender.h"
 #include "webkit/glue/window_open_disposition.h"
@@ -61,7 +61,6 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener,
       RenderViewHost* render_view_host) {}
   virtual void ProvisionalChangeToMainFrameUrl(
       const GURL& url,
-      const GURL& opener_url,
       RenderViewHost* render_view_host) {}
   virtual void DidCommitProvisionalLoadForFrame(
       int64 frame_id,
@@ -137,17 +136,11 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener,
   // Called when the user agent override for a WebContents has been changed.
   virtual void UserAgentOverrideSet(const std::string& user_agent) {}
 
-  // Requests permission to access the PPAPI broker. If the object handles the
-  // request, it should return true and eventually call the passed in |callback|
-  // with the result. Otherwise it should return false, in which case the next
-  // observer will be called.
-  // Implementations should make sure not to call the callback after the
-  // WebContents has been destroyed.
-  virtual bool RequestPpapiBrokerPermission(
-      WebContents* web_contents,
-      const GURL& url,
-      const FilePath& plugin_path,
-      const base::Callback<void(bool)>& callback);
+  // Indicates that client 3D APIs (Pepper 3D, WebGL) were just
+  // blocked on the current page, specifically because the GPU was
+  // reset recently.
+  virtual void DidBlock3DAPIs(const GURL& url,
+                              ThreeDAPIType requester) {}
 
   // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;

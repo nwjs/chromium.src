@@ -47,7 +47,6 @@ class ViewProp;
 
 namespace aura {
 
-class FocusManager;
 class RootWindow;
 class RootWindowHost;
 class RootWindowObserver;
@@ -84,10 +83,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   ui::Compositor* compositor() { return compositor_.get(); }
   gfx::NativeCursor last_cursor() const { return last_cursor_; }
   Window* mouse_pressed_handler() { return mouse_pressed_handler_; }
-
-  void set_focus_manager(FocusManager* focus_manager) {
-    focus_manager_ = focus_manager;
-  }
 
   // Initializes the root window.
   void Init();
@@ -254,7 +249,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // Overridden from Window:
   virtual bool CanFocus() const OVERRIDE;
   virtual bool CanReceiveEvents() const OVERRIDE;
-  virtual FocusManager* GetFocusManager() OVERRIDE;
 
   // Overridden from aura::client::CaptureDelegate:
   virtual void UpdateCapture(Window* old_capture, Window* new_capture) OVERRIDE;
@@ -275,15 +269,22 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
                        // across root windows.
   };
 
+  // Updates the event with the appropriate transform for the device scale
+  // factor. The RootWindowHostDelegate dispatches events in the physical pixel
+  // coordinate. But the event processing from RootWindow onwards happen in
+  // device-independent pixel coordinate. So it is necessary to update the event
+  // received from the host.
+  void TransformEventForDeviceScaleFactor(ui::LocatedEvent* event);
+
   // Called whenever the mouse moves, tracks the current |mouse_moved_handler_|,
   // sending exited and entered events as its value changes.
   void HandleMouseMoved(const ui::MouseEvent& event, Window* target);
 
-  bool ProcessMouseEvent(Window* target, ui::MouseEvent* event);
-  bool ProcessKeyEvent(Window* target, ui::KeyEvent* event);
-  ui::EventResult ProcessTouchEvent(Window* target, ui::TouchEvent* event);
-  ui::EventResult ProcessGestureEvent(Window* target,
-                                      ui::GestureEvent* event);
+  void ProcessMouseEvent(Window* target, ui::MouseEvent* event);
+  void ProcessKeyEvent(Window* target, ui::KeyEvent* event);
+  void ProcessScrollEvent(Window* target, ui::ScrollEvent* event);
+  void ProcessTouchEvent(Window* target, ui::TouchEvent* event);
+  void ProcessGestureEvent(Window* target, ui::GestureEvent* event);
   bool ProcessGestures(ui::GestureRecognizer::Gestures* gestures);
 
   // Called when a Window is attached or detached from the RootWindow.
@@ -292,8 +293,11 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
 
   // Called when a window becomes invisible, either by being removed
   // from root window hierachy, via SetVisible(false) or being destroyed.
-  // |reason| specifies what triggered the hiding.
-  void OnWindowHidden(Window* invisible, WindowHiddenReason reason);
+  // |reason| specifies what triggered the hiding. |new_root| is the new root
+  // window, and may be NULL.
+  void OnWindowHidden(Window* invisible,
+                      WindowHiddenReason reason,
+                      RootWindow* new_root);
 
   // Cleans up the gesture recognizer for all windows in |window| (including
   // |window| itself).
@@ -319,6 +323,7 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   virtual bool OnHostMouseEvent(ui::MouseEvent* event) OVERRIDE;
   virtual bool OnHostScrollEvent(ui::ScrollEvent* event) OVERRIDE;
   virtual bool OnHostTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual void OnHostActivated() OVERRIDE;
   virtual void OnHostLostWindowCapture() OVERRIDE;
   virtual void OnHostLostMouseGrab() OVERRIDE;
   virtual void OnHostPaint() OVERRIDE;
@@ -374,7 +379,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   Window* mouse_moved_handler_;
   Window* mouse_event_dispatch_target_;
   Window* event_dispatch_target_;
-  FocusManager* focus_manager_;
 
   // The gesture_recognizer_ for this.
   scoped_ptr<ui::GestureRecognizer> gesture_recognizer_;

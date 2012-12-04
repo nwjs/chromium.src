@@ -34,7 +34,11 @@ TestWindowDelegate* TestWindowDelegate::CreateSelfDestroyingDelegate() {
 }
 
 gfx::Size TestWindowDelegate::GetMinimumSize() const {
-  return gfx::Size();
+  return minimum_size_;
+}
+
+gfx::Size TestWindowDelegate::GetMaximumSize() const {
+  return maximum_size_;
 }
 
 void TestWindowDelegate::OnBoundsChanged(const gfx::Rect& old_bounds,
@@ -95,23 +99,6 @@ void TestWindowDelegate::GetHitTestMask(gfx::Path* mask) const {
 
 scoped_refptr<ui::Texture> TestWindowDelegate::CopyTexture() {
   return scoped_refptr<ui::Texture>();
-}
-
-ui::EventResult TestWindowDelegate::OnKeyEvent(ui::KeyEvent* event) {
-  return ui::ER_UNHANDLED;
-}
-
-ui::EventResult TestWindowDelegate::OnMouseEvent(ui::MouseEvent* event) {
-  return ui::ER_UNHANDLED;
-}
-
-ui::EventResult TestWindowDelegate::OnTouchEvent(ui::TouchEvent* event) {
-  return ui::ER_UNHANDLED;
-}
-
-ui::EventResult TestWindowDelegate::OnGestureEvent(
-    ui::GestureEvent* event) {
-  return ui::ER_UNHANDLED;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

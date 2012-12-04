@@ -52,6 +52,7 @@ bool DeviceController::Init(const std::string& adb_unix_socket) {
                << adb_unix_socket << ": " << safe_strerror(errno);
     return false;
   }
+  LOG(INFO) << "Listening on Unix Domain Socket " << adb_unix_socket;
   return true;
 }
 
@@ -60,8 +61,12 @@ void DeviceController::Start() {
     CleanUpDeadListeners();
     scoped_ptr<Socket> socket(new Socket);
     if (!kickstart_adb_socket_.Accept(socket.get())) {
-      LOG(ERROR) << "Could not Accept DeviceController socket: "
-                 << safe_strerror(errno);
+      if (!kickstart_adb_socket_.exited()) {
+        LOG(ERROR) << "Could not Accept DeviceController socket: "
+                   << safe_strerror(errno);
+      } else {
+        LOG(INFO) << "Received exit notification";
+      }
       break;
     }
     // So that |socket| doesn't block on read if it has notifications.
@@ -70,7 +75,6 @@ void DeviceController::Start() {
     command::Type command;
     if (!ReadCommand(socket.get(), &port, &command)) {
       LOG(ERROR) << "Invalid command received.";
-      socket->Close();
       continue;
     }
     DeviceListener* listener = listeners_.Lookup(port);
@@ -97,7 +101,7 @@ void DeviceController::Start() {
         const int listener_port = new_listener->listener_port();
         // |new_listener| is now owned by listeners_ map.
         listeners_.AddWithID(new_listener.release(), listener_port);
-        printf("Forwarding device port %d to host.\n", listener_port);
+        LOG(INFO) << "Forwarding device port " << listener_port << " to host.";
         break;
       }
       case command::DATA_CONNECTION:
@@ -107,7 +111,6 @@ void DeviceController::Start() {
           // After this point it is assumed that, once we close our Adb Data
           // socket, the Adb forwarder command will propagate the closing of
           // sockets all the way to the host side.
-          socket->Close();
           continue;
         } else if (!listener->SetAdbDataSocket(socket.Pass())) {
           LOG(ERROR) << "Could not set Adb Data Socket for port: " << port;
@@ -120,14 +123,10 @@ void DeviceController::Start() {
         // TODO(felipeg): add a KillAllListeners command.
         LOG(ERROR) << "Invalid command received. Port: " << port
                    << " Command: " << command;
-        socket->Close();
-        continue;
-        break;
     }
   }
   KillAllListeners();
   CleanUpDeadListeners();
-  kickstart_adb_socket_.Close();
 }
 
 }  // namespace forwarder

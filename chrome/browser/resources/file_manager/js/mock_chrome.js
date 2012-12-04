@@ -51,6 +51,11 @@ function cloneShallow(object) {
  */
 chrome.fileBrowserPrivate = {
   /**
+   * Used to distinguish the mock object from the real one.
+   */
+  mocked: true,
+
+  /**
    * window.PERSISTENT is a little nicer but not yet supported by packaged apps.
    */
   FS_TYPE: window.TEMPORARY,
@@ -270,7 +275,7 @@ chrome.fileBrowserPrivate = {
     }
   ],
 
-  fsRe_: new RegExp('^filesystem:[^/]*://[^/]*/persistent(.*)'),
+  fsRe_: new RegExp('^filesystem:[^/]*://[^/]*/(?:persistent|temporary)(.*)'),
 
   fileUrlToLocalPath_: function(fileUrl) {
     var match = chrome.fileBrowserPrivate.fsRe_.exec(fileUrl);
@@ -378,7 +383,7 @@ chrome.fileBrowserPrivate = {
 
   pinned_: {},
 
-  getGDataFileProperties: function(urls, callback) {
+  getDriveFileProperties: function(urls, callback) {
     var response = [];
     for (var i = 0; i != urls.length; i++) {
       var url = urls[i];
@@ -428,7 +433,7 @@ chrome.fileBrowserPrivate = {
     chrome.fileBrowserPrivate.onNetworkConnectionChanged.notify();
   },
 
-  pinGDataFile: function(urls, on, callback) {
+  pinDriveFile: function(urls, on, callback) {
     for (var i = 0; i != urls.length; i++) {
       var url = urls[i];
       if (on) {
@@ -437,7 +442,7 @@ chrome.fileBrowserPrivate = {
         delete chrome.fileBrowserPrivate.pinned_[url];
       }
     }
-    chrome.fileBrowserPrivate.getGDataFileProperties(urls, callback);
+    chrome.fileBrowserPrivate.getDriveFileProperties(urls, callback);
   },
 
   toggleFullscreen: function() {
@@ -467,7 +472,7 @@ chrome.fileBrowserPrivate = {
 
       CHROMEOS_RELEASE_BOARD: 'stumpy',
 
-      GDATA_DIRECTORY_LABEL: 'Google Drive',
+      DRIVE_DIRECTORY_LABEL: 'Google Drive',
       ENABLE_GDATA: true,
       PDF_VIEW_ENABLED: true,
 
@@ -583,33 +588,35 @@ chrome.fileBrowserPrivate = {
       OPEN_WITH_BUTTON_LABEL: 'Open with...',
 
       UNMOUNT_FAILED: 'Unable to eject: $1',
-      UNMOUNT_DEVICE_BUTTON_LABEL: 'Unmount',
-      FORMAT_DEVICE_BUTTON_LABEL: 'Format',
+      UNMOUNT_DEVICE_BUTTON_LABEL: 'Eject device',
+      CLOSE_ARCHIVE_BUTTON_LABEL: 'Close',
+      FORMAT_DEVICE_BUTTON_LABEL: 'Format device',
 
-      GDATA_MENU_HELP: 'Help',
-      GDATA_MOBILE_CONNECTION_OPTION: 'Do not use mobile data for sync',
-      GDATA_SHOW_HOSTED_FILES_OPTION: 'Show Google Docs files',
-      GDATA_CLEAR_LOCAL_CACHE: 'Clear local cache',
-      GDATA_WAITING_FOR_SPACE_INFO: 'Waiting for space info...',
-      GDATA_FAILED_SPACE_INFO: 'Failed to retrieve space info',
-      GDATA_BUY_MORE_SPACE: 'Buy more storage...',
-      GDATA_VISIT_DRIVE_GOOGLE_COM: 'Go to drive.google.com...',
-      GDATA_SPACE_AVAILABLE: '$1 left',
+      DRIVE_MENU_HELP: 'Help',
+      DRIVE_MOBILE_CONNECTION_OPTION: 'Do not use mobile data for sync',
+      DRIVE_SHOW_HOSTED_FILES_OPTION: 'Show Google Docs files',
+      DRIVE_CLEAR_LOCAL_CACHE: 'Clear local cache',
+      DRIVE_RELOAD: 'Reload',
+      DRIVE_WAITING_FOR_SPACE_INFO: 'Waiting for space info...',
+      DRIVE_FAILED_SPACE_INFO: 'Failed to retrieve space info',
+      DRIVE_BUY_MORE_SPACE: 'Buy more storage...',
+      DRIVE_VISIT_DRIVE_GOOGLE_COM: 'Go to drive.google.com...',
+      DRIVE_SPACE_AVAILABLE: '$1 left',
 
-      GDATA_BUY_MORE_SPACE_LINK: 'Buy more storage',
-      GDATA_SPACE_AVAILABLE_LONG: 'Google Drive space left: $1.',
+      DRIVE_BUY_MORE_SPACE_LINK: 'Buy more storage',
+      DRIVE_SPACE_AVAILABLE_LONG: 'Google Drive space left: $1.',
 
       OFFLINE_COLUMN_LABEL: 'Available offline',
-      GDATA_LOADING: 'Hang with us. We\'re fetching your files.',
-      GDATA_RETRY: 'Retry',
-      GDATA_LEARN_MORE: 'Learn more',
-      GDATA_CANNOT_REACH: '$1 cannot be reached at this time',
+      DRIVE_LOADING: 'Hang with us. We\'re fetching your files.',
+      DRIVE_RETRY: 'Retry',
+      DRIVE_LEARN_MORE: 'Learn more',
+      DRIVE_CANNOT_REACH: '$1 cannot be reached at this time',
 
-      GDATA_WELCOME_TITLE: 'Welcome to Google Drive!',
-      GDATA_WELCOME_TITLE_ALTERNATIVE: 'Get 100 GB free with Google Drive',
-      GDATA_WELCOME_TEXT_SHORT:
+      DRIVE_WELCOME_TITLE: 'Welcome to Google Drive!',
+      DRIVE_WELCOME_TITLE_ALTERNATIVE: 'Get 100 GB free with Google Drive',
+      DRIVE_WELCOME_TEXT_SHORT:
           'All files saved in this folder are backed up online automatically',
-      GDATA_WELCOME_TEXT_LONG:
+      DRIVE_WELCOME_TEXT_LONG:
           '<p><strong>Access files from everywhere, even offline.</strong> ' +
           'Files in Google Drive are up-to-date and available from any device.</p>' +
           '<p><strong>Keep your files safe.</strong> ' +
@@ -617,9 +624,9 @@ chrome.fileBrowserPrivate = {
           'safely stored in Google Drive .</p>' +
           '<p><strong>Share, create and collaborate</strong> ' +
           'on files with others all in one place .</p>',
-      GDATA_WELCOME_GET_STARTED: 'Get started',
-      GDATA_WELCOME_DISMISS: 'Dismiss',
-      GDATA_LOADING_PROGRESS: '$1 files fetched',
+      DRIVE_WELCOME_GET_STARTED: 'Get started',
+      DRIVE_WELCOME_DISMISS: 'Dismiss',
+      DRIVE_LOADING_PROGRESS: '$1 files fetched',
 
       OFFLINE_HEADER: 'You are offline',
       OFFLINE_MESSAGE: 'To save this file for offline use, get back online and<br>select the \'$1\' checkbox for this file.',

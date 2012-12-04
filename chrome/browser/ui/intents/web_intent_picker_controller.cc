@@ -14,6 +14,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/download/download_util.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/platform_app_launcher.h"
 #include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/intents/cws_intents_registry_factory.h"
@@ -202,17 +203,17 @@ void WebIntentPickerController::ShowDialog(DefaultsUsage suppress_defaults) {
   // in-flight dispatches since we don't create the picker
   // in this method, but only after calling the registry.
   if (picker_shown_) {
-    intents_dispatcher_->SendReplyMessage(
+    intents_dispatcher_->SendReply(webkit_glue::WebIntentReply(
         webkit_glue::WEB_INTENT_REPLY_FAILURE,
-        ASCIIToUTF16("Simultaneous intent invocation."));
+        ASCIIToUTF16("Simultaneous intent invocation.")));
     return;
   }
 
   // TODO(binji): Figure out what to do when intents are invoked from incognito
   // mode.
   if (profile_->IsOffTheRecord()) {
-    intents_dispatcher_->SendReplyMessage(
-        webkit_glue::WEB_INTENT_REPLY_FAILURE, string16());
+    intents_dispatcher_->SendReply(webkit_glue::WebIntentReply(
+        webkit_glue::WEB_INTENT_REPLY_FAILURE, string16()));
     return;
   }
 
@@ -276,7 +277,8 @@ void WebIntentPickerController::OnServiceChosen(
     DefaultsUsage suppress_defaults) {
   web_intents::RecordServiceInvoke(uma_bucket_);
   uma_reporter_->ResetServiceActiveTimer();
-  ExtensionService* extension_service = profile_->GetExtensionService();
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   DCHECK(extension_service);
 
 #if defined(TOOLKIT_VIEWS)
@@ -447,8 +449,8 @@ void WebIntentPickerController::OnUserCancelledPickerDialog() {
   if (!intents_dispatcher_)
     return;
 
-  intents_dispatcher_->SendReplyMessage(
-      webkit_glue::WEB_INTENT_PICKER_CANCELLED, string16());
+  intents_dispatcher_->SendReply(webkit_glue::WebIntentReply(
+      webkit_glue::WEB_INTENT_PICKER_CANCELLED, string16()));
   web_intents::RecordPickerCancel(uma_bucket_);
 
   ClosePicker();
@@ -554,20 +556,20 @@ void WebIntentPickerController::OnSendReturnMessage(
 
   if (service_tab_ &&
       reply_type != webkit_glue::WEB_INTENT_SERVICE_CONTENTS_CLOSED) {
-    Browser* browser = browser::FindBrowserWithWebContents(service_tab_);
+    Browser* browser = chrome::FindBrowserWithWebContents(service_tab_);
     if (browser) {
       int index = browser->tab_strip_model()->GetIndexOfWebContents(
           service_tab_);
-      browser->tab_strip_model()->CloseTabContentsAt(
+      browser->tab_strip_model()->CloseWebContentsAt(
           index, TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
 
       // Activate source tab.
       Browser* source_browser =
-          browser::FindBrowserWithWebContents(web_contents_);
+          chrome::FindBrowserWithWebContents(web_contents_);
       if (source_browser) {
         int source_index = source_browser->tab_strip_model()->
             GetIndexOfWebContents(web_contents_);
-        chrome::ActivateTabAt(source_browser, source_index, false);
+        source_browser->tab_strip_model()->ActivateTabAt(source_index, false);
       }
     }
     service_tab_ = NULL;
@@ -610,9 +612,9 @@ void WebIntentPickerController::OnWebIntentServicesAvailableForExplicitIntent(
   }
 
   // No acceptable extension. The intent cannot be dispatched.
-  intents_dispatcher_->SendReplyMessage(
+  intents_dispatcher_->SendReply(webkit_glue::WebIntentReply(
       webkit_glue::WEB_INTENT_REPLY_FAILURE,  ASCIIToUTF16(
-          "Explicit extension URL is not available."));
+          "Explicit extension URL is not available.")));
 
   AsyncOperationFinished();
 }
@@ -652,7 +654,7 @@ void WebIntentPickerController::RegistryCallsCompleted() {
 void WebIntentPickerController::OnCWSIntentServicesAvailable(
     const CWSIntentsRegistry::IntentExtensionList& extensions) {
   ExtensionServiceInterface* extension_service =
-      profile_->GetExtensionService();
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
 
   std::vector<WebIntentPickerModel::SuggestedExtension> suggestions;
   for (size_t i = 0; i < extensions.size(); ++i) {
@@ -805,13 +807,13 @@ void WebIntentPickerController::LocationBarPickerButtonClicked() {
   DCHECK(web_contents_);
   if (window_disposition_source_ && source_intents_dispatcher_) {
     Browser* service_browser =
-        browser::FindBrowserWithWebContents(web_contents_);
+        chrome::FindBrowserWithWebContents(web_contents_);
     if (!service_browser) return;
 
     TabContents* client_tab =
         TabContents::FromWebContents(window_disposition_source_);
     Browser* client_browser =
-        browser::FindBrowserWithWebContents(window_disposition_source_);
+        chrome::FindBrowserWithWebContents(window_disposition_source_);
     if (!client_browser || !client_tab) return;
     int client_index =
         client_browser->tab_strip_model()->GetIndexOfTabContents(client_tab);
@@ -849,9 +851,9 @@ void WebIntentPickerController::AsyncOperationFinished() {
 void WebIntentPickerController::InvokeServiceWithSelection(
     const webkit_glue::WebIntentServiceData& service) {
   if (picker_shown_) {
-    intents_dispatcher_->SendReplyMessage(
+    intents_dispatcher_->SendReply(webkit_glue::WebIntentReply(
         webkit_glue::WEB_INTENT_REPLY_FAILURE,
-        ASCIIToUTF16("Simultaneous intent invocation."));
+        ASCIIToUTF16("Simultaneous intent invocation.")));
     return;
   }
 

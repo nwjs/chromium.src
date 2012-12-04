@@ -11,7 +11,7 @@
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/pp_stdint.h"
 #include "ppapi/cpp/completion_callback.h"
-#include "ppapi/cpp/dev/message_loop_dev.h"
+#include "ppapi/cpp/message_loop.h"
 #include "ppapi/utility/completion_callback_factory.h"
 
 // Timeout to wait for some action to complete.
@@ -151,7 +151,7 @@ class TestCompletionCallback {
   // Reset so that this callback can be used again.
   void Reset();
 
- private:
+ protected:
   static void Handler(void* user_data, int32_t result);
   void RunMessageLoop();
   void QuitMessageLoop();
@@ -169,8 +169,58 @@ class TestCompletionCallback {
   unsigned run_count_;
   PP_Instance instance_;
   Delegate* delegate_;
-  pp::MessageLoop_Dev target_loop_;
+  pp::MessageLoop target_loop_;
 };
+
+template <typename OutputT>
+class TestCompletionCallbackWithOutput : public TestCompletionCallback {
+ public:
+  explicit TestCompletionCallbackWithOutput(PP_Instance instance) :
+    TestCompletionCallback(instance) {
+  }
+
+  TestCompletionCallbackWithOutput(PP_Instance instance, bool force_async) :
+    TestCompletionCallback(instance, force_async) {
+  }
+
+  TestCompletionCallbackWithOutput(PP_Instance instance,
+                                   CallbackType callback_type) :
+    TestCompletionCallback(instance, callback_type) {
+  }
+
+  pp::CompletionCallbackWithOutput<OutputT> GetCallbackWithOutput();
+  operator pp::CompletionCallbackWithOutput<OutputT>() {
+    return GetCallbackWithOutput();
+  }
+
+  const OutputT& output() { return output_storage_.output(); }
+
+  typename pp::CompletionCallbackWithOutput<OutputT>::OutputStorageType
+      output_storage_;
+};
+
+template <typename OutputT>
+pp::CompletionCallbackWithOutput<OutputT>
+TestCompletionCallbackWithOutput<OutputT>::GetCallbackWithOutput() {
+  Reset();
+  if (callback_type_ == PP_BLOCKING) {
+    pp::CompletionCallbackWithOutput<OutputT> cc(
+        &TestCompletionCallback::Handler,
+        this,
+        &output_storage_);
+    return cc;
+  }
+
+  target_loop_ = pp::MessageLoop::GetCurrent();
+  pp::CompletionCallbackWithOutput<OutputT> cc(
+        &TestCompletionCallback::Handler,
+        this,
+        &output_storage_);
+  if (callback_type_ == PP_OPTIONAL)
+    cc.set_flags(PP_COMPLETIONCALLBACK_FLAG_OPTIONAL);
+  return cc;
+}
+
 
 // Verifies that the callback didn't record any errors. If the callback is run
 // in an unexpected way (e.g., if it's invoked asynchronously when the call

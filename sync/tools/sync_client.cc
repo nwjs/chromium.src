@@ -11,13 +11,13 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/debug/stack_trace.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/task_runner.h"
 #include "base/threading/thread.h"
 #include "jingle/notifier/base/notification_method.h"
@@ -41,8 +41,8 @@
 #include "sync/js/js_event_details.h"
 #include "sync/js/js_event_handler.h"
 #include "sync/notifier/invalidation_state_tracker.h"
-#include "sync/notifier/invalidator_factory.h"
 #include "sync/notifier/invalidator.h"
+#include "sync/notifier/invalidator_factory.h"
 #include "sync/test/fake_encryptor.h"
 
 #if defined(OS_MACOSX)
@@ -101,7 +101,7 @@ class NullInvalidationStateTracker
 };
 
 // Needed to use a real host resolver.
-class MyTestURLRequestContext : public TestURLRequestContext {
+class MyTestURLRequestContext : public net::TestURLRequestContext {
  public:
   MyTestURLRequestContext() : TestURLRequestContext(true) {
     context_storage_.set_host_resolver(
@@ -114,13 +114,13 @@ class MyTestURLRequestContext : public TestURLRequestContext {
   virtual ~MyTestURLRequestContext() {}
 };
 
-class MyTestURLRequestContextGetter : public TestURLRequestContextGetter {
+class MyTestURLRequestContextGetter : public net::TestURLRequestContextGetter {
  public:
   explicit MyTestURLRequestContextGetter(
       const scoped_refptr<base::MessageLoopProxy>& io_message_loop_proxy)
       : TestURLRequestContextGetter(io_message_loop_proxy) {}
 
-  virtual TestURLRequestContext* GetURLRequestContext() OVERRIDE {
+  virtual net::TestURLRequestContext* GetURLRequestContext() OVERRIDE {
     // Construct |context_| lazily so it gets constructed on the right
     // thread (the IO thread).
     if (!context_.get())
@@ -317,7 +317,7 @@ int SyncClientMain(int argc, char* argv[]) {
       null_invalidation_state_tracker.AsWeakPtr());
 
   // Set up database directory for the syncer.
-  ScopedTempDir database_dir;
+  base::ScopedTempDir database_dir;
   CHECK(database_dir.CreateUniqueTempDir());
 
   // Set up model type parameters.
@@ -340,7 +340,7 @@ int SyncClientMain(int argc, char* argv[]) {
   const char kSyncServerAndPath[] = "clients4.google.com/chrome-sync/dev";
   int kSyncServerPort = 443;
   bool kUseSsl = true;
-  // Used only by RefreshNigori(), so it's okay to leave this as NULL.
+  // Used only by InitialProcessMetadata(), so it's okay to leave this as NULL.
   const scoped_refptr<base::TaskRunner> blocking_task_runner = NULL;
   const char kUserAgent[] = "sync_client";
   // TODO(akalin): Replace this with just the context getter once
@@ -366,7 +366,6 @@ int SyncClientMain(int argc, char* argv[]) {
                     kSyncServerAndPath,
                     kSyncServerPort,
                     kUseSsl,
-                    blocking_task_runner,
                     post_factory.Pass(),
                     workers,
                     extensions_activity_monitor,

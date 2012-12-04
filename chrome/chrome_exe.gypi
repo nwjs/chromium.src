@@ -423,7 +423,6 @@
             # Copy Flash Player files to PRODUCT_DIR if applicable. Let the .gyp
             # file decide what to do on a per-OS basis; on Mac, internal plugins
             # go inside the framework, so this dependency is in chrome_dll.gypi.
-            '../third_party/adobe/flash/flash_player.gyp:flash_player',
             '../third_party/adobe/flash/flash_player.gyp:flapper_binaries',
             # Copy CDM files to PRODUCT_DIR if applicable. Let the .gyp
             # file decide what to do on a per-OS basis; on Mac, internal plugins
@@ -463,6 +462,7 @@
         ['OS=="win"', {
           'dependencies': [
             'chrome_dll',
+            'chrome_nacl_win64',
             'chrome_version_resources',
             'installer_util',
             'image_pre_reader',
@@ -479,7 +479,6 @@
           'msvs_settings': {
             'VCLinkerTool': {
               'ImportLibrary': '$(OutDir)\\lib\\chrome_exe.lib',
-              'ProgramDatabaseFile': '$(OutDir)\\chrome_exe.pdb',
               'DelayLoadDLLs': [
                 'dbghelp.dll',
                 'dwmapi.dll',
@@ -584,7 +583,6 @@
               'msvs_settings': {
                 'VCLinkerTool': {
                   'ImportLibrary': '$(OutDir)\\lib\\nacl64_exe.lib',
-                  'ProgramDatabaseFile': '$(OutDir)\\nacl64_exe.pdb',
                   'SubSystem': '2',         # Set /SUBSYSTEM:WINDOWS
                 },
               },

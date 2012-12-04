@@ -11,9 +11,10 @@
 #include "ash/shell_window_ids.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/shelf_layout_manager.h"
+#include "ui/app_list/app_list_constants.h"
 #include "ui/app_list/app_list_view.h"
 #include "ui/app_list/pagination_model.h"
-#include "ui/aura/focus_manager.h"
+#include "ui/aura/client/focus_client.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/base/events/event.h"
@@ -32,9 +33,6 @@ const int kAnimationDurationMs = 200;
 
 // Offset in pixels to animation away/towards the launcher.
 const int kAnimationOffset = 8;
-
-// Duration for snap back animation after over-scroll in milliseconds.
-const int kSnapBackAnimationDurationMs = 100;
 
 // The maximum shift in pixels when over-scroll happens.
 const int kMaxOverScrollShift = 48;
@@ -92,7 +90,8 @@ gfx::Rect OffsetTowardsShelf(const gfx::Rect& rect, views::Widget* widget) {
 // AppListController, public:
 
 AppListController::AppListController()
-    : pagination_model_(new app_list::PaginationModel),
+    : FocusChangeShim(Shell::GetInstance()),
+      pagination_model_(new app_list::PaginationModel),
       is_visible_(false),
       view_(NULL),
       should_snap_back_(false) {
@@ -159,10 +158,10 @@ void AppListController::SetView(app_list::AppListView* view) {
     view_ = view;
     views::Widget* widget = view_->GetWidget();
     widget->AddObserver(this);
-    Shell::GetInstance()->AddEnvEventFilter(this);
+    Shell::GetInstance()->AddPreTargetHandler(this);
     Launcher::ForWindow(GetWindow())->AddIconObserver(this);
     widget->GetNativeView()->GetRootWindow()->AddRootWindowObserver(this);
-    widget->GetNativeView()->GetFocusManager()->AddObserver(this);
+    aura::client::GetFocusClient(widget->GetNativeView())->AddObserver(this);
     widget->SetOpacity(0);
     ScheduleAnimation();
 
@@ -179,10 +178,10 @@ void AppListController::ResetView() {
   views::Widget* widget = view_->GetWidget();
   widget->RemoveObserver(this);
   GetLayer(widget)->GetAnimator()->RemoveObserver(this);
-  Shell::GetInstance()->RemoveEnvEventFilter(this);
+  Shell::GetInstance()->RemovePreTargetHandler(this);
   Launcher::ForWindow(GetWindow())->RemoveIconObserver(this);
   widget->GetNativeView()->GetRootWindow()->RemoveRootWindowObserver(this);
-  widget->GetNativeView()->GetFocusManager()->RemoveObserver(this);
+  aura::client::GetFocusClient(widget->GetNativeView())->RemoveObserver(this);
   view_ = NULL;
 }
 
@@ -213,10 +212,10 @@ void AppListController::ScheduleAnimation() {
   widget->SetBounds(target_bounds);
 }
 
-void AppListController::ProcessLocatedEvent(aura::Window* target,
-                                            const ui::LocatedEvent& event) {
+void AppListController::ProcessLocatedEvent(ui::LocatedEvent* event) {
   // If the event happened on a menu, then the event should not close the app
   // list.
+  aura::Window* target = static_cast<aura::Window*>(event->target());
   if (target) {
     RootWindowController* root_controller =
         GetRootWindowController(target->GetRootWindow());
@@ -230,7 +229,7 @@ void AppListController::ProcessLocatedEvent(aura::Window* target,
 
   if (view_ && is_visible_) {
     aura::Window* window = view_->GetWidget()->GetNativeView();
-    gfx::Point window_local_point(event.root_location());
+    gfx::Point window_local_point(event->root_location());
     aura::Window::ConvertPointToTarget(window->GetRootWindow(),
                                        window,
                                        &window_local_point);
@@ -248,30 +247,15 @@ void AppListController::UpdateBounds() {
 ////////////////////////////////////////////////////////////////////////////////
 // AppListController, aura::EventFilter implementation:
 
-bool AppListController::PreHandleKeyEvent(aura::Window* target,
-                                          ui::KeyEvent* event) {
-  return false;
-}
-
-bool AppListController::PreHandleMouseEvent(aura::Window* target,
-                                            ui::MouseEvent* event) {
+ui::EventResult AppListController::OnMouseEvent(ui::MouseEvent* event) {
   if (event->type() == ui::ET_MOUSE_PRESSED)
-    ProcessLocatedEvent(target, *event);
-  return false;
-}
-
-ui::EventResult AppListController::PreHandleTouchEvent(
-    aura::Window* target,
-    ui::TouchEvent* event) {
+    ProcessLocatedEvent(event);
   return ui::ER_UNHANDLED;
 }
 
-ui::EventResult AppListController::PreHandleGestureEvent(
-    aura::Window* target,
-    ui::GestureEvent* event) {
+void AppListController::OnGestureEvent(ui::GestureEvent* event) {
   if (event->type() == ui::ET_GESTURE_TAP)
-    ProcessLocatedEvent(target, *event);
-  return ui::ER_UNHANDLED;
+    ProcessLocatedEvent(event);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -350,9 +334,11 @@ void AppListController::TransitionChanged() {
     return;
 
   views::Widget* widget = view_->GetWidget();
+  ui::LayerAnimator* widget_animator = GetLayer(widget)->GetAnimator();
   if (!pagination_model_->IsRevertingCurrentTransition()) {
-    // Update cached |view_bounds_| before the first over-scroll move.
-    if (!should_snap_back_)
+    // Update cached |view_bounds_| if it is the first over-scroll move and
+    // widget does not have running animations.
+    if (!should_snap_back_ && !widget_animator->is_animating())
       view_bounds_ = widget->GetWindowBoundsInScreen();
 
     const int current_page = pagination_model_->selected_page();
@@ -367,9 +353,9 @@ void AppListController::TransitionChanged() {
     should_snap_back_ = true;
   } else if (should_snap_back_) {
     should_snap_back_ = false;
-    ui::ScopedLayerAnimationSettings animation(GetLayer(widget)->GetAnimator());
-    animation.SetTransitionDuration(
-        base::TimeDelta::FromMilliseconds(kSnapBackAnimationDurationMs));
+    ui::ScopedLayerAnimationSettings animation(widget_animator);
+    animation.SetTransitionDuration(base::TimeDelta::FromMilliseconds(
+        app_list::kOverscrollPageTransitionDurationMs));
     widget->SetBounds(view_bounds_);
   }
 }

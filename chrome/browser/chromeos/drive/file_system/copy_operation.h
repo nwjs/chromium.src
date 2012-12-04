@@ -8,13 +8,15 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/values.h"
 #include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
-#include "chrome/browser/google_apis/drive_uploader.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
 
 class FilePath;
 class GURL;
+
+namespace base {
+class Value;
+}
 
 namespace google_apis {
 class DriveServiceInterface;
@@ -23,12 +25,8 @@ class DriveUploaderInterface;
 
 namespace drive {
 
-class DriveCache;
 class DriveEntryProto;
 class DriveFileSystemInterface;
-
-using google_apis::DocumentEntry;
-using google_apis::GDataErrorCode;
 
 namespace file_system {
 
@@ -50,9 +48,9 @@ class CopyOperation {
   // Performs the copy operation on the file at drive path |src_file_path|
   // with a target of |dest_file_path|. Invokes |callback| when finished with
   // the result of the operation.
-  void Copy(const FilePath& src_file_path,
-            const FilePath& dest_file_path,
-            const FileOperationCallback& callback);
+  virtual void Copy(const FilePath& src_file_path,
+                    const FilePath& dest_file_path,
+                    const FileOperationCallback& callback);
 
   // Initiates transfer of |remote_src_file_path| to |local_dest_file_path|.
   // |remote_src_file_path| is the virtual source path on the Drive file system.
@@ -60,9 +58,10 @@ class CopyOperation {
   //
   // Must be called from *UI* thread. |callback| is run on the calling thread.
   // |callback| must not be null.
-  void TransferFileFromRemoteToLocal(const FilePath& remote_src_file_path,
-                                     const FilePath& local_dest_file_path,
-                                     const FileOperationCallback& callback);
+  virtual void TransferFileFromRemoteToLocal(
+      const FilePath& remote_src_file_path,
+      const FilePath& local_dest_file_path,
+      const FileOperationCallback& callback);
 
   // Initiates transfer of |local_src_file_path| to |remote_dest_file_path|.
   // |local_src_file_path| must be a file from the local file system.
@@ -71,9 +70,10 @@ class CopyOperation {
   //
   // Must be called from *UI* thread. |callback| is run on the calling thread.
   // |callback| must not be null.
-  void TransferFileFromLocalToRemote(const FilePath& local_src_file_path,
-                                     const FilePath& remote_dest_file_path,
-                                     const FileOperationCallback& callback);
+  virtual void TransferFileFromLocalToRemote(
+      const FilePath& local_src_file_path,
+      const FilePath& remote_dest_file_path,
+      const FileOperationCallback& callback);
 
   // Initiates transfer of |local_file_path| to |remote_dest_file_path|.
   // |local_file_path| must be a regular file (i.e. not a hosted document) from
@@ -81,9 +81,9 @@ class CopyOperation {
   // path within Drive file system.
   //
   // Must be called from *UI* thread. |callback| is run on the calling thread.
-  void TransferRegularFile(const FilePath& local_file_path,
-                           const FilePath& remote_dest_file_path,
-                           const FileOperationCallback& callback);
+  virtual void TransferRegularFile(const FilePath& local_file_path,
+                                   const FilePath& remote_dest_file_path,
+                                   const FileOperationCallback& callback);
 
  private:
   // Struct used for StartFileUpload().
@@ -117,7 +117,7 @@ class CopyOperation {
   // |callback| must not be null.
   void OnCopyDocumentCompleted(const FilePath& dir_path,
                                const FileOperationCallback& callback,
-                               GDataErrorCode status,
+                               google_apis::GDataErrorCode status,
                                scoped_ptr<base::Value> data);
 
   // Moves a file or directory at |file_path| in the root directory to
@@ -143,8 +143,7 @@ class CopyOperation {
   void MoveEntryToDirectory(const FilePath& file_path,
                             const FilePath& directory_path,
                             const FileMoveCallback& callback,
-                            GDataErrorCode status,
-                            const GURL& /* document_url */);
+                            google_apis::GDataErrorCode status);
 
   // Callback when an entry is moved to another directory on the client side.
   // Notifies the directory change and runs |callback|.
@@ -189,11 +188,12 @@ class CopyOperation {
 
   // Helper function that completes bookkeeping tasks related to
   // completed file transfer.
-  void OnTransferCompleted(const FileOperationCallback& callback,
-                           google_apis::DriveUploadError error,
-                           const FilePath& drive_path,
-                           const FilePath& file_path,
-                           scoped_ptr<DocumentEntry> document_entry);
+  void OnTransferCompleted(
+      const FileOperationCallback& callback,
+      google_apis::DriveUploadError error,
+      const FilePath& drive_path,
+      const FilePath& file_path,
+      scoped_ptr<google_apis::DocumentEntry> document_entry);
 
   // Part of TransferFileFromLocalToRemote(). Called after
   // GetEntryInfoByPath() is complete.
@@ -213,11 +213,10 @@ class CopyOperation {
   //
   // Must be called from *UI* thread. |callback| is run on the calling thread.
   // |callback| must not be null.
-  void TransferFileForResourceId(
-      const FilePath& local_file_path,
-      const FilePath& remote_dest_file_path,
-      const FileOperationCallback& callback,
-      std::string* resource_id);
+  void TransferFileForResourceId(const FilePath& local_file_path,
+                                 const FilePath& remote_dest_file_path,
+                                 const FileOperationCallback& callback,
+                                 const std::string& resource_id);
 
   google_apis::DriveServiceInterface* drive_service_;
   DriveFileSystemInterface* drive_file_system_;

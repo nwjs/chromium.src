@@ -121,14 +121,22 @@ class BrowserDistribution {
 
   virtual bool CanCreateDesktopShortcuts();
 
+  // Returns the executable filename (not path) that contains the product icon.
+  virtual string16 GetIconFilename();
+
+  // Returns the index of the icon for the product, inside the file specified by
+  // GetIconFilename().
   virtual int GetIconIndex();
 
   virtual bool GetChromeChannel(string16* channel);
 
-  // Returns true if the distribution includes a DelegateExecute verb handler,
+  // Returns true if this distribution includes a DelegateExecute verb handler,
   // and provides the CommandExecuteImpl class UUID if |handler_class_uuid| is
   // non-NULL.
   virtual bool GetCommandExecuteImplClsid(string16* handler_class_uuid);
+
+  // Returns true if this distribution uses app_host.exe to run platform apps.
+  virtual bool AppHostIsSupported();
 
   virtual void UpdateInstallStatus(bool system_install,
       installer::ArchiveType archive_type,

@@ -11,6 +11,8 @@
 #include "base/basictypes.h"
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
+#include "base/message_loop_proxy.h"
+#include "base/threading/platform_thread.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_util.h"
 #include "media/audio/win/audio_manager_win.h"
@@ -76,7 +78,6 @@ inline WAVEHDR* PCMWaveOutAudioOutputStream::GetBuffer(int n) const {
   return reinterpret_cast<WAVEHDR*>(&buffers_[n * BufferSize()]);
 }
 
-
 PCMWaveOutAudioOutputStream::PCMWaveOutAudioOutputStream(
     AudioManagerWin* manager, const AudioParameters& params, int num_buffers,
     UINT device_id)
@@ -109,6 +110,11 @@ PCMWaveOutAudioOutputStream::PCMWaveOutAudioOutputStream(
   }
   format_.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
   format_.Samples.wValidBitsPerSample = params.bits_per_sample();
+
+  // Boost thread priority.  Required for glitch free background audio.
+  DCHECK(manager_->GetMessageLoop()->BelongsToCurrentThread());
+  base::PlatformThread::SetThreadPriority(
+      GetCurrentThread(), base::kThreadPriority_RealtimeAudio);
 }
 
 PCMWaveOutAudioOutputStream::~PCMWaveOutAudioOutputStream() {
@@ -278,6 +284,9 @@ void PCMWaveOutAudioOutputStream::Stop() {
     return;
   }
 
+  // Wait for lock to ensure all outstanding callbacks have completed.
+  base::AutoLock auto_lock(lock_);
+
   // waveOutReset() leaves buffers in the unpredictable state, causing
   // problems if we want to close, release, or reuse them. Fix the states.
   for (int ix = 0; ix != num_buffers_; ++ix) {
@@ -338,6 +347,13 @@ void PCMWaveOutAudioOutputStream::QueueNextPacket(WAVEHDR *buffer) {
   // Call the source which will fill our buffer with pleasant sounds and
   // return to us how many bytes were used.
   // TODO(fbarchard): Handle used 0 by queueing more.
+
+  // HACK: Yield if Read() is called too often.  On older platforms which are
+  // still using the WaveOut backend, we run into synchronization issues where
+  // the renderer has not finished filling the shared memory when Read() is
+  // called.  Reading too early will lead to clicks and pops.  See issues:
+  // http://crbug.com/161307 and http://crbug.com/61022
+  callback_->WaitTillDataReady();
 
   // TODO(sergeyu): Specify correct hardware delay for AudioBuffersState.
   int frames_filled = callback_->OnMoreData(

@@ -16,6 +16,8 @@
 
 #if defined(OS_POSIX)
 #include "ipc/file_descriptor_set_posix.h"
+#elif defined(OS_WIN)
+#include <tchar.h>
 #endif
 
 namespace IPC {
@@ -713,6 +715,7 @@ void ParamTraits<LogData>::Write(Message* m, const param_type& p) {
   WriteParam(m, p.sent);
   WriteParam(m, p.receive);
   WriteParam(m, p.dispatch);
+  WriteParam(m, p.message_name);
   WriteParam(m, p.params);
 }
 
@@ -727,6 +730,7 @@ bool ParamTraits<LogData>::Read(const Message* m,
       ReadParam(m, iter, &r->sent) &&
       ReadParam(m, iter, &r->receive) &&
       ReadParam(m, iter, &r->dispatch) &&
+      ReadParam(m, iter, &r->message_name) &&
       ReadParam(m, iter, &r->params);
 }
 
@@ -806,15 +810,16 @@ bool ParamTraits<LOGFONT>::Read(const Message* m, PickleIterator* iter,
                                 param_type* r) {
   const char *data;
   int data_size = 0;
-  bool result = m->ReadData(iter, &data, &data_size);
-  if (result && data_size == sizeof(LOGFONT)) {
-    memcpy(r, data, sizeof(LOGFONT));
-  } else {
-    result = false;
-    NOTREACHED();
+  if (m->ReadData(iter, &data, &data_size) && data_size == sizeof(LOGFONT)) {
+    const LOGFONT *font = reinterpret_cast<LOGFONT*>(const_cast<char*>(data));
+    if (_tcsnlen(font->lfFaceName, LF_FACESIZE) < LF_FACESIZE) {
+      memcpy(r, data, sizeof(LOGFONT));
+      return true;
+    }
   }
 
-  return result;
+  NOTREACHED();
+  return false;
 }
 
 void ParamTraits<LOGFONT>::Log(const param_type& p, std::string* l) {

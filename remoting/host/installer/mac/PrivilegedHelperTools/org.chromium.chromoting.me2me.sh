@@ -59,10 +59,21 @@ run_host() {
         local SIGNAL=$(($EXIT_CODE - 128))
         echo "Forwarding signal $SIGNAL to host"
         kill -$SIGNAL "$HOST_PID"
-      elif [[ "$EXIT_CODE" -eq "$SIGTERM_EXIT_CODE" ||
+      elif [[ "$EXIT_CODE" -eq "0" ||
+              "$EXIT_CODE" -eq "$SIGTERM_EXIT_CODE" ||
               ("$EXIT_CODE" -ge "$MIN_PERMANENT_ERROR_EXIT_CODE" && \
               "$EXIT_CODE" -le "$MAX_PERMANENT_ERROR_EXIT_CODE") ]]; then
         echo "Host returned permanent exit code $EXIT_CODE"
+        if [[ "$EXIT_CODE" -eq 101 ]]; then
+          # Exit code 101 is "hostID deleted", which indicates that the host
+          # was taken off-line remotely. To prevent the host being restarted
+          # when the login context changes, try to delete the "enabled" file.
+          # Since this requires root privileges, this is only possible when
+          # this script is launched in the "login" context. In the "aqua"
+          # context, just exit and try again next time.
+          echo "Host id deleted - disabling"
+          rm -f "$ENABLED_FILE" 2>/dev/null
+        fi
         exit "$EXIT_CODE"
       else
         # Ignore non-permanent error-code and launch host again.

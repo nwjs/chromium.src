@@ -12,7 +12,6 @@
 
 namespace views {
 class ImageButton;
-class ImageView;
 class ScrollView;
 }
 
@@ -44,7 +43,7 @@ class MessageView : public views::SlideOutView,
   virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
 
   // ui::EventHandler overrides.
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Overridden from ButtonListener.
   virtual void ButtonPressed(views::Button* sender,
@@ -61,7 +60,6 @@ class MessageView : public views::SlideOutView,
 
   NotificationList::Delegate* list_delegate_;
   NotificationList::Notification notification_;
-  views::ImageView* icon_;
   views::ImageButton* close_button_;
 
   views::ScrollView* scroller_;

@@ -5,23 +5,18 @@
 #include "chrome/browser/ui/webui/chromeos/login/network_state_informer.h"
 
 #include "base/bind.h"
-#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
+#include "chrome/browser/ui/webui/chromeos/login/error_screen_handler.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/chrome_switches.h"
 #include "net/proxy/proxy_config.h"
 
 namespace {
 
 // Timeout to smooth temporary network state transitions for flaky networks.
 const int kNetworkStateCheckDelayMs = 5000;
-
-const char kReasonNetworkChanged[] = "network changed";
-const char kReasonProxyChanged[]   = "proxy changed";
-const char kReasonPortalDetected[] = "portal detected";
 
 }  // namespace
 
@@ -36,14 +31,22 @@ NetworkStateInformer::NetworkStateInformer()
 NetworkStateInformer::~NetworkStateInformer() {
   CrosLibrary::Get()->GetNetworkLibrary()->
       RemoveNetworkManagerObserver(this);
-  NetworkPortalDetector::GetInstance()->RemoveObserver(this);
+  if (NetworkPortalDetector::IsEnabled() &&
+      NetworkPortalDetector::GetInstance()) {
+    NetworkPortalDetector::GetInstance()->RemoveObserver(this);
+  }
 }
 
 void NetworkStateInformer::Init() {
   NetworkLibrary* cros = CrosLibrary::Get()->GetNetworkLibrary();
   UpdateState(cros);
   cros->AddNetworkManagerObserver(this);
-  NetworkPortalDetector::GetInstance()->AddObserver(this);
+
+  if (NetworkPortalDetector::IsEnabled() &&
+      NetworkPortalDetector::GetInstance()) {
+    NetworkPortalDetector::GetInstance()->AddObserver(this);
+  }
+
   registrar_.Add(this,
                  chrome::NOTIFICATION_LOGIN_PROXY_CHANGED,
                  content::NotificationService::AllSources());
@@ -116,13 +119,13 @@ void NetworkStateInformer::Observe(
   if (type == chrome::NOTIFICATION_SESSION_STARTED)
     registrar_.RemoveAll();
   else if (type == chrome::NOTIFICATION_LOGIN_PROXY_CHANGED)
-    SendStateToObservers(kReasonProxyChanged);
+    SendStateToObservers(ErrorScreenHandler::kErrorReasonProxyConfigChanged);
   else
     NOTREACHED() << "Unknown notification: " << type;
 }
 
 void NetworkStateInformer::OnPortalDetected() {
-  SendStateToObservers(kReasonPortalDetected);
+  SendStateToObservers(ErrorScreenHandler::kErrorReasonPortalDetected);
 }
 
 bool NetworkStateInformer::UpdateState(NetworkLibrary* cros) {
@@ -155,7 +158,7 @@ void NetworkStateInformer::UpdateStateAndNotify() {
   check_state_.Cancel();
 
   if (UpdateState(CrosLibrary::Get()->GetNetworkLibrary()))
-    SendStateToObservers(kReasonNetworkChanged);
+    SendStateToObservers(ErrorScreenHandler::kErrorReasonNetworkChanged);
 }
 
 void NetworkStateInformer::SendStateToObservers(const std::string& reason) {
@@ -184,13 +187,9 @@ NetworkStateInformer::State NetworkStateInformer::GetNetworkState(
 
 bool NetworkStateInformer::IsRestrictedPool(const Network* network) {
   DCHECK(network);
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableChromeCaptivePortalDetector)) {
-    NetworkPortalDetector* portal_detector =
-        NetworkPortalDetector::GetInstance();
-    DCHECK(portal_detector);
+  if (NetworkPortalDetector::IsEnabled()) {
     NetworkPortalDetector::CaptivePortalState state =
-        portal_detector->GetCaptivePortalState(network);
+        NetworkPortalDetector::GetInstance()->GetCaptivePortalState(network);
     return (state == NetworkPortalDetector::CAPTIVE_PORTAL_STATE_PORTAL);
   } else {
     return network->restricted_pool();

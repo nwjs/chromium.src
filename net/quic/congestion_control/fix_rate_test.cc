@@ -10,7 +10,6 @@
 #include "net/quic/congestion_control/fix_rate_sender.h"
 #include "net/quic/test_tools/mock_clock.h"
 #include "net/quic/quic_protocol.h"
-#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace net {
@@ -50,7 +49,7 @@ TEST_F(FixRateTest, SenderAPI) {
   sender_->OnIncomingCongestionInfo(info);
   EXPECT_EQ(300000, sender_->BandwidthEstimate());
   EXPECT_TRUE(sender_->TimeUntilSend(false).IsZero());
-  EXPECT_EQ(kMaxPacketSize * 2u, sender_->AvailableCongestionWindow());
+  EXPECT_EQ(kMaxPacketSize * 2, sender_->AvailableCongestionWindow());
   sender_->SentPacket(1, kMaxPacketSize, false);
   EXPECT_EQ(3000u - kMaxPacketSize, sender_->AvailableCongestionWindow());
   EXPECT_TRUE(sender_->TimeUntilSend(false).IsZero());
@@ -69,16 +68,16 @@ TEST_F(FixRateTest, SenderAPI) {
 }
 
 TEST_F(FixRateTest, FixRatePacing) {
-  const uint64 packet_size = 1200;
-  const uint64 bit_rate = 240000;
-  const uint64 num_packets = 200;
+  const int64 packet_size = 1200;
+  const int64 bit_rate = 240000;
+  const int64 num_packets = 200;
   CongestionInfo info;
   receiver_->SetBitrate(240000);  // Bytes per second.
   ASSERT_TRUE(receiver_->GenerateCongestionInfo(&info));
   sender_->OnIncomingCongestionInfo(info);
   QuicTime acc_advance_time;
   QuicPacketSequenceNumber sequence_number = 0;
-  for (size_t i = 0; i < num_packets; i += 2) {
+  for (int i = 0; i < num_packets; i += 2) {
     EXPECT_TRUE(sender_->TimeUntilSend(false).IsZero());
     EXPECT_EQ(kMaxPacketSize * 2, sender_->AvailableCongestionWindow());
     sender_->SentPacket(sequence_number++, packet_size, false);

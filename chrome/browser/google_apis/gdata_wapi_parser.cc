@@ -16,7 +16,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/google_apis/drive_api_parser.h"
-#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "third_party/libxml/chromium/libxml_utils.h"
 
 using base::Value;
@@ -68,6 +68,7 @@ const char kWritersCanInviteNode[] = "writersCanInvite";
 // Field names.
 const char kAuthorField[] = "author";
 const char kCategoryField[] = "category";
+const char kChangestampField[] = "docs$changestamp.value";
 const char kContentField[] = "content";
 const char kDeletedField[] = "gd$deleted";
 const char kETagField[] = "gd$etag";
@@ -593,7 +594,8 @@ DocumentEntry::DocumentEntry()
     : kind_(ENTRY_KIND_UNKNOWN),
       file_size_(0),
       deleted_(false),
-      removed_(false) {
+      removed_(false),
+      changestamp_(0) {
 }
 
 DocumentEntry::~DocumentEntry() {
@@ -603,6 +605,22 @@ bool DocumentEntry::HasFieldPresent(const base::Value* value,
                                     bool* result) {
   *result = (value != NULL);
   return true;
+}
+
+bool DocumentEntry::ParseChangestamp(const base::Value* value,
+                                     int64* result) {
+  DCHECK(result);
+  if (!value) {
+    *result = 0;
+    return true;
+  }
+
+  std::string string_value;
+  if (value->GetAsString(&string_value) &&
+      base::StringToInt64(string_value, result))
+    return true;
+
+  return false;
 }
 
 // static
@@ -640,6 +658,9 @@ void DocumentEntry::RegisterJSONConverter(
       kDeletedField, &DocumentEntry::deleted_, &DocumentEntry::HasFieldPresent);
   converter->RegisterCustomValueField<bool>(
       kRemovedField, &DocumentEntry::removed_, &DocumentEntry::HasFieldPresent);
+  converter->RegisterCustomValueField<int64>(
+      kChangestampField, &DocumentEntry::changestamp_,
+      &DocumentEntry::ParseChangestamp);
 }
 
 std::string DocumentEntry::GetHostedDocumentExtension() const {
@@ -1035,7 +1056,7 @@ scoped_ptr<DocumentFeed> DocumentFeed::CreateFromChangeList(
   return feed.Pass();
 }
 
-bool DocumentFeed::GetNextFeedURL(GURL* url) {
+bool DocumentFeed::GetNextFeedURL(GURL* url) const {
   DCHECK(url);
   for (size_t i = 0; i < links_.size(); ++i) {
     if (links_[i]->type() == Link::LINK_NEXT) {

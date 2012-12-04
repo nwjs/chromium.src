@@ -167,18 +167,16 @@
         'ext/google_logging.cc',
         'ext/image_operations.cc',
         'ext/image_operations.h',
+        'ext/lazy_pixel_ref.h',
         'ext/SkThread_chrome.cc',
         'ext/platform_canvas.cc',
         'ext/platform_canvas.h',
-        'ext/platform_canvas_linux.cc',
-        'ext/platform_canvas_mac.cc',
-        'ext/platform_canvas_skia.cc',
-        'ext/platform_canvas_win.cc',
         'ext/platform_device.cc',
         'ext/platform_device.h',
         'ext/platform_device_linux.cc',
         'ext/platform_device_mac.cc',
         'ext/platform_device_win.cc',
+        'ext/refptr.h',
         'ext/SkMemory_new_handler.cpp',
         'ext/skia_sandbox_support_win.h',
         'ext/skia_sandbox_support_win.cc',
@@ -220,7 +218,6 @@
         'GR_GL_CUSTOM_SETUP_HEADER="GrGLConfig_chrome.h"',
         'GR_STATIC_RECT_VB=1',
         'GR_AGGRESSIVE_SHADER_OPTS=1',
-        'SK_DISABLE_FAST_AA_STROKE_RECT',
         'SK_DEFERRED_CANVAS_USES_GPIPE=1',
 
         # this flag can be removed entirely once this has baked for a while
@@ -235,6 +232,12 @@
         # Temporarily keep old int-srcrect behavior, until we determine if
         # the few failures are a bug or not.
         'SK_SUPPORT_INT_SRCRECT_DRAWBITMAPRECT',
+        
+        # Moved from SkUserConfig.h, so we can rebaseline when we remove this.
+        'SK_DISABLE_DITHER_32BIT_GRADIENT',
+
+        'SK_DISABLE_DASHING_OPTIMIZATION',
+        'SK_DISABLE_SEPARABLE_MASK_BLUR',
       ],
       'sources!': [
         '../third_party/skia/include/core/SkTypes.h',
@@ -378,15 +381,6 @@
             '../third_party/skia/src/ports/SkFontHost_FreeType_common.cpp',
           ],
         }],
-        [ 'use_aura == 1 and use_canvas_skia == 1', {
-          'sources/': [
-            ['exclude', 'ext/platform_canvas_mac\\.cc$'],
-            ['exclude', 'ext/platform_canvas_linux\\.cc$'],
-            ['exclude', 'ext/platform_canvas_win\\.cc$'],
-          ],
-        }, { # use_aura == 0 and use_canvas_skia == 1
-          'sources/': [ ['exclude', 'ext/platform_canvas_skia\\.cc$'] ],
-        }],
         [ 'toolkit_uses_gtk == 1', {
           'dependencies': [
             '../build/linux/system.gyp:gdk',
@@ -428,7 +422,6 @@
               ],
               'sources/': [
                 ['include', 'ext/platform_device_linux\\.cc$'],
-                ['include', 'ext/platform_canvas_linux\\.cc$'],
                 ['exclude', '../third_party/skia/src/pdf/'],
               ],
               'sources!': [
@@ -446,7 +439,6 @@
             [ '_toolset=="host" and host_os=="linux"', {
               'sources': [
                 'ext/platform_device_linux.cc',
-                'ext/platform_canvas_linux.cc',
               ],
             }],
           ],
@@ -460,6 +452,11 @@
             '../third_party/skia/include/utils/ios',
             '../third_party/skia/include/utils/mac',
           ],
+          'link_settings': {
+            'libraries': [
+              '$(SDKROOT)/System/Library/Frameworks/ImageIO.framework',
+            ],
+          },
           'dependencies': [
             'skia_opts_ios',
           ],
@@ -711,6 +708,8 @@
           # targets via common.gypi.
           'cflags!': [
             '-fno-omit-frame-pointer',
+            '-marm',
+            '-mapcs-frame',
           ],
           'cflags': [
             '-fomit-frame-pointer',

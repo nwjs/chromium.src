@@ -11,9 +11,9 @@
 #include "base/bind.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/time.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -138,7 +138,7 @@ class UploadDataStreamTest : public PlatformTest {
                          const base::Time& time,
                          bool error_expected);
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   scoped_refptr<UploadData> upload_data_;
 };
@@ -177,11 +177,7 @@ TEST_F(UploadDataStreamTest, File) {
   ASSERT_EQ(static_cast<int>(kTestDataSize),
             file_util::WriteFile(temp_file_path, kTestData, kTestDataSize));
 
-  std::vector<UploadElement> elements;
-  UploadElement element;
-  element.SetToFilePath(temp_file_path);
-  elements.push_back(element);
-  upload_data_->SetElements(elements);
+  upload_data_->AppendFileRange(temp_file_path, 0, kuint64max, base::Time());
 
   UploadDataStream stream(upload_data_);
   ASSERT_EQ(OK, stream.InitSync());
@@ -209,11 +205,7 @@ TEST_F(UploadDataStreamTest, FileSmallerThanLength) {
   UploadFileElementReader::ScopedOverridingContentLengthForTests
       overriding_content_length(kFakeSize);
 
-  std::vector<UploadElement> elements;
-  UploadElement element;
-  element.SetToFilePath(temp_file_path);
-  elements.push_back(element);
-  upload_data_->SetElements(elements);
+  upload_data_->AppendFileRange(temp_file_path, 0, kuint64max, base::Time());
 
   UploadDataStream stream(upload_data_);
   ASSERT_EQ(OK, stream.InitSync());
@@ -318,7 +310,7 @@ TEST_F(UploadDataStreamTest, InitAsync) {
   MockCompletionCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(OK)).Times(1);
   EXPECT_EQ(stream.Init(mock_callback.CreateCallback()), ERR_IO_PENDING);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 }
 
 // Init() of a reader fails asynchronously.
@@ -337,7 +329,7 @@ TEST_F(UploadDataStreamTest, InitAsyncFailureAsync) {
   MockCompletionCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(ERR_FAILED)).Times(1);
   EXPECT_EQ(stream.Init(mock_callback.CreateCallback()), ERR_IO_PENDING);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 }
 
 // Init() of a reader fails synchronously.
@@ -360,7 +352,7 @@ TEST_F(UploadDataStreamTest, InitAsyncFailureSync) {
   MockCompletionCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(ERR_FAILED)).Times(1);
   EXPECT_EQ(stream.Init(mock_callback.CreateCallback()), ERR_IO_PENDING);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 }
 
 // Read with a buffer whose size is same as the data.
@@ -416,7 +408,7 @@ TEST_F(UploadDataStreamTest, ReadAsync) {
   MockCompletionCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(OK)).Times(1);
   EXPECT_EQ(ERR_IO_PENDING, stream.Init(mock_callback.CreateCallback()));
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   scoped_refptr<IOBuffer> buf = new IOBuffer(kTestBufferSize);
 
@@ -424,32 +416,28 @@ TEST_F(UploadDataStreamTest, ReadAsync) {
   EXPECT_CALL(mock_callback, Run(kTestDataSize)).Times(0);
   EXPECT_EQ(static_cast<int>(kTestDataSize),
             stream.Read(buf, kTestDataSize, mock_callback.CreateCallback()));
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   // Consume the second element.
   EXPECT_CALL(mock_callback, Run(kTestDataSize)).Times(1);
   EXPECT_EQ(ERR_IO_PENDING,
             stream.Read(buf, kTestDataSize, mock_callback.CreateCallback()));
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   // Consume the third and the fourth elements.
   EXPECT_CALL(mock_callback, Run(kTestDataSize*2)).Times(1);
   EXPECT_EQ(ERR_IO_PENDING,
             stream.Read(buf, kTestDataSize*2, mock_callback.CreateCallback()));
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 }
 
 void UploadDataStreamTest::FileChangedHelper(const FilePath& file_path,
                                              const base::Time& time,
                                              bool error_expected) {
-  std::vector<UploadElement> elements;
-  UploadElement element;
-  element.SetToFilePathRange(file_path, 1, 2, time);
-  elements.push_back(element);
   // Don't use upload_data_ here, as this function is called twice, and
   // reusing upload_data_ is wrong.
   scoped_refptr<UploadData> upload_data(new UploadData);
-  upload_data->SetElements(elements);
+  upload_data->AppendFileRange(file_path, 1, 2, time);
 
   UploadDataStream stream(upload_data);
   int error_code = stream.InitSync();
@@ -486,11 +474,7 @@ TEST_F(UploadDataStreamTest, UploadDataReused) {
             file_util::WriteFile(temp_file_path, kTestData, kTestDataSize));
 
   // Prepare |upload_data_| that contains a file.
-  std::vector<UploadElement> elements;
-  UploadElement element;
-  element.SetToFilePath(temp_file_path);
-  elements.push_back(element);
-  upload_data_->SetElements(elements);
+  upload_data_->AppendFileRange(temp_file_path, 0, kuint64max, base::Time());
 
   // Confirm that the file is read properly.
   {

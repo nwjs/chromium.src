@@ -23,10 +23,8 @@
 #include "chrome/browser/chromeos/drive/mock_free_disk_space_getter.h"
 #include "chrome/browser/chromeos/drive/stale_cache_files_remover.h"
 #include "chrome/browser/google_apis/drive_api_parser.h"
-#include "chrome/browser/google_apis/drive_uploader.h"
-#include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/google_apis/mock_drive_service.h"
-#include "chrome/browser/google_apis/mock_drive_uploader.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_browser_thread.h"
@@ -44,14 +42,6 @@ namespace drive {
 namespace {
 
 const int64 kLotsOfSpace = kMinFreeSpace * 10;
-
-// Callback for DriveCache::Store used in RemoveStaleCacheFiles test.
-// Verifies that the result is not an error.
-void VerifyCacheFileState(DriveFileError error,
-                          const std::string& resource_id,
-                          const std::string& md5) {
-  EXPECT_EQ(DRIVE_FILE_OK, error);
-}
 
 }  // namespace
 
@@ -90,14 +80,13 @@ class StaleCacheFilesRemoverTest : public testing::Test {
     cache_ = DriveCache::CreateDriveCache(
         DriveCache::GetCacheRootPath(profile_.get()), blocking_task_runner_);
 
-    mock_uploader_.reset(new StrictMock<google_apis::MockDriveUploader>);
     mock_webapps_registry_.reset(new StrictMock<MockDriveWebAppsRegistry>);
 
     ASSERT_FALSE(file_system_);
     file_system_ = new DriveFileSystem(profile_.get(),
                                        cache_,
                                        mock_drive_service_,
-                                       mock_uploader_.get(),
+                                       NULL,  // drive_uploader
                                        mock_webapps_registry_.get(),
                                        blocking_task_runner_);
 
@@ -140,7 +129,6 @@ class StaleCacheFilesRemoverTest : public testing::Test {
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   scoped_ptr<TestingProfile> profile_;
   DriveCache* cache_;
-  scoped_ptr<StrictMock<google_apis::MockDriveUploader> > mock_uploader_;
   DriveFileSystem* file_system_;
   StrictMock<google_apis::MockDriveService>* mock_drive_service_;
   scoped_ptr<StrictMock<MockDriveWebAppsRegistry> > mock_webapps_registry_;
@@ -162,9 +150,12 @@ TEST_F(StaleCacheFilesRemoverTest, RemoveStaleCacheFiles) {
       .Times(AtLeast(1)).WillRepeatedly(Return(kLotsOfSpace));
 
   // Create a stale cache file.
+  DriveFileError error = DRIVE_FILE_OK;
   cache_->Store(resource_id, md5, dummy_file, DriveCache::FILE_OPERATION_COPY,
-                base::Bind(&VerifyCacheFileState));
+                base::Bind(&test_util::CopyErrorCodeFromFileOperationCallback,
+                           &error));
   google_apis::test_util::RunBlockingPoolTask();
+  EXPECT_EQ(DRIVE_FILE_OK, error);
 
   // Verify that the cache file exists.
   FilePath path = cache_->GetCacheFilePath(resource_id,
@@ -175,11 +166,10 @@ TEST_F(StaleCacheFilesRemoverTest, RemoveStaleCacheFiles) {
 
   // Verify that the corresponding file entry doesn't exist.
   EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(2);
-  EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "", _, _))
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "", _, _, _))
       .Times(2);
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
-  DriveFileError error(DRIVE_FILE_OK);
   FilePath unused;
   scoped_ptr<DriveEntryProto> entry_proto;
   file_system_->GetEntryInfoByResourceId(

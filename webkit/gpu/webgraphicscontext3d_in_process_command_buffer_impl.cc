@@ -33,13 +33,10 @@
 #include "gpu/command_buffer/service/context_group.h"
 #include "gpu/command_buffer/service/transfer_buffer_manager.h"
 #include "gpu/command_buffer/service/gpu_scheduler.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_share_group.h"
 #include "ui/gl/gl_surface.h"
-#include "webkit/glue/gl_bindings_skia_cmd_buffer.h"
+#include "webkit/gpu/gl_bindings_skia_cmd_buffer.h"
 
 using gpu::Buffer;
 using gpu::CommandBuffer;
@@ -1643,9 +1640,21 @@ DELEGATE_TO_GL_2(bindTexImage2DCHROMIUM, BindTexImage2DCHROMIUM,
 DELEGATE_TO_GL_2(releaseTexImage2DCHROMIUM, ReleaseTexImage2DCHROMIUM,
                  WGC3Denum, WGC3Dint)
 
+void* WebGraphicsContext3DInProcessCommandBufferImpl::mapBufferCHROMIUM(
+    WGC3Denum target, WGC3Denum access) {
+  ClearContext();
+  return gl_->MapBufferCHROMIUM(target, access);
+}
+
+WGC3Dboolean WebGraphicsContext3DInProcessCommandBufferImpl::
+    unmapBufferCHROMIUM(WGC3Denum target) {
+  ClearContext();
+  return gl_->UnmapBufferCHROMIUM(target);
+}
+
 GrGLInterface* WebGraphicsContext3DInProcessCommandBufferImpl::
     onCreateGrGLInterface() {
-  return webkit_glue::CreateCommandBufferSkiaGLBinding();
+  return CreateCommandBufferSkiaGLBinding();
 }
 
 void WebGraphicsContext3DInProcessCommandBufferImpl::OnContextLost() {

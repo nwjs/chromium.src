@@ -4,27 +4,35 @@
 
 #include "android_webview/native/aw_contents.h"
 
+#include "android_webview/browser/aw_browser_main_parts.h"
 #include "android_webview/browser/net_disk_cache_remover.h"
 #include "android_webview/browser/renderer_host/aw_render_view_host_ext.h"
+#include "android_webview/browser/renderer_host/aw_resource_dispatcher_host_delegate.h"
 #include "android_webview/common/aw_hit_test_data.h"
 #include "android_webview/native/aw_browser_dependency_factory.h"
 #include "android_webview/native/aw_contents_io_thread_client_impl.h"
 #include "android_webview/native/aw_web_contents_delegate.h"
+#include "android_webview/native/state_serializer.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/message_loop.h"
+#include "base/pickle.h"
 #include "base/supports_user_data.h"
+#include "cc/layer.h"
 #include "content/components/navigation_interception/intercept_navigation_delegate.h"
 #include "content/public/browser/android/content_view_core.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/cert_store.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/ssl_status.h"
 #include "jni/AwContents_jni.h"
 #include "net/base/x509_certificate.h"
+#include "ui/gfx/transform.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ConvertJavaStringToUTF16;
@@ -73,6 +81,36 @@ class AwContentsUserData : public base::SupportsUserData::Data {
   AwContents* contents_;
 };
 
+// Work-around for http://crbug.com/161864. TODO(joth): Remove this class when
+// that bug is closed.
+class NullCompositor : public content::Compositor {
+ public:
+  NullCompositor() {}
+  virtual ~NullCompositor() {}
+
+  // Compositor
+  virtual void SetRootLayer(scoped_refptr<cc::Layer> root) OVERRIDE {}
+  virtual void SetWindowBounds(const gfx::Size& size) OVERRIDE {}
+  virtual void SetVisible(bool visible) OVERRIDE {}
+  virtual void SetWindowSurface(ANativeWindow* window) OVERRIDE {}
+  virtual bool CompositeAndReadback(void *pixels, const gfx::Rect& rect)
+      OVERRIDE {
+    return false;
+  }
+  virtual void Composite() {}
+  virtual WebKit::WebGLId GenerateTexture(gfx::JavaBitmap& bitmap) OVERRIDE {
+    return 0;
+  }
+  virtual WebKit::WebGLId GenerateCompressedTexture(gfx::Size& size,
+                                                    int data_size,
+                                                    void* data) OVERRIDE {
+    return 0;
+  }
+  virtual void DeleteTexture(WebKit::WebGLId texture_id) OVERRIDE {}
+  virtual void CopyTextureToBitmap(WebKit::WebGLId texture_id,
+                                   gfx::JavaBitmap& bitmap) OVERRIDE {}
+};
+
 }  // namespace
 
 // static
@@ -86,18 +124,36 @@ AwContents::AwContents(JNIEnv* env,
                        bool private_browsing)
     : java_ref_(env, obj),
       web_contents_delegate_(
-          new AwWebContentsDelegate(env, web_contents_delegate)) {
+          new AwWebContentsDelegate(env, web_contents_delegate)),
+      view_visible_(false),
+      compositor_visible_(false),
+      is_composite_pending_(false) {
   android_webview::AwBrowserDependencyFactory* dependency_factory =
       android_webview::AwBrowserDependencyFactory::GetInstance();
 
-  web_contents_.reset(dependency_factory->CreateWebContents(private_browsing));
+  // TODO(joth): rather than create and set the WebContents here, expose the
+  // factory method to java side and have that orchestrate the construction
+  // order.
+  SetWebContents(dependency_factory->CreateWebContents(private_browsing));
+}
 
-  DCHECK(!AwContents::FromWebContents(web_contents_.get()));
+void AwContents::SetWebContents(content::WebContents* web_contents) {
+  web_contents_.reset(web_contents);
   web_contents_->SetUserData(kAwContentsUserDataKey,
                              new AwContentsUserData(this));
 
   web_contents_->SetDelegate(web_contents_delegate_.get());
   render_view_host_ext_.reset(new AwRenderViewHostExt(web_contents_.get()));
+  if (UseCompositorDirectDraw()) {
+    compositor_.reset(content::Compositor::Create(this));
+  } else {
+    LOG(WARNING) << "Running on unsupported device: using null Compositor";
+    compositor_.reset(new NullCompositor);
+  }
+}
+
+void AwContents::SetWebContents(JNIEnv* env, jobject obj, jint new_wc) {
+  SetWebContents(reinterpret_cast<content::WebContents*>(new_wc));
 }
 
 AwContents::~AwContents() {
@@ -108,11 +164,36 @@ AwContents::~AwContents() {
 }
 
 void AwContents::DrawGL(AwDrawGLInfo* draw_info) {
-  // TODO(joth): Do some drawing.
+  // TODO(joth): Use the |draw_info| parameters.
+  DLOG(INFO) << "Unimplemented AwContents::DrawGL params"
+      << " clip_left=" << draw_info->clip_left
+      << " clip_top=" << draw_info->clip_top
+      << " clip_right=" << draw_info->clip_right
+      << " clip_bottom=" << draw_info->clip_bottom;
+  if (compositor_visible_ != view_visible_) {
+    compositor_visible_ = view_visible_;
+    compositor_->SetVisible(compositor_visible_);
+  }
+
+  if (!compositor_visible_ || draw_info->mode == AwDrawGLInfo::kModeProcess)
+    return;
+
+  DCHECK_EQ(draw_info->mode, AwDrawGLInfo::kModeDraw);
+
+  compositor_->Composite();
+  is_composite_pending_ = false;
 }
 
 jint AwContents::GetWebContents(JNIEnv* env, jobject obj) {
   return reinterpret_cast<jint>(web_contents_.get());
+}
+
+void AwContents::DidInitializeContentViewCore(JNIEnv* env, jobject obj,
+                                              jint content_view_core) {
+  ContentViewCore* core = reinterpret_cast<ContentViewCore*>(content_view_core);
+  DCHECK(core == ContentViewCore::FromWebContents(web_contents_.get()));
+  compositor_->SetRootLayer(core->GetLayer());
+  Invalidate();
 }
 
 void AwContents::Destroy(JNIEnv* env, jobject obj) {
@@ -235,6 +316,9 @@ void AwContents::SetIoThreadClient(JNIEnv* env, jobject obj, jobject client) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   AwContentsIoThreadClientImpl::Associate(
       web_contents_.get(), ScopedJavaLocalRef<jobject>(env, client));
+  int child_id = web_contents_->GetRenderProcessHost()->GetID();
+  int route_id = web_contents_->GetRoutingID();
+  AwResourceDispatcherHostDelegate::OnIoThreadClientReady(child_id, route_id);
 }
 
 void AwContents::SetInterceptNavigationDelegate(JNIEnv* env,
@@ -309,6 +393,28 @@ void AwContents::OnFindResultReceived(int active_ordinal,
       env, obj.obj(), active_ordinal, match_count, finished);
 }
 
+void AwContents::ScheduleComposite() {
+  // TODO(joth): Call back out to framework attachFunctor (Java side) from here.
+  Invalidate();
+}
+
+void AwContents::Invalidate() {
+  if (is_composite_pending_)
+    return;
+
+  is_composite_pending_ = true;
+
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+
+  Java_AwContents_invalidate(env, obj.obj());
+}
+
+void AwContents::OnSwapBuffersCompleted() {
+}
+
 base::android::ScopedJavaLocalRef<jbyteArray>
     AwContents::GetCertificate(JNIEnv* env,
                                jobject obj) {
@@ -335,9 +441,11 @@ void AwContents::RequestNewHitTestDataAt(JNIEnv* env, jobject obj,
   render_view_host_ext_->RequestNewHitTestDataAt(x, y);
 }
 
-base::android::ScopedJavaLocalRef<jobject> AwContents::GetLastHitTestData(
-    JNIEnv* env, jobject obj) {
+void AwContents::UpdateLastHitTestData(JNIEnv* env, jobject obj) {
+  if (!render_view_host_ext_->HasNewHitTestData()) return;
+
   const AwHitTestData& data = render_view_host_ext_->GetLastHitTestData();
+  render_view_host_ext_->MarkHitTestDataRead();
 
   // Make sure to null the Java object if data is empty/invalid.
   ScopedJavaLocalRef<jstring> extra_data_for_type;
@@ -357,12 +465,84 @@ base::android::ScopedJavaLocalRef<jobject> AwContents::GetLastHitTestData(
   if (data.img_src.is_valid())
     img_src = ConvertUTF8ToJavaString(env, data.img_src.spec());
 
-  return Java_AwContents_createHitTestData(env,
-                                           data.type,
-                                           extra_data_for_type.obj(),
-                                           href.obj(),
-                                           anchor_text.obj(),
-                                           img_src.obj());
+  Java_AwContents_updateHitTestData(env,
+                                    obj,
+                                    data.type,
+                                    extra_data_for_type.obj(),
+                                    href.obj(),
+                                    anchor_text.obj(),
+                                    img_src.obj());
+}
+
+void AwContents::OnSizeChanged(JNIEnv* env, jobject obj,
+                               int w, int h, int ow, int oh) {
+  compositor_->SetWindowBounds(gfx::Size(w, h));
+}
+
+void AwContents::SetWindowViewVisibility(JNIEnv* env, jobject obj,
+                                         bool window_visible,
+                                         bool view_visible) {
+  view_visible_ = window_visible && view_visible;
+  Invalidate();
+}
+
+void AwContents::OnAttachedToWindow(JNIEnv* env, jobject obj, int w, int h) {
+  // Seed the Compositor size here, as we'll only receive OnSizeChanged calls
+  // for a genuine change in size, not to set initial size. Note the |w| and |h|
+  // passed here are the Java view size, NOT window size (which correctly maps
+  // to the Compositor's "window" size).
+  compositor_->SetWindowBounds(gfx::Size(w, h));
+}
+
+void AwContents::OnDetachedFromWindow(JNIEnv* env, jobject obj) {
+  view_visible_ = false;
+  // TODO(joth): Request a DrawGL (kModeProcess) call, to tell the compositor.
+}
+
+base::android::ScopedJavaLocalRef<jbyteArray>
+AwContents::GetOpaqueState(JNIEnv* env, jobject obj) {
+  // Required optimization in WebViewClassic to not save any state if
+  // there has been no navigations.
+  if (!web_contents_->GetController().GetEntryCount())
+    return ScopedJavaLocalRef<jbyteArray>();
+
+  Pickle pickle;
+  if (!WriteToPickle(*web_contents_, &pickle)) {
+    return ScopedJavaLocalRef<jbyteArray>();
+  } else {
+    return base::android::ToJavaByteArray(env,
+       reinterpret_cast<const uint8*>(pickle.data()), pickle.size());
+  }
+}
+
+jboolean AwContents::RestoreFromOpaqueState(
+    JNIEnv* env, jobject obj, jbyteArray state) {
+  // TODO(boliu): This copy can be optimized out if this is a performance
+  // problem.
+  std::vector<uint8> state_vector;
+  base::android::JavaByteArrayToByteVector(env, state, &state_vector);
+
+  Pickle pickle(reinterpret_cast<const char*>(state_vector.begin()),
+                state_vector.size());
+  PickleIterator iterator(pickle);
+
+  return RestoreFromPickle(&iterator, web_contents_.get());
+}
+
+void AwContents::SetPendingWebContentsForPopup(
+    scoped_ptr<content::WebContents> pending) {
+  if (pending_contents_.get()) {
+    // TODO(benm): Support holding multiple pop up window requests.
+    LOG(WARNING) << "Blocking popup window creation as an outstanding "
+                 << "popup window is still pending.";
+    MessageLoop::current()->DeleteSoon(FROM_HERE, pending.release());
+    return;
+  }
+  pending_contents_ = pending.Pass();
+}
+
+jint AwContents::ReleasePopupWebContents(JNIEnv* env, jobject obj) {
+  return reinterpret_cast<jint>(pending_contents_.release());
 }
 
 }  // namespace android_webview

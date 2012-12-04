@@ -151,11 +151,6 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       audio_renderer_sink_(audio_renderer_sink),
       is_local_source_(false),
       supports_save_(true),
-      decryptor_(message_loop_factory_->GetMessageLoop(
-                     media::MessageLoopFactory::kDecoder),
-                 proxy_.get(),
-                 client,
-                 frame),
       starting_(false) {
   media_log_->AddEvent(
       media_log_->CreateEvent(media::MediaLogEvent::WEBMEDIAPLAYER_CREATED));
@@ -191,6 +186,12 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
   // Create default audio renderer.
   filter_collection_->AddAudioRenderer(
       new media::AudioRendererImpl(new media::NullAudioSink()));
+
+  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  if (cmd_line->HasSwitch(switches::kEnableEncryptedMedia)) {
+    decryptor_.reset(new ProxyDecryptor(message_loop_factory_->GetMessageLoop(
+        media::MessageLoopFactory::kPipeline), proxy_.get(), client, frame));
+  }
 }
 
 WebMediaPlayerImpl::~WebMediaPlayerImpl() {
@@ -257,9 +258,13 @@ void WebMediaPlayerImpl::load(const WebKit::WebURL& url, CORSMode cors_mode) {
   SetReadyState(WebMediaPlayer::ReadyStateHaveNothing);
   media_log_->AddEvent(media_log_->CreateLoadEvent(url.spec()));
 
+  scoped_refptr<base::MessageLoopProxy> message_loop =
+      message_loop_factory_->GetMessageLoop(
+          media::MessageLoopFactory::kPipeline);
+
   // Media streams pipelines can start immediately.
   if (BuildMediaStreamCollection(url, media_stream_client_,
-                                 message_loop_factory_.get(),
+                                 message_loop,
                                  filter_collection_.get())) {
     supports_save_ = false;
     StartPipeline();
@@ -273,9 +278,9 @@ void WebMediaPlayerImpl::load(const WebKit::WebURL& url, CORSMode cors_mode) {
         BIND_TO_RENDER_LOOP_2(&WebMediaPlayerImpl::OnNeedKey, "", ""));
 
     BuildMediaSourceCollection(chunk_demuxer_,
-                               message_loop_factory_.get(),
+                               message_loop,
                                filter_collection_.get(),
-                               &decryptor_);
+                               decryptor_.get());
     supports_save_ = false;
     StartPipeline();
     return;
@@ -295,9 +300,9 @@ void WebMediaPlayerImpl::load(const WebKit::WebURL& url, CORSMode cors_mode) {
   is_local_source_ = !gurl.SchemeIs("http") && !gurl.SchemeIs("https");
 
   BuildDefaultCollection(proxy_->data_source(),
-                         message_loop_factory_.get(),
+                         message_loop,
                          filter_collection_.get(),
-                         &decryptor_);
+                         decryptor_.get());
 }
 
 void WebMediaPlayerImpl::cancelLoad() {
@@ -805,7 +810,7 @@ WebMediaPlayerImpl::GenerateKeyRequestInternal(
   // TODO(xhwang): We assume all streams are from the same container (thus have
   // the same "type") for now. In the future, the "type" should be passed down
   // from the application.
-  if (!decryptor_.GenerateKeyRequest(key_system.utf8(),
+  if (!decryptor_->GenerateKeyRequest(key_system.utf8(),
                                      init_data_type_,
                                      init_data, init_data_length)) {
     current_key_system_.reset();
@@ -852,7 +857,7 @@ WebMediaPlayer::MediaKeyException WebMediaPlayerImpl::AddKeyInternal(
                           static_cast<size_t>(init_data_length))
            << " [" << session_id.utf8().data() << "]";
 
-  decryptor_.AddKey(key_system.utf8(), key, key_length,
+  decryptor_->AddKey(key_system.utf8(), key, key_length,
                     init_data, init_data_length, session_id.utf8());
   return WebMediaPlayer::MediaKeyExceptionNoError;
 }
@@ -876,7 +881,7 @@ WebMediaPlayerImpl::CancelKeyRequestInternal(
   if (current_key_system_.isEmpty() || key_system != current_key_system_)
     return WebMediaPlayer::MediaKeyExceptionInvalidPlayerState;
 
-  decryptor_.CancelKeyRequest(key_system.utf8(), session_id.utf8());
+  decryptor_->CancelKeyRequest(key_system.utf8(), session_id.utf8());
   return WebMediaPlayer::MediaKeyExceptionNoError;
 }
 
@@ -1024,6 +1029,10 @@ void WebMediaPlayerImpl::OnNeedKey(const std::string& key_system,
                                    scoped_array<uint8> init_data,
                                    int init_data_size) {
   DCHECK_EQ(main_loop_, MessageLoop::current());
+
+  // Do not fire NeedKey event if encrypted media is not enabled.
+  if (!decryptor_)
+    return;
 
   UMA_HISTOGRAM_COUNTS(kMediaEme + std::string("NeedKey"), 1);
 

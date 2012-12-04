@@ -4,6 +4,7 @@
 
 #include "base/callback.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/base/view_event_test_base.h"
 #include "ui/base/models/menu_model.h"
@@ -90,6 +91,10 @@ class CommonMenuModel : public ui::MenuModel {
   }
 
   virtual void SetMenuModelDelegate(ui::MenuModelDelegate* delegate) OVERRIDE {
+  }
+
+  virtual ui::MenuModelDelegate* GetMenuModelDelegate() const OVERRIDE {
+    return NULL;
   }
 
  private:

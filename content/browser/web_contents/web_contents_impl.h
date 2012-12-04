@@ -23,6 +23,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/renderer_preferences.h"
+#include "content/public/common/three_d_api_types.h"
 #include "net/base/load_states.h"
 #include "ui/gfx/rect_f.h"
 #include "ui/gfx/size.h"
@@ -179,6 +180,8 @@ class CONTENT_EXPORT WebContentsImpl
   // an embedder.
   BrowserPluginEmbedder* GetBrowserPluginEmbedder();
 
+  void DidBlock3DAPIs(const GURL& url, ThreeDAPIType requester);
+
   // WebContents ------------------------------------------------------
   virtual WebContentsDelegate* GetDelegate() OVERRIDE;
   virtual void SetDelegate(WebContentsDelegate* delegate) OVERRIDE;
@@ -187,6 +190,10 @@ class CONTENT_EXPORT WebContentsImpl
   virtual BrowserContext* GetBrowserContext() const OVERRIDE;
   virtual RenderProcessHost* GetRenderProcessHost() const OVERRIDE;
   virtual RenderViewHost* GetRenderViewHost() const OVERRIDE;
+  virtual void GetRenderViewHostAtPosition(
+      int x,
+      int y,
+      const GetRenderViewHostCallback& callback) OVERRIDE;
   virtual int GetRoutingID() const OVERRIDE;
   virtual RenderWidgetHostView* GetRenderWidgetHostView() const OVERRIDE;
   virtual WebContentsView* GetView() const OVERRIDE;
@@ -299,12 +306,10 @@ class CONTENT_EXPORT WebContentsImpl
       int64 frame_id,
       int64 parent_frame_id,
       bool main_frame,
-      const GURL& opener_url,
       const GURL& url) OVERRIDE;
   virtual void DidRedirectProvisionalLoad(
       RenderViewHost* render_view_host,
       int32 page_id,
-      const GURL& opener_url,
       const GURL& source_url,
       const GURL& target_url) OVERRIDE;
   virtual void DidFailProvisionalLoadWithError(
@@ -341,13 +346,15 @@ class CONTENT_EXPORT WebContentsImpl
                               const GURL& url,
                               const Referrer& referrer,
                               WindowOpenDisposition disposition,
-                              int64 source_frame_id) OVERRIDE;
+                              int64 source_frame_id,
+                              bool is_cross_site_redirect) OVERRIDE;
   virtual void RequestTransferURL(
       const GURL& url,
       const Referrer& referrer,
       WindowOpenDisposition disposition,
       int64 source_frame_id,
-      const GlobalRequestID& transferred_global_request_id) OVERRIDE;
+      const GlobalRequestID& transferred_global_request_id,
+      bool is_cross_site_redirect) OVERRIDE;
   virtual void RouteCloseEvent(RenderViewHost* rvh) OVERRIDE;
   virtual void RouteMessageEvent(
       RenderViewHost* rvh,
@@ -419,11 +426,6 @@ class CONTENT_EXPORT WebContentsImpl
       const MediaStreamRequest* request,
       const MediaResponseCallback& callback) OVERRIDE;
 
-#if defined(OS_ANDROID)
-  virtual void AttachLayer(WebKit::WebLayer* layer) OVERRIDE;
-  virtual void RemoveLayer(WebKit::WebLayer* layer) OVERRIDE;
-#endif
-
   // RenderWidgetHostDelegate --------------------------------------------------
 
   virtual void RenderWidgetDeleted(
@@ -444,7 +446,8 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void RenderViewGoneFromRenderManager(
       RenderViewHost* render_view_host) OVERRIDE;
   virtual void UpdateRenderViewSizeForRenderManager() OVERRIDE;
-  virtual void NotifySwappedFromRenderManager() OVERRIDE;
+  virtual void NotifySwappedFromRenderManager(
+      RenderViewHost* old_render_view_host) OVERRIDE;
   virtual int CreateOpenerRenderViewsForRenderManager(
       SiteInstance* instance) OVERRIDE;
   virtual NavigationControllerImpl&
@@ -656,7 +659,7 @@ class CONTENT_EXPORT WebContentsImpl
   // Misc non-view stuff -------------------------------------------------------
 
   // Helper functions for sending notifications.
-  void NotifySwapped();
+  void NotifySwapped(RenderViewHost* old_render_view_host);
   void NotifyConnected();
   void NotifyDisconnected();
 

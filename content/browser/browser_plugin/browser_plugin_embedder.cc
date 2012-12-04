@@ -15,6 +15,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/common/url_constants.h"
@@ -32,7 +33,8 @@ BrowserPluginEmbedder::BrowserPluginEmbedder(
     RenderViewHost* render_view_host)
     : WebContentsObserver(web_contents),
       render_view_host_(render_view_host),
-      visible_(true) {
+      visible_(true),
+      next_get_render_view_request_id_(0) {
   // Listen to visibility changes so that an embedder hides its guests
   // as well.
   registrar_.Add(this,
@@ -44,8 +46,7 @@ BrowserPluginEmbedder::BrowserPluginEmbedder(
 }
 
 BrowserPluginEmbedder::~BrowserPluginEmbedder() {
-  // Destroy guests that are managed by the current embedder.
-  DestroyGuests();
+  CleanUp();
 }
 
 // static
@@ -161,14 +162,15 @@ void BrowserPluginEmbedder::CreateGuest(
       static_cast<WebContentsImpl*>(guest->GetWebContents())->
             CreateSwappedOutRenderView(web_contents()->GetSiteInstance());
   render_view_host->Send(new BrowserPluginMsg_GuestContentWindowReady(
-      instance_id, guest_routing_id));
+      render_view_host->GetRoutingID(), instance_id, guest_routing_id));
+
+  guest->SetSize(params.auto_size_params, params.resize_guest_params);
 }
 
 void BrowserPluginEmbedder::NavigateGuest(
     RenderViewHost* render_view_host,
     int instance_id,
-    const std::string& src,
-    const BrowserPluginHostMsg_ResizeGuest_Params& resize_params) {
+    const std::string& src) {
   BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
   CHECK(guest);
   GURL url(src);
@@ -190,17 +192,16 @@ void BrowserPluginEmbedder::NavigateGuest(
                                                 PAGE_TRANSITION_AUTO_TOPLEVEL,
                                                 std::string());
   }
-
-  // Resize the guest if the resize parameter was set from the renderer.
-  ResizeGuest(render_view_host, instance_id, resize_params);
 }
 
-void BrowserPluginEmbedder::UpdateRectACK(int instance_id,
-                                          int message_id,
-                                          const gfx::Size& size) {
+void BrowserPluginEmbedder::UpdateRectACK(
+    int instance_id,
+    int message_id,
+    const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+    const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params) {
   BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
   if (guest)
-    guest->UpdateRectACK(message_id, size);
+    guest->UpdateRectACK(message_id, auto_size_params, resize_guest_params);
 }
 
 void BrowserPluginEmbedder::ResizeGuest(
@@ -219,21 +220,37 @@ void BrowserPluginEmbedder::SetFocus(int instance_id,
     guest->SetFocus(focused);
 }
 
-void BrowserPluginEmbedder::DestroyGuests() {
+void BrowserPluginEmbedder::CleanUp() {
+  // Destroy guests that are managed by the current embedder.
   STLDeleteContainerPairSecondPointers(
       guest_web_contents_by_instance_id_.begin(),
       guest_web_contents_by_instance_id_.end());
   guest_web_contents_by_instance_id_.clear();
+
+  // CleanUp gets called when BrowserPluginEmbedder's WebContents goes away
+  // or the associated RenderViewHost is destroyed or swapped out. Therefore we
+  // don't need to care about the pending callbacks anymore.
+  pending_get_render_view_callbacks_.clear();
 }
 
 void BrowserPluginEmbedder::HandleInputEvent(int instance_id,
                                              RenderViewHost* render_view_host,
-                                             const gfx::Rect& guest_rect,
+                                             const gfx::Rect& guest_window_rect,
                                              const WebKit::WebInputEvent& event,
                                              IPC::Message* reply_message) {
+  // Convert the window coordinates into screen coordinates.
+  gfx::Rect guest_screen_rect(guest_window_rect);
+  guest_screen_rect.Offset(
+      static_cast<RenderViewHostImpl*>(render_view_host)->GetView()->
+          GetViewBounds().OffsetFromOrigin());
   BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
-  if (guest)
-    guest->HandleInputEvent(render_view_host, guest_rect, event, reply_message);
+  if (guest) {
+    guest->HandleInputEvent(render_view_host,
+                            guest_window_rect,
+                            guest_screen_rect,
+                            event,
+                            reply_message);
+  }
 }
 
 void BrowserPluginEmbedder::DestroyGuestByInstanceID(int instance_id) {
@@ -252,7 +269,7 @@ void BrowserPluginEmbedder::RenderViewDeleted(
 }
 
 void BrowserPluginEmbedder::RenderViewGone(base::TerminationStatus status) {
-  DestroyGuests();
+  CleanUp();
 }
 
 void BrowserPluginEmbedder::WebContentsVisibilityChanged(bool visible) {
@@ -295,7 +312,7 @@ void BrowserPluginEmbedder::SetAutoSize(
     const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params) {
   BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
   if (guest)
-    guest->SetAutoSize(auto_size_params, resize_guest_params);
+    guest->SetSize(auto_size_params, resize_guest_params);
 }
 
 void BrowserPluginEmbedder::Go(int instance_id, int relative_index) {
@@ -320,6 +337,39 @@ void BrowserPluginEmbedder::TerminateGuest(int instance_id) {
   BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
   if (guest)
     guest->Terminate();
+}
+
+void BrowserPluginEmbedder::GetRenderViewHostAtPosition(
+    int x,
+    int y,
+    const WebContents::GetRenderViewHostCallback& callback) {
+  // Store the callback so we can call it later when we have the response.
+  pending_get_render_view_callbacks_.insert(
+      std::make_pair(next_get_render_view_request_id_, callback));
+  render_view_host_->Send(
+      new BrowserPluginMsg_PluginAtPositionRequest(
+          render_view_host_->GetRoutingID(),
+          next_get_render_view_request_id_,
+          gfx::Point(x, y)));
+  ++next_get_render_view_request_id_;
+}
+
+void BrowserPluginEmbedder::PluginAtPositionResponse(
+    int instance_id, int request_id, const gfx::Point& position) {
+  const std::map<int, WebContents::GetRenderViewHostCallback>::iterator
+      callback_iter = pending_get_render_view_callbacks_.find(request_id);
+  if (callback_iter == pending_get_render_view_callbacks_.end())
+    return;
+
+  RenderViewHost* render_view_host;
+  BrowserPluginGuest* guest = GetGuestByInstanceID(instance_id);
+  if (guest)
+    render_view_host = guest->GetWebContents()->GetRenderViewHost();
+  else  // No plugin, use embedder's RenderViewHost.
+    render_view_host = render_view_host_;
+
+  callback_iter->second.Run(render_view_host, position.x(), position.y());
+  pending_get_render_view_callbacks_.erase(callback_iter);
 }
 
 void BrowserPluginEmbedder::Observe(int type,

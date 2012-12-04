@@ -10,6 +10,8 @@
 #include "ash/shell.h"
 #include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/cursor_manager.h"
+#include "ash/wm/session_state_controller.h"
+#include "ash/wm/session_state_observer.h"
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/string_split.h"
@@ -216,11 +218,15 @@ TooltipController::TooltipController(
       base::TimeDelta::FromMilliseconds(kTooltipTimeoutMs),
       this, &TooltipController::TooltipTimerFired);
   DCHECK(drag_drop_client_);
+  if (Shell::GetInstance())
+    Shell::GetInstance()->session_state_controller()->AddObserver(this);
 }
 
 TooltipController::~TooltipController() {
   if (tooltip_window_)
     tooltip_window_->RemoveObserver(this);
+  if (Shell::GetInstance())
+    Shell::GetInstance()->session_state_controller()->RemoveObserver(this);
 }
 
 void TooltipController::UpdateTooltip(aura::Window* target) {
@@ -247,8 +253,7 @@ void TooltipController::SetTooltipsEnabled(bool enable) {
   UpdateTooltip(tooltip_window_);
 }
 
-bool TooltipController::PreHandleKeyEvent(aura::Window* target,
-                                          ui::KeyEvent* event) {
+ui::EventResult TooltipController::OnKeyEvent(ui::KeyEvent* event) {
   // On key press, we want to hide the tooltip and not show it until change.
   // This is the same behavior as hiding tooltips on timeout. Hence, we can
   // simply simulate a timeout.
@@ -256,11 +261,11 @@ bool TooltipController::PreHandleKeyEvent(aura::Window* target,
     tooltip_shown_timer_.Stop();
     TooltipShownTimerFired();
   }
-  return false;
+  return ui::ER_UNHANDLED;
 }
 
-bool TooltipController::PreHandleMouseEvent(aura::Window* target,
-                                            ui::MouseEvent* event) {
+ui::EventResult TooltipController::OnMouseEvent(ui::MouseEvent* event) {
+  aura::Window* target = static_cast<aura::Window*>(event->target());
   switch (event->type()) {
     case ui::ET_MOUSE_MOVED:
     case ui::ET_MOUSE_DRAGGED:
@@ -298,12 +303,10 @@ bool TooltipController::PreHandleMouseEvent(aura::Window* target,
     default:
       break;
   }
-  return false;
+  return ui::ER_UNHANDLED;
 }
 
-ui::EventResult TooltipController::PreHandleTouchEvent(
-    aura::Window* target,
-    ui::TouchEvent* event) {
+ui::EventResult TooltipController::OnTouchEvent(ui::TouchEvent* event) {
   // TODO(varunjain): need to properly implement tooltips for
   // touch events.
   // Hide the tooltip for touch events.
@@ -315,10 +318,13 @@ ui::EventResult TooltipController::PreHandleTouchEvent(
   return ui::ER_UNHANDLED;
 }
 
-ui::EventResult TooltipController::PreHandleGestureEvent(
-    aura::Window* target,
-    ui::GestureEvent* event) {
-  return ui::ER_UNHANDLED;
+void TooltipController::OnSessionStateEvent(
+    SessionStateObserver::EventType event) {
+  if (event == SessionStateObserver::EVENT_PRELOCK_ANIMATION_STARTED ||
+      event == SessionStateObserver::EVENT_LOCK_ANIMATION_STARTED) {
+    if (tooltip_.get() && tooltip_->IsVisible())
+      tooltip_->Hide();
+  }
 }
 
 void TooltipController::OnWindowDestroyed(aura::Window* window) {
@@ -427,7 +433,7 @@ void TooltipController::TooltipShownTimerFired() {
 
 void TooltipController::UpdateIfRequired() {
   if (!tooltips_enabled_ || mouse_pressed_ || IsDragDropInProgress() ||
-      !ash::Shell::GetInstance()->cursor_manager()->cursor_visible()) {
+      !ash::Shell::GetInstance()->cursor_manager()->IsCursorVisible()) {
     GetTooltip()->Hide();
     return;
   }

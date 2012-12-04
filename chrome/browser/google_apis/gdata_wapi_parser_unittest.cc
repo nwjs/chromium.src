@@ -13,8 +13,8 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/google_apis/gdata_test_util.h"
-#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/test_util.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "chrome/common/chrome_paths.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/libxml/chromium/libxml_utils.h"
@@ -54,9 +54,8 @@ class GDataWAPIParserTest : public testing::Test {
   }
 };
 
-// TODO(nhiroki): Make it possible to run these tests on any platforms after
-// moving json files to out of 'chromeos' directory (http://crbug.com/149788).
-#if defined(OS_CHROMEOS)
+// TODO(nhiroki): Move json files to out of 'chromeos' directory
+// (http://crbug.com/149788).
 // Test document feed parsing.
 TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
   std::string error;
@@ -161,6 +160,7 @@ TEST_F(GDataWAPIParserTest, DocumentFeedJsonParser) {
             file_open_with_link->href().spec());
   EXPECT_EQ("application/atom+xml", file_open_with_link->mime_type());
   EXPECT_EQ("the_app_id", file_open_with_link->app_id());
+  EXPECT_EQ(654321, file_entry->changestamp());
 
   const Link* file_unknown_link = file_entry->GetLinkByType(Link::LINK_UNKNOWN);
   ASSERT_TRUE(file_unknown_link);
@@ -336,7 +336,6 @@ TEST_F(GDataWAPIParserTest, AccountMetadataFeedParser) {
   EXPECT_EQ(1U, second_app->primary_extensions().size());
   EXPECT_EQ(0U, second_app->secondary_extensions().size());
 }
-#endif  // OS_CHROMEOS
 
 // Test file extension checking in DocumentEntry::HasDocumentExtension().
 TEST_F(GDataWAPIParserTest, DocumentEntryHasDocumentExtension) {

@@ -92,6 +92,9 @@
 /* GL_CHROMIUM_command_buffer_latency_query */
 #define GL_LATENCY_QUERY_CHROMIUM              0x84F4
 
+/* GL_CHROMIUM_async_pixel_transfers */
+#define GL_ASYNC_PIXEL_TRANSFERS_COMPLETED_CHROMIUM      0x84F5
+
 // GL_OES_texure_3D
 #define GL_SAMPLER_3D_OES                      0x8B5F
 
@@ -106,6 +109,13 @@
 
 // GL_OES_compressed_ETC1_RGB8_texture
 #define GL_ETC1_RGB8_OES                       0x8D64
+
+// GL_OES_vertex_array_object
+#define GL_VERTEX_ARRAY_BINDING_OES            0x85B5
+
+// GL_CHROMIUM_pixel_transfer_buffer_object
+#define GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM 0x78EC
+#define GL_PIXEL_UNPACK_TRANSFER_BUFFER_BINDING_CHROMIUM 0x78EF
 
 #define GL_GLEXT_PROTOTYPES 1
 

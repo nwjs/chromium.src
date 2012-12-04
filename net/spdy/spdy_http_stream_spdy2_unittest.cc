@@ -9,6 +9,7 @@
 #include "crypto/signature_creator.h"
 #include "net/base/asn1_util.h"
 #include "net/base/default_server_bound_cert_store.h"
+#include "net/base/upload_data.h"
 #include "net/base/upload_data_stream.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_headers.h"
@@ -34,7 +35,7 @@ class SpdyHttpStreamSpdy2Test : public testing::Test {
   virtual void TearDown() {
     crypto::ECSignatureCreator::SetFactoryForTesting(NULL);
     UploadDataStream::ResetMergeChunks();
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
   }
 
   void set_merge_chunks(bool merge) {
@@ -106,7 +107,7 @@ TEST_F(SpdyHttpStreamSpdy2Test, SendRequest) {
       OK,
       http_stream->InitializeStream(&request, net_log, CompletionCallback()));
 
-  EXPECT_EQ(ERR_IO_PENDING, http_stream->SendRequest(headers, NULL, &response,
+  EXPECT_EQ(ERR_IO_PENDING, http_stream->SendRequest(headers, &response,
                                                      callback.callback()));
   EXPECT_TRUE(http_session_->spdy_session_pool()->HasSession(pair));
 
@@ -147,17 +148,18 @@ TEST_F(SpdyHttpStreamSpdy2Test, SendChunkedPost) {
   EXPECT_EQ(OK, InitSession(reads, arraysize(reads), writes, arraysize(writes),
                             host_port_pair));
 
+  scoped_refptr<UploadData> upload_data(new UploadData());
+  upload_data->set_is_chunked(true);
+  upload_data->AppendChunk(kUploadData, kUploadDataSize, false);
+  upload_data->AppendChunk(kUploadData, kUploadDataSize, true);
+  UploadDataStream upload_stream(upload_data);
+
   HttpRequestInfo request;
   request.method = "POST";
   request.url = GURL("http://www.google.com/");
-  request.upload_data = new UploadData();
-  request.upload_data->set_is_chunked(true);
-  request.upload_data->AppendChunk(kUploadData, kUploadDataSize, false);
-  request.upload_data->AppendChunk(kUploadData, kUploadDataSize, true);
+  request.upload_data_stream = &upload_stream;
 
-  scoped_ptr<UploadDataStream> upload_stream(
-      new UploadDataStream(request.upload_data));
-  ASSERT_EQ(OK, upload_stream->InitSync());
+  ASSERT_EQ(OK, upload_stream.InitSync());
 
   TestCompletionCallback callback;
   HttpResponseInfo response;
@@ -169,7 +171,7 @@ TEST_F(SpdyHttpStreamSpdy2Test, SendChunkedPost) {
       http_stream.InitializeStream(&request, net_log, CompletionCallback()));
 
   EXPECT_EQ(ERR_IO_PENDING, http_stream.SendRequest(
-      headers, upload_stream.get(), &response, callback.callback()));
+      headers, &response, callback.callback()));
   EXPECT_TRUE(http_session_->spdy_session_pool()->HasSession(pair));
 
   // This triggers the MockWrite and read 2
@@ -177,7 +179,7 @@ TEST_F(SpdyHttpStreamSpdy2Test, SendChunkedPost) {
 
   // This triggers read 3. The empty read causes the session to shut down.
   data()->CompleteRead();
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   // Because we abandoned the stream, we don't expect to find a session in the
   // pool anymore.
@@ -246,34 +248,31 @@ TEST_F(SpdyHttpStreamSpdy2Test, DelayedSendChunkedPost) {
   EXPECT_EQ(OK,
             session_->InitializeWithSocket(connection.release(), false, OK));
 
+  scoped_refptr<UploadData> upload_data(new UploadData());
+  upload_data->set_is_chunked(true);
+  UploadDataStream upload_stream(upload_data);
+
   HttpRequestInfo request;
   request.method = "POST";
   request.url = GURL("http://www.google.com/");
-  request.upload_data = new UploadData();
-  request.upload_data->set_is_chunked(true);
+  request.upload_data_stream = &upload_stream;
 
-  scoped_ptr<UploadDataStream> upload_stream(
-      new UploadDataStream(request.upload_data));
-  ASSERT_EQ(OK, upload_stream->InitSync());
-  request.upload_data->AppendChunk(kUploadData, kUploadDataSize, false);
+  ASSERT_EQ(OK, upload_stream.InitSync());
+  upload_data->AppendChunk(kUploadData, kUploadDataSize, false);
 
   BoundNetLog net_log;
   scoped_ptr<SpdyHttpStream> http_stream(
       new SpdyHttpStream(session_.get(), true));
-  ASSERT_EQ(OK,
-            http_stream->InitializeStream(&request,
-                                          net_log,
-                                          CompletionCallback()));
+  ASSERT_EQ(OK, http_stream->InitializeStream(&request,
+                                              net_log,
+                                              CompletionCallback()));
 
   HttpRequestHeaders headers;
   HttpResponseInfo response;
   // This will attempt to Write() the initial request and headers, which will
   // complete asynchronously.
-  EXPECT_EQ(ERR_IO_PENDING,
-            http_stream->SendRequest(headers,
-                                     upload_stream.get(),
-                                     &response,
-                                     callback.callback()));
+  EXPECT_EQ(ERR_IO_PENDING, http_stream->SendRequest(headers, &response,
+                                                     callback.callback()));
   EXPECT_TRUE(http_session_->spdy_session_pool()->HasSession(pair));
 
   // Complete the initial request write and the first chunk.
@@ -282,8 +281,8 @@ TEST_F(SpdyHttpStreamSpdy2Test, DelayedSendChunkedPost) {
   EXPECT_GT(callback.WaitForResult(), 0);
 
   // Now append the final two chunks which will enqueue two more writes.
-  request.upload_data->AppendChunk(kUploadData1, kUploadData1Size, false);
-  request.upload_data->AppendChunk(kUploadData, kUploadDataSize, true);
+  upload_data->AppendChunk(kUploadData1, kUploadData1Size, false);
+  upload_data->AppendChunk(kUploadData, kUploadDataSize, true);
 
   // Finish writing all the chunks.
   data.RunFor(2);
@@ -358,7 +357,7 @@ TEST_F(SpdyHttpStreamSpdy2Test, SpdyURLTest) {
       OK,
       http_stream->InitializeStream(&request, net_log, CompletionCallback()));
 
-  EXPECT_EQ(ERR_IO_PENDING, http_stream->SendRequest(headers, NULL, &response,
+  EXPECT_EQ(ERR_IO_PENDING, http_stream->SendRequest(headers, &response,
                                                      callback.callback()));
 
   const SpdyHeaderBlock& spdy_header =

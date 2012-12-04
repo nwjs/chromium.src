@@ -4,19 +4,53 @@
 
 #include "content/shell/shell_content_renderer_client.h"
 
+#include "base/callback.h"
 #include "base/command_line.h"
+#include "base/sys_string_conversions.h"
+#include "base/utf_string_conversions.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/url_constants.h"
+#include "content/public/test/layouttest_support.h"
 #include "content/shell/shell_render_process_observer.h"
 #include "content/shell/shell_switches.h"
 #include "content/shell/webkit_test_runner.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
+#include "third_party/WebKit/Tools/DumpRenderTree/chromium/TestRunner/public/WebTestProxy.h"
 #include "v8/include/v8.h"
+
+using WebKit::WebFrame;
+using WebTestRunner::WebTestProxyBase;
 
 namespace content {
 
+namespace {
+
+bool IsLocalhost(const std::string& host) {
+  return host == "127.0.0.1" || host == "localhost";
+}
+
+bool HostIsUsedBySomeTestsToGenerateError(const std::string& host) {
+  return host == "255.255.255.255";
+}
+
+bool IsExternalPage(const GURL& url) {
+  return !url.host().empty() &&
+         (url.SchemeIs(chrome::kHttpScheme) ||
+          url.SchemeIs(chrome::kHttpsScheme)) &&
+         !IsLocalhost(url.host()) &&
+         !HostIsUsedBySomeTestsToGenerateError(url.host());
+}
+
+}  // namespace
+
 ShellContentRendererClient::ShellContentRendererClient() {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree)) {
+    EnableWebTestProxyCreation(
+        base::Bind(&ShellContentRendererClient::WebTestProxyCreated,
+                   base::Unretained(this)));
+  }
 }
 
 ShellContentRendererClient::~ShellContentRendererClient() {
@@ -24,13 +58,6 @@ ShellContentRendererClient::~ShellContentRendererClient() {
 
 void ShellContentRendererClient::RenderThreadStarted() {
   shell_observer_.reset(new ShellRenderProcessObserver());
-}
-
-void ShellContentRendererClient::RenderViewCreated(RenderView* render_view) {
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree))
-    return;
-
-  new WebKitTestRunner(render_view);
 }
 
 bool ShellContentRendererClient::OverrideCreatePlugin(
@@ -46,6 +73,61 @@ bool ShellContentRendererClient::OverrideCreatePlugin(
         switches::kEnableBrowserPluginForAllViewTypes);
   }
   return false;
+}
+
+bool ShellContentRendererClient::WillSendRequest(
+    WebFrame* frame,
+    PageTransition transition_type,
+    const GURL& url,
+    const GURL& first_party_for_cookies,
+    GURL* new_url) {
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(switches::kDumpRenderTree))
+    return false;
+  if (!command_line->HasSwitch(switches::kAllowExternalPages) &&
+      IsExternalPage(url) && !IsExternalPage(first_party_for_cookies)) {
+    ShellRenderProcessObserver::GetInstance()->test_delegate()->printMessage(
+        std::string("Blocked access to external URL " + url.spec() + "\n"));
+    *new_url = GURL();
+    return true;
+  }
+  *new_url = RewriteLayoutTestsURL(url);
+  return true;
+}
+
+void ShellContentRendererClient::WebTestProxyCreated(RenderView* render_view,
+                                                     WebTestProxyBase* proxy) {
+  WebKitTestRunner* test_runner = new WebKitTestRunner(render_view);
+  if (!ShellRenderProcessObserver::GetInstance()->test_delegate()) {
+    ShellRenderProcessObserver::GetInstance()->SetMainWindow(render_view,
+                                                             test_runner);
+  }
+  test_runner->set_proxy(proxy);
+  proxy->setDelegate(
+      ShellRenderProcessObserver::GetInstance()->test_delegate());
+  proxy->setInterfaces(
+      ShellRenderProcessObserver::GetInstance()->test_interfaces());
+}
+
+GURL ShellContentRendererClient::RewriteLayoutTestsURL(const GURL& url) {
+  const char kPrefix[] = "file:///tmp/LayoutTests/";
+  const int kPrefixLen = arraysize(kPrefix) - 1;
+
+  if (url.spec().compare(0, kPrefixLen, kPrefix, kPrefixLen))
+    return url;
+
+  FilePath replace_path =
+      ShellRenderProcessObserver::GetInstance()->webkit_source_dir().Append(
+          FILE_PATH_LITERAL("LayoutTests/"));
+#if defined(OS_WIN)
+  std::string utf8_path = WideToUTF8(replace_path.value());
+#else
+  std::string utf8_path =
+      WideToUTF8(base::SysNativeMBToWide(replace_path.value()));
+#endif
+  std::string new_url =
+      std::string("file://") + utf8_path + url.spec().substr(kPrefixLen);
+  return GURL(new_url);
 }
 
 }  // namespace content

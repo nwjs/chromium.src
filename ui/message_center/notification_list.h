@@ -9,6 +9,8 @@
 #include <string>
 
 #include "base/string16.h"
+#include "base/time.h"
+#include "base/timer.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/message_center/message_center_export.h"
 #include "ui/notifications/notification_types.h"
@@ -22,6 +24,14 @@ namespace message_center {
 // A helper class to manage the list of notifications.
 class MESSAGE_CENTER_EXPORT NotificationList {
  public:
+  struct MESSAGE_CENTER_EXPORT NotificationItem {
+    string16 title;
+    string16 message;
+    NotificationItem(string16 title, string16 message)
+        : title(title),
+          message(message) {}
+  };
+
   struct MESSAGE_CENTER_EXPORT Notification {
     Notification();
     virtual ~Notification();
@@ -34,8 +44,18 @@ class MESSAGE_CENTER_EXPORT NotificationList {
     std::string extension_id;
 
     // Begin unpacked values from optional_fields
-    string16 extra_field;
-    string16 second_extra_field;
+    string16 message_intent;
+    int priority;
+    base::Time timestamp;
+    gfx::ImageSkia second_image;
+    int unread_count;
+    string16 button_one_title;
+    string16 button_one_intent;
+    string16 button_two_title;
+    string16 button_two_intent;
+    string16 expanded_message;
+    string16 image_url;
+    std::vector<NotificationItem> items;
     // End unpacked values
 
     gfx::ImageSkia image;
@@ -63,6 +83,9 @@ class MESSAGE_CENTER_EXPORT NotificationList {
 
     // Called when a notification is clicked on.
     virtual void OnNotificationClicked(const std::string& id) = 0;
+
+    // Called when the quiet mode status has been changed.
+    virtual void OnQuietModeChanged(bool quiet_mode) = 0;
 
     // Returns the list of notifications to display.
     virtual NotificationList* GetNotificationList() = 0;
@@ -113,6 +136,16 @@ class MESSAGE_CENTER_EXPORT NotificationList {
   // Marks the popups returned by GetPopupNotifications() as shown.
   void MarkPopupsAsShown();
 
+  bool quiet_mode() const { return quiet_mode_; }
+
+  // Sets the current quiet mode status to |quiet_mode|. The new status is not
+  // expired.
+  void SetQuietMode(bool quiet_mode);
+
+  // Sets the current quiet mode to true. The quiet mode will expire in the
+  // specified time-delta from now.
+  void EnterQuietModeWithExpire(const base::TimeDelta& expires_in);
+
   const Notifications& notifications() const { return notifications_; }
   size_t unread_count() const { return unread_count_; }
 
@@ -140,10 +173,15 @@ class MESSAGE_CENTER_EXPORT NotificationList {
   void UnpackOptionalFields(const base::DictionaryValue* optional_fields,
                             Notification& notification);
 
+  // Sets the current quiet mode status to |quiet_mode|.
+  void SetQuietModeInternal(bool quiet_mode);
+
   Delegate* delegate_;
   Notifications notifications_;
   bool message_center_visible_;
   size_t unread_count_;
+  bool quiet_mode_;
+  scoped_ptr<base::OneShotTimer<NotificationList> > quiet_mode_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(NotificationList);
 };

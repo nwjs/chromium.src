@@ -46,16 +46,13 @@ void DeviceCloudPolicyStoreChromeOS::Store(
   validator->ValidateSignature(*owner_key->public_key(), true);
   validator->ValidateAgainstCurrentPolicy(
       device_settings_service_->policy_data(), false);
-  validator.release()->StartValidation();
+  validator.release()->StartValidation(
+      base::Bind(&DeviceCloudPolicyStoreChromeOS::OnPolicyToStoreValidated,
+                 weak_factory_.GetWeakPtr()));
 }
 
 void DeviceCloudPolicyStoreChromeOS::Load() {
   device_settings_service_->Load();
-}
-
-void DeviceCloudPolicyStoreChromeOS::RemoveStoredPolicy() {
-  // Device policy cannot and should not be removed on Chrome OS.
-  NOTREACHED();
 }
 
 void DeviceCloudPolicyStoreChromeOS::InstallInitialPolicy(
@@ -73,7 +70,9 @@ void DeviceCloudPolicyStoreChromeOS::InstallInitialPolicy(
 
   scoped_ptr<DeviceCloudPolicyValidator> validator(CreateValidator(policy));
   validator->ValidateInitialKey();
-  validator.release()->StartValidation();
+  validator.release()->StartValidation(
+      base::Bind(&DeviceCloudPolicyStoreChromeOS::OnPolicyToStoreValidated,
+                 weak_factory_.GetWeakPtr()));
 }
 
 void DeviceCloudPolicyStoreChromeOS::OwnershipStatusChanged() {
@@ -91,9 +90,7 @@ scoped_ptr<DeviceCloudPolicyValidator>
   scoped_ptr<DeviceCloudPolicyValidator> validator(
       DeviceCloudPolicyValidator::Create(
           scoped_ptr<em::PolicyFetchResponse>(
-              new em::PolicyFetchResponse(policy)),
-          base::Bind(&DeviceCloudPolicyStoreChromeOS::OnPolicyToStoreValidated,
-                     weak_factory_.GetWeakPtr())));
+              new em::PolicyFetchResponse(policy))));
   validator->ValidateDomain(install_attributes_->GetDomain());
   validator->ValidatePolicyType(dm_protocol::kChromeDevicePolicyType);
   validator->ValidatePayload();

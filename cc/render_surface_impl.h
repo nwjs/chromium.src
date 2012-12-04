@@ -12,7 +12,7 @@
 #include "cc/shared_quad_state.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/rect_f.h"
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
 namespace cc {
 
@@ -46,22 +46,25 @@ public:
     bool drawOpacityIsAnimating() const { return m_drawOpacityIsAnimating; }
     void setDrawOpacityIsAnimating(bool drawOpacityIsAnimating) { m_drawOpacityIsAnimating = drawOpacityIsAnimating; }
 
-    void setDrawTransform(const WebKit::WebTransformationMatrix& drawTransform) { m_drawTransform = drawTransform; }
-    const WebKit::WebTransformationMatrix& drawTransform() const { return m_drawTransform; }
+    void setDrawTransform(const gfx::Transform& drawTransform) { m_drawTransform = drawTransform; }
+    const gfx::Transform& drawTransform() const { return m_drawTransform; }
 
-    void setScreenSpaceTransform(const WebKit::WebTransformationMatrix& screenSpaceTransform) { m_screenSpaceTransform = screenSpaceTransform; }
-    const WebKit::WebTransformationMatrix& screenSpaceTransform() const { return m_screenSpaceTransform; }
+    void setScreenSpaceTransform(const gfx::Transform& screenSpaceTransform) { m_screenSpaceTransform = screenSpaceTransform; }
+    const gfx::Transform& screenSpaceTransform() const { return m_screenSpaceTransform; }
 
-    void setReplicaDrawTransform(const WebKit::WebTransformationMatrix& replicaDrawTransform) { m_replicaDrawTransform = replicaDrawTransform; }
-    const WebKit::WebTransformationMatrix& replicaDrawTransform() const { return m_replicaDrawTransform; }
+    void setReplicaDrawTransform(const gfx::Transform& replicaDrawTransform) { m_replicaDrawTransform = replicaDrawTransform; }
+    const gfx::Transform& replicaDrawTransform() const { return m_replicaDrawTransform; }
 
-    void setReplicaScreenSpaceTransform(const WebKit::WebTransformationMatrix& replicaScreenSpaceTransform) { m_replicaScreenSpaceTransform = replicaScreenSpaceTransform; }
-    const WebKit::WebTransformationMatrix& replicaScreenSpaceTransform() const { return m_replicaScreenSpaceTransform; }
+    void setReplicaScreenSpaceTransform(const gfx::Transform& replicaScreenSpaceTransform) { m_replicaScreenSpaceTransform = replicaScreenSpaceTransform; }
+    const gfx::Transform& replicaScreenSpaceTransform() const { return m_replicaScreenSpaceTransform; }
 
     bool targetSurfaceTransformsAreAnimating() const { return m_targetSurfaceTransformsAreAnimating; }
     void setTargetSurfaceTransformsAreAnimating(bool animating) { m_targetSurfaceTransformsAreAnimating = animating; }
     bool screenSpaceTransformsAreAnimating() const { return m_screenSpaceTransformsAreAnimating; }
     void setScreenSpaceTransformsAreAnimating(bool animating) { m_screenSpaceTransformsAreAnimating = animating; }
+
+    void setIsClipped(bool isClipped) { m_isClipped = isClipped; }
+    bool isClipped() const { return m_isClipped; }
 
     void setClipRect(const gfx::Rect&);
     const gfx::Rect& clipRect() const { return m_clipRect; }
@@ -97,12 +100,14 @@ private:
 
     float m_drawOpacity;
     bool m_drawOpacityIsAnimating;
-    WebKit::WebTransformationMatrix m_drawTransform;
-    WebKit::WebTransformationMatrix m_screenSpaceTransform;
-    WebKit::WebTransformationMatrix m_replicaDrawTransform;
-    WebKit::WebTransformationMatrix m_replicaScreenSpaceTransform;
+    gfx::Transform m_drawTransform;
+    gfx::Transform m_screenSpaceTransform;
+    gfx::Transform m_replicaDrawTransform;
+    gfx::Transform m_replicaScreenSpaceTransform;
     bool m_targetSurfaceTransformsAreAnimating;
     bool m_screenSpaceTransformsAreAnimating;
+
+    bool m_isClipped;
 
     // Uses the space of the surface's target surface.
     gfx::Rect m_clipRect;

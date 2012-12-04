@@ -66,9 +66,9 @@ FileType.types = [
   {type: 'archive', name: 'TAR_ARCHIVE_FILE_TYPE', subtype: 'TAR',
    pattern: /\.tar$/i},
   {type: 'archive', name: 'TAR_BZIP2_ARCHIVE_FILE_TYPE', subtype: 'TBZ2',
-   pattern: /\.(tar.bz2|tbz|tbz2)$/i},
+   pattern: /\.(tar\.bz2|tbz|tbz2)$/i},
   {type: 'archive', name: 'TAR_GZIP_ARCHIVE_FILE_TYPE', subtype: 'TGZ',
-   pattern: /\.(tar.|t)gz$/i},
+   pattern: /\.(tar\.|t)gz$/i},
 
   // Hosted docs.
   {type: 'hosted', icon: 'gdoc', name: 'GDOC_DOCUMENT_FILE_TYPE',
@@ -200,6 +200,30 @@ FileType.isImageOrVideo = function(file) {
  */
 FileType.isHosted = function(file) {
   return FileType.getType(file).type === 'hosted';
+};
+
+/**
+ * @param {string|Entry} file Reference to the file.
+ * @return {boolean} Returns true if the file is not hidden, and we should
+ *     display it.
+ */
+FileType.isVisible = function(file) {
+  if (typeof file == 'object') {
+    file = file.name;
+  }
+
+  var path = util.extractFilePath(file);
+  if (path) file = path;
+
+  file = file.split('/').pop();
+  return file.indexOf('.') != 0 && !(file in FileType.HIDDEN_NAMES);
+};
+
+/**
+ * File/directory names that we know are usually hidden.
+ */
+FileType.HIDDEN_NAMES = {
+  'RECYCLED': true
 };
 
 /**

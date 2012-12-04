@@ -6,11 +6,11 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/stl_util.h"
 #include "base/string16.h"
 #include "base/string_util.h"
@@ -104,7 +104,7 @@ class WebDataServiceTest : public testing::Test {
   content::TestBrowserThread db_thread_;
   FilePath profile_dir_;
   scoped_refptr<WebDataService> wds_;
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 };
 
 class WebDataServiceAutofillTest : public WebDataServiceTest {
@@ -819,7 +819,7 @@ TEST_F(WebDataServiceTest, WebIntentsRemoveDefaultByServiceURL) {
   ASSERT_EQ(2U, consumer.services_.size());
 
   wds_->RemoveWebIntentServiceDefaults(service_url_0);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   wds_->GetAllDefaultWebIntentServices(&consumer);
   WaitUntilCalled();

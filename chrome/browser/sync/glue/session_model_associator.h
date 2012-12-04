@@ -140,7 +140,9 @@ class SessionModelAssociator
   // with local client data. Processes/reuses any sync nodes owned by this
   // client and creates any further sync nodes needed to store local header and
   // tab info.
-  virtual syncer::SyncError AssociateModels() OVERRIDE;
+  virtual syncer::SyncError AssociateModels(
+      syncer::SyncMergeResult* local_merge_result,
+      syncer::SyncMergeResult* syncer_merge_result) OVERRIDE;
 
   // Initializes the given sync node from the given chrome node id.
   // Returns false if no sync node was found for the given chrome node id or
@@ -232,6 +234,10 @@ class SessionModelAssociator
   // the png-encoded image and returns true. Else, returns false.
   bool GetSyncedFaviconForPageURL(const std::string& url,
                                   std::string* png_favicon) const;
+
+  void SetCurrentMachineTagForTesting(const std::string& machine_tag) {
+    current_machine_tag_ = machine_tag;
+  }
 
  private:
   friend class SyncSessionModelAssociatorTest;

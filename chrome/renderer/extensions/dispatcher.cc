@@ -277,7 +277,6 @@ class LoggingNativeHandler : public NativeHandler {
     std::string ascii_value = *v8::String::AsciiValue(v8_string);
     return ascii_value.empty() ? dflt : ascii_value;
   }
-
 };
 
 void InstallAppBindings(ModuleSystem* module_system,
@@ -541,7 +540,7 @@ namespace {
 // WebKit.
 static int g_hack_extension_group = 0;
 
-}
+}  // namespace
 
 bool Dispatcher::AllowScriptExtension(WebFrame* frame,
                                       const std::string& v8_extension_name,
@@ -661,10 +660,13 @@ void Dispatcher::PopulateSourceMap() {
   source_map_.RegisterSource("pageAction", IDR_PAGE_ACTION_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("pageCapture",
                              IDR_PAGE_CAPTURE_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("permissions", IDR_PERMISSIONS_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("runtime", IDR_RUNTIME_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("storage", IDR_STORAGE_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("syncFileSystem",
                              IDR_SYNC_FILE_SYSTEM_CUSTOM_BINDINGS_JS);
+  source_map_.RegisterSource("systemIndicator",
+                             IDR_SYSTEM_INDICATOR_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("tabCapture", IDR_TAB_CAPTURE_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("tabs", IDR_TABS_CUSTOM_BINDINGS_JS);
   source_map_.RegisterSource("tts", IDR_TTS_CUSTOM_BINDINGS_JS);
@@ -706,6 +708,11 @@ void Dispatcher::InstallBindings(ModuleSystem* module_system,
 void Dispatcher::DidCreateScriptContext(
     WebFrame* frame, v8::Handle<v8::Context> v8_context, int extension_group,
     int world_id) {
+// Extensions are not supported on Android, so don't register any bindings.
+#if defined(OS_ANDROID)
+  return;
+#endif
+
   // TODO(koz): If the caller didn't pass extension_group, use the last value.
   if (extension_group == -1)
     extension_group = g_hack_extension_group;
@@ -1047,7 +1054,8 @@ Feature::Context Dispatcher::ClassifyJavaScriptContext(
         Feature::CONTENT_SCRIPT_CONTEXT : Feature::UNSPECIFIED_CONTEXT;
   }
 
-  // We have an explicit check for sandboxed pages first since:
+  // We have an explicit check for sandboxed pages before checking whether the
+  // extension is active in this process because:
   // 1. Sandboxed pages run in the same process as regular extension pages, so
   //    the extension is considered active.
   // 2. ScriptContext creation (which triggers bindings injection) happens
@@ -1112,14 +1120,19 @@ bool Dispatcher::CheckCurrentContextAccessToExtensionAPI(
     return false;
   }
 
-  // We should never end up with sandboxed contexts trying to invoke extension
-  // APIs, they don't get extension bindings injected. If we end up here it
-  // means that a sandboxed page somehow managed to invoke an API anyway, so
-  // we should abort.
+  // Theoretically we could end up with bindings being injected into sandboxed
+  // frames, for example content scripts. Don't let them execute API functions.
   WebKit::WebFrame* frame = context->web_frame();
   ExtensionURLInfo url_info(frame->document().securityOrigin(),
-      UserScriptSlave::GetDataSourceURLForFrame(frame));
-  CHECK(!extensions_.IsSandboxedPage(url_info));
+                            UserScriptSlave::GetDataSourceURLForFrame(frame));
+  if (extensions_.IsSandboxedPage(url_info)) {
+    static const char kMessage[] =
+        "%s cannot be used within a sandboxed frame.";
+    std::string error_msg = base::StringPrintf(kMessage, function_name.c_str());
+    v8::ThrowException(
+        v8::Exception::Error(v8::String::New(error_msg.c_str())));
+    return false;
+  }
 
   return true;
 }

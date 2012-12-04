@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 
+#include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "chrome/browser/autofill/autofill_external_delegate.h"
@@ -17,10 +18,10 @@
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/net/load_time_stats.h"
+#include "chrome/browser/net/net_error_tab_helper.h"
 #include "chrome/browser/omnibox_search_hint.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate_impl.h"
-#include "chrome/browser/pepper_broker_observer.h"
 #include "chrome/browser/plugins/plugin_observer.h"
 #include "chrome/browser/prerender/prerender_tab_helper.h"
 #include "chrome/browser/printing/print_preview_message_handler.h"
@@ -29,6 +30,7 @@
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ssl/ssl_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
+#include "chrome/browser/three_d_api_observer.h"
 #include "chrome/browser/thumbnails/thumbnail_tab_helper.h"
 #include "chrome/browser/translate/translate_tab_helper.h"
 #include "chrome/browser/ui/alternate_error_tab_observer.h"
@@ -76,8 +78,11 @@ class TabContentsUserData : public base::SupportsUserData::Data {
   virtual ~TabContentsUserData() {}
   TabContents* tab_contents() { return tab_contents_; }
 
+  void MakeContentsOwned() { owned_tab_contents_.reset(tab_contents_); }
+
  private:
   TabContents* tab_contents_;  // unowned
+  scoped_ptr<TabContents> owned_tab_contents_;
 };
 
 }  // namespace
@@ -91,14 +96,12 @@ TabContents* TabContents::Factory::CreateTabContents(WebContents* contents) {
 }
 
 // static
-TabContents* TabContents::Factory::CloneTabContents(TabContents* contents) {
-  return contents->Clone();
-}
-
 TabContents::TabContents(WebContents* contents)
     : content::WebContentsObserver(contents),
       in_destructor_(false),
-      web_contents_(contents) {
+      web_contents_(contents),
+      profile_(Profile::FromBrowserContext(contents->GetBrowserContext())),
+      owned_web_contents_(contents) {
   DCHECK(contents);
   DCHECK(!FromWebContents(contents));
 
@@ -128,6 +131,7 @@ TabContents::TabContents(WebContents* contents)
   BlockedContentTabHelper::CreateForWebContents(contents);
   BookmarkTabHelper::CreateForWebContents(contents);
   chrome_browser_net::LoadTimeStatsTabHelper::CreateForWebContents(contents);
+  chrome_browser_net::NetErrorTabHelper::CreateForWebContents(contents);
   ConstrainedWindowTabHelper::CreateForWebContents(contents);
   CoreTabHelper::CreateForWebContents(contents);
   extensions::TabHelper::CreateForWebContents(contents);
@@ -142,7 +146,6 @@ TabContents::TabContents(WebContents* contents)
   PasswordManagerDelegateImpl::CreateForWebContents(contents);
   PasswordManager::CreateForWebContentsAndDelegate(
       contents, PasswordManagerDelegateImpl::FromWebContents(contents));
-  PepperBrokerObserver::CreateForWebContents(contents);
   PluginObserver::CreateForWebContents(contents);
   PrefsTabHelper::CreateForWebContents(contents);
   prerender::PrerenderTabHelper::CreateForWebContents(contents);
@@ -153,6 +156,7 @@ TabContents::TabContents(WebContents* contents)
   SSLTabHelper::CreateForWebContents(contents);
   TabContentsSyncedTabDelegate::CreateForWebContents(contents);
   TabSpecificContentSettings::CreateForWebContents(contents);
+  ThreeDAPIObserver::CreateForWebContents(contents);
   ThumbnailTabHelper::CreateForWebContents(contents);
   TranslateTabHelper::CreateForWebContents(contents);
   ZoomController::CreateForWebContents(contents);
@@ -197,11 +201,6 @@ TabContents::~TabContents() {
   in_destructor_ = true;
 }
 
-TabContents* TabContents::Clone() {
-  WebContents* new_web_contents = web_contents()->Clone();
-  return new TabContents(new_web_contents);
-}
-
 // static
 TabContents* TabContents::FromWebContents(WebContents* contents) {
   TabContentsUserData* user_data = static_cast<TabContentsUserData*>(
@@ -219,19 +218,22 @@ const TabContents* TabContents::FromWebContents(const WebContents* contents) {
 }
 
 WebContents* TabContents::web_contents() const {
-  return web_contents_.get();
+  return web_contents_;
 }
 
 Profile* TabContents::profile() const {
-  return Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  return profile_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // WebContentsObserver overrides
 
 void TabContents::WebContentsDestroyed(WebContents* tab) {
-  // Destruction of the WebContents should only be done by us from our
-  // destructor. Otherwise it's very likely we (or one of the helpers we own)
-  // will attempt to access the WebContents and we'll crash.
-  DCHECK(in_destructor_);
+  if (!in_destructor_) {
+    // The owned WebContents is being destroyed independently, so delete this.
+    ignore_result(owned_web_contents_.release());
+    TabContentsUserData* user_data = static_cast<TabContentsUserData*>(
+        tab->GetUserData(&kTabContentsUserDataKey));
+    user_data->MakeContentsOwned();
+  }
 }

@@ -43,10 +43,11 @@ namespace browser_sync {
 
 class ChangeProcessor;
 class ChromeSyncNotificationBridge;
-struct Experiments;
 class InvalidatorStorage;
 class SyncBackendRegistrar;
 class SyncPrefs;
+class SyncedDeviceTracker;
+struct Experiments;
 
 // SyncFrontend is the interface used by SyncBackendHost to communicate with
 // the entity that created it and, presumably, is interested in sync-related
@@ -284,6 +285,10 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
 
   void GetModelSafeRoutingInfo(syncer::ModelSafeRoutingInfo* out) const;
 
+  // Fetches the DeviceInfo ChangeProcessor.
+  // We'll keep this test-only until we have non-test clients.
+  virtual SyncedDeviceTracker* GetSyncedDeviceTrackerForTest();
+
  protected:
   // The types and functions below are protected so that test
   // subclasses can use them.
@@ -358,11 +363,12 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
       const base::Callback<void(syncer::ModelTypeSet)>& ready_task);
 
   // Called when the SyncManager has been constructed and initialized.
+  // Stores |js_backend| and |debug_info_listener| on the UI thread for
+  // consumption when initialization is complete.
   virtual void HandleSyncManagerInitializationOnFrontendLoop(
       const syncer::WeakHandle<syncer::JsBackend>& js_backend,
       const syncer::WeakHandle<syncer::DataTypeDebugInfoListener>&
           debug_info_listener,
-      bool success,
       syncer::ModelTypeSet restored_types);
 
   SyncFrontend* frontend() { return frontend_; }
@@ -374,17 +380,14 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // An enum representing the steps to initializing the SyncBackendHost.
   enum InitializationState {
     NOT_ATTEMPTED,
-    CREATING_SYNC_MANAGER,  // We're waiting for the first callback from the
-                            // sync thread to inform us that the sync manager
-                            // has been created.
-    NOT_INITIALIZED,        // Initialization hasn't completed, but we've
-                            // constructed a SyncManager.
-    DOWNLOADING_NIGORI,     // The SyncManager is initialized, but
-                            // we're fetching sync encryption information.
-    ASSOCIATING_NIGORI,     // The SyncManager is initialized, and we
-                            // have the sync encryption information, but we
-                            // have to update the local encryption state.
-    INITIALIZED,            // Initialization is complete.
+    CREATING_SYNC_MANAGER,     // We're waiting for the first callback from the
+                               // sync thread to inform us that the sync
+                               // manager has been created.
+    NOT_INITIALIZED,           // Initialization hasn't completed, but we've
+                               // constructed a SyncManager.
+    INITIALIZATING_CONTROL_TYPES,  // Downloading control types and
+                               // initializing their handlers.
+    INITIALIZED,               // Initialization is complete.
   };
 
   // Checks if we have received a notice to turn on experimental datatypes
@@ -392,8 +395,9 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // Note: it is illegal to call this before the backend is initialized.
   void AddExperimentalTypes();
 
-  // Downloading of nigori failed and will be retried.
-  void OnNigoriDownloadRetry();
+  // Downloading of control types failed and will be retried. Invokes the
+  // frontend's sync configure retry method.
+  void HandleControlTypesDownloadRetry();
 
   // InitializationComplete passes through the SyncBackendHost to forward
   // on to |frontend_|, and so that tests can intercept here if they need to
@@ -472,11 +476,6 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // frontend UI components.
   void HandleConnectionStatusChangeOnFrontendLoop(
       syncer::ConnectionStatus status);
-
-  // Called when configuration of the Nigori node has completed as
-  // part of the initialization process.
-  void HandleNigoriConfigurationCompletedOnFrontendLoop(
-      syncer::ModelTypeSet failed_configuration_types);
 
   // syncer::InvalidationHandler-like functions.
   void HandleInvalidatorStateChangeOnFrontendLoop(

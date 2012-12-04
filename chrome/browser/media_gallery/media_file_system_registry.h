@@ -17,11 +17,13 @@
 #include "base/lazy_instance.h"
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/weak_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/system_monitor/system_monitor.h"
 #include "webkit/fileapi/media/mtp_device_file_system_config.h"
+
+#if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
+#include "chrome/browser/media_gallery/mtp_device_delegate_impl.h"
+#endif
 
 class Profile;
 
@@ -41,7 +43,6 @@ namespace chrome {
 
 class ExtensionGalleriesHost;
 class MediaGalleriesPreferences;
-class ScopedMTPDeviceMapEntry;
 
 struct MediaFileSystemInfo {
   MediaFileSystemInfo(const std::string& fs_name,
@@ -53,6 +54,39 @@ struct MediaFileSystemInfo {
   FilePath path;
   std::string fsid;
 };
+
+#if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
+// Class to manage the lifetime of MTPDeviceDelegateImpl object for the
+// attached media transfer protocol (MTP) device. This object is constructed
+// for each MTP device. Refcounted to reuse the same MTP device delegate entry
+// across extensions.
+class ScopedMTPDeviceMapEntry
+    : public base::RefCounted<ScopedMTPDeviceMapEntry> {
+ public:
+  // |no_references_callback| is called when the last ScopedMTPDeviceMapEntry
+  // reference goes away.
+  ScopedMTPDeviceMapEntry(const FilePath::StringType& device_location,
+                          const base::Closure& no_references_callback);
+
+ private:
+  // Friend declaration for ref counted implementation.
+  friend class base::RefCounted<ScopedMTPDeviceMapEntry>;
+
+  // Private because this class is ref-counted. Destructed when the last user of
+  // this MTP device is destroyed or when the MTP device is detached from the
+  // system or when the browser is in shutdown mode or when the last extension
+  // revokes the MTP device gallery permissions.
+  ~ScopedMTPDeviceMapEntry();
+
+  // The MTP or PTP device location.
+  const FilePath::StringType device_location_;
+
+  // A callback to call when the last reference of this object goes away.
+  base::Closure no_references_callback_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedMTPDeviceMapEntry);
+};
+#endif
 
 class MediaFileSystemContext {
  public:
@@ -80,8 +114,7 @@ typedef base::Callback<void(const std::vector<MediaFileSystemInfo>&)>
     MediaFileSystemsCallback;
 
 class MediaFileSystemRegistry
-    : public base::SystemMonitor::DevicesChangedObserver,
-      public PrefObserver {
+    : public base::SystemMonitor::DevicesChangedObserver {
  public:
   // The instance is lazily created per browser process.
   static MediaFileSystemRegistry* GetInstance();
@@ -107,7 +140,10 @@ class MediaFileSystemRegistry
       const FilePath::StringType& location) OVERRIDE;
   virtual void OnRemovableStorageDetached(const std::string& id) OVERRIDE;
 
+  size_t GetExtensionHostCountForTests() const;
+
  private:
+  friend class TestMediaFileSystemContext;
   friend struct base::DefaultLazyInstanceTraits<MediaFileSystemRegistry>;
   class MediaFileSystemContextImpl;
 
@@ -120,10 +156,10 @@ class MediaFileSystemRegistry
   typedef std::map<Profile*, PrefChangeRegistrar*> PrefChangeRegistrarMap;
 
 #if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
-  // Map a MTP or PTP device location to the weak pointer of
-  // ScopedMTPDeviceMapEntry.
-  typedef std::map<const FilePath::StringType,
-                   base::WeakPtr<ScopedMTPDeviceMapEntry> >
+  // Map a MTP or PTP device location to the raw pointer of
+  // ScopedMTPDeviceMapEntry. It is safe to store a raw pointer in this
+  // map.
+  typedef std::map<const FilePath::StringType, ScopedMTPDeviceMapEntry*>
       MTPDeviceDelegateMap;
 #endif
 
@@ -131,9 +167,7 @@ class MediaFileSystemRegistry
   MediaFileSystemRegistry();
   virtual ~MediaFileSystemRegistry();
 
-  // PrefObserver implementation.
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
+  void OnMediaGalleriesRememberedGalleriesChanged(PrefServiceBase* service);
 
 #if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
   // Returns ScopedMTPDeviceMapEntry object for the given |device_location|.
@@ -157,7 +191,7 @@ class MediaFileSystemRegistry
 
 #if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
   // Only accessed on the UI thread.
-  MTPDeviceDelegateMap mtp_delegate_map_;
+  MTPDeviceDelegateMap mtp_device_delegate_map_;
 #endif
 
   scoped_ptr<MediaFileSystemContext> file_system_context_;

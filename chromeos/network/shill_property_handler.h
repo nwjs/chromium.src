@@ -14,6 +14,7 @@
 #include "chromeos/dbus/dbus_method_call_status.h"
 #include "chromeos/dbus/shill_property_changed_observer.h"
 #include "chromeos/network/managed_state.h"
+#include "chromeos/network/network_handler_callbacks.h"
 
 namespace base {
 class DictionaryValue;
@@ -93,8 +94,11 @@ class CHROMEOS_EXPORT ShillPropertyHandler
   void Init();
 
   // Asynchronously sets the enabled state for |technology|.
-  // Note: Modifes Manager state. TODO(stevenjb): Add a completion callback.
-  void SetTechnologyEnabled(const std::string& technology, bool enabled);
+  // Note: Modifes Manager state. Calls |error_callback| on failure.
+  void SetTechnologyEnabled(
+      const std::string& technology,
+      bool enabled,
+      const network_handler::ErrorCallback& error_callback);
 
   // Requests an immediate network scan.
   void RequestScan() const;
@@ -103,10 +107,7 @@ class CHROMEOS_EXPORT ShillPropertyHandler
   void RequestProperties(ManagedState::ManagedType type,
                          const std::string& path);
 
-  // Requests the IP config specified by |ip_config_path| for |service_path|.
-  void RequestIPConfig(const std::string& service_path,
-                       const std::string& ip_config_path);
-
+  // Returns true if |service_path| is being observed.
   bool IsObservingNetwork(const std::string& service_path) {
     return observed_networks_.count(service_path) != 0;
   }
@@ -157,8 +158,8 @@ class CHROMEOS_EXPORT ShillPropertyHandler
   // Convenience pointer for ShillManagerClient
   ShillManagerClient* shill_manager_;
 
-  // Pending update count for each managed state type
-  std::map<ManagedState::ManagedType, int> pending_updates_;
+  // Pending update list for each managed state type
+  std::map<ManagedState::ManagedType, std::set<std::string> > pending_updates_;
 
   // List of network services with Shill property changed observers
   ShillServiceObserverMap observed_networks_;

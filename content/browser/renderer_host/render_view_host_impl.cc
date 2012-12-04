@@ -927,8 +927,6 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
   // TODO(fsamuel): Disallow BrowserPluginHostMsg_* sync messages to run on UI
   // thread and make these messages async: http://crbug.com/149063.
   if (msg.type() != BrowserPluginHostMsg_HandleInputEvent::ID &&
-      msg.type() != BrowserPluginHostMsg_ResizeGuest::ID &&
-      msg.type() != BrowserPluginHostMsg_SetAutoSize::ID &&
       !BrowserMessageFilter::CheckCanDispatchOnUI(msg, this))
     return true;
 
@@ -1175,19 +1173,17 @@ void RenderViewHostImpl::OnMsgDidStartProvisionalLoadForFrame(
     int64 frame_id,
     int64 parent_frame_id,
     bool is_main_frame,
-    const GURL& opener_url,
     const GURL& url) {
   delegate_->DidStartProvisionalLoadForFrame(
-      this, frame_id, parent_frame_id, is_main_frame, opener_url, url);
+      this, frame_id, parent_frame_id, is_main_frame, url);
 }
 
 void RenderViewHostImpl::OnMsgDidRedirectProvisionalLoad(
     int32 page_id,
-    const GURL& opener_url,
     const GURL& source_url,
     const GURL& target_url) {
   delegate_->DidRedirectProvisionalLoad(
-      this, page_id, opener_url, source_url, target_url);
+      this, page_id, source_url, target_url);
 }
 
 void RenderViewHostImpl::OnMsgDidFailProvisionalLoadWithError(
@@ -1364,16 +1360,15 @@ void RenderViewHostImpl::OnMsgToggleFullscreen(bool enter_fullscreen) {
   WasResized();
 }
 
-void RenderViewHostImpl::OnMsgOpenURL(const GURL& url,
-                                      const Referrer& referrer,
-                                      WindowOpenDisposition disposition,
-                                      int64 source_frame_id) {
-  GURL validated_url(url);
+void RenderViewHostImpl::OnMsgOpenURL(
+    const ViewHostMsg_OpenURL_Params& params) {
+  GURL validated_url(params.url);
   FilterURL(ChildProcessSecurityPolicyImpl::GetInstance(),
             GetProcess(), false, &validated_url);
 
   delegate_->RequestOpenURL(
-      this, validated_url, referrer, disposition, source_frame_id);
+      this, validated_url, params.referrer, params.disposition, params.frame_id,
+      params.is_cross_site_redirect);
 }
 
 void RenderViewHostImpl::OnMsgDidContentsPreferredSizeChange(
@@ -1533,8 +1528,10 @@ void RenderViewHostImpl::OnAddMessageToConsole(
   int32 resolved_level =
       (enabled_bindings_ & BINDINGS_POLICY_WEB_UI) ? level : 0;
 
-  logging::LogMessage("CONSOLE", line_no, resolved_level).stream() << "\"" <<
-      message << "\", source: " << source_id << " (" << line_no << ")";
+  if (resolved_level >= ::logging::GetMinLogLevel()) {
+    logging::LogMessage("CONSOLE", line_no, resolved_level).stream() << "\"" <<
+        message << "\", source: " << source_id << " (" << line_no << ")";
+  }
 }
 
 void RenderViewHostImpl::AddObserver(RenderViewHostObserver* observer) {
@@ -1676,13 +1673,6 @@ void RenderViewHostImpl::ForwardKeyboardEvent(
 }
 
 #if defined(OS_ANDROID)
-void RenderViewHostImpl::AttachLayer(WebKit::WebLayer* layer) {
-  delegate_->AttachLayer(layer);
-}
-
-void RenderViewHostImpl::RemoveLayer(WebKit::WebLayer* layer) {
-  delegate_->RemoveLayer(layer);
-}
 void RenderViewHostImpl::DidSelectPopupMenuItems(
     const std::vector<int>& selected_indices) {
   Send(new ViewMsg_SelectPopupMenuItems(GetRoutingID(), false,
@@ -1719,6 +1709,11 @@ void RenderViewHostImpl::FilterURL(ChildProcessSecurityPolicyImpl* policy,
                                    GURL* url) {
   if (empty_allowed && url->is_empty())
     return;
+
+  // The browser process should never hear the swappedout:// URL from any
+  // of the renderer's messages.  Check for this in debug builds, but don't
+  // let it crash a release browser.
+  DCHECK(GURL(kSwappedOutURL) != *url);
 
   if (!url->is_valid()) {
     // Have to use about:blank for the denied case, instead of an empty GURL.

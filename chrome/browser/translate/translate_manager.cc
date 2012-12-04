@@ -413,12 +413,6 @@ void TranslateManager::Observe(int type,
   }
 }
 
-void TranslateManager::OnPreferenceChanged(PrefServiceBase* service,
-                                           const std::string& pref_name) {
-  DCHECK_EQ(std::string(prefs::kAcceptLanguages), pref_name);
-  InitAcceptLanguages(service);
-}
-
 void TranslateManager::OnURLFetchComplete(const net::URLFetcher* source) {
   if (translate_script_request_pending_.get() != source &&
       language_list_request_pending_.get() != source) {
@@ -676,7 +670,7 @@ void TranslateManager::RevertTranslation(WebContents* web_contents) {
 void TranslateManager::ReportLanguageDetectionError(WebContents* web_contents) {
   UMA_HISTOGRAM_COUNTS("Translate.ReportLanguageDetectionError", 1);
   // We'll open the URL in a new tab so that the user can tell us more.
-  Browser* browser = browser::FindBrowserWithWebContents(web_contents);
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
   if (!browser) {
     NOTREACHED();
     return;
@@ -777,7 +771,11 @@ bool TranslateManager::IsAcceptLanguage(WebContents* web_contents,
            pref_change_registrars_.end());
     PrefChangeRegistrar* pref_change_registrar = new PrefChangeRegistrar;
     pref_change_registrar->Init(pref_service);
-    pref_change_registrar->Add(prefs::kAcceptLanguages, this);
+    pref_change_registrar->Add(
+        prefs::kAcceptLanguages,
+        base::Bind(&TranslateManager::InitAcceptLanguages,
+                   base::Unretained(this),
+                   pref_service));
     pref_change_registrars_[pref_service] = pref_change_registrar;
 
     iter = accept_languages_.find(pref_service);

@@ -19,6 +19,8 @@
 #import "chrome/browser/ui/cocoa/encoding_menu_controller_delegate_mac.h"
 #import "chrome/browser/ui/cocoa/toolbar/toolbar_controller.h"
 #import "chrome/browser/ui/cocoa/wrench_menu/menu_tracked_root_view.h"
+#import "chrome/browser/ui/cocoa/wrench_menu/recent_tabs_menu_model_delegate.h"
+#include "chrome/browser/ui/toolbar/recent_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/toolbar/wrench_menu_model.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_observer.h"
@@ -28,7 +30,6 @@
 #include "content/public/browser/user_metrics.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
-#include "ui/base/accelerators/accelerator_cocoa.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
 
@@ -41,6 +42,7 @@ using content::UserMetricsAction;
 - (void)performCommandDispatch:(NSNumber*)tag;
 - (NSButton*)zoomDisplay;
 - (void)removeAllItems:(NSMenu*)menu;
+- (NSMenu*)recentTabsSubmenu;
 @end
 
 namespace WrenchMenuControllerInternal {
@@ -49,19 +51,14 @@ namespace WrenchMenuControllerInternal {
 class AcceleratorDelegate : public ui::AcceleratorProvider {
  public:
   virtual bool GetAcceleratorForCommandId(int command_id,
-      ui::Accelerator* accelerator_generic) {
-    // Downcast so that when the copy constructor is invoked below, the key
-    // string gets copied, too.
-    ui::AcceleratorCocoa* out_accelerator =
-        static_cast<ui::AcceleratorCocoa*>(accelerator_generic);
+      ui::Accelerator* out_accelerator) {
     AcceleratorsCocoa* keymap = AcceleratorsCocoa::GetInstance();
-    const ui::AcceleratorCocoa* accelerator =
+    const ui::Accelerator* accelerator =
         keymap->GetAcceleratorForCommand(command_id);
-    if (accelerator) {
-      *out_accelerator = *accelerator;
-      return true;
-    }
-    return false;
+    if (!accelerator)
+      return false;
+    *out_accelerator = *accelerator;
+    return true;
   }
 };
 
@@ -196,6 +193,7 @@ class ZoomLevelObserver : public content::NotificationObserver {
     [menu addItem:item];
   }
 
+  [self updateRecentTabsSubmenu];
   [self updateBookmarkSubMenu];
 }
 
@@ -240,7 +238,18 @@ class ZoomLevelObserver : public content::NotificationObserver {
   return static_cast<WrenchMenuModel*>(model_);
 }
 
+- (void)updateRecentTabsSubmenu {
+  ui::MenuModel* model = [self wrenchMenuModel];
+  int index = 0;
+  if (ui::MenuModel::GetModelAndIndexForCommandId(
+          IDC_RESTORE_TAB, &model, &index)) {
+    recentTabsMenuModelDelegate_.reset(
+        new RecentTabsMenuModelDelegate(model, [self recentTabsSubmenu]));
+  }
+}
+
 - (void)createModel {
+  recentTabsMenuModelDelegate_.reset();
   wrenchMenuModel_.reset(
       new WrenchMenuModel(acceleratorDelegate_.get(), browser_, false, false));
   [self setModel:wrenchMenuModel_.get()];
@@ -305,6 +314,11 @@ class ZoomLevelObserver : public content::NotificationObserver {
   while ([menu numberOfItems]) {
     [menu removeItemAtIndex:0];
   }
+}
+
+- (NSMenu*)recentTabsSubmenu {
+  NSString* title = l10n_util::GetNSStringWithFixup(IDS_RECENT_TABS_MENU);
+  return [[[self menu] itemWithTitle:title] submenu];
 }
 
 @end  // @implementation WrenchMenuController

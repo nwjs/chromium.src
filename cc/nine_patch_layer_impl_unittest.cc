@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <stdio.h>
+
 #include "cc/nine_patch_layer_impl.h"
 
 #include "cc/append_quads_data.h"
@@ -14,7 +16,7 @@
 #include "ui/gfx/safe_integer_conversions.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
 namespace cc {
 namespace {
@@ -46,8 +48,8 @@ TEST(NinePatchLayerImplTest, verifyDrawQuads)
 
     // This scale should not affect the generated quad geometry, but only
     // the shared draw transform.
-    WebKit::WebTransformationMatrix transform;
-    transform.scale(10);
+    gfx::Transform transform;
+    transform.Scale(10, 10);
     layer->setDrawTransform(transform);
 
     AppendQuadsData data;
@@ -55,35 +57,88 @@ TEST(NinePatchLayerImplTest, verifyDrawQuads)
 
     // Verify quad rects
     const QuadList& quads = quadCuller.quadList();
-    EXPECT_EQ(quads.size(), 8);
+    EXPECT_EQ(8, quads.size());
     Region remaining(visibleContentRect);
     for (size_t i = 0; i < quads.size(); ++i) {
         DrawQuad* quad = quads[i];
-        gfx::Rect quadRect = quad->quadRect();
+        gfx::Rect quadRect = quad->rect;
 
         EXPECT_TRUE(visibleContentRect.Contains(quadRect)) << i;
         EXPECT_TRUE(remaining.Contains(quadRect)) << i;
-        EXPECT_EQ(quad->sharedQuadState()->quadTransform, transform) << i;
+        EXPECT_EQ(transform, quad->quadTransform());
         remaining.Subtract(Region(quadRect));
     }
-    EXPECT_RECT_EQ(remaining.bounds(), scaledApertureNonUniform);
+    EXPECT_RECT_EQ(scaledApertureNonUniform, remaining.bounds());
     Region scaledApertureRegion(scaledApertureNonUniform);
-    EXPECT_EQ(remaining, scaledApertureRegion);
+    EXPECT_EQ(scaledApertureRegion, remaining);
 
     // Verify UV rects
     gfx::Rect bitmapRect(gfx::Point(), bitmapSize);
     Region texRemaining(bitmapRect);
     for (size_t i = 0; i < quads.size(); ++i) {
         DrawQuad* quad = quads[i];
-        ASSERT_EQ(quad->material(), DrawQuad::TextureContent);
-        TextureDrawQuad* texQuad = static_cast<TextureDrawQuad*>(quad);
-        gfx::RectF texRect = texQuad->uvRect();
+        const TextureDrawQuad* texQuad = TextureDrawQuad::MaterialCast(quad);
+        gfx::RectF texRect = texQuad->uv_rect;
         texRect.Scale(bitmapSize.width(), bitmapSize.height());
         texRemaining.Subtract(Region(ToRoundedIntRect(texRect)));
     }
-    EXPECT_RECT_EQ(texRemaining.bounds(), apertureRect);
+    EXPECT_RECT_EQ(apertureRect, texRemaining.bounds());
     Region apertureRegion(apertureRect);
-    EXPECT_EQ(texRemaining, apertureRegion);
+    EXPECT_EQ(apertureRegion, texRemaining);
+}
+
+TEST(NinePatchLayerImplTest, verifyDrawQuadsForSqueezedLayer)
+{
+    // Test with a layer much smaller than the bitmap.
+    MockQuadCuller quadCuller;
+    gfx::Size bitmapSize(101, 101);
+    gfx::Size layerSize(51, 51);
+    gfx::Rect visibleContentRect(gfx::Point(), layerSize);
+    gfx::Rect apertureRect(20, 30, 40, 45); // rightWidth: 40, botHeight: 25
+
+    scoped_ptr<NinePatchLayerImpl> layer = NinePatchLayerImpl::create(1);
+    layer->setVisibleContentRect(visibleContentRect);
+    layer->setBounds(layerSize);
+    layer->setContentBounds(layerSize);
+    layer->createRenderSurface();
+    layer->setRenderTarget(layer.get());
+    layer->setLayout(bitmapSize, apertureRect);
+    layer->setResourceId(1);
+
+    AppendQuadsData data;
+    layer->appendQuads(quadCuller, data);
+
+    // Verify corner rects fill the layer and don't overlap
+    const QuadList& quads = quadCuller.quadList();
+    EXPECT_EQ(4, quads.size());
+    Region filled;
+    for (size_t i = 0; i < quads.size(); ++i) {
+        DrawQuad* quad = quads[i];
+        gfx::Rect quadRect = quad->rect;
+
+        EXPECT_FALSE(filled.Intersects(quadRect));
+        filled.Union(quadRect);
+    }
+    Region expectedFull(visibleContentRect);
+    EXPECT_EQ(expectedFull, filled);
+
+    // Verify UV rects cover the corners of the bitmap and the crop is weighted
+    // proportionately to the relative corner sizes (for uneven apertures).
+    gfx::Rect bitmapRect(gfx::Point(), bitmapSize);
+    Region texRemaining(bitmapRect);
+    for (size_t i = 0; i < quads.size(); ++i) {
+        DrawQuad* quad = quads[i];
+        const TextureDrawQuad* texQuad = TextureDrawQuad::MaterialCast(quad);
+        gfx::RectF texRect = texQuad->uv_rect;
+        texRect.Scale(bitmapSize.width(), bitmapSize.height());
+        texRemaining.Subtract(Region(ToRoundedIntRect(texRect)));
+    }
+    Region expectedRemainingRegion = Region(gfx::Rect(bitmapSize));
+    expectedRemainingRegion.Subtract(gfx::Rect(0, 0, 17, 28));
+    expectedRemainingRegion.Subtract(gfx::Rect(67, 0, 34, 28));
+    expectedRemainingRegion.Subtract(gfx::Rect(0, 78, 17, 23));
+    expectedRemainingRegion.Subtract(gfx::Rect(67, 78, 34, 23));
+    EXPECT_EQ(expectedRemainingRegion, texRemaining);
 }
 
 }  // namespace

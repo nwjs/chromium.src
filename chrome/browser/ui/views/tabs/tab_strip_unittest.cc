@@ -47,7 +47,7 @@ TEST_F(TabStripTest, tab_count) {
 
 TEST_F(TabStripTest, CreateTabForDragging) {
   // Any result is good, as long as it doesn't crash.
-  scoped_ptr<BaseTab> tab(tab_strip_->CreateTabForDragging());
+  scoped_ptr<Tab> tab(tab_strip_->CreateTabForDragging());
 }
 
 TEST_F(TabStripTest, AddTabAt) {
@@ -77,4 +77,24 @@ TEST_F(TabStripTest, RemoveTab) {
   // Remove the last tab to make sure things are cleaned up correctly when
   // the TabStrip is destroyed and an animation is ongoing.
   controller_->RemoveTab(0);
+}
+
+TEST_F(TabStripTest, ImmersiveMode) {
+  // Immersive mode defaults to off.
+  EXPECT_FALSE(tab_strip_->IsImmersiveStyle());
+
+  // Tab strip defaults to normal tab height.
+  int normal_height = Tab::GetMinimumUnselectedSize().height();
+  EXPECT_EQ(normal_height, tab_strip_->GetPreferredSize().height());
+
+  // Tab strip can toggle immersive mode.
+  tab_strip_->SetImmersiveStyle(true);
+  EXPECT_TRUE(tab_strip_->IsImmersiveStyle());
+
+  // Now tabs have the immersive height.
+  int immersive_height = Tab::GetImmersiveHeight();
+  EXPECT_EQ(immersive_height, tab_strip_->GetPreferredSize().height());
+
+  // Sanity-check immersive tabs are shorter than normal tabs.
+  EXPECT_LT(immersive_height, normal_height);
 }

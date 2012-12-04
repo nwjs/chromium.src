@@ -40,9 +40,7 @@ class ASH_EXPORT ToplevelWindowEventHandler
   // Overridden from ui::EventHandler:
   virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
   virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
-  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Overridden form aura::client::WindowMoveClient:
   virtual aura::client::WindowMoveResult RunMoveLoop(
@@ -97,8 +95,8 @@ class ASH_EXPORT ToplevelWindowEventHandler
   // is used to move a window.
   bool move_cancelled_;
 
-  // Is a gesture-resize in progress?
-  bool in_gesture_resize_;
+  // Is a window move/resize in progress because of gesture events?
+  bool in_gesture_drag_;
 
   scoped_ptr<ScopedWindowResizer> window_resizer_;
 

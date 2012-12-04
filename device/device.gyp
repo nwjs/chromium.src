@@ -63,6 +63,8 @@
         'bluetooth/test/mock_bluetooth_adapter.h',
         'bluetooth/test/mock_bluetooth_device.cc',
         'bluetooth/test/mock_bluetooth_device.h',
+        'bluetooth/test/mock_bluetooth_socket.cc',
+        'bluetooth/test/mock_bluetooth_socket.h',
       ],
       'include_dirs': [
         '..',
@@ -82,6 +84,7 @@
       'sources': [
         'bluetooth/bluetooth_adapter_chromeos_unittest.cc',
         'bluetooth/bluetooth_adapter_devices_chromeos_unittest.cc',
+        'bluetooth/bluetooth_adapter_win_unittest.cc',
         'bluetooth/bluetooth_service_record_unittest.cc',
         'bluetooth/bluetooth_utils_unittest.cc',
         'test/device_test_suite.cc',

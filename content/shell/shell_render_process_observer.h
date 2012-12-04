@@ -7,6 +7,7 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "content/public/renderer/render_process_observer.h"
 
@@ -38,12 +39,24 @@ class ShellRenderProcessObserver : public RenderProcessObserver {
   virtual void WebKitInitialized() OVERRIDE;
   virtual bool OnControlMessageReceived(const IPC::Message& message) OVERRIDE;
 
+  WebTestRunner::WebTestDelegate* test_delegate() const {
+    return test_delegate_;
+  }
+  WebTestRunner::WebTestInterfaces* test_interfaces() const {
+    return test_interfaces_.get();
+  }
+  const FilePath& webkit_source_dir() const { return webkit_source_dir_; }
+
  private:
   // Message handlers.
   void OnResetAll();
+  void OnSetWebKitSourceDir(const FilePath& webkit_source_dir);
 
   scoped_ptr<WebTestRunner::WebTestInterfaces> test_interfaces_;
+  RenderView* main_render_view_;
   WebTestRunner::WebTestDelegate* test_delegate_;
+
+  FilePath webkit_source_dir_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellRenderProcessObserver);
 };

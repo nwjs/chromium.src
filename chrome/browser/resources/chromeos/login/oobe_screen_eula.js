@@ -26,7 +26,7 @@ cr.define('oobe', function() {
   EulaScreen.prototype = {
     __proto__: HTMLDivElement.prototype,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
       $('stats-help-link').addEventListener('click', function(event) {
         chrome.send('eulaOnLearnMore');
@@ -67,6 +67,23 @@ cr.define('oobe', function() {
       buttons.push(acceptButton);
 
       return buttons;
+    },
+
+    /**
+     * Returns a control which should receive an initial focus.
+     */
+    get defaultControl() {
+      return $('accept-button');
+    },
+
+    /**
+     * Updates localized content of the screen that is not updated via template.
+     */
+    updateLocalizedContent: function() {
+      if ($('cros-eula-frame').src != '')
+        $('cros-eula-frame').src = $('cros-eula-frame').src;
+      if ($('oem-eula-frame').src != '')
+        $('oem-eula-frame').src = $('oem-eula-frame').src;
     }
   };
 

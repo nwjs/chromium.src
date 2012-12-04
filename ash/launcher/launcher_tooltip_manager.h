@@ -6,11 +6,12 @@
 #define ASH_LAUNCHER_LAUNCHER_TOOLTIP_MANAGER_H_
 
 #include "ash/ash_export.h"
+#include "ash/wm/session_state_observer.h"
 #include "ash/wm/shelf_layout_manager.h"
 #include "ash/wm/shelf_types.h"
 #include "base/basictypes.h"
 #include "base/string16.h"
-#include "ui/aura/event_filter.h"
+#include "ui/base/events/event_handler.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_delegate.h"
@@ -35,8 +36,9 @@ class LauncherView;
 
 // LauncherTooltipManager manages the tooltip balloon poping up on launcher
 // items.
-class ASH_EXPORT LauncherTooltipManager : public aura::EventFilter,
-                                          public ShelfLayoutManager::Observer {
+class ASH_EXPORT LauncherTooltipManager : public ui::EventHandler,
+                                          public ShelfLayoutManager::Observer,
+                                          public SessionStateObserver {
  public:
   LauncherTooltipManager(ShelfAlignment alignment,
                          ShelfLayoutManager* shelf_layout_manager,
@@ -70,17 +72,14 @@ class ASH_EXPORT LauncherTooltipManager : public aura::EventFilter,
   bool IsVisible();
 
 protected:
-  // aura::EventFilter overrides:
-  virtual bool PreHandleKeyEvent(aura::Window* target,
-                                 ui::KeyEvent* event) OVERRIDE;
-  virtual bool PreHandleMouseEvent(aura::Window* target,
-                                   ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleTouchEvent(
-      aura::Window* target,
-      ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleGestureEvent(
-      aura::Window* target,
-      ui::GestureEvent* event) OVERRIDE;
+  // ui::EventHandler overrides:
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
+  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+
+  // SessionStateObserver override:
+  virtual void OnSessionStateEvent(SessionStateObserver::EventType event)
+      OVERRIDE;
 
   // ShelfLayoutManager::Observer overrides:
   virtual void WillDeleteShelf() OVERRIDE;

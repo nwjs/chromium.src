@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,10 +6,10 @@
 #define CHROME_BROWSER_INSTANT_INSTANT_LOADER_H_
 
 #include <string>
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "chrome/browser/history/history_types.h"
@@ -20,10 +20,15 @@
 struct InstantAutocompleteResult;
 class InstantController;
 class TabContents;
+struct ThemeBackgroundInfo;
+
+namespace chrome {
+namespace search {
+struct Mode;
+}
+}
 
 namespace content {
-class NotificationDetails;
-class NotificationSource;
 class WebContents;
 }
 
@@ -69,18 +74,21 @@ class InstantLoader : public content::NotificationObserver {
   void SendAutocompleteResults(
       const std::vector<InstantAutocompleteResult>& results);
 
+  // Tells the preview page about the current theme background.
+  void SendThemeBackgroundInfo(const ThemeBackgroundInfo& theme_info);
+
+  // Tells the preview page about the current theme area height.
+  void SendThemeAreaHeight(int height);
+
+  // Tells the preview page whether it is allowed to display Instant results.
+  void SetDisplayInstantResults(bool display_instant_results);
+
   // Tells the preview page that the user pressed the up or down key. |count|
   // is a repeat count, negative for moving up, positive for moving down.
   void OnUpOrDownKeyPressed(int count);
 
-  // Tells the preview page that the searchbox has been focused.
-  void OnAutocompleteGotFocus();
-
-  // Tells the preview page that the searchbox has lost focus.
-  void OnAutocompleteLostFocus();
-
-  // Tells the preview page that the active tab's "NTP status" has changed.
-  void OnActiveTabModeChanged(bool active_tab_is_ntp);
+  // Tells the preview page that the active tab's search mode has changed.
+  void SearchModeChanged(const chrome::search::Mode& mode);
 
   // Called by the history tab helper with the information that it would have
   // added to the history service had this web contents not been used for
@@ -94,6 +102,10 @@ class InstantLoader : public content::NotificationObserver {
   // none of the other methods will work once the preview has been released.
   TabContents* ReleasePreviewContents(InstantCommitType type,
                                       const string16& text) WARN_UNUSED_RESULT;
+
+  // Severs delegate and observer connections, resets popup blocking, etc., on
+  // the |preview_contents_|.
+  void CleanupPreviewContents();
 
   // The preview TabContents. The loader retains ownership. This will be
   // non-NULL until ReleasePreviewContents() is called.
@@ -118,27 +130,27 @@ class InstantLoader : public content::NotificationObserver {
   // preview content.
   bool IsPointerDownFromActivate() const;
 
-  // content::NotificationObserver:
+ private:
+  class WebContentsDelegateImpl;
+
+  // Overridden from content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
- private:
-  class WebContentsDelegateImpl;
-
   void SetupPreviewContents();
-  void CleanupPreviewContents();
   void ReplacePreviewContents(content::WebContents* old_contents,
                               content::WebContents* new_contents);
 
   InstantController* const controller_;
 
+  // Delegate of the preview WebContents. Used when the user does some gesture
+  // on the WebContents and it needs to be activated. This MUST be defined above
+  // |preview_contents_| so that the delegate can outlive the WebContents.
+  scoped_ptr<WebContentsDelegateImpl> preview_delegate_;
+
   // See comments on the getter above.
   scoped_ptr<TabContents> preview_contents_;
-
-  // Delegate of the preview WebContents. Used to detect when the user does some
-  // gesture on the WebContents and the preview needs to be activated.
-  scoped_ptr<WebContentsDelegateImpl> preview_delegate_;
 
   // See comments on the getter above.
   bool supports_instant_;

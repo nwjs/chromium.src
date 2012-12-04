@@ -191,6 +191,10 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // Only used by NativeWidgetAura. Specifies the type of layer for the
     // aura::Window. Default is LAYER_TEXTURED.
     ui::LayerType layer_type;
+    // Only used by Aura. Provides additional context (generally a RootWindow)
+    // during creation to allow the widget to determine which desktop type it
+    // will belong to. NULL is not allowed if you are using aura.
+    gfx::NativeView context;
   };
 
   Widget();
@@ -546,8 +550,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   ui::Compositor* GetCompositor();
 
   // Invokes method of same name on the NativeWidget.
-  void CalculateOffsetToAncestorWithLayer(gfx::Point* offset,
-                                          ui::Layer** layer_parent);
+  gfx::Vector2d CalculateOffsetToAncestorWithLayer(
+      ui::Layer** layer_parent);
 
   // Invokes method of same name on the NativeWidget.
   void ReorderLayers();
@@ -658,7 +662,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   virtual void OnMouseCaptureLost() OVERRIDE;
   virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
   virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
   virtual bool ExecuteCommand(int command_id) OVERRIDE;
   virtual InputMethod* GetInputMethodDirect() OVERRIDE;
   virtual const std::vector<ui::Layer*>& GetRootLayers() OVERRIDE;

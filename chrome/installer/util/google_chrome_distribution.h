@@ -74,8 +74,12 @@ class GoogleChromeDistribution : public BrowserDistribution {
 
   virtual string16 GetVersionKey() OVERRIDE;
 
+  virtual string16 GetIconFilename() OVERRIDE;
+
   virtual bool GetCommandExecuteImplClsid(
       string16* handler_class_uuid) OVERRIDE;
+
+  virtual bool AppHostIsSupported() OVERRIDE;
 
   virtual void UpdateInstallStatus(
       bool system_install,

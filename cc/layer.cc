@@ -9,7 +9,6 @@
 #include "cc/layer_animation_controller.h"
 #include "cc/layer_impl.h"
 #include "cc/layer_tree_host.h"
-#include "cc/settings.h"
 #include "third_party/skia/include/core/SkImageFilter.h"
 #include "ui/gfx/rect_conversions.h"
 #include <public/WebAnimationDelegate.h>
@@ -17,7 +16,6 @@
 #include <public/WebSize.h>
 
 using namespace std;
-using WebKit::WebTransformationMatrix;
 
 namespace cc {
 
@@ -42,10 +40,7 @@ Layer::Layer()
     , m_touchEventHandlerRegionChanged(false)
     , m_anchorPoint(0.5, 0.5)
     , m_backgroundColor(0)
-    , m_debugBorderColor(0)
-    , m_debugBorderWidth(0)
     , m_opacity(1.0)
-    , m_filter(0)
     , m_anchorPointZ(0)
     , m_isContainerForFixedPositionLayers(false)
     , m_fixedToContainerLayer(false)
@@ -64,6 +59,7 @@ Layer::Layer()
     , m_renderTarget(0)
     , m_drawTransformIsAnimating(false)
     , m_screenSpaceTransformIsAnimating(false)
+    , m_isClipped(false)
     , m_rasterScale(1.0)
     , m_automaticallyComputeRasterScale(false)
     , m_boundsContainPageScale(false)
@@ -84,8 +80,6 @@ Layer::~Layer()
 
     // Remove the parent reference from all children.
     removeAllChildren();
-
-    SkSafeUnref(m_filter);
 }
 
 void Layer::setUseLCDText(bool useLCDText)
@@ -119,6 +113,12 @@ void Layer::setNeedsCommit()
         m_layerTreeHost->setNeedsCommit();
 }
 
+void Layer::setNeedsFullTreeSync()
+{
+    if (m_layerTreeHost)
+        m_layerTreeHost->setNeedsFullTreeSync();
+}
+
 gfx::Rect Layer::layerRectToContentRect(const gfx::RectF& layerRect) const
 {
     gfx::RectF contentRect = gfx::ScaleRect(layerRect, contentsScaleX(), contentsScaleY());
@@ -139,7 +139,7 @@ void Layer::setParent(Layer* layer)
 
 bool Layer::hasAncestor(Layer* ancestor) const
 {
-    for (Layer* layer = parent(); layer; layer = layer->parent()) {
+    for (const Layer* layer = parent(); layer; layer = layer->parent()) {
         if (layer == ancestor)
             return true;
     }
@@ -153,14 +153,14 @@ void Layer::addChild(scoped_refptr<Layer> child)
 
 void Layer::insertChild(scoped_refptr<Layer> child, size_t index)
 {
-    index = min(index, m_children.size());
     child->removeFromParent();
     child->setParent(this);
     child->m_stackingOrderChanged = true;
 
+    index = min(index, m_children.size());
     LayerList::iterator iter = m_children.begin();
     m_children.insert(iter + index, child);
-    setNeedsCommit();
+    setNeedsFullTreeSync();
 }
 
 void Layer::removeFromParent()
@@ -178,7 +178,7 @@ void Layer::removeChild(Layer* child)
 
         child->setParent(0);
         m_children.erase(iter);
-        setNeedsCommit();
+        setNeedsFullTreeSync();
         return;
     }
 }
@@ -305,7 +305,7 @@ void Layer::setMaskLayer(Layer* maskLayer)
         m_maskLayer->setLayerTreeHost(m_layerTreeHost);
         m_maskLayer->setIsMask(true);
     }
-    setNeedsCommit();
+    setNeedsFullTreeSync();
 }
 
 void Layer::setReplicaLayer(Layer* layer)
@@ -317,7 +317,7 @@ void Layer::setReplicaLayer(Layer* layer)
     m_replicaLayer = layer;
     if (m_replicaLayer)
         m_replicaLayer->setLayerTreeHost(m_layerTreeHost);
-    setNeedsCommit();
+    setNeedsFullTreeSync();
 }
 
 void Layer::setFilters(const WebKit::WebFilterOperations& filters)
@@ -331,12 +331,12 @@ void Layer::setFilters(const WebKit::WebFilterOperations& filters)
         LayerTreeHost::setNeedsFilterContext(true);
 }
 
-void Layer::setFilter(SkImageFilter* filter)
+void Layer::setFilter(const skia::RefPtr<SkImageFilter>& filter)
 {
-    if (m_filter == filter)
+    if (m_filter.get() == filter.get())
         return;
     DCHECK(m_filters.isEmpty());
-    SkRefCnt_SafeAssign(m_filter, filter);
+    m_filter = filter;
     setNeedsCommit();
     if (filter)
         LayerTreeHost::setNeedsFilterContext(true);
@@ -386,7 +386,7 @@ void Layer::setPosition(const gfx::PointF& position)
     setNeedsCommit();
 }
 
-void Layer::setSublayerTransform(const WebTransformationMatrix& sublayerTransform)
+void Layer::setSublayerTransform(const gfx::Transform& sublayerTransform)
 {
     if (m_sublayerTransform == sublayerTransform)
         return;
@@ -394,7 +394,7 @@ void Layer::setSublayerTransform(const WebTransformationMatrix& sublayerTransfor
     setNeedsCommit();
 }
 
-void Layer::setTransform(const WebTransformationMatrix& transform)
+void Layer::setTransform(const gfx::Transform& transform)
 {
     if (m_transform == transform)
         return;
@@ -414,7 +414,7 @@ void Layer::setScrollOffset(gfx::Vector2d scrollOffset)
     m_scrollOffset = scrollOffset;
     if (m_layerScrollClient)
         m_layerScrollClient->didScroll();
-    setNeedsCommit();
+    setNeedsFullTreeSync();
 }
 
 void Layer::setMaxScrollOffset(gfx::Vector2d maxScrollOffset)
@@ -482,7 +482,7 @@ void Layer::setForceRenderSurface(bool force)
     setNeedsCommit();
 }
 
-void Layer::setImplTransform(const WebTransformationMatrix& transform)
+void Layer::setImplTransform(const gfx::Transform& transform)
 {
     if (m_implTransform == transform)
         return;
@@ -505,11 +505,6 @@ void Layer::setIsDrawable(bool isDrawable)
 
     m_isDrawable = isDrawable;
     setNeedsCommit();
-}
-
-Layer* Layer::parent() const
-{
-    return m_parent;
 }
 
 void Layer::setNeedsDisplayRect(const gfx::RectF& dirtyRect)
@@ -565,8 +560,6 @@ void Layer::pushPropertiesTo(LayerImpl* layer)
     layer->setBounds(m_bounds);
     layer->setContentBounds(contentBounds());
     layer->setContentsScale(contentsScaleX(), contentsScaleY());
-    layer->setDebugBorderColor(m_debugBorderColor);
-    layer->setDebugBorderWidth(m_debugBorderWidth);
     layer->setDebugName(m_debugName);
     layer->setDoubleSided(m_doubleSided);
     layer->setDrawCheckerboardForMissingTiles(m_drawCheckerboardForMissingTiles);
@@ -642,18 +635,6 @@ bool Layer::needMoreUpdates()
     return false;
 }
 
-void Layer::setDebugBorderColor(SkColor color)
-{
-    m_debugBorderColor = color;
-    setNeedsCommit();
-}
-
-void Layer::setDebugBorderWidth(float width)
-{
-    m_debugBorderWidth = width;
-    setNeedsCommit();
-}
-
 void Layer::setDebugName(const std::string& debugName)
 {
     m_debugName = debugName;
@@ -720,13 +701,17 @@ void Layer::createRenderSurface()
     setRenderTarget(this);
 }
 
-bool Layer::descendantDrawsContent()
+int Layer::descendantsDrawContent()
 {
+    int result = 0;
     for (size_t i = 0; i < m_children.size(); ++i) {
-        if (m_children[i]->drawsContent() || m_children[i]->descendantDrawsContent())
-            return true;
+        if (m_children[i]->drawsContent())
+            ++result;
+        result += m_children[i]->descendantsDrawContent();
+        if (result > 1)
+            return result;
     }
-    return false;
+    return result;
 }
 
 int Layer::id() const
@@ -747,12 +732,12 @@ void Layer::setOpacityFromAnimation(float opacity)
     m_opacity = opacity;
 }
 
-const WebKit::WebTransformationMatrix& Layer::transform() const
+const gfx::Transform& Layer::transform() const
 {
     return m_transform;
 }
 
-void Layer::setTransformFromAnimation(const WebTransformationMatrix& transform)
+void Layer::setTransformFromAnimation(const gfx::Transform& transform)
 {
     // This is called due to an ongoing accelerated animation. Since this animation is
     // also being run on the impl thread, there is no need to request a commit to push
@@ -765,11 +750,18 @@ bool Layer::addAnimation(scoped_ptr <ActiveAnimation> animation)
     // WebCore currently assumes that accelerated animations will start soon
     // after the animation is added. However we cannot guarantee that if we do
     // not have a layerTreeHost that will setNeedsCommit().
+    // Unfortunately, the fix below to guarantee correctness causes performance
+    // regressions on Android, since Android has shipped for a long time
+    // with all animations accelerated. For this reason, we will live with
+    // this bug only on Android until the bug is fixed.
+    // http://crbug.com/129683
+#if !defined(OS_ANDROID)
     if (!m_layerTreeHost)
         return false;
 
-    if (!Settings::acceleratedAnimationEnabled())
+    if (!m_layerTreeHost->settings().acceleratedAnimationEnabled)
         return false;
+#endif
 
     m_layerAnimationController->addAnimation(animation.Pass());
     if (m_layerTreeHost) {

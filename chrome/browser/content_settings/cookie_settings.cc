@@ -15,11 +15,11 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/content_settings_pattern.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/user_metrics.h"
+#include "extensions/common/constants.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/net_errors.h"
 #include "net/base/static_cookie_policy.h"
@@ -95,7 +95,10 @@ CookieSettings::CookieSettings(
   }
 
   pref_change_registrar_.Init(prefs);
-  pref_change_registrar_.Add(prefs::kBlockThirdPartyCookies, this);
+  pref_change_registrar_.Add(
+      prefs::kBlockThirdPartyCookies,
+      base::Bind(&CookieSettings::OnBlockThirdPartyCookiesChanged,
+                 base::Unretained(this)));
 }
 
 ContentSetting
@@ -155,16 +158,6 @@ void CookieSettings::ResetCookieSetting(
       CONTENT_SETTING_DEFAULT);
 }
 
-void CookieSettings::OnPreferenceChanged(PrefServiceBase* prefs,
-                                         const std::string& name) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK_EQ(std::string(prefs::kBlockThirdPartyCookies), name);
-
-  base::AutoLock auto_lock(lock_);
-  block_third_party_cookies_ = prefs->GetBoolean(
-      prefs::kBlockThirdPartyCookies);
-}
-
 void CookieSettings::ShutdownOnUIThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   pref_change_registrar_.RemoveAll();
@@ -192,7 +185,7 @@ ContentSetting CookieSettings::GetCookieSetting(
   if (info.primary_pattern.MatchesAllHosts() &&
       info.secondary_pattern.MatchesAllHosts() &&
       ShouldBlockThirdPartyCookies() &&
-      !first_party_url.SchemeIs(chrome::kExtensionScheme)) {
+      !first_party_url.SchemeIs(extensions::kExtensionScheme)) {
     bool not_strict = CommandLine::ForCurrentProcess()->HasSwitch(
         switches::kOnlyBlockSettingThirdPartyCookies);
     net::StaticCookiePolicy policy(not_strict ?
@@ -214,6 +207,14 @@ ContentSetting CookieSettings::GetCookieSetting(
 }
 
 CookieSettings::~CookieSettings() {}
+
+void CookieSettings::OnBlockThirdPartyCookiesChanged() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  base::AutoLock auto_lock(lock_);
+  block_third_party_cookies_ = pref_change_registrar_.prefs()->GetBoolean(
+      prefs::kBlockThirdPartyCookies);
+}
 
 bool CookieSettings::ShouldBlockThirdPartyCookies() const {
   base::AutoLock auto_lock(lock_);

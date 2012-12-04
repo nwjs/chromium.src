@@ -277,6 +277,8 @@ virtual void DeleteSharedIdsCHROMIUM(
 virtual void RegisterSharedIdsCHROMIUM(
     GLuint namespace_id, GLsizei n, const GLuint* ids) OVERRIDE;
 virtual GLboolean EnableFeatureCHROMIUM(const char* feature) OVERRIDE;
+virtual void* MapBufferCHROMIUM(GLuint target, GLenum access) OVERRIDE;
+virtual GLboolean UnmapBufferCHROMIUM(GLuint target) OVERRIDE;
 virtual void* MapBufferSubDataCHROMIUM(
     GLuint target, GLintptr offset, GLsizeiptr size, GLenum access) OVERRIDE;
 virtual void UnmapBufferSubDataCHROMIUM(const void* mem) OVERRIDE;
@@ -320,5 +322,14 @@ virtual void BindUniformLocationCHROMIUM(
     GLuint program, GLint location, const char* name) OVERRIDE;
 virtual void BindTexImage2DCHROMIUM(GLenum target, GLint imageId) OVERRIDE;
 virtual void ReleaseTexImage2DCHROMIUM(GLenum target, GLint imageId) OVERRIDE;
+virtual void TraceBeginCHROMIUM(const char* name) OVERRIDE;
+virtual void TraceEndCHROMIUM() OVERRIDE;
+virtual void AsyncTexSubImage2DCHROMIUM(
+    GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width,
+    GLsizei height, GLenum format, GLenum type, const void* data) OVERRIDE;
+virtual void AsyncTexImage2DCHROMIUM(
+    GLenum target, GLint level, GLint internalformat, GLsizei width,
+    GLsizei height, GLint border, GLenum format, GLenum type,
+    const void* pixels) OVERRIDE;
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_INTERFACE_STUB_AUTOGEN_H_
 

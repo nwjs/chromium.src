@@ -9,6 +9,7 @@
 #include "base/process_util.h"
 #include "base/string16.h"
 #include "content/common/content_export.h"
+#include "content/port/common/input_event_ack_state.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
@@ -122,7 +123,8 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
   // Thus implementers should generally paint as much of |rect| as possible
   // synchronously with as little overpainting as possible.
   virtual void DidUpdateBackingStore(
-      const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
+      const gfx::Rect& scroll_rect,
+      const gfx::Vector2d& scroll_delta,
       const std::vector<gfx::Rect>& copy_rects) = 0;
 
   // Notifies the View that the renderer has ceased to exist.
@@ -233,6 +235,8 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
                                               float maximum_scale) = 0;
   virtual void UpdateFrameInfo(const gfx::Vector2d& scroll_offset,
                                float page_scale_factor,
+                               float min_page_scale_factor,
+                               float max_page_scale_factor,
                                const gfx::Size& content_size) = 0;
   virtual void HasTouchEventHandlers(bool need_touch_events) = 0;
 #endif
@@ -266,10 +270,10 @@ class CONTENT_EXPORT RenderWidgetHostViewPort : public RenderWidgetHostView {
   // Because the associated remote WebKit instance can asynchronously
   // prevent-default on a dispatched touch event, the touch events are queued in
   // the GestureRecognizer until invocation of ProcessAckedTouchEvent releases
-  // it to be processed (when |processed| is false) or ignored (when |processed|
-  // is true).
+  // it to be consumed (when |ack_result| is NOT_CONSUMED OR NO_CONSUMER_EXISTS)
+  // or ignored (when |ack_result| is CONSUMED).
   virtual void ProcessAckedTouchEvent(const WebKit::WebTouchEvent& touch,
-                                      bool processed) = 0;
+                                      InputEventAckState ack_result) = 0;
 
   // Asks the view to create a smooth scroll gesture that will be used to
   // simulate a user-initiated scroll.

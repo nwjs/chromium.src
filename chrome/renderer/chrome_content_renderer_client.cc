@@ -43,6 +43,7 @@
 #include "chrome/renderer/extensions/miscellaneous_bindings.h"
 #include "chrome/renderer/extensions/resource_request_policy.h"
 #include "chrome/renderer/external_extension.h"
+#include "chrome/renderer/favicon_helper.h"
 #include "chrome/renderer/loadtimes_extension_bindings.h"
 #include "chrome/renderer/net/renderer_net_predictor.h"
 #include "chrome/renderer/page_click_tracker.h"
@@ -69,11 +70,15 @@
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "content/public/renderer/render_view_visitor.h"
+#include "extensions/common/constants.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/renderer_resources.h"
 #include "ipc/ipc_sync_channel.h"
 #include "net/base/net_errors.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLRequest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCache.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
@@ -81,9 +86,6 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityPolicy.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLError.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLRequest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -177,7 +179,7 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   net_predictor_.reset(new RendererNetPredictor());
   spellcheck_.reset(new SpellCheck());
   visited_link_slave_.reset(new VisitedLinkSlave());
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
   phishing_classifier_.reset(safe_browsing::PhishingClassifierFilter::Create());
 #endif
   prerender_dispatcher_.reset(new prerender::PrerenderDispatcher());
@@ -186,7 +188,7 @@ void ChromeContentRendererClient::RenderThreadStarted() {
 
   thread->AddObserver(chrome_observer_.get());
   thread->AddObserver(extension_dispatcher_.get());
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
   thread->AddObserver(phishing_classifier_.get());
 #endif
   thread->AddObserver(spellcheck_.get());
@@ -237,7 +239,7 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   // content warnings.
   WebSecurityPolicy::registerURLSchemeAsSecure(chrome_ui_scheme);
 
-  WebString extension_scheme(ASCIIToUTF16(chrome::kExtensionScheme));
+  WebString extension_scheme(ASCIIToUTF16(extensions::kExtensionScheme));
   WebSecurityPolicy::registerURLSchemeAsSecure(extension_scheme);
 
   // chrome-extension: resources should be allowed to receive CORS requests.
@@ -275,7 +277,7 @@ void ChromeContentRendererClient::RenderViewCreated(
   new SearchBox(render_view);
   new SpellCheckProvider(render_view, spellcheck_.get());
   new prerender::PrerendererClient(render_view);
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
   safe_browsing::MalwareDOMDetails::Create(render_view);
 #endif
 
@@ -300,7 +302,8 @@ void ChromeContentRendererClient::RenderViewCreated(
       extension_dispatcher_.get(), translate);
 
   new PepperHelper(render_view);
-
+  // FaviconHelper will delete itself when render_view is destroyed.
+  new FaviconHelper(render_view);
   // Used only for testing/automation.
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDomAutomationController)) {
@@ -317,13 +320,18 @@ SkBitmap* ChromeContentRendererClient::GetSadPluginBitmap() {
       GetImageNamed(IDR_SAD_PLUGIN).ToSkBitmap());
 }
 
+SkBitmap* ChromeContentRendererClient::GetSadWebViewBitmap() {
+  return const_cast<SkBitmap*>(ResourceBundle::GetSharedInstance().
+      GetImageNamed(IDR_SAD_WEBVIEW).ToSkBitmap());
+}
+
 std::string ChromeContentRendererClient::GetDefaultEncoding() {
   return l10n_util::GetStringUTF8(IDS_DEFAULT_ENCODING);
 }
 
 const extensions::Extension* ChromeContentRendererClient::GetExtension(
     const WebSecurityOrigin& origin) const {
-  if (!EqualsASCII(origin.protocol(), chrome::kExtensionScheme))
+  if (!EqualsASCII(origin.protocol(), extensions::kExtensionScheme))
     return NULL;
 
   const std::string extension_id = origin.host().utf8().data();
@@ -716,7 +724,8 @@ void ChromeContentRendererClient::GetNavigationErrorStrings(
       error.domain == WebString::fromUTF8(net::kErrorDomain) &&
       EqualsASCII(failed_request.httpMethod(), "POST");
 
-  if (failed_url.is_valid() && !failed_url.SchemeIs(chrome::kExtensionScheme)) {
+  if (failed_url.is_valid() &&
+      !failed_url.SchemeIs(extensions::kExtensionScheme)) {
     extension = extension_dispatcher_->extensions()->GetExtensionOrAppByURL(
         ExtensionURLInfo(failed_url));
   }
@@ -764,7 +773,7 @@ bool ChromeContentRendererClient::RunIdleHandlerWhenWidgetsHidden() {
   return !extension_dispatcher_->is_extension_process();
 }
 
-bool ChromeContentRendererClient::AllowPopup(const GURL& creator) {
+bool ChromeContentRendererClient::AllowPopup() {
   extensions::ChromeV8Context* current_context =
       extension_dispatcher_->v8_context_set().GetCurrent();
   return current_context && current_context->extension() &&
@@ -830,13 +839,15 @@ bool ChromeContentRendererClient::ShouldFork(WebFrame* frame,
   return false;
 }
 
-bool ChromeContentRendererClient::WillSendRequest(WebKit::WebFrame* frame,
+bool ChromeContentRendererClient::WillSendRequest(
+    WebKit::WebFrame* frame,
     content::PageTransition transition_type,
     const GURL& url,
+    const GURL& first_party_for_cookies,
     GURL* new_url) {
   // Check whether the request should be allowed. If not allowed, we reset the
   // URL to something invalid to prevent the request and cause an error.
-  if (url.SchemeIs(chrome::kExtensionScheme) &&
+  if (url.SchemeIs(extensions::kExtensionScheme) &&
       !extensions::ResourceRequestPolicy::CanRequestResource(
           url,
           frame,

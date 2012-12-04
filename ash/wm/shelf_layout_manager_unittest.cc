@@ -7,6 +7,7 @@
 #include "ash/accelerators/accelerator_controller.h"
 #include "ash/accelerators/accelerator_table.h"
 #include "ash/ash_switches.h"
+#include "ash/display/display_manager.h"
 #include "ash/focus_cycler.h"
 #include "ash/launcher/launcher.h"
 #include "ash/root_window_controller.h"
@@ -22,8 +23,6 @@
 #include "base/command_line.h"
 #include "base/utf_string_conversions.h"
 #include "ui/aura/client/aura_constants.h"
-#include "ui/aura/env.h"
-#include "ui/aura/display_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/event_generator.h"
 #include "ui/aura/window.h"
@@ -81,7 +80,8 @@ class ShelfLayoutObserverTest : public ShelfLayoutManager::Observer {
 class TestItem : public SystemTrayItem {
  public:
   TestItem()
-      : tray_view_(NULL),
+      : SystemTrayItem(Shell::GetInstance()->system_tray()),
+        tray_view_(NULL),
         default_view_(NULL),
         detailed_view_(NULL),
         notification_view_(NULL) {}
@@ -171,7 +171,7 @@ class ShelfLayoutManagerTest : public ash::test::AshTestBase {
     window->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
     window->SetType(aura::client::WINDOW_TYPE_NORMAL);
     window->Init(ui::LAYER_TEXTURED);
-    window->SetParent(NULL);
+    SetDefaultParentByPrimaryRootWindow(window);
     return window;
   }
 
@@ -204,10 +204,8 @@ TEST_F(ShelfLayoutManagerTest, MAYBE_SetVisible) {
       shelf->launcher_widget()->GetWindowBoundsInScreen());
   int shelf_height = shelf->GetIdealBounds().height();
 
-  const aura::DisplayManager* manager =
-      aura::Env::GetInstance()->display_manager();
-  const gfx::Display& display =
-      manager->GetDisplayNearestWindow(Shell::GetPrimaryRootWindow());
+  const gfx::Display& display = Shell::GetInstance()->display_manager()->
+      GetDisplayNearestWindow(Shell::GetPrimaryRootWindow());
   ASSERT_NE(-1, display.id());
   // Bottom inset should be the max of widget heights.
   EXPECT_EQ(shelf_height,
@@ -256,10 +254,8 @@ TEST_F(ShelfLayoutManagerTest, LayoutShelfWhileAnimating) {
   shelf->LayoutShelf();
   EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
 
-  const aura::DisplayManager* manager =
-      aura::Env::GetInstance()->display_manager();
-  const gfx::Display& display =
-      manager->GetDisplayNearestWindow(Shell::GetPrimaryRootWindow());
+  const gfx::Display& display = Shell::GetInstance()->display_manager()->
+      GetDisplayNearestWindow(Shell::GetPrimaryRootWindow());
 
   // Hide the shelf.
   SetState(shelf, ShelfLayoutManager::HIDDEN);
@@ -613,8 +609,8 @@ TEST_F(ShelfLayoutManagerTest, SetAlignment) {
   shelf->SetAlignment(SHELF_ALIGNMENT_LEFT);
   gfx::Rect launcher_bounds(
       shelf->launcher_widget()->GetWindowBoundsInScreen());
-  const aura::DisplayManager* manager =
-      aura::Env::GetInstance()->display_manager();
+  const internal::DisplayManager* manager =
+      Shell::GetInstance()->display_manager();
   gfx::Display display =
       manager->GetDisplayNearestWindow(Shell::GetPrimaryRootWindow());
   ASSERT_NE(-1, display.id());
@@ -699,14 +695,7 @@ TEST_F(ShelfLayoutManagerTest, GestureDrag) {
   // Swipe up on the shelf. This should not change any state.
   gfx::Point start =
       shelf->launcher_widget()->GetWindowBoundsInScreen().CenterPoint();
-  gfx::Point end(start.x(), start.y() - 100);
-  generator.GestureScrollSequence(start, end,
-      base::TimeDelta::FromMilliseconds(10), 1);
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
-  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_NEVER, shelf->auto_hide_behavior());
-  EXPECT_EQ(bounds_shelf.ToString(), window->bounds().ToString());
-  EXPECT_EQ(shelf_shown.ToString(),
-            shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+  gfx::Point end(start.x(), start.y() + 100);
 
   // Swipe down on the shelf to hide it.
   end.set_y(start.y() + 100);
@@ -731,15 +720,20 @@ TEST_F(ShelfLayoutManagerTest, GestureDrag) {
   EXPECT_EQ(shelf_shown.ToString(),
             shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
 
-  // Swipe up again. This should not change any state.
+  // Swipe up again. The shelf should hide.
   end.set_y(start.y() - 100);
   generator.GestureScrollSequence(start, end,
       base::TimeDelta::FromMilliseconds(10), 1);
-  EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
-  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_NEVER, shelf->auto_hide_behavior());
-  EXPECT_EQ(bounds_shelf.ToString(), window->bounds().ToString());
-  EXPECT_EQ(shelf_shown.ToString(),
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
+  EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
+  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS, shelf->auto_hide_behavior());
+  EXPECT_EQ(shelf_hidden.ToString(),
             shelf->launcher_widget()->GetWindowBoundsInScreen().ToString());
+
+  // Swipe up yet again to show it.
+  end.set_y(start.y() + 100);
+  generator.GestureScrollSequence(end, start,
+      base::TimeDelta::FromMilliseconds(10), 1);
 
   // Swipe down very little. It shouldn't change any state.
   end.set_y(start.y() + shelf_shown.height() * 3 / 10);

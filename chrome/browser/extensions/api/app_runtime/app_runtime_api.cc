@@ -30,6 +30,24 @@ const char kOnRestartedEvent[] = "app.runtime.onRestarted";
 const char kCallbackNotFoundError[] =
     "WebIntent callback not found; perhaps already responded to";
 
+void DispatchOnLaunchedEventImpl(const std::string& extension_id,
+                                 scoped_ptr<base::ListValue> args,
+                                 Profile* profile) {
+  extensions::ExtensionSystem* system =
+      extensions::ExtensionSystem::Get(profile);
+  // Special case: normally, extensions add their own lazy event listeners.
+  // However, since the extension might have just been enabled, it hasn't had a
+  // chance to register for events. So we register on its behalf. If the
+  // extension does not actually have a listener, the event will just be
+  // ignored (but an app that doesn't listen for the onLaunched event doesn't
+  // make sense anyway).
+  system->event_router()->AddLazyEventListener(kOnLaunchedEvent, extension_id);
+  system->event_router()->DispatchEventToExtension(
+      extension_id, kOnLaunchedEvent, args.Pass(), profile, GURL());
+  system->event_router()->RemoveLazyEventListener(kOnLaunchedEvent,
+                                                  extension_id);
+}
+
 }  // anonymous namespace
 
 namespace extensions {
@@ -38,9 +56,7 @@ namespace extensions {
 void AppEventRouter::DispatchOnLaunchedEvent(
     Profile* profile, const Extension* extension) {
   scoped_ptr<ListValue> arguments(new ListValue());
-  extensions::ExtensionSystem::Get(profile)->event_router()->
-      DispatchEventToExtension(extension->id(), kOnLaunchedEvent,
-                               arguments.Pass(), NULL, GURL());
+  DispatchOnLaunchedEventImpl(extension->id(), arguments.Pass(), profile);
 }
 
 // static.
@@ -49,30 +65,26 @@ void AppEventRouter::DispatchOnRestartedEvent(
   scoped_ptr<ListValue> arguments(new ListValue());
   extensions::ExtensionSystem::Get(profile)->event_router()->
       DispatchEventToExtension(extension->id(), kOnRestartedEvent,
-                               arguments.Pass(), NULL, GURL());
+                               arguments.Pass(), profile, GURL());
 }
 
 // static.
 void AppEventRouter::DispatchOnLaunchedEventWithFileEntry(
     Profile* profile, const Extension* extension, const string16& action,
+    const std::string& handler_id, const std::string& mime_type,
     const std::string& file_system_id, const std::string& base_name) {
   scoped_ptr<ListValue> args(new ListValue());
   DictionaryValue* launch_data = new DictionaryValue();
-  DictionaryValue* intent = new DictionaryValue();
-  intent->SetString("action", UTF16ToUTF8(action));
-  intent->SetString("type", "chrome-extension://fileentry");
-  launch_data->Set("intent", intent);
+  launch_data->SetString("id", handler_id);
+  DictionaryValue* launch_item = new DictionaryValue;
+  launch_item->SetString("fileSystemId", file_system_id);
+  launch_item->SetString("baseName", base_name);
+  launch_item->SetString("mimeType", mime_type);
+  ListValue* items = new ListValue;
+  items->Append(launch_item);
+  launch_data->Set("items", items);
   args->Append(launch_data);
-  DictionaryValue* intent_data = new DictionaryValue();
-  intent_data->SetString("format", "fileEntry");
-  intent_data->SetString("fileSystemId", file_system_id);
-  intent_data->SetString("baseName", base_name);
-  // NOTE: This second argument is dropped before being dispatched to the client
-  // code.
-  args->Append(intent_data);
-  extensions::ExtensionSystem::Get(profile)->event_router()->
-      DispatchEventToExtension(extension->id(), kOnLaunchedEvent, args.Pass(),
-                               NULL, GURL());
+  DispatchOnLaunchedEventImpl(extension->id(), args.Pass(), profile);
 }
 
 // static.
@@ -128,9 +140,7 @@ void AppEventRouter::DispatchOnLaunchedEventWithWebIntent(
   int intent_id =
       callbacks->RegisterCallback(extension, intents_dispatcher, source);
   args->Append(base::Value::CreateIntegerValue(intent_id));
-  extensions::ExtensionSystem::Get(profile)->event_router()->
-      DispatchEventToExtension(extension->id(), kOnLaunchedEvent, args.Pass(),
-                               NULL, GURL());
+  DispatchOnLaunchedEventImpl(extension->id(), args.Pass(), profile);
 }
 
 bool AppRuntimePostIntentResponseFunction::RunImpl() {
@@ -158,7 +168,9 @@ bool AppRuntimePostIntentResponseFunction::RunImpl() {
   std::string data;
   EXTENSION_FUNCTION_VALIDATE(details->GetString(kIntentDataKey, &data));
 
-  intents_dispatcher->SendReplyMessage(reply_type, UTF8ToUTF16(data));
+  intents_dispatcher->SendReply(webkit_glue::WebIntentReply(
+      reply_type, UTF8ToUTF16(data)));
+
   return true;
 }
 

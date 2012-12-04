@@ -80,6 +80,7 @@ SyncSession::SyncSession(SyncSessionContext* context, Delegate* delegate,
       enabled_groups_(ComputeEnabledGroups(routing_info_, workers_)) {
   status_controller_.reset(new StatusController(routing_info_));
   std::sort(workers_.begin(), workers_.end());
+  debug_info_sources_list_.push_back(source_);
 }
 
 SyncSession::~SyncSession() {}
@@ -92,6 +93,7 @@ void SyncSession::Coalesce(const SyncSession& session) {
 
   // When we coalesce sessions, the sync update source gets overwritten with the
   // most recent, while the type/state map gets merged.
+  debug_info_sources_list_.push_back(session.source_);
   CoalesceStates(&source_.types, session.source_.types);
   source_.updates_source = session.source_.updates_source;
 
@@ -162,7 +164,12 @@ SyncSessionSnapshot SyncSession::TakeSnapshot() const {
     dir->GetDownloadProgressAsString(type, &download_progress_markers[type]);
   }
 
-  return SyncSessionSnapshot(
+  std::vector<int> num_entries_by_type(MODEL_TYPE_COUNT, 0);
+  std::vector<int> num_to_delete_entries_by_type(MODEL_TYPE_COUNT, 0);
+  dir->CollectMetaHandleCounts(&num_entries_by_type,
+                               &num_to_delete_entries_by_type);
+
+  SyncSessionSnapshot snapshot(
       status_controller_->model_neutral_state(),
       is_share_useable,
       initial_sync_ended,
@@ -172,9 +179,14 @@ SyncSessionSnapshot SyncSession::TakeSnapshot() const {
       status_controller_->num_hierarchy_conflicts(),
       status_controller_->num_server_conflicts(),
       source_,
+      debug_info_sources_list_,
       context_->notifications_enabled(),
       dir->GetEntriesCount(),
-      status_controller_->sync_start_time());
+      status_controller_->sync_start_time(),
+      num_entries_by_type,
+      num_to_delete_entries_by_type);
+
+  return snapshot;
 }
 
 void SyncSession::SendEventNotification(SyncEngineEvent::EventCause cause) {

@@ -7,7 +7,7 @@
 #include "base/json/json_file_value_serializer.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "chrome/browser/extensions/image_loading_tracker.h"
+#include "chrome/browser/extensions/image_loader.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -45,7 +45,7 @@ SkBitmap EnsureBitmapSize(const SkBitmap& original, int size) {
   return resized;
 }
 
-// Used to test behaviour including images defined by an image skia source.
+// Used to test behavior including images defined by an image skia source.
 // |GetImageForScale| simply returns image representation from the image given
 // in the ctor.
 class MockImageSkiaSource : public gfx::ImageSkiaSource {
@@ -65,20 +65,16 @@ class MockImageSkiaSource : public gfx::ImageSkiaSource {
 };
 
 // Helper class for synchronously loading extension image resource.
-class TestImageLoader : public ImageLoadingTracker::Observer {
+class TestImageLoader {
  public:
   explicit TestImageLoader(const Extension* extension)
       : extension_(extension),
         waiting_(false),
-        image_loaded_(false),
-        ALLOW_THIS_IN_INITIALIZER_LIST(tracker_(this)) {
+        image_loaded_(false) {
   }
   virtual ~TestImageLoader() {}
 
-  // ImageLoadingTracker::Observer override.
-  virtual void OnImageLoaded(const gfx::Image& image,
-                             const std::string& extension_id,
-                             int index) OVERRIDE {
+  void OnImageLoaded(const gfx::Image& image) {
     image_ = image;
     image_loaded_ = true;
     if (waiting_)
@@ -86,14 +82,13 @@ class TestImageLoader : public ImageLoadingTracker::Observer {
   }
 
   SkBitmap LoadBitmap(const std::string& path,
-                      int size,
-                      ImageLoadingTracker::CacheParam cache_param) {
+                      int size) {
     image_loaded_ = false;
 
-    tracker_.LoadImage(extension_,
-                       extension_->GetResource(path),
-                       gfx::Size(size, size),
-                       cache_param);
+    image_loader_.LoadImageAsync(
+        extension_, extension_->GetResource(path), gfx::Size(size, size),
+        base::Bind(&TestImageLoader::OnImageLoaded,
+                   base::Unretained(this)));
 
     // If |image_| still hasn't been loaded (i.e. it is being loaded
     // asynchronously), wait for it.
@@ -113,7 +108,7 @@ class TestImageLoader : public ImageLoadingTracker::Observer {
   bool waiting_;
   bool image_loaded_;
   gfx::Image image_;
-  ImageLoadingTracker tracker_;
+  extensions::ImageLoader image_loader_;
 
   DISALLOW_COPY_AND_ASSIGN(TestImageLoader);
 };
@@ -192,10 +187,9 @@ class ExtensionIconImageTest : public testing::Test,
   // The image will be loaded from the relative path |path|.
   SkBitmap GetTestBitmap(const Extension* extension,
                          const std::string& path,
-                         int size,
-                         ImageLoadingTracker::CacheParam cache_param) {
+                         int size) {
     TestImageLoader image_loader(extension);
-    return image_loader.LoadBitmap(path, size, cache_param);
+    return image_loader.LoadBitmap(path, size);
   }
 
  private:
@@ -221,13 +215,13 @@ TEST_F(ExtensionIconImageTest, Basic) {
   // Load images we expect to find as representations in icon_image, so we
   // can later use them to validate icon_image.
   SkBitmap bitmap_16 =
-      GetTestBitmap(extension, "16.png", 16, ImageLoadingTracker::DONT_CACHE);
+      GetTestBitmap(extension, "16.png", 16);
   ASSERT_FALSE(bitmap_16.empty());
 
   // There is no image of size 32 defined in the extension manifest, so we
   // should expect manifest image of size 48 resized to size 32.
   SkBitmap bitmap_48_resized_to_32 =
-      GetTestBitmap(extension, "48.png", 32, ImageLoadingTracker::DONT_CACHE);
+      GetTestBitmap(extension, "48.png", 32);
   ASSERT_FALSE(bitmap_48_resized_to_32.empty());
 
   IconImage image(extension, extension->icons(), 16, default_icon, this);
@@ -287,7 +281,7 @@ TEST_F(ExtensionIconImageTest, FallbackToSmallerWhenNoBigger) {
   // Load images we expect to find as representations in icon_image, so we
   // can later use them to validate icon_image.
   SkBitmap bitmap_48 =
-      GetTestBitmap(extension, "48.png", 48, ImageLoadingTracker::DONT_CACHE);
+      GetTestBitmap(extension, "48.png", 48);
   ASSERT_FALSE(bitmap_48.empty());
 
   IconImage image(extension, extension->icons(), 32, default_icon, this);
@@ -322,7 +316,7 @@ TEST_F(ExtensionIconImageTest, FallbackToSmaller) {
   // Load images we expect to find as representations in icon_image, so we
   // can later use them to validate icon_image.
   SkBitmap bitmap_16 =
-      GetTestBitmap(extension, "16.png", 16, ImageLoadingTracker::DONT_CACHE);
+      GetTestBitmap(extension, "16.png", 16);
   ASSERT_FALSE(bitmap_16.empty());
 
   IconImage image(extension, extension->icons(), 17, default_icon, this);
@@ -353,13 +347,17 @@ TEST_F(ExtensionIconImageTest, NoResources) {
   ExtensionIconSet empty_icon_set;
   gfx::ImageSkia default_icon = GetDefaultIcon();
 
-  IconImage image(extension, empty_icon_set, 24, default_icon, this);
+  const int kRequestedSize = 24;
+  IconImage image(extension, empty_icon_set, kRequestedSize, default_icon,
+                  this);
 
   gfx::ImageSkiaRep representation =
       image.image_skia().GetRepresentation(ui::SCALE_FACTOR_100P);
   EXPECT_TRUE(gfx::BitmapsAreEqual(
       representation.sk_bitmap(),
-      default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap()));
+      EnsureBitmapSize(
+          default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap(),
+          kRequestedSize)));
 
   EXPECT_EQ(0, ImageLoadedCount());
   // We should have a default icon representation.
@@ -368,7 +366,9 @@ TEST_F(ExtensionIconImageTest, NoResources) {
   representation = image.image_skia().GetRepresentation(ui::SCALE_FACTOR_100P);
   EXPECT_TRUE(gfx::BitmapsAreEqual(
       representation.sk_bitmap(),
-      default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap()));
+      EnsureBitmapSize(
+          default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap(),
+          kRequestedSize)));
 }
 
 // If resource set is invalid, image load should be done asynchronously and
@@ -379,18 +379,20 @@ TEST_F(ExtensionIconImageTest, InvalidResource) {
       "extension_icon_image", Extension::INVALID));
   ASSERT_TRUE(extension.get() != NULL);
 
+  const int kInvalidIconSize = 24;
   ExtensionIconSet invalid_icon_set;
-  invalid_icon_set.Add(24, "invalid.png");
+  invalid_icon_set.Add(kInvalidIconSize, "invalid.png");
 
   gfx::ImageSkia default_icon = GetDefaultIcon();
 
-  IconImage image(extension, invalid_icon_set, 24, default_icon, this);
+  IconImage image(extension, invalid_icon_set, kInvalidIconSize, default_icon,
+                  this);
 
   gfx::ImageSkiaRep representation =
       image.image_skia().GetRepresentation(ui::SCALE_FACTOR_100P);
   EXPECT_TRUE(gfx::BitmapsAreEqual(
       representation.sk_bitmap(),
-      CreateBlankBitmapForScale(24, ui::SCALE_FACTOR_100P)));
+      CreateBlankBitmapForScale(kInvalidIconSize, ui::SCALE_FACTOR_100P)));
 
   WaitForImageLoad();
   EXPECT_EQ(1, ImageLoadedCount());
@@ -400,7 +402,9 @@ TEST_F(ExtensionIconImageTest, InvalidResource) {
   representation = image.image_skia().GetRepresentation(ui::SCALE_FACTOR_100P);
   EXPECT_TRUE(gfx::BitmapsAreEqual(
       representation.sk_bitmap(),
-      default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap()));
+      EnsureBitmapSize(
+          default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap(),
+          kInvalidIconSize)));
 }
 
 // Test that IconImage works with lazily (but synchronously) created default
@@ -416,7 +420,9 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon) {
 
   ExtensionIconSet empty_icon_set;
 
-  IconImage image(extension, empty_icon_set, 128, lazy_default_icon, this);
+  const int kRequestedSize = 128;
+  IconImage image(extension, empty_icon_set, kRequestedSize, lazy_default_icon,
+                  this);
 
   ASSERT_FALSE(lazy_default_icon.HasRepresentation(ui::SCALE_FACTOR_100P));
 
@@ -427,7 +433,9 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon) {
   EXPECT_TRUE(lazy_default_icon.HasRepresentation(ui::SCALE_FACTOR_100P));
   EXPECT_TRUE(gfx::BitmapsAreEqual(
       representation.sk_bitmap(),
-      default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap()));
+      EnsureBitmapSize(
+          default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap(),
+          kRequestedSize)));
 
   // We should have a default icon representation.
   ASSERT_EQ(1u, image.image_skia().image_reps().size());
@@ -444,10 +452,12 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon_AsyncIconImage) {
   gfx::ImageSkia lazy_default_icon(new MockImageSkiaSource(default_icon),
                                     default_icon.size());
 
+  const int kInvalidIconSize = 24;
   ExtensionIconSet invalid_icon_set;
-  invalid_icon_set.Add(24, "invalid.png");
+  invalid_icon_set.Add(kInvalidIconSize, "invalid.png");
 
-  IconImage image(extension, invalid_icon_set, 24, lazy_default_icon, this);
+  IconImage image(extension, invalid_icon_set, kInvalidIconSize,
+                  lazy_default_icon, this);
 
   ASSERT_FALSE(lazy_default_icon.HasRepresentation(ui::SCALE_FACTOR_100P));
 
@@ -464,7 +474,9 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon_AsyncIconImage) {
   representation = image.image_skia().GetRepresentation(ui::SCALE_FACTOR_100P);
   EXPECT_TRUE(gfx::BitmapsAreEqual(
       representation.sk_bitmap(),
-      default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap()));
+      EnsureBitmapSize(
+          default_icon.GetRepresentation(ui::SCALE_FACTOR_100P).sk_bitmap(),
+          kInvalidIconSize)));
 }
 
 TEST_F(ExtensionIconImageTest, LoadPrecachedImage) {
@@ -474,10 +486,12 @@ TEST_F(ExtensionIconImageTest, LoadPrecachedImage) {
 
   gfx::ImageSkia default_icon = GetDefaultIcon();
 
-  // Note the cache parameter.
+  // Store the image in the cache.
   SkBitmap bitmap_16 =
-      GetTestBitmap(extension, "16.png", 16, ImageLoadingTracker::CACHE);
+      GetTestBitmap(extension, "16.png", 16);
   ASSERT_FALSE(bitmap_16.empty());
+  extension->SetCachedImage(extension->GetResource("16.png"), bitmap_16,
+                            gfx::Size(16, 16));
 
   IconImage image(extension, extension->icons(), 16, default_icon, this);
 
@@ -496,7 +510,7 @@ TEST_F(ExtensionIconImageTest, LoadPrecachedImage) {
   ASSERT_EQ(1u, image.image_skia().image_reps().size());
 }
 
-// Tests behaviour of image created by IconImage after IconImage host goes
+// Tests behavior of image created by IconImage after IconImage host goes
 // away. The image should still return loaded representations. If requested
 // representation was not loaded while IconImage host was around, transparent
 // representations should be returned.
@@ -510,7 +524,7 @@ TEST_F(ExtensionIconImageTest, IconImageDestruction) {
   // Load images we expect to find as representations in icon_image, so we
   // can later use them to validate icon_image.
   SkBitmap bitmap_16 =
-      GetTestBitmap(extension, "16.png", 16, ImageLoadingTracker::DONT_CACHE);
+      GetTestBitmap(extension, "16.png", 16);
   ASSERT_FALSE(bitmap_16.empty());
 
   scoped_ptr<IconImage> image(

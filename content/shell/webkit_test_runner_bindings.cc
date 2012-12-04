@@ -7,6 +7,7 @@
 #include "base/string_piece.h"
 #include "content/public/renderer/render_view.h"
 #include "content/shell/shell_messages.h"
+#include "content/shell/webkit_test_runner.h"
 #include "grit/shell_resources.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
@@ -39,6 +40,17 @@ RenderView* GetCurrentRenderView() {
   RenderView* render_view = RenderView::FromWebView(view);
   DCHECK(render_view);
   return render_view;
+}
+
+v8::Handle<v8::Value> Display(const v8::Arguments& args) {
+  RenderView* view = GetCurrentRenderView();
+  if (!view)
+    return v8::Undefined();
+  WebKitTestRunner* runner = WebKitTestRunner::Get(view);
+  if (!runner)
+    return v8::Undefined();
+  runner->Display();
+  return v8::Undefined();
 }
 
 v8::Handle<v8::Value> NotifyDone(const v8::Arguments& args) {
@@ -100,18 +112,29 @@ v8::Handle<v8::Value> SetWaitUntilDone(const v8::Arguments& args) {
   return v8::Undefined();
 }
 
+v8::Handle<v8::Value> SetXSSAuditorEnabled(
+    const v8::Arguments& args) {
+  RenderView* view = GetCurrentRenderView();
+  if (!view)
+    return v8::Undefined();
+
+  if (args.Length() != 1 || !args[0]->IsBoolean())
+    return v8::Undefined();
+
+  WebKitTestRunner* runner = WebKitTestRunner::Get(view);
+  if (!runner)
+    return v8::Undefined();
+
+  runner->SetXSSAuditorEnabled(args[0]->BooleanValue());
+  return v8::Undefined();
+}
+
 v8::Handle<v8::Value> GetWorkerThreadCount(const v8::Arguments& args) {
   RenderView* view = GetCurrentRenderView();
   if (!view)
     return v8::Undefined();
 
   return v8::Integer::NewFromUnsigned(WebWorkerInfo::dedicatedWorkerCount());
-}
-
-v8::Handle<v8::Value> OverridePreference(const v8::Arguments& args) {
-  // Not implemented, but playing nicely for now, so we can run
-  // layout_browsertests.
-  return v8::Undefined();
 }
 
 v8::Handle<v8::Value> NotImplemented(const v8::Arguments& args) {
@@ -146,6 +169,8 @@ WebKitTestRunnerBindings::~WebKitTestRunnerBindings() {
 
 v8::Handle<v8::FunctionTemplate>
 WebKitTestRunnerBindings::GetNativeFunction(v8::Handle<v8::String> name) {
+  if (name->Equals(v8::String::New("Display")))
+    return v8::FunctionTemplate::New(Display);
   if (name->Equals(v8::String::New("NotifyDone")))
     return v8::FunctionTemplate::New(NotifyDone);
   if (name->Equals(v8::String::New("SetDumpAsText")))
@@ -161,10 +186,10 @@ WebKitTestRunnerBindings::GetNativeFunction(v8::Handle<v8::String> name) {
   }
   if (name->Equals(v8::String::New("SetWaitUntilDone")))
     return v8::FunctionTemplate::New(SetWaitUntilDone);
+  if (name->Equals(v8::String::New("SetXSSAuditorEnabled")))
+    return v8::FunctionTemplate::New(SetXSSAuditorEnabled);
   if (name->Equals(v8::String::New("GetWorkerThreadCount")))
     return v8::FunctionTemplate::New(GetWorkerThreadCount);
-  if (name->Equals(v8::String::New("OverridePreference")))
-    return v8::FunctionTemplate::New(OverridePreference);
   if (name->Equals(v8::String::New("NotImplemented")))
     return v8::FunctionTemplate::New(NotImplemented);
 

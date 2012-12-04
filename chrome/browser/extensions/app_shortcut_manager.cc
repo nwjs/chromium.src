@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/web_applications/web_app_ui.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -22,6 +23,7 @@
 
 #if defined(OS_WIN)
 #include "chrome/browser/extensions/app_host_installer_win.h"
+#include "chrome/installer/util/browser_distribution.h"
 #endif
 
 namespace extensions {
@@ -37,15 +39,10 @@ const int kDesiredSizes[] = {32};
 ShellIntegration::ShortcutInfo ShortcutInfoForExtensionAndProfile(
     const Extension* extension, Profile* profile) {
   ShellIntegration::ShortcutInfo shortcut_info;
-  shortcut_info.extension_id = extension->id();
-  shortcut_info.url = GURL(extension->launch_web_url());
-  shortcut_info.title = UTF8ToUTF16(extension->name());
-  shortcut_info.description = UTF8ToUTF16(extension->description());
-  shortcut_info.extension_path = extension->path();
+  web_app::UpdateShortcutInfoForApp(*extension, profile, &shortcut_info);
   shortcut_info.create_in_applications_menu = true;
   shortcut_info.create_in_quick_launch_bar = true;
   shortcut_info.create_on_desktop = true;
-  shortcut_info.profile_path = profile->GetPath();
   return shortcut_info;
 }
 
@@ -93,9 +90,15 @@ void AppShortcutManager::Observe(int type,
           details).ptr();
       if (extension->is_platform_app()) {
 #if defined(OS_WIN)
-        extensions::AppHostInstaller::EnsureAppHostInstalled(
-            base::Bind(&AppShortcutManager::OnAppHostInstallationComplete,
-                       weak_factory_.GetWeakPtr(), extension));
+        if (BrowserDistribution::GetDistribution()->AppHostIsSupported()) {
+          scoped_refptr<Extension> extension_ref(const_cast<Extension*>(
+              extension));
+          extensions::AppHostInstaller::EnsureAppHostInstalled(
+              base::Bind(&AppShortcutManager::OnAppHostInstallationComplete,
+                         weak_factory_.GetWeakPtr(), extension_ref));
+        } else {
+          UpdateApplicationShortcuts(extension);
+        }
 #else
         UpdateApplicationShortcuts(extension);
 #endif
@@ -116,7 +119,7 @@ void AppShortcutManager::Observe(int type,
 
 #if defined(OS_WIN)
 void AppShortcutManager::OnAppHostInstallationComplete(
-    const Extension* extension, bool app_host_install_success) {
+    scoped_refptr<Extension> extension, bool app_host_install_success) {
   if (!app_host_install_success) {
     // Do not create shortcuts if App Host fails to install.
     LOG(ERROR) << "Application Runtime installation failed.";

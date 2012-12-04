@@ -24,6 +24,7 @@
     "tabs",
     "clipboardWrite",
     "clipboardRead",
+    "https://docs.google.com/",
     "https://*.googleusercontent.com/",
     "https://drive.google.com/"
   ],
@@ -172,11 +173,11 @@
   "app": {
     "background": {
       "scripts": [
-        // "js/mock_chrome.js", // Uncomment this to debug on a desktop browser.
         "js/file_copy_manager.js",
         "js/path_util.js",
         "js/util.js",
         "js/background.js"]
-    }
+    },
+    "content_security_policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' about:; img-src 'self' chrome://resources chrome://theme data: https://docs.google.com https://*.googleusercontent.com chrome://extension-icon; media-src 'self' https://*.googleusercontent.com; connect-src https://drive.google.com"
   }
 }

@@ -31,6 +31,8 @@ bool WebContentsDelegate::IsPopupOrPanel(const WebContents* source) const {
 
 bool WebContentsDelegate::CanLoadDataURLsInWebUI() const { return false; }
 
+bool WebContentsDelegate::CanOverscrollContent() const { return false; }
+
 gfx::Rect WebContentsDelegate::GetRootWindowResizerRect() const {
   return gfx::Rect();
 }
@@ -141,6 +143,14 @@ void WebContentsDelegate::WebIntentDispatch(
   // The caller passes this method ownership of the |intents_dispatcher|, but
   // this empty implementation will not use it, so we delete it immediately.
   delete intents_dispatcher;
+}
+
+bool WebContentsDelegate::RequestPpapiBrokerPermission(
+    WebContents* web_contents,
+    const GURL& url,
+    const FilePath& plugin_path,
+    const base::Callback<void(bool)>& callback) {
+  return false;
 }
 
 WebContentsDelegate::~WebContentsDelegate() {

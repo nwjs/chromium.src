@@ -10,6 +10,7 @@
 #include "base/stringprintf.h"
 #include "cc/damage_tracker.h"
 #include "cc/debug_border_draw_quad.h"
+#include "cc/debug_colors.h"
 #include "cc/delegated_renderer_layer_impl.h"
 #include "cc/layer_impl.h"
 #include "cc/math_util.h"
@@ -18,21 +19,11 @@
 #include "cc/render_pass_draw_quad.h"
 #include "cc/render_pass_sink.h"
 #include "cc/shared_quad_state.h"
+#include "third_party/skia/include/core/SkImageFilter.h"
 #include "ui/gfx/rect_conversions.h"
-#include <public/WebTransformationMatrix.h>
-
-using WebKit::WebTransformationMatrix;
+#include "ui/gfx/transform.h"
 
 namespace cc {
-
-static const int debugSurfaceBorderWidth = 2;
-static const int debugSurfaceBorderAlpha = 100;
-static const int debugSurfaceBorderColorRed = 0;
-static const int debugSurfaceBorderColorGreen = 0;
-static const int debugSurfaceBorderColorBlue = 255;
-static const int debugReplicaBorderColorRed = 160;
-static const int debugReplicaBorderColorGreen = 0;
-static const int debugReplicaBorderColorBlue = 255;
 
 RenderSurfaceImpl::RenderSurfaceImpl(LayerImpl* owningLayer)
     : m_owningLayer(owningLayer)
@@ -41,6 +32,7 @@ RenderSurfaceImpl::RenderSurfaceImpl(LayerImpl* owningLayer)
     , m_drawOpacityIsAnimating(false)
     , m_targetSurfaceTransformsAreAnimating(false)
     , m_screenSpaceTransformsAreAnimating(false)
+    , m_isClipped(false)
     , m_nearestAncestorThatMovesPixels(0)
     , m_targetRenderSurfaceLayerIndexHistory(0)
     , m_currentLayerIndexHistory(0)
@@ -86,10 +78,10 @@ void RenderSurfaceImpl::dumpSurface(std::string* str, int indent) const
 
     str->append(indentStr);
     base::StringAppendF(str, "drawTransform: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n",
-        m_drawTransform.m11(), m_drawTransform.m12(), m_drawTransform.m13(), m_drawTransform.m14(),
-        m_drawTransform.m21(), m_drawTransform.m22(), m_drawTransform.m23(), m_drawTransform.m24(),
-        m_drawTransform.m31(), m_drawTransform.m32(), m_drawTransform.m33(), m_drawTransform.m34(),
-        m_drawTransform.m41(), m_drawTransform.m42(), m_drawTransform.m43(), m_drawTransform.m44());
+        m_drawTransform.matrix().getDouble(0, 0), m_drawTransform.matrix().getDouble(0, 1), m_drawTransform.matrix().getDouble(0, 2), m_drawTransform.matrix().getDouble(0, 3),
+        m_drawTransform.matrix().getDouble(1, 0), m_drawTransform.matrix().getDouble(1, 1), m_drawTransform.matrix().getDouble(1, 2), m_drawTransform.matrix().getDouble(1, 3),
+        m_drawTransform.matrix().getDouble(2, 0), m_drawTransform.matrix().getDouble(2, 1), m_drawTransform.matrix().getDouble(2, 2), m_drawTransform.matrix().getDouble(2, 3),
+        m_drawTransform.matrix().getDouble(3, 0), m_drawTransform.matrix().getDouble(3, 1), m_drawTransform.matrix().getDouble(3, 2), m_drawTransform.matrix().getDouble(3, 3));
 
     str->append(indentStr);
     base::StringAppendF(str, "damageRect is pos(%f, %f), size(%f, %f)\n",
@@ -192,11 +184,11 @@ void RenderSurfaceImpl::appendRenderPasses(RenderPassSink& passSink)
     for (size_t i = 0; i < m_contributingDelegatedRenderPassLayerList.size(); ++i)
         m_contributingDelegatedRenderPassLayerList[i]->appendContributingRenderPasses(passSink);
 
-    scoped_ptr<RenderPass> pass = RenderPass::create(renderPassId(), m_contentRect, m_screenSpaceTransform);
-    pass->setDamageRect(m_damageTracker->currentDamageRect());
-    pass->setFilters(m_owningLayer->filters());
-    pass->setFilter(m_owningLayer->filter());
-    pass->setBackgroundFilters(m_owningLayer->backgroundFilters());
+    scoped_ptr<RenderPass> pass = RenderPass::Create();
+    pass->SetNew(renderPassId(), m_contentRect, m_damageTracker->currentDamageRect(), m_screenSpaceTransform);
+    pass->filters = m_owningLayer->filters();
+    pass->filter = m_owningLayer->filter();
+    pass->background_filters = m_owningLayer->backgroundFilters();
     passSink.appendRenderPass(pass.Pass());
 }
 
@@ -205,16 +197,16 @@ void RenderSurfaceImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQ
     DCHECK(!forReplica || m_owningLayer->hasReplica());
 
     gfx::Rect clippedRectInTarget = computeClippedRectInTarget(m_owningLayer);
-    bool isOpaque = false;
-    const WebTransformationMatrix& drawTransform = forReplica ? m_replicaDrawTransform : m_drawTransform;
-    SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(SharedQuadState::create(drawTransform, m_contentRect, clippedRectInTarget, m_drawOpacity, isOpaque).Pass());
+    const gfx::Transform& drawTransform = forReplica ? m_replicaDrawTransform : m_drawTransform;
+    SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(SharedQuadState::Create());
+    sharedQuadState->SetAll(drawTransform, m_contentRect, clippedRectInTarget, m_clipRect, m_isClipped, m_drawOpacity);
 
-    if (m_owningLayer->hasDebugBorders()) {
-        int red = forReplica ? debugReplicaBorderColorRed : debugSurfaceBorderColorRed;
-        int green = forReplica ?  debugReplicaBorderColorGreen : debugSurfaceBorderColorGreen;
-        int blue = forReplica ? debugReplicaBorderColorBlue : debugSurfaceBorderColorBlue;
-        SkColor color = SkColorSetARGB(debugSurfaceBorderAlpha, red, green, blue);
-        quadSink.append(DebugBorderDrawQuad::create(sharedQuadState, contentRect(), color, debugSurfaceBorderWidth).PassAs<DrawQuad>(), appendQuadsData);
+    if (m_owningLayer->showDebugBorders()) {
+        SkColor color = forReplica ? DebugColors::SurfaceReplicaBorderColor() : DebugColors::SurfaceBorderColor();
+        float width = forReplica ? DebugColors::SurfaceReplicaBorderWidth(m_owningLayer->layerTreeHostImpl()) : DebugColors::SurfaceBorderWidth(m_owningLayer->layerTreeHostImpl());
+        scoped_ptr<DebugBorderDrawQuad> debugBorderQuad = DebugBorderDrawQuad::Create();
+        debugBorderQuad->SetNew(sharedQuadState, contentRect(), color, width);
+        quadSink.append(debugBorderQuad.PassAs<DrawQuad>(), appendQuadsData);
     }
 
     // FIXME: By using the same RenderSurfaceImpl for both the content and its reflection,
@@ -247,8 +239,10 @@ void RenderSurfaceImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQ
     ResourceProvider::ResourceId maskResourceId = maskLayer ? maskLayer->contentsResourceId() : 0;
     gfx::Rect contentsChangedSinceLastFrame = contentsChanged() ? m_contentRect : gfx::Rect();
 
-    quadSink.append(RenderPassDrawQuad::create(sharedQuadState, contentRect(), renderPassId, forReplica, maskResourceId, contentsChangedSinceLastFrame,
-                                                 maskTexCoordScaleX, maskTexCoordScaleY, maskTexCoordOffsetX, maskTexCoordOffsetY).PassAs<DrawQuad>(), appendQuadsData);
+    scoped_ptr<RenderPassDrawQuad> quad = RenderPassDrawQuad::Create();
+    quad->SetNew(sharedQuadState, contentRect(), renderPassId, forReplica, maskResourceId, contentsChangedSinceLastFrame,
+                 maskTexCoordScaleX, maskTexCoordScaleY, maskTexCoordOffsetX, maskTexCoordOffsetY);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
 }
 
 }  // namespace cc

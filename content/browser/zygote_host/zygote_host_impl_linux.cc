@@ -11,7 +11,6 @@
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
-#include "base/eintr_wrapper.h"
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/linux_util.h"
@@ -20,6 +19,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/posix/unix_domain_socket.h"
 #include "base/process_util.h"
 #include "base/string_number_conversions.h"
@@ -111,10 +111,6 @@ void ZygoteHostImpl::Init(const std::string& sandbox_cmd) {
     switches::kTouchOptimizedUI,
 
     switches::kNoSandbox,
-
-#if !defined(OS_CHROMEOS)
-    switches::kEnableTouchEvents,
-#endif
   };
   cmd_line.CopySwitchesFrom(browser_command_line, kForwardSwitches,
                             arraysize(kForwardSwitches));
@@ -147,8 +143,8 @@ void ZygoteHostImpl::Init(const std::string& sandbox_cmd) {
                  << sandbox_binary_ << " is owned by root and has mode 4755.";
     }
   } else {
-    LOG(WARNING) << "Running without the SUID sandbox! See "
-        "http://code.google.com/p/chromium/wiki/LinuxSUIDSandboxDevelopment "
+    LOG(ERROR) << "Running without the SUID sandbox! See "
+        "https://code.google.com/p/chromium/wiki/LinuxSUIDSandboxDevelopment "
         "for more information on developing with the sandbox on.";
   }
 

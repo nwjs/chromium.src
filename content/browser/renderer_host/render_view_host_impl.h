@@ -34,6 +34,7 @@ struct AccessibilityHostMsg_NotificationParams;
 struct MediaPlayerAction;
 struct ViewHostMsg_CreateWindow_Params;
 struct ViewHostMsg_DidFailProvisionalLoadWithError_Params;
+struct ViewHostMsg_OpenURL_Params;
 struct ViewHostMsg_ShowPopup_Params;
 struct ViewMsg_Navigate_Params;
 struct ViewMsg_PostMessage_Params;
@@ -381,11 +382,6 @@ class CONTENT_EXPORT RenderViewHostImpl
       const NativeWebKeyboardEvent& key_event) OVERRIDE;
   virtual gfx::Rect GetRootWindowResizerRect() const OVERRIDE;
 
-#if defined(OS_ANDROID)
-  virtual void AttachLayer(WebKit::WebLayer* layer) OVERRIDE;
-  virtual void RemoveLayer(WebKit::WebLayer* layer) OVERRIDE;
-#endif
-
   // Creates a new RenderView with the given route id.
   void CreateNewWindow(
       int route_id,
@@ -485,10 +481,8 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnMsgDidStartProvisionalLoadForFrame(int64 frame_id,
                                             int64 parent_frame_id,
                                             bool main_frame,
-                                            const GURL& opener_url,
                                             const GURL& url);
   void OnMsgDidRedirectProvisionalLoad(int32 page_id,
-                                       const GURL& opener_url,
                                        const GURL& source_url,
                                        const GURL& target_url);
   void OnMsgDidFailProvisionalLoadWithError(
@@ -510,10 +504,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnMsgDocumentOnLoadCompletedInMainFrame(int32 page_id);
   void OnMsgContextMenu(const ContextMenuParams& params);
   void OnMsgToggleFullscreen(bool enter_fullscreen);
-  void OnMsgOpenURL(const GURL& url,
-                    const Referrer& referrer,
-                    WindowOpenDisposition disposition,
-                    int64 source_frame_id);
+  void OnMsgOpenURL(const ViewHostMsg_OpenURL_Params& params);
   void OnMsgDidContentsPreferredSizeChange(const gfx::Size& new_size);
   void OnMsgDidChangeScrollbarsForMainFrame(bool has_horizontal_scrollbar,
                                             bool has_vertical_scrollbar);

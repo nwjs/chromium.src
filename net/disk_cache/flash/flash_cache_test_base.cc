@@ -5,9 +5,10 @@
 #include "net/disk_cache/flash/flash_cache_test_base.h"
 
 #include "base/file_path.h"
-#include "base/scoped_temp_dir.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/time.h"
 #include "net/disk_cache/flash/format.h"
+#include "net/disk_cache/flash/log_structured_store.h"
 #include "net/disk_cache/flash/storage.h"
 
 namespace {
@@ -32,8 +33,14 @@ void FlashCacheTest::SetUp() {
   int32 storage_size = num_segments_in_storage_ * disk_cache::kFlashSegmentSize;
   storage_.reset(new disk_cache::Storage(path, storage_size));
   ASSERT_TRUE(storage_->Init());
+
+  log_structured_store_.reset(
+      new disk_cache::LogStructuredStore(storage_.get()));
+  ASSERT_TRUE(log_structured_store_->Init());
 }
 
 void FlashCacheTest::TearDown() {
+  ASSERT_TRUE(log_structured_store_->Close());
+  log_structured_store_.reset();
   storage_.reset();
 }

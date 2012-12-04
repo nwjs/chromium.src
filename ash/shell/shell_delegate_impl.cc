@@ -10,6 +10,7 @@
 #include "ash/shell/context_menu.h"
 #include "ash/shell/toplevel_window.h"
 #include "ash/shell_window_ids.h"
+#include "ash/wm/stacking_controller.h"
 #include "ash/wm/window_util.h"
 #include "base/message_loop.h"
 #include "ui/aura/window.h"
@@ -21,7 +22,9 @@ ShellDelegateImpl::ShellDelegateImpl()
     : watcher_(NULL),
       launcher_delegate_(NULL),
       locked_(false),
-      spoken_feedback_enabled_(false) {
+      spoken_feedback_enabled_(false),
+      high_contrast_enabled_(false),
+      screen_magnifier_type_(MAGNIFIER_OFF) {
 }
 
 ShellDelegateImpl::~ShellDelegateImpl() {
@@ -33,16 +36,20 @@ void ShellDelegateImpl::SetWatcher(WindowWatcher* watcher) {
     launcher_delegate_->set_watcher(watcher);
 }
 
-bool ShellDelegateImpl::IsUserLoggedIn() {
+bool ShellDelegateImpl::IsUserLoggedIn() const {
   return true;
 }
 
-bool ShellDelegateImpl::IsSessionStarted() {
+bool ShellDelegateImpl::IsSessionStarted() const {
   return true;
 }
 
-bool ShellDelegateImpl::IsFirstRunAfterBoot() {
+bool ShellDelegateImpl::IsFirstRunAfterBoot() const {
   return false;
+}
+
+bool ShellDelegateImpl::CanLockScreen() const {
+  return true;
 }
 
 void ShellDelegateImpl::LockScreen() {
@@ -117,6 +124,26 @@ bool ShellDelegateImpl::IsSpokenFeedbackEnabled() const {
   return spoken_feedback_enabled_;
 }
 
+void ShellDelegateImpl::ToggleHighContrast() {
+  high_contrast_enabled_ = !high_contrast_enabled_;
+}
+
+bool ShellDelegateImpl::IsHighContrastEnabled() const {
+  return high_contrast_enabled_;
+}
+
+void ShellDelegateImpl::SetMagnifier(MagnifierType type) {
+  screen_magnifier_type_ = type;
+}
+
+MagnifierType ShellDelegateImpl::GetMagnifierType() const {
+  return screen_magnifier_type_;
+}
+
+bool ShellDelegateImpl::ShouldAlwaysShowAccessibilityMenu() const {
+  return false;
+}
+
 app_list::AppListViewDelegate* ShellDelegateImpl::CreateAppListViewDelegate() {
   return ash::shell::CreateAppListViewDelegate();
 }
@@ -162,6 +189,10 @@ string16 ShellDelegateImpl::GetTimeRemainingString(base::TimeDelta delta) {
   return string16();
 }
 
+string16 ShellDelegateImpl::GetTimeDurationLongString(base::TimeDelta delta) {
+  return string16();
+}
+
 void ShellDelegateImpl::SaveScreenMagnifierScale(double scale) {
 }
 
@@ -171,6 +202,14 @@ double ShellDelegateImpl::GetSavedScreenMagnifierScale() {
 
 ui::MenuModel* ShellDelegateImpl::CreateContextMenu(aura::RootWindow* root) {
   return new ContextMenu(root);
+}
+
+aura::client::StackingClient* ShellDelegateImpl::CreateStackingClient() {
+  return new StackingController;
+}
+
+bool ShellDelegateImpl::IsSearchKeyActingAsFunctionKey() const {
+  return false;
 }
 
 }  // namespace shell

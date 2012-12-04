@@ -317,6 +317,9 @@ class ChromeTests:
   def TestSync(self):
     return self.SimpleTest("chrome", "sync_unit_tests")
 
+  def TestLinuxSandbox(self):
+    return self.SimpleTest("sandbox", "sandbox_linux_unittests")
+
   def TestTestShell(self):
     return self.SimpleTest("webkit", "test_shell_tests")
 
@@ -477,10 +480,9 @@ class ChromeTests:
     except IOError, (errno, strerror):
       logging.error("error reading from file %s (%d, %s)" % (chunk_file,
                     errno, strerror))
-    ret = self.TestLayoutChunk(chunk_num, chunk_size)
-    # Wait until after the test runs to completion to write out the new chunk
-    # number.  This way, if the bot is killed, we'll start running again from
-    # the current chunk rather than skipping it.
+    # Save the new chunk size before running the tests. Otherwise if a
+    # particular chunk hangs the bot, the chunk number will never get
+    # incremented and the bot will be wedged.
     logging.info("Saving state to " + chunk_file)
     try:
       f = open(chunk_file, "w")
@@ -493,7 +495,7 @@ class ChromeTests:
     # Since we're running small chunks of the layout tests, it's important to
     # mark the ones that have errors in them.  These won't be visible in the
     # summary list for long, but will be useful for someone reviewing this bot.
-    return ret
+    return self.TestLayoutChunk(chunk_num, chunk_size)
 
   # The known list of tests.
   # Recognise the original abbreviations as well as full executable names.
@@ -527,6 +529,7 @@ class ChromeTests:
     "reliability": TestReliability, "reliability_tests": TestReliability,
     "remoting": TestRemoting,    "remoting_unittests": TestRemoting,
     "safe_browsing": TestSafeBrowsing, "safe_browsing_tests": TestSafeBrowsing,
+    "sandbox": TestLinuxSandbox, "sandbox_linux_unittests": TestLinuxSandbox,
     "sql": TestSql,              "sql_unittests": TestSql,
     "sync": TestSync,            "sync_unit_tests": TestSync,
     "sync_integration_tests": TestSyncIntegration,

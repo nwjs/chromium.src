@@ -186,8 +186,7 @@ void MoveOperation::RenameEntryLocally(
     const FilePath& file_path,
     const FilePath::StringType& new_name,
     const FileMoveCallback& callback,
-    google_apis::GDataErrorCode status,
-    const GURL& /* document_url */) {
+    google_apis::GDataErrorCode status) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
@@ -255,12 +254,11 @@ void MoveOperation::RemoveEntryFromNonRootDirectoryAfterEntryInfoPair(
   // The entry is moved to the root directory.
   drive_service_->RemoveResourceFromDirectory(
       GURL(dir_proto->content_url()),
-      GURL(entry_proto->edit_url()),
       entry_proto->resource_id(),
       base::Bind(&MoveOperation::MoveEntryToDirectory,
                  weak_ptr_factory_.GetWeakPtr(),
                  file_path,
-                 metadata_->root()->GetFilePath(),
+                 FilePath(kDriveRootDirectory),
                  base::Bind(&MoveOperation::NotifyAndRunFileMoveCallback,
                             weak_ptr_factory_.GetWeakPtr(),
                             callback)));
@@ -338,8 +336,7 @@ void MoveOperation::MoveEntryToDirectory(
     const FilePath& file_path,
     const FilePath& directory_path,
     const FileMoveCallback& callback,
-    google_apis::GDataErrorCode status,
-    const GURL& /* document_url */) {
+    google_apis::GDataErrorCode status) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 

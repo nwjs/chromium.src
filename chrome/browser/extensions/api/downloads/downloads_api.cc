@@ -82,7 +82,6 @@ namespace {
 const int  kDefaultIconSize = 32;
 
 // Parameter keys
-const char kBodyKey[] = "body";
 const char kBytesReceivedKey[] = "bytesReceived";
 const char kDangerAcceptedKey[] = "dangerAccepted";
 const char kDangerContent[] = "content";
@@ -91,24 +90,15 @@ const char kDangerKey[] = "danger";
 const char kDangerSafe[] = "safe";
 const char kDangerUncommon[] = "uncommon";
 const char kDangerUrl[] = "url";
-const char kEndTimeKey[] = "endTime";
 const char kErrorKey[] = "error";
 const char kFileSizeKey[] = "fileSize";
 const char kFilenameKey[] = "filename";
 const char kFilenameRegexKey[] = "filenameRegex";
-const char kHeaderNameKey[] = "name";
-const char kHeaderValueKey[] = "value";
-const char kHeadersKey[] = "headers";
 const char kIdKey[] = "id";
 const char kIncognito[] = "incognito";
-const char kLimitKey[] = "limit";
-const char kMethodKey[] = "method";
 const char kMimeKey[] = "mime";
-const char kOrderByKey[] = "orderBy";
 const char kPausedKey[] = "paused";
 const char kQueryKey[] = "query";
-const char kSaveAsKey[] = "saveAs";
-const char kSizeKey[] = "size";
 const char kStartTimeKey[] = "startTime";
 const char kStartedAfterKey[] = "startedAfter";
 const char kStartedBeforeKey[] = "startedBefore";
@@ -832,8 +822,7 @@ bool DownloadsDragFunction::RunImpl() {
 }
 
 DownloadsGetFileIconFunction::DownloadsGetFileIconFunction()
-    : icon_size_(kDefaultIconSize),
-      icon_extractor_(new DownloadFileIconExtractorImpl()) {
+    : icon_extractor_(new DownloadFileIconExtractorImpl()) {
 }
 
 DownloadsGetFileIconFunction::~DownloadsGetFileIconFunction() {}
@@ -860,9 +849,6 @@ bool DownloadsGetFileIconFunction::RunImpl() {
   if (!download_item && incognito_manager)
     download_item = incognito_manager->GetDownload(params->download_id);
   if (!download_item || download_item->GetTargetFilePath().empty()) {
-    // The DownloadItem is is added to history when the path is determined. If
-    // the download is not in history, then we don't have a path / final
-    // filename and no icon.
     error_ = download_extension_errors::kInvalidOperationError;
     return false;
   }

@@ -7,9 +7,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "base/eintr_wrapper.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/shared_memory.h"
 #include "skia/ext/platform_canvas.h"
 
@@ -65,13 +65,9 @@ bool TransportDIB::is_valid_id(Id id) {
 skia::PlatformCanvas* TransportDIB::GetPlatformCanvas(int w, int h) {
   if (!memory() && !Map())
     return NULL;
-  scoped_ptr<skia::PlatformCanvas> canvas(new skia::PlatformCanvas);
-  if (!canvas->initialize(w, h, true, reinterpret_cast<uint8_t*>(memory()))) {
-    // TODO(husky): Remove when http://b/issue?id=4233182 is definitely fixed.
-    LOG(ERROR) << "Failed to initialize canvas of size " << w << "x" << h;
-    return NULL;
-  }
-  return canvas.release();
+  return skia::CreatePlatformCanvas(w, h, true,
+                                    reinterpret_cast<uint8_t*>(memory()),
+                                    skia::RETURN_NULL_ON_FAILURE);
 }
 
 bool TransportDIB::Map() {

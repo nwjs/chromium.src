@@ -18,7 +18,9 @@ class DepthTextureTest : public testing::Test {
  protected:
   static const GLsizei kResolution = 64;
   virtual void SetUp() {
-    gl_.Initialize(gfx::Size(kResolution, kResolution));
+    GLManager::Options options;
+    options.size = gfx::Size(kResolution, kResolution);
+    gl_.Initialize(options);
   }
 
   virtual void TearDown() {
@@ -29,8 +31,6 @@ class DepthTextureTest : public testing::Test {
 
   GLManager gl_;
 };
-
-
 
 GLuint DepthTextureTest::SetupUnitQuad(GLint position_location) {
   GLuint vbo = 0;
@@ -60,7 +60,15 @@ struct FormatType {
 
 }  // anonymous namespace
 
-TEST_F(DepthTextureTest, RenderTo) {
+// crbug.com/135229
+// Fails on Win Intel, Linux Intel.
+#if ((defined(OS_WIN) || defined(OS_LINUX)) && defined(NDEBUG))
+#define MAYBE_RenderTo DISABLED_RenderTo
+#else
+#define MAYBE_RenderTo RenderTo
+#endif
+
+TEST_F(DepthTextureTest, MAYBE_RenderTo) {
   if (!GLTestHelper::HasExtension("GL_CHROMIUM_depth_texture")) {
     return;
   }

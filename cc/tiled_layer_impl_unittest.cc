@@ -113,7 +113,7 @@ TEST(TiledLayerImplTest, checkerboarding)
         EXPECT_FALSE(data.hadMissingTiles);
 
         for (size_t i = 0; i < quadCuller.quadList().size(); ++i)
-            EXPECT_EQ(quadCuller.quadList()[i]->material(), DrawQuad::TiledContent);
+            EXPECT_EQ(quadCuller.quadList()[i]->material, DrawQuad::TILED_CONTENT);
     }
 
     for (int i = 0; i < numTilesX; ++i)
@@ -128,7 +128,7 @@ TEST(TiledLayerImplTest, checkerboarding)
         EXPECT_TRUE(data.hadMissingTiles);
         EXPECT_EQ(quadCuller.quadList().size(), 4u);
         for (size_t i = 0; i < quadCuller.quadList().size(); ++i)
-            EXPECT_NE(quadCuller.quadList()[i]->material(), DrawQuad::TiledContent);
+            EXPECT_NE(quadCuller.quadList()[i]->material, DrawQuad::TILED_CONTENT);
     }
 }
 
@@ -199,29 +199,12 @@ TEST(TiledLayerImplTest, textureInfoForLayerNoBorders)
     getQuads(quads, sharedStates, tileSize, layerSize, LayerTilingData::NoBorderTexels, gfx::Rect(gfx::Point(), layerSize));
 
     for (size_t i = 0; i < quads.size(); ++i) {
-        ASSERT_EQ(quads[i]->material(), DrawQuad::TiledContent) << quadString << i;
-        TileDrawQuad* quad = static_cast<TileDrawQuad*>(quads[i]);
+        const TileDrawQuad* quad = TileDrawQuad::MaterialCast(quads[i]);
 
-        EXPECT_NE(quad->resourceId(), 0u) << quadString << i;
-        EXPECT_EQ(quad->textureOffset(), gfx::Vector2d()) << quadString << i;
-        EXPECT_EQ(quad->textureSize(), tileSize) << quadString << i;
-        EXPECT_EQ(gfx::Rect(0, 0, 1, 1), quad->opaqueRect()) << quadString << i;
-    }
-}
-
-TEST(TiledLayerImplTest, tileOpaqueRectForLayerNoBorders)
-{
-    gfx::Size tileSize(50, 50);
-    gfx::Size layerSize(250, 250);
-    QuadList quads;
-    SharedQuadStateList sharedStates;
-    getQuads(quads, sharedStates, tileSize, layerSize, LayerTilingData::NoBorderTexels, gfx::Rect(gfx::Point(), layerSize));
-
-    for (size_t i = 0; i < quads.size(); ++i) {
-        ASSERT_EQ(quads[i]->material(), DrawQuad::TiledContent) << quadString << i;
-        TileDrawQuad* quad = static_cast<TileDrawQuad*>(quads[i]);
-
-        EXPECT_EQ(gfx::Rect(0, 0, 1, 1), quad->opaqueRect()) << quadString << i;
+        EXPECT_NE(0u, quad->resource_id) << quadString << i;
+        EXPECT_EQ(gfx::RectF(gfx::PointF(), tileSize), quad->tex_coord_rect) << quadString << i;
+        EXPECT_EQ(tileSize, quad->texture_size) << quadString << i;
+        EXPECT_EQ(gfx::Rect(0, 0, 1, 1), quad->opaque_rect) << quadString << i;
     }
 }
 

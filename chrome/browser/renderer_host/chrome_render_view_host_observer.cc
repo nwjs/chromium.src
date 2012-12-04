@@ -19,6 +19,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/site_instance.h"
+#include "extensions/common/constants.h"
 
 using content::ChildProcessSecurityPolicy;
 using content::RenderViewHost;
@@ -33,7 +34,6 @@ ChromeRenderViewHostObserver::ChromeRenderViewHostObserver(
   profile_ = Profile::FromBrowserContext(
       site_instance->GetBrowserContext());
 
-  InitRenderViewHostForExtensions();
   InitRenderViewForExtensions();
 }
 
@@ -73,19 +73,6 @@ bool ChromeRenderViewHostObserver::OnMessageReceived(
   return handled;
 }
 
-void ChromeRenderViewHostObserver::InitRenderViewHostForExtensions() {
-  const Extension* extension = GetExtension();
-  if (!extension)
-    return;
-
-  ExtensionProcessManager* process_manager =
-      extensions::ExtensionSystem::Get(profile_)->process_manager();
-  CHECK(process_manager);
-
-  // TODO(creis): Use this to replace SetInstalledAppForRenderer.
-  process_manager->RegisterRenderViewHost(render_view_host(), extension);
-}
-
 void ChromeRenderViewHostObserver::InitRenderViewForExtensions() {
   const Extension* extension = GetExtension();
   if (!extension)
@@ -100,8 +87,8 @@ void ChromeRenderViewHostObserver::InitRenderViewForExtensions() {
     ChildProcessSecurityPolicy::GetInstance()->GrantScheme(
         process->GetID(), chrome::kChromeUIScheme);
 
-    if (profile_->GetExtensionService()->extension_prefs()->AllowFileAccess(
-          extension->id())) {
+    if (extensions::ExtensionSystem::Get(profile_)->extension_service()->
+            extension_prefs()->AllowFileAccess(extension->id())) {
       ChildProcessSecurityPolicy::GetInstance()->GrantScheme(
           process->GetID(), chrome::kFileScheme);
     }
@@ -136,10 +123,11 @@ const Extension* ChromeRenderViewHostObserver::GetExtension() {
   SiteInstance* site_instance = render_view_host()->GetSiteInstance();
   const GURL& site = site_instance->GetSiteURL();
 
-  if (!site.SchemeIs(chrome::kExtensionScheme))
+  if (!site.SchemeIs(extensions::kExtensionScheme))
     return NULL;
 
-  ExtensionService* service = profile_->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   if (!service)
     return NULL;
 

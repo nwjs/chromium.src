@@ -5,9 +5,9 @@
 #include "chrome/browser/policy/user_cloud_policy_store_chromeos.h"
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "chrome/browser/chromeos/login/mock_user_manager.h"
 #include "chrome/browser/policy/cloud_policy_constants.h"
 #include "chrome/browser/policy/policy_builder.h"
@@ -64,14 +64,14 @@ class UserCloudPolicyStoreChromeOSTest : public testing::Test {
                                                   policy_file()));
     store_->AddObserver(&observer_);
 
-    policy_.payload().mutable_showhomebutton()->set_showhomebutton(true);
+    policy_.payload().mutable_showhomebutton()->set_value(true);
     policy_.Build();
   }
 
   virtual void TearDown() OVERRIDE {
     store_->RemoveObserver(&observer_);
     store_.reset();
-    loop_.RunAllPending();
+    loop_.RunUntilIdle();
   }
 
   // Install an expectation on |observer_| for an error code.
@@ -90,12 +90,12 @@ class UserCloudPolicyStoreChromeOSTest : public testing::Test {
     EXPECT_CALL(session_manager_client_, RetrieveUserPolicy(_))
         .WillOnce(SaveArg<0>(&retrieve_callback));
     store_->Load();
-    loop_.RunAllPending();
+    loop_.RunUntilIdle();
     ASSERT_FALSE(retrieve_callback.is_null());
 
     // Run the callback.
     retrieve_callback.Run(response);
-    loop_.RunAllPending();
+    loop_.RunUntilIdle();
   }
 
   // Verifies that store_->policy_map() has the ShowHomeButton entry.
@@ -124,7 +124,7 @@ class UserCloudPolicyStoreChromeOSTest : public testing::Test {
  private:
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
-  ScopedTempDir tmp_dir_;
+  base::ScopedTempDir tmp_dir_;
   chromeos::ScopedMockUserManagerEnabler user_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(UserCloudPolicyStoreChromeOSTest);
@@ -136,7 +136,7 @@ TEST_F(UserCloudPolicyStoreChromeOSTest, Store) {
   EXPECT_CALL(session_manager_client_, StoreUserPolicy(policy_.GetBlob(), _))
       .WillOnce(SaveArg<1>(&store_callback));
   store_->Store(policy_.policy());
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
 
   // No policy should be present yet.
   EXPECT_FALSE(store_->policy());
@@ -149,7 +149,7 @@ TEST_F(UserCloudPolicyStoreChromeOSTest, Store) {
   EXPECT_CALL(session_manager_client_, RetrieveUserPolicy(_))
       .WillOnce(SaveArg<0>(&retrieve_callback));
   store_callback.Run(true);
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   EXPECT_TRUE(store_->policy_map().empty());
   EXPECT_EQ(CloudPolicyStore::STATUS_OK, store_->status());
   ASSERT_FALSE(retrieve_callback.is_null());
@@ -157,7 +157,7 @@ TEST_F(UserCloudPolicyStoreChromeOSTest, Store) {
   // Finish the retrieve callback.
   EXPECT_CALL(observer_, OnStoreLoaded(store_.get()));
   retrieve_callback.Run(policy_.GetBlob());
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   ASSERT_TRUE(store_->policy());
   EXPECT_EQ(policy_.policy_data().SerializeAsString(),
             store_->policy()->SerializeAsString());
@@ -171,13 +171,13 @@ TEST_F(UserCloudPolicyStoreChromeOSTest, StoreFail) {
   EXPECT_CALL(session_manager_client_, StoreUserPolicy(policy_.GetBlob(), _))
       .WillOnce(SaveArg<1>(&store_callback));
   store_->Store(policy_.policy());
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
 
   // Let the store operation complete.
   ASSERT_FALSE(store_callback.is_null());
   ExpectError(CloudPolicyStore::STATUS_STORE_ERROR);
   store_callback.Run(false);
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   EXPECT_FALSE(store_->policy());
   EXPECT_TRUE(store_->policy_map().empty());
   EXPECT_EQ(CloudPolicyStore::STATUS_STORE_ERROR, store_->status());
@@ -193,7 +193,7 @@ TEST_F(UserCloudPolicyStoreChromeOSTest, StoreValidationError) {
   EXPECT_CALL(session_manager_client_, StoreUserPolicy(policy_.GetBlob(), _))
       .Times(0);
   store_->Store(policy_.policy());
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
 }
 
 TEST_F(UserCloudPolicyStoreChromeOSTest, Load) {

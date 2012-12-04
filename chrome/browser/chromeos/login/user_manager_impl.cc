@@ -151,13 +151,13 @@ void UserManagerImpl::UserLoggedIn(const std::string& email,
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!IsUserLoggedIn());
 
-  if (email == kGuestUser) {
+  if (email == kGuestUserEMail) {
     GuestUserLoggedIn();
     return;
   }
 
-  if (email == kDemoUser) {
-    DemoUserLoggedIn();
+  if (email == kRetailModeUserEMail) {
+    RetailModeUserLoggedIn();
     return;
   }
 
@@ -174,20 +174,21 @@ void UserManagerImpl::UserLoggedIn(const std::string& email,
   prefs_users_update->Clear();
 
   // Make sure this user is first.
-  prefs_users_update->Append(Value::CreateStringValue(email));
+  prefs_users_update->Append(new base::StringValue(email));
   UserList::iterator logged_in_user = users_.end();
   for (UserList::iterator it = users_.begin(); it != users_.end(); ++it) {
     std::string user_email = (*it)->email();
     // Skip the most recent user.
     if (email != user_email)
-      prefs_users_update->Append(Value::CreateStringValue(user_email));
+      prefs_users_update->Append(new base::StringValue(user_email));
     else
       logged_in_user = it;
   }
 
   if (logged_in_user == users_.end()) {
     is_current_user_new_ = true;
-    logged_in_user_ = CreateUser(email, /* is_ephemeral= */ false);
+    logged_in_user_ = User::CreateRegularUser(email);
+    logged_in_user_->set_oauth_token_status(LoadUserOAuthStatus(email));
   } else {
     logged_in_user_ = *logged_in_user;
     users_.erase(logged_in_user);
@@ -214,21 +215,22 @@ void UserManagerImpl::UserLoggedIn(const std::string& email,
   NotifyOnLogin();
 }
 
-void UserManagerImpl::DemoUserLoggedIn() {
+void UserManagerImpl::RetailModeUserLoggedIn() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   is_current_user_new_ = true;
   is_current_user_ephemeral_ = true;
-  logged_in_user_ = CreateUser(kDemoUser, /* is_ephemeral= */ true);
-  user_image_manager_->UserLoggedIn(kDemoUser, /* user_is_new= */ true);
-  WallpaperManager::Get()->SetInitialUserWallpaper(kDemoUser, false);
+  logged_in_user_ = User::CreateRetailModeUser();
+  user_image_manager_->UserLoggedIn(kRetailModeUserEMail,
+                                    /* user_is_new= */ true);
+  WallpaperManager::Get()->SetInitialUserWallpaper(kRetailModeUserEMail, false);
   NotifyOnLogin();
 }
 
 void UserManagerImpl::GuestUserLoggedIn() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   is_current_user_ephemeral_ = true;
-  WallpaperManager::Get()->SetInitialUserWallpaper(kGuestUser, false);
-  logged_in_user_ = CreateUser(kGuestUser, /* is_ephemeral= */ true);
+  WallpaperManager::Get()->SetInitialUserWallpaper(kGuestUserEMail, false);
+  logged_in_user_ = User::CreateGuestUser();
   logged_in_user_->SetStubImage(User::kInvalidImageIndex, false);
   NotifyOnLogin();
 }
@@ -237,7 +239,7 @@ void UserManagerImpl::EphemeralUserLoggedIn(const std::string& email) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   is_current_user_new_ = true;
   is_current_user_ephemeral_ = true;
-  logged_in_user_ = CreateUser(email, /* is_ephemeral= */ true);
+  logged_in_user_ = User::CreateRegularUser(email);
   user_image_manager_->UserLoggedIn(email, /* user_is_new= */ true);
   WallpaperManager::Get()->SetInitialUserWallpaper(email, false);
   NotifyOnLogin();
@@ -369,7 +371,7 @@ void UserManagerImpl::SaveUserDisplayName(const std::string& username,
   DictionaryPrefUpdate display_name_update(local_state, kUserDisplayName);
   display_name_update->SetWithoutPathExpansion(
       username,
-      base::Value::CreateStringValue(display_name));
+      new base::StringValue(display_name));
 }
 
 string16 UserManagerImpl::GetUserDisplayName(
@@ -397,32 +399,13 @@ void UserManagerImpl::SaveUserDisplayEmail(const std::string& username,
   DictionaryPrefUpdate display_email_update(local_state, kUserDisplayEmail);
   display_email_update->SetWithoutPathExpansion(
       username,
-      base::Value::CreateStringValue(display_email));
+      new base::StringValue(display_email));
 }
 
 std::string UserManagerImpl::GetUserDisplayEmail(
     const std::string& username) const {
   const User* user = FindUser(username);
   return user ? user->display_email() : username;
-}
-
-void UserManagerImpl::SetLoggedInUserCustomWallpaperLayout(
-    ash::WallpaperLayout layout) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  // TODO(bshe): We current disabled the customized wallpaper feature for
-  // Ephemeral user. As we dont want to keep a copy of customized wallpaper in
-  // memory. Need a smarter way to solve this.
-  if (IsCurrentUserEphemeral())
-    return;
-  std::string username = logged_in_user_->email();
-  DCHECK(!username.empty());
-
-  std::string file_path = WallpaperManager::Get()->
-      GetWallpaperPathForUser(username, false).value();
-  SaveWallpaperToLocalState(username, file_path, layout, User::CUSTOMIZED);
-  // Load wallpaper from file.
-  WallpaperManager::Get()->SetUserWallpaper(username);
 }
 
 void UserManagerImpl::Observe(int type,
@@ -491,6 +474,11 @@ bool UserManagerImpl::IsCurrentUserEphemeral() const {
   return is_current_user_ephemeral_;
 }
 
+bool UserManagerImpl::CanCurrentUserLock() const {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  return IsUserLoggedIn() && logged_in_user_->can_lock();
+}
+
 bool UserManagerImpl::IsUserLoggedIn() const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   return logged_in_user_;
@@ -498,19 +486,20 @@ bool UserManagerImpl::IsUserLoggedIn() const {
 
 bool UserManagerImpl::IsLoggedInAsDemoUser() const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  return IsUserLoggedIn() && logged_in_user_->email() == kDemoUser;
+  return IsUserLoggedIn() &&
+         logged_in_user_->GetType() == User::USER_TYPE_RETAIL_MODE;
 }
 
 bool UserManagerImpl::IsLoggedInAsPublicAccount() const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // TODO(bartfab): Wire this up once it is actually possible to log into a
-  // public account (crbug.com/158509).
-  return IsUserLoggedIn() && false;
+  return IsUserLoggedIn() &&
+      logged_in_user_->GetType() == User::USER_TYPE_PUBLIC_ACCOUNT;
 }
 
 bool UserManagerImpl::IsLoggedInAsGuest() const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  return IsUserLoggedIn() && logged_in_user_->email() == kGuestUser;
+  return IsUserLoggedIn() &&
+         logged_in_user_->GetType() == User::USER_TYPE_GUEST;
 }
 
 bool UserManagerImpl::IsLoggedInAsStub() const {
@@ -525,7 +514,7 @@ bool UserManagerImpl::IsSessionStarted() const {
 
 bool UserManagerImpl::IsEphemeralUser(const std::string& email) const {
   // The guest and stub user always are ephemeral.
-  if (email == kGuestUser || email == kStubUser)
+  if (email == kGuestUserEMail || email == kStubUser)
     return true;
 
   // The currently logged-in user is ephemeral iff logged in as ephemeral.
@@ -584,7 +573,8 @@ void UserManagerImpl::EnsureUsersLoaded() {
        it != prefs_users->end(); ++it) {
     std::string email;
     if ((*it)->GetAsString(&email)) {
-      User* user = CreateUser(email, /* is_ephemeral= */ false);
+      User* user = User::CreateRegularUser(email);
+      user->set_oauth_token_status(LoadUserOAuthStatus(email));
       users_.push_back(user);
 
       string16 display_name;
@@ -604,7 +594,6 @@ void UserManagerImpl::EnsureUsersLoaded() {
   }
 
   user_image_manager_->LoadUserImages(users_);
-  WallpaperManager::Get()->MigrateWallpaperData(users_);
 }
 
 void UserManagerImpl::RetrieveTrustedDevicePolicies() {
@@ -678,24 +667,6 @@ void UserManagerImpl::NotifyOnLogin() {
   DeviceSettingsService::Get()->SetUsername(logged_in_user_->email());
 }
 
-void UserManagerImpl::SaveLoggedInUserWallpaperProperties(
-    User::WallpaperType type, int index) {
-  // Ephemeral users can not save data to local state.
-  // We just cache the index in memory for them.
-  bool is_persistent = !IsCurrentUserEphemeral();
-  WallpaperManager::Get()->SetUserWallpaperProperties(
-      logged_in_user_->email(), type, index, is_persistent);
-}
-
-void UserManagerImpl::SaveWallpaperToLocalState(const std::string& username,
-    const std::string& wallpaper_path,
-    ash::WallpaperLayout layout,
-    User::WallpaperType type) {
-  // TODO(bshe): We probably need to save wallpaper_path instead of index.
-  WallpaperManager::Get()->SetUserWallpaperProperties(
-      username, type, layout, true);
-}
-
 void UserManagerImpl::UpdateOwnership(
     DeviceSettingsService::OwnershipStatus status,
     bool is_owner) {
@@ -710,14 +681,6 @@ void UserManagerImpl::CheckOwnership() {
                  base::Unretained(this)));
 }
 
-User* UserManagerImpl::CreateUser(const std::string& email,
-                                  bool is_ephemeral) const {
-  User* user = new User(email);
-  if (!is_ephemeral)
-    user->set_oauth_token_status(LoadUserOAuthStatus(email));
-  return user;
-}
-
 void UserManagerImpl::RemoveUserFromListInternal(const std::string& email) {
   // Clear the prefs view of the users.
   PrefService* prefs = g_browser_process->local_state();
@@ -729,7 +692,7 @@ void UserManagerImpl::RemoveUserFromListInternal(const std::string& email) {
     std::string user_email = (*it)->email();
     // Skip user that we would like to delete.
     if (email != user_email)
-      prefs_users_update->Append(Value::CreateStringValue(user_email));
+      prefs_users_update->Append(new base::StringValue(user_email));
     else
       user_to_remove = it;
   }

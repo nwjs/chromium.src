@@ -32,8 +32,17 @@ namespace content {
 // RenderWidgetHostViewCocoa for blitting the IOSurface.
 class CompositingIOSurfaceMac {
  public:
-  // Returns NULL if IOSurface support is missing or GL APIs fail.
-  static CompositingIOSurfaceMac* Create();
+  // Passed to Create() to specify the ordering of the surface relative to the
+  // containing window.
+  enum SurfaceOrder {
+    SURFACE_ORDER_ABOVE_WINDOW,
+    SURFACE_ORDER_BELOW_WINDOW
+  };
+
+  // Returns NULL if IOSurface support is missing or GL APIs fail. Specify in
+  // |order| the desired ordering relationship of the surface to the containing
+  // window.
+  static CompositingIOSurfaceMac* Create(SurfaceOrder order);
   ~CompositingIOSurfaceMac();
 
   // Set IOSurface that will be drawn on the next NSView drawRect.
@@ -186,6 +195,10 @@ class CompositingIOSurfaceMac {
                           GLuint shader_program_white,
                           bool is_vsync_disabled,
                           CVDisplayLinkRef display_link);
+
+  // Issue a draw call to try to flush references to an IOSurface out of
+  // the GL driver.
+  void DoWorkaroundForIOSurfaceLeak();
 
   // Returns true if IOSurface is ready to render. False otherwise.
   bool MapIOSurfaceToTexture(uint64 io_surface_handle);

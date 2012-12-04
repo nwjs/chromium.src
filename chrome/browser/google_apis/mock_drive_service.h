@@ -33,12 +33,11 @@ class MockDriveService : public DriveServiceInterface {
   MOCK_METHOD1(CancelForFilePath, bool(const FilePath& file_path));
   MOCK_CONST_METHOD0(GetProgressStatusList,
                      OperationProgressStatusList());
-  MOCK_METHOD1(Authenticate,
-               void(const AuthStatusCallback& callback));
-  MOCK_METHOD5(GetDocuments,
+  MOCK_METHOD6(GetDocuments,
                void(const GURL& feed_url,
                     int64 start_changestamp,
                     const std::string& search_string,
+                    bool shared_with_me,
                     const std::string& directory_resource_id,
                     const GetDataCallback& callback));
   MOCK_METHOD2(GetDocumentEntry,
@@ -69,9 +68,8 @@ class MockDriveService : public DriveServiceInterface {
                void(const GURL& parent_content_url,
                     const GURL& resource_url,
                     const EntryActionCallback& callback));
-  MOCK_METHOD4(RemoveResourceFromDirectory,
+  MOCK_METHOD3(RemoveResourceFromDirectory,
                void(const GURL& parent_content_url,
-                    const GURL& resource_url,
                     const std::string& resource_id,
                     const EntryActionCallback& callback));
   MOCK_METHOD3(AddNewDirectory,
@@ -94,7 +92,7 @@ class MockDriveService : public DriveServiceInterface {
                     const ResumeUploadCallback& callback));
   MOCK_METHOD3(AuthorizeApp,
                void(const GURL& resource_url,
-                    const std::string& app_ids,
+                    const std::string& app_id,
                     const GetDataCallback& callback));
   MOCK_CONST_METHOD0(HasAccessToken, bool());
   MOCK_CONST_METHOD0(HasRefreshToken, bool());
@@ -121,15 +119,12 @@ class MockDriveService : public DriveServiceInterface {
   // Helper stub methods for functions which take callbacks, so that
   // the callbacks get called with testable results.
 
-  // Will call |callback| with HTTP_SUCCESS and the token "test_auth_token"
-  // as the token.
-  void AuthenticateStub(const AuthStatusCallback& callback);
-
   // Will call |callback| with HTTP_SUCCESS and a StringValue with the current
   // value of |feed_data_|.
   void GetDocumentsStub(const GURL& feed_url,
                         int64 start_changestamp,
                         const std::string& search_string,
+                        bool shared_with_me,
                         const std::string& directory_resource_id,
                         const GetDataCallback& callback);
 
@@ -137,7 +132,7 @@ class MockDriveService : public DriveServiceInterface {
   // value of |account_metadata_|.
   void GetAccountMetadataStub(const GetDataCallback& callback);
 
-  // Will call |callback| with HTTP_SUCCESS and the |document_url|.
+  // Will call |callback| with HTTP_SUCCESS.
   void DeleteDocumentStub(const GURL& document_url,
                           const EntryActionCallback& callback);
 
@@ -156,21 +151,20 @@ class MockDriveService : public DriveServiceInterface {
                         const FilePath::StringType& new_name,
                         const GetDataCallback& callback);
 
-  // Will call |callback| with HTTP_SUCCESS and the |document_url|.
+  // Will call |callback| with HTTP_SUCCESS.
   void RenameResourceStub(const GURL& document_url,
                           const FilePath::StringType& new_name,
                           const EntryActionCallback& callback);
 
-  // Will call |callback| with HTTP_SUCCESS and the |resource_url|.
+  // Will call |callback| with HTTP_SUCCESS.
   void AddResourceToDirectoryStub(
       const GURL& parent_content_url,
       const GURL& resource_url,
       const EntryActionCallback& callback);
 
-  // Will call |callback| with HTTP_SUCCESS and the |resource_url|.
+  // Will call |callback| with HTTP_SUCCESS.
   void RemoveResourceFromDirectoryStub(
       const GURL& parent_content_url,
-      const GURL& resource_url,
       const std::string& resource_id,
       const EntryActionCallback& callback);
 

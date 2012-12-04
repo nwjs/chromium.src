@@ -44,7 +44,6 @@
 #include "content/public/browser/user_metrics.h"
 #include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
-#include "third_party/cros_system_api/window_manager/chromeos_wm_ipc_enums.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::BrowserThread;
@@ -155,13 +154,6 @@ void ScreenLocker::Init() {
   authenticator_ = LoginUtils::Get()->CreateAuthenticator(this);
   delegate_.reset(new WebUIScreenLocker(this));
   delegate_->LockScreen(unlock_on_input_);
-  CommandLine* command_line = CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(ash::switches::kAshNewLockAnimationsEnabled)) {
-    base::Closure callback = base::Bind(&ScreenLocker::OnFullyDisplayedCallback,
-                                        weak_factory_.GetWeakPtr());
-    ash::Shell::GetInstance()->session_state_controller()->
-        SetLockScreenDisplayedCallback(callback);
-  }
 }
 
 void ScreenLocker::OnLoginFailure(const LoginFailure& error) {
@@ -430,8 +422,8 @@ void ScreenLocker::ScreenLockReady() {
   DBusThreadManager::Get()->GetSessionManagerClient()->NotifyLockScreenShown();
 }
 
-void ScreenLocker::OnFullyDisplayedCallback() {
-  delegate_->ProcessFullyDisplayedAnimations();
+content::WebUI* ScreenLocker::GetAssociatedWebUI() {
+  return delegate_->GetAssociatedWebUI();
 }
 
 }  // namespace chromeos

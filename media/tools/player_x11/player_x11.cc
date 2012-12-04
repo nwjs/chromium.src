@@ -47,10 +47,10 @@ media::AudioManager* g_audio_manager = NULL;
 media::VideoRendererBase* g_video_renderer = NULL;
 
 scoped_refptr<media::FileDataSource> CreateFileDataSource(
-    const std::string& file) {
+    const std::string& file_path) {
   scoped_refptr<media::FileDataSource> file_data_source(
       new media::FileDataSource());
-  CHECK(file_data_source->Initialize(file));
+  CHECK(file_data_source->Initialize(FilePath(file_path)));
   return file_data_source;
 }
 
@@ -107,25 +107,14 @@ bool InitPipeline(const scoped_refptr<base::MessageLoopProxy>& message_loop,
                   scoped_refptr<media::Pipeline>* pipeline,
                   MessageLoop* paint_message_loop,
                   media::MessageLoopFactory* message_loop_factory) {
-  // Load media libraries.
-  if (!media::InitializeMediaLibrary(FilePath())) {
-    std::cout << "Unable to initialize the media library." << std::endl;
-    return false;
-  }
-
   // Create our filter factories.
   scoped_ptr<media::FilterCollection> collection(
       new media::FilterCollection());
   collection->SetDemuxer(new media::FFmpegDemuxer(message_loop, data_source));
   collection->GetAudioDecoders()->push_back(new media::FFmpegAudioDecoder(
-      base::Bind(&media::MessageLoopFactory::GetMessageLoop,
-                 base::Unretained(message_loop_factory),
-                 media::MessageLoopFactory::kDecoder)));
+      message_loop));
   collection->GetVideoDecoders()->push_back(new media::FFmpegVideoDecoder(
-      base::Bind(&media::MessageLoopFactory::GetMessageLoop,
-                 base::Unretained(message_loop_factory),
-                 media::MessageLoopFactory::kDecoder),
-      NULL));
+      message_loop, NULL));
 
   // Create our video renderer and save a reference to it for painting.
   g_video_renderer = new media::VideoRendererBase(
@@ -227,6 +216,8 @@ void PeriodicalUpdate(
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit;
+  media::InitializeMediaLibraryForTesting();
+
   CommandLine::Init(argc, argv);
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   std::string filename = command_line->GetSwitchValueASCII("file");

@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "cc/io_surface_draw_quad.h"
 #include "cc/layer_tree_host_impl.h"
+#include "cc/math_util.h"
 #include "cc/quad_sink.h"
 #include "cc/resource_provider.h"
 #include "cc/stream_video_draw_quad.h"
@@ -30,7 +31,7 @@ VideoLayerImpl::VideoLayerImpl(int id, WebKit::WebVideoFrameProvider* provider,
     , m_externalTextureResource(0)
 {
     // This matrix is the default transformation for stream textures, and flips on the Y axis.
-    m_streamTextureMatrix = WebKit::WebTransformationMatrix(
+    m_streamTextureMatrix = MathUtil::createGfxTransform(
         1, 0, 0, 0,
         0, -1, 0, 0,
         0, 0, 1, 0,
@@ -200,6 +201,7 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
     // otherwise synchonize use of all textures in the quad.
 
     gfx::Rect quadRect(gfx::Point(), contentBounds());
+    gfx::Rect opaqueRect(contentsOpaque() ? quadRect : gfx::Rect());
     gfx::Rect visibleRect = m_frame->visible_rect();
     gfx::Size codedSize = m_frame->coded_size();
 
@@ -216,8 +218,8 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
         const FramePlane& uPlane = m_framePlanes[media::VideoFrame::kUPlane];
         const FramePlane& vPlane = m_framePlanes[media::VideoFrame::kVPlane];
         gfx::SizeF texScale(texWidthScale, texHeightScale);
-        scoped_ptr<YUVVideoDrawQuad> yuvVideoQuad = YUVVideoDrawQuad::create(
-            sharedQuadState, quadRect, texScale, yPlane, uPlane, vPlane);
+        scoped_ptr<YUVVideoDrawQuad> yuvVideoQuad = YUVVideoDrawQuad::Create();
+        yuvVideoQuad->SetNew(sharedQuadState, quadRect, opaqueRect, texScale, yPlane, uPlane, vPlane);
         quadSink.append(yuvVideoQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
@@ -227,7 +229,8 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
         bool premultipliedAlpha = true;
         gfx::RectF uvRect(0, 0, texWidthScale, texHeightScale);
         bool flipped = false;
-        scoped_ptr<TextureDrawQuad> textureQuad = TextureDrawQuad::create(sharedQuadState, quadRect, plane.resourceId, premultipliedAlpha, uvRect, flipped);
+        scoped_ptr<TextureDrawQuad> textureQuad = TextureDrawQuad::Create();
+        textureQuad->SetNew(sharedQuadState, quadRect, opaqueRect, plane.resourceId, premultipliedAlpha, uvRect, flipped);
         quadSink.append(textureQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
@@ -236,24 +239,24 @@ void VideoLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
         bool premultipliedAlpha = true;
         gfx::RectF uvRect(0, 0, texWidthScale, texHeightScale);
         bool flipped = false;
-        scoped_ptr<TextureDrawQuad> textureQuad = TextureDrawQuad::create(sharedQuadState, quadRect, m_externalTextureResource, premultipliedAlpha, uvRect, flipped);
+        scoped_ptr<TextureDrawQuad> textureQuad = TextureDrawQuad::Create();
+        textureQuad->SetNew(sharedQuadState, quadRect, opaqueRect, m_externalTextureResource, premultipliedAlpha, uvRect, flipped);
         quadSink.append(textureQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
     case GL_TEXTURE_RECTANGLE_ARB: {
         gfx::Size visibleSize(visibleRect.width(), visibleRect.height());
-        scoped_ptr<IOSurfaceDrawQuad> ioSurfaceQuad = IOSurfaceDrawQuad::create(sharedQuadState, quadRect, visibleSize, m_frame->texture_id(), IOSurfaceDrawQuad::Unflipped);
+        scoped_ptr<IOSurfaceDrawQuad> ioSurfaceQuad = IOSurfaceDrawQuad::Create();
+        ioSurfaceQuad->SetNew(sharedQuadState, quadRect, opaqueRect, visibleSize, m_frame->texture_id(), IOSurfaceDrawQuad::UNFLIPPED);
         quadSink.append(ioSurfaceQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
     case GL_TEXTURE_EXTERNAL_OES: {
         // StreamTexture hardware decoder.
-        WebKit::WebTransformationMatrix transform(m_streamTextureMatrix);
-        transform.scaleNonUniform(texWidthScale, texHeightScale);
-        scoped_ptr<StreamVideoDrawQuad> streamVideoQuad =
-            StreamVideoDrawQuad::create(sharedQuadState, quadRect,
-                                        m_frame->texture_id(),
-                                        transform);
+        gfx::Transform transform(m_streamTextureMatrix);
+        transform.Scale(texWidthScale, texHeightScale);
+        scoped_ptr<StreamVideoDrawQuad> streamVideoQuad = StreamVideoDrawQuad::Create();
+        streamVideoQuad->SetNew(sharedQuadState, quadRect, opaqueRect, m_frame->texture_id(), transform);
         quadSink.append(streamVideoQuad.PassAs<DrawQuad>(), appendQuadsData);
         break;
     }
@@ -372,8 +375,9 @@ bool VideoLayerImpl::copyPlaneData(ResourceProvider* resourceProvider)
         // Only non-FormatNativeTexture planes should need upload.
         DCHECK_EQ(plane.format, GL_LUMINANCE);
         const uint8_t* softwarePlanePixels = m_frame->data(planeIndex);
-        gfx::Rect planeRect(gfx::Point(), plane.size);
-        resourceProvider->setPixels(plane.resourceId, softwarePlanePixels, planeRect, planeRect, gfx::Vector2d());
+        gfx::Rect imageRect(0, 0, m_frame->stride(planeIndex), plane.size.height());
+        gfx::Rect sourceRect(gfx::Point(), plane.size);
+        resourceProvider->setPixels(plane.resourceId, softwarePlanePixels, imageRect, sourceRect, gfx::Vector2d());
     }
     return true;
 }
@@ -398,7 +402,7 @@ void VideoLayerImpl::didReceiveFrame()
 
 void VideoLayerImpl::didUpdateMatrix(const float matrix[16])
 {
-    m_streamTextureMatrix = WebKit::WebTransformationMatrix(
+    m_streamTextureMatrix = MathUtil::createGfxTransform(
         matrix[0], matrix[1], matrix[2], matrix[3],
         matrix[4], matrix[5], matrix[6], matrix[7],
         matrix[8], matrix[9], matrix[10], matrix[11],

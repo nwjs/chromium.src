@@ -5,9 +5,9 @@
 #include "base/bind.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/time.h"
 #include "chrome/browser/policy/cloud_policy_data_store.h"
 #include "chrome/browser/policy/cros_user_policy_cache.h"
@@ -65,7 +65,7 @@ class CrosUserPolicyCacheTest : public testing::Test {
 
   void CreatePolicyResponse(em::PolicyFetchResponse* response) {
     em::CloudPolicySettings policy_settings;
-    policy_settings.mutable_showhomebutton()->set_showhomebutton(true);
+    policy_settings.mutable_showhomebutton()->set_value(true);
 
     em::PolicyData policy_data;
     policy_data.set_policy_type(dm_protocol::kChromeUserPolicyType);
@@ -100,7 +100,7 @@ class CrosUserPolicyCacheTest : public testing::Test {
  private:
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
-  ScopedTempDir tmp_dir_;
+  base::ScopedTempDir tmp_dir_;
 
   DISALLOW_COPY_AND_ASSIGN(CrosUserPolicyCacheTest);
 };
@@ -119,7 +119,7 @@ TEST_F(CrosUserPolicyCacheTest, InitAndSetPolicy) {
       .WillOnce(InvokeCallbackArgument<0>(std::string()));
 
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
 
   EXPECT_TRUE(cache.IsReady());
   EXPECT_TRUE(data_store_->token_cache_loaded());
@@ -139,7 +139,7 @@ TEST_F(CrosUserPolicyCacheTest, InitAndSetPolicy) {
       .WillOnce(InvokeCallbackArgument<0>(serialized_response));
 
   EXPECT_TRUE(cache.SetPolicy(response));
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
 
   EXPECT_EQ(1U, cache.policy()->size());
   const PolicyMap::Entry* entry = cache.policy()->Get(key::kShowHomeButton);
@@ -174,7 +174,7 @@ TEST_F(CrosUserPolicyCacheTest, Migration) {
       .WillOnce(InvokeCallbackArgument<0>(std::string()));
 
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
 
   EXPECT_TRUE(cache.IsReady());
   EXPECT_TRUE(data_store_->token_cache_loaded());

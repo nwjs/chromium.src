@@ -5,12 +5,13 @@
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
 
 #include "chrome/browser/extensions/extension_prefs.h"
-#include "chrome/common/extensions/url_pattern.h"
+#include "extensions/common/url_pattern.h"
 #include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
 
 using extensions::MenuItem;
+using extensions::URLPatternSet;
 
 class RenderViewContextMenuTest : public testing::Test {
  public:

@@ -16,7 +16,6 @@
 #include "printing/page_size_margins.h"
 #include "skia/ext/platform_device.h"
 #include "skia/ext/vector_canvas.h"
-#include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 
 #if !defined(OS_CHROMEOS)
@@ -63,12 +62,12 @@ bool PrintWebViewHelper::PrintPages(WebFrame* frame, const WebNode& node) {
     return false;
 
   const PrintMsg_PrintPages_Params& params = *print_pages_params_;
-  PrepareFrameAndViewForPrint prep_frame_view(params.params, frame, node);
-  int page_count = 0;
-  if (!RenderPages(params, frame, node, &page_count, &prep_frame_view,
-                   &metafile)) {
+  std::vector<int> printed_pages;
+  if (!RenderPages(params, frame, node, &printed_pages, &metafile)) {
     return false;
   }
+
+  metafile.FinishDocument();
 
   // Get the size of the resulting metafile.
   uint32 buf_size = metafile.GetDataSize();
@@ -111,28 +110,11 @@ bool PrintWebViewHelper::PrintPages(WebFrame* frame, const WebNode& node) {
                              &(printed_page_params.metafile_data_handle));
   }
 
-  if (params.pages.empty()) {
-    // Send the first page with a valid handle.
-    printed_page_params.page_number = 0;
+  for (size_t i = 0; i < printed_pages.size(); ++i) {
+    printed_page_params.page_number = printed_pages[i];
     Send(new PrintHostMsg_DidPrintPage(routing_id(), printed_page_params));
-
     // Send the rest of the pages with an invalid metafile handle.
     printed_page_params.metafile_data_handle.fd = -1;
-    for (int i = 1; i < page_count; ++i) {
-      printed_page_params.page_number = i;
-      Send(new PrintHostMsg_DidPrintPage(routing_id(), printed_page_params));
-    }
-  } else {
-    // Send the first page with a valid handle.
-    printed_page_params.page_number = params.pages[0];
-    Send(new PrintHostMsg_DidPrintPage(routing_id(), printed_page_params));
-
-    // Send the rest of the pages with an invalid metafile handle.
-    printed_page_params.metafile_data_handle.fd = -1;
-    for (size_t i = 1; i < params.pages.size(); ++i) {
-      printed_page_params.page_number = params.pages[i];
-      Send(new PrintHostMsg_DidPrintPage(routing_id(), printed_page_params));
-    }
   }
   return true;
 #endif  // defined(OS_CHROMEOS)
@@ -141,40 +123,49 @@ bool PrintWebViewHelper::PrintPages(WebFrame* frame, const WebNode& node) {
 bool PrintWebViewHelper::RenderPages(const PrintMsg_PrintPages_Params& params,
                                      WebKit::WebFrame* frame,
                                      const WebKit::WebNode& node,
-                                     int* page_count,
-                                     PrepareFrameAndViewForPrint* prepare,
+                                     std::vector<int>* printed_pages,
                                      printing::Metafile* metafile) {
+  PrepareFrameAndViewForPrint prepare(params.params, frame, node);
   PrintMsg_Print_Params print_params = params.params;
-  UpdateFrameAndViewFromCssPageLayout(frame, node, prepare, print_params,
+  UpdateFrameAndViewFromCssPageLayout(frame, node, &prepare, print_params,
                                       ignore_css_margins_);
 
-  *page_count = prepare->GetExpectedPageCount();
-  if (!*page_count)
+  int page_count = prepare.GetExpectedPageCount();
+  if (!page_count)
     return false;
 
 #if !defined(OS_CHROMEOS)
-    Send(new PrintHostMsg_DidGetPrintedPagesCount(routing_id(),
-                                                  print_params.document_cookie,
-                                                  *page_count));
+  // TODO(vitalybuka): should be page_count or valid pages from params.pages.
+  // See http://crbug.com/161576
+  Send(new PrintHostMsg_DidGetPrintedPagesCount(routing_id(),
+                                                print_params.document_cookie,
+                                                page_count));
 #endif
 
-  PrintMsg_PrintPage_Params page_params;
-  page_params.params = print_params;
-  const gfx::Size& canvas_size = prepare->GetPrintCanvasSize();
   if (params.pages.empty()) {
-    for (int i = 0; i < *page_count; ++i) {
-      page_params.page_number = i;
-      PrintPageInternal(page_params, canvas_size, frame, metafile);
+    for (int i = 0; i < page_count; ++i) {
+      printed_pages->push_back(i);
     }
   } else {
+    // TODO(vitalybuka): redesign to make more code cross platform.
     for (size_t i = 0; i < params.pages.size(); ++i) {
-      page_params.page_number = params.pages[i];
-      PrintPageInternal(page_params, canvas_size, frame, metafile);
+      if (params.pages[i] >= 0 && params.pages[i] < page_count) {
+        printed_pages->push_back(params.pages[i]);
+      }
     }
   }
 
-  prepare->FinishPrinting();
-  metafile->FinishDocument();
+  if (printed_pages->empty())
+    return false;
+
+  PrintMsg_PrintPage_Params page_params;
+  page_params.params = print_params;
+  const gfx::Size& canvas_size = prepare.GetPrintCanvasSize();
+  for (size_t i = 0; i < printed_pages->size(); ++i) {
+    page_params.page_number = (*printed_pages)[i];
+    PrintPageInternal(page_params, canvas_size, frame, metafile);
+  }
+
   return true;
 }
 
@@ -192,27 +183,32 @@ void PrintWebViewHelper::PrintPageInternal(
   gfx::Rect content_area;
   GetPageSizeAndContentAreaFromPageLayout(page_layout_in_points, &page_size,
                                           &content_area);
-  SkDevice* device = metafile->StartPageForVectorCanvas(
-      page_size, content_area, scale_factor);
+  gfx::Rect canvas_area =
+      params.params.display_header_footer ? gfx::Rect(page_size) : content_area;
+
+  SkDevice* device = metafile->StartPageForVectorCanvas(page_size, canvas_area,
+                                                        scale_factor);
   if (!device)
     return;
 
   // The printPage method take a reference to the canvas we pass down, so it
   // can't be a stack object.
-  SkRefPtr<skia::VectorCanvas> canvas = new skia::VectorCanvas(device);
-  canvas->unref();  // SkRefPtr and new both took a reference.
+  skia::RefPtr<skia::VectorCanvas> canvas =
+      skia::AdoptRef(new skia::VectorCanvas(device));
   printing::MetafileSkiaWrapper::SetMetafileOnCanvas(*canvas, metafile);
   skia::SetIsDraftMode(*canvas, is_print_ready_metafile_sent_);
-  frame->printPage(params.page_number, canvas.get());
 
   if (params.params.display_header_footer) {
     // |page_number| is 0-based, so 1 is added.
-    // The scale factor on Linux is 1.
+    // TODO(vitalybuka) : why does it work only with 1.25?
     PrintHeaderAndFooter(canvas.get(), params.page_number + 1,
                          print_preview_context_.total_page_count(),
-                         scale_factor, page_layout_in_points,
-                         *header_footer_info_, params.params);
+                         scale_factor / 1.25,
+                         page_layout_in_points, *header_footer_info_,
+                         params.params);
   }
+  RenderPageContent(frame, params.page_number, canvas_area, content_area,
+                    scale_factor, canvas.get());
 
   // Done printing. Close the device context to retrieve the compiled metafile.
   if (!metafile->FinishPage())

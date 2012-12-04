@@ -24,9 +24,12 @@
 
 #include "chrome/browser/history/history.h"
 
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/json/json_writer.h"
+#include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
@@ -38,6 +41,7 @@
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/history/download_row.h"
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_notifications.h"
 #include "chrome/browser/history/history_types.h"
@@ -51,6 +55,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/profile_error_dialog.h"
 #include "chrome/browser/visitedlink/visitedlink_master.h"
+#include "chrome/common/cancelable_task_tracker.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -58,13 +63,14 @@
 #include "chrome/common/thumbnail_score.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/download_persistent_store_info.h"
 #include "content/public/browser/notification_service.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "sync/api/sync_change.h"
 #include "sync/api/sync_data.h"
 #include "sync/api/sync_error_factory.h"
+#include "sync/protocol/history_delete_directive_specifics.pb.h"
+#include "sync/protocol/proto_value_conversions.h"
 #include "sync/protocol/sync.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
@@ -74,6 +80,15 @@ using history::HistoryBackend;
 namespace {
 
 static const char* kHistoryThreadName = "Chrome_HistoryThread";
+
+std::string DeleteDirectiveToString(
+    const sync_pb::HistoryDeleteDirectiveSpecifics& delete_directive) {
+  scoped_ptr<base::DictionaryValue> value(
+      syncer::HistoryDeleteDirectiveSpecificsToValue(delete_directive));
+  std::string str;
+  base::JSONWriter::Write(value.get(), &str);
+  return str;
+}
 
 }  // namespace
 
@@ -599,6 +614,7 @@ void HistoryService::UpdateFaviconMappingsAndFetch(
 
 void HistoryService::MergeFavicon(
     const GURL& page_url,
+    const GURL& icon_url,
     history::IconType icon_type,
     scoped_refptr<base::RefCountedMemory> bitmap_data,
     const gfx::Size& pixel_size) {
@@ -607,7 +623,7 @@ void HistoryService::MergeFavicon(
     return;
 
   ScheduleAndForget(PRIORITY_NORMAL, &HistoryBackend::MergeFavicon, page_url,
-                    icon_type, bitmap_data, pixel_size);
+                    icon_url, icon_type, bitmap_data, pixel_size);
 }
 
 void HistoryService::SetFavicons(
@@ -663,13 +679,12 @@ HistoryService::Handle HistoryService::QueryURL(
 // Handle creation of a download by creating an entry in the history service's
 // 'downloads' table.
 HistoryService::Handle HistoryService::CreateDownload(
-    int32 id,
-    const content::DownloadPersistentStoreInfo& create_info,
+    const history::DownloadRow& create_info,
     CancelableRequestConsumerBase* consumer,
     const HistoryService::DownloadCreateCallback& callback) {
   DCHECK(thread_checker_.CalledOnValidThread());
   return Schedule(PRIORITY_NORMAL, &HistoryBackend::CreateDownload, consumer,
-                  new history::DownloadCreateRequest(callback), id,
+                  new history::DownloadCreateRequest(callback),
                   create_info);
 }
 
@@ -701,32 +716,15 @@ void HistoryService::CleanUpInProgressEntries() {
 
 // Handle updates for a particular download. This is a 'fire and forget'
 // operation, so we don't need to be called back.
-void HistoryService::UpdateDownload(
-    const content::DownloadPersistentStoreInfo& data) {
+void HistoryService::UpdateDownload(const history::DownloadRow& data) {
   DCHECK(thread_checker_.CalledOnValidThread());
   ScheduleAndForget(PRIORITY_NORMAL, &HistoryBackend::UpdateDownload, data);
 }
 
-void HistoryService::UpdateDownloadPath(const FilePath& path,
-                                        int64 db_handle) {
-  DCHECK(thread_checker_.CalledOnValidThread());
-  ScheduleAndForget(PRIORITY_NORMAL, &HistoryBackend::UpdateDownloadPath,
-                    path, db_handle);
-}
-
-void HistoryService::RemoveDownload(int64 db_handle) {
+void HistoryService::RemoveDownloads(const std::set<int64>& db_handles) {
   DCHECK(thread_checker_.CalledOnValidThread());
   ScheduleAndForget(PRIORITY_NORMAL,
-                    &HistoryBackend::RemoveDownload, db_handle);
-}
-
-void HistoryService::RemoveDownloadsBetween(Time remove_begin,
-                                            Time remove_end) {
-  DCHECK(thread_checker_.CalledOnValidThread());
-  ScheduleAndForget(PRIORITY_NORMAL,
-                    &HistoryBackend::RemoveDownloadsBetween,
-                    remove_begin,
-                    remove_end);
+                    &HistoryBackend::RemoveDownloads, db_handles);
 }
 
 HistoryService::Handle HistoryService::QueryHistory(
@@ -915,7 +913,13 @@ base::WeakPtr<HistoryService> HistoryService::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
-syncer::SyncError HistoryService::MergeDataAndStartSyncing(
+void HistoryService::ProcessDeleteDirectiveForTest(
+    const sync_pb::HistoryDeleteDirectiveSpecifics& delete_directive) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  ProcessDeleteDirective(delete_directive);
+}
+
+syncer::SyncMergeResult HistoryService::MergeDataAndStartSyncing(
     syncer::ModelType type,
     const syncer::SyncDataList& initial_sync_data,
     scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
@@ -927,7 +931,7 @@ syncer::SyncError HistoryService::MergeDataAndStartSyncing(
     DCHECK_EQ(it->GetDataType(), syncer::HISTORY_DELETE_DIRECTIVES);
     ProcessDeleteDirective(it->GetSpecifics().history_delete_directive());
   }
-  return syncer::SyncError();
+  return syncer::SyncMergeResult(type);
 }
 
 void HistoryService::StopSyncing(syncer::ModelType type) {
@@ -969,7 +973,7 @@ void HistoryService::SetInMemoryBackend(int backend_id,
     history::InMemoryHistoryBackend* mem_backend) {
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!history_backend_ || current_backend_id_ != backend_id) {
-    VLOG(1) << "Message from obsolete backend";
+    DVLOG(1) << "Message from obsolete backend";
     // Cleaning up the memory backend.
     delete mem_backend;
     return;
@@ -985,7 +989,7 @@ void HistoryService::NotifyProfileError(int backend_id,
                                         sql::InitStatus init_status) {
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!history_backend_ || current_backend_id_ != backend_id) {
-    VLOG(1) << "Message from obsolete backend";
+    DVLOG(1) << "Message from obsolete backend";
     return;
   }
   ShowProfileErrorDialog(
@@ -1008,14 +1012,19 @@ void HistoryService::DeleteURLsForTest(const std::vector<GURL>& urls) {
 
 void HistoryService::ExpireHistoryBetween(
     const std::set<GURL>& restrict_urls,
-    Time begin_time, Time end_time,
-    CancelableRequestConsumerBase* consumer,
-    const base::Closure& callback) {
+    Time begin_time,
+    Time end_time,
+    const base::Closure& callback,
+    CancelableTaskTracker* tracker) {
+  DCHECK(thread_);
   DCHECK(thread_checker_.CalledOnValidThread());
-  // We will update the visited links when we observe the delete notifications.
-  Schedule(PRIORITY_UI, &HistoryBackend::ExpireHistoryBetween, consumer,
-           new CancelableRequest<base::Closure>(callback),
-           restrict_urls, begin_time, end_time);
+  DCHECK(history_backend_.get());
+  tracker->PostTaskAndReply(
+      thread_->message_loop_proxy(),
+      FROM_HERE,
+      base::Bind(&HistoryBackend::ExpireHistoryBetween,
+                 history_backend_, restrict_urls, begin_time, end_time),
+      callback);
 }
 
 void HistoryService::BroadcastNotificationsHelper(
@@ -1071,7 +1080,7 @@ void HistoryService::LoadBackendIfNecessary() {
 void HistoryService::OnDBLoaded(int backend_id) {
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!history_backend_ || current_backend_id_ != backend_id) {
-    VLOG(1) << "Message from obsolete backend";
+    DVLOG(1) << "Message from obsolete backend";
     return;
   }
   backend_loaded_ = true;
@@ -1096,7 +1105,7 @@ bool HistoryService::GetRowForURL(const GURL& url, history::URLRow* url_row) {
 void HistoryService::StartTopSitesMigration(int backend_id) {
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!history_backend_ || current_backend_id_ != backend_id) {
-    VLOG(1) << "Message from obsolete backend";
+    DVLOG(1) << "Message from obsolete backend";
     return;
   }
   needs_top_sites_migration_ = true;
@@ -1136,8 +1145,87 @@ void HistoryService::NotifyVisitDBObserversOnAddVisit(
 void HistoryService::ProcessDeleteDirective(
     const sync_pb::HistoryDeleteDirectiveSpecifics& delete_directive) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  // TODO(akalin): Actually process the delete directive.
+
+  DVLOG(1) << "Processing delete directive: "
+           << DeleteDirectiveToString(delete_directive);
+
+  base::Closure done_callback =
+      base::Bind(&HistoryService::OnDeleteDirectiveProcessed,
+                 weak_ptr_factory_.GetWeakPtr(),
+                 delete_directive);
+
+  // Execute |done_callback| on return unless we pass it to something
+  // else.
+  base::ScopedClosureRunner scoped_done_callback(done_callback);
+
+  // Exactly one directive must be filled in.  If not, ignore.
+  if (delete_directive.has_global_id_directive() ==
+      delete_directive.has_time_range_directive()) {
+    return;
+  }
+
+  base::Closure backend_task;
+
+  if (delete_directive.has_global_id_directive()) {
+    const sync_pb::GlobalIdDirective& global_id_directive =
+        delete_directive.global_id_directive();
+    std::vector<base::Time> times;
+    for (int i = 0; i < global_id_directive.global_id_size(); ++i) {
+      int64 global_id = global_id_directive.global_id(i);
+      // The global id is just an internal time value.
+      base::Time time = base::Time::FromInternalValue(global_id);
+      times.push_back(time);
+    }
+
+    if (!times.empty()) {
+      backend_task =
+          base::Bind(&HistoryBackend::ExpireHistoryForTimes,
+                     history_backend_, times);
+    }
+  } else if (delete_directive.has_time_range_directive()) {
+    const sync_pb::TimeRangeDirective& time_range_directive =
+        delete_directive.time_range_directive();
+    // {start,end}_time_usec must both be filled in.  If not, ignore.
+    if (!time_range_directive.has_start_time_usec() ||
+        !time_range_directive.has_end_time_usec()) {
+      return;
+    }
+
+    // The directive is for the closed interval [start_time_usec,
+    // end_time_usec], but ExpireHistoryBetween() expects the
+    // half-open interval [begin_time, end_time), so add 1 to
+    // end_time_usec before converting.
+    base::Time begin_time =
+        base::Time::UnixEpoch() +
+        base::TimeDelta::FromMicroseconds(
+            time_range_directive.start_time_usec());
+    base::Time end_time =
+        base::Time::UnixEpoch() +
+        base::TimeDelta::FromMicroseconds(
+            time_range_directive.end_time_usec() + 1);
+
+    backend_task =
+        base::Bind(&HistoryBackend::ExpireHistoryBetween,
+                   history_backend_, std::set<GURL>(),
+                   begin_time, end_time);
+  }
+
+  if (!backend_task.is_null()) {
+    LoadBackendIfNecessary();
+    DCHECK(thread_);
+    if (thread_->message_loop_proxy()->PostTaskAndReply(
+            FROM_HERE,
+            backend_task,
+            done_callback)) {
+      ignore_result(scoped_done_callback.Release());
+    }
+  }
+}
+
+void HistoryService::OnDeleteDirectiveProcessed(
+    const sync_pb::HistoryDeleteDirectiveSpecifics& delete_directive) {
+  DVLOG(1) << "Processed delete directive: "
+           << DeleteDirectiveToString(delete_directive);
   // TODO(akalin): Keep track of which delete directives we've already
   // processed.
-  NOTREACHED();
 }

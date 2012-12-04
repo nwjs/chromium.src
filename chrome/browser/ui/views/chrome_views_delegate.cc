@@ -25,13 +25,14 @@
 #endif
 
 #if defined(USE_AURA) && !defined(OS_CHROMEOS)
+#include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #include "ui/views/widget/native_widget_aura.h"
-#include "ui/views/widget/desktop_native_widget_aura.h"
 #endif
 
 #if defined(USE_ASH)
 #include "ash/shell.h"
 #include "chrome/browser/ui/ash/ash_init.h"
+#include "chrome/browser/ui/ash/ash_util.h"
 #endif
 
 namespace {
@@ -133,10 +134,10 @@ HICON ChromeViewsDelegate::GetDefaultWindowIcon() const {
 views::NonClientFrameView* ChromeViewsDelegate::CreateDefaultNonClientFrameView(
     views::Widget* widget) {
 #if defined(USE_ASH)
-  return ash::Shell::GetInstance()->CreateDefaultNonClientFrameView(widget);
-#else
-  return NULL;
+  if (chrome::IsNativeViewInAsh(widget->GetNativeView()))
+    return ash::Shell::GetInstance()->CreateDefaultNonClientFrameView(widget);
 #endif
+  return NULL;
 }
 
 bool ChromeViewsDelegate::UseTransparentWindows() const {

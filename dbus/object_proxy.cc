@@ -12,6 +12,7 @@
 #include "base/stringprintf.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
+#include "dbus/dbus_statistics.h"
 #include "dbus/message.h"
 #include "dbus/object_path.h"
 #include "dbus/object_proxy.h"
@@ -25,7 +26,7 @@ const char kErrorServiceUnknown[] = "org.freedesktop.DBus.Error.ServiceUnknown";
 const int kSuccessRatioHistogramMaxValue = 2;
 
 // The path of D-Bus Object sending NameOwnerChanged signal.
-const char kDbusSystemObjectPath[] = "/org/freedesktop/DBus";
+const char kDBusSystemObjectPath[] = "/org/freedesktop/DBus";
 
 // Gets the absolute signal name by concatenating the interface name and
 // the signal name. Used for building keys for method_table_ in
@@ -83,6 +84,9 @@ Response* ObjectProxy::CallMethodAndBlock(MethodCall* method_call,
   UMA_HISTOGRAM_ENUMERATION("DBus.SyncMethodCallSuccess",
                             response_message ? 1 : 0,
                             kSuccessRatioHistogramMaxValue);
+  statistics::AddBlockingSentMethodCall(service_name_,
+                                        method_call->GetInterface(),
+                                        method_call->GetMember());
 
   if (!response_message) {
     LogMethodCallFailure(method_call->GetInterface(),
@@ -144,6 +148,10 @@ void ObjectProxy::CallMethodWithErrorCallback(MethodCall* method_call,
                                   callback,
                                   error_callback,
                                   start_time);
+  statistics::AddSentMethodCall(service_name_,
+                                method_call->GetInterface(),
+                                method_call->GetMember());
+
   // Wait for the response in the D-Bus thread.
   bus_->PostTaskToDBusThread(FROM_HERE, task);
 }
@@ -408,6 +416,12 @@ void ObjectProxy::OnConnected(OnConnectedCallback on_connected_callback,
   on_connected_callback.Run(interface_name, signal_name, success);
 }
 
+void ObjectProxy::SetNameOwnerChangedCallback(SignalCallback callback) {
+  bus_->AssertOnOriginThread();
+
+  name_owner_changed_callback_ = callback;
+}
+
 DBusHandlerResult ObjectProxy::HandleMessage(
     DBusConnection* connection,
     DBusMessage* raw_message) {
@@ -427,16 +441,18 @@ DBusHandlerResult ObjectProxy::HandleMessage(
   // allow other object proxies to handle instead.
   const dbus::ObjectPath path = signal->GetPath();
   if (path != object_path_) {
-    if (path.value() == kDbusSystemObjectPath &&
+    if (path.value() == kDBusSystemObjectPath &&
         signal->GetMember() == "NameOwnerChanged") {
       // Handle NameOwnerChanged separately
-      return HandleNameOwnerChanged(signal.get());
+      return HandleNameOwnerChanged(signal.Pass());
     }
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
   }
 
   const std::string interface = signal->GetInterface();
   const std::string member = signal->GetMember();
+
+  statistics::AddReceivedSignal(service_name_, interface, member);
 
   // Check if we know about the signal.
   const std::string absolute_signal_name = GetAbsoluteSignalName(
@@ -619,7 +635,8 @@ void ObjectProxy::UpdateNameOwnerAndBlock() {
     service_name_owner_.clear();
 }
 
-DBusHandlerResult ObjectProxy::HandleNameOwnerChanged(Signal* signal) {
+DBusHandlerResult ObjectProxy::HandleNameOwnerChanged(
+    scoped_ptr<Signal> signal) {
   DCHECK(signal);
   bus_->AssertOnDBusThread();
 
@@ -627,18 +644,28 @@ DBusHandlerResult ObjectProxy::HandleNameOwnerChanged(Signal* signal) {
   if (signal->GetMember() == "NameOwnerChanged" &&
       signal->GetInterface() == "org.freedesktop.DBus" &&
       signal->GetSender() == "org.freedesktop.DBus") {
-    MessageReader reader(signal);
+    MessageReader reader(signal.get());
     std::string name, old_owner, new_owner;
     if (reader.PopString(&name) &&
         reader.PopString(&old_owner) &&
         reader.PopString(&new_owner) &&
         name == service_name_) {
       service_name_owner_ = new_owner;
-      return DBUS_HANDLER_RESULT_HANDLED;
+      if (!name_owner_changed_callback_.is_null()) {
+        const base::TimeTicks start_time = base::TimeTicks::Now();
+        Signal* released_signal = signal.release();
+        bus_->PostTaskToOriginThread(FROM_HERE,
+                                     base::Bind(&ObjectProxy::RunMethod,
+                                                this,
+                                                start_time,
+                                                name_owner_changed_callback_,
+                                                released_signal));
+      }
     }
   }
 
-  // Untrusted or uninteresting signal
+  // Always return unhandled to let other object proxies handle the same
+  // signal.
   return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 

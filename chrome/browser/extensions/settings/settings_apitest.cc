@@ -129,7 +129,7 @@ class ExtensionSettingsApiTest : public ExtensionApiTest {
   }
 
   void InitSync(syncer::SyncChangeProcessor* sync_processor) {
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     InitSyncWithSyncableService(
         sync_processor,
         browser()->profile()->GetExtensionService()->settings_frontend()->
@@ -137,7 +137,7 @@ class ExtensionSettingsApiTest : public ExtensionApiTest {
   }
 
   void SendChanges(const syncer::SyncChangeList& change_list) {
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     SendChangesToSyncableService(
         change_list,
         browser()->profile()->GetExtensionService()->settings_frontend()->
@@ -207,7 +207,7 @@ class ExtensionSettingsApiTest : public ExtensionApiTest {
         scoped_ptr<syncer::SyncChangeProcessor>(
             new SyncChangeProcessorDelegate(sync_processor)),
         scoped_ptr<syncer::SyncErrorFactory>(
-            new syncer::SyncErrorFactoryMock())).IsSet());
+            new syncer::SyncErrorFactoryMock())).error().IsSet());
   }
 
   void SendChangesToSyncableService(

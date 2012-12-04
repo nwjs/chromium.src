@@ -33,7 +33,6 @@
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/download_interrupt_reasons.h"
 #include "content/public/browser/download_manager_delegate.h"
-#include "content/public/browser/download_persistent_store_info.h"
 #include "content/public/browser/download_url_parameters.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
@@ -61,9 +60,12 @@ void BeginDownload(scoped_ptr<DownloadUrlParameters> params) {
       request.get(), params->referrer().policy);
   request->set_load_flags(request->load_flags() | params->load_flags());
   request->set_method(params->method());
-  if (!params->post_body().empty())
-    request->AppendBytesToUpload(params->post_body().data(),
-                                 params->post_body().size());
+  if (!params->post_body().empty()) {
+    scoped_refptr<net::UploadData> upload_data(new net::UploadData());
+    upload_data->AppendBytes(params->post_body().data(),
+                             params->post_body().size());
+    request->set_upload(upload_data);
+  }
   if (params->post_id() >= 0) {
     // The POST in this case does not have an actual body, and only works
     // when retrieving data from cache. This is done because we don't want
@@ -141,9 +143,29 @@ class DownloadItemFactoryImpl : public DownloadItemFactory {
     virtual DownloadItemImpl* CreatePersistedItem(
         DownloadItemImplDelegate* delegate,
         DownloadId download_id,
-        const DownloadPersistentStoreInfo& info,
+        const FilePath& path,
+        const GURL& url,
+        const GURL& referrer_url,
+        const base::Time& start_time,
+        const base::Time& end_time,
+        int64 received_bytes,
+        int64 total_bytes,
+        DownloadItem::DownloadState state,
+        bool opened,
         const net::BoundNetLog& bound_net_log) OVERRIDE {
-      return new DownloadItemImpl(delegate, download_id, info, bound_net_log);
+      return new DownloadItemImpl(
+          delegate,
+          download_id,
+          path,
+          url,
+          referrer_url,
+          start_time,
+          end_time,
+          received_bytes,
+          total_bytes,
+          state,
+          opened,
+          bound_net_log);
     }
 
     virtual DownloadItemImpl* CreateActiveItem(
@@ -259,8 +281,6 @@ void DownloadManagerImpl::Shutdown() {
   FOR_EACH_OBSERVER(Observer, observers_, ManagerGoingDown(this));
   // TODO(benjhayden): Consider clearing observers_.
 
-  AssertContainersConsistent();
-
   // Go through all downloads in downloads_.  Dangerous ones we need to
   // remove on disk, and in progress ones we need to cancel.
   for (DownloadMap::iterator it = downloads_.begin(); it != downloads_.end();) {
@@ -284,8 +304,6 @@ void DownloadManagerImpl::Shutdown() {
       download->Delete(DownloadItem::DELETE_DUE_TO_BROWSER_SHUTDOWN);
     } else if (download->IsPartialDownload()) {
       download->Cancel(false);
-      if (delegate_)
-        delegate_->UpdateItemInPersistentStore(download);
     }
   }
 
@@ -293,12 +311,7 @@ void DownloadManagerImpl::Shutdown() {
   // and all in progress downloads have been cancelled.  We can now delete
   // anything left.
 
-  // We delete the downloads before clearing the active_downloads_ map
-  // so that downloads in the COMPLETING_INTERNAL state (which will have
-  // ignored the Cancel() above) will still show up in active_downloads_
-  // in order to satisfy the invariants enforced in AssertStateConsistent().
   STLDeleteValues(&downloads_);
-  active_downloads_.clear();
   downloads_.clear();
 
   // We'll have nothing more to report to the observers after this point.
@@ -361,8 +374,7 @@ void DownloadManagerImpl::CheckForHistoryFilesRemoval() {
   for (DownloadMap::iterator it = downloads_.begin();
        it != downloads_.end(); ++it) {
     DownloadItemImpl* item = it->second;
-    if (item->IsPersisted())
-      CheckForFileRemoval(item);
+    CheckForFileRemoval(item);
   }
 }
 
@@ -414,9 +426,6 @@ DownloadItemImpl* DownloadManagerImpl::CreateDownloadItem(
 
   DCHECK(!ContainsKey(downloads_, download->GetId()));
   downloads_[download->GetId()] = download;
-  DCHECK(!ContainsKey(active_downloads_, download->GetId()));
-  active_downloads_[download->GetId()] = download;
-
   return download;
 }
 
@@ -427,7 +436,7 @@ DownloadItemImpl* DownloadManagerImpl::CreateSavePackageDownloadItem(
     DownloadItem::Observer* observer) {
   net::BoundNetLog bound_net_log =
       net::BoundNetLog::Make(net_log_, net::NetLog::SOURCE_DOWNLOAD);
-  DownloadItemImpl* download = item_factory_->CreateSavePageItem(
+  DownloadItemImpl* download_item = item_factory_->CreateSavePageItem(
       this,
       main_file_path,
       page_url,
@@ -435,80 +444,23 @@ DownloadItemImpl* DownloadManagerImpl::CreateSavePackageDownloadItem(
       mime_type,
       bound_net_log);
 
-  download->AddObserver(observer);
+  download_item->AddObserver(observer);
+  DCHECK(!ContainsKey(downloads_, download_item->GetId()));
+  downloads_[download_item->GetId()] = download_item;
+  FOR_EACH_OBSERVER(Observer, observers_, OnDownloadCreated(
+      this, download_item));
 
-  DCHECK(!ContainsKey(downloads_, download->GetId()));
-  downloads_[download->GetId()] = download;
+  // TODO(asanka): Make the ui an observer.
+  ShowDownloadInBrowser(download_item);
 
-  FOR_EACH_OBSERVER(Observer, observers_, OnDownloadCreated(this, download));
-
-  // Will notify the observer in the callback.
-  if (delegate_)
-    delegate_->AddItemToPersistentStore(download);
-
-  return download;
-}
-
-void DownloadManagerImpl::AssertStateConsistent(
-    DownloadItemImpl* download) const {
-  CHECK(ContainsKey(downloads_, download->GetId()));
-
-  int64 state = download->GetState();
-  base::debug::Alias(&state);
-  if (ContainsKey(active_downloads_, download->GetId())) {
-    if (download->IsPersisted())
-      CHECK_EQ(DownloadItem::IN_PROGRESS, download->GetState());
-    if (DownloadItem::IN_PROGRESS != download->GetState())
-      CHECK_EQ(DownloadItem::kUninitializedHandle, download->GetDbHandle());
-  }
-  if (DownloadItem::IN_PROGRESS == download->GetState())
-    CHECK(ContainsKey(active_downloads_, download->GetId()));
-}
-
-void DownloadManagerImpl::DownloadCompleted(DownloadItemImpl* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(download);
-  if (delegate_)
-    delegate_->UpdateItemInPersistentStore(download);
-  active_downloads_.erase(download->GetId());
-  AssertStateConsistent(download);
+  return download_item;
 }
 
 void DownloadManagerImpl::CancelDownload(int32 download_id) {
-  // A cancel at the right time could remove the download from the
-  // |active_downloads_| map before we get here.
-  if (ContainsKey(active_downloads_, download_id))
-    active_downloads_[download_id]->Cancel(true);
-}
-
-void DownloadManagerImpl::UpdatePersistence(DownloadItemImpl* download) {
-  if (delegate_)
-    delegate_->UpdateItemInPersistentStore(download);
-}
-
-void DownloadManagerImpl::DownloadStopped(DownloadItemImpl* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  VLOG(20) << __FUNCTION__ << "()"
-           << " download = " << download->DebugString(true);
-
-  RemoveFromActiveList(download);
-  // This function is called from the DownloadItem, so DI state
-  // should already have been updated.
-  AssertStateConsistent(download);
-}
-
-void DownloadManagerImpl::RemoveFromActiveList(DownloadItemImpl* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(download);
-
-  // Clean up will happen when the history system create callback runs if we
-  // don't have a valid db_handle yet.
-  if (download->IsPersisted()) {
-    active_downloads_.erase(download->GetId());
-    if (delegate_)
-      delegate_->UpdateItemInPersistentStore(download);
-  }
+  DownloadItem* download = GetDownload(download_id);
+  if (!download || !download->IsInProgress())
+    return;
+  download->Cancel(true);
 }
 
 void DownloadManagerImpl::SetDownloadItemFactoryForTesting(
@@ -548,14 +500,6 @@ void DownloadManagerImpl::DownloadRemoved(DownloadItemImpl* download) {
       downloads_.find(download->GetId()) == downloads_.end())
     return;
 
-  // TODO(benjhayden,rdsmith): Remove this.
-  if (!download->IsPersisted())
-    return;
-
-  // Make history update.
-  if (delegate_)
-    delegate_->RemoveItemFromPersistentStore(download);
-
   // Remove from our tables and delete.
   int downloads_count =
       RemoveDownloadItems(DownloadItemImplVector(1, download));
@@ -564,19 +508,14 @@ void DownloadManagerImpl::DownloadRemoved(DownloadItemImpl* download) {
 
 int DownloadManagerImpl::RemoveDownloadsBetween(base::Time remove_begin,
                                                 base::Time remove_end) {
-  if (delegate_)
-    delegate_->RemoveItemsFromPersistentStoreBetween(remove_begin, remove_end);
-
   DownloadItemImplVector pending_deletes;
   for (DownloadMap::const_iterator it = downloads_.begin();
       it != downloads_.end();
       ++it) {
     DownloadItemImpl* download = it->second;
-    if (download->IsPersisted() &&
-        download->GetStartTime() >= remove_begin &&
+    if (download->GetStartTime() >= remove_begin &&
         (remove_end.is_null() || download->GetStartTime() < remove_end) &&
         (download->IsComplete() || download->IsCancelled())) {
-      AssertStateConsistent(download);
       download->NotifyRemoved();
       pending_deletes.push_back(download);
     }
@@ -614,93 +553,37 @@ void DownloadManagerImpl::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
-// Operations posted to us from the history service ----------------------------
-
-// The history service has retrieved all download entries. 'entries' contains
-// 'DownloadPersistentStoreInfo's in sorted order (by ascending start_time).
-void DownloadManagerImpl::OnPersistentStoreQueryComplete(
-    std::vector<DownloadPersistentStoreInfo>* entries) {
-  history_size_ = entries->size();
-  for (size_t i = 0; i < entries->size(); ++i) {
-    int64 db_handle = entries->at(i).db_handle;
-    base::debug::Alias(&db_handle);
-
-    net::BoundNetLog bound_net_log =
-        net::BoundNetLog::Make(net_log_, net::NetLog::SOURCE_DOWNLOAD);
-    DownloadItemImpl* download = item_factory_->CreatePersistedItem(
-        this, GetNextId(), entries->at(i), bound_net_log);
-    DCHECK(!ContainsKey(downloads_, download->GetId()));
-    downloads_[download->GetId()] = download;
-    FOR_EACH_OBSERVER(Observer, observers_, OnDownloadCreated(this, download));
-    VLOG(20) << __FUNCTION__ << "()" << i << ">"
-             << " download = " << download->DebugString(true);
-  }
-  CheckForHistoryFilesRemoval();
+DownloadItem* DownloadManagerImpl::CreateDownloadItem(
+    const FilePath& path,
+    const GURL& url,
+    const GURL& referrer_url,
+    const base::Time& start_time,
+    const base::Time& end_time,
+    int64 received_bytes,
+    int64 total_bytes,
+    DownloadItem::DownloadState state,
+    bool opened) {
+  DownloadItemImpl* item = item_factory_->CreatePersistedItem(
+      this,
+      GetNextId(),
+      path,
+      url,
+      referrer_url,
+      start_time,
+      end_time,
+      received_bytes,
+      total_bytes,
+      state,
+      opened,
+      net::BoundNetLog::Make(net_log_, net::NetLog::SOURCE_DOWNLOAD));
+  DCHECK(!ContainsKey(downloads_, item->GetId()));
+  downloads_[item->GetId()] = item;
+  FOR_EACH_OBSERVER(Observer, observers_, OnDownloadCreated(this, item));
+  VLOG(20) << __FUNCTION__ << "() download = " << item->DebugString(true);
+  return item;
 }
 
-void DownloadManagerImpl::AddDownloadItemToHistory(DownloadItemImpl* download,
-                                                   int64 db_handle) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK_NE(DownloadItem::kUninitializedHandle, db_handle);
-  DCHECK(!download->IsPersisted());
-  download->SetDbHandle(db_handle);
-  download->SetIsPersisted();
-
-  RecordHistorySize(history_size_);
-  // Not counting |download|.
-  ++history_size_;
-
-  // Show in the appropriate browser UI.
-  // This includes buttons to save or cancel, for a dangerous download.
-  ShowDownloadInBrowser(download);
-}
-
-void DownloadManagerImpl::OnItemAddedToPersistentStore(int32 download_id,
-                                                       int64 db_handle) {
-  // It's valid that we don't find a matching item, i.e. on shutdown.
-  if (!ContainsKey(downloads_, download_id))
-    return;
-
-  DownloadItemImpl* item = downloads_[download_id];
-  AddDownloadItemToHistory(item, db_handle);
-  if (item->IsSavePackageDownload()) {
-    OnSavePageItemAddedToPersistentStore(item);
-  } else {
-    OnDownloadItemAddedToPersistentStore(item);
-  }
-}
-
-// Once the new DownloadItem has been committed to the persistent store,
-// associate it with its db_handle (TODO(benjhayden) merge db_handle with id),
-// show it in the browser (TODO(benjhayden) the ui should observe us instead),
-// and notify observers (TODO(benjhayden) observers should be able to see the
-// item when it's created so they can observe it directly. Are there any
-// clients that actually need to know when the item is added to the history?).
-void DownloadManagerImpl::OnDownloadItemAddedToPersistentStore(
-    DownloadItemImpl* item) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  VLOG(20) << __FUNCTION__ << "()" << " db_handle = " << item->GetDbHandle()
-           << " download_id = " << item->GetId()
-           << " download = " << item->DebugString(true);
-
-  // If the download is still in progress, try to complete it.
-  //
-  // Otherwise, download has been cancelled or interrupted before we've
-  // received the DB handle.  We post one final message to the history
-  // service so that it can be properly in sync with the DownloadItem's
-  // completion status, and also inform any observers so that they get
-  // more than just the start notification.
-  if (item->IsInProgress()) {
-    item->MaybeCompleteDownload();
-  } else {
-    DCHECK(item->IsCancelled());
-    active_downloads_.erase(item->GetId());
-    if (delegate_)
-      delegate_->UpdateItemInPersistentStore(item);
-    item->UpdateObservers();
-  }
-}
-
+// TODO(asanka) Move into an observer.
 void DownloadManagerImpl::ShowDownloadInBrowser(DownloadItemImpl* download) {
   // The 'contents' may no longer exist if the user closed the contents before
   // we get this start completion event.
@@ -716,14 +599,10 @@ void DownloadManagerImpl::ShowDownloadInBrowser(DownloadItemImpl* download) {
 }
 
 int DownloadManagerImpl::InProgressCount() const {
-  // Don't use active_downloads_.count() because Cancel() leaves items in
-  // active_downloads_ if they haven't made it into the persistent store yet.
-  // Need to actually look at each item's state.
   int count = 0;
-  for (DownloadMap::const_iterator it = active_downloads_.begin();
-       it != active_downloads_.end(); ++it) {
-    DownloadItemImpl* item = it->second;
-    if (item->IsInProgress())
+  for (DownloadMap::const_iterator it = downloads_.begin();
+       it != downloads_.end(); ++it) {
+    if (it->second->IsInProgress())
       ++count;
   }
   return count;
@@ -740,73 +619,7 @@ void DownloadManagerImpl::GetAllDownloads(DownloadVector* downloads) {
   }
 }
 
-// Confirm that everything in all maps is also in |downloads_|, and that
-// everything in |downloads_| is also in some other map.
-void DownloadManagerImpl::AssertContainersConsistent() const {
-#if !defined(NDEBUG)
-  // Turn everything into sets.
-  const DownloadMap* input_maps[] = {&active_downloads_};
-  DownloadSet active_set;
-  DownloadSet* all_sets[] = {&active_set};
-  DCHECK_EQ(ARRAYSIZE_UNSAFE(input_maps), ARRAYSIZE_UNSAFE(all_sets));
-  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(input_maps); i++) {
-    for (DownloadMap::const_iterator it = input_maps[i]->begin();
-         it != input_maps[i]->end(); ++it) {
-      all_sets[i]->insert(&*it->second);
-    }
-  }
-
-  DownloadSet all_downloads;
-  for (DownloadMap::const_iterator it = downloads_.begin();
-       it != downloads_.end(); ++it) {
-    all_downloads.insert(it->second);
-  }
-
-  // Check if each set is fully present in downloads, and create a union.
-  for (int i = 0; i < static_cast<int>(ARRAYSIZE_UNSAFE(all_sets)); i++) {
-    DownloadSet remainder;
-    std::insert_iterator<DownloadSet> insert_it(remainder, remainder.begin());
-    std::set_difference(all_sets[i]->begin(), all_sets[i]->end(),
-                        all_downloads.begin(), all_downloads.end(),
-                        insert_it);
-    DCHECK(remainder.empty());
-  }
-#endif
-}
-
-// SavePackage will call SavePageDownloadFinished upon completion/cancellation.
-// The history callback will call OnSavePageItemAddedToPersistentStore.
-// If the download finishes before the history callback,
-// OnSavePageItemAddedToPersistentStore calls SavePageDownloadFinished, ensuring
-// that the history event is update regardless of the order in which these two
-// events complete.
-// If something removes the download item from the download manager (Remove,
-// Shutdown) the result will be that the SavePage system will not be able to
-// properly update the download item (which no longer exists) or the download
-// history, but the action will complete properly anyway.  This may lead to the
-// history entry being wrong on a reload of chrome (specifically in the case of
-// Initiation -> History Callback -> Removal -> Completion), but there's no way
-// to solve that without canceling on Remove (which would then update the DB).
-
-void DownloadManagerImpl::OnSavePageItemAddedToPersistentStore(
-    DownloadItemImpl* item) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  // Finalize this download if it finished before the history callback.
-  if (!item->IsInProgress())
-    SavePageDownloadFinished(item);
-}
-
-void DownloadManagerImpl::SavePageDownloadFinished(DownloadItem* download) {
-  if (download->IsPersisted()) {
-    if (delegate_)
-      delegate_->UpdateItemInPersistentStore(download);
-  }
-}
-
 void DownloadManagerImpl::DownloadOpened(DownloadItemImpl* download) {
-  if (delegate_)
-    delegate_->UpdateItemInPersistentStore(download);
   int num_unopened = 0;
   for (DownloadMap::iterator it = downloads_.begin();
        it != downloads_.end(); ++it) {
@@ -816,31 +629,6 @@ void DownloadManagerImpl::DownloadOpened(DownloadItemImpl* download) {
       ++num_unopened;
   }
   RecordOpensOutstanding(num_unopened);
-}
-
-void DownloadManagerImpl::DownloadRenamedToIntermediateName(
-    DownloadItemImpl* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // download->GetFullPath() is only expected to be meaningful after this
-  // callback is received. Therefore we can now add the download to a persistent
-  // store. If the rename failed, we processed an interrupt
-  // before we receive the DownloadRenamedToIntermediateName() call.
-  if (delegate_) {
-    delegate_->AddItemToPersistentStore(download);
-  } else {
-    OnItemAddedToPersistentStore(download->GetId(),
-                                 DownloadItem::kUninitializedHandle);
-  }
-}
-
-void DownloadManagerImpl::DownloadRenamedToFinalName(
-    DownloadItemImpl* download) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // If the rename failed, we processed an interrupt before we get here.
-  if (delegate_) {
-    delegate_->UpdatePathForItemInPersistentStore(
-        download, download->GetFullPath());
-  }
 }
 
 }  // namespace content

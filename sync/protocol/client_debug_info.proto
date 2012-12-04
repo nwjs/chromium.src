@@ -6,9 +6,30 @@
 
 syntax = "proto2";
 
+option optimize_for = LITE_RUNTIME;
+option retain_unknown_fields = true;
+
 package sync_pb;
 
 import "get_updates_caller_info.proto";
+
+// Per-type hint information.
+message TypeHint {
+  // The data type this hint applied to.
+  optional int32 data_type_id = 1;
+
+  // Whether or not a valid hint is provided.
+  optional bool has_valid_hint = 2;
+}
+
+// Information about the source that triggered a sync.
+message SourceInfo {
+  // An enum indicating the reason for the nudge.
+  optional GetUpdatesCallerInfo.GetUpdatesSource source = 1;
+
+  // The per-type hint information associated with the nudge.
+  repeated TypeHint type_hint = 2;
+}
 
 // The additional info here is from the StatusController. They get sent when
 // the event SYNC_CYCLE_COMPLETED  is sent.
@@ -35,6 +56,12 @@ message SyncCycleCompletedEventInfo {
   optional int32 num_updates_downloaded = 8;
   optional int32 num_reflected_updates_downloaded = 9;
   optional GetUpdatesCallerInfo caller_info = 10;
+
+  // A list of all the sources that were merged into this session.
+  //
+  // Some scenarios, notably mode switches and canary jobs, can spuriously add
+  // back-to-back duplicate sources to this list.
+  repeated SourceInfo source_info = 11;
 }
 
 // Datatype specifics statistics gathered at association time.
@@ -79,11 +106,11 @@ message DebugEventInfo {
     // the absence of bugs.
     STOP_SYNCING_PERMANENTLY = 6; // Server sent stop syncing permanently.
 
-    ENCRYPTED_TYPES_CHANGED = 9; // Set of encrypted types has changed.
     ENCRYPTION_COMPLETE = 7; // Client has finished encrypting all data.
     ACTIONABLE_ERROR = 8; // Client received an actionable error.
-    BOOTSTRAP_TOKEN_UPDATED = 9;  // A new cryptographer bootstrap token was
-                                  // generated.
+    ENCRYPTED_TYPES_CHANGED = 9; // Set of encrypted types has changed.
+                                 // NOTE: until m25 bootstrap token updated also
+                                 // shared this field (erroneously).
     PASSPHRASE_TYPE_CHANGED = 10;  // The encryption passphrase state changed.
     KEYSTORE_TOKEN_UPDATED = 11;  // A new keystore encryption token was
                                   // persisted.
@@ -91,6 +118,8 @@ message DebugEventInfo {
                                   // at least partially successful
                                   // configuration and is once again syncing
                                   // with the server.
+    BOOTSTRAP_TOKEN_UPDATED = 13;  // A new cryptographer bootstrap token was
+                                   // generated.
   }
 
   // Each of the following fields correspond to different kinds of events. as

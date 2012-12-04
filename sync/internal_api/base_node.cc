@@ -4,6 +4,8 @@
 
 #include "sync/internal_api/public/base_node.h"
 
+#include <stack>
+
 #include "base/base64.h"
 #include "base/sha1.h"
 #include "base/string_number_conversions.h"
@@ -203,10 +205,6 @@ std::string BaseNode::GetTitle() const {
   return result;
 }
 
-GURL BaseNode::GetURL() const {
-  return GURL(GetBookmarkSpecifics().url());
-}
-
 bool BaseNode::HasChildren() const {
   syncable::Directory* dir = GetTransaction()->GetDirectory();
   syncable::BaseTransaction* trans = GetTransaction()->GetWrappedTrans();
@@ -240,6 +238,34 @@ int64 BaseNode::GetFirstChildId() const {
   return IdToMetahandle(GetTransaction()->GetWrappedTrans(), id_string);
 }
 
+int BaseNode::GetTotalNodeCount() const {
+  syncable::Directory* dir = GetTransaction()->GetDirectory();
+  syncable::BaseTransaction* trans = GetTransaction()->GetWrappedTrans();
+
+  int count = 1;  // Start with one to include the node itself.
+
+  std::stack<int64> stack;
+  stack.push(GetFirstChildId());
+  while (!stack.empty()) {
+    int64 handle = stack.top();
+    stack.pop();
+    if (handle == kInvalidId)
+      continue;
+    count++;
+    syncable::Entry entry(trans, syncable::GET_BY_HANDLE, handle);
+    if (!entry.good())
+      continue;
+    syncable::Id id = entry.Get(syncable::ID);
+    syncable::Id child_id;
+    if (dir->GetFirstChildId(trans, id, &child_id) && !child_id.IsRoot())
+      stack.push(IdToMetahandle(trans, child_id));
+    syncable::Id successor_id = entry.Get(syncable::NEXT_ID);
+    if (!successor_id.IsRoot())
+      stack.push(IdToMetahandle(trans, successor_id));
+  }
+  return count;
+}
+
 DictionaryValue* BaseNode::GetSummaryAsValue() const {
   DictionaryValue* node_info = new DictionaryValue();
   node_info->SetString("id", base::Int64ToString(GetId()));
@@ -267,15 +293,6 @@ DictionaryValue* BaseNode::GetDetailsAsValue() const {
                        base::Int64ToString(GetFirstChildId()));
   node_info->Set("entry", GetEntry()->ToValue());
   return node_info;
-}
-
-void BaseNode::GetFaviconBytes(std::vector<unsigned char>* output) const {
-  if (!output)
-    return;
-  const std::string& favicon = GetBookmarkSpecifics().favicon();
-  output->assign(reinterpret_cast<const unsigned char*>(favicon.data()),
-      reinterpret_cast<const unsigned char*>(favicon.data() +
-                                             favicon.length()));
 }
 
 int64 BaseNode::GetExternalId() const {

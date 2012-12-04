@@ -35,34 +35,52 @@ cr.define('options', function() {
   ExtensionsList.prototype = {
     __proto__: HTMLDivElement.prototype,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
       this.textContent = '';
 
       this.showExtensionNodes_();
     },
 
+    getIdQueryParam_: function() {
+      return parseQueryParams(document.location)['id'];
+    },
+
     /**
      * Creates all extension items from scratch.
      * @private
      */
-     showExtensionNodes_: function() {
-       // Iterate over the extension data and add each item to the list.
-       this.data_.extensions.forEach(this.createNode_, this);
+    showExtensionNodes_: function() {
+      // Iterate over the extension data and add each item to the list.
+      this.data_.extensions.forEach(this.createNode_, this);
 
-       if (this.data_.extensions.length == 0)
-         this.classList.add('empty-extension-list');
-       else
-         this.classList.remove('empty-extension-list');
-     },
+      var id_to_highlight = this.getIdQueryParam_();
+      if (id_to_highlight) {
+        // Scroll offset should be calculated slightly higher than the actual
+        // offset of the element being scrolled to, so that it ends up not all
+        // the way at the top. That way it is clear that there are more elements
+        // above the element being scrolled to.
+        var scroll_fudge = 1.2;
+        var offset = $(id_to_highlight).offsetTop -
+                     (scroll_fudge * $(id_to_highlight).clientHeight);
+        var wrapper = this.parentNode;
+        var list = wrapper.parentNode;
+        list.scrollTop = offset;
+      }
 
-     /**
-      * Synthesizes and initializes an HTML element for the extension metadata
-      * given in |extension|.
-      * @param {Object} extension A dictionary of extension metadata.
-      * @private
-      */
-     createNode_: function(extension) {
+      if (this.data_.extensions.length == 0)
+        this.classList.add('empty-extension-list');
+      else
+        this.classList.remove('empty-extension-list');
+    },
+
+    /**
+     * Synthesizes and initializes an HTML element for the extension metadata
+     * given in |extension|.
+     * @param {Object} extension A dictionary of extension metadata.
+     * @private
+     */
+    createNode_: function(extension) {
       var template = $('template-collection').querySelector(
           '.extension-list-item-wrapper');
       var node = template.cloneNode(true);
@@ -73,6 +91,10 @@ cr.define('options', function() {
 
       if (!extension.userModifiable)
         node.classList.add('may-not-disable');
+
+      var id_to_highlight = this.getIdQueryParam_();
+      if (node.id == id_to_highlight)
+        node.classList.add('extension-highlight');
 
       var item = node.querySelector('.extension-list-item');
       item.style.backgroundImage = 'url(' + extension.icon + ')';
@@ -181,6 +203,13 @@ cr.define('options', function() {
           enable.addEventListener('click', function(e) {
             chrome.send('extensionSettingsEnable',
                         [extension.id, e.target.checked ? 'true' : 'false']);
+
+            // This may seem counter-intuitive (to not set/clear the checkmark)
+            // but this page will be updated asynchronously if the extension
+            // becomes enabled/disabled. It also might not become enabled or
+            // disabled, because the user might e.g. get prompted when enabling
+            // and choose not to.
+            e.preventDefault();
           });
         }
 

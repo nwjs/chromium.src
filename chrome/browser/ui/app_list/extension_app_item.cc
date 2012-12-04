@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/app_list/extension_app_item.h"
 
-#include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/context_menu_matcher.h"
 #include "chrome/browser/extensions/extension_prefs.h"
@@ -13,6 +12,7 @@
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/extensions/management_policy.h"
+#include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_list_controller.h"
 #include "chrome/browser/ui/browser.h"
@@ -56,39 +56,43 @@ enum CommandId {
 class ExtensionUninstaller : public ExtensionUninstallDialog::Delegate {
  public:
   ExtensionUninstaller(Profile* profile,
-                       const std::string& extension_id)
+                       const std::string& extension_id,
+                       AppListControllerDelegate* controller)
       : profile_(profile),
-        extension_id_(extension_id) {
+        extension_id_(extension_id),
+        controller_(controller) {
   }
 
   void Run() {
     const Extension* extension =
-        profile_->GetExtensionService()->GetExtensionById(extension_id_, true);
+        extensions::ExtensionSystem::Get(profile_)->extension_service()->
+            GetExtensionById(extension_id_, true);
     if (!extension) {
       CleanUp();
       return;
     }
-
-    ExtensionUninstallDialog* dialog =
-        ExtensionUninstallDialog::Create(NULL, this);
-    dialog->ConfirmUninstall(extension);
+    controller_->AboutToUninstallApp();
+    dialog_.reset(ExtensionUninstallDialog::Create(NULL, this));
+    dialog_->ConfirmUninstall(extension);
   }
 
  private:
   // Overridden from ExtensionUninstallDialog::Delegate:
   virtual void ExtensionUninstallAccepted() OVERRIDE {
-    ExtensionService* service = profile_->GetExtensionService();
+    ExtensionService* service =
+        extensions::ExtensionSystem::Get(profile_)->extension_service();
     const Extension* extension = service->GetExtensionById(extension_id_, true);
     if (extension) {
       service->UninstallExtension(extension_id_,
                                   false, /* external_uninstall*/
                                   NULL);
     }
-
+    controller_->UninstallAppCompleted();
     CleanUp();
   }
 
   virtual void ExtensionUninstallCanceled() OVERRIDE {
+    controller_->UninstallAppCompleted();
     CleanUp();
   }
 
@@ -98,33 +102,38 @@ class ExtensionUninstaller : public ExtensionUninstallDialog::Delegate {
 
   Profile* profile_;
   std::string extension_id_;
+  AppListControllerDelegate* controller_;
+  scoped_ptr<ExtensionUninstallDialog> dialog_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionUninstaller);
 };
 
 extensions::ExtensionPrefs::LaunchType GetExtensionLaunchType(
     Profile* profile,
-    const std::string& extension_id) {
-  return profile->GetExtensionService()->extension_prefs()->GetLaunchType(
-      extension_id, extensions::ExtensionPrefs::LAUNCH_DEFAULT);
+    const Extension* extension) {
+  return extensions::ExtensionSystem::Get(profile)->extension_service()->
+      extension_prefs()->GetLaunchType(extension,
+          extensions::ExtensionPrefs::LAUNCH_DEFAULT);
 }
 
 void SetExtensionLaunchType(
     Profile* profile,
     const std::string& extension_id,
     extensions::ExtensionPrefs::LaunchType launch_type) {
-  profile->GetExtensionService()->extension_prefs()->SetLaunchType(
-      extension_id, launch_type);
+  extensions::ExtensionSystem::Get(profile)->extension_service()->
+      extension_prefs()->SetLaunchType(extension_id, launch_type);
 }
 
 bool IsExtensionEnabled(Profile* profile, const std::string& extension_id) {
-  ExtensionService* service = profile->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile)->extension_service();
   return service->IsExtensionEnabled(extension_id) &&
       !service->GetTerminatedExtension(extension_id);
 }
 
 ExtensionSorting* GetExtensionSorting(Profile* profile) {
-  return profile->GetExtensionService()->extension_prefs()->extension_sorting();
+  return extensions::ExtensionSystem::Get(profile)->extension_service()->
+      extension_prefs()->extension_sorting();
 }
 
 bool MenuItemHasLauncherContext(const extensions::MenuItem* item) {
@@ -148,8 +157,8 @@ ExtensionAppItem::~ExtensionAppItem() {
 }
 
 const Extension* ExtensionAppItem::GetExtension() const {
-  const Extension* extension =
-    profile_->GetExtensionService()->GetInstalledExtension(extension_id_);
+  const Extension* extension = extensions::ExtensionSystem::Get(profile_)->
+      extension_service()->GetInstalledExtension(extension_id_);
   return extension;
 }
 
@@ -167,7 +176,8 @@ void ExtensionAppItem::Move(const ExtensionAppItem* prev,
   if (!prev && !next)
     return;
 
-  ExtensionService* service = profile_->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   service->extension_prefs()->SetAppDraggedByUser(extension_id_);
 
   // Handles only predecessor or only successor case.
@@ -236,7 +246,8 @@ void ExtensionAppItem::ShowExtensionDetails() {
 void ExtensionAppItem::StartExtensionUninstall() {
   // ExtensionUninstall deletes itself when done or aborted.
   ExtensionUninstaller* uninstaller = new ExtensionUninstaller(profile_,
-                                                               extension_id_);
+                                                               extension_id_,
+                                                               controller_);
   uninstaller->Run();
 }
 
@@ -270,7 +281,7 @@ string16 ExtensionAppItem::GetLabelForCommandId(int command_id) const {
 
 bool ExtensionAppItem::IsCommandIdChecked(int command_id) const {
   if (command_id >= LAUNCH_TYPE_START && command_id < LAUNCH_TYPE_LAST) {
-    return static_cast<int>(GetExtensionLaunchType(profile_, extension_id_)) +
+    return static_cast<int>(GetExtensionLaunchType(profile_, GetExtension())) +
         LAUNCH_TYPE_START == command_id;
   } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
              command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
@@ -298,6 +309,14 @@ bool ExtensionAppItem::IsCommandIdEnabled(int command_id) const {
   } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
              command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
     return extension_menu_items_->IsCommandIdEnabled(command_id);
+  } else if (command_id == MENU_NEW_WINDOW) {
+    // "Normal" windows are not allowed when incognito is enforced.
+    return IncognitoModePrefs::GetAvailability(profile_->GetPrefs()) !=
+        IncognitoModePrefs::FORCED;
+  } else if (command_id == MENU_NEW_INCOGNITO_WINDOW) {
+    // Incognito windows are not allowed when incognito is disabled.
+    return IncognitoModePrefs::GetAvailability(profile_->GetPrefs()) !=
+        IncognitoModePrefs::DISABLED;
   }
   return true;
 }

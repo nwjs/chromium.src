@@ -14,11 +14,11 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
 #include "base/timer.h"
+#include "cc/rendering_stats.h"
 #include "content/common/content_export.h"
 #include "content/renderer/paint_aggregator.h"
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sender.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebRenderingStats.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositionUnderline.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
@@ -30,6 +30,7 @@
 #include "ui/base/range/range.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/rect.h"
+#include "ui/gfx/vector2d.h"
 #include "ui/surface/transport_dib.h"
 #include "webkit/glue/webcursor.h"
 
@@ -43,11 +44,9 @@ class SyncMessage;
 namespace WebKit {
 class WebGestureEvent;
 class WebMouseEvent;
+struct WebRenderingStatsImpl;
+struct WebPoint;
 class WebTouchEvent;
-}
-
-namespace skia {
-class PlatformCanvas;
 }
 
 namespace ui {
@@ -116,7 +115,8 @@ class CONTENT_EXPORT RenderWidget
   // WebKit::WebWidgetClient
   virtual void willBeginCompositorFrame();
   virtual void didInvalidateRect(const WebKit::WebRect&);
-  virtual void didScrollRect(int dx, int dy, const WebKit::WebRect& clipRect);
+  virtual void didScrollRect(int dx, int dy,
+                             const WebKit::WebRect& clipRect);
   virtual void didAutoResize(const WebKit::WebSize& new_size);
   virtual void didActivateCompositor(int input_handler_identifier);
   virtual void didDeactivateCompositor();
@@ -149,11 +149,11 @@ class CONTENT_EXPORT RenderWidget
   // pending moves don't try to reference it.
   void CleanupWindowInPluginMoves(gfx::PluginWindowHandle window);
 
-  // Fills in a WebRenderingStats struct containing information about
+  // Fills in a WebRenderingStatsImpl struct containing information about
   // rendering, e.g. count of frames rendered, time spent painting.
   // This call is relatively expensive in threaded compositing mode,
   // as it blocks on the compositor thread.
-  void GetRenderingStats(WebKit::WebRenderingStats&) const;
+  void GetRenderingStats(WebKit::WebRenderingStatsImpl&) const;
 
   // Fills in a GpuRenderingStats struct containing information about
   // GPU rendering, e.g. count of texture uploads performed, time spent
@@ -225,10 +225,10 @@ class CONTENT_EXPORT RenderWidget
   // shared memory segment returned by AllocPaintBuf on Windows). The caller
   // must ensure that the given rect fits within the bounds of the WebWidget.
   void PaintRect(const gfx::Rect& rect, const gfx::Point& canvas_origin,
-                 skia::PlatformCanvas* canvas);
+                 SkCanvas* canvas);
 
   // Paints a border at the given rect for debugging purposes.
-  void PaintDebugBorder(const gfx::Rect& rect, skia::PlatformCanvas* canvas);
+  void PaintDebugBorder(const gfx::Rect& rect, SkCanvas* canvas);
 
   bool IsRenderingVSynced();
   void AnimationCallback();
@@ -281,12 +281,13 @@ class CONTENT_EXPORT RenderWidget
                         const gfx::Size& desired_size);
   void OnMsgRepaint(const gfx::Size& size_to_paint);
   void OnMsgSmoothScrollCompleted(int gesture_id);
-  virtual void OnSetDeviceScaleFactor(float device_scale_factor);
   void OnSetTextDirection(WebKit::WebTextDirection direction);
   void OnGetFPS();
   void OnScreenInfoChanged(const WebKit::WebScreenInfo& screen_info);
   void OnUpdateScreenRects(const gfx::Rect& view_screen_rect,
                            const gfx::Rect& window_screen_rect);
+
+  virtual void SetDeviceScaleFactor(float device_scale_factor);
 
   // Override points to notify derived classes that a paint has happened.
   // WillInitiatePaint happens when we're about to generate a new bitmap and
@@ -429,6 +430,10 @@ class CONTENT_EXPORT RenderWidget
   // Called by OnHandleInputEvent() to notify subclasses that a touch event was
   // just handled.
   virtual void DidHandleTouchEvent(const WebKit::WebTouchEvent& event) {}
+
+  // Check whether the WebWidget has any touch event handlers registered
+  // at the given point.
+  virtual bool HasTouchEventHandlersAt(const gfx::Point& point) const;
 
   // Should return true if the underlying WebWidget is responsible for
   // the scheduling of compositing requests.
@@ -590,7 +595,7 @@ class CONTENT_EXPORT RenderWidget
   bool has_disable_gpu_vsync_switch_;
   base::TimeTicks last_do_deferred_update_time_;
 
-  WebKit::WebRenderingStats software_stats_;
+  cc::RenderingStats software_stats_;
 
   // UpdateRect parameters for the current compositing pass. This is used to
   // pass state between DoDeferredUpdate and OnSwapBuffersPosted.

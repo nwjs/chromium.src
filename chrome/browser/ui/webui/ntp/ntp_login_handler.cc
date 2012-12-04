@@ -88,7 +88,10 @@ NTPLoginHandler::~NTPLoginHandler() {
 
 void NTPLoginHandler::RegisterMessages() {
   PrefService* pref_service = Profile::FromWebUI(web_ui())->GetPrefs();
-  username_pref_.Init(prefs::kGoogleServicesUsername, pref_service, this);
+  username_pref_.Init(prefs::kGoogleServicesUsername,
+                      pref_service,
+                      base::Bind(&NTPLoginHandler::UpdateLogin,
+                                 base::Unretained(this)));
 
   registrar_.Add(this, chrome::NOTIFICATION_PROFILE_CACHED_INFO_CHANGED,
                  content::NotificationService::AllSources());
@@ -117,12 +120,6 @@ void NTPLoginHandler::Observe(int type,
   }
 }
 
-void NTPLoginHandler::OnPreferenceChanged(PrefServiceBase* service,
-                                          const std::string& pref_name) {
-  if (prefs::kGoogleServicesUsername == pref_name)
-    UpdateLogin();
-}
-
 void NTPLoginHandler::HandleInitializeSyncLogin(const ListValue* args) {
   UpdateLogin();
 }
@@ -132,7 +129,7 @@ void NTPLoginHandler::HandleShowSyncLoginUI(const ListValue* args) {
   std::string username = profile->GetPrefs()->GetString(
       prefs::kGoogleServicesUsername);
   content::WebContents* web_contents = web_ui()->GetWebContents();
-  Browser* browser = browser::FindBrowserWithWebContents(web_contents);
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
   if (!browser)
     return;
 
@@ -189,7 +186,7 @@ void NTPLoginHandler::HandleLoginMessageSeen(const ListValue* args) {
 
 void NTPLoginHandler::HandleShowAdvancedLoginUI(const ListValue* args) {
   Browser* browser =
-      browser::FindBrowserWithWebContents(web_ui()->GetWebContents());
+      chrome::FindBrowserWithWebContents(web_ui()->GetWebContents());
   if (browser)
     chrome::ShowSyncSetup(browser, SyncPromoUI::SOURCE_NTP_LINK);
 }

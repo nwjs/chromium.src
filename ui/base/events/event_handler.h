@@ -12,6 +12,7 @@
 
 namespace ui {
 
+class Event;
 class GestureEvent;
 class KeyEvent;
 class MouseEvent;
@@ -20,21 +21,28 @@ class TouchEvent;
 
 class EventTarget;
 
-// Dispatches events to appropriate targets.
+// Dispatches events to appropriate targets. The default implementations return
+// ER_UNHANDLED for all events.
 class UI_EXPORT EventHandler {
  public:
-  EventHandler() {}
-  virtual ~EventHandler() {}
+  EventHandler();
+  virtual ~EventHandler();
 
-  virtual EventResult OnKeyEvent(KeyEvent* event) = 0;
+  // This is called for all events. The default implementation routes the event
+  // to one of the event-specific callbacks (OnKeyEvent, OnMouseEvent etc.). If
+  // this is overridden, then normally, the override should chain into the
+  // default implementation for un-handled events.
+  virtual void OnEvent(Event* event);
 
-  virtual EventResult OnMouseEvent(MouseEvent* event) = 0;
+  virtual EventResult OnKeyEvent(KeyEvent* event);
 
-  virtual EventResult OnScrollEvent(ScrollEvent* event) = 0;
+  virtual EventResult OnMouseEvent(MouseEvent* event);
 
-  virtual EventResult OnTouchEvent(TouchEvent* event) = 0;
+  virtual EventResult OnScrollEvent(ScrollEvent* event);
 
-  virtual EventResult OnGestureEvent(GestureEvent* event) = 0;
+  virtual EventResult OnTouchEvent(TouchEvent* event);
+
+  virtual void OnGestureEvent(GestureEvent* event);
 };
 
 typedef std::vector<EventHandler*> EventHandlerList;

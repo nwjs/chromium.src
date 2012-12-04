@@ -3,11 +3,10 @@
 // found in the LICENSE file.
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/sandboxed_unpacker.h"
@@ -76,7 +75,7 @@ class SandboxedUnpackerTest : public testing::Test {
     // Need to destruct SandboxedUnpacker before the message loop since
     // it posts a task to it.
     sandboxed_unpacker_ = NULL;
-    loop_.RunAllPending();
+    loop_.RunUntilIdle();
   }
 
   void SetupUnpacker(const std::string& crx_name) {
@@ -104,13 +103,12 @@ class SandboxedUnpackerTest : public testing::Test {
     ASSERT_TRUE(file_util::CreateDirectory(temp_path_));
 
     sandboxed_unpacker_ =
-        new SandboxedUnpacker(crx_path, false, Extension::INTERNAL,
-                              Extension::NO_FLAGS, extensions_dir_.path(),
-                              client_);
+        new SandboxedUnpacker(
+            crx_path, false, Extension::INTERNAL, Extension::NO_FLAGS,
+            extensions_dir_.path(),
+            BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE),
+            client_);
 
-    // Hack since SandboxedUnpacker gets its background thread id from
-    // the Start call, but we don't call it here.
-    sandboxed_unpacker_->thread_identifier_ = BrowserThread::FILE;
     EXPECT_TRUE(PrepareUnpackerEnv());
   }
 
@@ -158,8 +156,8 @@ class SandboxedUnpackerTest : public testing::Test {
   }
 
  protected:
-  ScopedTempDir temp_dir_;
-  ScopedTempDir extensions_dir_;
+  base::ScopedTempDir temp_dir_;
+  base::ScopedTempDir extensions_dir_;
   FilePath temp_path_;
   MockSandboxedUnpackerClient* client_;
   scoped_ptr<Unpacker> unpacker_;

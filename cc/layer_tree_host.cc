@@ -4,6 +4,7 @@
 
 #include "cc/layer_tree_host.h"
 
+#include "base/command_line.h"
 #include "base/debug/trace_event.h"
 #include "base/message_loop.h"
 #include "cc/font_atlas.h"
@@ -19,8 +20,8 @@
 #include "cc/math_util.h"
 #include "cc/occlusion_tracker.h"
 #include "cc/overdraw_metrics.h"
-#include "cc/settings.h"
 #include "cc/single_thread_proxy.h"
+#include "cc/switches.h"
 #include "cc/thread.h"
 #include "cc/thread_proxy.h"
 #include "cc/tree_synchronizer.h"
@@ -35,22 +36,91 @@ namespace cc {
 
 bool LayerTreeHost::s_needsFilterContext = false;
 
-LayerTreeSettings::LayerTreeSettings()
-    : acceleratePainting(false)
+LayerTreeDebugState::LayerTreeDebugState()
+    : showFPSCounter(false)
     , showPlatformLayerTree(false)
+    , showDebugBorders(false)
     , showPaintRects(false)
     , showPropertyChangedRects(false)
     , showSurfaceDamageRects(false)
     , showScreenSpaceRects(false)
     , showReplicaScreenSpaceRects(false)
     , showOccludingRects(false)
+    , showNonOccludingRects(false)
+{
+}
+
+LayerTreeDebugState::~LayerTreeDebugState()
+{
+}
+
+bool LayerTreeDebugState::showHudInfo() const
+{
+    return showFPSCounter || showPlatformLayerTree || showHudRects();
+}
+
+bool LayerTreeDebugState::showHudRects() const
+{
+    return showPaintRects || showPropertyChangedRects || showSurfaceDamageRects || showScreenSpaceRects || showReplicaScreenSpaceRects || showOccludingRects || showNonOccludingRects;
+}
+
+bool LayerTreeDebugState::hudNeedsFont() const
+{
+    return showFPSCounter || showPlatformLayerTree;
+}
+
+bool LayerTreeDebugState::equal(const LayerTreeDebugState& a, const LayerTreeDebugState& b)
+{
+    return memcmp(&a, &b, sizeof(LayerTreeDebugState)) == 0;
+}
+
+LayerTreeDebugState LayerTreeDebugState::unite(const LayerTreeDebugState& a, const LayerTreeDebugState& b)
+{
+    LayerTreeDebugState r(a);
+
+    r.showFPSCounter |= b.showFPSCounter;
+    r.showPlatformLayerTree |= b.showPlatformLayerTree;
+    r.showDebugBorders |= b.showDebugBorders;
+
+    r.showPaintRects |= b.showPaintRects;
+    r.showPropertyChangedRects |= b.showPropertyChangedRects;
+    r.showSurfaceDamageRects |= b.showSurfaceDamageRects;
+    r.showScreenSpaceRects |= b.showScreenSpaceRects;
+    r.showReplicaScreenSpaceRects |= b.showReplicaScreenSpaceRects;
+    r.showOccludingRects |= b.showOccludingRects;
+    r.showNonOccludingRects |= b.showNonOccludingRects;
+
+    return r;
+}
+
+LayerTreeSettings::LayerTreeSettings()
+    : acceleratePainting(false)
+    , implSidePainting(false)
     , renderVSyncEnabled(true)
+    , perTilePaintingEnabled(false)
+    , partialSwapEnabled(false)
+    , acceleratedAnimationEnabled(true)
+    , pageScalePinchZoomEnabled(false)
+    , backgroundColorInsteadOfCheckerboard(false)
+    , showOverdrawInTracing(false)
     , refreshRate(0)
     , maxPartialTextureUpdates(std::numeric_limits<size_t>::max())
     , defaultTileSize(gfx::Size(256, 256))
     , maxUntiledLayerSize(gfx::Size(512, 512))
     , minimumOcclusionTrackingSize(gfx::Size(160, 160))
 {
+    // TODO(danakj): Move this to chromium when we don't go through the WebKit API anymore.
+    implSidePainting = CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kEnableImplSidePainting);
+    partialSwapEnabled = CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnablePartialSwap);
+    backgroundColorInsteadOfCheckerboard = CommandLine::ForCurrentProcess()->HasSwitch(switches::kBackgroundColorInsteadOfCheckerboard);
+    showOverdrawInTracing = CommandLine::ForCurrentProcess()->HasSwitch(switches::kTraceOverdraw);
+
+    initialDebugState.showPropertyChangedRects = CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kShowPropertyChangedRects);
+    initialDebugState.showSurfaceDamageRects = CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kShowSurfaceDamageRects);
+    initialDebugState.showScreenSpaceRects = CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kShowScreenSpaceRects);
+    initialDebugState.showReplicaScreenSpaceRects = CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kShowReplicaScreenSpaceRects);
+    initialDebugState.showOccludingRects = CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kShowOccludingRects);
+    initialDebugState.showNonOccludingRects = CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kShowNonOccludingRects);
 }
 
 LayerTreeSettings::~LayerTreeSettings()
@@ -91,6 +161,7 @@ scoped_ptr<LayerTreeHost> LayerTreeHost::create(LayerTreeHostClient* client, con
 LayerTreeHost::LayerTreeHost(LayerTreeHostClient* client, const LayerTreeSettings& settings)
     : m_animating(false)
     , m_needsAnimateLayers(false)
+    , m_needsFullTreeSync(true)
     , m_client(client)
     , m_commitNumber(0)
     , m_renderingStats()
@@ -99,6 +170,7 @@ LayerTreeHost::LayerTreeHost(LayerTreeHostClient* client, const LayerTreeSetting
     , m_numTimesRecreateShouldFail(0)
     , m_numFailedRecreateAttempts(0)
     , m_settings(settings)
+    , m_debugState(settings.initialDebugState)
     , m_deviceScaleFactor(1)
     , m_visible(true)
     , m_pageScaleFactor(1)
@@ -159,7 +231,7 @@ void LayerTreeHost::initializeRenderer()
     // Update m_settings based on partial update capability.
     m_settings.maxPartialTextureUpdates = min(m_settings.maxPartialTextureUpdates, m_proxy->maxPartialTextureUpdates());
 
-    m_contentsTextureManager = PrioritizedResourceManager::create(0, m_proxy->rendererCapabilities().maxTextureSize, Renderer::ContentPool, m_proxy.get());
+    m_contentsTextureManager = PrioritizedResourceManager::create(Renderer::ContentPool, m_proxy.get());
     m_surfaceMemoryPlaceholder = m_contentsTextureManager->createTexture(gfx::Size(), GL_RGBA);
 
     m_rendererInitialized = true;
@@ -239,6 +311,28 @@ void LayerTreeHost::beginCommitOnImplThread(LayerTreeHostImpl* hostImpl)
     TRACE_EVENT0("cc", "LayerTreeHost::commitTo");
 }
 
+static void pushPropertiesRecursive(Layer* layer, LayerImpl* layerImpl)
+{
+    if (!layer) {
+        DCHECK(!layerImpl);
+        return;
+    }
+
+    DCHECK_EQ(layer->id(), layerImpl->id());
+    layer->pushPropertiesTo(layerImpl);
+
+    pushPropertiesRecursive(layer->maskLayer(), layerImpl->maskLayer());
+    pushPropertiesRecursive(layer->replicaLayer(), layerImpl->replicaLayer());
+
+    const std::vector<scoped_refptr<Layer> >& children = layer->children();
+    const ScopedPtrVector<LayerImpl>& implChildren = layerImpl->children();
+    DCHECK_EQ(children.size(), implChildren.size());
+
+    for (size_t i = 0; i < children.size(); ++i) {
+        pushPropertiesRecursive(children[i].get(), implChildren[i]);
+    }
+}
+
 // This function commits the LayerTreeHost to an impl tree. When modifying
 // this function, keep in mind that the function *runs* on the impl thread! Any
 // code that is logically a main thread operation, e.g. deletion of a Layer,
@@ -249,11 +343,15 @@ void LayerTreeHost::finishCommitOnImplThread(LayerTreeHostImpl* hostImpl)
     DCHECK(m_proxy->isImplThread());
 
     m_contentsTextureManager->updateBackingsInDrawingImplTree();
-    ResourceProvider::debugNotifyEnterZone(0xA000000);
     m_contentsTextureManager->reduceMemory(hostImpl->resourceProvider());
-    ResourceProvider::debugNotifyLeaveZone();
 
-    hostImpl->setRootLayer(TreeSynchronizer::synchronizeTrees(rootLayer(), hostImpl->detachLayerTree(), hostImpl));
+    if (m_needsFullTreeSync) {
+        hostImpl->setRootLayer(TreeSynchronizer::synchronizeTrees(rootLayer(), hostImpl->detachLayerTree(), hostImpl));
+    } else {
+        TRACE_EVENT0("cc", "LayerTreeHost::pushPropertiesRecursive");
+        pushPropertiesRecursive(rootLayer(), hostImpl->rootLayer());
+    }
+    m_needsFullTreeSync = false;
 
     if (m_rootLayer && m_hudLayer)
         hostImpl->setHudLayer(static_cast<HeadsUpDisplayLayerImpl*>(LayerTreeHostCommon::findLayerInSubtree(hostImpl->rootLayer(), m_hudLayer->id())));
@@ -271,37 +369,28 @@ void LayerTreeHost::finishCommitOnImplThread(LayerTreeHostImpl* hostImpl)
     hostImpl->setPageScaleFactorAndLimits(m_pageScaleFactor, m_minPageScaleFactor, m_maxPageScaleFactor);
     hostImpl->setBackgroundColor(m_backgroundColor);
     hostImpl->setHasTransparentBackground(m_hasTransparentBackground);
+    hostImpl->setDebugState(m_debugState);
 
     m_commitNumber++;
-}
-
-void LayerTreeHost::createHUDLayerIfNeeded()
-{
-    if (!m_hudLayer)
-        m_hudLayer = HeadsUpDisplayLayer::create();
-}
-
-void LayerTreeHost::setShowFPSCounter(bool show)
-{
-    createHUDLayerIfNeeded();
-    m_hudLayer->setShowFPSCounter(show);
-}
-
-void LayerTreeHost::setFontAtlas(scoped_ptr<FontAtlas> fontAtlas)
-{
-    createHUDLayerIfNeeded();
-    m_hudLayer->setFontAtlas(fontAtlas.Pass());
 }
 
 void LayerTreeHost::willCommit()
 {
     m_client->willCommit();
 
-    if (m_settings.showDebugInfo())
-        createHUDLayerIfNeeded();
+    if (m_debugState.showHudInfo()) {
+        if (!m_hudLayer)
+            m_hudLayer = HeadsUpDisplayLayer::create();
 
-    if (m_rootLayer && m_hudLayer && !m_hudLayer->parent())
-        m_rootLayer->addChild(m_hudLayer);
+        if (m_debugState.hudNeedsFont() && !m_hudLayer->hasFontAtlas())
+            m_hudLayer->setFontAtlas(m_client->createFontAtlas());
+
+        if (m_rootLayer && !m_hudLayer->parent())
+            m_rootLayer->addChild(m_hudLayer);
+    } else if (m_hudLayer) {
+        m_hudLayer->removeFromParent();
+        m_hudLayer = 0;
+    }
 }
 
 void LayerTreeHost::commitComplete()
@@ -383,6 +472,12 @@ void LayerTreeHost::setNeedsCommit()
     m_proxy->setNeedsCommit();
 }
 
+void LayerTreeHost::setNeedsFullTreeSync()
+{
+    m_needsFullTreeSync = true;
+    setNeedsCommit();
+}
+
 void LayerTreeHost::setNeedsRedraw()
 {
     m_proxy->setNeedsRedraw();
@@ -421,6 +516,17 @@ void LayerTreeHost::setRootLayer(scoped_refptr<Layer> rootLayer)
     if (m_hudLayer)
         m_hudLayer->removeFromParent();
 
+    setNeedsFullTreeSync();
+}
+
+void LayerTreeHost::setDebugState(const LayerTreeDebugState& debugState)
+{
+    LayerTreeDebugState newDebugState = LayerTreeDebugState::unite(m_settings.initialDebugState, debugState);
+
+    if (LayerTreeDebugState::equal(m_debugState, newDebugState))
+        return;
+
+    m_debugState = newDebugState;
     setNeedsCommit();
 }
 
@@ -502,7 +608,6 @@ bool LayerTreeHost::initializeRendererIfNeeded()
 void LayerTreeHost::updateLayers(ResourceUpdateQueue& queue, size_t memoryAllocationLimitBytes)
 {
     DCHECK(m_rendererInitialized);
-    DCHECK(memoryAllocationLimitBytes);
 
     if (!rootLayer())
         return;
@@ -510,7 +615,8 @@ void LayerTreeHost::updateLayers(ResourceUpdateQueue& queue, size_t memoryAlloca
     if (layoutViewportSize().IsEmpty())
         return;
 
-    m_contentsTextureManager->setMaxMemoryLimitBytes(memoryAllocationLimitBytes);
+    if (memoryAllocationLimitBytes)
+        m_contentsTextureManager->setMaxMemoryLimitBytes(memoryAllocationLimitBytes);
 
     updateLayers(rootLayer(), queue);
 }
@@ -539,7 +645,7 @@ void LayerTreeHost::updateLayers(Layer* rootLayer, ResourceUpdateQueue& queue)
     LayerList updateList;
 
     {
-        if (Settings::pageScalePinchZoomEnabled()) {
+        if (m_settings.pageScalePinchZoomEnabled) {
             Layer* rootScroll = findFirstScrollableLayer(rootLayer);
             if (rootScroll)
                 rootScroll->setImplTransform(m_implTransform);
@@ -625,7 +731,7 @@ size_t LayerTreeHost::calculateMemoryForRenderSurfaces(const LayerList& updateLi
         Layer* renderSurfaceLayer = updateList[i].get();
         RenderSurface* renderSurface = renderSurfaceLayer->renderSurface();
 
-        size_t bytes = Resource::memorySizeBytes(renderSurface->contentRect().size(), GL_RGBA);
+        size_t bytes = Resource::MemorySizeBytes(renderSurface->contentRect().size(), GL_RGBA);
         contentsTextureBytes += bytes;
 
         if (renderSurfaceLayer->backgroundFilters().isEmpty())
@@ -634,7 +740,7 @@ size_t LayerTreeHost::calculateMemoryForRenderSurfaces(const LayerList& updateLi
         if (bytes > maxBackgroundTextureBytes)
             maxBackgroundTextureBytes = bytes;
         if (!readbackBytes)
-            readbackBytes = Resource::memorySizeBytes(m_deviceViewportSize, GL_RGBA);
+            readbackBytes = Resource::MemorySizeBytes(m_deviceViewportSize, GL_RGBA);
     }
     return readbackBytes + maxBackgroundTextureBytes + contentsTextureBytes;
 }
@@ -666,7 +772,7 @@ bool LayerTreeHost::paintLayerContents(const LayerList& renderSurfaceLayerList, 
     typedef LayerIterator<Layer, LayerList, RenderSurface, LayerIteratorActions::FrontToBack> LayerIteratorType;
 
     bool needMoreUpdates = false;
-    bool recordMetricsForFrame = base::debug::TraceLog::GetInstance() && base::debug::TraceLog::GetInstance()->IsEnabled();
+    bool recordMetricsForFrame = m_settings.showOverdrawInTracing && base::debug::TraceLog::GetInstance() && base::debug::TraceLog::GetInstance()->IsEnabled();
     OcclusionTracker occlusionTracker(m_rootLayer->renderSurface()->contentRect(), recordMetricsForFrame);
     occlusionTracker.setMinimumTrackingSize(m_settings.minimumOcclusionTrackingSize);
 
@@ -714,28 +820,29 @@ void LayerTreeHost::applyScrollAndScale(const ScrollAndScaleSet& info)
         m_client->applyScrollAndScale(rootScrollDelta, info.pageScaleDelta);
 }
 
-gfx::PointF LayerTreeHost::adjustEventPointForPinchZoom(const gfx::PointF& point)
+gfx::PointF LayerTreeHost::adjustEventPointForPinchZoom(const gfx::PointF& zoomedViewportPoint)
     const
 {
-    WebKit::WebTransformationMatrix inverseImplTransform = m_implTransform;
-    // TODO(wjmaclean) Need to determine why the next two lines are
-    // necessary for this to work ... it seems like just inverting
-    // m_implTransform should be sufficient.
-    DCHECK(inverseImplTransform.m11());
-    DCHECK(inverseImplTransform.m22());
-    inverseImplTransform.setM41(inverseImplTransform.m41()
-        / inverseImplTransform.m11());
-    inverseImplTransform.setM42(inverseImplTransform.m42()
-        / inverseImplTransform.m22());
-    inverseImplTransform = inverseImplTransform.inverse();
+    if (m_implTransform.IsIdentity())
+        return zoomedViewportPoint;
+
+    DCHECK(m_implTransform.IsInvertible());
+
+    // Scale to screen space before applying implTransform inverse.
+    gfx::PointF zoomedScreenspacePoint = gfx::ScalePoint(zoomedViewportPoint, deviceScaleFactor());
+    gfx::Transform inverseImplTransform = MathUtil::inverse(m_implTransform);
+
     bool wasClipped = false;
-    gfx::PointF adjustedPoint = MathUtil::projectPoint(inverseImplTransform, point, wasClipped);
+    gfx::PointF unzoomedScreenspacePoint = MathUtil::projectPoint(inverseImplTransform, zoomedScreenspacePoint, wasClipped);
     DCHECK(!wasClipped);
 
-    return adjustedPoint;
+    // Convert back to logical pixels for hit testing.
+    gfx::PointF unzoomedViewportPoint = gfx::ScalePoint(unzoomedScreenspacePoint, 1 / deviceScaleFactor());
+
+    return unzoomedViewportPoint;
 }
 
-void LayerTreeHost::setImplTransform(const WebKit::WebTransformationMatrix& transform)
+void LayerTreeHost::setImplTransform(const gfx::Transform& transform)
 {
     m_implTransform = transform;
 }
@@ -797,7 +904,7 @@ void LayerTreeHost::setDeviceScaleFactor(float deviceScaleFactor)
 
 void LayerTreeHost::animateLayers(base::TimeTicks time)
 {
-    if (!Settings::acceleratedAnimationEnabled() || !m_needsAnimateLayers)
+    if (!m_settings.acceleratedAnimationEnabled || !m_needsAnimateLayers)
         return;
 
     TRACE_EVENT0("cc", "LayerTreeHostImpl::animateLayers");

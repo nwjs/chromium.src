@@ -10,9 +10,11 @@
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 
 class ChromeDownloadManagerDelegate;
+class DownloadHistory;
 class Profile;
 
 namespace content {
@@ -25,13 +27,13 @@ class DownloadService : public ProfileKeyedService {
   explicit DownloadService(Profile* profile);
   virtual ~DownloadService();
 
-  // Register a callback to be called whenever the DownloadManager is created.
-  typedef base::Callback<void(content::DownloadManager*)>
-      OnManagerCreatedCallback;
-  void OnManagerCreated(const OnManagerCreatedCallback& cb);
-
   // Get the download manager delegate, creating it if it doesn't already exist.
   ChromeDownloadManagerDelegate* GetDownloadManagerDelegate();
+
+  // Get the interface to the history system. Returns NULL if profile is
+  // incognito or if the DownloadManager hasn't been created yet or if there is
+  // no HistoryService for profile.
+  DownloadHistory* GetDownloadHistory();
 
   // Has a download manager been created?
   bool HasCreatedDownloadManager();
@@ -61,7 +63,7 @@ class DownloadService : public ProfileKeyedService {
   // callbacks.
   scoped_refptr<ChromeDownloadManagerDelegate> manager_delegate_;
 
-  std::vector<OnManagerCreatedCallback> on_manager_created_callbacks_;
+  scoped_ptr<DownloadHistory> download_history_;
 
   DISALLOW_COPY_AND_ASSIGN(DownloadService);
 };

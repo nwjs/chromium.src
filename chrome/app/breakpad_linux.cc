@@ -24,10 +24,10 @@
 #include <string>
 
 #include "base/command_line.h"
-#include "base/eintr_wrapper.h"
 #include "base/file_path.h"
 #include "base/linux_util.h"
 #include "base/path_service.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/posix/global_descriptors.h"
 #include "base/process_util.h"
 #include "base/string_util.h"
@@ -437,12 +437,6 @@ bool FinalizeCrashDoneAndroid() {
                       "### ### ### ### ### ### ### ### ### ### ### ### ###");
   return false;
 }
-
-bool CrashDoneNonBrowserAndroid(const MinidumpDescriptor& minidump,
-                                void* context,
-                                bool succeeded) {
-  return FinalizeCrashDoneAndroid();
-}
 #endif
 
 bool CrashDone(const MinidumpDescriptor& minidump,
@@ -534,12 +528,14 @@ void EnableCrashDumping(bool unattended) {
     strncpy(g_crash_log_path, logfile_str.c_str(), crash_log_path_len);
   }
   DCHECK(!g_breakpad);
+  MinidumpDescriptor minidump_descriptor(dumps_path.value());
+  minidump_descriptor.set_size_limit(kMaxMinidumpFileSize);
 #if defined(OS_ANDROID)
   unattended = true;  // Android never uploads directly.
 #endif
   if (unattended) {
     g_breakpad = new ExceptionHandler(
-        MinidumpDescriptor(dumps_path.value()),
+        minidump_descriptor,
         NULL,
         CrashDoneNoUpload,
         NULL,
@@ -551,7 +547,7 @@ void EnableCrashDumping(bool unattended) {
 #if !defined(OS_ANDROID)
   // Attended mode
   g_breakpad = new ExceptionHandler(
-      MinidumpDescriptor(dumps_path.value()),
+      minidump_descriptor,
       NULL,
       CrashDoneUpload,
       NULL,
@@ -596,7 +592,7 @@ bool CrashDoneInProcessNoUpload(
   info.upload = false;
   info.process_start_time = g_process_start_time;
   HandleCrashDump(info);
-  return true;
+  return FinalizeCrashDoneAndroid();
 }
 
 void EnableNonBrowserCrashDumping(int minidump_fd) {

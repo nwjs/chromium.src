@@ -11,9 +11,7 @@
 #include "cc/math_util.h"
 #include "ui/gfx/quad_f.h"
 #include "ui/gfx/rect.h"
-#include <public/WebTransformationMatrix.h>
-
-using WebKit::WebTransformationMatrix;
+#include "ui/gfx/transform.h"
 
 namespace cc {
 
@@ -31,6 +29,32 @@ OverdrawMetrics::OverdrawMetrics(bool recordMetricsForFrame)
 {
 }
 
+static inline float wedgeProduct(const gfx::PointF& p1, const gfx::PointF& p2)
+{
+    return p1.x() * p2.y() - p1.y() * p2.x();
+}
+
+// Calculates area of an arbitrary convex polygon with up to 8 points.
+static inline float polygonArea(const gfx::PointF points[8], int numPoints)
+{
+    if (numPoints < 3)
+        return 0;
+
+    float area = 0;
+    for (int i = 0; i < numPoints; ++i)
+        area += wedgeProduct(points[i], points[(i+1)%numPoints]);
+    return fabs(0.5f * area);
+}
+
+// Takes a given quad, maps it by the given transformation, and gives the area of the resulting polygon.
+static inline float areaOfMappedQuad(const gfx::Transform& transform, const gfx::QuadF& quad)
+{
+    gfx::PointF clippedQuad[8];
+    int numVerticesInClippedQuad = 0;
+    MathUtil::mapClippedQuad(transform, quad, clippedQuad, numVerticesInClippedQuad);
+    return polygonArea(clippedQuad, numVerticesInClippedQuad);
+}
+
 void OverdrawMetrics::didPaint(const gfx::Rect& paintedRect)
 {
     if (!m_recordMetricsForFrame)
@@ -45,15 +69,13 @@ void OverdrawMetrics::didCullTilesForUpload(int count)
         m_tilesCulledForUpload += count;
 }
 
-void OverdrawMetrics::didUpload(const WebTransformationMatrix& transformToTarget, const gfx::Rect& uploadRect, const gfx::Rect& opaqueRect)
+void OverdrawMetrics::didUpload(const gfx::Transform& transformToTarget, const gfx::Rect& uploadRect, const gfx::Rect& opaqueRect)
 {
     if (!m_recordMetricsForFrame)
         return;
 
-    gfx::Rect uploadOpaqueRect = gfx::IntersectRects(opaqueRect, uploadRect);
-
-    float uploadArea = static_cast<float>(uploadRect.width()) * uploadRect.height();
-    float uploadOpaqueArea = static_cast<float>(uploadOpaqueRect.width()) * uploadOpaqueRect.height();
+    float uploadArea = areaOfMappedQuad(transformToTarget, gfx::QuadF(uploadRect));
+    float uploadOpaqueArea = areaOfMappedQuad(transformToTarget, gfx::QuadF(gfx::IntersectRects(opaqueRect, uploadRect)));
 
     m_pixelsUploadedOpaque += uploadOpaqueArea;
     m_pixelsUploadedTranslucent += uploadArea - uploadOpaqueArea;
@@ -75,26 +97,24 @@ void OverdrawMetrics::didUseRenderSurfaceTextureMemoryBytes(size_t renderSurface
     m_renderSurfaceTextureUseBytes += renderSurfaceUseBytes;
 }
 
-void OverdrawMetrics::didCullForDrawing(const WebTransformationMatrix& transformToTarget, const gfx::Rect& beforeCullRect, const gfx::Rect& afterCullRect)
+void OverdrawMetrics::didCullForDrawing(const gfx::Transform& transformToTarget, const gfx::Rect& beforeCullRect, const gfx::Rect& afterCullRect)
 {
     if (!m_recordMetricsForFrame)
         return;
 
-    float beforeCullArea = static_cast<float>(beforeCullRect.width()) * beforeCullRect.height();
-    float afterCullArea = static_cast<float>(afterCullRect.width()) * afterCullRect.height();
+    float beforeCullArea = areaOfMappedQuad(transformToTarget, gfx::QuadF(beforeCullRect));
+    float afterCullArea = areaOfMappedQuad(transformToTarget, gfx::QuadF(afterCullRect));
 
     m_pixelsCulledForDrawing += beforeCullArea - afterCullArea;
 }
 
-void OverdrawMetrics::didDraw(const WebTransformationMatrix& transformToTarget, const gfx::Rect& afterCullRect, const gfx::Rect& opaqueRect)
+void OverdrawMetrics::didDraw(const gfx::Transform& transformToTarget, const gfx::Rect& afterCullRect, const gfx::Rect& opaqueRect)
 {
     if (!m_recordMetricsForFrame)
         return;
 
-    gfx::Rect afterCullOpaqueRect = gfx::IntersectRects(opaqueRect, afterCullRect);
-
-    float afterCullArea = static_cast<float>(afterCullRect.width()) * afterCullRect.height();
-    float afterCullOpaqueArea = static_cast<float>(afterCullOpaqueRect.width()) * afterCullOpaqueRect.height();
+    float afterCullArea = areaOfMappedQuad(transformToTarget, gfx::QuadF(afterCullRect));
+    float afterCullOpaqueArea = areaOfMappedQuad(transformToTarget, gfx::QuadF(gfx::IntersectRects(opaqueRect, afterCullRect)));
 
     m_pixelsDrawnOpaque += afterCullOpaqueArea;
     m_pixelsDrawnTranslucent += afterCullArea - afterCullOpaqueArea;

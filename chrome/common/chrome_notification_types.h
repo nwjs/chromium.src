@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -669,21 +669,11 @@ enum NotificationType {
   // extensions. The source is a Profile, and there are no details.
   NOTIFICATION_EXTENSION_UPDATING_STARTED,
 
-  // Sent when the extension updater is finished checking for updates to
-  // installed extensions. The source is a Profile, and there are no details.
-  // NOTE: It's possible that there are extension updates still being
-  // installed by the extension service at the time this notification fires.
-  NOTIFICATION_EXTENSION_UPDATING_FINISHED,
-
   // The extension updater found an update and will attempt to download and
-  // install it. The source is a Profile, and the details are an extension id
-  // (const std::string).
+  // install it. The source is a Profile, and the details are an
+  // extensions::UpdateDetails object with the extension id and version of the
+  // found update.
   NOTIFICATION_EXTENSION_UPDATE_FOUND,
-
-  // Sent when one or more extensions changed their warning status (like
-  // slowing down Chrome or conflicting with each other).
-  // The source is a Profile.
-  NOTIFICATION_EXTENSION_WARNING_CHANGED,
 
   // An installed app changed notification state (added or removed
   // notifications). The source is a Profile, and the details are a string
@@ -894,12 +884,6 @@ enum NotificationType {
   // The source is a TokenService on the Profile. The details are a
   // TokenRequestFailedDetails object.
   NOTIFICATION_TOKEN_REQUEST_FAILED,
-
-  // When the token service receives updated credentials with which to generate
-  // new tokens, one of these notifications is issued.
-  // The source is a TokenService on the Profile. The details are a
-  // CredentialsUpdatedDetails object.
-  NOTIFICATION_TOKEN_SERVICE_CREDENTIALS_UPDATED,
 
   // When a service has a new token they got from a frontend that the
   // TokenService should know about, fire this notification. The source is the
@@ -1122,10 +1106,6 @@ enum NotificationType {
   // Instant API or not.
   NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
 
-  // Sent when the Browser Instant controller resets, this may result from
-  // a preference change.
-  NOTIFICATION_BROWSER_INSTANT_RESET,
-
   // Sent when the CaptivePortalService checks if we're behind a captive portal.
   // The Source is the Profile the CaptivePortalService belongs to, and the
   // Details are a Details<CaptivePortalService::CheckResults>.
@@ -1253,12 +1233,6 @@ enum NotificationType {
   // is a boolean: true if the content is entering the blocked state, false
   // if it is leaving.
   NOTIFICATION_CONTENT_BLOCKED_STATE_CHANGED,
-
-  // SearchViewController.
-  // Sent when animations initiated by search view controller complete.
-  // The source is the SearchViewController whose animation is finished.
-  // No details.
-  NOTIFICATION_SEARCH_VIEW_CONTROLLER_ANIMATION_FINISHED,
 
   // Note:-
   // Currently only Content and Chrome define and use notifications.

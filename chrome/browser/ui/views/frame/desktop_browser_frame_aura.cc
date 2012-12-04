@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/views/frame/desktop_browser_frame_aura.h"
 
-#include "ash/wm/visibility_controller.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/views/frame/browser_desktop_root_window_host.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -21,6 +20,7 @@
 #include "ui/gfx/font.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/corewm/visibility_controller.h"
 #include "ui/views/view.h"
 
 using aura::Window;
@@ -39,7 +39,7 @@ DesktopBrowserFrameAura::DesktopBrowserFrameAura(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// DesktopBrowserFrameAura, views::DestkopNativeWidgetAura overrides:
+// DesktopBrowserFrameAura, views::DesktopNativeWidgetAura overrides:
 
 void DesktopBrowserFrameAura::InitNativeWidget(
     const views::Widget::InitParams& params) {
@@ -55,13 +55,16 @@ void DesktopBrowserFrameAura::InitNativeWidget(
       browser_desktop_root_window_host_->AsDesktopRootWindowHost();
   DesktopNativeWidgetAura::InitNativeWidget(modified_params);
 
-#if defined(USE_ASH)
-  visibility_controller_.reset(new ash::internal::VisibilityController);
+  visibility_controller_.reset(new views::corewm::VisibilityController);
   aura::client::SetVisibilityClient(GetNativeView()->GetRootWindow(),
                                     visibility_controller_.get());
-  ash::SetChildWindowVisibilityChangesAnimated(
+  views::corewm::SetChildWindowVisibilityChangesAnimated(
       GetNativeView()->GetRootWindow());
-#endif
+}
+
+void DesktopBrowserFrameAura::OnWindowDestroying() {
+  aura::client::SetVisibilityClient(GetNativeView()->GetRootWindow(), NULL);
+  DesktopNativeWidgetAura::OnWindowDestroying();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -16,6 +16,7 @@
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
+#include "chrome/browser/extensions/management_policy.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
@@ -239,6 +240,7 @@ void InstalledLoader::LoadAllExtensions() {
   int app_external_count = 0;
   int hosted_app_count = 0;
   int legacy_packaged_app_count = 0;
+  int platform_app_count = 0;
   int user_script_count = 0;
   int extension_user_count = 0;
   int extension_external_count = 0;
@@ -297,6 +299,14 @@ void InstalledLoader::LoadAllExtensions() {
           ++app_user_count;
         }
         break;
+      case Extension::TYPE_PLATFORM_APP:
+        ++platform_app_count;
+        if (Extension::IsExternalLocation(location)) {
+          ++app_external_count;
+        } else {
+          ++app_user_count;
+        }
+        break;
       case Extension::TYPE_EXTENSION:
       default:
         if (Extension::IsExternalLocation(location)) {
@@ -336,6 +346,7 @@ void InstalledLoader::LoadAllExtensions() {
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadHostedApp", hosted_app_count);
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadPackagedApp",
                            legacy_packaged_app_count);
+  UMA_HISTOGRAM_COUNTS_100("Extensions.LoadPlatformApp", platform_app_count);
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadExtension",
                            extension_user_count + extension_external_count);
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadExtensionUser",

@@ -18,9 +18,11 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autofill/autofill_country.h"
+#include "chrome/browser/autofill/autofill_field.h"
 #include "chrome/browser/autofill/autofill_regexes.h"
 #include "chrome/browser/autofill/autofill_type.h"
 #include "chrome/browser/autofill/field_types.h"
+#include "chrome/common/form_field_data.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "unicode/dtfmtsym.h"
@@ -232,15 +234,8 @@ CreditCard::CreditCard(const CreditCard& credit_card) : FormGroup() {
 
 CreditCard::~CreditCard() {}
 
-void CreditCard::GetSupportedTypes(FieldTypeSet* supported_types) const {
-  supported_types->insert(CREDIT_CARD_NAME);
-  supported_types->insert(CREDIT_CARD_NUMBER);
-  supported_types->insert(CREDIT_CARD_TYPE);
-  supported_types->insert(CREDIT_CARD_EXP_MONTH);
-  supported_types->insert(CREDIT_CARD_EXP_2_DIGIT_YEAR);
-  supported_types->insert(CREDIT_CARD_EXP_4_DIGIT_YEAR);
-  supported_types->insert(CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR);
-  supported_types->insert(CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR);
+std::string CreditCard::GetGUID() const {
+  return guid();
 }
 
 string16 CreditCard::GetRawInfo(AutofillFieldType type) const {
@@ -458,6 +453,28 @@ bool CreditCard::UpdateFromImportedCard(const CreditCard& imported_card) {
   return true;
 }
 
+void CreditCard::FillFormField(const AutofillField& field,
+                               size_t /*variant*/,
+                               FormFieldData* field_data) const {
+  DCHECK_EQ(AutofillType::CREDIT_CARD, AutofillType(field.type()).group());
+  DCHECK(field_data);
+
+  if (field_data->form_control_type == "select-one") {
+    FillSelectControl(field.type(), field_data);
+  } else if (field_data->form_control_type == "month") {
+    // HTML5 input="month" consists of year-month.
+    string16 year = GetCanonicalizedInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR);
+    string16 month = GetCanonicalizedInfo(CREDIT_CARD_EXP_MONTH);
+    if (!year.empty() && !month.empty()) {
+      // Fill the value only if |this| includes both year and month
+      // information.
+      field_data->value = year + ASCIIToUTF16("-") + month;
+    }
+  } else {
+    field_data->value = GetCanonicalizedInfo(field.type());
+  }
+}
+
 int CreditCard::Compare(const CreditCard& credit_card) const {
   // The following CreditCard field types are the only types we store in the
   // WebDB so far, so we're only concerned with matching these types in the
@@ -534,6 +551,17 @@ bool CreditCard::IsComplete() const {
       IsValidCreditCardNumber(number_) &&
       expiration_month_ != 0 &&
       expiration_year_ != 0;
+}
+
+void CreditCard::GetSupportedTypes(FieldTypeSet* supported_types) const {
+  supported_types->insert(CREDIT_CARD_NAME);
+  supported_types->insert(CREDIT_CARD_NUMBER);
+  supported_types->insert(CREDIT_CARD_TYPE);
+  supported_types->insert(CREDIT_CARD_EXP_MONTH);
+  supported_types->insert(CREDIT_CARD_EXP_2_DIGIT_YEAR);
+  supported_types->insert(CREDIT_CARD_EXP_4_DIGIT_YEAR);
+  supported_types->insert(CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR);
+  supported_types->insert(CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR);
 }
 
 string16 CreditCard::ExpirationMonthAsString() const {

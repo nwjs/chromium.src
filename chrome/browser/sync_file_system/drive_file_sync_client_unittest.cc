@@ -7,56 +7,154 @@
 #include "base/json/json_reader.h"
 #include "base/message_loop.h"
 #include "base/message_loop_proxy.h"
+#include "chrome/browser/google_apis/drive_uploader.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
-#include "chrome/browser/google_apis/gdata_test_util.h"
 #include "chrome/browser/google_apis/mock_drive_service.h"
-#include "chrome/browser/google_apis/mock_drive_uploader.h"
+#include "chrome/browser/google_apis/test_util.h"
 #include "chrome/test/base/testing_profile.h"
 #include "net/base/escape.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#define FPL(x) FILE_PATH_LITERAL(x)
+
 using ::testing::StrictMock;
 using ::testing::_;
 
+using google_apis::DocumentEntry;
 using google_apis::DocumentFeed;
 using google_apis::DriveServiceInterface;
 using google_apis::DriveUploaderInterface;
 using google_apis::GDataErrorCode;
+using google_apis::Link;
 using google_apis::MockDriveService;
-using google_apis::MockDriveUploader;
 
 namespace sync_file_system {
 
 namespace {
 const char kSyncRootDirectoryName[] = "Chrome Syncable FileSystem";
+
+// A fake implementation of DriveUploaderInterface, which provides fake
+// behaviors for file uploading.
+class FakeDriveUploader : public google_apis::DriveUploaderInterface {
+ public:
+  FakeDriveUploader() {}
+  virtual ~FakeDriveUploader() {}
+
+  // DriveUploaderInterface overrides.
+
+  // Pretends that a new file was uploaded successfully, and returns the
+  // contents of "gdata/file_entry.json" to the caller.
+  virtual int UploadNewFile(
+      const GURL& upload_location,
+      const FilePath& drive_file_path,
+      const FilePath& local_file_path,
+      const std::string& title,
+      const std::string& content_type,
+      int64 content_length,
+      int64 file_size,
+      const google_apis::UploadCompletionCallback& completion_callback,
+      const google_apis::UploaderReadyCallback& ready_callback) OVERRIDE {
+    scoped_ptr<base::Value> file_entry_data(
+        google_apis::test_util::LoadJSONFile(
+            "gdata/file_entry.json").Pass());
+    scoped_ptr<DocumentEntry> file_entry(
+        DocumentEntry::ExtractAndParse(*file_entry_data));
+
+    base::MessageLoopProxy::current()->PostTask(
+        FROM_HERE,
+        base::Bind(completion_callback,
+                   google_apis::DRIVE_UPLOAD_OK,
+                   drive_file_path,
+                   local_file_path,
+                   base::Passed(&file_entry)));
+    return 1;  // Return dummy upload ID.
+  }
+
+  virtual int StreamExistingFile(
+      const GURL& upload_location,
+      const FilePath& drive_file_path,
+      const FilePath& local_file_path,
+      const std::string& content_type,
+      int64 content_length,
+      int64 file_size,
+      const google_apis::UploadCompletionCallback& completion_callback,
+      const google_apis::UploaderReadyCallback& ready_callback) OVERRIDE {
+    NOTREACHED();
+    return 0;
+  }
+
+  // Pretends that an existing file ("file:resource_id") was uploaded
+  // successfully, and returns the contents of "gdata/file_entry.json" to the
+  // caller.
+  virtual int UploadExistingFile(
+      const GURL& upload_location,
+      const FilePath& drive_file_path,
+      const FilePath& local_file_path,
+      const std::string& content_type,
+      int64 file_size,
+      const google_apis::UploadCompletionCallback& completion_callback,
+      const google_apis::UploaderReadyCallback& ready_callback) {
+    scoped_ptr<base::Value> file_entry_data(
+        google_apis::test_util::LoadJSONFile(
+            "gdata/file_entry.json").Pass());
+    scoped_ptr<DocumentEntry> file_entry(
+        DocumentEntry::ExtractAndParse(*file_entry_data));
+
+    base::MessageLoopProxy::current()->PostTask(
+        FROM_HERE,
+        base::Bind(completion_callback,
+                   google_apis::DRIVE_UPLOAD_OK,
+                   drive_file_path,
+                   local_file_path,
+                   base::Passed(&file_entry)));
+    return 1;  // Return dummy upload ID.
+  }
+
+  virtual void UpdateUpload(int upload_id,
+                            content::DownloadItem* download) OVERRIDE {
+    NOTREACHED();
+  }
+
+  virtual int64 GetUploadedBytes(int upload_id) const OVERRIDE {
+    NOTREACHED();
+    return 0;
+  }
+};
+
 }  // namespace
 
 class DriveFileSyncClientTest : public testing::Test {
  public:
   DriveFileSyncClientTest()
       : mock_drive_service_(NULL),
-        mock_drive_uploader_(NULL) {
+        fake_drive_uploader_(NULL) {
   }
 
   virtual void SetUp() OVERRIDE {
     mock_drive_service_ = new StrictMock<MockDriveService>;
-    mock_drive_uploader_ = new StrictMock<MockDriveUploader>;
+    fake_drive_uploader_ = new FakeDriveUploader;
 
     EXPECT_CALL(*mock_drive_service_, Initialize(&profile_)).Times(1);
 
     sync_client_ = DriveFileSyncClient::CreateForTesting(
         &profile_,
         scoped_ptr<DriveServiceInterface>(mock_drive_service_),
-        scoped_ptr<DriveUploaderInterface>(mock_drive_uploader_)).Pass();
+        scoped_ptr<DriveUploaderInterface>(fake_drive_uploader_)).Pass();
   }
 
   virtual void TearDown() OVERRIDE {
+    EXPECT_CALL(*mock_drive_service(), CancelAll());
     sync_client_.reset();
   }
 
  protected:
   DriveFileSyncClient* sync_client() { return sync_client_.get(); }
+
+  std::string FormatOriginQuery(const GURL& origin) {
+    return FormatTitleQuery(
+        DriveFileSyncClient::OriginToDirectoryTitle(origin));
+  }
 
   std::string FormatTitleQuery(const std::string& title) {
     return DriveFileSyncClient::FormatTitleQuery(title);
@@ -64,10 +162,6 @@ class DriveFileSyncClientTest : public testing::Test {
 
   StrictMock<MockDriveService>* mock_drive_service() {
     return mock_drive_service_;
-  }
-
-  StrictMock<MockDriveUploader>* mock_drive_uploader() {
-    return mock_drive_uploader_;
   }
 
   MessageLoop* message_loop() { return &message_loop_; }
@@ -78,7 +172,7 @@ class DriveFileSyncClientTest : public testing::Test {
   TestingProfile profile_;
   scoped_ptr<DriveFileSyncClient> sync_client_;
   StrictMock<MockDriveService>* mock_drive_service_;
-  StrictMock<MockDriveUploader>* mock_drive_uploader_;
+  FakeDriveUploader* fake_drive_uploader_;
 
   DISALLOW_COPY_AND_ASSIGN(DriveFileSyncClientTest);
 };
@@ -107,12 +201,26 @@ ACTION_P2(InvokeGetDataCallback2, error, result) {
       base::Bind(arg2, error, base::Passed(&value)));
 }
 
-// Invokes |arg4| as a GetDataCallback.
-ACTION_P2(InvokeGetDataCallback4, error, result) {
+// Invokes |arg5| as a GetDataCallback.
+ACTION_P2(InvokeGetDataCallback5, error, result) {
   scoped_ptr<base::Value> value(result.Pass());
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(arg4, error, base::Passed(&value)));
+      base::Bind(arg5, error, base::Passed(&value)));
+}
+
+// Invokes |arg3| as a DownloadActionCallback.
+ACTION_P2(InvokeDownloadActionCallback3, error, downloaded_file_path) {
+  base::MessageLoopProxy::current()->PostTask(
+      FROM_HERE,
+      base::Bind(arg3, error, downloaded_file_path));
+}
+
+// Invokes |arg1| as a EntryActionCallback.
+ACTION_P(InvokeEntryActionCallback2, error) {
+  base::MessageLoopProxy::current()->PostTask(
+      FROM_HERE,
+      base::Bind(arg1, error));
 }
 
 void DidGetResourceID(bool* done_out,
@@ -150,6 +258,36 @@ void DidGetDocumentFeed(bool* done_out,
   *document_feed_out = document_feed.Pass();
 }
 
+void DidDownloadFile(bool* done_out,
+                     std::string* expected_file_md5_out,
+                     GDataErrorCode* error_out,
+                     GDataErrorCode error,
+                     const std::string& expected_file_md5) {
+  EXPECT_FALSE(*done_out);
+  *done_out = true;
+  *error_out = error;
+  *expected_file_md5_out = expected_file_md5;
+}
+
+void DidUploadFile(bool* done_out,
+                   GDataErrorCode* error_out,
+                   std::string* resource_id_out,
+                   GDataErrorCode error,
+                   const std::string& resource_id,
+                   const std::string& file_md5) {
+  EXPECT_FALSE(*done_out);
+  *done_out = true;
+  *error_out = error;
+}
+
+void DidDeleteFile(bool* done_out,
+                   GDataErrorCode* error_out,
+                   GDataErrorCode error) {
+  EXPECT_FALSE(*done_out);
+  *done_out = true;
+  *error_out = error;
+}
+
 TEST_F(DriveFileSyncClientTest, GetSyncRoot) {
   scoped_ptr<base::Value> found_result(google_apis::test_util::LoadJSONFile(
       "sync_file_system/sync_root_found.json").Pass());
@@ -157,11 +295,12 @@ TEST_F(DriveFileSyncClientTest, GetSyncRoot) {
   // Expected to call GetDocuments from GetDriveDirectoryForSyncRoot.
   EXPECT_CALL(*mock_drive_service(),
               GetDocuments(GURL(),         // feed_url
-                           0,              // start_changestamp,
+                           0,              // start_changestamp
                            FormatTitleQuery(kSyncRootDirectoryName),
+                           false,          // shared_with_me
                            std::string(),  // directory_resource_id,
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&found_result)));
 
   bool done = false;
@@ -187,9 +326,10 @@ TEST_F(DriveFileSyncClientTest, CreateSyncRoot) {
               GetDocuments(GURL(),         // feed_urlc
                            0,              // start_changestamp
                            FormatTitleQuery(kSyncRootDirectoryName),
+                           false,          // shared_with_me
                            std::string(),  // directory_resource_id
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&not_found_result)));
 
   // Expected to call AddNewDirectory from GetDriveDirectoryForSyncRoot.
@@ -217,7 +357,7 @@ TEST_F(DriveFileSyncClientTest, GetOriginDirectory) {
   const std::string kParentResourceId("folder:sync_root_resource_id");
   const std::string kOriginDirectoryResourceId(
       "folder:origin_directory_resource_id");
-  const GURL kOrigin("http://example.com");
+  const GURL kOrigin("chrome-extension://example");
 
   scoped_ptr<base::Value> found_result(google_apis::test_util::LoadJSONFile(
       "sync_file_system/origin_directory_found.json").Pass());
@@ -226,10 +366,11 @@ TEST_F(DriveFileSyncClientTest, GetOriginDirectory) {
   EXPECT_CALL(*mock_drive_service(),
               GetDocuments(GURL(),  // feed_url
                            0,       // start_changestamp
-                           FormatTitleQuery(kOrigin.spec()),
+                           FormatOriginQuery(kOrigin),
+                           false,   // shared_with_me
                            kParentResourceId,
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&found_result)));
 
   bool done = false;
@@ -247,7 +388,7 @@ TEST_F(DriveFileSyncClientTest, GetOriginDirectory) {
 
 TEST_F(DriveFileSyncClientTest, CreateOriginDirectory) {
   const std::string kParentResourceId("folder:sync_root_resource_id");
-  const GURL kOrigin("http://example.com");
+  const GURL kOrigin("chrome-extension://example");
 
   scoped_ptr<base::Value> not_found_result(google_apis::test_util::LoadJSONFile(
       "sync_file_system/origin_directory_not_found.json").Pass());
@@ -263,10 +404,11 @@ TEST_F(DriveFileSyncClientTest, CreateOriginDirectory) {
   EXPECT_CALL(*mock_drive_service(),
               GetDocuments(GURL(),             // feed_url
                            0,                  // start_changestamp
-                           FormatTitleQuery(kOrigin.spec()),
+                           FormatOriginQuery(kOrigin),
+                           false,              // shared_with_me
                            kParentResourceId,  // directory_resource_id
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&not_found_result)));
 
   // Expected to call GetDocumentEntry from GetDriveDirectoryForOrigin.
@@ -275,10 +417,11 @@ TEST_F(DriveFileSyncClientTest, CreateOriginDirectory) {
       .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
                                        base::Passed(&got_parent_result)));
 
+  std::string dir_title(DriveFileSyncClient::OriginToDirectoryTitle(kOrigin));
   // Expected to call AddNewDirectory from GetDriveDirectoryForOrigin.
   EXPECT_CALL(*mock_drive_service(),
               AddNewDirectory(GURL("https://sync_root_content_url"),
-                              FilePath().AppendASCII(kOrigin.spec()).value(),
+                              FilePath().AppendASCII(dir_title).value(),
                               _))
       .WillOnce(InvokeGetDataCallback2(google_apis::HTTP_CREATED,
                                        base::Passed(&created_result)));
@@ -336,9 +479,10 @@ TEST_F(DriveFileSyncClientTest, ListFiles) {
               GetDocuments(GURL(),         // feed_url
                            0,              // start_changestamp
                            std::string(),  // search_query
+                           false,          // shared_with_me
                            kDirectoryResourceId,
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&first_result)))
       .RetiresOnSaturation();
 
@@ -347,9 +491,10 @@ TEST_F(DriveFileSyncClientTest, ListFiles) {
               GetDocuments(kFeedURL,
                            0,              // start_changestamp
                            std::string(),  // search_query
+                           false,          // shared_with_me
                            std::string(),  // directory_resource_id
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&following_result)))
       .RetiresOnSaturation();
 
@@ -395,9 +540,10 @@ TEST_F(DriveFileSyncClientTest, ListChanges) {
               GetDocuments(GURL(),
                            0,                     // start_changestamp
                            std::string(),         // search_query
+                           false,                 // shared_with_me
                            kDirectoryResourceId,  // directory_resource_id
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&first_result)))
       .RetiresOnSaturation();
 
@@ -406,9 +552,10 @@ TEST_F(DriveFileSyncClientTest, ListChanges) {
               GetDocuments(GURL(),
                            kStartChangestamp,
                            std::string(),  // search_query
+                           false,          // shared_with_me
                            std::string(),  // directory_resource_id
                            _))
-      .WillOnce(InvokeGetDataCallback4(google_apis::HTTP_SUCCESS,
+      .WillOnce(InvokeGetDataCallback5(google_apis::HTTP_SUCCESS,
                                        base::Passed(&following_result)))
       .RetiresOnSaturation();
 
@@ -435,6 +582,270 @@ TEST_F(DriveFileSyncClientTest, ListChanges) {
   EXPECT_TRUE(done);
   EXPECT_EQ(google_apis::HTTP_SUCCESS, error);
   EXPECT_FALSE(document_feed->entries().empty());
+}
+
+TEST_F(DriveFileSyncClientTest, DownloadFile) {
+  const std::string kResourceId = "file:resource_id";
+  const std::string kLocalFileMD5 = "123456";
+  const FilePath kLocalFilePath(FPL("/tmp/dir/file"));
+
+  scoped_ptr<base::Value> file_entry_data(
+      google_apis::test_util::LoadJSONFile("gdata/file_entry.json").Pass());
+  scoped_ptr<DocumentEntry> entry(
+      DocumentEntry::ExtractAndParse(*file_entry_data));
+
+  testing::InSequence sequence;
+
+  // Expected to call GetDocumentEntry from DriveFileSyncClient::UploadNewFile.
+  EXPECT_CALL(*mock_drive_service(),
+              GetDocumentEntry(kResourceId, _))
+      .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
+                                       base::Passed(&file_entry_data)))
+      .RetiresOnSaturation();
+
+  // Expected to call DriveUploaderInterface::DownloadFile from
+  // DidGetDocumentEntryForDownloadFile.
+  EXPECT_CALL(*mock_drive_service(),
+              DownloadFile(_,  // drive_path
+                           kLocalFilePath,
+                           entry->content_url(),
+                           _, _))
+      .WillOnce(InvokeDownloadActionCallback3(google_apis::HTTP_SUCCESS,
+                                              kLocalFilePath))
+      .RetiresOnSaturation();
+
+  bool done = false;
+  std::string file_md5;
+  GDataErrorCode error = google_apis::GDATA_OTHER_ERROR;
+  sync_client()->DownloadFile(kResourceId,
+                              kLocalFileMD5,
+                              kLocalFilePath,
+                              base::Bind(&DidDownloadFile,
+                                         &done, &file_md5, &error));
+  message_loop()->RunUntilIdle();
+
+  EXPECT_TRUE(done);
+  EXPECT_EQ(entry->file_md5(), file_md5);
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error);
+}
+
+TEST_F(DriveFileSyncClientTest, DownloadFileInNotModified) {
+  const std::string kResourceId = "file:resource_id";
+  const FilePath kLocalFilePath(FPL("/tmp/dir/file"));
+
+  scoped_ptr<base::Value> file_entry_data(
+      google_apis::test_util::LoadJSONFile("gdata/file_entry.json").Pass());
+  scoped_ptr<DocumentEntry> entry(
+      DocumentEntry::ExtractAndParse(*file_entry_data));
+
+  // Since local file's hash value is equal to remote file's one, it is expected
+  // to cancel download the file and to return NOT_MODIFIED status code.
+  const std::string kLocalFileMD5 = entry->file_md5();
+
+  testing::InSequence sequence;
+
+  // Expected to call GetDocumentEntry from DriveFileSyncClient::UploadNewFile.
+  EXPECT_CALL(*mock_drive_service(),
+              GetDocumentEntry(kResourceId, _))
+      .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
+                                       base::Passed(&file_entry_data)))
+      .RetiresOnSaturation();
+
+  bool done = false;
+  std::string file_md5;
+  GDataErrorCode error = google_apis::GDATA_OTHER_ERROR;
+  sync_client()->DownloadFile(kResourceId,
+                              kLocalFileMD5,
+                              kLocalFilePath,
+                              base::Bind(&DidDownloadFile,
+                                         &done, &file_md5, &error));
+  message_loop()->RunUntilIdle();
+
+  EXPECT_TRUE(done);
+  EXPECT_EQ(entry->file_md5(), file_md5);
+  EXPECT_EQ(google_apis::HTTP_NOT_MODIFIED, error);
+}
+
+TEST_F(DriveFileSyncClientTest, UploadNewFile) {
+  const std::string kDirectoryResourceId = "folder:directory_resource_id";
+  const FilePath kLocalFilePath(FPL("/tmp/dir/file"));
+  const std::string kTitle("testfile");
+  int64 kFileSize = 1024;
+
+  scoped_ptr<base::Value> dir_entry_data(google_apis::test_util::LoadJSONFile(
+      "gdata/directory_entry.json").Pass());
+  scoped_ptr<DocumentEntry> dir_entry(
+      DocumentEntry::ExtractAndParse(*dir_entry_data));
+  const GURL link_url =
+      dir_entry->GetLinkByType(Link::LINK_RESUMABLE_CREATE_MEDIA)->href();
+
+  testing::InSequence sequence;
+
+  // Expected to call GetDocumentEntry from DriveFileSyncClient::UploadNewFile.
+  EXPECT_CALL(*mock_drive_service(),
+              GetDocumentEntry(kDirectoryResourceId, _))
+      .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
+                                       base::Passed(&dir_entry_data)))
+      .RetiresOnSaturation();
+
+  bool done = false;
+  GDataErrorCode error = google_apis::GDATA_OTHER_ERROR;
+  std::string resource_id;
+  sync_client()->UploadNewFile(kDirectoryResourceId,
+                               kLocalFilePath,
+                               kTitle,
+                               kFileSize,
+                               base::Bind(&DidUploadFile,
+                                          &done, &error, &resource_id));
+  message_loop()->RunUntilIdle();
+
+  EXPECT_TRUE(done);
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error);
+}
+
+TEST_F(DriveFileSyncClientTest, UploadExistingFile) {
+  const std::string kResourceId = "file:resource_id";
+  const FilePath kLocalFilePath(FPL("/tmp/dir/file"));
+  int64 kFileSize = 1024;
+
+  scoped_ptr<base::Value> file_entry_data(
+      google_apis::test_util::LoadJSONFile("gdata/file_entry.json").Pass());
+  scoped_ptr<DocumentEntry> entry(
+      DocumentEntry::ExtractAndParse(*file_entry_data));
+  const std::string expected_remote_file_md5 = entry->file_md5();
+  const GURL link_url =
+      entry->GetLinkByType(Link::LINK_RESUMABLE_EDIT_MEDIA)->href();
+
+  testing::InSequence sequence;
+
+  // Expected to call GetDocumentEntry from
+  // DriveFileSyncClient::UploadExistingFile.
+  EXPECT_CALL(*mock_drive_service(),
+              GetDocumentEntry(kResourceId, _))
+      .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
+                                       base::Passed(&file_entry_data)))
+      .RetiresOnSaturation();
+
+  bool done = false;
+  GDataErrorCode error = google_apis::GDATA_OTHER_ERROR;
+  std::string resource_id;
+  sync_client()->UploadExistingFile(kResourceId,
+                                    expected_remote_file_md5,
+                                    kLocalFilePath,
+                                    kFileSize,
+                                    base::Bind(&DidUploadFile,
+                                               &done, &error, &resource_id));
+  message_loop()->RunUntilIdle();
+
+  EXPECT_TRUE(done);
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error);
+}
+
+TEST_F(DriveFileSyncClientTest, UploadExistingFileInConflict) {
+  const std::string kResourceId = "file:resource_id";
+  const FilePath kLocalFilePath(FPL("/tmp/dir/file"));
+  int64 kFileSize = 1024;
+
+  // Since remote file's hash value is different from the expected one, it is
+  // expected to cancel upload the file and to return CONFLICT status code.
+  const std::string kExpectedRemoteFileMD5 = "123456";
+
+  scoped_ptr<base::Value> file_entry_data(
+      google_apis::test_util::LoadJSONFile("gdata/file_entry.json").Pass());
+  scoped_ptr<DocumentEntry> entry(
+      DocumentEntry::ExtractAndParse(*file_entry_data));
+
+  testing::InSequence sequence;
+
+  // Expected to call GetDocumentEntry from
+  // DriveFileSyncClient::UploadExistingFile.
+  EXPECT_CALL(*mock_drive_service(),
+              GetDocumentEntry(kResourceId, _))
+      .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
+                                       base::Passed(&file_entry_data)))
+      .RetiresOnSaturation();
+
+  bool done = false;
+  GDataErrorCode error = google_apis::GDATA_OTHER_ERROR;
+  std::string resource_id;
+  sync_client()->UploadExistingFile(kResourceId,
+                                    kExpectedRemoteFileMD5,
+                                    kLocalFilePath,
+                                    kFileSize,
+                                    base::Bind(&DidUploadFile,
+                                               &done, &error, &resource_id));
+  message_loop()->RunUntilIdle();
+
+  EXPECT_TRUE(done);
+  EXPECT_EQ(google_apis::HTTP_CONFLICT, error);
+}
+
+TEST_F(DriveFileSyncClientTest, DeleteFile) {
+  const std::string kResourceId = "file:resource_id";
+
+  scoped_ptr<base::Value> file_entry_data(
+      google_apis::test_util::LoadJSONFile("gdata/file_entry.json").Pass());
+  scoped_ptr<DocumentEntry> entry(
+      DocumentEntry::ExtractAndParse(*file_entry_data));
+  const std::string kExpectedRemoteFileMD5 = entry->file_md5();
+
+  testing::InSequence sequence;
+
+  // Expected to call GetDocumentEntry from DriveFileSyncClient::DeleteFile.
+  EXPECT_CALL(*mock_drive_service(), GetDocumentEntry(kResourceId, _))
+      .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
+                                       base::Passed(&file_entry_data)))
+      .RetiresOnSaturation();
+
+  // Expected to call DriveUploaderInterface::DeleteDocument from
+  // DidGetDocumentEntryForDeleteFile.
+  EXPECT_CALL(*mock_drive_service(),
+              DeleteDocument(entry->GetLinkByType(Link::LINK_SELF)->href(), _))
+      .WillOnce(InvokeEntryActionCallback2(google_apis::HTTP_SUCCESS))
+      .RetiresOnSaturation();
+
+  bool done = false;
+  GDataErrorCode error = google_apis::GDATA_OTHER_ERROR;
+  std::string resource_id;
+  sync_client()->DeleteFile(kResourceId,
+                            kExpectedRemoteFileMD5,
+                            base::Bind(&DidDeleteFile, &done, &error));
+  message_loop()->RunUntilIdle();
+
+  EXPECT_TRUE(done);
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error);
+}
+
+TEST_F(DriveFileSyncClientTest, DeleteFileInConflict) {
+  const std::string kResourceId = "file:resource_id";
+
+  // Since remote file's hash value is different from the expected one, it is
+  // expected to cancel delete the file and to return CONFLICT status code.
+  const std::string kExpectedRemoteFileMD5 = "123456";
+
+  scoped_ptr<base::Value> file_entry_data(
+      google_apis::test_util::LoadJSONFile("gdata/file_entry.json").Pass());
+  scoped_ptr<DocumentEntry> entry(
+      DocumentEntry::ExtractAndParse(*file_entry_data));
+
+  testing::InSequence sequence;
+
+  // Expected to call GetDocumentEntry from DriveFileSyncClient::DeleteFile.
+  EXPECT_CALL(*mock_drive_service(), GetDocumentEntry(kResourceId, _))
+      .WillOnce(InvokeGetDataCallback1(google_apis::HTTP_SUCCESS,
+                                       base::Passed(&file_entry_data)))
+      .RetiresOnSaturation();
+
+  bool done = false;
+  GDataErrorCode error = google_apis::GDATA_OTHER_ERROR;
+  std::string resource_id;
+  sync_client()->DeleteFile(kResourceId,
+                            kExpectedRemoteFileMD5,
+                            base::Bind(&DidDeleteFile, &done, &error));
+  message_loop()->RunUntilIdle();
+
+  EXPECT_TRUE(done);
+  EXPECT_EQ(google_apis::HTTP_CONFLICT, error);
 }
 
 #endif  // !defined(OS_ANDROID)

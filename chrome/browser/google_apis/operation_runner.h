@@ -11,8 +11,9 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/google_apis/auth_service.h"
+#include "chrome/browser/google_apis/base_operations.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
-#include "chrome/browser/google_apis/operations_base.h"
 
 class Profile;
 
@@ -26,7 +27,13 @@ class OperationRegistry;
 // retries and authentication.
 class OperationRunner {
  public:
-  OperationRunner(Profile* profile, const std::vector<std::string>& scopes);
+  // |scopes| specifies OAuth2 scopes.
+  //
+  // |custom_user_agent| will be used for the User-Agent header in HTTP
+  // requests issued through the operation runner if the value is not empty.
+  OperationRunner(Profile* profile,
+                  const std::vector<std::string>& scopes,
+                  const std::string& custom_user_agent);
   virtual ~OperationRunner();
 
   AuthService* auth_service() { return auth_service_.get(); }
@@ -40,16 +47,12 @@ class OperationRunner {
   // Cancels all in-flight operations.
   void CancelAll();
 
-  // Authenticates the user by fetching the auth token as needed. |callback|
-  // will be run with the error code and the auth token, on the thread this
-  // function is run.
-  void Authenticate(const AuthStatusCallback& callback);
-
   // Starts an operation implementing the AuthenticatedOperationInterface
   // interface, and makes the operation retry upon authentication failures by
   // calling back to RetryOperation.
   void StartOperationWithRetry(AuthenticatedOperationInterface* operation);
 
+ private:
   // Starts an operation implementing the AuthenticatedOperationInterface
   // interface.
   void StartOperation(AuthenticatedOperationInterface* operation);
@@ -64,11 +67,11 @@ class OperationRunner {
   // forces an authentication token refresh.
   void RetryOperation(AuthenticatedOperationInterface* operation);
 
- private:
   Profile* profile_;  // not owned
 
   scoped_ptr<AuthService> auth_service_;
   scoped_ptr<OperationRegistry> operation_registry_;
+  const std::string custom_user_agent_;
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.

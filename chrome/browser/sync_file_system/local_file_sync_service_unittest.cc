@@ -9,8 +9,8 @@
 #include "base/message_loop_proxy.h"
 #include "base/run_loop.h"
 #include "base/threading/thread.h"
-#include "chrome/browser/sync_file_system/local_change_processor.h"
 #include "chrome/browser/sync_file_system/local_file_sync_service.h"
+#include "chrome/browser/sync_file_system/mock_local_change_processor.h"
 #include "chrome/browser/sync_file_system/sync_file_system_test_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -20,6 +20,7 @@
 #include "webkit/fileapi/syncable/local_file_change_tracker.h"
 #include "webkit/fileapi/syncable/local_file_sync_context.h"
 #include "webkit/fileapi/syncable/local_file_sync_status.h"
+#include "webkit/fileapi/syncable/mock_sync_status_observer.h"
 #include "webkit/fileapi/syncable/sync_file_metadata.h"
 #include "webkit/fileapi/syncable/sync_status_code.h"
 #include "webkit/fileapi/syncable/syncable_file_system_util.h"
@@ -28,6 +29,7 @@ using fileapi::FileChange;
 using fileapi::FileChangeList;
 using fileapi::FileSystemURL;
 using fileapi::LocalFileSyncStatus;
+using fileapi::MockSyncStatusObserver;
 using fileapi::SyncFileMetadata;
 using fileapi::SyncFileType;
 using fileapi::SyncStatusCallback;
@@ -84,37 +86,14 @@ void OnGetFileMetadata(const tracked_objects::Location& where,
   oncompleted.Run();
 }
 
-class MockLocalChangeProcessor : public LocalChangeProcessor {
- public:
-  MockLocalChangeProcessor() {}
-  virtual ~MockLocalChangeProcessor() {}
-
-  // LocalChangeProcessor override.
-  MOCK_METHOD4(ApplyLocalChange,
-               void(const FileChange& change,
-                    const FilePath& local_path,
-                    const FileSystemURL& url,
-                    const SyncStatusCallback& callback));
-};
-
-class MockSyncStatusObserver : public LocalFileSyncStatus::Observer {
- public:
-  MockSyncStatusObserver() {}
-  virtual ~MockSyncStatusObserver() {}
-
-  // LocalFileSyncStatus::Observer overrides.
-  MOCK_METHOD1(OnSyncEnabled, void(const FileSystemURL& url));
-  MOCK_METHOD1(OnWriteEnabled, void(const FileSystemURL& url));
-};
-
 ACTION_P(MockStatusCallback, status) {
   base::MessageLoopProxy::current()->PostTask(
-      FROM_HERE, base::Bind(arg3, status));
+      FROM_HERE, base::Bind(arg4, status));
 }
 
 ACTION_P2(MockStatusCallbackAndRecordChange, status, changes) {
   base::MessageLoopProxy::current()->PostTask(
-      FROM_HERE, base::Bind(arg3, status));
+      FROM_HERE, base::Bind(arg4, status));
   changes->push_back(arg0);
 }
 
@@ -204,7 +183,7 @@ class LocalFileSyncServiceTest
 
   MultiThreadTestHelper thread_helper_;
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   scoped_ptr<fileapi::CannedSyncableFileSystem> file_system_;
   scoped_ptr<LocalFileSyncService> local_service_;
@@ -259,7 +238,14 @@ TEST_F(LocalFileSyncServiceTest, RemoteSyncStepsSimple) {
   EXPECT_EQ(base::PLATFORM_FILE_OK,
             file_system_->DirectoryExists(kDir));
 
-  // Run ApplyRemoteChange for kDir deletion.
+  // Run PrepareForProcessRemoteChange and ApplyRemoteChange for
+  // kDir once again for deletion.
+  expected_metadata.file_type = fileapi::SYNC_FILE_TYPE_DIRECTORY;
+  expected_metadata.size = 0;
+  PrepareForProcessRemoteChange(kDir, FROM_HERE,
+                                fileapi::SYNC_STATUS_OK,
+                                expected_metadata);
+
   change = FileChange(FileChange::FILE_CHANGE_DELETE,
                       fileapi::SYNC_FILE_TYPE_UNKNOWN);
   EXPECT_EQ(fileapi::SYNC_STATUS_OK,
@@ -337,18 +323,33 @@ TEST_F(LocalFileSyncServiceTest, ProcessLocalChange_CreateFile) {
       .WillOnce(InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
   file_system_->AddSyncStatusObserver(&status_observer);
 
+  // Creates and writes into a file.
+  EXPECT_EQ(base::PLATFORM_FILE_OK, file_system_->CreateFile(kFile));
+  EXPECT_EQ(kTestFileDataSize,
+            file_system_->WriteString(kFile, std::string(kTestFileData)));
+
+  // Retrieve the file metadata to set up the expected values.
+  base::PlatformFileInfo info;
+  FilePath platform_path;
+  EXPECT_EQ(base::PLATFORM_FILE_OK,
+            file_system_->GetMetadata(kFile, &info, &platform_path));
+
+  ASSERT_FALSE(info.is_directory);
+  ASSERT_EQ(kTestFileDataSize, info.size);
+
+  fileapi::SyncFileMetadata metadata;
+  metadata.file_type = fileapi::SYNC_FILE_TYPE_FILE;
+  metadata.size = info.size;
+  metadata.last_modified = info.last_modified;
+
   // The local_change_processor's ApplyLocalChange should be called once
   // with ADD_OR_UPDATE change for TYPE_FILE.
   StrictMock<MockLocalChangeProcessor> local_change_processor;
   const FileChange change(FileChange::FILE_CHANGE_ADD_OR_UPDATE,
                           fileapi::SYNC_FILE_TYPE_FILE);
-  EXPECT_CALL(local_change_processor, ApplyLocalChange(change, _, kFile, _))
+  EXPECT_CALL(local_change_processor,
+              ApplyLocalChange(change, platform_path, metadata, kFile, _))
       .WillOnce(MockStatusCallback(fileapi::SYNC_STATUS_OK));
-
-  // Creates and writes into a file.
-  EXPECT_EQ(base::PLATFORM_FILE_OK, file_system_->CreateFile(kFile));
-  EXPECT_EQ(kTestFileDataSize,
-            file_system_->WriteString(kFile, std::string(kTestFileData)));
 
   local_service_->ProcessLocalChange(
       &local_change_processor,
@@ -387,7 +388,7 @@ TEST_F(LocalFileSyncServiceTest, ProcessLocalChange_CreateAndRemoveFile) {
   StrictMock<MockLocalChangeProcessor> local_change_processor;
   const FileChange change(FileChange::FILE_CHANGE_DELETE,
                           fileapi::SYNC_FILE_TYPE_FILE);
-  EXPECT_CALL(local_change_processor, ApplyLocalChange(change, _, kFile, _))
+  EXPECT_CALL(local_change_processor, ApplyLocalChange(change, _, _, kFile, _))
       .WillOnce(MockStatusCallback(fileapi::SYNC_FILE_ERROR_NOT_FOUND));
 
   // The sync should succeed anyway.
@@ -462,7 +463,7 @@ TEST_F(LocalFileSyncServiceTest, ProcessLocalChange_MultipleChanges) {
   // twice for FILE_TYPE and FILE_DIRECTORY.
   StrictMock<MockLocalChangeProcessor> local_change_processor;
   std::vector<FileChange> changes;
-  EXPECT_CALL(local_change_processor, ApplyLocalChange(_, _, kPath, _))
+  EXPECT_CALL(local_change_processor, ApplyLocalChange(_, _, _, kPath, _))
       .Times(2)
       .WillOnce(MockStatusCallbackAndRecordChange(fileapi::SYNC_STATUS_OK,
                                                   &changes))

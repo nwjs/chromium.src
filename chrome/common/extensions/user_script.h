@@ -10,9 +10,9 @@
 
 #include "base/file_path.h"
 #include "base/string_piece.h"
+#include "extensions/common/url_pattern.h"
+#include "extensions/common/url_pattern_set.h"
 #include "googleurl/src/gurl.h"
-#include "chrome/common/extensions/url_pattern.h"
-#include "chrome/common/extensions/url_pattern_set.h"
 
 class Pickle;
 class PickleIterator;

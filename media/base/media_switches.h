@@ -17,6 +17,8 @@ extern const char kAlsaOutputDevice[];
 extern const char kAlsaInputDevice[];
 #endif
 
+MEDIA_EXPORT extern const char kAudioBufferSize[];
+
 #if defined(USE_CRAS)
 MEDIA_EXPORT extern const char kUseCras[];
 #endif
@@ -44,6 +46,8 @@ MEDIA_EXPORT extern const char kEnableAudioMixer[];
 MEDIA_EXPORT extern const char kEnableWebAudioInput[];
 
 MEDIA_EXPORT extern const char kVideoThreads[];
+
+MEDIA_EXPORT extern const char kEnableEncryptedMedia[];
 
 }  // namespace switches
 

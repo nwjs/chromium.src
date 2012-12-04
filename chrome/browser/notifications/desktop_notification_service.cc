@@ -13,6 +13,7 @@
 #include "chrome/browser/content_settings/content_settings_provider.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/notifications/notification.h"
@@ -34,6 +35,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/show_desktop_notification_params.h"
+#include "extensions/common/constants.h"
 #include "grit/browser_resources.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -275,7 +277,8 @@ void DesktopNotificationService::RemoveNotification(
     g_browser_process->notification_ui_manager()->CancelById(notification_id);
 }
 
-DesktopNotificationService::DesktopNotificationService(Profile* profile,
+DesktopNotificationService::DesktopNotificationService(
+    Profile* profile,
     NotificationUIManager* ui_manager)
     : profile_(profile),
       ui_manager_(ui_manager) {
@@ -325,10 +328,14 @@ void DesktopNotificationService::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
+  // This may get called during shutdown, so don't use GetUIManager() here,
+  // and don't do anything if ui_manager_ hasn't already been set.
+  if (!ui_manager_)
+    return;
+
   if (type == chrome::NOTIFICATION_EXTENSION_UNLOADED) {
     // Remove all notifications currently shown or queued by the extension
-    // which was unloaded. Don't use GetUIManager() here, because this may
-    // get called during shutdown.
+    // which was unloaded.
     const extensions::Extension* extension =
         content::Details<extensions::UnloadedExtensionInfo>(details)->extension;
     if (extension &&
@@ -337,6 +344,10 @@ void DesktopNotificationService::Observe(
           CancelAllBySourceOrigin(extension->url());
     }
   } else if (type == chrome::NOTIFICATION_PROFILE_DESTROYED) {
+    if (g_browser_process && g_browser_process->notification_ui_manager()) {
+      g_browser_process->notification_ui_manager()->
+          CancelAllByProfile(profile_);
+    }
     StopObserving();
   }
 }
@@ -465,8 +476,9 @@ bool DesktopNotificationService::ShowDesktopNotification(
 string16 DesktopNotificationService::DisplayNameForOrigin(
     const GURL& origin) {
   // If the source is an extension, lookup the display name.
-  if (origin.SchemeIs(chrome::kExtensionScheme)) {
-    ExtensionService* extension_service = profile_->GetExtensionService();
+  if (origin.SchemeIs(extensions::kExtensionScheme)) {
+    ExtensionService* extension_service =
+        extensions::ExtensionSystem::Get(profile_)->extension_service();
     if (extension_service) {
       const extensions::Extension* extension =
           extension_service->extensions()->GetExtensionOrAppByURL(

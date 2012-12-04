@@ -20,6 +20,10 @@ class Browser;
 class PrefServiceBase;
 class Profile;
 
+namespace content {
+class BrowserContext;
+}
+
 namespace ui {
 class DropTargetEvent;
 }
@@ -34,7 +38,8 @@ namespace bookmark_utils {
 int PreferredDropOperation(int source_operations, int operations);
 
 // Returns the drag operations for the specified node.
-int BookmarkDragOperation(Profile* profile, const BookmarkNode* node);
+int BookmarkDragOperation(content::BrowserContext* browser_context,
+                          const BookmarkNode* node);
 
 // Returns the preferred drop operation on a bookmark menu/bar.
 // |parent| is the parent node the drop is to occur on and |index| the index the
@@ -157,10 +162,6 @@ const BookmarkNode* ApplyEditsWithPossibleFolderChange(
     const BookmarkEditor::EditDetails& details,
     const string16& new_title,
     const GURL& new_url);
-
-// Toggles whether the bookmark bar is shown only on the new tab page or on
-// all tabs.  This is a preference modifier, not a visual modifier.
-void ToggleWhenVisible(Profile* profile);
 
 // Register user preferences for BookmarksBar.
 void RegisterUserPrefs(PrefServiceBase* prefs);

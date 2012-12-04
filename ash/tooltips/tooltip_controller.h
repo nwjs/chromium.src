@@ -5,13 +5,14 @@
 #ifndef ASH_TOOLTIPS_TOOLTIP_CONTROLLER_H_
 #define ASH_TOOLTIPS_TOOLTIP_CONTROLLER_H_
 
+#include "ash/ash_export.h"
+#include "ash/wm/session_state_observer.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "base/timer.h"
 #include "ui/aura/client/tooltip_client.h"
-#include "ui/aura/event_filter.h"
 #include "ui/aura/window_observer.h"
-#include "ash/ash_export.h"
+#include "ui/base/events/event_handler.h"
 #include "ui/gfx/point.h"
 
 namespace aura {
@@ -31,8 +32,9 @@ namespace internal {
 
 // TooltipController provides tooltip functionality for aura shell.
 class ASH_EXPORT TooltipController : public aura::client::TooltipClient,
-                                     public aura::EventFilter,
-                                     public aura::WindowObserver {
+                                     public ui::EventHandler,
+                                     public aura::WindowObserver,
+                                     public SessionStateObserver {
  public:
   explicit TooltipController(aura::client::DragDropClient* drag_drop_client);
   virtual ~TooltipController();
@@ -41,16 +43,14 @@ class ASH_EXPORT TooltipController : public aura::client::TooltipClient,
   virtual void UpdateTooltip(aura::Window* target) OVERRIDE;
   virtual void SetTooltipsEnabled(bool enable) OVERRIDE;
 
-  // Overridden from aura::EventFilter.
-  virtual bool PreHandleKeyEvent(aura::Window* target,
-                                 ui::KeyEvent* event) OVERRIDE;
-  virtual bool PreHandleMouseEvent(aura::Window* target,
-                                   ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleTouchEvent(
-      aura::Window* target,
-      ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleGestureEvent(aura::Window* target,
-      ui::GestureEvent* event) OVERRIDE;
+  // Overridden from ui::EventHandler.
+  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
+  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+
+  // Overridden from SessionStateController.
+  virtual void OnSessionStateEvent(SessionStateObserver::EventType event)
+      OVERRIDE;
 
   // Overridden from aura::WindowObserver.
   virtual void OnWindowDestroyed(aura::Window* window) OVERRIDE;

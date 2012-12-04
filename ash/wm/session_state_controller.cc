@@ -11,7 +11,7 @@
 #include "ash/wm/session_state_animator.h"
 #include "base/command_line.h"
 #include "ui/aura/root_window.h"
-#include "ui/aura/shared/compound_event_filter.h"
+#include "ui/views/corewm/compound_event_filter.h"
 
 #if defined(OS_CHROMEOS)
 #include "base/chromeos/chromeos_version.h"
@@ -23,9 +23,6 @@ const int SessionStateController::kLockTimeoutMs = 400;
 const int SessionStateController::kShutdownTimeoutMs = 400;
 const int SessionStateController::kLockFailTimeoutMs = 4000;
 const int SessionStateController::kLockToShutdownTimeoutMs = 150;
-const int SessionStateController::kSlowCloseAnimMs = 400;
-const int SessionStateController::kUndoSlowCloseAnimMs = 100;
-const int SessionStateController::kFastCloseAnimMs = 150;
 const int SessionStateController::kShutdownRequestDelayMs = 50;
 
 SessionStateController::SessionStateController()
@@ -39,4 +36,18 @@ void SessionStateController::SetDelegate(
     SessionStateControllerDelegate* delegate) {
   delegate_.reset(delegate);
 }
+
+void SessionStateController::AddObserver(SessionStateObserver* observer) {
+  observers_.AddObserver(observer);
+}
+
+void SessionStateController::RemoveObserver(SessionStateObserver* observer) {
+  observers_.RemoveObserver(observer);
+}
+
+bool SessionStateController::HasObserver(SessionStateObserver* observer) {
+  return observers_.HasObserver(observer);
+}
+
+
 }  // namespace ash

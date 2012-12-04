@@ -40,6 +40,7 @@ public abstract class AwContentsClient extends ContentViewClient {
     //                        Adapter for WebContentsDelegate methods.
     //--------------------------------------------------------------------------------------------
 
+    // TODO(mkosiba): Merge with handler in AwContents.
     class WebContentsDelegateAdapter extends AwWebContentsDelegate {
 
         // The message ids.
@@ -126,26 +127,22 @@ public abstract class AwContentsClient extends ContentViewClient {
         }
 
         @Override
-        public void onUrlStarredChanged(boolean starred) {
-            // TODO: implement
-        }
-
-        @Override
         public void showRepostFormWarningDialog(ContentViewCore contentViewCore) {
             Message dontResend = mHandler.obtainMessage(CANCEL_PENDING_RELOAD, contentViewCore);
             Message resend = mHandler.obtainMessage(CONTINUE_PENDING_RELOAD, contentViewCore);
             AwContentsClient.this.onFormResubmission(dontResend, resend);
         }
+
+        @Override
+        public boolean addNewContents(boolean isDialog, boolean isUserGesture) {
+            return AwContentsClient.this.onCreateWindow(isDialog, isUserGesture);
+        }
+
     }
 
     class AwWebContentsObserver extends WebContentsObserverAndroid {
         public AwWebContentsObserver(ContentViewCore contentViewCore) {
             super(contentViewCore);
-        }
-
-        @Override
-        public void didStartLoading(String url) {
-            AwContentsClient.this.onPageStarted(url);
         }
 
         @Override
@@ -175,7 +172,9 @@ public abstract class AwContentsClient extends ContentViewClient {
     }
 
     void installWebContentsObserver(ContentViewCore contentViewCore) {
-        assert mWebContentsObserver == null;
+        if (mWebContentsObserver != null) {
+            mWebContentsObserver.detachFromWebContents();
+        }
         mWebContentsObserver = new AwWebContentsObserver(contentViewCore);
     }
 
@@ -214,6 +213,8 @@ public abstract class AwContentsClient extends ContentViewClient {
 
     protected abstract void handleJsPrompt(String url, String message, String defaultValue,
             JsPromptResultReceiver receiver);
+
+    protected abstract boolean onCreateWindow(boolean isDialog, boolean isUserGesture);
 
     //--------------------------------------------------------------------------------------------
     //                              Other WebView-specific methods

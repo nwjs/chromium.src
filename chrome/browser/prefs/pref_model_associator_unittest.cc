@@ -79,7 +79,9 @@ TEST_F(ListPreferenceMergeTest, NotListOrDictionary) {
       pref_service_->FindPreference(prefs::kHomePage);
   scoped_ptr<Value> server_value(Value::CreateStringValue(server_url0_));
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, *server_value));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           *server_value));
   EXPECT_TRUE(merged_value->Equals(server_value.get()));
 }
 
@@ -88,7 +90,9 @@ TEST_F(ListPreferenceMergeTest, LocalEmpty) {
   const PrefService::Preference* pref =
       pref_service_->FindPreference(prefs::kURLsToRestoreOnStartup);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, server_url_list_));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           server_url_list_));
   EXPECT_TRUE(merged_value->Equals(&server_url_list_));
 }
 
@@ -103,7 +107,9 @@ TEST_F(ListPreferenceMergeTest, ServerNull) {
   const PrefService::Preference* pref =
       pref_service_->FindPreference(prefs::kURLsToRestoreOnStartup);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, *null_value));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           *null_value));
   const ListValue* local_list_value =
         pref_service_->GetList(prefs::kURLsToRestoreOnStartup);
   EXPECT_TRUE(merged_value->Equals(local_list_value));
@@ -120,7 +126,9 @@ TEST_F(ListPreferenceMergeTest, ServerEmpty) {
   const PrefService::Preference* pref =
       pref_service_->FindPreference(prefs::kURLsToRestoreOnStartup);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, *empty_value));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           *empty_value));
   const ListValue* local_list_value =
         pref_service_->GetList(prefs::kURLsToRestoreOnStartup);
   EXPECT_TRUE(merged_value->Equals(local_list_value));
@@ -137,7 +145,9 @@ TEST_F(ListPreferenceMergeTest, Merge) {
   const PrefService::Preference* pref =
       pref_service_->FindPreference(prefs::kURLsToRestoreOnStartup);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, server_url_list_));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           server_url_list_));
 
   ListValue expected;
   expected.Append(Value::CreateStringValue(server_url0_));
@@ -159,7 +169,9 @@ TEST_F(ListPreferenceMergeTest, Duplicates) {
   const PrefService::Preference* pref =
       pref_service_->FindPreference(prefs::kURLsToRestoreOnStartup);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, server_url_list_));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           server_url_list_));
 
   ListValue expected;
   expected.Append(Value::CreateStringValue(server_url0_));
@@ -180,7 +192,9 @@ TEST_F(ListPreferenceMergeTest, Equals) {
   const PrefService::Preference* pref =
       pref_service_->FindPreference(prefs::kURLsToRestoreOnStartup);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, server_url_list_));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           server_url_list_));
   EXPECT_TRUE(merged_value->Equals(original.get()));
 }
 
@@ -209,57 +223,68 @@ class DictionaryPreferenceMergeTest : public AbstractPreferenceMergeTest {
 };
 
 TEST_F(DictionaryPreferenceMergeTest, LocalEmpty) {
-  SetPrefToEmpty(prefs::kContentSettingsPatterns);
+  SetPrefToEmpty(prefs::kContentSettingsPatternPairs);
   const PrefService::Preference* pref =
-      pref_service_->FindPreference(prefs::kContentSettingsPatterns);
+      pref_service_->FindPreference(prefs::kContentSettingsPatternPairs);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, server_patterns_));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           server_patterns_));
   EXPECT_TRUE(merged_value->Equals(&server_patterns_));
 }
 
 TEST_F(DictionaryPreferenceMergeTest, ServerNull) {
   scoped_ptr<Value> null_value(Value::CreateNullValue());
   {
-    DictionaryPrefUpdate update(pref_service_, prefs::kContentSettingsPatterns);
+    DictionaryPrefUpdate update(pref_service_,
+                                prefs::kContentSettingsPatternPairs);
     DictionaryValue* local_dict_value = update.Get();
     SetContentPattern(local_dict_value, expression2_, content_type0_, 1);
   }
 
   const PrefService::Preference* pref =
-      pref_service_->FindPreference(prefs::kContentSettingsPatterns);
+      pref_service_->FindPreference(prefs::kContentSettingsPatternPairs);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, *null_value));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           *null_value));
   const DictionaryValue* local_dict_value =
-      pref_service_->GetDictionary(prefs::kContentSettingsPatterns);
+      pref_service_->GetDictionary(prefs::kContentSettingsPatternPairs);
   EXPECT_TRUE(merged_value->Equals(local_dict_value));
 }
 
 TEST_F(DictionaryPreferenceMergeTest, ServerEmpty) {
   scoped_ptr<Value> empty_value(new DictionaryValue);
   {
-    DictionaryPrefUpdate update(pref_service_, prefs::kContentSettingsPatterns);
+    DictionaryPrefUpdate update(pref_service_,
+                                prefs::kContentSettingsPatternPairs);
     DictionaryValue* local_dict_value = update.Get();
     SetContentPattern(local_dict_value, expression2_, content_type0_, 1);
   }
 
   const PrefService::Preference* pref =
-      pref_service_->FindPreference(prefs::kContentSettingsPatterns);
+      pref_service_->FindPreference(prefs::kContentSettingsPatternPairs);
   scoped_ptr<Value> merged_value(
-      PrefModelAssociator::MergePreference(*pref, *empty_value));
+      PrefModelAssociator::MergePreference(pref->name(),
+                                           *pref->GetValue(),
+                                           *empty_value));
   const DictionaryValue* local_dict_value =
-      pref_service_->GetDictionary(prefs::kContentSettingsPatterns);
+      pref_service_->GetDictionary(prefs::kContentSettingsPatternPairs);
   EXPECT_TRUE(merged_value->Equals(local_dict_value));
 }
 
 TEST_F(DictionaryPreferenceMergeTest, MergeNoConflicts) {
   {
-    DictionaryPrefUpdate update(pref_service_, prefs::kContentSettingsPatterns);
+    DictionaryPrefUpdate update(pref_service_,
+                                prefs::kContentSettingsPatternPairs);
     DictionaryValue* local_dict_value = update.Get();
     SetContentPattern(local_dict_value, expression2_, content_type0_, 1);
   }
 
   scoped_ptr<Value> merged_value(PrefModelAssociator::MergePreference(
-      *pref_service_->FindPreference(prefs::kContentSettingsPatterns),
+     prefs::kContentSettingsPatternPairs,
+      *pref_service_->FindPreference(prefs::kContentSettingsPatternPairs)->
+          GetValue(),
       server_patterns_));
 
   DictionaryValue expected;
@@ -272,7 +297,8 @@ TEST_F(DictionaryPreferenceMergeTest, MergeNoConflicts) {
 
 TEST_F(DictionaryPreferenceMergeTest, MergeConflicts) {
   {
-    DictionaryPrefUpdate update(pref_service_, prefs::kContentSettingsPatterns);
+    DictionaryPrefUpdate update(pref_service_,
+                                prefs::kContentSettingsPatternPairs);
     DictionaryValue* local_dict_value = update.Get();
     SetContentPattern(local_dict_value, expression0_, content_type0_, 2);
     SetContentPattern(local_dict_value, expression1_, content_type0_, 1);
@@ -281,7 +307,9 @@ TEST_F(DictionaryPreferenceMergeTest, MergeConflicts) {
   }
 
   scoped_ptr<Value> merged_value(PrefModelAssociator::MergePreference(
-      *pref_service_->FindPreference(prefs::kContentSettingsPatterns),
+      prefs::kContentSettingsPatternPairs,
+      *pref_service_->FindPreference(prefs::kContentSettingsPatternPairs)->
+          GetValue(),
       server_patterns_));
 
   DictionaryValue expected;
@@ -295,7 +323,8 @@ TEST_F(DictionaryPreferenceMergeTest, MergeConflicts) {
 
 TEST_F(DictionaryPreferenceMergeTest, Equal) {
   {
-    DictionaryPrefUpdate update(pref_service_, prefs::kContentSettingsPatterns);
+    DictionaryPrefUpdate update(pref_service_,
+                                prefs::kContentSettingsPatternPairs);
     DictionaryValue* local_dict_value = update.Get();
     SetContentPattern(local_dict_value, expression0_, content_type0_, 1);
     SetContentPattern(local_dict_value, expression0_, content_type1_, 2);
@@ -303,14 +332,17 @@ TEST_F(DictionaryPreferenceMergeTest, Equal) {
   }
 
   scoped_ptr<Value> merged_value(PrefModelAssociator::MergePreference(
-      *pref_service_->FindPreference(prefs::kContentSettingsPatterns),
+      prefs::kContentSettingsPatternPairs,
+      *pref_service_->
+          FindPreference(prefs::kContentSettingsPatternPairs)->GetValue(),
       server_patterns_));
   EXPECT_TRUE(merged_value->Equals(&server_patterns_));
 }
 
 TEST_F(DictionaryPreferenceMergeTest, ConflictButServerWins) {
   {
-    DictionaryPrefUpdate update(pref_service_, prefs::kContentSettingsPatterns);
+    DictionaryPrefUpdate update(pref_service_,
+                                prefs::kContentSettingsPatternPairs);
     DictionaryValue* local_dict_value = update.Get();
     SetContentPattern(local_dict_value, expression0_, content_type0_, 2);
     SetContentPattern(local_dict_value, expression0_, content_type1_, 2);
@@ -318,7 +350,9 @@ TEST_F(DictionaryPreferenceMergeTest, ConflictButServerWins) {
   }
 
   scoped_ptr<Value> merged_value(PrefModelAssociator::MergePreference(
-      *pref_service_->FindPreference(prefs::kContentSettingsPatterns),
+      prefs::kContentSettingsPatternPairs,
+      *pref_service_->
+          FindPreference(prefs::kContentSettingsPatternPairs)->GetValue(),
       server_patterns_));
   EXPECT_TRUE(merged_value->Equals(&server_patterns_));
 }
@@ -346,7 +380,8 @@ class IndividualPreferenceMergeTest : public AbstractPreferenceMergeTest {
     }
 
     scoped_ptr<Value> merged_value(PrefModelAssociator::MergePreference(
-        *pref_service_->FindPreference(pref),
+        pref,
+        *pref_service_->GetUserPrefValue(pref),
         server_url_list_));
 
     ListValue expected;
@@ -363,7 +398,8 @@ class IndividualPreferenceMergeTest : public AbstractPreferenceMergeTest {
     }
 
     scoped_ptr<Value> merged_value(PrefModelAssociator::MergePreference(
-        *pref_service_->FindPreference(pref),
+        pref,
+        *pref_service_->GetUserPrefValue(pref),
         server_patterns_));
 
     DictionaryValue expected;
@@ -383,20 +419,4 @@ class IndividualPreferenceMergeTest : public AbstractPreferenceMergeTest {
 
 TEST_F(IndividualPreferenceMergeTest, URLsToRestoreOnStartup) {
   EXPECT_TRUE(MergeListPreference(prefs::kURLsToRestoreOnStartup));
-}
-
-TEST_F(IndividualPreferenceMergeTest, DesktopNotificationAllowedOrigins) {
-  EXPECT_TRUE(MergeListPreference(prefs::kDesktopNotificationAllowedOrigins));
-}
-
-TEST_F(IndividualPreferenceMergeTest, DesktopNotificationDeniedOrigins) {
-  EXPECT_TRUE(MergeListPreference(prefs::kDesktopNotificationDeniedOrigins));
-}
-
-TEST_F(IndividualPreferenceMergeTest, ContentSettingsPatterns) {
-  EXPECT_TRUE(MergeDictionaryPreference(prefs::kContentSettingsPatterns));
-}
-
-TEST_F(IndividualPreferenceMergeTest, GeolocationContentSettings) {
-  EXPECT_TRUE(MergeDictionaryPreference(prefs::kGeolocationContentSettings));
 }

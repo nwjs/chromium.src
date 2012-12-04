@@ -69,6 +69,11 @@ void DisplayReconfigCallback(CGDirectDisplayID display,
 }
 #endif  // OS_MACOSX
 
+// Block all domains' use of 3D APIs for this many milliseconds if
+// approaching a threshold where system stability might be compromised.
+const int64 kBlockAllDomainsMs = 10000;
+const int kNumResetsWithinDuration = 1;
+
 }  // namespace anonymous
 
 // static
@@ -90,7 +95,8 @@ GpuDataManagerImpl::GpuDataManagerImpl()
       software_rendering_(false),
       card_blacklisted_(false),
       update_histograms_(true),
-      window_count_(0) {
+      window_count_(0),
+      domain_blocking_enabled_(true) {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kDisableAcceleratedCompositing)) {
     command_line->AppendSwitch(switches::kDisableAccelerated2dCanvas);
@@ -159,7 +165,7 @@ void GpuDataManagerImpl::InitializeImpl(
   }
 
   UpdateGpuInfo(gpu_info);
-  UpdateGpuSwitchingManager();
+  UpdateGpuSwitchingManager(gpu_info);
   UpdatePreliminaryBlacklistedFeatures();
 }
 
@@ -227,6 +233,11 @@ GPUInfo GpuDataManagerImpl::GetGPUInfo() const {
   return gpu_info;
 }
 
+void GpuDataManagerImpl::GetGpuProcessHandles(
+    const GetGpuProcessHandlesCallback& callback) const {
+  GpuProcessHost::GetProcessHandles(callback);
+}
+
 void GpuDataManagerImpl::RequestVideoMemoryUsageStatsUpdate() const {
   GpuProcessHost::SendOnIO(
       GpuProcessHost::GPU_PROCESS_KIND_SANDBOXED,
@@ -273,6 +284,8 @@ GpuFeatureType GpuDataManagerImpl::GetBlacklistedFeatures() const {
 }
 
 GpuSwitchingOption GpuDataManagerImpl::GetGpuSwitchingOption() const {
+  if (!ui::GpuSwitchingManager::GetInstance()->SupportsDualGpus())
+    return GPU_SWITCHING_OPTION_UNKNOWN;
   return gpu_switching_;
 }
 
@@ -338,6 +351,37 @@ void GpuDataManagerImpl::SetWindowCount(uint32 count) {
 uint32 GpuDataManagerImpl::GetWindowCount() const {
   base::AutoLock auto_lock(gpu_info_lock_);
   return window_count_;
+}
+
+void GpuDataManagerImpl::UnblockDomainFrom3DAPIs(const GURL& url) {
+  // This method must do two things:
+  //
+  //  1. If the specific domain is blocked, then unblock it.
+  //
+  //  2. Reset our notion of how many GPU resets have occurred recently.
+  //     This is necessary even if the specific domain was blocked.
+  //     Otherwise, if we call Are3DAPIsBlocked with the same domain right
+  //     after unblocking it, it will probably still be blocked because of
+  //     the recent GPU reset caused by that domain.
+  //
+  // These policies could be refined, but at a certain point the behavior
+  // will become difficult to explain.
+  std::string domain = GetDomainFromURL(url);
+
+  base::AutoLock auto_lock(gpu_info_lock_);
+  blocked_domains_.erase(domain);
+  timestamps_of_gpu_resets_.clear();
+}
+
+void GpuDataManagerImpl::DisableDomainBlockingFor3DAPIsForTesting() {
+  domain_blocking_enabled_ = false;
+}
+
+void GpuDataManagerImpl::DisableGpuWatchdog() {
+  GpuProcessHost::SendOnIO(
+      GpuProcessHost::GPU_PROCESS_KIND_SANDBOXED,
+      CAUSE_FOR_GPU_LAUNCH_NO_LAUNCH,
+      new GpuMsg_DisableWatchdog);
 }
 
 void GpuDataManagerImpl::AppendRendererCommandLine(
@@ -469,6 +513,16 @@ bool GpuDataManagerImpl::IsUsingAcceleratedSurface() const {
 }
 #endif
 
+void GpuDataManagerImpl::BlockDomainFrom3DAPIs(
+    const GURL& url, DomainGuilt guilt) {
+  BlockDomainFrom3DAPIsAtTime(url, guilt, base::Time::Now());
+}
+
+GpuDataManagerImpl::DomainBlockStatus
+GpuDataManagerImpl::Are3DAPIsBlocked(const GURL& url) const {
+  return Are3DAPIsBlockedAtTime(url, base::Time::Now());
+}
+
 void GpuDataManagerImpl::AppendPluginCommandLine(
     CommandLine* command_line) const {
   DCHECK(command_line);
@@ -523,7 +577,10 @@ void GpuDataManagerImpl::UpdateBlacklistedFeatures(
   EnableSoftwareRenderingIfNecessary();
 }
 
-void GpuDataManagerImpl::UpdateGpuSwitchingManager() {
+void GpuDataManagerImpl::UpdateGpuSwitchingManager(const GPUInfo& gpu_info) {
+  ui::GpuSwitchingManager::GetInstance()->SetGpuCount(
+      gpu_info.secondary_gpus.size() + 1);
+
   if (ui::GpuSwitchingManager::GetInstance()->SupportsDualGpus()) {
     switch (gpu_switching_) {
       case GPU_SWITCHING_OPTION_FORCE_DISCRETE:
@@ -565,6 +622,88 @@ void GpuDataManagerImpl::BlacklistCard() {
 
   EnableSoftwareRenderingIfNecessary();
   NotifyGpuInfoUpdate();
+}
+
+std::string GpuDataManagerImpl::GetDomainFromURL(const GURL& url) const {
+  // For the moment, we just use the host, or its IP address, as the
+  // entry in the set, rather than trying to figure out the top-level
+  // domain. This does mean that a.foo.com and b.foo.com will be
+  // treated independently in the blocking of a given domain, but it
+  // would require a third-party library to reliably figure out the
+  // top-level domain from a URL.
+  if (!url.has_host()) {
+    return std::string();
+  }
+
+  return url.host();
+}
+
+void GpuDataManagerImpl::BlockDomainFrom3DAPIsAtTime(
+    const GURL& url, DomainGuilt guilt, base::Time at_time) {
+  if (!domain_blocking_enabled_)
+    return;
+
+  std::string domain = GetDomainFromURL(url);
+
+  base::AutoLock auto_lock(gpu_info_lock_);
+  DomainBlockEntry& entry = blocked_domains_[domain];
+  entry.last_guilt = guilt;
+  timestamps_of_gpu_resets_.push_back(at_time);
+}
+
+GpuDataManagerImpl::DomainBlockStatus
+GpuDataManagerImpl::Are3DAPIsBlockedAtTime(
+    const GURL& url, base::Time at_time) const {
+  if (!domain_blocking_enabled_)
+    return DOMAIN_BLOCK_STATUS_NOT_BLOCKED;
+
+  // Note: adjusting the policies in this code will almost certainly
+  // require adjusting the associated unit tests.
+  std::string domain = GetDomainFromURL(url);
+
+  base::AutoLock auto_lock(gpu_info_lock_);
+  {
+    DomainBlockMap::const_iterator iter = blocked_domains_.find(domain);
+    if (iter != blocked_domains_.end()) {
+      // Err on the side of caution, and assume that if a particular
+      // domain shows up in the block map, it's there for a good
+      // reason and don't let its presence there automatically expire.
+      return DOMAIN_BLOCK_STATUS_BLOCKED;
+    }
+  }
+
+  // Look at the timestamps of the recent GPU resets to see if there are
+  // enough within the threshold which would cause us to blacklist all
+  // domains. This doesn't need to be overly precise -- if time goes
+  // backward due to a system clock adjustment, that's fine.
+  //
+  // TODO(kbr): make this pay attention to the TDR thresholds in the
+  // Windows registry, but make sure it continues to be testable.
+  std::list<base::Time>::iterator iter = timestamps_of_gpu_resets_.begin();
+  int num_resets_within_timeframe = 0;
+  while (iter != timestamps_of_gpu_resets_.end()) {
+    base::Time time = *iter;
+    base::TimeDelta delta_t = at_time - time;
+
+    // If this entry has "expired", just remove it.
+    if (delta_t.InMilliseconds() > kBlockAllDomainsMs) {
+      iter = timestamps_of_gpu_resets_.erase(iter);
+      continue;
+    }
+
+    ++num_resets_within_timeframe;
+    ++iter;
+  }
+
+  if (num_resets_within_timeframe >= kNumResetsWithinDuration) {
+    return DOMAIN_BLOCK_STATUS_ALL_DOMAINS_BLOCKED;
+  }
+
+  return DOMAIN_BLOCK_STATUS_NOT_BLOCKED;
+}
+
+int64 GpuDataManagerImpl::GetBlockAllDomainsDurationInMs() const {
+  return kBlockAllDomainsMs;
 }
 
 }  // namespace content

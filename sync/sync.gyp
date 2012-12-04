@@ -8,15 +8,8 @@
   },
   'targets': [
     # The core sync library.
-    #
-    # TODO(akalin): Rename this to something like 'sync_core' and
-    # reserve the 'sync' name for the overarching library that clients
-    # should depend on.
     {
-      'target_name': 'sync',
-      # TODO(akalin): Change this to '<(component)'.  When we rename
-      # this to 'sync_core' and make the overarching 'sync' library,
-      # make that one '<(component)'.
+      'target_name': 'sync_core',
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
       'include_dirs': [
@@ -41,43 +34,6 @@
       ],
       'sources': [
         'base/sync_export.h',
-        'internal_api/public/base/enum_set.h',
-        'internal_api/public/base/invalidation.cc',
-        'internal_api/public/base/invalidation.h',
-        'internal_api/public/base/model_type.h',
-        'internal_api/public/base/model_type_invalidation_map.cc',
-        'internal_api/public/base/model_type_invalidation_map.h',
-        'internal_api/public/base/node_ordinal.cc',
-        'internal_api/public/base/node_ordinal.h',
-        'internal_api/public/base/ordinal.h',
-        'internal_api/public/base/progress_marker_map.cc',
-        'internal_api/public/base/progress_marker_map.h',
-        'internal_api/public/engine/model_safe_worker.cc',
-        'internal_api/public/engine/model_safe_worker.h',
-        'internal_api/public/engine/passive_model_worker.cc',
-        'internal_api/public/engine/passive_model_worker.h',
-        'internal_api/public/engine/polling_constants.cc',
-        'internal_api/public/engine/polling_constants.h',
-        'internal_api/public/engine/sync_status.cc',
-        'internal_api/public/engine/sync_status.h',
-        'internal_api/public/sessions/model_neutral_state.cc',
-        'internal_api/public/sessions/model_neutral_state.h',
-        'internal_api/public/sessions/sync_session_snapshot.cc',
-        'internal_api/public/sessions/sync_session_snapshot.h',
-        'internal_api/public/sessions/sync_source_info.cc',
-        'internal_api/public/sessions/sync_source_info.h',
-        'internal_api/public/util/experiments.h',
-        'internal_api/public/util/immutable.h',
-        'internal_api/public/util/syncer_error.cc',
-        'internal_api/public/util/syncer_error.h',
-        'internal_api/public/util/sync_string_conversions.cc',
-        'internal_api/public/util/sync_string_conversions.h',
-        'internal_api/public/util/report_unrecoverable_error_function.h',
-        'internal_api/public/util/unrecoverable_error_handler.h',
-        'internal_api/public/util/unrecoverable_error_info.h',
-        'internal_api/public/util/unrecoverable_error_info.cc',
-        'internal_api/public/util/weak_handle.cc',
-        'internal_api/public/util/weak_handle.h',
         'engine/all_status.cc',
         'engine/all_status.h',
         'engine/apply_control_data_updates.cc',
@@ -183,8 +139,8 @@
         'syncable/model_type.cc',
         'syncable/mutable_entry.cc',
         'syncable/mutable_entry.h',
-        'syncable/nigori_handler.h',
         'syncable/nigori_handler.cc',
+        'syncable/nigori_handler.h',
         'syncable/nigori_util.cc',
         'syncable/nigori_util.h',
         'syncable/on_disk_directory_backing_store.cc',
@@ -222,6 +178,8 @@
         'util/extensions_activity_monitor.h',
         'util/get_session_name.cc',
         'util/get_session_name.h',
+        'util/get_session_name_ios.mm',
+        'util/get_session_name_ios.h',
         'util/get_session_name_mac.mm',
         'util/get_session_name_mac.h',
         'util/get_session_name_win.cc',
@@ -252,7 +210,7 @@
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation',
         # TODO(akalin): Remove this (http://crbug.com/133352).
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_proto_cpp',
-        'sync',
+        'sync_core',
       ],
       'export_dependent_settings': [
         '../jingle/jingle.gyp:notifier',
@@ -260,6 +218,8 @@
       ],
       'sources': [
         'notifier/invalidation_handler.h',
+        'notifier/invalidation_state_tracker.cc',
+        'notifier/invalidation_state_tracker.h',
         'notifier/invalidation_util.cc',
         'notifier/invalidation_util.h',
         'notifier/invalidator_factory.cc',
@@ -273,13 +233,17 @@
         'notifier/object_id_invalidation_map.h',
       ],
       'conditions': [
-        ['OS != "android"', {
+        ['OS == "ios"', {
+          'sources!': [
+            'notifier/invalidator_factory.cc',
+          ],
+        }],
+        ['OS != "android" and OS != "ios"', {
           'sources': [
             'notifier/ack_tracker.cc',
             'notifier/ack_tracker.h',
             'notifier/invalidation_notifier.cc',
             'notifier/invalidation_notifier.h',
-            'notifier/invalidation_state_tracker.h',
             'notifier/non_blocking_invalidator.cc',
             'notifier/non_blocking_invalidator.h',
             'notifier/p2p_invalidator.cc',
@@ -304,7 +268,7 @@
     },
     # The sync internal API library.
     {
-      'target_name': 'syncapi_core',
+      'target_name': 'sync_internal_api',
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
       'include_dirs': [
@@ -315,38 +279,16 @@
         '../build/temp_gyp/googleurl.gyp:googleurl',
         '../net/net.gyp:net',
         'protocol/sync_proto.gyp:sync_proto',
+        'sync_core',
         'sync_notifier',
-        'sync',
       ],
       'export_dependent_settings': [
         # Propagate sync_proto since our headers include its generated
         # files.
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
+        'sync_core',
       ],
       'sources': [
-        'internal_api/public/base_node.h',
-        'internal_api/public/base_transaction.h',
-        'internal_api/public/change_record.h',
-        'internal_api/public/configure_reason.h',
-        'internal_api/public/data_type_association_stats.cc',
-        'internal_api/public/data_type_association_stats.h',
-        'internal_api/public/data_type_debug_info_listener.h',
-        'internal_api/public/http_bridge.h',
-        'internal_api/public/http_post_provider_factory.h',
-        'internal_api/public/http_post_provider_interface.h',
-        'internal_api/public/internal_components_factory.h',
-        'internal_api/public/internal_components_factory_impl.h',
-        'internal_api/public/read_node.h',
-        'internal_api/public/read_transaction.h',
-        'internal_api/public/sync_manager.h',
-        'internal_api/public/sync_encryption_handler.cc',
-        'internal_api/public/sync_encryption_handler.h',
-        'internal_api/public/sync_manager.cc',
-        'internal_api/public/sync_manager_factory.h',
-        'internal_api/public/user_share.h',
-        'internal_api/public/write_node.h',
-        'internal_api/public/write_transaction.h',
         'internal_api/base_node.cc',
         'internal_api/base_transaction.cc',
         'internal_api/change_record.cc',
@@ -362,17 +304,76 @@
         'internal_api/js_sync_encryption_handler_observer.h',
         'internal_api/js_sync_manager_observer.cc',
         'internal_api/js_sync_manager_observer.h',
+        'internal_api/public/base_node.h',
+        'internal_api/public/base_transaction.h',
+        'internal_api/public/base/enum_set.h',
+        'internal_api/public/base/invalidation.cc',
+        'internal_api/public/base/invalidation.h',
+        'internal_api/public/base/model_type_invalidation_map.cc',
+        'internal_api/public/base/model_type_invalidation_map.h',
+        'internal_api/public/base/model_type.h',
+        'internal_api/public/base/node_ordinal.cc',
+        'internal_api/public/base/node_ordinal.h',
+        'internal_api/public/base/ordinal.h',
+        'internal_api/public/base/progress_marker_map.cc',
+        'internal_api/public/base/progress_marker_map.h',
+        'internal_api/public/change_record.h',
+        'internal_api/public/configure_reason.h',
+        'internal_api/public/data_type_association_stats.cc',
+        'internal_api/public/data_type_association_stats.h',
+        'internal_api/public/data_type_debug_info_listener.h',
+        'internal_api/public/engine/model_safe_worker.cc',
+        'internal_api/public/engine/model_safe_worker.h',
+        'internal_api/public/engine/passive_model_worker.cc',
+        'internal_api/public/engine/passive_model_worker.h',
+        'internal_api/public/engine/polling_constants.cc',
+        'internal_api/public/engine/polling_constants.h',
+        'internal_api/public/engine/sync_status.cc',
+        'internal_api/public/engine/sync_status.h',
+        'internal_api/public/http_bridge.h',
+        'internal_api/public/http_post_provider_factory.h',
+        'internal_api/public/http_post_provider_interface.h',
+        'internal_api/public/internal_components_factory_impl.h',
+        'internal_api/public/internal_components_factory.h',
+        'internal_api/public/read_node.h',
+        'internal_api/public/read_transaction.h',
+        'internal_api/public/sessions/model_neutral_state.cc',
+        'internal_api/public/sessions/model_neutral_state.h',
+        'internal_api/public/sessions/sync_session_snapshot.cc',
+        'internal_api/public/sessions/sync_session_snapshot.h',
+        'internal_api/public/sessions/sync_source_info.cc',
+        'internal_api/public/sessions/sync_source_info.h',
+        'internal_api/public/sync_encryption_handler.cc',
+        'internal_api/public/sync_encryption_handler.h',
+        'internal_api/public/sync_manager_factory.h',
+        'internal_api/public/sync_manager.cc',
+        'internal_api/public/sync_manager.h',
+        'internal_api/public/user_share.h',
+        'internal_api/public/util/experiments.h',
+        'internal_api/public/util/immutable.h',
+        'internal_api/public/util/report_unrecoverable_error_function.h',
+        'internal_api/public/util/sync_string_conversions.cc',
+        'internal_api/public/util/sync_string_conversions.h',
+        'internal_api/public/util/syncer_error.cc',
+        'internal_api/public/util/syncer_error.h',
+        'internal_api/public/util/unrecoverable_error_handler.h',
+        'internal_api/public/util/unrecoverable_error_info.cc',
+        'internal_api/public/util/unrecoverable_error_info.h',
+        'internal_api/public/util/weak_handle.cc',
+        'internal_api/public/util/weak_handle.h',
+        'internal_api/public/write_node.h',
+        'internal_api/public/write_transaction.h',
         'internal_api/read_node.cc',
         'internal_api/read_transaction.cc',
-        'internal_api/syncapi_internal.cc',
-        'internal_api/syncapi_internal.h',
-        'internal_api/syncapi_server_connection_manager.cc',
-        'internal_api/syncapi_server_connection_manager.h',
         'internal_api/sync_encryption_handler_impl.cc',
         'internal_api/sync_encryption_handler_impl.h',
         'internal_api/sync_manager_factory.cc',
         'internal_api/sync_manager_impl.cc',
         'internal_api/sync_manager_impl.h',
+        'internal_api/syncapi_internal.cc',
+        'internal_api/syncapi_internal.h',
+        'internal_api/syncapi_server_connection_manager.cc',
+        'internal_api/syncapi_server_connection_manager.h',
         'internal_api/user_share.cc',
         'internal_api/write_node.cc',
         'internal_api/write_transaction.cc',
@@ -381,7 +382,7 @@
 
     # The sync external API library.
     {
-      'target_name': 'syncapi_service',
+      'target_name': 'sync_api',
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
       'include_dirs': [
@@ -390,7 +391,7 @@
       'dependencies': [
         '../base/base.gyp:base',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
+        'sync_internal_api',
       ],
       # We avoid including header files from sync_proto in our public
       # header files so we don't need to export its settings.
@@ -408,13 +409,51 @@
         'api/sync_error.cc',
         'api/sync_error_factory.h',
         'api/sync_error_factory.cc',
+        'api/sync_merge_result.h',
+        'api/sync_merge_result.cc',
         'api/time.h',
       ],
     },
 
-    # Test support files for the 'sync' target.
+    # The componentized sync library.
     {
-      'target_name': 'test_support_sync',
+      'target_name': 'sync_component',
+      # TODO(rsimha): Change the type of this target to '<(component)' after
+      # exporting dependencies on 'sync_proto'.
+      'type': 'none',
+      'dependencies': [
+        'sync_api',
+        'sync_core',
+        'sync_notifier',
+        'sync_internal_api',
+      ],
+      'export_dependent_settings': [
+        'sync_api',
+        'sync_core',
+        'sync_notifier',
+        'sync_internal_api',
+      ],
+    },
+
+    # The public sync target.  This depends on 'sync_component' and
+    # 'sync_proto' separately since 'sync_proto' isn't exportable from
+    # 'sync_component' (for now).
+    {
+      'target_name': 'sync',
+      'type': 'none',
+      'dependencies': [
+        'sync_component',
+        'protocol/sync_proto.gyp:sync_proto',
+      ],
+      'export_dependent_settings': [
+        'sync_component',
+        'protocol/sync_proto.gyp:sync_proto',
+      ],
+    },
+
+    # Test support files for the 'sync_core' target.
+    {
+      'target_name': 'test_support_sync_core',
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
       'include_dirs': [
@@ -425,23 +464,15 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
+        'sync_core',
       ],
       'export_dependent_settings': [
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
+        'sync_core',
       ],
       'sources': [
-        'internal_api/public/base/invalidation_test_util.cc',
-        'internal_api/public/base/invalidation_test_util.h',
-        'internal_api/public/base/model_type_invalidation_map_test_util.cc',
-        'internal_api/public/base/model_type_invalidation_map_test_util.h',
-        'internal_api/public/base/model_type_test_util.cc',
-        'internal_api/public/base/model_type_test_util.h',
-        'internal_api/public/sessions/sync_source_info_unittest.cc',
-        'internal_api/public/sessions/sync_session_snapshot_unittest.cc',
         'js/js_test_util.cc',
         'js/js_test_util.h',
         'sessions/test_util.cc',
@@ -468,6 +499,8 @@
         'test/fake_sync_encryption_handler.cc',
         'test/fake_extensions_activity_monitor.cc',
         'test/fake_extensions_activity_monitor.h',
+        'test/test_transaction_observer.cc',
+        'test/test_transaction_observer.h',
         'test/null_directory_change_delegate.cc',
         'test/null_directory_change_delegate.h',
         'test/null_transaction_observer.cc',
@@ -490,11 +523,13 @@
       'dependencies': [
         '../testing/gmock.gyp:gmock',
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_proto_cpp',
+        'sync_internal_api',
         'sync_notifier',
       ],
       'export_dependent_settings': [
         '../testing/gmock.gyp:gmock',
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_proto_cpp',
+        'sync_internal_api',
         'sync_notifier',
       ],
       'sources': [
@@ -511,9 +546,9 @@
       ],
     },
 
-    # Test support files for the 'syncapi_core' target.
+    # Test support files for the 'sync_internal_api' target.
     {
-      'target_name': 'test_support_syncapi_core',
+      'target_name': 'test_support_sync_internal_api',
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
       'include_dirs': [
@@ -522,17 +557,27 @@
       'dependencies': [
         '../base/base.gyp:base',
         '../testing/gtest.gyp:gtest',
-        'syncapi_core',
+        'protocol/sync_proto.gyp:sync_proto',
+        'sync_core',
+        'sync_internal_api',
         'sync_notifier',
-        'test_support_sync',
+        'test_support_sync_core',
       ],
       'export_dependent_settings': [
         '../testing/gtest.gyp:gtest',
-        'syncapi_core',
+        'protocol/sync_proto.gyp:sync_proto',
+        'sync_core',
+        'sync_internal_api',
         'sync_notifier',
-        'test_support_sync',
+        'test_support_sync_core',
       ],
       'sources': [
+        'internal_api/public/base/invalidation_test_util.cc',
+        'internal_api/public/base/invalidation_test_util.h',
+        'internal_api/public/base/model_type_invalidation_map_test_util.cc',
+        'internal_api/public/base/model_type_invalidation_map_test_util.h',
+        'internal_api/public/base/model_type_test_util.cc',
+        'internal_api/public/base/model_type_test_util.h',
         'internal_api/public/test/fake_sync_manager.h',
         'internal_api/public/test/test_entry_factory.h',
         'internal_api/public/test/test_internal_components_factory.h',
@@ -544,20 +589,20 @@
       ],
     },
 
-    # Test support files for the 'syncapi_service' target.
+    # Test support files for the 'sync_api' target.
     {
-      'target_name': 'test_support_syncapi_service',
+      'target_name': 'test_support_sync_api',
       'type': 'static_library',
       'include_dirs': [
         '..',
       ],
       'dependencies': [
         '../testing/gmock.gyp:gmock',
-        'syncapi_service',
+        'sync_api',
       ],
       'export_dependent_settings': [
         '../testing/gmock.gyp:gmock',
-        'syncapi_service',
+        'sync_api',
       ],
       'sources': [
         'api/fake_syncable_service.cc',
@@ -567,12 +612,12 @@
       ],
     },
 
-    # Unit tests for the 'sync' target.  This cannot be a static
+    # Unit tests for the 'sync_core' target.  This cannot be a static
     # library because the unit test files have to be compiled directly
     # into the executable, so we push the target files to the
     # depending executable target via direct_dependent_settings.
     {
-      'target_name': 'sync_tests',
+      'target_name': 'sync_core_tests',
       'type': 'none',
       # We only want unit test executables to include this target.
       'suppress_wildcard': 1,
@@ -581,8 +626,8 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
-        'test_support_sync',
+        'sync_core',
+        'test_support_sync_core',
       ],
       # Propagate all dependencies since the actual compilation
       # happens in the dependents.
@@ -591,8 +636,8 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
-        'test_support_sync',
+        'sync_core',
+        'test_support_sync_core',
       ],
       'direct_dependent_settings': {
         'include_dirs': [
@@ -605,6 +650,7 @@
           'internal_api/public/base/ordinal_unittest.cc',
           'internal_api/public/engine/model_safe_worker_unittest.cc',
           'internal_api/public/util/immutable_unittest.cc',
+          'internal_api/public/util/weak_handle_unittest.cc',
           'engine/apply_control_data_updates_unittest.cc',
           'engine/apply_updates_and_resolve_conflicts_command_unittest.cc',
           'engine/backoff_delay_provider_unittest.cc',
@@ -640,14 +686,18 @@
           'util/get_session_name_unittest.cc',
           'util/nigori_unittest.cc',
           'util/protobuf_unittest.cc',
-          'internal_api/public/util/weak_handle_unittest.cc',
         ],
         'conditions': [
           ['OS == "ios" and coverage != 0', {
-            # These sources can't be built with coverage due to a toolchain
-            # bug: http://openradar.appspot.com/radar?id=1499403
             'sources!': [
+              # These sources can't be built with coverage due to a toolchain
+              # bug: http://openradar.appspot.com/radar?id=1499403
               'engine/syncer_unittest.cc',
+
+              # These tests crash when run with coverage turned on due to an
+              # issue with llvm_gcda_increment_indirect_counter:
+              # http://crbug.com/156058
+              'syncable/directory_backing_store_unittest.cc',
             ],
           }],
         ],
@@ -670,7 +720,7 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation',
-        'sync',
+        'sync_core',
         'sync_notifier',
         'test_support_sync_notifier',
       ],
@@ -683,7 +733,7 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation',
-        'sync',
+        'sync_core',
         'sync_notifier',
         'test_support_sync_notifier',
       ],
@@ -695,7 +745,15 @@
           'notifier/invalidator_factory_unittest.cc',
         ],
         'conditions': [
-          ['OS != "android"', {
+          ['OS == "ios"', {
+            'sources!': [
+              # TODO(ios): Re-enable this test on iOS once there is an iOS
+              # implementation of invalidator_factory.
+              'notifier/invalidator_factory_unittest.cc',
+              'notifier/sync_notifier_factory_unittest.cc',
+            ],
+          }],
+          ['OS != "android" and OS != "ios"', {
             'sources': [
               'notifier/ack_tracker_unittest.cc',
               'notifier/fake_invalidator_unittest.cc',
@@ -723,12 +781,12 @@
       ],
     },
 
-    # Unit tests for the 'syncapi_core' target.  This cannot be a static
+    # Unit tests for the 'sync_internal_api' target.  This cannot be a static
     # library because the unit test files have to be compiled directly
     # into the executable, so we push the target files to the
     # depending executable target via direct_dependent_settings.
     {
-      'target_name': 'syncapi_core_tests',
+      'target_name': 'sync_internal_api_tests',
       'type': 'none',
       # We only want unit test executables to include this target.
       'suppress_wildcard': 1,
@@ -739,10 +797,10 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
+        'sync_core',
+        'sync_internal_api',
         'sync_notifier',
-        'syncapi_core',
-        'test_support_syncapi_core',
+        'test_support_sync_internal_api',
       ],
       # Propagate all dependencies since the actual compilation
       # happens in the dependents.
@@ -753,35 +811,44 @@
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
+        'sync_core',
+        'sync_internal_api',
         'sync_notifier',
-        'syncapi_core',
-        'test_support_syncapi_core',
+        'test_support_sync_internal_api',
       ],
       'direct_dependent_settings': {
         'include_dirs': [
           '..',
         ],
         'sources': [
-          'internal_api/public/change_record_unittest.cc',
           'internal_api/debug_info_event_listener_unittest.cc',
           'internal_api/http_bridge_unittest.cc',
           'internal_api/js_mutation_event_observer_unittest.cc',
           'internal_api/js_sync_encryption_handler_observer_unittest.cc',
           'internal_api/js_sync_manager_observer_unittest.cc',
+          'internal_api/public/change_record_unittest.cc',
+          'internal_api/public/sessions/sync_session_snapshot_unittest.cc',
+          'internal_api/public/sessions/sync_source_info_unittest.cc',
           'internal_api/syncapi_server_connection_manager_unittest.cc',
           'internal_api/sync_encryption_handler_impl_unittest.cc',
           'internal_api/sync_manager_impl_unittest.cc',
         ],
+        'conditions': [
+          ['OS == "ios"', {
+            'sources!': [
+              'internal_api/http_bridge_unittest.cc',
+            ],
+          }],
+        ],
       },
     },
 
-    # Unit tests for the 'syncapi_service' target.  This cannot be a static
+    # Unit tests for the 'sync_api' target.  This cannot be a static
     # library because the unit test files have to be compiled directly
     # into the executable, so we push the target files to the
     # depending executable target via direct_dependent_settings.
     {
-      'target_name': 'syncapi_service_tests',
+      'target_name': 'sync_api_tests',
       'type': 'none',
       # We only want unit test executables to include this target.
       'suppress_wildcard': 1,
@@ -789,9 +856,9 @@
         '../base/base.gyp:base',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
-        'syncapi_service',
-        'test_support_syncapi_service',
+        'sync_core',
+        'sync_internal_api',
+        'test_support_sync_internal_api',
       ],
       # Propagate all dependencies since the actual compilation
       # happens in the dependents.
@@ -799,9 +866,9 @@
         '../base/base.gyp:base',
         '../testing/gtest.gyp:gtest',
         'protocol/sync_proto.gyp:sync_proto',
-        'sync',
-        'syncapi_service',
-        'test_support_syncapi_service',
+        'sync_core',
+        'sync_internal_api',
+        'test_support_sync_internal_api',
       ],
       'direct_dependent_settings': {
         'include_dirs': [
@@ -810,6 +877,7 @@
         'sources': [
           'api/sync_change_unittest.cc',
           'api/sync_error_unittest.cc',
+          'api/sync_merge_result_unittest.cc',
         ],
       },
     },
@@ -822,10 +890,11 @@
       'variables': { 'enable_wexit_time_destructors': 0, },
       'dependencies': [
         '../base/base.gyp:run_all_unittests',
-        'sync_tests',
+        'sync',
+        'sync_api_tests',
+        'sync_core_tests',
+        'sync_internal_api_tests',
         'sync_notifier_tests',
-        'syncapi_core_tests',
-        'syncapi_service_tests',
       ],
       # TODO(akalin): This is needed because histogram.cc uses
       # leak_annotations.h, which pulls this in.  Make 'base'
@@ -864,7 +933,6 @@
             '../net/net.gyp:net',
             '../net/net.gyp:net_test_support',
             'sync',
-            'sync_notifier',
           ],
           'sources': [
             'tools/sync_listen_notifications.cc',
@@ -884,8 +952,6 @@
             '../net/net.gyp:net',
             '../net/net.gyp:net_test_support',
             'sync',
-            'sync_notifier',
-            'syncapi_core',
           ],
           'sources': [
             'tools/sync_client.cc',
@@ -893,6 +959,7 @@
         },
       ],
     }],
+
     # Special target to wrap a gtest_target_type==shared_library
     # sync_unit_tests into an android apk for execution.
     ['OS == "android" and gtest_target_type == "shared_library"', {

@@ -45,7 +45,7 @@ static const char* kIndexTests[] = {
   // Flaky: http://crbug.com/123685
   // "index-basics-workers.html",
   "index-count.html",
-  "index-cursor.html",  // Locally takes ~6s compared to <1 for the others.
+  "index-cursor.html",
   "index-get-key-argument-required.html",
   "index-multientry.html",
   "index-population.html",
@@ -92,16 +92,16 @@ static const char* kRegressionTests[] = {
 
 const char* kIntVersionTests[] = {
   "intversion-abort-in-initial-upgradeneeded.html",
-  "intversion-and-setversion.html",
   "intversion-blocked.html",
   "intversion-close-between-events.html",
   "intversion-close-in-oncomplete.html",
   "intversion-close-in-upgradeneeded.html",
   "intversion-delete-in-upgradeneeded.html",
-  // "intversion-gated-on-delete.html", // behaves slightly differently in DRT
+  "intversion-gated-on-delete.html",
   "intversion-long-queue.html",
   "intversion-omit-parameter.html",
   "intversion-open-with-version.html",
+  "intversion-upgrades.html",
   NULL
 };
 
@@ -110,6 +110,7 @@ const char* kIntVersionTests[] = {
 IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, BasicTests) {
   RunLayoutTests(kBasicTests);
 }
+
 
 IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, ComplexTests) {
   RunLayoutTests(kComplexTests);

@@ -21,13 +21,13 @@
 using base::Time;
 using base::TimeDelta;
 
-namespace {
+namespace cloud_print {
 
 const FilePath::CharType kDocRoot[] = FILE_PATH_LITERAL("chrome/test/data");
 
 int g_request_context_getter_instances = 0;
 class TrackingTestURLRequestContextGetter
-    : public TestURLRequestContextGetter {
+    : public net::TestURLRequestContextGetter {
  public:
   explicit TrackingTestURLRequestContextGetter(
       base::MessageLoopProxy* io_message_loop_proxy,
@@ -38,9 +38,9 @@ class TrackingTestURLRequestContextGetter
     g_request_context_getter_instances++;
   }
 
-  virtual TestURLRequestContext* GetURLRequestContext() OVERRIDE {
+  virtual net::TestURLRequestContext* GetURLRequestContext() OVERRIDE {
     if (!context_.get()) {
-      context_.reset(new TestURLRequestContext(true));
+      context_.reset(new net::TestURLRequestContext(true));
       context_->set_throttler_manager(throttler_manager_);
       context_->Init();
     }
@@ -55,7 +55,7 @@ class TrackingTestURLRequestContextGetter
  private:
   // Not owned here.
   net::URLRequestThrottlerManager* throttler_manager_;
-  scoped_ptr<TestURLRequestContext> context_;
+  scoped_ptr<net::TestURLRequestContext> context_;
 };
 
 class TestCloudPrintURLFetcher : public CloudPrintURLFetcher {
@@ -126,7 +126,7 @@ class CloudPrintURLFetcherTest : public testing::Test,
     // Deleting the fetcher causes a task to be posted to the IO thread to
     // release references to the URLRequestContextGetter. We need to run all
     // pending tasks to execute that (this is the IO thread).
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     EXPECT_EQ(0, g_request_context_getter_instances);
   }
 
@@ -375,4 +375,4 @@ TEST_F(CloudPrintURLFetcherRetryBackoffTest, DISABLED_GiveUp) {
   MessageLoop::current()->Run();
 }
 
-}  // namespace.
+}  // namespace cloud_print

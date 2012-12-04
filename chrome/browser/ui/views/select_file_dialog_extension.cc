@@ -16,6 +16,7 @@
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
@@ -26,7 +27,9 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_select_file_policy.h"
+#include "chrome/browser/ui/extensions/native_app_window.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/views/extensions/extension_dialog.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/base/dialogs/selected_file_info.h"
@@ -152,7 +155,8 @@ void SelectFileDialogExtension::ExtensionTerminated(
   if (profile_) {
     MessageLoop::current()->PostTask(FROM_HERE,
         base::Bind(&ExtensionService::ReloadExtension,
-            base::Unretained(profile_->GetExtensionService()),
+            base::Unretained(extensions::ExtensionSystem::Get(profile_)->
+                extension_service()),
         extension_id));
   }
 
@@ -263,7 +267,7 @@ void SelectFileDialogExtension::SelectFileImpl(
   // be associated with the last active browser.
   Browser* owner_browser = owner_window ?
       browser::FindBrowserWithWindow(owner_window) :
-          BrowserList::GetLastActive();
+      chrome::FindLastActiveWithHostDesktopType(chrome::GetActiveDesktop());
   if (owner_browser) {
     base_window = owner_browser->window();
     web_contents = chrome::GetActiveWebContents(owner_browser);

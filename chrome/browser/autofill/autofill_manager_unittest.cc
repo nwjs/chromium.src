@@ -73,6 +73,10 @@ class TestPersonalDataManager : public PersonalDataManager {
     CreateTestCreditCards(&credit_cards_);
   }
 
+  void SetBrowserContext(content::BrowserContext* context) {
+    set_browser_context(context);
+  }
+
   // Factory method for keyed service.  PersonalDataManager is NULL for testing.
   static ProfileKeyedService* Build(Profile* profile) {
     return NULL;
@@ -106,21 +110,25 @@ class TestPersonalDataManager : public PersonalDataManager {
     credit_cards_.push_back(credit_card);
   }
 
-  virtual void RemoveProfile(const std::string& guid) OVERRIDE {
-    AutofillProfile* profile = GetProfileWithGUID(guid.c_str());
-
-    web_profiles_.erase(
-        std::remove(web_profiles_.begin(), web_profiles_.end(), profile),
-        web_profiles_.end());
-  }
-
-  virtual void RemoveCreditCard(const std::string& guid) OVERRIDE {
+  virtual void RemoveByGUID(const std::string& guid) OVERRIDE {
     CreditCard* credit_card = GetCreditCardWithGUID(guid.c_str());
+    if (credit_card) {
+      credit_cards_.erase(
+          std::remove(credit_cards_.begin(), credit_cards_.end(), credit_card),
+          credit_cards_.end());
+    }
 
-    credit_cards_.erase(
-        std::remove(credit_cards_.begin(), credit_cards_.end(), credit_card),
-        credit_cards_.end());
+    AutofillProfile* profile = GetProfileWithGUID(guid.c_str());
+    if (profile) {
+      web_profiles_.erase(
+          std::remove(web_profiles_.begin(), web_profiles_.end(), profile),
+          web_profiles_.end());
+    }
   }
+
+  // Do nothing (auxiliary profiles will be created in
+  // CreateTestAuxiliaryProfile).
+  virtual void LoadAuxiliaryProfiles() OVERRIDE {}
 
   void ClearAutofillProfiles() {
     web_profiles_.clear();
@@ -128,6 +136,10 @@ class TestPersonalDataManager : public PersonalDataManager {
 
   void ClearCreditCards() {
     credit_cards_.clear();
+  }
+
+  void CreateTestAuxiliaryProfiles() {
+    CreateTestAutofillProfiles(&auxiliary_profiles_);
   }
 
   void CreateTestCreditCardsYearAndMonth(const char* year, const char* month) {
@@ -428,11 +440,11 @@ void ExpectFilledCreditCardFormElvis(int page_id,
 }
 
 void ExpectFilledCreditCardYearMonthWithYearMonth(int page_id,
-                                              const FormData& filled_form,
-                                              int expected_page_id,
-                                              bool has_address_fields,
-                                              const char* year,
-                                              const char* month) {
+                                                  const FormData& filled_form,
+                                                  int expected_page_id,
+                                                  bool has_address_fields,
+                                                  const char* year,
+                                                  const char* month) {
   ExpectFilledForm(page_id, filled_form, expected_page_id,
                    "", "", "", "", "", "", "", "", "", "", "",
                    "Miku Hatsune", "4234567890654321", month, year,
@@ -603,6 +615,7 @@ class AutofillManagerTest : public ChromeRenderViewHostTestHarness {
 
     ChromeRenderViewHostTestHarness::SetUp();
     TabAutofillManagerDelegate::CreateForWebContents(web_contents());
+    personal_data_.SetBrowserContext(profile);
     autofill_manager_ = new TestAutofillManager(
         web_contents(),
         TabAutofillManagerDelegate::FromWebContents(web_contents()),
@@ -693,7 +706,7 @@ class AutofillManagerTest : public ChromeRenderViewHostTestHarness {
     return true;
   }
 
-  bool GetAutofillFormDataFilledMessage(int *page_id, FormData* results) {
+  bool GetAutofillFormDataFilledMessage(int* page_id, FormData* results) {
     const uint32 kMsgID = AutofillMsg_FormDataFilled::ID;
     const IPC::Message* message =
         process()->sink().GetFirstMessageMatching(kMsgID);
@@ -1563,7 +1576,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsForMultiValuedProfileUnfilled) {
   std::vector<string16> multi_values(2);
   multi_values[0] = ASCIIToUTF16("Elvis Presley");
   multi_values[1] = ASCIIToUTF16("Elena Love");
-  profile->SetMultiInfo(NAME_FULL, multi_values);
+  profile->SetRawMultiInfo(NAME_FULL, multi_values);
   personal_data_.ClearAutofillProfiles();
   autofill_manager_->AddProfile(profile);
 
@@ -1649,7 +1662,7 @@ TEST_F(AutofillManagerTest, GetFieldSuggestionsForMultiValuedProfileFilled) {
   multi_values[0] = ASCIIToUTF16("Travis Smith");
   multi_values[1] = ASCIIToUTF16("Cynthia Love");
   multi_values[2] = ASCIIToUTF16("Zac Mango");
-  profile->SetMultiInfo(NAME_FULL, multi_values);
+  profile->SetRawMultiInfo(NAME_FULL, multi_values);
   autofill_manager_->AddProfile(profile);
 
   // Get the first name field.  And start out with "Travis", hoping for all the
@@ -1695,9 +1708,9 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsFancyPhone) {
   profile->set_guid("00000000-0000-0000-0000-000000000103");
   std::vector<string16> multi_values(1);
   multi_values[0] = ASCIIToUTF16("Natty Bumppo");
-  profile->SetMultiInfo(NAME_FULL, multi_values);
+  profile->SetRawMultiInfo(NAME_FULL, multi_values);
   multi_values[0] = ASCIIToUTF16("1800PRAIRIE");
-  profile->SetMultiInfo(PHONE_HOME_WHOLE_NUMBER, multi_values);
+  profile->SetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, multi_values);
   autofill_manager_->AddProfile(profile);
 
   const FormFieldData& field = form.fields[9];
@@ -1737,6 +1750,30 @@ TEST_F(AutofillManagerTest, GetProfileSuggestionsFancyPhone) {
 
 // Test that we correctly fill an address form.
 TEST_F(AutofillManagerTest, FillAddressForm) {
+  // Set up our form data.
+  FormData form;
+  CreateTestAddressFormData(&form);
+  std::vector<FormData> forms(1, form);
+  FormsSeen(forms);
+
+  GUIDPair guid("00000000-0000-0000-0000-000000000001", 0);
+  GUIDPair empty(std::string(), 0);
+  FillAutofillFormData(kDefaultPageID, form, form.fields[0],
+                       PackGUIDs(empty, guid));
+
+  int page_id = 0;
+  FormData results;
+  EXPECT_TRUE(GetAutofillFormDataFilledMessage(&page_id, &results));
+  ExpectFilledAddressFormElvis(page_id, results, kDefaultPageID, false);
+}
+
+// Test that we correctly fill an address form from an auxiliary profile.
+TEST_F(AutofillManagerTest, FillAddressFormFromAuxiliaryProfile) {
+  personal_data_.ClearAutofillProfiles();
+  PrefServiceBase* prefs = PrefServiceBase::FromBrowserContext(profile());
+  prefs->SetBoolean(prefs::kAutofillAuxiliaryProfilesEnabled, true);
+  personal_data_.CreateTestAuxiliaryProfiles();
+
   // Set up our form data.
   FormData form;
   CreateTestAddressFormData(&form);
@@ -2251,7 +2288,7 @@ TEST_F(AutofillManagerTest, FillAddressFormWithVariantType) {
   std::vector<string16> name_variants;
   name_variants.push_back(ASCIIToUTF16("Some Other Guy"));
   name_variants.push_back(elvis_name);
-  profile->SetMultiInfo(NAME_FULL, name_variants);
+  profile->SetRawMultiInfo(NAME_FULL, name_variants);
 
   GUIDPair guid(profile->guid(), 1);
   GUIDPair empty(std::string(), 0);
@@ -2415,7 +2452,7 @@ TEST_F(AutofillManagerTest, FillPhoneNumber) {
   phone_variants.push_back(ASCIIToUTF16("16505554567"));
   phone_variants.push_back(ASCIIToUTF16("18887771234"));
   work_profile->SetRawInfo(ADDRESS_HOME_COUNTRY, ASCIIToUTF16("United States"));
-  work_profile->SetMultiInfo(PHONE_HOME_WHOLE_NUMBER, phone_variants);
+  work_profile->SetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, phone_variants);
 
   page_id = 5;
   GUIDPair variant_guid(work_profile->guid(), 1);

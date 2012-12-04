@@ -27,15 +27,13 @@ class CommandLine;
 
 namespace aura {
 class EventFilter;
-class FocusManager;
 class RootWindow;
 class Window;
 namespace client {
+class ActivationClient;
+class FocusClient;
+class StackingClient;
 class UserActionClient;
-}
-namespace shared {
-class CompoundEventFilter;
-class InputMethodEventFilter;
 }
 }
 namespace chromeos {
@@ -56,6 +54,13 @@ class Layer;
 namespace views {
 class NonClientFrameView;
 class Widget;
+namespace corewm {
+class CompoundEventFilter;
+class InputMethodEventFilter;
+class ShadowController;
+class VisibilityController;
+class WindowModalityController;
+}
 }
 
 namespace ash {
@@ -66,7 +71,9 @@ class DesktopBackgroundController;
 class DisplayController;
 class HighContrastController;
 class Launcher;
+class MagnificationController;
 class NestedDispatcherController;
+class PartialMagnificationController;
 class PowerButtonController;
 class ScreenAsh;
 class SessionStateController;
@@ -74,6 +81,7 @@ class ShellDelegate;
 class ShellObserver;
 class SystemTray;
 class SystemTrayDelegate;
+class SystemTrayNotifier;
 class UserActivityDetector;
 class UserWallpaperDelegate;
 class VideoDetector;
@@ -85,11 +93,12 @@ class AcceleratorFilter;
 class ActivationController;
 class AppListController;
 class CaptureController;
+class DisplayChangeObserverX11;
+class DisplayManager;
 class DragDropController;
 class EventClientImpl;
 class EventRewriterEventFilter;
 class FocusCycler;
-class MagnificationController;
 class MouseCursorEventFilter;
 class OutputConfiguratorAnimation;
 class OverlayEventFilter;
@@ -97,16 +106,12 @@ class ResizeShadowController;
 class RootWindowController;
 class RootWindowLayoutManager;
 class ScreenPositionController;
-class ShadowController;
 class SlowAnimationEventFilter;
-class StackingController;
 class StatusAreaWidget;
 class SystemGestureEventFilter;
 class SystemModalContainerEventFilter;
 class TooltipController;
 class TouchObserverHUD;
-class VisibilityController;
-class WindowModalityController;
 class WorkspaceController;
 }
 
@@ -132,7 +137,7 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
     explicit TestApi(Shell* shell);
 
     internal::RootWindowLayoutManager* root_window_layout();
-    aura::shared::InputMethodEventFilter* input_method_event_filter();
+    views::corewm::InputMethodEventFilter* input_method_event_filter();
     internal::SystemGestureEventFilter* system_gesture_event_filter();
     internal::WorkspaceController* workspace_controller();
     internal::ScreenPositionController* screen_position_controller();
@@ -193,11 +198,6 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
     active_root_window_ = active_root_window;
   }
 
-  // Adds or removes |filter| from the aura::Env's pre-target event-handler
-  // list.
-  void AddEnvEventFilter(aura::EventFilter* filter);
-  void RemoveEnvEventFilter(aura::EventFilter* filter);
-
   // Shows the context menu for the background and launcher at
   // |location_in_screen| (in screen coordinates).
   void ShowContextMenu(const gfx::Point& location_in_screen);
@@ -211,11 +211,15 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
   // Returns app list window or NULL if it is not visible.
   aura::Window* GetAppListWindow();
 
+  // Returns true if a user is logged in whose session can be locked (i.e. the
+  // user has a password with which to unlock the session).
+  bool CanLockScreen();
+
   // Returns true if the screen is locked.
   bool IsScreenLocked() const;
 
-  // Returns true if a modal dialog window is currently open.
-  bool IsModalWindowOpen() const;
+  // Returns true if a system-modal dialog window is currently open.
+  bool IsSystemModalWindowOpen() const;
 
   // For testing only: set simulation that a modal window is open
   void SimulateModalWindowOpenForTesting(bool modal_window_open) {
@@ -267,7 +271,10 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
   }
 #endif  // !defined(OS_MACOSX)
 
-  aura::shared::CompoundEventFilter* env_filter() {
+  internal::DisplayManager* display_manager() {
+    return display_manager_.get();
+  }
+  views::corewm::CompoundEventFilter* env_filter() {
     return env_filter_.get();
   }
   internal::TooltipController* tooltip_controller() {
@@ -322,11 +329,15 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
     return high_contrast_controller_.get();
   }
 
-  internal::MagnificationController* magnification_controller() {
+  MagnificationController* magnification_controller() {
     return magnification_controller_.get();
   }
 
-  const ScreenAsh* screen() { return screen_; }
+  PartialMagnificationController* partial_magnification_controller() {
+    return partial_magnification_controller_.get();
+  }
+
+  ScreenAsh* screen() { return screen_; }
 
   // Force the shelf to query for it's current visibility state.
   void UpdateShelfVisibility();
@@ -377,6 +388,10 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
     return system_tray_delegate_.get();
   }
 
+  SystemTrayNotifier* system_tray_notifier() {
+    return system_tray_notifier_.get();
+  }
+
   static void set_initially_hide_cursor(bool hide) {
     initially_hide_cursor_ = hide;
   }
@@ -386,7 +401,7 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
   }
 
   // Made available for tests.
-  internal::ShadowController* shadow_controller() {
+  views::corewm::ShadowController* shadow_controller() {
     return shadow_controller_.get();
   }
 
@@ -409,6 +424,8 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
     return output_configurator_animation_.get();
   }
 #endif  // defined(OS_CHROMEOS)
+
+ aura::client::StackingClient* stacking_client();
 
  private:
   FRIEND_TEST_ALL_PREFIXES(ExtendedDesktopTest, TestCursor);
@@ -451,7 +468,7 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
   aura::RootWindow* active_root_window_;
 
   // The CompoundEventFilter owned by aura::Env object.
-  scoped_ptr<aura::shared::CompoundEventFilter> env_filter_;
+  scoped_ptr<views::corewm::CompoundEventFilter> env_filter_;
 
   std::vector<WindowAndBoundsPair> to_restore_;
 
@@ -463,20 +480,22 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
 
   scoped_ptr<ShellDelegate> delegate_;
   scoped_ptr<SystemTrayDelegate> system_tray_delegate_;
+  scoped_ptr<SystemTrayNotifier> system_tray_notifier_;
   scoped_ptr<UserWallpaperDelegate> user_wallpaper_delegate_;
   scoped_ptr<CapsLockDelegate> caps_lock_delegate_;
 
   scoped_ptr<internal::AppListController> app_list_controller_;
 
-  scoped_ptr<internal::StackingController> stacking_controller_;
+  scoped_ptr<aura::client::StackingClient> stacking_client_;
   scoped_ptr<internal::ActivationController> activation_controller_;
   scoped_ptr<internal::CaptureController> capture_controller_;
-  scoped_ptr<internal::WindowModalityController> window_modality_controller_;
   scoped_ptr<internal::DragDropController> drag_drop_controller_;
   scoped_ptr<internal::ResizeShadowController> resize_shadow_controller_;
-  scoped_ptr<internal::ShadowController> shadow_controller_;
+  scoped_ptr<views::corewm::ShadowController> shadow_controller_;
+  scoped_ptr<views::corewm::VisibilityController> visibility_controller_;
+  scoped_ptr<views::corewm::WindowModalityController>
+      window_modality_controller_;
   scoped_ptr<internal::TooltipController> tooltip_controller_;
-  scoped_ptr<internal::VisibilityController> visibility_controller_;
   scoped_ptr<DesktopBackgroundController> desktop_background_controller_;
   scoped_ptr<PowerButtonController> power_button_controller_;
   scoped_ptr<SessionStateController> session_state_controller_;
@@ -486,9 +505,11 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
   scoped_ptr<internal::FocusCycler> focus_cycler_;
   scoped_ptr<DisplayController> display_controller_;
   scoped_ptr<HighContrastController> high_contrast_controller_;
-  scoped_ptr<internal::MagnificationController> magnification_controller_;
-  scoped_ptr<aura::FocusManager> focus_manager_;
+  scoped_ptr<MagnificationController> magnification_controller_;
+  scoped_ptr<PartialMagnificationController> partial_magnification_controller_;
+  scoped_ptr<aura::client::FocusClient> focus_client_;
   scoped_ptr<aura::client::UserActionClient> user_action_client_;
+  aura::client::ActivationClient* activation_client_;
   scoped_ptr<internal::MouseCursorEventFilter> mouse_cursor_filter_;
   scoped_ptr<internal::ScreenPositionController> screen_position_controller_;
   scoped_ptr<internal::SystemModalContainerEventFilter> modality_filter_;
@@ -510,17 +531,22 @@ class ASH_EXPORT Shell : internal::SystemModalContainerEventFilterDelegate,
 #endif
 
   // An event filter that pre-handles all key events to send them to an IME.
-  scoped_ptr<aura::shared::InputMethodEventFilter> input_method_filter_;
+  scoped_ptr<views::corewm::InputMethodEventFilter> input_method_filter_;
 
   // An event filter that silently keeps track of all touch events and controls
   // a heads-up display. This is enabled only if --ash-touch-hud flag is used.
   scoped_ptr<internal::TouchObserverHUD> touch_observer_hud_;
+
+  scoped_ptr<internal::DisplayManager> display_manager_;
 
 #if defined(OS_CHROMEOS)
   // Controls video output device state.
   scoped_ptr<chromeos::OutputConfigurator> output_configurator_;
   scoped_ptr<internal::OutputConfiguratorAnimation>
       output_configurator_animation_;
+
+  // Receives output change events and udpates the display manager.
+  scoped_ptr<internal::DisplayChangeObserverX11> display_change_observer_;
 #endif  // defined(OS_CHROMEOS)
 
   CursorManager cursor_manager_;

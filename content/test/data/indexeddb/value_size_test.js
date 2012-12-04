@@ -4,36 +4,16 @@
 
 function test()
 {
-  if ('webkitIndexedDB' in window) {
-    indexedDB = webkitIndexedDB;
-    IDBTransaction = webkitIDBTransaction;
-    IDBDatabaseException = webkitIDBDatabaseException;
-  }
-
-  debug('Deleting previous database');
-  var DBNAME = 'value-size', VERSION = 1;
-  var request = indexedDB.deleteDatabase(DBNAME);
-  request.onerror = unexpectedErrorCallback;
-  request.onsuccess = function () {
-    debug('Opening database connection');
-    request = indexedDB.open(DBNAME);
-    request.onerror = unexpectedErrorCallback;
-    request.onsuccess = function () {
-      db = request.result;
-      debug('Setting version');
-      request = db.setVersion(VERSION);
-      request.onerror = unexpectedErrorCallback;
-      request.onsuccess = function () {
-        debug('Creating object store');
-        var store = db.createObjectStore('store');
-        store.put("FIRST!!!111!", -Infinity);
-        var transaction = request.result;
-        transaction.oncomplete = function () {
-          setTimeout(testUnderLimit, 0);
-        };
-      };
-    };
-  };
+  indexedDBTest(prepareDatabase, function() {
+    setTimeout(testUnderLimit, 0);
+  });
+}
+function prepareDatabase()
+{
+  db = event.target.result;
+  debug('Creating object store');
+  var store = db.createObjectStore('store');
+  store.put("FIRST!!!111!", -Infinity);
 }
 
 function repeat(string, len)
@@ -117,7 +97,7 @@ function testOverLimit()
     } catch (e) {
       debug('Exception (expected)');
       ex = e;
-      shouldBe("ex.code", "IDBDatabaseException.DATA_ERR");
+      shouldBe("ex.code", "0");
       shouldBe("ex.name", "'DataError'");
     }
 
@@ -129,7 +109,7 @@ function testOverLimit()
     } catch (e) {
       debug('Exception (expected)');
       ex = e;
-      shouldBe("ex.code", "IDBDatabaseException.DATA_ERR");
+      shouldBe("ex.code", "0");
       shouldBe("ex.name", "'DataError'");
     }
 
@@ -145,7 +125,7 @@ function testOverLimit()
       } catch (e) {
         debug('Exception (expected)');
         ex = e;
-        shouldBe("ex.code", "IDBDatabaseException.DATA_ERR");
+        shouldBe("ex.code", "0");
         shouldBe("ex.name", "'DataError'");
 
         transaction.abort();

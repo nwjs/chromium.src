@@ -7,6 +7,7 @@
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "chrome/browser/policy/cloud_policy_service.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -30,10 +31,11 @@ class UserCloudPolicyManager;
 class UserPolicySigninService
     : public ProfileKeyedService,
       public OAuth2AccessTokenConsumer,
+      public CloudPolicyService::Observer,
       public content::NotificationObserver {
  public:
   // Creates a UserPolicySigninService associated with the passed |profile|.
-  UserPolicySigninService(Profile* profile, UserCloudPolicyManager* manager);
+  explicit UserPolicySigninService(Profile* profile);
   virtual ~UserPolicySigninService();
 
   // content::NotificationObserver implementation.
@@ -41,10 +43,16 @@ class UserPolicySigninService
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // CloudPolicyService::Observer implementation.
+  virtual void OnInitializationCompleted(CloudPolicyService* service) OVERRIDE;
+
   // OAuth2AccessTokenConsumer implementation.
   virtual void OnGetTokenSuccess(const std::string& access_token,
                                  const base::Time& expiration_time) OVERRIDE;
   virtual void OnGetTokenFailure(const GoogleServiceAuthError& error) OVERRIDE;
+
+  // ProfileKeyedService implementation:
+  virtual void Shutdown() OVERRIDE;
 
  private:
   // Initializes the UserCloudPolicyManager to reflect the currently-signed-in
@@ -55,15 +63,17 @@ class UserPolicySigninService
   // the cloud policy server.
   void RegisterCloudPolicyService();
 
+  // Helper routine to unregister for CloudPolicyService notifications.
+  void StopObserving();
+
+  // Convenience helper to get the UserCloudPolicyManager for |profile_|.
+  UserCloudPolicyManager* GetManager();
+
   // Weak pointer to the profile this service is associated with.
   Profile* profile_;
 
   content::NotificationRegistrar registrar_;
   scoped_ptr<OAuth2AccessTokenFetcher> oauth2_access_token_fetcher_;
-
-  // Weak pointer to the UserCloudPolicyManager (allows dependency injection
-  // for tests).
-  UserCloudPolicyManager* manager_;
 
   DISALLOW_COPY_AND_ASSIGN(UserPolicySigninService);
 };

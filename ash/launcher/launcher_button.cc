@@ -304,7 +304,7 @@ void LauncherButton::OnBlur() {
   CustomButton::OnBlur();
 }
 
-ui::EventResult LauncherButton::OnGestureEvent(ui::GestureEvent* event) {
+void LauncherButton::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
     case ui::ET_GESTURE_TAP_DOWN:
       AddState(STATE_HOVERED);
@@ -314,14 +314,17 @@ ui::EventResult LauncherButton::OnGestureEvent(ui::GestureEvent* event) {
       return CustomButton::OnGestureEvent(event);
     case ui::ET_GESTURE_SCROLL_BEGIN:
       host_->PointerPressedOnButton(this, LauncherButtonHost::TOUCH, *event);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       host_->PointerDraggedOnButton(this, LauncherButtonHost::TOUCH, *event);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     case ui::ET_GESTURE_SCROLL_END:
     case ui::ET_SCROLL_FLING_START:
       host_->PointerReleasedOnButton(this, LauncherButtonHost::TOUCH, false);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     default:
       return CustomButton::OnGestureEvent(event);
   }
@@ -354,18 +357,18 @@ void LauncherButton::UpdateState() {
     int bar_id;
     if (IsShelfHorizontal()) {
       if (state_ & STATE_ACTIVE)
-        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_ACTIVE;
+        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_BOTTOM_ACTIVE;
       else if (state_ & (STATE_HOVERED | STATE_FOCUSED | STATE_ATTENTION))
-        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_HOVER;
+        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_BOTTOM_HOVER;
       else
-        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_RUNNING;
+        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_BOTTOM_RUNNING;
     } else {
       if (state_ & STATE_ACTIVE)
-        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_VERTICAL_ACTIVE;
+        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_LEFT_ACTIVE;
       else if (state_ & (STATE_HOVERED | STATE_FOCUSED | STATE_ATTENTION))
-        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_VERTICAL_HOVER;
+        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_LEFT_HOVER;
       else
-        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_VERTICAL_RUNNING;
+        bar_id = IDR_AURA_LAUNCHER_UNDERLINE_LEFT_RUNNING;
     }
 
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();

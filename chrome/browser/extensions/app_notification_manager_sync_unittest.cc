@@ -229,7 +229,7 @@ class AppNotificationManagerSyncTest : public testing::Test {
   content::TestBrowserThread file_thread_;
 
   // We keep two TemplateURLServices to test syncing between them.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   scoped_ptr<TestingProfile> profile_;
   scoped_refptr<AppNotificationManager> model_;
 
@@ -479,7 +479,7 @@ TEST_F(AppNotificationManagerSyncTest, ModelAssocBothNonEmptyTitleMismatch) {
       syncer::APP_NOTIFICATIONS,
       initial_data,
       PassProcessor(),
-      error_handler.PassAs<syncer::SyncErrorFactory>());
+      error_handler.PassAs<syncer::SyncErrorFactory>()).error();
 
   EXPECT_TRUE(sync_error.IsSet());
   EXPECT_EQ(syncer::APP_NOTIFICATIONS, sync_error.type());
@@ -512,7 +512,7 @@ TEST_F(AppNotificationManagerSyncTest, ModelAssocBothNonEmptyMatchesLocal) {
       syncer::APP_NOTIFICATIONS,
       initial_data,
       PassProcessor(),
-      error_handler.PassAs<syncer::SyncErrorFactory>());
+      error_handler.PassAs<syncer::SyncErrorFactory>()).error();
 
   EXPECT_TRUE(sync_error.IsSet());
   EXPECT_EQ(syncer::APP_NOTIFICATIONS, sync_error.type());

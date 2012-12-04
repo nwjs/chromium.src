@@ -12,6 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/browsing_data/browsing_data_remover.h"
 #include "chrome/browser/chromeos/login/help_app_launcher.h"
+#include "chrome/browser/chromeos/login/login_display.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/system_key_event_listener.h"
 #include "chrome/browser/ui/webui/chromeos/login/base_screen_handler.h"
@@ -44,6 +45,7 @@ class LoginDisplayWebUIHandler {
                          const std::string& error_text,
                          const std::string& help_link_text,
                          HelpAppLauncher::HelpTopic help_topic_id) = 0;
+  virtual void ShowErrorScreen(LoginDisplay::SigninError error_id) = 0;
   virtual void ShowGaiaPasswordChanged(const std::string& username) = 0;
   // Show siginin screen for the given credentials.
   virtual void ShowSigninScreenForCreds(const std::string& username,
@@ -66,10 +68,10 @@ class SigninScreenHandlerDelegate {
   virtual void Login(const std::string& username,
                      const std::string& password) = 0;
 
-  // Sign in into a demo user session.
-  virtual void LoginAsDemoUser() = 0;
+  // Sign in into a retail mode session.
+  virtual void LoginAsRetailModeUser() = 0;
 
-  // Sign in into Guest session.
+  // Sign in into guest session.
   virtual void LoginAsGuest() = 0;
 
   // Signs out if the screen is currently locked.
@@ -124,8 +126,7 @@ class SigninScreenHandler
       public BrowsingDataRemover::Observer,
       public SystemKeyEventListener::CapsLockObserver,
       public content::NotificationObserver,
-      public NetworkStateInformerDelegate,
-      public NetworkStateInformer::NetworkStateInformerObserver {
+      public NetworkStateInformerDelegate {
  public:
   SigninScreenHandler(
       const scoped_refptr<NetworkStateInformer>& network_state_informer);
@@ -147,12 +148,6 @@ class SigninScreenHandler
   // NetworkStateInformerDelegate implementation:
   virtual void OnNetworkReady() OVERRIDE;
 
-  // NetworkStateInformer::NetworkStateInformerObserver implementation:
-  virtual void UpdateState(NetworkStateInformer::State state,
-                           const std::string& network_name,
-                           const std::string& reason,
-                           ConnectionType last_network_type) OVERRIDE;
-
  private:
   typedef base::hash_set<std::string> WebUIObservers;
 
@@ -167,7 +162,7 @@ class SigninScreenHandler
   // WebUIMessageHandler implementation:
   virtual void RegisterMessages() OVERRIDE;
 
-  // BaseLoginUIHandler implementation.
+  // BaseLoginUIHandler implementation:
   virtual void ClearAndEnablePassword() OVERRIDE;
   virtual void OnLoginSuccess(const std::string& username) OVERRIDE;
   virtual void OnUserRemoved(const std::string& username) OVERRIDE;
@@ -177,6 +172,7 @@ class SigninScreenHandler
                          const std::string& error_text,
                          const std::string& help_link_text,
                          HelpAppLauncher::HelpTopic help_topic_id) OVERRIDE;
+  virtual void ShowErrorScreen(LoginDisplay::SigninError error_id) OVERRIDE;
   virtual void ShowSigninScreenForCreds(const std::string& username,
                                         const std::string& password) OVERRIDE;
   virtual void ShowGaiaPasswordChanged(const std::string& username) OVERRIDE;
@@ -188,7 +184,7 @@ class SigninScreenHandler
   // SystemKeyEventListener::CapsLockObserver overrides.
   virtual void OnCapsLockChange(bool enabled) OVERRIDE;
 
-  // content::NotificationObserver implementation.
+  // content::NotificationObserver implementation:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
@@ -227,8 +223,6 @@ class SigninScreenHandler
   void HandleWallpaperReady(const base::ListValue* args);
   void HandleLoginWebuiReady(const base::ListValue* args);
   void HandleLoginRequestNetworkState(const base::ListValue* args);
-  void HandleLoginAddNetworkStateObserver(const base::ListValue* args);
-  void HandleLoginRemoveNetworkStateObserver(const base::ListValue* args);
   void HandleDemoWebuiReady(const base::ListValue* args);
   void HandleSignOutUser(const base::ListValue* args);
   void HandleUserImagesLoaded(const base::ListValue* args);
@@ -321,9 +315,6 @@ class SigninScreenHandler
 
   // True when signin UI is shown to user (either sign in form or user pods).
   bool login_ui_active_;
-
-  // Sign-in screen WebUI observers of network state.
-  WebUIObservers observers_;
 
   DISALLOW_COPY_AND_ASSIGN(SigninScreenHandler);
 };

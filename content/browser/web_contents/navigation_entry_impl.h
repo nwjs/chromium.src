@@ -157,20 +157,22 @@ class CONTENT_EXPORT NavigationEntryImpl
     return transferred_global_request_id_;
   }
 
-  // Whether this (pending) navigation is reload across site instances.
+  // Whether this (pending) navigation needs to replace current entry.
   // Resets to false after commit.
-  void set_is_cross_site_reload(bool is_cross_site_reload) {
-    is_cross_site_reload_ = is_cross_site_reload;
+  bool should_replace_entry() const {
+    return should_replace_entry_;
   }
-  bool is_cross_site_reload() const {
-    return is_cross_site_reload_;
+
+  void set_should_replace_entry(bool should_replace_entry) {
+    should_replace_entry_ = should_replace_entry;
   }
 
  private:
   // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
   // Session/Tab restore save portions of this class so that it can be recreated
   // later. If you add a new field that needs to be persisted you'll have to
-  // update SessionService/TabRestoreService appropriately.
+  // update SessionService/TabRestoreService and Android WebView
+  // state_serializer.cc appropriately.
   // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
 
   // See the accessors above for descriptions.
@@ -204,7 +206,8 @@ class CONTENT_EXPORT NavigationEntryImpl
   // This member is not persisted with session restore.
   std::string extra_headers_;
 
-  // Used for specifying base URL for pages loaded via data URLs. Not persisted.
+  // Used for specifying base URL for pages loaded via data URLs. Only used and
+  // persisted by Android WebView.
   GURL base_url_for_data_url_;
 
   // Whether the entry, while loading, was created for a renderer-initiated
@@ -232,7 +235,11 @@ class CONTENT_EXPORT NavigationEntryImpl
   // In such case, we must treat it as an existing navigation in the new site
   // instance, instead of a new navigation. This value should not be persisted
   // and is not needed after the entry commits.
-  bool is_cross_site_reload_;
+  //
+  // We also use this flag for cross-process redirect navigations, so that the
+  // browser will replace the current navigation entry (which is the page
+  // doing the redirect).
+  bool should_replace_entry_;
 
   // Set when this entry should be able to access local file:// resources. This
   // value is not needed after the entry commits and is not persisted.

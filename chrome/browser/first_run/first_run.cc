@@ -46,6 +46,7 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "googleurl/src/gurl.h"
 
 using content::UserMetricsAction;
@@ -516,7 +517,7 @@ void FirstRunBubbleLauncher::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   DCHECK_EQ(type, content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME);
-  Browser* browser = browser::FindBrowserWithWebContents(
+  Browser* browser = chrome::FindBrowserWithWebContents(
       content::Source<content::WebContents>(source).ptr());
   if (!browser || !browser->is_type_tabbed())
     return;
@@ -529,6 +530,14 @@ void FirstRunBubbleLauncher::Observe(
   }
 
   content::WebContents* contents = chrome::GetActiveWebContents(browser);
+
+  // Suppress the first run bubble if a Gaia sign in page is showing.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUseWebBasedSigninFlow) &&
+      gaia::IsGaiaSignonRealm(contents->GetURL().GetOrigin())) {
+      return;
+  }
+
   if (contents && contents->GetURL().SchemeIs(chrome::kChromeUIScheme)) {
     // Suppress the first run bubble if the sync promo is showing.
     if (contents->GetURL().host() == chrome::kChromeUISyncPromoHost)

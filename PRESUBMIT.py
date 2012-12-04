@@ -37,6 +37,11 @@ _TEST_ONLY_WARNING = (
     'Email joi@chromium.org if you have questions.')
 
 
+_INCLUDE_ORDER_WARNING = (
+    'Your #include order seems to be broken. Send mail to\n'
+    'marja@chromium.org if this is not the case.')
+
+
 _BANNED_OBJC_FUNCTIONS = (
     (
       'addTrackingRect:',
@@ -124,6 +129,7 @@ _BANNED_CPP_FUNCTIONS = (
        'base/gtest_prod_util.h and use FRIEND_TEST_ALL_PREFIXES() instead.',
       ),
       False,
+      (),
     ),
     (
       'ScopedAllowIO',
@@ -132,6 +138,9 @@ _BANNED_CPP_FUNCTIONS = (
        'pool or the FILE thread instead.',
       ),
       True,
+      (
+        r"^content[\\\/]shell[\\\/]shell_browser_main\.cc$",
+      ),
     ),
     (
       'FilePathWatcher::Delegate',
@@ -140,15 +149,7 @@ _BANNED_CPP_FUNCTIONS = (
        'interface instead.',
       ),
       False,
-    ),
-    (
-      'chrome::FindLastActiveWithProfile',
-      (
-       'This function is deprecated and we\'re working on removing it. Pass',
-       'more context to get a Browser*, like a WebContents, window, or session',
-       'id. Talk to robertshield@ for more information.',
-      ),
-      True,
+      (),
     ),
     (
       'browser::FindAnyBrowser',
@@ -158,6 +159,7 @@ _BANNED_CPP_FUNCTIONS = (
        'id. Talk to robertshield@ for more information.',
       ),
       True,
+      (),
     ),
     (
       'browser::FindOrCreateTabbedBrowser',
@@ -167,6 +169,7 @@ _BANNED_CPP_FUNCTIONS = (
        'id. Talk to robertshield@ for more information.',
       ),
       True,
+      (),
     ),
     (
       'browser::FindTabbedBrowserDeprecated',
@@ -176,6 +179,7 @@ _BANNED_CPP_FUNCTIONS = (
        'id. Talk to robertshield@ for more information.',
       ),
       True,
+      (),
     ),
     (
       'RunAllPending()',
@@ -184,6 +188,7 @@ _BANNED_CPP_FUNCTIONS = (
        'to RunUntilIdle',
       ),
       True,
+      (),
     ),
 )
 
@@ -347,7 +352,15 @@ def _CheckNoBannedFunctions(input_api, output_api):
   file_filter = lambda f: f.LocalPath().endswith(('.cc', '.mm', '.h'))
   for f in input_api.AffectedFiles(file_filter=file_filter):
     for line_num, line in f.ChangedContents():
-      for func_name, message, error in _BANNED_CPP_FUNCTIONS:
+      for func_name, message, error, excluded_paths in _BANNED_CPP_FUNCTIONS:
+        def IsBlacklisted(affected_file, blacklist):
+          local_path = affected_file.LocalPath()
+          for item in blacklist:
+            if input_api.re.match(item, local_path):
+              return True
+          return False
+        if IsBlacklisted(f, excluded_paths):
+          continue
         if func_name in line:
           problems = warnings;
           if error:
@@ -500,6 +513,162 @@ def _CheckNoAuraWindowPropertyHInHeaders(input_api, output_api):
   return results
 
 
+def _CheckIncludeOrderForScope(scope, input_api, file_path, changed_linenums):
+  """Checks that the lines in scope occur in the right order.
+
+  1. C system files in alphabetical order
+  2. C++ system files in alphabetical order
+  3. Project's .h files
+  """
+
+  c_system_include_pattern = input_api.re.compile(r'\s*#include <.*\.h>')
+  cpp_system_include_pattern = input_api.re.compile(r'\s*#include <.*>')
+  custom_include_pattern = input_api.re.compile(r'\s*#include ".*')
+
+  C_SYSTEM_INCLUDES, CPP_SYSTEM_INCLUDES, CUSTOM_INCLUDES = range(3)
+
+  state = C_SYSTEM_INCLUDES
+
+  previous_line = ''
+  previous_line_num = 0
+  problem_linenums = []
+  for line_num, line in scope:
+    if c_system_include_pattern.match(line):
+      if state != C_SYSTEM_INCLUDES:
+        problem_linenums.append((line_num, previous_line_num))
+      elif previous_line and previous_line > line:
+        problem_linenums.append((line_num, previous_line_num))
+    elif cpp_system_include_pattern.match(line):
+      if state == C_SYSTEM_INCLUDES:
+        state = CPP_SYSTEM_INCLUDES
+      elif state == CUSTOM_INCLUDES:
+        problem_linenums.append((line_num, previous_line_num))
+      elif previous_line and previous_line > line:
+        problem_linenums.append((line_num, previous_line_num))
+    elif custom_include_pattern.match(line):
+      if state != CUSTOM_INCLUDES:
+        state = CUSTOM_INCLUDES
+      elif previous_line and previous_line > line:
+        problem_linenums.append((line_num, previous_line_num))
+    else:
+      problem_linenums.append(line_num)
+    previous_line = line
+    previous_line_num = line_num
+
+  warnings = []
+  for (line_num, previous_line_num) in problem_linenums:
+    if line_num in changed_linenums or previous_line_num in changed_linenums:
+      warnings.append('    %s:%d' % (file_path, line_num))
+  return warnings
+
+
+def _CheckIncludeOrderInFile(input_api, f, is_source, changed_linenums):
+  """Checks the #include order for the given file f."""
+
+  system_include_pattern = input_api.re.compile(r'\s*#include \<.*')
+  # Exclude #include <.../...> includes from the check; e.g., <sys/...> includes
+  # often need to appear in a specific order.
+  excluded_include_pattern = input_api.re.compile(r'\s*#include \<.*/.*')
+  custom_include_pattern = input_api.re.compile(r'\s*#include "(?P<FILE>.*)"')
+  if_pattern = input_api.re.compile(r'\s*#\s*(if|elif|else|endif).*')
+
+  contents = f.NewContents()
+  warnings = []
+  line_num = 0
+
+  # Handle the special first include for source files. If the header file is
+  # some/path/file.h, the corresponding source file can be some/path/file.cc,
+  # some/other/path/file.cc, some/path/file_platform.cc etc. It's also possible
+  # that no special first include exists.
+  if is_source:
+    for line in contents:
+      line_num += 1
+      if system_include_pattern.match(line):
+        # No special first include -> process the line again along with normal
+        # includes.
+        line_num -= 1
+        break
+      match = custom_include_pattern.match(line)
+      if match:
+        match_dict = match.groupdict()
+        header_basename = input_api.os_path.basename(
+            match_dict['FILE']).replace('.h', '')
+        if header_basename not in input_api.os_path.basename(f.LocalPath()):
+          # No special first include -> process the line again along with normal
+          # includes.
+          line_num -= 1
+        break
+
+  # Split into scopes: Each region between #if and #endif is its own scope.
+  scopes = []
+  current_scope = []
+  for line in contents[line_num:]:
+    line_num += 1
+    if if_pattern.match(line):
+      scopes.append(current_scope)
+      current_scope = []
+    elif ((system_include_pattern.match(line) or
+           custom_include_pattern.match(line)) and
+          not excluded_include_pattern.match(line)):
+      current_scope.append((line_num, line))
+  scopes.append(current_scope)
+
+  for scope in scopes:
+    warnings.extend(_CheckIncludeOrderForScope(scope, input_api, f.LocalPath(),
+                                               changed_linenums))
+  return warnings
+
+
+def _CheckIncludeOrder(input_api, output_api):
+  """Checks that the #include order is correct.
+
+  1. The corresponding header for source files.
+  2. C system files in alphabetical order
+  3. C++ system files in alphabetical order
+  4. Project's .h files in alphabetical order
+
+  Each region between #if and #endif follows these rules separately.
+  """
+
+  warnings = []
+  for f in input_api.AffectedFiles():
+    changed_linenums = set([line_num for line_num, _ in f.ChangedContents()])
+    if f.LocalPath().endswith('.cc'):
+      warnings.extend(_CheckIncludeOrderInFile(input_api, f, True,
+                                               changed_linenums))
+    elif f.LocalPath().endswith('.h'):
+      warnings.extend(_CheckIncludeOrderInFile(input_api, f, False,
+                                               changed_linenums))
+
+  results = []
+  if warnings:
+    results.append(output_api.PresubmitPromptWarning(_INCLUDE_ORDER_WARNING,
+                                                     warnings))
+  return results
+
+
+def _CheckForVersionControlConflictsInFile(input_api, f):
+  pattern = input_api.re.compile('^(?:<<<<<<<|>>>>>>>) |^=======$')
+  errors = []
+  for line_num, line in f.ChangedContents():
+    if pattern.match(line):
+      errors.append('    %s:%d %s' % (f.LocalPath(), line_num, line))
+  return errors
+
+
+def _CheckForVersionControlConflicts(input_api, output_api):
+  """Usually this is not intentional and will cause a compile failure."""
+  errors = []
+  for f in input_api.AffectedFiles():
+    errors.extend(_CheckForVersionControlConflictsInFile(input_api, f))
+
+  results = []
+  if errors:
+    results.append(output_api.PresubmitError(
+      'Version control conflict markers found, please resolve.', errors))
+  return results
+
+
 def _CommonChecks(input_api, output_api):
   """Checks common to both upload and commit."""
   results = []
@@ -518,6 +687,14 @@ def _CommonChecks(input_api, output_api):
   results.extend(_CheckUnwantedDependencies(input_api, output_api))
   results.extend(_CheckFilePermissions(input_api, output_api))
   results.extend(_CheckNoAuraWindowPropertyHInHeaders(input_api, output_api))
+  results.extend(_CheckIncludeOrder(input_api, output_api))
+  results.extend(_CheckForVersionControlConflicts(input_api, output_api))
+
+  if any('PRESUBMIT.py' == f.LocalPath() for f in input_api.AffectedFiles()):
+    results.extend(input_api.canned_checks.RunUnitTestsInDirectory(
+        input_api, output_api,
+        input_api.PresubmitLocalPath(),
+        whitelist=[r'.+_test\.py$']))
   return results
 
 
@@ -648,20 +825,19 @@ def GetPreferredTrySlaves(project, change):
       'ios_dbg_simulator',
       'ios_rel_device',
       'linux_asan',
+      'linux_aura',
       'linux_chromeos',
       'linux_clang:compile',
       'linux_rel',
       'mac_asan',
       'mac_rel',
+      'win_aura',
       'win_rel',
   ]
 
   # Match things like path/aura/file.cc and path/file_aura.cc.
-  # Same for ash and chromeos.
-  if any(re.search('[/_](ash|aura)', f) for f in files):
-    trybots += ['linux_chromeos_clang:compile', 'win_aura',
-                'linux_chromeos_asan']
-  elif any(re.search('[/_]chromeos', f) for f in files):
+  # Same for chromeos.
+  if any(re.search('[/_](aura|chromeos)', f) for f in files):
     trybots += ['linux_chromeos_clang:compile', 'linux_chromeos_asan']
 
   return trybots

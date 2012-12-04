@@ -159,7 +159,8 @@ Widget::InitParams::InitParams()
       native_widget(NULL),
       desktop_root_window_host(NULL),
       top_level(false),
-      layer_type(ui::LAYER_TEXTURED) {
+      layer_type(ui::LAYER_TEXTURED),
+      context(NULL) {
 }
 
 Widget::InitParams::InitParams(Type type)
@@ -184,7 +185,8 @@ Widget::InitParams::InitParams(Type type)
       native_widget(NULL),
       desktop_root_window_host(NULL),
       top_level(false),
-      layer_type(ui::LAYER_TEXTURED) {
+      layer_type(ui::LAYER_TEXTURED),
+      context(NULL) {
 }
 
 gfx::NativeView Widget::InitParams::GetParent() const {
@@ -839,15 +841,14 @@ ui::Compositor* Widget::GetCompositor() {
   return native_widget_->GetCompositor();
 }
 
-void Widget::CalculateOffsetToAncestorWithLayer(gfx::Point* offset,
-                                                ui::Layer** layer_parent) {
-  native_widget_->CalculateOffsetToAncestorWithLayer(offset, layer_parent);
+gfx::Vector2d Widget::CalculateOffsetToAncestorWithLayer(
+    ui::Layer** layer_parent) {
+  return native_widget_->CalculateOffsetToAncestorWithLayer(layer_parent);
 }
 
 void Widget::ReorderLayers() {
-  gfx::Point point;
   ui::Layer* layer = NULL;
-  CalculateOffsetToAncestorWithLayer(&point, &layer);
+  CalculateOffsetToAncestorWithLayer(&layer);
   if (layer)
     root_view_->ReorderChildLayers(layer);
 }
@@ -1017,7 +1018,9 @@ gfx::Size Widget::GetMaximumSize() {
 
 void Widget::OnNativeWidgetMove() {
   widget_delegate_->OnWidgetMove();
-  FOR_EACH_OBSERVER(WidgetObserver, observers_, OnWidgetMoved(this));
+  FOR_EACH_OBSERVER(WidgetObserver, observers_, OnWidgetBoundsChanged(
+    this,
+    GetWindowBoundsInScreen()));
 }
 
 void Widget::OnNativeWidgetSizeChanged(const gfx::Size& new_size) {
@@ -1028,6 +1031,10 @@ void Widget::OnNativeWidgetSizeChanged(const gfx::Size& new_size) {
   // startup procedures.
   if (native_widget_initialized_)
     SaveWindowPlacement();
+
+  FOR_EACH_OBSERVER(WidgetObserver, observers_, OnWidgetBoundsChanged(
+    this,
+    GetWindowBoundsInScreen()));
 }
 
 void Widget::OnNativeWidgetBeginUserBoundsChange() {
@@ -1062,7 +1069,7 @@ bool Widget::OnNativeWidgetPaintAccelerated(const gfx::Rect& dirty_region) {
       force_clear = true;
     } else {
       // Determine if the layer fills the client area.
-      gfx::Rect layer_bounds = GetRootView()->layer()->bounds();
+      gfx::RectF layer_bounds = GetRootView()->layer()->bounds();
       layer_transform.TransformRect(&layer_bounds);
       gfx::Rect client_bounds = GetClientAreaBoundsInScreen();
       // Translate bounds to origin (client area bounds are offset to account
@@ -1164,7 +1171,7 @@ ui::EventResult Widget::OnScrollEvent(ui::ScrollEvent* event) {
       DispatchScrollEvent(event);
 }
 
-ui::EventResult Widget::OnGestureEvent(ui::GestureEvent* event) {
+void Widget::OnGestureEvent(ui::GestureEvent* event) {
   ScopedEvent scoped(this, *event);
   switch (event->type()) {
     case ui::ET_GESTURE_TAP_DOWN:
@@ -1185,8 +1192,7 @@ ui::EventResult Widget::OnGestureEvent(ui::GestureEvent* event) {
     default:
       break;
   }
-  return static_cast<internal::RootView*>(GetRootView())->
-      DispatchGestureEvent(event);
+  static_cast<internal::RootView*>(GetRootView())->DispatchGestureEvent(event);
 }
 
 bool Widget::ExecuteCommand(int command_id) {

@@ -244,24 +244,3 @@ TEST_F(ImageLoadingTrackerTest, MultipleImages) {
   EXPECT_EQ(extension_misc::EXTENSION_ICON_SMALLISH,
             img_rep2->pixel_width());
 }
-
-// Tests IsComponentExtensionResource function.
-TEST_F(ImageLoadingTrackerTest, IsComponentExtensionResource) {
-  scoped_refptr<Extension> extension(CreateExtension(
-      "file_manager", Extension::COMPONENT));
-  ASSERT_TRUE(extension.get() != NULL);
-
-  ExtensionResource resource =
-      extension->GetIconResource(extension_misc::EXTENSION_ICON_BITTY,
-                                 ExtensionIconSet::MATCH_EXACTLY);
-
-#if defined(FILE_MANAGER_EXTENSION)
-  ImageLoadingTracker loader(this);
-  int resource_id;
-  ASSERT_EQ(true,
-            loader.IsComponentExtensionResource(extension.get(),
-                                                resource.relative_path(),
-                                                &resource_id));
-  ASSERT_EQ(IDR_FILE_MANAGER_ICON_16, resource_id);
-#endif
-}

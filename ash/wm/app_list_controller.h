@@ -11,11 +11,11 @@
 #include "base/compiler_specific.h"
 #include "base/timer.h"
 #include "ui/app_list/pagination_model_observer.h"
-#include "ui/aura/event_filter.h"
-#include "ui/aura/focus_change_observer.h"
 #include "ui/aura/root_window_observer.h"
+#include "ui/base/events/event_handler.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/gfx/rect.h"
+#include "ui/views/corewm/focus_change_shim.h"
 #include "ui/views/widget/widget_observer.h"
 
 namespace app_list {
@@ -34,8 +34,7 @@ namespace internal {
 // It creates AppListView and schedules showing/hiding animation.
 // While the UI is visible, it monitors things such as app list widget's
 // activation state and desktop mouse click to auto dismiss the UI.
-class AppListController : public aura::EventFilter,
-                          public aura::FocusChangeObserver,
+class AppListController : public views::corewm::FocusChangeShim,
                           public aura::RootWindowObserver,
                           public ui::ImplicitAnimationObserver,
                           public views::WidgetObserver,
@@ -70,25 +69,16 @@ class AppListController : public aura::EventFilter,
   // Starts show/hide animation.
   void ScheduleAnimation();
 
-  void ProcessLocatedEvent(aura::Window* target,
-                           const ui::LocatedEvent& event);
+  void ProcessLocatedEvent(ui::LocatedEvent* event);
 
   // Makes app list bubble update its bounds.
   void UpdateBounds();
 
-  // aura::EventFilter overrides:
-  virtual bool PreHandleKeyEvent(aura::Window* target,
-                                 ui::KeyEvent* event) OVERRIDE;
-  virtual bool PreHandleMouseEvent(aura::Window* target,
-                                   ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleTouchEvent(
-      aura::Window* target,
-      ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleGestureEvent(
-      aura::Window* target,
-      ui::GestureEvent* event) OVERRIDE;
+  // ui::EventHandler overrides:
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
-  // aura::FocusChangeObserver overrides:
+  // aura::client::FocusChangeObserver overrides:
   virtual void OnWindowFocused(aura::Window* window) OVERRIDE;
 
   // aura::RootWindowObserver overrides:

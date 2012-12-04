@@ -10,7 +10,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/win/object_watcher.h"
 #include "base/win/scoped_handle.h"
-#include "chrome/browser/extensions/app_host_installer_win.h"
 #include "content/public/browser/browser_thread.h"
 
 namespace extensions {
@@ -33,6 +32,8 @@ class AppHostInstaller {
   // arbitrarily long time, including past browser shutdown.
   static void EnsureAppHostInstalled(
       const OnAppHostInstallationCompleteCallback& completion_callback);
+
+  static void SetInstallWithLauncher(bool install_with_launcher);
 
  private:
   // Constructs an AppHostInstaller, which will call |completion_callback|
@@ -61,6 +62,8 @@ class AppHostInstaller {
   base::win::ScopedHandle process_;
   scoped_ptr<base::win::ObjectWatcher::Delegate> delegate_;
   base::win::ObjectWatcher watcher_;
+
+  static bool install_with_launcher_;
 
   DISALLOW_COPY_AND_ASSIGN(AppHostInstaller);
 };

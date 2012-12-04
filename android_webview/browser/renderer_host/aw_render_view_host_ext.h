@@ -8,6 +8,7 @@
 #include "content/public/browser/web_contents_observer.h"
 
 #include "android_webview/common/aw_hit_test_data.h"
+#include "base/callback_forward.h"
 #include "base/threading/non_thread_safe.h"
 
 namespace android_webview {
@@ -33,6 +34,10 @@ class AwRenderViewHostExt : public content::WebContentsObserver,
   // |last_hit_test_data_|.
   void RequestNewHitTestDataAt(int view_x, int view_y);
 
+  // Optimization to avoid unnecessary Java object creation on hit test.
+  bool HasNewHitTestData() const;
+  void MarkHitTestDataRead();
+
   // Return |last_hit_test_data_|. Note that this is unavoidably racy;
   // the corresponding public WebView API is as well.
   const AwHitTestData& GetLastHitTestData() const;
@@ -52,6 +57,8 @@ class AwRenderViewHostExt : public content::WebContentsObserver,
   // as a result of DoHitTest called explicitly or when the FocusedNodeChanged
   // is called in AwRenderViewExt.
   AwHitTestData last_hit_test_data_;
+
+  bool has_new_hit_test_data_;
 
   DISALLOW_COPY_AND_ASSIGN(AwRenderViewHostExt);
 };

@@ -5,7 +5,9 @@
 #include "chrome/browser/ui/ash/chrome_shell_delegate.h"
 
 #include "ash/launcher/launcher_types.h"
+#include "ash/magnifier/magnifier_constants.h"
 #include "ash/system/tray/system_tray_delegate.h"
+#include "ash/wm/stacking_controller.h"
 #include "ash/wm/window_util.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -49,7 +51,6 @@
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
 #include "chrome/browser/chromeos/extensions/media_player_event_router.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
-#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/webui_login_display_host.h"
 #include "chrome/browser/chromeos/system/ash_system_tray_delegate.h"
@@ -99,7 +100,7 @@ ChromeShellDelegate::~ChromeShellDelegate() {
     instance_ = NULL;
 }
 
-bool ChromeShellDelegate::IsUserLoggedIn() {
+bool ChromeShellDelegate::IsUserLoggedIn() const {
 #if defined(OS_CHROMEOS)
   // When running a Chrome OS build outside of a device (i.e. on a developer's
   // workstation) and not running as login-manager, pretend like we're always
@@ -116,7 +117,7 @@ bool ChromeShellDelegate::IsUserLoggedIn() {
 }
 
   // Returns true if we're logged in and browser has been started
-bool ChromeShellDelegate::IsSessionStarted() {
+bool ChromeShellDelegate::IsSessionStarted() const {
 #if defined(OS_CHROMEOS)
   return chromeos::UserManager::Get()->IsSessionStarted();
 #else
@@ -124,7 +125,7 @@ bool ChromeShellDelegate::IsSessionStarted() {
 #endif
 }
 
-bool ChromeShellDelegate::IsFirstRunAfterBoot() {
+bool ChromeShellDelegate::IsFirstRunAfterBoot() const {
 #if defined(OS_CHROMEOS)
   return CommandLine::ForCurrentProcess()->HasSwitch(switches::kFirstBoot);
 #else
@@ -132,10 +133,17 @@ bool ChromeShellDelegate::IsFirstRunAfterBoot() {
 #endif
 }
 
+bool ChromeShellDelegate::CanLockScreen() const {
+#if defined(OS_CHROMEOS)
+  return chromeos::UserManager::Get()->CanCurrentUserLock();
+#else
+  return false;
+#endif
+}
+
 void ChromeShellDelegate::LockScreen() {
 #if defined(OS_CHROMEOS)
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kGuestSession) &&
-      !chromeos::KioskModeSettings::Get()->IsKioskModeEnabled()) {
+  if (CanLockScreen()) {
     chromeos::DBusThreadManager::Get()->GetSessionManagerClient()->
         RequestLockScreen();
   }
@@ -307,19 +315,73 @@ content::BrowserContext* ChromeShellDelegate::GetCurrentBrowserContext() {
 
 void ChromeShellDelegate::ToggleSpokenFeedback() {
 #if defined(OS_CHROMEOS)
-  content::WebUI* login_screen_web_ui = NULL;
+  content::WebUI* web_ui = NULL;
+
   chromeos::WebUILoginDisplayHost* host =
       static_cast<chromeos::WebUILoginDisplayHost*>(
           chromeos::BaseLoginDisplayHost::default_host());
   if (host && host->GetOobeUI())
-    login_screen_web_ui = host->GetOobeUI()->web_ui();
-  chromeos::accessibility::ToggleSpokenFeedback(login_screen_web_ui);
+    web_ui = host->GetOobeUI()->web_ui();
+
+  if (!web_ui &&
+      chromeos::ScreenLocker::default_screen_locker() &&
+      chromeos::ScreenLocker::default_screen_locker()->locked()) {
+    web_ui = chromeos::ScreenLocker::default_screen_locker()->
+        GetAssociatedWebUI();
+  }
+  chromeos::accessibility::ToggleSpokenFeedback(web_ui);
 #endif
 }
 
 bool ChromeShellDelegate::IsSpokenFeedbackEnabled() const {
 #if defined(OS_CHROMEOS)
   return chromeos::accessibility::IsSpokenFeedbackEnabled();
+#else
+  return false;
+#endif
+}
+
+bool ChromeShellDelegate::IsHighContrastEnabled() const {
+#if defined(OS_CHROMEOS)
+  return chromeos::accessibility::IsHighContrastEnabled();
+#else
+  return false;
+#endif
+}
+
+void ChromeShellDelegate::ToggleHighContrast() {
+#if defined(OS_CHROMEOS)
+  bool enabled = chromeos::accessibility::IsHighContrastEnabled();
+  chromeos::accessibility::EnableHighContrast(!enabled);
+#endif
+}
+
+ash::MagnifierType ChromeShellDelegate::GetMagnifierType() const {
+#if defined(OS_CHROMEOS)
+  return chromeos::accessibility::GetMagnifierType();
+#else
+  return ash::MAGNIFIER_OFF;
+#endif
+}
+
+void ChromeShellDelegate::SetMagnifier(ash::MagnifierType type) {
+#if defined(OS_CHROMEOS)
+  chromeos::accessibility::SetMagnifier(type);
+#endif
+}
+
+bool ChromeShellDelegate::ShouldAlwaysShowAccessibilityMenu() const {
+#if defined(OS_CHROMEOS)
+  if (!IsUserLoggedIn())
+    return true;
+
+  Profile* profile = ProfileManager::GetDefaultProfile();
+  if (!profile)
+    return false;
+
+  PrefService* user_pref_service = profile->GetPrefs();
+  return user_pref_service &&
+      user_pref_service->GetBoolean(prefs::kShouldAlwaysShowAccessibilityMenu);
 #else
   return false;
 #endif
@@ -339,7 +401,7 @@ ash::LauncherDelegate* ChromeShellDelegate::CreateLauncherDelegate(
   // Refactor so that there is just one launcher delegate in the
   // shell.
   if (!launcher_delegate_) {
-    launcher_delegate_ = new ChromeLauncherController(NULL, model);
+    launcher_delegate_ = ChromeLauncherController::CreateInstance(NULL, model);
     launcher_delegate_->Init();
   }
   return launcher_delegate_;
@@ -450,6 +512,9 @@ string16 ChromeShellDelegate::GetTimeRemainingString(base::TimeDelta delta) {
   return TimeFormat::TimeRemainingLong(delta);
 }
 
+string16 ChromeShellDelegate::GetTimeDurationLongString(base::TimeDelta delta) {
+  return TimeFormat::TimeDurationLong(delta);
+}
 void ChromeShellDelegate::SaveScreenMagnifierScale(double scale) {
 #if defined(OS_CHROMEOS)
   Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
@@ -469,6 +534,30 @@ double ChromeShellDelegate::GetSavedScreenMagnifierScale() {
 ui::MenuModel* ChromeShellDelegate::CreateContextMenu(aura::RootWindow* root) {
   DCHECK(launcher_delegate_);
   return new LauncherContextMenu(launcher_delegate_, root);
+}
+
+aura::client::StackingClient* ChromeShellDelegate::CreateStackingClient() {
+  return new ash::StackingController;
+}
+
+bool ChromeShellDelegate::IsSearchKeyActingAsFunctionKey() const {
+#if defined(OS_CHROMEOS)
+  bool chromebook_function_key = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableChromebookFunctionKey);
+  if (!chromebook_function_key)
+    return false;
+
+  bool chromeos_keyboard = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kHasChromeOSKeyboard);
+  if (!chromeos_keyboard)
+    return false;
+
+  Profile* profile = ProfileManager::GetDefaultProfile();
+  return profile->GetPrefs()->GetBoolean(
+      prefs::kLanguageSearchKeyActsAsFunctionKey);
+#else
+  return false;
+#endif
 }
 
 void ChromeShellDelegate::Observe(int type,

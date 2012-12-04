@@ -5,7 +5,6 @@
 #include "ash/root_window_controller.h"
 
 #include "ash/display/display_controller.h"
-#include "ash/display/multi_display_manager.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
@@ -13,8 +12,8 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
 #include "ash/wm/window_util.h"
+#include "ui/aura/client/focus_client.h"
 #include "ui/aura/env.h"
-#include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_window_delegate.h"
@@ -120,12 +119,10 @@ TEST_F(RootWindowControllerTest, MoveWindows_Basic) {
   views::Widget* maximized = CreateTestWidget(gfx::Rect(700, 10, 100, 100));
   maximized->Maximize();
   EXPECT_EQ(root_windows[1], maximized->GetNativeView()->GetRootWindow());
-#if !defined(OS_WIN)
-  // TODO(oshima): Window reports smaller screen size. Investigate why.
+
   EXPECT_EQ("600,0 500x500", maximized->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("0,0 500x500",
             maximized->GetNativeView()->GetBoundsInRootWindow().ToString());
-#endif
 
   views::Widget* minimized = CreateTestWidget(gfx::Rect(800, 10, 100, 100));
   minimized->Minimize();
@@ -136,23 +133,20 @@ TEST_F(RootWindowControllerTest, MoveWindows_Basic) {
   views::Widget* fullscreen = CreateTestWidget(gfx::Rect(900, 10, 100, 100));
   fullscreen->SetFullscreen(true);
   EXPECT_EQ(root_windows[1], fullscreen->GetNativeView()->GetRootWindow());
-#if !defined(OS_WIN)
-  // TODO(oshima): Window reports smaller screen size. Investigate why.
+
   EXPECT_EQ("600,0 500x500",
             fullscreen->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("0,0 500x500",
             fullscreen->GetNativeView()->GetBoundsInRootWindow().ToString());
-#endif
 
   // Make sure a window that will delete itself when losing focus
   // will not crash.
   aura::WindowTracker tracker;
   DeleteOnBlurDelegate delete_on_blur_delegate;
-  aura::Window* d2 = aura::test::CreateTestWindowWithDelegate(
-      &delete_on_blur_delegate, 0, gfx::Rect(50, 50, 100, 100), NULL);
+  aura::Window* d2 = CreateTestWindowInShellWithDelegate(
+      &delete_on_blur_delegate, 0, gfx::Rect(50, 50, 100, 100));
   delete_on_blur_delegate.set_window(d2);
-  root_windows[0]->GetFocusManager()->SetFocusedWindow(
-      d2, NULL);
+  aura::client::GetFocusClient(root_windows[0])->FocusWindow(d2, NULL);
   tracker.Add(d2);
 
   UpdateDisplay("600x600");
@@ -266,6 +260,53 @@ TEST_F(RootWindowControllerTest, ModalContainer) {
                 session_modal_widget->GetNativeView()));
 
   shell->delegate()->UnlockScreen();
+}
+
+TEST_F(RootWindowControllerTest, ModalContainerNotLoggedInLoggedIn) {
+  UpdateDisplay("600x600");
+  Shell* shell = Shell::GetInstance();
+
+  // Configure login screen environment.
+  SetUserLoggedIn(false);
+  EXPECT_EQ(user::LOGGED_IN_NONE,
+            shell->tray_delegate()->GetUserLoginStatus());
+  EXPECT_FALSE(shell->delegate()->IsUserLoggedIn());
+  EXPECT_FALSE(shell->delegate()->IsSessionStarted());
+
+  internal::RootWindowController* controller =
+      shell->GetPrimaryRootWindowController();
+  EXPECT_EQ(Shell::GetContainer(controller->root_window(),
+      internal::kShellWindowId_LockSystemModalContainer)->layout_manager(),
+          controller->GetSystemModalLayoutManager(NULL));
+
+  aura::Window* lock_container =
+      Shell::GetContainer(controller->root_window(),
+                          internal::kShellWindowId_LockScreenContainer);
+  views::Widget* login_modal_widget =
+      CreateModalWidgetWithParent(gfx::Rect(300, 10, 100, 100), lock_container);
+  EXPECT_EQ(Shell::GetContainer(controller->root_window(),
+      internal::kShellWindowId_LockSystemModalContainer)->layout_manager(),
+          controller->GetSystemModalLayoutManager(
+              login_modal_widget->GetNativeView()));
+  login_modal_widget->Close();
+
+  // Configure user session environment.
+  SetUserLoggedIn(true);
+  SetSessionStarted(true);
+  EXPECT_EQ(user::LOGGED_IN_USER,
+            shell->tray_delegate()->GetUserLoginStatus());
+  EXPECT_TRUE(shell->delegate()->IsUserLoggedIn());
+  EXPECT_TRUE(shell->delegate()->IsSessionStarted());
+  EXPECT_EQ(Shell::GetContainer(controller->root_window(),
+      internal::kShellWindowId_SystemModalContainer)->layout_manager(),
+          controller->GetSystemModalLayoutManager(NULL));
+
+  views::Widget* session_modal_widget =
+        CreateModalWidget(gfx::Rect(300, 10, 100, 100));
+  EXPECT_EQ(Shell::GetContainer(controller->root_window(),
+      internal::kShellWindowId_SystemModalContainer)->layout_manager(),
+          controller->GetSystemModalLayoutManager(
+              session_modal_widget->GetNativeView()));
 }
 
 }  // namespace test

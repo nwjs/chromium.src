@@ -92,7 +92,10 @@
 #if defined(ENABLE_CONFIGURATION_POLICY)
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/policy/managed_mode_policy_provider.h"
+#if !defined(OS_CHROMEOS)
 #include "chrome/browser/policy/user_cloud_policy_manager.h"
+#include "chrome/browser/policy/user_cloud_policy_manager_factory.h"
+#endif
 #else
 #include "chrome/browser/policy/policy_service_stub.h"
 #endif  // defined(ENABLE_CONFIGURATION_POLICY)
@@ -340,19 +343,30 @@ ProfileImpl::ProfileImpl(
       g_browser_process->profile_manager() == NULL);
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
-  // TODO(atwilson): Change these to ProfileKeyedServices once PrefService is
-  // a ProfileKeyedService (policy must be initialized before PrefService
-  // because PrefService depends on policy loading to get overridden pref
-  // values).
-  policy::BrowserPolicyConnector* connector =
-      g_browser_process->browser_policy_connector();
-  cloud_policy_manager_ = connector->CreateCloudPolicyManager(this);
-  if (cloud_policy_manager_)
+  // If we are creating the profile synchronously, then we should load the
+  // policy data immediately.
+  bool force_immediate_policy_load = (create_mode == CREATE_MODE_SYNCHRONOUS);
+
+  // TODO(atwilson): Change |cloud_policy_manager_| and
+  // |managed_mode_policy_provider_| to proper ProfileKeyedServices once
+  // PrefService is a ProfileKeyedService (policy must be initialized before
+  // PrefService because PrefService depends on policy loading to get overridden
+  // pref values).
+#if !defined(OS_CHROMEOS)
+  if (command_line->HasSwitch(switches::kLoadCloudPolicyOnSignin)) {
+    cloud_policy_manager_ =
+        policy::UserCloudPolicyManagerFactory::CreateForProfile(
+            this, force_immediate_policy_load);
     cloud_policy_manager_->Init();
-  managed_mode_policy_provider_.reset(
-      policy::ManagedModePolicyProvider::Create(this, sequenced_task_runner));
+  }
+#endif
+  managed_mode_policy_provider_ =
+      policy::ManagedModePolicyProvider::Create(this,
+                                                sequenced_task_runner,
+                                                force_immediate_policy_load);
   managed_mode_policy_provider_->Init();
-  policy_service_ = connector->CreatePolicyService(this);
+  policy_service_ =
+      g_browser_process->browser_policy_connector()->CreatePolicyService(this);
 #else
   policy_service_.reset(new policy::PolicyServiceStub());
 #endif
@@ -389,10 +403,22 @@ ProfileImpl::ProfileImpl(
 void ProfileImpl::DoFinalInit(bool is_new_profile) {
   PrefService* prefs = GetPrefs();
   pref_change_registrar_.Init(prefs);
-  pref_change_registrar_.Add(prefs::kGoogleServicesUsername, this);
-  pref_change_registrar_.Add(prefs::kDefaultZoomLevel, this);
-  pref_change_registrar_.Add(prefs::kProfileAvatarIndex, this);
-  pref_change_registrar_.Add(prefs::kProfileName, this);
+  pref_change_registrar_.Add(
+      prefs::kGoogleServicesUsername,
+      base::Bind(&ProfileImpl::UpdateProfileUserNameCache,
+                 base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kDefaultZoomLevel,
+      base::Bind(&ProfileImpl::OnDefaultZoomLevelChanged,
+                 base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kProfileAvatarIndex,
+      base::Bind(&ProfileImpl::UpdateProfileAvatarCache,
+                 base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kProfileName,
+      base::Bind(&ProfileImpl::UpdateProfileNameCache,
+                 base::Unretained(this)));
 
   // It would be nice to use PathService for fetching this directory, but
   // the cache directory depends on the profile directory, which isn't available
@@ -533,7 +559,7 @@ void ProfileImpl::InitHostZoomMap() {
   }
 
   registrar_.Add(this, content::NOTIFICATION_ZOOM_LEVEL_CHANGED,
-               content::Source<HostZoomMap>(host_zoom_map));
+                 content::Source<HostZoomMap>(host_zoom_map));
 }
 
 void ProfileImpl::InitPromoResources() {
@@ -588,8 +614,6 @@ ProfileImpl::~ProfileImpl() {
     host_content_settings_map_->ShutdownOnUIThread();
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
-  if (cloud_policy_manager_)
-    cloud_policy_manager_->Shutdown();
   if (managed_mode_policy_provider_)
     managed_mode_policy_provider_->Shutdown();
 #endif
@@ -732,14 +756,6 @@ Profile::ExitType ProfileImpl::GetLastSessionExitType() {
   // it to be set by asking for the prefs.
   GetPrefs();
   return last_session_exit_type_;
-}
-
-policy::UserCloudPolicyManager* ProfileImpl::GetUserCloudPolicyManager() {
-#if defined(ENABLE_CONFIGURATION_POLICY)
-  return cloud_policy_manager_.get();
-#else
-  return NULL;
-#endif
 }
 
 policy::ManagedModePolicyProvider* ProfileImpl::GetManagedModePolicyProvider() {
@@ -935,19 +951,9 @@ void ProfileImpl::Observe(int type,
   }
 }
 
-void ProfileImpl::OnPreferenceChanged(PrefServiceBase* prefs,
-                                      const std::string& pref_name_in) {
-  DCHECK(prefs);
-  if (pref_name_in == prefs::kGoogleServicesUsername) {
-    UpdateProfileUserNameCache();
-  } else if (pref_name_in == prefs::kProfileAvatarIndex) {
-    UpdateProfileAvatarCache();
-  } else if (pref_name_in == prefs::kProfileName) {
-    UpdateProfileNameCache();
-  } else if (pref_name_in == prefs::kDefaultZoomLevel) {
-    HostZoomMap::GetForBrowserContext(this)->SetDefaultZoomLevel(
-        prefs->GetDouble(prefs::kDefaultZoomLevel));
-  }
+void ProfileImpl::OnDefaultZoomLevelChanged() {
+  HostZoomMap::GetForBrowserContext(this)->SetDefaultZoomLevel(
+      pref_change_registrar_.prefs()->GetDouble(prefs::kDefaultZoomLevel));
 }
 
 #if defined(ENABLE_SESSION_SERVICE)

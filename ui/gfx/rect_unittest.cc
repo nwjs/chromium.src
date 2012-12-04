@@ -394,10 +394,18 @@ TEST(RectTest, SharesEdgeWith) {
   EXPECT_FALSE(r.SharesEdgeWith(just_right_no_edge));
 }
 
-TEST(RectTest, SkRectToRect) {
-  Rect src(10, 20, 30, 40);
-  SkRect skrect = RectToSkRect(src);
-  EXPECT_EQ(src, SkRectToRect(skrect));
+TEST(RectTest, SkiaRectConversions) {
+  Rect isrc(10, 20, 30, 40);
+  RectF fsrc(10.5f, 20.5f, 30.5f, 40.5f);
+
+  SkIRect skirect = RectToSkIRect(isrc);
+  EXPECT_EQ(isrc.ToString(), SkIRectToRect(skirect).ToString());
+
+  SkRect skrect = RectToSkRect(isrc);
+  EXPECT_EQ(gfx::RectF(isrc).ToString(), SkRectToRectF(skrect).ToString());
+
+  skrect = RectFToSkRect(fsrc);
+  EXPECT_EQ(fsrc.ToString(), SkRectToRectF(skrect).ToString());
 }
 
 // Similar to EXPECT_FLOAT_EQ, but lets NaN equal NaN
@@ -549,6 +557,17 @@ TEST(RectTest, ToEnclosingRect) {
     EXPECT_FLOAT_AND_NAN_EQ(r2.width(), enclosed.width());
     EXPECT_FLOAT_AND_NAN_EQ(r2.height(), enclosed.height());
   }
+}
+
+TEST(RectTest, ToNearestRect) {
+  Rect rect;
+  EXPECT_EQ(rect.ToString(), ToNearestRect(RectF(rect)).ToString());
+
+  rect = Rect(-1, -1, 3, 3);
+  EXPECT_EQ(rect.ToString(), ToNearestRect(RectF(rect)).ToString());
+
+  RectF rectf(-1.00001f, -0.999999f, 3.0000001f, 2.999999f);
+  EXPECT_EQ(rect.ToString(), ToNearestRect(rectf).ToString());
 }
 
 TEST(RectTest, ToFlooredRect) {
@@ -722,6 +741,21 @@ TEST(RectTest, Offset) {
             (f - Vector2dF(1.1f, -1.1f)).ToString());
   f -= Vector2dF(1.1f, -1.1f);
   EXPECT_EQ(RectF(1.1f, 2.2f, 3.3f, 4.4f).ToString(), f.ToString());
+}
+
+TEST(RectTest, Corners) {
+  Rect i(1, 2, 3, 4);
+  RectF f(1.1f, 2.1f, 3.1f, 4.1f);
+
+  EXPECT_EQ(Point(1, 2).ToString(), i.origin().ToString());
+  EXPECT_EQ(Point(4, 2).ToString(), i.top_right().ToString());
+  EXPECT_EQ(Point(1, 6).ToString(), i.bottom_left().ToString());
+  EXPECT_EQ(Point(4, 6).ToString(), i.bottom_right().ToString());
+
+  EXPECT_EQ(PointF(1.1f, 2.1f).ToString(), f.origin().ToString());
+  EXPECT_EQ(PointF(4.2f, 2.1f).ToString(), f.top_right().ToString());
+  EXPECT_EQ(PointF(1.1f, 6.2f).ToString(), f.bottom_left().ToString());
+  EXPECT_EQ(PointF(4.2f, 6.2f).ToString(), f.bottom_right().ToString());
 }
 
 }  // namespace gfx

@@ -15,7 +15,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/search_engines/template_url_id.h"
 #include "chrome/browser/webdata/web_data_service.h"
@@ -68,7 +67,6 @@ struct URLVisitedDetails;
 class TemplateURLService : public WebDataServiceConsumer,
                            public ProfileKeyedService,
                            public content::NotificationObserver,
-                           public PrefObserver,
                            public syncer::SyncableService {
  public:
   typedef std::map<std::string, std::string> QueryTerms;
@@ -267,10 +265,6 @@ class TemplateURLService : public WebDataServiceConsumer,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // PrefObserver implementation.
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
   // syncer::SyncableService implementation.
 
   // Returns all syncable TemplateURLs from this model as SyncData. This should
@@ -286,7 +280,7 @@ class TemplateURLService : public WebDataServiceConsumer,
   // Merge initial search engine data from Sync and push any local changes up
   // to Sync. This may send notifications if local search engines are added,
   // updated or removed.
-  virtual syncer::SyncError MergeDataAndStartSyncing(
+  virtual syncer::SyncMergeResult MergeDataAndStartSyncing(
       syncer::ModelType type,
       const syncer::SyncDataList& initial_sync_data,
       scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
@@ -568,11 +562,14 @@ class TemplateURLService : public WebDataServiceConsumer,
   // model during MergeDataAndStartSyncing. If |sync_turl| replaces a local
   // entry, that entry is removed from |initial_data| to prevent it from being
   // sent up to Sync.
+  // |merge_result| tracks the changes made to the local model. Added/modified/
+  // deleted are updated depending on how the |sync_turl| is merged in.
   // This should only be called from MergeDataAndStartSyncing.
   void MergeInSyncTemplateURL(TemplateURL* sync_turl,
                               const SyncDataMap& sync_data,
                               syncer::SyncChangeList* change_list,
-                              SyncDataMap* local_data);
+                              SyncDataMap* local_data,
+                              syncer::SyncMergeResult* merge_result);
 
   // Checks a newly added TemplateURL from Sync by its sync_guid and sets it as
   // the default search provider if we were waiting for it.
@@ -586,6 +583,8 @@ class TemplateURLService : public WebDataServiceConsumer,
   // and database copies have valid sync_guids. This is to fix crbug.com/102038,
   // where old entries were being pushed to Sync without a sync_guid.
   void PatchMissingSyncGUIDs(TemplateURLVector* template_urls);
+
+  void OnSyncedDefaultSearchProviderGUIDChanged();
 
   content::NotificationRegistrar notification_registrar_;
   PrefChangeRegistrar pref_change_registrar_;

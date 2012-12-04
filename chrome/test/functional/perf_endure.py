@@ -233,7 +233,7 @@ class ChromeEndureBaseTest(perf.BasePerfTest):
   _DEFAULT_TEST_LENGTH_SEC = 60 * 60 * 6  # Tests run for 6 hours.
   _GET_PERF_STATS_INTERVAL = 60 * 5  # Measure perf stats every 5 minutes.
   # TODO(dennisjeffrey): Do we still need to tolerate errors?
-  _ERROR_COUNT_THRESHOLD = 50  # Number of ChromeDriver errors to tolerate.
+  _ERROR_COUNT_THRESHOLD = 50  # Number of errors to tolerate.
 
   def setUp(self):
     # The Web Page Replay environment variables must be parsed before
@@ -435,7 +435,12 @@ class ChromeEndureBaseTest(perf.BasePerfTest):
           window.domAutomationController.send('done');
         })();
       """
-      self.ExecuteJavascript(js, frame_xpath=frame_xpath)
+      try:
+        self.ExecuteJavascript(js, frame_xpath=frame_xpath)
+      except pyauto_errors.AutomationCommandTimeout:
+        self._num_errors += 1
+        logging.warning('Logging an automation timeout: delete chromedriver '
+                        'cache.')
 
     self._remote_inspector_client.StopTimelineEventMonitoring()
 
@@ -709,6 +714,8 @@ class ChromeEndureControlTest(ChromeEndureBaseTest):
                         test_description, lambda: scenario(driver))
 
 
+# TODO(dennisjeffrey): Make new WPR recordings of the Gmail tests so that we
+# can remove the special handling for when self._use_wpr is True.
 class ChromeEndureGmailTest(ChromeEndureBaseTest):
   """Long-running performance tests for Chrome using Gmail."""
 
@@ -718,6 +725,8 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
 
   def setUp(self):
     ChromeEndureBaseTest.setUp(self)
+
+    self._FRAME_XPATH = self._FRAME_XPATH if self._use_wpr else ''
 
     # Log into a test Google account and open up Gmail.
     self._LoginToGoogleAccount(account_key='test_google_account_gmail')
@@ -735,11 +744,14 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
     # DOM mutation observer mechanism.
     self._wait = WebDriverWait(self._driver, timeout=60)
 
-    # Wait until Gmail's 'canvas_frame' loads and the 'Inbox' link is present.
-    # TODO(dennisjeffrey): Check with the Gmail team to see if there's a better
-    # way to tell when the webpage is ready for user interaction.
-    self._wait.until(
-        self._SwitchToCanvasFrame)  # Raises exception if the timeout is hit.
+
+    if self._use_wpr:
+      # Wait until Gmail's 'canvas_frame' loads and the 'Inbox' link is present.
+      # TODO(dennisjeffrey): Check with the Gmail team to see if there's a
+      # better way to tell when the webpage is ready for user interaction.
+      self._wait.until(
+          self._SwitchToCanvasFrame)  # Raises exception if the timeout is hit.
+
     # Wait for the inbox to appear.
     self.WaitForDomNode('//a[starts-with(@title, "Inbox")]',
                         frame_xpath=self._FRAME_XPATH)
@@ -849,7 +861,7 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
     """
     test_description = 'ComposeDiscard'
 
-    def scenario():
+    def scenario_wpr():
       # Click the "Compose" button, enter some text into the "To" field, enter
       # some text into the "Subject" field, then click the "Discard" button to
       # discard the message.
@@ -882,6 +894,37 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
       self._wait.until(lambda _: not self._GetElement(
                            self._driver.find_element_by_name, 'to'))
 
+    def scenario_live():
+      compose_xpath = '//div[text()="COMPOSE"]'
+      self.WaitForDomNode(compose_xpath, frame_xpath=self._FRAME_XPATH)
+      compose_button = self._GetElement(self._driver.find_element_by_xpath,
+                                        compose_xpath)
+      self._ClickElementAndRecordLatency(
+          compose_button, test_description, 'Compose')
+
+      to_xpath = '//input[@tabindex="1" and @spellcheck="false"]'
+      self.WaitForDomNode(to_xpath, frame_xpath=self._FRAME_XPATH)
+      to_field = self._GetElement(self._driver.find_element_by_xpath, to_xpath)
+      to_field.send_keys('nobody@nowhere.com')
+
+      subject_xpath = '//input[@name="subjectbox"]'
+      self.WaitForDomNode(subject_xpath, frame_xpath=self._FRAME_XPATH)
+      subject_field = self._GetElement(self._driver.find_element_by_xpath,
+                                       subject_xpath)
+      subject_field.send_keys('This message is about to be discarded')
+
+      discard_xpath = '//div[@aria-label="Discard draft"]'
+      self.WaitForDomNode(discard_xpath, frame_xpath=self._FRAME_XPATH)
+      discard_button = self._GetElement(self._driver.find_element_by_xpath,
+                                        discard_xpath)
+      discard_button.click()
+
+      # Wait for the message to be discarded, assumed to be true after the
+      # "To" element is removed from the webpage DOM.
+      self._wait.until(lambda _: not self._GetElement(
+                           self._driver.find_element_by_name, 'to'))
+
+    scenario = scenario_wpr if self._use_wpr else scenario_live
     self._RunEndureTest(self._WEBAPP_NAME, self._TAB_TITLE_SUBSTRING,
                         test_description, scenario,
                         frame_xpath=self._FRAME_XPATH)
@@ -1075,6 +1118,7 @@ class ChromeEndureDocsTest(ChromeEndureBaseTest):
       if not self._ClickElementByXpath(
           self._driver, '//span[starts-with(text(), "Shared with me")]'):
         self._num_errors += 1
+        logging.warning('Logging an automation error: click "shared with me".')
       try:
         self.WaitForDomNode('//div[text()="Share date"]')
       except pyauto_errors.JSONInterfaceError:
@@ -1086,6 +1130,7 @@ class ChromeEndureDocsTest(ChromeEndureBaseTest):
       if not self._ClickElementByXpath(
           self._driver, '//span[starts-with(text(), "My Drive")]'):
         self._num_errors += 1
+        logging.warning('Logging an automation error: click "my drive".')
       try:
         self.WaitForDomNode('//div[text()="Quota used"]')
       except pyauto_errors.JSONInterfaceError:
@@ -1141,12 +1186,14 @@ class ChromeEndurePlusTest(ChromeEndureBaseTest):
           '//div[text()="Friends" and '
           'starts-with(@data-dest, "stream/circles")]'):
         self._num_errors += 1
+        logging.warning('Logging an automation error: click "Friends" button.')
 
       try:
         self.WaitForDomNode('//span[contains(., "in Friends")]')
       except (pyauto_errors.JSONInterfaceError,
               pyauto_errors.JavascriptRuntimeError):
         self._num_errors += 1
+        logging.warning('Logging an automation error: wait for "in Friends".')
 
       time.sleep(1)
 
@@ -1156,12 +1203,14 @@ class ChromeEndurePlusTest(ChromeEndureBaseTest):
           '//div[text()="Family" and '
           'starts-with(@data-dest, "stream/circles")]'):
         self._num_errors += 1
+        logging.warning('Logging an automation error: click "Family" button.')
 
       try:
         self.WaitForDomNode('//span[contains(., "in Family")]')
       except (pyauto_errors.JSONInterfaceError,
               pyauto_errors.JavascriptRuntimeError):
         self._num_errors += 1
+        logging.warning('Logging an automation error: wait for "in Family".')
 
       time.sleep(1)
 
@@ -1200,24 +1249,28 @@ class IndexedDBOfflineTest(ChromeEndureBaseTest):
       # Click the "Online" button and let simulated sync run for 1 second.
       if not self._ClickElementByXpath(self._driver, 'id("online")'):
         self._num_errors += 1
+        logging.warning('Logging an automation error: click "online" button.')
 
       try:
         self.WaitForDomNode('id("state")[text()="online"]')
       except (pyauto_errors.JSONInterfaceError,
               pyauto_errors.JavascriptRuntimeError):
         self._num_errors += 1
+        logging.warning('Logging an automation error: wait for "online".')
 
       time.sleep(1)
 
       # Click the "Offline" button and let user input occur for 1 second.
       if not self._ClickElementByXpath(self._driver, 'id("offline")'):
         self._num_errors += 1
+        logging.warning('Logging an automation error: click "offline" button.')
 
       try:
         self.WaitForDomNode('id("state")[text()="offline"]')
       except (pyauto_errors.JSONInterfaceError,
               pyauto_errors.JavascriptRuntimeError):
         self._num_errors += 1
+        logging.warning('Logging an automation error: wait for "offline".')
 
       time.sleep(1)
 

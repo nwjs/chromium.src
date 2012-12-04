@@ -5,10 +5,10 @@
 #include <algorithm>
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/stl_util.h"
 #include "base/stringprintf.h"
 #include "chrome/browser/download/download_file_icon_extractor.h"
@@ -19,6 +19,7 @@
 #include "chrome/browser/extensions/event_names.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
+#include "chrome/browser/history/download_row.h"
 #include "chrome/browser/net/url_request_mock_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -33,7 +34,6 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/download_manager.h"
-#include "content/public/browser/download_persistent_store_info.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
@@ -58,7 +58,6 @@ using content::BrowserContext;
 using content::BrowserThread;
 using content::DownloadItem;
 using content::DownloadManager;
-using content::DownloadPersistentStoreInfo;
 using content::URLRequestSlowDownloadJob;
 
 namespace events = extensions::event_names;
@@ -219,12 +218,6 @@ class DownloadsEventsListener : public content::NotificationObserver {
   }
 
  private:
-  void TimedOut() {
-    if (!waiting_for_.get())
-      return;
-    MessageLoopForUI::current()->Quit();
-  }
-
   bool waiting_;
   base::Time last_wait_;
   scoped_ptr<Event> waiting_for_;
@@ -357,24 +350,19 @@ class DownloadExtensionTest : public ExtensionApiTest {
                               DownloadManager::DownloadVector* items) {
     DownloadIdComparator download_id_comparator;
     base::Time current = base::Time::Now();
-    std::vector<DownloadPersistentStoreInfo> entries;
-    entries.reserve(count);
+    items->clear();
+    GetOnRecordManager()->GetAllDownloads(items);
+    CHECK_EQ(0, static_cast<int>(items->size()));
     for (size_t i = 0; i < count; ++i) {
-      DownloadPersistentStoreInfo entry(
+      DownloadItem* item = GetOnRecordManager()->CreateDownloadItem(
           downloads_directory().Append(history_info[i].filename),
           GURL(), GURL(),    // URL, referrer
           current, current,  // start_time, end_time
           1, 1,              // received_bytes, total_bytes
           history_info[i].state,  // state
-          i + 1,                  // db_handle
           false);                 // opened
-      entries.push_back(entry);
+      items->push_back(item);
     }
-    GetOnRecordManager()->OnPersistentStoreQueryComplete(&entries);
-    GetOnRecordManager()->GetAllDownloads(items);
-    EXPECT_EQ(count, items->size());
-    if (count != items->size())
-      return false;
 
     // Order by ID so that they are in the order that we created them.
     std::sort(items->begin(), items->end(), download_id_comparator);
@@ -519,12 +507,12 @@ class DownloadExtensionTest : public ExtensionApiTest {
   void SetUpExtensionFunction(UIThreadExtensionFunction* function) {
     if (extension_) {
       // Recreate the tab each time for insulation.
-      TabContents* tab = chrome::AddSelectedTabWithURL(
+      content::WebContents* tab = chrome::AddSelectedTabWithURL(
           current_browser(),
           extension_->GetResourceURL("empty.html"),
           content::PAGE_TRANSITION_LINK);
       function->set_extension(extension_);
-      function->SetRenderViewHost(tab->web_contents()->GetRenderViewHost());
+      function->SetRenderViewHost(tab->GetRenderViewHost());
     }
   }
 
@@ -535,7 +523,7 @@ class DownloadExtensionTest : public ExtensionApiTest {
         downloads_directory_.path());
   }
 
-  ScopedTempDir downloads_directory_;
+  base::ScopedTempDir downloads_directory_;
   const extensions::Extension* extension_;
   Browser* incognito_browser_;
   Browser* current_browser_;
@@ -583,6 +571,10 @@ class MockIconExtractorImpl : public DownloadFileIconExtractor {
   IconURLCallback      callback_;
 };
 
+bool ItemNotInProgress(DownloadItem* item) {
+  return !item->IsInProgress();
+}
+
 // Cancels the underlying DownloadItem when the ScopedCancellingItem goes out of
 // scope. Like a scoped_ptr, but for DownloadItems.
 class ScopedCancellingItem {
@@ -590,9 +582,10 @@ class ScopedCancellingItem {
   explicit ScopedCancellingItem(DownloadItem* item) : item_(item) {}
   ~ScopedCancellingItem() {
     item_->Cancel(true);
+    content::DownloadUpdatedObserver observer(
+        item_, base::Bind(&ItemNotInProgress));
+    observer.WaitForEvent();
   }
-  DownloadItem* operator*() { return item_; }
-  DownloadItem* operator->() { return item_; }
   DownloadItem* get() { return item_; }
  private:
   DownloadItem* item_;
@@ -612,6 +605,9 @@ class ScopedItemVectorCanceller {
          item != items_->end(); ++item) {
       if ((*item)->IsInProgress())
         (*item)->Cancel(true);
+      content::DownloadUpdatedObserver observer(
+          (*item), base::Bind(&ItemNotInProgress));
+      observer.WaitForEvent();
     }
   }
 
@@ -897,16 +893,13 @@ UIThreadExtensionFunction* MockedGetFileIconFunction(
   return function.release();
 }
 
-bool WaitForPersisted(DownloadItem* item) {
-  return item->IsPersisted();
-}
-
 // Test downloads.getFileIcon() on in-progress, finished, cancelled and deleted
 // download items.
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
     DownloadExtensionTest_FileIcon_Active) {
   DownloadItem* download_item = CreateSlowTestDownload();
   ASSERT_TRUE(download_item);
+  ASSERT_FALSE(download_item->GetTargetFilePath().empty());
   std::string args32(base::StringPrintf("[%d, {\"size\": 32}]",
                      download_item->GetId()));
   std::string result_string;
@@ -943,17 +936,14 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 
   // Now create another download.
   download_item = CreateSlowTestDownload();
-  args32 = base::StringPrintf("[%d, {\"size\": 32}]", download_item->GetId());
   ASSERT_TRUE(download_item);
-
-  // http://crbug.com/154995
-  content::DownloadUpdatedObserver persisted(
-      download_item, base::Bind(&WaitForPersisted));
-  persisted.WaitForEvent();
+  ASSERT_FALSE(download_item->GetTargetFilePath().empty());
+  args32 = base::StringPrintf("[%d, {\"size\": 32}]", download_item->GetId());
 
   // Cancel the download. As long as the download has a target path, we should
   // be able to query the file icon.
   download_item->Cancel(true);
+  ASSERT_FALSE(download_item->GetTargetFilePath().empty());
   // Let cleanup complete on the FILE thread.
   content::RunAllPendingInMessageLoop(BrowserThread::FILE);
   // Check the path passed to the icon extractor post-cancellation.
@@ -1018,7 +1008,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
     EXPECT_STREQ("hello", result_string.c_str());
   }
 
-  // The temporary files should be cleaned up when the ScopedTempDir is removed.
+  // The temporary files should be cleaned up when the base::ScopedTempDir is removed.
 }
 
 // Test passing the empty query to search().

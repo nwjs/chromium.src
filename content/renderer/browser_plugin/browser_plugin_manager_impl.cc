@@ -7,11 +7,14 @@
 #include "content/common/browser_plugin_messages.h"
 #include "content/renderer/browser_plugin/browser_plugin.h"
 #include "content/renderer/render_thread_impl.h"
+#include "ui/gfx/point.h"
 #include "webkit/glue/webcursor.h"
 
 namespace content {
 
-BrowserPluginManagerImpl::BrowserPluginManagerImpl() {
+BrowserPluginManagerImpl::BrowserPluginManagerImpl(
+    RenderViewImpl* render_view)
+    : BrowserPluginManager(render_view) {
 }
 
 BrowserPluginManagerImpl::~BrowserPluginManagerImpl() {
@@ -31,9 +34,8 @@ bool BrowserPluginManagerImpl::Send(IPC::Message* msg) {
   return RenderThread::Get()->Send(msg);
 }
 
-bool BrowserPluginManagerImpl::OnControlMessageReceived(
+bool BrowserPluginManagerImpl::OnMessageReceived(
     const IPC::Message& message) {
-  DCHECK(CalledOnValidThread());
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(BrowserPluginManagerImpl, message)
     IPC_MESSAGE_HANDLER(BrowserPluginMsg_UpdateRect, OnUpdateRect)
@@ -49,9 +51,39 @@ bool BrowserPluginManagerImpl::OnControlMessageReceived(
     IPC_MESSAGE_HANDLER(BrowserPluginMsg_LoadCommit, OnLoadCommit)
     IPC_MESSAGE_HANDLER(BrowserPluginMsg_LoadStop, OnLoadStop)
     IPC_MESSAGE_HANDLER(BrowserPluginMsg_SetCursor, OnSetCursor)
+    IPC_MESSAGE_HANDLER(BrowserPluginMsg_PluginAtPositionRequest,
+                        OnPluginAtPositionRequest);
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
+}
+
+void BrowserPluginManagerImpl::OnPluginAtPositionRequest(
+    const IPC::Message& message,
+    int request_id,
+    const gfx::Point& position) {
+  int instance_id = -1;
+  IDMap<BrowserPlugin>::iterator it(&instances_);
+  gfx::Point local_position = position;
+  int source_routing_id = message.routing_id();
+  while (!it.IsAtEnd()) {
+    const BrowserPlugin* plugin = it.GetCurrentValue();
+    // We need to check the plugin's routing id too since BrowserPluginManager
+    // can manage plugins from other embedder (in the same process).
+    if (plugin->InBounds(position)) {
+      source_routing_id = plugin->render_view_routing_id();
+      instance_id = plugin->instance_id();
+      local_position = plugin->ToLocalCoordinates(position);
+      break;
+    }
+    it.Advance();
+  }
+
+  Send(new BrowserPluginHostMsg_PluginAtPositionResponse(
+       source_routing_id,
+       instance_id,
+       request_id,
+       local_position));
 }
 
 void BrowserPluginManagerImpl::OnUpdateRect(

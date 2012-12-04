@@ -9,20 +9,17 @@
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/ui/views/frame/native_browser_frame.h"
 #include "ui/views/context_menu_controller.h"
-#include "ui/views/widget/desktop_native_widget_aura.h"
+#include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 
 class BrowserDesktopRootWindowHost;
 class BrowserFrame;
 class BrowserView;
 
-namespace ash {
-namespace internal {
-class VisibilityController;
-}
-}
-
 namespace views {
 class MenuRunner;
+namespace corewm {
+class VisibilityController;
+}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -43,6 +40,7 @@ class DesktopBrowserFrameAura : public views::DesktopNativeWidgetAura,
   // Overridden from views::DesktopNativeWidgetAura:
   virtual void InitNativeWidget(
       const views::Widget::InitParams& params) OVERRIDE;
+  virtual void OnWindowDestroying() OVERRIDE;
 
   // Overridden from NativeBrowserFrame:
   virtual views::NativeWidget* AsNativeWidget() OVERRIDE;
@@ -64,7 +62,7 @@ class DesktopBrowserFrameAura : public views::DesktopNativeWidgetAura,
   // System menu.
   scoped_ptr<views::MenuRunner> menu_runner_;
 
-  scoped_ptr<ash::internal::VisibilityController> visibility_controller_;
+  scoped_ptr<views::corewm::VisibilityController> visibility_controller_;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopBrowserFrameAura);
 };

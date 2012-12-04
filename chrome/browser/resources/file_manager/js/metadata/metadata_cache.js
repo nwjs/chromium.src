@@ -694,7 +694,7 @@ GDataProvider.prototype.callApi_ = function() {
   this.callbacks_ = [];
   var self = this;
 
-  chrome.fileBrowserPrivate.getGDataFileProperties(urls, function(props) {
+  chrome.fileBrowserPrivate.getDriveFileProperties(urls, function(props) {
     for (var index = 0; index < urls.length; index++) {
       callbacks[index](self.convert_(props[index], urls[index]));
     }
@@ -702,7 +702,7 @@ GDataProvider.prototype.callApi_ = function() {
 };
 
 /**
- * @param {GDataFileProperties} data GData file properties.
+ * @param {DriveFileProperties} data Drive file properties.
  * @param {string} url File url.
  * @return {boolean} True if the file is available offline.
  */
@@ -718,7 +718,7 @@ GDataProvider.isAvailableOffline = function(data, url) {
 };
 
 /**
- * @param {GDataFileProperties} data GData file properties.
+ * @param {DriveFileProperties} data Drive file properties.
  * @return {boolean} True if opening the file does not require downloading it
  *    via a metered connection.
  */
@@ -788,7 +788,13 @@ function ContentProvider() {
       path.substring(0, path.lastIndexOf('/') + 1) +
       'js/metadata/metadata_dispatcher.js';
 
-  this.dispatcher_ = new Worker(workerPath);
+  if (ContentProvider.USE_SHARED_WORKER) {
+    this.dispatcher_ = new SharedWorker(workerPath).port;
+    this.dispatcher_.start();
+  } else {
+    this.dispatcher_ = new Worker(workerPath);
+  }
+
   this.dispatcher_.onmessage = this.onMessage_.bind(this);
   this.dispatcher_.postMessage({verb: 'init'});
 
@@ -800,6 +806,13 @@ function ContentProvider() {
   // Note that simultaneous requests for same url are handled in MetadataCache.
   this.callbacks_ = {};
 }
+
+/**
+ * Flag defining which kind of a worker to use.
+ * TODO(kaznacheev): Observe for some time and remove if SharedWorker does not
+ * cause any problems.
+ */
+ContentProvider.USE_SHARED_WORKER = true;
 
 ContentProvider.prototype = {
   __proto__: MetadataProvider.prototype

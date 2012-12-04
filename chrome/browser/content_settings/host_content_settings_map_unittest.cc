@@ -668,30 +668,6 @@ TEST_F(HostContentSettingsMapTest, OffTheRecord) {
   otr_map->ShutdownOnUIThread();
 }
 
-TEST_F(HostContentSettingsMapTest, MigrateObsoleteNotificationsPrefs) {
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-
-  // Set obsolete data.
-  prefs->SetInteger(prefs::kDesktopNotificationDefaultContentSetting,
-                    CONTENT_SETTING_ALLOW);
-
-  HostContentSettingsMap* host_content_settings_map =
-      profile.GetHostContentSettingsMap();
-
-  EXPECT_EQ(CONTENT_SETTING_ALLOW,
-            host_content_settings_map->GetDefaultContentSetting(
-                CONTENT_SETTINGS_TYPE_NOTIFICATIONS, NULL));
-
-  // Check if the pref was migrated correctly.
-  const DictionaryValue* default_settings_dictionary =
-      prefs->GetDictionary(prefs::kDefaultContentSettings);
-  int value;
-  default_settings_dictionary->GetIntegerWithoutPathExpansion(
-      "notifications", &value);
-  EXPECT_EQ(CONTENT_SETTING_ALLOW, ContentSetting(value));
-}
-
 // For a single Unicode encoded pattern, check if it gets converted to punycode
 // and old pattern gets deleted.
 TEST_F(HostContentSettingsMapTest, CanonicalizeExceptionsUnicodeOnly) {
@@ -748,7 +724,7 @@ TEST_F(HostContentSettingsMapTest, CanonicalizeExceptionsUnicodeAndPunycode) {
 TEST_F(HostContentSettingsMapTest, ResourceIdentifier) {
   // This feature is currently behind a flag.
   CommandLine* cmd = CommandLine::ForCurrentProcess();
-  AutoReset<CommandLine> auto_reset(cmd, *cmd);
+  base::AutoReset<CommandLine> auto_reset(cmd, *cmd);
   cmd->AppendSwitch(switches::kEnableResourceContentSettings);
 
   TestingProfile profile;
@@ -793,7 +769,7 @@ TEST_F(HostContentSettingsMapTest, ResourceIdentifier) {
 TEST_F(HostContentSettingsMapTest, ResourceIdentifierPrefs) {
   // This feature is currently behind a flag.
   CommandLine* cmd = CommandLine::ForCurrentProcess();
-  AutoReset<CommandLine> auto_reset(cmd, *cmd);
+  base::AutoReset<CommandLine> auto_reset(cmd, *cmd);
   cmd->AppendSwitch(switches::kEnableResourceContentSettings);
 
   TestingProfile profile;

@@ -13,8 +13,6 @@ import android.webkit.WebView.HitTestResult;
 import org.chromium.android_webview.AwContents;
 import org.chromium.base.test.util.Feature;
 import org.chromium.android_webview.test.util.CommonResources;
-import org.chromium.content.browser.test.util.Criteria;
-import org.chromium.content.browser.test.util.CriteriaHelper;
 import org.chromium.net.test.util.TestWebServer;
 
 import java.util.concurrent.Callable;
@@ -42,12 +40,7 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         // TODO(boliu): This is to work around disk cache corruption bug on
         // unclean shutdown (crbug.com/154805).
         try {
-          runTestOnUiThread(new Runnable() {
-              @Override
-              public void run() {
-                  mAwContents.clearCache(true);
-              }
-          });
+          clearCacheOnUiThread(mAwContents, true);
         } catch (Throwable e) {
           throw new Exception(e);
         }
@@ -74,24 +67,14 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
             @Override
             public void run() {
                 long eventTime = SystemClock.uptimeMillis();
-                mAwContents.considerMotionEventForHitTest(MotionEvent.obtain(
+                float x = (float)(mTestView.getRight() - mTestView.getLeft()) / 2;
+                float y = (float)(mTestView.getBottom() - mTestView.getTop()) / 2;
+                mAwContents.onTouchEvent(MotionEvent.obtain(
                         eventTime, eventTime, MotionEvent.ACTION_DOWN,
-                        (float)(mTestView.getRight() - mTestView.getLeft()) / 2,
-                        (float)(mTestView.getBottom() - mTestView.getTop()) / 2,
-                        0));
-            }
-        });
-    }
-
-    private boolean pollOnUiThread(final Callable<Boolean> callable) throws Throwable {
-        return CriteriaHelper.pollForCriteria(new Criteria() {
-            @Override
-            public boolean isSatisfied() {
-                try {
-                  return runTestOnUiThreadAndGetResult(callable);
-                } catch (Throwable e) {
-                    return false;
-                }
+                        x, y, 0));
+                mAwContents.onTouchEvent(MotionEvent.obtain(
+                        eventTime, eventTime, MotionEvent.ACTION_UP,
+                        x, y, 0));
             }
         });
     }
@@ -127,12 +110,8 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         });
     }
 
-    /*
-     * @SmallTest
-     * @Feature({"AndroidWebView", "WebKitHitTest"})
-     * BUG=158284
-     */
-    @FlakyTest
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
     public void testSrcAnchorType() throws Throwable {
         String page = fullPageLink(HREF, ANCHOR_TEXT);
         setServerResponseAndLoad(page);
@@ -141,12 +120,8 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         assertTrue(pollForHrefAndImageSrcOnUiThread(HREF, ANCHOR_TEXT, null));
     }
 
-    /*
-     * @SmallTest
-     * @Feature({"AndroidWebView", "WebKitHitTest"})
-     * BUG=158284
-     */
-    @FlakyTest
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
     public void testSrcAnchorTypeRelativeUrl() throws Throwable {
         String relpath = "/foo.html";
         String fullpath = mWebServer.getResponseUrl(relpath);
@@ -158,12 +133,44 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         assertTrue(pollForHrefAndImageSrcOnUiThread(relpath, ANCHOR_TEXT, null));
     }
 
-    /*
-     * @SmallTest
-     * @Feature({"AndroidWebView", "WebKitHitTest"})
-     * BUG=158284
-     */
-    @FlakyTest
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
+    public void testSrcEmailType() throws Throwable {
+        String email = "foo@bar.com";
+        String prefix = "mailto:";
+        String page = fullPageLink(prefix + email, ANCHOR_TEXT);
+        setServerResponseAndLoad(page);
+        simulateTouchCenterOfWebViewOnUiThread();
+        assertTrue(pollForHitTestDataOnUiThread(HitTestResult.EMAIL_TYPE, email));
+        assertTrue(pollForHrefAndImageSrcOnUiThread(prefix+ email, ANCHOR_TEXT, null));
+    }
+
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
+    public void testSrcGeoType() throws Throwable {
+        String location = "Jilin";
+        String prefix = "geo:0,0?q=";
+        String page = fullPageLink(prefix + location, ANCHOR_TEXT);
+        setServerResponseAndLoad(page);
+        simulateTouchCenterOfWebViewOnUiThread();
+        assertTrue(pollForHitTestDataOnUiThread(HitTestResult.GEO_TYPE, location));
+        assertTrue(pollForHrefAndImageSrcOnUiThread(prefix + location, ANCHOR_TEXT, null));
+    }
+
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
+    public void testSrcPhoneType() throws Throwable {
+        String phone_num = "1234567890";
+        String prefix = "tel:";
+        String page = fullPageLink("tel:" + phone_num, ANCHOR_TEXT);
+        setServerResponseAndLoad(page);
+        simulateTouchCenterOfWebViewOnUiThread();
+        assertTrue(pollForHitTestDataOnUiThread(HitTestResult.PHONE_TYPE, phone_num));
+        assertTrue(pollForHrefAndImageSrcOnUiThread(prefix + phone_num, ANCHOR_TEXT, null));
+    }
+
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
     public void testSrcImgeAnchorType() throws Throwable {
         String relImageSrc = "/nonexistent.jpg";
         String fullImageSrc = mWebServer.getResponseUrl(relImageSrc);
@@ -177,12 +184,8 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         assertTrue(pollForHrefAndImageSrcOnUiThread(HREF, null, fullImageSrc));
     }
 
-    /*
-     * @SmallTest
-     * @Feature({"AndroidWebView", "WebKitHitTest"})
-     * BUG=158284
-     */
-    @FlakyTest
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
     public void testImgeType() throws Throwable {
         String relImageSrc = "/nonexistent2.jpg";
         String fullImageSrc = mWebServer.getResponseUrl(relImageSrc);
@@ -195,12 +198,8 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         assertTrue(pollForHrefAndImageSrcOnUiThread(null, null, fullImageSrc));
     }
 
-    /*
-     * @SmallTest
-     * @Feature({"AndroidWebView", "WebKitHitTest"})
-     * BUG=158284
-     */
-    @FlakyTest
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
     public void testEditTextType() throws Throwable {
         String page = CommonResources.makeHtmlPageFrom("",
                 "<form><input class=\"full_view\" type=\"text\" name=\"test\"></form>");
@@ -211,12 +210,8 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         assertTrue(pollForHrefAndImageSrcOnUiThread(null, null, null));
     }
 
-    /*
-     * @SmallTest
-     * @Feature({"AndroidWebView", "WebKitHitTest"})
-     * BUG=158284
-     */
-    @FlakyTest
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
     public void testUnknownTypeJavascriptScheme() throws Throwable {
         // Per documentation, javascript urls are special.
         String javascript = "javascript:alert('foo');";
@@ -227,20 +222,27 @@ public class WebKitHitTestTest extends AndroidWebViewTestBase {
         assertTrue(pollForHitTestDataOnUiThread(HitTestResult.UNKNOWN_TYPE, null));
     }
 
-    /*
-     * @SmallTest
-     * @Feature({"AndroidWebView", "WebKitHitTest"})
-     * BUG=158284
-     */
-    @FlakyTest
+    @SmallTest
+    @Feature({"AndroidWebView", "WebKitHitTest"})
     public void testUnknownTypeUnrecognizedNode() throws Throwable {
         // Since UNKNOWN_TYPE is the default, hit test another type first for
         // this test to be valid.
         testSrcAnchorType();
 
-        String page = CommonResources.makeHtmlPageFrom("",
+        final String title = "UNKNOWN_TYPE title";
+
+        String page = CommonResources.makeHtmlPageFrom(
+                "<title>" + title + "</title>",
                 "<div class=\"full_view\">div text</div>");
         setServerResponseAndLoad(page);
+
+        // Wait for the new page to be loaded before trying hit test.
+        pollOnUiThread(new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                return mAwContents.getContentViewCore().getTitle().equals(title);
+            }
+        });
         simulateTouchCenterOfWebViewOnUiThread();
         assertTrue(pollForHitTestDataOnUiThread(HitTestResult.UNKNOWN_TYPE, null));
     }

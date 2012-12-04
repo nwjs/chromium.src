@@ -62,18 +62,11 @@ BrowserContext* DownloadItemImplDelegate::GetBrowserContext() const {
 
 void DownloadItemImplDelegate::UpdatePersistence(DownloadItemImpl* download) {}
 
-void DownloadItemImplDelegate::DownloadStopped(DownloadItemImpl* download) {}
-
-void DownloadItemImplDelegate::DownloadCompleted(DownloadItemImpl* download) {}
-
 void DownloadItemImplDelegate::DownloadOpened(DownloadItemImpl* download) {}
 
 void DownloadItemImplDelegate::DownloadRemoved(DownloadItemImpl* download) {}
 
-void DownloadItemImplDelegate::DownloadRenamedToIntermediateName(
-    DownloadItemImpl* download) {}
-
-void DownloadItemImplDelegate::DownloadRenamedToFinalName(
+void DownloadItemImplDelegate::ShowDownloadInBrowser(
     DownloadItemImpl* download) {}
 
 void DownloadItemImplDelegate::AssertStateConsistent(

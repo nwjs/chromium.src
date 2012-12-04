@@ -44,7 +44,6 @@ namespace {
 const char kSwapBuffersEvent[] = "SwapBuffers";
 const char kAcceleratedCanvasCreationEvent[] = "Canvas2DLayerBridgeCreation";
 const char kWebGLCreationEvent[] = "DrawingBufferCreation";
-const char kThreadedCompositingEvent[] = "ThreadedCompositingInitialization";
 
 class GpuFeatureTest : public InProcessBrowserTest {
  public:
@@ -215,8 +214,15 @@ class AcceleratedCompositingBlockedTest : public GpuFeatureTest {
   }
 };
 
+#if defined(OS_WIN) && defined(USE_AURA)
+// Compositing is always on for Windows Aura.
+#define MAYBE_AcceleratedCompositingBlocked DISABLED_AcceleratedCompositingBlocked
+#else
+#define MAYBE_AcceleratedCompositingBlocked AcceleratedCompositingBlocked
+#endif
+
 IN_PROC_BROWSER_TEST_F(AcceleratedCompositingBlockedTest,
-    AcceleratedCompositingBlocked) {
+    MAYBE_AcceleratedCompositingBlocked) {
   GpuFeatureType type =
       GpuDataManager::GetInstance()->GetBlacklistedFeatures();
   type = IgnoreGpuFeatures(type);
@@ -227,30 +233,6 @@ IN_PROC_BROWSER_TEST_F(AcceleratedCompositingBlockedTest,
   RunEventTest(url, kSwapBuffersEvent, false);
 }
 
-IN_PROC_BROWSER_TEST_F(GpuFeatureTest, ThreadedCompositingTextureSharing) {
-  const std::string json_blacklist =
-      "{\n"
-      "  \"name\": \"gpu blacklist\",\n"
-      "  \"version\": \"1.0\",\n"
-      "  \"entries\": [\n"
-      "    {\n"
-      "      \"id\": 1,\n"
-      "      \"blacklist\": [\n"
-      "        \"texture_sharing\"\n"
-      "      ]\n"
-      "    }\n"
-      "  ]\n"
-      "}";
-  SetupBlacklist(json_blacklist);
-  GpuFeatureType type =
-      GpuDataManager::GetInstance()->GetBlacklistedFeatures();
-  type = IgnoreGpuFeatures(type);
-  EXPECT_EQ(type, content::GPU_FEATURE_TYPE_TEXTURE_SHARING);
-
-  const FilePath url(FILE_PATH_LITERAL("feature_compositing.html"));
-  RunEventTest(url, kThreadedCompositingEvent, false);
-}
-
 class AcceleratedCompositingTest : public GpuFeatureTest {
  public:
   virtual void SetUpCommandLine(CommandLine* command_line) {
@@ -259,8 +241,16 @@ class AcceleratedCompositingTest : public GpuFeatureTest {
   }
 };
 
+#if defined(OS_WIN) && defined(USE_AURA)
+// Compositing is always on for Windows Aura.
+#define MAYBE_AcceleratedCompositingDisabled DISABLED_AcceleratedCompositingDisabled
+#else
+#define MAYBE_AcceleratedCompositingDisabled AcceleratedCompositingDisabled
+#endif
+
 IN_PROC_BROWSER_TEST_F(AcceleratedCompositingTest,
-                       AcceleratedCompositingDisabled) {
+                       MAYBE_AcceleratedCompositingDisabled) {
+// Compositing is always on for Windows Aura.
   const FilePath url(FILE_PATH_LITERAL("feature_compositing.html"));
   RunEventTest(url, kSwapBuffersEvent, false);
 }
@@ -462,7 +452,14 @@ IN_PROC_BROWSER_TEST_F(ThreadedCompositorTest, MAYBE_ThreadedCompositor) {
   RunEventTest(url, kSwapBuffersEvent, true);
 }
 
-IN_PROC_BROWSER_TEST_F(GpuFeatureTest, RafNoDamage) {
+
+#if defined(OS_WIN)
+// http://crbug.com/162343: flaky on Windows
+#define MAYBE_RafNoDamage DISABLED_RafNoDamage
+#else
+#define MAYBE_RafNoDamage RafNoDamage
+#endif
+IN_PROC_BROWSER_TEST_F(GpuFeatureTest, MAYBE_RafNoDamage) {
   trace_categories_ = "-test_*";
   const FilePath url(FILE_PATH_LITERAL("feature_raf_no_damage.html"));
   RunEventTest(url);

@@ -9,6 +9,7 @@
 #include "cc/append_quads_data.h"
 #include "cc/checkerboard_draw_quad.h"
 #include "cc/debug_border_draw_quad.h"
+#include "cc/debug_colors.h"
 #include "cc/layer_tiling_data.h"
 #include "cc/math_util.h"
 #include "cc/quad_sink.h"
@@ -19,28 +20,8 @@
 #include "ui/gfx/quad_f.h"
 
 using namespace std;
-using WebKit::WebTransformationMatrix;
 
 namespace cc {
-
-static const int debugTileBorderWidth = 1;
-static const int debugTileBorderAlpha = 100;
-static const int debugTileBorderColorRed = 80;
-static const int debugTileBorderColorGreen = 200;
-static const int debugTileBorderColorBlue = 200;
-static const int debugTileBorderMissingTileColorRed = 255;
-static const int debugTileBorderMissingTileColorGreen = 0;
-static const int debugTileBorderMissingTileColorBlue = 0;
-
-static const int defaultCheckerboardColorRed = 241;
-static const int defaultCheckerboardColorGreen = 241;
-static const int defaultCheckerboardColorBlue = 241;
-static const int debugTileEvictedCheckerboardColorRed = 255;
-static const int debugTileEvictedCheckerboardColorGreen = 200;
-static const int debugTileEvictedCheckerboardColorBlue = 200;
-static const int debugTileInvalidatedCheckerboardColorRed = 128;
-static const int debugTileInvalidatedCheckerboardColorGreen = 200;
-static const int debugTileInvalidatedCheckerboardColorBlue = 245;
 
 class DrawableTile : public LayerTilingData::Tile {
 public:
@@ -114,6 +95,12 @@ DrawableTile* TiledLayerImpl::createTile(int i, int j)
     return addedTile;
 }
 
+void TiledLayerImpl::getDebugBorderProperties(SkColor* color, float* width) const
+{
+    *color = DebugColors::TiledContentLayerBorderColor();
+    *width = DebugColors::TiledContentLayerBorderWidth(layerTreeHostImpl());
+}
+
 void TiledLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuadsData)
 {
     const gfx::Rect& contentRect = visibleContentRect();
@@ -127,18 +114,24 @@ void TiledLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
     int left, top, right, bottom;
     m_tiler->contentRectToTileIndices(contentRect, left, top, right, bottom);
 
-    if (hasDebugBorders()) {
+    if (showDebugBorders()) {
         for (int j = top; j <= bottom; ++j) {
             for (int i = left; i <= right; ++i) {
                 DrawableTile* tile = tileAt(i, j);
                 gfx::Rect tileRect = m_tiler->tileBounds(i, j);
                 SkColor borderColor;
+                float borderWidth;
 
-                if (m_skipsDraw || !tile || !tile->resourceId())
-                    borderColor = SkColorSetARGB(debugTileBorderAlpha, debugTileBorderMissingTileColorRed, debugTileBorderMissingTileColorGreen, debugTileBorderMissingTileColorBlue);
-                else
-                    borderColor = SkColorSetARGB(debugTileBorderAlpha, debugTileBorderColorRed, debugTileBorderColorGreen, debugTileBorderColorBlue);
-                quadSink.append(DebugBorderDrawQuad::create(sharedQuadState, tileRect, borderColor, debugTileBorderWidth).PassAs<DrawQuad>(), appendQuadsData);
+                if (m_skipsDraw || !tile || !tile->resourceId()) {
+                    borderColor = DebugColors::MissingTileBorderColor();
+                    borderWidth = DebugColors::MissingTileBorderWidth(layerTreeHostImpl());
+                } else {
+                    borderColor = DebugColors::TileBorderColor();
+                    borderWidth = DebugColors::TileBorderWidth(layerTreeHostImpl());
+                }
+                scoped_ptr<DebugBorderDrawQuad> debugBorderQuad = DebugBorderDrawQuad::Create();
+                debugBorderQuad->SetNew(sharedQuadState, tileRect, borderColor, borderWidth);
+                quadSink.append(debugBorderQuad.PassAs<DrawQuad>(), appendQuadsData);
             }
         }
     }
@@ -159,29 +152,31 @@ void TiledLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
 
             if (!tile || !tile->resourceId()) {
                 if (drawCheckerboardForMissingTiles()) {
-                    SkColor defaultColor = SkColorSetRGB(defaultCheckerboardColorRed, defaultCheckerboardColorGreen, defaultCheckerboardColorBlue);
-                    SkColor evictedColor = SkColorSetRGB(debugTileEvictedCheckerboardColorRed, debugTileEvictedCheckerboardColorGreen, debugTileEvictedCheckerboardColorBlue);
-                    SkColor invalidatedColor = SkColorSetRGB(debugTileInvalidatedCheckerboardColorRed, debugTileEvictedCheckerboardColorGreen, debugTileEvictedCheckerboardColorBlue);
-
                     SkColor checkerColor;
-                    if (hasDebugBorders())
-                        checkerColor = tile ? invalidatedColor : evictedColor;
+                    if (showDebugBorders())
+                        checkerColor = tile ? DebugColors::InvalidatedTileCheckerboardColor() : DebugColors::EvictedTileCheckerboardColor();
                     else
-                        checkerColor = defaultColor;
+                        checkerColor = DebugColors::DefaultCheckerboardColor();
 
-                    appendQuadsData.hadMissingTiles |= quadSink.append(CheckerboardDrawQuad::create(sharedQuadState, tileRect, checkerColor).PassAs<DrawQuad>(), appendQuadsData);
-                } else
-                    appendQuadsData.hadMissingTiles |= quadSink.append(SolidColorDrawQuad::create(sharedQuadState, tileRect, backgroundColor()).PassAs<DrawQuad>(), appendQuadsData);
+                    scoped_ptr<CheckerboardDrawQuad> checkerboardQuad = CheckerboardDrawQuad::Create();
+                    checkerboardQuad->SetNew(sharedQuadState, tileRect, checkerColor);
+                    appendQuadsData.hadMissingTiles |= quadSink.append(checkerboardQuad.PassAs<DrawQuad>(), appendQuadsData);
+                } else {
+                    scoped_ptr<SolidColorDrawQuad> solidColorQuad = SolidColorDrawQuad::Create();
+                    solidColorQuad->SetNew(sharedQuadState, tileRect, backgroundColor());
+                    appendQuadsData.hadMissingTiles |= quadSink.append(solidColorQuad.PassAs<DrawQuad>(), appendQuadsData);
+                }
                 continue;
             }
 
-            gfx::Rect tileOpaqueRect = tile->opaqueRect();
-            tileOpaqueRect.Intersect(contentRect);
+            gfx::Rect tileOpaqueRect = contentsOpaque() ? tileRect : gfx::IntersectRects(tile->opaqueRect(), contentRect);
 
             // Keep track of how the top left has moved, so the texture can be
             // offset the same amount.
             gfx::Vector2d displayOffset = tileRect.origin() - displayRect.origin();
             gfx::Vector2d textureOffset = m_tiler->textureOffset(i, j) + displayOffset;
+            gfx::RectF texCoordRect = gfx::RectF(tileRect.size()) + textureOffset;
+
             float tileWidth = static_cast<float>(m_tiler->tileSize().width());
             float tileHeight = static_cast<float>(m_tiler->tileSize().height());
             gfx::Size textureSize(tileWidth, tileHeight);
@@ -196,8 +191,9 @@ void TiledLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& appendQuad
             bool rightEdgeAA = i == m_tiler->numTilesX() - 1 && useAA;
             bool bottomEdgeAA = j == m_tiler->numTilesY() - 1 && useAA;
 
-            const GLint textureFilter = m_tiler->hasBorderTexels() ? GL_LINEAR : GL_NEAREST;
-            quadSink.append(TileDrawQuad::create(sharedQuadState, tileRect, tileOpaqueRect, tile->resourceId(), textureOffset, textureSize, textureFilter, tile->contentsSwizzled(), leftEdgeAA, topEdgeAA, rightEdgeAA, bottomEdgeAA).PassAs<DrawQuad>(), appendQuadsData);
+            scoped_ptr<TileDrawQuad> quad = TileDrawQuad::Create();
+            quad->SetNew(sharedQuadState, tileRect, tileOpaqueRect, tile->resourceId(), texCoordRect, textureSize, tile->contentsSwizzled(), leftEdgeAA, topEdgeAA, rightEdgeAA, bottomEdgeAA);
+            quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
         }
     }
 }

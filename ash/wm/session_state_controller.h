@@ -8,8 +8,10 @@
 #include "ash/ash_export.h"
 #include "ash/shell_observer.h"
 #include "ash/wm/session_state_animator.h"
+#include "ash/wm/session_state_observer.h"
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/observer_list.h"
 #include "base/time.h"
 #include "base/timer.h"
 #include "ui/aura/root_window_observer.h"
@@ -27,6 +29,7 @@ namespace ash {
 
 namespace test {
 class PowerButtonControllerTest;
+class SessionStateControllerImpl2Test;
 }
 
 // Performs system-related functions on behalf of SessionStateController.
@@ -63,20 +66,6 @@ class ASH_EXPORT SessionStateController : public aura::RootWindowObserver,
   // starting the pre-shutdown animation.
   static const int kLockToShutdownTimeoutMs;
 
-  // Amount of time taken to scale the snapshot of the screen down to a
-  // slightly-smaller size once the user starts holding the power button.  Used
-  // for both the pre-lock and pre-shutdown animations.
-  static const int kSlowCloseAnimMs;
-
-  // Amount of time taken to scale the snapshot of the screen back to its
-  // original size when the button is released.
-  static const int kUndoSlowCloseAnimMs;
-
-  // Amount of time taken to scale the snapshot down to a point in the center of
-  // the screen once the screen has been locked or we've been notified that the
-  // system is shutting down.
-  static const int kFastCloseAnimMs;
-
   // Additional time (beyond kFastCloseAnimMs) to wait after starting the
   // fast-close shutdown animation before actually requesting shutdown, to give
   // the animation time to finish.
@@ -86,12 +75,6 @@ class ASH_EXPORT SessionStateController : public aura::RootWindowObserver,
   virtual ~SessionStateController();
 
   void SetDelegate(SessionStateControllerDelegate* delegate);
-
-  // Returns true iff when we're in state when user session can be locked.
-  virtual bool IsEligibleForLock() = 0;
-
-  // Returns true if system is locked.
-  virtual bool IsLocked() = 0;
 
   // Starts locking (with slow animation) that can be cancelled.
   // After locking and |kLockToShutdownTimeoutMs| StartShutdownAnimation()
@@ -140,14 +123,19 @@ class ASH_EXPORT SessionStateController : public aura::RootWindowObserver,
   // Callback is guaranteed to be called once and then discarded.
   virtual void SetLockScreenDisplayedCallback(base::Closure& callback) = 0;
 
+  virtual void AddObserver(SessionStateObserver* observer);
+  virtual void RemoveObserver(SessionStateObserver* observer);
+  virtual bool HasObserver(SessionStateObserver* observer);
+
  protected:
   friend class test::PowerButtonControllerTest;
-
-  bool IsLoggedInAsNonGuest() const;
+  friend class test::SessionStateControllerImpl2Test;
 
   scoped_ptr<internal::SessionStateAnimator> animator_;
 
   scoped_ptr<SessionStateControllerDelegate> delegate_;
+
+  ObserverList<SessionStateObserver> observers_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SessionStateController);

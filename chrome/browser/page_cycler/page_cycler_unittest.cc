@@ -148,7 +148,7 @@ class PageCyclerTest : public BrowserWithTestWindowTest {
 
   void PumpLoop() {
     content::BrowserThread::GetBlockingPool()->FlushForTesting();
-    message_loop()->RunAllPending();
+    message_loop()->RunUntilIdle();
   }
 
   void CloseBrowser() {
@@ -198,7 +198,7 @@ TEST_F(PageCyclerTest, FailProvisionalLoads) {
   const FilePath errors_expected_file =
       test_data_dir().AppendASCII("errors_expected");
 
-  ScopedTempDir temp;
+  base::ScopedTempDir temp;
   ASSERT_TRUE(temp.CreateUniqueTempDir());
   InitFilePaths(temp.path());
 
@@ -264,7 +264,7 @@ TEST_F(PageCyclerTest, FailProvisionalLoads) {
 TEST_F(PageCyclerTest, StatsFile) {
   const int kNumLoads = 4;
 
-  ScopedTempDir temp;
+  base::ScopedTempDir temp;
   ASSERT_TRUE(temp.CreateUniqueTempDir());
   InitFilePaths(temp.path());
 
@@ -292,7 +292,7 @@ TEST_F(PageCyclerTest, KillBrowserAndAbort) {
   const FilePath errors_expected_file =
       test_data_dir().AppendASCII("abort_expected");
 
-  ScopedTempDir temp;
+  base::ScopedTempDir temp;
   ASSERT_TRUE(temp.CreateUniqueTempDir());
   InitFilePaths(temp.path());
 
@@ -308,7 +308,7 @@ TEST_F(PageCyclerTest, KillBrowserAndAbort) {
       DidFinishLoad(kFrameID, kAboutURL, kIsMainFrame, _))
       .WillOnce(Invoke(page_cycler(),
                        &MockPageCycler::PageCyclerDidFinishLoad));
-  message_loop()->RunAllPending();
+  message_loop()->RunUntilIdle();
 
   FinishLoad();
 
@@ -327,7 +327,7 @@ TEST_F(PageCyclerTest, KillBrowserAndAbort) {
 TEST_F(PageCyclerTest, MultipleIterations) {
   const int kNumLoads = 4;
 
-  ScopedTempDir temp;
+  base::ScopedTempDir temp;
   ASSERT_TRUE(temp.CreateUniqueTempDir());
   InitFilePaths(temp.path());
 

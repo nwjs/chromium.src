@@ -6,14 +6,20 @@
 
 #include "ash/shell.h"
 #include "ash/system/chromeos/network/network_list_detailed_view_base.h"
+#include "ash/system/chromeos/network/network_state_list_detailed_view.h"
+#include "ash/system/chromeos/network/tray_network_state_observer.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_delegate.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_item_more.h"
 #include "ash/system/tray/tray_item_view.h"
 #include "ash/system/tray/tray_notification_view.h"
+#include "base/command_line.h"
+#include "chromeos/chromeos_switches.h"
+#include "chromeos/network/network_state_handler.h"
 #include "grit/ash_resources.h"
 #include "grit/ash_strings.h"
+#include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/views/controls/link.h"
@@ -24,14 +30,15 @@ namespace {
 
 using ash::internal::TrayNetwork;
 
-int GetMessageIcon(TrayNetwork::MessageType message_type) {
+int GetMessageIcon(
+    TrayNetwork::MessageType message_type,
+    TrayNetwork::NetworkType network_type) {
   switch(message_type) {
     case TrayNetwork::ERROR_CONNECT_FAILED:
-      return IDR_AURA_UBER_TRAY_NETWORK_FAILED;
-    case TrayNetwork::MESSAGE_DATA_LOW:
-      return IDR_AURA_UBER_TRAY_NETWORK_DATA_LOW;
-    case TrayNetwork::MESSAGE_DATA_NONE:
-      return IDR_AURA_UBER_TRAY_NETWORK_DATA_NONE;
+      if (TrayNetwork::NETWORK_CELLULAR == network_type)
+        return IDR_AURA_UBER_TRAY_CELLULAR_NETWORK_FAILED;
+      else
+        return IDR_AURA_UBER_TRAY_NETWORK_FAILED;
     case TrayNetwork::MESSAGE_DATA_PROMO:
       return IDR_AURA_UBER_TRAY_NOTIFICATION_3G;
   }
@@ -56,14 +63,17 @@ class NetworkMessages {
   struct Message {
     Message() : delegate(NULL) {}
     Message(NetworkTrayDelegate* in_delegate,
+            TrayNetwork::NetworkType network_type,
             const string16& in_title,
             const string16& in_message,
             const std::vector<string16>& in_links) :
         delegate(in_delegate),
+        network_type_(network_type),
         title(in_title),
         message(in_message),
         links(in_links) {}
     NetworkTrayDelegate* delegate;
+    TrayNetwork::NetworkType network_type_;
     string16 title;
     string16 message;
     std::vector<string16> links;
@@ -79,8 +89,8 @@ class NetworkMessages {
 
 class NetworkTrayView : public TrayItemView {
  public:
-  NetworkTrayView(ColorTheme size, bool tray_icon)
-      : color_theme_(size), tray_icon_(tray_icon) {
+  NetworkTrayView(SystemTrayItem* owner, ColorTheme size)
+      : TrayItemView(owner), color_theme_(size) {
     SetLayoutManager(
         new views::BoxLayout(views::BoxLayout::kHorizontal, 0, 0, 0));
 
@@ -99,15 +109,13 @@ class NetworkTrayView : public TrayItemView {
 
   void Update(const NetworkIconInfo& info) {
     image_view_->SetImage(info.image);
-    if (tray_icon_)
-      SetVisible(info.tray_icon_visible);
+    SetVisible(info.tray_icon_visible);
     SchedulePaint();
   }
 
  private:
   views::ImageView* image_view_;
   ColorTheme color_theme_;
-  bool tray_icon_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkTrayView);
 };
@@ -136,8 +144,10 @@ class NetworkDefaultView : public TrayItemMore {
 
 class NetworkListDetailedView : public NetworkListDetailedViewBase {
  public:
-  NetworkListDetailedView(user::LoginStatus login, int header_string_id)
-      : NetworkListDetailedViewBase(login, header_string_id),
+  NetworkListDetailedView(SystemTrayItem* owner,
+                          user::LoginStatus login,
+                          int header_string_id)
+      : NetworkListDetailedViewBase(owner, login, header_string_id),
         airplane_(NULL),
         button_wifi_(NULL),
         button_mobile_(NULL),
@@ -271,19 +281,19 @@ class NetworkListDetailedView : public NetworkListDetailedViewBase {
   }
 
   virtual void AppendCustomButtonsToBottomRow(
-      TrayPopupTextButtonContainer* bottom_row) OVERRIDE {
+      views::View* bottom_row) OVERRIDE {
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-    other_wifi_ = new TrayPopupTextButton(this,
+    other_wifi_ = new TrayPopupLabelButton(this,
         rb.GetLocalizedString(IDS_ASH_STATUS_TRAY_OTHER_WIFI));
-    bottom_row->AddTextButton(other_wifi_);
+    bottom_row->AddChildView(other_wifi_);
 
-    turn_on_wifi_ = new TrayPopupTextButton(this,
+    turn_on_wifi_ = new TrayPopupLabelButton(this,
         rb.GetLocalizedString(IDS_ASH_STATUS_TRAY_TURN_ON_WIFI));
-    bottom_row->AddTextButton(turn_on_wifi_);
+    bottom_row->AddChildView(turn_on_wifi_);
 
-    other_mobile_ = new TrayPopupTextButton(this,
+    other_mobile_ = new TrayPopupLabelButton(this,
         rb.GetLocalizedString(IDS_ASH_STATUS_TRAY_OTHER_MOBILE));
-    bottom_row->AddTextButton(other_mobile_);
+    bottom_row->AddChildView(other_mobile_);
   }
 
   virtual void UpdateNetworkExtra() OVERRIDE {
@@ -352,16 +362,17 @@ class NetworkListDetailedView : public NetworkListDetailedViewBase {
   TrayPopupHeaderButton* button_mobile_;
   views::View* view_mobile_account_;
   views::View* setup_mobile_account_;
-  TrayPopupTextButton* other_wifi_;
-  TrayPopupTextButton* turn_on_wifi_;
-  TrayPopupTextButton* other_mobile_;
+  TrayPopupLabelButton* other_wifi_;
+  TrayPopupLabelButton* turn_on_wifi_;
+  TrayPopupLabelButton* other_mobile_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkListDetailedView);
 };
 
 class NetworkWifiDetailedView : public NetworkDetailedView {
  public:
-  explicit NetworkWifiDetailedView(bool wifi_enabled) {
+  NetworkWifiDetailedView(SystemTrayItem* owner, bool wifi_enabled)
+      : NetworkDetailedView(owner) {
     SetLayoutManager(new views::BoxLayout(views::BoxLayout::kHorizontal,
                                           kTrayPopupPaddingHorizontal,
                                           10,
@@ -394,7 +405,15 @@ class NetworkWifiDetailedView : public NetworkDetailedView {
     return NetworkDetailedView::WIFI_VIEW;
   }
 
-  virtual void Update() OVERRIDE {}
+  virtual void ManagerChanged() OVERRIDE {
+  }
+
+  virtual void NetworkListChanged(const NetworkStateList& networks) OVERRIDE {
+  }
+
+  virtual void NetworkServiceChanged(
+      const chromeos::NetworkState* network) OVERRIDE {
+  }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(NetworkWifiDetailedView);
@@ -403,11 +422,12 @@ class NetworkWifiDetailedView : public NetworkDetailedView {
 class NetworkMessageView : public views::View,
                            public views::LinkListener {
  public:
-  NetworkMessageView(TrayNetwork* tray,
+  NetworkMessageView(TrayNetwork* owner,
                      TrayNetwork::MessageType message_type,
                      const NetworkMessages::Message& network_msg)
-      : tray_(tray),
-        message_type_(message_type) {
+      : owner_(owner),
+        message_type_(message_type),
+        network_type_(network_msg.network_type_) {
     SetLayoutManager(
         new views::BoxLayout(views::BoxLayout::kVertical, 0, 0, 1));
 
@@ -444,26 +464,29 @@ class NetworkMessageView : public views::View,
 
   // Overridden from views::LinkListener.
   virtual void LinkClicked(views::Link* source, int event_flags) OVERRIDE {
-    tray_->LinkClicked(message_type_, source->id());
+    owner_->LinkClicked(message_type_, source->id());
   }
 
   TrayNetwork::MessageType message_type() const { return message_type_; }
+  TrayNetwork::NetworkType network_type() const { return network_type_; }
 
  private:
-  TrayNetwork* tray_;
+  TrayNetwork* owner_;
   TrayNetwork::MessageType message_type_;
+  TrayNetwork::NetworkType network_type_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkMessageView);
 };
 
 class NetworkNotificationView : public TrayNotificationView {
  public:
-  explicit NetworkNotificationView(TrayNetwork* tray)
-      : TrayNotificationView(tray, 0) {
+  explicit NetworkNotificationView(TrayNetwork* owner)
+      : TrayNotificationView(owner, 0) {
     CreateMessageView();
     InitView(network_message_view_);
     SetIconImage(*ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-        GetMessageIcon(network_message_view_->message_type())));
+        GetMessageIcon(network_message_view_->message_type(),
+            network_message_view_->network_type())));
   }
 
   // Overridden from TrayNotificationView.
@@ -474,19 +497,20 @@ class NetworkNotificationView : public TrayNotificationView {
   virtual void OnClickAction() OVERRIDE {
     if (network_message_view_->message_type() !=
         TrayNetwork::MESSAGE_DATA_PROMO)
-      tray()->PopupDetailedView(0, true);
+      owner()->PopupDetailedView(0, true);
   }
 
   void Update() {
     CreateMessageView();
     UpdateViewAndImage(network_message_view_,
         *ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-            GetMessageIcon(network_message_view_->message_type())));
+            GetMessageIcon(network_message_view_->message_type(),
+                network_message_view_->network_type())));
   }
 
  private:
   TrayNetwork* tray_network() {
-    return static_cast<TrayNetwork*>(tray());
+    return static_cast<TrayNetwork*>(owner());
   }
 
   void CreateMessageView() {
@@ -505,13 +529,18 @@ class NetworkNotificationView : public TrayNotificationView {
 
 }  // namespace tray
 
-TrayNetwork::TrayNetwork()
-    : tray_(NULL),
+TrayNetwork::TrayNetwork(SystemTray* system_tray)
+    : SystemTrayItem(system_tray),
+      tray_(NULL),
       default_(NULL),
       detailed_(NULL),
       notification_(NULL),
       messages_(new tray::NetworkMessages()),
       request_wifi_view_(false) {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          chromeos::switches::kEnableNewNetworkHandlers)) {
+    network_state_observer_.reset(new TrayNetworkStateObserver(this));
+  }
 }
 
 TrayNetwork::~TrayNetwork() {
@@ -519,7 +548,7 @@ TrayNetwork::~TrayNetwork() {
 
 views::View* TrayNetwork::CreateTrayView(user::LoginStatus status) {
   CHECK(tray_ == NULL);
-  tray_ = new tray::NetworkTrayView(tray::LIGHT, true /*tray_icon*/);
+  tray_ = new tray::NetworkTrayView(this, tray::LIGHT);
   return tray_;
 }
 
@@ -538,11 +567,17 @@ views::View* TrayNetwork::CreateDetailedView(user::LoginStatus status) {
   if (request_wifi_view_) {
     SystemTrayDelegate* delegate = Shell::GetInstance()->tray_delegate();
     // The Wi-Fi state is not toggled yet at this point.
-    detailed_ = new tray::NetworkWifiDetailedView(!delegate->GetWifiEnabled());
+    detailed_ = new tray::NetworkWifiDetailedView(this,
+                                                  !delegate->GetWifiEnabled());
     request_wifi_view_ = false;
   } else {
-    detailed_ = new tray::NetworkListDetailedView(
-        status, IDS_ASH_STATUS_TRAY_NETWORK);
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            chromeos::switches::kEnableNewNetworkHandlers)) {
+      detailed_ = new tray::NetworkStateListDetailedView(this, status);
+    } else {
+      detailed_ = new tray::NetworkListDetailedView(
+          this, status, IDS_ASH_STATUS_TRAY_NETWORK);
+    }
     detailed_->Init();
   }
   return detailed_;
@@ -585,16 +620,17 @@ void TrayNetwork::OnNetworkRefresh(const NetworkIconInfo& info) {
   if (default_)
     default_->Update();
   if (detailed_)
-    detailed_->Update();
+    detailed_->ManagerChanged();
 }
 
 void TrayNetwork::SetNetworkMessage(NetworkTrayDelegate* delegate,
                                    MessageType message_type,
+                                   NetworkType network_type,
                                    const string16& title,
                                    const string16& message,
                                    const std::vector<string16>& links) {
-  messages_->messages()[message_type] =
-      tray::NetworkMessages::Message(delegate, title, message, links);
+  messages_->messages()[message_type] = tray::NetworkMessages::Message(
+      delegate, network_type, title, message, links);
   if (notification_)
     notification_->Update();
   else
@@ -614,6 +650,10 @@ void TrayNetwork::ClearNetworkMessage(MessageType message_type) {
 }
 
 void TrayNetwork::OnWillToggleWifi() {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          chromeos::switches::kEnableNewNetworkHandlers)) {
+    return;  // Handled in TrayNetworkStateObserver::NetworkManagerChanged()
+  }
   if (!detailed_ ||
       detailed_->GetViewType() == tray::NetworkDetailedView::WIFI_VIEW) {
     request_wifi_view_ = true;

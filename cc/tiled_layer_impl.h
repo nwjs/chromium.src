@@ -7,7 +7,6 @@
 
 #include "cc/cc_export.h"
 #include "cc/layer_impl.h"
-#include <public/WebTransformationMatrix.h>
 
 namespace cc {
 
@@ -41,6 +40,8 @@ protected:
     // Exposed for testing.
     bool hasTileAt(int, int) const;
     bool hasResourceIdForTileAt(int, int) const;
+
+    virtual void getDebugBorderProperties(SkColor*, float* width) const OVERRIDE;
 
 private:
 

@@ -11,6 +11,7 @@
 #include "cc/cc_export.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/gfx/rect.h"
+#include "ui/gfx/skia_util.h"
 
 namespace cc {
 
@@ -42,30 +43,30 @@ class CC_EXPORT Region {
   void Intersect(gfx::Rect rect);
   void Intersect(const Region& region);
 
-  bool Equals(const Region& other) const { return skregion_ == other.skregion_; }
+  bool Equals(const Region& other) const {
+    return skregion_ == other.skregion_;
+  }
 
   gfx::Rect bounds() const {
-    SkIRect r = skregion_.getBounds();
-    // TODO(danakj) Use method from ui/gfx/skia_utils.h when it exists.
-    return gfx::Rect(r.x(), r.y(), r.width(), r.height());
+    return gfx::SkIRectToRect(skregion_.getBounds());
   }
 
   std::string ToString() const;
 
   class CC_EXPORT Iterator {
    public:
+    Iterator();
     Iterator(const Region& region);
     ~Iterator();
 
     gfx::Rect rect() const {
-      SkIRect r = it_.rect();
-      // TODO(danakj) Use method from ui/gfx/skia_utils.h when it exists.
-      return gfx::Rect(r.x(), r.y(), r.width(), r.height());
+      return gfx::SkIRectToRect(it_.rect());
     }
 
     void next() {
       it_.next();
     }
+
     bool has_rect() const {
       return !it_.done();
     }

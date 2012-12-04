@@ -14,6 +14,7 @@
 /** @const */ var SCREEN_GAIA_SIGNIN = 'gaia-signin';
 /** @const */ var SCREEN_ACCOUNT_PICKER = 'account-picker';
 /** @const */ var SCREEN_USER_IMAGE_PICKER = 'user-image';
+/** @const */ var SCREEN_TPM_ERROR = 'tpm-error-message';
 
 /* Accelerator identifiers. Must be kept in sync with webui_login_view.cc. */
 /** @const */ var ACCELERATOR_CANCEL = 'cancel';
@@ -258,7 +259,14 @@ cr.define('cr.ui.login', function() {
       this.currentStep_ = nextStepIndex;
       $('oobe').className = nextStepId;
 
+      // Focus the default control (if specified).
+      var defaultControl = newStep.defaultControl;
+      if (defaultControl)
+        defaultControl.focus();
+
       $('step-logo').hidden = newStep.classList.contains('no-logo');
+
+      chrome.send('updateCurrentScreen', [this.currentScreen.id]);
     },
 
     /**
@@ -299,7 +307,7 @@ cr.define('cr.ui.login', function() {
       var index = this.getScreenIndex_(screenId);
       if (index >= 0)
         this.toggleStep_(index, data);
-      $('error-message').update();
+      chrome.send('errorScreenUpdate');
     },
 
     /**
@@ -545,6 +553,13 @@ cr.define('cr.ui.login', function() {
 
     var currentScreenId = Oobe.getInstance().currentScreen.id;
     $(currentScreenId).showErrorBubble(loginAttempts, error);
+  };
+
+  /**
+   * Shows TPM error screen.
+   */
+  DisplayManager.showTpmError = function() {
+    login.TPMErrorMessageScreen.show();
   };
 
   /**

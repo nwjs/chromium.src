@@ -21,8 +21,6 @@ class RendererWebIDBTransactionImpl : public WebKit::WebIDBTransaction {
   explicit RendererWebIDBTransactionImpl(int32 idb_transaction_id);
   virtual ~RendererWebIDBTransactionImpl();
 
-  virtual WebKit::WebIDBObjectStore* objectStore(const WebKit::WebString& name,
-                                                 WebKit::WebExceptionCode&);
   virtual WebKit::WebIDBObjectStore* objectStore(long long object_store_id,
                                                  WebKit::WebExceptionCode&);
   virtual void commit();
@@ -30,7 +28,7 @@ class RendererWebIDBTransactionImpl : public WebKit::WebIDBTransaction {
   virtual void didCompleteTaskEvents();
   virtual void setCallbacks(WebKit::WebIDBTransactionCallbacks*);
 
-  int id() const { return idb_transaction_id_; }
+  int ipc_id() const { return idb_transaction_id_; }
 
  private:
   int32 idb_transaction_id_;

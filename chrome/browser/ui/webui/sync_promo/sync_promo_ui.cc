@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/string_number_conversions.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
@@ -30,26 +31,27 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/gaia_urls.h"
-#include "googleurl/src/url_util.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::WebContents;
 
 namespace {
 
-// TODO(rogerta): get final extension Id when the extension is ready.
-const char kSyncExtensionURLPrefix[] =
-    "chrome-extension://alcdejocjpphboegpmhlfdhjhmebbchd/";
-
 const char kStringsJsFile[] = "strings.js";
 const char kSyncPromoJsFile[] = "sync_promo.js";
 
+const char kSyncPromoQueryKeyAutoClose[] = "auto_close";
+const char kSyncPromoQueryKeyContinue[] = "continue";
 const char kSyncPromoQueryKeyNextPage[] = "next_page";
 const char kSyncPromoQueryKeySource[] = "source";
-const char kSyncPromoQueryKeyAutoClose[] = "auto_close";
+
+// TODO(rogerta): It would be better to use about:blank, but until that is
+// supported by Gaia this blank continue URL will be used.
+const char kContinueUrl[] = "http://www.google.com/gen_204";
 
 // The maximum number of times we want to show the sync promo at startup.
 const int kSyncPromoShowAtStartupMaximum = 10;
@@ -67,6 +69,13 @@ bool AllowPromoAtStartupForCurrentBrand() {
 
   // Enable for both organic and distribution.
   return true;
+}
+
+bool UseWebBasedSigninFlow() {
+  const bool use_web_based_singin_flow =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUseWebBasedSigninFlow);
+  return use_web_based_singin_flow;
 }
 
 // The Web UI data source for the sync promo page.
@@ -219,34 +228,28 @@ GURL SyncPromoUI::GetSyncPromoURL(const GURL& next_page,
 
   std::string url_string;
 
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kUseWebBasedSigninFlow)) {
+  if (UseWebBasedSigninFlow()) {
+    // Build a Gaia-based URL that can be used to sign the user into chrome.
+    // There are required request parameters:
+    //
+    //  - tell Gaia which service the user is signing into.  In this case,
+    //    a chrome sign in uses the service "chromiumsync"
+    //  - provide a continue URL.  This is the URL that Gaia will redirect to
+    //    once the sign is complete.
+    //
+    // The continue URL includes a source parameter that can be extracted using
+    // the function GetSourceForSyncPromoURL() below.  This is used to know
+    // which of the chrome sign in access points was used to sign the userr in.
+    // See OneClickSigninHelper for details.
     url_string = GaiaUrls::GetInstance()->service_login_url();
-    url_string.append("?service=chromiumsync&continue=");
+    url_string.append("?service=chromiumsync");
 
-    std::string continue_url(kSyncExtensionURLPrefix);
-    switch (source) {
-    case SOURCE_START_PAGE:
-      continue_url.append("firstrun.html");
-      break;
-    case SOURCE_NTP_LINK:
-      continue_url.append("ntp.html");
-      break;
-    case SOURCE_MENU:
-      continue_url.append("menu.html");
-      break;
-    case SOURCE_SETTINGS:
-      continue_url.append("settings.html");
-      break;
-    default:
-      NOTREACHED() << "Invalid source: " << source;
-    }
+    std::string continue_url = base::StringPrintf("%s?%s=%d",
+        kContinueUrl, kSyncPromoQueryKeySource, static_cast<int>(source));
 
-    url_canon::RawCanonOutputT<char> output;
-    url_util::EncodeURIComponent(continue_url.c_str(), continue_url.length(),
-                                 &output);
-    std::string escaped_spec(output.data(), output.length());
-    url_string.append(escaped_spec);
+    base::StringAppendF(&url_string, "&%s=%s", kSyncPromoQueryKeyContinue,
+                        net::EscapeQueryParamValue(
+                            continue_url, false).c_str());
   } else {
     url_string = base::StringPrintf("%s?%s=%d", chrome::kChromeUISyncPromoURL,
                                     kSyncPromoQueryKeySource,
@@ -256,12 +259,9 @@ GURL SyncPromoUI::GetSyncPromoURL(const GURL& next_page,
       base::StringAppendF(&url_string, "&%s=1", kSyncPromoQueryKeyAutoClose);
 
     if (!next_page.spec().empty()) {
-      url_canon::RawCanonOutputT<char> output;
-      url_util::EncodeURIComponent(
-          next_page.spec().c_str(), next_page.spec().length(), &output);
-      std::string escaped_spec(output.data(), output.length());
       base::StringAppendF(&url_string, "&%s=%s", kSyncPromoQueryKeyNextPage,
-                          escaped_spec.c_str());
+                          net::EscapeQueryParamValue(next_page.spec(),
+                                                     false).c_str());
     }
   }
 

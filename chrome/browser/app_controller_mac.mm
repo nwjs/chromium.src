@@ -74,7 +74,6 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "net/base/net_util.h"
-#include "ui/base/accelerators/accelerator_cocoa.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
@@ -103,7 +102,8 @@ bool g_is_opening_new_window = false;
 // not possible. If the last active browser is minimized (in particular, if
 // there are only minimized windows), it will unminimize it.
 Browser* ActivateBrowser(Profile* profile) {
-  Browser* browser = chrome::FindLastActiveWithProfile(profile);
+  Browser* browser = chrome::FindLastActiveWithProfile(profile,
+      chrome::HOST_DESKTOP_TYPE_NATIVE);
   if (browser)
     browser->window()->Activate();
   return browser;
@@ -113,7 +113,7 @@ Browser* ActivateBrowser(Profile* profile) {
 // to the new |Browser|.
 Browser* CreateBrowser(Profile* profile) {
   {
-    AutoReset<bool> auto_reset_in_run(&g_is_opening_new_window, true);
+    base::AutoReset<bool> auto_reset_in_run(&g_is_opening_new_window, true);
     chrome::NewEmptyWindow(profile);
   }
 
@@ -974,7 +974,7 @@ void RecordLastRunAppBundlePath() {
 
   // Otherwise open a new window.
   {
-    AutoReset<bool> auto_reset_in_run(&g_is_opening_new_window, true);
+    base::AutoReset<bool> auto_reset_in_run(&g_is_opening_new_window, true);
     int return_code;
     StartupBrowserCreator browser_creator;
     browser_creator.LaunchBrowser(

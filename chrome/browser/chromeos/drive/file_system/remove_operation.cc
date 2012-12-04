@@ -16,6 +16,12 @@ using content::BrowserThread;
 namespace drive {
 namespace file_system {
 
+namespace {
+
+void EmptyFileOperationCallback(DriveFileError error) {}
+
+}  // namespace
+
 RemoveOperation::RemoveOperation(
     google_apis::DriveServiceInterface* drive_service,
     DriveCache* cache,
@@ -78,8 +84,7 @@ void RemoveOperation::RemoveAfterGetEntryInfo(
 void RemoveOperation::RemoveResourceLocally(
     const FileOperationCallback& callback,
     const std::string& resource_id,
-    google_apis::GDataErrorCode status,
-    const GURL& /* document_url */) {
+    google_apis::GDataErrorCode status) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
@@ -95,7 +100,7 @@ void RemoveOperation::RemoveResourceLocally(
                  weak_ptr_factory_.GetWeakPtr(),
                  callback));
 
-  cache_->Remove(resource_id, CacheOperationCallback());
+  cache_->Remove(resource_id, base::Bind(&EmptyFileOperationCallback));
 }
 
 void RemoveOperation::NotifyDirectoryChanged(

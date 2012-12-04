@@ -37,6 +37,8 @@ class MockPluginDelegate : public PluginDelegate {
   virtual SkBitmap* GetSadPluginBitmap();
   virtual WebKit::WebPlugin* CreatePluginReplacement(const FilePath& file_path);
   virtual PlatformImage2D* CreateImage2D(int width, int height);
+  virtual PlatformGraphics2D* GetGraphics2D(PluginInstance* instance,
+                                            PP_Resource graphics_2d);
   virtual PlatformContext3D* CreateContext3D();
   virtual void ReparentContext(PlatformContext3D*);
   virtual PlatformVideoDecoder* CreateVideoDecoder(
@@ -178,11 +180,6 @@ class MockPluginDelegate : public PluginDelegate {
   virtual bool X509CertificateParseDER(
       const std::vector<char>& der,
       ::ppapi::PPB_X509Certificate_Fields* fields);
-
-  virtual int32_t ShowContextMenu(
-      PluginInstance* instance,
-      webkit::ppapi::PPB_Flash_Menu_Impl* menu,
-      const gfx::Point& position);
   virtual FullscreenContainer* CreateFullscreenContainer(
       PluginInstance* instance);
   virtual gfx::Size GetScreenSize();
@@ -209,7 +206,6 @@ class MockPluginDelegate : public PluginDelegate {
   virtual int EnumerateDevices(PP_DeviceType_Dev type,
                                const EnumerateDevicesCallback& callback);
   virtual void StopEnumerateDevices(int request_id);
-  virtual std::string GetDeviceID();
   virtual PP_FlashLSORestrictions GetLocalDataRestrictions(
       const GURL& document_url,
       const GURL& plugin_url);

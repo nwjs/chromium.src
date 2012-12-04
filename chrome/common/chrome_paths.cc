@@ -20,7 +20,7 @@
 #endif
 
 #if defined(OS_MACOSX)
-#include "base/mac/mac_util.h"
+#include "base/mac/foundation_util.h"
 #endif
 
 #include "widevine_cdm_version.h"  // In SHARED_INTERMEDIATE_DIR.
@@ -107,7 +107,7 @@ namespace chrome {
 
 // Gets the path for internal plugins.
 bool GetInternalPluginsDirectory(FilePath* result) {
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) && !defined(OS_IOS)
   // If called from Chrome, get internal plugins from a subdirectory of the
   // framework.
   if (base::mac::AmIBundled()) {
@@ -168,15 +168,6 @@ bool PathProvider(int key, FilePath* result) {
       }
       create_dir = true;
       break;
-#if defined(OS_WIN)
-    case chrome::DIR_ALT_USER_DATA:
-      if (!GetAlternateUserDataDirectory(&cur)) {
-        NOTREACHED();
-        return false;
-      }
-      create_dir = false;
-      break;
-#endif  // OS_WIN
     case chrome::DIR_USER_DOCUMENTS:
       if (!GetUserDocumentsDirectory(&cur))
         return false;
@@ -346,7 +337,7 @@ bool PathProvider(int key, FilePath* result) {
       break;
 #endif
     case chrome::FILE_RESOURCES_PACK:
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) && !defined(OS_IOS)
       if (base::mac::AmIBundled()) {
         cur = base::mac::FrameworkBundlePath();
         cur = cur.Append(FILE_PATH_LITERAL("Resources"))
@@ -418,7 +409,7 @@ bool PathProvider(int key, FilePath* result) {
       break;
     }
 #endif
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) && !defined(OS_IOS)
     case chrome::DIR_MANAGED_PREFS: {
       if (!GetLocalLibraryDirectory(&cur))
         return false;
@@ -432,7 +423,7 @@ bool PathProvider(int key, FilePath* result) {
       break;
     }
 #endif
-#if defined(OS_CHROMEOS) || defined(OS_MACOSX)
+#if defined(OS_CHROMEOS) || (defined(OS_MACOSX) && !defined(OS_IOS))
     case chrome::DIR_USER_EXTERNAL_EXTENSIONS: {
       if (!PathService::Get(chrome::DIR_USER_DATA, &cur))
         return false;
@@ -447,7 +438,7 @@ bool PathProvider(int key, FilePath* result) {
     }
 #endif
     case chrome::DIR_EXTERNAL_EXTENSIONS:
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) && !defined(OS_IOS)
       if (!chrome::GetGlobalApplicationSupportDirectory(&cur))
         return false;
 

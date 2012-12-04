@@ -28,6 +28,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chromeos/login/native_window_delegate.h"
 #include "chrome/browser/ui/webui/chromeos/login/network_state_informer.h"
+#include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -39,6 +40,7 @@
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_switches.h"
 #include "google_apis/gaia/gaia_urls.h"
+#include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -54,10 +56,6 @@ namespace {
 
 const char kDefaultDomain[] = "@gmail.com";
 
-// Account picker screen id.
-const char kAccountPickerScreen[] = "account-picker";
-// Sign in screen id for GAIA extension hosted content.
-const char kGaiaSigninScreen[] = "gaia-signin";
 // Start page of GAIA authentication extension.
 const char kGaiaExtStartPage[] =
     "chrome-extension://mfffpogegjflfpflabcdkioaeobkgjik/main.html";
@@ -128,13 +126,11 @@ SigninScreenHandler::SigninScreenHandler(
       webui_visible_(false),
       login_ui_active_(false) {
   DCHECK(network_state_informer_);
-  network_state_informer_->AddObserver(this);
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowNewUser, this);
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowGuest, this);
 }
 
 SigninScreenHandler::~SigninScreenHandler() {
-  DCHECK(network_state_informer_);
   weak_factory_.InvalidateWeakPtrs();
   if (cookie_remover_)
     cookie_remover_->RemoveObserver(this);
@@ -144,7 +140,6 @@ SigninScreenHandler::~SigninScreenHandler() {
     key_event_listener->RemoveCapsLockObserver(this);
   if (delegate_)
     delegate_->SetWebUIHandler(NULL);
-  network_state_informer_->RemoveObserver(this);
   CrosSettings::Get()->RemoveSettingsObserver(kAccountsPrefAllowNewUser, this);
   CrosSettings::Get()->RemoveSettingsObserver(kAccountsPrefAllowGuest, this);
 }
@@ -180,8 +175,6 @@ void SigninScreenHandler::GetLocalizedStrings(
       l10n_util::GetStringUTF16(IDS_CANCEL));
   localized_strings->SetString("signOutUser",
       l10n_util::GetStringUTF16(IDS_SCREEN_LOCK_SIGN_OUT));
-  localized_strings->SetString("addUserErrorMessage",
-      l10n_util::GetStringUTF16(IDS_LOGIN_ERROR_ADD_USER_OFFLINE));
   localized_strings->SetString("createAccount",
       l10n_util::GetStringUTF16(IDS_CREATE_ACCOUNT_HTML));
   localized_strings->SetString("guestSignin",
@@ -190,6 +183,12 @@ void SigninScreenHandler::GetLocalizedStrings(
       l10n_util::GetStringUTF16(IDS_OFFLINE_LOGIN_HTML));
   localized_strings->SetString("removeUser",
       l10n_util::GetStringUTF16(IDS_LOGIN_REMOVE));
+  localized_strings->SetString("errorTpmFailure",
+      l10n_util::GetStringUTF16(IDS_LOGIN_ERROR_TPM_FAILURE));
+  localized_strings->SetString("errorTpmFailureReboot",
+      l10n_util::GetStringFUTF16(
+          IDS_LOGIN_ERROR_TPM_FAILURE_REBOOT,
+          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
   localized_strings->SetString("disabledAddUserTooltip",
       l10n_util::GetStringUTF16(
           g_browser_process->browser_policy_connector()->IsEnterpriseManaged() ?
@@ -224,7 +223,7 @@ void SigninScreenHandler::Show(bool oobe_ui) {
 
     DictionaryValue params;
     params.SetBoolean("disableAddUser", AllWhitelistedUsersPresent());
-    ShowScreen(kAccountPickerScreen, &params);
+    ShowScreen(OobeUI::kScreenAccountPicker, &params);
   }
 }
 
@@ -245,16 +244,6 @@ void SigninScreenHandler::SetNativeWindowDelegate(
 
 void SigninScreenHandler::OnNetworkReady() {
   MaybePreloadAuthExtension();
-}
-
-void SigninScreenHandler::UpdateState(NetworkStateInformer::State state,
-                                      const std::string& network_name,
-                                      const std::string& reason,
-                                      ConnectionType last_network_type) {
-  for (WebUIObservers::const_iterator it = observers_.begin();
-      it != observers_.end(); ++it) {
-    SendState(*it, state, network_name, reason, last_network_type);
-  }
 }
 
 // SigninScreenHandler, private: -----------------------------------------------
@@ -338,12 +327,6 @@ void SigninScreenHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback("loginRequestNetworkState",
       base::Bind(&SigninScreenHandler::HandleLoginRequestNetworkState,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("loginAddNetworkStateObserver",
-      base::Bind(&SigninScreenHandler::HandleLoginAddNetworkStateObserver,
-                 base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("loginRemoveNetworkStateObserver",
-      base::Bind(&SigninScreenHandler::HandleLoginRemoveNetworkStateObserver,
-                 base::Unretained(this)));
   web_ui()->RegisterMessageCallback("demoWebuiReady",
       base::Bind(&SigninScreenHandler::HandleDemoWebuiReady,
                  base::Unretained(this)));
@@ -409,7 +392,7 @@ void SigninScreenHandler::OnPreferencesChanged() {
     HandleShowAddUser(NULL);
   } else {
     SendUserList(false);
-    ShowScreen(kAccountPickerScreen, NULL);
+    ShowScreen(OobeUI::kScreenAccountPicker, NULL);
   }
 }
 
@@ -426,6 +409,17 @@ void SigninScreenHandler::ShowError(int login_attempts,
                                    error_message,
                                    help_link,
                                    help_id);
+}
+
+void SigninScreenHandler::ShowErrorScreen(LoginDisplay::SigninError error_id) {
+  switch (error_id) {
+    case LoginDisplay::TPM_ERROR:
+      web_ui()->CallJavascriptFunction("cr.ui.Oobe.showTpmError");
+      break;
+    default:
+      NOTREACHED() << "Unknown sign in error";
+      break;
+  }
 }
 
 void SigninScreenHandler::ShowGaiaPasswordChanged(const std::string& username) {
@@ -495,7 +489,7 @@ void SigninScreenHandler::ShowSigninScreenIfReady() {
     delegate_->LoadWallpaper(email_);
 
   LoadAuthExtension(!gaia_silent_load_, false, false);
-  ShowScreen(kGaiaSigninScreen, NULL);
+  ShowScreen(OobeUI::kScreenGaiaSignin, NULL);
 
   if (gaia_silent_load_) {
     // The variable is assigned to false because silently loaded Gaia page was
@@ -621,7 +615,7 @@ void SigninScreenHandler::HandleAuthenticateUser(const base::ListValue* args) {
 
 void SigninScreenHandler::HandleLaunchDemoUser(const base::ListValue* args) {
   if (delegate_)
-    delegate_->LoginAsDemoUser();
+    delegate_->LoginAsRetailModeUser();
 }
 
 void SigninScreenHandler::HandleLaunchIncognito(const base::ListValue* args) {
@@ -640,7 +634,7 @@ void SigninScreenHandler::HandleOfflineLogin(const base::ListValue* args) {
   // Load auth extension. Parameters are: force reload, do not load extension in
   // background, use offline version.
   LoadAuthExtension(true, false, true);
-  ShowScreen(kGaiaSigninScreen, NULL);
+  ShowScreen(OobeUI::kScreenGaiaSignin, NULL);
 }
 
 void SigninScreenHandler::HandleShutdownSystem(const base::ListValue* args) {
@@ -705,8 +699,6 @@ void SigninScreenHandler::HandleToggleEnrollmentScreen(
 void SigninScreenHandler::HandleToggleResetScreen(
     const base::ListValue* args) {
   if (delegate_ &&
-      !CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableFactoryReset) &&
       !g_browser_process->browser_policy_connector()->IsEnterpriseManaged()) {
     delegate_->ShowResetScreen();
   }
@@ -843,8 +835,6 @@ void SigninScreenHandler::HandleLoginWebuiReady(const base::ListValue* args) {
 
 void SigninScreenHandler::HandleLoginRequestNetworkState(
     const base::ListValue* args) {
-  DCHECK(network_state_informer_);
-
   std::string callback;
   std::string reason;
   if (!args->GetString(0, &callback) || !args->GetString(1, &reason)) {
@@ -856,26 +846,6 @@ void SigninScreenHandler::HandleLoginRequestNetworkState(
             network_state_informer_->network_name(),
             reason,
             network_state_informer_->last_network_type());
-}
-
-void SigninScreenHandler::HandleLoginAddNetworkStateObserver(
-    const base::ListValue* args) {
-  std::string callback;
-  if (!args->GetString(0, &callback)) {
-    NOTREACHED();
-    return;
-  }
-  observers_.insert(callback);
-}
-
-void SigninScreenHandler::HandleLoginRemoveNetworkStateObserver(
-    const base::ListValue* args) {
-  std::string callback;
-  if (!args->GetString(0, &callback)) {
-    NOTREACHED();
-    return;
-  }
-  observers_.erase(callback);
 }
 
 void SigninScreenHandler::HandleDemoWebuiReady(const base::ListValue* args) {

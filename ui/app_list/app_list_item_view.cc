@@ -83,6 +83,7 @@ AppListItemView::AppListItemView(AppsGridView* apps_grid_view,
   title_->SetAutoColorReadabilityEnabled(false);
   title_->SetEnabledColor(kTitleColor);
   title_->SetFont(GetTitleFont());
+  title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
 
   const gfx::ShadowValue kIconShadows[] = {
     gfx::ShadowValue(gfx::Point(0, 2), 2, SkColorSetARGB(0x24, 0, 0, 0)),
@@ -189,21 +190,22 @@ std::string AppListItemView::GetClassName() const {
 void AppListItemView::Layout() {
   gfx::Rect rect(GetContentsBounds());
 
-  int left_right_padding = kLeftRightPaddingChars *
+  const int left_right_padding = kLeftRightPaddingChars *
       title_->font().GetAverageCharacterWidth();
-  gfx::Size title_size = title_->GetPreferredSize();
-
-  rect.Inset(left_right_padding, kTopPadding);
-  int y = rect.y();
+  rect.Inset(left_right_padding, kTopPadding, left_right_padding, 0);
+  const int y = rect.y();
 
   gfx::Rect icon_bounds(rect.x(), y, rect.width(), icon_size_.height());
   icon_bounds.Inset(gfx::ShadowValue::GetMargin(icon_shadows_));
   icon_->SetBoundsRect(icon_bounds);
 
-  title_->SetBounds(rect.x(),
-                    y + icon_size_.height() + kIconTitleSpacing,
-                    rect.width(),
-                    title_size.height());
+  const gfx::Size title_size = title_->GetPreferredSize();
+  gfx::Rect title_bounds(rect.x() + (rect.width() - title_size.width()) / 2,
+                         y + icon_size_.height() + kIconTitleSpacing,
+                         title_size.width(),
+                         title_size.height());
+  title_bounds.Intersect(rect);
+  title_->SetBoundsRect(title_bounds);
 }
 
 void AppListItemView::OnPaint(gfx::Canvas* canvas) {
@@ -218,7 +220,7 @@ void AppListItemView::OnPaint(gfx::Canvas* canvas) {
     int alpha = SkColorGetA(kHoverAndPushedColor) *
         hover_animation_->GetCurrentValue();
     canvas->FillRect(rect, SkColorSetA(kHoverAndPushedColor, alpha));
-  } else if (state() == BS_HOT || state() == BS_PUSHED) {
+  } else if (state() == STATE_HOVERED || state() == STATE_PRESSED) {
     canvas->FillRect(rect, kHoverAndPushedColor);
   } else if (apps_grid_view_->IsSelectedView(this)) {
     canvas->FillRect(rect, kSelectedColor);
@@ -248,7 +250,7 @@ void AppListItemView::ShowContextMenuForView(views::View* source,
 }
 
 void AppListItemView::StateChanged() {
-  if (state() == BS_HOT || state() == BS_PUSHED) {
+  if (state() == STATE_HOVERED || state() == STATE_PRESSED) {
     apps_grid_view_->SetSelectedView(this);
     title_->SetEnabledColor(kTitleHoverColor);
   } else {
@@ -269,6 +271,10 @@ bool AppListItemView::ShouldEnterPushedState(const ui::Event& event) {
 
 bool AppListItemView::OnMousePressed(const ui::MouseEvent& event) {
   CustomButton::OnMousePressed(event);
+
+  if (!ShouldEnterPushedState(event))
+    return true;
+
   apps_grid_view_->InitiateDrag(this, AppsGridView::MOUSE, event);
 
   if (apps_grid_view_->IsDraggedView(this)) {
@@ -307,18 +313,18 @@ bool AppListItemView::OnMouseDragged(const ui::MouseEvent& event) {
   return true;
 }
 
-ui::EventResult AppListItemView::OnGestureEvent(ui::GestureEvent* event) {
+void AppListItemView::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
     case ui::ET_GESTURE_SCROLL_BEGIN:
       if (touch_dragging_) {
         apps_grid_view_->InitiateDrag(this, AppsGridView::TOUCH, *event);
-        return ui::ER_CONSUMED;
+        event->SetHandled();
       }
       break;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       if (touch_dragging_) {
         apps_grid_view_->UpdateDrag(this, AppsGridView::TOUCH, *event);
-        return ui::ER_CONSUMED;
+        event->SetHandled();
       }
       break;
     case ui::ET_GESTURE_SCROLL_END:
@@ -326,13 +332,14 @@ ui::EventResult AppListItemView::OnGestureEvent(ui::GestureEvent* event) {
       if (touch_dragging_) {
         SetTouchDragging(false);
         apps_grid_view_->EndDrag(false);
-        return ui::ER_CONSUMED;
+        event->SetHandled();
       }
       break;
     case ui::ET_GESTURE_LONG_PRESS:
       if (!apps_grid_view_->has_dragged_view())
         SetTouchDragging(true);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      break;
     case ui::ET_GESTURE_END:
       if (touch_dragging_) {
         SetTouchDragging(false);
@@ -345,7 +352,8 @@ ui::EventResult AppListItemView::OnGestureEvent(ui::GestureEvent* event) {
     default:
       break;
   }
-  return CustomButton::OnGestureEvent(event);
+  if (!event->handled())
+    CustomButton::OnGestureEvent(event);
 }
 
 }  // namespace app_list

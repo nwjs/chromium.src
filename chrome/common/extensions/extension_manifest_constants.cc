@@ -107,6 +107,7 @@ const char kShiftKey[] = "shiftKey";
 const char kShortcutKey[] = "shortcutKey";
 const char kSignature[] = "signature";
 const char kSuggestedKey[] = "suggested_key";
+const char kSystemIndicator[] = "system_indicator";
 const char kTheme[] = "theme";
 const char kThemeColors[] = "colors";
 const char kThemeDisplayProperties[] = "properties";
@@ -438,6 +439,8 @@ const char kInvalidScriptBadge[] =
     "Invalid value for 'script_badge'.";
 const char kInvalidSignature[] =
     "Value 'signature' is missing or invalid.";
+const char kInvalidSystemIndicator[] =
+    "Invalid value for 'system_indicator'.";
 const char kInvalidTheme[] =
     "Invalid value for 'theme'.";
 const char kInvalidThemeColors[] =
@@ -516,6 +519,8 @@ const char kOneUISurfaceOnly[] =
     "Only one of 'browser_action', 'page_action', and 'app' can be specified.";
 const char kPermissionNotAllowed[] =
     "Access to permission '*' denied.";
+const char kPermissionNotAllowedInManifest[] =
+    "Permission '*' cannot be specified in the manifest.";
 const char kPlatformAppNeedsManifestVersion2[] =
     "Packaged apps need manifest_version set to >= 2";
 const char kReservedMessageFound[] =

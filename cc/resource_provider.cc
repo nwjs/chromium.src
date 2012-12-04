@@ -23,15 +23,6 @@
 
 using WebKit::WebGraphicsContext3D;
 
-namespace {
-   // Temporary variables for debugging crashes in issue 151428 in canary.
-   // Do not use these!
-   const int g_debugMaxResourcesTracked = 64;
-   unsigned int g_debugZone = 0;
-   int64 g_debugResDestroyedCount = 0;
-   cc::ResourceProvider::ResourceId g_debugResDestroyed[g_debugMaxResourcesTracked] = { 0 };
-}
-
 namespace cc {
 
 static GLenum textureToStorageFormat(GLenum textureFormat)
@@ -58,7 +49,9 @@ static bool isTextureFormatSupportedForStorage(GLenum format)
 
 ResourceProvider::Resource::Resource()
     : glId(0)
+    , glPixelBufferId(0)
     , pixels(0)
+    , pixelBuffer(0)
     , pool(0)
     , lockForReadCount(0)
     , lockedForWrite(false)
@@ -73,7 +66,9 @@ ResourceProvider::Resource::Resource()
 
 ResourceProvider::Resource::Resource(unsigned textureId, int pool, const gfx::Size& size, GLenum format)
     : glId(textureId)
+    , glPixelBufferId(0)
     , pixels(0)
+    , pixelBuffer(0)
     , pool(pool)
     , lockForReadCount(0)
     , lockedForWrite(false)
@@ -88,7 +83,9 @@ ResourceProvider::Resource::Resource(unsigned textureId, int pool, const gfx::Si
 
 ResourceProvider::Resource::Resource(uint8_t* pixels, int pool, const gfx::Size& size, GLenum format)
     : glId(0)
+    , glPixelBufferId(0)
     , pixels(pixels)
+    , pixelBuffer(0)
     , pool(pool)
     , lockForReadCount(0)
     , lockedForWrite(false)
@@ -157,6 +154,9 @@ ResourceProvider::ResourceId ResourceProvider::createResource(int pool, const gf
 
 ResourceProvider::ResourceId ResourceProvider::createGLTexture(int pool, const gfx::Size& size, GLenum format, TextureUsageHint hint)
 {
+    DCHECK_LE(size.width(), m_maxTextureSize);
+    DCHECK_LE(size.height(), m_maxTextureSize);
+
     DCHECK(m_threadChecker.CalledOnValidThread());
     unsigned textureId = 0;
     WebGraphicsContext3D* context3d = m_context->context3D();
@@ -197,7 +197,15 @@ ResourceProvider::ResourceId ResourceProvider::createBitmap(int pool, const gfx:
 ResourceProvider::ResourceId ResourceProvider::createResourceFromExternalTexture(unsigned textureId)
 {
     DCHECK(m_threadChecker.CalledOnValidThread());
-    DCHECK(m_context->context3D());
+
+    WebGraphicsContext3D* context3d = m_context->context3D();
+    DCHECK(context3d);
+    GLC(context3d, context3d->bindTexture(GL_TEXTURE_2D, textureId));
+    GLC(context3d, context3d->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    GLC(context3d, context3d->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    GLC(context3d, context3d->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    GLC(context3d, context3d->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+
     ResourceId id = m_nextId++;
     Resource resource(textureId, 0, gfx::Size(), 0);
     resource.external = true;
@@ -230,10 +238,16 @@ void ResourceProvider::deleteResourceInternal(ResourceMap::iterator it)
         DCHECK(context3d);
         GLC(context3d, context3d->deleteTexture(resource->glId));
     }
+    if (resource->glPixelBufferId) {
+        WebGraphicsContext3D* context3d = m_context->context3D();
+        DCHECK(context3d);
+        GLC(context3d, context3d->deleteBuffer(resource->glPixelBufferId));
+    }
     if (resource->pixels)
         delete[] resource->pixels;
+    if (resource->pixelBuffer)
+        delete[] resource->pixelBuffer;
 
-    g_debugResDestroyed[g_debugResDestroyedCount % g_debugMaxResourcesTracked] = (*it).first | g_debugZone;
     m_resources.erase(it);
 }
 
@@ -352,23 +366,7 @@ const ResourceProvider::Resource* ResourceProvider::lockForRead(ResourceId id)
 {
     DCHECK(m_threadChecker.CalledOnValidThread());
     ResourceMap::iterator it = m_resources.find(id);
-
-    if (it == m_resources.end()) {
-        int resourceCount = m_resources.size();
-        int64 resDestroyedCount = g_debugResDestroyedCount;
-        ResourceId resDestroyed[g_debugMaxResourcesTracked];
-        for (int64 i = 0; i < g_debugMaxResourcesTracked; ++i)
-            resDestroyed[i] = g_debugResDestroyed[i];
-        ResourceId resToDestroy = id;
-
-        base::debug::Alias(&resourceCount);
-        base::debug::Alias(&resDestroyedCount);
-        for (int64 i = 0; i < g_debugMaxResourcesTracked; ++i)
-            base::debug::Alias(&resDestroyed[i]);
-        base::debug::Alias(&resToDestroy);
-        CHECK(it != m_resources.end());
-    }
-
+    CHECK(it != m_resources.end());
     Resource* resource = &it->second;
     DCHECK(!resource->lockedForWrite);
     DCHECK(!resource->exported);
@@ -678,15 +676,168 @@ bool ResourceProvider::transferResource(WebGraphicsContext3D* context, ResourceI
     return true;
 }
 
-void ResourceProvider::debugNotifyEnterZone(unsigned int zone)
+void ResourceProvider::acquirePixelBuffer(ResourceId id)
 {
-    g_debugZone = zone;
+    DCHECK(m_threadChecker.CalledOnValidThread());
+    ResourceMap::iterator it = m_resources.find(id);
+    CHECK(it != m_resources.end());
+    Resource* resource = &it->second;
+    DCHECK(!resource->external);
+    DCHECK(!resource->exported);
+
+    if (resource->glId) {
+        WebGraphicsContext3D* context3d = m_context->context3D();
+        DCHECK(context3d);
+        if (!resource->glPixelBufferId)
+            resource->glPixelBufferId = context3d->createBuffer();
+        context3d->bindBuffer(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM,
+            resource->glPixelBufferId);
+        context3d->bufferData(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM,
+            resource->size.width() * resource->size.height() * 4,
+            NULL,
+            GL_DYNAMIC_DRAW);
+        context3d->bindBuffer(GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM, 0);
+    }
+
+    if (resource->pixels) {
+        if (resource->pixelBuffer)
+            return;
+
+        resource->pixelBuffer = new uint8_t[
+            resource->size.width() * resource->size.height() * 4];
+    }
 }
 
-void ResourceProvider::debugNotifyLeaveZone()
+void ResourceProvider::releasePixelBuffer(ResourceId id)
 {
-    g_debugZone = 0;
+    DCHECK(m_threadChecker.CalledOnValidThread());
+    ResourceMap::iterator it = m_resources.find(id);
+    CHECK(it != m_resources.end());
+    Resource* resource = &it->second;
+    DCHECK(!resource->external);
+    DCHECK(!resource->exported);
+
+    if (resource->glId) {
+        DCHECK(resource->glPixelBufferId);
+        WebGraphicsContext3D* context3d = m_context->context3D();
+        DCHECK(context3d);
+        context3d->bindBuffer(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM,
+            resource->glPixelBufferId);
+        context3d->bufferData(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM,
+            0,
+            NULL,
+            GL_DYNAMIC_DRAW);
+        context3d->bindBuffer(GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM, 0);
+    }
+
+    if (resource->pixels) {
+        if (!resource->pixelBuffer)
+            return;
+        delete[] resource->pixelBuffer;
+        resource->pixelBuffer = 0;
+    }
 }
 
+uint8_t* ResourceProvider::mapPixelBuffer(ResourceId id)
+{
+    DCHECK(m_threadChecker.CalledOnValidThread());
+    ResourceMap::iterator it = m_resources.find(id);
+    CHECK(it != m_resources.end());
+    Resource* resource = &it->second;
+    DCHECK(!resource->external);
+    DCHECK(!resource->exported);
+
+    if (resource->glId) {
+        WebGraphicsContext3D* context3d = m_context->context3D();
+        DCHECK(context3d);
+        DCHECK(resource->glPixelBufferId);
+        context3d->bindBuffer(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM,
+            resource->glPixelBufferId);
+        uint8_t* image = static_cast<uint8_t*>(
+            context3d->mapBufferCHROMIUM(
+                GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM, GL_WRITE_ONLY));
+        context3d->bindBuffer(GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM, 0);
+        DCHECK(image);
+        return image;
+    }
+
+    if (resource->pixels)
+      return resource->pixelBuffer;
+
+    return NULL;
+}
+
+void ResourceProvider::unmapPixelBuffer(ResourceId id)
+{
+    DCHECK(m_threadChecker.CalledOnValidThread());
+    ResourceMap::iterator it = m_resources.find(id);
+    CHECK(it != m_resources.end());
+    Resource* resource = &it->second;
+    DCHECK(!resource->external);
+    DCHECK(!resource->exported);
+
+    if (resource->glId) {
+        WebGraphicsContext3D* context3d = m_context->context3D();
+        DCHECK(context3d);
+        DCHECK(resource->glPixelBufferId);
+        context3d->bindBuffer(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM,
+            resource->glPixelBufferId);
+        context3d->unmapBufferCHROMIUM(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM);
+        context3d->bindBuffer(GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM, 0);
+    }
+}
+
+void ResourceProvider::setPixelsFromBuffer(ResourceId id)
+{
+    DCHECK(m_threadChecker.CalledOnValidThread());
+    ResourceMap::iterator it = m_resources.find(id);
+    CHECK(it != m_resources.end());
+    Resource* resource = &it->second;
+    DCHECK(!resource->lockedForWrite);
+    DCHECK(!resource->lockForReadCount);
+    DCHECK(!resource->external);
+    DCHECK(!resource->exported);
+
+    if (resource->glId) {
+        WebGraphicsContext3D* context3d = m_context->context3D();
+        DCHECK(context3d);
+        DCHECK(resource->glPixelBufferId);
+        context3d->bindTexture(GL_TEXTURE_2D, resource->glId);
+        context3d->bindBuffer(
+            GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM,
+            resource->glPixelBufferId);
+        context3d->texSubImage2D(GL_TEXTURE_2D,
+                                 0, /* level */
+                                 0, /* x */
+                                 0, /* y */
+                                 resource->size.width(),
+                                 resource->size.height(),
+                                 resource->format,
+                                 GL_UNSIGNED_BYTE,
+                                 NULL);
+        context3d->bindBuffer(GL_PIXEL_UNPACK_TRANSFER_BUFFER_CHROMIUM, 0);
+    }
+
+    if (resource->pixels) {
+        DCHECK(resource->pixelBuffer);
+        DCHECK(resource->format == GL_RGBA);
+        SkBitmap src;
+        src.setConfig(SkBitmap::kARGB_8888_Config,
+                      resource->size.width(),
+                      resource->size.height());
+        src.setPixels(resource->pixelBuffer);
+
+        ScopedWriteLockSoftware lock(this, id);
+        SkCanvas* dest = lock.skCanvas();
+        dest->writePixels(src, 0, 0);
+    }
+}
 
 }  // namespace cc

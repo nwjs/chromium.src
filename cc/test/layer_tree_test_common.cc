@@ -7,33 +7,32 @@
 #include "base/stl_util.h"
 #include "cc/active_animation.h"
 #include "cc/content_layer.h"
+#include "cc/font_atlas.h"
 #include "cc/input_handler.h"
 #include "cc/layer.h"
 #include "cc/layer_animation_controller.h"
 #include "cc/layer_impl.h"
 #include "cc/layer_tree_host_impl.h"
 #include "cc/scoped_thread_proxy.h"
-#include "cc/settings.h"
 #include "cc/single_thread_proxy.h"
 #include "cc/thread_impl.h"
 #include "cc/test/animation_test_common.h"
 #include "cc/test/fake_web_compositor_output_surface.h"
 #include "cc/test/fake_web_graphics_context_3d.h"
 #include "cc/test/occlusion_tracker_test_common.h"
-#include "cc/test/test_common.h"
 #include "cc/test/tiled_layer_test_common.h"
 #include "cc/timing_function.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include <public/WebFilterOperation.h>
 #include <public/WebFilterOperations.h>
 
+using cc::FontAtlas;
 using cc::InputHandler;
 using cc::Layer;
 using cc::LayerTreeHostImplClient;
 using cc::LayerTreeSettings;
 using cc::Proxy;
 using cc::ScopedThreadProxy;
-using cc::Settings;
 
 using namespace WebKit;
 
@@ -118,7 +117,7 @@ bool MockLayerTreeHostImpl::prepareToDraw(FrameData& frame)
     return result;
 }
 
-void MockLayerTreeHostImpl::drawLayers(const FrameData& frame)
+void MockLayerTreeHostImpl::drawLayers(FrameData& frame)
 {
     LayerTreeHostImpl::drawLayers(frame);
     m_testHooks->drawLayersOnThread(this);
@@ -264,6 +263,11 @@ public:
     virtual void scheduleComposite() OVERRIDE
     {
         m_testHooks->scheduleComposite();
+    }
+
+    virtual scoped_ptr<FontAtlas> createFontAtlas() OVERRIDE
+    {
+        return scoped_ptr<FontAtlas>();
     }
 
 private:
@@ -504,10 +508,6 @@ void ThreadedTest::dispatchDidAddAnimation()
 
 void ThreadedTest::runTest(bool threaded)
 {
-    // For these tests, we will enable threaded animations.
-    ScopedSettings scopedSettings;
-    Settings::setAcceleratedAnimationEnabled(true);
-
     if (threaded) {
         m_implThread.reset(new base::Thread("ThreadedTest"));
         ASSERT_TRUE(m_implThread->Start());

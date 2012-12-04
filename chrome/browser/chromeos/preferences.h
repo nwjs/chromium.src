@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/chromeos/language_preferences.h"
 
@@ -24,7 +23,7 @@ class InputMethodManager;
 // is first initialized, it will initialize the OS settings to what's stored in
 // the preferences. These include touchpad settings, etc.
 // When the preferences change, we change the settings to reflect the new value.
-class Preferences : public PrefObserver {
+class Preferences {
  public:
   Preferences();
   explicit Preferences(
@@ -37,16 +36,15 @@ class Preferences : public PrefObserver {
   // This method will initialize Chrome OS settings to values in user prefs.
   void Init(PrefService* prefs);
 
-  // Overridden from PrefObserver:
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
   void InitUserPrefsForTesting(PrefService* prefs);
   void SetInputMethodListForTesting();
 
  private:
   // Initializes all member prefs.
   void InitUserPrefs(PrefService* prefs);
+
+  // Callback method for preference changes.
+  void OnPreferenceChanged(const std::string& pref_name);
 
   // This will set the OS settings when the preference changes.
   // If this method is called with NULL, it will set all OS settings to what's
@@ -103,6 +101,7 @@ class Preferences : public PrefObserver {
   BooleanPrefMember natural_scroll_;
   BooleanPrefMember vert_edge_scroll_enabled_;
   BooleanPrefMember accessibility_enabled_;
+  DoublePrefMember screen_magnifier_scale_;
   IntegerPrefMember speed_factor_;
   IntegerPrefMember mouse_sensitivity_;
   IntegerPrefMember touchpad_sensitivity_;
@@ -119,6 +118,7 @@ class Preferences : public PrefObserver {
   StringPrefMember current_input_method_;
   StringPrefMember previous_input_method_;
   StringPrefMember filtered_extension_imes_;
+  StringPrefMember screen_magnifier_type_;
 
   BooleanPrefMember chewing_boolean_prefs_[
       language_prefs::kNumChewingBooleanPrefs];
@@ -141,6 +141,7 @@ class Preferences : public PrefObserver {
       language_prefs::kNumMozcMultipleChoicePrefs];
   IntegerPrefMember mozc_integer_prefs_[
       language_prefs::kNumMozcIntegerPrefs];
+  BooleanPrefMember search_key_acts_as_function_key_;
   BooleanPrefMember xkb_auto_repeat_enabled_;
   IntegerPrefMember xkb_auto_repeat_delay_pref_;
   IntegerPrefMember xkb_auto_repeat_interval_pref_;

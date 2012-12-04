@@ -41,7 +41,7 @@ class UserManagerImpl : public UserManager,
   virtual const UserList& GetUsers() const OVERRIDE;
   virtual void UserLoggedIn(const std::string& email,
                             bool browser_restart) OVERRIDE;
-  virtual void DemoUserLoggedIn() OVERRIDE;
+  virtual void RetailModeUserLoggedIn() OVERRIDE;
   virtual void GuestUserLoggedIn() OVERRIDE;
   virtual void EphemeralUserLoggedIn(const std::string& email) OVERRIDE;
   virtual void SessionStarted() OVERRIDE;
@@ -63,13 +63,10 @@ class UserManagerImpl : public UserManager,
                                     const std::string& display_email) OVERRIDE;
   virtual std::string GetUserDisplayEmail(
       const std::string& username) const OVERRIDE;
-  virtual void SaveLoggedInUserWallpaperProperties(User::WallpaperType type,
-                                                   int index) OVERRIDE;
-  virtual void SetLoggedInUserCustomWallpaperLayout(
-      ash::WallpaperLayout layout) OVERRIDE;
   virtual bool IsCurrentUserOwner() const OVERRIDE;
   virtual bool IsCurrentUserNew() const OVERRIDE;
   virtual bool IsCurrentUserEphemeral() const OVERRIDE;
+  virtual bool CanCurrentUserLock() const OVERRIDE;
   virtual bool IsUserLoggedIn() const OVERRIDE;
   virtual bool IsLoggedInAsDemoUser() const OVERRIDE;
   virtual bool IsLoggedInAsPublicAccount() const OVERRIDE;
@@ -121,21 +118,12 @@ class UserManagerImpl : public UserManager,
 
   void SetCurrentUserIsOwner(bool is_current_user_owner);
 
-  // Stores layout and type preference in local state. Runs on UI thread.
-  void SaveWallpaperToLocalState(const std::string& username,
-                                 const std::string& wallpaper_path,
-                                 ash::WallpaperLayout layout,
-                                 User::WallpaperType type);
-
   // Updates current user ownership on UI thread.
   void UpdateOwnership(DeviceSettingsService::OwnershipStatus status,
                        bool is_owner);
 
   // Triggers an asynchronous ownership check.
   void CheckOwnership();
-
-  // Creates a new User instance.
-  User* CreateUser(const std::string& email, bool is_ephemeral) const;
 
   // Removes the user from the persistent list only. Also removes the user's
   // picture.

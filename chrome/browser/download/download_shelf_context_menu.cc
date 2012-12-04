@@ -23,7 +23,7 @@ using extensions::Extension;
 DownloadShelfContextMenu::~DownloadShelfContextMenu() {}
 
 DownloadShelfContextMenu::DownloadShelfContextMenu(
-    BaseDownloadItemModel* download_model,
+    DownloadItemModel* download_model,
     content::PageNavigator* navigator)
     : download_model_(download_model),
       download_item_(download_model->download()),
@@ -119,7 +119,7 @@ void DownloadShelfContextMenu::ExecuteCommand(int command_id) {
       download_item_->DangerousDownloadValidated();
       break;
     case LEARN_MORE: {
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
       using safe_browsing::DownloadProtectionService;
       SafeBrowsingService* sb_service =
           g_browser_process->safe_browsing_service();

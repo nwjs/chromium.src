@@ -20,7 +20,7 @@ namespace chromeos {
 namespace ibus {
 
 // The IBusText is one of IBusObjects and it contains IBusAttrList object which
-// contains array of IBusAttribute object. The overview of each data strucutres
+// contains array of IBusAttribute object. The overview of each data structure
 // is as follows:
 //
 // DATA STRUCTURE OVERVIEW:
@@ -79,7 +79,7 @@ namespace ibus {
 class IBusText;
 
 // Pops a IBusText from |reader|.
-// Returns false if an error occures.
+// Returns false if an error occurs.
 bool CHROMEOS_EXPORT PopIBusText(dbus::MessageReader* reader,
                                  IBusText* ibus_text);
 // Pops a IBusText from |reader| and stores it's text field into text. Use
@@ -149,9 +149,14 @@ class CHROMEOS_EXPORT IBusText {
     annotation_ = annotation;
   }
 
-  const std::string& description() const { return description_; }
-  void set_description(const std::string& description) {
-    description_ = description;
+  const std::string& description_title() const { return description_title_; }
+  void set_description_title(const std::string& title) {
+    description_title_ = title;
+  }
+
+  const std::string& description_body() const { return description_body_; }
+  void set_description_body(const std::string& body) {
+    description_body_ = body;
   }
 
   const std::vector<UnderlineAttribute>& underline_attributes() const {
@@ -172,7 +177,8 @@ class CHROMEOS_EXPORT IBusText {
  private:
   std::string text_;
   std::string annotation_;
-  std::string description_;
+  std::string description_title_;
+  std::string description_body_;
   std::vector<UnderlineAttribute> underline_attributes_;
   std::vector<SelectionAttribute> selection_attributes_;
 

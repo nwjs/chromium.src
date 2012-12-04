@@ -24,14 +24,13 @@ struct FaviconBitmapResult;
 // Utility class for common favicon related code.
 class FaviconUtil {
  public:
-  // Starts the download of the given favicon |url| from the given render view
-  // host. When the download is finished, an IconHostMsg_DidDownloadFavicon IPC
-  // message will be sent.
-  // Returns the unique id of the download request. The id will be sent in the
-  // IPC message.
-  static int DownloadFavicon(content::RenderViewHost* rvh,
-                             const GURL& url,
-                             int image_size);
+  // Returns the scale factors at which favicons should be fetched. This is
+  // different from ui::GetSupportedScaleFactors() because clients which do
+  // not support 1x should still fetch a favicon for 1x to push to sync. This
+  // guarantees that the clients receiving sync updates pushed by this client
+  // receive a favicon (potentially of the wrong scale factor) and do not show
+  // the default favicon.
+  static std::vector<ui::ScaleFactor> GetFaviconScaleFactors();
 
   // Takes a vector of png-encoded frames, decodes them, and converts them to
   // a favicon of size favicon_size (in DIPs) at the desired ui scale factors.
@@ -39,6 +38,13 @@ class FaviconUtil {
       const std::vector<history::FaviconBitmapResult>& png_data,
       const std::vector<ui::ScaleFactor> scale_factors,
       int favicon_size);
+
+  // Takes a vector of bitmaps and returns the index of the image that will best
+  // produce an image of size |desired_size| for the given |scale_factors|.
+  static size_t SelectBestFaviconFromBitmaps(
+      const std::vector<SkBitmap>& bitmaps,
+      const std::vector<ui::ScaleFactor>& scale_factors,
+      int desired_size);
 };
 
 #endif  // CHROME_BROWSER_FAVICON_FAVICON_UTIL_H_

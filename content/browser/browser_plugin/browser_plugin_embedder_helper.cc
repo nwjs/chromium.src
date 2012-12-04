@@ -54,6 +54,10 @@ bool BrowserPluginEmbedderHelper::OnMessageReceived(
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_DragStatusUpdate,
                         OnDragStatusUpdate)
     IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_SetAutoSize, OnSetAutoSize)
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_PluginAtPositionResponse,
+                        OnPluginAtPositionResponse)
+    IPC_MESSAGE_HANDLER(BrowserPluginHostMsg_BuffersSwappedACK,
+                        OnSwapBuffersACK)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -84,25 +88,19 @@ void BrowserPluginEmbedderHelper::OnHandleInputEvent(
     *handled = false;
     return;
   }
-  const gfx::Rect* guest_rect =
+  const gfx::Rect* guest_window_rect =
       reinterpret_cast<const gfx::Rect*>(guest_rect_data);
   const WebKit::WebInputEvent* input_event =
       reinterpret_cast<const WebKit::WebInputEvent*>(input_event_data);
   RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
       render_view_host());
 
-  // Convert the window coordinates into screen coordinates.
-  gfx::Rect guest_screen_rect(*guest_rect);
-  if (rvh->GetView()) {
-    guest_screen_rect.Offset(
-        rvh->GetView()->GetViewBounds().OffsetFromOrigin());
-  }
 
   IPC::Message* reply_message =
       IPC::SyncMessage::GenerateReply(&message);
   embedder_->HandleInputEvent(instance_id,
                               rvh,
-                              guest_screen_rect,
+                              *guest_window_rect,
                               *input_event,
                               reply_message);
 }
@@ -118,22 +116,37 @@ void BrowserPluginEmbedderHelper::OnCreateGuest(
 
 void BrowserPluginEmbedderHelper::OnNavigateGuest(
     int instance_id,
-    const std::string& src,
-    const BrowserPluginHostMsg_ResizeGuest_Params& resize_params) {
-  embedder_->NavigateGuest(render_view_host(),
-                           instance_id,
-                           src,
-                           resize_params);
+    const std::string& src) {
+  embedder_->NavigateGuest(render_view_host(), instance_id, src);
 }
 
-void BrowserPluginEmbedderHelper::OnUpdateRectACK(int instance_id,
-                                                  int message_id,
-                                                  const gfx::Size& size) {
-  embedder_->UpdateRectACK(instance_id, message_id, size);
+void BrowserPluginEmbedderHelper::OnUpdateRectACK(
+    int instance_id,
+    int message_id,
+    const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+    const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params) {
+  embedder_->UpdateRectACK(instance_id,
+                           message_id,
+                           auto_size_params,
+                           resize_guest_params);
+}
+
+void BrowserPluginEmbedderHelper::OnSwapBuffersACK(int route_id,
+                                                   int gpu_host_id,
+                                                   uint32 sync_point) {
+  RenderWidgetHostImpl::AcknowledgeBufferPresent(route_id,
+                                                 gpu_host_id,
+                                                 true,
+                                                 sync_point);
 }
 
 void BrowserPluginEmbedderHelper::OnSetFocus(int instance_id, bool focused) {
   embedder_->SetFocus(instance_id, focused);
+}
+
+void BrowserPluginEmbedderHelper::OnPluginAtPositionResponse(
+    int instance_id, int request_id, const gfx::Point& location) {
+  embedder_->PluginAtPositionResponse(instance_id, request_id, location);
 }
 
 void BrowserPluginEmbedderHelper::OnPluginDestroyed(int instance_id) {

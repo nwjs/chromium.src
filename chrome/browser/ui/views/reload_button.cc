@@ -67,11 +67,7 @@ void ReloadButton::ChangeMode(Mode mode, bool force) {
     double_click_timer_.Stop();
     stop_to_reload_timer_.Stop();
     ChangeModeInternal(mode);
-    // For instant extended API, if mode is NTP, disable button state.
-    bool disabled = location_bar_ && location_bar_->search_model() &&
-        chrome::search::IsInstantExtendedAPIEnabled(location_bar_->profile()) &&
-        location_bar_->search_model()->mode().is_ntp();
-    SetEnabled(!disabled);
+    SetEnabled(true);
 
   // We want to disable the button if we're preventing a change from stop to
   // reload due to hovering, but not if we're preventing a change from reload to
@@ -91,15 +87,15 @@ void ReloadButton::ChangeMode(Mode mode, bool force) {
 }
 
 void ReloadButton::LoadImages(ui::ThemeProvider* tp) {
-  DCHECK_EQ(static_cast<int>(arraysize(kReloadImages)), BS_COUNT);
-  DCHECK_EQ(static_cast<int>(arraysize(kStopImages)), BS_COUNT);
+  DCHECK_EQ(static_cast<int>(arraysize(kReloadImages)), STATE_COUNT);
+  DCHECK_EQ(static_cast<int>(arraysize(kStopImages)), STATE_COUNT);
 
   gfx::ImageSkia* reload_images = images_;
   gfx::ImageSkia* stop_images = alternate_images_;
   if (visible_mode_ == MODE_STOP)
     std::swap(reload_images, stop_images);
 
-  for (int i = 0; i < BS_COUNT; i++) {
+  for (int i = 0; i < STATE_COUNT; i++) {
     reload_images[i] = *(tp->GetImageSkiaNamed(kReloadImages[i]));
     stop_images[i] = *(tp->GetImageSkiaNamed(kStopImages[i]));
   }
@@ -125,7 +121,7 @@ void ReloadButton::ButtonPressed(views::Button* /* button */,
     // Shift-clicking or ctrl-clicking the reload button means we should ignore
     // any cached content.
     int command;
-    int flags = mouse_event_flags();
+    int flags = event.flags();
     if (event.IsShiftDown() || event.IsControlDown()) {
       command = IDC_RELOAD_IGNORING_CACHE;
       // Mask off Shift and Control so they don't affect the disposition below.
@@ -260,7 +256,7 @@ void ReloadButton::ChangeModeInternal(Mode mode) {
   if (visible_mode_ == mode)
     return;
 
-  for (size_t i = 0; i < BS_COUNT; ++i)
+  for (size_t i = 0; i < STATE_COUNT; ++i)
     std::swap(images_[i], alternate_images_[i]);
   visible_mode_ = mode;
   SchedulePaint();

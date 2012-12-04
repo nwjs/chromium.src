@@ -12,23 +12,16 @@
 #include "content/public/browser/web_contents_observer.h"
 
 class Browser;
-class BrowserCommandsTabContentsCreator;
-class BrowserLauncherItemControllerContentsCreator;
 class BrowserTabstripTabContentsCreator;
 class ChromeWebContentsHandler;
 class ConstrainedWebDialogDelegateBase;
 class ExtensionTabUtil;
-class ExternalTabContainerWin;
 class InstantLoader;
 class OffscreenTabContentsCreator;
 class PanelHost;
 class Profile;
 class TabStripModel;
-
-namespace chromeos {
-class SimpleWebViewDialog;
-class WebUILoginView;
-}
+class TestTabStripModelDelegate;
 
 namespace extensions {
 class WebAuthFlow;
@@ -62,16 +55,11 @@ class TabContents : public content::WebContentsObserver {
     // do so.
 
     friend class Browser;
-    friend class BrowserCommandsTabContentsCreator;
-    friend class BrowserLauncherItemControllerContentsCreator;
     friend class BrowserTabstripTabContentsCreator;
-    friend class chromeos::SimpleWebViewDialog;
-    friend class chromeos::WebUILoginView;
     friend class ChromeWebContentsHandler;
     friend class ConstrainedWebDialogDelegateBase;
     friend class extensions::WebAuthFlow;
     friend class ExtensionTabUtil;
-    friend class ExternalTabContainerWin;
     friend class InstantLoader;
     friend class OffscreenTabContentsCreator;
     friend class PanelHost;
@@ -79,10 +67,10 @@ class TabContents : public content::WebContentsObserver {
     // See crbug.com/153587
     friend class TabAndroid;
     friend class TabStripModel;
+    friend class TestTabStripModelDelegate;
     FRIEND_TEST_ALL_PREFIXES(SessionRestoreTest, SessionStorageAfterTabReplace);
 
     static TabContents* CreateTabContents(content::WebContents* contents);
-    static TabContents* CloneTabContents(TabContents* contents);
   };
 
   virtual ~TabContents();
@@ -112,25 +100,21 @@ class TabContents : public content::WebContentsObserver {
   virtual void WebContentsDestroyed(content::WebContents* tab) OVERRIDE;
 
  private:
-  friend class TabContentsFactory;
-
   // Takes ownership of |contents|, which must be heap-allocated (as it lives
   // in a scoped_ptr) and can not be NULL.
   explicit TabContents(content::WebContents* contents);
-
-  // Create a TabContents with the same state as this one. The returned
-  // heap-allocated pointer is owned by the caller.
-  TabContents* Clone();
 
   // WebContents (MUST BE LAST) ------------------------------------------------
 
   // If true, we're running the destructor.
   bool in_destructor_;
 
+  content::WebContents* web_contents_;
+  Profile* profile_;
   // The supporting objects need to outlive the WebContents dtor (as they may
   // be called upon during its execution). As a result, this must come last
   // in the list.
-  scoped_ptr<content::WebContents> web_contents_;
+  scoped_ptr<content::WebContents> owned_web_contents_;
 
   DISALLOW_COPY_AND_ASSIGN(TabContents);
 };

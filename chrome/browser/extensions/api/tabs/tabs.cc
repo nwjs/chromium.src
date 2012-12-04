@@ -25,9 +25,9 @@
 #include "chrome/browser/extensions/extension_function_util.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/script_executor.h"
+#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/extensions/window_controller_list.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
+#include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
 #include "chrome/browser/ui/snapshot_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -52,7 +53,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/windows.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/extensions/extension_messages.h"
 #include "chrome/common/extensions/user_script.h"
@@ -67,6 +67,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "content/public/common/url_constants.h"
+#include "extensions/common/constants.h"
+#include "extensions/common/error_utils.h"
 #include "skia/ext/image_operations.h"
 #include "skia/ext/platform_canvas.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -91,6 +93,7 @@ using content::OpenURLParams;
 using content::Referrer;
 using content::RenderViewHost;
 using content::WebContents;
+using extensions::ErrorUtils;
 using extensions::ScriptExecutor;
 using extensions::WindowController;
 using extensions::WindowControllerList;
@@ -118,7 +121,7 @@ Browser* GetBrowserInProfileWithId(Profile* profile,
   }
 
   if (error_message)
-    *error_message = ExtensionErrorUtils::FormatErrorMessage(
+    *error_message = ErrorUtils::FormatErrorMessage(
         keys::kWindowNotFoundError, base::IntToString(window_id));
 
   return NULL;
@@ -166,7 +169,7 @@ bool GetWindowFromWindowID(UIThreadExtensionFunction* function,
     *controller = WindowControllerList::GetInstance()->
         FindWindowForFunctionById(function, window_id);
     if (!(*controller)) {
-      function->SetError(ExtensionErrorUtils::FormatErrorMessage(
+      function->SetError(ErrorUtils::FormatErrorMessage(
           keys::kWindowNotFoundError, base::IntToString(window_id)));
       return false;
     }
@@ -189,7 +192,7 @@ bool GetTabById(int tab_id,
     return true;
 
   if (error_message)
-    *error_message = ExtensionErrorUtils::FormatErrorMessage(
+    *error_message = ErrorUtils::FormatErrorMessage(
         keys::kTabNotFoundError, base::IntToString(tab_id));
 
   return false;
@@ -234,7 +237,8 @@ Browser* CreateBrowserWindow(const Browser::CreateParams& params,
   if (use_existing_browser_window)
     // The false parameter passed below is to ensure that we find a browser
     // object matching the profile passed in, instead of the original profile
-    new_window = browser::FindTabbedBrowserDeprecated(profile, false);
+    new_window = browser::FindTabbedBrowser(
+        profile, false, chrome::GetActiveDesktop());
 
   if (!new_window)
     new_window = new Browser(params);
@@ -378,7 +382,7 @@ bool CreateWindowFunction::ShouldOpenIncognitoWindow(
       }
     }
     if (urls->empty() && !first_url_erased.empty()) {
-      error_ = ExtensionErrorUtils::FormatErrorMessage(
+      error_ = ErrorUtils::FormatErrorMessage(
           keys::kURLsNotAllowedInIncognitoError, first_url_erased);
       *is_error = true;
       return false;
@@ -422,7 +426,7 @@ bool CreateWindowFunction::RunImpl() {
         GURL url = ExtensionTabUtil::ResolvePossiblyRelativeURL(
             *i, GetExtension());
         if (!url.is_valid()) {
-          error_ = ExtensionErrorUtils::FormatErrorMessage(
+          error_ = ErrorUtils::FormatErrorMessage(
               keys::kInvalidUrlError, *i);
           return false;
         }
@@ -451,7 +455,7 @@ bool CreateWindowFunction::RunImpl() {
         return false;
       contents = source_tab_strip->DetachTabContentsAt(tab_index);
       if (!contents) {
-        error_ = ExtensionErrorUtils::FormatErrorMessage(
+        error_ = ErrorUtils::FormatErrorMessage(
             keys::kTabNotFoundError, base::IntToString(tab_id));
         return false;
       }
@@ -500,8 +504,8 @@ bool CreateWindowFunction::RunImpl() {
 #endif
         if (use_panels) {
           window_type = Browser::TYPE_PANEL;
-#if !defined(USE_ASH)
-          // Non-Ash has both docked and detached panel types.
+#if !defined(OS_CHROMEOS)
+          // Non-ChromeOS has both docked and detached panel types.
           if (type_str == keys::kWindowTypeValueDetachedPanel)
             panel_create_mode = PanelManager::CREATE_AS_DETACHED;
 #endif
@@ -578,7 +582,7 @@ bool CreateWindowFunction::RunImpl() {
     }
   }
 
-#if !defined(USE_ASH)
+#if !defined(OS_CHROMEOS)
   if (window_type == Browser::TYPE_PANEL) {
     std::string title =
         web_app::GenerateApplicationNameFromExtensionId(extension_id);
@@ -616,16 +620,16 @@ bool CreateWindowFunction::RunImpl() {
                                             extension_id);
 
   for (std::vector<GURL>::iterator i = urls.begin(); i != urls.end(); ++i) {
-    TabContents* tab = chrome::AddSelectedTabWithURL(
+    WebContents* tab = chrome::AddSelectedTabWithURL(
         new_window, *i, content::PAGE_TRANSITION_LINK);
     if (window_type == Browser::TYPE_PANEL) {
-      extensions::TabHelper::FromWebContents(tab->web_contents())->
+      extensions::TabHelper::FromWebContents(tab)->
           SetExtensionAppIconById(extension_id);
     }
   }
   if (contents) {
     TabStripModel* target_tab_strip = new_window->tab_strip_model();
-    target_tab_strip->InsertTabContentsAt(urls.size(), contents,
+    target_tab_strip->InsertWebContentsAt(urls.size(), contents->web_contents(),
                                           TabStripModel::ADD_NONE);
   } else if (urls.empty()) {
     chrome::NewTab(new_window);
@@ -1025,7 +1029,7 @@ bool CreateTabFunction::RunImpl() {
     url = ExtensionTabUtil::ResolvePossiblyRelativeURL(url_string,
                                                        GetExtension());
     if (!url.is_valid()) {
-      error_ = ExtensionErrorUtils::FormatErrorMessage(keys::kInvalidUrlError,
+      error_ = ErrorUtils::FormatErrorMessage(keys::kInvalidUrlError,
                                                        url_string);
       return false;
     }
@@ -1056,7 +1060,7 @@ bool CreateTabFunction::RunImpl() {
 
   // We can't load extension URLs into incognito windows unless the extension
   // uses split mode. Special case to fall back to a tabbed window.
-  if (url.SchemeIs(chrome::kExtensionScheme) &&
+  if (url.SchemeIs(extensions::kExtensionScheme) &&
       !GetExtension()->incognito_split_mode() &&
       browser->profile()->IsOffTheRecord()) {
     Profile* profile = browser->profile()->GetOriginalProfile();
@@ -1120,15 +1124,15 @@ bool DuplicateTabFunction::RunImpl() {
     return false;
   }
 
-  TabContents* new_contents = chrome::DuplicateTabAt(browser, tab_index);
+  WebContents* new_contents = chrome::DuplicateTabAt(browser, tab_index);
   if (!has_callback())
     return true;
 
-  int new_index = tab_strip->GetIndexOfTabContents(new_contents);
+  int new_index = tab_strip->GetIndexOfWebContents(new_contents);
 
   // Return data about the newly created tab.
   SetResult(ExtensionTabUtil::CreateTabValue(
-      new_contents->web_contents(),
+      new_contents,
       tab_strip, new_index, GetExtension()));
 
   return true;
@@ -1193,7 +1197,7 @@ bool HighlightTabsFunction::RunImpl() {
 
     // Make sure the index is in range.
     if (!tabstrip->ContainsIndex(index)) {
-      error_ = ExtensionErrorUtils::FormatErrorMessage(
+      error_ = ErrorUtils::FormatErrorMessage(
           keys::kTabIndexNotFoundError, base::IntToString(index));
       return false;
     }
@@ -1339,7 +1343,7 @@ bool UpdateTabFunction::UpdateURLIfPresent(DictionaryValue* update_props,
       url_string, GetExtension());
 
   if (!url.is_valid()) {
-    error_ = ExtensionErrorUtils::FormatErrorMessage(
+    error_ = ErrorUtils::FormatErrorMessage(
         keys::kInvalidUrlError, url_string);
     return false;
   }
@@ -1431,7 +1435,7 @@ bool MoveTabsFunction::RunImpl() {
       return false;
 
     // Don't let the extension move the tab if the user is dragging tabs.
-    if (!chrome::IsTabStripEditable(source_browser)) {
+    if (!source_browser->window()->IsTabStripEditable()) {
       error_ = keys::kTabStripNotEditableError;
       return false;
     }
@@ -1448,7 +1452,7 @@ bool MoveTabsFunction::RunImpl() {
       if (!GetBrowserFromWindowID(this, window_id, &target_browser))
         return false;
 
-      if (!chrome::IsTabStripEditable(target_browser)) {
+      if (!target_browser->window()->IsTabStripEditable()) {
         error_ = keys::kTabStripNotEditableError;
         return false;
       }
@@ -1470,7 +1474,7 @@ bool MoveTabsFunction::RunImpl() {
         TabContents* tab_contents =
             source_tab_strip->DetachTabContentsAt(tab_index);
         if (!tab_contents) {
-          error_ = ExtensionErrorUtils::FormatErrorMessage(
+          error_ = ErrorUtils::FormatErrorMessage(
               keys::kTabNotFoundError, base::IntToString(tab_ids[i]));
           return false;
         }
@@ -1481,8 +1485,8 @@ bool MoveTabsFunction::RunImpl() {
         if (new_index > target_tab_strip->count() || new_index < 0)
           new_index = target_tab_strip->count();
 
-        target_tab_strip->InsertTabContentsAt(
-            new_index, tab_contents, TabStripModel::ADD_NONE);
+        target_tab_strip->InsertWebContentsAt(
+            new_index, tab_contents->web_contents(), TabStripModel::ADD_NONE);
 
         if (has_callback()) {
           tab_values.Append(ExtensionTabUtil::CreateTabValue(
@@ -1504,7 +1508,7 @@ bool MoveTabsFunction::RunImpl() {
       new_index = source_tab_strip->count() - 1;
 
     if (new_index != tab_index)
-      source_tab_strip->MoveTabContentsAt(tab_index, new_index, false);
+      source_tab_strip->MoveWebContentsAt(tab_index, new_index, false);
 
     if (has_callback()) {
       tab_values.Append(ExtensionTabUtil::CreateTabValue(
@@ -1597,7 +1601,7 @@ bool RemoveTabsFunction::RunImpl() {
       return false;
 
     // Don't let the extension remove a tab if the user is dragging tabs around.
-    if (!chrome::IsTabStripEditable(browser)) {
+    if (!browser->window()->IsTabStripEditable()) {
       error_ = keys::kTabStripNotEditableError;
       return false;
     }

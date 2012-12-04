@@ -40,9 +40,11 @@ const char* const kPaths[] = {
   chrome::kChromeUIPredictorsHost,
   chrome::kChromeUIProfilerHost,
   chrome::kChromeUIQuotaInternalsHost,
+  chrome::kChromeUISignInInternalsHost,
   chrome::kChromeUIStatsHost,
   chrome::kChromeUISyncInternalsHost,
   chrome::kChromeUITermsHost,
+  chrome::kChromeUIUserActionsHost,
   chrome::kChromeUIVersionHost,
 #if defined(OS_ANDROID)
   chrome::kChromeUIWelcomeHost,
@@ -79,7 +81,6 @@ const char* const kPaths[] = {
   chrome::kChromeUIProxySettingsHost,
   chrome::kChromeUISystemInfoHost,
   chrome::kChromeUITaskManagerHost,
-  chrome::kChromeUIWallpaperHost,
 #endif
 #if !defined(DISABLE_NACL)
   chrome::kChromeUINaClHost,
@@ -137,8 +138,14 @@ bool WillHandleBrowserAboutURL(GURL* url,
     path = chrome::kChromeUIExtensionsHost;
   // Redirect chrome://history.
   } else if (host == chrome::kChromeUIHistoryHost) {
+#if defined(OS_ANDROID)
+    // On Android, redirect directly to chrome://history-frame since
+    // uber page is unsupported.
+    host = chrome::kChromeUIHistoryFrameHost;
+#else
     host = chrome::kChromeUIUberHost;
     path = chrome::kChromeUIHistoryHost + url->path();
+#endif
   // Redirect chrome://settings
   } else if (host == chrome::kChromeUISettingsHost) {
     host = chrome::kChromeUIUberHost;

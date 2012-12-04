@@ -8,19 +8,27 @@
 #include <vector>
 
 #include "ash/display/display_controller.h"
-#include "ash/display/multi_display_manager.h"
+#include "ash/display/display_manager.h"
 #include "ash/shell.h"
-#include "ash/test/multi_display_manager_test_api.h"
+#include "ash/test/display_manager_test_api.h"
 #include "ash/test/test_shell_delegate.h"
+#include "base/command_line.h"
 #include "base/run_loop.h"
 #include "content/public/test/web_contents_tester.h"
+#include "ui/aura/aura_switches.h"
+#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
-#include "ui/aura/display_manager.h"
 #include "ui/aura/root_window.h"
+#include "ui/aura/test/test_window_delegate.h"
+#include "ui/aura/window_delegate.h"
 #include "ui/base/ime/text_input_test_support.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
+
+#if defined(OS_WIN)
+#include "ui/aura/root_window_host_win.h"
+#endif
 
 namespace ash {
 namespace test {
@@ -32,24 +40,31 @@ content::WebContents* AshTestViewsDelegate::CreateWebContents(
                                                            site_instance);
 }
 
-AshTestBase::AshTestBase() {
+AshTestBase::AshTestBase() : test_shell_delegate_(NULL) {
 }
 
 AshTestBase::~AshTestBase() {
 }
 
 void AshTestBase::SetUp() {
+  // Use the origin (1,1) so that it doesn't over
+  // lap with the native mouse cursor.
+  CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+      switches::kAuraHostWindowSize, "1+1-800x600");
+#if defined(OS_WIN)
+  aura::test::SetUsePopupAsRootWindowForTest(true);
+#endif
   // Disable animations during tests.
   ui::LayerAnimator::set_disable_animations_for_test(true);
   ui::TextInputTestSupport::Initialize();
   // Creates Shell and hook with Desktop.
-  TestShellDelegate* delegate = new TestShellDelegate;
-  ash::Shell::CreateInstance(delegate);
+  test_shell_delegate_ = new TestShellDelegate;
+  ash::Shell::CreateInstance(test_shell_delegate_);
   Shell::GetPrimaryRootWindow()->Show();
+  Shell::GetPrimaryRootWindow()->ShowRootWindow();
   // Move the mouse cursor to far away so that native events doesn't
   // interfere test expectations.
   Shell::GetPrimaryRootWindow()->MoveCursorTo(gfx::Point(-1000, -1000));
-  UpdateDisplay("800x600");
   Shell::GetInstance()->cursor_manager()->ShowCursor(true);
 }
 
@@ -61,6 +76,9 @@ void AshTestBase::TearDown() {
   Shell::DeleteInstance();
   aura::Env::DeleteInstance();
   ui::TextInputTestSupport::Shutdown();
+#if defined(OS_WIN)
+  aura::test::SetUsePopupAsRootWindowForTest(false);
+#endif
 }
 
 void AshTestBase::ChangeDisplayConfig(float scale,
@@ -70,17 +88,61 @@ void AshTestBase::ChangeDisplayConfig(float scale,
   display.SetScaleAndBounds(scale, bounds_in_pixel);
   std::vector<gfx::Display> displays;
   displays.push_back(display);
-  aura::Env::GetInstance()->display_manager()->OnNativeDisplaysChanged(
-      displays);
+  Shell::GetInstance()->display_manager()->OnNativeDisplaysChanged(displays);
 }
 
 void AshTestBase::UpdateDisplay(const std::string& display_specs) {
-  internal::MultiDisplayManager* multi_display_manager =
-      static_cast<internal::MultiDisplayManager*>(
-          aura::Env::GetInstance()->display_manager());
-  MultiDisplayManagerTestApi multi_display_manager_test_api(
-      multi_display_manager);
-  multi_display_manager_test_api.UpdateDisplay(display_specs);
+  DisplayManagerTestApi display_manager_test_api(
+      Shell::GetInstance()->display_manager());
+  display_manager_test_api.UpdateDisplay(display_specs);
+}
+
+aura::Window* AshTestBase::CreateTestWindowInShellWithId(int id) {
+  return CreateTestWindowInShellWithDelegate(NULL, id, gfx::Rect());
+}
+
+aura::Window* AshTestBase::CreateTestWindowInShellWithBounds(
+    const gfx::Rect& bounds) {
+  return CreateTestWindowInShellWithDelegate(NULL, 0, bounds);
+}
+
+aura::Window* AshTestBase::CreateTestWindowInShell(SkColor color,
+                                                   int id,
+                                                   const gfx::Rect& bounds) {
+  return CreateTestWindowInShellWithDelegate(
+      new aura::test::ColorTestWindowDelegate(color), id, bounds);
+}
+
+aura::Window* AshTestBase::CreateTestWindowInShellWithDelegate(
+    aura::WindowDelegate* delegate,
+    int id,
+    const gfx::Rect& bounds) {
+  return CreateTestWindowInShellWithDelegateAndType(
+      delegate,
+      aura::client::WINDOW_TYPE_NORMAL,
+      id,
+      bounds);
+}
+
+aura::Window* AshTestBase::CreateTestWindowInShellWithDelegateAndType(
+    aura::WindowDelegate* delegate,
+    aura::client::WindowType type,
+    int id,
+    const gfx::Rect& bounds) {
+  aura::Window* window = new aura::Window(delegate);
+  window->set_id(id);
+  window->SetType(type);
+  window->Init(ui::LAYER_TEXTURED);
+  window->SetBounds(bounds);
+  window->Show();
+  SetDefaultParentByPrimaryRootWindow(window);
+  window->SetProperty(aura::client::kCanMaximizeKey, true);
+  return window;
+}
+
+void AshTestBase::SetDefaultParentByPrimaryRootWindow(aura::Window* window) {
+  window->SetDefaultParentByRootWindow(
+      Shell::GetPrimaryRootWindow(), gfx::Rect());
 }
 
 void AshTestBase::RunAllPendingInMessageLoop() {
@@ -89,6 +151,18 @@ void AshTestBase::RunAllPendingInMessageLoop() {
   base::RunLoop run_loop(aura::Env::GetInstance()->GetDispatcher());
   run_loop.RunUntilIdle();
 #endif
+}
+
+void AshTestBase::SetSessionStarted(bool session_started) {
+  test_shell_delegate_->SetSessionStarted(session_started);
+}
+
+void AshTestBase::SetUserLoggedIn(bool user_logged_in) {
+  test_shell_delegate_->SetUserLoggedIn(user_logged_in);
+}
+
+void AshTestBase::SetCanLockScreen(bool can_lock_screen) {
+  test_shell_delegate_->SetCanLockScreen(can_lock_screen);
 }
 
 }  // namespace test

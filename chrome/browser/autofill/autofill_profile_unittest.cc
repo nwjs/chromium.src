@@ -8,9 +8,11 @@
 #include "base/memory/scoped_vector.h"
 #include "base/stl_util.h"
 #include "base/string16.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autofill/autofill_common_test.h"
 #include "chrome/browser/autofill/autofill_profile.h"
+#include "chrome/common/form_field_data.h"
 #include "grit/generated_resources.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -24,11 +26,9 @@ bool UpdateProfileLabel(AutofillProfile *profile) {
 
 }  // namespace
 
-typedef testing::Test AutofillProfileTest;
-
 // Tests different possibilities for summary string generation.
 // Based on existence of first name, last name, and address line 1.
-TEST_F(AutofillProfileTest, PreviewSummaryString) {
+TEST(AutofillProfileTest, PreviewSummaryString) {
   // Case 0/null: ""
   AutofillProfile profile0;
   // Empty profile - nothing to update.
@@ -139,7 +139,7 @@ TEST_F(AutofillProfileTest, PreviewSummaryString) {
       "Marion Mitchell Morrison, 123 Zoo St., marion@me.xyz"), summary7a);
 }
 
-TEST_F(AutofillProfileTest, AdjustInferredLabels) {
+TEST(AutofillProfileTest, AdjustInferredLabels) {
   std::vector<AutofillProfile*> profiles;
   profiles.push_back(new AutofillProfile);
   autofill_test::SetProfileInfo(
@@ -296,7 +296,7 @@ TEST_F(AutofillProfileTest, AdjustInferredLabels) {
   STLDeleteContainerPointers(profiles.begin(), profiles.end());
 }
 
-TEST_F(AutofillProfileTest, CreateInferredLabels) {
+TEST(AutofillProfileTest, CreateInferredLabels) {
   std::vector<AutofillProfile*> profiles;
   profiles.push_back(new AutofillProfile);
   autofill_test::SetProfileInfo(profiles[0],
@@ -405,7 +405,7 @@ TEST_F(AutofillProfileTest, CreateInferredLabels) {
 
 // Test that we fall back to using the full name if there are no other
 // distinguishing fields, but only if it makes sense given the suggested fields.
-TEST_F(AutofillProfileTest, CreateInferredLabelsFallsBackToFullName) {
+TEST(AutofillProfileTest, CreateInferredLabelsFallsBackToFullName) {
   ScopedVector<AutofillProfile> profiles;
   profiles.push_back(new AutofillProfile);
   autofill_test::SetProfileInfo(profiles[0],
@@ -439,7 +439,7 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsFallsBackToFullName) {
 }
 
 // Test that we do not show duplicate fields in the labels.
-TEST_F(AutofillProfileTest, CreateInferredLabelsNoDuplicatedFields) {
+TEST(AutofillProfileTest, CreateInferredLabelsNoDuplicatedFields) {
   ScopedVector<AutofillProfile> profiles;
   profiles.push_back(new AutofillProfile);
   autofill_test::SetProfileInfo(profiles[0],
@@ -465,7 +465,7 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsNoDuplicatedFields) {
 }
 
 // Make sure that empty fields are not treated as distinguishing fields.
-TEST_F(AutofillProfileTest, CreateInferredLabelsSkipsEmptyFields) {
+TEST(AutofillProfileTest, CreateInferredLabelsSkipsEmptyFields) {
   ScopedVector<AutofillProfile> profiles;
   profiles.push_back(new AutofillProfile);
   autofill_test::SetProfileInfo(profiles[0],
@@ -500,7 +500,7 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsSkipsEmptyFields) {
   EXPECT_EQ(ASCIIToUTF16("John Doe, john.doe@example.com"), labels[2]);
 }
 
-TEST_F(AutofillProfileTest, IsSubsetOf) {
+TEST(AutofillProfileTest, IsSubsetOf) {
   scoped_ptr<AutofillProfile> a, b;
 
   // |a| is a subset of |b|.
@@ -532,7 +532,7 @@ TEST_F(AutofillProfileTest, IsSubsetOf) {
   EXPECT_FALSE(a->IsSubsetOf(*b));
 }
 
-TEST_F(AutofillProfileTest, AssignmentOperator){
+TEST(AutofillProfileTest, AssignmentOperator) {
   AutofillProfile a, b;
 
   // Result of assignment should be logically equal to the original profile.
@@ -548,7 +548,7 @@ TEST_F(AutofillProfileTest, AssignmentOperator){
   EXPECT_TRUE(a == b);
 }
 
-TEST_F(AutofillProfileTest, Copy) {
+TEST(AutofillProfileTest, Copy) {
   AutofillProfile a;
 
   // Clone should be logically equal to the original.
@@ -560,7 +560,7 @@ TEST_F(AutofillProfileTest, Copy) {
   EXPECT_TRUE(a == b);
 }
 
-TEST_F(AutofillProfileTest, Compare) {
+TEST(AutofillProfileTest, Compare) {
   AutofillProfile a, b;
 
   // Empty profiles are the same.
@@ -578,9 +578,18 @@ TEST_F(AutofillProfileTest, Compare) {
       NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
   EXPECT_GT(0, a.Compare(b));
   EXPECT_LT(0, b.Compare(a));
+
+  // Phone numbers are compared by the full number, including the area code.
+  // This is a regression test for http://crbug.com/163024
+  autofill_test::SetProfileInfo(&a, NULL, NULL, NULL, NULL,
+      NULL, NULL, NULL, NULL, NULL, NULL, NULL, "650.555.4321");
+  autofill_test::SetProfileInfo(&b, NULL, NULL, NULL, NULL,
+      NULL, NULL, NULL, NULL, NULL, NULL, NULL, "408.555.4321");
+  EXPECT_GT(0, a.Compare(b));
+  EXPECT_LT(0, b.Compare(a));
 }
 
-TEST_F(AutofillProfileTest, CountryCode) {
+TEST(AutofillProfileTest, CountryCode) {
   AutofillProfile profile;
   EXPECT_EQ(std::string(), profile.CountryCode());
 
@@ -588,21 +597,21 @@ TEST_F(AutofillProfileTest, CountryCode) {
   EXPECT_EQ("US", profile.CountryCode());
 }
 
-TEST_F(AutofillProfileTest, MultiValueNames) {
+TEST(AutofillProfileTest, MultiValueNames) {
   AutofillProfile p;
   const string16 kJohnDoe(ASCIIToUTF16("John Doe"));
   const string16 kJohnPDoe(ASCIIToUTF16("John P. Doe"));
   std::vector<string16> set_values;
   set_values.push_back(kJohnDoe);
   set_values.push_back(kJohnPDoe);
-  p.SetMultiInfo(NAME_FULL, set_values);
+  p.SetRawMultiInfo(NAME_FULL, set_values);
 
   // Expect regular |GetInfo| returns the first element.
   EXPECT_EQ(kJohnDoe, p.GetRawInfo(NAME_FULL));
 
   // Ensure that we get out what we put in.
   std::vector<string16> get_values;
-  p.GetMultiInfo(NAME_FULL, &get_values);
+  p.GetRawMultiInfo(NAME_FULL, &get_values);
   ASSERT_EQ(2UL, get_values.size());
   EXPECT_EQ(kJohnDoe, get_values[0]);
   EXPECT_EQ(kJohnPDoe, get_values[1]);
@@ -612,8 +621,8 @@ TEST_F(AutofillProfileTest, MultiValueNames) {
   EXPECT_EQ(0, p.Compare(p2));
   const string16 kNoOne(ASCIIToUTF16("No One"));
   set_values[1] = kNoOne;
-  p.SetMultiInfo(NAME_FULL, set_values);
-  p.GetMultiInfo(NAME_FULL, &get_values);
+  p.SetRawMultiInfo(NAME_FULL, set_values);
+  p.GetRawMultiInfo(NAME_FULL, &get_values);
   ASSERT_EQ(2UL, get_values.size());
   EXPECT_EQ(kJohnDoe, get_values[0]);
   EXPECT_EQ(kNoOne, get_values[1]);
@@ -621,8 +630,8 @@ TEST_F(AutofillProfileTest, MultiValueNames) {
 
   // Delete values.
   set_values.clear();
-  p.SetMultiInfo(NAME_FULL, set_values);
-  p.GetMultiInfo(NAME_FULL, &get_values);
+  p.SetRawMultiInfo(NAME_FULL, set_values);
+  p.GetRawMultiInfo(NAME_FULL, &get_values);
   ASSERT_EQ(1UL, get_values.size());
   EXPECT_EQ(string16(), get_values[0]);
 
@@ -630,21 +639,21 @@ TEST_F(AutofillProfileTest, MultiValueNames) {
   EXPECT_EQ(string16(), p.GetRawInfo(NAME_FULL));
 }
 
-TEST_F(AutofillProfileTest, MultiValueEmails) {
+TEST(AutofillProfileTest, MultiValueEmails) {
   AutofillProfile p;
   const string16 kJohnDoe(ASCIIToUTF16("john@doe.com"));
   const string16 kJohnPDoe(ASCIIToUTF16("john_p@doe.com"));
   std::vector<string16> set_values;
   set_values.push_back(kJohnDoe);
   set_values.push_back(kJohnPDoe);
-  p.SetMultiInfo(EMAIL_ADDRESS, set_values);
+  p.SetRawMultiInfo(EMAIL_ADDRESS, set_values);
 
   // Expect regular |GetInfo| returns the first element.
   EXPECT_EQ(kJohnDoe, p.GetRawInfo(EMAIL_ADDRESS));
 
   // Ensure that we get out what we put in.
   std::vector<string16> get_values;
-  p.GetMultiInfo(EMAIL_ADDRESS, &get_values);
+  p.GetRawMultiInfo(EMAIL_ADDRESS, &get_values);
   ASSERT_EQ(2UL, get_values.size());
   EXPECT_EQ(kJohnDoe, get_values[0]);
   EXPECT_EQ(kJohnPDoe, get_values[1]);
@@ -654,8 +663,8 @@ TEST_F(AutofillProfileTest, MultiValueEmails) {
   EXPECT_EQ(0, p.Compare(p2));
   const string16 kNoOne(ASCIIToUTF16("no@one.com"));
   set_values[1] = kNoOne;
-  p.SetMultiInfo(EMAIL_ADDRESS, set_values);
-  p.GetMultiInfo(EMAIL_ADDRESS, &get_values);
+  p.SetRawMultiInfo(EMAIL_ADDRESS, set_values);
+  p.GetRawMultiInfo(EMAIL_ADDRESS, &get_values);
   ASSERT_EQ(2UL, get_values.size());
   EXPECT_EQ(kJohnDoe, get_values[0]);
   EXPECT_EQ(kNoOne, get_values[1]);
@@ -663,8 +672,8 @@ TEST_F(AutofillProfileTest, MultiValueEmails) {
 
   // Delete values.
   set_values.clear();
-  p.SetMultiInfo(EMAIL_ADDRESS, set_values);
-  p.GetMultiInfo(EMAIL_ADDRESS, &get_values);
+  p.SetRawMultiInfo(EMAIL_ADDRESS, set_values);
+  p.GetRawMultiInfo(EMAIL_ADDRESS, &get_values);
   ASSERT_EQ(1UL, get_values.size());
   EXPECT_EQ(string16(), get_values[0]);
 
@@ -672,21 +681,21 @@ TEST_F(AutofillProfileTest, MultiValueEmails) {
   EXPECT_EQ(string16(), p.GetRawInfo(EMAIL_ADDRESS));
 }
 
-TEST_F(AutofillProfileTest, MultiValuePhone) {
+TEST(AutofillProfileTest, MultiValuePhone) {
   AutofillProfile p;
   const string16 kJohnDoe(ASCIIToUTF16("4151112222"));
   const string16 kJohnPDoe(ASCIIToUTF16("4151113333"));
   std::vector<string16> set_values;
   set_values.push_back(kJohnDoe);
   set_values.push_back(kJohnPDoe);
-  p.SetMultiInfo(PHONE_HOME_WHOLE_NUMBER, set_values);
+  p.SetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, set_values);
 
   // Expect regular |GetInfo| returns the first element.
   EXPECT_EQ(kJohnDoe, p.GetRawInfo(PHONE_HOME_WHOLE_NUMBER));
 
   // Ensure that we get out what we put in.
   std::vector<string16> get_values;
-  p.GetMultiInfo(PHONE_HOME_WHOLE_NUMBER, &get_values);
+  p.GetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, &get_values);
   ASSERT_EQ(2UL, get_values.size());
   EXPECT_EQ(kJohnDoe, get_values[0]);
   EXPECT_EQ(kJohnPDoe, get_values[1]);
@@ -696,8 +705,8 @@ TEST_F(AutofillProfileTest, MultiValuePhone) {
   EXPECT_EQ(0, p.Compare(p2));
   const string16 kNoOne(ASCIIToUTF16("4152110000"));
   set_values[1] = kNoOne;
-  p.SetMultiInfo(PHONE_HOME_WHOLE_NUMBER, set_values);
-  p.GetMultiInfo(PHONE_HOME_WHOLE_NUMBER, &get_values);
+  p.SetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, set_values);
+  p.GetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, &get_values);
   ASSERT_EQ(2UL, get_values.size());
   EXPECT_EQ(kJohnDoe, get_values[0]);
   EXPECT_EQ(kNoOne, get_values[1]);
@@ -705,11 +714,135 @@ TEST_F(AutofillProfileTest, MultiValuePhone) {
 
   // Delete values.
   set_values.clear();
-  p.SetMultiInfo(PHONE_HOME_WHOLE_NUMBER, set_values);
-  p.GetMultiInfo(PHONE_HOME_WHOLE_NUMBER, &get_values);
+  p.SetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, set_values);
+  p.GetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, &get_values);
   ASSERT_EQ(1UL, get_values.size());
   EXPECT_EQ(string16(), get_values[0]);
 
   // Expect regular |GetInfo| returns empty value.
   EXPECT_EQ(string16(), p.GetRawInfo(PHONE_HOME_WHOLE_NUMBER));
+}
+
+TEST(AutofillProfileTest, AddressCountryFull) {
+  const char* const kCountries[] = {
+    "Albania", "Canada"
+  };
+  std::vector<string16> options(arraysize(kCountries));
+  for (size_t i = 0; i < arraysize(kCountries); ++i) {
+    options[i] = ASCIIToUTF16(kCountries[i]);
+  }
+
+  FormFieldData field;
+  field.form_control_type = "select-one";
+  field.option_values = options;
+  field.option_contents = options;
+
+  AutofillProfile profile;
+  profile.SetRawInfo(ADDRESS_HOME_COUNTRY, ASCIIToUTF16("CA"));
+  profile.FillSelectControl(ADDRESS_HOME_COUNTRY, &field);
+  EXPECT_EQ(ASCIIToUTF16("Canada"), field.value);
+}
+
+TEST(AutofillProfileTest, AddressCountryAbbrev) {
+  const char* const kCountries[] = {
+    "AL", "CA"
+  };
+  std::vector<string16> options(arraysize(kCountries));
+  for (size_t i = 0; i < arraysize(kCountries); ++i) {
+    options[i] = ASCIIToUTF16(kCountries[i]);
+  }
+
+  FormFieldData field;
+  field.form_control_type = "select-one";
+  field.option_values = options;
+  field.option_contents = options;
+
+  AutofillProfile profile;
+  profile.SetRawInfo(ADDRESS_HOME_COUNTRY, ASCIIToUTF16("Canada"));
+  profile.FillSelectControl(ADDRESS_HOME_COUNTRY, &field);
+  EXPECT_EQ(ASCIIToUTF16("CA"), field.value);
+}
+
+TEST(AutofillProfileTest, AddressStateFull) {
+  const char* const kStates[] = {
+    "Alabama", "California"
+  };
+  std::vector<string16> options(arraysize(kStates));
+  for (size_t i = 0; i < arraysize(kStates); ++i) {
+    options[i] = ASCIIToUTF16(kStates[i]);
+  }
+
+  FormFieldData field;
+  field.form_control_type = "select-one";
+  field.option_values = options;
+  field.option_contents = options;
+
+  AutofillProfile profile;
+  profile.SetRawInfo(ADDRESS_HOME_STATE, ASCIIToUTF16("CA"));
+  profile.FillSelectControl(ADDRESS_HOME_STATE, &field);
+  EXPECT_EQ(ASCIIToUTF16("California"), field.value);
+}
+
+TEST(AutofillProfileTest, AddressStateAbbrev) {
+  const char* const kStates[] = {
+    "AL", "CA"
+  };
+  std::vector<string16> options(arraysize(kStates));
+  for (size_t i = 0; i < arraysize(kStates); ++i) {
+    options[i] = ASCIIToUTF16(kStates[i]);
+  }
+
+  FormFieldData field;
+  field.form_control_type = "select-one";
+  field.option_values = options;
+  field.option_contents = options;
+
+  AutofillProfile profile;
+  profile.SetRawInfo(ADDRESS_HOME_STATE, ASCIIToUTF16("California"));
+  profile.FillSelectControl(ADDRESS_HOME_STATE, &field);
+  EXPECT_EQ(ASCIIToUTF16("CA"), field.value);
+}
+
+TEST(AutofillProfileTest, FillByValue) {
+  const char* const kStates[] = {
+    "Alabama", "California"
+  };
+  std::vector<string16> values(arraysize(kStates));
+  std::vector<string16> contents(arraysize(kStates));
+  for (unsigned int i = 0; i < arraysize(kStates); ++i) {
+    values[i] = ASCIIToUTF16(kStates[i]);
+    contents[i] = ASCIIToUTF16(base::StringPrintf("%u", i));
+  }
+
+  FormFieldData field;
+  field.form_control_type = "select-one";
+  field.option_values = values;
+  field.option_contents = contents;
+
+  AutofillProfile profile;
+  profile.SetRawInfo(ADDRESS_HOME_STATE, ASCIIToUTF16("California"));
+  profile.FillSelectControl(ADDRESS_HOME_STATE, &field);
+  EXPECT_EQ(ASCIIToUTF16("California"), field.value);
+}
+
+TEST(AutofillProfileTest, FillByContents) {
+  const char* const kStates[] = {
+    "Alabama", "California"
+  };
+  std::vector<string16> values(arraysize(kStates));
+  std::vector<string16> contents(arraysize(kStates));
+  for (unsigned int i = 0; i < arraysize(kStates); ++i) {
+    values[i] = ASCIIToUTF16(base::StringPrintf("%u", i + 1));
+    contents[i] = ASCIIToUTF16(kStates[i]);
+  }
+
+  FormFieldData field;
+  field.form_control_type = "select-one";
+  field.option_values = values;
+  field.option_contents = contents;
+
+  AutofillProfile profile;
+  profile.SetRawInfo(ADDRESS_HOME_STATE, ASCIIToUTF16("California"));
+  profile.FillSelectControl(ADDRESS_HOME_STATE, &field);
+  EXPECT_EQ(ASCIIToUTF16("2"), field.value);
 }

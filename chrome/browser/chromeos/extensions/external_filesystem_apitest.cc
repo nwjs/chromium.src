@@ -5,11 +5,11 @@
 #include "base/bind.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop_proxy.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/threading/worker_pool.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/drive/drive_file_system.h"
@@ -17,9 +17,9 @@
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
-#include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/google_apis/gdata_wapi_parser.h"
 #include "chrome/browser/google_apis/mock_drive_service.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -146,7 +146,7 @@ ACTION_P2(MockCreateDirectoryCallback, status, value) {
 // Action used to set mock expecteations for GetDocuments.
 ACTION_P2(MockGetDocumentsCallback, status, value) {
   base::MessageLoopProxy::current()->PostTask(FROM_HERE,
-      base::Bind(arg4, status, base::Passed(value)));
+      base::Bind(arg5, status, base::Passed(value)));
 }
 
 // Action used to mock expectations fo GetDocumentEntry.
@@ -168,7 +168,7 @@ ACTION_P(MockDownloadFileCallback, status) {
       content::BrowserThread::FILE,
       FROM_HERE,
       base::Bind(&CreateFileWithContent, arg1, kTestFileContent),
-      base::Bind(arg3, status, arg2, arg1)));
+      base::Bind(arg3, status, arg1)));
 }
 
 }  // namespace
@@ -254,7 +254,7 @@ class RestrictedFileSystemExtensionApiTest : public ExtensionApiTest {
   }
 
  protected:
-  ScopedTempDir tmp_dir_;
+  base::ScopedTempDir tmp_dir_;
   FilePath mount_point_dir_;
 };
 
@@ -293,7 +293,7 @@ class RemoteFileSystemExtensionApiTest : public ExtensionApiTest {
   }
 
  protected:
-  ScopedTempDir test_cache_root_;
+  base::ScopedTempDir test_cache_root_;
   google_apis::MockDriveService* mock_drive_service_;
 };
 
@@ -321,10 +321,10 @@ IN_PROC_BROWSER_TEST_F(FileSystemExtensionApiTest, FileBrowserWebIntentTest) {
   AddTmpMountPoint();
 
   ResultCatcher catcher;
-  ScopedTempDir tmp_dir;
+  base::ScopedTempDir tmp_dir;
   ASSERT_TRUE(tmp_dir.CreateUniqueTempDir());
 
-  // Create a test file inside the ScopedTempDir.
+  // Create a test file inside the base::ScopedTempDir.
   FilePath test_file = tmp_dir.path().AppendASCII("text_file.xul");
   CreateFileWithContent(test_file, kTestFileContent);
 
@@ -390,7 +390,7 @@ IN_PROC_BROWSER_TEST_F(RemoteFileSystemExtensionApiTest,
   // Remote filesystem should first request root feed from gdata server.
   scoped_ptr<base::Value> documents_value(LoadJSONFile(kTestRootFeed));
   EXPECT_CALL(*mock_drive_service_,
-              GetDocuments(_, _, _, _, _))
+              GetDocuments(_, _, _, _, _, _))
       .WillOnce(MockGetDocumentsCallback(google_apis::HTTP_SUCCESS,
                                          &documents_value));
 
@@ -430,7 +430,7 @@ IN_PROC_BROWSER_TEST_F(RemoteFileSystemExtensionApiTest, ContentSearch) {
   // First, test will get drive root directory, to init file system.
   scoped_ptr<base::Value> documents_value(LoadJSONFile(kTestRootFeed));
   EXPECT_CALL(*mock_drive_service_,
-              GetDocuments(_, _, "", _, _))
+              GetDocuments(_, _, "", _, _, _))
       .WillOnce(MockGetDocumentsCallback(google_apis::HTTP_SUCCESS,
                                          &documents_value));
 
@@ -448,13 +448,13 @@ IN_PROC_BROWSER_TEST_F(RemoteFileSystemExtensionApiTest, ContentSearch) {
       AddNextFeedURLToFeedValue("https://next_feed", first_search_value.get()));
 
   EXPECT_CALL(*mock_drive_service_,
-              GetDocuments(GURL(), _, "foo", _, _))
+              GetDocuments(GURL(), _, "foo", _, _, _))
       .WillOnce(MockGetDocumentsCallback(google_apis::HTTP_SUCCESS,
                                          &first_search_value));
 
   scoped_ptr<base::Value> second_search_value(LoadJSONFile(kTestRootFeed));
   EXPECT_CALL(*mock_drive_service_,
-              GetDocuments(GURL("https://next_feed"), _, "foo", _, _))
+              GetDocuments(GURL("https://next_feed"), _, "foo", _, _, _))
       .WillOnce(MockGetDocumentsCallback(google_apis::HTTP_SUCCESS,
                                          &second_search_value));
 

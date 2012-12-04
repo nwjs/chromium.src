@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_UI_BROWSER_COMMAND_CONTROLLER_H_
 
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/sync/profile_sync_service_observer.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/sessions/tab_restore_service_observer.h"
@@ -28,7 +27,6 @@ namespace chrome {
 
 class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
                                  public content::NotificationObserver,
-                                 public PrefObserver,
                                  public TabStripModelObserver,
                                  public TabRestoreServiceObserver,
                                  public ProfileSyncServiceObserver {
@@ -88,10 +86,6 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // Overridden from PrefObserver:
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
   // Overridden from TabStripModelObserver:
   virtual void TabInsertedAt(content::WebContents* contents,
                              int index,
@@ -99,9 +93,11 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
   virtual void TabDetachedAt(content::WebContents* contents,
                              int index) OVERRIDE;
   virtual void TabReplacedAt(TabStripModel* tab_strip_model,
-                             TabContents* old_contents,
-                             TabContents* new_contents,
+                             content::WebContents* old_contents,
+                             content::WebContents* new_contents,
                              int index) OVERRIDE;
+  virtual void TabBlockedStateChanged(content::WebContents* contents,
+                                      int index) OVERRIDE;
 
   // Overridden from TabRestoreServiceObserver:
   virtual void TabRestoreServiceChanged(TabRestoreService* service) OVERRIDE;
@@ -137,6 +133,10 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
   // Updates commands that affect the bookmark bar.
   void UpdateCommandsForBookmarkBar();
 
+  // Updates commands that affect file selection dialogs in aggregate,
+  // namely the save-page-as state and the open-file state.
+  void UpdateCommandsForFileSelectionDialogs();
+
   // Update commands whose state depends on the type of fullscreen mode the
   // window is in.
   void UpdateCommandsForFullscreenMode(FullScreenMode fullscreen_mode);
@@ -158,6 +158,9 @@ class BrowserCommandController : public CommandUpdater::CommandUpdaterDelegate,
   // state.  |is_loading| is true if the current WebContents is loading.
   // |force| is true if the button should change its icon immediately.
   void UpdateReloadStopState(bool is_loading, bool force);
+
+  // Updates commands for find.
+  void UpdateCommandsForFind();
 
   // Add/remove observers for interstitial attachment/detachment from
   // |contents|.

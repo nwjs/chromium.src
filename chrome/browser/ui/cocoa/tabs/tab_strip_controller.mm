@@ -43,6 +43,7 @@
 #import "chrome/browser/ui/cocoa/tabs/tab_strip_view.h"
 #import "chrome/browser/ui/cocoa/tabs/tab_view.h"
 #import "chrome/browser/ui/cocoa/tabs/throbber_view.h"
+#import "chrome/browser/ui/cocoa/tabs/throbbing_image_view.h"
 #import "chrome/browser/ui/cocoa/tracking_area.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
@@ -53,6 +54,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_selection_model.h"
+#include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/navigation_controller.h"
@@ -66,6 +68,7 @@
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/theme_provider.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/mac/nsimage_cache.h"
 
@@ -94,7 +97,7 @@ const CGFloat kLastMiniTabSpacing = 3.0;
 const CGFloat kIconWidthAndHeight = 16.0;
 
 // The amount by which the new tab button is offset (from the tabs).
-const CGFloat kNewTabButtonOffset = 8.0;
+const CGFloat kNewTabButtonOffset = 9.0;
 
 // Time (in seconds) in which tabs animate to their final position.
 const NSTimeInterval kAnimationDuration = 0.125;
@@ -102,6 +105,9 @@ const NSTimeInterval kAnimationDuration = 0.125;
 // The amount by wich the profile menu button is offset (from tab tabs or new
 // tab button).
 const CGFloat kProfileMenuButtonOffset = 6.0;
+
+// Throbbing duration on webrtc "this web page is watching you" favicon overlay.
+const int kRecordingDurationMs = 1000;
 
 // Helper class for doing NSAnimationContext calls that takes a bool to disable
 // all the work.  Useful for code that wants to conditionally animate.
@@ -392,11 +398,13 @@ private:
     // Set the images from code because Cocoa fails to find them in our sub
     // bundle during tests.
     [[newTabButton_ cell] setImageID:IDR_NEWTAB_BUTTON
-                    forButtonState:image_button_cell::kDefaultState];
+                      forButtonState:image_button_cell::kDefaultState];
     [[newTabButton_ cell] setImageID:IDR_NEWTAB_BUTTON_H
-                    forButtonState:image_button_cell::kHoverState];
+                      forButtonState:image_button_cell::kHoverState];
     [[newTabButton_ cell] setImageID:IDR_NEWTAB_BUTTON_P
-                    forButtonState:image_button_cell::kPressedState];
+                      forButtonState:image_button_cell::kPressedState];
+    [[newTabButton_ cell] setImageID:IDR_NEWTAB_BUTTON_MASK
+                      forButtonState:image_button_cell::kMaskState];
     newTabButtonShowingHoverImage_ = NO;
     newTabTrackingArea_.reset(
         [[CrTrackingArea alloc] initWithRect:[newTabButton_ bounds]
@@ -794,7 +802,7 @@ private:
       NSView* lastTab = [self viewAtIndex:numberOfOpenTabs - 1];
       availableResizeWidth_ = NSMaxX([lastTab frame]);
     }
-    tabStripModel_->CloseTabContentsAt(
+    tabStripModel_->CloseWebContentsAt(
         index,
         TabStripModel::CLOSE_USER_GESTURE |
         TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
@@ -1238,7 +1246,8 @@ private:
   NSInteger activeIndex = [self indexFromModelIndex:modelIndex];
 
   if (oldContents) {
-    int oldModelIndex = chrome::GetIndexOfTab(browser_, oldContents);
+    int oldModelIndex =
+        browser_->tab_strip_model()->GetIndexOfWebContents(oldContents);
     if (oldModelIndex != -1) {  // When closing a tab, the old tab may be gone.
       NSInteger oldIndex = [self indexFromModelIndex:oldModelIndex];
       TabContentsController* oldController =
@@ -1298,7 +1307,7 @@ private:
   DCHECK_EQ(oldContents, [oldController webContents]);
 
   // Simply create a new TabContentsController for |newContents| and place it
-  // into the array, replacing |oldContents|.  A ActiveTabChanged notification
+  // into the array, replacing |oldContents|.  An ActiveTabChanged notification
   // will follow, at which point we will install the new view.
   scoped_nsobject<TabContentsController> newController(
       [[TabContentsController alloc] initWithContents:newContents]);
@@ -1501,7 +1510,25 @@ private:
     NSView* iconView = nil;
     if (newHasIcon) {
       if (newState == kTabDone) {
-        iconView = [self iconImageViewForContents:contents];
+        NSImageView* imageView = [self iconImageViewForContents:contents];
+
+        ui::ThemeProvider* theme = [[tabStripView_ window] themeProvider];
+        if (chrome::ShouldShowRecordingIndicator(contents) && theme) {
+          NSImage* recording = theme->GetNSImageNamed(IDR_TAB_RECORDING, true);
+
+          NSRect frame =
+              NSMakeRect(0, 0, kIconWidthAndHeight, kIconWidthAndHeight);
+          ThrobbingImageView* recordingView =
+              [[[ThrobbingImageView alloc] initWithFrame:frame
+                                         backgroundImage:[imageView image]
+                                              throbImage:recording
+                                              durationMS:kRecordingDurationMs]
+                  autorelease];
+
+          iconView = recordingView;
+        } else {
+          iconView = imageView;
+        }
       } else if (newState == kTabCrashed) {
         NSImage* oldImage = [[self iconImageViewForContents:contents] image];
         NSRect frame =
@@ -1675,7 +1702,7 @@ private:
   int toIndex = [self indexOfPlaceholder];
   // Cancel any pending tab transition.
   hoverTabSelector_->CancelTabTransition();
-  tabStripModel_->MoveTabContentsAt(from, toIndex, true);
+  tabStripModel_->MoveWebContentsAt(from, toIndex, true);
 }
 
 // Drop a given TabContents at the location of the current placeholder.
@@ -1698,8 +1725,8 @@ private:
 
   // Insert it into this tab strip. We want it in the foreground and to not
   // inherit the current tab's group.
-  tabStripModel_->InsertTabContentsAt(
-      modelIndex, contents,
+  tabStripModel_->InsertWebContentsAt(
+      modelIndex, contents->web_contents(),
       TabStripModel::ADD_ACTIVE | (pinned ? TabStripModel::ADD_PINNED : 0));
 }
 

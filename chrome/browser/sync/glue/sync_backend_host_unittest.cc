@@ -11,6 +11,8 @@
 #include "base/message_loop.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/test/test_timeouts.h"
+#include "chrome/browser/sync/glue/device_info.h"
+#include "chrome/browser/sync/glue/synced_device_tracker.h"
 #include "chrome/browser/sync/invalidations/invalidator_storage.h"
 #include "chrome/browser/sync/sync_prefs.h"
 #include "chrome/test/base/testing_profile.h"
@@ -156,10 +158,13 @@ class SyncBackendHostTest : public testing::Test {
     // NOTE: We can't include Passwords or Typed URLs due to the Sync Backend
     // Registrar removing them if it can't find their model workers.
     enabled_types_.Put(syncer::BOOKMARKS);
+    enabled_types_.Put(syncer::NIGORI);
+    enabled_types_.Put(syncer::DEVICE_INFO);
     enabled_types_.Put(syncer::PREFERENCES);
     enabled_types_.Put(syncer::SESSIONS);
     enabled_types_.Put(syncer::SEARCH_ENGINES);
     enabled_types_.Put(syncer::AUTOFILL);
+    enabled_types_.Put(syncer::EXPERIMENTS);
   }
 
   virtual void TearDown() OVERRIDE {
@@ -173,10 +178,10 @@ class SyncBackendHostTest : public testing::Test {
     profile_.reset();
     // Pump messages posted by the sync thread (which may end up
     // posting on the IO thread).
-    ui_loop_.RunAllPending();
+    ui_loop_.RunUntilIdle();
     io_thread_.Stop();
     // Pump any messages posted by the IO thread.
-    ui_loop_.RunAllPending();
+    ui_loop_.RunUntilIdle();
   }
 
   // Synchronously initializes the backend.
@@ -631,6 +636,40 @@ TEST_F(SyncBackendHostTest, InvalidationsAfterStopSyncingForShutdown) {
 
   TearDown();
   SetUp();
+}
+
+// Ensure the device info tracker is initialized properly on startup.
+TEST_F(SyncBackendHostTest, InitializeDeviceInfo) {
+  ASSERT_EQ(NULL, backend_->GetSyncedDeviceTrackerForTest());
+
+  InitializeBackend();
+  SyncedDeviceTracker* device_tracker =
+      backend_->GetSyncedDeviceTrackerForTest();
+  ASSERT_TRUE(device_tracker->ReadLocalDeviceInfo());
+}
+
+// Verify that downloading control types only downloads those types that do
+// not have initial sync ended set.
+TEST_F(SyncBackendHostTest, DownloadControlTypes) {
+  sync_prefs_->SetSyncSetupCompleted();
+  // Set sync manager behavior before passing it down. Experiments and device
+  // info are new types without progress markers or initial sync ended, while
+  // all other types have been fully downloaded and applied.
+  syncer::ModelTypeSet new_types(syncer::EXPERIMENTS, syncer::DEVICE_INFO);
+  syncer::ModelTypeSet old_types =
+      Difference(enabled_types_, new_types);
+  fake_manager_factory_.set_progress_marker_types(old_types);
+  fake_manager_factory_.set_initial_sync_ended_types(old_types);
+
+  // Bringing up the backend should download the new types without downloading
+  // any old types.
+  InitializeBackend();
+  EXPECT_TRUE(fake_manager_->GetAndResetDownloadedTypes().Equals(new_types));
+  EXPECT_TRUE(Intersection(fake_manager_->GetAndResetCleanedTypes(),
+                           enabled_types_).Empty());
+  EXPECT_TRUE(fake_manager_->InitialSyncEndedTypes().Equals(enabled_types_));
+  EXPECT_TRUE(fake_manager_->GetTypesWithEmptyProgressMarkerToken(
+      enabled_types_).Empty());
 }
 
 }  // namespace

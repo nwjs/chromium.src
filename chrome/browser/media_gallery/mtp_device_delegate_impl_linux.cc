@@ -4,18 +4,21 @@
 
 #include "chrome/browser/media_gallery/mtp_device_delegate_impl_linux.h"
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "base/bind.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/sequenced_task_runner.h"
 #include "base/sequenced_task_runner_helpers.h"
 #include "base/string_util.h"
+#include "base/synchronization/cancellation_flag.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/media_transfer_protocol/media_transfer_protocol_manager.h"
 #include "chrome/browser/media_transfer_protocol/mtp_file_entry.pb.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/notification_service.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
 using base::Bind;
@@ -66,6 +69,14 @@ MediaTransferProtocolManager* GetMediaTransferProtocolManager() {
 // This method is used to handle the results of
 // MediaTransferProtocolManager::CloseStorage method call.
 void DoNothing(bool error) {
+}
+
+// Closes the device storage on the UI thread.
+void CloseStorageOnUIThread(const std::string& device_handle) {
+  DCHECK(!device_handle.empty());
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  GetMediaTransferProtocolManager()->CloseStorage(device_handle,
+                                                  Bind(&DoNothing));
 }
 
 // Returns the device relative file path given |file_path|.
@@ -122,6 +133,9 @@ class OpenStorageWorker
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
                             Bind(&OpenStorageWorker::DoWorkOnUIThread, this));
     on_task_completed_event_->Wait();
+
+    if (on_shutdown_event_->IsSignaled())
+      cancel_tasks_flag_.Set();
   }
 
   // Returns a device handle string if the OpenStorage() request was
@@ -150,6 +164,8 @@ class OpenStorageWorker
   // storage for communication. This is called on UI thread.
   void DoWorkOnUIThread() {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+    if (cancel_tasks_flag_.IsSet())
+      return;
 
     GetMediaTransferProtocolManager()->OpenStorage(
         storage_name_, mtpd::kReadOnlyMode,
@@ -161,6 +177,9 @@ class OpenStorageWorker
   // |media_task_runner_|.
   void OnDidWorkOnUIThread(const std::string& device_handle, bool error) {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+    if (cancel_tasks_flag_.IsSet())
+      return;
+
     if (!error)
       device_handle_ = device_handle;
     on_task_completed_event_->Signal();
@@ -184,6 +203,12 @@ class OpenStorageWorker
 
   // Stores the result of OpenStorage() request.
   std::string device_handle_;
+
+  // Set to ignore the request results. This will be set when
+  // MTPDeviceDelegateImplLinux object is about to be deleted.
+  // |on_task_completed_event_| and |on_shutdown_event_| should not be
+  // dereferenced when this is set.
+  base::CancellationFlag cancel_tasks_flag_;
 
   DISALLOW_COPY_AND_ASSIGN(OpenStorageWorker);
 };
@@ -220,6 +245,9 @@ class GetFileInfoWorker
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
                             Bind(&GetFileInfoWorker::DoWorkOnUIThread, this));
     on_task_completed_event_->Wait();
+
+    if (on_shutdown_event_->IsSignaled())
+      cancel_tasks_flag_.Set();
   }
 
   // Returns GetFileInfo() result and fills in |file_info| with requested file
@@ -252,6 +280,10 @@ class GetFileInfoWorker
   // information.
   void DoWorkOnUIThread() {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+    if (cancel_tasks_flag_.IsSet()) {
+      error_ = base::PLATFORM_FILE_ERROR_FAILED;
+      return;
+    }
 
     GetMediaTransferProtocolManager()->GetFileInfoByPath(
         device_handle_, path_,
@@ -263,6 +295,11 @@ class GetFileInfoWorker
   // to unblock |media_task_runner_|.
   void OnDidWorkOnUIThread(const MtpFileEntry& file_entry, bool error) {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+    if (cancel_tasks_flag_.IsSet()) {
+      error_ = base::PLATFORM_FILE_ERROR_FAILED;
+      return;
+    }
+
     if (error) {
       error_ = base::PLATFORM_FILE_ERROR_NOT_FOUND;
     } else {
@@ -304,6 +341,12 @@ class GetFileInfoWorker
   // Stores a reference to waitable event associated with the shut down message.
   WaitableEvent* on_shutdown_event_;
 
+  // Set to ignore the request results. This will be set when
+  // MTPDeviceDelegateImplLinux object is about to be deleted.
+  // |on_task_completed_event_| and |on_shutdown_event_| should not be
+  // dereferenced when this is set.
+  base::CancellationFlag cancel_tasks_flag_;
+
   DISALLOW_COPY_AND_ASSIGN(GetFileInfoWorker);
 };
 
@@ -313,12 +356,18 @@ class ReadFileWorker
  public:
   // Constructed on |media_task_runner_| thread.
   ReadFileWorker(const std::string& handle,
-                 const std::string& path,
+                 const std::string& src_path,
+                 uint32 total_size,
+                 const FilePath& dest_path,
                  SequencedTaskRunner* task_runner,
                  WaitableEvent* task_completed_event,
                  WaitableEvent* shutdown_event)
       : device_handle_(handle),
-        path_(path),
+        src_path_(src_path),
+        total_bytes_(total_size),
+        dest_path_(dest_path),
+        bytes_read_(0),
+        error_occurred_(false),
         media_task_runner_(task_runner),
         on_task_completed_event_(task_completed_event),
         on_shutdown_event_(shutdown_event) {
@@ -335,14 +384,34 @@ class ReadFileWorker
       return;
     }
 
-    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-                            Bind(&ReadFileWorker::DoWorkOnUIThread, this));
-    on_task_completed_event_->Wait();
+    int dest_fd = open(dest_path_.value().c_str(), O_WRONLY);
+    if (dest_fd < 0)
+      return;
+    file_util::ScopedFD dest_fd_scoper(&dest_fd);
+
+    while (bytes_read_ < total_bytes_) {
+      BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
+                              Bind(&ReadFileWorker::DoWorkOnUIThread, this));
+      on_task_completed_event_->Wait();
+      if (error_occurred_)
+        break;
+      if (on_shutdown_event_->IsSignaled()) {
+        cancel_tasks_flag_.Set();
+        break;
+      }
+
+      int bytes_written =
+          file_util::WriteFileDescriptor(dest_fd, data_.data(), data_.size());
+      if (static_cast<int>(data_.size()) != bytes_written)
+        break;
+
+      bytes_read_ += data_.size();
+    }
   }
 
-  // Returns the media file contents received by ReadFileByPath() callback
-  // function.
-  const std::string& data() const { return data_; }
+  bool Succeeded() const {
+    return !error_occurred_ && (bytes_read_ == total_bytes_);
+  }
 
   // Returns the |media_task_runner_| associated with this worker object.
   // This function is exposed for WorkerDeleter struct to access the
@@ -365,8 +434,12 @@ class ReadFileWorker
   // contents.
   void DoWorkOnUIThread() {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-    GetMediaTransferProtocolManager()->ReadFileByPath(
-      device_handle_, path_, Bind(&ReadFileWorker::OnDidWorkOnUIThread, this));
+    if (cancel_tasks_flag_.IsSet())
+      return;
+
+    GetMediaTransferProtocolManager()->ReadFileChunkByPath(
+        device_handle_, src_path_, bytes_read_, BytesToRead(),
+        Bind(&ReadFileWorker::OnDidWorkOnUIThread, this));
   }
 
   // Query callback for DoWorkOnUIThread(). On success, |data| has the media
@@ -374,26 +447,53 @@ class ReadFileWorker
   // to unblock |media_task_runner_|.
   void OnDidWorkOnUIThread(const std::string& data, bool error) {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-    if (!error) {
-      // TODO(kmadhusu): Data could be really huge. Consider passing data by
-      // pointer/ref rather than by value here to avoid an extra data copy.
+    if (cancel_tasks_flag_.IsSet())
+      return;
+
+    error_occurred_ = error || (data.size() != BytesToRead());
+    if (!error_occurred_)
       data_ = data;
-    }
     on_task_completed_event_->Signal();
   }
 
-  // Stores the device unique identifier to query the device.
+  uint32 BytesToRead() const {
+    // Read data in 1 MB chunks.
+    static const uint32 kReadChunkSize = 1024 * 1024;
+    return std::min(kReadChunkSize, total_bytes_ - bytes_read_);
+  }
+
+  // The device unique identifier to query the device.
   const std::string device_handle_;
 
-  // Stores the media device file path.
-  const std::string path_;
+  // The media device file path.
+  const std::string src_path_;
 
-  // Stores a reference to |media_task_runner_| to destruct this object on the
-  // correct thread.
-  scoped_refptr<SequencedTaskRunner> media_task_runner_;
+  // Number of bytes to read.
+  const uint32 total_bytes_;
 
-  // Stores the result of ReadFileByPath() callback.
+  // Where to write the data read from the device.
+  const FilePath dest_path_;
+
+  /*****************************************************************************
+   * The variables below are accessed on both |media_task_runner_| and the UI
+   * thread. However, there's no concurrent access because the UI thread is in a
+   * blocked state when access occurs on |media_task_runner_|.
+   */
+
+  // Number of bytes read from the device.
+  uint32 bytes_read_;
+
+  // Temporary data storage.
   std::string data_;
+
+  // Whether an error occurred during file transfer.
+  bool error_occurred_;
+
+  /****************************************************************************/
+
+  // A reference to |media_task_runner_| to destruct this object on the correct
+  // thread.
+  scoped_refptr<SequencedTaskRunner> media_task_runner_;
 
   // |media_task_runner_| can wait on this event until the required operation
   // is complete.
@@ -403,6 +503,12 @@ class ReadFileWorker
 
   // Stores a reference to waitable event associated with the shut down message.
   WaitableEvent* on_shutdown_event_;
+
+  // Set to ignore the request results. This will be set when
+  // MTPDeviceDelegateImplLinux object is about to be deleted.
+  // |on_task_completed_event_| and |on_shutdown_event_| should not be
+  // dereferenced when this is set.
+  base::CancellationFlag cancel_tasks_flag_;
 
   DISALLOW_COPY_AND_ASSIGN(ReadFileWorker);
 };
@@ -459,6 +565,8 @@ class ReadDirectoryWorker
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
                             Bind(&ReadDirectoryWorker::DoWorkOnUIThread, this));
     on_task_completed_event_->Wait();
+    if (on_shutdown_event_->IsSignaled())
+      cancel_tasks_flag_.Set();
   }
 
   // Returns the directory entries for the given directory path.
@@ -488,6 +596,8 @@ class ReadDirectoryWorker
   // entries. This is called on UI thread.
   void DoWorkOnUIThread() {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+    if (cancel_tasks_flag_.IsSet())
+      return;
 
     if (!dir_path_.empty()) {
       GetMediaTransferProtocolManager()->ReadDirectoryByPath(
@@ -506,6 +616,9 @@ class ReadDirectoryWorker
   void OnDidWorkOnUIThread(const std::vector<MtpFileEntry>& file_entries,
                            bool error) {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+    if (cancel_tasks_flag_.IsSet())
+      return;
+
     if (!error)
       file_entries_ = file_entries;
     on_task_completed_event_->Signal();
@@ -535,6 +648,12 @@ class ReadDirectoryWorker
 
   // Stores the result of read directory request.
   std::vector<MtpFileEntry> file_entries_;
+
+  // Set to ignore the request results. This will be set when
+  // MTPDeviceDelegateImplLinux object is about to be deleted.
+  // |on_task_completed_event_| and |on_shutdown_event_| should not be
+  // dereferenced when this is set.
+  base::CancellationFlag cancel_tasks_flag_;
 
   DISALLOW_COPY_AND_ASSIGN(ReadDirectoryWorker);
 };
@@ -708,17 +827,6 @@ MTPDeviceDelegateImplLinux::MTPDeviceDelegateImplLinux(
   base::SequencedWorkerPool::SequenceToken media_sequence_token =
       pool->GetNamedSequenceToken("media-task-runner");
   media_task_runner_ = pool->GetSequencedTaskRunner(media_sequence_token);
-  registrar_.Add(this, chrome::NOTIFICATION_APP_TERMINATING,
-                 content::NotificationService::AllSources());
-
-  DCHECK(media_task_runner_);
-}
-
-MTPDeviceDelegateImplLinux::~MTPDeviceDelegateImplLinux() {
-  registrar_.RemoveAll();
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  GetMediaTransferProtocolManager()->CloseStorage(device_handle_,
-                                                  Bind(&DoNothing));
 }
 
 PlatformFileError MTPDeviceDelegateImplLinux::GetFileInfo(
@@ -770,47 +878,59 @@ PlatformFileError MTPDeviceDelegateImplLinux::CreateSnapshotFile(
   if (!LazyInit())
     return base::PLATFORM_FILE_ERROR_FAILED;
 
+  PlatformFileError error = GetFileInfo(device_file_path, file_info);
+  if (error != base::PLATFORM_FILE_OK)
+    return error;
+
+  if (file_info->size <= 0 || file_info->size > kuint32max)
+    return base::PLATFORM_FILE_ERROR_FAILED;
+
   scoped_refptr<ReadFileWorker> worker(new ReadFileWorker(
       device_handle_,
       GetDeviceRelativePath(device_path_, device_file_path.value()),
-      media_task_runner_, &on_task_completed_event_, &on_shutdown_event_));
+      file_info->size, local_path, media_task_runner_,
+      &on_task_completed_event_, &on_shutdown_event_));
   worker->Run();
 
-  const std::string& file_data = worker->data();
-  int data_size = static_cast<int>(file_data.length());
-  if (file_data.empty() ||
-      file_util::WriteFile(local_path, file_data.c_str(),
-                           data_size) != data_size) {
+  if (!worker->Succeeded())
     return base::PLATFORM_FILE_ERROR_FAILED;
-  }
-
-  PlatformFileError error = GetFileInfo(device_file_path, file_info);
 
   // Modify the last modified time to null. This prevents the time stamp
   // verfication in LocalFileStreamReader.
   file_info->last_modified = base::Time();
-  return error;
+  return base::PLATFORM_FILE_OK;
 }
 
 SequencedTaskRunner* MTPDeviceDelegateImplLinux::GetMediaTaskRunner() {
   return media_task_runner_.get();
 }
 
-void MTPDeviceDelegateImplLinux::DeleteOnCorrectThread() const {
-  if (!BrowserThread::CurrentlyOn(BrowserThread::UI)) {
-    BrowserThread::DeleteSoon(BrowserThread::UI, FROM_HERE, this);
-    return;
-  }
-  delete this;
-}
-
-void MTPDeviceDelegateImplLinux::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  DCHECK_EQ(chrome::NOTIFICATION_APP_TERMINATING, type);
+void MTPDeviceDelegateImplLinux::CancelPendingTasksAndDeleteDelegate() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  // Caution: This function is called on the IO thread. Access only the thread
+  // safe member variables in this function. Do all the clean up operations in
+  // DeleteDelegateOnTaskRunner().
   on_shutdown_event_.Signal();
   on_task_completed_event_.Signal();
+  media_task_runner_->PostTask(
+      FROM_HERE,
+      base::Bind(&MTPDeviceDelegateImplLinux::DeleteDelegateOnTaskRunner,
+                 base::Unretained(this)));
+}
+
+base::WeakPtr<fileapi::MTPDeviceDelegate> MTPDeviceDelegateImplLinux::
+    GetAsWeakPtrOnIOThread() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  base::WeakPtr<fileapi::MTPDeviceDelegate> delegate = AsWeakPtr();
+  // The weak pointer is instantiated on the IO thread, but only accessed on
+  // |media_task_runner_|. Therefore, detach from the current thread.
+  DetachFromThread();
+  return delegate;
+}
+
+MTPDeviceDelegateImplLinux::~MTPDeviceDelegateImplLinux() {
+  DCHECK(media_task_runner_->RunsTasksOnCurrentThread());
+  // Do all the clean up operations on DeleteDelegateOnTaskRunner().
 }
 
 bool MTPDeviceDelegateImplLinux::LazyInit() {
@@ -829,6 +949,13 @@ bool MTPDeviceDelegateImplLinux::LazyInit() {
   worker->Run();
   device_handle_ = worker->device_handle();
   return !device_handle_.empty();
+}
+
+void MTPDeviceDelegateImplLinux::DeleteDelegateOnTaskRunner() {
+  DCHECK(media_task_runner_->RunsTasksOnCurrentThread());
+  BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
+                          Bind(&CloseStorageOnUIThread, device_handle_));
+  delete this;
 }
 
 }  // namespace chrome

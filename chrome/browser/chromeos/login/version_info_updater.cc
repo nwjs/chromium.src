@@ -54,16 +54,15 @@ VersionInfoUpdater::~VersionInfoUpdater() {
 void VersionInfoUpdater::StartUpdate(bool is_official_build) {
   if (base::chromeos::IsRunningOnChromeOS()) {
     version_loader_.GetVersion(
-        &version_consumer_,
+        is_official_build ? VersionLoader::VERSION_SHORT_WITH_DATE
+                          : VersionLoader::VERSION_FULL,
         base::Bind(&VersionInfoUpdater::OnVersion, base::Unretained(this)),
-        is_official_build ?
-            VersionLoader::VERSION_SHORT_WITH_DATE :
-            VersionLoader::VERSION_FULL);
+        &tracker_);
     boot_times_loader_.GetBootTimes(
-        &boot_times_consumer_,
-        base::Bind(is_official_build ? &VersionInfoUpdater::OnBootTimesNoop :
-                                       &VersionInfoUpdater::OnBootTimes,
-                   base::Unretained(this)));
+        base::Bind(is_official_build ? &VersionInfoUpdater::OnBootTimesNoop
+                                     : &VersionInfoUpdater::OnBootTimes,
+                   base::Unretained(this)),
+        &tracker_);
   } else {
     UpdateVersionLabel();
   }
@@ -190,18 +189,16 @@ void VersionInfoUpdater::SetEnterpriseInfo(const std::string& domain_name,
   }
 }
 
-void VersionInfoUpdater::OnVersion(
-    VersionLoader::Handle handle, const std::string& version) {
+void VersionInfoUpdater::OnVersion(const std::string& version) {
   version_text_ = version;
   UpdateVersionLabel();
 }
 
 void VersionInfoUpdater::OnBootTimesNoop(
-    BootTimesLoader::Handle handle, BootTimesLoader::BootTimes boot_times) {
-}
+    const BootTimesLoader::BootTimes& boot_times) {}
 
 void VersionInfoUpdater::OnBootTimes(
-    BootTimesLoader::Handle handle, BootTimesLoader::BootTimes boot_times) {
+    const BootTimesLoader::BootTimes& boot_times) {
   const char* kBootTimesNoChromeExec =
       "Non-firmware boot took %.2f seconds (kernel %.2fs, system %.2fs)";
   const char* kBootTimesChromeExec =

@@ -5,12 +5,22 @@
 #ifndef CHROME_BROWSER_CHROMEOS_SETTINGS_DEVICE_SETTINGS_TEST_HELPER_H_
 #define CHROME_BROWSER_CHROMEOS_SETTINGS_DEVICE_SETTINGS_TEST_HELPER_H_
 
+#include <map>
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/memory/ref_counted.h"
+#include "base/message_loop.h"
+#include "base/string_util.h"
+#include "chrome/browser/chromeos/settings/device_settings_service.h"
+#include "chrome/browser/chromeos/settings/device_settings_test_helper.h"
+#include "chrome/browser/chromeos/settings/mock_owner_key_util.h"
+#include "chrome/browser/policy/policy_builder.h"
 #include "chromeos/dbus/session_manager_client.h"
+#include "content/public/test/test_browser_thread.h"
+#include "testing/gtest/include/gtest/gtest.h"
 
 namespace chromeos {
 
@@ -37,18 +47,34 @@ class DeviceSettingsTestHelper : public SessionManagerClient {
   // Flushes all pending operations.
   void Flush();
 
+  // Checks whether any asynchronous Store/Retrieve operations are pending.
+  bool HasPendingOperations() const;
+
   bool store_result() {
-    return store_result_;
+    return device_policy_.store_result_;
   }
   void set_store_result(bool store_result) {
-    store_result_ = store_result;
+    device_policy_.store_result_ = store_result;
   }
 
   const std::string& policy_blob() {
-    return policy_blob_;
+    return device_policy_.policy_blob_;
   }
   void set_policy_blob(const std::string& policy_blob) {
-    policy_blob_ = policy_blob;
+    device_policy_.policy_blob_ = policy_blob;
+  }
+
+  const std::string& device_local_account_policy_blob(
+      const std::string& id) const {
+    const std::map<std::string, PolicyState>::const_iterator entry =
+        device_local_account_policy_.find(id);
+    return entry == device_local_account_policy_.end() ?
+        EmptyString() : entry->second.policy_blob_;
+  }
+
+  void set_device_local_account_policy_blob(const std::string& id,
+                                            const std::string& policy_blob) {
+    device_local_account_policy_[id].policy_blob_ = policy_blob;
   }
 
   // SessionManagerClient:
@@ -71,17 +97,35 @@ class DeviceSettingsTestHelper : public SessionManagerClient {
       const RetrievePolicyCallback& callback) OVERRIDE;
   virtual void RetrieveUserPolicy(
       const RetrievePolicyCallback& callback) OVERRIDE;
+  virtual void RetrieveDeviceLocalAccountPolicy(
+      const std::string& account_id,
+      const RetrievePolicyCallback& callback) OVERRIDE;
   virtual void StoreDevicePolicy(const std::string& policy_blob,
                                  const StorePolicyCallback& callback) OVERRIDE;
   virtual void StoreUserPolicy(const std::string& policy_blob,
                                const StorePolicyCallback& callback) OVERRIDE;
+  virtual void StoreDeviceLocalAccountPolicy(
+      const std::string& account_id,
+      const std::string& policy_blob,
+      const StorePolicyCallback& callback) OVERRIDE;
 
  private:
-  bool store_result_;
-  std::string policy_blob_;
+  struct PolicyState {
+    bool store_result_;
+    std::string policy_blob_;
+    std::vector<StorePolicyCallback> store_callbacks_;
+    std::vector<RetrievePolicyCallback> retrieve_callbacks_;
 
-  std::vector<StorePolicyCallback> store_callbacks_;
-  std::vector<RetrievePolicyCallback> retrieve_callbacks_;
+    PolicyState();
+    ~PolicyState();
+
+    bool HasPendingOperations() const {
+      return !store_callbacks_.empty() || !retrieve_callbacks_.empty();
+    }
+  };
+
+  PolicyState device_policy_;
+  std::map<std::string, PolicyState> device_local_account_policy_;
 
   DISALLOW_COPY_AND_ASSIGN(DeviceSettingsTestHelper);
 };
@@ -95,6 +139,39 @@ class ScopedDeviceSettingsTestHelper : public DeviceSettingsTestHelper {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ScopedDeviceSettingsTestHelper);
+};
+
+// A convenience test base class that initializes a DeviceSettingsService
+// instance for testing and allows for straightforward updating of device
+// settings. |device_settings_service_| starts out in uninitialized state, so
+// startup code gets tested as well.
+class DeviceSettingsTestBase : public testing::Test {
+ protected:
+  DeviceSettingsTestBase();
+  virtual ~DeviceSettingsTestBase();
+
+  virtual void SetUp() OVERRIDE;
+  virtual void TearDown() OVERRIDE;
+
+  // Flushes any pending device settings operations.
+  void FlushDeviceSettings();
+
+  // Triggers an owner key and device settings reload on
+  // |device_settings_service_| and flushes the resulting load operation.
+  void ReloadDeviceSettings();
+
+  MessageLoop loop_;
+  content::TestBrowserThread ui_thread_;
+  content::TestBrowserThread file_thread_;
+
+  policy::DevicePolicyBuilder device_policy_;
+
+  DeviceSettingsTestHelper device_settings_test_helper_;
+  scoped_refptr<MockOwnerKeyUtil> owner_key_util_;
+  DeviceSettingsService device_settings_service_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DeviceSettingsTestBase);
 };
 
 }  // namespace chromeos

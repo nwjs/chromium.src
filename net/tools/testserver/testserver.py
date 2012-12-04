@@ -37,13 +37,15 @@ import urlparse
 import zlib
 
 import echo_message
-from mod_pywebsocket.standalone import WebSocketServer
 import pyftpdlib.ftpserver
 import testserver_base
 import tlslite
 import tlslite.api
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(
+    0, os.path.join(BASE_DIR, '..', '..', '..', 'third_party/pywebsocket/src'))
+from mod_pywebsocket.standalone import WebSocketServer
 
 SERVER_HTTP = 0
 SERVER_FTP = 1
@@ -1721,9 +1723,7 @@ class TestPageHandler(BasePageHandler):
       import device_management
       policy_path = os.path.join(self.server.data_dir, 'device_management')
       self.server._device_management_handler = (
-          device_management.TestServer(policy_path,
-                                       self.server.policy_keys,
-                                       self.server.policy_user))
+          device_management.TestServer(policy_path, self.server.policy_keys))
 
     http_response, raw_reply = (
         self.server._device_management_handler.HandleRequest(self.path,
@@ -1767,7 +1767,8 @@ class SyncPageHandler(BasePageHandler):
                     self.ChromiumSyncTransientErrorOpHandler,
                     self.ChromiumSyncErrorOpHandler,
                     self.ChromiumSyncSyncTabFaviconsOpHandler,
-                    self.ChromiumSyncCreateSyncedBookmarksOpHandler]
+                    self.ChromiumSyncCreateSyncedBookmarksOpHandler,
+                    self.ChromiumSyncEnableKeystoreEncryptionOpHandler]
 
     post_handlers = [self.ChromiumSyncCommandHandler,
                      self.ChromiumSyncTimeHandler]
@@ -1974,6 +1975,19 @@ class SyncPageHandler(BasePageHandler):
     if not self._ShouldHandleRequest(test_name):
       return False
     result, raw_reply = self.server._sync_handler.HandleCreateSyncedBookmarks()
+    self.send_response(result)
+    self.send_header('Content-Type', 'text/html')
+    self.send_header('Content-Length', len(raw_reply))
+    self.end_headers()
+    self.wfile.write(raw_reply)
+    return True
+
+  def ChromiumSyncEnableKeystoreEncryptionOpHandler(self):
+    test_name = "/chromiumsync/enablekeystoreencryption"
+    if not self._ShouldHandleRequest(test_name):
+      return False
+    result, raw_reply = (
+        self.server._sync_handler.HandleEnableKeystoreEncryption())
     self.send_response(result)
     self.send_header('Content-Type', 'text/html')
     self.send_header('Content-Length', len(raw_reply))
@@ -2241,7 +2255,6 @@ class ServerRunner(testserver_base.TestServerRunner):
       server_data['port'] = server.server_port
       server._device_management_handler = None
       server.policy_keys = self.options.policy_keys
-      server.policy_user = self.options.policy_user
       server.gdata_auth_token = self.options.auth_token
     elif self.options.server_type == SERVER_WEBSOCKET:
       # Launch pywebsocket via WebSocketServer.
@@ -2424,13 +2437,6 @@ class ServerRunner(testserver_base.TestServerRunner):
                                   'round-robin fashion. The server will '
                                   'generate a random key if none is specified '
                                   'on the command line.')
-    self.option_parser.add_option('--policy-user',
-                                  default='user@example.com',
-                                  dest='policy_user',
-                                  help='Specify the user name the server '
-                                  'should report back to the client as the '
-                                  'user owning the token used for making the '
-                                  'policy request.')
     self.option_parser.add_option('--auth-token', dest='auth_token',
                                   help='Specify the auth token which should be '
                                   'used in the authorization header for GData.')

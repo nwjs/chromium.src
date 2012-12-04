@@ -8,6 +8,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/prerender/prerender_tracker.h"
 #include "chrome/browser/renderer_host/chrome_url_request_user_data.h"
+#include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "content/public/browser/resource_controller.h"
 #include "net/base/load_flags.h"
 #include "net/url_request/url_request.h"
@@ -20,18 +21,6 @@ static const int kCheckUrlTimeoutMs = 5000;
 // TODO(eroman): Downgrade these CHECK()s to DCHECKs once there is more
 //               unit test coverage.
 
-// static
-SafeBrowsingResourceThrottle* SafeBrowsingResourceThrottle::Create(
-    const net::URLRequest* request,
-    int render_process_host_id,
-    int render_view_id,
-    bool is_subresource,
-    SafeBrowsingService* safe_browsing) {
-  return new SafeBrowsingResourceThrottle(
-      request, render_process_host_id, render_view_id, is_subresource,
-      safe_browsing);
-}
-
 SafeBrowsingResourceThrottle::SafeBrowsingResourceThrottle(
     const net::URLRequest* request,
     int render_process_host_id,
@@ -43,14 +32,15 @@ SafeBrowsingResourceThrottle::SafeBrowsingResourceThrottle(
       threat_type_(SB_THREAT_TYPE_SAFE),
       render_process_host_id_(render_process_host_id),
       render_view_id_(render_view_id),
-      safe_browsing_(safe_browsing),
+      database_manager_(safe_browsing->database_manager()),
+      ui_manager_(safe_browsing->ui_manager()),
       request_(request),
       is_subresource_(is_subresource) {
 }
 
 SafeBrowsingResourceThrottle::~SafeBrowsingResourceThrottle() {
   if (state_ == STATE_CHECKING_URL)
-    safe_browsing_->CancelCheck(this);
+    database_manager_->CancelCheck(this);
 }
 
 void SafeBrowsingResourceThrottle::WillStartRequest(bool* defer) {
@@ -99,8 +89,7 @@ void SafeBrowsingResourceThrottle::OnCheckBrowseUrlResult(
 
   if (threat_type == SB_THREAT_TYPE_SAFE) {
     // Log how much time the safe browsing check cost us.
-    safe_browsing_->LogPauseDelay(
-        base::TimeTicks::Now() - url_check_start_time_);
+    ui_manager_->LogPauseDelay(base::TimeTicks::Now() - url_check_start_time_);
 
     // Continue the request.
     ResumeRequest();
@@ -138,7 +127,7 @@ void SafeBrowsingResourceThrottle::StartDisplayingBlockingPage(
 
   state_ = STATE_DISPLAYING_BLOCKING_PAGE;
 
-  safe_browsing_->DisplayBlockingPage(
+  ui_manager_->DisplayBlockingPage(
       url,
       request_->original_url(),
       redirect_urls_,
@@ -167,10 +156,10 @@ void SafeBrowsingResourceThrottle::OnBlockingPageComplete(bool proceed) {
 
 bool SafeBrowsingResourceThrottle::CheckUrl(const GURL& url) {
   CHECK(state_ == STATE_NONE);
-  bool succeeded_synchronously = safe_browsing_->CheckBrowseUrl(url, this);
+  bool succeeded_synchronously = database_manager_->CheckBrowseUrl(url, this);
   if (succeeded_synchronously) {
     threat_type_ = SB_THREAT_TYPE_SAFE;
-    safe_browsing_->LogPauseDelay(base::TimeDelta());  // No delay.
+    ui_manager_->LogPauseDelay(base::TimeDelta());  // No delay.
     return true;
   }
 
@@ -192,7 +181,7 @@ void SafeBrowsingResourceThrottle::OnCheckUrlTimeout() {
   CHECK(state_ == STATE_CHECKING_URL);
   CHECK(defer_state_ != DEFERRED_NONE);
 
-  safe_browsing_->CancelCheck(this);
+  database_manager_->CancelCheck(this);
   OnCheckBrowseUrlResult(url_being_checked_, SB_THREAT_TYPE_SAFE);
 }
 

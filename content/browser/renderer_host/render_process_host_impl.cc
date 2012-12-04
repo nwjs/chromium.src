@@ -41,6 +41,7 @@
 #include "content/browser/appcache/chrome_appcache_service.h"
 #include "content/browser/browser_main.h"
 #include "content/browser/browser_main_loop.h"
+#include "content/browser/browser_plugin/browser_plugin_message_filter.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/device_orientation/orientation_message_filter.h"
 #include "content/browser/dom_storage/dom_storage_context_impl.h"
@@ -344,41 +345,6 @@ RenderProcessHostImpl::RenderProcessHostImpl(
 
   ChildProcessSecurityPolicyImpl::GetInstance()->Add(GetID());
 
-  // Grant most file permissions to this renderer.
-  // PLATFORM_FILE_TEMPORARY, PLATFORM_FILE_HIDDEN and
-  // PLATFORM_FILE_DELETE_ON_CLOSE are not granted, because no existing API
-  // requests them.
-  // This is for the filesystem sandbox.
-  ChildProcessSecurityPolicyImpl::GetInstance()->GrantPermissionsForFile(
-      GetID(), storage_partition_impl->GetPath().Append(
-          fileapi::SandboxMountPointProvider::kNewFileSystemDirectory),
-      base::PLATFORM_FILE_OPEN |
-      base::PLATFORM_FILE_CREATE |
-      base::PLATFORM_FILE_OPEN_ALWAYS |
-      base::PLATFORM_FILE_CREATE_ALWAYS |
-      base::PLATFORM_FILE_OPEN_TRUNCATED |
-      base::PLATFORM_FILE_READ |
-      base::PLATFORM_FILE_WRITE |
-      base::PLATFORM_FILE_EXCLUSIVE_READ |
-      base::PLATFORM_FILE_EXCLUSIVE_WRITE |
-      base::PLATFORM_FILE_ASYNC |
-      base::PLATFORM_FILE_WRITE_ATTRIBUTES |
-      base::PLATFORM_FILE_ENUMERATE);
-  // This is so that we can read and move stuff out of the old filesystem
-  // sandbox.
-  ChildProcessSecurityPolicyImpl::GetInstance()->GrantPermissionsForFile(
-      GetID(), storage_partition_impl_->GetPath().Append(
-          fileapi::SandboxMountPointProvider::kOldFileSystemDirectory),
-      base::PLATFORM_FILE_READ | base::PLATFORM_FILE_WRITE |
-      base::PLATFORM_FILE_WRITE_ATTRIBUTES | base::PLATFORM_FILE_ENUMERATE);
-  // This is so that we can rename the old sandbox out of the way so that we
-  // know we've taken care of it.
-  ChildProcessSecurityPolicyImpl::GetInstance()->GrantPermissionsForFile(
-      GetID(), storage_partition_impl_->GetPath().Append(
-          fileapi::SandboxMountPointProvider::kRenamedOldFileSystemDirectory),
-      base::PLATFORM_FILE_CREATE | base::PLATFORM_FILE_CREATE_ALWAYS |
-      base::PLATFORM_FILE_WRITE);
-
   CHECK(!g_exited_main_message_loop);
   RegisterHost(GetID(), this);
   g_all_hosts.Get().set_check_on_null_data(true);
@@ -391,6 +357,7 @@ RenderProcessHostImpl::RenderProcessHostImpl(
 }
 
 RenderProcessHostImpl::~RenderProcessHostImpl() {
+  DCHECK(!run_renderer_in_process());
   ChildProcessSecurityPolicyImpl::GetInstance()->Remove(GetID());
 
   // We may have some unsent messages at this point, but that's OK.
@@ -398,13 +365,6 @@ RenderProcessHostImpl::~RenderProcessHostImpl() {
   while (!queued_messages_.empty()) {
     delete queued_messages_.front();
     queued_messages_.pop();
-  }
-
-  if (run_renderer_in_process()) {
-    // In single process mode, need to set IO allowed in browser main thread
-    // before joining the renderer thread
-    base::ThreadRestrictions::ScopedAllowIO allow_io;
-    in_process_renderer_.reset();
   }
 
   ClearTransportDIBCache();
@@ -521,6 +481,16 @@ void RenderProcessHostImpl::CreateMessageFilters() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   MediaObserver* media_observer =
       GetContentClient()->browser()->GetMediaObserver();
+  // Add BrowserPluginMessageFilter to ensure it gets the first stab at messages
+  // from guests.
+  if (IsGuest()) {
+    scoped_refptr<BrowserPluginMessageFilter> bp_message_filter(
+        new BrowserPluginMessageFilter(
+            GetID(),
+            GetBrowserContext()));
+    channel_->AddFilter(bp_message_filter);
+  }
+
   scoped_refptr<RenderMessageFilter> render_message_filter(
       new RenderMessageFilter(
           GetID(),
@@ -577,7 +547,7 @@ void RenderProcessHostImpl::CreateMessageFilters() {
                                               GetID(), browser_context));
 #if defined(ENABLE_INPUT_SPEECH)
   channel_->AddFilter(new InputTagSpeechDispatcherHost(
-      GetID(), storage_partition_impl_->GetURLRequestContext(),
+      IsGuest(), GetID(), storage_partition_impl_->GetURLRequestContext(),
       browser_context->GetSpeechRecognitionPreferences()));
   channel_->AddFilter(new SpeechRecognitionDispatcherHost(
       GetID(), storage_partition_impl_->GetURLRequestContext(),
@@ -750,6 +720,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
   static const char* const kSwitchNames[] = {
     // We propagate the Chrome Frame command line here as well in case the
     // renderer is not run in the sandbox.
+    switches::kAudioBufferSize,
     switches::kAuditAllHandles,
     switches::kAuditHandles,
     switches::kChromeFrame,
@@ -779,7 +750,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableSessionStorage,
     switches::kDisableSharedWorkers,
     switches::kDisableSpeechInput,
-    switches::kEnableScriptedSpeech,
 #if defined(OS_ANDROID)
     switches::kEnableWebAudio,
 #else
@@ -789,6 +759,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableWebSockets,
     switches::kDomAutomationController,
     switches::kEnableAccessibilityLogging,
+    switches::kEnableBrowserPluginCompositing,
     switches::kEnableBrowserPluginForAllViewTypes,
     switches::kEnableDCHECK,
     switches::kEnableEncryptedMedia,
@@ -820,8 +791,9 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnableSoftwareCompositingGLAdapter,
     switches::kEnableStatsTable,
     switches::kEnableThreadedCompositing,
+    switches::kEnableTouchDragDrop,
     switches::kDisableThreadedCompositing,
-    switches::kEnableTouchEvents,
+    switches::kDisableTouchAdjustment,
     switches::kEnableViewport,
     switches::kForceDeviceScaleFactor,
     switches::kFullMemoryCrashReport,
@@ -848,7 +820,9 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
 #endif
     switches::kRendererStartupDialog,
     switches::kShowPaintRects,
+    switches::kSitePerProcess,
     switches::kTestSandbox,
+    switches::kTouchEvents,
     switches::kTraceStartup,
     // This flag needs to be propagated to the renderer process for
     // --in-process-webgl.
@@ -860,11 +834,16 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kVModule,
     switches::kWebCoreLogChannels,
     cc::switches::kBackgroundColorInsteadOfCheckerboard,
-    cc::switches::kDisableThreadedAnimation,
+    cc::switches::kEnableImplSidePainting,
     cc::switches::kEnablePartialSwap,
-    cc::switches::kEnablePerTilePainting,
-    cc::switches::kEnablePinchInCompositor,
-    cc::switches::kJankInsteadOfCheckerboard,
+    cc::switches::kNumRasterThreads,
+    cc::switches::kShowPropertyChangedRects,
+    cc::switches::kShowSurfaceDamageRects,
+    cc::switches::kShowScreenSpaceRects,
+    cc::switches::kShowReplicaScreenSpaceRects,
+    cc::switches::kShowNonOccludingRects,
+    cc::switches::kShowOccludingRects,
+    cc::switches::kTraceOverdraw,
   };
   renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames,
                                  arraysize(kSwitchNames));
@@ -891,7 +870,7 @@ base::ProcessHandle RenderProcessHostImpl::GetHandle() {
 
 bool RenderProcessHostImpl::FastShutdownIfPossible() {
   if (run_renderer_in_process())
-    return false;  // Single process mode can't do fast shutdown.
+    return false;  // Single process mode never shutdown the renderer.
 
   if (!GetContentClient()->browser()->IsFastShutdownPossible())
     return false;
@@ -1148,7 +1127,9 @@ void RenderProcessHostImpl::Release(int routing_id) {
     return;
   }
 #endif
-  Cleanup();
+  // Keep the one renderer thread around forever in single process mode.
+  if (!run_renderer_in_process())
+    Cleanup();
 }
 
 void RenderProcessHostImpl::Cleanup() {
@@ -1324,6 +1305,16 @@ RenderProcessHost* RenderProcessHost::FromID(int render_process_id) {
 // static
 bool RenderProcessHost::ShouldTryToUseExistingProcessHost(
     BrowserContext* browser_context, const GURL& url) {
+  // Experimental:
+  // If --enable-strict-site-isolation or --site-per-process is enabled, do not
+  // try to reuse renderer processes when over the limit.  (We could allow pages
+  // from the same site to share, if we knew what the given process was
+  // dedicated to.  Allowing no sharing is simpler for now.)  This may cause
+  // resource exhaustion issues if too many sites are open at once.
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch(switches::kEnableStrictSiteIsolation) ||
+      command_line.HasSwitch(switches::kSitePerProcess))
+    return false;
 
   if (run_renderer_in_process())
     return true;
@@ -1501,8 +1492,9 @@ int RenderProcessHostImpl::GetActiveViewCount() {
 void RenderProcessHostImpl::OnShutdownRequest() {
   // Don't shut down if there are more active RenderViews than the one asking
   // to close, or if there are pending RenderViews being swapped back in.
+  // In single process mode, we never shutdown the renderer.
   int num_active_views = GetActiveViewCount();
-  if (pending_views_ || num_active_views > 1)
+  if (pending_views_ || num_active_views > 1 || run_renderer_in_process())
     return;
 
   // Notify any contents that might have swapped out renderers from this

@@ -6,6 +6,7 @@
 
 #include "base/base_paths.h"
 #include "base/file_version_info.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/path_service.h"
 #include "base/stringprintf.h"
 #include "base/test/test_timeouts.h"
@@ -75,7 +76,7 @@ FilePath ChromeFrameTestWithWebServer::test_file_path_;
 FilePath ChromeFrameTestWithWebServer::results_dir_;
 FilePath ChromeFrameTestWithWebServer::CFInstall_path_;
 FilePath ChromeFrameTestWithWebServer::CFInstance_path_;
-ScopedTempDir ChromeFrameTestWithWebServer::temp_dir_;
+base::ScopedTempDir ChromeFrameTestWithWebServer::temp_dir_;
 FilePath ChromeFrameTestWithWebServer::chrome_user_data_dir_;
 chrome_frame_test::TimedMsgLoop* ChromeFrameTestWithWebServer::loop_;
 std::string ChromeFrameTestWithWebServer::local_address_;
@@ -159,7 +160,7 @@ void ChromeFrameTestWithWebServer::SetUp() {
 
 void ChromeFrameTestWithWebServer::TearDown() {
   CloseBrowser();
-  loop().RunAllPending();
+  loop().RunUntilIdle();
   testing::Mock::VerifyAndClear(listener_mock_);
   testing::Mock::VerifyAndClear(server_mock_);
 }
@@ -441,7 +442,8 @@ TEST_F(ChromeFrameTestWithWebServer, FullTabIE_MIMEFilterBasic) {
   SimpleBrowserTest(IE, kMIMEFilterBasicPage);
 }
 
-TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_Resize) {
+// Times out: http://crbug.com/163728
+TEST_F(ChromeFrameTestWithWebServer, DISABLED_WidgetModeIE_Resize) {
   SimpleBrowserTest(IE, L"chrome_frame_resize.html");
 }
 
@@ -455,7 +457,8 @@ TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_NavigateURLAbsolute) {
 const wchar_t kNavigateURLRelativePage[] =
     L"navigateurl_relative_host.html";
 
-TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_NavigateURLRelative) {
+// Flaky, crbug.com/160497.
+TEST_F(ChromeFrameTestWithWebServer, FLAKY_WidgetModeIE_NavigateURLRelative) {
   SimpleBrowserTest(IE, kNavigateURLRelativePage);
 }
 
@@ -467,7 +470,9 @@ TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_ObjectFocus) {
 
 const wchar_t kiframeBasicPage[] = L"iframe_basic_host.html";
 
-TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_iframeBasic) {
+
+// Flaky, crbug.com/160497.
+TEST_F(ChromeFrameTestWithWebServer, FLAKY_WidgetModeIE_iframeBasic) {
   SimpleBrowserTest(IE, kiframeBasicPage);
 }
 
@@ -503,7 +508,8 @@ TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_CFInstanceFallback) {
 
 const wchar_t kCFINoSrcPage[] = L"CFInstance_no_src_host.html";
 
-TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_CFInstanceNoSrc) {
+// Flaky, crbug.com/160497.
+TEST_F(ChromeFrameTestWithWebServer, FLAKY_WidgetModeIE_CFInstanceNoSrc) {
   SimpleBrowserTest(IE, kCFINoSrcPage);
 }
 
@@ -607,8 +613,8 @@ TEST_F(ChromeFrameTestWithWebServer, FullTabIE_CFInstallDismiss) {
 }
 
 const wchar_t kInitializeHiddenPage[] = L"initialize_hidden.html";
-
-TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_InitializeHidden) {
+// Times out: http://crbug.com/163728
+TEST_F(ChromeFrameTestWithWebServer, DISABLED_WidgetModeIE_InitializeHidden) {
   SimpleBrowserTest(IE, kInitializeHiddenPage);
 }
 
@@ -634,7 +640,8 @@ TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_CFHttpHeaderFrameSet) {
 
 const wchar_t kVersionPage[] = L"version.html";
 
-TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_Version) {
+// Flaky, crbug.com/160497.
+TEST_F(ChromeFrameTestWithWebServer, FLAKY_WidgetModeIE_Version) {
   VersionTest(IE, kVersionPage);
 }
 
@@ -651,12 +658,14 @@ TEST_F(ChromeFrameTestWithWebServer, WidgetModeIE_PrivilegedApis) {
 }
 
 const wchar_t kMetaTagPage[] = L"meta_tag.html";
-TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_MetaTag) {
+// Flaky, crbug.com/160497.
+TEST_F(ChromeFrameTestWithWebServer, FLAKY_FullTabModeIE_MetaTag) {
   SimpleBrowserTest(IE, kMetaTagPage);
 }
 
+// Times out: http://crbug.com/163728
 const wchar_t kCFProtocolPage[] = L"cf_protocol.html";
-TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_CFProtocol) {
+TEST_F(ChromeFrameTestWithWebServer, DISABLED_FullTabModeIE_CFProtocol) {
   // Temporarily enable  gcf: protocol for this test.
   SetConfigBool(kAllowUnsafeURLs, true);
   SimpleBrowserTest(IE, kCFProtocolPage);
@@ -680,8 +689,9 @@ TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_ReferrerTest) {
   SimpleBrowserTest(IE, kReferrerMainTest);
 }
 
+// Times out: http://crbug.com/163728
 const wchar_t kSubFrameTestPage[] = L"full_tab_sub_frame_main.html";
-TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_SubFrame) {
+TEST_F(ChromeFrameTestWithWebServer, DISALBED_FullTabModeIE_SubFrame) {
   SimpleBrowserTest(IE, kSubFrameTestPage);
 }
 
@@ -693,7 +703,8 @@ TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_SubIFrame) {
 const wchar_t kXMLHttpRequestTestUrl[] =
     L"xmlhttprequest_test.html";
 
-TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_XHRTest) {
+// Flaky, crbug.com/160497.
+TEST_F(ChromeFrameTestWithWebServer, FLAKY_FullTabModeIE_XHRTest) {
   SimpleBrowserTest(IE, kXMLHttpRequestTestUrl);
 }
 
@@ -785,7 +796,8 @@ TEST_F(ChromeFrameTestWithWebServer, FLAKY_FullTabModeIE_TestPostReissue) {
 
 // Test whether following a link from an mshtml page to a CF page will cause
 // multiple network requests.  It should not.
-TEST_F(ChromeFrameTestWithWebServer, FullTabModeIE_TestMultipleGet) {
+// Flaky, crbug.com/160497.
+TEST_F(ChromeFrameTestWithWebServer, FLAKY_FullTabModeIE_TestMultipleGet) {
   // The order of pages in this array is assumed to be mshtml, cf, script.
   const wchar_t* kPages[] = {
     L"full_tab_get_mshtml.html",

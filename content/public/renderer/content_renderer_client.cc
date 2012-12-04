@@ -10,6 +10,10 @@ SkBitmap* ContentRendererClient::GetSadPluginBitmap() {
   return NULL;
 }
 
+SkBitmap* ContentRendererClient::GetSadWebViewBitmap() {
+  return NULL;
+}
+
 std::string ContentRendererClient::GetDefaultEncoding() {
   return std::string();
 }
@@ -52,7 +56,16 @@ bool ContentRendererClient::RunIdleHandlerWhenWidgetsHidden() {
   return true;
 }
 
-bool ContentRendererClient::AllowPopup(const GURL& creator) {
+bool ContentRendererClient::AllowPopup() {
+  return false;
+}
+
+bool ContentRendererClient::HandleNavigation(
+    WebKit::WebFrame* frame,
+    const WebKit::WebURLRequest& request,
+    WebKit::WebNavigationType type,
+    WebKit::WebNavigationPolicy default_policy,
+    bool is_redirect) {
   return false;
 }
 
@@ -67,6 +80,7 @@ bool ContentRendererClient::WillSendRequest(
     WebKit::WebFrame* frame,
     PageTransition transition_type,
     const GURL& url,
+    const GURL& first_party_for_cookies,
     GURL* new_url) {
   return false;
 }

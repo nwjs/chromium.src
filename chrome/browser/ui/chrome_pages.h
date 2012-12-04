@@ -11,6 +11,7 @@
 #include "chrome/common/content_settings_types.h"
 
 class Browser;
+class GURL;
 
 namespace content {
 class WebContents;
@@ -42,6 +43,7 @@ void ShowFeedbackPage(Browser* browser,
                       const std::string& category_tag);
 
 void ShowHelp(Browser* browser, HelpSource source);
+void ShowPolicy(Browser* browser);
 
 // Various things that open in a settings UI.
 void ShowSettings(Browser* browser);
@@ -54,6 +56,11 @@ void ShowImportDialog(Browser* browser);
 void ShowAboutChrome(Browser* browser);
 void ShowSearchEngineSettings(Browser* browser);
 void ShowSyncSetup(Browser* browser, SyncPromoUI::Source source);
+
+// Open a tab to sign into GAIA.
+void ShowGaiaSignin(Browser* browser,
+                    const std::string& service,
+                    const GURL& continue_url);
 
 }  // namespace chrome
 

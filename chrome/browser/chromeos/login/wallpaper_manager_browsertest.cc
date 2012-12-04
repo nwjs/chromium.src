@@ -4,12 +4,11 @@
 
 #include "chrome/browser/chromeos/login/wallpaper_manager.h"
 
-#include "ash/desktop_background/desktop_background_resources.h"
 #include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/desktop_background/desktop_background_controller_observer.h"
-#include "ash/display/multi_display_manager.h"
+#include "ash/display/display_manager.h"
 #include "ash/shell.h"
-#include "ash/test/multi_display_manager_test_api.h"
+#include "ash/test/display_manager_test_api.h"
 #include "base/file_util.h"
 #include "base/message_loop.h"
 #include "base/string_number_conversions.h"
@@ -20,7 +19,6 @@
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "ui/aura/env.h"
-#include "ui/aura/display_manager.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using namespace ash;
@@ -44,7 +42,6 @@ int kExpectedSmallWallpaperHeight = ash::kSmallWallpaperMaxHeight;
 int kExpectedLargeWallpaperWidth = 256;
 int kExpectedLargeWallpaperHeight = ash::kLargeWallpaperMaxHeight;
 #endif
-
 
 }  // namespace
 
@@ -70,15 +67,12 @@ class WallpaperManagerBrowserTest : public CrosInProcessBrowserTest,
   }
 
   // Update the display configuration as given in |display_specs|.
-  // See ash::test::MultiDisplayManagerTestApi::UpdateDisplay for more
+  // See ash::test::DisplayManagerTestApi::UpdateDisplay for more
   // details.
   void UpdateDisplay(const std::string& display_specs) {
-    internal::MultiDisplayManager* multi_display_manager =
-        static_cast<internal::MultiDisplayManager*>(
-            aura::Env::GetInstance()->display_manager());
-    ash::test::MultiDisplayManagerTestApi multi_display_manager_test_api(
-        multi_display_manager);
-    multi_display_manager_test_api.UpdateDisplay(display_specs);
+    ash::test::DisplayManagerTestApi display_manager_test_api(
+        ash::Shell::GetInstance()->display_manager());
+    display_manager_test_api.UpdateDisplay(display_specs);
   }
 
   void WaitAsyncWallpaperLoad() {
@@ -92,7 +86,7 @@ class WallpaperManagerBrowserTest : public CrosInProcessBrowserTest,
   // Sets |username| wallpaper.
   void SetUserWallpaper(const std::string& username) {
     ListPrefUpdate users_pref(local_state_, "LoggedInUsers");
-    users_pref->AppendIfNotPresent(base::Value::CreateStringValue(username));
+    users_pref->AppendIfNotPresent(new base::StringValue(username));
     WallpaperManager::Get()->SetUserWallpaper(username);
   }
 
@@ -111,6 +105,10 @@ class WallpaperManagerBrowserTest : public CrosInProcessBrowserTest,
     EXPECT_EQ(static_cast<int>(image_data->size()), written);
   }
 
+  int LoadedWallpapers() {
+    return WallpaperManager::Get()->loaded_wallpapers();
+  }
+
   DesktopBackgroundController* controller_;
   PrefService* local_state_;
 
@@ -127,7 +125,7 @@ IN_PROC_BROWSER_TEST_F(WallpaperManagerBrowserTest,
 
   WallpaperInfo info = {
       "",
-      CENTER_CROPPED,
+      WALLPAPER_LAYOUT_CENTER_CROPPED,
       User::DEFAULT,
       base::Time::Now().LocalMidnight()
   };
@@ -171,20 +169,19 @@ IN_PROC_BROWSER_TEST_F(WallpaperManagerBrowserTest,
   FilePath large_wallpaper_path =
       wallpaper_manager->GetWallpaperPathForUser(kTestUser1, false);
 
-  int index = ash::GetDefaultWallpaperIndex();
   // Saves the small/large resolution wallpapers to small/large custom
   // wallpaper paths.
   SaveUserWallpaperData(kTestUser1,
                         small_wallpaper_path,
-                        GetWallpaperViewInfo(index, SMALL).id);
+                        ash::kDefaultSmallWallpaper.idr);
   SaveUserWallpaperData(kTestUser1,
                         large_wallpaper_path,
-                        GetWallpaperViewInfo(index, LARGE).id);
+                        ash::kDefaultLargeWallpaper.idr);
 
   // Saves wallpaper info to local state for user |kTestUser1|.
   WallpaperInfo info = {
       "DUMMY",
-      CENTER_CROPPED,
+      WALLPAPER_LAYOUT_CENTER_CROPPED,
       User::CUSTOMIZED,
       base::Time::Now().LocalMidnight()
   };
@@ -218,6 +215,56 @@ IN_PROC_BROWSER_TEST_F(WallpaperManagerBrowserTest,
   // The large resolution custom wallpaper is expected.
   EXPECT_EQ(kExpectedLargeWallpaperWidth, wallpaper.width());
   EXPECT_EQ(kExpectedLargeWallpaperHeight, wallpaper.height());
+}
+
+// If chrome tries to reload the same wallpaper twice, the latter request should
+// be prevented. Otherwise, there are some strange animation issues as
+// described in crbug.com/158383.
+IN_PROC_BROWSER_TEST_F(WallpaperManagerBrowserTest,
+                       PreventReloadingSameWallpaper) {
+  WallpaperManager* wallpaper_manager = WallpaperManager::Get();
+  FilePath small_wallpaper_path =
+      wallpaper_manager->GetWallpaperPathForUser(kTestUser1, true);
+
+  SaveUserWallpaperData(kTestUser1,
+                        small_wallpaper_path,
+                        ash::kDefaultSmallWallpaper.idr);
+
+  // Saves wallpaper info to local state for user |kTestUser1|.
+  WallpaperInfo info = {
+      "DUMMY",
+      WALLPAPER_LAYOUT_CENTER_CROPPED,
+      User::CUSTOMIZED,
+      base::Time::Now().LocalMidnight()
+  };
+  wallpaper_manager->SetUserWallpaperInfo(kTestUser1, info, true);
+
+  SetUserWallpaper(kTestUser1);
+  EXPECT_EQ(1, LoadedWallpapers());
+  // Loads the same wallpaper before the initial one finished. It should be
+  // prevented.
+  SetUserWallpaper(kTestUser1);
+  EXPECT_EQ(1, LoadedWallpapers());
+  WaitAsyncWallpaperLoad();
+  // Loads the same wallpaper after the initial one finished. It should be
+  // prevented.
+  SetUserWallpaper(kTestUser1);
+  EXPECT_EQ(1, LoadedWallpapers());
+  wallpaper_manager->ClearWallpaperCache();
+
+  // Tests default wallpaper for user |kTestUser1|.
+  info.file = "";
+  info.type = User::DEFAULT;
+  wallpaper_manager->SetUserWallpaperInfo(kTestUser1, info, true);
+  SetUserWallpaper(kTestUser1);
+  EXPECT_EQ(2, LoadedWallpapers());
+  // Loads the same wallpaper before the initial one finished. It should be
+  // prevented.
+  SetUserWallpaper(kTestUser1);
+  EXPECT_EQ(2, LoadedWallpapers());
+  WaitAsyncWallpaperLoad();
+  SetUserWallpaper(kTestUser1);
+  EXPECT_EQ(2, LoadedWallpapers());
 }
 
 }  // namepace chromeos

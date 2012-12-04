@@ -18,7 +18,6 @@
 #include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/string16.h"
 #include "base/time.h"
 #include "chrome/browser/api/sync/profile_sync_service_observer.h"
@@ -33,6 +32,7 @@ class AutofillField;
 class AutofillProfile;
 class AutofillMetrics;
 class CreditCard;
+class FormGroup;
 class PersonalDataManager;
 class PrefService;
 class ProfileSyncService;
@@ -67,7 +67,6 @@ class Message;
 class AutofillManager : public content::WebContentsObserver,
                         public AutofillDownloadManager::Observer,
                         public ProfileSyncServiceObserver,
-                        public PrefObserver,
                         public base::RefCounted<AutofillManager> {
  public:
   static void CreateForWebContentsAndDelegate(
@@ -191,9 +190,8 @@ class AutofillManager : public content::WebContentsObserver,
   // Register as an observer with the sync service.
   void RegisterWithSyncService();
 
-  // PrefObserver.
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
+  // Called when password generation preference state changes.
+  void OnPasswordGenerationEnabledChanged();
 
   // Determines what the current state of password generation is, and if it has
   // changed from |password_generation_enabled_|. If it has changed or if
@@ -230,19 +228,18 @@ class AutofillManager : public content::WebContentsObserver,
   // Requests an interactive autocomplete UI be shown.
   void OnRequestAutocomplete(const FormData& form);
 
+  // Passes return data for an OnRequestAutocomplete call back to the page.
+  void ReturnAutocompleteData(const FormStructure* result);
+
   // Fills |host| with the RenderViewHost for this tab.
   // Returns false if Autofill is disabled or if the host is unavailable.
-  bool GetHost(const std::vector<AutofillProfile*>& profiles,
-               const std::vector<CreditCard*>& credit_cards,
-               content::RenderViewHost** host) const WARN_UNUSED_RESULT;
+  bool GetHost(content::RenderViewHost** host) const WARN_UNUSED_RESULT;
 
-  // Unpacks |unique_id| and fills |profile| or |credit_card| with the
-  // appropriate data source.  Returns false if the unpacked id cannot be found.
+  // Unpacks |unique_id| and fills |form_group| and |variant| with the
+  // appropriate data source and variant index.  Returns false if the unpacked
+  // id cannot be found.
   bool GetProfileOrCreditCard(int unique_id,
-                              const std::vector<AutofillProfile*>& profiles,
-                              const std::vector<CreditCard*>& credit_cards,
-                              const AutofillProfile** profile,
-                              const CreditCard** credit_card,
+                              const FormGroup** form_group,
                               size_t* variant) const WARN_UNUSED_RESULT;
 
   // Fills |form_structure| cached element corresponding to |form|.
@@ -287,28 +284,6 @@ class AutofillManager : public content::WebContentsObserver,
                                 std::vector<string16>* labels,
                                 std::vector<string16>* icons,
                                 std::vector<int>* unique_ids) const;
-
-  // Set |field|'s value based on |type| and contents of the |credit_card|.
-  void FillCreditCardFormField(const CreditCard& credit_card,
-                               AutofillFieldType type,
-                               FormFieldData* field);
-
-  // Set |field|'s value based on |cached_field|'s type and contents of the
-  // |profile|. The |variant| parameter specifies which value in a multi-valued
-  // profile.
-  void FillFormField(const AutofillProfile& profile,
-                     const AutofillField& cached_field,
-                     size_t variant,
-                     FormFieldData* field);
-
-  // Set |field|'s value for phone number based on contents of the |profile|.
-  // The |cached_field| specifies the type of the phone and whether this is a
-  // phone prefix or suffix.  The |variant| parameter specifies which value in a
-  // multi-valued profile.
-  void FillPhoneNumberField(const AutofillProfile& profile,
-                            const AutofillField& cached_field,
-                            size_t variant,
-                            FormFieldData* field);
 
   // Parses the forms using heuristic matching and querying the Autofill server.
   void ParseForms(const std::vector<FormData>& forms);

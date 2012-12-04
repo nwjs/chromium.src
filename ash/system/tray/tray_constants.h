@@ -22,6 +22,9 @@ extern const int kTrayImageItemVerticalPaddingVerticalAlignment;
 extern const int kTrayLabelItemHorizontalPaddingBottomAlignment;
 extern const int kTrayLabelItemVerticalPaddingVeriticalAlignment;
 
+extern const int kTrayMenuBottomRowPadding;
+extern const int kTrayMenuBottomRowPaddingBetweenItems;
+
 extern const int kTrayPopupAutoCloseDelayInSeconds;
 extern const int kTrayPopupAutoCloseDelayForTextInSeconds;
 extern const int kTrayPopupPaddingHorizontal;
@@ -35,6 +38,9 @@ extern const int kTrayBarButtonWidth;
 
 extern const SkColor kBackgroundColor;
 extern const SkColor kHoverBackgroundColor;
+extern const SkColor kPublicAccountBackgroundColor;
+extern const SkColor kPublicAccountUserCardTextColor;
+extern const SkColor kPublicAccountUserCardNameColor;
 
 extern const SkColor kHeaderBackgroundColorLight;
 extern const SkColor kHeaderBackgroundColorDark;
@@ -46,7 +52,8 @@ extern const SkColor kButtonStrokeColor;
 extern const SkColor kHeaderTextColorNormal;
 extern const SkColor kHeaderTextColorHover;
 
-extern const int kTrayPopupWidth;
+extern const int kTrayPopupMinWidth;
+extern const int kTrayPopupMaxWidth;
 extern const int kNotificationIconWidth;
 extern const int kTrayNotificationContentsWidth;
 

@@ -18,7 +18,7 @@
 #include "base/threading/worker_pool.h"
 #include "build/build_config.h"
 #include "chrome/browser/extensions/extension_info_map.h"
-#include "chrome/browser/extensions/image_loading_tracker.h"
+#include "chrome/browser/extensions/image_loader.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension.h"
@@ -26,6 +26,7 @@
 #include "chrome/common/extensions/extension_resource.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/resource_request_info.h"
+#include "extensions/common/constants.h"
 #include "googleurl/src/url_util.h"
 #include "grit/component_extension_resources_map.h"
 #include "net/base/mime_util.h"
@@ -284,7 +285,7 @@ bool AllowExtensionResourceLoad(net::URLRequest* request,
 
 // Returns true if the given URL references an icon in the given extension.
 bool URLIsForExtensionIcon(const GURL& url, const Extension* extension) {
-  DCHECK(url.SchemeIs(chrome::kExtensionScheme));
+  DCHECK(url.SchemeIs(extensions::kExtensionScheme));
 
   if (!extension)
     return false;
@@ -377,7 +378,7 @@ ExtensionProtocolHandler::MaybeCreateJob(
     FilePath request_path =
         extension_file_util::ExtensionURLToRelativeFilePath(request->url());
     int resource_id;
-    if (ImageLoadingTracker::IsComponentExtensionResource(extension,
+    if (extensions::ImageLoader::IsComponentExtensionResource(extension,
         request_path, &resource_id)) {
       relative_path = relative_path.Append(request_path);
       relative_path = relative_path.NormalizePathSeparators();

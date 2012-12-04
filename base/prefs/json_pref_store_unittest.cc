@@ -2,24 +2,25 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/prefs/json_pref_store.h"
+
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
-#include "base/prefs/json_pref_store.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/pref_names.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
+
+const char kHomePage[] = "homepage";
 
 class MockPrefStoreObserver : public PrefStore::Observer {
  public:
@@ -39,13 +40,18 @@ class JsonPrefStoreTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
 
-    ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &data_dir_));
+    ASSERT_TRUE(PathService::Get(base::DIR_SOURCE_ROOT, &data_dir_));
+    data_dir_ = data_dir_.AppendASCII("base");
+    data_dir_ = data_dir_.AppendASCII("prefs");
+    data_dir_ = data_dir_.AppendASCII("test");
+    data_dir_ = data_dir_.AppendASCII("data");
     data_dir_ = data_dir_.AppendASCII("pref_service");
+    LOG(WARNING) << data_dir_.value();
     ASSERT_TRUE(file_util::PathExists(data_dir_));
   }
 
   // The path to temporary directory used to contain the test operations.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   // The path to the directory where the test data is stored.
   FilePath data_dir_;
   // A message loop that we can use as the file thread message loop.
@@ -96,7 +102,7 @@ void RunBasicJsonPrefStoreTest(JsonPrefStore* pref_store,
   std::string cnn("http://www.cnn.com");
 
   const Value* actual;
-  EXPECT_TRUE(pref_store->GetValue(prefs::kHomePage, &actual));
+  EXPECT_TRUE(pref_store->GetValue(kHomePage, &actual));
   std::string string_value;
   EXPECT_TRUE(actual->GetAsString(&string_value));
   EXPECT_EQ(cnn, string_value);

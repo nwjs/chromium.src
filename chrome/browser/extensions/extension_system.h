@@ -26,16 +26,20 @@ namespace extensions {
 // Unfortunately, for the ApiResourceManager<> template classes, we don't seem
 // to be able to forward-declare because of compilation errors on Windows.
 class AlarmManager;
+class Blacklist;
 class EventRouter;
 class Extension;
 class ExtensionPrefs;
 class ExtensionSystemSharedFactory;
+class ExtensionWarningBadgeService;
+class ExtensionWarningService;
 class LazyBackgroundTaskQueue;
 class ManagementPolicy;
 class MessageService;
 class NavigationObserver;
 class RulesRegistryService;
 class ShellWindowGeometryCache;
+class StandardManagementPolicyProvider;
 class StateStore;
 class UserScriptMaster;
 
@@ -116,6 +120,12 @@ class ExtensionSystem : public ProfileKeyedService {
   virtual ApiResourceManager<UsbDeviceResource>*
   usb_device_resource_manager() = 0;
 
+  // The ExtensionWarningService is created at startup.
+  virtual ExtensionWarningService* warning_service() = 0;
+
+  // The blacklist is created at startup.
+  virtual Blacklist* blacklist() = 0;
+
   // Called by the ExtensionService that lives in this system. Gives the
   // info map a chance to react to the load event before the EXTENSION_LOADED
   // notification has fired. The purpose for handling this event first is to
@@ -154,8 +164,9 @@ class ExtensionSystemImpl : public ExtensionSystem {
   virtual ExtensionDevToolsManager* devtools_manager() OVERRIDE;
   virtual ExtensionProcessManager* process_manager() OVERRIDE;
   virtual AlarmManager* alarm_manager() OVERRIDE;
-  virtual StateStore* state_store() OVERRIDE;
-  virtual ShellWindowGeometryCache* shell_window_geometry_cache() OVERRIDE;
+  virtual StateStore* state_store() OVERRIDE;  // shared
+  virtual ShellWindowGeometryCache* shell_window_geometry_cache()
+      OVERRIDE;  // shared
   virtual LazyBackgroundTaskQueue* lazy_background_task_queue()
       OVERRIDE;  // shared
   virtual ExtensionInfoMap* info_map() OVERRIDE;  // shared
@@ -168,6 +179,8 @@ class ExtensionSystemImpl : public ExtensionSystem {
   virtual ApiResourceManager<Socket>* socket_manager() OVERRIDE;
   virtual ApiResourceManager<UsbDeviceResource>* usb_device_resource_manager()
       OVERRIDE;
+  virtual ExtensionWarningService* warning_service() OVERRIDE;
+  virtual Blacklist* blacklist() OVERRIDE;  // shared
 
   virtual void RegisterExtensionWithRequestContexts(
       const Extension* extension) OVERRIDE;
@@ -200,6 +213,7 @@ class ExtensionSystemImpl : public ExtensionSystem {
     ExtensionService* extension_service();
     ManagementPolicy* management_policy();
     UserScriptMaster* user_script_master();
+    Blacklist* blacklist();
     ExtensionInfoMap* info_map();
     LazyBackgroundTaskQueue* lazy_background_task_queue();
     MessageService* message_service();
@@ -220,7 +234,12 @@ class ExtensionSystemImpl : public ExtensionSystem {
     scoped_ptr<MessageService> message_service_;
     scoped_ptr<NavigationObserver> navigation_observer_;
     scoped_refptr<UserScriptMaster> user_script_master_;
-    // ExtensionService depends on ExtensionPrefs and StateStore.
+    // Blacklist depends on ExtensionPrefs.
+    scoped_ptr<Blacklist> blacklist_;
+    // StandardManagementPolicyProvider depends on ExtensionPrefs and Blacklist.
+    scoped_ptr<StandardManagementPolicyProvider>
+        standard_management_policy_provider_;
+    // ExtensionService depends on ExtensionPrefs, StateStore, and Blacklist.
     scoped_ptr<ExtensionService> extension_service_;
     scoped_ptr<ManagementPolicy> management_policy_;
     // extension_info_map_ needs to outlive extension_process_manager_.
@@ -245,6 +264,8 @@ class ExtensionSystemImpl : public ExtensionSystem {
                UsbDeviceResource> > usb_device_resource_manager_;
   scoped_ptr<RulesRegistryService> rules_registry_service_;
 
+  scoped_ptr<ExtensionWarningService> extension_warning_service_;
+  scoped_ptr<ExtensionWarningBadgeService> extension_warning_badge_service_;
   DISALLOW_COPY_AND_ASSIGN(ExtensionSystemImpl);
 };
 

@@ -13,6 +13,7 @@
 #include "content/browser/android/content_view_render_view.h"
 #include "content/browser/android/content_view_statics.h"
 #include "content/browser/android/download_controller_android_impl.h"
+#include "content/browser/android/interstitial_page_delegate_android.h"
 #include "content/browser/android/load_url_params.h"
 #include "content/browser/android/sandboxed_process_launcher.h"
 #include "content/browser/android/surface_texture_peer_browser_impl.h"
@@ -32,14 +33,18 @@ base::android::RegistrationMethod kContentRegisteredMethods[] = {
   { "BrowserProcessSurfaceTexture",
     SurfaceTexturePeerBrowserImpl::RegisterBrowserProcessSurfaceTexture },
   { "ContentSettings", content::ContentSettings::RegisterContentSettings },
-  { "ContentViewRenderView", content::RegisterContentViewRenderView },
+  { "ContentViewRenderView",
+    content::ContentViewRenderView::RegisterContentViewRenderView },
   { "ContentVideoView", content::ContentVideoView::RegisterContentVideoView },
   { "ContentViewCore", content::RegisterContentViewCore },
   { "DownloadControllerAndroidImpl",
     content::DownloadControllerAndroidImpl::RegisterDownloadController },
-  { "RegisterImeAdapter", content::RegisterImeAdapter },
+  { "InterstitialPageDelegateAndroid",
+    content::InterstitialPageDelegateAndroid
+        ::RegisterInterstitialPageDelegateAndroid },
   { "JavaBoundObject", content::JavaBoundObject::RegisterJavaBoundObject },
   { "LoadUrlParams", content::RegisterLoadUrlParams },
+  { "RegisterImeAdapter", content::RegisterImeAdapter },
   { "SandboxedProcessLauncher", content::RegisterSandboxedProcessLauncher },
   { "TouchPoint", content::RegisterTouchPoint },
   { "WebContentsObserverAndroid", content::RegisterWebContentsObserverAndroid },

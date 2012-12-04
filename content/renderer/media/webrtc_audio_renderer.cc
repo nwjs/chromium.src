@@ -12,6 +12,9 @@
 #include "content/renderer/media/webrtc_audio_device_impl.h"
 #include "media/audio/audio_util.h"
 #include "media/audio/sample_rates.h"
+#if defined(OS_WIN)
+#include "media/audio/win/core_audio_util_win.h"
+#endif
 
 namespace content {
 
@@ -141,7 +144,7 @@ bool WebRtcAudioRenderer::Initialize(WebRtcAudioRendererSource* source) {
 
   // Windows XP and lower can't cope with 10 ms output buffer size.
   // It must be extended to 30 ms (60 ms will be used internally by WaveOut).
-  if (!media::IsWASAPISupported()) {
+  if (!media::CoreAudioUtil::IsSupported()) {
     buffer_size = 3 * buffer_size;
     DLOG(WARNING) << "Extending the output buffer size by a factor of three "
                   << "since Windows XP has been detected.";
@@ -241,15 +244,17 @@ int WebRtcAudioRenderer::Render(media::AudioBus* audio_bus,
                                 int audio_delay_milliseconds) {
   {
     base::AutoLock auto_lock(lock_);
-    // Return 0 frames to play out zero if it is not in PLAYING state.
-    if (state_ != PLAYING)
+    if (!source_)
       return 0;
-
     // We need to keep render data for the |source_| reglardless of |state_|,
     // otherwise the data will be buffered up inside |source_|.
     source_->RenderData(reinterpret_cast<uint8*>(buffer_.get()),
                         audio_bus->channels(), audio_bus->frames(),
                         audio_delay_milliseconds);
+
+    // Return 0 frames to play out silence if |state_| is not PLAYING.
+    if (state_ != PLAYING)
+      return 0;
   }
 
   // Deinterleave each channel and convert to 32-bit floating-point

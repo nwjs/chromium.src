@@ -12,6 +12,8 @@
 #include "ipc/ipc_message.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/page_transition_types.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNavigationPolicy.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNavigationType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPageVisibilityState.h"
 #include "v8/include/v8.h"
 
@@ -70,6 +72,10 @@ class CONTENT_EXPORT ContentRendererClient {
   // Returns the bitmap to show when a plugin crashed, or NULL for none.
   virtual SkBitmap* GetSadPluginBitmap();
 
+  // Returns the bitmap to show when a <webview> guest has crashed, or NULL for
+  // none.
+  virtual SkBitmap* GetSadWebViewBitmap();
+
   // Returns the default text encoding.
   virtual std::string GetDefaultEncoding();
 
@@ -127,8 +133,16 @@ class CONTENT_EXPORT ContentRendererClient {
   // all widgets are hidden.
   virtual bool RunIdleHandlerWhenWidgetsHidden();
 
-  // Returns true if the given url can create popup windows.
-  virtual bool AllowPopup(const GURL& creator);
+  // Returns true if a popup window should be allowed.
+  virtual bool AllowPopup();
+
+  // Returns true if the navigation was handled by the embedder and should be
+  // ignored by WebKit. This method is used by CEF.
+  virtual bool HandleNavigation(WebKit::WebFrame* frame,
+                                const WebKit::WebURLRequest& request,
+                                WebKit::WebNavigationType type,
+                                WebKit::WebNavigationPolicy default_policy,
+                                bool is_redirect);
 
   // Returns true if we should fork a new process for the given navigation.
   virtual bool ShouldFork(WebKit::WebFrame* frame,
@@ -141,6 +155,7 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual bool WillSendRequest(WebKit::WebFrame* frame,
                                PageTransition transition_type,
                                const GURL& url,
+                               const GURL& first_party_for_cookies,
                                GURL* new_url);
 
   // Whether to pump events when sending sync cookie messages.  Needed if the

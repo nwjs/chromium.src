@@ -9,7 +9,7 @@
 #include "ash/wm/workspace/workspace_types.h"
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
-#include "ui/aura/client/activation_change_observer.h"
+#include "ui/views/corewm/activation_change_shim.h"
 
 namespace aura {
 class Window;
@@ -20,13 +20,14 @@ namespace internal {
 
 class ShelfLayoutManager;
 class WorkspaceControllerTestHelper;
+class WorkspaceCycler;
 class WorkspaceEventHandler;
 class WorkspaceManager;
 
 // WorkspaceController acts as a central place that ties together all the
 // various workspace pieces.
 class ASH_EXPORT WorkspaceController
-    : public aura::client::ActivationChangeObserver {
+    : public views::corewm::ActivationChangeShim {
  public:
   explicit WorkspaceController(aura::Window* viewport);
   virtual ~WorkspaceController();
@@ -55,6 +56,10 @@ class ASH_EXPORT WorkspaceController
   aura::Window* viewport_;
 
   scoped_ptr<WorkspaceManager> workspace_manager_;
+
+  // Cycles through the WorkspaceManager's workspaces in response to a three
+  // finger vertical scroll.
+  scoped_ptr<WorkspaceCycler> workspace_cycler_;
 
   DISALLOW_COPY_AND_ASSIGN(WorkspaceController);
 };

@@ -41,13 +41,9 @@ class MockDelegate : public DownloadItemImplDelegate {
   MOCK_METHOD1(CheckForFileRemoval, void(DownloadItemImpl*));
   MOCK_CONST_METHOD0(GetBrowserContext, BrowserContext*());
   MOCK_METHOD1(UpdatePersistence, void(DownloadItemImpl*));
-  MOCK_METHOD1(DownloadStopped, void(DownloadItemImpl*));
-  MOCK_METHOD1(DownloadCompleted, void(DownloadItemImpl*));
   MOCK_METHOD1(DownloadOpened, void(DownloadItemImpl*));
   MOCK_METHOD1(DownloadRemoved, void(DownloadItemImpl*));
-  MOCK_METHOD1(DownloadRenamedToIntermediateName,
-               void(DownloadItemImpl*));
-  MOCK_METHOD1(DownloadRenamedToFinalName, void(DownloadItemImpl*));
+  MOCK_METHOD1(ShowDownloadInBrowser, void(DownloadItemImpl*));
   MOCK_CONST_METHOD1(AssertStateConsistent, void(DownloadItemImpl*));
 };
 
@@ -203,7 +199,6 @@ class DownloadItemTest : public testing::Test {
     EXPECT_EQ(DownloadItem::IN_PROGRESS, item->GetState());
 
     EXPECT_CALL(*download_file, Cancel());
-    EXPECT_CALL(delegate_, DownloadStopped(item));
     item->Cancel(true);
     loop_.RunUntilIdle();
   }
@@ -445,10 +440,6 @@ TEST_F(DownloadItemTest, Start) {
 }
 
 // Test that the delegate is invoked after the download file is renamed.
-// Delegate::DownloadRenamedToIntermediateName() should be invoked when the
-// download is renamed to the intermediate name.
-// Delegate::DownloadRenamedToFinalName() should be invoked after the final
-// rename.
 TEST_F(DownloadItemTest, CallbackAfterRename) {
   DownloadItemImpl* item = CreateDownloadItem(DownloadItem::IN_PROGRESS);
   DownloadItemImplDelegate::DownloadTargetCallback callback;
@@ -459,15 +450,9 @@ TEST_F(DownloadItemTest, CallbackAfterRename) {
   FilePath new_intermediate_path(final_path.InsertBeforeExtensionASCII("y"));
   EXPECT_CALL(*download_file, RenameAndUniquify(intermediate_path, _))
       .WillOnce(ScheduleRenameCallback(new_intermediate_path));
+  EXPECT_CALL(*mock_delegate(), ShowDownloadInBrowser(item))
+      .Times(1);
 
-  // DownloadItemImpl should invoke this callback on the delegate once the
-  // download is renamed to the intermediate name. Also check that GetFullPath()
-  // returns the intermediate path at the time of the call.
-  EXPECT_CALL(*mock_delegate(),
-              DownloadRenamedToIntermediateName(
-                  AllOf(item,
-                        Property(&DownloadItem::GetFullPath,
-                                 new_intermediate_path))));
   callback.Run(final_path, DownloadItem::TARGET_DISPOSITION_OVERWRITE,
                DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS, intermediate_path);
   RunAllPendingInMessageLoops();
@@ -475,24 +460,12 @@ TEST_F(DownloadItemTest, CallbackAfterRename) {
   ::testing::Mock::VerifyAndClearExpectations(download_file);
   ::testing::Mock::VerifyAndClearExpectations(mock_delegate());
 
-  item->OnAllDataSaved("");
   EXPECT_CALL(*download_file, RenameAndAnnotate(final_path, _))
       .WillOnce(ScheduleRenameCallback(final_path));
-  // DownloadItemImpl should invoke this callback on the delegate after the
-  // final rename has completed. Also check that GetFullPath() and
-  // GetTargetFilePath() return the final path at the time of the call.
-  EXPECT_CALL(*mock_delegate(),
-              DownloadRenamedToFinalName(
-                  AllOf(item,
-                        Property(&DownloadItem::GetFullPath, final_path),
-                        Property(&DownloadItem::GetTargetFilePath,
-                                 final_path))));
-  EXPECT_CALL(*mock_delegate(), DownloadCompleted(item));
   EXPECT_CALL(*mock_delegate(), ShouldOpenDownload(item, _))
       .WillOnce(Return(true));
   EXPECT_CALL(*download_file, Detach());
-  item->SetIsPersisted();
-  item->MaybeCompleteDownload();
+  item->DestinationObserverAsWeakPtr()->DestinationCompleted("");
   RunAllPendingInMessageLoops();
   ::testing::Mock::VerifyAndClearExpectations(download_file);
   ::testing::Mock::VerifyAndClearExpectations(mock_delegate());
@@ -523,7 +496,6 @@ TEST_F(DownloadItemTest, Canceled) {
   MockDownloadFile* download_file = AddDownloadFileToDownloadItem(item, NULL);
 
   // Confirm cancel sets state properly.
-  EXPECT_CALL(*mock_delegate(), DownloadStopped(item));
   EXPECT_CALL(*download_file, Cancel());
   item->Cancel(true);
   EXPECT_EQ(DownloadItem::CANCELLED, item->GetState());
@@ -577,7 +549,6 @@ TEST_F(DownloadItemTest, DestinationError) {
   EXPECT_EQ(DOWNLOAD_INTERRUPT_REASON_NONE, item->GetLastReason());
   EXPECT_FALSE(observer.CheckUpdated());
 
-  EXPECT_CALL(*mock_delegate(), DownloadStopped(item));
   EXPECT_CALL(*download_file, Cancel());
   as_observer->DestinationError(
       DOWNLOAD_INTERRUPT_REASON_FILE_ACCESS_DENIED);

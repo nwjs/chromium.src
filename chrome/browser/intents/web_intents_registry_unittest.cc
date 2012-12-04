@@ -4,10 +4,10 @@
 
 #include "base/bind.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/test_extension_service.h"
@@ -134,7 +134,7 @@ class WebIntentsRegistryTest : public testing::Test {
   MockExtensionService extension_service_;
   ExtensionSet extensions_;
   WebIntentsRegistry registry_;
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 };
 
 // Base consumer for WebIntentsRegistry results.
@@ -785,7 +785,7 @@ TEST_F(WebIntentsRegistryTest, UnregisterDefaultIntentServicesForServiceURL) {
   ASSERT_EQ(2U, consumer.services_.size());
 
   registry_.UnregisterServiceDefaults(service_url_0);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   registry_.GetAllDefaultIntentServices(
       base::Bind(&DefaultServiceListConsumer::Accept,

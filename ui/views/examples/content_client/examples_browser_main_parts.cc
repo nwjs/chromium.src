@@ -19,11 +19,10 @@
 #include "ui/views/test/desktop_test_views_delegate.h"
 
 #if defined(USE_AURA)
-#include "ui/aura/desktop/desktop_screen.h"
-#include "ui/aura/desktop/desktop_stacking_client.h"
 #include "ui/aura/env.h"
-#include "ui/aura/single_display_manager.h"
 #include "ui/gfx/screen.h"
+#include "ui/views/widget/desktop_aura/desktop_screen.h"
+#include "ui/views/widget/desktop_aura/desktop_stacking_client.h"
 #include "ui/views/widget/native_widget_aura.h"
 #endif
 
@@ -40,11 +39,11 @@ ExamplesBrowserMainParts::~ExamplesBrowserMainParts() {
 void ExamplesBrowserMainParts::PreMainMessageLoopRun() {
   browser_context_.reset(new content::ShellBrowserContext(false));
 
-#if defined(USE_AURA)
-  aura::Env::GetInstance()->SetDisplayManager(new aura::SingleDisplayManager);
-  stacking_client_.reset(new aura::DesktopStackingClient);
+#if !defined(OS_CHROMEOS) && defined(USE_AURA)
+  stacking_client_.reset(new DesktopStackingClient);
+  aura::client::SetStackingClient(stacking_client_.get());
   gfx::Screen::SetScreenInstance(
-      gfx::SCREEN_TYPE_NATIVE, aura::CreateDesktopScreen());
+      gfx::SCREEN_TYPE_NATIVE, CreateDesktopScreen());
 #endif
   views_delegate_.reset(new DesktopTestViewsDelegate);
 

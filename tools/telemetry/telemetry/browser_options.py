@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import optparse
-import os
 import sys
 import shlex
 import logging
+import copy
 
 from telemetry import browser_finder
 from telemetry import wpr_modes
@@ -30,12 +30,13 @@ class BrowserOptions(optparse.Values):
     self.wpr_mode = wpr_modes.WPR_OFF
     self.wpr_make_javascript_deterministic = True
 
+    self.browser_user_agent_type = None
+
+    self.trace_dir = None
     self.verbosity = 0
 
   def Copy(self):
-    other = BrowserOptions()
-    other.__dict__.update(self.__dict__)
-    return other
+    return copy.deepcopy(self)
 
   def CreateParser(self, *args, **kwargs):
     parser = optparse.OptionParser(*args, **kwargs)
@@ -62,9 +63,7 @@ class BrowserOptions(optparse.Values):
     group.add_option(
         '--remote',
         dest='cros_remote',
-        default=os.getenv('REMOTE'),
-        help='The IP address of a remote ChromeOS device to use. ' +
-             'Defaults to $REMOTE from environment variable if set.')
+        help='The IP address of a remote ChromeOS device to use.')
     group.add_option('--identity',
         dest='cros_ssh_identity',
         default=None,
@@ -86,9 +85,6 @@ class BrowserOptions(optparse.Values):
 
     # Page set options
     group = optparse.OptionGroup(parser, 'Page set options')
-    group.add_option('--record', action='store_const',
-        dest='wpr_mode', const=wpr_modes.WPR_RECORD,
-        help='Record to the page set archive')
     group.add_option('--page-repeat', dest='page_repeat', default=1,
         help='Number of times to repeat each individual ' +
         'page in the pageset before proceeding.')
@@ -106,6 +102,9 @@ class BrowserOptions(optparse.Values):
 
     # Debugging options
     group = optparse.OptionGroup(parser, 'When things go wrong')
+    group.add_option(
+      '--trace-dir', dest='trace_dir', default=None,
+      help='Record traces and store them in this directory.')
     group.add_option(
       '-v', '--verbose', action='count', dest='verbosity',
       help='Increase verbosity level (repeat as needed)')
@@ -146,3 +145,7 @@ class BrowserOptions(optparse.Values):
       return ret
     parser.parse_args = ParseArgs
     return parser
+
+  def AppendExtraBrowserArg(self, arg):
+    if arg not in self.extra_browser_args:
+      self.extra_browser_args.append(arg)

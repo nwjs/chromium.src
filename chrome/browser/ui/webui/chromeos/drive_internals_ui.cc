@@ -18,18 +18,21 @@
 #include "chrome/browser/chromeos/drive/drive_file_system_interface.h"
 #include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/drive/drive_system_service.h"
+#include "chrome/browser/chromeos/drive/event_logger.h"
 #include "chrome/browser/google_apis/auth_service.h"
 #include "chrome/browser/google_apis/drive_api_parser.h"
+#include "chrome/browser/google_apis/drive_api_util.h"
 #include "chrome/browser/google_apis/drive_service_interface.h"
+#include "chrome/browser/google_apis/drive_switches.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
-#include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/google_apis/gdata_wapi_parser.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/url_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_message_handler.h"
@@ -169,6 +172,7 @@ class DriveInternalsWebUIHandler : public content::WebUIMessageHandler {
  public:
   DriveInternalsWebUIHandler()
       : num_pending_reads_(0),
+        last_sent_event_id_(-1),
         weak_ptr_factory_(this) {
   }
 
@@ -202,6 +206,7 @@ class DriveInternalsWebUIHandler : public content::WebUIMessageHandler {
       google_apis::DriveServiceInterface* drive_service);
   void UpdateLocalStorageUsageSection();
   void UpdateCacheContentsSection(drive::DriveCache* cache);
+  void UpdateEventLogSection(drive::EventLogger* event_logger);
 
   // Called when GetGCacheContents() is complete.
   void OnGetGCacheContents(base::ListValue* gcache_contents,
@@ -234,6 +239,9 @@ class DriveInternalsWebUIHandler : public content::WebUIMessageHandler {
 
   // The number of pending ReadDirectoryByPath() calls.
   int num_pending_reads_;
+  // The last event sent to the JavaScript side.
+  int last_sent_event_id_;
+
   base::WeakPtrFactory<DriveInternalsWebUIHandler> weak_ptr_factory_;
   DISALLOW_COPY_AND_ASSIGN(DriveInternalsWebUIHandler);
 };
@@ -330,13 +338,20 @@ void DriveInternalsWebUIHandler::OnPageLoaded(const base::ListValue* args) {
   UpdateFileSystemContentsSection(drive_service);
   UpdateCacheContentsSection(cache);
   UpdateLocalStorageUsageSection();
+
+  // When the drive-internals page is reloaded by the reload key, the page
+  // content is recreated, but this WebUI object is not (instead, OnPageLoaded
+  // is called again). In that case, we have to forget the last sent ID here,
+  // and resent whole the logs to the page.
+  last_sent_event_id_ = -1;
+  UpdateEventLogSection(system_service->event_logger());
 }
 
 void DriveInternalsWebUIHandler::UpdateDriveRelatedFlagsSection() {
   const char* kDriveRelatedFlags[] = {
+    google_apis::switches::kEnableDriveV2Api,
     switches::kDisableDrive,
     switches::kDisableDrivePrefetch,
-    switches::kEnableDriveV2Api,
   };
 
   base::ListValue flags;
@@ -347,7 +362,7 @@ void DriveInternalsWebUIHandler::UpdateDriveRelatedFlagsSection() {
       value = CommandLine::ForCurrentProcess()->GetSwitchValueASCII(key);
     base::DictionaryValue* flag = new DictionaryValue;
     flag->SetString("key", key);
-    flag->SetString("value", value);
+    flag->SetString("value", value.empty() ? "(set)" : value);
     flags.Append(flag);
   }
 
@@ -535,6 +550,28 @@ void DriveInternalsWebUIHandler::UpdateCacheContentsSection(
                  base::Bind(&base::DoNothing));
 }
 
+void DriveInternalsWebUIHandler::UpdateEventLogSection(
+    drive::EventLogger* event_logger) {
+  const std::deque<drive::EventLogger::Event>& log =
+      event_logger->history();
+
+  base::ListValue list;
+  for (size_t i = 0; i < log.size(); ++i) {
+    // Skip events which were already sent.
+    if (log[i].id <= last_sent_event_id_)
+      continue;
+
+    base::DictionaryValue* dict = new DictionaryValue;
+    dict->SetString("key",
+        google_apis::util::FormatTimeAsStringLocaltime(log[i].when));
+    dict->SetString("value", log[i].what);
+    list.Append(dict);
+    last_sent_event_id_ = log[i].id;
+  }
+  if (!list.empty())
+    web_ui()->CallJavascriptFunction("updateEventLog", list);
+}
+
 void DriveInternalsWebUIHandler::OnGetGCacheContents(
     base::ListValue* gcache_contents,
     base::DictionaryValue* gcache_summary) {
@@ -630,6 +667,7 @@ void DriveInternalsWebUIHandler::OnPeriodicUpdate(const base::ListValue* args) {
   DCHECK(drive_service);
 
   UpdateInFlightOperationsSection(drive_service);
+  UpdateEventLogSection(system_service->event_logger());
 }
 
 }  // namespace

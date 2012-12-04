@@ -22,10 +22,6 @@ class RendererWebIDBDatabaseImpl : public WebKit::WebIDBDatabase {
   explicit RendererWebIDBDatabaseImpl(int32 idb_database_id);
   virtual ~RendererWebIDBDatabaseImpl();
 
-  // TODO(alecflett): Remove this when it is removed from webkit:
-  // https://bugs.webkit.org/show_bug.cgi?id=98085
-  static const long long AutogenerateObjectStoreId = -1;
-
   // WebKit::WebIDBDatabase
   virtual WebKit::WebIDBMetadata metadata() const;
   virtual WebKit::WebIDBObjectStore* createObjectStore(
@@ -36,22 +32,12 @@ class RendererWebIDBDatabaseImpl : public WebKit::WebIDBDatabase {
       const WebKit::WebIDBTransaction& transaction,
       WebKit::WebExceptionCode& ec);
   virtual void deleteObjectStore(
-      const WebKit::WebString& name,
-      const WebKit::WebIDBTransaction& transaction,
-      WebKit::WebExceptionCode& ec);
-  virtual void deleteObjectStore(
       long long object_store_id,
       const WebKit::WebIDBTransaction& transaction,
       WebKit::WebExceptionCode& ec);
-  virtual void setVersion(
-      const WebKit::WebString& version, WebKit::WebIDBCallbacks* callbacks,
-      WebKit::WebExceptionCode& ec);
-  virtual WebKit::WebIDBTransaction* transaction(
-      const WebKit::WebDOMStringList& names,
-      unsigned short mode,
-      WebKit::WebExceptionCode& ec);
-  virtual WebKit::WebIDBTransaction* transaction(
-      const WebKit::WebVector<long long>& objectStoreIds,
+  virtual WebKit::WebIDBTransaction* createTransaction(
+      long long transaction_id,
+      const WebKit::WebVector<long long>& scope,
       unsigned short mode);
   virtual void close();
 

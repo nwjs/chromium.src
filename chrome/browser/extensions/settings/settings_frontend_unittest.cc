@@ -6,9 +6,9 @@
 
 #include "base/bind.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
 #include "chrome/browser/extensions/settings/leveldb_settings_storage_factory.h"
 #include "chrome/browser/extensions/settings/settings_frontend.h"
@@ -29,22 +29,6 @@ namespace {
 
 // To save typing ValueStore::DEFAULTS everywhere.
 const ValueStore::WriteOptions DEFAULTS = ValueStore::DEFAULTS;
-
-// A SettingsStorageFactory which always returns NULL.
-class NullSettingsStorageFactory : public SettingsStorageFactory {
- public:
-  // SettingsStorageFactory implementation.
-  virtual ValueStore* Create(const FilePath& base_path,
-                             const std::string& extension_id,
-                             std::string* error) OVERRIDE {
-    *error = "NullSettingsStorageFactory";
-    return NULL;
-  }
-
- private:
-  // SettingsStorageFactory is refcounted.
-  virtual ~NullSettingsStorageFactory() {}
-};
 
 // Creates a kilobyte of data.
 scoped_ptr<Value> CreateKilobyte() {
@@ -83,7 +67,7 @@ class ExtensionSettingsFrontendTest : public testing::Test {
     frontend_.reset();
     profile_.reset();
     // Execute any pending deletion tasks.
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
  protected:
@@ -93,7 +77,7 @@ class ExtensionSettingsFrontendTest : public testing::Test {
         SettingsFrontend::Create(storage_factory_.get(), profile_.get()));
   }
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   scoped_ptr<util::MockProfile> profile_;
   scoped_ptr<SettingsFrontend> frontend_;
   scoped_refptr<util::ScopedSettingsStorageFactory> storage_factory_;
@@ -110,8 +94,10 @@ class ExtensionSettingsFrontendTest : public testing::Test {
 
 TEST_F(ExtensionSettingsFrontendTest, SettingsPreservedAcrossReconstruction) {
   const std::string id = "ext";
-  profile_->GetMockExtensionService()->AddExtensionWithId(
-      id, Extension::TYPE_EXTENSION);
+  ExtensionServiceInterface* esi =
+      extensions::ExtensionSystem::Get(profile_.get())->extension_service();
+  static_cast<extensions::settings_test_util::MockExtensionService*>(esi)->
+      AddExtensionWithId(id, Extension::TYPE_EXTENSION);
 
   ValueStore* storage = util::GetStorage(id, frontend_.get());
 
@@ -141,8 +127,10 @@ TEST_F(ExtensionSettingsFrontendTest, SettingsPreservedAcrossReconstruction) {
 
 TEST_F(ExtensionSettingsFrontendTest, SettingsClearedOnUninstall) {
   const std::string id = "ext";
-  profile_->GetMockExtensionService()->AddExtensionWithId(
-      id, Extension::TYPE_LEGACY_PACKAGED_APP);
+  ExtensionServiceInterface* esi =
+      extensions::ExtensionSystem::Get(profile_.get())->extension_service();
+  static_cast<extensions::settings_test_util::MockExtensionService*>(esi)->
+      AddExtensionWithId(id, Extension::TYPE_LEGACY_PACKAGED_APP);
 
   ValueStore* storage = util::GetStorage(id, frontend_.get());
 
@@ -154,7 +142,7 @@ TEST_F(ExtensionSettingsFrontendTest, SettingsClearedOnUninstall) {
 
   // This would be triggered by extension uninstall via a DataDeleter.
   frontend_->DeleteStorageSoon(id);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   // The storage area may no longer be valid post-uninstall, so re-request.
   storage = util::GetStorage(id, frontend_.get());
@@ -167,8 +155,10 @@ TEST_F(ExtensionSettingsFrontendTest, SettingsClearedOnUninstall) {
 
 TEST_F(ExtensionSettingsFrontendTest, LeveldbDatabaseDeletedFromDiskOnClear) {
   const std::string id = "ext";
-  profile_->GetMockExtensionService()->AddExtensionWithId(
-      id, Extension::TYPE_EXTENSION);
+  ExtensionServiceInterface* esi =
+      extensions::ExtensionSystem::Get(profile_.get())->extension_service();
+  static_cast<extensions::settings_test_util::MockExtensionService*>(esi)->
+      AddExtensionWithId(id, Extension::TYPE_EXTENSION);
 
   ValueStore* storage = util::GetStorage(id, frontend_.get());
 
@@ -188,41 +178,11 @@ TEST_F(ExtensionSettingsFrontendTest, LeveldbDatabaseDeletedFromDiskOnClear) {
   }
 
   frontend_.reset();
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   // TODO(kalman): Figure out why this fails, despite appearing to work.
   // Leaving this commented out rather than disabling the whole test so that the
   // deletion code paths are at least exercised.
   //EXPECT_FALSE(file_util::PathExists(temp_dir_.path()));
-}
-
-TEST_F(ExtensionSettingsFrontendTest,
-    LeveldbCreationFailureFailsAllOperations) {
-  const StringValue bar("bar");
-  const std::string id = "ext";
-  profile_->GetMockExtensionService()->AddExtensionWithId(
-      id, Extension::TYPE_EXTENSION);
-
-  storage_factory_->Reset(new NullSettingsStorageFactory());
-
-  ValueStore* storage = util::GetStorage(id, frontend_.get());
-  ASSERT_TRUE(storage != NULL);
-
-  EXPECT_TRUE(storage->Get()->HasError());
-  EXPECT_TRUE(storage->Clear()->HasError());
-  EXPECT_TRUE(storage->Set(DEFAULTS, "foo", bar)->HasError());
-  EXPECT_TRUE(storage->Remove("foo")->HasError());
-
-  // For simplicity: just always fail those requests, even if the leveldb
-  // storage areas start working.
-  storage_factory_->Reset(new LeveldbSettingsStorageFactory());
-
-  storage = util::GetStorage(id, frontend_.get());
-  ASSERT_TRUE(storage != NULL);
-
-  EXPECT_TRUE(storage->Get()->HasError());
-  EXPECT_TRUE(storage->Clear()->HasError());
-  EXPECT_TRUE(storage->Set(DEFAULTS, "foo", bar)->HasError());
-  EXPECT_TRUE(storage->Remove("foo")->HasError());
 }
 
 #if defined(OS_WIN)
@@ -233,8 +193,10 @@ TEST_F(ExtensionSettingsFrontendTest,
 TEST_F(ExtensionSettingsFrontendTest,
        QuotaLimitsEnforcedCorrectlyForSyncAndLocal) {
   const std::string id = "ext";
-  profile_->GetMockExtensionService()->AddExtensionWithId(
-      id, Extension::TYPE_EXTENSION);
+  ExtensionServiceInterface* esi =
+      extensions::ExtensionSystem::Get(profile_.get())->extension_service();
+  static_cast<extensions::settings_test_util::MockExtensionService*>(esi)->
+      AddExtensionWithId(id, Extension::TYPE_EXTENSION);
 
   ValueStore* sync_storage =
       util::GetStorage(id, settings::SYNC, frontend_.get());
@@ -310,15 +272,18 @@ TEST_F(ExtensionSettingsFrontendTest,
   const std::string id = "ext";
   std::set<std::string> permissions;
   permissions.insert("unlimitedStorage");
-  profile_->GetMockExtensionService()->AddExtensionWithIdAndPermissions(
-      id, Extension::TYPE_EXTENSION, permissions);
+  ExtensionServiceInterface* esi =
+      extensions::ExtensionSystem::Get(profile_.get())->extension_service();
+  static_cast<extensions::settings_test_util::MockExtensionService*>(esi)->
+      AddExtensionWithIdAndPermissions(id, Extension::TYPE_EXTENSION,
+          permissions);
 
   frontend_->RunWithStorage(
       id, settings::SYNC, base::Bind(&UnlimitedSyncStorageTestCallback));
   frontend_->RunWithStorage(
       id, settings::LOCAL, base::Bind(&UnlimitedLocalStorageTestCallback));
 
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 }
 
 }  // namespace extensions

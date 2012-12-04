@@ -60,23 +60,33 @@ Browser* FindBrowserWithID(SessionID::id_type desired_id);
 // Find the browser represented by |window| or NULL if not found.
 Browser* FindBrowserWithWindow(gfx::NativeWindow window);
 
-// Find the browser containing |web_contents| or NULL if none is found.
-// |web_contents| must not be NULL.
-Browser* FindBrowserWithWebContents(const content::WebContents* web_contents);
-
 }  // namespace browser
 
 namespace chrome {
 
-// Identical in behavior to BrowserList::GetLastActive(), except that the most
-// recently open browser owned by |profile| is returned. If none exist, returns
-// NULL.  WARNING: see warnings in BrowserList::GetLastActive().
-Browser* FindLastActiveWithProfile(Profile* profile);
+// Find the browser containing |web_contents| or NULL if none is found.
+// |web_contents| must not be NULL.
+Browser* FindBrowserWithWebContents(const content::WebContents* web_contents);
 
-// Identical in behavior to BrowserList::GetLastActive(), except that the most
-// recently open browser owned on the desktop described by |type| is returned.
-// If none exist, returns NULL.  WARNING: see warnings in
-// BrowserList::GetLastActive().
+// Returns the Browser object owned by |profile| on the given desktop type
+// whose window was most recently active. If no such Browsers exist, returns
+// NULL.
+//
+// WARNING: this is NULL until a browser becomes active. If during startup
+// a browser does not become active (perhaps the user launches Chrome, then
+// clicks on another app before the first browser window appears) then this
+// returns NULL.
+// WARNING #2: this will always be NULL in unit tests run on the bots.
+Browser* FindLastActiveWithProfile(Profile* profile, HostDesktopType type);
+
+// Returns the Browser object on the given desktop type whose window was most
+// recently active. If no such Browsers exist, returns NULL.
+//
+// WARNING: this is NULL until a browser becomes active. If during startup
+// a browser does not become active (perhaps the user launches Chrome, then
+// clicks on another app before the first browser window appears) then this
+// returns NULL.
+// WARNING #2: this will always be NULL in unit tests run on the bots.
 Browser* FindLastActiveWithHostDesktopType(HostDesktopType type);
 
 // Returns the number of browsers with the Profile |profile|.

@@ -10,8 +10,8 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "chrome/browser/google_apis/base_operations.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
-#include "chrome/browser/google_apis/operations_base.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -21,6 +21,10 @@ namespace google_apis {
 
 class OperationRegistry;
 class AuthServiceObserver;
+
+// Callback type for authentication related DriveServiceInterface calls.
+typedef base::Callback<void(GDataErrorCode error,
+                            const std::string& token)> AuthStatusCallback;
 
 // This class provides authentication for Google services.
 // It integrates specific service integration with OAuth2 stack

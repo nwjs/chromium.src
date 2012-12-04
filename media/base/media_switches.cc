@@ -6,6 +6,9 @@
 
 namespace switches {
 
+// Allow users to specify a custom buffer size for debugging purpose.
+const char kAudioBufferSize[] = "audio-buffer-size";
+
 #if defined(OS_LINUX) || defined(OS_FREEBSD) || defined(OS_SOLARIS)
 // The Alsa device to use when opening an audio stream.
 const char kAlsaOutputDevice[] = "alsa-output-device";
@@ -53,5 +56,9 @@ const char kEnableWebAudioInput[] = "enable-webaudio-input";
 
 // Set number of threads to use for video decoding.
 const char kVideoThreads[] = "video-threads";
+
+// Enables support for encrypted media. Current implementation is
+// incomplete and this flag is used for development and testing.
+const char kEnableEncryptedMedia[] = "enable-encrypted-media";
 
 }  // namespace switches

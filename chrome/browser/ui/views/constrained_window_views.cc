@@ -56,14 +56,18 @@
 #include "ui/views/widget/native_widget_win.h"
 #endif
 
+#if defined(USE_AURA)
+#include "ui/aura/window.h"
+#include "ui/views/corewm/visibility_controller.h"
+#include "ui/views/corewm/window_animations.h"
+#include "ui/views/corewm/window_modality_controller.h"
+#endif
+
 #if defined(USE_ASH)
 #include "ash/ash_constants.h"
 #include "ash/ash_switches.h"
 #include "ash/shell.h"
 #include "ash/wm/custom_frame_view_ash.h"
-#include "ash/wm/visibility_controller.h"
-#include "ash/wm/window_animations.h"
-#include "ui/aura/window.h"
 #endif
 
 using base::TimeDelta;
@@ -300,11 +304,11 @@ ConstrainedWindowFrameView::ConstrainedWindowFrameView(
   container->set_frame_type(views::Widget::FRAME_TYPE_FORCE_CUSTOM);
 
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  close_button_->SetImage(views::CustomButton::BS_NORMAL,
+  close_button_->SetImage(views::CustomButton::STATE_NORMAL,
                           rb.GetImageSkiaNamed(IDR_CLOSE_SA));
-  close_button_->SetImage(views::CustomButton::BS_HOT,
+  close_button_->SetImage(views::CustomButton::STATE_HOVERED,
                           rb.GetImageSkiaNamed(IDR_CLOSE_SA_H));
-  close_button_->SetImage(views::CustomButton::BS_PUSHED,
+  close_button_->SetImage(views::CustomButton::STATE_PRESSED,
                           rb.GetImageSkiaNamed(IDR_CLOSE_SA_P));
   close_button_->SetImageAlignment(views::ImageButton::ALIGN_CENTER,
                                    views::ImageButton::ALIGN_MIDDLE);
@@ -584,9 +588,13 @@ ConstrainedWindowViews::ConstrainedWindowViews(
   }
 
 #if defined(USE_ASH)
+  if (enable_chrome_style_) {
+    params.child = false;
+    DCHECK_EQ(widget_delegate->GetModalType(), ui::MODAL_TYPE_CHILD);
+  }
   // Ash window headers can be transparent.
   params.transparent = true;
-  ash::SetChildWindowVisibilityChangesAnimated(params.GetParent());
+  views::corewm::SetChildWindowVisibilityChangesAnimated(params.GetParent());
   // No animations should get performed on the window since that will re-order
   // the window stack which will then cause many problems.
   if (params.parent && params.parent->parent()) {
@@ -597,14 +605,21 @@ ConstrainedWindowViews::ConstrainedWindowViews(
   Init(params);
 
   if (enable_chrome_style_) {
-    // Set the dialog background color.
+    // Set dialog-specific state.
     if (widget_delegate && widget_delegate->AsDialogDelegate()) {
-      views::Background* background = views::Background::CreateSolidBackground(
-          ConstrainedWindow::GetBackgroundColor());
       views::DialogClientView* dialog_client_view =
           widget_delegate->AsDialogDelegate()->GetDialogClientView();
-      if (dialog_client_view)
+      if (dialog_client_view) {
+        views::Background* background =
+            views::Background::CreateSolidBackground(
+                ConstrainedWindow::GetBackgroundColor());
         dialog_client_view->set_background(background);
+
+        ConstrainedWindowFrameSimple *frame =
+            static_cast<ConstrainedWindowFrameSimple*>(
+                non_client_view()->frame_view());
+        frame->set_bottom_margin(dialog_client_view->GetBottomMargin());
+      }
     }
     PositionChromeStyleWindow(GetRootView()->bounds().size());
     registrar_.Add(this,
@@ -617,6 +632,8 @@ ConstrainedWindowViews::ConstrainedWindowViews(
   constrained_window_tab_helper->AddConstrainedDialog(this);
 #if defined(USE_ASH)
   GetNativeWindow()->SetProperty(ash::kConstrainedWindowKey, true);
+  views::corewm::SetModalParent(GetNativeWindow(),
+                                web_contents_->GetView()->GetNativeView());
 #endif
 }
 
@@ -624,11 +641,11 @@ ConstrainedWindowViews::~ConstrainedWindowViews() {
 }
 
 void ConstrainedWindowViews::ShowConstrainedWindow() {
-#if defined(USE_ASH)
+#if defined(USE_AURA)
   if (enable_chrome_style_) {
-    ash::SetWindowVisibilityAnimationType(
+    views::corewm::SetWindowVisibilityAnimationType(
         GetNativeWindow(),
-        ash::WINDOW_VISIBILITY_ANIMATION_TYPE_ROTATE);
+        views::corewm::WINDOW_VISIBILITY_ANIMATION_TYPE_ROTATE);
   }
 #endif
   Show();
@@ -726,15 +743,11 @@ void ConstrainedWindowViews::Observe(
   DCHECK(enable_chrome_style_);
   DCHECK_EQ(type, content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED);
 #if defined(USE_ASH)
-  ash::SuspendChildWindowVisibilityAnimations
+  views::corewm::SuspendChildWindowVisibilityAnimations
       suspend(GetNativeWindow()->parent());
 #endif
   if (*content::Details<bool>(details).ptr()) {
     Show();
-#if defined(USE_ASH)
-    GetNativeWindow()->parent()->StackChildAbove(
-        GetNativeWindow(), web_contents_->GetNativeView());
-#endif
   } else {
     Hide();
   }
@@ -750,6 +763,11 @@ void ConstrainedWindowViews::PositionChromeStyleWindow(const gfx::Size& size) {
     Widget::CenterWindow(size);
     return;
   }
-
+#if defined(USE_ASH)
+  if (is_top_level()) {
+    point += web_contents_->GetNativeView()->parent()->bounds().origin().
+        OffsetFromOrigin();
+  }
+#endif
   SetBounds(gfx::Rect(point - gfx::Vector2d(size.width() / 2, 0), size));
 }

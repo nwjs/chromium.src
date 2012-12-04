@@ -87,6 +87,10 @@ TEST_F(PpapiGraphics2DImplTest, ConvertToLogicalPixels) {
   }
 }
 
+/*
+Disabled because this doesn't run with the new proxy design.
+TODO(brettw) Rewrite this test to use the new design.
+
 #if !defined(USE_AURA) && (defined(OS_WIN) || defined(OS_LINUX))
 // Windows and Linux don't support scaled optimized plugin paints ATM.
 #define MAYBE_GetBitmap2xScale DISABLED_GetBitmap2xScale
@@ -96,7 +100,7 @@ TEST_F(PpapiGraphics2DImplTest, ConvertToLogicalPixels) {
 
 // Test that GetBitmapForOptimizedPluginPaint doesn't return a bitmap rect
 // that's bigger than the actual backing store bitmap.
-TEST_F(PpapiGraphics2DImplTest, MAYBE_GetBitmap2xScale) {
+TEST_F(PpapiGraphics2DImplTest, GetBitmap2xScale) {
   PP_Size size;
   size.width = 3;
   size.height = 3;
@@ -126,6 +130,7 @@ TEST_F(PpapiGraphics2DImplTest, MAYBE_GetBitmap2xScale) {
   EXPECT_EQ(size.height, clip.height());
   EXPECT_EQ(scale, bitmap_scale);
 }
+*/
 
 }  // namespace ppapi
 }  // namespace webkit

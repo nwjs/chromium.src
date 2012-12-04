@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/view_type_utils.h"
 #include "chrome/common/automation_id.h"
 #include "chrome/common/extensions/extension.h"
@@ -512,7 +513,8 @@ bool GetTabForId(const AutomationId& id, WebContents** tab) {
   for (; iter != BrowserList::end(); ++iter) {
     Browser* browser = *iter;
     for (int tab_index = 0; tab_index < browser->tab_count(); ++tab_index) {
-      TabContents* tab_contents = chrome::GetTabContentsAt(browser, tab_index);
+      TabContents* tab_contents =
+          browser->tab_strip_model()->GetTabContentsAt(tab_index);
       SessionTabHelper* session_tab_helper =
           SessionTabHelper::FromWebContents(tab_contents->web_contents());
       if (base::IntToString(
@@ -595,7 +597,8 @@ bool GetExtensionForId(
     const extensions::Extension** extension) {
   if (id.type() != AutomationId::kTypeExtension)
     return false;
-  ExtensionService* service = profile->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(profile)->
+      extension_service();
   const extensions::Extension* installed_extension =
       service->GetInstalledExtension(id.id());
   if (installed_extension)

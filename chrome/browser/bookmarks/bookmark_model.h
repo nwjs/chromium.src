@@ -79,6 +79,10 @@ class BookmarkNode : public ui::TreeNode<BookmarkNode> {
   const GURL& url() const { return url_; }
   void set_url(const GURL& url) { url_ = url; }
 
+  // Returns the favicon's URL. Returns an empty URL if there is no favicon
+  // associated with this bookmark.
+  const GURL& icon_url() const { return icon_url_; }
+
   Type type() const { return type_; }
   void set_type(Type type) { type_ = type; }
 
@@ -133,6 +137,11 @@ class BookmarkNode : public ui::TreeNode<BookmarkNode> {
   // Called when the favicon becomes invalid.
   void InvalidateFavicon();
 
+  // Sets the favicon's URL.
+  void set_icon_url(const GURL& icon_url) {
+    icon_url_ = icon_url;
+  }
+
   const gfx::Image& favicon() const { return favicon_; }
   void set_favicon(const gfx::Image& icon) { favicon_ = icon; }
 
@@ -164,6 +173,9 @@ class BookmarkNode : public ui::TreeNode<BookmarkNode> {
 
   // The favicon of this node.
   gfx::Image favicon_;
+
+  // The URL of the node's favicon.
+  GURL icon_url_;
 
   // The loading state of the favicon.
   FaviconState favicon_state_;
@@ -251,7 +263,7 @@ class BookmarkModel : public content::NotificationObserver,
            node == mobile_node_;
   }
 
-  Profile* profile() const { return profile_; }
+  Profile* profile() { return profile_; }
 
   // Returns the parent the last node was added to. This never returns NULL
   // (as long as the model is loaded).
@@ -368,9 +380,6 @@ class BookmarkModel : public content::NotificationObserver,
   // testing.
   void ClearStore();
 
-  // Returns whether the bookmarks file changed externally.
-  bool file_changed() const { return file_changed_; }
-
   // Returns the next node ID.
   int64 next_node_id() const { return next_node_id_; }
 
@@ -413,7 +422,7 @@ class BookmarkModel : public content::NotificationObserver,
   // This does NOT delete the node.
   void RemoveNode(BookmarkNode* node, std::set<GURL>* removed_urls);
 
-  // Invoked when loading is finished. Sets loaded_ and notifies observers.
+  // Invoked when loading is finished. Sets |loaded_| and notifies observers.
   // BookmarkModel takes ownership of |details|.
   void DoneLoading(BookmarkLoadDetails* details);
 
@@ -481,10 +490,6 @@ class BookmarkModel : public content::NotificationObserver,
 
   // Whether the initial set of data has been loaded.
   bool loaded_;
-
-  // Whether the bookmarks file was changed externally. This is set after
-  // loading is complete and once set the value never changes.
-  bool file_changed_;
 
   // The root node. This contains the bookmark bar node and the 'other' node as
   // children.

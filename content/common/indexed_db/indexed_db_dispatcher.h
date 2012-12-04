@@ -108,12 +108,6 @@ class CONTENT_EXPORT IndexedDBDispatcher
   void RequestIDBDatabaseClose(
       int32 idb_database_id);
 
-  void RequestIDBDatabaseSetVersion(
-      const string16& version,
-      WebKit::WebIDBCallbacks* callbacks,
-      int32 idb_database_id,
-      WebKit::WebExceptionCode* ec);
-
   void RequestIDBIndexOpenObjectCursor(
       const WebKit::WebIDBKeyRange& idb_key_range,
       unsigned short direction,
@@ -156,17 +150,6 @@ class CONTENT_EXPORT IndexedDBDispatcher
       WebKit::WebIDBCallbacks* callbacks,
       int32 object_store_ipc_id,
       const WebKit::WebIDBTransaction& transaction,
-      WebKit::WebExceptionCode* ec);
-
-  void RequestIDBObjectStorePut(
-      const SerializedScriptValue& value,
-      const IndexedDBKey& key,
-      WebKit::WebIDBObjectStore::PutMode putMode,
-      WebKit::WebIDBCallbacks* callbacks,
-      int32 object_store_ipc_id,
-      const WebKit::WebIDBTransaction& transaction,
-      const WebKit::WebVector<WebKit::WebString>& indexNames,
-      const WebKit::WebVector<WebKit::WebVector<WebKit::WebIDBKey> >& indexKeys,
       WebKit::WebExceptionCode* ec);
 
   void RequestIDBObjectStorePut(
@@ -228,9 +211,6 @@ class CONTENT_EXPORT IndexedDBDispatcher
   void OnSuccessIndexedDBKey(int32 thread_id,
                              int32 response_id,
                              const IndexedDBKey& key);
-  void OnSuccessIDBTransaction(int32 thread_id,
-                               int32 response_id,
-                               int32 object_id);
   void OnSuccessOpenCursor(
       const IndexedDBMsg_CallbacksSuccessIDBCursor_Params& p);
   void OnSuccessCursorContinue(

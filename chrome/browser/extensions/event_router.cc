@@ -65,6 +65,8 @@ void DispatchOnInstalledEvent(
                                                old_version, chrome_updated);
 }
 
+void DoNothing(extensions::ExtensionHost* host) {}
+
 }  // namespace
 
 struct EventRouter::ListenerProcess {
@@ -128,6 +130,8 @@ EventRouter::EventRouter(Profile* profile, ExtensionPrefs* extension_prefs)
                  content::NotificationService::AllSources());
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSIONS_READY,
                  content::Source<Profile>(profile_));
+  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_ENABLED,
+                 content::Source<Profile>(profile_));
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_LOADED,
                  content::Source<Profile>(profile_));
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED,
@@ -179,44 +183,42 @@ void EventRouter::UnregisterObserver(Observer* observer) {
 }
 
 void EventRouter::OnListenerAdded(const EventListener* listener) {
-  // We don't care about lazy events being added.
-  if (!listener->process)
-    return;
-
   const std::string& event_name = listener->event_name;
+  const EventListenerInfo details(event_name, listener->extension_id);
   ObserverMap::iterator observer = observers_.find(event_name);
   if (observer != observers_.end())
-    observer->second->OnListenerAdded(event_name);
+    observer->second->OnListenerAdded(details);
 
   // TODO(yoz): Migrate these to become EventRouter observers.
   // EventRouter shouldn't need to know about them.
-  ExtensionDevToolsManager* extension_devtools_manager =
-      ExtensionSystem::Get(profile_)->devtools_manager();
-  if (extension_devtools_manager)
-    extension_devtools_manager->AddEventListener(event_name,
-                                                 listener->process->GetID());
+  if (listener->process) {
+    ExtensionDevToolsManager* extension_devtools_manager =
+        ExtensionSystem::Get(profile_)->devtools_manager();
+    if (extension_devtools_manager)
+      extension_devtools_manager->AddEventListener(event_name,
+                                                   listener->process->GetID());
+  }
 
   if (SystemInfoEventRouter::IsSystemInfoEvent(event_name))
     SystemInfoEventRouter::GetInstance()->AddEventListener(event_name);
 }
 
 void EventRouter::OnListenerRemoved(const EventListener* listener) {
-  // We don't care about lazy events being removed.
-  if (!listener->process)
-    return;
-
   const std::string& event_name = listener->event_name;
+  const EventListenerInfo details(event_name, listener->extension_id);
   ObserverMap::iterator observer = observers_.find(event_name);
   if (observer != observers_.end())
-    observer->second->OnListenerRemoved(event_name);
+    observer->second->OnListenerRemoved(details);
 
   // TODO(yoz): Migrate these to become EventRouter observers.
   // EventRouter shouldn't need to know about them.
-  ExtensionDevToolsManager* extension_devtools_manager =
-      ExtensionSystem::Get(profile_)->devtools_manager();
-  if (extension_devtools_manager)
-    extension_devtools_manager->RemoveEventListener(
-        event_name, listener->process->GetID());
+  if (listener->process) {
+    ExtensionDevToolsManager* extension_devtools_manager =
+        ExtensionSystem::Get(profile_)->devtools_manager();
+    if (extension_devtools_manager)
+      extension_devtools_manager->RemoveEventListener(
+          event_name, listener->process->GetID());
+  }
 
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -234,8 +236,8 @@ void EventRouter::AddLazyEventListener(const std::string& event_name,
   bool is_new = listeners_.AddListener(listener.Pass());
 
   if (is_new) {
-    ExtensionPrefs* prefs =
-        profile_->GetExtensionService()->extension_prefs();
+    ExtensionPrefs* prefs = extensions::ExtensionSystem::Get(profile_)->
+        extension_service()->extension_prefs();
     std::set<std::string> events = prefs->GetRegisteredEvents(extension_id);
     bool prefs_is_new = events.insert(event_name).second;
     if (prefs_is_new)
@@ -250,8 +252,8 @@ void EventRouter::RemoveLazyEventListener(const std::string& event_name,
   bool did_exist = listeners_.RemoveListener(&listener);
 
   if (did_exist) {
-    ExtensionPrefs* prefs =
-        profile_->GetExtensionService()->extension_prefs();
+    ExtensionPrefs* prefs = extensions::ExtensionSystem::Get(profile_)->
+        extension_service()->extension_prefs();
     std::set<std::string> events = prefs->GetRegisteredEvents(extension_id);
     bool prefs_did_exist = events.erase(event_name) > 0;
     DCHECK(prefs_did_exist);
@@ -274,8 +276,8 @@ void EventRouter::AddFilteredEventListener(const std::string& event_name,
         scoped_ptr<DictionaryValue>(filter.DeepCopy()))));
 
     if (added) {
-      ExtensionPrefs* prefs =
-          profile_->GetExtensionService()->extension_prefs();
+      ExtensionPrefs* prefs = extensions::ExtensionSystem::Get(profile_)->
+          extension_service()->extension_prefs();
       prefs->AddFilterToEvent(event_name, extension_id, &filter);
     }
   }
@@ -297,8 +299,8 @@ void EventRouter::RemoveFilteredEventListener(
     bool removed = listeners_.RemoveListener(&listener);
 
     if (removed) {
-      ExtensionPrefs* prefs =
-          profile_->GetExtensionService()->extension_prefs();
+      ExtensionPrefs* prefs = extensions::ExtensionSystem::Get(profile_)->
+          extension_service()->extension_prefs();
       prefs->RemoveFilterFromEvent(event_name, extension_id, &filter);
     }
   }
@@ -452,7 +454,8 @@ void EventRouter::DispatchLazyEvent(
     const std::string& extension_id,
     const linked_ptr<Event>& event,
     std::set<EventDispatchIdentifier>* already_dispatched) {
-  ExtensionService* service = profile_->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   // Check both the original and the incognito profile to see if we
   // should load a lazy bg page to handle the event. The latter case
   // occurs in the case of split-mode extensions.
@@ -477,7 +480,8 @@ void EventRouter::DispatchLazyEvent(
 void EventRouter::DispatchEventToProcess(const std::string& extension_id,
                                          content::RenderProcessHost* process,
                                          const linked_ptr<Event>& event) {
-  ExtensionService* service = profile_->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   const Extension* extension = service->extensions()->GetByID(extension_id);
 
   // The extension could have been removed, but we do not unregister it until
@@ -487,8 +491,8 @@ void EventRouter::DispatchEventToProcess(const std::string& extension_id,
 
   Profile* listener_profile = Profile::FromBrowserContext(
       process->GetBrowserContext());
-  ProcessMap* process_map =
-      listener_profile->GetExtensionService()->process_map();
+  ProcessMap* process_map = extensions::ExtensionSystem::Get(listener_profile)->
+      extension_service()->process_map();
   // If the event is privileged, only send to extension processes. Otherwise,
   // it's OK to send to normal renderers (e.g., for content scripts).
   if (ExtensionAPI::GetSharedInstance()->IsPrivileged(event->event_name) &&
@@ -521,7 +525,8 @@ bool EventRouter::CanDispatchEventToProfile(Profile* profile,
   bool cross_incognito =
       event->restrict_to_profile && profile != event->restrict_to_profile;
   if (cross_incognito &&
-      !profile->GetExtensionService()->CanCrossIncognito(extension)) {
+      !extensions::ExtensionSystem::Get(profile)->extension_service()->
+          CanCrossIncognito(extension)) {
     if (!event->cross_incognito_args.get())
       return false;
     // Send the event with different arguments to extensions that can't
@@ -608,12 +613,24 @@ void EventRouter::Observe(int type,
       dispatch_chrome_updated_event_ = false;
       break;
     }
+    case chrome::NOTIFICATION_EXTENSION_ENABLED: {
+      // If the extension has a lazy background page, make sure it gets loaded
+      // to register the events the extension is interested in.
+      const Extension* extension =
+          content::Details<const Extension>(details).ptr();
+      if (extension->has_lazy_background_page()) {
+        LazyBackgroundTaskQueue* queue =
+            ExtensionSystem::Get(profile_)->lazy_background_task_queue();
+        queue->AddPendingTask(profile_, extension->id(),
+                              base::Bind(&DoNothing));
+      }
+    }
     case chrome::NOTIFICATION_EXTENSION_LOADED: {
       // Add all registered lazy listeners to our cache.
       const Extension* extension =
           content::Details<const Extension>(details).ptr();
-      ExtensionPrefs* prefs =
-          profile_->GetExtensionService()->extension_prefs();
+      ExtensionPrefs* prefs = extensions::ExtensionSystem::Get(profile_)->
+          extension_service()->extension_prefs();
       std::set<std::string> registered_events =
           prefs->GetRegisteredEvents(extension->id());
       listeners_.LoadUnfilteredLazyListeners(extension->id(),
@@ -691,5 +708,10 @@ Event::Event(const std::string& event_name,
       info(info) {}
 
 Event::~Event() {}
+
+EventListenerInfo::EventListenerInfo(const std::string& event_name,
+                                     const std::string& extension_id)
+    : event_name(event_name),
+      extension_id(extension_id) {}
 
 }  // namespace extensions

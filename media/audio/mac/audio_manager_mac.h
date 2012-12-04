@@ -6,7 +6,6 @@
 #define MEDIA_AUDIO_MAC_AUDIO_MANAGER_MAC_H_
 
 #include "base/basictypes.h"
-#include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "media/audio/audio_manager_base.h"
 
@@ -34,13 +33,18 @@ class MEDIA_EXPORT AudioManagerMac : public AudioManagerBase {
       const AudioParameters& params, const std::string& device_id) OVERRIDE;
   virtual AudioInputStream* MakeLowLatencyInputStream(
       const AudioParameters& params, const std::string& device_id) OVERRIDE;
+  virtual AudioParameters GetPreferredLowLatencyOutputStreamParameters(
+      const AudioParameters& input_params) OVERRIDE;
+
+  // Called by an internal device change listener.  Must be called on
+  // |creating_message_loop_|.
+  void OnDeviceChange();
 
  protected:
   virtual ~AudioManagerMac();
 
  private:
-  // Listens for output device changes.
-  base::Closure listener_cb_;
+  bool listener_registered_;
 
   DISALLOW_COPY_AND_ASSIGN(AudioManagerMac);
 };

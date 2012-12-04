@@ -12,6 +12,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/aura_test_base.h"
 #include "ui/aura/test/event_generator.h"
@@ -93,7 +94,7 @@ class ToplevelWindowEventHandlerTest : public AshTestBase {
     aura::Window* w1 = new aura::Window(d1);
     w1->set_id(1);
     w1->Init(ui::LAYER_TEXTURED);
-    w1->SetParent(parent_);
+    parent_->AddChild(w1);
     w1->SetBounds(gfx::Rect(0, 0, 100, 100));
     w1->Show();
     return w1;
@@ -401,40 +402,47 @@ TEST_F(ToplevelWindowEventHandlerTest, GestureDrag) {
                                        target.get());
   gfx::Rect old_bounds = target->bounds();
   gfx::Point location(5, 5);
+  target->SetProperty(aura::client::kCanMaximizeKey, true);
+
+  gfx::Point end = location;
 
   // Snap right;
-  gfx::Point end = location;
-  end.Offset(100, 0);
-  generator.GestureScrollSequence(location, end,
-      base::TimeDelta::FromMilliseconds(5),
-      10);
-  RunAllPendingInMessageLoop();
-
-  // Verify that the window has moved after the gesture.
-  EXPECT_NE(old_bounds.ToString(), target->bounds().ToString());
   {
+    // Get the expected snapped bounds before snapping.
     internal::SnapSizer sizer(target.get(), location,
         internal::SnapSizer::RIGHT_EDGE,
         internal::SnapSizer::OTHER_INPUT);
-    EXPECT_EQ(sizer.target_bounds().ToString(), target->bounds().ToString());
+    gfx::Rect snapped_bounds = sizer.GetSnapBounds(target->bounds());
+
+    end.Offset(100, 0);
+    generator.GestureScrollSequence(location, end,
+        base::TimeDelta::FromMilliseconds(5),
+        10);
+    RunAllPendingInMessageLoop();
+
+    // Verify that the window has moved after the gesture.
+    EXPECT_NE(old_bounds.ToString(), target->bounds().ToString());
+    EXPECT_EQ(snapped_bounds.ToString(), target->bounds().ToString());
   }
 
   old_bounds = target->bounds();
 
   // Snap left.
-  end = location = target->GetBoundsInRootWindow().CenterPoint();
-  end.Offset(-100, 0);
-  generator.GestureScrollSequence(location, end,
-      base::TimeDelta::FromMilliseconds(5),
-      10);
-  RunAllPendingInMessageLoop();
-
-  EXPECT_NE(old_bounds.ToString(), target->bounds().ToString());
   {
+    // Get the expected snapped bounds before snapping.
     internal::SnapSizer sizer(target.get(), location,
         internal::SnapSizer::LEFT_EDGE,
         internal::SnapSizer::OTHER_INPUT);
-    EXPECT_EQ(sizer.target_bounds().ToString(), target->bounds().ToString());
+    gfx::Rect snapped_bounds = sizer.GetSnapBounds(target->bounds());
+    end = location = target->GetBoundsInRootWindow().CenterPoint();
+    end.Offset(-100, 0);
+    generator.GestureScrollSequence(location, end,
+        base::TimeDelta::FromMilliseconds(5),
+        10);
+    RunAllPendingInMessageLoop();
+
+    EXPECT_NE(old_bounds.ToString(), target->bounds().ToString());
+    EXPECT_EQ(snapped_bounds.ToString(), target->bounds().ToString());
   }
 
   old_bounds = target->bounds();

@@ -12,7 +12,8 @@
 #include "base/observer_list.h"
 #include "chrome/browser/google_apis/auth_service_observer.h"
 #include "chrome/browser/google_apis/drive_service_interface.h"
-#include "chrome/browser/google_apis/gdata_operations.h"
+#include "chrome/browser/google_apis/gdata_wapi_operations.h"
+#include "chrome/browser/google_apis/gdata_wapi_url_generator.h"
 
 class FilePath;
 class GURL;
@@ -32,7 +33,13 @@ class GDataWapiService : public DriveServiceInterface,
  public:
   // Instance is usually created by DriveSystemServiceFactory and owned by
   // DriveFileSystem.
-  GDataWapiService();
+  //
+  // |base_url| is used to generate URLs for communicating with the WAPI
+  // |server. See gdata_wapi_url_generator.h for details.
+  //
+  // |custom_user_agent| will be used for the User-Agent header in HTTP
+  // requests issued through the service if the value is not empty.
+  GDataWapiService(const GURL& base_url, const std::string& custom_user_agent);
   virtual ~GDataWapiService();
 
   AuthService* auth_service_for_testing();
@@ -45,12 +52,12 @@ class GDataWapiService : public DriveServiceInterface,
   virtual void CancelAll() OVERRIDE;
   virtual bool CancelForFilePath(const FilePath& file_path) OVERRIDE;
   virtual OperationProgressStatusList GetProgressStatusList() const OVERRIDE;
-  virtual void Authenticate(const AuthStatusCallback& callback) OVERRIDE;
   virtual bool HasAccessToken() const OVERRIDE;
   virtual bool HasRefreshToken() const OVERRIDE;
   virtual void GetDocuments(const GURL& feed_url,
                             int64 start_changestamp,
                             const std::string& search_query,
+                            bool shared_with_me,
                             const std::string& directory_resource_id,
                             const GetDataCallback& callback) OVERRIDE;
   virtual void GetDocumentEntry(const std::string& resource_id,
@@ -85,7 +92,6 @@ class GDataWapiService : public DriveServiceInterface,
       const EntryActionCallback& callback) OVERRIDE;
   virtual void RemoveResourceFromDirectory(
       const GURL& parent_content_url,
-      const GURL& resource_url,
       const std::string& resource_id,
       const EntryActionCallback& callback) OVERRIDE;
   virtual void AddNewDirectory(
@@ -117,6 +123,10 @@ class GDataWapiService : public DriveServiceInterface,
 
   scoped_ptr<OperationRunner> runner_;
   ObserverList<DriveServiceObserver> observers_;
+  // Operation objects should hold a copy of this, rather than a const
+  // reference, as they may outlive this object.
+  GDataWapiUrlGenerator url_generator_;
+  const std::string custom_user_agent_;
 
   DISALLOW_COPY_AND_ASSIGN(GDataWapiService);
 };

@@ -19,14 +19,15 @@
 #include "chrome/browser/extensions/api/preference/preference_api_constants.h"
 #include "chrome/browser/extensions/api/preference/preference_helpers.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/plugins/plugin_finder.h"
 #include "chrome/browser/plugins/plugin_installer.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/content_settings.h"
-#include "chrome/common/extensions/extension_error_utils.h"
 #include "content/public/browser/plugin_service.h"
+#include "extensions/common/error_utils.h"
 
 using content::BrowserThread;
 using content::PluginService;
@@ -88,8 +89,8 @@ bool ClearContentSettingsFunction::RunImpl() {
     }
   }
 
-  ContentSettingsStore* store =
-      profile_->GetExtensionService()->GetContentSettingsStore();
+  ContentSettingsStore* store = extensions::ExtensionSystem::Get(profile_)->
+      extension_service()->GetContentSettingsStore();
   store->ClearContentSettingsForExtension(extension_id(), scope);
 
   return true;
@@ -104,7 +105,7 @@ bool GetContentSettingFunction::RunImpl() {
 
   GURL primary_url(params->details.primary_url);
   if (!primary_url.is_valid()) {
-    error_ = ExtensionErrorUtils::FormatErrorMessage(keys::kInvalidUrlError,
+    error_ = ErrorUtils::FormatErrorMessage(keys::kInvalidUrlError,
         params->details.primary_url);
     return false;
   }
@@ -113,7 +114,7 @@ bool GetContentSettingFunction::RunImpl() {
   if (params->details.secondary_url.get()) {
     secondary_url = GURL(*params->details.secondary_url);
     if (!secondary_url.is_valid()) {
-      error_ = ExtensionErrorUtils::FormatErrorMessage(keys::kInvalidUrlError,
+      error_ = ErrorUtils::FormatErrorMessage(keys::kInvalidUrlError,
         *params->details.secondary_url);
       return false;
     }
@@ -241,8 +242,8 @@ bool SetContentSettingFunction::RunImpl() {
     return false;
   }
 
-  ContentSettingsStore* store =
-      profile_->GetExtensionService()->GetContentSettingsStore();
+  ContentSettingsStore* store = extensions::ExtensionSystem::Get(profile_)->
+      extension_service()->GetContentSettingsStore();
   store->SetExtensionContentSetting(extension_id(), primary_pattern,
                                     secondary_pattern, content_type,
                                     resource_identifier, setting, scope);

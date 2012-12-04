@@ -6,10 +6,18 @@
 #include <string>
 
 #include "content/public/common/common_param_traits.h"
+#include "content/shell/shell_webpreferences.h"
 #include "ipc/ipc_message_macros.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 #define IPC_MESSAGE_START ShellMsgStart
+
+IPC_STRUCT_TRAITS_BEGIN(content::ShellWebPreferences)
+  IPC_STRUCT_TRAITS_MEMBER(allow_universal_access_from_file_urls)
+  IPC_STRUCT_TRAITS_MEMBER(dom_paste_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(javascript_can_access_clipboard)
+  IPC_STRUCT_TRAITS_MEMBER(xss_auditor_enabled)
+IPC_STRUCT_TRAITS_END()
 
 // Sets the current working directory to use for layout tests.
 IPC_MESSAGE_ROUTED1(ShellViewMsg_SetCurrentWorkingDirectory,
@@ -27,12 +35,12 @@ IPC_MESSAGE_ROUTED3(ShellViewMsg_CaptureTextDump,
 IPC_MESSAGE_ROUTED1(ShellViewMsg_CaptureImageDump,
                     std::string /* expected pixel hash */)
 
-// Tells the render view that it should register itself as main window for the
-// layout test.
-IPC_MESSAGE_ROUTED0(ShellViewMsg_SetIsMainWindow)
-
 // Tells the renderer to reset all test runners.
 IPC_MESSAGE_CONTROL0(ShellViewMsg_ResetAll)
+
+// Sets the path to the WebKit checkout.
+IPC_MESSAGE_CONTROL1(ShellViewMsg_SetWebKitSourceDir,
+                     FilePath /* webkit source dir */)
 
 // Send a text dump of the WebContents to the render host.
 IPC_MESSAGE_ROUTED1(ShellViewHostMsg_TextDump,
@@ -59,6 +67,8 @@ IPC_MESSAGE_ROUTED1(
     ShellViewHostMsg_SetShouldStayOnPageAfterHandlingBeforeUnload,
     bool /* should_stay_on_page */)
 IPC_MESSAGE_ROUTED0(ShellViewHostMsg_WaitUntilDone)
+IPC_MESSAGE_ROUTED1(ShellViewHostMsg_OverridePreferences,
+                    content::ShellWebPreferences /* preferences */)
 
 IPC_MESSAGE_ROUTED2(ShellViewHostMsg_NotImplemented,
                     std::string /* object_name */,

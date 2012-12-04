@@ -40,6 +40,7 @@ const char* kKnownSettings[] = {
   kAccountsPrefEphemeralUsersEnabled,
   kAccountsPrefShowUserNamesOnSignIn,
   kAccountsPrefUsers,
+  kAccountsPrefDeviceLocalAccounts,
   kAppPack,
   kDeviceOwner,
   kIdleLogoutTimeout,
@@ -211,6 +212,22 @@ void DeviceSettingsProvider::SetInPolicy() {
       show->set_show_user_names(show_value);
     else
       NOTREACHED();
+  } else if (prop == kAccountsPrefDeviceLocalAccounts) {
+    em::DeviceLocalAccountsProto* device_local_accounts =
+        device_settings_.mutable_device_local_accounts();
+    base::ListValue* accounts_list;
+    if (value->GetAsList(&accounts_list)) {
+      for (base::ListValue::const_iterator entry(accounts_list->begin());
+           entry != accounts_list->end(); ++entry) {
+        std::string id;
+        if ((*entry)->GetAsString(&id))
+          device_local_accounts->add_account()->set_id(id);
+        else
+          NOTREACHED();
+      }
+    } else {
+      NOTREACHED();
+    }
   } else if (prop == kSignedDataRoamingEnabled) {
     em::DataRoamingEnabledProto* roam =
         device_settings_.mutable_data_roaming_enabled();
@@ -296,12 +313,12 @@ void DeviceSettingsProvider::SetInPolicy() {
   // Set the cache to the updated value.
   UpdateValuesCache(data, device_settings_);
 
-  if (!device_settings_cache::Store(data, g_browser_process->local_state()))
-    LOG(ERROR) << "Couldn't store to the temp storage.";
-
   if (ownership_status_ == DeviceSettingsService::OWNERSHIP_TAKEN) {
     StoreDeviceSettings();
   } else {
+    if (!device_settings_cache::Store(data, g_browser_process->local_state()))
+      LOG(ERROR) << "Couldn't store to the temp storage.";
+
     // OnStorePolicyCompleted won't get called in this case so proceed with any
     // pending operations immediately.
     if (!pending_changes_.empty())
@@ -358,9 +375,19 @@ void DeviceSettingsProvider::DecodeLoginPolicies(
       whitelist_proto.user_whitelist();
   for (RepeatedPtrField<std::string>::const_iterator it = whitelist.begin();
        it != whitelist.end(); ++it) {
-    list->Append(base::Value::CreateStringValue(*it));
+    list->Append(new base::StringValue(*it));
   }
   new_values_cache->SetValue(kAccountsPrefUsers, list);
+
+  base::ListValue* account_list = new base::ListValue();
+  const RepeatedPtrField<em::DeviceLocalAccountInfoProto>& accounts =
+      policy.device_local_accounts().account();
+  RepeatedPtrField<em::DeviceLocalAccountInfoProto>::const_iterator entry;
+  for (entry = accounts.begin(); entry != accounts.end(); ++entry) {
+    if (entry->has_id())
+      account_list->AppendString(entry->id());
+  }
+  new_values_cache->SetValue(kAccountsPrefDeviceLocalAccounts, account_list);
 }
 
 void DeviceSettingsProvider::DecodeKioskPolicies(
@@ -418,7 +445,7 @@ void DeviceSettingsProvider::DecodeKioskPolicies(
     const RepeatedPtrField<std::string>& urls = urls_proto.start_up_urls();
     for (RepeatedPtrField<std::string>::const_iterator it = urls.begin();
          it != urls.end(); ++it) {
-      list->Append(base::Value::CreateStringValue(*it));
+      list->Append(new base::StringValue(*it));
     }
     new_values_cache->SetValue(kStartUpUrls, list);
   }
@@ -671,6 +698,10 @@ bool DeviceSettingsProvider::UpdateFromService() {
       const em::ChromeDeviceSettingsProto* device_settings =
           device_settings_service_->device_settings();
       if (policy_data && device_settings) {
+        if (!device_settings_cache::Store(*policy_data,
+                                          g_browser_process->local_state())) {
+          LOG(ERROR) << "Couldn't update the local state cache.";
+        }
         UpdateValuesCache(*policy_data, *device_settings);
         device_settings_ = *device_settings;
         trusted_status_ = TRUSTED;

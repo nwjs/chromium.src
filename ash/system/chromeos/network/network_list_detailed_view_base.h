@@ -8,6 +8,7 @@
 #include "ash/system/tray/tray_views.h"
 #include "ash/system/user/login_status.h"
 #include "base/memory/scoped_ptr.h"
+#include "ui/views/view.h"
 
 namespace views {
 class BubbleDelegateView;
@@ -25,13 +26,18 @@ class NetworkListDetailedViewBase : public NetworkDetailedView,
                                     public views::ButtonListener,
                                     public ViewClickListener {
  public:
-  NetworkListDetailedViewBase(user::LoginStatus login, int header_string_id);
+  NetworkListDetailedViewBase(SystemTrayItem* owner,
+                              user::LoginStatus login,
+                              int header_string_id);
   virtual ~NetworkListDetailedViewBase();
 
-  // Overridden from NetworkDetailedView:
+  // Overridden from NetworkDetailedView.
   virtual void Init() OVERRIDE;
   virtual NetworkDetailedView::DetailedViewType GetViewType() const OVERRIDE;
-  virtual void Update() OVERRIDE;
+  virtual void ManagerChanged() OVERRIDE;
+  virtual void NetworkListChanged(const NetworkStateList& networks) OVERRIDE;
+  virtual void NetworkServiceChanged(
+      const chromeos::NetworkState* network) OVERRIDE;
 
  protected:
   void AppendInfoButtonToHeader();
@@ -55,14 +61,14 @@ class NetworkListDetailedViewBase : public NetworkDetailedView,
   virtual void GetAvailableNetworkList(std::vector<NetworkIconInfo>* list) = 0;
   virtual void RefreshNetworkScrollWithEmptyNetworkList() = 0;
   virtual void UpdateNetworkEntries() = 0;
-  virtual void AppendCustomButtonsToBottomRow(
-      TrayPopupTextButtonContainer* bottom_row) = 0;
+  virtual void AppendCustomButtonsToBottomRow(views::View* bottom_row) = 0;
   virtual void UpdateNetworkExtra() = 0;
   virtual void CustomButtonPressed(views::Button* sender,
       const ui::Event& event) = 0;
   // Returns true if custom link is clicked on.
   virtual bool CustomLinkClickedOn(views::View* sender) = 0;
 
+  void Update();
   void CreateItems();
   void UpdateAvailableNetworkList();
   void AppendHeaderEntry(int header_string_id);
@@ -82,8 +88,8 @@ class NetworkListDetailedViewBase : public NetworkDetailedView,
   std::map<views::View*, std::string> network_map_;
   std::map<std::string, HoverHighlightView*> service_path_map_;
   TrayPopupHeaderButton* info_icon_;
-  TrayPopupTextButton* settings_;
-  TrayPopupTextButton* proxy_settings_;
+  TrayPopupLabelButton* settings_;
+  TrayPopupLabelButton* proxy_settings_;
   views::BubbleDelegateView* info_bubble_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkListDetailedViewBase);

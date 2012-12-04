@@ -24,8 +24,9 @@ void GLES2Implementation::BindBuffer(GLenum target, GLuint buffer) {
     SetGLError(GL_INVALID_OPERATION, "BindBuffer", "buffer reserved id");
     return;
   }
-  BindBufferHelper(target, buffer);
-  helper_->BindBuffer(target, buffer);
+  if (BindBufferHelper(target, buffer)) {
+    helper_->BindBuffer(target, buffer);
+  }
 }
 
 void GLES2Implementation::BindFramebuffer(GLenum target, GLuint framebuffer) {
@@ -36,8 +37,9 @@ void GLES2Implementation::BindFramebuffer(GLenum target, GLuint framebuffer) {
         GL_INVALID_OPERATION, "BindFramebuffer", "framebuffer reserved id");
     return;
   }
-  BindFramebufferHelper(target, framebuffer);
-  helper_->BindFramebuffer(target, framebuffer);
+  if (BindFramebufferHelper(target, framebuffer)) {
+    helper_->BindFramebuffer(target, framebuffer);
+  }
 }
 
 void GLES2Implementation::BindRenderbuffer(
@@ -49,8 +51,9 @@ void GLES2Implementation::BindRenderbuffer(
         GL_INVALID_OPERATION, "BindRenderbuffer", "renderbuffer reserved id");
     return;
   }
-  BindRenderbufferHelper(target, renderbuffer);
-  helper_->BindRenderbuffer(target, renderbuffer);
+  if (BindRenderbufferHelper(target, renderbuffer)) {
+    helper_->BindRenderbuffer(target, renderbuffer);
+  }
 }
 
 void GLES2Implementation::BindTexture(GLenum target, GLuint texture) {
@@ -60,8 +63,9 @@ void GLES2Implementation::BindTexture(GLenum target, GLuint texture) {
     SetGLError(GL_INVALID_OPERATION, "BindTexture", "texture reserved id");
     return;
   }
-  BindTextureHelper(target, texture);
-  helper_->BindTexture(target, texture);
+  if (BindTextureHelper(target, texture)) {
+    helper_->BindTexture(target, texture);
+  }
 }
 
 void GLES2Implementation::BlendColor(
@@ -111,6 +115,12 @@ GLenum GLES2Implementation::CheckFramebufferStatus(GLenum target) {
   WaitForCmd();
   GPU_CLIENT_LOG("returned " << *result);
   return *result;
+}
+
+void GLES2Implementation::Clear(GLbitfield mask) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glClear(" << mask << ")");
+  helper_->Clear(mask);
 }
 
 void GLES2Implementation::ClearColor(
@@ -359,6 +369,7 @@ void GLES2Implementation::GenBuffers(GLsizei n, GLuint* buffers) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GetIdHandler(id_namespaces::kBuffers)->
       MakeIds(this, 0, n, buffers);
+  GenBuffersHelper(n, buffers);
   helper_->GenBuffersImmediate(n, buffers);
   helper_->CommandBufferHelper::Flush();
   GPU_CLIENT_LOG_CODE_BLOCK({
@@ -383,6 +394,7 @@ void GLES2Implementation::GenFramebuffers(GLsizei n, GLuint* framebuffers) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GetIdHandler(id_namespaces::kFramebuffers)->
       MakeIds(this, 0, n, framebuffers);
+  GenFramebuffersHelper(n, framebuffers);
   helper_->GenFramebuffersImmediate(n, framebuffers);
   helper_->CommandBufferHelper::Flush();
   GPU_CLIENT_LOG_CODE_BLOCK({
@@ -401,6 +413,7 @@ void GLES2Implementation::GenRenderbuffers(GLsizei n, GLuint* renderbuffers) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GetIdHandler(id_namespaces::kRenderbuffers)->
       MakeIds(this, 0, n, renderbuffers);
+  GenRenderbuffersHelper(n, renderbuffers);
   helper_->GenRenderbuffersImmediate(n, renderbuffers);
   helper_->CommandBufferHelper::Flush();
   GPU_CLIENT_LOG_CODE_BLOCK({
@@ -419,6 +432,7 @@ void GLES2Implementation::GenTextures(GLsizei n, GLuint* textures) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GetIdHandler(id_namespaces::kTextures)->
       MakeIds(this, 0, n, textures);
+  GenTexturesHelper(n, textures);
   helper_->GenTexturesImmediate(n, textures);
   helper_->CommandBufferHelper::Flush();
   GPU_CLIENT_LOG_CODE_BLOCK({
@@ -1192,12 +1206,6 @@ void GLES2Implementation::UniformMatrix4fv(
   helper_->UniformMatrix4fvImmediate(location, count, transpose, value);
 }
 
-void GLES2Implementation::UseProgram(GLuint program) {
-  GPU_CLIENT_SINGLE_THREAD_CHECK();
-  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glUseProgram(" << program << ")");
-  helper_->UseProgram(program);
-}
-
 void GLES2Implementation::ValidateProgram(GLuint program) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glValidateProgram(" << program << ")");  // NOLINT
@@ -1335,6 +1343,7 @@ void GLES2Implementation::GenQueriesEXT(GLsizei n, GLuint* queries) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GetIdHandler(id_namespaces::kQueries)->
       MakeIds(this, 0, n, queries);
+  GenQueriesEXTHelper(n, queries);
   helper_->GenQueriesEXTImmediate(n, queries);
   helper_->CommandBufferHelper::Flush();
   GPU_CLIENT_LOG_CODE_BLOCK({
@@ -1373,6 +1382,7 @@ void GLES2Implementation::GenVertexArraysOES(GLsizei n, GLuint* arrays) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GetIdHandler(id_namespaces::kVertexArrays)->
       MakeIds(this, 0, n, arrays);
+  GenVertexArraysOESHelper(n, arrays);
   helper_->GenVertexArraysOESImmediate(n, arrays);
   helper_->CommandBufferHelper::Flush();
   GPU_CLIENT_LOG_CODE_BLOCK({
@@ -1426,8 +1436,9 @@ void GLES2Implementation::BindVertexArrayOES(GLuint array) {
         GL_INVALID_OPERATION, "BindVertexArrayOES", "array reserved id");
     return;
   }
-  BindVertexArrayHelper(array);
-  helper_->BindVertexArrayOES(array);
+  if (BindVertexArrayHelper(array)) {
+    helper_->BindVertexArrayOES(array);
+  }
 }
 
 void GLES2Implementation::GetTranslatedShaderSourceANGLE(
@@ -1512,6 +1523,12 @@ void GLES2Implementation::ReleaseTexImage2DCHROMIUM(
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glReleaseTexImage2DCHROMIUM(" << GLES2Util::GetStringTextureBindTarget(target) << ", " << imageId << ")");  // NOLINT
   helper_->ReleaseTexImage2DCHROMIUM(target, imageId);
+}
+
+void GLES2Implementation::TraceEndCHROMIUM() {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glTraceEndCHROMIUM(" << ")");
+  helper_->TraceEndCHROMIUM();
 }
 
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_IMPLEMENTATION_IMPL_AUTOGEN_H_

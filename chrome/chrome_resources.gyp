@@ -22,6 +22,13 @@
           'includes': [ '../build/grit_action.gypi' ],
         },
         {
+          'action_name': 'signin_internals_resources',
+          'variables': {
+            'grit_grd_file': 'browser/resources/signin_internals_resources.grd',
+            },
+          'includes': ['../build/grit_action.gypi' ],
+        },
+        {
           'action_name': 'sync_internals_resources',
           'variables': {
             'grit_grd_file': 'browser/resources/sync_internals_resources.grd',
@@ -182,8 +189,15 @@
           ['OS=="linux"', {
             'conditions': [
               ['chromeos==1', {
-                'platform_locale_settings_grd':
-                    'app/resources/locale_settings_cros.grd',
+                'conditions': [
+                  ['branding=="Chrome"', {
+                    'platform_locale_settings_grd':
+                        'app/resources/locale_settings_google_chromeos.grd',
+                  }, {  # branding!=Chrome
+                    'platform_locale_settings_grd':
+                        'app/resources/locale_settings_chromiumos.grd',
+                  }],
+                ]
               }, {  # chromeos==0
                 'platform_locale_settings_grd':
                     'app/resources/locale_settings_linux.grd',
@@ -229,6 +243,7 @@
       'target_name': 'theme_resources',
       'type': 'none',
       'dependencies': [
+        'chrome_unscaled_resources',
         'theme_resources_gen',
         '<(DEPTH)/ui/ui.gyp:ui_resources',
       ],
@@ -396,6 +411,23 @@
           ], # conditions
         }], # end OS != "mac" and OS != "ios"
       ], # conditions
+    },
+    {
+      'target_name': 'chrome_unscaled_resources',
+      'type': 'none',
+      'variables': {
+        'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/chrome',
+      },
+      'actions': [
+        {
+          'action_name': 'chrome_unscaled_resources',
+          'variables': {
+            'grit_grd_file': 'app/theme/chrome_unscaled_resources.grd',
+          },
+          'includes': [ '../build/grit_action.gypi' ],
+        },
+      ],
+      'includes': [ '../build/grit_target.gypi' ],
     },
   ], # targets
 }

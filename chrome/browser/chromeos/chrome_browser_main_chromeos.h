@@ -9,8 +9,14 @@
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chrome_browser_main_linux.h"
 
+namespace contacts {
+class ContactManager;
+}  // namespace contacts
+
 namespace chromeos {
+
 class BrightnessObserver;
+class MagnificationManager;
 class OutputObserver;
 class PowerButtonObserver;
 class PowerStateOverride;
@@ -27,11 +33,9 @@ namespace default_app_order {
 class ExternalLoader;
 }
 
-}  // namespace chromeos
-
-namespace contacts {
-class ContactManager;
-}  // namespace contacts
+namespace internal {
+class DBusServices;
+}
 
 class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
  public:
@@ -66,7 +70,7 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   scoped_ptr<chromeos::ResumeObserver> resume_observer_;
   scoped_ptr<chromeos::ScreenLockObserver> screen_lock_observer_;
   scoped_ptr<chromeos::PowerButtonObserver> power_button_observer_;
-  scoped_ptr<chromeos::PowerStateOverride> power_state_override_;
+  scoped_refptr<chromeos::PowerStateOverride> power_state_override_;
   scoped_ptr<chromeos::PrimaryDisplaySwitchObserver>
       primary_display_switch_observer_;
   scoped_ptr<chromeos::UserActivityNotifier> user_activity_notifier_;
@@ -74,9 +78,13 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   scoped_ptr<chromeos::ScreenDimmingObserver> screen_dimming_observer_;
   scoped_refptr<chromeos::RemovableDeviceNotificationsCros>
       removable_device_notifications_;
-  bool did_post_main_message_loop_start_;
+  scoped_ptr<chromeos::MagnificationManager> magnification_manager_;
+
+  scoped_ptr<internal::DBusServices> dbus_services_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeBrowserMainPartsChromeos);
 };
+
+}  // namespace chromeos
 
 #endif  // CHROME_BROWSER_CHROMEOS_CHROME_BROWSER_MAIN_CHROMEOS_H_

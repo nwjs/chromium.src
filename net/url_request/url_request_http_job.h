@@ -25,6 +25,7 @@ class HttpResponseHeaders;
 class HttpResponseInfo;
 class HttpTransaction;
 class HttpUserAgentSettings;
+class UploadDataStream;
 class URLRequestContext;
 
 // A URLRequestJob subclass that is built on top of HttpTransaction.  It
@@ -69,7 +70,7 @@ class URLRequestHttpJob : public URLRequestJob {
   void RestartTransactionWithAuth(const AuthCredentials& credentials);
 
   // Overridden from URLRequestJob:
-  virtual void SetUpload(UploadData* upload) OVERRIDE;
+  virtual void SetUpload(UploadDataStream* upload) OVERRIDE;
   virtual void SetExtraRequestHeaders(
       const HttpRequestHeaders& headers) OVERRIDE;
   virtual void Start() OVERRIDE;

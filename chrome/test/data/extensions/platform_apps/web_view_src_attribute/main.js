@@ -10,14 +10,14 @@ var checkSrc = function(element, expectedValue) {
 
 onload = function() {
   chrome.test.runTests([
-    function webview() {
+    function webView() {
       var expectedSrcOne = 'data:text/html,<body>One</body>';
       var expectedSrcTwo = 'data:text/html,<body>Two</body>';
       var expectedSrcThree = 'data:text/html,<body>Three</body>';
 
       var step = 1;
       // For setting src, we check if both webview.setAttribute('src', ?);
-      // and webview.src = ?; works propertly.
+      // and webview.src = ?; works properly.
       var webview = document.querySelector('webview');
 
       var runStep2 = function() {
@@ -59,7 +59,6 @@ onload = function() {
         }, 0);
       };
 
-
       // Wait for navigation to complete before checking src attribute.
       webview.addEventListener('loadcommit', function(e) {
         switch (step) {
@@ -74,7 +73,8 @@ onload = function() {
             break;
           default:
             // Unchecked.
-            chrome.test.fail('Unexpected step: ' + step);
+            chrome.test.fail('Unexpected step: ' + step + ' with url: ' +
+                             e.url);
         }
       });
     }

@@ -6,7 +6,7 @@
 
 #include "ash/accelerators/accelerator_controller.h"
 #include "ash/ash_switches.h"
-#include "ash/display/multi_display_manager.h"
+#include "ash/display/display_manager.h"
 #include "ash/launcher/launcher.h"
 #include "ash/launcher/launcher_model.h"
 #include "ash/shell.h"
@@ -20,7 +20,6 @@
 #include "base/command_line.h"
 #include "base/time.h"
 #include "base/timer.h"
-#include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_windows.h"
@@ -162,8 +161,7 @@ class SystemGestureEventFilterTest : public AshTestBase {
         ::switches::kEnableBezelTouch);
     test::AshTestBase::SetUp();
     // Enable brightness key.
-    static_cast<internal::MultiDisplayManager*>(
-        aura::Env::GetInstance()->display_manager())->
+    Shell::GetInstance()->display_manager()->
         SetFirstDisplayAsInternalDisplayForTest();
   }
 
@@ -204,7 +202,7 @@ TEST_F(SystemGestureEventFilterTest, TapOutsideRootWindow) {
 
   // Without the event filter, the touch shouldn't be consumed by the
   // system event handler.
-  Shell::GetInstance()->RemoveEnvEventFilter(
+  Shell::GetInstance()->RemovePreTargetHandler(
       shell_test.system_gesture_event_filter());
 
   scoped_ptr<ui::GestureEvent> event2(CreateGesture(

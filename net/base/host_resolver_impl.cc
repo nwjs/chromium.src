@@ -66,6 +66,10 @@ const unsigned kNegativeCacheEntryTTLSeconds = 0;
 // Minimum TTL for successful resolutions with DnsTask.
 const unsigned kMinimumTTLSeconds = kCacheEntryTTLSeconds;
 
+// Number of consecutive failures of DnsTask (with successful fallback) before
+// the DnsClient is disabled until the next DNS change.
+const unsigned kMaximumDnsFailures = 16;
+
 // We use a separate histogram name for each platform to facilitate the
 // display of error codes by their symbolic name (since each platform has
 // different mappings).
@@ -1270,6 +1274,15 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
     CompleteRequestsWithError(ERR_ABORTED);
   }
 
+  // If DnsTask present, abort it and fall back to ProcTask.
+  void AbortDnsTask() {
+    if (dns_task_) {
+      dns_task_.reset();
+      dns_task_error_ = OK;
+      StartProcTask();
+    }
+  }
+
   // Called by HostResolverImpl when this job is evicted due to queue overflow.
   // Completes all requests and destroys the job.
   void OnEvicted() {
@@ -1398,6 +1411,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
         UMA_HISTOGRAM_CUSTOM_ENUMERATION("AsyncDNS.ResolveError",
                                          std::abs(dns_task_error_),
                                          GetAllErrorCodesForUma());
+        resolver_->OnDnsTaskResolve(false);
       } else {
         DNS_HISTOGRAM("AsyncDNS.FallbackFail", duration);
         UmaAsyncDnsResolveStatus(RESOLVE_STATUS_FAIL);
@@ -1459,6 +1473,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job {
 
     UmaAsyncDnsResolveStatus(RESOLVE_STATUS_DNS_SUCCESS);
     RecordTTL(ttl);
+
+    resolver_->OnDnsTaskResolve(true);
 
     base::TimeDelta bounded_ttl =
         std::max(ttl, base::TimeDelta::FromSeconds(kMinimumTTLSeconds));
@@ -1619,7 +1635,6 @@ HostResolverImpl::HostResolverImpl(
     scoped_ptr<HostCache> cache,
     const PrioritizedDispatcher::Limits& job_limits,
     const ProcTaskParams& proc_params,
-    scoped_ptr<DnsClient> dns_client,
     NetLog* net_log)
     : cache_(cache.Pass()),
       dispatcher_(job_limits),
@@ -1628,8 +1643,8 @@ HostResolverImpl::HostResolverImpl(
       default_address_family_(ADDRESS_FAMILY_UNSPECIFIED),
       weak_ptr_factory_(this),
       probe_weak_ptr_factory_(this),
-      dns_client_(dns_client.Pass()),
       received_dns_config_(false),
+      num_dns_failures_(0),
       ipv6_probe_monitoring_(false),
       additional_resolver_flags_(0),
       net_log_(net_log) {
@@ -1650,12 +1665,18 @@ HostResolverImpl::HostResolverImpl(
 #endif
   NetworkChangeNotifier::AddIPAddressObserver(this);
   NetworkChangeNotifier::AddDNSObserver(this);
-  if (!HaveDnsConfig())
-    OnDNSChanged();
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_OPENBSD) && \
     !defined(OS_ANDROID)
   EnsureDnsReloaderInit();
 #endif
+
+  // TODO(szym): Remove when received_dns_config_ is removed, once
+  // http://crbug.com/137914 is resolved.
+  {
+    DnsConfig dns_config;
+    NetworkChangeNotifier::GetDnsConfig(&dns_config);
+    received_dns_config_ = dns_config.IsValid();
+  }
 }
 
 HostResolverImpl::~HostResolverImpl() {
@@ -1847,6 +1868,17 @@ void HostResolverImpl::ProbeIPv6Support() {
   DCHECK(!ipv6_probe_monitoring_);
   ipv6_probe_monitoring_ = true;
   OnIPAddressChanged();
+}
+
+void HostResolverImpl::SetDnsClientEnabled(bool enabled) {
+  DCHECK(CalledOnValidThread());
+#if defined(ENABLE_BUILT_IN_DNS)
+  if (enabled && !dns_client_) {
+    SetDnsClient(DnsClient::CreateClient(net_log_));
+  } else if (!enabled && dns_client_) {
+    SetDnsClient(scoped_ptr<DnsClient>());
+  }
+#endif
 }
 
 HostCache* HostResolverImpl::GetHostCache() {
@@ -2072,13 +2104,15 @@ void HostResolverImpl::OnDNSChanged() {
   // TODO(szym): Remove once http://crbug.com/137914 is resolved.
   received_dns_config_ = dns_config.IsValid();
 
-  // Life check to bail once |this| is deleted.
-  base::WeakPtr<HostResolverImpl> self = weak_ptr_factory_.GetWeakPtr();
+  num_dns_failures_ = 0;
 
   // We want a new DnsSession in place, before we Abort running Jobs, so that
   // the newly started jobs use the new config.
-  if (dns_client_.get())
+  if (dns_client_.get()) {
     dns_client_->SetConfig(dns_config);
+    if (dns_config.IsValid())
+      UMA_HISTOGRAM_BOOLEAN("AsyncDNS.DnsClientEnabled", true);
+  }
 
   // If the DNS server has changed, existing cached info could be wrong so we
   // have to drop our internal cache :( Note that OS level DNS caches, such
@@ -2086,6 +2120,9 @@ void HostResolverImpl::OnDNSChanged() {
   // resolv.conf changes so we don't need to do anything to clear that cache.
   if (cache_.get())
     cache_->clear();
+
+  // Life check to bail once |this| is deleted.
+  base::WeakPtr<HostResolverImpl> self = weak_ptr_factory_.GetWeakPtr();
 
   // Existing jobs will have been sent to the original server so they need to
   // be aborted.
@@ -2098,6 +2135,40 @@ void HostResolverImpl::OnDNSChanged() {
 
 bool HostResolverImpl::HaveDnsConfig() const {
   return (dns_client_.get() != NULL) && (dns_client_->GetConfig() != NULL);
+}
+
+void HostResolverImpl::OnDnsTaskResolve(bool success) {
+  DCHECK(dns_client_);
+  if (success) {
+    num_dns_failures_ = 0;
+    return;
+  }
+  ++num_dns_failures_;
+  if (num_dns_failures_ < kMaximumDnsFailures)
+    return;
+  // Disable DnsClient until the next DNS change.
+  for (JobMap::iterator it = jobs_.begin(); it != jobs_.end(); ++it)
+    it->second->AbortDnsTask();
+  dns_client_->SetConfig(DnsConfig());
+  UMA_HISTOGRAM_BOOLEAN("AsyncDNS.DnsClientEnabled", false);
+}
+
+void HostResolverImpl::SetDnsClient(scoped_ptr<DnsClient> dns_client) {
+  if (HaveDnsConfig()) {
+    for (JobMap::iterator it = jobs_.begin(); it != jobs_.end(); ++it)
+      it->second->AbortDnsTask();
+  }
+  dns_client_ = dns_client.Pass();
+  if (!dns_client_ || dns_client_->GetConfig() ||
+      num_dns_failures_ >= kMaximumDnsFailures) {
+    return;
+  }
+  DnsConfig dns_config;
+  NetworkChangeNotifier::GetDnsConfig(&dns_config);
+  dns_client_->SetConfig(dns_config);
+  num_dns_failures_ = 0;
+  if (dns_config.IsValid())
+    UMA_HISTOGRAM_BOOLEAN("AsyncDNS.DnsClientEnabled", true);
 }
 
 }  // namespace net

@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_details.h"
@@ -34,7 +35,7 @@
 
 #if defined(USE_ASH)
 #include "ash/display/display_controller.h"
-#include "ash/display/multi_display_manager.h"
+#include "ash/display/display_manager.h"
 #include "ash/shell.h"
 #include "ash/test/cursor_manager_test_api.h"
 #include "ash/wm/cursor_manager.h"
@@ -1286,7 +1287,7 @@ void CancelDragTabToWindowInSeparateDisplayStep3(
   ASSERT_EQ(2u, BrowserList::size());
 
   // Switching display mode should cancel the drag operation.
-  ash::internal::MultiDisplayManager::CycleDisplay();
+  ash::internal::DisplayManager::CycleDisplay();
 }
 
 // Invoked from the nested message loop.

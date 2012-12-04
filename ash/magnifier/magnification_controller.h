@@ -8,7 +8,6 @@
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "ui/aura/event_filter.h"
 #include "ui/gfx/point.h"
 #include "ui/gfx/rect.h"
 
@@ -17,7 +16,6 @@ class RootWindow;
 }
 
 namespace ash {
-namespace internal {
 
 class MagnificationController {
  public:
@@ -29,6 +27,9 @@ class MagnificationController {
 
   // Enables (or disables if |enabled| is false) screen magnifier feature.
   virtual void SetEnabled(bool enabled) = 0;
+
+  // Returns if the screen magnifier is enabled or not.
+  virtual bool IsEnabled() const = 0;
 
   // Sets the magnification ratio. 1.0f means no magnification.
   virtual void SetScale(float scale, bool animate) = 0;
@@ -50,7 +51,6 @@ class MagnificationController {
   MagnificationController() {}
 };
 
-}  // namespace internal
 }  // namespace ash
 
 #endif  // ASH_MAGNIFIER_MAGNIFICATION_CONTROLLER_H_

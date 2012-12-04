@@ -13,7 +13,7 @@
 #include "base/string_util.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/icon_messages.h"
+#include "chrome/common/favicon_url.h"
 #include "chrome/common/prerender_messages.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
@@ -27,29 +27,30 @@
 #include "chrome/renderer/translate_helper.h"
 #include "chrome/renderer/webview_color_overlay.h"
 #include "content/public/common/bindings_policy.h"
-#include "content/public/renderer/render_view.h"
 #include "content/public/renderer/content_renderer_client.h"
+#include "content/public/renderer/render_view.h"
+#include "extensions/common/constants.h"
 #include "net/base/data_url.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityObject.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebCString.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSize.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLRequest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebVector.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityObject.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/size.h"
 #include "ui/gfx/skbitmap_operations.h"
+#include "v8/include/v8-testing.h"
 #include "webkit/glue/image_decoder.h"
 #include "webkit/glue/multi_resolution_image_resource_fetcher.h"
 #include "webkit/glue/webkit_glue.h"
-#include "v8/include/v8-testing.h"
 
 using WebKit::WebAccessibilityObject;
 using WebKit::WebCString;
@@ -149,36 +150,6 @@ enum {
 // Constants for mixed-content blocking.
 static const char kGoogleDotCom[] = "google.com";
 
-static bool PaintViewIntoCanvas(WebView* view,
-                                skia::PlatformCanvas& canvas) {
-  view->layout();
-  const WebSize& size = view->size();
-
-  if (!canvas.initialize(size.width, size.height, true))
-    return false;
-
-  view->paint(webkit_glue::ToWebCanvas(&canvas),
-              WebRect(0, 0, size.width, size.height));
-  // TODO: Add a way to snapshot the whole page, not just the currently
-  // visible part.
-
-  return true;
-}
-
-static FaviconURL::IconType ToFaviconType(WebIconURL::Type type) {
-  switch (type) {
-    case WebIconURL::TypeFavicon:
-      return FaviconURL::FAVICON;
-    case WebIconURL::TypeTouch:
-      return FaviconURL::TOUCH_ICON;
-    case WebIconURL::TypeTouchPrecomposed:
-      return FaviconURL::TOUCH_PRECOMPOSED_ICON;
-    case WebIconURL::TypeInvalid:
-      return FaviconURL::INVALID_ICON;
-  }
-  return FaviconURL::INVALID_ICON;
-}
-
 static bool isHostInDomain(const std::string& host, const std::string& domain) {
   return (EndsWith(host, domain, false) &&
           (host.length() == domain.length() ||
@@ -228,7 +199,6 @@ bool ChromeRenderViewObserver::OnMessageReceived(const IPC::Message& message) {
                         OnHandleMessageFromExternalHost)
     IPC_MESSAGE_HANDLER(ChromeViewMsg_JavaScriptStressTestControl,
                         OnJavaScriptStressTestControl)
-    IPC_MESSAGE_HANDLER(IconMsg_DownloadFavicon, OnDownloadFavicon)
     IPC_MESSAGE_HANDLER(ChromeViewMsg_SetAllowDisplayingInsecureContent,
                         OnSetAllowDisplayingInsecureContent)
     IPC_MESSAGE_HANDLER(ChromeViewMsg_SetAllowRunningInsecureContent,
@@ -303,28 +273,6 @@ void ChromeRenderViewObserver::OnJavaScriptStressTestControl(int cmd,
   }
 }
 
-void ChromeRenderViewObserver::OnDownloadFavicon(int id,
-                                                 const GURL& image_url,
-                                                 int image_size) {
-  bool data_image_failed = false;
-  if (image_url.SchemeIs("data")) {
-    SkBitmap data_image = ImageFromDataUrl(image_url);
-    data_image_failed = data_image.empty();
-    if (!data_image_failed) {
-      std::vector<SkBitmap> images(1, data_image);
-      Send(new IconHostMsg_DidDownloadFavicon(
-          routing_id(), id, image_url, false, image_size, images));
-    }
-  }
-
-  if (data_image_failed ||
-      !DownloadFavicon(id, image_url, image_size)) {
-    Send(new IconHostMsg_DidDownloadFavicon(
-        routing_id(), id, image_url, true, image_size,
-        std::vector<SkBitmap>()));
-  }
-}
-
 void ChromeRenderViewObserver::OnSetAllowDisplayingInsecureContent(bool allow) {
   allow_displaying_insecure_content_ = allow;
   WebFrame* main_frame = render_view()->GetWebView()->mainFrame();
@@ -351,7 +299,7 @@ void ChromeRenderViewObserver::Navigate(const GURL& url) {
 
 void ChromeRenderViewObserver::OnSetClientSidePhishingDetection(
     bool enable_phishing_detection) {
-#if defined(ENABLE_SAFE_BROWSING) && !defined(OS_CHROMEOS)
+#if defined(FULL_SAFE_BROWSING) && !defined(OS_CHROMEOS)
   phishing_classifier_ = enable_phishing_detection ?
       safe_browsing::PhishingClassifierDelegate::Create(
           render_view(), NULL) :
@@ -475,7 +423,7 @@ bool ChromeRenderViewObserver::allowWriteToClipboard(WebFrame* frame,
 
 const extensions::Extension* ChromeRenderViewObserver::GetExtension(
     const WebSecurityOrigin& origin) const {
-  if (!EqualsASCII(origin.protocol(), chrome::kExtensionScheme))
+  if (!EqualsASCII(origin.protocol(), extensions::kExtensionScheme))
     return NULL;
 
   const std::string extension_id = origin.host().utf8().data();
@@ -695,42 +643,6 @@ void ChromeRenderViewObserver::DidStopLoading() {
         routing_id(), render_view()->GetPageId(), osd_url,
         search_provider::AUTODETECTED_PROVIDER));
   }
-
-  int icon_types = WebIconURL::TypeFavicon;
-  if (chrome::kEnableTouchIcon)
-    icon_types |= WebIconURL::TypeTouchPrecomposed | WebIconURL::TypeTouch;
-
-  WebVector<WebIconURL> icon_urls =
-      render_view()->GetWebView()->mainFrame()->iconURLs(icon_types);
-  std::vector<FaviconURL> urls;
-  for (size_t i = 0; i < icon_urls.size(); i++) {
-    WebURL url = icon_urls[i].iconURL();
-    if (!url.isEmpty())
-      urls.push_back(FaviconURL(url, ToFaviconType(icon_urls[i].iconType())));
-  }
-  if (!urls.empty()) {
-    Send(new IconHostMsg_UpdateFaviconURL(
-        routing_id(), render_view()->GetPageId(), urls));
-  }
-}
-
-void ChromeRenderViewObserver::DidChangeIcon(WebFrame* frame,
-                                             WebIconURL::Type icon_type) {
-  if (frame->parent())
-    return;
-
-  if (!chrome::kEnableTouchIcon &&
-      icon_type != WebIconURL::TypeFavicon)
-    return;
-
-  WebVector<WebIconURL> icon_urls = frame->iconURLs(icon_type);
-  std::vector<FaviconURL> urls;
-  for (size_t i = 0; i < icon_urls.size(); i++) {
-    urls.push_back(FaviconURL(icon_urls[i].iconURL(),
-                              ToFaviconType(icon_urls[i].iconType())));
-  }
-  Send(new IconHostMsg_UpdateFaviconURL(
-      routing_id(), render_view()->GetPageId(), urls));
 }
 
 void ChromeRenderViewObserver::DidCommitProvisionalLoad(
@@ -860,7 +772,7 @@ void ChromeRenderViewObserver::CapturePageInfo(bool preliminary_capture) {
                                             contents));
   }
 
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
   // Will swap out the string.
   if (phishing_classifier_)
     phishing_classifier_->PageCaptured(&contents, preliminary_capture);
@@ -903,11 +815,21 @@ bool ChromeRenderViewObserver::CaptureSnapshot(WebView* view,
                                                SkBitmap* snapshot) {
   base::TimeTicks beginning_time = base::TimeTicks::Now();
 
-  skia::PlatformCanvas canvas;
-  if (!PaintViewIntoCanvas(view, canvas))
+  view->layout();
+  const WebSize& size = view->size();
+
+  SkCanvas* canvas = skia::CreatePlatformCanvas(size.width, size.height, true,
+                                            NULL, skia::RETURN_NULL_ON_FAILURE);
+  if (!canvas)
     return false;
 
-  SkDevice* device = skia::GetTopDevice(canvas);
+  SkAutoUnref au(canvas);
+  view->paint(webkit_glue::ToWebCanvas(canvas),
+              WebRect(0, 0, size.width, size.height));
+  // TODO: Add a way to snapshot the whole page, not just the currently
+  // visible part.
+
+  SkDevice* device = skia::GetTopDevice(*canvas);
 
   const SkBitmap& bitmap = device->accessBitmap(false);
   if (!bitmap.copyTo(snapshot, SkBitmap::kARGB_8888_Config))
@@ -924,61 +846,6 @@ ExternalHostBindings* ChromeRenderViewObserver::GetExternalHostBindings() {
         render_view(), routing_id()));
   }
   return external_host_bindings_.get();
-}
-
-bool ChromeRenderViewObserver::DownloadFavicon(int id,
-                                               const GURL& image_url,
-                                               int image_size) {
-  // Make sure webview was not shut down.
-  if (!render_view()->GetWebView())
-    return false;
-  // Create an image resource fetcher and assign it with a call back object.
-  image_fetchers_.push_back(linked_ptr<MultiResolutionImageResourceFetcher>(
-      new MultiResolutionImageResourceFetcher(
-          image_url, render_view()->GetWebView()->mainFrame(), id,
-          WebURLRequest::TargetIsFavicon,
-          base::Bind(&ChromeRenderViewObserver::DidDownloadFavicon,
-                     base::Unretained(this), image_size))));
-  return true;
-}
-
-void ChromeRenderViewObserver::DidDownloadFavicon(
-    int requested_size,
-    MultiResolutionImageResourceFetcher* fetcher,
-    const std::vector<SkBitmap>& images) {
-  // Notify requester of image download status.
-  Send(new IconHostMsg_DidDownloadFavicon(routing_id(),
-                                          fetcher->id(),
-                                          fetcher->image_url(),
-                                          images.empty(),
-                                          requested_size,
-                                          images));
-
-  // Remove the image fetcher from our pending list. We're in the callback from
-  // MultiResolutionImageResourceFetcher, best to delay deletion.
-  ImageResourceFetcherList::iterator iter;
-  for (iter = image_fetchers_.begin(); iter != image_fetchers_.end(); ++iter) {
-    if (iter->get() == fetcher) {
-      iter->release();
-      image_fetchers_.erase(iter);
-      break;
-    }
-  }
-  MessageLoop::current()->DeleteSoon(FROM_HERE, fetcher);
-}
-
-SkBitmap ChromeRenderViewObserver::ImageFromDataUrl(const GURL& url) const {
-  std::string mime_type, char_set, data;
-  if (net::DataURL::Parse(url, &mime_type, &char_set, &data) && !data.empty()) {
-    // Decode the favicon using WebKit's image decoder.
-    webkit_glue::ImageDecoder decoder(
-        gfx::Size(gfx::kFaviconSize, gfx::kFaviconSize));
-    const unsigned char* src_data =
-        reinterpret_cast<const unsigned char*>(&data[0]);
-
-    return decoder.Decode(src_data, data.size());
-  }
-  return SkBitmap();
 }
 
 bool ChromeRenderViewObserver::IsStrictSecurityHost(const std::string& host) {

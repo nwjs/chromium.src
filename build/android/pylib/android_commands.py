@@ -466,6 +466,25 @@ class AndroidCommands(object):
       logging.info('\n>>> '.join(result))
     return result
 
+  def GetShellCommandStatusAndOutput(self, command, timeout_time=20,
+                                     log_result=False):
+    """See RunShellCommand() above.
+
+    Returns:
+      The tuple (exit code, list of output lines).
+    """
+    lines = self.RunShellCommand(
+        command + '; echo %$?', timeout_time, log_result)
+    last_line = lines[-1]
+    status_pos = last_line.rfind('%')
+    assert status_pos >= 0
+    status = int(last_line[status_pos + 1:])
+    if status_pos == 0:
+      lines = lines[:-1]
+    else:
+      lines = lines[:-1] + last_line[:status_pos]
+    return (status, lines)
+
   def KillAll(self, process):
     """Android version of killall, connected via adb.
 
@@ -595,9 +614,10 @@ class AndroidCommands(object):
 
     if not self._md5sum_path:
       default_build_type = os.environ.get('BUILD_TYPE', 'Debug')
-      md5sum_path = '%s/out/%s/md5sum_bin' % (CHROME_SRC, default_build_type)
+      md5sum_path = '%s/%s/md5sum_bin' % (cmd_helper.OutDirectory.get(),
+          default_build_type)
       if not os.path.exists(md5sum_path):
-        md5sum_path = '%s/out/Release/md5sum_bin' % (CHROME_SRC)
+        md5sum_path = '%s/Release/md5sum_bin' % cmd_helper.OutDirectory.get()
         if not os.path.exists(md5sum_path):
           print >> sys.stderr, 'Please build md5sum.'
           sys.exit(1)
@@ -1074,7 +1094,7 @@ class AndroidCommands(object):
     """
     host_dir = os.path.dirname(host_file)
     if not os.path.exists(host_dir):
-      os.mkdir(host_dir)
+      os.makedirs(host_dir)
     device_file = '%s/screenshot.png' % self.GetExternalStorage()
     self.RunShellCommand('/system/bin/screencap -p %s' % device_file)
     assert self._adb.Pull(device_file, host_file)

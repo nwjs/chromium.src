@@ -6,44 +6,44 @@
 
 #include <vector>
 
+#include "base/debug/trace_event.h"
+#include "base/metrics/histogram.h"
 #include "cc/math_util.h"
 #include "ui/gfx/rect_conversions.h"
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
-using WebKit::WebTransformationMatrix;
-
-static WebTransformationMatrix orthoProjectionMatrix(float left, float right, float bottom, float top)
+static gfx::Transform orthoProjectionMatrix(float left, float right, float bottom, float top)
 {
     // Use the standard formula to map the clipping frustum to the cube from
     // [-1, -1, -1] to [1, 1, 1].
     float deltaX = right - left;
     float deltaY = top - bottom;
-    WebTransformationMatrix proj;
+    gfx::Transform proj;
     if (!deltaX || !deltaY)
         return proj;
-    proj.setM11(2.0f / deltaX);
-    proj.setM41(-(right + left) / deltaX);
-    proj.setM22(2.0f / deltaY);
-    proj.setM42(-(top + bottom) / deltaY);
+    proj.matrix().setDouble(0, 0, 2.0f / deltaX);
+    proj.matrix().setDouble(0, 3, -(right + left) / deltaX);
+    proj.matrix().setDouble(1, 1, 2.0f / deltaY);
+    proj.matrix().setDouble(1, 3, -(top + bottom) / deltaY);
 
     // Z component of vertices is always set to zero as we don't use the depth buffer
     // while drawing.
-    proj.setM33(0);
+    proj.matrix().setDouble(2, 2, 0);
 
     return proj;
 }
 
-static WebTransformationMatrix windowMatrix(int x, int y, int width, int height)
+static gfx::Transform windowMatrix(int x, int y, int width, int height)
 {
-    WebTransformationMatrix canvas;
+    gfx::Transform canvas;
 
     // Map to window position and scale up to pixel coordinates.
-    canvas.translate3d(x, y, 0);
-    canvas.scale3d(width, height, 0);
+    canvas.Translate3d(x, y, 0);
+    canvas.Scale3d(width, height, 0);
 
     // Map from ([-1, -1] to [1, 1]) -> ([0, 0] to [1, 1])
-    canvas.translate3d(0.5, 0.5, 0.5);
-    canvas.scale3d(0.5, 0.5, 0.5);
+    canvas.Translate3d(0.5, 0.5, 0.5);
+    canvas.Scale3d(0.5, 0.5, 0.5);
 
     return canvas;
 }
@@ -70,11 +70,11 @@ gfx::RectF DirectRenderer::quadVertexRect()
 }
 
 // static
-void DirectRenderer::quadRectTransform(WebKit::WebTransformationMatrix* quadRectTransform, const WebKit::WebTransformationMatrix& quadTransform, const gfx::RectF& quadRect)
+void DirectRenderer::quadRectTransform(gfx::Transform* quadRectTransform, const gfx::Transform& quadTransform, const gfx::RectF& quadRect)
 {
     *quadRectTransform = quadTransform;
-    quadRectTransform->translate(0.5 * quadRect.width() + quadRect.x(), 0.5 * quadRect.height() + quadRect.y());
-    quadRectTransform->scaleNonUniform(quadRect.width(), quadRect.height());
+    quadRectTransform->Translate(0.5 * quadRect.width() + quadRect.x(), 0.5 * quadRect.height() + quadRect.y());
+    quadRectTransform->Scale(quadRect.width(), quadRect.height());
 }
 
 // static
@@ -94,7 +94,7 @@ gfx::Rect DirectRenderer::moveScissorToWindowSpace(const DrawingFrame& frame, gf
     gfx::Rect scissorRectInCanvasSpace = gfx::ToEnclosingRect(scissorRect);
     // The scissor coordinates must be supplied in viewport space so we need to offset
     // by the relative position of the top left corner of the current render pass.
-    gfx::Rect framebufferOutputRect = frame.currentRenderPass->outputRect();
+    gfx::Rect framebufferOutputRect = frame.currentRenderPass->output_rect;
     scissorRectInCanvasSpace.set_x(scissorRectInCanvasSpace.x() - framebufferOutputRect.x());
     if (frame.flippedY && !frame.currentTexture)
         scissorRectInCanvasSpace.set_y(framebufferOutputRect.height() - (scissorRectInCanvasSpace.bottom() - framebufferOutputRect.y()));
@@ -117,7 +117,7 @@ void DirectRenderer::decideRenderPassAllocationsForFrame(const RenderPassList& r
 {
     base::hash_map<RenderPass::Id, const RenderPass*> renderPassesInFrame;
     for (size_t i = 0; i < renderPassesInDrawOrder.size(); ++i)
-        renderPassesInFrame.insert(std::pair<RenderPass::Id, const RenderPass*>(renderPassesInDrawOrder[i]->id(), renderPassesInDrawOrder[i]));
+        renderPassesInFrame.insert(std::pair<RenderPass::Id, const RenderPass*>(renderPassesInDrawOrder[i]->id, renderPassesInDrawOrder[i]));
 
     std::vector<RenderPass::Id> passesToDelete;
     ScopedPtrHashMap<RenderPass::Id, CachedResource>::const_iterator passIterator;
@@ -135,7 +135,7 @@ void DirectRenderer::decideRenderPassAllocationsForFrame(const RenderPassList& r
         DCHECK(texture);
 
         if (texture->id() && (texture->size() != requiredSize || texture->format() != requiredFormat))
-            texture->free();
+            texture->Free();
     }
 
     // Delete RenderPass textures from the previous frame that will not be used again.
@@ -143,57 +143,114 @@ void DirectRenderer::decideRenderPassAllocationsForFrame(const RenderPassList& r
         m_renderPassTextures.erase(passesToDelete[i]);
 
     for (size_t i = 0; i < renderPassesInDrawOrder.size(); ++i) {
-        if (!m_renderPassTextures.contains(renderPassesInDrawOrder[i]->id())) {
+        if (!m_renderPassTextures.contains(renderPassesInDrawOrder[i]->id)) {
           scoped_ptr<CachedResource> texture = CachedResource::create(m_resourceProvider);
-            m_renderPassTextures.set(renderPassesInDrawOrder[i]->id(), texture.Pass());
+            m_renderPassTextures.set(renderPassesInDrawOrder[i]->id, texture.Pass());
         }
     }
 }
 
-void DirectRenderer::drawFrame(const RenderPassList& renderPassesInDrawOrder, const RenderPassIdHashMap& renderPassesById)
+void DirectRenderer::drawFrame(RenderPassList& renderPassesInDrawOrder, RenderPassIdHashMap& renderPassesById)
 {
+    TRACE_EVENT0("cc", "DirectRenderer::drawFrame");
+    HISTOGRAM_COUNTS("Renderer4.renderPassCount", renderPassesInDrawOrder.size());
+
     const RenderPass* rootRenderPass = renderPassesInDrawOrder.back();
     DCHECK(rootRenderPass);
 
     DrawingFrame frame;
     frame.renderPassesById = &renderPassesById;
     frame.rootRenderPass = rootRenderPass;
-    frame.rootDamageRect = capabilities().usingPartialSwap ? rootRenderPass->damageRect() : rootRenderPass->outputRect();
+    frame.rootDamageRect = capabilities().usingPartialSwap ? rootRenderPass->damage_rect : rootRenderPass->output_rect;
     frame.rootDamageRect.Intersect(gfx::Rect(gfx::Point(), viewportSize()));
 
     beginDrawingFrame(frame);
     for (size_t i = 0; i < renderPassesInDrawOrder.size(); ++i)
         drawRenderPass(frame, renderPassesInDrawOrder[i]);
     finishDrawingFrame(frame);
+
+    renderPassesInDrawOrder.clear();
+    renderPassesById.clear();
+}
+
+gfx::RectF DirectRenderer::computeScissorRectForRenderPass(const DrawingFrame& frame)
+{
+    gfx::RectF renderPassScissor = frame.currentRenderPass->output_rect;
+
+    if (frame.rootDamageRect == frame.rootRenderPass->output_rect)
+        return renderPassScissor;
+
+    gfx::Transform inverseTransform = MathUtil::inverse(frame.currentRenderPass->transform_to_root_target);
+    gfx::RectF damageRectInRenderPassSpace = MathUtil::projectClippedRect(inverseTransform, frame.rootDamageRect);
+    renderPassScissor.Intersect(damageRectInRenderPassSpace);
+
+    return renderPassScissor;
+}
+
+void DirectRenderer::setScissorStateForQuad(const DrawingFrame& frame, const DrawQuad& quad)
+{
+    if (quad.isClipped()) {
+        gfx::RectF quadScissorRect = quad.clipRect();
+        setScissorTestRect(moveScissorToWindowSpace(frame, quadScissorRect));
+    }
+    else
+        ensureScissorTestDisabled();
+}
+
+void DirectRenderer::setScissorStateForQuadWithRenderPassScissor(const DrawingFrame& frame, const DrawQuad& quad, const gfx::RectF& renderPassScissor, bool* shouldSkipQuad)
+{
+    gfx::RectF quadScissorRect = renderPassScissor;
+
+    if (quad.isClipped())
+        quadScissorRect.Intersect(quad.clipRect());
+
+    if (quadScissorRect.IsEmpty()) {
+        *shouldSkipQuad = true;
+        return;
+    }
+
+    *shouldSkipQuad = false;
+    setScissorTestRect(moveScissorToWindowSpace(frame, quadScissorRect));
+}
+
+void DirectRenderer::finishDrawingQuadList()
+{
 }
 
 void DirectRenderer::drawRenderPass(DrawingFrame& frame, const RenderPass* renderPass)
 {
+    TRACE_EVENT0("cc", "DirectRenderer::drawRenderPass");
     if (!useRenderPass(frame, renderPass))
         return;
 
-    frame.scissorRectInRenderPassSpace = frame.currentRenderPass->outputRect();
-    if (frame.rootDamageRect != frame.rootRenderPass->outputRect()) {
-        WebTransformationMatrix inverseTransformToRoot = frame.currentRenderPass->transformToRootTarget().inverse();
-        gfx::RectF damageRectInRenderPassSpace = MathUtil::projectClippedRect(inverseTransformToRoot, frame.rootDamageRect);
-        frame.scissorRectInRenderPassSpace.Intersect(damageRectInRenderPassSpace);
+    bool usingScissorAsOptimization = capabilities().usingPartialSwap;
+    gfx::RectF renderPassScissor;
+
+    if (usingScissorAsOptimization) {
+        renderPassScissor = computeScissorRectForRenderPass(frame);
+        setScissorTestRect(moveScissorToWindowSpace(frame, renderPassScissor));
     }
 
-    setScissorTestRect(moveScissorToWindowSpace(frame, frame.scissorRectInRenderPassSpace));
     clearFramebuffer(frame);
 
-    const QuadList& quadList = renderPass->quadList();
+    const QuadList& quadList = renderPass->quad_list;
     for (QuadList::constBackToFrontIterator it = quadList.backToFrontBegin(); it != quadList.backToFrontEnd(); ++it) {
-        gfx::RectF quadScissorRect = gfx::IntersectRects(frame.scissorRectInRenderPassSpace, (*it)->clippedRectInTarget());
-        if (!quadScissorRect.IsEmpty()) {
-            setScissorTestRect(moveScissorToWindowSpace(frame, quadScissorRect));
-            drawQuad(frame, *it);
-        }
-    }
+        const DrawQuad& quad = *(*it);
+        bool shouldSkipQuad = false;
 
-    CachedResource* texture = m_renderPassTextures.get(renderPass->id());
+        if (usingScissorAsOptimization)
+            setScissorStateForQuadWithRenderPassScissor(frame, quad, renderPassScissor, &shouldSkipQuad);
+        else
+            setScissorStateForQuad(frame, quad);
+
+        if (!shouldSkipQuad)
+            drawQuad(frame, *it);
+    }
+    finishDrawingQuadList();
+
+    CachedResource* texture = m_renderPassTextures.get(renderPass->id);
     if (texture)
-        texture->setIsComplete(!renderPass->hasOcclusionFromOutsideTargetSurface());
+        texture->setIsComplete(!renderPass->has_occlusion_from_outside_target_surface);
 }
 
 bool DirectRenderer::useRenderPass(DrawingFrame& frame, const RenderPass* renderPass)
@@ -203,17 +260,17 @@ bool DirectRenderer::useRenderPass(DrawingFrame& frame, const RenderPass* render
 
     if (renderPass == frame.rootRenderPass) {
         bindFramebufferToOutputSurface(frame);
-        initializeMatrices(frame, renderPass->outputRect(), flippedFramebuffer());
-        setDrawViewportSize(renderPass->outputRect().size());
+        initializeMatrices(frame, renderPass->output_rect, flippedFramebuffer());
+        setDrawViewportSize(renderPass->output_rect.size());
         return true;
     }
 
-    CachedResource* texture = m_renderPassTextures.get(renderPass->id());
+    CachedResource* texture = m_renderPassTextures.get(renderPass->id);
     DCHECK(texture);
-    if (!texture->id() && !texture->allocate(Renderer::ImplPool, renderPassTextureSize(renderPass), renderPassTextureFormat(renderPass), ResourceProvider::TextureUsageFramebuffer))
+    if (!texture->id() && !texture->Allocate(Renderer::ImplPool, renderPassTextureSize(renderPass), renderPassTextureFormat(renderPass), ResourceProvider::TextureUsageFramebuffer))
         return false;
 
-    return bindFramebufferToTexture(frame, texture, renderPass->outputRect());
+    return bindFramebufferToTexture(frame, texture, renderPass->output_rect);
 }
 
 bool DirectRenderer::haveCachedResourcesForRenderPassId(RenderPass::Id id) const
@@ -225,7 +282,7 @@ bool DirectRenderer::haveCachedResourcesForRenderPassId(RenderPass::Id id) const
 // static
 gfx::Size DirectRenderer::renderPassTextureSize(const RenderPass* pass)
 {
-    return pass->outputRect().size();
+    return pass->output_rect.size();
 }
 
 // static

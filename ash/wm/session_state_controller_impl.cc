@@ -11,7 +11,7 @@
 #include "ash/wm/session_state_animator.h"
 #include "base/command_line.h"
 #include "ui/aura/root_window.h"
-#include "ui/aura/shared/compound_event_filter.h"
+#include "ui/views/corewm/compound_event_filter.h"
 
 #if defined(OS_CHROMEOS)
 #include "base/chromeos/chromeos_version.h"
@@ -55,12 +55,13 @@ void SessionStateControllerImpl::OnAppTerminating() {
     shell->cursor_manager()->ShowCursor(false);
     animator_->StartAnimation(
         internal::SessionStateAnimator::kAllContainersMask,
-        internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY);
+        internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY,
+        internal::SessionStateAnimator::ANIMATION_SPEED_IMMEDIATE);
   }
 }
 
 void SessionStateControllerImpl::OnLockStateChanged(bool locked) {
-  if (shutting_down_ || (IsLocked()) == locked)
+  if (shutting_down_ || (system_is_locked_ == locked))
     return;
 
   system_is_locked_ = locked;
@@ -68,7 +69,11 @@ void SessionStateControllerImpl::OnLockStateChanged(bool locked) {
   if (locked) {
     animator_->StartAnimation(
         internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
-        internal::SessionStateAnimator::ANIMATION_FADE_IN);
+        internal::SessionStateAnimator::ANIMATION_FADE_IN,
+        internal::SessionStateAnimator::ANIMATION_SPEED_SHOW_LOCK_SCREEN);
+    FOR_EACH_OBSERVER(SessionStateObserver, observers_,
+        OnSessionStateEvent(
+            SessionStateObserver::EVENT_LOCK_ANIMATION_STARTED));
     lock_timer_.Stop();
     lock_fail_timer_.Stop();
 
@@ -81,7 +86,8 @@ void SessionStateControllerImpl::OnLockStateChanged(bool locked) {
         internal::SessionStateAnimator::DESKTOP_BACKGROUND |
         internal::SessionStateAnimator::LAUNCHER |
         internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-        internal::SessionStateAnimator::ANIMATION_RESTORE);
+        internal::SessionStateAnimator::ANIMATION_RESTORE,
+        internal::SessionStateAnimator::ANIMATION_SPEED_IMMEDIATE);
   }
 }
 
@@ -91,22 +97,31 @@ void SessionStateControllerImpl::OnStartingLock() {
 
   animator_->StartAnimation(
       internal::SessionStateAnimator::LAUNCHER,
-      internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY);
+      internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY,
+      internal::SessionStateAnimator::ANIMATION_SPEED_IMMEDIATE);
 
   animator_->StartAnimation(
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_FULL_CLOSE);
+      internal::SessionStateAnimator::ANIMATION_FULL_CLOSE,
+      internal::SessionStateAnimator::ANIMATION_SPEED_FAST);
+
+  FOR_EACH_OBSERVER(SessionStateObserver, observers_,
+      OnSessionStateEvent(SessionStateObserver::EVENT_LOCK_ANIMATION_STARTED));
 
   // Hide the screen locker containers so we can make them fade in later.
   animator_->StartAnimation(
       internal::SessionStateAnimator::LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY);
+      internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY,
+      internal::SessionStateAnimator::ANIMATION_SPEED_IMMEDIATE);
 }
 
 void SessionStateControllerImpl::StartLockAnimationAndLockImmediately() {
   animator_->StartAnimation(
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_PARTIAL_CLOSE);
+      internal::SessionStateAnimator::ANIMATION_PARTIAL_CLOSE,
+      internal::SessionStateAnimator::ANIMATION_SPEED_UNDOABLE);
+  FOR_EACH_OBSERVER(SessionStateObserver, observers_,
+      OnSessionStateEvent(SessionStateObserver::EVENT_LOCK_ANIMATION_STARTED));
   OnLockTimeout();
 }
 
@@ -115,24 +130,21 @@ void SessionStateControllerImpl::StartLockAnimation(bool shutdown_after_lock) {
 
   animator_->StartAnimation(
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_PARTIAL_CLOSE);
+      internal::SessionStateAnimator::ANIMATION_PARTIAL_CLOSE,
+      internal::SessionStateAnimator::ANIMATION_SPEED_UNDOABLE);
+  FOR_EACH_OBSERVER(SessionStateObserver, observers_,
+      OnSessionStateEvent(
+          SessionStateObserver::EVENT_PRELOCK_ANIMATION_STARTED));
   StartLockTimer();
 }
 
 void SessionStateControllerImpl::StartShutdownAnimation() {
   animator_->StartAnimation(
       internal::SessionStateAnimator::kAllContainersMask,
-      internal::SessionStateAnimator::ANIMATION_PARTIAL_CLOSE);
+      internal::SessionStateAnimator::ANIMATION_PARTIAL_CLOSE,
+      internal::SessionStateAnimator::ANIMATION_SPEED_UNDOABLE);
 
   StartPreShutdownAnimationTimer();
-}
-
-bool SessionStateControllerImpl::IsEligibleForLock() {
-  return IsLoggedInAsNonGuest() && !IsLocked() && !LockRequested();
-}
-
-bool SessionStateControllerImpl::IsLocked() {
-  return system_is_locked_;
 }
 
 bool SessionStateControllerImpl::LockRequested() {
@@ -153,7 +165,8 @@ void SessionStateControllerImpl::CancelLockAnimation() {
   shutdown_after_lock_ = false;
   animator_->StartAnimation(
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_UNDO_PARTIAL_CLOSE);
+      internal::SessionStateAnimator::ANIMATION_UNDO_PARTIAL_CLOSE,
+      internal::SessionStateAnimator::ANIMATION_SPEED_REVERT);
   lock_timer_.Stop();
 }
 
@@ -180,14 +193,17 @@ void SessionStateControllerImpl::CancelShutdownAnimation() {
     // desktop background needs to be restored immediately.
     animator_->StartAnimation(
         internal::SessionStateAnimator::DESKTOP_BACKGROUND,
-        internal::SessionStateAnimator::ANIMATION_RESTORE);
+        internal::SessionStateAnimator::ANIMATION_RESTORE,
+        internal::SessionStateAnimator::ANIMATION_SPEED_IMMEDIATE);
     animator_->StartAnimation(
         internal::SessionStateAnimator::kAllLockScreenContainersMask,
-        internal::SessionStateAnimator::ANIMATION_UNDO_PARTIAL_CLOSE);
+        internal::SessionStateAnimator::ANIMATION_UNDO_PARTIAL_CLOSE,
+        internal::SessionStateAnimator::ANIMATION_SPEED_REVERT);
   } else {
     animator_->StartAnimation(
         internal::SessionStateAnimator::kAllContainersMask,
-        internal::SessionStateAnimator::ANIMATION_UNDO_PARTIAL_CLOSE);
+        internal::SessionStateAnimator::ANIMATION_UNDO_PARTIAL_CLOSE,
+        internal::SessionStateAnimator::ANIMATION_SPEED_REVERT);
   }
   pre_shutdown_timer_.Stop();
 }
@@ -212,35 +228,33 @@ void SessionStateControllerImpl::RequestShutdownImpl() {
     animator_->StartAnimation(
         internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS |
         internal::SessionStateAnimator::LAUNCHER,
-        internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY);
+        internal::SessionStateAnimator::ANIMATION_HIDE_IMMEDIATELY,
+        internal::SessionStateAnimator::ANIMATION_SPEED_IMMEDIATE);
     animator_->StartAnimation(
         internal::SessionStateAnimator::kAllLockScreenContainersMask,
-        internal::SessionStateAnimator::ANIMATION_FULL_CLOSE);
+        internal::SessionStateAnimator::ANIMATION_FULL_CLOSE,
+        internal::SessionStateAnimator::ANIMATION_SPEED_FAST);
   } else {
     animator_->StartAnimation(
         internal::SessionStateAnimator::kAllContainersMask,
-        internal::SessionStateAnimator::ANIMATION_FULL_CLOSE);
+        internal::SessionStateAnimator::ANIMATION_FULL_CLOSE,
+        internal::SessionStateAnimator::ANIMATION_SPEED_FAST);
   }
   StartRealShutdownTimer();
 }
 
 void SessionStateControllerImpl::OnRootWindowHostCloseRequested(
                                                 const aura::RootWindow*) {
-  if(Shell::GetInstance() && Shell::GetInstance()->delegate())
-    Shell::GetInstance()->delegate()->Exit();
-}
-
-bool SessionStateControllerImpl::IsLoggedInAsNonGuest() const {
-  // TODO(mukai): think about kiosk mode.
-  return (login_status_ != user::LOGGED_IN_NONE) &&
-         (login_status_ != user::LOGGED_IN_GUEST);
+  Shell::GetInstance()->delegate()->Exit();
 }
 
 void SessionStateControllerImpl::StartLockTimer() {
   lock_timer_.Stop();
-  lock_timer_.Start(FROM_HERE,
-                    base::TimeDelta::FromMilliseconds(kSlowCloseAnimMs),
-                    this, &SessionStateControllerImpl::OnLockTimeout);
+  lock_timer_.Start(
+      FROM_HERE,
+      animator_->GetDuration(
+          internal::SessionStateAnimator::ANIMATION_SPEED_UNDOABLE),
+      this, &SessionStateControllerImpl::OnLockTimeout);
 }
 
 void SessionStateControllerImpl::OnLockTimeout() {
@@ -257,7 +271,8 @@ void SessionStateControllerImpl::OnLockFailTimeout() {
   animator_->StartAnimation(
       internal::SessionStateAnimator::LAUNCHER |
       internal::SessionStateAnimator::NON_LOCK_SCREEN_CONTAINERS,
-      internal::SessionStateAnimator::ANIMATION_RESTORE);
+      internal::SessionStateAnimator::ANIMATION_RESTORE,
+      internal::SessionStateAnimator::ANIMATION_SPEED_IMMEDIATE);
 }
 
 void SessionStateControllerImpl::StartLockToShutdownTimer() {
@@ -289,10 +304,14 @@ void SessionStateControllerImpl::OnPreShutdownAnimationTimeout() {
 }
 
 void SessionStateControllerImpl::StartRealShutdownTimer() {
+  base::TimeDelta duration =
+      base::TimeDelta::FromMilliseconds(kShutdownRequestDelayMs);
+  duration += animator_->GetDuration(
+      internal::SessionStateAnimator::ANIMATION_SPEED_FAST);
+
   real_shutdown_timer_.Start(
       FROM_HERE,
-      base::TimeDelta::FromMilliseconds(kFastCloseAnimMs +
-          kShutdownRequestDelayMs),
+      duration,
       this, &SessionStateControllerImpl::OnRealShutdownTimeout);
 }
 

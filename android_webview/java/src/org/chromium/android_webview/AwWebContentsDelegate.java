@@ -4,8 +4,9 @@
 
 package org.chromium.android_webview;
 
+import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
-import org.chromium.chrome.browser.component.web_contents_delegate_android.WebContentsDelegateAndroid;
+import org.chromium.content.components.web_contents_delegate_android.WebContentsDelegateAndroid;
 
 /**
  * WebView-specific WebContentsDelegate.
@@ -15,4 +16,8 @@ import org.chromium.chrome.browser.component.web_contents_delegate_android.WebCo
  */
 @JNINamespace("android_webview")
 public class AwWebContentsDelegate extends WebContentsDelegateAndroid {
+    @CalledByNative
+    public boolean addNewContents(boolean isDialog, boolean isUserGesture) {
+        return false;
+    }
 }

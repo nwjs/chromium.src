@@ -14,7 +14,6 @@
 #include "base/hash_tables.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
-#include "base/memory/linked_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/time.h"
@@ -49,7 +48,8 @@ struct hash<content::WebContents*> {
     return reinterpret_cast<std::size_t>(value);
   }
 };
-}
+
+}  // namespace BASE_HASH_NAMESPACE
 
 #endif
 
@@ -98,7 +98,7 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
 
   virtual ~PrerenderManager();
 
-  // ProfileKeyedService implementation.
+  // From ProfileKeyedService:
   virtual void Shutdown() OVERRIDE;
 
   // Entry points for adding prerenders.
@@ -144,8 +144,8 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
 
   // Moves a PrerenderContents to the pending delete list from the list of
   // active prerenders when prerendering should be cancelled.
-  void MoveEntryToPendingDelete(PrerenderContents* entry,
-                                FinalStatus final_status);
+  virtual void MoveEntryToPendingDelete(PrerenderContents* entry,
+                                        FinalStatus final_status);
 
   // Records the perceived page load time for a page - effectively the time from
   // when the user navigates to a page to when it finishes loading. The actual
@@ -262,6 +262,8 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
  protected:
   class PrerenderData : public base::SupportsWeakPtr<PrerenderData> {
    public:
+    struct OrderByExpiryTime;
+
     // Constructor for a pending prerender, which will get its contents later.
     explicit PrerenderData(PrerenderManager* manager);
 
@@ -271,6 +273,10 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
                   base::TimeTicks expiry_time);
 
     ~PrerenderData();
+
+    // Turn this PrerenderData into a Match Complete replacement for itself,
+    // placing the current prerender contents into |to_delete_prerenders_|.
+    void MakeIntoMatchCompleteReplacement();
 
     // A new PrerenderHandle has been created for this PrerenderData.
     void OnNewHandle();
@@ -286,15 +292,20 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
     // other handles continue to track it.
     void OnCancelByHandle();
 
-    PrerenderContents* contents() { return contents_; }
+    PrerenderContents* contents() { return contents_.get(); }
+
+    PrerenderContents* ReleaseContents();
+
+    int handle_count() const { return handle_count_; }
 
     base::TimeTicks expiry_time() const { return expiry_time_; }
+    void set_expiry_time(base::TimeTicks expiry_time) {
+      expiry_time_ = expiry_time;
+    }
 
    private:
-    friend class PrerenderManager;
-
     PrerenderManager* manager_;
-    PrerenderContents* contents_;
+    scoped_ptr<PrerenderContents> contents_;
 
     // The number of distinct PrerenderHandles created for |this|, including
     // ones that have called PrerenderData::OnNavigateAwayByHandle(), but not
@@ -313,15 +324,11 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
   void SetPrerenderContentsFactory(
       PrerenderContents::Factory* prerender_contents_factory);
 
-  // Adds a prerender from a pending Prerender, called by
+  // Adds prerenders from the pending Prerenders, called by
   // PrerenderContents::StartPendingPrerenders.
-  void StartPendingPrerender(
-      PrerenderHandle* existing_prerender_handle,
-      Origin origin,
+  void StartPendingPrerenders(
       int process_id,
-      const GURL& url,
-      const content::Referrer& referrer,
-      const gfx::Size& size,
+      ScopedVector<PrerenderContents::PendingPrerenderInfo>* pending_prerenders,
       content::SessionStorageNamespace* session_storage_namespace);
 
   // Called by a PrerenderData to self-destroy, but only when the PrerenderData
@@ -335,11 +342,6 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
   // might have committed an omnibox navigation. This is used to possibly
   // shorten the TTL of the prerendered page.
   void SourceNavigatedAway(PrerenderData* prerender_data);
-
-  // Utility method that is called from the virtual Shutdown method on this
-  // class but is called directly from the TestPrerenderManager in the unit
-  // tests.
-  void DoShutdown();
 
  private:
   friend class PrerenderBrowserTest;
@@ -430,14 +432,10 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
       Origin origin,
       uint8 experiment_id);
 
-  // Deletes any PrerenderContents that have been added to the pending delete
-  // list.
-  void DeletePendingDeleteEntries();
-
-  // Adds a prerender data to the |active_prerender_list_|, keeping the list
-  // sorted by increasing expiry time.
-  void InsertActivePrerenderData(
-      linked_ptr<PrerenderData> linked_prerender_data);
+  // Insures the |active_prerenders_| are sorted by increasing expiry time. Call
+  // after every mutation of active_prerenders_ that can possibly make it
+  // unsorted (e.g. an insert, or changing an expiry time).
+  void SortActivePrerenders();
 
   // Finds the active PrerenderData object for a running prerender matching
   // |url| and |session_storage_namespace|.
@@ -450,9 +448,9 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
   // returns NULL.
   PrerenderData* FindPrerenderDataForChildAndRoute(int child_id, int route_id);
 
-  // Given the |prerender_contents|, find the iterator in active_prerender_list_
+  // Given the |prerender_contents|, find the iterator in active_prerenders_
   // correponding to the given prerender.
-  std::list<linked_ptr<PrerenderData> >::iterator
+  ScopedVector<PrerenderData>::iterator
       FindIteratorForPrerenderContents(PrerenderContents* prerender_contents);
 
   bool DoesRateLimitAllowPrerender(Origin origin) const;
@@ -514,19 +512,18 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
 
   PrerenderTracker* prerender_tracker_;
 
-  // List of all running prerenders. It is kept sorted, in increasing order by
-  // expiry time. This list owns the PrerenderData objects contained in it.
-  std::list<linked_ptr<PrerenderData> > active_prerender_list_;
+  // All running prerenders. Sorted by expiry time, in ascending order.
+  ScopedVector<PrerenderData> active_prerenders_;
 
-  // List of all pending prerenders.
-  std::list<linked_ptr<PrerenderData> > pending_prerender_list_;
+  // All pending prerenders.
+  ScopedVector<PrerenderData> pending_prerenders_;
+
+  // Prerenders awaiting deletion.
+  ScopedVector<PrerenderData> to_delete_prerenders_;
 
   // List of recent navigations in this profile, sorted by ascending
   // navigate_time_.
   std::list<NavigationRecord> navigations_;
-
-  // List of prerender elements to be deleted
-  std::list<PrerenderContents*> pending_delete_list_;
 
   // This map is from all WebContents which are currently displaying a
   // prerendered page which has already been swapped in to a

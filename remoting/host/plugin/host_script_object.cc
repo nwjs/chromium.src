@@ -369,8 +369,8 @@ void HostNPScriptObject::It2MeImpl::FinishConnect(
       CreateHostSessionManager(network_settings,
                                host_context_->url_request_context_getter()),
       host_context_->audio_task_runner(),
-      host_context_->capture_task_runner(),
-      host_context_->encode_task_runner(),
+      host_context_->video_capture_task_runner(),
+      host_context_->video_encode_task_runner(),
       host_context_->network_task_runner());
   host_->AddStatusObserver(this);
   log_to_server_.reset(
@@ -659,15 +659,10 @@ void HostNPScriptObject::It2MeImpl::OnReceivedSupportID(
 HostNPScriptObject::HostNPScriptObject(
     NPP plugin,
     NPObject* parent,
-    PluginThreadTaskRunner::Delegate* plugin_thread_delegate)
+    scoped_refptr<AutoThreadTaskRunner> plugin_task_runner)
     : plugin_(plugin),
       parent_(parent),
-      plugin_task_runner_(
-          new PluginThreadTaskRunner(plugin_thread_delegate)),
-      auto_plugin_task_runner_(
-          new AutoThreadTaskRunner(plugin_task_runner_,
-                                   base::Bind(&PluginThreadTaskRunner::Quit,
-                                              plugin_task_runner_))),
+      plugin_task_runner_(plugin_task_runner),
       am_currently_logging_(false),
       state_(kDisconnected),
       daemon_controller_(DaemonController::Create()),
@@ -689,13 +684,6 @@ HostNPScriptObject::~HostNPScriptObject() {
     it2me_impl_->Disconnect();
     it2me_impl_ = NULL;
   }
-
-  // Release the AutoThreadTaskRunner so the plugin thread can quit.
-  auto_plugin_task_runner_ = NULL;
-
-  // Stop the message loop and run the remaining tasks. The loop will exit
-  // once the wrapping AutoThreadTaskRunner is destroyed.
-  plugin_task_runner_->DetachAndRunShutdownLoop();
 
   // Stop the worker thread.
   worker_thread_.Stop();
@@ -968,7 +956,7 @@ bool HostNPScriptObject::Connect(const NPVariant* args,
 
   // Create threads for the Chromoting host & desktop environment to use.
   scoped_ptr<ChromotingHostContext> host_context(
-      new ChromotingHostContext(auto_plugin_task_runner_));
+      new ChromotingHostContext(plugin_task_runner_));
   if (!host_context->Start()) {
     SetException("connect: failed to start threads");
     return false;
@@ -976,7 +964,7 @@ bool HostNPScriptObject::Connect(const NPVariant* args,
 
   // Create the It2Me host implementation and start connecting.
   it2me_impl_ = new It2MeImpl(
-      host_context.Pass(), auto_plugin_task_runner_, weak_ptr_, ui_strings_);
+      host_context.Pass(), plugin_task_runner_, weak_ptr_, ui_strings_);
   it2me_impl_->Connect(uid, auth_token, auth_service);
 
   return true;
@@ -1325,15 +1313,6 @@ void HostNPScriptObject::LocalizeStrings(NPObject* localize_func) {
                  &ui_strings_.product_name);
   LocalizeString(localize_func, /*i18n-content*/"DISCONNECT_OTHER_BUTTON",
                  &ui_strings_.disconnect_button_text);
-  LocalizeString(localize_func,
-#if defined(OS_WIN)
-      /*i18n-content*/"DISCONNECT_BUTTON_PLUS_SHORTCUT_WINDOWS",
-#elif defined(OS_MACOSX)
-      /*i18n-content*/"DISCONNECT_BUTTON_PLUS_SHORTCUT_MAC_OS_X",
-#else
-      /*i18n-content*/"DISCONNECT_BUTTON_PLUS_SHORTCUT_LINUX",
-#endif
-      &ui_strings_.disconnect_button_text_plus_shortcut);
   LocalizeString(localize_func, /*i18n-content*/"CONTINUE_PROMPT",
                  &ui_strings_.continue_prompt);
   LocalizeString(localize_func, /*i18n-content*/"CONTINUE_BUTTON",

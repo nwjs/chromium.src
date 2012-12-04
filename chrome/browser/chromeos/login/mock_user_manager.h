@@ -23,7 +23,7 @@ class MockUserManager : public UserManager {
 
   MOCK_CONST_METHOD0(GetUsers, const UserList&(void));
   MOCK_METHOD2(UserLoggedIn, void(const std::string&, bool));
-  MOCK_METHOD0(DemoUserLoggedIn, void(void));
+  MOCK_METHOD0(RetailModeUserLoggedIn, void(void));
   MOCK_METHOD0(GuestUserLoggedIn, void(void));
   MOCK_METHOD1(EphemeralUserLoggedIn, void(const std::string&));
   MOCK_METHOD0(SessionStarted, void(void));
@@ -38,14 +38,11 @@ class MockUserManager : public UserManager {
   MOCK_CONST_METHOD1(GetUserDisplayName, string16(const std::string&));
   MOCK_METHOD2(SaveUserDisplayEmail, void(const std::string&,
                                           const std::string&));
-  MOCK_METHOD2(SaveLoggedInUserWallpaperProperties, void(User::WallpaperType,
-                                                         int));
   MOCK_CONST_METHOD1(GetUserDisplayEmail, std::string(const std::string&));
-  MOCK_METHOD1(SetLoggedInUserCustomWallpaperLayout,void(
-      ash::WallpaperLayout));
   MOCK_CONST_METHOD0(IsCurrentUserOwner, bool(void));
   MOCK_CONST_METHOD0(IsCurrentUserNew, bool(void));
   MOCK_CONST_METHOD0(IsCurrentUserEphemeral, bool(void));
+  MOCK_CONST_METHOD0(CanCurrentUserLock, bool(void));
   MOCK_CONST_METHOD0(IsUserLoggedIn, bool(void));
   MOCK_CONST_METHOD0(IsLoggedInAsDemoUser, bool(void));
   MOCK_CONST_METHOD0(IsLoggedInAsPublicAccount, bool(void));

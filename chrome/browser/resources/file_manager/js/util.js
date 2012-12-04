@@ -584,7 +584,12 @@ util.applyTransform = function(element, transform) {
  */
 util.makeFilesystemUrl = function(path) {
   path = path.split('/').map(encodeURIComponent).join('/');
-  return 'filesystem:' + util.platform.getURL('external' + path);
+  var prefix = 'external';
+  if (chrome.fileBrowserPrivate.mocked) {
+    prefix = (chrome.fileBrowserPrivate.FS_TYPE == window.TEMPORARY) ?
+        'temporary' : 'persistent';
+  }
+  return 'filesystem:' + document.location.origin + '/' + prefix + path;
 };
 
 /**
@@ -593,8 +598,10 @@ util.makeFilesystemUrl = function(path) {
  * @return {string} The path.
  */
 util.extractFilePath = function(url) {
-  var path = /^filesystem:[\w-]*:\/\/[\w]*\/(external|persistent)(\/.*)$/.
-      exec(url)[2];
+  var match =
+      /^filesystem:[\w-]*:\/\/[\w]*\/(external|persistent|temporary)(\/.*)$/.
+      exec(url);
+  var path = match && match[2];
   if (!path) return null;
   return decodeURIComponent(path);
 };
@@ -605,8 +612,10 @@ util.extractFilePath = function(url) {
  * @param {function(Array.<Entry>)} callback The callback is called at the very
  *     end with a list of entries found.
  * @param {number?} max_depth Maximum depth. Pass zero to traverse everything.
+ * @param {function(entry):boolean=} opt_filter Optional filter to skip some
+ *     files/directories.
  */
-util.traverseTree = function(root, callback, max_depth) {
+util.traverseTree = function(root, callback, max_depth, opt_filter) {
   var list = [];
   util.forEachEntryInTree(root, function(entry) {
     if (entry) {
@@ -615,7 +624,7 @@ util.traverseTree = function(root, callback, max_depth) {
       callback(list);
     }
     return true;
-  }, max_depth);
+  }, max_depth, opt_filter);
 };
 
 /**
@@ -625,9 +634,15 @@ util.traverseTree = function(root, callback, max_depth) {
  *     entry, and then once with null passed. If callback returns false once,
  *     the whole traversal is stopped.
  * @param {number?} max_depth Maximum depth. Pass zero to traverse everything.
+ * @param {function(entry):boolean=} opt_filter Optional filter to skip some
+ *     files/directories.
  */
-util.forEachEntryInTree = function(root, callback, max_depth) {
+util.forEachEntryInTree = function(root, callback, max_depth, opt_filter) {
   if (root.isFile) {
+    if (opt_filter && !opt_filter(root)) {
+      callback(null);
+      return;
+    }
     if (callback(root))
       callback(null);
     return;
@@ -643,6 +658,7 @@ util.forEachEntryInTree = function(root, callback, max_depth) {
 
   function readEntry(entry, depth) {
     if (cancelled) return;
+    if (opt_filter && !opt_filter(entry)) return;
 
     if (!callback(entry)) {
       cancelled = true;
@@ -685,7 +701,9 @@ util.createChild = function(parent, opt_className, opt_tag) {
 };
 
 /**
- * Update the top window location search query and hash.
+ * Update the app state.
+ * For app v1 use the top window location search query and hash.
+ * For app v2 use the top window appState variable.
  *
  * @param {boolean} replace True if the history state should be replaced,
  *                          false if pushed.
@@ -694,12 +712,21 @@ util.createChild = function(parent, opt_className, opt_tag) {
  * @param {string|object} opt_param Search parameter. Used directly if string,
  *   stringified if object. If omitted the search query is left unchanged.
  */
-util.updateLocation = function(replace, path, opt_param) {
-  if (util.platform.v2())
+util.updateAppState = function(replace, path, opt_param) {
+  if (window.appState) {
+    // |replace| parameter is ignored. There is no stack, so saving/restoring
+    // the state is the apps responsibility.
+    if (typeof opt_param == 'string')
+      window.appState.params = {};
+    else if (typeof opt_param == 'object')
+      window.appState.params = opt_param;
+    if (path)
+      window.appState.defaultPath = path;
+    util.saveAppState();
     return;
+  }
 
-  var location = window.top.document.location;
-  var history = window.top.history;
+  var location = document.location;
 
   var search;
   if (typeof opt_param == 'string')
@@ -763,7 +790,6 @@ util.platform = {
     try {
       return !!(chrome.app && chrome.app.runtime);
     } catch (e) {
-      console.log(new Error.stack);
       return false;
     }
   },
@@ -787,7 +813,7 @@ util.platform = {
     try {
       callback(window.localStorage[key]);
     } catch (ignore) {
-      chrome.storage.local.get(function(items) {
+      chrome.storage.local.get(key, function(items) {
         callback(items[key]);
       });
     }
@@ -795,10 +821,13 @@ util.platform = {
 
   /**
    * @param {string} key Preference name.
-   * @param {string} value Preference value.
-   * @param {function} callback Completion callback.
+   * @param {string|object} value Preference value.
+   * @param {function} opt_callback Completion callback.
    */
   setPreference: function(key, value, opt_callback) {
+    if (typeof value != 'string')
+      value = JSON.stringify(value);
+
     try {
       window.localStorage[key] = value;
       if (opt_callback) opt_callback();
@@ -838,10 +867,10 @@ util.platform = {
    * @return {string} Applicaton id.
    */
   getAppId: function() {
-    try {
-      return chrome.extension.getURL('').split('/')[2];
-    } catch (ignore) {
+    if (this.v2()) {
       return chrome.runtime.id;
+    } else {
+      return chrome.extension.getURL('').split('/')[2];
     }
   },
 
@@ -850,10 +879,10 @@ util.platform = {
    * @return {string} Extension-based URL.
    */
   getURL: function(path) {
-    try {
-      return chrome.extension.getURL(path);
-    } catch (ignore) {
+    if (this.v2()) {
       return chrome.runtime.getURL(path);
+    } else {
+      return chrome.extension.getURL(path);
     }
   },
 
@@ -919,6 +948,70 @@ util.loadScripts = function(urls, onload) {
   }
 };
 
+// TODO(serya): remove it when have migrated to AppsV2.
+util.__defineGetter__('storage', function() {
+  delete util.storage;
+  if (chrome.storage) {
+    util.storage = chrome.storage;
+    return util.storage;
+  }
+
+  var listeners = [];
+
+  function StorageArea(type) {
+    this.type_ = type;
+  }
+
+  StorageArea.prototype.set = function(items, opt_callback) {
+    var changes = {};
+    for (var i in items) {
+      changes[i] = {oldValue: localStorage[i], newValue: items[i]};
+      localStorage[i] = items[i];
+    }
+    if (opt_callback)
+      callback();
+    for (var i = 0; i < listeners.length; i++) {
+      listeners[i](changes, this.type_);
+    }
+  };
+
+  StorageArea.prototype.get = function(keys, callback) {
+    if (!callback) {
+      // Since key is optionsl it's the callback.
+      keys(localStorage);
+      return;
+    }
+    if (typeof(keys) == 'string')
+      keys = [keys];
+    var result = {};
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      result[key] = localStorage[key];
+    }
+    callback(result);
+  };
+
+  /**
+   * Simulation of the AppsV2 storage interface.
+   * @type {object}
+   */
+  util.storage = {
+    local: new StorageArea('local'),
+    sync: new StorageArea('sync'),
+    onChanged: {
+      addListener: function(l) {
+        listeners.push(l);
+      },
+      removeListener: function(l) {
+        for (var i = 0; i < listeners.length; i++) {
+          listeners.splice(i, 1);
+        }
+      }
+    }
+  };
+  return util.storage;
+});
+
 /**
  * Attach page load handler.
  * Loads mock chrome.* APIs is the real ones are not present.
@@ -935,4 +1028,205 @@ util.addPageLoadHandler = function(handler) {
     }
     util.platform.suppressContextMenu();
   });
+};
+
+/**
+ * Save app v2 launch data to the local storage.
+ */
+util.saveAppState = function() {
+  if (window.appState)
+    util.platform.setPreference(window.appID, window.appState);
+};
+
+
+/**
+ *  AppCache is a persistent timestamped key-value storage backed by
+ *  HTML5 local storage.
+ *
+ *  It is not designed for frequent access. In order to avoid costly
+ *  localStorage iteration all data is kept in a single localStorage item.
+ *  There is no in-memory caching, so concurrent access is _almost_ safe.
+ *
+ *  TODO(kaznacheev) Reimplement this based on Indexed DB.
+ */
+util.AppCache = function() {};
+
+/**
+ * Local storage key.
+ */
+util.AppCache.KEY = 'AppCache';
+
+/**
+ * Max number of items.
+ */
+util.AppCache.CAPACITY = 100;
+
+/**
+ * Default lifetime.
+ */
+util.AppCache.LIFETIME = 30 * 24 * 60 * 60 * 1000;  // 30 days.
+
+/**
+ * @param {string} key Key
+ * @param {function(number)} callback Callback accepting a value.
+ */
+util.AppCache.getValue = function(key, callback) {
+  util.AppCache.read_(function(map) {
+    var entry = map[key];
+    callback(entry && entry.value);
+  });
+};
+
+/**
+ * Update the cache.
+ *
+ * @param {string} key Key.
+ * @param {string} value Value. Remove the key if value is null.
+ * @param {number} opt_lifetime Maximim time to keep an item (in milliseconds).
+ */
+util.AppCache.update = function(key, value, opt_lifetime) {
+  util.AppCache.read_(function(map) {
+    if (value != null) {
+      map[key] = {
+        value: value,
+        expire: Date.now() + (opt_lifetime || util.AppCache.LIFETIME)
+      };
+    } else if (key in map) {
+      delete map[key];
+    } else {
+      return;  // Nothing to do.
+    }
+    util.AppCache.cleanup_(map);
+    util.AppCache.write_(map);
+  });
+};
+
+/**
+ * @param {function(Object)} callback Callback accepting a map of timestamped
+ *   key-value pairs.
+ * @private
+ */
+util.AppCache.read_ = function(callback) {
+  util.platform.getPreference(util.AppCache.KEY, function(json) {
+    if (json) {
+      try {
+        callback(JSON.parse(json));
+      } catch (e) {
+        // The local storage item somehow got messed up, start fresh.
+      }
+    }
+    callback({});
+  });
+};
+
+/**
+ * @param {Object} map A map of timestamped key-value pairs.
+ * @private
+ */
+util.AppCache.write_ = function(map) {
+  util.platform.setPreference(util.AppCache.KEY, JSON.stringify(map));
+};
+
+/**
+ * Remove over-capacity and obsolete items.
+ *
+ * @param {Object} map A map of timestamped key-value pairs.
+ * @private
+ */
+util.AppCache.cleanup_ = function(map) {
+  // Sort keys by ascending timestamps.
+  var keys = [];
+  for (var key in map) {
+    if (map.hasOwnProperty(key))
+      keys.push(key);
+  }
+  keys.sort(function(a, b) { return map[a].expire > map[b].expire });
+
+  var cutoff = Date.now();
+
+  var obsolete = 0;
+  while (obsolete < keys.length &&
+         map[keys[obsolete]].expire < cutoff) {
+    obsolete++;
+  }
+
+  var overCapacity = Math.max(0, keys.length - util.AppCache.CAPACITY);
+
+  var itemsToDelete = Math.max(obsolete, overCapacity);
+  for (var i = 0; i != itemsToDelete; i++) {
+    delete map[keys[i]];
+  }
+};
+
+/**
+ * RemoteImageLoader loads an image from a remote url.
+ *
+ * Fetches a blob via XHR, converts it to a data: url and assigns to img.src.
+ * @constructor
+ */
+util.RemoteImageLoader = function() {};
+
+/**
+ * @param {Image} image Image element.
+ * @param {string} url Remote url to load into the image.
+ */
+util.RemoteImageLoader.prototype.load = function(image, url) {
+  this.onSuccess_ = function(dataURL) { image.src = dataURL };
+  this.onError_ = function() { image.onerror() };
+
+  var xhr = new XMLHttpRequest();
+  xhr.responseType = 'blob';
+  xhr.onload = function() {
+    if (xhr.status == 200) {
+      var reader = new FileReader;
+      reader.onload = function(e) {
+        this.onSuccess_(e.target.result);
+      }.bind(this);
+      reader.onerror = this.onError_;
+      reader.readAsDataURL(xhr.response);
+    } else {
+      this.onError_();
+    }
+  }.bind(this);
+  xhr.onerror = this.onError_;
+
+  try {
+    xhr.open('GET', url, true);
+    xhr.send();
+  } catch (e) {
+    console.log(e);
+    this.onError_();
+  }
+};
+
+/**
+ * Cancels the loading.
+ */
+util.RemoteImageLoader.prototype.cancel = function() {
+  // We cannot really cancel the XHR.send and FileReader.readAsDataURL,
+  // silencing the callbacks instead.
+  this.onSuccess_ = this.onError_ = function() {};
+};
+
+/**
+ * Load an image.
+ *
+ * In packaged apps img.src is not allowed to point to http(s)://.
+ * For such urls util.RemoteImageLoader is used.
+ *
+ * @param {Image} image Image element.
+ * @param {string} url Source url.
+ * @return {util.RemoteImageLoader?} RemoteImageLoader object reference, use it
+ *   to cancel the loading.
+ */
+util.loadImage = function(image, url) {
+  if (util.platform.v2() && url.match(/^http(s):/)) {
+    var imageLoader = new util.RemoteImageLoader();
+    imageLoader.load(image, url);
+    return imageLoader;
+  }
+
+  // OK to load directly.
+  image.src = url;
+  return null;
 };

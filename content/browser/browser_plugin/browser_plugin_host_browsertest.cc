@@ -97,11 +97,9 @@ class TestBrowserPluginHostFactory : public BrowserPluginHostFactory {
   virtual BrowserPluginGuest* CreateBrowserPluginGuest(
       int instance_id,
       WebContentsImpl* web_contents,
-      RenderViewHost* render_view_host,
       const BrowserPluginHostMsg_CreateGuest_Params& params) OVERRIDE {
     return new TestBrowserPluginGuest(instance_id,
                                       web_contents,
-                                      render_view_host,
                                       params);
   }
 
@@ -153,12 +151,10 @@ class TestShortHangTimeoutGuestFactory : public TestBrowserPluginHostFactory {
   virtual BrowserPluginGuest* CreateBrowserPluginGuest(
       int instance_id,
       WebContentsImpl* web_contents,
-      RenderViewHost* render_view_host,
       const BrowserPluginHostMsg_CreateGuest_Params& params) OVERRIDE {
     BrowserPluginGuest* guest =
         new TestBrowserPluginGuest(instance_id,
                                    web_contents,
-                                   render_view_host,
                                    params);
     guest->set_guest_hang_timeout_for_testing(TestTimeouts::tiny_timeout());
     return guest;
@@ -1029,7 +1025,10 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, HiddenBeforeNavigation) {
 
 // This test verifies that if we lose the guest, and get a new one,
 // the new guest will inherit the visibility state of the old guest.
-IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, VisibilityPreservation) {
+//
+// Very flaky on Linux, Linux CrOS, somewhat flaky on XP, slightly on
+// Mac; http://crbug.com/162809.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, DISABLED_VisibilityPreservation) {
   const char* kEmbedderURL = "files/browser_plugin_embedder.html";
   StartBrowserPluginTest(kEmbedderURL, kHTMLForGuest, true, "");
   RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
@@ -1192,11 +1191,25 @@ IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, AutoSizeAfterNavigation) {
     EXPECT_EQ(expected_title, actual_title);
   }
   {
-    // Turn off autoSize and verify that the guest resizes to fit the contaienr.
+    // Turn off autoSize and verify that the guest resizes to fit the container.
     ExecuteSyncJSFunction(rvh, ASCIIToUTF16(
         "document.getElementById('plugin').autoSize = false;"));
     test_guest()->WaitForViewSize(gfx::Size(640, 480));
   }
+}
+
+// Test for regression http://crbug.com/162961.
+IN_PROC_BROWSER_TEST_F(BrowserPluginHostTest, GetRenderViewHostAtPositionTest) {
+  const char kEmbedderURL[] = "files/browser_plugin_embedder.html";
+  const std::string embedder_code = StringPrintf("SetSize(%d, %d);", 100, 100);
+  StartBrowserPluginTest(kEmbedderURL, kHTMLForGuestWithSize, true,
+                         embedder_code);
+  // Check for render view host at position (150, 150) that is outside the
+  // bounds of our guest, so this would respond with the render view host of the
+  // embedder.
+  test_embedder()->WaitForRenderViewHostAtPosition(150, 150);
+  ASSERT_EQ(test_embedder()->web_contents()->GetRenderViewHost(),
+            test_embedder()->last_rvh_at_position_response());
 }
 
 }  // namespace content

@@ -98,6 +98,8 @@ class TestingBrowserProcess : public BrowserProcess {
   virtual ComponentUpdateService* component_updater() OVERRIDE;
   virtual CRLSetFetcher* crl_set_fetcher() OVERRIDE;
   virtual BookmarkPromptController* bookmark_prompt_controller() OVERRIDE;
+  virtual void PlatformSpecificCommandLineProcessing(
+      const CommandLine& command_line) OVERRIDE;
 
   // Set the local state for tests. Consumer is responsible for cleaning it up
   // afterwards (using ScopedTestingLocalState, for example).
@@ -107,14 +109,15 @@ class TestingBrowserProcess : public BrowserProcess {
   void SetBrowserPolicyConnector(policy::BrowserPolicyConnector* connector);
   void SetSafeBrowsingService(SafeBrowsingService* sb_service);
   void SetBookmarkPromptController(BookmarkPromptController* controller);
+  void SetSystemRequestContext(net::URLRequestContextGetter* context_getter);
 
  private:
   scoped_ptr<content::NotificationService> notification_service_;
   unsigned int module_ref_count_;
   std::string app_locale_;
 
-  // Weak pointer.
-  PrefService* local_state_;
+  // TODO(ios): Add back members as more code is compiled.
+#if !defined(OS_IOS)
 #if defined(ENABLE_CONFIGURATION_POLICY)
   scoped_ptr<policy::BrowserPolicyConnector> browser_policy_connector_;
 #else
@@ -127,9 +130,14 @@ class TestingBrowserProcess : public BrowserProcess {
       print_preview_tab_controller_;
   scoped_ptr<prerender::PrerenderTracker> prerender_tracker_;
   scoped_ptr<RenderWidgetSnapshotTaker> render_widget_snapshot_taker_;
-  IOThread* io_thread_;
   scoped_refptr<SafeBrowsingService> sb_service_;
   scoped_ptr<BookmarkPromptController> bookmark_prompt_controller_;
+#endif  // !defined(OS_IOS)
+
+  // The following objects are not owned by TestingBrowserProcess:
+  PrefService* local_state_;
+  IOThread* io_thread_;
+  net::URLRequestContextGetter* system_request_context_;
 
   DISALLOW_COPY_AND_ASSIGN(TestingBrowserProcess);
 };

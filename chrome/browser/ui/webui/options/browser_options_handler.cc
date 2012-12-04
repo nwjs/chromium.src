@@ -87,7 +87,6 @@
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
 #include "chrome/browser/chromeos/extensions/wallpaper_manager_util.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
-#include "chrome/browser/chromeos/options/take_photo_dialog.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -281,21 +280,34 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
     { "themesReset", IDS_THEMES_RESET_BUTTON },
 #endif
 #if defined(OS_CHROMEOS)
+    { "accessibilityExplanation",
+      IDS_OPTIONS_SETTINGS_ACCESSIBILITY_EXPLANATION },
     { "accessibilityHighContrast",
       IDS_OPTIONS_SETTINGS_ACCESSIBILITY_HIGH_CONTRAST_DESCRIPTION },
     { "accessibilityScreenMagnifier",
       IDS_OPTIONS_SETTINGS_ACCESSIBILITY_SCREEN_MAGNIFIER_DESCRIPTION },
     { "accessibilityTapDragging",
       IDS_OPTIONS_SETTINGS_ACCESSIBILITY_TOUCHPAD_TAP_DRAGGING_DESCRIPTION },
+    { "accessibilityScreenMagnifierOff",
+      IDS_OPTIONS_SETTINGS_ACCESSIBILITY_SCREEN_MAGNIFIER_OFF },
+    { "accessibilityScreenMagnifierFull",
+      IDS_OPTIONS_SETTINGS_ACCESSIBILITY_SCREEN_MAGNIFIER_FULL },
+    { "accessibilityScreenMagnifierPartial",
+      IDS_OPTIONS_SETTINGS_ACCESSIBILITY_SCREEN_MAGNIFIER_PARTIAL },
     { "accessibilitySpokenFeedback",
       IDS_OPTIONS_SETTINGS_ACCESSIBILITY_DESCRIPTION },
     { "accessibilityTitle",
       IDS_OPTIONS_SETTINGS_SECTION_TITLE_ACCESSIBILITY },
     { "accessibilityVirtualKeyboard",
       IDS_OPTIONS_SETTINGS_ACCESSIBILITY_VIRTUAL_KEYBOARD_DESCRIPTION },
+    { "accessibilityAlwaysShowMenu",
+      IDS_OPTIONS_SETTINGS_ACCESSIBILITY_SHOULD_ALWAYS_SHOW_MENU },
+    { "factoryResetHeading", IDS_OPTIONS_FACTORY_RESET_HEADING },
     { "factoryResetTitle", IDS_OPTIONS_FACTORY_RESET },
     { "factoryResetRestart", IDS_OPTIONS_FACTORY_RESET_BUTTON },
     { "factoryResetDataRestart", IDS_RELAUNCH_BUTTON },
+    { "factoryResetWarning", IDS_OPTIONS_FACTORY_RESET_WARNING },
+    { "factoryResetHelpUrl", IDS_FACTORY_RESET_HELP_URL },
     { "changePicture", IDS_OPTIONS_CHANGE_PICTURE_CAPTION },
     { "datetimeTitle", IDS_OPTIONS_SETTINGS_SECTION_TITLE_DATETIME },
     { "deviceGroupDescription", IDS_OPTIONS_DEVICE_GROUP_DESCRIPTION },
@@ -329,7 +341,42 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
       IDS_OPTIONS_ADVANCED_SECTION_TITLE_BACKGROUND },
     { "backgroundModeCheckbox", IDS_OPTIONS_BACKGROUND_ENABLE_BACKGROUND_MODE },
 #endif
+
+    // Strings with product-name substitutions.
+#if !defined(OS_CHROMEOS)
+    { "syncOverview", IDS_SYNC_OVERVIEW, IDS_PRODUCT_NAME },
+    { "syncButtonTextStart", IDS_SYNC_START_SYNC_BUTTON_LABEL,
+      IDS_SHORT_PRODUCT_NAME },
+#endif
+    { "profilesSingleUser", IDS_PROFILES_SINGLE_USER_MESSAGE,
+      IDS_PRODUCT_NAME },
+    { "defaultBrowserUnknown", IDS_OPTIONS_DEFAULTBROWSER_UNKNOWN,
+      IDS_PRODUCT_NAME },
+    { "defaultBrowserUseAsDefault", IDS_OPTIONS_DEFAULTBROWSER_USEASDEFAULT,
+      IDS_PRODUCT_NAME },
+    { "autoLaunchText", IDS_AUTOLAUNCH_TEXT, IDS_PRODUCT_NAME },
+#if defined(OS_CHROMEOS)
+    { "factoryResetDescription", IDS_OPTIONS_FACTORY_RESET_DESCRIPTION,
+      IDS_SHORT_PRODUCT_NAME },
+#endif
+    { "languageSectionLabel", IDS_OPTIONS_ADVANCED_LANGUAGE_LABEL,
+      IDS_SHORT_PRODUCT_NAME },
   };
+
+#if defined(ENABLE_SETTINGS_APP)
+  static OptionsStringResource app_resources[] = {
+    { "syncOverview", IDS_SETTINGS_APP_SYNC_OVERVIEW },
+    { "syncButtonTextStart", IDS_SYNC_START_SYNC_BUTTON_LABEL,
+      IDS_SETTINGS_APP_LAUNCHER_PRODUCT_NAME },
+    { "profilesSingleUser", IDS_PROFILES_SINGLE_USER_MESSAGE,
+      IDS_SETTINGS_APP_LAUNCHER_PRODUCT_NAME },
+    { "languageSectionLabel", IDS_OPTIONS_ADVANCED_LANGUAGE_LABEL,
+      IDS_SETTINGS_APP_LAUNCHER_PRODUCT_NAME },
+  };
+  DictionaryValue* app_values = NULL;
+  CHECK(values->GetDictionary(kSettingsAppKey, &app_values));
+  RegisterStrings(app_values, app_resources, arraysize(app_resources));
+#endif
 
   RegisterStrings(values, resources, arraysize(resources));
   RegisterTitle(values, "instantConfirmOverlay", IDS_INSTANT_OPT_IN_TITLE);
@@ -339,23 +386,7 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
                 IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE);
   RegisterCloudPrintValues(values);
 
-#if !defined(OS_CHROMEOS)
-  values->SetString(
-      "syncOverview",
-      l10n_util::GetStringFUTF16(IDS_SYNC_OVERVIEW,
-                                 l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)));
-  values->SetString(
-      "syncButtonTextStart",
-      l10n_util::GetStringFUTF16(IDS_SYNC_START_SYNC_BUTTON_LABEL,
-          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
-#endif
-
   values->SetString("syncLearnMoreURL", chrome::kSyncLearnMoreURL);
-  values->SetString(
-      "profilesSingleUser",
-      l10n_util::GetStringFUTF16(IDS_PROFILES_SINGLE_USER_MESSAGE,
-                                 l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)));
-
   string16 omnibox_url = ASCIIToUTF16(chrome::kOmniboxLearnMoreURL);
   values->SetString(
       "defaultSearchGroupLabel",
@@ -368,34 +399,9 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
                                  instant_learn_more_url));
   values->SetString("instantLearnMoreLink", instant_learn_more_url);
 
-  values->SetString(
-      "defaultBrowserUnknown",
-      l10n_util::GetStringFUTF16(IDS_OPTIONS_DEFAULTBROWSER_UNKNOWN,
-          l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)));
-  values->SetString(
-      "defaultBrowserUseAsDefault",
-      l10n_util::GetStringFUTF16(IDS_OPTIONS_DEFAULTBROWSER_USEASDEFAULT,
-          l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)));
-  values->SetString(
-      "autoLaunchText",
-      l10n_util::GetStringFUTF16(IDS_AUTOLAUNCH_TEXT,
-          l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)));
-
 #if defined(OS_CHROMEOS)
   const chromeos::User* user = chromeos::UserManager::Get()->GetLoggedInUser();
   values->SetString("username", user ? user->email() : std::string());
-
-  values->SetString(
-      "factoryResetWarning",
-      l10n_util::GetStringFUTF16(
-          IDS_OPTIONS_FACTORY_RESET_WARNING,
-          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
-
-  values->SetString(
-      "factoryResetDescription",
-      l10n_util::GetStringFUTF16(
-          IDS_OPTIONS_FACTORY_RESET_DESCRIPTION,
-          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
 #endif
 
   // Pass along sync status early so it will be available during page init.
@@ -404,18 +410,15 @@ void BrowserOptionsHandler::GetLocalizedValues(DictionaryValue* values) {
   values->SetString("privacyLearnMoreURL", chrome::kPrivacyLearnMoreURL);
   values->SetString("doNotTrackLearnMoreURL", chrome::kDoNotTrackLearnMoreURL);
 
-  values->SetString(
-      "languageSectionLabel",
-      l10n_util::GetStringFUTF16(
-          IDS_OPTIONS_ADVANCED_LANGUAGE_LABEL,
-          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)));
-
 #if defined(OS_CHROMEOS)
   values->SetString("cloudPrintLearnMoreURL", chrome::kCloudPrintLearnMoreURL);
 
   // TODO(pastarmovj): replace this with a call to the CrosSettings list
   // handling functionality to come.
   values->Set("timezoneList", GetTimezoneList().release());
+
+  values->SetString("accessibilityLearnMoreURL",
+                    chrome::kChromeAccessibilityHelpURL);
 #endif
 #if defined(OS_MACOSX)
   values->SetString("macPasswordsWarning",
@@ -573,9 +576,11 @@ void BrowserOptionsHandler::InitializeHandler() {
   ChromeURLDataManager::AddDataSource(profile,
       new FaviconSource(profile, FaviconSource::FAVICON));
 
-  default_browser_policy_.Init(prefs::kDefaultBrowserSettingEnabled,
-                               g_browser_process->local_state(),
-                               this);
+  default_browser_policy_.Init(
+      prefs::kDefaultBrowserSettingEnabled,
+      g_browser_process->local_state(),
+      base::Bind(&BrowserOptionsHandler::UpdateDefaultBrowserState,
+                 base::Unretained(this)));
 
   registrar_.Add(this, chrome::NOTIFICATION_PROFILE_CACHED_INFO_CHANGED,
                  content::NotificationService::AllSources());
@@ -603,17 +608,31 @@ void BrowserOptionsHandler::InitializeHandler() {
 #endif
 
 #if !defined(OS_CHROMEOS)
-  cloud_print_connector_email_.Init(prefs::kCloudPrintEmail, prefs, this);
-  cloud_print_connector_enabled_.Init(prefs::kCloudPrintProxyEnabled, prefs,
-                                      this);
+  base::Closure cloud_print_callback = base::Bind(
+      &BrowserOptionsHandler::OnCloudPrintPrefsChanged, base::Unretained(this));
+  cloud_print_connector_email_.Init(
+      prefs::kCloudPrintEmail, prefs, cloud_print_callback);
+  cloud_print_connector_enabled_.Init(
+      prefs::kCloudPrintProxyEnabled, prefs, cloud_print_callback);
 #endif
 
-  auto_open_files_.Init(prefs::kDownloadExtensionsToOpen, prefs, this);
-  default_font_size_.Init(prefs::kWebKitDefaultFontSize, prefs, this);
-  default_zoom_level_.Init(prefs::kDefaultZoomLevel, prefs, this);
+  auto_open_files_.Init(
+      prefs::kDownloadExtensionsToOpen, prefs,
+      base::Bind(&BrowserOptionsHandler::SetupAutoOpenFileTypes,
+                 base::Unretained(this)));
+  default_font_size_.Init(
+      prefs::kWebKitDefaultFontSize, prefs,
+      base::Bind(&BrowserOptionsHandler::SetupFontSizeSelector,
+                 base::Unretained(this)));
+  default_zoom_level_.Init(
+      prefs::kDefaultZoomLevel, prefs,
+      base::Bind(&BrowserOptionsHandler::SetupPageZoomSelector,
+                 base::Unretained(this)));
 #if !defined(OS_CHROMEOS)
   proxy_prefs_.Init(prefs);
-  proxy_prefs_.Add(prefs::kProxy, this);
+  proxy_prefs_.Add(prefs::kProxy,
+                   base::Bind(&BrowserOptionsHandler::SetupProxySettingsSection,
+                              base::Unretained(this)));
 #endif  // !defined(OS_CHROMEOS)
 }
 
@@ -640,9 +659,7 @@ void BrowserOptionsHandler::InitializePage() {
 #endif
 #if defined(OS_CHROMEOS)
   SetupAccessibilityFeatures();
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableFactoryReset) &&
-      !g_browser_process->browser_policy_connector()->IsEnterpriseManaged()) {
+  if (!g_browser_process->browser_policy_connector()->IsEnterpriseManaged()) {
     web_ui()->CallJavascriptFunction(
         "BrowserOptions.enableFactoryResetSection");
   }
@@ -874,29 +891,11 @@ void BrowserOptionsHandler::Observe(
   }
 }
 
-void BrowserOptionsHandler::OnPreferenceChanged(PrefServiceBase* service,
-                                                const std::string& pref_name) {
-  if (pref_name == prefs::kDefaultBrowserSettingEnabled) {
-    UpdateDefaultBrowserState();
-  } else if (pref_name == prefs::kDownloadExtensionsToOpen) {
-    SetupAutoOpenFileTypes();
+void BrowserOptionsHandler::OnCloudPrintPrefsChanged() {
 #if !defined(OS_CHROMEOS)
-  } else if (proxy_prefs_.IsObserved(pref_name)) {
-    SetupProxySettingsSection();
-#endif  // !defined(OS_CHROMEOS)
-  } else if ((pref_name == prefs::kCloudPrintEmail) ||
-             (pref_name == prefs::kCloudPrintProxyEnabled)) {
-#if !defined(OS_CHROMEOS)
-    if (cloud_print_connector_ui_enabled_)
-      SetupCloudPrintConnectorSection();
+  if (cloud_print_connector_ui_enabled_)
+    SetupCloudPrintConnectorSection();
 #endif
-  } else if (pref_name == prefs::kWebKitDefaultFontSize) {
-    SetupFontSizeSelector();
-  } else if (pref_name == prefs::kDefaultZoomLevel) {
-    SetupPageZoomSelector();
-  } else {
-    NOTREACHED();
-  }
 }
 
 void BrowserOptionsHandler::ToggleAutoLaunch(const ListValue* args) {
@@ -969,7 +968,7 @@ void BrowserOptionsHandler::CreateProfile(const ListValue* args) {
   bool create_box_checked;
 
   Browser* browser =
-      browser::FindBrowserWithWebContents(web_ui()->GetWebContents());
+      chrome::FindBrowserWithWebContents(web_ui()->GetWebContents());
   chrome::HostDesktopType desktop_type = chrome::HOST_DESKTOP_TYPE_NATIVE;
   if (browser)
     desktop_type = browser->host_desktop_type();
@@ -1269,10 +1268,12 @@ void BrowserOptionsHandler::HighContrastChangeCallback(const ListValue* args) {
 
 void BrowserOptionsHandler::ScreenMagnifierChangeCallback(
     const ListValue* args) {
-  bool enabled = false;
-  args->GetBoolean(0, &enabled);
+  std::string type_name;
+  args->GetString(0, &type_name);
 
-  chromeos::accessibility::EnableScreenMagnifier(enabled);
+  PrefService* user_pref_service = Profile::FromWebUI(web_ui())->GetPrefs();
+  user_pref_service->SetString(prefs::kMagnifierType,
+                               type_name);
 }
 
 void BrowserOptionsHandler::VirtualKeyboardChangeCallback(
@@ -1312,16 +1313,18 @@ void BrowserOptionsHandler::SetupAccessibilityFeatures() {
   web_ui()->CallJavascriptFunction(
       "BrowserOptions.setHighContrastCheckboxState",
       high_contrast_enabled);
-  base::FundamentalValue screen_magnifier_enabled(
-      pref_service->GetBoolean(prefs::kScreenMagnifierEnabled));
-  web_ui()->CallJavascriptFunction(
-      "BrowserOptions.setScreenMagnifierCheckboxState",
-      screen_magnifier_enabled);
   base::FundamentalValue virtual_keyboard_enabled(
       pref_service->GetBoolean(prefs::kVirtualKeyboardEnabled));
   web_ui()->CallJavascriptFunction(
       "BrowserOptions.setVirtualKeyboardCheckboxState",
       virtual_keyboard_enabled);
+
+  PrefService* user_pref_service = Profile::FromWebUI(web_ui())->GetPrefs();
+  base::StringValue magnifier_type(
+      user_pref_service->GetString(prefs::kMagnifierType));
+  web_ui()->CallJavascriptFunction(
+      "BrowserOptions.setMagnifierTypeState",
+      magnifier_type);
 }
 #endif
 

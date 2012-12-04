@@ -49,6 +49,17 @@ const Extension* TestExtensionService::GetInstalledExtension(
   return NULL;
 }
 
+const Extension* TestExtensionService::GetPendingExtensionUpdate(
+    const std::string& id) const {
+  ADD_FAILURE();
+  return NULL;
+}
+
+void TestExtensionService::FinishDelayedInstallation(
+    const std::string& extension_id) {
+  ADD_FAILURE();
+}
+
 bool TestExtensionService::IsExtensionEnabled(
     const std::string& extension_id) const {
   ADD_FAILURE();
@@ -61,11 +72,6 @@ bool TestExtensionService::IsExternalExtensionUninstalled(
   return false;
 }
 
-void TestExtensionService::UpdateExtensionBlacklist(
-    const std::vector<std::string>& blacklist) {
-  ADD_FAILURE();
-}
-
 void TestExtensionService::CheckManagementPolicy() {
   ADD_FAILURE();
 }
@@ -74,13 +80,13 @@ void TestExtensionService::CheckForUpdatesSoon() {
   ADD_FAILURE();
 }
 
-syncer::SyncError TestExtensionService::MergeDataAndStartSyncing(
+syncer::SyncMergeResult TestExtensionService::MergeDataAndStartSyncing(
     syncer::ModelType type,
     const syncer::SyncDataList& initial_sync_data,
     scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
     scoped_ptr<syncer::SyncErrorFactory> sync_error_factory) {
   ADD_FAILURE();
-  return syncer::SyncError();
+  return syncer::SyncMergeResult(type);
 }
 
 void TestExtensionService::StopSyncing(syncer::ModelType type) {
@@ -105,7 +111,16 @@ bool TestExtensionService::is_ready() {
   return false;
 }
 
+base::SequencedTaskRunner* TestExtensionService::GetFileTaskRunner() {
+  ADD_FAILURE();
+  return NULL;
+}
+
 void TestExtensionService::AddExtension(const Extension* extension) {
+  ADD_FAILURE();
+}
+
+void TestExtensionService::AddComponentExtension(const Extension* extension) {
   ADD_FAILURE();
 }
 

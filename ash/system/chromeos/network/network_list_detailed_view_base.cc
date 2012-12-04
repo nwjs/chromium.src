@@ -8,6 +8,7 @@
 #include "ash/shell_window_ids.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_delegate.h"
+#include "ash/system/tray/system_tray_item.h"
 #include "ash/system/tray/tray_constants.h"
 #include "base/utf_string_conversions.h"
 #include "grit/ash_resources.h"
@@ -80,9 +81,11 @@ enum ColorTheme {
 };
 
 NetworkListDetailedViewBase::NetworkListDetailedViewBase(
+    SystemTrayItem* owner,
     user::LoginStatus login,
     int header_string_id)
-    : login_(login),
+    : NetworkDetailedView(owner),
+      login_(login),
       header_string_id_(header_string_id),
       info_icon_(NULL),
       settings_(NULL),
@@ -95,11 +98,33 @@ NetworkListDetailedViewBase::~NetworkListDetailedViewBase() {
     info_bubble_->GetWidget()->CloseNow();
 }
 
+// Overridden from NetworkDetailedView:
 void NetworkListDetailedViewBase::Init() {
   CreateItems();
   Update();
   Shell::GetInstance()->tray_delegate()->RequestNetworkScan();
 }
+
+NetworkDetailedView::DetailedViewType
+    NetworkListDetailedViewBase::GetViewType() const {
+  return NetworkDetailedView::LIST_VIEW;
+}
+
+void NetworkListDetailedViewBase::ManagerChanged() {
+  Update();
+}
+
+void NetworkListDetailedViewBase::NetworkListChanged(
+    const NetworkStateList& networks) {
+  Update();
+}
+
+void NetworkListDetailedViewBase::NetworkServiceChanged(
+    const chromeos::NetworkState* network) {
+  Update();
+}
+
+// Private methods
 
 void NetworkListDetailedViewBase::Update() {
   UpdateAvailableNetworkList();
@@ -108,12 +133,6 @@ void NetworkListDetailedViewBase::Update() {
   UpdateNetworkExtra();
 
   Layout();
-}
-
-// Overridden from NetworkDetailedView:
-NetworkDetailedView::DetailedViewType
-    NetworkListDetailedViewBase::GetViewType() const {
-  return NetworkDetailedView::LIST_VIEW;
 }
 
 void NetworkListDetailedViewBase::CreateItems() {
@@ -133,14 +152,20 @@ void NetworkListDetailedViewBase::AppendNetworkExtra() {
   if (login_ == user::LOGGED_IN_LOCKED)
     return;
 
-  TrayPopupTextButtonContainer* bottom_row =
-      new TrayPopupTextButtonContainer;
+  views::BoxLayout* layout = new
+    views::BoxLayout(views::BoxLayout::kHorizontal,
+                     kTrayMenuBottomRowPadding,
+                     kTrayMenuBottomRowPadding,
+                     kTrayMenuBottomRowPaddingBetweenItems);
+  layout->set_spread_blank_space(true);
+  views::View* bottom_row = new View();
+  bottom_row->SetLayoutManager(layout);
 
   AppendCustomButtonsToBottomRow(bottom_row);
 
   CreateSettingsEntry();
   DCHECK(settings_ || proxy_settings_);
-  bottom_row->AddTextButton(settings_ ? settings_ : proxy_settings_);
+  bottom_row->AddChildView(settings_ ? settings_ : proxy_settings_);
 
   AddChildView(bottom_row);
 
@@ -292,7 +317,7 @@ void NetworkListDetailedViewBase::ClickedOn(views::View* sender) {
   ResetInfoBubble();
 
   if (sender == footer()->content()) {
-    Shell::GetInstance()->system_tray()->ShowDefaultView(BUBBLE_USE_EXISTING);
+    owner()->system_tray()->ShowDefaultView(BUBBLE_USE_EXISTING);
     return;
   }
 
@@ -315,10 +340,10 @@ void NetworkListDetailedViewBase::CreateSettingsEntry() {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   if (login_ != user::LOGGED_IN_NONE) {
     // Settings, only if logged in.
-    settings_ = new TrayPopupTextButton(this,
+    settings_ = new TrayPopupLabelButton(this,
         rb.GetLocalizedString(IDS_ASH_STATUS_TRAY_NETWORK_SETTINGS));
   } else {
-    proxy_settings_ = new TrayPopupTextButton(this,
+    proxy_settings_ = new TrayPopupLabelButton(this,
         rb.GetLocalizedString(IDS_ASH_STATUS_TRAY_NETWORK_PROXY_SETTINGS));
   }
 }

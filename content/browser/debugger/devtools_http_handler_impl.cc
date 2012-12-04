@@ -174,19 +174,29 @@ DevToolsHttpHandler* DevToolsHttpHandler::Start(
 }
 
 DevToolsHttpHandlerImpl::~DevToolsHttpHandlerImpl() {
-  // Stop() must be called prior to this being called
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  // Stop() must be called prior to destruction.
   DCHECK(server_.get() == NULL);
-  thread_.reset();
+  DCHECK(thread_.get() == NULL);
 }
 
 void DevToolsHttpHandlerImpl::Start() {
   if (thread_.get())
     return;
   thread_.reset(new base::Thread(kDevToolsHandlerThreadName));
+  BrowserThread::PostTask(
+      BrowserThread::FILE, FROM_HERE,
+      base::Bind(&DevToolsHttpHandlerImpl::StartHandlerThread, this));
+}
+
+// Runs on FILE thread.
+void DevToolsHttpHandlerImpl::StartHandlerThread() {
   base::Thread::Options options;
   options.message_loop_type = MessageLoop::TYPE_IO;
   if (!thread_->StartWithOptions(options)) {
-    thread_.reset();
+    BrowserThread::PostTask(
+        BrowserThread::UI, FROM_HERE,
+        base::Bind(&DevToolsHttpHandlerImpl::ResetHandlerThread, this));
     return;
   }
 
@@ -195,12 +205,22 @@ void DevToolsHttpHandlerImpl::Start() {
       base::Bind(&DevToolsHttpHandlerImpl::Init, this));
 }
 
+void DevToolsHttpHandlerImpl::ResetHandlerThread() {
+  thread_.reset();
+}
+
+void DevToolsHttpHandlerImpl::ResetHandlerThreadAndRelease() {
+  ResetHandlerThread();
+  Release();
+}
+
 void DevToolsHttpHandlerImpl::Stop() {
   if (!thread_.get())
     return;
-  thread_->message_loop()->PostTask(
-      FROM_HERE,
-      base::Bind(&DevToolsHttpHandlerImpl::TeardownAndRelease, this));
+  BrowserThread::PostTaskAndReply(
+      BrowserThread::FILE, FROM_HERE,
+      base::Bind(&DevToolsHttpHandlerImpl::StopHandlerThread, this),
+      base::Bind(&DevToolsHttpHandlerImpl::ResetHandlerThreadAndRelease, this));
 }
 
 void DevToolsHttpHandlerImpl::SetRenderViewHostBinding(
@@ -616,25 +636,38 @@ DevToolsHttpHandlerImpl::DevToolsHttpHandlerImpl(
                  NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this, NOTIFICATION_RENDERER_PROCESS_CLOSED,
                  NotificationService::AllBrowserContextsAndSources());
+
+  // Balanced in ResetHandlerThreadAndRelease().
   AddRef();
 }
 
+// Runs on the handler thread
 void DevToolsHttpHandlerImpl::Init() {
   server_ = new net::HttpServer(*socket_factory_.get(), this);
 }
 
-// Run on the handler thread
-void DevToolsHttpHandlerImpl::TeardownAndRelease() {
+// Runs on the handler thread
+void DevToolsHttpHandlerImpl::Teardown() {
   server_ = NULL;
+}
 
-  BrowserThread::PostTask(
-      BrowserThread::UI, FROM_HERE,
-      base::Bind(&DevToolsHttpHandlerImpl::Release, this));
+// Runs on FILE thread to make sure that it is serialized against
+// {Start|Stop}HandlerThread and to allow calling pthread_join.
+void DevToolsHttpHandlerImpl::StopHandlerThread() {
+  if (!thread_->message_loop())
+    return;
+  thread_->message_loop()->PostTask(
+      FROM_HERE,
+      base::Bind(&DevToolsHttpHandlerImpl::Teardown, this));
+  // Thread::Stop joins the thread.
+  thread_->Stop();
 }
 
 void DevToolsHttpHandlerImpl::Send200(int connection_id,
                                       const std::string& data,
                                       const std::string& mime_type) {
+  if (!thread_.get())
+    return;
   thread_->message_loop()->PostTask(
       FROM_HERE,
       base::Bind(&net::HttpServer::Send200,
@@ -664,6 +697,8 @@ void DevToolsHttpHandlerImpl::SendJson(int connection_id,
 }
 
 void DevToolsHttpHandlerImpl::Send404(int connection_id) {
+  if (!thread_.get())
+    return;
   thread_->message_loop()->PostTask(
       FROM_HERE,
       base::Bind(&net::HttpServer::Send404, server_.get(), connection_id));
@@ -671,6 +706,8 @@ void DevToolsHttpHandlerImpl::Send404(int connection_id) {
 
 void DevToolsHttpHandlerImpl::Send500(int connection_id,
                                       const std::string& message) {
+  if (!thread_.get())
+    return;
   thread_->message_loop()->PostTask(
       FROM_HERE,
       base::Bind(&net::HttpServer::Send500, server_.get(), connection_id,
@@ -680,6 +717,8 @@ void DevToolsHttpHandlerImpl::Send500(int connection_id,
 void DevToolsHttpHandlerImpl::AcceptWebSocket(
     int connection_id,
     const net::HttpServerRequestInfo& request) {
+  if (!thread_.get())
+    return;
   thread_->message_loop()->PostTask(
       FROM_HERE,
       base::Bind(&net::HttpServer::AcceptWebSocket, server_.get(),

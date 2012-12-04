@@ -10,7 +10,6 @@
 #include "base/command_line.h"
 #include "base/hash_tables.h"
 #include "cc/delegated_renderer_layer_impl.h"
-#include "cc/geometry.h"
 #include "cc/gl_renderer.h"
 #include "cc/heads_up_display_layer_impl.h"
 #include "cc/io_surface_layer_impl.h"
@@ -21,7 +20,6 @@
 #include "cc/render_pass_draw_quad.h"
 #include "cc/scrollbar_geometry_fixed_thumb.h"
 #include "cc/scrollbar_layer_impl.h"
-#include "cc/settings.h"
 #include "cc/single_thread_proxy.h"
 #include "cc/solid_color_draw_quad.h"
 #include "cc/test/animation_test_common.h"
@@ -32,7 +30,6 @@
 #include "cc/test/geometry_test_utils.h"
 #include "cc/test/layer_test_common.h"
 #include "cc/test/render_pass_test_common.h"
-#include "cc/test/test_common.h"
 #include "cc/texture_draw_quad.h"
 #include "cc/texture_layer_impl.h"
 #include "cc/tile_draw_quad.h"
@@ -62,9 +59,9 @@ namespace cc {
 namespace {
 
 // This test is parametrized to run all tests with the
-// Settings::pageScalePinchZoomEnabled field enabled and disabled.
+// m_settings.pageScalePinchZoomEnabled field enabled and disabled.
 class LayerTreeHostImplTest : public testing::TestWithParam<bool>,
-                                public LayerTreeHostImplClient {
+                              public LayerTreeHostImplClient {
 public:
     LayerTreeHostImplTest()
         : m_proxy(scoped_ptr<Thread>(NULL))
@@ -80,9 +77,9 @@ public:
 
     virtual void SetUp()
     {
-        Settings::setPageScalePinchZoomEnabled(GetParam());
         LayerTreeSettings settings;
         settings.minimumOcclusionTrackingSize = gfx::Size();
+        settings.pageScalePinchZoomEnabled = GetParam();
 
         m_hostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
         m_hostImpl->initializeRenderer(createContext());
@@ -99,6 +96,7 @@ public:
     virtual void onCanDrawStateChanged(bool canDraw) OVERRIDE { m_onCanDrawStateChangedCalled = true; }
     virtual void setNeedsRedrawOnImplThread() OVERRIDE { m_didRequestRedraw = true; }
     virtual void setNeedsCommitOnImplThread() OVERRIDE { m_didRequestCommit = true; }
+    virtual void setNeedsManageTilesOnImplThread() OVERRIDE { }
     virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime) OVERRIDE { }
     virtual bool reduceContentsTextureMemoryOnImplThread(size_t limitBytes, int priorityCutoff) OVERRIDE { return m_reduceMemoryResult; }
     virtual void sendManagedMemoryStats() OVERRIDE { }
@@ -107,10 +105,9 @@ public:
 
     scoped_ptr<LayerTreeHostImpl> createLayerTreeHost(bool partialSwap, scoped_ptr<GraphicsContext> graphicsContext, scoped_ptr<LayerImpl> root)
     {
-        Settings::setPartialSwapEnabled(partialSwap);
-
         LayerTreeSettings settings;
         settings.minimumOcclusionTrackingSize = gfx::Size();
+        settings.partialSwapEnabled = partialSwap;
 
         scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
@@ -146,6 +143,19 @@ public:
         }
 
         ASSERT_EQ(timesEncountered, 1);
+    }
+
+    static void expectNone(const ScrollAndScaleSet& scrollInfo, int id)
+    {
+        int timesEncountered = 0;
+
+        for (size_t i = 0; i < scrollInfo.scrolls.size(); ++i) {
+            if (scrollInfo.scrolls[i].layerId != id)
+                continue;
+            timesEncountered++;
+        }
+
+        ASSERT_EQ(0, timesEncountered);
     }
 
     void setupScrollAndContentsLayers(const gfx::Size& contentSize)
@@ -189,6 +199,11 @@ public:
         m_hostImpl->didDrawAllLayers(frame);
     }
 
+    void pinchZoomPanViewportForcesCommitRedraw(const float deviceScaleFactor);
+    void pinchZoomPanViewportTest(const float deviceScaleFactor);
+    void pinchZoomPanViewportAndScrollTest(const float deviceScaleFactor);
+    void pinchZoomPanViewportAndScrollBoundaryTest(const float deviceScaleFactor);
+
 protected:
     scoped_ptr<GraphicsContext> createContext()
     {
@@ -204,7 +219,6 @@ protected:
     bool m_didRequestCommit;
     bool m_didRequestRedraw;
     bool m_reduceMemoryResult;
-    ScopedSettings m_scopedSettings;
 };
 
 class FakeWebGraphicsContext3DMakeCurrentFails : public FakeWebGraphicsContext3D {
@@ -479,6 +493,35 @@ TEST_P(LayerTreeHostImplTest, nonFastScrollableRegionWithOffset)
     EXPECT_EQ(m_hostImpl->scrollBegin(gfx::Point(10, 10), InputHandlerClient::Wheel), InputHandlerClient::ScrollOnMainThread);
 }
 
+TEST_P(LayerTreeHostImplTest, scrollByReturnsCorrectValue)
+{
+    setupScrollAndContentsLayers(gfx::Size(200, 200));
+    m_hostImpl->setViewportSize(gfx::Size(100, 100), gfx::Size(100, 100));
+
+    initializeRendererAndDrawFrame();
+
+    EXPECT_EQ(InputHandlerClient::ScrollStarted,
+        m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+
+    // Trying to scroll to the left/top will not succeed.
+    EXPECT_FALSE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(-10, 0)));
+    EXPECT_FALSE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, -10)));
+    EXPECT_FALSE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(-10, -10)));
+
+    // Scrolling to the right/bottom will succeed.
+    EXPECT_TRUE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(10, 0)));
+    EXPECT_TRUE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, 10)));
+    EXPECT_TRUE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(10, 10)));
+
+    // Scrolling to left/top will now succeed.
+    EXPECT_TRUE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(-10, 0)));
+    EXPECT_TRUE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(0, -10)));
+    EXPECT_TRUE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(-10, -10)));
+
+    // Trying to scroll more than the available space will also succeed.
+    EXPECT_TRUE(m_hostImpl->scrollBy(gfx::Point(), gfx::Vector2d(5000, 5000)));
+}
+
 TEST_P(LayerTreeHostImplTest, maxScrollOffsetChangedByDeviceScaleFactor)
 {
     setupScrollAndContentsLayers(gfx::Size(100, 100));
@@ -499,7 +542,7 @@ TEST_P(LayerTreeHostImplTest, maxScrollOffsetChangedByDeviceScaleFactor)
 TEST_P(LayerTreeHostImplTest, implPinchZoom)
 {
     // This test is specific to the page-scale based pinch zoom.
-    if (!Settings::pageScalePinchZoomEnabled())
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled)
         return;
 
     setupScrollAndContentsLayers(gfx::Size(100, 100));
@@ -510,9 +553,9 @@ TEST_P(LayerTreeHostImplTest, implPinchZoom)
     DCHECK(scrollLayer);
 
     const float minPageScale = 1, maxPageScale = 4;
-    const WebTransformationMatrix identityScaleTransform;
+    const gfx::Transform identityScaleTransform;
 
-    // The impl-based pinch zoome should not adjust the max scroll position.
+    // The impl-based pinch zoom should not adjust the max scroll position.
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
@@ -562,9 +605,9 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
     LayerImpl* scrollLayer = m_hostImpl->rootScrollLayer();
     DCHECK(scrollLayer);
 
-    const float minPageScale = Settings::pageScalePinchZoomEnabled() ? 1 : 0.5;
+    const float minPageScale = m_hostImpl->settings().pageScalePinchZoomEnabled ? 1 : 0.5;
     const float maxPageScale = 4;
-    const WebTransformationMatrix identityScaleTransform;
+    const gfx::Transform identityScaleTransform;
 
     // Basic pinch zoom in gesture
     {
@@ -613,7 +656,7 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
 
-        if (!Settings::pageScalePinchZoomEnabled()) {
+        if (!m_hostImpl->settings().pageScalePinchZoomEnabled) {
             // Pushed to (0,0) via clamping against contents layer size.
             expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-50, -50));
         } else {
@@ -621,7 +664,7 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
         }
     }
 
-    // Two-finger panning
+    // Two-finger panning should not happen based on pinch events only
     {
         m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
         scrollLayer->setImplTransform(identityScaleTransform);
@@ -633,6 +676,27 @@ TEST_P(LayerTreeHostImplTest, pinchGesture)
         m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(10, 10));
         m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(20, 20));
         m_hostImpl->pinchGestureEnd();
+
+        scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
+        EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
+        EXPECT_TRUE(scrollInfo->scrolls.empty());
+    }
+
+    // Two-finger panning should work with interleaved scroll events
+    {
+        m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
+        scrollLayer->setImplTransform(identityScaleTransform);
+        scrollLayer->setScrollDelta(gfx::Vector2d());
+        scrollLayer->setScrollOffset(gfx::Vector2d(20, 20));
+
+        float pageScaleDelta = 1;
+        m_hostImpl->scrollBegin(gfx::Point(10, 10), InputHandlerClient::Wheel);
+        m_hostImpl->pinchGestureBegin();
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(10, 10));
+        m_hostImpl->scrollBy(gfx::Point(10, 10), gfx::Vector2d(-10, -10));
+        m_hostImpl->pinchGestureUpdate(pageScaleDelta, gfx::Point(20, 20));
+        m_hostImpl->pinchGestureEnd();
+        m_hostImpl->scrollEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
@@ -655,7 +719,7 @@ TEST_P(LayerTreeHostImplTest, pageScaleAnimation)
     const base::TimeDelta duration = base::TimeDelta::FromMilliseconds(100);
     const base::TimeTicks halfwayThroughAnimation = startTime + duration / 2;
     const base::TimeTicks endTime = startTime + duration;
-    const WebTransformationMatrix identityScaleTransform;
+    const gfx::Transform identityScaleTransform;
 
     // Non-anchor zoom-in
     {
@@ -701,7 +765,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
     LayerImpl* scrollLayer = m_hostImpl->rootScrollLayer();
     DCHECK(scrollLayer);
 
-    const float minPageScale = Settings::pageScalePinchZoomEnabled() ? 1 : 0.5;
+    const float minPageScale = m_hostImpl->settings().pageScalePinchZoomEnabled ? 1 : 0.5;
     const float maxPageScale = 4;
 
     // Pinch zoom in.
@@ -722,7 +786,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         m_hostImpl->pinchGestureEnd();
         scrollInfo = m_hostImpl->processScrollDeltas();
         EXPECT_EQ(scrollInfo->pageScaleDelta, zoomInDelta);
-        if (!Settings::pageScalePinchZoomEnabled()) {
+        if (!m_hostImpl->settings().pageScalePinchZoomEnabled) {
             expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(25, 25));
         } else {
             EXPECT_TRUE(scrollInfo->scrolls.empty());
@@ -740,7 +804,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         // Since we are pinch zooming out, we should get an update to zoom all
         // the way out to the minimum page scale.
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
-        if (!Settings::pageScalePinchZoomEnabled()) {
+        if (!m_hostImpl->settings().pageScalePinchZoomEnabled) {
             EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
             expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(0, 0));
         } else {
@@ -751,7 +815,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhilePinchZooming)
         // Once the gesture ends, we get the final scroll and page scale values.
         m_hostImpl->pinchGestureEnd();
         scrollInfo = m_hostImpl->processScrollDeltas();
-        if (Settings::pageScalePinchZoomEnabled()) {
+        if (m_hostImpl->settings().pageScalePinchZoomEnabled) {
             EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
             expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(25, 25));
         } else {
@@ -780,7 +844,7 @@ TEST_P(LayerTreeHostImplTest, inhibitScrollAndPageScaleUpdatesWhileAnimatingPage
     const float pageScaleDelta = 2;
     gfx::Vector2d target(25, 25);
     gfx::Vector2d scaledTarget = target;
-    if (!Settings::pageScalePinchZoomEnabled())
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled)
       scaledTarget = gfx::Vector2d(12, 12);
 
     m_hostImpl->setPageScaleFactorAndLimits(1, minPageScale, maxPageScale);
@@ -1117,8 +1181,8 @@ TEST_P(LayerTreeHostImplTest, scrollMissesBackfacingChild)
     scoped_ptr<LayerImpl> child = createScrollableLayer(2, surfaceSize);
     m_hostImpl->setViewportSize(surfaceSize, surfaceSize);
 
-    WebTransformationMatrix matrix;
-    matrix.rotate3d(180, 0, 0);
+    gfx::Transform matrix;
+    MathUtil::rotateEulerAngles(&matrix, 180, 0, 0);
     child->setTransform(matrix);
     child->setDoubleSided(false);
 
@@ -1170,7 +1234,7 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnMainThread)
     // Set new page scale from main thread.
     m_hostImpl->setPageScaleFactorAndLimits(pageScale, pageScale, pageScale);
 
-    if (!Settings::pageScalePinchZoomEnabled()) {
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled) {
         // The scale should apply to the scroll delta.
         expectedScrollDelta = gfx::ToFlooredVector2d(gfx::ScaleVector2d(expectedScrollDelta, pageScale));
     }
@@ -1181,7 +1245,26 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnMainThread)
     EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollOffset(), expectedMaxScroll);
 
     // The page scale delta remains constant because the impl thread did not scale.
-    EXPECT_EQ(m_hostImpl->rootLayer()->implTransform(), WebTransformationMatrix());
+    // TODO: If possible, use gfx::Transform() or Skia equality functions. At
+    //       the moment we avoid that because skia does exact bit-wise equality
+    //       checking that does not consider -0 == +0.
+    //       http://code.google.com/p/chromium/issues/detail?id=162747
+    EXPECT_EQ(1.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(0, 0));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(0, 1));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(0, 2));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(0, 3));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(1, 0));
+    EXPECT_EQ(1.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(1, 1));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(1, 2));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(1, 3));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(2, 0));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(2, 1));
+    EXPECT_EQ(1.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(2, 2));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(2, 3));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(3, 0));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(3, 1));
+    EXPECT_EQ(0.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(3, 2));
+    EXPECT_EQ(1.0, m_hostImpl->rootLayer()->implTransform().matrix().getDouble(3, 3));
 }
 
 TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnImplThread)
@@ -1215,8 +1298,8 @@ TEST_P(LayerTreeHostImplTest, scrollRootAndChangePageScaleOnImplThread)
     EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollOffset(), expectedMaxScroll);
 
     // The page scale delta should match the new scale on the impl side.
-    WebTransformationMatrix expectedScale;
-    expectedScale.scale(pageScale);
+    gfx::Transform expectedScale;
+    expectedScale.Scale(pageScale, pageScale);
     EXPECT_EQ(m_hostImpl->rootLayer()->implTransform(), expectedScale);
 }
 
@@ -1224,11 +1307,11 @@ TEST_P(LayerTreeHostImplTest, pageScaleDeltaAppliedToRootScrollLayerOnly)
 {
     gfx::Size surfaceSize(10, 10);
     float defaultPageScale = 1;
-    WebTransformationMatrix defaultPageScaleMatrix;
+    gfx::Transform defaultPageScaleMatrix;
 
     float newPageScale = 2;
-    WebTransformationMatrix newPageScaleMatrix;
-    newPageScaleMatrix.scale(newPageScale);
+    gfx::Transform newPageScaleMatrix;
+    newPageScaleMatrix.Scale(newPageScale, newPageScale);
 
     // Create a normal scrollable root layer and another scrollable child layer.
     setupScrollAndContentsLayers(surfaceSize);
@@ -1257,12 +1340,12 @@ TEST_P(LayerTreeHostImplTest, pageScaleDeltaAppliedToRootScrollLayerOnly)
     m_hostImpl->drawLayers(frame);
     m_hostImpl->didDrawAllLayers(frame);
 
-    EXPECT_EQ(root->drawTransform().m11(), newPageScale);
-    EXPECT_EQ(root->drawTransform().m22(), newPageScale);
-    EXPECT_EQ(child->drawTransform().m11(), newPageScale);
-    EXPECT_EQ(child->drawTransform().m22(), newPageScale);
-    EXPECT_EQ(grandChild->drawTransform().m11(), newPageScale);
-    EXPECT_EQ(grandChild->drawTransform().m22(), newPageScale);
+    EXPECT_EQ(root->drawTransform().matrix().getDouble(0, 0), newPageScale);
+    EXPECT_EQ(root->drawTransform().matrix().getDouble(1, 1), newPageScale);
+    EXPECT_EQ(child->drawTransform().matrix().getDouble(0, 0), newPageScale);
+    EXPECT_EQ(child->drawTransform().matrix().getDouble(1, 1), newPageScale);
+    EXPECT_EQ(grandChild->drawTransform().matrix().getDouble(0, 0), newPageScale);
+    EXPECT_EQ(grandChild->drawTransform().matrix().getDouble(1, 1), newPageScale);
 }
 
 TEST_P(LayerTreeHostImplTest, scrollChildAndChangePageScaleOnMainThread)
@@ -1293,7 +1376,7 @@ TEST_P(LayerTreeHostImplTest, scrollChildAndChangePageScaleOnMainThread)
 
     m_hostImpl->updateRootScrollLayerImplTransform();
 
-    if (!Settings::pageScalePinchZoomEnabled()) {
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled) {
         // The scale should apply to the scroll delta.
         expectedScrollDelta = gfx::ToFlooredVector2d(gfx::ScaleVector2d(expectedScrollDelta, pageScale));
     }
@@ -1304,8 +1387,8 @@ TEST_P(LayerTreeHostImplTest, scrollChildAndChangePageScaleOnMainThread)
     EXPECT_EQ(child->maxScrollOffset(), expectedMaxScroll);
 
     // The page scale delta remains constant because the impl thread did not scale.
-    WebTransformationMatrix identityTransform;
-    EXPECT_EQ(child->implTransform(), WebTransformationMatrix());
+    gfx::Transform identityTransform;
+    EXPECT_EQ(child->implTransform(), gfx::Transform());
 }
 
 TEST_P(LayerTreeHostImplTest, scrollChildBeyondLimit)
@@ -1393,8 +1476,8 @@ TEST_P(LayerTreeHostImplTest, scrollAxisAlignedRotatedLayer)
     setupScrollAndContentsLayers(gfx::Size(100, 100));
 
     // Rotate the root layer 90 degrees counter-clockwise about its center.
-    WebTransformationMatrix rotateTransform;
-    rotateTransform.rotate(-90);
+    gfx::Transform rotateTransform;
+    rotateTransform.Rotate(-90);
     m_hostImpl->rootLayer()->setTransform(rotateTransform);
 
     gfx::Size surfaceSize(50, 50);
@@ -1431,10 +1514,10 @@ TEST_P(LayerTreeHostImplTest, scrollNonAxisAlignedRotatedLayer)
 
     // Create a child layer that is rotated to a non-axis-aligned angle.
     scoped_ptr<LayerImpl> child = createScrollableLayer(childLayerId, m_hostImpl->rootLayer()->contentBounds());
-    WebTransformationMatrix rotateTransform;
-    rotateTransform.translate(-50, -50);
-    rotateTransform.rotate(childLayerAngle);
-    rotateTransform.translate(50, 50);
+    gfx::Transform rotateTransform;
+    rotateTransform.Translate(-50, -50);
+    rotateTransform.Rotate(childLayerAngle);
+    rotateTransform.Translate(50, 50);
     child->setTransform(rotateTransform);
 
     // Only allow vertical scrolling.
@@ -1490,8 +1573,8 @@ TEST_P(LayerTreeHostImplTest, scrollScaledLayer)
 
     // Scale the layer to twice its normal size.
     int scale = 2;
-    WebTransformationMatrix scaleTransform;
-    scaleTransform.scale(scale);
+    gfx::Transform scaleTransform;
+    scaleTransform.Scale(scale, scale);
     m_hostImpl->rootLayer()->setTransform(scaleTransform);
 
     gfx::Size surfaceSize(50, 50);
@@ -1557,9 +1640,10 @@ public:
             opaqueRect = m_opaqueContentRect;
 
         SharedQuadState* sharedQuadState = quadSink.useSharedQuadState(createSharedQuadState());
-        scoped_ptr<TileDrawQuad> testBlendingDrawQuad = TileDrawQuad::create(sharedQuadState, m_quadRect, opaqueRect, m_resourceId, gfx::Vector2d(), gfx::Size(1, 1), 0, false, false, false, false, false);
-        testBlendingDrawQuad->setQuadVisibleRect(m_quadVisibleRect);
-        EXPECT_EQ(m_blend, testBlendingDrawQuad->needsBlending());
+        scoped_ptr<TileDrawQuad> testBlendingDrawQuad = TileDrawQuad::Create();
+        testBlendingDrawQuad->SetNew(sharedQuadState, m_quadRect, opaqueRect, m_resourceId, gfx::RectF(0, 0, 1, 1), gfx::Size(1, 1), false, false, false, false, false);
+        testBlendingDrawQuad->visible_rect = m_quadVisibleRect;
+        EXPECT_EQ(m_blend, testBlendingDrawQuad->ShouldDrawWithBlending());
         EXPECT_EQ(m_hasRenderSurface, !!renderSurface());
         quadSink.append(testBlendingDrawQuad.PassAs<DrawQuad>(), appendQuadsData);
     }
@@ -1822,12 +1906,12 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         ASSERT_EQ(1u, frame.renderPasses.size());
 
         size_t numGutterQuads = 0;
-        for (size_t i = 0; i < frame.renderPasses[0]->quadList().size(); ++i)
-            numGutterQuads += (frame.renderPasses[0]->quadList()[i]->material() == DrawQuad::SolidColor) ? 1 : 0;
+        for (size_t i = 0; i < frame.renderPasses[0]->quad_list.size(); ++i)
+            numGutterQuads += (frame.renderPasses[0]->quad_list[i]->material == DrawQuad::SOLID_COLOR) ? 1 : 0;
         EXPECT_EQ(0u, numGutterQuads);
-        EXPECT_EQ(1u, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1u, frame.renderPasses[0]->quad_list.size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), gfx::Rect(gfx::Point(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quad_list, gfx::Rect(gfx::Point(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
@@ -1846,12 +1930,12 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         m_hostImpl->didDrawAllLayers(frame);
 
         size_t numGutterQuads = 0;
-        for (size_t i = 0; i < frame.renderPasses[0]->quadList().size(); ++i)
-            numGutterQuads += (frame.renderPasses[0]->quadList()[i]->material() == DrawQuad::SolidColor) ? 1 : 0;
+        for (size_t i = 0; i < frame.renderPasses[0]->quad_list.size(); ++i)
+            numGutterQuads += (frame.renderPasses[0]->quad_list[i]->material == DrawQuad::SOLID_COLOR) ? 1 : 0;
         EXPECT_EQ(1u, numGutterQuads);
-        EXPECT_EQ(1u, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1u, frame.renderPasses[0]->quad_list.size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), gfx::Rect(gfx::Point(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quad_list, gfx::Rect(gfx::Point(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
@@ -1869,12 +1953,12 @@ TEST_P(LayerTreeHostImplTest, viewportCovered)
         ASSERT_EQ(1u, frame.renderPasses.size());
 
         size_t numGutterQuads = 0;
-        for (size_t i = 0; i < frame.renderPasses[0]->quadList().size(); ++i)
-            numGutterQuads += (frame.renderPasses[0]->quadList()[i]->material() == DrawQuad::SolidColor) ? 1 : 0;
+        for (size_t i = 0; i < frame.renderPasses[0]->quad_list.size(); ++i)
+            numGutterQuads += (frame.renderPasses[0]->quad_list[i]->material == DrawQuad::SOLID_COLOR) ? 1 : 0;
         EXPECT_EQ(4u, numGutterQuads);
-        EXPECT_EQ(5u, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(5u, frame.renderPasses[0]->quad_list.size());
 
-        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quadList(), gfx::Rect(gfx::Point(), viewportSize));
+        verifyQuadsExactlyCoverRect(frame.renderPasses[0]->quad_list, gfx::Rect(gfx::Point(), viewportSize));
         m_hostImpl->didDrawAllLayers(frame);
     }
 
@@ -1957,7 +2041,7 @@ TEST_P(LayerTreeHostImplTest, partialSwapReceivesDamageRect)
     // This test creates its own LayerTreeHostImpl, so
     // that we can force partial swap enabled.
     LayerTreeSettings settings;
-    Settings::setPartialSwapEnabled(true);
+    settings.partialSwapEnabled = true;
     scoped_ptr<LayerTreeHostImpl> layerTreeHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
     layerTreeHostImpl->initializeRenderer(outputSurface.Pass());
     layerTreeHostImpl->setViewportSize(gfx::Size(500, 500), gfx::Size(500, 500));
@@ -2060,7 +2144,8 @@ public:
 
         SkColor gray = SkColorSetRGB(100, 100, 100);
         gfx::Rect quadRect(gfx::Point(0, 0), contentBounds());
-        scoped_ptr<SolidColorDrawQuad> myQuad = SolidColorDrawQuad::create(sharedQuadState, quadRect, gray);
+        scoped_ptr<SolidColorDrawQuad> myQuad = SolidColorDrawQuad::Create();
+        myQuad->SetNew(sharedQuadState, quadRect, gray);
         quadSink.append(myQuad.PassAs<DrawQuad>(), appendQuadsData);
     }
 
@@ -2169,16 +2254,30 @@ TEST_P(LayerTreeHostImplTest, noPartialSwap)
     MockContext* mockContext = static_cast<MockContext*>(context->context3D());
     MockContextHarness harness(mockContext);
 
-    harness.mustDrawSolidQuad();
-    harness.mustSetScissor(0, 0, 10, 10);
-
     // Run test case
     scoped_ptr<LayerTreeHostImpl> myHostImpl = createLayerTreeHost(false, context.Pass(), FakeLayerWithQuads::create(1));
 
-    LayerTreeHostImpl::FrameData frame;
-    EXPECT_TRUE(myHostImpl->prepareToDraw(frame));
-    myHostImpl->drawLayers(frame);
-    myHostImpl->didDrawAllLayers(frame);
+    // without partial swap, and no clipping, no scissor is set.
+    harness.mustDrawSolidQuad();
+    harness.mustSetNoScissor();
+    {
+        LayerTreeHostImpl::FrameData frame;
+        EXPECT_TRUE(myHostImpl->prepareToDraw(frame));
+        myHostImpl->drawLayers(frame);
+        myHostImpl->didDrawAllLayers(frame);
+    }
+    Mock::VerifyAndClearExpectations(&mockContext);
+
+    // without partial swap, but a layer does clip its subtree, one scissor is set.
+    myHostImpl->rootLayer()->setMasksToBounds(true);
+    harness.mustDrawSolidQuad();
+    harness.mustSetScissor(0, 0, 10, 10);
+    {
+        LayerTreeHostImpl::FrameData frame;
+        EXPECT_TRUE(myHostImpl->prepareToDraw(frame));
+        myHostImpl->drawLayers(frame);
+        myHostImpl->didDrawAllLayers(frame);
+    }
     Mock::VerifyAndClearExpectations(&mockContext);
 }
 
@@ -2240,11 +2339,10 @@ public:
 
 static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, LayerTreeHostImplClient* client, Proxy* proxy)
 {
-    Settings::setPartialSwapEnabled(partialSwap);
-
     scoped_ptr<GraphicsContext> context = FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<GraphicsContext>();
 
     LayerTreeSettings settings;
+    settings.partialSwapEnabled = partialSwap;
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, client, proxy);
     myHostImpl->initializeRenderer(context.Pass());
     myHostImpl->setViewportSize(gfx::Size(100, 100), gfx::Size(100, 100));
@@ -2291,6 +2389,7 @@ static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, Lay
     child->setContentBounds(child->bounds());
     child->setVisibleContentRect(childRect);
     child->setDrawsContent(false);
+    child->setForceRenderSurface(true);
 
     grandChild->setAnchorPoint(gfx::PointF(0, 0));
     grandChild->setPosition(gfx::Point(grandChildRect.x(), grandChildRect.y()));
@@ -2314,16 +2413,15 @@ TEST_P(LayerTreeHostImplTest, contributingLayerEmptyScissorPartialSwap)
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(myHostImpl->prepareToDraw(frame));
 
-        // Just for consistency, the most interesting stuff already happened
-        myHostImpl->drawLayers(frame);
-        myHostImpl->didDrawAllLayers(frame);
-
         // Verify all quads have been computed
         ASSERT_EQ(2U, frame.renderPasses.size());
-        ASSERT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        ASSERT_EQ(1U, frame.renderPasses[1]->quadList().size());
-        EXPECT_EQ(DrawQuad::SolidColor, frame.renderPasses[0]->quadList()[0]->material());
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
+        ASSERT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        ASSERT_EQ(1U, frame.renderPasses[1]->quad_list.size());
+        EXPECT_EQ(DrawQuad::SOLID_COLOR, frame.renderPasses[0]->quad_list[0]->material);
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+
+        myHostImpl->drawLayers(frame);
+        myHostImpl->didDrawAllLayers(frame);
     }
 }
 
@@ -2335,16 +2433,15 @@ TEST_P(LayerTreeHostImplTest, contributingLayerEmptyScissorNoPartialSwap)
         LayerTreeHostImpl::FrameData frame;
         EXPECT_TRUE(myHostImpl->prepareToDraw(frame));
 
-        // Just for consistency, the most interesting stuff already happened
-        myHostImpl->drawLayers(frame);
-        myHostImpl->didDrawAllLayers(frame);
-
         // Verify all quads have been computed
         ASSERT_EQ(2U, frame.renderPasses.size());
-        ASSERT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        ASSERT_EQ(1U, frame.renderPasses[1]->quadList().size());
-        EXPECT_EQ(DrawQuad::SolidColor, frame.renderPasses[0]->quadList()[0]->material());
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
+        ASSERT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        ASSERT_EQ(1U, frame.renderPasses[1]->quad_list.size());
+        EXPECT_EQ(DrawQuad::SOLID_COLOR, frame.renderPasses[0]->quad_list[0]->material);
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+
+        myHostImpl->drawLayers(frame);
+        myHostImpl->didDrawAllLayers(frame);
     }
 }
 
@@ -2457,7 +2554,7 @@ public:
     StrictWebGraphicsContext3D()
         : FakeWebGraphicsContext3D()
     {
-        m_nextTextureId = 7; // Start allocating texture ids larger than any other resource IDs so we can tell if someone's mixing up their resource types.
+        m_nextTextureId = 8; // Start allocating texture ids larger than any other resource IDs so we can tell if someone's mixing up their resource types.
     }
 
     virtual WebGLId createBuffer() { return 2; }
@@ -2465,6 +2562,8 @@ public:
     virtual WebGLId createProgram() { return 4; }
     virtual WebGLId createRenderbuffer() { return 5; }
     virtual WebGLId createShader(WGC3Denum) { return 6; }
+
+    static const WebGLId kExternalTextureId = 7;
 
     virtual void deleteBuffer(WebGLId id)
     {
@@ -2504,6 +2603,8 @@ public:
     }
     virtual void deleteTexture(WebGLId id)
     {
+        if (id == kExternalTextureId)
+            ADD_FAILURE() << "Trying to delete external texture";
         if (!ContainsKey(m_allocatedTextureIds, id))
             ADD_FAILURE() << "Trying to delete texture id " << id;
         m_allocatedTextureIds.erase(id);
@@ -2541,7 +2642,7 @@ public:
 
     virtual void bindTexture(WGC3Denum, WebGLId id)
     {
-        if (id && !ContainsKey(m_allocatedTextureIds, id))
+        if (id && id != kExternalTextureId && !ContainsKey(m_allocatedTextureIds, id))
             ADD_FAILURE() << "Trying to bind texture id " << id;
     }
 
@@ -2664,12 +2765,15 @@ static inline scoped_ptr<RenderPass> createRenderPassWithResource(ResourceProvid
 {
     ResourceProvider::ResourceId resourceId = provider->createResource(0, gfx::Size(1, 1), GL_RGBA, ResourceProvider::TextureUsageAny);
 
-    scoped_ptr<TestRenderPass> pass = TestRenderPass::create(RenderPass::Id(1, 1), gfx::Rect(0, 0, 1, 1), WebTransformationMatrix());
-    scoped_ptr<SharedQuadState> sharedState = SharedQuadState::create(WebTransformationMatrix(), gfx::Rect(0, 0, 1, 1), gfx::Rect(0, 0, 1, 1), 1, false);
-    scoped_ptr<TextureDrawQuad> quad = TextureDrawQuad::create(sharedState.get(), gfx::Rect(0, 0, 1, 1), resourceId, false, gfx::RectF(0, 0, 1, 1), false);
+    scoped_ptr<TestRenderPass> pass = TestRenderPass::Create();
+    pass->SetNew(RenderPass::Id(1, 1), gfx::Rect(0, 0, 1, 1), gfx::Rect(0, 0, 1, 1), gfx::Transform());
+    scoped_ptr<SharedQuadState> sharedState = SharedQuadState::Create();
+    sharedState->SetAll(gfx::Transform(), gfx::Rect(0, 0, 1, 1), gfx::Rect(0, 0, 1, 1), gfx::Rect(0, 0, 1, 1), false, 1);
+    scoped_ptr<TextureDrawQuad> quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedState.get(), gfx::Rect(0, 0, 1, 1), gfx::Rect(0, 0, 1, 1), resourceId, false, gfx::RectF(0, 0, 1, 1), false);
 
-    pass->appendSharedQuadState(sharedState.Pass());
-    pass->appendQuad(quad.PassAs<DrawQuad>());
+    pass->AppendSharedQuadState(sharedState.Pass());
+    pass->AppendQuad(quad.PassAs<DrawQuad>());
 
     return pass.PassAs<RenderPass>();
 }
@@ -2699,7 +2803,7 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     textureLayer->setAnchorPoint(gfx::PointF(0, 0));
     textureLayer->setContentBounds(gfx::Size(10, 10));
     textureLayer->setDrawsContent(true);
-    textureLayer->setTextureId(1);
+    textureLayer->setTextureId(StrictWebGraphicsContext3D::kExternalTextureId);
     rootLayer->addChild(textureLayer.PassAs<LayerImpl>());
 
     scoped_ptr<TiledLayerImpl> maskLayer = TiledLayerImpl::create(layerId++);
@@ -2716,7 +2820,7 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     textureLayerWithMask->setAnchorPoint(gfx::PointF(0, 0));
     textureLayerWithMask->setContentBounds(gfx::Size(10, 10));
     textureLayerWithMask->setDrawsContent(true);
-    textureLayerWithMask->setTextureId(1);
+    textureLayerWithMask->setTextureId(StrictWebGraphicsContext3D::kExternalTextureId);
     textureLayerWithMask->setMaskLayer(maskLayer.PassAs<LayerImpl>());
     rootLayer->addChild(textureLayerWithMask.PassAs<LayerImpl>());
 
@@ -2825,7 +2929,7 @@ TEST_P(LayerTreeHostImplTest, dontUseOldResourcesAfterLostContext)
     // Create dummy resources so that looking up an old resource will get an
     // invalid texture id mapping.
     for (unsigned i = 0; i < numResources; ++i)
-        m_hostImpl->resourceProvider()->createResourceFromExternalTexture(1);
+        m_hostImpl->resourceProvider()->createResourceFromExternalTexture(StrictWebGraphicsContext3D::kExternalTextureId);
 
     // The WebVideoFrameProvider is expected to recreate its textures after a
     // lost context (or not serve a frame).
@@ -3033,7 +3137,8 @@ static void setupLayersForTextureCaching(LayerTreeHostImpl* layerTreeHostImpl, L
     // It will contain other layers that draw content.
     addDrawingLayerTo(intermediateLayerPtr, 3, gfx::Rect(10, 10, rootSize.width(), rootSize.height()), &surfaceLayerPtr);
     surfaceLayerPtr->setDrawsContent(false); // only children draw content
-    surfaceLayerPtr->setOpacity(0.5f); // This will cause it to have a surface
+    surfaceLayerPtr->setOpacity(0.5f);
+    surfaceLayerPtr->setForceRenderSurface(true); // This will cause it to have a surface
 
     // Child of the surface layer will produce some quads
     addDrawingLayerTo(surfaceLayerPtr, 4, gfx::Rect(5, 5, rootSize.width() - 25, rootSize.height() - 25), &childPtr);
@@ -3046,10 +3151,9 @@ public:
 
 TEST_P(LayerTreeHostImplTest, textureCachingWithClipping)
 {
-    Settings::setPartialSwapEnabled(true);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
+    settings.partialSwapEnabled = true;
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     LayerImpl* rootPtr;
@@ -3078,17 +3182,18 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithClipping)
 
     // Surface layer is the layer that changes its opacity
     // It will contain other layers that draw content.
-    surfaceLayerPtr->setOpacity(0.5f); // This will cause it to have a surface
+    surfaceLayerPtr->setOpacity(0.5f);
+    surfaceLayerPtr->setForceRenderSurface(true); // This will cause it to have a surface
 
     addDrawingLayerTo(surfaceLayerPtr, 4, gfx::Rect(0, 0, 100, 3), 0);
     addDrawingLayerTo(surfaceLayerPtr, 5, gfx::Rect(0, 97, 100, 3), 0);
 
     // Rotation will put part of the child ouside the bounds of the root layer.
     // Nevertheless, the child layers should be drawn.
-    WebTransformationMatrix transform = surfaceLayerPtr->transform();
-    transform.translate(50, 50);
-    transform.rotate(35);
-    transform.translate(-50, -50);
+    gfx::Transform transform = surfaceLayerPtr->transform();
+    transform.Translate(50, 50);
+    transform.Rotate(35);
+    transform.Translate(-50, -50);
     surfaceLayerPtr->setTransform(transform);
 
     {
@@ -3097,31 +3202,31 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithClipping)
 
         // Must receive two render passes, each with one quad
         ASSERT_EQ(2U, frame.renderPasses.size());
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
-        ASSERT_EQ(1U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
+        ASSERT_EQ(1U, frame.renderPasses[1]->quad_list.size());
 
         // Verify that the child layers are being clipped.
-        gfx::Rect quadVisibleRect = frame.renderPasses[0]->quadList()[0]->quadVisibleRect();
+        gfx::Rect quadVisibleRect = frame.renderPasses[0]->quad_list[0]->visible_rect;
         EXPECT_LT(quadVisibleRect.width(), 100);
 
-        quadVisibleRect = frame.renderPasses[0]->quadList()[1]->quadVisibleRect();
+        quadVisibleRect = frame.renderPasses[0]->quad_list[1]->visible_rect;
         EXPECT_LT(quadVisibleRect.width(), 100);
 
         // Verify that the render surface texture is *not* clipped.
-        EXPECT_RECT_EQ(gfx::Rect(0, 0, 100, 100), frame.renderPasses[0]->outputRect());
+        EXPECT_RECT_EQ(gfx::Rect(0, 0, 100, 100), frame.renderPasses[0]->output_rect);
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
-        EXPECT_FALSE(quad->contentsChangedSinceLastFrame().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[1]->quad_list[0]);
+        EXPECT_FALSE(quad->contents_changed_since_last_frame.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
     }
 
     transform = surfaceLayerPtr->transform();
-    transform.translate(50, 50);
-    transform.rotate(-35);
-    transform.translate(-50, -50);
+    transform.Translate(50, 50);
+    transform.Rotate(-35);
+    transform.Translate(-50, -50);
     surfaceLayerPtr->setTransform(transform);
 
     // The surface is now aligned again, and the clipped parts are exposed.
@@ -3133,8 +3238,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithClipping)
 
         // Must receive two render passes, each with one quad
         ASSERT_EQ(2U, frame.renderPasses.size());
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
-        ASSERT_EQ(1U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
+        ASSERT_EQ(1U, frame.renderPasses[1]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3143,8 +3248,6 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithClipping)
 
 TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
 {
-    Settings::setPartialSwapEnabled(false);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
@@ -3205,9 +3308,9 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
         // For Root, there are 2 quads; for S1, there are 2 quads (1 is occluded); for S2, there is 2 quads.
         ASSERT_EQ(3U, frame.renderPasses.size());
 
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(2U, frame.renderPasses[1]->quadList().size());
-        EXPECT_EQ(2U, frame.renderPasses[2]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(2U, frame.renderPasses[1]->quad_list.size());
+        EXPECT_EQ(2U, frame.renderPasses[2]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3216,8 +3319,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
     // "Unocclude" surface S1 and repeat draw.
     // Must remove S2's render pass since it's cached;
     // Must keep S1 quads because texture contained external occlusion.
-    WebTransformationMatrix transform = layerS2Ptr->transform();
-    transform.translate(150, 150);
+    gfx::Transform transform = layerS2Ptr->transform();
+    transform.Translate(150, 150);
     layerS2Ptr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3229,8 +3332,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
         // For S2, there is no render pass
         ASSERT_EQ(2U, frame.renderPasses.size());
 
-        EXPECT_GT(frame.renderPasses[0]->quadList().size(), 0U);
-        EXPECT_EQ(2U, frame.renderPasses[1]->quadList().size());
+        EXPECT_GT(frame.renderPasses[0]->quad_list.size(), 0U);
+        EXPECT_EQ(2U, frame.renderPasses[1]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3240,7 +3343,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
     // Must remove S1's render pass since it is now available in full.
     // S2 has no change so must also be removed.
     transform = layerS2Ptr->transform();
-    transform.translate(-15, -15);
+    transform.Translate(-15, -15);
     layerS2Ptr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3249,7 +3352,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
         // Must receive 1 render pass - for the root.
         ASSERT_EQ(1U, frame.renderPasses.size());
 
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3259,8 +3362,6 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusion)
 
 TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
 {
-    Settings::setPartialSwapEnabled(false);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
@@ -3320,11 +3421,11 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
         // For Root, there are 2 quads; for S1, there are 3 quads; for S2, there is 1 quad.
         ASSERT_EQ(3U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
 
         // L14 is culled, so only 3 quads.
-        EXPECT_EQ(3U, frame.renderPasses[1]->quadList().size());
-        EXPECT_EQ(2U, frame.renderPasses[2]->quadList().size());
+        EXPECT_EQ(3U, frame.renderPasses[1]->quad_list.size());
+        EXPECT_EQ(2U, frame.renderPasses[2]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3333,8 +3434,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
     // "Unocclude" surface S1 and repeat draw.
     // Must remove S2's render pass since it's cached;
     // Must keep S1 quads because texture contained external occlusion.
-    WebTransformationMatrix transform = layerS2Ptr->transform();
-    transform.translate(100, 100);
+    gfx::Transform transform = layerS2Ptr->transform();
+    transform.Translate(100, 100);
     layerS2Ptr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3346,8 +3447,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
         // For S2, there is no render pass
         ASSERT_EQ(2U, frame.renderPasses.size());
 
-        EXPECT_GT(frame.renderPasses[0]->quadList().size(), 0U);
-        EXPECT_EQ(2U, frame.renderPasses[1]->quadList().size());
+        EXPECT_GT(frame.renderPasses[0]->quad_list.size(), 0U);
+        EXPECT_EQ(2U, frame.renderPasses[1]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3357,7 +3458,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
     // Must remove S1's render pass since it is now available in full.
     // S2 has no change so must also be removed.
     transform = layerS2Ptr->transform();
-    transform.translate(-15, -15);
+    transform.Translate(-15, -15);
     layerS2Ptr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3366,7 +3467,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
         // Must receive 1 render pass - for the root.
         ASSERT_EQ(1U, frame.renderPasses.size());
 
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3375,8 +3476,6 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
 
 TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
 {
-    Settings::setPartialSwapEnabled(false);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
@@ -3430,9 +3529,9 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
         // For Root, there are 2 quads; for S1, there are 3 quads; for S2, there is 1 quad.
         ASSERT_EQ(3U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(3U, frame.renderPasses[1]->quadList().size());
-        EXPECT_EQ(2U, frame.renderPasses[2]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(3U, frame.renderPasses[1]->quad_list.size());
+        EXPECT_EQ(2U, frame.renderPasses[2]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3441,8 +3540,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
     // "Unocclude" surface S1 and repeat draw.
     // Must remove S2's render pass since it's cached;
     // Must keep S1 quads because texture contained external occlusion.
-    WebTransformationMatrix transform = layerS2Ptr->transform();
-    transform.translate(300, 0);
+    gfx::Transform transform = layerS2Ptr->transform();
+    transform.Translate(300, 0);
     layerS2Ptr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3454,8 +3553,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
         // For S2, there is no render pass
         ASSERT_EQ(2U, frame.renderPasses.size());
 
-        EXPECT_GT(frame.renderPasses[0]->quadList().size(), 0U);
-        EXPECT_EQ(2U, frame.renderPasses[1]->quadList().size());
+        EXPECT_GT(frame.renderPasses[0]->quad_list.size(), 0U);
+        EXPECT_EQ(2U, frame.renderPasses[1]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3464,8 +3563,6 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
 
 TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
 {
-    Settings::setPartialSwapEnabled(false);
-
     LayerTreeSettings settings;
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
@@ -3497,10 +3594,10 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
 
     addDrawingLayerTo(rootPtr, 2, gfx::Rect(0, 0, 400, 400), &layerS1Ptr);
     layerS1Ptr->setForceRenderSurface(true);
-    WebTransformationMatrix transform = layerS1Ptr->transform();
-    transform.translate(200, 200);
-    transform.rotate(45);
-    transform.translate(-200, -200);
+    gfx::Transform transform = layerS1Ptr->transform();
+    transform.Translate(200, 200);
+    transform.Rotate(45);
+    transform.Translate(-200, -200);
     layerS1Ptr->setTransform(transform);
 
     addDrawingLayerTo(layerS1Ptr, 3, gfx::Rect(200, 0, 200, 400), 0); // L11
@@ -3513,8 +3610,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
         // Must receive 2 render passes.
         ASSERT_EQ(2U, frame.renderPasses.size());
 
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(1U, frame.renderPasses[1]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3529,7 +3626,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
         // One render pass must be gone due to cached texture.
         ASSERT_EQ(1U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3538,10 +3635,9 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
 
 TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
 {
-    Settings::setPartialSwapEnabled(true);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
+    settings.partialSwapEnabled = true;
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     // Layers are structure as follows:
@@ -3600,9 +3696,9 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
         // For Root, there are 2 quads; for S1, there are 2 quads (one is occluded); for S2, there is 2 quads.
         ASSERT_EQ(3U, frame.renderPasses.size());
 
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(2U, frame.renderPasses[1]->quadList().size());
-        EXPECT_EQ(2U, frame.renderPasses[2]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(2U, frame.renderPasses[1]->quad_list.size());
+        EXPECT_EQ(2U, frame.renderPasses[2]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3611,8 +3707,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
     // "Unocclude" surface S1 and repeat draw.
     // Must remove S2's render pass since it's cached;
     // Must keep S1 quads because texture contained external occlusion.
-    WebTransformationMatrix transform = layerS2Ptr->transform();
-    transform.translate(150, 150);
+    gfx::Transform transform = layerS2Ptr->transform();
+    transform.Translate(150, 150);
     layerS2Ptr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3624,8 +3720,8 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
         // For S2, there is no render pass
         ASSERT_EQ(2U, frame.renderPasses.size());
 
-        EXPECT_EQ(2U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(2U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(2U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(2U, frame.renderPasses[1]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3635,7 +3731,7 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
     // Must remove S1's render pass since it is now available in full.
     // S2 has no change so must also be removed.
     transform = layerS2Ptr->transform();
-    transform.translate(-15, -15);
+    transform.Translate(-15, -15);
     layerS2Ptr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3651,8 +3747,6 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
 
 TEST_P(LayerTreeHostImplTest, textureCachingWithScissor)
 {
-    Settings::setPartialSwapEnabled(false);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
@@ -3758,10 +3852,9 @@ TEST_P(LayerTreeHostImplTest, textureCachingWithScissor)
 
 TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
 {
-    Settings::setPartialSwapEnabled(true);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
+    settings.partialSwapEnabled = true;
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
 
     LayerImpl* rootPtr;
@@ -3777,13 +3870,13 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
 
         // Must receive two render passes, each with one quad
         ASSERT_EQ(2U, frame.renderPasses.size());
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(1U, frame.renderPasses[1]->quad_list.size());
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_FALSE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[1]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_FALSE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3797,11 +3890,11 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
         // Must receive one render pass, as the other one should be culled
         ASSERT_EQ(1U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[0]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[0]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3816,11 +3909,11 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
         // Must receive one render pass, as the other one should be culled
         ASSERT_EQ(1U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[0]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[0]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3835,13 +3928,13 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
         // Must receive two render passes, each with one quad
         ASSERT_EQ(2U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(DrawQuad::SolidColor, frame.renderPasses[0]->quadList()[0]->material());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(DrawQuad::SOLID_COLOR, frame.renderPasses[0]->quad_list[0]->material);
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_FALSE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[1]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_FALSE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3862,16 +3955,16 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
 
         // Even though not enough properties changed, the entire thing must be
         // redrawn as we don't have cached textures
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(1U, frame.renderPasses[1]->quad_list.size());
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[1]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         // Was our surface evicted?
-        EXPECT_FALSE(myHostImpl->renderer()->haveCachedResourcesForRenderPassId(targetPass->id()));
+        EXPECT_FALSE(myHostImpl->renderer()->haveCachedResourcesForRenderPassId(targetPass->id));
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3885,19 +3978,19 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
         // Must receive one render pass, as the other one should be culled
         ASSERT_EQ(1U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[0]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[0]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
     }
 
     // Change location of the intermediate layer
-    WebTransformationMatrix transform = intermediateLayerPtr->transform();
-    transform.setM41(1.0001);
+    gfx::Transform transform = intermediateLayerPtr->transform();
+    transform.matrix().setDouble(0, 3, 1.0001);
     intermediateLayerPtr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -3905,12 +3998,12 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
 
         // Must receive one render pass, as the other one should be culled.
         ASSERT_EQ(1U, frame.renderPasses.size());
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[0]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[0]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3919,8 +4012,6 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCaching)
 
 TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
 {
-    Settings::setPartialSwapEnabled(false);
-
     LayerTreeSettings settings;
     settings.minimumOcclusionTrackingSize = gfx::Size();
     scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::create(settings, this, &m_proxy);
@@ -3938,19 +4029,19 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
 
         // Must receive two render passes, each with one quad
         ASSERT_EQ(2U, frame.renderPasses.size());
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(1U, frame.renderPasses[1]->quad_list.size());
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_FALSE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[1]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_FALSE(targetPass->damage_rect.IsEmpty());
 
-        EXPECT_FALSE(frame.renderPasses[0]->damageRect().IsEmpty());
-        EXPECT_FALSE(frame.renderPasses[1]->damageRect().IsEmpty());
+        EXPECT_FALSE(frame.renderPasses[0]->damage_rect.IsEmpty());
+        EXPECT_FALSE(frame.renderPasses[1]->damage_rect.IsEmpty());
 
-        EXPECT_FALSE(frame.renderPasses[0]->hasOcclusionFromOutsideTargetSurface());
-        EXPECT_FALSE(frame.renderPasses[1]->hasOcclusionFromOutsideTargetSurface());
+        EXPECT_FALSE(frame.renderPasses[0]->has_occlusion_from_outside_target_surface);
+        EXPECT_FALSE(frame.renderPasses[1]->has_occlusion_from_outside_target_surface);
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3965,9 +4056,9 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         // One of the passes should be culled as a result, since contents didn't change
         // and we have cached texture.
         ASSERT_EQ(1U, frame.renderPasses.size());
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
 
-        EXPECT_TRUE(frame.renderPasses[0]->damageRect().IsEmpty());
+        EXPECT_TRUE(frame.renderPasses[0]->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -3982,11 +4073,11 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         // Must receive one render pass, as the other one should be culled
         ASSERT_EQ(1U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[0]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[0]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -4001,13 +4092,13 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         // Must receive two render passes, each with one quad
         ASSERT_EQ(2U, frame.renderPasses.size());
 
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(DrawQuad::SolidColor, frame.renderPasses[0]->quadList()[0]->material());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(DrawQuad::SOLID_COLOR, frame.renderPasses[0]->quad_list[0]->material);
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_FALSE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[1]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_FALSE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -4028,16 +4119,16 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
 
         // Even though not enough properties changed, the entire thing must be
         // redrawn as we don't have cached textures
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
-        EXPECT_EQ(1U, frame.renderPasses[1]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
+        EXPECT_EQ(1U, frame.renderPasses[1]->quad_list.size());
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[1]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[1]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         // Was our surface evicted?
-        EXPECT_FALSE(myHostImpl->renderer()->haveCachedResourcesForRenderPassId(targetPass->id()));
+        EXPECT_FALSE(myHostImpl->renderer()->haveCachedResourcesForRenderPassId(targetPass->id));
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -4052,15 +4143,15 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
         // One of the passes should be culled as a result, since contents didn't change
         // and we have cached texture.
         ASSERT_EQ(1U, frame.renderPasses.size());
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
     }
 
     // Change location of the intermediate layer
-    WebTransformationMatrix transform = intermediateLayerPtr->transform();
-    transform.setM41(1.0001);
+    gfx::Transform transform = intermediateLayerPtr->transform();
+    transform.matrix().setDouble(0, 3, 1.0001);
     intermediateLayerPtr->setTransform(transform);
     {
         LayerTreeHostImpl::FrameData frame;
@@ -4068,12 +4159,12 @@ TEST_P(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
 
         // Must receive one render pass, as the other one should be culled.
         ASSERT_EQ(1U, frame.renderPasses.size());
-        EXPECT_EQ(1U, frame.renderPasses[0]->quadList().size());
+        EXPECT_EQ(1U, frame.renderPasses[0]->quad_list.size());
 
-        EXPECT_EQ(DrawQuad::RenderPass, frame.renderPasses[0]->quadList()[0]->material());
-        RenderPassDrawQuad* quad = static_cast<RenderPassDrawQuad*>(frame.renderPasses[0]->quadList()[0]);
-        RenderPass* targetPass = frame.renderPassesById.get(quad->renderPassId());
-        EXPECT_TRUE(targetPass->damageRect().IsEmpty());
+        EXPECT_EQ(DrawQuad::RENDER_PASS, frame.renderPasses[0]->quad_list[0]->material);
+        const RenderPassDrawQuad* quad = RenderPassDrawQuad::MaterialCast(frame.renderPasses[0]->quad_list[0]);
+        RenderPass* targetPass = frame.renderPassesById.get(quad->render_pass_id);
+        EXPECT_TRUE(targetPass->damage_rect.IsEmpty());
 
         myHostImpl->drawLayers(frame);
         myHostImpl->didDrawAllLayers(frame);
@@ -4153,13 +4244,16 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
     renderer->clearCachedTextures();
 
     // One shared state for all quads - we don't need the correct details
-    testData.sharedQuadState = SharedQuadState::create(WebTransformationMatrix(), gfx::Rect(), gfx::Rect(), 1.0, true);
+    testData.sharedQuadState = SharedQuadState::Create();
+    testData.sharedQuadState->SetAll(gfx::Transform(), gfx::Rect(), gfx::Rect(), gfx::Rect(), false, 1.0);
 
     const char* currentChar = testScript;
 
     // Pre-create root pass
     RenderPass::Id rootRenderPassId = RenderPass::Id(testScript[0], testScript[1]);
-    testData.renderPassCache.add(rootRenderPassId, TestRenderPass::create(rootRenderPassId, gfx::Rect(), WebTransformationMatrix()));
+    scoped_ptr<TestRenderPass> pass = TestRenderPass::Create();
+    pass->SetNew(rootRenderPassId, gfx::Rect(), gfx::Rect(), gfx::Transform());
+    testData.renderPassCache.add(rootRenderPassId, pass.Pass());
     while (*currentChar) {
         int layerId = *currentChar;
         currentChar++;
@@ -4179,9 +4273,10 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
         while (*currentChar && *currentChar != '\n') {
             if (*currentChar == 's') {
                 // Solid color draw quad
-                scoped_ptr<SolidColorDrawQuad> quad = SolidColorDrawQuad::create(testData.sharedQuadState.get(), gfx::Rect(0, 0, 10, 10), SK_ColorWHITE);
+                scoped_ptr<SolidColorDrawQuad> quad = SolidColorDrawQuad::Create();
+                quad->SetNew(testData.sharedQuadState.get(), gfx::Rect(0, 0, 10, 10), SK_ColorWHITE);
                 
-                renderPass->appendQuad(quad.PassAs<DrawQuad>());
+                renderPass->AppendQuad(quad.PassAs<DrawQuad>());
                 currentChar++;
             } else if ((*currentChar >= 'A') && (*currentChar <= 'Z')) {
                 // RenderPass draw quad
@@ -4216,13 +4311,16 @@ static void configureRenderPassTestData(const char* testScript, RenderPassRemova
                     if (hasTexture)
                         renderer->setHaveCachedResourcesForRenderPassId(newRenderPassId);
 
-                    testData.renderPassCache.add(newRenderPassId, TestRenderPass::create(newRenderPassId, gfx::Rect(), WebTransformationMatrix()));
+                    scoped_ptr<TestRenderPass> pass = TestRenderPass::Create();
+                    pass->SetNew(newRenderPassId, gfx::Rect(), gfx::Rect(), gfx::Transform());
+                    testData.renderPassCache.add(newRenderPassId, pass.Pass());
                 }
 
                 gfx::Rect quadRect = gfx::Rect(0, 0, 1, 1);
                 gfx::Rect contentsChangedRect = contentsChanged ? quadRect : gfx::Rect();
-                scoped_ptr<RenderPassDrawQuad> quad = RenderPassDrawQuad::create(testData.sharedQuadState.get(), quadRect, newRenderPassId, isReplica, 1, contentsChangedRect, 1, 1, 0, 0);
-                renderPass->appendQuad(quad.PassAs<DrawQuad>());
+                scoped_ptr<RenderPassDrawQuad> quad = RenderPassDrawQuad::Create();
+                quad->SetNew(testData.sharedQuadState.get(), quadRect, newRenderPassId, isReplica, 1, contentsChangedRect, 1, 1, 0, 0);
+                renderPass->AppendQuad(quad.PassAs<DrawQuad>());
             }
         }
         testData.renderPasses.insert(testData.renderPasses.begin(), renderPass.get());
@@ -4237,23 +4335,23 @@ void dumpRenderPassTestData(const RenderPassRemovalTestData& testData, char* buf
     char* pos = buffer;
     for (RenderPassList::const_reverse_iterator it = testData.renderPasses.rbegin(); it != testData.renderPasses.rend(); ++it) {
         const RenderPass* currentPass = *it;
-        *pos = currentPass->id().layerId;
+        *pos = currentPass->id.layer_id;
         pos++;
-        *pos = currentPass->id().index;
+        *pos = currentPass->id.index;
         pos++;
 
-        QuadList::const_iterator quadListIterator = currentPass->quadList().begin();
-        while (quadListIterator != currentPass->quadList().end()) {
+        QuadList::const_iterator quadListIterator = currentPass->quad_list.begin();
+        while (quadListIterator != currentPass->quad_list.end()) {
             DrawQuad* currentQuad = *quadListIterator;
-            switch (currentQuad->material()) {
-            case DrawQuad::SolidColor:
+            switch (currentQuad->material) {
+            case DrawQuad::SOLID_COLOR:
                 *pos = 's';
                 pos++;
                 break;
-            case DrawQuad::RenderPass:
-                *pos = RenderPassDrawQuad::materialCast(currentQuad)->renderPassId().layerId;
+            case DrawQuad::RENDER_PASS:
+                *pos = RenderPassDrawQuad::MaterialCast(currentQuad)->render_pass_id.layer_id;
                 pos++;
-                *pos = RenderPassDrawQuad::materialCast(currentQuad)->renderPassId().index;
+                *pos = RenderPassDrawQuad::MaterialCast(currentQuad)->render_pass_id.index;
                 pos++;
                 break;
             default:
@@ -4434,6 +4532,363 @@ TEST_P(LayerTreeHostImplTest, testRemoveRenderPasses)
         verifyRenderPassTestData(removeRenderPassesCases[testCaseIndex], testData);
         testCaseIndex++;
     }
+}
+
+// Make sure that scrolls that only pan the pinch viewport, and not the document,
+// still force redraw/commit.
+void LayerTreeHostImplTest::pinchZoomPanViewportForcesCommitRedraw(const float deviceScaleFactor)
+{
+    m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
+
+    gfx::Size layoutSurfaceSize(10, 20);
+    gfx::Size deviceSurfaceSize(layoutSurfaceSize.width() * static_cast<int>(deviceScaleFactor),
+                                layoutSurfaceSize.height() * static_cast<int>(deviceScaleFactor));
+    float pageScale = 2;
+    scoped_ptr<LayerImpl> root = createScrollableLayer(1, layoutSurfaceSize);
+    // For this test we want to force scrolls to only pan the pinchZoomViewport
+    // and not the document, we can verify commit/redraw are requested.
+    root->setMaxScrollOffset(gfx::Vector2d());
+    m_hostImpl->setRootLayer(root.Pass());
+    m_hostImpl->setViewportSize(layoutSurfaceSize, deviceSurfaceSize);
+    m_hostImpl->setPageScaleFactorAndLimits(1, 1, pageScale);
+    initializeRendererAndDrawFrame();
+
+    // Set new page scale on impl thread by pinching.
+    m_hostImpl->pinchGestureBegin();
+    m_hostImpl->pinchGestureUpdate(pageScale, gfx::Point());
+    m_hostImpl->pinchGestureEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    gfx::Transform expectedImplTransform;
+    expectedImplTransform.Scale(pageScale, pageScale);
+
+    // Verify the pinch zoom took place.
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+
+    // The implTransform ignores the scroll if !pageScalePinchZoomEnabled,
+    // so no point in continuing without it.
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled)
+        return;
+
+    m_didRequestCommit = false;
+    m_didRequestRedraw = false;
+
+    // This scroll will force the viewport to pan horizontally.
+    gfx::Vector2d scrollDelta(5, 0);
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+
+    EXPECT_EQ(true, m_didRequestCommit);
+    EXPECT_EQ(true, m_didRequestRedraw);
+
+    m_didRequestCommit = false;
+    m_didRequestRedraw = false;
+
+    // This scroll will force the viewport to pan vertically.
+    scrollDelta = gfx::Vector2d(0, 5);
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+
+    EXPECT_EQ(true, m_didRequestCommit);
+    EXPECT_EQ(true, m_didRequestRedraw);
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportForcesCommitDeviceScaleFactor1)
+{
+    pinchZoomPanViewportForcesCommitRedraw(1);
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportForcesCommitDeviceScaleFactor2)
+{
+    pinchZoomPanViewportForcesCommitRedraw(2);
+}
+
+// The following test confirms correct operation of scroll of the pinchZoomViewport.
+// The device scale factor directly affects computation of the implTransform, so
+// we test the two most common use cases.
+void LayerTreeHostImplTest::pinchZoomPanViewportTest(const float deviceScaleFactor)
+{
+    m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
+
+    gfx::Size layoutSurfaceSize(10, 20);
+    gfx::Size deviceSurfaceSize(layoutSurfaceSize.width() * static_cast<int>(deviceScaleFactor),
+                                layoutSurfaceSize.height() * static_cast<int>(deviceScaleFactor));
+    float pageScale = 2;
+    scoped_ptr<LayerImpl> root = createScrollableLayer(1, layoutSurfaceSize);
+    // For this test we want to force scrolls to move the pinchZoomViewport so
+    // we can see the scroll component on the implTransform.
+    root->setMaxScrollOffset(gfx::Vector2d());
+    m_hostImpl->setRootLayer(root.Pass());
+    m_hostImpl->setViewportSize(layoutSurfaceSize, deviceSurfaceSize);
+    m_hostImpl->setPageScaleFactorAndLimits(1, 1, pageScale);
+    initializeRendererAndDrawFrame();
+
+    // Set new page scale on impl thread by pinching.
+    m_hostImpl->pinchGestureBegin();
+    m_hostImpl->pinchGestureUpdate(pageScale, gfx::Point());
+    m_hostImpl->pinchGestureEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    gfx::Transform expectedImplTransform;
+    expectedImplTransform.Scale(pageScale, pageScale);
+
+    EXPECT_EQ(m_hostImpl->rootLayer()->implTransform(), expectedImplTransform);
+
+    // The implTransform ignores the scroll if !pageScalePinchZoomEnabled,
+    // so no point in continuing without it.
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled)
+        return;
+
+    gfx::Vector2d scrollDelta(5, 0);
+    gfx::Vector2d expectedMaxScroll(m_hostImpl->rootLayer()->maxScrollOffset());
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    gfx::Vector2dF expectedTranslation = gfx::ScaleVector2d(scrollDelta, m_hostImpl->deviceScaleFactor());
+    expectedImplTransform.Translate(-expectedTranslation.x(), -expectedTranslation.y());
+
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+    // No change expected.
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+    // None of the scroll delta should have been used for document scroll.
+    scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
+    expectNone(*scrollInfo.get(), m_hostImpl->rootLayer()->id());
+
+    // Test scroll in y-direction also.
+    scrollDelta = gfx::Vector2d(0, 5);
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    expectedTranslation = gfx::ScaleVector2d(scrollDelta, m_hostImpl->deviceScaleFactor());
+    expectedImplTransform.Translate(-expectedTranslation.x(), -expectedTranslation.y());
+
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+    // No change expected.
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+    // None of the scroll delta should have been used for document scroll.
+    scrollInfo = m_hostImpl->processScrollDeltas();
+    expectNone(*scrollInfo.get(), m_hostImpl->rootLayer()->id());
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportWithDeviceScaleFactor1)
+{
+    pinchZoomPanViewportTest(1);
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportWithDeviceScaleFactor2)
+{
+    pinchZoomPanViewportTest(2);
+}
+
+// This test verifies the correct behaviour of the document-then-pinchZoomViewport
+// scrolling model, in both x- and y-directions.
+void LayerTreeHostImplTest::pinchZoomPanViewportAndScrollTest(const float deviceScaleFactor)
+{
+    m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
+
+    gfx::Size layoutSurfaceSize(10, 20);
+    gfx::Size deviceSurfaceSize(layoutSurfaceSize.width() * static_cast<int>(deviceScaleFactor),
+                                layoutSurfaceSize.height() * static_cast<int>(deviceScaleFactor));
+    float pageScale = 2;
+    scoped_ptr<LayerImpl> root = createScrollableLayer(1, layoutSurfaceSize);
+    // For this test we want to scrolls to move both the document and the 
+    // pinchZoomViewport so we can see some scroll component on the implTransform.
+    root->setMaxScrollOffset(gfx::Vector2d(3, 4));
+    m_hostImpl->setRootLayer(root.Pass());
+    m_hostImpl->setViewportSize(layoutSurfaceSize, deviceSurfaceSize);
+    m_hostImpl->setPageScaleFactorAndLimits(1, 1, pageScale);
+    initializeRendererAndDrawFrame();
+
+    // Set new page scale on impl thread by pinching.
+    m_hostImpl->pinchGestureBegin();
+    m_hostImpl->pinchGestureUpdate(pageScale, gfx::Point());
+    m_hostImpl->pinchGestureEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    gfx::Transform expectedImplTransform;
+    expectedImplTransform.Scale(pageScale, pageScale);
+
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+
+    // The implTransform ignores the scroll if !pageScalePinchZoomEnabled,
+    // so no point in continuing without it.
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled)
+        return;
+
+    // Scroll document only: scrollDelta chosen to move document horizontally
+    // to its max scroll offset.
+    gfx::Vector2d scrollDelta(3, 0);
+    gfx::Vector2d expectedScrollDelta(scrollDelta);
+    gfx::Vector2d expectedMaxScroll(m_hostImpl->rootLayer()->maxScrollOffset());
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    // The scroll delta is not scaled because the main thread did not scale.
+    scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+
+    // Verify we did not change the implTransform this time.
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+
+    // Further scrolling should move the pinchZoomViewport only.
+    scrollDelta = gfx::Vector2d(2, 0);
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    gfx::Vector2d expectedPanDelta(scrollDelta);
+    gfx::Vector2dF expectedTranslation = gfx::ScaleVector2d(expectedPanDelta, m_hostImpl->deviceScaleFactor());
+    expectedImplTransform.Translate(-expectedTranslation.x(), -expectedTranslation.y());
+
+    EXPECT_EQ(m_hostImpl->rootLayer()->implTransform(), expectedImplTransform);
+
+    // The scroll delta on the main thread should not have been affected by this.
+    scrollInfo = m_hostImpl->processScrollDeltas();
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+
+    // Perform same test sequence in y-direction also.
+    // Document only scroll.
+    scrollDelta = gfx::Vector2d(0, 4);
+    expectedScrollDelta += scrollDelta;
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    // The scroll delta is not scaled because the main thread did not scale.
+    scrollInfo = m_hostImpl->processScrollDeltas();
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+
+    // Verify we did not change the implTransform this time.
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+
+    // pinchZoomViewport scroll only.
+    scrollDelta = gfx::Vector2d(0, 1);
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    expectedPanDelta = scrollDelta;
+    expectedTranslation = gfx::ScaleVector2d(expectedPanDelta, m_hostImpl->deviceScaleFactor());
+    expectedImplTransform.Translate(-expectedTranslation.x(), -expectedTranslation.y());
+
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+
+    // The scroll delta on the main thread should not have been affected by this.
+    scrollInfo = m_hostImpl->processScrollDeltas();
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportAndScrollWithDeviceScaleFactor)
+{
+    pinchZoomPanViewportAndScrollTest(1);
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportAndScrollWithDeviceScaleFactor2)
+{
+    pinchZoomPanViewportAndScrollTest(2);
+}
+
+// This test verifies the correct behaviour of the document-then-pinchZoomViewport
+// scrolling model, in both x- and y-directions, but this time using a single scroll
+// that crosses the 'boundary' of what will cause document-only scroll and what will
+// cause both document-scroll and zoomViewport panning.
+void LayerTreeHostImplTest::pinchZoomPanViewportAndScrollBoundaryTest(const float deviceScaleFactor)
+{
+    m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
+
+    gfx::Size layoutSurfaceSize(10, 20);
+    gfx::Size deviceSurfaceSize(layoutSurfaceSize.width() * static_cast<int>(deviceScaleFactor),
+                                layoutSurfaceSize.height() * static_cast<int>(deviceScaleFactor));
+    float pageScale = 2;
+    scoped_ptr<LayerImpl> root = createScrollableLayer(1, layoutSurfaceSize);
+    // For this test we want to scrolls to move both the document and the 
+    // pinchZoomViewport so we can see some scroll component on the implTransform.
+    root->setMaxScrollOffset(gfx::Vector2d(3, 4));
+    m_hostImpl->setRootLayer(root.Pass());
+    m_hostImpl->setViewportSize(layoutSurfaceSize, deviceSurfaceSize);
+    m_hostImpl->setPageScaleFactorAndLimits(1, 1, pageScale);
+    initializeRendererAndDrawFrame();
+
+    // Set new page scale on impl thread by pinching.
+    m_hostImpl->pinchGestureBegin();
+    m_hostImpl->pinchGestureUpdate(pageScale, gfx::Point());
+    m_hostImpl->pinchGestureEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    gfx::Transform expectedImplTransform;
+    expectedImplTransform.Scale(pageScale, pageScale);
+
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+
+    // The implTransform ignores the scroll if !pageScalePinchZoomEnabled,
+    // so no point in continuing without it.
+    if (!m_hostImpl->settings().pageScalePinchZoomEnabled)
+        return;
+
+    // Scroll document and pann zoomViewport in one scroll-delta.
+    gfx::Vector2d scrollDelta(5, 0);
+    gfx::Vector2d expectedScrollDelta(gfx::Vector2d(3, 0)); // This component gets handled by document scroll.
+    gfx::Vector2d expectedMaxScroll(m_hostImpl->rootLayer()->maxScrollOffset());
+
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    // The scroll delta is not scaled because the main thread did not scale.
+    scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->processScrollDeltas();
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+
+    gfx::Vector2d expectedPanDelta(2, 0); // This component gets handled by zoomViewport pan.
+    gfx::Vector2dF expectedTranslation = gfx::ScaleVector2d(expectedPanDelta, m_hostImpl->deviceScaleFactor());
+    expectedImplTransform.Translate(-expectedTranslation.x(), -expectedTranslation.y());
+
+    EXPECT_EQ(m_hostImpl->rootLayer()->implTransform(), expectedImplTransform);
+
+    // Perform same test sequence in y-direction also.
+    scrollDelta = gfx::Vector2d(0, 5);
+    expectedScrollDelta += gfx::Vector2d(0, 4); // This component gets handled by document scroll.
+    EXPECT_EQ(InputHandlerClient::ScrollStarted, m_hostImpl->scrollBegin(gfx::Point(0, 0), InputHandlerClient::Gesture));
+    m_hostImpl->scrollBy(gfx::Point(), scrollDelta);
+    m_hostImpl->scrollEnd();
+    m_hostImpl->updateRootScrollLayerImplTransform();
+
+    // The scroll delta is not scaled because the main thread did not scale.
+    scrollInfo = m_hostImpl->processScrollDeltas(); // This component gets handled by zoomViewport pan.
+    expectContains(*scrollInfo.get(), m_hostImpl->rootLayer()->id(), expectedScrollDelta);
+    EXPECT_EQ(expectedMaxScroll, m_hostImpl->rootLayer()->maxScrollOffset());
+
+    expectedPanDelta = gfx::Vector2d(0, 1);
+    expectedTranslation = gfx::ScaleVector2d(expectedPanDelta, m_hostImpl->deviceScaleFactor());
+    expectedImplTransform.Translate(-expectedTranslation.x(), -expectedTranslation.y());
+
+    EXPECT_EQ(expectedImplTransform, m_hostImpl->rootLayer()->implTransform());
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportAndScrollBoundaryWithDeviceScaleFactor)
+{
+    pinchZoomPanViewportAndScrollBoundaryTest(1);
+}
+
+TEST_P(LayerTreeHostImplTest, pinchZoomPanViewportAndScrollBoundaryWithDeviceScaleFactor2)
+{
+    pinchZoomPanViewportAndScrollBoundaryTest(2);
 }
 
 INSTANTIATE_TEST_CASE_P(LayerTreeHostImplTests,

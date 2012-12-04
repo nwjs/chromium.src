@@ -250,6 +250,9 @@ void InterstitialPageImpl::Hide() {
     // already showing. That would result in bad things (unparented HWND on
     // Windows for example) happening.
     old_view->Show();
+    // WebContentsView implementations cached a pointer to the interstitial view
+    // when we created it, so set the old original back.
+    web_contents_->GetView()->SetView(old_view);
   }
 
   // If the focus was on the interstitial, let's keep it to the page.
@@ -684,16 +687,6 @@ void InterstitialPageImpl::ShowContextMenu(
     const ContextMenuParams& params,
     ContextMenuSourceType type) {
 }
-
-#if defined(OS_ANDROID)
-void InterstitialPageImpl::AttachLayer(WebKit::WebLayer* layer) {
-  web_contents_->AttachLayer(layer);
-}
-
-void InterstitialPageImpl::RemoveLayer(WebKit::WebLayer* layer) {
-  web_contents_->RemoveLayer(layer);
-}
-#endif
 
 void InterstitialPageImpl::Disable() {
   enabled_ = false;

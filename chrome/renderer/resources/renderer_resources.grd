@@ -10,10 +10,10 @@ without changes to the corresponding grd file. fb9 -->
     <output filename="grit/renderer_resources_map.h" type="resource_map_header" context="default_100_percent" />
     <output filename="renderer_resources_100_percent.pak" type="data_package" context="default_100_percent" />
     <output filename="renderer_resources_200_percent.pak" type="data_package" context="default_200_percent" />
-    <output filename="renderer_resources.rc" type="rc_all" context="default_100_percent" />
   </outputs>
   <release seq="1">
     <structures fallback_to_low_resolution="true">
+      <structure type="chrome_scaled_image" name="IDR_SAD_WEBVIEW" file="common\webview-crash.png" />
       <structure type="chrome_scaled_image" name="IDR_SAD_PLUGIN" file="common\sadplugin.png" />
     </structures>
     <includes>
@@ -27,7 +27,7 @@ without changes to the corresponding grd file. fb9 -->
       <include name="IDR_EVENT_BINDINGS_JS" file="extensions\event.js" type="BINDATA" />
       <include name="IDR_EXTENSION_APITEST_JS" file="extensions\apitest.js" type="BINDATA" />
       <include name="IDR_GREASEMONKEY_API_JS" file="extensions\greasemonkey_api.js" type="BINDATA" />
-      <include name="IDR_SEARCHBOX_API" file="extensions\searchbox\searchbox_api.js" type="BINDATA" />
+      <include name="IDR_SEARCHBOX_API" file="extensions\searchbox_api.js" type="BINDATA" />
       <include name="IDR_JSON_SCHEMA_JS" file="extensions\json_schema.js" type="BINDATA" />
       <include name="IDR_MISCELLANEOUS_BINDINGS_JS" file="extensions\miscellaneous_bindings.js" type="BINDATA" />
       <include name="IDR_NET_ERROR_HTML" file="neterror.html" flattenhtml="true" type="BINDATA" />
@@ -51,6 +51,7 @@ without changes to the corresponding grd file. fb9 -->
         <include name="IDR_DECLARATIVE_WEBREQUEST_CUSTOM_BINDINGS_JS" file="extensions\declarative_webrequest_custom_bindings.js" type="BINDATA" />
         <include name="IDR_DEVTOOLS_CUSTOM_BINDINGS_JS" file="extensions\devtools_custom_bindings.js" type="BINDATA" />
         <include name="IDR_BLUETOOTH_CUSTOM_BINDINGS_JS" file="extensions\bluetooth_custom_bindings.js" type="BINDATA" />
+        <include name="IDR_PERMISSIONS_CUSTOM_BINDINGS_JS" file="extensions\permissions_custom_bindings.js" type="BINDATA" />
         <include name="IDR_EXPERIMENTAL_MEDIA_GALLERIES_CUSTOM_BINDINGS_JS" file="extensions\experimental.media_galleries_custom_bindings.js" type="BINDATA" />
         <include name="IDR_EXPERIMENTAL_OFFSCREENTABS_CUSTOM_BINDINGS_JS" file="extensions\experimental.offscreenTabs_custom_bindings.js" type="BINDATA" />
         <include name="IDR_EXTENSION_CUSTOM_BINDINGS_JS" file="extensions\extension_custom_bindings.js" type="BINDATA" />
@@ -67,6 +68,7 @@ without changes to the corresponding grd file. fb9 -->
         <include name="IDR_RUNTIME_CUSTOM_BINDINGS_JS" file="extensions\runtime_custom_bindings.js" type="BINDATA" />
         <include name="IDR_STORAGE_CUSTOM_BINDINGS_JS" file="extensions\storage_custom_bindings.js" type="BINDATA" />
         <include name="IDR_SYNC_FILE_SYSTEM_CUSTOM_BINDINGS_JS" file="extensions\sync_file_system_custom_bindings.js" type="BINDATA" />
+        <include name="IDR_SYSTEM_INDICATOR_CUSTOM_BINDINGS_JS" file="extensions\system_indicator_custom_bindings.js" type="BINDATA" />
         <include name="IDR_TAB_CAPTURE_CUSTOM_BINDINGS_JS" file="extensions\tab_capture_custom_bindings.js" type="BINDATA" />
         <include name="IDR_TABS_CUSTOM_BINDINGS_JS" file="extensions\tabs_custom_bindings.js" type="BINDATA" />
         <include name="IDR_TTS_CUSTOM_BINDINGS_JS" file="extensions\tts_custom_bindings.js" type="BINDATA" />

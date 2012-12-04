@@ -9,8 +9,10 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/file_path.h"
+#include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -36,34 +38,35 @@
 #endif
 
 class BookmarkService;
+class CancelableTaskTracker;
 class FilePath;
 class GURL;
 class HistoryURLProvider;
-struct HistoryURLProviderParams;
 class PageUsageData;
 class PageUsageRequest;
 class Profile;
+struct HistoryURLProviderParams;
 
 namespace base {
 class Thread;
 }
 
-namespace content {
-struct DownloadPersistentStoreInfo;
-}
 
 namespace history {
+
+class HistoryBackend;
+class HistoryDatabase;
+class HistoryQueryTest;
 class InMemoryHistoryBackend;
 class InMemoryURLIndex;
 class InMemoryURLIndexTest;
-struct HistoryAddPageArgs;
-class HistoryBackend;
-class HistoryDatabase;
-struct HistoryDetails;
-class HistoryQueryTest;
-class VisitFilter;
 class URLDatabase;
 class VisitDatabaseObserver;
+class VisitFilter;
+struct DownloadRow;
+struct HistoryAddPageArgs;
+struct HistoryDetails;
+
 }  // namespace history
 
 namespace sync_pb {
@@ -446,23 +449,24 @@ class HistoryService : public CancelableRequestProvider,
   // If |restrict_urls| is not empty, only visits to the URLs in this set are
   // removed.
   void ExpireHistoryBetween(const std::set<GURL>& restrict_urls,
-                            base::Time begin_time, base::Time end_time,
-                            CancelableRequestConsumerBase* consumer,
-                            const base::Closure& callback);
+                            base::Time begin_time,
+                            base::Time end_time,
+                            const base::Closure& callback,
+                            CancelableTaskTracker* tracker);
 
   // Downloads -----------------------------------------------------------------
 
   // Implemented by the caller of 'CreateDownload' below, and is called when the
   // history service has created a new entry for a download in the history db.
-  typedef base::Callback<void(int32, int64)> DownloadCreateCallback;
+  typedef base::Callback<void(int64)> DownloadCreateCallback;
 
-  // Begins a history request to create a new persistent entry for a download.
-  // 'info' contains all the download's creation state, and 'callback' runs
-  // when the history service request is complete.
-  Handle CreateDownload(int32 id,
-                        const content::DownloadPersistentStoreInfo& info,
-                        CancelableRequestConsumerBase* consumer,
-                        const DownloadCreateCallback& callback);
+  // Begins a history request to create a new row for a download. 'info'
+  // contains all the download's creation state, and 'callback' runs when the
+  // history service request is complete.
+  Handle CreateDownload(
+      const history::DownloadRow& info,
+      CancelableRequestConsumerBase* consumer,
+      const DownloadCreateCallback& callback);
 
   // Implemented by the caller of 'GetNextDownloadId' below.
   typedef base::Callback<void(int)> DownloadNextIdCallback;
@@ -474,12 +478,12 @@ class HistoryService : public CancelableRequestProvider,
   // Implemented by the caller of 'QueryDownloads' below, and is called when the
   // history service has retrieved a list of all download state. The call
   typedef base::Callback<void(
-      std::vector<content::DownloadPersistentStoreInfo>*)>
+      std::vector<history::DownloadRow>*)>
           DownloadQueryCallback;
 
   // Begins a history request to retrieve the state of all downloads in the
   // history db. 'callback' runs when the history service request is complete,
-  // at which point 'info' contains an array of DownloadPersistentStoreInfo, one
+  // at which point 'info' contains an array of history::DownloadRow, one
   // per download.
   Handle QueryDownloads(CancelableRequestConsumerBase* consumer,
                         const DownloadQueryCallback& callback);
@@ -491,22 +495,11 @@ class HistoryService : public CancelableRequestProvider,
   // Called to update the history service about the current state of a download.
   // This is a 'fire and forget' query, so just pass the relevant state info to
   // the database with no need for a callback.
-  void UpdateDownload(const content::DownloadPersistentStoreInfo& data);
+  void UpdateDownload(const history::DownloadRow& data);
 
-  // Called to update the history service about the path of a download.
-  // This is a 'fire and forget' query.
-  void UpdateDownloadPath(const FilePath& path, int64 db_handle);
-
-  // Permanently remove a download from the history system. This is a 'fire and
-  // forget' operation.
-  void RemoveDownload(int64 db_handle);
-
-  // Permanently removes all completed download from the history system within
-  // the specified range. This function does not delete downloads that are in
-  // progress or in the process of being cancelled. This is a 'fire and forget'
-  // operation. You can pass is_null times to get unbounded time in either or
-  // both directions.
-  void RemoveDownloadsBetween(base::Time remove_begin, base::Time remove_end);
+  // Permanently remove some downloads from the history system. This is a 'fire
+  // and forget' operation.
+  void RemoveDownloads(const std::set<int64>& db_handles);
 
   // Visit Segments ------------------------------------------------------------
 
@@ -632,8 +625,11 @@ class HistoryService : public CancelableRequestProvider,
 
   base::WeakPtr<HistoryService> AsWeakPtr();
 
+  void ProcessDeleteDirectiveForTest(
+      const sync_pb::HistoryDeleteDirectiveSpecifics& delete_directive);
+
   // syncer::SyncableService implementation.
-  virtual syncer::SyncError MergeDataAndStartSyncing(
+  virtual syncer::SyncMergeResult MergeDataAndStartSyncing(
       syncer::ModelType type,
       const syncer::SyncDataList& initial_sync_data,
       scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
@@ -784,14 +780,28 @@ class HistoryService : public CancelableRequestProvider,
       int desired_size_in_dip,
       const std::vector<ui::ScaleFactor>& desired_scale_factors);
 
-  // Used by FaviconService to set a favicon for |page_url| with |pixel_size|.
-  // If there is already a favicon bitmap of |pixel_size| for |page_url|, the
-  // favicon bitmap is overwritten. Otherwise, a new favicon and favicon bitmap
-  // is created using |page_url| as the fake icon URL. Arbitrary favicons and
-  // favicon bitmaps associated to |page_url| may be deleted in order to
-  // maintain the restriction for the max favicons per page.
+  // Used by FaviconService to set a favicon for |page_url| and |icon_url| with
+  // |pixel_size|.
+  // Example:
+  //   |page_url|: www.google.com
+  // 2 favicons in history for |page_url|:
+  //   www.google.com/a.ico  16x16
+  //   www.google.com/b.ico  32x32
+  // MergeFavicon(|page_url|, www.google.com/a.ico, ..., ..., 16x16)
+  //
+  // Merging occurs in the following manner:
+  // 1) |page_url| is set to map to only to |icon_url|. In order to not lose
+  //    data, favicon bitmaps mapped to |page_url| but not to |icon_url| are
+  //    copied to the favicon at |icon_url|.
+  //    For the example above, |page_url| will only be mapped to a.ico.
+  //    The 32x32 favicon bitmap at b.ico is copied to a.ico
+  // 2) |bitmap_data| is added to the favicon at |icon_url|, overwriting any
+  //    favicon bitmaps of |pixel_size|.
+  //    For the example above, |bitmap_data| overwrites the 16x16 favicon
+  //    bitmap for a.ico.
   // TODO(pkotwicz): Remove once no longer required by sync.
   void MergeFavicon(const GURL& page_url,
+                    const GURL& icon_url,
                     history::IconType icon_type,
                     scoped_refptr<base::RefCountedMemory> bitmap_data,
                     const gfx::Size& pixel_size);
@@ -848,6 +858,10 @@ class HistoryService : public CancelableRequestProvider,
   // Delete local history according to the given directive (from
   // sync).
   void ProcessDeleteDirective(
+      const sync_pb::HistoryDeleteDirectiveSpecifics& delete_directive);
+
+  // Called when a delete directive has been processed.
+  void OnDeleteDirectiveProcessed(
       const sync_pb::HistoryDeleteDirectiveSpecifics& delete_directive);
 
   // Schedule ------------------------------------------------------------------

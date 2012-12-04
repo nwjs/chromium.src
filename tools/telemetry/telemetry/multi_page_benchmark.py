@@ -86,21 +86,16 @@ results! You must return the same dict keys every time."""
       PrintPerfResult(measurement, trace, values, units, data_type)
 
 
-class CsvBenchmarkResults(BenchmarkResults):
-  def __init__(self, results_writer):
-    super(CsvBenchmarkResults, self).__init__()
-    self._results_writer = results_writer
-    self._did_write_header = False
+class IncrementalBenchmarkResults(BenchmarkResults):
+  def __init__(self):
+    super(IncrementalBenchmarkResults, self).__init__()
+    self._did_process_header = False
 
   def DidMeasurePage(self):
-    super(CsvBenchmarkResults, self).DidMeasurePage()
+    super(IncrementalBenchmarkResults, self).DidMeasurePage()
 
-    if not self._did_write_header:
-      self._did_write_header = True
-      row = ['url']
-      for name in self.field_names:
-        row.append('%s (%s)' % (name, self.field_units[name]))
-      self._results_writer.writerow(row)
+    if not self._did_process_header:
+      self.ProcessHeader()
 
     row = [self._page.url]
     for name in self.field_names:
@@ -112,7 +107,45 @@ class CsvBenchmarkResults(BenchmarkResults):
         row.append(_Mean(value))
       else:
         row.append(value)
+    self.OutputRow(row)
+
+  def OutputRow(self, row):
+    raise NotImplementedError()
+
+  def ProcessHeader(self):
+    raise NotImplementedError()
+
+class CsvBenchmarkResults(IncrementalBenchmarkResults):
+  def __init__(self, results_writer):
+    super(CsvBenchmarkResults, self).__init__()
+    self._results_writer = results_writer
+
+  def OutputRow(self, row):
     self._results_writer.writerow(row)
+
+  def ProcessHeader(self):
+    self._did_process_header = True
+    row = ['url']
+    for name in self.field_names:
+      row.append('%s (%s)' % (name, self.field_units[name]))
+    self.OutputRow(row)
+
+class TerminalBlockBenchmarkResults(IncrementalBenchmarkResults):
+  def __init__(self, output_location):
+    super(TerminalBlockBenchmarkResults, self).__init__()
+    self._output_location = output_location
+    self._header_row = None
+
+  def OutputRow(self, row):
+    for i in range(len(row)):
+      print >> self._output_location, '%s:' % self._header_row[i], row[i]
+    print >> self._output_location
+
+  def ProcessHeader(self):
+    self._did_process_header = True
+    self._header_row = ['url']
+    for name in self.field_names:
+      self._header_row.append('%s (%s)' % (name, self.field_units[name]))
 
 
 # TODO(nduca): Rename to page_benchmark
@@ -138,7 +171,7 @@ class MultiPageBenchmark(page_test.PageTest):
   To add test-specific options:
 
      class BodyChildElementBenchmark(MultiPageBenchmark):
-        def AddOptions(parser):
+        def AddCommandLineOptions(parser):
            parser.add_option('--element', action='store', default='body')
 
         def MeasurePage(self, page, tab, results):
@@ -146,8 +179,8 @@ class MultiPageBenchmark(page_test.PageTest):
               'document.querySelector('%s').children.length')
            results.Add('children', 'count', child_count)
   """
-  def __init__(self):
-    super(MultiPageBenchmark, self).__init__('_RunTest')
+  def __init__(self, interaction_name=''):
+    super(MultiPageBenchmark, self).__init__('_RunTest', interaction_name)
 
   def _RunTest(self, page, tab, results):
     results.WillMeasurePage(page)

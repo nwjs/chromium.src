@@ -57,6 +57,14 @@ class SessionManagerClientImpl : public SessionManagerClient {
                    weak_ptr_factory_.GetWeakPtr()),
         base::Bind(&SessionManagerClientImpl::SignalConnected,
                    weak_ptr_factory_.GetWeakPtr()));
+
+    session_manager_proxy_->ConnectToSignal(
+        chromium::kChromiumInterface,
+        chromium::kLivenessRequestedSignal,
+        base::Bind(&SessionManagerClientImpl::LivenessRequestedReceived,
+                   weak_ptr_factory_.GetWeakPtr()),
+        base::Bind(&SessionManagerClientImpl::SignalConnected,
+                   weak_ptr_factory_.GetWeakPtr()));
   }
 
   virtual ~SessionManagerClientImpl() {
@@ -172,6 +180,24 @@ class SessionManagerClientImpl : public SessionManagerClient {
                        callback);
   }
 
+  virtual void RetrieveDeviceLocalAccountPolicy(
+      const std::string& account_name,
+      const RetrievePolicyCallback& callback) {
+    dbus::MethodCall method_call(
+        login_manager::kSessionManagerInterface,
+        login_manager::kSessionManagerRetrieveDeviceLocalAccountPolicy);
+    dbus::MessageWriter writer(&method_call);
+    writer.AppendString(account_name);
+    session_manager_proxy_->CallMethod(
+        &method_call,
+        dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::Bind(
+            &SessionManagerClientImpl::OnRetrievePolicy,
+            weak_ptr_factory_.GetWeakPtr(),
+            login_manager::kSessionManagerRetrieveDeviceLocalAccountPolicy,
+            callback));
+  }
+
   virtual void StoreDevicePolicy(const std::string& policy_blob,
                                  const StorePolicyCallback& callback) OVERRIDE {
     CallStorePolicy(login_manager::kSessionManagerStorePolicy,
@@ -182,6 +208,28 @@ class SessionManagerClientImpl : public SessionManagerClient {
                                const StorePolicyCallback& callback) OVERRIDE {
     CallStorePolicy(login_manager::kSessionManagerStoreUserPolicy,
                     policy_blob, callback);
+  }
+
+  virtual void StoreDeviceLocalAccountPolicy(
+      const std::string& account_name,
+      const std::string& policy_blob,
+      const StorePolicyCallback& callback) OVERRIDE {
+    dbus::MethodCall method_call(
+        login_manager::kSessionManagerInterface,
+        login_manager::kSessionManagerStoreDeviceLocalAccountPolicy);
+    dbus::MessageWriter writer(&method_call);
+    writer.AppendString(account_name);
+    // static_cast does not work due to signedness.
+    writer.AppendArrayOfBytes(
+        reinterpret_cast<const uint8*>(policy_blob.data()), policy_blob.size());
+    session_manager_proxy_->CallMethod(
+        &method_call,
+        dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::Bind(
+            &SessionManagerClientImpl::OnStorePolicy,
+            weak_ptr_factory_.GetWeakPtr(),
+            login_manager::kSessionManagerStoreDeviceLocalAccountPolicy,
+            callback));
   }
 
  private:
@@ -330,6 +378,11 @@ class SessionManagerClientImpl : public SessionManagerClient {
     FOR_EACH_OBSERVER(Observer, observers_, UnlockScreen());
   }
 
+  void LivenessRequestedReceived(dbus::Signal* signal) {
+    SimpleMethodCallToSessionManager(
+        login_manager::kSessionManagerHandleLivenessConfirmed);
+  }
+
   // Called when the object is connected to the signal.
   void SignalConnected(const std::string& interface_name,
                        const std::string& signal_name,
@@ -385,24 +438,39 @@ class SessionManagerClientStubImpl : public SessionManagerClient {
   virtual bool GetIsScreenLocked() OVERRIDE { return screen_locked_; }
   virtual void RetrieveDevicePolicy(
       const RetrievePolicyCallback& callback) OVERRIDE {
-    callback.Run("");
+    callback.Run(device_policy_);
   }
   virtual void RetrieveUserPolicy(
+      const RetrievePolicyCallback& callback) OVERRIDE {
+    callback.Run(user_policy_);
+  }
+  virtual void RetrieveDeviceLocalAccountPolicy(
+      const std::string& account_name,
       const RetrievePolicyCallback& callback) OVERRIDE {
     callback.Run("");
   }
   virtual void StoreDevicePolicy(const std::string& policy_blob,
                                  const StorePolicyCallback& callback) OVERRIDE {
+    device_policy_ = policy_blob;
     callback.Run(true);
   }
   virtual void StoreUserPolicy(const std::string& policy_blob,
                                const StorePolicyCallback& callback) OVERRIDE {
+    user_policy_ = policy_blob;
+    callback.Run(true);
+  }
+  virtual void StoreDeviceLocalAccountPolicy(
+      const std::string& account_name,
+      const std::string& policy_blob,
+      const StorePolicyCallback& callback) OVERRIDE {
     callback.Run(true);
   }
 
  private:
   ObserverList<Observer> observers_;
   bool screen_locked_;
+  std::string device_policy_;
+  std::string user_policy_;
 
   DISALLOW_COPY_AND_ASSIGN(SessionManagerClientStubImpl);
 };

@@ -16,6 +16,10 @@
 #include "ui/gfx/path.h"
 #include "ui/views/widget/widget.h"
 
+#if defined(USE_AURA)
+#include "ui/views/corewm/window_animations.h"
+#endif
+
 #if defined(OS_WIN)
 #include <dwmapi.h>
 
@@ -23,9 +27,6 @@
 #if !defined(USE_AURA)
 #include "ui/base/win/shell.h"
 #endif
-#endif
-#if defined(USE_ASH)
-#include "ash/wm/window_animations.h"
 #endif
 
 namespace {
@@ -215,18 +216,16 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
     params.transparent = true;
     params.parent_widget = location_bar_->GetWidget();
     params.bounds = GetPopupBounds();
+    params.context = location_bar_->GetWidget()->GetNativeView();
     popup_->Init(params);
-#if defined(USE_ASH)
-    ash::SetWindowVisibilityAnimationType(
+#if defined(USE_AURA)
+    views::corewm::SetWindowVisibilityAnimationType(
         popup_->GetNativeView(),
-        ash::WINDOW_VISIBILITY_ANIMATION_TYPE_VERTICAL);
-    // Meanie-pants designers won't let us animate the appearance in
-    // production, but we will do it anyway for desktop-aura for the time being
-    // as it lets usverify quickly that hotness is enabled.
+        views::corewm::WINDOW_VISIBILITY_ANIMATION_TYPE_VERTICAL);
 #if defined(OS_CHROMEOS)
     // No animation for autocomplete popup appearance.
-    ash::SetWindowVisibilityAnimationTransition(
-        popup_->GetNativeView(), ash::ANIMATE_HIDE);
+    views::corewm::SetWindowVisibilityAnimationTransition(
+        popup_->GetNativeView(), views::corewm::ANIMATE_HIDE);
 #endif
 #endif
     popup_->SetContentsView(this);
@@ -359,8 +358,7 @@ void OmniboxPopupContentsView::OnMouseExited(
   model_->SetHoveredLine(OmniboxPopupModel::kNoMatch);
 }
 
-ui::EventResult OmniboxPopupContentsView::OnGestureEvent(
-    ui::GestureEvent* event) {
+void OmniboxPopupContentsView::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
     case ui::ET_GESTURE_TAP_DOWN:
     case ui::ET_GESTURE_SCROLL_BEGIN:
@@ -372,9 +370,9 @@ ui::EventResult OmniboxPopupContentsView::OnGestureEvent(
       OpenSelectedLine(*event, CURRENT_TAB);
       break;
     default:
-      return ui::ER_UNHANDLED;
+      return;
   }
-  return ui::ER_CONSUMED;
+  event->SetHandled();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -524,8 +522,7 @@ gfx::Rect OmniboxPopupContentsView::CalculateTargetBounds(int h) {
   if (border) {
     // Adjust for the border so that the bubble and location bar borders are
     // aligned.
-    gfx::Insets insets;
-    border->GetInsets(&insets);
+    gfx::Insets insets = border->GetInsets();
     location_bar_bounds.Inset(insets.left(), 0, insets.right(), 0);
   } else {
     // The normal location bar is drawn using a background graphic that includes

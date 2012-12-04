@@ -31,7 +31,7 @@ cr.define('oobe', function() {
      */
     dropdown_: null,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
       Oobe.setupSelect($('language-select'),
                        templateData.languageList,
@@ -78,6 +78,13 @@ cr.define('oobe', function() {
       buttons.push(continueButton);
 
       return buttons;
+    },
+
+    /**
+     * Returns a control which should receive an initial focus.
+     */
+    get defaultControl() {
+      return $('language-select');
     }
   };
 
@@ -92,8 +99,9 @@ cr.define('oobe', function() {
     messageDiv.textContent = message;
     error.appendChild(messageDiv);
 
-    $('bubble').showContentForElement($('networks-list'), error,
-                                      cr.ui.Bubble.Attachment.BOTTOM);
+    $('bubble').showContentForElement($('networks-list'),
+                                      cr.ui.Bubble.Attachment.BOTTOM,
+                                      error);
   };
 
   return {

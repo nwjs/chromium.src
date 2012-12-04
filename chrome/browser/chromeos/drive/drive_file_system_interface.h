@@ -12,7 +12,7 @@
 #include "chrome/browser/chromeos/drive/drive_cache.h"
 #include "chrome/browser/chromeos/drive/drive_file_system_metadata.h"
 #include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
-#include "chrome/browser/google_apis/gdata_operations.h"
+#include "chrome/browser/google_apis/gdata_wapi_operations.h"
 
 namespace google_apis {
 class DocumentEntry;
@@ -146,6 +146,7 @@ class DriveFileSystemInterface {
   // Otherwise, Drive file system does not pick up the file for uploading.
   //
   // Can be called from UI/IO thread. |callback| is run on the calling thread.
+  // |callback| must not be null.
   virtual void OpenFile(const FilePath& file_path,
                         const OpenFileCallback& callback) = 0;
 
@@ -311,6 +312,8 @@ class DriveFileSystemInterface {
   virtual void RequestDirectoryRefresh(const FilePath& file_path) = 0;
 
   // Does server side content search for |search_query|.
+  // If |shared_with_me| is true, it searches for the files shared to the user,
+  // otherwise searches for the files owned by the user.
   // If |next_feed| is set, this is the feed url that will be fetched.
   // Search results will be returned as a list of results' |SearchResultInfo|
   // structs, which contains file's path and is_directory flag.
@@ -318,6 +321,7 @@ class DriveFileSystemInterface {
   // Can be called from UI/IO thread. |callback| is run on the calling thread.
   // |callback| must not be null.
   virtual void Search(const std::string& search_query,
+                      bool shared_with_me,
                       const GURL& next_feed,
                       const SearchCallback& callback) = 0;
 

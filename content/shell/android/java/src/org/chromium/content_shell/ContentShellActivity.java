@@ -11,8 +11,8 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 
-import org.chromium.content.app.AppResource;
 import org.chromium.content.app.LibraryLoader;
+import org.chromium.content.browser.ActivityContentVideoViewDelegate;
 import org.chromium.content.browser.ContentVideoView;
 import org.chromium.content.browser.ContentView;
 import org.chromium.content.browser.DeviceUtils;
@@ -24,7 +24,7 @@ import org.chromium.ui.gfx.ActivityNativeWindow;
  */
 public class ContentShellActivity extends Activity {
 
-    private static final String COMMAND_LINE_FILE = "/data/local/tmp/content-shell-command-line";
+    public static final String COMMAND_LINE_FILE = "/data/local/tmp/content-shell-command-line";
     private static final String TAG = ContentShellActivity.class.getName();
 
     private static final String ACTIVE_SHELL_URL_KEY = "activeUrl";
@@ -51,14 +51,14 @@ public class ContentShellActivity extends Activity {
         DeviceUtils.addDeviceSpecificUserAgentSwitch(this);
 
         LibraryLoader.ensureInitialized();
-        initializeContentViewResources();
 
         setContentView(R.layout.content_shell_activity);
         mShellManager = (ShellManager) findViewById(R.id.shell_container);
         mActivityNativeWindow = new ActivityNativeWindow(this);
         mActivityNativeWindow.restoreInstanceState(savedInstanceState);
         mShellManager.setWindow(mActivityNativeWindow);
-        ContentVideoView.registerChromeActivity(this);
+        ContentVideoView.registerContentVideoViewContextDelegate(
+            new ActivityContentVideoViewDelegate(this));
 
         String startupUrl = getUrlFromIntent(getIntent());
         if (!TextUtils.isEmpty(startupUrl)) {
@@ -174,22 +174,5 @@ public class ContentShellActivity extends Activity {
     public ContentView getActiveContentView() {
         Shell shell = getActiveShell();
         return shell != null ? shell.getContentView() : null;
-    }
-
-    private void initializeContentViewResources() {
-        AppResource.DIMENSION_LINK_PREVIEW_OVERLAY_RADIUS = R.dimen.link_preview_overlay_radius;
-        AppResource.DRAWABLE_ICON_ACTION_BAR_SHARE = R.drawable.ic_menu_share_holo_light;
-        AppResource.DRAWABLE_ICON_ACTION_BAR_WEB_SEARCH = R.drawable.ic_menu_search_holo_light;
-        AppResource.DRAWABLE_LINK_PREVIEW_POPUP_OVERLAY = R.drawable.popup_zoomer_overlay;
-        AppResource.STRING_ACTION_BAR_SHARE = R.string.action_bar_share;
-        AppResource.STRING_ACTION_BAR_WEB_SEARCH = R.string.action_bar_search;
-        AppResource.STRING_CONTENT_VIEW_CONTENT_DESCRIPTION = R.string.accessibility_content_view;
-        AppResource.STRING_MEDIA_PLAYER_MESSAGE_PLAYBACK_ERROR =
-                R.string.media_player_error_text_invalid_progressive_playback;
-        AppResource.STRING_MEDIA_PLAYER_MESSAGE_UNKNOWN_ERROR =
-                R.string.media_player_error_text_unknown;
-        AppResource.STRING_MEDIA_PLAYER_ERROR_BUTTON = R.string.media_player_error_button;
-        AppResource.STRING_MEDIA_PLAYER_ERROR_TITLE = R.string.media_player_error_title;
-        AppResource.STRING_MEDIA_PLAYER_LOADING_VIDEO = R.string.media_player_loading_video;
     }
 }

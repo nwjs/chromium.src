@@ -64,16 +64,6 @@ PhotoImport.load = function(opt_filesystem, opt_params) {
   api.getStrings(function(strings) {
     loadTimeData.data = strings;
 
-    // TODO(dgozman): remove when all strings finalized.
-    var original = loadTimeData.getString;
-    loadTimeData.getString = function(s) {
-      return original.call(loadTimeData, s) || s;
-    };
-    var originalF = loadTimeData.getStringF;
-    loadTimeData.getStringF = function() {
-      return originalF.apply(loadTimeData, arguments) || arguments[0];
-    };
-
     if (opt_filesystem) {
       onFilesystem(opt_filesystem);
     } else {
@@ -130,7 +120,7 @@ PhotoImport.prototype.initDom_ = function() {
  */
 PhotoImport.prototype.initDestination_ = function() {
   var onError = this.onError_.bind(
-      this, loadTimeData.getString('PHOTO_IMPORT_GDATA_ERROR'));
+      this, loadTimeData.getString('PHOTO_IMPORT_DRIVE_ERROR'));
 
   var onDirectory = function(dir) {
     this.destination_ = dir;
@@ -163,7 +153,8 @@ PhotoImport.prototype.loadSource_ = function(source) {
   }.bind(this);
 
   var onEntry = function(entry) {
-    util.traverseTree(entry, onTraversed, 0 /* infinite depth */);
+    util.traverseTree(entry, onTraversed, 0 /* infinite depth */,
+        FileType.isVisible);
   }.bind(this);
 
   var onError = this.onError_.bind(
@@ -372,6 +363,11 @@ PhotoImport.prototype.onSelectionChanged_ = function() {
 PhotoImport.prototype.onImportClick_ = function(event) {
   var entries = this.getSelectedItems_();
   var move = this.dom_.querySelector('#delete-after-checkbox').checked;
+
+  var percentage = Math.round(entries.length / this.fileList_.length * 100);
+  metrics.recordMediumCount('PhotoImport.ImportCount', entries.length);
+  metrics.recordSmallCount('PhotoImport.ImportPercentage', percentage);
+
   this.importingDialog_.show(entries, this.destination_, move);
 };
 
@@ -413,7 +409,7 @@ function GridSelectionController(selectionModel, grid) {
 GridSelectionController.prototype.__proto__ =
     cr.ui.ListSelectionController.prototype;
 
-/** @inheritDoc */
+/** @override */
 GridSelectionController.prototype.getIndexBelow = function(index) {
   if (index == this.getLastIndex()) {
     return -1;
@@ -437,7 +433,7 @@ GridSelectionController.prototype.getIndexBelow = function(index) {
   return this.getLastIndex();
 };
 
-/** @inheritDoc */
+/** @override */
 GridSelectionController.prototype.getIndexAbove = function(index) {
   if (index == this.getFirstIndex()) {
     return -1;
@@ -452,7 +448,7 @@ GridSelectionController.prototype.getIndexAbove = function(index) {
   return index < 0 ? this.getFirstIndex() : index;
 };
 
-/** @inheritDoc */
+/** @override */
 GridSelectionController.prototype.getIndexBefore = function(index) {
   var dm = this.grid_.dataModel;
   index--;
@@ -462,7 +458,7 @@ GridSelectionController.prototype.getIndexBefore = function(index) {
   return index;
 };
 
-/** @inheritDoc */
+/** @override */
 GridSelectionController.prototype.getIndexAfter = function(index) {
   var dm = this.grid_.dataModel;
   index++;
@@ -472,7 +468,7 @@ GridSelectionController.prototype.getIndexAfter = function(index) {
   return index == dm.length ? -1 : index;
 };
 
-/** @inheritDoc */
+/** @override */
 GridSelectionController.prototype.getFirstIndex = function() {
   var dm = this.grid_.dataModel;
   for (var index = 0; index < dm.length; index++) {
@@ -482,7 +478,7 @@ GridSelectionController.prototype.getFirstIndex = function() {
   return -1;
 };
 
-/** @inheritDoc */
+/** @override */
 GridSelectionController.prototype.getLastIndex = function() {
   var dm = this.grid_.dataModel;
   for (var index = dm.length - 1; index >= 0; index--) {

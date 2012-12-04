@@ -8,6 +8,7 @@
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "cc/cc_export.h"
+#include "skia/ext/refptr.h"
 #include "third_party/skia/include/core/SkPicture.h"
 #include "ui/gfx/rect.h"
 
@@ -27,7 +28,8 @@ public:
   // Make a thread-safe clone for rasterizing with.
   scoped_refptr<Picture> Clone();
 
-  // Record a paint operation (clobbering any previous recording).
+  // Record a paint operation. To be able to safely use this SkPicture for
+  // playback on a different thread this can only be called once.
   void Record(ContentLayerClient*, gfx::Rect layer_rect, RenderingStats&);
 
   // Raster this Picture's layer_rect into the given canvas.
@@ -38,12 +40,14 @@ private:
   Picture();
   // This constructor assumes SkPicture is already ref'd and transfers
   // ownership to this picture.
-  Picture(SkPicture*, gfx::Rect layer_rect, gfx::Rect opaque_rect);
+  Picture(const skia::RefPtr<SkPicture>&,
+          gfx::Rect layer_rect,
+          gfx::Rect opaque_rect);
   ~Picture();
 
   gfx::Rect layer_rect_;
   gfx::Rect opaque_rect_;
-  SkAutoTUnref<SkPicture> picture_;
+  skia::RefPtr<SkPicture> picture_;
 
   friend class base::RefCountedThreadSafe<Picture>;
   DISALLOW_COPY_AND_ASSIGN(Picture);

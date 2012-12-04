@@ -8,7 +8,6 @@
 #include "base/memory/scoped_nsobject.h"
 #include "base/memory/weak_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/extensions/extension_keybinding_registry.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -32,7 +31,6 @@ class Extension;
 
 class BrowserWindowCocoa :
     public BrowserWindow,
-    public PrefObserver,
     public extensions::ExtensionKeybindingRegistry::Delegate {
  public:
   BrowserWindowCocoa(Browser* browser,
@@ -78,7 +76,7 @@ class BrowserWindowCocoa :
   virtual LocationBar* GetLocationBar() const OVERRIDE;
   virtual void SetFocusToLocationBar(bool select_all) OVERRIDE;
   virtual void UpdateReloadStopState(bool is_loading, bool force) OVERRIDE;
-  virtual void UpdateToolbar(TabContents* contents,
+  virtual void UpdateToolbar(content::WebContents* contents,
                              bool should_restore_state) OVERRIDE;
   virtual void FocusToolbar() OVERRIDE;
   virtual void FocusAppMenu() OVERRIDE;
@@ -114,7 +112,7 @@ class BrowserWindowCocoa :
                             const content::SSLStatus& ssl,
                             bool show_history) OVERRIDE;
   virtual void ShowWebsiteSettings(Profile* profile,
-                                   TabContents* tab_contents,
+                                   content::WebContents* web_contents,
                                    const GURL& url,
                                    const content::SSLStatus& ssl,
                                    bool show_history) OVERRIDE;
@@ -146,10 +144,6 @@ class BrowserWindowCocoa :
                                 const gfx::Rect& rect) OVERRIDE;
   virtual void ShowAvatarBubbleFromAvatarButton() OVERRIDE;
 
-  // Overridden from NotificationObserver
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
   // Overridden from ExtensionKeybindingRegistry::Delegate:
   virtual extensions::ActiveTabPermissionGranter*
       GetActiveTabPermissionGranter() OVERRIDE;
@@ -164,6 +158,7 @@ class BrowserWindowCocoa :
   virtual void DestroyBrowser() OVERRIDE;
 
  private:
+  virtual void OnShowBookmarkBarChanged();
   NSWindow* window() const;  // Accessor for the (current) |NSWindow|.
 
   PrefChangeRegistrar pref_change_registrar_;

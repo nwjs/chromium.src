@@ -20,6 +20,8 @@
 #include "chrome/browser/autofill/form_group.h"
 #include "chrome/browser/autofill/phone_number.h"
 
+struct FormFieldData;
+
 // A collection of FormGroups stored in a profile.  AutofillProfile also
 // implements the FormGroup interface so that owners of this object can request
 // form information from the profile, and the profile will delegate the request
@@ -36,6 +38,7 @@ class AutofillProfile : public FormGroup {
   AutofillProfile& operator=(const AutofillProfile& profile);
 
   // FormGroup:
+  virtual std::string GetGUID() const OVERRIDE;
   virtual void GetMatchingTypes(const string16& text,
                                 FieldTypeSet* matching_types) const OVERRIDE;
   virtual string16 GetRawInfo(AutofillFieldType type) const OVERRIDE;
@@ -44,17 +47,25 @@ class AutofillProfile : public FormGroup {
   virtual string16 GetCanonicalizedInfo(AutofillFieldType type) const OVERRIDE;
   virtual bool SetCanonicalizedInfo(AutofillFieldType type,
                                     const string16& value) OVERRIDE;
+  virtual void FillFormField(const AutofillField& field,
+                             size_t variant,
+                             FormFieldData* field_data) const OVERRIDE;
 
   // Multi-value equivalents to |GetInfo| and |SetInfo|.
-  void SetMultiInfo(AutofillFieldType type,
-                    const std::vector<string16>& values);
-  void GetMultiInfo(AutofillFieldType type,
-                    std::vector<string16>* values) const;
+  void SetRawMultiInfo(AutofillFieldType type,
+                       const std::vector<string16>& values);
+  void GetRawMultiInfo(AutofillFieldType type,
+                       std::vector<string16>* values) const;
   void GetCanonicalizedMultiInfo(AutofillFieldType type,
                                  std::vector<string16>* values) const;
 
-  // Returns |true| if |type| accepts multi-values.
-  static bool SupportsMultiValue(AutofillFieldType type);
+  // Set |field_data|'s value for phone number based on contents of |this|.
+  // The |field| specifies the type of the phone and whether this is a
+  // phone prefix or suffix.  The |variant| parameter specifies which value in a
+  // multi-valued profile.
+  void FillPhoneNumberField(const AutofillField& field,
+                            size_t variant,
+                            FormFieldData* field_data) const;
 
   // The user-visible label of the profile, generated in relation to other
   // profiles. Shows at least 2 fields that differentiate profile from other
@@ -62,40 +73,14 @@ class AutofillProfile : public FormGroup {
   const string16 Label() const;
 
   // This guid is the primary identifier for |AutofillProfile| objects.
+  // TODO(estade): remove this and just use GetGUID(). |guid_| can probably
+  // be moved to FormGroup.
   const std::string guid() const { return guid_; }
   void set_guid(const std::string& guid) { guid_ = guid; }
 
   // Accessors for the stored address's country code.
   const std::string CountryCode() const;
   void SetCountryCode(const std::string& country_code);
-
-  // Adjusts the labels according to profile data.
-  // Labels contain minimal different combination of:
-  // 1. Full name.
-  // 2. Address.
-  // 3. E-mail.
-  // 4. Phone.
-  // 5. Company name.
-  // Profile labels are changed accordingly to these rules.
-  // Returns true if any of the profiles were updated.
-  // This function is useful if you want to adjust unique labels for all
-  // profiles. For non permanent situations (selection of profile, when user
-  // started typing in the field, for example) use CreateInferredLabels().
-  static bool AdjustInferredLabels(std::vector<AutofillProfile*>* profiles);
-
-  // Creates inferred labels for |profiles|, according to the rules above and
-  // stores them in |created_labels|. If |suggested_fields| is not NULL, the
-  // resulting label fields are drawn from |suggested_fields|, except excluding
-  // |excluded_field|. Otherwise, the label fields are drawn from a default set,
-  // and |excluded_field| is ignored; by convention, it should be of
-  // |UNKNOWN_TYPE| when |suggested_fields| is NULL. Each label includes at
-  // least |minimal_fields_shown| fields, if possible.
-  static void CreateInferredLabels(
-      const std::vector<AutofillProfile*>* profiles,
-      const std::vector<AutofillFieldType>* suggested_fields,
-      AutofillFieldType excluded_field,
-      size_t minimal_fields_shown,
-      std::vector<string16>* created_labels);
 
   // Returns true if there are no values (field types) set.
   bool IsEmpty() const;
@@ -125,10 +110,42 @@ class AutofillProfile : public FormGroup {
   // Profile.  Or, for multi-valued fields append the new values.
   void OverwriteWithOrAddTo(const AutofillProfile& profile);
 
+  // Returns |true| if |type| accepts multi-values.
+  static bool SupportsMultiValue(AutofillFieldType type);
+
+  // Adjusts the labels according to profile data.
+  // Labels contain minimal different combination of:
+  // 1. Full name.
+  // 2. Address.
+  // 3. E-mail.
+  // 4. Phone.
+  // 5. Company name.
+  // Profile labels are changed accordingly to these rules.
+  // Returns true if any of the profiles were updated.
+  // This function is useful if you want to adjust unique labels for all
+  // profiles. For non permanent situations (selection of profile, when user
+  // started typing in the field, for example) use CreateInferredLabels().
+  static bool AdjustInferredLabels(std::vector<AutofillProfile*>* profiles);
+
+  // Creates inferred labels for |profiles|, according to the rules above and
+  // stores them in |created_labels|. If |suggested_fields| is not NULL, the
+  // resulting label fields are drawn from |suggested_fields|, except excluding
+  // |excluded_field|. Otherwise, the label fields are drawn from a default set,
+  // and |excluded_field| is ignored; by convention, it should be of
+  // |UNKNOWN_TYPE| when |suggested_fields| is NULL. Each label includes at
+  // least |minimal_fields_shown| fields, if possible.
+  static void CreateInferredLabels(
+      const std::vector<AutofillProfile*>* profiles,
+      const std::vector<AutofillFieldType>* suggested_fields,
+      AutofillFieldType excluded_field,
+      size_t minimal_fields_shown,
+      std::vector<string16>* created_labels);
+
  private:
   typedef std::vector<const FormGroup*> FormGroupList;
 
-  // FormGroup implementation.
+  // FormGroup:
+  virtual bool FillCountrySelectControl(FormFieldData* field) const OVERRIDE;
   virtual void GetSupportedTypes(FieldTypeSet* supported_types) const OVERRIDE;
 
   // Shared implementation for GetMultiInfo() and GetCanonicalizedMultiInfo().

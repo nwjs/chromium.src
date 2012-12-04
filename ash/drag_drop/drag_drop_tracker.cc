@@ -14,11 +14,11 @@
 namespace {
 
 // Creates a window for capturing drag events.
-aura::Window* CreateCaptureWindow() {
+aura::Window* CreateCaptureWindow(aura::RootWindow* context_root) {
   aura::Window* window = new aura::Window(NULL);
   window->SetType(aura::client::WINDOW_TYPE_NORMAL);
   window->Init(ui::LAYER_NOT_DRAWN);
-  window->SetParent(NULL);
+  window->SetDefaultParentByRootWindow(context_root, gfx::Rect());
   window->Show();
   return window;
 }
@@ -28,13 +28,16 @@ aura::Window* CreateCaptureWindow() {
 namespace ash {
 namespace internal {
 
-DragDropTracker::DragDropTracker()
-    : capture_window_(CreateCaptureWindow()) {
-  capture_window_->SetCapture();
+DragDropTracker::DragDropTracker(aura::RootWindow* context_root)
+    : capture_window_(CreateCaptureWindow(context_root)) {
 }
 
 DragDropTracker::~DragDropTracker()  {
   capture_window_->ReleaseCapture();
+}
+
+void DragDropTracker::TakeCapture() {
+  capture_window_->SetCapture();
 }
 
 aura::Window* DragDropTracker::GetTarget(const ui::LocatedEvent& event) {
@@ -49,9 +52,9 @@ aura::Window* DragDropTracker::GetTarget(const ui::LocatedEvent& event) {
   return root_window_at_point->GetEventHandlerForPoint(location_in_root);
 }
 
-ui::MouseEvent* DragDropTracker::ConvertMouseEvent(
+ui::LocatedEvent* DragDropTracker::ConvertEvent(
     aura::Window* target,
-    const ui::MouseEvent& event) {
+    const ui::LocatedEvent& event) {
   DCHECK(capture_window_.get());
   gfx::Point target_location = event.location();
   aura::Window::ConvertPointToTarget(capture_window_.get(), target,

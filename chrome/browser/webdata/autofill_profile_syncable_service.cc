@@ -57,7 +57,8 @@ AutofillProfileSyncableService::AutofillProfileSyncableService()
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::DB));
 }
 
-syncer::SyncError AutofillProfileSyncableService::MergeDataAndStartSyncing(
+syncer::SyncMergeResult
+AutofillProfileSyncableService::MergeDataAndStartSyncing(
     syncer::ModelType type,
     const syncer::SyncDataList& initial_sync_data,
     scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
@@ -68,10 +69,12 @@ syncer::SyncError AutofillProfileSyncableService::MergeDataAndStartSyncing(
   DCHECK(sync_error_factory.get());
   DVLOG(1) << "Associating Autofill: MergeDataAndStartSyncing";
 
+  syncer::SyncMergeResult merge_result(type);
   sync_error_factory_ = sync_error_factory.Pass();
   if (!LoadAutofillData(&profiles_.get())) {
-    return sync_error_factory_->CreateAndUploadError(
-        FROM_HERE, "Could not get the autofill data from WebDatabase.");
+    merge_result.set_error(sync_error_factory_->CreateAndUploadError(
+        FROM_HERE, "Could not get the autofill data from WebDatabase."));
+    return merge_result;
   }
 
   if (DLOG_IS_ON(INFO)) {
@@ -131,9 +134,10 @@ syncer::SyncError AutofillProfileSyncableService::MergeDataAndStartSyncing(
   }
 
   if (!SaveChangesToWebData(bundle)) {
-    return sync_error_factory_->CreateAndUploadError(
+    merge_result.set_error(sync_error_factory_->CreateAndUploadError(
         FROM_HERE,
-        "Failed to update webdata.");
+        "Failed to update webdata."));
+    return merge_result;
   }
 
   syncer::SyncChangeList new_changes;
@@ -153,13 +157,14 @@ syncer::SyncError AutofillProfileSyncableService::MergeDataAndStartSyncing(
                            CreateData(*(bundle.profiles_to_sync_back[i]))));
   }
 
-  syncer::SyncError error;
-  if (!new_changes.empty())
-    error = sync_processor_->ProcessSyncChanges(FROM_HERE, new_changes);
+  if (!new_changes.empty()) {
+    merge_result.set_error(
+        sync_processor_->ProcessSyncChanges(FROM_HERE, new_changes));
+  }
 
   WebDataService::NotifyOfMultipleAutofillChanges(web_data_service_);
 
-  return error;
+  return merge_result;
 }
 
 void AutofillProfileSyncableService::StopSyncing(syncer::ModelType type) {
@@ -330,17 +335,17 @@ void AutofillProfileSyncableService::WriteAutofillProfile(
 
   specifics->set_guid(profile.guid());
   std::vector<string16> values;
-  profile.GetMultiInfo(NAME_FIRST, &values);
+  profile.GetRawMultiInfo(NAME_FIRST, &values);
   for (size_t i = 0; i < values.size(); ++i) {
     specifics->add_name_first(LimitData(UTF16ToUTF8(values[i])));
   }
 
-  profile.GetMultiInfo(NAME_MIDDLE, &values);
+  profile.GetRawMultiInfo(NAME_MIDDLE, &values);
   for (size_t i = 0; i < values.size(); ++i) {
     specifics->add_name_middle(LimitData(UTF16ToUTF8(values[i])));
   }
 
-  profile.GetMultiInfo(NAME_LAST, &values);
+  profile.GetRawMultiInfo(NAME_LAST, &values);
   for (size_t i = 0; i < values.size(); ++i) {
     specifics->add_name_last(LimitData(UTF16ToUTF8(values[i])));
   }
@@ -358,7 +363,7 @@ void AutofillProfileSyncableService::WriteAutofillProfile(
   specifics->set_address_home_zip(
       LimitData(UTF16ToUTF8(profile.GetRawInfo(ADDRESS_HOME_ZIP))));
 
-  profile.GetMultiInfo(EMAIL_ADDRESS, &values);
+  profile.GetRawMultiInfo(EMAIL_ADDRESS, &values);
   for (size_t i = 0; i < values.size(); ++i) {
     specifics->add_email_address(LimitData(UTF16ToUTF8(values[i])));
   }
@@ -366,7 +371,7 @@ void AutofillProfileSyncableService::WriteAutofillProfile(
   specifics->set_company_name(
       LimitData(UTF16ToUTF8(profile.GetRawInfo(COMPANY_NAME))));
 
-  profile.GetMultiInfo(PHONE_HOME_WHOLE_NUMBER, &values);
+  profile.GetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, &values);
   for (size_t i = 0; i < values.size(); ++i) {
     specifics->add_phone_home_whole_number(LimitData(UTF16ToUTF8(values[i])));
   }
@@ -513,7 +518,7 @@ bool AutofillProfileSyncableService::UpdateMultivaluedField(
     const ::google::protobuf::RepeatedPtrField<std::string>& new_values,
     AutofillProfile* autofill_profile) {
   std::vector<string16> values;
-  autofill_profile->GetMultiInfo(field_type, &values);
+  autofill_profile->GetRawMultiInfo(field_type, &values);
   bool changed = false;
   if (static_cast<size_t>(new_values.size()) != values.size()) {
     values.clear();
@@ -529,7 +534,7 @@ bool AutofillProfileSyncableService::UpdateMultivaluedField(
     }
   }
   if (changed)
-    autofill_profile->SetMultiInfo(field_type, values);
+    autofill_profile->SetRawMultiInfo(field_type, values);
   return changed;
 }
 

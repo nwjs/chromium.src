@@ -8,14 +8,14 @@
 #include <utility>
 
 #include "base/message_loop_proxy.h"
-#include "base/string_number_conversions.h"
 #include "base/sequenced_task_runner.h"
+#include "base/string_number_conversions.h"
 #include "base/tracked_objects.h"
 #include "chrome/browser/chromeos/drive/document_entry_conversion.h"
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/drive_files.h"
-#include "chrome/browser/google_apis/gdata_util.h"
 #include "chrome/browser/google_apis/gdata_wapi_parser.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
@@ -187,8 +187,8 @@ DriveResourceMetadata::DriveResourceMetadata()
       loaded_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
   root_ = CreateDriveDirectory().Pass();
-  if (!google_apis::util::IsDriveV2ApiEnabled())
-    InitializeRootEntry(kDriveRootDirectoryResourceId);
+  root_->set_title(kDriveRootDirectory);
+  root_->SetBaseNameFromTitle();
 }
 
 DriveResourceMetadata::~DriveResourceMetadata() {
@@ -208,11 +208,10 @@ scoped_ptr<DriveDirectory> DriveResourceMetadata::CreateDriveDirectory() {
   return scoped_ptr<DriveDirectory>(new DriveDirectory(this));
 }
 
-void DriveResourceMetadata::InitializeRootEntry(const std::string& root_id) {
-  root_ = CreateDriveDirectory().Pass();
-  root_->set_title(kDriveRootDirectory);
-  root_->SetBaseNameFromTitle();
-  root_->set_resource_id(root_id);
+void DriveResourceMetadata::InitializeRootEntry(const std::string& id) {
+  DCHECK(!id.empty());
+  DCHECK(root_->resource_id().empty());
+  root_->set_resource_id(id);
   AddEntryToResourceMap(root_.get());
 }
 
@@ -220,11 +219,17 @@ void DriveResourceMetadata::ClearRoot() {
   if (!root_.get())
     return;
 
+  // The root is not yet initialized.
+  if (root_->resource_id().empty())
+    return;
+
   // Note that children have a reference to root_,
   // so we need to delete them here.
   root_->RemoveChildren();
   RemoveEntryFromResourceMap(root_->resource_id());
   DCHECK(resource_map_.empty());
+  // The resource_map_ should be empty here, but to make sure for non-Debug
+  // build.
   resource_map_.clear();
   root_.reset();
 }
@@ -241,13 +246,6 @@ void DriveResourceMetadata::AddEntryToDirectory(
     return;
   }
 
-  scoped_ptr<DriveEntry> new_entry = CreateDriveEntryFromProto(
-      ConvertDocumentEntryToDriveEntryProto(*doc_entry));
-  if (!new_entry.get()) {
-    PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_FAILED);
-    return;
-  }
-
   DriveEntry* dir_entry = FindEntryByPathSync(directory_path);
   if (!dir_entry) {
     PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_NOT_FOUND);
@@ -260,11 +258,10 @@ void DriveResourceMetadata::AddEntryToDirectory(
     return;
   }
 
-  DriveEntry* added_entry = new_entry.release();
-  directory->AddEntry(added_entry);  // Transfers ownership.
-  DVLOG(1) << "AddEntryToDirectory " << added_entry->GetFilePath().value();
-  base::MessageLoopProxy::current()->PostTask(FROM_HERE,
-      base::Bind(callback, DRIVE_FILE_OK, added_entry->GetFilePath()));
+  AddEntryToDirectoryInternal(
+      directory,
+      ConvertDocumentEntryToDriveEntryProto(*doc_entry),
+      callback);
 }
 
 void DriveResourceMetadata::MoveEntryToDirectory(
@@ -342,7 +339,7 @@ void DriveResourceMetadata::RemoveEntryFromParent(
   DCHECK(!callback.is_null());
 
   // Disallow deletion of root.
-  if (resource_id == kDriveRootDirectoryResourceId) {
+  if (resource_id == root_->resource_id()) {
     PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_ACCESS_DENIED);
     return;
   }
@@ -513,48 +510,60 @@ void DriveResourceMetadata::RefreshFile(
     return;
   }
 
-  scoped_ptr<DriveEntry> drive_entry = CreateDriveEntryFromProto(
-      ConvertDocumentEntryToDriveEntryProto(*doc_entry));
+  RefreshEntryProto(ConvertDocumentEntryToDriveEntryProto(
+      *doc_entry), callback);
+}
+
+void DriveResourceMetadata::RefreshEntryProto(
+    const DriveEntryProto& entry_proto,
+    const GetEntryInfoWithFilePathCallback& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(!callback.is_null());
+
+  scoped_ptr<DriveEntry> drive_entry = CreateDriveEntryFromProto(entry_proto);
   if (!drive_entry.get()) {
     PostGetEntryInfoWithFilePathCallbackError(
         callback, DRIVE_FILE_ERROR_FAILED);
     return;
   }
 
-  if (!drive_entry->AsDriveFile()) {
-    // This is a directory, return the directory info instead.
-    GetEntryInfoByResourceId(drive_entry->resource_id(), callback);
-    return;
-  }
-  scoped_ptr<DriveFile> fresh_file(drive_entry.release()->AsDriveFile());
-
-  // Need to get a reference here because Passed() could get evaluated first.
-  const std::string& resource_id = fresh_file->resource_id();
-  DVLOG(1) << "RefreshFile " << resource_id;
-  DriveEntry* old_entry = GetEntryByResourceId(resource_id);
-  DriveDirectory* entry_parent = old_entry ? old_entry->parent() : NULL;
-
-  if (!entry_parent) {
-    PostGetEntryInfoWithFilePathCallbackError(
-        callback, DRIVE_FILE_ERROR_NOT_FOUND);
+  DriveEntry* old_entry = GetEntryByResourceId(drive_entry->resource_id());
+  DriveDirectory* old_parent = old_entry ? old_entry->parent() : NULL;
+  DriveDirectory* new_parent = GetParent(entry_proto.parent_resource_id());
+  // We special case root here because old_parent of root is null.
+  if ((!old_parent || !new_parent) && old_entry != root_.get()) {
+    PostGetEntryInfoWithFilePathCallbackError(callback,
+                                              DRIVE_FILE_ERROR_NOT_FOUND);
     return;
   }
 
-  DCHECK_EQ(fresh_file->resource_id(), old_entry->resource_id());
-  DCHECK(old_entry->AsDriveFile());
+  // Move children over to the new directory from the existing directory.
+  if (drive_entry->AsDriveDirectory() && old_entry->AsDriveDirectory()) {
+    drive_entry->AsDriveDirectory()->TakeOverEntries(
+        old_entry->AsDriveDirectory());
+  }
 
-  entry_parent->RemoveEntry(old_entry);
-  DriveEntry* new_entry = fresh_file.release();
-  entry_parent->AddEntry(new_entry);
+  DriveEntry* new_entry = drive_entry.release();
+  if (old_entry == root_.get()) {
+    // Replace root.
+    root_.reset(new_entry->AsDriveDirectory());
+    resource_map_[root_->resource_id()] = root_.get();
+  } else {
+    // Remove from the old parent and add to the new parent.
+    old_parent->RemoveEntry(old_entry);
+    new_parent->AddEntry(new_entry);  // Transfers ownership.
+  }
 
-  scoped_ptr<DriveEntryProto> entry_proto(new DriveEntryProto);
-  new_entry->ToProtoFull(entry_proto.get());
+  DVLOG(1) << "RefreshEntryProto " << new_entry->GetFilePath().value();
+  // Note that base_name is not the same for new_entry and entry_proto.
+  scoped_ptr<DriveEntryProto> new_entry_proto(new DriveEntryProto);
+  new_entry->ToProtoFull(new_entry_proto.get());
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
       base::Bind(callback,
                  DRIVE_FILE_OK,
                  new_entry->GetFilePath(),
-                 base::Passed(&entry_proto)));
+                 base::Passed(&new_entry_proto)));
 }
 
 void DriveResourceMetadata::RefreshDirectory(
@@ -592,34 +601,68 @@ void DriveResourceMetadata::RefreshDirectory(
       base::Bind(callback, DRIVE_FILE_OK, directory->GetFilePath()));
 }
 
-void DriveResourceMetadata::TakeOverEntries(
-    const std::string& source_resource_id,
-    const std::string& destination_resource_id,
+void DriveResourceMetadata::AddEntryToParent(
+    const DriveEntryProto& entry_proto,
     const FileMoveCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
-  DriveEntry* source_entry = GetEntryByResourceId(source_resource_id);
-  DriveEntry* destination_entry = GetEntryByResourceId(destination_resource_id);
-  if (!source_entry || !destination_entry) {
+  DriveDirectory* parent = GetParent(entry_proto.parent_resource_id());
+  if (!parent) {
     PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_NOT_FOUND);
     return;
   }
+  AddEntryToDirectoryInternal(parent, entry_proto, callback);
+}
 
-  DriveDirectory* source_directory = source_entry->AsDriveDirectory();
-  DriveDirectory* destination_directory = destination_entry->AsDriveDirectory();
-  if (!source_directory || !destination_directory) {
-    PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_NOT_A_DIRECTORY);
+void DriveResourceMetadata::AddEntryToDirectoryInternal(
+    DriveDirectory* directory,
+    const DriveEntryProto& entry_proto,
+    const FileMoveCallback& callback) {
+  scoped_ptr<DriveEntry> new_entry = CreateDriveEntryFromProto(entry_proto);
+  if (!new_entry.get()) {
+    PostFileMoveCallbackError(callback, DRIVE_FILE_ERROR_FAILED);
     return;
   }
 
-  destination_directory->TakeOverEntries(source_directory);
+  DriveEntry* added_entry = new_entry.release();
+  directory->AddEntry(added_entry);  // Transfers ownership.
+  DVLOG(1) << "AddEntryToDirectoryInternal "
+           << added_entry->GetFilePath().value();
+  base::MessageLoopProxy::current()->PostTask(FROM_HERE,
+      base::Bind(callback, DRIVE_FILE_OK, added_entry->GetFilePath()));
+}
+
+DriveDirectory* DriveResourceMetadata::GetParent(
+    const std::string& parent_resource_id) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (parent_resource_id.empty())
+    return root_.get();
+
+  DriveEntry* entry = GetEntryByResourceId(parent_resource_id);
+  return entry ? entry->AsDriveDirectory() : NULL;
+}
+
+void DriveResourceMetadata::GetChildDirectories(
+    const std::string& resource_id,
+    const GetChildDirectoriesCallback& changed_dirs_callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(!changed_dirs_callback.is_null());
+
+  std::set<FilePath> changed_directories;
+  DriveEntry* entry = GetEntryByResourceId(resource_id);
+  if (entry && entry->AsDriveDirectory())
+    entry->AsDriveDirectory()->GetChildDirectoryPaths(&changed_directories);
 
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(callback,
-                 DRIVE_FILE_OK,
-                 destination_directory->GetFilePath()));
+      base::Bind(changed_dirs_callback, changed_directories));
+}
+
+void DriveResourceMetadata::RemoveAll(const base::Closure& callback) {
+  root_->RemoveChildren();
+  base::MessageLoopProxy::current()->PostTask(FROM_HERE, callback);
 }
 
 void DriveResourceMetadata::InitFromDB(
@@ -660,7 +703,6 @@ void DriveResourceMetadata::InitResourceMap(
   DCHECK(!resource_metadata_db_.get());
   DCHECK(!callback.is_null());
 
-
   SerializedMap* serialized_resources = &create_params->serialized_resources;
   resource_metadata_db_ = create_params->db.Pass();
   if (serialized_resources->empty()) {
@@ -668,6 +710,8 @@ void DriveResourceMetadata::InitResourceMap(
     return;
   }
 
+  // Save root directory resource ID as ClearRoot() resets |root_|.
+  std::string saved_root_resource_id = root_->resource_id();
   ClearRoot();
 
   // Version check.
@@ -729,7 +773,7 @@ void DriveResourceMetadata::InitResourceMap(
       } else {
         NOTREACHED() << "Parent is not a directory " << parent->resource_id();
       }
-    } else if (entry->resource_id() == kDriveRootDirectoryResourceId) {
+    } else if (entry->resource_id() == saved_root_resource_id) {
       root_.reset(entry->AsDriveDirectory());
       DCHECK(root_.get());
       AddEntryToResourceMap(root_.get());
@@ -815,6 +859,9 @@ bool DriveResourceMetadata::ParseFromString(
   }
 
   root_->FromProto(proto.drive_directory());
+  // Call AddEntryToResourceMap() instead of InitializeRootEntry() as the root
+  // resource ID is already set from proto.
+  AddEntryToResourceMap(root_.get());
 
   loaded_ = true;
   largest_changestamp_ = proto.largest_changestamp();
@@ -825,8 +872,10 @@ bool DriveResourceMetadata::ParseFromString(
 scoped_ptr<DriveEntry> DriveResourceMetadata::CreateDriveEntryFromProto(
     const DriveEntryProto& entry_proto) {
   scoped_ptr<DriveEntry> entry;
+  // TODO(achuith): This method never fails. Add basic sanity checks for
+  // resource_id, etc.
   if (entry_proto.file_info().is_directory()) {
-    entry = CreateDriveDirectory().Pass();
+    entry = CreateDriveDirectory();
     // Call DriveEntry::FromProto instead of DriveDirectory::FromProto because
     // the proto does not include children.
     entry->FromProto(entry_proto);
@@ -834,7 +883,7 @@ scoped_ptr<DriveEntry> DriveResourceMetadata::CreateDriveEntryFromProto(
     scoped_ptr<DriveFile> file(CreateDriveFile());
     // Call DriveFile::FromProto.
     file->FromProto(entry_proto);
-    entry.reset(file.release());
+    entry = file.Pass();
   }
   return entry.Pass();
 }
@@ -845,7 +894,7 @@ scoped_ptr<DriveEntry> DriveResourceMetadata::CreateDriveEntryFromProtoString(
   if (!entry_proto.ParseFromString(serialized_proto))
     return scoped_ptr<DriveEntry>();
 
-  return CreateDriveEntryFromProto(entry_proto).Pass();
+  return CreateDriveEntryFromProto(entry_proto);
 }
 
 void DriveResourceMetadata::GetEntryInfoPairByPathsAfterGetFirst(

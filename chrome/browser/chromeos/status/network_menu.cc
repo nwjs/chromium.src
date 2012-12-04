@@ -31,8 +31,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
+#include "grit/ash_resources.h"
 #include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
@@ -161,6 +161,7 @@ class NetworkMenuModel : public ui::MenuModel {
   virtual void HighlightChangedTo(int index) OVERRIDE;
   virtual void ActivatedAt(int index) OVERRIDE;
   virtual void SetMenuModelDelegate(ui::MenuModelDelegate* delegate) OVERRIDE;
+  virtual ui::MenuModelDelegate* GetMenuModelDelegate() const OVERRIDE;
 
  protected:
   enum MenuItemFlags {
@@ -441,6 +442,10 @@ void NetworkMenuModel::ActivatedAt(int index) {
 void NetworkMenuModel::SetMenuModelDelegate(ui::MenuModelDelegate* delegate) {
 }
 
+ui::MenuModelDelegate* NetworkMenuModel::GetMenuModelDelegate() const {
+  return NULL;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NetworkMenuModel, private methods:
 
@@ -540,7 +545,6 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
   bool cellular_enabled = cros->cellular_enabled();
   if (cellular_available && cellular_enabled) {
     const CellularNetworkVector& cell_networks = cros->cellular_networks();
-    const CellularNetwork* active_cellular = cros->cellular_network();
 
     bool separator_added = false;
     // List Cellular networks.
@@ -586,8 +590,6 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
       int flag = FLAG_CELLULAR;
       // If wifi is associated, then cellular is not active.
       bool isActive = ShouldHighlightNetwork(cell_networks[i]);
-      bool supports_data_plan =
-          active_cellular && active_cellular->SupportsDataPlan();
       if (isActive)
         flag |= FLAG_ASSOCIATED;
       const gfx::ImageSkia icon = NetworkMenuIcon::GetImage(cell_networks[i],
@@ -595,23 +597,6 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
       menu_items_.push_back(
           MenuItem(ui::MenuModel::TYPE_COMMAND,
                    label, icon, cell_networks[i]->service_path(), flag));
-      if (isActive && supports_data_plan) {
-        label.clear();
-        if (active_cellular->needs_new_plan()) {
-          label = l10n_util::GetStringUTF16(IDS_OPTIONS_SETTINGS_NO_PLAN_LABEL);
-        } else {
-          const chromeos::CellularDataPlan* plan =
-              cros->GetSignificantDataPlan(active_cellular->service_path());
-          if (plan)
-            label = plan->GetUsageInfo();
-        }
-        if (label.length()) {
-          menu_items_.push_back(
-              MenuItem(ui::MenuModel::TYPE_COMMAND,
-                       label, gfx::ImageSkia(),
-                       std::string(), FLAG_DISABLED));
-        }
-      }
     }
     const NetworkDevice* mobile_device = cros->FindMobileDevice();
     if (mobile_device) {
@@ -729,7 +714,7 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
           l10n_util::GetStringUTF16(IDS_STATUSBAR_NETWORK_DEVICE_CELLULAR));
       gfx::ImageSkia icon;
       if (is_locked) {
-        icon = *rb.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_SECURE_DARK);
+        icon = *rb.GetImageSkiaNamed(IDR_AURA_UBER_TRAY_NETWORK_SECURE_DARK);
       }
       int flag = FLAG_TOGGLE_MOBILE;
       if (cros->mobile_busy())
@@ -864,7 +849,7 @@ void MoreMenuModel::InitMenuItems(bool should_open_button_options) {
   const NetworkDevice* ether = cros->FindEthernetDevice();
   if (ether) {
     std::string hardware_address;
-    cros->GetIPConfigs(ether->device_path(), &hardware_address,
+    cros->GetIPConfigsAndBlock(ether->device_path(), &hardware_address,
         NetworkLibrary::FORMAT_COLON_SEPARATED_HEX);
     if (!hardware_address.empty()) {
       std::string label = l10n_util::GetStringUTF8(
@@ -878,7 +863,7 @@ void MoreMenuModel::InitMenuItems(bool should_open_button_options) {
     const NetworkDevice* wifi = cros->FindWifiDevice();
     if (wifi) {
       std::string hardware_address;
-      cros->GetIPConfigs(wifi->device_path(),
+      cros->GetIPConfigsAndBlock(wifi->device_path(),
           &hardware_address, NetworkLibrary::FORMAT_COLON_SEPARATED_HEX);
       if (!hardware_address.empty()) {
         std::string label = l10n_util::GetStringUTF8(

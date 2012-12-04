@@ -24,9 +24,7 @@ class DecoderBuffer;
 
 class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
  public:
-  typedef base::Callback<
-      scoped_refptr<base::MessageLoopProxy>()> MessageLoopFactoryCB;
-  FFmpegVideoDecoder(const MessageLoopFactoryCB& message_loop_factory_cb,
+  FFmpegVideoDecoder(const scoped_refptr<base::MessageLoopProxy>& message_loop,
                      Decryptor* decryptor);
 
   // VideoDecoder implementation.
@@ -56,10 +54,8 @@ class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
   // Carries out the reading operation scheduled by Read().
   void DoRead(const ReadCB& read_cb);
 
-  // Reads from the demuxer stream with corresponding callback method.
+  // Reads from the demuxer stream.
   void ReadFromDemuxerStream();
-  void DecryptOrDecodeBuffer(DemuxerStream::Status status,
-                             const scoped_refptr<DecoderBuffer>& buffer);
 
   // Carries out the buffer processing operation scheduled by
   // DecryptOrDecodeBuffer().
@@ -90,9 +86,6 @@ class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
 
   // Reset decoder and call |reset_cb_|.
   void DoReset();
-
-  // This is !is_null() iff Initialize() hasn't been called.
-  MessageLoopFactoryCB message_loop_factory_cb_;
 
   scoped_refptr<base::MessageLoopProxy> message_loop_;
 

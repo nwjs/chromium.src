@@ -54,6 +54,28 @@ class RuntimeReloadFunction : public SyncExtensionFunction {
   virtual bool RunImpl() OVERRIDE;
 };
 
+class RuntimeRequestUpdateCheckFunction : public AsyncExtensionFunction,
+                                          public content::NotificationObserver {
+ public:
+  DECLARE_EXTENSION_FUNCTION_NAME("runtime.requestUpdateCheck");
+
+  RuntimeRequestUpdateCheckFunction();
+ protected:
+  virtual ~RuntimeRequestUpdateCheckFunction() {}
+  virtual bool RunImpl() OVERRIDE;
+
+  // Implements content::NotificationObserver interface.
+  virtual void Observe(int type,
+                       const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE;
+ private:
+  void CheckComplete();
+  void ReplyUpdateFound(const std::string& version);
+
+  content::NotificationRegistrar registrar_;
+  bool did_reply_;
+};
+
 }  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_API_RUNTIME_RUNTIME_API_H_

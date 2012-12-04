@@ -106,6 +106,13 @@ cr.define('options.network', function() {
   var enableDataRoaming_ = false;
 
   /**
+   * Icon to use when not connected to a particular type of network.
+   * @type {!Object.<string, string>} Mapping of network type to icon data url.
+   * @private
+   */
+  var defaultIcons_ = {};
+
+  /**
    * Create an element in the network list for controlling network
    * connectivity.
    * @param {Object} data Description of the network list or command.
@@ -191,7 +198,10 @@ cr.define('options.network', function() {
      * @type {string}
      */
     set iconType(type) {
-      this.icon_.classList.add('network-' + type);
+      if (defaultIcons_[type])
+        this.iconURL = defaultIcons_[type];
+      else
+        this.icon_.classList.add('network-' + type);
     },
 
     /**
@@ -236,7 +246,7 @@ cr.define('options.network', function() {
       this.appendChild(new ManagedNetworkIndicator());
     },
 
-    /* @inheritDoc */
+    /** @override */
     decorate: function() {
       ListItem.prototype.decorate.call(this);
       this.className = 'network-group';
@@ -278,7 +288,7 @@ cr.define('options.network', function() {
      */
     menu_: null,
 
-    /* @inheritDoc */
+    /** @override */
     decorate: function() {
       this.subtitle = null;
       if (this.data.iconType)
@@ -378,7 +388,7 @@ cr.define('options.network', function() {
   NetworkSelectorItem.prototype = {
     __proto__: NetworkMenuItem.prototype,
 
-    /* @inheritDoc */
+    /** @override */
     decorate: function() {
       // TODO(kevers): Generalize method of setting default label.
       var policyManaged = false;
@@ -670,7 +680,7 @@ cr.define('options.network', function() {
   NetworkButtonItem.prototype = {
     __proto__: NetworkListItem.prototype,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
       if (this.data.subtitle)
         this.subtitle = this.data.subtitle;
@@ -752,7 +762,7 @@ cr.define('options.network', function() {
   NetworkList.prototype = {
     __proto__: List.prototype,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
       List.prototype.decorate.call(this);
       this.startBatchUpdates();
@@ -887,7 +897,7 @@ cr.define('options.network', function() {
       this.endBatchUpdates();
     },
 
-    /** @inheritDoc */
+    /** @override */
     createItem: function(entry) {
       if (entry.networkList)
         return new NetworkSelectorItem(entry);
@@ -921,6 +931,15 @@ cr.define('options.network', function() {
         this.update(entry);
       }
     }
+  };
+
+  /**
+   * Sets the default icon to use for each network type if disconnected.
+   * @param {!Object.<string, string>} data Mapping of network type to icon
+   *     data url.
+   */
+  NetworkList.setDefaultNetworkIcons = function(data) {
+    defaultIcons_ = Object.create(data);
   };
 
   /**
@@ -1033,7 +1052,7 @@ cr.define('options.network', function() {
   ManagedNetworkIndicator.prototype = {
     __proto__: ControlledSettingIndicator.prototype,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
       ControlledSettingIndicator.prototype.decorate.call(this);
       this.controlledBy = 'policy';
@@ -1042,7 +1061,7 @@ cr.define('options.network', function() {
       this.removeAttribute('tabindex');
     },
 
-    /** @inheritDoc */
+    /** @override */
     handleEvent: function(event) {
       // Prevent focus blurring as that would close any currently open menu.
       if (event.type == 'mousedown')
@@ -1061,7 +1080,7 @@ cr.define('options.network', function() {
       event.stopPropagation();
     },
 
-    /** @inheritDoc */
+    /** @override */
     toggleBubble_: function() {
       if (activeMenu_ && !$(activeMenu_).contains(this))
         closeMenu_();

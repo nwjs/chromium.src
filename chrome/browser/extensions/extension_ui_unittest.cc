@@ -35,7 +35,7 @@ class ExtensionUITest : public testing::Test {
             extensions::ExtensionSystem::Get(profile_.get()));
     extension_service_ = system->CreateExtensionService(
         CommandLine::ForCurrentProcess(), FilePath(), false);
-    management_policy_ = system->CreateManagementPolicy();
+    management_policy_ = system->management_policy();
 
     handler_.reset(new ExtensionSettingsHandler(extension_service_,
                                                 management_policy_));
@@ -45,7 +45,7 @@ class ExtensionUITest : public testing::Test {
     handler_.reset();
     profile_.reset();
     // Execute any pending deletion tasks.
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   static DictionaryValue* DeserializeJSONTestData(const FilePath& path,

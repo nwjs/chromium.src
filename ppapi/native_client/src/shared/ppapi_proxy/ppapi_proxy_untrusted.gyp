@@ -13,6 +13,7 @@
       'dependencies': [
         '<(DEPTH)/native_client/tools.gyp:prep_toolchain',
         '<(DEPTH)/media/media_untrusted.gyp:shared_memory_support_untrusted',
+        '<(DEPTH)/third_party/khronos/khronos.gyp:khronos_headers',
       ],
       'variables': {
         'nlib_target': 'libppruntime.a',
@@ -21,7 +22,6 @@
         'include_dirs': [
           '<(DEPTH)/gpu',
           '<(DEPTH)/media',
-          '<(DEPTH)/third_party/khronos',
           '<(DEPTH)/ppapi/native_client/src/shared/ppapi_proxy/untrusted',
         ],
         'sources': [
@@ -32,6 +32,8 @@
           '<(DEPTH)/gpu/command_buffer/common/logging.cc',
 
           '<(DEPTH)/gpu/command_buffer/client/atomicops.cc',
+          '<(DEPTH)/gpu/command_buffer/client/buffer_tracker.cc',
+          '<(DEPTH)/gpu/command_buffer/client/client_context_state.cc',
           '<(DEPTH)/gpu/command_buffer/client/cmd_buffer_helper.cc',
           '<(DEPTH)/gpu/command_buffer/client/fenced_allocator.cc',
           '<(DEPTH)/gpu/command_buffer/client/gles2_c_lib.cc',
@@ -40,6 +42,7 @@
           '<(DEPTH)/gpu/command_buffer/client/gles2_interface.cc',
           '<(DEPTH)/gpu/command_buffer/client/program_info_manager.cc',
           '<(DEPTH)/gpu/command_buffer/client/transfer_buffer.cc',
+          '<(DEPTH)/gpu/command_buffer/client/vertex_array_object_manager.cc',
           '<(DEPTH)/gpu/command_buffer/client/gles2_lib.cc',
           '<(DEPTH)/gpu/command_buffer/client/mapped_memory.cc',
           '<(DEPTH)/gpu/command_buffer/client/query_tracker.cc',

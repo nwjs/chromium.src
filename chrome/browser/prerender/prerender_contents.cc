@@ -167,66 +167,37 @@ class PrerenderContents::TabContentsDelegateImpl
   PrerenderContents* prerender_contents_;
 };
 
-void PrerenderContents::AddPendingPrerender(
-    const base::WeakPtr<PrerenderHandle> weak_prerender_handle,
-    const Origin origin,
+PrerenderContents::PendingPrerenderInfo::PendingPrerenderInfo(
+    base::WeakPtr<PrerenderHandle> weak_prerender_handle,
+    Origin origin,
     const GURL& url,
     const content::Referrer& referrer,
-    const gfx::Size& size) {
-  pending_prerenders_.push_back(
-      PendingPrerenderInfo(weak_prerender_handle, origin, url, referrer, size));
+    const gfx::Size& size) : weak_prerender_handle(weak_prerender_handle),
+                             origin(origin),
+                             url(url),
+                             referrer(referrer),
+                             size(size) {
 }
 
-bool PrerenderContents::IsPendingEntry(
-    const PrerenderHandle& prerender_handle) const {
-  for (std::vector<PendingPrerenderInfo>::const_iterator it =
-           pending_prerenders_.begin();
-       it != pending_prerenders_.end();
-       ++it) {
-    if (it->weak_prerender_handle.get() == &prerender_handle)
-      return true;
-  }
-  return false;
+PrerenderContents::PendingPrerenderInfo::~PendingPrerenderInfo() {
+}
+
+void PrerenderContents::AddPendingPrerender(
+    scoped_ptr<PendingPrerenderInfo> pending_prerender_info) {
+  pending_prerenders_.push_back(pending_prerender_info.release());
 }
 
 void PrerenderContents::StartPendingPrerenders() {
   SessionStorageNamespace* session_storage_namespace = NULL;
-  if (prerender_contents_.get()) {
+  if (prerender_contents_) {
     // TODO(ajwong): This does not correctly handle storage for isolated apps.
     session_storage_namespace =
         prerender_contents_->web_contents()->GetController()
             .GetDefaultSessionStorageNamespace();
   }
-  DCHECK(child_id_ == -1 || session_storage_namespace);
-
-  std::vector<PendingPrerenderInfo> pending_prerender_list;
-  pending_prerender_list.swap(pending_prerenders_);
-  for (std::vector<PendingPrerenderInfo>::iterator it =
-           pending_prerender_list.begin();
-       it != pending_prerender_list.end();
-       ++it) {
-    if (it->weak_prerender_handle && it->weak_prerender_handle->IsValid()) {
-      prerender_manager_->StartPendingPrerender(
-          it->weak_prerender_handle.get(), it->origin, child_id_,
-          it->url, it->referrer, it->size, session_storage_namespace);
-    }
-  }
-}
-
-PrerenderContents::PendingPrerenderInfo::PendingPrerenderInfo(
-    const base::WeakPtr<PrerenderHandle> weak_prerender_handle,
-    const Origin origin,
-    const GURL& url,
-    const content::Referrer& referrer,
-    const gfx::Size& size)
-    : weak_prerender_handle(weak_prerender_handle),
-      origin(origin),
-      url(url),
-      referrer(referrer),
-      size(size) {
-}
-
-PrerenderContents::PendingPrerenderInfo::~PendingPrerenderInfo() {
+  prerender_manager_->StartPendingPrerenders(
+      child_id_, &pending_prerenders_, session_storage_namespace);
+  pending_prerenders_.clear();
 }
 
 PrerenderContents::PrerenderContents(
@@ -258,11 +229,23 @@ PrerenderContents::PrerenderContents(
   DCHECK(prerender_manager != NULL);
 }
 
-void PrerenderContents::MakeIntoDummyReplacementOf(
-    const PrerenderContents* original_prerender_contents) {
-  load_start_time_ = original_prerender_contents->load_start_time_;
-  session_storage_namespace_id_ =
-      original_prerender_contents->session_storage_namespace_id_;
+PrerenderContents* PrerenderContents::CreateMatchCompleteReplacement() const {
+  PrerenderContents* new_contents = prerender_manager_->CreatePrerenderContents(
+      prerender_url(), referrer(), origin(), experiment_id());
+
+  new_contents->load_start_time_ = load_start_time_;
+  new_contents->session_storage_namespace_id_ = session_storage_namespace_id_;
+  new_contents->set_match_complete_status(
+      PrerenderContents::MATCH_COMPLETE_REPLACEMENT_PENDING);
+
+  const bool did_init = new_contents->Init();
+  DCHECK(did_init);
+  DCHECK_EQ(alias_urls_.front(), new_contents->alias_urls_.front());
+  DCHECK_EQ(1u, new_contents->alias_urls_.size());
+  new_contents->alias_urls_ = alias_urls_;
+  new_contents->set_match_complete_status(
+      PrerenderContents::MATCH_COMPLETE_REPLACEMENT);
+  return new_contents;
 }
 
 bool PrerenderContents::Init() {
@@ -487,6 +470,10 @@ void PrerenderContents::OnRenderViewHostCreated(
     RenderViewHost* new_render_view_host) {
 }
 
+size_t PrerenderContents::pending_prerender_count() const {
+  return pending_prerenders_.size();
+}
+
 WebContents* PrerenderContents::CreateWebContents(
     SessionStorageNamespace* session_storage_namespace) {
   // TODO(ajwong): Remove the temporary map once prerendering is aware of
@@ -533,15 +520,6 @@ bool PrerenderContents::AddAliasURL(const GURL& url) {
   alias_urls_.push_back(url);
   InformRenderProcessAboutPrerender(url, true, creator_child_id_);
   return true;
-}
-
-void PrerenderContents::AddAliasURLsFromOtherPrerenderContents(
-    PrerenderContents* other_pc) {
-  for (std::vector<GURL>::const_iterator it = other_pc->alias_urls_.begin();
-       it != other_pc->alias_urls_.end();
-       ++it) {
-    alias_urls_.push_back(*it);
-  }
 }
 
 bool PrerenderContents::Matches(
@@ -616,14 +594,13 @@ void PrerenderContents::Destroy(FinalStatus final_status) {
   set_final_status(final_status);
 
   prerendering_has_been_cancelled_ = true;
-  // This has to be done after setting the final status, as it adds the
-  // prerender to the history.
+  prerender_manager_->AddToHistory(this);
   prerender_manager_->MoveEntryToPendingDelete(this, final_status);
 
   // We may destroy the PrerenderContents before we have initialized the
   // RenderViewHost. Otherwise set the Observer's PrerenderContents to NULL to
   // avoid any more messages being sent.
-  if (render_view_host_observer_.get())
+  if (render_view_host_observer_)
     render_view_host_observer_->set_prerender_contents(NULL);
 }
 

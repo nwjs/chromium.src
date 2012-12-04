@@ -9,7 +9,6 @@
 #include "cc/content_layer_client.h"
 #include "cc/graphics_context.h"
 #include "cc/layer_tree_host_impl.h"
-#include "cc/settings.h"
 #include "cc/single_thread_proxy.h"
 #include "cc/test/fake_content_layer_client.h"
 #include "cc/test/fake_web_compositor_output_surface.h"
@@ -313,8 +312,8 @@ public:
             // Make the viewport empty so the host says it can't draw.
             m_layerTreeHost->setViewportSize(gfx::Size(0, 0), gfx::Size(0, 0));
 
-            scoped_array<char> pixels(new char[4]);
-            m_layerTreeHost->compositeAndReadback(static_cast<void*>(pixels.get()), gfx::Rect(0, 0, 1, 1));
+            char pixels[4];
+            m_layerTreeHost->compositeAndReadback(static_cast<void*>(&pixels), gfx::Rect(0, 0, 1, 1));
         } else if (m_numCommits == 2) {
             m_layerTreeHost->setNeedsRedraw();
             m_layerTreeHost->setNeedsCommit();
@@ -438,8 +437,8 @@ public:
             m_layerTreeHost->setVisible(false);
             m_layerTreeHost->setNeedsCommit();
             m_layerTreeHost->setNeedsCommit();
-            scoped_array<char> pixels(new char[4]);
-            m_layerTreeHost->compositeAndReadback(static_cast<void*>(pixels.get()), gfx::Rect(0, 0, 1, 1));
+            char pixels[4];
+            m_layerTreeHost->compositeAndReadback(static_cast<void*>(&pixels), gfx::Rect(0, 0, 1, 1));
         } else
             endTest();
 
@@ -1340,20 +1339,20 @@ public:
         gfx::Size childBoundsScaled = gfx::ToCeiledSize(gfx::ScaleSize(child->bounds(), 1.5));
         EXPECT_EQ(childBoundsScaled, child->contentBounds());
 
-        WebTransformationMatrix scaleTransform;
-        scaleTransform.scale(impl->deviceScaleFactor());
+        gfx::Transform scaleTransform;
+        scaleTransform.Scale(impl->deviceScaleFactor(), impl->deviceScaleFactor());
 
         // The root layer is scaled by 2x.
-        WebTransformationMatrix rootScreenSpaceTransform = scaleTransform;
-        WebTransformationMatrix rootDrawTransform = scaleTransform;
+        gfx::Transform rootScreenSpaceTransform = scaleTransform;
+        gfx::Transform rootDrawTransform = scaleTransform;
 
         EXPECT_EQ(rootDrawTransform, root->drawTransform());
         EXPECT_EQ(rootScreenSpaceTransform, root->screenSpaceTransform());
 
         // The child is at position 2,2, which is transformed to 3,3 after the scale
-        WebTransformationMatrix childScreenSpaceTransform;
-        childScreenSpaceTransform.translate(3, 3);
-        WebTransformationMatrix childDrawTransform = childScreenSpaceTransform;
+        gfx::Transform childScreenSpaceTransform;
+        childScreenSpaceTransform.Translate(3, 3);
+        gfx::Transform childDrawTransform = childScreenSpaceTransform;
 
         EXPECT_EQ(childDrawTransform, child->drawTransform());
         EXPECT_EQ(childScreenSpaceTransform, child->screenSpaceTransform());
@@ -1466,7 +1465,7 @@ TEST_F(LayerTreeHostTestAtomicCommit, runMultiThread)
     runTest(true);
 }
 
-static void setLayerPropertiesForTesting(Layer* layer, Layer* parent, const WebTransformationMatrix& transform, const gfx::PointF& anchor, const gfx::PointF& position, const gfx::Size& bounds, bool opaque)
+static void setLayerPropertiesForTesting(Layer* layer, Layer* parent, const gfx::Transform& transform, const gfx::PointF& anchor, const gfx::PointF& position, const gfx::Size& bounds, bool opaque)
 {
     layer->removeAllChildren();
     if (parent)
@@ -1494,7 +1493,7 @@ public:
         m_layerTreeHost->setRootLayer(m_parent);
         m_layerTreeHost->setViewportSize(gfx::Size(10, 20), gfx::Size(10, 20));
 
-        WebTransformationMatrix identityMatrix;
+        gfx::Transform identityMatrix;
         setLayerPropertiesForTesting(m_parent.get(), 0, identityMatrix, gfx::PointF(0, 0), gfx::PointF(0, 0), gfx::Size(10, 20), true);
         setLayerPropertiesForTesting(m_child.get(), m_parent.get(), identityMatrix, gfx::PointF(0, 0), gfx::PointF(0, 10), gfx::Size(10, 10), false);
 
@@ -1638,7 +1637,7 @@ private:
     Region m_occludedScreenSpace;
 };
 
-static void setTestLayerPropertiesForTesting(TestLayer* layer, Layer* parent, const WebTransformationMatrix& transform, const gfx::PointF& anchor, const gfx::PointF& position, const gfx::Size& bounds, bool opaque)
+static void setTestLayerPropertiesForTesting(TestLayer* layer, Layer* parent, const gfx::Transform& transform, const gfx::PointF& anchor, const gfx::PointF& position, const gfx::Size& bounds, bool opaque)
 {
     setLayerPropertiesForTesting(layer, parent, transform, anchor, position, bounds, opaque);
     layer->clearOccludedScreenSpace();
@@ -1656,11 +1655,11 @@ public:
         scoped_refptr<TestLayer> grandChild = TestLayer::create();
         scoped_refptr<TestLayer> mask = TestLayer::create();
 
-        WebTransformationMatrix identityMatrix;
-        WebTransformationMatrix childTransform;
-        childTransform.translate(250, 250);
-        childTransform.rotate(90);
-        childTransform.translate(-250, -250);
+        gfx::Transform identityMatrix;
+        gfx::Transform childTransform;
+        childTransform.Translate(250, 250);
+        childTransform.Rotate(90);
+        childTransform.Translate(-250, -250);
 
         child->setMasksToBounds(true);
 
@@ -1829,11 +1828,11 @@ public:
         scoped_refptr<TestLayer> grandChild = TestLayer::create();
         scoped_refptr<TestLayer> mask = TestLayer::create();
 
-        WebTransformationMatrix identityMatrix;
-        WebTransformationMatrix childTransform;
-        childTransform.translate(250, 250);
-        childTransform.rotate(90);
-        childTransform.translate(-250, -250);
+        gfx::Transform identityMatrix;
+        gfx::Transform childTransform;
+        childTransform.Translate(250, 250);
+        childTransform.Rotate(90);
+        childTransform.Translate(-250, -250);
 
         child->setMasksToBounds(true);
 
@@ -1908,7 +1907,7 @@ public:
     {
         // We create enough RenderSurfaces that it will trigger Vector reallocation while computing occlusion.
         Region occluded;
-        const WebTransformationMatrix identityMatrix;
+        const gfx::Transform identityMatrix;
         std::vector<scoped_refptr<TestLayer> > layers;
         std::vector<scoped_refptr<TestLayer> > children;
         int numSurfaces = 20;
@@ -2470,8 +2469,8 @@ public:
     {
         Layer* rootLayer = m_layerTreeHost->rootLayer();
 
-        scoped_array<char> pixels(new char[4]);
-        m_layerTreeHost->compositeAndReadback(static_cast<void*>(pixels.get()), gfx::Rect(0, 0, 1, 1));
+        char pixels[4];
+        m_layerTreeHost->compositeAndReadback(static_cast<void*>(&pixels), gfx::Rect(0, 0, 1, 1));
         EXPECT_FALSE(rootLayer->renderSurface());
 
         endTest();
@@ -2483,6 +2482,48 @@ public:
 };
 
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestCompositeAndReadbackCleanup)
+
+class LayerTreeHostTestCompositeAndReadbackAnimateCount : public LayerTreeHostTest {
+public:
+    LayerTreeHostTestCompositeAndReadbackAnimateCount()
+        : m_layoutCount(0)
+    {
+    }
+
+    virtual void animate(base::TimeTicks) OVERRIDE
+    {
+        // We shouldn't animate on the compositeAndReadback-forced commit, but we should
+        // for the setNeedsCommit-triggered commit.
+        EXPECT_EQ(1, m_layoutCount);
+    }
+
+    virtual void layout() OVERRIDE
+    {
+        m_layoutCount++;
+        if (m_layoutCount == 2)
+            endTest();
+    }
+
+    virtual void beginTest() OVERRIDE
+    {
+        m_layerTreeHost->setNeedsCommit();
+
+        char pixels[4];
+        m_layerTreeHost->compositeAndReadback(&pixels, gfx::Rect(0, 0, 1, 1));
+    }
+
+    virtual void afterTest() OVERRIDE
+    {
+    }
+
+private:
+    int m_layoutCount;
+};
+
+TEST_F(LayerTreeHostTestCompositeAndReadbackAnimateCount, runMultiThread)
+{
+    runTest(true);
+}
 
 class LayerTreeHostTestSurfaceNotAllocatedForLayersOutsideMemoryLimit : public LayerTreeHostTest {
 public:
@@ -2667,7 +2708,7 @@ public:
         m_layerTreeHost->setRootLayer(m_layer);
         m_layerTreeHost->setViewportSize(gfx::Size(10, 20), gfx::Size(10, 20));
 
-        WebTransformationMatrix identityMatrix;
+        gfx::Transform identityMatrix;
         setLayerPropertiesForTesting(m_layer.get(), 0, identityMatrix, gfx::PointF(0, 0), gfx::PointF(0, 0), gfx::Size(10, 20), true);
 
         postSetNeedsCommitToMainThread();
@@ -2800,7 +2841,7 @@ public:
         m_layerTreeHost->setRootLayer(m_layer);
         m_layerTreeHost->setViewportSize(gfx::Size(10, 20), gfx::Size(10, 20));
 
-        WebTransformationMatrix identityMatrix;
+        gfx::Transform identityMatrix;
         setLayerPropertiesForTesting(m_layer.get(), 0, identityMatrix, gfx::PointF(0, 0), gfx::PointF(0, 0), gfx::Size(10, 20), true);
 
         postSetNeedsCommitToMainThread();
@@ -2925,7 +2966,7 @@ public:
         m_layerTreeHost->setRootLayer(m_parent);
         m_layerTreeHost->setViewportSize(gfx::Size(m_numChildren, 1), gfx::Size(m_numChildren, 1));
 
-        WebTransformationMatrix identityMatrix;
+        gfx::Transform identityMatrix;
         setLayerPropertiesForTesting(m_parent.get(), 0, identityMatrix, gfx::PointF(0, 0), gfx::PointF(0, 0), gfx::Size(m_numChildren, 1), true);
         for (int i = 0; i < m_numChildren; i++)
             setLayerPropertiesForTesting(m_children[i].get(), m_parent.get(), identityMatrix, gfx::PointF(0, 0), gfx::PointF(i, 0), gfx::Size(1, 1), false);
@@ -3081,25 +3122,25 @@ public:
 
     virtual void beginTest() OVERRIDE
     {
-        WebTransformationMatrix m;
-        m.translate(250, 360);
-        m.scale(2);
+        gfx::Transform m;
+        m.Translate(250, 360);
+        m.Scale(2, 2);
 
         gfx::Point point(400, 550);
         gfx::Point transformedPoint;
 
         // Unit transform, no change expected.
-        m_layerTreeHost->setImplTransform(WebTransformationMatrix());
+        m_layerTreeHost->setImplTransform(gfx::Transform());
         transformedPoint = gfx::ToRoundedPoint(m_layerTreeHost->adjustEventPointForPinchZoom(point));
         EXPECT_EQ(point.x(), transformedPoint.x());
         EXPECT_EQ(point.y(), transformedPoint.y());
 
         m_layerTreeHost->setImplTransform(m);
 
-        // Apply m^(-1): 138 = 400/2 - 250/4; 185 = 550/2 - 360/4.
+        // Apply m^(-1): 75 = (400 - 250) / 2; 95 = (550 - 360) / 2.
         transformedPoint = gfx::ToRoundedPoint(m_layerTreeHost->adjustEventPointForPinchZoom(point));
-        EXPECT_EQ(138, transformedPoint.x());
-        EXPECT_EQ(185, transformedPoint.y());
+        EXPECT_EQ(75, transformedPoint.x());
+        EXPECT_EQ(95, transformedPoint.y());
         endTest();
     }
 

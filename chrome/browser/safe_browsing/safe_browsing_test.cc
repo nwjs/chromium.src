@@ -32,6 +32,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/safe_browsing/database_manager.h"
 #include "chrome/browser/safe_browsing/local_safebrowsing_test_server.h"
 #include "chrome/browser/safe_browsing/protocol_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
@@ -111,9 +112,9 @@ bool ParsePhishingUrls(const std::string& data,
 }  // namespace
 
 // This starts the browser and keeps status of states related to SafeBrowsing.
-class SafeBrowsingServiceTest : public InProcessBrowserTest {
+class SafeBrowsingServerTest : public InProcessBrowserTest {
  public:
-  SafeBrowsingServiceTest()
+  SafeBrowsingServerTest()
     : safe_browsing_service_(NULL),
       is_database_ready_(true),
       is_update_scheduled_(false),
@@ -121,7 +122,7 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
       is_checked_url_safe_(false) {
   }
 
-  virtual ~SafeBrowsingServiceTest() {
+  virtual ~SafeBrowsingServerTest() {
   }
 
   void UpdateSafeBrowsingStatus() {
@@ -135,9 +136,9 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
   void ForceUpdate() {
     content::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_SAFE_BROWSING_UPDATE_COMPLETE,
-        content::Source<SafeBrowsingService>(safe_browsing_service_));
+        content::Source<SafeBrowsingDatabaseManager>(database_manager()));
     BrowserThread::PostTask(BrowserThread::IO, FROM_HERE,
-        base::Bind(&SafeBrowsingServiceTest::ForceUpdateOnIOThread,
+        base::Bind(&SafeBrowsingServerTest::ForceUpdateOnIOThread,
                    this));
     observer.Wait();
   }
@@ -151,14 +152,13 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
 
   void CheckIsDatabaseReady() {
     base::AutoLock lock(update_status_mutex_);
-    is_database_ready_ =
-        !safe_browsing_service_->database_update_in_progress_;
+    is_database_ready_ = !database_manager()->database_update_in_progress_;
   }
 
-  void CheckUrl(SafeBrowsingService::Client* helper, const GURL& url) {
+  void CheckUrl(SafeBrowsingDatabaseManager::Client* helper, const GURL& url) {
     ASSERT_TRUE(safe_browsing_service_);
     base::AutoLock lock(update_status_mutex_);
-    if (safe_browsing_service_->CheckBrowseUrl(url, helper)) {
+    if (database_manager()->CheckBrowseUrl(url, helper)) {
       is_checked_url_in_db_ = false;
       is_checked_url_safe_ = true;
     } else {
@@ -167,6 +167,10 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
       // set_is_checked_url_safe() will be called via callback.
       is_checked_url_in_db_ = true;
     }
+  }
+
+  SafeBrowsingDatabaseManager* database_manager() {
+    return safe_browsing_service_->database_manager();
   }
 
   bool is_checked_url_in_db() {
@@ -200,7 +204,7 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
   }
 
   MessageLoop* SafeBrowsingMessageLoop() {
-    return safe_browsing_service_->safe_browsing_thread_->message_loop();
+    return database_manager()->safe_browsing_thread_->message_loop();
   }
 
   const net::TestServer& test_server() const {
@@ -272,24 +276,24 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
   // True if last verified URL is not a phishing URL and thus it is safe.
   bool is_checked_url_safe_;
 
-  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingServiceTest);
+  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingServerTest);
 };
 
 // A ref counted helper class that handles callbacks between IO thread and UI
 // thread.
-class SafeBrowsingServiceTestHelper
-    : public base::RefCountedThreadSafe<SafeBrowsingServiceTestHelper>,
-      public SafeBrowsingService::Client,
+class SafeBrowsingServerTestHelper
+    : public base::RefCountedThreadSafe<SafeBrowsingServerTestHelper>,
+      public SafeBrowsingDatabaseManager::Client,
       public net::URLFetcherDelegate {
  public:
-  SafeBrowsingServiceTestHelper(SafeBrowsingServiceTest* safe_browsing_test,
-                                net::URLRequestContextGetter* request_context)
+  SafeBrowsingServerTestHelper(SafeBrowsingServerTest* safe_browsing_test,
+                               net::URLRequestContextGetter* request_context)
       : safe_browsing_test_(safe_browsing_test),
         response_status_(net::URLRequestStatus::FAILED),
         request_context_(request_context) {
   }
 
-  // Callbacks for SafeBrowsingService::Client.
+  // Callbacks for SafeBrowsingDatabaseManager::Client.
   virtual void OnCheckBrowseUrlResult(const GURL& url,
                                       SBThreatType threat_type) OVERRIDE {
     EXPECT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::IO));
@@ -297,8 +301,7 @@ class SafeBrowsingServiceTestHelper
     safe_browsing_test_->set_is_checked_url_safe(
         threat_type == SB_THREAT_TYPE_SAFE);
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-        base::Bind(&SafeBrowsingServiceTestHelper::OnCheckUrlDone,
-                   this));
+        base::Bind(&SafeBrowsingServerTestHelper::OnCheckUrlDone, this));
   }
 
   virtual void OnBlockingPageComplete(bool proceed) {
@@ -309,7 +312,7 @@ class SafeBrowsingServiceTestHelper
   // phishing URLs.
   void CheckUrl(const GURL& url) {
     BrowserThread::PostTask(BrowserThread::IO, FROM_HERE,
-        base::Bind(&SafeBrowsingServiceTestHelper::CheckUrlOnIOThread,
+        base::Bind(&SafeBrowsingServerTestHelper::CheckUrlOnIOThread,
                    this, url));
     content::RunMessageLoop();
   }
@@ -319,8 +322,7 @@ class SafeBrowsingServiceTestHelper
     if (!safe_browsing_test_->is_checked_url_in_db()) {
       // Ends the checking since this URL's prefix is not in database.
       BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-        base::Bind(&SafeBrowsingServiceTestHelper::OnCheckUrlDone,
-                   this));
+        base::Bind(&SafeBrowsingServerTestHelper::OnCheckUrlDone, this));
     }
     // Otherwise, OnCheckUrlDone is called in OnUrlCheckResult since
     // safebrowsing service further fetches hashes from safebrowsing server.
@@ -335,7 +337,7 @@ class SafeBrowsingServiceTestHelper
     EXPECT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::IO));
     safe_browsing_test_->UpdateSafeBrowsingStatus();
     safe_browsing_test_->SafeBrowsingMessageLoop()->PostTask(FROM_HERE,
-        base::Bind(&SafeBrowsingServiceTestHelper::CheckIsDatabaseReady, this));
+        base::Bind(&SafeBrowsingServerTestHelper::CheckIsDatabaseReady, this));
   }
 
   // Checks status in SafeBrowsing Thread.
@@ -344,7 +346,7 @@ class SafeBrowsingServiceTestHelper
               safe_browsing_test_->SafeBrowsingMessageLoop());
     safe_browsing_test_->CheckIsDatabaseReady();
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-        base::Bind(&SafeBrowsingServiceTestHelper::OnWaitForStatusUpdateDone,
+        base::Bind(&SafeBrowsingServerTestHelper::OnWaitForStatusUpdateDone,
                    this));
   }
 
@@ -357,8 +359,7 @@ class SafeBrowsingServiceTestHelper
     BrowserThread::PostTask(
         BrowserThread::IO,
         FROM_HERE,
-        base::Bind(&SafeBrowsingServiceTestHelper::CheckStatusOnIOThread,
-                   this));
+        base::Bind(&SafeBrowsingServerTestHelper::CheckStatusOnIOThread, this));
     // Will continue after OnWaitForStatusUpdateDone().
     content::RunMessageLoop();
   }
@@ -407,8 +408,8 @@ class SafeBrowsingServiceTestHelper
   }
 
  private:
-  friend class base::RefCountedThreadSafe<SafeBrowsingServiceTestHelper>;
-  virtual ~SafeBrowsingServiceTestHelper() {}
+  friend class base::RefCountedThreadSafe<SafeBrowsingServerTestHelper>;
+  virtual ~SafeBrowsingServerTestHelper() {}
 
   // Stops UI loop after desired status is updated.
   void StopUILoop() {
@@ -428,25 +429,24 @@ class SafeBrowsingServiceTestHelper
     return response_status_;
   }
 
-  base::OneShotTimer<SafeBrowsingServiceTestHelper> check_update_timer_;
-  SafeBrowsingServiceTest* safe_browsing_test_;
+  base::OneShotTimer<SafeBrowsingServerTestHelper> check_update_timer_;
+  SafeBrowsingServerTest* safe_browsing_test_;
   scoped_ptr<net::URLFetcher> url_fetcher_;
   std::string response_data_;
   net::URLRequestStatus::Status response_status_;
   net::URLRequestContextGetter* request_context_;
-  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingServiceTestHelper);
+  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingServerTestHelper);
 };
 
-// See http://crbug.com/96459
-IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceTest,
-                       DISABLED_SafeBrowsingSystemTest) {
+IN_PROC_BROWSER_TEST_F(SafeBrowsingServerTest,
+                       SafeBrowsingServerTest) {
   LOG(INFO) << "Start test";
   ASSERT_TRUE(InitSafeBrowsingService());
 
   net::URLRequestContextGetter* request_context =
       browser()->profile()->GetRequestContext();
-  scoped_refptr<SafeBrowsingServiceTestHelper> safe_browsing_helper(
-      new SafeBrowsingServiceTestHelper(this, request_context));
+  scoped_refptr<SafeBrowsingServerTestHelper> safe_browsing_helper(
+      new SafeBrowsingServerTestHelper(this, request_context));
   int last_step = 0;
 
   // Waits and makes sure safebrowsing update is not happening.

@@ -7,6 +7,7 @@
 
 #include "ash/system/tray/system_tray_item.h"
 #include "ash/system/user/user_observer.h"
+#include "base/compiler_specific.h"
 
 namespace views {
 class ImageView;
@@ -24,11 +25,11 @@ class RoundedImageView;
 class TrayUser : public SystemTrayItem,
                  public UserObserver {
  public:
-  TrayUser();
+  explicit TrayUser(SystemTray* system_tray);
   virtual ~TrayUser();
 
  private:
-  // Overridden from SystemTrayItem
+  // Overridden from SystemTrayItem.
   virtual views::View* CreateTrayView(user::LoginStatus status) OVERRIDE;
   virtual views::View* CreateDefaultView(user::LoginStatus status) OVERRIDE;
   virtual views::View* CreateDetailedView(user::LoginStatus status) OVERRIDE;

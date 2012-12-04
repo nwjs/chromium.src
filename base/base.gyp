@@ -197,7 +197,7 @@
             ],
           },
         }],
-        ['OS != "win"', {
+        ['OS != "win" and OS != "ios"', {
             'dependencies': ['../third_party/libevent/libevent.gyp:libevent'],
         },],
         ['component=="shared_library"', {
@@ -230,6 +230,8 @@
         'message_pump_glib.h',
         'message_pump_gtk.cc',
         'message_pump_gtk.h',
+        'message_pump_io_ios.cc',
+        'message_pump_io_ios.h',
         'message_pump_observer.h',
         'message_pump_aurax11.cc',
         'message_pump_aurax11.h',
@@ -426,6 +428,7 @@
         'cancelable_callback_unittest.cc',
         'command_line_unittest.cc',
         'containers/linked_list_unittest.cc',
+        'containers/mru_cache_unittest.cc',
         'containers/small_map_unittest.cc',
         'containers/stack_container_unittest.cc',
         'cpu_unittest.cc',
@@ -441,6 +444,7 @@
         'file_version_info_unittest.cc',
         'files/dir_reader_posix_unittest.cc',
         'files/important_file_writer_unittest.cc',
+        'files/scoped_temp_dir_unittest.cc',
         'gmock_unittest.cc',
         'guid_unittest.cc',
         'hi_res_timer_manager_unittest.cc',
@@ -471,7 +475,6 @@
         'md5_unittest.cc',
         'memory/aligned_memory_unittest.cc',
         'memory/linked_ptr_unittest.cc',
-        'memory/mru_cache_unittest.cc',
         'memory/ref_counted_memory_unittest.cc',
         'memory/ref_counted_unittest.cc',
         'memory/scoped_nsobject_unittest.mm',
@@ -485,6 +488,7 @@
         'message_loop_proxy_unittest.cc',
         'message_loop_unittest.cc',
         'message_pump_glib_unittest.cc',
+        'message_pump_io_ios_unittest.cc',
         'message_pump_libevent_unittest.cc',
         'metrics/sample_map_unittest.cc',
         'metrics/sample_vector_unittest.cc',
@@ -509,7 +513,6 @@
         'rand_util_unittest.cc',
         'scoped_native_library_unittest.cc',
         'scoped_observer.h',
-        'scoped_temp_dir_unittest.cc',
         'sha1_unittest.cc',
         'shared_memory_unittest.cc',
         'string16_unittest.cc',
@@ -606,6 +609,10 @@
               ],
             }],
           ],
+          'sources!': [
+            # Broken on Android, and already disabled there.
+            'debug/stack_trace_unittest.cc',
+          ],
         }],
         ['OS == "ios"', {
           'sources/': [
@@ -614,9 +621,11 @@
             ['include', '^process_util_unittest_ios\\.cc$'],
             # Requires spawning processes.
             ['exclude', '^metrics/stats_table_unittest\\.cc$'],
+            # iOS does not use message_pump_libevent.
+            ['exclude', '^message_pump_libevent_unittest\\.cc$'],
             # TODO(ios): Remove these as base/ is unforked.
-            # For now, exclude everything that doesn't build as-is, just to
-            # get a minimal target building.
+            # For now, exclude everything that doesn't build as-is, just to get
+            # a minimal target building.
             # Unittests that don't pass.
             ['exclude', '^message_loop_unittest\\.cc$'],
           ],

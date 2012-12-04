@@ -6,10 +6,12 @@
 
 #include "base/bind.h"
 #include "base/memory/ref_counted_memory.h"
+#include "base/sequenced_task_runner.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/browser_theme_pack.h"
@@ -123,7 +125,7 @@ const SkColor kDefaultColorButtonBackground = SkColorSetARGB(0, 0, 0, 0);
 const SkColor kDefaultColorToolbarButtonStroke = SkColorSetARGB(75, 81, 81, 81);
 const SkColor kDefaultColorToolbarButtonStrokeInactive =
     SkColorSetARGB(75, 99, 99, 99);
-const SkColor kDefaultColorToolbarBezel = SkColorSetRGB(247, 247, 247);
+const SkColor kDefaultColorToolbarBezel = SkColorSetRGB(204, 204, 204);
 const SkColor kDefaultColorToolbarStroke = SkColorSetRGB(103, 103, 103);
 const SkColor kDefaultColorToolbarStrokeInactive = SkColorSetRGB(123, 123, 123);
 #endif
@@ -194,7 +196,8 @@ const int kToolbarButtonIDs[] = {
 };
 
 // Writes the theme pack to disk on a separate thread.
-void WritePackToDiskCallback(BrowserThemePack* pack, const FilePath& path) {
+void WritePackToDiskCallback(BrowserThemePack* pack,
+                             const FilePath& path) {
   if (!pack->WriteToDisk(path))
     NOTREACHED() << "Could not write theme pack to disk";
 }
@@ -220,14 +223,6 @@ ThemeService::~ThemeService() {
 void ThemeService::Init(Profile* profile) {
   DCHECK(CalledOnValidThread());
   profile_ = profile;
-
-  // Listen to EXTENSION_LOADED instead of EXTENSION_INSTALLED because
-  // the extension cannot yet be found via GetExtensionById() if it is
-  // installed but not loaded (which may confuse listeners to
-  // BROWSER_THEME_CHANGED).
-  registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_LOADED,
-                 content::Source<Profile>(profile_));
 
   LoadThemePrefs();
 
@@ -345,6 +340,12 @@ void ThemeService::SetTheme(const Extension* extension) {
 
   DCHECK(extension);
   DCHECK(extension->is_theme());
+  if (DCHECK_IS_ON()) {
+    ExtensionService* service =
+        extensions::ExtensionSystem::Get(profile_)->extension_service();
+    DCHECK(service);
+    DCHECK(service->GetExtensionById(extension->id(), false));
+  }
 
   BuildFromExtension(extension);
   SaveThemeID(extension->id());
@@ -610,7 +611,8 @@ void ThemeService::LoadThemePrefs() {
     } else {
       // TODO(erg): We need to pop up a dialog informing the user that their
       // theme is being migrated.
-      ExtensionService* service = profile_->GetExtensionService();
+      ExtensionService* service =
+          extensions::ExtensionSystem::Get(profile_)->extension_service();
       if (service) {
         const Extension* extension =
             service->GetExtensionById(current_id, false);
@@ -652,17 +654,6 @@ void ThemeService::FreePlatformCaches() {
 }
 #endif
 
-void ThemeService::Observe(int type,
-                           const content::NotificationSource& source,
-                           const content::NotificationDetails& details) {
-  DCHECK(type == chrome::NOTIFICATION_EXTENSION_LOADED);
-  const Extension* extension = content::Details<const Extension>(details).ptr();
-  if (!extension->is_theme()) {
-    return;
-  }
-  SetTheme(extension);
-}
-
 void ThemeService::SavePackName(const FilePath& pack_path) {
   profile_->GetPrefs()->SetFilePath(
       prefs::kCurrentThemePackFilename, pack_path);
@@ -682,10 +673,15 @@ void ThemeService::BuildFromExtension(const Extension* extension) {
     return;
   }
 
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
+  if (!service)
+    return;
+
   // Write the packed file to disk.
   FilePath pack_path = extension->path().Append(chrome::kThemePackFilename);
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE,
+  service->GetFileTaskRunner()->PostTask(
+      FROM_HERE,
       base::Bind(&WritePackToDiskCallback, pack, pack_path));
 
   SavePackName(pack_path);

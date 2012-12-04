@@ -11,7 +11,6 @@
 #include "base/prefs/default_pref_store.h"
 #include "base/prefs/overlay_user_pref_store.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/prefs/testing_pref_store.h"
 #include "base/threading/platform_thread.h"
 #include "base/values.h"
@@ -53,7 +52,7 @@ class DeadlockCheckerThread : public base::PlatformThread::Delegate {
 
 // A helper for observing an preference changes and testing whether
 // |PrefProvider| holds a lock when the preferences change.
-class DeadlockCheckerObserver : public PrefObserver {
+class DeadlockCheckerObserver {
  public:
   // |DeadlockCheckerObserver| doesn't take the ownership of |prefs| or
   // ||provider|.
@@ -61,12 +60,20 @@ class DeadlockCheckerObserver : public PrefObserver {
       : provider_(provider),
       notification_received_(false) {
     pref_change_registrar_.Init(prefs);
-    pref_change_registrar_.Add(prefs::kContentSettingsPatternPairs, this);
+    pref_change_registrar_.Add(
+        prefs::kContentSettingsPatternPairs,
+        base::Bind(
+            &DeadlockCheckerObserver::OnContentSettingsPatternPairsChanged,
+            base::Unretained(this)));
   }
   virtual ~DeadlockCheckerObserver() {}
 
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) {
+  bool notification_received() const {
+    return notification_received_;
+  }
+
+ private:
+  void OnContentSettingsPatternPairsChanged() {
     // Check whether |provider_| holds its lock. For this, we need a
     // separate thread.
     DeadlockCheckerThread thread(provider_);
@@ -76,11 +83,6 @@ class DeadlockCheckerObserver : public PrefObserver {
     notification_received_ = true;
   }
 
-  bool notification_received() const {
-    return notification_received_;
-  }
-
- private:
   PrefProvider* provider_;
   PrefChangeRegistrar pref_change_registrar_;
   bool notification_received_;
@@ -171,7 +173,8 @@ TEST_F(PrefProviderTest, Incognito) {
                 &pref_content_settings_provider_incognito,
                 host, host, CONTENT_SETTINGS_TYPE_IMAGES, "", false));
   // But the value should not be overridden in the OTR user prefs accidentally.
-  EXPECT_FALSE(otr_user_prefs->IsSetInOverlay(prefs::kContentSettingsPatterns));
+  EXPECT_FALSE(otr_user_prefs->IsSetInOverlay(
+      prefs::kContentSettingsPatternPairs));
 
   pref_content_settings_provider.ShutdownOnUIThread();
   pref_content_settings_provider_incognito.ShutdownOnUIThread();
@@ -326,126 +329,6 @@ TEST_F(PrefProviderTest, ResourceIdentifier) {
   pref_content_settings_provider.ShutdownOnUIThread();
 }
 
-TEST_F(PrefProviderTest, MigrateObsoleteContentSettingsPatternPref) {
-  // Setup single pattern settings.
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-
-  // Set obsolete preference for content settings pattern.
-  DictionaryValue* settings_dictionary = new DictionaryValue();
-  settings_dictionary->SetInteger("cookies", 2);
-  settings_dictionary->SetInteger("images", 2);
-  settings_dictionary->SetInteger("popups", 2);
-  ContentSettingsPattern pattern =
-      ContentSettingsPattern::FromString("http://www.example.com");
-  scoped_ptr<DictionaryValue> all_settings_dictionary(new DictionaryValue());
-  all_settings_dictionary->SetWithoutPathExpansion(
-      pattern.ToString(), settings_dictionary);
-  prefs->Set(prefs::kContentSettingsPatterns, *all_settings_dictionary);
-
-  content_settings::PrefProvider provider(prefs, false);
-
-  // Test if single pattern settings are properly migrated.
-  const DictionaryValue* const_all_settings_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatternPairs);
-  EXPECT_EQ(1U, const_all_settings_dictionary->size());
-  EXPECT_FALSE(const_all_settings_dictionary->HasKey(pattern.ToString()));
-  EXPECT_TRUE(const_all_settings_dictionary->HasKey(
-      pattern.ToString() + "," +
-      ContentSettingsPattern::Wildcard().ToString()));
-  EXPECT_EQ(CONTENT_SETTING_BLOCK, GetContentSetting(
-      &provider,
-      GURL("http://www.example.com"),
-      GURL("http://www.example.com"),
-      CONTENT_SETTINGS_TYPE_IMAGES,
-      "",
-      false));
-  EXPECT_EQ(CONTENT_SETTING_BLOCK, GetContentSetting(
-      &provider,
-      GURL("http://www.example.com"),
-      GURL("http://www.example.com"),
-      CONTENT_SETTINGS_TYPE_POPUPS,
-      "",
-      false));
-  // Test if single pattern settings are properly migrated.
-  const_all_settings_dictionary = prefs->GetDictionary(
-      prefs::kContentSettingsPatternPairs);
-  EXPECT_EQ(1U, const_all_settings_dictionary->size());
-  EXPECT_FALSE(const_all_settings_dictionary->HasKey(pattern.ToString()));
-  EXPECT_TRUE(const_all_settings_dictionary->HasKey(
-      pattern.ToString() + "," +
-      ContentSettingsPattern::Wildcard().ToString()));
-
-  EXPECT_TRUE(prefs->GetDictionary(prefs::kContentSettingsPatterns)->empty());
-  provider.ShutdownOnUIThread();
-}
-
-TEST_F(PrefProviderTest, MigrateObsoleteGeolocationPref) {
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-  GURL secondary_url("http://www.foo.com");
-  GURL primary_url("http://www.bar.com");
-  GURL corrupted_setting_url("http://www.corruptedsetting.com");
-
-  // Set obsolete preference.
-  DictionaryValue* secondary_patterns_dictionary = new DictionaryValue();
-  secondary_patterns_dictionary->SetWithoutPathExpansion(
-      secondary_url.spec(),
-      Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
-  scoped_ptr<DictionaryValue> geolocation_settings_dictionary(
-      new DictionaryValue());
-  geolocation_settings_dictionary->SetWithoutPathExpansion(
-      primary_url.spec(), secondary_patterns_dictionary);
-  // Add a non dictionary value to the geolocation settings dictionary to test
-  // that corrupted settings are ignored (See http://crbug.com/125009).
-  geolocation_settings_dictionary->SetWithoutPathExpansion(
-      corrupted_setting_url.spec(), Value::CreateIntegerValue(0));
-  prefs->Set(prefs::kGeolocationContentSettings,
-             *geolocation_settings_dictionary);
-
-  content_settings::PrefProvider provider(prefs, false);
-
-  // Test if the migrated settings are loaded and available.
-  EXPECT_EQ(CONTENT_SETTING_BLOCK, GetContentSetting(
-      &provider,
-      primary_url,
-      secondary_url,
-      CONTENT_SETTINGS_TYPE_GEOLOCATION,
-      "",
-      false));
-  EXPECT_EQ(CONTENT_SETTING_DEFAULT, GetContentSetting(
-      &provider,
-      GURL("http://www.example.com"),
-      secondary_url,
-      CONTENT_SETTINGS_TYPE_GEOLOCATION,
-      "",
-      false));
-  EXPECT_EQ(CONTENT_SETTING_DEFAULT, GetContentSetting(
-      &provider,
-      corrupted_setting_url,
-      corrupted_setting_url,
-      CONTENT_SETTINGS_TYPE_GEOLOCATION,
-      "",
-      false));
-  // Check if the settings where migrated correctly.
-  const DictionaryValue* const_all_settings_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatternPairs);
-  EXPECT_EQ(1U, const_all_settings_dictionary->size());
-  EXPECT_TRUE(const_all_settings_dictionary->HasKey(
-      ContentSettingsPattern::FromURLNoWildcard(primary_url).ToString() + "," +
-      ContentSettingsPattern::FromURLNoWildcard(secondary_url).ToString()));
-  // Check that geolocation settings were not synced to the obsolete content
-  // settings pattern preference.
-  const DictionaryValue* const_obsolete_patterns_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatterns);
-  EXPECT_TRUE(const_obsolete_patterns_dictionary->empty());
-
-  EXPECT_TRUE(
-      prefs->GetDictionary(prefs::kGeolocationContentSettings)->empty());
-
-  provider.ShutdownOnUIThread();
-}
-
 TEST_F(PrefProviderTest, AutoSubmitCertificateContentSetting) {
   TestingProfile profile;
   TestingPrefService* prefs = profile.GetTestingPrefService();
@@ -477,76 +360,6 @@ TEST_F(PrefProviderTest, AutoSubmitCertificateContentSetting) {
                 CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE,
                 std::string(),
                 false));
-  provider.ShutdownOnUIThread();
-}
-
-TEST_F(PrefProviderTest, MigrateObsoleteNotificationsPref) {
-  TestingProfile profile;
-  PrefService* prefs = profile.GetPrefs();
-  GURL allowed_url("http://www.foo.com");
-  GURL allowed_url2("http://www.example.com");
-  GURL denied_url("http://www.bar.com");
-
-  // Set obsolete preference.
-  scoped_ptr<ListValue> allowed_origin_list(new ListValue());
-  allowed_origin_list->AppendIfNotPresent(
-      Value::CreateStringValue(allowed_url.spec()));
-  prefs->Set(prefs::kDesktopNotificationAllowedOrigins,
-             *allowed_origin_list);
-
-  scoped_ptr<ListValue> denied_origin_list(new ListValue());
-  denied_origin_list->AppendIfNotPresent(
-      Value::CreateStringValue(denied_url.spec()));
-  prefs->Set(prefs::kDesktopNotificationDeniedOrigins,
-             *denied_origin_list);
-
-  content_settings::PrefProvider provider(prefs, false);
-
-  // Test if the migrated settings are loaded and available.
-  EXPECT_EQ(CONTENT_SETTING_ALLOW, GetContentSetting(
-      &provider,
-      allowed_url,
-      allowed_url,
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-      "",
-      false));
-  EXPECT_EQ(CONTENT_SETTING_BLOCK, GetContentSetting(
-      &provider,
-      denied_url,
-      denied_url,
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-      "",
-      false));
-  EXPECT_EQ(CONTENT_SETTING_DEFAULT, GetContentSetting(
-      &provider,
-      allowed_url2,
-      allowed_url2,
-      CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-      "",
-      false));
-  // Check if the settings where migrated correctly.
-  const DictionaryValue* const_all_settings_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatternPairs);
-  EXPECT_EQ(2U, const_all_settings_dictionary->size());
-  EXPECT_TRUE(const_all_settings_dictionary->HasKey(
-      ContentSettingsPattern::FromURLNoWildcard(allowed_url).ToString() + "," +
-      ContentSettingsPattern::Wildcard().ToString()));
-  EXPECT_TRUE(const_all_settings_dictionary->HasKey(
-      ContentSettingsPattern::FromURLNoWildcard(denied_url).ToString() + "," +
-      ContentSettingsPattern::Wildcard().ToString()));
-
-  // Check that notifications settings were not synced to the obsolete content
-  // settings pattern preference.
-  const DictionaryValue* const_obsolete_patterns_dictionary =
-      prefs->GetDictionary(prefs::kContentSettingsPatterns);
-  EXPECT_TRUE(const_obsolete_patterns_dictionary->empty());
-
-  // Test that the obsolete notifications settings were cleared.
-  EXPECT_TRUE(
-      prefs->GetList(prefs::kDesktopNotificationAllowedOrigins)->empty());
-  EXPECT_TRUE(
-      prefs->GetList(prefs::kDesktopNotificationDeniedOrigins)->empty());
-
   provider.ShutdownOnUIThread();
 }
 

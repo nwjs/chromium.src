@@ -8,28 +8,35 @@
 #include "base/memory/scoped_ptr.h"
 #include "cc/cc_export.h"
 #include "cc/draw_quad.h"
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
 namespace cc {
 
-#pragma pack(push, 4)
-
 class CC_EXPORT StreamVideoDrawQuad : public DrawQuad {
-public:
-    static scoped_ptr<StreamVideoDrawQuad> create(const SharedQuadState*, const gfx::Rect&, unsigned textureId, const WebKit::WebTransformationMatrix&);
+ public:
+  static scoped_ptr<StreamVideoDrawQuad> Create();
 
-    unsigned textureId() const { return m_textureId; }
-    const WebKit::WebTransformationMatrix& matrix() const { return m_matrix; }
+  void SetNew(const SharedQuadState* shared_quad_state,
+              gfx::Rect rect,
+              gfx::Rect opaque_rect,
+              unsigned texture_id,
+              const gfx::Transform& matrix);
 
-    static const StreamVideoDrawQuad* materialCast(const DrawQuad*);
-private:
-    StreamVideoDrawQuad(const SharedQuadState*, const gfx::Rect&, unsigned textureId, const WebKit::WebTransformationMatrix&);
+  void SetAll(const SharedQuadState* shared_quad_state,
+              gfx::Rect rect,
+              gfx::Rect opaque_rect,
+              gfx::Rect visible_rect,
+              bool needs_blending,
+              unsigned texture_id,
+              const gfx::Transform& matrix);
 
-    unsigned m_textureId;
-    WebKit::WebTransformationMatrix m_matrix;
+  unsigned texture_id;
+  gfx::Transform matrix;
+
+  static const StreamVideoDrawQuad* MaterialCast(const DrawQuad*);
+ private:
+  StreamVideoDrawQuad();
 };
-
-#pragma pack(pop)
 
 }
 

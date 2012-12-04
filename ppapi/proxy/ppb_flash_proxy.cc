@@ -22,7 +22,6 @@
 #include "ppapi/proxy/pepper_file_messages.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
 #include "ppapi/proxy/plugin_globals.h"
-#include "ppapi/proxy/plugin_proxy_delegate.h"
 #include "ppapi/proxy/ppapi_messages.h"
 #include "ppapi/proxy/proxy_module.h"
 #include "ppapi/proxy/serialized_var.h"
@@ -110,24 +109,14 @@ bool PPB_Flash_Proxy::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_GetProxyForURL,
                         OnHostMsgGetProxyForURL)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_Navigate, OnHostMsgNavigate)
-    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_RunMessageLoop,
-                        OnHostMsgRunMessageLoop)
-    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_QuitMessageLoop,
-                        OnHostMsgQuitMessageLoop)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_GetLocalTimeZoneOffset,
                         OnHostMsgGetLocalTimeZoneOffset)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_IsRectTopmost,
                         OnHostMsgIsRectTopmost)
-    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_FlashSetFullscreen,
-                        OnHostMsgFlashSetFullscreen)
-    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_FlashGetScreenSize,
-                        OnHostMsgFlashGetScreenSize)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_OpenFileRef,
                         OnHostMsgOpenFileRef)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_QueryFileRef,
                         OnHostMsgQueryFileRef)
-    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_GetDeviceID,
-                        OnHostMsgGetDeviceID)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_InvokePrinting,
                         OnHostMsgInvokePrinting)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBFlash_GetSetting,
@@ -218,18 +207,6 @@ int32_t PPB_Flash_Proxy::Navigate(PP_Instance instance,
   return result;
 }
 
-void PPB_Flash_Proxy::RunMessageLoop(PP_Instance instance) {
-  IPC::SyncMessage* msg = new PpapiHostMsg_PPBFlash_RunMessageLoop(
-      API_ID_PPB_FLASH, instance);
-  msg->EnableMessagePumping();
-  dispatcher()->Send(msg);
-}
-
-void PPB_Flash_Proxy::QuitMessageLoop(PP_Instance instance) {
-  dispatcher()->Send(new PpapiHostMsg_PPBFlash_QuitMessageLoop(
-      API_ID_PPB_FLASH, instance));
-}
-
 double PPB_Flash_Proxy::GetLocalTimeZoneOffset(PP_Instance instance,
                                                PP_Time t) {
   static double s_cached_t = 0.0;
@@ -285,33 +262,8 @@ PP_Bool PPB_Flash_Proxy::IsRectTopmost(PP_Instance instance,
 }
 
 void PPB_Flash_Proxy::UpdateActivity(PP_Instance instance) {
-  PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  PluginGlobals::Get()->GetBrowserSender()->Send(
       new PpapiHostMsg_PPBFlash_UpdateActivity(API_ID_PPB_FLASH));
-}
-
-PP_Var PPB_Flash_Proxy::GetDeviceID(PP_Instance instance) {
-  ReceiveSerializedVarReturnValue result;
-  dispatcher()->Send(new PpapiHostMsg_PPBFlash_GetDeviceID(
-      API_ID_PPB_FLASH, instance, &result));
-  return result.Return(dispatcher());
-}
-
-int32_t PPB_Flash_Proxy::GetSettingInt(PP_Instance instance,
-                                       PP_FlashSetting setting) {
-  // Note: Don't add support for any more settings here. This method is
-  // deprecated.
-  switch (setting) {
-    case PP_FLASHSETTING_3DENABLED:
-      return static_cast<PluginDispatcher*>(dispatcher())->preferences().
-          is_3d_supported;
-    case PP_FLASHSETTING_INCOGNITO:
-      return static_cast<PluginDispatcher*>(dispatcher())->incognito();
-    case PP_FLASHSETTING_STAGE3DENABLED:
-      return static_cast<PluginDispatcher*>(dispatcher())->preferences().
-          is_stage3d_supported;
-    default:
-      return -1;
-  }
 }
 
 PP_Var PPB_Flash_Proxy::GetSetting(PP_Instance instance,
@@ -329,7 +281,7 @@ PP_Var PPB_Flash_Proxy::GetSetting(PP_Instance instance,
           plugin_dispatcher->preferences().is_stage3d_supported));
     case PP_FLASHSETTING_LANGUAGE:
       return StringVar::StringToPPVar(
-          PluginGlobals::Get()->plugin_proxy_delegate()->GetUILanguage());
+          PluginGlobals::Get()->GetUILanguage());
     case PP_FLASHSETTING_NUMCORES:
       return PP_MakeInt32(plugin_dispatcher->preferences().number_of_cpu_cores);
     case PP_FLASHSETTING_LSORESTRICTIONS: {
@@ -351,7 +303,7 @@ PP_Bool PPB_Flash_Proxy::SetCrashData(PP_Instance instance,
       if (!url_string_var)
         return PP_FALSE;
       std::string url_string(url_string_var->value());
-      PluginGlobals::Get()->plugin_proxy_delegate()->SetActiveURL(url_string);
+      PluginGlobals::Get()->SetActiveURL(url_string);
       return PP_TRUE;
   }
   return PP_FALSE;
@@ -379,7 +331,7 @@ int32_t PPB_Flash_Proxy::OpenFile(PP_Instance,
   ppapi::PepperFilePath pepper_path(ppapi::PepperFilePath::DOMAIN_MODULE_LOCAL,
                                     FilePath::FromUTF8Unsafe(path));
 
-  if (PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  if (PluginGlobals::Get()->GetBrowserSender()->Send(
           new PepperFileMsg_OpenFile(pepper_path, flags,
                                      &error, &transit_file))) {
     *file = IPC::PlatformFileForTransitToPlatformFile(transit_file);
@@ -400,7 +352,7 @@ int32_t PPB_Flash_Proxy::RenameFile(PP_Instance,
   ppapi::PepperFilePath pepper_to(ppapi::PepperFilePath::DOMAIN_MODULE_LOCAL,
                                   FilePath::FromUTF8Unsafe(to_path));
 
-  PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  PluginGlobals::Get()->GetBrowserSender()->Send(
       new PepperFileMsg_RenameFile(pepper_from, pepper_to, &error));
 
   return ppapi::PlatformFileErrorToPepperError(error);
@@ -413,7 +365,7 @@ int32_t PPB_Flash_Proxy::DeleteFileOrDir(PP_Instance,
   ppapi::PepperFilePath pepper_path(ppapi::PepperFilePath::DOMAIN_MODULE_LOCAL,
                                     FilePath::FromUTF8Unsafe(path));
 
-  PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  PluginGlobals::Get()->GetBrowserSender()->Send(
       new PepperFileMsg_DeleteFileOrDir(pepper_path,
                                         PP_ToBool(recursive),
                                         &error));
@@ -426,7 +378,7 @@ int32_t PPB_Flash_Proxy::CreateDir(PP_Instance, const char* path) {
   ppapi::PepperFilePath pepper_path(ppapi::PepperFilePath::DOMAIN_MODULE_LOCAL,
                                     FilePath::FromUTF8Unsafe(path));
 
-  PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  PluginGlobals::Get()->GetBrowserSender()->Send(
       new PepperFileMsg_CreateDir(pepper_path, &error));
 
   return ppapi::PlatformFileErrorToPepperError(error);
@@ -440,7 +392,7 @@ int32_t PPB_Flash_Proxy::QueryFile(PP_Instance,
   ppapi::PepperFilePath pepper_path(ppapi::PepperFilePath::DOMAIN_MODULE_LOCAL,
                                     FilePath::FromUTF8Unsafe(path));
 
-  PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  PluginGlobals::Get()->GetBrowserSender()->Send(
       new PepperFileMsg_QueryFile(pepper_path, &file_info, &error));
 
   if (error == base::PLATFORM_FILE_OK) {
@@ -466,7 +418,7 @@ int32_t PPB_Flash_Proxy::GetDirContents(PP_Instance,
   ppapi::PepperFilePath pepper_path(ppapi::PepperFilePath::DOMAIN_MODULE_LOCAL,
                                     FilePath::FromUTF8Unsafe(path));
 
-  PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  PluginGlobals::Get()->GetBrowserSender()->Send(
       new PepperFileMsg_GetDirContents(pepper_path, &entries, &error));
 
   if (error == base::PLATFORM_FILE_OK) {
@@ -496,7 +448,7 @@ int32_t PPB_Flash_Proxy::CreateTemporaryFile(PP_Instance instance,
   base::PlatformFileError error;
   IPC::PlatformFileForTransit transit_file;
 
-  if (PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+  if (PluginGlobals::Get()->GetBrowserSender()->Send(
           new PepperFileMsg_CreateTemporaryFile(&error, &transit_file))) {
     *file = IPC::PlatformFileForTransitToPlatformFile(transit_file);
   } else {
@@ -535,30 +487,6 @@ int32_t PPB_Flash_Proxy::QueryFileRef(PP_Instance instance,
   dispatcher()->Send(new PpapiHostMsg_PPBFlash_QueryFileRef(
       API_ID_PPB_FLASH, instance, enter.resource()->host_resource(), info,
       &result));
-  return result;
-}
-
-PP_Bool PPB_Flash_Proxy::FlashIsFullscreen(PP_Instance instance) {
-  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
-      GetInstanceData(instance);
-  if (!data)
-    return PP_FALSE;
-  return data->flash_fullscreen;
-}
-
-PP_Bool PPB_Flash_Proxy::FlashSetFullscreen(PP_Instance instance,
-                                            PP_Bool fullscreen) {
-  PP_Bool result = PP_FALSE;
-  dispatcher()->Send(new PpapiHostMsg_PPBFlash_FlashSetFullscreen(
-      API_ID_PPB_FLASH, instance, fullscreen, &result));
-  return result;
-}
-
-PP_Bool PPB_Flash_Proxy::FlashGetScreenSize(PP_Instance instance,
-                                            PP_Size* size) {
-  PP_Bool result = PP_FALSE;
-  dispatcher()->Send(new PpapiHostMsg_PPBFlash_FlashGetScreenSize(
-      API_ID_PPB_FLASH, instance, &result, size));
   return result;
 }
 
@@ -643,18 +571,6 @@ void PPB_Flash_Proxy::OnHostMsgNavigate(PP_Instance instance,
       instance, data, target.c_str(), from_user_action);
 }
 
-void PPB_Flash_Proxy::OnHostMsgRunMessageLoop(PP_Instance instance) {
-  EnterInstanceNoLock enter(instance);
-  if (enter.succeeded())
-    enter.functions()->GetFlashAPI()->RunMessageLoop(instance);
-}
-
-void PPB_Flash_Proxy::OnHostMsgQuitMessageLoop(PP_Instance instance) {
-  EnterInstanceNoLock enter(instance);
-  if (enter.succeeded())
-    enter.functions()->GetFlashAPI()->QuitMessageLoop(instance);
-}
-
 void PPB_Flash_Proxy::OnHostMsgGetLocalTimeZoneOffset(PP_Instance instance,
                                                   PP_Time t,
                                                   double* result) {
@@ -675,31 +591,6 @@ void PPB_Flash_Proxy::OnHostMsgIsRectTopmost(PP_Instance instance,
     *result = enter.functions()->GetFlashAPI()->IsRectTopmost(instance, &rect);
   else
     *result = PP_FALSE;
-}
-
-void PPB_Flash_Proxy::OnHostMsgFlashSetFullscreen(PP_Instance instance,
-                                                  PP_Bool fullscreen,
-                                                  PP_Bool* result) {
-  EnterInstanceNoLock enter(instance);
-  if (enter.succeeded()) {
-    *result = enter.functions()->GetFlashAPI()->FlashSetFullscreen(
-        instance, fullscreen);
-  } else {
-    *result = PP_FALSE;
-  }
-}
-
-void PPB_Flash_Proxy::OnHostMsgFlashGetScreenSize(PP_Instance instance,
-                                                  PP_Bool* result,
-                                                  PP_Size* size) {
-  EnterInstanceNoLock enter(instance);
-  if (enter.succeeded()) {
-    *result = enter.functions()->GetFlashAPI()->FlashGetScreenSize(
-        instance, size);
-  } else {
-    size->width = 0;
-    size->height = 0;
-  }
 }
 
 void PPB_Flash_Proxy::OnHostMsgOpenFileRef(
@@ -743,18 +634,6 @@ void PPB_Flash_Proxy::OnHostMsgGetSetting(PP_Instance instance,
     id.Return(dispatcher(),
               enter.functions()->GetFlashAPI()->GetSetting(
                   instance, setting));
-  } else {
-    id.Return(dispatcher(), PP_MakeUndefined());
-  }
-}
-
-void PPB_Flash_Proxy::OnHostMsgGetDeviceID(PP_Instance instance,
-                                           SerializedVarReturnValue id) {
-  EnterInstanceNoLock enter(instance);
-  if (enter.succeeded()) {
-    id.Return(dispatcher(),
-                  enter.functions()->GetFlashAPI()->GetDeviceID(
-                      instance));
   } else {
     id.Return(dispatcher(), PP_MakeUndefined());
   }

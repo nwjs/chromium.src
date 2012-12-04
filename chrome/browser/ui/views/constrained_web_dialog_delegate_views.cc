@@ -128,6 +128,25 @@ class ConstrainedWebDialogDelegateViewViews
     return this;
   }
 
+  virtual ui::ModalType GetModalType() const OVERRIDE {
+#if defined(USE_ASH)
+    return ui::MODAL_TYPE_CHILD;
+#else
+    return views::WidgetDelegate::GetModalType();
+#endif
+  }
+
+  virtual void OnWidgetMove() OVERRIDE {
+    // We need to check the existence of the widget because when running on
+    // WinXP this could get executed before the widget is entirely created.
+    if (!GetWidget())
+      return;
+
+    GetWidget()->CenterWindow(
+        GetWidget()->non_client_view()->GetPreferredSize());
+    views::WidgetDelegate::OnWidgetMove();
+  }
+
   // views::WebView overrides.
   virtual bool AcceleratorPressed(
       const ui::Accelerator& accelerator) OVERRIDE {

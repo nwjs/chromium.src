@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
@@ -20,6 +21,9 @@
 namespace {
 
 // JS API callbacks names.
+const char kJsApiEnableHighContrast[] = "enableHighContrast";
+const char kJsApiEnableScreenMagnifier[] = "enableScreenMagnifier";
+const char kJsApiEnableSpokenFeedback[] = "enableSpokenFeedback";
 const char kJsApiScreenStateInitialize[] = "screenStateInitialize";
 const char kJsApiSkipUpdateEnrollAfterEula[] = "skipUpdateEnrollAfterEula";
 
@@ -32,10 +36,15 @@ namespace chromeos {
 CoreOobeHandler::CoreOobeHandler(OobeUI* oobe_ui)
     : oobe_ui_(oobe_ui),
       show_oobe_ui_(false),
-      version_info_updater_(this) {
+      version_info_updater_(this),
+      delegate_(NULL) {
 }
 
 CoreOobeHandler::~CoreOobeHandler() {
+}
+
+void CoreOobeHandler::SetDelegate(Delegate* delegate) {
+  delegate_ = delegate;
 }
 
 void CoreOobeHandler::GetLocalizedStrings(
@@ -49,6 +58,26 @@ void CoreOobeHandler::GetLocalizedStrings(
   localized_strings->SetString(
       "reportingHint",
       l10n_util::GetStringUTF16(IDS_LOGIN_MANAGED_REPORTING_HINT));
+
+  // OOBE accessibility options menu strings shown on each screen.
+  localized_strings->SetString("accessibilityLink",
+      l10n_util::GetStringUTF16(IDS_OOBE_ACCESSIBILITY_LINK));
+  localized_strings->SetString("spokenFeedbackOption",
+      l10n_util::GetStringUTF16(IDS_OOBE_SPOKEN_FEEDBACK_OPTION));
+  localized_strings->SetString("highContrastOption",
+      l10n_util::GetStringUTF16(IDS_OOBE_HIGH_CONTRAST_MODE_OPTION));
+  localized_strings->SetString("screenMagnifierOption",
+      l10n_util::GetStringUTF16(IDS_OOBE_SCREEN_MAGNIFIER_OPTION));
+
+  // TODO(nkostylev): Move OOBE/login WebUI from localStrings to loadTimeData.
+  if (chromeos::accessibility::IsHighContrastEnabled())
+    localized_strings->SetString("highContrastEnabled", "on");
+  if (chromeos::accessibility::IsSpokenFeedbackEnabled())
+    localized_strings->SetString("spokenFeedbackEnabled", "on");
+  if (chromeos::accessibility::GetMagnifierType() !=
+      ash::MAGNIFIER_OFF) {
+    localized_strings->SetString("screenMagnifierEnabled", "on");
+  }
 }
 
 void CoreOobeHandler::Initialize() {
@@ -67,6 +96,18 @@ void CoreOobeHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(kJsApiSkipUpdateEnrollAfterEula,
       base::Bind(&CoreOobeHandler::HandleSkipUpdateEnrollAfterEula,
                  base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("updateCurrentScreen",
+      base::Bind(&CoreOobeHandler::HandleUpdateCurrentScreen,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(kJsApiEnableHighContrast,
+      base::Bind(&CoreOobeHandler::HandleEnableHighContrast,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(kJsApiEnableScreenMagnifier,
+      base::Bind(&CoreOobeHandler::HandleEnableScreenMagnifier,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(kJsApiEnableSpokenFeedback,
+      base::Bind(&CoreOobeHandler::HandleEnableSpokenFeedback,
+                 base::Unretained(this)));
 }
 
 void CoreOobeHandler::HandleInitialized(const base::ListValue* args) {
@@ -79,6 +120,41 @@ void CoreOobeHandler::HandleSkipUpdateEnrollAfterEula(
   DCHECK(controller);
   if (controller)
     controller->SkipUpdateEnrollAfterEula();
+}
+
+void CoreOobeHandler::HandleUpdateCurrentScreen(const base::ListValue* args) {
+  DCHECK(args && args->GetSize() == 1);
+
+  std::string screen;
+  if (args->GetString(0, &screen) && delegate_)
+    delegate_->OnCurrentScreenChanged(screen);
+}
+
+void CoreOobeHandler::HandleEnableHighContrast(const base::ListValue* args) {
+  bool enabled;
+  if (!args->GetBoolean(0, &enabled)) {
+    NOTREACHED();
+    return;
+  }
+  chromeos::accessibility::EnableHighContrast(enabled);
+}
+
+void CoreOobeHandler::HandleEnableScreenMagnifier(const base::ListValue* args) {
+  bool enabled;
+  if (!args->GetBoolean(0, &enabled)) {
+    NOTREACHED();
+    return;
+  }
+  // TODO(nkostylev): Add support for partial screen magnifier.
+  ash::MagnifierType type = enabled ? ash::MAGNIFIER_FULL :
+                                      ash::MAGNIFIER_OFF;
+  chromeos::accessibility::SetMagnifier(type);
+}
+
+void CoreOobeHandler::HandleEnableSpokenFeedback(const base::ListValue* args) {
+  // Checkbox is initialized on page init and updates when spoken feedback
+  // setting is changed so just toggle spoken feedback here.
+  chromeos::accessibility::ToggleSpokenFeedback(web_ui());
 }
 
 void CoreOobeHandler::ShowOobeUI(bool show) {
@@ -135,3 +211,4 @@ void CoreOobeHandler::UpdateLabel(const std::string& id,
 }
 
 }  // namespace chromeos
+

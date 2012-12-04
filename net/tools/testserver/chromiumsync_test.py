@@ -50,7 +50,8 @@ class SyncDataModelTest(unittest.TestCase):
       declared_specs.add(spec.tag)
 
     unique_datatypes = set([x.sync_type for x in specs])
-    self.assertEqual(unique_datatypes, set(chromiumsync.ALL_TYPES),
+    self.assertEqual(unique_datatypes,
+                     set(chromiumsync.ALL_TYPES[1:]),
                      'Every sync datatype should have a permanent folder '
                      'associated with it')
 
@@ -70,19 +71,17 @@ class SyncDataModelTest(unittest.TestCase):
 
   def testCreatePermanentItems(self):
     self.model._CreateDefaultPermanentItems(chromiumsync.ALL_TYPES)
-    self.assertEqual(len(chromiumsync.ALL_TYPES) + 2,
+    self.assertEqual(len(chromiumsync.ALL_TYPES) + 1,
                      len(self.model._entries))
 
   def ExpectedPermanentItemCount(self, sync_type):
     if sync_type == chromiumsync.BOOKMARK:
       if self._expect_synced_bookmarks_folder:
-        return 5
-      else:
         return 4
-    elif sync_type == chromiumsync.TOP_LEVEL:
-      return 1
+      else:
+        return 3
     else:
-      return 2
+      return 1
 
   def testGetChangesFromTimestampZeroForEachType(self):
     all_types = chromiumsync.ALL_TYPES[1:]
@@ -96,7 +95,6 @@ class SyncDataModelTest(unittest.TestCase):
       expected_count = self.ExpectedPermanentItemCount(sync_type)
       self.assertEqual(expected_count, version)
       self.assertEqual(expected_count, len(changes))
-      self.assertEqual('google_chrome', changes[0].server_defined_unique_tag)
       for change in changes:
         self.assertTrue(change.HasField('server_defined_unique_tag'))
         self.assertEqual(change.version, change.sync_timestamp)
@@ -606,6 +604,35 @@ class SyncDataModelTest(unittest.TestCase):
     self.assertTrue(len(key1) > 0)
     self.assertEqual(key1, key2)
 
+  def testTriggerEnableKeystoreEncryption(self):
+    version1, changes, remaining = (
+        self.GetChangesFromTimestamp([chromiumsync.EXPERIMENTS], 0))
+    keystore_encryption_id_string = (
+        self.model._ClientTagToId(
+            chromiumsync.EXPERIMENTS,
+            chromiumsync.KEYSTORE_ENCRYPTION_EXPERIMENT_TAG))
+
+    self.assertFalse(self.model._ItemExists(keystore_encryption_id_string))
+    self.model.TriggerEnableKeystoreEncryption()
+    self.assertTrue(self.model._ItemExists(keystore_encryption_id_string))
+
+    # The creation of the experiment should be downloaded on the next
+    # GetUpdates.
+    version2, changes, remaining = (
+        self.GetChangesFromTimestamp([chromiumsync.EXPERIMENTS], version1))
+    self.assertEqual(len(changes), 1)
+    self.assertEqual(changes[0].id_string, keystore_encryption_id_string)
+    self.assertNotEqual(version1, version2)
+
+    # Verify the experiment was created properly and is enabled.
+    self.assertEqual(chromiumsync.KEYSTORE_ENCRYPTION_EXPERIMENT_TAG,
+                     changes[0].client_defined_unique_tag)
+    self.assertTrue(changes[0].HasField("specifics"))
+    self.assertTrue(changes[0].specifics.HasField("experiments"))
+    self.assertTrue(
+        changes[0].specifics.experiments.HasField("keystore_encryption"))
+    self.assertTrue(
+        changes[0].specifics.experiments.keystore_encryption.enabled)
 
 if __name__ == '__main__':
   unittest.main()

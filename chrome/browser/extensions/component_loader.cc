@@ -20,7 +20,6 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_file_util.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
-#include "chrome/common/extensions/feature_switch.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
@@ -43,6 +42,8 @@
 namespace extensions {
 
 namespace {
+
+static bool enable_background_extensions_during_testing = false;
 
 std::string GenerateId(const DictionaryValue* manifest, const FilePath& path) {
   std::string raw_key;
@@ -77,18 +78,14 @@ ComponentLoader::ComponentLoader(ExtensionServiceInterface* extension_service,
 
   // This pref is set by policy. We have to watch it for change because on
   // ChromeOS, policy isn't loaded until after the browser process is started.
-  pref_change_registrar_.Add(prefs::kEnterpriseWebStoreURL, this);
+  pref_change_registrar_.Add(
+      prefs::kEnterpriseWebStoreURL,
+      base::Bind(&ComponentLoader::AddOrReloadEnterpriseWebStore,
+                 base::Unretained(this)));
 }
 
 ComponentLoader::~ComponentLoader() {
   ClearAllRegistered();
-}
-
-const Extension* ComponentLoader::GetScriptBubble() const {
-  if (script_bubble_id_.empty())
-    return NULL;
-
-  return extension_service_->extensions()->GetByID(script_bubble_id_);
 }
 
 void ComponentLoader::LoadAll() {
@@ -194,7 +191,7 @@ const Extension* ComponentLoader::Load(const ComponentExtensionInfo& info) {
     return NULL;
   }
   CHECK_EQ(info.extension_id, extension->id()) << extension->name();
-  extension_service_->AddExtension(extension);
+  extension_service_->AddComponentExtension(extension);
   return extension;
 }
 
@@ -308,17 +305,18 @@ void ComponentLoader::AddChromeApp() {
 #endif
 }
 
-void ComponentLoader::AddScriptBubble() {
-  if (FeatureSwitch::script_bubble()->IsEnabled()) {
-    script_bubble_id_ =
-        Add(IDR_SCRIPT_BUBBLE_MANIFEST,
-            FilePath(FILE_PATH_LITERAL("script_bubble")));
-  }
+// static
+void ComponentLoader::EnableBackgroundExtensionsForTesting() {
+  enable_background_extensions_during_testing = true;
 }
 
 void ComponentLoader::AddDefaultComponentExtensions() {
+  // Do not add component extensions that have background pages here -- add them
+  // to AddDefaultComponentExtensionsWithBackgroundPages.
+
 #if defined(OS_CHROMEOS)
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kGuestSession))
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(switches::kGuestSession))
     Add(IDR_BOOKMARKS_MANIFEST,
         FilePath(FILE_PATH_LITERAL("bookmark_manager")));
 #else
@@ -326,21 +324,6 @@ void ComponentLoader::AddDefaultComponentExtensions() {
 #endif
 
 #if defined(OS_CHROMEOS)
-  Add(IDR_WALLPAPERMANAGER_MANIFEST,
-      FilePath(FILE_PATH_LITERAL("chromeos/wallpaper_manager")));
-#endif
-
-#if defined(FILE_MANAGER_EXTENSION)
-  AddFileManagerExtension();
-#endif
-
-#if defined(OS_CHROMEOS)
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kEnableBackgroundLoader)) {
-    Add(IDR_BACKLOADER_MANIFEST,
-        FilePath(FILE_PATH_LITERAL("backloader")));
-  }
-
   Add(IDR_MOBILE_MANIFEST,
       FilePath(FILE_PATH_LITERAL("/usr/share/chromeos-assets/mobile")));
 
@@ -368,26 +351,9 @@ void ComponentLoader::AddDefaultComponentExtensions() {
 
   Add(IDR_WEBSTORE_MANIFEST, FilePath(FILE_PATH_LITERAL("web_store")));
 
-#if defined(OS_WIN)
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableSettingsApp)) {
-    Add(IDR_SETTINGS_APP_MANIFEST,
-        FilePath(FILE_PATH_LITERAL("settings_app")));
-  }
-#endif
-
 #if !defined(OS_CHROMEOS)
   // Cloud Print component app. Not required on Chrome OS.
   Add(IDR_CLOUDPRINT_MANIFEST, FilePath(FILE_PATH_LITERAL("cloud_print")));
-#endif
-
-#if defined(OS_CHROMEOS)
-  // Register access extensions only if accessibility is enabled.
-  if (local_state_->GetBoolean(prefs::kSpokenFeedbackEnabled)) {
-    FilePath path = FilePath(extension_misc::kAccessExtensionPath)
-        .AppendASCII(extension_misc::kChromeVoxDirectoryName);
-    Add(IDR_CHROMEVOX_MANIFEST, path);
-  }
 #endif
 
   // If a URL for the enterprise webstore has been specified, load the
@@ -400,13 +366,47 @@ void ComponentLoader::AddDefaultComponentExtensions() {
   AddChromeApp();
 #endif
 
-  AddScriptBubble();
+  AddDefaultComponentExtensionsWithBackgroundPages();
 }
 
-void ComponentLoader::OnPreferenceChanged(PrefServiceBase* service,
-                                          const std::string& pref_name) {
-  DCHECK_EQ(std::string(prefs::kEnterpriseWebStoreURL), pref_name);
-  AddOrReloadEnterpriseWebStore();
+void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages() {
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+
+  // Component extensions with background pages are not enabled during tests
+  // because they generate a lot of background behavior that can interfere.
+  if (!enable_background_extensions_during_testing &&
+      command_line->HasSwitch(switches::kTestType)) {
+    return;
+  }
+
+  // Apps Debugger
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kAppsDebugger)) {
+    Add(IDR_APPS_DEBUGGER_MANIFEST,
+        FilePath(FILE_PATH_LITERAL("apps_debugger")));
+  }
+
+  AddFileManagerExtension();
+
+#if defined(OS_CHROMEOS)
+  Add(IDR_WALLPAPERMANAGER_MANIFEST,
+      FilePath(FILE_PATH_LITERAL("chromeos/wallpaper_manager")));
+
+  if (command_line->HasSwitch(switches::kEnableBackgroundLoader)) {
+    Add(IDR_BACKLOADER_MANIFEST,
+        FilePath(FILE_PATH_LITERAL("backloader")));
+  }
+
+  // Load ChromeVox extension now if spoken feedback is enabled.
+  if (local_state_->GetBoolean(prefs::kSpokenFeedbackEnabled)) {
+    FilePath path = FilePath(extension_misc::kChromeVoxExtensionPath);
+    Add(IDR_CHROMEVOX_MANIFEST, path);
+  }
+#endif
+
+#if defined(ENABLE_SETTINGS_APP)
+  Add(IDR_SETTINGS_APP_MANIFEST, FilePath(FILE_PATH_LITERAL("settings_app")));
+#endif
 }
 
 // static

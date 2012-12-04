@@ -51,6 +51,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDnsPrefetchingEnabled,
     prefs::kNetworkPredictionEnabled,
     Value::TYPE_BOOLEAN },
+  { key::kBuiltInDnsClientEnabled,
+    prefs::kBuiltInDnsClientEnabled,
+    Value::TYPE_BOOLEAN },
   { key::kDisableSpdy,
     prefs::kDisableSpdy,
     Value::TYPE_BOOLEAN },
@@ -328,6 +331,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     Value::TYPE_BOOLEAN },
   { key::kAudioCaptureAllowed,
     prefs::kAudioCaptureAllowed,
+    Value::TYPE_BOOLEAN },
+  { key::kShowLogoutButtonInTray,
+    prefs::kShowLogoutButtonInTray,
     Value::TYPE_BOOLEAN },
 #endif  // defined(OS_CHROMEOS)
 

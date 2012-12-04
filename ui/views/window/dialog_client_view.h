@@ -35,11 +35,6 @@ class VIEWS_EXPORT DialogClientView : public ClientView,
                                       public ButtonListener,
                                       public FocusChangeListener {
  public:
-  typedef TextButton* (*TextButtonFactory)(ButtonListener* listener,
-                                           Widget* owner,
-                                           ui::DialogButton type,
-                                           const string16& title);
-
   // Parameters for the internal dialog styling.  Default construction
   // produces parameters for native dialog styling.
   struct VIEWS_EXPORT StyleParams {
@@ -47,10 +42,9 @@ class VIEWS_EXPORT DialogClientView : public ClientView,
 
     int button_vedge_margin;
     int button_hedge_margin;
-    int min_button_width;
-    int button_label_spacing;
+    int button_shadow_margin;
     int button_content_spacing;
-    TextButtonFactory text_button_factory;
+    int related_button_hspacing;
   };
 
   DialogClientView(Widget* widget,
@@ -76,17 +70,12 @@ class VIEWS_EXPORT DialogClientView : public ClientView,
   TextButton* ok_button() const { return ok_button_; }
   TextButton* cancel_button() const { return cancel_button_; }
 
-  // Factory functions for creating buttons of the desired style.
-  static TextButton* CreateNativeStyleDialogButton(ButtonListener* listener,
-                                                   Widget* owner,
-                                                   ui::DialogButton type,
-                                                   const string16& title);
-  static TextButton* CreateChromeStyleDialogButton(ButtonListener* listener,
-                                                   Widget* owner,
-                                                   ui::DialogButton type,
-                                                   const string16& title);
   // Creates a StyleParams struct in Chrome style (default is native style).
   static StyleParams GetChromeStyleParams();
+
+  // Returns the number of pixels at the bottom of the dialog which are visually
+  // part of the frame, but are actually rendered by the DialogClientView.
+  int GetBottomMargin();
 
   // Overridden from View:
   virtual void NativeViewHierarchyChanged(
@@ -121,12 +110,12 @@ class VIEWS_EXPORT DialogClientView : public ClientView,
                              const ui::Event& event) OVERRIDE;
 
  private:
+  // Create a dialog button of the appropriate type.
+  TextButton* CreateDialogButton(ui::DialogButton type, const string16& title);
+
   // Paint the size box in the bottom right corner of the window if it is
   // resizable.
   void PaintSizeBox(gfx::Canvas* canvas);
-
-  // Returns the width of the specified dialog button using the correct font.
-  int GetButtonWidth(int button) const;
 
   // Returns the greater of ok and cancel button's preferred height.
   int GetButtonsHeight() const;

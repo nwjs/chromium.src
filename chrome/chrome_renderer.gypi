@@ -133,6 +133,8 @@
         'renderer/extensions/web_request_custom_bindings.h',
         'renderer/extensions/webstore_bindings.cc',
         'renderer/extensions/webstore_bindings.h',
+        'renderer/favicon_helper.cc',
+        'renderer/favicon_helper.h',
         'renderer/frame_sniffer.cc',
         'renderer/frame_sniffer.h',
         'renderer/loadtimes_extension_bindings.h',
@@ -170,6 +172,7 @@
         'renderer/resources/extensions/schema_generated_bindings.js',
         'renderer/resources/extensions/send_request.js',
         'renderer/resources/extensions/set_icon.js',
+        'renderer/resources/extensions/system_indicator_custom_bindings.js',
         'renderer/resources/extensions/tts_custom_bindings.js',
         'renderer/resources/extensions/tts_engine_custom_bindings.js',
         'renderer/resources/extensions/types_custom_bindings.js',
@@ -200,6 +203,10 @@
         'renderer/pepper/chrome_renderer_pepper_host_factory.h',
         'renderer/pepper/pepper_flash_font_file_host.cc',
         'renderer/pepper/pepper_flash_font_file_host.h',
+        'renderer/pepper/pepper_flash_fullscreen_host.cc',
+        'renderer/pepper/pepper_flash_fullscreen_host.h',
+        'renderer/pepper/pepper_flash_menu_host.cc',
+        'renderer/pepper/pepper_flash_menu_host.h',
         'renderer/pepper/pepper_flash_renderer_message_filter.cc',
         'renderer/pepper/pepper_flash_renderer_message_filter.h',
         'renderer/pepper/pepper_helper.cc',
@@ -285,13 +292,13 @@
         }],
         ['safe_browsing==1', {
           'defines': [
-            'ENABLE_SAFE_BROWSING',
+            'FULL_SAFE_BROWSING',
           ],
           'dependencies': [
             'safe_browsing_proto',
             '../third_party/smhasher/smhasher.gyp:murmurhash3',
           ],
-        }, {  # safe_browsing==0
+        }, {  # safe_browsing==0 || safe_browsing==2
           'sources/': [
             ['exclude', '^renderer/safe_browsing/'],
           ],

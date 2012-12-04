@@ -43,7 +43,6 @@
         'action': [
           '<(PRODUCT_DIR)/<(EXECUTABLE_PREFIX)chrome<(EXECUTABLE_SUFFIX)',
           '--enable-pepper-testing',
-          '--enable-accelerated-plugins',
           '--register-pepper-plugins=$(TargetPath);application/x-ppapi-tests',
           'file://$(ProjectDir)/tests/test_case.html?testcase=',
         ],
@@ -126,6 +125,7 @@
         'chromium_code': 1,
       },
       'dependencies': [
+        'ppapi_host',
         'ppapi_proxy',
         'ppapi_shared',
         'ppapi_unittest_shared',
@@ -141,6 +141,7 @@
       'sources': [
         'proxy/run_all_unittests.cc',
 
+        'host/resource_message_filter_unittest.cc',
         'proxy/file_chooser_resource_unittest.cc',
         'proxy/flash_resource_unittest.cc',
         'proxy/mock_resource.cc',
@@ -363,6 +364,16 @@
       ],
       'sources': [
         'examples/url_loader/streaming.cc',
+      ],
+    },
+    {
+      'target_name': 'ppapi_example_url_loader_file',
+      'dependencies': [
+        'ppapi_example_skeleton',
+        'ppapi.gyp:ppapi_cpp',
+      ],
+      'sources': [
+        'examples/url_loader/stream_to_file.cc',
       ],
     },
     {

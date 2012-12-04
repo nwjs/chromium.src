@@ -45,13 +45,14 @@ class VIEWS_EXPORT Link : public Label {
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
 
   // Overridden from ui::EventHandler:
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Overridden from Label:
   virtual void SetFont(const gfx::Font& font) OVERRIDE;
 
   virtual void SetEnabledColor(SkColor color) OVERRIDE;
   void SetPressedColor(SkColor color);
+  void SetUnderline(bool underline);
 
   static const char kViewClassName[];
 
@@ -63,6 +64,9 @@ class VIEWS_EXPORT Link : public Label {
   void RecalculateFont();
 
   LinkListener* listener_;
+
+  // Whether the link should be underlined when enabled.
+  bool underline_;
 
   // Whether the link is currently pressed.
   bool pressed_;

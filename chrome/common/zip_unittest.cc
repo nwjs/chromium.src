@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/zip.h"
@@ -87,7 +87,7 @@ class ZipTest : public PlatformTest {
   // The path to temporary directory used to contain the test operations.
   FilePath test_dir_;
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   // Hard-coded contents of a known zip file.
   std::set<FilePath> zip_contents_;
@@ -139,7 +139,7 @@ TEST_F(ZipTest, Zip) {
   ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &src_dir));
   src_dir = src_dir.AppendASCII("zip").AppendASCII("test");
 
-  ScopedTempDir temp_dir;
+  base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   FilePath zip_file = temp_dir.path().AppendASCII("out.zip");
 
@@ -152,7 +152,7 @@ TEST_F(ZipTest, ZipIgnoreHidden) {
   ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &src_dir));
   src_dir = src_dir.AppendASCII("zip").AppendASCII("test");
 
-  ScopedTempDir temp_dir;
+  base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   FilePath zip_file = temp_dir.path().AppendASCII("out.zip");
 
@@ -160,16 +160,22 @@ TEST_F(ZipTest, ZipIgnoreHidden) {
   TestUnzipFile(zip_file, false);
 }
 
+#if defined(OS_POSIX)
 TEST_F(ZipTest, ZipFiles) {
   FilePath src_dir;
   ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &src_dir));
   src_dir = src_dir.AppendASCII("zip").AppendASCII("test");
 
-  ScopedTempDir temp_dir;
+  base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   FilePath zip_file = temp_dir.path().AppendASCII("out.zip");
 
-  EXPECT_TRUE(zip::ZipFiles(src_dir, zip_file_list_, zip_file));
+  const int flags = base::PLATFORM_FILE_CREATE | base::PLATFORM_FILE_WRITE;
+  const base::PlatformFile zip_fd =
+      base::CreatePlatformFile(zip_file, flags, NULL, NULL);
+  ASSERT_LE(0, zip_fd);
+  EXPECT_TRUE(zip::ZipFiles(src_dir, zip_file_list_, zip_fd));
+  base::ClosePlatformFile(zip_fd);
 
   zip::ZipReader reader;
   EXPECT_TRUE(reader.Open(zip_file));
@@ -181,6 +187,7 @@ TEST_F(ZipTest, ZipFiles) {
     EXPECT_EQ(entry_info->file_path(), zip_file_list_[i]);
   }
 }
+#endif  // defined(OS_POSIX)
 
 }  // namespace
 

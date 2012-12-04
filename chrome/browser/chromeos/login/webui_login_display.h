@@ -40,6 +40,7 @@ class WebUILoginDisplay : public LoginDisplay,
   virtual void ShowError(int error_msg_id,
                          int login_attempts,
                          HelpAppLauncher::HelpTopic help_topic_id) OVERRIDE;
+  virtual void ShowErrorScreen(LoginDisplay::SigninError error_id) OVERRIDE;
   virtual void ShowGaiaPasswordChanged(const std::string& username) OVERRIDE;
 
   // NativeWindowDelegate implementation:
@@ -50,7 +51,7 @@ class WebUILoginDisplay : public LoginDisplay,
                              const std::string& password) OVERRIDE;
   virtual void Login(const std::string& username,
                      const std::string& password) OVERRIDE;
-  virtual void LoginAsDemoUser() OVERRIDE;
+  virtual void LoginAsRetailModeUser() OVERRIDE;
   virtual void LoginAsGuest() OVERRIDE;
   virtual void Signout() OVERRIDE;
   virtual void CreateAccount() OVERRIDE;

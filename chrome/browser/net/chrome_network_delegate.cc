@@ -33,6 +33,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/resource_request_info.h"
+#include "extensions/common/constants.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_log.h"
@@ -42,10 +43,6 @@
 #include "net/http/http_response_headers.h"
 #include "net/socket_stream/socket_stream.h"
 #include "net/url_request/url_request.h"
-
-#if !defined(OS_ANDROID)
-#include "chrome/browser/managed_mode/managed_mode_url_filter.h"
-#endif
 
 #if defined(OS_CHROMEOS)
 #include "base/chromeos/chromeos_version.h"
@@ -216,7 +213,13 @@ void UpdateContentLengthPrefs(int received_content_length,
   DCHECK_GE(received_content_length, 0);
   DCHECK_GE(original_content_length, 0);
 
+  // Can be NULL in a unit test.
+  if (!g_browser_process)
+    return;
+
   PrefService* prefs = g_browser_process->local_state();
+  if (!prefs)
+    return;
 
   int64 total_received = prefs->GetInt64(prefs::kHttpReceivedContentLength);
   int64 total_original = prefs->GetInt64(prefs::kHttpOriginalContentLength);
@@ -262,33 +265,31 @@ void RecordContentLengthHistograms(
 
 ChromeNetworkDelegate::ChromeNetworkDelegate(
     extensions::EventRouterForwarder* event_router,
-    ExtensionInfoMap* extension_info_map,
-    const policy::URLBlacklistManager* url_blacklist_manager,
-    const ManagedModeURLFilter* managed_mode_url_filter,
-    void* profile,
-    CookieSettings* cookie_settings,
-    BooleanPrefMember* enable_referrers,
-    BooleanPrefMember* enable_do_not_track,
-    BooleanPrefMember* force_google_safe_search,
-    chrome_browser_net::LoadTimeStats* load_time_stats)
+    BooleanPrefMember* enable_referrers)
     : event_router_(event_router),
-      profile_(profile),
-      cookie_settings_(cookie_settings),
-      extension_info_map_(extension_info_map),
+      profile_(NULL),
       enable_referrers_(enable_referrers),
-      enable_do_not_track_(enable_do_not_track),
-      force_google_safe_search_(force_google_safe_search),
-      url_blacklist_manager_(url_blacklist_manager),
-      managed_mode_url_filter_(managed_mode_url_filter),
-      load_time_stats_(load_time_stats),
+      enable_do_not_track_(NULL),
+      force_google_safe_search_(NULL),
+      url_blacklist_manager_(NULL),
+      load_time_stats_(NULL),
       received_content_length_(0),
       original_content_length_(0) {
   DCHECK(event_router);
   DCHECK(enable_referrers);
-  DCHECK(!profile || cookie_settings);
 }
 
 ChromeNetworkDelegate::~ChromeNetworkDelegate() {}
+
+void ChromeNetworkDelegate::set_extension_info_map(
+    ExtensionInfoMap* extension_info_map) {
+  extension_info_map_ = extension_info_map;
+}
+
+void ChromeNetworkDelegate::set_cookie_settings(
+    CookieSettings* cookie_settings) {
+  cookie_settings_ = cookie_settings;
+}
 
 // static
 void ChromeNetworkDelegate::NeverThrottleRequests() {
@@ -357,14 +358,6 @@ int ChromeNetworkDelegate::OnBeforeURLRequest(
         net::NetLog::TYPE_CHROME_POLICY_ABORTED_REQUEST,
         net::NetLog::StringCallback("url",
                                     &request->url().possibly_invalid_spec()));
-    return net::ERR_NETWORK_ACCESS_DENIED;
-  }
-#endif
-
-#if !defined(OS_ANDROID)
-  if (managed_mode_url_filter_ &&
-      !managed_mode_url_filter_->IsURLWhitelisted(request->url())) {
-    // Block for now.
     return net::ERR_NETWORK_ACCESS_DENIED;
   }
 #endif
@@ -633,7 +626,7 @@ bool ChromeNetworkDelegate::OnCanThrottleRequest(
   }
 
   return request.first_party_for_cookies().scheme() ==
-      chrome::kExtensionScheme;
+      extensions::kExtensionScheme;
 }
 
 int ChromeNetworkDelegate::OnBeforeSocketStreamConnect(

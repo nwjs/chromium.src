@@ -40,7 +40,6 @@ struct hash<WebKit::WebGraphicsContext3D*> {
 
 namespace cc {
 
-class FontAtlas;
 class Layer;
 class LayerTreeHostImpl;
 class LayerTreeHostImplClient;
@@ -50,27 +49,50 @@ class HeadsUpDisplayLayer;
 class Region;
 struct ScrollAndScaleSet;
 
-struct CC_EXPORT LayerTreeSettings {
-    LayerTreeSettings();
-    ~LayerTreeSettings();
+struct CC_EXPORT LayerTreeDebugState {
+    LayerTreeDebugState();
+    ~LayerTreeDebugState();
 
-    bool acceleratePainting;
+    bool showFPSCounter;
     bool showPlatformLayerTree;
+    bool showDebugBorders;
+
     bool showPaintRects;
     bool showPropertyChangedRects;
     bool showSurfaceDamageRects;
     bool showScreenSpaceRects;
     bool showReplicaScreenSpaceRects;
     bool showOccludingRects;
+    bool showNonOccludingRects;
+
+    bool showHudInfo() const;
+    bool showHudRects() const;
+    bool hudNeedsFont() const;
+
+    static bool equal(const LayerTreeDebugState& a, const LayerTreeDebugState& b);
+    static LayerTreeDebugState unite(const LayerTreeDebugState& a, const LayerTreeDebugState& b);
+};
+
+struct CC_EXPORT LayerTreeSettings {
+    LayerTreeSettings();
+    ~LayerTreeSettings();
+
+    bool acceleratePainting;
+    bool implSidePainting;
     bool renderVSyncEnabled;
+    bool perTilePaintingEnabled;
+    bool partialSwapEnabled;
+    bool acceleratedAnimationEnabled;
+    bool pageScalePinchZoomEnabled;
+    bool backgroundColorInsteadOfCheckerboard;
+    bool showOverdrawInTracing;
     double refreshRate;
     size_t maxPartialTextureUpdates;
     gfx::Size defaultTileSize;
     gfx::Size maxUntiledLayerSize;
     gfx::Size minimumOcclusionTrackingSize;
 
-    bool showDebugInfo() const { return showPlatformLayerTree || showDebugRects(); }
-    bool showDebugRects() const { return showPaintRects || showPropertyChangedRects || showSurfaceDamageRects || showScreenSpaceRects || showReplicaScreenSpaceRects || showOccludingRects; }
+    LayerTreeDebugState initialDebugState;
 };
 
 // Provides information on an Impl's rendering capabilities back to the LayerTreeHost
@@ -162,6 +184,7 @@ public:
     void setNeedsAnimate();
     // virtual for testing
     virtual void setNeedsCommit();
+    virtual void setNeedsFullTreeSync();
     void setNeedsRedraw();
     bool commitRequested() const;
 
@@ -173,6 +196,9 @@ public:
     void setRootLayer(scoped_refptr<Layer>);
 
     const LayerTreeSettings& settings() const { return m_settings; }
+
+    void setDebugState(const LayerTreeDebugState& debugState);
+    const LayerTreeDebugState& debugState() const { return m_debugState; }
 
     void setViewportSize(const gfx::Size& layoutViewportSize, const gfx::Size& deviceViewportSize);
 
@@ -193,8 +219,12 @@ public:
     void startPageScaleAnimation(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration);
 
     void applyScrollAndScale(const ScrollAndScaleSet&);
-    gfx::PointF adjustEventPointForPinchZoom(const gfx::PointF&) const;
-    void setImplTransform(const WebKit::WebTransformationMatrix&);
+    // This function converts event coordinates when the deviceViewport is zoomed.
+    // Coordinates are transformed from logical pixels in the zoomed viewport to
+    // logical pixels in the un-zoomed viewport, the latter being the coordinates
+    // required for hit-testing.
+    gfx::PointF adjustEventPointForPinchZoom(const gfx::PointF& zoomedViewportPoint) const;
+    void setImplTransform(const gfx::Transform&);
 
     void startRateLimiter(WebKit::WebGraphicsContext3D*);
     void stopRateLimiter(WebKit::WebGraphicsContext3D*);
@@ -207,9 +237,6 @@ public:
 
     void setDeviceScaleFactor(float);
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
-
-    void setShowFPSCounter(bool show);
-    void setFontAtlas(scoped_ptr<FontAtlas>);
 
     HeadsUpDisplayLayer* hudLayer() const { return m_hudLayer.get(); }
 
@@ -240,10 +267,9 @@ private:
     bool animateLayersRecursive(Layer* current, base::TimeTicks time);
     void setAnimationEventsRecursive(const AnimationEventsVector&, Layer*, base::Time wallClockTime);
 
-    void createHUDLayerIfNeeded();
-
     bool m_animating;
     bool m_needsAnimateLayers;
+    bool m_needsFullTreeSync;
 
     base::CancelableClosure m_prepaintCallback;
 
@@ -265,6 +291,7 @@ private:
     scoped_ptr<PrioritizedResource> m_surfaceMemoryPlaceholder;
 
     LayerTreeSettings m_settings;
+    LayerTreeDebugState m_debugState;
 
     gfx::Size m_layoutViewportSize;
     gfx::Size m_deviceViewportSize;
@@ -277,7 +304,7 @@ private:
 
     float m_pageScaleFactor;
     float m_minPageScaleFactor, m_maxPageScaleFactor;
-    WebKit::WebTransformationMatrix m_implTransform;
+    gfx::Transform m_implTransform;
     bool m_triggerIdleUpdates;
 
     SkColor m_backgroundColor;

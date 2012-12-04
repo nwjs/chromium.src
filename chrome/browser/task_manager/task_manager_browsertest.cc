@@ -13,6 +13,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/notification.h"
@@ -41,6 +42,9 @@
 #include "net/base/mock_host_resolver.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
+
+// http://crbug.com/31663
+#if !(defined(OS_WIN) && defined(USE_AURA))
 
 using content::WebContents;
 
@@ -114,7 +118,7 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest, NoticeTabContentsChanges) {
 
   // Close the tab and verify that we notice.
   WebContents* first_tab =
-      chrome::GetTabContentsAt(browser(), 0)->web_contents();
+      browser()->tab_strip_model()->GetWebContentsAt(0);
   ASSERT_TRUE(first_tab);
   chrome::CloseWebContents(browser(), first_tab);
   TaskManagerBrowserTestUtil::WaitForWebResourceChange(1);
@@ -378,7 +382,8 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest, NoticeAppTabs) {
   int resource_count = TaskManager::GetInstance()->model()->ResourceCount();
   ASSERT_TRUE(LoadExtension(
       test_data_dir_.AppendASCII("packaged_app")));
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
 
@@ -607,3 +612,5 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest,
   DCHECK_NE(model()->GetResourceWebCoreCSSCacheSize(resource_count),
             l10n_util::GetStringUTF16(IDS_TASK_MANAGER_NA_CELL_TEXT));
 }
+
+#endif

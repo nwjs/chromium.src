@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,6 @@
 #include "chrome/browser/bookmarks/bookmark_editor.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/managed_mode/managed_mode.h"
 #include "chrome/browser/profiles/avatar_menu_model.h"
 #include "chrome/browser/profiles/profile.h"
@@ -438,7 +437,7 @@ enum {
 }
 
 - (void)dealloc {
-  chrome::CloseAllTabs(browser_.get());
+  browser_->tab_strip_model()->CloseAllTabs();
   [downloadShelfController_ exiting];
 
   // Explicitly release |presentationModeController_| here, as it may call back
@@ -1236,7 +1235,7 @@ enum {
     BrowserWindowController* dragBWC = (BrowserWindowController*)dragController;
     int index = [dragBWC->tabStripController_ modelIndexForTabView:view];
     TabContents* contents =
-        chrome::GetTabContentsAt(dragBWC->browser_.get(), index);
+        dragBWC->browser_->tab_strip_model()->GetTabContentsAt(index);
     // The tab contents may have gone away if given a window.close() while it
     // is being dragged. If so, bail, we've got nothing to drop.
     if (!contents)
@@ -1314,7 +1313,7 @@ enum {
 
   // Fetch the tab contents for the tab being dragged.
   int index = [tabStripController_ modelIndexForTabView:tabView];
-  TabContents* contents = chrome::GetTabContentsAt(browser_.get(), index);
+  TabContents* contents = browser_->tab_strip_model()->GetTabContentsAt(index);
 
   // Set the window size. Need to do this before we detach the tab so it's
   // still in the window. We have to flip the coordinates as that's what
@@ -1886,9 +1885,9 @@ willAnimateFromState:(bookmarks::VisualState)oldState
 }
 
 - (void)commitInstant {
-  InstantController* instant = browser_->instant_controller()->instant();
-  if (instant && instant->IsCurrent())
-    instant->CommitCurrentPreview(INSTANT_COMMIT_FOCUS_LOST);
+  if (chrome::BrowserInstantController* controller =
+          browser_->instant_controller())
+    controller->instant()->CommitIfCurrent(INSTANT_COMMIT_FOCUS_LOST);
 }
 
 - (BOOL)isInstantTabShowing {

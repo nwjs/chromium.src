@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/fullscreen/fullscreen_controller_test.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -505,8 +506,9 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
 }
 
 // Tests mouse lock then fullscreen.
+// Test is flaky: http://crbug.com/146006
 IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
-                       MouseLockThenFullscreen) {
+                       DISABLED_MouseLockThenFullscreen) {
   ASSERT_TRUE(test_server()->Start());
   ui_test_utils::NavigateToURL(browser(),
                                test_server()->GetURL(kFullscreenMouseLockHTML));

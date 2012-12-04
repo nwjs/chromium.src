@@ -53,6 +53,8 @@ class PermissionMessage {
     kSocketSpecificHosts,
     kBluetooth,
     kUsb,
+    kSystemIndicator,
+    kBluetoothDevice,
     kEnumBoundary
   };
 

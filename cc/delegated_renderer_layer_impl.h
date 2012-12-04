@@ -16,7 +16,7 @@ public:
     static scoped_ptr<DelegatedRendererLayerImpl> create(int id) { return make_scoped_ptr(new DelegatedRendererLayerImpl(id)); }
     virtual ~DelegatedRendererLayerImpl();
 
-    virtual bool descendantDrawsContent() OVERRIDE;
+    virtual int descendantsDrawContent() OVERRIDE;
     virtual bool hasContributingDelegatedRenderPasses() const OVERRIDE;
 
     // This gives ownership of the RenderPasses to the layer.
@@ -36,7 +36,7 @@ private:
 
     RenderPass::Id convertDelegatedRenderPassId(RenderPass::Id delegatedRenderPassId) const;
 
-    void appendRenderPassQuads(QuadSink&, AppendQuadsData&, RenderPass* fromDelegatedRenderPass) const;
+    void appendRenderPassQuads(QuadSink&, AppendQuadsData&, const RenderPass* fromDelegatedRenderPass) const;
 
     virtual const char* layerTypeAsString() const OVERRIDE;
 

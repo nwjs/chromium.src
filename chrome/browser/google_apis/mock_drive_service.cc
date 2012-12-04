@@ -7,12 +7,12 @@
 #include "base/bind.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/location.h"
 #include "base/json/json_file_value_serializer.h"
+#include "base/location.h"
 #include "base/message_loop_proxy.h"
 #include "base/path_service.h"
 #include "base/platform_file.h"
-#include "chrome/browser/google_apis/gdata_test_util.h"
+#include "chrome/browser/google_apis/test_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 using ::testing::_;
@@ -24,9 +24,7 @@ namespace google_apis {
 MockDriveService::MockDriveService() {
   ON_CALL(*this, GetProgressStatusList())
       .WillByDefault(Return(OperationProgressStatusList()));
-  ON_CALL(*this, Authenticate(_))
-      .WillByDefault(Invoke(this, &MockDriveService::AuthenticateStub));
-  ON_CALL(*this, GetDocuments(_, _, _, _, _))
+  ON_CALL(*this, GetDocuments(_, _, _, _, _, _))
       .WillByDefault(Invoke(this, &MockDriveService::GetDocumentsStub));
   ON_CALL(*this, GetAccountMetadata(_))
       .WillByDefault(Invoke(this, &MockDriveService::GetAccountMetadataStub));
@@ -41,7 +39,7 @@ MockDriveService::MockDriveService() {
   ON_CALL(*this, AddResourceToDirectory(_, _, _))
       .WillByDefault(
           Invoke(this, &MockDriveService::AddResourceToDirectoryStub));
-  ON_CALL(*this, RemoveResourceFromDirectory(_, _, _, _))
+  ON_CALL(*this, RemoveResourceFromDirectory(_, _, _))
       .WillByDefault(
           Invoke(this, &MockDriveService::RemoveResourceFromDirectoryStub));
   ON_CALL(*this, AddNewDirectory(_, _, _))
@@ -64,17 +62,11 @@ void MockDriveService::set_search_result(
   search_result_ = test_util::LoadJSONFile(search_result_feed);
 }
 
-void MockDriveService::AuthenticateStub(
-    const AuthStatusCallback& callback) {
-  base::MessageLoopProxy::current()->PostTask(
-      FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS, "my_auth_token"));
-}
-
 void MockDriveService::GetDocumentsStub(
     const GURL& feed_url,
     int64 start_changestamp,
     const std::string& search_string,
+    bool shared_with_me,
     const std::string& directory_resource_id,
     const GetDataCallback& callback) {
   if (search_string.empty()) {
@@ -103,7 +95,7 @@ void MockDriveService::DeleteDocumentStub(
     const EntryActionCallback& callback) {
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS, document_url));
+      base::Bind(callback, HTTP_SUCCESS));
 }
 
 void MockDriveService::DownloadDocumentStub(
@@ -114,8 +106,7 @@ void MockDriveService::DownloadDocumentStub(
     const DownloadActionCallback& callback) {
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS,
-                 content_url, local_tmp_path));
+      base::Bind(callback, HTTP_SUCCESS, local_tmp_path));
 }
 
 void MockDriveService::CopyDocumentStub(
@@ -134,7 +125,7 @@ void MockDriveService::RenameResourceStub(
     const EntryActionCallback& callback) {
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS, resource_url));
+      base::Bind(callback, HTTP_SUCCESS));
 }
 
 void MockDriveService::AddResourceToDirectoryStub(
@@ -143,17 +134,16 @@ void MockDriveService::AddResourceToDirectoryStub(
     const EntryActionCallback& callback) {
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS, resource_url));
+      base::Bind(callback, HTTP_SUCCESS));
 }
 
 void MockDriveService::RemoveResourceFromDirectoryStub(
     const GURL& parent_content_url,
-    const GURL& resource_url,
     const std::string& resource_id,
     const EntryActionCallback& callback) {
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(callback, HTTP_SUCCESS, resource_url));
+      base::Bind(callback, HTTP_SUCCESS));
 }
 
 void MockDriveService::CreateDirectoryStub(
@@ -181,7 +171,7 @@ void MockDriveService::DownloadFileStub(
   }
   base::MessageLoopProxy::current()->PostTask(
       FROM_HERE,
-      base::Bind(download_action_callback, error, content_url, local_tmp_path));
+      base::Bind(download_action_callback, error, local_tmp_path));
 }
 
 }  // namespace google_apis

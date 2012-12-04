@@ -30,6 +30,7 @@
         'content_shell_resources',
         'content_utility',
         'content_worker',
+        'test_support_content',
         'content_resources.gyp:content_resources',
         '../base/base.gyp:base',
         '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
@@ -39,6 +40,7 @@
         '../net/net.gyp:net',
         '../net/net.gyp:net_resources',
         '../skia/skia.gyp:skia',
+        '../ui/gl/gl.gyp:gl',
         '../ui/ui.gyp:ui',
         '../v8/tools/gyp/v8.gyp:v8',
         '../webkit/support/webkit_support.gyp:webkit_support',
@@ -108,6 +110,8 @@
         'shell/shell_switches.h',
         'shell/shell_url_request_context_getter.cc',
         'shell/shell_url_request_context_getter.h',
+        'shell/shell_webpreferences.cc',
+        'shell/shell_webpreferences.h',
         'shell/shell_web_contents_view_delegate_creator.h',
         'shell/shell_web_contents_view_delegate_gtk.cc',
         'shell/shell_web_contents_view_delegate_mac.mm',
@@ -597,27 +601,19 @@
         {
           # content_shell_apk creates a .jar as a side effect. Any java targets
           # that need that .jar in their classpath should depend on this target,
-          # content_shell_java.
+          # content_shell_java. Dependents of content_shell_apk receive its jar
+          # path in the variable 'apk_output_jar_path'.
           'target_name': 'content_shell_java',
           'type': 'none',
-          'variables': {
-            'output_jar': '<(PRODUCT_DIR)/lib.java/chromium_apk_content_shell.jar'
-          },
-          'outputs': ['<(output_jar)'],
           'dependencies': [
-            'content_java',
             'content_shell_apk',
-            '../base/base.gyp:base_java',
-            '../media/media.gyp:media_java',
-            '../net/net.gyp:net_java',
-            '../ui/ui.gyp:ui_java',
           ],
           # This all_dependent_settings is used for java targets only. This will
           # add the content_shell jar to the classpath of dependent java
           # targets.
           'all_dependent_settings': {
             'variables': {
-              'input_jars_paths': ['<(output_jar)'],
+              'input_jars_paths': ['>(apk_output_jar_path)'],
             },
           },
           # Add an action with the appropriate output. This allows the generated
@@ -626,7 +622,7 @@
             {
               'action_name': 'fake_generate_jar',
               'inputs': [],
-              'outputs': ['<(output_jar)'],
+              'outputs': ['>(apk_output_jar_path)'],
               'action': [],
             },
           ],

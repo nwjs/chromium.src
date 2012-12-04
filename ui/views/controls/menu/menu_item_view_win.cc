@@ -8,13 +8,13 @@
 #include <Vssym32.h>
 
 #include "grit/ui_strings.h"
-#include "ui/base/native_theme/native_theme_win.h"
 #include "ui/gfx/canvas.h"
+#include "ui/native_theme/native_theme_win.h"
 #include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/submenu_view.h"
 
 #if defined(USE_AURA)
-#include "ui/base/native_theme/native_theme_aura.h"
+#include "ui/native_theme/native_theme_aura.h"
 #endif
 
 using ui::NativeTheme;
@@ -39,8 +39,6 @@ void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
   int state;
   NativeTheme::State control_state;
 
-  ui::NativeTheme* native_theme = GetNativeTheme();
-
   if (enabled()) {
     if (render_selection) {
       control_state = NativeTheme::kHovered;
@@ -57,7 +55,18 @@ void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
     control_state = NativeTheme::kDisabled;
   }
 
-  // The gutter is rendered before the background.
+  // Render the background.  If new menu style enabled then background need
+  // to be rendered before gutter.
+  gfx::Rect item_bounds(0, 0, width(), height());
+  AdjustBoundsForRTLUI(&item_bounds);
+  NativeTheme::ExtraParams extra;
+  extra.menu_item.is_selected = render_selection;
+  if (mode == PB_NORMAL && NativeTheme::IsNewMenuStyleEnabled()) {
+    config.native_theme->Paint(canvas->sk_canvas(),
+        NativeTheme::kMenuItemBackground, control_state, item_bounds, extra);
+  }
+
+  // Render the gutter.
   if (config.render_gutter && mode == PB_NORMAL) {
     gfx::Rect gutter_bounds(label_start_ - config.gutter_to_label -
                             config.gutter_width, 0, config.gutter_width,
@@ -71,12 +80,9 @@ void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
                                extra);
   }
 
-  // Render the background.
-  if (mode == PB_NORMAL) {
-    gfx::Rect item_bounds(0, 0, width(), height());
-    NativeTheme::ExtraParams extra;
-    extra.menu_item.is_selected = render_selection;
-    AdjustBoundsForRTLUI(&item_bounds);
+  // If using native theme then background (especialy when item is selected)
+  // need to be rendered after the gutter.
+  if ((mode == PB_NORMAL) && !NativeTheme::IsNewMenuStyleEnabled()) {
     config.native_theme->Paint(canvas->sk_canvas(),
         NativeTheme::kMenuItemBackground, control_state, item_bounds, extra);
   }

@@ -7,21 +7,22 @@
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
+#include "ash/wm/activation_controller_delegate.h"
 #include "ash/wm/property_util.h"
-#include "ash/wm/window_modality_controller.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/auto_reset.h"
 #include "ui/aura/client/activation_change_observer.h"
 #include "ui/aura/client/activation_delegate.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/client/focus_client.h"
 #include "ui/aura/env.h"
-#include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/layer.h"
+#include "ui/views/corewm/window_modality_controller.h"
 
 namespace ash {
 namespace internal {
@@ -110,11 +111,11 @@ bool CanActivateWindowWithEvent(aura::Window* window,
   return window &&
       VisibilityMatches(window, visibility_type) &&
       (!aura::client::GetActivationDelegate(window) ||
-        aura::client::GetActivationDelegate(window)->ShouldActivate(event)) &&
+        aura::client::GetActivationDelegate(window)->ShouldActivate()) &&
       SupportsChildActivation(window->parent()) &&
       (BelongsToContainerWithEqualOrGreaterId(
           window, kShellWindowId_SystemModalContainer) ||
-       !Shell::GetInstance()->IsModalWindowOpen());
+       !Shell::GetInstance()->IsSystemModalWindowOpen());
 }
 
 // When a modal window is activated, we bring its entire transient parent chain
@@ -131,23 +132,32 @@ void StackTransientParentsBelowModalWindow(aura::Window* window) {
   }
 }
 
+aura::Window* FindFocusableWindowFor(aura::Window* window) {
+  while (window && !window->CanFocus())
+    window = window->parent();
+  return window;
+}
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // ActivationController, public:
 
-ActivationController::ActivationController(aura::FocusManager* focus_manager)
-    : focus_manager_(focus_manager),
+ActivationController::ActivationController(
+    aura::client::FocusClient* focus_client,
+    ActivationControllerDelegate* delegate)
+    : focus_client_(focus_client),
       updating_activation_(false),
       active_window_(NULL),
-      ALLOW_THIS_IN_INITIALIZER_LIST(observer_manager_(this)) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(observer_manager_(this)),
+      delegate_(delegate) {
   aura::Env::GetInstance()->AddObserver(this);
-  focus_manager_->AddObserver(this);
+  focus_client_->AddObserver(this);
 }
 
 ActivationController::~ActivationController() {
   aura::Env::GetInstance()->RemoveObserver(this);
-  focus_manager_->RemoveObserver(this);
+  focus_client_->RemoveObserver(this);
 }
 
 // static
@@ -200,6 +210,10 @@ aura::Window* ActivationController::GetActiveWindow() {
   return active_window_;
 }
 
+aura::Window* ActivationController::GetActivatableWindow(aura::Window* window) {
+  return GetActivatableWindow(window, NULL);
+}
+
 bool ActivationController::OnWillFocusWindow(aura::Window* window,
                                              const ui::Event* event) {
   return CanActivateWindowWithEvent(
@@ -250,73 +264,79 @@ void ActivationController::OnWindowFocused(aura::Window* window) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// ActivationController, ui::EventHandler implementation:
+
+ui::EventResult ActivationController::OnKeyEvent(ui::KeyEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult ActivationController::OnMouseEvent(ui::MouseEvent* event) {
+  if (event->type() == ui::ET_MOUSE_PRESSED)
+    FocusWindowWithEvent(event);
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult ActivationController::OnScrollEvent(ui::ScrollEvent* event) {
+  return ui::ER_UNHANDLED;
+}
+
+ui::EventResult ActivationController::OnTouchEvent(ui::TouchEvent* event) {
+  if (event->type() == ui::ET_TOUCH_PRESSED)
+    FocusWindowWithEvent(event);
+  return ui::ER_UNHANDLED;
+}
+
+void ActivationController::OnGestureEvent(ui::GestureEvent* event) {
+  if (event->type() == ui::ET_GESTURE_BEGIN &&
+      event->details().touch_points() == 1) {
+    FocusWindowWithEvent(event);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // ActivationController, private:
 
 void ActivationController::ActivateWindowWithEvent(aura::Window* window,
                                                    const ui::Event* event) {
-  aura::Window* window_modal_transient = wm::GetWindowModalTransient(window);
-  if (window_modal_transient) {
-    ActivateWindow(window_modal_transient);
-    return;
-  }
-
   // Prevent recursion when called from focus.
   if (updating_activation_)
     return;
+  base::AutoReset<bool> in_activate_window(&updating_activation_, true);
 
-  AutoReset<bool> in_activate_window(&updating_activation_, true);
-  // Nothing may actually have changed.
-  if (active_window_ == window)
+  // We allow the delegate to change which window gets activated, or to prevent
+  // activation changes.
+  aura::Window* original_active_window = window;
+  window = delegate_->WillActivateWindow(window);
+  // TODO(beng): note that this breaks the previous behavior where an activation
+  //             attempt by a window behind the lock screen would at least
+  //             restack that window frontmost within its container. fix this.
+  if (!window && original_active_window != window)
     return;
-  // The stacking client may impose rules on what window configurations can be
-  // activated or deactivated.
+
+  // TODO(beng): This encapsulates additional Ash-specific restrictions on
+  //             whether activation can change. Should move to the delegate.
   if (window && !CanActivateWindowWithEvent(window, event, CURRENT_VISIBILITY))
     return;
 
-  // Make sure the workspace manager switches to the workspace for window.
-  // Without this CanReceiveEvents() below returns false and activation never
-  // changes. CanReceiveEvents() returns false if |window| isn't in the active
-  // workspace, in which case its parent is not visible.
-  // TODO(sky): if I instead change the opacity of the parent this isn't an
-  // issue, but will make animations trickier... Consider which one is better.
-  if (window) {
-    internal::RootWindowController* root_window_controller =
-        GetRootWindowController(window->GetRootWindow());
-    root_window_controller->workspace_controller()->
-        SetActiveWorkspaceByWindow(window);
-  }
-
-  // Restore minimized window. This needs to be done before CanReceiveEvents()
-  // is called as that function checks window visibility.
-  if (window && wm::IsWindowMinimized(window))
-    window->Show();
-
-  // If the screen is locked, just bring the window to top so that
-  // it will be activated when the lock window is destroyed.
-  if (window && !window->CanReceiveEvents()) {
-    StackTransientParentsBelowModalWindow(window);
-    window->parent()->StackChildAtTop(window);
+  if (active_window_ == window)
     return;
-  }
-  if (window &&
-      !window->Contains(window->GetFocusManager()->GetFocusedWindow())) {
-    window->GetFocusManager()->SetFocusedWindow(window, event);
-  }
 
   aura::Window* old_active = active_window_;
   active_window_ = window;
-  if (window) {
-    DCHECK(window->GetRootWindow());
-    Shell::GetInstance()->set_active_root_window(window->GetRootWindow());
+
+  if (window &&
+      !window->Contains(aura::client::GetFocusClient(window)->
+          GetFocusedWindow())) {
+    aura::client::GetFocusClient(window)->FocusWindow(window, event);
   }
 
   FOR_EACH_OBSERVER(aura::client::ActivationChangeObserver,
                     observers_,
                     OnWindowActivated(window, old_active));
 
-  // Invoke OnLostActive after we've changed the active window. That way if the
-  // delegate queries for active state it doesn't think the window is still
-  // active.
+  // Invoke OnLostActive after we've changed the active window. That way if
+  // the delegate queries for active state it doesn't think the window is
+  // still active.
   if (old_active && aura::client::GetActivationDelegate(old_active))
     aura::client::GetActivationDelegate(old_active)->OnLostActive();
 
@@ -394,6 +414,15 @@ aura::Window* ActivationController::GetTopmostWindowToActivateInContainer(
       return *i;
   }
   return NULL;
+}
+
+void ActivationController::FocusWindowWithEvent(const ui::Event* event) {
+  aura::Window* window = static_cast<aura::Window*>(event->target());
+  window = delegate_->WillFocusWindow(window);
+  if (GetActiveWindow() != window) {
+    aura::client::GetFocusClient(window)->FocusWindow(
+        FindFocusableWindowFor(window), event);
+  }
 }
 
 }  // namespace internal

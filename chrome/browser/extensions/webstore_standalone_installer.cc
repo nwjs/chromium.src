@@ -17,12 +17,12 @@
 #include "chrome/common/chrome_utility_messages.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
-#include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/utility_process_host.h"
 #include "content/public/browser/utility_process_host_client.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
+#include "extensions/common/url_pattern.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
 #include "net/url_request/url_fetcher.h"
@@ -81,7 +81,8 @@ class SafeWebstoreResponseParser : public UtilityProcessHostClient {
   void StartWorkOnIOThread() {
     CHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
     UtilityProcessHost* host =
-        UtilityProcessHost::Create(this, BrowserThread::IO);
+        UtilityProcessHost::Create(
+            this, base::MessageLoopProxy::current());
     host->EnableZygote();
     host->Send(new ChromeUtilityMsg_ParseJSON(webstore_data_));
   }

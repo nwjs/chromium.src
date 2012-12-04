@@ -8,6 +8,7 @@ import logging
 import multiprocessing
 
 from android_commands import errors
+from forwarder import Forwarder
 from test_result import TestResults
 
 
@@ -23,6 +24,7 @@ def _ShardedTestRunnable(test):
     return test.Run()
   except SystemExit:
     return TestResults()
+
 
 def SetTestsContainer(tests_container):
   """Sets tests container.
@@ -42,12 +44,13 @@ class BaseTestSharder(object):
   # See more in SetTestsContainer.
   tests_container = None
 
-  def __init__(self, attached_devices):
+  def __init__(self, attached_devices, build_type='Debug'):
     self.attached_devices = attached_devices
     # Worst case scenario: a device will drop offline per run, so we need
     # to retry until we're out of devices.
     self.retries = len(self.attached_devices)
     self.tests = []
+    self.build_type = build_type
 
   def CreateShardedTestRunner(self, device, index):
     """Factory function to create a suite-specific test runner.
@@ -69,6 +72,9 @@ class BaseTestSharder(object):
     """Notifies that we completed the tests."""
     pass
 
+  def _KillHostForwarder(self):
+    Forwarder.KillHost(self.build_type)
+
   def RunShardedTests(self):
     """Runs the tests in all connected devices.
 
@@ -82,6 +88,7 @@ class BaseTestSharder(object):
     logging.warning('Look for the "Final result" banner in the end.')
     logging.warning('*' * 80)
     final_results = TestResults()
+    self._KillHostForwarder()
     for retry in xrange(self.retries):
       logging.warning('Try %d of %d', retry + 1, self.retries)
       self.SetupSharding(self.tests)
@@ -139,4 +146,5 @@ class BaseTestSharder(object):
       # There's no recovery at this point.
       raise Exception('Unrecoverable error while retrying test runs.')
     self.OnTestsCompleted(test_runners, final_results)
+    self._KillHostForwarder()
     return final_results

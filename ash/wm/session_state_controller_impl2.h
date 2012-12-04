@@ -27,7 +27,7 @@ class Layer;
 namespace ash {
 
 namespace test {
-class PowerButtonControllerTest;
+class SessionStateControllerImpl2Test;
 }
 
 // Displays onscreen animations and locks or suspends the system in response to
@@ -97,8 +97,6 @@ class ASH_EXPORT SessionStateControllerImpl2 : public SessionStateController {
   virtual void OnLockStateChanged(bool locked) OVERRIDE;
 
   // SessionStateController overrides:
-  virtual bool IsEligibleForLock() OVERRIDE;
-  virtual bool IsLocked() OVERRIDE;
   virtual void StartLockAnimation(bool shutdown_after_lock) OVERRIDE;
 
   virtual void StartShutdownAnimation() OVERRIDE;
@@ -120,9 +118,7 @@ class ASH_EXPORT SessionStateControllerImpl2 : public SessionStateController {
   virtual void SetLockScreenDisplayedCallback(base::Closure& callback) OVERRIDE;
 
  protected:
-  friend class test::PowerButtonControllerTest;
-
-  bool IsLoggedInAsNonGuest() const;
+  friend class test::SessionStateControllerImpl2Test;
 
  private:
   void RequestShutdownImpl();

@@ -65,6 +65,9 @@ const char kAppId[]                         = "app-id";
 // mode.
 const char kApp[]                           = "app";
 
+// Flag to enable apps_debugger app.
+const char kAppsDebugger[]                  = "apps-debugger";
+
 // Specifies the initial size for application windows launched with --app.
 // --app-window-size=w,h
 const char kAppWindowSize[]                 = "app-window-size";
@@ -324,9 +327,6 @@ const char kDisableExtensionsResourceWhitelist[] =
 const char kDisableImprovedDownloadProtection[] =
     "disable-improved-download-protection";
 
-// Disable the Infinite Cache.
-const char kDisableInfiniteCache[]          = "disable-infinite-cache";
-
 // Disable the internal Flash Player.
 const char kDisableInternalFlash[]          = "disable-internal-flash";
 
@@ -449,6 +449,9 @@ const char kDnsPrefetchDisable[]            = "dns-prefetch-disable";
 // scripts.
 const char kDumpHistogramsOnExit[]          = "dump-histograms-on-exit";
 
+// Enables the opt-in UI for the app list.
+const char kEnableAppListOptIn[]            = "enable-app-list-opt-in";
+
 // Enables the experimental asynchronous DNS client.
 const char kEnableAsyncDns[]                = "enable-async-dns";
 
@@ -484,9 +487,6 @@ const char kEnableCrxlessWebApps[]          = "enable-crxless-web-apps";
 
 // If true devtools experimental settings are enabled.
 const char kEnableDevToolsExperiments[]     = "enable-devtools-experiments";
-
-// Enables Drive v2 API instead of Google Documents List API.
-const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
 
 // Enables an interactive autocomplete UI and a way to invoke this UI from
 // WebKit by enabling HTMLFormElement#requestAutocomplete (and associated
@@ -630,9 +630,6 @@ const char kEnableProfiling[]               = "enable-profiling";
 // use "--enable-sdch=0" as command line argument. SDCH is currently only
 // supported server-side for searches on google.com.
 const char kEnableSdch[]                    = "enable-sdch";
-
-// Enable the settings WebUI dialog that installs as a packaged app.
-const char kEnableSettingsApp[]             = "enable-settings-app";
 
 // Enable SPDY/3. This is a temporary testing flag.
 const char kEnableSpdy3[]                   = "enable-spdy3";
@@ -1115,9 +1112,6 @@ const char kRecordStats[]                   = "record-stats";
 // See also kPlaybackMode.
 const char kRecordMode[]                    = "record-mode";
 
-// Reloads pages that have been killed when they are next focused by the user.
-const char kReloadKilledTabs[]              = "reload-killed-tabs";
-
 // Uses custom front-end URL for the remote debugging.
 const char kRemoteDebuggingFrontend[]       = "remote-debugging-frontend";
 
@@ -1197,6 +1191,10 @@ const char kSideloadWipeout[]               = "sideload-wipeout";
 // dialog. This is valid only in Release mode when --enable-dcheck is
 // specified.
 const char kSilentDumpOnDCHECK[]            = "silent-dump-on-dcheck";
+
+// Causes Chrome to launch without opening any windows by default. Useful if
+// one wishes to use Chrome as an ash server.
+const char kSilentLaunch[]                  = "silent-launch";
 
 // Simulates an update being available.
 const char kSimulateUpgrade[]               = "simulate-upgrade";
@@ -1344,6 +1342,10 @@ const char kVariationsServerURL[]            = "variations-server-url";
 // Prints version information and quits.
 const char kVersion[]                       = "version";
 
+// Requests that Chrome connect to a remote viewer process using an IPC
+// channel of the given name.
+const char kViewerConnection[]              = "viewer-connection";
+
 // Cycle through a series of URLs listed in the specified file.
 const char kVisitURLs[]                     = "visit-urls";
 
@@ -1378,6 +1380,10 @@ const char kPluginsMetadataServerURL[]      = "plugins-metadata-server-url";
 const char kTabletUI[]                      = "tablet-ui";
 #endif
 
+#if defined(USE_ASH)
+const char kAshEnableTabScrubbing[]            = "ash-enable-tab-scrubbing";
+#endif
+
 #if defined(OS_CHROMEOS)
 // When wallpaper boot animation is not disabled this switch
 // is used to override OOBE/sign in WebUI init type.
@@ -1401,12 +1407,6 @@ const char kDisableDrive[]                  = "disable-drive";
 // Disables file prefetching in Google Drive Client for Chrome OS.
 const char kDisableDrivePrefetch[]          = "disable-drive-prefetch";
 
-// Disables reset the device to its factory state in design.
-const char kDisableFactoryReset[]           = "disable-factory-reset";
-
-// Disables new WebRTC implementation of user image picker.
-const char kDisableHtml5Camera[]            = "disable-html5-camera";
-
 // Avoid doing expensive animations upon login.
 const char kDisableLoginAnimations[]        = "disable-login-animations";
 
@@ -1415,6 +1415,9 @@ const char kDisableNewOobe[]                = "disable-new-oobe";
 
 // Avoid doing animations upon oobe.
 const char kDisableOobeAnimation[]          = "disable-oobe-animation";
+
+// Disables fake ethernet network on the login screen.
+const char kDisableStubEthernet[]           = "disable-stub-ethernet";
 
 // Enables component extension that initializes background pages of
 // certain hosted applications.
@@ -1436,9 +1439,11 @@ const char kEnableTouchpadThreeFingerSwipe[]
 // Skips OAuth part of ChromeOS login process.
 const char kSkipOAuthLogin[]                = "skip-oauth-login";
 
-// Enables the redirection of viewable document requests to the Google Document
-// Viewer.
-const char kEnableGView[]                   = "enable-gview";
+// If true, show advanced keyboard options to overload the search key as a way
+// to access keys such as Home and End, similar to the "Function key" found
+// commonly on laptop keyboards.
+const char kEnableChromebookFunctionKey[] =
+    "enable-chromebook-function-key";
 
 // Enable Kiosk mode for ChromeOS
 const char kEnableKioskMode[]               = "enable-kiosk-mode";
@@ -1559,10 +1564,6 @@ const char kUseMockKeychain[]               = "use-mock-keychain";
 // Disables profile desktop shortcuts handling, preventing their creation,
 // modification or removal.
 const char kDisableDesktopShortcuts[]       = "disable-desktop-shortcuts";
-
-// Enables sync credential caching on Windows 8.
-// See chrome/browser/sync/credential_cache_service_win.h.
-const char kEnableSyncCredentialCaching[]    = "enable-sync-credential-caching";
 
 // For the DelegateExecute verb handler to launch Chrome in metro mode on
 // Windows 8 and higher.  Used when relaunching metro Chrome.

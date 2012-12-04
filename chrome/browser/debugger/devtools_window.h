@@ -167,7 +167,7 @@ class DevToolsWindow : private content::NotificationObserver,
   static DevToolsWindow* AsDevToolsWindow(content::DevToolsClientHost*);
   static DevToolsWindow* AsDevToolsWindow(content::RenderViewHost*);
 
-  // content::DevToolsClientHandlerDelegate overrides.
+  // content::DevToolsFrontendHostDelegate overrides.
   virtual void ActivateWindow() OVERRIDE;
   virtual void CloseWindow() OVERRIDE;
   virtual void MoveWindow(int x, int y) OVERRIDE;
@@ -190,7 +190,7 @@ class DevToolsWindow : private content::NotificationObserver,
   static DevToolsDockSide SideFromString(const std::string& dock_side);
 
   Profile* profile_;
-  TabContents* inspected_tab_;
+  content::WebContents* inspected_web_contents_;
   TabContents* tab_contents_;
   Browser* browser_;
   DevToolsDockSide dock_side_;

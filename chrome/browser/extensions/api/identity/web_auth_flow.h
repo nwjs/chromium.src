@@ -17,7 +17,6 @@
 #include "ui/gfx/rect.h"
 
 class Profile;
-class TabContents;
 class WebAuthFlowTest;
 
 namespace content {
@@ -75,6 +74,7 @@ class WebAuthFlow : public content::NotificationObserver,
   virtual void Start();
 
  protected:
+  // Overridable for testing.
   virtual content::WebContents* CreateWebContents();
   virtual void ShowAuthFlowPopup();
 
@@ -89,7 +89,6 @@ class WebAuthFlow : public content::NotificationObserver,
   // WebContentsObserver implementation.
   virtual void ProvisionalChangeToMainFrameUrl(
       const GURL& url,
-      const GURL& opener_url,
       content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidStopLoading(
       content::RenderViewHost* render_view_host) OVERRIDE;
@@ -111,11 +110,11 @@ class WebAuthFlow : public content::NotificationObserver,
   GURL provider_url_;
   Mode mode_;
   gfx::Rect initial_bounds_;
+  bool popup_shown_;
   // List of valid redirect URL prefixes.
   std::vector<std::string> valid_prefixes_;
 
   content::WebContents* contents_;
-  TabContents* tab_contents_;
   content::NotificationRegistrar registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(WebAuthFlow);

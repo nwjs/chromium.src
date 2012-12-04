@@ -167,6 +167,9 @@ static void GLibLogHandler(const gchar* log_domain,
                << "http://crosbug.com/15496";
   } else if (strstr(message, "XDG_RUNTIME_DIR variable not set")) {
     LOG(ERROR) << message << " (http://bugs.chromium.org/97293)";
+  } else if (strstr(message, "Attempting to store changes into") ||
+             strstr(message, "Attempting to set the permissions of")) {
+    LOG(ERROR) << message << " (http://bugs.chromium.org/161366)";
   } else {
     LOG(DFATAL) << log_domain << ": " << message;
   }
@@ -348,7 +351,6 @@ void BrowserMainLoop::MainMessageLoopStart() {
   }
 
   online_state_observer_.reset(new BrowserOnlineStateObserver);
-  media_stream_manager_.reset(new MediaStreamManager(audio_manager_.get()));
 
   // Prior to any processing happening on the io thread, we create the
   // plugin service as it is predominantly used from the io thread,
@@ -668,6 +670,9 @@ void BrowserMainLoop::BrowserThreadsStarted() {
 
   // RDH needs the IO thread to be created.
   resource_dispatcher_host_.reset(new ResourceDispatcherHostImpl());
+
+  // MediaStreamManager needs the IO thread to be created.
+  media_stream_manager_.reset(new MediaStreamManager(audio_manager_.get()));
 
   // Initialize the GpuDataManager before we set up the MessageLoops because
   // otherwise we'll trigger the assertion about doing IO on the UI thread.

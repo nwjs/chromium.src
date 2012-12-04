@@ -5,11 +5,13 @@
 #ifndef CHROME_BROWSER_CHROMEOS_NET_NETWORK_CHANGE_NOTIFIER_CHROMEOS_H_
 #define CHROME_BROWSER_CHROMEOS_NET_NETWORK_CHANGE_NOTIFIER_CHROMEOS_H_
 
+#include <vector>
+
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/root_power_manager_observer.h"
 #include "net/base/network_change_notifier.h"
 
 namespace chromeos {
@@ -18,7 +20,7 @@ class OnlineStatusReportThreadTask;
 
 class NetworkChangeNotifierChromeos
     : public net::NetworkChangeNotifier,
-      public chromeos::PowerManagerClient::Observer,
+      public chromeos::RootPowerManagerObserver,
       public chromeos::NetworkLibrary::NetworkObserver,
       public chromeos::NetworkLibrary::NetworkManagerObserver {
  public:
@@ -38,12 +40,10 @@ class NetworkChangeNotifierChromeos
 
   class DnsConfigServiceChromeos;
 
-  // PowerManagerClient::Observer overrides.
-  virtual void PowerChanged(const PowerSupplyStatus& status) OVERRIDE;
+  // RootPowerManagerObserver overrides:
+  virtual void OnResume(const base::TimeDelta& sleep_duration) OVERRIDE;
 
-  virtual void SystemResumed() OVERRIDE;
-
-  // NetworkChangeNotifier overrides.
+  // NetworkChangeNotifier overrides:
   virtual net::NetworkChangeNotifier::ConnectionType
       GetCurrentConnectionType() const OVERRIDE;
 
@@ -61,8 +61,14 @@ class NetworkChangeNotifierChromeos
   // is actually scheduled.
   void OnOnlineStateNotificationFired();
 
-  // Updates data members that keep the track the network stack state.
+  // Initiates an update of data members that keep the track the network stack
+  // state.
   void UpdateNetworkState(chromeos::NetworkLibrary* cros);
+  // Called when a network state update has completed. Updates data members that
+  // keep the track the network stack state.
+  void UpdateNetworkStateCallback(chromeos::NetworkLibrary* cros,
+                                  const NetworkIPConfigVector& ip_configs,
+                                  const std::string& hardware_address);
   // Updates network connectivity state.
   void UpdateConnectivityState(const chromeos::Network* network);
 
@@ -85,6 +91,8 @@ class NetworkChangeNotifierChromeos
   std::string service_path_;
   // Current active network's IP address.
   std::string ip_address_;
+  // Current active network's name servers.
+  std::vector<std::string> name_servers_;
 
   scoped_ptr<DnsConfigServiceChromeos> dns_config_service_;
 

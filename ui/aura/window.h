@@ -33,14 +33,13 @@ class Transform;
 }
 
 namespace ui {
+class EventHandler;
 class Layer;
 class Texture;
 }
 
 namespace aura {
 
-class EventFilter;
-class FocusManager;
 class LayoutManager;
 class RootWindow;
 class WindowDelegate;
@@ -171,9 +170,12 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   // Assigns a new external texture to the window's layer.
   void SetExternalTexture(ui::Texture* texture);
 
-  // Sets the parent window of the window. If NULL, the window is parented to
-  // the root window.
-  void SetParent(Window* parent);
+  // Places this window per |root_window|'s stacking client. The final location
+  // may be a RootWindow other than the one passed in. |root_window| may not be
+  // NULL. |bounds_in_screen| may be empty; it is more optional context that
+  // may, but isn't necessarily used.
+  void SetDefaultParentByRootWindow(RootWindow* root_window,
+                                    const gfx::Rect& bounds_in_screen);
 
   // Stacks the specified child of this Window at the front of the z-order.
   void StackChildAtTop(Window* child);
@@ -230,9 +232,11 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   // Returns the cursor for the specified point, in window coordinates.
   gfx::NativeCursor GetCursor(const gfx::Point& point) const;
 
-  // Window takes ownership of the EventFilter.
-  void SetEventFilter(EventFilter* event_filter);
-  EventFilter* event_filter() { return event_filter_.get(); }
+  // Sets an 'event filter' for the window. An 'event filter' for a Window is
+  // a pre-target event handler, where the window owns the handler. A window
+  // can have only one such event filter. Setting a new filter removes and
+  // destroys any previously installed filter.
+  void SetEventFilter(ui::EventHandler* event_filter);
 
   // Add/remove observer.
   void AddObserver(WindowObserver* observer);
@@ -304,11 +308,6 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
 
   // Returns true if the Window can receive events.
   virtual bool CanReceiveEvents() const;
-
-  // Returns the FocusManager for the Window, which may be attached to a parent
-  // Window. Can return NULL if the Window has no FocusManager.
-  virtual FocusManager* GetFocusManager();
-  virtual const FocusManager* GetFocusManager() const;
 
   // Does a capture on the window. This does nothing if the window isn't showing
   // (VISIBILITY_SHOWN) or isn't contained in a valid window hierarchy.
@@ -473,7 +472,7 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   // Whether layer is initialized as non-opaque.
   bool transparent_;
 
-  scoped_ptr<EventFilter> event_filter_;
+  scoped_ptr<ui::EventHandler> event_filter_;
   scoped_ptr<LayoutManager> layout_manager_;
 
   void* user_data_;

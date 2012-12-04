@@ -17,6 +17,7 @@
 #include "base/win/windows_version.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/installer/launcher_support/chrome_launcher_support.h"
+#include "chrome/installer/util/browser_distribution.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/gfx/icon_util.h"
 
@@ -185,6 +186,16 @@ bool CheckAndSaveIcon(const FilePath& icon_file, const SkBitmap& image) {
   return true;
 }
 
+FilePath GetShortcutExecutablePath(
+    const ShellIntegration::ShortcutInfo& shortcut_info) {
+  if (BrowserDistribution::GetDistribution()->AppHostIsSupported() &&
+      shortcut_info.is_platform_app) {
+    return chrome_launcher_support::GetAnyAppHostPath();
+  }
+
+  return chrome_launcher_support::GetAnyChromePath();
+}
+
 bool CreatePlatformShortcuts(
     const FilePath& web_app_path,
     const ShellIntegration::ShortcutInfo& shortcut_info) {
@@ -225,12 +236,11 @@ bool CreatePlatformShortcuts(
     return false;
   }
 
-  FilePath app_host_exe(chrome_launcher_support::GetAnyAppHostPath());
-  if (app_host_exe.empty())
-    return false;
+  FilePath target_exe = GetShortcutExecutablePath(shortcut_info);
+  DCHECK(!target_exe.empty());
 
   // Working directory.
-  FilePath working_dir(app_host_exe.DirName());
+  FilePath working_dir(target_exe.DirName());
 
   CommandLine cmd_line(CommandLine::NO_PROGRAM);
   cmd_line = ShellIntegration::CommandLineArgsForLauncher(shortcut_info.url,
@@ -269,7 +279,7 @@ bool CreatePlatformShortcuts(
     }
 
     base::win::ShortcutProperties shortcut_properties;
-    shortcut_properties.set_target(app_host_exe);
+    shortcut_properties.set_target(target_exe);
     shortcut_properties.set_working_dir(working_dir);
     shortcut_properties.set_arguments(wide_switches);
     shortcut_properties.set_description(description);

@@ -59,7 +59,49 @@ HRESULT GetUrlFromShellItem(IShellItem* shell_item, string16* url) {
   return S_OK;
 }
 
+bool LaunchChromeBrowserProcess() {
+  FilePath delegate_exe_path;
+  if (!PathService::Get(base::FILE_EXE, &delegate_exe_path))
+    return false;
+
+  // First try and go up a level to find chrome.exe.
+  FilePath chrome_exe_path =
+      delegate_exe_path.DirName()
+                       .DirName()
+                       .Append(chrome::kBrowserProcessExecutableName);
+  if (!file_util::PathExists(chrome_exe_path)) {
+    // Try looking in the current directory if we couldn't find it one up in
+    // order to support developer installs.
+    chrome_exe_path =
+        delegate_exe_path.DirName()
+                         .Append(chrome::kBrowserProcessExecutableName);
+  }
+
+  if (!file_util::PathExists(chrome_exe_path)) {
+    AtlTrace("Could not locate chrome.exe at: %ls\n",
+             chrome_exe_path.value().c_str());
+    return false;
+  }
+
+  CommandLine cl(chrome_exe_path);
+
+  // Prevent a Chrome window from showing up on the desktop.
+  cl.AppendSwitch(switches::kSilentLaunch);
+
+  // Tell Chrome the IPC channel name to use.
+  // TODO(robertshield): Figure out how to get this name to both the launched
+  // desktop browser process and the resulting activated metro process.
+  cl.AppendSwitchASCII(switches::kViewerConnection, "viewer");
+
+  base::LaunchOptions launch_options;
+  launch_options.start_hidden = true;
+
+  return base::LaunchProcess(cl, launch_options, NULL);
+}
+
 }  // namespace
+
+bool CommandExecuteImpl::path_provider_initialized_ = false;
 
 // CommandExecuteImpl is resposible for activating chrome in Windows 8. The
 // flow is complicated and this tries to highlight the important events.
@@ -101,7 +143,7 @@ HRESULT GetUrlFromShellItem(IShellItem* shell_item, string16* url) {
 // 7- Windows calls CommandExecuteImpl::Execute()
 //    Here we call GetLaunchMode() which returns the cached answer
 //    computed at step 5c. which can be:
-//    a) ECHUIM_DESKTOP then we call LaunchDestopChrome() that calls
+//    a) ECHUIM_DESKTOP then we call LaunchDesktopChrome() that calls
 //       ::CreateProcess and we exit at this point even on failure.
 //    b) else we call one of the IApplicationActivationManager activation
 //       functions depending on the parameters passed in step 4.
@@ -123,9 +165,14 @@ CommandExecuteImpl::CommandExecuteImpl()
       chrome_mode_(ECHUIM_SYSTEM_LAUNCHER) {
   memset(&start_info_, 0, sizeof(start_info_));
   start_info_.cb = sizeof(start_info_);
+
   // We need to query the user data dir of chrome so we need chrome's
-  // path provider.
-  chrome::RegisterPathProvider();
+  // path provider. We can be created multiplie times in a single instance
+  // however so make sure we do this only once.
+  if (!path_provider_initialized_) {
+    chrome::RegisterPathProvider();
+    path_provider_initialized_ = true;
+  }
 }
 
 // CommandExecuteImpl
@@ -180,6 +227,18 @@ STDMETHODIMP CommandExecuteImpl::GetValue(enum AHE_TYPE* pahe) {
   if (GetAsyncKeyState(VK_SHIFT) && GetAsyncKeyState(VK_F11)) {
     AtlTrace("Using Shift-F11 debug hook, returning AHE_IMMERSIVE\n");
     *pahe = AHE_IMMERSIVE;
+
+#if defined(USE_AURA)
+    // Launch the chrome browser process that metro chrome will connect to.
+    LaunchChromeBrowserProcess();
+#endif
+
+    return S_OK;
+  }
+
+  if (GetAsyncKeyState(VK_SHIFT) && GetAsyncKeyState(VK_F12)) {
+    AtlTrace("Using Shift-F12 debug hook, returning AHE_DESKTOP\n");
+    *pahe = AHE_DESKTOP;
     return S_OK;
   }
 
@@ -189,6 +248,7 @@ STDMETHODIMP CommandExecuteImpl::GetValue(enum AHE_TYPE* pahe) {
     return E_FAIL;
   }
 
+  bool decision_made = false;
   HWND chrome_window = ::FindWindowEx(HWND_MESSAGE, NULL,
                                       chrome::kMessageWindowClass,
                                       user_data_dir.value().c_str());
@@ -210,6 +270,7 @@ STDMETHODIMP CommandExecuteImpl::GetValue(enum AHE_TYPE* pahe) {
       AtlTrace("Failed to open chrome's process [%d], E_FAIL\n", chrome_pid);
       return E_FAIL;
     }
+
     if (IsImmersiveProcess(process.Get())) {
       AtlTrace("Chrome [%d] is inmmersive, AHE_IMMERSIVE\n", chrome_pid);
       chrome_mode_ = ECHUIM_IMMERSIVE;
@@ -219,11 +280,20 @@ STDMETHODIMP CommandExecuteImpl::GetValue(enum AHE_TYPE* pahe) {
       chrome_mode_ = ECHUIM_DESKTOP;
       *pahe = AHE_DESKTOP;
     }
-    return S_OK;
+
+    decision_made = true;
   }
 
-  EC_HOST_UI_MODE mode = GetLaunchMode();
-  *pahe = (mode == ECHUIM_DESKTOP) ? AHE_DESKTOP : AHE_IMMERSIVE;
+  if (!decision_made) {
+    EC_HOST_UI_MODE mode = GetLaunchMode();
+    *pahe = (mode == ECHUIM_DESKTOP) ? AHE_DESKTOP : AHE_IMMERSIVE;
+  }
+
+#if defined(USE_AURA)
+  if (*pahe == AHE_IMMERSIVE)
+    LaunchChromeBrowserProcess();
+#endif
+
   return S_OK;
 }
 

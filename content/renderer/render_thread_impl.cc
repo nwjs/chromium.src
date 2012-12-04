@@ -19,6 +19,7 @@
 #include "base/metrics/stats_table.h"
 #include "base/path_service.h"
 #include "base/shared_memory.h"
+#include "base/string16.h"
 #include "base/string_number_conversions.h"  // Temporary
 #include "base/threading/thread_local.h"
 #include "base/utf_string_conversions.h"
@@ -72,6 +73,7 @@
 #include "ipc/ipc_forwarding_message_filter.h"
 #include "ipc/ipc_platform_file.h"
 #include "media/base/media.h"
+#include "media/base/media_switches.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
@@ -638,8 +640,6 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   WebKit::WebRuntimeFeatures::enableFullScreenAPI(
       !command_line.HasSwitch(switches::kDisableFullScreen));
 
-  WebKit::WebRuntimeFeatures::enablePointerLock(true);
-
   WebKit::WebRuntimeFeatures::enableEncryptedMedia(
       command_line.HasSwitch(switches::kEnableEncryptedMedia));
 
@@ -653,13 +653,6 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
       media::IsMediaLibraryInitialized());
 #endif
 
-#if defined(OS_CHROMEOS)
-  WebRuntimeFeatures::enableTouch(true);
-#else
-  WebRuntimeFeatures::enableTouch(
-      command_line.HasSwitch(switches::kEnableTouchEvents));
-#endif
-
   WebRuntimeFeatures::enableDeviceMotion(
       command_line.HasSwitch(switches::kEnableDeviceMotion));
 
@@ -669,8 +662,7 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   WebRuntimeFeatures::enableSpeechInput(
       !command_line.HasSwitch(switches::kDisableSpeechInput));
 
-  WebRuntimeFeatures::enableScriptedSpeech(
-      command_line.HasSwitch(switches::kEnableScriptedSpeech));
+  WebRuntimeFeatures::enableScriptedSpeech(true);
 
   WebRuntimeFeatures::enableFileSystem(
       !command_line.HasSwitch(switches::kDisableFileSystem));
@@ -854,6 +846,11 @@ AudioRendererMixerManager* RenderThreadImpl::GetAudioRendererMixerManager() {
 }
 
 #if defined(OS_WIN)
+void RenderThreadImpl::PreCacheFontCharacters(const LOGFONT& log_font,
+                                              const string16& str) {
+  Send(new ViewHostMsg_PreCacheFontCharacters(log_font, str));
+}
+
 void RenderThreadImpl::PreCacheFont(const LOGFONT& log_font) {
   Send(new ChildProcessHostMsg_PreCacheFont(log_font));
 }

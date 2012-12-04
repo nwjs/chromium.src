@@ -22,6 +22,13 @@ namespace chromeos {
 // An abstract class that defines login UI implementation.
 class LoginDisplay : public RemoveUserDelegate {
  public:
+  // Sign in error IDs that require detailed error screen and not just
+  // a simple error bubble.
+  enum SigninError {
+    // Shown in case of critical TPM error.
+    TPM_ERROR,
+  };
+
   class Delegate {
    public:
     // Create new Google account.
@@ -44,10 +51,10 @@ class LoginDisplay : public RemoveUserDelegate {
     virtual void Login(const std::string& username,
                        const std::string& password) = 0;
 
-    // Sign in as a demo user.
-    virtual void LoginAsDemoUser() = 0;
+    // Sign in as a retail mode user.
+    virtual void LoginAsRetailModeUser() = 0;
 
-    // Sign in into Guest session.
+    // Sign in into guest session.
     virtual void LoginAsGuest() = 0;
 
     // Sign out the currently signed in user.
@@ -100,12 +107,15 @@ class LoginDisplay : public RemoveUserDelegate {
   // Does nothing if current user is already selected.
   virtual void SelectPod(int index) = 0;
 
-  // Displays error with |error_msg_id| specified.
+  // Displays simple error bubble with |error_msg_id| specified.
   // |login_attempts| shows number of login attempts made by current user.
   // |help_topic_id| is additional help topic that is presented as link.
   virtual void ShowError(int error_msg_id,
                          int login_attempts,
                          HelpAppLauncher::HelpTopic help_topic_id) = 0;
+
+  // Displays detailed error screen for error with ID |error_id|.
+  virtual void ShowErrorScreen(LoginDisplay::SigninError error_id) = 0;
 
   // Proceed with Gaia flow because password has changed.
   virtual void ShowGaiaPasswordChanged(const std::string& username) = 0;

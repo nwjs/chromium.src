@@ -34,9 +34,8 @@ static inline bool IsEndOfStream(int result, int decoded_size, Buffer* input) {
 }
 
 FFmpegAudioDecoder::FFmpegAudioDecoder(
-    const MessageLoopFactoryCB& message_loop_factory_cb)
-    : message_loop_factory_cb_(message_loop_factory_cb),
-      message_loop_(NULL),
+    const scoped_refptr<base::MessageLoopProxy>& message_loop)
+    : message_loop_(message_loop),
       codec_context_(NULL),
       bits_per_channel_(0),
       channel_layout_(CHANNEL_LAYOUT_NONE),
@@ -53,20 +52,13 @@ void FFmpegAudioDecoder::Initialize(
     const scoped_refptr<DemuxerStream>& stream,
     const PipelineStatusCB& status_cb,
     const StatisticsCB& statistics_cb) {
-  // Ensure FFmpeg has been initialized
-  FFmpegGlue::InitializeFFmpeg();
-
-  if (!message_loop_) {
-    message_loop_ = base::ResetAndReturn(&message_loop_factory_cb_).Run();
-  } else {
-    // TODO(scherkus): initialization currently happens more than once in
-    // PipelineIntegrationTest.BasicPlayback.
-    LOG(ERROR) << "Initialize has already been called.";
+  if (!message_loop_->BelongsToCurrentThread()) {
+    message_loop_->PostTask(FROM_HERE, base::Bind(
+        &FFmpegAudioDecoder::DoInitialize, this,
+        stream, status_cb, statistics_cb));
+    return;
   }
-  message_loop_->PostTask(
-      FROM_HERE,
-      base::Bind(&FFmpegAudioDecoder::DoInitialize, this,
-                 stream, status_cb, statistics_cb));
+  DoInitialize(stream, status_cb, statistics_cb);
 }
 
 void FFmpegAudioDecoder::Read(const ReadCB& read_cb) {
@@ -112,6 +104,15 @@ void FFmpegAudioDecoder::DoInitialize(
     const scoped_refptr<DemuxerStream>& stream,
     const PipelineStatusCB& status_cb,
     const StatisticsCB& statistics_cb) {
+  FFmpegGlue::InitializeFFmpeg();
+
+  if (demuxer_stream_) {
+    // TODO(scherkus): initialization currently happens more than once in
+    // PipelineIntegrationTest.BasicPlayback.
+    LOG(ERROR) << "Initialize has already been called.";
+    CHECK(false);
+  }
+
   demuxer_stream_ = stream;
   const AudioDecoderConfig& config = stream->audio_decoder_config();
   statistics_cb_ = statistics_cb;
@@ -189,12 +190,17 @@ void FFmpegAudioDecoder::DoRead(const ReadCB& read_cb) {
 void FFmpegAudioDecoder::DoDecodeBuffer(
     DemuxerStream::Status status,
     const scoped_refptr<DecoderBuffer>& input) {
-  DCHECK(message_loop_->BelongsToCurrentThread());
+  if (!message_loop_->BelongsToCurrentThread()) {
+    message_loop_->PostTask(FROM_HERE, base::Bind(
+        &FFmpegAudioDecoder::DoDecodeBuffer, this, status, input));
+    return;
+  }
+
   DCHECK(!read_cb_.is_null());
   DCHECK(queued_audio_.empty());
+  DCHECK_EQ(status != DemuxerStream::kOk, !input) << status;
 
   if (status != DemuxerStream::kOk) {
-    DCHECK(!input);
     // TODO(acolwell): Add support for reinitializing the decoder when
     // |status| == kConfigChanged. For now we just trigger a decode error.
     AudioDecoder::Status decoder_status =
@@ -365,18 +371,7 @@ void FFmpegAudioDecoder::DoDecodeBuffer(
 void FFmpegAudioDecoder::ReadFromDemuxerStream() {
   DCHECK(!read_cb_.is_null());
 
-  demuxer_stream_->Read(base::Bind(&FFmpegAudioDecoder::DecodeBuffer, this));
-}
-
-void FFmpegAudioDecoder::DecodeBuffer(
-    DemuxerStream::Status status,
-    const scoped_refptr<DecoderBuffer>& buffer) {
-  DCHECK_EQ(status != DemuxerStream::kOk, !buffer) << status;
-
-  // TODO(scherkus): fix FFmpegDemuxerStream::Read() to not execute our read
-  // callback on the same execution stack so we can get rid of forced task post.
-  message_loop_->PostTask(FROM_HERE, base::Bind(
-      &FFmpegAudioDecoder::DoDecodeBuffer, this, status, buffer));
+  demuxer_stream_->Read(base::Bind(&FFmpegAudioDecoder::DoDecodeBuffer, this));
 }
 
 base::TimeDelta FFmpegAudioDecoder::GetNextOutputTimestamp() const {
@@ -385,4 +380,5 @@ base::TimeDelta FFmpegAudioDecoder::GetNextOutputTimestamp() const {
       base::Time::kMicrosecondsPerSecond;
   return output_timestamp_base_ + base::TimeDelta::FromMicroseconds(decoded_us);
 }
+
 }  // namespace media

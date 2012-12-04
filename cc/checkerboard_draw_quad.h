@@ -12,22 +12,27 @@
 
 namespace cc {
 
-#pragma pack(push, 4)
-
 class CC_EXPORT CheckerboardDrawQuad : public DrawQuad {
-public:
-    static scoped_ptr<CheckerboardDrawQuad> create(const SharedQuadState*, const gfx::Rect&, SkColor);
+ public:
+  static scoped_ptr<CheckerboardDrawQuad> Create();
 
-    SkColor color() const { return m_color; };
+  void SetNew(const SharedQuadState* shared_quad_state,
+              gfx::Rect rect,
+              SkColor color);
 
-    static const CheckerboardDrawQuad* materialCast(const DrawQuad*);
-private:
-    CheckerboardDrawQuad(const SharedQuadState*, const gfx::Rect&, SkColor);
+  void SetAll(const SharedQuadState* shared_quad_state,
+              gfx::Rect rect,
+              gfx::Rect opaque_rect,
+              gfx::Rect visible_rect,
+              bool needs_blending,
+              SkColor color);
 
-    SkColor m_color;
+  SkColor color;
+
+  static const CheckerboardDrawQuad* MaterialCast(const DrawQuad*);
+ private:
+  CheckerboardDrawQuad();
 };
-
-#pragma pack(pop)
 
 }
 

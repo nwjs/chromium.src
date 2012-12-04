@@ -68,9 +68,9 @@ views::Widget* CreateAffordanceWidget(aura::RootWindow* root_window) {
   params.transparent = true;
   widget->Init(params);
   widget->SetOpacity(0xFF);
-  widget->GetNativeWindow()->SetParent(
-      ash::GetRootWindowController(root_window)->GetContainer(
-          ash::internal::kShellWindowId_OverlayContainer));
+  ash::GetRootWindowController(root_window)->GetContainer(
+      ash::internal::kShellWindowId_OverlayContainer)->AddChild(
+          widget->GetNativeWindow());
   return widget;
 }
 
@@ -105,22 +105,22 @@ void PaintAffordanceGlow(gfx::Canvas* canvas,
   int radius = (end_radius + start_radius) / 2;
   int glow_width = end_radius - start_radius;
   sk_center.iset(center.x(), center.y());
-  SkShader* shader = SkGradientShader::CreateTwoPointRadial(
-      sk_center,
-      SkIntToScalar(start_radius),
-      sk_center,
-      SkIntToScalar(end_radius),
-      colors,
-      pos,
-      num_colors,
-      SkShader::kClamp_TileMode);
+  skia::RefPtr<SkShader> shader = skia::AdoptRef(
+      SkGradientShader::CreateTwoPointRadial(
+          sk_center,
+          SkIntToScalar(start_radius),
+          sk_center,
+          SkIntToScalar(end_radius),
+          colors,
+          pos,
+          num_colors,
+          SkShader::kClamp_TileMode));
   DCHECK(shader);
   SkPaint paint;
   paint.setStyle(SkPaint::kStroke_Style);
   paint.setStrokeWidth(glow_width);
-  paint.setShader(shader);
+  paint.setShader(shader.get());
   paint.setAntiAlias(true);
-  shader->unref();
   SkPath arc_path;
   arc_path.addArc(SkRect::MakeXYWH(center.x() - radius,
                                    center.y() - radius,
@@ -201,7 +201,7 @@ class LongPressAffordanceHandler::LongPressAffordanceView
     canvas->Save();
 
     gfx::Transform scale;
-    scale.SetScale(current_scale_, current_scale_);
+    scale.Scale(current_scale_, current_scale_);
     // We want to scale from the center.
     canvas->Translate(center.OffsetFromOrigin());
     canvas->Transform(scale);

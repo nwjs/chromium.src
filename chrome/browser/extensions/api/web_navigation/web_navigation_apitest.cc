@@ -17,6 +17,7 @@
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/chrome_resource_dispatcher_host_delegate.h"
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
@@ -401,7 +402,14 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, ServerRedirect) {
           << message_;
 }
 
-IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, ServerRedirectSingleProcess) {
+#if defined(OS_WIN)
+// http://crbug.com/161897
+#define MAYBE_ServerRedirectSingleProcess FLAKY_ServerRedirectSingleProcess
+#else
+#define MAYBE_ServerRedirectSingleProcess ServerRedirectSingleProcess
+#endif
+IN_PROC_BROWSER_TEST_F(WebNavigationApiTest,
+                       MAYBE_ServerRedirectSingleProcess) {
   // Set max renderers to 1 to force running out of processes.
   content::RenderProcessHost::SetMaxRendererProcessCount(1);
 
@@ -478,7 +486,8 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, UserAction) {
 
   ResultCatcher catcher;
 
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
   GURL url = extension->GetResourceURL("userAction/a.html");
@@ -511,7 +520,8 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, RequestOpenTab) {
 
   ResultCatcher catcher;
 
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
   GURL url = extension->GetResourceURL("requestOpenTab/a.html");
@@ -563,7 +573,7 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, TargetBlank) {
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 }
 
-IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, DISABLED_TargetBlankIncognito) {
+IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, TargetBlankIncognito) {
   // Wait for the extension to set itself up and return control to us.
   ASSERT_TRUE(RunExtensionSubtest(
       "webnavigation", "test_targetBlank.html",
@@ -603,7 +613,8 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, CrossProcess) {
   LoadExtension(test_data_dir_.AppendASCII("webnavigation").AppendASCII("app"));
   LoadExtension(test_data_dir_.AppendASCII("webnavigation"));
 
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
 
@@ -622,7 +633,8 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, CrossProcess) {
 IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, CrossProcessFragment) {
   LoadExtension(test_data_dir_.AppendASCII("webnavigation"));
 
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
 
@@ -652,7 +664,8 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, CrossProcessFragment) {
 IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, CrossProcessHistory) {
   LoadExtension(test_data_dir_.AppendASCII("webnavigation"));
 
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
 

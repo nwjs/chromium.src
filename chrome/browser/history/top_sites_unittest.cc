@@ -5,13 +5,13 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/format_macros.h"
+#include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "base/memory/weak_ptr.h"
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_database.h"
 #include "chrome/browser/history/history_marshaling.h"
@@ -1150,7 +1150,12 @@ TEST_F(TopSitesTest, Blacklisting) {
     ASSERT_EQ(2u + GetPrepopulatePages().size() - 1, q.urls().size());
     EXPECT_EQ("http://bbc.com/", q.urls()[0].url.spec());
     EXPECT_EQ("http://google.com/", q.urls()[1].url.spec());
-    EXPECT_NE(prepopulate_url.spec(), q.urls()[2].url.spec());
+    // Android has only one prepopulated page which has been blacklisted, so
+    // only 2 urls are returned.
+    if (q.urls().size() > 2)
+      EXPECT_NE(prepopulate_url.spec(), q.urls()[2].url.spec());
+    else
+      EXPECT_EQ(1u, GetPrepopulatePages().size());
   }
 
   // Remove all blacklisted sites.

@@ -9,11 +9,13 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "content/browser/renderer_host/overscroll_controller_delegate.h"
 #include "content/common/content_export.h"
 #include "content/port/browser/render_view_host_delegate_view.h"
 #include "content/public/browser/web_contents_view.h"
 #include "ui/aura/client/drag_drop_delegate.h"
 #include "ui/aura/window_delegate.h"
+#include "ui/compositor/layer_animation_observer.h"
 
 namespace aura {
 class Window;
@@ -31,6 +33,8 @@ class WebDragDestDelegate;
 class CONTENT_EXPORT WebContentsViewAura
     : public WebContentsView,
       public RenderViewHostDelegateView,
+      NON_EXPORTED_BASE(public OverscrollControllerDelegate),
+      public ui::ImplicitAnimationObserver,
       public aura::WindowDelegate,
       public aura::client::DragDropDelegate {
  public:
@@ -38,16 +42,46 @@ class CONTENT_EXPORT WebContentsViewAura
                       WebContentsViewDelegate* delegate);
 
  private:
+  class WindowObserver;
+
   virtual ~WebContentsViewAura();
 
   void SizeChangedCommon(const gfx::Size& size);
 
   void EndDrag(WebKit::WebDragOperationsMask ops);
 
+  // Creates and sets up the overlay window that will be displayed during the
+  // overscroll gesture.
+  void PrepareOverscrollWindow();
+
+  // Sets up the content window in preparation for starting an overscroll
+  // gesture.
+  void PrepareContentWindowForOverscroll();
+
+  // Resets any in-progress animation for the overscroll gesture. Note that this
+  // doesn't immediately reset the internal states; that happens after an
+  // animation.
+  void ResetOverscrollTransform();
+
+  // Completes the navigation in response to a completed overscroll gesture.
+  // The navigation happens after an animation (either the overlay window
+  // animates in, or the content window animates out).
+  void CompleteOverscrollNavigation(OverscrollMode mode);
+
+  // Returns the window that should be animated for the overscroll gesture.
+  // (note that during the overscroll gesture, either the overlay window or the
+  // content window can be animated).
+  aura::Window* GetWindowToAnimateForOverscroll();
+
+  // Returns the amount the animating window should be translated in response to
+  // the overscroll gesture.
+  gfx::Vector2d GetTranslationForOverscroll(int delta_x, int delta_y);
+
   // Overridden from WebContentsView:
   virtual void CreateView(const gfx::Size& initial_size) OVERRIDE;
   virtual RenderWidgetHostView* CreateViewForWidget(
       RenderWidgetHost* render_widget_host) OVERRIDE;
+  virtual void SetView(RenderWidgetHostView* view) OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
   virtual gfx::NativeView GetContentNativeView() const OVERRIDE;
   virtual gfx::NativeWindow GetTopLevelNativeWindow() const OVERRIDE;
@@ -86,8 +120,18 @@ class CONTENT_EXPORT WebContentsViewAura
   virtual void GotFocus() OVERRIDE;
   virtual void TakeFocus(bool reverse) OVERRIDE;
 
+  // Overridden from OverscrollControllerDelegate:
+  virtual void OnOverscrollUpdate(float delta_x, float delta_y) OVERRIDE;
+  virtual void OnOverscrollComplete(OverscrollMode overscroll_mode) OVERRIDE;
+  virtual void OnOverscrollModeChange(OverscrollMode old_mode,
+                                      OverscrollMode new_mode) OVERRIDE;
+
+  // Overridden from ui::ImplicitAnimationObserver:
+  virtual void OnImplicitAnimationsCompleted() OVERRIDE;
+
   // Overridden from aura::WindowDelegate:
   virtual gfx::Size GetMinimumSize() const OVERRIDE;
+  virtual gfx::Size GetMaximumSize() const OVERRIDE;
   virtual void OnBoundsChanged(const gfx::Rect& old_bounds,
                                const gfx::Rect& new_bounds) OVERRIDE;
   virtual void OnFocus(aura::Window* old_focused_window) OVERRIDE;
@@ -111,8 +155,6 @@ class CONTENT_EXPORT WebContentsViewAura
   // Overridden from ui::EventHandler:
   virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
   virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Overridden from aura::client::DragDropDelegate:
   virtual void OnDragEntered(const ui::DropTargetEvent& event) OVERRIDE;
@@ -121,6 +163,9 @@ class CONTENT_EXPORT WebContentsViewAura
   virtual int OnPerformDrop(const ui::DropTargetEvent& event) OVERRIDE;
 
   scoped_ptr<aura::Window> window_;
+  scoped_ptr<aura::Window> overscroll_window_;
+
+  scoped_ptr<WindowObserver> window_observer_;
 
   // The WebContentsImpl whose contents we display.
   WebContentsImpl* web_contents_;
@@ -140,6 +185,13 @@ class CONTENT_EXPORT WebContentsViewAura
   // this pointer should never be dereferenced.  We only use it for comparing
   // pointers.
   void* current_rvh_for_drag_;
+
+  // The overscroll gesture currently in progress.
+  OverscrollMode current_overscroll_gesture_;
+
+  // This is the completed overscroll gesture. This is used for the animation
+  // callback that happens in response to a completed overscroll gesture.
+  OverscrollMode completed_overscroll_gesture_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsViewAura);
 };

@@ -14,6 +14,7 @@ html.col-resize * {
 body {
   -webkit-box-flex: 1;
   -webkit-box-orient: vertical;
+  -webkit-tap-highlight-color: transparent;
   -webkit-transition: opacity 70ms linear;
   -webkit-user-select: none;
   cursor: default;
@@ -30,52 +31,6 @@ body.loaded {
   /* Do not use display:none because list will calculate metrics incorrectly. */
   /*display: -webkit-box;*/
   opacity: 1;
-}
-
-button,
-input[type='button'],
-input[type='submit'],
-select {
-  -webkit-border-radius: 2px;
-  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  -webkit-user-select: none;
-  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
-  border: 1px solid #aaa;
-  color: #444;
-  font-size: inherit;
-  margin-bottom: 0;
-  min-width: 4em;
-  padding: 3px 12px 3px 12px;
-}
-
-button:hover,
-input[type='button']:hover,
-input[type='submit']:hover,
-select:hover {
-  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  background: #ebebeb -webkit-linear-gradient(#fefefe, #f8f8f8 40%, #e9e9e9);
-  border-color: #999;
-  color: #222;
-}
-
-button:active,
-input[type='button']:active,
-input[type='submit']:active {
-  -webkit-box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-  background: #ebebeb -webkit-linear-gradient(#f4f4f4, #efefef 40%, #dcdcdc);
-  color: #333;
-}
-
-button[disabled],
-input[type='button'][disabled],
-input[type='submit'][disabled],
-button[disabled]:hover,
-input[type='button'][disabled]:hover,
-input[type='submit'][disabled]:hover {
-  -webkit-box-shadow: none;
-  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
-  border-color: #aaa;
-  color: #888;
 }
 
 /* Drop opacity of selected rows to give a visual feedback on copy/cut
@@ -228,6 +183,7 @@ input[type='submit'][disabled]:hover {
 .dialog-sidebar {
   -webkit-box-flex: 0;
   background-color: #e6e6e6;
+  display: -webkit-box;
   overflow: hidden;
   position: relative;
   width: 168px;
@@ -247,7 +203,10 @@ div.sidebar-splitter {
 
 /* Roots list at the left. */
 #roots-list {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
   border-right: 1px solid rgb(170, 170, 170);
+  display: -webkit-box;
 }
 
 #roots-list > * {
@@ -302,7 +261,8 @@ li.root-item > .root-label {
 }
 
 div.root-eject {
-  -webkit-transition: opacity 70ms linear;
+  /* The transition commented out to work around crbug.com/157813 */
+  /*-webkit-transition: opacity 70ms linear;*/
   background-image: -webkit-image-set(
     url('../images/files/ui/eject.png') 1x,
     url('../images/files/ui/2x/eject.png') 2x);
@@ -591,8 +551,20 @@ button#detail-view:not([disabled]) {
 
 #list-container {
   -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
   display: -webkit-box;
   position: relative;
+}
+
+#detail-table {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+#detail-table > list,
+.thumbnail-grid {
+  -webkit-box-flex: 1;
 }
 
 .spinner {
@@ -726,7 +698,8 @@ body[type='full-page'] grid .filename-label > :hover {
 }
 
 body[type='full-page'] list .filename-label > :hover,
-.breadcrumb-path:not(.breadcrumb-last):hover {
+.breadcrumb-path:not(.breadcrumb-last):hover,
+.breadcrumb-path.accepts {
   color: rgb(17, 85, 204);
   text-decoration: underline;
 }
@@ -773,6 +746,7 @@ body[type='full-page'] list .filename-label > :hover,
 }
 
 .thumbnail-grid .thumbnail-item[selected] .thumbnail-frame,
+.thumbnail-grid .thumbnail-item.accepts .thumbnail-frame,
 .thumbnail-grid .thumbnail-item:hover .thumbnail-frame {
   border-color: white;
 }
@@ -854,6 +828,7 @@ body[type='full-page'] .thumbnail-grid .thumbnail-bottom {
 #list-container grid > [selected]:hover,
 #default-actions-list > [selected]:hover {
   background-color: rgb(193, 211, 236);
+  border-color: hsl(214, 91%, 85%);
 }
 
 #list-container list > .accepts,
@@ -862,10 +837,12 @@ body[type='full-page'] .thumbnail-grid .thumbnail-bottom {
 #list-container grid > :hover,
 #default-actions-list > :hover {
   background-color: #f1f1f1;
+  border-color: hsl(214, 91%, 85%);
 }
 
 #list-container.nohover list > :not([selected]):hover,
-#list-container.nohover grid > :not([selected]):hover {
+#list-container.nohover grid > :not([selected]):hover,
+#list-container.nohover grid > .accepts {
   background-color: transparent;
   border-color: transparent;
 }
@@ -1141,16 +1118,8 @@ input.rename {
   -webkit-box-flex: 1;
 }
 
-.delete-button {
-  -webkit-margin-end: 8px;
-  -webkit-margin-start: 8px;
-}
-
-.delete-button[disabled] {
-  /* Copied colors from cr-button:disabled */
-  border-color: rgba(0, 0, 0, 0.2);
-  color: #999;
-  pointer-events: none;
+#delete-button[disabled] {
+  display: none;
 }
 
 .task-item {
@@ -1311,6 +1280,11 @@ body[type='folder'] .file,
 
 menu.file-context-menu {
   z-index: 4;
+}
+
+menu.chrome-menu > hr {
+  color: transparent;
+  font-size: 0;
 }
 
 input.common.pin[type='checkbox']:checked::after {

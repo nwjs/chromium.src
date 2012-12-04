@@ -97,7 +97,7 @@ void CustomFrameViewAsh::GetWindowMask(const gfx::Size& size,
 }
 
 void CustomFrameViewAsh::ResetWindowControls() {
-  maximize_button_->SetState(views::CustomButton::BS_NORMAL);
+  maximize_button_->SetState(views::CustomButton::STATE_NORMAL);
 }
 
 void CustomFrameViewAsh::UpdateWindowIcon() {
@@ -147,6 +147,10 @@ std::string CustomFrameViewAsh::GetClassName() const {
 
 gfx::Size CustomFrameViewAsh::GetMinimumSize() {
   return frame_painter_->GetMinimumSize(this);
+}
+
+gfx::Size CustomFrameViewAsh::GetMaximumSize() {
+  return frame_painter_->GetMaximumSize(this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -84,14 +84,7 @@ bool IsEmpty(const gfx::Image& image) {
 PlatformImage CreatePlatformImage() {
   const SkBitmap bitmap(CreateBitmap(25, 25));
 #if defined(OS_IOS)
-  // iOS only supports one scale factor.
-  std::vector<ui::ScaleFactor> supported_scale_factors =
-      ui::GetSupportedScaleFactors();
-  DCHECK_EQ(1U, supported_scale_factors.size());
-  if (supported_scale_factors.size() < 1)
-    return nil;
-
-  ui::ScaleFactor scale_factor = supported_scale_factors[0];
+  ui::ScaleFactor scale_factor = ui::GetMaxScaleFactor();
   float scale = ui::GetScaleFactorScale(scale_factor);
 
   base::mac::ScopedCFTypeRef<CGColorSpaceRef> color_space(
@@ -177,6 +170,10 @@ void CheckColor(SkColor color, bool is_red) {
   }
   EXPECT_LT(SkColorGetB(color) / 255.0, 0.05);
   EXPECT_GT(SkColorGetA(color) / 255.0, 0.95);
+}
+
+void CheckIsTransparent(SkColor color) {
+  EXPECT_LT(SkColorGetA(color) / 255.0, 0.05);
 }
 
 bool IsPlatformImageValid(PlatformImage image) {

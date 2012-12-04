@@ -17,16 +17,15 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/string16.h"
 #include "chrome/browser/extensions/app_shortcut_manager.h"
 #include "chrome/browser/extensions/app_sync_bundle.h"
+#include "chrome/browser/extensions/blacklist.h"
 #include "chrome/browser/extensions/extension_icon_manager.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_sync_bundle.h"
 #include "chrome/browser/extensions/extension_toolbar_model.h"
-#include "chrome/browser/extensions/extension_warning_set.h"
 #include "chrome/browser/extensions/extensions_quota_service.h"
 #include "chrome/browser/extensions/external_provider_interface.h"
 #include "chrome/browser/extensions/menu_manager.h"
@@ -44,13 +43,16 @@
 class BookmarkExtensionEventRouter;
 class CommandLine;
 class ExtensionErrorUI;
-class ExtensionManagementEventRouter;
 class ExtensionSyncData;
 class ExtensionToolbarModel;
 class HistoryExtensionEventRouter;
 class GURL;
 class Profile;
 class Version;
+
+namespace base {
+class SequencedTaskRunner;
+}
 
 namespace chromeos {
 class ExtensionInputMethodEventRouter;
@@ -65,7 +67,6 @@ class ContentSettingsStore;
 class CrxInstaller;
 class Extension;
 class ExtensionActionStorageManager;
-class ExtensionBluetoothEventRouter;
 class ExtensionCookiesEventRouter;
 class ExtensionManagedModeEventRouter;
 class ExtensionSyncData;
@@ -111,12 +112,14 @@ class ExtensionServiceInterface : public syncer::SyncableService {
   virtual const extensions::Extension* GetInstalledExtension(
       const std::string& id) const = 0;
 
+  virtual const extensions::Extension* GetPendingExtensionUpdate(
+      const std::string& extension_id) const = 0;
+  virtual void FinishDelayedInstallation(const std::string& extension_id) = 0;
+
   virtual bool IsExtensionEnabled(const std::string& extension_id) const = 0;
   virtual bool IsExternalExtensionUninstalled(
       const std::string& extension_id) const = 0;
 
-  virtual void UpdateExtensionBlacklist(
-    const std::vector<std::string>& blacklist) = 0;
   virtual void CheckManagementPolicy() = 0;
 
   // Safe to call multiple times in a row.
@@ -126,6 +129,8 @@ class ExtensionServiceInterface : public syncer::SyncableService {
   virtual void CheckForUpdatesSoon() = 0;
 
   virtual void AddExtension(const extensions::Extension* extension) = 0;
+  virtual void AddComponentExtension(
+      const extensions::Extension* extension) = 0;
 
   virtual void UnloadExtension(
       const std::string& extension_id,
@@ -135,6 +140,9 @@ class ExtensionServiceInterface : public syncer::SyncableService {
       const extensions::Extension& extension) = 0;
 
   virtual bool is_ready() = 0;
+
+  // Returns task runner for crx installation file I/O operations.
+  virtual base::SequencedTaskRunner* GetFileTaskRunner() = 0;
 };
 
 // Manages installed and running Chromium extensions.
@@ -142,7 +150,7 @@ class ExtensionService
     : public ExtensionServiceInterface,
       public extensions::ExternalProviderInterface::VisitorInterface,
       public content::NotificationObserver,
-      public PrefObserver {
+      public extensions::Blacklist::Observer {
  public:
   // The name of the directory inside the profile where extensions are
   // installed to.
@@ -193,6 +201,7 @@ class ExtensionService
                    const CommandLine* command_line,
                    const FilePath& install_directory,
                    extensions::ExtensionPrefs* extension_prefs,
+                   extensions::Blacklist* blacklist,
                    bool autoupdate_enabled,
                    bool extensions_enabled);
 
@@ -415,6 +424,12 @@ class ExtensionService
   // been loaded from a file and installed.
   virtual void AddExtension(const extensions::Extension* extension) OVERRIDE;
 
+  // Check if we have preferences for the component extension and, if not or if
+  // the stored version differs, install the extension (without requirements
+  // checking) before calling AddExtension.
+  virtual void AddComponentExtension(const extensions::Extension* extension)
+      OVERRIDE;
+
   // Called by the backend when an extension has been installed.
   void OnExtensionInstalled(
       const extensions::Extension* extension,
@@ -422,14 +437,21 @@ class ExtensionService
       bool has_requirement_errors,
       bool wait_for_idle);
 
+  // Similar to FinishInstallation, but first checks if there still is an update
+  // pending for the extension, and makes sure the extension is still idle.
+  void MaybeFinishDelayedInstallation(const std::string& extension_id);
+
   // Finishes installation of an update for an extension with the specified id,
   // when installation of that extension was previously delayed because the
   // extension was in use.
-  void FinishInstallation(const std::string& extension_id);
+  virtual void FinishDelayedInstallation(
+     const std::string& extension_id) OVERRIDE;
 
-  // Similar to FinishInstallation, but first checks if there still is an update
-  // pending for the extension, and makes sure the extension is still idle.
-  void MaybeFinishInstallation(const std::string& extension_id);
+  // Returns an update for an extension with the specified id, if installation
+  // of that update was previously delayed because the extension was in use. If
+  // no updates are pending for the extension returns NULL.
+  virtual const extensions::Extension* GetPendingExtensionUpdate(
+      const std::string& extension_id) const OVERRIDE;
 
   // Initializes the |extension|'s active permission set and disables the
   // extension if the privilege level has increased (e.g., due to an upgrade).
@@ -439,11 +461,6 @@ class ExtensionService
   // wipeout initiative.
   void MaybeWipeout(const extensions::Extension* extension);
 
-  // Go through each extensions in pref, unload blacklisted extensions
-  // and update the blacklist state in pref.
-  virtual void UpdateExtensionBlacklist(
-      const std::vector<std::string>& blacklist) OVERRIDE;
-
   // Go through each extension and unload those that are not allowed to run by
   // management policy providers (ie. network admin and Google-managed
   // blacklist).
@@ -452,7 +469,7 @@ class ExtensionService
   virtual void CheckForUpdatesSoon() OVERRIDE;
 
   // syncer::SyncableService implementation.
-  virtual syncer::SyncError MergeDataAndStartSyncing(
+  virtual syncer::SyncMergeResult MergeDataAndStartSyncing(
       syncer::ModelType type,
       const syncer::SyncDataList& initial_sync_data,
       scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
@@ -513,6 +530,8 @@ class ExtensionService
   // Whether the extension service is ready.
   virtual bool is_ready() OVERRIDE;
 
+  virtual base::SequencedTaskRunner* GetFileTaskRunner() OVERRIDE;
+
   extensions::ComponentLoader* component_loader() {
     return component_loader_.get();
   }
@@ -536,10 +555,6 @@ class ExtensionService
 
   extensions::WindowEventRouter* window_event_router() {
     return window_event_router_.get();
-  }
-
-  extensions::ExtensionBluetoothEventRouter* bluetooth_event_router() {
-    return bluetooth_event_router_.get();
   }
 
 #if defined(OS_CHROMEOS)
@@ -568,6 +583,9 @@ class ExtensionService
   // For the extension in |version_path| with |id|, check to see if it's an
   // externally managed extension.  If so, uninstall it.
   void CheckExternalUninstall(const std::string& id);
+
+  // Changes sequenced task runner for crx installation tasks to |task_runner|.
+  void SetFileTaskRunnerForTesting(base::SequencedTaskRunner* task_runner);
 
   // Clear all ExternalProviders.
   void ClearProvidersForTesting();
@@ -638,10 +656,6 @@ class ExtensionService
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // PrefObserver
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
   // Whether there are any apps installed. Component apps are not included.
   bool HasApps() const;
 
@@ -665,10 +679,6 @@ class ExtensionService
   }
 #endif
 
-  ExtensionWarningSet* extension_warnings() {
-    return &extension_warnings_;
-  }
-
   extensions::AppShortcutManager* app_shortcut_manager() {
     return &app_shortcut_manager_;
   }
@@ -681,6 +691,13 @@ class ExtensionService
   // For testing.
   void set_browser_terminating_for_test(bool value) {
     browser_terminating_ = value;
+  }
+
+  // By default ExtensionService will wait with installing an updated extension
+  // until the extension is idle. Tests might not like this behavior, so you can
+  // disable it with this method.
+  void set_install_updates_when_idle_for_test(bool value) {
+    install_updates_when_idle_ = value;
   }
 
  private:
@@ -714,6 +731,8 @@ class ExtensionService
   bool IsCorrectSyncType(const extensions::Extension& extension,
                          syncer::ModelType type)
       const;
+
+  void OnExtensionInstallPrefChanged();
 
   // Handles setting the extension specific values in |extension_sync_data| to
   // the current system.
@@ -751,12 +770,24 @@ class ExtensionService
   // terminated extensions if it is there.
   void UntrackTerminatedExtension(const std::string& id);
 
+  // Update preferences for a new or updated extension; notify observers that
+  // the extension is installed, e.g., to update event handlers on background
+  // pages; and perform other extension install tasks before calling
+  // AddExtension.
+  void AddNewOrUpdatedExtension(
+      const extensions::Extension* extension,
+      const syncer::StringOrdinal& page_ordinal,
+      extensions::Extension::State initial_state);
+
   // Handles sending notification that |extension| was loaded.
   void NotifyExtensionLoaded(const extensions::Extension* extension);
 
   // Handles sending notification that |extension| was unloaded.
   void NotifyExtensionUnloaded(const extensions::Extension* extension,
                                extension_misc::UnloadedExtensionReason reason);
+
+  // Common helper to finish installing the given extension.
+  void FinishInstallation(const extensions::Extension* extension);
 
   // Reloads |extension_id| and then dispatches to it the PostReloadEvents
   // indicated by |events|.
@@ -805,6 +836,14 @@ class ExtensionService
   // to update the extension.
   bool IsExtensionIdle(const std::string& extension_id) const;
 
+  // Helper to determine if updating an extensions should proceed immediately,
+  // or if we should delay the update until further notice.
+  bool ShouldDelayExtensionUpdate(const std::string& extension_id,
+                                  bool wait_for_idle) const;
+
+  // extensions::Blacklist::Observer implementation.
+  virtual void OnBlacklistUpdated() OVERRIDE;
+
   // The normal profile associated with this ExtensionService.
   Profile* profile_;
 
@@ -843,6 +882,10 @@ class ExtensionService
 
   // Whether to notify users when they attempt to install an extension.
   bool show_extensions_prompts_;
+
+  // Whether to delay installing of extension updates until the extension is
+  // idle.
+  bool install_updates_when_idle_;
 
   // Used by dispatchers to limit API quota for individual extensions.
   ExtensionsQuotaService quota_service_;
@@ -911,8 +954,6 @@ class ExtensionService
 
   scoped_ptr<extensions::ExtensionCookiesEventRouter> cookies_event_router_;
 
-  scoped_ptr<ExtensionManagementEventRouter> management_event_router_;
-
   scoped_ptr<extensions::MediaGalleriesPrivateEventRouter>
       media_galleries_private_event_router_;
 
@@ -925,8 +966,6 @@ class ExtensionService
 
   scoped_ptr<extensions::ExtensionManagedModeEventRouter>
       managed_mode_event_router_;
-
-  scoped_ptr<extensions::ExtensionBluetoothEventRouter> bluetooth_event_router_;
 
 #if defined(OS_CHROMEOS)
   scoped_ptr<chromeos::ExtensionInputMethodEventRouter>
@@ -955,14 +994,13 @@ class ExtensionService
   extensions::AppSyncBundle app_sync_bundle_;
   extensions::ExtensionSyncBundle extension_sync_bundle_;
 
-  // Contains an entry for each warning that shall be currently shown.
-  ExtensionWarningSet extension_warnings_;
-
   extensions::ProcessMap process_map_;
 
   extensions::AppShortcutManager app_shortcut_manager_;
 
   scoped_ptr<ExtensionErrorUI> extension_error_ui_;
+  // Sequenced task runner for extension related file operations.
+  scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
 
 #if defined(ENABLE_EXTENSIONS)
   scoped_ptr<extensions::ExtensionActionStorageManager>

@@ -4,6 +4,9 @@
 
 #include "ui/message_center/notification_list.h"
 
+#include "base/bind.h"
+#include "base/logging.h"
+#include "base/time.h"
 #include "base/values.h"
 
 namespace message_center {
@@ -21,7 +24,8 @@ NotificationList::Notification::~Notification() {
 NotificationList::NotificationList(Delegate* delegate)
     : delegate_(delegate),
       message_center_visible_(false),
-      unread_count_(0) {
+      unread_count_(0),
+      quiet_mode_(false) {
 }
 
 NotificationList::~NotificationList() {
@@ -58,6 +62,12 @@ void NotificationList::AddNotification(
   notification.message = message;
   notification.display_source = display_source;
   notification.extension_id = extension_id;
+
+  // Initialize primitive fields before unpacking optional fields.
+  // timestamp initializes to default NULL time.
+  notification.priority = 0;
+  notification.unread_count = 0;
+
   UnpackOptionalFields(optional_fields, notification);
 
   PushNotification(notification);
@@ -68,12 +78,55 @@ void NotificationList::UnpackOptionalFields(
   if (!optional_fields)
     return;
 
-  if (optional_fields->HasKey(ui::notifications::kExtraFieldKey))
-    optional_fields->GetString(ui::notifications::kExtraFieldKey,
-                               &notification.extra_field);
-  if (optional_fields->HasKey(ui::notifications::kSecondExtraFieldKey))
-    optional_fields->GetString(ui::notifications::kSecondExtraFieldKey,
-                               &notification.second_extra_field);
+  if (optional_fields->HasKey(ui::notifications::kMessageIntentKey))
+    optional_fields->GetString(ui::notifications::kMessageIntentKey,
+                               &notification.message_intent);
+  if (optional_fields->HasKey(ui::notifications::kPriorityKey))
+    optional_fields->GetInteger(ui::notifications::kPriorityKey,
+                                &notification.priority);
+  if (optional_fields->HasKey(ui::notifications::kTimestampKey)) {
+    std::string time_string;
+    optional_fields->GetString(ui::notifications::kTimestampKey, &time_string);
+    base::Time::FromString(time_string.c_str(), &notification.timestamp);
+  }
+  // TODO
+  // if (optional_fields->HasKey(ui::notifications::kSecondIconUrlKey))
+  //   optional_fields->GetString(ui::notifications::kSecondIconUrlKey,
+  //                              &notification.second_icon_url);
+  if (optional_fields->HasKey(ui::notifications::kUnreadCountKey))
+    optional_fields->GetInteger(ui::notifications::kUnreadCountKey,
+                                &notification.unread_count);
+  if (optional_fields->HasKey(ui::notifications::kButtonOneTitleKey))
+    optional_fields->GetString(ui::notifications::kButtonOneTitleKey,
+                               &notification.button_one_title);
+  if (optional_fields->HasKey(ui::notifications::kButtonOneIntentKey))
+    optional_fields->GetString(ui::notifications::kButtonOneIntentKey,
+                               &notification.button_one_intent);
+  if (optional_fields->HasKey(ui::notifications::kButtonTwoTitleKey))
+    optional_fields->GetString(ui::notifications::kButtonTwoTitleKey,
+                               &notification.button_two_title);
+  if (optional_fields->HasKey(ui::notifications::kButtonTwoIntentKey))
+    optional_fields->GetString(ui::notifications::kButtonTwoIntentKey,
+                               &notification.button_two_intent);
+  if (optional_fields->HasKey(ui::notifications::kExpandedMessageKey))
+    optional_fields->GetString(ui::notifications::kExpandedMessageKey,
+                               &notification.expanded_message);
+  if (optional_fields->HasKey(ui::notifications::kImageUrlKey))
+    optional_fields->GetString(ui::notifications::kImageUrlKey,
+                               &notification.image_url);
+  if (optional_fields->HasKey(ui::notifications::kItemsKey)) {
+    const ListValue* items;
+    CHECK(optional_fields->GetList(ui::notifications::kItemsKey, &items));
+    for (size_t i = 0; i < items->GetSize(); ++i) {
+      string16 title;
+      string16 message;
+      const base::DictionaryValue* item;
+      items->GetDictionary(i, &item);
+      item->GetString(ui::notifications::kItemTitleKey, &title);
+      item->GetString(ui::notifications::kItemMessageKey, &message);
+      notification.items.push_back(NotificationItem(title, message));
+    }
+  }
 }
 
 void NotificationList::UpdateNotificationMessage(const std::string& old_id,
@@ -165,6 +218,38 @@ void NotificationList::MarkPopupsAsShown() {
     iter->shown_as_popup = true;
 }
 
+void NotificationList::SetQuietMode(bool quiet_mode) {
+  SetQuietModeInternal(quiet_mode);
+  quiet_mode_timer_.reset();
+}
+
+void NotificationList::EnterQuietModeWithExpire(
+    const base::TimeDelta& expires_in) {
+  if (quiet_mode_timer_.get()) {
+    // Note that the capital Reset() is the method to restart the timer, not
+    // scoped_ptr::reset().
+    quiet_mode_timer_->Reset();
+  } else {
+    SetQuietModeInternal(true);
+    quiet_mode_timer_.reset(new base::OneShotTimer<NotificationList>);
+    quiet_mode_timer_->Start(FROM_HERE, expires_in, base::Bind(
+        &NotificationList::SetQuietMode, base::Unretained(this), false));
+  }
+}
+
+void NotificationList::SetQuietModeInternal(bool quiet_mode) {
+  quiet_mode_ = quiet_mode;
+  if (quiet_mode_) {
+    for (Notifications::iterator iter = notifications_.begin();
+         iter != notifications_.end(); ++iter) {
+      iter->is_read = true;
+      iter->shown_as_popup = true;
+    }
+    unread_count_ = 0;
+  }
+  delegate_->OnQuietModeChanged(quiet_mode);
+}
+
 NotificationList::Notifications::iterator NotificationList::GetNotification(
     const std::string& id) {
   for (Notifications::iterator iter = notifications_.begin();
@@ -190,9 +275,16 @@ void NotificationList::PushNotification(Notification& notification) {
   // Add the notification to the front (top) of the list and mark it
   // unread and unshown.
   if (!message_center_visible_) {
-    ++unread_count_;
-    notification.is_read = false;
-    notification.shown_as_popup = false;
+    if (quiet_mode_) {
+      // TODO(mukai): needs to distinguish if a notification is dismissed by
+      // the quiet mode or user operation.
+      notification.is_read = true;
+      notification.shown_as_popup = true;
+    } else {
+      ++unread_count_;
+      notification.is_read = false;
+      notification.shown_as_popup = false;
+    }
   }
   notifications_.push_front(notification);
 }

@@ -713,6 +713,11 @@ const char kLanguageRemapAltKeyTo[] =
 const char kLanguageRemapCapsLockKeyTo[] =
     "settings.language.remap_caps_lock_key_to";
 
+// A boolean pref which determines whether the Search key should act like a
+// Function key when held down.
+const char kLanguageSearchKeyActsAsFunctionKey[] =
+    "settings.language.search_key_acts_as_function_key";
+
 // A boolean pref which determines whether key repeat is enabled.
 const char kLanguageXkbAutoRepeatEnabled[] =
     "settings.language.xkb_auto_repeat_enabled_r2";
@@ -729,13 +734,16 @@ const char kLanguageXkbAutoRepeatInterval[] =
 const char kSpokenFeedbackEnabled[] = "settings.accessibility";
 // A boolean pref which determines whether high conrast is enabled.
 const char kHighContrastEnabled[] = "settings.a11y.high_contrast_enabled";
-// A boolean pref which determines whether screen magnifier is enabled.
-const char kScreenMagnifierEnabled[] = "settings.a11y.screen_magnifier";
 // A double pref which determines a zooming scale of the screen magnifier.
 const char kScreenMagnifierScale[] = "settings.a11y.screen_magnifier_scale";
+// A string pref which determines what type of screen magnifier is enabled.
+const char kMagnifierType[] = "settings.a11y.screen_magnifier_type";
 // A boolean pref which determines whether virtual keyboard is enabled.
 // TODO(hashimoto): Remove this pref.
 const char kVirtualKeyboardEnabled[] = "settings.a11y.virtual_keyboard";
+// A boolean pref which determines whether the accessibility menu shows
+// regardless of the state of a11y features.
+const char kShouldAlwaysShowAccessibilityMenu[] = "settings.a11y.enable_menu";
 
 // A boolean pref which turns on Advanced Filesystem
 // (USB support, SD card, etc).
@@ -960,14 +968,6 @@ const char kUseCustomChromeFrame[] = "browser.custom_chrome_frame";
 // done directly from the omnibox should be shown.
 const char kShowOmniboxSearchHint[] = "browser.show_omnibox_search_hint";
 
-// The list of origins which are allowed|denied to show desktop notifications.
-const char kDesktopNotificationDefaultContentSetting[] =
-    "profile.notifications_default_content_setting";
-const char kDesktopNotificationAllowedOrigins[] =
-    "profile.notification_allowed_sites";
-const char kDesktopNotificationDeniedOrigins[] =
-    "profile.notification_denied_sites";
-
 // The preferred position (which corner of screen) for desktop notifications.
 const char kDesktopNotificationPosition[] =
     "browser.desktop_notification_position";
@@ -983,12 +983,9 @@ const char kContentSettingsClearOnExitMigrated[] =
 // Version of the pattern format used to define content settings.
 const char kContentSettingsVersion[] = "profile.content_settings.pref_version";
 
-// Patterns for mapping hostnames to content related settings. Default settings
-// will be applied to hosts that don't match any of the patterns. Replaces
-// kPerHostContentSettings. The pattern format used is defined by
-// kContentSettingsVersion.
-const char kContentSettingsPatterns[] = "profile.content_settings.patterns";
-
+// Patterns for mapping origins to origin related settings. Default settings
+// will be applied to origins that don't match any of the patterns. The pattern
+// format used is defined by kContentSettingsVersion.
 const char kContentSettingsPatternPairs[] =
     "profile.content_settings.pattern_pairs";
 
@@ -1044,17 +1041,16 @@ const char kEnableTranslate[] = "translate.enabled";
 const char kPinnedTabs[] = "pinned_tabs";
 #endif
 
-// Integer containing the default Geolocation content setting.
-const char kGeolocationDefaultContentSetting[] =
-    "geolocation.default_content_setting";
-
 #if defined(OS_ANDROID)
 // Boolean that controls the enabled-state of Geolocation.
 const char kGeolocationEnabled[] = "geolocation.enabled";
 #endif
 
-// Dictionary that maps [frame, toplevel] to their Geolocation content setting.
-const char kGeolocationContentSettings[] = "geolocation.content_settings";
+// The default audio capture device used by the Media content setting.
+const char kDefaultAudioCaptureDevice[] = "media.default_audio_capture_device";
+
+// The default video capture device used by the Media content setting.
+const char kDefaultVideoCaptureDevice[] = "media.default_video_capture_Device";
 
 // Preference to disable 3D APIs (WebGL, Pepper 3D).
 const char kDisable3DAPIs[] = "disable_3d_apis";
@@ -1122,6 +1118,14 @@ const char kPrintingEnabled[] = "printing.enabled";
 
 // Boolean controlling whether print preview is disabled.
 const char kPrintPreviewDisabled[] = "printing.print_preview_disabled";
+
+// An integer pref specifying the fallback behavior for sites outside of content
+// packs. One of:
+// 0: Allow (does nothing)
+// 1: Warn.
+// 2: Block.
+const char kDefaultManagedModeFilteringBehavior[] =
+    "profile.managed.default_filtering_behavior";
 
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
@@ -1828,6 +1832,9 @@ const char kSpdyProxyOrigin[] = "auth.spdyproxy.origin";
 // domain sub-content requests.
 const char kAllowCrossOriginAuthPrompt[] = "auth.allow_cross_origin_prompt";
 
+// Boolean that specifies whether the built-in asynchronous DNS client is used.
+const char kBuiltInDnsClientEnabled[] = "async_dns.enabled";
+
 // An int64 pref that contains the total size of all HTTP content that has been
 // received from the network.
 const char kHttpReceivedContentLength[] = "http_received_content_length";
@@ -2080,6 +2087,7 @@ const char kPinnedLauncherApps[] =
 // Boolean value indicating whether to show a logout button in the ash tray.
 const char kShowLogoutButtonInTray[] = "show_logout_button_in_tray";
 
+const char kFlingVelocityCap[] = "gesture.fling_velocity_cap";
 const char kLongPressTimeInSeconds[] =
     "gesture.long_press_time_in_seconds";
 const char kMaxDistanceBetweenTapsForDoubleTap[] =
@@ -2118,8 +2126,25 @@ const char kRailStartProportion[] =
     "gesture.rail_start_proportion";
 const char kSemiLongPressTimeInSeconds[] =
     "gesture.semi_long_press_time_in_seconds";
-const char kTouchScreenFlingAccelerationAdjustment[] =
-    "gesture.touchscreen_fling_acceleration_adjustment";
+const char kFlingAccelerationCurveCoefficient0[] =
+    "gesture.fling_acceleration_curve_coefficient_0";
+const char kFlingAccelerationCurveCoefficient1[] =
+    "gesture.fling_acceleration_curve_coefficient_1";
+const char kFlingAccelerationCurveCoefficient2[] =
+    "gesture.fling_acceleration_curve_coefficient_2";
+const char kFlingAccelerationCurveCoefficient3[] =
+    "gesture.fling_acceleration_curve_coefficient_3";
+
+const char kOverscrollHorizontalThresholdComplete[] =
+    "overscroll.horizontal_threshold_complete";
+const char kOverscrollVerticalThresholdComplete[] =
+    "overscroll.vertical_threshold_complete";
+const char kOverscrollMinimumThresholdStart[] =
+    "overscroll.minimum_threshold_start";
+const char kOverscrollHorizontalResistThreshold[] =
+    "overscroll.horizontal_resist_threshold";
+const char kOverscrollVerticalResistThreshold[] =
+    "overscroll.vertical_resist_threshold";
 #endif
 
 // Indicates whether the browser is in managed mode.

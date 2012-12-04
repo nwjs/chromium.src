@@ -232,6 +232,10 @@ static int ToMessageID(WebLocalizedString::Name name) {
       return IDS_FORM_THIS_MONTH_LABEL;
     case WebLocalizedString::ThisWeekButtonLabel:
       return IDS_FORM_THIS_WEEK_LABEL;
+    case WebLocalizedString::ValidationBadInputForDateTime:
+      return IDS_FORM_VALIDATION_BAD_INPUT_DATETIME;
+    case WebLocalizedString::ValidationBadInputForNumber:
+      return IDS_FORM_VALIDATION_BAD_INPUT_NUMBER;
     case WebLocalizedString::ValidationPatternMismatch:
       return IDS_FORM_VALIDATION_PATTERN_MISMATCH;
     case WebLocalizedString::ValidationRangeOverflow:
@@ -858,16 +862,16 @@ void WebKitPlatformSupportImpl::didStopWorkerRunLoop(
   worker_task_runner->OnWorkerRunLoopStopped(runLoop);
 }
 
-#if defined(OS_ANDROID)
-WebKit::WebFlingAnimator* WebKitPlatformSupportImpl::createFlingAnimator() {
-  return new FlingAnimatorImpl();
-}
-#endif
-
 WebKit::WebGestureCurve* WebKitPlatformSupportImpl::createFlingAnimationCurve(
     int device_source,
     const WebKit::WebFloatPoint& velocity,
     const WebKit::WebSize& cumulative_scroll) {
+
+#if defined(OS_ANDROID)
+  return FlingAnimatorImpl::CreateAndroidGestureCurve(velocity,
+                                                      cumulative_scroll);
+#endif
+
   if (device_source == WebKit::WebGestureEvent::Touchscreen)
     return TouchFlingGestureCurve::CreateForTouchScreen(velocity,
                                                         cumulative_scroll);

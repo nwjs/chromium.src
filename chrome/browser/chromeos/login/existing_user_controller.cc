@@ -44,6 +44,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
@@ -100,6 +101,9 @@ const long int kAuthCacheTransferDelayMs = 2000;
 
 // Delay for restarting the ui if safe-mode login has failed.
 const long int kSafeModeRestartUiDelayMs = 30000;
+
+// Delay for rebooting machine if TPM critical error was encountered.
+const long int kCriticalErrorRebootDelayMs = 3500;
 
 // Makes a call to the policy subsystem to reload the policy when we detect
 // authentication change.
@@ -404,17 +408,17 @@ void ExistingUserController::PerformLogin(
       l10n_util::GetStringUTF8(IDS_CHROMEOS_ACC_LOGIN_SIGNING_IN));
 }
 
-void ExistingUserController::LoginAsDemoUser() {
+void ExistingUserController::LoginAsRetailModeUser() {
   // Disable clicking on other windows.
   login_display_->SetUIEnabled(false);
-  // TODO(rkc): Add a CHECK to make sure demo logins are allowed once
-  // the enterprise policy wiring is done for kiosk mode.
+  // TODO(rkc): Add a CHECK to make sure retail mode logins are allowed once
+  // the enterprise policy wiring is done for retail mode.
 
   // Only one instance of LoginPerformer should exist at a time.
   login_performer_.reset(NULL);
   login_performer_.reset(new LoginPerformer(this));
   is_login_in_progress_ = true;
-  login_performer_->LoginDemoUser();
+  login_performer_->LoginRetailMode();
   accessibility::MaybeSpeak(
       l10n_util::GetStringUTF8(IDS_CHROMEOS_ACC_LOGIN_SIGNIN_DEMOUSER));
 }
@@ -522,6 +526,20 @@ void ExistingUserController::ShowResetScreen() {
   login_display_->OnFadeOut();
 }
 
+void ExistingUserController::ShowTPMErrorAndScheduleReboot() {
+  login_display_->SetUIEnabled(false);
+  login_display_->ShowErrorScreen(LoginDisplay::TPM_ERROR);
+  reboot_timer_.Start(
+      FROM_HERE,
+      base::TimeDelta::FromMilliseconds(kCriticalErrorRebootDelayMs),
+      this,
+      &ExistingUserController::OnRebootTimeElapsed);
+}
+
+void ExistingUserController::OnRebootTimeElapsed() {
+  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // ExistingUserController, LoginPerformer::Delegate implementation:
 //
@@ -541,6 +559,8 @@ void ExistingUserController::OnLoginFailure(const LoginFailure& failure) {
                    base::Unretained(DBusThreadManager::Get()->
                                     GetSessionManagerClient())),
         base::TimeDelta::FromMilliseconds(kSafeModeRestartUiDelayMs));
+  } else if (failure.reason() == LoginFailure::TPM_ERROR) {
+    ShowTPMErrorAndScheduleReboot();
   } else if (!online_succeeded_for_.empty()) {
     ShowGaiaPasswordChanged(online_succeeded_for_);
   } else {
@@ -790,7 +810,7 @@ void ExistingUserController::InitializeStartUrls() const {
   const base::ListValue *urls;
   if (UserManager::Get()->IsLoggedInAsDemoUser()) {
     if (CrosSettings::Get()->GetList(kStartUpUrls, &urls)) {
-      // the demo user will get its start urls from the special policy if it is
+      // The retail mode user will get start URLs from a special policy if it is
       // set.
       for (base::ListValue::const_iterator it = urls->begin();
            it != urls->end(); ++it) {

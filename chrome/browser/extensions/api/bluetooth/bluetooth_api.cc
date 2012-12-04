@@ -11,14 +11,15 @@
 #include <string>
 
 #include "base/memory/ref_counted.h"
+#include "chrome/browser/extensions/api/bluetooth/bluetooth_api_factory.h"
 #include "chrome/browser/extensions/api/bluetooth/bluetooth_api_utils.h"
-#include "chrome/browser/extensions/bluetooth_event_router.h"
+#include "chrome/browser/extensions/api/bluetooth/bluetooth_event_router.h"
 #include "chrome/browser/extensions/event_names.h"
 #include "chrome/browser/extensions/event_router.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/api/bluetooth.h"
+#include "chrome/common/extensions/permissions/bluetooth_device_permission.h"
 #include "content/public/browser/browser_thread.h"
 #include "device/bluetooth/bluetooth_adapter.h"
 #include "device/bluetooth/bluetooth_device.h"
@@ -39,7 +40,7 @@ using device::BluetoothSocket;
 namespace {
 
 extensions::ExtensionBluetoothEventRouter* GetEventRouter(Profile* profile) {
-  return profile->GetExtensionService()->bluetooth_event_router();
+  return extensions::BluetoothAPI::Get(profile)->bluetooth_event_router();
 }
 
 const BluetoothAdapter* GetAdapter(Profile* profile) {
@@ -47,8 +48,7 @@ const BluetoothAdapter* GetAdapter(Profile* profile) {
 }
 
 BluetoothAdapter* GetMutableAdapter(Profile* profile) {
-  BluetoothAdapter* adapter = GetEventRouter(profile)->GetMutableAdapter();
-  return adapter;
+  return GetEventRouter(profile)->GetMutableAdapter();
 }
 
 bool IsBluetoothSupported(Profile* profile) {
@@ -63,6 +63,7 @@ const char kCouldNotGetLocalOutOfBandPairingData[] =
     "Could not get local Out Of Band Pairing Data";
 const char kCouldNotSetOutOfBandPairingData[] =
     "Could not set Out Of Band Pairing Data";
+const char kDevicePermissionDenied[] = "Permission to access device denied";
 const char kFailedToConnect[] = "Connection failed";
 const char kInvalidDevice[] = "Invalid device";
 const char kInvalidUuid[] = "Invalid UUID";
@@ -85,6 +86,43 @@ namespace SetOutOfBandPairingData =
 namespace Write = extensions::api::bluetooth::Write;
 
 namespace extensions {
+
+// static
+BluetoothAPI* BluetoothAPI::Get(Profile* profile) {
+  return BluetoothAPIFactory::GetForProfile(profile);
+}
+
+BluetoothAPI::BluetoothAPI(Profile* profile) : profile_(profile) {
+  ExtensionSystem::Get(profile_)->event_router()->RegisterObserver(
+      this, extensions::event_names::kBluetoothOnAvailabilityChanged);
+  ExtensionSystem::Get(profile_)->event_router()->RegisterObserver(
+      this, extensions::event_names::kBluetoothOnPowerChanged);
+  ExtensionSystem::Get(profile_)->event_router()->RegisterObserver(
+      this, extensions::event_names::kBluetoothOnDiscoveringChanged);
+}
+
+BluetoothAPI::~BluetoothAPI() {
+}
+
+ExtensionBluetoothEventRouter* BluetoothAPI::bluetooth_event_router() {
+  if (!bluetooth_event_router_)
+    bluetooth_event_router_.reset(new ExtensionBluetoothEventRouter(profile_));
+
+  return bluetooth_event_router_.get();
+}
+
+void BluetoothAPI::Shutdown() {
+  ExtensionSystem::Get(profile_)->event_router()->UnregisterObserver(this);
+}
+
+void BluetoothAPI::OnListenerAdded(const EventListenerInfo& details) {
+  bluetooth_event_router()->OnListenerAdded();
+}
+
+void BluetoothAPI::OnListenerRemoved(const EventListenerInfo& details) {
+  bluetooth_event_router()->OnListenerRemoved();
+}
+
 namespace api {
 
 bool BluetoothIsAvailableFunction::RunImpl() {
@@ -307,6 +345,13 @@ bool BluetoothConnectFunction::RunImpl() {
   EXTENSION_FUNCTION_VALIDATE(params.get() != NULL);
   const bluetooth::ConnectOptions& options = params->options;
 
+  BluetoothDevicePermission::CheckParam param(options.device_address);
+  if (!GetExtension()->CheckAPIPermissionWithParam(
+        APIPermission::kBluetoothDevice, &param)) {
+    SetError(kDevicePermissionDenied);
+    return false;
+  }
+
   std::string uuid = device::bluetooth_utils::CanonicalUuid(
       options.service_uuid);
   if (uuid.empty()) {
@@ -336,7 +381,7 @@ bool BluetoothDisconnectFunction::RunImpl() {
   return GetEventRouter(profile())->ReleaseSocket(options.socket_id);
 }
 
-BluetoothReadFunction::BluetoothReadFunction() {}
+BluetoothReadFunction::BluetoothReadFunction() : success_(false) {}
 BluetoothReadFunction::~BluetoothReadFunction() {}
 
 bool BluetoothReadFunction::Prepare() {
@@ -397,7 +442,11 @@ bool BluetoothReadFunction::Respond() {
   return success_;
 }
 
-BluetoothWriteFunction::BluetoothWriteFunction() {}
+BluetoothWriteFunction::BluetoothWriteFunction()
+    : success_(false),
+      data_to_write_(NULL) {
+}
+
 BluetoothWriteFunction::~BluetoothWriteFunction() {}
 
 bool BluetoothWriteFunction::Prepare() {

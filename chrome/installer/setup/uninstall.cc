@@ -185,38 +185,11 @@ void ClearRlzProductState() {
 
 namespace installer {
 
-// This functions checks for any Chrome instances that are
-// running and first asks them to close politely by sending a Windows message.
-// If there is an error while sending message or if there are still Chrome
-// procesess active after the message has been sent, this function will try
-// to kill them.
+// Kills all Chrome processes, immediately.
 void CloseAllChromeProcesses() {
-  for (int j = 0; j < 4; ++j) {
-    string16 wnd_class(L"Chrome_WidgetWin_");
-    wnd_class.append(base::IntToString16(j));
-    HWND window = FindWindowEx(NULL, NULL, wnd_class.c_str(), NULL);
-    while (window) {
-      HWND tmpWnd = window;
-      window = FindWindowEx(NULL, window, wnd_class.c_str(), NULL);
-      if (!SendMessageTimeout(tmpWnd, WM_CLOSE, 0, 0, SMTO_BLOCK, 3000, NULL) &&
-          (GetLastError() == ERROR_TIMEOUT)) {
-        base::CleanupProcesses(installer::kChromeExe, base::TimeDelta(),
-                               content::RESULT_CODE_HUNG, NULL);
-        base::CleanupProcesses(installer::kNaClExe, base::TimeDelta(),
-                               content::RESULT_CODE_HUNG, NULL);
-        return;
-      }
-    }
-  }
-
-  // If asking politely didn't work, wait for 15 seconds and then kill all
-  // chrome.exe. This check is just in case Chrome is ignoring WM_CLOSE
-  // messages.
-  base::CleanupProcesses(installer::kChromeExe,
-                         base::TimeDelta::FromSeconds(15),
+  base::CleanupProcesses(installer::kChromeExe, base::TimeDelta(),
                          content::RESULT_CODE_HUNG, NULL);
-  base::CleanupProcesses(installer::kNaClExe,
-                         base::TimeDelta::FromSeconds(15),
+  base::CleanupProcesses(installer::kNaClExe, base::TimeDelta(),
                          content::RESULT_CODE_HUNG, NULL);
 }
 
@@ -1269,6 +1242,14 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   // operations are complete.
   if (!backup_state_file.empty())
     file_util::Delete(backup_state_file, false);
+
+  // If user-level Chrome is being uninstalled and system-level Chrome is
+  // present, launch the system-level Active Setup command to do post-install
+  // tasks for this user (i.e., create shortcuts).
+  if (product.is_chrome() && !installer_state.system_install() &&
+      original_state.GetProductState(true, browser_dist->GetType())) {
+    InstallUtil::TriggerActiveSetupCommand();
+  }
 
   return ret;
 }

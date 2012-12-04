@@ -11,7 +11,7 @@
 #include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/message_loop.h"
-#include "content/browser/geolocation/location_arbitrator.h"
+#include "content/browser/geolocation/location_arbitrator_impl.h"
 #include "content/public/browser/browser_thread.h"
 
 namespace content {
@@ -103,6 +103,9 @@ void GeolocationProvider::OnClientsChanged() {
   base::Closure task;
   if (observers_.empty() && callbacks_.empty()) {
     DCHECK(IsRunning());
+    // We have no more observers, so we clear the cached geoposition so that
+    // when the next observer is added we will not provide a stale position.
+    position_ = Geoposition();
     task = base::Bind(&GeolocationProvider::StopProviders,
                       base::Unretained(this));
   } else {
@@ -183,13 +186,17 @@ void GeolocationProvider::NotifyClients(const Geoposition& position) {
 void GeolocationProvider::Init() {
   DCHECK(OnGeolocationThread());
   DCHECK(!arbitrator_);
-  arbitrator_ = GeolocationArbitrator::Create(this);
+  arbitrator_ = CreateArbitrator();
 }
 
 void GeolocationProvider::CleanUp() {
   DCHECK(OnGeolocationThread());
   delete arbitrator_;
   arbitrator_ = NULL;
+}
+
+GeolocationArbitrator* GeolocationProvider::CreateArbitrator() {
+  return new GeolocationArbitratorImpl(this);
 }
 
 }  // namespace content

@@ -7,16 +7,20 @@
 
 #include "base/at_exit.h"
 #include "base/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/common/extensions/feature_switch.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 class TestingProfile;
+
+namespace extensions {
+class ManagementPolicy;
+}
 
 class ExtensionServiceTestBase : public testing::Test {
  public:
@@ -52,7 +56,7 @@ class ExtensionServiceTestBase : public testing::Test {
 
   MessageLoop loop_;
   base::ShadowingAtExitManager at_exit_manager_;
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   scoped_ptr<TestingProfile> profile_;
   FilePath extensions_install_dir_;
   FilePath data_dir_;

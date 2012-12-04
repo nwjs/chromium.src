@@ -36,9 +36,8 @@ class DriveMetadataStore
       public base::SupportsWeakPtr<DriveMetadataStore> {
  public:
   typedef std::map<GURL, std::string> ResourceIDMap;
-  typedef std::map<fileapi::FileSystemURL,
-                   DriveMetadata,
-                   fileapi::FileSystemURL::Comparator> MetadataMap;
+  typedef std::map<FilePath, DriveMetadata> PathToMetadata;
+  typedef std::map<GURL, PathToMetadata> MetadataMap;
   typedef base::Callback<void(fileapi::SyncStatusCode status, bool created)>
       InitializationCallback;
 
@@ -50,15 +49,18 @@ class DriveMetadataStore
   // This function works asynchronously.
   void Initialize(const InitializationCallback& callback);
 
-  void SetLargestChangeStamp(int64 largest_changestamp);
+  void SetLargestChangeStamp(int64 largest_changestamp,
+                             const fileapi::SyncStatusCallback& callback);
   int64 GetLargestChangeStamp() const;
 
-  // Updates database entry.
-  fileapi::SyncStatusCode UpdateEntry(const fileapi::FileSystemURL& url,
-                                      const DriveMetadata& metadata);
+  // Updates database entry. Invokes |callback|, upon completion.
+  void UpdateEntry(const fileapi::FileSystemURL& url,
+                   const DriveMetadata& metadata,
+                   const fileapi::SyncStatusCallback& callback);
 
-  // Deletes database entry for |url|.
-  fileapi::SyncStatusCode DeleteEntry(const fileapi::FileSystemURL& url);
+  // Deletes database entry for |url|. Invokes |callback|, upon completion.
+  void DeleteEntry(const fileapi::FileSystemURL& url,
+                   const fileapi::SyncStatusCallback& callback);
 
   // Lookups and reads the database entry for |url|.
   fileapi::SyncStatusCode ReadEntry(const fileapi::FileSystemURL& url,
@@ -82,6 +84,9 @@ class DriveMetadataStore
   // |origin| must be a batch sync origin.
   void MoveBatchSyncOriginToIncremental(const GURL& origin);
 
+  void RemoveOrigin(const GURL& origin,
+                    const fileapi::SyncStatusCallback& callback);
+
   // Sets the directory identified by |resource_id| as the sync data directory.
   // All data for the Sync FileSystem should be store into the directory.
   // It is invalid to overwrite the directory.
@@ -89,6 +94,10 @@ class DriveMetadataStore
 
   // Returns a set of URLs for files in conflict.
   fileapi::SyncStatusCode GetConflictURLs(fileapi::FileSystemURLSet* urls);
+
+  // Returns resource id for |origin|. |origin| must be a batch sync origin or
+  // an incremental sync origin.
+  std::string GetResourceIdForOrigin(const GURL& origin) const;
 
   const std::string& sync_root_directory() const {
     DCHECK(CalledOnValidThread());
@@ -109,9 +118,14 @@ class DriveMetadataStore
   friend class DriveMetadataStoreTest;
 
   void UpdateDBStatus(fileapi::SyncStatusCode status);
+  void UpdateDBStatusAndInvokeCallback(
+      const fileapi::SyncStatusCallback& callback,
+      fileapi::SyncStatusCode status);
   void DidInitialize(const InitializationCallback& callback,
                      DriveMetadataDBContents* contents,
                      fileapi::SyncStatusCode error);
+  void DidRemoveOrigin(const fileapi::SyncStatusCallback& callback,
+                       fileapi::SyncStatusCode status);
 
   // These are only for testing.
   void RestoreSyncRootDirectory(const fileapi::SyncStatusCallback& callback);

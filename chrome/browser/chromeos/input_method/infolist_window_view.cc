@@ -3,7 +3,9 @@
 // found in the LICENSE file.
 #include "chrome/browser/chromeos/input_method/infolist_window_view.h"
 
+#include <limits>
 #include <string>
+#include <vector>
 
 #include "ash/shell.h"
 #include "base/logging.h"
@@ -24,16 +26,15 @@ namespace chromeos {
 namespace input_method {
 
 // InfolistRow renderes a row of a infolist.
-class InfolistView : public views::View {
+class InfolistEntryView : public views::View {
  public:
-  explicit InfolistView(InfolistWindowView* parent_infolist_window);
-  virtual ~InfolistView() {}
+  InfolistEntryView();
+  virtual ~InfolistEntryView() {}
 
-  void Init();
+  void Init(const gfx::Font& title_font, const gfx::Font& description_font);
 
   // Sets title text and description text.
-  void SetTitleAndDescriptionText(const string16& title,
-                                  const string16& description);
+  void Relayout(const InfolistWindowView::Entry& entry);
 
   // Selects the infolist row. Changes the appearance to make it look
   // like a selected candidate.
@@ -68,28 +69,27 @@ class InfolistView : public views::View {
   // The size of the area which contains the title and the description.
   gfx::Size title_and_description_size_;
 
-  DISALLOW_COPY_AND_ASSIGN(InfolistView);
+  DISALLOW_COPY_AND_ASSIGN(InfolistEntryView);
 };
 
-InfolistView::InfolistView(
-    InfolistWindowView* parent_infolist_window)
-    : parent_infolist_window_(parent_infolist_window),
-      title_label_(NULL),
+InfolistEntryView::InfolistEntryView()
+    : title_label_(NULL),
       description_label_(NULL),
       selected_(false) {
 }
 
-void InfolistView::Init() {
+void InfolistEntryView::Init(const gfx::Font& title_font,
+                             const gfx::Font& description_font) {
   title_label_ = new views::Label;
   title_label_->SetPosition(gfx::Point(0, 0));
-  title_label_->SetFont(parent_infolist_window_->GetTitleFont());
+  title_label_->SetFont(title_font);
   title_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   title_label_->set_border(
       views::Border::CreateEmptyBorder(4, 7, 2, 4));
 
   description_label_ = new views::Label;
   description_label_->SetPosition(gfx::Point(0, 0));
-  description_label_->SetFont(parent_infolist_window_->GetDescriptionFont());
+  description_label_->SetFont(description_font);
   description_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   description_label_->SetMultiLine(true);
   description_label_->set_border(
@@ -99,8 +99,10 @@ void InfolistView::Init() {
   UpdateLabelBackgroundColors();
 }
 
-void InfolistView::SetTitleAndDescriptionText(const string16& title,
-                                              const string16& description) {
+void InfolistEntryView::Relayout(const InfolistWindowView::Entry& entry) {
+  const string16 title = UTF8ToUTF16(entry.title);
+  const string16 description = UTF8ToUTF16(entry.body);
+
   if ((title_label_->text() == title) &&
       (description_label_->text() == description)) {
     return;
@@ -119,64 +121,50 @@ void InfolistView::SetTitleAndDescriptionText(const string16& title,
       gfx::Size(200, description_size.height() + title_size.height());
 }
 
-void InfolistView::Select() {
-  if (selected_) {
+void InfolistEntryView::Select() {
+  if (selected_)
     return;
-  }
   selected_ = true;
   set_background(views::Background::CreateSolidBackground(
       kSelectedInfolistRowBackgroundColor));
   set_border(
       views::Border::CreateSolidBorder(1, kSelectedInfolistRowFrameColor));
   UpdateLabelBackgroundColors();
-  // Need to call SchedulePaint() for background and border color changes.
-  SchedulePaint();
 }
 
-void InfolistView::Unselect() {
-  if (!selected_) {
+void InfolistEntryView::Unselect() {
+  if (!selected_)
     return;
-  }
   selected_ = false;
   set_background(NULL);
   set_border(views::Border::CreateEmptyBorder(1, 1, 1, 1));
   UpdateLabelBackgroundColors();
-  SchedulePaint();  // See comments at Select().
 }
 
-void InfolistView::UpdateLabelBackgroundColors() {
+void InfolistEntryView::UpdateLabelBackgroundColors() {
   SkColor color = background() ?
       background()->get_color() : kDefaultBackgroundColor;
   title_label_->SetBackgroundColor(color);
   description_label_->SetBackgroundColor(color);
 }
 
-InfolistWindowView::InfolistWindowView(views::Widget* parent_frame,
-                                       views::Widget* candidate_window_frame)
-    : usages_(new mozc::commands::InformationList),
-      parent_frame_(parent_frame),
-      candidate_window_frame_(candidate_window_frame),
-      infolist_area_(NULL),
-      visible_(false),
+///////////////////////////////////////////////////////////////////////////////
+// InfolistWindowView
+
+InfolistWindowView::InfolistWindowView()
+    : infolist_area_(new views::View),
       title_font_(new gfx::Font(kJapaneseFontName, kFontSizeDelta + 15)),
       description_font_(new gfx::Font(kJapaneseFontName, kFontSizeDelta + 11)) {
 }
 
 InfolistWindowView::~InfolistWindowView() {
-  if (infolist_area_ != NULL) {
-    infolist_area_->RemoveAllChildViews(false);
-  }
-
-  for (size_t i = 0; i < infolist_views_.size(); ++i) {
-    delete infolist_views_[i];
-  }
+  infolist_area_->RemoveAllChildViews(false);
 }
 
 void InfolistWindowView::Init() {
   set_background(
       views::Background::CreateSolidBackground(kDefaultBackgroundColor));
   set_border(views::Border::CreateSolidBorder(1, kFrameColor));
-  infolist_area_ = new views::View;
 
   views::BoxLayout* layout = new views::BoxLayout(views::BoxLayout::kVertical,
                                                   0, 0, 0);
@@ -187,180 +175,46 @@ void InfolistWindowView::Init() {
   caption_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   caption_label->SetText(
       l10n_util::GetStringUTF16(IDS_INPUT_METHOD_INFOLIST_WINDOW_TITLE));
-  caption_label->set_border(
-      views::Border::CreateEmptyBorder(2, 2, 2, 2));
+  caption_label->set_border(views::Border::CreateEmptyBorder(2, 2, 2, 2));
   caption_label->set_background(
       views::Background::CreateSolidBackground(kInfolistTitleBackgroundColor));
-  caption_label->SetBackgroundColor(
-      caption_label->background()->get_color());
+  caption_label->SetBackgroundColor(caption_label->background()->get_color());
 
   AddChildView(caption_label);
   AddChildView(infolist_area_);
 }
 
-void InfolistWindowView::Hide() {
-  visible_ = false;
-  show_hide_timer_.Stop();
-  parent_frame_->Hide();
-}
-
-void InfolistWindowView::DelayHide(unsigned int milliseconds) {
-  visible_ = false;
-  show_hide_timer_.Stop();
-  show_hide_timer_.Start(FROM_HERE,
-                         base::TimeDelta::FromMilliseconds(milliseconds),
-                         this,
-                         &InfolistWindowView::OnShowHideTimer);
-}
-
-void InfolistWindowView::Show() {
-  visible_ = true;
-  show_hide_timer_.Stop();
-  ResizeAndMoveParentFrame();
-  parent_frame_->Show();
-}
-
-void InfolistWindowView::DelayShow(unsigned int milliseconds) {
-  visible_ = true;
-  show_hide_timer_.Stop();
-  show_hide_timer_.Start(FROM_HERE,
-                         base::TimeDelta::FromMilliseconds(milliseconds),
-                         this,
-                         &InfolistWindowView::OnShowHideTimer);
-}
-
-void InfolistWindowView::OnShowHideTimer() {
-  if (visible_) {
-    Show();
-  } else {
-    Hide();
-  }
-}
-
-bool InfolistWindowView::ShouldUpdateView(
-    const mozc::commands::InformationList* old_usages,
-    const mozc::commands::InformationList* new_usages) {
-  if (old_usages->information_size() !=
-      new_usages->information_size()) {
-    return true;
-  }
-  for (int i = 0; i < old_usages->information_size(); ++i) {
-    if ((old_usages->information(i).title() !=
-        new_usages->information(i).title()) ||
-        (old_usages->information(i).description() !=
-        new_usages->information(i).description())) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void InfolistWindowView::UpdateCandidates(
-    const InputMethodLookupTable& new_lookup_table) {
-  if (!new_lookup_table.mozc_candidates.has_usages()) {
+void InfolistWindowView::Relayout(const std::vector<Entry>& entries,
+                                  size_t focused_index) {
+  infolist_area_->RemoveAllChildViews(false);
+  if (entries.empty())
     return;
-  }
-  const mozc::commands::InformationList& new_usages =
-      new_lookup_table.mozc_candidates.usages();
-  const bool should_update = ShouldUpdateView(usages_.get(),
-                                              &new_usages);
-  if (should_update) {
-    usages_->CopyFrom(new_usages);
-    for (int i = infolist_views_.size(); i < usages_->information_size(); ++i) {
-      InfolistView* infolist_row = new InfolistView(this);
-      infolist_row->Init();
-      infolist_views_.push_back(infolist_row);
-    }
-    infolist_area_->RemoveAllChildViews(false);
 
-    views::BoxLayout* layout = new views::BoxLayout(views::BoxLayout::kVertical,
-                                                    0, 0, 0);
-    // |infolist_area_| owns |layout|.
-    infolist_area_->SetLayoutManager(layout);
-
-    for (int i = 0; i < usages_->information_size(); ++i) {
-      InfolistView* infolist_row = infolist_views_[i];
-      infolist_row->SetTitleAndDescriptionText(
-          UTF8ToUTF16(usages_->information(i).title()),
-          UTF8ToUTF16(usages_->information(i).description()));
-      infolist_row->Unselect();
-      infolist_area_->AddChildView(infolist_row);
-    }
+  for (size_t i = infolist_views_.size(); i < entries.size(); ++i) {
+    InfolistEntryView* infolist_row = new InfolistEntryView();
+    infolist_row->Init(*title_font_.get(), *description_font_.get());
+    infolist_views_.push_back(infolist_row);
   }
 
-  for (int i = 0; i < new_usages.information_size(); ++i) {
-    InfolistView* infolist_row = infolist_views_[i];
-    if (new_usages.has_focused_index() &&
-        (static_cast<int>(new_usages.focused_index()) == i)) {
-      infolist_row->Select();
-    } else {
-      infolist_row->Unselect();
-    }
+  views::BoxLayout* layout = new views::BoxLayout(views::BoxLayout::kVertical,
+                                                  0, 0, 0);
+  // |infolist_area_| owns |layout|.
+  infolist_area_->SetLayoutManager(layout);
+
+  for (size_t i = 0; i < entries.size(); ++i) {
+    InfolistEntryView* infolist_row = infolist_views_[i];
+    infolist_row->Relayout(entries[i]);
+    infolist_row->Unselect();
+    infolist_area_->AddChildView(infolist_row);
   }
+  if (focused_index < infolist_views_.size())
+    infolist_views_[focused_index]->Select();
+  infolist_area_->SchedulePaint();
 }
 
-void InfolistWindowView::ResizeAndMoveParentFrame() {
-  int x, y;
-  gfx::Rect old_bounds = parent_frame_->GetClientAreaBoundsInScreen();
-  gfx::Rect screen_bounds = ash::Shell::GetScreen()->GetDisplayNearestWindow(
-      parent_frame_->GetNativeView()).work_area();
-  // The size.
-  gfx::Rect frame_bounds = old_bounds;
-  gfx::Size size = GetPreferredSize();
-  frame_bounds.set_size(size);
-
-  gfx::Rect candidatewindow_bounds;
-  if (candidate_window_frame_ != NULL) {
-    candidatewindow_bounds =
-        candidate_window_frame_->GetClientAreaBoundsInScreen();
-  }
-
-  if (screen_bounds.height() == 0 || screen_bounds.width() == 0) {
-    x = candidatewindow_bounds.right();
-    y = candidatewindow_bounds.y();
-  }
-  if (candidatewindow_bounds.right() + frame_bounds.width() >
-      screen_bounds.right()) {
-    x = candidatewindow_bounds.x() - frame_bounds.width();
-  } else {
-    x = candidatewindow_bounds.right();
-  }
-  if (candidatewindow_bounds.y() + frame_bounds.height() >
-      screen_bounds.bottom()) {
-    y = screen_bounds.bottom() - frame_bounds.height();
-  } else {
-    y = candidatewindow_bounds.y();
-  }
-
-  frame_bounds.set_x(x);
-  frame_bounds.set_y(y);
-
-  // Move the window per the cursor location.
-  // SetBounds() is not cheap. Only call this when it is really changed.
-  if (frame_bounds != old_bounds)
-    parent_frame_->SetBounds(frame_bounds);
-}
-
-void InfolistWindowView::VisibilityChanged(View* starting_from,
-                                           bool is_visible) {
-  if (is_visible) {
-    // If the visibility of candidate window is changed,
-    // we should move the frame to the right position.
-    ResizeAndMoveParentFrame();
-  }
-}
-
-void InfolistWindowView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
-  View::OnBoundsChanged(previous_bounds);
-  ResizeAndMoveParentFrame();
-}
-
-gfx::Font InfolistWindowView::GetTitleFont() const {
-  return *title_font_.get();
-}
-
-gfx::Font InfolistWindowView::GetDescriptionFont() const {
-  return *description_font_.get();
+// static
+const size_t InfolistWindowView::InvalidFocusIndex() {
+  return std::numeric_limits<size_t>::max();
 }
 
 }  // namespace input_method

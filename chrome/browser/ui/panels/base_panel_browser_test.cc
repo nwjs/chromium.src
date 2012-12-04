@@ -22,6 +22,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/url_constants.h"
@@ -322,7 +323,7 @@ Panel* BasePanelBrowserTest::CreatePanelWithParams(
   }
 
   if (params.wait_for_fully_created) {
-    MessageLoopForUI::current()->RunAllPending();
+    MessageLoopForUI::current()->RunUntilIdle();
 
 #if defined(OS_LINUX)
     // On bots, we might have a simple window manager which always activates new

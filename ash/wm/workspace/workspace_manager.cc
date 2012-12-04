@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <functional>
 
-#include "ash/ash_switches.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
@@ -24,7 +23,6 @@
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace/workspace.h"
 #include "base/auto_reset.h"
-#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
 #include "ui/aura/client/aura_constants.h"
@@ -62,7 +60,7 @@ const int kInitialPauseTimeMS = 750;
 void ReparentWindow(Window* window,
                     Window* new_parent,
                     Window* stack_beneath) {
-  window->SetParent(new_parent);
+  new_parent->AddChild(window);
   if (stack_beneath)
     new_parent->StackChildBelow(window, stack_beneath);
   for (size_t i = 0; i < window->transient_children().size(); ++i)
@@ -264,6 +262,33 @@ Window* WorkspaceManager::GetParentForNewWindow(Window* window) {
   return desktop_workspace()->window();
 }
 
+bool WorkspaceManager::CycleToWorkspace(CycleDirection direction) {
+  aura::Window* active_window = wm::GetActiveWindow();
+  if (!active_workspace_->window()->Contains(active_window))
+    active_window = NULL;
+
+  Workspaces::const_iterator workspace_i(FindWorkspace(active_workspace_));
+  int workspace_offset = 0;
+  if (direction == CYCLE_PREVIOUS) {
+    workspace_offset = 1;
+    if (workspace_i == workspaces_.end() - 1)
+      return false;
+  } else {
+    workspace_offset = -1;
+    if (workspace_i == workspaces_.begin())
+      return false;
+  }
+
+  Workspaces::const_iterator next_workspace_i(workspace_i + workspace_offset);
+  SetActiveWorkspace(*next_workspace_i, SWITCH_OTHER, base::TimeDelta());
+
+  // The activation controller will pick a window from the just activated
+  // workspace to activate as a result of DeactivateWindow().
+  if (active_window)
+    wm::DeactivateWindow(active_window);
+  return true;
+}
+
 void WorkspaceManager::DoInitialAnimation() {
   if (active_workspace_->is_maximized()) {
     RootWindowController* root_controller = GetRootWindowController(
@@ -384,7 +409,7 @@ void WorkspaceManager::MoveWorkspaceToPendingOrDelete(
   if (workspace == active_workspace_)
     SelectNextWorkspace(reason);
 
-  AutoReset<bool> setter(&in_move_, true);
+  base::AutoReset<bool> setter(&in_move_, true);
 
   MoveChildrenToDesktop(workspace->window(), stack_beneath);
 
@@ -465,12 +490,11 @@ void WorkspaceManager::SetUnminimizingWorkspace(Workspace* workspace) {
 
 void WorkspaceManager::FadeDesktop(aura::Window* window,
                                    base::TimeDelta duration) {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          ash::switches::kAshWindowAnimationsDisabled) ||
+  if (views::corewm::WindowAnimationsDisabled(NULL) ||
       ui::LayerAnimator::disable_animations_for_test())
     return;
 
-  AutoReset<bool> reseter(&creating_fade_, true);
+  base::AutoReset<bool> reseter(&creating_fade_, true);
   DesktopBackgroundFadeController::Direction direction;
   aura::Window* parent = NULL;
   aura::Window* stack_above = NULL;
@@ -674,7 +698,7 @@ void WorkspaceManager::OnWorkspaceWindowShowStateChanged(
     if (max_count == 0) {
       if (workspace != desktop_workspace()) {
         {
-          AutoReset<bool> setter(&in_move_, true);
+          base::AutoReset<bool> setter(&in_move_, true);
           ReparentWindow(child, desktop_workspace()->window(), NULL);
         }
         DCHECK(!is_active || old_layer);

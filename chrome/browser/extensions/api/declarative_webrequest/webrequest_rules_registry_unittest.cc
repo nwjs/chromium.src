@@ -74,7 +74,7 @@ class WebRequestRulesRegistryTest : public testing::Test {
 
   virtual void TearDown() OVERRIDE {
     // Make sure that deletion traits of all registries are executed.
-    message_loop.RunAllPending();
+    message_loop.RunUntilIdle();
   }
 
   // Returns a rule that roughly matches http://*.example.com and
@@ -227,8 +227,8 @@ TEST_F(WebRequestRulesRegistryTest, AddRulesImpl) {
   std::set<WebRequestRule::GlobalRuleId> matches;
 
   GURL http_url("http://www.example.com");
-  TestURLRequestContext context;
-  TestURLRequest http_request(http_url, NULL, &context);
+  net::TestURLRequestContext context;
+  net::TestURLRequest http_request(http_url, NULL, &context);
   matches = registry->GetMatches(
       WebRequestRule::RequestData(&http_request, ON_BEFORE_REQUEST));
   EXPECT_EQ(2u, matches.size());
@@ -238,7 +238,7 @@ TEST_F(WebRequestRulesRegistryTest, AddRulesImpl) {
       matches.end());
 
   GURL foobar_url("http://www.foobar.com");
-  TestURLRequest foobar_request(foobar_url, NULL, &context);
+  net::TestURLRequest foobar_request(foobar_url, NULL, &context);
   matches = registry->GetMatches(
       WebRequestRule::RequestData(&foobar_request, ON_BEFORE_REQUEST));
   EXPECT_EQ(1u, matches.size());
@@ -359,8 +359,8 @@ TEST_F(WebRequestRulesRegistryTest, Precedences) {
   EXPECT_EQ("", error);
 
   GURL url("http://www.google.com");
-  TestURLRequestContext context;
-  TestURLRequest request(url, NULL, &context);
+  net::TestURLRequestContext context;
+  net::TestURLRequest request(url, NULL, &context);
   std::list<LinkedPtrEventResponseDelta> deltas =
       registry->CreateDeltas(
           NULL,
@@ -409,8 +409,8 @@ TEST_F(WebRequestRulesRegistryTest, Priorities) {
   EXPECT_EQ("", error);
 
   GURL url("http://www.google.com/index.html");
-  TestURLRequestContext context;
-  TestURLRequest request(url, NULL, &context);
+  net::TestURLRequestContext context;
+  net::TestURLRequest request(url, NULL, &context);
   std::list<LinkedPtrEventResponseDelta> deltas =
       registry->CreateDeltas(
           NULL,

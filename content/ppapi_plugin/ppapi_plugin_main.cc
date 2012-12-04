@@ -10,8 +10,11 @@
 #include "build/build_config.h"
 #include "content/common/child_process.h"
 #include "content/ppapi_plugin/ppapi_thread.h"
+#include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
+#include "content/public/plugin/content_plugin_client.h"
+#include "crypto/nss_util.h"
 #include "ppapi/proxy/proxy_module.h"
 #include "ui/base/ui_base_switches.h"
 
@@ -68,8 +71,8 @@ int PpapiPluginMain(const MainFunctionParams& parameters) {
     // http://crbug.com/155671
     //
     // ICU can accept "en-US" or "en_US", but POSIX wants "en_US".
-    // TODO(shess): "en_US.UTF-8" might be even better.
     std::replace(locale.begin(), locale.end(), '-', '_');
+    locale.append(".UTF-8");
     setlocale(LC_ALL, locale.c_str());
     setenv("LANG", locale.c_str(), 0);
 #endif
@@ -77,6 +80,17 @@ int PpapiPluginMain(const MainFunctionParams& parameters) {
 
   MessageLoop main_message_loop;
   base::PlatformThread::SetName("CrPPAPIMain");
+
+#if defined(OS_LINUX) && defined(USE_NSS)
+  // Some out-of-process PPAPI plugins use NSS.
+  // NSS must be initialized before enabling the sandbox below.
+  crypto::InitNSSSafely();
+#endif
+
+  // Allow the embedder to perform any necessary per-process initialization
+  // before the sandbox is initialized.
+  if (GetContentClient()->plugin())
+    GetContentClient()->plugin()->PreSandboxInitialization();
 
 #if defined(OS_LINUX)
   InitializeSandbox();

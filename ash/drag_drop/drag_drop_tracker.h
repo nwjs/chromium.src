@@ -11,6 +11,7 @@
 #include "ui/base/events/event.h"
 
 namespace aura {
+class RootWindow;
 class Window;
 }
 
@@ -24,8 +25,15 @@ namespace internal {
 // is supported for now.
 class ASH_EXPORT DragDropTracker {
  public:
-  DragDropTracker();
+  explicit DragDropTracker(aura::RootWindow* context_root);
   ~DragDropTracker();
+
+  aura::Window* capture_window() { return capture_window_.get(); }
+
+  // Tells our |capture_window_| to take capture. This is not done right at
+  // creation to give the caller a chance to perform any operations needed
+  // before the capture is transfered.
+  void TakeCapture();
 
   // Gets the target located at |event| in the coordinates of the active root
   // window.
@@ -34,8 +42,8 @@ class ASH_EXPORT DragDropTracker {
   // Converts the locations of |event| in the coordinates of the active root
   // window to the ones in |target|'s coordinates.
   // Caller takes ownership of the returned object.
-  ui::MouseEvent* ConvertMouseEvent(aura::Window* target,
-                                    const ui::MouseEvent& event);
+  ui::LocatedEvent* ConvertEvent(aura::Window* target,
+                                 const ui::LocatedEvent& event);
 
  private:
   // A window for capturing drag events while dragging.

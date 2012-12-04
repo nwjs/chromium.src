@@ -79,6 +79,10 @@
 <include src="home_page_overlay.js"></include>
 <include src="import_data_overlay.js"></include>
 <include src="language_add_language_overlay.js"></include>
+<if expr="not is_macosx">
+  <include src="language_dictionary_overlay_word_list.js"></include>
+  <include src="language_dictionary_overlay.js"></include>
+</if>
 <include src="language_list.js"></include>
 <include src="language_options.js"></include>
 <include src="manage_profile_overlay.js"></include>
@@ -95,3 +99,6 @@
 <include src="../sync_setup_overlay.js"></include>
 <include src="../uber/uber_utils.js"></include>
 <include src="options.js"></include>
+<if expr="pp_ifdef('enable_settings_app')">
+  <include src="options_settings_app.js"></include>
+</if>

@@ -6,9 +6,7 @@
 
 #include "cc/layer.h"
 #include "cc/math_util.h"
-#include <public/WebTransformationMatrix.h>
-
-using WebKit::WebTransformationMatrix;
+#include "ui/gfx/transform.h"
 
 namespace cc {
 
@@ -18,6 +16,7 @@ RenderSurface::RenderSurface(Layer* owningLayer)
     , m_drawOpacityIsAnimating(false)
     , m_targetSurfaceTransformsAreAnimating(false)
     , m_screenSpaceTransformsAreAnimating(false)
+    , m_isClipped(false)
     , m_nearestAncestorThatMovesPixels(0)
 {
 }

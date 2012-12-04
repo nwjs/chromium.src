@@ -5,26 +5,27 @@
 #ifndef CC_LAYER_H_
 #define CC_LAYER_H_
 
+#include <public/WebFilterOperations.h>
+#include <string>
+#include <vector>
+
 #include "base/memory/ref_counted.h"
 #include "cc/cc_export.h"
 #include "cc/layer_animation_controller.h"
 #include "cc/occlusion_tracker.h"
 #include "cc/region.h"
 #include "cc/render_surface.h"
+#include "skia/ext/refptr.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/core/SkImageFilter.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/rect_f.h"
-#include <public/WebFilterOperations.h>
-#include <public/WebTransformationMatrix.h>
-#include <string>
-#include <vector>
+#include "ui/gfx/transform.h"
 
 namespace WebKit {
 class WebAnimationDelegate;
 class WebLayerScrollClient;
 }
-
-class SkImageFilter;
 
 namespace cc {
 
@@ -51,14 +52,15 @@ public:
     virtual int id() const OVERRIDE;
     virtual void setOpacityFromAnimation(float) OVERRIDE;
     virtual float opacity() const OVERRIDE;
-    virtual void setTransformFromAnimation(const WebKit::WebTransformationMatrix&) OVERRIDE;
+    virtual void setTransformFromAnimation(const gfx::Transform&) OVERRIDE;
     // A layer's transform operates layer space. That is, entirely in logical,
     // non-page-scaled pixels (that is, they have page zoom baked in, but not page scale).
     // The root layer is a special case -- it operates in physical pixels.
-    virtual const WebKit::WebTransformationMatrix& transform() const OVERRIDE;
+    virtual const gfx::Transform& transform() const OVERRIDE;
 
     Layer* rootLayer();
-    Layer* parent() const;
+    Layer* parent() { return m_parent; }
+    const Layer* parent() const { return m_parent; }
     void addChild(scoped_refptr<Layer>);
     void insertChild(scoped_refptr<Layer>, size_t index);
     void replaceChild(Layer* reference, scoped_refptr<Layer> newLayer);
@@ -87,7 +89,8 @@ public:
     bool masksToBounds() const { return m_masksToBounds; }
 
     void setMaskLayer(Layer*);
-    Layer* maskLayer() const { return m_maskLayer.get(); }
+    Layer* maskLayer() { return m_maskLayer.get(); }
+    const Layer* maskLayer() const { return m_maskLayer.get(); }
 
     virtual void setNeedsDisplayRect(const gfx::RectF& dirtyRect);
     void setNeedsDisplay() { setNeedsDisplayRect(gfx::RectF(gfx::PointF(), bounds())); }
@@ -99,8 +102,8 @@ public:
     void setFilters(const WebKit::WebFilterOperations&);
     const WebKit::WebFilterOperations& filters() const { return m_filters; }
 
-    void setFilter(SkImageFilter* filter);
-    SkImageFilter* filter() const { return m_filter; }
+    void setFilter(const skia::RefPtr<SkImageFilter>& filter);
+    skia::RefPtr<SkImageFilter> filter() const { return m_filter; }
 
     // Background filters are filters applied to what is behind this layer, when they are viewed through non-opaque
     // regions in this layer. They are used through the WebLayer interface, and are not exposed to HTML.
@@ -119,10 +122,10 @@ public:
     void setFixedToContainerLayer(bool);
     bool fixedToContainerLayer() const { return m_fixedToContainerLayer; }
 
-    void setSublayerTransform(const WebKit::WebTransformationMatrix&);
-    const WebKit::WebTransformationMatrix& sublayerTransform() const { return m_sublayerTransform; }
+    void setSublayerTransform(const gfx::Transform&);
+    const gfx::Transform& sublayerTransform() const { return m_sublayerTransform; }
 
-    void setTransform(const WebKit::WebTransformationMatrix&);
+    void setTransform(const gfx::Transform&);
     bool transformIsAnimating() const;
 
     const gfx::Rect& visibleContentRect() const { return m_visibleContentRect; }
@@ -161,8 +164,8 @@ public:
 
     gfx::Vector2d scrollDelta() const { return gfx::Vector2d(); }
 
-    void setImplTransform(const WebKit::WebTransformationMatrix&);
-    const WebKit::WebTransformationMatrix& implTransform() const { return m_implTransform; }
+    void setImplTransform(const gfx::Transform&);
+    const gfx::Transform& implTransform() const { return m_implTransform; }
 
     void setDoubleSided(bool);
     bool doubleSided() const { return m_doubleSided; }
@@ -173,7 +176,7 @@ public:
     void setUseParentBackfaceVisibility(bool useParentBackfaceVisibility) { m_useParentBackfaceVisibility = useParentBackfaceVisibility; }
     bool useParentBackfaceVisibility() const { return m_useParentBackfaceVisibility; }
 
-    virtual void setUseLCDText(bool);
+    void setUseLCDText(bool);
     bool useLCDText() const { return m_useLCDText; }
 
     virtual void setLayerTreeHost(LayerTreeHost*);
@@ -183,10 +186,11 @@ public:
     void setIsDrawable(bool);
 
     void setReplicaLayer(Layer*);
-    Layer* replicaLayer() const { return m_replicaLayer.get(); }
+    Layer* replicaLayer() { return m_replicaLayer.get(); }
+    const Layer* replicaLayer() const { return m_replicaLayer.get(); }
 
-    bool hasMask() const { return m_maskLayer; }
-    bool hasReplica() const { return m_replicaLayer; }
+    bool hasMask() const { return !!m_maskLayer; }
+    bool hasReplica() const { return !!m_replicaLayer; }
     bool replicaHasMask() const { return m_replicaLayer && (m_maskLayer || m_replicaLayer->m_maskLayer); }
 
     // These methods typically need to be overwritten by derived classes.
@@ -196,8 +200,6 @@ public:
     virtual void setIsMask(bool) { }
     virtual void bindContentsTexture() { }
 
-    void setDebugBorderColor(SkColor);
-    void setDebugBorderWidth(float);
     void setDebugName(const std::string&);
 
     virtual void pushPropertiesTo(LayerImpl*);
@@ -212,8 +214,9 @@ public:
     bool drawOpacityIsAnimating() const { return m_drawOpacityIsAnimating; }
     void setDrawOpacityIsAnimating(bool drawOpacityIsAnimating) { m_drawOpacityIsAnimating = drawOpacityIsAnimating; }
 
-    Layer* renderTarget() const { DCHECK(!m_renderTarget || m_renderTarget->renderSurface()); return m_renderTarget; }
     void setRenderTarget(Layer* target) { m_renderTarget = target; }
+    Layer* renderTarget() { DCHECK(!m_renderTarget || m_renderTarget->renderSurface()); return m_renderTarget; }
+    const Layer* renderTarget() const { DCHECK(!m_renderTarget || m_renderTarget->renderSurface()); return m_renderTarget; }
 
     bool drawTransformIsAnimating() const { return m_drawTransformIsAnimating; }
     void setDrawTransformIsAnimating(bool animating) { m_drawTransformIsAnimating = animating; }
@@ -223,12 +226,19 @@ public:
     // This moves from layer space, with origin in the center to target space with origin in the top left.
     // That is, it converts from logical, non-page-scaled, to target pixels (and if the target is the
     // root render surface, then this converts to physical pixels).
-    const WebKit::WebTransformationMatrix& drawTransform() const { return m_drawTransform; }
-    void setDrawTransform(const WebKit::WebTransformationMatrix& matrix) { m_drawTransform = matrix; }
+    const gfx::Transform& drawTransform() const { return m_drawTransform; }
+    void setDrawTransform(const gfx::Transform& matrix) { m_drawTransform = matrix; }
     // This moves from content space, with origin the top left to screen space with origin in the top left.
     // It converts logical, non-page-scaled pixels to physical pixels.
-    const WebKit::WebTransformationMatrix& screenSpaceTransform() const { return m_screenSpaceTransform; }
-    void setScreenSpaceTransform(const WebKit::WebTransformationMatrix& matrix) { m_screenSpaceTransform = matrix; }
+    const gfx::Transform& screenSpaceTransform() const { return m_screenSpaceTransform; }
+    void setScreenSpaceTransform(const gfx::Transform& matrix) { m_screenSpaceTransform = matrix; }
+
+    bool isClipped() const { return m_isClipped; }
+    void setIsClipped(bool isClipped) { m_isClipped = isClipped; }
+
+    const gfx::Rect& clipRect() const { return m_clipRect; }
+    void setClipRect(const gfx::Rect& clipRect) { m_clipRect = clipRect; }
+
     const gfx::Rect& drawableContentRect() const { return m_drawableContentRect; }
     void setDrawableContentRect(const gfx::Rect& rect) { m_drawableContentRect = rect; }
 
@@ -257,8 +267,10 @@ public:
     void setBoundsContainPageScale(bool);
     bool boundsContainPageScale() const { return m_boundsContainPageScale; }
 
-    // Returns true if any of the layer's descendants has content to draw.
-    bool descendantDrawsContent();
+    // Returns 0 if none of the layer's descendants has content to draw,
+    // 1 if exactly one descendant has content to draw, or a number >1
+    // (but necessary the exact number of descendants) otherwise.
+    int descendantsDrawContent();
 
     LayerTreeHost* layerTreeHost() const { return m_layerTreeHost; }
 
@@ -297,6 +309,7 @@ protected:
     Layer();
 
     void setNeedsCommit();
+    void setNeedsFullTreeSync();
 
     // This flag is set when layer need repainting/updating.
     bool m_needsDisplay;
@@ -359,11 +372,9 @@ private:
     gfx::PointF m_position;
     gfx::PointF m_anchorPoint;
     SkColor m_backgroundColor;
-    SkColor m_debugBorderColor;
-    float m_debugBorderWidth;
     std::string m_debugName;
     float m_opacity;
-    SkImageFilter* m_filter;
+    skia::RefPtr<SkImageFilter> m_filter;
     WebKit::WebFilterOperations m_filters;
     WebKit::WebFilterOperations m_backgroundFilters;
     float m_anchorPointZ;
@@ -379,8 +390,8 @@ private:
     bool m_drawCheckerboardForMissingTiles;
     bool m_forceRenderSurface;
 
-    WebKit::WebTransformationMatrix m_transform;
-    WebKit::WebTransformationMatrix m_sublayerTransform;
+    gfx::Transform m_transform;
+    gfx::Transform m_sublayerTransform;
 
     // Replica layer used for reflections.
     scoped_refptr<Layer> m_replicaLayer;
@@ -392,18 +403,23 @@ private:
 
     Layer* m_renderTarget;
 
-    WebKit::WebTransformationMatrix m_drawTransform;
-    WebKit::WebTransformationMatrix m_screenSpaceTransform;
+    gfx::Transform m_drawTransform;
+    gfx::Transform m_screenSpaceTransform;
     bool m_drawTransformIsAnimating;
     bool m_screenSpaceTransformIsAnimating;
 
     // Uses target surface space.
     gfx::Rect m_drawableContentRect;
+    gfx::Rect m_clipRect;
+
+    // True if the layer is clipped by m_clipRect
+    bool m_isClipped;
+
     float m_rasterScale;
     bool m_automaticallyComputeRasterScale;
     bool m_boundsContainPageScale;
 
-    WebKit::WebTransformationMatrix m_implTransform;
+    gfx::Transform m_implTransform;
 
     WebKit::WebAnimationDelegate* m_layerAnimationDelegate;
     WebKit::WebLayerScrollClient* m_layerScrollClient;

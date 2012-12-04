@@ -4,9 +4,12 @@
 
 #include "chrome/browser/chromeos/net/network_change_notifier_chromeos.h"
 
+#include <vector>
+
 #include "base/bind.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/root_power_manager_client.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/dns/dns_config_service_posix.h"
 
@@ -68,7 +71,7 @@ void NetworkChangeNotifierChromeos::Init() {
       chromeos::CrosLibrary::Get()->GetNetworkLibrary();
   network_library->AddNetworkManagerObserver(this);
 
-  DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(this);
+  DBusThreadManager::Get()->GetRootPowerManagerClient()->AddObserver(this);
 
   dns_config_service_.reset(new DnsConfigServiceChromeos());
   dns_config_service_->WatchConfig(
@@ -90,14 +93,11 @@ void NetworkChangeNotifierChromeos::Shutdown() {
   lib->RemoveNetworkManagerObserver(this);
   lib->RemoveObserverForAllNetworks(this);
 
-  DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(this);
+  DBusThreadManager::Get()->GetRootPowerManagerClient()->RemoveObserver(this);
 }
 
-void NetworkChangeNotifierChromeos::PowerChanged(
-    const PowerSupplyStatus& status) {
-}
-
-void NetworkChangeNotifierChromeos::SystemResumed() {
+void NetworkChangeNotifierChromeos::OnResume(
+    const base::TimeDelta& sleep_duration) {
   // Force invalidation of various net resources on system resume.
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -131,31 +131,75 @@ void NetworkChangeNotifierChromeos::OnNetworkChanged(
 void NetworkChangeNotifierChromeos::UpdateNetworkState(
     chromeos::NetworkLibrary* lib) {
   const chromeos::Network* network = lib->active_network();
+  if (network) {
+    lib->GetIPConfigs(
+        network->device_path(),
+        chromeos::NetworkLibrary::FORMAT_COLON_SEPARATED_HEX,
+        base::Bind(&NetworkChangeNotifierChromeos::UpdateNetworkStateCallback,
+                   weak_factory_.GetWeakPtr(),
+                   lib));
+  } else {
+    // If we don't have a network, then we can't fetch ipconfigs, but we still
+    // need to process state updates when we lose a network (i.e. when
+    // has_active_network_ is still set, but we don't have one anymore).
+    NetworkIPConfigVector empty_ipconfigs;
+    UpdateNetworkStateCallback(lib, empty_ipconfigs, "");
+  }
+}
+
+void NetworkChangeNotifierChromeos::UpdateNetworkStateCallback(
+    chromeos::NetworkLibrary* lib,
+    const NetworkIPConfigVector& ipconfigs,
+    const std::string& hardware_address) {
+  const chromeos::Network* network = lib->active_network();
 
   if (network) {
-    VLOG(1) << "UpdateNetworkState: " << network->name()
+    VLOG(1) << "UpdateNetworkStateCallback: " << network->name()
             << ", type= " << network->type()
             << ", device= " << network->device_path()
             << ", state= " << network->state();
   }
 
-  // Check if active network was added, removed or changed.
-  if ((!network && has_active_network_) ||
-      (network && (!has_active_network_ ||
-                   network->service_path() != service_path_ ||
-                   network->ip_address() != ip_address_))) {
+  // Find the DNS servers currently in use. This code assumes that the order of
+  // the |ipconfigs| is stable.
+  std::vector<std::string> ipconfig_name_servers;
+  for (chromeos::NetworkIPConfigVector::const_iterator it = ipconfigs.begin();
+       it != ipconfigs.end(); ++it) {
+    const chromeos::NetworkIPConfig& ipconfig = *it;
+    if (!ipconfig.name_servers.empty())
+      ipconfig_name_servers.push_back(ipconfig.name_servers);
+  }
+
+  // Did we loose the active network?
+  bool lost_active_network = !network && has_active_network_;
+
+  // Did we have a change on the current active network?
+  bool changed_active_network = network && (
+      !has_active_network_ ||
+      network->service_path() != service_path_ ||
+      ipconfig_name_servers != name_servers_ ||
+      network->ip_address() != ip_address_);
+
+  // If just the current active network's state changed, update it if necessary.
+  if (!lost_active_network && !changed_active_network &&
+      network && network->state() != connection_state_) {
+    UpdateConnectivityState(network);
+  }
+
+  if (lost_active_network || changed_active_network) {
     if (has_active_network_)
       lib->RemoveObserverForAllNetworks(this);
     if (!network) {
       has_active_network_ = false;
       service_path_.clear();
       ip_address_.clear();
+      name_servers_.clear();
     } else {
       has_active_network_ = true;
       service_path_ = network->service_path();
       ip_address_ = network->ip_address();
+      name_servers_.swap(ipconfig_name_servers);
     }
-    // TODO(szym): detect user DNS changes. http://crbug.com/148394
     dns_config_service_->OnNetworkChange();
     UpdateConnectivityState(network);
     // If there is an active network, add observer to track its changes.

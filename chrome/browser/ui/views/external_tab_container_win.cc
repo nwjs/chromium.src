@@ -25,6 +25,7 @@
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
+#include "chrome/browser/pepper_broker_infobar_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/repost_form_warning_controller.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -219,9 +220,8 @@ bool ExternalTabContainerWin::Init(Profile* profile,
 
   content::WebContentsObserver::Observe(existing_contents);
 
-  // TODO(avi): Rather than create a TabContents, attach desired tab helpers.
-  tab_contents_.reset(
-      TabContents::Factory::CreateTabContents(existing_contents));
+  Browser::Adoption::AdoptAsTabContents(existing_contents);
+  tab_contents_.reset(TabContents::FromWebContents(existing_contents));
 
   if (!infobars_enabled) {
     InfoBarTabHelper* infobar_tab_helper =
@@ -314,10 +314,6 @@ bool ExternalTabContainerWin::Reinitialize(
 
 WebContents* ExternalTabContainerWin::GetWebContents() const {
   return tab_contents_.get() ? tab_contents_->web_contents() : NULL;
-}
-
-TabContents* ExternalTabContainerWin::GetTabContents() {
-  return tab_contents_.get();
 }
 
 gfx::NativeView ExternalTabContainerWin::GetExternalTabNativeView() const {
@@ -693,6 +689,10 @@ bool ExternalTabContainerWin::HandleContextMenu(
     NOTREACHED();
     return false;
   }
+
+  if (params.custom_context.is_pepper_menu)
+    return false;
+
   external_context_menu_.reset(RenderViewContextMenuViews::Create(
       web_contents(), params));
   static_cast<RenderViewContextMenuWin*>(
@@ -825,6 +825,15 @@ void ExternalTabContainerWin::RequestMediaAccessPermission(
     const content::MediaStreamRequest* request,
     const content::MediaResponseCallback& callback) {
   Browser::RequestMediaAccessPermissionHelper(web_contents, request, callback);
+}
+
+bool ExternalTabContainerWin::RequestPpapiBrokerPermission(
+    WebContents* web_contents,
+    const GURL& url,
+    const FilePath& plugin_path,
+    const base::Callback<void(bool)>& callback) {
+  PepperBrokerInfoBarDelegate::Show(web_contents, url, plugin_path, callback);
+  return true;
 }
 
 bool ExternalTabContainerWin::OnMessageReceived(const IPC::Message& message) {

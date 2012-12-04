@@ -18,7 +18,7 @@
 #include "chrome/common/extensions/permissions/api_permission.h"
 #include "chrome/common/extensions/permissions/api_permission_set.h"
 #include "chrome/common/extensions/permissions/permission_message.h"
-#include "chrome/common/extensions/url_pattern_set.h"
+#include "extensions/common/url_pattern_set.h"
 
 namespace extensions {
 
@@ -58,6 +58,11 @@ class PermissionSet
   // Passes ownership of the new set to the caller.
   static PermissionSet* CreateUnion(
       const PermissionSet* set1, const PermissionSet* set2);
+
+  // Creates a new permission set that only contains permissions that must be
+  // in the manifest.  Passes ownership of the new set to the caller.
+  static PermissionSet* ExcludeNotInManifestPermissions(
+      const PermissionSet* set);
 
   bool operator==(const PermissionSet& rhs) const;
 

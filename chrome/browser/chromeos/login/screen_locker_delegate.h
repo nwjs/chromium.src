@@ -11,6 +11,10 @@
 
 class GURL;
 
+namespace content {
+class WebUI;
+}
+
 namespace chromeos {
 
 class ScreenLocker;
@@ -49,12 +53,12 @@ class ScreenLockerDelegate {
   // Must call ScreenLocker::UnlockOnLoginSuccess() once all effects are done.
   virtual void AnimateAuthenticationSuccess() = 0;
 
-  // Allows to have visual effects once screen locker is fully displayed (after
-  // all window animations are done).
-  virtual void ProcessFullyDisplayedAnimations() = 0;
-
   // Returns the native window displaying the lock screen.
   virtual gfx::NativeWindow GetNativeWindow() const = 0;
+
+  // Returns WebUI associated with screen locker implementation or NULL if
+  // there isn't one.
+  virtual content::WebUI* GetAssociatedWebUI();
 
  protected:
   // ScreenLocker that owns this delegate.

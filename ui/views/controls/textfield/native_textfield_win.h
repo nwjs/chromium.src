@@ -11,7 +11,6 @@
 #include <atlctrls.h>
 #include <atlmisc.h>
 #include <oleacc.h>
-#include <peninputpanel.h>
 #include <tom.h>  // For ITextDocument, a COM interface to CRichEditCtrl
 #include <vsstyle.h>
 
@@ -70,6 +69,7 @@ class NativeTextfieldWin
   virtual string16 GetText() const OVERRIDE;
   virtual void UpdateText() OVERRIDE;
   virtual void AppendText(const string16& text) OVERRIDE;
+  virtual void ReplaceSelection(const string16& text) OVERRIDE;
   virtual base::i18n::TextDirection GetTextDirection() const OVERRIDE;
   virtual string16 GetSelectedText() const OVERRIDE;
   virtual void SelectAll(bool reversed) OVERRIDE;
@@ -103,6 +103,8 @@ class NativeTextfieldWin
   virtual void ApplyDefaultStyle() OVERRIDE;
   virtual void ClearEditHistory() OVERRIDE;
   virtual int GetFontHeight() OVERRIDE;
+  virtual int GetTextfieldBaseline() const OVERRIDE;
+  virtual void ExecuteTextCommand(int command_id) OVERRIDE;
 
   // ui::SimpleMenuModel::Delegate:
   virtual bool IsCommandIdChecked(int command_id) const OVERRIDE;
@@ -176,7 +178,6 @@ class NativeTextfieldWin
   LRESULT OnImeComposition(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeEndComposition(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnPointerDown(UINT message, WPARAM wparam, LPARAM lparam);
-  LRESULT OnPointerUp(UINT message, WPARAM wparam, LPARAM lparam);
   void OnKeyDown(TCHAR key, UINT repeat_count, UINT flags);
   void OnLButtonDblClk(UINT keys, const CPoint& point);
   void OnLButtonDown(UINT keys, const CPoint& point);
@@ -271,9 +272,6 @@ class NativeTextfieldWin
 
   // This interface is useful for accessing the CRichEditCtrl at a low level.
   mutable base::win::ScopedComPtr<ITextDocument> text_object_model_;
-
-  // To support the Windows virtual keyboard when used with a touch screen.
-  base::win::ScopedComPtr<ITextInputPanel> keyboard_;
 
   // The position and the length of the ongoing composition string.
   // These values are used for removing a composition string from a search

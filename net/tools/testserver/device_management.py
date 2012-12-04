@@ -386,28 +386,26 @@ class RequestHandler(object):
       policies: The source: a dictionary containing policies under keys
           'recommended' and 'mandatory'.
     '''
-    for group in settings.DESCRIPTOR.fields:
-      # Create protobuf message for group.
-      group_message = eval('cp.' + group.message_type.name + '()')
-      # We assume that this policy group will be recommended, and only switch
-      # it to mandatory if at least one of its members is mandatory.
-      group_message.policy_options.mode = cp.PolicyOptions.RECOMMENDED
-      # Indicates if at least one field was set in |group_message|.
-      got_fields = False
-      # Iterate over fields of the message and feed them from the
-      # policy config file.
-      for field in group_message.DESCRIPTOR.fields:
-        field_value = None
-        if field.name in policies['mandatory']:
-          group_message.policy_options.mode = cp.PolicyOptions.MANDATORY
-          field_value = policies['mandatory'][field.name]
-        elif field.name in policies['recommended']:
-          field_value = policies['recommended'][field.name]
-        if field_value is not None:
-          got_fields = True
-          self.SetProtobufMessageField(group_message, field, field_value)
-      if got_fields:
-        settings.__getattribute__(group.name).CopyFrom(group_message)
+    for field in settings.DESCRIPTOR.fields:
+      # |field| is the entry for a specific policy in the top-level
+      # CloudPolicySettings proto.
+
+      # Look for this policy's value in the mandatory or recommended dicts.
+      if field.name in policies['mandatory']:
+        mode = cp.PolicyOptions.MANDATORY
+        value = policies['mandatory'][field.name]
+      elif field.name in policies['recommended']:
+        mode = cp.PolicyOptions.RECOMMENDED
+        value = policies['recommended'][field.name]
+      else:
+        continue
+
+      # Create protobuf message for this policy.
+      policy_message = eval('cp.' + field.message_type.name + '()')
+      policy_message.policy_options.mode = mode
+      field_descriptor = policy_message.DESCRIPTOR.fields_by_name['value']
+      self.SetProtobufMessageField(policy_message, field_descriptor, value)
+      settings.__getattribute__(field.name).CopyFrom(policy_message)
 
   def ProcessCloudPolicy(self, msg):
     """Handles a cloud policy request. (New protocol for policy requests.)
@@ -472,7 +470,11 @@ class RequestHandler(object):
 
     if signing_key:
       policy_data.public_key_version = key_version
-    policy_data.username = self._server.username
+    # There is no way for the testserver to know the user name belonging to
+    # the GAIA auth token we received (short of actually talking to GAIA). To
+    # address this, we read the username from the policy configuration
+    # dictionary, or use a default.
+    policy_data.username = policy.get('policy_user', 'user@example.com')
     policy_data.device_id = token_info['device_id']
     signed_data = policy_data.SerializeToString()
 
@@ -533,7 +535,7 @@ class RequestHandler(object):
 class TestServer(object):
   """Handles requests and keeps global service state."""
 
-  def __init__(self, policy_path, private_key_paths, policy_user):
+  def __init__(self, policy_path, private_key_paths):
     """Initializes the server.
 
     Args:
@@ -542,12 +544,6 @@ class TestServer(object):
     """
     self._registered_tokens = {}
     self.policy_path = policy_path
-
-    # There is no way to for the testserver to know the user name belonging to
-    # the GAIA auth token we received (short of actually talking to GAIA). To
-    # address this, we have a command line parameter to set the username that
-    # the server should report to the client.
-    self.username = policy_user
 
     self.keys = []
     if private_key_paths:

@@ -10,10 +10,10 @@
 #include "base/bind.h"
 #include "base/message_loop_proxy.h"
 #include "chrome/browser/google_apis/auth_service.h"
-#include "chrome/browser/google_apis/drive_api_operations.h"
-#include "chrome/browser/google_apis/gdata_operations.h"
-#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/gdata_wapi_operations.h"
+#include "chrome/browser/google_apis/gdata_wapi_url_generator.h"
 #include "chrome/browser/google_apis/operation_runner.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "chrome/common/net/url_util.h"
 #include "content/public/browser/browser_thread.h"
 
@@ -66,8 +66,11 @@ const char kDriveAppsScope[] = "https://www.googleapis.com/auth/drive.apps";
 
 }  // namespace
 
-GDataWapiService::GDataWapiService()
-    : runner_(NULL) {
+GDataWapiService::GDataWapiService(const GURL& base_url,
+                                   const std::string& custom_user_agent)
+    : runner_(NULL),
+      url_generator_(base_url),
+      custom_user_agent_(custom_user_agent) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
@@ -92,7 +95,7 @@ void GDataWapiService::Initialize(Profile* profile) {
   scopes.push_back(kUserContentScope);
   // Drive App scope is required for even WAPI v3 apps access.
   scopes.push_back(kDriveAppsScope);
-  runner_.reset(new OperationRunner(profile, scopes));
+  runner_.reset(new OperationRunner(profile, scopes, custom_user_agent_));
   runner_->Initialize();
 
   runner_->auth_service()->AddObserver(this);
@@ -128,15 +131,11 @@ OperationProgressStatusList GDataWapiService::GetProgressStatusList() const {
   return operation_registry()->GetProgressStatusList();
 }
 
-void GDataWapiService::Authenticate(const AuthStatusCallback& callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  runner_->Authenticate(callback);
-}
-
 void GDataWapiService::GetDocuments(
     const GURL& url,
     int64 start_changestamp,
     const std::string& search_query,
+    bool shared_with_me,
     const std::string& directory_resource_id,
     const GetDataCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -146,9 +145,11 @@ void GDataWapiService::GetDocuments(
   GetDocumentsOperation* operation =
       new google_apis::GetDocumentsOperation(
           operation_registry(),
+          url_generator_,
           url,
           static_cast<int>(start_changestamp),
           search_query,
+          shared_with_me,
           directory_resource_id,
           callback);
   runner_->StartOperationWithRetry(operation);
@@ -161,6 +162,7 @@ void GDataWapiService::GetDocumentEntry(
 
   GetDocumentEntryOperation* operation =
       new GetDocumentEntryOperation(operation_registry(),
+                                    url_generator_,
                                     resource_id,
                                     callback);
   runner_->StartOperationWithRetry(operation);
@@ -171,7 +173,7 @@ void GDataWapiService::GetAccountMetadata(const GetDataCallback& callback) {
 
   GetAccountMetadataOperation* operation =
       new GetAccountMetadataOperation(
-          operation_registry(), callback);
+          operation_registry(), url_generator_, callback);
   runner_->StartOperationWithRetry(operation);
 }
 
@@ -231,8 +233,11 @@ void GDataWapiService::AddNewDirectory(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   runner_->StartOperationWithRetry(
-      new CreateDirectoryOperation(
-          operation_registry(), callback, parent_content_url, directory_name));
+      new CreateDirectoryOperation(operation_registry(),
+                                   url_generator_,
+                                   callback,
+                                   parent_content_url,
+                                   directory_name));
 }
 
 void GDataWapiService::CopyDocument(
@@ -242,8 +247,11 @@ void GDataWapiService::CopyDocument(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   runner_->StartOperationWithRetry(
-      new CopyDocumentOperation(operation_registry(), callback,
-                                resource_id, new_name));
+      new CopyDocumentOperation(operation_registry(),
+                                url_generator_,
+                                callback,
+                                resource_id,
+                                new_name));
 }
 
 void GDataWapiService::RenameResource(
@@ -265,6 +273,7 @@ void GDataWapiService::AddResourceToDirectory(
 
   runner_->StartOperationWithRetry(
       new AddResourceToDirectoryOperation(operation_registry(),
+                                          url_generator_,
                                           callback,
                                           parent_content_url,
                                           resource_url));
@@ -272,7 +281,6 @@ void GDataWapiService::AddResourceToDirectory(
 
 void GDataWapiService::RemoveResourceFromDirectory(
     const GURL& parent_content_url,
-    const GURL& resource_url,
     const std::string& resource_id,
     const EntryActionCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -282,7 +290,6 @@ void GDataWapiService::RemoveResourceFromDirectory(
           operation_registry(),
           callback,
           parent_content_url,
-          resource_url,
           resource_id));
 }
 
@@ -312,13 +319,15 @@ void GDataWapiService::ResumeUpload(const ResumeUploadParams& params,
 }
 
 void GDataWapiService::AuthorizeApp(const GURL& resource_url,
-                                    const std::string& app_ids,
+                                    const std::string& app_id,
                                     const GetDataCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   runner_->StartOperationWithRetry(
-      new AuthorizeAppsOperation(operation_registry(), callback,
-                                 resource_url, app_ids));
+      new AuthorizeAppOperation(operation_registry(),
+                                callback,
+                                resource_url,
+                                app_id));
 }
 
 bool GDataWapiService::HasAccessToken() const {

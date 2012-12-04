@@ -26,7 +26,6 @@ class MockBluetoothInputClient;
 class MockBluetoothManagerClient;
 class MockBluetoothNodeClient;
 class MockBluetoothOutOfBandClient;
-class MockCashewClient;
 class MockCrosDisksClient;
 class MockCryptohomeClient;
 class MockDebugDaemonClient;
@@ -42,6 +41,7 @@ class MockIntrospectableClient;
 class MockModemMessagingClient;
 class MockPermissionBrokerClient;
 class MockPowerManagerClient;
+class MockRootPowerManagerClient;
 class MockSessionManagerClient;
 class MockSMSClient;
 class MockSpeechSynthesizerClient;
@@ -66,7 +66,6 @@ class MockDBusThreadManager : public DBusThreadManager {
   MOCK_METHOD0(GetBluetoothManagerClient, BluetoothManagerClient*(void));
   MOCK_METHOD0(GetBluetoothNodeClient, BluetoothNodeClient*(void));
   MOCK_METHOD0(GetBluetoothOutOfBandClient, BluetoothOutOfBandClient*(void));
-  MOCK_METHOD0(GetCashewClient, CashewClient*(void));
   MOCK_METHOD0(GetCrosDisksClient, CrosDisksClient*(void));
   MOCK_METHOD0(GetCryptohomeClient, CryptohomeClient*(void));
   MOCK_METHOD0(GetDebugDaemonClient, DebugDaemonClient*(void));
@@ -82,11 +81,13 @@ class MockDBusThreadManager : public DBusThreadManager {
   MOCK_METHOD0(GetModemMessagingClient, ModemMessagingClient*(void));
   MOCK_METHOD0(GetPermissionBrokerClient, PermissionBrokerClient*(void));
   MOCK_METHOD0(GetPowerManagerClient, PowerManagerClient*(void));
+  MOCK_METHOD0(GetRootPowerManagerClient, RootPowerManagerClient*(void));
   MOCK_METHOD0(GetSessionManagerClient, SessionManagerClient*(void));
   MOCK_METHOD0(GetSMSClient, SMSClient*(void));
   MOCK_METHOD0(GetSpeechSynthesizerClient, SpeechSynthesizerClient*(void));
   MOCK_METHOD0(GetUpdateEngineClient, UpdateEngineClient*(void));
   MOCK_METHOD0(GetIBusClient, IBusClient*(void));
+  MOCK_METHOD0(GetIBusConfigClient, IBusConfigClient*(void));
   MOCK_METHOD0(GetIBusInputContextClient, IBusInputContextClient*(void));
   MOCK_METHOD0(GetIBusEngineFactoryService, IBusEngineFactoryService*(void));
   MOCK_METHOD1(GetIBusEngineService,
@@ -112,9 +113,6 @@ class MockDBusThreadManager : public DBusThreadManager {
   }
   MockBluetoothOutOfBandClient* mock_bluetooth_out_of_band_client() {
     return mock_bluetooth_out_of_band_client_.get();
-  }
-  MockCashewClient* mock_cashew_client() {
-    return mock_cashew_client_.get();
   }
   MockCrosDisksClient* mock_cros_disks_client() {
     return mock_cros_disks_client_.get();
@@ -161,6 +159,9 @@ class MockDBusThreadManager : public DBusThreadManager {
   MockPowerManagerClient* mock_power_manager_client() {
     return mock_power_manager_client_.get();
   }
+  MockRootPowerManagerClient* mock_root_power_manager_client() {
+    return mock_root_power_manager_client_.get();
+  }
   MockSessionManagerClient* mock_session_manager_client() {
     return mock_session_manager_client_.get();
   }
@@ -181,7 +182,6 @@ class MockDBusThreadManager : public DBusThreadManager {
   scoped_ptr<MockBluetoothManagerClient> mock_bluetooth_manager_client_;
   scoped_ptr<MockBluetoothNodeClient> mock_bluetooth_node_client_;
   scoped_ptr<MockBluetoothOutOfBandClient> mock_bluetooth_out_of_band_client_;
-  scoped_ptr<MockCashewClient> mock_cashew_client_;
   scoped_ptr<MockCrosDisksClient> mock_cros_disks_client_;
   scoped_ptr<MockCryptohomeClient> mock_cryptohome_client_;
   scoped_ptr<MockDebugDaemonClient> mock_debugdaemon_client_;
@@ -197,6 +197,7 @@ class MockDBusThreadManager : public DBusThreadManager {
   scoped_ptr<MockModemMessagingClient> mock_modem_messaging_client_;
   scoped_ptr<MockPermissionBrokerClient> mock_permission_broker_client_;
   scoped_ptr<MockPowerManagerClient> mock_power_manager_client_;
+  scoped_ptr<MockRootPowerManagerClient> mock_root_power_manager_client_;
   scoped_ptr<MockSessionManagerClient> mock_session_manager_client_;
   scoped_ptr<MockSMSClient> mock_sms_client_;
   scoped_ptr<MockSpeechSynthesizerClient> mock_speech_synthesizer_client_;

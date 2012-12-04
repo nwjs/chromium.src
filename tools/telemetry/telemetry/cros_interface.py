@@ -12,8 +12,6 @@ import tempfile
 
 from telemetry import util
 
-_next_remote_port = 9224
-
 # TODO(nduca): This whole file is built up around making individual ssh calls
 # for each operation. It really could get away with a single ssh session built
 # around pexpect, I suspect, if we wanted it to be faster. But, this was
@@ -126,7 +124,7 @@ class DeviceSideProcess(object):
 
     self._pid = int(self._pid)
     if not self.IsAlive():
-      raise OSError('Process did not come up or did not stay alive verry long!')
+      raise OSError('Process did not come up or did not stay alive very long!')
     self._cri = cri
 
   def Close(self, try_sigint_first=False):
@@ -275,27 +273,31 @@ class CrOSInterface(object):
           file_name, exists))
     return exists
 
+  def PushFile(self, filename, remote_filename):
+    args = ['scp',
+            '-r',
+            '-o ConnectTimeout=5',
+            '-o KbdInteractiveAuthentication=no',
+            '-o PreferredAuthentications=publickey',
+            '-o StrictHostKeyChecking=yes' ]
+
+    if self._ssh_identity:
+      args.extend(['-i', self._ssh_identity])
+
+    args.extend([os.path.abspath(filename),
+                 'root@%s:%s' % (self._hostname, remote_filename)])
+
+    stdout, stderr = GetAllCmdOutput(args, quiet=True)
+    if stderr != '':
+      assert 'No such file or directory' in stderr
+      raise OSError
+
   def PushContents(self, text, remote_filename):
     logging.debug("PushContents(<text>, %s)" % remote_filename)
     with tempfile.NamedTemporaryFile() as f:
       f.write(text)
       f.flush()
-      args = ['scp',
-              '-o ConnectTimeout=5',
-              '-o KbdInteractiveAuthentication=no',
-              '-o PreferredAuthentications=publickey',
-              '-o StrictHostKeyChecking=yes' ]
-
-      if self._ssh_identity:
-        args.extend(['-i', self._ssh_identity])
-
-      args.extend([os.path.abspath(f.name),
-                   'root@%s:%s' % (self._hostname, remote_filename)])
-
-      stdout, stderr = GetAllCmdOutput(args, quiet=True)
-      if stderr != '':
-        assert 'No such file or directory' in stderr
-        raise OSError
+      self.PushFile(f.name, remote_filename)
 
   def GetFileContents(self, filename):
     with tempfile.NamedTemporaryFile() as f:
@@ -369,7 +371,24 @@ class CrOSInterface(object):
     return stdout
 
   def GetRemotePort(self):
-    global _next_remote_port
-    port = _next_remote_port
-    _next_remote_port += 1
-    return port
+    netstat = self.GetAllCmdOutput(['netstat', '-ant'])
+    netstat = netstat[0].split('\n')
+    ports_in_use = []
+
+    for line in netstat[2:]:
+      if not line:
+        continue
+      address_in_use = line.split()[3]
+      port_in_use = address_in_use.split(':')[-1]
+      ports_in_use.append(int(port_in_use))
+
+    return sorted(ports_in_use)[-1] + 1
+
+  def IsHTTPServerRunningOnPort(self, port):
+    wget_output = self.GetAllCmdOutput(
+        ['wget', 'localhost:%i' % (port), '-T1', '-t1'])
+
+    if 'Connection refused' in wget_output[1]:
+      return False
+
+    return True

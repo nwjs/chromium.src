@@ -86,7 +86,6 @@ class ExternalTabContainerWin : public ExternalTabContainer,
                             AutomationResourceMessageFilter* filter,
                             gfx::NativeWindow parent_window) OVERRIDE;
   virtual content::WebContents* GetWebContents() const OVERRIDE;
-  virtual TabContents* GetTabContents() OVERRIDE;
   virtual gfx::NativeView GetExternalTabNativeView() const OVERRIDE;
   virtual void SetTabHandle(int handle) OVERRIDE;
   virtual int GetTabHandle() const OVERRIDE;
@@ -180,6 +179,11 @@ class ExternalTabContainerWin : public ExternalTabContainer,
       content::WebContents* web_contents,
       const content::MediaStreamRequest* request,
       const content::MediaResponseCallback& callback) OVERRIDE;
+  virtual bool RequestPpapiBrokerPermission(
+      content::WebContents* web_contents,
+      const GURL& url,
+      const FilePath& plugin_path,
+      const base::Callback<void(bool)>& callback) OVERRIDE;
 
   void RegisterRenderViewHost(content::RenderViewHost* render_view_host);
   void UnregisterRenderViewHost(content::RenderViewHost* render_view_host);

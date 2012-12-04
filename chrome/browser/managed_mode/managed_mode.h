@@ -21,7 +21,9 @@
 class Browser;
 template<typename T>
 struct DefaultSingletonTraits;
+class ManagedModeSiteList;
 class ManagedModeURLFilter;
+class PrefChangeRegistrar;
 class PrefService;
 class Profile;
 
@@ -37,6 +39,7 @@ class ManagedMode : public chrome::BrowserListObserver,
   typedef base::Callback<void(bool)> EnterCallback;
 
   static void RegisterPrefs(PrefService* prefs);
+  static void RegisterUserPrefs(PrefService* prefs);
 
   // Initializes the singleton, setting the managed_profile_. Must be called
   // after g_browser_process and the LocalState have been created.
@@ -48,8 +51,15 @@ class ManagedMode : public chrome::BrowserListObserver,
   static void EnterManagedMode(Profile* profile, const EnterCallback& callback);
   static void LeaveManagedMode();
 
-  // Returns the URL filter. This method should only be called on the IO thread.
-  static const ManagedModeURLFilter* GetURLFilter();
+  // Returns the URL filter for the IO thread, for filtering network requests
+  // (in ChromeNetworkDelegate).
+  // This method should only be called on the IO thread.
+  static const ManagedModeURLFilter* GetURLFilterForIOThread();
+
+  // Returns the URL filter for the UI thread, for filtering navigations and
+  // classifying sites in the history view.
+  // This method should only be called on the UI thread.
+  static const ManagedModeURLFilter* GetURLFilterForUIThread();
 
   // ExtensionManagementPolicy::Provider implementation:
   virtual std::string GetDebugPolicyProviderName() const OVERRIDE;
@@ -95,7 +105,8 @@ class ManagedMode : public chrome::BrowserListObserver,
 
   void LeaveManagedModeImpl();
 
-  const ManagedModeURLFilter* GetURLFilterImpl();
+  const ManagedModeURLFilter* GetURLFilterForIOThreadImpl();
+  const ManagedModeURLFilter* GetURLFilterForUIThreadImpl();
 
   void FinalizeEnter(bool result);
 
@@ -113,11 +124,20 @@ class ManagedMode : public chrome::BrowserListObserver,
   // testing).
   virtual void SetInManagedMode(Profile* newly_managed_profile);
 
+  // Returns a list of all installed and enabled site lists in the current
+  // managed profile.
+  // This method should only be called if managed mode is active.
+  ScopedVector<ManagedModeSiteList> GetActiveSiteLists();
+
+  void OnDefaultFilteringBehaviorChanged();
+
   void UpdateWhitelist();
 
   content::NotificationRegistrar registrar_;
+  scoped_ptr<PrefChangeRegistrar> pref_change_registrar_;
 
-  scoped_ptr<URLFilterContext> url_filter_context_;
+  scoped_ptr<URLFilterContext> io_url_filter_context_;
+  scoped_ptr<URLFilterContext> ui_url_filter_context_;
 
   std::set<Browser*> browsers_to_close_;
   std::vector<EnterCallback> callbacks_;

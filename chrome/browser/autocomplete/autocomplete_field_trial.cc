@@ -21,12 +21,15 @@ static const char kDisallowInlineHQPFieldTrialName[] =
 // was created as part of the name.
 static const char kSuggestFieldTrialStarted2012Q4Name[] =
     "OmniboxSearchSuggestTrialStarted2012Q4";
-static const char kHQPNewScoringFieldTrialName[] = "OmniboxHQPNewScoring";
+static const char kHQPNewScoringFieldTrialName[] =
+    "OmniboxHQPNewScoringMax1400";
 static const char kHUPCullRedirectsFieldTrialName[] = "OmniboxHUPCullRedirects";
 static const char kHUPCreateShorterMatchFieldTrialName[] =
     "OmniboxHUPCreateShorterMatch";
 static const char kHQPReplaceHUPScoringFieldTrialName[] =
-    "OmniboxHQPReplaceHUP";
+    "OmniboxHQPReplaceHUPNumComponentsFix";
+static const char kHQPOnlyCountMatchesAtWordBoundariesFieldTrialName[] =
+    "OmniboxHQPOnlyCountMatchesAtWordBoundaries";
 
 // Field trial experiment probabilities.
 
@@ -41,11 +44,11 @@ const base::FieldTrial::Probability
 // will decide what behavior (if any) to change based on the group.
 const int kSuggestFieldTrialNumberOfGroups = 20;
 
-// For History Quick Provider new scoring field trial, put 0% ( = 0/100 )
+// For History Quick Provider new scoring field trial, put 25% ( = 25/100 )
 // of the users in the new scoring experiment group.
 const base::FieldTrial::Probability kHQPNewScoringFieldTrialDivisor = 100;
 const base::FieldTrial::Probability
-    kHQPNewScoringFieldTrialExperimentFraction = 0;
+    kHQPNewScoringFieldTrialExperimentFraction = 25;
 
 // For HistoryURL provider cull redirects field trial, put 0% ( = 0/100 )
 // of the users in the don't-cull-redirects experiment group.
@@ -74,6 +77,13 @@ const base::FieldTrial::Probability
 const base::FieldTrial::Probability
     kHQPReplaceHUPScoringFieldTrialExperimentFraction = 25;
 
+// For the field trial that ignores all mid-term matches in HistoryQuick
+// provider, put 25% ( = 25/100 ) of the users in the experiment group.
+const base::FieldTrial::Probability
+    kHQPOnlyCountMatchesAtWordBoundariesFieldTrialDivisor = 100;
+const base::FieldTrial::Probability
+    kHQPOnlyCountMatchesAtWordBoundariesFieldTrialExperimentFraction = 25;
+
 
 // Field trial IDs.
 // Though they are not literally "const", they are set only once, in
@@ -96,6 +106,10 @@ int hup_dont_create_shorter_match_experiment_group = 0;
 // Field trial ID for the HistoryQuick provider replaces HistoryURL provider
 // experiment group.
 int hqp_replace_hup_scoring_experiment_group = 0;
+
+// Field trial ID for the HistoryQuick provider only count matches at
+// word boundaries experiment group.
+int hqp_only_count_matches_at_word_boundaries_experiment_group = 0;
 
 }
 
@@ -127,6 +141,7 @@ void AutocompleteFieldTrial::Activate() {
 
   // Mark this group in suggest requests to Google.
   chrome_variations::AssociateGoogleVariationID(
+      chrome_variations::GOOGLE_WEB_PROPERTIES,
       kSuggestFieldTrialStarted2012Q4Name, "0",
       chrome_variations::kSuggestTrialStarted2012Q4IDMin);
   DCHECK_EQ(kSuggestFieldTrialNumberOfGroups,
@@ -140,16 +155,22 @@ void AutocompleteFieldTrial::Activate() {
     const std::string group_name = base::IntToString(i);
     trial->AppendGroup(group_name, 1);
     chrome_variations::AssociateGoogleVariationID(
+        chrome_variations::GOOGLE_WEB_PROPERTIES,
         kSuggestFieldTrialStarted2012Q4Name, group_name,
         static_cast<chrome_variations::VariationID>(
             chrome_variations::kSuggestTrialStarted2012Q4IDMin + i));
   }
 
+  // Make sure that we participate in the suggest experiment by calling group()
+  // on the newly created field trial.  This is necessary to activate the field
+  // trial group as there are no more references to it within the Chrome code.
+  trial->group();
+
   // Create inline History Quick Provider new scoring field trial.
-  // Make it expire on January 14, 2013.
+  // Make it expire on April 14, 2013.
   trial = base::FieldTrialList::FactoryGetFieldTrial(
       kHQPNewScoringFieldTrialName, kHQPNewScoringFieldTrialDivisor,
-      "Standard", 2013, 1, 14, NULL);
+      "Standard", 2013, 4, 14, NULL);
   trial->UseOneTimeRandomization();
   hqp_new_scoring_experiment_group = trial->AppendGroup("NewScoring",
       kHQPNewScoringFieldTrialExperimentFraction);
@@ -184,6 +205,18 @@ void AutocompleteFieldTrial::Activate() {
   trial->UseOneTimeRandomization();
   hqp_replace_hup_scoring_experiment_group = trial->AppendGroup("HQPReplaceHUP",
       kHQPReplaceHUPScoringFieldTrialExperimentFraction);
+
+  // Create the field trial that makes HistoryQuick provider score
+  // ignore all matches that happen in the middle of a word.  Make it
+  // expire on June 23, 2013.
+  trial = base::FieldTrialList::FactoryGetFieldTrial(
+      kHQPOnlyCountMatchesAtWordBoundariesFieldTrialName,
+      kHQPOnlyCountMatchesAtWordBoundariesFieldTrialDivisor,
+      "Standard", 2013, 6, 23, NULL);
+  trial->UseOneTimeRandomization();
+  hqp_only_count_matches_at_word_boundaries_experiment_group =
+      trial->AppendGroup("HQPOnlyCountMatchesAtWordBoundaries",
+          kHQPOnlyCountMatchesAtWordBoundariesFieldTrialExperimentFraction);
 }
 
 bool AutocompleteFieldTrial::InDisallowInlineHQPFieldTrial() {
@@ -198,32 +231,6 @@ bool AutocompleteFieldTrial::InDisallowInlineHQPFieldTrialExperimentGroup() {
   const int group = base::FieldTrialList::FindValue(
       kDisallowInlineHQPFieldTrialName);
   return group == disallow_inline_hqp_experiment_group;
-}
-
-bool AutocompleteFieldTrial::InSuggestFieldTrial() {
-  return base::FieldTrialList::TrialExists(kSuggestFieldTrialStarted2012Q4Name);
-}
-
-std::string AutocompleteFieldTrial::GetSuggestGroupName() {
-  return base::FieldTrialList::FindFullName(
-      kSuggestFieldTrialStarted2012Q4Name);
-}
-
-// Yes, this is roundabout.  It's easier to provide the group number as
-// a string (simply by choosing group names appropriately) than provide
-// it as an integer.  It might look more straightforward to use group ids
-// for the group number with respect to suggest.  However, we don't want
-// to assume that group ids are creates as 0, 1, 2, ... -- this isn't part
-// of the field_trial.h specification.  Hence, we use the group names to
-// get numbers that we know are 0, 1, 2, ...
-int AutocompleteFieldTrial::GetSuggestGroupNameAsNumber() {
-  int group_num;
-  base::StringToInt(GetSuggestGroupName(), &group_num);
-  return group_num;
-}
-
-int AutocompleteFieldTrial::GetSuggestNumberOfGroups() {
-  return kSuggestFieldTrialNumberOfGroups;
 }
 
 bool AutocompleteFieldTrial::InHQPNewScoringFieldTrial() {
@@ -282,4 +289,20 @@ bool AutocompleteFieldTrial::InHQPReplaceHUPScoringFieldTrialExperimentGroup() {
   const int group = base::FieldTrialList::FindValue(
       kHQPReplaceHUPScoringFieldTrialName);
   return group == hqp_replace_hup_scoring_experiment_group;
+}
+
+bool AutocompleteFieldTrial::InHQPOnlyCountMatchesAtWordBoundariesFieldTrial() {
+  return base::FieldTrialList::TrialExists(
+      kHQPOnlyCountMatchesAtWordBoundariesFieldTrialName);
+}
+
+bool AutocompleteFieldTrial::
+    InHQPOnlyCountMatchesAtWordBoundariesFieldTrialExperimentGroup() {
+  if (!InHQPOnlyCountMatchesAtWordBoundariesFieldTrial())
+    return false;
+
+  // Return true if we're in the experiment group.
+  const int group = base::FieldTrialList::FindValue(
+      kHQPOnlyCountMatchesAtWordBoundariesFieldTrialName);
+  return group == hqp_only_count_matches_at_word_boundaries_experiment_group;
 }

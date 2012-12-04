@@ -26,6 +26,7 @@
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/resource_context.h"
+#include "extensions/common/constants.h"
 #include "net/base/default_server_bound_cert_store.h"
 #include "net/base/server_bound_cert_service.h"
 #include "net/ftp/ftp_network_layer.h"
@@ -137,7 +138,7 @@ void OffTheRecordProfileIOData::Handle::LazyInitialize() const {
   // Set initialized_ to true at the beginning in case any of the objects
   // below try to get the ResourceContext pointer.
   initialized_ = true;
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   io_data_->safe_browsing_enabled()->Init(prefs::kSafeBrowsingEnabled,
       profile_->GetPrefs(), NULL);
   io_data_->safe_browsing_enabled()->MoveToThread(
@@ -155,19 +156,15 @@ OffTheRecordProfileIOData::~OffTheRecordProfileIOData() {
 void OffTheRecordProfileIOData::LazyInitializeInternal(
     ProfileParams* profile_params) const {
   ChromeURLRequestContext* main_context = main_request_context();
-  ChromeURLRequestContext* extensions_context = extensions_request_context();
 
   IOThread* const io_thread = profile_params->io_thread;
   IOThread::Globals* const io_thread_globals = io_thread->globals();
 
   ApplyProfileParamsToContext(main_context);
-  ApplyProfileParamsToContext(extensions_context);
 
   main_context->set_transport_security_state(transport_security_state());
-  extensions_context->set_transport_security_state(transport_security_state());
 
   main_context->set_net_log(io_thread->net_log());
-  extensions_context->set_net_log(io_thread->net_log());
 
   main_context->set_network_delegate(network_delegate());
 
@@ -182,8 +179,6 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
   main_context->set_proxy_service(proxy_service());
 
   main_context->set_throttler_manager(
-      io_thread_globals->throttler_manager.get());
-  extensions_context->set_throttler_manager(
       io_thread_globals->throttler_manager.get());
 
   // For incognito, we use the default non-persistent HttpServerPropertiesImpl.
@@ -200,16 +195,6 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
 
   main_context->set_cookie_store(
       new net::CookieMonster(NULL, profile_params->cookie_monster_delegate));
-  // All we care about for extensions is the cookie store. For incognito, we
-  // use a non-persistent cookie store.
-
-  net::CookieMonster* extensions_cookie_store =
-      new net::CookieMonster(NULL, NULL);
-  // Enable cookies for devtools and extension URLs.
-  const char* schemes[] = {chrome::kChromeDevToolsScheme,
-                           chrome::kExtensionScheme};
-  extensions_cookie_store->SetCookieableSchemes(schemes, 2);
-  extensions_context->set_cookie_store(extensions_cookie_store);
 
   net::HttpCache::BackendFactory* main_backend =
       net::HttpCache::DefaultBackend::InMemory(0);
@@ -224,15 +209,12 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
   ftp_factory_.reset(
       new net::FtpNetworkLayer(main_context->host_resolver()));
   main_context->set_ftp_transaction_factory(ftp_factory_.get());
-  extensions_context->set_ftp_transaction_factory(ftp_factory_.get());
 #endif  // !defined(DISABLE_FTP_SUPPORT)
 
   main_context->set_chrome_url_data_manager_backend(
       chrome_url_data_manager_backend());
 
   scoped_ptr<net::URLRequestJobFactoryImpl> main_job_factory(
-      new net::URLRequestJobFactoryImpl());
-  scoped_ptr<net::URLRequestJobFactoryImpl> extensions_job_factory(
       new net::URLRequestJobFactoryImpl());
 
   SetUpJobFactoryDefaults(
@@ -242,6 +224,46 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
       main_context->ftp_transaction_factory(),
       main_context->ftp_auth_cache());
   main_job_factory_ = main_job_factory.Pass();
+  main_context->set_job_factory(main_job_factory_.get());
+
+#if defined(ENABLE_EXTENSIONS)
+  InitializeExtensionsRequestContext(profile_params);
+#endif
+}
+
+void OffTheRecordProfileIOData::
+    InitializeExtensionsRequestContext(ProfileParams* profile_params) const {
+  ChromeURLRequestContext* extensions_context = extensions_request_context();
+
+  IOThread* const io_thread = profile_params->io_thread;
+  IOThread::Globals* const io_thread_globals = io_thread->globals();
+
+  ApplyProfileParamsToContext(extensions_context);
+
+  extensions_context->set_transport_security_state(transport_security_state());
+
+  extensions_context->set_net_log(io_thread->net_log());
+
+  extensions_context->set_throttler_manager(
+      io_thread_globals->throttler_manager.get());
+
+  // All we care about for extensions is the cookie store. For incognito, we
+  // use a non-persistent cookie store.
+  net::CookieMonster* extensions_cookie_store =
+      new net::CookieMonster(NULL, NULL);
+  // Enable cookies for devtools and extension URLs.
+  const char* schemes[] = {chrome::kChromeDevToolsScheme,
+                           extensions::kExtensionScheme};
+  extensions_cookie_store->SetCookieableSchemes(schemes, 2);
+  extensions_context->set_cookie_store(extensions_cookie_store);
+
+#if !defined(DISABLE_FTP_SUPPORT)
+  DCHECK(ftp_factory_.get());
+  extensions_context->set_ftp_transaction_factory(ftp_factory_.get());
+#endif  // !defined(DISABLE_FTP_SUPPORT)
+
+  scoped_ptr<net::URLRequestJobFactoryImpl> extensions_job_factory(
+      new net::URLRequestJobFactoryImpl());
   // TODO(shalev): The extensions_job_factory has a NULL NetworkDelegate.
   // Without a network_delegate, this protocol handler will never
   // handle file: requests, but as a side effect it makes
@@ -255,8 +277,6 @@ void OffTheRecordProfileIOData::LazyInitializeInternal(
       extensions_context->ftp_transaction_factory(),
       extensions_context->ftp_auth_cache());
   extensions_job_factory_ = extensions_job_factory.Pass();
-
-  main_context->set_job_factory(main_job_factory_.get());
   extensions_context->set_job_factory(extensions_job_factory_.get());
 }
 

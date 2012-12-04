@@ -17,11 +17,9 @@
 #include "ui/aura/client/capture_client.h"
 #include "ui/aura/client/cursor_client.h"
 #include "ui/aura/client/event_client.h"
+#include "ui/aura/client/focus_client.h"
 #include "ui/aura/client/screen_position_client.h"
-#include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
-#include "ui/aura/event_filter.h"
-#include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window_host.h"
 #include "ui/aura/root_window_observer.h"
 #include "ui/aura/window.h"
@@ -39,6 +37,7 @@
 #include "ui/gfx/display.h"
 #include "ui/gfx/point3_f.h"
 #include "ui/gfx/point_conversions.h"
+#include "ui/gfx/rect_conversions.h"
 #include "ui/gfx/screen.h"
 
 using std::vector;
@@ -59,19 +58,9 @@ bool IsNonClientLocation(Window* target, const gfx::Point& location) {
   return hit_test_code != HTCLIENT && hit_test_code != HTNOWHERE;
 }
 
-typedef std::vector<EventFilter*> EventFilters;
-
-void GetEventFiltersToNotify(Window* target, EventFilters* filters) {
-  while (target) {
-    if (target->event_filter())
-      filters->push_back(target->event_filter());
-    target = target->parent();
-  }
-}
-
-float GetDeviceScaleFactorFromDisplay(const Window* window) {
-  DisplayManager* display_manager = Env::GetInstance()->display_manager();
-  return display_manager->GetDisplayNearestWindow(window).device_scale_factor();
+float GetDeviceScaleFactorFromDisplay(Window* window) {
+  return gfx::Screen::GetScreenFor(window)->
+      GetDisplayNearestWindow(window).device_scale_factor();
 }
 
 Window* ConsumerToWindow(ui::GestureConsumer* consumer) {
@@ -114,7 +103,6 @@ RootWindow::RootWindow(const CreateParams& params)
       mouse_moved_handler_(NULL),
       mouse_event_dispatch_target_(NULL),
       event_dispatch_target_(NULL),
-      focus_manager_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           gesture_recognizer_(ui::GestureRecognizer::Create(this))),
       synthesize_mouse_move_(false),
@@ -158,11 +146,6 @@ void RootWindow::Init() {
   compositor()->SetScaleAndSize(GetDeviceScaleFactorFromDisplay(this),
                                 host_->GetBounds().size());
   Window::Init(ui::LAYER_NOT_DRAWN);
-
-  gfx::Point point;
-  if (host_->QueryMouseLocation(&point))
-    SetLastMouseLocation(this, ui::ConvertPointToDIP(layer(), point));
-
   compositor()->SetRootLayer(layer());
   SetBounds(
       ui::ConvertRectToDIP(layer(), gfx::Rect(host_->GetBounds().size())));
@@ -278,15 +261,15 @@ bool RootWindow::DispatchGestureEvent(ui::GestureEvent* event) {
 
   if (target) {
     event->ConvertLocationToTarget(static_cast<Window*>(this), target);
-    ui::EventResult status = ProcessGestureEvent(target, event);
-    return status != ui::ER_UNHANDLED;
+    ProcessGestureEvent(target, event);
+    return event->handled();
   }
 
   return false;
 }
 
 void RootWindow::OnWindowDestroying(Window* window) {
-  OnWindowHidden(window, WINDOW_DESTROYED);
+  OnWindowHidden(window, WINDOW_DESTROYED, NULL);
 
   if (window->IsVisible() &&
       window->ContainsPointInRoot(GetLastMouseLocationInRoot())) {
@@ -305,7 +288,7 @@ void RootWindow::OnWindowBoundsChanged(Window* window,
 
 void RootWindow::OnWindowVisibilityChanged(Window* window, bool is_visible) {
   if (!is_visible)
-    OnWindowHidden(window, WINDOW_HIDDEN);
+    OnWindowHidden(window, WINDOW_HIDDEN, NULL);
 
   if (window->ContainsPointInRoot(GetLastMouseLocationInRoot()))
     PostMouseMoveEventAfterWindowChange();
@@ -539,10 +522,6 @@ bool RootWindow::CanReceiveEvents() const {
   return IsVisible();
 }
 
-FocusManager* RootWindow::GetFocusManager() {
-  return focus_manager_;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // RootWindow, overridden from aura::client::CaptureDelegate:
 
@@ -597,6 +576,14 @@ gfx::Point RootWindow::QueryMouseLocationForTest() const {
 ////////////////////////////////////////////////////////////////////////////////
 // RootWindow, private:
 
+void RootWindow::TransformEventForDeviceScaleFactor(ui::LocatedEvent* event) {
+  float scale = ui::GetDeviceScaleFactor(layer());
+  gfx::Transform transform;
+  transform.Scale(scale, scale);
+  transform *= layer()->transform();
+  event->UpdateForRootTransform(transform);
+}
+
 void RootWindow::HandleMouseMoved(const ui::MouseEvent& event, Window* target) {
   if (target == mouse_moved_handler_)
     return;
@@ -628,36 +615,35 @@ void RootWindow::HandleMouseMoved(const ui::MouseEvent& event, Window* target) {
   }
 }
 
-bool RootWindow::ProcessMouseEvent(Window* target, ui::MouseEvent* event) {
-  AutoReset<Window*> reset(&event_dispatch_target_, target);
-  if (ProcessEvent(target, event) != ui::ER_UNHANDLED)
-    return true;
-  return false;
+void RootWindow::ProcessMouseEvent(Window* target, ui::MouseEvent* event) {
+  base::AutoReset<Window*> reset(&event_dispatch_target_, target);
+  ProcessEvent(target, event);
 }
 
-bool RootWindow::ProcessKeyEvent(Window* target, ui::KeyEvent* event) {
+void RootWindow::ProcessKeyEvent(Window* target, ui::KeyEvent* event) {
   if (!target)
     target = this;
-  AutoReset<Window*> reset(&event_dispatch_target_, target);
-  if (ProcessEvent(target, event) != ui::ER_UNHANDLED)
-    return true;
-  return false;
+  base::AutoReset<Window*> reset(&event_dispatch_target_, target);
+  ProcessEvent(target, event);
 }
 
-ui::EventResult RootWindow::ProcessTouchEvent(Window* target,
-                                              ui::TouchEvent* event) {
-  if (!target)
-    target = this;
-  AutoReset<Window*> reset(&event_dispatch_target_, target);
-  return static_cast<ui::EventResult>(ProcessEvent(target, event));
+void RootWindow::ProcessScrollEvent(Window* target, ui::ScrollEvent* event) {
+  base::AutoReset<Window*> reset(&event_dispatch_target_, target);
+  ProcessEvent(target, event);
 }
 
-ui::EventResult RootWindow::ProcessGestureEvent(Window* target,
-                                                ui::GestureEvent* event) {
+void RootWindow::ProcessTouchEvent(Window* target, ui::TouchEvent* event) {
   if (!target)
     target = this;
-  AutoReset<Window*> reset(&event_dispatch_target_, target);
-  return static_cast<ui::EventResult>(ProcessEvent(target, event));
+  base::AutoReset<Window*> reset(&event_dispatch_target_, target);
+  ProcessEvent(target, event);
+}
+
+void RootWindow::ProcessGestureEvent(Window* target, ui::GestureEvent* event) {
+  if (!target)
+    target = this;
+  base::AutoReset<Window*> reset(&event_dispatch_target_, target);
+  ProcessEvent(target, event);
 }
 
 bool RootWindow::ProcessGestures(ui::GestureRecognizer::Gestures* gestures) {
@@ -676,7 +662,9 @@ void RootWindow::OnWindowRemovedFromRootWindow(Window* detached,
                                                RootWindow* new_root) {
   DCHECK(aura::client::GetCaptureWindow(this) != this);
 
-  OnWindowHidden(detached, (new_root == NULL) ? WINDOW_HIDDEN : WINDOW_MOVING);
+  OnWindowHidden(detached,
+                 (new_root == NULL) ? WINDOW_HIDDEN : WINDOW_MOVING,
+                 new_root);
 
   if (detached->IsVisible() &&
       detached->ContainsPointInRoot(GetLastMouseLocationInRoot())) {
@@ -684,16 +672,17 @@ void RootWindow::OnWindowRemovedFromRootWindow(Window* detached,
   }
 }
 
-void RootWindow::OnWindowHidden(Window* invisible, WindowHiddenReason reason) {
-  // Do not clear the focus, the capture, and the dispatch targets if the window
-  // is moving across root windows, because the target itself is actually still
-  // visible and clearing them stops further event processing, which can cause
-  // unexpected behaviors. See crbug.com/157583
-  if (reason != WINDOW_MOVING) {
+void RootWindow::OnWindowHidden(Window* invisible,
+                                WindowHiddenReason reason,
+                                RootWindow* new_root) {
     // Update the focused window state if the invisible window contains
-    // focused_window.
-    Window* focused_window = focus_manager_->GetFocusedWindow();
-    if (reason != WINDOW_MOVING && invisible->Contains(focused_window)) {
+  // focused_window. See the comment below, which also applies for focus with
+  // the exception for the case where the focus managers change (otherwise a
+  // focus manager might dereference a deleted root window).
+  if (reason != WINDOW_MOVING ||
+      (client::GetFocusClient(new_root) != client::GetFocusClient(this))) {
+    Window* focused_window = client::GetFocusClient(this)->GetFocusedWindow();
+    if (invisible->Contains(focused_window)) {
       Window* focus_to = invisible->transient_parent();
       if (focus_to) {
         // Has to be removed from the transient parent before focusing,
@@ -713,8 +702,15 @@ void RootWindow::OnWindowHidden(Window* invisible, WindowHiddenReason reason) {
                                                                   NULL)))) {
         focus_to = NULL;
       }
-      GetFocusManager()->SetFocusedWindow(focus_to, NULL);
+      client::GetFocusClient(this)->FocusWindow(focus_to, NULL);
     }
+  }
+
+  // Do not clear the capture, and the dispatch targets if the window is moving
+  // across root windows, because the target itself is actually still visible
+  // and clearing them stops further event processing, which can cause
+  // unexpected behaviors. See crbug.com/157583
+  if (reason != WINDOW_MOVING) {
     Window* capture_window = aura::client::GetCaptureWindow(this);
     // If the ancestor of the capture window is hidden,
     // release the capture.
@@ -785,12 +781,13 @@ bool RootWindow::OnHostKeyEvent(ui::KeyEvent* event) {
   if (event->key_code() == ui::VKEY_UNKNOWN)
     return false;
   client::EventClient* client = client::GetEventClient(GetRootWindow());
-  Window* focused_window = focus_manager_->GetFocusedWindow();
+  Window* focused_window = client::GetFocusClient(this)->GetFocusedWindow();
   if (client && !client->CanProcessEventsWithinSubtree(focused_window)) {
-    GetFocusManager()->SetFocusedWindow(NULL, NULL);
+    client::GetFocusClient(this)->FocusWindow(NULL, NULL);
     return false;
   }
-  return ProcessKeyEvent(focused_window, event);
+  ProcessKeyEvent(focused_window, event);
+  return event->handled();
 }
 
 bool RootWindow::OnHostMouseEvent(ui::MouseEvent* event) {
@@ -815,11 +812,8 @@ bool RootWindow::OnHostMouseEvent(ui::MouseEvent* event) {
 
 bool RootWindow::OnHostScrollEvent(ui::ScrollEvent* event) {
   DispatchHeldMouseMove();
-  float scale = ui::GetDeviceScaleFactor(layer());
-  gfx::Transform transform = layer()->transform();
-  transform.ConcatScale(scale, scale);
-  event->UpdateForRootTransform(transform);
 
+  TransformEventForDeviceScaleFactor(event);
   SetLastMouseLocation(this, event->location());
   synthesize_mouse_move_ = false;
 
@@ -836,7 +830,8 @@ bool RootWindow::OnHostScrollEvent(ui::ScrollEvent* event) {
       flags |= ui::EF_IS_NON_CLIENT;
     event->set_flags(flags);
     event->ConvertLocationToTarget(static_cast<Window*>(this), target);
-    return ProcessMouseEvent(target, event);
+    ProcessScrollEvent(target, event);
+    return event->handled();
   }
   return false;
 }
@@ -859,12 +854,8 @@ bool RootWindow::OnHostTouchEvent(ui::TouchEvent* event) {
     default:
       break;
   }
-  float scale = ui::GetDeviceScaleFactor(layer());
-  gfx::Transform transform = layer()->transform();
-  transform.ConcatScale(scale, scale);
-  event->UpdateForRootTransform(transform);
+  TransformEventForDeviceScaleFactor(event);
   bool handled = false;
-  ui::EventResult result = ui::ER_UNHANDLED;
   Window* target = client::GetCaptureWindow(this);
   if (!target) {
     target = ConsumerToWindow(
@@ -875,11 +866,13 @@ bool RootWindow::OnHostTouchEvent(ui::TouchEvent* event) {
     }
   }
 
+  ui::EventResult result = ui::ER_UNHANDLED;
   if (!target && !bounds().Contains(event->location())) {
     // If the initial touch is outside the root window, target the root.
     target = this;
-    result = ProcessTouchEvent(target, event);
-    CHECK_EQ(ui::ER_UNHANDLED, result);
+    ProcessTouchEvent(target, event);
+    CHECK_EQ(ui::ER_UNHANDLED, event->result());
+    result = event->result();
   } else {
     // We only come here when the first contact was within the root window.
     if (!target) {
@@ -890,8 +883,9 @@ bool RootWindow::OnHostTouchEvent(ui::TouchEvent* event) {
 
     ui::TouchEvent translated_event(
         *event, static_cast<Window*>(this), target);
-    result = ProcessTouchEvent(target, &translated_event);
-    handled = result != ui::ER_UNHANDLED;
+    ProcessTouchEvent(target, &translated_event);
+    handled = translated_event.handled();
+    result = translated_event.result();
   }
 
   // Get the list of GestureEvents from GestureRecognizer.
@@ -900,6 +894,10 @@ bool RootWindow::OnHostTouchEvent(ui::TouchEvent* event) {
       *event, result, target));
 
   return ProcessGestures(gestures.get()) ? true : handled;
+}
+
+void RootWindow::OnHostActivated() {
+  Env::GetInstance()->RootWindowActivated(this);
 }
 
 void RootWindow::OnHostLostWindowCapture() {
@@ -927,14 +925,15 @@ void RootWindow::OnHostResized(const gfx::Size& size) {
   DispatchHeldMouseMove();
   // The compositor should have the same size as the native root window host.
   // Get the latest scale from display because it might have been changed.
-  compositor_->SetScaleAndSize(GetDeviceScaleFactorFromDisplay(this),
-                               size);
-  gfx::Size old(bounds().size());
+  compositor_->SetScaleAndSize(GetDeviceScaleFactorFromDisplay(this), size);
+
   // The layer, and all the observers should be notified of the
   // transformed size of the root window.
-  gfx::Rect bounds(ui::ConvertSizeToDIP(layer(), size));
+  gfx::Size old(bounds().size());
+  gfx::RectF bounds(ui::ConvertSizeToDIP(layer(), size));
   layer()->transform().TransformRect(&bounds);
-  SetBounds(bounds);
+  // The transform is expected to produce an integer rect as its output.
+  SetBounds(gfx::ToNearestRect(bounds));
   FOR_EACH_OBSERVER(RootWindowObserver, observers_,
                     OnRootWindowResized(this, old));
 }
@@ -951,10 +950,7 @@ RootWindow* RootWindow::AsRootWindow() {
 // RootWindow, private:
 
 bool RootWindow::DispatchMouseEventImpl(ui::MouseEvent* event) {
-  float scale = ui::GetDeviceScaleFactor(layer());
-  gfx::Transform transform = layer()->transform();
-  transform.ConcatScale(scale, scale);
-  event->UpdateForRootTransform(transform);
+  TransformEventForDeviceScaleFactor(event);
   Window* target = mouse_pressed_handler_ ?
       mouse_pressed_handler_ : client::GetCaptureWindow(this);
   if (!target)
@@ -968,7 +964,7 @@ bool RootWindow::DispatchMouseEventToTarget(ui::MouseEvent* event,
       ui::EF_LEFT_MOUSE_BUTTON |
       ui::EF_MIDDLE_MOUSE_BUTTON |
       ui::EF_RIGHT_MOUSE_BUTTON;
-  AutoReset<Window*> reset(&mouse_event_dispatch_target_, target);
+  base::AutoReset<Window*> reset(&mouse_event_dispatch_target_, target);
   SetLastMouseLocation(this, event->location());
   synthesize_mouse_move_ = false;
   switch (event->type()) {
@@ -997,7 +993,8 @@ bool RootWindow::DispatchMouseEventToTarget(ui::MouseEvent* event,
     event->ConvertLocationToTarget(static_cast<Window*>(this), target);
     if (IsNonClientLocation(target, event->location()))
       event->set_flags(event->flags() | ui::EF_IS_NON_CLIENT);
-    return ProcessMouseEvent(target, event);
+    ProcessMouseEvent(target, event);
+    return event->handled();
   }
   return false;
 }
@@ -1029,9 +1026,10 @@ void RootWindow::SynthesizeMouseMoveEvent() {
 #if !defined(OS_WIN)
   // Temporarily disabled for windows. See crbug.com/112222.
   gfx::Point3F point(GetLastMouseLocationInRoot());
-  gfx::Transform transform = layer()->transform();
   float scale = ui::GetDeviceScaleFactor(layer());
-  transform.ConcatScale(scale, scale);
+  gfx::Transform transform;
+  transform.Scale(scale, scale);
+  transform *= layer()->transform();
   transform.TransformPoint(point);
   gfx::Point orig_mouse_location = gfx::ToFlooredPoint(point.AsPointF());
 

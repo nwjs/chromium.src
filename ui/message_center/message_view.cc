@@ -8,6 +8,8 @@
 #include "grit/ui_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
@@ -107,9 +109,14 @@ MessageView::MessageView(
     const NotificationList::Notification& notification)
     : list_delegate_(list_delegate),
       notification_(notification),
-      icon_(NULL),
       close_button_(NULL),
       scroller_(NULL) {
+  close_button_ = new views::ImageButton(this);
+  close_button_->SetImage(
+      views::CustomButton::STATE_NORMAL,
+      ResourceBundle::GetSharedInstance().GetImageSkiaNamed(IDR_MESSAGE_CLOSE));
+  close_button_->SetImageAlignment(views::ImageButton::ALIGN_CENTER,
+                                   views::ImageButton::ALIGN_MIDDLE);
 }
 
 MessageView::MessageView() {
@@ -127,32 +134,33 @@ bool MessageView::OnMousePressed(const ui::MouseEvent& event) {
   return true;
 }
 
-ui::EventResult MessageView::OnGestureEvent(ui::GestureEvent* event) {
+void MessageView::OnGestureEvent(ui::GestureEvent* event) {
   if (event->type() == ui::ET_GESTURE_TAP) {
     list_delegate_->OnNotificationClicked(notification_.id);
-    return ui::ER_CONSUMED;
+    event->SetHandled();
+    return;
   }
 
   if (event->type() == ui::ET_GESTURE_LONG_PRESS) {
     ShowMenu(event->location());
-    return ui::ER_CONSUMED;
+    event->SetHandled();
+    return;
   }
 
-  ui::EventResult result = SlideOutView::OnGestureEvent(event);
-  if (result & ui::ER_CONSUMED)
-    return result;
+  SlideOutView::OnGestureEvent(event);
+  if (event->handled())
+    return;
 
   if (!event->IsScrollGestureEvent())
-    return result;
+    return;
 
   if (scroller_)
     scroller_->OnGestureEvent(event);
-
-  return ui::ER_CONSUMED;
+  event->SetHandled();
 }
 
 void MessageView::ButtonPressed(views::Button* sender,
-                                        const ui::Event& event) {
+                                const ui::Event& event) {
   if (sender == close_button_)
     list_delegate_->SendRemoveNotification(notification_.id);
 }

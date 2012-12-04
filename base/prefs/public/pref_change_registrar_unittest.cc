@@ -4,13 +4,7 @@
 
 #include "base/prefs/public/pref_change_registrar.h"
 #include "base/prefs/public/pref_observer.h"
-#include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_pref_service.h"
-#include "content/public/browser/notification_details.h"
-#include "content/public/browser/notification_source.h"
-#include "content/public/browser/notification_types.h"
-#include "content/public/test/mock_notification_observer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -18,6 +12,10 @@ using testing::Mock;
 using testing::Eq;
 
 namespace {
+
+const char kHomePage[] = "homepage";
+const char kHomePageIsNewTabPage[] = "homepage_is_newtabpage";
+const char kApplicationLocale[] = "intl.app_locale";
 
 // TODO(joi): Use PrefObserverMock once it moves to base/prefs/.
 class MockPrefObserver : public PrefObserver {
@@ -68,9 +66,9 @@ TEST_F(PrefChangeRegistrarTest, AddAndRemove) {
 
   // Test adding.
   EXPECT_CALL(*service(),
-              AddPrefObserver(Eq(std::string("test.pref.1")), observer()));
+              AddPrefObserver(Eq(std::string("test.pref.1")), &registrar));
   EXPECT_CALL(*service(),
-              AddPrefObserver(Eq(std::string("test.pref.2")), observer()));
+              AddPrefObserver(Eq(std::string("test.pref.2")), &registrar));
   registrar.Add("test.pref.1", observer());
   registrar.Add("test.pref.2", observer());
   EXPECT_FALSE(registrar.IsEmpty());
@@ -78,11 +76,11 @@ TEST_F(PrefChangeRegistrarTest, AddAndRemove) {
   // Test removing.
   Mock::VerifyAndClearExpectations(service());
   EXPECT_CALL(*service(),
-              RemovePrefObserver(Eq(std::string("test.pref.1")), observer()));
+              RemovePrefObserver(Eq(std::string("test.pref.1")), &registrar));
   EXPECT_CALL(*service(),
-              RemovePrefObserver(Eq(std::string("test.pref.2")), observer()));
-  registrar.Remove("test.pref.1", observer());
-  registrar.Remove("test.pref.2", observer());
+              RemovePrefObserver(Eq(std::string("test.pref.2")), &registrar));
+  registrar.Remove("test.pref.1");
+  registrar.Remove("test.pref.2");
   EXPECT_TRUE(registrar.IsEmpty());
 
   // Explicitly check the expectations now to make sure that the Removes
@@ -96,14 +94,14 @@ TEST_F(PrefChangeRegistrarTest, AutoRemove) {
 
   // Setup of auto-remove.
   EXPECT_CALL(*service(),
-              AddPrefObserver(Eq(std::string("test.pref.1")), observer()));
+              AddPrefObserver(Eq(std::string("test.pref.1")), &registrar));
   registrar.Add("test.pref.1", observer());
   Mock::VerifyAndClearExpectations(service());
   EXPECT_FALSE(registrar.IsEmpty());
 
   // Test auto-removing.
   EXPECT_CALL(*service(),
-              RemovePrefObserver(Eq(std::string("test.pref.1")), observer()));
+              RemovePrefObserver(Eq(std::string("test.pref.1")), &registrar));
 }
 
 TEST_F(PrefChangeRegistrarTest, RemoveAll) {
@@ -111,17 +109,17 @@ TEST_F(PrefChangeRegistrarTest, RemoveAll) {
   registrar.Init(service());
 
   EXPECT_CALL(*service(),
-              AddPrefObserver(Eq(std::string("test.pref.1")), observer()));
+              AddPrefObserver(Eq(std::string("test.pref.1")), &registrar));
   EXPECT_CALL(*service(),
-              AddPrefObserver(Eq(std::string("test.pref.2")), observer()));
+              AddPrefObserver(Eq(std::string("test.pref.2")), &registrar));
   registrar.Add("test.pref.1", observer());
   registrar.Add("test.pref.2", observer());
   Mock::VerifyAndClearExpectations(service());
 
   EXPECT_CALL(*service(),
-              RemovePrefObserver(Eq(std::string("test.pref.1")), observer()));
+              RemovePrefObserver(Eq(std::string("test.pref.1")), &registrar));
   EXPECT_CALL(*service(),
-              RemovePrefObserver(Eq(std::string("test.pref.2")), observer()));
+              RemovePrefObserver(Eq(std::string("test.pref.2")), &registrar));
   registrar.RemoveAll();
   EXPECT_TRUE(registrar.IsEmpty());
 
@@ -130,28 +128,37 @@ TEST_F(PrefChangeRegistrarTest, RemoveAll) {
   Mock::VerifyAndClearExpectations(service());
 }
 
-class ObserveSetOfPreferencesTest : public testing::Test {
+class ObserveSetOfPreferencesTest : public testing::Test,
+                                    public PrefObserver {
  public:
   virtual void SetUp() {
     pref_service_.reset(new TestingPrefService);
-    pref_service_->RegisterStringPref(prefs::kHomePage,
+    pref_service_->RegisterStringPref(kHomePage,
                                       "http://google.com",
                                       PrefService::UNSYNCABLE_PREF);
-    pref_service_->RegisterBooleanPref(prefs::kHomePageIsNewTabPage,
+    pref_service_->RegisterBooleanPref(kHomePageIsNewTabPage,
                                        false,
                                        PrefService::UNSYNCABLE_PREF);
-    pref_service_->RegisterStringPref(prefs::kApplicationLocale,
+    pref_service_->RegisterStringPref(kApplicationLocale,
                                       "",
                                       PrefService::UNSYNCABLE_PREF);
   }
 
   PrefChangeRegistrar* CreatePrefChangeRegistrar(
       PrefObserver* observer) {
+    if (!observer)
+      observer = this;
     PrefChangeRegistrar* pref_set = new PrefChangeRegistrar();
     pref_set->Init(pref_service_.get());
-    pref_set->Add(prefs::kHomePage, observer);
-    pref_set->Add(prefs::kHomePageIsNewTabPage, observer);
+    pref_set->Add(kHomePage, observer);
+    pref_set->Add(kHomePageIsNewTabPage, observer);
     return pref_set;
+  }
+
+  // PrefObserver (used to enable NULL as parameter to
+  // CreatePrefChangeRegistrar above).
+  virtual void OnPreferenceChanged(PrefServiceBase* service,
+                                   const std::string& pref_name) OVERRIDE {
   }
 
   scoped_ptr<TestingPrefService> pref_service_;
@@ -159,30 +166,24 @@ class ObserveSetOfPreferencesTest : public testing::Test {
 
 TEST_F(ObserveSetOfPreferencesTest, IsObserved) {
   scoped_ptr<PrefChangeRegistrar> pref_set(CreatePrefChangeRegistrar(NULL));
-  EXPECT_TRUE(pref_set->IsObserved(prefs::kHomePage));
-  EXPECT_TRUE(pref_set->IsObserved(prefs::kHomePageIsNewTabPage));
-  EXPECT_FALSE(pref_set->IsObserved(prefs::kApplicationLocale));
+  EXPECT_TRUE(pref_set->IsObserved(kHomePage));
+  EXPECT_TRUE(pref_set->IsObserved(kHomePageIsNewTabPage));
+  EXPECT_FALSE(pref_set->IsObserved(kApplicationLocale));
 }
 
 TEST_F(ObserveSetOfPreferencesTest, IsManaged) {
   scoped_ptr<PrefChangeRegistrar> pref_set(CreatePrefChangeRegistrar(NULL));
   EXPECT_FALSE(pref_set->IsManaged());
-  pref_service_->SetManagedPref(prefs::kHomePage,
+  pref_service_->SetManagedPref(kHomePage,
                                 Value::CreateStringValue("http://crbug.com"));
   EXPECT_TRUE(pref_set->IsManaged());
-  pref_service_->SetManagedPref(prefs::kHomePageIsNewTabPage,
+  pref_service_->SetManagedPref(kHomePageIsNewTabPage,
                                 Value::CreateBooleanValue(true));
   EXPECT_TRUE(pref_set->IsManaged());
-  pref_service_->RemoveManagedPref(prefs::kHomePage);
+  pref_service_->RemoveManagedPref(kHomePage);
   EXPECT_TRUE(pref_set->IsManaged());
-  pref_service_->RemoveManagedPref(prefs::kHomePageIsNewTabPage);
+  pref_service_->RemoveManagedPref(kHomePageIsNewTabPage);
   EXPECT_FALSE(pref_set->IsManaged());
-}
-
-MATCHER_P(PrefNameDetails, name, "details references named preference") {
-  std::string* pstr =
-      reinterpret_cast<const content::Details<std::string>&>(arg).ptr();
-  return pstr && *pstr == name;
 }
 
 TEST_F(ObserveSetOfPreferencesTest, Observe) {
@@ -193,20 +194,19 @@ TEST_F(ObserveSetOfPreferencesTest, Observe) {
   scoped_ptr<PrefChangeRegistrar> pref_set(
       CreatePrefChangeRegistrar(&observer));
 
-  EXPECT_CALL(observer, OnPreferenceChanged(pref_service_.get(),
-                                            prefs::kHomePage));
-  pref_service_->SetUserPref(prefs::kHomePage,
+  EXPECT_CALL(observer, OnPreferenceChanged(pref_service_.get(), kHomePage));
+  pref_service_->SetUserPref(kHomePage,
                              Value::CreateStringValue("http://crbug.com"));
   Mock::VerifyAndClearExpectations(&observer);
 
   EXPECT_CALL(observer, OnPreferenceChanged(pref_service_.get(),
-                                            prefs::kHomePageIsNewTabPage));
-  pref_service_->SetUserPref(prefs::kHomePageIsNewTabPage,
+                                            kHomePageIsNewTabPage));
+  pref_service_->SetUserPref(kHomePageIsNewTabPage,
                              Value::CreateBooleanValue(true));
   Mock::VerifyAndClearExpectations(&observer);
 
   EXPECT_CALL(observer, OnPreferenceChanged(_, _)).Times(0);
-  pref_service_->SetUserPref(prefs::kApplicationLocale,
+  pref_service_->SetUserPref(kApplicationLocale,
                              Value::CreateStringValue("en_US.utf8"));
   Mock::VerifyAndClearExpectations(&observer);
 }

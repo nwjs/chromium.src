@@ -4,13 +4,16 @@
 
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view_ash.h"
 
+#include "ash/ash_switches.h"
 #include "ash/wm/frame_painter.h"
 #include "ash/wm/workspace/frame_maximize_button.h"
+#include "base/command_line.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/avatar_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/tab_icon_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "content/public/browser/web_contents.h"
@@ -72,6 +75,7 @@ BrowserNonClientFrameViewAsh::BrowserNonClientFrameViewAsh(
     : BrowserNonClientFrameView(frame, browser_view),
       size_button_(NULL),
       close_button_(NULL),
+      immersive_button_(NULL),
       window_icon_(NULL),
       frame_painter_(new ash::FramePainter),
       size_button_minimizes_(false) {
@@ -114,6 +118,18 @@ void BrowserNonClientFrameViewAsh::Init() {
   // Frame painter handles layout of these buttons.
   frame_painter_->Init(frame(), window_icon_, size_button_, close_button_,
                        size_button_behavior);
+
+  // Button to enter immersive mode.
+  if (CommandLine::ForCurrentProcess()->
+        HasSwitch(ash::switches::kAshImmersive)) {
+    immersive_button_ = new views::ToggleImageButton(this);
+    immersive_button_->SetAccessibleName(
+        l10n_util::GetStringUTF16(IDS_ACCNAME_IMMERSIVE));
+    immersive_button_->SetImageAlignment(views::ImageButton::ALIGN_LEFT,
+                                         views::ImageButton::ALIGN_BOTTOM);
+    AddChildView(immersive_button_);
+    frame_painter_->AddImmersiveButton(immersive_button_);
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -184,7 +200,7 @@ void BrowserNonClientFrameViewAsh::GetWindowMask(const gfx::Size& size,
 }
 
 void BrowserNonClientFrameViewAsh::ResetWindowControls() {
-  size_button_->SetState(views::CustomButton::BS_NORMAL);
+  size_button_->SetState(views::CustomButton::STATE_NORMAL);
   // The close button isn't affected by this constraint.
 }
 
@@ -289,6 +305,13 @@ void BrowserNonClientFrameViewAsh::ButtonPressed(views::Button* sender,
     // |this| may be deleted - some windows delete their frames on maximize.
   } else if (sender == close_button_) {
     frame()->Close();
+  } else if (sender == immersive_button_) {
+    // Toggle immersive mode.
+    ImmersiveModeController* controller =
+        browser_view()->immersive_mode_controller();
+    bool enable = !controller->enabled();
+    controller->SetEnabled(enable);
+    immersive_button_->SetToggled(enable);
   }
 
   if (event.IsShiftDown())

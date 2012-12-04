@@ -91,7 +91,7 @@ class NativeMessagingTest : public ::testing::Test,
     ASSERT_TRUE(PathService::Override(chrome::DIR_USER_DATA, user_data_dir_));
     BrowserThread::DeleteSoon(BrowserThread::FILE, FROM_HERE,
                               native_message_process_host_);
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   void PostMessageFromNativeProcess(int port_id, const std::string& message) {
@@ -127,10 +127,10 @@ TEST_F(NativeMessagingTest, SingleSendMessageRead) {
       NativeMessageProcessHost::TYPE_SEND_MESSAGE_REQUEST, base::Bind(
           &NativeMessagingTest::AcquireProcess, AsWeakPtr()),
       launcher);
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   ASSERT_TRUE(native_message_process_host_);
   native_message_process_host_->ReadNowForTesting();
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   EXPECT_EQ(last_posted_message_, "{\"text\": \"Hi There!.\"}");
   file_util::Delete(temp_file, false /* non-recursive */);
 }
@@ -147,7 +147,7 @@ TEST_F(NativeMessagingTest, SingleSendMessageWrite) {
       NativeMessageProcessHost::TYPE_SEND_MESSAGE_REQUEST, base::Bind(
           &NativeMessagingTest::AcquireProcess, AsWeakPtr()),
       launcher);
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   ASSERT_TRUE(native_message_process_host_);
 
   EXPECT_TRUE(file_util::ContentsEqual(
@@ -156,25 +156,26 @@ TEST_F(NativeMessagingTest, SingleSendMessageWrite) {
   file_util::Delete(temp_file, false /* non-recursive */);
 }
 
+// Disabled, see http://crbug.com/159754.
 // Test send message with a real client. The client just echo's back the text
 // it recieved.
-TEST_F(NativeMessagingTest, EchoConnect) {
+TEST_F(NativeMessagingTest, DISABLED_EchoConnect) {
   NativeMessageProcessHost::Create(
       AsWeakPtr(), "echo.py", "{\"text\": \"Hello.\"}", 0,
       NativeMessageProcessHost::TYPE_CONNECT, base::Bind(
           &NativeMessagingTest::AcquireProcess, AsWeakPtr()));
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   ASSERT_TRUE(native_message_process_host_);
 
   native_message_process_host_->ReadNowForTesting();
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   EXPECT_EQ(last_posted_message_,
             "{\"id\": 1, \"echo\": {\"text\": \"Hello.\"}}");
 
   native_message_process_host_->Send("{\"foo\": \"bar\"}");
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   native_message_process_host_->ReadNowForTesting();
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
   EXPECT_EQ(last_posted_message_, "{\"id\": 2, \"echo\": {\"foo\": \"bar\"}}");
 }
 

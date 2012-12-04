@@ -54,14 +54,9 @@ class PPAPI_THUNK_EXPORT PPB_Flash_API {
                            const char* target,
                            PP_Bool from_user_action) = 0;
 
-  virtual void RunMessageLoop(PP_Instance instance) = 0;
-  virtual void QuitMessageLoop(PP_Instance instance) = 0;
   virtual double GetLocalTimeZoneOffset(PP_Instance instance, PP_Time t) = 0;
   virtual PP_Bool IsRectTopmost(PP_Instance instance, const PP_Rect* rect) = 0;
   virtual void UpdateActivity(PP_Instance instance) = 0;
-  virtual PP_Var GetDeviceID(PP_Instance instance) = 0;
-  virtual int32_t GetSettingInt(PP_Instance instance,
-                                PP_FlashSetting setting) = 0;
   virtual PP_Var GetSetting(PP_Instance instance, PP_FlashSetting setting) = 0;
   virtual PP_Bool SetCrashData(PP_Instance instance,
                                PP_FlashCrashKey key,
@@ -100,12 +95,6 @@ class PPAPI_THUNK_EXPORT PPB_Flash_API {
   virtual int32_t QueryFileRef(PP_Instance instance,
                                PP_Resource file_ref,
                                PP_FileInfo* info) = 0;
-
-  // FlashFullscreen.
-  virtual PP_Bool FlashIsFullscreen(PP_Instance instance) = 0;
-  virtual PP_Bool FlashSetFullscreen(PP_Instance instance,
-                                     PP_Bool fullscreen) = 0;
-  virtual PP_Bool FlashGetScreenSize(PP_Instance instance, PP_Size* size) = 0;
 };
 
 }  // namespace thunk

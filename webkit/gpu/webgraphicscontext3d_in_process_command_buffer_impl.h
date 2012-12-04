@@ -9,10 +9,12 @@
 
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebGraphicsContext3D.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "ui/gfx/native_widget_types.h"
+#include "webkit/gpu/webkit_gpu_export.h"
 
 #if defined(USE_SKIA)
 #define FLIP_FRAMEBUFFER_VERTICALLY
@@ -44,8 +46,8 @@ namespace gpu {
 
 class GLInProcessContext;
 
-class WebGraphicsContext3DInProcessCommandBufferImpl
-    : public WebKit::WebGraphicsContext3D {
+class WEBKIT_GPU_EXPORT WebGraphicsContext3DInProcessCommandBufferImpl
+    : public NON_EXPORTED_BASE(WebKit::WebGraphicsContext3D) {
  public:
 
   WebGraphicsContext3DInProcessCommandBufferImpl();
@@ -496,6 +498,9 @@ class WebGraphicsContext3DInProcessCommandBufferImpl
   virtual void insertEventMarkerEXT(const WGC3Dchar* marker);
   virtual void pushGroupMarkerEXT(const WGC3Dchar* marker);
   virtual void popGroupMarkerEXT();
+
+  virtual void* mapBufferCHROMIUM(WGC3Denum target, WGC3Denum access);
+  virtual WGC3Dboolean unmapBufferCHROMIUM(WGC3Denum target);
 
  protected:
   virtual GrGLInterface* onCreateGrGLInterface();

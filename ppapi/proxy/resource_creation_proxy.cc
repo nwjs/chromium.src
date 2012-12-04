@@ -8,45 +8,45 @@
 #include "ppapi/c/pp_size.h"
 #include "ppapi/c/trusted/ppb_image_data_trusted.h"
 #include "ppapi/proxy/audio_input_resource.h"
+#include "ppapi/proxy/browser_font_resource_trusted.h"
 #include "ppapi/proxy/connection.h"
 #include "ppapi/proxy/file_chooser_resource.h"
 #include "ppapi/proxy/flash_device_id_resource.h"
 #include "ppapi/proxy/flash_font_file_resource.h"
+#include "ppapi/proxy/flash_menu_resource.h"
+#include "ppapi/proxy/graphics_2d_resource.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
 #include "ppapi/proxy/plugin_globals.h"
-#include "ppapi/proxy/plugin_proxy_delegate.h"
 #include "ppapi/proxy/plugin_resource_tracker.h"
 #include "ppapi/proxy/ppapi_messages.h"
 #include "ppapi/proxy/ppb_audio_proxy.h"
-#include "ppapi/proxy/ppb_buffer_proxy.h"
 #include "ppapi/proxy/ppb_broker_proxy.h"
+#include "ppapi/proxy/ppb_buffer_proxy.h"
 #include "ppapi/proxy/ppb_file_io_proxy.h"
 #include "ppapi/proxy/ppb_file_ref_proxy.h"
 #include "ppapi/proxy/ppb_file_system_proxy.h"
-#include "ppapi/proxy/ppb_flash_menu_proxy.h"
 #include "ppapi/proxy/ppb_flash_message_loop_proxy.h"
-#include "ppapi/proxy/ppb_graphics_2d_proxy.h"
 #include "ppapi/proxy/ppb_graphics_3d_proxy.h"
 #include "ppapi/proxy/ppb_host_resolver_private_proxy.h"
 #include "ppapi/proxy/ppb_image_data_proxy.h"
 #include "ppapi/proxy/ppb_network_monitor_private_proxy.h"
-#include "ppapi/proxy/ppb_talk_private_proxy.h"
 #include "ppapi/proxy/ppb_tcp_server_socket_private_proxy.h"
 #include "ppapi/proxy/ppb_tcp_socket_private_proxy.h"
 #include "ppapi/proxy/ppb_udp_socket_private_proxy.h"
 #include "ppapi/proxy/ppb_url_loader_proxy.h"
-#include "ppapi/proxy/ppb_video_capture_proxy.h"
 #include "ppapi/proxy/ppb_video_decoder_proxy.h"
 #include "ppapi/proxy/ppb_x509_certificate_private_proxy.h"
 #include "ppapi/proxy/printing_resource.h"
+#include "ppapi/proxy/talk_resource.h"
 #include "ppapi/proxy/url_request_info_resource.h"
+#include "ppapi/proxy/url_response_info_resource.h"
+#include "ppapi/proxy/video_capture_resource.h"
 #include "ppapi/proxy/websocket_resource.h"
 #include "ppapi/shared_impl/api_id.h"
 #include "ppapi/shared_impl/host_resource.h"
 #include "ppapi/shared_impl/ppb_audio_config_shared.h"
 #include "ppapi/shared_impl/ppb_input_event_shared.h"
 #include "ppapi/shared_impl/ppb_resource_array_shared.h"
-#include "ppapi/shared_impl/private/ppb_browser_font_trusted_shared.h"
 #include "ppapi/shared_impl/var.h"
 #include "ppapi/thunk/enter.h"
 #include "ppapi/thunk/ppb_image_data_api.h"
@@ -153,6 +153,15 @@ PP_Resource ResourceCreationProxy::CreateURLRequestInfo(
                                      instance, data))->GetReference();
 }
 
+PP_Resource ResourceCreationProxy::CreateURLResponseInfo(
+    PP_Instance instance,
+    const URLResponseInfoData& data,
+    PP_Resource file_ref_resource) {
+  return (new URLResponseInfoResource(GetConnection(), instance,
+                                      data,
+                                      file_ref_resource))->GetReference();
+}
+
 PP_Resource ResourceCreationProxy::CreateWheelInputEvent(
     PP_Instance instance,
     PP_TimeTicks time_stamp,
@@ -187,30 +196,19 @@ PP_Resource ResourceCreationProxy::CreateAudioConfig(
       OBJECT_IS_PROXY, instance, sample_rate, sample_frame_count);
 }
 
-PP_Resource ResourceCreationProxy::CreateImageData(PP_Instance instance,
-                                                   PP_ImageDataFormat format,
-                                                   const PP_Size& size,
-                                                   PP_Bool init_to_zero) {
-  return PPB_ImageData_Proxy::CreateProxyResource(instance, format, size,
-                                                  init_to_zero);
-}
-
-PP_Resource ResourceCreationProxy::CreateImageDataNaCl(
+PP_Resource ResourceCreationProxy::CreateFileChooser(
     PP_Instance instance,
-    PP_ImageDataFormat format,
-    const PP_Size& size,
-    PP_Bool init_to_zero) {
-  // These really only are different on the host side. On the plugin side, we
-  // always request a "platform" ImageData if we're trusted, or a "NaCl" one
-  // if we're untrusted (see PPB_ImageData_Proxy::CreateProxyResource()).
-  return CreateImageData(instance, format, size, init_to_zero);
+    PP_FileChooserMode_Dev mode,
+    const char* accept_types) {
+  return (new FileChooserResource(GetConnection(), instance, mode,
+                                  accept_types))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateGraphics2D(PP_Instance instance,
                                                     const PP_Size& size,
                                                     PP_Bool is_always_opaque) {
-  return PPB_Graphics2D_Proxy::CreateProxyResource(instance, size,
-                                                   is_always_opaque);
+  return (new Graphics2DResource(GetConnection(), instance, size,
+                                 is_always_opaque))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateGraphics3D(
@@ -235,12 +233,35 @@ PP_Resource ResourceCreationProxy::CreateHostResolverPrivate(
   return PPB_HostResolver_Private_Proxy::CreateProxyResource(instance);
 }
 
+PP_Resource ResourceCreationProxy::CreateImageData(PP_Instance instance,
+                                                   PP_ImageDataFormat format,
+                                                   const PP_Size& size,
+                                                   PP_Bool init_to_zero) {
+  return PPB_ImageData_Proxy::CreateProxyResource(instance, format, size,
+                                                  init_to_zero);
+}
+
+PP_Resource ResourceCreationProxy::CreateImageDataNaCl(
+    PP_Instance instance,
+    PP_ImageDataFormat format,
+    const PP_Size& size,
+    PP_Bool init_to_zero) {
+  // These really only are different on the host side. On the plugin side, we
+  // always request a "platform" ImageData if we're trusted, or a "NaCl" one
+  // if we're untrusted (see PPB_ImageData_Proxy::CreateProxyResource()).
+  return CreateImageData(instance, format, size, init_to_zero);
+}
+
 PP_Resource ResourceCreationProxy::CreateNetworkMonitor(
     PP_Instance instance,
     PPB_NetworkMonitor_Callback callback,
     void* user_data) {
   return PPB_NetworkMonitor_Private_Proxy::CreateProxyResource(
       instance, callback, user_data);
+}
+
+PP_Resource ResourceCreationProxy::CreatePrinting(PP_Instance instance) {
+  return (new PrintingResource(GetConnection(), instance))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateTCPServerSocketPrivate(
@@ -283,8 +304,10 @@ PP_Resource ResourceCreationProxy::CreateBrowserFont(
   PluginDispatcher* dispatcher = PluginDispatcher::GetForInstance(instance);
   if (!dispatcher)
     return 0;
-  return PPB_BrowserFont_Trusted_Shared::Create(
-      OBJECT_IS_PROXY, instance, *description, dispatcher->preferences());
+  if (!BrowserFontResource_Trusted::IsPPFontDescriptionValid(*description))
+    return 0;
+  return (new BrowserFontResource_Trusted(GetConnection(), instance,
+      *description, dispatcher->preferences()))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateBuffer(PP_Instance instance,
@@ -296,14 +319,6 @@ PP_Resource ResourceCreationProxy::CreateDirectoryReader(
     PP_Resource directory_ref) {
   NOTIMPLEMENTED();  // Not proxied yet.
   return 0;
-}
-
-PP_Resource ResourceCreationProxy::CreateFileChooser(
-    PP_Instance instance,
-    PP_FileChooserMode_Dev mode,
-    const char* accept_types) {
-  return (new FileChooserResource(GetConnection(), instance, mode,
-                                  accept_types))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateFlashDeviceID(PP_Instance instance) {
@@ -321,16 +336,16 @@ PP_Resource ResourceCreationProxy::CreateFlashFontFile(
 PP_Resource ResourceCreationProxy::CreateFlashMenu(
     PP_Instance instance,
     const PP_Flash_Menu* menu_data) {
-  return PPB_Flash_Menu_Proxy::CreateProxyResource(instance, menu_data);
+  scoped_refptr<FlashMenuResource> flash_menu(
+      new FlashMenuResource(GetConnection(), instance));
+  if (!flash_menu->Initialize(menu_data))
+    return 0;
+  return flash_menu->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateFlashMessageLoop(
     PP_Instance instance) {
   return PPB_Flash_MessageLoop_Proxy::CreateProxyResource(instance);
-}
-
-PP_Resource ResourceCreationProxy::CreatePrinting(PP_Instance instance) {
-  return (new PrintingResource(GetConnection(), instance))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateScrollbar(PP_Instance instance,
@@ -340,11 +355,15 @@ PP_Resource ResourceCreationProxy::CreateScrollbar(PP_Instance instance,
 }
 
 PP_Resource ResourceCreationProxy::CreateTalk(PP_Instance instance) {
-  return PPB_Talk_Private_Proxy::CreateProxyResource(instance);
+  return (new TalkResource(GetConnection(), instance))->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateVideoCapture(PP_Instance instance) {
-  return PPB_VideoCapture_Proxy::CreateProxyResource(instance);
+  PluginDispatcher* dispatcher = PluginDispatcher::GetForInstance(instance);
+  if (!dispatcher)
+    return 0;
+  return (new VideoCaptureResource(GetConnection(), instance, dispatcher))
+      ->GetReference();
 }
 
 PP_Resource ResourceCreationProxy::CreateVideoDecoder(
@@ -366,9 +385,7 @@ bool ResourceCreationProxy::OnMessageReceived(const IPC::Message& msg) {
 }
 
 Connection ResourceCreationProxy::GetConnection() {
-  return Connection(
-      PluginGlobals::Get()->plugin_proxy_delegate()->GetBrowserSender(),
-      dispatcher());
+  return Connection(PluginGlobals::Get()->GetBrowserSender(), dispatcher());
 }
 
 }  // namespace proxy

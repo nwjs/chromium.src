@@ -61,6 +61,7 @@ public:
     virtual void onCanDrawStateChanged(bool canDraw) OVERRIDE;
     virtual void setNeedsRedrawOnImplThread() OVERRIDE;
     virtual void setNeedsCommitOnImplThread() OVERRIDE;
+    virtual void setNeedsManageTilesOnImplThread() OVERRIDE;
     virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime) OVERRIDE;
     virtual bool reduceContentsTextureMemoryOnImplThread(size_t limitBytes, int priorityCutoff) OVERRIDE;
     virtual void sendManagedMemoryStats() OVERRIDE;
@@ -80,21 +81,18 @@ public:
 private:
     ThreadProxy(LayerTreeHost*, scoped_ptr<Thread> implThread);
 
-    // Set on impl thread, read on main thread.
     struct BeginFrameAndCommitState {
         BeginFrameAndCommitState();
         ~BeginFrameAndCommitState();
 
         base::TimeTicks monotonicFrameBeginTime;
         scoped_ptr<ScrollAndScaleSet> scrollInfo;
-        WebKit::WebTransformationMatrix implTransform;
-        PrioritizedResourceManager::BackingList evictedContentsTexturesBackings;
+        gfx::Transform implTransform;
         size_t memoryAllocationLimitBytes;
     };
-    scoped_ptr<BeginFrameAndCommitState> m_pendingBeginFrameRequest;
 
     // Called on main thread
-    void beginFrame();
+    void beginFrame(scoped_ptr<BeginFrameAndCommitState> beginFrameState);
     void didCommitAndDrawFrame();
     void didCompleteSwapBuffers();
     void setAnimationEvents(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime);
@@ -120,6 +118,7 @@ private:
     void initializeContextOnImplThread(scoped_ptr<GraphicsContext>);
     void initializeRendererOnImplThread(CompletionEvent*, bool* initializeSucceeded, RendererCapabilities*);
     void layerTreeHostClosedOnImplThread(CompletionEvent*);
+    void manageTilesOnImplThread();
     void setFullRootLayerDamageOnImplThread();
     void acquireLayerTexturesForMainThreadOnImplThread(CompletionEvent*);
     void recreateContextOnImplThread(CompletionEvent*, scoped_ptr<GraphicsContext>, bool* recreateSucceeded, RendererCapabilities*);
@@ -132,7 +131,6 @@ private:
     bool m_animateRequested; // Set only when setNeedsAnimate is called.
     bool m_commitRequested; // Set only when setNeedsCommit is called.
     bool m_commitRequestSentToImplThread; // Set by setNeedsCommit and setNeedsAnimate.
-    bool m_forcedCommitRequested;
     base::CancelableClosure m_contextRecreationCallback;
     LayerTreeHost* m_layerTreeHost;
     bool m_rendererInitialized;
@@ -140,6 +138,7 @@ private:
     bool m_started;
     bool m_texturesAcquired;
     bool m_inCompositeAndReadback;
+    bool m_manageTilesPending;
 
     scoped_ptr<LayerTreeHostImpl> m_layerTreeHostImpl;
 
@@ -176,7 +175,7 @@ private:
     size_t m_totalCommitCount;
 
     bool m_deferCommits;
-    bool m_deferredCommitPending;
+    scoped_ptr<BeginFrameAndCommitState> m_pendingDeferredCommit;
 };
 
 }  // namespace cc

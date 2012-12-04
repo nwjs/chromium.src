@@ -114,6 +114,7 @@ namespace extension_manifest_keys {
   extern const char kShortcutKey[];
   extern const char kSignature[];
   extern const char kSuggestedKey[];
+  extern const char kSystemIndicator[];
   extern const char kTheme[];
   extern const char kThemeColors[];
   extern const char kThemeDisplayProperties[];
@@ -301,6 +302,7 @@ namespace extension_manifest_errors {
   extern const char kInvalidSandboxedPagesCSP[];
   extern const char kInvalidScriptBadge[];
   extern const char kInvalidSignature[];
+  extern const char kInvalidSystemIndicator[];
   extern const char kInvalidTheme[];
   extern const char kInvalidThemeColors[];
   extern const char kInvalidThemeImages[];
@@ -335,6 +337,7 @@ namespace extension_manifest_errors {
   extern const char kMultipleOverrides[];
   extern const char kNoWildCardsInPaths[];
   extern const char kPermissionNotAllowed[];
+  extern const char kPermissionNotAllowedInManifest[];
   extern const char kPlatformAppNeedsManifestVersion2[];
   extern const char kOneUISurfaceOnly[];
   extern const char kReservedMessageFound[];

@@ -25,33 +25,19 @@ class Rect;
 
 namespace chrome {
 
-int GetIndexOfTab(const Browser* browser, const content::WebContents* contents);
-
-TabContents* GetActiveTabContents(const Browser* browser);
 content::WebContents* GetActiveWebContents(const Browser* browser);
 
-TabContents* GetTabContentsAt(const Browser* browser, int index);
 content::WebContents* GetWebContentsAt(const Browser* browser, int index);
-
-void ActivateTabAt(Browser* browser, int index, bool user_gesture);
 
 // Adds a blank tab to the tab strip of the specified browser; an |index| of -1
 // means to append it to the end of the tab strip.
 void AddBlankTabAt(Browser* browser, int index, bool foreground);
 
-// Used by extensions.
-bool IsTabStripEditable(Browser* browser);
-
 // Adds a selected tab with the specified URL and transition, returns the
 // created TabContents.
-TabContents* AddSelectedTabWithURL(Browser* browser,
-                                   const GURL& url,
-                                   content::PageTransition transition);
-
-// Adds |tab_contents| to |browser|'s tabstrip.
-void AddTab(Browser* browser,
-            TabContents* tab_contents,
-            content::PageTransition type);
+content::WebContents* AddSelectedTabWithURL(Browser* browser,
+                                            const GURL& url,
+                                            content::PageTransition transition);
 
 // Creates a new tab with the already-created WebContents 'new_contents'.
 // The window for the added contents will be reparented correctly when this
@@ -67,8 +53,6 @@ void AddWebContents(Browser* browser,
                     bool* was__blocked);
 void CloseWebContents(Browser* browser, content::WebContents* contents);
 
-void CloseAllTabs(Browser* browser);
-
 // Centralized methods for creating a TabContents, configuring and
 // installing all its supporting objects and observers.
 TabContents* TabContentsFactory(
@@ -76,21 +60,6 @@ TabContents* TabContentsFactory(
     content::SiteInstance* site_instance,
     int routing_id,
     const content::WebContents* base_web_contents);
-
-// Same as TabContentsFactory, but allows specifying the initial
-// |session_storage_namespace_map|.  This is for supporting session restore
-// where we reconstitute the session storage namespaces for a browsing context.
-//
-// You do not want to call this. If you think you do, make sure you completely
-// understand when SessionStorageNamespace objects should be cloned, why
-// they should not be shared by multiple WebContents, and what bad things
-// can happen if you share the object.
-TabContents* TabContentsWithSessionStorageFactory(
-    Profile* profile,
-    content::SiteInstance* site_instance,
-    int routing_id,
-    const content::WebContents* base_web_contents,
-    const content::SessionStorageNamespaceMap& session_storage_namespace_map);
 
 }  // namespace chrome
 

@@ -8,9 +8,8 @@
 #include "cc/layer_tree_host_common.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
-using WebKit::WebTransformationMatrix;
 using ::testing::Mock;
 using ::testing::_;
 using ::testing::AtLeast;
@@ -215,7 +214,8 @@ TEST(LayerIteratorTest, complexTreeMultiSurface)
     rootLayer->addChild(root2);
     rootLayer->addChild(root3);
     root2->setDrawsContent(false);
-    root2->setOpacity(0.5); // Force the layer to own a new surface.
+    root2->setOpacity(0.5);
+    root2->setForceRenderSurface(true); // Force the layer to own a new surface.
     root2->addChild(root21);
     root2->addChild(root22);
     root2->addChild(root23);

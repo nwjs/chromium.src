@@ -156,6 +156,10 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Request the delegate to change the zoom level of the current tab.
   virtual void ContentsZoomChange(bool zoom_in) {}
 
+  // Called to determine if the WebContents can be overscrolled with touch/wheel
+  // gestures.
+  virtual bool CanOverscrollContent() const;
+
   // Check whether this contents is permitted to load data URLs in WebUI mode.
   // This is normally disallowed for security.
   virtual bool CanLoadDataURLsInWebUI() const;
@@ -316,6 +320,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual JavaScriptDialogCreator* GetJavaScriptDialogCreator();
 
   // Called when color chooser should open. Returns the opened color chooser.
+  // Ownership of the returned pointer is transferred to the caller.
   virtual content::ColorChooser* OpenColorChooser(WebContents* web_contents,
                                                   int color_chooser_id,
                                                   SkColor color);
@@ -418,17 +423,14 @@ class CONTENT_EXPORT WebContentsDelegate {
       const MediaStreamRequest* request,
       const MediaResponseCallback& callback) {}
 
-#if defined(OS_ANDROID)
-  // Called when a compositing layer becomes available for this web contents
-  // so the delegate can add it to the layer tree.
-  virtual void AttachLayer(WebContents* web_contents,
-                           WebKit::WebLayer* layer) {}
-
-  // Called before a compositing layer becomes invalid so the delegate can
-  // remove it from the layer tree.
-  virtual void RemoveLayer(WebContents* web_contents,
-                           WebKit::WebLayer* layer) {}
-#endif
+  // Requests permission to access the PPAPI broker. The delegate should return
+  // true and call the passed in |callback| with the result, or return false
+  // to indicate that it does not support asking for permission.
+  virtual bool RequestPpapiBrokerPermission(
+      WebContents* web_contents,
+      const GURL& url,
+      const FilePath& plugin_path,
+      const base::Callback<void(bool)>& callback);
 
  protected:
   virtual ~WebContentsDelegate();

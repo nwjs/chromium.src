@@ -7,9 +7,7 @@
 // the plugin and the url_loader.html page in this directory to start the load
 // and to communicate the result.
 //
-// The other mode is to stream to a file instead. For that mode, call
-// URLLoader.FinishSthreamingToFile once the "Open" callback is complete, and
-// then call URLResponseInfo.GetBodyAsFileRef once the file stream is complete.
+// The other mode is to stream to a file instead. See stream_to_file.cc
 
 #include "ppapi/cpp/instance.h"
 #include "ppapi/cpp/module.h"

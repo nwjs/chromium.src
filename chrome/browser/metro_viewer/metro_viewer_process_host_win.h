@@ -21,7 +21,7 @@ class MetroViewerProcessHost : public IPC::Listener,
                                public IPC::Sender,
                                public base::NonThreadSafe {
  public:
-  MetroViewerProcessHost();
+  explicit MetroViewerProcessHost(const std::string& ipc_channel_name);
   virtual ~MetroViewerProcessHost();
 
   // IPC::Sender implementation.
@@ -34,7 +34,7 @@ class MetroViewerProcessHost : public IPC::Listener,
  private:
   void OnSetTargetSurface(gfx::NativeViewId target_surface);
   void OnMouseEvent(int32 msg, WPARAM w_param, LPARAM l_param);
-  void OnMouseMoved(int32 x, int32 y, int32 modifiers);
+  void OnMouseMoved(int32 x, int32 y, int32 flags);
   void OnMouseButton(
       int32 x, int32 y, int32 extra,ui::EventType type, ui::EventFlags flags);
   void OnKeyDown(uint32 vkey,
@@ -49,6 +49,7 @@ class MetroViewerProcessHost : public IPC::Listener,
               uint32 repeat_count,
               uint32 scan_code,
               uint32 flags);
+  void OnVisibilityChanged(bool visible);
 
   scoped_ptr<IPC::ChannelProxy> channel_;
 

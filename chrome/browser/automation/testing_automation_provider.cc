@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -65,7 +65,6 @@
 #include "chrome/browser/importer/importer_host.h"
 #include "chrome/browser/importer/importer_list.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/notifications/balloon.h"
 #include "chrome/browser/notifications/balloon_collection.h"
@@ -127,11 +126,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/permissions/permission_set.h"
-#include "chrome/common/extensions/url_pattern.h"
-#include "chrome/common/extensions/url_pattern_set.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
-#include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "content/public/browser/child_process_data.h"
 #include "content/public/browser/favicon_status.h"
@@ -149,6 +145,8 @@
 #include "content/public/common/common_param_traits.h"
 #include "content/public/common/geoposition.h"
 #include "content/public/common/ssl_status.h"
+#include "extensions/common/url_pattern.h"
+#include "extensions/common/url_pattern_set.h"
 #include "net/cookies/cookie_store.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "ui/base/events/event_constants.h"
@@ -457,8 +455,8 @@ void TestingAutomationProvider::ActivateTab(int handle,
   *status = -1;
   if (browser_tracker_->ContainsHandle(handle) && at_index > -1) {
     Browser* browser = browser_tracker_->GetResource(handle);
-    if (at_index >= 0 && at_index < browser->tab_count()) {
-      chrome::ActivateTabAt(browser, at_index, true);
+    if (at_index >= 0 && at_index < browser->tab_strip_model()->count()) {
+      browser->tab_strip_model()->ActivateTabAt(at_index, true);
       *status = 0;
     }
   }
@@ -474,12 +472,12 @@ void TestingAutomationProvider::AppendTab(int handle,
     Browser* browser = browser_tracker_->GetResource(handle);
     observer = new TabAppendedNotificationObserver(browser, this,
                                                    reply_message, false);
-    TabContents* contents =
+    WebContents* contents =
         chrome::AddSelectedTabWithURL(browser, url,
                                       content::PAGE_TRANSITION_TYPED);
     if (contents) {
       append_tab_response = GetIndexForNavigationController(
-          &contents->web_contents()->GetController(), browser);
+          &contents->GetController(), browser);
     }
   }
 
@@ -517,7 +515,7 @@ void TestingAutomationProvider::CloseTab(int tab_handle,
                                          IPC::Message* reply_message) {
   if (tab_tracker_->ContainsHandle(tab_handle)) {
     NavigationController* controller = tab_tracker_->GetResource(tab_handle);
-    Browser* browser = browser::FindBrowserWithWebContents(
+    Browser* browser = chrome::FindBrowserWithWebContents(
         controller->GetWebContents());
     DCHECK(browser);
     new TabClosedNotificationObserver(this, wait_until_closed, reply_message,
@@ -1036,9 +1034,10 @@ void TestingAutomationProvider::GetTabIndex(int handle, int* tabstrip_index) {
 
   if (tab_tracker_->ContainsHandle(handle)) {
     NavigationController* tab = tab_tracker_->GetResource(handle);
-    Browser* browser = browser::FindBrowserWithWebContents(
+    Browser* browser = chrome::FindBrowserWithWebContents(
         tab->GetWebContents());
-    *tabstrip_index = chrome::GetIndexOfTab(browser, tab->GetWebContents());
+    *tabstrip_index = browser->tab_strip_model()->GetIndexOfWebContents(
+        tab->GetWebContents());
   }
 }
 
@@ -1870,8 +1869,6 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
   handler_map_["RefreshInternetDetails"] =
       &TestingAutomationProvider::RefreshInternetDetails;
 
-  browser_handler_map_["CaptureProfilePhoto"] =
-      &TestingAutomationProvider::CaptureProfilePhoto;
   browser_handler_map_["GetTimeInfo"] =
       &TestingAutomationProvider::GetTimeInfo;
 #endif  // defined(OS_CHROMEOS)
@@ -3183,7 +3180,8 @@ void TestingAutomationProvider::GetInstantInfo(Browser* browser,
                                                DictionaryValue* args,
                                                IPC::Message* reply_message) {
   DictionaryValue* info = new DictionaryValue;
-  if (browser->instant_controller()->instant()) {
+  if (chrome::BrowserInstantController::IsInstantEnabled(browser->profile()) &&
+      browser->instant_controller()) {
     InstantController* instant = browser->instant_controller()->instant();
     info->SetBoolean("enabled", true);
     info->SetBoolean("active", (instant->GetPreviewContents() != NULL));
@@ -3584,7 +3582,8 @@ TabContents* GetTabContentsFromDict(const Browser* browser,
     return NULL;
   }
 
-  TabContents* tab_contents = chrome::GetTabContentsAt(browser, tab_index);
+  TabContents* tab_contents =
+      browser->tab_strip_model()->GetTabContentsAt(tab_index);
   if (!tab_contents) {
     *error_message = StringPrintf("No tab at index %d.", tab_index);
     return NULL;
@@ -3695,7 +3694,8 @@ void TestingAutomationProvider::InstallExtension(
   }
   args->GetBoolean("from_webstore", &from_webstore);
 
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser->profile())->extension_service();
   ExtensionProcessManager* manager =
       extensions::ExtensionSystem::Get(browser->profile())->process_manager();
   if (service && manager) {
@@ -3736,14 +3736,14 @@ void TestingAutomationProvider::InstallExtension(
 namespace {
 
 ListValue* GetHostPermissions(const Extension* ext, bool effective_perm) {
-  URLPatternSet pattern_set;
+  extensions::URLPatternSet pattern_set;
   if (effective_perm)
     pattern_set = ext->GetEffectiveHostPermissions();
   else
     pattern_set = ext->GetActivePermissions()->explicit_hosts();
 
   ListValue* permissions = new ListValue;
-  for (URLPatternSet::const_iterator perm = pattern_set.begin();
+  for (extensions::URLPatternSet::const_iterator perm = pattern_set.begin();
        perm != pattern_set.end(); ++perm) {
     permissions->Append(new StringValue(perm->GetAsString()));
   }
@@ -3776,7 +3776,8 @@ void TestingAutomationProvider::GetExtensionsInfo(DictionaryValue* args,
     reply.SendError(error_msg);
     return;
   }
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser->profile())->extension_service();
   if (!service) {
     reply.SendError("No extensions service.");
     return;
@@ -3851,7 +3852,8 @@ void TestingAutomationProvider::UninstallExtensionById(
     AutomationJSONReply(this, reply_message).SendError(error);
     return;
   }
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser->profile())->extension_service();
   if (!service) {
     AutomationJSONReply(this, reply_message).SendError(
         "No extensions service.");
@@ -3903,7 +3905,8 @@ void TestingAutomationProvider::SetExtensionStateById(
     return;
   }
 
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser->profile())->extension_service();
   ExtensionProcessManager* manager =
       extensions::ExtensionSystem::Get(browser->profile())->process_manager();
   if (!service) {
@@ -4119,7 +4122,8 @@ void TestingAutomationProvider::UpdateExtensionsNow(
     AutomationJSONReply(this, reply_message).SendError(error);
     return;
   }
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser->profile())->extension_service();
   if (!service) {
     AutomationJSONReply(this, reply_message).SendError(
         "No extensions service.");
@@ -4144,8 +4148,13 @@ void TestingAutomationProvider::UpdateExtensionsNow(
   // Create a new observer that waits until the extensions have been fully
   // updated (we should not send the reply until after all extensions have
   // been updated).  This observer will delete itself.
-  new ExtensionsUpdatedObserver(manager, this, reply_message);
-  updater->CheckNow();
+  ExtensionsUpdatedObserver* observer = new ExtensionsUpdatedObserver(
+      manager, this, reply_message);
+  extensions::ExtensionUpdater::CheckParams params;
+  params.install_immediately = true;
+  params.callback = base::Bind(&ExtensionsUpdatedObserver::UpdateCheckFinished,
+                               base::Unretained(observer));
+  updater->CheckNow(params);
 }
 
 #if !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
@@ -4774,8 +4783,9 @@ void TestingAutomationProvider::SendOSLevelKeyEventToTab(
   }
   // The key events will be sent to the browser window, we need the current tab
   // containing the element we send the text in to be shown.
-  chrome::ActivateTabAt(browser, chrome::GetIndexOfTab(browser, web_contents),
-                        true);
+  TabStripModel* tab_strip = browser->tab_strip_model();
+  tab_strip->ActivateTabAt(tab_strip->GetIndexOfWebContents(web_contents),
+                           true);
 
   BrowserWindow* browser_window = browser->window();
   if (!browser_window) {
@@ -5010,7 +5020,8 @@ void TestingAutomationProvider::LaunchApp(
     return;
   }
 
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser->profile())->extension_service();
   if (!service) {
     AutomationJSONReply(this, reply_message).SendError(
         "No extensions service.");
@@ -5068,7 +5079,8 @@ void TestingAutomationProvider::SetAppLaunchType(
     return;
   }
 
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser->profile())->extension_service();
   if (!service) {
     reply.SendError("No extensions service.");
     return;
@@ -5458,12 +5470,12 @@ void TestingAutomationProvider::AppendTabJSON(DictionaryValue* args,
   }
   observer = new TabAppendedNotificationObserver(browser, this, reply_message,
                                                  true);
-  TabContents* contents =
+  WebContents* contents =
       chrome::AddSelectedTabWithURL(browser, GURL(url),
                                     content::PAGE_TRANSITION_TYPED);
   if (contents) {
     append_tab_response = GetIndexForNavigationController(
-        &contents->web_contents()->GetController(), browser);
+        &contents->GetController(), browser);
   }
 
   if (!contents || append_tab_response < 0) {
@@ -6035,7 +6047,7 @@ void TestingAutomationProvider::GetViews(
   for (; browser_iter != BrowserList::end(); ++browser_iter) {
     Browser* browser = *browser_iter;
     for (int i = 0; i < browser->tab_count(); ++i) {
-      TabContents* tab = chrome::GetTabContentsAt(browser, i);
+      TabContents* tab = browser->tab_strip_model()->GetTabContentsAt(i);
       DictionaryValue* dict = new DictionaryValue();
       AutomationId id = automation_util::GetIdForTab(tab);
       dict->Set("auto_id", id.ToValue());
@@ -6211,8 +6223,9 @@ void TestingAutomationProvider::ActivateTabJSON(
     reply.SendError(error);
     return;
   }
-  chrome::ActivateTabAt(browser, chrome::GetIndexOfTab(browser, web_contents),
-                        true);
+  TabStripModel* tab_strip = browser->tab_strip_model();
+  tab_strip->ActivateTabAt(tab_strip->GetIndexOfWebContents(web_contents),
+                           true);
   reply.SendSuccess(NULL);
 }
 
@@ -6348,6 +6361,7 @@ void TestingAutomationProvider::OnRemoveProvider() {
 
 void TestingAutomationProvider::EnsureTabSelected(Browser* browser,
                                                   WebContents* tab) {
-  if (chrome::GetActiveWebContents(browser) != tab)
-    chrome::ActivateTabAt(browser, chrome::GetIndexOfTab(browser, tab), true);
+  TabStripModel* tab_strip = browser->tab_strip_model();
+  if (tab_strip->GetActiveWebContents() != tab)
+    tab_strip->ActivateTabAt(tab_strip->GetIndexOfWebContents(tab), true);
 }

@@ -27,8 +27,8 @@
 #include "chrome/common/extensions/permissions/api_permission_set.h"
 #include "chrome/common/extensions/permissions/permission_message.h"
 #include "chrome/common/extensions/user_script.h"
-#include "chrome/common/extensions/url_pattern.h"
-#include "chrome/common/extensions/url_pattern_set.h"
+#include "extensions/common/url_pattern.h"
+#include "extensions/common/url_pattern_set.h"
 #include "googleurl/src/gurl.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/gfx/size.h"
@@ -99,6 +99,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
     // An external extension that the user uninstalled. We should not reinstall
     // such extensions on startup.
     EXTERNAL_EXTENSION_UNINSTALLED,
+    // Special state for component extensions, since they are always loaded by
+    // the component loader, and should never be auto-installed on startup.
+    ENABLED_COMPONENT,
     NUM_STATES
   };
 
@@ -224,6 +227,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
       TYPE_BROWSER,
       TYPE_PAGE,
       TYPE_SCRIPT_BADGE,
+      TYPE_SYSTEM_INDICATOR,
     };
 
     // Empty implies the key wasn't present.
@@ -232,6 +236,19 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
     GURL default_popup_url;
     // action id -- only used with legacy page actions API.
     std::string id;
+  };
+
+  struct FileHandlerInfo {
+    explicit FileHandlerInfo();
+    ~FileHandlerInfo();
+    std::string id;
+    std::string title;
+
+    // File extensions associated with this handler.
+    std::set<std::string> extensions;
+
+    // MIME types associated with this handler.
+    std::set<std::string> types;
   };
 
   struct InstallWarning {
@@ -666,6 +683,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   const ActionInfo* browser_action_info() const {
     return browser_action_info_.get();
   }
+  const ActionInfo* system_indicator_info() const {
+    return system_indicator_info_.get();
+  }
   bool is_verbose_install_message() const {
     return !omnibox_keyword().empty() ||
            browser_action_info() ||
@@ -780,6 +800,10 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   int launch_width() const { return launch_width_; }
   int launch_height() const { return launch_height_; }
 
+  const std::vector<FileHandlerInfo>& file_handlers() const {
+    return file_handlers_;
+  }
+
   // Theme-related.
   bool is_theme() const;
   base::DictionaryValue* GetThemeImages() const { return theme_images_.get(); }
@@ -787,6 +811,11 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   base::DictionaryValue* GetThemeTints() const { return theme_tints_.get(); }
   base::DictionaryValue* GetThemeDisplayProperties() const {
     return theme_display_properties_.get();
+  }
+
+  // Content Security Policy!
+  const std::string& content_security_policy() const {
+    return content_security_policy_;
   }
 
   GURL GetBackgroundURL() const;
@@ -910,7 +939,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
                        const base::DictionaryValue& handler_info,
                        string16* error);
   bool LoadFileHandlers(string16* error);
-  bool LoadExtensionFeatures(const APIPermissionSet& api_permissions,
+  bool LoadExtensionFeatures(APIPermissionSet* api_permissions,
                              string16* error);
   bool LoadDevToolsPage(string16* error);
   bool LoadInputComponents(const APIPermissionSet& api_permissions,
@@ -919,6 +948,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   bool LoadPageAction(string16* error);
   bool LoadBrowserAction(string16* error);
   bool LoadScriptBadge(string16* error);
+  bool LoadSystemIndicator(APIPermissionSet* api_permissions, string16* error);
   bool LoadFileBrowserHandlers(string16* error);
   // Helper method to load a FileBrowserHandlerList from the manifest.
   FileBrowserHandlerList* LoadFileBrowserHandlersHelper(
@@ -1081,6 +1111,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // The extension's script badge.  Never NULL.
   scoped_ptr<ActionInfo> script_badge_info_;
 
+  // The extension's system indicator, if any.
+  scoped_ptr<ActionInfo> system_indicator_info_;
+
   // The extension's file browser actions, if any.
   scoped_ptr<FileBrowserHandlerList> file_browser_handlers_;
 
@@ -1206,6 +1239,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
 
   // List of intent services that this extension provides, if any.
   std::vector<webkit_glue::WebIntentServiceData> intents_services_;
+
+  // List of file handlers associated with this extension, if any.
+  std::vector<FileHandlerInfo> file_handlers_;
 
   // Whether the extension has host permissions or user script patterns that
   // imply access to file:/// scheme URLs (the user may not have actually

@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "base/message_loop.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "googleurl/src/gurl.h"
@@ -95,12 +94,11 @@ PP_Bool PPB_Flash_Impl::DrawGlyphs(PP_Instance instance,
     style |= SkTypeface::kBold;
   if (font_desc->italic)
     style |= SkTypeface::kItalic;
-  SkTypeface* typeface =
+  skia::RefPtr<SkTypeface> typeface = skia::AdoptRef(
       SkTypeface::CreateFromName(face_name->value().c_str(),
-                                 static_cast<SkTypeface::Style>(style));
+                                 static_cast<SkTypeface::Style>(style)));
   if (!typeface)
     return PP_FALSE;
-  SkAutoUnref aur(typeface);
 
   // Set up the canvas.
   SkCanvas* canvas = image_resource->GetPlatformCanvas();
@@ -132,7 +130,7 @@ PP_Bool PPB_Flash_Impl::DrawGlyphs(PP_Instance instance,
   paint.setAntiAlias(true);
   paint.setHinting(SkPaint::kFull_Hinting);
   paint.setTextSize(SkIntToScalar(font_desc->size));
-  paint.setTypeface(typeface);  // Takes a ref and manages lifetime.
+  paint.setTypeface(typeface.get());  // Takes a ref and manages lifetime.
   if (allow_subpixel_aa) {
     paint.setSubpixelText(true);
     paint.setLCDRenderText(true);
@@ -190,15 +188,6 @@ int32_t PPB_Flash_Impl::Navigate(PP_Instance instance,
   return instance_->Navigate(data, target, PP_ToBool(from_user_action));
 }
 
-void PPB_Flash_Impl::RunMessageLoop(PP_Instance instance) {
-  MessageLoop::ScopedNestableTaskAllower allow(MessageLoop::current());
-  MessageLoop::current()->Run();
-}
-
-void PPB_Flash_Impl::QuitMessageLoop(PP_Instance instance) {
-  MessageLoop::current()->QuitNow();
-}
-
 double PPB_Flash_Impl::GetLocalTimeZoneOffset(PP_Instance instance,
                                               PP_Time t) {
   // Evil hack. The time code handles exact "0" values as special, and produces
@@ -223,17 +212,6 @@ PP_Bool PPB_Flash_Impl::IsRectTopmost(PP_Instance instance,
 
 void PPB_Flash_Impl::UpdateActivity(PP_Instance pp_instance) {
   // Not supported in-process.
-}
-
-PP_Var PPB_Flash_Impl::GetDeviceID(PP_Instance pp_instance) {
-  std::string id = instance_->delegate()->GetDeviceID();
-  return StringVar::StringToPPVar(id);
-}
-
-int32_t PPB_Flash_Impl::GetSettingInt(PP_Instance instance,
-                                      PP_FlashSetting setting) {
-  // No current settings are supported in-process.
-  return -1;
 }
 
 PP_Var PPB_Flash_Impl::GetSetting(PP_Instance instance,
@@ -476,21 +454,6 @@ int32_t PPB_Flash_Impl::QueryFileRef(PP_Instance pp_instance,
       info->type = PP_FILETYPE_REGULAR;
   }
   return ::ppapi::PlatformFileErrorToPepperError(result);
-}
-
-PP_Bool PPB_Flash_Impl::FlashIsFullscreen(PP_Instance instance) {
-  return PP_FromBool(instance_->flash_fullscreen());
-}
-
-PP_Bool PPB_Flash_Impl::FlashSetFullscreen(PP_Instance instance,
-                                           PP_Bool fullscreen) {
-  instance_->FlashSetFullscreen(PP_ToBool(fullscreen), true);
-  return PP_TRUE;
-}
-
-PP_Bool PPB_Flash_Impl::FlashGetScreenSize(PP_Instance instance,
-                                           PP_Size* size) {
-  return instance_->GetScreenSize(instance, size);
 }
 
 }  // namespace ppapi

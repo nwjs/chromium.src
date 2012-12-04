@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/logging.h"
 #include "ppapi/c/pp_array_output.h"
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/private/ppb_flash.h"
@@ -12,6 +13,7 @@
 #include "ppapi/thunk/ppb_flash_api.h"
 #include "ppapi/thunk/ppb_flash_functions_api.h"
 #include "ppapi/thunk/ppb_instance_api.h"
+#include "ppapi/thunk/ppb_video_capture_api.h"
 #include "ppapi/thunk/thunk.h"
 
 namespace ppapi {
@@ -73,17 +75,15 @@ int32_t Navigate(PP_Resource request_id,
 }
 
 void RunMessageLoop(PP_Instance instance) {
-  EnterInstance enter(instance);
-  if (enter.failed())
-    return;
-  enter.functions()->GetFlashAPI()->RunMessageLoop(instance);
+  // Deprecated.
+  NOTREACHED();
+  return;
 }
 
 void QuitMessageLoop(PP_Instance instance) {
-  EnterInstance enter(instance);
-  if (enter.failed())
-    return;
-  enter.functions()->GetFlashAPI()->QuitMessageLoop(instance);
+  // Deprecated.
+  NOTREACHED();
+  return;
 }
 
 double GetLocalTimeZoneOffset(PP_Instance instance, PP_Time t) {
@@ -126,17 +126,15 @@ void UpdateActivity(PP_Instance instance) {
 }
 
 PP_Var GetDeviceID(PP_Instance instance) {
-  EnterInstance enter(instance);
-  if (enter.failed())
-    return PP_MakeUndefined();
-  return enter.functions()->GetFlashAPI()->GetDeviceID(instance);
+  // Deprecated.
+  NOTREACHED();
+  return PP_MakeUndefined();
 }
 
 int32_t GetSettingInt(PP_Instance instance, PP_FlashSetting setting) {
-  EnterInstance enter(instance);
-  if (enter.failed())
-    return -1;
-  return enter.functions()->GetFlashAPI()->GetSettingInt(instance, setting);
+  // Deprecated.
+  NOTREACHED();
+  return -1;
 }
 
 PP_Var GetSetting(PP_Instance instance, PP_FlashSetting setting) {
@@ -158,79 +156,11 @@ PP_Bool SetCrashData(PP_Instance instance,
 int32_t EnumerateVideoCaptureDevices(PP_Instance instance,
                                      PP_Resource video_capture,
                                      PP_ArrayOutput devices) {
-  EnterInstance enter(instance);
-  if (enter.succeeded()) {
-    PPB_Flash_Functions_API* api =
-        enter.functions()->GetFlashFunctionsAPI(instance);
-    if (api) {
-      return api->EnumerateVideoCaptureDevices(instance, video_capture,
-                                               devices);
-    } else {
-      return PP_ERROR_NOINTERFACE;
-    }
-  }
-  return PP_ERROR_BADRESOURCE;
+  thunk::EnterResource<thunk::PPB_VideoCapture_API> enter(video_capture, true);
+  if (enter.failed())
+    return enter.retval();
+  return enter.object()->EnumerateDevicesSync(devices);
 }
-
-const PPB_Flash_12_0 g_ppb_flash_12_0_thunk = {
-  &SetInstanceAlwaysOnTop,
-  &DrawGlyphs,
-  &GetProxyForURL,
-  &Navigate,
-  &RunMessageLoop,
-  &QuitMessageLoop,
-  &GetLocalTimeZoneOffset,
-  &GetCommandLineArgs,
-  &PreLoadFontWin
-};
-
-const PPB_Flash_12_1 g_ppb_flash_12_1_thunk = {
-  &SetInstanceAlwaysOnTop,
-  &DrawGlyphs,
-  &GetProxyForURL,
-  &Navigate,
-  &RunMessageLoop,
-  &QuitMessageLoop,
-  &GetLocalTimeZoneOffset,
-  &GetCommandLineArgs,
-  &PreLoadFontWin,
-  &IsRectTopmost,
-  &InvokePrinting,
-  &UpdateActivity
-};
-
-const PPB_Flash_12_2 g_ppb_flash_12_2_thunk = {
-  &SetInstanceAlwaysOnTop,
-  &DrawGlyphs,
-  &GetProxyForURL,
-  &Navigate,
-  &RunMessageLoop,
-  &QuitMessageLoop,
-  &GetLocalTimeZoneOffset,
-  &GetCommandLineArgs,
-  &PreLoadFontWin,
-  &IsRectTopmost,
-  &InvokePrinting,
-  &UpdateActivity,
-  &GetDeviceID
-};
-
-const PPB_Flash_12_3 g_ppb_flash_12_3_thunk = {
-  &SetInstanceAlwaysOnTop,
-  &DrawGlyphs,
-  &GetProxyForURL,
-  &Navigate,
-  &RunMessageLoop,
-  &QuitMessageLoop,
-  &GetLocalTimeZoneOffset,
-  &GetCommandLineArgs,
-  &PreLoadFontWin,
-  &IsRectTopmost,
-  &InvokePrinting,
-  &UpdateActivity,
-  &GetDeviceID,
-  &GetSettingInt
-};
 
 const PPB_Flash_12_4 g_ppb_flash_12_4_thunk = {
   &SetInstanceAlwaysOnTop,
@@ -289,23 +219,22 @@ const PPB_Flash_12_6 g_ppb_flash_12_6_thunk = {
   &EnumerateVideoCaptureDevices
 };
 
+const PPB_Flash_13_0 g_ppb_flash_13_0_thunk = {
+  &SetInstanceAlwaysOnTop,
+  &DrawGlyphs,
+  &GetProxyForURL,
+  &Navigate,
+  &GetLocalTimeZoneOffset,
+  &GetCommandLineArgs,
+  &PreLoadFontWin,
+  &IsRectTopmost,
+  &UpdateActivity,
+  &GetSetting,
+  &SetCrashData,
+  &EnumerateVideoCaptureDevices
+};
+
 }  // namespace
-
-const PPB_Flash_12_0* GetPPB_Flash_12_0_Thunk() {
-  return &g_ppb_flash_12_0_thunk;
-}
-
-const PPB_Flash_12_1* GetPPB_Flash_12_1_Thunk() {
-  return &g_ppb_flash_12_1_thunk;
-}
-
-const PPB_Flash_12_2* GetPPB_Flash_12_2_Thunk() {
-  return &g_ppb_flash_12_2_thunk;
-}
-
-const PPB_Flash_12_3* GetPPB_Flash_12_3_Thunk() {
-  return &g_ppb_flash_12_3_thunk;
-}
 
 const PPB_Flash_12_4* GetPPB_Flash_12_4_Thunk() {
   return &g_ppb_flash_12_4_thunk;
@@ -317,6 +246,10 @@ const PPB_Flash_12_5* GetPPB_Flash_12_5_Thunk() {
 
 const PPB_Flash_12_6* GetPPB_Flash_12_6_Thunk() {
   return &g_ppb_flash_12_6_thunk;
+}
+
+const PPB_Flash_13_0* GetPPB_Flash_13_0_Thunk() {
+  return &g_ppb_flash_13_0_thunk;
 }
 
 }  // namespace thunk

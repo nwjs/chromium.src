@@ -100,18 +100,6 @@ class TokenService : public GaiaAuthConsumer,
     GoogleServiceAuthError error_;
   };
 
-  class CredentialsUpdatedDetails {
-   public:
-    CredentialsUpdatedDetails(const std::string& lsid,
-                              const std::string& sid)
-        : lsid_(lsid), sid_(sid) {}
-    const std::string& lsid() const { return lsid_; }
-    const std::string& sid() const { return sid_; }
-   private:
-    std::string lsid_;
-    std::string sid_;
-  };
-
   // Initialize this token service with a request source
   // (usually from a GaiaAuthConsumer constant), and the profile.
   // Typically you'd then update the credentials.
@@ -144,7 +132,7 @@ class TokenService : public GaiaAuthConsumer,
   // Async load all tokens for services we know of from the DB.
   // You should do this at startup. Optionally you can do it again
   // after you reset in memory credentials.
-  void LoadTokensFromDB();
+  virtual void LoadTokensFromDB();
 
   // Clear all DB stored tokens for the current profile. Tokens may still be
   // available in memory. If a DB load is pending it may still be serviced.
@@ -178,10 +166,6 @@ class TokenService : public GaiaAuthConsumer,
   void IssueAuthTokenForTest(const std::string& service,
                              const std::string& auth_token);
 
-  const GaiaAuthConsumer::ClientLoginResult& credentials() const {
-    return credentials_;
-  }
-
   // GaiaAuthConsumer implementation.
   virtual void OnIssueAuthTokenSuccess(const std::string& service,
                                        const std::string& auth_token) OVERRIDE;
@@ -197,14 +181,16 @@ class TokenService : public GaiaAuthConsumer,
       WebDataService::Handle h,
       const WDTypedResult* result) OVERRIDE;
 
+ protected:
+  void set_tokens_loaded(bool loaded) {
+    tokens_loaded_ = loaded;
+  }
+
  private:
 
   // Gets the list of all service names for which tokens will be retrieved.
   // This method is meant only for tests.
   static void GetServiceNamesForTesting(std::vector<std::string>* names);
-
-  void FireCredentialsUpdatedNotification(const std::string& lsid,
-                                          const std::string& sid);
 
   void FireTokenAvailableNotification(const std::string& service,
                                       const std::string& auth_token);

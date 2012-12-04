@@ -25,6 +25,9 @@
 <link rel="stylesheet" href="home_page_overlay.css">
 <link rel="stylesheet" href="import_data_overlay.css">
 <link rel="stylesheet" href="instant_confirm_overlay.css">
+<if expr="not is_macosx">
+  <link rel="stylesheet" href="language_dictionary_overlay.css">
+</if>
 <link rel="stylesheet" href="language_options.css">
 <link rel="stylesheet" href="manage_profile_overlay.css">
 <link rel="stylesheet" href="password_manager.css">
@@ -44,14 +47,11 @@
   <link rel="stylesheet" href="chromeos/pointer_overlay.css">
   <link rel="stylesheet" href="factory_reset_overlay.css">
 </if>
-<if expr="pp_ifdef('chromeos') and pp_ifdef('use_ash')">
-  <link rel="stylesheet" href="chromeos/set_wallpaper_options.css">
-</if>
 <if expr="pp_ifdef('use_nss')">
   <link rel="stylesheet" href="certificate_manager.css">
   <link rel="stylesheet" href="certificate_tree.css">
 </if>
-<if expr="is_win">
+<if expr="pp_ifdef('enable_settings_app')">
   <link rel="stylesheet" href="options_settings_app.css">
 </if>
 <script src="chrome://resources/css/tree.css.js"></script>
@@ -126,6 +126,9 @@
   <include src="cookies_view_app.html">
   <include src="handler_options.html">
   <include src="language_add_language_overlay.html">
+  <if expr="not is_macosx">
+    <include src="language_dictionary_overlay.html">
+  </if>
   <include src="media_galleries_manager_overlay.html">
   <if expr="pp_ifdef('chromeos')">
     <include src="chromeos/internet_detail.html">
@@ -159,9 +162,6 @@
   </div>
 </div>
 
-<if expr="is_win">
-  <script src="chrome://settings-frame/options_settings_app.js"></script>
-</if>
 <script src="chrome://resources/js/i18n_template2.js"></script>
 </body>
 </html>

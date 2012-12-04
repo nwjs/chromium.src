@@ -106,37 +106,28 @@ remoting.onEmail = function(email) {
 // also if the user cancels pin entry or the connection in session mode.
 remoting.initDaemonUi = function () {
   remoting.hostController = new remoting.HostController();
-  remoting.hostController.updateDom();
   remoting.setMode(getAppStartupMode_());
   remoting.hostSetupDialog =
       new remoting.HostSetupDialog(remoting.hostController);
   // Display the cached host list, then asynchronously update and re-display it.
-  remoting.extractThisHostAndDisplay(true);
-  remoting.hostList.refresh(remoting.extractThisHostAndDisplay);
+  remoting.updateLocalHostState();
+  remoting.hostList.refresh(remoting.updateLocalHostState);
 };
 
 /**
- * Extract the remoting.Host object corresponding to this host (if any) and
- * display the list.
- *
- * @param {boolean} success True if the host list refresh was successful.
- * @return {void} Nothing.
+ * Fetches local host state and updates host list accordingly.
  */
-remoting.extractThisHostAndDisplay = function(success) {
-  if (success) {
-    var display = function() {
-      var hostId = null;
-      if (remoting.hostController.localHost) {
-        hostId = remoting.hostController.localHost.hostId;
-      }
-      remoting.hostList.display(hostId);
-    };
-    remoting.hostController.onHostListRefresh(remoting.hostList, display);
-  } else {
-    remoting.hostController.setHost(null);
-    remoting.hostList.display(null);
-  }
-};
+remoting.updateLocalHostState = function() {
+  /**
+   * @param {remoting.HostController.State} state Host state.
+   * @param {string?} localHostId
+   */
+  var onHostState = function(state, localHostId) {
+    remoting.hostList.setLocalHostStateAndId(state, localHostId);
+    remoting.hostList.display();
+  };
+  remoting.hostController.getLocalHostStateAndId(onHostState);
+}
 
 /**
  * Log information about the current extension.

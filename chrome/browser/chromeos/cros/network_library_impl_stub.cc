@@ -5,9 +5,20 @@
 #include "chrome/browser/chromeos/cros/network_library_impl_stub.h"
 
 #include "base/bind.h"
+#include "base/command_line.h"
+#include "chrome/common/chrome_switches.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
+
+namespace {
+
+bool IsEthernetEnabled() {
+  return !CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableStubEthernet);
+}
+
+}  // namespace
 
 namespace chromeos {
 
@@ -20,7 +31,10 @@ NetworkLibraryImplStub::NetworkLibraryImplStub()
       connect_delay_ms_(0),
       network_priority_order_(0) {
   // Emulate default setting of the CheckPortalList when OOBE is done.
-  check_portal_list_ = "ethernet,wifi,cellular";
+  if (IsEthernetEnabled())
+    check_portal_list_ = "ethernet,wifi,cellular";
+  else
+    check_portal_list_ = "wifi,cellular";
 }
 
 NetworkLibraryImplStub::~NetworkLibraryImplStub() {
@@ -33,9 +47,9 @@ void NetworkLibraryImplStub::Init() {
   is_locked_ = false;
 
   // Devices
-  int devices =
-      (1 << TYPE_ETHERNET) | (1 << TYPE_WIFI) | (1 << TYPE_CELLULAR) |
-      (1 << TYPE_WIMAX);
+  int devices = (1 << TYPE_WIFI) | (1 << TYPE_CELLULAR) | (1 << TYPE_WIMAX);
+  if (IsEthernetEnabled())
+    devices |= 1 << TYPE_ETHERNET;
   available_devices_ = devices;
   enabled_devices_ = devices;
   connected_devices_ = devices;
@@ -83,11 +97,13 @@ void NetworkLibraryImplStub::Init() {
   // If these change, the expectations in network_library_unittest and
   // network_menu_icon_unittest need to be changed also.
 
-  Network* ethernet = new EthernetNetwork("eth1");
-  ethernet->set_name("Fake Ethernet");
-  ethernet->set_connected();
-  AddStubNetwork(ethernet, PROFILE_SHARED);
-  ethernet->set_is_active(ethernet->connected());
+  if (IsEthernetEnabled()) {
+    Network* ethernet = new EthernetNetwork("eth1");
+    ethernet->set_name("Fake Ethernet");
+    ethernet->set_connected();
+    AddStubNetwork(ethernet, PROFILE_SHARED);
+    ethernet->set_is_active(ethernet->connected());
+  }
 
   WifiNetwork* wifi1 = new WifiNetwork("wifi1");
   wifi1->set_name("Fake WiFi1");
@@ -208,45 +224,6 @@ void NetworkLibraryImplStub::Init() {
   cellular4_ui_data.set_onc_source(NetworkUIData::ONC_SOURCE_USER_POLICY);
   cellular4->set_ui_data(cellular4_ui_data);
   AddStubNetwork(cellular4, PROFILE_NONE);
-
-  CellularNetwork* cellular5 = new CellularNetwork("cellular5");
-  cellular5->set_name("Fake Cellular Low Data");
-  cellular5->set_device_path(cellular->device_path());
-  cellular5->set_strength(100);
-  cellular5->set_activation_state(ACTIVATION_STATE_ACTIVATED);
-  cellular5->set_payment_url(std::string("http://www.google.com"));
-  cellular5->set_usage_url(std::string("http://www.google.com"));
-  cellular5->set_network_technology(NETWORK_TECHNOLOGY_EVDO);
-  cellular5->set_data_left(CellularNetwork::DATA_LOW);
-  AddStubNetwork(cellular5, PROFILE_NONE);
-
-  CellularDataPlan* base_plan = new CellularDataPlan();
-  base_plan->plan_name = "Base plan";
-  base_plan->plan_type = CELLULAR_DATA_PLAN_METERED_BASE;
-  base_plan->plan_data_bytes = 100ll * 1024 * 1024;
-  base_plan->data_bytes_used = base_plan->plan_data_bytes / 4;
-
-  CellularDataPlan* paid_plan = new CellularDataPlan();
-  paid_plan->plan_name = "Paid plan";
-  paid_plan->plan_type = CELLULAR_DATA_PLAN_METERED_PAID;
-  paid_plan->plan_data_bytes = 5ll * 1024 * 1024 * 1024;
-  paid_plan->data_bytes_used = paid_plan->plan_data_bytes / 2;
-
-  CellularDataPlanVector* data_plan_vector1 = new CellularDataPlanVector;
-  data_plan_vector1->push_back(base_plan);
-  data_plan_vector1->push_back(paid_plan);
-  UpdateCellularDataPlan(cellular1->service_path(), data_plan_vector1);
-
-  CellularDataPlan* low_data_plan = new CellularDataPlan();
-  low_data_plan->plan_name = "Low Data plan";
-  low_data_plan->plan_type = CELLULAR_DATA_PLAN_METERED_PAID;
-  low_data_plan->plan_data_bytes = 5ll * 1024 * 1024 * 1024;
-  low_data_plan->data_bytes_used =
-      low_data_plan->plan_data_bytes - kCellularDataVeryLowBytes;
-
-  CellularDataPlanVector* data_plan_vector2 = new CellularDataPlanVector;
-  data_plan_vector2->push_back(low_data_plan);
-  UpdateCellularDataPlan(cellular5->service_path(), data_plan_vector2);
 
   WimaxNetwork* wimax1 = new WimaxNetwork("wimax1");
   wimax1->set_name("Fake WiMAX Protected");
@@ -391,8 +368,8 @@ void NetworkLibraryImplStub::AddStubRememberedNetwork(Network* network) {
   if (remembered) {
     remembered->set_name(network->name());
     remembered->set_unique_id(network->unique_id());
-    // ValidateAndAddRememberedNetwork will insert the network into the matching
-    // profile and set the profile type + path.
+    // ValidateAndAddRememberedNetwork will insert the network into the right
+    // remembered_*_networks_ list and the remembered_network_map_.
     if (!ValidateAndAddRememberedNetwork(remembered))
       NOTREACHED();
   }
@@ -420,7 +397,7 @@ void NetworkLibraryImplStub::ConnectToNetwork(Network* network) {
   }
 
   // Disconnect ethernet when connecting to a new network (for UI testing).
-  if (network->type() != TYPE_VPN) {
+  if (IsEthernetEnabled() && network->type() != TYPE_VPN) {
     ethernet_->set_is_active(false);
     ethernet_->set_disconnected();
   }
@@ -443,19 +420,6 @@ void NetworkLibraryImplStub::ConnectToNetwork(Network* network) {
     if (other->type() == network->type()) {
       other->set_is_active(false);
       other->set_disconnected();
-    }
-  }
-
-  // Cycle data left to trigger notifications.
-  if (network->type() == TYPE_CELLULAR) {
-    if (network->name().find("Low Data") != std::string::npos) {
-      CellularNetwork* cellular = static_cast<CellularNetwork*>(network);
-      // Simulate a transition to very low data.
-      cellular->set_data_left(CellularNetwork::DATA_LOW);
-      NotifyCellularDataPlanChanged();
-      cellular->set_data_left(CellularNetwork::DATA_VERY_LOW);
-      active_cellular_ = cellular;
-      NotifyCellularDataPlanChanged();
     }
   }
 
@@ -588,7 +552,10 @@ void NetworkLibraryImplStub::SetCheckPortalList(const
 }
 
 void NetworkLibraryImplStub::SetDefaultCheckPortalList() {
-  SetCheckPortalList("ethernet,wifi,cellular");
+  if (IsEthernetEnabled())
+    SetCheckPortalList("ethernet,wifi,cellular");
+  else
+    SetCheckPortalList("wifi,cellular");
 }
 
 void NetworkLibraryImplStub::ChangePin(const std::string& old_pin,
@@ -691,7 +658,14 @@ void NetworkLibraryImplStub::EnableOfflineMode(bool enable) {
   }
 }
 
-NetworkIPConfigVector NetworkLibraryImplStub::GetIPConfigs(
+void NetworkLibraryImplStub::GetIPConfigs(
+    const std::string& device_path,
+    HardwareAddressFormat format,
+    const NetworkGetIPConfigsCallback& callback) {
+  callback.Run(ip_configs_, hardware_address_);
+}
+
+NetworkIPConfigVector NetworkLibraryImplStub::GetIPConfigsAndBlock(
     const std::string& device_path,
     std::string* hardware_address,
     HardwareAddressFormat format) {

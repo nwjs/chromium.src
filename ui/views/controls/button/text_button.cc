@@ -18,8 +18,8 @@
 
 #if defined(OS_WIN)
 #include "skia/ext/skia_utils_win.h"
-#include "ui/base/native_theme/native_theme_win.h"
 #include "ui/gfx/platform_font_win.h"
+#include "ui/native_theme/native_theme_win.h"
 #endif
 
 namespace views {
@@ -79,33 +79,65 @@ const char NativeTextButton::kViewClassName[] = "views/NativeTextButton";
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// TextButtonBorder - constructors, destructors, initialization
+// TextButtonBorder
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-TextButtonBorder::TextButtonBorder()
-    : vertical_padding_(kPreferredPaddingVertical) {
-  set_hot_set(BorderImages(BorderImages::kHot));
-  set_pushed_set(BorderImages(BorderImages::kPushed));
+TextButtonBorder::TextButtonBorder() {
 }
 
 TextButtonBorder::~TextButtonBorder() {
 }
 
+gfx::Insets TextButtonBorder::GetInsets() const {
+  return insets_;
+}
+
+void TextButtonBorder::SetInsets(const gfx::Insets& insets) {
+  insets_ = insets;
+}
+
+TextButtonBorder* TextButtonBorder::AsTextButtonBorder() {
+  return this;
+}
+
+const TextButtonBorder* TextButtonBorder::AsTextButtonBorder() const {
+  return this;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// TextButtonBorder - painting
+// TextButtonDefaultBorder - constructors, destructors, initialization
 //
 ////////////////////////////////////////////////////////////////////////////////
-void TextButtonBorder::Paint(const View& view, gfx::Canvas* canvas) {
+
+TextButtonDefaultBorder::TextButtonDefaultBorder()
+    : vertical_padding_(kPreferredPaddingVertical) {
+  set_hot_set(BorderImages(BorderImages::kHot));
+  set_pushed_set(BorderImages(BorderImages::kPushed));
+  SetInsets(gfx::Insets(vertical_padding_,
+                        kPreferredPaddingHorizontal,
+                        vertical_padding_,
+                        kPreferredPaddingHorizontal));
+}
+
+TextButtonDefaultBorder::~TextButtonDefaultBorder() {
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// TextButtonDefaultBorder - painting
+//
+////////////////////////////////////////////////////////////////////////////////
+void TextButtonDefaultBorder::Paint(const View& view, gfx::Canvas* canvas) {
   const TextButton* button = static_cast<const TextButton*>(&view);
   int state = button->state();
 
   BorderImages* set = &normal_set_;
   if (button->show_multiple_icon_states() &&
-      ((state == TextButton::BS_HOT) || (state == TextButton::BS_PUSHED))) {
-    set = (state == TextButton::BS_HOT) ? &hot_set_ : &pushed_set_;
+      ((state == TextButton::STATE_HOVERED) ||
+       (state == TextButton::STATE_PRESSED))) {
+    set = (state == TextButton::STATE_HOVERED) ? &hot_set_ : &pushed_set_;
   }
   if (!set->IsEmpty()) {
     if (button->GetAnimation()->is_animating()) {
@@ -121,11 +153,6 @@ void TextButtonBorder::Paint(const View& view, gfx::Canvas* canvas) {
   }
 }
 
-void TextButtonBorder::GetInsets(gfx::Insets* insets) const {
-  insets->Set(vertical_padding_, kPreferredPaddingHorizontal,
-              vertical_padding_, kPreferredPaddingHorizontal);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // TextButtonNativeThemeBorder
@@ -135,6 +162,10 @@ void TextButtonBorder::GetInsets(gfx::Insets* insets) const {
 TextButtonNativeThemeBorder::TextButtonNativeThemeBorder(
     NativeThemeDelegate* delegate)
     : delegate_(delegate) {
+  SetInsets(gfx::Insets(kPreferredNativeThemePaddingVertical,
+                        kPreferredNativeThemePaddingHorizontal,
+                        kPreferredNativeThemePaddingVertical,
+                        kPreferredNativeThemePaddingHorizontal));
 }
 
 TextButtonNativeThemeBorder::~TextButtonNativeThemeBorder() {
@@ -168,14 +199,6 @@ void TextButtonNativeThemeBorder::Paint(const View& view, gfx::Canvas* canvas) {
     theme->Paint(canvas->sk_canvas(), part, state, rect, extra);
   }
 }
-
-void TextButtonNativeThemeBorder::GetInsets(gfx::Insets* insets) const {
-  insets->Set(kPreferredNativeThemePaddingVertical,
-              kPreferredNativeThemePaddingHorizontal,
-              kPreferredNativeThemePaddingVertical,
-              kPreferredNativeThemePaddingHorizontal);
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // TextButtonBase, public:
@@ -464,7 +487,8 @@ void TextButtonBase::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
     text_bounds.set_x(GetMirroredXForRect(text_bounds));
 
     SkColor text_color = (show_multiple_icon_states_ &&
-        (state() == BS_HOT || state() == BS_PUSHED)) ? color_hover_ : color_;
+        (state() == STATE_HOVERED || state() == STATE_PRESSED)) ?
+            color_hover_ : color_;
 
     int draw_string_flags = gfx::Canvas::DefaultCanvasTextAlignment() |
         ComputeCanvasStringFlags();
@@ -553,13 +577,13 @@ ui::NativeTheme::State TextButtonBase::GetThemeState(
     ui::NativeTheme::ExtraParams* params) const {
   GetExtraParams(params);
   switch(state()) {
-    case BS_DISABLED:
+    case STATE_DISABLED:
       return ui::NativeTheme::kDisabled;
-    case BS_NORMAL:
+    case STATE_NORMAL:
       return ui::NativeTheme::kNormal;
-    case BS_HOT:
+    case STATE_HOVERED:
       return ui::NativeTheme::kHovered;
-    case BS_PUSHED:
+    case STATE_PRESSED:
       return ui::NativeTheme::kPressed;
     default:
       NOTREACHED() << "Unknown state: " << state();
@@ -602,7 +626,7 @@ TextButton::TextButton(ButtonListener* listener, const string16& text)
       has_pushed_icon_(false),
       icon_text_spacing_(kDefaultIconTextSpacing),
       ignore_minimum_size_(true) {
-  set_border(new TextButtonBorder);
+  set_border(new TextButtonDefaultBorder);
   set_focus_border(FocusBorder::CreateDashedFocusBorder(kFocusRectInset,
                                                         kFocusRectInset,
                                                         kFocusRectInset,
@@ -730,9 +754,9 @@ gfx::Rect TextButton::GetTextBounds() const {
 
 const gfx::ImageSkia& TextButton::GetImageToPaint() const {
   if (show_multiple_icon_states_) {
-    if (has_hover_icon_ && (state() == BS_HOT))
+    if (has_hover_icon_ && (state() == STATE_HOVERED))
       return icon_hover_;
-    if (has_pushed_icon_ && (state() == BS_PUSHED))
+    if (has_pushed_icon_ && (state() == STATE_PRESSED))
       return icon_pushed_;
   }
   return icon_;

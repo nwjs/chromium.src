@@ -9,8 +9,8 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/location.h"
-#include "base/message_loop_proxy.h"
 #include "base/logging.h"
+#include "base/message_loop_proxy.h"
 #include "media/base/audio_decoder_config.h"
 #include "media/base/bind_to_loop.h"
 #include "media/base/buffers.h"
@@ -35,13 +35,13 @@ static inline bool IsOutOfSync(const base::TimeDelta& timestamp_1,
 }
 
 DecryptingAudioDecoder::DecryptingAudioDecoder(
-    const MessageLoopFactoryCB& message_loop_factory_cb,
+    const scoped_refptr<base::MessageLoopProxy>& message_loop,
     const RequestDecryptorNotificationCB& request_decryptor_notification_cb)
-    : message_loop_factory_cb_(message_loop_factory_cb),
+    : message_loop_(message_loop),
       state_(kUninitialized),
       request_decryptor_notification_cb_(request_decryptor_notification_cb),
       decryptor_(NULL),
-      key_added_while_pending_decode_(false),
+      key_added_while_decode_pending_(false),
       bits_per_channel_(0),
       channel_layout_(CHANNEL_LAYOUT_NONE),
       samples_per_second_(0),
@@ -54,11 +54,13 @@ void DecryptingAudioDecoder::Initialize(
     const scoped_refptr<DemuxerStream>& stream,
     const PipelineStatusCB& status_cb,
     const StatisticsCB& statistics_cb) {
-  DCHECK(!message_loop_);
-  message_loop_ = base::ResetAndReturn(&message_loop_factory_cb_).Run();
-  message_loop_->PostTask(FROM_HERE, base::Bind(
-      &DecryptingAudioDecoder::DoInitialize, this,
-      stream, status_cb, statistics_cb));
+  if (!message_loop_->BelongsToCurrentThread()) {
+    message_loop_->PostTask(FROM_HERE, base::Bind(
+        &DecryptingAudioDecoder::DoInitialize, this,
+        stream, status_cb, statistics_cb));
+    return;
+  }
+  DoInitialize(stream, status_cb, statistics_cb);
 }
 
 void DecryptingAudioDecoder::Read(const ReadCB& read_cb) {
@@ -234,26 +236,20 @@ void DecryptingAudioDecoder::ReadFromDemuxerStream() {
   DCHECK(!read_cb_.is_null());
 
   demuxer_stream_->Read(
-      base::Bind(&DecryptingAudioDecoder::DecryptAndDecodeBuffer, this));
-}
-
-void DecryptingAudioDecoder::DecryptAndDecodeBuffer(
-    DemuxerStream::Status status,
-    const scoped_refptr<DecoderBuffer>& buffer) {
-  // In theory, we don't need to force post the task here, because we do a
-  // force task post in DeliverFrame(). Therefore, even if
-  // demuxer_stream_->Read() execute the read callback on the same execution
-  // stack we are still fine. But it looks like a force post task makes the
-  // logic more understandable and manageable, so why not?
-  message_loop_->PostTask(FROM_HERE, base::Bind(
-      &DecryptingAudioDecoder::DoDecryptAndDecodeBuffer, this, status, buffer));
+      base::Bind(&DecryptingAudioDecoder::DoDecryptAndDecodeBuffer, this));
 }
 
 void DecryptingAudioDecoder::DoDecryptAndDecodeBuffer(
     DemuxerStream::Status status,
     const scoped_refptr<DecoderBuffer>& buffer) {
+  if (!message_loop_->BelongsToCurrentThread()) {
+    message_loop_->PostTask(FROM_HERE, base::Bind(
+        &DecryptingAudioDecoder::DoDecryptAndDecodeBuffer, this,
+        status, buffer));
+    return;
+  }
+
   DVLOG(3) << "DoDecryptAndDecodeBuffer()";
-  DCHECK(message_loop_->BelongsToCurrentThread());
   DCHECK_EQ(state_, kPendingDemuxerRead) << state_;
   DCHECK(!read_cb_.is_null());
   DCHECK_EQ(buffer != NULL, status == DemuxerStream::kOk) << status;
@@ -328,8 +324,8 @@ void DecryptingAudioDecoder::DoDeliverFrame(
   DCHECK(pending_buffer_to_decode_);
   DCHECK(queued_audio_frames_.empty());
 
-  bool need_to_try_again_if_nokey_is_returned = key_added_while_pending_decode_;
-  key_added_while_pending_decode_ = false;
+  bool need_to_try_again_if_nokey_is_returned = key_added_while_decode_pending_;
+  key_added_while_decode_pending_ = false;
 
   scoped_refptr<DecoderBuffer> scoped_pending_buffer_to_decode =
       pending_buffer_to_decode_;
@@ -400,7 +396,7 @@ void DecryptingAudioDecoder::OnKeyAdded() {
   DCHECK(message_loop_->BelongsToCurrentThread());
 
   if (state_ == kPendingDecode) {
-    key_added_while_pending_decode_ = true;
+    key_added_while_decode_pending_ = true;
     return;
   }
 

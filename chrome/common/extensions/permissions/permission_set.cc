@@ -10,12 +10,14 @@
 
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/permissions/permissions_info.h"
-#include "chrome/common/extensions/url_pattern.h"
-#include "chrome/common/extensions/url_pattern_set.h"
 #include "content/public/common/url_constants.h"
+#include "extensions/common/url_pattern.h"
+#include "extensions/common/url_pattern_set.h"
 #include "grit/generated_resources.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util.h"
+
+using extensions::URLPatternSet;
 
 namespace {
 
@@ -193,6 +195,23 @@ PermissionSet* PermissionSet::CreateUnion(
                              &scriptable_hosts);
 
   return new PermissionSet(apis, explicit_hosts, scriptable_hosts);
+}
+
+// static
+PermissionSet* PermissionSet::ExcludeNotInManifestPermissions(
+    const PermissionSet* set) {
+  if (!set)
+    return new PermissionSet();
+
+  APIPermissionSet apis;
+  for (APIPermissionSet::const_iterator i = set->apis().begin();
+       i != set->apis().end(); ++i) {
+    if (!i->ManifestEntryForbidden())
+      apis.insert(i->Clone());
+  }
+
+  return new PermissionSet(
+      apis, set->explicit_hosts(), set->scriptable_hosts());
 }
 
 bool PermissionSet::operator==(

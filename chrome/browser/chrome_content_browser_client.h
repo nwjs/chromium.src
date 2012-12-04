@@ -52,6 +52,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   virtual void GetStoragePartitionConfigForSite(
       content::BrowserContext* browser_context,
       const GURL& site,
+      bool can_be_default,
       std::string* partition_domain,
       std::string* partition_name,
       bool* in_memory) OVERRIDE;
@@ -61,8 +62,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void RenderProcessHostCreated(
       content::RenderProcessHost* host) OVERRIDE;
-  virtual void BrowserChildProcessHostCreated(
-      content::BrowserChildProcessHost* host) OVERRIDE;
   virtual content::WebUIControllerFactory* GetWebUIControllerFactory() OVERRIDE;
   virtual bool ShouldUseProcessPerSite(content::BrowserContext* browser_context,
                                        const GURL& effective_url) OVERRIDE;

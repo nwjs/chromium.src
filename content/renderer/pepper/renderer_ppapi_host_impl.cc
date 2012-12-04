@@ -6,12 +6,19 @@
 
 #include "base/file_path.h"
 #include "base/logging.h"
+#include "content/renderer/pepper/pepper_graphics_2d_host.h"
 #include "content/renderer/pepper/pepper_in_process_resource_creation.h"
 #include "content/renderer/pepper/pepper_in_process_router.h"
 #include "content/renderer/pepper/pepper_plugin_delegate_impl.h"
 #include "content/renderer/render_view_impl.h"
+#include "content/renderer/render_widget_fullscreen_pepper.h"
+#include "ppapi/host/ppapi_host.h"
 #include "ppapi/proxy/host_dispatcher.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
+#include "ui/gfx/point.h"
+#include "webkit/plugins/ppapi/fullscreen_container.h"
 #include "webkit/plugins/ppapi/host_globals.h"
+#include "webkit/plugins/ppapi/plugin_delegate.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 
@@ -60,6 +67,7 @@ RendererPpapiHostImpl::RendererPpapiHostImpl(
   ppapi_host_->AddHostFactoryFilter(scoped_ptr<ppapi::host::HostFactory>(
       new ContentRendererPepperHostFactory(this)));
   dispatcher->AddFilter(ppapi_host_.get());
+  is_running_in_process_ = false;
 }
 
 // In-process constructor.
@@ -74,6 +82,7 @@ RendererPpapiHostImpl::RendererPpapiHostImpl(
       in_process_router_->GetRendererToPluginSender(), permissions));
   ppapi_host_->AddHostFactoryFilter(scoped_ptr<ppapi::host::HostFactory>(
       new ContentRendererPepperHostFactory(this)));
+  is_running_in_process_ = true;
 }
 
 RendererPpapiHostImpl::~RendererPpapiHostImpl() {
@@ -146,6 +155,18 @@ RenderView* RendererPpapiHostImpl::GetRenderViewForInstance(
       instance_object->delegate())->render_view();
 }
 
+webkit::ppapi::PluginDelegate::PlatformGraphics2D*
+RendererPpapiHostImpl::GetPlatformGraphics2D(
+    PP_Resource resource) {
+  ppapi::host::ResourceHost* resource_host =
+      GetPpapiHost()->GetResourceHost(resource);
+  if (!resource_host || !resource_host->IsGraphics2DHost()) {
+    DLOG(ERROR) << "Resource is not Graphics2D";
+    return NULL;
+  }
+  return static_cast<PepperGraphics2DHost*>(resource_host);
+}
+
 bool RendererPpapiHostImpl::IsValidInstance(
     PP_Instance instance) const {
   return !!GetAndValidateInstance(instance);
@@ -175,6 +196,40 @@ bool RendererPpapiHostImpl::HasUserGesture(PP_Instance instance) const {
   return instance_object->IsProcessingUserGesture();
 }
 
+int RendererPpapiHostImpl::GetRoutingIDForWidget(PP_Instance instance) const {
+  webkit::ppapi::PluginInstance* plugin_instance =
+      GetAndValidateInstance(instance);
+  if (!plugin_instance)
+    return 0;
+  if (plugin_instance->flash_fullscreen()) {
+    webkit::ppapi::FullscreenContainer* container =
+        plugin_instance->fullscreen_container();
+    return static_cast<RenderWidgetFullscreenPepper*>(container)->routing_id();
+  }
+  return GetRenderViewForInstance(instance)->GetRoutingID();
+}
+
+gfx::Point RendererPpapiHostImpl::PluginPointToRenderView(
+    PP_Instance instance,
+    const gfx::Point& pt) const {
+  webkit::ppapi::PluginInstance* plugin_instance =
+      GetAndValidateInstance(instance);
+  if (!plugin_instance)
+    return pt;
+
+  RenderViewImpl* render_view = static_cast<RenderViewImpl*>(
+      GetRenderViewForInstance(instance));
+  if (plugin_instance->view_data().is_fullscreen ||
+      plugin_instance->flash_fullscreen()) {
+    WebKit::WebRect window_rect = render_view->windowRect();
+    WebKit::WebRect screen_rect = render_view->screenInfo().rect;
+    return gfx::Point(pt.x() - window_rect.x + screen_rect.x,
+                      pt.y() - window_rect.y + screen_rect.y);
+  }
+  return gfx::Point(pt.x() + plugin_instance->view_data().rect.point.x,
+                    pt.y() + plugin_instance->view_data().rect.point.y);
+}
+
 IPC::PlatformFileForTransit RendererPpapiHostImpl::ShareHandleWithRemote(
     base::PlatformFile handle,
     bool should_close_source) {
@@ -184,6 +239,10 @@ IPC::PlatformFileForTransit RendererPpapiHostImpl::ShareHandleWithRemote(
     return IPC::InvalidPlatformFileForTransit();
   }
   return dispatcher_->ShareHandleWithRemote(handle, should_close_source);
+}
+
+bool RendererPpapiHostImpl::IsRunningInProcess() const {
+  return is_running_in_process_;
 }
 
 PluginInstance* RendererPpapiHostImpl::GetAndValidateInstance(

@@ -22,7 +22,7 @@
 #include "chrome/browser/prerender/prerender_tracker.h"
 #include "chrome/browser/profiles/profile_io_data.h"
 #include "chrome/browser/renderer_host/chrome_url_request_user_data.h"
-#include "chrome/browser/renderer_host/safe_browsing_resource_throttle.h"
+#include "chrome/browser/renderer_host/safe_browsing_resource_throttle_factory.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/auto_login_prompter.h"
 #include "chrome/browser/ui/login/login_prompt.h"
@@ -43,10 +43,17 @@
 #include "net/base/ssl_config_service.h"
 #include "net/http/http_response_headers.h"
 #include "net/url_request/url_request.h"
+
+#if defined(USE_SYSTEM_PROTOBUF)
+#include <google/protobuf/repeated_field.h>
+#else
 #include "third_party/protobuf/src/google/protobuf/repeated_field.h"
+#endif
 
 #if defined(OS_ANDROID)
 #include "content/components/navigation_interception/intercept_navigation_delegate.h"
+#else
+#include "chrome/browser/managed_mode/managed_mode_resource_throttle.h"
 #endif
 
 // TODO(oshima): Enable this for other platforms.
@@ -160,9 +167,6 @@ void ChromeResourceDispatcherHostDelegate::RequestBeginning(
   AppendChromeMetricsHeaders(request, resource_context, resource_type);
 
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
-  // TODO(rogerta): this call also needs to be made on each new redirect
-  // request.  However, URLRequest does not yet support changing the headers
-  // for redirects.  This is being tracked in crbug.com/157154.
   AppendChromeSyncGaiaHeader(request, resource_context);
 #endif
 
@@ -275,21 +279,29 @@ bool ChromeResourceDispatcherHostDelegate::HandleExternalProtocol(
 }
 
 void ChromeResourceDispatcherHostDelegate::AppendStandardResourceThrottles(
-    const net::URLRequest* request,
+    net::URLRequest* request,
     content::ResourceContext* resource_context,
     int child_id,
     int route_id,
     ResourceType::Type resource_type,
     ScopedVector<content::ResourceThrottle>* throttles) {
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   // Insert safe browsing at the front of the list, so it gets to decide on
   // policies first.
   bool is_subresource_request = resource_type != ResourceType::MAIN_FRAME;
   ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
   if (io_data->safe_browsing_enabled()->GetValue()) {
-    throttles->push_back(SafeBrowsingResourceThrottle::Create(
-        request, child_id, route_id, is_subresource_request, safe_browsing_));
+    content::ResourceThrottle* throttle =
+        SafeBrowsingResourceThrottleFactory::Create(request, child_id, route_id,
+            is_subresource_request, safe_browsing_);
+    if (throttle)
+      throttles->push_back(throttle);
   }
+#endif
+
+#if !defined(OS_ANDROID)
+  throttles->push_back(new ManagedModeResourceThrottle(
+        request, child_id, route_id, !is_subresource_request));
 #endif
 
   content::ResourceThrottle* throttle =
@@ -342,10 +354,20 @@ void ChromeResourceDispatcherHostDelegate::AppendChromeMetricsHeaders(
 void ChromeResourceDispatcherHostDelegate::AppendChromeSyncGaiaHeader(
     net::URLRequest* request,
     content::ResourceContext* resource_context) {
+  static const char kAllowChromeSignIn[] = "Allow-Chrome-SignIn";
+
   ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
-  if (OneClickSigninHelper::CanOfferOnIOThread(request->url(), request,
-                                               io_data)) {
-    request->SetExtraRequestHeaderByName("Allow-Chrome-SignIn", "1", false);
+  OneClickSigninHelper::Offer offer =
+      OneClickSigninHelper::CanOfferOnIOThread(request, io_data);
+  switch (offer) {
+    case OneClickSigninHelper::CAN_OFFER:
+      request->SetExtraRequestHeaderByName(kAllowChromeSignIn, "1", false);
+      break;
+    case OneClickSigninHelper::DONT_OFFER:
+      request->RemoveRequestHeaderByName(kAllowChromeSignIn);
+      break;
+    case OneClickSigninHelper::IGNORE_REQUEST:
+      break;
   }
 }
 #endif
@@ -420,6 +442,8 @@ void ChromeResourceDispatcherHostDelegate::OnRequestRedirected(
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
 
+  AppendChromeSyncGaiaHeader(request, resource_context);
+
   // See if the response contains the Google-Accounts-SignIn header.  If so,
   // then the user has just finished signing in, and the server is allowing the
   // browser to suggest connecting the user's profile to the account.
@@ -439,7 +463,8 @@ void ChromeResourceDispatcherHostDelegate::OnFieldTrialGroupFinalized(
     const std::string& group_name) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   chrome_variations::VariationID new_id =
-      chrome_variations::GetGoogleVariationID(trial_name, group_name);
+      chrome_variations::GetGoogleVariationID(
+          chrome_variations::GOOGLE_WEB_PROPERTIES, trial_name, group_name);
   if (new_id == chrome_variations::kEmptyID)
     return;
   variation_ids_set_.insert(new_id);
@@ -459,8 +484,10 @@ void ChromeResourceDispatcherHostDelegate::InitVariationIDsCacheIfNeeded() {
   base::FieldTrialList::GetActiveFieldTrialGroups(&initial_groups);
   for (base::FieldTrial::ActiveGroups::const_iterator it =
        initial_groups.begin(); it != initial_groups.end(); ++it) {
-    chrome_variations::VariationID id =
-        chrome_variations::GetGoogleVariationID(it->trial, it->group);
+    const chrome_variations::VariationID id =
+        chrome_variations::GetGoogleVariationID(
+            chrome_variations::GOOGLE_WEB_PROPERTIES, it->trial_name,
+            it->group_name);
     if (id != chrome_variations::kEmptyID)
       variation_ids_set_.insert(id);
   }

@@ -7,8 +7,8 @@
 #include "base/base64.h"
 #include "base/basictypes.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/threading/thread.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -18,7 +18,7 @@
 using content::BrowserThread;
 
 TEST(UserStyleSheetWatcherTest, StyleLoad) {
-  ScopedTempDir dir;
+  base::ScopedTempDir dir;
   ASSERT_TRUE(dir.CreateUniqueTempDir());
 
   std::string css_file_contents = "a { color: green; }";
@@ -44,7 +44,7 @@ TEST(UserStyleSheetWatcherTest, StyleLoad) {
   style_sheet_watcher->Init();
 
   io_thread.Stop();
-  loop.RunAllPending();
+  loop.RunUntilIdle();
 
   GURL result_url = style_sheet_watcher->user_style_sheet();
   std::string result = result_url.spec();

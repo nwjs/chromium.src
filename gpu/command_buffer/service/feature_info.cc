@@ -81,7 +81,8 @@ FeatureInfo::FeatureFlags::FeatureFlags()
       use_arb_occlusion_query2_for_occlusion_query_boolean(false),
       use_arb_occlusion_query_for_occlusion_query_boolean(false),
       native_vertex_array_object(false),
-      disable_workarounds(false) {
+      disable_workarounds(false),
+      enable_shader_name_hashing(false) {
 }
 
 FeatureInfo::Workarounds::Workarounds()
@@ -226,15 +227,22 @@ void FeatureInfo::AddFeatures(const char* desired_features) {
       CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableGpuDriverBugWorkarounds);
 
+  feature_flags_.enable_shader_name_hashing =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableShaderNameHashing);
+
+
   bool npot_ok = false;
 
   AddExtensionString("GL_ANGLE_translated_shader_source");
+  AddExtensionString("GL_CHROMIUM_async_pixel_transfers");
   AddExtensionString("GL_CHROMIUM_bind_uniform_location");
   AddExtensionString("GL_CHROMIUM_command_buffer_query");
   AddExtensionString("GL_CHROMIUM_command_buffer_latency_query");
   AddExtensionString("GL_CHROMIUM_copy_texture");
   AddExtensionString("GL_CHROMIUM_discard_framebuffer");
   AddExtensionString("GL_CHROMIUM_get_error_query");
+  AddExtensionString("GL_CHROMIUM_pixel_transfer_buffer_object");
   AddExtensionString("GL_CHROMIUM_rate_limit_offscreen_context");
   AddExtensionString("GL_CHROMIUM_resize");
   AddExtensionString("GL_CHROMIUM_resource_safe");

@@ -43,8 +43,7 @@ namespace ash {
 namespace internal {
 
 SystemGestureEventFilter::SystemGestureEventFilter()
-    : aura::EventFilter(),
-      system_gestures_enabled_(CommandLine::ForCurrentProcess()->
+    : system_gestures_enabled_(CommandLine::ForCurrentProcess()->
           HasSwitch(ash::switches::kAshEnableAdvancedGestures)),
       bezel_gestures_(new BezelGestureHandler),
       long_press_affordance_(new LongPressAffordanceHandler),
@@ -54,13 +53,7 @@ SystemGestureEventFilter::SystemGestureEventFilter()
 SystemGestureEventFilter::~SystemGestureEventFilter() {
 }
 
-bool SystemGestureEventFilter::PreHandleKeyEvent(aura::Window* target,
-                                                 ui::KeyEvent* event) {
-  return false;
-}
-
-bool SystemGestureEventFilter::PreHandleMouseEvent(aura::Window* target,
-                                                   ui::MouseEvent* event) {
+ui::EventResult SystemGestureEventFilter::OnMouseEvent(ui::MouseEvent* event) {
 #if defined(OS_CHROMEOS)
   if (event->type() == ui::ET_MOUSE_PRESSED && event->native_event() &&
       ui::TouchFactory::GetInstance()->IsTouchDevicePresent() &&
@@ -69,38 +62,39 @@ bool SystemGestureEventFilter::PreHandleMouseEvent(aura::Window* target,
       UMA_MOUSE_DOWN);
   }
 #endif
-  return false;
+  return ui::ER_UNHANDLED;
 }
 
-ui::EventResult SystemGestureEventFilter::PreHandleTouchEvent(
-    aura::Window* target,
-    ui::TouchEvent* event) {
+ui::EventResult SystemGestureEventFilter::OnTouchEvent(ui::TouchEvent* event) {
+  aura::Window* target = static_cast<aura::Window*>(event->target());
   touch_uma_.RecordTouchEvent(target, *event);
   long_press_affordance_->ProcessEvent(target, event, event->touch_id());
   return ui::ER_UNHANDLED;
 }
 
-ui::EventResult SystemGestureEventFilter::PreHandleGestureEvent(
-    aura::Window* target,
-    ui::GestureEvent* event) {
+void SystemGestureEventFilter::OnGestureEvent(ui::GestureEvent* event) {
+  aura::Window* target = static_cast<aura::Window*>(event->target());
   touch_uma_.RecordGestureEvent(target, *event);
   long_press_affordance_->ProcessEvent(target, event,
       event->GetLowestTouchId());
 
   if (!target || target == target->GetRootWindow()) {
     bezel_gestures_->ProcessGestureEvent(target, *event);
-    return ui::ER_CONSUMED;
+    event->StopPropagation();
+    return;
   }
 
-  if (two_finger_drag_->ProcessGestureEvent(target, *event))
-    return ui::ER_CONSUMED;
+  if (two_finger_drag_->ProcessGestureEvent(target, *event)) {
+    event->StopPropagation();
+    return;
+  }
 
   if (!system_gestures_enabled_)
-    return ui::ER_UNHANDLED;
+    return;
 
   aura::Window* system_target = GetTargetForSystemGestureEvent(target);
   if (!system_target)
-    return ui::ER_UNHANDLED;
+    return;
 
   RootWindowController* root_controller =
       GetRootWindowController(system_target->GetRootWindow());
@@ -116,9 +110,9 @@ ui::EventResult SystemGestureEventFilter::PreHandleGestureEvent(
       ash::AcceleratorController* accelerator =
           ash::Shell::GetInstance()->accelerator_controller();
       if (accelerator->PerformAction(CYCLE_FORWARD_MRU, ui::Accelerator()))
-        return ui::ER_CONSUMED;
+        event->StopPropagation();
     }
-    return ui::ER_UNHANDLED;
+    return;
   }
 
   WindowPinchHandlerMap::iterator find = pinch_handlers_.find(system_target);
@@ -127,18 +121,16 @@ ui::EventResult SystemGestureEventFilter::PreHandleGestureEvent(
         (*find).second->ProcessGestureEvent(*event);
     if (status == SYSTEM_GESTURE_END)
       ClearGestureHandlerForWindow(system_target);
-    return ui::ER_CONSUMED;
+    event->StopPropagation();
   } else {
     if (event->type() == ui::ET_GESTURE_BEGIN &&
         event->details().touch_points() >=
         SystemPinchHandler::kSystemGesturePoints) {
       pinch_handlers_[system_target] = new SystemPinchHandler(system_target);
       system_target->AddObserver(this);
-      return ui::ER_CONSUMED;
+      event->StopPropagation();
     }
   }
-
-  return ui::ER_UNHANDLED;
 }
 
 void SystemGestureEventFilter::OnWindowVisibilityChanged(aura::Window* window,

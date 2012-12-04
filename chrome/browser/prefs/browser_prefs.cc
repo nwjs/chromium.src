@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -26,10 +26,10 @@
 #include "chrome/browser/geolocation/geolocation_prefs.h"
 #include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/google/google_url_tracker_factory.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/managed_mode/managed_mode.h"
+#include "chrome/browser/media/media_capture_devices_dispatcher.h"
 #include "chrome/browser/metrics/metrics_log.h"
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/metrics/variations/variations_service.h"
@@ -57,6 +57,7 @@
 #include "chrome/browser/task_manager/task_manager.h"
 #include "chrome/browser/translate/translate_prefs.h"
 #include "chrome/browser/ui/alternate_error_tab_observer.h"
+#include "chrome/browser/ui/browser_instant_controller.h"
 #include "chrome/browser/ui/browser_ui_prefs.h"
 #include "chrome/browser/ui/network_profile_bubble.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
@@ -143,10 +144,13 @@ enum MigratedPreferences {
 namespace chrome {
 
 void RegisterLocalState(PrefService* local_state) {
-  // Prefs in Local State
+  // Prefs in Local State.
   local_state->RegisterIntegerPref(prefs::kMultipleProfilePrefMigration, 0);
 
+  // Please keep this list alphabetized.
   browser_shutdown::RegisterPrefs(local_state);
+  chrome::RegisterScreenshotPrefs(local_state);
+  chrome_variations::VariationsService::RegisterPrefs(local_state);
   ExternalProtocolHandler::RegisterPrefs(local_state);
   geolocation::RegisterPrefs(local_state);
   IntranetRedirectDetector::RegisterPrefs(local_state);
@@ -157,11 +161,10 @@ void RegisterLocalState(PrefService* local_state) {
   PrefProxyConfigTrackerImpl::RegisterPrefs(local_state);
   ProfileInfoCache::RegisterPrefs(local_state);
   ProfileManager::RegisterPrefs(local_state);
+  PromoResourceService::RegisterPrefs(local_state);
   SigninManagerFactory::RegisterPrefs(local_state);
   SSLConfigServiceManager::RegisterPrefs(local_state);
-  chrome_variations::VariationsService::RegisterPrefs(local_state);
   WebCacheManager::RegisterPrefs(local_state);
-  chrome::RegisterScreenshotPrefs(local_state);
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   PluginsResourceService::RegisterPrefs(local_state);
@@ -185,7 +188,6 @@ void RegisterLocalState(PrefService* local_state) {
   RegisterTabStripLayoutTypePrefs(local_state);
 #endif
 
-  PromoResourceService::RegisterPrefs(local_state);
 #if !defined(OS_ANDROID)
   BackgroundModeManager::RegisterPrefs(local_state);
   RegisterBrowserPrefs(local_state);
@@ -216,11 +218,12 @@ void RegisterLocalState(PrefService* local_state) {
 }
 
 void RegisterUserPrefs(PrefService* user_prefs) {
-  // User prefs
+  // User prefs. Please keep this list alphabetized.
   AlternateErrorPageTabObserver::RegisterUserPrefs(user_prefs);
   AutofillManager::RegisterUserPrefs(user_prefs);
   BookmarkPromptPrefs::RegisterUserPrefs(user_prefs);
   bookmark_utils::RegisterUserPrefs(user_prefs);
+  BrowserInstantController::RegisterUserPrefs(user_prefs);
   ChromeContentBrowserClient::RegisterUserPrefs(user_prefs);
   ChromeVersionService::RegisterUserPrefs(user_prefs);
   chrome_browser_net::HttpServerPropertiesManager::RegisterPrefs(user_prefs);
@@ -233,7 +236,8 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   GAIAInfoUpdateService::RegisterUserPrefs(user_prefs);
   HostContentSettingsMap::RegisterUserPrefs(user_prefs);
   IncognitoModePrefs::RegisterUserPrefs(user_prefs);
-  InstantController::RegisterUserPrefs(user_prefs);
+  InstantUI::RegisterUserPrefs(user_prefs);
+  MediaCaptureDevicesDispatcher::RegisterUserPrefs(user_prefs);
   NetPrefObserver::RegisterPrefs(user_prefs);
   NewTabUI::RegisterUserPrefs(user_prefs);
   PasswordManager::RegisterUserPrefs(user_prefs);
@@ -246,7 +250,6 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   SessionStartupPref::RegisterUserPrefs(user_prefs);
   TemplateURLPrepopulateData::RegisterUserPrefs(user_prefs);
   TranslatePrefs::RegisterUserPrefs(user_prefs);
-  InstantUI::RegisterUserPrefs(user_prefs);
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
   policy::URLBlacklistManager::RegisterPrefs(user_prefs);
@@ -274,15 +277,16 @@ void RegisterUserPrefs(PrefService* user_prefs) {
 #if !defined(OS_ANDROID)
   CaptureVisibleTabFunction::RegisterUserPrefs(user_prefs);
   ChromeToMobileService::RegisterUserPrefs(user_prefs);
+  DevToolsWindow::RegisterUserPrefs(user_prefs);
   extensions::CommandService::RegisterUserPrefs(user_prefs);
   ExtensionSettingsHandler::RegisterUserPrefs(user_prefs);
-  RegisterAutolaunchPrefs(user_prefs);
-  DevToolsWindow::RegisterUserPrefs(user_prefs);
+  ManagedMode::RegisterUserPrefs(user_prefs);
   PepperFlashSettingsManager::RegisterUserPrefs(user_prefs);
   PinnedTabCodec::RegisterUserPrefs(user_prefs);
   PluginsUI::RegisterUserPrefs(user_prefs);
-  SyncPromoUI::RegisterUserPrefs(user_prefs);
   printing::StickySettings::RegisterUserPrefs(user_prefs);
+  RegisterAutolaunchPrefs(user_prefs);
+  SyncPromoUI::RegisterUserPrefs(user_prefs);
 #endif
 
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)

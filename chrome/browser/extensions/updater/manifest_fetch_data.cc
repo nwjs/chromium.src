@@ -11,6 +11,7 @@
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "chrome/browser/google/google_util.h"
+#include "chrome/browser/metrics/metrics_service.h"
 #include "net/base/escape.h"
 
 namespace {
@@ -23,9 +24,10 @@ const int kExtensionsManifestMaxURLSize = 2000;
 
 namespace extensions {
 
-ManifestFetchData::ManifestFetchData(const GURL& update_url)
+ManifestFetchData::ManifestFetchData(const GURL& update_url, int request_id)
     : base_url_(update_url),
       full_url_(update_url) {
+  request_ids_.insert(request_id);
 }
 
 ManifestFetchData::~ManifestFetchData() {}
@@ -86,13 +88,17 @@ bool ManifestFetchData::AddExtension(std::string id, std::string version,
 #endif
 
     std::string ping_value;
-    pings_[id] = PingData(0, 0);
+    pings_[id] = PingData(0, 0, false);
 
     if (ping_data) {
       if (ping_data->rollcall_days == kNeverPinged ||
           ping_data->rollcall_days > 0) {
         ping_value += "r=" + base::IntToString(ping_data->rollcall_days);
+        if (MetricsServiceHelper::IsMetricsReportingEnabled()) {
+          ping_value += "&e=" + std::string(ping_data->is_enabled ? "1" : "0");
+        }
         pings_[id].rollcall_days = ping_data->rollcall_days;
+        pings_[id].is_enabled = ping_data->is_enabled;
       }
       if (ping_data->active_days == kNeverPinged ||
           ping_data->active_days > 0) {
@@ -139,6 +145,11 @@ bool ManifestFetchData::DidPing(std::string extension_id, PingType type) const {
   else
     NOTREACHED();
   return value == kNeverPinged || value > 0;
+}
+
+void ManifestFetchData::Merge(const ManifestFetchData& other) {
+  DCHECK(full_url() == other.full_url());
+  request_ids_.insert(other.request_ids_.begin(), other.request_ids_.end());
 }
 
 }  // namespace extensions

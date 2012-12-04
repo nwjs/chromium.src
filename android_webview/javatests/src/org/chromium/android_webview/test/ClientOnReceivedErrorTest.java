@@ -13,6 +13,8 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.test.util.TestCallbackHelperContainer;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Tests for the ContentViewClient.onReceivedError() method.
  */
@@ -40,7 +42,10 @@ public class ClientOnReceivedErrorTest extends AndroidWebViewTestBase {
         int onReceivedErrorCallCount = onReceivedErrorHelper.getCallCount();
         loadUrlAsync(mAwContents, url);
 
-        onReceivedErrorHelper.waitForCallback(onReceivedErrorCallCount);
+        onReceivedErrorHelper.waitForCallback(onReceivedErrorCallCount,
+                                              1 /* numberOfCallsToWaitFor */,
+                                              WAIT_TIMEOUT_SECONDS,
+                                              TimeUnit.SECONDS);
         assertEquals(ErrorCodeConversionHelper.ERROR_HOST_LOOKUP,
                 onReceivedErrorHelper.getErrorCode());
         assertEquals(url, onReceivedErrorHelper.getFailingUrl());

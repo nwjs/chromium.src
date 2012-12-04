@@ -20,6 +20,10 @@
 #include "content/public/browser/notification_registrar.h"
 #include "rlz/lib/rlz_lib.h"
 
+namespace net {
+class URLRequestContextGetter;
+}
+
 // RLZ is a library which is used to measure distribution scenarios.
 // Its job is to record certain lifetime events in the registry and to send
 // them encoded as a compact string at most twice. The sent data does
@@ -110,11 +114,29 @@ class RLZTracker : public content::NotificationObserver {
             bool is_google_in_startpages);
 
   // Implementation called from RecordProductEvent() static method.
+  bool RecordProductEventImpl(rlz_lib::Product product,
+                              rlz_lib::AccessPoint point,
+                              rlz_lib::Event event_id);
+
+  // Records FIRST_SEARCH event. Called from Observe() on blocking task runner.
+  void RecordFirstSearch(rlz_lib::AccessPoint point);
+
+  // Implementation called from GetAccessPointRlz() static method.
   bool GetAccessPointRlzImpl(rlz_lib::AccessPoint point, string16* rlz);
 
   // Schedules the delayed initialization. This method is virtual to allow
   // tests to override how the scheduling is done.
   virtual void ScheduleDelayedInit(int delay);
+
+  // Schedules a call to rlz_lib::RecordProductEvent(). This method is virtual
+  // to allow tests to override how the scheduling is done.
+  virtual bool ScheduleRecordProductEvent(rlz_lib::Product product,
+                                          rlz_lib::AccessPoint point,
+                                          rlz_lib::Event event_id);
+
+  // Schedules a call to rlz_lib::RecordFirstSearch(). This method is virtual
+  // to allow tests to override how the scheduling is done.
+  virtual bool ScheduleRecordFirstSearch(rlz_lib::AccessPoint point);
 
   // Schedules a call to rlz_lib::SendFinancialPing(). This method is virtual
   // to allow tests to override how the scheduling is done.
@@ -146,6 +168,9 @@ class RLZTracker : public content::NotificationObserver {
   // Unique sequence token so that tasks posted by RLZTracker are executed
   // sequentially in the blocking pool.
   base::SequencedWorkerPool::SequenceToken worker_pool_token_;
+
+  // URLRequestContextGetter used by RLZ library.
+  net::URLRequestContextGetter* url_request_context_;
 
   // Keeps track if the RLZ tracker has already performed its delayed
   // initialization.

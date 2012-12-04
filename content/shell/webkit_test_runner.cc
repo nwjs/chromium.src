@@ -4,6 +4,8 @@
 
 #include "content/shell/webkit_test_runner.h"
 
+#include <cmath>
+
 #include "base/md5.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
@@ -28,7 +30,9 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "third_party/WebKit/Tools/DumpRenderTree/chromium/TestRunner/public/WebTask.h"
+#include "third_party/WebKit/Tools/DumpRenderTree/chromium/TestRunner/public/WebTestProxy.h"
 #include "webkit/glue/webkit_glue.h"
+#include "webkit/glue/webpreferences.h"
 
 using WebKit::WebContextMenuData;
 using WebKit::WebElement;
@@ -113,18 +117,6 @@ std::string DumpFrameScrollPosition(WebFrame* frame, bool recursive) {
   return result;
 }
 
-bool PaintViewIntoCanvas(WebView* view, skia::PlatformCanvas& canvas) {
-  view->layout();
-  const WebSize& size = view->size();
-
-  if (!canvas.initialize(size.width, size.height, true))
-    return false;
-
-  view->paint(webkit_glue::ToWebCanvas(&canvas),
-              WebRect(0, 0, size.width, size.height));
-  return true;
-}
-
 #if !defined(OS_MACOSX)
 void MakeBitmapOpaque(SkBitmap* bitmap) {
   SkAutoLockPixels lock(*bitmap);
@@ -137,13 +129,8 @@ void MakeBitmapOpaque(SkBitmap* bitmap) {
 }
 #endif
 
-void CaptureSnapshot(WebView* view, SkBitmap* snapshot) {
-  skia::PlatformCanvas canvas;
-  if (!PaintViewIntoCanvas(view, canvas))
-    return;
-
-  SkDevice* device = skia::GetTopDevice(canvas);
-
+void CopyCanvasToBitmap(SkCanvas* canvas,  SkBitmap* snapshot) {
+  SkDevice* device = skia::GetTopDevice(*canvas);
   const SkBitmap& bitmap = device->accessBitmap(false);
   bitmap.copyTo(snapshot, SkBitmap::kARGB_8888_Config);
 
@@ -158,12 +145,10 @@ void CaptureSnapshot(WebView* view, SkBitmap* snapshot) {
 
 WebKitTestRunner::WebKitTestRunner(RenderView* render_view)
     : RenderViewObserver(render_view),
-      is_main_window_(false) {
+      RenderViewObserverTracker<WebKitTestRunner>(render_view) {
 }
 
 WebKitTestRunner::~WebKitTestRunner() {
-  if (is_main_window_)
-    ShellRenderProcessObserver::GetInstance()->SetMainWindow(NULL, this);
 }
 
 // WebTestDelegate  -----------------------------------------------------------
@@ -272,11 +257,35 @@ bool WebKitTestRunner::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ShellViewMsg_CaptureImageDump, OnCaptureImageDump)
     IPC_MESSAGE_HANDLER(ShellViewMsg_SetCurrentWorkingDirectory,
                         OnSetCurrentWorkingDirectory)
-    IPC_MESSAGE_HANDLER(ShellViewMsg_SetIsMainWindow, OnSetIsMainWindow)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
   return handled;
+}
+
+// Public methods - -----------------------------------------------------------
+
+void WebKitTestRunner::Display() {
+  const WebSize& size = render_view()->GetWebView()->size();
+  WebRect rect(0, 0, size.width, size.height);
+  proxy_->setPaintRect(rect);
+  PaintInvalidatedRegion();
+  DisplayRepaintMask();
+}
+
+void WebKitTestRunner::SetXSSAuditorEnabled(bool enabled) {
+  prefs_.xss_auditor_enabled = enabled;
+  webkit_glue::WebPreferences prefs = render_view()->GetWebkitPreferences();
+  prefs_.Apply(&prefs);
+  render_view()->SetWebkitPreferences(prefs);
+  Send(new ShellViewHostMsg_OverridePreferences(routing_id(), prefs_));
+}
+
+void WebKitTestRunner::Reset() {
+  prefs_ = ShellWebPreferences();
+  webkit_glue::WebPreferences prefs = render_view()->GetWebkitPreferences();
+  prefs_.Apply(&prefs);
+  render_view()->SetWebkitPreferences(prefs);
 }
 
 // Private methods  -----------------------------------------------------------
@@ -302,7 +311,8 @@ void WebKitTestRunner::OnCaptureTextDump(bool as_text,
 void WebKitTestRunner::OnCaptureImageDump(
     const std::string& expected_pixel_hash) {
   SkBitmap snapshot;
-  CaptureSnapshot(render_view()->GetWebView(), &snapshot);
+  PaintInvalidatedRegion();
+  CopyCanvasToBitmap(GetCanvas(), &snapshot);
 
   SkAutoLockPixels snapshot_lock(snapshot);
   base::MD5Digest digest;
@@ -339,9 +349,69 @@ void WebKitTestRunner::OnSetCurrentWorkingDirectory(
   current_working_directory_ = current_working_directory;
 }
 
-void WebKitTestRunner::OnSetIsMainWindow() {
-  is_main_window_ = true;
-  ShellRenderProcessObserver::GetInstance()->SetMainWindow(render_view(), this);
+SkCanvas* WebKitTestRunner::GetCanvas() {
+  WebView* view = render_view()->GetWebView();
+  const WebSize& size = view->size();
+  float device_scale_factor = view->deviceScaleFactor();
+  int width = std::ceil(device_scale_factor * size.width);
+  int height = std::ceil(device_scale_factor * size.height);
+
+  if (canvas_ &&
+      canvas_->getDeviceSize().width() == width &&
+      canvas_->getDeviceSize().height() == height) {
+    return canvas_.get();
+  }
+  canvas_.reset(skia::CreatePlatformCanvas(
+      size.width, size.height, true, 0, skia::RETURN_NULL_ON_FAILURE));
+  return canvas_.get();
+}
+
+void WebKitTestRunner::PaintRect(const WebRect& rect) {
+  WebView* view = render_view()->GetWebView();
+  float device_scale_factor = view->deviceScaleFactor();
+  int scaled_x = device_scale_factor * rect.x;
+  int scaled_y = device_scale_factor * rect.y;
+  int scaled_width = std::ceil(device_scale_factor * rect.width);
+  int scaled_height = std::ceil(device_scale_factor * rect.height);
+  // TODO(jochen): Verify that the scaling is correct once the HiDPI tests
+  // actually work.
+  WebRect device_rect(scaled_x, scaled_y, scaled_width, scaled_height);
+  view->paint(webkit_glue::ToWebCanvas(GetCanvas()), device_rect);
+}
+
+void WebKitTestRunner::PaintInvalidatedRegion() {
+  WebView* view = render_view()->GetWebView();
+  view->animate(0.0);
+  view->layout();
+  const WebSize& widget_size = view->size();
+  WebRect client_rect(0, 0, widget_size.width, widget_size.height);
+
+  // Paint the canvas if necessary. Allow painting to generate extra rects
+  // for the first two calls. This is necessary because some WebCore rendering
+  // objects update their layout only when painted.
+  for (int i = 0; i < 3; ++i) {
+    // Make sure that paint_rect is always inside the RenderView's visible
+    // area.
+    WebRect paint_rect = proxy_->paintRect();
+    int left = std::max(paint_rect.x, client_rect.x);
+    int top = std::max(paint_rect.y, client_rect.y);
+    int right = std::min(paint_rect.x + paint_rect.width,
+                         client_rect.x + client_rect.width);
+    int bottom = std::min(paint_rect.y + paint_rect.height,
+                          client_rect.y + client_rect.height);
+    WebRect rect;
+    if (left < right && top < bottom)
+      rect = WebRect(left, top, right - left, bottom - top);
+    proxy_->setPaintRect(WebRect());
+    if (rect.isEmpty())
+      continue;
+    PaintRect(rect);
+  }
+  CHECK(proxy_->paintRect().isEmpty());
+}
+
+void WebKitTestRunner::DisplayRepaintMask() {
+  GetCanvas()->drawARGB(167, 0, 0, 0);
 }
 
 }  // namespace content

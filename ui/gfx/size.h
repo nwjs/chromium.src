@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "build/build_config.h"
+#include "base/compiler_specific.h"
 #include "ui/base/ui_export.h"
 #include "ui/gfx/size_base.h"
 #include "ui/gfx/size_f.h"
@@ -25,13 +25,13 @@ namespace gfx {
 // A size has width and height values.
 class UI_EXPORT Size : public SizeBase<Size, int> {
  public:
-  Size();
-  Size(int width, int height);
+  Size() : SizeBase<Size, int>(0, 0) {}
+  Size(int width, int height) : SizeBase<Size, int>(width, height) {}
 #if defined(OS_MACOSX)
   explicit Size(const CGSize& s);
 #endif
 
-  ~Size();
+  ~Size() {}
 
 #if defined(OS_MACOSX)
   Size& operator=(const CGSize& s);

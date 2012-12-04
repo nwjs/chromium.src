@@ -6,27 +6,37 @@
 #define CC_SHARED_QUAD_STATE_H_
 
 #include "base/memory/scoped_ptr.h"
-#include "ui/gfx/rect.h"
-#include <public/WebTransformationMatrix.h>
 #include "cc/cc_export.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/transform.h"
 
 namespace cc {
 
-struct CC_EXPORT SharedQuadState {
-    int id;
+class CC_EXPORT SharedQuadState {
+ public:
+  static scoped_ptr<SharedQuadState> Create();
+  ~SharedQuadState();
 
-    // Transforms from quad's original content space to its target content space.
-    WebKit::WebTransformationMatrix quadTransform;
-    // This rect lives in the content space for the quad's originating layer.
-    gfx::Rect visibleContentRect;
-    gfx::Rect clippedRectInTarget;
-    float opacity;
-    bool opaque;
+  scoped_ptr<SharedQuadState> Copy() const;
 
-    static scoped_ptr<SharedQuadState> create(const WebKit::WebTransformationMatrix& quadTransform, const gfx::Rect& visibleContentRect, const gfx::Rect& clippedRectInTarget, float opacity, bool opaque);
-    SharedQuadState(const WebKit::WebTransformationMatrix& quadTransform, const gfx::Rect& visibleContentRect, const gfx::Rect& clippedRectInTarget, float opacity, bool opaque);
+  void SetAll(const gfx::Transform& content_to_target_transform,
+              const gfx::Rect& visible_content_rect,
+              const gfx::Rect& clipped_rect_in_target,
+              const gfx::Rect& clip_rect,
+              bool is_clipped,
+              float opacity);
 
-    scoped_ptr<SharedQuadState> copy() const;
+  // Transforms from quad's original content space to its target content space.
+  gfx::Transform content_to_target_transform;
+  // This rect lives in the content space for the quad's originating layer.
+  gfx::Rect visible_content_rect;
+  gfx::Rect clipped_rect_in_target;
+  gfx::Rect clip_rect;
+  bool is_clipped;
+  float opacity;
+
+ private:
+  SharedQuadState();
 };
 
 }

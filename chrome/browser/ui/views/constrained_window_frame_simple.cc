@@ -32,7 +32,8 @@ ConstrainedWindowFrameSimple::ConstrainedWindowFrameSimple(
     : container_(container),
       client_insets_(client_insets),
       title_label_(NULL),
-      close_button_(NULL) {
+      close_button_(NULL),
+      bottom_margin_(0) {
   container_->set_frame_type(views::Widget::FRAME_TYPE_FORCE_CUSTOM);
 
 #if defined(OS_WIN) && !defined(USE_AURA)
@@ -47,8 +48,7 @@ ConstrainedWindowFrameSimple::ConstrainedWindowFrameSimple(
   if (client_insets_ == ConstrainedWindowViews::NO_INSETS)
     return;
 
-  gfx::Insets border_insets;
-  border()->GetInsets(&border_insets);
+  gfx::Insets border_insets = border()->GetInsets();
 
   views::GridLayout* layout = new views::GridLayout(this);
   const int kHeaderTopPadding = std::min(
@@ -76,18 +76,17 @@ ConstrainedWindowFrameSimple::ConstrainedWindowFrameSimple(
   title_label_->SetFont(rb.GetFont(
       ConstrainedWindowConstants::kTitleFontStyle));
   title_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  title_label_->SetEnabledColor(ConstrainedWindow::GetTextColor());
   title_label_->set_border(views::Border::CreateEmptyBorder(
       ConstrainedWindowConstants::kTitleTopPadding - kHeaderTopPadding,
       0, 0, 0));
   layout->AddView(title_label_);
 
   close_button_ = new views::ImageButton(this);
-  close_button_->SetImage(views::CustomButton::BS_NORMAL,
+  close_button_->SetImage(views::CustomButton::STATE_NORMAL,
                           rb.GetImageSkiaNamed(IDR_WEB_UI_CLOSE));
-  close_button_->SetImage(views::CustomButton::BS_HOT,
+  close_button_->SetImage(views::CustomButton::STATE_HOVERED,
                           rb.GetImageSkiaNamed(IDR_WEB_UI_CLOSE_HOVER));
-  close_button_->SetImage(views::CustomButton::BS_PUSHED,
+  close_button_->SetImage(views::CustomButton::STATE_PRESSED,
                           rb.GetImageSkiaNamed(IDR_WEB_UI_CLOSE_PRESSED));
   close_button_->set_border(views::Border::CreateEmptyBorder(
       ConstrainedWindowConstants::kCloseButtonPadding - kHeaderTopPadding,
@@ -109,11 +108,8 @@ ConstrainedWindowFrameSimple::~ConstrainedWindowFrameSimple() {
 gfx::Insets ConstrainedWindowFrameSimple::GetClientInsets() const {
   gfx::Insets insets;
 
-  if (border()) {
-    gfx::Insets border_insets;
-    border()->GetInsets(&border_insets);
-    insets += border_insets;
-  }
+  if (border())
+    insets += border()->GetInsets();
 
   if (client_insets_ == ConstrainedWindowViews::DEFAULT_INSETS) {
     const int kHeaderTopPadding = std::min(
@@ -126,7 +122,7 @@ gfx::Insets ConstrainedWindowFrameSimple::GetClientInsets() const {
                      title_label_->GetPreferredSize().height()) -
             kTitleBuiltinBottomPadding,
         ConstrainedWindowConstants::kHorizontalPadding,
-        ConstrainedWindowConstants::kClientBottomPadding,
+        ConstrainedWindowConstants::kClientBottomPadding - bottom_margin_,
         ConstrainedWindowConstants::kHorizontalPadding);
   }
 

@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "base/task_runner.h"
 #include "base/time.h"
+#include "net/base/io_buffer.h"
 #include "net/quic/congestion_control/quic_receipt_metrics_collector.h"
 #include "net/quic/congestion_control/quic_send_scheduler.h"
 #include "net/quic/quic_utils.h"
@@ -15,7 +16,7 @@
 namespace net {
 
 QuicConnectionHelper::QuicConnectionHelper(base::TaskRunner* task_runner,
-                                           QuicClock* clock,
+                                           const QuicClock* clock,
                                            DatagramClientSocket* socket)
     : ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
       task_runner_(task_runner),
@@ -32,26 +33,25 @@ void QuicConnectionHelper::SetConnection(QuicConnection* connection) {
   connection_ = connection;
 }
 
-QuicClock* QuicConnectionHelper::GetClock() {
+const QuicClock* QuicConnectionHelper::GetClock() const {
   return clock_;
 }
 
 int QuicConnectionHelper::WritePacketToWire(
-    QuicPacketSequenceNumber sequence_number,
     const QuicEncryptedPacket& packet,
-    bool resend,
     int* error) {
   if (connection_->ShouldSimulateLostPacket()) {
-    DLOG(INFO) << "Dropping "
-               << (resend ? "data bearing " : " ack only ")
-               << "packet " << sequence_number
-               << " due to fake packet loss.";
+    DLOG(INFO) << "Dropping packet due to fake packet loss.";
     *error = 0;
     return packet.length();
   }
 
-  // TODO(rch): add udp socket write
-  return packet.length();
+  scoped_refptr<StringIOBuffer> buf(
+      new StringIOBuffer(std::string(packet.data(),
+                                     packet.length())));
+   return socket_->Write(buf, packet.length(),
+                         base::Bind(&QuicConnectionHelper::OnWriteComplete,
+                                    weak_factory_.GetWeakPtr()));
 }
 
 void QuicConnectionHelper::SetResendAlarm(
@@ -108,6 +108,11 @@ void QuicConnectionHelper::OnSendAlarm() {
 void QuicConnectionHelper::OnTimeoutAlarm() {
   timeout_alarm_registered_ = false;
   connection_->CheckForTimeout();
+}
+
+void QuicConnectionHelper::OnWriteComplete(int result) {
+  // TODO(rch): Inform the connection about the result.
+  connection_->OnCanWrite();
 }
 
 }  // namespace net

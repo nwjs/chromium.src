@@ -25,9 +25,6 @@
 typedef struct _GtkToolItem GtkToolItem;
 #elif defined(OS_ANDROID)
 #include "base/android/scoped_java_ref.h"
-namespace content {
-class ContentViewLayerRenderer;
-}
 #elif defined(USE_AURA)
 namespace views {
 class Widget;
@@ -98,11 +95,6 @@ class Shell : public WebContentsDelegate,
 #elif defined(OS_ANDROID)
   // Registers the Android Java to native methods.
   static bool Register(JNIEnv* env);
-  // Called by the ShellManager to specify the object that should be notified of
-  // layer changes.
-  // Note that |content_view_layer_renderer| is owned by the ShellManager.
-  void SetContentViewLayerRenderer(
-      ContentViewLayerRenderer* content_view_layer_renderer);
 #endif
 
   // WebContentsDelegate
@@ -112,12 +104,16 @@ class Shell : public WebContentsDelegate,
 #if defined(OS_ANDROID)
   virtual void LoadProgressChanged(WebContents* source,
                                    double progress) OVERRIDE;
-  virtual void AttachLayer(WebContents* web_contents,
-                           WebKit::WebLayer* layer) OVERRIDE;
-  virtual void RemoveLayer(WebContents* web_contents,
-                           WebKit::WebLayer* layer) OVERRIDE;
 #endif
+  virtual void ToggleFullscreenModeForTab(WebContents* web_contents,
+                                          bool enter_fullscreen) OVERRIDE;
+  virtual bool IsFullscreenForTabOrPending(
+      const WebContents* web_contents) const OVERRIDE;
+  virtual void RequestToLockMouse(WebContents* web_contents,
+                                  bool user_gesture,
+                                  bool last_unlocked_by_target) OVERRIDE;
   virtual void CloseContents(WebContents* source) OVERRIDE;
+  virtual bool CanOverscrollContent() const OVERRIDE;
   virtual void WebContentsCreated(WebContents* source_contents,
                                   int64 source_frame_id,
                                   const GURL& target_url,
@@ -167,6 +163,12 @@ class Shell : public WebContentsDelegate,
   void PlatformSetIsLoading(bool loading);
   // Set the title of shell window
   void PlatformSetTitle(const string16& title);
+#if defined(OS_ANDROID)
+  void PlatformToggleFullscreenModeForTab(WebContents* web_contents,
+                                          bool enter_fullscreen);
+  bool PlatformIsFullscreenForTabOrPending(
+      const WebContents* web_contents) const;
+#endif
 
 #if (defined(OS_WIN) && !defined(USE_AURA)) || defined(TOOLKIT_GTK)
   // Resizes the main window to the given dimensions.
@@ -204,6 +206,8 @@ class Shell : public WebContentsDelegate,
 
   scoped_ptr<WebContents> web_contents_;
 
+  bool is_fullscreen_;
+
   gfx::NativeWindow window_;
   gfx::NativeEditView url_edit_view_;
 
@@ -228,9 +232,6 @@ class Shell : public WebContentsDelegate,
   int content_height_;
 #elif defined(OS_ANDROID)
   base::android::ScopedJavaGlobalRef<jobject> java_object_;
-  // The ContentViewLayerRenderer that should be notified of compositing layer
-  // changes.  Global so guaranteed to outlive shell.
-  ContentViewLayerRenderer* content_view_layer_renderer_;
 #elif defined(USE_AURA)
   static aura::client::StackingClient* stacking_client_;
   static views::ViewsDelegate* views_delegate_;

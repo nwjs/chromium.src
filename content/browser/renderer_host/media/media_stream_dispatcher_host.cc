@@ -5,6 +5,7 @@
 #include "content/browser/renderer_host/media/media_stream_dispatcher_host.h"
 
 #include "content/browser/browser_main_loop.h"
+#include "content/browser/renderer_host/media/web_contents_capture_util.h"
 #include "content/common/media/media_stream_messages.h"
 #include "content/common/media/media_stream_options.h"
 #include "googleurl/src/gurl.h"
@@ -141,16 +142,25 @@ void MediaStreamDispatcherHost::OnGenerateStream(
   std::string label;
   if (components.audio_type == MEDIA_TAB_AUDIO_CAPTURE ||
       components.video_type == MEDIA_TAB_VIDEO_CAPTURE) {
-    const std::string& device_id = components.video_device_id;
-    DCHECK(!device_id.empty());
+    DCHECK(!components.video_device_id.empty());
+
+    // Append our tab capture device id scheme.
+    // TODO(justinlin): This is kind of a hack, but the plumbing for audio
+    // streams is too complicated to plumb in by type. Will revisit once it's
+    // refactored. http://crbug.com/163100
+    const std::string& device_id =
+        WebContentsCaptureUtil::AppendWebContentsDeviceScheme(
+            components.video_device_id);
+
     // TODO(justinlin): Cleanup/get rid of GenerateStreamForDevice and merge
     // with the regular GenerateStream.
-    GetManager()->GenerateStreamForDevice(
+    label = GetManager()->GenerateStreamForDevice(
         this, render_process_id_, render_view_id,
-        components, device_id, security_origin, &label);
+        components, device_id, security_origin);
   } else {
-    GetManager()->GenerateStream(this, render_process_id_, render_view_id,
-                                 components, security_origin, &label);
+    label = GetManager()->GenerateStream(this, render_process_id_,
+                                         render_view_id,
+                                         components, security_origin);
   }
   DCHECK(!label.empty());
   streams_[label] = StreamRequest(render_view_id, page_request_id);
@@ -191,9 +201,8 @@ void MediaStreamDispatcherHost::OnEnumerateDevices(
            << type << ", "
            << security_origin.spec() << ")";
 
-  std::string label;
-  GetManager()->EnumerateDevices(this, render_process_id_, render_view_id,
-                                 type, security_origin, &label);
+  const std::string& label = GetManager()->EnumerateDevices(
+      this, render_process_id_, render_view_id, type, security_origin);
   DCHECK(!label.empty());
   streams_[label] = StreamRequest(render_view_id, page_request_id);
 }
@@ -211,9 +220,9 @@ void MediaStreamDispatcherHost::OnOpenDevice(
            << type << ", "
            << security_origin.spec() << ")";
 
-  std::string label;
-  GetManager()->OpenDevice(this, render_process_id_, render_view_id,
-                           device_id, type, security_origin, &label);
+  const std::string& label = GetManager()->OpenDevice(
+      this, render_process_id_, render_view_id,
+      device_id, type, security_origin);
   DCHECK(!label.empty());
   streams_[label] = StreamRequest(render_view_id, page_request_id);
 }

@@ -225,7 +225,13 @@ bool BrowserDistribution::CanCreateDesktopShortcuts() {
   return true;
 }
 
+string16 BrowserDistribution::GetIconFilename() {
+  return string16();
+}
+
 int BrowserDistribution::GetIconIndex() {
+  // Assuming that main icon appears first alphabetically in the resource file
+  // for GetIconFilename().
   return 0;
 }
 
@@ -238,6 +244,10 @@ bool BrowserDistribution::GetCommandExecuteImplClsid(
   if (handler_class_uuid)
     *handler_class_uuid = kCommandExecuteImplUuid;
   return true;
+}
+
+bool BrowserDistribution::AppHostIsSupported() {
+  return false;
 }
 
 void BrowserDistribution::UpdateInstallStatus(bool system_install,

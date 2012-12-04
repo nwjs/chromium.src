@@ -110,7 +110,6 @@
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/ppb_directory_reader_impl.h"
 #include "webkit/plugins/ppapi/ppb_flash_impl.h"
-#include "webkit/plugins/ppapi/ppb_flash_menu_impl.h"
 #include "webkit/plugins/ppapi/ppb_gpu_blacklist_private_impl.h"
 #include "webkit/plugins/ppapi/ppb_graphics_2d_impl.h"
 #include "webkit/plugins/ppapi/ppb_image_data_impl.h"
@@ -118,7 +117,6 @@
 #include "webkit/plugins/ppapi/ppb_scrollbar_impl.h"
 #include "webkit/plugins/ppapi/ppb_uma_private_impl.h"
 #include "webkit/plugins/ppapi/ppb_var_deprecated_impl.h"
-#include "webkit/plugins/ppapi/ppb_video_capture_impl.h"
 #include "webkit/plugins/ppapi/ppb_video_decoder_impl.h"
 
 using ppapi::InputEventData;
@@ -202,8 +200,7 @@ PP_Bool ReadImageData(PP_Resource device_context_2d,
   EnterResource<PPB_Graphics2D_API> enter(device_context_2d, true);
   if (enter.failed())
     return PP_FALSE;
-  return BoolToPPBool(static_cast<PPB_Graphics2D_Impl*>(enter.object())->
-      ReadImageData(image, top_left));
+  return BoolToPPBool(enter.object()->ReadImageData(image, top_left));
 }
 
 void RunMessageLoop(PP_Instance instance) {

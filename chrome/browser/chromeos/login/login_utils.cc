@@ -52,7 +52,7 @@
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/policy/cloud_policy_client.h"
 #include "chrome/browser/policy/cloud_policy_service.h"
-#include "chrome/browser/policy/user_cloud_policy_manager.h"
+#include "chrome/browser/policy/network_configuration_updater.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -89,7 +89,9 @@
 #include "net/url_request/url_request_context_getter.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/compositor/compositor_switches.h"
+#include "ui/gfx/switches.h"
 #include "ui/gl/gl_switches.h"
+#include "ui/views/corewm/corewm_switches.h"
 #include "webkit/plugins/plugin_switches.h"
 
 using content::BrowserThread;
@@ -497,21 +499,17 @@ void LoginUtilsImpl::PrepareProfile(
   ProfileManager::CreateDefaultProfileAsync(
       base::Bind(&LoginUtilsImpl::OnProfileCreated, AsWeakPtr()));
 
-  // The default profile is only partially initialized at this point.
-  // Setup the UserCloudPolicyManager so profile initialization can complete.
-  Profile* user_profile = ProfileManager::GetDefaultProfile();
-
-  // Initialize the new cloud policy framework, if enabled.
-  if (user_profile->GetUserCloudPolicyManager()) {
-    user_profile->GetUserCloudPolicyManager()->Initialize(
-        g_browser_process->local_state(),
-        connector->device_management_service(),
-        connector->GetUserAffiliation(username));
-  }
-
   if (wait_for_policy_fetch) {
     // Profile creation will block until user policy is fetched, which
     // requires the DeviceManagement token. Try to fetch it now.
+    // TODO(atwilson): This is somewhat racy, as we are trying to fetch a
+    // DMToken in parallel with loading the cached policy blob (there could
+    // already be a DMToken in the cached policy). Once the legacy policy
+    // framework is removed, this code can register a
+    // CloudPolicyService::Observer to check whether the CloudPolicyClient was
+    // able to register itself using the cached policy data, and then only
+    // create a PolicyOAuthFetcher if the client is still unregistered
+    // (http://crbug.com/143187).
     VLOG(1) << "Profile creation requires policy token, fetching now";
     policy_oauth_fetcher_.reset(
         new PolicyOAuthFetcher(authenticator_->authentication_profile()));
@@ -548,6 +546,11 @@ void LoginUtilsImpl::OnProfileCreated(
           user_profile->GetPrefs()->FindPreference(prefs::kUseSharedProxies);
       if (use_shared_proxies_pref->IsDefaultValue())
         user_profile->GetPrefs()->SetBoolean(prefs::kUseSharedProxies, false);
+      policy::NetworkConfigurationUpdater* network_configuration_updater =
+          g_browser_process->browser_policy_connector()->
+          GetNetworkConfigurationUpdater();
+      if (network_configuration_updater)
+        network_configuration_updater->OnUserPolicyInitialized();
       RespectLocalePreference(user_profile);
       return;
     }
@@ -757,10 +760,9 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kDisableOobeAnimation,
       ::switches::kDisableSeccompFilterSandbox,
       ::switches::kDisableSeccompSandbox,
-      ::switches::kEnableBrowserTextSubpixelPositioning,
+      ::switches::kEnableChromebookFunctionKey,
       ::switches::kEnableCompositingForFixedPosition,
       ::switches::kEnableEncryptedMedia,
-      ::switches::kEnableGView,
       ::switches::kEnableLogging,
       ::switches::kEnableUIReleaseFrontSurface,
       ::switches::kEnablePinch,
@@ -768,20 +770,18 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kEnableSmoothScrolling,
       ::switches::kEnableThreadedCompositing,
       ::switches::kEnableViewport,
-      ::switches::kEnableWebkitTextSubpixelPositioning,
       ::switches::kDisableThreadedCompositing,
       ::switches::kForceCompositingMode,
       ::switches::kGpuStartupDialog,
       ::switches::kHasChromeOSKeyboard,
       ::switches::kLoginProfile,
-      ::switches::kScrollPixels,
       ::switches::kNaturalScrollDefault,
-      ::switches::kNoFirstRun,
       ::switches::kNoSandbox,
       ::switches::kPpapiFlashArgs,
       ::switches::kPpapiFlashInProcess,
       ::switches::kPpapiFlashPath,
       ::switches::kPpapiFlashVersion,
+      ::switches::kPpapiOutOfProcess,
       ::switches::kRendererStartupDialog,
       ::switches::kFlingTapSuppressMaxDown,
       ::switches::kFlingTapSuppressMaxGap,
@@ -789,16 +789,9 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kTouchCalibration,
 #endif
       ::switches::kTouchDevices,
+      ::switches::kTouchEvents,
       ::switches::kTouchOptimizedUI,
       ::switches::kOldCheckboxStyle,
-      ash::switches::kAshTouchHud,
-      ash::switches::kAshWindowAnimationsDisabled,
-      ash::switches::kAuraLegacyPowerButton,
-      ash::switches::kAuraNoShadows,
-      ash::switches::kAshDisablePanelFitting,
-      cc::switches::kDisableThreadedAnimation,
-      cc::switches::kEnablePartialSwap,
-      cc::switches::kEnablePinchInCompositor,
       ::switches::kUIEnablePartialSwap,
       ::switches::kUIEnableThreadedCompositing,
       ::switches::kUIPrioritizeInGpuProcess,
@@ -807,7 +800,18 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
 #endif
       ::switches::kUseGL,
       ::switches::kUserDataDir,
+      ash::switches::kAshTouchHud,
+      ash::switches::kAuraLegacyPowerButton,
+      ash::switches::kAuraNoShadows,
+      ash::switches::kAshDisablePanelFitting,
+      cc::switches::kDisableThreadedAnimation,
+      cc::switches::kEnablePartialSwap,
+      cc::switches::kEnablePinchInCompositor,
       chromeos::switches::kDbusStub,
+      chromeos::switches::kEnableNewNetworkHandlers,
+      gfx::switches::kEnableBrowserTextSubpixelPositioning,
+      gfx::switches::kEnableWebkitTextSubpixelPositioning,
+      views::corewm::switches::kWindowAnimationsDisabled,
   };
   command_line->CopySwitchesFrom(base_command_line,
                                  kForwardSwitches,
@@ -822,8 +826,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
   if (start_url.is_valid())
     command_line->AppendArg(start_url.spec());
 
-  // Override the value of the homepage that is set in first run mode.
-  // TODO(altimofeev): extend action of the |kNoFirstRun| to cover this case.
+  // Override the home page.
   command_line->AppendSwitchASCII(
       ::switches::kHomePage,
       GURL(chrome::kChromeUINewTabURL).spec());

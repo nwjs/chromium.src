@@ -75,7 +75,7 @@ class ExistingUserController : public LoginDisplay::Delegate,
   virtual void Login(const std::string& username,
                      const std::string& password) OVERRIDE;
   virtual void Signout() OVERRIDE;
-  virtual void LoginAsDemoUser() OVERRIDE;
+  virtual void LoginAsRetailModeUser() OVERRIDE;
   virtual void LoginAsGuest() OVERRIDE;
   virtual void OnUserSelected(const std::string& username) OVERRIDE;
   virtual void OnStartEnterpriseEnrollment() OVERRIDE;
@@ -162,6 +162,12 @@ class ExistingUserController : public LoginDisplay::Delegate,
 
   // Shows "reset device" screen.
   void ShowResetScreen();
+
+  // Shows "critical TPM error" screen and starts reboot timer.
+  void ShowTPMErrorAndScheduleReboot();
+
+  // Reboot timer handler.
+  void OnRebootTimeElapsed();
 
   // Invoked to complete login. Login might be suspended if auto-enrollment
   // has to be performed, and will resume once auto-enrollment completes.
@@ -256,6 +262,9 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // Time when the signin screen was first displayed. Used to measure the time
   // from showing the screen until a successful login is performed.
   base::Time time_init_;
+
+  // Timer for the interval to wait for the reboot after TPM error UI was shown.
+  base::OneShotTimer<ExistingUserController> reboot_timer_;
 
   FRIEND_TEST_ALL_PREFIXES(ExistingUserControllerTest, ExistingUserLogin);
 

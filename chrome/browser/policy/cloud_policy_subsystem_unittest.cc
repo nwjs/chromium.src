@@ -4,10 +4,10 @@
 
 #include <vector>
 
+#include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/policy/cloud_policy_data_store.h"
@@ -79,7 +79,7 @@ ACTION_P3(CreateSuccessfulPolicyResponse,
           serial_valid) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   em::CloudPolicySettings settings;
-  settings.mutable_homepagelocation()->set_homepagelocation(homepage_location);
+  settings.mutable_homepagelocation()->set_value(homepage_location);
   em::PolicyData policy_data;
   policy_data.set_policy_type(kPolicyType);
   policy_data.set_policy_value(settings.SerializeAsString());
@@ -162,7 +162,7 @@ class CloudPolicySubsystemTestBase : public testing::Test {
     data_store_->set_user_name(kUsername);
     data_store_->SetGaiaToken(kAuthToken);
     data_store_->SetDeviceToken("", true);
-    loop_.RunAllPending();
+    loop_.RunUntilIdle();
   }
 
   void VerifyTest(const std::string& homepage_location) {
@@ -245,7 +245,7 @@ class CloudPolicySubsystemTestBase : public testing::Test {
         << "No enough requests were fired during the test run.";
   }
 
-  ScopedTempDir temp_user_data_dir_;
+  base::ScopedTempDir temp_user_data_dir_;
 
   MessageLoop loop_;
   content::TestBrowserThread ui_thread_;

@@ -135,6 +135,19 @@
           ['OS=="win"', {
             'enable_touch_ui%': 1,
           }],
+
+          # Enable App Launcher only on ChromeOS and Windows for now.
+          ['use_ash==1 or OS=="win"', {
+            'enable_app_list%': 1,
+          }, {
+            'enable_app_list%': 0,
+          }],
+
+          ['use_aura==1 or (OS!="win" and OS!="mac" and OS!="ios" and OS!="android")', {
+            'use_default_render_theme%': 1,
+          }, {
+            'use_default_render_theme%': 0,
+          }],
         ],
       },
 
@@ -152,6 +165,8 @@
       'enable_touch_ui%': '<(enable_touch_ui)',
       'android_upstream_bringup%': '<(android_upstream_bringup)',
       'android_build_type%': '<(android_build_type)',
+      'enable_app_list%': '<(enable_app_list)',
+      'use_default_render_theme%': '<(use_default_render_theme)',
 
       # We used to provide a variable for changing how libraries were built.
       # This variable remains until we can clean up all the users.
@@ -229,7 +244,12 @@
       # Configuration policy is enabled by default. Set to 0 to disable.
       'configuration_policy%': 1,
 
-      # Safe browsing is compiled in by default. Set to 0 to disable.
+      # Variable safe_browsing is used to control the build time configuration
+      # for safe browsing feature. Safe browsing can be compiled in 3 different
+      # levels: 0 disables it, 1 enables it fully, and 2 enables only UI and
+      # reporting features without enabling phishing and malware detection. This
+      # is useful to integrate a third party phishing/malware detection to
+      # existing safe browsing logic.
       'safe_browsing%': 1,
 
       # Speech input is compiled in by default. Set to 0 to disable.
@@ -244,8 +264,8 @@
       # Has no effect if 'clang' is not set as well.
       'clang_use_chrome_plugins%': 1,
 
-      # Enable building with ASAN (Clang's -faddress-sanitizer option).
-      # -faddress-sanitizer only works with clang, but asan=1 implies clang=1
+      # Enable building with ASAN (Clang's -fsanitize=address option).
+      # -fsanitize=address only works with clang, but asan=1 implies clang=1
       # See https://sites.google.com/a/chromium.org/dev/developers/testing/addresssanitizer
       'asan%': 0,
 
@@ -553,6 +573,13 @@
           # where possible to reduce ROM size.
           'use_system_libjpeg%': '<(android_build_type)',
         }],
+
+        # Enable Settings App only on Windows.
+        ['enable_app_list==1 and OS=="win"', {
+          'enable_settings_app%': 1,
+        }, {
+          'enable_settings_app%': 0,
+        }],
       ],
 
       # Set this to 1 to use the Google-internal file containing
@@ -670,6 +697,9 @@
     'use_libjpeg_turbo%': '<(use_libjpeg_turbo)',
     'use_system_libjpeg%': '<(use_system_libjpeg)',
     'android_build_type%': '<(android_build_type)',
+    'enable_app_list%': '<(enable_app_list)',
+    'use_default_render_theme%': '<(use_default_render_theme)',
+    'enable_settings_app%': '<(enable_settings_app)',
     'use_official_google_api_keys%': '<(use_official_google_api_keys)',
     'google_api_key%': '<(google_api_key)',
     'google_default_client_id%': '<(google_default_client_id)',
@@ -1059,7 +1089,7 @@
 
         'proprietary_codecs%': '<(proprietary_codecs)',
         'enable_task_manager%': 0,
-        'safe_browsing%': 0,
+        'safe_browsing%': 2,
         'configuration_policy%': 0,
         'input_speech%': 0,
         'enable_web_intents%': 0,
@@ -1328,6 +1358,9 @@
       ['use_oem_wallpaper==1', {
         'grit_defines': ['-D', 'use_oem_wallpaper'],
       }],
+      ['enable_settings_app==1', {
+        'grit_defines': ['-D', 'enable_settings_app'],
+      }],
       ['clang_use_chrome_plugins==1 and OS!="win"', {
         'clang_chrome_plugins_flags': [
           '<!@(<(DEPTH)/tools/clang/scripts/plugin_flags.sh)'
@@ -1338,7 +1371,7 @@
         'grit_defines': ['-D', 'enable_web_intents_tag'],
       }],
 
-      ['asan==1', {
+      ['asan==1 and OS!="win"', {
         'clang%': 1,
       }],
       ['asan==1 and OS=="mac"', {
@@ -1493,6 +1526,17 @@
       # Targets are by default not nacl untrusted code.
       'nacl_untrusted_build%': 0,
 
+      'pnacl_compile_flags': [
+        # pnacl uses the clang compiler so we need to supress all the
+        # same warnings as we do for clang.
+        # TODO(sbc): Remove these if/when they are removed from the clang
+        # build.
+        '-Wno-unused-function',
+        '-Wno-char-subscripts',
+        '-Wno-c++11-extensions',
+        '-Wno-unnamed-type-template-args',
+      ],
+
       'conditions': [
         ['OS=="win" and component=="shared_library"', {
           # See http://msdn.microsoft.com/en-us/library/aa652367.aspx
@@ -1563,6 +1607,9 @@
       }],
       ['use_ash==1', {
         'defines': ['USE_ASH=1'],
+      }],
+      ['use_default_render_theme==1', {
+        'defines': ['USE_DEFAULT_RENDER_THEME=1'],
       }],
       ['use_libjpeg_turbo==1', {
         'defines': ['USE_LIBJPEG_TURBO=1'],
@@ -1707,6 +1754,15 @@
           'USE_SKIA=1',
         ],
       }],
+      ['asan==1 and OS=="win"', {
+        # Since asan on windows uses Syzygy, we need /PROFILE turned on to
+        # produce appropriate pdbs.
+        'msvs_settings': {
+          'VCLinkerTool': {
+            'Profile': 'true',
+          },
+        },
+      }],  # asan==1 and OS=="win"
       ['coverage!=0', {
         'conditions': [
           ['OS=="mac" or OS=="ios"', {
@@ -1730,17 +1786,25 @@
                         '-fprofile-arcs' ],
             'link_settings': { 'libraries': [ '-lgcov' ] },
           }],
-          # Finally, for Windows, we simply turn on profiling.
           ['OS=="win"', {
+            'variables': {
+              # Disable incremental linking for all modules.
+              # 0: inherit, 1: disabled, 2: enabled.
+              'msvs_debug_link_incremental': '1',
+              'msvs_large_module_debug_link_mode': '1',
+            },
+            'defines': [
+              # Disable iterator debugging (huge speed boost without any
+              # change in coverage results).
+              '_HAS_ITERATOR_DEBUGGING=0',
+            ],
             'msvs_settings': {
               'VCLinkerTool': {
+                # Enable profile information (necessary for coverage
+                # instrumentation). This is incompatible with incremental
+                # linking.
                 'Profile': 'true',
               },
-              'VCCLCompilerTool': {
-                # /Z7, not /Zi, so coverage is happyb
-                'DebugInformationFormat': '1',
-                'AdditionalOptions': ['/Yd'],
-              }
             }
          }],  # OS==win
         ],  # conditions for coverage
@@ -1769,6 +1833,16 @@
                 'DebugInformationFormat': '1',
               }
             }
+          }],
+          ['"<(GENERATOR)"=="msvs"', {
+            'msvs_settings': {
+              'VCLinkerTool': {
+                # Make the pdb name sane. Otherwise foo.exe and foo.dll both
+                # have foo.pdb. The ninja generator already defaults to this and
+                # can't handle the $(TargetPath) macro.
+                'ProgramDatabaseFile': '$(TargetPath).pdb',
+              }
+            },
           }],
         ],  # win_z7!=0
       }],  # OS==win
@@ -1819,6 +1893,12 @@
       }],
       ['enable_captive_portal_detection==1', {
         'defines': ['ENABLE_CAPTIVE_PORTAL_DETECTION=1'],
+      }],
+      ['enable_app_list==1', {
+        'defines': ['ENABLE_APP_LIST=1'],
+      }],
+      ['enable_settings_app==1', {
+        'defines': ['ENABLE_SETTINGS_APP=1'],
       }],
       ['disable_ftp_support==1', {
         'defines': ['DISABLE_FTP_SUPPORT=1'],
@@ -1904,7 +1984,7 @@
               }],
             ],
           }],
-          # TODO(darin): Unfortunately, some third_party code depends on base/
+          # TODO(darin): Unfortunately, some third_party code depends on base.
           [ 'OS=="win" and component=="shared_library"', {
             'msvs_disabled_warnings': [
               4251,  # class 'std::xx' needs to have dll-interface.
@@ -2210,6 +2290,29 @@
     },
   },
   'conditions': [
+    ['os_posix==1', {
+      'target_defaults': {
+        'cflags': [
+          # TODO(phajdan.jr): Use -fstack-protector-strong when our gcc
+          # supports it.
+          '-fstack-protector',
+          '--param=ssp-buffer-size=4',
+        ],
+        'ldflags': [
+          '-Wl,-z,now',
+          '-Wl,-z,relro',
+        ],
+        'conditions': [
+          ['chromium_code==1', {
+            # Non-chromium code is not guaranteed to compile cleanly
+            # with _FORTIFY_SOURCE.
+            'defines': [
+              '_FORTIFY_SOURCE=2',
+            ],
+          }],
+        ],
+      },
+    }],
     ['os_posix==1 and OS!="mac" and OS!="ios"', {
       'target_defaults': {
         'target_conditions': [
@@ -2519,6 +2622,12 @@
                           '__ARM_ARCH_5TE__',
                         ],
                       }],
+                      ['profiling==1', {
+                        'cflags': [
+                          '-marm', # Probably reduntant, but recommend by "perf" docs.
+                          '-mapcs-frame', # Seems required by -fno-omit-frame-pointer.
+                        ],
+                      }],
                       ['clang==1', {
                         'cflags!': [
                           # Clang does not support the following options.
@@ -2528,6 +2637,16 @@
                           '-fuse-ld=gold',
                           '-Wno-psabi',
                         ],
+                      }],
+                    ],
+                    'target_conditions': [
+                      # ndk-build copies .a's around the filesystem, breaking
+                      # relative paths in thin archives.  Disable using thin
+                      # archives to avoid problems until one of these is fixed:
+                      # http://code.google.com/p/android/issues/detail?id=40302
+                      # http://code.google.com/p/android/issues/detail?id=40303
+                      ['_type=="static_library"', {
+                        'standalone_static_library': 1,
                       }],
                     ],
                   }],
@@ -2567,7 +2686,7 @@
               # removed when we change to that.  (This is also why we don't
               # bother fixing all these cases today.)
               '-Wno-unnamed-type-template-args',
-              # This (rightyfully) complains about 'override', which we use
+              # This (rightfully) complains about 'override', which we use
               # heavily.
               '-Wno-c++11-extensions',
 
@@ -2605,13 +2724,12 @@
             'target_conditions': [
               ['_toolset=="target"', {
                 'cflags': [
-                  '-faddress-sanitizer',
+                  '-fsanitize=address',
                   '-fno-omit-frame-pointer',
-                  # See http://crbug.com/159580
-                  '-w',
+                  '-w',  # http://crbug.com/162783
                 ],
                 'ldflags': [
-                  '-faddress-sanitizer',
+                  '-fsanitize=address',
                 ],
                 'defines': [
                   'ADDRESS_SANITIZER',
@@ -2661,6 +2779,18 @@
           ['linux_breakpad==1', {
             'cflags': [ '-g' ],
             'defines': ['USE_LINUX_BREAKPAD'],
+            'conditions': [
+              ['target_arch=="ia32"', {
+                'target_conditions': [
+                  ['_toolset=="target"', {
+                    'ldflags': [
+                      # Workaround for linker OOM. http://crbug.com/160253.
+                      '-Wl,--no-keep-files-mapped',
+                    ],
+                  }],
+                ],
+              }],
+            ],
           }],
           ['linux_use_heapchecker==1', {
             'variables': {'linux_use_tcmalloc%': 1},
@@ -2750,7 +2880,13 @@
           ['use_system_stlport==1', {
             'android_stlport_library': 'stlport',
           }, {
-            'android_stlport_library': 'stlport_static',
+            'conditions': [
+              ['component=="shared_library"', {
+                  'android_stlport_library': 'stlport_shared',
+              }, {
+                  'android_stlport_library': 'stlport_static',
+              }],
+            ],
           }],
         ],
 
@@ -2844,6 +2980,14 @@
               '-lm',
             ],
             'conditions': [
+              ['component=="shared_library"', {
+                'libraries': [
+                  '-lgnustl_shared',
+                ],
+                'ldflags!': [
+                  '-Wl,--exclude-libs=ALL',
+                ],
+              }],
               ['android_upstream_bringup==1', {
                 'defines': ['ANDROID_UPSTREAM_BRINGUP=1',],
               }],
@@ -2902,6 +3046,11 @@
                   '<(android_src)/frameworks/wilhelm/include',
                 ],
                 'cflags': [
+                  # Android predefines this as 1; undefine it here so Chromium
+                  # can redefine it later to be 2 for chromium code and unset
+                  # for third party code. This works because cflags are added
+                  # before defines.
+                  '-U_FORTIFY_SOURCE',
                   # Chromium builds its own (non-third-party) code with
                   # -Werror to make all warnings into errors. However, Android
                   # enables warnings that Chromium doesn't, so some of these
@@ -2965,16 +3114,19 @@
                   ['target_arch=="arm" and armv7==1', {
                     'ldflags': [
                       '-L<(android_ndk_root)/sources/cxx-stl/stlport/libs/armeabi-v7a',
+                      '-L<(android_ndk_root)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi-v7a',
                     ],
                   }],
                   ['target_arch=="arm" and armv7==0', {
                     'ldflags': [
                       '-L<(android_ndk_root)/sources/cxx-stl/stlport/libs/armeabi',
+                      '-L<(android_ndk_root)/sources/cxx-stl/gnu-libstdc++/4.6/libs/armeabi',
                     ],
                   }],
                   ['target_arch=="ia32"', {
                     'ldflags': [
                       '-L<(android_ndk_root)/sources/cxx-stl/stlport/libs/x86',
+                      '-L<(android_ndk_root)/sources/cxx-stl/gnu-libstdc++/4.6/libs/x86',
                     ],
                   }],
                 ],
@@ -3035,12 +3187,11 @@
               # Due to issues in Clang build system, using ASan on 32-bit
               # binaries on x86_64 host is problematic.
               # TODO(eugenis): re-enable.
-              '-faddress-sanitizer',
-              # See http://crbug.com/159580
-              '-w',
+              '-fsanitize=address',
+              '-w',  # http://crbug.com/162783
             ],
             'ldflags!': [
-              '-faddress-sanitizer',
+              '-fsanitize=address',
               '-Wl,-z,noexecstack',
               '-Wl,--gc-sections',
               '-Wl,-O1',
@@ -3100,11 +3251,13 @@
               'LDPLUSPLUS': '$(SOURCE_ROOT)/<(clang_dir)/clang++',
 
               # Don't use -Wc++0x-extensions, which Xcode 4 enables by default
-              # when buliding with clang. This warning is triggered when the
+              # when building with clang. This warning is triggered when the
               # override keyword is used via the OVERRIDE macro from
               # base/compiler_specific.h.
               'CLANG_WARN_CXX0X_EXTENSIONS': 'NO',
-
+              # Warn if automatic synthesis is triggered with
+              # the -Wobjc-missing-property-synthesis flag.
+              'CLANG_WARN_OBJC_MISSING_PROPERTY_SYNTHESIS': 'YES',
               'GCC_VERSION': 'com.apple.compilers.llvm.clang.1_0',
               'WARNING_CFLAGS': [
                 '-Wheader-hygiene',
@@ -3115,7 +3268,7 @@
                 '-Wno-unused-function',
                 # See comments on this flag higher up in this file.
                 '-Wno-unnamed-type-template-args',
-                # This (rightyfully) complains about 'override', which we use
+                # This (rightfully) complains about 'override', which we use
                 # heavily.
                 '-Wno-c++11-extensions',
 
@@ -3156,9 +3309,8 @@
           ['asan==1', {
             'xcode_settings': {
               'OTHER_CFLAGS': [
-                '-faddress-sanitizer',
-                # See http://crbug.com/159580
-                '-w',
+                '-fsanitize=address',
+                '-w',  # http://crbug.com/162783
               ],
             },
             'defines': [
@@ -3173,7 +3325,7 @@
               ['asan==1', {
                 'xcode_settings': {
                   'OTHER_LDFLAGS': [
-                    '-faddress-sanitizer',
+                    '-fsanitize=address',
                   ],
                 },
               }],
@@ -3336,10 +3488,13 @@
           # also seems to mean using the custom build of clang.
 
           # Don't use -Wc++0x-extensions, which Xcode 4 enables by default
-          # when buliding with clang. This warning is triggered when the
+          # when building with clang. This warning is triggered when the
           # override keyword is used via the OVERRIDE macro from
           # base/compiler_specific.h.
           'CLANG_WARN_CXX0X_EXTENSIONS': 'NO',
+          # Warn if automatic synthesis is triggered with
+          # the -Wobjc-missing-property-synthesis flag.
+          'CLANG_WARN_OBJC_MISSING_PROPERTY_SYNTHESIS': 'YES',
           'WARNING_CFLAGS': [
             '-Wheader-hygiene',
             # Don't die on dtoa code that uses a char as an array index.
@@ -3349,7 +3504,7 @@
             '-Wno-unused-function',
             # See comments on this flag higher up in this file.
             '-Wno-unnamed-type-template-args',
-            # This (rightyfully) complains about 'override', which we use
+            # This (rightfully) complains about 'override', which we use
             # heavily.
             '-Wno-c++11-extensions',
           ],

@@ -30,8 +30,17 @@ class TestWindowDelegate : public WindowDelegate {
     window_component_ = window_component;
   }
 
+  void set_minimum_size(const gfx::Size& minimum_size) {
+    minimum_size_ = minimum_size;
+  }
+
+  void set_maximum_size(const gfx::Size& maximum_size) {
+    maximum_size_ = maximum_size;
+  }
+
   // Overridden from WindowDelegate:
   virtual gfx::Size GetMinimumSize() const OVERRIDE;
+  virtual gfx::Size GetMaximumSize() const OVERRIDE;
   virtual void OnBoundsChanged(const gfx::Rect& old_bounds,
                                const gfx::Rect& new_bounds) OVERRIDE;
   virtual void OnFocus(Window* old_focused_window) OVERRIDE;
@@ -52,15 +61,11 @@ class TestWindowDelegate : public WindowDelegate {
   virtual void GetHitTestMask(gfx::Path* mask) const OVERRIDE;
   virtual scoped_refptr<ui::Texture> CopyTexture() OVERRIDE;
 
-  // Overridden from ui::EventHandler:
-  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
-  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
-
  private:
   int window_component_;
   bool delete_on_destroyed_;
+  gfx::Size minimum_size_;
+  gfx::Size maximum_size_;
 
   DISALLOW_COPY_AND_ASSIGN(TestWindowDelegate);
 };

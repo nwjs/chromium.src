@@ -82,11 +82,11 @@ class ProfileSyncServiceTestHarness {
     profile.reset();
     // Pump messages posted by the sync thread (which may end up
     // posting on the IO thread).
-    ui_loop_.RunAllPending();
+    ui_loop_.RunUntilIdle();
     io_thread_.Stop();
     file_thread_.Stop();
     // Ensure that the sync objects destruct to avoid memory leaks.
-    ui_loop_.RunAllPending();
+    ui_loop_.RunUntilIdle();
   }
 
   // TODO(akalin): Refactor the StartSyncService*() functions below.
@@ -363,7 +363,7 @@ TEST_F(ProfileSyncServiceTest, TestStartupWithOldSyncData) {
   ASSERT_NE(-1,
             file_util::WriteFile(sync_file3, nonsense3, strlen(nonsense3)));
 
-  harness_.StartSyncServiceAndSetInitialSyncEnded(false, false, true, false,
+  harness_.StartSyncServiceAndSetInitialSyncEnded(true, false, true, false,
                                                   syncer::STORAGE_ON_DISK);
   EXPECT_FALSE(harness_.service->HasSyncSetupCompleted());
   EXPECT_FALSE(harness_.service->sync_initialized());

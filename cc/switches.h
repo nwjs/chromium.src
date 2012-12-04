@@ -17,11 +17,19 @@ namespace switches {
 
 CC_EXPORT extern const char kBackgroundColorInsteadOfCheckerboard[];
 CC_EXPORT extern const char kDisableThreadedAnimation[];
+CC_EXPORT extern const char kEnableImplSidePainting[];
 CC_EXPORT extern const char kEnablePartialSwap[];
 CC_EXPORT extern const char kEnablePerTilePainting[];
 CC_EXPORT extern const char kEnablePinchInCompositor[];
 CC_EXPORT extern const char kJankInsteadOfCheckerboard[];
-CC_EXPORT extern const char kImplSidePainting[];
+CC_EXPORT extern const char kNumRasterThreads[];
+CC_EXPORT extern const char kShowPropertyChangedRects[];
+CC_EXPORT extern const char kShowSurfaceDamageRects[];
+CC_EXPORT extern const char kShowScreenSpaceRects[];
+CC_EXPORT extern const char kShowReplicaScreenSpaceRects[];
+CC_EXPORT extern const char kShowOccludingRects[];
+CC_EXPORT extern const char kShowNonOccludingRects[];
+CC_EXPORT extern const char kTraceOverdraw[];
 
 }  // namespace switches
 }  // namespace cc

@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -194,7 +195,8 @@ class DevToolsExtensionTest : public DevToolsSanityTest,
 
  private:
   bool LoadExtensionFromPath(const FilePath& path) {
-    ExtensionService* service = browser()->profile()->GetExtensionService();
+    ExtensionService* service = extensions::ExtensionSystem::Get(
+        browser()->profile())->extension_service();
     size_t num_before = service->extensions()->size();
     {
       content::NotificationRegistrar registrar;
@@ -406,7 +408,7 @@ class WorkerDevToolsSanityTest : public InProcessBrowserTest {
 
   void CloseDevToolsWindow() {
     Browser* browser = window_->browser();
-    chrome::CloseAllTabs(browser);
+    browser->tab_strip_model()->CloseAllTabs();
     BrowserClosedObserver close_observer(browser);
   }
 

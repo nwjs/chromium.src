@@ -203,9 +203,6 @@ const char kDisableSiteSpecificQuirks[]     = "disable-site-specific-quirks";
 // Disables speech input.
 const char kDisableSpeechInput[]            = "disable-speech-input";
 
-// Enables scripted speech api.
-const char kEnableScriptedSpeech[]          = "enable-scripted-speech";
-
 // Specifies the request key for the continuous speech recognition webservice.
 const char kSpeechRecognitionWebserviceKey[] = "speech-service-key";
 
@@ -239,14 +236,15 @@ const char kDomAutomationController[]       = "dom-automation";
 // Enable hardware accelerated page painting.
 const char kEnableAcceleratedPainting[]     = "enable-accelerated-painting";
 
-// Enables the hardware acceleration of plugins.
-const char kEnableAcceleratedPlugins[]      = "enable-accelerated-plugins";
-
 // Enable gpu-accelerated SVG/W3C filters.
 const char kEnableAcceleratedFilters[]      = "enable-accelerated-filters";
 
 // Turns on extremely verbose logging of accessibility events.
 const char kEnableAccessibilityLogging[]    = "enable-accessibility-logging";
+
+// Enables browser plugin compositing experiment.
+const char kEnableBrowserPluginCompositing[] =
+    "enable-browser-plugin-compositing";
 
 // Enables browser plugin for all types of pages.
 const char kEnableBrowserPluginForAllViewTypes[] =
@@ -261,10 +259,6 @@ const char kEnableCssShaders[]              = "enable-css-shaders";
 
 // Enables device motion events.
 const char kEnableDeviceMotion[]            = "enable-device-motion";
-
-// Enables support for encrypted media. Current implementation is
-// incomplete and this flag is used for development and testing.
-const char kEnableEncryptedMedia[]          = "enable-encrypted-media";
 
 // Enables WebKit features that are in development.
 const char kEnableExperimentalWebKitFeatures[] =
@@ -346,17 +340,23 @@ const char kEnableSmoothScrolling[]         = "enable-smooth-scrolling";
 const char kEnableStatsTable[]              = "enable-stats-table";
 
 // Experimentally ensures that each renderer process:
-// 1) Only handles rendering for a single page.
+// 1) Only handles rendering for pages from a single site, apart from iframes.
 // (Note that a page can reference content from multiple origins due to images,
-// iframes, etc).
+// JavaScript files, etc.  Cross-site iframes are also loaded in-process.)
 // 2) Only has authority to see or use cookies for the page's top-level origin.
-// (So if a.com iframe's b.com, the b.com network request will be sent without
-// cookies).
-// This is expected to break compatibility with many pages for now.
+// (So if a.com iframes b.com, the b.com network request will be sent without
+// cookies.)
+// This is expected to break compatibility with many pages for now.  Unlike the
+// --site-per-process flag, this allows cross-site iframes, but it blocks all
+// cookies on cross-site requests.
 const char kEnableStrictSiteIsolation[]     = "enable-strict-site-isolation";
 
 // Enable multithreaded GPU compositing of web content.
 const char kEnableThreadedCompositing[]     = "enable-threaded-compositing";
+
+// Allow GL contexts to be automatically virtualized (shared between command
+// buffer clients) if they are compatible.
+const char kEnableVirtualGLContexts[]       = "enable-virtual-gl-contexts";
 
 // Disable multithreaded GPU compositing of web content.
 const char kDisableThreadedCompositing[]     = "disable-threaded-compositing";
@@ -590,6 +590,20 @@ const char kSimulateTouchScreenWithMouse[]  =
 // Runs the renderer and plugins in the same process as the browser
 const char kSingleProcess[]                 = "single-process";
 
+// Experimentally enforces a one-site-per-process security policy.
+// All cross-site navigations force process swaps, and we can restrict a
+// renderer process's access rights based on its site.  For details, see:
+// http://www.chromium.org/developers/design-documents/site-isolation
+//
+// Unlike --enable-strict-site-isolation (which allows cross-site iframes),
+// this flag blocks cross-site documents even in iframes, until out-of-process
+// iframe support is available.  Cross-site network requests do attach the
+// normal set of cookies, but a renderer process is only allowed to view or
+// modify cookies for its own site (via JavaScript).
+// TODO(irobert): Implement the cross-site document blocking in
+// http://crbug.com/159215.
+const char kSitePerProcess[]                = "site-per-process";
+
 // Skip gpu info collection, blacklist loading, and blacklist auto-update
 // scheduling at browser startup time.
 // Therefore, all GPU features are available, and about:gpu page shows empty
@@ -695,11 +709,6 @@ const char kEnableWebViewSynchronousAPIs[] = "enable-webview-synchronous-apis";
 const char kChildCleanExit[]                = "child-clean-exit";
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
-// Specify the amount the trackpad should scroll by.
-const char kScrollPixels[]                  = "scroll-pixels";
-#endif
-
 #if defined(OS_MACOSX) || defined(OS_WIN)
 // Use the system SSL library (Secure Transport on Mac, SChannel on Windows)
 // instead of NSS for SSL.
@@ -739,5 +748,9 @@ const char kDisableFixedPositionCreatesStackingContext[]
 
 // Defer image decoding in WebKit until painting.
 const char kEnableDeferredImageDecoding[] = "enable-deferred-image-decoding";
+
+// Enables history navigation in response to horizontal overscroll.
+const char kEnableOverscrollHistoryNavigation[] =
+    "enable-overscroll-history-navigation";
 
 }  // namespace switches

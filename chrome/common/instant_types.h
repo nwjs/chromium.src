@@ -5,6 +5,8 @@
 #ifndef CHROME_COMMON_INSTANT_TYPES_H_
 #define CHROME_COMMON_INSTANT_TYPES_H_
 
+#include <string>
+
 #include "base/string16.h"
 #include "googleurl/src/gurl.h"
 
@@ -49,21 +51,19 @@ struct InstantAutocompleteResult {
   InstantAutocompleteResult();
   ~InstantAutocompleteResult();
 
-  // The provider name. May be empty.
+  // The provider name, as returned by AutocompleteProvider::GetName().
   string16 provider;
 
-  // True iff this is a search suggestion.
-  bool is_search;
+  // The type of the result, as returned by AutocompleteMatch::TypeToString().
+  string16 type;
 
-  // The title of the match.
-  string16 contents;
+  // The description (title), same as AutocompleteMatch::description.
+  string16 description;
 
-  // The URL of the match.
-  // TODO(dhollowa): Remove this once the privacy story is sorted out.
-  GURL destination_url;
+  // The URL of the match, same as AutocompleteMatch::destination_url.
+  string16 destination_url;
 
-  // The relevance score of this match. Same as the relevance score stored in
-  // AutocompleteMatch.
+  // The relevance score of this match, same as AutocompleteMatch::relevance.
   int relevance;
 };
 
@@ -93,6 +93,54 @@ enum InstantShownReason {
   // ZeroSuggest suggestions relevant when the user has focused in the omnibox,
   // but not yet typed anything.
   INSTANT_SHOWN_ZERO_SUGGESTIONS,
+};
+
+// The alignment of the theme background image.
+enum ThemeBackgroundImageAlignment {
+  THEME_BKGRND_IMAGE_ALIGN_CENTER,
+  THEME_BKGRND_IMAGE_ALIGN_LEFT,
+  THEME_BKGRND_IMAGE_ALIGN_TOP,
+  THEME_BKGRND_IMAGE_ALIGN_RIGHT,
+  THEME_BKGRND_IMAGE_ALIGN_BOTTOM,
+};
+
+// The tiling of the theme background image.
+enum ThemeBackgroundImageTiling {
+  THEME_BKGRND_IMAGE_NO_REPEAT,
+  THEME_BKGRND_IMAGE_REPEAT_X,
+  THEME_BKGRND_IMAGE_REPEAT_Y,
+  THEME_BKGRND_IMAGE_REPEAT,
+};
+
+struct ThemeBackgroundInfo {
+  ThemeBackgroundInfo();
+  ~ThemeBackgroundInfo();
+
+  // The theme background color in RGBA format where the R, G, B and A values
+  // are between 0 and 255 inclusive and always valid.
+  int color_r;
+  int color_g;
+  int color_b;
+  int color_a;
+
+  // The theme id for the theme background image.
+  // Value is only valid if there's a custom theme background image.
+  std::string theme_id;
+
+  // The theme background image horizontal alignment is only valid if |theme_id|
+  // is valid.
+  ThemeBackgroundImageAlignment image_horizontal_alignment;
+
+  // The theme background image vertical alignment is only valid if |theme_id|
+  // is valid.
+  ThemeBackgroundImageAlignment image_vertical_alignment;
+
+  // The theme background image tiling is only valid if |theme_id| is valid.
+  ThemeBackgroundImageTiling image_tiling;
+
+  // The theme background image height.
+  // Value is only valid if |theme_id| is valid.
+  uint16 image_height;
 };
 
 #endif  // CHROME_COMMON_INSTANT_TYPES_H_

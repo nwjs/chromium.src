@@ -7,6 +7,8 @@
 
 #include "base/callback_forward.h"
 #include "webkit/fileapi/file_system_url.h"
+#include "webkit/fileapi/syncable/sync_file_status.h"
+#include "webkit/fileapi/syncable/sync_operation_type.h"
 #include "webkit/fileapi/syncable/sync_status_code.h"
 
 namespace fileapi {
@@ -33,6 +35,15 @@ typedef base::Callback<void(fileapi::SyncStatusCode status,
 typedef base::Callback<void(fileapi::SyncStatusCode status,
                             const fileapi::ConflictFileInfo& conflict_info)>
     ConflictFileInfoCallback;
+
+typedef base::Callback<void(SyncStatusCode status,
+                            const FileSystemURL& url,
+                            SyncOperationType operation_type)>
+    SyncOperationCallback;
+
+typedef base::Callback<void(SyncStatusCode status,
+                            SyncFileStatus sync_file_status)>
+    SyncFileStatusCallback;
 
 }  // namespace fileapi
 

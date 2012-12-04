@@ -51,7 +51,6 @@
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/ui/app_list/app_list_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -112,6 +111,10 @@
 
 #if defined(OS_WIN)
 #include "base/win/windows_version.h"
+#endif
+
+#if defined(ENABLE_APP_LIST)
+#include "chrome/browser/ui/app_list/app_list_controller.h"
 #endif
 
 using content::ChildProcessSecurityPolicy;
@@ -362,11 +365,13 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
     }
   }
 
+#if defined(ENABLE_APP_LIST)
   app_list_controller::CheckAppListTaskbarShortcut();
   if (command_line_.HasSwitch(switches::kShowAppList)) {
     app_list_controller::ShowAppList();
     return true;
   }
+#endif
 
   // Open the required browser windows and tabs. First, see if
   // we're being run as an application window. If so, the user
@@ -448,8 +453,12 @@ void StartupBrowserCreatorImpl::ExtractOptionalAppWindowSize(
   }
 }
 
-bool StartupBrowserCreatorImpl::IsAppLaunch(std::string* app_url,
+bool StartupBrowserCreatorImpl::IsAppLaunch(Profile* profile,
+                                            std::string* app_url,
                                             std::string* app_id) {
+  // Don't launch apps in incognito mode.
+  if (profile->IsOffTheRecord())
+    return false;
   if (command_line_.HasSwitch(switches::kApp)) {
     if (app_url)
       *app_url = command_line_.GetSwitchValueASCII(switches::kApp);
@@ -469,7 +478,7 @@ bool StartupBrowserCreatorImpl::OpenApplicationTab(Profile* profile) {
   // function will open an app that should be in a tab, there is no need
   // to look at the app URL.  OpenApplicationWindow() will open app url
   // shortcuts.
-  if (!IsAppLaunch(NULL, &app_id) || app_id.empty())
+  if (!IsAppLaunch(profile, NULL, &app_id) || app_id.empty())
     return false;
 
   extension_misc::LaunchContainer launch_container;
@@ -497,7 +506,7 @@ bool StartupBrowserCreatorImpl::OpenApplicationWindow(
     *out_app_contents = NULL;
 
   std::string url_string, app_id;
-  if (!IsAppLaunch(&url_string, &app_id))
+  if (!IsAppLaunch(profile, &url_string, &app_id))
     return false;
 
   // This can fail if the app_id is invalid.  It can also fail if the
@@ -809,7 +818,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
 #endif
   }
 
-#if defined(USE_ASH)
+#if defined(OS_CHROMEOS)
   if (ash::Shell::HasInstance()) {
     // Set the browser's root window to be an active root window now so
     // that that web contents can determine correct scale factor for the
@@ -817,7 +826,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
     // this, the renderer may use wrong scale factor first, then
     // switched to the correct scale factor, which can cause race
     // condition and lead to the results rendered at wrong scale factor.
-    // Long term fix is tracked in crbug.com/15543.
+    // Long term fix is tracked in crbug.com/155443.
     ash::Shell::GetInstance()->set_active_root_window(
         browser->window()->GetNativeWindow()->GetRootWindow());
   }
@@ -844,12 +853,10 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
     add_types |= TabStripModel::ADD_FORCE_INDEX;
     if (tabs[i].is_pinned)
       add_types |= TabStripModel::ADD_PINNED;
-    int index = chrome::GetIndexForInsertionDuringRestore(browser, i);
 
     chrome::NavigateParams params(browser, tabs[i].url,
                                   content::PAGE_TRANSITION_AUTO_TOPLEVEL);
     params.disposition = first_tab ? NEW_FOREGROUND_TAB : NEW_BACKGROUND_TAB;
-    params.tabstrip_index = index;
     params.tabstrip_add_types = add_types;
     params.extension_app_id = tabs[i].app_id;
 
@@ -870,7 +877,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
     if (!browser->tab_count())
       chrome::AddBlankTabAt(browser, -1, true);
     else
-      chrome::ActivateTabAt(browser, 0, false);
+      browser->tab_strip_model()->ActivateTabAt(0, false);
   }
 
   // The default behaviour is to show the window, as expressed by the default

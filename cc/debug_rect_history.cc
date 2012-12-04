@@ -24,26 +24,29 @@ DebugRectHistory::~DebugRectHistory()
 {
 }
 
-void DebugRectHistory::saveDebugRectsForCurrentFrame(LayerImpl* rootLayer, const std::vector<LayerImpl*>& renderSurfaceLayerList, const std::vector<gfx::Rect>& occludingScreenSpaceRects, const LayerTreeSettings& settings)
+void DebugRectHistory::saveDebugRectsForCurrentFrame(LayerImpl* rootLayer, const std::vector<LayerImpl*>& renderSurfaceLayerList, const std::vector<gfx::Rect>& occludingScreenSpaceRects, const std::vector<gfx::Rect>& nonOccludingScreenSpaceRects, const LayerTreeDebugState& debugState)
 {
     // For now, clear all rects from previous frames. In the future we may want to store
     // all debug rects for a history of many frames.
     m_debugRects.clear();
 
-    if (settings.showPaintRects)
+    if (debugState.showPaintRects)
         savePaintRects(rootLayer);
 
-    if (settings.showPropertyChangedRects)
+    if (debugState.showPropertyChangedRects)
         savePropertyChangedRects(renderSurfaceLayerList);
 
-    if (settings.showSurfaceDamageRects)
+    if (debugState.showSurfaceDamageRects)
         saveSurfaceDamageRects(renderSurfaceLayerList);
 
-    if (settings.showScreenSpaceRects)
+    if (debugState.showScreenSpaceRects)
         saveScreenSpaceRects(renderSurfaceLayerList);
 
-    if (settings.showOccludingRects)
+    if (debugState.showOccludingRects)
         saveOccludingRects(occludingScreenSpaceRects);
+
+    if (debugState.showNonOccludingRects)
+        saveNonOccludingRects(nonOccludingScreenSpaceRects);
 }
 
 
@@ -116,6 +119,12 @@ void DebugRectHistory::saveOccludingRects(const std::vector<gfx::Rect>& occludin
 {
     for (size_t i = 0; i < occludingRects.size(); ++i)
         m_debugRects.push_back(DebugRect(OccludingRectType, occludingRects[i]));
+}
+
+void DebugRectHistory::saveNonOccludingRects(const std::vector<gfx::Rect>& nonOccludingRects)
+{
+    for (size_t i = 0; i < nonOccludingRects.size(); ++i)
+        m_debugRects.push_back(DebugRect(NonOccludingRectType, nonOccludingRects[i]));
 }
 
 }  // namespace cc

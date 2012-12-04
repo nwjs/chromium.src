@@ -29,13 +29,14 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_vector.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/history/download_row.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_database.h"
@@ -48,11 +49,11 @@
 #include "chrome/common/thumbnail_score.h"
 #include "chrome/tools/profiles/thumbnail-inl.h"
 #include "content/public/browser/download_item.h"
-#include "content/public/browser/download_persistent_store_info.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "sql/connection.h"
 #include "sql/statement.h"
+#include "sync/protocol/history_delete_directive_specifics.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/jpeg_codec.h"
@@ -60,7 +61,6 @@
 using base::Time;
 using base::TimeDelta;
 using content::DownloadItem;
-using content::DownloadPersistentStoreInfo;
 
 namespace history {
 class HistoryBackendDBTest;
@@ -137,7 +137,7 @@ class HistoryBackendDBTest : public testing::Test {
   }
 
   int64 AddDownload(DownloadItem::DownloadState state, const Time& time) {
-    DownloadPersistentStoreInfo download(
+    DownloadRow download(
         FilePath(FILE_PATH_LITERAL("foo-path")),
         GURL("foo-url"),
         GURL(""),
@@ -151,7 +151,7 @@ class HistoryBackendDBTest : public testing::Test {
     return db_->CreateDownload(download);
   }
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   MessageLoopForUI message_loop_;
 
@@ -188,86 +188,18 @@ namespace {
 TEST_F(HistoryBackendDBTest, ClearBrowsingData_Downloads) {
   CreateBackendAndDatabase();
 
-  Time now = Time::Now();
-  TimeDelta one_day = TimeDelta::FromDays(1);
-  Time month_ago = now - TimeDelta::FromDays(30);
-
   // Initially there should be nothing in the downloads database.
-  std::vector<DownloadPersistentStoreInfo> downloads;
+  std::vector<DownloadRow> downloads;
   db_->QueryDownloads(&downloads);
   EXPECT_EQ(0U, downloads.size());
 
-  // Keep track of these as we need to update them later during the test.
-  DownloadID in_progress;
-
-  // Create one with a 0 time.
-  EXPECT_NE(0, AddDownload(DownloadItem::COMPLETE, Time()));
-  // Create one for now and +/- 1 day.
-  EXPECT_NE(0, AddDownload(DownloadItem::COMPLETE, now - one_day));
-  EXPECT_NE(0, AddDownload(DownloadItem::COMPLETE, now));
-  EXPECT_NE(0, AddDownload(DownloadItem::COMPLETE, now + one_day));
-  // Try the other four states.
-  EXPECT_NE(0, AddDownload(DownloadItem::COMPLETE, month_ago));
-  EXPECT_NE(0, in_progress = AddDownload(DownloadItem::IN_PROGRESS, month_ago));
-  EXPECT_NE(0, AddDownload(DownloadItem::CANCELLED, month_ago));
-  EXPECT_NE(0, AddDownload(DownloadItem::INTERRUPTED, month_ago));
-
-  // Test to see if inserts worked.
-  db_->QueryDownloads(&downloads);
-  EXPECT_EQ(8U, downloads.size());
-
-  // Try removing from current timestamp. This should delete the one in the
-  // future and one very recent one.
-  db_->RemoveDownloadsBetween(now, Time());
-  db_->QueryDownloads(&downloads);
-  EXPECT_EQ(6U, downloads.size());
-
-  // Try removing from two months ago. This should not delete items that are
-  // 'in progress' or in 'removing' state.
-  db_->RemoveDownloadsBetween(now - TimeDelta::FromDays(60), Time());
-  db_->QueryDownloads(&downloads);
-  EXPECT_EQ(2U, downloads.size());
-
-  // Download manager converts to TimeT, which is lossy, so we do the same
-  // for comparison.
-  Time month_ago_lossy = Time::FromTimeT(month_ago.ToTimeT());
-
-  // Make sure the right values remain.
-  EXPECT_EQ(DownloadItem::COMPLETE, downloads[0].state);
-  EXPECT_EQ(0, downloads[0].start_time.ToInternalValue());
-  EXPECT_EQ(DownloadItem::IN_PROGRESS, downloads[1].state);
-  EXPECT_EQ(month_ago_lossy.ToInternalValue(),
-            downloads[1].start_time.ToInternalValue());
-
-  // Change state so we can delete the downloads.
-  DownloadPersistentStoreInfo data;
-  data.received_bytes = 512;
-  data.state = DownloadItem::COMPLETE;
-  data.end_time = base::Time::Now();
-  data.opened = false;
-  data.db_handle = in_progress;
-  EXPECT_TRUE(db_->UpdateDownload(data));
-  data.state = DownloadItem::CANCELLED;
-  EXPECT_TRUE(db_->UpdateDownload(data));
-
-  // Try removing from Time=0. This should delete all.
-  db_->RemoveDownloadsBetween(Time(), Time());
-  db_->QueryDownloads(&downloads);
-  EXPECT_EQ(0U, downloads.size());
-
-  // Check removal of downloads stuck in IN_PROGRESS state.
-  EXPECT_NE(0, AddDownload(DownloadItem::COMPLETE,    month_ago));
-  EXPECT_NE(0, AddDownload(DownloadItem::IN_PROGRESS, month_ago));
-  db_->QueryDownloads(&downloads);
-  EXPECT_EQ(2U, downloads.size());
-  db_->RemoveDownloadsBetween(Time(), Time());
-  db_->QueryDownloads(&downloads);
-  // IN_PROGRESS download should remain. It it indicated as "Canceled"
-  EXPECT_EQ(1U, downloads.size());
-  db_->CleanUpInProgressEntries();
+  // Add a download, test that it was added, remove it, test that it was
+  // removed.
+  DownloadID handle;
+  EXPECT_NE(0, handle = AddDownload(DownloadItem::COMPLETE, Time()));
   db_->QueryDownloads(&downloads);
   EXPECT_EQ(1U, downloads.size());
-  db_->RemoveDownloadsBetween(Time(), Time());
+  db_->RemoveDownload(handle);
   db_->QueryDownloads(&downloads);
   EXPECT_EQ(0U, downloads.size());
 }
@@ -470,7 +402,7 @@ class HistoryTest : public testing::Test {
     MessageLoop::current()->Quit();
   }
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   MessageLoopForUI message_loop_;
 
@@ -1034,6 +966,75 @@ TEST_F(HistoryTest, HistoryDBTaskCanceled) {
   // WARNING: history has now been deleted.
   history_service_.reset();
   ASSERT_FALSE(task->done_invoked);
+}
+
+TEST_F(HistoryTest, ProcessGlobalIdDeleteDirective) {
+  ASSERT_TRUE(history_service_.get());
+  // Add the page once from a child frame.
+  const GURL test_url("http://www.google.com/");
+  for (int64 i = 1; i <= 10; ++i) {
+    base::Time t =
+        base::Time::UnixEpoch() + base::TimeDelta::FromMicroseconds(i);
+    history_service_->AddPage(test_url, t, NULL, 0, GURL(),
+                              history::RedirectList(),
+                              content::PAGE_TRANSITION_LINK,
+                              history::SOURCE_BROWSED, false);
+  }
+
+  EXPECT_TRUE(QueryURL(history_service_.get(), test_url));
+  EXPECT_EQ(10, query_url_row_.visit_count());
+
+  sync_pb::HistoryDeleteDirectiveSpecifics delete_directive;
+  sync_pb::GlobalIdDirective* global_id_directive =
+      delete_directive.mutable_global_id_directive();
+  global_id_directive->add_global_id(
+      (base::Time::UnixEpoch() + base::TimeDelta::FromMicroseconds(0))
+      .ToInternalValue());
+  global_id_directive->add_global_id(
+      (base::Time::UnixEpoch() + base::TimeDelta::FromMicroseconds(2))
+      .ToInternalValue());
+  global_id_directive->add_global_id(
+      (base::Time::UnixEpoch() + base::TimeDelta::FromMicroseconds(5))
+      .ToInternalValue());
+  global_id_directive->add_global_id(
+      (base::Time::UnixEpoch() + base::TimeDelta::FromMicroseconds(10))
+      .ToInternalValue());
+  global_id_directive->add_global_id(
+      (base::Time::UnixEpoch() + base::TimeDelta::FromMicroseconds(20))
+      .ToInternalValue());
+
+  history_service_->ProcessDeleteDirectiveForTest(delete_directive);
+
+  EXPECT_TRUE(QueryURL(history_service_.get(), test_url));
+  EXPECT_EQ(7, query_url_row_.visit_count());
+}
+
+TEST_F(HistoryTest, ProcessTimeRangeDeleteDirective) {
+  ASSERT_TRUE(history_service_.get());
+  // Add the page once from a child frame.
+  const GURL test_url("http://www.google.com/");
+  for (int64 i = 1; i <= 10; ++i) {
+    base::Time t =
+        base::Time::UnixEpoch() + base::TimeDelta::FromMicroseconds(i);
+    history_service_->AddPage(test_url, t, NULL, 0, GURL(),
+                              history::RedirectList(),
+                              content::PAGE_TRANSITION_LINK,
+                              history::SOURCE_BROWSED, false);
+  }
+
+  EXPECT_TRUE(QueryURL(history_service_.get(), test_url));
+  EXPECT_EQ(10, query_url_row_.visit_count());
+
+  sync_pb::HistoryDeleteDirectiveSpecifics delete_directive;
+  sync_pb::TimeRangeDirective* time_range_directive =
+      delete_directive.mutable_time_range_directive();
+  time_range_directive->set_start_time_usec(2);
+  time_range_directive->set_end_time_usec(9);
+
+  history_service_->ProcessDeleteDirectiveForTest(delete_directive);
+
+  EXPECT_TRUE(QueryURL(history_service_.get(), test_url));
+  EXPECT_EQ(2, query_url_row_.visit_count());
 }
 
 }  // namespace

@@ -68,17 +68,17 @@ class LogoutButton : public views::LabelButton,
   LogoutButton(user::LoginStatus status) : views::LabelButton(this, string16()),
                                            login_status_(user::LOGGED_IN_NONE),
                                            show_logout_button_in_tray_(false) {
-    for (size_t state = 0; state < views::CustomButton::BS_COUNT; ++state) {
+    for (size_t state = 0; state < views::CustomButton::STATE_COUNT; ++state) {
       SetTextColor(static_cast<views::CustomButton::ButtonState>(state),
                    SK_ColorWHITE);
     }
     SetFont(GetFont().DeriveFont(1));
     views::LabelButtonBorder* border = new views::LabelButtonBorder();
-    border->SetImages(views::CustomButton::BS_NORMAL,
+    border->SetImages(views::CustomButton::STATE_NORMAL,
                       views::BorderImages(kLogoutButtonBorderNormalImages));
-    border->SetImages(views::CustomButton::BS_HOT,
+    border->SetImages(views::CustomButton::STATE_HOVERED,
                       views::BorderImages(kLogoutButtonBorderHotImages));
-    border->SetImages(views::CustomButton::BS_PUSHED,
+    border->SetImages(views::CustomButton::STATE_PRESSED,
                       views::BorderImages(kLogoutButtonBorderPushedImages));
     set_border(border);
     OnLoginStatusChanged(status);
@@ -86,7 +86,10 @@ class LogoutButton : public views::LabelButton,
 
   void OnLoginStatusChanged(user::LoginStatus status) {
     login_status_ = status;
-    SetText(GetLocalizedSignOutStringForStatus(login_status_));
+    const string16 title = GetLocalizedSignOutStringForStatus(login_status_,
+                                                              false);
+    SetText(title);
+    SetAccessibleName(title);
     UpdateVisibility();
   }
 
@@ -116,7 +119,9 @@ class LogoutButton : public views::LabelButton,
 
 }  // namespace tray
 
-TrayLogoutButton::TrayLogoutButton() : logout_button_(NULL) {
+TrayLogoutButton::TrayLogoutButton(SystemTray* system_tray)
+    : SystemTrayItem(system_tray),
+      logout_button_(NULL) {
 }
 
 views::View* TrayLogoutButton::CreateTrayView(user::LoginStatus status) {

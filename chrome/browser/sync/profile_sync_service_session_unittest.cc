@@ -9,10 +9,10 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/compiler_specific.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/location.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/stl_util.h"
 #include "base/time.h"
 #include "chrome/browser/sessions/session_types_test_helper.h"
@@ -59,7 +59,6 @@ using content::BrowserThread;
 using syncer::ChangeRecord;
 using testing::_;
 using testing::Return;
-using syncer::TestIdFactory;
 
 namespace browser_sync {
 
@@ -88,7 +87,7 @@ void AddWindowSpecifics(int window_id,
 }
 
 void BuildTabSpecifics(const std::string& tag, int window_id, int tab_id,
-                     sync_pb::SessionSpecifics* tab_base) {
+                       sync_pb::SessionSpecifics* tab_base) {
   tab_base->set_session_tag(tag);
   sync_pb::SessionTab* tab = tab_base->mutable_tab();
   tab->set_tab_id(tab_id);
@@ -212,9 +211,9 @@ class ProfileSyncServiceSessionTest
 
     // Pump messages posted by the sync core thread (which may end up
     // posting on the IO thread).
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     io_thread_.Stop();
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     BrowserWithTestWindowTest::TearDown();
   }
 
@@ -261,7 +260,7 @@ class ProfileSyncServiceSessionTest
 
   content::TestBrowserThread io_thread_;
   // Path used in testing.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   SessionModelAssociator* model_associator_;
   SessionChangeProcessor* change_processor_;
   SessionID window_id_;
@@ -1033,7 +1032,7 @@ TEST_F(ProfileSyncServiceSessionTest, DISABLED_MissingHeaderAndTab) {
     extra_header.SetSessionSpecifics(specifics);
   }
 
-  error = model_associator_->AssociateModels();
+  error = model_associator_->AssociateModels(NULL, NULL);
   ASSERT_FALSE(error.IsSet());
 }
 
@@ -1065,7 +1064,7 @@ TEST_F(ProfileSyncServiceSessionTest, DISABLED_MultipleHeaders) {
     specifics.mutable_header();
     extra_header.SetSessionSpecifics(specifics);
   }
-  error = model_associator_->AssociateModels();
+  error = model_associator_->AssociateModels(NULL, NULL);
   ASSERT_FALSE(error.IsSet());
 }
 
@@ -1097,7 +1096,7 @@ TEST_F(ProfileSyncServiceSessionTest, DISABLED_CorruptedForeign) {
     specifics.set_session_tag(foreign_tag);
     extra_header.SetSessionSpecifics(specifics);
   }
-  error = model_associator_->AssociateModels();
+  error = model_associator_->AssociateModels(NULL, NULL);
   ASSERT_FALSE(error.IsSet());
 }
 
@@ -1125,7 +1124,7 @@ TEST_F(ProfileSyncServiceSessionTest, DISABLED_MissingLocalTabNode) {
     ASSERT_TRUE(tab_node.InitByClientTagLookup(syncer::SESSIONS, tab_tag));
     tab_node.Remove();
   }
-  error = model_associator_->AssociateModels();
+  error = model_associator_->AssociateModels(NULL, NULL);
   ASSERT_FALSE(error.IsSet());
 
   // Add some more tabs to ensure we don't conflict with the pre-existing tab
@@ -1198,7 +1197,7 @@ TEST_F(ProfileSyncServiceSessionTest, DISABLED_CorruptedLocalHeader) {
   }
   // Ensure we associate properly despite the pre-existing node with our local
   // tag.
-  error = model_associator_->AssociateModels();
+  error = model_associator_->AssociateModels(NULL, NULL);
   ASSERT_FALSE(error.IsSet());
 }
 

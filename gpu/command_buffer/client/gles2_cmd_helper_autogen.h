@@ -1918,5 +1918,45 @@
     }
   }
 
+  void TraceBeginCHROMIUM(GLuint bucket_id) {
+    gles2::TraceBeginCHROMIUM* c = GetCmdSpace<gles2::TraceBeginCHROMIUM>();
+    if (c) {
+      c->Init(bucket_id);
+    }
+  }
+
+  void TraceEndCHROMIUM() {
+    gles2::TraceEndCHROMIUM* c = GetCmdSpace<gles2::TraceEndCHROMIUM>();
+    if (c) {
+      c->Init();
+    }
+  }
+
+  void AsyncTexSubImage2DCHROMIUM(
+      GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width,
+      GLsizei height, GLenum format, GLenum type, uint32 data_shm_id,
+      uint32 data_shm_offset) {
+    gles2::AsyncTexSubImage2DCHROMIUM* c =
+        GetCmdSpace<gles2::AsyncTexSubImage2DCHROMIUM>();
+    if (c) {
+      c->Init(
+          target, level, xoffset, yoffset, width, height, format, type,
+          data_shm_id, data_shm_offset);
+    }
+  }
+
+  void AsyncTexImage2DCHROMIUM(
+      GLenum target, GLint level, GLint internalformat, GLsizei width,
+      GLsizei height, GLint border, GLenum format, GLenum type,
+      uint32 pixels_shm_id, uint32 pixels_shm_offset) {
+    gles2::AsyncTexImage2DCHROMIUM* c =
+        GetCmdSpace<gles2::AsyncTexImage2DCHROMIUM>();
+    if (c) {
+      c->Init(
+          target, level, internalformat, width, height, border, format, type,
+          pixels_shm_id, pixels_shm_offset);
+    }
+  }
+
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_CMD_HELPER_AUTOGEN_H_
 

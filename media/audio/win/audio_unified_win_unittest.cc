@@ -14,6 +14,7 @@
 #include "media/audio/audio_manager.h"
 #include "media/audio/audio_util.h"
 #include "media/audio/win/audio_unified_win.h"
+#include "media/audio/win/core_audio_util_win.h"
 #include "media/base/media_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -30,6 +31,12 @@ namespace media {
 
 static const size_t kMaxDeltaSamples = 1000;
 static const char* kDeltaTimeMsFileName = "unified_delta_times_ms.txt";
+
+// Verify that the delay estimate in the OnMoreIOData() callback is larger
+// than an expected minumum value.
+MATCHER_P(DelayGreaterThan, value, "") {
+  return (arg.hardware_delay_bytes > value.hardware_delay_bytes);
+}
 
 // Used to terminate a loop from a different thread than the loop belongs to.
 // |loop| should be a MessageLoopProxy.
@@ -122,7 +129,7 @@ static bool CanRunUnifiedAudioTests(AudioManager* audio_man) {
     return false;
   }
 
-  if (!media::IsWASAPISupported()) {
+  if (!CoreAudioUtil::IsSupported()) {
     LOG(WARNING) << "This tests requires Windows Vista or higher.";
     return false;
   }
@@ -151,12 +158,13 @@ class AudioUnifiedStreamWrapper {
  public:
   explicit AudioUnifiedStreamWrapper(AudioManager* audio_manager)
       : com_init_(ScopedCOMInitializer::kMTA),
-        audio_man_(audio_manager),
-        format_(AudioParameters::AUDIO_PCM_LOW_LATENCY),
-        channel_layout_(CHANNEL_LAYOUT_STEREO),
-        bits_per_sample_(16) {
-    sample_rate_ = media::GetAudioHardwareSampleRate();
-    samples_per_packet_ = media::GetAudioHardwareBufferSize();
+        audio_man_(audio_manager) {
+    // We open up both both sides (input and output) using the preferred
+    // set of audio parameters. These parameters corresponds to the mix format
+    // that the audio engine uses internally for processing of shared-mode
+    // output streams.
+    EXPECT_TRUE(SUCCEEDED(CoreAudioUtil::GetPreferredAudioParameters(
+        eRender, eConsole, &params_)));
   }
 
   ~AudioUnifiedStreamWrapper() {}
@@ -166,29 +174,23 @@ class AudioUnifiedStreamWrapper {
     return static_cast<WASAPIUnifiedStream*> (CreateOutputStream());
   }
 
-  AudioParameters::Format format() const { return format_; }
-  int channels() const { return ChannelLayoutToChannelCount(channel_layout_); }
-  int bits_per_sample() const { return bits_per_sample_; }
-  int sample_rate() const { return sample_rate_; }
-  int samples_per_packet() const { return samples_per_packet_; }
+  AudioParameters::Format format() const { return params_.format(); }
+  int channels() const { return params_.channels(); }
+  int bits_per_sample() const { return params_.bits_per_sample(); }
+  int sample_rate() const { return params_.sample_rate(); }
+  int frames_per_buffer() const { return params_.frames_per_buffer(); }
+  int bytes_per_buffer() const { return params_.GetBytesPerBuffer(); }
 
  private:
   AudioOutputStream* CreateOutputStream() {
-    AudioOutputStream* aos = audio_man_->MakeAudioOutputStream(
-        AudioParameters(format_, channel_layout_, sample_rate_,
-                        bits_per_sample_, samples_per_packet_));
+    AudioOutputStream* aos = audio_man_->MakeAudioOutputStream(params_);
     EXPECT_TRUE(aos);
     return aos;
   }
 
   ScopedCOMInitializer com_init_;
   AudioManager* audio_man_;
-
-  AudioParameters::Format format_;
-  ChannelLayout channel_layout_;
-  int bits_per_sample_;
-  int sample_rate_;
-  int samples_per_packet_;
+  AudioParameters params_;
 };
 
 // Convenience method which creates a default WASAPIUnifiedStream object.
@@ -224,7 +226,7 @@ TEST(WASAPIUnifiedStreamTest, OpenStartAndClose) {
       .Times(0);
   EXPECT_CALL(source, OnMoreIOData(NotNull(), NotNull(), _))
       .Times(Between(0, 1))
-      .WillOnce(Return(ausw.samples_per_packet()));
+      .WillOnce(Return(ausw.frames_per_buffer()));
   wus->Start(&source);
   wus->Close();
 }
@@ -240,15 +242,21 @@ TEST(WASAPIUnifiedStreamTest, StartLoopbackAudio) {
   AudioUnifiedStreamWrapper ausw(audio_manager.get());
   WASAPIUnifiedStream* wus = ausw.Create();
 
+  // Set up expected minimum delay estimation where we use a minium delay
+  // which is equal to the sum of render and capture sizes. We can never
+  // reach a delay lower than this value.
+  AudioBuffersState min_total_audio_delay(0, 2 * ausw.bytes_per_buffer());
+
   EXPECT_TRUE(wus->Open());
   EXPECT_CALL(source, OnError(wus, _))
       .Times(0);
-  EXPECT_CALL(source, OnMoreIOData(NotNull(), NotNull(), _))
+  EXPECT_CALL(source, OnMoreIOData(
+      NotNull(), NotNull(), DelayGreaterThan(min_total_audio_delay)))
       .Times(AtLeast(2))
-      .WillOnce(Return(ausw.samples_per_packet()))
+      .WillOnce(Return(ausw.frames_per_buffer()))
       .WillOnce(DoAll(
           QuitLoop(loop.message_loop_proxy()),
-          Return(ausw.samples_per_packet())));
+          Return(ausw.frames_per_buffer())));
   wus->Start(&source);
   loop.PostDelayedTask(FROM_HERE, MessageLoop::QuitClosure(),
                        TestTimeouts::action_timeout());

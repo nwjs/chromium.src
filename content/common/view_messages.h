@@ -7,11 +7,13 @@
 
 #include "base/process.h"
 #include "base/shared_memory.h"
+#include "base/string16.h"
 #include "content/common/content_export.h"
 #include "content/common/content_param_traits.h"
 #include "content/common/edit_command.h"
 #include "content/common/navigation_gesture.h"
 #include "content/common/view_message_enums.h"
+#include "content/port/common/input_event_ack_state.h"
 #include "content/public/common/common_param_traits.h"
 #include "content/public/common/context_menu_params.h"
 #include "content/public/common/file_chooser_params.h"
@@ -21,6 +23,7 @@
 #include "content/public/common/referrer.h"
 #include "content/public/common/renderer_preferences.h"
 #include "content/public/common/stop_find_action.h"
+#include "content/public/common/three_d_api_types.h"
 #include "content/public/common/window_container_type.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
@@ -70,12 +73,14 @@ IPC_ENUM_TRAITS(WebKit::WebTextDirection)
 IPC_ENUM_TRAITS(WebMenuItem::Type)
 IPC_ENUM_TRAITS(WindowContainerType)
 IPC_ENUM_TRAITS(content::FileChooserParams::Mode)
+IPC_ENUM_TRAITS(content::InputEventAckState)
 IPC_ENUM_TRAITS(content::JavaScriptMessageType)
 IPC_ENUM_TRAITS(content::NavigationGesture)
 IPC_ENUM_TRAITS(content::PageZoom)
 IPC_ENUM_TRAITS(content::RendererPreferencesHintingEnum)
 IPC_ENUM_TRAITS(content::RendererPreferencesSubpixelRenderingEnum)
 IPC_ENUM_TRAITS(content::StopFindAction)
+IPC_ENUM_TRAITS(content::ThreeDAPIType)
 IPC_ENUM_TRAITS(media::ChannelLayout)
 IPC_ENUM_TRAITS(media::MediaLogEvent::Type)
 IPC_ENUM_TRAITS(ui::TextInputType)
@@ -123,8 +128,7 @@ IPC_STRUCT_TRAITS_BEGIN(WebKit::WebFloatRect)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(WebKit::WebScreenInfo)
-  IPC_STRUCT_TRAITS_MEMBER(verticalDPI)
-  IPC_STRUCT_TRAITS_MEMBER(horizontalDPI)
+  IPC_STRUCT_TRAITS_MEMBER(deviceScaleFactor)
   IPC_STRUCT_TRAITS_MEMBER(depth)
   IPC_STRUCT_TRAITS_MEMBER(depthPerComponent)
   IPC_STRUCT_TRAITS_MEMBER(isMonochrome)
@@ -163,6 +167,9 @@ IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(default_font_size)
   IPC_STRUCT_TRAITS_MEMBER(default_fixed_font_size)
   IPC_STRUCT_TRAITS_MEMBER(apply_default_device_scale_factor_in_compositor)
+  IPC_STRUCT_TRAITS_MEMBER(apply_page_scale_factor_in_compositor)
+  IPC_STRUCT_TRAITS_MEMBER(per_tile_painting_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(accelerated_animation_enabled)
   IPC_STRUCT_TRAITS_MEMBER(minimum_font_size)
   IPC_STRUCT_TRAITS_MEMBER(minimum_logical_font_size)
   IPC_STRUCT_TRAITS_MEMBER(default_encoding)
@@ -220,10 +227,10 @@ IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(accelerated_painting_enabled)
   IPC_STRUCT_TRAITS_MEMBER(accelerated_filters_enabled)
   IPC_STRUCT_TRAITS_MEMBER(gesture_tap_highlight_enabled)
-  IPC_STRUCT_TRAITS_MEMBER(accelerated_plugins_enabled)
-  IPC_STRUCT_TRAITS_MEMBER(accelerated_layers_enabled)
-  IPC_STRUCT_TRAITS_MEMBER(accelerated_animation_enabled)
-  IPC_STRUCT_TRAITS_MEMBER(accelerated_video_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(accelerated_compositing_for_plugins_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(accelerated_compositing_for_3d_transforms_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(accelerated_compositing_for_animation_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(accelerated_compositing_for_video_enabled)
   IPC_STRUCT_TRAITS_MEMBER(memory_info_enabled)
   IPC_STRUCT_TRAITS_MEMBER(fullscreen_enabled)
   IPC_STRUCT_TRAITS_MEMBER(allow_displaying_insecure_content)
@@ -235,8 +242,11 @@ IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(css_regions_enabled)
   IPC_STRUCT_TRAITS_MEMBER(css_shaders_enabled)
   IPC_STRUCT_TRAITS_MEMBER(css_variables_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(css_grid_layout_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(touch_enabled)
   IPC_STRUCT_TRAITS_MEMBER(device_supports_touch)
   IPC_STRUCT_TRAITS_MEMBER(device_supports_mouse)
+  IPC_STRUCT_TRAITS_MEMBER(touch_adjustment_enabled)
   IPC_STRUCT_TRAITS_MEMBER(default_tile_width)
   IPC_STRUCT_TRAITS_MEMBER(default_tile_height)
   IPC_STRUCT_TRAITS_MEMBER(max_untiled_layer_width)
@@ -580,11 +590,10 @@ IPC_STRUCT_BEGIN(ViewHostMsg_UpdateRect_Params)
   // The position and size of the bitmap.
   IPC_STRUCT_MEMBER(gfx::Rect, bitmap_rect)
 
-  // The scroll offset.  Only one of these can be non-zero, and if they are
-  // both zero, then it means there is no scrolling and the scroll_rect is
-  // ignored.
-  IPC_STRUCT_MEMBER(int, dx)
-  IPC_STRUCT_MEMBER(int, dy)
+  // The scroll delta.  Only one of the delta components can be non-zero, and if
+  // they are both zero, then it means there is no scrolling and the scroll_rect
+  // is ignored.
+  IPC_STRUCT_MEMBER(gfx::Vector2d, scroll_delta)
 
   // The rectangular region to scroll.
   IPC_STRUCT_MEMBER(gfx::Rect, scroll_rect)
@@ -767,6 +776,15 @@ IPC_STRUCT_BEGIN(ViewMsg_Navigate_Params)
   // Whether or not this url should be allowed to access local file://
   // resources.
   IPC_STRUCT_MEMBER(bool, can_load_local_resources)
+IPC_STRUCT_END()
+
+// Parameters for an OpenURL request.
+IPC_STRUCT_BEGIN(ViewHostMsg_OpenURL_Params)
+  IPC_STRUCT_MEMBER(GURL, url)
+  IPC_STRUCT_MEMBER(content::Referrer, referrer)
+  IPC_STRUCT_MEMBER(WindowOpenDisposition, disposition)
+  IPC_STRUCT_MEMBER(int64, frame_id)
+  IPC_STRUCT_MEMBER(bool, is_cross_site_redirect)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewMsg_New_Params)
@@ -1286,10 +1304,6 @@ IPC_MESSAGE_ROUTED2(ViewMsg_EnableAutoResize,
 IPC_MESSAGE_ROUTED1(ViewMsg_DisableAutoResize,
                     gfx::Size /* new_size */)
 
-// Updates the device scale factor.
-IPC_MESSAGE_ROUTED1(ViewMsg_SetDeviceScaleFactor,
-                    float /* device_scale_factor */)
-
 // Changes the text direction of the currently selected input field (if any).
 IPC_MESSAGE_ROUTED1(ViewMsg_SetTextDirection,
                     WebKit::WebTextDirection /* direction */)
@@ -1420,9 +1434,11 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_DidChangeBodyBackgroundColor,
 
 // Information about current document scroll, scale and size. Sent on a
 // best-effort basis.
-IPC_MESSAGE_ROUTED3(ViewHostMsg_UpdateFrameInfo,
+IPC_MESSAGE_ROUTED5(ViewHostMsg_UpdateFrameInfo,
                     gfx::Vector2d /* scroll_offset */,
                     float /* page_scale_factor */,
+                    float /* min_page_scale_factor */,
+                    float /* max_page_scale_factor */,
                     gfx::Size /* content_size */)
 
 #elif defined(OS_MACOSX)
@@ -1704,11 +1720,10 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_DidRunInsecureContent,
                     GURL         /* target URL */)
 
 // Sent when the renderer starts a provisional load for a frame.
-IPC_MESSAGE_ROUTED5(ViewHostMsg_DidStartProvisionalLoadForFrame,
+IPC_MESSAGE_ROUTED4(ViewHostMsg_DidStartProvisionalLoadForFrame,
                     int64 /* frame_id */,
                     int64 /* parent_frame_id */,
                     bool /* true if it is the main frame */,
-                    GURL /* opener url if present, else empty */,
                     GURL /* url */)
 
 IPC_MESSAGE_ROUTED5(ViewHostMsg_DidFailLoadWithError,
@@ -1751,7 +1766,7 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_DidActivateAcceleratedCompositing,
 // Acknowledges receipt of a ViewMsg_HandleInputEvent message.
 IPC_MESSAGE_ROUTED2(ViewHostMsg_HandleInputEvent_ACK,
                     WebKit::WebInputEvent::Type,
-                    bool /* processed */)
+                    content::InputEventAckState /* ack_result */)
 
 IPC_STRUCT_BEGIN(ViewHostMsg_BeginSmoothScroll_Params)
   IPC_STRUCT_MEMBER(bool, scroll_down)
@@ -1924,11 +1939,7 @@ IPC_SYNC_MESSAGE_ROUTED4_2(ViewHostMsg_RunJavaScriptMessage,
                            string16     /* out - user_input field */)
 
 // Requests that the given URL be opened in the specified manner.
-IPC_MESSAGE_ROUTED4(ViewHostMsg_OpenURL,
-                    GURL /* url */,
-                    content::Referrer /* referrer */,
-                    WindowOpenDisposition /* disposition */,
-                    int64 /* frame id */)
+IPC_MESSAGE_ROUTED1(ViewHostMsg_OpenURL, ViewHostMsg_OpenURL_Params)
 
 // Notifies that the preferred size of the content changed.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_DidContentsPreferredSizeChange,
@@ -2125,9 +2136,8 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_DataReceived_ACK,
                     int /* request_id */)
 
 // Sent when a provisional load on the main frame redirects.
-IPC_MESSAGE_ROUTED4(ViewHostMsg_DidRedirectProvisionalLoad,
+IPC_MESSAGE_ROUTED3(ViewHostMsg_DidRedirectProvisionalLoad,
                     int /* page_id */,
-                    GURL /* opener url if present, else empty */,
                     GURL /* last url */,
                     GURL /* url redirected to */)
 
@@ -2434,3 +2444,28 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_ShowDisambiguationPopup,
                     gfx::Rect, /* Border of touched targets */
                     gfx::Size, /* Size of zoomed image */
                     TransportDIB::Id /* DIB of zoomed image */)
+
+// Sent by the renderer process to check whether client 3D APIs
+// (Pepper 3D, WebGL) are explicitly blocked.
+IPC_SYNC_MESSAGE_CONTROL3_1(ViewHostMsg_Are3DAPIsBlocked,
+                            int /* render_view_id */,
+                            GURL /* top_origin_url */,
+                            content::ThreeDAPIType /* requester */,
+                            bool /* blocked */)
+
+// Sent by the renderer process to indicate that a context was lost by
+// client 3D content (Pepper 3D, WebGL) running on the page at the
+// given URL.
+IPC_MESSAGE_CONTROL3(ViewHostMsg_DidLose3DContext,
+                     GURL /* top_origin_url */,
+                     content::ThreeDAPIType /* context_type */,
+                     int /* arb_robustness_status_code */)
+
+#if defined(OS_WIN)
+// Request that the given font characters be loaded by the browser so it's
+// cached by the OS. Please see RenderMessageFilter::OnPreCacheFontCharacters
+// for details.
+IPC_SYNC_MESSAGE_CONTROL2_0(ViewHostMsg_PreCacheFontCharacters,
+                            LOGFONT /* font_data */,
+                            string16 /* characters */)
+#endif

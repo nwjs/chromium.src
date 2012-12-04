@@ -10,25 +10,33 @@
 #import "chrome/browser/ui/constrained_window_constants.h"
 #include "skia/ext/skia_utils_mac.h"
 
-// The content view for the custom window.
-@interface ConstrainedWindowCustomWindowContentView : NSView
-@end
-
 @implementation ConstrainedWindowCustomWindow
 
 - (id)initWithContentRect:(NSRect)contentRect {
+  if ((self = [self initWithContentRect:contentRect
+                              styleMask:NSBorderlessWindowMask
+                                backing:NSBackingStoreBuffered
+                                  defer:NO])) {
+    scoped_nsobject<NSView> contentView(
+        [[ConstrainedWindowCustomWindowContentView alloc]
+            initWithFrame:NSZeroRect]);
+    [self setContentView:contentView];
+  }
+  return self;
+}
+
+- (id)initWithContentRect:(NSRect)contentRect
+                styleMask:(NSUInteger)windowStyle
+                  backing:(NSBackingStoreType)bufferingType
+                    defer:(BOOL)deferCreation {
   if ((self = [super initWithContentRect:contentRect
                                styleMask:NSBorderlessWindowMask
-                                 backing:NSBackingStoreBuffered
+                                 backing:bufferingType
                                    defer:NO])) {
     [self setHasShadow:YES];
     [self setBackgroundColor:[NSColor clearColor]];
     [self setOpaque:NO];
     [self setReleasedWhenClosed:NO];
-    scoped_nsobject<NSView> contentView(
-        [[ConstrainedWindowCustomWindowContentView alloc]
-            initWithFrame:NSZeroRect]);
-    [self setContentView:contentView];
   }
   return self;
 }
@@ -40,6 +48,11 @@
 - (NSRect)frameRectForContentRect:(NSRect)windowContent {
   ConstrainedWindowSheetController* sheetController =
       [ConstrainedWindowSheetController controllerForSheet:self];
+
+  // Sheet controller may be nil if this window hasn't been shown yet.
+  if (!sheetController)
+    return windowContent;
+
   NSRect frame;
   frame.origin = [sheetController originForSheet:self
                                   withWindowSize:windowContent.size];

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,7 +28,6 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -58,6 +57,7 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/process_type.h"
+#include "extensions/common/constants.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "third_party/sqlite/sqlite3.h"
@@ -283,7 +283,7 @@ TaskManagerTabContentsResource::TaskManagerTabContentsResource(
   }
   for (BrowserList::const_iterator i = BrowserList::begin();
        i != BrowserList::end(); ++i) {
-    if ((*i)->instant_controller()->instant() &&
+    if ((*i)->instant_controller() &&
         (*i)->instant_controller()->instant()->GetPreviewContents() ==
             tab_contents_) {
       is_instant_preview_ = true;
@@ -311,7 +311,7 @@ bool TaskManagerTabContentsResource::IsPrerendering() const {
 
 bool TaskManagerTabContentsResource::HostsExtension() const {
   return tab_contents_->web_contents()->GetURL().SchemeIs(
-      chrome::kExtensionScheme);
+      extensions::kExtensionScheme);
 }
 
 TaskManager::Resource::Type TaskManagerTabContentsResource::GetType() const {
@@ -1599,6 +1599,7 @@ TaskManagerBrowserProcessResource::TaskManagerBrowserProcessResource()
   // TODO(port): Port icon code.
   NOTIMPLEMENTED();
 #endif  // defined(OS_WIN)
+  default_icon_->MakeThreadSafe();
 }
 
 TaskManagerBrowserProcessResource::~TaskManagerBrowserProcessResource() {

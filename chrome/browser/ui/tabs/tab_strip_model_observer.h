@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_TABS_TAB_STRIP_MODEL_OBSERVER_H_
 #define CHROME_BROWSER_UI_TABS_TAB_STRIP_MODEL_OBSERVER_H_
 
-class TabContents;
 class TabStripModel;
 class TabStripSelectionModel;
 
@@ -22,7 +21,7 @@ class WebContents;
 //
 //  Two major implementers are the TabStrip, which uses notifications sent
 //  via this interface to update the presentation of the strip, and the Browser
-//  object, which updates bookkeeping and shows/hides individual TabContentses.
+//  object, which updates bookkeeping and shows/hides individual WebContentses.
 //
 //  Register your TabStripModelObserver with the TabStripModel using its
 //  Add/RemoveObserver methods.
@@ -61,10 +60,10 @@ class TabStripModelObserver {
   // present.
   virtual void TabDetachedAt(content::WebContents* contents, int index);
 
-  // The active TabContents is about to change from |old_contents|.
+  // The active WebContents is about to change from |old_contents|.
   // This gives observers a chance to prepare for an impending switch before it
   // happens.
-  virtual void TabDeactivated(TabContents* contents);
+  virtual void TabDeactivated(content::WebContents* contents);
 
   // Sent when the active tab changes. The previously active tab is identified
   // by |old_contents| and the newly active tab by |new_contents|. |index| is
@@ -78,8 +77,8 @@ class TabStripModelObserver {
   // TabSelectionChanged.
   // Note: |old_contents| will be NULL if there was no contents previously
   // active.
-  virtual void ActiveTabChanged(TabContents* old_contents,
-                                TabContents* new_contents,
+  virtual void ActiveTabChanged(content::WebContents* old_contents,
+                                content::WebContents* new_contents,
                                 int index,
                                 bool user_gesture);
 
@@ -90,26 +89,26 @@ class TabStripModelObserver {
   virtual void TabSelectionChanged(TabStripModel* tab_strip_model,
                                    const TabStripSelectionModel& old_model);
 
-  // The specified TabContents at |from_index| was moved to |to_index|.
-  virtual void TabMoved(TabContents* contents,
+  // The specified WebContents at |from_index| was moved to |to_index|.
+  virtual void TabMoved(content::WebContents* contents,
                         int from_index,
                         int to_index);
 
-  // The specified TabContents at |index| changed in some way. |contents|
+  // The specified WebContents at |index| changed in some way. |contents|
   // may be an entirely different object and the old value is no longer
   // available by the time this message is delivered.
   //
   // See TabChangeType for a description of |change_type|.
-  virtual void TabChangedAt(TabContents* contents,
+  virtual void TabChangedAt(content::WebContents* contents,
                             int index,
                             TabChangeType change_type);
 
-  // The tab contents was replaced at the specified index. This is invoked
+  // The WebContents was replaced at the specified index. This is invoked
   // when instant is enabled and the user navigates by way of instant or when
-  // prerendering swaps in a prerendered TabContents.
+  // prerendering swaps in a prerendered WebContents.
   virtual void TabReplacedAt(TabStripModel* tab_strip_model,
-                             TabContents* old_contents,
-                             TabContents* new_contents,
+                             content::WebContents* old_contents,
+                             content::WebContents* new_contents,
                              int index);
 
   // Invoked when the pinned state of a tab changes. See note in

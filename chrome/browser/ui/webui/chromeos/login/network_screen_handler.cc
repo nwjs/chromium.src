@@ -26,9 +26,6 @@
 
 namespace {
 
-// Network screen id.
-const char kNetworkScreen[] = "connect";
-
 // JS API callbacks names.
 const char kJsApiNetworkOnExit[] = "networkOnExit";
 const char kJsApiNetworkOnLanguageChanged[] = "networkOnLanguageChanged";
@@ -66,7 +63,7 @@ void NetworkScreenHandler::Show() {
     return;
   }
 
-  ShowScreen(kNetworkScreen, NULL);
+  ShowScreen(OobeUI::kScreenOobeNetwork, NULL);
 }
 
 void NetworkScreenHandler::Hide() {
@@ -164,6 +161,10 @@ void NetworkScreenHandler::HandleOnLanguageChanged(const ListValue* args) {
   std::string locale;
   if (!args->GetString(0, &locale))
     NOTREACHED();
+
+  const std::string app_locale = g_browser_process->GetApplicationLocale();
+  if (app_locale == locale)
+    return;
 
   // TODO(altimofeev): make language change async.
   LanguageSwitchMenu::SwitchLanguageAndEnableKeyboardLayouts(locale);

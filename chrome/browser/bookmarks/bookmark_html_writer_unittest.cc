@@ -5,10 +5,10 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/i18n/time_formatting.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string16.h"
 #include "base/string_util.h"
 #include "base/time.h"
@@ -116,7 +116,7 @@ class BookmarkHTMLWriterTest : public testing::Test {
               BookmarkEntryToString(entry));
   }
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   FilePath path_;
 };
 
@@ -199,7 +199,7 @@ TEST_F(BookmarkHTMLWriterTest, Test) {
   FaviconServiceFactory::GetForProfile(
       &profile, Profile::EXPLICIT_ACCESS)->SetFavicons(
           url1, url1_favicon, history::FAVICON, gfx::Image(bitmap));
-  message_loop.RunAllPending();
+  message_loop.RunUntilIdle();
   const BookmarkNode* f2 = model->AddFolder(f1, 1, f2_title);
   model->AddURLWithCreationTime(f2, 0, url2_title, url2, t2);
   model->AddURLWithCreationTime(model->bookmark_bar_node(),
@@ -223,7 +223,7 @@ TEST_F(BookmarkHTMLWriterTest, Test) {
   FaviconServiceFactory::GetForProfile(
       &profile, Profile::EXPLICIT_ACCESS)->SetFavicons(
           url1, url1_favicon, history::FAVICON, gfx::Image());
-  message_loop.RunAllPending();
+  message_loop.RunUntilIdle();
 
   // Read the bookmarks back in.
   std::vector<ProfileWriter::BookmarkEntry> parsed_bookmarks;

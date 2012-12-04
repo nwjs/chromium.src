@@ -8,6 +8,8 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/compiler_specific.h"
+#include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop_proxy.h"
 #include "base/synchronization/cancellation_flag.h"
@@ -33,6 +35,23 @@ void RunIfNotCanceledThenUntrack(const CancellationFlag* flag,
   untrack.Run();
 }
 
+bool IsCanceled(const CancellationFlag* flag,
+                base::ScopedClosureRunner* cleanup_runner) {
+  return flag->IsSet();
+}
+
+void RunAndDeleteFlag(const Closure& closure, const CancellationFlag* flag) {
+  closure.Run();
+  delete flag;
+}
+
+void RunOrPostToTaskRunner(TaskRunner* task_runner, const Closure& closure) {
+  if (task_runner->RunsTasksOnCurrentThread())
+    closure.Run();
+  else
+    task_runner->PostTask(FROM_HERE, closure);
+}
+
 }  // namespace
 
 // static
@@ -43,6 +62,8 @@ CancelableTaskTracker::CancelableTaskTracker()
       next_id_(1) {}
 
 CancelableTaskTracker::~CancelableTaskTracker() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+
   TryCancelAll();
 }
 
@@ -50,6 +71,8 @@ CancelableTaskTracker::TaskId CancelableTaskTracker::PostTask(
     TaskRunner* task_runner,
     const tracked_objects::Location& from_here,
     const Closure& task) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+
   return PostTaskAndReply(task_runner, from_here, task, Bind(&base::DoNothing));
 }
 
@@ -84,16 +107,47 @@ CancelableTaskTracker::TaskId CancelableTaskTracker::PostTaskAndReply(
   return id;
 }
 
+CancelableTaskTracker::TaskId CancelableTaskTracker::NewTrackedTaskId(
+    IsCanceledCallback* is_canceled_cb) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(base::MessageLoopProxy::current());
+
+  TaskId id = next_id_;
+  next_id_++;  // int64 is big enough that we ignore the potential overflow.
+
+  // Will be deleted by |untrack_and_delete_flag| after Untrack().
+  CancellationFlag* flag = new CancellationFlag();
+
+  Closure untrack_and_delete_flag = Bind(
+      &RunAndDeleteFlag,
+      Bind(&CancelableTaskTracker::Untrack, weak_factory_.GetWeakPtr(), id),
+      flag);
+
+  // Will always run |untrack_and_delete_flag| on current MessageLoop.
+  base::ScopedClosureRunner* untrack_and_delete_flag_runner =
+      new base::ScopedClosureRunner(
+          Bind(&RunOrPostToTaskRunner,
+               base::MessageLoopProxy::current(),
+               untrack_and_delete_flag));
+
+  *is_canceled_cb = Bind(
+      &IsCanceled, flag, base::Owned(untrack_and_delete_flag_runner));
+
+  Track(id, flag);
+  return id;
+}
+
 void CancelableTaskTracker::TryCancel(TaskId id) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   hash_map<TaskId, CancellationFlag*>::const_iterator it = task_flags_.find(id);
   if (it == task_flags_.end()) {
-    // 3 possibilities:
-    // 1. Task (and reply) has finished running.
-    // 2. Task was canceled before and already untracked.
-    // 3. The TaskId is bad or never used.
-    // Since we only try best to cancel task and reply, it's OK to ignore these.
+    // Two possibilities:
+    //
+    //   1. The task has already been untracked.
+    //   2. The TaskId is bad or unknown.
+    //
+    // Since this function is best-effort, it's OK to ignore these.
     return;
   }
   it->second->Set();
@@ -110,14 +164,20 @@ void CancelableTaskTracker::TryCancelAll() {
   }
 }
 
+bool CancelableTaskTracker::HasTrackedTasks() const {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  return !task_flags_.empty();
+}
+
 void CancelableTaskTracker::Track(TaskId id, CancellationFlag* flag) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+
   bool success = task_flags_.insert(std::make_pair(id, flag)).second;
   DCHECK(success);
 }
 
 void CancelableTaskTracker::Untrack(TaskId id) {
   DCHECK(thread_checker_.CalledOnValidThread());
-
   size_t num = task_flags_.erase(id);
   DCHECK_EQ(1u, num);
 }

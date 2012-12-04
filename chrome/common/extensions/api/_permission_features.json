@@ -32,7 +32,7 @@
   "background": {
     "channel": "stable",
     "extension_types": [
-      "extension", "packaged_app", "hosted_app", "platform_app"
+      "extension", "packaged_app", "hosted_app"
     ]
   },
   "bluetooth": {
@@ -235,6 +235,10 @@
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
   },
+  "pointerLock": {
+    "channel": "dev",
+    "extension_types": ["platform_app"]
+  },
   "plugin": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
@@ -280,6 +284,10 @@
     "channel": "trunk",
     "extension_types": ["platform_app"]
   },
+  "systemIndicator": {
+    "channel": "dev",
+    "extension_types": ["extension", "packaged_app", "platform_app"]
+  },
   "storage": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app", "platform_app"],
@@ -295,7 +303,7 @@
     "extension_types": ["extension", "packaged_app"]
   },
   "tabCapture": {
-    "channel": "canary",
+    "channel": "dev",
     "extension_types": ["extension", "packaged_app"]
   },
   "terminalPrivate": {
@@ -334,7 +342,7 @@
   },
   "wallpaperPrivate": {
     "channel": "stable",
-    "extension_types": ["extension", "packaged_app"],
+    "extension_types": ["platform_app"],
     "location": "component"
   },
   "webNavigation": {

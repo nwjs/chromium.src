@@ -5,11 +5,11 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #include "base/bind.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
-#include "base/message_loop_proxy.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
+#include "base/message_loop_proxy.h"
 #include "chrome/browser/browsing_data/browsing_data_quota_helper_impl.h"
 #include "content/public/test/test_browser_thread.h"
 #include "webkit/quota/mock_storage_client.h"
@@ -49,7 +49,7 @@ class BrowsingDataQuotaHelperTest : public testing::Test {
     helper_ = NULL;
     quota_manager_ = NULL;
     quota_info_.clear();
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
   }
 
  protected:
@@ -119,7 +119,7 @@ class BrowsingDataQuotaHelperTest : public testing::Test {
   content::TestBrowserThread io_thread_;
   scoped_refptr<quota::QuotaManager> quota_manager_;
 
-  ScopedTempDir dir_;
+  base::ScopedTempDir dir_;
   scoped_refptr<BrowsingDataQuotaHelper> helper_;
 
   bool fetching_completed_;
@@ -132,7 +132,7 @@ class BrowsingDataQuotaHelperTest : public testing::Test {
 
 TEST_F(BrowsingDataQuotaHelperTest, Empty) {
   StartFetching();
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_TRUE(fetching_completed());
   EXPECT_TRUE(quota_info().empty());
 }
@@ -147,7 +147,7 @@ TEST_F(BrowsingDataQuotaHelperTest, FetchData) {
 
   RegisterClient(kOrigins, arraysize(kOrigins));
   StartFetching();
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_TRUE(fetching_completed());
 
   std::set<QuotaInfo> expected, actual;
@@ -175,7 +175,7 @@ TEST_F(BrowsingDataQuotaHelperTest, IgnoreExtensionsAndDevTools) {
 
   RegisterClient(kOrigins, arraysize(kOrigins));
   StartFetching();
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_TRUE(fetching_completed());
 
   std::set<QuotaInfo> expected, actual;
@@ -191,16 +191,16 @@ TEST_F(BrowsingDataQuotaHelperTest, RevokeHostQuota) {
 
   SetPersistentHostQuota(kHost1, 1);
   SetPersistentHostQuota(kHost2, 10);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   RevokeHostQuota(kHost1);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   GetPersistentHostQuota(kHost1);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(0, quota());
 
   GetPersistentHostQuota(kHost2);
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(10, quota());
 }

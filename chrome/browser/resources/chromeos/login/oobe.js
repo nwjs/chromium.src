@@ -58,7 +58,7 @@ cr.define('cr.ui', function() {
           send_callback();
       });
     }
-  }
+  };
 
   /**
    * Initializes the OOBE flow.  This will cause all C++ handlers to
@@ -74,6 +74,7 @@ cr.define('cr.ui', function() {
     login.GaiaSigninScreen.register();
     oobe.UserImageScreen.register(/* lazyInit= */ false);
     login.ErrorMessageScreen.register();
+    login.TPMErrorMessageScreen.register();
 
     cr.ui.Bubble.decorate($('bubble'));
     login.HeaderBar.decorate($('login-header-bar'));
@@ -89,9 +90,13 @@ cr.define('cr.ui', function() {
       $('popup-overlay').hidden = false;
       $('security-ok-button').focus();
     });
+
+    Oobe.initializeA11yMenu();
+
     $('security-ok-button').addEventListener('click', function(event) {
       $('popup-overlay').hidden = true;
     });
+
     // Do not allow focus leaving the overlay.
     $('popup-overlay').addEventListener('focusout', function(event) {
       // WebKit does not allow immediate focus return.
@@ -103,6 +108,37 @@ cr.define('cr.ui', function() {
   };
 
   /**
+   * Initializes OOBE accessibility menu.
+   */
+  Oobe.initializeA11yMenu = function() {
+    cr.ui.Bubble.decorate($('accessibility-menu'));
+    $('connect-accessibility-link').addEventListener(
+        'click', Oobe.handleAccessbilityLinkClick);
+    $('eula-accessibility-link').addEventListener(
+        'click', Oobe.handleAccessbilityLinkClick);
+    $('update-accessibility-link').addEventListener(
+        'click', Oobe.handleAccessbilityLinkClick);
+
+    // TODO(nkostylev): Move OOBE/login WebUI from localStrings to loadTimeData.
+    $('high-contrast').checked =
+        localStrings.getString('highContrastEnabled') == 'on';
+    $('spoken-feedback').checked =
+        localStrings.getString('spokenFeedbackEnabled') == 'on';
+    $('screen-magnifier').checked =
+        localStrings.getString('screenMagnifierEnabled') == 'on';
+    $('high-contrast').addEventListener('click', Oobe.handleHighContrastClick);
+    $('spoken-feedback').addEventListener('click',
+                                          Oobe.handleSpokenFeedbackClick);
+    $('screen-magnifier').addEventListener('click',
+                                           Oobe.handleScreenMagnifierClick);
+
+    // A11y menu should be accessible i.e. disable autohide on any
+    // keydown or click inside menu.
+    $('accessibility-menu').hideOnKeyPress = false;
+    $('accessibility-menu').hideOnSelfClick = false;
+  };
+
+  /**
    * Handle accelerators. These are passed from native code instead of a JS
    * event handler in order to make sure that embedded iframes cannot swallow
    * them.
@@ -110,6 +146,42 @@ cr.define('cr.ui', function() {
    */
   Oobe.handleAccelerator = function(name) {
     Oobe.getInstance().handleAccelerator(name);
+  };
+
+  /**
+   * Accessibility link handler.
+   */
+  Oobe.handleAccessbilityLinkClick = function(e) {
+    /** @const */ var BUBBLE_OFFSET = 5;
+    /** @const */ var BUBBLE_PADDING = 10;
+    $('accessibility-menu').showForElement($('connect-accessibility-link'),
+                                           cr.ui.Bubble.Attachment.BOTTOM,
+                                           BUBBLE_OFFSET, BUBBLE_PADDING);
+    e.stopPropagation();
+  };
+
+  /**
+   * Spoken feedback checkbox handler.
+   */
+  Oobe.handleSpokenFeedbackClick = function(e) {
+    chrome.send('enableSpokenFeedback', [$('spoken-feedback').checked]);
+    e.stopPropagation();
+  };
+
+  /**
+   * High contrast mode checkbox handler.
+   */
+  Oobe.handleHighContrastClick = function(e) {
+    chrome.send('enableHighContrast', [$('high-contrast').checked]);
+    e.stopPropagation();
+  };
+
+  /**
+   * Screen magnifier checkbox handler.
+   */
+  Oobe.handleScreenMagnifierClick = function(e) {
+    chrome.send('enableScreenMagnifier', [$('screen-magnifier').checked]);
+    e.stopPropagation();
   };
 
   /**
@@ -320,9 +392,17 @@ cr.define('cr.ui', function() {
   };
 
   /**
-   * Clears error bubble.
+   * Shows TPM error screen.
+   */
+  Oobe.showTpmError = function() {
+    DisplayManager.showTpmError();
+  };
+
+  /**
+   * Clears error bubble as well as optional menus that could be open.
    */
   Oobe.clearErrors = function() {
+    $('accessibility-menu').hide();
     DisplayManager.clearErrors();
   };
 

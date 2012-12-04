@@ -237,7 +237,7 @@
   },
 
   'conditions': [
-    ['OS=="linux"', {
+    ['OS=="linux" and chromeos==0', {
       'targets': [
         # Linux breakpad processing
         {
@@ -285,6 +285,30 @@
             'host/setup/start_host.cc',
           ],
         },  # end of target 'remoting_start_host'
+        {
+          'target_name': 'remoting_configurer',
+          'type': 'executable',
+          'variables': { 'enable_wexit_time_destructors': 1, },
+          'cflags': [
+            '<!@(pkg-config --cflags webkit-1.0)',
+          ],
+          'link_settings': {
+            'ldflags': [
+              '<!@(pkg-config --libs-only-L --libs-only-other webkit-1.0)',
+            ],
+            'libraries': [
+              '<!@(pkg-config --libs-only-l webkit-1.0)',
+            ],
+          },
+          'dependencies': [
+            '../base/base.gyp:base',
+            'remoting_host_setup_base',
+            'remoting_resources'
+          ],
+          'sources': [
+            'host/setup/linux/linux_host_setup_wizard.cc',
+          ],
+        },  # end of target 'remoting_configurer'
       ],  # end of 'targets'
     }],  # 'OS=="linux"'
 
@@ -667,8 +691,8 @@
             'host/desktop_session_win.cc',
             'host/desktop_session_win.h',
             'host/host_exit_codes.h',
-            'host/ipc_consts.cc',
-            'host/ipc_consts.h',
+            'host/ipc_constants.cc',
+            'host/ipc_constants.h',
             'host/sas_injector.h',
             'host/sas_injector_win.cc',
             'host/win/desktop.cc',
@@ -933,6 +957,11 @@
         'base/breakpad_win.cc',
       ],
       'conditions': [
+        ['OS=="mac"', {
+          'dependencies': [
+            '../breakpad/breakpad.gyp:breakpad',
+          ],
+        }],
         ['OS=="win"', {
           'dependencies': [
             '../breakpad/breakpad.gyp:breakpad_handler',
@@ -1221,7 +1250,6 @@
       ],
       'sources': [
         'webapp/build-webapp.py',
-        'webapp/verify-webapp.py',
         '<(remoting_version_path)',
         '<(chrome_version_path)',
         '<@(remoting_webapp_files)',
@@ -1234,38 +1262,6 @@
       # seem to guarantee the ordering of 2 copies statements
       # when the actual project is generated.
       'actions': [
-        {
-          'action_name': 'Verify Remoting WebApp i18n',
-          'inputs': [
-            'host/plugin/host_script_object.cc',
-            '<(webapp_locale_dir)/en/messages.json',
-            'webapp/client_screen.js',
-            'webapp/host_controller.js',
-            'webapp/host_table_entry.js',
-            'webapp/host_setup_dialog.js',
-            'webapp/main.html',
-            'webapp/manifest.json',
-            'webapp/remoting.js',
-            'webapp/verify-webapp.py',
-          ],
-          'outputs': [
-            '<(PRODUCT_DIR)/remoting/webapp_verified.stamp',
-          ],
-          'action': [
-            'python',
-            'webapp/verify-webapp.py',
-            '<(PRODUCT_DIR)/remoting/webapp_verified.stamp',
-            '<(webapp_locale_dir)/en/messages.json',
-            'webapp/client_screen.js',
-            'webapp/host_controller.js',
-            'webapp/host_table_entry.js',
-            'webapp/host_setup_dialog.js',
-            'webapp/main.html',
-            'webapp/manifest.json',
-            'webapp/remoting.js',
-            'host/plugin/host_script_object.cc',
-         ],
-        },
         {
           'action_name': 'Build Remoting WebApp',
           'output_dir': '<(PRODUCT_DIR)/remoting/remoting.webapp',
@@ -1305,8 +1301,40 @@
       'variables': {
         'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)',
         'grit_resource_ids': 'resource_ids',
+        'sources': [
+          'base/resources_unittest.cc',
+          'host/plugin/host_script_object.cc',
+          'host/setup/linux/linux_host_setup_wizard.cc',
+          'webapp/client_screen.js',
+          'webapp/host_list.js',
+          'webapp/host_table_entry.js',
+          'webapp/host_setup_dialog.js',
+          'webapp/main.html',
+          'webapp/manifest.json',
+          'webapp/remoting.js',
+        ],
       },
       'actions': [
+        {
+          'action_name': 'verify_resources',
+          'inputs': [
+            'resources/string_resources.grd',
+            'resources/common_resources.grd',
+            'tools/verify_resources.py',
+            '<@(sources)'
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/remoting_resources_verified.stamp',
+          ],
+          'action': [
+            'python',
+            'tools/verify_resources.py',
+            '-t', '<(PRODUCT_DIR)/remoting_resources_verified.stamp',
+            '-r', 'resources/string_resources.grd',
+            '-r', 'resources/common_resources.grd',
+            '<@(sources)',
+         ],
+        },
         {
           'action_name': 'string_resources',
           'variables': {
@@ -1433,6 +1461,9 @@
         'base/resources.h',
         'base/running_average.cc',
         'base/running_average.h',
+        'base/shared_buffer.cc',
+        'base/shared_buffer.h',
+        'base/shared_buffer_factory.h',
         'base/socket_reader.cc',
         'base/socket_reader.h',
         'base/stoppable.cc',
@@ -1522,6 +1553,8 @@
         'host/desktop_resizer_win.cc',
         'host/desktop_resizer_mac.cc',
         'host/desktop_session_connector.h',
+        'host/desktop_session_proxy.cc',
+        'host/desktop_session_proxy.h',
         'host/differ.cc',
         'host/differ.h',
         'host/disconnect_window.h',
@@ -1549,16 +1582,22 @@
         'host/host_secret.cc',
         'host/host_secret.h',
         'host/host_status_observer.h',
+        'host/host_status_service.cc',
+        'host/host_status_service.h',
         'host/host_user_interface.cc',
         'host/host_user_interface.h',
         'host/in_memory_host_config.cc',
         'host/in_memory_host_config.h',
-        'host/ipc_consts.cc',
-        'host/ipc_consts.h',
+        'host/ipc_constants.cc',
+        'host/ipc_constants.h',
         'host/ipc_desktop_environment_factory.cc',
         'host/ipc_desktop_environment_factory.h',
         'host/ipc_desktop_environment.cc',
         'host/ipc_desktop_environment.h',
+        'host/ipc_event_executor.cc',
+        'host/ipc_event_executor.h',
+        'host/ipc_video_frame_capturer.cc',
+        'host/ipc_video_frame_capturer.h',
         'host/it2me_host_user_interface.cc',
         'host/it2me_host_user_interface.h',
         'host/json_host_config.cc',
@@ -1617,11 +1656,8 @@
         'host/url_request_context.cc',
         'host/url_request_context.h',
         'host/usage_stats_consent.h',
+        'host/usage_stats_consent_mac.cc',
         'host/usage_stats_consent_win.cc',
-        'host/user_authenticator.h',
-        'host/user_authenticator_linux.cc',
-        'host/user_authenticator_mac.cc',
-        'host/user_authenticator_win.cc',
         'host/video_frame.cc',
         'host/video_frame.h',
         'host/video_frame_capturer.h',
@@ -1638,6 +1674,10 @@
         'host/video_scheduler.h',
         'host/vlog_net_log.cc',
         'host/vlog_net_log.h',
+        'host/websocket_connection.cc',
+        'host/websocket_connection.h',
+        'host/websocket_listener.cc',
+        'host/websocket_listener.h',
         'host/win/desktop.cc',
         'host/win/desktop.h',
         'host/win/launch_process_with_token.cc',
@@ -1692,6 +1732,7 @@
           'link_settings': {
             'libraries': [
               '$(SDKROOT)/System/Library/Frameworks/OpenGL.framework',
+              'libpam.a',
             ],
           },
         }],
@@ -1810,9 +1851,19 @@
                 # A real .dSYM is needed for dump_syms to operate on.
                 'mac_real_dsym': 1,
               },
-            }],
+              'defines': ['MAC_BREAKPAD'],
+              'copies': [
+                {
+                  'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
+                  'files': [
+                    '<(PRODUCT_DIR)/crash_inspector',
+                    '<(PRODUCT_DIR)/crash_report_sender.app'
+                  ],
+                },
+              ],
+            }],  # mac_breakpad==1
           ],  # conditions
-        }],
+        }],  # OS=mac
         ['OS=="win"', {
           'product_name': 'remoting_host',
           'dependencies': [
@@ -1847,7 +1898,6 @@
               ],
               'ImportLibrary': '$(OutDir)\\lib\\remoting_host_exe.lib',
               'OutputFile': '$(OutDir)\\remoting_host.exe',
-              'ProgramDatabaseFile': '$(OutDir)\\remoting_host.pdb',
               # 2 == /SUBSYSTEM:WINDOWS
               'SubSystem': '2',
             },
@@ -2080,6 +2130,7 @@
         'base/breakpad_win_unittest.cc',
         'base/compound_buffer_unittest.cc',
         'base/resources_unittest.cc',
+        'base/shared_buffer_unittest.cc',
         'base/util_unittest.cc',
         'client/audio_player_unittest.cc',
         'client/key_event_mapper_unittest.cc',
@@ -2136,6 +2187,7 @@
         'host/video_frame_capturer_mac_unittest.cc',
         'host/video_frame_capturer_unittest.cc',
         'host/video_scheduler_unittest.cc',
+        'host/websocket_connection_unittest.cc',
         'host/win/launch_process_with_token.cc',
         'host/win/launch_process_with_token.h',
         'host/win/worker_process_launcher.cc',

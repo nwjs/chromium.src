@@ -27,24 +27,6 @@ namespace captive_portal {
 
 namespace {
 
-// Used for histograms.
-const char* const kCaptivePortalResultNames[] = {
-  "InternetConnected",
-  "NoResponse",
-  "BehindCaptivePortal",
-  "NumCaptivePortalResults",
-};
-COMPILE_ASSERT(arraysize(kCaptivePortalResultNames) == RESULT_COUNT + 1,
-               captive_portal_result_name_count_mismatch);
-
-// Used for histograms.
-std::string CaptivePortalResultToString(Result result) {
-  DCHECK_GE(result, 0);
-  DCHECK_LT(static_cast<unsigned int>(result),
-            arraysize(kCaptivePortalResultNames));
-  return kCaptivePortalResultNames[result];
-}
-
 // Records histograms relating to how often captive portal detection attempts
 // ended with |result| in a row, and for how long |result| was the last result
 // of a detection attempt.  Recorded both on quit and on a new Result.
@@ -65,7 +47,7 @@ void RecordRepeatHistograms(Result result,
   base::Histogram* result_repeated_histogram =
       base::Histogram::FactoryGet(
           "CaptivePortal.ResultRepeated." +
-              CaptivePortalResultToString(result),
+              CaptivePortalDetector::CaptivePortalResultToString(result),
           1,  // min
           100,  // max
           100,  // bucket_count
@@ -79,7 +61,7 @@ void RecordRepeatHistograms(Result result,
   base::Histogram* result_duration_histogram =
       base::Histogram::FactoryTimeGet(
           "CaptivePortal.ResultDuration." +
-              CaptivePortalResultToString(result),
+              CaptivePortalDetector::CaptivePortalResultToString(result),
           base::TimeDelta::FromSeconds(1),  // min
           base::TimeDelta::FromHours(1),  // max
           50,  // bucket_count
@@ -163,7 +145,8 @@ CaptivePortalService::CaptivePortalService(Profile* profile)
   resolve_errors_with_web_service_.Init(
       prefs::kAlternateErrorPagesEnabled,
       profile_->GetPrefs(),
-      this);
+      base::Bind(&CaptivePortalService::UpdateEnabledState,
+                 base::Unretained(this)));
   ResetBackoffEntry(last_detection_result_);
 
   UpdateEnabledState();
@@ -271,13 +254,6 @@ void CaptivePortalService::OnPortalDetectionCompleted(
   OnResult(result);
 }
 
-void CaptivePortalService::OnPreferenceChanged(PrefServiceBase* service,
-                                               const std::string& pref_name) {
-  DCHECK(CalledOnValidThread());
-  DCHECK_EQ(std::string(prefs::kAlternateErrorPagesEnabled), pref_name);
-  UpdateEnabledState();
-}
-
 void CaptivePortalService::Shutdown() {
   DCHECK(CalledOnValidThread());
   if (enabled_) {
@@ -318,6 +294,7 @@ void CaptivePortalService::ResetBackoffEntry(Result result) {
 }
 
 void CaptivePortalService::UpdateEnabledState() {
+  DCHECK(CalledOnValidThread());
   bool enabled_before = enabled_;
   enabled_ = testing_state_ != DISABLED_FOR_TESTING &&
              resolve_errors_with_web_service_.GetValue();

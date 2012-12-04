@@ -7,171 +7,97 @@
 #include <Functiondiscoverykeys_devpkey.h>
 
 #include "base/debug/trace_event.h"
+#include "base/time.h"
 #include "base/win/scoped_com_initializer.h"
 #include "media/audio/win/audio_manager_win.h"
 #include "media/audio/win/avrt_wrapper_win.h"
+#include "media/audio/win/core_audio_util_win.h"
 
 using base::win::ScopedComPtr;
 using base::win::ScopedCOMInitializer;
 using base::win::ScopedCoMem;
 
+// Time in milliseconds between two successive delay measurements.
+// We save resources by not updating the delay estimates for each capture
+// event (typically 100Hz rate).
+static const size_t kTimeDiffInMillisecondsBetweenDelayMeasurements = 1000;
+
+// Compare two sets of audio parameters and return true if they are equal.
+// Note that bits_per_sample() is excluded from this comparison since Core
+// Audio can deal with most bit depths. As an example, if the native/mixing
+// bit depth is 32 bits (default), opening at 16 or 24 still works fine and
+// the audio engine will do the required conversion for us.
+static bool CompareAudioParameters(const media::AudioParameters& a,
+                                   const media::AudioParameters& b) {
+  return (a.format() == b.format() &&
+          a.channels() == b.channels() &&
+          a.sample_rate() == b.sample_rate() &&
+          a.frames_per_buffer() == b.frames_per_buffer());
+}
+
+// Use the acquired IAudioClock interface to derive a time stamp of the audio
+// sample which is currently playing through the speakers.
+static double SpeakerStreamPosInMilliseconds(IAudioClock* clock) {
+  UINT64 device_frequency = 0, position = 0;
+  if (FAILED(clock->GetFrequency(&device_frequency)) ||
+      FAILED(clock->GetPosition(&position, NULL))) {
+    return 0.0;
+  }
+
+  return base::Time::kMillisecondsPerSecond *
+      (static_cast<double>(position) / device_frequency);
+}
+
+// Get a time stamp in milliseconds given number of audio frames in |num_frames|
+// using the current sample rate |fs| as scale factor.
+// Example: |num_frames| = 960 and |fs| = 48000 => 20 [ms].
+static double CurrentStreamPosInMilliseconds(UINT64 num_frames, DWORD fs) {
+  return base::Time::kMillisecondsPerSecond *
+      (static_cast<double>(num_frames) / fs);
+}
+
+// Convert a timestamp in milliseconds to byte units given the audio format
+// in |format|.
+// Example: |ts_milliseconds| equals 10, sample rate is 48000 and frame size
+// is 4 bytes per audio frame => 480 * 4 = 1920 [bytes].
+static int MillisecondsToBytes(double ts_milliseconds,
+                               const WAVEFORMATPCMEX& format) {
+  double seconds = ts_milliseconds / base::Time::kMillisecondsPerSecond;
+  return static_cast<int>(seconds * format.Format.nSamplesPerSec *
+      format.Format.nBlockAlign + 0.5);
+}
+
 namespace media {
-
-static HRESULT GetMixFormat(EDataFlow data_flow, WAVEFORMATEX** device_format) {
-  // It is assumed that this static method is called from a COM thread, i.e.,
-  // CoInitializeEx() is not called here again to avoid STA/MTA conflicts.
-  ScopedComPtr<IMMDeviceEnumerator> enumerator;
-  HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
-                                NULL,
-                                CLSCTX_INPROC_SERVER,
-                                __uuidof(IMMDeviceEnumerator),
-                                enumerator.ReceiveVoid());
-  if (FAILED(hr)) {
-    NOTREACHED() << "error code: " << std::hex << hr;
-    return hr;
-  }
-
-  ScopedComPtr<IMMDevice> endpoint_device;
-  hr = enumerator->GetDefaultAudioEndpoint(data_flow,
-                                           eConsole,
-                                           endpoint_device.Receive());
-  if (FAILED(hr)) {
-    LOG(WARNING) << "No audio end point: " << std::hex << hr;
-    return hr;
-  }
-
-  ScopedComPtr<IAudioClient> audio_client;
-  hr = endpoint_device->Activate(__uuidof(IAudioClient),
-                                 CLSCTX_INPROC_SERVER,
-                                 NULL,
-                                 audio_client.ReceiveVoid());
-  DCHECK(SUCCEEDED(hr)) << "Failed to activate device: " << std::hex << hr;
-  if (SUCCEEDED(hr)) {
-    // Retrieve the stream format that the audio engine uses for its internal
-    // processing/mixing of shared-mode streams.
-    hr = audio_client->GetMixFormat(device_format);
-    DCHECK(SUCCEEDED(hr)) << "GetMixFormat: " << std::hex << hr;
-  }
-
-  return hr;
-}
-
-static ScopedComPtr<IMMDevice> CreateDefaultAudioDevice(EDataFlow data_flow) {
-  ScopedComPtr<IMMDeviceEnumerator> device_enumerator;
-  ScopedComPtr<IMMDevice> endpoint_device;
-
-  // Create the IMMDeviceEnumerator interface.
-  HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
-                                NULL,
-                                CLSCTX_INPROC_SERVER,
-                                __uuidof(IMMDeviceEnumerator),
-                                device_enumerator.ReceiveVoid());
-  if (SUCCEEDED(hr)) {
-    // Retrieve the default render audio endpoint for the specified role.
-    hr = device_enumerator->GetDefaultAudioEndpoint(
-        data_flow, eConsole, endpoint_device.Receive());
-
-    if (FAILED(hr)) {
-      PLOG(ERROR) << "GetDefaultAudioEndpoint: " << std::hex << hr;
-      return endpoint_device;
-    }
-
-    // Verify that the audio endpoint device is active. That is, the audio
-    // adapter that connects to the endpoint device is present and enabled.
-    DWORD state = DEVICE_STATE_DISABLED;
-    hr = endpoint_device->GetState(&state);
-    if (SUCCEEDED(hr)) {
-      if (!(state & DEVICE_STATE_ACTIVE)) {
-        PLOG(ERROR) << "Selected render device is not active.";
-        endpoint_device.Release();
-      }
-    }
-  }
-
-  return endpoint_device;
-}
-
-static ScopedComPtr<IAudioClient> CreateAudioClient(IMMDevice* audio_device) {
-  ScopedComPtr<IAudioClient> audio_client;
-
-  // Creates and activates an IAudioClient COM object given the selected
-  // endpoint device.
-  HRESULT hr = audio_device->Activate(__uuidof(IAudioClient),
-                                      CLSCTX_INPROC_SERVER,
-                                      NULL,
-                                      audio_client.ReceiveVoid());
-  PLOG_IF(ERROR, FAILED(hr)) << "IMMDevice::Activate: " << std::hex << hr;
-  return audio_client;
-}
-
-static bool IsFormatSupported(IAudioClient* audio_client,
-                              WAVEFORMATPCMEX* format) {
-  ScopedCoMem<WAVEFORMATEXTENSIBLE> closest_match;
-  HRESULT hr = audio_client->IsFormatSupported(
-      AUDCLNT_SHAREMODE_SHARED, reinterpret_cast<WAVEFORMATEX*>(format),
-      reinterpret_cast<WAVEFORMATEX**>(&closest_match));
-
-  // This log can only be triggered for shared mode.
-  DLOG_IF(ERROR, hr == S_FALSE) << "Format is not supported "
-      << "but a closest match exists.";
-  // This log can be triggered both for shared and exclusive modes.
-  DLOG_IF(ERROR, hr == AUDCLNT_E_UNSUPPORTED_FORMAT) << "Unsupported format.";
-  if (hr == S_FALSE) {
-    DVLOG(1) << "wFormatTag    : " << closest_match->Format.wFormatTag;
-    DVLOG(1) << "nChannels     : " << closest_match->Format.nChannels;
-    DVLOG(1) << "nSamplesPerSec: " << closest_match->Format.nSamplesPerSec;
-    DVLOG(1) << "wBitsPerSample: " << closest_match->Format.wBitsPerSample;
-  }
-
-  return (hr == S_OK);
-}
-
-// Get the default scheduling period for a shared-mode stream in a specified
-// direction. Note that the period between processing passes by the audio
-// engine is fixed for a particular audio endpoint device and represents the
-// smallest processing quantum for the audio engine.
-static REFERENCE_TIME GetAudioEngineDevicePeriod(EDataFlow data_flow) {
-  ScopedComPtr<IMMDevice> endpoint_device = CreateDefaultAudioDevice(data_flow);
-  if (!endpoint_device)
-     return 0;
-
-  ScopedComPtr<IAudioClient> audio_client;
-  audio_client = CreateAudioClient(endpoint_device);
-  if (!audio_client)
-    return 0;
-
-  REFERENCE_TIME default_device_period = 0;
-  REFERENCE_TIME minimum_device_period = 0;
-
-  // Times are expressed in 100-nanosecond units.
-  HRESULT hr = audio_client->GetDevicePeriod(&default_device_period,
-                                             &minimum_device_period);
-  if (SUCCEEDED(hr)) {
-    std::string flow = (data_flow == eCapture) ? "[in] " : "[out] ";
-    DVLOG(1) << flow << "default_device_period: " << default_device_period;
-    DVLOG(1) << flow << "minimum_device_period: " << minimum_device_period;
-
-    return default_device_period;
-  }
-
-  return 0;
-}
 
 WASAPIUnifiedStream::WASAPIUnifiedStream(AudioManagerWin* manager,
                                          const AudioParameters& params)
     : creating_thread_id_(base::PlatformThread::CurrentId()),
       manager_(manager),
+      share_mode_(CoreAudioUtil::GetShareMode()),
       audio_io_thread_(NULL),
       opened_(false),
       endpoint_render_buffer_size_frames_(0),
       endpoint_capture_buffer_size_frames_(0),
+      num_written_frames_(0),
+      total_delay_ms_(0.0),
       source_(NULL),
       capture_bus_(AudioBus::Create(params)),
       render_bus_(AudioBus::Create(params)) {
   DCHECK(manager_);
 
-  LOG_IF(ERROR, !HasUnifiedDefaultIO())
-      << "Unified audio I/O is not supported.";
+  DVLOG_IF(1, !HasUnifiedDefaultIO()) << "Unified audio I/O is not supported.";
+  DVLOG_IF(1, share_mode_ == AUDCLNT_SHAREMODE_EXCLUSIVE)
+      << "Core Audio (WASAPI) EXCLUSIVE MODE is enabled.";
+
+#if !defined(NDEBUG)
+  // Add log message if input parameters are not identical to the preferred
+  // parameters.
+  AudioParameters mix_params;
+  HRESULT hr = CoreAudioUtil::GetPreferredAudioParameters(
+      eRender, eConsole, &mix_params);
+  DVLOG_IF(1, SUCCEEDED(hr) && !CompareAudioParameters(params, mix_params)) <<
+      "Input and preferred parameters are not identical.";
+#endif
 
   // Load the Avrt DLL if not already loaded. Required to support MMCSS.
   bool avrt_init = avrt::Initialize();
@@ -224,53 +150,61 @@ bool WASAPIUnifiedStream::Open() {
   }
 
   // Render side:
-  //   IMMDeviceEnumerator -> IMMDevice
-  //   IMMDevice -> IAudioClient
-  //   IAudioClient -> IAudioRenderClient
-
-  ScopedComPtr<IMMDevice> render_device = CreateDefaultAudioDevice(eRender);
-  if (!render_device)
-     return false;
 
   ScopedComPtr<IAudioClient> audio_output_client =
-      CreateAudioClient(render_device);
+      CoreAudioUtil::CreateDefaultClient(eRender, eConsole);
   if (!audio_output_client)
     return false;
 
-  if (!IsFormatSupported(audio_output_client, &format_))
+  if (!CoreAudioUtil::IsFormatSupported(audio_output_client,
+                                        share_mode_,
+                                        &format_)) {
+    return false;
+  }
+
+  HRESULT hr = S_FALSE;
+  if (share_mode_ == AUDCLNT_SHAREMODE_SHARED) {
+    hr = CoreAudioUtil::SharedModeInitialize(
+        audio_output_client, &format_, NULL,
+        &endpoint_render_buffer_size_frames_);
+  } else {
+    // TODO(henrika): add support for AUDCLNT_SHAREMODE_EXCLUSIVE.
+  }
+  if (FAILED(hr))
     return false;
 
   ScopedComPtr<IAudioRenderClient> audio_render_client =
-      CreateAudioRenderClient(audio_output_client);
+      CoreAudioUtil::CreateRenderClient(audio_output_client);
   if (!audio_render_client)
     return false;
 
   // Capture side:
-  //   IMMDeviceEnumerator -> IMMDevice
-  //   IMMDevice -> IAudioClient
-  //   IAudioClient -> IAudioCaptureClient
-
-  ScopedComPtr<IMMDevice> capture_device = CreateDefaultAudioDevice(eCapture);
-  if (!capture_device)
-    return false;
 
   ScopedComPtr<IAudioClient> audio_input_client =
-      CreateAudioClient(capture_device);
+      CoreAudioUtil::CreateDefaultClient(eCapture, eConsole);
   if (!audio_input_client)
     return false;
 
-  if (!IsFormatSupported(audio_input_client, &format_))
+  if (!CoreAudioUtil::IsFormatSupported(audio_input_client,
+                                        share_mode_,
+                                        &format_)) {
+    return false;
+  }
+
+  if (share_mode_ == AUDCLNT_SHAREMODE_SHARED) {
+    // Include valid event handle for event-driven initialization.
+    hr = CoreAudioUtil::SharedModeInitialize(
+        audio_input_client, &format_, capture_event_.Get(),
+        &endpoint_capture_buffer_size_frames_);
+  } else {
+    // TODO(henrika): add support for AUDCLNT_SHAREMODE_EXCLUSIVE.
+  }
+  if (FAILED(hr))
     return false;
 
   ScopedComPtr<IAudioCaptureClient> audio_capture_client =
-      CreateAudioCaptureClient(audio_input_client);
+      CoreAudioUtil::CreateCaptureClient(audio_input_client);
   if (!audio_capture_client)
-    return false;
-
-  // Set the event handle that the audio engine will signal each time
-  // a buffer becomes ready to be processed by the client.
-  HRESULT hr = audio_input_client->SetEventHandle(capture_event_.Get());
-  if (FAILED(hr))
     return false;
 
   // Store all valid COM interfaces.
@@ -295,26 +229,6 @@ void WASAPIUnifiedStream::Start(AudioSourceCallback* callback) {
 
   source_ = callback;
 
-  // Avoid start-up glitches by filling up the endpoint buffer with "silence"
-  // before starting the stream.
-  BYTE* data_ptr = NULL;
-  HRESULT hr = audio_render_client_->GetBuffer(
-      endpoint_render_buffer_size_frames_, &data_ptr);
-  if (FAILED(hr)) {
-    DLOG(ERROR) << "Failed to use rendering audio buffer: " << std::hex << hr;
-    return;
-  }
-
-  // Using the AUDCLNT_BUFFERFLAGS_SILENT flag eliminates the need to
-  // explicitly write silence data to the rendering buffer.
-  audio_render_client_->ReleaseBuffer(endpoint_render_buffer_size_frames_,
-                                      AUDCLNT_BUFFERFLAGS_SILENT);
-
-  // Sanity check: verify that the endpoint buffer is filled with silence.
-  UINT32 num_queued_frames = 0;
-  audio_output_client_->GetCurrentPadding(&num_queued_frames);
-  DCHECK(num_queued_frames == endpoint_render_buffer_size_frames_);
-
   // Create and start the thread that will capturing and rendering.
   audio_io_thread_.reset(
       new base::DelegateSimpleThread(this, "wasapi_io_thread"));
@@ -326,11 +240,18 @@ void WASAPIUnifiedStream::Start(AudioSourceCallback* callback) {
 
   // Start input streaming data between the endpoint buffer and the audio
   // engine.
-  hr = audio_input_client_->Start();
+  HRESULT hr = audio_input_client_->Start();
   if (FAILED(hr)) {
     StopAndJoinThread(hr);
     return;
   }
+
+  // Reset the counter for number of rendered frames taking into account the
+  // fact that we always initialize the render side with silence.
+  UINT32 num_queued_frames = 0;
+  audio_output_client_->GetCurrentPadding(&num_queued_frames);
+  DCHECK_EQ(num_queued_frames, endpoint_render_buffer_size_frames_);
+  num_written_frames_ = num_queued_frames;
 
   // Start output streaming data between the endpoint buffer and the audio
   // engine.
@@ -388,7 +309,7 @@ void WASAPIUnifiedStream::Stop() {
   // Extra safety check to ensure that the buffers are cleared.
   // If the buffers are not cleared correctly, the next call to Start()
   // would fail with AUDCLNT_E_BUFFER_ERROR at IAudioRenderClient::GetBuffer().
-  // This check is is only needed for shared-mode streams.
+  // TODO(henrika): this check is is only needed for shared-mode streams.
   UINT32 num_queued_frames = 0;
   audio_output_client_->GetCurrentPadding(&num_queued_frames);
   DCHECK_EQ(0u, num_queued_frames);
@@ -416,61 +337,19 @@ void WASAPIUnifiedStream::GetVolume(double* volume) {
 
 // static
 bool WASAPIUnifiedStream::HasUnifiedDefaultIO() {
-  int output_size = HardwareBufferSize(eRender);
-  int input_size = HardwareBufferSize(eCapture);
-  int output_channels = HardwareChannelCount(eRender);
-  int input_channels = HardwareChannelCount(eCapture);
-  return ((output_size == input_size) && (output_channels == input_channels));
-}
-
-// static
-int WASAPIUnifiedStream::HardwareChannelCount(EDataFlow data_flow) {
-  base::win::ScopedCoMem<WAVEFORMATPCMEX> format_ex;
-  HRESULT hr = GetMixFormat(
-      data_flow, reinterpret_cast<WAVEFORMATEX**>(&format_ex));
+  AudioParameters in_params;
+  HRESULT hr = CoreAudioUtil::GetPreferredAudioParameters(eCapture, eConsole,
+                                                          &in_params);
   if (FAILED(hr))
-    return 0;
+    return false;
 
-  // Number of channels in the stream. Corresponds to the number of bits
-  // set in the dwChannelMask.
-  std::string flow = (data_flow == eCapture) ? "[in] " : "[out] ";
-  DVLOG(1) << flow << "endpoint channels: "
-           << format_ex->Format.nChannels;
-
-  return static_cast<int>(format_ex->Format.nChannels);
-}
-
-// static
-int WASAPIUnifiedStream::HardwareSampleRate(EDataFlow data_flow) {
-  base::win::ScopedCoMem<WAVEFORMATEX> format;
-  HRESULT hr = GetMixFormat(data_flow, &format);
+  AudioParameters out_params;
+  hr = CoreAudioUtil::GetPreferredAudioParameters(eRender, eConsole,
+                                                  &out_params);
   if (FAILED(hr))
-    return 0;
+    return false;
 
-  std::string flow = (data_flow == eCapture) ? "[in] " : "[out] ";
-  DVLOG(1) << flow << "nSamplesPerSec: " << format->nSamplesPerSec;
-  return static_cast<int>(format->nSamplesPerSec);
-}
-
-// static
-int WASAPIUnifiedStream::HardwareBufferSize(EDataFlow data_flow) {
-  int sample_rate = HardwareSampleRate(data_flow);
-  if (sample_rate == 0)
-    return 0;
-
-  // Number of 100-nanosecond units per second.
-  const float kRefTimesPerSec = 10000000.0f;
-
-  // A typical value of |device_period| is 100000 which corresponds to
-  // 0.01 seconds or 10 milliseconds. Given a sample rate of 48000 Hz,
-  // this device period results in a |buffer_size| of 480 audio frames.
-  REFERENCE_TIME device_period = GetAudioEngineDevicePeriod(data_flow);
-  int buffer_size = static_cast<int>(
-      ((sample_rate * device_period) / kRefTimesPerSec) + 0.5);
-  std::string flow = (data_flow == eCapture) ? "[in] " : "[out] ";
-  DVLOG(1) << flow << "buffer size: " << buffer_size;
-
-  return buffer_size;
+  return CompareAudioParameters(in_params, out_params);
 }
 
 void WASAPIUnifiedStream::Run() {
@@ -495,7 +374,19 @@ void WASAPIUnifiedStream::Run() {
     LOG(WARNING) << "Failed to enable MMCSS (error code=" << err << ").";
   }
 
-  HRESULT hr = S_FALSE;
+  // The IAudioClock interface enables us to monitor a stream's data
+  // rate and the current position in the stream. Allocate it before we
+  // start spinning.
+  ScopedComPtr<IAudioClock> audio_output_clock;
+  HRESULT hr = audio_output_client_->GetService(
+      __uuidof(IAudioClock), audio_output_clock.ReceiveVoid());
+  LOG_IF(WARNING, FAILED(hr)) << "Failed to create IAudioClock: "
+                              << std::hex << hr;
+
+  // Stores a delay measurement (unit is in bytes). This variable is not
+  // updated at each event, but the update frequency is set by a constant
+  // called |kTimeDiffInMillisecondsBetweenDelayMeasurements|.
+  int total_delay_bytes = 0;
 
   bool streaming = true;
   bool error = false;
@@ -531,14 +422,19 @@ void WASAPIUnifiedStream::Run() {
           UINT32 num_captured_frames = 0;
           DWORD flags = 0;
           UINT64 device_position = 0;
-          UINT64 first_audio_frame_timestamp = 0;
+          UINT64 capture_time_stamp = 0;
+
+          base::TimeTicks now_tick = base::TimeTicks::HighResNow();
 
           // Retrieve the amount of data in the capture endpoint buffer.
+          // |endpoint_capture_time_stamp| is the value of the performance
+          // counter at the time that the audio endpoint device recorded
+          // the device position of the first audio frame in the data packet.
           hr = audio_capture_client_->GetBuffer(&data_ptr,
                                                 &num_captured_frames,
                                                 &flags,
                                                 &device_position,
-                                                &first_audio_frame_timestamp);
+                                                &capture_time_stamp);
           if (FAILED(hr)) {
             DLOG(ERROR) << "Failed to get data from the capture buffer";
             continue;
@@ -559,14 +455,50 @@ void WASAPIUnifiedStream::Run() {
           hr = audio_capture_client_->ReleaseBuffer(num_captured_frames);
           DLOG_IF(ERROR, FAILED(hr)) << "Failed to release capture buffer";
 
+          // Save resource by not asking for new delay estimates each time.
+          // These estimates are fairly stable and it is perfectly safe to only
+          // sample at a rate of ~1Hz.
+          // TODO(henrika): it might be possible to use a fixed delay instead.
+          if ((now_tick - last_delay_sample_time_).InMilliseconds() >
+              kTimeDiffInMillisecondsBetweenDelayMeasurements) {
+            // Calculate the estimated capture delay, i.e., the latency between
+            // the recording time and the time we when we are notified about
+            // the recorded data. Note that the capture time stamp is given in
+            // 100-nanosecond (0.1 microseconds) units.
+            base::TimeDelta diff = now_tick -
+                base::TimeTicks::FromInternalValue(0.1 * capture_time_stamp);
+            const double capture_delay_ms = diff.InMillisecondsF();
+
+            // Calculate the estimated render delay, i.e., the time difference
+            // between the time when data is added to the endpoint buffer and
+            // when the data is played out on the actual speaker.
+            const double stream_pos = CurrentStreamPosInMilliseconds(
+                num_written_frames_ + packet_size_frames_,
+                format_.Format.nSamplesPerSec);
+            const double speaker_pos =
+                SpeakerStreamPosInMilliseconds(audio_output_clock);
+            const double render_delay_ms = stream_pos - speaker_pos;
+
+            // Derive the total delay, i.e., the sum of the input and output
+            // delays. Also convert the value into byte units.
+            total_delay_ms_ = capture_delay_ms + render_delay_ms;
+            last_delay_sample_time_ = now_tick;
+            DVLOG(3) << "total_delay_ms  : " << total_delay_ms_;
+            total_delay_bytes = MillisecondsToBytes(total_delay_ms_, format_);
+          }
+
           // Prepare for rendering by calling OnMoreIOData().
           int frames_filled = source_->OnMoreIOData(
               capture_bus_.get(),
               render_bus_.get(),
-              AudioBuffersState(0, 0));
+              AudioBuffersState(0, total_delay_bytes));
           DCHECK_EQ(frames_filled, render_bus_->frames());
 
           // --- Render ---
+
+          // Keep track of number of rendered frames since we need it for
+          // our delay calculations.
+          num_written_frames_ += frames_filled;
 
           // Derive the the amount of available space in the endpoint buffer.
           // Avoid render attempt if there is no room for a captured packet.
@@ -632,77 +564,6 @@ void WASAPIUnifiedStream::StopAndJoinThread(HRESULT err) {
   audio_io_thread_->Join();
   audio_io_thread_.reset();
   HandleError(err);
-}
-
-ScopedComPtr<IAudioRenderClient> WASAPIUnifiedStream::CreateAudioRenderClient(
-    IAudioClient* audio_client) {
-  ScopedComPtr<IAudioRenderClient> audio_render_client;
-  HRESULT hr = S_FALSE;
-
-  // Initialize the audio stream between the client and the device in shared
-  // push mode (will not signal an event).
-  hr = audio_client->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                AUDCLNT_STREAMFLAGS_NOPERSIST,
-                                0,
-                                0,
-                                reinterpret_cast<WAVEFORMATEX*>(&format_),
-                                NULL);
-  if (FAILED(hr)) {
-    LOG(WARNING) << "IAudioClient::Initialize() failed: " << std::hex << hr;
-    return audio_render_client;
-  }
-
-  // Retrieve the length of the render endpoint buffer shared between the
-  // client and the audio engine.
-  hr = audio_client->GetBufferSize(&endpoint_render_buffer_size_frames_);
-  if (FAILED(hr))
-    return audio_render_client;
-  DVLOG(1) << "render endpoint buffer size: "
-           << endpoint_render_buffer_size_frames_ << " [frames]";
-
-  // Get access to the IAudioRenderClient interface. This interface
-  // enables us to write output data to a rendering endpoint buffer.
-  hr = audio_client->GetService(__uuidof(IAudioRenderClient),
-                                audio_render_client.ReceiveVoid());
-  if (FAILED(hr)) {
-    LOG(WARNING) << "IAudioClient::GetService() failed: " << std::hex << hr;
-    return audio_render_client;
-  }
-
-  return audio_render_client;
-}
-
-ScopedComPtr<IAudioCaptureClient>
-WASAPIUnifiedStream::CreateAudioCaptureClient(IAudioClient* audio_client) {
-  ScopedComPtr<IAudioCaptureClient> audio_capture_client;
-  HRESULT hr = S_FALSE;
-
-  // Use event driven audio-buffer processing, i.e, the audio engine will
-  // inform us (by signaling an event) when data has been recorded.
-  hr = audio_client->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                AUDCLNT_STREAMFLAGS_EVENTCALLBACK |
-                                AUDCLNT_STREAMFLAGS_NOPERSIST,
-                                0,
-                                0,
-                                reinterpret_cast<WAVEFORMATEX*>(&format_),
-                                NULL);
-  if (FAILED(hr))
-    return audio_capture_client;
-
-  // Retrieve the length of the capture endpoint buffer shared between the
-  // client and the audio engine.
-  hr = audio_client->GetBufferSize(&endpoint_capture_buffer_size_frames_);
-  if (FAILED(hr))
-    return audio_capture_client;
-  DVLOG(1) << "capture endpoint buffer size: "
-           << endpoint_capture_buffer_size_frames_ << " [frames]";
-
-  // Get access to the IAudioCaptureClient interface. This interface
-  // enables us to read input data from the capture endpoint buffer.
-  hr = audio_client->GetService(__uuidof(IAudioCaptureClient),
-                                audio_capture_client.ReceiveVoid());
-
-  return audio_capture_client;
 }
 
 }  // namespace media

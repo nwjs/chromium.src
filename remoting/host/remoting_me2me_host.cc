@@ -15,6 +15,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "base/scoped_native_library.h"
+#include "base/single_thread_task_runner.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/stringize_macros.h"
@@ -48,8 +49,9 @@
 #include "remoting/host/host_config.h"
 #include "remoting/host/host_event_logger.h"
 #include "remoting/host/host_exit_codes.h"
+#include "remoting/host/host_status_service.h"
 #include "remoting/host/host_user_interface.h"
-#include "remoting/host/ipc_consts.h"
+#include "remoting/host/ipc_constants.h"
 #include "remoting/host/ipc_desktop_environment_factory.h"
 #include "remoting/host/json_host_config.h"
 #include "remoting/host/logging.h"
@@ -65,8 +67,10 @@
 #include "remoting/protocol/me2me_host_authenticator_factory.h"
 
 #if defined(OS_POSIX)
+#include <pwd.h>
 #include <signal.h>
 #include "base/file_descriptor_posix.h"
+#include "remoting/host/pam_authorization_factory_posix.h"
 #include "remoting/host/posix/signal_handler.h"
 #endif  // defined(OS_POSIX)
 
@@ -76,12 +80,9 @@
 #endif  // defined(OS_MACOSX)
 
 #if defined(OS_LINUX)
-#include <pwd.h>
 #include "remoting/host/audio_capturer_linux.h"
-#include "remoting/host/pam_authorization_factory_posix.h"
 #endif  // defined(OS_LINUX)
 
-// N.B. OS_WIN is defined by including src/base headers.
 #if defined(OS_WIN)
 #include <commctrl.h>
 #include "base/win/scoped_handle.h"
@@ -104,23 +105,26 @@ const char kVersionSwitchName[] = "version";
 // linux.
 const char kAudioPipeSwitchName[] = "audio-pipe-name";
 
+// The command line switch used to enable host status service.
+const char kEnableStatusServiceSwitchName[] = "enable-status-service";
+
 void QuitMessageLoop(MessageLoop* message_loop) {
   message_loop->PostTask(FROM_HERE, MessageLoop::QuitClosure());
 }
 
 // Returns true if GetUsername() is implemented on this platform.
 bool CanGetUsername() {
-#if defined(OS_LINUX)
+#if defined(OS_POSIX)
   return true;
-#else  // defined(OS_LINUX)
+#else  // !defined(OS_POSIX)
   return false;
-#endif  // defined(OS_LINUX)
+#endif  // defined(OS_POSIX)
 }  // namespace
 
 // Returns the username associated with this process, or the empty string on
 // error.
 std::string GetUsername() {
-#if defined(OS_LINUX)
+#if defined(OS_POSIX)
   long buf_size = sysconf(_SC_GETPW_R_SIZE_MAX);
   if (buf_size <= 0)
     return "";
@@ -131,10 +135,10 @@ std::string GetUsername() {
   if (!passwd_result)
     return "";
   return std::string(passwd_result->pw_name);
-#else  // defined(OS_LINUX)
+#else  // !defined(OS_POSIX)
   NOTREACHED();
   return "";
-#endif  // defined(OS_LINUX)
+#endif  // defined(OS_POSIX)
 }
 
 }  // namespace
@@ -144,19 +148,15 @@ namespace remoting {
 class HostProcess
     : public ConfigFileWatcher::Delegate,
       public HeartbeatSender::Listener,
-      public IPC::Listener {
+      public IPC::Listener,
+      public base::RefCountedThreadSafe<HostProcess> {
  public:
-  explicit HostProcess(scoped_ptr<ChromotingHostContext> context);
-
-  // Initializes IPC control channel and config file path from |cmd_line|.
-  bool InitWithCommandLine(const CommandLine* cmd_line);
+  HostProcess(scoped_ptr<ChromotingHostContext> context,
+              int* exit_code_out);
 
   // ConfigFileWatcher::Delegate interface.
   virtual void OnConfigUpdated(const std::string& serialized_config) OVERRIDE;
   virtual void OnConfigWatcherError() OVERRIDE;
-
-  void StartWatchingConfigChanges();
-  void CreateAuthenticatorFactory();
 
   // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
@@ -165,11 +165,10 @@ class HostProcess
   // HeartbeatSender::Listener overrides.
   virtual void OnUnknownHostIdError() OVERRIDE;
 
-  void StartHostProcess();
-
-  int get_exit_code() const;
-
  private:
+  friend class base::RefCountedThreadSafe<HostProcess>;
+  virtual ~HostProcess();
+
 #if defined(OS_POSIX)
   // Registers a SIGTERM handler on the network thread, to shutdown the host.
   void ListenForShutdownSignal();
@@ -178,10 +177,24 @@ class HostProcess
   void SigTermHandler(int signal_number);
 #endif
 
+  // Called to initialize resources on the UI thread.
+  void StartOnUiThread();
+
+  // Initializes IPC control channel and config file path from |cmd_line|.
+  // Called on the UI thread.
+  bool InitWithCommandLine(const CommandLine* cmd_line);
+
+  // Called on the UI thread to start monitoring the configuration file.
+  void StartWatchingConfigChanges();
+
+  // Called on the network thread to set the host's Authenticator factory.
+  void CreateAuthenticatorFactory();
+
   // Asks the daemon to inject Secure Attention Sequence to the console.
   void SendSasToConsole();
 
-  void ShutdownHostProcess();
+  // Tear down resources that run on the UI thread.
+  void ShutdownOnUiThread();
 
   // Applies the host config, returning true if successful.
   bool ApplyConfig(scoped_ptr<JsonHostConfig> config);
@@ -193,11 +206,15 @@ class HostProcess
   bool OnCurtainPolicyUpdate(bool curtain_required);
   bool OnHostTalkGadgetPrefixPolicyUpdate(const std::string& talkgadget_prefix);
 
+  void StartHostStatusService();
+
   void StartHost();
 
   void OnAuthFailed();
 
-  void RejectAuthenticatingClient();
+  void OnCurtainModeFailed();
+
+  void OnRemoteSessionSwitchedToConsole();
 
   // Invoked when the user uses the Disconnect windows to terminate
   // the sessions, or when the local session is activated in curtain mode.
@@ -209,7 +226,7 @@ class HostProcess
 
   void Shutdown(int exit_code);
 
-  void OnShutdownFinished();
+  void ShutdownOnNetworkThread();
 
   void ResetHost();
 
@@ -221,13 +238,20 @@ class HostProcess
                const int& line_number);
 
   scoped_ptr<ChromotingHostContext> context_;
-  scoped_ptr<IPC::ChannelProxy> daemon_channel_;
+
+  // Created on the UI thread but used from the network thread.
   scoped_ptr<net::NetworkChangeNotifier> network_change_notifier_;
 
+  // Accessed on the UI thread.
+  scoped_ptr<IPC::ChannelProxy> daemon_channel_;
   FilePath host_config_path_;
   scoped_ptr<ConfigFileWatcher> config_watcher_;
+  scoped_ptr<DesktopEnvironmentFactory> desktop_environment_factory_;
 
   // Accessed on the network thread.
+
+  scoped_ptr<HostStatusService> status_service_;
+
   std::string host_id_;
   protocol::SharedSecretHash host_secret_hash_;
   HostKeyPair key_pair_;
@@ -243,11 +267,11 @@ class HostProcess
 
   scoped_ptr<CurtainMode> curtain_;
   scoped_ptr<CurtainingHostObserver> curtaining_host_observer_;
+  bool curtain_required_;
 
   bool restarting_;
   bool shutting_down_;
 
-  scoped_ptr<DesktopEnvironmentFactory> desktop_environment_factory_;
   scoped_ptr<DesktopResizer> desktop_resizer_;
   scoped_ptr<ResizingHostObserver> resizing_host_observer_;
   scoped_ptr<XmppSignalStrategy> signal_strategy_;
@@ -256,33 +280,63 @@ class HostProcess
   scoped_ptr<LogToServer> log_to_server_;
   scoped_ptr<HostEventLogger> host_event_logger_;
 
+  // Created on the UI thread and used on the network thread.
   scoped_ptr<HostUserInterface> host_user_interface_;
 
   scoped_refptr<ChromotingHost> host_;
+
+  // Used to keep this HostProcess alive until it is shutdown.
+  scoped_refptr<HostProcess> self_;
 
 #if defined(REMOTING_MULTI_PROCESS)
   DesktopSessionConnector* desktop_session_connector_;
 #endif  // defined(REMOTING_MULTI_PROCESS)
 
-  int exit_code_;
+  int* exit_code_out_;
 };
 
-HostProcess::HostProcess(scoped_ptr<ChromotingHostContext> context)
+HostProcess::HostProcess(scoped_ptr<ChromotingHostContext> context,
+                         int* exit_code_out)
     : context_(context.Pass()),
       allow_nat_traversal_(true),
+      curtain_required_(false),
       restarting_(false),
       shutting_down_(false),
       desktop_resizer_(DesktopResizer::Create()),
 #if defined(REMOTING_MULTI_PROCESS)
       desktop_session_connector_(NULL),
 #endif  // defined(REMOTING_MULTI_PROCESS)
-      exit_code_(kSuccessExitCode) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(self_(this)),
+      exit_code_out_(exit_code_out) {
+  // Create a NetworkChangeNotifier for use by the signalling connector.
   network_change_notifier_.reset(net::NetworkChangeNotifier::Create());
+
+  // Create the platform-specific curtain-mode implementation.
+  // TODO(wez): Create this on the network thread?
   curtain_ = CurtainMode::Create(
-      base::Bind(&HostProcess::OnDisconnectRequested,
+      base::Bind(&HostProcess::OnRemoteSessionSwitchedToConsole,
                  base::Unretained(this)),
-      base::Bind(&HostProcess::RejectAuthenticatingClient,
+      base::Bind(&HostProcess::OnCurtainModeFailed,
                  base::Unretained(this)));
+
+  StartOnUiThread();
+}
+
+HostProcess::~HostProcess() {
+  // Verify that UI components have been torn down.
+  DCHECK(!config_watcher_);
+  DCHECK(!daemon_channel_);
+  DCHECK(!desktop_environment_factory_);
+  DCHECK(!host_user_interface_);
+
+  // We might be getting deleted on one of the threads the |host_context| owns,
+  // so we need to post it back to the caller thread to safely join & delete the
+  // threads it contains.  This will go away when we move to AutoThread.
+  // |context_release()| will null |context_| before the method is invoked, so
+  // we need to pull out the task-runner on which to call DeleteSoon first.
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      context_->ui_task_runner();
+  task_runner->DeleteSoon(FROM_HERE, context_.release());
 }
 
 bool HostProcess::InitWithCommandLine(const CommandLine* cmd_line) {
@@ -336,9 +390,8 @@ bool HostProcess::InitWithCommandLine(const CommandLine* cmd_line) {
 void HostProcess::OnConfigUpdated(
     const std::string& serialized_config) {
   if (!context_->network_task_runner()->BelongsToCurrentThread()) {
-    context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-        &HostProcess::OnConfigUpdated, base::Unretained(this),
-        serialized_config));
+    context_->network_task_runner()->PostTask(FROM_HERE,
+        base::Bind(&HostProcess::OnConfigUpdated, this, serialized_config));
     return;
   }
 
@@ -378,19 +431,20 @@ void HostProcess::OnConfigUpdated(
 void HostProcess::OnConfigWatcherError() {
   DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
 
-  context_->network_task_runner()->PostTask(
-      FROM_HERE,
-      base::Bind(&HostProcess::Shutdown, base::Unretained(this),
+  context_->network_task_runner()->PostTask(FROM_HERE,
+      base::Bind(&HostProcess::Shutdown, this,
                  kInvalidHostConfigurationExitCode));
 }
 
 void HostProcess::StartWatchingConfigChanges() {
+  DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
+
 #if !defined(REMOTING_MULTI_PROCESS)
-    // Start watching the host configuration file.
-    config_watcher_.reset(new ConfigFileWatcher(context_->ui_task_runner(),
-                                                context_->file_task_runner(),
-                                                this));
-    config_watcher_->Watch(host_config_path_);
+  // Start watching the host configuration file.
+  config_watcher_.reset(new ConfigFileWatcher(context_->ui_task_runner(),
+                                              context_->file_task_runner(),
+                                              this));
+  config_watcher_->Watch(host_config_path_);
 #endif  // !defined(REMOTING_MULTI_PROCESS)
 }
 
@@ -427,8 +481,8 @@ void HostProcess::CreateAuthenticatorFactory() {
   scoped_ptr<protocol::AuthenticatorFactory> factory(
       new protocol::Me2MeHostAuthenticatorFactory(
           local_certificate, *key_pair_.private_key(), host_secret_hash_));
-#if defined(OS_LINUX)
-  // On Linux, perform a PAM authorization step after authentication.
+#if defined(OS_POSIX)
+  // On Linux and Mac, perform a PAM authorization step after authentication.
   factory.reset(new PamAuthorizationFactory(factory.Pass()));
 #endif
   host_->SetAuthenticatorFactory(factory.Pass());
@@ -463,14 +517,13 @@ bool HostProcess::OnMessageReceived(const IPC::Message& message) {
 void HostProcess::OnChannelError() {
   DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
 
-  // Shutdown the host if the daemon disconnected the channel.
+  // Shutdown the host if the daemon process disconnects the IPC channel.
   context_->network_task_runner()->PostTask(
       FROM_HERE,
-      base::Bind(&HostProcess::Shutdown, base::Unretained(this),
-                 kSuccessExitCode));
+      base::Bind(&HostProcess::Shutdown, this, kSuccessExitCode));
 }
 
-void HostProcess::StartHostProcess() {
+void HostProcess::StartOnUiThread() {
   DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
 
   if (!InitWithCommandLine(CommandLine::ForCurrentProcess())) {
@@ -493,6 +546,14 @@ void HostProcess::StartHostProcess() {
   }
 #endif  // defined(OS_LINUX)
 
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          kEnableStatusServiceSwitchName)) {
+    context_->network_task_runner()->PostTask(
+        FROM_HERE,
+        base::Bind(&HostProcess::StartHostStatusService,
+                   base::Unretained(this)));
+  }
+
   // Create a desktop environment factory appropriate to the build type &
   // platform.
 #if defined(OS_WIN)
@@ -503,13 +564,14 @@ void HostProcess::StartHostProcess() {
           daemon_channel_.get(),
           context_->input_task_runner(),
           context_->network_task_runner(),
-          context_->ui_task_runner());
+          context_->ui_task_runner(),
+          context_->video_capture_task_runner());
   desktop_session_connector_ = desktop_environment_factory;
 #else // !defined(REMOTING_MULTI_PROCESS)
   DesktopEnvironmentFactory* desktop_environment_factory =
       new SessionDesktopEnvironmentFactory(
           context_->input_task_runner(), context_->ui_task_runner(),
-          base::Bind(&HostProcess::SendSasToConsole, base::Unretained(this)));
+          base::Bind(&HostProcess::SendSasToConsole, this));
 #endif  // !defined(REMOTING_MULTI_PROCESS)
 
 #else  // !defined(OS_WIN)
@@ -522,9 +584,7 @@ void HostProcess::StartHostProcess() {
 
 #if defined(OS_POSIX)
   context_->network_task_runner()->PostTask(
-      FROM_HERE,
-      base::Bind(&HostProcess::ListenForShutdownSignal,
-                 base::Unretained(this)));
+      FROM_HERE, base::Bind(&HostProcess::ListenForShutdownSignal, this));
 #endif // OS_POSIX
 
   // The host UI should be created on the UI thread.
@@ -552,10 +612,6 @@ void HostProcess::StartHostProcess() {
   StartWatchingConfigChanges();
 }
 
-int HostProcess::get_exit_code() const {
-  return exit_code_;
-}
-
 void HostProcess::SendSasToConsole() {
   DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
 
@@ -563,16 +619,26 @@ void HostProcess::SendSasToConsole() {
     daemon_channel_->Send(new ChromotingNetworkDaemonMsg_SendSasToConsole());
 }
 
-void HostProcess::ShutdownHostProcess() {
+void HostProcess::ShutdownOnUiThread() {
   DCHECK(context_->ui_task_runner()->BelongsToCurrentThread());
 
-  // Tear down resources that use ChromotingHostContext threads.
+  // Tear down resources that need to be torn down on the UI thread.
+  network_change_notifier_.reset();
   config_watcher_.reset();
   daemon_channel_.reset();
   desktop_environment_factory_.reset();
   host_user_interface_.reset();
 
-  context_.reset();
+  // It is now safe for the HostProcess to be deleted.
+  self_ = NULL;
+
+#if defined(OS_LINUX)
+  // Cause the global AudioPipeReader to be freed, otherwise the audio
+  // thread will remain in-use and prevent the process from exiting.
+  // TODO(wez): DesktopEnvironmentFactory should own the pipe reader.
+  // See crbug.com/161373 and crbug.com/104544.
+  AudioCapturerLinux::InitializePipeReader(NULL, FilePath());
+#endif
 }
 
 // Overridden from HeartbeatSender::Listener
@@ -631,8 +697,7 @@ void HostProcess::OnPolicyUpdate(scoped_ptr<base::DictionaryValue> policies) {
   // TODO(rmsousa): Consolidate all On*PolicyUpdate methods into this one.
   if (!context_->network_task_runner()->BelongsToCurrentThread()) {
     context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-        &HostProcess::OnPolicyUpdate, base::Unretained(this),
-        base::Passed(&policies)));
+        &HostProcess::OnPolicyUpdate, this, base::Passed(&policies)));
     return;
   }
 
@@ -673,6 +738,8 @@ bool HostProcess::OnHostDomainPolicyUpdate(const std::string& host_domain) {
   // Returns true if the host has to be restarted after this policy update.
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
+  LOG(INFO) << "Policy sets host domain: " << host_domain;
+
   if (!host_domain.empty() &&
       !EndsWith(xmpp_login_, std::string("@") + host_domain, false)) {
     Shutdown(kInvalidHostDomainExitCode);
@@ -685,12 +752,27 @@ bool HostProcess::OnUsernamePolicyUpdate(bool host_username_match_required) {
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
   if (host_username_match_required) {
-    if (!CanGetUsername() ||
+    LOG(INFO) << "Policy requires host username match.";
+    bool shutdown = !CanGetUsername() ||
         !StartsWithASCII(xmpp_login_, GetUsername() + std::string("@"),
-                         false)) {
+                         false);
+
+#if defined(OS_MACOSX)
+    // On Mac, we run as root at the login screen, so the username won't match.
+    // However, there's no need to enforce the policy at the login screen, as
+    // the client will have to reconnect if a login occurs.
+    if (shutdown && getuid() == 0) {
+      shutdown = false;
+    }
+#endif
+
+    if (shutdown) {
       Shutdown(kUsernameMismatchExitCode);
     }
+  } else {
+    LOG(INFO) << "Policy does not require host username match.";
   }
+
   return false;
 }
 
@@ -699,8 +781,11 @@ bool HostProcess::OnNatPolicyUpdate(bool nat_traversal_enabled) {
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
   if (allow_nat_traversal_ != nat_traversal_enabled) {
+    if (nat_traversal_enabled)
+      LOG(INFO) << "Policy enables NAT traversal.";
+    else
+      LOG(INFO) << "Policy disables NAT traversal.";
     allow_nat_traversal_ = nat_traversal_enabled;
-    LOG(INFO) << "Updated NAT policy.";
     return true;
   }
   return false;
@@ -712,10 +797,12 @@ bool HostProcess::OnCurtainPolicyUpdate(bool curtain_required) {
 
 #if defined(OS_MACOSX)
   if (curtain_required) {
-    // If curtain mode is required, then we can't currently support remoting
-    // the login screen. This is because we don't curtain the login screen
-    // and the current daemon architecture means that the connction is closed
-    // immediately after login, leaving the host system uncurtained.
+    // When curtain mode is in effect on Mac, the host process runs in the
+    // user's switched-out session, but launchd will also run an instance at
+    // the console login screen.  Even if no user is currently logged-on, we
+    // can't support remote-access to the login screen because the current host
+    // process model disconnects the client during login, which would leave
+    // the logged in session un-curtained on the console until they reconnect.
     //
     // TODO(jamiewalch): Fix this once we have implemented the multi-process
     // daemon architecture (crbug.com/134894)
@@ -725,9 +812,15 @@ bool HostProcess::OnCurtainPolicyUpdate(bool curtain_required) {
     }
   }
 #endif
-  if (curtain_->required() != curtain_required) {
-    LOG(INFO) << "Updated curtain policy.";
-    curtain_->set_required(curtain_required);
+
+  if (curtain_required_ != curtain_required) {
+    if (curtain_required)
+      LOG(ERROR) << "Policy requires curtain-mode.";
+    else
+      LOG(ERROR) << "Policy does not require curtain-mode.";
+    curtain_required_ = curtain_required;
+    if (curtaining_host_observer_)
+      curtaining_host_observer_->SetEnableCurtaining(curtain_required_);
     return true;
   }
   return false;
@@ -739,11 +832,16 @@ bool HostProcess::OnHostTalkGadgetPrefixPolicyUpdate(
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
   if (talkgadget_prefix != talkgadget_prefix_) {
-    LOG(INFO) << "Updated talkgadget policy.";
+    LOG(INFO) << "Policy sets talkgadget prefix: " << talkgadget_prefix;
     talkgadget_prefix_ = talkgadget_prefix;
     return true;
   }
   return false;
+}
+
+void HostProcess::StartHostStatusService() {
+  DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
+  status_service_.reset(new HostStatusService());
 }
 
 void HostProcess::StartHost() {
@@ -767,7 +865,7 @@ void HostProcess::StartHost() {
       signal_strategy_.get(),
       context_->url_request_context_getter(),
       dns_blackhole_checker.Pass(),
-      base::Bind(&HostProcess::OnAuthFailed, base::Unretained(this))));
+      base::Bind(&HostProcess::OnAuthFailed, this)));
 
   if (!oauth_refresh_token_.empty()) {
     scoped_ptr<SignalingConnector::OAuthCredentials> oauth_credentials(
@@ -791,8 +889,8 @@ void HostProcess::StartHost() {
       CreateHostSessionManager(network_settings,
                                context_->url_request_context_getter()),
       context_->audio_task_runner(),
-      context_->capture_task_runner(),
-      context_->encode_task_runner(),
+      context_->video_capture_task_runner(),
+      context_->video_encode_task_runner(),
       context_->network_task_runner());
 
   // TODO(simonmorris): Get the maximum session duration from a policy.
@@ -815,16 +913,19 @@ void HostProcess::StartHost() {
       new ResizingHostObserver(desktop_resizer_.get(), host_));
 #endif
 
-  // Curtain mode is currently broken on Mac (the only supported platform),
-  // so it's disabled until we've had time to fully investigate.
-  //    curtaining_host_observer_.reset(new CurtainingHostObserver(
-  //          curtain_.get(), host_));
+  // Create a host observer to enable/disable curtain mode as clients connect
+  // and disconnect.
+  curtaining_host_observer_.reset(new CurtainingHostObserver(
+                                  curtain_.get(), host_));
+  curtaining_host_observer_->SetEnableCurtaining(curtain_required_);
 
   if (host_user_interface_.get()) {
     host_user_interface_->Start(
-        host_, base::Bind(&HostProcess::OnDisconnectRequested,
-                          base::Unretained(this)));
+        host_, base::Bind(&HostProcess::OnDisconnectRequested, this));
   }
+
+  if (status_service_)
+    status_service_->SetHostIsUp(host_id_);
 
   host_->Start(xmpp_login_);
 
@@ -835,18 +936,25 @@ void HostProcess::OnAuthFailed() {
   Shutdown(kInvalidOauthCredentialsExitCode);
 }
 
-void HostProcess::RejectAuthenticatingClient() {
+void HostProcess::OnCurtainModeFailed() {
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
   DCHECK(host_);
+  LOG(ERROR) << "Curtain mode failed to activate. Closing connection.";
   host_->RejectAuthenticatingClient();
+}
+
+void HostProcess::OnRemoteSessionSwitchedToConsole() {
+  LOG(INFO) << "The remote session switched was to the console."
+               " Closing connection.";
+  OnDisconnectRequested();
 }
 
 // Invoked when the user uses the Disconnect windows to terminate
 // the sessions, or when the local session is activated in curtain mode.
 void HostProcess::OnDisconnectRequested() {
   if (!context_->network_task_runner()->BelongsToCurrentThread()) {
-    context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
-        &HostProcess::OnDisconnectRequested, base::Unretained(this)));
+    context_->network_task_runner()->PostTask(FROM_HERE,
+        base::Bind(&HostProcess::OnDisconnectRequested, this));
     return;
   }
   if (host_) {
@@ -861,8 +969,7 @@ void HostProcess::RestartHost() {
     return;
 
   restarting_ = true;
-  host_->Shutdown(base::Bind(
-      &HostProcess::RestartOnHostShutdown, base::Unretained(this)));
+  host_->Shutdown(base::Bind(&HostProcess::RestartOnHostShutdown, this));
 }
 
 void HostProcess::RestartOnHostShutdown() {
@@ -884,17 +991,19 @@ void HostProcess::Shutdown(int exit_code) {
   if (shutting_down_)
     return;
 
+  if (status_service_)
+    status_service_->SetHostIsDown();
+
   shutting_down_ = true;
-  exit_code_ = exit_code;
+  *exit_code_out_ = exit_code;
   if (host_) {
-    host_->Shutdown(base::Bind(
-        &HostProcess::OnShutdownFinished, base::Unretained(this)));
+    host_->Shutdown(base::Bind(&HostProcess::ShutdownOnNetworkThread, this));
   } else {
-    OnShutdownFinished();
+    ShutdownOnNetworkThread();
   }
 }
 
-void HostProcess::OnShutdownFinished() {
+void HostProcess::ShutdownOnNetworkThread() {
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
   // Destroy networking objects while we are on the network thread.
@@ -908,11 +1017,11 @@ void HostProcess::OnShutdownFinished() {
     policy_watcher_.reset();
   }
 
+  status_service_.reset();
+
   // Complete the rest of shutdown on the main thread.
-  context_->ui_task_runner()->PostTask(
-      FROM_HERE,
-      base::Bind(&HostProcess::ShutdownHostProcess,
-                 base::Unretained(this)));
+  context_->ui_task_runner()->PostTask(FROM_HERE,
+      base::Bind(&HostProcess::ShutdownOnUiThread, this));
 }
 
 void HostProcess::ResetHost() {
@@ -942,6 +1051,16 @@ int main(int argc, char** argv) {
 #endif
 
   CommandLine::Init(argc, argv);
+
+  // Initialize Breakpad as early as possible. On Windows, this happens in
+  // WinMain(), so it shouldn't also be done here. The command-line needs to be
+  // initialized first, so that the preference for crash-reporting can be looked
+  // up in the config file.
+#if defined(MAC_BREAKPAD)
+  if (remoting::IsUsageStatsAllowed()) {
+    remoting::InitializeCrashReporting();
+  }
+#endif  // MAC_BREAKPAD
 
   // This object instance is required by Chrome code (for example,
   // LazyInstance, MessageLoop).
@@ -977,11 +1096,16 @@ int main(int argc, char** argv) {
   if (!context->Start())
     return remoting::kInitializationFailed;
 
-  // Create the host process instance and enter the main message loop.
-  remoting::HostProcess me2me_host(context.Pass());
-  me2me_host.StartHostProcess();
+  // Create & start the HostProcess using these threads.
+  // TODO(wez): The HostProcess holds a reference to itself until Shutdown().
+  // Remove this hack as part of the multi-process refactoring.
+  int exit_code = remoting::kSuccessExitCode;
+  new remoting::HostProcess(context.Pass(), &exit_code);
+
+  // Run the main (also UI) message loop until the host no longer needs it.
   message_loop.Run();
-  return me2me_host.get_exit_code();
+
+  return exit_code;
 }
 
 #if defined(OS_WIN)
@@ -991,7 +1115,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                      HINSTANCE previous_instance,
                      LPSTR command_line,
                      int show_command) {
-#ifdef OFFICIAL_BUILD
+#if defined(OFFICIAL_BUILD)
   if (remoting::IsUsageStatsAllowed()) {
     remoting::InitializeCrashReporting();
   }

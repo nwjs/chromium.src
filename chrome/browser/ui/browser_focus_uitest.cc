@@ -17,12 +17,17 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/interstitial_page.h"
@@ -335,11 +340,11 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_TabsRememberFocus) {
   for (int i = 1; i < 3; i++) {
     for (int j = 0; j < 5; j++) {
       // Activate the tab.
-      chrome::ActivateTabAt(browser(), j, true);
+      browser()->tab_strip_model()->ActivateTabAt(j, true);
 
       // Activate the location bar or the page.
       if (kFocusPage[i][j]) {
-        chrome::GetWebContentsAt(browser(), j)->GetView()->Focus();
+        browser()->tab_strip_model()->GetWebContentsAt(j)->GetView()->Focus();
       } else {
         chrome::FocusLocationBar(browser());
       }
@@ -348,14 +353,14 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_TabsRememberFocus) {
     // Now come back to the tab and check the right view is focused.
     for (int j = 0; j < 5; j++) {
       // Activate the tab.
-      chrome::ActivateTabAt(browser(), j, true);
+      browser()->tab_strip_model()->ActivateTabAt(j, true);
 
       ViewID vid = kFocusPage[i][j] ? VIEW_ID_TAB_CONTAINER :
                                       location_bar_focus_view_id_;
       ASSERT_TRUE(IsViewFocused(vid));
     }
 
-    chrome::ActivateTabAt(browser(), 0, true);
+    browser()->tab_strip_model()->ActivateTabAt(0, true);
     // Try the above, but with ctrl+tab. Since tab normally changes focus,
     // this has regressed in the past. Loop through several times to be sure.
     for (int j = 0; j < 15; j++) {
@@ -368,7 +373,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_TabsRememberFocus) {
     }
 
     // As above, but with ctrl+shift+tab.
-    chrome::ActivateTabAt(browser(), 4, true);
+    browser()->tab_strip_model()->ActivateTabAt(4, true);
     for (int j = 14; j >= 0; --j) {
       ViewID vid = kFocusPage[i][j % 5] ? VIEW_ID_TAB_CONTAINER :
                                           location_bar_focus_view_id_;
@@ -405,16 +410,16 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_TabsRememberFocusFindInPage) {
 
   // Select 1st tab, focus should still be on the location-bar.
   // (bug http://crbug.com/23296)
-  chrome::ActivateTabAt(browser(), 0, true);
+  browser()->tab_strip_model()->ActivateTabAt(0, true);
   ASSERT_TRUE(IsViewFocused(location_bar_focus_view_id_));
 
   // Now open the find box again, switch to another tab and come back, the focus
   // should return to the find box.
   chrome::Find(browser());
   ASSERT_TRUE(IsViewFocused(VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
-  chrome::ActivateTabAt(browser(), 1, true);
+  browser()->tab_strip_model()->ActivateTabAt(1, true);
   ASSERT_TRUE(IsViewFocused(VIEW_ID_TAB_CONTAINER));
-  chrome::ActivateTabAt(browser(), 0, true);
+  browser()->tab_strip_model()->ActivateTabAt(0, true);
   ASSERT_TRUE(IsViewFocused(VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
 }
 
@@ -920,6 +925,43 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_FocusOnReloadCrashedTab) {
   // Focus should now be on the tab contents.
   chrome::ShowDownloads(browser());
   ASSERT_TRUE(IsViewFocused(VIEW_ID_TAB_CONTAINER));
+}
+
+// Tests that when a new tab is opened from the omnibox, the focus is moved from
+// the omnibox for the current tab.
+IN_PROC_BROWSER_TEST_F(BrowserFocusTest,
+                       NavigateFromOmniboxIntoNewTab) {
+  GURL url("http://www.google.com/");
+  GURL url2("http://maps.google.com/");
+
+  // Navigate to url.
+  chrome::NavigateParams p(browser(), url, content::PAGE_TRANSITION_LINK);
+  p.window_action = chrome::NavigateParams::SHOW_WINDOW;
+  p.disposition = CURRENT_TAB;
+  chrome::Navigate(&p);
+
+  // Focus the omnibox.
+  chrome::FocusLocationBar(browser());
+
+  OmniboxEditController* controller =
+      browser()->window()->GetLocationBar()->GetLocationEntry()->model()->
+          controller();
+
+  // Simulate an alt-enter.
+  controller->OnAutocompleteAccept(url2, NEW_FOREGROUND_TAB,
+                                   content::PAGE_TRANSITION_TYPED, GURL());
+
+  // Make sure the second tab is selected.
+  EXPECT_EQ(1, browser()->active_index());
+
+  // The tab contents should have the focus in the second tab.
+  EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_TAB_CONTAINER));
+
+  // Go back to the first tab. The focus should not be in the omnibox.
+  chrome::SelectPreviousTab(browser());
+  EXPECT_EQ(0, browser()->active_index());
+  EXPECT_FALSE(ui_test_utils::IsViewFocused(browser(),
+                                            VIEW_ID_LOCATION_BAR));
 }
 
 }  // namespace

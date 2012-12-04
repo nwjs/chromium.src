@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#define _USE_MATH_DEFINES // For VC++ to get M_PI. This has to be first.
+
 #include "ui/views/view.h"
 
 #include <algorithm>
+#include <cmath>
 
+#include "base/command_line.h"
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -15,17 +19,19 @@
 #include "third_party/skia/include/core/SkRect.h"
 #include "ui/base/accessibility/accessibility_types.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
-#include "ui/base/native_theme/native_theme.h"
+#include "ui/base/ui_base_switches.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/interpolated_transform.h"
 #include "ui/gfx/path.h"
-#include "ui/gfx/point_conversions.h"
 #include "ui/gfx/point3_f.h"
+#include "ui/gfx/point_conversions.h"
+#include "ui/gfx/rect_conversions.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gfx/transform.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/background.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/drag_controller.h"
@@ -303,11 +309,8 @@ void View::SetY(int y) {
 
 gfx::Rect View::GetContentsBounds() const {
   gfx::Rect contents_bounds(GetLocalBounds());
-  if (border_.get()) {
-    gfx::Insets insets;
-    border_->GetInsets(&insets);
-    contents_bounds.Inset(insets);
-  }
+  if (border_.get())
+    contents_bounds.Inset(border_->GetInsets());
   return contents_bounds;
 }
 
@@ -321,10 +324,7 @@ gfx::Rect View::GetLayerBoundsInPixel() const {
 
 
 gfx::Insets View::GetInsets() const {
-  gfx::Insets insets;
-  if (border_.get())
-    border_->GetInsets(&insets);
-  return insets;
+  return border_.get() ? border_->GetInsets() : gfx::Insets();
 }
 
 gfx::Rect View::GetVisibleBounds() const {
@@ -337,8 +337,10 @@ gfx::Rect View::GetVisibleBounds() const {
 
   while (view != NULL && !vis_bounds.IsEmpty()) {
     transform.ConcatTransform(view->GetTransform());
-    transform.ConcatTranslate(static_cast<float>(view->GetMirroredX()),
-                              static_cast<float>(view->y()));
+    gfx::Transform translation;
+    translation.Translate(static_cast<float>(view->GetMirroredX()),
+                          static_cast<float>(view->y()));
+    transform.ConcatTransform(translation);
 
     vis_bounds = view->ConvertRectToParent(vis_bounds);
     const View* ancestor = view->parent_;
@@ -354,8 +356,10 @@ gfx::Rect View::GetVisibleBounds() const {
   if (vis_bounds.IsEmpty())
     return vis_bounds;
   // Convert back to this views coordinate system.
-  transform.TransformRectReverse(&vis_bounds);
-  return vis_bounds;
+  gfx::RectF views_vis_bounds(vis_bounds);
+  transform.TransformRectReverse(&views_vis_bounds);
+  // Partially visible pixels should be considered visible.
+  return gfx::ToEnclosingRect(views_vis_bounds);
 }
 
 gfx::Rect View::GetBoundsInScreen() const {
@@ -440,7 +444,7 @@ const gfx::Transform& View::GetTransform() const {
 }
 
 void View::SetTransform(const gfx::Transform& transform) {
-  if (!transform.HasChange()) {
+  if (transform.IsIdentity()) {
     if (layer()) {
       layer()->SetTransform(transform);
       if (!paint_to_layer_)
@@ -677,10 +681,11 @@ void View::ConvertPointFromScreen(const View* dst, gfx::Point* p) {
 }
 
 gfx::Rect View::ConvertRectToParent(const gfx::Rect& rect) const {
-  gfx::Rect x_rect = rect;
+  gfx::RectF x_rect = rect;
   GetTransform().TransformRect(&x_rect);
   x_rect.Offset(GetMirroredPosition().OffsetFromOrigin());
-  return x_rect;
+  // Pixels we partially occupy in the parent should be included.
+  return gfx::ToEnclosingRect(x_rect);
 }
 
 gfx::Rect View::ConvertRectToWidget(const gfx::Rect& rect) const {
@@ -878,8 +883,7 @@ ui::EventResult View::OnTouchEvent(ui::TouchEvent* event) {
   return ui::ER_UNHANDLED;
 }
 
-ui::EventResult View::OnGestureEvent(ui::GestureEvent* event) {
-  return ui::ER_UNHANDLED;
+void View::OnGestureEvent(ui::GestureEvent* event) {
 }
 
 ui::TextInputClient* View::GetTextInputClient() {
@@ -1208,18 +1212,18 @@ bool View::SetExternalTexture(ui::Texture* texture) {
   return true;
 }
 
-void View::CalculateOffsetToAncestorWithLayer(gfx::Point* offset,
-                                              ui::Layer** layer_parent) {
+gfx::Vector2d View::CalculateOffsetToAncestorWithLayer(
+    ui::Layer** layer_parent) {
   if (layer()) {
     if (layer_parent)
       *layer_parent = layer();
-    return;
+    return gfx::Vector2d();
   }
   if (!parent_)
-    return;
+    return gfx::Vector2d();
 
-  offset->Offset(GetMirroredX(), y());
-  parent_->CalculateOffsetToAncestorWithLayer(offset, layer_parent);
+  return gfx::Vector2d(GetMirroredX(), y()) +
+      parent_->CalculateOffsetToAncestorWithLayer(layer_parent);
 }
 
 void View::MoveLayerToParent(ui::Layer* parent_layer,
@@ -1256,14 +1260,14 @@ void View::UpdateChildLayerVisibility(bool ancestor_visible) {
   }
 }
 
-void View::UpdateChildLayerBounds(const gfx::Point& offset) {
+void View::UpdateChildLayerBounds(const gfx::Vector2d& offset) {
   if (layer()) {
-    SetLayerBounds(gfx::Rect(offset.x(), offset.y(), width(), height()));
+    SetLayerBounds(GetLocalBounds() + offset);
   } else {
     for (int i = 0, count = child_count(); i < count; ++i) {
-      gfx::Point new_offset(offset.x() + child_at(i)->GetMirroredX(),
-                            offset.y() + child_at(i)->y());
-      child_at(i)->UpdateChildLayerBounds(new_offset);
+      View* child = child_at(i);
+      child->UpdateChildLayerBounds(
+          offset + gfx::Vector2d(child->GetMirroredX(), child->y()));
     }
   }
 }
@@ -1434,39 +1438,28 @@ std::string View::DoPrintViewGraph(bool first, View* view_with_children) {
                  bounds().height());
   result.append(bounds_buffer);
 
-  if (GetTransform().HasChange()) {
-    gfx::Point translation;
-    float rotation;
-    gfx::Point3F scale;
-    if (ui::InterpolatedTransform::FactorTRS(GetTransform(),
-                                             &translation,
-                                             &rotation,
-                                             &scale)) {
-      if (!translation.IsOrigin()) {
-        base::snprintf(bounds_buffer,
-                       arraysize(bounds_buffer),
-                       "\\n translation: (%d, %d)",
-                       translation.x(),
-                       translation.y());
-        result.append(bounds_buffer);
-      }
+  gfx::DecomposedTransform decomp;
+  if (!GetTransform().IsIdentity() &&
+      gfx::DecomposeTransform(&decomp, GetTransform())) {
+    base::snprintf(bounds_buffer,
+                   arraysize(bounds_buffer),
+                   "\\n translation: (%f, %f)",
+                   decomp.translate[0],
+                   decomp.translate[1]);
+    result.append(bounds_buffer);
 
-      if (fabs(rotation) > 1e-5) {
-        base::snprintf(bounds_buffer,
-                       arraysize(bounds_buffer),
-                       "\\n rotation: %3.2f", rotation);
-        result.append(bounds_buffer);
-      }
+    base::snprintf(bounds_buffer,
+                   arraysize(bounds_buffer),
+                   "\\n rotation: %3.2f",
+                   std::acos(decomp.quaternion[3]) * 360.0 / M_PI);
+    result.append(bounds_buffer);
 
-      if (!gfx::ToFlooredPoint(scale.AsPointF()).IsOrigin()) {
-        base::snprintf(bounds_buffer,
-                       arraysize(bounds_buffer),
-                       "\\n scale: (%2.4f, %2.4f)",
-                       scale.x(),
-                       scale.y());
-        result.append(bounds_buffer);
-      }
-    }
+    base::snprintf(bounds_buffer,
+                   arraysize(bounds_buffer),
+                   "\\n scale: (%2.4f, %2.4f)",
+                   decomp.scale[0],
+                   decomp.scale[1]);
+    result.append(bounds_buffer);
   }
 
   result.append("\"");
@@ -1696,10 +1689,9 @@ void View::BoundsChanged(const gfx::Rect& previous_bounds) {
   if (use_acceleration_when_possible) {
     if (layer()) {
       if (parent_) {
-        gfx::Point offset;
-        parent_->CalculateOffsetToAncestorWithLayer(&offset, NULL);
-        offset.Offset(GetMirroredX(), y());
-        SetLayerBounds(gfx::Rect(offset, size()));
+        SetLayerBounds(GetLocalBounds() +
+                       gfx::Vector2d(GetMirroredX(), y()) +
+                       parent_->CalculateOffsetToAncestorWithLayer(NULL));
       } else {
         SetLayerBounds(bounds_);
       }
@@ -1714,9 +1706,7 @@ void View::BoundsChanged(const gfx::Rect& previous_bounds) {
     } else {
       // If our bounds have changed, then any descendant layer bounds may
       // have changed. Update them accordingly.
-      gfx::Point offset;
-      CalculateOffsetToAncestorWithLayer(&offset, NULL);
-      UpdateChildLayerBounds(offset);
+      UpdateChildLayerBounds(CalculateOffsetToAncestorWithLayer(NULL));
     }
   }
 
@@ -1803,8 +1793,10 @@ bool View::GetTransformRelativeTo(const View* ancestor,
 
   while (p && p != ancestor) {
     transform->ConcatTransform(p->GetTransform());
-    transform->ConcatTranslate(static_cast<float>(p->GetMirroredX()),
-                               static_cast<float>(p->y()));
+    gfx::Transform translation;
+    translation.Translate(static_cast<float>(p->GetMirroredX()),
+                          static_cast<float>(p->y()));
+    transform->ConcatTransform(translation);
 
     p = p->parent_;
   }
@@ -1879,15 +1871,15 @@ void View::UpdateParentLayer() {
     return;
 
   ui::Layer* parent_layer = NULL;
-  gfx::Point offset(GetMirroredX(), y());
+  gfx::Vector2d offset(GetMirroredX(), y());
 
   // TODO(sad): The NULL check here for parent_ essentially is to check if this
   // is the RootView. Instead of doing this, this function should be made
   // virtual and overridden from the RootView.
   if (parent_)
-    parent_->CalculateOffsetToAncestorWithLayer(&offset, &parent_layer);
+    offset += parent_->CalculateOffsetToAncestorWithLayer(&parent_layer);
   else if (!parent_ && GetWidget())
-    GetWidget()->CalculateOffsetToAncestorWithLayer(&offset, &parent_layer);
+    offset += GetWidget()->CalculateOffsetToAncestorWithLayer(&parent_layer);
 
   ReparentLayer(offset, parent_layer);
 }
@@ -1905,8 +1897,8 @@ void View::OrphanLayers() {
     child_at(i)->OrphanLayers();
 }
 
-void View::ReparentLayer(const gfx::Point& offset, ui::Layer* parent_layer) {
-  layer_->SetBounds(gfx::Rect(offset.x(), offset.y(), width(), height()));
+void View::ReparentLayer(const gfx::Vector2d& offset, ui::Layer* parent_layer) {
+  layer_->SetBounds(GetLocalBounds() + offset);
   DCHECK_NE(layer(), parent_layer);
   if (parent_layer)
     parent_layer->Add(layer());
@@ -1929,9 +1921,7 @@ void View::DestroyLayer() {
   if (new_parent)
     ReorderLayers();
 
-  gfx::Point offset;
-  CalculateOffsetToAncestorWithLayer(&offset, NULL);
-  UpdateChildLayerBounds(offset);
+  UpdateChildLayerBounds(CalculateOffsetToAncestorWithLayer(NULL));
 
   SchedulePaint();
 
@@ -2008,20 +1998,33 @@ ui::EventResult View::ProcessTouchEvent(ui::TouchEvent* event) {
   return OnTouchEvent(event);
 }
 
-ui::EventResult View::ProcessGestureEvent(ui::GestureEvent* event) {
-  ui::EventResult status = OnGestureEvent(event);
-  if (status != ui::ER_UNHANDLED)
-    return status;
+void View::ProcessGestureEvent(ui::GestureEvent* event) {
+  OnGestureEvent(event);
+  if (event->handled())
+    return;
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableTouchDragDrop)) {
+    if (event->type() == ui::ET_GESTURE_LONG_PRESS &&
+        (!drag_controller_ || drag_controller_->CanStartDragForView(
+            this, event->location(), event->location()))) {
+      if (DoDrag(*event, event->location(),
+          ui::DragDropTypes::DRAG_EVENT_SOURCE_TOUCH)) {
+        event->StopPropagation();
+        return;
+      }
+    }
+  }
 
   if (context_menu_controller_ &&
       (event->type() == ui::ET_GESTURE_LONG_PRESS ||
+       event->type() == ui::ET_GESTURE_LONG_TAP ||
        event->type() == ui::ET_GESTURE_TWO_FINGER_TAP)) {
     gfx::Point location(event->location());
     ConvertPointToScreen(this, &location);
     ShowContextMenu(location, true);
-    return ui::ER_CONSUMED;
+    event->StopPropagation();
   }
-  return status;
 }
 
 // Accelerators ----------------------------------------------------------------

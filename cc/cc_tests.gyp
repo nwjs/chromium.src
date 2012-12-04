@@ -5,7 +5,7 @@
 {
   'variables': {
     'chromium_code': 0,
-    'cc_tests_source_files': [
+    'cc_unit_tests_source_files': [
       'active_animation_unittest.cc',
       'content_layer_unittest.cc',
       'contents_scaling_layer_unittest.cc',
@@ -32,6 +32,8 @@
       'nine_patch_layer_impl_unittest.cc',
       'nine_patch_layer_unittest.cc',
       'occlusion_tracker_unittest.cc',
+      'picture_layer_tiling_set_unittest.cc',
+      'picture_layer_tiling_unittest.cc',
       'prioritized_resource_unittest.cc',
       'quad_culler_unittest.cc',
       'region_unittest.cc',
@@ -65,8 +67,11 @@
       'test/fake_graphics_context_3d_unittest.cc',
       'test/fake_layer_tree_host_client.cc',
       'test/fake_layer_tree_host_client.h',
+      'test/fake_picture_layer_tiling_client.cc',
+      'test/fake_picture_layer_tiling_client.h',
       'test/fake_proxy.cc',
       'test/fake_proxy.h',
+      'test/fake_tile_manager_client.h',
       'test/fake_web_compositor_output_surface.h',
       'test/fake_web_compositor_software_output_device.h',
       'test/fake_web_graphics_context_3d.h',
@@ -84,7 +89,6 @@
       'test/render_pass_test_common.h',
       'test/scheduler_test_common.cc',
       'test/scheduler_test_common.h',
-      'test/test_common.h',
       'test/tiled_layer_test_common.cc',
       'test/tiled_layer_test_common.h',
     ],
@@ -99,18 +103,45 @@
         '../skia/skia.gyp:skia',
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
-        '../third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
-        '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore_platform_geometry',
         '../ui/ui.gyp:ui',
         'cc.gyp:cc',
         'cc_test_support',
       ],
       'sources': [
         'test/run_all_unittests.cc',
-        '<@(cc_tests_source_files)',
+        '<@(cc_unit_tests_source_files)',
       ],
       'include_dirs': [
-        'stubs',
+        'test',
+        '.',
+        '../third_party/WebKit/Source/Platform/chromium',
+      ],
+      'conditions': [
+        ['OS == "android" and gtest_target_type == "shared_library"', {
+          'dependencies': [
+            '../testing/android/native_test.gyp:native_test_native_code',
+          ],
+        }],
+      ],
+    },
+    {
+      'target_name': 'cc_perftests',
+      'type': '<(gtest_target_type)',
+      'dependencies': [
+        '../base/base.gyp:test_support_base',
+        '../media/media.gyp:media',
+        '../skia/skia.gyp:skia',
+        '../testing/gmock.gyp:gmock',
+        '../testing/gtest.gyp:gtest',
+        '../ui/ui.gyp:ui',
+        'cc.gyp:cc',
+        'cc_test_support',
+      ],
+      'sources': [
+        'layer_tree_host_perftest.cc',
+        'test/run_all_unittests.cc',
+      ],
+      'include_dirs': [
         'test',
         '.',
         '../third_party/WebKit/Source/Platform/chromium',
@@ -127,7 +158,6 @@
       'target_name': 'cc_test_support',
       'type': 'static_library',
       'include_dirs': [
-        'stubs',
         'test',
         '.',
         '..',
@@ -138,8 +168,6 @@
         '../testing/gtest.gyp:gtest',
         '../testing/gmock.gyp:gmock',
         '../skia/skia.gyp:skia',
-        '../third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
-        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit_wtf_support',
         '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
       ],
       'sources': [
@@ -166,5 +194,21 @@
         },
       ],
     }],
+    ['OS == "android" and gtest_target_type == "shared_library"', {
+      'targets': [
+        {
+          'target_name': 'cc_perftests_apk',
+          'type': 'none',
+          'dependencies': [
+            'cc_perftests',
+          ],
+          'variables': {
+            'test_suite_name': 'cc_perftests',
+            'input_shlib_path': '<(SHARED_LIB_DIR)/<(SHARED_LIB_PREFIX)cc_perftests<(SHARED_LIB_SUFFIX)',
+          },
+          'includes': [ '../build/apk_test.gypi' ],
+        },
+      ],
+    }]
   ],
 }

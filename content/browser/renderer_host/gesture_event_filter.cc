@@ -18,7 +18,12 @@ namespace {
 
 // Default maximum time between the GestureRecognizer generating a
 // GestureTapDown and when it is forwarded to the renderer.
+#if !defined(OS_ANDROID)
 static const int kTapDownDeferralTimeMs = 150;
+#else
+// Android OS sends this gesture with a delay already.
+static const int kTapDownDeferralTimeMs = 0;
+#endif
 
 // Default debouncing interval duration: if a scroll is in progress, non-scroll
 // events during this interval are deferred to either its end or discarded on
@@ -131,10 +136,6 @@ bool GestureEventFilter::ShouldForwardForTapDeferral(
         return ShouldHandleEventNow();
       }
       return false;
-    case WebInputEvent::GestureFlingStart:
-      fling_in_progress_ = true;
-      coalesced_gesture_events_.push_back(gesture_event);
-      return ShouldHandleEventNow();
     case WebInputEvent::GestureTapDown:
       // GestureTapDown is always paired with either a Tap, DoubleTap, LongPress
       // or TapCancel, so it should be impossible to have more than one
@@ -172,6 +173,8 @@ bool GestureEventFilter::ShouldForwardForTapDeferral(
       }
       coalesced_gesture_events_.push_back(gesture_event);
       return ShouldHandleEventNow();
+    case WebInputEvent::GestureFlingStart:
+      fling_in_progress_ = true;
     case WebInputEvent::GestureScrollBegin:
     case WebInputEvent::GesturePinchBegin:
       send_gtd_timer_.Stop();
@@ -212,6 +215,16 @@ void GestureEventFilter::ProcessGestureAck(bool processed, int type) {
 
 TapSuppressionController*  GestureEventFilter::GetTapSuppressionController() {
   return tap_suppression_controller_.get();
+}
+
+bool GestureEventFilter::HasQueuedGestureEvents() const {
+  return !coalesced_gesture_events_.empty();
+}
+
+const WebKit::WebInputEvent&
+GestureEventFilter::GetGestureEventAwaitingAck() const {
+  DCHECK(!coalesced_gesture_events_.empty());
+  return coalesced_gesture_events_.front();
 }
 
 void GestureEventFilter::FlingHasBeenHalted() {

@@ -15,6 +15,9 @@ import url_constants
 
 DEFAULT_ICON_PATH = '/images/sample-default-icon.png'
 
+# See api_data_source.py for more info on _VERSION.
+_VERSION = 2
+
 class SamplesDataSource(object):
   """Constructs a list of samples and their respective files and api calls.
   """
@@ -36,10 +39,12 @@ class SamplesDataSource(object):
       self._static_path = ((('/' + channel) if channel != 'local' else '') +
                            '/static')
       self._extensions_cache = cache_factory.Create(self._MakeSamplesList,
-                                                    compiled_fs.EXTENSIONS)
+                                                    compiled_fs.EXTENSIONS,
+                                                    version=_VERSION)
       self._apps_cache = github_cache_factory.Create(
           lambda x: self._MakeSamplesList(x, is_apps=True),
-          compiled_fs.APPS)
+          compiled_fs.APPS,
+          version=_VERSION)
       self._ref_resolver = ref_resolver_factory.Create()
       self._samples_path = samples_path
 
@@ -52,7 +57,15 @@ class SamplesDataSource(object):
                                request)
 
     def _GetAPIItems(self, js_file):
-      return set(re.findall('(chrome\.[a-zA-Z0-9\.]+)', js_file))
+      chrome_regex = '(chrome\.[a-zA-Z0-9\.]+)'
+      calls = set(re.findall(chrome_regex, js_file))
+      # Find APIs that have been assigned into variables.
+      assigned_vars = dict(re.findall('var\s*([^\s]+)\s*=\s*%s;' % chrome_regex,
+                                      js_file))
+      # Replace the variable name with the full API name.
+      for var_name, value in assigned_vars.iteritems():
+        js_file = js_file.replace(var_name, value)
+      return calls.union(re.findall(chrome_regex, js_file))
 
     def _GetDataFromManifest(self, path, file_system):
       manifest = file_system.ReadSingle(path + '/manifest.json')
@@ -63,7 +76,7 @@ class SamplesDataSource(object):
         return None
       l10n_data = {
         'name': manifest_json.get('name', ''),
-        'description': manifest_json.get('description', ''),
+        'description': manifest_json.get('description', None),
         'icon': manifest_json.get('icons', {}).get('128', None),
         'default_locale': manifest_json.get('default_locale', None),
         'locales': {}
@@ -109,7 +122,7 @@ class SamplesDataSource(object):
           api_items.update(self._GetAPIItems(js))
 
         api_calls = []
-        for item in api_items:
+        for item in sorted(api_items):
           if len(item.split('.')) < 3:
             continue
           if item.endswith('.removeListener') or item.endswith('.hasListener'):
@@ -186,7 +199,7 @@ class SamplesDataSource(object):
         api_calls_unix = [model.UnixName(call['name'])
                           for call in sample['api_calls']]
         for call in api_calls_unix:
-          if api_search in call:
+          if call.startswith(api_search):
             samples_list.append(sample)
             break
     except NotImplementedError:
@@ -205,6 +218,8 @@ class SamplesDataSource(object):
     for dict_ in samples_list:
       name = dict_['name']
       description = dict_['description']
+      if description is None:
+        description = ''
       if name.startswith('__MSG_') or description.startswith('__MSG_'):
         try:
           # Copy the sample dict so we don't change the dict in the cache.

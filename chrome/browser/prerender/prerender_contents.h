@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time.h"
 #include "base/values.h"
@@ -71,6 +72,25 @@ class PrerenderContents : public content::NotificationObserver,
     DISALLOW_COPY_AND_ASSIGN(Factory);
   };
 
+  // A container for extra data on pending prerenders.
+  struct PendingPrerenderInfo {
+   public:
+    PendingPrerenderInfo(
+        base::WeakPtr<PrerenderHandle> weak_prerender_handle,
+        Origin origin,
+        const GURL& url,
+        const content::Referrer& referrer,
+        const gfx::Size& size);
+
+    ~PendingPrerenderInfo();
+
+    base::WeakPtr<PrerenderHandle> weak_prerender_handle;
+    Origin origin;
+    GURL url;
+    content::Referrer referrer;
+    gfx::Size size;
+  };
+
   // Indicates how this PrerenderContents relates to MatchComplete. This is to
   // figure out which histograms to use to record the FinalStatus, Match (record
   // all prerenders and control group prerenders) or MatchComplete (record
@@ -99,8 +119,7 @@ class PrerenderContents : public content::NotificationObserver,
   // For MatchComplete correctness, create a dummy replacement prerender
   // contents to stand in for this prerender contents that (which we are about
   // to destroy).
-  void MakeIntoDummyReplacementOf(
-      const PrerenderContents* original_prerender_contents);
+  PrerenderContents* CreateMatchCompleteReplacement() const;
 
   bool Init();
 
@@ -197,9 +216,6 @@ class PrerenderContents : public content::NotificationObserver,
   // remembered.
   virtual bool AddAliasURL(const GURL& url);
 
-  // Adds all alias URLs from another prerender.
-  void AddAliasURLsFromOtherPrerenderContents(PrerenderContents* other_pc);
-
   // The preview TabContents (may be null).
   TabContents* prerender_contents() const {
     return prerender_contents_.get();
@@ -230,37 +246,13 @@ class PrerenderContents : public content::NotificationObserver,
   // Adds a pending prerender to the list. If |weak_prerender_handle| still
   // exists when this page is made visible, it will be launched.
   virtual void AddPendingPrerender(
-      base::WeakPtr<PrerenderHandle> weak_prerender_handle,
-      Origin origin,
-      const GURL& url,
-      const content::Referrer& referrer,
-      const gfx::Size& size);
-
-  // Returns true if |url| corresponds to a pending prerender.
-  bool IsPendingEntry(const PrerenderHandle& prerender_handle) const;
+      scoped_ptr<PendingPrerenderInfo> pending_prerender_info);
 
   // Reissues any pending prerender requests from the prerendered page.  Also
   // clears the list of pending requests.
   void StartPendingPrerenders();
 
  protected:
-  // Information on pages that the prerendered page has tried to prerender.
-  struct PendingPrerenderInfo {
-    PendingPrerenderInfo(
-        base::WeakPtr<PrerenderHandle> weak_prerender_handle,
-        Origin origin,
-        const GURL& url,
-        const content::Referrer& referrer,
-        const gfx::Size& size);
-    ~PendingPrerenderInfo();
-
-    base::WeakPtr<PrerenderHandle> weak_prerender_handle;
-    Origin origin;
-    GURL url;
-    content::Referrer referrer;
-    gfx::Size size;
-  };
-
   PrerenderContents(PrerenderManager* prerender_manager,
                     PrerenderTracker* prerender_tracker,
                     Profile* profile,
@@ -278,9 +270,7 @@ class PrerenderContents : public content::NotificationObserver,
     return notification_registrar_;
   }
 
-  const std::vector<PendingPrerenderInfo>& pending_prerenders() const {
-    return pending_prerenders_;
-  }
+  size_t pending_prerender_count() const;
 
   bool prerendering_has_been_cancelled() const {
     return prerendering_has_been_cancelled_;
@@ -388,8 +378,9 @@ class PrerenderContents : public content::NotificationObserver,
   // Experiment during which this prerender is performed.
   uint8 experiment_id_;
 
-  // List of all pages the prerendered page has tried to prerender.
-  std::vector<PendingPrerenderInfo> pending_prerenders_;
+  // Prerenders that the prerendered page has tried to prerender. They remain
+  // pending until this page is displayed.
+  ScopedVector<PendingPrerenderInfo> pending_prerenders_;
 
   // The process that created the child id.
   int creator_child_id_;

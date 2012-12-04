@@ -13,7 +13,7 @@
 // The "GGLA" brand is used to test the normal code flow of the code, and the
 // "TEST" brand is used to test the supplementary brand code code flow.
 
-#include "base/eintr_wrapper.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -432,8 +432,8 @@ TEST_F(RlzLibTest, SendFinancialPing) {
   base::Thread io_thread("rlz_unittest_io_thread");
   ASSERT_TRUE(io_thread.StartWithOptions(options));
 
-  scoped_refptr<TestURLRequestContextGetter> context =
-      new TestURLRequestContextGetter(
+  scoped_refptr<net::TestURLRequestContextGetter> context =
+      new net::TestURLRequestContextGetter(
           io_thread.message_loop()->message_loop_proxy());
   rlz_lib::SetURLRequestContext(context.get());
 
@@ -788,7 +788,7 @@ TEST_F(RlzLibTest, BrandingWithStatefulEvents) {
   EXPECT_STREQ("events=I7S", value);
 }
 
-#if defined(OS_MACOSX)
+#if defined(OS_POSIX)
 class ReadonlyRlzDirectoryTest : public RlzLibTestNoMachineState {
  protected:
   virtual void SetUp() OVERRIDE;
@@ -799,7 +799,6 @@ void ReadonlyRlzDirectoryTest::SetUp() {
   // Make the rlz directory non-writeable.
   int chmod_result = chmod(temp_dir_.path().value().c_str(), 0500);
   ASSERT_EQ(0, chmod_result);
-
 }
 
 TEST_F(ReadonlyRlzDirectoryTest, WriteFails) {
@@ -873,7 +872,7 @@ TEST_F(RlzLibTest, ConcurrentStoreAccessWithProcessExitsWhileLockHeld) {
       rlz_lib::IE_DEFAULT_SEARCH, rlz_lib::INSTALL));
 }
 
-TEST_F(RlzLibTest, LockAcquistionSucceedsButPlistCannotBeCreated) {
+TEST_F(RlzLibTest, LockAcquistionSucceedsButStoreFileCannotBeCreated) {
   // See the comment at the top of WriteFails.
   if (!rlz_lib::SupplementaryBranding::GetBrand().empty())
     return;
@@ -881,7 +880,7 @@ TEST_F(RlzLibTest, LockAcquistionSucceedsButPlistCannotBeCreated) {
   // Create a directory where the rlz file is supposed to appear. This way,
   // the lock file can be created successfully, but creation of the rlz file
   // itself will fail.
-  int mkdir_result = mkdir(rlz_lib::testing::RlzPlistFilenameStr().c_str(),
+  int mkdir_result = mkdir(rlz_lib::testing::RlzStoreFilenameStr().c_str(),
                            0500);
   ASSERT_EQ(0, mkdir_result);
 

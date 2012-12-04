@@ -126,6 +126,7 @@ class PanelView : public NativePanel,
   virtual bool AcceleratorPressed(const ui::Accelerator& accelerator) OVERRIDE;
 
   // Overridden from views::WidgetObserver:
+  virtual void OnWidgetClosing(views::Widget* widget) OVERRIDE;
   virtual void OnWidgetActivationChanged(views::Widget* widget,
                                          bool active) OVERRIDE;
 
@@ -145,7 +146,7 @@ class PanelView : public NativePanel,
   // window height limitation.
   void SetWidgetBounds(const gfx::Rect& new_bounds);
 
-#if defined(OS_WIN) && !defined(USE_ASH) && !defined(USE_AURA)
+#if defined(OS_WIN)
   // Sets |attribute_value_to_set| and/or clears |attribute_value_to_reset| for
   // the attibute denoted by |attribute_index|. This is used to update the style
   // or extended style for the native window.
@@ -161,6 +162,9 @@ class PanelView : public NativePanel,
   // The window that holds all panel views. Lifetime managed by native widget.
   // See widget.h.
   views::Widget* window_;
+
+  // Close gets called more than once, so use this to do one-time clean up once.
+  bool window_closed_;
 
   // The view hosting the web contents. Will be destroyed when child views
   // of this class are destroyed.

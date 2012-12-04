@@ -152,7 +152,7 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
 
   virtual ~ImeObserver() {}
 
-  virtual void OnActivate(const std::string& engine_id) {
+  virtual void OnActivate(const std::string& engine_id) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -164,7 +164,7 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
                                  args.Pass(), profile_, GURL());
   }
 
-  virtual void OnDeactivated(const std::string& engine_id) {
+  virtual void OnDeactivated(const std::string& engine_id) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -176,7 +176,8 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
                                  args.Pass(), profile_, GURL());
   }
 
-  virtual void OnFocus(const InputMethodEngine::InputContext& context) {
+  virtual void OnFocus(
+      const InputMethodEngine::InputContext& context) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -192,7 +193,7 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
                                  args.Pass(), profile_, GURL());
   }
 
-  virtual void OnBlur(int context_id) {
+  virtual void OnBlur(int context_id) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -205,7 +206,7 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
   }
 
   virtual void OnInputContextUpdate(
-      const InputMethodEngine::InputContext& context) {
+      const InputMethodEngine::InputContext& context) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -221,9 +222,10 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
                                  args.Pass(), profile_, GURL());
   }
 
-  virtual void OnKeyEvent(const std::string& engine_id,
-                          const InputMethodEngine::KeyboardEvent& event,
-                          chromeos::input_method::KeyEventHandle* key_data) {
+  virtual void OnKeyEvent(
+      const std::string& engine_id,
+      const InputMethodEngine::KeyboardEvent& event,
+      chromeos::input_method::KeyEventHandle* key_data) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -251,7 +253,7 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
   virtual void OnCandidateClicked(
       const std::string& engine_id,
       int candidate_id,
-      chromeos::InputMethodEngine::MouseButtonEvent button) {
+      chromeos::InputMethodEngine::MouseButtonEvent button) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -280,7 +282,7 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
   }
 
   virtual void OnMenuItemActivated(const std::string& engine_id,
-                                   const std::string& menu_id) {
+                                   const std::string& menu_id) OVERRIDE {
     if (profile_ == NULL || extension_id_.empty())
       return;
 
@@ -414,7 +416,7 @@ chromeos::InputMethodEngine* InputImeEventRouter::GetActiveEngine(
   return NULL;
 }
 
-void InputImeEventRouter::OnEventHandled(
+void InputImeEventRouter::OnKeyEventHandled(
     const std::string& extension_id,
     const std::string& request_id,
     bool handled) {
@@ -659,6 +661,7 @@ bool SetCandidatesFunction::ReadCandidates(
     int id;
     std::string label;
     std::string annotation;
+    chromeos::InputMethodEngine::UsageEntry usage_entry;
 
     EXTENSION_FUNCTION_VALIDATE(candidate_dict->GetString(keys::kCandidateKey,
                                                           &candidate));
@@ -674,11 +677,22 @@ bool SetCandidatesFunction::ReadCandidates(
           &annotation));
     }
 
+    if (candidate_dict->HasKey(keys::kUsageKey)) {
+      DictionaryValue* usage_dict;
+      EXTENSION_FUNCTION_VALIDATE(candidate_dict->GetDictionary(keys::kUsageKey,
+                                                                &usage_dict));
+      EXTENSION_FUNCTION_VALIDATE(usage_dict->GetString(keys::kUsageTitleKey,
+                                                        &usage_entry.title));
+      EXTENSION_FUNCTION_VALIDATE(usage_dict->GetString(keys::kUsageBodyKey,
+                                                        &usage_entry.body));
+    }
+
     output->push_back(chromeos::InputMethodEngine::Candidate());
     output->back().value = candidate;
     output->back().id = id;
     output->back().label = label;
     output->back().annotation = annotation;
+    output->back().usage = usage_entry;
 
     if (candidate_dict->HasKey(keys::kCandidatesKey)) {
       ListValue* sub_list;
@@ -806,14 +820,14 @@ bool UpdateMenuItemsFunction::RunImpl() {
   return true;
 }
 
-bool InputEventHandled::RunImpl() {
+bool KeyEventHandled::RunImpl() {
   std::string request_id_str;
   EXTENSION_FUNCTION_VALIDATE(args_->GetString(0, &request_id_str));
 
   bool handled = false;
   EXTENSION_FUNCTION_VALIDATE(args_->GetBoolean(1, &handled));
 
-  InputImeEventRouter::GetInstance()->OnEventHandled(
+  InputImeEventRouter::GetInstance()->OnKeyEventHandled(
       extension_id(), request_id_str, handled);
 
   return true;

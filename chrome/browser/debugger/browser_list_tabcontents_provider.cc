@@ -9,6 +9,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -23,7 +24,9 @@
 using content::DevToolsHttpHandlerDelegate;
 using content::RenderViewHost;
 
-BrowserListTabContentsProvider::BrowserListTabContentsProvider() {
+BrowserListTabContentsProvider::BrowserListTabContentsProvider(
+    Profile* profile)
+    : profile_(profile) {
 }
 
 BrowserListTabContentsProvider::~BrowserListTabContentsProvider() {
@@ -81,11 +84,14 @@ std::string BrowserListTabContentsProvider::GetPageThumbnailData(
 
 RenderViewHost* BrowserListTabContentsProvider::CreateNewTarget() {
   if (BrowserList::empty())
+    chrome::NewEmptyWindow(profile_);
+
+  if (BrowserList::empty())
     return NULL;
 
-  TabContents* tab_contents = chrome::AddSelectedTabWithURL(
+  content::WebContents* web_contents = chrome::AddSelectedTabWithURL(
       *BrowserList::begin(),
       GURL(chrome::kAboutBlankURL),
       content::PAGE_TRANSITION_LINK);
-  return tab_contents->web_contents()->GetRenderViewHost();
+  return web_contents->GetRenderViewHost();
 }

@@ -312,7 +312,7 @@ cr.define('cr.ui', function() {
       var length = this.dataModel ? this.dataModel.length : 0;
       this.selectionModel = new ListSelectionModel(length);
 
-      this.addEventListener('dblclick', this.handleDoubleClickOrTap_);
+      this.addEventListener('dblclick', this.handleDoubleClick_);
       this.addEventListener('mousedown', this.handlePointerDownUp_);
       this.addEventListener('mouseup', this.handlePointerDownUp_);
       this.addEventListener('keydown', this.handleKeyDown);
@@ -321,14 +321,6 @@ cr.define('cr.ui', function() {
       this.addEventListener('scroll', this.handleScroll.bind(this));
       this.setAttribute('role', 'list');
 
-      this.touchHandler_ = new cr.ui.TouchHandler(this);
-      this.addEventListener(cr.ui.TouchHandler.EventType.TOUCH_START,
-                            this.handlePointerDownUp_);
-      this.addEventListener(cr.ui.TouchHandler.EventType.TOUCH_END,
-                            this.handlePointerDownUp_);
-      this.addEventListener(cr.ui.TouchHandler.EventType.TAP,
-                            this.handleDoubleClickOrTap_);
-      this.touchHandler_.enable(false, false);
       // Make list focusable
       if (!this.hasAttribute('tabindex'))
         this.tabIndex = 0;
@@ -354,12 +346,6 @@ cr.define('cr.ui', function() {
      * @private
      */
     measureItemHeight_: function(item) {
-      var height = item.style.height;
-      // Use the fixed height if set it on CSS, to save a time of layout
-      // calculation.
-      if (height && height.substr(-2) == 'px')
-        return parseInt(height.substr(0, height.length - 2));
-
       return this.measureItem(item).height;
     },
 
@@ -384,9 +370,11 @@ cr.define('cr.ui', function() {
         return this.cachedItemHeights_[index];
 
       var item = this.getListItemByIndex(index);
-      if (item)
-        return this.measureItemHeight_(item);
-
+      if (item) {
+        var h = this.measureItemHeight_(item);
+        this.cachedItemHeights_[index] = h;
+        return h;
+      }
       return this.getDefaultItemHeight_();
     },
 
@@ -465,17 +453,15 @@ cr.define('cr.ui', function() {
     },
 
     /**
-     * Callback for the double click or TAP event.
-     * @param {Event} e The mouse or TouchHandler event object.
+     * Callback for the double click event.
+     * @param {Event} e The mouse event object.
      * @private
      */
-    handleDoubleClickOrTap_: function(e) {
+    handleDoubleClick_: function(e) {
       if (this.disabled)
         return;
 
       var target = e.target;
-      if (e.touchedElement)
-        target = e.touchedElement;
 
       target = this.getListItemAncestor(target);
       if (target)
@@ -483,8 +469,8 @@ cr.define('cr.ui', function() {
     },
 
     /**
-     * Callback for mousedown, mouseup, TOUCH_START and TOUCH_END events.
-     * @param {Event} e The mouse or TouchHandler event object.
+     * Callback for mousedown and mouseup events.
+     * @param {Event} e The mouse event object.
      * @private
      */
     handlePointerDownUp_: function(e) {
@@ -492,8 +478,6 @@ cr.define('cr.ui', function() {
         return;
 
       var target = e.target;
-      if (e.touchedElement)
-        target = e.touchedElement;
 
       // If the target was this element we need to make sure that the user did
       // not click on a border or a scrollbar.
@@ -504,12 +488,6 @@ cr.define('cr.ui', function() {
       }
 
       target = this.getListItemAncestor(target);
-
-      // While target of mouse events always are ancestors TOUCH_END target
-      // may be outside the list (for instance if it happens over a popup
-      // menu). Just ignore it.
-      if (!target)
-        return;
 
       var index = this.getIndexOfListItem(target);
       this.selectionController_.handlePointerDownUp(e, index);
@@ -706,6 +684,7 @@ cr.define('cr.ui', function() {
         var itemHeight = this.getDefaultItemHeight_();
         return index * itemHeight;
       } else {
+        this.ensureAllItemSizesInCache();
         var top = 0;
         for (var i = 0; i < index; i++) {
           top += this.getItemHeightByIndex_(i);
@@ -1071,7 +1050,6 @@ cr.define('cr.ui', function() {
     /**
      * Returns the height of after filler in the list.
      * @param {number} lastIndex The index of item past the last in viewport.
-     * @param {number} itemHeight The height of the item.
      * @return {number} The height of after filler.
      */
     getAfterFillerHeight: function(lastIndex) {
@@ -1098,7 +1076,7 @@ cr.define('cr.ui', function() {
         this.cachedItems_ = {};
         this.firstIndex_ = 0;
         this.lastIndex_ = 0;
-        this.remainingSpace_ = true;
+        this.remainingSpace_ = this.clientHeight != 0;
         this.mergeItems(0, 0, {}, {});
         return;
       }
@@ -1122,7 +1100,8 @@ cr.define('cr.ui', function() {
       var itemsInViewPort = this.getItemsInViewPort(scrollTop, clientHeight);
       // Draws the hidden rows just above/below the viewport to prevent
       // flashing in scroll.
-      var firstIndex = Math.max(0, itemsInViewPort.first - 1);
+      var firstIndex = Math.max(0, Math.min(dataModel.length - 1,
+                                            itemsInViewPort.first - 1));
       var lastIndex = Math.min(itemsInViewPort.last + 1, dataModel.length);
 
       var beforeFillerHeight =

@@ -7,10 +7,10 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/compiler_specific.h"
-#include "base/eintr_wrapper.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/run_loop.h"
 #include "base/thread_task_runner_handle.h"
 #include "base/threading/platform_thread.h"
@@ -32,8 +32,6 @@ using base::TimeTicks;
 // to avoid chopping this file up with so many #ifdefs.
 
 namespace {
-
-class MessageLoopTest : public testing::Test {};
 
 class Foo : public base::RefCounted<Foo> {
  public:

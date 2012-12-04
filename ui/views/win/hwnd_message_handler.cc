@@ -13,7 +13,6 @@
 #include "ui/base/events/event.h"
 #include "ui/base/events/event_utils.h"
 #include "ui/base/keycodes/keyboard_code_conversion_win.h"
-#include "ui/base/native_theme/native_theme_win.h"
 #include "ui/base/win/hwnd_util.h"
 #include "ui/base/win/mouse_wheel_util.h"
 #include "ui/base/win/shell.h"
@@ -24,6 +23,7 @@
 #include "ui/gfx/path.h"
 #include "ui/gfx/path_win.h"
 #include "ui/gfx/screen.h"
+#include "ui/native_theme/native_theme_win.h"
 #include "ui/views/views_delegate.h"
 #include "ui/views/widget/monitor_win.h"
 #include "ui/views/widget/native_widget_win.h"
@@ -864,7 +864,8 @@ void HWNDMessageHandler::SetOpacity(BYTE opacity) {
 void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
                                         const gfx::ImageSkia& app_icon) {
   if (!window_icon.isNull()) {
-    HICON windows_icon = IconUtil::CreateHICONFromSkBitmap(window_icon);
+    HICON windows_icon = IconUtil::CreateHICONFromSkBitmap(
+        *window_icon.bitmap());
     // We need to make sure to destroy the previous icon, otherwise we'll leak
     // these GDI objects until we crash!
     HICON old_icon = reinterpret_cast<HICON>(
@@ -874,7 +875,7 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
       DestroyIcon(old_icon);
   }
   if (!app_icon.isNull()) {
-    HICON windows_icon = IconUtil::CreateHICONFromSkBitmap(app_icon);
+    HICON windows_icon = IconUtil::CreateHICONFromSkBitmap(*app_icon.bitmap());
     HICON old_icon = reinterpret_cast<HICON>(
         SendMessage(hwnd(), WM_SETICON, ICON_BIG,
                     reinterpret_cast<LPARAM>(windows_icon)));
@@ -1572,11 +1573,10 @@ LRESULT HWNDMessageHandler::OnNCActivate(BOOL active) {
   if (!delegate_->CanActivate())
     return TRUE;
 
-  // The frame may need to redraw as a result of the activation change.
-  // We can get WM_NCACTIVATE before we're actually visible. If we're not
-  // visible, no need to paint.
-  if (IsVisible())
-    delegate_->SchedulePaint();
+  // On activation, lift any prior restriction against rendering as inactive.
+  bool inactive_rendering_disabled = delegate_->IsInactiveRenderingDisabled();
+  if (active && inactive_rendering_disabled)
+    delegate_->EnableInactiveRendering();
 
   if (delegate_->IsUsingCustomFrame()) {
     // TODO(beng, et al): Hack to redraw this window and child windows
@@ -1589,10 +1589,11 @@ LRESULT HWNDMessageHandler::OnNCActivate(BOOL active) {
     EnumChildWindows(hwnd(), EnumChildWindowsForRedraw, NULL);
   }
 
-  // On activation, lift any prior restriction against rendering as inactive.
-  bool inactive_rendering_disabled = delegate_->IsInactiveRenderingDisabled();
-  if (active && inactive_rendering_disabled)
-    delegate_->EnableInactiveRendering();
+  // The frame may need to redraw as a result of the activation change.
+  // We can get WM_NCACTIVATE before we're actually visible. If we're not
+  // visible, no need to paint.
+  if (IsVisible())
+    delegate_->SchedulePaint();
 
   // Avoid DefWindowProc non-client rendering over our custom frame on newer
   // Windows versions only (breaks taskbar activation indication on XP/Vista).

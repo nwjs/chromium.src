@@ -14,16 +14,15 @@
 #include "webkit/glue/resource_loader_bridge.h"
 #include "webkit/glue/webkit_glue_export.h"
 
-#if defined(OS_WIN)
+#if defined(USE_DEFAULT_RENDER_THEME)
+#include "webkit/glue/webthemeengine_impl_default.h"
+#elif defined(OS_WIN)
 #include "webkit/glue/webthemeengine_impl_win.h"
 #elif defined(OS_MACOSX)
 #include "webkit/glue/webthemeengine_impl_mac.h"
 #elif defined(OS_ANDROID)
 #include "webkit/glue/webthemeengine_impl_android.h"
-#elif defined(OS_POSIX) && !defined(OS_ANDROID)
-#include "webkit/glue/webthemeengine_impl_linux.h"
 #endif
-
 
 class MessageLoop;
 
@@ -33,7 +32,6 @@ struct WebPluginInfo;
 }
 
 namespace WebKit {
-class WebFlingAnimator;
 class WebSocketStreamHandle;
 }
 
@@ -154,10 +152,6 @@ class WEBKIT_GLUE_EXPORT WebKitPlatformSupportImpl :
       const WebKit::WebWorkerRunLoop& runLoop) OVERRIDE;
   virtual void didStopWorkerRunLoop(
       const WebKit::WebWorkerRunLoop& runLoop) OVERRIDE;
-
-#if defined(OS_ANDROID)
-  virtual WebKit::WebFlingAnimator* createFlingAnimator();
-#endif
 
   virtual WebKit::WebGestureCurve* createFlingAnimationCurve(
       int device_source,

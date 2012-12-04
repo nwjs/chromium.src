@@ -10,7 +10,6 @@
 
 #include <ks.h>
 #include <codecapi.h>
-#include <d3dx9tex.h>
 #include <mfapi.h>
 #include <mferror.h>
 #include <wmcodecdsp.h>
@@ -25,6 +24,7 @@
 #include "base/message_loop.h"
 #include "base/process_util.h"
 #include "base/shared_memory.h"
+#include "base/threading/worker_pool.h"
 #include "media/video/video_decode_accelerator.h"
 #include "third_party/angle/include/EGL/egl.h"
 #include "third_party/angle/include/EGL/eglext.h"
@@ -72,6 +72,11 @@ IDirect3D9Ex* DXVAVideoDecodeAccelerator::d3d9_ = NULL;
   RETURN_AND_NOTIFY_ON_FAILURE(SUCCEEDED(result),                      \
                                log << ", HRESULT: 0x" << std::hex << result, \
                                error_code, ret);
+
+// Maximum number of iterations we allow before aborting the attempt to flush
+// the batched queries to the driver and allow torn/corrupt frames to be
+// rendered.
+enum { kMaxIterationsForD3DFlush = 10 };
 
 static IMFSample* CreateEmptySample() {
   base::win::ScopedComPtr<IMFSample> sample;
@@ -158,81 +163,6 @@ static IMFSample* CreateSampleFromInputBuffer(
                            alignment);
 }
 
-// Helper function to read the bitmap from the D3D surface passed in.
-static bool GetBitmapFromSurface(IDirect3DDevice9Ex* device,
-                                 IDirect3DSurface9* surface,
-                                 scoped_array<char>* bits) {
-  // TODO(ananta)
-  // The code below may not be necessary once we have an ANGLE extension which
-  // allows us to pass the Direct 3D surface directly for rendering.
-
-  // The decoded bits in the source direct 3d surface are in the YUV
-  // format. Angle does not support that. As a workaround we create an
-  // offscreen surface in the RGB format and copy the source surface
-  // to this surface.
-  D3DSURFACE_DESC surface_desc;
-  HRESULT hr = surface->GetDesc(&surface_desc);
-  RETURN_ON_HR_FAILURE(hr, "Failed to get surface description", false);
-
-  base::win::ScopedComPtr<IDirect3DSurface9> dest_surface;
-  hr = device->CreateOffscreenPlainSurface(surface_desc.Width,
-                                           surface_desc.Height,
-                                           D3DFMT_A8R8G8B8,
-                                           D3DPOOL_DEFAULT,
-                                           dest_surface.Receive(),
-                                           NULL);
-  RETURN_ON_HR_FAILURE(hr, "Failed to create offscreen surface", false);
-
-  hr = D3DXLoadSurfaceFromSurface(dest_surface, NULL, NULL, surface, NULL,
-                                  NULL, D3DX_DEFAULT, 0);
-  RETURN_ON_HR_FAILURE(hr, "D3DXLoadSurfaceFromSurface failed", false);
-
-  // Get the currently loaded bitmap from the DC.
-  HDC hdc = NULL;
-  hr = dest_surface->GetDC(&hdc);
-  RETURN_ON_HR_FAILURE(hr, "Failed to get HDC from surface", false);
-
-  HBITMAP bitmap =
-      reinterpret_cast<HBITMAP>(GetCurrentObject(hdc, OBJ_BITMAP));
-  if (!bitmap) {
-    NOTREACHED() << "Failed to get bitmap from DC";
-    dest_surface->ReleaseDC(hdc);
-    return false;
-  }
-
-  BITMAP bitmap_basic_info = {0};
-  if (!GetObject(bitmap, sizeof(BITMAP), &bitmap_basic_info)) {
-    NOTREACHED() << "Failed to read bitmap info";
-    dest_surface->ReleaseDC(hdc);
-    return false;
-  }
-  BITMAPINFO bitmap_info = {0};
-  bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-  bitmap_info.bmiHeader.biWidth = bitmap_basic_info.bmWidth;
-  bitmap_info.bmiHeader.biHeight = bitmap_basic_info.bmHeight;
-  bitmap_info.bmiHeader.biPlanes = 1;
-  bitmap_info.bmiHeader.biBitCount = bitmap_basic_info.bmBitsPixel;
-  bitmap_info.bmiHeader.biCompression = BI_RGB;
-  bitmap_info.bmiHeader.biSizeImage = 0;
-  bitmap_info.bmiHeader.biClrUsed = 0;
-
-  int ret = GetDIBits(hdc, bitmap, 0, 0, NULL, &bitmap_info, DIB_RGB_COLORS);
-  if (!ret || bitmap_info.bmiHeader.biSizeImage <= 0) {
-    NOTREACHED() << "Failed to read bitmap size";
-    dest_surface->ReleaseDC(hdc);
-    return false;
-  }
-
-  bits->reset(new char[bitmap_info.bmiHeader.biSizeImage]);
-  ret = GetDIBits(hdc, bitmap, 0, bitmap_basic_info.bmHeight, bits->get(),
-                  &bitmap_info, DIB_RGB_COLORS);
-  if (!ret) {
-    NOTREACHED() << "Failed to retrieve bitmap bits.";
-  }
-  dest_surface->ReleaseDC(hdc);
-  return !!ret;
-}
-
 // Maintains information about a DXVA picture buffer, i.e. whether it is
 // available for rendering, the texture information, etc.
 struct DXVAVideoDecodeAccelerator::DXVAPictureBuffer {
@@ -312,6 +242,7 @@ linked_ptr<DXVAVideoDecodeAccelerator::DXVAPictureBuffer>
       D3DPOOL_DEFAULT,
       picture_buffer->decoding_texture_.Receive(),
       &share_handle);
+
   RETURN_ON_HR_FAILURE(hr, "Failed to create texture",
                        linked_ptr<DXVAPictureBuffer>(NULL));
   return picture_buffer;
@@ -371,6 +302,10 @@ bool DXVAVideoDecodeAccelerator::DXVAPictureBuffer::
                                           D3DFMT_X8R8G8B8);
   bool device_supports_format_conversion = (hr == S_OK);
 
+  RETURN_ON_FAILURE(device_supports_format_conversion,
+                    "Device does not support format converision",
+                    false);
+
   // This function currently executes in the context of IPC handlers in the
   // GPU process which ensures that there is always an OpenGL context.
   GLint current_texture = 0;
@@ -380,41 +315,45 @@ bool DXVAVideoDecodeAccelerator::DXVAPictureBuffer::
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-  if (device_supports_format_conversion) {
-    base::win::ScopedComPtr<IDirect3DSurface9> d3d_surface;
-    HRESULT hr = decoding_texture_->GetSurfaceLevel(0, d3d_surface.Receive());
-    RETURN_ON_HR_FAILURE(hr, "Failed to get surface from texture", false);
+  base::win::ScopedComPtr<IDirect3DSurface9> d3d_surface;
+  hr = decoding_texture_->GetSurfaceLevel(0, d3d_surface.Receive());
+  RETURN_ON_HR_FAILURE(hr, "Failed to get surface from texture", false);
 
-    hr = device_->StretchRect(dest_surface,
-                              NULL,
-                              d3d_surface,
-                              NULL,
-                              D3DTEXF_NONE);
-    RETURN_ON_HR_FAILURE(hr, "Colorspace conversion via StretchRect failed",
-                         false);
-    // Ideally, this should be done immediately before the draw call that uses
-    // the texture. Flush it once here though.
-    hr = query_->Issue(D3DISSUE_END);
-    RETURN_ON_HR_FAILURE(hr, "Failed to issue END", false);
-    do {
-      hr = query_->GetData(NULL, 0, D3DGETDATA_FLUSH);
-      if (hr == S_FALSE)
-        Sleep(1);  // Poor-man's Yield().
-    } while (hr == S_FALSE);
-    eglBindTexImage(
-        static_cast<EGLDisplay*>(eglGetDisplay(EGL_DEFAULT_DISPLAY)),
-        decoding_surface_,
-        EGL_BACK_BUFFER);
-  } else {
-    scoped_array<char> bits;
-    RETURN_ON_FAILURE(GetBitmapFromSurface(DXVAVideoDecodeAccelerator::device_,
-                                           dest_surface, &bits),
-                      "Failed to get bitmap from surface for rendering",
-                      false);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT, surface_desc.Width,
-                 surface_desc.Height, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE,
-                 reinterpret_cast<GLvoid*>(bits.get()));
+  hr = device_->StretchRect(dest_surface,
+                            NULL,
+                            d3d_surface,
+                            NULL,
+                            D3DTEXF_NONE);
+  RETURN_ON_HR_FAILURE(hr, "Colorspace conversion via StretchRect failed",
+                        false);
+
+  // Ideally, this should be done immediately before the draw call that uses
+  // the texture. Flush it once here though.
+  hr = query_->Issue(D3DISSUE_END);
+  RETURN_ON_HR_FAILURE(hr, "Failed to issue END", false);
+
+  // The DXVA decoder has its own device which it uses for decoding. ANGLE
+  // has its own device which we don't have access to.
+  // The above code attempts to copy the decoded picture into a surface
+  // which is owned by ANGLE. As there are multiple devices involved in
+  // this, the StretchRect call above is not synchronous.
+  // We attempt to flush the batched operations to ensure that the picture is
+  // copied to the surface owned by ANGLE.
+  // We need to do this in a loop and call flush multiple times.
+  // We have seen the GetData call for flushing the command buffer fail to
+  // return success occassionally on multi core machines, leading to an
+  // infinite loop.
+  // Workaround is to have an upper limit of 10 on the number of iterations to
+  // wait for the Flush to finish.
+  int iterations = 0;
+  while ((query_->GetData(NULL, 0, D3DGETDATA_FLUSH) == S_FALSE) &&
+          ++iterations < kMaxIterationsForD3DFlush) {
+    Sleep(1);  // Poor-man's Yield().
   }
+  eglBindTexImage(
+      static_cast<EGLDisplay*>(eglGetDisplay(EGL_DEFAULT_DISPLAY)),
+      decoding_surface_,
+      EGL_BACK_BUFFER);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glBindTexture(GL_TEXTURE_2D, current_texture);
   return true;
@@ -429,13 +368,16 @@ DXVAVideoDecodeAccelerator::PendingSampleInfo::PendingSampleInfo(
 DXVAVideoDecodeAccelerator::PendingSampleInfo::~PendingSampleInfo() {}
 
 // static
-void DXVAVideoDecodeAccelerator::PreSandboxInitialization() {
+// Initializes DXVA on a separate thread.
+void DXVAVideoDecodeAccelerator::PreSandboxInitialization(
+    const base::Closure& completion_task) {
   // Should be called only once during program startup.
   DCHECK(!pre_sandbox_init_done_);
 
+  base::ScopedClosureRunner scoped_completion_runner(completion_task);
+
   static wchar_t* decoding_dlls[] = {
     L"d3d9.dll",
-    L"d3dx9_43.dll",
     L"dxva2.dll",
     L"mf.dll",
     L"mfplat.dll",
@@ -450,15 +392,24 @@ void DXVAVideoDecodeAccelerator::PreSandboxInitialization() {
     }
   }
 
-  RETURN_ON_FAILURE(CreateD3DDevManager(),
-                    "Failed to initialize D3D device and manager",);
-  pre_sandbox_init_done_ = true;
+  HRESULT hr = Direct3DCreate9Ex(D3D_SDK_VERSION, &d3d9_);
+  RETURN_ON_HR_FAILURE(hr,
+                       "Failed to initialize D3D9.",);
+
+  // Initialize H/W video decoding stuff which fails in the sandbox. This is
+  // done on a worker thread because it takes 10s of ms.
+  scoped_completion_runner.Release();
+  base::WorkerPool::PostTask(
+      FROM_HERE,
+      base::Bind(&DXVAVideoDecodeAccelerator::CreateD3DDevManager,
+                 completion_task),
+      true);
 }
 
 // static
-bool DXVAVideoDecodeAccelerator::CreateD3DDevManager() {
-  HRESULT hr = Direct3DCreate9Ex(D3D_SDK_VERSION, &d3d9_);
-  RETURN_ON_HR_FAILURE(hr, "Direct3DCreate9Ex failed", false);
+void DXVAVideoDecodeAccelerator::CreateD3DDevManager(
+    const base::Closure& completion_task) {
+  base::ScopedClosureRunner scoped_completion_runner(completion_task);
 
   D3DPRESENT_PARAMETERS present_params = {0};
   present_params.BackBufferWidth = 1;
@@ -472,33 +423,34 @@ bool DXVAVideoDecodeAccelerator::CreateD3DDevManager() {
   present_params.FullScreen_RefreshRateInHz = 0;
   present_params.PresentationInterval = 0;
 
-  hr = d3d9_->CreateDeviceEx(D3DADAPTER_DEFAULT,
-                             D3DDEVTYPE_HAL,
-                             ::GetShellWindow(),
-                             D3DCREATE_FPU_PRESERVE |
-                             D3DCREATE_SOFTWARE_VERTEXPROCESSING |
-                             D3DCREATE_DISABLE_PSGP_THREADING |
-                             D3DCREATE_MULTITHREADED,
-                             &present_params,
-                             NULL,
-                             &device_);
-  RETURN_ON_HR_FAILURE(hr, "Failed to create D3D device", false);
+  HRESULT hr = d3d9_->CreateDeviceEx(D3DADAPTER_DEFAULT,
+                                     D3DDEVTYPE_HAL,
+                                     ::GetShellWindow(),
+                                     D3DCREATE_FPU_PRESERVE |
+                                     D3DCREATE_SOFTWARE_VERTEXPROCESSING |
+                                     D3DCREATE_DISABLE_PSGP_THREADING |
+                                     D3DCREATE_MULTITHREADED,
+                                     &present_params,
+                                     NULL,
+                                     &device_);
+  RETURN_ON_HR_FAILURE(hr, "Failed to create D3D device",);
 
   hr = DXVA2CreateDirect3DDeviceManager9(&dev_manager_reset_token_,
                                          &device_manager_);
-  RETURN_ON_HR_FAILURE(hr, "DXVA2CreateDirect3DDeviceManager9 failed", false);
+  RETURN_ON_HR_FAILURE(hr, "DXVA2CreateDirect3DDeviceManager9 failed",);
 
   hr = device_manager_->ResetDevice(device_, dev_manager_reset_token_);
-  RETURN_ON_HR_FAILURE(hr, "Failed to reset device", false);
+  RETURN_ON_HR_FAILURE(hr, "Failed to reset device",);
 
   hr = device_->CreateQuery(D3DQUERYTYPE_EVENT, &query_);
-  RETURN_ON_HR_FAILURE(hr, "Failed to create D3D device query", false);
+  RETURN_ON_HR_FAILURE(hr, "Failed to create D3D device query",);
+
   // Ensure query_ API works (to avoid an infinite loop later in
   // CopyOutputSampleDataToPictureBuffer).
   hr = query_->Issue(D3DISSUE_END);
-  RETURN_ON_HR_FAILURE(hr, "Failed to issue END test query", false);
+  RETURN_ON_HR_FAILURE(hr, "Failed to issue END test query",);
 
-  return true;
+  pre_sandbox_init_done_ = true;
 }
 
 DXVAVideoDecodeAccelerator::DXVAVideoDecodeAccelerator(

@@ -39,7 +39,7 @@ cr.define('login', function() {
   AccountPickerScreen.prototype = {
     __proto__: HTMLDivElement.prototype,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
       login.PodRow.decorate($('pod-row'));
     },
@@ -120,15 +120,21 @@ cr.define('login', function() {
     showErrorBubble: function(loginAttempts, error) {
       var activatedPod = $('pod-row').activatedPod;
       if (!activatedPod) {
-        $('bubble').showContentForElement($('pod-row'), error,
-                                          cr.ui.Bubble.Attachment.RIGHT);
+        $('bubble').showContentForElement($('pod-row'),
+                                          cr.ui.Bubble.Attachment.RIGHT,
+                                          error);
         return;
       }
       if (loginAttempts > MAX_LOGIN_ATTEMPTS_IN_POD) {
         activatedPod.showSigninUI();
       } else {
-        $('bubble').showContentForElement(activatedPod.mainInput, error,
-                                          cr.ui.Bubble.Attachment.BOTTOM);
+        // We want bubble's arrow to point to the first letter of input.
+        /** @const */ var BUBBLE_OFFSET = 7;
+        /** @const */ var BUBBLE_PADDING = 4;
+        $('bubble').showContentForElement(activatedPod.mainInput,
+                                          cr.ui.Bubble.Attachment.BOTTOM,
+                                          error,
+                                          BUBBLE_OFFSET, BUBBLE_PADDING);
       }
     }
   };

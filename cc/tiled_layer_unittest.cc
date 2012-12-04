@@ -18,10 +18,9 @@
 #include "cc/test/tiled_layer_test_common.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/rect_conversions.h"
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
 using namespace WebKitTests;
-using WebKit::WebTransformationMatrix;
 
 namespace cc {
 namespace {
@@ -59,7 +58,7 @@ public:
     {
         m_layerTreeHost = LayerTreeHost::create(&m_fakeLayerImplTreeHostClient, m_settings, scoped_ptr<Thread>(NULL));
         m_proxy = m_layerTreeHost->proxy();
-        m_resourceManager = PrioritizedResourceManager::create(60*1024*1024, 1024, Renderer::ContentPool, m_proxy);
+        m_resourceManager = PrioritizedResourceManager::create(Renderer::ContentPool, m_proxy);
         m_layerTreeHost->initializeRendererIfNeeded();
         DebugScopedSetImplThreadAndMainThreadBlocked implThreadAndMainThreadBlocked(m_proxy);
         m_resourceProvider = ResourceProvider::create(m_context.get());
@@ -95,9 +94,12 @@ public:
     };
     void resourceManagerClearAllMemory(PrioritizedResourceManager* resourceManager, ResourceProvider* resourceProvider)
     {
-        DebugScopedSetImplThreadAndMainThreadBlocked implThreadAndMainThreadBlocked(m_proxy);
-        resourceManager->clearAllMemory(resourceProvider);
-        resourceManager->reduceMemory(resourceProvider);
+        {
+            DebugScopedSetImplThreadAndMainThreadBlocked implThreadAndMainThreadBlocked(m_proxy);
+            resourceManager->clearAllMemory(resourceProvider);
+            resourceManager->reduceMemory(resourceProvider);
+        }
+        resourceManager->unlinkAndClearEvictedBackings();
     }
     void updateTextures()
     {
@@ -524,14 +526,15 @@ TEST_F(TiledLayerTest, paintSmallAnimatedLayersImmediately)
 
     bool runOutOfMemory[2] = {false, true};
     for (int i = 0; i < 2; i++) {
-        // Create a layer with 4x4 tiles.
-        int layerWidth  = 4 * FakeTiledLayer::tileSize().width();
-        int layerHeight = 4 * FakeTiledLayer::tileSize().height();
+        // Create a layer with 5x5 tiles, with 4x4 size viewport.
+        int viewportWidth  = 4 * FakeTiledLayer::tileSize().width();
+        int viewportHeight = 4 * FakeTiledLayer::tileSize().width();
+        int layerWidth  = 5 * FakeTiledLayer::tileSize().width();
+        int layerHeight = 5 * FakeTiledLayer::tileSize().height();
         int memoryForLayer = layerWidth * layerHeight * 4;
-        gfx::Size viewportSize = gfx::Size(layerWidth, layerHeight);
-        layerTreeHost->setViewportSize(viewportSize, viewportSize);
+        layerTreeHost->setViewportSize(gfx::Size(layerWidth, layerHeight), gfx::Size(layerWidth, layerHeight));
 
-        // Use 8x4 tiles to run out of memory.
+        // Use 10x5 tiles to run out of memory.
         if (runOutOfMemory[i])
             layerWidth *= 2;
 
@@ -564,14 +567,14 @@ TEST_F(TiledLayerTest, paintSmallAnimatedLayersImmediately)
         // We should still have the visible tiles when we didn't
         // have enough memory for all the tiles.
         if (!runOutOfMemory[i]) {
-            for (int i = 0; i < 4; ++i) {
-                for (int j = 0; j < 4; ++j)
+            for (int i = 0; i < 5; ++i) {
+                for (int j = 0; j < 5; ++j)
                     EXPECT_TRUE(layerImpl->hasResourceIdForTileAt(i, j));
             }
         } else {
-            for (int i = 0; i < 8; ++i) {
-                for (int j = 0; j < 4; ++j)
-                    EXPECT_EQ(layerImpl->hasResourceIdForTileAt(i, j), i < 4);
+            for (int i = 0; i < 10; ++i) {
+                for (int j = 0; j < 5; ++j)
+                    EXPECT_EQ(layerImpl->hasResourceIdForTileAt(i, j), i < 5);
             }
         }
     }
@@ -1140,8 +1143,8 @@ TEST_F(TiledLayerTest, tilesPaintedWithOcclusionAndTransforms)
     // This makes sure the painting works when the occluded region (in screen space)
     // is transformed differently than the layer.
     layer->setBounds(gfx::Size(600, 600));
-    WebTransformationMatrix screenTransform;
-    screenTransform.scale(0.5);
+    gfx::Transform screenTransform;
+    screenTransform.Scale(0.5, 0.5);
     layer->setScreenSpaceTransform(screenTransform);
     layer->setDrawTransform(screenTransform);
 
@@ -1172,8 +1175,9 @@ TEST_F(TiledLayerTest, tilesPaintedWithOcclusionAndScaling)
     layer->setContentsScale(0.5);
     EXPECT_FLOAT_EQ(layer->contentsScaleX(), layer->contentsScaleY());
     layer->setBounds(gfx::Size(600, 600));
-    WebTransformationMatrix drawTransform;
-    drawTransform.scale(1 / layer->contentsScaleX());
+    gfx::Transform drawTransform;
+    double invScaleFactor = 1 / layer->contentsScaleX();
+    drawTransform.Scale(invScaleFactor, invScaleFactor);
     layer->setDrawTransform(drawTransform);
     layer->setScreenSpaceTransform(drawTransform);
 
@@ -1214,8 +1218,8 @@ TEST_F(TiledLayerTest, tilesPaintedWithOcclusionAndScaling)
     layer->fakeLayerUpdater()->clearUpdateCount();
 
     // This makes sure content scaling and transforms work together.
-    WebTransformationMatrix screenTransform;
-    screenTransform.scale(0.5);
+    gfx::Transform screenTransform;
+    screenTransform.Scale(0.5, 0.5);
     layer->setScreenSpaceTransform(screenTransform);
     layer->setDrawTransform(screenTransform);
 

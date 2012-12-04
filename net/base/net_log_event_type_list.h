@@ -717,8 +717,13 @@ EVENT_TYPE(URL_REQUEST_START_JOB)
 //   }
 EVENT_TYPE(URL_REQUEST_REDIRECTED)
 
-// Measures the time a net::URLRequest is blocked waiting for a delegate
-// (usually an extension) to respond to the onBeforeRequest extension event.
+// Measures the time a net::URLRequest is blocked waiting for either the
+// NetworkDelegate or a URLRequest::Delegate to respond.
+//
+// The parameters attached to the event are:
+//   {
+//     "delegate": <What's blocking the request, if known>,
+//   }
 EVENT_TYPE(URL_REQUEST_BLOCKED_ON_DELEGATE)
 
 // The specified number of bytes were read from the net::URLRequest.
@@ -1555,6 +1560,8 @@ EVENT_TYPE(DOWNLOAD_URL_REQUEST)
 //   }
 // The END event will occur when the download is interrupted, canceled or
 // completed.
+// DownloadItems that are loaded from history and are never active simply ADD
+// one of these events.
 EVENT_TYPE(DOWNLOAD_ITEM_ACTIVE)
 
 // This event is created when a download item has been checked by the
@@ -1564,13 +1571,6 @@ EVENT_TYPE(DOWNLOAD_ITEM_ACTIVE)
 //     "safety_state": <SAFE, DANGEROUS, DANGEROUS_BUT_VALIDATED>,
 //   }
 EVENT_TYPE(DOWNLOAD_ITEM_SAFETY_STATE_UPDATED)
-
-// This event is created when a download item has been inserted into the
-// history database.
-//   {
-//     "db_handle": <The database handle for the item>,
-//   }
-EVENT_TYPE(DOWNLOAD_ITEM_IN_HISTORY)
 
 // This event is created when a download item is updated.
 //   {

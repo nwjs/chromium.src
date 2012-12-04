@@ -4,6 +4,7 @@
 
 #include "ppapi/proxy/ppb_instance_proxy.h"
 
+#include "base/memory/ref_counted.h"
 #include "build/build_config.h"
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/pp_time.h"
@@ -16,11 +17,11 @@
 #include "ppapi/proxy/content_decryptor_private_serializer.h"
 #include "ppapi/proxy/enter_proxy.h"
 #include "ppapi/proxy/flash_clipboard_resource.h"
+#include "ppapi/proxy/flash_fullscreen_resource.h"
 #include "ppapi/proxy/flash_resource.h"
 #include "ppapi/proxy/gamepad_resource.h"
 #include "ppapi/proxy/host_dispatcher.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
-#include "ppapi/proxy/plugin_proxy_delegate.h"
 #include "ppapi/proxy/ppapi_messages.h"
 #include "ppapi/proxy/ppb_flash_proxy.h"
 #include "ppapi/proxy/serialized_var.h"
@@ -29,6 +30,8 @@
 #include "ppapi/shared_impl/ppb_view_shared.h"
 #include "ppapi/shared_impl/var.h"
 #include "ppapi/thunk/enter.h"
+#include "ppapi/thunk/ppb_graphics_2d_api.h"
+#include "ppapi/thunk/ppb_graphics_3d_api.h"
 #include "ppapi/thunk/thunk.h"
 
 // Windows headers interfere with this file.
@@ -38,6 +41,8 @@
 
 using ppapi::thunk::EnterInstanceNoLock;
 using ppapi::thunk::EnterResourceNoLock;
+using ppapi::thunk::PPB_Graphics2D_API;
+using ppapi::thunk::PPB_Graphics3D_API;
 using ppapi::thunk::PPB_Instance_API;
 
 namespace ppapi {
@@ -97,10 +102,13 @@ bool PPB_Instance_Proxy::OnMessageReceived(const IPC::Message& msg) {
   // This must happen OUTSIDE of ExecuteScript since the SerializedVars use
   // the dispatcher upon return of the function (converting the
   // SerializedVarReturnValue/OutParam to a SerializedVar in the destructor).
+#if !defined(OS_NACL)
   ScopedModuleReference death_grip(dispatcher());
+#endif
 
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PPB_Instance_Proxy, msg)
+#if !defined(OS_NACL)
     // Plugin -> Host messages.
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_GetWindowObject,
                         OnHostMsgGetWindowObject)
@@ -146,9 +154,10 @@ bool PPB_Instance_Proxy::OnMessageReceived(const IPC::Message& msg) {
                         OnHostMsgCancelCompositionText)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_UpdateSurroundingText,
                         OnHostMsgUpdateSurroundingText)
+#endif  // !defined(OS_NACL)
+    // This message is needed to implement PPB_Testing_Dev.
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_GetDocumentURL,
                         OnHostMsgGetDocumentURL)
-
 #if !defined(OS_NACL)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBInstance_ResolveRelativeToDocument,
                         OnHostMsgResolveRelativeToDocument)
@@ -194,18 +203,35 @@ PP_Bool PPB_Instance_Proxy::BindGraphics(PP_Instance instance,
   // If device is 0, pass a null HostResource. This signals the host to unbind
   // all devices.
   HostResource host_resource;
+  PP_Resource pp_resource = 0;
   if (device) {
     Resource* resource =
         PpapiGlobals::Get()->GetResourceTracker()->GetResource(device);
     if (!resource || resource->pp_instance() != instance)
       return PP_FALSE;
     host_resource = resource->host_resource();
+    pp_resource = resource->pp_resource();
+  } else {
+    // Passing 0 means unbinding all devices.
+    dispatcher()->Send(new PpapiHostMsg_PPBInstance_BindGraphics(
+        API_ID_PPB_INSTANCE, instance, 0));
+    return PP_TRUE;
   }
 
-  PP_Bool result = PP_FALSE;
-  dispatcher()->Send(new PpapiHostMsg_PPBInstance_BindGraphics(
-      API_ID_PPB_INSTANCE, instance, host_resource, &result));
-  return result;
+  // We need to pass different resource to Graphics 2D and 3D right now.  Once
+  // 3D is migrated to the new design, we should be able to unify this.
+  EnterResourceNoLock<PPB_Graphics2D_API> enter_2d(device, false);
+  EnterResourceNoLock<PPB_Graphics3D_API> enter_3d(device, false);
+  if (enter_2d.succeeded()) {
+    dispatcher()->Send(new PpapiHostMsg_PPBInstance_BindGraphics(
+        API_ID_PPB_INSTANCE, instance, pp_resource));
+    return PP_TRUE;
+  } else if (enter_3d.succeeded()) {
+    dispatcher()->Send(new PpapiHostMsg_PPBInstance_BindGraphics(
+        API_ID_PPB_INSTANCE, instance, host_resource.host_resource()));
+    return PP_TRUE;
+  }
+  return PP_FALSE;
 }
 
 PP_Bool PPB_Instance_Proxy::IsFullFrame(PP_Instance instance) {
@@ -221,6 +247,13 @@ const ViewData* PPB_Instance_Proxy::GetViewData(PP_Instance instance) {
   if (!data)
     return NULL;
   return &data->view;
+}
+
+PP_Bool PPB_Instance_Proxy::FlashIsFullscreen(PP_Instance instance) {
+  // This function is only used for proxying in the renderer process. It is not
+  // implemented in the plugin process.
+  NOTREACHED();
+  return PP_FALSE;
 }
 
 PP_Var PPB_Instance_Proxy::GetWindowObject(PP_Instance instance) {
@@ -299,7 +332,7 @@ PP_Var PPB_Instance_Proxy::GetFontFamilies(PP_Instance instance) {
   // Assume the font families don't change, so we can cache the result globally.
   CR_DEFINE_STATIC_LOCAL(std::string, families, ());
   if (families.empty()) {
-    PluginGlobals::Get()->plugin_proxy_delegate()->SendToBrowser(
+    PluginGlobals::Get()->GetBrowserSender()->Send(
         new PpapiHostMsg_PPBInstance_GetFontFamilies(&families));
   }
 
@@ -327,67 +360,51 @@ thunk::PPB_Flash_API* PPB_Instance_Proxy::GetFlashAPI() {
   return static_cast<PPB_Flash_Proxy*>(ip);
 }
 
-// TODO(raymes): We can most likely cut down this boilerplate for grabbing
-// singleton resource APIs.
-thunk::PPB_Flash_Functions_API* PPB_Instance_Proxy::GetFlashFunctionsAPI(
-    PP_Instance instance) {
+Resource* PPB_Instance_Proxy::GetSingletonResource(PP_Instance instance,
+                                                   SingletonResourceID id) {
+  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
+      GetInstanceData(instance);
+
+  InstanceData::SingletonResourceMap::iterator it =
+      data->singleton_resources.find(id);
+  if (it != data->singleton_resources.end())
+    return it->second.get();
+
+  scoped_refptr<Resource> new_singleton;
+  Connection connection(PluginGlobals::Get()->GetBrowserSender(), dispatcher());
+
+  switch (id) {
+    case GAMEPAD_SINGLETON_ID:
+      new_singleton = new GamepadResource(connection, instance);
+      break;
+// Flash resources aren't needed for NaCl.
 #if !defined(OS_NACL) && !defined(NACL_WIN64)
-  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
-      GetInstanceData(instance);
-  if (!data)
-    return NULL;
-
-  if (!data->flash_resource.get()) {
-    Connection connection(
-        PluginGlobals::Get()->plugin_proxy_delegate()->GetBrowserSender(),
-        dispatcher());
-    data->flash_resource = new FlashResource(connection, instance);
-  }
-  return data->flash_resource.get();
+    case FLASH_CLIPBOARD_SINGLETON_ID:
+      new_singleton = new FlashClipboardResource(connection, instance);
+      break;
+    case FLASH_FULLSCREEN_SINGLETON_ID:
+      new_singleton = new FlashFullscreenResource(connection, instance);
+      break;
+    case FLASH_SINGLETON_ID:
+      new_singleton = new FlashResource(connection, instance);
+      break;
 #else
-  // Flash functions aren't implemented for nacl.
-  NOTIMPLEMENTED();
-  return NULL;
+    case FLASH_CLIPBOARD_SINGLETON_ID:
+    case FLASH_FULLSCREEN_SINGLETON_ID:
+    case FLASH_SINGLETON_ID:
+      NOTREACHED();
+      break;
 #endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
-}
-
-thunk::PPB_Flash_Clipboard_API* PPB_Instance_Proxy::GetFlashClipboardAPI(
-    PP_Instance instance) {
-#if !defined(OS_NACL) && !defined(NACL_WIN64)
-  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
-      GetInstanceData(instance);
-  if (!data)
-    return NULL;
-
-  if (!data->flash_clipboard_resource.get()) {
-    Connection connection(
-        PluginGlobals::Get()->plugin_proxy_delegate()->GetBrowserSender(),
-        dispatcher());
-    data->flash_clipboard_resource =
-        new FlashClipboardResource(connection, instance);
   }
-  return data->flash_clipboard_resource.get();
-#else
-  // Flash functions aren't implemented for nacl.
-  NOTIMPLEMENTED();
-  return NULL;
-#endif  // !defined(OS_NACL) && !defined(NACL_WIN64)
-}
 
-thunk::PPB_Gamepad_API* PPB_Instance_Proxy::GetGamepadAPI(
-    PP_Instance instance) {
-  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
-      GetInstanceData(instance);
-  if (!data)
+  if (!new_singleton) {
+    // Getting here implies that a constructor is missing in the above switch.
+    NOTREACHED();
     return NULL;
-
-  if (!data->gamepad_resource.get()) {
-    Connection connection(
-        PluginGlobals::Get()->plugin_proxy_delegate()->GetBrowserSender(),
-        dispatcher());
-    data->gamepad_resource = new GamepadResource(connection, instance);
   }
-  return data->gamepad_resource.get();
+
+  data->singleton_resources[id] = new_singleton;
+  return new_singleton.get();
 }
 
 int32_t PPB_Instance_Proxy::RequestInputEvents(PP_Instance instance,
@@ -771,7 +788,7 @@ void PPB_Instance_Proxy::SelectionChanged(PP_Instance instance) {
   if (!data->is_request_surrounding_text_pending) {
     MessageLoop::current()->PostTask(
         FROM_HERE,
-        base::Bind(&RequestSurroundingText, instance));
+        RunWhileLocked(base::Bind(&RequestSurroundingText, instance)));
     data->is_request_surrounding_text_pending = true;
   }
 }
@@ -784,6 +801,7 @@ void PPB_Instance_Proxy::UpdateSurroundingText(PP_Instance instance,
       API_ID_PPB_INSTANCE, instance, text, caret, anchor));
 }
 
+#if !defined(OS_NACL)
 void PPB_Instance_Proxy::OnHostMsgGetWindowObject(
     PP_Instance instance,
     SerializedVarReturnValue result) {
@@ -803,13 +821,14 @@ void PPB_Instance_Proxy::OnHostMsgGetOwnerElementObject(
 }
 
 void PPB_Instance_Proxy::OnHostMsgBindGraphics(PP_Instance instance,
-                                               const HostResource& device,
-                                               PP_Bool* result) {
+                                               PP_Resource device) {
+  // Note that we ignroe the return value here. Otherwise, this would need to
+  // be a slow sync call, and the plugin side of the proxy will have already
+  // validated the resources, so we shouldn't see errors here that weren't
+  // already caught.
   EnterInstanceNoLock enter(instance);
-  if (enter.succeeded()) {
-    *result = enter.functions()->BindGraphics(instance,
-                                              device.host_resource());
-  }
+  if (enter.succeeded())
+    enter.functions()->BindGraphics(instance, device);
 }
 
 void PPB_Instance_Proxy::OnHostMsgGetAudioHardwareOutputSampleRate(
@@ -927,6 +946,7 @@ void PPB_Instance_Proxy::OnHostMsgUnlockMouse(PP_Instance instance) {
   if (enter.succeeded())
     enter.functions()->UnlockMouse(instance);
 }
+#endif  // !defined(OS_NACL)
 
 void PPB_Instance_Proxy::OnHostMsgGetDocumentURL(
     PP_Instance instance,
@@ -1111,7 +1131,6 @@ void PPB_Instance_Proxy::OnHostMsgDeliverSamples(
   if (enter.succeeded())
     enter.functions()->DeliverSamples(instance, audio_frames, &block_info);
 }
-#endif  // !defined(OS_NACL)
 
 void  PPB_Instance_Proxy::OnHostMsgSetCursor(
     PP_Instance instance,
@@ -1159,6 +1178,7 @@ void PPB_Instance_Proxy::OnHostMsgUpdateSurroundingText(
                                              anchor);
   }
 }
+#endif  // !defined(OS_NACL)
 
 void PPB_Instance_Proxy::OnPluginMsgMouseLockComplete(PP_Instance instance,
                                                       int32_t result) {
@@ -1174,11 +1194,13 @@ void PPB_Instance_Proxy::OnPluginMsgMouseLockComplete(PP_Instance instance,
   data->mouse_lock_callback->Run(result);
 }
 
+#if !defined(OS_NACL)
 void PPB_Instance_Proxy::MouseLockCompleteInHost(int32_t result,
                                                  PP_Instance instance) {
   dispatcher()->Send(new PpapiMsg_PPBInstance_MouseLockComplete(
       API_ID_PPB_INSTANCE, instance, result));
 }
+#endif  // !defined(OS_NACL)
 
 void PPB_Instance_Proxy::CancelAnyPendingRequestSurroundingText(
     PP_Instance instance) {

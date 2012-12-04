@@ -47,9 +47,9 @@ public:
         return static_cast<WebInputHandlerClient::ScrollStatus>(m_client->scrollBegin(point, static_cast<cc::InputHandlerClient::ScrollInputType>(type)));
     }
 
-    virtual void scrollBy(WebPoint point, WebSize offset) OVERRIDE
+    virtual bool scrollByIfPossible(WebPoint point, WebSize offset) OVERRIDE
     {
-        m_client->scrollBy(point, offset);
+      return m_client->scrollBy(point, offset);
     }
 
     virtual void scrollEnd() OVERRIDE
@@ -86,6 +86,11 @@ public:
     virtual void scheduleAnimation() OVERRIDE
     {
         m_client->scheduleAnimation();
+    }
+
+    virtual bool haveTouchEventHandlersAt(WebPoint point)
+    {
+        return m_client->haveTouchEventHandlersAt(point);
     }
 
 private:

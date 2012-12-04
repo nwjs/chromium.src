@@ -28,7 +28,8 @@ class WebMediaPlayerManagerAndroid {
   int RegisterMediaPlayer(WebMediaPlayerAndroid* player);
   void UnregisterMediaPlayer(int player_id);
 
-  // Release all the media resources managed by this object.
+  // Release all the media resources managed by this object unless
+  // an audio play is in progress.
   void ReleaseMediaResources();
 
   // Check whether a player can enter fullscreen.

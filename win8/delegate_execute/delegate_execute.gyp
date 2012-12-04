@@ -7,17 +7,45 @@
   },
   'includes': [
     '../../build/win_precompile.gypi',
+    '../../chrome/version.gypi',
   ],
   'targets': [
+    {
+      'target_name': 'delegate_execute_version_resources',
+      'type': 'none',
+      'conditions': [
+        ['branding == "Chrome"', {
+          'variables': {
+             'branding_path': '../../chrome/app/theme/google_chrome/BRANDING',
+          },
+        }, { # else branding!="Chrome"
+          'variables': {
+             'branding_path': '../../chrome/app/theme/chromium/BRANDING',
+          },
+        }],
+      ],
+      'variables': {
+        'output_dir': 'delegate_execute',
+        'template_input_path': '../../chrome/app/chrome_version.rc.version',
+      },
+      'sources': [
+        'delegate_execute_exe.ver',
+      ],
+      'includes': [
+        '../../chrome/version_resource_rules.gypi',
+      ],
+    },
     {
       'target_name': 'delegate_execute',
       'type': 'executable',
       'dependencies': [
         '../../base/base.gyp:base',
+        '../../breakpad/breakpad.gyp:breakpad_handler',
         '../../chrome/chrome.gyp:installer_util',
         '../../google_update/google_update.gyp:google_update',
         '../../ui/ui.gyp:ui',
         '../../win8/win8.gyp:check_sdk_patch',
+        'delegate_execute_version_resources',
       ],
       'sources': [
         'chrome_util.cc',
@@ -25,6 +53,8 @@
         'command_execute_impl.cc',
         'command_execute_impl.h',
         'command_execute_impl.rgs',
+        'crash_server_init.cc',
+        'crash_server_init.h',
         'delegate_execute.cc',
         'delegate_execute.rc',
         'delegate_execute.rgs',
@@ -33,6 +63,7 @@
         'delegate_execute_util.cc',
         'delegate_execute_util.h',
         'resource.h',
+        '<(SHARED_INTERMEDIATE_DIR)/delegate_execute/delegate_execute_exe_version.rc',
       ],
       'msvs_settings': {
         'VCLinkerTool': {

@@ -93,8 +93,14 @@ class DevToolsHttpHandlerImpl
   void OnWebSocketMessageUI(int connection_id, const std::string& data);
   void OnCloseUI(int connection_id);
 
+  void ResetHandlerThread();
+  void ResetHandlerThreadAndRelease();
+
   void Init();
-  void TeardownAndRelease();
+  void Teardown();
+
+  void StartHandlerThread();
+  void StopHandlerThread();
 
   void Send200(int connection_id,
                const std::string& data,

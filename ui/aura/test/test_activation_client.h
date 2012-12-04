@@ -31,6 +31,7 @@ class TestActivationClient : public client::ActivationClient,
   virtual void ActivateWindow(Window* window) OVERRIDE;
   virtual void DeactivateWindow(Window* window) OVERRIDE;
   virtual Window* GetActiveWindow() OVERRIDE;
+  virtual Window* GetActivatableWindow(Window* window) OVERRIDE;
   virtual bool OnWillFocusWindow(Window* window,
                                  const ui::Event* event) OVERRIDE;
   virtual bool CanActivateWindow(Window* window) const OVERRIDE;
@@ -46,6 +47,8 @@ class TestActivationClient : public client::ActivationClient,
   // aura API. Assumptions to that end will cause tests that use this client to
   // fail.
   std::vector<Window*> active_windows_;
+
+  ObserverList<client::ActivationChangeObserver> observers_;
 
   DISALLOW_COPY_AND_ASSIGN(TestActivationClient);
 };

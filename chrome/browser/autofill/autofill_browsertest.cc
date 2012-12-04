@@ -375,8 +375,8 @@ class AutofillTest : public InProcessBrowserTest {
   void SendKeyAndWait(ui::KeyboardCode key, int notification_type) {
     content::WindowedNotificationObserver observer(
         notification_type, content::Source<RenderViewHost>(render_view_host()));
-    content::SimulateKeyPress(chrome::GetActiveWebContents(
-        browser()), key, false, false, false, false);
+    content::SimulateKeyPress(chrome::GetActiveWebContents(browser()),
+                              key, false, false, false, false);
     observer.Wait();
   }
 
@@ -450,7 +450,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_AutofillViaDownArrow) {
   CreateTestProfile();
 
   // Load the test page.
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
       GURL(std::string(kDataURIPrefix) + kTestFormString)));
 
@@ -507,7 +506,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_OnChangeAfterAutofill) {
       "</script>";
 
   // Load the test page.
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
       GURL(std::string(kDataURIPrefix) + kTestFormString + kOnChangeScript)));
 
@@ -582,7 +580,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, DISABLED_AutofillFormsDistinguishedById) {
       "newForm.id = 'newForm';"
       "mainForm.parentNode.insertBefore(newForm, mainForm);"
       "</script>";
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(), GURL(kURL)));
 
   // Invoke Autofill.
@@ -598,7 +595,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, DISABLED_AutofillFormWithRepeatedField) {
   CreateTestProfile();
 
   // Load the test page.
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
       GURL(std::string(kDataURIPrefix) +
            "<form action=\"http://www.example.com/\" method=\"POST\">"
@@ -654,7 +650,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest,
   CreateTestProfile();
 
   // Load the test page.
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
       GURL(std::string(kDataURIPrefix) +
            "<form action=\"http://www.example.com/\" method=\"POST\">"
@@ -699,7 +694,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, DISABLED_DynamicFormFill) {
   CreateTestProfile();
 
   // Load the test page.
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
       GURL(std::string(kDataURIPrefix) +
            "<form id=\"form\" action=\"http://www.example.com/\""
@@ -798,7 +792,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_AutofillAfterReload) {
 
   // Load the test page.
   LOG(WARNING) << "Bringing browser window to front.";
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   LOG(WARNING) << "Navigating to URL.";
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
       GURL(std::string(kDataURIPrefix) + kTestFormString)));
@@ -849,7 +842,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, DISABLED_AutofillAfterTranslate) {
                "<label for=\"ph\">Phone number:</label>"
                " <input type=\"text\" id=\"ph\"><br>"
                "</form>");
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(), url));
 
   // Get translation bar.
@@ -987,9 +979,9 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, FillProfileCrazyCharacters) {
   profiles.push_back(profile7);
 
   SetProfiles(&profiles);
-  ASSERT_EQ(profiles.size(), personal_data_manager()->profiles().size());
+  ASSERT_EQ(profiles.size(), personal_data_manager()->GetProfiles().size());
   for (size_t i = 0; i < profiles.size(); ++i)
-    ASSERT_EQ(profiles[i], *personal_data_manager()->profiles()[i]);
+    ASSERT_EQ(profiles[i], *personal_data_manager()->GetProfiles()[i]);
 
   std::vector<CreditCard> cards;
   CreditCard card1;
@@ -1062,8 +1054,8 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, Invalid) {
                           ASCIIToUTF16("Invalid_Phone_Number"));
   SetProfile(with_invalid);
 
-  ASSERT_EQ(1u, personal_data_manager()->profiles().size());
-  AutofillProfile profile = *personal_data_manager()->profiles()[0];
+  ASSERT_EQ(1u, personal_data_manager()->GetProfiles().size());
+  AutofillProfile profile = *personal_data_manager()->GetProfiles()[0];
   ASSERT_NE(without_invalid.GetRawInfo(PHONE_HOME_WHOLE_NUMBER),
             profile.GetRawInfo(PHONE_HOME_WHOLE_NUMBER));
 }
@@ -1125,7 +1117,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, AggregatesMinValidProfile) {
   data["ADDRESS_HOME_ZIP"] = "94043";
   FillFormAndSubmit("duplicate_profiles_test.html", data);
 
-  ASSERT_EQ(1u, personal_data_manager()->profiles().size());
+  ASSERT_EQ(1u, personal_data_manager()->GetProfiles().size());
 }
 
 // Test Autofill does not aggregate profiles with no address info.
@@ -1142,7 +1134,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, ProfilesNotAggregatedWithNoAddress) {
   data["PHONE_HOME_WHOLE_NUMBER"] = "650-555-4567";
   FillFormAndSubmit("duplicate_profiles_test.html", data);
 
-  ASSERT_TRUE(personal_data_manager()->profiles().empty());
+  ASSERT_TRUE(personal_data_manager()->GetProfiles().empty());
 }
 
 // Test Autofill does not aggregate profiles with an invalid email.
@@ -1160,7 +1152,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, ProfilesNotAggregatedWithInvalidEmail) {
   data["PHONE_HOME_WHOLE_NUMBER"] = "408-871-4567";
   FillFormAndSubmit("duplicate_profiles_test.html", data);
 
-  ASSERT_TRUE(personal_data_manager()->profiles().empty());
+  ASSERT_TRUE(personal_data_manager()->GetProfiles().empty());
 }
 
 // http://crbug.com/150084
@@ -1265,12 +1257,12 @@ IN_PROC_BROWSER_TEST_F(AutofillTest,
   for (size_t i = 0; i < profiles.size(); ++i)
     FillFormAndSubmit("autofill_test_form.html", profiles[i]);
 
-  ASSERT_EQ(2u, personal_data_manager()->profiles().size());
+  ASSERT_EQ(2u, personal_data_manager()->GetProfiles().size());
   ASSERT_EQ(ASCIIToUTF16("(408) 871-4567"),
-            personal_data_manager()->profiles()[0]->GetRawInfo(
+            personal_data_manager()->GetProfiles()[0]->GetRawInfo(
                 PHONE_HOME_WHOLE_NUMBER));
   ASSERT_EQ(ASCIIToUTF16("+49 40/808179000"),
-            personal_data_manager()->profiles()[1]->GetRawInfo(
+            personal_data_manager()->GetProfiles()[1]->GetRawInfo(
                 PHONE_HOME_WHOLE_NUMBER));
 }
 
@@ -1291,8 +1283,8 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, AppendCountryCodeForAggregatedPhones) {
   data["PHONE_HOME_WHOLE_NUMBER"] = "(08) 450 777-777";
   FillFormAndSubmit("autofill_test_form.html", data);
 
-  ASSERT_EQ(1u, personal_data_manager()->profiles().size());
-  string16 phone = personal_data_manager()->profiles()[0]->GetRawInfo(
+  ASSERT_EQ(1u, personal_data_manager()->GetProfiles().size());
+  string16 phone = personal_data_manager()->GetProfiles()[0]->GetRawInfo(
       PHONE_HOME_WHOLE_NUMBER);
   ASSERT_TRUE(StartsWith(phone, ASCIIToUTF16("+49"), true));
 }
@@ -1453,7 +1445,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, ProfileWithEmailInOtherFieldNotSaved) {
   data["PHONE_HOME_WHOLE_NUMBER"] = "408-871-4567";
   FillFormAndSubmit("duplicate_profiles_test.html", data);
 
-  ASSERT_EQ(0u, personal_data_manager()->profiles().size());
+  ASSERT_EQ(0u, personal_data_manager()->GetProfiles().size());
 }
 
 // http://crbug.com/150084
@@ -1525,6 +1517,54 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_FormFillLatencyAfterSubmit) {
   load_stop_observer.Wait();
 }
 
+// http://crbug.com/150084
+#if defined(OS_MACOSX)
+#define MAYBE_DisableAutocompleteWhileFilling DisableAutocompleteWhileFilling
+#else
+#define MAYBE_DisableAutocompleteWhileFilling \
+    DISABLED_DisableAutocompleteWhileFilling
+#endif
+// Test that Chrome doesn't crash when autocomplete is disabled while the user
+// is interacting with the form.  This is a regression test for
+// http://crbug.com/160476
+IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_DisableAutocompleteWhileFilling) {
+  CreateTestProfile();
+
+  // Load the test page.
+  ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
+      GURL(std::string(kDataURIPrefix) + kTestFormString)));
+
+  // Invoke Autofill: Start filling the first name field with "M" and wait for
+  // the popup to be shown.
+  FocusFirstNameField();
+  SendKeyAndWait(
+      ui::VKEY_M, chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS);
+
+  // Now that the popup with suggestions is showing, disable autocomplete for
+  // the active field.
+  ASSERT_TRUE(content::ExecuteJavaScript(
+      render_view_host(), L"",
+      L"document.querySelector('input').autocomplete = 'off';"));
+
+  // Press the down arrow to select the suggestion and attempt to preview the
+  // autofilled form.
+  content::SimulateKeyPress(chrome::GetActiveWebContents(browser()),
+                            ui::VKEY_DOWN, false, false, false, false);
+
+  // Wait for any IPCs to complete by performing an action that generates an
+  // IPC that's easy to wait for.  Chrome shouldn't crash.
+  bool result = false;
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
+      render_view_host(), L"",
+      L"var city = document.getElementById('city');"
+      L"city.onfocus = function() { domAutomationController.send(true); };"
+      L"city.focus()",
+      &result));
+  ASSERT_TRUE(result);
+  SendKeyAndWait(
+      ui::VKEY_A, chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS);
+}
+
 // Test that profiles merge for aggregated data with same address.
 // The criterion for when two profiles are expected to be merged is when their
 // 'Address Line 1' and 'City' data match. When two profiles are merged, any
@@ -1535,7 +1575,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest,
                        DISABLED_MergeAggregatedProfilesWithSameAddress) {
   AggregateProfilesIntoAutofillPrefs("dataset_2.txt");
 
-  ASSERT_EQ(3u, personal_data_manager()->profiles().size());
+  ASSERT_EQ(3u, personal_data_manager()->GetProfiles().size());
 }
 
 // Test profiles are not merged without mininum address values.
@@ -1547,7 +1587,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest,
                        DISABLED_ProfilesNotMergedWhenNoMinAddressData) {
   AggregateProfilesIntoAutofillPrefs("dataset_no_address.txt");
 
-  ASSERT_EQ(0u, personal_data_manager()->profiles().size());
+  ASSERT_EQ(0u, personal_data_manager()->GetProfiles().size());
 }
 
 // Test Autofill ability to merge duplicate profiles and throw away junk.
@@ -1559,5 +1599,5 @@ IN_PROC_BROWSER_TEST_F(AutofillTest,
       AggregateProfilesIntoAutofillPrefs("dataset_no_address.txt");
 
   ASSERT_GT(num_of_profiles,
-            static_cast<int>(personal_data_manager()->profiles().size()));
+            static_cast<int>(personal_data_manager()->GetProfiles().size()));
 }

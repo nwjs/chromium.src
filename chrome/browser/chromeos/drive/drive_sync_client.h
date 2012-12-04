@@ -11,7 +11,6 @@
 
 #include "base/callback_forward.h"
 #include "base/memory/weak_ptr.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/time.h"
 #include "chrome/browser/chromeos/drive/drive_cache.h"
 #include "chrome/browser/chromeos/drive/drive_cache_observer.h"
@@ -45,7 +44,6 @@ class DriveSyncClientObserver;
 class DriveSyncClient
     : public DriveFileSystemObserver,
       public DriveCacheObserver,
-      public PrefObserver,
       public net::NetworkChangeNotifier::ConnectionTypeObserver {
  public:
   // Types of sync tasks.
@@ -156,14 +154,10 @@ class DriveSyncClient
                        const DriveCacheEntry& cache_entry);
 
   // Called when an existing cache entry and the local files are removed.
-  void OnRemove(DriveFileError error,
-                const std::string& resource_id,
-                const std::string& md5);
+  void OnRemove(const std::string& resource_id, DriveFileError error);
 
   // Called when a file is pinned.
-  void OnPinned(DriveFileError error,
-                const std::string& resource_id,
-                const std::string& md5);
+  void OnPinned(const std::string& resource_id, DriveFileError error);
 
   // Called when the file for |resource_id| is fetched.
   // Calls DoSyncLoop() to go back to the sync loop.
@@ -178,9 +172,8 @@ class DriveSyncClient
   void OnUploadFileComplete(const std::string& resource_id,
                             DriveFileError error);
 
-  // PrefObserver override.
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
+  // Called on prefs changes.
+  void OnDriveSyncPreferenceChanged();
 
   // net::NetworkChangeNotifier::ConnectionTypeObserver override.
   virtual void OnConnectionTypeChanged(

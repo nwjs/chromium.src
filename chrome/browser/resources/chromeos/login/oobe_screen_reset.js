@@ -26,7 +26,7 @@ cr.define('oobe', function() {
   ResetScreen.prototype = {
     __proto__: HTMLDivElement.prototype,
 
-    /** @inheritDoc */
+    /** @override */
     decorate: function() {
     },
 
@@ -45,15 +45,6 @@ cr.define('oobe', function() {
     get buttons() {
       var buttons = [];
 
-      var cancelButton = this.ownerDocument.createElement('button');
-      cancelButton.id = 'reset-cancel-button';
-      cancelButton.textContent = localStrings.getString('cancelButton');
-      cancelButton.addEventListener('click', function(e) {
-        chrome.send('resetOnCancel');
-        e.stopPropagation();
-      });
-      buttons.push(cancelButton);
-
       var resetButton = this.ownerDocument.createElement('button');
       resetButton.id = 'reset-button';
       resetButton.textContent = localStrings.getString('resetButton');
@@ -63,7 +54,23 @@ cr.define('oobe', function() {
       });
       buttons.push(resetButton);
 
+      var cancelButton = this.ownerDocument.createElement('button');
+      cancelButton.id = 'reset-cancel-button';
+      cancelButton.textContent = localStrings.getString('cancelButton');
+      cancelButton.addEventListener('click', function(e) {
+        chrome.send('resetOnCancel');
+        e.stopPropagation();
+      });
+      buttons.push(cancelButton);
+
       return buttons;
+    },
+
+    /**
+     * Returns a control which should receive an initial focus.
+     */
+    get defaultControl() {
+      return $('reset-cancel-button');
     },
 
     /**

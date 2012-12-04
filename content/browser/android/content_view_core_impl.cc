@@ -11,6 +11,8 @@
 #include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
+#include "cc/layer.h"
+#include "content/browser/android/interstitial_page_delegate_android.h"
 #include "content/browser/android/load_url_params.h"
 #include "content/browser/android/touch_point.h"
 #include "content/browser/renderer_host/java/java_bound_object.h"
@@ -74,6 +76,17 @@ namespace {
 jfieldID g_native_content_view;
 
 const void* kContentViewUserDataKey = &kContentViewUserDataKey;
+
+int GetRenderProcessIdFromRenderViewHost(RenderViewHost* host) {
+  DCHECK(host);
+  RenderProcessHost* render_process = host->GetProcess();
+  DCHECK(render_process);
+  if (render_process->HasConnection())
+    return render_process->GetHandle();
+  else
+    return 0;
+}
+
 }  // namespace
 
 // Enables a callback when the underlying WebContents is destroyed, to enable
@@ -134,9 +147,10 @@ ContentViewCoreImpl::ContentViewCoreImpl(JNIEnv* env, jobject obj,
                                          ui::WindowAndroid* window_android)
     : java_ref_(env, obj),
       web_contents_(static_cast<WebContentsImpl*>(web_contents)),
+      root_layer_(cc::Layer::create()),
       tab_crashed_(false),
       window_android_(window_android) {
-  DCHECK(web_contents) <<
+  CHECK(web_contents) <<
       "A ContentViewCoreImpl should be created with a valid WebContents.";
 
   // When a tab is restored (from a saved state), it does not have a renderer
@@ -198,9 +212,12 @@ void ContentViewCoreImpl::OnJavaContentViewCoreDestroyed(JNIEnv* env,
 
 void ContentViewCoreImpl::InitWebContents() {
   DCHECK(web_contents_);
-  notification_registrar_.Add(this,
-      NOTIFICATION_RENDER_VIEW_HOST_CHANGED,
+  notification_registrar_.Add(
+      this, NOTIFICATION_RENDER_VIEW_HOST_CHANGED,
       Source<NavigationController>(&web_contents_->GetController()));
+  notification_registrar_.Add(
+      this, NOTIFICATION_RENDERER_PROCESS_CREATED,
+      content::NotificationService::AllBrowserContextsAndSources());
 
   static_cast<WebContentsViewAndroid*>(web_contents_->GetView())->
       SetContentViewCore(this);
@@ -213,6 +230,45 @@ void ContentViewCoreImpl::Observe(int type,
                                   const NotificationSource& source,
                                   const NotificationDetails& details) {
   switch (type) {
+    case NOTIFICATION_RENDER_VIEW_HOST_CHANGED: {
+      std::pair<RenderViewHost*, RenderViewHost*>* switched_details =
+          Details<std::pair<RenderViewHost*, RenderViewHost*> >(details).ptr();
+      int old_pid = 0;
+      if (switched_details->first) {
+        old_pid = GetRenderProcessIdFromRenderViewHost(
+            switched_details->first);
+      }
+      int new_pid = GetRenderProcessIdFromRenderViewHost(
+          web_contents_->GetRenderViewHost());
+      if (new_pid != old_pid) {
+        // Notify the Java side of the change of the current renderer process.
+        JNIEnv* env = AttachCurrentThread();
+        ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+        if (!obj.is_null()) {
+          Java_ContentViewCore_onRenderProcessSwap(
+              env, obj.obj(), old_pid, new_pid);
+        }
+      }
+      break;
+    }
+    case NOTIFICATION_RENDERER_PROCESS_CREATED: {
+      // Notify the Java side of the current renderer process.
+      RenderProcessHost* source_process_host =
+          Source<RenderProcessHost>(source).ptr();
+      RenderProcessHost* current_process_host =
+          web_contents_->GetRenderViewHost()->GetProcess();
+
+      if (source_process_host == current_process_host) {
+        int pid = GetRenderProcessIdFromRenderViewHost(
+            web_contents_->GetRenderViewHost());
+        JNIEnv* env = AttachCurrentThread();
+        ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+        if (!obj.is_null()) {
+          Java_ContentViewCore_onRenderProcessSwap(env, obj.obj(), 0, pid);
+        }
+      }
+      break;
+    }
     case NOTIFICATION_EXECUTE_JAVASCRIPT_RESULT: {
       if (!web_contents_ || Source<RenderViewHost>(source).ptr() !=
           web_contents_->GetRenderViewHost()) {
@@ -414,12 +470,13 @@ void ContentViewCoreImpl::ShowSelectPopupMenu(
                                        multiple, selected_array.obj());
 }
 
-void ContentViewCoreImpl::ConfirmTouchEvent(bool handled) {
+void ContentViewCoreImpl::ConfirmTouchEvent(InputEventAckState ack_result) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> j_obj = java_ref_.get(env);
   if (j_obj.is_null())
     return;
-  Java_ContentViewCore_confirmTouchEvent(env, j_obj.obj(), handled);
+  bool processed = (ack_result == INPUT_EVENT_ACK_STATE_CONSUMED);
+  Java_ContentViewCore_confirmTouchEvent(env, j_obj.obj(), processed);
 }
 
 void ContentViewCoreImpl::HasTouchEventHandlers(bool need_touch_events) {
@@ -544,14 +601,26 @@ gfx::Rect ContentViewCoreImpl::GetBounds() const {
                    Java_ContentViewCore_getHeight(env, j_obj.obj()));
 }
 
+void ContentViewCoreImpl::AttachLayer(scoped_refptr<cc::Layer> layer) {
+  root_layer_->addChild(layer);
+}
+
+void ContentViewCoreImpl::RemoveLayer(scoped_refptr<cc::Layer> layer) {
+  layer->removeFromParent();
+}
+
 void ContentViewCoreImpl::LoadUrl(
     NavigationController::LoadURLParams& params) {
   GetWebContents()->GetController().LoadURLWithParams(params);
   tab_crashed_ = false;
 }
 
-ui::WindowAndroid* ContentViewCoreImpl::GetWindowAndroid() {
+ui::WindowAndroid* ContentViewCoreImpl::GetWindowAndroid() const {
   return window_android_;
+}
+
+scoped_refptr<cc::Layer> ContentViewCoreImpl::GetLayer() const {
+  return root_layer_.get();
 }
 
 // ----------------------------------------------------------------------------
@@ -625,14 +694,8 @@ void ContentViewCoreImpl::LoadUrl(
 }
 
 jint ContentViewCoreImpl::GetCurrentRenderProcessId(JNIEnv* env, jobject obj) {
-  RenderViewHost* host = web_contents_->GetRenderViewHost();
-  DCHECK(host);
-  RenderProcessHost* render_process = host->GetProcess();
-  DCHECK(render_process);
-  if (render_process->HasConnection())
-    return render_process->GetHandle();
-  else
-    return 0;
+  return GetRenderProcessIdFromRenderViewHost(
+      web_contents_->GetRenderViewHost());
 }
 
 void ContentViewCoreImpl::SetAllUserAgentOverridesInHistory(
@@ -1008,6 +1071,28 @@ void ContentViewCoreImpl::SetSize(JNIEnv* env,
     return;
 
   view->SetSize(gfx::Size(width, height));
+}
+
+void ContentViewCoreImpl::ShowInterstitialPage(
+    JNIEnv* env, jobject obj, jstring jurl, jint delegate_ptr) {
+  GURL url(base::android::ConvertJavaStringToUTF8(env, jurl));
+  InterstitialPageDelegateAndroid* delegate =
+      reinterpret_cast<InterstitialPageDelegateAndroid*>(delegate_ptr);
+  InterstitialPage* interstitial = InterstitialPage::Create(
+      web_contents_, false, url, delegate);
+  delegate->set_interstitial_page(interstitial);
+  interstitial->Show();
+}
+
+jboolean ContentViewCoreImpl::IsShowingInterstitialPage(JNIEnv* env,
+                                                        jobject obj) {
+  return web_contents_->ShowingInterstitialPage();
+}
+
+jboolean ContentViewCoreImpl::IsRenderWidgetHostViewReady(JNIEnv* env,
+                                                          jobject obj) {
+  RenderWidgetHostViewAndroid* view = GetRenderWidgetHostViewAndroid();
+  return view && view->HasValidFrame();
 }
 
 void ContentViewCoreImpl::ScrollFocusedEditableNodeIntoView(JNIEnv* env,

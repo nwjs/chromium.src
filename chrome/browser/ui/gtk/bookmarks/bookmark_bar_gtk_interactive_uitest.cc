@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/gtk/view_id_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "net/test/test_server.h"
@@ -41,10 +42,10 @@ IN_PROC_BROWSER_TEST_F(BookmarkBarGtkInteractiveUITest, FindBarTest) {
   chrome::AddSelectedTabWithURL(browser(), url, content::PAGE_TRANSITION_TYPED);
 
   // Switch back to the NTP with the active findbar.
-  chrome::ActivateTabAt(browser(), 1, false);
+  browser()->tab_strip_model()->ActivateTabAt(1, false);
 
   // Wait for the findbar to show.
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   // Set focus somewhere else, so that we can test clicking on the findbar
   // works.
@@ -70,7 +71,7 @@ IN_PROC_BROWSER_TEST_F(
   chrome::NewTab(browser());
 
   // Wait for the floating bar to appear.
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
 
   // This is kind of a hack. Calling this just once doesn't seem to send a click
   // event, but doing it twice works.

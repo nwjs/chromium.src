@@ -13,8 +13,8 @@
 #include <unistd.h>
 
 #include "base/debug/trace_event.h"
-#include "base/eintr_wrapper.h"
 #include "base/message_loop.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -235,7 +235,7 @@ void GamepadPlatformDataFetcherLinux::ReadDeviceData(size_t index) {
   DCHECK_GE(fd, 0);
 
   js_event event;
-  while (HANDLE_EINTR(read(fd, &event, sizeof(struct js_event)) > 0)) {
+  while (HANDLE_EINTR(read(fd, &event, sizeof(struct js_event))) > 0) {
     size_t item = event.number;
     if (event.type & JS_EVENT_AXIS) {
       if (item >= WebGamepad::axesLengthCap)

@@ -15,7 +15,6 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "ui/base/accessibility/accessible_view_state.h"
-#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/canvas.h"
@@ -23,6 +22,7 @@
 #include "ui/gfx/font.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/shadow_value.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/background.h"
 
 namespace {
@@ -397,6 +397,18 @@ int Label::ComputeDrawStringFlags() const {
       flags |= gfx::Canvas::FORCE_LTR_DIRECTIONALITY;
   }
 
+  switch (horizontal_alignment_) {
+    case gfx::ALIGN_LEFT:
+      flags |= gfx::Canvas::TEXT_ALIGN_LEFT;
+      break;
+    case gfx::ALIGN_CENTER:
+      flags |= gfx::Canvas::TEXT_ALIGN_CENTER;
+      break;
+    case gfx::ALIGN_RIGHT:
+      flags |= gfx::Canvas::TEXT_ALIGN_RIGHT;
+      break;
+  }
+
   if (!is_multi_line_)
     return flags;
 
@@ -411,17 +423,6 @@ int Label::ComputeDrawStringFlags() const {
 #endif
   if (allow_character_break_)
     flags |= gfx::Canvas::CHARACTER_BREAK;
-  switch (horizontal_alignment_) {
-    case gfx::ALIGN_LEFT:
-      flags |= gfx::Canvas::TEXT_ALIGN_LEFT;
-      break;
-    case gfx::ALIGN_CENTER:
-      flags |= gfx::Canvas::TEXT_ALIGN_CENTER;
-      break;
-    case gfx::ALIGN_RIGHT:
-      flags |= gfx::Canvas::TEXT_ALIGN_RIGHT;
-      break;
-  }
 
   return flags;
 }

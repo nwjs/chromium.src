@@ -37,6 +37,12 @@ class CONTENT_EXPORT WebContentsView {
   virtual RenderWidgetHostView* CreateViewForWidget(
       RenderWidgetHost* render_widget_host) = 0;
 
+  // This is required because some WebContentsView cache the
+  // RenderWidgetHostView created by the above method. In that case, when the
+  // view created by the above method is destroyed, the old one needs to be set
+  // again.
+  virtual void SetView(RenderWidgetHostView* view) = 0;
+
   // Returns the native widget that contains the contents of the tab.
   virtual gfx::NativeView GetNativeView() const = 0;
 
@@ -111,6 +117,16 @@ class CONTENT_EXPORT WebContentsView {
 
   // Get the bounds of the View, relative to the parent.
   virtual gfx::Rect GetViewBounds() const = 0;
+
+#if defined(OS_MACOSX)
+  // The web contents view assumes that its view will never be overlapped by
+  // another view (either partially or fully). This allows it to perform
+  // optimizations. If the view is in a view hierarchy where it might be
+  // overlapped by another view, notify the view by calling this with |true|
+  // before it draws for the first time. After the first draw, do not change
+  // this setting.
+  virtual void SetAllowOverlappingViews(bool overlapping) = 0;
+#endif
 };
 
 }  // namespace content

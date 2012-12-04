@@ -34,48 +34,6 @@ template<typename Class,
          typename InsetsClass,
          typename VectorClass,
          typename Type>
-RectBase<Class, PointClass, SizeClass, InsetsClass, VectorClass, Type>::
-    RectBase(const PointClass& origin, const SizeClass& size)
-    : origin_(origin), size_(size) {
-}
-
-template<typename Class,
-         typename PointClass,
-         typename SizeClass,
-         typename InsetsClass,
-         typename VectorClass,
-         typename Type>
-RectBase<Class, PointClass, SizeClass, InsetsClass, VectorClass, Type>::
-    RectBase(const SizeClass& size)
-    : size_(size) {
-}
-
-template<typename Class,
-         typename PointClass,
-         typename SizeClass,
-         typename InsetsClass,
-         typename VectorClass,
-         typename Type>
-RectBase<Class, PointClass, SizeClass, InsetsClass, VectorClass, Type>::
-    RectBase(const PointClass& origin)
-    : origin_(origin) {
-}
-
-template<typename Class,
-         typename PointClass,
-         typename SizeClass,
-         typename InsetsClass,
-         typename VectorClass,
-         typename Type>
-RectBase<Class, PointClass, SizeClass, InsetsClass, VectorClass, Type>::
-    ~RectBase() {}
-
-template<typename Class,
-         typename PointClass,
-         typename SizeClass,
-         typename InsetsClass,
-         typename VectorClass,
-         typename Type>
 void RectBase<Class, PointClass, SizeClass, InsetsClass, VectorClass, Type>::
     SetRect(Type x, Type y, Type width, Type height) {
   origin_.SetPoint(x, y);
@@ -334,11 +292,11 @@ void RectBase<Class, PointClass, SizeClass, InsetsClass, VectorClass, Type>::
   DCHECK(left_half);
   DCHECK(right_half);
 
-  left_half->SetRect(this->x(), this->y(), this->width() / 2, this->height());
+  left_half->SetRect(x(), y(), width() / 2, height());
   right_half->SetRect(left_half->right(),
-                      this->y(),
-                      this->width() - left_half->width(),
-                      this->height());
+                      y(),
+                      width() - left_half->width(),
+                      height());
 }
 
 template<typename Class,

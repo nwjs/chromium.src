@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,16 +10,13 @@
 #include "base/basictypes.h"
 #include "base/string16.h"
 #include "chrome/common/instant_types.h"
+#include "chrome/common/search_types.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "content/public/renderer/render_view_observer_tracker.h"
 #include "ui/gfx/rect.h"
 
 namespace content {
 class RenderView;
-}
-
-namespace IPC {
-class Message;
 }
 
 class SearchBox : public content::RenderViewObserver,
@@ -36,22 +33,24 @@ class SearchBox : public content::RenderViewObserver,
                           int height,
                           InstantSizeUnits units);
 
-  bool is_focused() const { return is_focused_; }
   const string16& query() const { return query_; }
   bool verbatim() const { return verbatim_; }
   size_t selection_start() const { return selection_start_; }
   size_t selection_end() const { return selection_end_; }
   int results_base() const { return results_base_; }
-  bool active_tab_is_ntp() const { return active_tab_is_ntp_; }
+  const chrome::search::Mode& mode() const { return mode_; }
+  bool display_instant_results() const { return display_instant_results_; }
 
   gfx::Rect GetRect();
   const std::vector<InstantAutocompleteResult>& GetAutocompleteResults();
   // Searchbox retains ownership of this object.
   const InstantAutocompleteResult*
       GetAutocompleteResultWithId(size_t restricted_id) const;
+  const ThemeBackgroundInfo& GetThemeBackgroundInfo();
+  int GetThemeAreaHeight();
 
  private:
-  // RenderViewObserver implementation.
+  // Overridden from content::RenderViewObserver:
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
   void OnChange(const string16& query,
@@ -65,9 +64,10 @@ class SearchBox : public content::RenderViewObserver,
   void OnAutocompleteResults(
       const std::vector<InstantAutocompleteResult>& results);
   void OnUpOrDownKeyPressed(int count);
-  void OnFocus();
-  void OnBlur();
-  void OnActiveTabModeChanged(bool active_tab_is_ntp);
+  void OnModeChanged(const chrome::search::Mode& mode);
+  void OnSetDisplayInstantResults(bool display_instant_results);
+  void OnThemeChanged(const ThemeBackgroundInfo& theme_info);
+  void OnThemeAreaHeightChanged(int height);
 
   // Sets the searchbox values to their initial value.
   void Reset();
@@ -81,8 +81,10 @@ class SearchBox : public content::RenderViewObserver,
   std::vector<InstantAutocompleteResult> autocomplete_results_;
   size_t last_results_base_;
   std::vector<InstantAutocompleteResult> last_autocomplete_results_;
-  bool is_focused_;
-  bool active_tab_is_ntp_;
+  chrome::search::Mode mode_;
+  ThemeBackgroundInfo theme_info_;
+  int theme_area_height_;
+  bool display_instant_results_;
 
   DISALLOW_COPY_AND_ASSIGN(SearchBox);
 };

@@ -4,6 +4,8 @@
 
 #include "ui/views/bubble/tray_bubble_view.h"
 
+#include <algorithm>
+
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPaint.h"
@@ -12,9 +14,12 @@
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_delegate.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/path.h"
+#include "ui/gfx/rect.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/layout/box_layout.h"
@@ -60,8 +65,7 @@ class TrayBubbleBorder : public views::BubbleBorder {
     }
 
     gfx::Size border_size(contents_size);
-    gfx::Insets insets;
-    GetInsets(&insets);
+    gfx::Insets insets = GetInsets();
     border_size.Enlarge(insets.width(), insets.height());
 
     const int x = position_relative_to.x() +
@@ -117,60 +121,57 @@ class TrayBubbleBorder : public views::BubbleBorder {
   DISALLOW_COPY_AND_ASSIGN(TrayBubbleBorder);
 };
 
-// Custom background for TrayBubbleView. Fills in the top and bottom margins
-// with appropriate background colors without overwriting the rounded corners.
-class TrayBubbleBackground : public views::Background {
+// This mask layer clips the bubble's content so that it does not overwrite the
+// rounded bubble corners.
+// TODO(miket): This does not work on Windows. Implement layer masking or
+// alternate solutions if the TrayBubbleView is needed there in the future.
+class TrayBubbleContentMask : public ui::LayerDelegate {
  public:
-  explicit TrayBubbleBackground(views::BubbleBorder* border,
-                                SkColor top_color,
-                                SkColor bottom_color)
-      : border_(border),
-        top_color_(top_color),
-        bottom_color_(bottom_color),
-        radius_(SkIntToScalar(border->GetBorderCornerRadius() - 1)) {
-  }
+  explicit TrayBubbleContentMask(int corner_radius);
+  virtual ~TrayBubbleContentMask();
 
-  SkScalar radius() const { return radius_; }
+  ui::Layer* layer() { return &layer_; }
 
-  // Overridden from Background:
-  virtual void Paint(gfx::Canvas* canvas, views::View* view) const OVERRIDE {
-    canvas->Save();
-
-    // Set a clip mask for the bubble's rounded corners.
-    gfx::Rect bounds(view->GetContentsBounds());
-    const int border_thickness(border_->GetBorderThickness());
-    bounds.Inset(-border_thickness, -border_thickness);
-    SkPath path;
-    path.addRoundRect(gfx::RectToSkRect(bounds), radius_, radius_);
-    canvas->ClipPath(path);
-
-    // Paint the header and footer (assumes the bubble contents fill in their
-    // own backgrounds).
-    SkPaint paint;
-    paint.setStyle(SkPaint::kFill_Style);
-
-    gfx::Rect top_rect(bounds);
-    top_rect.set_height(radius_);
-    paint.setColor(top_color_);
-    canvas->DrawRect(top_rect, paint);
-
-    gfx::Rect bottom_rect(bounds);
-    bottom_rect.set_y(bounds.y() + (bounds.height() - radius_));
-    bottom_rect.set_height(radius_);
-    paint.setColor(bottom_color_);
-    canvas->DrawRect(bottom_rect, paint);
-
-    canvas->Restore();
-  }
+  // Overridden from LayerDelegate.
+  virtual void OnPaintLayer(gfx::Canvas* canvas) OVERRIDE;
+  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
+  virtual base::Closure PrepareForLayerBoundsChange() OVERRIDE;
 
  private:
-  views::BubbleBorder* border_;
-  SkColor top_color_;
-  SkColor bottom_color_;
-  SkScalar radius_;
+  ui::Layer layer_;
+  SkScalar corner_radius_;
 
-  DISALLOW_COPY_AND_ASSIGN(TrayBubbleBackground);
+  DISALLOW_COPY_AND_ASSIGN(TrayBubbleContentMask);
 };
+
+TrayBubbleContentMask::TrayBubbleContentMask(int corner_radius)
+    : layer_(ui::LAYER_TEXTURED),
+      corner_radius_(corner_radius) {
+  layer_.set_delegate(this);
+}
+
+TrayBubbleContentMask::~TrayBubbleContentMask() {
+  layer_.set_delegate(NULL);
+}
+
+void TrayBubbleContentMask::OnPaintLayer(gfx::Canvas* canvas) {
+  SkPath path;
+  path.addRoundRect(gfx::RectToSkRect(gfx::Rect(layer()->bounds().size())),
+                    corner_radius_, corner_radius_);
+  SkPaint paint;
+  paint.setAlpha(255);
+  paint.setStyle(SkPaint::kFill_Style);
+  canvas->DrawPath(path, paint);
+}
+
+void TrayBubbleContentMask::OnDeviceScaleFactorChanged(
+    float device_scale_factor) {
+  // Redrawing will take care of scale factor change.
+}
+
+base::Closure TrayBubbleContentMask::PrepareForLayerBoundsChange() {
+  return base::Closure();
+}
 
 // Custom layout for the bubble-view. Does the default box-layout if there is
 // enough height. Otherwise, makes sure the bottom rows are visible.
@@ -212,7 +213,7 @@ class BottomAlignedBoxLayout : public views::BoxLayout {
 }  // namespace internal
 
 using internal::TrayBubbleBorder;
-using internal::TrayBubbleBackground;
+using internal::TrayBubbleContentMask;
 using internal::BottomAlignedBoxLayout;
 
 // static
@@ -220,14 +221,15 @@ const int TrayBubbleView::InitParams::kArrowDefaultOffset = -1;
 
 TrayBubbleView::InitParams::InitParams(AnchorType anchor_type,
                                        AnchorAlignment anchor_alignment,
-                                       int bubble_width)
+                                       int min_width,
+                                       int max_width)
     : anchor_type(anchor_type),
       anchor_alignment(anchor_alignment),
-      bubble_width(bubble_width),
+      min_width(min_width),
+      max_width(max_width),
       max_height(0),
       can_activate(false),
       close_on_deactivate(true),
-      top_color(SK_ColorBLACK),
       arrow_color(SK_ColorBLACK),
       arrow_location(views::BubbleBorder::NONE),
       arrow_offset(kArrowDefaultOffset),
@@ -264,24 +266,20 @@ TrayBubbleView::TrayBubbleView(gfx::NativeView parent_window,
     : views::BubbleDelegateView(anchor, init_params.arrow_location),
       params_(init_params),
       delegate_(delegate),
+      preferred_width_(init_params.min_width),
       bubble_border_(NULL),
-      bubble_background_(NULL),
       is_gesture_dragging_(false) {
   set_parent_window(parent_window);
   set_notify_enter_exit_on_child(true);
   set_close_on_deactivate(init_params.close_on_deactivate);
+  set_margins(gfx::Insets());
   SetPaintToLayer(true);
   SetFillsBoundsOpaquely(true);
 
   bubble_border_ = new TrayBubbleBorder(this, anchor_view(), params_);
 
-  bubble_background_ = new TrayBubbleBackground(
-      bubble_border_, init_params.top_color, init_params.arrow_color);
-
-  // Inset the view on the top and bottom by the corner radius to avoid drawing
-  // over the the bubble corners.
-  const int radius = bubble_background_->radius();
-  set_margins(gfx::Insets(radius, 0, radius, 0));
+  bubble_content_mask_.reset(
+      new TrayBubbleContentMask(bubble_border_->GetBorderCornerRadius() - 1));
 }
 
 TrayBubbleView::~TrayBubbleView() {
@@ -295,12 +293,15 @@ void TrayBubbleView::InitializeAndShowBubble() {
   SetAlignment(views::BubbleBorder::ALIGN_EDGE_TO_ANCHOR_EDGE);
   bubble_border_->UpdateArrowOffset();
 
+  layer()->parent()->SetMaskLayer(bubble_content_mask_->layer());
+
   Show();
   UpdateBubble();
 }
 
 void TrayBubbleView::UpdateBubble() {
   SizeToContents();
+  bubble_content_mask_->layer()->SetBounds(layer()->bounds());
   GetWidget()->GetRootView()->SchedulePaint();
 }
 
@@ -310,12 +311,21 @@ void TrayBubbleView::SetMaxHeight(int height) {
     SizeToContents();
 }
 
+void TrayBubbleView::SetWidth(int width) {
+  width = std::max(std::min(width, params_.max_width), params_.min_width);
+  if (preferred_width_ == width)
+    return;
+  preferred_width_ = width;
+  if (GetWidget())
+    SizeToContents();
+}
+
 void TrayBubbleView::SetPaintArrow(bool paint_arrow) {
   bubble_border_->set_paint_arrow(paint_arrow);
 }
 
-void TrayBubbleView::GetBorderInsets(gfx::Insets* insets) const {
-  bubble_border_->GetInsets(insets);
+gfx::Insets TrayBubbleView::GetBorderInsets() const {
+  return bubble_border_->GetInsets();
 }
 
 void TrayBubbleView::Init() {
@@ -336,12 +346,11 @@ bool TrayBubbleView::CanActivate() const {
   return params_.can_activate;
 }
 
-// Overridden to create BubbleFrameView and set a custom border and background.
+// Overridden to create BubbleFrameView and set a custom border.
 views::NonClientFrameView* TrayBubbleView::CreateNonClientFrameView(
     views::Widget* widget) {
   views::BubbleFrameView* bubble_frame_view =
       new views::BubbleFrameView(margins(), bubble_border_);
-  bubble_frame_view->set_background(bubble_background_);
   return bubble_frame_view;
 }
 
@@ -359,7 +368,13 @@ gfx::Size TrayBubbleView::GetPreferredSize() {
   int height = size.height();
   if (params_.max_height != 0 && height > params_.max_height)
     height = params_.max_height;
-  return gfx::Size(params_.bubble_width, height);
+  return gfx::Size(preferred_width_, height);
+}
+
+gfx::Size TrayBubbleView::GetMaximumSize() {
+  gfx::Size size = GetPreferredSize();
+  size.set_width(params_.max_width);
+  return size;
 }
 
 void TrayBubbleView::OnMouseEntered(const ui::MouseEvent& event) {

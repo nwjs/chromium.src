@@ -8,8 +8,8 @@
 #include <string>
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/values.h"
 #include "chrome/browser/policy/proto/cloud_policy.pb.h"
 #include "chrome/browser/policy/proto/device_management_backend.pb.h"
@@ -29,8 +29,7 @@ namespace policy {
 
 // Decodes a CloudPolicySettings object into a PolicyMap.
 // The implementation is generated code in policy/cloud_policy_generated.cc.
-void DecodePolicy(const em::CloudPolicySettings& policy,
-                  PolicyMap* policies);
+void DecodePolicy(const em::CloudPolicySettings& policy, PolicyMap* policies);
 
 // The implementations of these methods are in cloud_policy_generated.cc.
 Value* DecodeIntegerValue(google::protobuf::int64 value);
@@ -42,7 +41,6 @@ class MockCloudPolicyCacheBaseObserver
   MockCloudPolicyCacheBaseObserver() {}
   virtual ~MockCloudPolicyCacheBaseObserver() {}
   MOCK_METHOD1(OnCacheUpdate, void(CloudPolicyCacheBase*));
-  void OnCacheGoingAway(CloudPolicyCacheBase*) {}
 };
 
 // Tests the device management policy cache.
@@ -58,7 +56,7 @@ class UserPolicyCacheTest : public testing::Test {
   }
 
   void TearDown() {
-    loop_.RunAllPending();
+    loop_.RunUntilIdle();
   }
 
   // Creates a (signed) PolicyFetchResponse setting the given |homepage| and
@@ -72,9 +70,9 @@ class UserPolicyCacheTest : public testing::Test {
     em::PolicyData signed_response;
     if (homepage != "") {
       em::CloudPolicySettings settings;
-      em::HomepageLocationProto* homepagelocation_proto =
+      em::StringPolicyProto* homepagelocation_proto =
           settings.mutable_homepagelocation();
-      homepagelocation_proto->set_homepagelocation(homepage);
+      homepagelocation_proto->set_value(homepage);
       homepagelocation_proto->mutable_policy_options()->set_mode(policy_mode);
       EXPECT_TRUE(
           settings.SerializeToString(signed_response.mutable_policy_value()));
@@ -129,31 +127,37 @@ class UserPolicyCacheTest : public testing::Test {
   MockCloudPolicyCacheBaseObserver observer_;
 
  private:
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
 };
 
 TEST_F(UserPolicyCacheTest, DecodePolicy) {
   em::CloudPolicySettings settings;
-  settings.mutable_homepagelocation()->set_homepagelocation("chromium.org");
-  settings.mutable_javascriptenabled()->set_javascriptenabled(true);
+  settings.mutable_homepagelocation()->set_value("chromium.org");
+  settings.mutable_javascriptenabled()->set_value(true);
   settings.mutable_javascriptenabled()->mutable_policy_options()->set_mode(
       em::PolicyOptions::MANDATORY);
-  settings.mutable_policyrefreshrate()->set_policyrefreshrate(5);
+  settings.mutable_policyrefreshrate()->set_value(5);
   settings.mutable_policyrefreshrate()->mutable_policy_options()->set_mode(
       em::PolicyOptions::RECOMMENDED);
-  settings.mutable_showhomebutton()->set_showhomebutton(true);
+  settings.mutable_showhomebutton()->set_value(true);
   settings.mutable_showhomebutton()->mutable_policy_options()->set_mode(
       em::PolicyOptions::UNSET);
+  em::StringList* disabled_schemes =
+      settings.mutable_disabledschemes()->mutable_value();
+  disabled_schemes->add_entries("ftp");
+  disabled_schemes->add_entries("mailto");
 #ifdef NDEBUG
   // Setting an invalid PolicyMode enum value triggers a DCHECK in protobuf.
-  settings.mutable_homepageisnewtabpage()->set_homepageisnewtabpage(true);
+  settings.mutable_homepageisnewtabpage()->set_value(true);
   settings.mutable_homepageisnewtabpage()->mutable_policy_options()->set_mode(
       static_cast<em::PolicyOptions::PolicyMode>(-1));
 #endif
+
   PolicyMap policy;
   DecodePolicy(settings, &policy);
+
   PolicyMap expected;
   expected.Set(key::kHomepageLocation,
                POLICY_LEVEL_MANDATORY,
@@ -167,6 +171,14 @@ TEST_F(UserPolicyCacheTest, DecodePolicy) {
                POLICY_LEVEL_RECOMMENDED,
                POLICY_SCOPE_USER,
                Value::CreateIntegerValue(5));
+  base::ListValue expected_schemes;
+  expected_schemes.AppendString("ftp");
+  expected_schemes.AppendString("mailto");
+  expected.Set(key::kDisabledSchemes,
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               expected_schemes.DeepCopy());
+
   EXPECT_TRUE(policy.Equals(expected));
 }
 
@@ -215,7 +227,7 @@ TEST_F(UserPolicyCacheTest, Empty) {
 TEST_F(UserPolicyCacheTest, LoadNoFile) {
   UserPolicyCache cache(test_file(), false  /* wait_for_policy_fetch */);
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   PolicyMap empty;
   EXPECT_TRUE(empty.Equals(*cache.policy()));
   EXPECT_EQ(base::Time(), cache.last_policy_refresh_time());
@@ -229,7 +241,7 @@ TEST_F(UserPolicyCacheTest, RejectFuture) {
   WritePolicy(*policy_response);
   UserPolicyCache cache(test_file(), false  /* wait_for_policy_fetch */);
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   PolicyMap empty;
   EXPECT_TRUE(empty.Equals(*cache.policy()));
   EXPECT_EQ(base::Time(), cache.last_policy_refresh_time());
@@ -242,7 +254,7 @@ TEST_F(UserPolicyCacheTest, LoadWithFile) {
   WritePolicy(*policy_response);
   UserPolicyCache cache(test_file(), false  /* wait_for_policy_fetch */);
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   PolicyMap empty;
   EXPECT_TRUE(empty.Equals(*cache.policy()));
   EXPECT_NE(base::Time(), cache.last_policy_refresh_time());
@@ -257,7 +269,7 @@ TEST_F(UserPolicyCacheTest, LoadWithData) {
   WritePolicy(*policy);
   UserPolicyCache cache(test_file(), false  /* wait_for_policy_fetch */);
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   PolicyMap expected;
   expected.Set(key::kHomepageLocation,
                POLICY_LEVEL_MANDATORY,
@@ -328,12 +340,12 @@ TEST_F(UserPolicyCacheTest, PersistPolicy) {
     EXPECT_TRUE(cache.SetPolicy(*policy));
   }
 
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
 
   EXPECT_TRUE(file_util::PathExists(test_file()));
   UserPolicyCache cache(test_file(), false  /* wait_for_policy_fetch */);
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   PolicyMap expected;
   expected.Set(key::kHomepageLocation,
                POLICY_LEVEL_MANDATORY,
@@ -357,7 +369,7 @@ TEST_F(UserPolicyCacheTest, FreshPolicyOverride) {
   EXPECT_TRUE(SetPolicy(&cache, updated_policy));
 
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   PolicyMap expected;
   expected.Set(key::kHomepageLocation,
                POLICY_LEVEL_MANDATORY,
@@ -427,7 +439,7 @@ TEST_F(UserPolicyCacheTest, CheckReadyNoWaiting) {
   UserPolicyCache cache(test_file(), false  /* wait_for_policy_fetch */);
   EXPECT_FALSE(cache.IsReady());
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   EXPECT_TRUE(cache.IsReady());
 }
 
@@ -435,7 +447,7 @@ TEST_F(UserPolicyCacheTest, CheckReadyWaitForFetch) {
   UserPolicyCache cache(test_file(), true  /* wait_for_policy_fetch */);
   EXPECT_FALSE(cache.IsReady());
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   EXPECT_FALSE(cache.IsReady());
   cache.SetFetchingDone();
   EXPECT_TRUE(cache.IsReady());
@@ -447,7 +459,7 @@ TEST_F(UserPolicyCacheTest, CheckReadyWaitForDisk) {
   cache.SetFetchingDone();
   EXPECT_FALSE(cache.IsReady());
   cache.Load();
-  loop_.RunAllPending();
+  loop_.RunUntilIdle();
   EXPECT_TRUE(cache.IsReady());
 }
 

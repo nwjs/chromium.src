@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import os
+import re
 import urlparse
 
 class Page(object):
@@ -14,15 +15,19 @@ class Page(object):
       else:
         raise Exception('URLs must be fully qualified: %s' % url)
     self.url = url
-    self.interactions = 'scroll'
     self.credentials = None
     self.wait_time_after_navigate = 2
-    self.scroll_is_infinite = False
     self.wait_for_javascript_expression = None
 
     if attributes:
       for k, v in attributes.iteritems():
         setattr(self, k, v)
+
+  # A version of this page's URL that's safe to use as a filename.
+  @property
+  def url_as_file_safe_name(self):
+    # Just replace all special characters in the url with underscore.
+    return re.sub('[^a-zA-Z0-9]', '_', self.url)
 
   def __str__(self):
     return self.url

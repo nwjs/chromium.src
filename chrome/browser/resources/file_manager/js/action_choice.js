@@ -22,6 +22,7 @@ function ActionChoice(dom, filesystem, params) {
   this.closeBound_ = this.close_.bind(this);
 
   this.initDom_();
+  this.checkDrive_();
   this.loadSource_(params.source);
 }
 
@@ -53,16 +54,6 @@ ActionChoice.load = function(opt_filesystem, opt_params) {
   chrome.fileBrowserPrivate.getStrings(function(strings) {
     loadTimeData.data = strings;
 
-    // TODO(dgozman): remove when all strings finalized.
-    var original = loadTimeData.getString;
-    loadTimeData.getString = function(s) {
-      return original.call(loadTimeData, s) || s;
-    };
-    var originalF = loadTimeData.getStringF;
-    loadTimeData.getStringF = function() {
-      return originalF.apply(loadTimeData, arguments) || arguments[0];
-    };
-
     i18nTemplate.process(document, loadTimeData);
 
     if (opt_filesystem) {
@@ -91,9 +82,35 @@ ActionChoice.prototype.initDom_ = function() {
 
   this.document_.addEventListener('keydown', this.onKeyDown_.bind(this));
 
+  metrics.startInterval('PhotoImport.Load');
   this.dom_.setAttribute('loading', '');
 
   this.document_.querySelectorAll('.choices input')[0].focus();
+};
+
+/**
+ * Checks whether Drive is reachable.
+ * @private
+ */
+ActionChoice.prototype.checkDrive_ = function() {
+  var driveLabel = this.dom_.querySelector('label[for=import-photos-to-drive]');
+  var driveChoice = this.dom_.querySelector('#import-photos-to-drive');
+  var driveDiv = driveChoice.parentNode;
+  driveChoice.disabled = true;
+  driveDiv.setAttribute('disabled', '');
+
+  var onMounted = function() {
+    driveChoice.disabled = false;
+    driveDiv.removeAttribute('disabled');
+    driveLabel.textContent =
+        loadTimeData.getString('ACTION_CHOICE_PHOTOS_DRIVE');
+  };
+
+  if (this.volumeManager_.isMounted(RootDirectory.GDATA)) {
+    onMounted();
+  } else {
+    this.volumeManager_.mountGData(onMounted, function() {});
+  }
 };
 
 /**
@@ -103,6 +120,7 @@ ActionChoice.prototype.initDom_ = function() {
  */
 ActionChoice.prototype.loadSource_ = function(source) {
   var onTraversed = function(results) {
+    metrics.recordInterval('PhotoImport.Scan');
     var videos = results.filter(FileType.isVideo);
     var videoLabel = this.dom_.querySelector('label[for=watch-single-video]');
     if (videos.length == 1) {
@@ -142,10 +160,12 @@ ActionChoice.prototype.loadSource_ = function(source) {
         loadTimeData.getString('ACTION_CHOICE_LOADING_' +
                                deviceType.toUpperCase());
 
-    util.traverseTree(entry, onTraversed, 0 /* infinite depth */);
+    util.traverseTree(entry, onTraversed, 0 /* infinite depth */,
+        FileType.isVisible);
   }.bind(this);
 
   this.sourceEntry_ = null;
+  metrics.startInterval('PhotoImport.Scan');
   util.resolvePath(this.filesystem_.root, source, onEntry, this.closeBound_);
 };
 
@@ -160,10 +180,15 @@ ActionChoice.prototype.renderPreview_ = function(entries, count) {
   var box = this.document_.createElement('div');
   box.className = 'img-container';
 
+  var done = function() {
+    this.dom_.removeAttribute('loading');
+    metrics.recordInterval('PhotoImport.Load');
+  }.bind(this);
+
   var onSuccess = function() {
     this.previews_.appendChild(box);
     if (--count == 0) {
-      this.dom_.removeAttribute('loading');
+      done();
     } else {
       this.renderPreview_(entries, count);
     }
@@ -173,7 +198,7 @@ ActionChoice.prototype.renderPreview_ = function(entries, count) {
     if (entries.length == 0) {
       // Append one image with generic thumbnail.
       this.previews_.appendChild(box);
-      this.dom_.removeAttribute('loading');
+      done();
     } else {
       this.renderPreview_(entries, count);
     }
@@ -212,9 +237,14 @@ ActionChoice.prototype.onKeyDown_ = function(e) {
 
 /**
  * Called when OK button clicked.
+ * @param {Event} event The event object.
  * @private
  */
-ActionChoice.prototype.onOk_ = function() {
+ActionChoice.prototype.onOk_ = function(event) {
+  // Check for click on the disabled choice.
+  var input = event.currentTarget.querySelector('input');
+  if (input && input.disabled) return;
+
   if (this.document_.querySelector('#import-photos-to-drive').checked) {
     var url = util.platform.getURL('photo_import.html') +
         '#' + this.sourceEntry_.fullPath;

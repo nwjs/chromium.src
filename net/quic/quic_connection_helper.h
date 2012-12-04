@@ -29,17 +29,15 @@ class NET_EXPORT_PRIVATE QuicConnectionHelper
     : public QuicConnectionHelperInterface {
  public:
   QuicConnectionHelper(base::TaskRunner* task_runner,
-                       QuicClock* clock,
+                       const QuicClock* clock,
                        DatagramClientSocket* socket);
 
   virtual ~QuicConnectionHelper();
 
   // QuicConnectionHelperInterface
   virtual void SetConnection(QuicConnection* connection) OVERRIDE;
-  virtual QuicClock* GetClock() OVERRIDE;
-  virtual int WritePacketToWire(QuicPacketSequenceNumber number,
-                                const QuicEncryptedPacket& packet,
-                                bool resend,
+  virtual const QuicClock* GetClock() const OVERRIDE;
+  virtual int WritePacketToWire(const QuicEncryptedPacket& packet,
                                 int* error) OVERRIDE;
   virtual void SetResendAlarm(QuicPacketSequenceNumber sequence_number,
                               QuicTime::Delta delay) OVERRIDE;
@@ -57,6 +55,8 @@ class NET_EXPORT_PRIVATE QuicConnectionHelper
   void OnSendAlarm();
   // An alarm which fires when the connection may have timed out.
   void OnTimeoutAlarm();
+  // A completion callback invoked when a write completes.
+  void OnWriteComplete(int result);
 
  private:
   friend class QuicConnectionHelperPeer;
@@ -66,7 +66,7 @@ class NET_EXPORT_PRIVATE QuicConnectionHelper
   base::TaskRunner* task_runner_;
   DatagramClientSocket* socket_;
   QuicConnection* connection_;
-  QuicClock* clock_;
+  const QuicClock* clock_;
 
   bool send_alarm_registered_;
   bool timeout_alarm_registered_;

@@ -20,6 +20,8 @@ class MockNetworkLibrary : public NetworkLibrary {
   MOCK_METHOD0(Init, void(void));
   MOCK_CONST_METHOD0(IsCros, bool(void));
 
+  MOCK_METHOD1(AddNetworkProfileObserver, void(NetworkProfileObserver*));
+  MOCK_METHOD1(RemoveNetworkProfileObserver, void(NetworkProfileObserver*));
   MOCK_METHOD1(AddNetworkManagerObserver, void(NetworkManagerObserver*));
   MOCK_METHOD1(RemoveNetworkManagerObserver, void(NetworkManagerObserver*));
   MOCK_METHOD2(AddNetworkObserver, void(const std::string&, NetworkObserver*));
@@ -30,8 +32,6 @@ class MockNetworkLibrary : public NetworkLibrary {
                                               NetworkDeviceObserver*));
   MOCK_METHOD2(RemoveNetworkDeviceObserver, void(const std::string&,
                                                  NetworkDeviceObserver*));
-  MOCK_METHOD1(AddCellularDataPlanObserver, void(CellularDataPlanObserver*));
-  MOCK_METHOD1(RemoveCellularDataPlanObserver, void(CellularDataPlanObserver*));
   MOCK_METHOD1(AddPinOperationObserver, void(PinOperationObserver*));
   MOCK_METHOD1(RemovePinOperationObserver, void(PinOperationObserver*));
   MOCK_METHOD1(AddUserActionObserver, void(UserActionObserver*));
@@ -95,15 +95,9 @@ class MockNetworkLibrary : public NetworkLibrary {
   MOCK_CONST_METHOD1(FindVirtualNetworkByPath,
                      VirtualNetwork*(const std::string&));
   MOCK_CONST_METHOD1(FindRememberedNetworkByPath, Network*(const std::string&));
-  MOCK_CONST_METHOD1(FindRememberedNetworkByUniqueId,
-                     Network*(const std::string&));
   MOCK_CONST_METHOD1(FindOncForNetwork,
                      const base::DictionaryValue*(
                          const std::string& unique_id));
-  MOCK_CONST_METHOD1(GetDataPlans,
-                     CellularDataPlanVector*(const std::string&));
-  MOCK_CONST_METHOD1(GetSignificantDataPlan,
-                     CellularDataPlan*(const std::string&));
 
   MOCK_METHOD2(ChangePin, void(const std::string&, const std::string&));
   MOCK_METHOD2(ChangeRequirePin, void(bool, const std::string&));
@@ -145,8 +139,6 @@ class MockNetworkLibrary : public NetworkLibrary {
 
   MOCK_METHOD1(DisconnectFromNetwork, void(const Network*));
   MOCK_METHOD1(ForgetNetwork, void(const std::string&));
-  MOCK_METHOD2(SetNetworkProfile, void(const std::string&,
-                                       NetworkProfileType));
   MOCK_CONST_METHOD0(GetCellularHomeCarrierId, const std::string&(void));
 
   MOCK_CONST_METHOD0(ethernet_available, bool(void));
@@ -181,9 +173,13 @@ class MockNetworkLibrary : public NetworkLibrary {
   MOCK_METHOD1(EnableWimaxNetworkDevice, void(bool));
   MOCK_METHOD1(EnableMobileNetworkDevice, void(bool));
   MOCK_METHOD1(EnableOfflineMode, void(bool));
-  MOCK_METHOD3(GetIPConfigs, NetworkIPConfigVector(const std::string&,
-                                                   std::string*,
-                                                   HardwareAddressFormat));
+  MOCK_METHOD3(GetIPConfigs, void(const std::string&,
+                                  HardwareAddressFormat,
+                                  const NetworkGetIPConfigsCallback&));
+  MOCK_METHOD3(GetIPConfigsAndBlock,
+               NetworkIPConfigVector(const std::string&,
+                                     std::string*,
+                                     HardwareAddressFormat));
   MOCK_METHOD6(SetIPParameters, void(const std::string&,
                                      const std::string&,
                                      const std::string&,

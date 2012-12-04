@@ -10,6 +10,8 @@
 #include "chrome/browser/ui/cocoa/constrained_window/constrained_window_sheet_controller.h"
 #include "chrome/browser/ui/cocoa/tabs/tab_strip_controller.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
+#include "content/public/browser/notification_source.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 
@@ -19,12 +21,17 @@ ConstrainedWindowMac2::ConstrainedWindowMac2(
     NSWindow* window)
     : delegate_(delegate),
       web_contents_(web_contents),
-      window_([window retain]) {
+      window_([window retain]),
+      pending_show_(false) {
   DCHECK(web_contents);
   DCHECK(window_.get());
   ConstrainedWindowTabHelper* constrained_window_tab_helper =
       ConstrainedWindowTabHelper::FromWebContents(web_contents);
   constrained_window_tab_helper->AddConstrainedDialog(this);
+
+  registrar_.Add(this,
+                 content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED,
+                 content::Source<content::WebContents>(web_contents));
 }
 
 ConstrainedWindowMac2::~ConstrainedWindowMac2() {
@@ -32,9 +39,11 @@ ConstrainedWindowMac2::~ConstrainedWindowMac2() {
 
 void ConstrainedWindowMac2::ShowConstrainedWindow() {
   NSWindow* parent_window = GetParentWindow();
-  DCHECK(parent_window);
   NSView* parent_view = GetSheetParentViewForWebContents(web_contents_);
-  DCHECK(parent_view);
+  if (!parent_window || !parent_view) {
+    pending_show_ = true;
+    return;
+  }
 
   ConstrainedWindowSheetController* controller =
       [ConstrainedWindowSheetController
@@ -43,6 +52,10 @@ void ConstrainedWindowMac2::ShowConstrainedWindow() {
 }
 
 void ConstrainedWindowMac2::CloseConstrainedWindow() {
+  // This function may be called even if the constrained window was never shown.
+  // Unset |pending_show_| to prevent the window from being reshown.
+  pending_show_ = false;
+
   [[ConstrainedWindowSheetController controllerForSheet:window_]
       closeSheet:window_];
   ConstrainedWindowTabHelper* constrained_window_tab_helper =
@@ -62,16 +75,31 @@ gfx::NativeWindow ConstrainedWindowMac2::GetNativeWindow() {
 }
 
 bool ConstrainedWindowMac2::CanShowConstrainedWindow() {
-  Browser* browser = browser::FindBrowserWithWebContents(web_contents_);
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents_);
   if (!browser)
     return true;
   return !browser->window()->IsInstantTabShowing();
 }
 
+void ConstrainedWindowMac2::Observe(
+    int type,
+    const content::NotificationSource& source,
+    const content::NotificationDetails& details) {
+  if (type != content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED) {
+    NOTREACHED();
+    return;
+  }
+
+  if (pending_show_) {
+    pending_show_ = false;
+    ShowConstrainedWindow();
+  }
+}
+
 NSWindow* ConstrainedWindowMac2::GetParentWindow() const {
   // Tab contents in a tabbed browser may not be inside a window. For this
   // reason use a browser window if possible.
-  Browser* browser = browser::FindBrowserWithWebContents(web_contents_);
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents_);
   if (browser)
     return browser->window()->GetNativeWindow();
 

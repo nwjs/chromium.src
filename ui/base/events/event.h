@@ -97,7 +97,8 @@ class UI_EXPORT Event {
            type_ == ET_MOUSE_MOVED ||
            type_ == ET_MOUSE_ENTERED ||
            type_ == ET_MOUSE_EXITED ||
-           type_ == ET_MOUSEWHEEL;
+           type_ == ET_MOUSEWHEEL ||
+           type_ == ET_MOUSE_CAPTURE_CHANGED;
   }
 
   bool IsTouchEvent() const {
@@ -114,6 +115,7 @@ class UI_EXPORT Event {
       case ET_GESTURE_SCROLL_END:
       case ET_GESTURE_SCROLL_UPDATE:
       case ET_GESTURE_TAP:
+      case ET_GESTURE_TAP_CANCEL:
       case ET_GESTURE_TAP_DOWN:
       case ET_GESTURE_BEGIN:
       case ET_GESTURE_END:
@@ -158,6 +160,15 @@ class UI_EXPORT Event {
 
   // Returns true if the event has a valid |native_event_|.
   bool HasNativeEvent() const;
+
+  // Immediately stops the propagation of the event. This must be called only
+  // from an EventHandler during an event-dispatch. Any event handler that may
+  // be in the list will not receive the event after this is called.
+  void StopPropagation();
+  bool stopped_propagation() const { return !!(result_ & ui::ER_CONSUMED); }
+
+  void SetHandled();
+  bool handled() const { return result_ != ui::ER_UNHANDLED; }
 
  protected:
   Event(EventType type, base::TimeDelta time_stamp, int flags);
@@ -326,6 +337,11 @@ class UI_EXPORT MouseEvent : public LocatedEvent {
 
   bool IsRightMouseButton() const {
     return (flags() & EF_RIGHT_MOUSE_BUTTON) != 0;
+  }
+
+  bool IsAnyButton() const {
+    return (flags() & (EF_LEFT_MOUSE_BUTTON | EF_MIDDLE_MOUSE_BUTTON |
+                       EF_RIGHT_MOUSE_BUTTON)) != 0;
   }
 
   // Compares two mouse down events and returns true if the second one should
@@ -502,7 +518,7 @@ class UI_EXPORT KeyEvent : public Event {
   uint16 GetUnmodifiedCharacter() const;
 
   // Returns the copy of this key event. Used in NativeWebKeyboardEvent.
-  KeyEvent* Copy();
+  KeyEvent* Copy() const;
 
   KeyboardCode key_code() const { return key_code_; }
   bool is_char() const { return is_char_; }
@@ -581,15 +597,25 @@ class UI_EXPORT ScrollEvent : public MouseEvent {
               int flags)
       : MouseEvent(model, source, target, type, flags),
         x_offset_(model.x_offset_),
-        y_offset_(model.y_offset_) {
+        y_offset_(model.y_offset_),
+        finger_count_(model.finger_count_){
   }
+
+  // Used for tests.
+  ScrollEvent(EventType type,
+              const gfx::Point& location,
+              int flags,
+              float x_offset,
+              float y_offset);
 
   float x_offset() const { return x_offset_; }
   float y_offset() const { return y_offset_; }
+  int finger_count() const { return finger_count_; }
 
  private:
   float x_offset_;
   float y_offset_;
+  int finger_count_;
 
   DISALLOW_COPY_AND_ASSIGN(ScrollEvent);
 };

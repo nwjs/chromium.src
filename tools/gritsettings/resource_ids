@@ -41,8 +41,10 @@
   "net/base/net_resources.grd": {
     "includes": [4000],
   },
-  "webkit/glue/resources/webkit_resources.grd": {
+  "webkit/glue/resources/webkit_unscaled_resources.grd": {
     "includes": [4500],
+  },
+  "webkit/glue/resources/webkit_resources.grd": {
     "structures": [4700],
   },
   "webkit/tools/test_shell/test_shell_resources.grd": {
@@ -58,8 +60,10 @@
     "includes": [6300],
   },
   "chrome/app/theme/theme_resources.grd": {
-    "includes": [6500],
-    "structures": [7000],
+    "structures": [6500],
+  },
+  "chrome/app/theme/chrome_unscaled_resources.grd": {
+    "includes": [7500],
   },
   "chrome_frame/resources/chrome_frame_resources.grd": {
     "includes": [8000],
@@ -81,8 +85,11 @@
     "messages": [10000],
   },
   # These each start with the same resource id because we only use one
-  # file for each build (cros, linux, mac, or win).
-  "chrome/app/resources/locale_settings_cros.grd": {
+  # file for each build (chromiumos, google_chromeos, linux, mac, or win).
+  "chrome/app/resources/locale_settings_chromiumos.grd": {
+    "messages": [10500],
+  },
+  "chrome/app/resources/locale_settings_google_chromeos.grd": {
     "messages": [10500],
   },
   "chrome/app/resources/locale_settings_linux.grd": {
@@ -146,6 +153,9 @@
   },
   "chrome/browser/resources/sync_internals_resources.grd": {
     "includes": [21500],
+  },
+  "chrome/browser/resources/signin_internals_resources.grd": {
+    "includes": [21750],
   },
   # This file is generated during the build.
   # devtools_resources.grd can be in two different places depending on whether

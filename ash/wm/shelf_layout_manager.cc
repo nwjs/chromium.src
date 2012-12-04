@@ -21,9 +21,9 @@
 #include "base/command_line.h"
 #include "base/i18n/rtl.h"
 #include "ui/aura/client/activation_client.h"
-#include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
 #include "ui/base/events/event.h"
+#include "ui/base/events/event_handler.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/layer_animator.h"
@@ -65,7 +65,7 @@ const int ShelfLayoutManager::kAutoHideSize = 3;
 // ShelfLayoutManager::AutoHideEventFilter -------------------------------------
 
 // Notifies ShelfLayoutManager any time the mouse moves.
-class ShelfLayoutManager::AutoHideEventFilter : public aura::EventFilter {
+class ShelfLayoutManager::AutoHideEventFilter : public ui::EventHandler {
  public:
   explicit AutoHideEventFilter(ShelfLayoutManager* shelf);
   virtual ~AutoHideEventFilter();
@@ -73,17 +73,8 @@ class ShelfLayoutManager::AutoHideEventFilter : public aura::EventFilter {
   // Returns true if the last mouse event was a mouse drag.
   bool in_mouse_drag() const { return in_mouse_drag_; }
 
-  // Overridden from aura::EventFilter:
-  virtual bool PreHandleKeyEvent(aura::Window* target,
-                                 ui::KeyEvent* event) OVERRIDE;
-  virtual bool PreHandleMouseEvent(aura::Window* target,
-                                   ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleTouchEvent(
-      aura::Window* target,
-      ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleGestureEvent(
-      aura::Window* target,
-      ui::GestureEvent* event) OVERRIDE;
+  // Overridden from ui::EventHandler:
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
 
  private:
   ShelfLayoutManager* shelf_;
@@ -96,44 +87,24 @@ ShelfLayoutManager::AutoHideEventFilter::AutoHideEventFilter(
     ShelfLayoutManager* shelf)
     : shelf_(shelf),
       in_mouse_drag_(false) {
-  Shell::GetInstance()->AddEnvEventFilter(this);
+  Shell::GetInstance()->AddPreTargetHandler(this);
 }
 
 ShelfLayoutManager::AutoHideEventFilter::~AutoHideEventFilter() {
-  Shell::GetInstance()->RemoveEnvEventFilter(this);
+  Shell::GetInstance()->RemovePreTargetHandler(this);
 }
 
-bool ShelfLayoutManager::AutoHideEventFilter::PreHandleKeyEvent(
-    aura::Window* target,
-    ui::KeyEvent* event) {
-  return false;  // Always let the event propagate.
-}
-
-bool ShelfLayoutManager::AutoHideEventFilter::PreHandleMouseEvent(
-    aura::Window* target,
+ui::EventResult ShelfLayoutManager::AutoHideEventFilter::OnMouseEvent(
     ui::MouseEvent* event) {
   // This also checks IsShelfWindow() to make sure we don't attempt to hide the
   // shelf if the mouse down occurs on the shelf.
   in_mouse_drag_ = (event->type() == ui::ET_MOUSE_DRAGGED ||
                     (in_mouse_drag_ && event->type() != ui::ET_MOUSE_RELEASED &&
                      event->type() != ui::ET_MOUSE_CAPTURE_CHANGED)) &&
-      !shelf_->IsShelfWindow(target);
+      !shelf_->IsShelfWindow(static_cast<aura::Window*>(event->target()));
   if (event->type() == ui::ET_MOUSE_MOVED)
     shelf_->UpdateAutoHideState();
-  return false;  // Not handled.
-}
-
-ui::EventResult ShelfLayoutManager::AutoHideEventFilter::PreHandleTouchEvent(
-    aura::Window* target,
-    ui::TouchEvent* event) {
-  return ui::ER_UNHANDLED;  // Not handled.
-}
-
-ui::EventResult
-ShelfLayoutManager::AutoHideEventFilter::PreHandleGestureEvent(
-    aura::Window* target,
-    ui::GestureEvent* event) {
-  return ui::ER_UNHANDLED;  // Not handled.
+  return ui::ER_UNHANDLED;
 }
 
 // ShelfLayoutManager:UpdateShelfObserver --------------------------------------
@@ -174,7 +145,9 @@ class ShelfLayoutManager::UpdateShelfObserver
 // ShelfLayoutManager ----------------------------------------------------------
 
 ShelfLayoutManager::ShelfLayoutManager(StatusAreaWidget* status_area_widget)
-    : root_window_(status_area_widget->GetNativeView()->GetRootWindow()),
+    : ActivationChangeShim(
+          status_area_widget->GetNativeView()->GetRootWindow()),
+      root_window_(status_area_widget->GetNativeView()->GetRootWindow()),
       in_layout_(false),
       auto_hide_behavior_(SHELF_AUTO_HIDE_BEHAVIOR_NEVER),
       alignment_(SHELF_ALIGNMENT_BOTTOM),
@@ -259,7 +232,7 @@ gfx::Rect ShelfLayoutManager::GetIdealBounds() {
 }
 
 void ShelfLayoutManager::LayoutShelf() {
-  AutoReset<bool> auto_reset_in_layout(&in_layout_, true);
+  base::AutoReset<bool> auto_reset_in_layout(&in_layout_, true);
   StopAnimating();
   TargetBounds target_bounds;
   CalculateTargetBounds(state_, &target_bounds);
@@ -388,27 +361,40 @@ void ShelfLayoutManager::CompleteGestureDrag(const ui::GestureEvent& gesture) {
   bool horizontal = alignment() == SHELF_ALIGNMENT_BOTTOM;
   bool should_change = false;
   if (gesture.type() == ui::ET_GESTURE_SCROLL_END) {
-    // If the shelf was dragged X% towards the correct direction, then it is
-    // hidden/shown.
+    // The visibility of the shelf changes only if the shelf was dragged X%
+    // along the correct axis. If the shelf was already visible, then the
+    // direction of the drag does not matter.
     const float kDragHideThreshold = 0.4f;
     gfx::Rect bounds = GetIdealBounds();
-    float drag_amount = gesture_drag_auto_hide_state_ == AUTO_HIDE_SHOWN ?
-        gesture_drag_amount_ : -gesture_drag_amount_;
-    if (horizontal)
-      should_change = drag_amount > kDragHideThreshold * bounds.height();
-    else if (alignment() == SHELF_ALIGNMENT_LEFT)
-      should_change = -drag_amount > kDragHideThreshold * bounds.width();
-    else
-      should_change = drag_amount > kDragHideThreshold * bounds.width();
+    float drag_ratio = fabs(gesture_drag_amount_) /
+                       (horizontal ?  bounds.height() : bounds.width());
+    if (gesture_drag_auto_hide_state_ == AUTO_HIDE_SHOWN) {
+      should_change = drag_ratio > kDragHideThreshold;
+    } else {
+      bool correct_direction = false;
+      switch (alignment()) {
+        case SHELF_ALIGNMENT_BOTTOM:
+        case SHELF_ALIGNMENT_RIGHT:
+          correct_direction = gesture_drag_amount_ < 0;
+          break;
+        case SHELF_ALIGNMENT_LEFT:
+          correct_direction = gesture_drag_amount_ > 0;
+          break;
+      }
+      should_change = correct_direction && drag_ratio > kDragHideThreshold;
+    }
   } else if (gesture.type() == ui::ET_SCROLL_FLING_START) {
-    if (horizontal)
-      should_change = gesture.details().velocity_y() > 0;
-    else if (alignment() == SHELF_ALIGNMENT_LEFT)
-      should_change = gesture.details().velocity_x() < 0;
-    else
-      should_change = gesture.details().velocity_x() > 0;
-    if (gesture_drag_auto_hide_state_ == AUTO_HIDE_HIDDEN)
-      should_change = !should_change;
+    if (gesture_drag_auto_hide_state_ == AUTO_HIDE_SHOWN) {
+      should_change = horizontal ? fabs(gesture.details().velocity_y()) > 0 :
+                                   fabs(gesture.details().velocity_x()) > 0;
+    } else {
+      if (horizontal)
+        should_change = gesture.details().velocity_y() < 0;
+      else if (alignment() == SHELF_ALIGNMENT_LEFT)
+        should_change = gesture.details().velocity_x() > 0;
+      else
+        should_change = gesture.details().velocity_x() < 0;
+    }
   } else {
     NOTREACHED();
   }

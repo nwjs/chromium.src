@@ -164,8 +164,12 @@ BookmarkBarGtk::BookmarkBarGtk(BrowserWindowGtk* window,
   registrar_.Add(this, chrome::NOTIFICATION_BROWSER_THEME_CHANGED,
                  content::Source<ThemeService>(theme_service_));
 
-  edit_bookmarks_enabled_.Init(prefs::kEditBookmarksEnabled,
-                               browser_->profile()->GetPrefs(), this);
+  edit_bookmarks_enabled_.Init(
+      prefs::kEditBookmarksEnabled,
+      browser_->profile()->GetPrefs(),
+      base::Bind(&BookmarkBarGtk::OnEditBookmarksEnabledChanged,
+                 base::Unretained(this)));
+
   OnEditBookmarksEnabledChanged();
 }
 
@@ -676,15 +680,15 @@ void BookmarkBarGtk::UpdateEventBoxPaintability() {
 }
 
 void BookmarkBarGtk::PaintEventBox() {
-  gfx::Size tab_contents_size;
-  if (GetTabContentsSize(&tab_contents_size) &&
-      tab_contents_size != last_tab_contents_size_) {
-    last_tab_contents_size_ = tab_contents_size;
+  gfx::Size web_contents_size;
+  if (GetWebContentsSize(&web_contents_size) &&
+      web_contents_size != last_web_contents_size_) {
+    last_web_contents_size_ = web_contents_size;
     gtk_widget_queue_draw(event_box_.get());
   }
 }
 
-bool BookmarkBarGtk::GetTabContentsSize(gfx::Size* size) {
+bool BookmarkBarGtk::GetWebContentsSize(gfx::Size* size) {
   Browser* browser = browser_;
   if (!browser) {
     NOTREACHED();
@@ -981,12 +985,6 @@ void BookmarkBarGtk::Observe(int type,
 
     SetOverflowButtonAppearance();
   }
-}
-
-void BookmarkBarGtk::OnPreferenceChanged(PrefServiceBase* service,
-                                         const std::string& pref_name) {
-  if (pref_name == prefs::kEditBookmarksEnabled)
-    OnEditBookmarksEnabledChanged();
 }
 
 GtkWidget* BookmarkBarGtk::CreateBookmarkButton(const BookmarkNode* node) {
@@ -1410,8 +1408,8 @@ gboolean BookmarkBarGtk::OnEventBoxExpose(GtkWidget* widget,
 
     cairo_destroy(cr);
   } else {
-    gfx::Size tab_contents_size;
-    if (!GetTabContentsSize(&tab_contents_size))
+    gfx::Size web_contents_size;
+    if (!GetWebContentsSize(&web_contents_size))
       return FALSE;
     gfx::CanvasSkiaPaint canvas(event, true);
 
@@ -1422,7 +1420,7 @@ gboolean BookmarkBarGtk::OnEventBoxExpose(GtkWidget* widget,
                      gfx::Rect(0, 0, allocation.width, allocation.height) :
                      gfx::Rect(allocation);
     NtpBackgroundUtil::PaintBackgroundDetachedMode(theme_provider, &canvas,
-        area, tab_contents_size.height());
+        area, web_contents_size.height());
   }
 
   return FALSE;  // Propagate expose to children.

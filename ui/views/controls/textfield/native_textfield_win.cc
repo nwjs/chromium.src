@@ -18,13 +18,13 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/events/event.h"
-#include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/ime/win/tsf_bridge.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
-#include "ui/base/native_theme/native_theme_win.h"
 #include "ui/base/range/range.h"
 #include "ui/base/win/mouse_wheel_util.h"
+#include "ui/native_theme/native_theme_win.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
@@ -133,13 +133,6 @@ NativeTextfieldWin::NativeTextfieldWin(Textfield* textfield)
   if (ole_interface)
     text_object_model_.QueryFrom(ole_interface);
 
-  if (base::win::GetVersion() >= base::win::VERSION_WIN8 &&
-      !base::win::IsMetroProcess()) {
-    keyboard_.CreateInstance(__uuidof(TextInputPanel), NULL, CLSCTX_INPROC);
-    if (keyboard_ != NULL)
-      keyboard_->put_AttachedEditWindow(m_hWnd);
-  }
-
   InitializeAccessibilityInfo();
 #endif
 }
@@ -221,6 +214,11 @@ void NativeTextfieldWin::AppendText(const string16& text) {
   ::SendMessage(m_hWnd, TBM_SETSEL, true, MAKELPARAM(text_length, text_length));
   ::SendMessage(m_hWnd, EM_REPLACESEL, false,
                 reinterpret_cast<LPARAM>(text.c_str()));
+}
+
+void NativeTextfieldWin::ReplaceSelection(const string16& text) {
+  // Currently not needed.
+  NOTIMPLEMENTED();
 }
 
 base::i18n::TextDirection NativeTextfieldWin::GetTextDirection() const {
@@ -427,6 +425,14 @@ void NativeTextfieldWin::ClearEditHistory() {
 
 int NativeTextfieldWin::GetFontHeight() {
   return textfield_->font().GetHeight();
+}
+
+int NativeTextfieldWin::GetTextfieldBaseline() const {
+  return textfield_->font().GetBaseline();
+}
+
+void NativeTextfieldWin::ExecuteTextCommand(int command_id) {
+  ExecuteCommand(command_id);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -731,15 +737,6 @@ LRESULT NativeTextfieldWin::OnImeEndComposition(UINT message,
 LRESULT NativeTextfieldWin::OnPointerDown(UINT message, WPARAM wparam,
                                           LPARAM lparam) {
   SetFocus();
-  SetMsgHandled(FALSE);
-  return 0;
-}
-
-LRESULT NativeTextfieldWin::OnPointerUp(UINT message, WPARAM wparam,
-                                        LPARAM lparam) {
-  // ITextInputPanel is not supported on all platforms.  NULL is fine.
-  if (keyboard_ != NULL)
-    keyboard_->SetInPlaceVisibility(TRUE);
   SetMsgHandled(FALSE);
   return 0;
 }

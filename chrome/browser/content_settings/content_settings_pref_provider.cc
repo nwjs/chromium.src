@@ -76,16 +76,6 @@ void PrefProvider::RegisterUserPrefs(PrefService* prefs) {
       PrefService::UNSYNCABLE_PREF);
   prefs->RegisterDictionaryPref(prefs::kContentSettingsPatternPairs,
                                 PrefService::SYNCABLE_PREF);
-
-  // Obsolete prefs, for migration:
-  prefs->RegisterDictionaryPref(prefs::kGeolocationContentSettings,
-                                PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterDictionaryPref(prefs::kContentSettingsPatterns,
-                                PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterListPref(prefs::kDesktopNotificationAllowedOrigins,
-                          PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterListPref(prefs::kDesktopNotificationDeniedOrigins,
-                          PrefService::UNSYNCABLE_PREF);
 }
 
 PrefProvider::PrefProvider(PrefService* prefs,
@@ -94,12 +84,6 @@ PrefProvider::PrefProvider(PrefService* prefs,
     is_incognito_(incognito),
     updating_preferences_(false) {
   DCHECK(prefs_);
-  if (!is_incognito_) {
-    // Migrate obsolete preferences.
-    MigrateObsoleteContentSettingsPatternPref();
-    MigrateObsoleteGeolocationPref();
-    MigrateObsoleteNotificationsPrefs();
-  }
 
   // Verify preferences version.
   if (!prefs_->HasPrefPath(prefs::kContentSettingsVersion)) {
@@ -120,7 +104,10 @@ PrefProvider::PrefProvider(PrefService* prefs,
   }
 
   pref_change_registrar_.Init(prefs_);
-  pref_change_registrar_.Add(prefs::kContentSettingsPatternPairs, this);
+  pref_change_registrar_.Add(
+      prefs::kContentSettingsPatternPairs,
+      base::Bind(&PrefProvider::OnContentSettingsPatternPairsChanged,
+                 base::Unretained(this)));
 }
 
 bool PrefProvider::SetWebsiteSetting(
@@ -217,23 +204,6 @@ void PrefProvider::ClearAllContentSettingsRules(
                   std::string());
 }
 
-void PrefProvider::OnPreferenceChanged(PrefServiceBase* service,
-                                       const std::string& name) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK_EQ(prefs_, service);
-  DCHECK_EQ(std::string(prefs::kContentSettingsPatternPairs), name);
-
-  if (updating_preferences_)
-    return;
-
-  ReadContentSettingsFromPref(true);
-
-  NotifyObservers(ContentSettingsPattern(),
-                  ContentSettingsPattern(),
-                  CONTENT_SETTINGS_TYPE_DEFAULT,
-                  std::string());
-}
-
 PrefProvider::~PrefProvider() {
   DCHECK(!prefs_);
 }
@@ -262,17 +232,67 @@ void PrefProvider::UpdatePref(
   // send out notifications (by |~DictionaryPrefUpdate|).
   AssertLockNotHeld();
 
-  AutoReset<bool> auto_reset(&updating_preferences_, true);
+  base::AutoReset<bool> auto_reset(&updating_preferences_, true);
   {
     DictionaryPrefUpdate update(prefs_,
                                 prefs::kContentSettingsPatternPairs);
     DictionaryValue* pattern_pairs_settings = update.Get();
-    UpdatePatternPairsSettings(primary_pattern,
-                               secondary_pattern,
-                               content_type,
-                               resource_identifier,
-                               value,
-                               pattern_pairs_settings);
+
+    // Get settings dictionary for the given patterns.
+    std::string pattern_str(CreatePatternString(primary_pattern,
+                                                secondary_pattern));
+    DictionaryValue* settings_dictionary = NULL;
+    bool found = pattern_pairs_settings->GetDictionaryWithoutPathExpansion(
+        pattern_str, &settings_dictionary);
+
+    if (!found && value) {
+      settings_dictionary = new DictionaryValue;
+      pattern_pairs_settings->SetWithoutPathExpansion(
+          pattern_str, settings_dictionary);
+    }
+
+    if (settings_dictionary) {
+      std::string res_dictionary_path;
+      if (GetResourceTypeName(content_type, &res_dictionary_path) &&
+          !resource_identifier.empty()) {
+        DictionaryValue* resource_dictionary = NULL;
+        found = settings_dictionary->GetDictionary(
+            res_dictionary_path, &resource_dictionary);
+        if (!found) {
+          if (value == NULL)
+            return;  // Nothing to remove. Exit early.
+          resource_dictionary = new DictionaryValue;
+          settings_dictionary->Set(res_dictionary_path, resource_dictionary);
+        }
+        // Update resource dictionary.
+        if (value == NULL) {
+          resource_dictionary->RemoveWithoutPathExpansion(resource_identifier,
+                                                          NULL);
+          if (resource_dictionary->empty()) {
+            settings_dictionary->RemoveWithoutPathExpansion(
+                res_dictionary_path, NULL);
+          }
+        } else {
+          resource_dictionary->SetWithoutPathExpansion(
+              resource_identifier, value->DeepCopy());
+        }
+      } else {
+        // Update settings dictionary.
+        std::string setting_path = GetTypeName(content_type);
+        if (value == NULL) {
+          settings_dictionary->RemoveWithoutPathExpansion(setting_path,
+                                                          NULL);
+        } else {
+          settings_dictionary->SetWithoutPathExpansion(
+              setting_path, value->DeepCopy());
+        }
+      }
+      // Remove the settings dictionary if it is empty.
+      if (settings_dictionary->empty()) {
+        pattern_pairs_settings->RemoveWithoutPathExpansion(
+            pattern_str, NULL);
+      }
+    }
   }
 }
 
@@ -282,7 +302,7 @@ void PrefProvider::ReadContentSettingsFromPref(bool overwrite) {
   // not held when the notifications are sent. Also, |auto_reset| must be still
   // valid when the notifications are sent, so that |Observe| skips the
   // notification.
-  AutoReset<bool> auto_reset(&updating_preferences_, true);
+  base::AutoReset<bool> auto_reset(&updating_preferences_, true);
   DictionaryPrefUpdate update(prefs_, prefs::kContentSettingsPatternPairs);
   base::AutoLock auto_lock(lock_);
 
@@ -384,68 +404,18 @@ void PrefProvider::ReadContentSettingsFromPref(bool overwrite) {
   }
 }
 
-void PrefProvider::UpdatePatternPairsSettings(
-      const ContentSettingsPattern& primary_pattern,
-      const ContentSettingsPattern& secondary_pattern,
-      ContentSettingsType content_type,
-      const ResourceIdentifier& resource_identifier,
-      const base::Value* value,
-      DictionaryValue* pattern_pairs_settings) {
-  // Get settings dictionary for the given patterns.
-  std::string pattern_str(CreatePatternString(primary_pattern,
-                                              secondary_pattern));
-  DictionaryValue* settings_dictionary = NULL;
-  bool found = pattern_pairs_settings->GetDictionaryWithoutPathExpansion(
-      pattern_str, &settings_dictionary);
+void PrefProvider::OnContentSettingsPatternPairsChanged() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (!found && value) {
-    settings_dictionary = new DictionaryValue;
-    pattern_pairs_settings->SetWithoutPathExpansion(
-        pattern_str, settings_dictionary);
-  }
+  if (updating_preferences_)
+    return;
 
-  if (settings_dictionary) {
-    std::string res_dictionary_path;
-    if (GetResourceTypeName(content_type, &res_dictionary_path) &&
-        !resource_identifier.empty()) {
-      DictionaryValue* resource_dictionary = NULL;
-      found = settings_dictionary->GetDictionary(
-          res_dictionary_path, &resource_dictionary);
-      if (!found) {
-        if (value == NULL)
-          return;  // Nothing to remove. Exit early.
-        resource_dictionary = new DictionaryValue;
-        settings_dictionary->Set(res_dictionary_path, resource_dictionary);
-      }
-      // Update resource dictionary.
-      if (value == NULL) {
-        resource_dictionary->RemoveWithoutPathExpansion(resource_identifier,
-                                                        NULL);
-        if (resource_dictionary->empty()) {
-          settings_dictionary->RemoveWithoutPathExpansion(
-              res_dictionary_path, NULL);
-        }
-      } else {
-        resource_dictionary->SetWithoutPathExpansion(
-            resource_identifier, value->DeepCopy());
-      }
-    } else {
-      // Update settings dictionary.
-      std::string setting_path = GetTypeName(content_type);
-      if (value == NULL) {
-        settings_dictionary->RemoveWithoutPathExpansion(setting_path,
-                                                        NULL);
-      } else {
-        settings_dictionary->SetWithoutPathExpansion(
-            setting_path, value->DeepCopy());
-      }
-    }
-    // Remove the settings dictionary if it is empty.
-    if (settings_dictionary->empty()) {
-      pattern_pairs_settings->RemoveWithoutPathExpansion(
-          pattern_str, NULL);
-    }
-  }
+  ReadContentSettingsFromPref(true);
+
+  NotifyObservers(ContentSettingsPattern(),
+                  ContentSettingsPattern(),
+                  CONTENT_SETTINGS_TYPE_DEFAULT,
+                  std::string());
 }
 
 // static
@@ -509,183 +479,6 @@ void PrefProvider::ShutdownOnUIThread() {
   RemoveAllObservers();
   pref_change_registrar_.RemoveAll();
   prefs_ = NULL;
-}
-
-void PrefProvider::MigrateObsoleteContentSettingsPatternPref() {
-  // Ensure that |lock_| is not held by this thread, since this function will
-  // send out notifications (by |~DictionaryPrefUpdate|).
-  AssertLockNotHeld();
-
-  if (!prefs_->HasPrefPath(prefs::kContentSettingsPatterns))
-    return;
-
-  const DictionaryValue* patterns_dictionary =
-      prefs_->GetDictionary(prefs::kContentSettingsPatterns);
-  {
-    DictionaryPrefUpdate update(prefs_, prefs::kContentSettingsPatternPairs);
-    DictionaryValue* pattern_pairs_dictionary = update.Get();
-    for (DictionaryValue::key_iterator i(
-             patterns_dictionary->begin_keys());
-         i != patterns_dictionary->end_keys();
-         ++i) {
-      const std::string& key(*i);
-      // In the past a bug once corrupted dictionary keys. Test if the |key| is
-      // corrupted and skip a corrupted key. A dictionary |key| can contain two
-      // content settings patterns, a primary pattern and a secondary pattern.
-      // If the |key| contains two patterns than they are concataneted with a
-      // ','.
-      size_t sep_pos = key.find(",");
-      ContentSettingsPattern pattern =
-          ContentSettingsPattern::FromString(key.substr(0, sep_pos));
-      // Skip the current |key| if the primary |pattern| is invalid.
-      if (!pattern.IsValid())
-        continue;
-      // If the |key| contains a secondary pattern, and the obsolete pref
-      // dictionary also contains a key that equals the primary |pattern| then
-      // skip the current |key|.
-      if (sep_pos != std::string::npos &&
-          patterns_dictionary->HasKey(pattern.ToString())) {
-        continue;
-      }
-
-      // Copy the legacy content settings for the current |key| from the
-      // obsolete pref prefs::kContentSettingsPatterns to the pref
-      // prefs::kContentSettingsPatternPairs.
-      const DictionaryValue* dictionary = NULL;
-      bool found = patterns_dictionary->GetDictionaryWithoutPathExpansion(
-          key, &dictionary);
-      DCHECK(found);
-      std::string new_key = CreatePatternString(
-          pattern, ContentSettingsPattern::Wildcard());
-      // Existing values are overwritten.
-      pattern_pairs_dictionary->SetWithoutPathExpansion(
-          new_key, dictionary->DeepCopy());
-    }
-  }
-  prefs_->ClearPref(prefs::kContentSettingsPatterns);
-}
-
-void PrefProvider::MigrateObsoleteGeolocationPref() {
-  // Ensure that |lock_| is not held by this thread, since this function will
-  // send out notifications (by |~DictionaryPrefUpdate|).
-  AssertLockNotHeld();
-
-  if (!prefs_->HasPrefPath(prefs::kGeolocationContentSettings))
-    return;
-
-  DictionaryPrefUpdate update(prefs_,
-                              prefs::kContentSettingsPatternPairs);
-  DictionaryValue* pattern_pairs_settings = update.Get();
-
-  const DictionaryValue* geolocation_settings =
-      prefs_->GetDictionary(prefs::kGeolocationContentSettings);
-
-  std::vector<std::pair<std::string, std::string> > corrupted_keys;
-  for (DictionaryValue::key_iterator i =
-           geolocation_settings->begin_keys();
-       i != geolocation_settings->end_keys();
-       ++i) {
-    const std::string& primary_key(*i);
-    GURL primary_url(primary_key);
-    DCHECK(primary_url.is_valid());
-
-    const DictionaryValue* requesting_origin_settings = NULL;
-    // The method GetDictionaryWithoutPathExpansion() returns false if the
-    // value for the given key is not a |DictionaryValue|. If the value for the
-    // |primary_key| is not a |DictionaryValue| then the location settings for
-    // this key are corrupted. Therefore they are ignored.
-    if (!geolocation_settings->GetDictionaryWithoutPathExpansion(
-        primary_key, &requesting_origin_settings))
-      continue;
-
-    for (DictionaryValue::key_iterator j =
-             requesting_origin_settings->begin_keys();
-         j != requesting_origin_settings->end_keys();
-         ++j) {
-      const std::string& secondary_key(*j);
-      GURL secondary_url(secondary_key);
-      // Save corrupted keys to remove them later.
-      if (!secondary_url.is_valid()) {
-        corrupted_keys.push_back(std::make_pair(primary_key, secondary_key));
-        continue;
-      }
-
-      const base::Value* value = NULL;
-      bool found = requesting_origin_settings->GetWithoutPathExpansion(
-          secondary_key, &value);
-      DCHECK(found);
-
-      ContentSettingsPattern primary_pattern =
-          ContentSettingsPattern::FromURLNoWildcard(primary_url);
-      ContentSettingsPattern secondary_pattern =
-          ContentSettingsPattern::FromURLNoWildcard(secondary_url);
-      DCHECK(primary_pattern.IsValid() && secondary_pattern.IsValid());
-
-      UpdatePatternPairsSettings(primary_pattern,
-                                 secondary_pattern,
-                                 CONTENT_SETTINGS_TYPE_GEOLOCATION,
-                                 std::string(),
-                                 value,
-                                 pattern_pairs_settings);
-    }
-  }
-
-  prefs_->ClearPref(prefs::kGeolocationContentSettings);
-}
-
-void PrefProvider::MigrateObsoleteNotificationsPrefs() {
-  // Ensure that |lock_| is not held by this thread, since this function will
-  // send out notifications (by |~DictionaryPrefUpdate|).
-  AssertLockNotHeld();
-
-  if (!prefs_->HasPrefPath(prefs::kDesktopNotificationAllowedOrigins) &&
-      !prefs_->HasPrefPath(prefs::kDesktopNotificationDeniedOrigins)) {
-    return;
-  }
-
-  DictionaryPrefUpdate update(prefs_, prefs::kContentSettingsPatternPairs);
-  DictionaryValue* pattern_pairs_settings = update.Get();
-
-  const ListValue* allowed_origins =
-      prefs_->GetList(prefs::kDesktopNotificationAllowedOrigins);
-  for (size_t i = 0; i < allowed_origins->GetSize(); ++i) {
-    std::string url_string;
-    bool status = allowed_origins->GetString(i, &url_string);
-    DCHECK(status);
-    ContentSettingsPattern primary_pattern =
-        ContentSettingsPattern::FromURLNoWildcard(GURL(url_string));
-    DCHECK(primary_pattern.IsValid());
-    scoped_ptr<base::Value> value(
-        Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
-    UpdatePatternPairsSettings(primary_pattern,
-                               ContentSettingsPattern::Wildcard(),
-                               CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-                               std::string(),
-                               value.get(),
-                               pattern_pairs_settings);
-  }
-
-  const ListValue* denied_origins =
-      prefs_->GetList(prefs::kDesktopNotificationDeniedOrigins);
-  for (size_t i = 0; i < denied_origins->GetSize(); ++i) {
-    std::string url_string;
-    bool status = denied_origins->GetString(i, &url_string);
-    DCHECK(status);
-    ContentSettingsPattern primary_pattern =
-        ContentSettingsPattern::FromURLNoWildcard(GURL(url_string));
-    DCHECK(primary_pattern.IsValid());
-    scoped_ptr<base::Value> value(
-        Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
-    UpdatePatternPairsSettings(primary_pattern,
-                               ContentSettingsPattern::Wildcard(),
-                               CONTENT_SETTINGS_TYPE_NOTIFICATIONS,
-                               std::string(),
-                               value.get(),
-                               pattern_pairs_settings);
-  }
-
-  prefs_->ClearPref(prefs::kDesktopNotificationAllowedOrigins);
-  prefs_->ClearPref(prefs::kDesktopNotificationDeniedOrigins);
 }
 
 void PrefProvider::AssertLockNotHeld() const {

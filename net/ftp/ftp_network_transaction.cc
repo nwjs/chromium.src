@@ -224,7 +224,8 @@ FtpNetworkTransaction::FtpNetworkTransaction(
       use_epsv_(true),
       data_connection_port_(0),
       socket_factory_(socket_factory),
-      next_state_(STATE_NONE) {
+      next_state_(STATE_NONE),
+      state_after_data_connect_complete_(STATE_CTRL_WRITE_SIZE) {
 }
 
 FtpNetworkTransaction::~FtpNetworkTransaction() {
@@ -346,6 +347,21 @@ void FtpNetworkTransaction::ResetStateForRestart() {
   ctrl_socket_.reset();
   data_socket_.reset();
   next_state_ = STATE_NONE;
+  state_after_data_connect_complete_ = STATE_CTRL_WRITE_SIZE;
+}
+
+void FtpNetworkTransaction::ResetDataConnectionAfterError(State next_state) {
+  // The server _might_ have reset the data connection
+  // (see RFC 959 3.2. ESTABLISHING DATA CONNECTIONS:
+  // "The server MUST close the data connection under the following
+  // conditions:
+  // ...
+  // 5. An irrecoverable error condition occurs.")
+  //
+  // It is ambiguous what an irrecoverable error condition is,
+  // so we take no chances.
+  state_after_data_connect_complete_ = next_state;
+  next_state_ = use_epsv_ ? STATE_CTRL_WRITE_EPSV : STATE_CTRL_WRITE_PASV;
 }
 
 void FtpNetworkTransaction::DoCallback(int rv) {
@@ -666,6 +682,15 @@ int FtpNetworkTransaction::DoCtrlConnectComplete(int result) {
     if (result == OK) {
       response_.socket_address = HostPortPair::FromIPEndPoint(ip_endpoint);
       next_state_ = STATE_CTRL_READ;
+
+      if (ip_endpoint.GetFamily() == AF_INET) {
+        // Do not use EPSV for IPv4 connections. Some servers become confused
+        // and we time out while waiting to connect. PASV is perfectly fine for
+        // IPv4. Note that this blacklists IPv4 not to use EPSV instead of
+        // whitelisting IPv6 to use it, to make the code more future-proof:
+        // all future protocols should just use EPSV.
+        use_epsv_ = false;
+      }
     }
   }
   return result;
@@ -1050,8 +1075,15 @@ int FtpNetworkTransaction::DoCtrlWriteSIZE() {
 
 int FtpNetworkTransaction::ProcessResponseSIZE(
     const FtpCtrlResponse& response) {
+  State state_after_size;
+  if (resource_type_ == RESOURCE_TYPE_FILE)
+    state_after_size = STATE_CTRL_WRITE_RETR;
+  else
+    state_after_size = STATE_CTRL_WRITE_CWD;
+
   switch (GetErrorClass(response.status_code)) {
     case ERROR_CLASS_INITIATED:
+      next_state_ = state_after_size;
       break;
     case ERROR_CLASS_OK:
       if (response.lines.size() != 1)
@@ -1066,10 +1098,14 @@ int FtpNetworkTransaction::ProcessResponseSIZE(
       // Some FTP servers (for example, the qnx one) send a SIZE even for
       // directories.
       response_.expected_content_size = size;
+
+      next_state_ = state_after_size;
       break;
     case ERROR_CLASS_INFO_NEEDED:
+      next_state_ = state_after_size;
       break;
     case ERROR_CLASS_TRANSIENT_ERROR:
+      ResetDataConnectionAfterError(state_after_size);
       break;
     case ERROR_CLASS_PERMANENT_ERROR:
       // It's possible that SIZE failed because the path is a directory.
@@ -1077,16 +1113,13 @@ int FtpNetworkTransaction::ProcessResponseSIZE(
           response.status_code != 550) {
         return Stop(GetNetErrorCodeForFtpResponseCode(response.status_code));
       }
+
+      ResetDataConnectionAfterError(state_after_size);
       break;
     default:
       NOTREACHED();
       return Stop(ERR_UNEXPECTED);
   }
-
-  if (resource_type_ == RESOURCE_TYPE_FILE)
-    next_state_ = STATE_CTRL_WRITE_RETR;
-  else
-    next_state_ = STATE_CTRL_WRITE_CWD;
 
   return OK;
 }
@@ -1142,14 +1175,20 @@ int FtpNetworkTransaction::ProcessResponseCWDNotADirectory() {
   // type is. It could still be file, and SIZE could fail because of
   // an access error (http://crbug.com/56734). Try RETR just to be sure.
   resource_type_ = RESOURCE_TYPE_FILE;
-  next_state_ = STATE_CTRL_WRITE_RETR;
 
+  ResetDataConnectionAfterError(STATE_CTRL_WRITE_RETR);
   return OK;
 }
 
 // LIST command
 int FtpNetworkTransaction::DoCtrlWriteLIST() {
-  std::string command(system_type_ == SYSTEM_TYPE_VMS ? "LIST *.*;0" : "LIST");
+  // Use the -l option for mod_ftp configured in LISTIsNLST mode: the option
+  // forces LIST output instead of NLST (which would be ambiguous for us
+  // to parse).
+  std::string command("LIST -l");
+  if (system_type_ == SYSTEM_TYPE_VMS)
+    command = "LIST *.*;0";
+
   next_state_ = STATE_CTRL_READ;
   return SendFtpCommand(command, command, COMMAND_LIST);
 }
@@ -1233,7 +1272,7 @@ int FtpNetworkTransaction::DoDataConnectComplete(int result) {
   if (result != OK)
     return Stop(result);
 
-  next_state_ = STATE_CTRL_WRITE_SIZE;
+  next_state_ = state_after_data_connect_complete_;
   return OK;
 }
 

@@ -92,6 +92,8 @@ void DisabledExtensionsView::MaybeShow(Browser* browser,
           browser->profile())->extension_service();
   scoped_ptr<const ExtensionSet> wiped_out(
       extension_service->GetWipedOutExtensions());
+  UMA_HISTOGRAM_BOOLEAN("DisabledExtension.SideloadWipeoutNeeded",
+                        wiped_out->size() > 0);
   if (wiped_out->size()) {
     DisabledExtensionsView* bubble_delegate =
         new DisabledExtensionsView(

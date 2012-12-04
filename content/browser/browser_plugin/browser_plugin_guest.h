@@ -41,11 +41,11 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragStatus.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
 #include "ui/gfx/rect.h"
+#include "ui/surface/transport_dib.h"
 
 struct BrowserPluginHostMsg_AutoSize_Params;
 struct BrowserPluginHostMsg_CreateGuest_Params;
 struct BrowserPluginHostMsg_ResizeGuest_Params;
-class TransportDIB;
 struct ViewHostMsg_UpdateRect_Params;
 class WebCursor;
 struct WebDropData;
@@ -74,7 +74,6 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   static BrowserPluginGuest* Create(
       int instance_id,
       WebContentsImpl* web_contents,
-      content::RenderViewHost* render_view_host,
       const BrowserPluginHostMsg_CreateGuest_Params& params);
 
   // Overrides factory for testing. Default (NULL) value indicates regular
@@ -83,12 +82,17 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
     content::BrowserPluginGuest::factory_ = factory;
   }
 
+  void InstallHelper(content::RenderViewHost* render_view_host);
+
   void set_guest_hang_timeout_for_testing(const base::TimeDelta& timeout) {
     guest_hang_timeout_ = timeout;
   }
 
   void set_embedder_web_contents(WebContentsImpl* web_contents) {
     embedder_web_contents_ = web_contents;
+  }
+  WebContentsImpl* embedder_web_contents() const {
+    return embedder_web_contents_;
   }
 
   bool focused() const { return focused_; }
@@ -137,7 +141,10 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
 
   void UpdateRect(RenderViewHost* render_view_host,
                   const ViewHostMsg_UpdateRect_Params& params);
-  void UpdateRectACK(int message_id, const gfx::Size& size);
+  void UpdateRectACK(
+      int message_id,
+      const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
+      const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params);
   // Overrides default ShowWidget message so we show them on the correct
   // coordinates.
   void ShowWidget(RenderViewHost* render_view_host,
@@ -179,8 +186,8 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
                         WebKit::WebDragOperationsMask drag_mask,
                         const gfx::Point& location);
 
-  // Updates the autosize state of the guest.
-  void SetAutoSize(
+  // Updates the size state of the guest.
+  void SetSize(
       const BrowserPluginHostMsg_AutoSize_Params& auto_size_params,
       const BrowserPluginHostMsg_ResizeGuest_Params& resize_guest_params);
 
@@ -205,7 +212,8 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   // Handles input event routed through the embedder (which is initiated in the
   // browser plugin (renderer side of the embedder)).
   virtual void HandleInputEvent(RenderViewHost* render_view_host,
-                                const gfx::Rect& guest_rect,
+                                const gfx::Rect& guest_window_rect,
+                                const gfx::Rect& guest_screen_rect,
                                 const WebKit::WebInputEvent& event,
                                 IPC::Message* reply_message);
   virtual bool ViewTakeFocus(bool reverse);
@@ -222,16 +230,25 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   virtual void SetDamageBuffer(TransportDIB* damage_buffer,
 #if defined(OS_WIN)
                                int damage_buffer_size,
+                               TransportDIB::Handle remote_handle,
 #endif
                                const gfx::Size& damage_view_size,
                                float scale_factor);
+  // Overridden in tests.
+  virtual void SetCompositingBufferData(int gpu_process_id,
+                                        uint32 client_id,
+                                        uint32 context_id,
+                                        uint32 texture_id_0,
+                                        uint32 texture_id_1,
+                                        uint32 sync_point);
+
+  gfx::Point GetScreenCoordinates(const gfx::Point& relative_position) const;
 
  private:
   friend class TestBrowserPluginGuest;
 
   BrowserPluginGuest(int instance_id,
                      WebContentsImpl* web_contents,
-                     RenderViewHost* render_view_host,
                      const BrowserPluginHostMsg_CreateGuest_Params& params);
 
   // Returns the identifier that uniquely identifies a browser plugin guest
@@ -246,6 +263,9 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   TransportDIB* GetDamageBufferFromEmbedder(
       RenderViewHost* embedder_rvh,
       const BrowserPluginHostMsg_ResizeGuest_Params& params);
+
+  // Returns the embedder's routing ID.
+  int embedder_routing_id() const;
 
   // Helper to send messages to embedder. Overridden in test implementation
   // since we want to intercept certain messages for testing.
@@ -268,19 +288,24 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   scoped_ptr<TransportDIB> damage_buffer_;
 #if defined(OS_WIN)
   size_t damage_buffer_size_;
+  TransportDIB::Handle remote_damage_buffer_handle_;
 #endif
   gfx::Size damage_view_size_;
   float damage_buffer_scale_factor_;
   scoped_ptr<IPC::Message> pending_input_event_reply_;
-  gfx::Rect guest_rect_;
+  gfx::Rect guest_window_rect_;
+  gfx::Rect guest_screen_rect_;
   IDMap<RenderViewHost> pending_updates_;
   int pending_update_counter_;
   base::TimeDelta guest_hang_timeout_;
   bool focused_;
   bool visible_;
-  bool auto_size_;
+  bool auto_size_enabled_;
   gfx::Size max_auto_size_;
   gfx::Size min_auto_size_;
+
+  // Hardware Accelerated Surface Params
+  gfx::GLSurfaceHandle surface_handle_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserPluginGuest);
 };

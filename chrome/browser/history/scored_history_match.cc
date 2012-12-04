@@ -56,6 +56,7 @@ const int kBaseScoreForUntypedResultsInHUPLikeScoring = 900;
 
 bool ScoredHistoryMatch::initialized_ = false;
 bool ScoredHistoryMatch::use_new_scoring = false;
+bool ScoredHistoryMatch::only_count_matches_at_word_boundaries = false;
 bool ScoredHistoryMatch::also_do_hup_like_scoring = false;
 
 ScoredHistoryMatch::ScoredHistoryMatch()
@@ -63,6 +64,7 @@ ScoredHistoryMatch::ScoredHistoryMatch()
       can_inline(false) {
   if (!initialized_) {
     InitializeNewScoringField();
+    InitializeOnlyCountMatchesAtWordBoundariesField();
     InitializeAlsoDoHUPLikeScoringField();
     initialized_ = true;
   }
@@ -79,6 +81,7 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
       can_inline(false) {
   if (!initialized_) {
     InitializeNewScoringField();
+    InitializeOnlyCountMatchesAtWordBoundariesField();
     InitializeAlsoDoHUPLikeScoringField();
     initialized_ = true;
   }
@@ -122,12 +125,19 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
   //  3) AND the search string does not end in whitespace (making it look to
   //     the IMUI as though there is a single search term when actually there
   //     is a second, empty term).
-  // |best_prefix| stores the inlineable prefix computed in clause (2) or
-  // NULL if no such prefix exists.  (The URL is not inlineable.)
-  const URLPrefix* best_prefix = (!url_matches.empty() && (terms.size() == 1)) ?
-      URLPrefix::BestURLPrefix(UTF8ToUTF16(gurl.spec()), terms[0]) : NULL;
-  can_inline = (best_prefix != NULL) && !IsWhitespace(*(lower_string.rbegin()));
-  match_in_scheme = can_inline && best_prefix->prefix.empty();
+  // |best_inlineable_prefix| stores the inlineable prefix computed in
+  // clause (2) or NULL if no such prefix exists.  (The URL is not inlineable.)
+  // Note that using the best prefix here means that when multiple
+  // prefixes match, we'll choose to inline following the longest one.
+  // For a URL like "http://www.washingtonmutual.com", this means
+  // typing "w" will inline "ashington..." instead of "ww.washington...".
+  const URLPrefix* best_inlineable_prefix =
+      (!url_matches.empty() && (terms.size() == 1)) ?
+      URLPrefix::BestURLPrefix(UTF8ToUTF16(gurl.spec()), terms[0]) :
+      NULL;
+  can_inline = (best_inlineable_prefix != NULL) &&
+      !IsWhitespace(*(lower_string.rbegin()));
+  match_in_scheme = can_inline && best_inlineable_prefix->prefix.empty();
 
   // Determine if the associated URLs is referenced by any bookmarks.
   float bookmark_boost =
@@ -140,24 +150,21 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
         (now - row.last_visit()).InDays());
     const float popularity_score = GetPopularityScore(
         row.typed_count() + bookmark_boost, row.visit_count());
-
-    // Combine recency, popularity, and topicality scores into one.
-    // Example of how this functions: Suppose the omnibox has one
-    // input term.  Suppose we have a URL that has 30 typed visits with
-    // the most recent being within a day and the omnibox input term
-    // has a single URL hostname hit at a word boundary.  Then this
-    // URL will score 1200 ( = 30 * 40.0).
-    raw_score = 40.0 * topicality_score * recency_score * popularity_score;
+    raw_score = GetFinalRelevancyScore(
+        topicality_score, recency_score, popularity_score);
     raw_score =
         (raw_score <= kint32max) ? static_cast<int>(raw_score) : kint32max;
   } else {  // "old" scoring
     // Get partial scores based on term matching. Note that the score for
     // each of the URL and title are adjusted by the fraction of the
     // terms appearing in each.
-    int url_score = ScoreComponentForMatches(url_matches, url.length()) *
+    int url_score =
+        ScoreComponentForMatches(url_matches, word_starts.url_word_starts_,
+                                 url.length()) *
         std::min(url_matches.size(), terms.size()) / terms.size();
     int title_score =
-        ScoreComponentForMatches(title_matches, title.length()) *
+        ScoreComponentForMatches(title_matches, word_starts.title_word_starts_,
+                                 title.length()) *
         std::min(title_matches.size(), terms.size()) / terms.size();
     // Arbitrarily pick the best.
     // TODO(mrossetti): It might make sense that a term which appears in both
@@ -207,6 +214,45 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
         kBaseScoreForTypedResultsInHUPLikeScoring :
         kBaseScoreForUntypedResultsInHUPLikeScoring;
 
+    // Tweak the hup_like_score based on "innermost matches".  This
+    // corresponds to the second test in
+    // HistoryURLProvider::CompareHistoryMatch().
+    //
+    // The idea here is that matches that occur in the scheme or
+    // "www." are worse than matches which don't.  For the URLs
+    // "http://www.google.com" and "http://wellsfargo.com", we want
+    // the omnibox input "w" to cause the latter URL to rank higher
+    // than the former.  Note that this is not the same as checking
+    // whether one match's inlinable prefix has more components than
+    // the other match's, since in this example, both matches would
+    // have an inlinable prefix of "http://", which is one component.
+    //
+    // Instead, we look for the overall best (i.e., most components)
+    // prefix of the current URL, and then check whether the inlinable
+    // prefix has that many components.  If it does, this is an
+    // "innermost" match, and should be boosted.  In the example
+    // above, the best prefixes for the two URLs have two and one
+    // components respectively, while the inlinable prefixes each
+    // have one component; this means the first match is not innermost
+    // and the second match is innermost, resulting in us boosting the
+    // second match.
+    //
+    // Now, the code that implements this.
+    // The deepest prefix for this URL regardless of where the match is.
+    const URLPrefix* best_prefix =
+        URLPrefix::BestURLPrefix(UTF8ToUTF16(gurl.spec()), string16());
+    DCHECK(best_prefix != NULL);
+    const int num_components_in_best_prefix = best_prefix->num_components;
+    // If the URL is inlineable, we must have a match.  Note the prefix that
+    // makes it inlineable may be empty.
+    DCHECK(best_inlineable_prefix != NULL);
+    const int num_components_in_best_inlineable_prefix =
+        best_inlineable_prefix->num_components;
+    if (num_components_in_best_inlineable_prefix ==
+        num_components_in_best_prefix) {
+      hup_like_score++;
+    }
+
     // In low-typed-count ranges, give non-host-only results (i.e.,
     // http://www.foo.com/bar.html vs. http://www.foo.com/) enough of
     // a penalty so that the host-only result outscores all the other
@@ -223,29 +269,6 @@ ScoredHistoryMatch::ScoredHistoryMatch(const URLRow& row,
     // safe.
     if ((row.typed_count() <= 1) && !IsHostOnly())
       hup_like_score -= 5;
-
-    // Calculate num_components_in_best_inlineable_url_prefix_match in
-    // order to tweak the hup_like_score by it.  It represents the
-    // number of components in the best URL prefix that allows us to
-    // inline the match.  For instance, suppose the user types "http".
-    // The URL http://htaccess.com is inlineable for this text, but
-    // the best prefix match is empty.  The num_components is 0.  The
-    // URL http://http.com is also inlineable for the input text
-    // "http".  In this case, the best prefix match that makes the URL
-    // inlineable has "http" matching the "http" in "http.com".  The
-    // best prefix match in this case is "http://".  The
-    // num_components is 1.  This boost roughly corresponds to the
-    // second test in HistoryURLProvider::CompareHistoryMatch() which
-    // looks for what it calls innermost matches.  (Innermost match, a
-    // boolean, is the same idea as the number of components in
-    // inlineable prefix, just a less nuanced form.)
-    // If it's inlineable, we must have a match.  Note the prefix that
-    // makes it inlineable may be empty.
-    DCHECK(best_prefix != NULL);
-    const int num_components_in_best_inlineable_url_prefix_match =
-        best_prefix->num_components;
-
-    hup_like_score += num_components_in_best_inlineable_url_prefix_match;
 
     // All the other logic to goes into hup-like-scoring happens in
     // the tie-breaker case of MatchScoreGreater().
@@ -264,8 +287,23 @@ int AccumulateMatchLength(int total, const TermMatch& match) {
 }
 
 // static
-int ScoredHistoryMatch::ScoreComponentForMatches(const TermMatches& matches,
-                                                 size_t max_length) {
+int ScoredHistoryMatch::ScoreComponentForMatches(
+    const TermMatches& provided_matches,
+    const WordStarts& word_starts,
+    size_t max_length) {
+  if (provided_matches.empty())
+    return 0;
+
+  TermMatches matches_at_word_boundaries;
+  if (only_count_matches_at_word_boundaries) {
+    MakeTermMatchesOnlyAtWordBoundaries(provided_matches, word_starts,
+                                        &matches_at_word_boundaries);
+  }
+  // The actual matches we'll use for matching.  This is |provided_matches|
+  // with all the matches not at a word boundary removed (if told to do so).
+  const TermMatches& matches = only_count_matches_at_word_boundaries ?
+      matches_at_word_boundaries : provided_matches;
+
   if (matches.empty())
     return 0;
 
@@ -320,6 +358,31 @@ int ScoredHistoryMatch::ScoreComponentForMatches(const TermMatches& matches,
   // used in ScoredMatchForURL().
   const int kTermScoreLevel[] = { 1000, 750, 500, 200 };
   return ScoreForValue(raw_score, kTermScoreLevel);
+}
+
+// static
+void ScoredHistoryMatch::MakeTermMatchesOnlyAtWordBoundaries(
+    const TermMatches& provided_matches,
+    const WordStarts& word_starts,
+    TermMatches* matches_at_word_boundaries) {
+  matches_at_word_boundaries->clear();
+  // Resize it to an upper-bound estimate of the correct size.
+  matches_at_word_boundaries->reserve(provided_matches.size());
+  WordStarts::const_iterator next_word_starts = word_starts.begin();
+  for (TermMatches::const_iterator iter = provided_matches.begin();
+       iter != provided_matches.end(); ++iter) {
+    // Advance next_word_starts until it's >= the position of the term
+    // we're considering.
+    while ((next_word_starts != word_starts.end()) &&
+           (*next_word_starts < iter->offset)) {
+      ++next_word_starts;
+    }
+    if ((next_word_starts != word_starts.end()) &&
+        (*next_word_starts == iter->offset)) {
+      // At word boundary: copy this element into |matches_at_word_boundaries|.
+      matches_at_word_boundaries->push_back(*iter);
+    }
+  }
 }
 
 // static
@@ -462,7 +525,7 @@ float ScoredHistoryMatch::GetTopicalityScore(
     if (word_num >= 10) break;  // only count the first ten words
     const bool at_word_boundary = (next_word_starts != end_word_starts) &&
         (*next_word_starts == iter->offset);
-    term_scores[iter->term_num] += at_word_boundary ? 8 : 2;
+    term_scores[iter->term_num] += at_word_boundary ? 8 : 0;
   }
   // TODO(mpearson): Restore logic for penalizing out-of-order matches.
   // (Perhaps discount them by 0.8?)
@@ -575,6 +638,31 @@ float ScoredHistoryMatch::GetPopularityScore(int typed_count,
       (5.0 + 3.0);
 }
 
+// static
+float ScoredHistoryMatch::GetFinalRelevancyScore(
+    float topicality_score, float recency_score, float popularity_score) {
+  // Here's how to interpret intermediate_score: Suppose the omnibox
+  // has one input term.  Suppose we have a URL that has 5 typed
+  // visits with the most recent being within a day and the omnibox
+  // input term has a single URL hostname hit at a word boundary.
+  // This URL will have an intermediate_score of 5.0 (= 1 topicality *
+  // 1 recency * 5 popularity).
+  float intermediate_score =
+      topicality_score * recency_score * popularity_score;
+  // The below code takes intermediate_score from [0, infinity) to
+  // relevancy scores in the range [0, 1400).
+  float attenuating_factor = 1.0;
+  if (intermediate_score < 4) {
+    // The formula in the final return line in this function only works if
+    // intermediate_score > 4.  For lower scores, we linearly interpolate
+    // between 0 and the formula when intermediate_score = 4.0.
+    attenuating_factor = intermediate_score / 4.0;
+    intermediate_score = 4.0;
+  }
+  DCHECK_GE(intermediate_score, 4.0);
+  return attenuating_factor * 1400.0 * (2.0 - exp(2.0 / intermediate_score));
+}
+
 void ScoredHistoryMatch::InitializeNewScoringField() {
   enum NewScoringOption {
     OLD_SCORING = 0,
@@ -632,6 +720,14 @@ void ScoredHistoryMatch::InitializeNewScoringField() {
   UMA_HISTOGRAM_ENUMERATION(
       "Omnibox.HistoryQuickProviderNewScoringFieldTrialBeacon",
       new_scoring_option, NUM_OPTIONS);
+}
+
+void ScoredHistoryMatch::InitializeOnlyCountMatchesAtWordBoundariesField() {
+  only_count_matches_at_word_boundaries =
+      AutocompleteFieldTrial::
+          InHQPOnlyCountMatchesAtWordBoundariesFieldTrial() &&
+      AutocompleteFieldTrial::
+          InHQPOnlyCountMatchesAtWordBoundariesFieldTrialExperimentGroup();
 }
 
 void ScoredHistoryMatch::InitializeAlsoDoHUPLikeScoringField() {

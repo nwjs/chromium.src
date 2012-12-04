@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "ash/wm/session_state_observer.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
@@ -17,6 +18,11 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_observer.h"
+
+namespace content {
+class WebUI;
+}
 
 namespace chromeos {
 
@@ -32,11 +38,13 @@ class WebUIScreenLockerTester;
 class WebUIScreenLocker : public WebUILoginView,
                           public LoginDisplay::Delegate,
                           public ScreenLockerDelegate,
-                          public LockWindow::Observer {
+                          public LockWindow::Observer,
+                          public ash::SessionStateObserver,
+                          public views::WidgetObserver {
  public:
   explicit WebUIScreenLocker(ScreenLocker* screen_locker);
 
-  // ScreenLockerDelegate implementation:
+  // ScreenLockerDelegate implementation.
   virtual void LockScreen(bool unlock_on_input) OVERRIDE;
   virtual void ScreenLockReady() OVERRIDE;
   virtual void OnAuthenticate() OVERRIDE;
@@ -46,8 +54,8 @@ class WebUIScreenLocker : public WebUILoginView,
       HelpAppLauncher::HelpTopic help_topic_id) OVERRIDE;
   virtual void ClearErrors() OVERRIDE;
   virtual void AnimateAuthenticationSuccess() OVERRIDE;
-  virtual void ProcessFullyDisplayedAnimations() OVERRIDE;
   virtual gfx::NativeWindow GetNativeWindow() const OVERRIDE;
+  virtual content::WebUI* GetAssociatedWebUI() OVERRIDE;
 
   // LoginDisplay::Delegate: implementation
   virtual void CreateAccount() OVERRIDE;
@@ -57,7 +65,7 @@ class WebUIScreenLocker : public WebUILoginView,
                              const std::string& password) OVERRIDE;
   virtual void Login(const std::string& username,
                      const std::string& password) OVERRIDE;
-  virtual void LoginAsDemoUser() OVERRIDE;
+  virtual void LoginAsRetailModeUser() OVERRIDE;
   virtual void LoginAsGuest() OVERRIDE;
   virtual void Signout() OVERRIDE;
   virtual void OnUserSelected(const std::string& username) OVERRIDE;
@@ -71,6 +79,13 @@ class WebUIScreenLocker : public WebUILoginView,
 
   // LockWindow::Observer implementation.
   virtual void OnLockWindowReady() OVERRIDE;
+
+  // SessionStateObserver override.
+  virtual void OnSessionStateEvent(ash::SessionStateObserver::EventType event)
+      OVERRIDE;
+
+  // WidgetObserver override.
+  virtual void OnWidgetClosing(views::Widget* widget) OVERRIDE;
 
  private:
   friend class test::WebUIScreenLockerTester;

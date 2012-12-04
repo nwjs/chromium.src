@@ -9,10 +9,10 @@
 #include <vector>
 
 #include "base/callback_forward.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop.h"
 #include "base/observer_list_threadsafe.h"
 #include "base/platform_file.h"
-#include "base/scoped_temp_dir.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/file_system_url.h"
 #include "webkit/fileapi/file_system_util.h"
@@ -108,6 +108,9 @@ class CannedSyncableFileSystem
   base::PlatformFileError DirectoryExists(const FileSystemURL& url);
   base::PlatformFileError VerifyFile(const FileSystemURL& url,
                                      const std::string& expected_data);
+  base::PlatformFileError GetMetadata(const FileSystemURL& url,
+                                      base::PlatformFileInfo* info,
+                                      FilePath* platform_path);
 
   // Returns the # of bytes written (>=0) or an error code (<0).
   int64 Write(net::URLRequestContext* url_request_context,
@@ -131,10 +134,15 @@ class CannedSyncableFileSystem
   virtual void OnSyncEnabled(const FileSystemURL& url) OVERRIDE;
   virtual void OnWriteEnabled(const FileSystemURL& url) OVERRIDE;
 
- private:
-  typedef ObserverListThreadSafe<LocalFileSyncStatus::Observer> ObserverList;
+  // Overrides --enable-sync-directory-operation setting which is disabled
+  // by default in production code but enabled in (and only in) an instance
+  // of this helper class for testing.
+  // TODO(kinuko): remove this method when we fully support directory
+  // operations. (http://crbug.com/161442)
+  void EnableDirectoryOperations(bool flag);
 
   // Operation methods body.
+  // They can be also called directly if the caller is already on IO thread.
   void DoCreateDirectory(const FileSystemURL& url,
                          const StatusCallback& callback);
   void DoCreateFile(const FileSystemURL& url,
@@ -162,6 +170,10 @@ class CannedSyncableFileSystem
   void DoVerifyFile(const FileSystemURL& url,
                     const std::string& expected_data,
                     const StatusCallback& callback);
+  void DoGetMetadata(const FileSystemURL& url,
+                     base::PlatformFileInfo* info,
+                     FilePath* platform_path,
+                     const StatusCallback& callback);
   void DoWrite(net::URLRequestContext* url_request_context,
                const FileSystemURL& url,
                const GURL& blob_url,
@@ -173,6 +185,9 @@ class CannedSyncableFileSystem
                           int64* quota,
                           const quota::StatusCallback& callback);
 
+ private:
+  typedef ObserverListThreadSafe<LocalFileSyncStatus::Observer> ObserverList;
+
   // Callbacks.
   void DidOpenFileSystem(base::PlatformFileError result,
                          const std::string& name,
@@ -181,7 +196,7 @@ class CannedSyncableFileSystem
 
   void InitializeSyncStatusObserver();
 
-  ScopedTempDir data_dir_;
+  base::ScopedTempDir data_dir_;
   const std::string service_name_;
 
   scoped_refptr<quota::QuotaManager> quota_manager_;

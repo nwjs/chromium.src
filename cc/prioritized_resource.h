@@ -112,6 +112,7 @@ private:
         const Proxy* proxy() const;
 
         friend class PrioritizedResource;
+        friend class PrioritizedResourceManager;
         PrioritizedResource* m_owner;
         int m_priorityAtLastPriorityUpdate;
         bool m_wasAbovePriorityCutoffAtLastPriorityUpdate;
@@ -120,6 +121,7 @@ private:
         bool m_inDrawingImplTree;
 
         bool m_resourceHasBeenDeleted;
+
 #ifndef NDEBUG
         ResourceProvider* m_resourceProvider;
 #endif

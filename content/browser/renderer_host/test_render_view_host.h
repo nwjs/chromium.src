@@ -98,7 +98,8 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
       const ViewHostMsg_TextInputState_Params& params) OVERRIDE {}
   virtual void ImeCancelComposition() OVERRIDE {}
   virtual void DidUpdateBackingStore(
-      const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
+      const gfx::Rect& scroll_rect,
+      const gfx::Vector2d& scroll_delta,
       const std::vector<gfx::Rect>& rects) OVERRIDE {}
   virtual void RenderViewGone(base::TerminationStatus status,
                               int error_code) OVERRIDE;
@@ -150,6 +151,8 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
                                               float maximum_scale) OVERRIDE {}
   virtual void UpdateFrameInfo(const gfx::Vector2d& scroll_offset,
                                float page_scale_factor,
+                               float min_page_scale_factor,
+                               float max_page_scale_factor,
                                const gfx::Size& content_size) OVERRIDE {}
   virtual void HasTouchEventHandlers(bool need_touch_events) OVERRIDE {}
 #elif defined(OS_WIN) && !defined(USE_AURA)

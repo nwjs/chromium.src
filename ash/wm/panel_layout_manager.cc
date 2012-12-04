@@ -11,6 +11,8 @@
 #include "ash/shell.h"
 #include "ash/wm/frame_painter.h"
 #include "ash/wm/property_util.h"
+#include "ash/wm/window_animations.h"
+#include "ash/wm/window_util.h"
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -19,6 +21,7 @@
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/gfx/canvas.h"
@@ -32,8 +35,7 @@ namespace internal {
 namespace {
 const int kPanelMarginEdge = 4;
 const int kPanelMarginMiddle = 8;
-
-const int kMinimizedHeight = 24;
+const int kPanelIdealSpacing = 4;
 
 const float kMaxHeightFactor = .80f;
 const float kMaxWidthFactor = .50f;
@@ -64,12 +66,64 @@ class CalloutWidgetBackground : public views::Background {
   DISALLOW_COPY_AND_ASSIGN(CalloutWidgetBackground);
 };
 
+struct VisiblePanelPositionInfo {
+  VisiblePanelPositionInfo()
+      : min_x(0),
+        max_x(0),
+        x(0),
+        width(0),
+        window(NULL) {}
+
+  int min_x;
+  int max_x;
+  int x;
+  int width;
+  aura::Window* window;
+};
+
+bool CompareWindowX(const VisiblePanelPositionInfo& win1,
+                    const VisiblePanelPositionInfo& win2) {
+  return win1.x < win2.x;
+}
+
+void FanOutPanels(std::vector<VisiblePanelPositionInfo>::iterator first,
+                  std::vector<VisiblePanelPositionInfo>::iterator last) {
+  int num_panels = last - first;
+  if (num_panels <= 1)
+    return;
+
+  if (num_panels == 2) {
+    // If there are two adjacent overlapping windows, separate them by the
+    // minimum width necessary.
+    std::vector<VisiblePanelPositionInfo>::iterator second = first + 1;
+    int separation = (*first).width + kPanelIdealSpacing;
+    int overlap = (*first).x + separation - (*second).x;
+    (*first).x = std::max((*first).min_x, (*first).x - overlap / 2);
+    (*second).x = std::min((*second).max_x, (*first).x + separation);
+    // Recalculate the first panel position in case the second one was
+    // constrained on the right.
+    (*first).x = std::max((*first).min_x, (*second).x - separation);
+    return;
+  }
+
+  // If there are more than two overlapping windows, fan them out from minimum
+  // position to maximum position equally spaced.
+  int delta = ((*(last - 1)).max_x - (*first).min_x) / (num_panels - 1);
+  int x = (*first).min_x;
+  for (std::vector<VisiblePanelPositionInfo>::iterator iter = first;
+      iter != last; ++iter) {
+    (*iter).x = std::max((*iter).min_x, std::min((*iter).max_x, x));
+    x += delta;
+  }
+}
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // PanelLayoutManager public implementation:
 PanelLayoutManager::PanelLayoutManager(aura::Window* panel_container)
-    : panel_container_(panel_container),
+    : ActivationChangeShim(Shell::GetInstance()),
+      panel_container_(panel_container),
       in_layout_(false),
       dragged_panel_(NULL),
       launcher_(NULL),
@@ -107,6 +161,7 @@ void PanelLayoutManager::StartDragging(aura::Window* panel) {
   DCHECK(!dragged_panel_);
   DCHECK(panel->parent() == panel_container_);
   dragged_panel_ = panel;
+  Relayout();
 }
 
 void PanelLayoutManager::FinishDragging() {
@@ -124,28 +179,10 @@ void PanelLayoutManager::ToggleMinimize(aura::Window* panel) {
   DCHECK(panel->parent() == panel_container_);
   if (panel->GetProperty(aura::client::kShowStateKey) ==
       ui::SHOW_STATE_MINIMIZED) {
-    const gfx::Rect& old_bounds = panel->bounds();
     panel->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
-
-    gfx::Rect new_bounds(old_bounds);
-    const gfx::Rect* restore_bounds = GetRestoreBoundsInScreen(panel);
-    if (restore_bounds) {
-      new_bounds.set_height(restore_bounds->height());
-      new_bounds.set_y(old_bounds.bottom() - restore_bounds->height());
-      SetChildBounds(panel, new_bounds);
-      ClearRestoreBounds(panel);
-    }
   } else {
-    const gfx::Rect& old_bounds = panel->bounds();
     panel->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MINIMIZED);
-    SetRestoreBoundsInParent(panel, old_bounds);
-    SetChildBounds(panel,
-                   gfx::Rect(old_bounds.x(),
-                             old_bounds.bottom() - kMinimizedHeight,
-                             old_bounds.width(),
-                             kMinimizedHeight));
   }
-  Relayout();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -158,6 +195,7 @@ void PanelLayoutManager::OnWindowAddedToLayout(aura::Window* child) {
   if (child == callout_widget_->GetNativeWindow())
     return;
   panel_windows_.push_back(child);
+  child->AddObserver(this);
   Relayout();
 }
 
@@ -166,6 +204,7 @@ void PanelLayoutManager::OnWillRemoveWindowFromLayout(aura::Window* child) {
       std::find(panel_windows_.begin(), panel_windows_.end(), child);
   if (found != panel_windows_.end())
     panel_windows_.erase(found);
+  child->RemoveObserver(this);
 
   if (dragged_panel_ == child)
     dragged_panel_ = NULL;
@@ -227,6 +266,22 @@ void PanelLayoutManager::OnLauncherIconPositionsChanged() {
   Relayout();
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// PanelLayoutManager, WindowObserver implementation:
+
+void PanelLayoutManager::OnWindowPropertyChanged(aura::Window* window,
+                                                 const void* key,
+                                                 intptr_t old) {
+  if (key != aura::client::kShowStateKey)
+    return;
+  ui::WindowShowState new_state =
+      window->GetProperty(aura::client::kShowStateKey);
+  if (new_state == ui::SHOW_STATE_MINIMIZED)
+    MinimizePanel(window);
+  else
+    RestorePanel(window);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // PanelLayoutManager, aura::client::ActivationChangeObserver implementation:
 void PanelLayoutManager::OnWindowActivated(aura::Window* active,
@@ -239,19 +294,37 @@ void PanelLayoutManager::OnWindowActivated(aura::Window* active,
   }
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // PanelLayoutManager private implementation:
+
+void PanelLayoutManager::MinimizePanel(aura::Window* panel) {
+  views::corewm::SetWindowVisibilityAnimationType(
+      panel, WINDOW_VISIBILITY_ANIMATION_TYPE_MINIMIZE);
+  panel->Hide();
+  if (wm::IsActiveWindow(panel))
+    wm::DeactivateWindow(panel);
+  Relayout();
+}
+
+void PanelLayoutManager::RestorePanel(aura::Window* panel) {
+  panel->Show();
+  Relayout();
+}
+
 void PanelLayoutManager::Relayout() {
   if (!launcher_ || !launcher_->widget())
     return;
 
   if (in_layout_)
     return;
-  AutoReset<bool> auto_reset_in_layout(&in_layout_, true);
+  base::AutoReset<bool> auto_reset_in_layout(&in_layout_, true);
 
   int launcher_top = launcher_->widget()->GetWindowBoundsInScreen().y();
+  int panel_left_bounds = kPanelIdealSpacing;
+  int panel_right_bounds =
+      panel_container_->bounds().width() - kPanelIdealSpacing;
   aura::Window* active_panel = NULL;
+  std::vector<VisiblePanelPositionInfo> visible_panels;
   for (PanelList::iterator iter = panel_windows_.begin();
        iter != panel_windows_.end(); ++iter) {
     aura::Window* panel = *iter;
@@ -268,7 +341,9 @@ void PanelLayoutManager::Relayout() {
     if (icon_bounds.IsEmpty())
       continue;
 
-    if (panel->HasFocus()) {
+    if (panel->HasFocus() ||
+        panel->Contains(
+            aura::client::GetFocusClient(panel)->GetFocusedWindow())) {
       DCHECK(!active_panel);
       active_panel = panel;
     }
@@ -277,12 +352,41 @@ void PanelLayoutManager::Relayout() {
     aura::Window::ConvertPointToTarget(panel_container_->GetRootWindow(),
                                        panel_container_, &icon_origin);
 
-    // TODO(dcheng): Need to clamp to screen edges.
-    gfx::Rect bounds = panel->bounds();
-    bounds.set_x(
-        icon_origin.x() + icon_bounds.width() / 2 - bounds.width() / 2);
+    VisiblePanelPositionInfo position_info;
+    position_info.min_x = std::max(panel_left_bounds, icon_origin.x() +
+        icon_bounds.width() - panel->bounds().width());
+    position_info.max_x = std::min(icon_origin.x(), panel_right_bounds -
+                                   kPanelIdealSpacing);
+    position_info.x = icon_origin.x() + icon_bounds.width() / 2 -
+                      panel->bounds().width() / 2;
+    position_info.width = panel->bounds().width();
+    position_info.window = panel;
+    visible_panels.push_back(position_info);
+  }
+
+  // Sort panels by their X positions and fan out groups of overlapping panels.
+  // The fan out method may result in new overlapping panels however given that
+  // the panels start at least a full panel width apart this overlap will
+  // never completely obscure a panel.
+  // TODO(flackr): Rearrange panels if new overlaps are introduced.
+  std::sort(visible_panels.begin(), visible_panels.end(), CompareWindowX);
+  size_t first_overlapping_panel = 0;
+  for (size_t i = 1; i < visible_panels.size(); ++i) {
+    if (visible_panels[i - 1].x + visible_panels[i - 1].width
+        < visible_panels[i].x) {
+      FanOutPanels(visible_panels.begin() + first_overlapping_panel,
+                   visible_panels.begin() + i);
+      first_overlapping_panel = i;
+    }
+  }
+  FanOutPanels(visible_panels.begin() + first_overlapping_panel,
+               visible_panels.end());
+
+  for (size_t i = 0; i < visible_panels.size(); ++i) {
+    gfx::Rect bounds = visible_panels[i].window->bounds();
+    bounds.set_x(visible_panels[i].x);
     bounds.set_y(launcher_top - bounds.height());
-    SetChildBoundsDirect(panel, bounds);
+    SetChildBoundsDirect(visible_panels[i].window, bounds);
   }
 
   UpdateStacking(active_panel);
@@ -354,9 +458,11 @@ void PanelLayoutManager::UpdateCallout(aura::Window* active_panel) {
 void PanelLayoutManager::ShowCalloutHelper(aura::Window* active_panel) {
   DCHECK(active_panel);
   gfx::Rect bounds = active_panel->GetBoundsInRootWindow();
+  gfx::Rect icon_bounds =
+      launcher_->GetScreenBoundsOfItemIconForWindow(active_panel);
   gfx::Rect callout_bounds = callout_widget_->GetWindowBoundsInScreen();
   callout_bounds.set_x(
-      bounds.x() + (bounds.width() - callout_bounds.width()) / 2);
+      icon_bounds.x() + (icon_bounds.width() - callout_bounds.width()) / 2);
   callout_bounds.set_y(bounds.bottom());
   SetChildBoundsDirect(callout_widget_->GetNativeWindow(), callout_bounds);
   panel_container_->StackChildAtTop(callout_widget_->GetNativeWindow());

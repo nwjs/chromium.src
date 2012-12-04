@@ -44,6 +44,7 @@ class BrowserViewLayout;
 class ContentsContainer;
 class DownloadShelfView;
 class FullscreenExitBubbleViews;
+class ImmersiveModeController;
 class InfoBarContainerView;
 class InstantPreviewControllerViews;
 class LocationBarView;
@@ -57,7 +58,7 @@ class ToolbarView;
 class JumpList;
 #endif
 
-#if defined(USE_AURA)
+#if defined(USE_ASH)
 class BrowserLauncherItemController;
 #endif
 
@@ -98,6 +99,10 @@ class BrowserView : public BrowserWindow,
  public:
   // The browser view's class name.
   static const char kViewClassName[];
+  // Initial child indices for well-known views.
+  static const int kTabstripIndex;
+  static const int kInfoBarIndex;
+  static const int kToolbarIndex;
 
   explicit BrowserView(Browser* browser);
   virtual ~BrowserView();
@@ -119,7 +124,7 @@ class BrowserView : public BrowserWindow,
   static BrowserView* GetBrowserViewForBrowser(const Browser* browser);
 
   // Returns a Browser instance of this view.
-  Browser* browser() const { return browser_.get(); }
+  Browser* browser() { return browser_.get(); }
 
   // Returns the apparent bounds of the toolbar, in BrowserView coordinates.
   // These differ from |toolbar_.bounds()| in that they match where the toolbar
@@ -149,10 +154,13 @@ class BrowserView : public BrowserWindow,
       const gfx::Point& point) const;
 
   // Accessor for the TabStrip.
-  TabStrip* tabstrip() const { return tabstrip_; }
+  TabStrip* tabstrip() { return tabstrip_; }
 
   // Accessor for the Toolbar.
-  ToolbarView* toolbar() const { return toolbar_; }
+  ToolbarView* toolbar() { return toolbar_; }
+
+  // Returns the page contents container, see diagram below.
+  ContentsContainer* contents() { return contents_; }
 
   // Returns true if various window components are visible.
   virtual bool IsTabStripVisible() const;
@@ -206,6 +214,11 @@ class BrowserView : public BrowserWindow,
   // used on Linux.
   void FullScreenStateChanged();
 
+  // See ImmersiveModeController for description.
+  ImmersiveModeController* immersive_mode_controller() {
+    return immersive_mode_controller_.get();
+  }
+
   // Restores the focused view. This is also used to set the initial focus
   // when a new browser window is created.
   void RestoreFocus();
@@ -219,11 +232,6 @@ class BrowserView : public BrowserWindow,
   // Called from BookmarkBarView/DownloadShelfView during their show/hide
   // animations.
   void ToolbarSizeChanged(bool is_animating);
-
-  // For instant extended API, returns the size that the NTP theme background
-  // image should fill up in this view, which is from top of tab to bottom of
-  // content view; returns empty size otherwise.
-  gfx::Size GetNTPBackgroundFillSize() const;
 
 #if defined(USE_ASH)
   // Test support.
@@ -274,7 +282,7 @@ class BrowserView : public BrowserWindow,
   virtual LocationBar* GetLocationBar() const OVERRIDE;
   virtual void SetFocusToLocationBar(bool select_all) OVERRIDE;
   virtual void UpdateReloadStopState(bool is_loading, bool force) OVERRIDE;
-  virtual void UpdateToolbar(TabContents* contents,
+  virtual void UpdateToolbar(content::WebContents* contents,
                              bool should_restore_state) OVERRIDE;
   virtual void FocusToolbar() OVERRIDE;
   virtual void FocusAppMenu() OVERRIDE;
@@ -315,7 +323,7 @@ class BrowserView : public BrowserWindow,
                             const content::SSLStatus& ssl,
                             bool show_history) OVERRIDE;
   virtual void ShowWebsiteSettings(Profile* profile,
-                                   TabContents* tab_contents,
+                                   content::WebContents* web_contents,
                                    const GURL& url,
                                    const content::SSLStatus& ssl,
                                    bool show_history) OVERRIDE;
@@ -353,9 +361,9 @@ class BrowserView : public BrowserWindow,
   // Overridden from TabStripModelObserver:
   virtual void TabDetachedAt(content::WebContents* contents,
                              int index) OVERRIDE;
-  virtual void TabDeactivated(TabContents* contents) OVERRIDE;
-  virtual void ActiveTabChanged(TabContents* old_contents,
-                                TabContents* new_contents,
+  virtual void TabDeactivated(content::WebContents* contents) OVERRIDE;
+  virtual void ActiveTabChanged(content::WebContents* old_contents,
+                                content::WebContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
   virtual void TabStripEmpty() OVERRIDE;
@@ -413,6 +421,16 @@ class BrowserView : public BrowserWindow,
   // which layout is being shown and whether we are full-screen.
   int GetOTRIconResourceID() const;
 
+  // Overridden from views::View:
+  virtual std::string GetClassName() const OVERRIDE;
+  virtual void Layout() OVERRIDE;
+  virtual void PaintChildren(gfx::Canvas* canvas) OVERRIDE;
+  virtual void ViewHierarchyChanged(bool is_add,
+                                    views::View* parent,
+                                    views::View* child) OVERRIDE;
+  virtual void ChildPreferredSizeChanged(View* child) OVERRIDE;
+  virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
+
  protected:
   // Appends to |toolbars| a pointer to each AccessiblePaneView that
   // can be traversed using F6, in the order they should be traversed.
@@ -423,16 +441,6 @@ class BrowserView : public BrowserWindow,
   int last_focused_view_storage_id() const {
     return last_focused_view_storage_id_;
   }
-
-  // Overridden from views::View:
-  virtual std::string GetClassName() const OVERRIDE;
-  virtual void Layout() OVERRIDE;
-  virtual void PaintChildren(gfx::Canvas* canvas) OVERRIDE;
-  virtual void ViewHierarchyChanged(bool is_add,
-                                    views::View* parent,
-                                    views::View* child) OVERRIDE;
-  virtual void ChildPreferredSizeChanged(View* child) OVERRIDE;
-  virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
 
   // Factory Method.
   // Returns a new LayoutManager for this browser view. A subclass may
@@ -474,23 +482,23 @@ class BrowserView : public BrowserWindow,
   // Layout the Status Bubble.
   void LayoutStatusBubble();
 
-  // Prepare to show the Bookmark Bar for the specified TabContents.
+  // Prepare to show the Bookmark Bar for the specified WebContents.
   // Returns true if the Bookmark Bar can be shown (i.e. it's supported for this
   // Browser type) and there should be a subsequent re-layout to show it.
   // |contents| can be NULL.
-  bool MaybeShowBookmarkBar(TabContents* contents);
+  bool MaybeShowBookmarkBar(content::WebContents* contents);
 
-  // Prepare to show an Info Bar for the specified TabContents. Returns
+  // Prepare to show an Info Bar for the specified WebContents. Returns
   // true if there is an Info Bar to show and one is supported for this Browser
   // type, and there should be a subsequent re-layout to show it.
   // |contents| can be NULL.
-  bool MaybeShowInfoBar(TabContents* contents);
+  bool MaybeShowInfoBar(content::WebContents* contents);
 
   // Updates devtools window for given contents. This method will show docked
-  // devtools window for inspected |tab_contents| that has docked devtools
-  // and hide it for NULL or not inspected |tab_contents|. It will also make
+  // devtools window for inspected |web_contents| that has docked devtools
+  // and hide it for NULL or not inspected |web_contents|. It will also make
   // sure devtools window size and position are restored for given tab.
-  void UpdateDevToolsForContents(TabContents* tab_contents);
+  void UpdateDevToolsForContents(content::WebContents* web_contents);
 
   // Shows docked devtools.
   void ShowDevToolsContainer();
@@ -506,7 +514,7 @@ class BrowserView : public BrowserWindow,
   // Download Shelf in response to a change notification from the specified
   // |contents|. |contents| can be NULL. In this case, all optional UI will be
   // removed.
-  void UpdateUIForContents(TabContents* contents);
+  void UpdateUIForContents(content::WebContents* contents);
 
   // Updates an optional child View, e.g. Bookmarks Bar, Info Bar, Download
   // Shelf. If |*old_view| differs from new_view, the old_view is removed and
@@ -573,39 +581,37 @@ class BrowserView : public BrowserWindow,
 
   // BrowserView layout (LTR one is pictured here).
   //
-  // ----------------------------------------------------------------
-  // | Tabs (1)                                                     |
-  // |--------------------------------------------------------------|
-  // | Navigation buttons, menus and the address bar (toolbar_)     |
-  // |--------------------------------------------------------------|
-  // | All infobars (infobar_container_) *                          |
-  // |--------------------------------------------------------------|
-  // | Bookmarks (bookmark_bar_view_) *                             |
-  // |--------------------------------------------------------------|
-  // |Page content (contents_)                                     ||
-  // |-------------------------------------------------------------||
-  // || contents_container_ and/or                                |||
-  // || preview_controller_->preview_container_                   |||
-  // ||                                                           |||
-  // ||                                                           |||
-  // ||                                                           |||
-  // ||                                                           |||
-  // ||                                                           |||
-  // |-------------------------------------------------------------||
-  // |==(2)=========================================================|
-  // |                                                              |
-  // |                                                              |
-  // | Debugger (devtools_container_)                               |
-  // |                                                              |
-  // |                                                              |
-  // |--------------------------------------------------------------|
-  // | Active downloads (download_shelf_)                           |
-  // ----------------------------------------------------------------
+  // --------------------------------------------------------------------
+  // | Tabs (tabstrip_) [1]                                             |
+  // |------------------------------------------------------------------|
+  // | Navigation buttons, menus and the address bar (toolbar_) [1]     |
+  // |------------------------------------------------------------------|
+  // | All infobars (infobar_container_) [2]                            |
+  // |------------------------------------------------------------------|
+  // | Bookmarks (bookmark_bar_view_) [2]                               |
+  // |------------------------------------------------------------------|
+  // | Debugger splitter (contents_split_)                              |
+  // |  +------------------------------------------------------------+  |
+  // |  | Page content (contents_)                                   |  |
+  // |  |  +------------------------------------------------------+  |  |
+  // |  |  | contents_container_ and/or                           |  |  |
+  // |  |  | preview_controller_->preview_container_              |  |  |
+  // |  |  |                                                      |  |  |
+  // |  |  |                                                      |  |  |
+  // |  |  +------------------------------------------------------+  |  |
+  // |  +------------------------------------------------------------+  |
+  // |  +------------------------------------------------------------+  |
+  // |  | Debugger (devtools_container_)                             |  |
+  // |  |                                                            |  |
+  // |  +------------------------------------------------------------+  |
+  // |------------------------------------------------------------------|
+  // | Active downloads (download_shelf_)                               |
+  // --------------------------------------------------------------------
   //
-  // (1) - tabstrip_, default position
-  // (2) - contents_split_
-  //
-  // * - The bookmark bar and info bar are swapped when on the new tab page.
+  // [1] During an immersive mode reveal the tab strip and toolbar may be
+  //     reparented to a temporary view and may not be direct children of
+  //     this view.
+  // [2] The bookmark bar and info bar are swapped when on the new tab page.
   //     Additionally contents_ is positioned on top of the bookmark bar when
   //     the bookmark bar is detached. This is done to allow the
   //     preview_controller_->preview_container_ to appear over the bookmark
@@ -711,6 +717,8 @@ class BrowserView : public BrowserWindow,
   bool force_location_bar_focus_;
 
   PendingFullscreenRequest fullscreen_request_;
+
+  scoped_ptr<ImmersiveModeController> immersive_mode_controller_;
 
   gfx::ScopedSysColorChangeListener color_change_listener_;
 

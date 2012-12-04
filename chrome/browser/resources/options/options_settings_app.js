@@ -6,8 +6,10 @@
   if (document.location != 'chrome://settings-frame/options_settings_app.html')
     return;
 
-  document.body.classList.add('settings-app');
+  document.documentElement.classList.add('settings-app');
 
   // Override the offset in the options page.
   OptionsPage.setHorizontalOffset(30);
+
+  loadTimeData.overrideValues(loadTimeData.getValue('settingsApp'));
 }());

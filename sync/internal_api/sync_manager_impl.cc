@@ -47,7 +47,6 @@
 #include "sync/syncable/entry.h"
 #include "sync/syncable/in_memory_directory_backing_store.h"
 #include "sync/syncable/on_disk_directory_backing_store.h"
-#include "sync/util/get_session_name.h"
 
 using base::TimeDelta;
 using sync_pb::GetUpdatesCallerInfo;
@@ -335,7 +334,6 @@ void SyncManagerImpl::Init(
     const std::string& sync_server_and_path,
     int port,
     bool use_ssl,
-    const scoped_refptr<base::TaskRunner>& blocking_task_runner,
     scoped_ptr<HttpPostProviderFactory> post_factory,
     const std::vector<ModelSafeWorker*>& workers,
     ExtensionsActivityMonitor* extensions_activity_monitor,
@@ -356,8 +354,6 @@ void SyncManagerImpl::Init(
   DVLOG(1) << "SyncManager starting Init...";
 
   weak_handle_this_ = MakeWeakHandle(weak_ptr_factory_.GetWeakPtr());
-
-  blocking_task_runner_ = blocking_task_runner;
 
   change_delegate_ = change_delegate;
 
@@ -1296,18 +1292,33 @@ UserShare* SyncManagerImpl::GetUserShare() {
   return &share_;
 }
 
+const std::string SyncManagerImpl::cache_guid() {
+  DCHECK(initialized_);
+  return directory()->cache_guid();
+}
+
 bool SyncManagerImpl::ReceivedExperiment(Experiments* experiments) {
   ReadTransaction trans(FROM_HERE, GetUserShare());
-  ReadNode node(&trans);
-  if (node.InitByTagLookup(kNigoriTag) != BaseNode::INIT_OK) {
+  ReadNode nigori_node(&trans);
+  if (nigori_node.InitByTagLookup(kNigoriTag) != BaseNode::INIT_OK) {
     DVLOG(1) << "Couldn't find Nigori node.";
     return false;
   }
   bool found_experiment = false;
-  if (node.GetNigoriSpecifics().sync_tab_favicons()) {
+  if (nigori_node.GetNigoriSpecifics().sync_tab_favicons()) {
     experiments->sync_tab_favicons = true;
     found_experiment = true;
   }
+
+  ReadNode keystore_node(&trans);
+  if (keystore_node.InitByClientTagLookup(
+          syncer::EXPERIMENTS,
+          syncer::kKeystoreEncryptionTag) == BaseNode::INIT_OK &&
+      keystore_node.GetExperimentsSpecifics().keystore_encryption().enabled()) {
+    experiments->keystore_encryption = true;
+    found_experiment = true;
+  }
+
   return found_experiment;
 }
 

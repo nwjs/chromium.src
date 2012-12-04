@@ -34,7 +34,7 @@
 #include "gpu/command_buffer/client/transfer_buffer.h"
 #include "gpu/command_buffer/common/constants.h"
 #include "gpu/ipc/command_buffer_proxy.h"
-#include "webkit/glue/gl_bindings_skia_cmd_buffer.h"
+#include "webkit/gpu/gl_bindings_skia_cmd_buffer.h"
 
 namespace content {
 static base::LazyInstance<base::Lock>::Leaky
@@ -129,7 +129,6 @@ WebGraphicsContext3DCommandBufferImpl::WebGraphicsContext3DCommandBufferImpl(
       surface_id_(surface_id),
       active_url_(active_url),
       swap_client_(swap_client),
-      memory_allocation_changed_callback_(0),
       context_lost_callback_(0),
       context_lost_reason_(GL_NO_ERROR),
       error_message_callback_(0),
@@ -706,15 +705,14 @@ void WebGraphicsContext3DCommandBufferImpl::sendManagedMemoryStatsCHROMIUM(
 void WebGraphicsContext3DCommandBufferImpl::
     setMemoryAllocationChangedCallbackCHROMIUM(
         WebGraphicsMemoryAllocationChangedCallbackCHROMIUM* callback) {
-  memory_allocation_changed_callback_ = callback;
-
   if (!command_buffer_)
     return;
 
   if (callback)
     command_buffer_->SetMemoryAllocationChangedCallback(base::Bind(
         &WebGraphicsContext3DCommandBufferImpl::OnMemoryAllocationChanged,
-        weak_ptr_factory_.GetWeakPtr()));
+        weak_ptr_factory_.GetWeakPtr(),
+        callback));
   else
     command_buffer_->SetMemoryAllocationChangedCallback(
         base::Callback<void(const GpuMemoryAllocationForRenderer&)>());
@@ -1448,6 +1446,7 @@ WebGraphicsMemoryAllocation::PriorityCutoff
 }
 
 void WebGraphicsContext3DCommandBufferImpl::OnMemoryAllocationChanged(
+    WebGraphicsMemoryAllocationChangedCallbackCHROMIUM* callback,
     const GpuMemoryAllocationForRenderer& allocation) {
 
   // Convert the gpu structure to the WebKit structure.
@@ -1472,9 +1471,13 @@ void WebGraphicsContext3DCommandBufferImpl::OnMemoryAllocationChanged(
   web_allocation.suggestHaveBackbuffer =
       allocation.have_backbuffer_when_not_visible;
 
-  if (memory_allocation_changed_callback_)
-    memory_allocation_changed_callback_->onMemoryAllocationChanged(
-        web_allocation);
+  if (callback)
+    callback->onMemoryAllocationChanged(web_allocation);
+
+  // We may have allocated transfer buffers in order to free GL resources in a
+  // backgrounded tab. Re-free the transfer buffers.
+  if (!visible_)
+    gl_->FreeEverything();
 }
 
 void WebGraphicsContext3DCommandBufferImpl::setErrorMessageCallback(
@@ -1631,8 +1634,48 @@ DELEGATE_TO_GL_2(bindTexImage2DCHROMIUM, BindTexImage2DCHROMIUM,
 DELEGATE_TO_GL_2(releaseTexImage2DCHROMIUM, ReleaseTexImage2DCHROMIUM,
                  WGC3Denum, WGC3Dint)
 
+void* WebGraphicsContext3DCommandBufferImpl::mapBufferCHROMIUM(
+    WGC3Denum target, WGC3Denum access) {
+  return gl_->MapBufferCHROMIUM(target, access);
+}
+
+WGC3Dboolean WebGraphicsContext3DCommandBufferImpl::unmapBufferCHROMIUM(
+    WGC3Denum target) {
+  return gl_->UnmapBufferCHROMIUM(target);
+}
+
+void WebGraphicsContext3DCommandBufferImpl::asyncTexImage2DCHROMIUM(
+    WGC3Denum target,
+    WGC3Dint level,
+    WGC3Denum internalformat,
+    WGC3Dsizei width,
+    WGC3Dsizei height,
+    WGC3Dint border,
+    WGC3Denum format,
+    WGC3Denum type,
+    const void* pixels) {
+  return gl_->AsyncTexImage2DCHROMIUM(
+      target, level, internalformat,
+      width, height, border, format, type, pixels);
+}
+
+void WebGraphicsContext3DCommandBufferImpl::asyncTexSubImage2DCHROMIUM(
+    WGC3Denum target,
+    WGC3Dint level,
+    WGC3Dint xoffset,
+    WGC3Dint yoffset,
+    WGC3Dsizei width,
+    WGC3Dsizei height,
+    WGC3Denum format,
+    WGC3Denum type,
+    const void *pixels) {
+  return gl_->AsyncTexSubImage2DCHROMIUM(
+      target, level, xoffset, yoffset,
+      width, height, format, type, pixels);
+}
+
 GrGLInterface* WebGraphicsContext3DCommandBufferImpl::onCreateGrGLInterface() {
-  return webkit_glue::CreateCommandBufferSkiaGLBinding();
+  return webkit::gpu::CreateCommandBufferSkiaGLBinding();
 }
 
 namespace {

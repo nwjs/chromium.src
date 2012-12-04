@@ -111,6 +111,10 @@ const char* GetDangerTypeString(content::DownloadDangerType danger_type) {
 DictionaryValue* CreateDownloadItemValue(
     content::DownloadItem* download_item,
     bool incognito) {
+  // TODO(asanka): Move towards using download_model here for getting status and
+  // progress. The difference currently only matters to Drive downloads and
+  // those don't show up on the downloads page, but should.
+  DownloadItemModel download_model(download_item);
   DictionaryValue* file_value = new DictionaryValue();
 
   file_value->SetInteger(
@@ -178,8 +182,7 @@ DictionaryValue* CreateDownloadItemValue(
     file_value->SetInteger("received",
         static_cast<int>(download_item->GetReceivedBytes()));
     file_value->SetString("last_reason_text",
-        BaseDownloadItemModel::InterruptReasonMessage(
-            download_item->GetLastReason()));
+                          download_model.GetInterruptReasonText());
   } else if (download_item->IsCancelled()) {
     file_value->SetString("state", "CANCELLED");
   } else if (download_item->IsComplete()) {
@@ -197,7 +200,6 @@ DictionaryValue* CreateDownloadItemValue(
 // Filters out extension downloads and downloads that don't have a filename yet.
 bool IsDownloadDisplayable(const content::DownloadItem& item) {
   return (!download_crx_util::IsExtensionDownload(item) &&
-          item.IsPersisted() &&
           !item.IsTemporary() &&
           !item.GetFileNameToReportUser().empty() &&
           !item.GetTargetFilePath().empty());
@@ -325,8 +327,6 @@ void DownloadsDOMHandler::HandleGetDownloads(const base::ListValue* args) {
   CountDownloadsDOMEvents(DOWNLOADS_DOM_EVENT_GET_DOWNLOADS);
   search_text_ = ExtractStringValue(args);
   SendCurrentDownloads();
-  if (main_notifier_.GetManager())
-    main_notifier_.GetManager()->CheckForHistoryFilesRemoval();
 }
 
 void DownloadsDOMHandler::HandleOpenFile(const base::ListValue* args) {
@@ -433,10 +433,14 @@ void DownloadsDOMHandler::ScheduleSendCurrentDownloads() {
 void DownloadsDOMHandler::SendCurrentDownloads() {
   update_scheduled_ = false;
   content::DownloadManager::DownloadVector all_items, filtered_items;
-  if (main_notifier_.GetManager())
+  if (main_notifier_.GetManager()) {
     main_notifier_.GetManager()->GetAllDownloads(&all_items);
-  if (original_notifier_.get() && original_notifier_->GetManager())
+    main_notifier_.GetManager()->CheckForHistoryFilesRemoval();
+  }
+  if (original_notifier_.get() && original_notifier_->GetManager()) {
     original_notifier_->GetManager()->GetAllDownloads(&all_items);
+    original_notifier_->GetManager()->CheckForHistoryFilesRemoval();
+  }
   DownloadQuery query;
   if (!search_text_.empty()) {
     scoped_ptr<base::Value> query_text(base::Value::CreateStringValue(

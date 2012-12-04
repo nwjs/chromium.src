@@ -10,12 +10,12 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/hash_tables.h"
 #include "base/logging.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/process_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/test/test_suite.h"
@@ -448,7 +448,7 @@ int RunTest(TestLauncherDelegate* launcher_delegate,
   // failure status back to the parent.
   new_cmd_line.AppendSwitch(base::TestSuite::kStrictFailureHandling);
 
-  ScopedTempDir temp_dir;
+  base::ScopedTempDir temp_dir;
   // Create a new data dir and pass it to the child.
   if (!temp_dir.CreateUniqueTempDir() || !temp_dir.IsValid()) {
     LOG(ERROR) << "Error creating temp data directory";
@@ -643,7 +643,6 @@ const char kLaunchAsBrowser[] = "as-browser";
 const char kRunManualTestsFlag[] = "run-manual";
 
 const char kSingleProcessTestsFlag[]   = "single_process";
-const char kSingleProcessTestsAndChromeFlag[]   = "single-process";
 
 const char kWarmupFlag[] = "warmup";
 
@@ -696,7 +695,7 @@ int LaunchTests(TestLauncherDelegate* launcher_delegate,
   }
 
   if (command_line->HasSwitch(kSingleProcessTestsFlag) ||
-      (command_line->HasSwitch(kSingleProcessTestsAndChromeFlag) &&
+      (command_line->HasSwitch(switches::kSingleProcess) &&
        command_line->HasSwitch(kGTestFilterFlag)) ||
       command_line->HasSwitch(kGTestListTestsFlag) ||
       command_line->HasSwitch(kGTestHelpFlag)) {

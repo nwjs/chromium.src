@@ -39,7 +39,7 @@ class CONTENT_EXPORT BrowserPlugin :
   // Get the src attribute value of the BrowserPlugin instance.
   std::string src_attribute() const { return src_; }
   // Set the src attribute value of the BrowserPlugin instance.
-  void SetSrcAttribute(const std::string& src);
+  bool SetSrcAttribute(const std::string& src, std::string* error_message);
   // Get the autosize attribute value.
   bool auto_size_attribute() const { return auto_size_; }
   // Sets the autosize attribute value.
@@ -77,7 +77,7 @@ class CONTENT_EXPORT BrowserPlugin :
   // this instance of BrowserPlugin. If an error occurs, the |error_message| is
   // set appropriately to indicate the failure reason.
   bool SetPartitionAttribute(const std::string& partition_id,
-                             std::string& error_message);
+                             std::string* error_message);
 
   // Inform the BrowserPlugin to update its backing store with the pixels in
   // its damage buffer.
@@ -103,7 +103,7 @@ class CONTENT_EXPORT BrowserPlugin :
   // Inform the BrowserPlugin of the focus state of the embedder RenderView.
   void SetEmbedderFocus(bool focused);
   // Informs the guest of an updated focus state.
-  void UpdateGuestFocus();
+  void UpdateGuestFocusState();
   // Indicates whether the guest should be focused.
   bool ShouldGuestBeFocused() const;
 
@@ -115,15 +115,6 @@ class CONTENT_EXPORT BrowserPlugin :
   // touch events.
   void SetAcceptTouchEvents(bool accept);
 
-  // Indicates whether there are any Javascript listeners attached to a
-  // provided event_name.
-  bool HasListeners(const std::string& event_name);
-  // Add a custom event listener to this BrowserPlugin instance.
-  bool AddEventListener(const std::string& event_name,
-                        v8::Local<v8::Function> function);
-  // Remove a custom event listener from this BrowserPlugin instance.
-  bool RemoveEventListener(const std::string& event_name,
-                        v8::Local<v8::Function> function);
   // Tells the BrowserPlugin to tell the guest to navigate to the previous
   // navigation entry in the navigation history.
   void Back();
@@ -143,6 +134,14 @@ class CONTENT_EXPORT BrowserPlugin :
 
   // Informs the BrowserPlugin of the cursor that the guest has requested.
   void SetCursor(const WebCursor& cursor);
+
+  // Returns true if |point| lies within the bounds of the plugin rectangle.
+  // Not OK to use this function for making security-sensitive decision since it
+  // can return false positives when the plugin has rotation transformation
+  // applied.
+  bool InBounds(const gfx::Point& point) const;
+
+  gfx::Point ToLocalCoordinates(const gfx::Point& point) const;
 
   // WebKit::WebPlugin implementation.
   virtual WebKit::WebPluginContainer* container() const OVERRIDE;
@@ -207,6 +206,11 @@ class CONTENT_EXPORT BrowserPlugin :
 
   int width() const { return plugin_rect_.width(); }
   int height() const { return plugin_rect_.height(); }
+  int instance_id() const { return instance_id_; }
+  int render_view_routing_id() const { return render_view_routing_id_; }
+  BrowserPluginManager* browser_plugin_manager() const {
+    return browser_plugin_manager_;
+  }
 
   // Virtual to allow for mocking in tests.
   virtual float GetDeviceScaleFactor() const;
@@ -214,10 +218,6 @@ class CONTENT_EXPORT BrowserPlugin :
   // Parses the attributes of the browser plugin from the element's attributes
   // and sets them appropriately.
   void ParseAttributes(const WebKit::WebPluginParams& params);
-
-  // Returns the pending resize guest param if there is one. Returns a param
-  // with invalid transport dib otherwise.
-  BrowserPluginHostMsg_ResizeGuest_Params* GetPendingResizeParams();
 
   // Initializes the valid events.
   void InitializeEvents();
@@ -229,29 +229,48 @@ class CONTENT_EXPORT BrowserPlugin :
   // Returns whether |event_name| is a valid event.
   bool IsValidEvent(const std::string& event_name);
 
-  // Triggers the event-listeners for |event_name|.
+  // Triggers the event-listeners for |event_name|. Note that the function
+  // frees all the values in |props|.
   void TriggerEvent(const std::string& event_name,
-                    v8::Local<v8::Object>* event);
+                    std::map<std::string, base::Value*>* props);
 
   // Creates and maps transport dib. Overridden in tests.
   virtual TransportDIB* CreateTransportDIB(const size_t size);
   // Frees up the damage buffer. Overridden in tests.
-  virtual void FreeDamageBuffer();
+  virtual void FreeDamageBuffer(TransportDIB** damage_buffer);
+  // Swaps out the |current_damage_buffer_| with the |pending_damage_buffer_|.
+  void SwapDamageBuffers();
+
   // Populates BrowserPluginHostMsg_ResizeGuest_Params with resize state and
   // returns the newly allocated TransportDIB.
   TransportDIB* PopulateResizeGuestParameters(
       BrowserPluginHostMsg_ResizeGuest_Params* params,
-      int view_width, int view_height);
+      const gfx::Size& view_size);
 
   // Populates BrowserPluginHostMsg_AutoSize_Params object with autosize state.
   void PopulateAutoSizeParameters(
       BrowserPluginHostMsg_AutoSize_Params* params);
+
+  // Populates both AutoSize and ResizeGuest parameters based on the current
+  // autosize state.
+  TransportDIB* GetDamageBufferWithSizeParams(
+      BrowserPluginHostMsg_AutoSize_Params* auto_size_params,
+      BrowserPluginHostMsg_ResizeGuest_Params* resize_guest_params);
 
   // Informs the guest of an updated autosize state.
   void UpdateGuestAutoSizeState();
 
   // Informs the BrowserPlugin that guest has changed its size in autosize mode.
   void SizeChangedDueToAutoSize(const gfx::Size& old_view_size);
+
+#if defined(OS_MACOSX)
+  bool DamageBufferMatches(const TransportDIB* damage_buffer,
+                           const TransportDIB::Id& other_damage_buffer_id);
+#else
+  bool DamageBufferMatches(
+      const TransportDIB* damage_buffer,
+      const TransportDIB::Handle& other_damage_buffer_handle);
+#endif
 
   int instance_id_;
   base::WeakPtr<RenderViewImpl> render_view_;
@@ -262,12 +281,12 @@ class CONTENT_EXPORT BrowserPlugin :
   WebKit::WebPluginContainer* container_;
   scoped_ptr<BrowserPluginBindings> bindings_;
   scoped_ptr<BrowserPluginBackingStore> backing_store_;
-  TransportDIB* damage_buffer_;
+  TransportDIB* current_damage_buffer_;
+  TransportDIB* pending_damage_buffer_;
   gfx::Rect plugin_rect_;
   // Bitmap for crashed plugin. Lazily initialized, non-owning pointer.
   SkBitmap* sad_guest_;
   bool guest_crashed_;
-  bool resize_pending_;
   scoped_ptr<BrowserPluginHostMsg_ResizeGuest_Params> pending_resize_params_;
   // True if we have ever sent a NavigateGuest message to the embedder.
   bool navigate_src_sent_;
@@ -280,19 +299,23 @@ class CONTENT_EXPORT BrowserPlugin :
   int process_id_;
   std::string storage_partition_id_;
   bool persist_storage_;
+  bool valid_partition_id_;
   int content_window_routing_id_;
   bool plugin_focused_;
   bool embedder_focused_;
   // Tracks the visibility of the browser plugin regardless of the whole
   // embedder RenderView's visibility.
   bool visible_;
-  typedef std::vector<v8::Local<v8::Function> > EventListenersLocal;
-  typedef std::vector<v8::Persistent<v8::Function> > EventListeners;
-  typedef std::map<std::string, EventListeners> EventListenerMap;
-  EventListenerMap event_listener_map_;
+
   WebCursor cursor_;
+
   gfx::Size last_view_size_;
   bool size_changed_in_flight_;
+
+  // BrowserPlugin outlives RenderViewImpl in Chrome Apps and so we need to
+  // store the BrowserPlugin's BrowserPluginManager in a member variable to
+  // avoid accessing the RenderViewImpl.
+  scoped_refptr<BrowserPluginManager> browser_plugin_manager_;
 
   // Important: Do not add more history state here.
   // We strongly discourage storing additional history state (such as page IDs)

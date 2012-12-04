@@ -12,9 +12,9 @@
 #include "ash/wm/workspace/phantom_window_controller.h"
 #include "ash/wm/workspace/snap_sizer.h"
 #include "grit/ash_strings.h"
-#include "ui/aura/event_filter.h"
 #include "ui/aura/window.h"
 #include "ui/base/events/event.h"
+#include "ui/base/events/event_handler.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
@@ -41,22 +41,13 @@ const int kMinSnapSizePercent = 50;
 // EscapeEventFilter is installed on the RootWindow to track when the escape key
 // is pressed. We use an EventFilter for this as the FrameMaximizeButton
 // normally does not get focus.
-class FrameMaximizeButton::EscapeEventFilter : public aura::EventFilter {
+class FrameMaximizeButton::EscapeEventFilter : public ui::EventHandler {
  public:
   explicit EscapeEventFilter(FrameMaximizeButton* button);
   virtual ~EscapeEventFilter();
 
   // EventFilter overrides:
-  virtual bool PreHandleKeyEvent(aura::Window* target,
-                                 ui::KeyEvent* event) OVERRIDE;
-  virtual bool PreHandleMouseEvent(aura::Window* target,
-                                   ui::MouseEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleTouchEvent(
-      aura::Window* target,
-      ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult PreHandleGestureEvent(
-      aura::Window* target,
-      ui::GestureEvent* event) OVERRIDE;
+  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
 
  private:
   FrameMaximizeButton* button_;
@@ -67,38 +58,19 @@ class FrameMaximizeButton::EscapeEventFilter : public aura::EventFilter {
 FrameMaximizeButton::EscapeEventFilter::EscapeEventFilter(
     FrameMaximizeButton* button)
     : button_(button) {
-  Shell::GetInstance()->AddEnvEventFilter(this);
+  Shell::GetInstance()->AddPreTargetHandler(this);
 }
 
 FrameMaximizeButton::EscapeEventFilter::~EscapeEventFilter() {
-  Shell::GetInstance()->RemoveEnvEventFilter(this);
+  Shell::GetInstance()->RemovePreTargetHandler(this);
 }
 
-bool FrameMaximizeButton::EscapeEventFilter::PreHandleKeyEvent(
-    aura::Window* target,
+ui::EventResult FrameMaximizeButton::EscapeEventFilter::OnKeyEvent(
     ui::KeyEvent* event) {
   if (event->type() == ui::ET_KEY_PRESSED &&
       event->key_code() == ui::VKEY_ESCAPE) {
     button_->Cancel(false);
   }
-  return false;
-}
-
-bool FrameMaximizeButton::EscapeEventFilter::PreHandleMouseEvent(
-    aura::Window* target,
-    ui::MouseEvent* event) {
-  return false;
-}
-
-ui::EventResult FrameMaximizeButton::EscapeEventFilter::PreHandleTouchEvent(
-    aura::Window* target,
-    ui::TouchEvent* event) {
-  return ui::ER_UNHANDLED;
-}
-
-ui::EventResult FrameMaximizeButton::EscapeEventFilter::PreHandleGestureEvent(
-    aura::Window* target,
-    ui::GestureEvent* event) {
   return ui::ER_UNHANDLED;
 }
 
@@ -273,11 +245,12 @@ void FrameMaximizeButton::OnMouseCaptureLost() {
   ImageButton::OnMouseCaptureLost();
 }
 
-ui::EventResult FrameMaximizeButton::OnGestureEvent(ui::GestureEvent* event) {
+void FrameMaximizeButton::OnGestureEvent(ui::GestureEvent* event) {
   if (event->type() == ui::ET_GESTURE_TAP_DOWN) {
     is_snap_enabled_ = true;
     ProcessStartEvent(*event);
-    return ui::ER_CONSUMED;
+    event->SetHandled();
+    return;
   }
 
   if (event->type() == ui::ET_GESTURE_TAP ||
@@ -289,7 +262,8 @@ ui::EventResult FrameMaximizeButton::OnGestureEvent(ui::GestureEvent* event) {
     if (event->type() == ui::ET_GESTURE_TAP)
       snap_type_ = SnapTypeForLocation(event->location());
     ProcessEndEvent(*event);
-    return ui::ER_CONSUMED;
+    event->SetHandled();
+    return;
   }
 
   if (is_snap_enabled_) {
@@ -300,17 +274,19 @@ ui::EventResult FrameMaximizeButton::OnGestureEvent(ui::GestureEvent* event) {
       ProcessUpdateEvent(*event);
       snap_type_ = SnapTypeForLocation(event->location());
       ProcessEndEvent(*event);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     }
 
     if (event->type() == ui::ET_GESTURE_SCROLL_UPDATE ||
         event->type() == ui::ET_GESTURE_SCROLL_BEGIN) {
       ProcessUpdateEvent(*event);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     }
   }
 
-  return ImageButton::OnGestureEvent(event);
+  ImageButton::OnGestureEvent(event);
 }
 
 void FrameMaximizeButton::ProcessStartEvent(const ui::LocatedEvent& event) {
@@ -360,9 +336,9 @@ bool FrameMaximizeButton::ProcessEndEvent(const ui::LocatedEvent& event) {
   if (!should_snap || snap_type_ == SNAP_NONE)
     return false;
 
-  SetState(BS_NORMAL);
+  SetState(views::CustomButton::STATE_NORMAL);
   // SetState will not call SchedulePaint() if state was already set to
-  // BS_NORMAL during a drag.
+  // STATE_NORMAL during a drag.
   SchedulePaint();
   phantom_window_.reset();
   // Since Snap might destroy |this|, but the snap_sizer needs to be destroyed,

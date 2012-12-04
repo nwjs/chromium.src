@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 
+#include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
@@ -416,10 +417,10 @@ void RenderWidgetHostViewBase::UpdateScreenInfo(gfx::NativeView view) {
   gfx::Display display =
       gfx::Screen::GetScreenFor(view)->GetDisplayNearestPoint(
           GetViewBounds().origin());
-  if (current_display_area_ == display.bounds() &&
+  if (current_display_area_ == display.work_area() &&
       current_device_scale_factor_ == display.device_scale_factor())
     return;
-  current_display_area_ = display.bounds();
+  current_display_area_ = display.work_area();
   current_device_scale_factor_ = display.device_scale_factor();
   if (impl)
     impl->NotifyScreenInfoChanged();
@@ -460,6 +461,9 @@ class BasicMouseWheelSmoothScrollGesture
 
     pixels_scrolled_ += abs(event.deltaY);
 
+    TRACE_COUNTER_ID1("gpu", "smooth_scroll_by_pixels_scrolled", this,
+                      pixels_scrolled_);
+
     return true;
   }
 
@@ -480,8 +484,7 @@ SmoothScrollGesture* RenderWidgetHostViewBase::CreateSmoothScrollGesture(
 }
 
 void RenderWidgetHostViewBase::ProcessAckedTouchEvent(
-    const WebKit::WebTouchEvent& touch,
-    bool processed) {
+    const WebKit::WebTouchEvent& touch, InputEventAckState ack_result) {
 }
 
 }  // namespace content

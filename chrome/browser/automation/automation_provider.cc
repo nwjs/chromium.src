@@ -294,7 +294,8 @@ void AutomationProvider::DisableInitialLoadObservers() {
 int AutomationProvider::GetIndexForNavigationController(
     const NavigationController* controller, const Browser* parent) const {
   DCHECK(parent);
-  return chrome::GetIndexOfTab(parent, controller->GetWebContents());
+  return parent->tab_strip_model()->GetIndexOfWebContents(
+      controller->GetWebContents());
 }
 
 // TODO(phajdan.jr): move to TestingAutomationProvider.
@@ -470,7 +471,7 @@ Browser* AutomationProvider::FindAndActivateTab(
   content::WebContentsDelegate* d = controller->GetWebContents()->GetDelegate();
   if (d)
     d->ActivateContents(controller->GetWebContents());
-  return browser::FindBrowserWithWebContents(controller->GetWebContents());
+  return chrome::FindBrowserWithWebContents(controller->GetWebContents());
 }
 
 void AutomationProvider::HandleFindRequest(

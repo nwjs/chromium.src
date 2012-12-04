@@ -21,6 +21,7 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "grit/generated_resources.h"
+#include "ui/base/accelerators/platform_accelerator_gtk.h"
 #include "ui/base/gtk/menu_label_accelerator_util.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -175,14 +176,14 @@ GlobalMenuBar::GlobalMenuBar(Browser* browser)
 
     // Set the accelerator for each menu item.
     AcceleratorsGtk* accelerators = AcceleratorsGtk::GetInstance();
-    const ui::AcceleratorGtk* accelerator =
+    const ui::Accelerator* accelerator =
         accelerators->GetPrimaryAcceleratorForCommand(it->first);
     if (accelerator) {
       gtk_widget_add_accelerator(it->second,
                                  "activate",
                                  dummy_accel_group_,
-                                 accelerator->GetGdkKeyCode(),
-                                 accelerator->gdk_modifier_type(),
+                                 ui::GetGdkKeyCodeForAccelerator(*accelerator),
+                                 ui::GetGdkModifierForAccelerator(*accelerator),
                                  GTK_ACCEL_VISIBLE);
     }
 
@@ -190,7 +191,10 @@ GlobalMenuBar::GlobalMenuBar(Browser* browser)
   }
 
   pref_change_registrar_.Init(browser_->profile()->GetPrefs());
-  pref_change_registrar_.Add(prefs::kShowBookmarkBar, this);
+  pref_change_registrar_.Add(
+      prefs::kShowBookmarkBar,
+      base::Bind(&GlobalMenuBar::OnBookmarkBarVisibilityChanged,
+                 base::Unretained(this)));
   OnBookmarkBarVisibilityChanged();
 }
 
@@ -279,12 +283,6 @@ void GlobalMenuBar::EnabledStateChangedForCommand(int id, bool enabled) {
   CommandIDMenuItemMap::iterator it = id_to_menu_item_.find(id);
   if (it != id_to_menu_item_.end())
     gtk_widget_set_sensitive(it->second, enabled);
-}
-
-void GlobalMenuBar::OnPreferenceChanged(PrefServiceBase* service,
-                                        const std::string& pref_name) {
-  DCHECK_EQ(prefs::kShowBookmarkBar, pref_name);
-  OnBookmarkBarVisibilityChanged();
 }
 
 void GlobalMenuBar::OnBookmarkBarVisibilityChanged() {

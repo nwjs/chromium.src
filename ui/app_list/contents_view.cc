@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "ui/app_list/app_list_constants.h"
 #include "ui/app_list/app_list_view.h"
 #include "ui/app_list/apps_grid_view.h"
 #include "ui/app_list/pagination_model.h"
@@ -32,7 +33,6 @@ const int kMinScrollToSwitchPage = 20;
 const int kMinHorizVelocityToSwitchPage = 800;
 
 const double kFinishTransitionThreshold = 0.33;
-const int kTransitionAnimationDurationInMs = 180;
 
 // Helpers to get certain child view from |model|.
 AppsGridView* GetAppsGridView(views::ViewModel* model) {
@@ -53,7 +53,9 @@ ContentsView::ContentsView(AppListView* app_list_view,
       view_model_(new views::ViewModel),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           bounds_animator_(new views::BoundsAnimator(this))) {
-  pagination_model_->SetTransitionDuration(kTransitionAnimationDurationInMs);
+  pagination_model_->SetTransitionDurations(
+      kPageTransitionDurationInMs,
+      kOverscrollPageTransitionDurationMs);
 
   AppsGridView* apps_grid_view = new AppsGridView(app_list_view,
                                                   pagination_model);
@@ -183,24 +185,27 @@ bool ContentsView::OnMouseWheel(const ui::MouseWheelEvent& event) {
   return false;
 }
 
-ui::EventResult ContentsView::OnGestureEvent(ui::GestureEvent* event) {
+void ContentsView::OnGestureEvent(ui::GestureEvent* event) {
   if (show_state_ != SHOW_APPS)
-    return ui::ER_UNHANDLED;
+    return;
 
   switch (event->type()) {
     case ui::ET_GESTURE_SCROLL_BEGIN:
       pagination_model_->StartScroll();
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       // event->details.scroll_x() > 0 means moving contents to right. That is,
       // transitioning to previous page.
       pagination_model_->UpdateScroll(
           event->details().scroll_x() / GetContentsBounds().width());
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     case ui::ET_GESTURE_SCROLL_END:
       pagination_model_->EndScroll(pagination_model_->
           transition().progress < kFinishTransitionThreshold);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     case ui::ET_SCROLL_FLING_START: {
       pagination_model_->EndScroll(true);
       if (fabs(event->details().velocity_x()) > kMinHorizVelocityToSwitchPage) {
@@ -208,28 +213,26 @@ ui::EventResult ContentsView::OnGestureEvent(ui::GestureEvent* event) {
             event->details().velocity_x() < 0 ? 1 : -1,
             true);
       }
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     }
     default:
       break;
   }
-
-  return ui::ER_UNHANDLED;
 }
 
 ui::EventResult ContentsView::OnScrollEvent(ui::ScrollEvent* event) {
-  if (show_state_ != SHOW_APPS)
+  if (show_state_ != SHOW_APPS ||
+      event->type() == ui::ET_SCROLL_FLING_CANCEL ||
+      abs(event->x_offset()) < kMinScrollToSwitchPage) {
     return ui::ER_UNHANDLED;
-
-  if (abs(event->x_offset()) > kMinScrollToSwitchPage) {
-    if (!pagination_model_->has_transition()) {
-      pagination_model_->SelectPageRelative(event->x_offset() > 0 ? -1 : 1,
-                                            true);
-    }
-    return ui::ER_HANDLED;
   }
 
-  return ui::ER_UNHANDLED;
+  if (!pagination_model_->has_transition()) {
+    pagination_model_->SelectPageRelative(event->x_offset() > 0 ? -1 : 1,
+                                          true);
+  }
+  return ui::ER_HANDLED;
 }
 
 }  // namespace app_list

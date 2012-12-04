@@ -82,7 +82,7 @@ const size_t kRecordSize = sizeof(Key) + sizeof(Details);
 
 // Some constants related to the database file.
 uint32 kMagicSignature = 0x1f00cace;
-uint32 kCurrentVersion = 0x10001;
+uint32 kCurrentVersion = 0x10002;
 
 // Basic limits for the experiment.
 int kMaxNumEntries = 200 * 1000;
@@ -451,6 +451,8 @@ class InfiniteCache::Worker : public base::RefCountedThreadSafe<Worker> {
   // Bulk of report generation methods.
   void RecordHit(const Details& old, Details* details);
   void RecordUpdate(const Details& old, Details* details);
+  void RecordComparison(bool infinite_used_or_validated,
+                        bool http_used_or_validated) const;
   void GenerateHistograms();
 
   // Cache logic methods.
@@ -531,6 +533,11 @@ void InfiniteCache::Worker::Process(
   if (data->details.flags & NO_STORE)
     UMA_HISTOGRAM_BOOLEAN("InfiniteCache.NoStore", true);
 
+  // True if the first range of the http request was validated or used
+  // unconditionally, false if it was not found in the cache, was updated,
+  // or was found but was unconditionalizable.
+  bool http_used_or_validated = (data->details.flags & CACHED) == CACHED;
+
   header_->num_requests++;
   KeyMap::iterator i = map_.find(data->key);
   if (i != map_.end()) {
@@ -545,6 +552,8 @@ void InfiniteCache::Worker::Process(
     bool reused = CanReuse(i->second, data->details);
     bool data_changed = DataChanged(i->second, data->details);
     bool headers_changed = HeadersChanged(i->second, data->details);
+
+    RecordComparison(reused, http_used_or_validated);
 
     if (reused && data_changed)
       header_->num_bad_hits++;
@@ -566,6 +575,8 @@ void InfiniteCache::Worker::Process(
 
     map_[data->key] = data->details;
     return;
+  } else {
+    RecordComparison(false, http_used_or_validated);
   }
 
   if (data->details.flags & NO_STORE)
@@ -593,7 +604,7 @@ void InfiniteCache::Worker::LoadData() {
   base::ClosePlatformFile(file);
   if (header_->disabled) {
     UMA_HISTOGRAM_BOOLEAN("InfiniteCache.Full", true);
-    map_.clear();
+    InitializeData();
   }
 }
 
@@ -628,6 +639,7 @@ void InfiniteCache::Worker::InitializeData() {
   header_->magic = kMagicSignature;
   header_->version = kCurrentVersion;
   header_->creation_time = Time::Now().ToInternalValue();
+  map_.clear();
 
   UMA_HISTOGRAM_BOOLEAN("InfiniteCache.Initialize", true);
   init_ = true;
@@ -642,7 +654,7 @@ bool InfiniteCache::Worker::ReadData(PlatformFile file) {
   uint32 hash = adler32(0, Z_NULL, 0);
 
   for (int remaining_records = header_->num_entries; remaining_records;) {
-    int num_records = std::min(header_->num_entries,
+    int num_records = std::min(remaining_records,
                                static_cast<int>(kMaxRecordsToRead));
     size_t num_bytes = num_records * kRecordSize;
     remaining_records -= num_records;
@@ -692,7 +704,7 @@ bool InfiniteCache::Worker::WriteData(PlatformFile file) {
   DCHECK_EQ(header_->num_entries, static_cast<int32>(map_.size()));
   KeyMap::iterator iterator = map_.begin();
   for (int remaining_records = header_->num_entries; remaining_records;) {
-    int num_records = std::min(header_->num_entries,
+    int num_records = std::min(remaining_records,
                                static_cast<int>(kMaxRecordsToRead));
     size_t num_bytes = num_records * kRecordSize;
     remaining_records -= num_records;
@@ -793,6 +805,7 @@ void InfiniteCache::Worker::Add(const Details& details) {
     int entry_size = static_cast<int>(header_->total_size / kMaxNumEntries);
     UMA_HISTOGRAM_COUNTS("InfiniteCache.FinalAvgEntrySize", entry_size);
     header_->disabled = 1;
+    header_->num_entries = 0;
     map_.clear();
   }
 }
@@ -883,6 +896,42 @@ void InfiniteCache::Worker::RecordUpdate(const Details& old, Details* details) {
   details->use_count = 0;
 }
 
+void InfiniteCache::Worker::RecordComparison(
+    bool infinite_used_or_validated,
+    bool http_used_or_validated) const {
+  enum Comparison {
+    INFINITE_NOT_STRONG_HIT_HTTP_NOT_STRONG_HIT,
+    INFINITE_NOT_STRONG_HIT_HTTP_STRONG_HIT,
+    INFINITE_STRONG_HIT_HTTP_NOT_STRONG_HIT,
+    INFINITE_STRONG_HIT_HTTP_STRONG_HIT,
+    COMPARISON_ENUM_MAX,
+  };
+
+  Comparison comparison;
+  if (infinite_used_or_validated) {
+    if (http_used_or_validated)
+      comparison = INFINITE_STRONG_HIT_HTTP_STRONG_HIT;
+    else
+      comparison = INFINITE_STRONG_HIT_HTTP_NOT_STRONG_HIT;
+  } else {
+    if (http_used_or_validated)
+      comparison = INFINITE_NOT_STRONG_HIT_HTTP_STRONG_HIT;
+    else
+      comparison = INFINITE_NOT_STRONG_HIT_HTTP_NOT_STRONG_HIT;
+  }
+
+  UMA_HISTOGRAM_ENUMERATION("InfiniteCache.Comparison",
+                            comparison, COMPARISON_ENUM_MAX);
+  const int size_bucket =
+      static_cast<int>(header_->total_size / kReportSizeStep);
+  const int kComparisonBuckets = 50;
+  UMA_HISTOGRAM_ENUMERATION(
+      "InfiniteCache.ComparisonBySize",
+      comparison * kComparisonBuckets + std::min(size_bucket,
+                                                 kComparisonBuckets-1),
+      kComparisonBuckets * COMPARISON_ENUM_MAX);
+}
+
 void InfiniteCache::Worker::GenerateHistograms() {
   bool new_size_step = (header_->total_size / kReportSizeStep !=
                         header_->size_last_report / kReportSizeStep);
@@ -967,7 +1016,7 @@ bool InfiniteCache::Worker::CanReuse(const Details& old,
     reason = REUSE_VARY;
 
   bool have_to_drop  = (old.flags & TRUNCATED) && !(old.flags & RESUMABLE);
-  if (reason && (old.flags & REVALIDATEABLE) && !have_to_drop)
+  if (reason && (old.flags & (REVALIDATEABLE | RESUMABLE)) && !have_to_drop)
     reason += REUSE_REVALIDATEABLE;
 
   UMA_HISTOGRAM_ENUMERATION("InfiniteCache.ReuseFailure2", reason, 15);

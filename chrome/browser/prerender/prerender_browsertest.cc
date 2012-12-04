@@ -26,6 +26,7 @@
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/safe_browsing/database_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/task_manager/task_manager.h"
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
@@ -34,8 +35,8 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -306,15 +307,10 @@ class TestPrerenderContents : public PrerenderContents {
   }
 
   virtual void AddPendingPrerender(
-      base::WeakPtr<PrerenderHandle> weak_prerender_handle,
-      Origin origin,
-      const GURL& url,
-      const content::Referrer& referrer,
-      const gfx::Size& size) OVERRIDE {
-    PrerenderContents::AddPendingPrerender(
-        weak_prerender_handle, origin, url, referrer, size);
+      scoped_ptr<PendingPrerenderInfo> pending_prerender_info) OVERRIDE {
+    PrerenderContents::AddPendingPrerender(pending_prerender_info.Pass());
     if (expected_pending_prerenders_ > 0 &&
-        pending_prerenders().size() == expected_pending_prerenders_) {
+        pending_prerender_count() == expected_pending_prerenders_) {
       MessageLoop::current()->Quit();
     }
   }
@@ -340,28 +336,13 @@ class TestPrerenderContents : public PrerenderContents {
   // Waits until the prerender has |expected_pending_prerenders| pending
   // prerenders.
   void WaitForPendingPrerenders(size_t expected_pending_prerenders) {
-    if (pending_prerenders().size() < expected_pending_prerenders) {
+    if (pending_prerender_count() < expected_pending_prerenders) {
       expected_pending_prerenders_ = expected_pending_prerenders;
       content::RunMessageLoop();
       expected_pending_prerenders_ = 0;
     }
 
-    EXPECT_EQ(expected_pending_prerenders, pending_prerenders().size());
-  }
-
-  bool UrlIsPending(const GURL& url) const {
-    for (std::vector<PendingPrerenderInfo>::const_iterator
-             it = pending_prerenders().begin(),
-             end = pending_prerenders().end();
-         it != end;
-         ++it) {
-      if (it->url == url && it->weak_prerender_handle) {
-        EXPECT_TRUE(IsPendingEntry(*it->weak_prerender_handle));
-        EXPECT_TRUE(it->weak_prerender_handle->IsPending());
-        return true;
-      }
-    }
-    return false;
+    EXPECT_EQ(expected_pending_prerenders, pending_prerender_count());
   }
 
   // For tests that open the prerender in a new background tab, the RenderView
@@ -486,13 +467,14 @@ class WaitForLoadPrerenderContentsFactory : public PrerenderContents::Factory {
   bool prerender_should_wait_for_ready_title_;
 };
 
-#if defined(ENABLE_SAFE_BROWSING)
-// A SafeBrowingService implementation that returns a fixed result for a given
-// URL.
-class FakeSafeBrowsingService :  public SafeBrowsingService {
+#if defined(FULL_SAFE_BROWSING)
+// A SafeBrowsingDatabaseManager implementation that returns a fixed result for
+// a given URL.
+class FakeSafeBrowsingDatabaseManager :  public SafeBrowsingDatabaseManager {
  public:
-  FakeSafeBrowsingService() :
-      threat_type_(SB_THREAT_TYPE_SAFE) {}
+  explicit FakeSafeBrowsingDatabaseManager(SafeBrowsingService* service)
+      : SafeBrowsingDatabaseManager(service),
+        threat_type_(SB_THREAT_TYPE_SAFE) { }
 
   // Called on the IO thread to check if the given url is safe or not.  If we
   // can synchronously determine that the url is safe, CheckUrl returns true.
@@ -509,8 +491,8 @@ class FakeSafeBrowsingService :  public SafeBrowsingService {
 
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
-        base::Bind(&FakeSafeBrowsingService::OnCheckBrowseURLDone, this, gurl,
-                   client));
+        base::Bind(&FakeSafeBrowsingDatabaseManager::OnCheckBrowseURLDone,
+                   this, gurl, client));
     return false;
   }
 
@@ -520,10 +502,10 @@ class FakeSafeBrowsingService :  public SafeBrowsingService {
   }
 
  private:
-  virtual ~FakeSafeBrowsingService() {}
+  virtual ~FakeSafeBrowsingDatabaseManager() {}
 
   void OnCheckBrowseURLDone(const GURL& gurl, Client* client) {
-    SafeBrowsingService::SafeBrowsingCheck check;
+    SafeBrowsingDatabaseManager::SafeBrowsingCheck check;
     check.urls.push_back(gurl);
     check.client = client;
     check.threat_type = threat_type_;
@@ -532,6 +514,31 @@ class FakeSafeBrowsingService :  public SafeBrowsingService {
 
   GURL url_;
   SBThreatType threat_type_;
+  DISALLOW_COPY_AND_ASSIGN(FakeSafeBrowsingDatabaseManager);
+};
+
+class FakeSafeBrowsingService : public SafeBrowsingService {
+ public:
+  FakeSafeBrowsingService() { }
+
+  // Returned pointer has the same lifespan as the database_manager_ refcounted
+  // object.
+  FakeSafeBrowsingDatabaseManager* fake_database_manager() {
+    return fake_database_manager_;
+  }
+
+ protected:
+  virtual ~FakeSafeBrowsingService() { }
+
+  virtual SafeBrowsingDatabaseManager* CreateDatabaseManager() {
+    fake_database_manager_ = new FakeSafeBrowsingDatabaseManager(this);
+    return fake_database_manager_;
+  }
+
+ private:
+  FakeSafeBrowsingDatabaseManager* fake_database_manager_;
+
+  DISALLOW_COPY_AND_ASSIGN(FakeSafeBrowsingService);
 };
 
 // Factory that creates FakeSafeBrowsingService instances.
@@ -582,7 +589,7 @@ class PrerenderBrowserTest : virtual public InProcessBrowserTest {
  public:
   PrerenderBrowserTest()
       : prerender_contents_factory_(NULL),
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
         safe_browsing_factory_(new TestSafeBrowsingServiceFactory()),
 #endif
         use_https_src_server_(false),
@@ -602,7 +609,7 @@ class PrerenderBrowserTest : virtual public InProcessBrowserTest {
   }
 
   virtual void SetUpInProcessBrowserTestFixture() OVERRIDE {
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
     SafeBrowsingService::RegisterFactory(safe_browsing_factory_.get());
 #endif
   }
@@ -822,15 +829,6 @@ class PrerenderBrowserTest : virtual public InProcessBrowserTest {
         url, GetSessionStorageNamespace()) != NULL;
   }
 
-  // This only checks to see if the URL is pending in our TestPrerenderContents.
-  bool UrlIsPending(const std::string& html_file) const {
-    TestPrerenderContents* test_prerender_contents = GetPrerenderContents();
-    if (!test_prerender_contents)
-      return false;
-    GURL dest_url = test_server()->GetURL(html_file);
-    return test_prerender_contents->UrlIsPending(dest_url);
-  }
-
   void set_use_https_src(bool use_https_src_server) {
     use_https_src_server_ = use_https_src_server;
   }
@@ -878,9 +876,10 @@ class PrerenderBrowserTest : virtual public InProcessBrowserTest {
     return static_cast<int>(history_list->GetSize());
   }
 
-#if defined(ENABLE_SAFE_BROWSING)
-  FakeSafeBrowsingService* GetSafeBrowsingService() {
-    return safe_browsing_factory_->most_recent_service();
+#if defined(FULL_SAFE_BROWSING)
+  FakeSafeBrowsingDatabaseManager* GetFakeSafeBrowsingDatabaseManager() {
+    return safe_browsing_factory_->most_recent_service()->
+        fake_database_manager();
   }
 #endif
 
@@ -1107,7 +1106,7 @@ class PrerenderBrowserTest : virtual public InProcessBrowserTest {
   }
 
   WaitForLoadPrerenderContentsFactory* prerender_contents_factory_;
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
   scoped_ptr<TestSafeBrowsingServiceFactory> safe_browsing_factory_;
 #endif
   GURL dest_url_;
@@ -1603,14 +1602,12 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, MAYBE_PrerenderInfiniteLoop) {
 
   // Next url should be in pending list but not an active entry.
   EXPECT_FALSE(UrlIsInPrerenderManager(kHtmlFileB));
-  EXPECT_TRUE(UrlIsPending(kHtmlFileB));
 
   NavigateToDestURL();
 
   // Make sure the PrerenderContents for the next url is now in the manager
   // and not pending.
   EXPECT_TRUE(UrlIsInPrerenderManager(kHtmlFileB));
-  EXPECT_FALSE(UrlIsPending(kHtmlFileB));
 }
 
 #if defined(OS_LINUX) || defined(OS_WIN)
@@ -1647,8 +1644,6 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   // Next url should be in pending list but not an active entry.
   EXPECT_FALSE(UrlIsInPrerenderManager(kHtmlFileB));
   EXPECT_FALSE(UrlIsInPrerenderManager(kHtmlFileC));
-  EXPECT_TRUE(UrlIsPending(kHtmlFileB));
-  EXPECT_TRUE(UrlIsPending(kHtmlFileC));
 
   NavigateToDestURL();
 
@@ -1658,8 +1653,6 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   bool url_b_is_active_prerender = UrlIsInPrerenderManager(kHtmlFileB);
   bool url_c_is_active_prerender = UrlIsInPrerenderManager(kHtmlFileC);
   EXPECT_TRUE(url_b_is_active_prerender && url_c_is_active_prerender);
-  EXPECT_FALSE(UrlIsPending(kHtmlFileB));
-  EXPECT_FALSE(UrlIsPending(kHtmlFileC));
 }
 
 // See crbug.com/131836.
@@ -2125,12 +2118,12 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderSSLClientCertIframe) {
                    1);
 }
 
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING)
 // Ensures that we do not prerender pages with a safe browsing
 // interstitial.
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderSafeBrowsingTopLevel) {
   GURL url = test_server()->GetURL("files/prerender/prerender_page.html");
-  GetSafeBrowsingService()->SetThreatTypeForUrl(
+  GetFakeSafeBrowsingDatabaseManager()->SetThreatTypeForUrl(
       url, SB_THREAT_TYPE_URL_MALWARE);
   PrerenderTestURL("files/prerender/prerender_page.html",
                    FINAL_STATUS_SAFE_BROWSING, 1);
@@ -2140,7 +2133,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderSafeBrowsingTopLevel) {
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
                        PrerenderSafeBrowsingServerRedirect) {
   GURL url = test_server()->GetURL("files/prerender/prerender_page.html");
-  GetSafeBrowsingService()->SetThreatTypeForUrl(
+  GetFakeSafeBrowsingDatabaseManager()->SetThreatTypeForUrl(
       url, SB_THREAT_TYPE_URL_MALWARE);
   PrerenderTestURL(CreateServerRedirect("files/prerender/prerender_page.html"),
                    FINAL_STATUS_SAFE_BROWSING,
@@ -2151,7 +2144,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
                        PrerenderSafeBrowsingClientRedirect) {
   GURL url = test_server()->GetURL("files/prerender/prerender_page.html");
-  GetSafeBrowsingService()->SetThreatTypeForUrl(
+  GetFakeSafeBrowsingDatabaseManager()->SetThreatTypeForUrl(
       url, SB_THREAT_TYPE_URL_MALWARE);
   PrerenderTestURL(CreateClientRedirect("files/prerender/prerender_page.html"),
                    FINAL_STATUS_SAFE_BROWSING,
@@ -2161,7 +2154,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
 // Ensures that we do not prerender pages which have a malware subresource.
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderSafeBrowsingSubresource) {
   GURL image_url = test_server()->GetURL("files/prerender/image.jpeg");
-  GetSafeBrowsingService()->SetThreatTypeForUrl(
+  GetFakeSafeBrowsingDatabaseManager()->SetThreatTypeForUrl(
       image_url, SB_THREAT_TYPE_URL_MALWARE);
   std::vector<net::TestServer::StringPair> replacement_text;
   replacement_text.push_back(
@@ -2180,7 +2173,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderSafeBrowsingSubresource) {
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderSafeBrowsingIframe) {
   GURL iframe_url = test_server()->GetURL(
       "files/prerender/prerender_embedded_content.html");
-  GetSafeBrowsingService()->SetThreatTypeForUrl(
+  GetFakeSafeBrowsingDatabaseManager()->SetThreatTypeForUrl(
       iframe_url, SB_THREAT_TYPE_URL_MALWARE);
   std::vector<net::TestServer::StringPair> replacement_text;
   replacement_text.push_back(
@@ -2377,7 +2370,13 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
 
 // Validate that the sessionStorage namespace remains the same when swapping
 // in a prerendered page.
-IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderSessionStorage) {
+#if defined(OS_WIN)
+// http://crbug.com/161988 - DCHECK failed on Win7 Tests dbg (2)
+#define MAYBE_PrerenderSessionStorage DISABLED_PrerenderSessionStorage
+#else
+#define MAYBE_PrerenderSessionStorage PrerenderSessionStorage
+#endif
+IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, MAYBE_PrerenderSessionStorage) {
   set_loader_path("files/prerender/prerender_loader_with_session_storage.html");
   PrerenderTestURL(GetCrossDomainTestUrl("files/prerender/prerender_page.html"),
                    FINAL_STATUS_USED,

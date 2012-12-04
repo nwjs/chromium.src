@@ -15,6 +15,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
+#include "ui/gfx/rect_conversions.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/scroll_view.h"
@@ -298,34 +299,15 @@ gfx::Size TreeView::GetPreferredSize() {
 }
 
 bool TreeView::OnMousePressed(const ui::MouseEvent& event) {
-  int row = (event.y() - kVerticalInset) / row_height_;
-  int depth;
-  InternalNode* node = GetNodeByRow(row, &depth);
-  if (node) {
-    RequestFocus();
-    gfx::Rect bounds(GetBoundsForNodeImpl(node, row, depth));
-    if (bounds.Contains(event.location())) {
-      int relative_x = event.x() - bounds.x();
-      if (base::i18n::IsRTL())
-        relative_x = bounds.width() - relative_x;
-      if (relative_x < kArrowRegionSize &&
-          model_->GetChildCount(node->model_node())) {
-        if (node->is_expanded())
-          Collapse(node->model_node());
-        else
-          Expand(node->model_node());
-      } else if (relative_x > kArrowRegionSize) {
-        SetSelectedNode(node->model_node());
-        if (event.flags() & ui::EF_IS_DOUBLE_CLICK) {
-          if (node->is_expanded())
-            Collapse(node->model_node());
-          else
-            Expand(node->model_node());
-        }
-      }
-    }
+  return OnClickOrTap(event);
+}
+
+void TreeView::OnGestureEvent(ui::GestureEvent* event) {
+  if (event->type() == ui::ET_GESTURE_TAP ||
+      event->type() == ui::ET_GESTURE_DOUBLE_TAP) {
+    if (OnClickOrTap(*event))
+      event->SetHandled();
   }
-  return true;
 }
 
 void TreeView::ShowContextMenu(const gfx::Point& p, bool is_mouse_gesture) {
@@ -512,7 +494,9 @@ void TreeView::OnPaint(gfx::Canvas* canvas) {
   {
     SkRect sk_clip_rect;
     if (canvas->sk_canvas()->getClipBounds(&sk_clip_rect)) {
-      gfx::Rect clip_rect = gfx::SkRectToRect(sk_clip_rect);
+      // Pixels partially inside the clip rect should be included.
+      gfx::Rect clip_rect = gfx::ToEnclosingRect(
+          gfx::SkRectToRectF(sk_clip_rect));
       min_y = clip_rect.y();
       max_y = clip_rect.bottom();
     } else {
@@ -536,6 +520,38 @@ void TreeView::OnFocus() {
 
 void TreeView::OnBlur() {
   SchedulePaintForNode(selected_node_);
+}
+
+bool TreeView::OnClickOrTap(const ui::LocatedEvent& event) {
+  int row = (event.y() - kVerticalInset) / row_height_;
+  int depth;
+  InternalNode* node = GetNodeByRow(row, &depth);
+  if (node) {
+    RequestFocus();
+    gfx::Rect bounds(GetBoundsForNodeImpl(node, row, depth));
+    if (bounds.Contains(event.location())) {
+      int relative_x = event.x() - bounds.x();
+      if (base::i18n::IsRTL())
+        relative_x = bounds.width() - relative_x;
+      if (relative_x < kArrowRegionSize &&
+          model_->GetChildCount(node->model_node())) {
+        if (node->is_expanded())
+          Collapse(node->model_node());
+        else
+          Expand(node->model_node());
+      } else if (relative_x > kArrowRegionSize) {
+        SetSelectedNode(node->model_node());
+        if (event.flags() & ui::EF_IS_DOUBLE_CLICK ||
+            event.type() == ui::ET_GESTURE_DOUBLE_TAP) {
+          if (node->is_expanded())
+            Collapse(node->model_node());
+          else
+            Expand(node->model_node());
+        }
+      }
+    }
+  }
+  return true;
 }
 
 void TreeView::LoadChildren(InternalNode* node) {

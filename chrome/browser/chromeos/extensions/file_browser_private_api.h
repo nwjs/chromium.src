@@ -16,6 +16,7 @@
 #include "chrome/browser/chromeos/drive/drive_cache.h"
 #include "chrome/browser/chromeos/drive/drive_file_error.h"
 #include "chrome/browser/chromeos/extensions/file_browser_event_router.h"
+#include "chrome/browser/chromeos/extensions/zip_file_creator.h"
 #include "chrome/browser/extensions/extension_function.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "googleurl/src/url_util.h"
@@ -75,7 +76,6 @@ class FileWatchBrowserFunctionBase : public AsyncExtensionFunction {
  private:
   void RespondOnUIThread(bool success);
   void RunFileWatchOperationOnFileThread(
-      scoped_refptr<fileapi::FileSystemContext> file_system_context,
       scoped_refptr<FileBrowserEventRouter> event_router,
       const GURL& file_url,
       const std::string& extension_id);
@@ -172,6 +172,11 @@ class GetFileTasksFileBrowserFunction : public AsyncExtensionFunction {
   // types, appending them to the |result_list|.
   bool FindWebIntentTasks(const std::vector<GURL>& file_urls,
                           ListValue* result_list);
+
+  // Find the list of app file handlers that can be used with the given file
+  // types, appending them to the |result_list|.
+  bool FindAppTasks(const std::vector<GURL>& file_urls,
+                    ListValue* result_list);
 };
 
 // Implements the chrome.fileBrowserPrivate.executeTask method.
@@ -268,12 +273,6 @@ class ViewFilesFunction : public FileBrowserFunction {
 
   // AsyncExtensionFunction overrides.
   virtual bool RunImpl() OVERRIDE;
-
- private:
-  // A callback method to handle the result of
-  // GetLocalPathsOnFileThreadAndRunCallbackOnUIThread.
-  void GetLocalPathsResponseOnUIThread(const std::string& internal_task_id,
-                                       const SelectedFileInfoList& files);
 };
 
 // Select multiple files.  Closes the dialog window.
@@ -378,11 +377,6 @@ class FormatDeviceFunction : public FileBrowserFunction {
 
   // AsyncExtensionFunction overrides.
   virtual bool RunImpl() OVERRIDE;
-
- private:
-  // A callback method to handle the result of
-  // GetLocalPathsOnFileThreadAndRunCallbackOnUIThread.
-  void GetLocalPathsResponseOnUIThread(const SelectedFileInfoList& files);
 };
 
 // Sets last modified date in seconds of local file
@@ -414,10 +408,6 @@ class GetSizeStatsFunction : public FileBrowserFunction {
   virtual bool RunImpl() OVERRIDE;
 
  private:
-  // A callback method to handle the result of
-  // GetLocalPathsOnFileThreadAndRunCallbackOnUIThread.
-  void GetLocalPathsResponseOnUIThread(const SelectedFileInfoList& files);
-
   void GetDriveAvailableSpaceCallback(drive::DriveFileError error,
                                       int64 bytes_total,
                                       int64 bytes_used);
@@ -439,11 +429,6 @@ class GetVolumeMetadataFunction : public FileBrowserFunction {
 
   // AsyncExtensionFunction overrides.
   virtual bool RunImpl() OVERRIDE;
-
- private:
-  // A callback method to handle the result of
-  // GetLocalPathsOnFileThreadAndRunCallbackOnUIThread.
-  void GetLocalPathsResponseOnUIThread(const SelectedFileInfoList& files);
 };
 
 // Toggles fullscreen mode for the browser.
@@ -490,7 +475,7 @@ class FileDialogStringsFunction : public SyncExtensionFunction {
 // (drive::DriveFileError) for that entry in the returned list.
 class GetDriveFilePropertiesFunction : public FileBrowserFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.getGDataFileProperties");
+  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.getDriveFileProperties");
 
   GetDriveFilePropertiesFunction();
 
@@ -540,7 +525,7 @@ class GetDriveFilePropertiesFunction : public FileBrowserFunction {
 // returned list.
 class PinDriveFileFunction : public GetDriveFilePropertiesFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.pinGDataFile");
+  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.pinDriveFile");
 
   PinDriveFileFunction();
 
@@ -561,16 +546,14 @@ class PinDriveFileFunction : public GetDriveFilePropertiesFunction {
   void OnPinStateSet(const FilePath& path,
                      base::DictionaryValue* properties,
                      scoped_ptr<drive::DriveEntryProto> entry_proto,
-                     drive::DriveFileError error,
-                     const std::string& resource_id,
-                     const std::string& md5);
+                     drive::DriveFileError error);
 
   // True for pin, false for unpin.
   bool set_pin_;
 };
 
 // Get file locations for the given list of file URLs. Returns a list of
-// location idenfitiers, like ['drive', 'local'], where 'drive' means the
+// location identifiers, like ['drive', 'local'], where 'drive' means the
 // file is on gdata, and 'local' means the file is on the local drive.
 class GetFileLocationsFunction : public FileBrowserFunction {
  public:
@@ -583,11 +566,6 @@ class GetFileLocationsFunction : public FileBrowserFunction {
 
   // AsyncExtensionFunction overrides.
   virtual bool RunImpl() OVERRIDE;
-
- private:
-  // A callback method to handle the result of
-  // GetLocalPathsOnFileThreadAndRunCallbackOnUIThread.
-  void GetLocalPathsResponseOnUIThread(const SelectedFileInfoList& files);
 };
 
 // Get gdata files for the given list of file URLs. Initiate downloading of
@@ -600,7 +578,7 @@ class GetFileLocationsFunction : public FileBrowserFunction {
 // TODO(satorux): Should we propagate error types to the JavasScript layer?
 class GetDriveFilesFunction : public FileBrowserFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.getGDataFiles");
+  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.getDriveFiles");
 
   GetDriveFilesFunction();
 
@@ -659,8 +637,6 @@ class CancelFileTransfersFunction : public FileBrowserFunction {
 
   // AsyncExtensionFunction overrides.
   virtual bool RunImpl() OVERRIDE;
-
-  void GetLocalPathsResponseOnUIThread(const SelectedFileInfoList& files);
 };
 
 // Implements the chrome.fileBrowserPrivate.transferFile method.
@@ -677,10 +653,6 @@ class TransferFileFunction : public FileBrowserFunction {
   virtual bool RunImpl() OVERRIDE;
 
  private:
-  // Helper callback for handling response from
-  // GetLocalPathsOnFileThreadAndRunCallbackOnUIThread()
-  void GetLocalPathsResponseOnUIThread(const SelectedFileInfoList& files);
-
   // Helper callback for handling response from DriveFileSystem::TransferFile().
   void OnTransferCompleted(drive::DriveFileError error);
 };
@@ -709,7 +681,7 @@ class SetPreferencesFunction : public SyncExtensionFunction {
 
 class SearchDriveFunction : public AsyncExtensionFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.searchGData");
+  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.searchDrive");
 
   SearchDriveFunction();
 
@@ -781,6 +753,27 @@ class RequestDirectoryRefreshFunction : public SyncExtensionFunction {
   virtual ~RequestDirectoryRefreshFunction() {}
 
   virtual bool RunImpl() OVERRIDE;
+};
+
+// Create a zip file for the selected files.
+class ZipSelectionFunction : public FileBrowserFunction,
+                             public extensions::ZipFileCreator::Observer {
+ public:
+  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.zipSelection");
+
+  ZipSelectionFunction();
+
+ protected:
+  virtual ~ZipSelectionFunction();
+
+  // AsyncExtensionFunction overrides.
+  virtual bool RunImpl() OVERRIDE;
+
+  // extensions::ZipFileCreator::Delegate overrides.
+  virtual void OnZipDone(bool success) OVERRIDE;
+
+ private:
+  scoped_refptr<extensions::ZipFileCreator> zip_file_creator_;
 };
 
 #endif  // CHROME_BROWSER_CHROMEOS_EXTENSIONS_FILE_BROWSER_PRIVATE_API_H_

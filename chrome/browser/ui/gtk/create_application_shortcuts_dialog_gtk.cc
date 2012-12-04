@@ -304,7 +304,7 @@ CreateWebApplicationShortcutsDialogGtk::CreateWebApplicationShortcutsDialogGtk(
 }
 
 void CreateWebApplicationShortcutsDialogGtk::OnCreatedShortcut() {
-  Browser* browser = browser::FindBrowserWithWebContents(web_contents_);
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents_);
   if (browser)
     chrome::ConvertTabToAppWindow(browser, web_contents_);
 }
@@ -320,12 +320,7 @@ CreateChromeApplicationShortcutsDialogGtk::
         ALLOW_THIS_IN_INITIALIZER_LIST(tracker_(this))  {
 
   // Get shortcut information now, it's needed for our UI.
-  shortcut_info_.extension_id = app_->id();
-  shortcut_info_.extension_path = app_->path();
-  shortcut_info_.url = GURL(app_->launch_web_url());
-  shortcut_info_.title = UTF8ToUTF16(app_->name());
-  shortcut_info_.description = UTF8ToUTF16(app_->description());
-  shortcut_info_.profile_path = profile_path_;
+  web_app::UpdateShortcutInfoForApp(*app, profile, &shortcut_info_);
 
   // Get the icon.
   const gfx::Size max_size(kIconPreviewSizePixels, kIconPreviewSizePixels);

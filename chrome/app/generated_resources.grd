@@ -1716,7 +1716,6 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       </if>
 
-
       <message name="IDS_TIME_MINS_DEFAULT"
                desc="This is necessary for every language. This is the default for all the numbers NOT covered by special cases (singular, dual/two, few, many) some languages need. For CJK, Vietnamese, Turkish and Kannada, this is the only string necessary. For languages with singular-plural distinction, this is the generic plural. For Lithuanian, NUMBER_DEFAULT is 11 .. 19.">
         <ph name="NUMBER_DEFAULT"><ex>37</ex>#</ph> mins
@@ -2282,6 +2281,145 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       </if>
 
+      <message name="IDS_TIME_DURATION_LONG_SECS_DEFAULT"
+               desc="This is necessary for every language. This is the default for all the numbers NOT covered by special cases (singular, dual/two, few, many) some languages need. For CJK, Vietnamese, Turkish and Kannada, this is the only string necessary. For languages with singular-plural distinction, this is the generic plural. For Lithuanian, NUMBER_DEFAULT is 11 .. 19.">
+        <ph name="NUMBER_DEFAULT"><ex>37</ex>#</ph> seconds
+      </message>
+      
+      <if expr="lang not in ['zh-CN', 'zh-TW', 'ko', 'ja', 'vi', 'tr', 'kn']">
+      <message name="IDS_TIME_DURATION_LONG_SEC_SINGULAR"
+               desc="NUMBER_ONE is one or one-like numbers : 1 (many European and most Indian languages), 1 and 0 (French, Brazilian Portuguese and Hindi), 1,21,31, .. (Russian, Ukrainian, Croatian, Serbian, Latvian, Lithuanian), or 1, 101, 201, .. (Slovenian). Do NOT translate this for CJK, Vietnamese, Turkish and Kannada">
+        <ph name="NUMBER_ONE"><ex>1</ex>#</ph> second
+      </message>
+      </if>
+      <if expr="lang in ['zh-CN', 'zh-TW', 'ko', 'ja', 'vi', 'tr', 'kn']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_SEC_SINGULAR"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang in ['ar', 'ro', 'lv']">
+      <message name="IDS_TIME_DURATION_LONG_SECS_ZERO"
+               desc="NUMBER_ZERO is 0 (Arabic, Latvian) or 0, 2..19, 101..119, ... (Romanian). For other languages, do NOT translate.">
+        <ph name="NUMBER_ZERO"><ex>0</ex>#</ph> seconds
+      </message>
+      </if>
+      <if expr="lang not in ['ar', 'ro', 'lv']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_SECS_ZERO"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang in ['ga', 'sl', 'ar']">
+      <message name="IDS_TIME_DURATION_LONG_SECS_TWO"
+               desc="NUMBER_TWO is two or two-like/dual numbers :  2 (Arabic and Irish) or  2, 102, 202 ... (Slovenian). For other languages, do NOT translated.">
+        <ph name="NUMBER_TWO"><ex>2</ex>#</ph> seconds
+      </message>
+      </if>
+      <if expr="lang not in ['ga', 'sl', 'ar']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_SECS_TWO"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang  in ['ru', 'lt', 'hr', 'uk', 'cs', 'sk', 'pl', 'sl', 'ar']">
+      <message name="IDS_TIME_DURATION_LONG_SECS_FEW"
+               desc="NUMBER_FEW is few or few-like numbers in Arabic, Russian, Polish, Croatian, Serbian, Ukrainian, Czech, Slovak, Slovenian, Latvian. For other languages, do NOT translate.">
+        <ph name="NUMBER_FEW"><ex>3</ex>#</ph> seconds
+      </message>
+      </if>
+      <if expr="lang not in ['ru', 'lt', 'hr', 'uk', 'cs', 'sk', 'pl', 'sl', 'ar']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_SECS_FEW"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang == 'ar'">
+      <message name="IDS_TIME_DURATION_LONG_SECS_MANY"
+               desc="NUMBER_MANY is 11 through 99 in Arabic. For all other languages, do NOT translate.">
+        <ph name="NUMBER_MANY"><ex>23</ex>#</ph> seconds
+      </message>
+      </if>
+      <if expr="lang != 'ar'">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_SECS_MANY"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <message name="IDS_TIME_DURATION_LONG_MINS_DEFAULT"
+               desc="This is necessary for every language. This is the default for all the numbers NOT covered by special cases (singular, dual/two, few, many) some languages need. For CJK, Vietnamese, Turkish and Kannada, this is the only string necessary. For languages with singular-plural distinction, this is the generic plural. For Lithuanian, NUMBER_DEFAULT is 11 .. 19.">
+        <ph name="NUMBER_DEFAULT"><ex>37</ex>#</ph> minutes
+      </message>
+
+      <if expr="lang not in ['zh-CN', 'zh-TW', 'ko', 'ja', 'vi', 'tr', 'kn']">
+      <message name="IDS_TIME_DURATION_LONG_MIN_SINGULAR"
+               desc="NUMBER_ONE is one or one-like numbers : 1 (many European and most Indian languages), 1 and 0 (French, Brazilian Portuguese and Hindi), 1,21,31, .. (Russian, Ukrainian, Croatian, Serbian, Latvian, Lithuanian), or 1, 101, 201, .. (Slovenian). Do NOT translate this for CJK, Vietnamese, Turkish and Kannada">
+        <ph name="NUMBER_ONE"><ex>1</ex>#</ph> minute
+      </message>
+      </if>
+      <if expr="lang in ['zh-CN', 'zh-TW', 'ko', 'ja', 'vi', 'tr', 'kn']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_MIN_SINGULAR"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang in ['ar', 'ro', 'lv']">
+      <message name="IDS_TIME_DURATION_LONG_MINS_ZERO"
+               desc="NUMBER_ZERO is 0 (Arabic, Latvian) or 0, 2..19, 101..119, ... (Romanian). For other languages, do NOT translate.">
+        <ph name="NUMBER_ZERO"><ex>0</ex>#</ph> minutes
+      </message>
+      </if>
+      <if expr="lang not in ['ar', 'ro', 'lv']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_MINS_ZERO"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang in ['ga', 'sl', 'ar']">
+      <message name="IDS_TIME_DURATION_LONG_MINS_TWO"
+               desc="NUMBER_TWO is two or two-like/dual numbers :  2 (Arabic and Irish) or  2, 102, 202 ... (Slovenian). For other languages, do NOT translated.">
+        <ph name="NUMBER_TWO"><ex>2</ex>#</ph> minutes
+      </message>
+      </if>
+      <if expr="lang not in ['ga', 'sl', 'ar']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_MINS_TWO"
+               desc="">
+        NA
+      </message>
+      </if>
+
+      <if expr="lang  in ['ru', 'lt', 'hr', 'uk', 'cs', 'sk', 'pl', 'sl', 'ar']">
+      <message name="IDS_TIME_DURATION_LONG_MINS_FEW"
+               desc="NUMBER_FEW is few or few-like numbers in Arabic, Russian, Polish, Croatian, Serbian, Ukrainian, Czech, Slovak, Slovenian, Latvian. For other languages, do NOT translate.">
+        <ph name="NUMBER_FEW"><ex>3</ex>#</ph> minutes
+      </message>
+      </if>
+      <if expr="lang not in ['ru', 'lt', 'hr', 'uk', 'cs', 'sk', 'pl', 'sl', 'ar']">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_MINS_FEW"
+               desc="">
+        NA
+      </message>
+      </if>
+      
+      <if expr="lang == 'ar'">
+      <message name="IDS_TIME_DURATION_LONG_MINS_MANY"
+               desc="NUMBER_MANY is 11 through 99 in Arabic. For all other languages, do NOT translate.">
+        <ph name="NUMBER_MANY"><ex>23</ex>#</ph> minutes
+      </message>
+      </if>
+      <if expr="lang != 'ar'">
+      <message translateable="false" name="IDS_TIME_DURATION_LONG_MINS_MANY"
+               desc="">
+        NA
+      </message>
+      </if>
 
       <message name="IDS_TIME_ELAPSED_SECS_DEFAULT"
                desc="This is necessary for every language. This is the default for all the numbers NOT covered by special cases (singular, dual/two, few, many) some languages need. For CJK, Vietnamese, Turkish and Kannada, this is the only string necessary. For languages with singular-plural distinction, this is the generic plural. For Lithuanian, NUMBER_DEFAULT is 11 .. 19.">
@@ -2590,10 +2728,6 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
                desc="The download experienced an error and was interrupted, size downloaded/total.">
         Download Error
       </message>
-      <message name="IDS_DOWNLOAD_INTERRUPTED_DESCRIPTION"
-               desc="Download page message: Generic.">
-        Oh no! Something broke while Chrome was downloading the file.
-      </message>
       <message name="IDS_DOWNLOAD_INTERRUPTED_STATUS_ACCESS_DENIED"
                desc="Cannot write to the directory/file due to insufficient permissions. Please select another directory.">
         Insufficient Permissions
@@ -2722,7 +2856,7 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_DOWNLOAD_STATUS_WAITING"
-                 desc="Displayed as the status for download items associated with GData uploads. Indicates that we are waiting for the download portion to progress far enough to begin uploading.">
+                 desc="Displayed as the status for download items associated with Drive uploads. Indicates that we are waiting for the download portion to progress far enough to begin uploading.">
           Downloading...
         </message>
       </if>
@@ -3312,6 +3446,14 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       <message name="IDS_CERT_ERROR_WEAK_KEY_DESCRIPTION" desc="Description of the error page for a certificate containing a weak key">
         The server certificate contains a weak cryptographic key.
+      </message>
+
+      <message name="IDS_CERT_ERROR_SPECIAL_CASE_TITLE" desc="Title of the error page for a certificate with a special case exception (i.e. we know that the user is infected with malware)">
+        Special case exception found for received certificate.
+      </message>
+
+      <message name="IDS_CERT_ERROR_SPECIAL_CASE_DETAILS" desc="Description of the error page for a certificate with a special case exception (i.e. we know that the user is infected with malware)">
+        The certificate received has been flagged as erroneous. Please see $1 for more details.
       </message>
 
       <message name="IDS_CERT_ERROR_UNKNOWN_ERROR_TITLE" desc="Title of the error page for an unknown ssl error">
@@ -4958,6 +5100,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       <message name="IDS_EXTENSION_PROMPT_WARNING_BLUETOOTH" desc="Permission string for access to the Bluetooth API.">
         Access Bluetooth on your system
       </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_BLUETOOTH_DEVICE" desc="Permission string for access to a specific the Bluetooth device.">
+        Access the Bluetooth device "<ph name="DEVICE_NAME">$1<ex>Galaxy Nexus</ex></ph>".
+      </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_AUDIO_CAPTURE" desc="Permission string for access to audio capture devices.">
         Use your microphone
       </message>
@@ -4993,6 +5138,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
       </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_SOCKET_SPECIFIC_HOSTS" desc="Permission string for access to multiple specific computers on the local network or internet.">
         Exchange data with the computers named: <ph name="HOSTNAMES">$1<ex>foo.example.com bar.example.com</ex></ph>
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_SYSTEM_INDICATOR" desc="Permission string for access to an icon in the system indicator area, such as the taskbar or system tray.">
+        Display and manage an icon in the system indicator area.
       </message>
 
       <!-- Extension/App error messages -->
@@ -5503,6 +5651,18 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_EXTENSION_WARNINGS_NETWORK_CONFLICT" desc="Warning message which indicates that two or more extensions tried to modify a network request in a conflicting way and the modification of this extension was ignored">
         This extension failed to modify a network request because the modification conflicted with another extension.
       </message>
+      <message name="IDS_EXTENSION_WARNINGS_REDIRECT_CONFLICT" desc="Warning message indicating that two extensions tried to redirect to different destinations">
+        This extension failed to redirect a network request to <ph name="ATTEMPTED_REDIRECT_DESTINATION">$1<ex>http://www.google.com</ex></ph> because another extension (<ph name="EXTENSION_NAME">$2<ex>My Cool Extension</ex></ph>) redirected it to <ph name="ACTUAL_REDIRECT_DESTINATION">$3<ex>https://www.google.com</ex></ph>.
+      </message>
+      <message name="IDS_EXTENSION_WARNINGS_REQUEST_HEADER_CONFLICT" desc="Warning message which indicates that two or more extensions tried to modify a network request in a conflicting way and the modification of this extension was ignored">
+        This extension failed to modify the request header "<ph name="HEADER_NAME">$1<ex>User-Agent</ex></ph>" of a network request because the modification conflicted with another extension (<ph name="EXTENSION_NAME">$2<ex>My Cool Extension</ex></ph>).
+      </message>
+      <message name="IDS_EXTENSION_WARNINGS_RESPONSE_HEADER_CONFLICT" desc="Warning message which indicates that two or more extensions tried to modify a network request in a conflicting way and the modification of this extension was ignored">
+        This extension failed to modify the response header "<ph name="HEADER_NAME">$1<ex>User-Agents</ex></ph>" of a network request because the modification conflicted with another extension (<ph name="EXTENSION_NAME">$2<ex>My Cool Extension</ex></ph>).
+      </message>
+      <message name="IDS_EXTENSION_WARNINGS_CREDENTIALS_CONFLICT" desc="Warning message which indicates that two or more extensions tried to modify a network request in a conflicting way and the modification of this extension was ignored">
+        This extension failed to provide credentials to a network request because another extension (<ph name="EXTENSION_NAME">$1<ex>My Cool Extension</ex></ph>) provided different credentials.
+      </message>
 
       <!-- External extension install alerts -->
       <!-- TODO(mpcomplete): We may need to change Chrome to
@@ -5541,6 +5701,31 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_EXTENSION_EXTERNAL_INSTALL_PROMPT_ABORT_BUTTON" desc="Button on the external install prompt to remove an extension installed by a third party.">
         Remove from Chrome
       </message>
+
+      <!-- chrome://settings-frame/options_settings_app.html for the App Launcher (Windows only) -->
+      <if expr="pp_ifdef('enable_settings_app')">
+        <message name="IDS_SETTINGS_APP_LAUNCHER_PRODUCT_NAME" desc="Product name to use when referring to applications running in the App Launcher inside the non-browser Settings App">
+          App Launcher
+        </message>
+        <message name="IDS_SETTINGS_APP_SYNC_OVERVIEW" desc="The message that appears in the non-browser Settings App when sync has not been set up by the user.">
+          Sign in with your Google Account to allow apps to synchronize settings and provide other customized services.
+        </message>
+        <message name="IDS_SETTINGS_APP_HANDLERS_ALLOW_RADIO" desc="A radio button in the Content Settings dialog within the non-browser Settings App for allowing apps to register themselves as handlers for protocols.">
+          Allow apps to ask to become default handlers for protocols (recommended)
+        </message>
+        <message name="IDS_SETTINGS_APP_HANDLERS_DONOTALLOW_RADIO" desc="A radio button in the Content Settings dialog within the non-browser Settings App for preventing apps from registering themselves as handlers for protocols.">
+          Do not allow any app to handle protocols
+        </message>
+        <message name="IDS_SETTINGS_APP_NOTIFICATIONS_ALLOW_RADIO" desc="A radio button in Content Settings dialog within the non-browser Settings App to allow all apps to show notifications.">
+          Allow all apps to show desktop notifications
+        </message>
+        <message name="IDS_SETTINGS_APP_NOTIFICATIONS_BLOCK_RADIO" desc="A radio button in Content Settings dialog within the non-browser Settings App to deny all apps from showing notifications.">
+          Do not allow any app to show desktop notifications
+        </message>
+        <message name="IDS_SETTINGS_APP_NOTIFICATIONS_ASK_RADIO" desc="A radio button in Content Settings dialog within the non-browser Settings App to configure notifications per-app.">
+          Ask me when an app wants to show desktop notifications (recommended)
+        </message>
+      </if>
 
       <!-- Plugins -->
       <message name="IDS_PLUGINS_TITLE" desc="Title for the chrome://plugins page.">
@@ -5996,12 +6181,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_NACL_SRPC_PROXY_DESCRIPTION" desc="Description of the 'Enable Native Client SRPC Proxy' lab.">
         Use NaCl SRPC, rather than Chrome IPC, to proxy Pepper calls between Chrome and the plugin.
       </message>
-      <message name="IDS_FLAGS_ENABLE_SCRIPTED_SPEECH_NAME" desc="Name of the 'Enable Scripted Speech' lab.">
-        Speech JavaScript API.
-      </message>
-      <message name="IDS_FLAGS_ENABLE_SCRIPTED_SPEECH_DESCRIPTION" desc="Description of the 'Enable Scripted Speech' lab.">
-        Enable support for speech recognition using the Speech JavaScript API.
-      </message>
       <message name="IDS_FLAGS_DOWNLOADS_NEW_UI_NAME" desc="Name of the 'New Downloads UI' lab.">
         New Downloads UI
       </message>
@@ -6059,14 +6238,17 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_TOUCH_OPTIMIZED_UI_DESCRIPTION" desc="Description of the touch-optimized UI flag.">
         Enables experimental layout refinements to improve user experience with touch screens.
       </message>
-      <message name="IDS_FLAGS_TOUCH_OPTIMIZED_UI_AUTOMATIC" desc="Option name for automatic selection of touch optimized UI mode.">
-        Automatic
+      <message name="IDS_TOUCH_EVENTS_NAME" desc="Title of the touch-events flag." >
+        Enable touch events
       </message>
-      <message name="IDS_ENABLE_TOUCH_EVENTS_NAME" desc="Title of the enable touch-events flag." >
-        Force enable touch events.
+      <message name="IDS_TOUCH_EVENTS_DESCRIPTION" desc="Description of the touch-events flag.">
+        Enables experimental support for touch screens.
       </message>
-      <message name="IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION" desc="Description of the enable touch-events flag.">
-        Enables experimental touch event support regardless of the presence of a physical touch screen capable of generating touch events.
+      <message name="IDS_DISABLE_TOUCH_ADJUSTMENT_NAME" desc="Title of the disable touch adjustment flag.">
+        Disable touch adjustment.
+      </message>
+      <message name="IDS_DISABLE_TOUCH_ADJUSTMENT_DESCRIPTION" desc="Description of the disable touch adjustment flag.">
+        Disables touch adjustment support.  Touch adjustment is the process of refining the position of a touch gesture in order to compensate for touches having poor resolution compared to a mouse.
       </message>
       <message name="IDS_ENABLE_TAB_CAPTURE_NAME" desc="Title of the enable tab capture flag." >
         Enable Tab Capture API
@@ -6323,11 +6505,23 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_INTERACTIVE_AUTOCOMPLETE_DESCRIPTION" desc="Description of the flag to enable an interactive autocomplete UI.">
         Enable an interactive autocomplete UI that can be invoked by calling HTMLFormElement#requestAutocomplete.
       </message>
+      <message name="IDS_FLAGS_ENABLE_TOUCH_DRAG_DROP_NAME" desc="Name of the flag that enables touch initiated drag drop.">
+        Enable touch initiated drag and drop
+      </message>
+      <message name="IDS_FLAGS_ENABLE_TOUCH_DRAG_DROP_DESCRIPTION" desc="Description of the flag to enable touch initiated drag drop.">
+        Touch drag and drop can be initiated through long press on a draggable element.
+      </message>
       <message name="IDS_FLAGS_ENABLE_EXPERIMENTAL_FORM_FILLING_NAME" desc="Title for the flag to enable experimental form filling">
         Enable experimental form filling
       </message>
       <message name="IDS_FLAGS_ENABLE_EXPERIMENTAL_FORM_FILLING_DESCRIPTION" desc="Description for the flag to enable experimantal form filling feature">
         Enable experimental form filling. Enables a collection of experimental features that make form filling easier.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_OVERSCROLL_HISTORY_NAVIGATION_NAME" desc="Title for the flag to enable history navigation from horizontal overscroll.">
+        Enable overscroll history navigation
+      </message>
+      <message name="IDS_FLAGS_ENABLE_OVERSCROLL_HISTORY_NAVIGATION_DESCRIPTION" desc="Description for the flag to enable history navigation from horizontal overscroll.">
+        Enables experimental history navigation in response to horizontal overscroll.
       </message>
       <message name="IDS_FLAGS_SYNC_SEARCH_ENGINES_NAME" desc="Title for the flag to enable syncing the Search Engines datatype">
         Enable syncing search engines
@@ -6352,6 +6546,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_SYNC_APP_NOTIFICATIONS_DESCRIPTION" desc="Description for the flag to disable syncing the app notifications datatype">
         Disable app notifications in the sync settings. This turns off syncing notifications received from your apps to other clients.
+      </message>
+      <message name="IDS_FLAGS_SYNC_KEYSTORE_ENCRYPTION_NAME" desc="Title for the flag to enable sync's keystore encryption options">
+        Enable sync keystore encryption.
+      </message>
+      <message name="IDS_FLAGS_SYNC_KEYSTORE_ENCRYPTION_DESCRIPTION" desc="Description for the flag to enable sync's keystore encryption options">
+        Switch to sync's new server supported encryption schema. Warning: this will modify your sync data, possibly making it unreadable to other clients.
       </message>
       <if expr="pp_ifdef('android')">
         <message name="IDS_FLAGS_SYNC_TYPED_URLS_NAME" desc="Mobile: Title for the flag to enable syncing the TypedUrl datatype">
@@ -6498,17 +6698,17 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ASH_AUTO_WINDOW_PLACEMENT_DESCRIPTION" desc="Description for the option to enable/disable the auto window placement functionality.">
         Disable automatic window placement for one and two browser / app windows.
       </message>
+      <message name="IDS_FLAGS_ASH_ENABLE_PER_APP_LAUNCHER_NAME" desc="Name for the option to enable/disable the per application sorting launcher functionality.">
+        Per application sorting in the launcher.
+      </message>
+      <message name="IDS_FLAGS_ASH_ENABLE_PER_APP_LAUNCHER_DESCRIPTION" desc="Description for the option to enable/disable the per application sorting launcher functionality.">
+        Enable the per application sorting mode of the launcher.
+      </message>
       <message name="IDS_FLAGS_AURA_DISABLE_HOLD_MOUSE_MOVES_NAME" desc="Title for the flag to disable throttling the rate of window resize.">
         Throttle the rate of window resize.
       </message>
       <message name="IDS_FLAGS_AURA_DISABLE_HOLD_MOUSE_MOVES_DESCRIPTION" desc="Description for the flag to disable throttling the rate of window resize.">
         Disable throttling the rate of window resize. We throttle the resize for less perceived latency.
-      </message>
-      <message name="IDS_FLAGS_ENABLE_POINTER_LOCK_NAME" desc="Title for the flag to enable the pointer lock feature.">
-        Pointer Lock
-      </message>
-      <message name="IDS_FLAGS_ENABLE_POINTER_LOCK_DESCRIPTION" desc="Description for the flag to enable the mouse lock feature.">
-        Web pages may capture the mouse pointer and remove it from the user's control. The mouse movement data is directed solely to the web application. Users can escape by pressing the 'Esc' key.
       </message>
       <message name="IDS_FLAGS_ENABLE_WEBAUDIO_INPUT_NAME" desc="Title for the flag to enable the webaudio input feature.">
         Web Audio Input
@@ -6529,13 +6729,46 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_ADVANCED_GESTURES_DESCRIPTION" desc="Title for the flag to enable advanced gestures.">
         Enables advanced gestures (e.g. 4-finger pinch to minimize window etc.).
       </message>
+      <message name="IDS_FLAGS_ENABLE_TAB_SCRUBBING_NAME" desc="Title for the flag to enable tab scrubbing.">
+        Enable tab scrubbing
+      </message>
+      <message name="IDS_FLAGS_ENABLE_TAB_SCRUBBING_DESCRIPTION" desc="Description for the flag to enable tab scrubbing.">
+        Enables tab switching via 3 finger horizontal scroll.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_WORKSPACE_SCRUBBING_NAME" desc="Title for the flag to enable workspace scrubbing.">
+        Enable workspace scrubbing
+      </message>
+      <message name="IDS_FLAGS_ENABLE_WORKSPACE_SCRUBBING_DESCRIPTION" desc="Description for the flag to enable workspace scrubbing.">
+        Enables workspace switching via 3 finger vertical scroll.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_IMMERSIVE_MODE_NAME" desc="Title for the flag to enable immersive mode.">
+        Enable immersive windows
+      </message>
+      <message name="IDS_FLAGS_ENABLE_IMMERSIVE_MODE_DESCRIPTION" desc="Description for the flag to enable immersive mode.">
+        Enables an "immersive mode" for browser windows that gives more spaces to web content. Active it by maximizing a window then clicking on the button in the top right corner.
+      </message>
       <message name="IDS_FLAGS_ENABLE_MEMORY_MONITOR_NAME" desc="Title for the flag to enable advanced gestures.">
         Enable memory monitor
       </message>
       <message name="IDS_FLAGS_ENABLE_MEMORY_MONITOR_DESCRIPTION" desc="Title for the flag to enable advanced gestures.">
         Enables visual memory monitor in status area.
       </message>
+      <message name="IDS_FLAGS_ENABLE_NEW_NETWORK_HANDLERS_NAME" desc="Title for the flag to enable using the new network handlers.">
+        Enable new network handlers
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NEW_NETWORK_HANDLERS_DESCRIPTION" desc="Title for the flag to enable using the new Network State Handler.">
+        Enables the new network handlers which handle Shill communication without using NetworkLibrary.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NETWORK_STATE_HANDLER_NAME" desc="Title for the flag to enable using the new Network State Handler.">
+        Enable New Network State Handler
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NETWORK_STATE_HANDLER_DESCRIPTION" desc="Title for the flag to enable using the new Network State Handler.">
+        Enables the new Network State Handler which handles Shill communication in the Status Area without using NetworkLibrary.
+      </message>
 
+      <message name="IDS_GENERIC_EXPERIMENT_CHOICE_AUTOMATIC" desc="Generic 'Automatic' experiment choice option name.">
+        Automatic
+      </message>
       <message name="IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT" desc="Generic 'Default' experiment choice option name. E.G. shown in multi value options in about:flags.">
         Default
       </message>
@@ -6544,21 +6777,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED" desc="Generic 'Disabled' experiment choice option name. E.G. shown in multi value options in about:flags.">
         Disabled
-      </message>
-      <message name="IDS_FLAGS_AURA_WINDOW_MODE_NAME" desc="Title for flag to choose how windows are displayed.">
-        Window mode
-      </message>
-      <message name="IDS_FLAGS_AURA_WINDOW_MODE_DESCRIPTION" desc="Description for the flag to choose how windows are displayed.">
-        Compact mode shows a single maximized window, useful for low-resolution devices such as laptops. Managed mode automatically arranges windows.
-      </message>
-      <message name="IDS_FLAGS_AURA_WINDOW_MODE_AUTOMATIC" desc="Option name for automatic selection of window display mode.">
-        Automatic
-      </message>
-      <message name="IDS_FLAGS_AURA_WINDOW_MODE_COMPACT" desc="Option name for compact/low-resolution window display mode.">
-        Compact
-      </message>
-      <message name="IDS_FLAGS_AURA_WINDOW_MODE_MANAGED" desc="Option name for automatically managed window display mode.">
-        Managed
       </message>
       <message name="IDS_FLAGS_PER_TILE_PAINTING_NAME" desc="Title for the flag to enable per-tile painting">
         Per-tile Painting
@@ -6644,6 +6862,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_FORCE_SYNC_SPELLCHECK_DESCRIPTION" desc="Description for the flag to force synchronous spellchecking.">
         Force use of synchronous spellchecking. Enabling this flag will prevent Chrome from using a web service to get spellchecking results.
       </message>
+      <message name="IDS_FLAGS_SPELLCHECK_AUTOCORRECT" desc="Title for the flag to turn on text autocorrection.">
+        Enable Automatic Spelling Correction
+      </message>
+      <message name="IDS_FLAGS_SPELLCHECK_AUTOCORRECT_DESCRIPTION" desc="Description for the flag to force synchronous spellchecking.">
+        Turn on autocorrection of text while typing. Synchronous spellchecking is not compatible with this feature.
+      </message>
       <message name="IDS_FLAGS_NO_DISCARD_TABS_NAME" desc="Name for the flag to disable the tab discarding feature.">
         Don't discard tabs.
       </message>
@@ -6688,6 +6912,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_APP_LIST_SHOW_APPS_ONLY_DESCRIPTION" desc="Description of the flag to show only apps in app list search.">
         Shows only apps in app list search.
       </message>
+      <message name="IDS_FLAGS_ENABLE_CHROMEBOOK_FUNCTION_KEY_NAME" desc="Name of the flag to enable the option for using the Search key as a Function key.">
+        Allow Search key to act as a Function key.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_CHROMEBOOK_FUNCTION_KEY_DESCRIPTION" desc="Description of the flag to enable the option for using the Search key as a Function key.">
+        Adds an option to the Keyboard settings to allow using the Search key on a ChromeOS laptop keyboard for accessing extended keyboard shortcuts such as Delete, Home, and End.
+      </message>
       <message name="IDS_FLAGS_ENABLE_VIEWS_TEXTFIELD_NAME" desc="Name of the flag to use NativeTextfieldViews instead of NativeTextfieldWin.">
         Enable Views Textfield.
       </message>
@@ -6731,12 +6961,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
         </message>
         <message name="IDS_FLAGS_DISABLE_NEW_OOBE_DESCRIPTION" desc="Description for the flag to disable new design for OOBE / sign in flows.">
           Disables new design for OOBE / sign in flows.
-        </message>
-        <message name="IDS_FLAGS_DISABLE_FACTORY_RESET" desc="Name of the experimental option that resets the device to its factory state.">
-          Disable factory reset.
-        </message>
-        <message name="IDS_FLAGS_DISABLE_FACTORY_RESET_DESCRIPTION" desc="Description of the experimental option that resets the device to its factory state.">
-          Disables factory reset shortcut and window on login wizard and options dialog.
         </message>
         <message name="IDS_FLAGS_DISABLE_BOOT_ANIMATION" desc="Name for the flag to disable wallpaper boot animation (except for OOBE).">
           Disable boot animation.
@@ -6787,9 +7011,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_DISABLE_NON_FULLSCREEN_MOUSE_LOCK_NAME" desc="Name for the flag to disable mouse lock when the browser is not full screen.">
         Disable non full screen mouse lock.
-      </message>
-      <message name="IDS_FLAGS_DISABLE_NON_FULLSCREEN_MOUSE_LOCK_DESCRIPTION" desc="Description for the flag to disable mouse lock when the browser is not full screen.">
-        Disables mouse lock (pointer lock) when an application or page is not already full screen.
       </message>
       <message name="IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_NAME" desc="Name of the flag to disable accelerated video decode where available.">
         Disable hardware-accelerated video decode.
@@ -6861,6 +7082,20 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_CRASHES_DISABLED_HEADER" desc="The header for chrome://crashes when crash reporting is disabled">
         Crash reporting is disabled.
+      </message>
+
+      <!-- Custom dictionary page -->
+      <message name="IDS_LANGUAGE_DICTIONARY_OVERLAY_TITLE" desc="Title for the chrome://settings/editDictionary page, where a user can add and remove words in the dictionary used for spelling">
+        Custom spelling dictionary
+      </message>
+      <message name="IDS_LANGUAGE_DICTIONARY_OVERLAY_ADD_WORD_LABEL" desc="Label for adding a new word to the dictionary on the chrome://settings/editDictionary page">
+        Add a new word
+      </message>
+      <message name="IDS_LANGUAGE_DICTIONARY_OVERLAY_SEARCH_PLACEHOLDER" desc="Text placeholder for an empty search field on the chrome://settings/editDictionary page">
+        Search dictionary
+      </message>
+      <message name="IDS_LANGUAGE_DICTIONARY_OVERLAY_NO_MATCHES" desc="Text description of a search that has no results on the chrome://settings/editDictionary page">
+        No matches were found.
       </message>
 
       <!-- Instant -->
@@ -7299,9 +7534,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_OMNIBOX_KEYWORD_TEXT" desc="Text shown in the search button at the front of the omnibox when the user has selected a keyword">
         Search <ph name="SITE_NAME">$1<ex>google.com</ex></ph>:
       </message>
-      <message name="IDS_OMNIBOX_EXTENSION_KEYWORD_TEXT" desc="Text shown in the search button at the front of the omnibox when the user has selected an extension keyword">
-        <ph name="EXTENSION_NAME">$1<ex>Google Talk</ex></ph>
-      </message>
       <if expr="pp_ifdef('ios')">
         <message name="IDS_OMNIBOX_EMPTY_HINT" desc="The text displayed in the omnibox when it is empty.">
           Search or type URL
@@ -7337,6 +7569,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_TOOLTIP_STOP" desc="The tooltip for the stop button">
         Stop loading this page
+      </message>
+      <message name="IDS_TOOLTIP_SCRIPT_BUBBLE" desc="The tooltip for script bubble">
+        View extensions interacting with page
       </message>
       <message name="IDS_TOOLTIP_STAR" desc="The tooltip for bookmark button">
         Bookmark this page
@@ -7377,6 +7612,10 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Find places to share
       </message>
 
+      <!--Script Bubble-->
+      <message name="IDS_SCRIPT_BUBBLE_HEADLINE" desc="The headline of the script bubble.">
+        Extensions interacting with this page:
+      </message>
       <!--Accessible name/action strings-->
       <message name="IDS_ACCESSIBLE_INCOGNITO_WINDOW_TITLE_FORMAT" desc="The format for the accessible title of an incognito window">
         <ph name="WINDOW_TITLE">$1</ph> (Incognito)
@@ -7398,6 +7637,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_ACCNAME_LOCATION" desc="The accessible name for the location bar edit field.">
         Address
+      </message>
+      <message name="IDS_ACCNAME_SCRIPT_BUBBLE" desc="The accessible name for the script bubble.">
+        Script Bubble
       </message>
       <message name="IDS_ACCNAME_STAR" desc="The accessible name for the bookmark button.">
         Bookmark
@@ -7443,6 +7685,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_ACCNAME_NEWTAB" desc="The accessible name for the New Tab (+) button.">
         New Tab
+      </message>
+      <message name="IDS_ACCNAME_IMMERSIVE" desc="The accessible name for the immersive mode button.">
+        Immersive Mode
       </message>
       <message name="IDS_ACCNAME_MINIMIZE" desc="The accessible name for the Minimize button.">
         Minimize
@@ -7807,6 +8052,26 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
         Clearing...
       </message>
 
+      <!-- Managed Mode Block Interstitial data -->
+      <message name="IDS_BLOCK_INTERSTITIAL_TITLE" desc="A title for the managed mode block interstitial page.">
+        Sad Robot
+      </message>
+      <message name="IDS_BLOCK_INTERSTITIAL_MESSAGE" desc="A message for the user when they attempt to visit a site outside of any content pack.">
+        Sorry, you're not allowed to access the following page:
+      </message>
+      <message name="IDS_BACK_BUTTON" desc="A button for going back to the last safe url after being blocked.">
+        Go back
+      </message>
+      <message name="IDS_CONTENT_PACKS_SECTION_BUTTON" desc="A button for going to the content pack starting page.">
+        Content Packs
+      </message>
+      <message name="IDS_BYPASS_BLOCK_MESSAGE" desc="A label for allowing custodians to allow a blocked site.">
+        Custodians can also allow this site.
+      </message>
+       <message name="IDS_BYPASS_BLOCK_BUTTON" desc="A button for allowing blocked site.">
+        Preview
+      </message>
+
       <!-- Content Settings dialog data -->
       <message name="IDS_CONTENT_SETTINGS_TITLE" desc="Title for content settings dialog">
         Content settings
@@ -7849,6 +8114,12 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
       </message>
       <message name="IDS_MEDIA_STREAM_ASK_RADIO" desc="A radio button in Content Settings dialog to allow site to query the permision to access capture devices.">
         Ask me when a site requires access to my camera and microphone (recommended)
+      </message>
+      <message name="IDS_MEDIA_SELECTED_MIC_LABEL" desc="The label of the 'microphone device' select menu">
+        Microphone:
+      </message>
+      <message name="IDS_MEDIA_SELECTED_CAMERA_LABEL" desc="The label of the 'camera device' select menu">
+        Camera:
       </message>
       <message name="IDS_MEDIA_GALLERY_SECTION_LABEL" desc="The label for the section of content settings that relates to media galleries.">
         Media galleries
@@ -9997,6 +10268,35 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
         You have switched to the <ph name="CHANNEL_NAME">$1<ex>Stable</ex></ph> channel.
       </message>
 
+      <!-- chrome://network -->
+      <message name="IDS_ABOUT_AUTO_REFRESH" desc="The message to indicate that the page is auto refreshing.">
+        (Auto-refreshing page every <ph name="INTERVAL_SECONDS">$1<ex>10</ex></ph> seconds.)
+      </message>
+      <message name="IDS_ABOUT_AUTO_REFRESH_INFO" desc="The message to indicate that how to auto refresh the page.">
+        (To auto-refresh this page use chrome://<ph name="PAGE_NAME">$1<ex>network</ex></ph>/&amp;lt;secs&amp;gt;)
+      </message>
+      <message name="IDS_ABOUT_NETWORK_EVENT_LOG" desc="The section title for the event log in the chrome://network page.">
+        Event Log (newest first):
+      </message>
+      <message name="IDS_ABOUT_NETWORK_NETWORKS" desc="The section title for all networks in the chrome://network page.">
+        Networks:
+      </message>
+      <message name="IDS_ABOUT_NETWORK_ETHERNET" desc="The section title for ethernet networks in the chrome://network page.">
+        Ethernet Networks:
+      </message>
+      <message name="IDS_ABOUT_NETWORK_WIFI" desc="The section title for wifi networks in the chrome://network page.">
+        Wifi Networks:
+      </message>
+      <message name="IDS_ABOUT_NETWORK_CELLULAR" desc="The section title for cellular networks in the chrome://network page.">
+        Cellular Networks:
+      </message>
+      <message name="IDS_ABOUT_NETWORK_VIRTUAL" desc="The section title for virtual networks in the chrome://network page.">
+        Virtual Networks:
+      </message>
+      <message name="IDS_ABOUT_NETWORK_REMEMBERED_WIFI" desc="The section title for remembered wifi networks in the chrome://network page.">
+        Remembered Wifi Networks:
+      </message>
+
       <message name="IDS_OPTIONS_STARTUP_GROUP_NAME" desc="The title of the startup group">
         On startup
       </message>
@@ -10482,16 +10782,19 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
 
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_OPTIONS_FACTORY_RESET" desc="Name of the factory reset option on the chrome settings page">
-          Factory Reset
+          Powerwash
+        </message>
+        <message name="IDS_OPTIONS_FACTORY_RESET_HEADING" desc="Name of the 'Factory reset' window">
+          Restart your device
         </message>
         <message name="IDS_OPTIONS_FACTORY_RESET_DESCRIPTION" desc="Description of the factory reset option on the chrome settings page">
-          Reset your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device to its original factory state.
+          Remove all user accounts and reset your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device to be just like new.
         </message>
         <message name="IDS_OPTIONS_FACTORY_RESET_BUTTON" desc="Name of the button to activate the factory reset option on the chrome settings page">
-          Reset
+          Powerwash
         </message>
         <message name="IDS_OPTIONS_FACTORY_RESET_WARNING" desc="Warning text in the 'Factory Reset' window">
-          A restart is required in order to reset your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device to its original factory state.
+          A restart is required before your device can be reset with Powerwash.
         </message>
       </if>
 
@@ -10548,7 +10851,7 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         ... and <ph name="EXTENSION_COUNT">$1<ex>42</ex></ph> more.
       </message>
       <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_BUBBLE_HEADLINE" desc="Text in headline of the bubble explaining that extensions have been disabled.">
-        Some extensions were disabled
+        Time for a tune-up
       </message>
       <message name="IDS_OPTIONS_SIDELOAD_WIPEOUT_RECOURSE" desc="Text in the bubble that explains what the user can do after the extension has been disabled.">
         You can always enable or disable any extension in the extension settings page.
@@ -11164,8 +11467,8 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         <message name="IDS_NEW_TAB_CONTEXT_MENU_OPEN_IN_INCOGNITO_TAB" desc="Context menu description for loading a link in an incognito tab">
           Open in incognito tab
         </message>
-        <message name="IDS_NEW_TAB_CONTEXT_MENU_REMOVE" desc="Context menu description for removing the selected item">
-          Remove
+        <message name="IDS_NEW_TAB_CONTEXT_MENU_REMOVE" desc="Context menu description for removing all recently closed items">
+          Remove all
         </message>
         <message name="IDS_NEW_TAB_CONTEXT_MENU_EDIT_BOOKMARK" desc="Context menu description for editing the selected bookmark">
           Edit bookmark
@@ -12003,7 +12306,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Chrome cannot access the image.
       </message>
       <message name="IDS_WALLPAPER_MANAGER_INVALID_WALLPAPER" desc="The string displayed to user when user selected wallpaper can not be set as a wallpaper.">
-        The image you selected can't be set as a wallpaper.
+        Chrome cannot set wallpaper.
       </message>
 
       <!-- File Browser -->
@@ -12022,17 +12325,11 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_REMOVABLE_DIRECTORY_LABEL" desc="/removable directory label.">
         External Storage
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_DIRECTORY_LABEL" desc="/drive directory label.">
+      <message name="IDS_FILE_BROWSER_DRIVE_DIRECTORY_LABEL" desc="/drive directory label.">
         Google Drive
-      </message>
-      <message name="IDS_FILE_BROWSER_MEDIA_DIRECTORY_LABEL" desc="/media directory label.">
-        External Storage
       </message>
       <message name="IDS_FILE_BROWSER_DOWNLOADS_DIRECTORY_LABEL" desc="Downloads local directory label.">
         Downloads
-      </message>
-      <message name="IDS_FILE_BROWSER_ADD_DRIVE" desc="Label to add a new drive.">
-        Add a drive
       </message>
       <message name="IDS_FILE_BROWSER_DOWNLOADS_DIRECTORY_WARNING" desc="Warning displayed to user when viewing downloads folder.">
         <ph name="BEGIN_BOLD">&lt;strong&gt;</ph>Caution:<ph name="END_BOLD">&lt;/strong&gt;</ph>  These files are temporary and may be automatically deleted to free up disk space.  <ph name="BEGIN_LINK">&lt;a href="javascript://"&gt;</ph>Learn More<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
@@ -12090,10 +12387,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_OFFLINE_COLUMN_LABEL" desc="Available offline column label.">
         Available offline
       </message>
-      <message name="IDS_FILE_BROWSER_MAKE_AVAILABLE_OFFLINE_ACTION_LABEL" desc="Name of the action to make the file available offline.">
-        Make available offline
-      </message>
-
       <message name="IDS_FILE_BROWSER_ERROR_CREATING_FOLDER" desc="Message displayed when we can't create a folder.">
         Unable to create folder "<ph name="FOLDER_NAME">$1<ex>Documents</ex></ph>". <ph name="ERROR_MESSAGE">$2<ex>An error occurred (code: ABORT)</ex></ph>
       </message>
@@ -12156,17 +12449,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_UNMOUNT_DEVICE_BUTTON_LABEL" desc="Title of the action for unmounting removable device.">
         Eject device
       </message>
-
-      <message name="IDS_FILE_BROWSER_NOT_FORMATTED_USB" desc="In the File Manager, message shown for an unformatted USB device.">
-        Your USB device is not formatted.
+      <message name="IDS_FILE_BROWSER_CLOSE_ARCHIVE_BUTTON_LABEL" desc="Title of the action for closing the archive.">
+        Close
       </message>
-      <message name="IDS_FILE_BROWSER_NOT_FORMATTED_SD" desc="In the File Manager, message shown for an unformatted SD card.">
-        Your SD card is not formatted.
-      </message>
-      <message name="IDS_FILE_BROWSER_NOT_FORMATTED_EXTERNAL" desc="In the File Manager, message shown for an unformatted external storage device.">
-        Your external storage device is not formatted.
-      </message>
-
       <message name="IDS_FILE_BROWSER_ACTION_VIEW" desc="Title of the action to view (no edit) a file.">
         View
       </message>
@@ -12297,6 +12582,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_PHOTOS_DRIVE" desc="In the action choice dialog, label of action to import photos to Drive.">
         Import photos to Google Drive
       </message>
+      <message name="IDS_FILE_BROWSER_ACTION_CHOICE_DRIVE_NOT_REACHED" desc="In the action choice dialog, message informing that Drive is unreachable.">
+        Google Drive could not be reached
+      </message>
       <message name="IDS_FILE_BROWSER_ACTION_CHOICE_VIEW_FILES" desc="In the action choice dialog, label of action to view all files.">
         View files
       </message>
@@ -12334,7 +12622,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_CANCEL_BUTTON" desc="In the Photo import, label of cancel button.">
         Cancel
       </message>
-      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_GDATA_ERROR" desc="In the Photo import, error message when drive is unaccessible.">
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_DRIVE_ERROR" desc="In the Photo import, error message when drive is unaccessible.">
         Error accessing "My Photos".
       </message>
       <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_SOURCE_ERROR" desc="In the Photo import, error message inidcating that photos cannot be read.">
@@ -12415,6 +12703,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Open with...
       </message>
 
+      <message name="IDS_FILE_BROWSER_ZIP_SELECTION_BUTTON_LABEL" desc="Menu item label, showing dialog to create zip file for selected files">
+        Zip selection
+      </message>
+
       <message name="IDS_FILE_BROWSER_TRANSFER_ITEMS_REMAINING" desc="File Manager status message. 'Item' is used here as a generic term for file or directory. 'Transferring' is used in the sense 'copying or moving files'.">
         Transferring $1 items.
       </message>
@@ -12465,6 +12757,24 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_MOVE_UNEXPECTED_ERROR" desc="File Manager error message.">
         Move failed, unexpected error: $1
+      </message>
+      <message name="IDS_FILE_BROWSER_ZIP_FILE_NAME" desc="File Manager status message.">
+        Zipping <ph name="FILE_NAME">$1<ex>movie.avi</ex></ph>
+      </message>
+      <message name="IDS_FILE_BROWSER_ZIP_ITEMS_REMAINING" desc="File Manager status message. 'Item' is used here as a generic term for file or directory.">
+        Zipping $1 items.
+      </message>
+      <message name="IDS_FILE_BROWSER_ZIP_CANCELLED" desc="File Manager status message.">
+        Zipping cancelled.
+      </message>
+      <message name="IDS_FILE_BROWSER_ZIP_TARGET_EXISTS_ERROR" desc="File Manager error message. 'Item' is used here as a generic term for file or directory.">
+        Zipping failed, item exists: "$1"
+      </message>
+      <message name="IDS_FILE_BROWSER_ZIP_FILESYSTEM_ERROR" desc="File Manager error message.">
+        Zipping failed. <ph name="ERROR_MESSAGE">$1<ex>An error occurred (code: ABORT)</ex></ph>
+      </message>
+      <message name="IDS_FILE_BROWSER_ZIP_UNEXPECTED_ERROR" desc="File Manager error message.">
+        Zipping failed, unexpected error: $1
       </message>
 
       <message name="IDS_FILE_BROWSER_DELETED_MESSAGE_PLURAL" desc="Message informing about deleting multiple items.">
@@ -12557,9 +12867,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_HOSTED_OFFLINE_MESSAGE" desc="Message informing the user that the selected file is only available online.">
         You must be online to access this file.
       </message>
-      <message name="IDS_FILE_BROWSER_GDRIVE_OFFLINE_MESSAGE" desc="Message informing the user that they should go online to access Google Drive for the first time.">
-        You must be online to access Google Drive for the first time.
-      </message>
       <message name="IDS_FILE_BROWSER_HOSTED_OFFLINE_MESSAGE_PLURAL" desc="Message informing the user that the selected files are only available online.">
         You must be online to access these files.
       </message>
@@ -12569,84 +12876,81 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_CONFIRM_MOBILE_DATA_USE_PLURAL" desc="Message informing the user that opening several files from Google Drive will use mobile data.">
         Fetching these files will use approximately <ph name="FILE_SIZE">$1<ex>44 MB</ex></ph> of mobile data.
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_PRODUCT_NAME" desc="Google Drive product name." translateable="false">
-        Google Drive
-      </message>
-      <message name="IDS_FILE_BROWSER_GDATA_MOBILE_CONNECTION_OPTION" desc="Option that determines if we will allow Google Drive content sync over mobile connections.">
+      <message name="IDS_FILE_BROWSER_DRIVE_MOBILE_CONNECTION_OPTION" desc="Option that determines if we will allow Google Drive content sync over mobile connections.">
         Do not use mobile data for sync
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_SHOW_HOSTED_FILES_OPTION" desc="Option that determines if we will show hosted Google Docs files in file browser.">
+      <message name="IDS_FILE_BROWSER_DRIVE_SHOW_HOSTED_FILES_OPTION" desc="Option that determines if we will show hosted Google Docs files in file browser.">
         Show Google Docs files
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_CLEAR_LOCAL_CACHE" desc="In the Google Drive settings menu, menu item to clear the local cache of Google Drive">
+      <message name="IDS_FILE_BROWSER_DRIVE_CLEAR_LOCAL_CACHE" desc="In the Google Drive settings menu, menu item to clear the local cache of Google Drive">
         Clean local cache
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_RELOAD" desc="In the Google Drive settings menu, menu item to reload the metadata of the file system from the server">
+      <message name="IDS_FILE_BROWSER_DRIVE_RELOAD" desc="In the Google Drive settings menu, menu item to reload the metadata of the file system from the server">
         Reload
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_MENU_HELP" desc="In the Google Drive settings menu, name of the Help item.">
+      <message name="IDS_FILE_BROWSER_DRIVE_MENU_HELP" desc="In the Google Drive settings menu, name of the Help item.">
         Help
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_SPACE_AVAILABLE" desc="Menu item showing space left on Google Drive">
+      <message name="IDS_FILE_BROWSER_DRIVE_SPACE_AVAILABLE" desc="Menu item showing space left on Google Drive">
         <ph name="SPACE_AVAILABLE">$1<ex>4.8 GB</ex></ph> left
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_BUY_MORE_SPACE" desc="Menu item, offering user to buy more space on Google Drive">
+      <message name="IDS_FILE_BROWSER_DRIVE_BUY_MORE_SPACE" desc="Menu item, offering user to buy more space on Google Drive">
         Buy more storage...
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_VISIT_DRIVE_GOOGLE_COM" desc="Menu item, redirecting user to drive.google.com">
+      <message name="IDS_FILE_BROWSER_DRIVE_VISIT_DRIVE_GOOGLE_COM" desc="Menu item, redirecting user to drive.google.com">
         Go to drive.google.com...
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_SPACE_AVAILABLE_LONG" desc="Text showing space left on Google Drive">
+      <message name="IDS_FILE_BROWSER_DRIVE_SPACE_AVAILABLE_LONG" desc="Text showing space left on Google Drive">
         Google Drive space left: <ph name="SPACE_AVAILABLE">$1<ex>400 MB</ex></ph>.
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_BUY_MORE_SPACE_LINK" desc="Text on the link, offering user to buy more space on Google Drive">
+      <message name="IDS_FILE_BROWSER_DRIVE_BUY_MORE_SPACE_LINK" desc="Text on the link, offering user to buy more space on Google Drive">
         Buy more storage
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_WAITING_FOR_SPACE_INFO" desc="Menu item, saying that FileBrowser is waiting for account's space information from GData servers. When actual data arrives, this item will be replaced with IDS_FILE_BROWSER_GDATA_SPACE_AVAILABLE">
+      <message name="IDS_FILE_BROWSER_DRIVE_WAITING_FOR_SPACE_INFO" desc="Menu item, saying that FileBrowser is waiting for account's space information from Drive servers. When actual data arrives, this item will be replaced with IDS_FILE_BROWSER_DRIVE_SPACE_AVAILABLE">
         Waiting for space info...
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_FAILED_SPACE_INFO" desc="Menu item, saying that FileBrowser is failed to retrieve account's space information from GData servers.">
+      <message name="IDS_FILE_BROWSER_DRIVE_FAILED_SPACE_INFO" desc="Menu item, saying that FileBrowser is failed to retrieve account's space information from Drive servers.">
         Failed to retrieve space info
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_OUT_OF_SPACE_HEADER" desc="Message informing the user that there is not enough space to make the selected file(s) available offline.">
+      <message name="IDS_FILE_BROWSER_DRIVE_OUT_OF_SPACE_HEADER" desc="Message informing the user that there is not enough space to make the selected file(s) available offline.">
         You have run out of space
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_SERVER_OUT_OF_SPACE_HEADER" desc="Message informing the user that there is not enough space on server side to store a new file.">
+      <message name="IDS_FILE_BROWSER_DRIVE_SERVER_OUT_OF_SPACE_HEADER" desc="Message informing the user that there is not enough space on server side to store a new file.">
         You have run out of space in Google Drive
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_LOADING" desc="Message informing the user that we are loading content of Google Drive.">
+      <message name="IDS_FILE_BROWSER_DRIVE_LOADING" desc="Message informing the user that we are loading content of Google Drive.">
         Hang with us. We’re fetching your files.
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_LOADING_PROGRESS" desc="The progress message displayed when loading content of Google Drive. Never displayed for file count below 10 so no pluralization issue should arise.">
+      <message name="IDS_FILE_BROWSER_DRIVE_LOADING_PROGRESS" desc="The progress message displayed when loading content of Google Drive. Never displayed for file count below 10 so no pluralization issue should arise.">
         <ph name="FILE_COUNT">$1<ex>100</ex></ph> files fetched
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_CANNOT_REACH" desc="Message informing the user that Google Drive can not be reached at this moment.">
+      <message name="IDS_FILE_BROWSER_DRIVE_CANNOT_REACH" desc="Message informing the user that Google Drive can not be reached at this moment.">
         Google Drive cannot be reached at this time.
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_LEARN_MORE" desc="In the Loading Google Drive page and in the Welcome to Google Drive banner, a text on the Learn More link.">
+      <message name="IDS_FILE_BROWSER_DRIVE_LEARN_MORE" desc="In the Loading Google Drive page and in the Welcome to Google Drive banner, a text on the Learn More link.">
         Learn more
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_RETRY" desc="Button label for Google Drive content load retry.">
+      <message name="IDS_FILE_BROWSER_DRIVE_RETRY" desc="Button label for Google Drive content load retry.">
         Retry
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_OUT_OF_SPACE_MESSAGE" desc="Message informing the user how to make more space available to save the selected file offline.">
+      <message name="IDS_FILE_BROWSER_DRIVE_OUT_OF_SPACE_MESSAGE" desc="Message informing the user how to make more space available to save the selected file offline.">
         To save "<ph name="FILE_NAME">$1<ex>document.pdf</ex></ph>" offline you must free up an additional <ph name="TOTAL_FILE_SIZE">$2<ex>3.3 MB</ex></ph> of space:<ph name="MARKUP_1">&lt;br&gt;<ex>&lt;br&gt;</ex></ph>
         <ph name="MARKUP_2">&lt;ul&gt;&lt;li&gt;<ex>&lt;ul&gt;&lt;li&gt;</ex></ph>unpin files that you no longer need to access offline<ph name="MARKUP_3">&lt;/li&gt;<ex>>&lt;/li&gt;</ex></ph>
         <ph name="MARKUP_4">&lt;li&gt;<ex>&lt;li&gt;</ex></ph>delete files from your Downloads folder<ph name="MARKUP_5">&lt;/li&gt;&lt;/ul&gt;<ex>&lt;/li&gt;&lt;/ul&gt;</ex></ph>
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_SERVER_OUT_OF_SPACE_MESSAGE" desc="Message informing the user how to make more space available on Google Drive server side.">
+      <message name="IDS_FILE_BROWSER_DRIVE_SERVER_OUT_OF_SPACE_MESSAGE" desc="Message informing the user how to make more space available on Google Drive server side.">
         You do not have enough space in Google Drive to save "<ph name="FILE_NAME">$1<ex>document.pdf</ex></ph>". Please remove files or <ph name="BEGIN_LINK">&lt;a target='_blank' href='$2'&gt;</ph>buy more storage space<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>.
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_TITLE" desc="In the Welcome to Google Drive banner, title of banner.">
+      <message name="IDS_FILE_BROWSER_DRIVE_WELCOME_TITLE" desc="In the Welcome to Google Drive banner, title of banner.">
         Welcome to Google Drive!
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_TITLE_ALTERNATIVE" desc="In the Welcome to Google Drive banner, title of the alternative banner.">
+      <message name="IDS_FILE_BROWSER_DRIVE_WELCOME_TITLE_ALTERNATIVE" desc="In the Welcome to Google Drive banner, title of the alternative banner.">
         Get 100 GB free with Google Drive
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_TEXT_SHORT" desc="In the Welcome to Google Drive banner, text of the welcome message, short version.">
+      <message name="IDS_FILE_BROWSER_DRIVE_WELCOME_TEXT_SHORT" desc="In the Welcome to Google Drive banner, text of the welcome message, short version.">
         All files saved in this folder are backed up online automatically
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_TEXT_LONG" desc="In the Welcome to Google Drive banner, text of the welcome message, long version.">
+      <message name="IDS_FILE_BROWSER_DRIVE_WELCOME_TEXT_LONG" desc="In the Welcome to Google Drive banner, text of the welcome message, long version.">
         <ph name="MARKUP_1">&lt;p&gt;&lt;strong&gt;<ex>&lt;strong&gt;</ex></ph>Access files from everywhere, even offline.<ph name="MARKUP_2">&lt;/strong&gt;<ex>&lt;/strong&gt;</ex></ph>
         Files in Google Drive are up-to-date and available from any device.<ph name="MARKUP_3">&lt;/p&gt;<ex>&lt;/p&gt;</ex></ph>
         <ph name="MARKUP_4">&lt;p&gt;&lt;strong&gt;<ex>&lt;strong&gt;</ex></ph>Keep your files safe.<ph name="MARKUP_5">&lt;/strong&gt;<ex>&lt;/strong&gt;</ex></ph>
@@ -12654,10 +12958,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
         <ph name="MARKUP_7">&lt;p&gt;&lt;strong&gt;<ex>&lt;strong&gt;</ex></ph>Share, create and collaborate<ph name="MARKUP_8">&lt;/strong&gt;<ex>&lt;/strong&gt;</ex></ph>
         on files with others all in one place.<ph name="MARKUP_9">&lt;/p&gt;<ex>&lt;/p&gt;</ex></ph>
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_GET_STARTED" desc="In the Welcome to Google Drive banner, a text on the button to get started.">
+      <message name="IDS_FILE_BROWSER_DRIVE_WELCOME_GET_STARTED" desc="In the Welcome to Google Drive banner, a text on the button to get started.">
         Get started
       </message>
-      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_DISMISS" desc="In the Welcome to Google Drive banner, a text on the button to dismiss the banner.">
+      <message name="IDS_FILE_BROWSER_DRIVE_WELCOME_DISMISS" desc="In the Welcome to Google Drive banner, a text on the button to dismiss the banner.">
         Dismiss
       </message>
       <message name="IDS_FILE_BROWSER_NO_ACTION_FOR_FILE" desc="Message shown when user tries to open file, which we can't handle.">
@@ -12814,10 +13118,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_ERROR_VIEWING_FILE" desc="Error message when user attempts to open a non-supported file in the Files app via Downloads panel.">
         This file type is not supported. Please visit the Chrome Web Store to find an app that can open this type of file.
       </message>
-      <message name="IDS_FILE_BROWSER_ERROR_UNKNOWN_FILE_TYPE" desc="Error message when user attempts to open a file of unknown type in file browser.">
-        <ph name="FILENAME">$1</ph> - Unknown file type.
-      </message>
-
       <message name="IDS_FILE_BROWSER_AUDIO_PLAYER_TITLE" desc="Title of the Audio Player window.">
         Audio Player
       </message>
@@ -12993,6 +13293,14 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </if>
       <message name="IDS_BOOKMARKS_MENU" desc="The title of the bookmarks menu in the wrench menu and in the mac menu bar">
         &amp;Bookmarks
+      </message>
+
+      <message name="IDS_RECENT_TABS_MENU" desc="The title of the Recent Tabs menu in the wrench menu.">
+        Recent Tabs
+      </message>
+
+      <message name="IDS_RECENT_TABS_NO_DEVICE_TABS" desc="The label in the Recent Tabs menu in the wrench menu when there's no tabs from other devices.">
+        No tabs from other devices
       </message>
 
       <message name="IDS_DEFAULT_DOWNLOAD_FILENAME" desc="Default name for downloaded files when we have no idea what they could be.">
@@ -14833,7 +15141,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       Create
     </message>
     <message name="IDS_PROFILES_CREATE_SHORTCUT_CHKBOX" desc="Create Shortcut Checkbox">
-      Create desktop shortcut for this profile
+      Create desktop shortcut for this user
     </message>
 
     <!-- Tracing about page strings -->
@@ -14892,43 +15200,43 @@ Some features may be unavailable.  Please check that the profile exists and you 
       Expand
     </message>
 
-    <message name="IDS_BLUETOOTH_DEVICE_UNKNOWN" desc="Text to identify bluetooth devices of unknown or unsupported class.">
+    <message name="IDS_BLUETOOTH_DEVICE_UNKNOWN" desc="Text to identify Bluetooth devices of unknown or unsupported class.">
       Unknown or Unsupported Device (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_COMPUTER" desc="Text to identify bluetooth devices of the computer class.">
+    <message name="IDS_BLUETOOTH_DEVICE_COMPUTER" desc="Text to identify Bluetooth devices of the computer class.">
       Computer (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_PHONE" desc="Text to identify bluetooth devices of the phone class.">
+    <message name="IDS_BLUETOOTH_DEVICE_PHONE" desc="Text to identify Bluetooth devices of the phone class.">
       Phone (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_MODEM" desc="Text to identify bluetooth devices of the modem class.">
+    <message name="IDS_BLUETOOTH_DEVICE_MODEM" desc="Text to identify Bluetooth devices of the modem class.">
       Modem (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_AUDIO" desc="Text to identify bluetooth devices of the audio class.">
+    <message name="IDS_BLUETOOTH_DEVICE_AUDIO" desc="Text to identify Bluetooth devices of the audio class.">
       Audio (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_CAR_AUDIO" desc="Text to identify bluetooth devices of the car audio class.">
+    <message name="IDS_BLUETOOTH_DEVICE_CAR_AUDIO" desc="Text to identify Bluetooth devices of the car audio class.">
       Car audio (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_VIDEO" desc="Text to identify bluetooth devices of the video class.">
+    <message name="IDS_BLUETOOTH_DEVICE_VIDEO" desc="Text to identify Bluetooth devices of the video class.">
       Video (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_JOYSTICK" desc="Text to identify bluetooth devices of the joystick class.">
+    <message name="IDS_BLUETOOTH_DEVICE_JOYSTICK" desc="Text to identify Bluetooth devices of the joystick class.">
       Joystick (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_GAMEPAD" desc="Text to identify bluetooth devices of the gamepad class.">
+    <message name="IDS_BLUETOOTH_DEVICE_GAMEPAD" desc="Text to identify Bluetooth devices of the gamepad class.">
       Gamepad (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD" desc="Text to identify bluetooth devices of the keyboard class.">
+    <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD" desc="Text to identify Bluetooth devices of the keyboard class.">
       Keyboard (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_TABLET" desc="Text to identify bluetooth devices of the tablet class.">
+    <message name="IDS_BLUETOOTH_DEVICE_TABLET" desc="Text to identify Bluetooth devices of the tablet class.">
       Tablet (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_MOUSE" desc="Text to identify bluetooth devices of the mouse class.">
+    <message name="IDS_BLUETOOTH_DEVICE_MOUSE" desc="Text to identify Bluetooth devices of the mouse class.">
       Mouse (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
-    <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD_MOUSE_COMBO" desc="Text to identify bluetooth devices of both keyboard and mouse class.">
+    <message name="IDS_BLUETOOTH_DEVICE_KEYBOARD_MOUSE_COMBO" desc="Text to identify Bluetooth devices of both keyboard and mouse class.">
       Keyboard/Mouse (<ph name="ADDRESS">$1<ex>12:34:56:78:9A:BC</ex></ph>)
     </message>
 
@@ -15047,6 +15355,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
     <message name="IDS_MEDIA_GALLERIES_DIALOG_ADD_GALLERY_TITLE" desc="The title of the folder selection dialog for adding a new media gallery.">
       Add Media Gallery by Directory
     </message>
+    <message name="IDS_MEDIA_GALLERIES_DIALOG_DEVICE_ATTACHED" desc="Label text to indicate a removable storage device is attached.">
+      attached device
+    </message>
 
     <!-- App List. -->
     <message name="IDS_APP_LIST_CONTACT_CHAT_TOOLTIP" desc="Tooltip text for the 'chat' icon displayed next to a contact search result.">
@@ -15154,6 +15465,30 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
     </if>
 
+    <!-- Pepper 3D and WebGL (client 3D APIs) infobar strings -->
+    <message name="IDS_3D_APIS_BLOCKED_TEXT" desc="Infobar message when 3D graphics APIs are blocked because the graphics processor was reset recently.">
+      <ph name="API_NAME">$1<ex>WebGL</ex></ph> was stopped by an error on one of your tabs.
+    </message>
+    <message name="IDS_3D_APIS_WEBGL_NAME" desc="Name of the WebGL API.">
+      WebGL
+    </message>
+    <message name="IDS_3D_APIS_PEPPER_3D_NAME" desc="Name of the Pepper 3D API.">
+      Pepper 3D
+    </message>
+    <message name="IDS_3D_APIS_BLOCKED_OK_BUTTON_LABEL" desc="Label for the 'ok' button on the infobar indicating that 3D APIs were blocked. Clicking this button dismisses the infobar with no other action.">
+      OK
+    </message>
+    <message name="IDS_3D_APIS_BLOCKED_TRY_AGAIN_BUTTON_LABEL" desc="Label for the 'cancel' button on the infobar indicating that 3D APIs were blocked. Clicking this button unblocks the APIs and reloads the page.">
+      Try again
+    </message>
+
+    <!-- Managed Mode -->
+    <message name="IDS_MANAGED_MODE_WARNING_MESSAGE" desc="Infobar message when browsing outside of the content pack whitelist.">
+      You're browsing on a site that is not in any installed content pack.
+    </message>
+    <message name="IDS_MANAGED_MODE_GO_BACK_ACTION" desc="Label for the button that goes back to a 'safe' page.">
+      Take me back!
+    </message>
     </messages>
 
     <structures fallback_to_english="true">

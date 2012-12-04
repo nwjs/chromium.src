@@ -74,7 +74,7 @@
 {
   "name": "software rendering list",
   // Please update the version number whenever you change this file.
-  "version": "4.3",
+  "version": "4.7",
   "entries": [
     {
       "id": 1,
@@ -524,17 +524,6 @@
       ]
     },
     {
-      "id": 36,
-      "description": "Stage3D is not supported on ChromeOS.",
-      "cr_bugs": [129848],
-      "os": {
-        "type": "chromeos"
-      },
-      "blacklist": [
-        "flash_stage3d"
-      ]
-    },
-    {
       "id": 37,
       "description": "Drivers are unreliable for Optimus on Linux.",
       "cr_bugs": [131308],
@@ -902,7 +891,7 @@
         "number": "8.15.11.8593"
       },
       "blacklist": [
-        "all"
+        "accelerated_video_decode"
       ]
     },
     {
@@ -925,6 +914,37 @@
         "type": "macosx"
       },
       "vendor_id": "0x8086",
+      "blacklist": [
+        "multisampling"
+      ]
+    },
+    {
+      "id": 62,
+      "description": "Accelerated 2D canvas buggy on old Qualcomm Adreno.",
+      "cr_bugs": [161575],
+      "os": {
+        "type": "android"
+      },
+      "gl_renderer": {
+        "op": "contains",
+        "value": "Adreno"
+      },
+      "driver_version": {
+        "op": "<",
+        "number": "4.1"
+      },
+      "blacklist": [
+        "accelerated_2d_canvas"
+      ]
+    },
+    {
+      "id": 63,
+      "description": "Multisampling is buggy on Mac with AMD gpu.",
+      "cr_bugs": [162466],
+      "os": {
+        "type": "macosx"
+      },
+      "vendor_id": "0x1002",
       "blacklist": [
         "multisampling"
       ]

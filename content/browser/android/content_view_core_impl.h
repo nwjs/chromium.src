@@ -47,7 +47,8 @@ class ContentViewCoreImpl : public ContentViewCore,
   virtual base::android::ScopedJavaLocalRef<jobject> GetContainerViewDelegate()
       OVERRIDE;
   virtual WebContents* GetWebContents() const OVERRIDE;
-  virtual ui::WindowAndroid* GetWindowAndroid() OVERRIDE;
+  virtual ui::WindowAndroid* GetWindowAndroid() const OVERRIDE;
+  virtual scoped_refptr<cc::Layer> GetLayer() const OVERRIDE;
   virtual void LoadUrl(NavigationController::LoadURLParams& params) OVERRIDE;
   virtual void OnWebPreferencesUpdated() OVERRIDE;
   virtual jint GetCurrentRenderProcessId(JNIEnv* env, jobject obj) OVERRIDE;
@@ -182,6 +183,13 @@ class ContentViewCoreImpl : public ContentViewCore,
                                         jobject obj,
                                         jobject jbitmap);
   void SetSize(JNIEnv* env, jobject obj, jint width, jint height);
+  jboolean IsRenderWidgetHostViewReady(JNIEnv* env, jobject obj);
+
+  void ShowInterstitialPage(JNIEnv* env,
+                            jobject obj,
+                            jstring jurl,
+                            jint delegate);
+  jboolean IsShowingInterstitialPage(JNIEnv* env, jobject obj);
 
   // --------------------------------------------------------------------------
   // Public methods that call to Java via JNI
@@ -207,7 +215,7 @@ class ContentViewCoreImpl : public ContentViewCore,
   void SetTitle(const string16& title);
 
   bool HasFocus();
-  void ConfirmTouchEvent(bool handled);
+  void ConfirmTouchEvent(InputEventAckState ack_result);
   void HasTouchEventHandlers(bool need_touch_events);
   void OnSelectionChanged(const std::string& text);
   void OnSelectionBoundsChanged(
@@ -228,8 +236,12 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   gfx::Rect GetBounds() const;
 
+  void AttachLayer(scoped_refptr<cc::Layer> layer);
+  void RemoveLayer(scoped_refptr<cc::Layer> layer);
+
  private:
   class ContentViewUserData;
+
   friend class ContentViewUserData;
   virtual ~ContentViewCoreImpl();
 
@@ -267,6 +279,9 @@ class ContentViewCoreImpl : public ContentViewCore,
   // Reference to the current WebContents used to determine how and what to
   // display in the ContentViewCore.
   WebContentsImpl* web_contents_;
+
+  // A compositor layer containing any layer that should be shown.
+  scoped_refptr<cc::Layer> root_layer_;
 
   // Whether the renderer backing this ContentViewCore has crashed.
   bool tab_crashed_;

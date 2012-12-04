@@ -176,6 +176,15 @@ void BitmapPlatformDevice::setMatrixClip(const SkMatrix& transform,
   data_->SetMatrixClip(transform, region);
 }
 
+// PlatformCanvas impl
+
+SkCanvas* CreatePlatformCanvas(int width, int height, bool is_opaque,
+                               uint8_t* data, OnFailureType failureType) {
+  skia::RefPtr<SkDevice> dev = skia::AdoptRef(
+      BitmapPlatformDevice::Create(width, height, is_opaque, data));
+  return CreateCanvas(dev, failureType);
+}
+
 // Port of PlatformBitmap to linux
 
 PlatformBitmap::~PlatformBitmap() {

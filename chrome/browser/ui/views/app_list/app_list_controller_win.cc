@@ -14,6 +14,7 @@
 #include "base/win/shortcut.h"
 #include "chrome/app/chrome_dll_resource.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/ui/views/browser_dialogs.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/installer/launcher_support/chrome_launcher_support.h"
 #include "chrome/installer/util/util_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "grit/chromium_strings.h"
@@ -93,6 +95,8 @@ class AppListControllerDelegateWin : public AppListControllerDelegate {
   virtual void ViewClosing() OVERRIDE;
   virtual void ViewActivationChanged(bool active) OVERRIDE;
   virtual bool CanPin() OVERRIDE;
+  virtual void AboutToUninstallApp() OVERRIDE;
+  virtual void UninstallAppCompleted() OVERRIDE;
   virtual bool CanShowCreateShortcutsDialog() OVERRIDE;
   virtual void ShowCreateShortcutsDialog(
       Profile* profile,
@@ -111,13 +115,16 @@ class AppListControllerDelegateWin : public AppListControllerDelegate {
 // list to operate, and controls when the app list is opened and closed.
 class AppListController {
  public:
-  AppListController() : current_view_(NULL) {}
+  AppListController() : current_view_(NULL), can_close_app_list_(true) {}
   ~AppListController() {}
 
+  void set_can_close(bool can_close) { can_close_app_list_ = can_close; }
+  bool can_close() { return can_close_app_list_; }
   void ShowAppList();
   void CloseAppList();
   void AppListClosing();
   void AppListActivationChanged(bool active);
+  app_list::AppListView* GetView() { return current_view_; }
 
  private:
   // Utility methods for showing the app list.
@@ -145,6 +152,9 @@ class AppListController {
   base::RepeatingTimer<AppListController> timer_;
 
   app_list::PaginationModel pagination_model_;
+
+  // True if the controller can close the app list.
+  bool can_close_app_list_;
 
   DISALLOW_COPY_AND_ASSIGN(AppListController);
 };
@@ -176,6 +186,14 @@ bool AppListControllerDelegateWin::CanPin() {
   return false;
 }
 
+void AppListControllerDelegateWin::AboutToUninstallApp() {
+  g_app_list_controller.Get().set_can_close(false);
+}
+
+void AppListControllerDelegateWin::UninstallAppCompleted() {
+  g_app_list_controller.Get().set_can_close(true);
+}
+
 bool AppListControllerDelegateWin::CanShowCreateShortcutsDialog() {
   return true;
 }
@@ -188,7 +206,14 @@ void AppListControllerDelegateWin::ShowCreateShortcutsDialog(
   const extensions::Extension* extension = service->GetInstalledExtension(
       extension_id);
   DCHECK(extension);
-  chrome::ShowCreateChromeAppShortcutsDialog(NULL, profile, extension);
+
+  app_list::AppListView* view = g_app_list_controller.Get().GetView();
+  if (!view)
+    return;
+
+  gfx::NativeWindow parent_hwnd =
+      view->GetWidget()->GetTopLevelWidget()->GetNativeWindow();
+  chrome::ShowCreateChromeAppShortcutsDialog(parent_hwnd, profile, extension);
 }
 
 void AppListControllerDelegateWin::ActivateApp(Profile* profile,
@@ -205,8 +230,16 @@ void AppListControllerDelegateWin::LaunchApp(Profile* profile,
   const extensions::Extension* extension = service->GetInstalledExtension(
       extension_id);
   DCHECK(extension);
-  application_launch::OpenApplication(application_launch::LaunchParams(
-      profile, extension, extension_misc::LAUNCH_TAB, NEW_FOREGROUND_TAB));
+
+  // Look up the app preference to find out the right launch container. Default
+  // is to launch as a regular tab.
+  extension_misc::LaunchContainer launch_container =
+      service->extension_prefs()->GetLaunchContainer(extension,
+          extensions::ExtensionPrefs::LAUNCH_REGULAR);
+
+  application_launch::LaunchParams params(profile, extension, launch_container,
+      NEW_FOREGROUND_TAB);
+  application_launch::OpenApplication(params);
 }
 
 void AppListController::ShowAppList() {
@@ -234,10 +267,10 @@ void AppListController::ShowAppList() {
       current_view_->GetWidget()->GetTopLevelWidget()->GetNativeWindow();
   ui::win::SetAppIdForWindow(GetAppModelId(), hwnd);
   CommandLine relaunch = GetAppListCommandLine();
+  string16 app_name(l10n_util::GetStringUTF16(IDS_APP_LIST_SHORTCUT_NAME));
   ui::win::SetRelaunchDetailsForWindow(
-      relaunch.GetCommandLineString(),
-      l10n_util::GetStringUTF16(IDS_APP_LIST_SHORTCUT_NAME),
-      hwnd);
+      relaunch.GetCommandLineString(), app_name, hwnd);
+  ::SetWindowText(hwnd, app_name.c_str());
   string16 icon_path = GetAppListIconPath();
   ui::win::SetAppIconForWindow(icon_path, hwnd);
   current_view_->Show();
@@ -246,7 +279,7 @@ void AppListController::ShowAppList() {
 }
 
 void AppListController::CloseAppList() {
-  if (current_view_)
+  if (current_view_ && can_close_app_list_)
     current_view_->GetWidget()->Close();
 }
 
@@ -398,8 +431,10 @@ void CheckAppListTaskbarShortcutOnFileThread(const FilePath& user_data_dir,
       IDS_APP_LIST_SHORTCUT_NAME);
   const FilePath shortcut_path(user_data_dir.Append(shortcut_name)
       .AddExtension(installer::kLnkExt));
-  const bool should_show = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kShowAppListShortcut);
+  const bool should_show =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kShowAppListShortcut) ||
+      chrome_launcher_support::IsAppLauncherPresent();
 
   // This will not reshow a shortcut if it has been unpinned manually by the
   // user, as that will not delete the shortcut file.

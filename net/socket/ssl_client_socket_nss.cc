@@ -66,7 +66,6 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/build_time.h"
 #include "base/callback_helpers.h"
 #include "base/compiler_specific.h"
 #include "base/logging.h"
@@ -91,7 +90,6 @@
 #include "net/base/cert_verifier.h"
 #include "net/base/connection_type_histograms.h"
 #include "net/base/dns_util.h"
-#include "net/base/dnssec_chain_verifier.h"
 #include "net/base/transport_security_state.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -265,127 +263,6 @@ BOOL WINAPI ClientCertFindCallback(PCCERT_CONTEXT cert_context,
 }
 
 #endif
-
-// DNSValidationResult enumerates the possible outcomes from processing a
-// set of DNS records.
-enum DNSValidationResult {
-  DNSVR_SUCCESS,   // the cert is immediately acceptable.
-  DNSVR_FAILURE,   // the cert is unconditionally rejected.
-  DNSVR_CONTINUE,  // perform CA validation as usual.
-};
-
-// VerifyCAARecords processes DNSSEC validated RRDATA for a number of DNS CAA
-// records and checks them against the given chain.
-//    server_cert_nss: the server's leaf certificate.
-//    rrdatas: the CAA records for the current domain.
-//    port: the TCP port number that we connected to.
-DNSValidationResult VerifyCAARecords(
-    CERTCertificate* server_cert_nss,
-    const std::vector<base::StringPiece>& rrdatas,
-    uint16 port) {
-  DnsCAARecord::Policy policy;
-  const DnsCAARecord::ParseResult r = DnsCAARecord::Parse(rrdatas, &policy);
-  if (r == DnsCAARecord::SYNTAX_ERROR || r == DnsCAARecord::UNKNOWN_CRITICAL)
-    return DNSVR_FAILURE;
-  if (r == DnsCAARecord::DISCARD)
-    return DNSVR_CONTINUE;
-  DCHECK(r == DnsCAARecord::SUCCESS);
-
-  for (std::vector<DnsCAARecord::Policy::Hash>::const_iterator
-       hash = policy.authorized_hashes.begin();
-       hash != policy.authorized_hashes.end();
-       ++hash) {
-    if (hash->target == DnsCAARecord::Policy::SUBJECT_PUBLIC_KEY_INFO &&
-        (hash->port == 0 || hash->port == port)) {
-      CHECK_LE(hash->data.size(), static_cast<unsigned>(SHA512_LENGTH));
-      uint8 calculated_hash[SHA512_LENGTH];  // SHA512 is the largest.
-      SECStatus rv = HASH_HashBuf(
-          static_cast<HASH_HashType>(hash->algorithm),
-          calculated_hash,
-          server_cert_nss->derPublicKey.data,
-          server_cert_nss->derPublicKey.len);
-      DCHECK(rv == SECSuccess);
-      const std::string actual_digest(reinterpret_cast<char*>(calculated_hash),
-                                      hash->data.size());
-
-      // Note that the parser ensures that hash->data.size() is correct for the
-      // given algorithm. An attacker cannot give a zero length hash that
-      // always matches.
-      if (actual_digest == hash->data) {
-        // A DNSSEC secure hash over the public key of the leaf-certificate
-        // is sufficient.
-        return DNSVR_SUCCESS;
-      }
-    }
-  }
-
-  // If a CAA record was found, but nothing matched, then we reject the
-  // certificate.
-  return DNSVR_FAILURE;
-}
-
-// CheckDNSSECChain tries to validate a DNSSEC chain embedded in
-// |server_cert_nss|. It returns true iff a chain is found that proves the
-// value of a CAA record that contains a valid public key fingerprint.
-// |port| contains the TCP port number that we connected to as CAA records can
-// be specific to a given port.
-DNSValidationResult CheckDNSSECChain(
-    const std::string& hostname,
-    CERTCertificate* server_cert_nss,
-    uint16 port) {
-  if (!server_cert_nss)
-    return DNSVR_CONTINUE;
-
-  // CERT_FindCertExtensionByOID isn't exported so we have to install an OID,
-  // get a tag for it and find the extension by using that tag.
-  static SECOidTag dnssec_chain_tag;
-  static bool dnssec_chain_tag_valid;
-  if (!dnssec_chain_tag_valid) {
-    // It's harmless if multiple threads enter this block concurrently.
-    static const uint8 kDNSSECChainOID[] =
-        // 1.3.6.1.4.1.11129.2.1.4
-        // (iso.org.dod.internet.private.enterprises.google.googleSecurity.
-        //  certificateExtensions.dnssecEmbeddedChain)
-        {0x2b, 0x06, 0x01, 0x04, 0x01, 0xd6, 0x79, 0x02, 0x01, 0x04};
-    SECOidData oid_data;
-    memset(&oid_data, 0, sizeof(oid_data));
-    oid_data.oid.data = const_cast<uint8*>(kDNSSECChainOID);
-    oid_data.oid.len = sizeof(kDNSSECChainOID);
-    oid_data.desc = "DNSSEC chain";
-    oid_data.supportedExtension = SUPPORTED_CERT_EXTENSION;
-    dnssec_chain_tag = SECOID_AddEntry(&oid_data);
-    DCHECK_NE(SEC_OID_UNKNOWN, dnssec_chain_tag);
-    dnssec_chain_tag_valid = true;
-  }
-
-  SECItem dnssec_embedded_chain;
-  SECStatus rv = CERT_FindCertExtension(server_cert_nss,
-      dnssec_chain_tag, &dnssec_embedded_chain);
-  if (rv != SECSuccess)
-    return DNSVR_CONTINUE;
-
-  base::StringPiece chain(
-      reinterpret_cast<char*>(dnssec_embedded_chain.data),
-      dnssec_embedded_chain.len);
-  std::string dns_hostname;
-  if (!DNSDomainFromDot(hostname, &dns_hostname))
-    return DNSVR_CONTINUE;
-  DNSSECChainVerifier verifier(dns_hostname, chain);
-  DNSSECChainVerifier::Error err = verifier.Verify();
-  if (err != DNSSECChainVerifier::OK) {
-    LOG(ERROR) << "DNSSEC chain verification failed: " << err;
-    return DNSVR_CONTINUE;
-  }
-
-  if (verifier.rrtype() != kDNS_CAA)
-    return DNSVR_CONTINUE;
-
-  DNSValidationResult r = VerifyCAARecords(
-      server_cert_nss, verifier.rrdatas(), port);
-  SECITEM_FreeItem(&dnssec_embedded_chain, PR_FALSE);
-
-  return r;
-}
 
 void DestroyCertificates(CERTCertificate** certs, size_t len) {
   for (size_t i = 0; i < len; i++)
@@ -2543,6 +2420,24 @@ void SSLClientSocketNSS::Core::UpdateConnectionStatus() {
     }
     UMA_HISTOGRAM_ENUMERATION("Net.RenegotiationExtensionSupported",
                               peer_supports_renego_ext, 2);
+
+    // We would like to eliminate fallback to SSLv3 for non-buggy servers
+    // because of security concerns. For example, Google offers forward
+    // secrecy with ECDHE but that requires TLS 1.0. An attacker can block
+    // TLSv1 connections and force us to downgrade to SSLv3 and remove forward
+    // secrecy.
+    //
+    // Yngve from Opera has suggested using the renegotiation extension as an
+    // indicator that SSLv3 fallback was mistaken:
+    // tools.ietf.org/html/draft-pettersen-tls-version-rollback-removal-00 .
+    //
+    // As a first step, measure how often clients perform version fallback
+    // while the server advertises support secure renegotiation.
+    if (ssl_config_.version_fallback &&
+        channel_info.protocolVersion == SSL_LIBRARY_VERSION_3_0) {
+      UMA_HISTOGRAM_BOOLEAN("Net.SSLv3FallbackToRenegoPatchedServer",
+                            peer_supports_renego_ext == PR_TRUE);
+    }
   }
 #endif
 
@@ -3094,7 +2989,7 @@ int SSLClientSocketNSS::Init() {
   EnsureNSSSSLInit();
   if (!NSS_IsInitialized())
     return ERR_UNEXPECTED;
-#if !defined(OS_MACOSX) && !defined(OS_WIN)
+#if defined(USE_NSS) || defined(OS_IOS)
   if (ssl_config_.cert_io_enabled) {
     // We must call EnsureNSSHttpIOInit() here, on the IO thread, to get the IO
     // loop by MessageLoopForIO::current().
@@ -3325,9 +3220,6 @@ int SSLClientSocketNSS::DoHandshakeLoop(int last_io_result) {
       case STATE_HANDSHAKE_COMPLETE:
         rv = DoHandshakeComplete(rv);
         break;
-      case STATE_VERIFY_DNSSEC:
-        rv = DoVerifyDNSSEC(rv);
-        break;
       case STATE_VERIFY_CERT:
         DCHECK(rv == OK);
         rv = DoVerifyCert(rv);
@@ -3362,7 +3254,7 @@ int SSLClientSocketNSS::DoHandshakeComplete(int result) {
 
   if (result == OK) {
     // SSL handshake is completed. Let's verify the certificate.
-    GotoState(STATE_VERIFY_DNSSEC);
+    GotoState(STATE_VERIFY_CERT);
     // Done!
   }
   set_channel_id_sent(core_->state().channel_id_sent);
@@ -3371,25 +3263,6 @@ int SSLClientSocketNSS::DoHandshakeComplete(int result) {
   return result;
 }
 
-
-int SSLClientSocketNSS::DoVerifyDNSSEC(int result) {
-  DCHECK(!core_->state().server_cert_chain.empty());
-  DCHECK(core_->state().server_cert_chain[0]);
-
-  DNSValidationResult r = CheckDNSSECChain(
-      host_and_port_.host(), core_->state().server_cert_chain[0],
-      host_and_port_.port());
-  if (r == DNSVR_SUCCESS) {
-    server_cert_verify_result_.cert_status |= CERT_STATUS_IS_DNSSEC;
-    server_cert_verify_result_.verified_cert = core_->state().server_cert;
-    GotoState(STATE_VERIFY_CERT_COMPLETE);
-    return OK;
-  }
-
-  GotoState(STATE_VERIFY_CERT);
-
-  return OK;
-}
 
 int SSLClientSocketNSS::DoVerifyCert(int result) {
   DCHECK(!core_->state().server_cert_chain.empty());
@@ -3497,13 +3370,8 @@ int SSLClientSocketNSS::DoVerifyCertComplete(int result) {
         domain_state.HasPins()) {
       if (!domain_state.IsChainOfPublicKeysPermitted(
                server_cert_verify_result_.public_key_hashes)) {
-        const base::Time build_time = base::GetBuildTime();
-        // Pins are not enforced if the build is sufficiently old. Chrome
-        // users should get updates every six weeks or so, but it's possible
-        // that some users will stop getting updates for some reason. We
-        // don't want those users building up as a pool of people with bad
-        // pins.
-        if ((base::Time::Now() - build_time).InDays() < 70 /* 10 weeks */) {
+        // Pins are not enforced if the build is too old.
+        if (TransportSecurityState::IsBuildTimely()) {
           result = ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN;
           UMA_HISTOGRAM_BOOLEAN("Net.PublicKeyPinSuccess", false);
           TransportSecurityState::ReportUMAOnPinFailure(host);

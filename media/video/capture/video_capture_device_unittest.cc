@@ -13,19 +13,23 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if defined(OS_WIN)
+#include "base/win/scoped_com_initializer.h"
+#endif
+
 #if defined(OS_MACOSX)
 // Mac/QTKit will always give you the size you ask for and this case will fail.
 #define MAYBE_AllocateBadSize DISABLED_AllocateBadSize
 // We will always get ARGB from the Mac/QTKit implementation.
-#define MAYBE_MJPEG DISABLED_CaptureMjpeg
-#elif defined(OS_WINDOWS)
-#define MAYBE_AllocateBadSize AllocateBadSizei
+#define MAYBE_CaptureMjpeg DISABLED_CaptureMjpeg
+#elif defined(OS_WIN)
+#define MAYBE_AllocateBadSize AllocateBadSize
 // Windows currently uses DirectShow to convert from MJPEG and a raw format is
 // always delivered.
-#define MAYBE_MJPEG DISABLED_CaptureMjpeg
+#define MAYBE_CaptureMjpeg DISABLED_CaptureMjpeg
 #else
 #define MAYBE_AllocateBadSize AllocateBadSize
-#define MAYBE_MJPEG CaptureMjpeg
+#define MAYBE_CaptureMjpeg CaptureMjpeg
 #endif
 
 using ::testing::_;
@@ -80,6 +84,9 @@ class VideoCaptureDeviceTest : public testing::Test {
   virtual void TearDown() {
   }
 
+#if defined(OS_WIN)
+  base::win::ScopedCOMInitializer initialize_com_;
+#endif
   base::WaitableEvent wait_event_;
   scoped_ptr<MockFrameObserver> frame_observer_;
   VideoCaptureDevice::Names names_;
@@ -254,7 +261,7 @@ TEST_F(VideoCaptureDeviceTest, TestFakeCapture) {
 }
 
 // Start the camera in 720p to capture MJPEG instead of a raw format.
-TEST_F(VideoCaptureDeviceTest, CaptureMjpeg) {
+TEST_F(VideoCaptureDeviceTest, MAYBE_CaptureMjpeg) {
   VideoCaptureDevice::GetDeviceNames(&names_);
   if (!names_.size()) {
     DVLOG(1) << "No camera available. Exiting test.";

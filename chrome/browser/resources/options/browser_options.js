@@ -33,8 +33,15 @@ cr.define('options', function() {
     onShowHomeButtonChangedCalled_: false,
 
     /**
-     * @inheritDoc
+     * Track if page initialization is complete.  All C++ UI handlers have the
+     * chance to manipulate page content within their InitializePage mathods.
+     * This flag is set to true after all initializers have been called.
+     * @type (boolean}
+     * @private
      */
+    initializationComplete_: false,
+
+    /** @override */
     initializePage: function() {
       OptionsPage.prototype.initializePage.call(this);
       var self = this;
@@ -392,9 +399,9 @@ cr.define('options', function() {
                       [$('accessibility-high-contrast-check').checked]);
         };
 
-        $('accessibility-screen-magnifier-check').onchange = function(event) {
+        $('accessibility-screen-magnifier-type').onchange = function(event) {
           chrome.send('screenMagnifierChange',
-                      [$('accessibility-screen-magnifier-check').checked]);
+                      [$('accessibility-screen-magnifier-type').value]);
         };
       }
 
@@ -415,11 +422,19 @@ cr.define('options', function() {
       }
     },
 
-    /**
-     * @inheritDoc
-     */
+    /** @override */
     didShowPage: function() {
       $('search-field').focus();
+    },
+
+   /**
+    * Called after all C++ UI handlers have called InitializePage to notify
+    * that initialization is complete.
+    * @private
+    */
+    notifyInitializationComplete_: function() {
+      this.initializationComplete_ = true;
+      cr.dispatchSimpleEvent(document, 'initializationComplete');
     },
 
     /**
@@ -550,6 +565,17 @@ cr.define('options', function() {
                           /* animate */ false);
         this.updateAdvancedSettingsExpander_();
       }
+
+      if (!this.initializationComplete_) {
+        var self = this;
+        var callback = function() {
+           document.removeEventListener('initializationComplete', callback);
+           self.scrollToSection_(section);
+        };
+        document.addEventListener('initializationComplete', callback);
+        return;
+      }
+
       var pageContainer = $('page-container');
       var pageTop = parseFloat(pageContainer.style.top);
       var topSection = document.querySelector('#page-container section');
@@ -1154,11 +1180,11 @@ cr.define('options', function() {
     },
 
     /**
-     * Set the initial state of the screen magnifier checkbox.
+     * Set the initial state of the screen magnifier dropdown.
      * @private
      */
-    setScreenMagnifierCheckboxState_: function(checked) {
-      $('accessibility-screen-magnifier-check').checked = checked;
+    setMagnifierTypeState_: function(type) {
+      $('accessibility-screen-magnifier-type').value = type;
     },
 
     /**
@@ -1194,7 +1220,7 @@ cr.define('options', function() {
     },
 
     /**
-     * Activate the bluetooth settings section on the System settings page.
+     * Activate the Bluetooth settings section on the System settings page.
      * @private
      */
     showBluetoothSettings_: function() {
@@ -1202,7 +1228,7 @@ cr.define('options', function() {
     },
 
     /**
-     * Dectivates the bluetooth settings section from the System settings page.
+     * Dectivates the Bluetooth settings section from the System settings page.
      * @private
      */
     hideBluetoothSettings_: function() {
@@ -1210,7 +1236,7 @@ cr.define('options', function() {
     },
 
     /**
-     * Sets the state of the checkbox indicating if bluetooth is turned on. The
+     * Sets the state of the checkbox indicating if Bluetooth is turned on. The
      * state of the "Find devices" button and the list of discovered devices may
      * also be affected by a change to the state.
      * @param {boolean} checked Flag Indicating if Bluetooth is turned on.
@@ -1231,14 +1257,14 @@ cr.define('options', function() {
     },
 
     /**
-     * Adds an element to the list of available bluetooth devices. If an element
+     * Adds an element to the list of available Bluetooth devices. If an element
      * with a matching address is found, the existing element is updated.
      * @param {{name: string,
      *          address: string,
      *          paired: boolean,
      *          bonded: boolean,
      *          connected: boolean}} device
-     *     Decription of the bluetooth device.
+     *     Decription of the Bluetooth device.
      * @private
      */
     addBluetoothDevice_: function(device) {
@@ -1290,6 +1316,7 @@ cr.define('options', function() {
     'getCurrentProfile',
     'getStartStopSyncButton',
     'hideBluetoothSettings',
+    'notifyInitializationComplete',
     'removeBluetoothDevice',
     'removeCloudPrintConnectorSection',
     'scrollToSection',
@@ -1302,7 +1329,7 @@ cr.define('options', function() {
     'setMetricsReportingSettingVisibility',
     'setPasswordGenerationSettingVisibility',
     'setProfilesInfo',
-    'setScreenMagnifierCheckboxState',
+    'setMagnifierTypeState',
     'setSpokenFeedbackCheckboxState',
     'setThemesResetButtonEnabled',
     'setVirtualKeyboardCheckboxState',

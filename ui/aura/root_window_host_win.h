@@ -7,6 +7,7 @@
 
 #include "base/compiler_specific.h"
 #include "ui/aura/root_window_host.h"
+#include "ui/base/ui_export.h"
 #include "ui/base/win/window_impl.h"
 
 namespace aura {
@@ -60,8 +61,10 @@ class RootWindowHostWin : public RootWindowHost, public ui::WindowImpl {
     MESSAGE_HANDLER_EX(WM_CHAR, OnKeyEvent)
     MESSAGE_HANDLER_EX(WM_SYSCHAR, OnKeyEvent)
     MESSAGE_HANDLER_EX(WM_IME_CHAR, OnKeyEvent)
+    MESSAGE_HANDLER_EX(WM_NCACTIVATE, OnNCActivate)
 
     MSG_WM_CLOSE(OnClose)
+    MSG_WM_MOVE(OnMove)
     MSG_WM_PAINT(OnPaint)
     MSG_WM_SIZE(OnSize)
   END_MSG_MAP()
@@ -70,6 +73,8 @@ class RootWindowHostWin : public RootWindowHost, public ui::WindowImpl {
   LRESULT OnKeyEvent(UINT message, WPARAM w_param, LPARAM l_param);
   LRESULT OnMouseRange(UINT message, WPARAM w_param, LPARAM l_param);
   LRESULT OnCaptureChanged(UINT message, WPARAM w_param, LPARAM l_param);
+  LRESULT OnNCActivate(UINT message, WPARAM w_param, LPARAM l_param);
+  void OnMove(const CPoint& point);
   void OnPaint(HDC dc);
   void OnSize(UINT param, const CSize& size);
 
@@ -83,6 +88,15 @@ class RootWindowHostWin : public RootWindowHost, public ui::WindowImpl {
 
   DISALLOW_COPY_AND_ASSIGN(RootWindowHostWin);
 };
+
+namespace test {
+
+// Set true to let RootWindowHostWin use a popup window
+// with no frame/title so that the window size and test's
+// expectations matches.
+AURA_EXPORT void SetUsePopupAsRootWindowForTest(bool use);
+
+}  // namespace
 
 }  // namespace aura
 

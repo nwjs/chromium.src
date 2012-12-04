@@ -10,8 +10,8 @@
 // TODO(kochi): Further split gdata_operations.h and include only necessary
 // headers. http://crbug.com/141469
 // DownloadActionCallback/InitiateUploadParams/ResulmeUploadParams
-#include "chrome/browser/google_apis/gdata_operations.h"
-#include "chrome/browser/google_apis/operations_base.h"
+#include "chrome/browser/google_apis/base_operations.h"
+#include "chrome/browser/google_apis/gdata_wapi_operations.h"
 
 class Profile;
 
@@ -95,11 +95,6 @@ class DriveServiceInterface {
 
   // Authentication service:
 
-  // Authenticates the user by fetching the auth token as
-  // needed. |callback| will be run with the error code and the auth
-  // token, on the thread this function is run.
-  virtual void Authenticate(const AuthStatusCallback& callback) = 0;
-
   // True if OAuth2 access token is retrieved and believed to be fresh.
   virtual bool HasAccessToken() const = 0;
 
@@ -122,10 +117,11 @@ class DriveServiceInterface {
   // string is passed, |directory_resource_id| is ignored.
   //
   // Upon completion, invokes |callback| with results on the calling thread.
-  // TODO(satorux): Refactor this function: crbug.com/128746
+  // TODO(haruki): Refactor this function: crbug.com/160932
   virtual void GetDocuments(const GURL& feed_url,
                             int64 start_changestamp,
                             const std::string& search_query,
+                            bool shared_with_me,
                             const std::string& directory_resource_id,
                             const GetDataCallback& callback) = 0;
 
@@ -182,12 +178,11 @@ class DriveServiceInterface {
                                       const EntryActionCallback& callback) = 0;
 
   // Removes a resource (document, file, collection) identified by its
-  // 'self' link |resource_url| from a collection with a content link
+  // |resource_id| from a collection with a content link
   // |parent_content_url|. Upon completion, invokes |callback| with
   // results on the calling thread.
   virtual void RemoveResourceFromDirectory(
       const GURL& parent_content_url,
-      const GURL& resource_url,
       const std::string& resource_id,
       const EntryActionCallback& callback) = 0;
 

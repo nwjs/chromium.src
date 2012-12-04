@@ -17,10 +17,10 @@
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/common/content_export.h"
 #include "ui/aura/client/activation_delegate.h"
-#include "ui/aura/display_observer.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/compositor/compositor_observer.h"
+#include "ui/gfx/display_observer.h"
 #include "ui/gfx/rect.h"
 #include "webkit/glue/webcursor.h"
 
@@ -48,7 +48,7 @@ class RenderWidgetHostViewAura
     : public RenderWidgetHostViewBase,
       public ui::CompositorObserver,
       public ui::TextInputClient,
-      public aura::DisplayObserver,
+      public gfx::DisplayObserver,
       public aura::WindowDelegate,
       public aura::client::ActivationDelegate,
       public ImageTransportFactoryObserver,
@@ -91,7 +91,8 @@ class RenderWidgetHostViewAura
       const ui::Range& range,
       const std::vector<gfx::Rect>& character_bounds) OVERRIDE;
   virtual void DidUpdateBackingStore(
-      const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
+      const gfx::Rect& scroll_rect,
+      const gfx::Vector2d& scroll_delta,
       const std::vector<gfx::Rect>& copy_rects) OVERRIDE;
   virtual void RenderViewGone(base::TerminationStatus status,
                               int error_code) OVERRIDE;
@@ -127,8 +128,9 @@ class RenderWidgetHostViewAura
   virtual void AcceleratedSurfaceRelease(uint64 surface_id) OVERRIDE;
   virtual void GetScreenInfo(WebKit::WebScreenInfo* results) OVERRIDE;
   virtual gfx::Rect GetBoundsInRootWindow() OVERRIDE;
-  virtual void ProcessAckedTouchEvent(const WebKit::WebTouchEvent& touch,
-                                      bool processed) OVERRIDE;
+  virtual void ProcessAckedTouchEvent(
+      const WebKit::WebTouchEvent& touch,
+      InputEventAckState ack_result) OVERRIDE;
   virtual void SetHasHorizontalScrollbar(
       bool has_horizontal_scrollbar) OVERRIDE;
   virtual void SetScrollOffsetPinning(
@@ -162,13 +164,14 @@ class RenderWidgetHostViewAura
       base::i18n::TextDirection direction) OVERRIDE;
   virtual void ExtendSelectionAndDelete(size_t before, size_t after) OVERRIDE;
 
-  // Overridden from aura::DisplayObserver:
+  // Overridden from gfx::DisplayObserver:
   virtual void OnDisplayBoundsChanged(const gfx::Display& display) OVERRIDE;
   virtual void OnDisplayAdded(const gfx::Display& new_display) OVERRIDE;
   virtual void OnDisplayRemoved(const gfx::Display& old_display) OVERRIDE;
 
   // Overridden from aura::WindowDelegate:
   virtual gfx::Size GetMinimumSize() const OVERRIDE;
+  virtual gfx::Size GetMaximumSize() const OVERRIDE;
   virtual void OnBoundsChanged(const gfx::Rect& old_bounds,
                                const gfx::Rect& new_bounds) OVERRIDE;
   virtual void OnFocus(aura::Window* old_focused_window) OVERRIDE;
@@ -192,11 +195,12 @@ class RenderWidgetHostViewAura
   // Overridden from ui::EventHandler:
   virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
   virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
+  virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
   virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Overridden from aura::client::ActivationDelegate:
-  virtual bool ShouldActivate(const ui::Event* event) OVERRIDE;
+  virtual bool ShouldActivate() const OVERRIDE;
   virtual void OnActivated() OVERRIDE;
   virtual void OnLostActive() OVERRIDE;
 

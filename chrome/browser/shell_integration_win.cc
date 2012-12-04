@@ -425,29 +425,32 @@ string16 ShellIntegration::GetAppListAppModelIdForProfile(
                                                    profile_path);
 }
 
-string16 ShellIntegration::GetChromiumIconPath() {
-  // Determine the app path. If we can't determine what that is, we have
-  // bigger fish to fry...
-  FilePath app_path;
-  if (!PathService::Get(base::FILE_EXE, &app_path)) {
+string16 ShellIntegration::GetChromiumIconLocation() {
+  // Determine the path to chrome.exe. If we can't determine what that is,
+  // we have bigger fish to fry...
+  FilePath chrome_exe;
+  if (!PathService::Get(base::FILE_EXE, &chrome_exe)) {
     NOTREACHED();
     return string16();
   }
 
-  string16 icon_path(app_path.value());
-  icon_path.push_back(',');
-  icon_path += base::IntToString16(
+  return ShellUtil::FormatIconLocation(
+      chrome_exe.value(),
       BrowserDistribution::GetDistribution()->GetIconIndex());
-  return icon_path;
 }
 
 void ShellIntegration::MigrateChromiumShortcuts() {
   if (base::win::GetVersion() < base::win::VERSION_WIN7)
     return;
 
-  BrowserThread::PostTask(
+  // This needs to happen eventually (e.g. so that the appid is fixed and the
+  // run-time Chrome icon is merged with the taskbar shortcut), but this is not
+  // urgent and shouldn't delay Chrome startup.
+  static const int64 kMigrateChromiumShortcutsDelaySeconds = 15;
+  BrowserThread::PostDelayedTask(
       BrowserThread::FILE, FROM_HERE,
-      base::Bind(&MigrateChromiumShortcutsCallback));
+      base::Bind(&MigrateChromiumShortcutsCallback),
+      base::TimeDelta::FromSeconds(kMigrateChromiumShortcutsDelaySeconds));
 }
 
 FilePath ShellIntegration::GetStartMenuShortcut(const FilePath& chrome_exe) {

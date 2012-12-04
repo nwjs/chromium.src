@@ -26,6 +26,7 @@
 #elif defined(OS_WIN)
 #include "base/win/scoped_com_initializer.h"
 #include "media/audio/win/audio_manager_win.h"
+#include "media/audio/win/core_audio_util_win.h"
 #elif defined(OS_ANDROID)
 #include "media/audio/android/audio_manager_android.h"
 #endif
@@ -225,7 +226,7 @@ class FullDuplexAudioSinkSource
       // Special fix for Windows in combination with Wave where the
       // pending bytes field of the audio buffer state is used to
       // report the delay.
-      if (!media::IsWASAPISupported()) {
+      if (!CoreAudioUtil::IsSupported()) {
         output_delay_bytes = buffers_state.pending_bytes;
       }
 #endif
@@ -455,7 +456,7 @@ TEST_F(AudioLowLatencyInputOutputTest, DISABLED_FullDuplexDelayMeasurement) {
   // All Close() operations that run on the mocked audio thread,
   // should be synchronous and not post additional close tasks to
   // mocked the audio thread. Hence, there is no need to call
-  // message_loop()->RunAllPending() after the Close() methods.
+  // message_loop()->RunUntilIdle() after the Close() methods.
   aos->Close();
   ais->Close();
 }

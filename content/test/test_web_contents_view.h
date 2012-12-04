@@ -40,6 +40,7 @@ class TestWebContentsView : public WebContentsView,
   virtual void CreateView(const gfx::Size& initial_size) OVERRIDE;
   virtual RenderWidgetHostView* CreateViewForWidget(
       RenderWidgetHost* render_widget_host) OVERRIDE;
+  virtual void SetView(RenderWidgetHostView* view) OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
   virtual gfx::NativeView GetContentNativeView() const OVERRIDE;
   virtual gfx::NativeWindow GetTopLevelNativeWindow() const OVERRIDE;
@@ -57,6 +58,9 @@ class TestWebContentsView : public WebContentsView,
   virtual bool IsEventTracking() const OVERRIDE;
   virtual void CloseTabAfterEventTracking() OVERRIDE;
   virtual gfx::Rect GetViewBounds() const OVERRIDE;
+#if defined(OS_MACOSX)
+  virtual void SetAllowOverlappingViews(bool overlapping) OVERRIDE;
+#endif
 
  private:
   DISALLOW_COPY_AND_ASSIGN(TestWebContentsView);

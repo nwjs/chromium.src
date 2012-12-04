@@ -7,7 +7,8 @@
 namespace ui {
 
 EventDispatcher::EventDispatcher()
-    : set_on_destroy_(NULL) {
+    : set_on_destroy_(NULL),
+      current_event_(NULL) {
 }
 
 EventDispatcher::~EventDispatcher() {
@@ -18,29 +19,9 @@ EventDispatcher::~EventDispatcher() {
 ////////////////////////////////////////////////////////////////////////////////
 // EventDispatcher, private:
 
-EventResult EventDispatcher::DispatchEventToSingleHandler(EventHandler* handler,
-                                                          KeyEvent* event) {
-  return handler->OnKeyEvent(event);
-}
-
-EventResult EventDispatcher::DispatchEventToSingleHandler(EventHandler* handler,
-                                                          MouseEvent* event) {
-  return handler->OnMouseEvent(event);
-}
-
-EventResult EventDispatcher::DispatchEventToSingleHandler(EventHandler* handler,
-                                                          ScrollEvent* event) {
-  return handler->OnScrollEvent(event);
-}
-
-EventResult EventDispatcher::DispatchEventToSingleHandler(EventHandler* handler,
-                                                          TouchEvent* event) {
-  return handler->OnTouchEvent(event);
-}
-
-EventResult EventDispatcher::DispatchEventToSingleHandler(EventHandler* handler,
-                                                          GestureEvent* event) {
-  return handler->OnGestureEvent(event);
+void EventDispatcher::DispatchEventToSingleHandler(EventHandler* handler,
+                                                          Event* event) {
+  handler->OnEvent(event);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,6 +29,7 @@ EventResult EventDispatcher::DispatchEventToSingleHandler(EventHandler* handler,
 
 EventDispatcher::ScopedDispatchHelper::ScopedDispatchHelper(Event* event)
     : Event::DispatcherApi(event) {
+  set_result(ui::ER_UNHANDLED);
 }
 
 EventDispatcher::ScopedDispatchHelper::~ScopedDispatchHelper() {

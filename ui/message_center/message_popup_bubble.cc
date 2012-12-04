@@ -75,17 +75,16 @@ views::TrayBubbleView::InitParams MessagePopupBubble::GetInitParams(
     views::TrayBubbleView::AnchorAlignment anchor_alignment) {
   views::TrayBubbleView::InitParams init_params =
       GetDefaultInitParams(anchor_alignment);
-  init_params.top_color = kBackgroundColor;
   init_params.arrow_color = kBackgroundColor;
   init_params.close_on_deactivate = false;
   return init_params;
 }
 
 void MessagePopupBubble::InitializeContents(
-    views::TrayBubbleView* bubble_view) {
-  bubble_view_ = bubble_view;
-  contents_view_ = new PopupBubbleContentsView(list_delegate_);
-  bubble_view_->AddChildView(contents_view_);
+    views::TrayBubbleView* new_bubble_view) {
+  set_bubble_view(new_bubble_view);
+  contents_view_ = new PopupBubbleContentsView(list_delegate());
+  bubble_view()->AddChildView(contents_view_);
   UpdateBubbleView();
 }
 
@@ -95,7 +94,7 @@ void MessagePopupBubble::OnBubbleViewDestroyed() {
 
 void MessagePopupBubble::UpdateBubbleView() {
   NotificationList::Notifications popup_notifications;
-  list_delegate_->GetNotificationList()->GetPopupNotifications(
+  list_delegate()->GetNotificationList()->GetPopupNotifications(
       &popup_notifications);
   if (popup_notifications.size() == 0) {
     if (bubble_view())
@@ -108,8 +107,8 @@ void MessagePopupBubble::UpdateBubbleView() {
     StartAutoCloseTimer();
   }
   contents_view_->Update(popup_notifications);
-  bubble_view_->Show();
-  bubble_view_->UpdateBubble();
+  bubble_view()->Show();
+  bubble_view()->UpdateBubble();
 }
 
 void MessagePopupBubble::OnMouseEnteredView() {
@@ -132,7 +131,7 @@ void MessagePopupBubble::StopAutoCloseTimer() {
 }
 
 void MessagePopupBubble::OnAutoClose() {
-  list_delegate_->GetNotificationList()->MarkPopupsAsShown();
+  list_delegate()->GetNotificationList()->MarkPopupsAsShown();
   num_popups_ = 0;
   UpdateBubbleView();
 }

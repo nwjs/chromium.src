@@ -200,6 +200,10 @@ This file contains the strings for ash.
         Keyboard Overlay
       </message>
 
+      <message name="IDS_ASH_LEARN_MORE" desc="Text of Learn more links.">
+        Learn more
+      </message>
+
       <!-- Status tray items -->
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the status tray.">
         Status tray
@@ -229,8 +233,11 @@ Press Ctrl+Alt+Z to cancel.
       <message name="IDS_ASH_STATUS_TRAY_EXIT_KIOSK" desc="The label used for the button in the status tray to terminate a session kiosk mode.">
         Exit session
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_EXIT_PUBLIC" desc="The label used for the button in the status tray to terminate a public account session.">
-        End public session
+      <message name="IDS_ASH_STATUS_TRAY_EXIT_PUBLIC" desc="The label used for the button in the status tray to terminate a public account session. If the label is long, indicate where it may be broken into two lines by inserting \n instead of a whitespace.">
+        End public\nsession
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_PUBLIC_LABEL" desc="Text of the the ash system bubble's user card when the current session is a public account session.">
+        <ph name="DISPLAY_NAME">$1<ex>Internet kiosk</ex></ph> is a shared account managed by <ph name="DOMAIN">$2<ex>yourdomain.com</ex></ph>
       </message>
       <message name="IDS_ASH_STATUS_TRAY_LOCK" desc="The label used for the button in the status tray to lock the screen.">
         Lock
@@ -404,8 +411,27 @@ Press Shift + Alt to switch.
         Your input method has changed to <ph name="INPUT_METHOD_ID">$1<ex>EN</ex></ph>*(<ph name="BEGIN_LINK">&lt;a target="_blank" href="$2"&gt;</ph>3rd party<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>).
 Press Shift + Alt to switch.
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_DISABLE_SPOKEN_FEEDBACK" desc="The label used in the tray popup to disable spoken feedback.">
-        Disable spoken feedback
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY" desc="The label used in the tray menu to show the accessibility option menu.">
+        Accessibility options
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_TITLE" desc="The label used in the title of the accessibility option menu.">
+        Accessibility
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_SPOKEN_FEEDBACK" desc="The label used in the accessibility menu of the 
+    system tray to toggle on/off spoken feedback feature.">
+        Spoken feedback
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_HIGH_CONTRAST_MODE" desc="The label used in the accessibility menu of t
+    he system tray to toggle on/off high contrast mode feature.">
+        High contrast mode
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_SCREEN_MAGNIFIER" desc="The label used in the accessibility menu of the
+     system tray to toggle on/off magnifier feature.">
+        Screen magnifier
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_LEARN_MORE" desc="The label used in the accessibility menu of the system tray
+     to open a webpage (article on help center) containing explanation about accessibility feature.">
+        Learn more...
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_FULL" desc="The label in the tray dialog to indicate that the battery is full.">
         Battery full
@@ -422,8 +448,32 @@ Press Shift + Alt to switch.
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_CALCULATING" desc="The label in the tray dialog indicating that the time to charge or discharge the battery is being calculated.">
         Calculating...
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_ONLY" desc="The label in the tray bubble settings row to show a time estimate until the battery is empty.">
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_LEFT_SHORT" desc="The label in the tray bubble settings row to show a time estimate until the battery is empty.">
         <ph name="hour">$1<ex>2</ex></ph>:<ph name="minute">$2<ex>53</ex></ph> left
+      </message>      
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_UNTIL_FULL_SHORT" desc="The label in the tray bubble settings row to show a time estimate until the battery is fully charged.">
+        <ph name="hour">$1<ex>2</ex></ph>:<ph name="minute">$2<ex>53</ex></ph> until full
+      </message>      
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_FULL_CHARGE_ACCESSIBLE" desc="The message used by accessibility to show battery is full and charging.">
+        Battery is full and charging.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_ACCESSIBLE" desc="The message used by accessibility to show battery is calculating its time.">
+        Battery is <ph name="percentage">$1<ex>56</ex></ph>% full
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_CHARGING_ACCESSIBLE" desc="The message used by accessibility to show battery is calculating its time.">
+        Battery is <ph name="percentage">$1<ex>56</ex></ph>% full and charging
+      </message>      
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_CALCULATING_ACCESSIBLE" desc="The message used by accessibility to show battery is calculating its time in short message.">
+        Calculating battery time.
+      </message>               
+      <message name= "IDS_ASH_STATUS_TRAY_BATTERY_TIME_LEFT_ACCESSIBLE" desc="The message used by accessibility to read remaining battery time until empty.">
+        Time left until battery is empty, <ph name="time_left">$1<ex>1 hour and 15 minutes</ex></ph>
+      </message>
+      <message name= "IDS_ASH_STATUS_TRAY_BATTERY_TIME_UNTIL_FULL_ACCESSIBLE" desc="The message used by accessibility to read the estimated time until full.">
+        Time remaining until battery is fully charged, <ph name="time_remaining">$1<ex>1 hour and 15 minutes</ex></ph>
+      </message>
+      <message name = "IDS_ASH_STATUS_TRAY_BATTERY_TIME_ACCESSIBLE" desc="The message used by accessibility to read battery time, which includes both non-zero hours and minutes.">
+        <ph name="hour">$1<ex> 1 hour</ex></ph> and <ph name="minute">$2<ex>15 minutes</ex></ph>
       </message>
       <message name="IDS_ASH_STATUS_TRAY_IP" desc="The label for the IP address of the network:">
         IP Address
@@ -455,6 +505,10 @@ Press Shift + Alt to switch.
       <message name="IDS_ASH_STATUS_TRAY_NO_NETWORKS" desc="The message to display in the network info bubble when it is otherwise empty.">
         No network information available
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_NETWORK_CONNECTING" desc="Shows a connecting network in the network list.">
+	<ph name="NETWORK">$1<ex>GoogleGuest</ex></ph>: Connecting...
+      </message>
+
       <message name="IDS_ASH_STATUS_TRAY_PREVIOUS_MENU" desc="The accessible text for header entries for detailed versions of status tray items.">
         Previous menu
       </message>

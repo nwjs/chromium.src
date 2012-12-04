@@ -167,7 +167,8 @@ CompositingIOSurfaceMac::CopyContext::CopyContext() {
 CompositingIOSurfaceMac::CopyContext::~CopyContext() {
 }
 
-CompositingIOSurfaceMac* CompositingIOSurfaceMac::Create() {
+// static
+CompositingIOSurfaceMac* CompositingIOSurfaceMac::Create(SurfaceOrder order) {
   TRACE_EVENT0("browser", "CompositingIOSurfaceMac::Create");
   IOSurfaceSupport* io_surface_support = IOSurfaceSupport::Initialize();
   if (!io_surface_support) {
@@ -198,10 +199,13 @@ CompositingIOSurfaceMac* CompositingIOSurfaceMac::Create() {
     return NULL;
   }
 
-  // We "punch a hole" in the window, and have the WindowServer render the
-  // OpenGL surface underneath so we can draw over it.
-  GLint belowWindow = -1;
-  [glContext setValues:&belowWindow forParameter:NSOpenGLCPSurfaceOrder];
+  // If requested, ask the WindowServer to render the OpenGL surface underneath
+  // the window. This, combined with a hole punched in the window, will allow
+  // for views to "overlap" the GL surface from the user's point of view.
+  if (order == SURFACE_ORDER_BELOW_WINDOW) {
+    GLint belowWindow = -1;
+    [glContext setValues:&belowWindow forParameter:NSOpenGLCPSurfaceOrder];
+  }
 
   CGLContextObj cglContext = (CGLContextObj)[glContext CGLContextObj];
   if (!cglContext) {
@@ -383,6 +387,10 @@ void CompositingIOSurfaceMac::DrawIOSurface(NSView* view, float scale_factor) {
     }
 
     glUseProgram(0); CHECK_GL_ERROR();
+
+    // Issue a dummy draw call to flush references to the IOSurface out of
+    // the GL driver.
+    DoWorkaroundForIOSurfaceLeak();
   } else {
     // Should match the clear color of RenderWidgetHostViewMac.
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -520,6 +528,34 @@ void CompositingIOSurfaceMac::DrawQuad(const SurfaceQuad& quad) {
 
   glDisableClientState(GL_VERTEX_ARRAY);
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+}
+
+void CompositingIOSurfaceMac::DoWorkaroundForIOSurfaceLeak() {
+  if (!shader_program_blit_rgb_)
+    return;
+
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0, 1, 0, 1, -1, 1);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+
+  // Workaround for issue 158469. Issue a dummy draw call with texture_ not
+  // bound to blit_rgb_sampler_location_, in order to shake all references
+  // to the IOSurface out of the driver.
+  glUseProgram(shader_program_blit_rgb_);
+  glUniform1i(blit_rgb_sampler_location_, 0);
+  glActiveTexture(GL_TEXTURE0 + 0);
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+
+  // Let invisible_quad be a quad that is outside of the viewport.
+  SurfaceQuad invisible_quad;
+  invisible_quad.set_rect(-2.0f, -2.0f, -1.9f, -1.9f);
+  invisible_quad.set_texcoord_rect(0.0f, 0.0f, 1.0f, 1.0f);
+  DrawQuad(invisible_quad);
+  glUseProgram(0);
+
+  CHECK_GL_ERROR();
 }
 
 void CompositingIOSurfaceMac::UnrefIOSurfaceWithContextCurrent() {

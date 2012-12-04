@@ -16,6 +16,7 @@
 #include "content/test/content_browser_test.h"
 #include "content/test/content_browser_test_utils.h"
 #include "googleurl/src/gurl.h"
+#include "media/base/media_switches.h"
 #include "webkit/media/crypto/key_systems.h"
 
 // Platform-specific filename relative to the chrome executable.
@@ -112,8 +113,8 @@ class EncryptedMediaTest : public testing::WithParamInterface<const char*>,
 INSTANTIATE_TEST_CASE_P(ClearKey, EncryptedMediaTest,
                         ::testing::Values(kClearKeyKeySystem));
 
-// http://crbug.com/152864 (Mac) and http://crbug.com/157759 (Aura)
-#if !defined(OS_MACOSX) && !defined(USE_AURA)
+// http://crbug.com/152864 (Mac)
+#if !defined(OS_MACOSX)
 INSTANTIATE_TEST_CASE_P(ExternalClearKey, EncryptedMediaTest,
                         ::testing::Values(kExternalClearKeyKeySystem));
 #define MAYBE(test) test
@@ -129,8 +130,8 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaTest, InvalidKeySystem) {
                          "com.example.invalid", kExpected));
 }
 
-// TODO: Make these three IN_PROC_BROWSER_TEST_P() when internal Clear Key
-// supports encrypted audio.
+// TODO(shadi): Make these three IN_PROC_BROWSER_TEST_P() when internal Clear
+// Key supports encrypted audio.
 IN_PROC_BROWSER_TEST_F(EncryptedMediaTest, MAYBE(BasicPlayback_AudioOnly)) {
   const string16 kExpected = ASCIIToUTF16("ENDED");
   ASSERT_NO_FATAL_FAILURE(

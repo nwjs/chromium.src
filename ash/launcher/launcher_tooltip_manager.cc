@@ -7,6 +7,8 @@
 #include "ash/launcher/launcher_view.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
+#include "ash/wm/session_state_controller.h"
+#include "ash/wm/session_state_observer.h"
 #include "ash/wm/window_animations.h"
 #include "base/bind.h"
 #include "base/message_loop.h"
@@ -148,8 +150,10 @@ LauncherTooltipManager::LauncherTooltipManager(
       launcher_view_(launcher_view) {
   if (shelf_layout_manager)
     shelf_layout_manager->AddObserver(this);
-  if (Shell::HasInstance())
-    Shell::GetInstance()->AddEnvEventFilter(this);
+  if (Shell::HasInstance()) {
+    Shell::GetInstance()->AddPreTargetHandler(this);
+    Shell::GetInstance()->session_state_controller()->AddObserver(this);
+  }
 }
 
 LauncherTooltipManager::~LauncherTooltipManager() {
@@ -157,8 +161,10 @@ LauncherTooltipManager::~LauncherTooltipManager() {
   Close();
   if (shelf_layout_manager_)
     shelf_layout_manager_->RemoveObserver(this);
-  if (Shell::HasInstance())
-    Shell::GetInstance()->RemoveEnvEventFilter(this);
+  if (Shell::HasInstance()) {
+    Shell::GetInstance()->RemovePreTargetHandler(this);
+    Shell::GetInstance()->session_state_controller()->RemoveObserver(this);
+  }
 }
 
 void LauncherTooltipManager::ShowDelayed(views::View* anchor,
@@ -254,25 +260,19 @@ bool LauncherTooltipManager::IsVisible() {
   return widget_ && widget_->IsVisible();
 }
 
-bool LauncherTooltipManager::PreHandleKeyEvent(aura::Window* target,
-                                               ui::KeyEvent* event) {
-  // Not handled.
-  return false;
-}
-
-bool LauncherTooltipManager::PreHandleMouseEvent(aura::Window* target,
-                                                 ui::MouseEvent* event) {
-  DCHECK(target);
+ui::EventResult LauncherTooltipManager::OnMouseEvent(ui::MouseEvent* event) {
+  DCHECK(event->target());
   DCHECK(event);
   if (!widget_ || !widget_->IsVisible())
-    return false;
+    return ui::ER_UNHANDLED;
 
   DCHECK(view_);
   DCHECK(launcher_view_);
 
+  aura::Window* target = static_cast<aura::Window*>(event->target());
   if (widget_->GetNativeWindow()->GetRootWindow() != target->GetRootWindow()) {
     CloseSoon();
-    return false;
+    return ui::ER_UNHANDLED;
   }
 
   gfx::Point location_in_launcher_view = event->location();
@@ -292,25 +292,29 @@ bool LauncherTooltipManager::PreHandleMouseEvent(aura::Window* target,
     CloseSoon();
   }
 
-  return false;
+  return ui::ER_UNHANDLED;
 }
 
-ui::EventResult LauncherTooltipManager::PreHandleTouchEvent(
-    aura::Window* target, ui::TouchEvent* event) {
+ui::EventResult LauncherTooltipManager::OnTouchEvent(ui::TouchEvent* event) {
+  aura::Window* target = static_cast<aura::Window*>(event->target());
   if (widget_ && widget_->IsVisible() && widget_->GetNativeWindow() != target)
     Close();
   return ui::ER_UNHANDLED;
 }
 
-ui::EventResult LauncherTooltipManager::PreHandleGestureEvent(
-    aura::Window* target, ui::GestureEvent* event) {
+void LauncherTooltipManager::OnGestureEvent(ui::GestureEvent* event) {
   if (widget_ && widget_->IsVisible()) {
     // Because this mouse event may arrive to |view_|, here we just schedule
     // the closing event rather than directly calling Close().
     CloseSoon();
   }
+}
 
-  return ui::ER_UNHANDLED;
+void LauncherTooltipManager::OnSessionStateEvent(
+    SessionStateObserver::EventType event) {
+  if (event == SessionStateObserver::EVENT_PRELOCK_ANIMATION_STARTED ||
+      event == SessionStateObserver::EVENT_LOCK_ANIMATION_STARTED)
+    Close();
 }
 
 void LauncherTooltipManager::WillDeleteShelf() {
@@ -341,7 +345,8 @@ void LauncherTooltipManager::CancelHidingAnimation() {
     return;
 
   gfx::NativeView native_view = widget_->GetNativeView();
-  SetWindowVisibilityAnimationTransition(native_view, ANIMATE_NONE);
+  views::corewm::SetWindowVisibilityAnimationTransition(
+      native_view, views::corewm::ANIMATE_NONE);
 }
 
 void LauncherTooltipManager::CloseSoon() {
@@ -369,9 +374,10 @@ void LauncherTooltipManager::CreateBubble(views::View* anchor,
   view_->SetText(text_);
 
   gfx::NativeView native_view = widget_->GetNativeView();
-  SetWindowVisibilityAnimationType(
-      native_view, WINDOW_VISIBILITY_ANIMATION_TYPE_VERTICAL);
-  SetWindowVisibilityAnimationTransition(native_view, ANIMATE_HIDE);
+  views::corewm::SetWindowVisibilityAnimationType(
+      native_view, views::corewm::WINDOW_VISIBILITY_ANIMATION_TYPE_VERTICAL);
+  views::corewm::SetWindowVisibilityAnimationTransition(
+      native_view, views::corewm::ANIMATE_HIDE);
 }
 
 }  // namespace internal

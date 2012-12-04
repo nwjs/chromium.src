@@ -41,12 +41,11 @@ base::Callback<void(Shell*)> Shell::shell_created_callback_;
 bool Shell::quit_message_loop_ = true;
 
 Shell::Shell(WebContents* web_contents)
-    : window_(NULL),
+    : is_fullscreen_(false),
+      window_(NULL),
       url_edit_view_(NULL)
 #if defined(OS_WIN) && !defined(USE_AURA)
       , default_edit_wnd_proc_(0)
-#elif defined(OS_ANDROID)
-      , content_view_layer_renderer_(NULL)
 #endif
   {
   registrar_.Add(this, NOTIFICATION_WEB_CONTENTS_TITLE_UPDATED,
@@ -87,7 +86,7 @@ Shell* Shell::CreateShell(WebContents* web_contents) {
 }
 
 void Shell::CloseAllWindows() {
-  AutoReset<bool> auto_reset(&quit_message_loop_, false);
+  base::AutoReset<bool> auto_reset(&quit_message_loop_, false);
   std::vector<Shell*> open_windows(windows_);
   for (size_t i = 0; i < open_windows.size(); ++i)
     open_windows[i]->Close();
@@ -193,8 +192,43 @@ void Shell::LoadingStateChanged(WebContents* source) {
   PlatformSetIsLoading(source->IsLoading());
 }
 
+void Shell::ToggleFullscreenModeForTab(WebContents* web_contents,
+                                       bool enter_fullscreen) {
+#if defined(OS_ANDROID)
+  PlatformToggleFullscreenModeForTab(web_contents, enter_fullscreen);
+#endif
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree))
+    return;
+  if (is_fullscreen_ != enter_fullscreen) {
+    is_fullscreen_ = enter_fullscreen;
+    web_contents->GetRenderViewHost()->WasResized();
+  }
+}
+
+bool Shell::IsFullscreenForTabOrPending(const WebContents* web_contents) const {
+#if defined(OS_ANDROID)
+  return PlatformIsFullscreenForTabOrPending(web_contents);
+#else
+  return is_fullscreen_;
+#endif
+}
+
+void Shell::RequestToLockMouse(WebContents* web_contents,
+                               bool user_gesture,
+                               bool last_unlocked_by_target) {
+  web_contents->GotResponseToLockMouseRequest(true);
+}
+
 void Shell::CloseContents(WebContents* source) {
   Close();
+}
+
+bool Shell::CanOverscrollContent() const {
+#if defined(USE_AURA)
+  return true;
+#else
+  return false;
+#endif
 }
 
 void Shell::WebContentsCreated(WebContents* source_contents,

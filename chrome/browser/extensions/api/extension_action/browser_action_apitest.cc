@@ -19,8 +19,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -122,7 +122,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, Basic) {
   ui_test_utils::NavigateToURL(browser(),
       test_server()->GetURL("files/extensions/test_file.txt"));
 
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   service->toolbar_model()->ExecuteBrowserAction(extension, browser(), NULL);
 
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
@@ -330,7 +331,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest,
   EXPECT_EQ("hi!", GetBrowserActionsBar().GetTooltip(0));
 
   // Go back to first tab, changed title should reappear.
-  chrome::ActivateTabAt(browser(), 0, true);
+  browser()->tab_strip_model()->ActivateTabAt(0, true);
   EXPECT_EQ("Showing icon 2", GetBrowserActionsBar().GetTooltip(0));
 
   // Reload that tab, default title should come back.
@@ -381,7 +382,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, BrowserActionAddPopup) {
   ASSERT_TRUE(extension) << message_;
 
   int tab_id = ExtensionTabUtil::GetTabId(
-      chrome::GetActiveWebContents(browser()));
+      browser()->tab_strip_model()->GetActiveWebContents());
 
   ExtensionAction* browser_action = GetBrowserAction(*extension);
   ASSERT_TRUE(browser_action)
@@ -437,7 +438,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, BrowserActionRemovePopup) {
   ASSERT_TRUE(extension) << message_;
 
   int tab_id = ExtensionTabUtil::GetTabId(
-      chrome::GetActiveWebContents(browser()));
+      browser()->tab_strip_model()->GetActiveWebContents());
 
   ExtensionAction* browser_action = GetBrowserAction(*extension);
   ASSERT_TRUE(browser_action)
@@ -486,8 +487,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoBasic) {
   // Now enable the extension in incognito mode, and test that the browser
   // action shows up. Note that we don't update the existing window at the
   // moment, so we just create a new one.
-  browser()->profile()->GetExtensionService()->extension_prefs()->
-      SetIsIncognitoEnabled(extension->id(), true);
+  extensions::ExtensionSystem::Get(browser()->profile())->extension_service()->
+      extension_prefs()->SetIsIncognitoEnabled(extension->id(), true);
 
   chrome::CloseWindow(incognito_browser);
   incognito_browser = new Browser(Browser::CreateParams(incognito_profile));
@@ -499,7 +500,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoBasic) {
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoDragging) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
 
   // The tooltips for each respective browser action.
   const char kTooltipA[] = "Make this page red";
@@ -588,8 +590,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, DISABLED_CloseBackgroundPage) {
       content::NotificationService::AllSources());
 
   // Click the browser action.
-  browser()->profile()->GetExtensionService()->toolbar_model()->
-      ExecuteBrowserAction(extension, browser(), NULL);
+  extensions::ExtensionSystem::Get(browser()->profile())->extension_service()->
+      toolbar_model()->ExecuteBrowserAction(extension, browser(), NULL);
 
   // It can take a moment for the background page to actually get destroyed
   // so we wait for the notification before checking that it's really gone

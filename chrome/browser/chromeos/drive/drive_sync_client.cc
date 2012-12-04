@@ -116,8 +116,10 @@ void DriveSyncClient::Initialize() {
   net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
 
   registrar_->Init(profile_->GetPrefs());
-  registrar_->Add(prefs::kDisableDrive, this);
-  registrar_->Add(prefs::kDisableDriveOverCellular, this);
+  base::Closure callback = base::Bind(
+      &DriveSyncClient::OnDriveSyncPreferenceChanged, base::Unretained(this));
+  registrar_->Add(prefs::kDisableDrive, callback);
+  registrar_->Add(prefs::kDisableDriveOverCellular, callback);
 }
 
 void DriveSyncClient::StartProcessingBacklog() {
@@ -357,13 +359,13 @@ void DriveSyncClient::OnGetEntryInfoByResourceId(
       !cache_entry.is_dirty()) {
     cache_->Remove(resource_id,
                    base::Bind(&DriveSyncClient::OnRemove,
-                              weak_ptr_factory_.GetWeakPtr()));
+                              weak_ptr_factory_.GetWeakPtr(),
+                              resource_id));
   }
 }
 
-void DriveSyncClient::OnRemove(DriveFileError error,
-                               const std::string& resource_id,
-                               const std::string& md5) {
+void DriveSyncClient::OnRemove(const std::string& resource_id,
+                               DriveFileError error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (error != DRIVE_FILE_OK) {
@@ -374,14 +376,14 @@ void DriveSyncClient::OnRemove(DriveFileError error,
   // Before fetching, we should pin this file again, so that the fetched file
   // is downloaded properly to the persistent directory and marked pinned.
   cache_->Pin(resource_id,
-              md5,
+              std::string(),
               base::Bind(&DriveSyncClient::OnPinned,
-                         weak_ptr_factory_.GetWeakPtr()));
+                         weak_ptr_factory_.GetWeakPtr(),
+                         resource_id));
 }
 
-void DriveSyncClient::OnPinned(DriveFileError error,
-                               const std::string& resource_id,
-                               const std::string& /* md5 */) {
+void DriveSyncClient::OnPinned(const std::string& resource_id,
+                               DriveFileError error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (error != DRIVE_FILE_OK) {
@@ -435,8 +437,7 @@ void DriveSyncClient::OnUploadFileComplete(const std::string& resource_id,
   DoSyncLoop();
 }
 
-void DriveSyncClient::OnPreferenceChanged(PrefServiceBase* service,
-                                          const std::string& pref_name) {
+void DriveSyncClient::OnDriveSyncPreferenceChanged() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // Resume the sync loop if gdata preferences are changed. Note that we

@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/url_constants.h"
+#include "extensions/common/constants.h"
 
 using WebKit::WebSecurityOrigin;
 using extensions::Extension;
@@ -74,7 +75,7 @@ std::string ExtensionSet::GetExtensionOrAppIDByURL(
     const ExtensionURLInfo& info) const {
   DCHECK(!info.origin().isNull());
 
-  if (info.url().SchemeIs(chrome::kExtensionScheme))
+  if (info.url().SchemeIs(extensions::kExtensionScheme))
     return info.origin().isUnique() ? "" : info.url().host();
 
   const Extension* extension = GetExtensionOrAppByURL(info);
@@ -94,7 +95,7 @@ const Extension* ExtensionSet::GetExtensionOrAppByURL(
   if (!info.origin().isNull() && info.origin().isUnique())
     return NULL;
 
-  if (info.url().SchemeIs(chrome::kExtensionScheme))
+  if (info.url().SchemeIs(extensions::kExtensionScheme))
     return GetByID(info.url().host());
 
   return GetHostedAppByURL(info);
@@ -112,7 +113,7 @@ const Extension* ExtensionSet::GetHostedAppByURL(
 }
 
 const Extension* ExtensionSet::GetHostedAppByOverlappingWebExtent(
-    const URLPatternSet& extent) const {
+    const extensions::URLPatternSet& extent) const {
   for (ExtensionMap::const_iterator iter = extensions_.begin();
        iter != extensions_.end(); ++iter) {
     if (iter->second->web_extent().OverlapsWith(extent))
@@ -141,7 +142,7 @@ bool ExtensionSet::ExtensionBindingsAllowed(
   if (info.origin().isUnique() || IsSandboxedPage(info))
     return false;
 
-  if (info.url().SchemeIs(chrome::kExtensionScheme))
+  if (info.url().SchemeIs(extensions::kExtensionScheme))
     return true;
 
   ExtensionMap::const_iterator i = extensions_.begin();
@@ -155,10 +156,7 @@ bool ExtensionSet::ExtensionBindingsAllowed(
 }
 
 bool ExtensionSet::IsSandboxedPage(const ExtensionURLInfo& info) const {
-  if (info.origin().isUnique())
-    return true;
-
-  if (info.url().SchemeIs(chrome::kExtensionScheme)) {
+  if (info.url().SchemeIs(extensions::kExtensionScheme)) {
     const Extension* extension = GetByID(info.url().host());
     if (extension) {
       return extension->IsSandboxedPage(info.url().path());

@@ -5,8 +5,8 @@
 #include "chrome/browser/chromeos/contacts/gdata_contacts_service.h"
 
 #include <cstring>
-#include <string>
 #include <map>
+#include <string>
 #include <utility>
 
 #include "base/json/json_value_converter.h"
@@ -21,9 +21,9 @@
 #include "base/values.h"
 #include "chrome/browser/chromeos/contacts/contact.pb.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
-#include "chrome/browser/google_apis/gdata_operations.h"
-#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/gdata_contacts_operations.h"
 #include "chrome/browser/google_apis/operation_runner.h"
+#include "chrome/browser/google_apis/time_util.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
@@ -853,7 +853,9 @@ GDataContactsService::GDataContactsService(Profile* profile)
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   std::vector<std::string> scopes;
   scopes.push_back(kContactsScope);
-  runner_.reset(new google_apis::OperationRunner(profile, scopes));
+  runner_.reset(new google_apis::OperationRunner(profile,
+                                                 scopes,
+                                                 "" /* custom_user_agent */));
 }
 
 GDataContactsService::~GDataContactsService() {

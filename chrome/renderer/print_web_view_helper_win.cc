@@ -17,9 +17,9 @@
 #include "printing/metafile_skia_wrapper.h"
 #include "printing/page_size_margins.h"
 #include "printing/units.h"
-#include "skia/ext/vector_canvas.h"
 #include "skia/ext/platform_device.h"
-#include "third_party/skia/include/core/SkRefCnt.h"
+#include "skia/ext/refptr.h"
+#include "skia/ext/vector_canvas.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "ui/gfx/gdi_util.h"
 #include "ui/gfx/point.h"
@@ -38,7 +38,7 @@ void PrintWebViewHelper::PrintPageInternal(
     WebFrame* frame) {
   // Generate a memory-based metafile. It will use the current screen's DPI.
   // Each metafile contains a single page.
-  scoped_ptr<Metafile> metafile(new printing::NativeMetafile);
+  scoped_ptr<printing::NativeMetafile> metafile(new printing::NativeMetafile);
   metafile->Init();
   DCHECK(metafile->context());
   skia::InitializeDC(metafile->context());
@@ -61,6 +61,13 @@ void PrintWebViewHelper::PrintPageInternal(
   // Close the device context to retrieve the compiled metafile.
   if (!metafile->FinishDocument())
     NOTREACHED();
+
+  if (!params.params.supports_alpha_blend && metafile->IsAlphaBlendUsed()) {
+    scoped_ptr<printing::NativeMetafile> raster_metafile(
+        metafile->RasterizeAlphaBlend());
+    if (raster_metafile.get())
+      metafile.swap(raster_metafile);
+  }
 
   // Get the size of the compiled metafile.
   uint32 buf_size = metafile->GetDataSize();
@@ -162,28 +169,35 @@ void PrintWebViewHelper::RenderPage(
   }
 
   float webkit_page_shrink_factor = frame->getPrintPageShrink(page_number);
+  float scale_factor = css_scale_factor * webkit_page_shrink_factor;
+
+  gfx::Rect canvas_area =
+      params.display_header_footer ? gfx::Rect(page_size) : content_area;
+
   SkDevice* device = metafile->StartPageForVectorCanvas(
-      page_size, content_area, css_scale_factor * webkit_page_shrink_factor);
+      page_size, canvas_area, scale_factor);
   DCHECK(device);
   // The printPage method may take a reference to the canvas we pass down, so it
   // can't be a stack object.
-  SkRefPtr<skia::VectorCanvas> canvas = new skia::VectorCanvas(device);
-  canvas->unref();  // SkRefPtr and new both took a reference.
+  skia::RefPtr<skia::VectorCanvas> canvas =
+      skia::AdoptRef(new skia::VectorCanvas(device));
+
   if (is_preview) {
     printing::MetafileSkiaWrapper::SetMetafileOnCanvas(*canvas, metafile);
     skia::SetIsDraftMode(*canvas, is_print_ready_metafile_sent_);
     skia::SetIsPreviewMetafile(*canvas, is_preview);
   }
 
-  float webkit_scale_factor = frame->printPage(page_number, canvas.get());
-
   if (params.display_header_footer) {
     // |page_number| is 0-based, so 1 is added.
     PrintHeaderAndFooter(canvas.get(), page_number + 1,
-                         print_preview_context_.total_page_count(),
-                         css_scale_factor * webkit_page_shrink_factor,
-                         page_layout_in_points, *header_footer_info_, params);
+        print_preview_context_.total_page_count(), scale_factor,
+        page_layout_in_points, *header_footer_info_, params);
   }
+
+  float webkit_scale_factor = RenderPageContent(frame, page_number, canvas_area,
+                                                content_area, scale_factor,
+                                                canvas.get());
 
   if (*actual_shrink <= 0 || webkit_scale_factor <= 0) {
     NOTREACHED() << "Printing page " << page_number << " failed.";

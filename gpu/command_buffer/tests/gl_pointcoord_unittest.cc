@@ -20,7 +20,9 @@ class PointCoordTest : public testing::Test {
 
  protected:
   virtual void SetUp() {
-    gl_.Initialize(gfx::Size(kResolution, kResolution));
+    GLManager::Options options;
+    options.size = gfx::Size(kResolution, kResolution);
+    gl_.Initialize(options);
   }
 
   virtual void TearDown() {
@@ -63,7 +65,15 @@ GLfloat s2p(GLfloat s) {
 
 }  // anonymous namespace
 
-TEST_F(PointCoordTest, RenderTo) {
+// crbug.com/162976
+// Flaky on Linux ATI bot.
+#if (defined(OS_LINUX) && defined(NDEBUG))
+#define MAYBE_RenderTo DISABLED_RenderTo
+#else
+#define MAYBE_RenderTo RenderTo
+#endif
+
+TEST_F(PointCoordTest, MAYBE_RenderTo) {
   static const char* v_shader_str = SHADER(
       attribute vec4 a_position;
       uniform float u_pointsize;

@@ -7,14 +7,12 @@
 #include "cc/quad_sink.h"
 #include "cc/render_pass.h"
 #include "cc/render_pass_draw_quad.h"
-#include "cc/settings.h"
 #include "cc/solid_color_draw_quad.h"
 #include "cc/test/animation_test_common.h"
 #include "cc/test/fake_web_compositor_output_surface.h"
 #include "cc/test/fake_web_compositor_software_output_device.h"
 #include "cc/test/geometry_test_utils.h"
 #include "cc/test/render_pass_test_common.h"
-#include "cc/test/test_common.h"
 #include "cc/tile_draw_quad.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -68,13 +66,17 @@ TEST_F(SoftwareRendererTest, solidColorQuad)
 
     initializeRenderer();
 
-    scoped_ptr<SharedQuadState> sharedQuadState = SharedQuadState::create(WebTransformationMatrix(), outerRect, outerRect, 1.0, true);
+    scoped_ptr<SharedQuadState> sharedQuadState = SharedQuadState::Create();
+    sharedQuadState->SetAll(gfx::Transform(), outerRect, outerRect, outerRect, false, 1.0);
     RenderPass::Id rootRenderPassId = RenderPass::Id(1, 1);
-    scoped_ptr<TestRenderPass> rootRenderPass = TestRenderPass::create(rootRenderPassId, outerRect, WebTransformationMatrix());
-    scoped_ptr<DrawQuad> outerQuad = SolidColorDrawQuad::create(sharedQuadState.get(), outerRect, SK_ColorYELLOW).PassAs<DrawQuad>();
-    scoped_ptr<DrawQuad> innerQuad = SolidColorDrawQuad::create(sharedQuadState.get(), innerRect, SK_ColorCYAN).PassAs<DrawQuad>();
-    rootRenderPass->appendQuad(innerQuad.Pass());
-    rootRenderPass->appendQuad(outerQuad.Pass());
+    scoped_ptr<TestRenderPass> rootRenderPass = TestRenderPass::Create();
+    rootRenderPass->SetNew(rootRenderPassId, outerRect, gfx::Rect(), gfx::Transform());
+    scoped_ptr<SolidColorDrawQuad> outerQuad = SolidColorDrawQuad::Create();
+    outerQuad->SetNew(sharedQuadState.get(), outerRect, SK_ColorYELLOW);
+    scoped_ptr<SolidColorDrawQuad> innerQuad = SolidColorDrawQuad::Create();
+    innerQuad->SetNew(sharedQuadState.get(), innerRect, SK_ColorCYAN);
+    rootRenderPass->AppendQuad(innerQuad.PassAs<DrawQuad>());
+    rootRenderPass->AppendQuad(outerQuad.PassAs<DrawQuad>());
 
     RenderPassList list;
     RenderPassIdHashMap hashmap;
@@ -125,13 +127,17 @@ TEST_F(SoftwareRendererTest, tileQuad)
 
     gfx::Rect rect = gfx::Rect(gfx::Point(), deviceViewportSize());
 
-    scoped_ptr<SharedQuadState> sharedQuadState = SharedQuadState::create(WebTransformationMatrix(), outerRect, outerRect, 1.0, true);
+    scoped_ptr<SharedQuadState> sharedQuadState = SharedQuadState::Create();
+    sharedQuadState->SetAll(gfx::Transform(), outerRect, outerRect, outerRect, false, 1.0);
     RenderPass::Id rootRenderPassId = RenderPass::Id(1, 1);
-    scoped_ptr<TestRenderPass> rootRenderPass = TestRenderPass::create(rootRenderPassId, gfx::Rect(gfx::Point(), deviceViewportSize()), WebTransformationMatrix());
-    scoped_ptr<DrawQuad> outerQuad = TileDrawQuad::create(sharedQuadState.get(), outerRect, outerRect, resourceYellow, gfx::Vector2d(), outerSize, 0, false, false, false, false, false).PassAs<DrawQuad>();
-    scoped_ptr<DrawQuad> innerQuad = TileDrawQuad::create(sharedQuadState.get(), innerRect, innerRect, resourceCyan, gfx::Vector2d(), innerSize, 0, false, false, false, false, false).PassAs<DrawQuad>();
-    rootRenderPass->appendQuad(innerQuad.Pass());
-    rootRenderPass->appendQuad(outerQuad.Pass());
+    scoped_ptr<TestRenderPass> rootRenderPass = TestRenderPass::Create();
+    rootRenderPass->SetNew(rootRenderPassId, gfx::Rect(gfx::Point(), deviceViewportSize()), gfx::Rect(), gfx::Transform());
+    scoped_ptr<TileDrawQuad> outerQuad = TileDrawQuad::Create();
+    outerQuad->SetNew(sharedQuadState.get(), outerRect, outerRect, resourceYellow, gfx::RectF(gfx::PointF(), outerSize), outerSize, false, false, false, false, false);
+    scoped_ptr<TileDrawQuad> innerQuad = TileDrawQuad::Create();
+    innerQuad->SetNew(sharedQuadState.get(), innerRect, innerRect, resourceCyan, gfx::RectF(gfx::PointF(), innerSize), innerSize, false, false, false, false, false);
+    rootRenderPass->AppendQuad(innerQuad.PassAs<DrawQuad>());
+    rootRenderPass->AppendQuad(outerQuad.PassAs<DrawQuad>());
 
     RenderPassList list;
     RenderPassIdHashMap hashmap;

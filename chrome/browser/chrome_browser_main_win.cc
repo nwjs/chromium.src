@@ -6,22 +6,21 @@
 
 #include <windows.h>
 #include <shellapi.h>
-#include <shobjidl.h>
 
 #include <algorithm>
 
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
+#include "base/file_path.h"
 #include "base/i18n/rtl.h"
-#include "base/location.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/scoped_native_library.h"
 #include "base/string_number_conversions.h"
+#include "base/threading/sequenced_worker_pool.h"
+#include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/metro.h"
-#include "base/win/registry.h"
 #include "base/win/text_services_message_filter.h"
 #include "base/win/windows_version.h"
 #include "base/win/wrapped_window_proc.h"
@@ -54,11 +53,6 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/win/message_box_win.h"
 #include "ui/gfx/platform_font_win.h"
-
-#if defined(USE_AURA)
-#include "chrome/browser/metro_viewer/metro_viewer_process_host_win.h"
-#endif
-
 
 namespace {
 
@@ -93,28 +87,6 @@ class TranslationDelegate : public installer::TranslationDelegate {
  public:
   virtual string16 GetLocalizedString(int installer_string_id) OVERRIDE;
 };
-
-// Forces the Desktop vs Metro preference on Win8 back to Desktop if Chrome has
-// lost default browser. This is to prevent a case where Chrome is running on
-// the Desktop and is made default again (at which point subsequent launches
-// would try to launch in Metro and fail, rdv'ing back to Desktop Chrome).
-void ResetLaunchModePreferenceIfLostDefaultOnWin8() {
-  DCHECK(base::win::GetVersion() >= base::win::VERSION_WIN8);
-  if (ShellIntegration::IsDefaultBrowser() !=
-          ShellIntegration::IS_DEFAULT_WEB_CLIENT) {
-    DWORD reg_value = 0;
-    base::win::RegKey reg_key(HKEY_CURRENT_USER, chrome::kMetroRegistryPath,
-                              KEY_ALL_ACCESS);
-    if (reg_key.Valid() &&
-        reg_key.ReadValueDW(chrome::kLaunchModeValue,
-                            &reg_value) == ERROR_SUCCESS &&
-        reg_value != ECHUIM_DESKTOP &&
-        reg_key.WriteValue(chrome::kLaunchModeValue,
-                           ECHUIM_DESKTOP) != ERROR_SUCCESS) {
-      NOTREACHED();
-    }
-  }
-}
 
 }  // namespace
 
@@ -195,11 +167,6 @@ int DoUninstallTasks(bool chrome_still_running) {
 ChromeBrowserMainPartsWin::ChromeBrowserMainPartsWin(
     const content::MainFunctionParams& parameters)
     : ChromeBrowserMainParts(parameters) {
-  if ((base::win::GetVersion() >= base::win::VERSION_WIN7) &&
-      (base::win::IsTouchEnabled())) {
-    CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kEnableTouchEvents);
-  }
   if (base::win::IsMetroProcess()) {
     typedef const wchar_t* (*GetMetroSwitches)(void);
     GetMetroSwitches metro_switches_proc = reinterpret_cast<GetMetroSwitches>(
@@ -259,15 +226,32 @@ void ChromeBrowserMainPartsWin::PreMainMessageLoopRun() {
   ChromeBrowserMainParts::PreMainMessageLoopRun();
 
   removable_device_notifications_window_->Init();
-#if defined(USE_AURA)
-  metro_viewer_process_host_.reset(new MetroViewerProcessHost);
-#endif
+}
 
-  if (base::win::GetVersion() >= base::win::VERSION_WIN8) {
-    content::BrowserThread::PostTask(
-        content::BrowserThread::FILE, FROM_HERE,
-        base::Bind(&ResetLaunchModePreferenceIfLostDefaultOnWin8));
+void ChromeBrowserMainPartsWin::PreInteractiveFirstRunInit() {
+  // Trigger the Active Setup command for system-level Chromes to finish
+  // configuring this user's install (e.g. per-user shortcuts).
+  // Delay the task slightly to give Chrome launch I/O priority while also
+  // making sure shortcuts are created promptly to avoid annoying the user by
+  // re-creating shortcuts he previously deleted.
+  static const int64 kTiggerActiveSetupDelaySeconds = 5;
+  FilePath chrome_exe;
+  if (!PathService::Get(base::FILE_EXE, &chrome_exe)) {
+    NOTREACHED();
+  } else if (!InstallUtil::IsPerUserInstall(chrome_exe.value().c_str())) {
+    content::BrowserThread::GetBlockingPool()->PostDelayedTask(
+        FROM_HERE,
+        base::Bind(&InstallUtil::TriggerActiveSetupCommand),
+        base::TimeDelta::FromSeconds(kTiggerActiveSetupDelaySeconds));
   }
+
+  ChromeBrowserMainParts::PreInteractiveFirstRunInit();
+}
+
+void ChromeBrowserMainPartsWin::ShowMissingLocaleMessageBox() {
+  ui::MessageBox(NULL, ASCIIToUTF16(chrome_browser::kMissingLocaleDataMessage),
+                 ASCIIToUTF16(chrome_browser::kMissingLocaleDataTitle),
+                 MB_OK | MB_ICONERROR | MB_TOPMOST);
 }
 
 // static
@@ -339,12 +323,6 @@ void ChromeBrowserMainPartsWin::RegisterApplicationRestart(
   }
 }
 
-void ChromeBrowserMainPartsWin::ShowMissingLocaleMessageBox() {
-  ui::MessageBox(NULL, ASCIIToUTF16(chrome_browser::kMissingLocaleDataMessage),
-                 ASCIIToUTF16(chrome_browser::kMissingLocaleDataTitle),
-                 MB_OK | MB_ICONERROR | MB_TOPMOST);
-}
-
 // static
 int ChromeBrowserMainPartsWin::HandleIconsCommands(
     const CommandLine& parsed_command_line) {
@@ -386,18 +364,28 @@ bool ChromeBrowserMainPartsWin::CheckMachineLevelInstall() {
     std::wstring exe = exe_path.value();
     FilePath user_exe_path(installer::GetChromeInstallPath(false, dist));
     if (FilePath::CompareEqualIgnoreCase(exe, user_exe_path.value())) {
-      const string16 text =
-          l10n_util::GetStringUTF16(IDS_MACHINE_LEVEL_INSTALL_CONFLICT);
-      const string16 caption = l10n_util::GetStringUTF16(IDS_PRODUCT_NAME);
-      const UINT flags = MB_OK | MB_ICONERROR | MB_TOPMOST;
-      ui::MessageBox(NULL, text, caption, flags);
+      bool is_metro = base::win::IsMetroProcess();
+      if (!is_metro) {
+        // The dialog cannot be shown in Win8 Metro as doing so hangs Chrome on
+        // an invisible dialog.
+        // TODO (gab): Get rid of this dialog altogether and auto-launch
+        // system-level Chrome instead.
+        const string16 text =
+            l10n_util::GetStringUTF16(IDS_MACHINE_LEVEL_INSTALL_CONFLICT);
+        const string16 caption = l10n_util::GetStringUTF16(IDS_PRODUCT_NAME);
+        const UINT flags = MB_OK | MB_ICONERROR | MB_TOPMOST;
+        ui::MessageBox(NULL, text, caption, flags);
+      }
       CommandLine uninstall_cmd(
           InstallUtil::GetChromeUninstallCmd(false, dist->GetType()));
       if (!uninstall_cmd.GetProgram().empty()) {
         uninstall_cmd.AppendSwitch(installer::switches::kForceUninstall);
         uninstall_cmd.AppendSwitch(
             installer::switches::kDoNotRemoveSharedItems);
-        base::LaunchProcess(uninstall_cmd, base::LaunchOptions(), NULL);
+        base::LaunchOptions launch_options;
+        if (is_metro)
+          launch_options.force_breakaway_from_job_ = true;
+        base::LaunchProcess(uninstall_cmd, launch_options, NULL);
       }
       return true;
     }

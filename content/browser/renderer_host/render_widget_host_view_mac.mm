@@ -289,6 +289,7 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
       last_frame_was_accelerated_(false),
       text_input_type_(ui::TEXT_INPUT_TYPE_NONE),
       can_compose_inline_(true),
+      allow_overlapping_views_(false),
       is_loading_(false),
       is_hidden_(false),
       weak_factory_(this),
@@ -314,6 +315,10 @@ RenderWidgetHostViewMac::~RenderWidgetHostViewMac() {
 void RenderWidgetHostViewMac::SetDelegate(
     NSObject<RenderWidgetHostViewMacDelegate>* delegate) {
   [cocoa_view_ setRWHVDelegate:delegate];
+}
+
+void RenderWidgetHostViewMac::SetAllowOverlappingViews(bool overlapping) {
+  allow_overlapping_views_ = overlapping;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -645,7 +650,8 @@ void RenderWidgetHostViewMac::ImeCompositionRangeChanged(
 }
 
 void RenderWidgetHostViewMac::DidUpdateBackingStore(
-    const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
+    const gfx::Rect& scroll_rect,
+    const gfx::Vector2d& scroll_delta,
     const std::vector<gfx::Rect>& copy_rects) {
   GotSoftwareFrame();
 
@@ -727,7 +733,11 @@ void RenderWidgetHostViewMac::Destroy() {
   [fullscreen_window_manager_ exitFullscreenMode];
   fullscreen_window_manager_.reset();
   [pepper_fullscreen_window_ close];
-  pepper_fullscreen_window_.reset();
+
+  // This can be called as part of processing the window's responder
+  // chain, for instance |-performKeyEquivalent:|.  In that case the
+  // object needs to survive until the stack unwinds.
+  pepper_fullscreen_window_.autorelease();
 
   // We get this call just before |render_widget_host_| deletes
   // itself.  But we are owned by |cocoa_view_|, which may be retained
@@ -1041,8 +1051,12 @@ bool RenderWidgetHostViewMac::CompositorSwapBuffers(uint64 surface_handle,
     return true;
   }
 
-  if (!compositing_iosurface_.get())
-    compositing_iosurface_.reset(CompositingIOSurfaceMac::Create());
+  if (!compositing_iosurface_.get()) {
+    CompositingIOSurfaceMac::SurfaceOrder order = allow_overlapping_views_ ?
+        CompositingIOSurfaceMac::SURFACE_ORDER_BELOW_WINDOW :
+        CompositingIOSurfaceMac::SURFACE_ORDER_ABOVE_WINDOW;
+    compositing_iosurface_.reset(CompositingIOSurfaceMac::Create(order));
+  }
 
   if (!compositing_iosurface_.get())
     return true;
@@ -2176,8 +2190,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
   if (backingStore)  // NULL in hardware path.
     backingStore->ScaleFactorChanged(scaleFactor);
 
-  renderWidgetHostView_->render_widget_host_->SetDeviceScaleFactor(
-      scaleFactor);
+  renderWidgetHostView_->render_widget_host_->NotifyScreenInfoChanged();
 }
 
 // http://developer.apple.com/library/mac/#documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/CapturingScreenContents/CapturingScreenContents.html#//apple_ref/doc/uid/TP40012302-CH10-SW4
@@ -2221,8 +2234,10 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
   // NB: -[NSView setFrame:] calls through -setFrameSize:, so overriding
   // -setFrame: isn't neccessary.
   [super setFrameSize:newSize];
-  if (renderWidgetHostView_->render_widget_host_)
+  if (renderWidgetHostView_->render_widget_host_) {
+    renderWidgetHostView_->render_widget_host_->SendScreenRects();
     renderWidgetHostView_->render_widget_host_->WasResized();
+  }
 }
 
 - (void)callSetNeedsDisplayInRect {
@@ -2304,15 +2319,16 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 
   if (renderWidgetHostView_->last_frame_was_accelerated_ &&
       renderWidgetHostView_->compositing_iosurface_.get()) {
-    {
+    if (renderWidgetHostView_->allow_overlapping_views_) {
+      // If overlapping views need to be allowed, punch a hole in the window
+      // to expose the GL underlay.
       TRACE_EVENT2("gpu", "NSRectFill clear", "w", damagedRect.width(),
                    "h", damagedRect.height());
-      // Draw transparency to expose the GL underlay. NSRectFill is extremely
-      // slow (15ms for a window on a fast MacPro), so this is only done when
-      // it's a real invalidation from window damage (not when a BuffersSwapped
-      // was received). Note that even a 1x1 NSRectFill can take many
-      // milliseconds sometimes (!) so this is skipped completely for drawRects
-      // that are triggered by BuffersSwapped messages.
+      // NSRectFill is extremely slow (15ms for a window on a fast MacPro), so
+      // this is only done when it's a real invalidation from window damage (not
+      // when a BuffersSwapped was received). Note that even a 1x1 NSRectFill
+      // can take many milliseconds sometimes (!) so this is skipped completely
+      // for drawRects that are triggered by BuffersSwapped messages.
       [[NSColor clearColor] set];
       NSRectFill(dirtyRect);
     }

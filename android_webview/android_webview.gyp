@@ -23,16 +23,24 @@
       'sources': [
         'lib/main/webview_entry_point.cc',
       ],
+      'conditions': [
+        ['android_build_type != 0', {
+          'libraries': [
+            # The "android" gyp backend doesn't quite handle static libraries'
+            # dependencies correctly; force this to be linked as a workaround.
+            'cpufeatures.a',
+          ],
+        }],
+      ],
     },
     {
       'target_name': 'android_webview_common',
       'type': 'static_library',
       'dependencies': [
+        '../android_webview/native/webview_native.gyp:webview_native',
         '../content/content.gyp:content',
         '../content/content.gyp:navigation_interception',
-        '../android_webview/native/webview_native.gyp:webview_native',
-        '../chrome/browser/component/components.gyp:web_contents_delegate_android',
-        '../chrome/browser/component/components.gyp:browser_component_jni_headers',
+        '../content/content.gyp:web_contents_delegate_android',
         '../ui/ui.gyp:ui_resources',
       ],
       'include_dirs': [
@@ -60,7 +68,10 @@
         'browser/aw_result_codes.h',
         'browser/find_helper.cc',
         'browser/find_helper.h',
+        'browser/input_stream.h',
         'browser/intercepted_request_data.h',
+        'browser/net/android_stream_reader_url_request_job.cc',
+        'browser/net/android_stream_reader_url_request_job.h',
         'browser/net/aw_network_delegate.cc',
         'browser/net/aw_network_delegate.h',
         'browser/net/aw_url_request_context_getter.cc',
@@ -68,6 +79,8 @@
         'browser/net/aw_url_request_job_factory.cc',
         'browser/net/aw_url_request_job_factory.h',
         'browser/net/init_native_callback.h',
+        'browser/net/input_stream_reader.cc',
+        'browser/net/input_stream_reader.h',
         'browser/net_disk_cache_remover.cc',
         'browser/net_disk_cache_remover.h',
         'browser/renderer_host/aw_render_view_host_ext.cc',
@@ -106,7 +119,7 @@
       'dependencies': [
         '../content/content.gyp:content_java',
         '../content/content.gyp:navigation_interception_java',
-        '../chrome/browser/component/components.gyp:web_contents_delegate_android_java',
+        '../content/content.gyp:web_contents_delegate_android_java',
         '../ui/ui.gyp:ui_java',
       ],
       'variables': {
@@ -120,11 +133,11 @@
       'type': 'none',
       'dependencies': [
         '../base/base.gyp:base_java',
-        '../chrome/browser/component/components.gyp:web_contents_delegate_android_java',
         '../chrome/chrome_resources.gyp:packed_extra_resources',
         '../chrome/chrome_resources.gyp:packed_resources',
         '../content/content.gyp:content_java',
         '../content/content.gyp:navigation_interception_java',
+        '../content/content.gyp:web_contents_delegate_android_java',
         '../media/media.gyp:media_java',
         '../net/net.gyp:net_java',
         '../ui/ui.gyp:ui_java',

@@ -30,11 +30,6 @@ class DriveCacheEntry;
 class DriveCacheMetadata;
 class DriveCacheObserver;
 
-// Callback for completion of cache operation.
-typedef base::Callback<void(DriveFileError error,
-                            const std::string& resource_id,
-                            const std::string& md5)> CacheOperationCallback;
-
 // Callback for GetFileFromCache.
 typedef base::Callback<void(DriveFileError error,
                             const FilePath& cache_file_path)>
@@ -134,8 +129,9 @@ class DriveCache {
 
   // Frees up disk space to store the given number of bytes, while keeping
   // kMinFreeSpace bytes on the disk, if needed.
-  // Returns true when we successfully manage to have enough space.
-  bool FreeDiskSpaceOnBlockingPoolIfNeededFor(int64 num_bytes);
+  // Runs |callback| with true when we successfully manage to have enough space.
+  void FreeDiskSpaceIfNeededFor(int64 num_bytes,
+                                const InitializeCacheCallback& callback);
 
   // Checks if file corresponding to |resource_id| and |md5| exists in cache.
   // |callback| must not be null.
@@ -149,38 +145,40 @@ class DriveCache {
   // - if necessary, creates symlink
   // - deletes stale cached versions of |resource_id| in
   // |dest_path|'s directory.
+  // |callback| must not be null.
   void Store(const std::string& resource_id,
              const std::string& md5,
              const FilePath& source_path,
              FileOperationType file_operation_type,
-             const CacheOperationCallback& callback);
+             const FileOperationCallback& callback);
 
   // Modifies cache state, which involves the following:
   // - moves |source_path| to |dest_path| in persistent dir if
   //   file is not dirty
   // - creates symlink in pinned dir that references downloaded or locally
   //   modified file
+  // |callback| must not be null.
   void Pin(const std::string& resource_id,
            const std::string& md5,
-           const CacheOperationCallback& callback);
+           const FileOperationCallback& callback);
 
   // Modifies cache state, which involves the following:
   // - moves |source_path| to |dest_path| in tmp dir if file is not dirty
   // - deletes symlink from pinned dir
+  // |callback| must not be null.
   void Unpin(const std::string& resource_id,
              const std::string& md5,
-             const CacheOperationCallback& callback);
+             const FileOperationCallback& callback);
 
-  // Modifies cache state, which involves the following:
-  // - moves |source_path| to |dest_path|, where
-  //   if we're mounting: |source_path| is the unmounted path and has .<md5>
-  //       extension, and |dest_path| is the mounted path in persistent dir
-  //       and has .<md5>.mounted extension;
-  //   if we're unmounting: the opposite is true for the two paths, i.e.
-  //       |dest_path| is the mounted path and |source_path| the unmounted path.
-  void SetMountedState(const FilePath& file_path,
-                       bool to_mount,
-                       const GetFileFromCacheCallback& callback);
+  // Set the state of the cache entry corresponding to file_path as mounted.
+  // |callback| must not be null.
+  void MarkAsMounted(const FilePath& file_path,
+                     const GetFileFromCacheCallback& callback);
+
+  // Set the state of the cache entry corresponding to file_path as unmounted.
+  // |callback| must not be null.
+  void MarkAsUnmounted(const FilePath& file_path,
+                       const FileOperationCallback& callback);
 
   // Modifies cache state, which involves the following:
   // - moves |source_path| to |dest_path| in persistent dir, where
@@ -189,13 +187,14 @@ class DriveCache {
   // |callback| must not be null.
   void MarkDirty(const std::string& resource_id,
                  const std::string& md5,
-                 const GetFileFromCacheCallback& callback);
+                 const FileOperationCallback& callback);
 
   // Modifies cache state, i.e. creates symlink in outgoing
   // dir to reference dirty file in persistent dir.
+  // |callback| must not be null.
   void CommitDirty(const std::string& resource_id,
                    const std::string& md5,
-                   const CacheOperationCallback& callback);
+                   const FileOperationCallback& callback);
 
   // Modifies cache state, which involves the following:
   // - moves |source_path| to |dest_path| in persistent dir if
@@ -204,16 +203,18 @@ class DriveCache {
   // - deletes symlink in outgoing dir
   // - if file is pinned, updates symlink in pinned dir to reference
   //   |dest_path|
+  // |callback| must not be null.
   void ClearDirty(const std::string& resource_id,
                   const std::string& md5,
-                  const CacheOperationCallback& callback);
+                  const FileOperationCallback& callback);
 
   // Does the following:
   // - remove all delete stale cache versions corresponding to |resource_id| in
   //   persistent, tmp and pinned directories
   // - remove entry corresponding to |resource_id| from cache map.
+  // |callback| must not be null.
   void Remove(const std::string& resource_id,
-              const CacheOperationCallback& callback);
+              const FileOperationCallback& callback);
 
   // Does the following:
   // - remove all the files in the cache directory.
@@ -228,15 +229,6 @@ class DriveCache {
 
   // Utility method to call InitializeForTesting on UI thread.
   void RequestInitializeForTesting();
-
-  // Force a rescan of cache files, for testing.
-  void ForceRescanForTesting();
-
-  // Gets the cache entry by the given resource ID and MD5.
-  // See also GetCacheEntry().
-  bool GetCacheEntryOnBlockingPool(const std::string& resource_id,
-                                   const std::string& md5,
-                                   DriveCacheEntry* entry);
 
   // Factory methods for DriveCache.
   // |pool| and |sequence_token| are used to assert that the functions are
@@ -292,11 +284,17 @@ class DriveCache {
   // Deletes the cache.
   void DestroyOnBlockingPool();
 
-  // Force a rescan of cache directories.
-  void ForceRescanOnBlockingPoolForTesting();
+  // Gets the cache entry by the given resource ID and MD5.
+  // See also GetCacheEntry().
+  bool GetCacheEntryOnBlockingPool(const std::string& resource_id,
+                                   const std::string& md5,
+                                   DriveCacheEntry* entry);
 
   // Used to implement Iterate().
   void IterateOnBlockingPool(const CacheIterateCallback& iteration_callback);
+
+  // Used to implement FreeDiskSpaceIfNeededFor().
+  bool FreeDiskSpaceOnBlockingPoolIfNeededFor(int64 num_bytes);
 
   // Used to implement GetFile.
   scoped_ptr<GetFileResult> GetFileOnBlockingPool(
@@ -317,15 +315,16 @@ class DriveCache {
   DriveFileError UnpinOnBlockingPool(const std::string& resource_id,
                                      const std::string& md5);
 
-  // Used to implement SetMountedState.
-  scoped_ptr<GetFileResult> SetMountedStateOnBlockingPool(
-      const FilePath& file_path,
-      bool to_mount);
+  // Used to implement MarkAsMounted.
+  scoped_ptr<GetFileResult> MarkAsMountedOnBlockingPool(
+      const FilePath& file_path);
+
+  // Used to implement MarkAsUnmounted.
+  DriveFileError MarkAsUnmountedOnBlockingPool(const FilePath& file_path);
 
   // Used to implement MarkDirty.
-  scoped_ptr<GetFileResult> MarkDirtyOnBlockingPool(
-      const std::string& resource_id,
-      const std::string& md5);
+  DriveFileError MarkDirtyOnBlockingPool(const std::string& resource_id,
+                                         const std::string& md5);
 
   // Used to implement CommitDirty.
   DriveFileError CommitDirtyOnBlockingPool(const std::string& resource_id,
@@ -344,19 +343,18 @@ class DriveCache {
   // Runs callback and notifies the observers when file is pinned.
   void OnPinned(const std::string& resource_id,
                 const std::string& md5,
-                const CacheOperationCallback& callback,
+                const FileOperationCallback& callback,
                 DriveFileError error);
 
   // Runs callback and notifies the observers when file is unpinned.
   void OnUnpinned(const std::string& resource_id,
                   const std::string& md5,
-                  const CacheOperationCallback& callback,
+                  const FileOperationCallback& callback,
                   DriveFileError error);
 
   // Runs callback and notifies the observers when file is committed.
   void OnCommitDirty(const std::string& resource_id,
-                     const std::string& md5,
-                     const CacheOperationCallback& callback,
+                     const FileOperationCallback& callback,
                      DriveFileError error);
 
   // The root directory of the cache (i.e. <user_profile_dir>/GCache/v1).

@@ -466,7 +466,7 @@ void DeterministicSocketData::Run() {
   // since they can change in either.
   while ((!at_write_eof() || !at_read_eof()) && !stopped()) {
     if (counter % 2 == 0)
-      MessageLoop::current()->RunAllPending();
+      MessageLoop::current()->RunUntilIdle();
     if (counter % 2 == 1) {
       InvokeCallbacks();
     }
@@ -477,7 +477,7 @@ void DeterministicSocketData::Run() {
   while (socket_ && (socket_->write_pending() || socket_->read_pending()) &&
          !stopped()) {
     InvokeCallbacks();
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
   }
   SetStopped(false);
 }
@@ -881,7 +881,11 @@ bool MockTCPClientSocket::IsConnectedAndIdle() const {
 }
 
 int MockTCPClientSocket::GetPeerAddress(IPEndPoint* address) const {
-  return MockClientSocket::GetPeerAddress(address);
+  if (addresses_.empty())
+    return MockClientSocket::GetPeerAddress(address);
+
+  *address = addresses_[0];
+  return OK;
 }
 
 bool MockTCPClientSocket::WasEverUsed() const {
@@ -1483,7 +1487,7 @@ bool ClientSocketPoolTest::ReleaseOneConnection(KeepAlive keep_alive) {
       if (keep_alive == NO_KEEP_ALIVE)
         (*i)->handle()->socket()->Disconnect();
       (*i)->handle()->Reset();
-      MessageLoop::current()->RunAllPending();
+      MessageLoop::current()->RunUntilIdle();
       return true;
     }
   }

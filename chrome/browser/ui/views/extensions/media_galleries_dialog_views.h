@@ -44,6 +44,7 @@ class MediaGalleriesDialogViews : public MediaGalleriesDialog,
   virtual string16 GetDialogButtonLabel(ui::DialogButton button) const OVERRIDE;
   virtual bool IsDialogButtonEnabled(ui::DialogButton button) const OVERRIDE;
   virtual bool UseChromeStyle() const OVERRIDE;
+  virtual ui::ModalType GetModalType() const OVERRIDE;
   virtual views::View* GetExtraView() OVERRIDE;
   virtual bool Cancel() OVERRIDE;
   virtual bool Accept() OVERRIDE;
@@ -59,8 +60,7 @@ class MediaGalleriesDialogViews : public MediaGalleriesDialog,
 
   // Adds a checkbox or updates an existing checkbox. Returns true if a new one
   // was added.
-  bool AddOrUpdateGallery(const MediaGalleryPrefInfo* gallery,
-                          bool permitted);
+  bool AddOrUpdateGallery(const MediaGalleryPrefInfo* gallery, bool permitted);
 
   MediaGalleriesDialogController* controller_;
 

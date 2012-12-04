@@ -13,6 +13,8 @@
 #include "chrome/browser/autofill/field_types.h"
 #include "chrome/browser/autofill/form_group.h"
 
+struct FormFieldData;
+
 // A form group that stores credit card information.
 class CreditCard : public FormGroup {
  public:
@@ -24,14 +26,18 @@ class CreditCard : public FormGroup {
   virtual ~CreditCard();
 
   // FormGroup implementation:
+  virtual std::string GetGUID() const OVERRIDE;
+  virtual void GetMatchingTypes(const string16& text,
+                                FieldTypeSet* matching_types) const OVERRIDE;
   virtual string16 GetRawInfo(AutofillFieldType type) const OVERRIDE;
   virtual void SetRawInfo(AutofillFieldType type,
                           const string16& value) OVERRIDE;
   virtual string16 GetCanonicalizedInfo(AutofillFieldType type) const OVERRIDE;
   virtual bool SetCanonicalizedInfo(AutofillFieldType type,
                                     const string16& value) OVERRIDE;
-  virtual void GetMatchingTypes(const string16& text,
-                                FieldTypeSet* matching_types) const OVERRIDE;
+  virtual void FillFormField(const AutofillField& field,
+                             size_t variant,
+                             FormFieldData* field_data) const OVERRIDE;
 
   // Credit card preview summary, for example: ******1234, Exp: 01/2020
   const string16 Label() const;
@@ -47,6 +53,7 @@ class CreditCard : public FormGroup {
   const std::string& type() const { return type_; }
 
   // The guid is the primary identifier for |CreditCard| objects.
+  // TODO(estade): remove this and just use GetGUID().
   const std::string guid() const { return guid_; }
   void set_guid(const std::string& guid) { guid_ = guid; }
 

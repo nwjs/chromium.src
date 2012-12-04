@@ -17,6 +17,15 @@
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/point.h"
 
+namespace {
+
+void SetEventTarget(ui::EventTarget* target, ui::Event* event) {
+  ui::Event::DispatcherApi dispatch_helper(event);
+  dispatch_helper.set_target(target);
+}
+
+}
+
 namespace ash {
 namespace test {
 
@@ -79,11 +88,11 @@ class UserActivityDetectorTest : public AshTestBase {
 // Checks that the observer is notified in response to different types of input
 // events.
 TEST_F(UserActivityDetectorTest, Basic) {
-  scoped_ptr<aura::Window> window(
-      aura::test::CreateTestWindowWithId(12345, NULL));
+  scoped_ptr<aura::Window> window(CreateTestWindowInShellWithId(12345));
 
   ui::KeyEvent key_event(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE, false);
-  EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &key_event));
+  SetEventTarget(window.get(), &key_event);
+  EXPECT_EQ(ui::ER_UNHANDLED, detector_->OnKeyEvent(&key_event));
   EXPECT_EQ(1, observer_->num_invocations());
   observer_->reset_stats();
 
@@ -92,21 +101,23 @@ TEST_F(UserActivityDetectorTest, Basic) {
   AdvanceTime(advance_delta);
   ui::MouseEvent mouse_event(
       ui::ET_MOUSE_MOVED, gfx::Point(), gfx::Point(), ui::EF_NONE);
-  EXPECT_FALSE(detector_->PreHandleMouseEvent(window.get(), &mouse_event));
+  SetEventTarget(window.get(), &mouse_event);
+  EXPECT_FALSE(detector_->OnMouseEvent(&mouse_event));
   EXPECT_EQ(1, observer_->num_invocations());
   observer_->reset_stats();
 
   // Ignore one mouse event when all displays are turned off.
   detector_->OnAllOutputsTurnedOff();
   AdvanceTime(advance_delta);
-  EXPECT_FALSE(detector_->PreHandleMouseEvent(window.get(), &mouse_event));
+  EXPECT_EQ(ui::ER_UNHANDLED, detector_->OnMouseEvent(&mouse_event));
   EXPECT_EQ(0, observer_->num_invocations());
   observer_->reset_stats();
 
   AdvanceTime(advance_delta);
   ui::TouchEvent touch_event(
       ui::ET_TOUCH_PRESSED, gfx::Point(), 0, base::TimeDelta());
-  EXPECT_FALSE(detector_->PreHandleTouchEvent(window.get(), &touch_event));
+  SetEventTarget(window.get(), &touch_event);
+  EXPECT_EQ(ui::ER_UNHANDLED, detector_->OnTouchEvent(&touch_event));
   EXPECT_EQ(1, observer_->num_invocations());
   observer_->reset_stats();
 
@@ -115,25 +126,27 @@ TEST_F(UserActivityDetectorTest, Basic) {
       ui::ET_GESTURE_TAP, 0, 0, ui::EF_NONE,
       base::TimeDelta::FromMilliseconds(base::Time::Now().ToDoubleT() * 1000),
       ui::GestureEventDetails(ui::ET_GESTURE_TAP, 0, 0), 0U);
-  EXPECT_FALSE(detector_->PreHandleGestureEvent(window.get(), &gesture_event));
+  SetEventTarget(window.get(), &gesture_event);
+  detector_->OnGestureEvent(&gesture_event);
+  EXPECT_FALSE(gesture_event.handled());
   EXPECT_EQ(1, observer_->num_invocations());
   observer_->reset_stats();
 }
 
 // Checks that observers aren't notified too frequently.
 TEST_F(UserActivityDetectorTest, RateLimitNotifications) {
-  scoped_ptr<aura::Window> window(
-      aura::test::CreateTestWindowWithId(12345, NULL));
+  scoped_ptr<aura::Window> window(CreateTestWindowInShellWithId(12345));
 
   // The observer should be notified about a key event.
   ui::KeyEvent event(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE, false);
-  EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &event));
+  SetEventTarget(window.get(), &event);
+  EXPECT_FALSE(detector_->OnKeyEvent(&event));
   EXPECT_EQ(1, observer_->num_invocations());
   observer_->reset_stats();
 
   // It shouldn't be notified if a second event occurs
   // in the same instant in time.
-  EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &event));
+  EXPECT_FALSE(detector_->OnKeyEvent(&event));
   EXPECT_EQ(0, observer_->num_invocations());
   observer_->reset_stats();
 
@@ -141,7 +154,7 @@ TEST_F(UserActivityDetectorTest, RateLimitNotifications) {
   AdvanceTime(
       base::TimeDelta::FromMilliseconds(
           UserActivityDetector::kNotifyIntervalMs - 100));
-  EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &event));
+  EXPECT_EQ(ui::ER_UNHANDLED, detector_->OnKeyEvent(&event));
   EXPECT_EQ(0, observer_->num_invocations());
   observer_->reset_stats();
 
@@ -150,17 +163,17 @@ TEST_F(UserActivityDetectorTest, RateLimitNotifications) {
   AdvanceTime(base::TimeDelta::FromMilliseconds(
       UserActivityDetector::kNotifyIntervalMs));
 
-  EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &event));
+  EXPECT_EQ(ui::ER_UNHANDLED, detector_->OnKeyEvent(&event));
   EXPECT_EQ(1, observer_->num_invocations());
 }
 
 // Checks that the detector ignores synthetic mouse events.
 TEST_F(UserActivityDetectorTest, IgnoreSyntheticMouseEvents) {
-  scoped_ptr<aura::Window> window(
-      aura::test::CreateTestWindowWithId(12345, NULL));
+  scoped_ptr<aura::Window> window(CreateTestWindowInShellWithId(12345));
   ui::MouseEvent mouse_event(
       ui::ET_MOUSE_MOVED, gfx::Point(), gfx::Point(), ui::EF_IS_SYNTHESIZED);
-  EXPECT_FALSE(detector_->PreHandleMouseEvent(window.get(), &mouse_event));
+  SetEventTarget(window.get(), &mouse_event);
+  EXPECT_EQ(ui::ER_UNHANDLED, detector_->OnMouseEvent(&mouse_event));
   EXPECT_EQ(0, observer_->num_invocations());
 }
 

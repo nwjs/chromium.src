@@ -275,6 +275,11 @@ void SingleThreadProxy::setNeedsCommitOnImplThread()
     m_layerTreeHost->scheduleComposite();
 }
 
+void SingleThreadProxy::setNeedsManageTilesOnImplThread()
+{
+    m_layerTreeHost->scheduleComposite();
+}
+
 void SingleThreadProxy::postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector> events, base::Time wallClockTime)
 {
     DCHECK(Proxy::isImplThread());
@@ -337,13 +342,7 @@ bool SingleThreadProxy::commitAndComposite()
     if (!m_layerTreeHost->initializeRendererIfNeeded())
         return false;
 
-    // Unlink any texture backings that were deleted
-    PrioritizedResourceManager::BackingList evictedContentsTexturesBackings;
-    {
-        DebugScopedSetImplThread impl(this);
-        m_layerTreeHost->contentsTextureManager()->getEvictedBackings(evictedContentsTexturesBackings);
-    }
-    m_layerTreeHost->contentsTextureManager()->unlinkEvictedBackings(evictedContentsTexturesBackings);
+    m_layerTreeHost->contentsTextureManager()->unlinkAndClearEvictedBackings();
 
     scoped_ptr<ResourceUpdateQueue> queue = make_scoped_ptr(new ResourceUpdateQueue);
     m_layerTreeHost->updateLayers(*(queue.get()), m_layerTreeHostImpl->memoryAllocationLimitBytes());
@@ -368,6 +367,9 @@ bool SingleThreadProxy::doComposite()
             return false;
 
         m_layerTreeHostImpl->animate(base::TimeTicks::Now(), base::Time::Now());
+
+        if (m_layerTreeHostImpl->settings().implSidePainting)
+          m_layerTreeHostImpl->manageTiles();
 
         // We guard prepareToDraw() with canDraw() because it always returns a valid frame, so can only
         // be used when such a frame is possible. Since drawLayers() depends on the result of

@@ -6,9 +6,9 @@
 
 #include "base/logging.h"
 #include "ui/base/animation/animation.h"
-#include "ui/base/native_theme/native_theme.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/rect.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/native_theme_delegate.h"
 
@@ -26,13 +26,13 @@ static const int kPreferredNativeThemePaddingVertical = 5;
 
 views::CustomButton::ButtonState GetButtonState(ui::NativeTheme::State state) {
   switch(state) {
-    case ui::NativeTheme::kDisabled: return views::CustomButton::BS_DISABLED;
-    case ui::NativeTheme::kHovered:  return views::CustomButton::BS_HOT;
-    case ui::NativeTheme::kNormal:   return views::CustomButton::BS_NORMAL;
-    case ui::NativeTheme::kPressed:  return views::CustomButton::BS_PUSHED;
+    case ui::NativeTheme::kDisabled: return views::CustomButton::STATE_DISABLED;
+    case ui::NativeTheme::kHovered:  return views::CustomButton::STATE_HOVERED;
+    case ui::NativeTheme::kNormal:   return views::CustomButton::STATE_NORMAL;
+    case ui::NativeTheme::kPressed:  return views::CustomButton::STATE_PRESSED;
     case ui::NativeTheme::kMaxState: NOTREACHED() << "Unknown state: " << state;
   }
-  return views::CustomButton::BS_NORMAL;
+  return views::CustomButton::STATE_NORMAL;
 }
 
 // A helper function to paint the native theme or images as appropriate.
@@ -52,8 +52,8 @@ void PaintHelper(LabelButtonBorder* border,
 }  // namespace
 
 LabelButtonBorder::LabelButtonBorder() : native_theme_(false) {
-  SetImages(CustomButton::BS_HOT, BorderImages(BorderImages::kHot));
-  SetImages(CustomButton::BS_PUSHED, BorderImages(BorderImages::kPushed));
+  SetImages(CustomButton::STATE_HOVERED, BorderImages(BorderImages::kHot));
+  SetImages(CustomButton::STATE_PRESSED, BorderImages(BorderImages::kPushed));
 }
 
 LabelButtonBorder::~LabelButtonBorder() {}
@@ -89,15 +89,15 @@ void LabelButtonBorder::Paint(const View& view, gfx::Canvas* canvas) {
     view.focus_border()->Paint(view, canvas);
 }
 
-void LabelButtonBorder::GetInsets(gfx::Insets* insets) const {
+gfx::Insets LabelButtonBorder::GetInsets() const {
   if (native_theme()) {
-    insets->Set(kPreferredNativeThemePaddingVertical,
-                kPreferredNativeThemePaddingHorizontal,
-                kPreferredNativeThemePaddingVertical,
-                kPreferredNativeThemePaddingHorizontal);
+    return gfx::Insets(kPreferredNativeThemePaddingVertical,
+                       kPreferredNativeThemePaddingHorizontal,
+                       kPreferredNativeThemePaddingVertical,
+                       kPreferredNativeThemePaddingHorizontal);
   } else {
-    insets->Set(kPreferredPaddingVertical, kPreferredPaddingHorizontal,
-                kPreferredPaddingVertical, kPreferredPaddingHorizontal);
+    return gfx::Insets(kPreferredPaddingVertical, kPreferredPaddingHorizontal,
+                       kPreferredPaddingVertical, kPreferredPaddingHorizontal);
   }
 }
 

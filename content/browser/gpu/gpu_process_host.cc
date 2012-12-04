@@ -292,6 +292,28 @@ GpuProcessHost* GpuProcessHost::Get(GpuProcessKind kind,
 }
 
 // static
+void GpuProcessHost::GetProcessHandles(
+    const GpuDataManager::GetGpuProcessHandlesCallback& callback)  {
+  if (!BrowserThread::CurrentlyOn(BrowserThread::IO)) {
+    BrowserThread::PostTask(
+        BrowserThread::IO,
+        FROM_HERE,
+        base::Bind(&GpuProcessHost::GetProcessHandles, callback));
+    return;
+  }
+  std::list<base::ProcessHandle> handles;
+  for (int i = 0; i < GPU_PROCESS_KIND_COUNT; ++i) {
+    GpuProcessHost* host = g_gpu_process_hosts[i];
+    if (host && HostIsValid(host))
+      handles.push_back(host->process_->GetHandle());
+  }
+  BrowserThread::PostTask(
+      BrowserThread::UI,
+      FROM_HERE,
+      base::Bind(callback, handles));
+}
+
+// static
 void GpuProcessHost::SendOnIO(GpuProcessKind kind,
                               CauseForGpuLaunch cause,
                               IPC::Message* message) {
@@ -385,6 +407,9 @@ GpuProcessHost::~GpuProcessHost() {
   UMA_HISTOGRAM_ENUMERATION("GPU.GPUProcessTerminationStatus",
                             status,
                             base::TERMINATION_STATUS_MAX_ENUM);
+
+  UMA_HISTOGRAM_COUNTS_100("GPU.SurfaceCountAtExit",
+                           GpuSurfaceTracker::Get()->GetSurfaceCount());
 
   if (status == base::TERMINATION_STATUS_NORMAL_TERMINATION ||
       status == base::TERMINATION_STATUS_ABNORMAL_TERMINATION) {
@@ -890,6 +915,7 @@ bool GpuProcessHost::LaunchGpuProcess(const std::string& channel_id) {
     switches::kUIPrioritizeInGpuProcess,
 #endif
     switches::kCrashOnGpuHang,
+    switches::kEnableVirtualGLContexts,
   };
   cmd_line->CopySwitchesFrom(browser_command_line, kSwitchNames,
                              arraysize(kSwitchNames));

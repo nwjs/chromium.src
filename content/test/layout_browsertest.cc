@@ -9,16 +9,15 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
-#include "base/scoped_temp_dir.h"
-#include "base/stringprintf.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/common/content_paths.h"
-#include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/shell/shell.h"
 #include "content/shell/shell_switches.h"
@@ -121,7 +120,6 @@ void InProcessBrowserLayoutTest::SetUpInProcessBrowserTestFixture() {
 
 void InProcessBrowserLayoutTest::SetUpCommandLine(CommandLine* command_line) {
   command_line->AppendSwitch(switches::kDumpRenderTree);
-  command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
 }
 
 void InProcessBrowserLayoutTest::SetUpOnMainThread() {

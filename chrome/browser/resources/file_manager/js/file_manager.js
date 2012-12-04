@@ -16,9 +16,17 @@
 function FileManager(dialogDom) {
   this.dialogDom_ = dialogDom;
   this.filesystem_ = null;
-  this.params_ = location.search ?
-                 JSON.parse(decodeURIComponent(location.search.substr(1))) :
-                 window.launchData || {};
+
+  if (window.appState) {
+    this.params_ = window.appState.params || {};
+    this.defaultPath = window.appState.defaultPath;
+    util.saveAppState();
+  } else {
+    this.params_ = location.search ?
+                   JSON.parse(decodeURIComponent(location.search.substr(1))) :
+                   {};
+    this.defaultPath = this.params_.defaultPath;
+  }
   this.listType_ = null;
   this.showDelayTimeout_ = null;
 
@@ -57,6 +65,15 @@ FileManager.THUMBNAIL_SHOW_DELAY = 100;
 FileManager.prototype = {
   __proto__: cr.EventTarget.prototype
 };
+
+/**
+ * Unload the file manager.
+ * Used by background.js (when running in the packaged mode).
+ */
+function unload() {
+  fileManager.onBeforeUnload_();
+  fileManager.onUnload_();
+}
 
 /**
  * List of dialog types.
@@ -338,10 +355,10 @@ DialogType.isModal = function(type) {
 
     var self = this;
     var downcount = 3;
-    var startupPrefs = {};
+    var viewOptions = {};
     function done() {
       if (--downcount == 0)
-        self.init_(startupPrefs);
+        self.init_(viewOptions);
     }
 
     chrome.fileBrowserPrivate.requestLocalFileSystem(function(filesystem) {
@@ -355,9 +372,17 @@ DialogType.isModal = function(type) {
     this.updateNetworkStateAndPreferences_(done);
 
     util.platform.getPreference(this.startupPrefName_, function(value) {
+      // Load the global default options.
       try {
-        startupPrefs = JSON.parse(value);
+        viewOptions = JSON.parse(value);
       } catch (ignore) {}
+      // Override with window-specific options.
+      if (window.appState && window.appState.viewOptions) {
+        for (var key in window.appState.viewOptions) {
+          if (window.appState.viewOptions.hasOwnProperty(key))
+            viewOptions[key] = window.appState.viewOptions[key];
+        }
+      }
       done();
     }.bind(this));
   };
@@ -393,10 +418,11 @@ DialogType.isModal = function(type) {
     this.bannersController_.addEventListener('relayout',
                                              this.onResize_.bind(this));
 
-    window.addEventListener('popstate', this.onPopState_.bind(this));
-    // TODO: handle window closing properly for apps v2.
-    if (!util.platform.v2())
+    if (!util.platform.v2()) {
+      window.addEventListener('popstate', this.onPopState_.bind(this));
       window.addEventListener('unload', this.onUnload_.bind(this));
+      window.addEventListener('beforeunload', this.onBeforeUnload_.bind(this));
+    }
 
     var dm = this.directoryModel_;
     dm.addEventListener('directory-changed',
@@ -417,13 +443,9 @@ DialogType.isModal = function(type) {
     dm.addEventListener('rescan-completed',
                         this.refreshCurrentDirectoryMetadata_.bind(this));
 
-    this.selectionHandler_.onSelectionChanged();
-
     this.directoryModel_.sortFileList(
         prefs.sortField || 'modificationTime',
         prefs.sortDirection || 'desc');
-
-    this.setupCurrentDirectory_(true /* page loading */);
 
     var stateChangeHandler =
         this.onNetworkStateOrPreferencesChanged_.bind(this);
@@ -437,13 +459,17 @@ DialogType.isModal = function(type) {
 
     this.initDataTransferOperations_();
 
-    this.table_.endBatchUpdates();
-    this.grid_.endBatchUpdates();
-
     this.initContextMenus_();
     this.initCommands_();
 
     this.updateFileTypeFilter_();
+
+    this.selectionHandler_.onSelectionChanged();
+
+    this.setupCurrentDirectory_(true /* page loading */);
+
+    this.table_.endBatchUpdates();
+    this.grid_.endBatchUpdates();
 
     // Show the page now unless it's already delayed.
     this.delayShow_(0);
@@ -524,12 +550,6 @@ DialogType.isModal = function(type) {
 
     this.gdataSettingsMenu_.addEventListener('menushow',
         this.onGDataMenuShow_.bind(this));
-
-    this.gdataSpaceInfo_ = this.dialogDom_.querySelector('#gdata-space-info');
-    this.gdataSpaceInfoLabel_ =
-        this.dialogDom_.querySelector('#gdata-space-info-label');
-    this.gdataSpaceInfoBar_ =
-        this.dialogDom_.querySelector('#gdata-space-info-bar');
   };
 
   /**
@@ -539,6 +559,12 @@ DialogType.isModal = function(type) {
     var commandButtons = this.dialogDom_.querySelectorAll('button[command]');
     for (var j = 0; j < commandButtons.length; j++)
       CommandButton.decorate(commandButtons[j]);
+
+    // TODO(dzvorygin): Here we use this hack, since 'hidden' is standard
+    // attribute and we can't use it's setter as usual.
+    cr.ui.Command.prototype.setHidden = function(value) {
+      this.__lookupSetter__('hidden').call(this, value);
+    };
 
     var commands = this.dialogDom_.querySelectorAll('command');
     for (var i = 0; i < commands.length; i++)
@@ -583,7 +609,16 @@ DialogType.isModal = function(type) {
         Commands.pasteFileCommand, doc, this.fileTransferController_);
 
     CommandUtil.registerCommand(doc, 'open-with',
-            Commands.openWithCommand, this);
+        Commands.openWithCommand, this);
+
+    CommandUtil.registerCommand(doc, 'toggle-pinned',
+        Commands.togglePinnedCommand, this);
+
+    CommandUtil.registerCommand(doc, 'zip-selection',
+        Commands.zipSelectionCommand, this);
+
+    CommandUtil.registerCommand(doc, 'search', Commands.searchCommand, this,
+            this.dialogDom_.querySelector('#search-box'));
 
     CommandUtil.registerCommand(doc, 'cut', Commands.defaultCommand, doc);
     CommandUtil.registerCommand(doc, 'copy', Commands.defaultCommand, doc);
@@ -638,11 +673,6 @@ DialogType.isModal = function(type) {
       e.preventDefault();
     });
 
-    // TODO: handle window closing properly for apps v2.
-    if (!util.platform.v2())
-      this.document_.defaultView.addEventListener('beforeunload',
-          this.onBeforeUnload_.bind(this));
-
     this.dialogDom_.addEventListener('click',
                                      this.onExternalLinkClick_.bind(this));
     // Cache nodes we'll be manipulating.
@@ -651,7 +681,6 @@ DialogType.isModal = function(type) {
     this.taskItems_ = this.dialogDom_.querySelector('#tasks');
     this.okButton_ = this.dialogDom_.querySelector('.ok');
     this.cancelButton_ = this.dialogDom_.querySelector('.cancel');
-    this.deleteButton_ = this.dialogDom_.querySelector('#delete-button');
 
     this.table_ = this.dialogDom_.querySelector('.detail-table');
     this.grid_ = this.dialogDom_.querySelector('.thumbnail-grid');
@@ -735,7 +764,7 @@ DialogType.isModal = function(type) {
         this.dialogDom_.querySelector('#default-action');
 
     this.openWithCommand_ =
-            this.dialogDom_.querySelector('#open-with');
+        this.dialogDom_.querySelector('#open-with');
 
     this.defaultActionMenuItem_.addEventListener('activate',
         this.dispatchSelectionAction_.bind(this));
@@ -857,7 +886,14 @@ DialogType.isModal = function(type) {
     };
     if (DialogType.isModal(this.dialogType))
       prefs.listType = this.listType;
+    // Save the global default.
     util.platform.setPreference(this.startupPrefName_, JSON.stringify(prefs));
+
+    // Save the window-specific preference.
+    if (window.appState) {
+      window.appState.viewOptions = prefs;
+      util.saveAppState();
+    }
   };
 
   /**
@@ -979,7 +1015,6 @@ DialogType.isModal = function(type) {
 
     this.listType_ = type;
     this.updateStartupPrefs_();
-    this.updateColumnModel_();
     this.onResize_();
 
     this.table_.list.endBatchUpdates();
@@ -1020,7 +1055,10 @@ DialogType.isModal = function(type) {
                                     fullPage ? 200 : 160),
         new cr.ui.table.TableColumn('modificationTime',
                                     str('DATE_COLUMN_LABEL'),
-                                    fullPage ? 150 : 210)
+                                    fullPage ? 150 : 210),
+        new cr.ui.table.TableColumn('offline',
+                                    str('OFFLINE_COLUMN_LABEL'),
+                                    150)
     ];
 
     // TODO(dgozman): refactor render/update/display stuff.
@@ -1030,23 +1068,35 @@ DialogType.isModal = function(type) {
     columns[2].renderFunction = this.renderType_.bind(this);
     columns[3].renderFunction = this.renderDate_.bind(this);
     columns[3].defaultOrder = 'desc';
+    columns[4].renderFunction = this.renderOffline_.bind(this);
 
     if (this.showCheckboxes_) {
       columns[0].headerRenderFunction =
           this.renderNameColumnHeader_.bind(this, columns[0].name);
     }
 
-    this.regularColumnModel_ = new cr.ui.table.TableColumnModel(columns);
-
+    var columnModel = new cr.ui.table.TableColumnModel(columns);
+    Object.defineProperty(columnModel, 'size', {
+      get: function() {
+        if (fullPage && this.isOnGData())
+          return columns.length;
+        else
+          return columns.length - 1;
+      }.bind(this)
+    });
     if (fullPage) {
-      columns.push(new cr.ui.table.TableColumn(
-          'offline', str('OFFLINE_COLUMN_LABEL'), 150));
-      columns[4].renderFunction = this.renderOffline_.bind(this);
-
-      this.gdataColumnModel_ = new cr.ui.table.TableColumnModel(columns);
-    } else {
-      this.gdataColumnModel_ = null;
+      var isOnDrive = function(entry) {
+        return PathUtil.getRootType(entry.fullPath) == RootType.GDATA;
+      };
+      var table = this.table_;
+      this.directoryModel_.addEventListener('directory-changed', function(e) {
+        if (isOnDrive(e.previousDirEntry) != isOnDrive(e.newDirEntry)) {
+          // Columns number changed.
+          table.redraw();
+        }
+      });
     }
+    this.table_.columnModel = columnModel;
 
     this.table_.list.addEventListener('click', this.onDetailClick_.bind(this));
   };
@@ -1057,8 +1107,8 @@ DialogType.isModal = function(type) {
         event.error.data.toGDrive &&
         event.error.data.code == FileError.QUOTA_EXCEEDED_ERR) {
       this.alert.showHtml(
-          strf('GDATA_SERVER_OUT_OF_SPACE_HEADER'),
-          strf('GDATA_SERVER_OUT_OF_SPACE_MESSAGE',
+          strf('DRIVE_SERVER_OUT_OF_SPACE_HEADER'),
+          strf('DRIVE_SERVER_OUT_OF_SPACE_MESSAGE',
               decodeURIComponent(
                   event.error.data.sourceFileUrl.split('/').pop()),
               FileManager.GOOGLE_DRIVE_BUY_STORAGE));
@@ -1097,15 +1147,6 @@ DialogType.isModal = function(type) {
       if (inCurrentDirectory(entry))
         this.directoryModel_.onEntryChanged(entry.name);
     }
-  };
-
-  FileManager.prototype.updateColumnModel_ = function() {
-    if (this.listType_ != FileManager.ListType.DETAIL)
-      return;
-    this.table_.columnModel =
-        (this.isOnGData() && this.gdataColumnModel_) ?
-            this.gdataColumnModel_ :
-            this.regularColumnModel_;
   };
 
   /**
@@ -1197,11 +1238,6 @@ DialogType.isModal = function(type) {
    * Resize details and thumb views to fit the new window size.
    */
   FileManager.prototype.onResize_ = function() {
-    this.table_.style.height = this.grid_.style.height =
-      this.grid_.parentNode.clientHeight + 'px';
-    this.table_.list_.style.height = (this.table_.clientHeight - 1 -
-                                      this.table_.header_.clientHeight) + 'px';
-
     if (this.listType_ == FileManager.ListType.THUMBNAIL) {
       var g = this.grid_;
       g.startBatchUpdates();
@@ -1214,8 +1250,6 @@ DialogType.isModal = function(type) {
       this.table_.redraw();
     }
 
-    this.rootsList_.style.height =
-        this.rootsList_.parentNode.clientHeight + 'px';
     this.rootsList_.redraw();
     this.breadcrumbs_.truncate();
     this.searchBreadcrumbs_.truncate();
@@ -1253,7 +1287,7 @@ DialogType.isModal = function(type) {
   FileManager.prototype.setupCurrentDirectory_ = function(pageLoading) {
     var path = location.hash ?  // Location hash has the highest priority.
         decodeURI(location.hash.substr(1)) :
-        this.params_.defaultPath;
+        this.defaultPath;
 
     if (!pageLoading && path == this.directoryModel_.getCurrentDirPath())
       return;
@@ -1279,7 +1313,9 @@ DialogType.isModal = function(type) {
       if (!this.isGDataEnabled()) {
         if (pageLoading)
           this.show_();
-        this.directoryModel_.setupDefaultPath();
+        var leafName = path.substr(path.indexOf('/') + 1);
+        path = this.directoryModel_.getDefaultDirectory() + '/' + leafName;
+        this.finishSetupCurrentDirectory_(path, invokeHandlers);
         return;
       }
       var gdataPath = RootDirectory.GDATA;
@@ -1325,14 +1361,16 @@ DialogType.isModal = function(type) {
       path, invokeHandlers) {
     if (invokeHandlers) {
       var onResolve = function(baseName, leafName, exists) {
-        var galleryUrls = null;
+        var urls = null;
+        var action = null;
 
         if (!exists || leafName == '') {
           // Non-existent file or a directory.
           if (this.params_.gallery) {
             // Reloading while the Gallery is open with empty or multiple
             // selection. Open the Gallery when the directory is scanned.
-            galleryUrls = [];
+            urls = [];
+            action = 'gallery';
           }
         } else {
           // There are 3 ways we can get here:
@@ -1343,23 +1381,31 @@ DialogType.isModal = function(type) {
           // We call the appropriate methods of FileTasks directly as we do
           // not need any of the preparations that |execute| method does.
           if (FileType.isImageOrVideo(path)) {
-            galleryUrls = [util.makeFilesystemUrl(path)];
+            urls = [util.makeFilesystemUrl(path)];
+            action = 'gallery';
           }
           if (FileType.getMediaType(path) == 'archive') {
-            new FileTasks(this, this.params_).mountArchives_(
-                [util.makeFilesystemUrl(path)]);
+            urls = [util.makeFilesystemUrl(path)];
+            action = 'archives';
           }
         }
 
-        if (galleryUrls) {
-          // Opening gallery will invoke |this.show_| at the right time.
+        if (urls) {
           var listener = function() {
             this.directoryModel_.removeEventListener(
                 'scan-completed', listener);
-            new FileTasks(this, this.params_).openGallery(galleryUrls);
+            var tasks = new FileTasks(this, this.params_);
+            if (action == 'gallery') {
+              tasks.openGallery(urls);
+            } else if (action == 'archives') {
+              tasks.mountArchives_(urls);
+            }
           }.bind(this);
           this.directoryModel_.addEventListener('scan-completed', listener);
-        } else {
+        }
+
+        if (action != 'gallery') {
+          // Opening gallery will invoke |this.show_| at the right time.
           this.show_();
         }
       }.bind(this);
@@ -1862,6 +1908,7 @@ DialogType.isModal = function(type) {
     checkbox.addEventListener('click',
                               this.onPinClick_.bind(this, checkbox, entry));
     checkbox.style.display = 'none';
+    checkbox.entry = entry;
     div.appendChild(checkbox);
 
     if (this.isOnGData()) {
@@ -2002,11 +2049,17 @@ DialogType.isModal = function(type) {
   FileManager.prototype.onExternalLinkClick_ = function(event) {
     if (event.target.tagName != 'A' || !event.target.href)
       return;
-    chrome.tabs.create({url: event.target.href});
+
+    // In a packaged apps links with targer='_blank' open in a new tab by
+    // default, other links do not open at all.
+    if (!util.platform.v2()) {
+      chrome.tabs.create({url: event.target.href});
+      event.preventDefault();
+    }
+
     if (this.dialogType != DialogType.FULL_PAGE) {
       this.onCancel_();
     }
-    event.preventDefault();
   };
 
   /**
@@ -2170,6 +2223,11 @@ DialogType.isModal = function(type) {
 
   FileManager.prototype.closeFilePopup_ = function() {
     if (this.filePopup_) {
+      if (this.filePopup_.contentWindow &&
+          this.filePopup_.contentWindow.unload) {
+        this.filePopup_.contentWindow.unload();
+      }
+
       this.dialogDom_.removeChild(this.filePopup_);
       this.filePopup_ = null;
       if (this.filePopupCloseCallback_) {
@@ -2250,25 +2308,9 @@ DialogType.isModal = function(type) {
   };
 
   FileManager.prototype.onPinClick_ = function(checkbox, entry, event) {
-    // TODO(dgozman): revisit this method when gdata properties updated event
-    // will be available.
-    var self = this;
-    var pin = checkbox.checked;
-    function callback(props) {
-      var fileProps = props[0];
-      if (fileProps.errorCode && pin) {
-        self.metadataCache_.get(entry, 'filesystem', function(filesystem) {
-          self.alert.showHtml(str('GDATA_OUT_OF_SPACE_HEADER'),
-              strf('GDATA_OUT_OF_SPACE_MESSAGE',
-                  unescape(entry.name),
-                  util.bytesToSi(filesystem.size)));
-        });
-      }
-      // We don't have update events yet, so clear the cached data.
-      self.metadataCache_.clear(entry, 'gdata');
-      checkbox.checked = fileProps.isPinned;
-    }
-    chrome.fileBrowserPrivate.pinGDataFile([entry.toURL()], pin, callback);
+    var command = this.document_.querySelector('command#toggle-pinned');
+    command.canExecuteChange(checkbox);
+    command.execute(checkbox);
     event.preventDefault();
   };
 
@@ -2283,7 +2325,7 @@ DialogType.isModal = function(type) {
       input.selectionEnd = selectionEnd;
     }
     // Clear, so we never do this again.
-    this.params_.defaultPath = '';
+    this.defaultPath = '';
   };
 
   /**
@@ -2385,10 +2427,9 @@ DialogType.isModal = function(type) {
    */
   FileManager.prototype.onDirectoryChanged_ = function(event) {
     this.selectionHandler_.onSelectionChanged();
-    this.updateColumnModel_();
     this.updateSearchBoxOnDirChange_();
 
-    util.updateLocation(event.initial, this.getCurrentDirectory());
+    util.updateAppState(event.initial, this.getCurrentDirectory());
 
     if (this.closeOnUnmount_ && !event.initial &&
           PathUtil.getRootPath(event.previousDirEntry.fullPath) !=
@@ -2436,6 +2477,11 @@ DialogType.isModal = function(type) {
    */
   FileManager.prototype.onUnload_ = function() {
     this.fileWatcher_.stop();
+    if (this.filePopup_ &&
+        this.filePopup_.contentWindow &&
+        this.filePopup_.contentWindow.unload) {
+      this.filePopup_.contentWindow.unload(true /* exiting */);
+    }
   };
 
   FileManager.prototype.initiateRename = function() {
@@ -2868,7 +2914,7 @@ DialogType.isModal = function(type) {
    */
   FileManager.prototype.resolveSelectResults_ = function(fileUrls, callback) {
     if (this.isOnGData()) {
-      chrome.fileBrowserPrivate.getGDataFiles(
+      chrome.fileBrowserPrivate.getDriveFiles(
         fileUrls,
         function(localPaths) {
           fileUrls = [].concat(fileUrls);  // Clone the array.
@@ -3241,27 +3287,33 @@ DialogType.isModal = function(type) {
    * @private
    */
   FileManager.prototype.onGDataMenuShow_ = function() {
-    this.gdataSpaceInfoBar_.setAttribute('pending', '');
+    var gdataSpaceInfoLabel =
+        this.dialogDom_.querySelector('#gdata-space-info-label');
+
+    var gdataSpaceInnerBar =
+        this.dialogDom_.querySelector('#gdata-space-info-bar');
+    var gdataSpaceOuterBar =
+            this.dialogDom_.querySelector('#gdata-space-info-bar').parentNode;
+
+    gdataSpaceInnerBar.setAttribute('pending', '');
     chrome.fileBrowserPrivate.getSizeStats(
         this.directoryModel_.getCurrentRootUrl(), function(result) {
+          gdataSpaceInnerBar.removeAttribute('pending');
           if (result) {
-            this.gdataSpaceInfoBar_.removeAttribute('pending');
-
             var sizeInGb = util.bytesToSi(result.remainingSizeKB * 1024);
-            this.gdataSpaceInfoLabel_.textContent =
-                strf('GDATA_SPACE_AVAILABLE', sizeInGb);
+            gdataSpaceInfoLabel.textContent =
+                strf('DRIVE_SPACE_AVAILABLE', sizeInGb);
 
             var usedSpace = result.totalSizeKB - result.remainingSizeKB;
-
-            this.gdataSpaceInfoBar_.style.display = '';
-            this.gdataSpaceInfoBar_.style.width =
+            gdataSpaceInnerBar.style.width =
                 (100 * usedSpace / result.totalSizeKB) + '%';
+
+            gdataSpaceOuterBar.style.display = '';
           } else {
-            this.gdataSpaceInfoBar_.style.display = 'none';
-            this.gdataSpaceInfoLabel_.textContent =
-                str('GDATA_FAILED_SPACE_INFO');
+            gdataSpaceOuterBar.style.display = 'none';
+            gdataSpaceInfoLabel.textContent = str('DRIVE_FAILED_SPACE_INFO');
           }
-        }.bind(this));
+        });
   };
 
   /**
@@ -3294,10 +3346,7 @@ DialogType.isModal = function(type) {
 
     this.openWithCommand_.canExecuteChange();
 
-    // TODO(dzvorygin): Here we use this hack, since 'hidden' is standard
-    // attribute and we can't use it's setter as usual.
-    this.openWithCommand_.__lookupSetter__('hidden').
-        call(this.openWithCommand_, !(defaultItem && isMultiple));
+    this.openWithCommand_.setHidden(!(defaultItem && isMultiple));
     this.defaultActionMenuItem_.hidden = !defaultItem;
     defaultActionSeparator.hidden = !defaultItem;
   };
@@ -3305,11 +3354,17 @@ DialogType.isModal = function(type) {
 
   /**
    * Window beforeunload handler.
-   * @return {string} Message to show. We don't need the message.
+   * @return {string} Message to show. Ignored when running as a packaged app.
    * @private
    */
   FileManager.prototype.onBeforeUnload_ = function() {
     this.butterBar_.forceDeleteAndHide();
+    if (this.filePopup_ &&
+        this.filePopup_.contentWindow &&
+        this.filePopup_.contentWindow.beforeunload) {
+      // The gallery might want to prevent the unload if it is busy.
+      return this.filePopup_.contentWindow.beforeunload();
+    }
     return null;
   };
 

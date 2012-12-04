@@ -9,7 +9,7 @@
 /** @const */ var LinkKind = cr.LinkKind;
 /** @const */ var ListItem = cr.ui.ListItem;
 /** @const */ var Menu = cr.ui.Menu;
-/** @const */ var MenuButton  = cr.ui.MenuButton;
+/** @const */ var MenuButton = cr.ui.MenuButton;
 /** @const */ var Promise = cr.Promise;
 /** @const */ var Splitter = cr.ui.Splitter;
 /** @const */ var TreeItem = cr.ui.TreeItem;
@@ -31,16 +31,27 @@ chrome.bookmarkManagerPrivate.getStrings(function(data) {
   recentTreeItem.label = loadTimeData.getString('recent');
   searchTreeItem.label = loadTimeData.getString('search');
   if (!isRTL())
-    searchTreeItem.icon = 'images/bookmark_manager_search.png'
+    searchTreeItem.icon = 'images/bookmark_manager_search.png';
   else
-    searchTreeItem.icon = 'images/bookmark_manager_search_rtl.png'
+    searchTreeItem.icon = 'images/bookmark_manager_search_rtl.png';
 });
 
 /**
  * The id of the bookmark root.
  * @type {number}
+ * @const
  */
-/** @const */ var ROOT_ID = '0';
+var ROOT_ID = '0';
+
+/**
+ * Delay for expanding folder when pointer hovers on folder in tree view in
+ * milliseconds.
+ * @type {number}
+ * @const
+ */
+// TODO(yosin): EXPAND_FOLDER_DELAY should follow system settings. 400ms is
+// taken from Windows default settings.
+var EXPAND_FOLDER_DELAY = 400;
 
 var splitter = document.querySelector('.main > .splitter');
 Splitter.decorate(splitter);
@@ -51,6 +62,14 @@ Splitter.decorate(splitter);
  * @type {Array.<BookmarkTreeNode>}
  */
 var lastDeletedNodes;
+
+/**
+ *
+ * Holds the last DOMTimeStamp when mouse pointer hovers on folder in tree
+ * view. Zero means pointer doesn't hover on folder.
+ * @type {number}
+ */
+var lastHoverOnFolderTimeStamp = 0;
 
 /**
  * Holds a function that will undo that last action, if global undo is enabled.
@@ -201,13 +220,11 @@ function processHash() {
         updateParentId(id);
     });
   }
-};
+}
 
 // We listen to hashchange so that we can update the currently shown folder when
 // the user goes back and forward in the history.
-window.onhashchange = function(e) {
-  processHash();
-};
+window.addEventListener('hashchange', processHash);
 
 // Activate is handled by the open-in-same-window-command.
 list.addEventListener('dblclick', function(e) {
@@ -228,7 +245,7 @@ $('term').onsearch = function(e) {
 
 /**
  * Navigates to the search results for the search text.
- * @para {string} searchText The text to search for.
+ * @param {string} searchText The text to search for.
  */
 function setSearch(searchText) {
   if (searchText) {
@@ -349,6 +366,9 @@ var dnd = {
   /**
    * Helper for canDrop that only checks one bookmark node.
    * @private
+   * @return {boolean} False if dragNode is overBookmarkNode or dragNode is
+   *     a folder and overBookmarkNode is descendant of dragNode, otherwise
+   *     true.
    */
   canDrop_: function(dragNode, overBookmarkNode, overElement) {
     var dragId = dragNode.id;
@@ -399,6 +419,8 @@ var dnd = {
   /**
    * Helper for canDropAbove that only checks one bookmark node.
    * @private
+   * @return {boolean} True if we can drop dragNode above overBookmarkNode,
+   *     otherwise false.
    */
   canDropAbove_: function(dragNode, overBookmarkNode, overElement) {
     var dragId = dragNode.id;
@@ -450,6 +472,8 @@ var dnd = {
   /**
    * Helper for canDropBelow that only checks one bookmark node.
    * @private
+   * @return {boolean} True if we can drop dragNode below overBookmarkNode,
+   *     otherwise false.
    */
   canDropBelow_: function(dragNode, overBookmarkNode, overElement) {
     var dragId = dragNode.id;
@@ -487,6 +511,7 @@ var dnd = {
   /**
    * Helper for canDropOn that only checks one bookmark node.
    * @private
+   * @return {boolean} True if dragNode can drop on overBookmarkNode.
    */
   canDropOn_: function(dragNode, overBookmarkNode, overElement) {
     var dragId = dragNode.id;
@@ -580,6 +605,22 @@ var dnd = {
 
     var overBookmarkNode = overElement.bookmarkNode;
 
+    // Expands a folder in tree view when pointer hovers on it longer than
+    // EXPAND_FOLDER_DELAY.
+    var hoverOnFolderTimeStamp = lastHoverOnFolderTimeStamp;
+    lastHoverOnFolderTimeStamp = 0;
+    if (hoverOnFolderTimeStamp) {
+      if (e.timeStamp - hoverOnFolderTimeStamp >= EXPAND_FOLDER_DELAY)
+        overElement.expanded = true;
+      else
+        lastHoverOnFolderTimeStamp = hoverOnFolderTimeStamp;
+    } else if (overElement instanceof TreeItem &&
+               bmm.isFolder(overBookmarkNode) &&
+               overElement.hasChildren &&
+               !overElement.expanded) {
+      lastHoverOnFolderTimeStamp = e.timeStamp;
+    }
+
     if (!this.canDrop(overBookmarkNode, overElement))
       return;
 
@@ -653,7 +694,7 @@ var dnd = {
         rect.width = labelRect.left + labelRect.width - rect.left;
       } else {
         rect.left = labelRect.left;
-        rect.width -= rect.left
+        rect.width -= rect.left;
       }
     }
 
@@ -942,16 +983,27 @@ function updatePasteCommand(opt_f) {
 
 document.addEventListener('canExecute', function(e) {
   var command = e.command;
-  var commandId = command.id;
-  if (commandId == 'import-menu-command') {
-    e.canExecute = canEdit;
-  } else if (commandId == 'export-menu-command') {
-    // We can always execute the export-menu command.
-    e.canExecute = true;
-  } else if (commandId == 'undo-command') {
-    // The global undo command has no visible UI, so always enable it, and just
-    // make it a no-op if undo is not possible.
-    e.canExecute = true;
+  switch (command.id) {
+    case 'import-menu-command':
+      e.canExecute = canEdit;
+      break;
+    case 'export-menu-command':
+      // We can always execute the export-menu command.
+      e.canExecute = true;
+      break;
+
+    case 'undo-command':
+      // The global undo command has no visible UI, so always enable it, and
+      // just make it a no-op if undo is not possible.
+      e.canExecute = true;
+      break;
+
+    case 'add-new-bookmark-command':
+    case 'new-folder-command':
+      // When active element is other than list/tree view, add-new-bookmark and
+      // new-folder commands are avaiable as if list view is active.
+      canExecuteShared(e, list.isRecent() || list.isSearch());
+      break;
   }
 });
 
@@ -1157,22 +1209,33 @@ function updateEditingCommands() {
 }
 
 var organizeButton = document.querySelector('.summary > button');
-organizeButton.addEventListener('click', updateEditingCommands);
+organizeButton.addEventListener('click', function(e) {
+  updateEditingCommands();
+  $('add-new-bookmark-command').canExecuteChange();
+  $('new-folder-command').canExecuteChange();
+});
 list.addEventListener('contextmenu', updateEditingCommands);
 tree.addEventListener('contextmenu', updateEditingCommands);
 
 // Handle global commands.
 document.addEventListener('command', function(e) {
   var command = e.command;
-  var commandId = command.id;
-  console.log(command.id, 'executed', 'on', e.target);
-  if (commandId == 'import-menu-command') {
-    chrome.bookmarks.import();
-  } else if (command.id == 'export-menu-command') {
-    chrome.bookmarks.export();
-  } else if (command.id == 'undo-command') {
-    if (performGlobalUndo)
-      performGlobalUndo();
+  switch (command.id) {
+    case 'import-menu-command':
+      chrome.bookmarks.import();
+      break;
+    case 'export-menu-command':
+      chrome.bookmarks.export();
+      break;
+    case 'undo-command':
+      if (performGlobalUndo)
+        performGlobalUndo();
+      break;
+    case 'add-new-bookmark-command':
+    case 'new-folder-command':
+      if (e.target != list && e.target != tree)
+        handleCommand(e);
+      break;
   }
 });
 
@@ -1424,33 +1487,59 @@ function undoDelete() {
 }
 
 /**
+ * Computes folder for "Add Page" and "Add Folder".
+ * @return {string} The id of folder node where we'll create new page/folder.
+ */
+function computeParentFolderForNewItem() {
+  if (document.activeElement == tree)
+    return list.parentId;
+  var selectedItem = list.selectedItem;
+  return selectedItem && bmm.isFolder(selectedItem) ?
+      selectedItem.id : list.parentId;
+}
+
+/**
  * Callback for the new folder command. This creates a new folder and starts
  * a rename of it.
  */
 function newFolder() {
-  var parentId = list.parentId;
-  var isTree = document.activeElement == tree;
-  chrome.bookmarks.create({
-    title: loadTimeData.getString('new_folder_name'),
-    parentId: parentId
-  }, function(newNode) {
-    // This callback happens before the event that triggers the tree/list to
-    // get updated so delay the work so that the tree/list gets updated first.
-    setTimeout(function() {
-      var newItem;
-      if (isTree) {
-        newItem = bmm.treeLookup[newNode.id];
-        tree.selectedItem = newItem;
-        newItem.editing = true;
-      } else {
-        var index = list.dataModel.findIndexById(newNode.id);
-        var sm = list.selectionModel;
-        sm.anchorIndex = sm.leadIndex = sm.selectedIndex = index;
-        scrollIntoViewAndMakeEditable(index);
-      }
-    }, 50);
-  });
   performGlobalUndo = null;  // This can't be undone, so disable global undo.
+
+  var parentId = computeParentFolderForNewItem();
+
+  // Callback is called after tree and list data model updated.
+  function createFolder(callback) {
+    chrome.bookmarks.create({
+      title: loadTimeData.getString('new_folder_name'),
+      parentId: parentId
+    }, callback);
+  }
+
+  if (document.activeElement == tree) {
+    createFolder(function(newNode) {
+      newItem = bmm.treeLookup[newNode.id];
+      tree.selectedItem = newItem;
+      newItem.editing = true;
+    });
+    return;
+  }
+
+  function editNewFolderInList() {
+    createFolder(function() {
+      var index = list.dataModel.length - 1;
+      var sm = list.selectionModel;
+      sm.anchorIndex = sm.leadIndex = sm.selectedIndex = index;
+      scrollIntoViewAndMakeEditable(index);
+    });
+  }
+
+  if (parentId == list.parentId) {
+    editNewFolderInList();
+    return;
+  }
+
+  addOneShotEventListener(list, 'load', editNewFolderInList);
+  navigateTo(parentId, true);
 }
 
 /**
@@ -1473,20 +1562,30 @@ function scrollIntoViewAndMakeEditable(index) {
  * add-new-bookmark-command handler.
  */
 function addPage() {
-  var parentId = list.parentId;
-  var fakeNode = {
-    title: '',
-    url: '',
-    parentId: parentId,
-    id: 'new'
+  var parentId = computeParentFolderForNewItem();
+
+  function editNewBookmark() {
+    var fakeNode = {
+      title: '',
+      url: '',
+      parentId: parentId,
+      id: 'new'
+    };
+    var dataModel = list.dataModel;
+    var length = dataModel.length;
+    dataModel.splice(length, 0, fakeNode);
+    var sm = list.selectionModel;
+    sm.anchorIndex = sm.leadIndex = sm.selectedIndex = length;
+    scrollIntoViewAndMakeEditable(length);
   };
 
-  var dataModel = list.dataModel;
-  var length = dataModel.length;
-  dataModel.splice(length, 0, fakeNode);
-  var sm = list.selectionModel;
-  sm.anchorIndex = sm.leadIndex = sm.selectedIndex = length;
-  scrollIntoViewAndMakeEditable(length);
+  if (parentId == list.parentId) {
+    editNewBookmark();
+    return;
+  }
+
+  addOneShotEventListener(list, 'load', editNewBookmark);
+  navigateTo(parentId, true);
 }
 
 /**

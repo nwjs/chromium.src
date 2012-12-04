@@ -66,8 +66,6 @@ function moreDataAddedSuccess()
 function addWithSameKeyFailed()
 {
   debug('Adding a record with same key failed');
-  shouldBe("event.target.errorCode",
-           "webkitIDBDatabaseException.CONSTRAINT_ERR");
   shouldBe("event.target.error.name", "'ConstraintError'");
   event.preventDefault();
 
@@ -88,7 +86,8 @@ function dataAddedSuccess()
 
 function populateObjectStore()
 {
-  window.transaction = event.target.result;
+  window.transaction = event.target.transaction;
+  db = event.target.result;
   transaction.onabort = unexpectedAbortCallback;
   debug('Populating object store');
   deleteAllObjectStores(db);
@@ -108,19 +107,6 @@ function populateObjectStore()
   request.onerror = unexpectedErrorCallback;
 }
 
-function setVersion()
-{
-  debug('setVersion');
-  window.db = event.target.result;
-  var request = db.setVersion('1.0');
-  request.onsuccess = populateObjectStore;
-  request.onerror = unexpectedErrorCallback;
-}
-
-function test()
-{
-  debug('Connecting to indexedDB');
-  var request = webkitIndexedDB.open('name');
-  request.onsuccess = setVersion;
-  request.onerror = unexpectedErrorCallback;
+function test() {
+  indexedDBTest(populateObjectStore);
 }

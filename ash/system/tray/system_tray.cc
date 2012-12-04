@@ -18,12 +18,12 @@
 #include "ash/system/locale/tray_locale.h"
 #include "ash/system/logout_button/tray_logout_button.h"
 #include "ash/system/monitor/tray_monitor.h"
-#include "ash/system/power/power_status_observer.h"
 #include "ash/system/power/power_supply_status.h"
 #include "ash/system/power/tray_power.h"
 #include "ash/system/settings/tray_settings.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/system/tray/system_tray_delegate.h"
+#include "ash/system/tray/system_tray_notifier.h"
 #include "ash/system/tray/system_tray_item.h"
 #include "ash/system/tray/tray_bubble_wrapper.h"
 #include "ash/system/tray/tray_constants.h"
@@ -107,23 +107,6 @@ using internal::SystemTrayBubble;
 SystemTray::SystemTray(internal::StatusAreaWidget* status_area_widget)
     : internal::TrayBackgroundView(status_area_widget),
       items_(),
-      accessibility_observer_(NULL),
-      audio_observer_(NULL),
-      bluetooth_observer_(NULL),
-      brightness_observer_(NULL),
-      caps_lock_observer_(NULL),
-      clock_observer_(NULL),
-      drive_observer_(NULL),
-      ime_observer_(NULL),
-      locale_observer_(NULL),
-      logout_button_observer_(NULL),
-#if defined(OS_CHROMEOS)
-      network_observer_(NULL),
-      vpn_observer_(NULL),
-      sms_observer_(NULL),
-#endif
-      update_observer_(NULL),
-      user_observer_(NULL),
       default_bubble_height_(0),
       hide_notifications_(false) {
   SetContentsBackground();
@@ -140,47 +123,55 @@ SystemTray::~SystemTray() {
   }
 }
 
-void SystemTray::CreateItems() {
-  internal::TrayVolume* tray_volume = new internal::TrayVolume();
-  internal::TrayBluetooth* tray_bluetooth = new internal::TrayBluetooth();
-  internal::TrayBrightness* tray_brightness = new internal::TrayBrightness();
-  internal::TrayDate* tray_date = new internal::TrayDate();
-  internal::TrayPower* tray_power = new internal::TrayPower();
-  internal::TrayIME* tray_ime = new internal::TrayIME;
-  internal::TrayUser* tray_user = new internal::TrayUser;
+void SystemTray::InitializeTrayItems(SystemTrayDelegate* delegate) {
+  internal::TrayBackgroundView::Initialize();
+  CreateItems(delegate);
+}
+
+void SystemTray::CreateItems(SystemTrayDelegate* delegate) {
+  internal::TrayVolume* tray_volume = new internal::TrayVolume(this);
+  internal::TrayBluetooth* tray_bluetooth = new internal::TrayBluetooth(this);
+  internal::TrayBrightness* tray_brightness =
+      new internal::TrayBrightness(this);
+  internal::TrayDate* tray_date = new internal::TrayDate(this);
+  internal::TrayPower* tray_power = new internal::TrayPower(this);
+  internal::TrayIME* tray_ime = new internal::TrayIME(this);
+  internal::TrayUser* tray_user = new internal::TrayUser(this);
   internal::TrayAccessibility* tray_accessibility =
-      new internal::TrayAccessibility;
-  internal::TrayCapsLock* tray_caps_lock = new internal::TrayCapsLock;
-  internal::TrayDrive* tray_drive = new internal::TrayDrive;
-  internal::TrayLocale* tray_locale = new internal::TrayLocale;
+      new internal::TrayAccessibility(this);
+  internal::TrayCapsLock* tray_caps_lock = new internal::TrayCapsLock(this);
+  internal::TrayDrive* tray_drive = new internal::TrayDrive(this);
+  internal::TrayLocale* tray_locale = new internal::TrayLocale(this);
   internal::TrayLogoutButton* tray_logout_button =
-      new internal::TrayLogoutButton();
-  internal::TrayUpdate* tray_update = new internal::TrayUpdate;
-  internal::TraySettings* tray_settings = new internal::TraySettings();
-
-  accessibility_observer_ = tray_accessibility;
-  audio_observer_ = tray_volume;
-  bluetooth_observer_ = tray_bluetooth;
-  brightness_observer_ = tray_brightness;
-  caps_lock_observer_ = tray_caps_lock;
-  clock_observer_ = tray_date;
-  drive_observer_ = tray_drive;
-  ime_observer_ = tray_ime;
-  locale_observer_ = tray_locale;
-  logout_button_observer_ = tray_logout_button;
-  power_status_observers_.AddObserver(tray_power);
-  power_status_observers_.AddObserver(tray_settings);
-  update_observer_ = tray_update;
-  user_observer_ = tray_user;
-
+      new internal::TrayLogoutButton(this);
+  internal::TrayUpdate* tray_update = new internal::TrayUpdate(this);
+  internal::TraySettings* tray_settings = new internal::TraySettings(this);
 #if defined(OS_CHROMEOS)
-  internal::TrayDisplay* tray_display = new internal::TrayDisplay;
-  internal::TrayNetwork* tray_network = new internal::TrayNetwork;
-  internal::TrayVPN* tray_vpn = new internal::TrayVPN;
-  internal::TraySms* tray_sms = new internal::TraySms();
-  network_observer_ = tray_network;
-  vpn_observer_ = tray_vpn;
-  sms_observer_ = tray_sms;
+  internal::TrayDisplay* tray_display = new internal::TrayDisplay(this);
+  internal::TrayNetwork* tray_network = new internal::TrayNetwork(this);
+  internal::TrayVPN* tray_vpn = new internal::TrayVPN(this);
+  internal::TraySms* tray_sms = new internal::TraySms(this);
+#endif
+
+  SystemTrayNotifier* notifier = Shell::GetInstance()->system_tray_notifier();
+  notifier->AddAccessibilityObserver(tray_accessibility);
+  notifier->AddAudioObserver(tray_volume);
+  notifier->AddBluetoothObserver(tray_bluetooth);
+  notifier->AddBrightnessObserver(tray_brightness);
+  notifier->AddCapsLockObserver(tray_caps_lock);
+  notifier->AddClockObserver(tray_date);
+  notifier->AddDriveObserver(tray_drive);
+  notifier->AddIMEObserver(tray_ime);
+  notifier->AddLocaleObserver(tray_locale);
+  notifier->AddLogoutButtonObserver(tray_logout_button);
+  notifier->AddPowerStatusObserver(tray_power);
+  notifier->AddPowerStatusObserver(tray_settings);
+  notifier->AddUpdateObserver(tray_update);
+  notifier->AddUserObserver(tray_user);
+#if defined(OS_CHROMEOS)
+  notifier->AddNetworkObserver(tray_network);
+  notifier->AddVpnObserver(tray_vpn);
+  notifier->AddSmsObserver(tray_sms);
 #endif
 
   AddTrayItem(tray_logout_button);
@@ -195,13 +186,13 @@ void SystemTray::CreateItems() {
   AddTrayItem(tray_bluetooth);
   AddTrayItem(tray_drive);
   AddTrayItem(tray_locale);
+  AddTrayItem(tray_accessibility);
 #if defined(OS_CHROMEOS)
   AddTrayItem(tray_display);
 #endif
   AddTrayItem(tray_volume);
   AddTrayItem(tray_brightness);
   AddTrayItem(tray_update);
-  AddTrayItem(tray_accessibility);
   AddTrayItem(tray_caps_lock);
   AddTrayItem(tray_settings);
   AddTrayItem(tray_date);
@@ -210,7 +201,7 @@ void SystemTray::CreateItems() {
   // Add memory monitor if enabled.
   CommandLine* cmd = CommandLine::ForCurrentProcess();
   if (cmd->HasSwitch(ash::switches::kAshEnableMemoryMonitor))
-    AddTrayItem(new internal::TrayMonitor);
+    AddTrayItem(new internal::TrayMonitor(this));
 #endif
 
   SetVisible(ash::Shell::GetInstance()->tray_delegate()->
@@ -247,7 +238,8 @@ void SystemTray::ShowDetailedView(SystemTrayItem* item,
   std::vector<SystemTrayItem*> items;
   items.push_back(item);
   ShowItems(items, true, activate, creation_type, GetTrayXOffset(item));
-  system_bubble_->bubble()->StartAutoCloseTimer(close_delay);
+  if (system_bubble_.get())
+    system_bubble_->bubble()->StartAutoCloseTimer(close_delay);
 }
 
 void SystemTray::SetDetailedViewCloseDelay(int close_delay) {
@@ -406,16 +398,15 @@ void SystemTray::ShowItems(const std::vector<SystemTrayItem*>& items,
   } else {
     TrayBubbleView::InitParams init_params(TrayBubbleView::ANCHOR_TYPE_TRAY,
                                            GetAnchorAlignment(),
-                                           kTrayPopupWidth);
+                                           kTrayPopupMinWidth,
+                                           kTrayPopupMaxWidth);
     init_params.can_activate = can_activate;
     if (detailed) {
       // This is the case where a volume control or brightness control bubble
       // is created.
       init_params.max_height = default_bubble_height_;
-      init_params.top_color = kBackgroundColor;
       init_params.arrow_color = kBackgroundColor;
     } else {
-      init_params.top_color = kBackgroundColor;
       init_params.arrow_color = kHeaderBackgroundColorDark;
     }
     init_params.arrow_offset = arrow_offset;
@@ -479,8 +470,8 @@ void SystemTray::UpdateNotificationBubble() {
   }
   TrayBubbleView::InitParams init_params(anchor_type,
                                          GetAnchorAlignment(),
-                                         kTrayPopupWidth);
-  init_params.top_color = kBackgroundColor;
+                                         kTrayPopupMinWidth,
+                                         kTrayPopupMaxWidth);
   init_params.arrow_color = kBackgroundColor;
   init_params.arrow_offset = GetTrayXOffset(notification_items_[0]);
   notification_bubble_.reset(
@@ -496,11 +487,6 @@ void SystemTray::UpdateNotificationBubble() {
     notification_bubble->SetVisible(false);
   else
     status_area_widget()->SetHideWebNotifications(true);
-}
-
-void SystemTray::Initialize() {
-  internal::TrayBackgroundView::Initialize();
-  CreateItems();
 }
 
 void SystemTray::SetShelfAlignment(ShelfAlignment alignment) {

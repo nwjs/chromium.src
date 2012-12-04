@@ -100,9 +100,12 @@ class TestEventHandler : public EventHandler {
     return event_result_;
   }
 
-  virtual EventResult OnGestureEvent(GestureEvent* event) OVERRIDE {
+  virtual void OnGestureEvent(GestureEvent* event) OVERRIDE {
     ReceivedEvent(event);
-    return event_result_;
+    if (event_result_ & ui::ER_CONSUMED)
+      event->StopPropagation();
+    if (event_result_ & ui::ER_HANDLED)
+      event->SetHandled();
   }
 
   int id_;
@@ -202,9 +205,9 @@ TEST(EventDispatcherTest, EventDispatchOrder) {
   MouseEvent mouse(ui::ET_MOUSE_MOVED, gfx::Point(3, 4),
       gfx::Point(3, 4), 0);
   Event::DispatcherApi event_mod(&mouse);
-  int result = dispatcher.ProcessEvent(&child, &mouse);
-  EXPECT_FALSE(result & ER_CONSUMED);
-  EXPECT_FALSE(result & ER_HANDLED);
+  dispatcher.ProcessEvent(&child, &mouse);
+  EXPECT_FALSE(mouse.stopped_propagation());
+  EXPECT_FALSE(mouse.handled());
 
   int expected[] = { 1, 2, 3, 4, 5, 6, 7, 8 };
   EXPECT_EQ(
@@ -216,11 +219,10 @@ TEST(EventDispatcherTest, EventDispatchOrder) {
   event_mod.set_result(ER_UNHANDLED);
 
   h1.set_event_result(ER_HANDLED);
-  result = dispatcher.ProcessEvent(&child, &mouse);
-  EXPECT_EQ(result, mouse.result());
+  dispatcher.ProcessEvent(&child, &mouse);
   EXPECT_EQ(EP_POSTDISPATCH, mouse.phase());
-  EXPECT_FALSE(result & ER_CONSUMED);
-  EXPECT_TRUE(result & ER_HANDLED);
+  EXPECT_FALSE(mouse.stopped_propagation());
+  EXPECT_TRUE(mouse.handled());
   EXPECT_EQ(
       std::vector<int>(expected, expected + sizeof(expected) / sizeof(int)),
       child.handler_list());
@@ -231,11 +233,10 @@ TEST(EventDispatcherTest, EventDispatchOrder) {
 
   int nexpected[] = { 1, 2, 3, 4, 5 };
   h5.set_event_result(ER_CONSUMED);
-  result = dispatcher.ProcessEvent(&child, &mouse);
-  EXPECT_EQ(result, mouse.result());
+  dispatcher.ProcessEvent(&child, &mouse);
   EXPECT_EQ(EP_POSTDISPATCH, mouse.phase());
-  EXPECT_TRUE(result & ER_CONSUMED);
-  EXPECT_TRUE(result & ER_HANDLED);
+  EXPECT_TRUE(mouse.stopped_propagation());
+  EXPECT_TRUE(mouse.handled());
   EXPECT_EQ(
       std::vector<int>(nexpected, nexpected + sizeof(nexpected) / sizeof(int)),
       child.handler_list());
@@ -246,11 +247,10 @@ TEST(EventDispatcherTest, EventDispatchOrder) {
 
   int exp[] = { 1 };
   h1.set_event_result(ER_CONSUMED);
-  result = dispatcher.ProcessEvent(&child, &mouse);
+  dispatcher.ProcessEvent(&child, &mouse);
   EXPECT_EQ(EP_POSTDISPATCH, mouse.phase());
-  EXPECT_EQ(result, mouse.result());
-  EXPECT_TRUE(result & ER_CONSUMED);
-  EXPECT_FALSE(result & ER_HANDLED);
+  EXPECT_TRUE(mouse.stopped_propagation());
+  EXPECT_TRUE(mouse.handled());
   EXPECT_EQ(
       std::vector<int>(exp, exp + sizeof(exp) / sizeof(int)),
       child.handler_list());
@@ -271,8 +271,8 @@ TEST(EventDispatcherTest, EventDispatchPhase) {
   MouseEvent mouse(ui::ET_MOUSE_MOVED, gfx::Point(3, 4),
       gfx::Point(3, 4), 0);
   Event::DispatcherApi event_mod(&mouse);
-  int result = dispatcher.ProcessEvent(&target, &mouse);
-  EXPECT_EQ(ER_UNHANDLED, result);
+  dispatcher.ProcessEvent(&target, &mouse);
+  EXPECT_EQ(ER_UNHANDLED, mouse.result());
 
   int handlers[] = { 11, 11 };
   EXPECT_EQ(
@@ -303,8 +303,8 @@ TEST(EventDispatcherTest, EventDispatcherDestroyTarget) {
     MouseEvent mouse(ui::ET_MOUSE_MOVED, gfx::Point(3, 4),
         gfx::Point(3, 4), 0);
     Event::DispatcherApi event_mod(&mouse);
-    int result = dispatcher->ProcessEvent(&target, &mouse);
-    EXPECT_EQ(ER_CONSUMED, result);
+    dispatcher->ProcessEvent(&target, &mouse);
+    EXPECT_EQ(ER_CONSUMED, mouse.result());
     EXPECT_EQ(2U, target.handler_list().size());
     EXPECT_EQ(1, target.handler_list()[0]);
     EXPECT_EQ(5, target.handler_list()[1]);
@@ -330,8 +330,8 @@ TEST(EventDispatcherTest, EventDispatcherDestroyTarget) {
     MouseEvent mouse(ui::ET_MOUSE_MOVED, gfx::Point(3, 4),
         gfx::Point(3, 4), 0);
     Event::DispatcherApi event_mod(&mouse);
-    int result = dispatcher->ProcessEvent(&target, &mouse);
-    EXPECT_EQ(ER_CONSUMED, result);
+    dispatcher->ProcessEvent(&target, &mouse);
+    EXPECT_EQ(ER_CONSUMED, mouse.result());
     EXPECT_EQ(2U, target.handler_list().size());
     EXPECT_EQ(1, target.handler_list()[0]);
     EXPECT_EQ(5, target.handler_list()[1]);
@@ -357,9 +357,9 @@ TEST(EventDispatcherTest, EventDispatcherInvalidateTarget) {
   h3.set_expect_pre_target(false);
 
   MouseEvent mouse(ui::ET_MOUSE_MOVED, gfx::Point(3, 4), gfx::Point(3, 4), 0);
-  int result = dispatcher.ProcessEvent(&target, &mouse);
+  dispatcher.ProcessEvent(&target, &mouse);
   EXPECT_FALSE(target.valid());
-  EXPECT_EQ(ER_CONSUMED, result);
+  EXPECT_TRUE(mouse.stopped_propagation());
   EXPECT_EQ(2U, target.handler_list().size());
   EXPECT_EQ(1, target.handler_list()[0]);
   EXPECT_EQ(2, target.handler_list()[1]);

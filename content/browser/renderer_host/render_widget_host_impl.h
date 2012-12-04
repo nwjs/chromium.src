@@ -22,6 +22,7 @@
 #include "base/timer.h"
 #include "build/build_config.h"
 #include "content/common/view_message_enums.h"
+#include "content/port/common/input_event_ack_state.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/common/page_zoom.h"
 #include "ipc/ipc_listener.h"
@@ -59,6 +60,7 @@ namespace content {
 class BackingStore;
 class GestureEventFilter;
 class MockRenderWidgetHost;
+class OverscrollController;
 class RenderWidgetHostDelegate;
 class RenderWidgetHostViewPort;
 class SmoothScrollGesture;
@@ -135,10 +137,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   virtual void WasResized() OVERRIDE;
   virtual void AddKeyboardListener(KeyboardListener* listener) OVERRIDE;
   virtual void RemoveKeyboardListener(KeyboardListener* listener) OVERRIDE;
-  virtual void SetDeviceScaleFactor(float scale) OVERRIDE;
 
   // Notification that the screen info has changed.
-  virtual void NotifyScreenInfoChanged();
+  void NotifyScreenInfoChanged();
 
   // Sets the View of this RenderWidgetHost.
   void SetView(RenderWidgetHostView* view);
@@ -427,11 +428,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
     allow_privileged_mouse_lock_ = allow;
   }
 
-#if defined(OS_ANDROID)
-  virtual void AttachLayer(WebKit::WebLayer* layer) {}
-  virtual void RemoveLayer(WebKit::WebLayer* layer) {}
-#endif
-
   // Resets state variables related to tracking pending size and painting.
   //
   // We need to reset these flags when we want to repaint the contents of
@@ -444,8 +440,21 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // Update the renderer's cache of the screen rect of the view and window.
   void SendScreenRects();
 
+  GestureEventFilter* gesture_event_filter() {
+    return gesture_event_filter_.get();
+  }
+
+  OverscrollController* overscroll_controller() {
+    return overscroll_controller_.get();
+  }
+
  protected:
   virtual RenderWidgetHostImpl* AsRenderWidgetHostImpl() OVERRIDE;
+
+  // Transmits the given input event. This is an internal helper for
+  // |ForwardInputEvent()| and should not be used directly from elsewhere.
+  void SendInputEvent(const WebKit::WebInputEvent& input_event,
+                      int event_size, bool is_keyboard_shortcut);
 
   // Internal implementation of the public Forward*Event() methods.
   void ForwardInputEvent(const WebKit::WebInputEvent& input_event,
@@ -508,6 +517,12 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   int increment_in_flight_event_count() { return ++in_flight_event_count_; }
   int decrement_in_flight_event_count() { return --in_flight_event_count_; }
 
+  // Creates and initializes the overscroll controller.
+  void InitializeOverscrollController();
+
+  // Returns whether an overscroll gesture is in progress.
+  bool IsInOverscrollGesture() const;
+
   void GetWebScreenInfo(WebKit::WebScreenInfo* result);
 
   // The View associated with the RenderViewHost. The lifetime of this object
@@ -559,7 +574,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnMsgUpdateRect(const ViewHostMsg_UpdateRect_Params& params);
   void OnMsgUpdateIsDelayed();
   void OnMsgInputEventAck(WebKit::WebInputEvent::Type event_type,
-                          bool processed);
+                          InputEventAckState ack_result);
   void OnMsgBeginSmoothScroll(
       int gesture_id,
       const ViewHostMsg_BeginSmoothScroll_Params &params);
@@ -608,6 +623,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 #if defined(OS_ANDROID)
   void OnMsgUpdateFrameInfo(const gfx::Vector2d& scroll_offset,
                             float page_scale_factor,
+                            float min_page_scale_factor,
+                            float max_page_scale_factor,
                             const gfx::Size& content_size);
 #endif
 #if defined(TOOLKIT_GTK)
@@ -641,7 +658,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // Scrolls the given |clip_rect| in the backing by the given dx/dy amount. The
   // |dib| and its corresponding location |bitmap_rect| in the backing store
   // is the newly painted pixels by the renderer.
-  void ScrollBackingStoreRect(int dx, int dy, const gfx::Rect& clip_rect,
+  void ScrollBackingStoreRect(const gfx::Vector2d& delta,
+                              const gfx::Rect& clip_rect,
                               const gfx::Size& view_size);
 
   // Called by OnMsgInputEventAck() to process a keyboard event ack message.
@@ -662,7 +680,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // Called on OnMsgInputEventAck() to process a touch event ack message.
   // This can result in a gesture event being generated and sent back to the
   // renderer.
-  void ProcessTouchAck(bool processed);
+  void ProcessTouchAck(InputEventAckState ack_result);
 
   // Called when there is a new auto resize (using a post to avoid a stack
   // which may get in recursive loops).
@@ -859,6 +877,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 
   scoped_ptr<TouchEventQueue> touch_event_queue_;
   scoped_ptr<GestureEventFilter> gesture_event_filter_;
+  scoped_ptr<OverscrollController> overscroll_controller_;
 
 #if defined(OS_WIN)
   std::list<HWND> dummy_windows_for_activation_;

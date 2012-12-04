@@ -520,6 +520,13 @@ GLboolean GLES2InterfaceStub::EnableFeatureCHROMIUM(
     const char* /* feature */) {
   return 0;
 }
+void* GLES2InterfaceStub::MapBufferCHROMIUM(
+    GLuint /* target */, GLenum /* access */) {
+  return 0;
+}
+GLboolean GLES2InterfaceStub::UnmapBufferCHROMIUM(GLuint /* target */) {
+  return 0;
+}
 void* GLES2InterfaceStub::MapBufferSubDataCHROMIUM(
     GLuint /* target */, GLintptr /* offset */, GLsizeiptr /* size */,
     GLenum /* access */) {
@@ -601,6 +608,20 @@ void GLES2InterfaceStub::BindTexImage2DCHROMIUM(
 }
 void GLES2InterfaceStub::ReleaseTexImage2DCHROMIUM(
     GLenum /* target */, GLint /* imageId */) {
+}
+void GLES2InterfaceStub::TraceBeginCHROMIUM(const char* /* name */) {
+}
+void GLES2InterfaceStub::TraceEndCHROMIUM() {
+}
+void GLES2InterfaceStub::AsyncTexSubImage2DCHROMIUM(
+    GLenum /* target */, GLint /* level */, GLint /* xoffset */,
+    GLint /* yoffset */, GLsizei /* width */, GLsizei /* height */,
+    GLenum /* format */, GLenum /* type */, const void* /* data */) {
+}
+void GLES2InterfaceStub::AsyncTexImage2DCHROMIUM(
+    GLenum /* target */, GLint /* level */, GLint /* internalformat */,
+    GLsizei /* width */, GLsizei /* height */, GLint /* border */,
+    GLenum /* format */, GLenum /* type */, const void* /* pixels */) {
 }
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_INTERFACE_STUB_IMPL_AUTOGEN_H_
 

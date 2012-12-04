@@ -86,7 +86,7 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
       protocol::ClientStub* client_stub,
       protocol::VideoStub* video_stub);
 
-  // VideoFrameCapturer::Delegate implementation
+  // VideoFrameCapturer::Delegate implementation.
   virtual void OnCaptureCompleted(
       scoped_refptr<CaptureData> capture_data) OVERRIDE;
   virtual void OnCursorShapeChanged(
@@ -174,12 +174,6 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
   // True if capture of video frames is paused.
   bool is_paused_;
 
-  // Time when capture is started.
-  base::Time capture_start_time_;
-
-  // Time when encode is started.
-  base::Time encode_start_time_;
-
   // This is a number updated by client to trace performance.
   int64 sequence_number_;
 
@@ -191,4 +185,4 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
 
 }  // namespace remoting
 
-#endif  // REMOTING_HOST_SCREEN_RECORDER_H_
+#endif  // REMOTING_HOST_VIDEO_SCHEDULER_H_

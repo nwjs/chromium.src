@@ -6,7 +6,7 @@
 
 #include "base/bind.h"
 #include "chrome/browser/google_apis/auth_service.h"
-#include "chrome/browser/google_apis/operations_base.h"
+#include "chrome/browser/google_apis/base_operations.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
 
@@ -15,10 +15,12 @@ using content::BrowserThread;
 namespace google_apis {
 
 OperationRunner::OperationRunner(Profile* profile,
-                                 const std::vector<std::string>& scopes)
+                                 const std::vector<std::string>& scopes,
+                                 const std::string& custom_user_agent)
     : profile_(profile),
       auth_service_(new AuthService(scopes)),
       operation_registry_(new OperationRegistry()),
+      custom_user_agent_(custom_user_agent),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
@@ -35,11 +37,6 @@ void OperationRunner::Initialize() {
 void OperationRunner::CancelAll() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   operation_registry_->CancelAll();
-}
-
-void OperationRunner::Authenticate(const AuthStatusCallback& callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  auth_service_->StartAuthentication(operation_registry_.get(), callback);
 }
 
 void OperationRunner::StartOperationWithRetry(
@@ -67,7 +64,7 @@ void OperationRunner::StartOperation(
     return;
   }
 
-  operation->Start(auth_service_->access_token());
+  operation->Start(auth_service_->access_token(), custom_user_agent_);
 }
 
 void OperationRunner::OnOperationAuthRefresh(

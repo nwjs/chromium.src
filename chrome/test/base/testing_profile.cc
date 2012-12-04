@@ -37,7 +37,6 @@
 #include "chrome/browser/net/proxy_service_factory.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
-#include "chrome/browser/policy/user_cloud_policy_manager.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
@@ -57,10 +56,11 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
-#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/test/mock_resource_context.h"
 #include "content/public/test/test_utils.h"
+#include "extensions/common/constants.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -111,7 +111,7 @@ class TestExtensionURLRequestContext : public net::URLRequestContext {
  public:
   TestExtensionURLRequestContext() {
     net::CookieMonster* cookie_monster = new net::CookieMonster(NULL, NULL);
-    const char* schemes[] = {chrome::kExtensionScheme};
+    const char* schemes[] = {extensions::kExtensionScheme};
     cookie_monster->SetCookieableSchemes(schemes, 1);
     set_cookie_store(cookie_monster);
   }
@@ -207,15 +207,13 @@ TestingProfile::TestingProfile(
     const FilePath& path,
     Delegate* delegate,
     scoped_refptr<ExtensionSpecialStoragePolicy> extension_policy,
-    scoped_ptr<PrefService> prefs,
-    scoped_ptr<policy::UserCloudPolicyManager> user_cloud_policy_manager)
+    scoped_ptr<PrefService> prefs)
     : start_time_(Time::Now()),
       prefs_(prefs.release()),
       testing_prefs_(NULL),
       incognito_(false),
       last_session_exited_cleanly_(true),
       extension_special_storage_policy_(extension_policy),
-      user_cloud_policy_manager_(user_cloud_policy_manager.release()),
       profile_path_(path),
       profile_dependency_manager_(ProfileDependencyManager::GetInstance()),
       delegate_(delegate) {
@@ -303,11 +301,6 @@ TestingProfile::~TestingProfile() {
 
   DestroyTopSites();
 
-#if defined(ENABLE_CONFIGURATION_POLICY)
-  if (user_cloud_policy_manager_)
-    user_cloud_policy_manager_->Shutdown();
-#endif
-
   if (pref_proxy_config_tracker_.get())
     pref_proxy_config_tracker_->DetachFromPrefService();
 }
@@ -383,7 +376,7 @@ void TestingProfile::DestroyTopSites() {
     // to be run to properly shutdown. Run all pending tasks now. This is
     // normally handled by browser_process shutdown.
     if (MessageLoop::current())
-      MessageLoop::current()->RunAllPending();
+      MessageLoop::current()->RunUntilIdle();
   }
 }
 
@@ -544,10 +537,6 @@ net::CookieMonster* TestingProfile::GetCookieMonster() {
       GetCookieMonster();
 }
 
-policy::UserCloudPolicyManager* TestingProfile::GetUserCloudPolicyManager() {
-  return user_cloud_policy_manager_.get();
-}
-
 policy::ManagedModePolicyProvider*
 TestingProfile::GetManagedModePolicyProvider() {
   return NULL;
@@ -618,7 +607,7 @@ net::URLRequestContextGetter* TestingProfile::GetRequestContextForRenderProcess(
 void TestingProfile::CreateRequestContext() {
   if (!request_context_)
     request_context_ =
-        new TestURLRequestContextGetter(
+        new net::TestURLRequestContextGetter(
             BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
 }
 
@@ -815,11 +804,6 @@ void TestingProfile::Builder::SetPrefService(scoped_ptr<PrefService> prefs) {
   pref_service_ = prefs.Pass();
 }
 
-void TestingProfile::Builder::SetUserCloudPolicyManager(
-    scoped_ptr<policy::UserCloudPolicyManager> manager) {
-  user_cloud_policy_manager_ = manager.Pass();
-}
-
 scoped_ptr<TestingProfile> TestingProfile::Builder::Build() {
   DCHECK(!build_called_);
   build_called_ = true;
@@ -827,6 +811,5 @@ scoped_ptr<TestingProfile> TestingProfile::Builder::Build() {
       path_,
       delegate_,
       extension_policy_,
-      pref_service_.Pass(),
-      user_cloud_policy_manager_.Pass()));
+      pref_service_.Pass()));
 }

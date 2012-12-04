@@ -21,7 +21,7 @@ class VpnDetailedView;
 class TrayVPN : public SystemTrayItem,
                 public NetworkObserver {
  public:
-  TrayVPN();
+  explicit TrayVPN(SystemTray* system_tray);
   virtual ~TrayVPN();
 
   // Overridden from SystemTrayItem.
@@ -42,6 +42,7 @@ class TrayVPN : public SystemTrayItem,
   virtual void OnNetworkRefresh(const NetworkIconInfo& info) OVERRIDE;
   virtual void SetNetworkMessage(NetworkTrayDelegate* delegate,
                                  MessageType message_type,
+                                 NetworkType network_type,
                                  const string16& title,
                                  const string16& message,
                                  const std::vector<string16>& links) OVERRIDE;

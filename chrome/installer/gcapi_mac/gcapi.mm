@@ -98,7 +98,13 @@ NSString* AdjustHomedir(NSString* s, const char* home_dir) {
   return [ns_home_dir stringByAppendingString:[s substringFromIndex:2]];
 }
 
-BOOL HasChromeTicket(TicketKind kind, const passwd* user) {
+// If |chrome_path| is not 0, |*chrome_path| is set to the path where chrome
+// is according to keystone. It's only set if that path exists on disk.
+BOOL FindChromeTicket(TicketKind kind, const passwd* user,
+                      NSString** chrome_path) {
+  if (chrome_path)
+    *chrome_path = nil;
+
   // Don't use Objective-C 2 loop syntax, in case an installer runs on 10.4.
   NSMutableArray* keystone_paths =
       [NSMutableArray arrayWithObject:kSystemKsadminPath];
@@ -153,8 +159,40 @@ BOOL HasChromeTicket(TicketKind kind, const passwd* user) {
     }
     [task release];
 
-    if (ksadmin_ran_successfully && [string length] > 0)
-      return YES;
+    if (ksadmin_ran_successfully && [string length] > 0) {
+      // If the user deleted chrome, it doesn't get unregistered in keystone.
+      // Check if the path keystone thinks chrome is at still exists, and if not
+      // treat this as "chrome isn't installed". Sniff for
+      //   xc=<KSPathExistenceChecker:1234 path=/Applications/Google Chrome.app>
+      // in the output. But don't mess with system tickets, since reinstalling
+      // a user chrome on top of a system ticket produces a non-autoupdating
+      // chrome.
+      NSRange start = [string rangeOfString:@"\n\txc=<KSPathExistenceChecker:"];
+      if (start.location == NSNotFound && start.length == 0)
+        return YES;  // Err on the cautious side.
+      string = [string substringFromIndex:start.location];
+
+      start = [string rangeOfString:@"path="];
+      if (start.location == NSNotFound && start.length == 0)
+        return YES;  // Err on the cautious side.
+      string = [string substringFromIndex:start.location];
+
+      NSRange end = [string rangeOfString:@".app>\n\t"];
+      if (end.location == NSNotFound && end.length == 0)
+        return YES;
+
+      string = [string substringToIndex:NSMaxRange(end) - [@">\n\t" length]];
+      string = [string substringFromIndex:start.length];
+
+      BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:string];
+      if (exists && chrome_path)
+        *chrome_path = string;
+      // Don't allow reinstallation over a system ticket, even if chrome doesn't
+      // exist on disk.
+      if (kind == kSystemTicket)
+        return YES;
+      return exists;
+    }
   }
 
   return NO;
@@ -277,21 +315,31 @@ int GoogleChromeCompatibilityCheck(unsigned* reasons) {
   unsigned local_reasons = 0;
   @autoreleasepool {
     passwd* user = GetRealUserId();
+    if (!user)
+      return GCCC_ERROR_ACCESSDENIED;
 
     if (!IsOSXVersionSupported())
       local_reasons |= GCCC_ERROR_OSNOTSUPPORTED;
 
-    if (HasChromeTicket(kSystemTicket, NULL))
+    NSString* path;
+    if (FindChromeTicket(kSystemTicket, NULL, &path)) {
       local_reasons |= GCCC_ERROR_ALREADYPRESENT;
+      if (!path)  // Ticket points to nothingness.
+        local_reasons |= GCCC_ERROR_ACCESSDENIED;
+    }
 
-    if (HasChromeTicket(kUserTicket, user))
+    if (FindChromeTicket(kUserTicket, user, NULL))
       local_reasons |= GCCC_ERROR_ALREADYPRESENT;
-
-    if (![[NSFileManager defaultManager] isWritableFileAtPath:@"/Applications"])
-      local_reasons |= GCCC_ERROR_ACCESSDENIED;
 
     if ([[NSFileManager defaultManager] fileExistsAtPath:kChromeInstallPath])
       local_reasons |= GCCC_ERROR_ALREADYPRESENT;
+
+    if ((local_reasons & GCCC_ERROR_ALREADYPRESENT) == 0) {
+      if (![[NSFileManager defaultManager]
+              isWritableFileAtPath:@"/Applications"])
+      local_reasons |= GCCC_ERROR_ACCESSDENIED;
+    }
+
   }
   if (reasons != NULL)
     *reasons = local_reasons;
@@ -307,6 +355,8 @@ int InstallGoogleChrome(const char* source_path,
 
   @autoreleasepool {
     passwd* user = GetRealUserId();
+    if (!user)
+      return 0;
 
     NSString* app_path = [NSString stringWithUTF8String:source_path];
     NSString* info_plist_path =
@@ -364,8 +414,22 @@ int InstallGoogleChrome(const char* source_path,
 
 int LaunchGoogleChrome() {
   @autoreleasepool {
+    passwd* user = GetRealUserId();
+    if (!user)
+      return 0;
+
+    NSString* app_path;
+
+    NSString* path;
+    if (FindChromeTicket(kUserTicket, user, &path) && path)
+      app_path = path;
+    else if (FindChromeTicket(kSystemTicket, NULL, &path) && path)
+      app_path = path;
+    else
+      app_path = kChromeInstallPath;
+
     // NSWorkspace launches processes as the current console owner,
     // even when running with euid of 0.
-    return [[NSWorkspace sharedWorkspace] launchApplication:kChromeInstallPath];
+    return [[NSWorkspace sharedWorkspace] launchApplication:app_path];
   }
 }

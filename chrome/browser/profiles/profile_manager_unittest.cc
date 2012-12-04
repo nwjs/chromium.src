@@ -6,9 +6,9 @@
 
 #include "base/command_line.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/system_monitor/system_monitor.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
@@ -95,8 +95,8 @@ class ProfileManagerTest : public testing::Test {
         ui_thread_(BrowserThread::UI, &message_loop_),
         db_thread_(BrowserThread::DB, &message_loop_),
         file_thread_(BrowserThread::FILE, &message_loop_),
-        io_thread_(local_state_.Get(), NULL,
-                   extension_event_router_forwarder_) {
+        io_thread_(local_state_.Get(), g_browser_process->policy_service(),
+                   NULL, extension_event_router_forwarder_) {
 #if defined(OS_MACOSX)
     base::SystemMonitor::AllocateSystemIOPorts();
 #endif
@@ -120,7 +120,7 @@ class ProfileManagerTest : public testing::Test {
   virtual void TearDown() {
     static_cast<TestingBrowserProcess*>(g_browser_process)->SetProfileManager(
         NULL);
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
 #if defined(OS_CHROMEOS)
@@ -131,7 +131,7 @@ class ProfileManagerTest : public testing::Test {
 #endif
 
   // The path to temporary directory used to contain the test operations.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   ScopedTestingLocalState local_state_;
   scoped_refptr<extensions::EventRouterForwarder>
       extension_event_router_forwarder_;
@@ -225,13 +225,13 @@ TEST_F(ProfileManagerTest, CreateAndUseTwoProfiles) {
                                                    Profile::EXPLICIT_ACCESS));
 
   // Make sure any pending tasks run before we destroy the profiles.
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
 
   static_cast<TestingBrowserProcess*>(g_browser_process)->SetProfileManager(
       NULL);
 
   // Make sure history cleans up correctly.
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
 }
 
 MATCHER(NotFail, "Profile creation failure status is not reported.") {
@@ -252,7 +252,7 @@ TEST_F(ProfileManagerTest, DISABLED_CreateProfileAsync) {
       base::Bind(&MockObserver::OnProfileCreated,
                  base::Unretained(&mock_observer)), string16(), string16());
 
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
 }
 
 MATCHER(SameNotNull, "The same non-NULL value for all calls.") {
@@ -292,7 +292,7 @@ TEST_F(ProfileManagerTest, CreateProfileAsyncMultipleRequests) {
                  base::Unretained(&mock_observer3)),
                  string16(), string16());
 
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
 }
 
 TEST_F(ProfileManagerTest, CreateProfilesAsync) {
@@ -314,12 +314,21 @@ TEST_F(ProfileManagerTest, CreateProfilesAsync) {
       base::Bind(&MockObserver::OnProfileCreated,
                  base::Unretained(&mock_observer)), string16(), string16());
 
-  message_loop_.RunAllPending();
+  message_loop_.RunUntilIdle();
 }
 
 TEST_F(ProfileManagerTest, AutoloadProfilesWithBackgroundApps) {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
+  local_state_.Get()->SetUserPref(prefs::kBackgroundModeEnabled,
+                                  Value::CreateBooleanValue(true));
+
+  // Setting a pref which is not applicable to a system (i.e., Android in this
+  // case) does not necessarily create it. Don't bother continuing with the
+  // test if this pref doesn't exist because it will not load the profiles if
+  // it cannot verify that the pref for background mode is enabled.
+  if (!local_state_.Get()->HasPrefPath(prefs::kBackgroundModeEnabled))
+    return;
 
   EXPECT_EQ(0u, cache.GetNumberOfProfiles());
   cache.AddProfileToCache(cache.GetUserDataDir().AppendASCII("path_1"),
@@ -335,6 +344,26 @@ TEST_F(ProfileManagerTest, AutoloadProfilesWithBackgroundApps) {
   profile_manager->AutoloadProfiles();
 
   EXPECT_EQ(2u, profile_manager->GetLoadedProfiles().size());
+}
+
+TEST_F(ProfileManagerTest, DoNotAutoloadProfilesIfBackgroundModeOff) {
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
+  local_state_.Get()->SetUserPref(prefs::kBackgroundModeEnabled,
+                                  Value::CreateBooleanValue(false));
+
+  EXPECT_EQ(0u, cache.GetNumberOfProfiles());
+  cache.AddProfileToCache(cache.GetUserDataDir().AppendASCII("path_1"),
+                          ASCIIToUTF16("name_1"), string16(), 0);
+  cache.AddProfileToCache(cache.GetUserDataDir().AppendASCII("path_2"),
+                          ASCIIToUTF16("name_2"), string16(), 0);
+  cache.SetBackgroundStatusOfProfileAtIndex(0, false);
+  cache.SetBackgroundStatusOfProfileAtIndex(1, true);
+  EXPECT_EQ(2u, cache.GetNumberOfProfiles());
+
+  profile_manager->AutoloadProfiles();
+
+  EXPECT_EQ(0u, profile_manager->GetLoadedProfiles().size());
 }
 
 TEST_F(ProfileManagerTest, InitProfileUserPrefs) {

@@ -40,6 +40,7 @@
 #include "ui/gfx/skia_util.h"
 #include "ui/gl/gl_switches.h"
 #include "ui/surface/transport_dib.h"
+#include "webkit/compositor_bindings/web_rendering_stats_impl.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/plugins/npapi/webplugin.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
@@ -74,8 +75,6 @@ using WebKit::WebWidget;
 
 namespace content {
 
-static const float kStandardDPI = 160;
-
 RenderWidget::RenderWidget(WebKit::WebPopupType popup_type,
                            const WebKit::WebScreenInfo& screen_info,
                            bool swapped_out)
@@ -109,7 +108,7 @@ RenderWidget::RenderWidget(WebKit::WebPopupType popup_type,
       animation_update_pending_(false),
       invalidation_task_posted_(false),
       screen_info_(screen_info),
-      device_scale_factor_(1),
+      device_scale_factor_(screen_info_.deviceScaleFactor),
       throttle_input_events_(true),
       next_smooth_scroll_gesture_id_(0),
       is_threaded_compositing_enabled_(false) {
@@ -118,15 +117,6 @@ RenderWidget::RenderWidget(WebKit::WebPopupType popup_type,
   DCHECK(RenderThread::Get());
   has_disable_gpu_vsync_switch_ = CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableGpuVsync);
-#if defined(OS_CHROMEOS) || defined(OS_MACOSX)
-  device_scale_factor_ = screen_info.verticalDPI / kStandardDPI;
-  // Unless an explicit scale factor was provided for testing, ensure the scale
-  // is integral.
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kForceDeviceScaleFactor))
-    device_scale_factor_ = static_cast<int>(device_scale_factor_);
-  device_scale_factor_ = std::max(1.0f, device_scale_factor_);
-#endif
   is_threaded_compositing_enabled_ =
       CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableThreadedCompositing);
@@ -253,7 +243,6 @@ bool RenderWidget::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_Repaint, OnMsgRepaint)
     IPC_MESSAGE_HANDLER(ViewMsg_SmoothScrollCompleted,
                         OnMsgSmoothScrollCompleted)
-    IPC_MESSAGE_HANDLER(ViewMsg_SetDeviceScaleFactor, OnSetDeviceScaleFactor)
     IPC_MESSAGE_HANDLER(ViewMsg_SetTextDirection, OnSetTextDirection)
     IPC_MESSAGE_HANDLER(ViewMsg_Move_ACK, OnRequestMoveAck)
     IPC_MESSAGE_HANDLER(ViewMsg_ScreenInfoChanged, OnScreenInfoChanged)
@@ -601,9 +590,19 @@ void RenderWidget::OnHandleInputEvent(const IPC::Message& message) {
   if (!processed && is_keyboard_shortcut)
     suppress_next_char_events_ = true;
 
+  InputEventAckState ack_result = processed ?
+      INPUT_EVENT_ACK_STATE_CONSUMED : INPUT_EVENT_ACK_STATE_NOT_CONSUMED;
+  if (!processed &&  input_event->type == WebInputEvent::TouchStart) {
+    const WebTouchEvent& touch_event =
+        *static_cast<const WebTouchEvent*>(input_event);
+    ack_result = HasTouchEventHandlersAt(touch_event.touches[0].position) ?
+        INPUT_EVENT_ACK_STATE_NOT_CONSUMED :
+        INPUT_EVENT_ACK_STATE_NO_CONSUMER_EXISTS;
+  }
+
   IPC::Message* response =
       new ViewHostMsg_HandleInputEvent_ACK(routing_id_, input_event->type,
-                                           processed);
+                                           ack_result);
   bool event_type_gets_rate_limited =
       input_event->type == WebInputEvent::MouseMove ||
       input_event->type == WebInputEvent::MouseWheel ||
@@ -685,10 +684,11 @@ void RenderWidget::PaintRect(const gfx::Rect& rect,
   // If there is a custom background, tile it.
   if (!background_.empty()) {
     SkPaint paint;
-    SkShader* shader = SkShader::CreateBitmapShader(background_,
-                                                    SkShader::kRepeat_TileMode,
-                                                    SkShader::kRepeat_TileMode);
-    paint.setShader(shader)->unref();
+    skia::RefPtr<SkShader> shader = skia::AdoptRef(
+        SkShader::CreateBitmapShader(background_,
+                                     SkShader::kRepeat_TileMode,
+                                     SkShader::kRepeat_TileMode));
+    paint.setShader(shader.get());
 
     // Use kSrc_Mode to handle background_ transparency properly.
     paint.setXfermodeMode(SkXfermode::kSrc_Mode);
@@ -1004,8 +1004,7 @@ void RenderWidget::DoDeferredUpdate() {
   float dib_scale_factor = 1;
   DCHECK(!pending_update_params_.get());
   pending_update_params_.reset(new ViewHostMsg_UpdateRect_Params);
-  pending_update_params_->dx = update.scroll_delta.x();
-  pending_update_params_->dy = update.scroll_delta.y();
+  pending_update_params_->scroll_delta = update.scroll_delta;
   pending_update_params_->scroll_rect = update.scroll_rect;
   pending_update_params_->view_size = size_;
   pending_update_params_->plugin_window_moves.swap(plugin_window_moves_);
@@ -1142,7 +1141,8 @@ void RenderWidget::didInvalidateRect(const WebRect& rect) {
       FROM_HERE, base::Bind(&RenderWidget::InvalidationCallback, this));
 }
 
-void RenderWidget::didScrollRect(int dx, int dy, const WebRect& clip_rect) {
+void RenderWidget::didScrollRect(int dx, int dy,
+                                 const WebRect& clip_rect) {
   // Drop scrolls on the floor when we are in compositing mode.
   // TODO(nduca): stop WebViewImpl from sending scrolls in the first place.
   if (is_accelerated_compositing_active_)
@@ -1154,7 +1154,7 @@ void RenderWidget::didScrollRect(int dx, int dy, const WebRect& clip_rect) {
   if (damaged_rect.IsEmpty())
     return;
 
-  paint_aggregator_.ScrollRect(dx, dy, damaged_rect);
+  paint_aggregator_.ScrollRect(gfx::Vector2d(dx, dy), damaged_rect);
 
   // We may not need to schedule another call to DoDeferredUpdate.
   if (invalidation_task_posted_)
@@ -1608,19 +1608,6 @@ void RenderWidget::OnMsgRepaint(const gfx::Size& size_to_paint) {
   }
 }
 
-void RenderWidget::OnSetDeviceScaleFactor(float device_scale_factor) {
-  if (device_scale_factor_ == device_scale_factor)
-    return;
-
-  device_scale_factor_ = device_scale_factor;
-
-  if (!is_accelerated_compositing_active_) {
-    didInvalidateRect(gfx::Rect(size_.width(), size_.height()));
-  } else {
-    scheduleComposite();
-  }
-}
-
 void RenderWidget::OnMsgSmoothScrollCompleted(int gesture_id) {
   PendingSmoothScrollGestureMap::iterator it =
       pending_smooth_scroll_gestures_.find(gesture_id);
@@ -1638,6 +1625,7 @@ void RenderWidget::OnSetTextDirection(WebTextDirection direction) {
 void RenderWidget::OnScreenInfoChanged(
     const WebKit::WebScreenInfo& screen_info) {
   screen_info_ = screen_info;
+  SetDeviceScaleFactor(screen_info.deviceScaleFactor);
 }
 
 void RenderWidget::OnUpdateScreenRects(const gfx::Rect& view_screen_rect,
@@ -1645,6 +1633,19 @@ void RenderWidget::OnUpdateScreenRects(const gfx::Rect& view_screen_rect,
   view_screen_rect_ = view_screen_rect;
   window_screen_rect_ = window_screen_rect;
   Send(new ViewHostMsg_UpdateScreenRects_ACK(routing_id()));
+}
+
+void RenderWidget::SetDeviceScaleFactor(float device_scale_factor) {
+  if (device_scale_factor_ == device_scale_factor)
+    return;
+
+  device_scale_factor_ = device_scale_factor;
+
+  if (!is_accelerated_compositing_active_) {
+    didInvalidateRect(gfx::Rect(size_.width(), size_.height()));
+  } else {
+    scheduleComposite();
+  }
 }
 
 webkit::ppapi::PluginInstance* RenderWidget::GetBitmapForOptimizedPluginPaint(
@@ -1843,10 +1844,8 @@ ui::TextInputType RenderWidget::WebKitToUiTextInputType(
 }
 
 ui::TextInputType RenderWidget::GetTextInputType() {
-  if (webwidget_) {
-    WebKit::WebTextInputType type = webwidget_->textInputType();
-    return WebKitToUiTextInputType(type);
-  }
+  if (webwidget_)
+    return WebKitToUiTextInputType(webwidget_->textInputInfo().type);
   return ui::TEXT_INPUT_TYPE_NONE;
 }
 
@@ -1920,15 +1919,22 @@ void RenderWidget::CleanupWindowInPluginMoves(gfx::PluginWindowHandle window) {
   }
 }
 
-void RenderWidget::GetRenderingStats(WebKit::WebRenderingStats& stats) const {
+void RenderWidget::GetRenderingStats(
+    WebKit::WebRenderingStatsImpl& stats) const {
   webwidget()->renderingStats(stats);
-  stats.numAnimationFrames += software_stats_.numAnimationFrames;
-  stats.numFramesSentToScreen += software_stats_.numFramesSentToScreen;
-  stats.totalPaintTimeInSeconds += software_stats_.totalPaintTimeInSeconds;
-  stats.totalPixelsPainted += software_stats_.totalPixelsPainted;
-  stats.totalRasterizeTimeInSeconds +=
+
+  stats.rendering_stats.numAnimationFrames +=
+      software_stats_.numAnimationFrames;
+  stats.rendering_stats.numFramesSentToScreen +=
+      software_stats_.numFramesSentToScreen;
+  stats.rendering_stats.totalPaintTimeInSeconds +=
+      software_stats_.totalPaintTimeInSeconds;
+  stats.rendering_stats.totalPixelsPainted +=
+      software_stats_.totalPixelsPainted;
+  stats.rendering_stats.totalRasterizeTimeInSeconds +=
       software_stats_.totalRasterizeTimeInSeconds;
-  stats.totalPixelsRasterized += software_stats_.totalPixelsRasterized;
+  stats.rendering_stats.totalPixelsRasterized +=
+      software_stats_.totalPixelsRasterized;
 }
 
 bool RenderWidget::GetGpuRenderingStats(GpuRenderingStats* stats) const {
@@ -1969,6 +1975,10 @@ bool RenderWidget::WillHandleGestureEvent(
 
 bool RenderWidget::WebWidgetHandlesCompositorScheduling() const {
   return false;
+}
+
+bool RenderWidget::HasTouchEventHandlersAt(const gfx::Point& point) const {
+  return true;
 }
 
 }  // namespace content

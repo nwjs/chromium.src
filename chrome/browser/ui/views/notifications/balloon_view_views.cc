@@ -116,8 +116,10 @@ BalloonViewImpl::~BalloonViewImpl() {
 
 void BalloonViewImpl::Close(bool by_user) {
   animation_->Stop();
-  html_contents_->Shutdown();
-  // Detach contents from widget before then close.
+  // Destroy html_contents_ here since it relies on Profile which might get
+  // deleted before the destructor is called when the views are torn down.
+  html_contents_.reset();
+  // Detach contents from the widget before they close.
   // This is necessary because a widget may be deleted
   // after this when chrome is shutting down.
   html_container_->GetRootView()->RemoveAllChildViews(true);
@@ -355,11 +357,11 @@ void BalloonViewImpl::Show(Balloon* balloon) {
   html_container_->SetAlwaysOnTop(true);
   frame_container_->SetAlwaysOnTop(true);
 
-  close_button_->SetImage(views::CustomButton::BS_NORMAL,
+  close_button_->SetImage(views::CustomButton::STATE_NORMAL,
                           rb.GetImageSkiaNamed(IDR_TAB_CLOSE));
-  close_button_->SetImage(views::CustomButton::BS_HOT,
+  close_button_->SetImage(views::CustomButton::STATE_HOVERED,
                           rb.GetImageSkiaNamed(IDR_TAB_CLOSE_H));
-  close_button_->SetImage(views::CustomButton::BS_PUSHED,
+  close_button_->SetImage(views::CustomButton::STATE_PRESSED,
                           rb.GetImageSkiaNamed(IDR_TAB_CLOSE_P));
   close_button_->SetBoundsRect(GetCloseButtonBounds());
   close_button_->SetBackground(SK_ColorBLACK,

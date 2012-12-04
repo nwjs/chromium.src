@@ -7,10 +7,8 @@
 
 #include <string>
 
-#include "ash/desktop_background/desktop_background_resources.h"
 #include "base/memory/singleton.h"
 #include "chrome/browser/chromeos/login/user.h"
-#include "chrome/browser/ui/webui/options/chromeos/set_wallpaper_options_handler.h"
 
 class PrefService;
 
@@ -78,8 +76,8 @@ class UserManager {
   // from normal sign in flow.
   virtual void UserLoggedIn(const std::string& email, bool browser_restart) = 0;
 
-  // Indicates that user just logged on as the demo user.
-  virtual void DemoUserLoggedIn() = 0;
+  // Indicates that user just logged on as the retail mode user.
+  virtual void RetailModeUserLoggedIn() = 0;
 
   // Indicates that user just started incognito session.
   virtual void GuestUserLoggedIn() = 0;
@@ -143,15 +141,6 @@ class UserManager {
   virtual std::string GetUserDisplayEmail(
       const std::string& username) const = 0;
 
-  // Saves |type| and |index| chose by logged in user to Local State.
-  virtual void SaveLoggedInUserWallpaperProperties(User::WallpaperType type,
-                                                   int index) = 0;
-
-  // Updates custom wallpaper to selected layout and saves layout to Local
-  // State.
-  virtual void SetLoggedInUserCustomWallpaperLayout(
-      ash::WallpaperLayout layout) = 0;
-
   // Returns true if current user is an owner.
   virtual bool IsCurrentUserOwner() const = 0;
 
@@ -160,6 +149,10 @@ class UserManager {
 
   // Returns true if the current user is ephemeral.
   virtual bool IsCurrentUserEphemeral() const = 0;
+
+  // Returns true if the current user's session can be locked (i.e. the user has
+  // a password with which to unlock the session).
+  virtual bool CanCurrentUserLock() const = 0;
 
   // Returns true if user is signed in.
   virtual bool IsUserLoggedIn() const = 0;

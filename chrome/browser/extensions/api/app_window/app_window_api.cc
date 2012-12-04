@@ -10,6 +10,7 @@
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/extensions/window_controller.h"
+#include "chrome/browser/ui/extensions/native_app_window.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_switches.h"
@@ -33,6 +34,7 @@ const char kInvalidWindowId[] =
     "The window id can not be more than 256 characters long.";
 }
 
+const char kPanelTypeOption[] = "panel";
 const char kNoneFrameOption[] = "none";
 const char kHtmlFrameOption[] = "experimental-html";
 
@@ -112,6 +114,8 @@ bool AppWindowCreateFunction::RunImpl() {
       create_params.window_key = *options->id;
     }
 
+    // TODO(jeremya): remove these, since they do the same thing as
+    // left/top/width/height.
     if (options->default_width.get())
       create_params.bounds.set_width(*options->default_width.get());
     if (options->default_height.get())
@@ -121,33 +125,45 @@ bool AppWindowCreateFunction::RunImpl() {
     if (options->default_top.get())
       create_params.bounds.set_y(*options->default_top.get());
 
+    if (options->width.get())
+      create_params.bounds.set_width(*options->width.get());
+    if (options->height.get())
+      create_params.bounds.set_height(*options->height.get());
+    if (options->left.get())
+      create_params.bounds.set_x(*options->left.get());
+    if (options->top.get())
+      create_params.bounds.set_y(*options->top.get());
 
-    if (options->width.get() || options->height.get()) {
-      if (options->width.get())
-        create_params.bounds.set_width(*options->width.get());
-      if (options->height.get())
-        create_params.bounds.set_height(*options->height.get());
-      create_params.restore_size = false;
+    if (options->bounds.get()) {
+      app_window::Bounds* bounds = options->bounds.get();
+      if (bounds->width.get())
+        create_params.bounds.set_width(*bounds->width.get());
+      if (bounds->height.get())
+        create_params.bounds.set_height(*bounds->height.get());
+      if (bounds->left.get())
+        create_params.bounds.set_x(*bounds->left.get());
+      if (bounds->top.get())
+        create_params.bounds.set_y(*bounds->top.get());
     }
 
-    if (options->left.get() || options->top.get()) {
-      if (options->left.get())
-        create_params.bounds.set_x(*options->left.get());
-      if (options->top.get())
-        create_params.bounds.set_y(*options->top.get());
-      create_params.restore_position = false;
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kEnableExperimentalExtensionApis)) {
+      if (options->type.get()) {
+        if (*options->type == kPanelTypeOption)
+          create_params.window_type = ShellWindow::WINDOW_TYPE_PANEL;
+      }
     }
 
     if (options->frame.get()) {
       if (*options->frame == kHtmlFrameOption &&
           CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kEnableExperimentalExtensionApis)) {
-        create_params.frame = ShellWindow::CreateParams::FRAME_NONE;
+        create_params.frame = ShellWindow::FRAME_NONE;
         inject_html_titlebar = true;
       } else if (*options->frame == kNoneFrameOption) {
-        create_params.frame = ShellWindow::CreateParams::FRAME_NONE;
+        create_params.frame = ShellWindow::FRAME_NONE;
       } else {
-        create_params.frame = ShellWindow::CreateParams::FRAME_CHROME;
+        create_params.frame = ShellWindow::FRAME_CHROME;
       }
     }
 
@@ -161,26 +177,6 @@ bool AppWindowCreateFunction::RunImpl() {
       maximum_size.set_width(*options->max_width);
     if (options->max_height.get())
       maximum_size.set_height(*options->max_height);
-    // In the case that minimum size > maximum size, we consider the minimum
-    // size to be more important.
-    if (maximum_size.width() && maximum_size.width() < minimum_size.width())
-      maximum_size.set_width(minimum_size.width());
-    if (maximum_size.height() && maximum_size.height() < minimum_size.height())
-      maximum_size.set_height(minimum_size.height());
-
-    if (maximum_size.width() &&
-        create_params.bounds.width() > maximum_size.width())
-      create_params.bounds.set_width(maximum_size.width());
-    if (create_params.bounds.width() != INT_MIN &&
-        create_params.bounds.width() < minimum_size.width())
-      create_params.bounds.set_width(minimum_size.width());
-
-    if (maximum_size.height() &&
-        create_params.bounds.height() > maximum_size.height())
-      create_params.bounds.set_height(maximum_size.height());
-    if (create_params.bounds.height() != INT_MIN &&
-        create_params.bounds.height() < minimum_size.height())
-      create_params.bounds.set_height(minimum_size.height());
 
     if (options->hidden.get())
       create_params.hidden = *options->hidden.get();
@@ -203,6 +199,13 @@ bool AppWindowCreateFunction::RunImpl() {
   result->Set("injectTitlebar",
       base::Value::CreateBooleanValue(inject_html_titlebar));
   result->Set("id", base::Value::CreateStringValue(shell_window->window_key()));
+  DictionaryValue* boundsValue = new DictionaryValue();
+  gfx::Rect bounds = shell_window->GetBaseWindow()->GetBounds();
+  boundsValue->SetInteger("left", bounds.x());
+  boundsValue->SetInteger("top", bounds.y());
+  boundsValue->SetInteger("width", bounds.width());
+  boundsValue->SetInteger("height", bounds.height());
+  result->Set("bounds", boundsValue);
   SetResult(result);
 
   if (ShellWindowRegistry::Get(profile())->HadDevToolsAttached(created_view)) {

@@ -14,12 +14,12 @@
 #include "base/debug/debugger.h"
 #include "base/file_util.h"
 #include "base/file_version_info.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/i18n/icu_util.h"
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/prefs/json_pref_store.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -168,7 +168,7 @@ class FakeMainDelegate : public content::ContentMainDelegate {
 
 void FilterDisabledTests() {
   if (::testing::FLAGS_gtest_filter.length() &&
-      ::testing::FLAGS_gtest_filter.Compare("*") != 0) {
+      ::testing::FLAGS_gtest_filter != "*") {
     // Don't override user specified filters.
     return;
   }
@@ -297,12 +297,13 @@ void FilterDisabledTests() {
 
     // These tests are unsupported in CF.
     "HTTPSRequestTest.HTTPSPreloadedHSTSTest",
+    "HTTPSRequestTest.HTTPSErrorsNoClobberTSSTest",
+    "HTTPSRequestTest.HSTSPreservesPosts",
     "HTTPSRequestTest.ResumeTest",
     "HTTPSRequestTest.SSLSessionCacheShardTest",
     "HTTPSRequestTest.SSLSessionCacheShardTest",
     "HTTPSRequestTest.SSLv3Fallback",
     "HTTPSRequestTest.TLSv1Fallback",
-    "HTTPSRequestTest.HTTPSErrorsNoClobberTSSTest",
     "HTTPSOCSPTest.*",
     "HTTPSEVCRLSetTest.*",
     "HTTPSCRLSetTest.*"
@@ -379,7 +380,7 @@ class FakeBrowserProcessImpl : public BrowserProcessImpl {
   }
 
  private:
-  ScopedTempDir profiles_dir_;
+  base::ScopedTempDir profiles_dir_;
   scoped_ptr<ProfileManager> profile_manager_;
 };
 
@@ -752,7 +753,7 @@ void CFUrlRequestUnittestRunner::OnInitializationTimeout() {
 
 void CFUrlRequestUnittestRunner::OverrideHttpHost() {
   override_http_host_.reset(
-      new ScopedCustomUrlRequestTestHttpHost(
+      new net::ScopedCustomUrlRequestTestHttpHost(
           chrome_frame_test::GetLocalIPv4Address()));
 }
 
@@ -793,6 +794,8 @@ void CFUrlRequestUnittestRunner::PreMainMessageLoopRun() {
       base::Bind(
           &CFUrlRequestUnittestRunner::ProcessSingletonNotificationCallback,
           base::Unretained(this)));
+  // Call Create directly instead of NotifyOtherProcessOrCreate as failure is
+  // prefered to notifying another process here.
   if (!process_singleton_->Create(callback)) {
     LOG(FATAL) << "Failed to start up ProcessSingleton. Is another test "
                << "executable or Chrome Frame running?";

@@ -30,7 +30,11 @@ void WebMediaPlayerManagerAndroid::ReleaseMediaResources() {
   std::map<int32, WebMediaPlayerAndroid*>::iterator player_it;
   for (player_it = media_players_.begin();
       player_it != media_players_.end(); ++player_it) {
-    (player_it->second)->ReleaseMediaResources();
+    WebMediaPlayerAndroid* player = player_it->second;
+
+    // Do not release if an audio track is still playing
+    if (player && (player->paused() || player->hasVideo()))
+      player->ReleaseMediaResources();
   }
 }
 

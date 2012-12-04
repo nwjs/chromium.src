@@ -17,7 +17,7 @@
 
 namespace {
 
-class MyTestURLRequestContext : public TestURLRequestContext {
+class MyTestURLRequestContext : public net::TestURLRequestContext {
  public:
   MyTestURLRequestContext() : TestURLRequestContext(true) {
     context_storage_.set_proxy_service(
@@ -35,20 +35,21 @@ namespace jingle_glue {
 class ProxyResolvingClientSocketTest : public testing::Test {
  protected:
   ProxyResolvingClientSocketTest()
-      : url_request_context_getter_(new TestURLRequestContextGetter(
+      : url_request_context_getter_(new net::TestURLRequestContextGetter(
             base::MessageLoopProxy::current(),
-            scoped_ptr<TestURLRequestContext>(new MyTestURLRequestContext))) {}
+            scoped_ptr<net::TestURLRequestContext>(
+                new MyTestURLRequestContext))) {}
 
   virtual ~ProxyResolvingClientSocketTest() {}
 
   virtual void TearDown() {
     // Clear out any messages posted by ProxyResolvingClientSocket's
     // destructor.
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   MessageLoop message_loop_;
-  scoped_refptr<TestURLRequestContextGetter> url_request_context_getter_;
+  scoped_refptr<net::TestURLRequestContextGetter> url_request_context_getter_;
 };
 
 // TODO(sanjeevr): Fix this test on Linux.

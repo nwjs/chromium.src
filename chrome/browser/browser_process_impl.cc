@@ -78,6 +78,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/resource_dispatcher_host.h"
 #include "content/public/common/pepper_plugin_info.h"
+#include "extensions/common/constants.h"
 #include "net/socket/client_socket_pool_manager.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -91,6 +92,9 @@
 #if defined(OS_WIN)
 #include "base/win/windows_version.h"
 #include "ui/views/focus/view_storage.h"
+#if defined(USE_AURA)
+#include "chrome/browser/metro_viewer/metro_viewer_process_host_win.h"
+#endif
 #elif defined(OS_MACOSX)
 #include "chrome/browser/chrome_browser_main_mac.h"
 #endif
@@ -161,7 +165,7 @@ BrowserProcessImpl::BrowserProcessImpl(
   net_log_.reset(new ChromeNetLog);
 
   ChildProcessSecurityPolicy::GetInstance()->RegisterWebSafeScheme(
-      chrome::kExtensionScheme);
+      extensions::kExtensionScheme);
   ChildProcessSecurityPolicy::GetInstance()->RegisterWebSafeScheme(
       chrome::kExtensionResourceScheme);
 
@@ -204,7 +208,7 @@ void BrowserProcessImpl::StartTearDown() {
   metrics_service_.reset();
   variations_service_.reset();
   intranet_redirect_detector_.reset();
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   if (safe_browsing_service_.get()) {
     safe_browsing_service()->ShutDown();
   }
@@ -407,8 +411,10 @@ net::URLRequestContextGetter* BrowserProcessImpl::system_request_context() {
 
 chrome_variations::VariationsService* BrowserProcessImpl::variations_service() {
   DCHECK(CalledOnValidThread());
+#if defined(GOOGLE_CHROME_BUILD)
   if (!variations_service_.get())
     variations_service_.reset(new chrome_variations::VariationsService());
+#endif
   return variations_service_.get();
 }
 
@@ -568,6 +574,12 @@ BookmarkPromptController* BrowserProcessImpl::bookmark_prompt_controller() {
 #endif
 }
 
+#if !defined(OS_WIN)
+void BrowserProcessImpl::PlatformSpecificCommandLineProcessing(
+    const CommandLine& command_line) {
+}
+#endif
+
 DownloadRequestLimiter* BrowserProcessImpl::download_request_limiter() {
   DCHECK(CalledOnValidThread());
   if (!download_request_limiter_)
@@ -608,17 +620,6 @@ safe_browsing::ClientSideDetectionService*
   if (safe_browsing_service())
     return safe_browsing_service()->safe_browsing_detection_service();
   return NULL;
-}
-
-void BrowserProcessImpl::OnPreferenceChanged(PrefServiceBase* service,
-                                             const std::string& pref) {
-  if (pref == prefs::kDefaultBrowserSettingEnabled) {
-    ApplyDefaultBrowserPolicy();
-  } else if (pref == prefs::kDisabledSchemes) {
-    ApplyDisabledSchemesPolicy();
-  } else if (pref == prefs::kAllowCrossOriginAuthPrompt) {
-    ApplyAllowCrossOriginAuthPromptPolicy();
-  }
 }
 
 #if (defined(OS_WIN) || defined(OS_LINUX)) && !defined(OS_CHROMEOS)
@@ -677,7 +678,10 @@ void BrowserProcessImpl::ResourceDispatcherHostCreated() {
   ResourceDispatcherHost::Get()->SetDelegate(
       resource_dispatcher_host_delegate_.get());
 
-  pref_change_registrar_.Add(prefs::kAllowCrossOriginAuthPrompt, this);
+  pref_change_registrar_.Add(
+      prefs::kAllowCrossOriginAuthPrompt,
+      base::Bind(&BrowserProcessImpl::ApplyAllowCrossOriginAuthPromptPolicy,
+                 base::Unretained(this)));
   ApplyAllowCrossOriginAuthPromptPolicy();
 }
 
@@ -725,7 +729,10 @@ void BrowserProcessImpl::CreateLocalState() {
   // Initialize the notification for the default browser setting policy.
   local_state_->RegisterBooleanPref(prefs::kDefaultBrowserSettingEnabled,
                                     false);
-  pref_change_registrar_.Add(prefs::kDefaultBrowserSettingEnabled, this);
+  pref_change_registrar_.Add(
+      prefs::kDefaultBrowserSettingEnabled,
+      base::Bind(&BrowserProcessImpl::ApplyDefaultBrowserPolicy,
+                 base::Unretained(this)));
 
   // This policy needs to be defined before the net subsystem is initialized,
   // so we do it here.
@@ -741,7 +748,10 @@ void BrowserProcessImpl::CreateLocalState() {
   // This is observed by ChildProcessSecurityPolicy, which lives in content/
   // though, so it can't register itself.
   local_state_->RegisterListPref(prefs::kDisabledSchemes);
-  pref_change_registrar_.Add(prefs::kDisabledSchemes, this);
+  pref_change_registrar_.Add(
+      prefs::kDisabledSchemes,
+      base::Bind(&BrowserProcessImpl::ApplyDisabledSchemesPolicy,
+                 base::Unretained(this)));
   ApplyDisabledSchemesPolicy();
 
   local_state_->RegisterBooleanPref(prefs::kAllowCrossOriginAuthPrompt, false);
@@ -753,8 +763,8 @@ void BrowserProcessImpl::CreateLocalState() {
 }
 
 void BrowserProcessImpl::PreCreateThreads() {
-  io_thread_.reset(new IOThread(
-      local_state(), net_log_.get(), extension_event_router_forwarder_.get()));
+  io_thread_.reset(new IOThread(local_state(), policy_service(), net_log_.get(),
+                                extension_event_router_forwarder_.get()));
 }
 
 void BrowserProcessImpl::PreMainMessageLoopRun() {
@@ -804,7 +814,8 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 #endif
 
 #if !defined(OS_ANDROID)
-  if (browser_defaults::bookmarks_enabled)
+  if (browser_defaults::bookmarks_enabled &&
+      BookmarkPromptController::IsEnabled())
     bookmark_prompt_controller_.reset(new BookmarkPromptController());
 #endif
 }
@@ -865,7 +876,7 @@ void BrowserProcessImpl::CreateSafeBrowsingService() {
   // Set this flag to true so that we don't retry indefinitely to
   // create the service class if there was an error.
   created_safe_browsing_service_ = true;
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   safe_browsing_service_ = SafeBrowsingService::CreateSafeBrowsingService();
   safe_browsing_service_->Initialize();
 #endif

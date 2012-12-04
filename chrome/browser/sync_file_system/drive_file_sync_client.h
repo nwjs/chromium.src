@@ -12,6 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/threading/non_thread_safe.h"
 #include "chrome/browser/google_apis/drive_service_interface.h"
+#include "chrome/browser/google_apis/drive_upload_error.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
 #include "chrome/browser/google_apis/gdata_wapi_parser.h"
 
@@ -30,14 +31,13 @@ namespace sync_file_system {
 class DriveFileSyncClient : public base::NonThreadSafe,
                             public base::SupportsWeakPtr<DriveFileSyncClient> {
  public:
-  // TODO(tzik): Implement a function to map GDataErrorcode to SyncStatusCode.
-  // crbug.com/157837
   typedef base::Callback<void(google_apis::GDataErrorCode error)>
       GDataErrorCallback;
   typedef base::Callback<void(google_apis::GDataErrorCode error,
                               const std::string& file_md5)>
       DownloadFileCallback;
   typedef base::Callback<void(google_apis::GDataErrorCode error,
+                              const std::string& resource_id,
                               const std::string& file_md5)>
       UploadFileCallback;
   typedef base::Callback<void(google_apis::GDataErrorCode error,
@@ -48,6 +48,9 @@ class DriveFileSyncClient : public base::NonThreadSafe,
   typedef base::Callback<void(google_apis::GDataErrorCode error,
                               scoped_ptr<google_apis::DocumentFeed> feed)>
       DocumentFeedCallback;
+  typedef base::Callback<void(google_apis::GDataErrorCode error,
+                              scoped_ptr<google_apis::DocumentEntry> entry)>
+      DocumentEntryCallback;
 
   explicit DriveFileSyncClient(Profile* profile);
   virtual ~DriveFileSyncClient();
@@ -74,6 +77,11 @@ class DriveFileSyncClient : public base::NonThreadSafe,
   // Fetches the largest changestamp for the signed-in account.
   // Upon completion, invokes |callback|.
   void GetLargestChangeStamp(const ChangeStampCallback& callback);
+
+  // Fetches the document entry for the file identified by |resource_id|.
+  // Upon completion, invokes |callback|.
+  void GetDocumentEntry(const std::string& resource_id,
+                        const DocumentEntryCallback& callback);
 
   // Lists files in the directory identified by |resource_id|.
   // Upon completion, invokes |callback|.
@@ -128,6 +136,11 @@ class DriveFileSyncClient : public base::NonThreadSafe,
                           int64 file_size,
                           const UploadFileCallback& callback);
 
+  // Returns true if the user is authenticated.
+  bool IsAuthenticated() const {
+    return drive_service_->HasRefreshToken();
+  }
+
   // Deletes the file identified by |resource_id|.
   // |remote_file_md5| represents the expected hash value of the file to be
   // deleted from Drive. If |remote_file_md5| is different from the actual
@@ -137,8 +150,12 @@ class DriveFileSyncClient : public base::NonThreadSafe,
                   const std::string& remote_file_md5,
                   const GDataErrorCallback& callback);
 
+  static std::string OriginToDirectoryTitle(const GURL& origin);
+  static GURL DirectoryTitleToOrigin(const std::string& title);
+
  private:
   friend class DriveFileSyncClientTest;
+  friend class DriveFileSyncServiceTest;
 
   // Constructor for test use.
   DriveFileSyncClient(
@@ -173,6 +190,51 @@ class DriveFileSyncClient : public base::NonThreadSafe,
   void DidGetDocumentFeedData(const DocumentFeedCallback& callback,
                               google_apis::GDataErrorCode error,
                               scoped_ptr<base::Value> data);
+
+  void DidGetDocumentEntryData(const DocumentEntryCallback& callback,
+                               google_apis::GDataErrorCode error,
+                               scoped_ptr<base::Value> data);
+
+  void DownloadFileInternal(const std::string& local_file_md5,
+                            const FilePath& local_file_path,
+                            const DownloadFileCallback& callback,
+                            google_apis::GDataErrorCode error,
+                            scoped_ptr<google_apis::DocumentEntry> entry);
+
+  void DidDownloadFile(const std::string& downloaded_file_md5,
+                       const DownloadFileCallback& callback,
+                       google_apis::GDataErrorCode error,
+                       const FilePath& downloaded_file_path);
+
+  void UploadNewFileInternal(
+      const FilePath& local_file_path,
+      const std::string& title,
+      int64 file_size,
+      const UploadFileCallback& callback,
+      google_apis::GDataErrorCode error,
+      scoped_ptr<google_apis::DocumentEntry> parent_directory_entry);
+
+  void UploadExistingFileInternal(
+      const std::string& remote_file_md5,
+      const FilePath& local_file_path,
+      int64 file_size,
+      const UploadFileCallback& callback,
+      google_apis::GDataErrorCode error,
+      scoped_ptr<google_apis::DocumentEntry> entry);
+
+  void DidUploadFile(const UploadFileCallback& callback,
+                     google_apis::DriveUploadError error,
+                     const FilePath& drive_path,
+                     const FilePath& file_path,
+                     scoped_ptr<google_apis::DocumentEntry> entry);
+
+  void DeleteFileInternal(const std::string& remote_file_md5,
+                          const GDataErrorCallback& callback,
+                          google_apis::GDataErrorCode error,
+                          scoped_ptr<google_apis::DocumentEntry> entry);
+
+  void DidDeleteFile(const GDataErrorCallback& callback,
+                     google_apis::GDataErrorCode error);
 
   static std::string FormatTitleQuery(const std::string& title);
 

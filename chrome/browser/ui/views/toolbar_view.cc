@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,7 +23,7 @@
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/wrench_menu_model.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/browser_actions_container.h"
@@ -68,8 +68,8 @@
 
 #if defined(USE_AURA)
 #include "ui/aura/window.h"
-#include "ui/base/native_theme/native_theme_aura.h"
 #include "ui/compositor/layer.h"
+#include "ui/native_theme/native_theme_aura.h"
 #endif
 
 using content::UserMetricsAction;
@@ -170,8 +170,7 @@ ToolbarView::ToolbarView(Browser* browser)
       location_bar_(NULL),
       browser_actions_(NULL),
       app_menu_(NULL),
-      browser_(browser),
-      profiles_menu_contents_(NULL) {
+      browser_(browser) {
   set_id(VIEW_ID_TOOLBAR);
 
   chrome::AddCommandObserver(browser_, IDC_BACK, this);
@@ -237,7 +236,6 @@ void ToolbarView::Init() {
       browser_->command_controller()->command_updater(),
       model_,
       this,
-      browser_->search_model(),
       (display_mode_ == DISPLAYMODE_LOCATION) ?
           LocationBarView::POPUP : LocationBarView::NORMAL);
 
@@ -288,7 +286,9 @@ void ToolbarView::Init() {
 
   location_bar_->Init();
   show_home_button_.Init(prefs::kShowHomeButton,
-                         browser_->profile()->GetPrefs(), this);
+                         browser_->profile()->GetPrefs(),
+                         base::Bind(&ToolbarView::OnShowHomeButtonChanged,
+                                    base::Unretained(this)));
 
   browser_actions_->Init();
 
@@ -335,10 +335,10 @@ gfx::ImageSkia ToolbarView::GetAppMenuIcon(
 
   int id = 0;
   switch (state) {
-    case views::CustomButton::BS_NORMAL: id = IDR_TOOLS;   break;
-    case views::CustomButton::BS_HOT:    id = IDR_TOOLS_H; break;
-    case views::CustomButton::BS_PUSHED: id = IDR_TOOLS_P; break;
-    default:                             NOTREACHED();     break;
+    case views::CustomButton::STATE_NORMAL:  id = IDR_TOOLS;   break;
+    case views::CustomButton::STATE_HOVERED: id = IDR_TOOLS_H; break;
+    case views::CustomButton::STATE_PRESSED: id = IDR_TOOLS_P; break;
+    default:                                 NOTREACHED();     break;
   }
   gfx::ImageSkia icon = *tp->GetImageSkiaNamed(id);
 
@@ -449,12 +449,13 @@ void ToolbarView::OnMenuButtonClicked(views::View* source,
 ////////////////////////////////////////////////////////////////////////////////
 // ToolbarView, LocationBarView::Delegate implementation:
 
-TabContents* ToolbarView::GetTabContents() const {
-  return chrome::GetActiveTabContents(browser_);
+WebContents* ToolbarView::GetWebContents() const {
+  return browser_->tab_strip_model()->GetActiveWebContents();
 }
 
 InstantController* ToolbarView::GetInstant() {
-  return browser_->instant_controller()->instant();
+  return browser_->instant_controller() ?
+      browser_->instant_controller()->instant() : NULL;
 }
 
 ContentSettingBubbleModelDelegate*
@@ -517,7 +518,7 @@ void ToolbarView::ButtonPressed(views::Button* sender,
                                 const ui::Event& event) {
   int command = sender->tag();
   WindowOpenDisposition disposition =
-      chrome::DispositionFromEventFlags(sender->mouse_event_flags());
+      chrome::DispositionFromEventFlags(event.flags());
   if ((disposition == CURRENT_TAB) &&
       ((command == IDC_BACK) || (command == IDC_FORWARD))) {
     // Forcibly reset the location bar, since otherwise it won't discard any
@@ -555,14 +556,6 @@ void ToolbarView::Observe(int type,
 #endif
     default:
       NOTREACHED();
-  }
-}
-
-void ToolbarView::OnPreferenceChanged(PrefServiceBase* service,
-                                      const std::string& pref_name) {
-  if (pref_name == prefs::kShowHomeButton) {
-    Layout();
-    SchedulePaint();
   }
 }
 
@@ -856,36 +849,36 @@ int ToolbarView::PopupTopSpacing() const {
 void ToolbarView::LoadImages() {
   ui::ThemeProvider* tp = GetThemeProvider();
 
-  back_->SetImage(views::CustomButton::BS_NORMAL,
+  back_->SetImage(views::CustomButton::STATE_NORMAL,
       tp->GetImageSkiaNamed(IDR_BACK));
-  back_->SetImage(views::CustomButton::BS_HOT,
+  back_->SetImage(views::CustomButton::STATE_HOVERED,
       tp->GetImageSkiaNamed(IDR_BACK_H));
-  back_->SetImage(views::CustomButton::BS_PUSHED,
+  back_->SetImage(views::CustomButton::STATE_PRESSED,
       tp->GetImageSkiaNamed(IDR_BACK_P));
-  back_->SetImage(views::CustomButton::BS_DISABLED,
+  back_->SetImage(views::CustomButton::STATE_DISABLED,
       tp->GetImageSkiaNamed(IDR_BACK_D));
 
-  forward_->SetImage(views::CustomButton::BS_NORMAL,
+  forward_->SetImage(views::CustomButton::STATE_NORMAL,
       tp->GetImageSkiaNamed(IDR_FORWARD));
-  forward_->SetImage(views::CustomButton::BS_HOT,
+  forward_->SetImage(views::CustomButton::STATE_HOVERED,
       tp->GetImageSkiaNamed(IDR_FORWARD_H));
-  forward_->SetImage(views::CustomButton::BS_PUSHED,
+  forward_->SetImage(views::CustomButton::STATE_PRESSED,
       tp->GetImageSkiaNamed(IDR_FORWARD_P));
-  forward_->SetImage(views::CustomButton::BS_DISABLED,
+  forward_->SetImage(views::CustomButton::STATE_DISABLED,
       tp->GetImageSkiaNamed(IDR_FORWARD_D));
 
   reload_->LoadImages(tp);
 
-  home_->SetImage(views::CustomButton::BS_NORMAL,
+  home_->SetImage(views::CustomButton::STATE_NORMAL,
       tp->GetImageSkiaNamed(IDR_HOME));
-  home_->SetImage(views::CustomButton::BS_HOT,
+  home_->SetImage(views::CustomButton::STATE_HOVERED,
       tp->GetImageSkiaNamed(IDR_HOME_H));
-  home_->SetImage(views::CustomButton::BS_PUSHED,
+  home_->SetImage(views::CustomButton::STATE_PRESSED,
       tp->GetImageSkiaNamed(IDR_HOME_P));
 
-  app_menu_->SetIcon(GetAppMenuIcon(views::CustomButton::BS_NORMAL));
-  app_menu_->SetHoverIcon(GetAppMenuIcon(views::CustomButton::BS_HOT));
-  app_menu_->SetPushedIcon(GetAppMenuIcon(views::CustomButton::BS_PUSHED));
+  app_menu_->SetIcon(GetAppMenuIcon(views::CustomButton::STATE_NORMAL));
+  app_menu_->SetHoverIcon(GetAppMenuIcon(views::CustomButton::STATE_HOVERED));
+  app_menu_->SetPushedIcon(GetAppMenuIcon(views::CustomButton::STATE_PRESSED));
 }
 
 void ToolbarView::ShowCriticalNotification() {
@@ -905,8 +898,13 @@ void ToolbarView::UpdateAppMenuState() {
   }
   app_menu_->SetAccessibleName(accname_app);
 
-  app_menu_->SetIcon(GetAppMenuIcon(views::CustomButton::BS_NORMAL));
-  app_menu_->SetHoverIcon(GetAppMenuIcon(views::CustomButton::BS_HOT));
-  app_menu_->SetPushedIcon(GetAppMenuIcon(views::CustomButton::BS_PUSHED));
+  app_menu_->SetIcon(GetAppMenuIcon(views::CustomButton::STATE_NORMAL));
+  app_menu_->SetHoverIcon(GetAppMenuIcon(views::CustomButton::STATE_HOVERED));
+  app_menu_->SetPushedIcon(GetAppMenuIcon(views::CustomButton::STATE_PRESSED));
+  SchedulePaint();
+}
+
+void ToolbarView::OnShowHomeButtonChanged() {
+  Layout();
   SchedulePaint();
 }

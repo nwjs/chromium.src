@@ -227,7 +227,7 @@ class RemoveProfileCookieTester : public RemoveCookieTester {
   }
 };
 
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
 class RemoveSafeBrowsingCookieTester : public RemoveCookieTester {
  public:
   RemoveSafeBrowsingCookieTester()
@@ -237,7 +237,7 @@ class RemoveSafeBrowsingCookieTester : public RemoveCookieTester {
         SafeBrowsingService::CreateSafeBrowsingService();
     browser_process_->SetSafeBrowsingService(sb_service);
     sb_service->Initialize();
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
 
     // Create a cookiemonster that does not have persistant storage, and replace
     // the SafeBrowsingService created one with it.
@@ -249,7 +249,7 @@ class RemoveSafeBrowsingCookieTester : public RemoveCookieTester {
 
   virtual ~RemoveSafeBrowsingCookieTester() {
     browser_process_->safe_browsing_service()->ShutDown();
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     browser_process_->SetSafeBrowsingService(NULL);
   }
 
@@ -369,7 +369,7 @@ class RemoveAutofillTester : public PersonalDataManagerObserver {
 
   // Returns true if there are autofill profiles.
   bool HasProfile() {
-    return !personal_data_manager_->profiles().empty() &&
+    return !personal_data_manager_->GetProfiles().empty() &&
            !personal_data_manager_->credit_cards().empty();
   }
 
@@ -498,7 +498,7 @@ class BrowsingDataRemoverTest : public testing::Test,
     // the message loop is cleared out, before destroying the threads and loop.
     // Otherwise we leak memory.
     profile_.reset();
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   void BlockUntilBrowsingDataRemoved(BrowsingDataRemover::TimePeriod period,
@@ -631,7 +631,7 @@ TEST_F(BrowsingDataRemoverTest, RemoveCookieLastHour) {
   EXPECT_FALSE(tester.ContainsCookie());
 }
 
-#if defined(ENABLE_SAFE_BROWSING)
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
 TEST_F(BrowsingDataRemoverTest, RemoveSafeBrowsingCookieForever) {
   RemoveSafeBrowsingCookieTester tester;
 

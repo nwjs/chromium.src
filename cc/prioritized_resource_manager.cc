@@ -15,9 +15,9 @@ using namespace std;
 
 namespace cc {
 
-PrioritizedResourceManager::PrioritizedResourceManager(size_t maxMemoryLimitBytes, int, int pool, const Proxy* proxy)
+PrioritizedResourceManager::PrioritizedResourceManager(int pool, const Proxy* proxy)
     : m_proxy(proxy)
-    , m_maxMemoryLimitBytes(maxMemoryLimitBytes)
+    , m_maxMemoryLimitBytes(defaultMemoryAllocationLimit())
     , m_externalPriorityCutoff(PriorityCalculator::allowEverythingCutoff())
     , m_memoryUseBytes(0)
     , m_memoryAboveCutoffBytes(0)
@@ -36,7 +36,7 @@ PrioritizedResourceManager::~PrioritizedResourceManager()
     while (m_textures.size() > 0)
         unregisterTexture(*m_textures.begin());
 
-    deleteUnlinkedEvictedBackings();
+    unlinkAndClearEvictedBackings();
     DCHECK(m_evictedBackings.empty());
 
     // Each remaining backing is a leaked opengl texture. There should be none.
@@ -106,14 +106,12 @@ void PrioritizedResourceManager::prioritizeTextures()
     }
 
     // Disallow any textures with priority below the external cutoff to have backings.
-    size_t memoryLinkedTexturesBytes = 0;
     for (TextureVector::iterator it = sortedTextures.begin(); it != sortedTextures.end(); ++it) {
         PrioritizedResource* texture = (*it);
         if (!PriorityCalculator::priorityIsHigher(texture->requestPriority(), m_externalPriorityCutoff) &&
             texture->haveBackingTexture())
             texture->unlink();
     }
-    DCHECK(memoryLinkedTexturesBytes <= m_memoryAvailableBytes);
 
     // Only allow textures if they are higher than the cutoff. All textures
     // of the same priority are accepted or rejected together, rather than
@@ -232,7 +230,11 @@ void PrioritizedResourceManager::acquireBackingTextureIfNeeded(PrioritizedResour
 
     // Otherwise reduce memory and just allocate a new backing texures.
     if (!backing) {
-        evictBackingsToReduceMemory(m_memoryAvailableBytes - texture->bytes(), PriorityCalculator::allowEverythingCutoff(), EvictOnlyRecyclable, resourceProvider);
+        evictBackingsToReduceMemory(m_memoryAvailableBytes - texture->bytes(),
+                                    PriorityCalculator::allowEverythingCutoff(),
+                                    EvictOnlyRecyclable,
+                                    DoNotUnlinkBackings,
+                                    resourceProvider);
         backing = createBacking(texture->size(), texture->format(), resourceProvider);
     }
 
@@ -248,9 +250,15 @@ void PrioritizedResourceManager::acquireBackingTextureIfNeeded(PrioritizedResour
     backing->updatePriority();
 }
 
-bool PrioritizedResourceManager::evictBackingsToReduceMemory(size_t limitBytes, int priorityCutoff, EvictionPolicy evictionPolicy, ResourceProvider* resourceProvider)
+bool PrioritizedResourceManager::evictBackingsToReduceMemory(size_t limitBytes,
+                                                             int priorityCutoff,
+                                                             EvictionPolicy evictionPolicy,
+                                                             UnlinkPolicy unlinkPolicy,
+                                                             ResourceProvider* resourceProvider)
 {
     DCHECK(m_proxy->isImplThread());
+    if (unlinkPolicy == UnlinkBackings)
+        DCHECK(m_proxy->isMainThreadBlocked());
     if (memoryUseBytes() <= limitBytes && PriorityCalculator::allowEverythingCutoff() == priorityCutoff)
         return false;
 
@@ -263,6 +271,8 @@ bool PrioritizedResourceManager::evictBackingsToReduceMemory(size_t limitBytes, 
             break;
         if (evictionPolicy == EvictOnlyRecyclable && !backing->canBeRecycled())
             break;
+        if (unlinkPolicy == UnlinkBackings && backing->owner())
+            backing->owner()->unlink();
         evictFirstBackingResource(resourceProvider);
     }
     return true;
@@ -271,12 +281,12 @@ bool PrioritizedResourceManager::evictBackingsToReduceMemory(size_t limitBytes, 
 void PrioritizedResourceManager::reduceMemory(ResourceProvider* resourceProvider)
 {
     DCHECK(m_proxy->isImplThread() && m_proxy->isMainThreadBlocked());
-
-    // Note that it will not always be the case that memoryUseBytes() <= maxMemoryLimitBytes(),
-    // because we are not at liberty to delete textures that are referenced by the impl tree to
-    // get more space.
-
-    evictBackingsToReduceMemory(m_memoryAvailableBytes, PriorityCalculator::allowEverythingCutoff(), EvictOnlyRecyclable, resourceProvider);
+    evictBackingsToReduceMemory(m_memoryAvailableBytes,
+                                PriorityCalculator::allowEverythingCutoff(),
+                                EvictAnything,
+                                UnlinkBackings,
+                                resourceProvider);
+    DCHECK(memoryUseBytes() <= m_memoryAvailableBytes);
 
     // We currently collect backings from deleted textures for later recycling.
     // However, if we do that forever we will always use the max limit even if
@@ -291,23 +301,22 @@ void PrioritizedResourceManager::reduceMemory(ResourceProvider* resourceProvider
     }
     size_t tenPercentOfMemory = m_memoryAvailableBytes / 10;
     if (wastedMemory > tenPercentOfMemory)
-        evictBackingsToReduceMemory(memoryUseBytes() - (wastedMemory - tenPercentOfMemory), PriorityCalculator::allowEverythingCutoff(), EvictOnlyRecyclable, resourceProvider);
-
-    // Unlink all evicted backings
-    for (BackingList::const_iterator it = m_evictedBackings.begin(); it != m_evictedBackings.end(); ++it) {
-        if ((*it)->owner())
-            (*it)->owner()->unlink();
-    }
-
-    // And clear the list of evicted backings
-    deleteUnlinkedEvictedBackings();
+        evictBackingsToReduceMemory(memoryUseBytes() - (wastedMemory - tenPercentOfMemory),
+                                    PriorityCalculator::allowEverythingCutoff(),
+                                    EvictOnlyRecyclable,
+                                    UnlinkBackings,
+                                    resourceProvider);
 }
 
 void PrioritizedResourceManager::clearAllMemory(ResourceProvider* resourceProvider)
 {
     DCHECK(m_proxy->isImplThread() && m_proxy->isMainThreadBlocked());
     DCHECK(resourceProvider);
-    evictBackingsToReduceMemory(0, PriorityCalculator::allowEverythingCutoff(), EvictAnything, resourceProvider);
+    evictBackingsToReduceMemory(0,
+                                PriorityCalculator::allowEverythingCutoff(),
+                                EvictAnything,
+                                DoNotUnlinkBackings,
+                                resourceProvider);
 }
 
 bool PrioritizedResourceManager::reduceMemoryOnImplThread(size_t limitBytes, int priorityCutoff, ResourceProvider* resourceProvider)
@@ -318,42 +327,30 @@ bool PrioritizedResourceManager::reduceMemoryOnImplThread(size_t limitBytes, int
     // the list are not sorted by priority. Sort them before doing the eviction.
     if (m_backingsTailNotSorted)
         sortBackings();
-    return evictBackingsToReduceMemory(limitBytes, priorityCutoff, EvictAnything, resourceProvider);
+    return evictBackingsToReduceMemory(limitBytes,
+                                       priorityCutoff,
+                                       EvictAnything,
+                                       DoNotUnlinkBackings,
+                                       resourceProvider);
 }
 
-void PrioritizedResourceManager::getEvictedBackings(BackingList& evictedBackings)
-{
-    DCHECK(m_proxy->isImplThread());
-    evictedBackings.clear();
-    evictedBackings.insert(evictedBackings.begin(), m_evictedBackings.begin(), m_evictedBackings.end());
-}
-
-void PrioritizedResourceManager::unlinkEvictedBackings(const BackingList& evictedBackings)
+void PrioritizedResourceManager::unlinkAndClearEvictedBackings()
 {
     DCHECK(m_proxy->isMainThread());
-    for (BackingList::const_iterator it = evictedBackings.begin(); it != evictedBackings.end(); ++it) {
-        PrioritizedResource::Backing* backing = (*it);
-        if (backing->owner())
-            backing->owner()->unlink();
-    }
-}
-
-void PrioritizedResourceManager::deleteUnlinkedEvictedBackings()
-{
-    DCHECK(m_proxy->isMainThread() || (m_proxy->isImplThread() && m_proxy->isMainThreadBlocked()));
-    BackingList newEvictedBackings;
+    base::AutoLock scoped_lock(m_evictedBackingsLock);
     for (BackingList::const_iterator it = m_evictedBackings.begin(); it != m_evictedBackings.end(); ++it) {
         PrioritizedResource::Backing* backing = (*it);
         if (backing->owner())
-            newEvictedBackings.push_back(backing);
-        else
-            delete backing;
+            backing->owner()->unlink();
+        delete backing;
     }
-    m_evictedBackings.swap(newEvictedBackings);
+    m_evictedBackings.clear();
 }
 
 bool PrioritizedResourceManager::linkedEvictedBackingsExist() const
 {
+    DCHECK(m_proxy->isImplThread() && m_proxy->isMainThreadBlocked());
+    base::AutoLock scoped_lock(m_evictedBackingsLock);
     for (BackingList::const_iterator it = m_evictedBackings.begin(); it != m_evictedBackings.end(); ++it) {
         if ((*it)->owner())
             return true;
@@ -417,6 +414,7 @@ void PrioritizedResourceManager::evictFirstBackingResource(ResourceProvider* res
     backing->deleteResource(resourceProvider);
     m_memoryUseBytes -= backing->bytes();
     m_backings.pop_front();
+    base::AutoLock scoped_lock(m_evictedBackingsLock);
     m_evictedBackings.push_back(backing);
 }
 
@@ -439,6 +437,7 @@ void PrioritizedResourceManager::assertInvariants()
     for (TextureSet::iterator it = m_textures.begin(); it != m_textures.end(); ++it) {
         PrioritizedResource* texture = (*it);
         PrioritizedResource::Backing* backing = texture->backing();
+        base::AutoLock scoped_lock(m_evictedBackingsLock);
         if (backing) {
             if (backing->resourceHasBeenDeleted()) {
                 DCHECK(std::find(m_backings.begin(), m_backings.end(), backing) == m_backings.end());

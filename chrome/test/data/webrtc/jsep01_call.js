@@ -4,21 +4,43 @@
  * found in the LICENSE file.
  */
 
-/**
- * @private
- */
+/** @private */
 var gTransformOutgoingSdp = function(sdp) { return sdp; }
+
+/** @private */
+var gCreateAnswerConstraints = {};
+
+/** @private */
+var gCreateOfferConstraints = {};
 
 /**
  * Sets the transform to apply just before setting the local description and
  * sending to the peer.
- *
- * @param transformFunction A function which takes one SDP string as argument
- *     and returns the modified SDP string.
+ * @param{function} transformFunction A function which takes one SDP string as
+ *     argument and returns the modified SDP string.
  */
 function setOutgoingSdpTransform(transformFunction) {
   gTransformOutgoingSdp = transformFunction;
 }
+
+/**
+ * Sets the MediaConstraints to be used for PeerConnection createAnswer() calls.
+ * @param{string} mediaConstraints The constraints, as defined in the
+ *     PeerConnection JS API spec.
+ */
+function setCreateAnswerConstraints(mediaConstraints) {
+  gCreateAnswerConstraints = mediaConstraints;
+}
+
+/**
+ * Sets the MediaConstraints to be used for PeerConnection createOffer() calls.
+ * @param{string} mediaConstraints The constraints, as defined in the
+ *     PeerConnection JS API spec.
+ */
+function setCreateOfferConstraints(mediaConstraints) {
+  gCreateOfferConstraints = mediaConstraints;
+}
+
 
 // Public interface towards the other javascript files, such as
 // message_handling.js. The contract for these functions is described in
@@ -33,10 +55,12 @@ function handleMessage(peerConnection, message) {
         function() { success_('setRemoteDescription'); },
         function() { failure_('setRemoteDescription'); });
     if (session_description.type == "offer") {
+      debug('createAnswer with constraints: ' +
+            JSON.stringify(gCreateAnswerConstraints, null, ' '));
       peerConnection.createAnswer(
         setLocalAndSendMessage_,
         function() { failure_('createAnswer'); },
-        getCurrentMediaHints());
+        gCreateAnswerConstraints);
     }
     return;
   } else if (parsed_msg.candidate) {
@@ -53,16 +77,7 @@ function createPeerConnection(stun_server) {
   try {
     peerConnection = new webkitRTCPeerConnection(servers, null);
   } catch (exception) {
-    // TODO(phoglund): Remove once the URI-requiring revisions are gone.
-    debug('Failed to create connection: maybe we need to fall ' +
-          'back to the old API?');
-    servers = {iceServers:[{uri:"stun:" + stun_server}]};
-    try {
-      peerConnection = new webkitRTCPeerConnection(servers, null);
-      debug('Yeah, we could use the old API.');
-    } catch (exception) {
-      failTest('Failed to create peer connection: ' + exception);
-    }
+    throw failTest('Failed to create peer connection: ' + exception);
   }
   peerConnection.onaddstream = addStreamCallback_;
   peerConnection.onremovestream = removeStreamCallback_;
@@ -71,18 +86,16 @@ function createPeerConnection(stun_server) {
 }
 
 function setupCall(peerConnection) {
+  debug('createOffer with constraints: ' +
+        JSON.stringify(gCreateOfferConstraints, null, ' '));
   peerConnection.createOffer(
       setLocalAndSendMessage_,
-      function () { success_('createOffer'); },
-      { 'mandatory': {
-          'OfferToReceiveVideo': 'true',
-          'OfferToReceiveAudio': 'true',
-        }
-      });
+      function () { failure_('createOffer'); },
+      gCreateOfferConstraints);
 }
 
 function answerCall(peerConnection, message) {
-  handleMessage(peerConnection,message);
+  handleMessage(peerConnection, message);
 }
 
 // Internals.
@@ -93,7 +106,7 @@ function success_(method) {
 
 /** @private */
 function failure_(method, error) {
-  failTest(method + '() failed: ' + error);
+  throw failTest(method + '() failed: ' + error);
 }
 
 /** @private */
@@ -116,13 +129,13 @@ function setLocalAndSendMessage_(session_description) {
 /** @private */
 function addStreamCallback_(event) {
   debug('Receiving remote stream...');
-  var streamUrl = webkitURL.createObjectURL(event.stream);
-  document.getElementById('remote-view').src = streamUrl;
+  var videoTag = document.getElementById('remote-view');
+  videoTag.src = webkitURL.createObjectURL(event.stream);
 
-  // This means the call has been set up.
-  // This only mean that we have received a valid SDP message with an offer or
-  // an answer, it does not mean that audio and video works.
-  returnToTest('ok-got-remote-stream');
+  // Due to crbug.com/110938 the size is 0 when onloadedmetadata fires.
+  // videoTag.onloadedmetadata = updateVideoTagSize_('remote-view');
+  // Use setTimeout as a workaround for now.
+  setTimeout(function() {updateVideoTagSize_('remote-view')}, 500);
 }
 
 /** @private */

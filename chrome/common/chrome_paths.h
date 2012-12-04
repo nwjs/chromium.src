@@ -18,10 +18,6 @@ enum {
   DIR_APP = PATH_START,         // Directory where dlls and data reside.
   DIR_LOGS,                     // Directory where logs should be written.
   DIR_USER_DATA,                // Directory where user data can be written.
-#if defined(OS_WIN)
-  DIR_ALT_USER_DATA,            // Directory of the desktop or metro user data
-                                // (the one that isn't in use).
-#endif
   DIR_CRASH_DUMPS,              // Directory where crash dumps are written.
   DIR_RESOURCES,                // Directory containing separate file resources
                                 // used by Chrome at runtime.
@@ -42,11 +38,11 @@ enum {
                                 // to set policies for chrome. This directory
                                 // contains subdirectories.
 #endif
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) && !defined(OS_IOS)
   DIR_MANAGED_PREFS,            // Directory that stores the managed prefs plist
                                 // files for the current user.
 #endif
-#if defined(OS_CHROMEOS) || defined(OS_MACOSX)
+#if defined(OS_CHROMEOS) || (defined(OS_MACOSX) && !defined(OS_IOS))
   DIR_USER_EXTERNAL_EXTENSIONS,  // Directory for per-user external extensions
                                  // on Chrome Mac.  On Chrome OS, this path is
                                  // used for OEM customization.

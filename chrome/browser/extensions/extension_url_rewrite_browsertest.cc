@@ -5,6 +5,7 @@
 #include "base/process_util.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -18,11 +19,18 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/common/constants.h"
 #include "googleurl/src/gurl.h"
 
 using content::NavigationEntry;
 
 class ExtensionURLRewriteBrowserTest : public ExtensionBrowserTest {
+ public:
+  virtual void SetUp() OVERRIDE {
+    extensions::ComponentLoader::EnableBackgroundExtensionsForTesting();
+    ExtensionBrowserTest::SetUp();
+  }
+
  protected:
   std::string GetLocationBarText() const {
     return UTF16ToUTF8(
@@ -54,7 +62,7 @@ class ExtensionURLRewriteBrowserTest : public ExtensionBrowserTest {
     EXPECT_EQ(url, GetLocationBarTextAsURL());
     EXPECT_EQ(url, GetNavigationEntry()->GetVirtualURL());
     EXPECT_TRUE(
-        GetNavigationEntry()->GetURL().SchemeIs(chrome::kExtensionScheme));
+        GetNavigationEntry()->GetURL().SchemeIs(extensions::kExtensionScheme));
   }
 
   // Navigates to |url| and tests that the location bar is empty while the
@@ -80,7 +88,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionURLRewriteBrowserTest, NewTabPageURLOverride) {
   LoadExtension(GetTestExtensionPath("newtab"));
   TestURLNotShown(GURL(chrome::kChromeUINewTabURL));
   // Check that the internal URL uses the chrome-extension:// scheme.
-  EXPECT_TRUE(GetNavigationEntry()->GetURL().SchemeIs(chrome::kExtensionScheme));
+  EXPECT_TRUE(GetNavigationEntry()->GetURL().SchemeIs(
+      extensions::kExtensionScheme));
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionURLRewriteBrowserTest, BookmarksURL) {

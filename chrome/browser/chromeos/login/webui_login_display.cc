@@ -168,6 +168,13 @@ void WebUILoginDisplay::ShowError(int error_msg_id,
   accessibility::MaybeSpeak(error_text);
 }
 
+void WebUILoginDisplay::ShowErrorScreen(LoginDisplay::SigninError error_id) {
+  VLOG(1) << "Show error screen, error_id: " << error_id;
+  if (!webui_handler_)
+    return;
+  webui_handler_->ShowErrorScreen(error_id);
+}
+
 void WebUILoginDisplay::ShowGaiaPasswordChanged(const std::string& username) {
   if (webui_handler_)
     webui_handler_->ShowGaiaPasswordChanged(username);
@@ -193,10 +200,10 @@ void WebUILoginDisplay::Login(const std::string& username,
     delegate_->Login(username, password);
 }
 
-void WebUILoginDisplay::LoginAsDemoUser() {
+void WebUILoginDisplay::LoginAsRetailModeUser() {
   DCHECK(delegate_);
   if (delegate_)
-    delegate_->LoginAsDemoUser();
+    delegate_->LoginAsRetailModeUser();
 }
 
 void WebUILoginDisplay::LoginAsGuest() {
@@ -220,7 +227,7 @@ void WebUILoginDisplay::LoadWallpaper(const std::string& username) {
 }
 
 void WebUILoginDisplay::LoadSigninWallpaper() {
-  WallpaperManager::Get()->SetSigninWallpaper();
+  WallpaperManager::Get()->SetDefaultWallpaper();
 }
 
 void WebUILoginDisplay::RemoveUser(const std::string& username) {

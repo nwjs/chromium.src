@@ -7,6 +7,9 @@
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/logging.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebGestureCurveTarget.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebPoint.h"
+#include "ui/gfx/vector2d.h"
 
 using base::android::AttachCurrentThread;
 using base::android::CheckException;
@@ -46,29 +49,28 @@ FlingAnimatorImpl::~FlingAnimatorImpl()
 {
 }
 
-void FlingAnimatorImpl::startFling(const WebKit::WebFloatPoint& velocity,
-                                   const WebKit::WebRect& /* range */)
+void FlingAnimatorImpl::StartFling(const gfx::PointF& velocity)
 {
-  // Ignore "range" as it's always empty -- see http://webkit.org/b/96403
+  // No bounds on the fling. See http://webkit.org/b/96403
   // Instead, use the largest possible bounds for minX/maxX/minY/maxY. The
   // compositor will ignore any attempt to scroll beyond the end of the page.
 
-  DCHECK(velocity.x || velocity.y);
+  DCHECK(velocity.x() || velocity.y());
   if (is_active_)
-    cancelFling();
+    CancelFling();
 
   is_active_ = true;
 
   JNIEnv* env = AttachCurrentThread();
 
   env->CallVoidMethod(java_scroller_.obj(), fling_method_id_, 0, 0,
-                      static_cast<int>(velocity.x),
-                      static_cast<int>(velocity.y),
+                      static_cast<int>(velocity.x()),
+                      static_cast<int>(velocity.y()),
                       INT_MIN, INT_MAX, INT_MIN, INT_MAX);
   CheckException(env);
 }
 
-void FlingAnimatorImpl::cancelFling()
+void FlingAnimatorImpl::CancelFling()
 {
   if (!is_active_)
     return;
@@ -79,7 +81,7 @@ void FlingAnimatorImpl::cancelFling()
   CheckException(env);
 }
 
-bool FlingAnimatorImpl::updatePosition()
+bool FlingAnimatorImpl::UpdatePosition()
 {
   JNIEnv* env = AttachCurrentThread();
   bool result = env->CallBooleanMethod(java_scroller_.obj(),
@@ -88,14 +90,35 @@ bool FlingAnimatorImpl::updatePosition()
   return is_active_ = result;
 }
 
-WebKit::WebPoint FlingAnimatorImpl::getCurrentPosition()
+gfx::Point FlingAnimatorImpl::GetCurrentPosition()
 {
   JNIEnv* env = AttachCurrentThread();
-  WebKit::WebPoint position(
+  gfx::Point position(
       env->CallIntMethod(java_scroller_.obj(), getX_method_id_),
       env->CallIntMethod(java_scroller_.obj(), getY_method_id_));
   CheckException(env);
   return position;
+}
+
+bool FlingAnimatorImpl::apply(double time,
+                              WebKit::WebGestureCurveTarget* target) {
+  if (!UpdatePosition())
+    return false;
+
+  gfx::Point current_position = GetCurrentPosition();
+  gfx::Vector2d diff(current_position - last_position_);
+  WebKit::WebPoint scroll_amount(diff.x(), diff.y());
+  target->scrollBy(scroll_amount);
+  last_position_ = current_position;
+  return true;
+}
+
+FlingAnimatorImpl* FlingAnimatorImpl::CreateAndroidGestureCurve(
+    const WebKit::WebFloatPoint& velocity,
+    const WebKit::WebSize&) {
+  FlingAnimatorImpl* gesture_curve = new FlingAnimatorImpl();
+  gesture_curve->StartFling(velocity);
+  return gesture_curve;
 }
 
 } // namespace webkit_glue

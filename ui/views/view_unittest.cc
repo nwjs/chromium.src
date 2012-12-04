@@ -234,7 +234,7 @@ class TestView : public View {
 
   virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
   // Ignores GestureEvent by default.
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   virtual void Paint(gfx::Canvas* canvas) OVERRIDE;
   virtual void SchedulePaintInRect(const gfx::Rect& rect) OVERRIDE;
@@ -287,10 +287,10 @@ class TestViewConsumeGesture : public TestView {
   virtual ~TestViewConsumeGesture() {}
 
  protected:
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
     last_gesture_event_type_ = event->type();
     location_.SetPoint(event->x(), event->y());
-    return ui::ER_CONSUMED;
+    event->StopPropagation();
   }
 
  private:
@@ -304,8 +304,7 @@ class TestViewIgnoreGesture: public TestView {
   virtual ~TestViewIgnoreGesture() {}
 
  private:
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
-    return ui::ER_UNHANDLED;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
   }
 
   DISALLOW_COPY_AND_ASSIGN(TestViewIgnoreGesture);
@@ -319,10 +318,10 @@ class TestViewIgnoreScrollGestures : public TestViewConsumeGesture {
   virtual ~TestViewIgnoreScrollGestures() {}
 
  private:
-  virtual ui::EventResult OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
     if (event->IsScrollGestureEvent())
-      return ui::ER_UNHANDLED;
-    return TestViewConsumeGesture::OnGestureEvent(event);
+      return;
+    TestViewConsumeGesture::OnGestureEvent(event);
   }
 
   DISALLOW_COPY_AND_ASSIGN(TestViewIgnoreScrollGestures);
@@ -594,8 +593,7 @@ TEST_F(ViewTest, TouchEvent) {
   widget->CloseNow();
 }
 
-ui::EventResult TestView::OnGestureEvent(ui::GestureEvent* event) {
-  return ui::ER_UNHANDLED;
+void TestView::OnGestureEvent(ui::GestureEvent* event) {
 }
 
 TEST_F(ViewTest, GestureEvent) {
@@ -1578,6 +1576,7 @@ class MockMenuModel : public ui::MenuModel {
   MOCK_METHOD0(MenuWillShow, void());
   MOCK_METHOD0(MenuClosed, void());
   MOCK_METHOD1(SetMenuModelDelegate, void(ui::MenuModelDelegate* delegate));
+  MOCK_CONST_METHOD0(GetMenuModelDelegate, ui::MenuModelDelegate*());
   MOCK_METHOD3(GetModelAndIndexForCommandId, bool(int command_id,
       MenuModel** model, int* index));
 };
@@ -2057,7 +2056,7 @@ TEST_F(ViewTest, TransformPaint) {
   // Rotate |v1| counter-clockwise.
   gfx::Transform transform;
   RotateCounterclockwise(&transform);
-  transform.SetTranslateY(500.0f);
+  transform.matrix().set(1, 3, 500.0);
   v1->SetTransform(transform);
 
   // |v2| now occupies (100, 200) to (200, 400) in |root|.
@@ -2091,7 +2090,7 @@ TEST_F(ViewTest, TransformEvent) {
   // Rotate |v1| counter-clockwise.
   gfx::Transform transform(v1->GetTransform());
   RotateCounterclockwise(&transform);
-  transform.SetTranslateY(500.0f);
+  transform.matrix().set(1, 3, 500.0);
   v1->SetTransform(transform);
 
   // |v2| now occupies (100, 200) to (200, 400) in |root|.
@@ -2113,7 +2112,7 @@ TEST_F(ViewTest, TransformEvent) {
   // Now rotate |v2| inside |v1| clockwise.
   transform = v2->GetTransform();
   RotateClockwise(&transform);
-  transform.SetTranslateX(100.0f);
+  transform.matrix().setDouble(0, 3, 100.0);
   v2->SetTransform(transform);
 
   // Now, |v2| occupies (100, 100) to (200, 300) in |v1|, and (100, 300) to
@@ -2143,12 +2142,13 @@ TEST_F(ViewTest, TransformEvent) {
   // Rotate |v3| clockwise with respect to |v2|.
   transform = v1->GetTransform();
   RotateClockwise(&transform);
-  transform.SetTranslateX(30.0f);
+  transform.matrix().setDouble(0, 3, 30.0);
   v3->SetTransform(transform);
 
   // Scale |v2| with respect to |v1| along both axis.
   transform = v2->GetTransform();
-  transform.SetScale(0.8f, 0.5f);
+  transform.matrix().setDouble(0, 0, 0.8);
+  transform.matrix().setDouble(1, 1, 0.5);
   v2->SetTransform(transform);
 
   // |v3| occupies (108, 105) to (132, 115) in |root|.
@@ -2179,16 +2179,19 @@ TEST_F(ViewTest, TransformEvent) {
   // Rotate |v3| clockwise with respect to |v2|, and scale it along both axis.
   transform = v3->GetTransform();
   RotateClockwise(&transform);
-  transform.SetTranslateX(30.0f);
+  transform.matrix().setDouble(0, 3, 30.0);
   // Rotation sets some scaling transformation. Using SetScale would overwrite
   // that and pollute the rotation. So combine the scaling with the existing
   // transforamtion.
-  transform.ConcatScale(0.8f, 0.5f);
+  gfx::Transform scale;
+  scale.Scale(0.8, 0.5);
+  transform.ConcatTransform(scale);
   v3->SetTransform(transform);
 
   // Translate |v2| with respect to |v1|.
   transform = v2->GetTransform();
-  transform.SetTranslate(10, 10);
+  transform.matrix().setDouble(0, 3, 10.0);
+  transform.matrix().setDouble(1, 3, 10.0);
   v2->SetTransform(transform);
 
   // |v3| now occupies (120, 120) to (144, 130) in |root|.
@@ -2232,7 +2235,7 @@ TEST_F(ViewTest, TransformVisibleBound) {
   // Rotate |child| counter-clockwise
   gfx::Transform transform;
   RotateCounterclockwise(&transform);
-  transform.SetTranslateY(50.0f);
+  transform.matrix().setDouble(1, 3, 50.0);
   child->SetTransform(transform);
   EXPECT_EQ(gfx::Rect(40, 0, 10, 50), child->GetVisibleBounds());
 
@@ -2346,20 +2349,20 @@ TEST_F(ViewTest, ConvertPointToViewWithTransform) {
 
   child->SetBoundsRect(gfx::Rect(7, 19, 500, 500));
   gfx::Transform transform;
-  transform.SetScale(3.0f, 4.0f);
+  transform.Scale(3.0, 4.0);
   child->SetTransform(transform);
 
   child_child->SetBoundsRect(gfx::Rect(17, 13, 100, 100));
-  transform = gfx::Transform();
-  transform.SetScale(5.0f, 7.0f);
+  transform.MakeIdentity();
+  transform.Scale(5.0, 7.0);
   child_child->SetTransform(transform);
 
   // Sanity check to make sure basic transforms act as expected.
   {
     gfx::Transform transform;
-    transform.ConcatTranslate(1, 1);
-    transform.ConcatScale(100, 55);
-    transform.ConcatTranslate(110, -110);
+    transform.Translate(110.0, -110.0);
+    transform.Scale(100.0, 55.0);
+    transform.Translate(1.0, 1.0);
 
     // convert to a 3x3 matrix.
     const SkMatrix& matrix = transform.matrix();
@@ -2374,11 +2377,11 @@ TEST_F(ViewTest, ConvertPointToViewWithTransform) {
 
   {
     gfx::Transform transform;
-    transform.SetTranslate(1, 1);
+    transform.Translate(1.0, 1.0);
     gfx::Transform t2;
-    t2.SetScale(100, 55);
+    t2.Scale(100.0, 55.0);
     gfx::Transform t3;
-    t3.SetTranslate(110, -110);
+    t3.Translate(110.0, -110.0);
     transform.ConcatTransform(t2);
     transform.ConcatTransform(t3);
 
@@ -2467,7 +2470,7 @@ TEST_F(ViewTest, ConvertRectWithTransform) {
   // Rotate |v2|
   gfx::Transform t2;
   RotateCounterclockwise(&t2);
-  t2.SetTranslateY(100.0f);
+  t2.matrix().setDouble(1, 3, 100.0);
   v2->SetTransform(t2);
 
   // |v2| now occupies (30, 30) to (230, 130) in |widget|
@@ -2476,16 +2479,15 @@ TEST_F(ViewTest, ConvertRectWithTransform) {
 
   // Scale down |v1|
   gfx::Transform t1;
-  t1.SetScale(0.5, 0.5);
+  t1.Scale(0.5, 0.5);
   v1->SetTransform(t1);
 
   // The rectangle should remain the same for |v1|.
   EXPECT_EQ(gfx::Rect(25, 100, 40, 15), v2->ConvertRectToParent(rect));
 
   // |v2| now occupies (20, 20) to (120, 70) in |widget|
-  // There are some rounding of floating values here. These values may change if
-  // floating operations are improved/changed.
-  EXPECT_EQ(gfx::Rect(22, 60, 20, 7), v2->ConvertRectToWidget(rect));
+  EXPECT_EQ(gfx::Rect(22, 60, 21, 8).ToString(),
+            v2->ConvertRectToWidget(rect).ToString());
 
   widget->CloseNow();
 }
@@ -2908,8 +2910,7 @@ class ViewLayerTest : public ViewsTestBase {
   // Returns the Layer used by the RootView.
   ui::Layer* GetRootLayer() {
     ui::Layer* root_layer = NULL;
-    gfx::Point origin;
-    widget()->CalculateOffsetToAncestorWithLayer(&origin, &root_layer);
+    widget()->CalculateOffsetToAncestorWithLayer(&root_layer);
     return root_layer;
   }
 
@@ -2944,8 +2945,7 @@ TEST_F(ViewLayerTest, LayerToggling) {
   // Because we lazily create textures the calls to DrawTree are necessary to
   // ensure we trigger creation of textures.
   ui::Layer* root_layer = NULL;
-  gfx::Point origin;
-  widget()->CalculateOffsetToAncestorWithLayer(&origin, &root_layer);
+  widget()->CalculateOffsetToAncestorWithLayer(&root_layer);
   View* content_view = new View;
   widget()->SetContentsView(content_view);
 
@@ -2983,7 +2983,7 @@ TEST_F(ViewLayerTest, LayerToggling) {
 
   // Make v1 have a layer again and verify v2s layer is wired up correctly.
   gfx::Transform transform;
-  transform.SetScale(2.0f, 2.0f);
+  transform.Scale(2.0, 2.0);
   v1->SetTransform(transform);
   EXPECT_TRUE(v1->layer() != NULL);
   EXPECT_TRUE(v2->layer() != NULL);
@@ -3135,7 +3135,7 @@ TEST_F(ViewLayerTest, BoundInRTL) {
 TEST_F(ViewLayerTest, ToggleVisibilityWithTransform) {
   View* view = new View;
   gfx::Transform transform;
-  transform.SetScale(2.0f, 2.0f);
+  transform.Scale(2.0, 2.0);
   view->SetTransform(transform);
   widget()->SetContentsView(view);
   EXPECT_EQ(2.0f, view->GetTransform().matrix().get(0, 0));
@@ -3151,7 +3151,7 @@ TEST_F(ViewLayerTest, ToggleVisibilityWithTransform) {
 TEST_F(ViewLayerTest, ResetTransformOnLayerAfterAdd) {
   View* view = new View;
   gfx::Transform transform;
-  transform.SetScale(2.0f, 2.0f);
+  transform.Scale(2.0, 2.0);
   view->SetTransform(transform);
   widget()->SetContentsView(view);
   EXPECT_EQ(2.0f, view->GetTransform().matrix().get(0, 0));

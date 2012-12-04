@@ -37,6 +37,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_intents_dispatcher.h"
 #include "content/public/test/test_utils.h"
+#include "extensions/common/constants.h"
 #include "net/base/escape.h"
 #include "net/base/mock_host_resolver.h"
 #include "net/url_request/test_url_fetcher_factory.h"
@@ -194,11 +195,6 @@ class IntentsDispatcherMock : public content::WebIntentsDispatcher {
   }
 
   virtual void ResetDispatch() OVERRIDE {
-  }
-
-  virtual void SendReplyMessage(webkit_glue::WebIntentReplyType reply_type,
-                                const string16& data) OVERRIDE {
-    replied_ = true;
   }
 
   virtual void SendReply(const webkit_glue::WebIntentReply& reply) OVERRIDE {
@@ -636,7 +632,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
   explicitIntent.action = kAction1;
   explicitIntent.type = kType2;
   explicitIntent.service = GURL(StringPrintf("%s://%s/%s",
-                                             chrome::kExtensionScheme,
+                                             extensions::kExtensionScheme,
                                              extension_id,
                                              "share.html"));
   IntentsDispatcherMock dispatcher2(explicitIntent);
@@ -680,7 +676,7 @@ IN_PROC_BROWSER_TEST_F(WebIntentPickerControllerBrowserTest,
   intent.action = kAction1;
   intent.type = kType1;
   intent.service = GURL(StringPrintf("%s://%s/%s",
-                                     chrome::kExtensionScheme,
+                                     extensions::kExtensionScheme,
                                      kDummyExtensionId,
                                      UTF16ToASCII(kAction1).c_str()));
   IntentsDispatcherMock dispatcher(intent);

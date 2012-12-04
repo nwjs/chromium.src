@@ -11,6 +11,7 @@
 #include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
+#include "chrome/browser/ui/extensions/native_app_window.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/notification_service.h"

@@ -12,12 +12,12 @@
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/compiler_specific.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/format_macros.h"
 #include "base/location.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "base/message_loop_proxy.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/test/values_test_util.h"
@@ -631,6 +631,82 @@ TEST_F(SyncApiTest, EmptyTags) {
             node.InitByTagLookup(empty_tag));
 }
 
+// Test counting nodes when the type's root node has no children.
+TEST_F(SyncApiTest, GetTotalNodeCountEmpty) {
+  int64 type_root = MakeServerNodeForType(test_user_share_.user_share(),
+                                          BOOKMARKS);
+  {
+    ReadTransaction trans(FROM_HERE, test_user_share_.user_share());
+    ReadNode type_root_node(&trans);
+    EXPECT_EQ(BaseNode::INIT_OK,
+              type_root_node.InitByIdLookup(type_root));
+    EXPECT_EQ(1, type_root_node.GetTotalNodeCount());
+  }
+}
+
+// Test counting nodes when there is one child beneath the type's root.
+TEST_F(SyncApiTest, GetTotalNodeCountOneChild) {
+  int64 type_root = MakeServerNodeForType(test_user_share_.user_share(),
+                                          BOOKMARKS);
+  int64 parent = MakeFolderWithParent(test_user_share_.user_share(),
+                                      BOOKMARKS,
+                                      type_root,
+                                      NULL);
+  {
+    ReadTransaction trans(FROM_HERE, test_user_share_.user_share());
+    ReadNode type_root_node(&trans);
+    EXPECT_EQ(BaseNode::INIT_OK,
+              type_root_node.InitByIdLookup(type_root));
+    EXPECT_EQ(2, type_root_node.GetTotalNodeCount());
+    ReadNode parent_node(&trans);
+    EXPECT_EQ(BaseNode::INIT_OK,
+              parent_node.InitByIdLookup(parent));
+    EXPECT_EQ(1, parent_node.GetTotalNodeCount());
+  }
+}
+
+// Test counting nodes when there are multiple children beneath the type root,
+// and one of those children has children of its own.
+TEST_F(SyncApiTest, GetTotalNodeCountMultipleChildren) {
+  int64 type_root = MakeServerNodeForType(test_user_share_.user_share(),
+                                          BOOKMARKS);
+  int64 parent = MakeFolderWithParent(test_user_share_.user_share(),
+                                      BOOKMARKS,
+                                      type_root,
+                                      NULL);
+  ignore_result(MakeFolderWithParent(test_user_share_.user_share(),
+                                     BOOKMARKS,
+                                     type_root,
+                                     NULL));
+  int64 child1 = MakeFolderWithParent(
+      test_user_share_.user_share(),
+      BOOKMARKS,
+      parent,
+      NULL);
+  ignore_result(MakeNodeWithParent(
+      test_user_share_.user_share(),
+      BOOKMARKS,
+      "c2",
+      parent));
+  ignore_result(MakeNodeWithParent(
+      test_user_share_.user_share(),
+      BOOKMARKS,
+      "c1c1",
+      child1));
+
+  {
+    ReadTransaction trans(FROM_HERE, test_user_share_.user_share());
+    ReadNode type_root_node(&trans);
+    EXPECT_EQ(BaseNode::INIT_OK,
+              type_root_node.InitByIdLookup(type_root));
+    EXPECT_EQ(6, type_root_node.GetTotalNodeCount());
+    ReadNode node(&trans);
+    EXPECT_EQ(BaseNode::INIT_OK,
+              node.InitByIdLookup(parent));
+    EXPECT_EQ(4, node.GetTotalNodeCount());
+  }
+}
+
 namespace {
 
 class TestHttpPostProviderInterface : public HttpPostProviderInterface {
@@ -754,7 +830,6 @@ class SyncManagerTest : public testing::Test,
     sync_manager_.Init(temp_dir_.path(),
                        WeakHandle<JsEventHandler>(),
                        "bogus", 0, false,
-                       base::MessageLoopProxy::current(),
                        scoped_ptr<HttpPostProviderFactory>(
                            new TestHttpPostProviderFactory()),
                        workers, &extensions_activity_monitor_, this,
@@ -854,7 +929,7 @@ class SyncManagerTest : public testing::Test,
   }
 
   void PumpLoop() {
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   void SendJsMessage(const std::string& name, const JsArgList& args,
@@ -949,7 +1024,7 @@ class SyncManagerTest : public testing::Test,
   // Needed by |sync_manager_|.
   MessageLoop message_loop_;
   // Needed by |sync_manager_|.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   // Sync Id's for the roots of the enabled datatypes.
   std::map<ModelType, int64> type_roots_;
   FakeExtensionsActivityMonitor extensions_activity_monitor_;
@@ -2048,7 +2123,7 @@ TEST_F(SyncManagerTest, EncryptBookmarksWithLegacyData) {
 // See BookmarkChangeProcessor::PlaceSyncNode(..).
 TEST_F(SyncManagerTest, CreateLocalBookmark) {
   std::string title = "title";
-  GURL url("url");
+  std::string url = "url";
   {
     WriteTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
     ReadNode root_node(&trans);
@@ -2057,7 +2132,10 @@ TEST_F(SyncManagerTest, CreateLocalBookmark) {
     ASSERT_TRUE(node.InitByCreation(BOOKMARKS, root_node, NULL));
     node.SetIsFolder(false);
     node.SetTitle(UTF8ToWide(title));
-    node.SetURL(url);
+
+    sync_pb::BookmarkSpecifics bookmark_specifics(node.GetBookmarkSpecifics());
+    bookmark_specifics.set_url(url);
+    node.SetBookmarkSpecifics(bookmark_specifics);
   }
   {
     ReadTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
@@ -2069,7 +2147,7 @@ TEST_F(SyncManagerTest, CreateLocalBookmark) {
     ASSERT_EQ(BaseNode::INIT_OK, node.InitByIdLookup(child_id));
     EXPECT_FALSE(node.GetIsFolder());
     EXPECT_EQ(title, node.GetTitle());
-    EXPECT_EQ(url, node.GetURL());
+    EXPECT_EQ(url, node.GetBookmarkSpecifics().url());
   }
 }
 
@@ -2594,7 +2672,7 @@ TEST_F(SyncManagerTest, SetPreviouslyEncryptedSpecifics) {
     EXPECT_EQ(BaseNode::INIT_OK,
               node.InitByClientTagLookup(BOOKMARKS, client_tag));
     EXPECT_EQ(title, node.GetTitle());
-    EXPECT_EQ(GURL(url), node.GetURL());
+    EXPECT_EQ(url, node.GetBookmarkSpecifics().url());
   }
 
   {
@@ -2603,7 +2681,10 @@ TEST_F(SyncManagerTest, SetPreviouslyEncryptedSpecifics) {
     WriteNode node(&trans);
     EXPECT_EQ(BaseNode::INIT_OK,
               node.InitByClientTagLookup(BOOKMARKS, client_tag));
-    node.SetURL(GURL(url2));
+
+    sync_pb::BookmarkSpecifics bookmark_specifics(node.GetBookmarkSpecifics());
+    bookmark_specifics.set_url(url2);
+    node.SetBookmarkSpecifics(bookmark_specifics);
   }
 
   {
@@ -2613,7 +2694,7 @@ TEST_F(SyncManagerTest, SetPreviouslyEncryptedSpecifics) {
     EXPECT_EQ(BaseNode::INIT_OK,
               node.InitByClientTagLookup(BOOKMARKS, client_tag));
     EXPECT_EQ(title, node.GetTitle());
-    EXPECT_EQ(GURL(url2), node.GetURL());
+    EXPECT_EQ(url2, node.GetBookmarkSpecifics().url());
     const syncable::Entry* node_entry = node.GetEntry();
     EXPECT_EQ(kEncryptedString, node_entry->Get(NON_UNIQUE_NAME));
     const sync_pb::EntitySpecifics& specifics = node_entry->Get(SPECIFICS);

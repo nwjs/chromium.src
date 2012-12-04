@@ -1207,7 +1207,13 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithSqueeze) {
   panel_manager->CloseAll();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, AttachWithSqueeze) {
+// http://crbug.com/143247
+#if defined(OS_LINUX)
+#define MAYBE_AttachWithSqueeze DISABLED_AttachWithSqueeze
+#else
+#define MAYBE_AttachWithSqueeze AttachWithSqueeze
+#endif
+IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, MAYBE_AttachWithSqueeze) {
   PanelManager* panel_manager = PanelManager::GetInstance();
   DockedPanelStrip* docked_strip = panel_manager->docked_strip();
   DetachedPanelStrip* detached_strip = panel_manager->detached_strip();
@@ -1257,7 +1263,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, AttachWithSqueeze) {
   EXPECT_EQ(detached_position2, panel2->GetBounds().origin());
 
   // Wait for active states to settle.
-  MessageLoopForUI::current()->RunAllPending();
+  MessageLoopForUI::current()->RunUntilIdle();
 
   // Panel positions should have shifted because of the "squeeze" mode.
   EXPECT_NE(docked_position4, panel4->GetBounds().origin());

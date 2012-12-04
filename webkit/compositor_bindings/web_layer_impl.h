@@ -63,8 +63,6 @@ public:
     virtual void setFilter(SkImageFilter*);
     virtual void setFilters(const WebFilterOperations&) OVERRIDE;
     virtual void setBackgroundFilters(const WebFilterOperations&) OVERRIDE;
-    virtual void setDebugBorderColor(const WebColor&) OVERRIDE;
-    virtual void setDebugBorderWidth(float) OVERRIDE;
     virtual void setDebugName(WebString) OVERRIDE;
     virtual void setAnimationDelegate(WebAnimationDelegate*) OVERRIDE;
     virtual bool addAnimation(WebAnimation*) OVERRIDE;

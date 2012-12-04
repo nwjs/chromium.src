@@ -15,6 +15,7 @@
 #include "cc/render_pass.h"
 #include "cc/render_pass_sink.h"
 #include "cc/renderer.h"
+#include "cc/tile_manager.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/rect.h"
 #include <public/WebCompositorOutputSurfaceClient.h>
@@ -42,6 +43,7 @@ public:
     virtual void onCanDrawStateChanged(bool canDraw) = 0;
     virtual void setNeedsRedrawOnImplThread() = 0;
     virtual void setNeedsCommitOnImplThread() = 0;
+    virtual void setNeedsManageTilesOnImplThread() = 0;
     virtual void postAnimationEventsToMainThreadOnImplThread(scoped_ptr<AnimationEventsVector>, base::Time wallClockTime) = 0;
     // Returns true if resources were deleted by this call.
     virtual bool reduceContentsTextureMemoryOnImplThread(size_t limitBytes, int priorityCutoff) = 0;
@@ -69,6 +71,9 @@ public:
     void setSentPageScaleDelta(float delta) { m_sentPageScaleDelta = delta; }
     float sentPageScaleDelta() const { return m_sentPageScaleDelta; }
 
+    void setDeviceScaleFactor(float factor) { m_deviceScaleFactor = factor; }
+    float deviceScaleFactor() const { return m_deviceScaleFactor; }
+
     // Returns true if the passed parameters were different from those previously
     // cached.
     bool setPageScaleFactorAndLimits(float pageScaleFactor,
@@ -77,7 +82,7 @@ public:
 
     // Returns the bounds and offset of the scaled and translated viewport to use for pinch-zoom.
     gfx::RectF bounds() const;
-    const gfx::Vector2dF& scrollDelta() const { return m_pinchViewportScrollDelta; }
+    const gfx::Vector2dF& zoomedViewportOffset() const { return m_zoomedViewportOffset; }
 
     void setLayoutViewportSize(const gfx::SizeF& size) { m_layoutViewportSize = size; }
 
@@ -86,7 +91,11 @@ public:
     // this constraint.
     gfx::Vector2dF applyScroll(const gfx::Vector2dF&);
 
-    WebKit::WebTransformationMatrix implTransform() const;
+    // The implTransform goes from the origin of the unzoomedDeviceViewport to the
+    // origin of the zoomedDeviceViewport.
+    //
+    // implTransform = S[pageScale] * Tr[-zoomedDeviceViewportOffset]
+    gfx::Transform implTransform(bool pageScalePinchZoomEnabled) const;
 
 private:
     float m_pageScaleFactor;
@@ -94,14 +103,16 @@ private:
     float m_sentPageScaleDelta;
     float m_maxPageScaleFactor;
     float m_minPageScaleFactor;
+    float m_deviceScaleFactor;
 
-    gfx::Vector2dF m_pinchViewportScrollDelta;
+    gfx::Vector2dF m_zoomedViewportOffset;
     gfx::SizeF m_layoutViewportSize;
 };
 
 // LayerTreeHostImpl owns the LayerImpl tree as well as associated rendering state
 class CC_EXPORT LayerTreeHostImpl : public InputHandlerClient,
                                     public RendererClient,
+                                    public TileManagerClient,
                                     public NON_EXPORTED_BASE(WebKit::WebCompositorOutputSurfaceClient) {
     typedef std::vector<LayerImpl*> LayerList;
 
@@ -111,19 +122,21 @@ public:
 
     // InputHandlerClient implementation
     virtual InputHandlerClient::ScrollStatus scrollBegin(gfx::Point, InputHandlerClient::ScrollInputType) OVERRIDE;
-    virtual void scrollBy(gfx::Point, gfx::Vector2d) OVERRIDE;
+    virtual bool scrollBy(const gfx::Point&, const gfx::Vector2d&) OVERRIDE;
     virtual void scrollEnd() OVERRIDE;
     virtual void pinchGestureBegin() OVERRIDE;
     virtual void pinchGestureUpdate(float, gfx::Point) OVERRIDE;
     virtual void pinchGestureEnd() OVERRIDE;
-    virtual void startPageScaleAnimation(gfx::Vector2d targetPosition, bool anchorPoint, float pageScale, base::TimeTicks startTime, base::TimeDelta duration) OVERRIDE;
+    virtual void startPageScaleAnimation(gfx::Vector2d targetOffset, bool anchorPoint, float pageScale, base::TimeTicks startTime, base::TimeDelta duration) OVERRIDE;
     virtual void scheduleAnimation() OVERRIDE;
+    virtual bool haveTouchEventHandlersAt(const gfx::Point&) OVERRIDE;
 
     struct CC_EXPORT FrameData : public RenderPassSink {
         FrameData();
         ~FrameData();
 
         std::vector<gfx::Rect> occludingScreenSpaceRects;
+        std::vector<gfx::Rect> nonOccludingScreenSpaceRects;
         RenderPassList renderPasses;
         RenderPassIdHashMap renderPassesById;
         LayerList* renderSurfaceLayerList;
@@ -138,12 +151,14 @@ public:
     virtual void commitComplete();
     virtual void animate(base::TimeTicks monotonicTime, base::Time wallClockTime);
 
+    void manageTiles();
+
     // Returns false if problems occured preparing the frame, and we should try
     // to avoid displaying the frame. If prepareToDraw is called,
     // didDrawAllLayers must also be called, regardless of whether drawLayers is
     // called between the two.
     virtual bool prepareToDraw(FrameData&);
-    virtual void drawLayers(const FrameData&);
+    virtual void drawLayers(FrameData&);
     // Must be called if and only if prepareToDraw was called.
     void didDrawAllLayers(const FrameData&);
 
@@ -156,6 +171,10 @@ public:
     virtual void setManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE;
     virtual void enforceManagedMemoryPolicy(const ManagedMemoryPolicy& policy) OVERRIDE;
     virtual bool hasImplThread() const OVERRIDE;
+
+    // TileManagerClient implementation.
+    virtual void ScheduleManageTiles() OVERRIDE;
+    virtual void ScheduleRedraw() OVERRIDE;
 
     // WebCompositorOutputSurfaceClient implementation.
     virtual void onVSyncParametersChanged(double monotonicTimebase, double intervalInSeconds) OVERRIDE;
@@ -171,6 +190,7 @@ public:
 
     bool initializeRenderer(scoped_ptr<GraphicsContext>);
     bool isContextLost();
+    TileManager* tileManager() { return m_tileManager.get(); }
     Renderer* renderer() { return m_renderer.get(); }
     const RendererCapabilities& rendererCapabilities() const;
 
@@ -211,7 +231,7 @@ public:
     void setPageScaleFactorAndLimits(float pageScaleFactor, float minPageScaleFactor, float maxPageScaleFactor);
 
     scoped_ptr<ScrollAndScaleSet> processScrollDeltas();
-    WebKit::WebTransformationMatrix implTransform() const;
+    gfx::Transform implTransform() const;
 
     void startPageScaleAnimation(gfx::Vector2d targetOffset, bool useAnchor, float scale, base::TimeDelta duration);
 
@@ -234,6 +254,9 @@ public:
     DebugRectHistory* debugRectHistory() const { return m_debugRectHistory.get(); }
     ResourceProvider* resourceProvider() const { return m_resourceProvider.get(); }
     Proxy* proxy() const { return m_proxy; }
+
+    void setDebugState(const LayerTreeDebugState& debugState) { m_debugState = debugState; }
+    const LayerTreeDebugState& debugState() const { return m_debugState; }
 
     class CC_EXPORT CullRenderPassesWithCachedTextures {
     public:
@@ -313,6 +336,7 @@ private:
     scoped_ptr<GraphicsContext> m_context;
     scoped_ptr<ResourceProvider> m_resourceProvider;
     scoped_ptr<Renderer> m_renderer;
+    scoped_ptr<TileManager> m_tileManager;
     scoped_ptr<LayerImpl> m_rootLayerImpl;
     LayerImpl* m_rootScrollLayerImpl;
     LayerImpl* m_currentlyScrollingLayerImpl;
@@ -320,6 +344,7 @@ private:
     int m_scrollingLayerIdFromPreviousTree;
     bool m_scrollDeltaIsInViewportSpace;
     LayerTreeSettings m_settings;
+    LayerTreeDebugState m_debugState;
     gfx::Size m_layoutViewportSize;
     gfx::Size m_deviceViewportSize;
     float m_deviceScaleFactor;
@@ -353,6 +378,8 @@ private:
 
     size_t m_numImplThreadScrolls;
     size_t m_numMainThreadScrolls;
+
+    size_t m_cumulativeNumLayersDrawn;
 
     DISALLOW_COPY_AND_ASSIGN(LayerTreeHostImpl);
 };

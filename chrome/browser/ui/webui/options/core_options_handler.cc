@@ -121,6 +121,8 @@ void CoreOptionsHandler::GetStaticLocalizedValues(
       l10n_util::GetStringUTF16(IDS_LEARN_MORE));
   localized_strings->SetString("close",
       l10n_util::GetStringUTF16(IDS_CLOSE));
+  localized_strings->SetString("done",
+      l10n_util::GetStringUTF16(IDS_DONE));
 }
 
 void CoreOptionsHandler::Uninitialize() {
@@ -206,9 +208,9 @@ void CoreOptionsHandler::ObservePref(const std::string& pref_name) {
 
 void CoreOptionsHandler::StopObservingPref(const std::string& pref_name) {
   if (g_browser_process->local_state()->FindPreference(pref_name.c_str()))
-    local_state_registrar_.Remove(pref_name.c_str(), this);
+    local_state_registrar_.Remove(pref_name.c_str());
   else
-    registrar_.Remove(pref_name.c_str(), this);
+    registrar_.Remove(pref_name.c_str());
 }
 
 void CoreOptionsHandler::SetPref(const std::string& pref_name,

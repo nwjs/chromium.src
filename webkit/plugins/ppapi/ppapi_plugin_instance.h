@@ -38,11 +38,10 @@
 #include "ppapi/c/private/ppp_instance_private.h"
 #include "ppapi/shared_impl/ppb_instance_shared.h"
 #include "ppapi/shared_impl/ppb_view_shared.h"
-#include "ppapi/thunk/ppb_flash_clipboard_api.h"
-#include "ppapi/thunk/ppb_flash_functions_api.h"
+#include "ppapi/shared_impl/singleton_resource_id.h"
+#include "ppapi/shared_impl/tracked_callback.h"
 #include "ppapi/thunk/ppb_gamepad_api.h"
 #include "ppapi/thunk/resource_creation_api.h"
-#include "ppapi/shared_impl/tracked_callback.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebCanvas.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
@@ -88,7 +87,6 @@ class MessageChannel;
 class PluginDelegate;
 class PluginModule;
 class PluginObject;
-class PPB_Graphics2D_Impl;
 class PPB_Graphics3D_Impl;
 class PPB_ImageData_Impl;
 class PPB_URLLoader_Impl;
@@ -345,6 +343,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
                                PP_Resource device) OVERRIDE;
   virtual PP_Bool IsFullFrame(PP_Instance instance) OVERRIDE;
   virtual const ::ppapi::ViewData* GetViewData(PP_Instance instance) OVERRIDE;
+  virtual PP_Bool FlashIsFullscreen(PP_Instance instance) OVERRIDE;
   virtual PP_Var GetWindowObject(PP_Instance instance) OVERRIDE;
   virtual PP_Var GetOwnerElementObject(PP_Instance instance) OVERRIDE;
   virtual PP_Var ExecuteScript(PP_Instance instance,
@@ -366,12 +365,8 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   virtual PP_Bool GetScreenSize(PP_Instance instance, PP_Size* size)
       OVERRIDE;
   virtual ::ppapi::thunk::PPB_Flash_API* GetFlashAPI() OVERRIDE;
-  virtual ::ppapi::thunk::PPB_Flash_Clipboard_API* GetFlashClipboardAPI(
-      PP_Instance instance) OVERRIDE;
-  virtual ::ppapi::thunk::PPB_Flash_Functions_API* GetFlashFunctionsAPI(
-      PP_Instance instance) OVERRIDE;
-  virtual ::ppapi::thunk::PPB_Gamepad_API* GetGamepadAPI(PP_Instance instance)
-      OVERRIDE;
+  virtual ::ppapi::Resource* GetSingletonResource(PP_Instance instance,
+      ::ppapi::SingletonResourceID id) OVERRIDE;
   virtual int32_t RequestInputEvents(PP_Instance instance,
                                      uint32_t event_classes) OVERRIDE;
   virtual int32_t RequestFilteringInputEvents(PP_Instance instance,
@@ -466,9 +461,12 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
 
   // Implements PPB_Gamepad_API. This is just to avoid having an excessive
   // number of interfaces implemented by PluginInstance.
-  class GamepadImpl : public ::ppapi::thunk::PPB_Gamepad_API {
+  class GamepadImpl : public ::ppapi::thunk::PPB_Gamepad_API,
+                      public ::ppapi::Resource {
    public:
     explicit GamepadImpl(PluginDelegate* delegate);
+    // Resource implementation.
+    virtual ::ppapi::thunk::PPB_Gamepad_API* AsPPB_Gamepad_API() OVERRIDE;
     virtual void Sample(PP_GamepadsSampleData* data) OVERRIDE;
    private:
     PluginDelegate* delegate_;
@@ -498,12 +496,14 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   bool PluginHasFocus() const;
   void SendFocusChangeNotification();
 
-  // Returns true if the plugin has registered to accept touch events.
-  bool IsAcceptingTouchEvents() const;
+  void UpdateTouchEventRequest();
 
-  void ScheduleAsyncDidChangeView(const ::ppapi::ViewData& previous_view);
-  void SendAsyncDidChangeView(const ::ppapi::ViewData& previous_view);
-  void SendDidChangeView(const ::ppapi::ViewData& previous_view);
+  // Returns true if the plugin has registered to accept wheel events.
+  bool IsAcceptingWheelEvents() const;
+
+  void ScheduleAsyncDidChangeView();
+  void SendAsyncDidChangeView();
+  void SendDidChangeView();
 
   // Reports the current plugin geometry to the plugin by calling
   // DidChangeView.
@@ -517,7 +517,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
 
   // Get the bound graphics context as a concrete 2D graphics context or returns
   // null if the context is not 2D.
-  PPB_Graphics2D_Impl* GetBoundGraphics2D() const;
+  PluginDelegate::PlatformGraphics2D* GetBoundGraphics2D() const;
 
   // Get the bound 3D graphics context.
   // Returns NULL if bound graphics is not a 3D context.
@@ -546,6 +546,9 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
       const std::vector<WebKit::WebCompositionUnderline>& underlines,
       int selection_start,
       int selection_end);
+
+  // Internal helper function for XXXInputEvents().
+  void RequestInputEventsHelper(uint32_t event_classes);
 
   // Checks if the security origin of the document containing this instance can
   // assess the security origin of the main frame document.
@@ -584,8 +587,11 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
 
   // Stores the current state of the plugin view.
   ::ppapi::ViewData view_data_;
+  // The last state sent to the plugin. It is only valid after
+  // |sent_initial_did_change_view_| is set to true.
+  ::ppapi::ViewData last_sent_view_data_;
 
-  // Indicates if we've ever sent a didChangeView to the plugin. This ensure we
+  // Indicates if we've ever sent a didChangeView to the plugin. This ensures we
   // always send an initial notification, even if the position and clip are the
   // same as the default values.
   bool sent_initial_did_change_view_;
@@ -597,8 +603,9 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   // view change events.
   base::WeakPtrFactory<PluginInstance> view_change_weak_ptr_factory_;
 
-  // The current device context for painting in 2D or 3D.
-  scoped_refptr< ::ppapi::Resource> bound_graphics_;
+  // The current device context for painting in 2D and 3D.
+  scoped_refptr< ::ppapi::Resource> bound_graphics_3d_;
+  PluginDelegate::PlatformGraphics2D* bound_graphics_2d_platform_;
 
   // We track two types of focus, one from WebKit, which is the focus among
   // all elements of the page, one one from the browser, which is whether the
@@ -656,7 +663,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   std::vector<PP_PrintPageNumberRange_Dev> ranges_;
 #endif  // OS_LINUX || OS_WIN
 
-  GamepadImpl gamepad_impl_;
+  scoped_refptr< ::ppapi::Resource> gamepad_impl_;
 
   // The plugin print interface.
   const PPP_Printing_Dev* plugin_print_interface_;

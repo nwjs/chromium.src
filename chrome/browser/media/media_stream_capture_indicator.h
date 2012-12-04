@@ -10,7 +10,6 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/extensions/image_loading_tracker.h"
 #include "content/public/common/media_stream_request.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/gfx/image/image_skia.h"
@@ -22,8 +21,7 @@ class StatusTray;
 // is deleted.
 class MediaStreamCaptureIndicator
     : public base::RefCountedThreadSafe<MediaStreamCaptureIndicator>,
-      public ui::SimpleMenuModel::Delegate,
-      public ImageLoadingTracker::Observer {
+      public ui::SimpleMenuModel::Delegate {
  public:
   MediaStreamCaptureIndicator();
 
@@ -48,10 +46,11 @@ class MediaStreamCaptureIndicator
   // Returns true if the render process is capturing media.
   bool IsProcessCapturing(int render_process_id, int render_view_id) const;
 
-  // ImageLoadingTracker::Observer implementation.
-  virtual void OnImageLoaded(const gfx::Image& image,
-                             const std::string& extension_id,
-                             int index) OVERRIDE;
+  // Returns true if the render process is capturing tab media.
+  bool IsProcessCapturingTab(int render_process_id, int render_view_id) const;
+
+  // ImageLoader callback.
+  void OnImageLoaded(const string16& message, const gfx::Image& image);
 
  private:
   // Struct to store the usage information of the capture devices for each tab.
@@ -63,12 +62,14 @@ class MediaStreamCaptureIndicator
         : render_process_id(render_process_id),
           render_view_id(render_view_id),
           audio_ref_count(0),
-          video_ref_count(0) {}
+          video_ref_count(0),
+          tab_capture_ref_count(0) {}
 
     int render_process_id;
     int render_view_id;
     int audio_ref_count;
     int video_ref_count;
+    int tab_capture_ref_count;
   };
 
   // A private predicate used in std::find_if to find a |CaptureDeviceTab|
@@ -131,9 +132,6 @@ class MediaStreamCaptureIndicator
   // UpdateStatusTrayIconContextMenu().
   void UpdateStatusTrayIconDisplay(bool audio, bool video);
 
-  // Initializes image loading state.
-  void EnsureImageLoadingTracker();
-
   // Reference to our status icon - owned by the StatusTray. If null,
   // the platform doesn't support status icons.
   StatusIcon* status_icon_;
@@ -147,13 +145,7 @@ class MediaStreamCaptureIndicator
   typedef std::vector<CaptureDeviceTab> CaptureDeviceTabs;
   CaptureDeviceTabs tabs_;
 
-  // Tracks the load of extension icons.
-  scoped_ptr<ImageLoadingTracker> tracker_;
-  // The messages to display when extension images are loaded. The index
-  // corresponds to the index of the associated LoadImage request.
-  std::map<int, string16> pending_messages_;
-  // Tracks the number of requests to |tracker_|.
-  int request_index_;
+  bool should_show_balloon_;
 };
 
 #endif  // CHROME_BROWSER_MEDIA_MEDIA_STREAM_CAPTURE_INDICATOR_H_

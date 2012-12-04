@@ -5,11 +5,15 @@
 #ifndef CHROME_BROWSER_AUTOFILL_FORM_GROUP_H_
 #define CHROME_BROWSER_AUTOFILL_FORM_GROUP_H_
 
+#include <string>
 #include <vector>
 
 #include "base/string16.h"
 #include "base/string_util.h"
 #include "chrome/browser/autofill/field_types.h"
+
+class AutofillField;
+struct FormFieldData;
 
 // This class is an interface for collections of form fields, grouped by type.
 // The information in objects of this class is managed by the
@@ -17,6 +21,10 @@
 class FormGroup {
  public:
   virtual ~FormGroup() {}
+
+  // Returns a globally unique ID for this object. It is an error to call the
+  // default implementation.
+  virtual std::string GetGUID() const;
 
   // Used to determine the type of a field based on the text that a user enters
   // into the field.  The field types can then be reported back to the server.
@@ -47,6 +55,22 @@ class FormGroup {
   virtual bool SetCanonicalizedInfo(AutofillFieldType type,
                                     const string16& value);
 
+  // Set |field_data|'s value based on |field| and contents of |this| (using
+  // data variant |variant|). It is an error to call the default implementation.
+  virtual void FillFormField(const AutofillField& field,
+                             size_t variant,
+                             FormFieldData* field_data) const;
+
+  // Fills in select control with data matching |type| from |this|.
+  // Public for testing purposes.
+  void FillSelectControl(AutofillFieldType type,
+                         FormFieldData* field_data) const;
+
+  // Returns true if |value| is a valid US state name or abbreviation.  It is
+  // case insensitive.  Valid for US states only.
+  // TODO(estade): this is a crappy place for this function.
+  static bool IsValidState(const string16& value);
+
  protected:
   // AutofillProfile needs to call into GetSupportedTypes() for objects of
   // non-AutofillProfile type, for which mere inheritance is insufficient.
@@ -55,6 +79,10 @@ class FormGroup {
   // Returns a set of AutofillFieldTypes for which this FormGroup can store
   // data.  This method is additive on |supported_types|.
   virtual void GetSupportedTypes(FieldTypeSet* supported_types) const = 0;
+
+  // Fills in a select control for a country from data in |this|. Returns true
+  // for success.
+  virtual bool FillCountrySelectControl(FormFieldData* field_data) const;
 };
 
 #endif  // CHROME_BROWSER_AUTOFILL_FORM_GROUP_H_

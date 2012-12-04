@@ -9,8 +9,8 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/path_service.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -27,6 +27,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/extensions/native_app_window.h"
+#include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -74,13 +76,13 @@ void ExtensionBrowserTest::SetUpCommandLine(CommandLine* command_line) {
   command_line->AppendSwitchASCII(switches::kLoginUser,
                                   "TestUser@gmail.com");
   command_line->AppendSwitchASCII(switches::kLoginProfile, "user");
-  command_line->AppendSwitch(switches::kNoFirstRun);
 #endif
 }
 
 const Extension* ExtensionBrowserTest::LoadExtensionWithFlags(
     const FilePath& path, int flags) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   {
     content::NotificationRegistrar registrar;
     registrar.Add(this, chrome::NOTIFICATION_EXTENSION_LOADED,
@@ -185,7 +187,8 @@ const Extension* ExtensionBrowserTest::LoadExtensionIncognito(
 
 const Extension* ExtensionBrowserTest::LoadExtensionAsComponent(
     const FilePath& path) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
 
   std::string manifest;
   if (!file_util::ReadFileToString(path.Append(Extension::kManifestFilename),
@@ -406,7 +409,8 @@ const Extension* ExtensionBrowserTest::InstallOrUpdateExtension(
 }
 
 void ExtensionBrowserTest::ReloadExtension(const std::string& extension_id) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   service->ReloadExtension(extension_id);
   ui_test_utils::RegisterAndWait(this,
                                  chrome::NOTIFICATION_EXTENSION_LOADED,
@@ -414,22 +418,26 @@ void ExtensionBrowserTest::ReloadExtension(const std::string& extension_id) {
 }
 
 void ExtensionBrowserTest::UnloadExtension(const std::string& extension_id) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   service->UnloadExtension(extension_id, extension_misc::UNLOAD_REASON_DISABLE);
 }
 
 void ExtensionBrowserTest::UninstallExtension(const std::string& extension_id) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   service->UninstallExtension(extension_id, false, NULL);
 }
 
 void ExtensionBrowserTest::DisableExtension(const std::string& extension_id) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   service->DisableExtension(extension_id, Extension::DISABLE_USER_ACTION);
 }
 
 void ExtensionBrowserTest::EnableExtension(const std::string& extension_id) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   service->EnableExtension(extension_id);
 }
 
@@ -516,7 +524,8 @@ bool ExtensionBrowserTest::WaitForExtensionLoadError() {
 
 bool ExtensionBrowserTest::WaitForExtensionCrash(
     const std::string& extension_id) {
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
 
   if (!service->GetExtensionById(extension_id, true)) {
     // The extension is already unloaded, presumably due to a crash.

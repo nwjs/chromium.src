@@ -261,14 +261,16 @@ extern const char kLanguageRemapCapsLockKeyTo[];
 extern const char kLanguageRemapSearchKeyTo[];
 extern const char kLanguageRemapControlKeyTo[];
 extern const char kLanguageRemapAltKeyTo[];
+extern const char kLanguageSearchKeyActsAsFunctionKey[];
 extern const char kLanguageXkbAutoRepeatEnabled[];
 extern const char kLanguageXkbAutoRepeatDelay[];
 extern const char kLanguageXkbAutoRepeatInterval[];
 extern const char kSpokenFeedbackEnabled[];
 extern const char kHighContrastEnabled[];
-extern const char kScreenMagnifierEnabled[];
 extern const char kScreenMagnifierScale[];
+extern const char kMagnifierType[];
 extern const char kVirtualKeyboardEnabled[];
+extern const char kShouldAlwaysShowAccessibilityMenu[];
 extern const char kLabsAdvancedFilesystemEnabled[];
 extern const char kLabsMediaplayerEnabled[];
 extern const char kEnableScreenLock[];
@@ -342,14 +344,10 @@ extern const char kShowUpdatePromotionInfoBar[];
 #endif
 extern const char kUseCustomChromeFrame[];
 extern const char kShowOmniboxSearchHint[];
-extern const char kDesktopNotificationDefaultContentSetting[];  // OBSOLETE
-extern const char kDesktopNotificationAllowedOrigins[];  // OBSOLETE
-extern const char kDesktopNotificationDeniedOrigins[];  // OBSOLETE
 extern const char kDesktopNotificationPosition[];
 extern const char kDefaultContentSettings[];
 extern const char kContentSettingsClearOnExitMigrated[];
 extern const char kContentSettingsVersion[];
-extern const char kContentSettingsPatterns[];  // OBSOLETE
 extern const char kContentSettingsPatternPairs[];
 extern const char kContentSettingsDefaultWhitelistVersion[];
 extern const char kContentSettingsPluginWhitelist[];
@@ -393,6 +391,8 @@ extern const char kInvertNotificationShown[];
 
 extern const char kPrintingEnabled[];
 extern const char kPrintPreviewDisabled[];
+
+extern const char kDefaultManagedModeFilteringBehavior[];
 
 // Local state prefs. Please add Profile prefs above instead.
 extern const char kCertRevocationCheckingEnabled[];
@@ -616,11 +616,12 @@ extern const char kWebAppCreateInAppsMenu[];
 extern const char kWebAppCreateInQuickLaunchBar[];
 
 extern const char kGeolocationAccessToken[];
-extern const char kGeolocationDefaultContentSetting[];
-extern const char kGeolocationContentSettings[];
 #if defined(OS_ANDROID)
 extern const char kGeolocationEnabled[];
 #endif
+
+extern const char kDefaultAudioCaptureDevice[];
+extern const char kDefaultVideoCaptureDevice[];
 
 extern const char kRemoteAccessHostFirewallTraversal[];
 extern const char kRemoteAccessHostRequireTwoFactor[];
@@ -722,6 +723,8 @@ extern const char kGSSAPILibraryName[];
 extern const char kSpdyProxyOrigin[];
 extern const char kAllowCrossOriginAuthPrompt[];
 
+extern const char kBuiltInDnsClientEnabled[];
+
 extern const char kHttpReceivedContentLength[];
 extern const char kHttpOriginalContentLength[];
 
@@ -758,6 +761,7 @@ extern const char kUseDefaultPinnedApps[];
 extern const char kPinnedLauncherApps[];
 extern const char kShowLogoutButtonInTray[];
 
+extern const char kFlingVelocityCap[];
 extern const char kLongPressTimeInSeconds[];
 extern const char kMaxDistanceBetweenTapsForDoubleTap[];
 extern const char kMaxDistanceForTwoFingerTapInPixels[];
@@ -777,7 +781,15 @@ extern const char kPointsBufferedForVelocity[];
 extern const char kRailBreakProportion[];
 extern const char kRailStartProportion[];
 extern const char kSemiLongPressTimeInSeconds[];
-extern const char kTouchScreenFlingAccelerationAdjustment[];
+extern const char kFlingAccelerationCurveCoefficient0[];
+extern const char kFlingAccelerationCurveCoefficient1[];
+extern const char kFlingAccelerationCurveCoefficient2[];
+extern const char kFlingAccelerationCurveCoefficient3[];
+extern const char kOverscrollHorizontalThresholdComplete[];
+extern const char kOverscrollVerticalThresholdComplete[];
+extern const char kOverscrollMinimumThresholdStart[];
+extern const char kOverscrollHorizontalResistThreshold[];
+extern const char kOverscrollVerticalResistThreshold[];
 #endif
 
 extern const char kInManagedMode[];

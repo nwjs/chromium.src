@@ -8,7 +8,6 @@
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/customization_document.h"
 #include "chrome/browser/chromeos/enterprise_extension_observer.h"
-#include "chrome/browser/chromeos/gview_request_interceptor.h"
 #include "chrome/browser/chromeos/network_message_observer.h"
 #include "chrome/browser/chromeos/sms_observer.h"
 #include "chrome/browser/profiles/profile.h"
@@ -34,8 +33,6 @@ void ProfileStartup(Profile* profile, bool process_startup) {
         new chromeos::NetworkMessageObserver(profile);
     chromeos::CrosLibrary::Get()->GetNetworkLibrary()->
         AddNetworkManagerObserver(network_message_observer);
-    chromeos::CrosLibrary::Get()->GetNetworkLibrary()->
-        AddCellularDataPlanObserver(network_message_observer);
     chromeos::CrosLibrary::Get()->GetNetworkLibrary()->
         AddUserActionObserver(network_message_observer);
 

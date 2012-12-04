@@ -11,7 +11,6 @@
 #include "chrome/browser/chrome_browser_main.h"
 
 class CommandLine;
-class MetroViewerProcessHost;
 
 namespace chrome {
 class RemovableDeviceNotificationsWindowWin;
@@ -37,6 +36,7 @@ class ChromeBrowserMainPartsWin : public ChromeBrowserMainParts {
   virtual void PreMainMessageLoopRun() OVERRIDE;
 
   // ChromeBrowserMainParts overrides.
+  virtual void PreInteractiveFirstRunInit() OVERRIDE;
   virtual void ShowMissingLocaleMessageBox() OVERRIDE;
 
   // Prepares the localized strings that are going to be displayed to
@@ -70,9 +70,6 @@ class ChromeBrowserMainPartsWin : public ChromeBrowserMainParts {
  private:
   scoped_ptr<chrome::RemovableDeviceNotificationsWindowWin>
       removable_device_notifications_window_;
-#if defined(USE_AURA)
-  scoped_ptr<MetroViewerProcessHost> metro_viewer_process_host_;
-#endif
   DISALLOW_COPY_AND_ASSIGN(ChromeBrowserMainPartsWin);
 };
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -95,17 +95,6 @@ using content::SSLStatus;
 using content::UserMetricsAction;
 using content::WebContents;
 
-// TODO(avi): Kill this when TabContents goes away.
-class BrowserCommandsTabContentsCreator {
- public:
-  static TabContents* CreateTabContents(content::WebContents* contents) {
-    return TabContents::Factory::CreateTabContents(contents);
-  }
-  static TabContents* CloneTabContents(TabContents* contents) {
-    return TabContents::Factory::CloneTabContents(contents);
-  }
-};
-
 namespace chrome {
 namespace {
 
@@ -141,23 +130,21 @@ void BookmarkCurrentPageInternal(Browser* browser, bool from_star) {
 
 WebContents* GetOrCloneTabForDisposition(Browser* browser,
                                          WindowOpenDisposition disposition) {
-  TabContents* current_tab = GetActiveTabContents(browser);
+  WebContents* current_tab = browser->tab_strip_model()->GetActiveWebContents();
   switch (disposition) {
     case NEW_FOREGROUND_TAB:
     case NEW_BACKGROUND_TAB: {
-      current_tab =
-          BrowserCommandsTabContentsCreator::CloneTabContents(current_tab);
-      browser->tab_strip_model()->AddTabContents(
+      current_tab = current_tab->Clone();
+      browser->tab_strip_model()->AddWebContents(
           current_tab, -1, content::PAGE_TRANSITION_LINK,
           disposition == NEW_FOREGROUND_TAB ? TabStripModel::ADD_ACTIVE :
                                               TabStripModel::ADD_NONE);
       break;
     }
     case NEW_WINDOW: {
-      current_tab =
-          BrowserCommandsTabContentsCreator::CloneTabContents(current_tab);
+      current_tab = current_tab->Clone();
       Browser* b = new Browser(Browser::CreateParams(browser->profile()));
-      b->tab_strip_model()->AddTabContents(
+      b->tab_strip_model()->AddWebContents(
           current_tab, -1, content::PAGE_TRANSITION_LINK,
           TabStripModel::ADD_ACTIVE);
       b->window()->Show();
@@ -166,7 +153,7 @@ WebContents* GetOrCloneTabForDisposition(Browser* browser,
     default:
       break;
   }
-  return current_tab->web_contents();
+  return current_tab;
 }
 
 void ReloadInternal(Browser* browser,
@@ -197,7 +184,7 @@ bool HasConstrainedWindow(const Browser* browser) {
 }
 
 bool PrintPreviewShowing(const Browser* browser) {
-  TabContents* contents = GetActiveTabContents(browser);
+  TabContents* contents = browser->tab_strip_model()->GetActiveTabContents();
   printing::PrintPreviewTabController* controller =
       printing::PrintPreviewTabController::GetInstance();
   return controller && (controller->GetPrintPreviewForTab(contents) ||
@@ -306,6 +293,10 @@ void NewEmptyWindow(Profile* profile) {
 }
 
 Browser* OpenEmptyWindow(Profile* profile, HostDesktopType desktop_type) {
+  // TODO(scottmg): http://crbug.com/128578
+  // This is necessary because WebContentsViewAura doesn't have enough context
+  // to get the right StackingClient (and therefore parent window) otherwise.
+  ScopedForceDesktopType force_desktop_type(desktop_type);
   Browser* browser = new Browser(
       Browser::CreateParams(Browser::TYPE_TABBED, profile, desktop_type));
   AddBlankTabAt(browser, -1, true);
@@ -339,7 +330,7 @@ bool CanGoBack(const Browser* browser) {
 void GoBack(Browser* browser, WindowOpenDisposition disposition) {
   content::RecordAction(UserMetricsAction("Back"));
 
-  TabContents* current_tab = GetActiveTabContents(browser);
+  TabContents* current_tab = browser->tab_strip_model()->GetActiveTabContents();
   if (CanGoBack(browser)) {
     WebContents* new_tab = GetOrCloneTabForDisposition(browser, disposition);
     // If we are on an interstitial page and clone the tab, it won't be copied
@@ -422,7 +413,8 @@ void OpenCurrentURL(Browser* browser) {
 
   WindowOpenDisposition open_disposition =
       location_bar->GetWindowOpenDisposition();
-  if (browser->instant_controller()->OpenInstant(open_disposition))
+  if (browser->instant_controller() &&
+      browser->instant_controller()->OpenInstant(open_disposition))
     return;
 
   GURL url(location_bar->GetInputString());
@@ -544,7 +536,7 @@ void MoveTabPrevious(Browser* browser) {
 void SelectNumberedTab(Browser* browser, int index) {
   if (index < browser->tab_count()) {
     content::RecordAction(UserMetricsAction("SelectNumberedTab"));
-    ActivateTabAt(browser, index, true);
+    browser->tab_strip_model()->ActivateTabAt(index, true);
   }
 }
 
@@ -563,22 +555,21 @@ bool CanDuplicateTab(const Browser* browser) {
   return contents && contents->GetController().GetLastCommittedEntry();
 }
 
-TabContents* DuplicateTabAt(Browser* browser, int index) {
-  TabContents* contents = GetTabContentsAt(browser, index);
+WebContents* DuplicateTabAt(Browser* browser, int index) {
+  WebContents* contents = browser->tab_strip_model()->GetWebContentsAt(index);
   CHECK(contents);
-  TabContents* contents_dupe =
-      BrowserCommandsTabContentsCreator::CloneTabContents(contents);
+  WebContents* contents_dupe = contents->Clone();
 
   bool pinned = false;
   if (browser->CanSupportWindowFeature(Browser::FEATURE_TABSTRIP)) {
     // If this is a tabbed browser, just create a duplicate tab inside the same
     // window next to the tab being duplicated.
-    int index = browser->tab_strip_model()->GetIndexOfTabContents(contents);
+    int index = browser->tab_strip_model()->GetIndexOfWebContents(contents);
     pinned = browser->tab_strip_model()->IsTabPinned(index);
     int add_types = TabStripModel::ADD_ACTIVE |
         TabStripModel::ADD_INHERIT_GROUP |
         (pinned ? TabStripModel::ADD_PINNED : 0);
-    browser->tab_strip_model()->InsertTabContentsAt(
+    browser->tab_strip_model()->InsertWebContentsAt(
         index + 1, contents_dupe, add_types);
   } else {
     Browser* browser = NULL;
@@ -606,7 +597,9 @@ TabContents* DuplicateTabAt(Browser* browser, int index) {
     browser->window()->Show();
 
     // The page transition below is only for the purpose of inserting the tab.
-    AddTab(browser, contents_dupe, content::PAGE_TRANSITION_LINK);
+    browser->tab_strip_model()->AddWebContents(contents_dupe, -1,
+                                               content::PAGE_TRANSITION_LINK,
+                                               TabStripModel::ADD_ACTIVE);
   }
 
   SessionService* session_service =
@@ -627,7 +620,7 @@ void ConvertPopupToTabbedBrowser(Browser* browser) {
   TabContents* contents =
       browser->tab_strip_model()->DetachTabContentsAt(browser->active_index());
   Browser* b = new Browser(Browser::CreateParams(browser->profile()));
-  b->tab_strip_model()->AppendTabContents(contents, true);
+  b->tab_strip_model()->AppendWebContents(contents->web_contents(), true);
   b->window()->Show();
 }
 
@@ -698,14 +691,12 @@ void ShowPageInfo(Browser* browser,
                   bool show_history) {
   Profile* profile = Profile::FromBrowserContext(
       web_contents->GetBrowserContext());
-  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
-
   if (CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableWebsiteSettings)) {
     browser->window()->ShowPageInfo(web_contents, url, ssl, show_history);
   } else {
     browser->window()->ShowWebsiteSettings(
-        profile, tab_contents, url, ssl, show_history);
+        profile, web_contents, url, ssl, show_history);
   }
 }
 
@@ -972,13 +963,12 @@ bool IsDebuggerAttachedToCurrentTab(Browser* browser) {
       content::DevToolsAgentHostRegistry::IsDebuggerAttached(contents) : false;
 }
 
-void ViewSource(Browser* browser, TabContents* contents) {
+void ViewSource(Browser* browser, WebContents* contents) {
   DCHECK(contents);
 
   // Use the last committed entry, since the pending entry hasn't loaded yet and
   // won't be copied into the cloned tab.
-  NavigationEntry* entry =
-    contents->web_contents()->GetController().GetLastCommittedEntry();
+  NavigationEntry* entry = contents->GetController().GetLastCommittedEntry();
   if (!entry)
     return;
 
@@ -986,7 +976,7 @@ void ViewSource(Browser* browser, TabContents* contents) {
 }
 
 void ViewSource(Browser* browser,
-                TabContents* contents,
+                WebContents* contents,
                 const GURL& url,
                 const std::string& content_state) {
   content::RecordAction(UserMetricsAction("ViewSource"));
@@ -994,11 +984,10 @@ void ViewSource(Browser* browser,
 
   // Note that Clone does not copy the pending or transient entries, so the
   // active entry in view_source_contents will be the last committed entry.
-  TabContents* view_source_contents =
-      BrowserCommandsTabContentsCreator::CloneTabContents(contents);
-  view_source_contents->web_contents()->GetController().PruneAllButActive();
+  WebContents* view_source_contents = contents->Clone();
+  view_source_contents->GetController().PruneAllButActive();
   NavigationEntry* active_entry =
-      view_source_contents->web_contents()->GetController().GetActiveEntry();
+      view_source_contents->GetController().GetActiveEntry();
   if (!active_entry)
     return;
 
@@ -1017,12 +1006,13 @@ void ViewSource(Browser* browser,
   if (browser->CanSupportWindowFeature(Browser::FEATURE_TABSTRIP)) {
     // If this is a tabbed browser, just create a duplicate tab inside the same
     // window next to the tab being duplicated.
-    int index = browser->tab_strip_model()->GetIndexOfTabContents(contents);
+    int index = browser->tab_strip_model()->GetIndexOfWebContents(contents);
     int add_types = TabStripModel::ADD_ACTIVE |
         TabStripModel::ADD_INHERIT_GROUP;
-    browser->tab_strip_model()->InsertTabContentsAt(index + 1,
-                                                    view_source_contents,
-                                                    add_types);
+    browser->tab_strip_model()->InsertWebContentsAt(
+        index + 1,
+        view_source_contents,
+        add_types);
   } else {
     Browser* b = new Browser(
         Browser::CreateParams(Browser::TYPE_TABBED, browser->profile()));
@@ -1038,7 +1028,9 @@ void ViewSource(Browser* browser,
     b->window()->Show();
 
     // The page transition below is only for the purpose of inserting the tab.
-    AddTab(b, view_source_contents, content::PAGE_TRANSITION_LINK);
+    b->tab_strip_model()->AddWebContents(view_source_contents, -1,
+                                         content::PAGE_TRANSITION_LINK,
+                                         TabStripModel::ADD_ACTIVE);
   }
 
   SessionService* session_service =
@@ -1048,11 +1040,12 @@ void ViewSource(Browser* browser,
 }
 
 void ViewSelectedSource(Browser* browser) {
-  ViewSource(browser, GetActiveTabContents(browser));
+  ViewSource(browser, browser->tab_strip_model()->GetActiveWebContents());
 }
 
 bool CanViewSource(const Browser* browser) {
-  return GetActiveWebContents(browser)->GetController().CanViewSource();
+  return browser->tab_strip_model()->GetActiveWebContents()->
+      GetController().CanViewSource();
 }
 
 void CreateApplicationShortcuts(Browser* browser) {
@@ -1078,12 +1071,7 @@ void ConvertTabToAppWindow(Browser* browser,
   Browser* app_browser = new Browser(
       Browser::CreateParams::CreateForApp(
           Browser::TYPE_POPUP, app_name, gfx::Rect(), browser->profile()));
-  TabContents* tab_contents = TabContents::FromWebContents(contents);
-  if (!tab_contents) {
-    tab_contents =
-        BrowserCommandsTabContentsCreator::CreateTabContents(contents);
-  }
-  app_browser->tab_strip_model()->AppendTabContents(tab_contents, true);
+  app_browser->tab_strip_model()->AppendWebContents(contents, true);
 
   contents->GetMutableRendererPrefs()->can_accept_load_drops = false;
   contents->GetRenderViewHost()->SyncRendererPrefs();

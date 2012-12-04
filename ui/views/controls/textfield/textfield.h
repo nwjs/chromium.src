@@ -84,6 +84,9 @@ class VIEWS_EXPORT Textfield : public View {
   // Appends the given string to the previously-existing text in the field.
   void AppendText(const string16& text);
 
+  // Replaces the selected text with |text|.
+  void ReplaceSelection(const string16& text);
+
   // Returns the text direction.
   base::i18n::TextDirection GetTextDirection() const;
 
@@ -230,6 +233,9 @@ class VIEWS_EXPORT Textfield : public View {
   // Set the accessible name of the text field.
   void SetAccessibleName(const string16& name);
 
+  // Performs the action associated with the specified command id.
+  void ExecuteCommand(int command_id);
+
   // Provided only for testing:
   gfx::NativeView GetTestingHandle() const {
     return native_wrapper_ ? native_wrapper_->GetTestingHandle() : NULL;
@@ -240,6 +246,7 @@ class VIEWS_EXPORT Textfield : public View {
 
   // Overridden from View:
   virtual void Layout() OVERRIDE;
+  virtual int GetBaseline() const OVERRIDE;
   virtual gfx::Size GetPreferredSize() OVERRIDE;
   virtual void AboutToRequestFocusFromTabTraversal(bool reverse) OVERRIDE;
   virtual bool SkipDefaultKeyEventProcessing(const ui::KeyEvent& e) OVERRIDE;

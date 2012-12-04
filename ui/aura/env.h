@@ -20,13 +20,8 @@
 
 namespace aura {
 class EnvObserver;
-class EventFilter;
-class DisplayManager;
+class RootWindow;
 class Window;
-
-namespace internal {
-class DisplayChangeObserverX11;
-}
 
 #if !defined(USE_X11)
 // Creates a platform-specific native event dispatcher.
@@ -77,17 +72,15 @@ class AURA_EXPORT Env : public ui::EventTarget {
     stacking_client_ = stacking_client;
   }
 
-  // Gets/sets DisplayManager. The DisplayManager's ownership is
-  // transfered.
-  DisplayManager* display_manager() { return display_manager_.get(); }
-  void SetDisplayManager(DisplayManager* display_manager);
-
   // Returns the native event dispatcher. The result should only be passed to
   // base::RunLoop(dispatcher), or used to dispatch an event by
   // |Dispatch(const NativeEvent&)| on it. It must never be stored.
 #if !defined(OS_MACOSX)
   MessageLoop::Dispatcher* GetDispatcher();
 #endif
+
+  // Invoked by RootWindow when its host is activated.
+  void RootWindowActivated(RootWindow* root_window);
 
  private:
   friend class Window;
@@ -116,10 +109,8 @@ class AURA_EXPORT Env : public ui::EventTarget {
   bool is_touch_down_;
   bool render_white_bg_;
   client::StackingClient* stacking_client_;
-  scoped_ptr<DisplayManager> display_manager_;
 
 #if defined(USE_X11)
-  scoped_ptr<internal::DisplayChangeObserverX11> display_change_observer_;
   DeviceListUpdaterAuraX11 device_list_updater_aurax11_;
 #endif
 

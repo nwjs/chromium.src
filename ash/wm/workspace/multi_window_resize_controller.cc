@@ -13,9 +13,7 @@
 #include "ash/wm/workspace/workspace_window_resizer.h"
 #include "grit/ash_resources.h"
 #include "ui/aura/client/screen_position_client.h"
-#include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
-#include "ui/aura/shared/compound_event_filter.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/hit_test.h"
@@ -23,6 +21,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/screen.h"
+#include "ui/views/corewm/compound_event_filter.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -101,7 +100,7 @@ class MultiWindowResizeController::ResizeView : public views::View {
   virtual gfx::NativeCursor GetCursor(
       const ui::MouseEvent& event) OVERRIDE {
     int component = (direction_ == LEFT_RIGHT) ? HTRIGHT : HTBOTTOM;
-    return aura::shared::CompoundEventFilter::CursorForWindowComponent(
+    return views::corewm::CompoundEventFilter::CursorForWindowComponent(
         component);
   }
 
@@ -394,9 +393,9 @@ void MultiWindowResizeController::ShowNow() {
   ResizeView* view = new ResizeView(this, windows_.direction);
   resize_widget_->set_focus_on_creation(false);
   resize_widget_->Init(params);
-  SetWindowVisibilityAnimationType(
+  views::corewm::SetWindowVisibilityAnimationType(
       resize_widget_->GetNativeWindow(),
-      WINDOW_VISIBILITY_ANIMATION_TYPE_FADE);
+      views::corewm::WINDOW_VISIBILITY_ANIMATION_TYPE_FADE);
   resize_widget_->GetNativeWindow()->SetName("MultiWindowResizeController");
   resize_widget_->SetContentsView(view);
   show_bounds_in_screen_ = ScreenAsh::ConvertRectToScreen(

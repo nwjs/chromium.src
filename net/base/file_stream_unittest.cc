@@ -91,7 +91,6 @@ TEST_F(FileStreamTest, FileHandleNotLeftOpen) {
   base::PlatformFileInfo info;
   // The file should be closed.
   EXPECT_FALSE(base::GetPlatformFileInfo(file, &info));
-  EXPECT_FALSE(base::ClosePlatformFile(file));
 }
 
 // Test the use of FileStream with a file handle provided at construction.
@@ -240,7 +239,7 @@ TEST_F(FileStreamTest, AsyncRead_EarlyDelete) {
   if (rv < 0) {
     EXPECT_EQ(ERR_IO_PENDING, rv);
     // The callback should not be called if the request is cancelled.
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     EXPECT_FALSE(callback.have_result());
   } else {
     EXPECT_EQ(std::string(kTestData, rv), std::string(buf->data(), rv));
@@ -458,7 +457,7 @@ TEST_F(FileStreamTest, AsyncWrite_EarlyDelete) {
   if (rv < 0) {
     EXPECT_EQ(ERR_IO_PENDING, rv);
     // The callback should not be called if the request is cancelled.
-    MessageLoop::current()->RunAllPending();
+    MessageLoop::current()->RunUntilIdle();
     EXPECT_FALSE(callback.have_result());
   } else {
     ok = file_util::GetFileSize(temp_file_path(), &file_size);

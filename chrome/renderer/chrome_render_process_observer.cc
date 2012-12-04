@@ -4,6 +4,9 @@
 
 #include "chrome/renderer/chrome_render_process_observer.h"
 
+#include <limits>
+#include <vector>
+
 #include "base/allocator/allocator_extension.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -192,14 +195,11 @@ ChromeRenderProcessObserver::ChromeRenderProcessObserver(
 #endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && defined(USE_NSS)
-  // On platforms where we use system NSS libraries, the .so's must be loaded.
-  if (!command_line.HasSwitch(switches::kSingleProcess)) {
-    // We are going to fork to engage the sandbox and we have not loaded
-    // any security modules so it is safe to disable the fork check in NSS.
-    crypto::DisableNSSForkCheck();
-    crypto::ForceNSSNoDBInit();
-    crypto::EnsureNSSInit();
-  }
+  // On platforms where we use system NSS shared libraries,
+  // initialize NSS now because it won't be able to load the .so's
+  // after we engage the sandbox.
+  if (!command_line.HasSwitch(switches::kSingleProcess))
+    crypto::InitNSSSafely();
 #elif defined(OS_WIN)
   // crypt32.dll is used to decode X509 certificates for Chromoting.
   // Only load this library when the feature is enabled.
@@ -269,7 +269,11 @@ void ChromeRenderProcessObserver::OnGetCacheResourceStats() {
 void ChromeRenderProcessObserver::OnSetFieldTrialGroup(
     const std::string& field_trial_name,
     const std::string& group_name) {
-  base::FieldTrialList::CreateFieldTrial(field_trial_name, group_name);
+  base::FieldTrial* trial =
+      base::FieldTrialList::CreateFieldTrial(field_trial_name, group_name);
+  // Ensure the trial is marked as "used" by calling group() on it. This is
+  // needed to ensure the trial is properly reported in renderer crash reports.
+  trial->group();
   chrome_variations::SetChildProcessLoggingVariationList();
 }
 

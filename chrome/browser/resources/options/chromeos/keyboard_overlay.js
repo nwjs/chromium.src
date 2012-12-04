@@ -21,17 +21,37 @@ cr.define('options', function() {
     __proto__: options.SettingsDialog.prototype,
 
     /**
+     * Initializes the page. This method is called in initialize.
+     */
+    initializePage: function() {
+      options.SettingsDialog.prototype.initializePage.call(this);
+
+      $('languages-and-input-settings').onclick = function(e) {
+        OptionsPage.navigateToPage('languages');
+      };
+    },
+
+    /**
      * Show/hide the caps lock remapping section.
      * @private
      */
     showCapsLockOptions_: function(show) {
       $('caps-lock-remapping-section').hidden = !show;
     },
+
+    /**
+     * Show/hide the function key remapping section.
+     * @private
+     */
+    showFunctionKeyOptions_: function(show) {
+      $('function-key-remapping-section').hidden = !show;
+    },
   };
 
   // Forward public APIs to private implementations.
   [
     'showCapsLockOptions',
+    'showFunctionKeyOptions',
   ].forEach(function(name) {
     KeyboardOverlay[name] = function() {
       var instance = KeyboardOverlay.getInstance();

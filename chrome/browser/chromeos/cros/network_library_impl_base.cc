@@ -5,10 +5,17 @@
 #include "chrome/browser/chromeos/cros/network_library_impl_base.h"
 
 #include "base/bind.h"
+#include "base/json/json_reader.h"
+#include "base/memory/scoped_vector.h"
+#include "base/stl_util.h"
 #include "chrome/browser/chromeos/cros/native_network_parser.h"
+#include "chrome/browser/chromeos/cros/onc_constants.h"
 #include "chrome/browser/chromeos/cros/onc_network_parser.h"
 #include "chrome/browser/chromeos/network_login_observer.h"
-#include "chrome/common/net/x509_certificate_model.h"
+#include "chrome/browser/chromeos/network_settings/onc_certificate_importer.h"
+#include "chrome/browser/chromeos/network_settings/onc_signature.h"
+#include "chrome/browser/chromeos/network_settings/onc_utils.h"
+#include "chrome/browser/chromeos/network_settings/onc_validator.h"
 #include "content/public/browser/browser_thread.h"
 #include "crypto/nss_util.h"  // crypto::GetTPMTokenInfo() for 802.1X and VPN.
 #include "grit/generated_resources.h"
@@ -19,7 +26,6 @@ using content::BrowserThread;
 
 namespace chromeos {
 
-// Local constants.
 namespace {
 
 // Only send network change notifications to observers once every 50ms.
@@ -27,9 +33,6 @@ const int kNetworkNotifyDelayMs = 50;
 
 // How long we should remember that cellular plan payment was received.
 const int kRecentPlanPaymentHours = 6;
-
-////////////////////////////////////////////////////////////////////////////////
-// Misc.
 
 NetworkProfileType GetProfileTypeForSource(NetworkUIData::ONCSource source) {
   switch (source) {
@@ -67,13 +70,13 @@ NetworkLibraryImplBase::NetworkLibraryImplBase()
 }
 
 NetworkLibraryImplBase::~NetworkLibraryImplBase() {
+  network_profile_observers_.Clear();
   network_manager_observers_.Clear();
-  data_plan_observers_.Clear();
   pin_operation_observers_.Clear();
   user_action_observers_.Clear();
-  DeleteNetworks();
+  STLDeleteValues(&network_map_);
+  ClearNetworks();
   DeleteRememberedNetworks();
-  STLDeleteValues(&data_plan_map_);
   STLDeleteValues(&device_map_);
   STLDeleteValues(&network_device_observers_);
   STLDeleteValues(&network_observers_);
@@ -82,6 +85,16 @@ NetworkLibraryImplBase::~NetworkLibraryImplBase() {
 
 //////////////////////////////////////////////////////////////////////////////
 // NetworkLibrary implementation.
+
+void NetworkLibraryImplBase::AddNetworkProfileObserver(
+    NetworkProfileObserver* observer) {
+  network_profile_observers_.AddObserver(observer);
+}
+
+void NetworkLibraryImplBase::RemoveNetworkProfileObserver(
+    NetworkProfileObserver* observer) {
+  network_profile_observers_.RemoveObserver(observer);
+}
 
 void NetworkLibraryImplBase::AddNetworkManagerObserver(
     NetworkManagerObserver* observer) {
@@ -201,17 +214,6 @@ bool NetworkLibraryImplBase::IsLocked() {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-
-void NetworkLibraryImplBase::AddCellularDataPlanObserver(
-    CellularDataPlanObserver* observer) {
-  if (!data_plan_observers_.HasObserver(observer))
-    data_plan_observers_.AddObserver(observer);
-}
-
-void NetworkLibraryImplBase::RemoveCellularDataPlanObserver(
-    CellularDataPlanObserver* observer) {
-  data_plan_observers_.RemoveObserver(observer);
-}
 
 void NetworkLibraryImplBase::AddPinOperationObserver(
     PinOperationObserver* observer) {
@@ -579,113 +581,10 @@ Network* NetworkLibraryImplBase::FindRememberedNetworkByPath(
   return NULL;
 }
 
-Network* NetworkLibraryImplBase::FindRememberedNetworkByUniqueId(
-    const std::string& unique_id) const {
-  NetworkMap::const_iterator found =
-      remembered_network_unique_id_map_.find(unique_id);
-  if (found != remembered_network_unique_id_map_.end())
-    return found->second;
-  return NULL;
-}
-
 const base::DictionaryValue* NetworkLibraryImplBase::FindOncForNetwork(
     const std::string& unique_id) const {
   NetworkOncMap::const_iterator iter = network_onc_map_.find(unique_id);
   return iter != network_onc_map_.end() ? iter->second : NULL;
-}
-
-////////////////////////////////////////////////////////////////////////////
-// Data Plans.
-
-const CellularDataPlanVector* NetworkLibraryImplBase::GetDataPlans(
-    const std::string& path) const {
-  CellularDataPlanMap::const_iterator iter = data_plan_map_.find(path);
-  if (iter == data_plan_map_.end())
-    return NULL;
-  // If we need a new plan, then ignore any data plans we have.
-  CellularNetwork* cellular = FindCellularNetworkByPath(path);
-  if (cellular && cellular->needs_new_plan())
-    return NULL;
-  return iter->second;
-}
-
-const CellularDataPlan* NetworkLibraryImplBase::GetSignificantDataPlan(
-    const std::string& path) const {
-  const CellularDataPlanVector* plans = GetDataPlans(path);
-  if (plans)
-    return GetSignificantDataPlanFromVector(plans);
-  return NULL;
-}
-
-const CellularDataPlan* NetworkLibraryImplBase::
-GetSignificantDataPlanFromVector(const CellularDataPlanVector* plans) const {
-  const CellularDataPlan* significant = NULL;
-  for (CellularDataPlanVector::const_iterator iter = plans->begin();
-       iter != plans->end(); ++iter) {
-    // Set significant to the first plan or to first non metered base plan.
-    if (significant == NULL ||
-        significant->plan_type == CELLULAR_DATA_PLAN_METERED_BASE)
-      significant = *iter;
-  }
-  return significant;
-}
-
-CellularNetwork::DataLeft NetworkLibraryImplBase::GetDataLeft(
-    CellularDataPlanVector* data_plan_vector) {
-  const CellularDataPlan* plan =
-      GetSignificantDataPlanFromVector(data_plan_vector);
-  if (!plan)
-    return CellularNetwork::DATA_UNKNOWN;
-  if (plan->plan_type == CELLULAR_DATA_PLAN_UNLIMITED) {
-    base::TimeDelta remaining = plan->remaining_time();
-    if (remaining <= base::TimeDelta::FromSeconds(0))
-      return CellularNetwork::DATA_NONE;
-    if (remaining <= base::TimeDelta::FromSeconds(kCellularDataVeryLowSecs))
-      return CellularNetwork::DATA_VERY_LOW;
-    if (remaining <= base::TimeDelta::FromSeconds(kCellularDataLowSecs))
-      return CellularNetwork::DATA_LOW;
-    return CellularNetwork::DATA_NORMAL;
-  } else if (plan->plan_type == CELLULAR_DATA_PLAN_METERED_PAID ||
-             plan->plan_type == CELLULAR_DATA_PLAN_METERED_BASE) {
-    int64 remaining = plan->remaining_data();
-    if (remaining <= 0)
-      return CellularNetwork::DATA_NONE;
-    if (remaining <= kCellularDataVeryLowBytes)
-      return CellularNetwork::DATA_VERY_LOW;
-    // For base plans, we do not care about low data.
-    if (remaining <= kCellularDataLowBytes &&
-        plan->plan_type != CELLULAR_DATA_PLAN_METERED_BASE)
-      return CellularNetwork::DATA_LOW;
-    return CellularNetwork::DATA_NORMAL;
-  }
-  return CellularNetwork::DATA_UNKNOWN;
-}
-
-void NetworkLibraryImplBase::UpdateCellularDataPlan(
-    const std::string& service_path,
-    CellularDataPlanVector* data_plan_vector) {
-  VLOG(1) << "Updating cellular data plans for: " << service_path;
-  // Find and delete any existing data plans associated with |service_path|.
-  CellularDataPlanMap::iterator found = data_plan_map_.find(service_path);
-  if (found != data_plan_map_.end())
-    delete found->second;  // This will delete existing data plans.
-  // Takes ownership of |data_plan_vector|.
-  data_plan_map_[service_path] = data_plan_vector;
-
-  // Now, update any matching cellular network's cached data
-  CellularNetwork* cellular = FindCellularNetworkByPath(service_path);
-  if (cellular) {
-    CellularNetwork::DataLeft data_left;
-    // If the network needs a new plan, then there's no data.
-    if (cellular->needs_new_plan())
-      data_left = CellularNetwork::DATA_NONE;
-    else
-      data_left = GetDataLeft(data_plan_vector);
-    VLOG(2) << " Data left: " << data_left
-            << " Need plan: " << cellular->needs_new_plan();
-    cellular->set_data_left(data_left);
-  }
-  NotifyCellularDataPlanChanged();
 }
 
 void NetworkLibraryImplBase::SignalCellularPlanPayment() {
@@ -715,33 +614,6 @@ bool NetworkLibraryImplBase::HasProfileType(NetworkProfileType type) const {
       return true;
   }
   return false;
-}
-
-// Note: currently there is no way to change the profile of a network
-// unless it is visible (i.e. in network_map_). We change the profile by
-// setting the Profile property of the visible network.
-// See chromium-os:15523.
-void NetworkLibraryImplBase::SetNetworkProfile(
-    const std::string& service_path, NetworkProfileType type) {
-  Network* network = FindNetworkByPath(service_path);
-  if (!network) {
-    LOG(WARNING) << "SetNetworkProfile: Network not found: " << service_path;
-    return;
-  }
-  if (network->profile_type() == type) {
-    LOG(WARNING) << "Remembered Network: " << service_path
-                 << " already in profile: " << type;
-    return;
-  }
-  if (network->RequiresUserProfile() && type == PROFILE_SHARED) {
-    LOG(WARNING) << "SetNetworkProfile to Shared for non sharable network: "
-                 << service_path;
-    return;
-  }
-  VLOG(1) << "Setting network: " << network->name()
-          << " to profile type: " << type;
-  SetProfileType(network, type);
-  NotifyNetworkManagerChanged(false);
 }
 
 NetworkLibraryImplBase::NetworkProfile::NetworkProfile(const std::string& p,
@@ -1154,138 +1026,203 @@ bool NetworkLibraryImplBase::LoadOncNetworks(const std::string& onc_blob,
                                              NetworkUIData::ONCSource source,
                                              bool allow_web_trust_from_policy,
                                              std::string* error) {
-  OncNetworkParser parser(onc_blob, passphrase, source);
-  parser.set_allow_web_trust_from_policy(allow_web_trust_from_policy);
+  NetworkProfile* profile = NULL;
+  bool from_policy = (source == NetworkUIData::ONC_SOURCE_USER_POLICY ||
+                      source == NetworkUIData::ONC_SOURCE_DEVICE_POLICY);
 
-  if (!parser.parse_error().empty()) {
-    if (error)
-      *error = parser.parse_error();
+  // Policies are applied to a specific Shill profile. User ONC import however
+  // is applied to whatever profile Shill chooses. This should be the profile
+  // that is already associated with a network and if no profile is associated
+  // yet, it should be the user profile.
+  if (from_policy) {
+    profile = GetProfileForType(GetProfileTypeForSource(source));
+    if (profile == NULL) {
+      DLOG(WARNING) << "Profile for ONC source " << source << " doesn't exist.";
+      return false;
+    }
+  }
+
+  VLOG(2) << __func__ << ": called on " << onc_blob;
+  std::string json_error;
+  scoped_ptr<base::DictionaryValue> root_dict =
+      onc::ReadDictionaryFromJson(onc_blob, &json_error);
+  if (root_dict.get() == NULL) {
+    if (error != NULL)
+      *error = json_error;
+    LOG(WARNING) << "ONC loaded from ONC source " << source
+                 << " is not a valid json dictionary: " << json_error;
     return false;
   }
 
-  for (int i = 0; i < parser.GetCertificatesSize(); i++) {
-    // Insert each of the available certs into the certificate DB.
-    if (parser.ParseCertificate(i).get() == NULL &&
-        !parser.parse_error().empty()) {
-      DLOG(WARNING) << "Cannot parse certificate in ONC file";
-      if (error)
-        *error = parser.parse_error();
+  // Check and see if this is an encrypted ONC file. If so, decrypt it.
+  std::string onc_type;
+  root_dict->GetStringWithoutPathExpansion(onc::kType, &onc_type);
+  if (onc_type == onc::kEncryptedConfiguration) {
+    std::string decrypt_error;
+    root_dict = onc::Decrypt(passphrase, *root_dict, &decrypt_error);
+    if (root_dict.get() == NULL) {
+      if (error != NULL)
+        *error = decrypt_error;
+      LOG(WARNING) << "Couldn't decrypt the ONC from source " << source
+                   << " with error: " << decrypt_error;
       return false;
     }
   }
 
-  // Parse all networks. Bail out if that fails.
-  NetworkOncMap added_onc_map;
-  ScopedVector<Network> networks;
+  // Validate the ONC dictionary. We are liberal and ignore unknown field
+  // names and ignore invalid field names in kRecommended arrays.
+  onc::Validator validator(false,  // Ignore unknown fields.
+                           false,  // Ignore invalid recommended field names.
+                           true,  // Fail on missing fields.
+                           from_policy);
+
+  // Unknown fields are removed from the result.
+  root_dict = validator.ValidateAndRepairObject(
+      &onc::kUnencryptedConfigurationSignature,
+      *root_dict);
+
+  if (root_dict.get() == NULL) {
+    LOG(WARNING) << "ONC from source " << source
+                 << " is invalid and couldn't be repaired.";
+    return false;
+  }
+
+  const base::ListValue* certificates;
+  bool has_certificates =
+      root_dict->GetListWithoutPathExpansion(onc::kCertificates, &certificates);
+
+  const base::ListValue* network_configs;
+  bool has_network_configurations = root_dict->GetListWithoutPathExpansion(
+      onc::kNetworkConfigurations,
+      &network_configs);
+
+  // At least one of NetworkConfigurations or Certificates is required.
+  LOG_IF(WARNING, (!has_network_configurations && !has_certificates))
+      << "ONC from source " << source
+      << " has neither NetworkConfigurations nor Certificates.";
+
+  if (has_certificates) {
+    VLOG(2) << "ONC file has " << certificates->GetSize() << " certificates";
+
+    onc::CertificateImporter cert_importer(source, allow_web_trust_from_policy);
+    std::string cert_error;
+    if (!cert_importer.ParseAndStoreCertificates(*certificates, &cert_error)) {
+      if (error != NULL)
+        *error = cert_error;
+      LOG(WARNING) << "Cannot parse some of the certificates in the ONC from "
+                   << "source " << source << " with error: " << cert_error;
+      return false;
+    }
+  }
+
   std::set<std::string> removal_ids;
-  for (int i = 0; i < parser.GetNetworkConfigsSize(); i++) {
-    // Parse Open Network Configuration blob into a temporary Network object.
-    bool marked_for_removal = false;
-    Network* network = parser.ParseNetwork(i, &marked_for_removal);
-    if (!network) {
-      DLOG(WARNING) << "Cannot parse network in ONC file";
-      if (error)
-        *error = parser.parse_error();
-      return false;
-    }
-
-    // Disallow anything but WiFi and Ethernet for device-level policy (which
-    // corresponds to shared networks). See also http://crosbug.com/28741.
-    if (source == NetworkUIData::ONC_SOURCE_DEVICE_POLICY &&
-        network->type() != TYPE_WIFI &&
-        network->type() != TYPE_ETHERNET) {
-      LOG(WARNING) << "Ignoring device-level policy-pushed network of type "
-                   << network->type();
-      delete network;
-      continue;
-    }
-
-    networks.push_back(network);
-    if (!(source == NetworkUIData::ONC_SOURCE_USER_IMPORT &&
-          marked_for_removal))
-      added_onc_map[network->unique_id()] = parser.GetNetworkConfig(i);
-
-    if (marked_for_removal)
-      removal_ids.insert(network->unique_id());
-  }
-
-  // Update the ONC map.
-  for (NetworkOncMap::iterator iter(added_onc_map.begin());
-       iter != added_onc_map.end(); ++iter) {
-    const base::DictionaryValue*& entry = network_onc_map_[iter->first];
-    delete entry;
-    entry = iter->second->DeepCopy();
-  }
-
-  // Configure the networks. While doing so, collect unique identifiers of the
-  // networks that are defined in the ONC blob in |network_ids|. They're later
-  // used to clean out any previously-existing networks that had been configured
-  // through policy but are no longer specified in the updated ONC blob.
-  std::string profile_path(GetProfilePath(GetProfileTypeForSource(source)));
   std::set<std::string>& network_ids(network_source_map_[source]);
   network_ids.clear();
-  for (std::vector<Network*>::iterator iter(networks.begin());
-       iter != networks.end(); ++iter) {
-    Network* network = *iter;
+  if (has_network_configurations) {
+    VLOG(2) << "ONC file has " << network_configs->GetSize() << " networks";
+    OncNetworkParser parser(*network_configs, source);
 
-    // Don't configure a network that is supposed to be removed. For
-    // policy-managed networks, the "remove" functionality of ONC is ignored.
-    if (source == NetworkUIData::ONC_SOURCE_USER_IMPORT &&
-        removal_ids.find(network->unique_id()) != removal_ids.end()) {
-      continue;
-    }
-
-    DictionaryValue dict;
-    for (Network::PropertyMap::const_iterator props =
-             network->property_map_.begin();
-         props != network->property_map_.end(); ++props) {
-      std::string key =
-          NativeNetworkParser::property_mapper()->GetKey(props->first);
-      if (!key.empty())
-        dict.SetWithoutPathExpansion(key, props->second->DeepCopy());
-      else
-        VLOG(2) << "Property " << props->first << " will not be sent";
-    }
-
-    // Set the appropriate profile for |source|.
-    if (!profile_path.empty())
-      dict.SetString(flimflam::kProfileProperty, profile_path);
-
-    // For Ethernet networks, apply them to the current Ethernet service.
-    if (network->type() == TYPE_ETHERNET) {
-      const EthernetNetwork* ethernet = ethernet_network();
-      if (ethernet) {
-        CallConfigureService(ethernet->unique_id(), &dict);
-      } else {
-        DLOG(WARNING) << "Tried to import ONC with an Ethernet network when "
-                      << "there is no active Ethernet connection.";
+    // Parse all networks. Bail out if that fails.
+    NetworkOncMap added_onc_map;
+    ScopedVector<Network> networks;
+    for (int i = 0; i < parser.GetNetworkConfigsSize(); i++) {
+      // Parse Open Network Configuration blob into a temporary Network object.
+      bool marked_for_removal = false;
+      Network* network = parser.ParseNetwork(i, &marked_for_removal);
+      if (!network) {
+        if (error != NULL)
+          *error = parser.parse_error();
+        LOG(WARNING) << "Error during parsing network at index " << i
+                     << " from ONC source " << source
+                     << ": " << parser.parse_error();
+        return false;
       }
-    } else {
-      CallConfigureService(network->unique_id(), &dict);
+
+      // Disallow anything but WiFi and Ethernet for device-level policy (which
+      // corresponds to shared networks). See also http://crosbug.com/28741.
+      if (source == NetworkUIData::ONC_SOURCE_DEVICE_POLICY &&
+          network->type() != TYPE_WIFI &&
+          network->type() != TYPE_ETHERNET) {
+        LOG(WARNING) << "Ignoring device-level policy-pushed network of type "
+                     << network->type();
+        delete network;
+        continue;
+      }
+
+      networks.push_back(network);
+      if (!(source == NetworkUIData::ONC_SOURCE_USER_IMPORT &&
+            marked_for_removal)) {
+        added_onc_map[network->unique_id()] = parser.GetNetworkConfig(i);
+      }
+
+      if (marked_for_removal)
+        removal_ids.insert(network->unique_id());
     }
 
-    network_ids.insert(network->unique_id());
+    // Update the ONC map.
+    for (NetworkOncMap::iterator iter(added_onc_map.begin());
+         iter != added_onc_map.end(); ++iter) {
+      const base::DictionaryValue*& entry = network_onc_map_[iter->first];
+      delete entry;
+      entry = iter->second->DeepCopy();
+    }
+
+    // Configure the networks. While doing so, collect unique identifiers of the
+    // networks that are defined in the ONC blob in |network_ids|. They're later
+    // used to clean out any previously-existing networks that had been
+    // configured through policy but are no longer specified in the updated ONC
+    // blob.
+    for (std::vector<Network*>::iterator iter(networks.begin());
+         iter != networks.end(); ++iter) {
+      Network* network = *iter;
+
+      // Don't configure a network that is supposed to be removed. For
+      // policy-managed networks, the "remove" functionality of ONC is ignored.
+      if (source == NetworkUIData::ONC_SOURCE_USER_IMPORT &&
+          removal_ids.find(network->unique_id()) != removal_ids.end()) {
+        continue;
+      }
+
+      DictionaryValue dict;
+      for (Network::PropertyMap::const_iterator props =
+               network->property_map_.begin();
+           props != network->property_map_.end(); ++props) {
+        std::string key =
+            NativeNetworkParser::property_mapper()->GetKey(props->first);
+        if (!key.empty())
+          dict.SetWithoutPathExpansion(key, props->second->DeepCopy());
+        else
+          VLOG(2) << "Property " << props->first << " will not be sent";
+      }
+
+      // Set the appropriate profile for |source|.
+      if (profile != NULL)
+        dict.SetString(flimflam::kProfileProperty, profile->path);
+
+      // For Ethernet networks, apply them to the current Ethernet service.
+      if (network->type() == TYPE_ETHERNET) {
+        const EthernetNetwork* ethernet = ethernet_network();
+        if (ethernet) {
+          CallConfigureService(ethernet->unique_id(), &dict);
+        } else {
+          DLOG(WARNING) << "Tried to import ONC with an Ethernet network when "
+                        << "there is no active Ethernet connection.";
+        }
+      } else {
+        CallConfigureService(network->unique_id(), &dict);
+      }
+
+      network_ids.insert(network->unique_id());
+    }
   }
 
-  if (source == NetworkUIData::ONC_SOURCE_USER_POLICY ||
-      source == NetworkUIData::ONC_SOURCE_DEVICE_POLICY) {
+  if (from_policy) {
     // For policy-managed networks, go through the list of existing remembered
     // networks and clean out the ones that no longer have a definition in the
     // ONC blob. We first collect the networks and do the actual deletion later
     // because ForgetNetwork() changes the remembered network vectors.
     ForgetNetworksById(source, network_ids, false);
   } else if (source == NetworkUIData::ONC_SOURCE_USER_IMPORT) {
-    // User-imported files should always contain something.
-    if (parser.GetNetworkConfigsSize() == 0 &&
-        parser.GetCertificatesSize() == 0) {
-      LOG(ERROR) << "ONC file contains no networks or certificates.";
-      if (error) {
-        *error = l10n_util::GetStringUTF8(
-            IDS_NETWORK_CONFIG_ERROR_NETWORK_IMPORT);
-      }
-      return false;
-    }
-
     if (removal_ids.empty())
       return true;
 
@@ -1427,16 +1364,6 @@ void NetworkLibraryImplBase::AddNetwork(Network* network) {
 // Deletes a network. It must already be removed from any lists.
 void NetworkLibraryImplBase::DeleteNetwork(Network* network) {
   CHECK(network_map_.find(network->service_path()) == network_map_.end());
-  if (network->type() == TYPE_CELLULAR) {
-    // Find and delete any existing data plans associated with |service_path|.
-    CellularDataPlanMap::iterator found =
-        data_plan_map_.find(network->service_path());
-    if (found != data_plan_map_.end()) {
-      CellularDataPlanVector* data_plan_vector = found->second;
-      delete data_plan_vector;
-      data_plan_map_.erase(found);
-    }
-  }
   delete network;
 }
 
@@ -1507,22 +1434,8 @@ bool NetworkLibraryImplBase::ValidateAndAddRememberedNetwork(Network* network) {
   } else {
     NOTREACHED();
   }
-  // Find service path in profiles. Shill does not set the Profile
-  // property for remembered networks, only active networks.
-  for (NetworkProfileList::iterator iter = profile_list_.begin();
-       iter != profile_list_.end(); ++iter) {
-    NetworkProfile& profile = *iter;
-    if (profile.services.find(network->service_path()) !=
-        profile.services.end()) {
-      network->set_profile_path(profile.path);
-      network->set_profile_type(profile.type);
-      VLOG(1) << "ValidateAndAddRememberedNetwork: " << network->service_path()
-              << " profile: " << profile.path;
-      break;
-    }
-  }
-  DCHECK(!network->profile_path().empty())
-      << "Service path not in any profile: " << network->service_path();
+
+  VLOG(1) << "ValidateAndAddRememberedNetwork: " << network->service_path();
   return true;
 }
 
@@ -1616,21 +1529,11 @@ void NetworkLibraryImplBase::ClearNetworks() {
   virtual_networks_.clear();
 }
 
-void NetworkLibraryImplBase::ClearRememberedNetworks() {
-  remembered_network_map_.clear();
-  remembered_network_unique_id_map_.clear();
-  remembered_wifi_networks_.clear();
-  remembered_virtual_networks_.clear();
-}
-
-void NetworkLibraryImplBase::DeleteNetworks() {
-  STLDeleteValues(&network_map_);
-  ClearNetworks();
-}
-
 void NetworkLibraryImplBase::DeleteRememberedNetworks() {
   STLDeleteValues(&remembered_network_map_);
-  ClearRememberedNetworks();
+  remembered_network_map_.clear();
+  remembered_wifi_networks_.clear();
+  remembered_virtual_networks_.clear();
 }
 
 void NetworkLibraryImplBase::DeleteDevice(const std::string& device_path) {
@@ -1649,8 +1552,9 @@ void NetworkLibraryImplBase::DeleteDevice(const std::string& device_path) {
 
 ////////////////////////////////////////////////////////////////////////////
 
-void NetworkLibraryImplBase::AddProfile(
-    const std::string& profile_path, NetworkProfileType profile_type) {
+void NetworkLibraryImplBase::AddProfile(const std::string& profile_path,
+                                        NetworkProfileType profile_type) {
+  VLOG(1) << "Adding profile " << profile_path;
   profile_list_.push_back(NetworkProfile(profile_path, profile_type));
   // Check to see if we connected to any networks before a user profile was
   // available (i.e. before login), but unchecked the "Share" option (i.e.
@@ -1723,6 +1627,12 @@ std::string NetworkLibraryImplBase::GetProfilePath(NetworkProfileType type) {
 ////////////////////////////////////////////////////////////////////////////
 // Notifications.
 
+void NetworkLibraryImplBase::NotifyNetworkProfileObservers() {
+  FOR_EACH_OBSERVER(NetworkProfileObserver,
+                    network_profile_observers_,
+                    OnProfileListChanged());
+}
+
 // We call this any time something in NetworkLibrary changes.
 // TODO(stevenjb): We should consider breaking this into multiple
 // notifications, e.g. connection state, devices, services, etc.
@@ -1793,12 +1703,6 @@ void NetworkLibraryImplBase::NotifyNetworkDeviceChanged(
     LOG(ERROR) << "Unexpected signal for unobserved device: "
                << device->name();
   }
-}
-
-void NetworkLibraryImplBase::NotifyCellularDataPlanChanged() {
-  FOR_EACH_OBSERVER(CellularDataPlanObserver,
-                    data_plan_observers_,
-                    OnCellularDataPlanChanged(this));
 }
 
 void NetworkLibraryImplBase::NotifyPinOperationCompleted(

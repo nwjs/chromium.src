@@ -85,7 +85,7 @@ bool UnloadController::TabsNeedBeforeUnloadFired() {
   if (tabs_needing_before_unload_fired_.empty()) {
     for (int i = 0; i < browser_->tab_count(); ++i) {
       content::WebContents* contents =
-          chrome::GetTabContentsAt(browser_, i)->web_contents();
+          browser_->tab_strip_model()->GetWebContentsAt(i);
       if (contents->NeedToFireBeforeUnload())
         tabs_needing_before_unload_fired_.insert(contents);
     }
@@ -126,11 +126,11 @@ void UnloadController::TabDetachedAt(content::WebContents* contents,
 }
 
 void UnloadController::TabReplacedAt(TabStripModel* tab_strip_model,
-                                     TabContents* old_contents,
-                                     TabContents* new_contents,
+                                     content::WebContents* old_contents,
+                                     content::WebContents* new_contents,
                                      int index) {
-  TabDetachedImpl(old_contents->web_contents());
-  TabAttachedImpl(new_contents->web_contents());
+  TabDetachedImpl(old_contents);
+  TabAttachedImpl(new_contents);
 }
 
 void UnloadController::TabStripEmpty() {

@@ -6,7 +6,6 @@
 
 #include <vector>
 
-#include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/shell.h"
 #include "ash/wm/window_cycle_controller.h"
 #include "ash/wm/window_util.h"
@@ -15,6 +14,8 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/synchronization/cancellation_flag.h"
+#include "base/threading/sequenced_worker_pool.h"
+#include "base/threading/worker_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/login/user.h"
 #include "chrome/browser/chromeos/login/user_image.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/chromeos/login/wallpaper_manager.h"
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/image_decoder.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/common/chrome_paths.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/url_request/url_fetcher.h"
@@ -37,6 +39,25 @@ using base::BinaryValue;
 using content::BrowserThread;
 
 namespace {
+
+// Keeps in sync (same order) with WallpaperLayout enum in header file.
+const char* kWallpaperLayoutArrays[] = {
+    "CENTER",
+    "CENTER_CROPPED",
+    "STRETCH",
+    "TILE"
+};
+
+const int kWallpaperLayoutCount = arraysize(kWallpaperLayoutArrays);
+
+ash::WallpaperLayout GetLayoutEnum(const std::string& layout) {
+  for (int i = 0; i < kWallpaperLayoutCount; i++) {
+    if (layout.compare(kWallpaperLayoutArrays[i]) == 0)
+      return static_cast<ash::WallpaperLayout>(i);
+  }
+  // Default to use CENTER layout.
+  return ash::WALLPAPER_LAYOUT_CENTER;
+}
 
 class WindowStateManager;
 
@@ -149,6 +170,7 @@ bool WallpaperStringsFunction::RunImpl() {
              IDS_WALLPAPER_MANAGER_SHOW_CUSTOM_WALLPAPER_ON_START_WARNING);
   SET_STRING("accessFileFailure", IDS_WALLPAPER_MANAGER_ACCESS_FILE_FAILURE);
   SET_STRING("invalidWallpaper", IDS_WALLPAPER_MANAGER_INVALID_WALLPAPER);
+  SET_STRING("learnMore", IDS_LEARN_MORE);
 #undef SET_STRING
 
   ChromeURLDataManager::DataSource::SetFontAndTextDirection(dict);
@@ -241,7 +263,7 @@ bool WallpaperSetWallpaperFunction::RunImpl() {
   if (!args_->GetString(1, &layout_string) || layout_string.empty()) {
     return false;
   }
-  layout_ = ash::GetLayoutEnum(layout_string);
+  layout_ = GetLayoutEnum(layout_string);
   if (!args_->GetString(2, &url_) || url_.empty())
     return false;
 
@@ -262,14 +284,22 @@ void WallpaperSetWallpaperFunction::OnWallpaperDecoded(
   wallpaper_ = wallpaper;
   // Set wallpaper_decoder_ to null since the decoding already finished.
   wallpaper_decoder_ = NULL;
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE,
+
+  sequence_token_ = BrowserThread::GetBlockingPool()->
+      GetNamedSequenceToken(chromeos::kWallpaperSequenceTokenName);
+  scoped_refptr<base::SequencedTaskRunner> task_runner =
+      BrowserThread::GetBlockingPool()->
+          GetSequencedTaskRunnerWithShutdownBehavior(sequence_token_,
+              base::SequencedWorkerPool::BLOCK_SHUTDOWN);
+
+  task_runner->PostTask(FROM_HERE,
       base::Bind(&WallpaperSetWallpaperFunction::SaveToFile,
                  this));
 }
 
 void WallpaperSetWallpaperFunction::SaveToFile() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+  DCHECK(BrowserThread::GetBlockingPool()->IsRunningSequenceOnCurrentThread(
+      sequence_token_));
   FilePath wallpaper_dir;
   CHECK(PathService::Get(chrome::DIR_CHROMEOS_WALLPAPERS, &wallpaper_dir));
   if (!file_util::DirectoryExists(wallpaper_dir) &&
@@ -286,10 +316,14 @@ void WallpaperSetWallpaperFunction::SaveToFile() {
   if (file_util::PathExists(file_path) ||
       file_util::WriteFile(file_path, image_data_.c_str(),
                            image_data_.size()) != -1 ) {
+    wallpaper_.EnsureRepsForSupportedScaleFactors();
+    scoped_ptr<gfx::ImageSkia> deep_copy(wallpaper_.DeepCopy());
+    // ImageSkia is not RefCountedThreadSafe. Use a deep copied ImageSkia if
+    // post to another thread.
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&WallpaperSetWallpaperFunction::SetDecodedWallpaper,
-                   this));
+                   this, base::Passed(&deep_copy)));
     chromeos::UserImage wallpaper(wallpaper_);
 
     // Generates and saves small resolution wallpaper. Uses CENTER_CROPPED to
@@ -297,7 +331,7 @@ void WallpaperSetWallpaperFunction::SaveToFile() {
     chromeos::WallpaperManager::Get()->ResizeAndSaveWallpaper(
         wallpaper,
         file_path.InsertBeforeExtension(chromeos::kSmallWallpaperSuffix),
-        ash::CENTER_CROPPED,
+        ash::WALLPAPER_LAYOUT_CENTER_CROPPED,
         ash::kSmallWallpaperMaxWidth,
         ash::kSmallWallpaperMaxHeight);
   } else {
@@ -309,10 +343,11 @@ void WallpaperSetWallpaperFunction::SaveToFile() {
   }
 }
 
-void WallpaperSetWallpaperFunction::SetDecodedWallpaper() {
+void WallpaperSetWallpaperFunction::SetDecodedWallpaper(
+    scoped_ptr<gfx::ImageSkia> wallpaper) {
   chromeos::WallpaperManager* wallpaper_manager =
       chromeos::WallpaperManager::Get();
-  wallpaper_manager->SetWallpaperFromImageSkia(wallpaper_, layout_);
+  wallpaper_manager->SetWallpaperFromImageSkia(*wallpaper.get(), layout_);
   bool is_persistent =
       !chromeos::UserManager::Get()->IsCurrentUserEphemeral();
   chromeos::WallpaperInfo info = {
@@ -340,7 +375,7 @@ bool WallpaperSetCustomWallpaperFunction::RunImpl() {
   if (!args_->GetString(1, &layout_string) || layout_string.empty()) {
     return false;
   }
-  layout_ = ash::GetLayoutEnum(layout_string);
+  layout_ = GetLayoutEnum(layout_string);
 
   // Gets email address while at UI thread.
   email_ = chromeos::UserManager::Get()->GetLoggedInUser()->email();
@@ -362,8 +397,7 @@ void WallpaperSetCustomWallpaperFunction::OnWallpaperDecoded(
   // In the new wallpaper picker UI, we do not depend on WallpaperDelegate
   // to refresh thumbnail. Uses a null delegate here.
   chromeos::WallpaperManager::Get()->SetCustomWallpaper(
-      email_, layout_, chromeos::User::CUSTOMIZED,
-      base::WeakPtr<chromeos::WallpaperDelegate>(), image);
+      email_, layout_, chromeos::User::CUSTOMIZED, image);
   wallpaper_decoder_ = NULL;
   SendResponse(true);
 }

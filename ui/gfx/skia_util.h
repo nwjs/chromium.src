@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "base/string16.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkShader.h"
@@ -21,12 +20,15 @@ namespace gfx {
 
 class ImageSkiaRep;
 class Rect;
+class RectF;
 class ShadowValue;
 
 // Convert between Skia and gfx rect types.
-UI_EXPORT SkRect RectToSkRect(const gfx::Rect& rect);
-UI_EXPORT SkIRect RectToSkIRect(const gfx::Rect& rect);
-UI_EXPORT gfx::Rect SkRectToRect(const SkRect& rect);
+UI_EXPORT SkRect RectToSkRect(const Rect& rect);
+UI_EXPORT SkIRect RectToSkIRect(const Rect& rect);
+UI_EXPORT Rect SkIRectToRect(const SkIRect& rect);
+UI_EXPORT SkRect RectFToSkRect(const RectF& rect);
+UI_EXPORT RectF SkRectToRectF(const SkRect& rect);
 
 // Creates a bitmap shader for the image rep with the image rep's scale factor.
 // Sets the created shader's local matrix such that it displays the image rep at
@@ -66,16 +68,6 @@ UI_EXPORT SkDrawLooper* CreateShadowDrawLooper(
 // Returns true if the two bitmaps contain the same pixels.
 UI_EXPORT bool BitmapsAreEqual(const SkBitmap& bitmap1,
                                const SkBitmap& bitmap2);
-
-// Strip the accelerator char (typically '&') from a menu string.  A double
-// accelerator char ('&&') will be converted to a single char.  The out params
-// |accelerated_char_pos| and |accelerated_char_span| will be set to the index
-// and span of the last accelerated character, respectively, or -1 and 0 if
-// there was none.
-UI_EXPORT string16 RemoveAcceleratorChar(const string16& s,
-                                         char16 accelerator_char,
-                                         int* accelerated_char_pos,
-                                         int* accelerated_char_span);
 
 // Converts Skia ARGB format pixels in |skia| to RGBA.
 UI_EXPORT void ConvertSkiaToRGBA(const unsigned char* skia,

@@ -80,9 +80,11 @@ PrintViewManager::PrintViewManager(content::WebContents* web_contents)
                  content::Source<content::WebContents>(web_contents));
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  printing_enabled_.Init(prefs::kPrintingEnabled,
-                         profile->GetPrefs(),
-                         this);
+  printing_enabled_.Init(
+      prefs::kPrintingEnabled,
+      profile->GetPrefs(),
+      base::Bind(&PrintViewManager::UpdateScriptedPrintingBlocked,
+                 base::Unretained(this)));
 }
 
 PrintViewManager::~PrintViewManager() {
@@ -274,14 +276,7 @@ void PrintViewManager::OnDidPrintPage(
       web_contents()->Stop();
       return;
     }
-  } else if (!print_job_->settings().supports_alpha_blend() &&
-             metafile->IsAlphaBlendUsed()) {
-    scoped_ptr<NativeMetafile> raster_metafile(
-        metafile->RasterizeAlphaBlend());
-    if (raster_metafile.get())
-      metafile.swap(raster_metafile);
   }
-
 #endif
 
   // Update the rendered document. It will send notifications to the listener.
@@ -399,11 +394,6 @@ void PrintViewManager::Observe(int type,
       break;
     }
   }
-}
-
-void PrintViewManager::OnPreferenceChanged(PrefServiceBase* service,
-                                           const std::string& pref_name) {
-  UpdateScriptedPrintingBlocked();
 }
 
 void PrintViewManager::OnNotifyPrintJobEvent(

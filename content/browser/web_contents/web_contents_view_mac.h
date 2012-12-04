@@ -67,6 +67,7 @@ class WebContentsViewMac : public WebContentsView,
   virtual void CreateView(const gfx::Size& initial_size) OVERRIDE;
   virtual RenderWidgetHostView* CreateViewForWidget(
       RenderWidgetHost* render_widget_host) OVERRIDE;
+  virtual void SetView(RenderWidgetHostView* view) OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
   virtual gfx::NativeView GetContentNativeView() const OVERRIDE;
   virtual gfx::NativeWindow GetTopLevelNativeWindow() const OVERRIDE;
@@ -84,6 +85,7 @@ class WebContentsViewMac : public WebContentsView,
   virtual bool IsEventTracking() const OVERRIDE;
   virtual void CloseTabAfterEventTracking() OVERRIDE;
   virtual gfx::Rect GetViewBounds() const OVERRIDE;
+  virtual void SetAllowOverlappingViews(bool overlapping) OVERRIDE;
 
   // Backend implementation of RenderViewHostDelegateView.
   virtual void ShowContextMenu(const ContextMenuParams& params,
@@ -124,6 +126,9 @@ class WebContentsViewMac : public WebContentsView,
 
   // Our optional delegate.
   scoped_ptr<WebContentsViewDelegate> delegate_;
+
+  // Whether to allow overlapping views.
+  bool allow_overlapping_views_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsViewMac);
 };

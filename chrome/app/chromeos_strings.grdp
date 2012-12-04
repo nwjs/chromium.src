@@ -144,6 +144,9 @@ Press any key to continue exploring.
   <message name="IDS_OFFERS_CONSENT_INFOBAR_DISABLE_BUTTON" desc="Disable button label.">
     Deny
   </message>
+  <message name="IDS_NETWORK_CONFIG_ERROR_NETWORK_NOT_A_JSON_DICTIONARY" desc="Error for network configuration: Configuration is not a valid JSON dictionary.">
+    The configuration is not a valid JSON dictionary.
+  </message>
   <message name="IDS_NETWORK_CONFIG_LOADING_ERROR" desc="Error message for loading network configuration file.">
     Error loading network configuration file: <ph name="error">$1<ex>Unknown error</ex></ph>
   </message>
@@ -218,42 +221,6 @@ Press any key to continue exploring.
   </message>
   <message name="IDS_NETWORK_ENROLLMENT_HANDLER_BUTTON" desc="Text of the accept button for generating a new network certificate.">
     Get new certificate
-  </message>
-  <message name="IDS_NETWORK_PURCHASE_MORE_MESSAGE" desc="Message for purchase more link on notification when there is no cellular plan">
-    Buy plan...
-  </message>
-  <message name="IDS_NETWORK_MORE_INFO_MESSAGE" desc="Message for more info link on cellular plan low data notification">
-    More info...
-  </message>
-  <message name="IDS_NETWORK_LOW_DATA_TITLE" desc="Title for network low data notification">
-    Low <ph name="network">$1<ex>YBH</ex></ph> data
-  </message>
-  <message name="IDS_NETWORK_OUT_OF_DATA_TITLE" desc="Title for network out of data notification">
-    Out of <ph name="network">$1<ex>YBH</ex></ph> data
-  </message>
-  <message name="IDS_NETWORK_DATA_REMAINING_MESSAGE" desc="Message for network data remaining notification">
-    <ph name="megabytes">$1<ex>50</ex></ph> MB remaining
-  </message>
-  <message name="IDS_NETWORK_DATA_MB_AVAILABLE_MESSAGE" desc="Message for network data available menu item in megabytes">
-    <ph name="megabytes">$1<ex>50</ex></ph> MB available
-  </message>
-  <message name="IDS_NETWORK_DATA_LESS_THAN_ONE_MB_AVAILABLE_MESSAGE" desc="Message for network data available menu item when less than 1 MB available">
-    Less than 1 MB available
-  </message>
-  <message name="IDS_NETWORK_DATA_NONE_AVAILABLE_MESSAGE" desc="Message for network data available menu item when none available">
-    No data available
-  </message>
-  <message name="IDS_NETWORK_NO_DATA_PLAN_MESSAGE" desc="Message for network data remaining notification">
-    You are out of mobile data. Purchase another plan to use <ph name="network">$1<ex>YBH</ex></ph>.
-  </message>
-  <message name="IDS_NETWORK_NEARING_EXPIRATION_TITLE" desc="Title for network nearing expiration notification">
-    Nearing <ph name="network">$1<ex>YBH</ex></ph> expiration
-  </message>
-  <message name="IDS_NETWORK_NO_DATA_PLAN_TITLE" desc="Title for no cellular data plan notification">
-    <ph name="network">$1<ex>YBH</ex></ph> no data plan
-  </message>
-  <message name="IDS_NETWORK_DATA_EXPIRED_TITLE" desc="Title for network data expired notification">
-    <ph name="network">$1<ex>YBH</ex></ph> data expired
   </message>
   <message name="IDS_NETWORK_CONNECTION_ERROR_TITLE" desc="Title for network connection error notification">
     Network Connection Error
@@ -377,6 +344,18 @@ Press any key to continue exploring.
   </message>
   <message name="IDS_NETWORK_SELECTION_ERROR" desc="Error shown when connection to network failed or timed out.">
     <ph name="PRODUCT_NAME">$1<ex>Chrome OS</ex></ph> was unable to connect to <ph name="NETWORK_ID">$2<ex>Public Wifi</ex></ph>. Please select another network or try again.
+  </message>
+  <message name="IDS_OOBE_ACCESSIBILITY_LINK" desc="Link shown on OOBE screens that opens accessibility options menu.">
+    Accessibility
+  </message>
+  <message name="IDS_OOBE_SPOKEN_FEEDBACK_OPTION" desc="Spoken feedback option shown on OOBE screens accessibility menu.">
+    Spoken feedback
+  </message>
+  <message name="IDS_OOBE_HIGH_CONTRAST_MODE_OPTION" desc="High contrast mode option shown on OOBE screens accessibility menu.">
+    High contrast mode 
+  </message>
+  <message name="IDS_OOBE_SCREEN_MAGNIFIER_OPTION" desc="Screen magnifier option shown on OOBE screens accessibility menu.">
+    Screen magnifier 
   </message>
   <message name="IDS_LOGIN_TITLE" desc="Title of sign in box">
     Sign in
@@ -635,10 +614,10 @@ Press any key to continue exploring.
     Swap primary mouse button
   </message>
   <message name="IDS_OPTIONS_SETTINGS_BLUETOOTH_DISABLE">
-    Disable bluetooth
+    Disable Bluetooth
   </message>
   <message name="IDS_OPTIONS_SETTINGS_BLUETOOTH_ENABLE">
-    Enable bluetooth
+    Enable Bluetooth
   </message>
   <message name="IDS_OPTIONS_SETTINGS_ADD_BLUETOOTH_DEVICE">
     Add a device
@@ -665,7 +644,7 @@ Press any key to continue exploring.
     Not connected
   </message>
   <message name="IDS_OPTIONS_SETTINGS_BLUETOOTH_ADD_DEVICE_TITLE">
-    Add bluetooth device
+    Add Bluetooth device
   </message>
   <message name="IDS_OPTIONS_SETTINGS_BLUETOOTH_CONNECT">
     Connect
@@ -727,6 +706,9 @@ Press any key to continue exploring.
   <message name="IDS_OPTIONS_SETTINGS_BLUETOOTH_FORGET_FAILED">
     Failed to disconnect and unpair from "<ph name="DEVICE_NAME">%1<ex>Nexus S</ex></ph>".
   </message>
+  <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_EXPLANATION" desc="In the settings tab, this text explains the accessibiliy features.">
+    Enable the accessibility features you need.
+  </message>
   <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_DESCRIPTION" desc="In the settings tab, the text next to the checkbox for spoken feedback.">
     Enable spoken feedback
   </message>
@@ -750,6 +732,9 @@ Press any key to continue exploring.
   </message>
   <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_VIRTUAL_KEYBOARD_DESCRIPTION" desc="In the settings tab, the text next to the checkbox for virtual keyboard.">
     Enable virtual keyboard
+  </message>
+  <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_SHOULD_ALWAYS_SHOW_MENU" desc="In the settings tab, the text next to the checkbox to show the accessibility tray menu regardless of the state of a11y features.">
+    Enable accessibility menu
   </message>
   <message name="IDS_OPTIONS_SETTINGS_DISPLAY_OPTIONS_BUTTON_LABEL" desc="Label for the button opening display settings tab.">
     Display settings
@@ -801,9 +786,6 @@ Press any key to continue exploring.
   </message>
   <message name="IDS_OPTIONS_SETTINGS_BUY_PLAN" desc="In settings Internet options, the title for buy cellular data plan button.">
     Buy plan
-  </message>
-  <message name="IDS_OPTIONS_SETTINGS_NO_PLAN_LABEL" desc="In settings Internet options, the title for buy cellular data plan button.">
-    No data plan
   </message>
   <message name="IDS_OPTIONS_SETTINGS_OPTIONS" desc="In the settings tab, the text on the button to display more options.">
     Options...
@@ -948,9 +930,6 @@ Press any key to continue exploring.
   </message>
   <message name="IDS_OPTIONS_SETTINGS_INTERNET_TAB_VPN" desc="In settings Internet options, the title for the VPN (Virtual Private Network) tab.">
     VPN
-  </message>
-  <message name="IDS_OPTIONS_SETTINGS_INTERNET_TAB_PLAN" desc="In settings Internet options, the title for buy cellular data plan button.">
-    Plan
   </message>
   <message name="IDS_OPTIONS_SETTINGS_INTERNET_TAB_CONNECTION" desc="In settings Internet options, the title for buy cellular data plan button.">
     Connection
@@ -1424,10 +1403,13 @@ Press any key to continue exploring.
   </message>
 
   <message name="IDS_RESET_SCREEN_WARNING_MSG" desc="Warning text shown on reset screen above the exclamation icon.">
-    Factory Reset your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device
+    Powerwash your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device
   </message>
   <message name="IDS_RESET_SCREEN_WARNING_DETAILS" desc="Warning text shown on reset screen below the exclamation icon.">
-    Your device will be reset into its original factory state. All local files and media will be erased. Would you like to continue?
+    A Powerwash resets your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device to be just like new. All files and media stored locally on your computer will be erased.
+  </message>
+  <message name="IDS_RESET_SCREEN_WARNING_DETAILS_RESTART" desc="Warning text shown on reset screen below the exclamation icon if device needs extra restart before powerwash.">
+    A restart is required before your device can be reset with Powerwash. A Powerwash resets your <ph name="IDS_SHORT_PRODUCT_NAME">$1<ex>Chrome</ex></ph> device to be just like new.
   </message>
   <message name="IDS_RESET_SCREEN_RESET" desc="Reset button text">
     Reset
@@ -2069,6 +2051,14 @@ Press any key to continue exploring.
            desc="The dropdown list item for 'Customize modifier keys' overlay">
     Caps Lock
   </message>
+  <message name="IDS_OPTIONS_SETTINGS_CHANGE_LANGUAGE_AND_INPUT_SETTINGS"
+           desc="The link to open 'Language and input settings' window.">
+    Change language and input settings
+  </message>
+  <message name="IDS_OPTIONS_SETTINGS_LANGUAGES_KEY_SEARCH_AS_FUNCTION"
+           desc="The checkbox to enable the Search key to act as a Function key">
+    Use the Search key to access extended keybindings.
+  </message>
   <message name="IDS_OPTIONS_NO_POINTING_DEVICES" desc="Text shown when there is neither a touchpad nor a mouse.">
     No mouse or touchpad was detected.
   </message>
@@ -2646,8 +2636,50 @@ Battery full
   <message name="IDS_KEYBOARD_OVERLAY_INSTRUCTIONS" desc="The instructions for the keyboard overlay.">
     Hold Control, Alt, or Shift to see keyboard shortcuts for those modifiers.
   </message>
+  <message name="IDS_KEYBOARD_OVERLAY_INSTRUCTIONS_WITH_SEARCH" desc="The instructions for the keyboard overlay.">
+    Hold Control, Alt, Shift, or Search to see keyboard shortcuts for those modifiers.
+  </message>
   <message name="IDS_KEYBOARD_OVERLAY_INSTRUCTIONS_HIDE" desc="The instruction for hiding the keyboard overlay.">
     Type Ctrl+Alt+/ or Escape to hide
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F1" desc="The text in the keyboard overlay to explain the shortcut.">
+    F1
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F2" desc="The text in the keyboard overlay to explain the shortcut.">
+    F2
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F3" desc="The text in the keyboard overlay to explain the shortcut.">
+    F3
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F4" desc="The text in the keyboard overlay to explain the shortcut.">
+    F4
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F5" desc="The text in the keyboard overlay to explain the shortcut.">
+    F5
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F6" desc="The text in the keyboard overlay to explain the shortcut.">
+    F6
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F7" desc="The text in the keyboard overlay to explain the shortcut.">
+    F7
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F8" desc="The text in the keyboard overlay to explain the shortcut.">
+    F8
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F9" desc="The text in the keyboard overlay to explain the shortcut.">
+    F9
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F10" desc="The text in the keyboard overlay to explain the shortcut.">
+    F10
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F11" desc="The text in the keyboard overlay to explain the shortcut.">
+    F11
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_F12" desc="The text in the keyboard overlay to explain the shortcut.">
+    F12
+  </message>
+  <message name="IDS_KEYBOARD_OVERLAY_INSERT" desc="The text in the keyboard overlay to explain the shortcut.">
+    Insert
   </message>
   <!-- BEGIN GENERATED KEYBOARD OVERLAY STRINGS -->
   <message name="IDS_KEYBOARD_OVERLAY_ACTIVATE_LAST_LAUNCHER_ITEM" desc="The text in the keyboard overlay to explain the shortcut (Open the last launcher item).">
@@ -3369,9 +3401,6 @@ Battery full
   <message name="IDS_LOGIN_ERROR_OFFLINE_FAILED_NETWORK_NOT_CONNECTED" desc="Couldn't sign in because offline sign-in has failed and network is not connected">
     Sorry, your email or password could not be verified. Try connecting to a network first.
   </message>
-  <message name="IDS_LOGIN_ERROR_ADD_USER_OFFLINE" desc="Error message that shows up when user tries to add user without a connected network.">
-    To add a user, please connect to a network first.
-  </message>
   <message name="IDS_LOGIN_ERROR_NO_NETWORK_LIBRARY" desc="Couldn't sign in because nework library couldn't be loaded">
     Can't access network library
   </message>
@@ -3389,6 +3418,12 @@ Battery full
   </message>
   <message name="IDS_LOGIN_ERROR_OWNER_KEY_LOST" desc="Couldn't sign in because the owner key has been lost">
     Login has been cancelled because some of the device settings have been corrupted.
+  </message>
+  <message name="IDS_LOGIN_ERROR_TPM_FAILURE" desc="Couldn't sign in because of the critical TPM error.">
+    Oops, something went wrong with signing in.
+  </message>
+  <message name="IDS_LOGIN_ERROR_TPM_FAILURE_REBOOT" desc="Notify user that Chrome OS will reboot">
+    <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> will automatically reboot to fix this error.
   </message>
   <message name="IDS_LOGIN_FIX_CAPTIVE_PORTAL" desc="An link text to fix Internet connection (captive portal) in guest mode.">
     Enter as Guest
@@ -3467,11 +3502,5 @@ Battery full
   </message>
   <message name="IDS_LOGIN_MANAGED_REPORTING_HINT" desc="Text for the hint on reporting features displayed in the enterprise notification bar on the login screen.">
     Device usage may be tracked.
-  </message>
-  <message name="IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE" desc="Name for the flag to switch lock animations direction.">
-    New lock animations direction.
-  </message>
-  <message name="IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE_DESCRIPTION" desc="Description for the flag to switch lock animations direction.">
-    Changes direction of animation of user pod after lock for new lock animations.
   </message>
 </grit-part>

@@ -10,7 +10,6 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
-#include "base/prefs/public/pref_observer.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/command_observer.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
@@ -40,8 +39,7 @@ class ToolbarView : public views::AccessiblePaneView,
                     public content::NotificationObserver,
                     public CommandObserver,
                     public views::ButtonListener,
-                    public views::WidgetObserver,
-                    public PrefObserver {
+                    public views::WidgetObserver {
  public:
   // The view class name.
   static const char kViewClassName[];
@@ -97,7 +95,7 @@ class ToolbarView : public views::AccessiblePaneView,
                                    const gfx::Point& point) OVERRIDE;
 
   // Overridden from LocationBarView::Delegate:
-  virtual TabContents* GetTabContents() const OVERRIDE;
+  virtual content::WebContents* GetWebContents() const OVERRIDE;
   virtual InstantController* GetInstant() OVERRIDE;
   virtual views::Widget* CreateViewsBubble(
       views::BubbleDelegateView* bubble_delegate) OVERRIDE;
@@ -126,10 +124,6 @@ class ToolbarView : public views::AccessiblePaneView,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
-
-  // Overridden from PrefObserver:
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
 
   // Overridden from ui::AcceleratorProvider:
   virtual bool GetAcceleratorForCommandId(
@@ -198,9 +192,7 @@ class ToolbarView : public views::AccessiblePaneView,
   // Updates the badge and the accessible name of the app menu (Wrench).
   void UpdateAppMenuState();
 
-  // Gets a badge for the wrench icon corresponding to the number of
-  // unacknowledged background pages in the system.
-  gfx::ImageSkia GetBackgroundPageBadge();
+  void OnShowHomeButtonChanged();
 
   // The model that contains the security level, text, icon to display...
   ToolbarModel* model_;
@@ -215,9 +207,6 @@ class ToolbarView : public views::AccessiblePaneView,
   views::MenuButton* app_menu_;
   Browser* browser_;
 
-  // Contents of the profiles menu to populate with profile names.
-  scoped_ptr<ui::SimpleMenuModel> profiles_menu_contents_;
-
   // Controls whether or not a home button should be shown on the toolbar.
   BooleanPrefMember show_home_button_;
 
@@ -227,9 +216,11 @@ class ToolbarView : public views::AccessiblePaneView,
   // The display mode used when laying out the toolbar.
   DisplayMode display_mode_;
 
-  // Wrench menu.
-  scoped_ptr<WrenchMenu> wrench_menu_;
+  // Wrench model and menu.
+  // Note that the menu should be destroyed before the model it uses, so the
+  // menu should be listed later.
   scoped_ptr<WrenchMenuModel> wrench_menu_model_;
+  scoped_ptr<WrenchMenu> wrench_menu_;
 
   // A list of listeners to call when the menu opens.
   ObserverList<views::MenuListener> menu_listeners_;

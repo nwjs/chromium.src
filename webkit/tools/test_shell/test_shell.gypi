@@ -47,6 +47,7 @@
         '<(DEPTH)/testing/gtest.gyp:gtest',
         '<(DEPTH)/third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:inspector_resources',
         '<(DEPTH)/third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
+        '<(DEPTH)/ui/native_theme/native_theme.gyp:native_theme',
         '<(DEPTH)/v8/tools/gyp/v8.gyp:v8',
         '<(DEPTH)/webkit/support/webkit_support.gyp:glue',
         '<(DEPTH)/webkit/support/webkit_support.gyp:user_agent',
@@ -211,6 +212,7 @@
         '<(DEPTH)/third_party/mesa/mesa.gyp:osmesa',
         'pull_in_copy_TestNetscapePlugIn',
         '<(DEPTH)/tools/imagediff/image_diff.gyp:image_diff',
+        '<(DEPTH)/ui/gl/gl.gyp:gl',
       ],
       'defines': [
         # Technically not a unit test but require functions available only to
@@ -251,8 +253,8 @@
             # resulting .res files get referenced multiple times.
             '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.rc',
-            '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_unscaled_resources.rc',
           ],
           'configurations': {
             'Debug_Base': {

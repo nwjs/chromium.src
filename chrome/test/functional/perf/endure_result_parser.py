@@ -35,14 +35,19 @@ import urllib2
 
 
 CHROME_ENDURE_SLAVE_NAMES = [
-  'Linux (perf0)',
-  'Linux (perf1)',
-  'Linux (perf2)',
-  'Linux (perf3)',
-  'Linux (perf4)',
+  'Linux QA Perf (0)',
+  'Linux QA Perf (1)',
+  'Linux QA Perf (2)',
+  'Linux QA Perf (3)',
+  'Linux QA Perf (4)',
+  'Linux QA Perf (dbg)(0)',
+  'Linux QA Perf (dbg)(1)',
+  'Linux QA Perf (dbg)(2)',
+  'Linux QA Perf (dbg)(3)',
+  'Linux QA Perf (dbg)(4)',
 ]
 
-BUILDER_URL_BASE = 'http://build.chromium.org/p/chromium.pyauto/builders/'
+BUILDER_URL_BASE = 'http://build.chromium.org/p/chromium.endure/builders/'
 LAST_BUILD_NUM_PROCESSED_FILE = os.path.join(os.path.dirname(__file__),
                                              '_parser_last_processed.txt')
 LOCAL_GRAPH_DIR = '/home/%s/www/chrome_endure_clean' % getpass.getuser()
@@ -218,7 +223,8 @@ def OutputEventData(revision, event_dict, dest_dir):
   WriteToDataFile(new_line, existing_lines, revision, data_file)
 
 
-def UpdatePerfDataFromFetchedContent(revision, content, webapp_name, test_name):
+def UpdatePerfDataFromFetchedContent(revision, content, webapp_name, test_name,
+                                     only_dmp=False):
   """Update perf data from fetched stdio data.
 
   Args:
@@ -226,6 +232,7 @@ def UpdatePerfDataFromFetchedContent(revision, content, webapp_name, test_name):
     content: Fetched stdio data.
     webapp_name: A name of the webapp.
     test_name: A name of the test.
+    only_dmp: True if only Deep Memory Profiler results should be used.
   """
   perf_data_raw = []
 
@@ -245,16 +252,18 @@ def UpdatePerfDataFromFetchedContent(revision, content, webapp_name, test_name):
   # First scan for short-running perf test results.
   for match in re.findall(
       r'RESULT ([^:]+): ([^=]+)= ([-\d\.]+) (\S+)', content):
-    AppendRawPerfData(match[0], match[1], eval(match[2]), match[3], None,
-                      webapp_name, webapp_name)
+    if (not only_dmp) or match[0].endswith('-DMP'):
+      AppendRawPerfData(match[0], match[1], eval(match[2]), match[3], None,
+                        webapp_name, webapp_name)
 
   # Next scan for long-running perf test results.
   for match in re.findall(
       r'RESULT ([^:]+): ([^=]+)= (\[[^\]]+\]) (\S+) (\S+)', content):
-    # TODO(dmikurube): Change the condition to use stacked graph when we
-    # determine how to specify it.
-    AppendRawPerfData(match[0], match[1], eval(match[2]), match[3], match[4],
-                      webapp_name, test_name, match[0].endswith('-DMP'))
+    if (not only_dmp) or match[0].endswith('-DMP'):
+      # TODO(dmikurube): Change the condition to use stacked graph when we
+      # determine how to specify it.
+      AppendRawPerfData(match[0], match[1], eval(match[2]), match[3], match[4],
+                        webapp_name, test_name, match[0].endswith('-DMP'))
 
   # Next scan for events in the test results.
   for match in re.findall(
@@ -333,6 +342,7 @@ def UpdatePerfDataForSlaveAndBuild(slave_info, build_num):
   logging.debug('  %s, build %d.', slave_info['slave_name'], build_num)
   build_url = (BUILDER_URL_BASE + urllib.quote(slave_info['slave_name']) +
                '/builds/' + str(build_num))
+  is_dbg = '(dbg)' in slave_info['slave_name']
 
   url_contents = ''
   fp = None
@@ -373,6 +383,7 @@ def UpdatePerfDataForSlaveAndBuild(slave_info, build_num):
         return False
     match = match[0]
     webapp_name = match[0] + '_wpr' if found_wpr_result else match[0]
+    webapp_name = webapp_name + '_dbg' if is_dbg else webapp_name
     test_name = match[1]
     stdio_urls.append({
       'link': build_url + link + '/text',
@@ -408,7 +419,8 @@ def UpdatePerfDataForSlaveAndBuild(slave_info, build_num):
 
     UpdatePerfDataFromFetchedContent(revision, url_contents,
                                      stdio_url_data['webapp_name'],
-                                     stdio_url_data['test_name'])
+                                     stdio_url_data['test_name'],
+                                     is_dbg)
 
   return True
 

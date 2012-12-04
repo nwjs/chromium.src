@@ -6,81 +6,11 @@ H D ST: Write to static field org.chromium.content.app.SandboxedProcessService.s
 H D ST: Write to static field org.chromium.net.test.util.TestWebServer.sInstance from instance method org.chromium.net.test.util.TestWebServer.shutdown()  At TestWebServer.java
 H V MS: org.chromium.android_webview.test.AndroidWebViewTestBase.WAIT_TIMEOUT_SECONDS isn't final but should be  At AndroidWebViewTestBase.java
 H V MS: org.chromium.android_webview.test.LoadDataWithBaseUrlTest.WAIT_TIMEOUT_SECONDS isn't final but should be  At LoadDataWithBaseUrlTest.java
-H V MS: org.chromium.content.app.AppResource.ARRAY_OFFICIAL_COMMAND_LINE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_COLORSTRIP_CORNER_RADII isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_COLORSTRIP_HEIGHT isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_COLORSTRIP_PADDING isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_COLORSTRIP_WIDTH isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_FOLD_BORDER isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_FOLD_CORNER_RADII isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_FOLD_SHADOW isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_FOLD_SIZE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DIMENSION_FAVICON_SIZE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DRAWABLE_ICON_APP_ICON isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.DRAWABLE_ICON_DEFAULT_FAVICON isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_DATE_PICKER isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_JS_MODAL_DIALOG_BUTTON_CANCEL isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_JS_MODAL_DIALOG_BUTTON_CONFIRM isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_JS_MODAL_DIALOG_CHECKBOX_SUPPRESS_DIALOGS isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_JS_MODAL_DIALOG_TEXT_MESSAGE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_JS_MODAL_DIALOG_TEXT_PROMPT isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_JS_MODAL_DIALOG_TEXT_TITLE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_MONTH_PICKER isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_MONTH_YEAR_PICKERS_CONTAINER isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_TIME_PICKER isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.ID_YEAR_PICKER isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.LAYOUT_DATE_TIME_PICKER_DIALOG isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.LAYOUT_JS_MODAL_DIALOG isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.LAYOUT_MONTH_PICKER isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.LAYOUT_MONTH_PICKER_DIALOG isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.MIPMAP_BOOKMARK_SHORTCUT_BACKGROUND isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_DATE_PICKER_DIALOG_CLEAR isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_DATE_PICKER_DIALOG_SET isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_DATE_TIME_PICKER_DIALOG_TITLE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_JS_MODAL_DIALOG_DONT_RELOAD_THIS_PAGE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_JS_MODAL_DIALOG_LEAVE_THIS_PAGE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_JS_MODAL_DIALOG_RELOAD_THIS_PAGE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_JS_MODAL_DIALOG_STAY_ON_THIS_PAGE isn't final but should be  In AppResource.java
-H V MS: org.chromium.content.app.AppResource.STRING_MONTH_PICKER_DIALOG_TITLE isn't final but should be  In AppResource.java
 H V MS: org.chromium.content.browser.ContentViewTestBase.WAIT_TIMEOUT_SECONDS isn't final but should be  At ContentViewTestBase.java
 H V MS: org.chromium.content.browser.test.util.CallbackHelper.WAIT_TIMEOUT_SECONDS isn't final but should be  At CallbackHelper.java
 H V MS: org.chromium.content.browser.test.util.HistoryUtils.WAIT_TIMEOUT_SECONDS isn't final but should be  At HistoryUtils.java
 M B FS: Format string should use %n rather than \n in org.chromium.android_webview.test.AwSettingsTest.testUserAgentStringDefault()  At AwSettingsTest.java
-M B Nm: The class name org.chromium.android_webview.test.R$attr doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.android_webview.test.R$drawable doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.android_webview.test.R$raw doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.android_webview.test.R$string doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.browser.component.navigation_interception.InterceptNavigationDelegate shadows the simple name of implemented interface org.chromium.content.components.navigation_interception.InterceptNavigationDelegate  In InterceptNavigationDelegate.java
-M B Nm: The class name org.chromium.chrome.testshell.Manifest$permission doesn't start with an upper case letter  At Manifest.java
-M B Nm: The class name org.chromium.chrome.testshell.R$attr doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.R$dimen doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.R$drawable doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.R$id doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.R$layout doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.R$string doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.tests.R$attr doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.tests.R$dimen doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.tests.R$drawable doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.tests.R$id doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.tests.R$layout doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.chrome.testshell.tests.R$string doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.Manifest$permission doesn't start with an upper case letter  At Manifest.java
-M B Nm: The class name org.chromium.content_shell.R$attr doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.R$dimen doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.R$drawable doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.R$id doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.R$layout doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.R$string doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.tests.R$attr doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.tests.R$dimen doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.tests.R$drawable doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.tests.R$id doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.tests.R$layout doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.content_shell.tests.R$string doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.native_test.R$attr doesn't start with an upper case letter  At R.java
-M B Nm: The class name org.chromium.native_test.R$string doesn't start with an upper case letter  At R.java
 M B Nm: The method name org.chromium.base.test.util.ScalableTimeout.ScaleTimeout(long) doesn't start with a lower case letter  At ScalableTimeout.java
-M B Nm: The method name org.chromium.content.browser.ContentViewCore.UpdateVSync(long, long) doesn't start with a lower case letter  At ContentViewCore.java
 M B RV: exceptional return value of java.io.File.delete() ignored in org.chromium.android_webview.test.ArchiveTest.doArchiveTest(AwContents, String, boolean, String)  At ArchiveTest.java
 M B RV: exceptional return value of java.io.File.delete() ignored in org.chromium.android_webview.test.ArchiveTest.testAutoBadPath()  At ArchiveTest.java
 M B RV: exceptional return value of java.io.File.delete() ignored in org.chromium.android_webview.test.ArchiveTest.testExplicitBadPath()  At ArchiveTest.java
@@ -143,7 +73,6 @@ M D DLS: Dead store to testUrl in org.chromium.android_webview.test.ClientOnPage
 M D DLS: Dead store to time in org.chromium.net.test.util.TestWebServer.setDateHeaders(HttpResponse)  At TestWebServer.java
 M D DMI: Hard coded reference to an absolute pathname in org.chromium.android_webview.test.ArchiveTest.testAutoBadPath()  At ArchiveTest.java
 M D DMI: Hard coded reference to an absolute pathname in org.chromium.android_webview.test.ArchiveTest.testExplicitBadPath()  At ArchiveTest.java
-M D ICAST: Result of integer multiplication cast to long in org.chromium.android_webview.test.AwContentsClientShouldIgnoreNavigationTest.testShouldIgnoreNavigationNotCalledForPostNavigations()  At AwContentsClientShouldIgnoreNavigationTest.java
 M D ICAST: Result of integer multiplication cast to long in org.chromium.android_webview.test.AwSettingsTest.testBlockNetworkImagesBlocksNetworkImageAndReloadInPlace()  At AwSettingsTest.java
 M D ICAST: integral division result cast to double or float in org.chromium.content.browser.HandleView.setOrientation(int)  At HandleView.java
 M D REC: Exception is caught when Exception is not thrown in org.chromium.content.browser.test.util.UiUtils.findParentViewForIdAcrossActivities(int)  At UiUtils.java
@@ -187,7 +116,6 @@ M P SS: Unread field: org.chromium.android_webview.test.util.ImagePageGenerator.
 M P SS: Unread field: org.chromium.android_webview.test.util.ImagePageGenerator.IMAGE_SUFFIX; should this field be static?  At ImagePageGenerator.java
 M P SS: Unread field: org.chromium.native_test.ChromeNativeTestActivity.EXTRA_RUN_IN_SUB_THREAD; should this field be static?  At ChromeNativeTestActivity.java
 M P SS: Unread field: org.chromium.native_test.ChromeNativeTestActivity.TAG; should this field be static?  At ChromeNativeTestActivity.java
-M P UPM: Private method org.chromium.chrome.browser.component.web_contents_delegate_android.WebContentsDelegateAndroid.onLoadProgressChanged(double) is never called  At WebContentsDelegateAndroid.java
 M P UrF: Unread field: org.chromium.content.browser.ContentViewGestureHandlerTest$MockListener.mLastFling2  At ContentViewGestureHandlerTest.java
 M P UrF: Unread field: org.chromium.content.browser.ContentViewGestureHandlerTest$MockListener.mLastScroll1  At ContentViewGestureHandlerTest.java
 M P UrF: Unread field: org.chromium.content.browser.ContentViewGestureHandlerTest$MockListener.mLastScroll2  At ContentViewGestureHandlerTest.java
@@ -206,23 +134,10 @@ M V EI: org.chromium.chrome.browser.ChromeBrowserProvider$BookmarkNode.thumbnail
 M V MS: org.chromium.android_webview.AwResource.RAW_LOAD_ERROR isn't final and can't be protected from malicious code   In AwResource.java
 M V MS: org.chromium.android_webview.AwResource.RAW_NO_DOMAIN isn't final and can't be protected from malicious code   In AwResource.java
 M V MS: org.chromium.android_webview.AwResource.STRING_DEFAULT_TEXT_ENCODING isn't final and can't be protected from malicious code   In AwResource.java
-M V MS: org.chromium.content.app.AppResource.DIMENSION_LINK_PREVIEW_OVERLAY_RADIUS isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.DRAWABLE_ICON_ACTION_BAR_SHARE isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.DRAWABLE_ICON_ACTION_BAR_WEB_SEARCH isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.DRAWABLE_LINK_PREVIEW_POPUP_OVERLAY isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.ID_AUTOFILL_LABEL isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.ID_AUTOFILL_NAME isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.LAYOUT_AUTOFILL_TEXT isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_ACTION_BAR_SHARE isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_ACTION_BAR_WEB_SEARCH isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_CONTENT_VIEW_CONTENT_DESCRIPTION isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_MEDIA_PLAYER_ERROR_BUTTON isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_MEDIA_PLAYER_ERROR_TITLE isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_MEDIA_PLAYER_LOADING_VIDEO isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_MEDIA_PLAYER_MESSAGE_PLAYBACK_ERROR isn't final and can't be protected from malicious code   In AppResource.java
-M V MS: org.chromium.content.app.AppResource.STRING_MEDIA_PLAYER_MESSAGE_UNKNOWN_ERROR isn't final and can't be protected from malicious code   In AppResource.java
 M V MS: org.chromium.content.browser.LoadUrlParams.LOAD_TYPE_BROWSER_INITIATED_HTTP_POST should be package protected  In LoadUrlParams.java
 M V MS: org.chromium.content.browser.LoadUrlParams.LOAD_TYPE_DATA isn't final and can't be protected from malicious code   In LoadUrlParams.java
 M V MS: org.chromium.content.browser.LoadUrlParams.LOAD_TYPE_DEFAULT should be package protected  In LoadUrlParams.java
 M V MS: org.chromium.content.browser.LoadUrlParams.UA_OVERRIDE_INHERIT should be package protected  In LoadUrlParams.java
 M V MS: org.chromium.content.browser.LoadUrlParams.UA_OVERRIDE_TRUE should be package protected  In LoadUrlParams.java
+M C RCN: Nullcheck of GestureDetector.mVelocityTracker at line 630 of value previously dereferenced in org.chromium.content.browser.third_party.GestureDetector.onTouchEvent(MotionEvent)  At GestureDetector.java
+M D SF: Switch statement found in org.chromium.content.browser.third_party.GestureDetector.onTouchEvent(MotionEvent) where default case is missing  At GestureDetector.java

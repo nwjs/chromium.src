@@ -41,17 +41,19 @@ class TestExtensionService : public ExtensionServiceInterface {
       const std::string& id, bool include_disabled) const OVERRIDE;
   virtual const extensions::Extension* GetInstalledExtension(
       const std::string& id) const OVERRIDE;
+  virtual const extensions::Extension* GetPendingExtensionUpdate(
+      const std::string& extension_id) const OVERRIDE;
+  virtual void FinishDelayedInstallation(
+      const std::string& extension_id) OVERRIDE;
   virtual bool IsExtensionEnabled(
       const std::string& extension_id) const OVERRIDE;
   virtual bool IsExternalExtensionUninstalled(
       const std::string& extension_id) const OVERRIDE;
 
-  virtual void UpdateExtensionBlacklist(
-    const std::vector<std::string>& blacklist) OVERRIDE;
   virtual void CheckManagementPolicy() OVERRIDE;
   virtual void CheckForUpdatesSoon() OVERRIDE;
 
-  virtual syncer::SyncError MergeDataAndStartSyncing(
+  virtual syncer::SyncMergeResult MergeDataAndStartSyncing(
       syncer::ModelType type,
       const syncer::SyncDataList& initial_sync_data,
       scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
@@ -65,7 +67,11 @@ class TestExtensionService : public ExtensionServiceInterface {
 
   virtual bool is_ready() OVERRIDE;
 
+  virtual base::SequencedTaskRunner* GetFileTaskRunner() OVERRIDE;
+
   virtual void AddExtension(const extensions::Extension* extension) OVERRIDE;
+  virtual void AddComponentExtension(
+      const extensions::Extension* extension) OVERRIDE;
 
   virtual void UnloadExtension(
       const std::string& extension_id,

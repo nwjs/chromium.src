@@ -9,6 +9,7 @@
 #include "cc/checkerboard_draw_quad.h"
 #include "cc/debug_border_draw_quad.h"
 #include "cc/direct_renderer.h"
+#include "cc/gl_renderer_draw_cache.h"
 #include "cc/io_surface_draw_quad.h"
 #include "cc/render_pass_draw_quad.h"
 #include "cc/renderer.h"
@@ -83,30 +84,37 @@ protected:
     virtual void beginDrawingFrame(DrawingFrame&) OVERRIDE;
     virtual void finishDrawingFrame(DrawingFrame&) OVERRIDE;
     virtual bool flippedFramebuffer() const OVERRIDE;
+    virtual void ensureScissorTestEnabled() OVERRIDE;
+    virtual void ensureScissorTestDisabled() OVERRIDE;
+    virtual void finishDrawingQuadList() OVERRIDE;
 
 private:
-    static void toGLMatrix(float*, const WebKit::WebTransformationMatrix&);
+    static void toGLMatrix(float*, const gfx::Transform&);
     static int priorityCutoffValue(WebKit::WebGraphicsMemoryAllocation::PriorityCutoff);
 
     void drawCheckerboardQuad(const DrawingFrame&, const CheckerboardDrawQuad*);
     void drawDebugBorderQuad(const DrawingFrame&, const DebugBorderDrawQuad*);
     scoped_ptr<ScopedResource> drawBackgroundFilters(
         DrawingFrame&, const RenderPassDrawQuad*, const WebKit::WebFilterOperations&,
-        const WebKit::WebTransformationMatrix& contentsDeviceTransform,
-        const WebKit::WebTransformationMatrix& contentsDeviceTransformInverse);
+        const gfx::Transform& contentsDeviceTransform,
+        const gfx::Transform& contentsDeviceTransformInverse);
     void drawRenderPassQuad(DrawingFrame&, const RenderPassDrawQuad*);
     void drawSolidColorQuad(const DrawingFrame&, const SolidColorDrawQuad*);
     void drawStreamVideoQuad(const DrawingFrame&, const StreamVideoDrawQuad*);
     void drawTextureQuad(const DrawingFrame&, const TextureDrawQuad*);
+    void enqueueTextureQuad(const DrawingFrame&, const TextureDrawQuad*);
+    void flushTextureQuadCache();
     void drawIOSurfaceQuad(const DrawingFrame&, const IOSurfaceDrawQuad*);
     void drawTileQuad(const DrawingFrame&, const TileDrawQuad*);
     void drawYUVVideoQuad(const DrawingFrame&, const YUVVideoDrawQuad*);
 
     void setShaderOpacity(float opacity, int alphaLocation);
     void setShaderQuadF(const gfx::QuadF&, int quadLocation);
-    void drawQuadGeometry(const DrawingFrame&, const WebKit::WebTransformationMatrix& drawTransform, const gfx::RectF& quadRect, int matrixLocation);
+    void drawQuadGeometry(const DrawingFrame&, const gfx::Transform& drawTransform, const gfx::RectF& quadRect, int matrixLocation);
+    void setBlendEnabled(bool enabled);
+    void setUseProgram(unsigned program);
 
-    void copyTextureToFramebuffer(const DrawingFrame&, int textureId, const gfx::Rect&, const WebKit::WebTransformationMatrix& drawMatrix);
+    void copyTextureToFramebuffer(const DrawingFrame&, int textureId, const gfx::Rect&, const gfx::Transform& drawMatrix);
 
     bool useScopedTexture(DrawingFrame&, const ScopedResource*, const gfx::Rect& viewportRect);
 
@@ -210,11 +218,16 @@ private:
     WebKit::WebGraphicsContext3D* m_context;
 
     gfx::Rect m_swapBufferRect;
+    gfx::Rect m_scissorRect;
     bool m_isViewportChanged;
     bool m_isFramebufferDiscarded;
     bool m_discardFramebufferWhenNotVisible;
     bool m_isUsingBindUniform;
     bool m_visible;
+    bool m_isScissorEnabled;
+    bool m_blendShadow;
+    unsigned m_programShadow;
+    TexturedQuadDrawCache m_drawCache;
 
     scoped_ptr<ResourceProvider::ScopedWriteLockGL> m_currentFramebufferLock;
 

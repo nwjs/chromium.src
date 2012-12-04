@@ -50,13 +50,12 @@ base::RefCountedMemory* NTPResourceCache::GetNewTabCSS(bool is_incognito) {
 }
 
 void NTPResourceCache::Observe(int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
+                               const content::NotificationSource& source,
+                               const content::NotificationDetails& details) {
   // No notifications necessary in Android.
 }
 
-void NTPResourceCache::OnPreferenceChanged(PrefServiceBase* service,
-                                           const std::string& pref_name) {
+void NTPResourceCache::OnPreferenceChanged() {
   // No notifications necessary in Android.
 }
 
@@ -113,7 +112,8 @@ void NTPResourceCache::CreateNewTabHTML() {
   string16 learnMoreLink = ASCIIToUTF16(
       google_util::AppendGoogleLocaleParam(GURL(new_tab_link)).spec());
   localized_strings.SetString("content",
-      l10n_util::GetStringFUTF16(IDS_NEW_TAB_OTR_MESSAGE, learnMoreLink));
+      l10n_util::GetStringFUTF16(
+          IDS_NEW_TAB_OTR_MESSAGE_MOBILE, learnMoreLink));
 
   // Load the new tab page appropriate for this build.
   std::string full_html;

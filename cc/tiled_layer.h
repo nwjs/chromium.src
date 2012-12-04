@@ -25,8 +25,6 @@ public:
 
     virtual void setNeedsDisplayRect(const gfx::RectF&) OVERRIDE;
 
-    virtual void setUseLCDText(bool) OVERRIDE;
-
     virtual void setLayerTreeHost(LayerTreeHost*) OVERRIDE;
 
     virtual void setTexturePriorities(const PriorityCalculator&) OVERRIDE;
@@ -85,6 +83,8 @@ private:
 
     UpdatableTile* tileAt(int, int) const;
     UpdatableTile* createTile(int, int);
+
+    bool isSmallAnimatedLayer() const;
 
     GLenum m_textureFormat;
     bool m_skipsDraw;

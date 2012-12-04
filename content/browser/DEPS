@@ -3,12 +3,13 @@ include_rules = [
   "+content/port/browser",
   "+content/public/browser",
   "+media/audio",  # For audio input for speech input feature.
-  "+media/base/android",  # For Android JNI registration.
+  "+media/base",  # For Android JNI registration and kEnableEncryptedMedia.
   "+ui/ui_controls",  # this should probably move into a DEPS file under test.
 
   # Other libraries.
   "+third_party/iaccessible2",
   "+third_party/isimpledom",
+  "+third_party/khronos",   # For enum definitions only
   "+third_party/speex",
 
   # Allow non-browser Chrome OS code to be used.

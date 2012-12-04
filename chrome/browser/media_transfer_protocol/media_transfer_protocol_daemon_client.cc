@@ -32,12 +32,13 @@ class MediaTransferProtocolDaemonClientImpl
   }
 
   // MediaTransferProtocolDaemonClient override.
-  virtual void EnumerateStorage(const EnumerateStorageCallback& callback,
-                                const ErrorCallback& error_callback) OVERRIDE {
-    dbus::MethodCall method_call(mtpd::kMtpdInterface, mtpd::kEnumerateStorage);
+  virtual void EnumerateStorages(const EnumerateStoragesCallback& callback,
+                                 const ErrorCallback& error_callback) OVERRIDE {
+    dbus::MethodCall method_call(mtpd::kMtpdInterface,
+                                 mtpd::kEnumerateStorages);
     proxy_->CallMethod(
         &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-        base::Bind(&MediaTransferProtocolDaemonClientImpl::OnEnumerateStorage,
+        base::Bind(&MediaTransferProtocolDaemonClientImpl::OnEnumerateStorages,
                    weak_ptr_factory_.GetWeakPtr(),
                    callback,
                    error_callback));
@@ -131,14 +132,20 @@ class MediaTransferProtocolDaemonClientImpl
   }
 
   // MediaTransferProtocolDaemonClient override.
-  virtual void ReadFileByPath(const std::string& handle,
-                              const std::string& path,
-                              const ReadFileCallback& callback,
-                              const ErrorCallback& error_callback) OVERRIDE {
-    dbus::MethodCall method_call(mtpd::kMtpdInterface, mtpd::kReadFileByPath);
+  virtual void ReadFileChunkByPath(
+      const std::string& handle,
+      const std::string& path,
+      uint32 offset,
+      uint32 bytes_to_read,
+      const ReadFileCallback& callback,
+      const ErrorCallback& error_callback) OVERRIDE {
+    dbus::MethodCall method_call(mtpd::kMtpdInterface,
+                                 mtpd::kReadFileChunkByPath);
     dbus::MessageWriter writer(&method_call);
     writer.AppendString(handle);
     writer.AppendString(path);
+    writer.AppendUint32(offset);
+    writer.AppendUint32(bytes_to_read);
     proxy_->CallMethod(
         &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
         base::Bind(&MediaTransferProtocolDaemonClientImpl::OnReadFile,
@@ -148,14 +155,19 @@ class MediaTransferProtocolDaemonClientImpl
   }
 
   // MediaTransferProtocolDaemonClient override.
-  virtual void ReadFileById(const std::string& handle,
-                            uint32 file_id,
-                            const ReadFileCallback& callback,
-                            const ErrorCallback& error_callback) OVERRIDE {
-    dbus::MethodCall method_call(mtpd::kMtpdInterface, mtpd::kReadFileById);
+  virtual void ReadFileChunkById(const std::string& handle,
+                                 uint32 file_id,
+                                 uint32 offset,
+                                 uint32 bytes_to_read,
+                                 const ReadFileCallback& callback,
+                                 const ErrorCallback& error_callback) OVERRIDE {
+    dbus::MethodCall method_call(mtpd::kMtpdInterface,
+                                 mtpd::kReadFileChunkById);
     dbus::MessageWriter writer(&method_call);
     writer.AppendString(handle);
     writer.AppendUint32(file_id);
+    writer.AppendUint32(offset);
+    writer.AppendUint32(bytes_to_read);
     proxy_->CallMethod(
         &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
         base::Bind(&MediaTransferProtocolDaemonClientImpl::OnReadFile,
@@ -229,11 +241,11 @@ class MediaTransferProtocolDaemonClientImpl
     bool is_attach;
   };
 
-  // Handles the result of EnumerateStorage and calls |callback| or
+  // Handles the result of EnumerateStorages and calls |callback| or
   // |error_callback|.
-  void OnEnumerateStorage(const EnumerateStorageCallback& callback,
-                          const ErrorCallback& error_callback,
-                          dbus::Response* response) {
+  void OnEnumerateStorages(const EnumerateStoragesCallback& callback,
+                           const ErrorCallback& error_callback,
+                           dbus::Response* response) {
     if (!response) {
       error_callback.Run();
       return;
@@ -323,7 +335,7 @@ class MediaTransferProtocolDaemonClientImpl
     callback.Run(file_entries);
   }
 
-  // Handles the result of ReadFileByPath/Id and calls |callback| or
+  // Handles the result of ReadFileChunkByPath/Id and calls |callback| or
   // |error_callback|.
   void OnReadFile(const ReadFileCallback& callback,
                   const ErrorCallback& error_callback,
@@ -403,8 +415,8 @@ class MediaTransferProtocolDaemonClientStubImpl
   MediaTransferProtocolDaemonClientStubImpl() {}
   virtual ~MediaTransferProtocolDaemonClientStubImpl() {}
 
-  virtual void EnumerateStorage(
-      const EnumerateStorageCallback& callback,
+  virtual void EnumerateStorages(
+      const EnumerateStoragesCallback& callback,
       const ErrorCallback& error_callback) OVERRIDE {}
   virtual void GetStorageInfo(
       const std::string& storage_name,
@@ -427,14 +439,20 @@ class MediaTransferProtocolDaemonClientStubImpl
       uint32 file_id,
       const ReadDirectoryCallback& callback,
       const ErrorCallback& error_callback) OVERRIDE {}
-  virtual void ReadFileByPath(const std::string& handle,
-                              const std::string& path,
-                              const ReadFileCallback& callback,
-                              const ErrorCallback& error_callback) OVERRIDE {}
-  virtual void ReadFileById(const std::string& handle,
-                            uint32 file_id,
-                            const ReadFileCallback& callback,
-                            const ErrorCallback& error_callback) OVERRIDE {}
+  virtual void ReadFileChunkByPath(
+      const std::string& handle,
+      const std::string& path,
+      uint32 offset,
+      uint32 length,
+      const ReadFileCallback& callback,
+      const ErrorCallback& error_callback) OVERRIDE {}
+  virtual void ReadFileChunkById(
+      const std::string& handle,
+      uint32 file_id,
+      uint32 offset,
+      uint32 length,
+      const ReadFileCallback& callback,
+      const ErrorCallback& error_callback) OVERRIDE {}
   virtual void GetFileInfoByPath(
       const std::string& handle,
       const std::string& path,

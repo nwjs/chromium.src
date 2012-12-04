@@ -12,12 +12,8 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebContentLayerClient.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebExternalTextureLayerClient.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebLayer.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebContentLayer.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebSolidColorLayer.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebExternalTextureLayer.h"
+#include "cc/content_layer_client.h"
+#include "cc/texture_layer_client.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/compositor/compositor.h"
@@ -28,6 +24,14 @@
 #include "ui/gfx/transform.h"
 
 class SkCanvas;
+
+namespace cc {
+class ContentLayer;
+class Layer;
+class ResourceUpdateQueue;
+class SolidColorLayer;
+class TextureLayer;
+}
 
 namespace ui {
 
@@ -47,8 +51,8 @@ class Texture;
 // NULL, but the children are not deleted.
 class COMPOSITOR_EXPORT Layer
     : public LayerAnimationDelegate,
-      NON_EXPORTED_BASE(public WebKit::WebContentLayerClient),
-      NON_EXPORTED_BASE(public WebKit::WebExternalTextureLayerClient) {
+      NON_EXPORTED_BASE(public cc::ContentLayerClient),
+      NON_EXPORTED_BASE(public cc::TextureLayerClient) {
  public:
   Layer();
   explicit Layer(LayerType type);
@@ -168,6 +172,12 @@ class COMPOSITOR_EXPORT Layer
   // grayscale otherwise.
   float GetTargetGrayscale() const;
 
+  // Zoom the background by a factor of |zoom|.  The upper left corner of the
+  // zoomed area is offset from the top left corner of the layer by |x_offset|
+  // and |y_offset|.  The effect is blended along the edge across |inset|
+  // pixels.
+  void SetBackgroundZoom(float x_offset, float y_offset, float zoom, int inset);
+
   // Invert the layer.
   bool layer_inverted() const { return layer_inverted_; }
   void SetLayerInverted(bool inverted);
@@ -260,19 +270,14 @@ class COMPOSITOR_EXPORT Layer
   // (e.g. the GPU process on UI_COMPOSITOR_IMAGE_TRANSPORT).
   bool layer_updated_externally() const { return layer_updated_externally_; }
 
-  // WebContentLayerClient
-  virtual void paintContents(WebKit::WebCanvas*,
-                             const WebKit::WebRect& clip,
-#if WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
-                             bool can_paint_lcd_text,
-#endif  // WEBCONTENTLAYERCLIENT_HAS_CANPAINTLCDTEXT
-                             WebKit::WebFloatRect& opaque) OVERRIDE;
+  // ContentLayerClient
+  virtual void paintContents(
+      SkCanvas*, const gfx::Rect& clip, gfx::RectF& opaque) OVERRIDE;
 
-  WebKit::WebLayer* web_layer() { return web_layer_; }
+  cc::Layer* cc_layer() { return cc_layer_; }
 
-  // WebExternalTextureLayerClient
-  virtual unsigned prepareTexture(
-      WebKit::WebTextureUpdater& /* updater */) OVERRIDE;
+  // TextureLayerClient
+  virtual unsigned prepareTexture(cc::ResourceUpdateQueue&) OVERRIDE;
   virtual WebKit::WebGraphicsContext3D* context() OVERRIDE;
 
   float device_scale_factor() const { return device_scale_factor_; }
@@ -329,10 +334,12 @@ class COMPOSITOR_EXPORT Layer
   void CreateWebLayer();
   void RecomputeTransform();
   void RecomputeDrawsContentAndUVRect();
-  void RecomputeDebugBorderColor();
 
   // Set all filters which got applied to the layer.
   void SetLayerFilters();
+
+  // Set all filters which got applied to the layer background.
+  void SetLayerBackgroundFilters();
 
   const LayerType type_;
 
@@ -380,6 +387,18 @@ class COMPOSITOR_EXPORT Layer
   // while attached to the main layer before the main layer is deleted.
   Layer* layer_mask_back_link_;
 
+  // When the layer is zoomed, this is the offset to the upper left corner of
+  // the area in the layer that is zoomed.
+  float zoom_x_offset_;
+  float zoom_y_offset_;
+
+  // The zoom factor to scale the layer by.  Zooming is disabled when this is
+  // set to 1.
+  float zoom_;
+
+  // Width of the border in pixels, where the scaling is blended.
+  int zoom_inset_;
+
   std::string name_;
 
   LayerDelegate* delegate_;
@@ -388,12 +407,11 @@ class COMPOSITOR_EXPORT Layer
 
   // Ownership of the layer is held through one of the strongly typed layer
   // pointers, depending on which sort of layer this is.
-  scoped_ptr<WebKit::WebContentLayer> content_layer_;
-  scoped_ptr<WebKit::WebExternalTextureLayer> texture_layer_;
-  scoped_ptr<WebKit::WebSolidColorLayer> solid_color_layer_;
-  WebKit::WebLayer* web_layer_;
-  bool web_layer_is_accelerated_;
-  bool show_debug_borders_;
+  scoped_refptr<cc::ContentLayer> content_layer_;
+  scoped_refptr<cc::TextureLayer> texture_layer_;
+  scoped_refptr<cc::SolidColorLayer> solid_color_layer_;
+  cc::Layer* cc_layer_;
+  bool cc_layer_is_accelerated_;
 
   // If true, the layer scales the canvas and the texture with the device scale
   // factor as appropriate. When true, the texture size is in DIP.

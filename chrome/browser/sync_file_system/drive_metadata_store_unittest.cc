@@ -5,11 +5,12 @@
 #include "chrome/browser/sync_file_system/drive_metadata_store.h"
 
 #include "base/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
 #include "base/threading/thread.h"
+#include "chrome/browser/sync_file_system/drive_file_sync_service.h"
 #include "chrome/browser/sync_file_system/sync_file_system.pb.h"
 #include "content/public/browser/browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -25,8 +26,8 @@ namespace sync_file_system {
 
 namespace {
 
-const char kOrigin[] = "http://www.example.com";
-const char kServiceName[] = "test";
+const char kOrigin[] = "chrome-extension://example";
+const char* const kServiceName = DriveFileSyncService::kServiceName;
 
 typedef DriveMetadataStore::ResourceIDMap ResourceIDMap;
 
@@ -78,7 +79,7 @@ class DriveMetadataStoreTest : public testing::Test {
 
     DropDatabase();
     file_thread_->Stop();
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
  protected:
@@ -141,8 +142,57 @@ class DriveMetadataStoreTest : public testing::Test {
     message_loop_.Run();
   }
 
-  DriveMetadataStore* drive_metadata_store() {
+  fileapi::SyncStatusCode RemoveOrigin(const GURL& url) {
+    fileapi::SyncStatusCode status = fileapi::SYNC_STATUS_UNKNOWN;
+    drive_metadata_store_->RemoveOrigin(
+        url, base::Bind(&DriveMetadataStoreTest::DidFinishDBTask,
+                        base::Unretained(this), &status));
+    message_loop_.Run();
+    return status;
+  }
+
+  fileapi::SyncStatusCode UpdateEntry(const fileapi::FileSystemURL& url,
+                                      const DriveMetadata& metadata) {
+    fileapi::SyncStatusCode status = fileapi::SYNC_STATUS_UNKNOWN;
+    drive_metadata_store_->UpdateEntry(
+        url, metadata,
+        base::Bind(&DriveMetadataStoreTest::DidFinishDBTask,
+                   base::Unretained(this), &status));
+    message_loop_.Run();
+    return status;
+  }
+
+  fileapi::SyncStatusCode DeleteEntry(const fileapi::FileSystemURL& url) {
+    fileapi::SyncStatusCode status = fileapi::SYNC_STATUS_UNKNOWN;
+    drive_metadata_store_->DeleteEntry(
+        url,
+        base::Bind(&DriveMetadataStoreTest::DidFinishDBTask,
+                   base::Unretained(this), &status));
+    message_loop_.Run();
+    return status;
+  }
+
+  fileapi::SyncStatusCode SetLargestChangeStamp(int64 changestamp) {
+    fileapi::SyncStatusCode status = fileapi::SYNC_STATUS_UNKNOWN;
+    drive_metadata_store_->SetLargestChangeStamp(
+        changestamp, base::Bind(&DriveMetadataStoreTest::DidFinishDBTask,
+                                base::Unretained(this), &status));
+    message_loop_.Run();
+    return status;
+  }
+
+  void DidFinishDBTask(fileapi::SyncStatusCode* status_out,
+                       fileapi::SyncStatusCode status) {
+    *status_out = status;
+    message_loop_.Quit();
+  }
+
+  DriveMetadataStore* metadata_store() {
     return drive_metadata_store_.get();
+  }
+
+  const DriveMetadataStore::MetadataMap& metadata_map() {
+    return drive_metadata_store_->metadata_map_;
   }
 
  private:
@@ -167,7 +217,7 @@ class DriveMetadataStoreTest : public testing::Test {
     message_loop_.Quit();
   }
 
-  ScopedTempDir base_dir_;
+  base::ScopedTempDir base_dir_;
 
   MessageLoop message_loop_;
   scoped_ptr<base::Thread> file_thread_;
@@ -192,30 +242,28 @@ TEST_F(DriveMetadataStoreTest, ReadWriteTest) {
   const fileapi::FileSystemURL url = URL(FilePath());
   DriveMetadata metadata;
   EXPECT_EQ(fileapi::SYNC_DATABASE_ERROR_NOT_FOUND,
-            drive_metadata_store()->ReadEntry(url, &metadata));
+            metadata_store()->ReadEntry(url, &metadata));
 
   metadata = CreateMetadata("1234567890", "09876543210", true);
-  EXPECT_EQ(fileapi::SYNC_STATUS_OK,
-            drive_metadata_store()->UpdateEntry(url, metadata));
-  drive_metadata_store()->SetLargestChangeStamp(1);
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, UpdateEntry(url, metadata));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, SetLargestChangeStamp(1));
 
   DropDatabase();
   InitializeDatabase();
 
-  EXPECT_EQ(1, drive_metadata_store()->GetLargestChangeStamp());
+  EXPECT_EQ(1, metadata_store()->GetLargestChangeStamp());
 
   DriveMetadata metadata2;
   EXPECT_EQ(fileapi::SYNC_STATUS_OK,
-            drive_metadata_store()->ReadEntry(url, &metadata2));
+            metadata_store()->ReadEntry(url, &metadata2));
   EXPECT_EQ(metadata.resource_id(), metadata2.resource_id());
   EXPECT_EQ(metadata.md5_checksum(), metadata2.md5_checksum());
   EXPECT_EQ(metadata.conflicted(), metadata2.conflicted());
 
-  EXPECT_EQ(fileapi::SYNC_STATUS_OK, drive_metadata_store()->DeleteEntry(url));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, DeleteEntry(url));
   EXPECT_EQ(fileapi::SYNC_DATABASE_ERROR_NOT_FOUND,
-            drive_metadata_store()->ReadEntry(url, &metadata));
-  EXPECT_EQ(fileapi::SYNC_DATABASE_ERROR_NOT_FOUND,
-            drive_metadata_store()->DeleteEntry(url));
+            metadata_store()->ReadEntry(url, &metadata));
+  EXPECT_EQ(fileapi::SYNC_DATABASE_ERROR_NOT_FOUND, DeleteEntry(url));
 }
 
 TEST_F(DriveMetadataStoreTest, GetConflictURLsTest) {
@@ -223,7 +271,7 @@ TEST_F(DriveMetadataStoreTest, GetConflictURLsTest) {
 
   fileapi::FileSystemURLSet urls;
   EXPECT_EQ(fileapi::SYNC_STATUS_OK,
-            drive_metadata_store()->GetConflictURLs(&urls));
+            metadata_store()->GetConflictURLs(&urls));
   EXPECT_EQ(0U, urls.size());
 
   const FilePath path1(FPL("file1"));
@@ -232,15 +280,14 @@ TEST_F(DriveMetadataStoreTest, GetConflictURLsTest) {
 
   // Populate metadata in DriveMetadataStore. The metadata identified by "file2"
   // and "file3" are marked as conflicted.
-  DriveMetadataStore* store = drive_metadata_store();
   EXPECT_EQ(fileapi::SYNC_STATUS_OK,
-            store->UpdateEntry(URL(path1), CreateMetadata("1", "1", false)));
+            UpdateEntry(URL(path1), CreateMetadata("1", "1", false)));
   EXPECT_EQ(fileapi::SYNC_STATUS_OK,
-            store->UpdateEntry(URL(path2), CreateMetadata("2", "2", true)));
+            UpdateEntry(URL(path2), CreateMetadata("2", "2", true)));
   EXPECT_EQ(fileapi::SYNC_STATUS_OK,
-            store->UpdateEntry(URL(path3), CreateMetadata("3", "3", true)));
+            UpdateEntry(URL(path3), CreateMetadata("3", "3", true)));
 
-  EXPECT_EQ(fileapi::SYNC_STATUS_OK, store->GetConflictURLs(&urls));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, metadata_store()->GetConflictURLs(&urls));
   EXPECT_EQ(2U, urls.size());
   EXPECT_FALSE(ContainsKey(urls, URL(path1)));
   EXPECT_TRUE(ContainsKey(urls, URL(path2)));
@@ -252,70 +299,159 @@ TEST_F(DriveMetadataStoreTest, StoreSyncRootDirectory) {
 
   InitializeDatabase();
 
-  EXPECT_TRUE(drive_metadata_store()->sync_root_directory().empty());
+  EXPECT_TRUE(metadata_store()->sync_root_directory().empty());
 
-  drive_metadata_store()->SetSyncRootDirectory(kResourceID);
-  EXPECT_EQ(kResourceID, drive_metadata_store()->sync_root_directory());
+  metadata_store()->SetSyncRootDirectory(kResourceID);
+  EXPECT_EQ(kResourceID, metadata_store()->sync_root_directory());
 
   DropSyncRootDirectoryInStore();
-  EXPECT_TRUE(drive_metadata_store()->sync_root_directory().empty());
+  EXPECT_TRUE(metadata_store()->sync_root_directory().empty());
 
   RestoreSyncRootDirectoryFromDB();
-  EXPECT_EQ(kResourceID, drive_metadata_store()->sync_root_directory());
+  EXPECT_EQ(kResourceID, metadata_store()->sync_root_directory());
 }
 
 TEST_F(DriveMetadataStoreTest, StoreSyncOrigin) {
-  const GURL kOrigin1("http://www1.example.com");
-  const GURL kOrigin2("http://www2.example.com");
+  const GURL kOrigin1("chrome-extension://example1");
+  const GURL kOrigin2("chrome-extension://example2");
   const std::string kResourceID1("hoge");
   const std::string kResourceID2("fuga");
 
   InitializeDatabase();
-  DriveMetadataStore* store = drive_metadata_store();
 
   // Make sure origins have not been marked yet.
-  EXPECT_FALSE(store->IsBatchSyncOrigin(kOrigin1));
-  EXPECT_FALSE(store->IsBatchSyncOrigin(kOrigin2));
-  EXPECT_FALSE(store->IsIncrementalSyncOrigin(kOrigin1));
-  EXPECT_FALSE(store->IsIncrementalSyncOrigin(kOrigin2));
+  EXPECT_FALSE(metadata_store()->IsBatchSyncOrigin(kOrigin1));
+  EXPECT_FALSE(metadata_store()->IsBatchSyncOrigin(kOrigin2));
+  EXPECT_FALSE(metadata_store()->IsIncrementalSyncOrigin(kOrigin1));
+  EXPECT_FALSE(metadata_store()->IsIncrementalSyncOrigin(kOrigin2));
 
   // Mark origins as batch sync origins.
-  store->AddBatchSyncOrigin(kOrigin1, kResourceID1);
-  store->AddBatchSyncOrigin(kOrigin2, kResourceID2);
-  EXPECT_TRUE(store->IsBatchSyncOrigin(kOrigin1));
-  EXPECT_TRUE(store->IsBatchSyncOrigin(kOrigin2));
-  EXPECT_EQ(kResourceID1, GetResourceID(store->batch_sync_origins(), kOrigin1));
-  EXPECT_EQ(kResourceID2, GetResourceID(store->batch_sync_origins(), kOrigin2));
+  metadata_store()->AddBatchSyncOrigin(kOrigin1, kResourceID1);
+  metadata_store()->AddBatchSyncOrigin(kOrigin2, kResourceID2);
+  EXPECT_TRUE(metadata_store()->IsBatchSyncOrigin(kOrigin1));
+  EXPECT_TRUE(metadata_store()->IsBatchSyncOrigin(kOrigin2));
+  EXPECT_EQ(kResourceID1,
+            GetResourceID(metadata_store()->batch_sync_origins(), kOrigin1));
+  EXPECT_EQ(kResourceID2,
+            GetResourceID(metadata_store()->batch_sync_origins(), kOrigin2));
 
   // Mark |kOrigin1| as an incremental sync origin. |kOrigin2| should have still
   // been marked as a batch sync origin.
-  store->MoveBatchSyncOriginToIncremental(kOrigin1);
-  EXPECT_FALSE(store->IsBatchSyncOrigin(kOrigin1));
-  EXPECT_TRUE(store->IsBatchSyncOrigin(kOrigin2));
-  EXPECT_TRUE(store->IsIncrementalSyncOrigin(kOrigin1));
-  EXPECT_FALSE(store->IsIncrementalSyncOrigin(kOrigin2));
+  metadata_store()->MoveBatchSyncOriginToIncremental(kOrigin1);
+  EXPECT_FALSE(metadata_store()->IsBatchSyncOrigin(kOrigin1));
+  EXPECT_TRUE(metadata_store()->IsBatchSyncOrigin(kOrigin2));
+  EXPECT_TRUE(metadata_store()->IsIncrementalSyncOrigin(kOrigin1));
+  EXPECT_FALSE(metadata_store()->IsIncrementalSyncOrigin(kOrigin2));
   EXPECT_EQ(kResourceID1,
-            GetResourceID(store->incremental_sync_origins(), kOrigin1));
-  EXPECT_EQ(kResourceID2, GetResourceID(store->batch_sync_origins(), kOrigin2));
+            GetResourceID(metadata_store()->incremental_sync_origins(),
+                          kOrigin1));
+  EXPECT_EQ(kResourceID2,
+            GetResourceID(metadata_store()->batch_sync_origins(), kOrigin2));
 
   DropSyncOriginsInStore();
 
   // Make sure origins have been dropped.
-  EXPECT_FALSE(store->IsBatchSyncOrigin(kOrigin1));
-  EXPECT_FALSE(store->IsBatchSyncOrigin(kOrigin2));
-  EXPECT_FALSE(store->IsIncrementalSyncOrigin(kOrigin1));
-  EXPECT_FALSE(store->IsIncrementalSyncOrigin(kOrigin2));
+  EXPECT_FALSE(metadata_store()->IsBatchSyncOrigin(kOrigin1));
+  EXPECT_FALSE(metadata_store()->IsBatchSyncOrigin(kOrigin2));
+  EXPECT_FALSE(metadata_store()->IsIncrementalSyncOrigin(kOrigin1));
+  EXPECT_FALSE(metadata_store()->IsIncrementalSyncOrigin(kOrigin2));
 
   RestoreSyncOriginsFromDB();
 
   // Make sure origins have been restored.
-  EXPECT_FALSE(store->IsBatchSyncOrigin(kOrigin1));
-  EXPECT_TRUE(store->IsBatchSyncOrigin(kOrigin2));
-  EXPECT_TRUE(store->IsIncrementalSyncOrigin(kOrigin1));
-  EXPECT_FALSE(store->IsIncrementalSyncOrigin(kOrigin2));
+  EXPECT_FALSE(metadata_store()->IsBatchSyncOrigin(kOrigin1));
+  EXPECT_TRUE(metadata_store()->IsBatchSyncOrigin(kOrigin2));
+  EXPECT_TRUE(metadata_store()->IsIncrementalSyncOrigin(kOrigin1));
+  EXPECT_FALSE(metadata_store()->IsIncrementalSyncOrigin(kOrigin2));
   EXPECT_EQ(kResourceID1,
-            GetResourceID(store->incremental_sync_origins(), kOrigin1));
-  EXPECT_EQ(kResourceID2, GetResourceID(store->batch_sync_origins(), kOrigin2));
+            GetResourceID(metadata_store()->incremental_sync_origins(),
+                          kOrigin1));
+  EXPECT_EQ(kResourceID2,
+            GetResourceID(metadata_store()->batch_sync_origins(), kOrigin2));
+}
+
+TEST_F(DriveMetadataStoreTest, RemoveOrigin) {
+  const GURL kOrigin1("chrome-extension://example1");
+  const GURL kOrigin2("chrome-extension://example2");
+  const GURL kOrigin3("chrome-extension://example3");
+  const GURL kOrigin4("chrome-extension://example4");
+  const std::string kResourceId1("hogera");
+  const std::string kResourceId2("fugaga");
+  const std::string kResourceId3("piyopiyo");
+
+  InitializeDatabase();
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, SetLargestChangeStamp(1));
+
+  metadata_store()->AddBatchSyncOrigin(kOrigin1, kResourceId1);
+  metadata_store()->AddBatchSyncOrigin(kOrigin2, kResourceId2);
+  metadata_store()->MoveBatchSyncOriginToIncremental(kOrigin2);
+  metadata_store()->AddBatchSyncOrigin(kOrigin3, kResourceId3);
+
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK,
+            UpdateEntry(
+                fileapi::CreateSyncableFileSystemURL(
+                    kOrigin1, kServiceName, FilePath(FPL("guf"))),
+                CreateMetadata("foo", "spam", false)));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK,
+            UpdateEntry(
+                fileapi::CreateSyncableFileSystemURL(
+                    kOrigin2, kServiceName, FilePath(FPL("mof"))),
+                CreateMetadata("bar", "ham", false)));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK,
+            UpdateEntry(
+                fileapi::CreateSyncableFileSystemURL(
+                    kOrigin3, kServiceName, FilePath(FPL("waf"))),
+                CreateMetadata("baz", "egg", false)));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK,
+            UpdateEntry(
+                fileapi::CreateSyncableFileSystemURL(
+                    kOrigin4, kServiceName, FilePath(FPL("cue"))),
+                CreateMetadata("lat", "fork", false)));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK,
+            UpdateEntry(
+                fileapi::CreateSyncableFileSystemURL(
+                    kOrigin1, kServiceName, FilePath(FPL("tic"))),
+                CreateMetadata("zav", "sause", false)));
+
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, RemoveOrigin(kOrigin1));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, RemoveOrigin(kOrigin2));
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, RemoveOrigin(kOrigin4));
+
+  DropDatabase();
+  InitializeDatabase();
+
+  // kOrigin3 should be only remaining batch sync origin.
+  EXPECT_EQ(1u, metadata_store()->batch_sync_origins().size());
+  EXPECT_TRUE(metadata_store()->IsBatchSyncOrigin(kOrigin3));
+  EXPECT_TRUE(metadata_store()->incremental_sync_origins().empty());
+  EXPECT_EQ(1u, metadata_map().size());
+
+  DriveMetadataStore::MetadataMap::const_iterator found =
+      metadata_map().find(kOrigin3);
+  EXPECT_TRUE(found != metadata_map().end() && found->second.size() == 1u);
+}
+
+TEST_F(DriveMetadataStoreTest, GetResourceIdForOrigin) {
+  const GURL kOrigin1("chrome-extension://example1");
+  const GURL kOrigin2("chrome-extension://example2");
+  const std::string kResourceId1("hogera");
+  const std::string kResourceId2("fugaga");
+
+  InitializeDatabase();
+  EXPECT_EQ(fileapi::SYNC_STATUS_OK, SetLargestChangeStamp(1));
+
+  metadata_store()->AddBatchSyncOrigin(kOrigin1, kResourceId1);
+  metadata_store()->AddBatchSyncOrigin(kOrigin2, kResourceId2);
+  metadata_store()->MoveBatchSyncOriginToIncremental(kOrigin2);
+
+  EXPECT_EQ(kResourceId1, metadata_store()->GetResourceIdForOrigin(kOrigin1));
+  EXPECT_EQ(kResourceId2, metadata_store()->GetResourceIdForOrigin(kOrigin2));
+
+  DropDatabase();
+  InitializeDatabase();
+
+  EXPECT_EQ(kResourceId1, metadata_store()->GetResourceIdForOrigin(kOrigin1));
+  EXPECT_EQ(kResourceId2, metadata_store()->GetResourceIdForOrigin(kOrigin2));
 }
 
 }  // namespace sync_file_system

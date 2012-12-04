@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/system_monitor/system_monitor.h"
 #include "base/test/mock_devices_changed_observer.h"
 #include "base/utf_string_conversions.h"
@@ -317,7 +317,7 @@ class RemovableDeviceNotificationsWindowWinTest : public testing::Test {
   void PreAttachDevices();
 
   // Runs all the pending tasks on UI thread, FILE thread and blocking thread.
-  void RunAllPending();
+  void RunUntilIdle();
 
   void DoMassStorageDeviceAttachedTest(const DeviceIndices& device_indices);
   void DoMassStorageDevicesDetachedTest(const DeviceIndices& device_indices);
@@ -352,12 +352,12 @@ void RemovableDeviceNotificationsWindowWinTest::SetUp() {
   window_.reset(new TestRemovableDeviceNotificationsWindowWin(
       volume_mount_watcher_.get(), new TestPortableDeviceWatcherWin));
   window_->InitWithTestData(false);
-  RunAllPending();
+  RunUntilIdle();
   system_monitor_.AddDevicesChangedObserver(&observer_);
 }
 
 void RemovableDeviceNotificationsWindowWinTest::TearDown() {
-  RunAllPending();
+  RunUntilIdle();
   system_monitor_.RemoveDevicesChangedObserver(&observer_);
 }
 
@@ -391,11 +391,11 @@ void RemovableDeviceNotificationsWindowWinTest::PreAttachDevices() {
   window_.reset(new TestRemovableDeviceNotificationsWindowWin(
       volume_mount_watcher_.get(), new TestPortableDeviceWatcherWin));
   window_->InitWithTestData(true);
-  RunAllPending();
+  RunUntilIdle();
 }
 
-void RemovableDeviceNotificationsWindowWinTest::RunAllPending() {
-  message_loop_.RunAllPending();
+void RemovableDeviceNotificationsWindowWinTest::RunUntilIdle() {
+  message_loop_.RunUntilIdle();
 }
 
 void RemovableDeviceNotificationsWindowWinTest::
@@ -415,7 +415,7 @@ void RemovableDeviceNotificationsWindowWinTest::
   }
   window_->InjectDeviceChange(DBT_DEVICEARRIVAL,
                               reinterpret_cast<DWORD>(&volume_broadcast));
-  RunAllPending();
+  RunUntilIdle();
 }
 
 void RemovableDeviceNotificationsWindowWinTest::
@@ -444,7 +444,7 @@ void RemovableDeviceNotificationsWindowWinTest::
   }
   window_->InjectDeviceChange(DBT_DEVICEREMOVECOMPLETE,
                               reinterpret_cast<DWORD>(&volume_broadcast));
-  RunAllPending();
+  RunUntilIdle();
 }
 
 void RemovableDeviceNotificationsWindowWinTest::DoMTPDeviceTest(
@@ -488,12 +488,12 @@ void RemovableDeviceNotificationsWindowWinTest::DoMTPDeviceTest(
   window_->InjectDeviceChange(
       test_attach ? DBT_DEVICEARRIVAL : DBT_DEVICEREMOVECOMPLETE,
       reinterpret_cast<DWORD>(dev_interface_broadcast.get()));
-  RunAllPending();
+  RunUntilIdle();
 }
 
 TEST_F(RemovableDeviceNotificationsWindowWinTest, RandomMessage) {
   window_->InjectDeviceChange(DBT_DEVICEQUERYREMOVE, NULL);
-  RunAllPending();
+  RunUntilIdle();
 }
 
 TEST_F(RemovableDeviceNotificationsWindowWinTest, DevicesAttached) {

@@ -15,6 +15,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -36,7 +37,6 @@
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
-#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/pinned_tab_codec.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -211,8 +211,8 @@ class BrowserTest : public ExtensionBrowserTest {
 
   // Returns the app extension aptly named "App Test".
   const Extension* GetExtension() {
-    const ExtensionSet* extensions =
-        browser()->profile()->GetExtensionService()->extensions();
+    const ExtensionSet* extensions = extensions::ExtensionSystem::Get(
+        browser()->profile())->extension_service()->extensions();
     for (ExtensionSet::const_iterator it = extensions->begin();
          it != extensions->end(); ++it) {
       if ((*it)->name() == "App Test")
@@ -776,7 +776,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DISABLED_ConvertTabToAppShortcut) {
   ASSERT_EQ(1, browser()->tab_count());
   WebContents* initial_tab = chrome::GetWebContentsAt(browser(), 0);
   WebContents* app_tab = chrome::AddSelectedTabWithURL(
-      browser(), http_url, content::PAGE_TRANSITION_TYPED)->web_contents();
+      browser(), http_url, content::PAGE_TRANSITION_TYPED);
   ASSERT_EQ(2, browser()->tab_count());
   ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
 
@@ -871,13 +871,14 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TabClosingWhenRemovingExtension) {
 
   ui_test_utils::NavigateToURL(browser(), url);
 
-  TabContents* app_contents = chrome::TabContentsFactory(
+  WebContents* app_contents = WebContents::Create(
       browser()->profile(), NULL, MSG_ROUTING_NONE, NULL);
+  extensions::TabHelper::CreateForWebContents(app_contents);
   extensions::TabHelper* extensions_tab_helper =
-      extensions::TabHelper::FromWebContents(app_contents->web_contents());
+      extensions::TabHelper::FromWebContents(app_contents);
   extensions_tab_helper->SetExtensionApp(extension_app);
 
-  model->AddTabContents(app_contents, 0, content::PageTransitionFromInt(0),
+  model->AddWebContents(app_contents, 0, content::PageTransitionFromInt(0),
                         TabStripModel::ADD_NONE);
   model->SetTabPinned(0, true);
   ui_test_utils::NavigateToURL(browser(), url);
@@ -886,7 +887,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TabClosingWhenRemovingExtension) {
   model->AddObserver(&observer);
 
   // Uninstall the extension and make sure TabClosing is sent.
-  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ExtensionService* service = extensions::ExtensionSystem::Get(
+      browser()->profile())->extension_service();
   service->UninstallExtension(GetExtension()->id(), false, NULL);
   EXPECT_EQ(1, observer.closing_count());
 
@@ -992,12 +994,13 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, RestorePinnedTabs) {
   ASSERT_TRUE(LoadExtension(test_data_dir_.AppendASCII("app/")));
   const Extension* extension_app = GetExtension();
   ui_test_utils::NavigateToURL(browser(), url);
-  TabContents* app_contents = chrome::TabContentsFactory(
+  WebContents* app_contents = WebContents::Create(
       browser()->profile(), NULL, MSG_ROUTING_NONE, NULL);
+  extensions::TabHelper::CreateForWebContents(app_contents);
   extensions::TabHelper* extensions_tab_helper =
-      extensions::TabHelper::FromWebContents(app_contents->web_contents());
+      extensions::TabHelper::FromWebContents(app_contents);
   extensions_tab_helper->SetExtensionApp(extension_app);
-  model->AddTabContents(app_contents, 0, content::PageTransitionFromInt(0),
+  model->AddWebContents(app_contents, 0, content::PageTransitionFromInt(0),
                         TabStripModel::ADD_NONE);
   model->SetTabPinned(0, true);
   ui_test_utils::NavigateToURL(browser(), url);
@@ -1049,12 +1052,11 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, RestorePinnedTabs) {
   EXPECT_FALSE(new_model->IsTabPinned(2));
 
   EXPECT_EQ(GURL(chrome::kChromeUINewTabURL),
-      new_model->GetTabContentsAt(2)->web_contents()->GetURL());
+            new_model->GetWebContentsAt(2)->GetURL());
 
   EXPECT_TRUE(
       extensions::TabHelper::FromWebContents(
-          new_model->GetTabContentsAt(0)->web_contents())->
-              extension_app() == extension_app);
+          new_model->GetWebContentsAt(0))->extension_app() == extension_app);
 }
 #endif  // !defined(OS_CHROMEOS)
 
@@ -1254,7 +1256,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest,
   CommandUpdater* command_updater =
       browser()->command_controller()->command_updater();
   // Disable extensions. This should disable Extensions menu.
-  browser()->profile()->GetExtensionService()->set_extensions_enabled(false);
+  extensions::ExtensionSystem::Get(browser()->profile())->extension_service()->
+      set_extensions_enabled(false);
   // Set Incognito to DISABLED.
   IncognitoModePrefs::SetAvailability(browser()->profile()->GetPrefs(),
                                       IncognitoModePrefs::DISABLED);
@@ -1530,9 +1533,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest2, NoTabsInPopups) {
   EXPECT_EQ(4, browser()->tab_count());
 
   // Close the additional browsers.
-  chrome::CloseAllTabs(popup_browser);
-  chrome::CloseAllTabs(app_browser);
-  chrome::CloseAllTabs(app_popup_browser);
+  popup_browser->tab_strip_model()->CloseAllTabs();
+  app_browser->tab_strip_model()->CloseAllTabs();
+  app_popup_browser->tab_strip_model()->CloseAllTabs();
 }
 #endif
 
@@ -1620,7 +1623,7 @@ class LaunchBrowserWithNonAsciiUserDatadir : public BrowserTest {
     command_line->AppendSwitchPath(switches::kUserDataDir, tmp_profile);
   }
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 };
 
 IN_PROC_BROWSER_TEST_F(LaunchBrowserWithNonAsciiUserDatadir,

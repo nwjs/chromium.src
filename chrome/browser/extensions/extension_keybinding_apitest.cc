@@ -12,8 +12,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
@@ -72,12 +74,11 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, Basic) {
       test_server()->GetURL("files/extensions/test_file.txt"));
 
   // activeTab shouldn't have been granted yet.
-  TabContents* tab = chrome::GetActiveTabContents(browser());
+  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(tab);
 
   ActiveTabPermissionGranter* granter =
-      TabHelper::FromWebContents(tab->web_contents())->
-          active_tab_permission_granter();
+      TabHelper::FromWebContents(tab)->active_tab_permission_granter();
   EXPECT_FALSE(granter->IsGranted(extension));
 
   // Activate the shortcut (Ctrl+Shift+F).
@@ -90,7 +91,7 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, Basic) {
   // Verify the command worked.
   bool result = false;
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
-      tab->web_contents()->GetRenderViewHost(), L"",
+      tab->GetRenderViewHost(), L"",
       L"setInterval(function(){"
       L"  if(document.body.bgColor == 'red'){"
       L"    window.domAutomationController.send(true)}}, 100)",
@@ -103,7 +104,7 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, Basic) {
 
   result = false;
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
-      tab->web_contents()->GetRenderViewHost(), L"",
+      tab->GetRenderViewHost(), L"",
       L"setInterval(function(){"
       L"  if(document.body.bgColor == 'blue'){"
       L"    window.domAutomationController.send(true)}}, 100)",
@@ -159,7 +160,7 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, PageAction) {
 // popup for script badges appear. When bug 140016 has been fixed, the popup
 // code can signal to the test that the test passed.
 // TODO(finnur): Enable this test once the bug is fixed.
-IN_PROC_BROWSER_TEST_F(ScriptBadgesCommandsApiTest, ScriptBadge_DISABLED) {
+IN_PROC_BROWSER_TEST_F(ScriptBadgesCommandsApiTest, DISABLED_ScriptBadge) {
   ASSERT_TRUE(test_server()->Start());
   ASSERT_TRUE(RunExtensionTest("keybinding/script_badge")) << message_;
   const Extension* extension = GetSingleLoadedExtension();

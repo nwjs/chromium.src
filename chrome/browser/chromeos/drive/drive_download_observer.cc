@@ -16,7 +16,7 @@
 #include "chrome/browser/chromeos/drive/drive_system_service.h"
 #include "chrome/browser/download/download_completion_blocker.h"
 #include "chrome/browser/google_apis/drive_service_interface.h"
-#include "chrome/browser/google_apis/gdata_util.h"
+#include "chrome/browser/google_apis/drive_uploader.h"
 #include "chrome/browser/google_apis/gdata_wapi_parser.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "net/base/net_util.h"
@@ -121,12 +121,6 @@ const DriveUserData* GetDriveUserData(const DownloadItem* download) {
       download->GetUserData(&kGDataPathKey));
 }
 
-void RunSubstituteDriveDownloadCallback(
-    const DriveDownloadObserver::SubstituteDriveDownloadPathCallback& callback,
-    const FilePath* file_path) {
-  callback.Run(*file_path);
-}
-
 DriveSystemService* GetSystemService(Profile* profile) {
   DriveSystemService* system_service =
       DriveSystemServiceFactory::GetForProfile(
@@ -138,14 +132,15 @@ DriveSystemService* GetSystemService(Profile* profile) {
 // Creates a temporary file |drive_tmp_download_path| in
 // |drive_tmp_download_dir|. Must be called on a thread that allows file
 // operations.
-void GetDriveTempDownloadPath(const FilePath& drive_tmp_download_dir,
-                              FilePath* drive_tmp_download_path) {
+FilePath GetDriveTempDownloadPath(const FilePath& drive_tmp_download_dir) {
   bool created = file_util::CreateDirectory(drive_tmp_download_dir);
   DCHECK(created) << "Can not create temp download directory at "
                   << drive_tmp_download_dir.value();
+  FilePath drive_tmp_download_path;
   created = file_util::CreateTemporaryFileInDir(drive_tmp_download_dir,
-                                                drive_tmp_download_path);
+                                                &drive_tmp_download_path);
   DCHECK(created) << "Temporary download file creation failed";
+  return drive_tmp_download_path;
 }
 
 // Substitutes virtual drive path for local temporary path.
@@ -160,15 +155,11 @@ void SubstituteDriveDownloadPathInternal(
 
   // Swap the drive path with a local path. Local path must be created
   // on a blocking thread.
-  FilePath* drive_tmp_download_path(new FilePath());
-  BrowserThread::GetBlockingPool()->PostTaskAndReply(
+  base::PostTaskAndReplyWithResult(
+      BrowserThread::GetBlockingPool(),
       FROM_HERE,
-      base::Bind(&GetDriveTempDownloadPath,
-                 drive_tmp_download_dir,
-                 drive_tmp_download_path),
-      base::Bind(&RunSubstituteDriveDownloadCallback,
-                 callback,
-                 base::Owned(drive_tmp_download_path)));
+      base::Bind(&GetDriveTempDownloadPath, drive_tmp_download_dir),
+      callback);
 }
 
 // Callback for DriveFileSystem::CreateDirectory.
@@ -212,6 +203,30 @@ void OnEntryUpdated(DriveFileError error) {
 }
 
 }  // namespace
+
+struct DriveDownloadObserver::UploaderParams {
+  UploaderParams() : file_size(0),
+                     content_length(-1) {}
+  ~UploaderParams() {}
+
+  FilePath file_path; // The path of the file to be uploaded.
+  int64 file_size; // The last known size of the file.
+
+  // TODO(zelirag, achuith): Make this string16.
+  std::string title; // Title to be used for file to be uploaded.
+  std::string content_type; // Content-Type of file.
+  int64 content_length; // Header Content-Length.
+  GURL upload_location; // Initial upload location for the file.
+
+  // Final path in gdata. Looks like /special/drive/MyFolder/MyFile.
+  FilePath drive_path;
+
+  // Callback to be invoked once the uploader is ready to upload.
+  google_apis::UploaderReadyCallback ready_callback;
+
+  // Callback to be invoked once the upload has completed.
+  google_apis::UploadCompletionCallback completion_callback;
+};
 
 DriveDownloadObserver::DriveDownloadObserver(
     google_apis::DriveUploader* uploader,
@@ -439,8 +454,6 @@ void DriveDownloadObserver::CreateUploaderParams(DownloadItem* download) {
   uploader_params->content_length = download->AllDataSaved() ?
                                     download->GetReceivedBytes() : -1;
 
-  uploader_params->all_bytes_present = download->AllDataSaved();
-
   uploader_params->completion_callback =
       base::Bind(&DriveDownloadObserver::OnUploadComplete,
                  weak_ptr_factory_.GetWeakPtr(),
@@ -651,27 +664,6 @@ void DriveDownloadObserver::MoveFileToDriveCache(DownloadItem* download) {
                                   DriveCache::FILE_OPERATION_MOVE,
                                   base::Bind(&OnEntryUpdated));
   }
-}
-
-DriveDownloadObserver::UploaderParams::UploaderParams()
-    : file_size(0),
-      content_length(-1),
-      all_bytes_present(false) {
-}
-
-DriveDownloadObserver::UploaderParams::~UploaderParams() {
-}
-
-// Useful for printf debugging.
-std::string DriveDownloadObserver::UploaderParams::DebugString() const {
-  return "title=[" + title +
-         "], file_path=[" + file_path.value() +
-         "], content_type=[" + content_type +
-         "], content_length=[" + base::UintToString(content_length) +
-         "], upload_location=[" + upload_location.possibly_invalid_spec() +
-         "], drive_path=[" + drive_path.value() +
-         "], all_bytes_present=[" + (all_bytes_present ?  "true" : "false") +
-         "]";
 }
 
 }  // namespace drive

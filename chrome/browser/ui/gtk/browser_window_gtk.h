@@ -12,7 +12,6 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/api/prefs/pref_member.h"
@@ -61,7 +60,6 @@ class Extension;
 class BrowserWindowGtk
     : public BrowserWindow,
       public content::NotificationObserver,
-      public PrefObserver,
       public TabStripModelObserver,
       public ui::ActiveWindowWatcherXObserver,
       public InfoBarContainer::Delegate,
@@ -112,7 +110,7 @@ class BrowserWindowGtk
   virtual LocationBar* GetLocationBar() const OVERRIDE;
   virtual void SetFocusToLocationBar(bool select_all) OVERRIDE;
   virtual void UpdateReloadStopState(bool is_loading, bool force) OVERRIDE;
-  virtual void UpdateToolbar(TabContents* contents,
+  virtual void UpdateToolbar(content::WebContents* contents,
                              bool should_restore_state) OVERRIDE;
   virtual void FocusToolbar() OVERRIDE;
   virtual void FocusAppMenu() OVERRIDE;
@@ -148,7 +146,7 @@ class BrowserWindowGtk
                             const content::SSLStatus& ssl,
                             bool show_history) OVERRIDE;
   virtual void ShowWebsiteSettings(Profile* profile,
-                                   TabContents* tab_contents,
+                                   content::WebContents* web_contents,
                                    const GURL& url,
                                    const content::SSLStatus& ssl,
                                    bool show_history) OVERRIDE;
@@ -183,15 +181,11 @@ class BrowserWindowGtk
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // Overridden from PrefObserver:
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
   // Overridden from TabStripModelObserver:
   virtual void TabDetachedAt(content::WebContents* contents,
                              int index) OVERRIDE;
-  virtual void ActiveTabChanged(TabContents* old_contents,
-                                TabContents* new_contents,
+  virtual void ActiveTabChanged(content::WebContents* old_contents,
+                                content::WebContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
 
@@ -468,6 +462,9 @@ class BrowserWindowGtk
   // Reads split position from the current tab's devtools window and applies
   // it to the devtools split.
   void UpdateDevToolsSplitPosition();
+
+  // Called when the preference changes.
+  void OnUseCustomChromeFrameChanged();
 
   // Determine whether we use should default to native decorations or the custom
   // frame based on the currently-running window manager.

@@ -48,8 +48,11 @@ class Matcher {
 
 // A helper class such that ImageSkia can be cheaply copied. ImageSkia holds a
 // refptr instance of ImageSkiaStorage, which in turn holds all of ImageSkia's
-// information.
-class ImageSkiaStorage : public base::RefCounted<ImageSkiaStorage>,
+// information. Having both |base::RefCountedThreadSafe| and
+// |base::NonThreadSafe| may sounds strange but necessary to turn
+// the 'thread-non-safe modifiable ImageSkiaStorage' into
+// the 'thread-safe read-only ImageSkiaStorage'.
+class ImageSkiaStorage : public base::RefCountedThreadSafe<ImageSkiaStorage>,
                          public base::NonThreadSafe {
  public:
   ImageSkiaStorage(ImageSkiaSource* source, const gfx::Size& size)
@@ -61,11 +64,12 @@ class ImageSkiaStorage : public base::RefCounted<ImageSkiaStorage>,
   ImageSkiaStorage(ImageSkiaSource* source, ui::ScaleFactor scale_factor)
       : source_(source),
         read_only_(false) {
-    const ImageSkiaRep& image = *FindRepresentation(scale_factor, true);
-    if (image.is_null())
+    ImageSkia::ImageSkiaReps::iterator it =
+        FindRepresentation(scale_factor, true);
+    if (it == image_reps_.end() || it->is_null())
       source_.reset();
     else
-      size_.SetSize(image.GetWidth(), image.GetHeight());
+      size_.SetSize(it->GetWidth(), it->GetHeight());
   }
 
   bool has_source() const { return source_.get() != NULL; }
@@ -176,7 +180,7 @@ class ImageSkiaStorage : public base::RefCounted<ImageSkiaStorage>,
 
   bool read_only_;
 
-  friend class base::RefCounted<ImageSkiaStorage>;
+  friend class base::RefCountedThreadSafe<ImageSkiaStorage>;
 };
 
 }  // internal
@@ -223,23 +227,23 @@ ImageSkia& ImageSkia::operator=(const ImageSkia& other) {
 ImageSkia::~ImageSkia() {
 }
 
-ImageSkia ImageSkia::DeepCopy() const {
-  ImageSkia copy;
+scoped_ptr<ImageSkia> ImageSkia::DeepCopy() const {
+  ImageSkia* copy = new ImageSkia;
   if (isNull())
-    return copy;
+    return scoped_ptr<ImageSkia>(copy);
 
   CHECK(CanRead());
 
   std::vector<gfx::ImageSkiaRep>& reps = storage_->image_reps();
   for (std::vector<gfx::ImageSkiaRep>::iterator iter = reps.begin();
        iter != reps.end(); ++iter) {
-    copy.AddRepresentation(*iter);
+    copy->AddRepresentation(*iter);
   }
   // The copy has its own storage. Detach the copy from the current
   // thread so that other thread can use this.
-  if (!copy.isNull())
-    copy.storage_->DetachFromThread();
-  return copy;
+  if (!copy->isNull())
+    copy->storage_->DetachFromThread();
+  return scoped_ptr<ImageSkia>(copy);
 }
 
 bool ImageSkia::BackedBySameObjectAs(const gfx::ImageSkia& other) const {

@@ -71,7 +71,11 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
 
   virtual void EnableOfflineMode(bool enable) OVERRIDE;
 
-  virtual NetworkIPConfigVector GetIPConfigs(
+  virtual void GetIPConfigs(
+      const std::string& device_path,
+      HardwareAddressFormat format,
+      const NetworkGetIPConfigsCallback& callback) OVERRIDE;
+  virtual NetworkIPConfigVector GetIPConfigsAndBlock(
       const std::string& device_path,
       std::string* hardware_address,
       HardwareAddressFormat format) OVERRIDE;
@@ -92,6 +96,11 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
   // Cellular specific updates. Returns false if update was ignored / reverted
   // and notification should be skipped.
   bool UpdateCellularDeviceStatus(NetworkDevice* device, PropertyIndex index);
+
+  void GetIPConfigsCallback(const NetworkGetIPConfigsCallback& callback,
+                            HardwareAddressFormat format,
+                            const NetworkIPConfigVector& ipconfig_vector,
+                            const std::string& hardware_address);
 
   void PinOperationCallback(const std::string& path,
                             NetworkMethodErrorType error,
@@ -118,7 +127,8 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
 
   void NetworkServiceUpdate(const std::string& service_path,
                             const base::DictionaryValue* properties);
-  void RememberedNetworkServiceUpdate(const std::string& service_path,
+  void RememberedNetworkServiceUpdate(const std::string& profile_path,
+                                      const std::string& service_path,
                                       const base::DictionaryValue* properties);
   void NetworkDeviceUpdate(const std::string& device_path,
                            const base::DictionaryValue* properties);
@@ -158,13 +168,18 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
   void RequestRememberedNetworksUpdate();
   void UpdateProfile(const std::string& profile_path,
                      const base::DictionaryValue* properties);
-  Network* ParseRememberedNetwork(const std::string& service_path,
+  Network* ParseRememberedNetwork(const std::string& profile_path,
+                                  const std::string& service_path,
                                   const base::DictionaryValue& info);
 
   // NetworkDevice list management functions.
   void UpdateNetworkDeviceList(const base::ListValue* devices);
   void ParseNetworkDevice(const std::string& device_path,
                           const base::DictionaryValue& info);
+
+  // Compare two network profiles by their path.
+  static bool AreProfilePathsEqual(const NetworkProfile& a,
+                                   const NetworkProfile& b);
 
   // Empty device observer to ensure that device property updates are received.
   class NetworkLibraryDeviceObserver : public NetworkDeviceObserver {
@@ -180,9 +195,6 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
 
   // For monitoring network manager status changes.
   scoped_ptr<CrosNetworkWatcher> network_manager_watcher_;
-
-  // For monitoring data plan changes to the connected cellular network.
-  scoped_ptr<CrosNetworkWatcher> data_plan_watcher_;
 
   // Network device observer.
   scoped_ptr<NetworkLibraryDeviceObserver> network_device_observer_;

@@ -16,9 +16,13 @@ class MultiPageBenchmarkUnitTestBase(unittest.TestCase):
   for a benchmark."""
 
   def CreatePageSetFromFileInUnittestDataDir(self, test_filename):
+    return self.CreatePageSet('file:///' + os.path.join('..', 'unittest_data',
+        test_filename))
+
+  def CreatePageSet(self, test_filename):
     base_dir = os.path.dirname(__file__)
-    page = page_module.Page(os.path.join('..', 'unittest_data', test_filename),
-                            base_dir=base_dir)
+    page = page_module.Page(test_filename, base_dir=base_dir)
+    setattr(page, 'scrolling', {'action': 'scrolling_interaction'})
     ps = page_set.PageSet(base_dir=base_dir)
     ps.pages.append(page)
     return ps
@@ -29,10 +33,10 @@ class MultiPageBenchmarkUnitTestBase(unittest.TestCase):
 
   def RunBenchmark(self, benchmark, ps):
     """Runs a benchmark against a pageset, returning the rows its outputs."""
-    options = options_for_unittests.Get()
+    options = options_for_unittests.GetCopy()
     assert options
     temp_parser = options.CreateParser()
-    benchmark.AddOptions(temp_parser)
+    benchmark.AddCommandLineOptions(temp_parser)
     defaults = temp_parser.get_default_values()
     for k, v in defaults.__dict__.items():
       if hasattr(options, k):

@@ -12,7 +12,6 @@
 #include "content/browser/renderer_host/ime_adapter_android.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebExternalTextureLayer.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebGraphicsContext3D.h"
 #include "ui/gfx/size.h"
 
@@ -21,7 +20,13 @@ struct ViewHostMsg_TextInputState_Params;
 struct GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params;
 struct GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params;
 
+namespace cc {
+class Layer;
+class TextureLayer;
+}
+
 namespace WebKit {
+class WebExternalTextureLayer;
 class WebTouchEvent;
 class WebMouseEvent;
 }
@@ -30,6 +35,7 @@ namespace content {
 class ContentViewCoreImpl;
 class RenderWidgetHost;
 class RenderWidgetHostImpl;
+class SurfaceTextureTransportClient;
 struct NativeWebKeyboardEvent;
 
 // -----------------------------------------------------------------------------
@@ -72,7 +78,8 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
       const ViewHostMsg_TextInputState_Params& params) OVERRIDE;
   virtual void ImeCancelComposition() OVERRIDE;
   virtual void DidUpdateBackingStore(
-      const gfx::Rect& scroll_rect, int scroll_dx, int scroll_dy,
+      const gfx::Rect& scroll_rect,
+      const gfx::Vector2d& scroll_delta,
       const std::vector<gfx::Rect>& copy_rects) OVERRIDE;
   virtual void RenderViewGone(base::TerminationStatus status,
                               int error_code) OVERRIDE;
@@ -108,7 +115,7 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   virtual void UnhandledWheelEvent(
       const WebKit::WebMouseWheelEvent& event) OVERRIDE;
   virtual void ProcessAckedTouchEvent(const WebKit::WebTouchEvent& touch,
-                                      bool processed) OVERRIDE;
+                                      InputEventAckState ack_result) OVERRIDE;
   virtual void SetHasHorizontalScrollbar(
       bool has_horizontal_scrollbar) OVERRIDE;
   virtual void SetScrollOffsetPinning(
@@ -122,6 +129,8 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
                                               float maximum_scale) OVERRIDE;
   virtual void UpdateFrameInfo(const gfx::Vector2d& scroll_offset,
                                float page_scale_factor,
+                               float min_page_scale_factor,
+                               float max_page_scale_factor,
                                const gfx::Size& content_size) OVERRIDE;
   virtual void ShowDisambiguationPopup(const gfx::Rect& target_rect,
                                        const SkBitmap& zoomed_bitmap) OVERRIDE;
@@ -140,6 +149,8 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   WebKit::WebGLId GetScaledContentTexture(const gfx::Size& size);
   bool PopulateBitmapWithContents(jobject jbitmap);
 
+  bool HasValidFrame() const;
+
   // Select all text between the given coordinates.
   void SelectRange(const gfx::Point& start, const gfx::Point& end);
 
@@ -147,8 +158,11 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   // The model object.
   RenderWidgetHostImpl* host_;
 
-  // Whether or not this widget is hidden.
-  bool is_hidden_;
+  // Whether or not this widget is potentially attached to the view hierarchy.
+  // This view may not actually be attached if this is true, but it should be
+  // treated as such, because as soon as a ContentViewCore is set the layer
+  // will be attached automatically.
+  bool is_layer_attached_;
 
   // ContentViewCoreImpl is our interface to the view system.
   ContentViewCoreImpl* content_view_core_;
@@ -159,7 +173,12 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   SkColor cached_background_color_;
 
   // The texture layer for this view when using browser-side compositing.
-  scoped_ptr<WebKit::WebExternalTextureLayer> texture_layer_;
+  scoped_refptr<cc::TextureLayer> texture_layer_;
+
+  // The layer used for rendering the contents of this view.
+  // It is either owned by texture_layer_ or surface_texture_transport_
+  // depending on the mode.
+  scoped_refptr<cc::Layer> layer_;
 
   // The most recent texture id that was pushed to the texture layer.
   unsigned int texture_id_in_layer_;
@@ -170,6 +189,9 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   // The handle for the transport surface (between renderer and browser-side
   // compositor) for this view.
   gfx::GLSurfaceHandle shared_surface_;
+
+  // Used for image transport when needing to share resources across threads.
+  scoped_ptr<SurfaceTextureTransportClient> surface_texture_transport_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAndroid);
 };

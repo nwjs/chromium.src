@@ -40,10 +40,10 @@ import android.view.inputmethod.InputMethodManager;
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.WeakContext;
-import org.chromium.content.app.AppResource;
 import org.chromium.content.browser.ContentViewGestureHandler.MotionEventDelegate;
 import org.chromium.content.browser.accessibility.AccessibilityInjector;
 import org.chromium.content.common.TraceEvent;
+import org.chromium.content.R;
 import org.chromium.ui.gfx.NativeWindow;
 
 /**
@@ -145,6 +145,8 @@ public class ContentViewCore implements MotionEventDelegate {
 
     // Native pointer to C++ ContentViewCoreImpl object which will be set by nativeInit().
     private int mNativeContentViewCore = 0;
+
+    private boolean mAttachedToWindow = false;
 
     // The vsync monitor is used to lock the compositor to the display refresh rate.
     private VSyncMonitor mVSyncMonitor;
@@ -281,11 +283,6 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public ContentViewCore(Context context, int personality) {
         mContext = context;
-
-        // All application resources must be registered by the time the content view is created.
-        // This should be omitted in final release builds where assertions are disabled.
-        // TODO(leandrogracia): re-enable this as soon as crbug.com/136704 is fixed.
-        // assert AppResource.verifyResourceRegistration();
 
         WeakContext.initializeWeakContext(context);
         // By default, ContentView will initialize single process mode. The call to
@@ -505,17 +502,18 @@ public class ContentViewCore implements MotionEventDelegate {
         mAccessibilityInjector.addOrRemoveAccessibilityApisIfNecessary();
 
         String contentDescription = "Web View";
-        if (AppResource.STRING_CONTENT_VIEW_CONTENT_DESCRIPTION == 0) {
+        if (R.string.accessibility_content_view == 0) {
             Log.w(TAG, "Setting contentDescription to 'Web View' as no value was specified.");
         } else {
             contentDescription = mContext.getResources().getString(
-                    AppResource.STRING_CONTENT_VIEW_CONTENT_DESCRIPTION);
+                    R.string.accessibility_content_view);
         }
         mContainerView.setContentDescription(contentDescription);
         mWebContentsObserver = new WebContentsObserverAndroid(this) {
             @Override
             public void didStartLoading(String url) {
                 hidePopupDialog();
+                resetGestureDetectors();
             }
         };
     }
@@ -741,6 +739,27 @@ public class ContentViewCore implements MotionEventDelegate {
         return null;
     }
 
+    /**
+     * Shows an interstitial page driven by the passed in delegate.
+     *
+     * @param url The URL being blocked by the interstitial.
+     * @param delegate The delegate handling the interstitial.
+     * @VisibleForTesting
+     */
+    public void showInterstitialPage(
+            String url, InterstitialPageDelegateAndroid delegate) {
+        if (mNativeContentViewCore == 0) return;
+        nativeShowInterstitialPage(mNativeContentViewCore, url, delegate.getNative());
+    }
+
+    /**
+     * @return Whether the page is currently showing an interstitial, such as a bad HTTPS page.
+     */
+    public boolean isShowingInterstitialPage() {
+        return mNativeContentViewCore == 0 ?
+                false : nativeIsShowingInterstitialPage(mNativeContentViewCore);
+    }
+
     @CalledByNative
     public int getWidth() {
         return mViewportWidth;
@@ -780,7 +799,6 @@ public class ContentViewCore implements MotionEventDelegate {
             // components as well.
             if (mContainerView.getChildCount() > 0) {
                 Canvas c = new Canvas(b);
-                c.scale(1.0f, -1.0f, width / 2.0f, height / 2.0f);
                 c.scale(width / (float) getWidth(), height / (float) getHeight());
                 mContainerView.draw(c);
             }
@@ -1097,11 +1115,22 @@ public class ContentViewCore implements MotionEventDelegate {
         }
     }
 
+    private void resetGestureDetectors() {
+        mContentViewGestureHandler.resetGestureHandlers();
+    }
+
     /**
      * @see View#onAttachedToWindow()
      */
     @SuppressWarnings("javadoc")
     public void onAttachedToWindow() {
+        mAttachedToWindow = true;
+        if (mNativeContentViewCore != 0) {
+            int pid = nativeGetCurrentRenderProcessId(mNativeContentViewCore);
+            if (pid > 0) {
+                SandboxedProcessLauncher.bindAsHighPriority(pid);
+            }
+        }
         setAccessibilityState(true);
     }
 
@@ -1110,6 +1139,13 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     @SuppressWarnings("javadoc")
     public void onDetachedFromWindow() {
+        mAttachedToWindow = false;
+        if (mNativeContentViewCore != 0) {
+            int pid = nativeGetCurrentRenderProcessId(mNativeContentViewCore);
+            if (pid > 0) {
+                SandboxedProcessLauncher.unbindAsHighPriority(pid);
+            }
+        }
         setAccessibilityState(false);
     }
 
@@ -1179,8 +1215,6 @@ public class ContentViewCore implements MotionEventDelegate {
     public void onSizeChanged(int w, int h, int ow, int oh) {
         mPopupZoomer.hide(false);
 
-        updateAfterSizeChanged();
-
         // Update the content size to make sure it is at least the View size
         if (mContentWidth < w) mContentWidth = w;
         if (mContentHeight < h) mContentHeight = h;
@@ -1192,6 +1226,8 @@ public class ContentViewCore implements MotionEventDelegate {
                 nativeSetSize(mNativeContentViewCore, mViewportWidth, mViewportHeight);
             }
         }
+
+        updateAfterSizeChanged();
     }
 
     public void updateAfterSizeChanged() {
@@ -1787,6 +1823,11 @@ public class ContentViewCore implements MotionEventDelegate {
         // update mNativeScrollX/Y here for consistency.
         mNativeScrollX = x;
         mNativeScrollY = y;
+
+        if (mNativePageScaleFactor != scale && mContentViewClient != null) {
+            mContentViewClient.onScaleChanged(mNativePageScaleFactor, scale);
+        }
+
         mNativePageScaleFactor = scale;
 
         mPopupZoomer.hide(true);
@@ -1921,6 +1962,19 @@ public class ContentViewCore implements MotionEventDelegate {
     private void showPastePopup(int x, int y) {
         getInsertionHandleController()
                 .showHandleWithPastePopupAt(x - mNativeScrollX, y - mNativeScrollY);
+    }
+
+    @SuppressWarnings("unused")
+    @CalledByNative
+    private void onRenderProcessSwap(int oldPid, int newPid) {
+        if (mAttachedToWindow && oldPid != newPid) {
+            if (oldPid > 0) {
+                SandboxedProcessLauncher.unbindAsHighPriority(oldPid);
+            }
+            if (newPid > 0) {
+                SandboxedProcessLauncher.bindAsHighPriority(newPid);
+            }
+        }
     }
 
     /**
@@ -2104,8 +2158,7 @@ public class ContentViewCore implements MotionEventDelegate {
      * once the texture is actually ready.
      */
     public boolean isReady() {
-        // TODO(nileshagrawal): Implement this.
-        return false;
+        return nativeIsRenderWidgetHostViewReady(mNativeContentViewCore);
     }
 
     /**
@@ -2267,13 +2320,6 @@ public class ContentViewCore implements MotionEventDelegate {
         }
     }
 
-    /**
-     *  Temporary shim for updateVSync.
-     */
-    public void UpdateVSync(long tickTimeMicros, long intervalMicros) {
-        updateVSync(tickTimeMicros, intervalMicros);
-    }
-
     private native int nativeInit(boolean hardwareAccelerated, int webContentsPtr,
             int windowAndroidPtr);
 
@@ -2297,6 +2343,10 @@ public class ContentViewCore implements MotionEventDelegate {
     private native String nativeGetURL(int nativeContentViewCoreImpl);
 
     private native String nativeGetTitle(int nativeContentViewCoreImpl);
+
+    private native void nativeShowInterstitialPage(
+            int nativeContentViewCoreImpl, String url, int nativeInterstitialPageDelegateAndroid);
+    private native boolean nativeIsShowingInterstitialPage(int nativeContentViewCoreImpl);
 
     private native boolean nativeIsIncognito(int nativeContentViewCoreImpl);
 
@@ -2411,4 +2461,6 @@ public class ContentViewCore implements MotionEventDelegate {
             Bitmap bitmap);
 
     private native void nativeSetSize(int nativeContentViewCoreImpl, int width, int height);
+
+    private native boolean nativeIsRenderWidgetHostViewReady(int nativeContentViewCoreImpl);
 }

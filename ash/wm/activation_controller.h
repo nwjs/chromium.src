@@ -5,37 +5,44 @@
 #ifndef ASH_WM_ACTIVATION_CONTROLLER_H_
 #define ASH_WM_ACTIVATION_CONTROLLER_H_
 
+#include "ash/ash_export.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/observer_list.h"
 #include "base/scoped_observer.h"
 #include "ui/aura/client/activation_client.h"
+#include "ui/aura/client/focus_change_observer.h"
 #include "ui/aura/env_observer.h"
-#include "ui/aura/focus_change_observer.h"
 #include "ui/aura/window_observer.h"
-#include "ash/ash_export.h"
+#include "ui/base/events/event_handler.h"
 
 namespace aura {
 namespace client {
 class ActivationChangeObserver;
+class FocusClient;
 }
 }
 
 namespace ash {
 namespace internal {
 
+class ActivationControllerDelegate;
+
 // Exported for unit tests.
 class ASH_EXPORT ActivationController
     : public aura::client::ActivationClient,
       public aura::WindowObserver,
       public aura::EnvObserver,
-      public aura::FocusChangeObserver {
+      public aura::client::FocusChangeObserver,
+      public ui::EventHandler {
  public:
-  explicit ActivationController(aura::FocusManager* focus_manager);
+  // The ActivationController takes ownership of |delegate|.
+  ActivationController(aura::client::FocusClient* focus_client,
+                       ActivationControllerDelegate* delegate);
   virtual ~ActivationController();
 
   // Returns true if |window| exists within a container that supports
-  // activation. |event| is the revent responsible for initiating the change, or
+  // activation. |event| is the event responsible for initiating the change, or
   // NULL if there is no event.
   static aura::Window* GetActivatableWindow(aura::Window* window,
                                             const ui::Event* event);
@@ -48,6 +55,7 @@ class ASH_EXPORT ActivationController
   virtual void ActivateWindow(aura::Window* window) OVERRIDE;
   virtual void DeactivateWindow(aura::Window* window) OVERRIDE;
   virtual aura::Window* GetActiveWindow() OVERRIDE;
+  virtual aura::Window* GetActivatableWindow(aura::Window* window) OVERRIDE;
   virtual bool OnWillFocusWindow(aura::Window* window,
                                  const ui::Event* event) OVERRIDE;
   virtual bool CanActivateWindow(aura::Window* window) const OVERRIDE;
@@ -60,10 +68,17 @@ class ASH_EXPORT ActivationController
   // Overridden from aura::EnvObserver:
   virtual void OnWindowInitialized(aura::Window* window) OVERRIDE;
 
-  // Overridden from aura::FocusChangeObserver:
+  // Overridden from aura::client::FocusChangeObserver:
   virtual void OnWindowFocused(aura::Window* window) OVERRIDE;
 
  private:
+  // Overridden from ui::EventHandler:
+  virtual ui::EventResult OnKeyEvent(ui::KeyEvent* event) OVERRIDE;
+  virtual ui::EventResult OnMouseEvent(ui::MouseEvent* event) OVERRIDE;
+  virtual ui::EventResult OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
+  virtual ui::EventResult OnTouchEvent(ui::TouchEvent* event) OVERRIDE;
+  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+
   // Implementation of ActivateWindow() with an Event.
   void ActivateWindowWithEvent(aura::Window* window,
                                const ui::Event* event);
@@ -81,7 +96,12 @@ class ASH_EXPORT ActivationController
       aura::Window* container,
       aura::Window* ignore) const;
 
-  aura::FocusManager* focus_manager_;
+  // Called from the ActivationController's event handler implementation to
+  // handle focus to the |event|'s target. Not all targets are focusable or
+  // result in focus changes.
+  void FocusWindowWithEvent(const ui::Event* event);
+
+  aura::client::FocusClient* focus_client_;
 
   // True inside ActivateWindow(). Used to prevent recursion of focus
   // change notifications causing activation.
@@ -92,6 +112,8 @@ class ASH_EXPORT ActivationController
   ObserverList<aura::client::ActivationChangeObserver> observers_;
 
   ScopedObserver<aura::Window, aura::WindowObserver> observer_manager_;
+
+  scoped_ptr<ActivationControllerDelegate> delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(ActivationController);
 };

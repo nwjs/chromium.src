@@ -52,6 +52,9 @@ class LocalFileSyncService
     DISALLOW_COPY_AND_ASSIGN(Observer);
   };
 
+  typedef base::Callback<void(bool has_pending_changes)>
+      HasPendingLocalChangeCallback;
+
   LocalFileSyncService();
   virtual ~LocalFileSyncService();
 
@@ -65,11 +68,26 @@ class LocalFileSyncService
 
   void AddChangeObserver(Observer* observer);
 
+  // Registers |url| to wait until sync is enabled for |url|.
+  // |on_syncable_callback| is to be called when |url| becomes syncable
+  // (i.e. when we have no pending writes and the file is successfully locked
+  // for sync).
+  // Calling this method again while this already has another URL waiting
+  // for sync will overwrite the previously registered URL.
+  void RegisterURLForWaitingSync(const fileapi::FileSystemURL& url,
+                                 const base::Closure& on_syncable_callback);
+
   // Synchronize one (or a set of) local change(s) to the remote server
   // using |processor|.
   // |processor| must have same or longer lifetime than this service.
   void ProcessLocalChange(LocalChangeProcessor* processor,
                           const fileapi::SyncFileCallback& callback);
+
+  // Returns true via |callback| if the given file |url| has local pending
+  // changes.
+  void HasPendingLocalChanges(
+      const fileapi::FileSystemURL& url,
+      const HasPendingLocalChangeCallback& callback);
 
   // Returns the metadata of a remote file pointed by |url|.
   virtual void GetLocalFileMetadata(
@@ -132,8 +150,7 @@ class LocalFileSyncService
       const fileapi::LocalFileSyncInfo& sync_file_info);
   void ProcessNextChangeForURL(
       LocalChangeProcessor* processor,
-      const fileapi::FileSystemURL& url,
-      const FilePath& local_file_path,
+      const fileapi::LocalFileSyncInfo& sync_file_info,
       const fileapi::FileChange& last_change,
       const fileapi::FileChangeList& changes,
       fileapi::SyncStatusCode status);

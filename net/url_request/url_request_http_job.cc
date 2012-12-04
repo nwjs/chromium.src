@@ -210,8 +210,12 @@ URLRequestJob* URLRequestHttpJob::Factory(URLRequest* request,
   }
 
   GURL redirect_url;
-  if (request->GetHSTSRedirect(&redirect_url))
-    return new URLRequestRedirectJob(request, network_delegate, redirect_url);
+  if (request->GetHSTSRedirect(&redirect_url)) {
+    return new URLRequestRedirectJob(
+        request, network_delegate, redirect_url,
+        // Use status code 307 to preserve the method, so POST requests work.
+        URLRequestRedirectJob::REDIRECT_307_TEMPORARY_REDIRECT);
+  }
   return new URLRequestHttpJob(request,
                                network_delegate,
                                request->context()->http_user_agent_settings());
@@ -813,8 +817,7 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
       if (error != net::OK) {
         if (error == net::ERR_IO_PENDING) {
           awaiting_callback_ = true;
-          request_->net_log().BeginEvent(
-              NetLog::TYPE_URL_REQUEST_BLOCKED_ON_DELEGATE);
+          SetBlockedOnDelegate();
         } else {
           std::string source("delegate");
           request_->net_log().AddEvent(NetLog::TYPE_CANCELLED,
@@ -849,7 +852,7 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
 }
 
 void URLRequestHttpJob::OnHeadersReceivedCallback(int result) {
-  request_->net_log().EndEvent(NetLog::TYPE_URL_REQUEST_BLOCKED_ON_DELEGATE);
+  SetUnblockedOnDelegate();
   awaiting_callback_ = false;
 
   // Check that there are no callbacks to already canceled requests.
@@ -894,9 +897,9 @@ void URLRequestHttpJob::RestartTransactionWithAuth(
   AddCookieHeaderAndStart();
 }
 
-void URLRequestHttpJob::SetUpload(UploadData* upload) {
+void URLRequestHttpJob::SetUpload(UploadDataStream* upload) {
   DCHECK(!transaction_.get()) << "cannot change once started";
-  request_info_.upload_data = upload;
+  request_info_.upload_data_stream = upload;
 }
 
 void URLRequestHttpJob::SetExtraRequestHeaders(
@@ -1546,6 +1549,41 @@ void URLRequestHttpJob::RecordPerfHistograms(CompletionCause reason) {
         UMA_HISTOGRAM_TIMES(
             base::FieldTrial::MakeName("Net.HttpJob.TotalTimeNotCached",
                                        "OverlappedReadImpact"),
+            total_time);
+      }
+    }
+  }
+
+  static const bool cache_sensitivity_analysis =
+      base::FieldTrialList::TrialExists("CacheSensitivityAnalysis");
+  if (cache_sensitivity_analysis) {
+    UMA_HISTOGRAM_TIMES(
+        base::FieldTrial::MakeName("Net.HttpJob.TotalTime",
+                                   "CacheSensitivityAnalysis"),
+        total_time);
+
+    if (reason == FINISHED) {
+      UMA_HISTOGRAM_TIMES(
+          base::FieldTrial::MakeName("Net.HttpJob.TotalTimeSuccess",
+                                     "CacheSensitivityAnalysis"),
+          total_time);
+    } else {
+      UMA_HISTOGRAM_TIMES(
+          base::FieldTrial::MakeName("Net.HttpJob.TotalTimeCancel",
+                                     "CacheSensitivityAnalysis"),
+          total_time);
+    }
+
+    if (response_info_) {
+      if (response_info_->was_cached) {
+        UMA_HISTOGRAM_TIMES(
+            base::FieldTrial::MakeName("Net.HttpJob.TotalTimeCached",
+                                       "CacheSensitivityAnalysis"),
+            total_time);
+      } else  {
+        UMA_HISTOGRAM_TIMES(
+            base::FieldTrial::MakeName("Net.HttpJob.TotalTimeNotCached",
+                                       "CacheSensitivityAnalysis"),
             total_time);
       }
     }

@@ -5,13 +5,16 @@
 #ifndef CONTENT_PUBLIC_BROWSER_GPU_DATA_MANAGER_H_
 #define CONTENT_PUBLIC_BROWSER_GPU_DATA_MANAGER_H_
 
+#include <list>
 #include <string>
 
+#include "base/process.h"
 #include "content/common/content_export.h"
 #include "content/public/common/gpu_feature_type.h"
 #include "content/public/common/gpu_switching_option.h"
 
 class FilePath;
+class GURL;
 
 namespace base {
 class ListValue;
@@ -25,6 +28,9 @@ struct GPUInfo;
 // This class is fully thread-safe.
 class GpuDataManager {
  public:
+  typedef base::Callback<void(const std::list<base::ProcessHandle>&)>
+      GetGpuProcessHandlesCallback;
+
   // Getter for the singleton.
   CONTENT_EXPORT static GpuDataManager* GetInstance();
 
@@ -44,6 +50,10 @@ class GpuDataManager {
   virtual base::ListValue* GetBlacklistReasons() const = 0;
 
   virtual GPUInfo GetGPUInfo() const = 0;
+
+  // Retrieves a list of process handles for all gpu processes.
+  virtual void GetGpuProcessHandles(
+      const GetGpuProcessHandlesCallback& callback) const = 0;
 
   // This indicator might change because we could collect more GPU info or
   // because the GPU blacklist could be updated.
@@ -83,6 +93,15 @@ class GpuDataManager {
   // they can be used to determine managed memory allocation.
   virtual void SetWindowCount(uint32 count) = 0;
   virtual uint32 GetWindowCount() const = 0;
+
+  // Allows a given domain previously blocked from accessing 3D APIs
+  // to access them again.
+  virtual void UnblockDomainFrom3DAPIs(const GURL& url) = 0;
+  // Disables domain blocking for 3D APIs. For use only in tests.
+  virtual void DisableDomainBlockingFor3DAPIsForTesting() = 0;
+
+  // Disable the gpu process watchdog thread.
+  virtual void DisableGpuWatchdog() = 0;
 
  protected:
   virtual ~GpuDataManager() {}

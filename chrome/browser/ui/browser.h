@@ -16,7 +16,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/prefs/public/pref_change_registrar.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/string16.h"
 #include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/debugger/devtools_toggle_action.h"
@@ -53,6 +52,7 @@ class BrowserToolbarModelDelegate;
 class BrowserTabRestoreServiceDelegate;
 class BrowserWindow;
 class DeviceAttachedIntentSource;
+class ExternalTabContainerWin;
 class FindBarController;
 class FullscreenController;
 class PrefService;
@@ -66,6 +66,7 @@ struct WebApplicationInfo;
 namespace chrome {
 class BrowserCommandController;
 class BrowserInstantController;
+class BrowserTabStripModelDelegate;
 class UnloadController;
 namespace search {
 struct Mode;
@@ -108,7 +109,6 @@ class Browser : public TabStripModelObserver,
                 public ZoomObserver,
                 public content::PageNavigator,
                 public content::NotificationObserver,
-                public PrefObserver,
                 public ui::SelectFileDialog::Listener,
                 public chrome::search::SearchModelObserver {
  public:
@@ -232,9 +232,9 @@ class Browser : public TabStripModelObserver,
   bool is_session_restore() const {
     return is_session_restore_;
   }
-  chrome::HostDesktopType host_desktop_type() {
+  chrome::HostDesktopType host_desktop_type() const {
     return host_desktop_type_;
-  };
+  }
 
   // Accessors ////////////////////////////////////////////////////////////////
 
@@ -420,6 +420,28 @@ class Browser : public TabStripModelObserver,
                                   content::PageTransition transition,
                                   bool user_initiated);
 
+  // Adoption functions ////////////////////////////////////////////////////////
+
+  class Adoption {
+   private:
+    friend class Browser;
+    friend class chrome::BrowserTabStripModelDelegate;
+    // Chrome Frame is a special case. Chrome Frame is defined as a complete
+    // tab of Chrome inside of an IE window, so it has the unique privilege of
+    // asking Browser to set up a WebContents to have the full complement of tab
+    // helpers that it would have if it were in a Browser.
+    // TODO(avi): It's still probably a good idea for Chrome Frame to more
+    // explicitly control which tab helpers get created for its WebContentses.
+    // http://crbug.com/157590
+    friend class ExternalTabContainerWin;
+
+    // Adopts the specified WebContents as a full-fledged browser tab, attaching
+    // all the associated tab helpers that are needed for the WebContents to
+    // serve in that role. It is safe to call this on a WebContents that was
+    // already adopted.
+    static void AdoptAsTabContents(content::WebContents* web_contents);
+  };
+
   // Interface implementations ////////////////////////////////////////////////
 
   // Overridden from content::PageNavigator:
@@ -435,23 +457,24 @@ class Browser : public TabStripModelObserver,
                             int index) OVERRIDE;
   virtual void TabDetachedAt(content::WebContents* contents,
                              int index) OVERRIDE;
-  virtual void TabDeactivated(TabContents* contents) OVERRIDE;
-  virtual void ActiveTabChanged(TabContents* old_contents,
-                                TabContents* new_contents,
+  virtual void TabDeactivated(content::WebContents* contents) OVERRIDE;
+  virtual void ActiveTabChanged(content::WebContents* old_contents,
+                                content::WebContents* new_contents,
                                 int index,
                                 bool user_gesture) OVERRIDE;
-  virtual void TabMoved(TabContents* contents,
+  virtual void TabMoved(content::WebContents* contents,
                         int from_index,
                         int to_index) OVERRIDE;
   virtual void TabReplacedAt(TabStripModel* tab_strip_model,
-                             TabContents* old_contents,
-                             TabContents* new_contents,
+                             content::WebContents* old_contents,
+                             content::WebContents* new_contents,
                              int index) OVERRIDE;
   virtual void TabPinnedStateChanged(content::WebContents* contents,
                                      int index) OVERRIDE;
   virtual void TabStripEmpty() OVERRIDE;
 
   // Overridden from content::WebContentsDelegate:
+  virtual bool CanOverscrollContent() const OVERRIDE;
   virtual bool PreHandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event,
@@ -479,6 +502,12 @@ class Browser : public TabStripModelObserver,
   // Show the first run search engine bubble on the location bar.
   void ShowFirstRunBubble();
 
+  // If necessary, update the bookmark bar state according to the instant
+  // preview state: when instant preview shows suggestions and bookmark bar is
+  // still showing attached, start the animation to hide it.
+  void MaybeUpdateBookmarkBarStateForInstantPreview(
+      const chrome::search::Mode& mode);
+
   FullscreenController* fullscreen_controller() {
     return fullscreen_controller_.get();
   }
@@ -498,6 +527,7 @@ class Browser : public TabStripModelObserver,
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, AppIdSwitch);
   FRIEND_TEST_ALL_PREFIXES(BrowserWithTestWindowTest,
                            IsReservedCommandOrKeyIsApp);
+  FRIEND_TEST_ALL_PREFIXES(BrowserWithTestWindowTest, AppFullScreen);
   FRIEND_TEST_ALL_PREFIXES(FullscreenControllerTest,
                            TabEntersPresentationModeFromWindowed);
   FRIEND_TEST_ALL_PREFIXES(FullscreenExitBubbleControllerTest,
@@ -536,6 +566,9 @@ class Browser : public TabStripModelObserver,
 
     // Change is the result of window toggling in/out of fullscreen mode.
     BOOKMARK_BAR_STATE_CHANGE_TOGGLE_FULLSCREEN,
+
+    // Change is the result of a state change in the instant preview.
+    BOOKMARK_BAR_STATE_CHANGE_INSTANT_PREVIEW_STATE,
   };
 
   // Overridden from content::WebContentsDelegate:
@@ -650,6 +683,11 @@ class Browser : public TabStripModelObserver,
       content::WebContents* web_contents,
       const content::MediaStreamRequest* request,
       const content::MediaResponseCallback& callback) OVERRIDE;
+  virtual bool RequestPpapiBrokerPermission(
+      content::WebContents* web_contents,
+      const GURL& url,
+      const FilePath& plugin_path,
+      const base::Callback<void(bool)>& callback) OVERRIDE;
 
   // Overridden from CoreTabHelperDelegate:
   // Note that the caller is responsible for deleting |old_tab_contents|.
@@ -695,18 +733,17 @@ class Browser : public TabStripModelObserver,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // Overridden from PrefObserver:
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
-
   // Overridden from chrome::search::SearchModelObserver:
   virtual void ModeChanged(const chrome::search::Mode& old_mode,
                            const chrome::search::Mode& new_mode) OVERRIDE;
 
   // Command and state updating ///////////////////////////////////////////////
 
+  // Handle changes to kDevTools preference.
+  void OnDevToolsDisabledChanged();
+
   // Set the preference that indicates that the home page has been changed.
-  void MarkHomePageAsChanged(PrefService* pref_service);
+  void MarkHomePageAsChanged();
 
   // UI update coalescing and handling ////////////////////////////////////////
 
@@ -718,7 +755,7 @@ class Browser : public TabStripModelObserver,
   void UpdateToolbar(bool should_restore_state);
 
   // Updates the browser's search model with the tab's search model.
-  void UpdateSearchState(TabContents* contents);
+  void UpdateSearchState(content::WebContents* contents);
 
   // Does one or both of the following for each bit in |changed_flags|:
   // . If the update should be processed immediately, it is.
@@ -763,12 +800,6 @@ class Browser : public TabStripModelObserver,
   bool CanCloseWithInProgressDownloads();
 
   // Adoption functions ////////////////////////////////////////////////////////
-
-  // Adopts the specified WebContents as a full-fledged browser tab, attaching
-  // all the associated tab helpers that are needed for the WebContents to
-  // serve in that role. It is safe to call this on a WebContents that was
-  // already adopted.
-  static void AdoptAsTabContents(content::WebContents* web_contents);
 
   // Sets the specified browser as the delegate of all the parts of the
   // TabContents that are needed.

@@ -4,7 +4,8 @@
 
 #include "net/quic/quic_crypto_client_stream.h"
 
-#include "net/quic/quic_session.h"
+#include "net/quic/crypto/crypto_protocol.h"
+#include "net/quic/quic_protocol.h"
 
 namespace net {
 
@@ -27,7 +28,7 @@ void QuicCryptoClientStream::OnHandshakeMessage(
   }
 
   // TODO(rch): correctly validate the message
-  set_handshake_complete(true);
+  SetHandshakeComplete(QUIC_NO_ERROR);
   return;
 }
 

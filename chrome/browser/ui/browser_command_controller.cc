@@ -159,16 +159,40 @@ BrowserCommandController::BrowserCommandController(Browser* browser)
   PrefService* local_state = g_browser_process->local_state();
   if (local_state) {
     local_pref_registrar_.Init(local_state);
-    local_pref_registrar_.Add(prefs::kAllowFileSelectionDialogs, this);
-    local_pref_registrar_.Add(prefs::kInManagedMode, this);
+    local_pref_registrar_.Add(
+        prefs::kAllowFileSelectionDialogs,
+        base::Bind(
+            &BrowserCommandController::UpdateCommandsForFileSelectionDialogs,
+            base::Unretained(this)));
+    local_pref_registrar_.Add(
+        prefs::kInManagedMode,
+        base::Bind(
+            &BrowserCommandController::UpdateCommandsForMultipleProfiles,
+            base::Unretained(this)));
   }
 
   profile_pref_registrar_.Init(profile()->GetPrefs());
-  profile_pref_registrar_.Add(prefs::kDevToolsDisabled, this);
-  profile_pref_registrar_.Add(prefs::kEditBookmarksEnabled, this);
-  profile_pref_registrar_.Add(prefs::kShowBookmarkBar, this);
-  profile_pref_registrar_.Add(prefs::kIncognitoModeAvailability, this);
-  profile_pref_registrar_.Add(prefs::kPrintingEnabled, this);
+  profile_pref_registrar_.Add(
+      prefs::kDevToolsDisabled,
+      base::Bind(&BrowserCommandController::UpdateCommandsForDevTools,
+                 base::Unretained(this)));
+  profile_pref_registrar_.Add(
+      prefs::kEditBookmarksEnabled,
+      base::Bind(&BrowserCommandController::UpdateCommandsForBookmarkEditing,
+                 base::Unretained(this)));
+  profile_pref_registrar_.Add(
+      prefs::kShowBookmarkBar,
+      base::Bind(&BrowserCommandController::UpdateCommandsForBookmarkBar,
+                 base::Unretained(this)));
+  profile_pref_registrar_.Add(
+      prefs::kIncognitoModeAvailability,
+      base::Bind(
+          &BrowserCommandController::UpdateCommandsForIncognitoAvailability,
+          base::Unretained(this)));
+  profile_pref_registrar_.Add(
+      prefs::kPrintingEnabled,
+      base::Bind(&BrowserCommandController::UpdatePrintingState,
+                 base::Unretained(this)));
 
   InitCommandState();
 
@@ -294,7 +318,7 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
   // tab.  However, Ben says he tried removing this before and got lots of
   // crashes, e.g. from Windows sending WM_COMMANDs at random times during
   // window construction.  This probably could use closer examination someday.
-  if (!chrome::GetActiveTabContents(browser_))
+  if (browser_->tab_strip_model()->active_index() == TabStripModel::kNoTab)
     return;
 
   DCHECK(command_updater_.IsCommandEnabled(id)) << "Invalid/disabled command "
@@ -684,32 +708,6 @@ void BrowserCommandController::Observe(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// PrefObserver implementation:
-
-void BrowserCommandController::OnPreferenceChanged(
-    PrefServiceBase* service,
-    const std::string& pref_name) {
-  if (pref_name == prefs::kPrintingEnabled) {
-    UpdatePrintingState();
-  } else if (pref_name == prefs::kIncognitoModeAvailability) {
-    UpdateCommandsForIncognitoAvailability();
-  } else if (pref_name == prefs::kDevToolsDisabled) {
-    UpdateCommandsForDevTools();
-  } else if (pref_name == prefs::kEditBookmarksEnabled) {
-    UpdateCommandsForBookmarkEditing();
-  } else if (pref_name == prefs::kShowBookmarkBar) {
-    UpdateCommandsForBookmarkBar();
-  } else if (pref_name == prefs::kAllowFileSelectionDialogs) {
-    UpdateSaveAsState();
-    UpdateOpenFileState();
-  } else if (pref_name == prefs::kInManagedMode) {
-    UpdateCommandsForMultipleProfiles();
-  } else {
-    NOTREACHED();
-  }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // BrowserCommandController, TabStripModelObserver implementation:
 
 void BrowserCommandController::TabInsertedAt(WebContents* contents,
@@ -723,11 +721,19 @@ void BrowserCommandController::TabDetachedAt(WebContents* contents, int index) {
 }
 
 void BrowserCommandController::TabReplacedAt(TabStripModel* tab_strip_model,
-                                             TabContents* old_contents,
-                                             TabContents* new_contents,
+                                             WebContents* old_contents,
+                                             WebContents* new_contents,
                                              int index) {
-  RemoveInterstitialObservers(old_contents->web_contents());
-  AddInterstitialObservers(new_contents->web_contents());
+  RemoveInterstitialObservers(old_contents);
+  AddInterstitialObservers(new_contents);
+}
+
+void BrowserCommandController::TabBlockedStateChanged(
+    content::WebContents* contents,
+    int index) {
+  PrintingStateChanged();
+  FullscreenStateChanged();
+  UpdateCommandsForFind();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -851,6 +857,9 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_HELP_PAGE_VIA_MENU, true);
   command_updater_.UpdateCommandEnabled(IDC_BOOKMARKS_MENU,
                                         !Profile::IsGuestSession());
+  command_updater_.UpdateCommandEnabled(IDC_RECENT_TABS_MENU,
+                                        !Profile::IsGuestSession() &&
+                                        !profile()->IsOffTheRecord());
 
   command_updater_.UpdateCommandEnabled(
       IDC_SHOW_SYNC_SETUP, profile()->GetOriginalProfile()->IsSyncAccessible());
@@ -885,13 +894,6 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(restart_mode, normal_window);
 #endif
   command_updater_.UpdateCommandEnabled(IDC_TABPOSE, normal_window);
-
-  // Find-in-page
-  command_updater_.UpdateCommandEnabled(IDC_FIND, !browser_->is_devtools());
-  command_updater_.UpdateCommandEnabled(IDC_FIND_NEXT,
-                                        !browser_->is_devtools());
-  command_updater_.UpdateCommandEnabled(IDC_FIND_PREVIOUS,
-                                        !browser_->is_devtools());
 
   // Show various bits of UI
   command_updater_.UpdateCommandEnabled(IDC_CLEAR_BROWSING_DATA, normal_window);
@@ -1001,6 +1003,7 @@ void BrowserCommandController::UpdateCommandsForTabState() {
 
   UpdateCommandsForContentRestrictionState();
   UpdateCommandsForBookmarkEditing();
+  UpdateCommandsForFind();
 }
 
 void BrowserCommandController::UpdateCommandsForContentRestrictionState() {
@@ -1045,6 +1048,11 @@ void BrowserCommandController::UpdateCommandsForBookmarkBar() {
       browser_defaults::bookmarks_enabled &&
       !profile()->GetPrefs()->IsManagedPreference(prefs::kShowBookmarkBar) &&
       show_main_ui);
+}
+
+void BrowserCommandController::UpdateCommandsForFileSelectionDialogs() {
+  UpdateSaveAsState();
+  UpdateOpenFileState();
 }
 
 void BrowserCommandController::UpdateCommandsForFullscreenMode(
@@ -1097,15 +1105,16 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode(
   command_updater_.UpdateCommandEnabled(IDC_PROFILING_ENABLED, show_main_ui);
 #endif
 
-  // Disable explicit fullscreen toggling when in metro snap mode.
-  bool fullscreen_enabled = !browser_->is_type_panel() &&
-                            !browser_->is_app() &&
-                            fullscreen_mode != FULLSCREEN_METRO_SNAP;
+  // Disable explicit fullscreen toggling for app-panels and when in metro snap
+  // mode.
+  bool fullscreen_enabled =
+      !(browser_->is_type_panel() && browser_->is_app()) &&
+      fullscreen_mode != FULLSCREEN_METRO_SNAP;
 #if defined(OS_MACOSX)
   // The Mac implementation doesn't support switching to fullscreen while
   // a tab modal dialog is displayed.
-  int tabIndex = chrome::IndexOfFirstBlockedTab(browser_->tab_strip_model());
-  bool has_blocked_tab = tabIndex != browser_->tab_strip_model()->count();
+  int tab_index = chrome::IndexOfFirstBlockedTab(browser_->tab_strip_model());
+  bool has_blocked_tab = tab_index != browser_->tab_strip_model()->count();
   fullscreen_enabled &= !has_blocked_tab;
 #endif
 
@@ -1162,6 +1171,16 @@ void BrowserCommandController::UpdateReloadStopState(bool is_loading,
                                                      bool force) {
   window()->UpdateReloadStopState(is_loading, force);
   command_updater_.UpdateCommandEnabled(IDC_STOP, is_loading);
+}
+
+void BrowserCommandController::UpdateCommandsForFind() {
+  TabStripModel* model = browser_->tab_strip_model();
+  bool enabled = !model->IsTabBlocked(model->active_index()) &&
+                 !browser_->is_devtools();
+
+  command_updater_.UpdateCommandEnabled(IDC_FIND, enabled);
+  command_updater_.UpdateCommandEnabled(IDC_FIND_NEXT, enabled);
+  command_updater_.UpdateCommandEnabled(IDC_FIND_PREVIOUS, enabled);
 }
 
 void BrowserCommandController::AddInterstitialObservers(WebContents* contents) {

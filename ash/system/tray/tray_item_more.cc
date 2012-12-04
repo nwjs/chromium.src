@@ -31,6 +31,7 @@ TrayItemMore::TrayItemMore(SystemTrayItem* owner, bool show_more)
   AddChildView(icon_);
 
   label_ = new views::Label;
+  label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   AddChildView(label_);
 
   if (show_more) {
@@ -70,7 +71,7 @@ bool TrayItemMore::PerformAction(const ui::Event& event) {
   if (!show_more_)
     return false;
 
-  owner_->TransitionDetailedView();
+  owner()->TransitionDetailedView();
   return true;
 }
 

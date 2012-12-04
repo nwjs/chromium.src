@@ -31,24 +31,31 @@ def main(args):
   parser.add_option('-E',
       help='Add environment variables when launching the executable.',
       dest='environ', action='append', default=[])
+  parser.add_option('--test-mode',
+      help='Listen for posts to /ok or /fail and shut down the server with '
+          ' errorcodes 0 and 1 respectively.',
+      dest='test_mode', action='store_true')
   options, args = parser.parse_args(args)
   if not args:
     parser.error('No executable given.')
 
   # 0 means use an ephemeral port.
-  server = httpd.LocalHTTPServer(options.serve_dir, 0)
+  server = httpd.LocalHTTPServer(options.serve_dir, 0, options.test_mode)
+  print 'Serving %s on %s...' % (options.serve_dir, server.GetURL(''))
 
+  env = copy.copy(os.environ)
+  for e in options.environ:
+    key, value = map(str.strip, e.split('='))
+    env[key] = value
+
+  cmd = args + [server.GetURL(options.path)]
+  print 'Running: %s...' % (' '.join(cmd),)
+  process = subprocess.Popen(cmd, env=env)
   try:
-    env = copy.copy(os.environ)
-    for e in options.environ:
-      key, value = map(str.strip, e.split('='))
-      env[key] = value
-
-    cmd = args + [server.GetURL(options.path)]
-    print 'Running: %s...' % (' '.join(cmd),)
-    subprocess.call(cmd, env=env)
+    return server.ServeUntilSubprocessDies(process)
   finally:
-    server.Shutdown()
+    if process.returncode is None:
+      process.kill()
 
 
 if __name__ == '__main__':

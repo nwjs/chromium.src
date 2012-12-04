@@ -21,7 +21,7 @@
 
 class GURL;
 class Profile;
-class NativeShellWindow;
+class NativeAppWindow;
 
 namespace content {
 class WebContents;
@@ -44,23 +44,27 @@ class ShellWindow : public content::NotificationObserver,
                     public ImageLoadingTracker::Observer,
                     public extensions::ExtensionKeybindingRegistry::Delegate {
  public:
-  struct CreateParams {
-    enum Frame {
-      FRAME_CHROME, // Chrome-style window frame.
-      FRAME_NONE, // Frameless window.
-    };
+  enum WindowType {
+    WINDOW_TYPE_DEFAULT,  // Default shell window
+    WINDOW_TYPE_PANEL,  // OS controlled panel window (Ash only)
+  };
 
+  enum Frame {
+    FRAME_CHROME,  // Chrome-style window frame.
+    FRAME_NONE,  // Frameless window.
+  };
+
+  struct CreateParams {
     CreateParams();
     ~CreateParams();
 
+    WindowType window_type;
     Frame frame;
-    // Specify the initial bounds of the window. INT_MIN designates
-    // 'unspecified' for any coordinate, and should be replaced with a default
-    // value.
+
+    // Specify the initial content bounds of the window (excluding any window
+    // decorations). INT_MIN designates 'unspecified' for any coordinate, and
+    // should be replaced with a default value.
     gfx::Rect bounds;
-    // Specify if bounds should be restored from a previous time.
-    bool restore_position;
-    bool restore_size;
 
     gfx::Size minimum_size;
     gfx::Size maximum_size;
@@ -88,15 +92,14 @@ class ShellWindow : public content::NotificationObserver,
   const SessionID& session_id() const { return session_id_; }
   const extensions::Extension* extension() const { return extension_; }
   content::WebContents* web_contents() const { return web_contents_.get(); }
+  WindowType window_type() const { return window_type_; }
   Profile* profile() const { return profile_; }
   const gfx::Image& app_icon() const { return app_icon_; }
 
-  BaseWindow* GetBaseWindow();
-  gfx::NativeWindow GetNativeWindow() {
-    return GetBaseWindow()->GetNativeWindow();
-  }
+  NativeAppWindow* GetBaseWindow();
+  gfx::NativeWindow GetNativeWindow();
 
-  // NativeShellWindows should call this to determine what the window's title
+  // NativeAppWindows should call this to determine what the window's title
   // is on startup and from within UpdateWindowTitle().
   virtual string16 GetTitle() const;
 
@@ -104,9 +107,9 @@ class ShellWindow : public content::NotificationObserver,
   // invoke this method instead of using "delete this".
   void OnNativeClose();
 
-  // Should be called by native implementations when the window size/position
-  // has changed.
-  void SaveWindowPosition();
+  // Should be called by native implementations when the window size, position,
+  // or minimized/maximized state has changed.
+  void OnNativeWindowChanged();
 
  protected:
   ShellWindow(Profile* profile,
@@ -159,6 +162,9 @@ class ShellWindow : public content::NotificationObserver,
   virtual void HandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) OVERRIDE;
+  virtual void RequestToLockMouse(content::WebContents* web_contents,
+                                  bool user_gesture,
+                                  bool last_unlocked_by_target) OVERRIDE;
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -177,8 +183,8 @@ class ShellWindow : public content::NotificationObserver,
   void AddMessageToDevToolsConsole(content::ConsoleMessageLevel level,
                                    const std::string& message);
 
-  // Sends an update message with the current bounds to the renderer.
-  void SendBoundsUpdate();
+  // Saves the window geometry/position.
+  void SaveWindowPosition();
 
   virtual void UpdateDraggableRegions(
     const std::vector<extensions::DraggableRegion>& regions);
@@ -205,6 +211,7 @@ class ShellWindow : public content::NotificationObserver,
 
   const SessionID session_id_;
   scoped_ptr<content::WebContents> web_contents_;
+  WindowType window_type_;
   content::NotificationRegistrar registrar_;
   ExtensionFunctionDispatcher extension_function_dispatcher_;
 
@@ -214,7 +221,7 @@ class ShellWindow : public content::NotificationObserver,
   // Used for loading app_icon_.
   scoped_ptr<ImageLoadingTracker> app_icon_loader_;
 
-  scoped_ptr<NativeShellWindow> native_window_;
+  scoped_ptr<NativeAppWindow> native_app_window_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellWindow);
 };

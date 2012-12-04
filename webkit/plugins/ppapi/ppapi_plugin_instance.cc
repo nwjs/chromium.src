@@ -77,7 +77,6 @@
 #include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/plugin_object.h"
 #include "webkit/plugins/ppapi/ppb_buffer_impl.h"
-#include "webkit/plugins/ppapi/ppb_graphics_2d_impl.h"
 #include "webkit/plugins/ppapi/ppb_graphics_3d_impl.h"
 #include "webkit/plugins/ppapi/ppb_image_data_impl.h"
 #include "webkit/plugins/ppapi/ppb_url_loader_impl.h"
@@ -113,11 +112,13 @@ using ppapi::PpapiGlobals;
 using ppapi::PPB_InputEvent_Shared;
 using ppapi::PPB_View_Shared;
 using ppapi::PPP_Instance_Combined;
+using ppapi::Resource;
 using ppapi::ScopedPPResource;
 using ppapi::StringVar;
 using ppapi::TrackedCallback;
 using ppapi::thunk::EnterResourceNoLock;
 using ppapi::thunk::PPB_Buffer_API;
+using ppapi::thunk::PPB_Gamepad_API;
 using ppapi::thunk::PPB_Graphics2D_API;
 using ppapi::thunk::PPB_Graphics3D_API;
 using ppapi::thunk::PPB_ImageData_API;
@@ -318,7 +319,12 @@ PluginInstance* PluginInstance::Create(PluginDelegate* delegate,
 }
 
 PluginInstance::GamepadImpl::GamepadImpl(PluginDelegate* delegate)
-    : delegate_(delegate) {
+    : Resource(::ppapi::Resource::Untracked()),
+      delegate_(delegate) {
+}
+
+PPB_Gamepad_API* PluginInstance::GamepadImpl::AsPPB_Gamepad_API() {
+  return this;
 }
 
 void PluginInstance::GamepadImpl::Sample(PP_GamepadsSampleData* data) {
@@ -340,6 +346,7 @@ PluginInstance::PluginInstance(
       full_frame_(false),
       sent_initial_did_change_view_(false),
       view_change_weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+      bound_graphics_2d_platform_(NULL),
       has_webkit_focus_(false),
       has_content_area_focus_(false),
       find_identifier_(-1),
@@ -355,7 +362,7 @@ PluginInstance::PluginInstance(
       checked_for_plugin_input_event_interface_(false),
       checked_for_plugin_messaging_interface_(false),
       checked_for_plugin_pdf_interface_(false),
-      gamepad_impl_(delegate),
+      gamepad_impl_(new GamepadImpl(delegate)),
       plugin_print_interface_(NULL),
       plugin_graphics_3d_interface_(NULL),
       always_on_top_(false),
@@ -457,7 +464,7 @@ void PluginInstance::Paint(WebCanvas* canvas,
     return;
   }
 
-  PPB_Graphics2D_Impl* bound_graphics_2d = GetBoundGraphics2D();
+  PluginDelegate::PlatformGraphics2D* bound_graphics_2d = GetBoundGraphics2D();
   if (bound_graphics_2d)
     bound_graphics_2d->Paint(canvas, plugin_rect, paint_rect);
 }
@@ -562,7 +569,8 @@ bool PluginInstance::Initialize(WebPluginContainer* container,
   plugin_url_ = plugin_url;
   full_frame_ = full_frame;
 
-  container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  UpdateTouchEventRequest();
+  container_->setWantsWheelEvents(IsAcceptingWheelEvents());
 
   SetGPUHistogram(delegate_->GetPreferences(), arg_names, arg_values);
 
@@ -667,6 +675,13 @@ bool PluginInstance::SendCompositionEventWithUnderlineInformationToPlugin(
   handled |= PP_ToBool(plugin_input_event_interface_->HandleInputEvent(
       pp_instance(), event_resource->pp_resource()));
   return handled;
+}
+
+void PluginInstance::RequestInputEventsHelper(uint32_t event_classes) {
+  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
+    UpdateTouchEventRequest();
+  if (event_classes & PP_INPUTEVENT_CLASS_WHEEL)
+    container_->setWantsWheelEvents(IsAcceptingWheelEvents());
 }
 
 bool PluginInstance::HandleCompositionStart(const string16& text) {
@@ -816,8 +831,6 @@ void PluginInstance::ViewChanged(const gfx::Rect& position,
 
   cut_outs_rects_ = cut_outs_rects;
 
-  ViewData previous_view = view_data_;
-
   view_data_.rect = PP_FromGfxRect(position);
   view_data_.clip_rect = PP_FromGfxRect(clip);
   view_data_.device_scale = container_->deviceScaleFactor();
@@ -842,7 +855,7 @@ void PluginInstance::ViewChanged(const gfx::Rect& position,
       // DidChangeView updates. Schedule an asynchronous update and suppress
       // notifications until that completes to avoid sending intermediate sizes
       // to the plugins.
-      ScheduleAsyncDidChangeView(previous_view);
+      ScheduleAsyncDidChangeView();
 
       // Reset the size attributes that we hacked to fill in the screen and
       // retrigger ViewChanged. Make sure we don't forward duplicates of
@@ -854,7 +867,7 @@ void PluginInstance::ViewChanged(const gfx::Rect& position,
 
   UpdateFlashFullscreenState(fullscreen_container_ != NULL);
 
-  SendDidChangeView(previous_view);
+  SendDidChangeView();
 }
 
 void PluginInstance::SetWebKitFocus(bool has_focus) {
@@ -880,9 +893,15 @@ void PluginInstance::SetContentAreaFocus(bool has_focus) {
 void PluginInstance::PageVisibilityChanged(bool is_visible) {
   if (is_visible == view_data_.is_page_visible)
     return;  // Nothing to do.
-  ViewData old_data = view_data_;
   view_data_.is_page_visible = is_visible;
-  SendDidChangeView(old_data);
+
+  // If the initial DidChangeView notification hasn't been sent to the plugin,
+  // let it pass the visibility state for us, instead of sending a notification
+  // immediately. It is possible that PluginInstance::ViewChanged() hasn't been
+  // called for the first time. In that case, most of the fields in |view_data_|
+  // haven't been properly initialized.
+  if (sent_initial_did_change_view_)
+    SendDidChangeView();
 }
 
 void PluginInstance::ViewWillInitiatePaint() {
@@ -916,13 +935,13 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
     float* scale_factor) {
   if (!always_on_top_)
     return false;
-  if (!GetBoundGraphics2D() || !GetBoundGraphics2D()->is_always_opaque())
+  if (!GetBoundGraphics2D() || !GetBoundGraphics2D()->IsAlwaysOpaque())
     return false;
 
   // We specifically want to compare against the area covered by the backing
   // store when seeing if we cover the given paint bounds, since the backing
   // store could be smaller than the declared plugin area.
-  PPB_ImageData_Impl* image_data = GetBoundGraphics2D()->image_data();
+  PPB_ImageData_Impl* image_data = GetBoundGraphics2D()->ImageData();
   // ImageDatas created by NaCl don't have a PlatformImage, so can't be
   // optimized this way.
   if (!image_data->PlatformImage())
@@ -937,12 +956,6 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
   gfx::Rect pixel_plugin_backing_store_rect(
       0, 0, image_data->width(), image_data->height());
   float scale = GetBoundGraphics2D()->GetScale();
-#if !defined(USE_AURA) && (defined(OS_WIN) || defined(OS_LINUX))
-  // Linux and Windows don't yet support scaled UpdateRects
-  // TODO(jbauman): Add support and remove this.
-  if (scale != 1.0f)
-    return false;
-#endif
   gfx::Rect plugin_backing_store_rect = gfx::ToEnclosedRect(
       gfx::ScaleRect(pixel_plugin_backing_store_rect, scale));
 
@@ -1109,6 +1122,9 @@ bool PluginInstance::LoadPdfInterface() {
 }
 
 bool PluginInstance::LoadPrintInterface() {
+  // Only check for the interface if the plugin has dev permission.
+  if (!module_->permissions().HasPermission(::ppapi::PERMISSION_DEV))
+    return false;
   if (!plugin_print_interface_) {
     plugin_print_interface_ = static_cast<const PPP_Printing_Dev*>(
         module_->GetPluginInterface(PPP_PRINTING_DEV_INTERFACE));
@@ -1164,38 +1180,45 @@ void PluginInstance::SendFocusChangeNotification() {
   instance_interface_->DidChangeFocus(pp_instance(), PP_FromBool(has_focus));
 }
 
-bool PluginInstance::IsAcceptingTouchEvents() const {
-  return (filtered_input_event_mask_ & PP_INPUTEVENT_CLASS_TOUCH) ||
-      (input_event_mask_ & PP_INPUTEVENT_CLASS_TOUCH);
+void PluginInstance::UpdateTouchEventRequest() {
+  bool raw_touch = (filtered_input_event_mask_ & PP_INPUTEVENT_CLASS_TOUCH) ||
+                   (input_event_mask_ & PP_INPUTEVENT_CLASS_TOUCH);
+  container_->requestTouchEventType(raw_touch ?
+      WebKit::WebPluginContainer::TouchEventRequestTypeRaw :
+      WebKit::WebPluginContainer::TouchEventRequestTypeSynthesizedMouse);
 }
 
-void PluginInstance::ScheduleAsyncDidChangeView(
-    const ::ppapi::ViewData& previous_view) {
+bool PluginInstance::IsAcceptingWheelEvents() const {
+  return (filtered_input_event_mask_ & PP_INPUTEVENT_CLASS_WHEEL) ||
+      (input_event_mask_ & PP_INPUTEVENT_CLASS_WHEEL);
+}
+
+void PluginInstance::ScheduleAsyncDidChangeView() {
   if (view_change_weak_ptr_factory_.HasWeakPtrs())
     return;  // Already scheduled.
   MessageLoop::current()->PostTask(
       FROM_HERE, base::Bind(&PluginInstance::SendAsyncDidChangeView,
-                            view_change_weak_ptr_factory_.GetWeakPtr(),
-                            previous_view));
+                            view_change_weak_ptr_factory_.GetWeakPtr()));
 }
 
-void PluginInstance::SendAsyncDidChangeView(const ViewData& previous_view) {
+void PluginInstance::SendAsyncDidChangeView() {
   // The bound callback that owns the weak pointer is still valid until after
   // this function returns. SendDidChangeView checks HasWeakPtrs, so we need to
   // invalidate them here.
   // NOTE: If we ever want to have more than one pending callback, it should
   // use a different factory, or we should have a different strategy here.
   view_change_weak_ptr_factory_.InvalidateWeakPtrs();
-  SendDidChangeView(previous_view);
+  SendDidChangeView();
 }
 
-void PluginInstance::SendDidChangeView(const ViewData& previous_view) {
+void PluginInstance::SendDidChangeView() {
   // Don't send DidChangeView to crashed plugins.
   if (module()->is_crashed())
     return;
 
   if (view_change_weak_ptr_factory_.HasWeakPtrs() ||
-      (sent_initial_did_change_view_ && previous_view.Equals(view_data_)))
+      (sent_initial_did_change_view_ &&
+       last_sent_view_data_.Equals(view_data_)))
     return;  // Nothing to update.
 
   const PP_Size& size = view_data_.rect.size;
@@ -1209,6 +1232,7 @@ void PluginInstance::SendDidChangeView(const ViewData& previous_view) {
   }
 
   sent_initial_did_change_view_ = true;
+  last_sent_view_data_ = view_data_;
   ScopedPPResource resource(
       ScopedPPResource::PassRef(),
       (new PPB_View_Shared(::ppapi::OBJECT_IS_IMPL,
@@ -1674,22 +1698,14 @@ bool PluginInstance::PrintPDFOutput(PP_Resource print_output,
 #endif
 }
 
-PPB_Graphics2D_Impl* PluginInstance::GetBoundGraphics2D() const {
-  if (bound_graphics_.get() == NULL)
-    return NULL;
-
-  if (bound_graphics_->AsPPB_Graphics2D_API())
-    return static_cast<PPB_Graphics2D_Impl*>(bound_graphics_.get());
-  return NULL;
+PluginDelegate::PlatformGraphics2D* PluginInstance::GetBoundGraphics2D() const {
+  return bound_graphics_2d_platform_;
 }
 
 PPB_Graphics3D_Impl* PluginInstance::GetBoundGraphics3D() const {
-  if (bound_graphics_.get() == NULL)
+  if (bound_graphics_3d_.get() == NULL)
     return NULL;
-
-  if (bound_graphics_->AsPPB_Graphics3D_API())
-    return static_cast<PPB_Graphics3D_Impl*>(bound_graphics_.get());
-  return NULL;
+  return static_cast<PPB_Graphics3D_Impl*>(bound_graphics_3d_.get());
 }
 
 void PluginInstance::setBackingTextureId(unsigned int id, bool is_opaque) {
@@ -1850,14 +1866,16 @@ PP_Bool PluginInstance::BindGraphics(PP_Instance instance,
   TRACE_EVENT0("ppapi", "PluginInstance::BindGraphics");
   // The Graphics3D instance can't be destroyed until we call
   // setBackingTextureId.
-  scoped_refptr< ::ppapi::Resource> old_graphics = bound_graphics_;
-  if (bound_graphics_.get()) {
-    if (GetBoundGraphics2D()) {
-      GetBoundGraphics2D()->BindToInstance(NULL);
-    } else if (GetBoundGraphics3D()) {
+  scoped_refptr< ::ppapi::Resource> old_graphics = bound_graphics_3d_;
+  if (bound_graphics_3d_.get()) {
+    if (GetBoundGraphics3D()) {
       GetBoundGraphics3D()->BindToInstance(false);
     }
-    bound_graphics_ = NULL;
+    bound_graphics_3d_ = NULL;
+  }
+  if (bound_graphics_2d_platform_) {
+    GetBoundGraphics2D()->BindToInstance(NULL);
+    bound_graphics_2d_platform_ = NULL;
   }
 
   // Special-case clearing the current device.
@@ -1873,21 +1891,16 @@ PP_Bool PluginInstance::BindGraphics(PP_Instance instance,
       desired_fullscreen_state_ != view_data_.is_fullscreen)
     return PP_FALSE;
 
-  EnterResourceNoLock<PPB_Graphics2D_API> enter_2d(device, false);
-  PPB_Graphics2D_Impl* graphics_2d = enter_2d.succeeded() ?
-      static_cast<PPB_Graphics2D_Impl*>(enter_2d.object()) : NULL;
+  bound_graphics_2d_platform_ = delegate_->GetGraphics2D(this, device);
   EnterResourceNoLock<PPB_Graphics3D_API> enter_3d(device, false);
   PPB_Graphics3D_Impl* graphics_3d = enter_3d.succeeded() ?
       static_cast<PPB_Graphics3D_Impl*>(enter_3d.object()) : NULL;
 
-  if (graphics_2d) {
-    if (graphics_2d->pp_instance() != pp_instance())
-      return PP_FALSE;  // Can't bind other instance's contexts.
-    if (!graphics_2d->BindToInstance(this))
+  if (bound_graphics_2d_platform_) {
+    if (!bound_graphics_2d_platform_->BindToInstance(this))
       return PP_FALSE;  // Can't bind to more than one instance.
 
-    bound_graphics_ = graphics_2d;
-    setBackingTextureId(0, graphics_2d->is_always_opaque());
+    setBackingTextureId(0, bound_graphics_2d_platform_->IsAlwaysOpaque());
     // BindToInstance will have invalidated the plugin if necessary.
   } else if (graphics_3d) {
     // Make sure graphics can only be bound to the instance it is
@@ -1897,7 +1910,7 @@ PP_Bool PluginInstance::BindGraphics(PP_Instance instance,
     if (!graphics_3d->BindToInstance(true))
       return PP_FALSE;
 
-    bound_graphics_ = graphics_3d;
+    bound_graphics_3d_ = graphics_3d;
     setBackingTextureId(graphics_3d->GetBackingTextureId(),
                         graphics_3d->IsOpaque());
   } else {
@@ -1914,6 +1927,10 @@ PP_Bool PluginInstance::IsFullFrame(PP_Instance instance) {
 
 const ViewData* PluginInstance::GetViewData(PP_Instance instance) {
   return &view_data_;
+}
+
+PP_Bool PluginInstance::FlashIsFullscreen(PP_Instance instance) {
+  return PP_FromBool(flash_fullscreen_);
 }
 
 PP_Var PluginInstance::GetWindowObject(PP_Instance instance) {
@@ -2110,29 +2127,29 @@ PP_Bool PluginInstance::GetScreenSize(PP_Instance instance, PP_Size* size) {
   return &flash_impl_;
 }
 
-::ppapi::thunk::PPB_Flash_Clipboard_API*
-PluginInstance::GetFlashClipboardAPI(PP_Instance /*instance*/) {
-  NOTIMPLEMENTED();
-  return NULL;
-}
+::ppapi::Resource* PluginInstance::GetSingletonResource(
+    PP_Instance instance,
+    ::ppapi::SingletonResourceID id) {
+  // Flash APIs aren't implemented in-process.
+  switch (id) {
+    case ::ppapi::FLASH_CLIPBOARD_SINGLETON_ID:
+    case ::ppapi::FLASH_FULLSCREEN_SINGLETON_ID:
+    case ::ppapi::FLASH_SINGLETON_ID:
+      NOTIMPLEMENTED();
+      return NULL;
+    case ::ppapi::GAMEPAD_SINGLETON_ID:
+      return gamepad_impl_;
+  }
 
-::ppapi::thunk::PPB_Flash_Functions_API*
-PluginInstance::GetFlashFunctionsAPI(PP_Instance /*instance*/) {
-  NOTIMPLEMENTED();
+  NOTREACHED();
   return NULL;
-}
-
-::ppapi::thunk::PPB_Gamepad_API* PluginInstance::GetGamepadAPI(
-    PP_Instance /* instance */) {
-  return &gamepad_impl_;
 }
 
 int32_t PluginInstance::RequestInputEvents(PP_Instance instance,
                                            uint32_t event_classes) {
   input_event_mask_ |= event_classes;
   filtered_input_event_mask_ &= ~(event_classes);
-  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
-    container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  RequestInputEventsHelper(event_classes);
   return ValidateRequestInputEvents(false, event_classes);
 }
 
@@ -2140,8 +2157,7 @@ int32_t PluginInstance::RequestFilteringInputEvents(PP_Instance instance,
                                                     uint32_t event_classes) {
   filtered_input_event_mask_ |= event_classes;
   input_event_mask_ &= ~(event_classes);
-  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
-    container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  RequestInputEventsHelper(event_classes);
   return ValidateRequestInputEvents(true, event_classes);
 }
 
@@ -2149,8 +2165,7 @@ void PluginInstance::ClearInputEventRequest(PP_Instance instance,
                                             uint32_t event_classes) {
   input_event_mask_ &= ~(event_classes);
   filtered_input_event_mask_ &= ~(event_classes);
-  if (event_classes & PP_INPUTEVENT_CLASS_TOUCH)
-    container_->setIsAcceptingTouchEvents(IsAcceptingTouchEvents());
+  RequestInputEventsHelper(event_classes);
 }
 
 void PluginInstance::ZoomChanged(PP_Instance instance, double factor) {
@@ -2387,16 +2402,12 @@ bool PluginInstance::ResetAsProxied(scoped_refptr<PluginModule> module) {
                                       argn_array.get(), argv_array.get()))
     return false;
 
-  // Use a ViewData that looks like the initial DidChangeView event for the
-  // "previous" view.
-  ::ppapi::ViewData empty_view;
-  empty_view.is_page_visible = delegate_->IsPageVisible();
   // Clear sent_initial_did_change_view_ and cancel any pending DidChangeView
   // event. This way, SendDidChangeView will send the "current" view
   // immediately (before other events like HandleDocumentLoad).
   sent_initial_did_change_view_ = false;
   view_change_weak_ptr_factory_.InvalidateWeakPtrs();
-  SendDidChangeView(empty_view);
+  SendDidChangeView();
 
   // If we received HandleDocumentLoad, re-send it now via the proxy.
   if (document_loader_)

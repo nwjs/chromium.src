@@ -92,15 +92,32 @@ body {
   position: static;
 }
 
+#bottom-panel-header,
 #bottom-panel-footer,
 #bottom-panel-toolbar {
   margin: 10px auto;
   text-align: center;
 }
 
+#bottom-panel-header {
+  margin-bottom: 20px;
+}
+
 #bottom-panel-toolbar {
   height: 18px;
   margin-top: 8px;
+}
+
+#promo-bubble-anchor {
+  bottom: 50px;
+  height: 10px;
+  left: 0;
+  position: absolute;
+  width: 90px;
+}
+
+.bubble .bubble-arrow {
+  display: none;
 }
 
 /* TODO(jeremycho): Figure out if we need this. */

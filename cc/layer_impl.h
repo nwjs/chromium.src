@@ -5,6 +5,7 @@
 #ifndef CC_LAYER_IMPL_H_
 #define CC_LAYER_IMPL_H_
 
+#include <public/WebFilterOperations.h>
 #include <string>
 
 #include "base/logging.h"
@@ -18,11 +19,12 @@
 #include "cc/resource_provider.h"
 #include "cc/scoped_ptr_vector.h"
 #include "cc/shared_quad_state.h"
+#include "skia/ext/refptr.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/core/SkImageFilter.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/rect_f.h"
-#include <public/WebFilterOperations.h>
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
 namespace cc {
 
@@ -38,6 +40,8 @@ struct AppendQuadsData;
 
 class CC_EXPORT LayerImpl : public LayerAnimationControllerClient {
 public:
+    typedef ScopedPtrVector<LayerImpl> LayerList;
+
     static scoped_ptr<LayerImpl> create(int id)
     {
         return make_scoped_ptr(new LayerImpl(id));
@@ -49,21 +53,24 @@ public:
     virtual int id() const OVERRIDE;
     virtual void setOpacityFromAnimation(float) OVERRIDE;
     virtual float opacity() const OVERRIDE;
-    virtual void setTransformFromAnimation(const WebKit::WebTransformationMatrix&) OVERRIDE;
-    virtual const WebKit::WebTransformationMatrix& transform() const OVERRIDE;
+    virtual void setTransformFromAnimation(const gfx::Transform&) OVERRIDE;
+    virtual const gfx::Transform& transform() const OVERRIDE;
 
     // Tree structure.
-    LayerImpl* parent() const { return m_parent; }
-    const ScopedPtrVector<LayerImpl>& children() const { return m_children; }
+    LayerImpl* parent() { return m_parent; }
+    const LayerImpl* parent() const { return m_parent; }
+    const LayerList& children() const { return m_children; }
     void addChild(scoped_ptr<LayerImpl>);
     void removeFromParent();
     void removeAllChildren();
 
     void setMaskLayer(scoped_ptr<LayerImpl>);
-    LayerImpl* maskLayer() const { return m_maskLayer.get(); }
+    LayerImpl* maskLayer() { return m_maskLayer.get(); }
+    const LayerImpl* maskLayer() const { return m_maskLayer.get(); }
 
     void setReplicaLayer(scoped_ptr<LayerImpl>);
-    LayerImpl* replicaLayer() const { return m_replicaLayer.get(); }
+    LayerImpl* replicaLayer() { return m_replicaLayer.get(); }
+    const LayerImpl* replicaLayer() const { return m_replicaLayer.get(); }
 
     bool hasMask() const { return m_maskLayer; }
     bool hasReplica() const { return m_replicaLayer; }
@@ -94,8 +101,10 @@ public:
     bool forceRenderSurface() const { return m_forceRenderSurface; }
     void setForceRenderSurface(bool force) { m_forceRenderSurface = force; }
 
-    // Returns true if any of the layer's descendants has content to draw.
-    virtual bool descendantDrawsContent();
+    // Returns 0 if none of the layer's descendants has content to draw,
+    // 1 if exactly one descendant has content to draw, or a number >1
+    // (but necessary the exact number of descendants) otherwise.
+    virtual int descendantsDrawContent();
 
     void setAnchorPoint(const gfx::PointF&);
     const gfx::PointF& anchorPoint() const { return m_anchorPoint; }
@@ -112,8 +121,8 @@ public:
     void setBackgroundFilters(const WebKit::WebFilterOperations&);
     const WebKit::WebFilterOperations& backgroundFilters() const { return m_backgroundFilters; }
 
-    void setFilter(SkImageFilter*);
-    SkImageFilter* filter() const { return m_filter; }
+    void setFilter(const skia::RefPtr<SkImageFilter>&);
+    skia::RefPtr<SkImageFilter> filter() const { return m_filter; }
 
     void setMasksToBounds(bool);
     bool masksToBounds() const { return m_masksToBounds; }
@@ -142,19 +151,14 @@ public:
     void setUseLCDText(bool useLCDText) { m_useLCDText = useLCDText; }
     bool useLCDText() const { return m_useLCDText; }
 
-    void setSublayerTransform(const WebKit::WebTransformationMatrix&);
-    const WebKit::WebTransformationMatrix& sublayerTransform() const { return m_sublayerTransform; }
-
-    // Debug layer border - visual effect only, do not change geometry/clipping/etc.
-    void setDebugBorderColor(SkColor);
-    SkColor debugBorderColor() const { return m_debugBorderColor; }
-    void setDebugBorderWidth(float);
-    float debugBorderWidth() const { return m_debugBorderWidth; }
-    bool hasDebugBorders() const;
+    void setSublayerTransform(const gfx::Transform&);
+    const gfx::Transform& sublayerTransform() const { return m_sublayerTransform; }
 
     // Debug layer name.
     void setDebugName(const std::string& debugName) { m_debugName = debugName; }
     std::string debugName() const { return m_debugName; }
+
+    bool showDebugBorders() const;
 
     RenderSurfaceImpl* renderSurface() const { return m_renderSurface.get(); }
     void createRenderSurface();
@@ -166,8 +170,9 @@ public:
     bool drawOpacityIsAnimating() const { return m_drawOpacityIsAnimating; }
     void setDrawOpacityIsAnimating(bool drawOpacityIsAnimating) { m_drawOpacityIsAnimating = drawOpacityIsAnimating; }
 
-    LayerImpl* renderTarget() const { DCHECK(!m_renderTarget || m_renderTarget->renderSurface()); return m_renderTarget; }
     void setRenderTarget(LayerImpl* target) { m_renderTarget = target; }
+    LayerImpl* renderTarget() { DCHECK(!m_renderTarget || m_renderTarget->renderSurface()); return m_renderTarget; }
+    const LayerImpl* renderTarget() const { DCHECK(!m_renderTarget || m_renderTarget->renderSurface()); return m_renderTarget; }
 
     // The client should be responsible for setting bounds, contentBounds and
     // contentsScale to appropriate values. LayerImpl doesn't calculate any of
@@ -194,8 +199,8 @@ public:
     const gfx::Vector2dF& scrollDelta() const { return m_scrollDelta; }
     void setScrollDelta(const gfx::Vector2dF&);
 
-    const WebKit::WebTransformationMatrix& implTransform() const { return m_implTransform; }
-    void setImplTransform(const WebKit::WebTransformationMatrix& transform);
+    const gfx::Transform& implTransform() const { return m_implTransform; }
+    void setImplTransform(const gfx::Transform& transform);
 
     const gfx::Vector2d& sentScrollDelta() const { return m_sentScrollDelta; }
     void setSentScrollDelta(const gfx::Vector2d& sentScrollDelta) { m_sentScrollDelta = sentScrollDelta; }
@@ -229,21 +234,28 @@ public:
     bool doubleSided() const { return m_doubleSided; }
     void setDoubleSided(bool);
 
-    void setTransform(const WebKit::WebTransformationMatrix&);
+    void setTransform(const gfx::Transform&);
     bool transformIsAnimating() const;
 
-    const WebKit::WebTransformationMatrix& drawTransform() const { return m_drawTransform; }
-    void setDrawTransform(const WebKit::WebTransformationMatrix& matrix) { m_drawTransform = matrix; }
-    const WebKit::WebTransformationMatrix& screenSpaceTransform() const { return m_screenSpaceTransform; }
-    void setScreenSpaceTransform(const WebKit::WebTransformationMatrix& matrix) { m_screenSpaceTransform = matrix; }
+    const gfx::Transform& drawTransform() const { return m_drawTransform; }
+    void setDrawTransform(const gfx::Transform& matrix) { m_drawTransform = matrix; }
+    const gfx::Transform& screenSpaceTransform() const { return m_screenSpaceTransform; }
+    void setScreenSpaceTransform(const gfx::Transform& matrix) { m_screenSpaceTransform = matrix; }
 
     bool drawTransformIsAnimating() const { return m_drawTransformIsAnimating; }
     void setDrawTransformIsAnimating(bool animating) { m_drawTransformIsAnimating = animating; }
     bool screenSpaceTransformIsAnimating() const { return m_screenSpaceTransformIsAnimating; }
     void setScreenSpaceTransformIsAnimating(bool animating) { m_screenSpaceTransformIsAnimating = animating; }
 
+    bool isClipped() const { return m_isClipped; }
+    void setIsClipped(bool isClipped) { m_isClipped = isClipped; }
+
+    const gfx::Rect& clipRect() const { return m_clipRect; }
+    void setClipRect(const gfx::Rect& clipRect) { m_clipRect = clipRect; }
+
     const gfx::Rect& drawableContentRect() const { return m_drawableContentRect; }
     void setDrawableContentRect(const gfx::Rect& rect) { m_drawableContentRect = rect; }
+
     const gfx::RectF& updateRect() const { return m_updateRect; }
     void setUpdateRect(const gfx::RectF& updateRect) { m_updateRect = updateRect; }
 
@@ -262,6 +274,8 @@ public:
 
     virtual Region visibleContentOpaqueRegion() const;
 
+    virtual void didUpdateTransforms() { }
+
     // Indicates that the context previously used to render this layer
     // was lost and that a new one has been created. Won't be called
     // until the new context has been created successfully.
@@ -269,16 +283,21 @@ public:
 
     ScrollbarAnimationController* scrollbarAnimationController() const { return m_scrollbarAnimationController.get(); }
 
-    ScrollbarLayerImpl* horizontalScrollbarLayer() const;
     void setHorizontalScrollbarLayer(ScrollbarLayerImpl*);
+    ScrollbarLayerImpl* horizontalScrollbarLayer();
+    const ScrollbarLayerImpl* horizontalScrollbarLayer() const;
 
-    ScrollbarLayerImpl* verticalScrollbarLayer() const;
     void setVerticalScrollbarLayer(ScrollbarLayerImpl*);
+    ScrollbarLayerImpl* verticalScrollbarLayer();
+    const ScrollbarLayerImpl* verticalScrollbarLayer() const;
 
     gfx::Rect layerRectToContentRect(const gfx::RectF& layerRect) const;
 
 protected:
     explicit LayerImpl(int);
+
+    // Get the color and size of the layer's debug border.
+    virtual void getDebugBorderProperties(SkColor*, float* width) const;
 
     void appendDebugBorderQuad(QuadSink&, const SharedQuadState*, AppendQuadsData&) const;
 
@@ -301,7 +320,7 @@ private:
 
     // Properties internal to LayerImpl
     LayerImpl* m_parent;
-    ScopedPtrVector<LayerImpl> m_children;
+    LayerList m_children;
     // m_maskLayer can be temporarily stolen during tree sync, we need this ID to confirm newly assigned layer is still the previous one
     int m_maskLayerId;
     scoped_ptr<LayerImpl> m_maskLayer;
@@ -346,8 +365,8 @@ private:
     bool m_preserves3D;
     bool m_useParentBackfaceVisibility;
     bool m_drawCheckerboardForMissingTiles;
-    WebKit::WebTransformationMatrix m_sublayerTransform;
-    WebKit::WebTransformationMatrix m_transform;
+    gfx::Transform m_sublayerTransform;
+    gfx::Transform m_transform;
     bool m_useLCDText;
 
     bool m_drawsContent;
@@ -361,7 +380,7 @@ private:
     gfx::Vector2dF m_scrollDelta;
     gfx::Vector2d m_sentScrollDelta;
     gfx::Vector2d m_maxScrollOffset;
-    WebKit::WebTransformationMatrix m_implTransform;
+    gfx::Transform m_implTransform;
 
     // The layer whose coordinate space this layer draws into. This can be
     // either the same layer (m_renderTarget == this) or an ancestor of this
@@ -374,19 +393,15 @@ private:
     float m_drawOpacity;
     bool m_drawOpacityIsAnimating;
 
-    // Debug borders.
-    SkColor m_debugBorderColor;
-    float m_debugBorderWidth;
-
     // Debug layer name.
     std::string m_debugName;
 
     WebKit::WebFilterOperations m_filters;
     WebKit::WebFilterOperations m_backgroundFilters;
-    SkImageFilter* m_filter;
+    skia::RefPtr<SkImageFilter> m_filter;
 
-    WebKit::WebTransformationMatrix m_drawTransform;
-    WebKit::WebTransformationMatrix m_screenSpaceTransform;
+    gfx::Transform m_drawTransform;
+    gfx::Transform m_screenSpaceTransform;
     bool m_drawTransformIsAnimating;
     bool m_screenSpaceTransformIsAnimating;
 
@@ -398,9 +413,12 @@ private:
     // will render to this surface.
     scoped_ptr<RenderSurfaceImpl> m_renderSurface;
 
-    // Hierarchical bounding rect containing the layer and its descendants.
     // Uses target surface's space.
     gfx::Rect m_drawableContentRect;
+    gfx::Rect m_clipRect;
+
+    // True if the layer is clipped by m_clipRect.
+    bool m_isClipped;
 
     // Rect indicating what was repainted/updated during update.
     // Note that plugin layers bypass this and leave it empty.

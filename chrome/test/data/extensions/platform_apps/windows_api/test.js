@@ -60,7 +60,7 @@ chrome.app.runtime.onLaunched.addListener(function() {
 
    function testContentSize() {
      chrome.app.window.create('test.html',
-         {width: 250, height: 200}, callbackPass(function(win) {
+         {bounds: { width: 250, height: 200 }}, callbackPass(function(win) {
        chrome.test.assertEq(250, win.contentWindow.innerWidth);
        chrome.test.assertEq(200, win.contentWindow.innerHeight);
        win.close();
@@ -73,6 +73,67 @@ chrome.app.runtime.onLaunched.addListener(function() {
          // Mission accomplished.
        }));
        win.contentWindow.close();
+     }));
+   },
+
+   function testMinSize() {
+     chrome.app.window.create('test.html', {
+       bounds: { width: 250, height: 250 },
+       minWidth: 400, minHeight: 450
+     }, callbackPass(function(win) {
+       var w = win.contentWindow;
+       chrome.test.assertEq(400, w.innerWidth);
+       chrome.test.assertEq(450, w.innerHeight);
+       w.close();
+     }));
+   },
+
+   function testMaxSize() {
+     chrome.app.window.create('test.html', {
+       bounds: { width: 250, height: 250 },
+       maxWidth: 200, maxHeight: 150
+     }, callbackPass(function(win) {
+       var w = win.contentWindow;
+       chrome.test.assertEq(200, w.innerWidth);
+       chrome.test.assertEq(150, w.innerHeight);
+       w.close();
+     }));
+   },
+
+   function testMinAndMaxSize() {
+     chrome.app.window.create('test.html', {
+       bounds: { width: 250, height: 250 },
+       minWidth: 400, minHeight: 450,
+       maxWidth: 200, maxHeight: 150
+     }, callbackPass(function(win) {
+       var w = win.contentWindow;
+       chrome.test.assertEq(400, w.innerWidth);
+       chrome.test.assertEq(450, w.innerHeight);
+       w.close();
+     }));
+   },
+
+   function testMinSizeRestore() {
+     chrome.app.window.create('test.html', {
+       bounds: { width: 250, height: 250 },
+       minWidth: 400, minHeight: 450,
+       id: 'test-id'
+     }, callbackPass(function(win) {
+       var w = win.contentWindow;
+       chrome.test.assertEq(400, w.innerWidth);
+       chrome.test.assertEq(450, w.innerHeight);
+       w.close();
+
+       chrome.app.window.create('test.html', {
+         bounds: { width: 250, height: 250 },
+         minWidth: 500, minHeight: 550,
+         id: 'test-id'
+       }, callbackPass(function(win) {
+         var w = win.contentWindow;
+         chrome.test.assertEq(500, w.innerWidth);
+         chrome.test.assertEq(550, w.innerHeight);
+         w.close();
+       }));
      }));
    },
 

@@ -21,7 +21,6 @@ class TabStripModelDelegate;
 class TabStripModelOrderController;
 
 namespace content {
-class NavigationController;
 class WebContents;
 }
 
@@ -44,7 +43,7 @@ class WebContents;
 //   You'll notice there is no explicit api for making a tab a mini-tab, rather
 //   there are two tab types that are implicitly mini-tabs:
 //   . App. Corresponds to an extension that wants an app tab. App tabs are
-//     identified by TabContents::extension_tab_helper()::is_app().
+//     identified by extensions::TabHelper::is_app().
 //     App tabs are always pinned (you can't unpin them).
 //   . Pinned. Any tab can be pinned. Non-app tabs whose pinned state is changed
 //     are moved to be with other mini-tabs or non-mini tabs.
@@ -63,15 +62,6 @@ class WebContents;
 ////////////////////////////////////////////////////////////////////////////////
 class TabStripModel : public content::NotificationObserver {
  public:
-  // Policy for how new tabs are inserted.
-  enum InsertionPolicy {
-    // Newly created tabs are created after the selection. This is the default.
-    INSERT_AFTER,
-
-    // Newly created tabs are inserted before the selection.
-    INSERT_BEFORE,
-  };
-
   // Used to specify what should happen when the tab is closed.
   enum CloseTypes {
     CLOSE_NONE                     = 0,
@@ -97,7 +87,7 @@ class TabStripModel : public content::NotificationObserver {
     // The tab should be pinned.
     ADD_PINNED        = 1 << 1,
 
-    // If not set the insertion index of the TabContents is left up to
+    // If not set the insertion index of the WebContents is left up to
     // the Order Controller associated, so the final insertion index may differ
     // from the specified index. Otherwise the index supplied is used.
     ADD_FORCE_INDEX   = 1 << 2,
@@ -167,22 +157,14 @@ class TabStripModel : public content::NotificationObserver {
     return order_controller_.get();
   }
 
-  // Sets the insertion policy. Default is INSERT_AFTER.
-  void SetInsertionPolicy(InsertionPolicy policy);
-  InsertionPolicy insertion_policy() const;
-
-  // Returns true if |observer| is in the list of observers. This is intended
-  // for debugging.
-  bool HasObserver(TabStripModelObserver* observer);
-
   // Basic API /////////////////////////////////////////////////////////////////
 
   // Determines if the specified index is contained within the TabStripModel.
   bool ContainsIndex(int index) const;
 
-  // Adds the specified TabContents in the default location. Tabs opened
+  // Adds the specified WebContents in the default location. Tabs opened
   // in the foreground inherit the group of the previously active tab.
-  void AppendTabContents(TabContents* contents, bool foreground);
+  void AppendWebContents(content::WebContents* contents, bool foreground);
 
   // Adds the specified WebContents at the specified location.
   // |add_types| is a bitmask of AddTabTypes; see it for details.
@@ -193,21 +175,18 @@ class TabStripModel : public content::NotificationObserver {
   // as such the ADD_FORCE_INDEX AddTabTypes is meaningless here.  The only time
   // the |index| is changed is if using the index would result in breaking the
   // constraint that all mini-tabs occur before non-mini-tabs.
-  // See also AddTabContents.
-  void InsertTabContentsAt(int index,
-                           TabContents* contents,
-                           int add_types);
+  // See also AddWebContents.
   void InsertWebContentsAt(int index,
                            content::WebContents* contents,
                            int add_types);
 
-  // Closes the TabContents at the specified index. This causes the
-  // TabContents to be destroyed, but it may not happen immediately.
+  // Closes the WebContents at the specified index. This causes the
+  // WebContents to be destroyed, but it may not happen immediately.
   // |close_types| is a bitmask of CloseTypes. Returns true if the
-  // TabContents was closed immediately, false if it was not closed (we
+  // WebContents was closed immediately, false if it was not closed (we
   // may be waiting for a response from an onunload handler, or waiting for the
   // user to confirm closure).
-  bool CloseTabContentsAt(int index, uint32 close_types);
+  bool CloseWebContentsAt(int index, uint32 close_types);
 
   // Replaces the tab contents at |index| with |new_contents|. The
   // TabContents that was at |index| is returned and ownership returns
@@ -237,15 +216,15 @@ class TabStripModel : public content::NotificationObserver {
   // active tab index.
   void AddTabAtToSelection(int index);
 
-  // Move the TabContents at the specified index to another index. This
+  // Move the WebContents at the specified index to another index. This
   // method does NOT send Detached/Attached notifications, rather it moves the
-  // TabContents inline and sends a Moved notification instead.
+  // WebContents inline and sends a Moved notification instead.
   // If |select_after_move| is false, whatever tab was selected before the move
-  // will still be selected, but it's index may have incremented or decremented
+  // will still be selected, but its index may have incremented or decremented
   // one slot.
-  // NOTE: this does nothing if the move would result in app tabs and non-app
-  // tabs mixing.
-  void MoveTabContentsAt(int index, int to_position, bool select_after_move);
+  // NOTE: This respects basic ordering constraints and thus does nothing if the
+  // move would result in app tabs and non-app tabs mixing.
+  void MoveWebContentsAt(int index, int to_position, bool select_after_move);
 
   // Moves the selected tabs to |index|. |index| is treated as if the tab strip
   // did not contain any of the selected tabs. For example, if the tabstrip
@@ -279,16 +258,11 @@ class TabStripModel : public content::NotificationObserver {
   int GetIndexOfTabContents(const TabContents* contents) const;
   int GetIndexOfWebContents(const content::WebContents* contents) const;
 
-  // Notify any observers that the TabContents at the specified index has
+  // Notify any observers that the WebContents at the specified index has
   // changed in some way. See TabChangeType for details of |change_type|.
-  void UpdateTabContentsStateAt(
+  void UpdateWebContentsStateAt(
       int index,
       TabStripModelObserver::TabChangeType change_type);
-
-  // Make sure there is an auto-generated New Tab tab in the TabStripModel.
-  // If |force_create| is true, the New Tab will be created even if the
-  // preference is set to false (used by startup).
-  void EnsureNewTabVisible(bool force_create);
 
   // Close all tabs at once. Code can use closing_all() above to defer
   // operations that might otherwise by invoked by the flurry of detach/select
@@ -315,21 +289,16 @@ class TabStripModel : public content::NotificationObserver {
                                         int start_index,
                                         bool use_group) const;
 
-  // Returns the index of the first WebContents in the model opened by the
-  // specified opener.
-  int GetIndexOfFirstWebContentsOpenedBy(const content::WebContents* opener,
-                                         int start_index) const;
-
   // Returns the index of the last WebContents in the model opened by the
   // specified opener, starting at |start_index|.
   int GetIndexOfLastWebContentsOpenedBy(const content::WebContents* opener,
                                         int start_index) const;
 
-  // Called by the Browser when a navigation is about to occur in the specified
-  // TabContents. Depending on the tab, and the transition type of the
+  // To be called when a navigation is about to occur in the specified
+  // WebContents. Depending on the tab, and the transition type of the
   // navigation, the TabStripModel may adjust its selection and grouping
   // behavior.
-  void TabNavigating(TabContents* contents,
+  void TabNavigating(content::WebContents* contents,
                      content::PageTransition transition);
 
   // Forget all Opener relationships that are stored (but _not_ group
@@ -339,16 +308,16 @@ class TabStripModel : public content::NotificationObserver {
   // TabStripModelOrderController.
   void ForgetAllOpeners();
 
-  // Forgets the group affiliation of the specified TabContents. This
-  // should be called when a TabContents that is part of a logical group
+  // Forgets the group affiliation of the specified WebContents. This
+  // should be called when a WebContents that is part of a logical group
   // of tabs is moved to a new logical context by the user (e.g. by typing a new
   // URL or selecting a bookmark). This also forgets the opener, which is
   // considered a weaker relationship than group.
-  void ForgetGroup(TabContents* contents);
+  void ForgetGroup(content::WebContents* contents);
 
   // Returns true if the group/opener relationships present for |contents|
   // should be reset when _any_ selection change occurs in the model.
-  bool ShouldResetGroupOnSelect(TabContents* contents) const;
+  bool ShouldResetGroupOnSelect(content::WebContents* contents) const;
 
   // Changes the blocked state of the tab at |index|.
   void SetTabBlocked(int index, bool blocked);
@@ -411,12 +380,12 @@ class TabStripModel : public content::NotificationObserver {
 
   // Command level API /////////////////////////////////////////////////////////
 
-  // Adds a TabContents at the best position in the TabStripModel given
+  // Adds a WebContents at the best position in the TabStripModel given
   // the specified insertion index, transition, etc. |add_types| is a bitmask of
   // AddTabTypes; see it for details. This method ends up calling into
-  // InsertTabContentsAt to do the actual insertion. Pass -1 for |index| to
+  // InsertWebContentsAt to do the actual insertion. Pass kNoTab for |index| to
   // append the contents to the end of the tab strip.
-  void AddTabContents(TabContents* contents,
+  void AddWebContents(content::WebContents* contents,
                       int index,
                       content::PageTransition transition,
                       int add_types);
@@ -449,7 +418,6 @@ class TabStripModel : public content::NotificationObserver {
     CommandRestoreTab,
     CommandTogglePinned,
     CommandBookmarkAllTabs,
-    CommandUseCompactNavigationBar,
     CommandSelectByDomain,
     CommandSelectByOpener,
     CommandLast
@@ -506,12 +474,12 @@ class TabStripModel : public content::NotificationObserver {
   // determine which indices the command applies to.
   std::vector<int> GetIndicesForCommand(int index) const;
 
-  // Returns true if the specified TabContents is a New Tab at the end of
-  // the TabStrip. We check for this because opener relationships are _not_
+  // Returns true if the specified WebContents is a New Tab at the end of
+  // the tabstrip. We check for this because opener relationships are _not_
   // forgotten for the New Tab page opened as a result of a New Tab gesture
   // (e.g. Ctrl+T, etc) since the user may open a tab transiently to look up
   // something related to their current activity.
-  bool IsNewTabAtEndOfTabStrip(TabContents* contents) const;
+  bool IsNewTabAtEndOfTabStrip(content::WebContents* contents) const;
 
   // Closes the WebContentses at the specified indices. This causes the
   // WebContentses to be destroyed, but it may not happen immediately. If
@@ -541,10 +509,10 @@ class TabStripModel : public content::NotificationObserver {
   content::WebContents* GetWebContentsAtImpl(int index) const;
 
   // Notifies the observers if the active tab is being deactivated.
-  void NotifyIfTabDeactivated(TabContents* contents);
+  void NotifyIfTabDeactivated(content::WebContents* contents);
 
   // Notifies the observers if the active tab has changed.
-  void NotifyIfActiveTabChanged(TabContents* old_contents,
+  void NotifyIfActiveTabChanged(content::WebContents* old_contents,
                                 NotifyTypes notify_types);
 
   // Notifies the observers if the active tab or the tab selection has changed.
@@ -562,16 +530,13 @@ class TabStripModel : public content::NotificationObserver {
   void SetSelection(const TabStripSelectionModel& new_model,
                     NotifyTypes notify_types);
 
-  // Returns the number of New Tab tabs in the TabStripModel.
-  int GetNewTabCount() const;
-
   // Selects either the next tab (|forward| is true), or the previous tab
   // (|forward| is false).
   void SelectRelativeTab(bool forward);
 
-  // Does the work of MoveTabContentsAt. This has no checks to make sure the
-  // position is valid, those are done in MoveTabContentsAt.
-  void MoveTabContentsAtImpl(int index,
+  // Does the work of MoveWebContentsAt. This has no checks to make sure the
+  // position is valid, those are done in MoveWebContentsAt.
+  void MoveWebContentsAtImpl(int index,
                              int to_position,
                              bool select_after_move);
 
@@ -657,7 +622,7 @@ class TabStripModel : public content::NotificationObserver {
   typedef std::vector<WebContentsData*> WebContentsDataVector;
   WebContentsDataVector contents_data_;
 
-  // A profile associated with this TabStripModel, used when creating new Tabs.
+  // A profile associated with this TabStripModel.
   Profile* profile_;
 
   // True if all tabs are currently being closed via CloseAllTabs.

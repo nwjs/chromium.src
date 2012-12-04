@@ -14,13 +14,10 @@
       'type': 'shared_library',
       'dependencies': [
         'chrome_android_core',
-        'chromium_testshell_jni_headers',
       ],
       'sources': [
         'android/testshell/chrome_main_delegate_testshell_android.cc',
         'android/testshell/chrome_main_delegate_testshell_android.h',
-        'android/testshell/tab_manager.cc',
-        'android/testshell/tab_manager.h',
         'android/testshell/testshell_entry_point.cc',
         "android/testshell/testshell_google_location_settings_helper.cc",
         "android/testshell/testshell_google_location_settings_helper.h",
@@ -48,6 +45,7 @@
         '../media/media.gyp:media_java',
         'chrome.gyp:chrome_java',
         'chrome_android_paks',
+        'copy_devtools_resources',
         'libchromiumtestshell',
       ],
       'variables': {
@@ -58,41 +56,28 @@
         'resource_dir': '../res',
         'asset_location': '<(ant_build_out)/../assets/chrome',
         'native_libs_paths': [ '<(SHARED_LIB_DIR)/libchromiumtestshell.so', ],
-        'additional_input_paths': [ '<@(chrome_android_pak_output_resources)', ],
+        'additional_input_paths': [
+          '<@(chrome_android_pak_output_resources)',
+          '<(chrome_android_pak_output_folder)/devtools_resources.pak',
+        ],
       },
       'includes': [ '../build/java_apk.gypi', ],
     },
     {
-      'target_name': 'chromium_testshell_jni_headers',
-      'type': 'none',
-      'sources': [
-        'android/testshell/java/src/org/chromium/chrome/testshell/TabManager.java',
-      ],
-      'variables': {
-        'jni_gen_dir': 'chromium_testshell',
-      },
-      'includes': [ '../build/jni_generator.gypi' ],
-    },
-    {
       # chromium_testshell creates a .jar as a side effect. Any java targets
       # that need that .jar in their classpath should depend on this target,
-      # chromium_testshell_java.
+      # chromium_testshell_java. Dependents of chromium_testshell receive its
+      # jar path in the variable 'apk_output_jar_path'.
       'target_name': 'chromium_testshell_java',
       'type': 'none',
       'dependencies': [
-        '../media/media.gyp:media_java',
-        'chrome.gyp:chrome_java',
         'chromium_testshell',
       ],
-      'variables': {
-        'output_jar': '<(PRODUCT_DIR)/lib.java/chromium_apk_chromium_testshell.jar'
-      },
-      'outputs': ['<(output_jar)'],
       # This all_dependent_settings is used for java targets only. This will add
       # the chromium_testshell jar to the classpath of dependent java targets.
       'all_dependent_settings': {
         'variables': {
-          'input_jars_paths': ['<(output_jar)'],
+          'input_jars_paths': ['>(apk_output_jar_path)'],
         },
       },
       # Add an action with the appropriate output. This allows the generated
@@ -101,7 +86,7 @@
         {
           'action_name': 'fake_generate_jar',
           'inputs': [],
-          'outputs': ['<(output_jar)'],
+          'outputs': ['>(apk_output_jar_path)'],
           'action': [],
         },
       ],
@@ -148,6 +133,21 @@
         {
           'destination': '<(chrome_android_pak_output_folder)',
           'files': [ '<@(chrome_android_pak_input_resources)' ],
+        }
+      ],
+    },
+    {
+      'target_name': 'copy_devtools_resources',
+      'type': 'none',
+      'dependencies': [
+        '<(DEPTH)/chrome/chrome_resources.gyp:chrome_extra_resources',
+      ],
+      'copies': [
+        {
+          'destination': '<(chrome_android_pak_output_folder)',
+          'files': [
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/devtools_resources.pak',
+          ],
         }
       ],
     },

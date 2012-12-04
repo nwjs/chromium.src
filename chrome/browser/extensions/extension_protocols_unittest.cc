@@ -12,6 +12,7 @@
 #include "content/public/browser/resource_request_info.h"
 #include "content/public/test/mock_resource_context.h"
 #include "content/public/test/test_browser_thread.h"
+#include "extensions/common/constants.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_job_factory_impl.h"
 #include "net/url_request/url_request_status.h"
@@ -55,7 +56,7 @@ class ExtensionProtocolTest : public testing::Test {
     old_factory_ = request_context->job_factory();
     // Register an incognito extension protocol handler.
     job_factory_.SetProtocolHandler(
-        chrome::kExtensionScheme,
+        extensions::kExtensionScheme,
         CreateExtensionProtocolHandler(true, extension_info_map_));
     request_context->set_job_factory(&job_factory_);
   }
@@ -85,7 +86,7 @@ class ExtensionProtocolTest : public testing::Test {
   scoped_refptr<ExtensionInfoMap> extension_info_map_;
   net::URLRequestJobFactoryImpl job_factory_;
   const net::URLRequestJobFactory* old_factory_;
-  TestDelegate test_delegate_;
+  net::TestDelegate test_delegate_;
   content::MockResourceContext resource_context_;
 };
 

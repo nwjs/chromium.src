@@ -73,16 +73,11 @@ class PPB_Flash_Proxy : public InterfaceProxy, public PPB_Flash_Shared {
                            const URLRequestInfoData& data,
                            const char* target,
                            PP_Bool from_user_action) OVERRIDE;
-  virtual void RunMessageLoop(PP_Instance instance) OVERRIDE;
-  virtual void QuitMessageLoop(PP_Instance instance) OVERRIDE;
   virtual double GetLocalTimeZoneOffset(PP_Instance instance,
                                         PP_Time t) OVERRIDE;
   virtual PP_Bool IsRectTopmost(PP_Instance instance,
                                 const PP_Rect* rect) OVERRIDE;
   virtual void UpdateActivity(PP_Instance instance) OVERRIDE;
-  virtual PP_Var GetDeviceID(PP_Instance instance) OVERRIDE;
-  virtual int32_t GetSettingInt(PP_Instance instance,
-                                PP_FlashSetting setting) OVERRIDE;
   virtual PP_Var GetSetting(PP_Instance instance,
                             PP_FlashSetting setting) OVERRIDE;
   virtual PP_Bool SetCrashData(PP_Instance instance,
@@ -116,11 +111,6 @@ class PPB_Flash_Proxy : public InterfaceProxy, public PPB_Flash_Shared {
   virtual int32_t QueryFileRef(PP_Instance instance,
                                PP_Resource file_ref,
                                PP_FileInfo* info) OVERRIDE;
-  virtual PP_Bool FlashIsFullscreen(PP_Instance instance) OVERRIDE;
-  virtual PP_Bool FlashSetFullscreen(PP_Instance instance,
-                                     PP_Bool fullscreen) OVERRIDE;
-  virtual PP_Bool FlashGetScreenSize(PP_Instance instance,
-                                     PP_Size* size) OVERRIDE;
 
   static const ApiID kApiID = API_ID_PPB_FLASH;
 
@@ -139,19 +129,11 @@ class PPB_Flash_Proxy : public InterfaceProxy, public PPB_Flash_Shared {
                          const std::string& target,
                          PP_Bool from_user_action,
                          int32_t* result);
-  void OnHostMsgRunMessageLoop(PP_Instance instance);
-  void OnHostMsgQuitMessageLoop(PP_Instance instance);
   void OnHostMsgGetLocalTimeZoneOffset(PP_Instance instance, PP_Time t,
                                        double* result);
   void OnHostMsgIsRectTopmost(PP_Instance instance,
                               PP_Rect rect,
                               PP_Bool* result);
-  void OnHostMsgFlashSetFullscreen(PP_Instance instance,
-                                   PP_Bool fullscreen,
-                                   PP_Bool* result);
-  void OnHostMsgFlashGetScreenSize(PP_Instance instance,
-                                   PP_Bool* result,
-                                   PP_Size* size);
   void OnHostMsgOpenFileRef(PP_Instance instance,
                             const ppapi::HostResource& host_resource,
                             int32_t mode,
@@ -161,8 +143,6 @@ class PPB_Flash_Proxy : public InterfaceProxy, public PPB_Flash_Shared {
                              const ppapi::HostResource& host_resource,
                              PP_FileInfo* info,
                              int32_t* result);
-  void OnHostMsgGetDeviceID(PP_Instance instance,
-                            SerializedVarReturnValue id);
   void OnHostMsgGetSetting(PP_Instance instance,
                            PP_FlashSetting setting,
                            SerializedVarReturnValue result);

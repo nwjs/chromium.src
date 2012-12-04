@@ -92,10 +92,11 @@ UI_EXPORT bool GetFlingData(const base::NativeEvent& native_event,
                             bool* is_cancel);
 
 // Returns whether this is a scroll event and optionally gets the amount to be
-// scrolled. |x_offset| and |y_offset| can be NULL.
+// scrolled. |x_offset|, |y_offset| and |finger_count| can be NULL.
 UI_EXPORT bool GetScrollOffsets(const base::NativeEvent& native_event,
                                 float* x_offset,
-                                float* y_offset);
+                                float* y_offset,
+                                int* finger_count);
 
 UI_EXPORT bool GetGestureTimes(const base::NativeEvent& native_event,
                                double* start_time,
@@ -130,6 +131,9 @@ UI_EXPORT bool IsMouseEventFromTouch(UINT message);
 // Returns true if default post-target handling was canceled for |event| after
 // its dispatch to its target.
 UI_EXPORT bool EventCanceledDefaultHandling(const Event& event);
+
+// Registers a custom event type.
+UI_EXPORT int RegisterCustomEventType();
 
 }  // namespace ui
 

@@ -103,8 +103,10 @@ Browser* GetBrowserForDisposition(chrome::NavigateParams* params) {
   // the target browser. This must happen first, before
   // GetBrowserForDisposition() has a chance to replace |params->browser| with
   // another one.
-  if (!params->source_contents && params->browser)
-    params->source_contents = chrome::GetActiveTabContents(params->browser);
+  if (!params->source_contents && params->browser) {
+    params->source_contents =
+        params->browser->tab_strip_model()->GetActiveTabContents();
+  }
 
   Profile* profile = params->initiating_profile;
 
@@ -227,6 +229,7 @@ void LoadURLInContents(WebContents* target_contents,
   load_url_params.referrer = params->referrer;
   load_url_params.transition_type = params->transition;
   load_url_params.extra_headers = params->extra_headers;
+  load_url_params.is_cross_site_redirect = params->is_cross_site_redirect;
 
   if (params->transferred_global_request_id != GlobalRequestID()) {
     load_url_params.is_renderer_initiated = params->is_renderer_initiated;
@@ -321,7 +324,8 @@ NavigateParams::NavigateParams(Browser* a_browser,
       path_behavior(RESPECT),
       ref_behavior(IGNORE_REF),
       browser(a_browser),
-      initiating_profile(NULL) {
+      initiating_profile(NULL),
+      is_cross_site_redirect(false) {
         if (a_browser)
           host_desktop_type = a_browser->host_desktop_type();
         else
@@ -342,7 +346,8 @@ NavigateParams::NavigateParams(Browser* a_browser,
       path_behavior(RESPECT),
       ref_behavior(IGNORE_REF),
       browser(a_browser),
-      initiating_profile(NULL) {
+      initiating_profile(NULL),
+      is_cross_site_redirect(false) {
         if (a_browser)
           host_desktop_type = a_browser->host_desktop_type();
         else
@@ -366,7 +371,8 @@ NavigateParams::NavigateParams(Profile* a_profile,
       ref_behavior(IGNORE_REF),
       browser(NULL),
       initiating_profile(a_profile),
-      host_desktop_type(chrome::HOST_DESKTOP_TYPE_NATIVE) {}
+      host_desktop_type(chrome::HOST_DESKTOP_TYPE_NATIVE),
+      is_cross_site_redirect(false) {}
 
 NavigateParams::~NavigateParams() {}
 
@@ -480,7 +486,7 @@ void Navigate(NavigateParams* params) {
       // By default, content believes it is not hidden.  When adding contents
       // in the background, tell it that it's hidden.
       if ((params->tabstrip_add_types & TabStripModel::ADD_ACTIVE) == 0) {
-        // TabStripModel::AddTabContents invokes WasHidden if not foreground.
+        // TabStripModel::AddWebContents invokes WasHidden if not foreground.
         params->target_contents->web_contents()->WasHidden();
       }
     } else {
@@ -532,8 +538,8 @@ void Navigate(NavigateParams* params) {
       params->tabstrip_add_types |= TabStripModel::ADD_FORCE_INDEX;
 
     // The navigation should insert a new tab into the target Browser.
-    params->browser->tab_strip_model()->AddTabContents(
-        params->target_contents,
+    params->browser->tab_strip_model()->AddWebContents(
+        params->target_contents->web_contents(),
         params->tabstrip_index,
         params->transition,
         params->tabstrip_add_types);
@@ -554,8 +560,10 @@ void Navigate(NavigateParams* params) {
     }
 
     // If the singleton tab isn't already selected, select it.
-    if (params->source_contents != params->target_contents)
-      chrome::ActivateTabAt(params->browser, singleton_index, user_initiated);
+    if (params->source_contents != params->target_contents) {
+      params->browser->tab_strip_model()->ActivateTabAt(singleton_index,
+                                                        user_initiated);
+    }
   }
 
   if (params->disposition != CURRENT_TAB) {

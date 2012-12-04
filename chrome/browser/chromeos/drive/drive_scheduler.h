@@ -8,6 +8,7 @@
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chromeos/drive/drive_file_system_interface.h"
+#include "chrome/browser/google_apis/drive_service_interface.h"
 #include "net/base/network_change_notifier.h"
 
 #include <deque>
@@ -32,8 +33,13 @@ class DriveScheduler
 
   // Enum representing the type of job.
   enum JobType {
+    TYPE_COPY,
+    TYPE_GET_DOCUMENTS,
     TYPE_MOVE,
     TYPE_REMOVE,
+    TYPE_TRANSFER_LOCAL_TO_REMOTE,
+    TYPE_TRANSFER_REGULAR_FILE,
+    TYPE_TRANSFER_REMOTE_TO_LOCAL,
   };
 
   // Current state of the job.
@@ -72,12 +78,41 @@ class DriveScheduler
   };
 
   DriveScheduler(Profile* profile,
+                 google_apis::DriveServiceInterface* drive_service,
                  file_system::DriveOperations* drive_operations);
   virtual ~DriveScheduler();
 
   // Initializes the object. This function should be called before any
   // other functions.
   void Initialize();
+
+  // Adds a copy operation to the queue.
+  void Copy(const FilePath& src_file_path,
+            const FilePath& dest_file_path,
+            const FileOperationCallback& callback);
+
+  // Adds a GetDocuments operation to the queue.
+  void GetDocuments(const GURL& feed_url,
+                    int64 start_changestamp,
+                    const std::string& search_query,
+                    bool shared_with_me,
+                    const std::string& directory_resource_id,
+                    const google_apis::GetDataCallback& callback);
+
+  // Adds a transfer operation to the queue.
+  void TransferFileFromRemoteToLocal(const FilePath& remote_src_file_path,
+                                     const FilePath& local_dest_file_path,
+                                     const FileOperationCallback& callback);
+
+  // Adds a transfer operation to the queue.
+  void TransferFileFromLocalToRemote(const FilePath& local_src_file_path,
+                                     const FilePath& remote_dest_file_path,
+                                     const FileOperationCallback& callback);
+
+  // Adds a transfer operation to the queue.
+  void TransferRegularFile(const FilePath& local_src_file_path,
+                           const FilePath& remote_dest_file_path,
+                           const FileOperationCallback& callback);
 
   // Adds a move operation to the queue.
   void Move(const FilePath& src_file_path,
@@ -95,21 +130,42 @@ class DriveScheduler
   // Represents a single entry in the job queue.
   struct QueueEntry {
     QueueEntry(JobType in_job_type,
-               FilePath in_file_path,
-               FileOperationCallback in_callback);
+               FilePath in_file_path);
     ~QueueEntry();
 
     JobInfo job_info;
 
     // Callback for when the operation completes.
-    // Used by: TYPE_MOVE, TYPE_REMOVE
-    FileOperationCallback callback;
+    // Used by:
+    //   TYPE_COPY,
+    //   TYPE_MOVE,
+    //   TYPE_REMOVE,
+    //   TYPE_TRANSFER_LOCAL_TO_REMOTE,
+    //   TYPE_TRANSFER_REGULAR_FILE,
+    //   TYPE_TRANSFER_REMOTE_TO_LOCAL
+    FileOperationCallback file_operation_callback;
 
-    // Destination of the operation.  Used by: TYPE_MOVE
+    // Destination of the operation.
+    // Used by:
+    //   TYPE_COPY,
+    //   TYPE_MOVE,
+    //   TYPE_TRANSFER_LOCAL_TO_REMOTE,
+    //   TYPE_TRANSFER_REGULAR_FILE,
+    //   TYPE_TRANSFER_REMOTE_TO_LOCAL
     FilePath dest_file_path;
 
-    // Whether the operation is recursive.  Used by: TYPE_REMOVE
+    // Whether the operation is recursive.  Used by:
+    //   TYPE_REMOVE
     bool is_recursive;
+
+    // Parameters for GetDocuments().  Used by:
+    //   TYPE_GET_DOCUMENTS
+    GURL feed_url;
+    int64 start_changestamp;
+    std::string search_query;
+    bool shared_with_me;
+    std::string directory_resource_id;
+    google_apis::GetDataCallback get_data_callback;
   };
 
   // Adds the specified job to the queue.  Takes ownership of |job|
@@ -134,9 +190,17 @@ class DriveScheduler
   // Resets the throttle delay to the initial value, and continues the job loop.
   void ResetThrottleAndContinueJobLoop();
 
-  // Callback for job finishing.  Retries the job if needed, otherwise cleans up
-  // the job, invokes the callback, and continues the job loop.
-  void OnJobDone(int job_id, DriveFileError error);
+  // Retries the job if needed, otherwise cleans up the job, invokes the
+  // callback, and continues the job loop.
+  scoped_ptr<QueueEntry> OnJobDone(int job_id, DriveFileError error);
+
+  // Callback for job finishing with a FileOperationCallback.
+  void OnFileOperationJobDone(int job_id, DriveFileError error);
+
+  // Callback for job finishing with a GetDataCallback.
+  void OnGetDataJobDone(int job_id,
+                        google_apis::GDataErrorCode error,
+                        scoped_ptr<base::Value> feed_data);
 
   // net::NetworkChangeNotifier::ConnectionTypeObserver override.
   virtual void OnConnectionTypeChanged(
@@ -169,6 +233,8 @@ class DriveScheduler
 
   // Drive operations.
   file_system::DriveOperations* drive_operations_;
+
+  google_apis::DriveServiceInterface* drive_service_;
 
   Profile* profile_;
 

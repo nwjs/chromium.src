@@ -14,11 +14,11 @@
 #include "ash/wm/property_util.h"
 #include "ash/wm/shelf_layout_manager.h"
 #include "ash/wm/window_animations.h"
-#include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/rect.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/background.h"
@@ -52,7 +52,8 @@ class TrayBackgroundView::TrayWidgetObserver : public views::WidgetObserver {
       : host_(host) {
   }
 
-  virtual void OnWidgetMoved(views::Widget* widget) OVERRIDE {
+  virtual void OnWidgetBoundsChanged(views::Widget* widget,
+                                     const gfx::Rect& new_bounds) OVERRIDE {
     host_->AnchorUpdated();
   }
 
@@ -289,13 +290,13 @@ void TrayBackgroundView::SetBorder() {
 
 void TrayBackgroundView::InitializeBubbleAnimations(
     views::Widget* bubble_widget) {
-  ash::SetWindowVisibilityAnimationType(
+  views::corewm::SetWindowVisibilityAnimationType(
       bubble_widget->GetNativeWindow(),
-      ash::WINDOW_VISIBILITY_ANIMATION_TYPE_FADE);
-  ash::SetWindowVisibilityAnimationTransition(
+      views::corewm::WINDOW_VISIBILITY_ANIMATION_TYPE_FADE);
+  views::corewm::SetWindowVisibilityAnimationTransition(
       bubble_widget->GetNativeWindow(),
-      ash::ANIMATE_HIDE);
-  ash::SetWindowVisibilityAnimationDuration(
+      views::corewm::ANIMATE_HIDE);
+  views::corewm::SetWindowVisibilityAnimationDuration(
       bubble_widget->GetNativeWindow(),
       base::TimeDelta::FromMilliseconds(kAnimationDurationForPopupMS));
 }

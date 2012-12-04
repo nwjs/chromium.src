@@ -17,6 +17,10 @@
 #include "chrome/browser/chromeos/login/screen_locker_delegate.h"
 #include "ui/base/accelerators/accelerator.h"
 
+namespace content {
+class WebUI;
+}
+
 namespace chromeos {
 
 class Authenticator;
@@ -86,6 +90,10 @@ class ScreenLocker : public LoginStatusConsumer {
   // the same login events that ScreenLocker does.
   void SetLoginStatusConsumer(chromeos::LoginStatusConsumer* consumer);
 
+  // Returns WebUI associated with screen locker implementation or NULL if
+  // there isn't one.
+  content::WebUI* GetAssociatedWebUI();
+
   // Initialize ScreenLocker class. It will listen to
   // LOGIN_USER_CHANGED notification so that the screen locker accepts
   // lock event only after a user is logged in.
@@ -120,10 +128,6 @@ class ScreenLocker : public LoginStatusConsumer {
 
   // Called when the screen lock is ready.
   void ScreenLockReady();
-
-  // Triggers visual effects that should happen once screen locker is fully
-  // visible. Called when screen lock appearance animation is finished.
-  void OnFullyDisplayedCallback();
 
   // Called when screen locker is safe to delete.
   static void ScheduleDeletion();

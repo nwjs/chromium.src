@@ -9,7 +9,7 @@
 #include "base/sys_string_conversions.h"
 #include "base/time.h"
 #import "chrome/browser/ui/cocoa/about_ipc_controller.h"
-#include "content/public/browser/content_ipc_logging.h"
+#include "content/public/browser/browser_ipc_logging.h"
 
 #if defined(IPC_MESSAGE_LOG_ENABLED)
 
@@ -20,7 +20,8 @@
     data_ = data;
     // data_.message_name may not have been filled in if it originated
     // somewhere other than the browser process.
-    IPC::Logging::GetMessageText(data_.type, &data_.message_name, NULL, NULL);
+    if (data_.message_name == "")
+      IPC::Logging::GetMessageText(data_.type, &data_.message_name, NULL, NULL);
   }
   return self;
 }

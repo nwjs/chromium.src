@@ -58,7 +58,7 @@ cr.define('cr.ui.table', function() {
       }
 
       for (var i = 0; i < cm.size; i++) {
-        headerCells[i].style.width = cm.getWidth(i) + '%';
+        headerCells[i].style.width = cm.getWidth(i) + 'px';
       }
       this.placeSplitters_(this.querySelectorAll('.table-header-splitter'));
     },
@@ -94,7 +94,7 @@ cr.define('cr.ui.table', function() {
 
       for (var i = 0; i < cm.size; i++) {
         var cell = this.ownerDocument.createElement('div');
-        cell.style.width = cm.getWidth(i) + '%';
+        cell.style.width = cm.getWidth(i) + 'px';
         cell.className = 'table-header-cell';
         if (dm.isSortable(cm.getId(i)))
           cell.addEventListener('click',
@@ -112,10 +112,12 @@ cr.define('cr.ui.table', function() {
     appendSplitters_: function() {
       var cm = this.table_.columnModel;
       var splitters = [];
-      for (var i = 0; i < cm.size - 1; i++) {
+      for (var i = 0; i < cm.size; i++) {
         // splitter should use CSS for background image.
         var splitter = new TableSplitter({table: this.table_});
         splitter.columnIndex = i;
+        splitter.addEventListener('dblclick',
+                              this.handleDblClick_.bind(this, i));
 
         this.headerInner_.appendChild(splitter);
         splitters.push(splitter);
@@ -128,14 +130,11 @@ cr.define('cr.ui.table', function() {
      * @param {Array.<HTMLElement>|NodeList} splitters Array of splitters.
      */
     placeSplitters_: function(splitters) {
-      var rtl = this.ownerDocument.defaultView.getComputedStyle(this).
-          direction == 'rtl';
       var cm = this.table_.columnModel;
-      var leftPercent = 0;
-      for (var i = 0; i < cm.size - 1; i++) {
-        leftPercent += cm.getWidth(i);
-        splitters[i].style.left = rtl ? 100 - leftPercent + '%' :
-                                        leftPercent + '%';
+      var place = 0;
+      for (var i = 0; i < cm.size; i++) {
+        place += cm.getWidth(i);
+        splitters[i].style.webkitMarginStart = place + 'px';
       }
     },
 
@@ -207,6 +206,16 @@ cr.define('cr.ui.table', function() {
         candidate.startDrag(clientX, true);
       // Splitter itself shouldn't handle this event.
       e.stopPropagation();
+    },
+
+    /**
+     * Handles the double click on a column separator event.
+     * Ajusts column width.
+     * @param {number} index Column index.
+     * @param {Event} e The double click event.
+     */
+    handleDblClick_: function(index, e) {
+     this.table_.fitColumn(index);
     }
   };
 

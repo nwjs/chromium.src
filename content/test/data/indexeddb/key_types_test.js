@@ -4,32 +4,15 @@
 
 window.indexedDB = window.indexedDB || window.webkitIndexedDB;
 window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction;
-window.IDBDatabaseException = window.IDBDatabaseException ||
-  window.webkitIDBDatabaseException;
 
 function test() {
-  prepareDatabase();
+  indexedDBTest(prepareDatabase, testValidKeys);
 }
 
-function prepareDatabase() {
-  var databaseName = 'key-test-db';
-  var deleteRequest = indexedDB.deleteDatabase(databaseName);
-  deleteRequest.onerror = unexpectedErrorCallback;
-  deleteRequest.onsuccess = function() {
-    var openreq = indexedDB.open(databaseName);
-    openreq.onerror = unexpectedErrorCallback;
-    openreq.onsuccess = function() {
-      db = openreq.result;
-      shouldBe('db.version', '""');
-      var verreq = db.setVersion('1');
-      verreq.onerror = unexpectedErrorCallback;
-      verreq.onsuccess = function() {
-        var trans = verreq.result;
-        db.createObjectStore('store');
-        trans.oncomplete = testValidKeys;
-      };
-    };
-  };
+function prepareDatabase()
+{
+  db = event.target.result;
+  db.createObjectStore('store');
 }
 
 var valid_keys = [
@@ -158,7 +141,7 @@ function testInvalidKeys() {
         return;
       } catch (e) {
         window.ex = e;
-        shouldBe("ex.code", "IDBDatabaseException.DATA_ERR");
+        shouldBe("ex.code", "0");
         shouldBe("ex.name", "'DataError'");
       }
     });

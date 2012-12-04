@@ -10,7 +10,6 @@
 
 #include "base/message_loop.h"
 #include "ui/aura/client/capture_client.h"
-#include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/base/cursor/cursor_loader_win.h"
 #include "ui/base/events/event.h"
@@ -146,9 +145,9 @@ void RemoteRootWindowHostWin::OnDeviceScaleFactorChanged(
 void RemoteRootWindowHostWin::PrepareForShutdown() {
 }
 
-void RemoteRootWindowHostWin::OnMouseMoved(int32 x, int32 y, int32 extra) {
+void RemoteRootWindowHostWin::OnMouseMoved(int32 x, int32 y, int32 flags) {
   gfx::Point location(x, y);
-  ui::MouseEvent event(ui::ET_MOUSE_MOVED, location, location, 0);
+  ui::MouseEvent event(ui::ET_MOUSE_MOVED, location, location, flags);
   delegate_->OnHostMouseEvent(&event);
 }
 
@@ -198,6 +197,11 @@ void RemoteRootWindowHostWin::OnChar(uint32 key_code,
                      flags,
                      true);
   delegate_->OnHostKeyEvent(&event);
+}
+
+void RemoteRootWindowHostWin::OnVisibilityChanged(bool visible) {
+  if (visible)
+    delegate_->OnHostActivated();
 }
 
 }  // namespace aura

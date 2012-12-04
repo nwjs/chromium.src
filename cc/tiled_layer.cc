@@ -6,7 +6,6 @@
 
 #include "base/basictypes.h"
 #include "build/build_config.h"
-#include "cc/geometry.h"
 #include "cc/layer_impl.h"
 #include "cc/layer_tree_host.h"
 #include "cc/overdraw_metrics.h"
@@ -15,7 +14,6 @@
 #include "ui/gfx/rect_conversions.h"
 
 using namespace std;
-using WebKit::WebTransformationMatrix;
 
 namespace cc {
 
@@ -272,20 +270,6 @@ void TiledLayer::setNeedsDisplayRect(const gfx::RectF& dirtyRect)
     ContentsScalingLayer::setNeedsDisplayRect(dirtyRect);
 }
 
-void TiledLayer::setUseLCDText(bool useLCDText)
-{
-    ContentsScalingLayer::setUseLCDText(useLCDText);
-
-    LayerTilingData::BorderTexelOption borderTexelOption;
-#if defined(OS_ANDROID)
-    // Always want border texels and GL_LINEAR due to pinch zoom.
-    borderTexelOption = LayerTilingData::HasBorderTexels;
-#else
-    borderTexelOption = useLCDText ? LayerTilingData::NoBorderTexels : LayerTilingData::HasBorderTexels;
-#endif
-    setBorderTexelOption(borderTexelOption);
-}
-
 void TiledLayer::invalidateContentRect(const gfx::Rect& contentRect)
 {
     updateBounds();
@@ -499,26 +483,27 @@ void TiledLayer::updateTileTextures(const gfx::Rect& paintRect, int left, int to
 
             tile->updaterResource()->update(queue, sourceRect, destOffset, tile->partialUpdate, stats);
             if (occlusion)
-                occlusion->overdrawMetrics().didUpload(WebTransformationMatrix(), sourceRect, tile->opaqueRect());
+                occlusion->overdrawMetrics().didUpload(gfx::Transform(), sourceRect, tile->opaqueRect());
 
         }
     }
 }
 
-namespace {
 // This picks a small animated layer to be anything less than one viewport. This
 // is specifically for page transitions which are viewport-sized layers. The extra
-// 64 pixels is due to these layers being slightly larger than the viewport in some cases.
-bool isSmallAnimatedLayer(TiledLayer* layer)
+// tile of padding is due to these layers being slightly larger than the viewport
+// in some cases.
+bool TiledLayer::isSmallAnimatedLayer() const
 {
-    if (!layer->drawTransformIsAnimating() && !layer->screenSpaceTransformIsAnimating())
+    if (!drawTransformIsAnimating() && !screenSpaceTransformIsAnimating())
         return false;
-    gfx::Size viewportSize = layer->layerTreeHost() ? layer->layerTreeHost()->deviceViewportSize() : gfx::Size();
-    gfx::Rect contentRect(gfx::Point(), layer->contentBounds());
-    return contentRect.width() <= viewportSize.width() + 64
-        && contentRect.height() <= viewportSize.height() + 64;
+    gfx::Size viewportSize = layerTreeHost() ? layerTreeHost()->deviceViewportSize() : gfx::Size();
+    gfx::Rect contentRect(gfx::Point(), contentBounds());
+    return contentRect.width() <= viewportSize.width() + m_tiler->tileSize().width()
+        && contentRect.height() <= viewportSize.height() + m_tiler->tileSize().height();
 }
 
+namespace {
 // FIXME: Remove this and make this based on distance once distance can be calculated
 // for offscreen layers. For now, prioritize all small animated layers after 512
 // pixels of pre-painting.
@@ -536,7 +521,7 @@ void setPriorityForTexture(const gfx::Rect& visibleRect,
     if (priority != PriorityCalculator::lowestPriority())
         texture->setRequestPriority(priority);
 }
-}
+} // namespace
 
 void TiledLayer::setTexturePriorities(const PriorityCalculator& priorityCalc)
 {
@@ -548,7 +533,7 @@ void TiledLayer::setTexturePriorities(const PriorityCalculator& priorityCalc)
         return;
 
     bool drawsToRoot = !renderTarget()->parent();
-    bool smallAnimatedLayer = isSmallAnimatedLayer(this);
+    bool smallAnimatedLayer = isSmallAnimatedLayer();
 
     // Minimally create the tiles in the desired pre-paint rect.
     gfx::Rect createTilesRect = idlePaintRect();
@@ -652,7 +637,7 @@ void TiledLayer::update(ResourceUpdateQueue& queue, const OcclusionTracker* occl
     // Animation pre-paint. If the layer is small, try to paint it all
     // immediately whether or not it is occluded, to avoid paint/upload
     // hiccups while it is animating.
-    if (isSmallAnimatedLayer(this)) {
+    if (isSmallAnimatedLayer()) {
         int left, top, right, bottom;
         m_tiler->contentRectToTileIndices(gfx::Rect(gfx::Point(), contentBounds()), left, top, right, bottom);
         updateTiles(left, top, right, bottom, queue, 0, stats, didPaint);

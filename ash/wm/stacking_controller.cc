@@ -17,7 +17,6 @@
 #include "ui/base/ui_base_types.h"
 
 namespace ash {
-namespace internal {
 namespace {
 
 // Find a root window that matches the |bounds|. If the virtual screen
@@ -56,7 +55,6 @@ bool IsWindowModal(aura::Window* window) {
 // StackingController, public:
 
 StackingController::StackingController() {
-  aura::client::SetStackingClient(this);
 }
 
 StackingController::~StackingController() {
@@ -65,7 +63,8 @@ StackingController::~StackingController() {
 ////////////////////////////////////////////////////////////////////////////////
 // StackingController, aura::StackingClient implementation:
 
-aura::Window* StackingController::GetDefaultParent(aura::Window* window,
+aura::Window* StackingController::GetDefaultParent(aura::Window* context,
+                                                   aura::Window* window,
                                                    const gfx::Rect& bounds) {
   aura::RootWindow* target_root = NULL;
   if (window->transient_parent()) {
@@ -111,9 +110,10 @@ aura::Window* StackingController::GetSystemModalContainer(
     aura::Window* window) const {
   DCHECK(IsSystemModal(window));
 
-  // If screen lock is not active, all modal windows are placed into the
-  // normal modal container.
-  if (!Shell::GetInstance()->delegate()->IsScreenLocked()) {
+  // If screen lock is not active and user session is active,
+  // all modal windows are placed into the normal modal container.
+  if (!Shell::GetInstance()->delegate()->IsScreenLocked() &&
+      Shell::GetInstance()->delegate()->IsSessionStarted()) {
     return GetContainerById(root,
                             internal::kShellWindowId_SystemModalContainer);
   }
@@ -148,10 +148,9 @@ StackingController::GetAlwaysOnTopController(aura::RootWindow* root_window) {
         root_window->GetChildById(
             internal::kShellWindowId_AlwaysOnTopContainer));
     // RootWindow owns the AlwaysOnTopController object.
-    root_window->SetProperty(kAlwaysOnTopControllerKey, controller);
+    root_window->SetProperty(internal::kAlwaysOnTopControllerKey, controller);
   }
   return controller;
 }
 
-}  // namespace internal
 }  // namespace ash

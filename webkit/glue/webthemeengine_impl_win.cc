@@ -10,7 +10,7 @@
 #include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_win.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
-#include "ui/base/native_theme/native_theme.h"
+#include "ui/native_theme/native_theme.h"
 
 using WebKit::WebCanvas;
 using WebKit::WebColor;
@@ -33,6 +33,9 @@ static ui::NativeTheme::State WebButtonStateToGfx(
   ui::NativeTheme::State gfx_state = ui::NativeTheme::kNormal;
   // Native buttons have a different focus style.
   extra->is_focused = false;
+  extra->has_border = false;
+  extra->background_color = ui::NativeTheme::instance()->GetSystemColor(
+      ui::NativeTheme::kColorId_TextButtonBackgroundColor);
 
   if (part == BP_PUSHBUTTON) {
     switch (state) {

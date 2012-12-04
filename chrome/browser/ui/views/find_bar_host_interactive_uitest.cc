@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/views/find_bar_host.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
@@ -94,7 +95,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_CrashEscHandlers) {
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
 
   // Select tab A.
-  chrome::ActivateTabAt(browser(), 0, true);
+  browser()->tab_strip_model()->ActivateTabAt(0, true);
 
   // Close tab B.
   chrome::CloseWebContents(browser(), chrome::GetWebContentsAt(browser(), 1));
@@ -209,13 +210,13 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_FocusRestoreOnTabSwitch) {
                                            location_bar_focus_view_id_));
 
   // Select tab A. Find bar should get focus.
-  chrome::ActivateTabAt(browser(), 0, true);
+  browser()->tab_strip_model()->ActivateTabAt(0, true);
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
   EXPECT_TRUE(ASCIIToUTF16("a") == find_bar->GetFindSelectedText());
 
   // Select tab B. Location bar should get focus.
-  chrome::ActivateTabAt(browser(), 1, true);
+  browser()->tab_strip_model()->ActivateTabAt(1, true);
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            location_bar_focus_view_id_));
 }

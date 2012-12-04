@@ -4,9 +4,8 @@
 
 #include "base/memory/scoped_nsobject.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/string_util.h"
-#include "chrome/browser/bookmarks/bookmark_utils.h"
+#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #import "chrome/browser/ui/cocoa/browser_window_cocoa.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
 #include "chrome/browser/ui/cocoa/cocoa_profile_test.h"
@@ -20,7 +19,7 @@
 // A BrowserWindowCocoa that goes PONG when
 // BOOKMARK_BAR_VISIBILITY_PREF_CHANGED is sent.  This is so we can be
 // sure we are observing it.
-class BrowserWindowCocoaPong : public BrowserWindowCocoa, public PrefObserver {
+class BrowserWindowCocoaPong : public BrowserWindowCocoa {
  public:
   BrowserWindowCocoaPong(Browser* browser,
                          BrowserWindowController* controller)
@@ -29,10 +28,8 @@ class BrowserWindowCocoaPong : public BrowserWindowCocoa, public PrefObserver {
   }
   virtual ~BrowserWindowCocoaPong() { }
 
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE {
-    if (pref_name == prefs::kShowBookmarkBar)
-      pong_ = true;
+  virtual void OnShowBookmarkBarChanged() OVERRIDE {
+    pong_ = true;
   }
 
   bool pong_;
@@ -63,12 +60,12 @@ TEST_F(BrowserWindowCocoaTest, TestNotification) {
       new BrowserWindowCocoaPong(browser(), controller_);
 
   EXPECT_FALSE(bwc->pong_);
-  bookmark_utils::ToggleWhenVisible(profile());
+  chrome::ToggleBookmarkBarWhenVisible(profile());
   // Confirm we are listening
   EXPECT_TRUE(bwc->pong_);
   delete bwc;
   // If this does NOT crash it confirms we stopped listening in the destructor.
-  bookmark_utils::ToggleWhenVisible(profile());
+  chrome::ToggleBookmarkBarWhenVisible(profile());
 }
 
 
@@ -79,10 +76,10 @@ TEST_F(BrowserWindowCocoaTest, TestBookmarkBarVisible) {
   scoped_ptr<BrowserWindowCocoaPong> scoped_bwc(bwc);
 
   bool before = bwc->IsBookmarkBarVisible();
-  bookmark_utils::ToggleWhenVisible(profile());
+  chrome::ToggleBookmarkBarWhenVisible(profile());
   EXPECT_NE(before, bwc->IsBookmarkBarVisible());
 
-  bookmark_utils::ToggleWhenVisible(profile());
+  chrome::ToggleBookmarkBarWhenVisible(profile());
   EXPECT_EQ(before, bwc->IsBookmarkBarVisible());
 }
 

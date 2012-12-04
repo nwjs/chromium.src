@@ -30,9 +30,10 @@ namespace ibus {
 
 namespace {
 
-class MockIBusPanelHandler : public IBusPanelHandlerInterface {
+class MockIBusPanelCandidateWindowHandler
+    : public IBusPanelCandidateWindowHandlerInterface {
  public:
-  MockIBusPanelHandler() {}
+  MockIBusPanelCandidateWindowHandler() {}
   MOCK_METHOD2(UpdateLookupTable, void(const ibus::IBusLookupTable& table,
                                        bool visible));
   MOCK_METHOD0(HideLookupTable, void());
@@ -45,7 +46,18 @@ class MockIBusPanelHandler : public IBusPanelHandlerInterface {
   MOCK_METHOD0(HidePreeditText, void());
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(MockIBusPanelHandler);
+  DISALLOW_COPY_AND_ASSIGN(MockIBusPanelCandidateWindowHandler);
+};
+
+class MockIBusPanelPropertyHandler : public IBusPanelPropertyHandlerInterface {
+ public:
+  MockIBusPanelPropertyHandler() {}
+  MOCK_METHOD1(RegisterProperties,
+               void(const ibus::IBusPropertyList& properties));
+  MOCK_METHOD1(UpdateProperty, void(const ibus::IBusProperty& property));
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(MockIBusPanelPropertyHandler);
 };
 
 class MockResponseSender {
@@ -61,7 +73,7 @@ class EmptyResponseVerifier {
   explicit EmptyResponseVerifier(uint32 expected_serial_number)
       : expected_serial_number_(expected_serial_number) {}
 
-  // Verifies the given |resposne| has no argument.
+  // Verifies the given |response| has no argument.
   void Verify(dbus::Response* response) {
     scoped_ptr<dbus::Response> response_deleter(response);
     EXPECT_EQ(expected_serial_number_, response->GetReplySerial());
@@ -149,6 +161,42 @@ class UpdateLookupTableVerifier {
   DISALLOW_COPY_AND_ASSIGN(UpdateLookupTableVerifier);
 };
 
+// This class is used to verify that a method call which has a PropertyList
+// object. This class verifies a method call has correct arguments based on
+// checking given |keys|.
+class PropertyListVerifier {
+ public:
+  explicit PropertyListVerifier(const std::vector<std::string>& expected_keys)
+      : expected_keys_(expected_keys) {
+  }
+
+  // Verifies the given |resposne| has IBusPropertyList.
+  void Verify(const ibus::IBusPropertyList& properties) {
+    ASSERT_EQ(expected_keys_.size(), properties.size());
+    for (size_t i = 0; i < properties.size(); ++i) {
+      EXPECT_EQ(expected_keys_[i], properties[i]->key());
+    }
+  }
+
+ private:
+  const std::vector<std::string> expected_keys_;
+};
+
+// This class is used to verify that a method call which has a Property object.
+// This class verifies a method call has correct argument based on |key|.
+class PropertyVerifier {
+ public:
+  explicit PropertyVerifier(const std::string& key) : key_(key) {}
+
+  // Verifies the given |resposne| has IBusPropertyList.
+  void Verify(const ibus::IBusProperty& property) {
+    EXPECT_EQ(key_, property.key());
+  }
+
+ private:
+  const std::string key_;
+};
+
 }  // namespace
 
 class IBusPanelServiceTest : public testing::Test {
@@ -173,37 +221,49 @@ class IBusPanelServiceTest : public testing::Test {
 
     EXPECT_CALL(*mock_exported_object_, ExportMethod(
         ibus::panel::kServiceInterface,
-        ibus::panel::kUpdateLookupTableMethod , _, _))
+        ibus::panel::kUpdateLookupTableMethod, _, _))
         .WillRepeatedly(
             Invoke(this, &IBusPanelServiceTest::OnMethodExported));
 
     EXPECT_CALL(*mock_exported_object_, ExportMethod(
         ibus::panel::kServiceInterface,
-        ibus::panel::kHideLookupTableMethod , _, _))
+        ibus::panel::kHideLookupTableMethod, _, _))
         .WillRepeatedly(
             Invoke(this, &IBusPanelServiceTest::OnMethodExported));
 
     EXPECT_CALL(*mock_exported_object_, ExportMethod(
         ibus::panel::kServiceInterface,
-        ibus::panel::kUpdateAuxiliaryTextMethod , _, _))
+        ibus::panel::kUpdateAuxiliaryTextMethod, _, _))
         .WillRepeatedly(
             Invoke(this, &IBusPanelServiceTest::OnMethodExported));
 
     EXPECT_CALL(*mock_exported_object_, ExportMethod(
         ibus::panel::kServiceInterface,
-        ibus::panel::kHideAuxiliaryTextMethod , _, _))
+        ibus::panel::kHideAuxiliaryTextMethod, _, _))
         .WillRepeatedly(
             Invoke(this, &IBusPanelServiceTest::OnMethodExported));
 
     EXPECT_CALL(*mock_exported_object_, ExportMethod(
         ibus::panel::kServiceInterface,
-        ibus::panel::kUpdatePreeditTextMethod , _, _))
+        ibus::panel::kUpdatePreeditTextMethod, _, _))
         .WillRepeatedly(
             Invoke(this, &IBusPanelServiceTest::OnMethodExported));
 
     EXPECT_CALL(*mock_exported_object_, ExportMethod(
         ibus::panel::kServiceInterface,
-        ibus::panel::kHidePreeditTextMethod , _, _))
+        ibus::panel::kHidePreeditTextMethod, _, _))
+        .WillRepeatedly(
+            Invoke(this, &IBusPanelServiceTest::OnMethodExported));
+
+    EXPECT_CALL(*mock_exported_object_, ExportMethod(
+        ibus::panel::kServiceInterface,
+        ibus::panel::kRegisterPropertiesMethod, _, _))
+        .WillRepeatedly(
+            Invoke(this, &IBusPanelServiceTest::OnMethodExported));
+
+    EXPECT_CALL(*mock_exported_object_, ExportMethod(
+        ibus::panel::kServiceInterface,
+        ibus::panel::kUpdatePropertyMethod, _, _))
         .WillRepeatedly(
             Invoke(this, &IBusPanelServiceTest::OnMethodExported));
 
@@ -218,15 +278,20 @@ class IBusPanelServiceTest : public testing::Test {
         mock_bus_.get()));
 
     // Set panel handler.
-    panel_handler_.reset(new MockIBusPanelHandler());
-    service_->Initialize(panel_handler_.get());
+    candidate_window_handler_.reset(new MockIBusPanelCandidateWindowHandler());
+    service_->SetUpCandidateWindowHandler(candidate_window_handler_.get());
+    property_handler_.reset(new MockIBusPanelPropertyHandler());
+    service_->SetUpPropertyHandler(property_handler_.get());
   }
 
  protected:
   // The service to be tested.
   scoped_ptr<IBusPanelService> service_;
-  // The mock panel handler. Do not free, this is owned by IBusPanelService.
-  scoped_ptr<MockIBusPanelHandler> panel_handler_;
+  // The mock candidate window panel handler. Do not free, this is owned by
+  // IBusPanelService.
+  scoped_ptr<MockIBusPanelCandidateWindowHandler> candidate_window_handler_;
+  // The mock property handler. Do not free, this is owned by IBusPanelService.
+  scoped_ptr<MockIBusPanelPropertyHandler> property_handler_;
   // The mock bus.
   scoped_refptr<dbus::MockBus> mock_bus_;
   // The mock exported object.
@@ -256,7 +321,7 @@ class IBusPanelServiceTest : public testing::Test {
 TEST_F(IBusPanelServiceTest, HideLookupTableTest) {
   // Set expectations.
   const uint32 kSerialNo = 1;
-  EXPECT_CALL(*panel_handler_, HideLookupTable());
+  EXPECT_CALL(*candidate_window_handler_, HideLookupTable());
   MockResponseSender response_sender;
   EmptyResponseVerifier response_expectation(kSerialNo);
   EXPECT_CALL(response_sender, Run(_))
@@ -280,7 +345,7 @@ TEST_F(IBusPanelServiceTest, HideLookupTableTest) {
 TEST_F(IBusPanelServiceTest, HideAuxiliaryTextTest) {
   // Set expectations.
   const uint32 kSerialNo = 1;
-  EXPECT_CALL(*panel_handler_, HideAuxiliaryText());
+  EXPECT_CALL(*candidate_window_handler_, HideAuxiliaryText());
   MockResponseSender response_sender;
   EmptyResponseVerifier response_expectation(kSerialNo);
   EXPECT_CALL(response_sender, Run(_))
@@ -304,7 +369,7 @@ TEST_F(IBusPanelServiceTest, HideAuxiliaryTextTest) {
 TEST_F(IBusPanelServiceTest, HidePreeditTextTest) {
   // Set expectations.
   const uint32 kSerialNo = 1;
-  EXPECT_CALL(*panel_handler_, HidePreeditText());
+  EXPECT_CALL(*candidate_window_handler_, HidePreeditText());
   MockResponseSender response_sender;
   EmptyResponseVerifier response_expectation(kSerialNo);
   EXPECT_CALL(response_sender, Run(_))
@@ -335,7 +400,7 @@ TEST_F(IBusPanelServiceTest, UpdateLookupTableTest) {
 
 
   UpdateLookupTableVerifier evaluator(table, kVisible);
-  EXPECT_CALL(*panel_handler_, UpdateLookupTable(_, _))
+  EXPECT_CALL(*candidate_window_handler_, UpdateLookupTable(_, _))
       .WillOnce(Invoke(&evaluator,
                        &UpdateLookupTableVerifier::Verify));
   MockResponseSender response_sender;
@@ -367,7 +432,7 @@ TEST_F(IBusPanelServiceTest, UpdateAuxiliaryTextTest) {
   const std::string text = "Sample text";
   const bool kVisible = false;
 
-  EXPECT_CALL(*panel_handler_, UpdateAuxiliaryText(text, kVisible));
+  EXPECT_CALL(*candidate_window_handler_, UpdateAuxiliaryText(text, kVisible));
   MockResponseSender response_sender;
   EmptyResponseVerifier response_expectation(kSerialNo);
   EXPECT_CALL(response_sender, Run(_))
@@ -398,7 +463,8 @@ TEST_F(IBusPanelServiceTest, UpdatePreeditTextTest) {
   const uint32 kCursorPos = 4;
   const bool kVisible = false;
 
-  EXPECT_CALL(*panel_handler_, UpdatePreeditText(text, kCursorPos, kVisible));
+  EXPECT_CALL(*candidate_window_handler_,
+              UpdatePreeditText(text, kCursorPos, kVisible));
   MockResponseSender response_sender;
   EmptyResponseVerifier response_expectation(kSerialNo);
   EXPECT_CALL(response_sender, Run(_))
@@ -424,7 +490,7 @@ TEST_F(IBusPanelServiceTest, UpdatePreeditTextTest) {
 }
 
 TEST_F(IBusPanelServiceTest, CursorUpTest) {
-  // Set expetations.
+  // Set expectations.
   NullArgumentVerifier evaluator(ibus::panel::kCursorUpSignal);
   EXPECT_CALL(*mock_exported_object_, SendSignal(_))
       .WillOnce(Invoke(&evaluator, &NullArgumentVerifier::Verify));
@@ -434,7 +500,7 @@ TEST_F(IBusPanelServiceTest, CursorUpTest) {
 }
 
 TEST_F(IBusPanelServiceTest, CursorDownTest) {
-  // Set expetations.
+  // Set expectations.
   NullArgumentVerifier evaluator(ibus::panel::kCursorDownSignal);
   EXPECT_CALL(*mock_exported_object_, SendSignal(_))
       .WillOnce(Invoke(&evaluator, &NullArgumentVerifier::Verify));
@@ -444,7 +510,7 @@ TEST_F(IBusPanelServiceTest, CursorDownTest) {
 }
 
 TEST_F(IBusPanelServiceTest, PageUpTest) {
-  // Set expetations.
+  // Set expectations.
   NullArgumentVerifier evaluator(ibus::panel::kPageUpSignal);
   EXPECT_CALL(*mock_exported_object_, SendSignal(_))
       .WillOnce(Invoke(&evaluator, &NullArgumentVerifier::Verify));
@@ -454,13 +520,78 @@ TEST_F(IBusPanelServiceTest, PageUpTest) {
 }
 
 TEST_F(IBusPanelServiceTest, PageDownTest) {
-  // Set expetations.
+  // Set expectations.
   NullArgumentVerifier evaluator(ibus::panel::kPageDownSignal);
   EXPECT_CALL(*mock_exported_object_, SendSignal(_))
       .WillOnce(Invoke(&evaluator, &NullArgumentVerifier::Verify));
 
   // Emit signal.
   service_->PageDown();
+}
+
+TEST_F(IBusPanelServiceTest, RegisterPropertiesTest) {
+  // Set expectations.
+  std::vector<std::string> keys;
+  keys.push_back("key1");
+  keys.push_back("key2");
+  keys.push_back("key3");
+  ibus::IBusPropertyList properties;
+  for (size_t i = 0; i < keys.size(); ++i) {
+    ibus::IBusProperty* property = new ibus::IBusProperty;
+    property->set_key(keys[i]);
+    properties.push_back(property);
+  }
+
+  PropertyListVerifier response_expectation(keys);
+  EXPECT_CALL(*property_handler_, RegisterProperties(_))
+      .WillOnce(Invoke(&response_expectation,
+                        &PropertyListVerifier::Verify));
+
+  MockResponseSender response_sender;
+  EXPECT_CALL(response_sender, Run(_));
+
+  // Create method call;
+  dbus::MethodCall method_call(ibus::panel::kServiceInterface,
+                               ibus::panel::kRegisterPropertiesMethod);
+  method_call.SetSerial(1UL);
+  dbus::MessageWriter writer(&method_call);
+  ibus::AppendIBusPropertyList(properties, &writer);
+
+  // Call exported function.
+  EXPECT_NE(method_callback_map_.find(ibus::panel::kRegisterPropertiesMethod),
+            method_callback_map_.end());
+  method_callback_map_[ibus::panel::kRegisterPropertiesMethod].Run(
+      &method_call,
+      base::Bind(&MockResponseSender::Run, base::Unretained(&response_sender)));
+}
+
+TEST_F(IBusPanelServiceTest, UpdatePropertyTest) {
+  // Set expectations.
+  const char kKey[] = "key";
+  ibus::IBusProperty property;
+  property.set_key(kKey);
+
+  PropertyVerifier response_expectation(kKey);
+  EXPECT_CALL(*property_handler_, UpdateProperty(_))
+      .WillOnce(Invoke(&response_expectation, &PropertyVerifier::Verify));
+
+  MockResponseSender response_sender;
+  EXPECT_CALL(response_sender, Run(_));
+
+  // Create method call;
+  dbus::MethodCall method_call(ibus::panel::kServiceInterface,
+                               ibus::panel::kUpdatePropertyMethod);
+  method_call.SetSerial(1UL);
+  dbus::MessageWriter writer(&method_call);
+  ibus::AppendIBusProperty(property, &writer);
+
+  // Call exported function.
+  EXPECT_NE(method_callback_map_.find(ibus::panel::kUpdatePropertyMethod),
+            method_callback_map_.end());
+  method_callback_map_[ibus::panel::kUpdatePropertyMethod].Run(
+      &method_call,
+      base::Bind(&MockResponseSender::Run,
+                 base::Unretained(&response_sender)));
 }
 
 }  // namespace ibus

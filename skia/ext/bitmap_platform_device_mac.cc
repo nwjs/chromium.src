@@ -28,6 +28,12 @@ static CGContextRef CGContextForData(void* data, int width, int height) {
 #if defined(SK_CPU_LENDIAN) && HAS_ARGB_SHIFTS(24, 16, 8, 0)
   // Allocate a bitmap context with 4 components per pixel (BGRA).  Apple
   // recommends these flags for improved CG performance.
+
+  // CGBitmapContextCreate returns NULL if width/height are 0. However, our
+  // callers expect to get a canvas back (which they later resize/reallocate)
+  // so we pin the dimensions here.
+  width = SkMax32(1, width);
+  height = SkMax32(1, height);
   CGContextRef context =
       CGBitmapContextCreate(data, width, height, 8, width * 4,
                             base::mac::GetSystemColorSpace(),
@@ -150,7 +156,7 @@ BitmapPlatformDevice* BitmapPlatformDevice::Create(CGContextRef context,
     CGContextRetain(context);
 
   BitmapPlatformDevice* rv = new BitmapPlatformDevice(
-      new BitmapPlatformDeviceData(context), bitmap);
+      skia::AdoptRef(new BitmapPlatformDeviceData(context)), bitmap);
 
   // The device object took ownership of the graphics context with its own
   // CGContextRetain call.
@@ -189,14 +195,13 @@ BitmapPlatformDevice* BitmapPlatformDevice::CreateWithData(uint8_t* data,
 // The device will own the bitmap, which corresponds to also owning the pixel
 // data. Therefore, we do not transfer ownership to the SkDevice's bitmap.
 BitmapPlatformDevice::BitmapPlatformDevice(
-    BitmapPlatformDeviceData* data, const SkBitmap& bitmap)
+    const skia::RefPtr<BitmapPlatformDeviceData>& data, const SkBitmap& bitmap)
     : SkDevice(bitmap),
       data_(data) {
   SetPlatformDevice(this, this);
 }
 
 BitmapPlatformDevice::~BitmapPlatformDevice() {
-  data_->unref();
 }
 
 CGContextRef BitmapPlatformDevice::GetBitmapContext() {
@@ -253,6 +258,22 @@ SkDevice* BitmapPlatformDevice::onCreateCompatibleDevice(
   SkDevice* bitmap_device = BitmapPlatformDevice::CreateAndClear(width, height,
                                                                  isOpaque);
   return bitmap_device;
+}
+
+// PlatformCanvas impl
+
+SkCanvas* CreatePlatformCanvas(CGContextRef ctx, int width, int height,
+                               bool is_opaque, OnFailureType failureType) {
+  skia::RefPtr<SkDevice> dev = skia::AdoptRef(
+      BitmapPlatformDevice::Create(ctx, width, height, is_opaque));
+  return CreateCanvas(dev, failureType);
+}
+
+SkCanvas* CreatePlatformCanvas(int width, int height, bool is_opaque,
+                               uint8_t* data, OnFailureType failureType) {
+  skia::RefPtr<SkDevice> dev = skia::AdoptRef(
+      BitmapPlatformDevice::CreateWithData(data, width, height, is_opaque));
+  return CreateCanvas(dev, failureType);
 }
 
 // Port of PlatformBitmap to mac

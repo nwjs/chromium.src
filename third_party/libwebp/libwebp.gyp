@@ -44,10 +44,7 @@
           ],
           'conditions': [
             ['OS == "android"', {
-              'include_dirs': ['./dsp'],
-              'sources': [
-                'dsp/cpu-features.c',
-              ],
+              'includes': [ '../../build/android/cpufeatures.gypi' ],
             }],
             ['order_profiling != 0', {
               'target_conditions' : [

@@ -32,7 +32,7 @@
 #include "ppapi/shared_impl/resource.h"
 
 #if defined(OS_POSIX) && !defined(OS_NACL)
-#include "base/eintr_wrapper.h"
+#include "base/posix/eintr_wrapper.h"
 #include "ipc/ipc_channel_posix.h"
 #endif
 
@@ -50,8 +50,7 @@ DispatcherSet* g_live_dispatchers = NULL;
 }  // namespace
 
 InstanceData::InstanceData()
-    : flash_fullscreen(PP_FALSE),
-      is_request_surrounding_text_pending(false),
+    : is_request_surrounding_text_pending(false),
       should_do_request_surrounding_text(false) {
 }
 
@@ -192,6 +191,10 @@ bool PluginDispatcher::Send(IPC::Message* msg) {
   if (msg->is_sync()) {
     // Synchronous messages might be re-entrant, so we need to drop the lock.
     ProxyAutoUnlock unlock;
+
+    // TODO(yzshen): Make sending message thread-safe. It may be accessed from
+    // non-main threads. Moreover, since the proxy lock has been released, it
+    // may be accessed by multiple threads at the same time.
     return Dispatcher::Send(msg);
   }
   return Dispatcher::Send(msg);

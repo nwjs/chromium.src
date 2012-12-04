@@ -58,7 +58,7 @@ void emulateDrawingOneFrame(LayerImpl* root)
     // Iterate back-to-front, so that damage correctly propagates from descendant surfaces to ancestors.
     for (int i = renderSurfaceLayerList.size() - 1; i >= 0; --i) {
         RenderSurfaceImpl* targetSurface = renderSurfaceLayerList[i]->renderSurface();
-        targetSurface->damageTracker()->updateDamageTrackingState(targetSurface->layerList(), targetSurface->owningLayerId(), targetSurface->surfacePropertyChangedOnlyFromDescendant(), targetSurface->contentRect(), renderSurfaceLayerList[i]->maskLayer(), renderSurfaceLayerList[i]->filters(), renderSurfaceLayerList[i]->filter());
+        targetSurface->damageTracker()->updateDamageTrackingState(targetSurface->layerList(), targetSurface->owningLayerId(), targetSurface->surfacePropertyChangedOnlyFromDescendant(), targetSurface->contentRect(), renderSurfaceLayerList[i]->maskLayer(), renderSurfaceLayerList[i]->filters(), renderSurfaceLayerList[i]->filter().get());
     }
 
     root->resetAllChangeTrackingForSubtree();
@@ -113,6 +113,7 @@ scoped_ptr<LayerImpl> createTestTreeWithTwoSurfaces()
     child1->setContentBounds(gfx::Size(30, 30));
     child1->setOpacity(0.5); // with a child that drawsContent, this will cause the layer to create its own renderSurface.
     child1->setDrawsContent(false); // this layer does not draw, but is intended to create its own renderSurface.
+    child1->setForceRenderSurface(true);
 
     child2->setPosition(gfx::PointF(11, 11));
     child2->setAnchorPoint(gfx::PointF());
@@ -285,8 +286,8 @@ TEST_F(DamageTrackerTest, verifyDamageForTransformedLayer)
     scoped_ptr<LayerImpl> root = createAndSetUpTestTreeWithOneSurface();
     LayerImpl* child = root->children()[0];
 
-    WebTransformationMatrix rotation;
-    rotation.rotate(45);
+    gfx::Transform rotation;
+    rotation.Rotate(45);
 
     clearDamageForAllSurfaces(root.get());
     child->setAnchorPoint(gfx::PointF(0.5, 0.5));
@@ -328,11 +329,11 @@ TEST_F(DamageTrackerTest, verifyDamageForPerspectiveClippedLayer)
     scoped_ptr<LayerImpl> root = createAndSetUpTestTreeWithOneSurface();
     LayerImpl* child = root->children()[0];
 
-    WebTransformationMatrix transform;
-    transform.translate3d(500, 500, 0);
-    transform.applyPerspective(1);
-    transform.rotate3d(0, 45, 0);
-    transform.translate3d(-50, -50, 0);
+    gfx::Transform transform;
+    transform.Translate3d(500, 500, 0);
+    transform.ApplyPerspectiveDepth(1);
+    MathUtil::rotateEulerAngles(&transform, 0, 45, 0);
+    transform.Translate3d(-50, -50, 0);
 
     // Set up the child
     child->setPosition(gfx::PointF(0, 0));
@@ -396,8 +397,7 @@ TEST_F(DamageTrackerTest, verifyDamageForImageFilter)
     // Allow us to set damage on child too.
     child->setDrawsContent(true);
 
-    SkAutoTUnref<SkImageFilter> filter(new SkBlurImageFilter(SkIntToScalar(2),
-                                                             SkIntToScalar(2)));
+    skia::RefPtr<SkImageFilter> filter = skia::AdoptRef(new SkBlurImageFilter(SkIntToScalar(2), SkIntToScalar(2)));
     // Setting the filter will damage the whole surface.
     clearDamageForAllSurfaces(root.get());
     child->setFilter(filter);
@@ -723,6 +723,7 @@ TEST_F(DamageTrackerTest, verifyDamageForAddingAndRemovingRenderSurfaces)
     //
     clearDamageForAllSurfaces(root.get());
     child1->setOpacity(1);
+    child1->setForceRenderSurface(false);
     emulateDrawingOneFrame(root.get());
 
     // Sanity check that there is only one surface now.
@@ -743,6 +744,7 @@ TEST_F(DamageTrackerTest, verifyDamageForAddingAndRemovingRenderSurfaces)
     // Then change the tree so that the render surface is added back.
     clearDamageForAllSurfaces(root.get());
     child1->setOpacity(0.5);
+    child1->setForceRenderSurface(true);
     emulateDrawingOneFrame(root.get());
 
     // Sanity check that there is a new surface now.
@@ -833,8 +835,8 @@ TEST_F(DamageTrackerTest, verifyDamageForReplica)
         scoped_ptr<LayerImpl> grandChild1Replica = LayerImpl::create(7);
         grandChild1Replica->setPosition(gfx::PointF());
         grandChild1Replica->setAnchorPoint(gfx::PointF());
-        WebTransformationMatrix reflection;
-        reflection.scale3d(-1, 1, 1);
+        gfx::Transform reflection;
+        reflection.Scale3d(-1, 1, 1);
         grandChild1Replica->setTransform(reflection);
         grandChild1->setReplicaLayer(grandChild1Replica.Pass());
     }
@@ -986,8 +988,8 @@ TEST_F(DamageTrackerTest, verifyDamageForReplicaMask)
         scoped_ptr<LayerImpl> grandChild1Replica = LayerImpl::create(6);
         grandChild1Replica->setPosition(gfx::PointF());
         grandChild1Replica->setAnchorPoint(gfx::PointF());
-        WebTransformationMatrix reflection;
-        reflection.scale3d(-1, 1, 1);
+        gfx::Transform reflection;
+        reflection.Scale3d(-1, 1, 1);
         grandChild1Replica->setTransform(reflection);
         grandChild1->setReplicaLayer(grandChild1Replica.Pass());
     }
@@ -1048,8 +1050,8 @@ TEST_F(DamageTrackerTest, verifyDamageForReplicaMaskWithAnchor)
         scoped_ptr<LayerImpl> grandChild1Replica = LayerImpl::create(6);
         grandChild1Replica->setPosition(gfx::PointF());
         grandChild1Replica->setAnchorPoint(gfx::PointF(1, 0)); // This is the anchor being tested.
-        WebTransformationMatrix reflection;
-        reflection.scale3d(-1, 1, 1);
+        gfx::Transform reflection;
+        reflection.Scale3d(-1, 1, 1);
         grandChild1Replica->setTransform(reflection);
         grandChild1->setReplicaLayer(grandChild1Replica.Pass());
     }

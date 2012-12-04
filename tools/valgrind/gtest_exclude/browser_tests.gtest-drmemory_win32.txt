@@ -4,6 +4,7 @@
 #
 # The list is too long for gtest_filter, so we exclude the whole
 # test case if any of its tests failed.
+*FLAKY*
 
 # Timeout (400000 ms) Tests
 NaClBrowserTestGLibc.*
@@ -180,6 +181,50 @@ RestoreOnStartupPolicyTestInstance*
 # DrM-i#1052-c#33
 TabCaptureApiTest.*
 TopSitesExtensionTest.*
+# DrM-#i1052-c#34
+HistoryWebUITest.*
+SettingsFormatWebUITest.*
+TaskManagerNotificationBrowserTest.*
+ContinueWhereILeftOffTest.*
+RestartTest.*
+WebUIBrowserAsyncTest.*
+Mock4JSWebUITestFails.*
+Mock4JSWebUITest.*
+HelpPageWebUITest.*
+ChromeSendWebUITest.*
+ChromeSendPassthroughWebUITest.*
+EditDictionaryWebUITest.*
+GeolocationAccessTokenStoreTest.*
+NativeServicesBrowserTest.*
+ChromeRenderProcessHostTest.*
+BaseHistoryWebUITest.*
+SettingsFormatWebUITest.*
+ChromeMainTest.*
+AutofillPopupViewBrowserTest.*
+# DrM-i#1052-c#35
+WebUIBrowserExpectFailTest.*
+EncodingAliases/BrowserEncodingTest.*
+ExtensionSettingsWebUITest.*
+CrashRecoveryBrowserTest.*
+TracingBrowserTest.*
+LocaleTestDanish.*
+LocaleTestHebrew.*
+RegisterProtocolHandlerBrowserTest.*
+ServiceProcessControlBrowserTest.*
+SpeechRecognitionBubbleTest.*
+SpeechInputExtensionApiTest.*
+# DrM-i#1052-c#36
+DownloadDangerPromptTest.*
+TtsApiTest.*
+RequirementsCheckerBrowserTest.*
+ToolbarImporterUtilsTest.*
+# DrM-i#1052-c#37
+ExtensionCrxInstallerTest.*
+ExtensionDisabledGlobalErrorTest.*
+ExtensionTabsTest.*
+ExtensionModuleApiTest.*
+ExperimentalApiTest.*
+LocaleTestTraditionalChinese.*
 
 # Failed tests from debug build
 # DrM-i#1052-c#21
@@ -229,3 +274,13 @@ PanelExtensionBrowserTest.*
 ToolbarViewTest.*
 # DrM-i#1052-c#32
 ExtensionOverrideTest.*
+# DrM-i#1052-c#35
+EncodingAliases/BrowserEncodingTest.*
+ChromeRenderProcessHostTestWithCommandLine.*
+PlatformAppDevToolsBrowserTest.*
+# DrM-i#1052-c#36
+LocalePolicyTest.*
+ClipboardApiTest.*
+ExtensionDevToolsBrowserTest.*
+# DrM-i#1052-c#37
+IFrameTest.*

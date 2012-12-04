@@ -7,25 +7,33 @@
 // The actual tag is implemented via the browser plugin. The internals of this
 // are hidden via Shadow DOM.
 
-var WEB_VIEW_ATTRIBUTES = ['src'];
+var WEB_VIEW_ATTRIBUTES = ['src', 'partition'];
 
 var WEB_VIEW_READONLY_ATTRIBUTES = ['contentWindow'];
 
 // All exposed api methods for <webview>, these are forwarded to the browser
 // plugin.
 var WEB_VIEW_API_METHODS = [
-    'addEventListener',
-    'back',
-    'canGoBack',
-    'canGoForward',
-    'forward',
-    'getProcessId',
-    'go',
-    'reload',
-    'removeEventListener',
-    'stop',
-    'terminate'
-    ];
+  'back',
+  'canGoBack',
+  'canGoForward',
+  'forward',
+  'getProcessId',
+  'go',
+  'reload',
+  'stop',
+  'terminate'
+];
+
+var WEB_VIEW_EVENTS = {
+  'exit' : ['processId', 'reason'],
+  'loadabort' : ['url', 'isTopLevel', 'reason'],
+  'loadcommit' : ['url', 'isTopLevel'],
+  'loadredirect' : ['oldurl', 'newurl', 'isTopLevel'],
+  'loadstart' : ['url', 'isTopLevel'],
+  'loadstop' : [],
+  'sizechanged': ['oldHeight', 'oldWidth', 'newHeight', 'newWidth'],
+};
 
 window.addEventListener('DOMContentLoaded', function() {
   // Handle <webview> tags already in the document.
@@ -59,7 +67,10 @@ function WebView(node) {
   // The <object> node fills in the <browser> container.
   this.objectNode_.style.width = '100%';
   this.objectNode_.style.height = '100%';
-  WEB_VIEW_ATTRIBUTES.forEach(this.copyAttribute_, this);
+  WEB_VIEW_ATTRIBUTES.forEach(function(attributeName) {
+    this.objectNode_.setAttribute(
+        attributeName, this.node_.getAttribute(attributeName));
+  }, this);
 
   shadowRoot.appendChild(this.objectNode_);
 
@@ -69,8 +80,8 @@ function WebView(node) {
     node[apiMethod] = this.objectNode_[apiMethod].bind(this.objectNode_);
   }, this);
 
-  // Map attribute modifications on the <webview> tag to changes on the
-  // underlying <object> node.
+  // Map attribute modifications on the <webview> tag to property changes in
+  // the underlying <object> node.
   var handleMutation = this.handleMutation_.bind(this);
   var observer = new WebKitMutationObserver(function(mutations) {
     mutations.forEach(handleMutation);
@@ -84,16 +95,10 @@ function WebView(node) {
   WEB_VIEW_ATTRIBUTES.forEach(function(attributeName) {
     Object.defineProperty(this.node_, attributeName, {
       get: function() {
-        if (attributeName == 'src') {
-          // Always read src attribute from the plugin <object> since: a) It can
-          // have different value when empty src is set. b) BrowserPlugin
-          // updates its src attribute on guest-initiated navigations.
-          return objectNode.src;
-        }
-        return node.getAttribute(attributeName);
+        return objectNode[attributeName];
       },
       set: function(value) {
-        node.setAttribute(attributeName, value);
+        objectNode[attributeName] = value;
       },
       enumerable: true
     });
@@ -111,30 +116,31 @@ function WebView(node) {
       enumerable: true
     })
   }, this);
-};
+
+  for (var eventName in WEB_VIEW_EVENTS) {
+    this.setupEvent_(eventName, WEB_VIEW_EVENTS[eventName]);
+  }
+}
 
 /**
  * @private
  */
 WebView.prototype.handleMutation_ = function(mutation) {
-  switch (mutation.attributeName) {
-    case 'src':
-      // We need to set .src directly on the shadow element so that
-      // BrowserPluginBindings catches this as src attribute mutation. The
-      // bindings would catch 'SetAttribute' method call with src as argument
-      // otherwise.
-      this.objectNode_.src = this.node_.getAttribute('src');
-      break;
-    default:
-      this.copyAttribute_(mutation.attributeName);
-      break;
-  }
+  this.node_[mutation.attributeName] =
+      this.node_.getAttribute(mutation.attributeName);
 };
 
 /**
  * @private
  */
-WebView.prototype.copyAttribute_ = function(attributeName) {
-  this.objectNode_.setAttribute(
-      attributeName, this.node_.getAttribute(attributeName));
-};
+WebView.prototype.setupEvent_ = function(eventname, attribs) {
+  var node = this.node_;
+  this.objectNode_.addEventListener('-internal-' + eventname, function(e) {
+    var evt = new Event(eventname);
+    var detail = e.detail ? JSON.parse(e.detail) : {};
+    attribs.forEach(function(attribName) {
+      evt[attribName] = detail[attribName];
+    });
+    node.dispatchEvent(evt);
+  });
+}

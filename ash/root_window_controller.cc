@@ -9,7 +9,7 @@
 #include "ash/ash_switches.h"
 #include "ash/desktop_background/desktop_background_widget_controller.h"
 #include "ash/display/display_controller.h"
-#include "ash/display/multi_display_manager.h"
+#include "ash/display/display_manager.h"
 #include "ash/focus_cycler.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
@@ -30,7 +30,6 @@
 #include "ash/wm/system_background_controller.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
 #include "ash/wm/toplevel_window_event_handler.h"
-#include "ash/wm/visibility_controller.h"
 #include "ash/wm/window_properties.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/command_line.h"
@@ -38,8 +37,8 @@
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/capture_client.h"
+#include "ui/aura/client/focus_client.h"
 #include "ui/aura/client/tooltip_client.h"
-#include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
@@ -49,6 +48,7 @@
 #include "ui/gfx/screen.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/corewm/visibility_controller.h"
 #include "ui/views/view_model.h"
 #include "ui/views/view_model_utils.h"
 
@@ -291,7 +291,7 @@ void RootWindowController::InitForPrimaryDisplay() {
       internal::kShellWindowId_PanelContainer);
   panel_layout_manager_ =
       new internal::PanelLayoutManager(panel_container);
-  panel_container->SetEventFilter(
+  panel_container->AddPreTargetHandler(
       new internal::PanelWindowEventFilter(
           panel_container, panel_layout_manager_));
   panel_container->SetLayoutManager(panel_layout_manager_);
@@ -407,12 +407,13 @@ void RootWindowController::CloseChildWindows() {
     delete child;
   }
 
+  launcher_.reset();
   // All containers are deleted, so reset shelf_.
   shelf_ = NULL;
 }
 
 void RootWindowController::MoveWindowsTo(aura::RootWindow* dst) {
-  aura::Window* focused = dst->GetFocusManager()->GetFocusedWindow();
+  aura::Window* focused = aura::client::GetFocusClient(dst)->GetFocusedWindow();
   aura::WindowTracker tracker;
   if (focused)
     tracker.Add(focused);
@@ -430,13 +431,13 @@ void RootWindowController::MoveWindowsTo(aura::RootWindow* dst) {
   // window may be deleted when losing focus (fullscreen flash for
   // example).  If the focused window is still alive after move, it'll
   // be re-focused below.
-  dst->GetFocusManager()->SetFocusedWindow(NULL, NULL);
+  aura::client::GetFocusClient(dst)->FocusWindow(NULL, NULL);
 
   ReparentAllWindows(root_window_.get(), dst);
 
   // Restore focused or active window if it's still alive.
   if (focused && tracker.Contains(focused) && dst->Contains(focused)) {
-    dst->GetFocusManager()->SetFocusedWindow(focused, NULL);
+    aura::client::GetFocusClient(dst)->FocusWindow(focused, NULL);
   } else if (active && tracker.Contains(active) && dst->Contains(active)) {
     activation_client->ActivateWindow(active);
   }
@@ -515,7 +516,8 @@ void RootWindowController::CreateContainersInRootWindow(
       kShellWindowId_DesktopBackgroundContainer,
       "DesktopBackgroundContainer",
       root_window);
-  SetChildWindowVisibilityChangesAnimated(desktop_background_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(
+      desktop_background_container);
 
   aura::Window* non_lock_screen_containers = CreateContainer(
       kShellWindowId_NonLockScreenContainersContainer,
@@ -526,7 +528,8 @@ void RootWindowController::CreateContainersInRootWindow(
       kShellWindowId_LockScreenBackgroundContainer,
       "LockScreenBackgroundContainer",
       root_window);
-  SetChildWindowVisibilityChangesAnimated(lock_background_containers);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(
+      lock_background_containers);
 
   aura::Window* lock_screen_containers = CreateContainer(
       kShellWindowId_LockScreenContainersContainer,
@@ -545,7 +548,7 @@ void RootWindowController::CreateContainersInRootWindow(
       kShellWindowId_DefaultContainer,
       "DefaultContainer",
       non_lock_screen_containers);
-  SetChildWindowVisibilityChangesAnimated(default_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(default_container);
   SetUsesScreenCoordinates(default_container);
 
   aura::Window* always_on_top_container = CreateContainer(
@@ -554,7 +557,8 @@ void RootWindowController::CreateContainersInRootWindow(
       non_lock_screen_containers);
   always_on_top_container_handler_.reset(
       new ToplevelWindowEventHandler(always_on_top_container));
-  SetChildWindowVisibilityChangesAnimated(always_on_top_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(
+      always_on_top_container);
   SetUsesScreenCoordinates(always_on_top_container);
 
   aura::Window* panel_container = CreateContainer(
@@ -583,7 +587,7 @@ void RootWindowController::CreateContainersInRootWindow(
       new ToplevelWindowEventHandler(modal_container));
   modal_container->SetLayoutManager(
       new SystemModalContainerLayoutManager(modal_container));
-  SetChildWindowVisibilityChangesAnimated(modal_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(modal_container);
   SetUsesScreenCoordinates(modal_container);
 
   aura::Window* input_method_container = CreateContainer(
@@ -611,7 +615,7 @@ void RootWindowController::CreateContainersInRootWindow(
       new ToplevelWindowEventHandler(lock_modal_container));
   lock_modal_container->SetLayoutManager(
       new SystemModalContainerLayoutManager(lock_modal_container));
-  SetChildWindowVisibilityChangesAnimated(lock_modal_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(lock_modal_container);
   SetUsesScreenCoordinates(lock_modal_container);
 
   aura::Window* status_container =
@@ -624,21 +628,22 @@ void RootWindowController::CreateContainersInRootWindow(
       kShellWindowId_SettingBubbleContainer,
       "SettingBubbleContainer",
       lock_screen_related_containers);
-  SetChildWindowVisibilityChangesAnimated(settings_bubble_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(
+      settings_bubble_container);
   SetUsesScreenCoordinates(settings_bubble_container);
 
   aura::Window* menu_container = CreateContainer(
       kShellWindowId_MenuContainer,
       "MenuContainer",
       lock_screen_related_containers);
-  SetChildWindowVisibilityChangesAnimated(menu_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(menu_container);
   SetUsesScreenCoordinates(menu_container);
 
   aura::Window* drag_drop_container = CreateContainer(
       kShellWindowId_DragImageAndTooltipContainer,
       "DragImageAndTooltipContainer",
       lock_screen_related_containers);
-  SetChildWindowVisibilityChangesAnimated(drag_drop_container);
+  views::corewm::SetChildWindowVisibilityChangesAnimated(drag_drop_container);
   SetUsesScreenCoordinates(drag_drop_container);
 
   aura::Window* overlay_container = CreateContainer(

@@ -6,6 +6,7 @@
 
 #include "base/stringprintf.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/common/extensions/extension.h"
@@ -56,7 +57,7 @@ void ThemeSyncableService::OnThemeChange() {
   }
 }
 
-syncer::SyncError ThemeSyncableService::MergeDataAndStartSyncing(
+syncer::SyncMergeResult ThemeSyncableService::MergeDataAndStartSyncing(
     syncer::ModelType type,
     const syncer::SyncDataList& initial_sync_data,
     scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
@@ -66,6 +67,7 @@ syncer::SyncError ThemeSyncableService::MergeDataAndStartSyncing(
   DCHECK(sync_processor.get());
   DCHECK(error_handler.get());
 
+  syncer::SyncMergeResult merge_result(type);
   sync_processor_ = sync_processor.Pass();
   sync_error_handler_ = error_handler.Pass();
 
@@ -86,12 +88,14 @@ syncer::SyncError ThemeSyncableService::MergeDataAndStartSyncing(
       ++sync_data) {
     if (sync_data->GetSpecifics().has_theme()) {
       MaybeSetTheme(current_specifics, *sync_data);
-      return syncer::SyncError();
+      return merge_result;
     }
   }
 
   // No theme specifics are found. Create one according to current theme.
-  return ProcessNewTheme(syncer::SyncChange::ACTION_ADD, current_specifics);
+  merge_result.set_error(ProcessNewTheme(
+      syncer::SyncChange::ACTION_ADD, current_specifics));
+  return merge_result;
 }
 
 void ThemeSyncableService::StopSyncing(syncer::ModelType type) {
@@ -193,7 +197,7 @@ void ThemeSyncableService::SetCurrentThemeFromThemeSpecifics(
     GURL update_url(theme_specifics.custom_theme_update_url());
     DVLOG(1) << "Applying theme " << id << " with update_url " << update_url;
     ExtensionServiceInterface* extensions_service =
-        profile_->GetExtensionService();
+        extensions::ExtensionSystem::Get(profile_)->extension_service();
     CHECK(extensions_service);
     const extensions::Extension* extension =
         extensions_service->GetExtensionById(id, true);
@@ -235,8 +239,8 @@ void ThemeSyncableService::GetThemeSpecificsFromCurrentTheme(
   const extensions::Extension* current_theme =
       theme_service_->UsingDefaultTheme() ?
           NULL :
-          profile_->GetExtensionService()->GetExtensionById(
-              theme_service_->GetThemeID(), false);
+          extensions::ExtensionSystem::Get(profile_)->extension_service()->
+              GetExtensionById(theme_service_->GetThemeID(), false);
   bool use_custom_theme = (current_theme != NULL);
   theme_specifics->set_use_custom_theme(use_custom_theme);
   if (IsSystemThemeDistinctFromDefaultTheme()) {

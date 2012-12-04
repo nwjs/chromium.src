@@ -28,6 +28,7 @@
 #include "ui/app_list/app_list_switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_switches.h"
+#include "ui/gfx/switches.h"
 #include "ui/gl/gl_switches.h"
 
 #if defined(USE_ASH)
@@ -36,6 +37,10 @@
 
 #if defined(USE_AURA)
 #include "ui/aura/aura_switches.h"
+#endif
+
+#if defined(OS_CHROMEOS)
+#include "chromeos/chromeos_switches.h"
 #endif
 
 using content::UserMetricsAction;
@@ -134,8 +139,18 @@ const Experiment::Choice kThreadedCompositingModeChoices[] = {
     switches::kEnableThreadedCompositing, ""}
 };
 
+const Experiment::Choice kTouchEventsChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_AUTOMATIC, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
+    switches::kTouchEvents,
+    switches::kTouchEventsEnabled },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
+    switches::kTouchEvents,
+    switches::kTouchEventsDisabled }
+};
+
 const Experiment::Choice kTouchOptimizedUIChoices[] = {
-  { IDS_FLAGS_TOUCH_OPTIMIZED_UI_AUTOMATIC, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_AUTOMATIC, "", "" },
   { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
     switches::kTouchOptimizedUI,
     switches::kTouchOptimizedUIEnabled },
@@ -197,11 +212,11 @@ const Experiment::Choice kAshBootAnimationFunction[] = {
 };
 
 const Experiment::Choice kChromeCaptivePortalDetectionChoices[] = {
-  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
-  { IDS_FLAGS_SHILL_CAPTIVE_PORTAL_DETECTOR,
-    switches::kDisableChromeCaptivePortalDetector, ""},
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", ""},
   { IDS_FLAGS_CHROME_CAPTIVE_PORTAL_DETECTOR,
-    switches::kEnableChromeCaptivePortalDetector, ""}
+    switches::kEnableChromeCaptivePortalDetector, ""},
+  { IDS_FLAGS_SHILL_CAPTIVE_PORTAL_DETECTOR,
+    switches::kDisableChromeCaptivePortalDetector, ""}
 };
 #endif
 
@@ -424,13 +439,6 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableNaClSRPCProxy)
   },
   {
-    "enable-scripted-speech",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_ENABLE_SCRIPTED_SPEECH_NAME,
-    IDS_FLAGS_ENABLE_SCRIPTED_SPEECH_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableScriptedSpeech)
-  },
-  {
     "extension-apis",  // FLAGS:RECORD_UMA
     IDS_FLAGS_EXPERIMENTAL_EXTENSION_APIS_NAME,
     IDS_FLAGS_EXPERIMENTAL_EXTENSION_APIS_DESCRIPTION,
@@ -486,7 +494,6 @@ const Experiment kExperiments[] = {
     kOsWin,
     SINGLE_VALUE_TYPE(switches::kEnableTabGroupsContextMenu)
   },
-#if defined(OS_CHROMEOS)
   {
     "enable-instant-extended-api",
     IDS_FLAGS_ENABLE_INSTANT_EXTENDED_API,
@@ -494,7 +501,6 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableInstantExtendedAPI)
   },
-#endif
   {
     "static-ip-config",
     IDS_FLAGS_STATIC_IP_CONFIG_NAME,
@@ -527,6 +533,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_SYNC_APP_NOTIFICATIONS_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kDisableSyncAppNotifications)
+  },
+  {
+    "sync-keystore-encryption",
+    IDS_FLAGS_SYNC_KEYSTORE_ENCRYPTION_NAME,
+    IDS_FLAGS_SYNC_KEYSTORE_ENCRYPTION_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kSyncKeystoreEncryption)
   },
   {
     "enable-gesture-tap-highlight",
@@ -637,6 +650,13 @@ const Experiment kExperiments[] = {
     kOsWin | kOsLinux | kOsCrOS,
     SINGLE_VALUE_TYPE(ash::switches::kAshDisableAutoWindowPlacement)
   },
+  {
+    "ash-enable-per-app-launcher",
+    IDS_FLAGS_ASH_ENABLE_PER_APP_LAUNCHER_NAME,
+    IDS_FLAGS_ASH_ENABLE_PER_APP_LAUNCHER_DESCRIPTION,
+    kOsWin | kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshEnablePerAppLauncher)
+  },
 #endif
   {
     "per-tile-painting",
@@ -740,6 +760,20 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kForceSyncSpellCheck)
   },
   {
+    "spellcheck-autocorrect",
+    IDS_FLAGS_SPELLCHECK_AUTOCORRECT,
+    IDS_FLAGS_SPELLCHECK_AUTOCORRECT_DESCRIPTION,
+    kOsWin | kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableSpellingAutoCorrect)
+  },
+  {
+    "touch-events",
+    IDS_TOUCH_EVENTS_NAME,
+    IDS_TOUCH_EVENTS_DESCRIPTION,
+    kOsAll,
+    MULTI_VALUE_TYPE(kTouchEventsChoices)
+  },
+  {
     "touch-optimized-ui",
     IDS_FLAGS_TOUCH_OPTIMIZED_UI_NAME,
     IDS_FLAGS_TOUCH_OPTIMIZED_UI_DESCRIPTION,
@@ -751,14 +785,14 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_WEBKIT_TEXT_SUBPIXEL_POSITIONING_NAME,
     IDS_FLAGS_ENABLE_WEBKIT_TEXT_SUBPIXEL_POSITIONING_DESCRIPTION,
     kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableWebkitTextSubpixelPositioning)
+    SINGLE_VALUE_TYPE(gfx::switches::kEnableWebkitTextSubpixelPositioning)
   },
   {
-    "enable-touch-events",
-    IDS_ENABLE_TOUCH_EVENTS_NAME,
-    IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION,
-    kOsWin | kOsMac | kOsLinux,
-    SINGLE_VALUE_TYPE(switches::kEnableTouchEvents)
+    "disable-touch-adjustment",
+    IDS_DISABLE_TOUCH_ADJUSTMENT_NAME,
+    IDS_DISABLE_TOUCH_ADJUSTMENT_DESCRIPTION,
+    kOsWin | kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kDisableTouchAdjustment)
   },
   {
     "enable-tab-capture",
@@ -866,25 +900,11 @@ const Experiment kExperiments[] = {
 #endif  // defined(USE_ASH)
 #if defined(OS_CHROMEOS)
   {
-    "disable-html5-camera",
-    IDS_FLAGS_DISABLE_HTML5_CAMERA,
-    IDS_FLAGS_DISABLE_HTML5_CAMERA_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kDisableHtml5Camera),
-  },
-  {
     "disable-new-oobe",
     IDS_FLAGS_DISABLE_NEW_OOBE,
     IDS_FLAGS_DISABLE_NEW_OOBE_DESCRIPTION,
     kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kDisableNewOobe),
-  },
-  {
-    "disable-factory-reset",
-    IDS_FLAGS_DISABLE_FACTORY_RESET,
-    IDS_FLAGS_DISABLE_FACTORY_RESET_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kDisableFactoryReset),
   },
   {
     "disable-boot-animation",
@@ -922,18 +942,18 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(ash::switches::kAshNewLockAnimationsEnabled),
   },
   {
-    "new-lock-animations-reverse",
-    IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE,
-    IDS_FLAGS_ASH_NEW_LOCK_ANIMATIONS_REVERSE_DESCRIPTION,
-    kOsCrOS,
-    SINGLE_VALUE_TYPE(ash::switches::kAshReverseNewLockAnimations),
-  },
-  {
     "file-manager-packaged",
     IDS_FLAGS_FILE_MANAGER_PACKAGED_NAME,
     IDS_FLAGS_FILE_MANAGER_PACKAGED_DESCRIPTION,
     kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kFileManagerPackaged),
+  },
+  {
+    "enable-chromebook-function-key",
+    IDS_FLAGS_ENABLE_CHROMEBOOK_FUNCTION_KEY_NAME,
+    IDS_FLAGS_ENABLE_CHROMEBOOK_FUNCTION_KEY_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableChromebookFunctionKey),
   },
 #endif
   {
@@ -1000,6 +1020,24 @@ const Experiment kExperiments[] = {
     kOsCrOS,
     SINGLE_VALUE_TYPE(ash::switches::kAshEnableAdvancedGestures),
   },
+  { "ash-enable-tab-scrubbing",
+    IDS_FLAGS_ENABLE_TAB_SCRUBBING_NAME,
+    IDS_FLAGS_ENABLE_TAB_SCRUBBING_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kAshEnableTabScrubbing),
+  },
+  { "ash-enable-workspace-scrubbing",
+    IDS_FLAGS_ENABLE_WORKSPACE_SCRUBBING_NAME,
+    IDS_FLAGS_ENABLE_WORKSPACE_SCRUBBING_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshEnableWorkspaceScrubbing),
+  },
+  { "ash-enable-immersive-mode",
+    IDS_FLAGS_ENABLE_IMMERSIVE_MODE_NAME,
+    IDS_FLAGS_ENABLE_IMMERSIVE_MODE_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshImmersive),
+  },
 #if defined(OS_LINUX)
   { "ash-enable-memory-monitor",
       IDS_FLAGS_ENABLE_MEMORY_MONITOR_NAME,
@@ -1010,6 +1048,12 @@ const Experiment kExperiments[] = {
 #endif
 #endif
 #if defined(OS_CHROMEOS)
+  { "enable-new-network-handlers",
+    IDS_FLAGS_ENABLE_NEW_NETWORK_HANDLERS_NAME,
+    IDS_FLAGS_ENABLE_NEW_NETWORK_HANDLERS_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(chromeos::switches::kEnableNewNetworkHandlers),
+  },
   {
     "enable-carrier-switching",
     IDS_FLAGS_ENABLE_CARRIER_SWITCHING,
@@ -1105,6 +1149,22 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_INTERACTIVE_AUTOCOMPLETE_DESCRIPTION,
     kOsWin | kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kEnableInteractiveAutocomplete)
+  },
+#if defined(USE_AURA)
+  {
+    "enable-overscroll-history-navigation",
+    IDS_FLAGS_ENABLE_OVERSCROLL_HISTORY_NAVIGATION_NAME,
+    IDS_FLAGS_ENABLE_OVERSCROLL_HISTORY_NAVIGATION_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableOverscrollHistoryNavigation)
+  },
+#endif
+  {
+    "enable-touch-drag-drop",
+    IDS_FLAGS_ENABLE_TOUCH_DRAG_DROP_NAME,
+    IDS_FLAGS_ENABLE_TOUCH_DRAG_DROP_DESCRIPTION,
+    kOsWin | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableTouchDragDrop)
   },
 };
 

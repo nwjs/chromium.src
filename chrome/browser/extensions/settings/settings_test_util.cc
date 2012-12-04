@@ -27,7 +27,7 @@ ValueStore* GetStorage(
       extension_id,
       settings_namespace,
       base::Bind(&AssignStorage, &storage));
-  MessageLoop::current()->RunAllPending();
+  MessageLoop::current()->RunUntilIdle();
   return storage;
 }
 
@@ -118,6 +118,12 @@ EventRouter* MockExtensionSystem::event_router() {
   return event_router_.get();
 }
 
+ExtensionService* MockExtensionSystem::extension_service() {
+  ExtensionServiceInterface* as_interface =
+      static_cast<ExtensionServiceInterface*>(&extension_service_);
+  return static_cast<ExtensionService*>(as_interface);
+}
+
 ProfileKeyedService* BuildMockExtensionSystem(Profile* profile) {
   return new MockExtensionSystem(profile);
 }
@@ -131,16 +137,6 @@ MockProfile::MockProfile(const FilePath& file_path)
 }
 
 MockProfile::~MockProfile() {}
-
-MockExtensionService* MockProfile::GetMockExtensionService() {
-  return &extension_service_;
-}
-
-ExtensionService* MockProfile::GetExtensionService() {
-  ExtensionServiceInterface* as_interface =
-      static_cast<ExtensionServiceInterface*>(&extension_service_);
-  return static_cast<ExtensionService*>(as_interface);
-}
 
 // ScopedSettingsFactory
 
@@ -159,10 +155,9 @@ void ScopedSettingsStorageFactory::Reset(
 
 ValueStore* ScopedSettingsStorageFactory::Create(
     const FilePath& base_path,
-    const std::string& extension_id,
-    std::string* error) {
+    const std::string& extension_id) {
   DCHECK(delegate_.get());
-  return delegate_->Create(base_path, extension_id, error);
+  return delegate_->Create(base_path, extension_id);
 }
 
 }  // namespace settings_test_util

@@ -7,15 +7,13 @@
 #include "cc/draw_quad.h"
 #include "cc/prioritized_resource_manager.h"
 #include "cc/resource_provider.h"
-#include "cc/settings.h"
 #include "cc/test/fake_web_compositor_output_surface.h"
 #include "cc/test/fake_web_graphics_context_3d.h"
-#include "cc/test/test_common.h"
 #include "cc/test/render_pass_test_common.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/khronos/GLES2/gl2.h"
-#include <public/WebTransformationMatrix.h>
+#include "ui/gfx/transform.h"
 
 using namespace WebKit;
 using namespace WebKitTests;
@@ -61,7 +59,8 @@ public:
     {
         m_rootLayer->createRenderSurface();
         RenderPass::Id renderPassId = m_rootLayer->renderSurface()->renderPassId();
-        scoped_ptr<RenderPass> rootRenderPass = RenderPass::create(renderPassId, gfx::Rect(), WebTransformationMatrix());
+        scoped_ptr<RenderPass> rootRenderPass = RenderPass::Create();
+        rootRenderPass->SetNew(renderPassId, gfx::Rect(), gfx::Rect(), gfx::Transform());
         m_renderPassesInDrawOrder.push_back(rootRenderPass.get());
         m_renderPasses.set(renderPassId, rootRenderPass.Pass());
     }
@@ -81,8 +80,8 @@ public:
     void setLastCallWasSetVisibilityPointer(bool* lastCallWasSetVisibility) { m_lastCallWasSetVisibility = lastCallWasSetVisibility; }
 
     RenderPass* rootRenderPass() { return m_renderPassesInDrawOrder.back(); }
-    const RenderPassList& renderPassesInDrawOrder() const { return m_renderPassesInDrawOrder; }
-    const RenderPassIdHashMap& renderPasses() const { return m_renderPasses; }
+    RenderPassList& renderPassesInDrawOrder() { return m_renderPassesInDrawOrder; }
+    RenderPassIdHashMap& renderPasses() { return m_renderPasses; }
 
     size_t memoryAllocationLimitBytes() const { return m_memoryAllocationLimitBytes; }
 
@@ -106,6 +105,7 @@ public:
     using GLRenderer::isFramebufferDiscarded;
     using GLRenderer::drawQuad;
     using GLRenderer::beginDrawingFrame;
+    using GLRenderer::finishDrawingQuadList;
 };
 
 class GLRendererTest : public testing::Test {
@@ -138,7 +138,6 @@ protected:
     FakeRendererClient m_mockClient;
     scoped_ptr<ResourceProvider> m_resourceProvider;
     FakeRendererGL m_renderer;
-    ScopedSettings m_scopedSettings;
 };
 
 // Test GLRenderer discardFramebuffer functionality:
@@ -295,7 +294,6 @@ public:
 // This test isn't using the same fixture as GLRendererTest, and you can't mix TEST() and TEST_F() with the same name, hence LRC2.
 TEST(GLRendererTest2, initializationDoesNotMakeSynchronousCalls)
 {
-    ScopedSettings scopedSettings;
     FakeRendererClient mockClient;
     scoped_ptr<GraphicsContext> context(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new ForbidSynchronousCallContext)));
     scoped_ptr<ResourceProvider> resourceProvider(ResourceProvider::create(context.get()));
@@ -339,7 +337,6 @@ private:
 
 TEST(GLRendererTest2, initializationWithQuicklyLostContextDoesNotAssert)
 {
-    ScopedSettings scopedSettings;
     FakeRendererClient mockClient;
     scoped_ptr<GraphicsContext> context(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new LoseContextOnFirstGetContext)));
     scoped_ptr<ResourceProvider> resourceProvider(ResourceProvider::create(context.get()));
@@ -395,7 +392,7 @@ TEST(GLRendererTest2, opaqueBackground)
     scoped_ptr<ResourceProvider> resourceProvider(ResourceProvider::create(outputSurface.get()));
     FakeRendererGL renderer(&mockClient, resourceProvider.get());
 
-    mockClient.rootRenderPass()->setHasTransparentBackground(false);
+    mockClient.rootRenderPass()->has_transparent_background = false;
 
     EXPECT_TRUE(renderer.initialize());
 
@@ -418,7 +415,7 @@ TEST(GLRendererTest2, transparentBackground)
     scoped_ptr<ResourceProvider> resourceProvider(ResourceProvider::create(outputSurface.get()));
     FakeRendererGL renderer(&mockClient, resourceProvider.get());
 
-    mockClient.rootRenderPass()->setHasTransparentBackground(true);
+    mockClient.rootRenderPass()->has_transparent_background = true;
 
     EXPECT_TRUE(renderer.initialize());
 
@@ -485,10 +482,11 @@ TEST(GLRendererTest2, visibilityChangeIsLastCall)
 }
 
 
-class ActiveTextureTrackingContext : public FakeWebGraphicsContext3D {
+class TextureStateTrackingContext : public FakeWebGraphicsContext3D {
 public:
-    ActiveTextureTrackingContext()
+    TextureStateTrackingContext()
         : m_activeTexture(GL_INVALID_ENUM)
+        , m_inDraw(false)
     {
     }
 
@@ -497,6 +495,16 @@ public:
         if (name == GL_EXTENSIONS)
             return WebString("GL_OES_EGL_image_external");
         return WebString();
+    }
+
+    // We shouldn't set any texture parameters during the draw sequence, although
+    // we might when creating the quads.
+    void setInDraw() { m_inDraw = true; }
+
+    virtual void texParameteri(WGC3Denum target, WGC3Denum pname, WGC3Dint param)
+    {
+        if (m_inDraw)
+            ADD_FAILURE();
     }
 
     virtual void activeTexture(WGC3Denum texture)
@@ -508,31 +516,36 @@ public:
     WGC3Denum activeTexture() const { return m_activeTexture; }
 
 private:
+    bool m_inDraw;
     WGC3Denum m_activeTexture;
 };
 
 TEST(GLRendererTest2, activeTextureState)
 {
     FakeRendererClient fakeClient;
-    scoped_ptr<GraphicsContext> outputSurface(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new ActiveTextureTrackingContext)));
-    ActiveTextureTrackingContext* context = static_cast<ActiveTextureTrackingContext*>(outputSurface->context3D());
+    scoped_ptr<GraphicsContext> outputSurface(FakeWebCompositorOutputSurface::create(scoped_ptr<WebKit::WebGraphicsContext3D>(new TextureStateTrackingContext)));
+    TextureStateTrackingContext* context = static_cast<TextureStateTrackingContext*>(outputSurface->context3D());
     scoped_ptr<ResourceProvider> resourceProvider(ResourceProvider::create(outputSurface.get()));
     FakeRendererGL renderer(&fakeClient, resourceProvider.get());
 
     EXPECT_TRUE(renderer.initialize());
 
     cc::RenderPass::Id id(1, 1);
-    scoped_ptr<TestRenderPass> pass = TestRenderPass::create(id, gfx::Rect(0, 0, 100, 100), WebTransformationMatrix());
-    pass->appendOneOfEveryQuadType(resourceProvider.get());
+    scoped_ptr<TestRenderPass> pass = TestRenderPass::Create();
+    pass->SetNew(id, gfx::Rect(0, 0, 100, 100), gfx::Rect(0, 0, 100, 100), gfx::Transform());
+    pass->AppendOneOfEveryQuadType(resourceProvider.get());
+
+    context->setInDraw();
 
     cc::DirectRenderer::DrawingFrame drawingFrame;
     renderer.beginDrawingFrame(drawingFrame);
     EXPECT_EQ(context->activeTexture(), GL_TEXTURE0);
 
-    for (cc::QuadList::backToFrontIterator it = pass->quadList().backToFrontBegin();
-         it != pass->quadList().backToFrontEnd(); ++it) {
+    for (cc::QuadList::backToFrontIterator it = pass->quad_list.backToFrontBegin();
+         it != pass->quad_list.backToFrontEnd(); ++it) {
         renderer.drawQuad(drawingFrame, *it);
     }
+    renderer.finishDrawingQuadList();
     EXPECT_EQ(context->activeTexture(), GL_TEXTURE0);
 }
 

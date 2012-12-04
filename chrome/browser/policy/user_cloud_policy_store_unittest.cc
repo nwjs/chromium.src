@@ -5,9 +5,9 @@
 #include "chrome/browser/policy/user_cloud_policy_store.h"
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop.h"
 #include "base/run_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "chrome/browser/policy/policy_builder.h"
 #include "chrome/browser/signin/signin_manager.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
@@ -60,7 +60,7 @@ class UserCloudPolicyStoreTest : public testing::Test {
     store_.reset(new UserCloudPolicyStore(profile_.get(), policy_file()));
     store_->AddObserver(&observer_);
 
-    policy_.payload().mutable_showhomebutton()->set_showhomebutton(true);
+    policy_.payload().mutable_showhomebutton()->set_value(true);
     policy_.Build();
   }
 
@@ -103,7 +103,7 @@ class UserCloudPolicyStoreTest : public testing::Test {
   content::TestBrowserThread file_thread_;
 
   scoped_ptr<TestingProfile> profile_;
-  ScopedTempDir tmp_dir_;
+  base::ScopedTempDir tmp_dir_;
 
   DISALLOW_COPY_AND_ASSIGN(UserCloudPolicyStoreTest);
 };
@@ -135,6 +135,36 @@ TEST_F(UserCloudPolicyStoreTest, LoadWithInvalidFile) {
   ExpectError(store_.get(), CloudPolicyStore::STATUS_LOAD_ERROR);
   store_->Load();
   RunUntilIdle();
+
+  EXPECT_FALSE(store_->policy());
+  EXPECT_TRUE(store_->policy_map().empty());
+}
+
+TEST_F(UserCloudPolicyStoreTest, LoadImmediatelyWithNoFile) {
+  EXPECT_FALSE(store_->policy());
+  EXPECT_TRUE(store_->policy_map().empty());
+
+  EXPECT_CALL(observer_, OnStoreLoaded(store_.get()));
+  store_->LoadImmediately();  // Should load without running the message loop.
+
+  EXPECT_FALSE(store_->policy());
+  EXPECT_TRUE(store_->policy_map().empty());
+}
+
+TEST_F(UserCloudPolicyStoreTest, LoadImmediatelyWithInvalidFile) {
+  EXPECT_FALSE(store_->policy());
+  EXPECT_TRUE(store_->policy_map().empty());
+
+  // Create a bogus file.
+  ASSERT_TRUE(file_util::CreateDirectory(policy_file().DirName()));
+  std::string bogus_data = "bogus_data";
+  int size = bogus_data.size();
+  ASSERT_EQ(size, file_util::WriteFile(policy_file(),
+                                       bogus_data.c_str(),
+                                       bogus_data.size()));
+
+  ExpectError(store_.get(), CloudPolicyStore::STATUS_LOAD_ERROR);
+  store_->LoadImmediately();  // Should load without running the message loop.
 
   EXPECT_FALSE(store_->policy());
   EXPECT_TRUE(store_->policy_map().empty());
@@ -197,7 +227,7 @@ TEST_F(UserCloudPolicyStoreTest, StoreTwoTimes) {
   EXPECT_CALL(observer_, OnStoreLoaded(store_.get())).Times(2);
 
   UserPolicyBuilder first_policy;
-  first_policy.payload().mutable_showhomebutton()->set_showhomebutton(false);
+  first_policy.payload().mutable_showhomebutton()->set_value(false);
   first_policy.Build();
   store_->Store(first_policy.policy());
   RunUntilIdle();
@@ -227,6 +257,28 @@ TEST_F(UserCloudPolicyStoreTest, StoreThenLoad) {
   EXPECT_CALL(observer_, OnStoreLoaded(store2.get()));
   store2->Load();
   RunUntilIdle();
+
+  ASSERT_TRUE(store2->policy());
+  EXPECT_EQ(policy_.policy_data().SerializeAsString(),
+            store2->policy()->SerializeAsString());
+  VerifyPolicyMap(store2.get());
+  EXPECT_EQ(CloudPolicyStore::STATUS_OK, store2->status());
+  store2->RemoveObserver(&observer_);
+}
+
+TEST_F(UserCloudPolicyStoreTest, StoreThenLoadImmediately) {
+  // Store a simple policy and make sure it can be read back in.
+  // policy.
+  EXPECT_CALL(observer_, OnStoreLoaded(store_.get()));
+  store_->Store(policy_.policy());
+  RunUntilIdle();
+
+  // Now, make sure the policy can be read back in from a second store.
+  scoped_ptr<UserCloudPolicyStore> store2(
+      new UserCloudPolicyStore(profile_.get(), policy_file()));
+  store2->AddObserver(&observer_);
+  EXPECT_CALL(observer_, OnStoreLoaded(store2.get()));
+  store2->LoadImmediately();  // Should load without running the message loop.
 
   ASSERT_TRUE(store2->policy());
   EXPECT_EQ(policy_.policy_data().SerializeAsString(),

@@ -11,16 +11,17 @@
 #include "ash/ash_switches.h"
 #include "ash/caps_lock_delegate.h"
 #include "ash/desktop_background/desktop_background_controller.h"
-#include "ash/desktop_background/desktop_background_resources.h"
 #include "ash/desktop_background/desktop_background_view.h"
+#include "ash/desktop_background/user_wallpaper_delegate.h"
 #include "ash/display/display_controller.h"
+#include "ash/display/display_manager.h"
 #include "ash/display/mouse_cursor_event_filter.h"
-#include "ash/display/multi_display_manager.h"
 #include "ash/display/screen_position_controller.h"
 #include "ash/drag_drop/drag_drop_controller.h"
 #include "ash/focus_cycler.h"
 #include "ash/high_contrast/high_contrast_controller.h"
 #include "ash/magnifier/magnification_controller.h"
+#include "ash/magnifier/partial_magnification_controller.h"
 #include "ash/root_window_controller.h"
 #include "ash/screen_ash.h"
 #include "ash/shell_delegate.h"
@@ -28,11 +29,14 @@
 #include "ash/shell_window_ids.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/system/tray/system_tray_delegate.h"
+#include "ash/system/tray/system_tray_notifier.h"
 #include "ash/tooltips/tooltip_controller.h"
 #include "ash/touch/touch_observer_hud.h"
 #include "ash/wm/activation_controller.h"
 #include "ash/wm/always_on_top_controller.h"
 #include "ash/wm/app_list_controller.h"
+#include "ash/wm/ash_activation_controller.h"
+#include "ash/wm/ash_focus_rules.h"
 #include "ash/wm/base_layout_manager.h"
 #include "ash/wm/capture_controller.h"
 #include "ash/wm/coordinate_conversion.h"
@@ -49,16 +53,14 @@
 #include "ash/wm/session_state_controller.h"
 #include "ash/wm/session_state_controller_impl.h"
 #include "ash/wm/session_state_controller_impl2.h"
-#include "ash/wm/shadow_controller.h"
 #include "ash/wm/stacking_controller.h"
 #include "ash/wm/system_gesture_event_filter.h"
 #include "ash/wm/system_modal_container_event_filter.h"
 #include "ash/wm/system_modal_container_layout_manager.h"
 #include "ash/wm/user_activity_detector.h"
 #include "ash/wm/video_detector.h"
-#include "ash/wm/visibility_controller.h"
+#include "ash/wm/window_animations.h"
 #include "ash/wm/window_cycle_controller.h"
-#include "ash/wm/window_modality_controller.h"
 #include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace_controller.h"
@@ -66,14 +68,12 @@
 #include "base/command_line.h"
 #include "base/debug/leak_annotations.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/client/stacking_client.h"
 #include "ui/aura/client/user_action_client.h"
-#include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/layout_manager.h"
 #include "ui/aura/root_window.h"
-#include "ui/aura/shared/compound_event_filter.h"
-#include "ui/aura/shared/input_method_event_filter.h"
 #include "ui/aura/ui_controls_aura.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
@@ -83,6 +83,13 @@
 #include "ui/gfx/screen.h"
 #include "ui/gfx/size.h"
 #include "ui/ui_controls/ui_controls.h"
+#include "ui/views/corewm/compound_event_filter.h"
+#include "ui/views/corewm/corewm_switches.h"
+#include "ui/views/corewm/focus_controller.h"
+#include "ui/views/corewm/input_method_event_filter.h"
+#include "ui/views/corewm/shadow_controller.h"
+#include "ui/views/corewm/visibility_controller.h"
+#include "ui/views/corewm/window_modality_controller.h"
 #include "ui/views/focus/focus_manager_factory.h"
 #include "ui/views/widget/native_widget_aura.h"
 #include "ui/views/widget/widget.h"
@@ -94,7 +101,9 @@
 #endif
 
 #if defined(OS_CHROMEOS)
+#include "ash/display/display_change_observer_x11.h"
 #include "ash/display/output_configurator_animation.h"
+#include "base/chromeos/chromeos_version.h"
 #include "base/message_pump_aurax11.h"
 #include "chromeos/display/output_configurator.h"
 #include "content/public/browser/gpu_data_manager.h"
@@ -116,8 +125,8 @@ class DummyUserWallpaperDelegate : public UserWallpaperDelegate {
 
   virtual ~DummyUserWallpaperDelegate() {}
 
-  virtual ash::WindowVisibilityAnimationType GetAnimationType() OVERRIDE {
-    return WINDOW_VISIBILITY_ANIMATION_TYPE_FADE;
+  virtual int GetAnimationType() OVERRIDE {
+    return views::corewm::WINDOW_VISIBILITY_ANIMATION_TYPE_FADE;
   }
 
   virtual bool ShouldShowInitialAnimation() OVERRIDE {
@@ -149,6 +158,29 @@ class DummyUserWallpaperDelegate : public UserWallpaperDelegate {
   DISALLOW_COPY_AND_ASSIGN(DummyUserWallpaperDelegate);
 };
 
+// A Corewm VisibilityController subclass that calls the Ash animation routine
+// so we can pick up our extended animations. See ash/wm/window_animations.h.
+class AshVisibilityController : public views::corewm::VisibilityController {
+ public:
+  AshVisibilityController() {}
+  virtual ~AshVisibilityController() {}
+
+ private:
+  // Overridden from views::corewm::VisibilityController:
+  virtual bool CallAnimateOnChildWindowVisibilityChanged(
+      aura::Window* window,
+      bool visible) OVERRIDE {
+    return AnimateOnChildWindowVisibilityChanged(window, visible);
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(AshVisibilityController);
+};
+
+bool UseFocusController() {
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      views::corewm::switches::kUseFocusController);
+}
+
 }  // namespace
 
 // static
@@ -165,7 +197,7 @@ internal::RootWindowLayoutManager* Shell::TestApi::root_window_layout() {
   return shell_->GetPrimaryRootWindowController()->root_window_layout();
 }
 
-aura::shared::InputMethodEventFilter*
+views::corewm::InputMethodEventFilter*
     Shell::TestApi::input_method_event_filter() {
   return shell_->input_method_filter_.get();
 }
@@ -191,6 +223,7 @@ Shell::Shell(ShellDelegate* delegate)
     : screen_(new ScreenAsh),
       active_root_window_(NULL),
       delegate_(delegate),
+      activation_client_(NULL),
 #if defined(OS_CHROMEOS)
       output_configurator_(new chromeos::OutputConfigurator()),
       output_configurator_animation_(
@@ -199,6 +232,7 @@ Shell::Shell(ShellDelegate* delegate)
       browser_context_(NULL),
       simulate_modal_window_open_for_testing_(false) {
   DCHECK(delegate_.get());
+  display_manager_.reset(new internal::DisplayManager);
   ANNOTATE_LEAKING_OBJECT_PTR(screen_);  // see crbug.com/156466
   gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_ALTERNATE, screen_);
   if (!gfx::Screen::GetScreenByType(gfx::SCREEN_TYPE_NATIVE))
@@ -226,25 +260,25 @@ Shell::~Shell() {
   // effects (e.g. crashes) from changing focus during shutdown.
   // See bug crbug.com/134502.
   if (active_root_window_)
-    active_root_window_->GetFocusManager()->SetFocusedWindow(NULL, NULL);
+    aura::client::GetFocusClient(active_root_window_)->FocusWindow(NULL, NULL);
 
   // Please keep in same order as in Init() because it's easy to miss one.
-  RemoveEnvEventFilter(user_activity_detector_.get());
-  RemoveEnvEventFilter(event_rewriter_filter_.get());
-  RemoveEnvEventFilter(overlay_filter_.get());
-  RemoveEnvEventFilter(input_method_filter_.get());
-  RemoveEnvEventFilter(window_modality_controller_.get());
+  RemovePreTargetHandler(user_activity_detector_.get());
+  RemovePreTargetHandler(event_rewriter_filter_.get());
+  RemovePreTargetHandler(overlay_filter_.get());
+  RemovePreTargetHandler(input_method_filter_.get());
+  RemovePreTargetHandler(window_modality_controller_.get());
   if (mouse_cursor_filter_.get())
-    RemoveEnvEventFilter(mouse_cursor_filter_.get());
-  RemoveEnvEventFilter(system_gesture_filter_.get());
+    RemovePreTargetHandler(mouse_cursor_filter_.get());
+  RemovePreTargetHandler(system_gesture_filter_.get());
 #if !defined(OS_MACOSX)
-  RemoveEnvEventFilter(accelerator_filter_.get());
+  RemovePreTargetHandler(accelerator_filter_.get());
 #endif
   if (touch_observer_hud_.get())
-    RemoveEnvEventFilter(touch_observer_hud_.get());
+    RemovePreTargetHandler(touch_observer_hud_.get());
 
   // TooltipController is deleted with the Shell so removing its references.
-  RemoveEnvEventFilter(tooltip_controller_.get());
+  RemovePreTargetHandler(tooltip_controller_.get());
 
   // AppList needs to be released before shelf layout manager, which is
   // destroyed with launcher container in the loop below. However, app list
@@ -255,6 +289,11 @@ Shell::~Shell() {
   // Destroy SystemTrayDelegate before destroying the status area(s).
   system_tray_delegate_.reset();
 
+  // Destroy SystemTrayNotifier immediately after destroying SystemTrayDelegate
+  // so that it is still available when shutting down the UI, but not after
+  // the notifier observers have been destroyed.
+  system_tray_notifier_.reset();
+
   // Destroy all child windows including widgets.
   display_controller_->CloseChildWindows();
 
@@ -263,8 +302,7 @@ Shell::~Shell() {
   // Alphabetical.
   drag_drop_controller_.reset();
   magnification_controller_.reset();
-  power_button_controller_.reset();
-  session_state_controller_.reset();
+  partial_magnification_controller_.reset();
   resize_shadow_controller_.reset();
   shadow_controller_.reset();
   tooltip_controller_.reset();
@@ -274,6 +312,9 @@ Shell::~Shell() {
   nested_dispatcher_controller_.reset();
   user_action_client_.reset();
   visibility_controller_.reset();
+
+  power_button_controller_.reset();
+  session_state_controller_.reset();
 
   // This also deletes all RootWindows.
   display_controller_.reset();
@@ -296,8 +337,6 @@ Shell::~Shell() {
 // static
 Shell* Shell::CreateInstance(ShellDelegate* delegate) {
   CHECK(!instance_);
-  aura::Env::GetInstance()->SetDisplayManager(
-      new internal::MultiDisplayManager());
   instance_ = new Shell(delegate);
   instance_->Init();
   return instance_;
@@ -384,16 +423,34 @@ bool Shell::IsLauncherPerDisplayEnabled() {
 }
 
 void Shell::Init() {
+#if defined(OS_CHROMEOS)
+  if (base::chromeos::IsRunningOnChromeOS()) {
+    display_change_observer_.reset(new internal::DisplayChangeObserverX11);
+    display_change_observer_->NotifyDisplayChange();
+  }
+#endif
+
   // Install the custom factory first so that views::FocusManagers for Tray,
   // Launcher, and WallPaper could be created by the factory.
   views::FocusManagerFactory::Install(new AshFocusManagerFactory);
 
-  env_filter_.reset(new aura::shared::CompoundEventFilter);
-  AddEnvEventFilter(env_filter_.get());
+  env_filter_.reset(new views::corewm::CompoundEventFilter);
+  AddPreTargetHandler(env_filter_.get());
 
-  focus_manager_.reset(new aura::FocusManager);
-  activation_controller_.reset(
-      new internal::ActivationController(focus_manager_.get()));
+  if (UseFocusController()) {
+    views::corewm::FocusController* focus_controller =
+        new views::corewm::FocusController(new wm::AshFocusRules);
+    focus_client_.reset(focus_controller);
+    activation_client_ = focus_controller;
+  } else {
+    focus_client_.reset(new aura::FocusManager);
+    activation_controller_.reset(
+        new internal::ActivationController(
+            focus_client_.get(),
+            new internal::AshActivationController));
+    activation_client_ = activation_controller_.get();
+    AddPreTargetHandler(activation_controller_.get());
+  }
 
   focus_cycler_.reset(new internal::FocusCycler());
 
@@ -413,25 +470,25 @@ void Shell::Init() {
 
   // The order in which event filters are added is significant.
   user_activity_detector_.reset(new UserActivityDetector);
-  AddEnvEventFilter(user_activity_detector_.get());
+  AddPreTargetHandler(user_activity_detector_.get());
 
   event_rewriter_filter_.reset(new internal::EventRewriterEventFilter);
-  AddEnvEventFilter(event_rewriter_filter_.get());
+  AddPreTargetHandler(event_rewriter_filter_.get());
 
   overlay_filter_.reset(new internal::OverlayEventFilter);
-  AddEnvEventFilter(overlay_filter_.get());
+  AddPreTargetHandler(overlay_filter_.get());
   AddShellObserver(overlay_filter_.get());
 
-  input_method_filter_.reset(new aura::shared::InputMethodEventFilter());
-  AddEnvEventFilter(input_method_filter_.get());
+  input_method_filter_.reset(new views::corewm::InputMethodEventFilter);
+  AddPreTargetHandler(input_method_filter_.get());
 
 #if !defined(OS_MACOSX)
   accelerator_filter_.reset(new internal::AcceleratorFilter);
-  AddEnvEventFilter(accelerator_filter_.get());
+  AddPreTargetHandler(accelerator_filter_.get());
 #endif
 
   system_gesture_filter_.reset(new internal::SystemGestureEventFilter);
-  AddEnvEventFilter(system_gesture_filter_.get());
+  AddPreTargetHandler(system_gesture_filter_.get());
 
   capture_controller_.reset(new internal::CaptureController);
 
@@ -443,35 +500,48 @@ void Shell::Init() {
 
   CommandLine* command_line = CommandLine::ForCurrentProcess();
 
+  if (command_line->HasSwitch(ash::switches::kAshNewLockAnimationsEnabled))
+    session_state_controller_.reset(new SessionStateControllerImpl2);
+  else
+    session_state_controller_.reset(new SessionStateControllerImpl);
+  power_button_controller_.reset(new PowerButtonController(
+      session_state_controller_.get()));
+  AddShellObserver(session_state_controller_.get());
+
   if (command_line->HasSwitch(switches::kAshTouchHud)) {
     touch_observer_hud_.reset(new internal::TouchObserverHUD);
-    AddEnvEventFilter(touch_observer_hud_.get());
+    AddPreTargetHandler(touch_observer_hud_.get());
   }
 
   mouse_cursor_filter_.reset(new internal::MouseCursorEventFilter());
-  AddEnvEventFilter(mouse_cursor_filter_.get());
+  AddPreTargetHandler(mouse_cursor_filter_.get());
 
   // Create Controllers that may need root window.
   // TODO(oshima): Move as many controllers before creating
   // RootWindowController as possible.
-  stacking_controller_.reset(new internal::StackingController);
-  visibility_controller_.reset(new internal::VisibilityController);
+  stacking_client_.reset(delegate_->CreateStackingClient());
+  if (stacking_client_.get())
+    aura::client::SetStackingClient(stacking_client_.get());
+  visibility_controller_.reset(new AshVisibilityController);
   drag_drop_controller_.reset(new internal::DragDropController);
   user_action_client_.reset(delegate_->CreateUserActionClient());
-  window_modality_controller_.reset(new internal::WindowModalityController);
-  AddEnvEventFilter(window_modality_controller_.get());
+  window_modality_controller_.reset(
+      new views::corewm::WindowModalityController);
+  AddPreTargetHandler(window_modality_controller_.get());
 
   magnification_controller_.reset(
-      internal::MagnificationController::CreateInstance());
+      MagnificationController::CreateInstance());
+
+  partial_magnification_controller_.reset(
+      new PartialMagnificationController());
 
   high_contrast_controller_.reset(new HighContrastController);
   video_detector_.reset(new VideoDetector);
-  window_cycle_controller_.reset(
-      new WindowCycleController(activation_controller_.get()));
+  window_cycle_controller_.reset(new WindowCycleController(activation_client_));
 
   tooltip_controller_.reset(new internal::TooltipController(
       drag_drop_controller_.get()));
-  AddEnvEventFilter(tooltip_controller_.get());
+  AddPreTargetHandler(tooltip_controller_.get());
 
   event_client_.reset(new internal::EventClientImpl);
 
@@ -488,8 +558,12 @@ void Shell::Init() {
 
   if (!command_line->HasSwitch(switches::kAuraNoShadows)) {
     resize_shadow_controller_.reset(new internal::ResizeShadowController());
-    shadow_controller_.reset(new internal::ShadowController());
+    shadow_controller_.reset(
+        new views::corewm::ShadowController(GetPrimaryRootWindow()));
   }
+
+  // Create system_tray_notifier_ before the delegate.
+  system_tray_notifier_.reset(new ash::SystemTrayNotifier());
 
   // Initialize system_tray_delegate_ before initializing StatusAreaWidget.
   system_tray_delegate_.reset(delegate()->CreateSystemTrayDelegate());
@@ -513,28 +587,13 @@ void Shell::Init() {
   // the correct size.
   user_wallpaper_delegate_->InitializeWallpaper();
 
-  if (command_line->HasSwitch(ash::switches::kAshNewLockAnimationsEnabled))
-    session_state_controller_.reset(new SessionStateControllerImpl2);
-  else
-    session_state_controller_.reset(new SessionStateControllerImpl);
-  power_button_controller_.reset(new PowerButtonController(
-      session_state_controller_.get()));
-  AddShellObserver(session_state_controller_.get());
-
   if (initially_hide_cursor_)
     cursor_manager_.ShowCursor(false);
+  cursor_manager_.SetCursor(ui::kCursorPointer);
 
   // Cursor might have been hidden by somethign other than chrome.
   // Let the first mouse event show the cursor.
   env_filter_->set_cursor_hidden_by_filter(true);
-}
-
-void Shell::AddEnvEventFilter(aura::EventFilter* filter) {
-  AddPreTargetHandler(filter);
-}
-
-void Shell::RemoveEnvEventFilter(aura::EventFilter* filter) {
-  RemovePreTargetHandler(filter);
 }
 
 void Shell::ShowContextMenu(const gfx::Point& location_in_screen) {
@@ -565,11 +624,15 @@ aura::Window* Shell::GetAppListWindow() {
   return app_list_controller_.get() ? app_list_controller_->GetWindow() : NULL;
 }
 
+bool Shell::CanLockScreen() {
+  return delegate_->CanLockScreen();
+}
+
 bool Shell::IsScreenLocked() const {
   return delegate_->IsScreenLocked();
 }
 
-bool Shell::IsModalWindowOpen() const {
+bool Shell::IsSystemModalWindowOpen() const {
   if (simulate_modal_window_open_for_testing_)
     return true;
   const std::vector<aura::Window*> containers = GetAllContainers(
@@ -607,10 +670,7 @@ void Shell::RotateFocus(Direction direction) {
 
 void Shell::SetDisplayWorkAreaInsets(Window* contains,
                                      const gfx::Insets& insets) {
-  internal::MultiDisplayManager* display_manager =
-      static_cast<internal::MultiDisplayManager*>(
-          aura::Env::GetInstance()->display_manager());
-  if (!display_manager->UpdateWorkAreaOfDisplayNearestWindow(contains, insets))
+  if (!display_manager_->UpdateWorkAreaOfDisplayNearestWindow(contains, insets))
     return;
   FOR_EACH_OBSERVER(ShellObserver, observers_,
                     OnDisplayWorkAreaInsetsChanged());
@@ -704,7 +764,7 @@ void Shell::SetDimming(bool should_dim) {
 void Shell::CreateModalBackground(aura::Window* window) {
   if (!modality_filter_.get()) {
     modality_filter_.reset(new internal::SystemModalContainerEventFilter(this));
-    AddEnvEventFilter(modality_filter_.get());
+    AddPreTargetHandler(modality_filter_.get());
   }
   RootWindowControllerList controllers = GetAllRootWindowControllers();
   for (RootWindowControllerList::iterator iter = controllers.begin();
@@ -721,7 +781,7 @@ void Shell::OnModalWindowRemoved(aura::Window* removed) {
         ActivateNextModalWindow();
   }
   if (!activated) {
-    RemoveEnvEventFilter(modality_filter_.get());
+    RemovePreTargetHandler(modality_filter_.get());
     modality_filter_.reset();
     for (RootWindowControllerList::iterator iter = controllers.begin();
          iter != controllers.end(); ++iter)
@@ -747,7 +807,7 @@ SystemTray* Shell::system_tray() {
 }
 
 void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
-  root->set_focus_manager(focus_manager_.get());
+  aura::client::SetFocusClient(root, focus_client_.get());
   internal::RootWindowController* controller =
       new internal::RootWindowController(root);
   controller->CreateContainers();
@@ -771,18 +831,27 @@ void Shell::DoInitialWorkspaceAnimation() {
       DoInitialAnimation();
 }
 
+aura::client::StackingClient* Shell::stacking_client() {
+  return stacking_client_.get();
+}
+
 void Shell::InitRootWindowController(
     internal::RootWindowController* controller) {
   aura::RootWindow* root_window = controller->root_window();
-  DCHECK(activation_controller_.get());
+  DCHECK(activation_client_);
   DCHECK(visibility_controller_.get());
   DCHECK(drag_drop_controller_.get());
   DCHECK(capture_controller_.get());
   DCHECK(window_cycle_controller_.get());
 
-  root_window->set_focus_manager(focus_manager_.get());
+  aura::client::SetFocusClient(root_window, focus_client_.get());
   input_method_filter_->SetInputMethodPropertyInRootWindow(root_window);
-  aura::client::SetActivationClient(root_window, activation_controller_.get());
+  aura::client::SetActivationClient(root_window, activation_client_);
+  if (UseFocusController()) {
+    views::corewm::FocusController* controller =
+        static_cast<views::corewm::FocusController*>(activation_client_);
+    root_window->AddPreTargetHandler(controller);
+  }
   aura::client::SetVisibilityClient(root_window, visibility_controller_.get());
   aura::client::SetDragDropClient(root_window, drag_drop_controller_.get());
   aura::client::SetCaptureClient(root_window, capture_controller_.get());

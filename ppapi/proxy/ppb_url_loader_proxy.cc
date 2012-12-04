@@ -22,7 +22,7 @@
 #include "ppapi/proxy/plugin_dispatcher.h"
 #include "ppapi/proxy/plugin_resource_tracker.h"
 #include "ppapi/proxy/ppapi_messages.h"
-#include "ppapi/proxy/ppb_url_response_info_proxy.h"
+#include "ppapi/proxy/ppb_file_ref_proxy.h"
 #include "ppapi/shared_impl/scoped_pp_resource.h"
 #include "ppapi/shared_impl/tracked_callback.h"
 #include "ppapi/thunk/enter.h"
@@ -48,6 +48,7 @@ namespace {
 // asked for a larger buffer.
 const int32_t kMaxReadBufferSize = 16777216;  // 16MB
 
+#if !defined(OS_NACL)
 // Called in the renderer when the byte counts have changed. We send a message
 // to the plugin to synchronize its counts so it can respond to status polls
 // from the plugin.
@@ -57,7 +58,6 @@ void UpdateResourceLoadStatus(PP_Instance pp_instance,
                               int64 total_bytes_to_be_sent,
                               int64 bytes_received,
                               int64 total_bytes_to_be_received) {
-#if !defined(OS_NACL)
   Dispatcher* dispatcher = HostDispatcher::GetForInstance(pp_instance);
   if (!dispatcher)
     return;
@@ -71,8 +71,8 @@ void UpdateResourceLoadStatus(PP_Instance pp_instance,
   params.total_bytes_to_be_received = total_bytes_to_be_received;
   dispatcher->Send(new PpapiMsg_PPBURLLoader_UpdateProgress(
       API_ID_PPB_URL_LOADER, params));
-#endif
 }
+#endif  // !defined(OS_NACL)
 
 InterfaceProxy* CreateURLLoaderProxy(Dispatcher* dispatcher) {
   return new PPB_URLLoader_Proxy(dispatcher);
@@ -114,6 +114,7 @@ class URLLoader : public Resource, public PPB_URLLoader_API {
   virtual void GrantUniversalAccess() OVERRIDE;
   virtual void SetStatusCallback(
       PP_URLLoaderTrusted_StatusCallback cb) OVERRIDE;
+  virtual bool GetResponseInfoData(URLResponseInfoData* data) OVERRIDE;
 
   // Called when the browser has new up/download progress to report.
   void UpdateProgress(const PPBURLLoader_UpdateProgress_Params& params);
@@ -249,14 +250,24 @@ PP_Bool URLLoader::GetDownloadProgress(
 
 PP_Resource URLLoader::GetResponseInfo() {
   if (!response_info_) {
-    HostResource response_id;
+    bool success = false;
+    URLResponseInfoData data;
     GetDispatcher()->Send(new PpapiHostMsg_PPBURLLoader_GetResponseInfo(
-        API_ID_PPB_URL_LOADER, host_resource(), &response_id));
-    if (response_id.is_null())
+        API_ID_PPB_URL_LOADER, host_resource(), &success, &data));
+    if (!success)
       return 0;
 
-    response_info_ = PPB_URLResponseInfo_Proxy::CreateResponseForResource(
-        response_id);
+    // Create a proxy resource for the the file ref host resource if needed.
+    PP_Resource body_as_file_ref = 0;
+    if (!data.body_as_file_ref.resource.is_null()) {
+      body_as_file_ref =
+          PPB_FileRef_Proxy::DeserializeFileRef(data.body_as_file_ref);
+    }
+
+    // Assumes ownership of body_as_file_ref.
+    thunk::EnterResourceCreationNoLock enter(pp_instance());
+    response_info_ = enter.functions()->CreateURLResponseInfo(
+        pp_instance(), data, body_as_file_ref);
   }
 
   // The caller expects to get a ref, and we want to keep holding ours.
@@ -317,6 +328,12 @@ void URLLoader::SetStatusCallback(
     PP_URLLoaderTrusted_StatusCallback cb) {
   // Not implemented in the proxied version, this is for implementing the
   // proxy itself in the host.
+}
+
+bool URLLoader::GetResponseInfoData(URLResponseInfoData* data) {
+  // Not implemented in the proxied version, this is for implementing the
+  // proxy itself in the host.
+  return false;
 }
 
 void URLLoader::UpdateProgress(
@@ -412,6 +429,7 @@ PP_Resource PPB_URLLoader_Proxy::CreateProxyResource(PP_Instance pp_instance) {
 bool PPB_URLLoader_Proxy::OnMessageReceived(const IPC::Message& msg) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PPB_URLLoader_Proxy, msg)
+#if !defined(OS_NACL)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBURLLoader_Create,
                         OnMsgCreate)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBURLLoader_Open,
@@ -428,6 +446,8 @@ bool PPB_URLLoader_Proxy::OnMessageReceived(const IPC::Message& msg) {
                         OnMsgClose)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBURLLoader_GrantUniversalAccess,
                         OnMsgGrantUniversalAccess)
+#endif  // !defined(OS_NACL)
+
     IPC_MESSAGE_HANDLER(PpapiMsg_PPBURLLoader_UpdateProgress,
                         OnMsgUpdateProgress)
     IPC_MESSAGE_HANDLER(PpapiMsg_PPBURLLoader_ReadResponseBody_Ack,
@@ -440,6 +460,7 @@ bool PPB_URLLoader_Proxy::OnMessageReceived(const IPC::Message& msg) {
   return handled;
 }
 
+#if !defined(OS_NACL)
 void PPB_URLLoader_Proxy::PrepareURLLoaderForSendingToPlugin(
     PP_Resource resource) {
   // So the plugin can query load status, we need to register our status
@@ -480,12 +501,13 @@ void PPB_URLLoader_Proxy::OnMsgFollowRedirect(
 }
 
 void PPB_URLLoader_Proxy::OnMsgGetResponseInfo(const HostResource& loader,
-                                               HostResource* result) {
+                                               bool* success,
+                                               URLResponseInfoData* result) {
   EnterHostFromHostResource<PPB_URLLoader_API> enter(loader);
-  if (enter.succeeded()) {
-    result->SetHostResource(loader.instance(),
-                            enter.object()->GetResponseInfo());
-  }
+  if (enter.succeeded())
+    *success = enter.object()->GetResponseInfoData(result);
+  else
+    *success = false;
 }
 
 void PPB_URLLoader_Proxy::OnMsgReadResponseBody(
@@ -553,6 +575,7 @@ void PPB_URLLoader_Proxy::OnMsgGrantUniversalAccess(
   if (enter.succeeded())
     enter.object()->GrantUniversalAccess();
 }
+#endif  // !defined(OS_NACL)
 
 // Called in the Plugin.
 void PPB_URLLoader_Proxy::OnMsgUpdateProgress(
@@ -602,6 +625,7 @@ void PPB_URLLoader_Proxy::OnMsgCallbackComplete(
     static_cast<URLLoader*>(enter.object())->CallbackComplete(result);
 }
 
+#if !defined(OS_NACL)
 void PPB_URLLoader_Proxy::OnReadCallback(int32_t result,
                                          IPC::Message* message) {
   int32_t bytes_read = 0;
@@ -619,6 +643,7 @@ void PPB_URLLoader_Proxy::OnCallback(int32_t result,
   dispatcher()->Send(new PpapiMsg_PPBURLLoader_CallbackComplete(
       API_ID_PPB_URL_LOADER, resource, result));
 }
+#endif  // !defined(OS_NACL)
 
 }  // namespace proxy
 }  // namespace ppapi

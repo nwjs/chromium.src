@@ -64,12 +64,12 @@
 #include "chrome/browser/chromeos/extensions/file_browser_handler_api.h"
 #include "chrome/browser/chromeos/extensions/file_browser_private_api.h"
 #include "chrome/browser/chromeos/extensions/info_private_api.h"
+#include "chrome/browser/chromeos/extensions/input_method_api.h"
 #include "chrome/browser/chromeos/extensions/power/power_api.h"
 #include "chrome/browser/chromeos/extensions/wallpaper_private_api.h"
 #include "chrome/browser/chromeos/media/media_player_extension_api.h"
 #include "chrome/browser/extensions/api/input_ime/input_ime_api.h"
 #include "chrome/browser/extensions/api/terminal/terminal_private_api.h"
-#include "chrome/browser/extensions/extension_input_method_api.h"
 #endif
 
 // static
@@ -201,7 +201,8 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<SearchHistoryFunction>();
 
   // Idle
-  RegisterFunction<extensions::ExtensionIdleQueryStateFunction>();
+  RegisterFunction<extensions::IdleQueryStateFunction>();
+  RegisterFunction<extensions::IdleSetDetectionIntervalFunction>();
 
   // I18N.
   RegisterFunction<GetAcceptLanguagesFunction>();
@@ -222,8 +223,8 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<extensions::MetricsRecordMediumTimeFunction>();
   RegisterFunction<extensions::MetricsRecordLongTimeFunction>();
 
-  // RLZ.
-#if defined(ENABLE_RLZ)
+  // RLZ (not supported on ChromeOS yet).
+#if defined(ENABLE_RLZ) && !defined(OS_CHROMEOS)
   RegisterFunction<RlzRecordProductEventFunction>();
   RegisterFunction<RlzGetAccessPointRlzFunction>();
   RegisterFunction<RlzSendFinancialPingFunction>();
@@ -297,8 +298,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<extensions::SetCursorPositionFunction>();
   RegisterFunction<extensions::SetMenuItemsFunction>();
   RegisterFunction<extensions::UpdateMenuItemsFunction>();
-
-  RegisterFunction<extensions::InputEventHandled>();
+  RegisterFunction<extensions::KeyEventHandled>();
 
   // Power
   RegisterFunction<extensions::power::RequestKeepAwakeFunction>();
@@ -390,6 +390,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<GetNetworkConnectionStateFunction>();
   RegisterFunction<RequestDirectoryRefreshFunction>();
   RegisterFunction<SetLastModifiedFunction>();
+  RegisterFunction<ZipSelectionFunction>();
 
   // FileBrowserHandler.
   RegisterFunction<FileHandlerSelectFileFunction>();
@@ -408,7 +409,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<WallpaperRestoreMinimizedWindowsFunction>();
 
   // InputMethod
-  RegisterFunction<GetInputMethodFunction>();
+  RegisterFunction<extensions::GetInputMethodFunction>();
 
   // Echo
   RegisterFunction<GetRegistrationCodeFunction>();
@@ -515,6 +516,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   // Runtime
   RegisterFunction<extensions::RuntimeGetBackgroundPageFunction>();
   RegisterFunction<extensions::RuntimeReloadFunction>();
+  RegisterFunction<extensions::RuntimeRequestUpdateCheckFunction>();
 
   // Generated APIs
   extensions::api::GeneratedFunctionRegistry::RegisterAll(this);

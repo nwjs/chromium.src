@@ -24,6 +24,7 @@
 #include "net/base/network_delegate.h"
 #include "net/base/ssl_cert_request_info.h"
 #include "net/base/upload_data.h"
+#include "net/base/upload_data_stream.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_util.h"
 #include "net/url_request/url_request_context.h"
@@ -253,18 +254,12 @@ void URLRequest::UnregisterRequestInterceptor(Interceptor* interceptor) {
       interceptor);
 }
 
-void URLRequest::AppendBytesToUpload(const char* bytes, int bytes_len) {
-  DCHECK(bytes_len > 0 && bytes);
-  if (!upload_)
-    upload_ = new UploadData();
-  upload_->AppendBytes(bytes, bytes_len);
-}
-
 void URLRequest::EnableChunkedUpload() {
   DCHECK(!upload_ || upload_->is_chunked());
   if (!upload_) {
     upload_ = new UploadData();
     upload_->set_is_chunked(true);
+    upload_data_stream_.reset(new UploadDataStream(upload_));
   }
 }
 
@@ -279,19 +274,15 @@ void URLRequest::AppendChunkToUpload(const char* bytes,
 
 void URLRequest::set_upload(UploadData* upload) {
   upload_ = upload;
+  upload_data_stream_.reset(new UploadDataStream(upload_));
 }
 
-// Get the upload data directly.
-const UploadData* URLRequest::get_upload() const {
-  return upload_.get();
-}
-
-UploadData* URLRequest::get_upload_mutable() {
-  return upload_.get();
+const UploadDataStream* URLRequest::get_upload() const {
+  return upload_data_stream_.get();
 }
 
 bool URLRequest::has_upload() const {
-  return upload_ != NULL;
+  return upload_data_stream_.get() != NULL;
 }
 
 void URLRequest::SetExtraRequestHeaderById(int id, const string& value,
@@ -311,6 +302,11 @@ void URLRequest::SetExtraRequestHeaderByName(const string& name,
   }
 }
 
+void URLRequest::RemoveRequestHeaderByName(const string& name) {
+  DCHECK(!is_pending_ || is_redirecting_);
+  extra_request_headers_.RemoveHeader(name);
+}
+
 void URLRequest::SetExtraRequestHeaders(
     const HttpRequestHeaders& headers) {
   DCHECK(!is_pending_);
@@ -321,7 +317,8 @@ void URLRequest::SetExtraRequestHeaders(
 }
 
 LoadStateWithParam URLRequest::GetLoadState() const {
-  if (blocked_on_delegate_) {
+  // Only return LOAD_STATE_WAITING_FOR_DELEGATE if there's a load state param.
+  if (blocked_on_delegate_ && !load_state_param_.empty()) {
     return LoadStateWithParam(LOAD_STATE_WAITING_FOR_DELEGATE,
                               load_state_param_);
   }
@@ -500,9 +497,8 @@ void URLRequest::BeforeRequestComplete(int error) {
     new_url.Swap(&delegate_redirect_url_);
 
     URLRequestRedirectJob* job = new URLRequestRedirectJob(
-        this, network_delegate_, new_url);
-    // Use status code 307 to preserve the method, so POST requests work.
-    job->set_redirect_code(
+        this, network_delegate_, new_url,
+        // Use status code 307 to preserve the method, so POST requests work.
         URLRequestRedirectJob::REDIRECT_307_TEMPORARY_REDIRECT);
     StartJob(job);
   } else {
@@ -524,8 +520,8 @@ void URLRequest::StartJob(URLRequestJob* job) {
   job_ = job;
   job_->SetExtraRequestHeaders(extra_request_headers_);
 
-  if (upload_.get())
-    job_->SetUpload(upload_.get());
+  if (upload_data_stream_.get())
+    job_->SetUpload(upload_data_stream_.get());
 
   is_pending_ = true;
   is_redirecting_ = false;
@@ -646,6 +642,7 @@ void URLRequest::NotifyReceivedRedirect(const GURL& location,
     RestartWithJob(job);
   } else if (delegate_) {
     delegate_->OnReceivedRedirect(this, location, defer_redirect);
+    // |this| may be have been destroyed here.
   }
 }
 
@@ -766,6 +763,10 @@ int URLRequest::Redirect(const GURL& location, int http_status_code) {
     return ERR_UNSAFE_REDIRECT;
   }
 
+  if (!final_upload_progress_.position())
+    final_upload_progress_ = job_->GetUploadProgress();
+  PrepareToRestart();
+
   // For 303 redirects, all request methods except HEAD are converted to GET,
   // as per the latest httpbis draft.  The draft also allows POST requests to
   // be converted to GETs when following 301/302 redirects, for historical
@@ -778,7 +779,7 @@ int URLRequest::Redirect(const GURL& location, int http_status_code) {
   if ((http_status_code == 303 && method_ != "HEAD") ||
       ((http_status_code == 301 || http_status_code == 302) && was_post)) {
     method_ = "GET";
-    upload_ = NULL;
+    upload_data_stream_.reset();
     if (was_post) {
       // If being switched from POST to GET, must remove headers that were
       // specific to the POST and don't have meaning in GET. For example
@@ -799,10 +800,6 @@ int URLRequest::Redirect(const GURL& location, int http_status_code) {
   url_chain_.push_back(location);
   --redirect_limit_;
 
-  if (!final_upload_progress_.position())
-    final_upload_progress_ = job_->GetUploadProgress();
-
-  PrepareToRestart();
   Start();
   return OK;
 }
@@ -959,7 +956,12 @@ void URLRequest::NotifyRequestCompleted() {
 
 void URLRequest::SetBlockedOnDelegate() {
   blocked_on_delegate_ = true;
-  net_log_.BeginEvent(NetLog::TYPE_URL_REQUEST_BLOCKED_ON_DELEGATE);
+  if (!load_state_param_.empty()) {
+    net_log_.BeginEvent(NetLog::TYPE_URL_REQUEST_BLOCKED_ON_DELEGATE,
+                        NetLog::StringCallback("delegate", &load_state_param_));
+  } else {
+    net_log_.BeginEvent(NetLog::TYPE_URL_REQUEST_BLOCKED_ON_DELEGATE);
+  }
 }
 
 void URLRequest::SetUnblockedOnDelegate() {

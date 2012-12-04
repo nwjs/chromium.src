@@ -64,7 +64,7 @@ class VIEWS_EXPORT RootView : public View, public FocusTraversable {
   ui::EventResult DispatchKeyEvent(const ui::KeyEvent& event);
   ui::EventResult DispatchScrollEvent(ui::ScrollEvent* event);
   ui::EventResult DispatchTouchEvent(ui::TouchEvent* event);
-  virtual ui::EventResult DispatchGestureEvent(ui::GestureEvent* event);
+  virtual void DispatchGestureEvent(ui::GestureEvent* event);
 
   // Focus ---------------------------------------------------------------------
 
@@ -112,8 +112,7 @@ class VIEWS_EXPORT RootView : public View, public FocusTraversable {
   virtual void ViewHierarchyChanged(bool is_add, View* parent,
                                     View* child) OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
-  virtual void CalculateOffsetToAncestorWithLayer(
-      gfx::Point* offset,
+  virtual gfx::Vector2d CalculateOffsetToAncestorWithLayer(
       ui::Layer** layer_parent) OVERRIDE;
 
  private:

@@ -29,7 +29,6 @@
 #include "chrome/browser/chromeos/login/login_status_consumer.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
-#include "chrome/browser/chromeos/options/take_photo_dialog.h"
 #endif  // defined(OS_CHROMEOS)
 #include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/download/all_download_item_notifier.h"
@@ -415,9 +414,9 @@ class ExtensionUnloadNotificationObserver
   DISALLOW_COPY_AND_ASSIGN(ExtensionUnloadNotificationObserver);
 };
 
-// Observes when the extensions have been fully updated.  The ExtensionUpdater
-// service provides notifications for each extension that gets updated, but
-// it does not wait for the updated extensions to be installed or loaded.  This
+// Observes when the extensions have been fully updated. The ExtensionUpdater
+// service provides a notification whem all the updated extensions have been
+// installed, but it does not wait for all of them to be loaded too. This
 // observer waits until all updated extensions have actually been loaded.
 class ExtensionsUpdatedObserver : public content::NotificationObserver {
  public:
@@ -431,12 +430,16 @@ class ExtensionsUpdatedObserver : public content::NotificationObserver {
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // Called by ExtensionUpdater when it has finished updating extensions.
+  void UpdateCheckFinished();
+
  private:
+  void MaybeReply();
+
   content::NotificationRegistrar registrar_;
   ExtensionProcessManager* manager_;
   base::WeakPtr<AutomationProvider> automation_;
   scoped_ptr<IPC::Message> reply_message_;
-  std::set<std::string> in_progress_updates_;
   bool updater_finished_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionsUpdatedObserver);
@@ -958,37 +961,6 @@ class EnrollmentObserver
   chromeos::EnterpriseEnrollmentScreen* enrollment_screen_;
 
   DISALLOW_COPY_AND_ASSIGN(EnrollmentObserver);
-};
-
-// Waits for profile photo to be captured by the camera,
-// saved to file, and the path set in local state preferences
-class PhotoCaptureObserver : public chromeos::TakePhotoDialog::Observer,
-                             public chromeos::UserManager::Observer {
- public:
-  PhotoCaptureObserver(AutomationProvider* automation,
-                       IPC::Message* reply_message);
-  virtual ~PhotoCaptureObserver();
-
-  // TakePhotoDialog::Observer overrides
-  virtual void OnCaptureSuccess(
-      chromeos::TakePhotoDialog* dialog,
-      chromeos::TakePhotoView* take_photo_view) OVERRIDE;
-  virtual void OnCaptureFailure(
-      chromeos::TakePhotoDialog* dialog,
-      chromeos::TakePhotoView* take_photo_view) OVERRIDE;
-  virtual void OnCapturingStopped(
-      chromeos::TakePhotoDialog* dialog,
-      chromeos::TakePhotoView* take_photo_view) OVERRIDE;
-
-  // UserManager::Observer overrides
-  virtual void LocalStateChanged(
-      chromeos::UserManager* user_manager) OVERRIDE;
-
- private:
-  base::WeakPtr<AutomationProvider> automation_;
-  scoped_ptr<IPC::Message> reply_message_;
-
-  DISALLOW_COPY_AND_ASSIGN(PhotoCaptureObserver);
 };
 
 #endif  // defined(OS_CHROMEOS)

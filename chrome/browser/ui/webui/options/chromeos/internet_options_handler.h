@@ -9,6 +9,7 @@
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/chromeos/cros/network_constants.h"
+#include "chrome/browser/chromeos/cros/network_ip_config.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/cros/network_ui_data.h"
 #include "chrome/browser/ui/webui/options/options_ui.h"
@@ -31,8 +32,7 @@ namespace options {
 class InternetOptionsHandler
   : public OptionsPageUIHandler,
     public chromeos::NetworkLibrary::NetworkManagerObserver,
-    public chromeos::NetworkLibrary::NetworkObserver,
-    public chromeos::NetworkLibrary::CellularDataPlanObserver {
+    public chromeos::NetworkLibrary::NetworkObserver {
  public:
   InternetOptionsHandler();
   virtual ~InternetOptionsHandler();
@@ -51,9 +51,6 @@ class InternetOptionsHandler
   // NetworkLibrary::NetworkObserver implementation.
   virtual void OnNetworkChanged(chromeos::NetworkLibrary* network_lib,
                                 const chromeos::Network* network) OVERRIDE;
-  // NetworkLibrary::CellularDataPlanObserver implementation.
-  virtual void OnCellularDataPlanChanged(
-      chromeos::NetworkLibrary* network_lib) OVERRIDE;
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -84,10 +81,6 @@ class InternetOptionsHandler
   // be NULL.
   void DoConnect(chromeos::Network* network);
 
-  // Initiates cellular plan data refresh. The results from libcros will be
-  // passed through CellularDataPlanChanged() callback method.
-  // |args| will be [ service_path ]
-  void RefreshCellularPlanCallback(const base::ListValue* args);
   void SetActivationButtonVisibility(
       const chromeos::CellularNetwork* cellular,
       base::DictionaryValue* dictionary,
@@ -126,20 +119,19 @@ class InternetOptionsHandler
   // This is the second half of PopulateDictionaryDetails after the asynchronous
   // request for Shill's service properties.
   void PopulateDictionaryDetailsCallback(
-      const chromeos::Network* network,
       const std::string& service_path,
       const base::DictionaryValue* shill_properties);
+  void PopulateIPConfigsCallback(
+      const std::string& service_path,
+      base::DictionaryValue* shill_properties,
+      const chromeos::NetworkIPConfigVector& ipconfigs,
+      const std::string& hardware_address);
   void PopulateWifiDetails(const chromeos::WifiNetwork* wifi,
                            base::DictionaryValue* dictionary);
   void PopulateWimaxDetails(const chromeos::WimaxNetwork* wimax,
                             base::DictionaryValue* dictionary);
   void PopulateCellularDetails(const chromeos::CellularNetwork* cellular,
                                base::DictionaryValue* dictionary);
-
-  // Converts CellularDataPlan structure into dictionary for JS. Formats plan
-  // settings into human readable texts.
-  base::DictionaryValue* CellularDataPlanToDictionary(
-      const chromeos::CellularDataPlan* plan);
 
   // Converts CellularApn stuct into dictionary for JS.
   base::DictionaryValue* CreateDictionaryFromCellularApn(
@@ -170,6 +162,8 @@ class InternetOptionsHandler
       chromeos::NetworkMethodErrorType error,
       const std::string& error_message);
 
+  // Retrieves a data url for a resource.
+  std::string GetIconDataUrl(int resource_id) const;
 
   // Convenience pointer to netwrok library (will not change).
   chromeos::NetworkLibrary* cros_;

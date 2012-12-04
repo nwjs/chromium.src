@@ -12,7 +12,6 @@
 #include "base/files/file_path_watcher.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/prefs/public/pref_observer.h"
 #include "base/string16.h"
 #include "base/synchronization/lock.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
@@ -39,7 +38,6 @@ class FileBrowserEventRouter
     : public RefcountedProfileKeyedService,
       public chromeos::disks::DiskMountManager::Observer,
       public chromeos::NetworkLibrary::NetworkManagerObserver,
-      public PrefObserver,
       public drive::DriveFileSystemObserver,
       public google_apis::DriveServiceObserver {
  public:
@@ -62,24 +60,25 @@ class FileBrowserEventRouter
   void MountDrive(const base::Closure& callback);
 
   // CrosDisksClient::Observer overrides.
-  virtual void DiskChanged(chromeos::disks::DiskMountManagerEventType event,
-                           const chromeos::disks::DiskMountManager::Disk* disk)
-      OVERRIDE;
-  virtual void DeviceChanged(chromeos::disks::DiskMountManagerEventType event,
-                             const std::string& device_path) OVERRIDE;
-  virtual void MountCompleted(
-      chromeos::disks::DiskMountManager::MountEvent event_type,
+  virtual void OnDiskEvent(
+      chromeos::disks::DiskMountManager::DiskEvent event,
+      const chromeos::disks::DiskMountManager::Disk* disk) OVERRIDE;
+  virtual void OnDeviceEvent(
+      chromeos::disks::DiskMountManager::DeviceEvent event,
+      const std::string& device_path) OVERRIDE;
+  virtual void OnMountEvent(
+      chromeos::disks::DiskMountManager::MountEvent event,
       chromeos::MountError error_code,
       const chromeos::disks::DiskMountManager::MountPointInfo& mount_info)
       OVERRIDE;
+  virtual void OnFormatEvent(
+      chromeos::disks::DiskMountManager::FormatEvent event,
+      chromeos::FormatError error_code,
+      const std::string& device_path) OVERRIDE;
 
   // chromeos::NetworkLibrary::NetworkManagerObserver override.
   virtual void OnNetworkManagerChanged(
       chromeos::NetworkLibrary* network_library) OVERRIDE;
-
-  // Overridden from PrefObserver.
-  virtual void OnPreferenceChanged(PrefServiceBase* service,
-                                   const std::string& pref_name) OVERRIDE;
 
   // drive::DriveServiceObserver overrides.
   virtual void OnProgressUpdate(
@@ -158,8 +157,14 @@ class FileBrowserEventRouter
   void OnDeviceAdded(const std::string& device_path);
   void OnDeviceRemoved(const std::string& device_path);
   void OnDeviceScanned(const std::string& device_path);
-  void OnFormattingStarted(const std::string& device_path, bool success);
-  void OnFormattingFinished(const std::string& device_path, bool success);
+  void OnFormatStarted(const std::string& device_path, bool success);
+  void OnFormatCompleted(const std::string& device_path, bool success);
+
+  // Called on change to kExternalStorageDisabled pref.
+  void OnExternalStorageDisabledChanged();
+
+  // Called when prefs related to file browser change.
+  void OnFileBrowserPrefsChanged();
 
   // Process file watch notifications.
   void HandleFileWatchNotification(const FilePath& path,
@@ -173,7 +178,7 @@ class FileBrowserEventRouter
   void DispatchDiskEvent(const chromeos::disks::DiskMountManager::Disk* disk,
                          bool added);
 
-  void DispatchMountCompletedEvent(
+  void DispatchMountEvent(
       chromeos::disks::DiskMountManager::MountEvent event,
       chromeos::MountError error_code,
       const chromeos::disks::DiskMountManager::MountPointInfo& mount_info);
@@ -195,11 +200,6 @@ class FileBrowserEventRouter
   // periodic updates only if the number of outstanding update requests reaches
   // zero.
   void HandleRemoteUpdateRequestOnUIThread(bool start);
-
-  // Used to implement MountDrive(). Called after the authentication.
-  void OnAuthenticated(const base::Closure& callback,
-                       google_apis::GDataErrorCode error,
-                       const std::string& tokeni);
 
   scoped_refptr<FileWatcherDelegate> delegate_;
   WatcherMap file_watchers_;

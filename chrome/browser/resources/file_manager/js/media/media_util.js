@@ -96,9 +96,12 @@ ThumbnailLoader.prototype.load = function(
   this.image_.onerror = function() {
     if (opt_onError)
       opt_onError();
-    if (this.fallbackUrl_)
+    if (this.fallbackUrl_) {
       new ThumbnailLoader(this.fallbackUrl_, null, this.mediaType_).
           load(box, fill, opt_onSuccess);
+    } else {
+      box.setAttribute('generic-thumbnail', this.mediaType_);
+    }
   }.bind(this);
 
   if (this.image_.src == this.thumbnailUrl_) {
@@ -106,7 +109,7 @@ ThumbnailLoader.prototype.load = function(
     return;
   }
 
-  this.image_.src = this.thumbnailUrl_;
+  util.loadImage(this.image_, this.thumbnailUrl_);
 };
 
 /**
@@ -153,7 +156,7 @@ ThumbnailLoader.prototype.loadDetachedImage = function(callback) {
   this.image_ = new Image();
   this.image_.onload = callback.bind(null, true);
   this.image_.onerror = callback.bind(null, false);
-  this.image_.src = this.thumbnailUrl_;
+  util.loadImage(this.image_, this.thumbnailUrl_);
 };
 
 /**

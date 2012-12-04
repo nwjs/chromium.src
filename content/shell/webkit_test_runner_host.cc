@@ -164,7 +164,6 @@ bool WebKitTestController::PrepareForLayoutTest(
       NULL,
       MSG_ROUTING_NONE,
       NULL);
-  did_set_as_main_window_ = false;
   Observe(main_window_->web_contents());
   return true;
 }
@@ -181,7 +180,7 @@ bool WebKitTestController::ResetAfterLayoutTest() {
   is_printing_ = false;
   should_stay_on_page_after_handling_before_unload_ = false;
   wait_until_done_ = false;
-  did_set_as_main_window_ = false;
+  prefs_ = ShellWebPreferences();
   watchdog_.Cancel();
   if (main_window_) {
     Observe(NULL);
@@ -193,7 +192,8 @@ bool WebKitTestController::ResetAfterLayoutTest() {
 }
 
 void WebKitTestController::RendererUnresponsive() {
-  printer_->AddErrorMessage("#PROCESS UNRESPONSIVE - renderer");
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoTimeout))
+    printer_->AddErrorMessage("#PROCESS UNRESPONSIVE - renderer");
 }
 
 void WebKitTestController::NotifyDone() {
@@ -232,6 +232,8 @@ bool WebKitTestController::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ShellViewHostMsg_PrintMessage, OnPrintMessage)
     IPC_MESSAGE_HANDLER(ShellViewHostMsg_TextDump, OnTextDump)
     IPC_MESSAGE_HANDLER(ShellViewHostMsg_ImageDump, OnImageDump)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_OverridePreferences,
+                        OnOverridePreferences)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -242,20 +244,16 @@ void WebKitTestController::PluginCrashed(const FilePath& plugin_path) {
   printer_->AddErrorMessage("#CRASHED - plugin");
 }
 
-void WebKitTestController::RenderViewReady() {
-  RenderViewHost* render_view_host =
-      main_window_->web_contents()->GetRenderViewHost();
+void WebKitTestController::RenderViewCreated(RenderViewHost* render_view_host) {
   render_view_host->Send(new ShellViewMsg_SetCurrentWorkingDirectory(
       render_view_host->GetRoutingID(), current_working_directory_));
-  if (did_set_as_main_window_)
-    return;
-  render_view_host->Send(new ShellViewMsg_SetIsMainWindow(
-      render_view_host->GetRoutingID()));
-  did_set_as_main_window_ = true;
 }
 
 void WebKitTestController::RenderViewGone(base::TerminationStatus status) {
-  printer_->AddErrorMessage("#CRASHED - renderer");
+  if (status == base::TERMINATION_STATUS_PROCESS_CRASHED ||
+      status == base::TERMINATION_STATUS_ABNORMAL_TERMINATION) {
+    printer_->AddErrorMessage("#CRASHED - renderer");
+  }
 }
 
 void WebKitTestController::WebContentsDestroyed(WebContents* web_contents) {
@@ -351,6 +349,11 @@ void WebKitTestController::OnTextDump(const std::string& dump) {
 
 void WebKitTestController::OnPrintMessage(const std::string& message) {
   printer_->AddMessageRaw(message);
+}
+
+void WebKitTestController::OnOverridePreferences(
+    const ShellWebPreferences& prefs) {
+  prefs_ = prefs;
 }
 
 // WebKitTestRunnerHost -------------------------------------------------------

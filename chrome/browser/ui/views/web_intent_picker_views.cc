@@ -103,11 +103,11 @@ void EnableChildViews(views::View* view, bool enabled) {
 views::ImageButton* CreateCloseButton(views::ButtonListener* listener) {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   views::ImageButton* close_button = new views::ImageButton(listener);
-  close_button->SetImage(views::CustomButton::BS_NORMAL,
+  close_button->SetImage(views::CustomButton::STATE_NORMAL,
                          rb.GetImageSkiaNamed(IDR_WEB_UI_CLOSE));
-  close_button->SetImage(views::CustomButton::BS_HOT,
+  close_button->SetImage(views::CustomButton::STATE_HOVERED,
                          rb.GetImageSkiaNamed(IDR_WEB_UI_CLOSE_HOVER));
-  close_button->SetImage(views::CustomButton::BS_PUSHED,
+  close_button->SetImage(views::CustomButton::STATE_PRESSED,
                          rb.GetImageSkiaNamed(IDR_WEB_UI_CLOSE_PRESSED));
   return close_button;
 }
@@ -1383,7 +1383,7 @@ void WebIntentPickerViews::OnInlineDisposition(
   // Does not take ownership, so we keep a scoped_ptr
   // for the WebContents locally.
   webview_->SetWebContents(inline_web_contents_.get());
-  Browser* browser = browser::FindBrowserWithWebContents(
+  Browser* browser = chrome::FindBrowserWithWebContents(
       tab_contents_->web_contents());
   inline_disposition_delegate_.reset(
       new WebIntentInlineDispositionDelegate(this, inline_web_contents_.get(),

@@ -85,9 +85,6 @@ ShellMainDelegate::ShellMainDelegate() {
 }
 
 ShellMainDelegate::~ShellMainDelegate() {
-#if defined(OS_ANDROID)
-  NOTREACHED();
-#endif
 }
 
 bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
@@ -100,12 +97,13 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree)) {
     CommandLine::ForCurrentProcess()->AppendSwitch(
         switches::kAllowFileAccessFromFiles);
-    CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kForceCompositingMode);
     CommandLine::ForCurrentProcess()->AppendSwitchASCII(
         switches::kUseGL, gfx::kGLImplementationOSMesaName);
     CommandLine::ForCurrentProcess()->AppendSwitch(
         switches::kIgnoreGpuBlacklist);
+    CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kEnableExperimentalWebKitFeatures);
+    CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableCssShaders);
     net::CookieMonster::EnableFileScheme();
     if (!WebKitTestPlatformInitialize()) {
       if (exit_code)

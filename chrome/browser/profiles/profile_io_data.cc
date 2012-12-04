@@ -17,7 +17,6 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/net/about_protocol_handler.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
@@ -29,6 +28,7 @@
 #include "chrome/browser/extensions/extension_resource_protocols.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/io_thread.h"
+#include "chrome/browser/net/about_protocol_handler.h"
 #include "chrome/browser/net/chrome_cookie_notification_details.h"
 #include "chrome/browser/net/chrome_fraudulent_certificate_reporter.h"
 #include "chrome/browser/net/chrome_http_user_agent_settings.h"
@@ -56,6 +56,7 @@
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/resource_context.h"
+#include "extensions/common/constants.h"
 #include "net/base/server_bound_cert_service.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_monster.h"
@@ -70,13 +71,8 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_job_factory_impl.h"
 
-#if !defined(OS_ANDROID)
-#include "chrome/browser/managed_mode/managed_mode.h"
-#endif
-
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/drive/drive_protocol_handler.h"
-#include "chrome/browser/chromeos/gview_request_interceptor.h"
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/cros_settings_names.h"
@@ -337,7 +333,7 @@ ProfileIOData* ProfileIOData::FromResourceContext(
 bool ProfileIOData::IsHandledProtocol(const std::string& scheme) {
   DCHECK_EQ(scheme, StringToLowerASCII(scheme));
   static const char* const kProtocolList[] = {
-    chrome::kExtensionScheme,
+    extensions::kExtensionScheme,
     chrome::kChromeUIScheme,
     chrome::kChromeDevToolsScheme,
 #if defined(OS_CHROMEOS)
@@ -549,21 +545,18 @@ void ProfileIOData::LazyInitialize() const {
 
   chrome_url_data_manager_backend_.reset(new ChromeURLDataManagerBackend);
 
-  network_delegate_.reset(new ChromeNetworkDelegate(
-        io_thread_globals->extension_event_router_forwarder.get(),
-        profile_params_->extension_info_map,
-        url_blacklist_manager_.get(),
-#if !defined(OS_ANDROID)
-        ManagedMode::GetURLFilter(),
-#else
-        NULL,
-#endif
-        profile_params_->profile,
-        profile_params_->cookie_settings,
-        &enable_referrers_,
-        &enable_do_not_track_,
-        &force_safesearch_,
-        load_time_stats_));
+  ChromeNetworkDelegate* network_delegate =
+      new ChromeNetworkDelegate(
+          io_thread_globals->extension_event_router_forwarder.get(),
+          &enable_referrers_);
+  network_delegate->set_extension_info_map(profile_params_->extension_info_map);
+  network_delegate->set_url_blacklist_manager(url_blacklist_manager_.get());
+  network_delegate->set_profile(profile_params_->profile);
+  network_delegate->set_cookie_settings(profile_params_->cookie_settings);
+  network_delegate->set_enable_do_not_track(&enable_do_not_track_);
+  network_delegate->set_force_google_safe_search(&force_safesearch_);
+  network_delegate->set_load_time_stats(load_time_stats_);
+  network_delegate_.reset(network_delegate);
 
   fraudulent_certificate_reporter_.reset(
       new chrome_browser_net::ChromeFraudulentCertificateReporter(
@@ -638,7 +631,7 @@ void ProfileIOData::SetUpJobFactoryDefaults(
   }
 
   set_protocol = job_factory->SetProtocolHandler(
-      chrome::kExtensionScheme,
+      extensions::kExtensionScheme,
       CreateExtensionProtocolHandler(is_incognito(), GetExtensionInfoMap()));
   DCHECK(set_protocol);
   set_protocol = job_factory->SetProtocolHandler(
@@ -659,13 +652,6 @@ void ProfileIOData::SetUpJobFactoryDefaults(
         chrome::kDriveScheme, new drive::DriveProtocolHandler());
     DCHECK(set_protocol);
   }
-#if !defined(GOOGLE_CHROME_BUILD)
-  // Install the GView request interceptor that will redirect requests
-  // of compatible documents (PDF, etc) to the GView document viewer.
-  const CommandLine& parsed_command_line = *CommandLine::ForCurrentProcess();
-  if (parsed_command_line.HasSwitch(switches::kEnableGView))
-    job_factory->AddInterceptor(new chromeos::GViewRequestInterceptor);
-#endif  // !defined(GOOGLE_CHROME_BUILD)
 #endif  // defined(OS_CHROMEOS)
 
   job_factory->SetProtocolHandler(

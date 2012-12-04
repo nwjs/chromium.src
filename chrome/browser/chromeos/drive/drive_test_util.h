@@ -6,10 +6,10 @@
 #define CHROME_BROWSER_CHROMEOS_DRIVE_DRIVE_TEST_UTIL_H_
 
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/drive/drive_cache.h"
+#include "chrome/browser/chromeos/drive/drive_resource_metadata.h"
 #include "chrome/browser/google_apis/gdata_errorcode.h"
-#include "chrome/browser/google_apis/gdata_test_util.h"
+#include "chrome/browser/google_apis/test_util.h"
 
 class FilePath;
 
@@ -97,11 +97,25 @@ void CopyResultsFromGetEntryInfoPairCallback(
 void CopyResultFromInitializeCacheCallback(bool* out_success,
                                            bool success);
 
+// Copies results from DriveCache methods. Used to run asynchronous functions
+// that take GetFileFromCacheCallback from tests.
+void CopyResultsFromGetFileFromCacheCallback(DriveFileError* out_error,
+                                             FilePath* out_cache_file_path,
+                                             DriveFileError error,
+                                             const FilePath& cache_file_path);
+
+// Copies results from DriveCache methods. Used to run asynchronous functions
+// that take GetCacheEntryCallback from tests.
+void CopyResultsFromGetCacheEntryCallback(bool* out_success,
+                                          DriveCacheEntry* out_cache_entry,
+                                          bool success,
+                                          const DriveCacheEntry& cache_entry);
+
 // Loads a test json file as root ("/drive") element from a test file stored
 // under chrome/test/data/chromeos. Returns true on success.
 bool LoadChangeFeed(const std::string& relative_path,
                     DriveFileSystem* file_system,
-                    int64 start_changestamp,
+                    bool is_delta_feed,
                     int64 root_feed_changestamp);
 
 }  // namespace test_util

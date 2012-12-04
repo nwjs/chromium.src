@@ -73,7 +73,9 @@ void WaitForTabsAndPopups(Browser* browser,
       continue;
 
     // Check for TYPE_POPUP.
-#if defined(USE_ASH)
+// TODO: this ifdef will have to be updated when we have win ash bots running
+// browser_tests.
+#if defined(USE_ASH) && !defined(OS_WIN)
     // On Ash, panel windows open as popup windows.
     EXPECT_TRUE((*iter)->is_type_popup() || (*iter)->is_type_panel());
 #else
@@ -205,7 +207,9 @@ class WindowOpenPanelTest : public ExtensionApiTest {
   }
 };
 
-#if defined(USE_ASH)
+// TODO: this ifdef will have to be updated when we have win ash bots running
+// browser_tests.
+#if defined(USE_ASH) && !defined(OS_WIN)
 // On Ash, this currently fails because we're currently opening new panel
 // windows as popup windows instead.
 #define MAYBE_WindowOpenPanel DISABLED_WindowOpenPanel
@@ -216,7 +220,9 @@ IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest, MAYBE_WindowOpenPanel) {
   ASSERT_TRUE(RunExtensionTest("window_open/panel")) << message_;
 }
 
-#if defined(USE_ASH)
+// TODO: this ifdef will have to be updated when we have win ash bots running
+// browser_tests.
+#if defined(USE_ASH) && !defined(OS_WIN)
 // On Ash, this currently fails because we're currently opening new panel
 // windows as popup windows instead.
 #define MAYBE_WindowOpenPanelDetached DISABLED_WindowOpenPanelDetached
@@ -227,16 +233,11 @@ IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest, MAYBE_WindowOpenPanelDetached) {
   ASSERT_TRUE(RunExtensionTest("window_open/panel_detached")) << message_;
 }
 
-#if defined(OS_MACOSX) || defined(OS_WIN)
-// Focus test fails if there is no window manager on Linux.
-IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest, WindowOpenFocus) {
-  ASSERT_TRUE(RunExtensionTest("window_open/focus")) << message_;
-}
-#endif
-
 IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest,
                        CloseNonExtensionPanelsOnUninstall) {
-#if defined(USE_ASH)
+// TODO: this ifdef will have to be updated when we have win ash bots running
+// browser_tests.
+#if defined(USE_ASH) && !defined(OS_WIN)
   // On Ash, new panel windows open as popup windows instead.
   int num_popups = 4;
   int num_panels = 0;
@@ -277,7 +278,9 @@ IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest,
 
   // Wait for the tabs and popups in non-extension domain to stay open.
   // Expect everything else, including panels, to close.
-#if defined(USE_ASH)
+// TODO: this ifdef will have to be updated when we have win ash bots running
+// browser_tests.
+#if defined(USE_ASH) && !defined(OS_WIN)
   // On Ash, new panel windows open as popup windows instead, so there are 2
   // extension domain popups that will close (instead of 1 popup on non-Ash).
   num_popups -= 2;
@@ -287,8 +290,18 @@ IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest,
   WaitForTabsAndPopups(browser(), 1, num_popups, 0);
 }
 
-IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest, ClosePanelsOnExtensionCrash) {
-#if defined(USE_ASH)
+#if defined(OS_CHROMEOS)
+// TODO(derat): See if there's some way to get this to work on Chrome OS.  It
+// crashes there, apparently because we automatically reload crashed pages:
+// http:/crbug.com/161073
+#define MAYBE_ClosePanelsOnExtensionCrash DISABLED_ClosePanelsOnExtensionCrash
+#else
+#define MAYBE_ClosePanelsOnExtensionCrash ClosePanelsOnExtensionCrash
+#endif
+IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest, MAYBE_ClosePanelsOnExtensionCrash) {
+// TODO: this ifdef will have to be updated when we have win ash bots running
+// browser_tests.
+#if defined(USE_ASH) && !defined(OS_WIN)
   // On Ash, new panel windows open as popup windows instead.
   int num_popups = 4;
   int num_panels = 0;
@@ -338,7 +351,9 @@ IN_PROC_BROWSER_TEST_F(WindowOpenPanelTest, ClosePanelsOnExtensionCrash) {
   WaitForTabsAndPopups(browser(), 2, num_popups, 0);
 }
 
-#if defined(USE_ASH)
+// TODO: this ifdef will have to be updated when we have win ash bots running
+// browser_tests.
+#if defined(USE_ASH) && !defined(OS_WIN)
 // This test is not applicable on Ash. Ash opens panel windows as popup
 // windows. The modified window.open behavior only applies to panel windows.
 #define MAYBE_WindowOpenFromPanel DISABLED_WindowOpenFromPanel

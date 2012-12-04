@@ -31,7 +31,7 @@ namespace em = enterprise_management;
 
 namespace {
 // How many seconds of inactivity triggers the idle state.
-const unsigned int kIdleStateThresholdSeconds = 300;
+const int kIdleStateThresholdSeconds = 300;
 
 // How many days in the past to store active periods for.
 const unsigned int kMaxStoredPastActivityDays = 30;
@@ -135,13 +135,13 @@ DeviceStatusCollector::DeviceStatusCollector(
   UpdateReportingSettings();
 
   // Get the the OS and firmware version info.
-  version_loader_.GetVersion(&consumer_,
-                             base::Bind(&DeviceStatusCollector::OnOSVersion,
-                                        base::Unretained(this)),
-                             VersionLoader::VERSION_FULL);
-  version_loader_.GetFirmware(&consumer_,
-                              base::Bind(&DeviceStatusCollector::OnOSFirmware,
-                                         base::Unretained(this)));
+  version_loader_.GetVersion(
+      VersionLoader::VERSION_FULL,
+      base::Bind(&DeviceStatusCollector::OnOSVersion, base::Unretained(this)),
+      &tracker_);
+  version_loader_.GetFirmware(
+      base::Bind(&DeviceStatusCollector::OnOSFirmware, base::Unretained(this)),
+      &tracker_);
 }
 
 DeviceStatusCollector::~DeviceStatusCollector() {
@@ -269,11 +269,12 @@ void DeviceStatusCollector::IdleStateCallback(IdleState state) {
     // interval of activity.
     int active_seconds = (now - last_idle_check_).InSeconds();
     if (active_seconds < 0 ||
-        active_seconds >= static_cast<int>((2 * kIdlePollIntervalSeconds)))
+        active_seconds >= static_cast<int>((2 * kIdlePollIntervalSeconds))) {
       AddActivePeriod(now - TimeDelta::FromSeconds(kIdlePollIntervalSeconds),
                       now);
-    else
+    } else {
       AddActivePeriod(last_idle_check_, now);
+    }
 
     PruneStoredActivityPeriods(now);
   }
@@ -367,13 +368,11 @@ void DeviceStatusCollector::GetStatus(em::DeviceStatusReportRequest* request) {
     GetLocation(request);
 }
 
-void DeviceStatusCollector::OnOSVersion(VersionLoader::Handle handle,
-                                        const std::string& version) {
+void DeviceStatusCollector::OnOSVersion(const std::string& version) {
   os_version_ = version;
 }
 
-void DeviceStatusCollector::OnOSFirmware(VersionLoader::Handle handle,
-                                         const std::string& version) {
+void DeviceStatusCollector::OnOSFirmware(const std::string& version) {
   firmware_version_ = version;
 }
 
@@ -392,7 +391,7 @@ void DeviceStatusCollector::ScheduleGeolocationUpdateRequest() {
     return;
 
   if (position_.Validate()) {
-    TimeDelta elapsed = Time::Now() - position_.timestamp;
+    TimeDelta elapsed = GetCurrentTime() - position_.timestamp;
     TimeDelta interval =
         TimeDelta::FromSeconds(kGeolocationPollIntervalSeconds);
     if (elapsed > interval) {

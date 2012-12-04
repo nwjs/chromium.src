@@ -5,6 +5,7 @@
 #include "ash/wm/system_modal_container_event_filter.h"
 
 #include "ash/wm/system_modal_container_event_filter_delegate.h"
+#include "ui/aura/window.h"
 #include "ui/base/events/event.h"
 
 namespace ash {
@@ -18,30 +19,18 @@ SystemModalContainerEventFilter::SystemModalContainerEventFilter(
 SystemModalContainerEventFilter::~SystemModalContainerEventFilter() {
 }
 
-bool SystemModalContainerEventFilter::PreHandleKeyEvent(
-    aura::Window* target,
+ui::EventResult SystemModalContainerEventFilter::OnKeyEvent(
     ui::KeyEvent* event) {
-  return !delegate_->CanWindowReceiveEvents(target);
+  aura::Window* target = static_cast<aura::Window*>(event->target());
+  return delegate_->CanWindowReceiveEvents(target) ? ui::ER_UNHANDLED :
+                                                     ui::ER_CONSUMED;
 }
 
-bool SystemModalContainerEventFilter::PreHandleMouseEvent(
-    aura::Window* target,
+ui::EventResult SystemModalContainerEventFilter::OnMouseEvent(
     ui::MouseEvent* event) {
-  return !delegate_->CanWindowReceiveEvents(target);
-}
-
-ui::EventResult SystemModalContainerEventFilter::PreHandleTouchEvent(
-    aura::Window* target,
-    ui::TouchEvent* event) {
-  // TODO(sadrul): !
-  return ui::ER_UNHANDLED;
-}
-
-ui::EventResult SystemModalContainerEventFilter::PreHandleGestureEvent(
-    aura::Window* target,
-    ui::GestureEvent* event) {
-  // TODO(sad):
-  return ui::ER_UNHANDLED;
+  aura::Window* target = static_cast<aura::Window*>(event->target());
+  return delegate_->CanWindowReceiveEvents(target) ? ui::ER_UNHANDLED :
+                                                     ui::ER_CONSUMED;
 }
 
 }  // namespace internal

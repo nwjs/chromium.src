@@ -162,6 +162,13 @@ void Textfield::AppendText(const string16& text) {
     native_wrapper_->AppendText(text);
 }
 
+void Textfield::ReplaceSelection(const string16& text) {
+  if (native_wrapper_) {
+    native_wrapper_->ReplaceSelection(text);
+    text_ = native_wrapper_->GetText();
+  }
+}
+
 base::i18n::TextDirection Textfield::GetTextDirection() const {
   return native_wrapper_ ? native_wrapper_->GetTextDirection() :
       base::i18n::UNKNOWN_DIRECTION;
@@ -352,6 +359,10 @@ void Textfield::SetAccessibleName(const string16& name) {
   accessible_name_ = name;
 }
 
+void Textfield::ExecuteCommand(int command_id) {
+  native_wrapper_->ExecuteTextCommand(command_id);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Textfield, View overrides:
 
@@ -360,6 +371,15 @@ void Textfield::Layout() {
     native_wrapper_->GetView()->SetBoundsRect(GetLocalBounds());
     native_wrapper_->GetView()->Layout();
   }
+}
+
+int Textfield::GetBaseline() const {
+  gfx::Insets insets;
+  if (draw_border_ && native_wrapper_)
+    insets = native_wrapper_->CalculateInsets();
+  const int baseline = native_wrapper_ ?
+      native_wrapper_->GetTextfieldBaseline() : font_.GetBaseline();
+  return insets.top() + baseline;
 }
 
 gfx::Size Textfield::GetPreferredSize() {

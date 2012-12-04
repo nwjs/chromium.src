@@ -288,9 +288,20 @@ class PrintWebViewHelper
 #elif defined(OS_POSIX)
   bool RenderPages(const PrintMsg_PrintPages_Params& params,
                    WebKit::WebFrame* frame, const WebKit::WebNode& node,
-                   int* page_count, PrepareFrameAndViewForPrint* prepare,
+                   std::vector<int>* printed_pages,
                    printing::Metafile* metafile);
 #endif  // defined(OS_WIN)
+
+  // Renders page contents from |frame| to |content_area| of |canvas|.
+  // |page_number| is zero-based.
+  // When method is called, canvas should be setup to draw to |canvas_area|
+  // with |scale_factor|.
+  static float RenderPageContent(WebKit::WebFrame* frame,
+                                 int page_number,
+                                 const gfx::Rect& canvas_area,
+                                 const gfx::Rect& content_area,
+                                 double scale_factor,
+                                 WebKit::WebCanvas* canvas);
 
   // Helper methods -----------------------------------------------------------
 

@@ -112,14 +112,14 @@ class SyncFrontendDataTypeControllerTest : public testing::Test {
         WillOnce(Return(true));
     EXPECT_CALL(*model_associator_, SyncModelHasUserCreatedNodes(_)).
         WillOnce(DoAll(SetArgumentPointee<0>(true), Return(true)));
-    EXPECT_CALL(*model_associator_, AssociateModels()).
+    EXPECT_CALL(*model_associator_, AssociateModels(_, _)).
         WillOnce(Return(syncer::SyncError()));
     EXPECT_CALL(*dtc_mock_, RecordAssociationTime(_));
   }
 
   void SetActivateExpectations(DataTypeController::StartResult result) {
     EXPECT_CALL(service_, ActivateDataType(_, _, _));
-    EXPECT_CALL(start_callback_, Run(result,_));
+    EXPECT_CALL(start_callback_, Run(result, _, _));
   }
 
   void SetStopExpectations() {
@@ -134,7 +134,7 @@ class SyncFrontendDataTypeControllerTest : public testing::Test {
       EXPECT_CALL(*dtc_mock_, RecordUnrecoverableError(_, _));
     EXPECT_CALL(*dtc_mock_, CleanUpState());
     EXPECT_CALL(*dtc_mock_, RecordStartFailure(result));
-    EXPECT_CALL(start_callback_, Run(result,_));
+    EXPECT_CALL(start_callback_, Run(result, _, _));
   }
 
   void Start() {
@@ -147,7 +147,7 @@ class SyncFrontendDataTypeControllerTest : public testing::Test {
   }
 
   void PumpLoop() {
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   MessageLoopForUI message_loop_;
@@ -178,7 +178,7 @@ TEST_F(SyncFrontendDataTypeControllerTest, StartFirstRun) {
       WillOnce(Return(true));
   EXPECT_CALL(*model_associator_, SyncModelHasUserCreatedNodes(_)).
       WillOnce(DoAll(SetArgumentPointee<0>(false), Return(true)));
-  EXPECT_CALL(*model_associator_, AssociateModels()).
+  EXPECT_CALL(*model_associator_, AssociateModels(_, _)).
       WillOnce(Return(syncer::SyncError()));
   EXPECT_CALL(*dtc_mock_, RecordAssociationTime(_));
   SetActivateExpectations(DataTypeController::OK_FIRST_RUN);
@@ -206,10 +206,10 @@ TEST_F(SyncFrontendDataTypeControllerTest, StartAssociationFailed) {
       WillOnce(Return(true));
   EXPECT_CALL(*model_associator_, SyncModelHasUserCreatedNodes(_)).
       WillOnce(DoAll(SetArgumentPointee<0>(true), Return(true)));
-  EXPECT_CALL(*model_associator_, AssociateModels()).
+  EXPECT_CALL(*model_associator_, AssociateModels(_, _)).
       WillOnce(Return(syncer::SyncError(FROM_HERE,
                                 "error",
-                                syncer::PREFERENCES)));
+                                syncer::BOOKMARKS)));
 
   EXPECT_CALL(*dtc_mock_, RecordAssociationTime(_));
   SetStartFailExpectations(DataTypeController::ASSOCIATION_FAILED);

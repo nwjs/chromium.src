@@ -249,7 +249,7 @@ class SyncInvalidationListenerTest : public testing::Test {
     EXPECT_TRUE(fake_invalidation_client_->IsAckedHandle(ack_handle));
     // Pump message loop to trigger
     // InvalidationStateTracker::SetMaxVersion().
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   // |payload| can be NULL, but not |type_name|.
@@ -272,7 +272,7 @@ class SyncInvalidationListenerTest : public testing::Test {
     client_.WriteState(new_state);
     // Pump message loop to trigger
     // InvalidationStateTracker::WriteState().
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
   }
 
   void EnableNotifications() {
@@ -309,7 +309,7 @@ class SyncInvalidationListenerTest : public testing::Test {
     // avoid leaking the inner task.  client_.StopForTest() does not
     // schedule any tasks, so it's both necessary and sufficient to
     // drain the task queue before calling it.
-    message_loop_.RunAllPending();
+    message_loop_.RunUntilIdle();
     fake_invalidation_client_ = NULL;
     client_.StopForTest();
   }
@@ -638,6 +638,26 @@ TEST_F(SyncInvalidationListenerTest, RegisterTypesPreserved) {
   client_.Ready(fake_invalidation_client_);
 
   EXPECT_EQ(registered_ids_, GetRegisteredIds());
+}
+
+// Make sure that state is correctly purged from the local invalidation state
+// map cache when an ID is unregistered.
+TEST_F(SyncInvalidationListenerTest, UnregisterCleansUpStateMapCache) {
+  client_.Ready(fake_invalidation_client_);
+
+  InvalidationStateMap state_map;
+  state_map[kBookmarksId_].version = 1;
+  FireInvalidate(kBookmarksId_, 1, "hello");
+  EXPECT_EQ(state_map, client_.GetStateMapForTest());
+  state_map[kPreferencesId_].version = 2;
+  FireInvalidate(kPreferencesId_, 2, "world");
+  EXPECT_EQ(state_map, client_.GetStateMapForTest());
+
+  ObjectIdSet ids;
+  ids.insert(kBookmarksId_);
+  client_.UpdateRegisteredIds(ids);
+  state_map.erase(kPreferencesId_);
+  EXPECT_EQ(state_map, client_.GetStateMapForTest());
 }
 
 // Without readying the client, disable notifications, then enable

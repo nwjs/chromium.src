@@ -326,8 +326,6 @@ void CreateHostForInProcessModule(RenderViewImpl* render_view,
 PepperPluginDelegateImpl::PepperPluginDelegateImpl(RenderViewImpl* render_view)
     : RenderViewObserver(render_view),
       render_view_(render_view),
-      has_saved_context_menu_action_(false),
-      saved_context_menu_action_(0),
       focused_plugin_(NULL),
       last_mouse_event_target_(NULL),
       device_enumeration_event_handler_(
@@ -336,10 +334,6 @@ PepperPluginDelegateImpl::PepperPluginDelegateImpl(RenderViewImpl* render_view)
 
 PepperPluginDelegateImpl::~PepperPluginDelegateImpl() {
   DCHECK(mouse_lock_instances_.empty());
-  for (PendingContextMenuMap::iterator it = pending_context_menus_.begin();
-       it != pending_context_menus_.end(); ++it) {
-    render_view()->CancelContextMenu(it->first);
-  }
 }
 
 scoped_refptr<webkit::ppapi::PluginModule>
@@ -480,31 +474,6 @@ RendererPpapiHost* PepperPluginDelegateImpl::CreateOutOfProcessModule(
 
   module->InitAsProxied(dispatcher.release());
   return host_impl;
-}
-
-void PepperPluginDelegateImpl::OnMenuAction(int request_id, unsigned action) {
-  // Just save the action.
-  DCHECK(!has_saved_context_menu_action_);
-  has_saved_context_menu_action_ = true;
-  saved_context_menu_action_ = action;
-}
-
-void PepperPluginDelegateImpl::OnMenuClosed(int request_id) {
-  PendingContextMenuMap::iterator found =
-      pending_context_menus_.find(request_id);
-  if (found == pending_context_menus_.end()) {
-    NOTREACHED() << "OnContextMenuClosed() called twice for the same menu.";
-    return;
-  }
-
-  if (has_saved_context_menu_action_) {
-    found->second->CompleteShow(PP_OK, saved_context_menu_action_);
-    has_saved_context_menu_action_ = false;
-    saved_context_menu_action_ = 0;
-  } else {
-    found->second->CompleteShow(PP_ERROR_USERCANCEL, 0);
-  }
-  pending_context_menus_.erase(found);
 }
 
 void PepperPluginDelegateImpl::OnPpapiBrokerChannelCreated(
@@ -802,13 +771,23 @@ PepperPluginDelegateImpl::CreateImage2D(int width, int height) {
   return PepperPlatformImage2DImpl::Create(width, height);
 }
 
+webkit::ppapi::PluginDelegate::PlatformGraphics2D*
+PepperPluginDelegateImpl::GetGraphics2D(
+    webkit::ppapi::PluginInstance* instance,
+    PP_Resource resource) {
+  RendererPpapiHostImpl* host_impl = static_cast<RendererPpapiHostImpl*>(
+      instance->module()->GetEmbedderState());
+  return host_impl->GetPlatformGraphics2D(resource);
+}
+
 webkit::ppapi::PluginDelegate::PlatformContext3D*
     PepperPluginDelegateImpl::CreateContext3D() {
 #ifdef ENABLE_GPU
   // If accelerated compositing of plugins is disabled, fail to create a 3D
   // context, because it won't be visible. This allows graceful fallback in the
   // modules.
-  if (!render_view_->webkit_preferences().accelerated_plugins_enabled)
+  const webkit_glue::WebPreferences& prefs = render_view_->webkit_preferences();
+  if (!prefs.accelerated_compositing_for_plugins_enabled)
     return NULL;
   return new PlatformContext3DImpl(this);
 #else
@@ -1397,43 +1376,6 @@ bool PepperPluginDelegateImpl::X509CertificateParseDER(
   return succeeded;
 }
 
-int32_t PepperPluginDelegateImpl::ShowContextMenu(
-    webkit::ppapi::PluginInstance* instance,
-    webkit::ppapi::PPB_Flash_Menu_Impl* menu,
-    const gfx::Point& position) {
-  int32 render_widget_id = render_view_->routing_id();
-  if (instance->flash_fullscreen()) {
-    webkit::ppapi::FullscreenContainer* container =
-        instance->fullscreen_container();
-    DCHECK(container);
-    render_widget_id =
-        static_cast<RenderWidgetFullscreenPepper*>(container)->routing_id();
-  }
-
-  ContextMenuParams params;
-  params.x = position.x();
-  params.y = position.y();
-  params.custom_context.is_pepper_menu = true;
-  params.custom_context.render_widget_id = render_widget_id;
-  params.custom_items = menu->menu_data();
-
-  // Transform the position to be in render view's coordinates.
-  if (instance->view_data().is_fullscreen || instance->flash_fullscreen()) {
-    WebKit::WebRect window_rect = render_view_->windowRect();
-    WebKit::WebRect screen_rect = render_view_->screenInfo().rect;
-    params.x = params.x - window_rect.x + screen_rect.x;
-    params.y = params.y - window_rect.y + screen_rect.y;
-  } else {
-    params.x += instance->view_data().rect.point.x;
-    params.y += instance->view_data().rect.point.y;
-  }
-
-  int request_id = render_view_->ShowContextMenu(this, params);
-  pending_context_menus_[request_id] =
-      scoped_refptr<webkit::ppapi::PPB_Flash_Menu_Impl>(menu);
-  return PP_OK_COMPLETIONPENDING;
-}
-
 webkit::ppapi::FullscreenContainer*
 PepperPluginDelegateImpl::CreateFullscreenContainer(
     webkit::ppapi::PluginInstance* instance) {
@@ -1489,12 +1431,6 @@ double PepperPluginDelegateImpl::GetLocalTimeZoneOffset(base::Time t) {
   double result = 0.0;
   render_view_->Send(new PepperMsg_GetLocalTimeZoneOffset(
       t, &result));
-  return result;
-}
-
-std::string PepperPluginDelegateImpl::GetDeviceID() {
-  std::string result;
-  render_view_->Send(new PepperMsg_GetDeviceID(&result));
   return result;
 }
 

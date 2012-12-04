@@ -11,6 +11,7 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/message_loop.h"
 #include "base/sys_string_conversions.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
@@ -48,19 +49,23 @@ GURL GetURLForLayoutTest(const std::string& test_name,
     *expected_pixel_hash = pixel_hash;
   GURL test_url(path_or_url);
   if (!(test_url.is_valid() && test_url.has_scheme())) {
+    // We're outside of the message loop here, and this is a test.
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
 #if defined(OS_WIN)
     std::wstring wide_path_or_url =
         base::SysNativeMBToWide(path_or_url);
-    test_url = net::FilePathToFileURL(FilePath(wide_path_or_url));
+    FilePath local_file(wide_path_or_url);
 #else
-    test_url = net::FilePathToFileURL(FilePath(path_or_url));
+    FilePath local_file(path_or_url);
 #endif
+    file_util::AbsolutePath(&local_file);
+    test_url = net::FilePathToFileURL(local_file);
   }
   FilePath local_path;
   {
+    // We're outside of the message loop here, and this is a test.
     base::ThreadRestrictions::ScopedAllowIO allow_io;
     if (net::FileURLToFilePath(test_url, &local_path)) {
-      // We're outside of the message loop here, and this is a test.
       file_util::SetCurrentDirectory(local_path.DirName());
     }
     if (current_working_directory)
@@ -98,6 +103,9 @@ int ShellBrowserMain(const content::MainFunctionParams& parameters) {
 
   if (CommandLine::ForCurrentProcess()->HasSwitch(
         switches::kCheckLayoutTestSysDeps)) {
+    MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+    main_runner_->Run();
+    main_runner_->Shutdown();
     return 0;
   }
 
@@ -110,6 +118,7 @@ int ShellBrowserMain(const content::MainFunctionParams& parameters) {
     CommandLine::StringVector args =
         CommandLine::ForCurrentProcess()->GetArgs();
     size_t command_line_position = 0;
+    bool ran_at_least_once = false;
 
 #if defined(OS_ANDROID)
     std::cout << "#READY\n";
@@ -132,10 +141,15 @@ int ShellBrowserMain(const content::MainFunctionParams& parameters) {
         break;
       }
 
+      ran_at_least_once = true;
       main_runner_->Run();
 
       if (!content::WebKitTestController::Get()->ResetAfterLayoutTest())
         break;
+    }
+    if (!ran_at_least_once) {
+      MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+      main_runner_->Run();
     }
     exit_code = 0;
   } else {

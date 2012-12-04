@@ -76,11 +76,11 @@ TEST(LayerImplTest, verifyLayerChangesAreTrackedProperly)
     gfx::Rect arbitraryRect = gfx::Rect(arbitraryPoint, arbitrarySize);
     gfx::RectF arbitraryRectF = gfx::RectF(arbitraryPointF, gfx::SizeF(1.234f, 5.678f));
     SkColor arbitraryColor = SkColorSetRGB(10, 20, 30);
-    WebTransformationMatrix arbitraryTransform;
-    arbitraryTransform.scale3d(0.1, 0.2, 0.3);
+    gfx::Transform arbitraryTransform;
+    arbitraryTransform.Scale3d(0.1, 0.2, 0.3);
     WebFilterOperations arbitraryFilters;
     arbitraryFilters.append(WebFilterOperation::createOpacityFilter(0.5));
-    SkAutoTUnref<SkImageFilter> arbitraryFilter(new SkBlurImageFilter(SK_Scalar1, SK_Scalar1));
+    skia::RefPtr<SkImageFilter> arbitraryFilter = skia::AdoptRef(new SkBlurImageFilter(SK_Scalar1, SK_Scalar1));
 
     // These properties are internal, and should not be considered "change" when they are used.
     EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setUseLCDText(true));
@@ -114,8 +114,6 @@ TEST(LayerImplTest, verifyLayerChangesAreTrackedProperly)
     // Changing these properties only affects the layer itself.
     EXECUTE_AND_VERIFY_ONLY_LAYER_CHANGED(root->setContentBounds(arbitrarySize));
     EXECUTE_AND_VERIFY_ONLY_LAYER_CHANGED(root->setContentsScale(arbitraryNumber, arbitraryNumber));
-    EXECUTE_AND_VERIFY_ONLY_LAYER_CHANGED(root->setDebugBorderColor(arbitraryColor));
-    EXECUTE_AND_VERIFY_ONLY_LAYER_CHANGED(root->setDebugBorderWidth(arbitraryNumber));
     EXECUTE_AND_VERIFY_ONLY_LAYER_CHANGED(root->setDrawsContent(true));
     EXECUTE_AND_VERIFY_ONLY_LAYER_CHANGED(root->setBackgroundColor(SK_ColorGRAY));
     EXECUTE_AND_VERIFY_ONLY_LAYER_CHANGED(root->setBackgroundFilters(arbitraryFilters));
@@ -153,8 +151,6 @@ TEST(LayerImplTest, verifyLayerChangesAreTrackedProperly)
     EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setContentsScale(arbitraryNumber, arbitraryNumber));
     EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setContentsOpaque(true));
     EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setOpacity(arbitraryNumber));
-    EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setDebugBorderColor(arbitraryColor));
-    EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setDebugBorderWidth(arbitraryNumber));
     EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setDrawsContent(true));
     EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setSublayerTransform(arbitraryTransform));
     EXECUTE_AND_VERIFY_SUBTREE_DID_NOT_CHANGE(root->setBounds(arbitrarySize));

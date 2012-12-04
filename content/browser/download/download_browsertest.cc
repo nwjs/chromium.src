@@ -7,7 +7,7 @@
 
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
+#include "base/files/scoped_temp_dir.h"
 #include "content/browser/download/download_file_factory.h"
 #include "content/browser/download/download_file_impl.h"
 #include "content/browser/download/download_item_impl.h"
@@ -236,10 +236,6 @@ void DownloadFileWithDelayFactory::WaitForSomeCallback() {
   }
 }
 
-bool WasPersisted(DownloadItem* item) {
-  return item->IsPersisted();
-}
-
 class CountingDownloadFile : public DownloadFileImpl {
  public:
   CountingDownloadFile(
@@ -455,7 +451,7 @@ class DownloadContentTest : public ContentBrowserTest {
   }
 
   // Location of the downloads directory for these tests
-  ScopedTempDir downloads_directory_;
+  base::ScopedTempDir downloads_directory_;
 };
 
 IN_PROC_BROWSER_TEST_F(DownloadContentTest, DownloadCancelled) {
@@ -471,10 +467,6 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, DownloadCancelled) {
   DownloadManagerForShell(shell())->GetAllDownloads(&downloads);
   ASSERT_EQ(1u, downloads.size());
   ASSERT_EQ(DownloadItem::IN_PROGRESS, downloads[0]->GetState());
-
-  // Wait for it to be persisted.
-  DownloadUpdatedObserver(
-      downloads[0], base::Bind(&WasPersisted)).WaitForEvent();
 
   // Cancel the download and wait for download system quiesce.
   downloads[0]->Delete(DownloadItem::DELETE_DUE_TO_USER_DISCARD);
@@ -658,9 +650,6 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, ShutdownInProgress) {
   DownloadManagerForShell(shell())->GetAllDownloads(&items);
   ASSERT_EQ(1u, items.size());
   EXPECT_EQ(DownloadItem::IN_PROGRESS, items[0]->GetState());
-
-  // Wait for it to be persisted.
-  DownloadUpdatedObserver(items[0], base::Bind(&WasPersisted)).WaitForEvent();
 
   // Shutdown the download manager and make sure we get the right
   // notifications in the right order.

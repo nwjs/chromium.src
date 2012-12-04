@@ -119,23 +119,21 @@ void InstallerState::Initialize(const CommandLine& command_line,
   const bool is_uninstall = command_line.HasSwitch(switches::kUninstall);
 
   if (prefs.install_chrome()) {
-    Product* p =
-        AddProductFromPreferences(BrowserDistribution::CHROME_BROWSER, prefs,
-                                  machine_state);
+    Product* p = AddProductFromPreferences(
+        BrowserDistribution::CHROME_BROWSER, prefs, machine_state);
     VLOG(1) << (is_uninstall ? "Uninstall" : "Install")
             << " distribution: " << p->distribution()->GetAppShortCutName();
   }
   if (prefs.install_chrome_frame()) {
-    Product* p =
-        AddProductFromPreferences(BrowserDistribution::CHROME_FRAME, prefs,
-                                  machine_state);
+    Product* p = AddProductFromPreferences(
+        BrowserDistribution::CHROME_FRAME, prefs, machine_state);
     VLOG(1) << (is_uninstall ? "Uninstall" : "Install")
             << " distribution: " << p->distribution()->GetAppShortCutName();
   }
+
   if (prefs.install_chrome_app_host()) {
-    Product* p =
-        AddProductFromPreferences(BrowserDistribution::CHROME_APP_HOST, prefs,
-                                  machine_state);
+    Product* p = AddProductFromPreferences(
+        BrowserDistribution::CHROME_APP_HOST, prefs, machine_state);
     VLOG(1) << (is_uninstall ? "Uninstall" : "Install")
             << " distribution: " << p->distribution()->GetAppShortCutName();
   }
@@ -167,10 +165,8 @@ void InstallerState::Initialize(const CommandLine& command_line,
 
     if (need_binaries && !FindProduct(BrowserDistribution::CHROME_BINARIES)) {
       // Force binaries to be installed/updated.
-      Product* p =
-          AddProductFromPreferences(BrowserDistribution::CHROME_BINARIES,
-                                    prefs,
-                                    machine_state);
+      Product* p = AddProductFromPreferences(
+          BrowserDistribution::CHROME_BINARIES, prefs, machine_state);
       VLOG(1) << "Install distribution: "
               << p->distribution()->GetAppShortCutName();
     }
@@ -178,19 +174,41 @@ void InstallerState::Initialize(const CommandLine& command_line,
 
   if (is_uninstall && prefs.is_multi_install()) {
     if (FindProduct(BrowserDistribution::CHROME_BROWSER)) {
-      const ProductState* chrome_frame_state = machine_state.GetProductState(
-          system_install(), BrowserDistribution::CHROME_FRAME);
+      // Uninstall each product of type |type| listed below based on the
+      // presence or absence of |switch_name| in that product's uninstall
+      // command.
+      const struct {
+        BrowserDistribution::Type type;
+        const char* switch_name;
+        bool switch_expected;
+      } conditional_additions[] = {
+        // If Chrome Frame is installed in Ready Mode, remove it with Chrome.
+        { BrowserDistribution::CHROME_FRAME,
+          switches::kChromeFrameReadyMode,
+          true },
+        // If the App Host is installed, but not the App Launcher, remove it
+        // with Chrome. Note however that for system-level Chrome uninstalls,
+        // any installed user-level App Host will remain even if there is no
+        // App Launcher present (the orphaned app_host.exe will prompt the user
+        // for further action when executed).
+        { BrowserDistribution::CHROME_APP_HOST,
+          switches::kChromeAppLauncher,
+          false },
+      };
 
-      if (chrome_frame_state != NULL &&
-          chrome_frame_state->uninstall_command().HasSwitch(
-              switches::kChromeFrameReadyMode) &&
-          !FindProduct(BrowserDistribution::CHROME_FRAME)) {
-        // Chrome Frame is installed in Ready Mode. Remove it along with Chrome.
-        Product* p = AddProductFromPreferences(
-            BrowserDistribution::CHROME_FRAME, prefs, machine_state);
-
-        VLOG(1) << "Uninstall distribution: "
-                << p->distribution()->GetAppShortCutName();
+      for (size_t i = 0; i < arraysize(conditional_additions); ++i) {
+        const ProductState* product_state = machine_state.GetProductState(
+            system_install(), conditional_additions[i].type);
+        if (product_state != NULL &&
+            product_state->uninstall_command().HasSwitch(
+                conditional_additions[i].switch_name) ==
+                    conditional_additions[i].switch_expected &&
+            !FindProduct(conditional_additions[i].type)) {
+          Product* p = AddProductFromPreferences(
+              conditional_additions[i].type, prefs, machine_state);
+          VLOG(1) << "Uninstall distribution: "
+                  << p->distribution()->GetAppShortCutName();
+        }
       }
     }
 
@@ -235,10 +253,11 @@ void InstallerState::Initialize(const CommandLine& command_line,
 
       // The product is being uninstalled.
     }
-    if (!keep_binaries) {
-      Product* p =
-          AddProductFromPreferences(BrowserDistribution::CHROME_BINARIES, prefs,
-                                    machine_state);
+    if (!keep_binaries &&
+        machine_state.GetProductState(system_install(),
+                                      BrowserDistribution::CHROME_BINARIES)) {
+      Product* p = AddProductFromPreferences(
+          BrowserDistribution::CHROME_BINARIES, prefs, machine_state);
       VLOG(1) << (is_uninstall ? "Uninstall" : "Install")
               << " distribution: " << p->distribution()->GetAppShortCutName();
     }
@@ -568,7 +587,8 @@ bool InstallerState::IsChromeFrameRunning(
     FilePath cf_install_path(
         target_path().AppendASCII(current_version->GetString())
                      .Append(kChromeFrameDll));
-    in_use = IsFileInUse(cf_install_path);
+    in_use = file_util::PathExists(cf_install_path) &&
+        IsFileInUse(cf_install_path);
   }
   return in_use;
 }
@@ -586,7 +606,6 @@ bool InstallerState::IsFileInUse(const FilePath& file) {
                                              GENERIC_WRITE, 0, NULL,
                                              OPEN_EXISTING, 0, 0)).IsValid();
 }
-
 
 void InstallerState::GetExistingExeVersions(
     std::set<std::string>* existing_versions) const {

@@ -158,8 +158,10 @@ bool AutofillAgent::OnMessageReceived(const IPC::Message& message) {
                         OnAcceptDataListSuggestion)
     IPC_MESSAGE_HANDLER(AutofillMsg_AcceptPasswordAutofillSuggestion,
                         OnAcceptPasswordAutofillSuggestion)
-    IPC_MESSAGE_HANDLER(AutofillMsg_RequestAutocompleteFinished,
-                        OnRequestAutocompleteFinished)
+    IPC_MESSAGE_HANDLER(AutofillMsg_RequestAutocompleteSuccess,
+                        OnRequestAutocompleteSuccess)
+    IPC_MESSAGE_HANDLER(AutofillMsg_RequestAutocompleteError,
+                        OnRequestAutocompleteError)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -208,10 +210,7 @@ void AutofillAgent::ZoomLevelChanged() {
 }
 
 void AutofillAgent::DidChangeScrollOffset(WebKit::WebFrame*) {
-  // Any time the scroll offset changes, the page's content moves, so Autofill
-  // popups should be hidden. This is only needed for the new Autofill UI
-  // because WebKit already knows to hide the old UI when this occurs.
-  HideHostPopups();
+  HidePopups();
 }
 
 void AutofillAgent::didRequestAutocomplete(WebKit::WebFrame* frame,
@@ -277,10 +276,6 @@ void AutofillAgent::didAcceptAutofillSuggestion(const WebNode& node,
       break;
     case WebAutofillClient::MenuItemIDAutocompleteEntry:
     case WebAutofillClient::MenuItemIDPasswordEntry:
-#if defined(OS_ANDROID)
-      // Clear the current IME composition (the underline), if there is one.
-      node.document().frame()->unmarkText();
-#endif
       // User selected an Autocomplete or password entry, so we fill directly.
       SetNodeText(value, &element_);
       break;
@@ -288,10 +283,6 @@ void AutofillAgent::didAcceptAutofillSuggestion(const WebNode& node,
       AcceptDataListSuggestion(value);
       break;
     default:
-#if defined(OS_ANDROID)
-      // Clear the current IME composition (the underline), if there is one.
-      node.document().frame()->unmarkText();
-#endif
       // A positive item_id is a unique id for an autofill (vs. autocomplete)
       // suggestion.
       DCHECK_GT(item_id, 0);
@@ -342,8 +333,8 @@ void AutofillAgent::textFieldDidEndEditing(const WebInputElement& element) {
 
 void AutofillAgent::textFieldDidChange(const WebInputElement& element) {
   if (did_set_node_text_) {
-      did_set_node_text_ = false;
-      return;
+    did_set_node_text_ = false;
+    return;
   }
 
   // We post a task for doing the Autofill as the caret position is not set
@@ -600,12 +591,20 @@ void AutofillAgent::OnAcceptPasswordAutofillSuggestion(const string16& value) {
   DCHECK(handled);
 }
 
-void AutofillAgent::OnRequestAutocompleteFinished(
+void AutofillAgent::FinishAutocompleteRequest(
     WebFormElement::AutocompleteResult result) {
   DCHECK(!in_flight_request_form_.isNull());
-
   in_flight_request_form_.finishRequestAutocomplete(result);
   in_flight_request_form_.reset();
+}
+
+void AutofillAgent::OnRequestAutocompleteSuccess(const FormData& form_data) {
+  FillFormIncludingNonFocusableElements(form_data, in_flight_request_form_);
+  FinishAutocompleteRequest(WebFormElement::AutocompleteResultSuccess);
+}
+
+void AutofillAgent::OnRequestAutocompleteError() {
+  FinishAutocompleteRequest(WebFormElement::AutocompleteResultError);
 }
 
 void AutofillAgent::ShowSuggestions(const WebInputElement& element,

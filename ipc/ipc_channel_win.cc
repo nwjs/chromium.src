@@ -16,6 +16,7 @@
 #include "base/threading/thread_checker.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
+#include "ipc/ipc_listener.h"
 #include "ipc/ipc_logging.h"
 #include "ipc/ipc_message_utils.h"
 
@@ -419,7 +420,8 @@ void Channel::ChannelImpl::OnIOCompleted(MessageLoopForIO::IOContext* context,
 
     // We don't support recursion through OnMessageReceived yet!
     DCHECK(!processing_incoming_);
-    AutoReset<bool> auto_reset_processing_incoming(&processing_incoming_, true);
+    base::AutoReset<bool> auto_reset_processing_incoming(
+        &processing_incoming_, true);
 
     // Process the new data.
     if (input_state_.is_pending) {

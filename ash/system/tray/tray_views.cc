@@ -7,6 +7,7 @@
 #include "ash/ash_constants.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_item_view.h"
+#include "base/i18n/rtl.h"
 #include "grit/ash_resources.h"
 #include "grit/ash_strings.h"
 #include "grit/ui_resources.h"
@@ -16,7 +17,12 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/text_constants.h"
+#include "ui/gfx/vector2d.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/border.h"
+#include "ui/views/controls/button/border_images.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
@@ -30,8 +36,10 @@ namespace internal {
 namespace {
 const int kIconPaddingLeft = 5;
 const int kPopupDetailLabelExtraLeftMargin = 8;
-const int kPaddingAroundButtons = 5;
 const int kCheckLabelPadding = 4;
+const int kSpecialPopupRowHeight = 55;
+const int kTrayPopupLabelButtonPaddingHorizontal = 16;
+const int kTrayPopupLabelButtonPaddingVertical = 8;
 
 const int kBarImagesActive[] = {
     IDR_SLIDER_ACTIVE_LEFT,
@@ -43,6 +51,29 @@ const int kBarImagesDisabled[] = {
     IDR_SLIDER_DISABLED_LEFT,
     IDR_SLIDER_DISABLED_CENTER,
     IDR_SLIDER_DISABLED_RIGHT,
+};
+
+const int kTrayPopupLabelButtonBorderImagesNormal[] = {
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_NORMAL_BACKGROUND,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_NORMAL_BACKGROUND,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_NORMAL_BACKGROUND,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_NORMAL_BACKGROUND,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_NORMAL_BACKGROUND,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_NORMAL_BACKGROUND,
+};
+const int kTrayPopupLabelButtonBorderImagesHovered[] = {
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_HOVER_BACKGROUND,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
+    IDR_AURA_TRAY_POPUP_LABEL_BUTTON_BORDER,
 };
 
 views::View* CreatePopupHeaderButtonsContainer() {
@@ -72,8 +103,8 @@ class SpecialPopupRowBorder : public views::Border {
         gfx::Rect(gfx::Size(view.width(), kBorderHeight)));
   }
 
-  virtual void GetInsets(gfx::Insets* insets) const OVERRIDE {
-    insets->Set(kBorderHeight, 0, 0, 0);
+  virtual gfx::Insets GetInsets() const OVERRIDE {
+    return gfx::Insets(kBorderHeight, 0, 0, 0);
   }
 
   scoped_ptr<views::Painter> painter_;
@@ -151,12 +182,9 @@ void ActionableView::OnPaintFocusBorder(gfx::Canvas* canvas) {
     DrawBorder(canvas, GetLocalBounds());
 }
 
-ui::EventResult ActionableView::OnGestureEvent(ui::GestureEvent* event) {
-  if (event->type() == ui::ET_GESTURE_TAP) {
-    return PerformAction(*event) ? ui::ER_CONSUMED :
-                                  ui::ER_UNHANDLED;
-  }
-  return ui::ER_UNHANDLED;
+void ActionableView::OnGestureEvent(ui::GestureEvent* event) {
+  if (event->type() == ui::ET_GESTURE_TAP && PerformAction(*event))
+    event->SetHandled();
 }
 
 void ActionableView::GetAccessibleState(ui::AccessibleViewState* state) {
@@ -193,6 +221,7 @@ void HoverHighlightView::AddIconAndLabel(const gfx::ImageSkia& image,
   AddChildView(image_view);
 
   text_label_ = new views::Label(text);
+  text_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   text_label_->SetFont(text_label_->font().DeriveFont(0, style));
   if (text_default_color_)
     text_label_->SetEnabledColor(text_default_color_);
@@ -201,8 +230,8 @@ void HoverHighlightView::AddIconAndLabel(const gfx::ImageSkia& image,
   SetAccessibleName(text);
 }
 
-void HoverHighlightView::AddLabel(const string16& text,
-                                  gfx::Font::FontStyle style) {
+views::Label* HoverHighlightView::AddLabel(const string16& text,
+                                           gfx::Font::FontStyle style) {
   SetLayoutManager(new views::FillLayout());
   text_label_ = new views::Label(text);
   int margin = kTrayPopupPaddingHorizontal + kPopupDetailLabelExtraLeftMargin;
@@ -222,11 +251,12 @@ void HoverHighlightView::AddLabel(const string16& text,
   AddChildView(text_label_);
 
   SetAccessibleName(text);
+  return text_label_;
 }
 
-void HoverHighlightView::AddCheckableLabel(const string16& text,
-                                           gfx::Font::FontStyle style,
-                                           bool checked) {
+views::Label* HoverHighlightView::AddCheckableLabel(const string16& text,
+                                                    gfx::Font::FontStyle style,
+                                                    bool checked) {
   if (checked) {
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
     const gfx::ImageSkia* check =
@@ -241,14 +271,17 @@ void HoverHighlightView::AddCheckableLabel(const string16& text,
     AddChildView(image_view);
 
     text_label_ = new views::Label(text);
+    text_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     text_label_->SetFont(text_label_->font().DeriveFont(0, style));
+    text_label_->SetDisabledColor(SkColorSetARGB(127, 0, 0, 0));
     if (text_default_color_)
       text_label_->SetEnabledColor(text_default_color_);
     AddChildView(text_label_);
 
     SetAccessibleName(text);
+    return text_label_;
   } else {
-    AddLabel(text, style);
+    return AddLabel(text, style);
   }
 }
 
@@ -357,93 +390,79 @@ void FixedSizedScrollView::OnPaintFocusBorder(gfx::Canvas* canvas) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// TrayPopupTextButton
+// TrayPopupLabelButtonBorder
 
-TrayPopupTextButton::TrayPopupTextButton(views::ButtonListener* listener,
-                                         const string16& text)
-    : views::TextButton(listener, text),
-      hover_(false),
-      hover_bg_(views::Background::CreateSolidBackground(SkColorSetARGB(
-             10, 0, 0, 0))),
-      hover_border_(views::Border::CreateSolidBorder(1, kButtonStrokeColor)) {
-  set_alignment(ALIGN_CENTER);
-  set_border(NULL);
-  set_focusable(true);
-  set_request_focus_on_press(false);
+TrayPopupLabelButtonBorder::TrayPopupLabelButtonBorder() {
+  SetImages(views::CustomButton::STATE_NORMAL,
+            views::BorderImages(kTrayPopupLabelButtonBorderImagesNormal));
+  SetImages(views::CustomButton::STATE_HOVERED,
+            views::BorderImages(kTrayPopupLabelButtonBorderImagesHovered));
+  SetImages(views::CustomButton::STATE_PRESSED,
+            views::BorderImages(kTrayPopupLabelButtonBorderImagesHovered));
 }
 
-TrayPopupTextButton::~TrayPopupTextButton() {}
+TrayPopupLabelButtonBorder::~TrayPopupLabelButtonBorder() {}
 
-gfx::Size TrayPopupTextButton::GetPreferredSize() {
-  gfx::Size size = views::TextButton::GetPreferredSize();
-  size.Enlarge(32, 16);
-  return size;
-}
-
-void TrayPopupTextButton::OnMouseEntered(const ui::MouseEvent& event) {
-  hover_ = true;
-  SchedulePaint();
-}
-
-void TrayPopupTextButton::OnMouseExited(const ui::MouseEvent& event) {
-  hover_ = false;
-  SchedulePaint();
-}
-
-void TrayPopupTextButton::OnPaintBackground(gfx::Canvas* canvas) {
-  if (hover_)
-    hover_bg_->Paint(canvas, this);
-  else
-    views::TextButton::OnPaintBackground(canvas);
-}
-
-void TrayPopupTextButton::OnPaintBorder(gfx::Canvas* canvas) {
-  if (hover_) {
-    hover_border_->Paint(*this, canvas);
-  } else {
-    // Do not draw button border if it is the left most visible button
-    // in parent view.
-    for (int i = 0; i < parent()->child_count(); ++i) {
-      views::View* child = parent()->child_at(i);
+void TrayPopupLabelButtonBorder::Paint(const views::View& view,
+                                       gfx::Canvas* canvas) {
+  const views::NativeThemeDelegate* native_theme_delegate =
+      static_cast<const views::LabelButton*>(&view);
+  ui::NativeTheme::ExtraParams extra;
+  const ui::NativeTheme::State state =
+      native_theme_delegate->GetThemeState(&extra);
+  if (state == ui::NativeTheme::kNormal) {
+    // In normal state, the border is a vertical bar separating the button from
+    // the preceding sibling. If this button is its parent's first visible
+    // child, the separator bar should be omitted.
+    const views::View* first_visible_child = NULL;
+    for (int i = 0; i < view.parent()->child_count(); ++i) {
+      const views::View* child = view.parent()->child_at(i);
       if (child->visible()) {
-        if (child != this)
-          views::TextButton::OnPaintBorder(canvas);
-        return;
+        first_visible_child = child;
+        break;
       }
     }
-    NOTREACHED();
+    if (first_visible_child == &view)
+      return;
+  }
+  if (base::i18n::IsRTL()) {
+    canvas->Save();
+    canvas->Translate(gfx::Vector2d(view.width(), 0));
+    canvas->Scale(-1, 1);
+    LabelButtonBorder::Paint(view, canvas);
+    canvas->Restore();
+  } else {
+    LabelButtonBorder::Paint(view, canvas);
   }
 }
 
-void TrayPopupTextButton::OnPaintFocusBorder(gfx::Canvas* canvas) {
+gfx::Insets TrayPopupLabelButtonBorder::GetInsets() const {
+  return gfx::Insets(kTrayPopupLabelButtonPaddingVertical,
+                     kTrayPopupLabelButtonPaddingHorizontal,
+                     kTrayPopupLabelButtonPaddingVertical,
+                     kTrayPopupLabelButtonPaddingHorizontal);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// TrayPopupLabelButton
+
+TrayPopupLabelButton::TrayPopupLabelButton(views::ButtonListener* listener,
+                                           const string16& text)
+    : views::LabelButton(listener, text) {
+  set_border(new TrayPopupLabelButtonBorder);
+  set_focusable(true);
+  set_request_focus_on_press(false);
+  set_animate_on_state_change(false);
+  SetHorizontalAlignment(gfx::ALIGN_CENTER);
+}
+
+TrayPopupLabelButton::~TrayPopupLabelButton() {}
+
+void TrayPopupLabelButton::OnPaintFocusBorder(gfx::Canvas* canvas) {
   if (HasFocus() && (focusable() || IsAccessibilityFocusable())) {
     canvas->DrawRect(gfx::Rect(1, 1, width() - 3, height() - 3),
                      ash::kFocusBorderColor);
   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// TrayPopupTextButtonContainer
-
-TrayPopupTextButtonContainer::TrayPopupTextButtonContainer() {
-  layout_ = new
-    views::BoxLayout(views::BoxLayout::kHorizontal,
-        kPaddingAroundButtons,
-        kPaddingAroundButtons,
-        -1);
-  layout_->set_spread_blank_space(true);
-  SetLayoutManager(layout_);
-}
-
-TrayPopupTextButtonContainer::~TrayPopupTextButtonContainer() {
-}
-
-void TrayPopupTextButtonContainer::AddTextButton(TrayPopupTextButton* button) {
-  if (has_children() && !button->border()) {
-    button->set_border(views::Border::CreateSolidSidedBorder(0, 1, 0, 0,
-        kButtonStrokeColor));
-  }
-  AddChildView(button);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -457,13 +476,13 @@ TrayPopupHeaderButton::TrayPopupHeaderButton(views::ButtonListener* listener,
                                              int accessible_name_id)
     : views::ToggleImageButton(listener) {
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-  SetImage(views::CustomButton::BS_NORMAL,
+  SetImage(views::CustomButton::STATE_NORMAL,
       bundle.GetImageNamed(enabled_resource_id).ToImageSkia());
-  SetToggledImage(views::CustomButton::BS_NORMAL,
+  SetToggledImage(views::CustomButton::STATE_NORMAL,
       bundle.GetImageNamed(disabled_resource_id).ToImageSkia());
-  SetImage(views::CustomButton::BS_HOT,
+  SetImage(views::CustomButton::STATE_HOVERED,
       bundle.GetImageNamed(enabled_resource_id_hover).ToImageSkia());
-  SetToggledImage(views::CustomButton::BS_HOT,
+  SetToggledImage(views::CustomButton::STATE_HOVERED,
       bundle.GetImageNamed(disabled_resource_id_hover).ToImageSkia());
   SetImageAlignment(views::ImageButton::ALIGN_CENTER,
                     views::ImageButton::ALIGN_MIDDLE);
@@ -639,9 +658,8 @@ void SpecialPopupRow::AddButton(TrayPopupHeaderButton* button) {
 }
 
 gfx::Size SpecialPopupRow::GetPreferredSize() {
-  const int kFixedHeight = 55;
   gfx::Size size = views::View::GetPreferredSize();
-  size.set_height(kFixedHeight);
+  size.set_height(kSpecialPopupRowHeight);
   return size;
 }
 

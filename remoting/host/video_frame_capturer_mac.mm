@@ -10,6 +10,7 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <OpenGL/CGLMacro.h>
 #include <OpenGL/OpenGL.h>
+#include <set>
 #include <stddef.h>
 
 #include "base/logging.h"
@@ -55,7 +56,7 @@ SkIRect CGRectToSkIRect(const CGRect& rect) {
 }
 
 // The amount of time allowed for displays to reconfigure.
-const int64 kDisplayReconfigurationTimeoutInSeconds = 10;
+const int64 kDisplayConfigurationEventTimeoutInSeconds = 10;
 
 // A class representing a full-frame pixel buffer.
 class VideoFrameMac : public VideoFrame {
@@ -88,7 +89,7 @@ class VideoFrameCapturerMac : public VideoFrameCapturer {
   virtual void Stop() OVERRIDE;
   virtual media::VideoFrame::Format pixel_format() const OVERRIDE;
   virtual void InvalidateRegion(const SkRegion& invalid_region) OVERRIDE;
-  virtual void CaptureInvalidRegion() OVERRIDE;
+  virtual void CaptureFrame() OVERRIDE;
   virtual const SkISize& size_most_recent() const OVERRIDE;
 
  private:
@@ -146,9 +147,13 @@ class VideoFrameCapturerMac : public VideoFrameCapturer {
   // Format of pixels returned in buffer.
   media::VideoFrame::Format pixel_format_;
 
-  // Acts as a critical section around our display configuration data
-  // structures. Specifically cgl_context_ and pixel_buffer_object_.
+  // Used to ensure that frame captures do not take place while displays
+  // are being reconfigured.
   base::WaitableEvent display_configuration_capture_event_;
+
+  // Records the Ids of attached displays which are being reconfigured.
+  // Accessed on the thread on which we are notified of display events.
+  std::set<CGDirectDisplayID> reconfiguring_displays_;
 
   // Power management assertion to prevent the screen from sleeping.
   IOPMAssertionID power_assertion_id_display_;
@@ -289,13 +294,20 @@ void VideoFrameCapturerMac::InvalidateRegion(const SkRegion& invalid_region) {
   helper_.InvalidateRegion(invalid_region);
 }
 
-void VideoFrameCapturerMac::CaptureInvalidRegion() {
+void VideoFrameCapturerMac::CaptureFrame() {
   // Only allow captures when the display configuration is not occurring.
   scoped_refptr<CaptureData> data;
 
-  // Critical section shared with DisplaysReconfigured(...).
+  base::Time capture_start_time = base::Time::Now();
+
+  // Wait until the display configuration is stable. If one or more displays
+  // are reconfiguring then |display_configuration_capture_event_| will not be
+  // set until the reconfiguration completes.
+  // TODO(wez): Replace this with an early-exit (See crbug.com/104542).
   CHECK(display_configuration_capture_event_.TimedWait(
-      base::TimeDelta::FromSeconds(kDisplayReconfigurationTimeoutInSeconds)));
+      base::TimeDelta::FromSeconds(
+          kDisplayConfigurationEventTimeoutInSeconds)));
+
   SkRegion region;
   helper_.SwapInvalidRegion(&region);
 
@@ -342,11 +354,19 @@ void VideoFrameCapturerMac::CaptureInvalidRegion() {
   data->mutable_dirty_region() = region;
 
   helper_.set_size_most_recent(data->size());
+
+  // Signal that we are done capturing data from the display framebuffer,
+  // and accessing display structures.
   display_configuration_capture_event_.Signal();
 
+  // Capture the current cursor shape and notify |delegate_| if it has changed.
   CaptureCursor();
 
+  // Move the capture frame buffer queue on to the next buffer.
   queue_.DoneWithCurrentFrame();
+
+  data->set_capture_time_ms(
+      (base::Time::Now() - capture_start_time).InMillisecondsRoundedUp());
   delegate_->OnCaptureCompleted(data);
 }
 
@@ -764,17 +784,24 @@ void VideoFrameCapturerMac::ScreenUpdateMove(CGScreenUpdateMoveDelta delta,
 void VideoFrameCapturerMac::DisplaysReconfigured(
     CGDirectDisplayID display,
     CGDisplayChangeSummaryFlags flags) {
-  if (display == CGMainDisplayID()) {
-    if (flags & kCGDisplayBeginConfigurationFlag) {
-      // Wait on |display_configuration_capture_event_| to prevent more
-      // captures from occurring on a different thread while the displays
-      // are being reconfigured.
+  if (flags & kCGDisplayBeginConfigurationFlag) {
+    if (reconfiguring_displays_.empty()) {
+      // If this is the first display to start reconfiguring then wait on
+      // |display_configuration_capture_event_| to block the capture thread
+      // from accessing display memory until the reconfiguration completes.
       CHECK(display_configuration_capture_event_.TimedWait(
                 base::TimeDelta::FromSeconds(
-                    kDisplayReconfigurationTimeoutInSeconds)));
-    } else {
+                    kDisplayConfigurationEventTimeoutInSeconds)));
+    }
+
+    reconfiguring_displays_.insert(display);
+  } else {
+    reconfiguring_displays_.erase(display);
+
+    if (reconfiguring_displays_.empty()) {
+      // If no other displays are reconfiguring then refresh capturer data
+      // structures and un-block the capturer thread.
       ScreenConfigurationChanged();
-      // Now that the configuration has changed, signal the event.
       display_configuration_capture_event_.Signal();
     }
   }
@@ -813,13 +840,18 @@ void VideoFrameCapturerMac::DisplaysReconfiguredCallback(
 }  // namespace
 
 // static
-VideoFrameCapturer* VideoFrameCapturer::Create() {
-  VideoFrameCapturerMac* capturer = new VideoFrameCapturerMac();
-  if (!capturer->Init()) {
-    delete capturer;
-    capturer = NULL;
-  }
-  return capturer;
+scoped_ptr<VideoFrameCapturer> VideoFrameCapturer::Create() {
+  scoped_ptr<VideoFrameCapturerMac> capturer(new VideoFrameCapturerMac());
+  if (!capturer->Init())
+    capturer.reset();
+  return capturer.PassAs<VideoFrameCapturer>();
+}
+
+// static
+scoped_ptr<VideoFrameCapturer> VideoFrameCapturer::CreateWithFactory(
+    SharedBufferFactory* shared_buffer_factory) {
+  NOTIMPLEMENTED();
+  return scoped_ptr<VideoFrameCapturer>();
 }
 
 }  // namespace remoting

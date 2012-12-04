@@ -44,16 +44,11 @@ class PPB_Flash_Impl : public ::ppapi::PPB_Flash_Shared {
                            const ::ppapi::URLRequestInfoData& data,
                            const char* target,
                            PP_Bool from_user_action) OVERRIDE;
-  virtual void RunMessageLoop(PP_Instance instance) OVERRIDE;
-  virtual void QuitMessageLoop(PP_Instance instance) OVERRIDE;
   virtual double GetLocalTimeZoneOffset(PP_Instance instance,
                                         PP_Time t) OVERRIDE;
   virtual PP_Bool IsRectTopmost(PP_Instance instance,
                                 const PP_Rect* rect) OVERRIDE;
   virtual void UpdateActivity(PP_Instance instance) OVERRIDE;
-  virtual PP_Var GetDeviceID(PP_Instance instance) OVERRIDE;
-  virtual int32_t GetSettingInt(PP_Instance instance,
-                                PP_FlashSetting setting) OVERRIDE;
   virtual PP_Var GetSetting(PP_Instance instance,
                             PP_FlashSetting setting) OVERRIDE;
   virtual PP_Bool SetCrashData(PP_Instance instance,
@@ -87,11 +82,6 @@ class PPB_Flash_Impl : public ::ppapi::PPB_Flash_Shared {
   virtual int32_t QueryFileRef(PP_Instance instance,
                                PP_Resource file_ref,
                                PP_FileInfo* info) OVERRIDE;
-  virtual PP_Bool FlashIsFullscreen(PP_Instance instance) OVERRIDE;
-  virtual PP_Bool FlashSetFullscreen(PP_Instance instance,
-                                     PP_Bool fullscreen) OVERRIDE;
-  virtual PP_Bool FlashGetScreenSize(PP_Instance instance,
-                                     PP_Size* size) OVERRIDE;
 
  private:
   PluginInstance* instance_;

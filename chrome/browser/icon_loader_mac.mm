@@ -34,8 +34,10 @@ void IconLoader::ReadIcon() {
         NOTREACHED();
     }
     gfx::ImageSkia image_skia(gfx::ImageSkiaFromResizedNSImage(icon, size));
-    image_skia.MakeThreadSafe();
-    image_.reset(new gfx::Image(image_skia));
+    if (!image_skia.isNull()) {
+      image_skia.MakeThreadSafe();
+      image_.reset(new gfx::Image(image_skia));
+    }
   }
 
   target_message_loop_->PostTask(FROM_HERE,

@@ -72,7 +72,7 @@
     "extension_types": ["extension", "packaged_app"]
   },
   "commands": {
-    "channel": "beta",
+    "channel": "stable",
     "extension_types": ["extension", "packaged_app", "platform_app"],
     "min_manifest_version": 2
   },
@@ -241,6 +241,10 @@
   "signature": {
     "channel": "stable",
     "extension_types": "all"
+  },
+  "system_indicator": {
+    "channel": "dev",
+    "extension_types": ["extension", "packaged_app", "platform_app"]
   },
   "theme": {
     "channel": "stable",

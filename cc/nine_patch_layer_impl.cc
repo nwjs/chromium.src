@@ -60,13 +60,34 @@ void NinePatchLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& append
     int rightWidth = m_imageBounds.width() - m_imageAperture.right();
     int bottomHeight = m_imageBounds.height() - m_imageAperture.bottom();
 
+    // If layer can't fit the corners, clip to show the outer edges of the
+    // image.
+    int cornerTotalWidth = leftWidth + rightWidth;
+    int middleWidth = bounds().width() - cornerTotalWidth;
+    if (middleWidth < 0) {
+        float leftWidthProportion = static_cast<float>(leftWidth) / cornerTotalWidth;
+        int leftWidthCrop = middleWidth * leftWidthProportion;
+        leftWidth += leftWidthCrop;
+        rightWidth = bounds().width() - leftWidth;
+        middleWidth = 0;
+    }
+    int cornerTotalHeight = topHeight + bottomHeight;
+    int middleHeight = bounds().height() - cornerTotalHeight;
+    if (middleHeight < 0) {
+        float topHeightProportion = static_cast<float>(topHeight) / cornerTotalHeight;
+        int topHeightCrop = middleHeight * topHeightProportion;
+        topHeight += topHeightCrop;
+        bottomHeight = bounds().height() - topHeight;
+        middleHeight = 0;
+    }
+
     // Patch positions in layer space
     gfx::Rect topLeft(0, 0, leftWidth, topHeight);
     gfx::Rect topRight(bounds().width() - rightWidth, 0, rightWidth, topHeight);
     gfx::Rect bottomLeft(0, bounds().height() - bottomHeight, leftWidth, bottomHeight);
     gfx::Rect bottomRight(topRight.x(), bottomLeft.y(), rightWidth, bottomHeight);
-    gfx::Rect top(topLeft.right(), 0, bounds().width() - leftWidth - rightWidth, topHeight);
-    gfx::Rect left(0, topLeft.bottom(), leftWidth, bounds().height() - topHeight - bottomHeight);
+    gfx::Rect top(topLeft.right(), 0, middleWidth, topHeight);
+    gfx::Rect left(0, topLeft.bottom(), leftWidth, middleHeight);
     gfx::Rect right(topRight.x(), topRight.bottom(), rightWidth, left.height());
     gfx::Rect bottom(top.x(), bottomLeft.y(), top.width(), bottomHeight);
 
@@ -83,14 +104,42 @@ void NinePatchLayerImpl::appendQuads(QuadSink& quadSink, AppendQuadsData& append
     gfx::RectF uvRight(uvTopRight.x(), uvTopRight.bottom(), rightWidth / imgWidth, uvLeft.height());
     gfx::RectF uvBottom(uvTop.x(), uvBottomLeft.y(), uvTop.width(), bottomHeight / imgHeight);
 
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, topLeft, m_resourceId, premultipliedAlpha, uvTopLeft, flipped).PassAs<DrawQuad>(), appendQuadsData);
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, topRight, m_resourceId, premultipliedAlpha, uvTopRight, flipped).PassAs<DrawQuad>(), appendQuadsData);
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, bottomLeft, m_resourceId, premultipliedAlpha, uvBottomLeft, flipped).PassAs<DrawQuad>(), appendQuadsData);
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, bottomRight, m_resourceId, premultipliedAlpha, uvBottomRight, flipped).PassAs<DrawQuad>(), appendQuadsData);
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, top, m_resourceId, premultipliedAlpha, uvTop, flipped).PassAs<DrawQuad>(), appendQuadsData);
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, left, m_resourceId, premultipliedAlpha, uvLeft, flipped).PassAs<DrawQuad>(), appendQuadsData);
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, right, m_resourceId, premultipliedAlpha, uvRight, flipped).PassAs<DrawQuad>(), appendQuadsData);
-    quadSink.append(TextureDrawQuad::create(sharedQuadState, bottom, m_resourceId, premultipliedAlpha, uvBottom, flipped).PassAs<DrawQuad>(), appendQuadsData);
+    // Nothing is opaque here.
+    // TODO(danakj): Should we look at the SkBitmaps to determine opaqueness?
+    gfx::Rect opaqueRect;
+    scoped_ptr<TextureDrawQuad> quad;
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, topLeft, opaqueRect, m_resourceId, premultipliedAlpha, uvTopLeft, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, topRight, opaqueRect, m_resourceId, premultipliedAlpha, uvTopRight, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, bottomLeft, opaqueRect, m_resourceId, premultipliedAlpha, uvBottomLeft, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, bottomRight, opaqueRect, m_resourceId, premultipliedAlpha, uvBottomRight, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, top, opaqueRect, m_resourceId, premultipliedAlpha, uvTop, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, left, opaqueRect, m_resourceId, premultipliedAlpha, uvLeft, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, right, opaqueRect, m_resourceId, premultipliedAlpha, uvRight, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
+
+    quad = TextureDrawQuad::Create();
+    quad->SetNew(sharedQuadState, bottom, opaqueRect, m_resourceId, premultipliedAlpha, uvBottom, flipped);
+    quadSink.append(quad.PassAs<DrawQuad>(), appendQuadsData);
 }
 
 void NinePatchLayerImpl::didDraw(ResourceProvider* resourceProvider)

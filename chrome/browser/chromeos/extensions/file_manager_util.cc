@@ -25,6 +25,7 @@
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -100,7 +101,7 @@ const char* kBrowserSupportedExtensions[] = {
     ".pdf",
 #endif
     ".bmp", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".txt", ".html", ".htm",
-    ".mhtml", ".mht"
+    ".mhtml", ".mht", ".svg"
 };
 
 // Keep in sync with 'open-hosted' task handler in the File Browser manifest.
@@ -341,7 +342,7 @@ GURL GetFileBrowserUrlWithParams(
       ListValue* extensions_list = new ListValue();
       for (size_t j = 0; j < file_types->extensions[i].size(); ++j) {
         extensions_list->Append(
-            Value::CreateStringValue(file_types->extensions[i][j]));
+            new base::StringValue(file_types->extensions[i][j]));
       }
 
       DictionaryValue* dict = new DictionaryValue();
@@ -515,7 +516,8 @@ void OpenFileBrowser(const FilePath& path,
     url += "#/" + net::EscapeUrlEncodedData(virtual_path.value(), false);
   }
 
-  ExtensionService* service = profile->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile)->extension_service();
   if (!service)
     return;
 
@@ -612,7 +614,8 @@ bool ExecuteDefaultHandler(Profile* profile, const FilePath& path) {
 
   std::string extension_id = handler->extension_id();
   std::string action_id = handler->id();
-  Browser* browser = chrome::FindLastActiveWithProfile(profile);
+  Browser* browser = chrome::FindLastActiveWithProfile(profile,
+      chrome::HOST_DESKTOP_TYPE_ASH);
 
   // If there is no browsers for the profile, bail out. Return true so warning
   // about file type not being supported is not displayed.
@@ -766,7 +769,8 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
           GetFileBrowserExtensionUrl().GetOrigin(), &url))
         return false;
 
-      ExtensionService* service = profile->GetExtensionService();
+      ExtensionService* service =
+        extensions::ExtensionSystem::Get(profile)->extension_service();
       if (!service)
         return false;
 
@@ -811,7 +815,8 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
 }
 
 void InstallCRX(Browser* browser, const FilePath& path) {
-  ExtensionService* service = browser->profile()->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(browser->profile())->extension_service();
   CHECK(service);
 
   content::WebContents* web_contents =

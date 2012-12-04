@@ -320,7 +320,6 @@ void Network::SetState(ConnectionState new_state) {
   } else if (new_state != STATE_UNKNOWN) {
     notify_failure_ = false;
     // State changed, so refresh IP address.
-    // Note: blocking DBus call. TODO(stevenjb): refactor this.
     InitIPAddress();
   }
   VLOG(1) << name() << ".State [" << service_path() << "]: " << GetStateString()
@@ -360,12 +359,11 @@ bool Network::RequiresUserProfile() const {
 void Network::CopyCredentialsFromRemembered(Network* remembered) {
 }
 
-void Network::SetValueProperty(const char* prop, Value* value) {
+void Network::SetValueProperty(const char* prop, const base::Value& value) {
   DCHECK(prop);
-  DCHECK(value);
   if (!EnsureCrosLoaded())
     return;
-  CrosSetNetworkServiceProperty(service_path_, prop, *value);
+  CrosSetNetworkServiceProperty(service_path_, prop, value);
 }
 
 void Network::ClearProperty(const char* prop) {
@@ -379,8 +377,7 @@ void Network::SetStringProperty(
     const char* prop, const std::string& str, std::string* dest) {
   if (dest)
     *dest = str;
-  scoped_ptr<Value> value(Value::CreateStringValue(str));
-  SetValueProperty(prop, value.get());
+  SetValueProperty(prop, base::StringValue(str));
 }
 
 void Network::SetOrClearStringProperty(const char* prop,
@@ -398,15 +395,13 @@ void Network::SetOrClearStringProperty(const char* prop,
 void Network::SetBooleanProperty(const char* prop, bool b, bool* dest) {
   if (dest)
     *dest = b;
-  scoped_ptr<Value> value(Value::CreateBooleanValue(b));
-  SetValueProperty(prop, value.get());
+  SetValueProperty(prop, base::FundamentalValue(b));
 }
 
 void Network::SetIntegerProperty(const char* prop, int i, int* dest) {
   if (dest)
     *dest = i;
-  scoped_ptr<Value> value(Value::CreateIntegerValue(i));
-  SetValueProperty(prop, value.get());
+  SetValueProperty(prop, base::FundamentalValue(i));
 }
 
 void Network::SetPreferred(bool preferred) {
@@ -513,17 +508,28 @@ void Network::InitIPAddress() {
   ip_address_.clear();
   if (!EnsureCrosLoaded())
     return;
-  // If connected, get ip config.
+  // If connected, get IPConfig.
   if (connected() && !device_path_.empty()) {
-    NetworkIPConfigVector ipconfigs;
-    if (CrosListIPConfigs(device_path_, &ipconfigs, NULL, NULL)) {
-      for (size_t i = 0; i < ipconfigs.size(); ++i) {
-        const NetworkIPConfig& ipconfig = ipconfigs[i];
-        if (ipconfig.address.size() > 0) {
-          ip_address_ = ipconfig.address;
-          break;
-        }
-      }
+    CrosListIPConfigs(device_path_,
+                      base::Bind(&Network::InitIPAddressCallback,
+                                 service_path_));
+  }
+}
+
+// static
+void Network::InitIPAddressCallback(
+    const std::string& service_path,
+    const NetworkIPConfigVector& ip_configs,
+    const std::string& hardware_address) {
+  Network* network =
+      CrosLibrary::Get()->GetNetworkLibrary()->FindNetworkByPath(service_path);
+  if (!network)
+    return;
+  for (size_t i = 0; i < ip_configs.size(); ++i) {
+    const NetworkIPConfig& ipconfig = ip_configs[i];
+    if (ipconfig.address.size() > 0) {
+      network->ip_address_ = ipconfig.address;
+      break;
     }
   }
 }
@@ -839,8 +845,7 @@ CellularNetwork::CellularNetwork(const std::string& service_path)
       activation_state_(ACTIVATION_STATE_UNKNOWN),
       network_technology_(NETWORK_TECHNOLOGY_UNKNOWN),
       roaming_state_(ROAMING_STATE_UNKNOWN),
-      using_post_(false),
-      data_left_(DATA_UNKNOWN) {
+      using_post_(false) {
 }
 
 CellularNetwork::~CellularNetwork() {
@@ -858,13 +863,6 @@ bool CellularNetwork::StartActivation() {
   return true;
 }
 
-void CellularNetwork::RefreshDataPlansIfNeeded() const {
-  if (!EnsureCrosLoaded())
-    return;
-  if (connected() && activated())
-    CrosRequestCellularDataPlanUpdate(service_path());
-}
-
 void CellularNetwork::SetApn(const CellularApn& apn) {
   if (!apn.apn.empty()) {
     DictionaryValue value;
@@ -874,25 +872,19 @@ void CellularNetwork::SetApn(const CellularApn& apn) {
     value.SetString(flimflam::kApnNetworkIdProperty, apn.network_id);
     value.SetString(flimflam::kApnUsernameProperty, apn.username);
     value.SetString(flimflam::kApnPasswordProperty, apn.password);
-    SetValueProperty(flimflam::kCellularApnProperty, &value);
+    SetValueProperty(flimflam::kCellularApnProperty, value);
   } else {
     ClearProperty(flimflam::kCellularApnProperty);
   }
 }
 
 bool CellularNetwork::SupportsActivation() const {
-  return SupportsDataPlan();
+  return !usage_url().empty() || !payment_url().empty();
 }
 
 bool CellularNetwork::NeedsActivation() const {
   return (activation_state() != ACTIVATION_STATE_ACTIVATED &&
-          activation_state() != ACTIVATION_STATE_UNKNOWN) ||
-          needs_new_plan();
-}
-
-bool CellularNetwork::SupportsDataPlan() const {
-  // TODO(nkostylev): Are there cases when only one of this is defined?
-  return !usage_url().empty() || !payment_url().empty();
+          activation_state() != ACTIVATION_STATE_UNKNOWN);
 }
 
 GURL CellularNetwork::GetAccountInfoUrl() const {
@@ -1313,8 +1305,7 @@ void WifiNetwork::MatchCertificatePattern(bool allow_enroll,
 
 WimaxNetwork::WimaxNetwork(const std::string& service_path)
     : WirelessNetwork(service_path, TYPE_WIMAX),
-      passphrase_required_(false),
-      ALLOW_THIS_IN_INITIALIZER_LIST(weak_pointer_factory_(this)) {
+      passphrase_required_(false) {
 }
 
 WimaxNetwork::~WimaxNetwork() {

@@ -31,7 +31,7 @@
 #include "chrome/app/chrome_dll_resource.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/common/chrome_constants.h"
-#include "content/public/browser/content_ipc_logging.h"
+#include "content/public/browser/browser_ipc_logging.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_job.h"
 #include "ui/views/controls/button/text_button.h"
@@ -133,7 +133,7 @@ void CloseDialog() {
   for (std::set<int>::const_iterator itr = disabled_messages_.begin();
        itr != disabled_messages_.end();
        ++itr) {
-    list->Append(Value::CreateIntegerValue(*itr));
+    list->Append(new base::FundamentalValue(*itr));
   }
   */
 }

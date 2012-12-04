@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/compiler_specific.h"
 #include "ui/base/ui_export.h"
 #include "ui/gfx/size_base.h"
 
@@ -15,9 +16,9 @@ namespace gfx {
 // A floating version of gfx::Size.
 class UI_EXPORT SizeF : public SizeBase<SizeF, float> {
  public:
-  SizeF();
-  SizeF(float width, float height);
-  ~SizeF();
+  SizeF() : SizeBase<SizeF, float>(0, 0) {}
+  SizeF(float width, float height) : SizeBase<SizeF, float>(width, height) {}
+  ~SizeF() {}
 
   void Scale(float scale) {
     Scale(scale, scale);

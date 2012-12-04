@@ -20,13 +20,13 @@
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/events/event.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/range/range.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/render_text.h"
 #include "ui/gfx/text_constants.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/focusable_border.h"
@@ -53,16 +53,14 @@ const SkColor kReadonlyTextColor = SK_ColorDKGRAY;
 // Default "system" color for text cursor.
 const SkColor kDefaultCursorColor = SK_ColorBLACK;
 
-// Parameters to control cursor blinking.
-const int kCursorVisibleTimeMs = 800;
-const int kCursorInvisibleTimeMs = 500;
-
 }  // namespace
 
 namespace views {
 
 const char NativeTextfieldViews::kViewClassName[] =
     "views/NativeTextfieldViews";
+
+const int NativeTextfieldViews::kCursorBlinkCycleMs = 1000;
 
 NativeTextfieldViews::NativeTextfieldViews(Textfield* parent)
     : textfield_(parent),
@@ -145,10 +143,10 @@ void NativeTextfieldViews::OnMouseReleased(const ui::MouseEvent& event) {
   OnAfterUserAction();
 }
 
-ui::EventResult NativeTextfieldViews::OnGestureEvent(ui::GestureEvent* event) {
-  ui::EventResult status = textfield_->OnGestureEvent(event);
-  if (status != ui::ER_UNHANDLED)
-    return status;
+void NativeTextfieldViews::OnGestureEvent(ui::GestureEvent* event) {
+  textfield_->OnGestureEvent(event);
+  if (event->handled())
+    return;
 
   switch (event->type()) {
     case ui::ET_GESTURE_TAP_DOWN:
@@ -160,20 +158,23 @@ ui::EventResult NativeTextfieldViews::OnGestureEvent(ui::GestureEvent* event) {
           MoveCursorTo(event->location(), false))
         SchedulePaint();
       OnAfterUserAction();
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     case ui::ET_GESTURE_DOUBLE_TAP:
       SelectAll(false);
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       OnBeforeUserAction();
       if (MoveCursorTo(event->location(), true))
         SchedulePaint();
       OnAfterUserAction();
-      return ui::ER_CONSUMED;
+      event->SetHandled();
+      return;
     default:
       break;
   }
-  return TouchSelectionClientView::OnGestureEvent(event);
+  TouchSelectionClientView::OnGestureEvent(event);
 }
 
 bool NativeTextfieldViews::OnKeyPressed(const ui::KeyEvent& event) {
@@ -382,6 +383,14 @@ void NativeTextfieldViews::AppendText(const string16& text) {
   SchedulePaint();
 }
 
+void NativeTextfieldViews::ReplaceSelection(const string16& text) {
+  if (text.empty() && !model_->HasSelection())
+    return;
+  model_->ReplaceText(text);
+  OnCaretBoundsChanged();
+  SchedulePaint();
+}
+
 base::i18n::TextDirection NativeTextfieldViews::GetTextDirection() const {
   return GetRenderText()->GetTextDirection();
 }
@@ -557,7 +566,7 @@ void NativeTextfieldViews::HandleFocus() {
       FROM_HERE,
       base::Bind(&NativeTextfieldViews::UpdateCursor,
                  cursor_timer_.GetWeakPtr()),
-      base::TimeDelta::FromMilliseconds(kCursorVisibleTimeMs));
+      base::TimeDelta::FromMilliseconds(kCursorBlinkCycleMs / 2));
 }
 
 void NativeTextfieldViews::HandleBlur() {
@@ -585,6 +594,14 @@ void NativeTextfieldViews::ClearEditHistory() {
 
 int NativeTextfieldViews::GetFontHeight() {
   return GetRenderText()->GetFont().GetHeight();
+}
+
+int NativeTextfieldViews::GetTextfieldBaseline() const {
+  return GetRenderText()->GetFont().GetBaseline();
+}
+
+void NativeTextfieldViews::ExecuteTextCommand(int command_id) {
+  ExecuteCommand(command_id);
 }
 
 /////////////////////////////////////////////////////////////////
@@ -636,25 +653,30 @@ void NativeTextfieldViews::ExecuteCommand(int command_id) {
 
   bool text_changed = false;
   OnBeforeUserAction();
-  switch (command_id) {
-    case IDS_APP_CUT:
-      text_changed = Cut();
-      break;
-    case IDS_APP_COPY:
-      Copy();
-      break;
-    case IDS_APP_PASTE:
-      text_changed = Paste();
-      break;
-    case IDS_APP_DELETE:
-      text_changed = model_->Delete();
-      break;
-    case IDS_APP_SELECT_ALL:
-      SelectAll(false);
-      break;
-    default:
-      textfield_->GetController()->ExecuteCommand(command_id);
-      break;
+  TextfieldController* controller = textfield_->GetController();
+  if (controller && controller->HandlesCommand(command_id)) {
+    controller->ExecuteCommand(command_id);
+  } else {
+    switch (command_id) {
+      case IDS_APP_CUT:
+        text_changed = Cut();
+        break;
+      case IDS_APP_COPY:
+        Copy();
+        break;
+      case IDS_APP_PASTE:
+        text_changed = Paste();
+        break;
+      case IDS_APP_DELETE:
+        text_changed = model_->Delete();
+        break;
+      case IDS_APP_SELECT_ALL:
+        SelectAll(false);
+        break;
+      default:
+        controller->ExecuteCommand(command_id);
+        break;
+    }
   }
 
   // The cursor must have changed if text changed during cut/paste/delete.
@@ -902,8 +924,7 @@ void NativeTextfieldViews::UpdateCursor() {
       FROM_HERE,
       base::Bind(&NativeTextfieldViews::UpdateCursor,
                  cursor_timer_.GetWeakPtr()),
-      base::TimeDelta::FromMilliseconds(
-          is_cursor_visible_ ? kCursorVisibleTimeMs : kCursorInvisibleTimeMs));
+      base::TimeDelta::FromMilliseconds(kCursorBlinkCycleMs / 2));
 }
 
 void NativeTextfieldViews::RepaintCursor() {

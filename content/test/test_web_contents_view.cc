@@ -50,6 +50,9 @@ RenderWidgetHostView* TestWebContentsView::CreateViewForWidget(
   return NULL;
 }
 
+void TestWebContentsView::SetView(RenderWidgetHostView* view) {
+}
+
 gfx::NativeView TestWebContentsView::GetNativeView() const {
   return gfx::NativeView();
 }
@@ -104,5 +107,10 @@ void TestWebContentsView::CloseTabAfterEventTracking() {
 gfx::Rect TestWebContentsView::GetViewBounds() const {
   return gfx::Rect();
 }
+
+#if defined(OS_MACOSX)
+void TestWebContentsView::SetAllowOverlappingViews(bool overlapping) {
+}
+#endif
 
 }  // namespace content

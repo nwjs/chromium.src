@@ -7,9 +7,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "skia/ext/image_operations.h"
-#include "skia/ext/platform_canvas.h"
 #include "ui/base/layout.h"
-#include "ui/base/ui_base_switches.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/image/image_skia.h"
@@ -22,6 +20,7 @@
 #include "ui/gfx/size_conversions.h"
 #include "ui/gfx/skbitmap_operations.h"
 #include "ui/gfx/skia_util.h"
+#include "ui/gfx/switches.h"
 
 namespace gfx {
 namespace {
@@ -35,10 +34,15 @@ bool ScalingEnabled() {
 // Creates 2x scaled image of the give |source|.
 ImageSkiaRep Create2XImageSkiaRep(const ImageSkiaRep& source) {
   gfx::Size size(source.GetWidth() * 2.0f, source.GetHeight() * 2.0f);
-  skia::PlatformCanvas canvas(size.width(), size.height(), false);
+
+  SkBitmap resized_bitmap;
+  resized_bitmap.setConfig(SkBitmap::kARGB_8888_Config, size.width(), 
+                           size.height());
+  if (!resized_bitmap.allocPixels())
+    SK_CRASH();
+  SkCanvas canvas(resized_bitmap);
   SkRect resized_bounds = RectToSkRect(gfx::Rect(size));
   canvas.drawBitmapRect(source.sk_bitmap(), NULL, resized_bounds);
-  SkBitmap resized_bitmap = canvas.getDevice()->accessBitmap(false);
   return ImageSkiaRep(resized_bitmap, ui::SCALE_FACTOR_200P);
 }
 

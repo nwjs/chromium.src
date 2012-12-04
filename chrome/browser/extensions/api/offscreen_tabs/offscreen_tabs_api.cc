@@ -9,9 +9,9 @@
 
 #include "base/hash_tables.h"
 #include "base/json/json_writer.h"
+#include "base/lazy_instance.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_vector.h"
-#include "base/lazy_instance.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/values.h"
@@ -31,7 +31,6 @@
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
-#include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/extensions/extension_messages.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -41,12 +40,14 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
+#include "extensions/common/error_utils.h"
 
 using content::NativeWebKeyboardEvent;
 using content::NavigationController;
 using content::NotificationDetails;
 using content::NotificationSource;
 using content::WebContents;
+using extensions::ErrorUtils;
 using WebKit::WebInputEvent;
 
 namespace keys = extensions::offscreen_tabs_constants;
@@ -122,8 +123,7 @@ class ParentTab : public content::NotificationObserver {
  public:
   ParentTab();
   virtual ~ParentTab();
-  void Init(WebContents* web_contents,
-            const std::string& extension_id);
+  void Init(WebContents* web_contents);
 
   TabContents* tab_contents() { return tab_contents_; }
   int GetID() { return ExtensionTabUtil::GetTabId(web_contents()); }
@@ -133,7 +133,6 @@ class ParentTab : public content::NotificationObserver {
 
   // Returns the offscreen tabs spawned by this tab.
   const OffscreenTabs& offscreen_tabs() { return offscreen_tabs_; }
-  const std::string& extension_id() const { return extension_id_; }
 
   // Tab takes ownership of OffscreenTab.
   void AddOffscreenTab(OffscreenTab *tab);
@@ -151,7 +150,6 @@ class ParentTab : public content::NotificationObserver {
 
   TabContents* tab_contents_;
   OffscreenTabs offscreen_tabs_;
-  std::string extension_id_;
 
   DISALLOW_COPY_AND_ASSIGN(ParentTab);
 };
@@ -292,11 +290,9 @@ void OffscreenTab::Observe(int type,
 ParentTab::ParentTab() : tab_contents_(NULL) {}
 ParentTab::~ParentTab() {}
 
-void ParentTab::Init(WebContents* web_contents,
-                     const std::string& extension_id) {
+void ParentTab::Init(WebContents* web_contents) {
   CHECK(web_contents);
 
-  extension_id_ = extension_id;
   tab_contents_ = TabContents::FromWebContents(web_contents);
 
   CHECK(tab_contents_);
@@ -359,7 +355,7 @@ bool OffscreenTabMap::GetOffscreenTab(const int offscreen_tab_id,
     }
   }
 
-  *error = ExtensionErrorUtils::FormatErrorMessage(
+  *error = ErrorUtils::FormatErrorMessage(
       keys::kOffscreenTabNotFoundError, base::IntToString(offscreen_tab_id));
   return false;
 }
@@ -473,7 +469,7 @@ bool CreateOffscreenTabFunction::RunImpl() {
   GURL url = ExtensionTabUtil::ResolvePossiblyRelativeURL(
       url_string, GetExtension());
   if (!url.is_valid()) {
-    error_ = ExtensionErrorUtils::FormatErrorMessage(
+    error_ = ErrorUtils::FormatErrorMessage(
         tabs_keys::kInvalidUrlError, url_string);
     return false;
   }
@@ -514,7 +510,7 @@ bool CreateOffscreenTabFunction::RunImpl() {
   if (!parent_tab) {
     // Ownership is passed to the OffscreenMap in CreateOffscreenTab.
     parent_tab = new ParentTab();
-    parent_tab->Init(web_contents, extension_id());
+    parent_tab->Init(web_contents);
   }
 
   const OffscreenTab& offscreen_tab = GetMap()->CreateOffscreenTab(
@@ -540,7 +536,7 @@ bool GetOffscreenTabFunction::RunImpl() {
   OffscreenTab* offscreen_tab = NULL;
   if (!GetMap()->GetOffscreenTab(
           offscreen_tab_id, this, &offscreen_tab, &error_)) {
-    error_ = ExtensionErrorUtils::FormatErrorMessage(
+    error_ = ErrorUtils::FormatErrorMessage(
         keys::kOffscreenTabNotFoundError, base::IntToString(offscreen_tab_id));
     return false;
   }

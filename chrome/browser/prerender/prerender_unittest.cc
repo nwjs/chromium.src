@@ -94,16 +94,26 @@ class UnitTestPrerenderManager : public PrerenderManager {
   }
 
   virtual ~UnitTestPrerenderManager() {
-    if (next_prerender_contents()) {
-      next_prerender_contents_.release()->Destroy(
-          FINAL_STATUS_MANAGER_SHUTDOWN);
-    }
-    DoShutdown();
+  }
+
+  // From ProfileKeyedService, via PrererenderManager:
+  virtual void Shutdown() OVERRIDE {
+    if (next_prerender_contents())
+      next_prerender_contents_->Destroy(FINAL_STATUS_MANAGER_SHUTDOWN);
+    PrerenderManager::Shutdown();
+  }
+
+  // From PrerenderManager:
+  virtual void MoveEntryToPendingDelete(PrerenderContents* entry,
+                                        FinalStatus final_status) OVERRIDE {
+    if (entry == next_prerender_contents_.get())
+      return;
+    PrerenderManager::MoveEntryToPendingDelete(entry, final_status);
   }
 
   PrerenderContents* FindEntry(const GURL& url) {
     DeleteOldEntries();
-    DeletePendingDeleteEntries();
+    to_delete_prerenders_.clear();
     if (PrerenderData* data = FindPrerenderData(url, NULL))
       return data->contents();
     return NULL;
@@ -113,12 +123,13 @@ class UnitTestPrerenderManager : public PrerenderManager {
     PrerenderData* prerender_data = FindPrerenderData(url, NULL);
     if (!prerender_data)
       return NULL;
-    PrerenderContents* prerender_contents = prerender_data->contents();
+    ScopedVector<PrerenderData>::iterator to_erase =
+        FindIteratorForPrerenderContents(prerender_data->contents());
+    CHECK(to_erase != active_prerenders_.end());
+    PrerenderContents* prerender_contents = prerender_data->ReleaseContents();
+    active_prerenders_.erase(to_erase);
+
     prerender_contents->set_final_status(FINAL_STATUS_USED);
-    std::list<linked_ptr<PrerenderData> >::iterator to_erase =
-        FindIteratorForPrerenderContents(prerender_contents);
-    DCHECK(to_erase != active_prerender_list_.end());
-    active_prerender_list_.erase(to_erase);
     prerender_contents->StartPendingPrerenders();
     return prerender_contents;
   }
@@ -189,7 +200,7 @@ class UnitTestPrerenderManager : public PrerenderManager {
 
  private:
   void SetNextPrerenderContents(DummyPrerenderContents* prerender_contents) {
-    DCHECK(!next_prerender_contents_.get());
+    CHECK(!next_prerender_contents_.get());
     next_prerender_contents_.reset(prerender_contents);
     if (prerender_contents->expected_final_status() == FINAL_STATUS_USED)
       used_prerender_contents_.push_back(prerender_contents);
@@ -201,7 +212,7 @@ class UnitTestPrerenderManager : public PrerenderManager {
       const Referrer& referrer,
       Origin origin,
       uint8 experiment_id) OVERRIDE {
-    DCHECK(next_prerender_contents_.get());
+    CHECK(next_prerender_contents_.get());
     EXPECT_EQ(url, next_prerender_contents_->prerender_url());
     EXPECT_EQ(origin, next_prerender_contents_->origin());
     return next_prerender_contents_.release();
@@ -273,6 +284,8 @@ class PrerenderTest : public testing::Test {
 
   ~PrerenderTest() {
     prerender_link_manager_->OnChannelClosing(kDefaultChildId);
+    prerender_link_manager_->Shutdown();
+    prerender_manager_->Shutdown();
   }
 
   UnitTestPrerenderManager* prerender_manager() {
@@ -628,7 +641,7 @@ TEST_F(PrerenderTest, PendingPrerenderTest) {
       prerender_manager()->AddPrerenderFromLinkRelPrerender(
           child_id, route_id, pending_url,
           Referrer(url, WebKit::WebReferrerPolicyDefault), kSize));
-  DCHECK(pending_prerender_handle.get());
+  CHECK(pending_prerender_handle.get());
   EXPECT_TRUE(pending_prerender_handle->IsValid());
   EXPECT_TRUE(pending_prerender_handle->IsPending());
 
@@ -695,7 +708,7 @@ TEST_F(PrerenderTest, CancelPendingPrerenderTest) {
       prerender_manager()->AddPrerenderFromLinkRelPrerender(
           child_id, route_id, pending_url,
           Referrer(url, WebKit::WebReferrerPolicyDefault), kSize));
-  DCHECK(pending_prerender_handle.get());
+  CHECK(pending_prerender_handle.get());
   EXPECT_TRUE(pending_prerender_handle->IsValid());
   EXPECT_TRUE(pending_prerender_handle->IsPending());
 
@@ -803,6 +816,28 @@ TEST_F(PrerenderTest, RecentlyVisitedPPLTDummy) {
 
   ASSERT_EQ(pplt_dummy_contents, prerender_manager()->FindAndUseEntry(url));
 }
+
+TEST_F(PrerenderTest, PPLTLateCancel) {
+  GURL url("http://www.google.com");
+  DummyPrerenderContents* prerender_contents =
+      prerender_manager()->CreateNextPrerenderContents(
+          url, FINAL_STATUS_JAVASCRIPT_ALERT);
+  EXPECT_TRUE(AddSimplePrerender(url));
+  EXPECT_TRUE(prerender_contents->prerendering_has_started());
+  // Force the creation of a match complete dummy.
+  DummyPrerenderContents* duplicate_prerender_contents =
+      prerender_manager()->CreateNextPrerenderContents(url,
+                                                       FINAL_STATUS_CANCELLED);
+  ASSERT_EQ(prerender_contents, prerender_manager()->FindEntry(url));
+  prerender_contents->Destroy(FINAL_STATUS_JAVASCRIPT_ALERT);
+  ASSERT_EQ(duplicate_prerender_contents, prerender_manager()->FindEntry(url));
+
+  prerender_link_manager()->OnCancelPrerender(kDefaultChildId,
+                                              last_prerender_id());
+  DummyPrerenderContents* null = NULL;
+  ASSERT_EQ(null, prerender_manager()->FindEntry(url));
+}
+
 
 // Tests that the prerender manager matches include the fragment.
 TEST_F(PrerenderTest, FragmentMatchesTest) {

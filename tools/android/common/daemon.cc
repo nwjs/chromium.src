@@ -10,8 +10,8 @@
 #include <unistd.h>
 
 #include "base/command_line.h"
-#include "base/eintr_wrapper.h"
 #include "base/logging.h"
+#include "base/posix/eintr_wrapper.h"
 
 namespace {
 
@@ -73,4 +73,3 @@ void SpawnDaemon(int exit_status) {
 }
 
 }  // namespace tools
-

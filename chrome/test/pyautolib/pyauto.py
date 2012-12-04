@@ -2002,8 +2002,11 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     }
     self._GetResultFromJSONRequest(cmd_dict, windex=None)
 
-  def GetInstantInfo(self):
+  def GetInstantInfo(self, windex=0):
     """Return info about the instant overlay tab.
+
+    Args:
+      windex: The window index, default is 0.
 
     Returns:
       A dictionary.
@@ -2019,7 +2022,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
         { u'enabled': False }
     """
     cmd_dict = {'command': 'GetInstantInfo'}
-    return self._GetResultFromJSONRequest(cmd_dict)['instant']
+    return self._GetResultFromJSONRequest(cmd_dict, windex=windex)['instant']
 
   def GetSearchEngineInfo(self, windex=0):
     """Return info about search engines.
@@ -5794,22 +5797,6 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
         'domAutomationController.send("done")' % text,
         tab_index=tab_index, windex=windex)
 
-
-  def CaptureProfilePhoto(self):
-    """Captures user profile photo on ChromeOS.
-
-    This is done by driving the TakePhotoDialog. The image file is
-    saved on disk and its path is set in the local state preferences.
-
-    A user needs to be logged-in as a precondition. Note that the UI is not
-    destroyed afterwards, a browser restart is necessary if you want
-    to interact with the browser after this call in the same test case.
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    cmd_dict = { 'command': 'CaptureProfilePhoto' }
-    return self._GetResultFromJSONRequest(cmd_dict)
 
   def GetMemoryStatsChromeOS(self, duration):
     """Identifies and returns different kinds of current memory usage stats.

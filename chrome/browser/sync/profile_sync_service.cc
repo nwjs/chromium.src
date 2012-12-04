@@ -149,12 +149,6 @@ ProfileSyncService::ProfileSyncService(ProfileSyncComponentsFactory* factory,
       configure_status_(DataTypeManager::UNKNOWN),
       setup_in_progress_(false),
       invalidator_state_(syncer::DEFAULT_INVALIDATION_ERROR) {
-#if defined(OS_ANDROID)
-  chrome::VersionInfo version_info;
-  if (version_info.IsOfficialBuild()) {
-    sync_service_url_ = GURL(kSyncServerUrl);
-  }
-#else
   // By default, dev, canary, and unbranded Chromium users will go to the
   // development servers. Development servers have more features than standard
   // sync servers. Users with officially-branded Chrome stable and beta builds
@@ -167,7 +161,6 @@ ProfileSyncService::ProfileSyncService(ProfileSyncComponentsFactory* factory,
       channel == chrome::VersionInfo::CHANNEL_BETA) {
     sync_service_url_ = GURL(kSyncServerUrl);
   }
-#endif
 }
 
 ProfileSyncService::~ProfileSyncService() {
@@ -264,23 +257,28 @@ void ProfileSyncService::TryStart() {
   if (!token_service)
     return;
   // Don't start the backend if the token service hasn't finished loading tokens
-  // yet (if the backend is started before the sync token has been loaded,
-  // GetCredentials() will return bogus credentials). On auto_start platforms
+  // yet. Note if the backend is started before the sync token has been loaded,
+  // GetCredentials() will return bogus credentials. On auto_start platforms
   // (like ChromeOS) we don't start sync until tokens are loaded, because the
   // user can be "signed in" on those platforms long before the tokens get
   // loaded, and we don't want to generate spurious auth errors.
-  if (IsSyncTokenAvailable() ||
-      (!auto_start_enabled_ && token_service->TokensLoadedFromDB())) {
-    if (HasSyncSetupCompleted() || auto_start_enabled_) {
-      // If sync setup has completed we always start the backend.
-      // If autostart is enabled, but we haven't completed sync setup, we try to
-      // start sync anyway, since it's possible we crashed/shutdown after
-      // logging in but before the backend finished initializing the last time.
-      // Note that if we haven't finished setting up sync, backend bring up will
-      // be done by the wizard.
-      StartUp();
-    }
+  if (!IsSyncTokenAvailable() &&
+      !(!auto_start_enabled_ && token_service->TokensLoadedFromDB())) {
+    return;
   }
+
+  // If sync setup has completed we always start the backend. If the user is in
+  // the process of setting up now, we should start the backend to download
+  // account control state / encryption information). If autostart is enabled,
+  // but we haven't completed sync setup, we try to start sync anyway, since
+  // it's possible we crashed/shutdown after logging in but before the backend
+  // finished initializing the last time.
+  if (!HasSyncSetupCompleted() && !setup_in_progress_ && !auto_start_enabled_)
+    return;
+
+  // All systems Go for launch.
+  StartUp();
+
 }
 
 void ProfileSyncService::StartSyncingWithServer() {
@@ -661,14 +659,9 @@ void ProfileSyncService::ClearUnrecoverableError() {
 }
 
 // static
+// TODO(sync): Consider having syncer::Experiments provide this.
 std::string ProfileSyncService::GetExperimentNameForDataType(
     syncer::ModelType data_type) {
-  switch (data_type) {
-    case syncer::SESSIONS:
-      return "sync-tabs";
-    default:
-      break;
-  }
   NOTREACHED();
   return "";
 }
@@ -915,6 +908,12 @@ void ProfileSyncService::OnExperimentsChanged(
     // setting the experiments as command line switches.
     CommandLine::ForCurrentProcess()->AppendSwitch(switches::kSyncTabFavicons);
 #endif
+  }
+
+  if (experiments.keystore_encryption) {
+    about_flags::SetExperimentEnabled(g_browser_process->local_state(),
+                                      syncer::kKeystoreEncryptionFlag,
+                                      true);
   }
 
   current_experiments = experiments;
@@ -1517,10 +1516,10 @@ void ProfileSyncService::GetModelSafeRoutingInfo(
 }
 
 Value* ProfileSyncService::GetTypeStatusMap() const {
-  ListValue* result = new ListValue();
+  scoped_ptr<ListValue> result(new ListValue());
 
   if (!backend_.get() || !backend_initialized_) {
-    return result;
+    return result.release();
   }
 
   std::vector<syncer::SyncError> errors =
@@ -1546,13 +1545,21 @@ Value* ProfileSyncService::GetTypeStatusMap() const {
 
   SyncBackendHost::Status detailed_status = backend_->GetDetailedStatus();
   ModelTypeSet &throttled_types(detailed_status.throttled_types);
-
   ModelTypeSet registered = GetRegisteredDataTypes();
+  scoped_ptr<DictionaryValue> type_status_header(new DictionaryValue());
+
+  type_status_header->SetString("name", "Model Type");
+  type_status_header->SetString("status", "header");
+  type_status_header->SetString("value", "Group Type");
+  type_status_header->SetString("num_entries", "Total Entries");
+  type_status_header->SetString("num_live", "Live Entries");
+  result->Append(type_status_header.release());
+
+  scoped_ptr<DictionaryValue> type_status;
   for (ModelTypeSet::Iterator it = registered.First(); it.Good(); it.Inc()) {
     ModelType type = it.Get();
-    DictionaryValue* type_status = new DictionaryValue();
 
-    result->Append(type_status);
+    type_status.reset(new DictionaryValue());
     type_status->SetString("name", ModelTypeToString(type));
 
     if (error_map.find(type) != error_map.end()) {
@@ -1579,8 +1586,16 @@ Value* ProfileSyncService::GetTypeStatusMap() const {
       type_status->SetString("status", "warning");
       type_status->SetString("value", "Disabled by User");
     }
+
+    int live_count = detailed_status.num_entries_by_type[type] -
+        detailed_status.num_to_delete_entries_by_type[type];
+    type_status->SetInteger("num_entries",
+                            detailed_status.num_entries_by_type[type]);
+    type_status->SetInteger("num_live", live_count);
+
+    result->Append(type_status.release());
   }
-  return result;
+  return result.release();
 }
 
 void ProfileSyncService::ActivateDataType(
@@ -1699,11 +1714,9 @@ void ProfileSyncService::OnSyncManagedPrefChange(bool is_sync_managed) {
   NotifyObservers();
   if (is_sync_managed) {
     DisableForUser();
-  } else if (HasSyncSetupCompleted() &&
-             IsSyncEnabledAndLoggedIn() &&
-             IsSyncTokenAvailable()) {
-    // Previously-configured sync has been re-enabled, so start sync now.
-    StartUp();
+  } else {
+    // Sync is no longer disabled by policy. Try starting it up if appropriate.
+    TryStart();
   }
 }
 
@@ -1754,34 +1767,19 @@ void ProfileSyncService::Observe(int type,
       const TokenService::TokenAvailableDetails& token_details =
           *(content::Details<const TokenService::TokenAvailableDetails>(
               details).ptr());
-      if (IsTokenServiceRelevant(token_details.service()) &&
-          IsSyncEnabledAndLoggedIn() &&
-          IsSyncTokenAvailable()) {
-        if (backend_initialized_)
-          backend_->UpdateCredentials(GetCredentials());
-        else
-          StartUp();
-      }
-      break;
-    }
+      if (!IsTokenServiceRelevant(token_details.service()))
+        break;
+    } // Fall through.
     case chrome::NOTIFICATION_TOKEN_LOADING_FINISHED: {
       // This notification gets fired when TokenService loads the tokens
       // from storage.
-      if (IsSyncEnabledAndLoggedIn()) {
-        // Don't start up sync and generate an auth error on auto_start
-        // platforms as they have their own way to resolve TokenService errors.
-        // (crbug.com/128592).
-        if (auto_start_enabled_ && !IsSyncTokenAvailable())
-          break;
-
-        // Initialize the backend if sync is enabled. If the sync token was
-        // not loaded, GetCredentials() will generate invalid credentials to
-        // cause the backend to generate an auth error (crbug.com/121755).
-        if (backend_initialized_)
-          backend_->UpdateCredentials(GetCredentials());
-        else
-          StartUp();
-      }
+      // Initialize the backend if sync is enabled. If the sync token was
+      // not loaded, GetCredentials() will generate invalid credentials to
+      // cause the backend to generate an auth error (crbug.com/121755).
+      if (backend_initialized_)
+        backend_->UpdateCredentials(GetCredentials());
+      else
+        TryStart();
       break;
     }
     default: {

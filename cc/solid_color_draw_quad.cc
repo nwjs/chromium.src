@@ -8,25 +8,38 @@
 
 namespace cc {
 
-scoped_ptr<SolidColorDrawQuad> SolidColorDrawQuad::create(const SharedQuadState* sharedQuadState, const gfx::Rect& quadRect, SkColor color)
-{
-    return make_scoped_ptr(new SolidColorDrawQuad(sharedQuadState, quadRect, color));
+SolidColorDrawQuad::SolidColorDrawQuad() : color(0) {}
+
+scoped_ptr<SolidColorDrawQuad> SolidColorDrawQuad::Create() {
+  return make_scoped_ptr(new SolidColorDrawQuad);
 }
 
-SolidColorDrawQuad::SolidColorDrawQuad(const SharedQuadState* sharedQuadState, const gfx::Rect& quadRect, SkColor color)
-    : DrawQuad(sharedQuadState, DrawQuad::SolidColor, quadRect)
-    , m_color(color)
-{
-    if (SkColorGetA(m_color) < 255)
-        m_quadOpaque = false;
-    else
-        m_opaqueRect = quadRect;
+void SolidColorDrawQuad::SetNew(const SharedQuadState* shared_quad_state,
+                                gfx::Rect rect,
+                                SkColor color) {
+  gfx::Rect opaque_rect = SkColorGetA(color) == 255 ? rect : gfx::Rect();
+  gfx::Rect visible_rect = rect;
+  bool needs_blending = false;
+  DrawQuad::SetAll(shared_quad_state, DrawQuad::SOLID_COLOR, rect, opaque_rect,
+                   visible_rect, needs_blending);
+  this->color = color;
 }
 
-const SolidColorDrawQuad* SolidColorDrawQuad::materialCast(const DrawQuad* quad)
-{
-    DCHECK(quad->material() == DrawQuad::SolidColor);
-    return static_cast<const SolidColorDrawQuad*>(quad);
+void SolidColorDrawQuad::SetAll(const SharedQuadState* shared_quad_state,
+                                gfx::Rect rect,
+                                gfx::Rect opaque_rect,
+                                gfx::Rect visible_rect,
+                                bool needs_blending,
+                                SkColor color) {
+  DrawQuad::SetAll(shared_quad_state, DrawQuad::SOLID_COLOR, rect, opaque_rect,
+                   visible_rect, needs_blending);
+  this->color = color;
+}
+
+const SolidColorDrawQuad* SolidColorDrawQuad::MaterialCast(
+    const DrawQuad* quad) {
+  DCHECK(quad->material == DrawQuad::SOLID_COLOR);
+  return static_cast<const SolidColorDrawQuad*>(quad);
 }
 
 }  // namespacec cc
