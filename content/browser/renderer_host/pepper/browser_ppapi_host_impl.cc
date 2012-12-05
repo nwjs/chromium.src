@@ -30,7 +30,6 @@ BrowserPpapiHost* BrowserPpapiHost::CreateExternalPluginProcess(
                               host_resolver,
                               render_process_id,
                               render_view_id));
-  channel->AddFilter(browser_ppapi_host->message_filter());
 
   return browser_ppapi_host;
 }
