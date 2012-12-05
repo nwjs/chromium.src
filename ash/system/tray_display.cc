@@ -79,7 +79,8 @@ class DisplayView : public ash::internal::ActionableView {
         return;
       }
       case chromeos::STATE_DUAL_PRIMARY_ONLY:
-      case chromeos::STATE_DUAL_SECONDARY_ONLY: {
+      case chromeos::STATE_DUAL_SECONDARY_ONLY:
+      case chromeos::STATE_DUAL_UNKNOWN: {
         aura::DisplayManager* display_manager =
             aura::Env::GetInstance()->display_manager();
         if (display_manager->GetNumDisplays() > 1) {
