@@ -363,6 +363,7 @@ class PepperPluginDelegateImpl
   virtual std::string GetDefaultEncoding() OVERRIDE;
   virtual void ZoomLimitsChanged(double minimum_factor, double maximum_factor)
       OVERRIDE;
+  virtual std::string ResolveProxy(const GURL& url) OVERRIDE;
   virtual void DidStartLoading() OVERRIDE;
   virtual void DidStopLoading() OVERRIDE;
   virtual void SetContentRestriction(int restrictions) OVERRIDE;

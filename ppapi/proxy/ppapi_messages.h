@@ -1260,6 +1260,10 @@ IPC_SYNC_MESSAGE_ROUTED2_1(
     PP_Instance /* instance */,
     ppapi::proxy::PPBFlash_DrawGlyphs_Params /* params */,
     PP_Bool /* result */)
+IPC_SYNC_MESSAGE_ROUTED2_1(PpapiHostMsg_PPBFlash_GetProxyForURL,
+                           PP_Instance /* instance */,
+                           std::string /* url */,
+                           ppapi::proxy::SerializedVar /* result */)
 IPC_SYNC_MESSAGE_ROUTED4_1(PpapiHostMsg_PPBFlash_Navigate,
                            PP_Instance /* instance */,
                            ppapi::URLRequestInfoData /* request_data */,
@@ -1274,6 +1278,7 @@ IPC_SYNC_MESSAGE_ROUTED2_1(PpapiHostMsg_PPBFlash_IsRectTopmost,
                            PP_Instance /* instance */,
                            PP_Rect /* rect */,
                            PP_Bool /* result */)
+IPC_MESSAGE_ROUTED0(PpapiHostMsg_PPBFlash_UpdateActivity)
 IPC_SYNC_MESSAGE_ROUTED3_2(PpapiHostMsg_PPBFlash_OpenFileRef,
                            PP_Instance /* instance */,
                            ppapi::HostResource /* file_ref */,
@@ -1602,13 +1607,6 @@ IPC_MESSAGE_CONTROL0(PpapiPluginMsg_AudioInput_OpenReply)
 IPC_MESSAGE_CONTROL1(PpapiHostMsg_AudioInput_StartOrStop, bool /* capture */)
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_AudioInput_Close)
 
-// Flash.
-IPC_MESSAGE_CONTROL0(PpapiHostMsg_Flash_Create)
-IPC_MESSAGE_CONTROL0(PpapiHostMsg_Flash_UpdateActivity)
-IPC_MESSAGE_CONTROL1(PpapiHostMsg_Flash_GetProxyForURL, std::string /* url */)
-IPC_MESSAGE_CONTROL1(PpapiPluginMsg_Flash_GetProxyForURLReply,
-                     std::string /* proxy */)
-
 // Device enumeration messages used by audio input and video capture.
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_DeviceEnumeration_EnumerateDevices)
 IPC_MESSAGE_CONTROL1(PpapiPluginMsg_DeviceEnumeration_EnumerateDevicesReply,
@@ -1667,6 +1665,9 @@ IPC_MESSAGE_CONTROL1(PpapiHostMsg_FlashMenu_Show,
 // will be the menu item ID chosen by the user.
 IPC_MESSAGE_CONTROL1(PpapiPluginMsg_FlashMenu_ShowReply,
                      int32_t /* selected_id */)
+
+// Flash functions.
+IPC_MESSAGE_CONTROL0(PpapiHostMsg_Flash_Create)
 
 // VideoCapture_Dev, plugin -> host
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_VideoCapture_Create)
