@@ -201,12 +201,8 @@ bool SiteInstanceImpl::IsRelatedSiteInstance(const SiteInstance* instance) {
       static_cast<const SiteInstanceImpl*>(instance)->browsing_instance_;
 }
 
-bool SiteInstanceImpl::HasWrongProcessForURL(const GURL& url) {
+bool SiteInstanceImpl::HasWrongProcessForURL(const GURL& url) const {
   // Having no process isn't a problem, since we'll assign it correctly.
-  // Note that HasProcess() may return true if process_ is null, in
-  // process-per-site cases where there's an existing process available.
-  // We want to use such a process in the IsSuitableHost check, so we
-  // may end up assigning process_ in the GetProcess() call below.
   if (!HasProcess())
     return false;
 
@@ -219,7 +215,7 @@ bool SiteInstanceImpl::HasWrongProcessForURL(const GURL& url) {
   // process is not (or vice versa), make sure we notice and fix it.
   GURL site_url = GetSiteForURL(browsing_instance_->browser_context(), url);
   return !RenderProcessHostImpl::IsSuitableHost(
-      GetProcess(), browsing_instance_->browser_context(), site_url);
+      process_, browsing_instance_->browser_context(), site_url);
 }
 
 BrowserContext* SiteInstanceImpl::GetBrowserContext() const {
