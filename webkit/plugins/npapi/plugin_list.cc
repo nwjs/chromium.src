@@ -119,6 +119,7 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
 static const PluginGroupDefinition kGroupDefinitions[] = {
   kFlashDefinition,
   kChromePdfDefinition,
+  kGoogleTalkDefinition,
 };
 
 #else  // Most importantly, covers desktop Linux.
