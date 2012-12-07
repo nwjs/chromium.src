@@ -30,6 +30,7 @@
 
 namespace {
 
+const char kGetInfoDisplayEmailKey[] = "displayEmail";
 const char kGetInfoEmailKey[] = "email";
 const char kGetInfoServicesKey[] = "allServices";
 const char kGooglePlusServiceKey[] = "googleme";
@@ -376,7 +377,7 @@ bool SigninManager::AuthInProgress() const {
 }
 
 void SigninManager::OnGetUserInfoKeyNotFound(const std::string& key) {
-  DCHECK(key == kGetInfoEmailKey);
+  DCHECK(key == kGetInfoDisplayEmailKey || key == kGetInfoEmailKey);
   LOG(ERROR) << "Account is not associated with a valid email address. "
              << "Login failed.";
   OnClientLoginFailure(GoogleServiceAuthError(
@@ -439,18 +440,25 @@ void SigninManager::OnClientOAuthFailure(
 
 void SigninManager::OnGetUserInfoSuccess(const UserInfoMap& data) {
   UserInfoMap::const_iterator email_iter = data.find(kGetInfoEmailKey);
+  UserInfoMap::const_iterator display_email_iter =
+      data.find(kGetInfoDisplayEmailKey);
   if (email_iter == data.end()) {
     OnGetUserInfoKeyNotFound(kGetInfoEmailKey);
     return;
+  } else if (display_email_iter == data.end()) {
+    OnGetUserInfoKeyNotFound(kGetInfoDisplayEmailKey);
+    return;
   } else {
     DCHECK(email_iter->first == kGetInfoEmailKey);
+    DCHECK(display_email_iter->first == kGetInfoDisplayEmailKey);
 
-    // When signing in with credentials, the possibly invalid name is already
-    // a Gaia normalized name.  If the name returned by GetUserInfo does not
-    // match what is expected, return an error.
+    // When signing in with credentials, the possibly invalid name is the Gaia
+    // display name. If the name returned by GetUserInfo does not match what is
+    // expected, return an error.
     if (type_ == SIGNIN_TYPE_WITH_CREDENTIALS &&
-        email_iter->second != possibly_invalid_username_) {
-      OnGetUserInfoKeyNotFound(kGetInfoEmailKey);
+        base::strcasecmp(display_email_iter->second.c_str(),
+                         possibly_invalid_username_.c_str()) != 0) {
+      OnGetUserInfoKeyNotFound(kGetInfoDisplayEmailKey);
       return;
     }
 
