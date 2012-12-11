@@ -72,9 +72,11 @@ void Preferences::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kEnableTouchpadThreeFingerClick,
                              false,
                              PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterBooleanPref(prefs::kNaturalScroll,
-                             false,
-                             PrefService::SYNCABLE_PREF);
+  prefs->RegisterBooleanPref(
+      prefs::kNaturalScroll,
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kNaturalScrollDefault),
+      PrefService::SYNCABLE_PREF);
   prefs->RegisterBooleanPref(prefs::kPrimaryMouseButtonRight,
                              false,
                              PrefService::SYNCABLE_PREF);
