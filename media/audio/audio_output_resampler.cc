@@ -104,7 +104,7 @@ class OnMoreDataResampler : public AudioOutputStream::AudioSourceCallback {
   // before calling |source_callback_|.
   bool waveout_wait_hack_;
 
-  DISALLOW_COPY_AND_ASSIGN(OnMoreDataConverter);
+  DISALLOW_COPY_AND_ASSIGN(OnMoreDataResampler);
 };
 
 // Record UMA statistics for hardware output configuration.
