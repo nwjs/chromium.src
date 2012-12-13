@@ -11,6 +11,7 @@
 #include "base/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/time.h"
+#include "build/build_config.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_output_dispatcher_impl.h"
 #include "media/audio/audio_output_proxy.h"
@@ -21,6 +22,10 @@
 #include "media/base/limits.h"
 #include "media/base/media_switches.h"
 #include "media/base/multi_channel_resampler.h"
+
+#if defined(OS_WIN)
+#include "media/audio/win/core_audio_util_win.h"
+#endif
 
 namespace media {
 
@@ -95,7 +100,11 @@ class OnMoreDataResampler : public AudioOutputStream::AudioSourceCallback {
   // before resampling.
   bool downmix_early_;
 
-  DISALLOW_COPY_AND_ASSIGN(OnMoreDataResampler);
+  // If we're using WaveOut on Windows' we always have to wait for DataReady()
+  // before calling |source_callback_|.
+  bool waveout_wait_hack_;
+
+  DISALLOW_COPY_AND_ASSIGN(OnMoreDataConverter);
 };
 
 // Record UMA statistics for hardware output configuration.
@@ -337,7 +346,8 @@ OnMoreDataResampler::OnMoreDataResampler(
       outstanding_audio_bytes_(0),
       output_bytes_per_frame_(output_params.GetBytesPerFrame()),
       input_bytes_per_frame_(input_params.GetBytesPerFrame()),
-      downmix_early_(false) {
+      downmix_early_(false),
+      waveout_wait_hack_(false) {
   // Handle different input and output channel layouts.
   if (input_params.channel_layout() != output_params.channel_layout()) {
     DVLOG(1) << "Remixing channel layout from " << input_params.channel_layout()
@@ -391,6 +401,17 @@ OnMoreDataResampler::OnMoreDataResampler(
             &OnMoreDataResampler::SourceCallback_Locked,
             base::Unretained(this))));
   }
+
+  // TODO(dalecurtis): We should require all render side clients to use a
+  // buffer size that's a multiple of the hardware buffer size scaled by the
+  // request_sample_rate / hw_sample_rate.  Doing so ensures each hardware
+  // request for audio data results in only a single render side callback and
+  // would allow us to remove this hack.  See http://crbug.com/162207.
+#if defined(OS_WIN)
+  waveout_wait_hack_ =
+      output_params.format() == AudioParameters::AUDIO_PCM_LINEAR ||
+      !CoreAudioUtil::IsSupported();
+#endif
 }
 
 OnMoreDataResampler::~OnMoreDataResampler() {}
@@ -481,6 +502,9 @@ void OnMoreDataResampler::SourceIOCallback_Locked(AudioBus* source,
 
   bool needs_downmix = channel_mixer_ && downmix_early_;
   AudioBus* temp_dest = needs_downmix ? unmixed_audio_.get() : dest;
+
+  if (waveout_wait_hack_)
+    source_callback_->WaitTillDataReady();
 
   // Retrieve data from the original callback.  Zero any unfilled frames.
   int frames = source_callback_->OnMoreIOData(
