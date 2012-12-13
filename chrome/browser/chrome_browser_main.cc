@@ -437,6 +437,14 @@ void AddPreReadHistogramTime(const char* name, base::TimeDelta time) {
   counter->AddTime(time);
 }
 
+void RecordDefaultBrowserUMAStat() {
+  // Record whether Chrome is the default browser or not.
+  ShellIntegration::DefaultWebClientState default_state =
+      ShellIntegration::GetDefaultBrowser();
+  UMA_HISTOGRAM_ENUMERATION("DefaultBrowser.State", default_state,
+                            ShellIntegration::NUM_DEFAULT_STATES);
+}
+
 bool ProcessSingletonNotificationCallback(const CommandLine& command_line,
                                           const FilePath& current_directory) {
   // Drop the request if the browser process is already in shutdown path.
@@ -1342,6 +1350,12 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       profile_->GetPrefs()->GetString(prefs::kAcceptLanguages));
   LanguageUsageMetrics::RecordApplicationLanguage(
       browser_process_->GetApplicationLocale());
+
+  // Querying the default browser state can be slow, do it in the background.
+  BrowserThread::GetBlockingPool()->PostDelayedTask(
+        FROM_HERE,
+        base::Bind(&RecordDefaultBrowserUMAStat),
+        base::TimeDelta::FromSeconds(5));
 
   // The extension service may be available at this point. If the command line
   // specifies --uninstall-extension, attempt the uninstall extension startup
