@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef SECCOMP_BPF_STANDALONE
-#include "base/logging.h"
-#include "base/posix/eintr_wrapper.h"
-#endif
-
 #include "sandbox/linux/seccomp-bpf/codegen.h"
 #include "sandbox/linux/seccomp-bpf/sandbox_bpf.h"
 #include "sandbox/linux/seccomp-bpf/syscall_iterator.h"
@@ -16,9 +11,7 @@ namespace {
 
 void WriteFailedStderrSetupMessage(int out_fd) {
   const char* error_string = strerror(errno);
-  static const char msg[] = "You have reproduced a puzzling issue.\n"
-                            "Please, report to crbug.com/152530!\n"
-                            "Failed to set up stderr: ";
+  static const char msg[] = "Failed to set up stderr: ";
   if (HANDLE_EINTR(write(out_fd, msg, sizeof(msg)-1)) > 0 && error_string &&
       HANDLE_EINTR(write(out_fd, error_string, strlen(error_string))) > 0 &&
       HANDLE_EINTR(write(out_fd, "\n", 1))) {
@@ -114,14 +107,9 @@ bool Sandbox::RunFunctionInPolicy(void (*CodeInSandbox)(),
     // successfully turn on sandboxing.
     Die::EnableSimpleExit();
 
-    errno = 0;
     if (HANDLE_EINTR(close(fds[0]))) {
-      // This call to close() has been failing in strange ways. See
-      // crbug.com/152530. So we only fail in debug mode now.
-#if !defined(NDEBUG)
       WriteFailedStderrSetupMessage(fds[1]);
       SANDBOX_DIE(NULL);
-#endif
     }
     if (HANDLE_EINTR(dup2(fds[1], 2)) != 2) {
       // Stderr could very well be a file descriptor to .xsession-errors, or
@@ -131,19 +119,10 @@ bool Sandbox::RunFunctionInPolicy(void (*CodeInSandbox)(),
       // If dup2 fails here, we will continue normally, this means that our
       // parent won't cause a fatal failure if something writes to stderr in
       // this child.
-#if !defined(NDEBUG)
-      // In DEBUG builds, we still want to get a report.
-      WriteFailedStderrSetupMessage(fds[1]);
-      SANDBOX_DIE(NULL);
-#endif
     }
     if (HANDLE_EINTR(close(fds[1]))) {
-      // This call to close() has been failing in strange ways. See
-      // crbug.com/152530. So we only fail in debug mode now.
-#if !defined(NDEBUG)
       WriteFailedStderrSetupMessage(fds[1]);
       SANDBOX_DIE(NULL);
-#endif
     }
 
     evaluators_.clear();
