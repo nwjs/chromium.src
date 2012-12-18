@@ -126,7 +126,7 @@ class ImageLoadingTracker : public content::NotificationObserver {
   // if a given |resource| does not have a corresponding image in bundled
   // resources. Otherwise fills |resource_id|.
   static bool IsComponentExtensionResource(
-      const extensions::Extension* extension,
+      const FilePath& extension_path,
       const FilePath& resource_path,
       int* resource_id);
 

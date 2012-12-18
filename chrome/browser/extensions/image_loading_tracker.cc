@@ -308,16 +308,18 @@ void ImageLoadingTracker::LoadImages(
       loader_ = new ImageLoader(this);
 
     int resource_id = -1;
-    if (IsComponentExtensionResource(extension, it->resource.relative_path(),
-                                     &resource_id))
+    if (extension->location() == Extension::COMPONENT &&
+        IsComponentExtensionResource(
+            extension->path(), it->resource.relative_path(), &resource_id)) {
       loader_->LoadResource(*it, id, resource_id);
-    else
+    } else {
       loader_->LoadImage(*it, id);
+    }
   }
 }
 
 bool ImageLoadingTracker::IsComponentExtensionResource(
-    const Extension* extension,
+    const FilePath& extension_path,
     const FilePath& resource_path,
     int* resource_id) {
   static const GritResourceMap kExtraComponentExtensionResources[] = {
@@ -331,10 +333,7 @@ bool ImageLoadingTracker::IsComponentExtensionResource(
   static const size_t kExtraComponentExtensionResourcesSize =
       arraysize(kExtraComponentExtensionResources);
 
-  if (extension->location() != Extension::COMPONENT)
-    return false;
-
-  FilePath directory_path = extension->path();
+  FilePath directory_path = extension_path;
   FilePath resources_dir;
   FilePath relative_path;
   if (!PathService::Get(chrome::DIR_RESOURCES, &resources_dir) ||
