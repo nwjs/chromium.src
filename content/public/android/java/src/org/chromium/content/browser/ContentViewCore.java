@@ -1002,10 +1002,12 @@ public class ContentViewCore implements MotionEventDelegate {
     @Override
     public boolean sendGesture(int type, long timeMs, int x, int y, Bundle b) {
         if (mNativeContentViewCore == 0) return false;
-
         switch (type) {
             case ContentViewGestureHandler.GESTURE_SHOW_PRESSED_STATE:
                 nativeShowPressState(mNativeContentViewCore, timeMs, x, y);
+                return true;
+            case ContentViewGestureHandler.GESTURE_SHOW_PRESS_CANCEL:
+                nativeShowPressCancel(mNativeContentViewCore, timeMs, x, y);
                 return true;
             case ContentViewGestureHandler.GESTURE_DOUBLE_TAP:
                 nativeDoubleTap(mNativeContentViewCore, timeMs, x, y);
@@ -2462,6 +2464,9 @@ public class ContentViewCore implements MotionEventDelegate {
             int nativeContentViewCoreImpl, long timeMs, int x, int y, boolean linkPreviewTap);
 
     private native void nativeShowPressState(
+            int nativeContentViewCoreImpl, long timeMs, int x, int y);
+
+    private native void nativeShowPressCancel(
             int nativeContentViewCoreImpl, long timeMs, int x, int y);
 
     private native void nativeDoubleTap(int nativeContentViewCoreImpl, long timeMs, int x, int y);
