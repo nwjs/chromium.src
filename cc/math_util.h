@@ -95,7 +95,7 @@ public:
 
     static void flattenTransformTo2d(WebKit::WebTransformationMatrix&);
 
-    static FloatPoint computeTransform2dScaleComponents(const WebKit::WebTransformationMatrix&);
+    static FloatPoint computeTransform2dScaleComponents(const WebKit::WebTransformationMatrix&, float fallbackValue);
 
     // Returns the smallest angle between the given two vectors in degrees. Neither vector is
     // assumed to be normalized.
