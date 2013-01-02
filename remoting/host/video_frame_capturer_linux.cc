@@ -86,7 +86,7 @@ class VideoFrameCapturerLinux : public VideoFrameCapturer {
   // In the non-DAMAGE case, this captures the whole screen, then calculates
   // some invalid rectangles that include any differences between this and the
   // previous capture.
-  CaptureData* CaptureScreen();
+  scoped_refptr<CaptureData> CaptureScreen();
 
   // Called when the screen configuration is changed. |root_window_size|
   // specifies size the most recent size of the root window.
@@ -401,14 +401,14 @@ void VideoFrameCapturerLinux::CaptureCursor() {
   delegate_->OnCursorShapeChanged(cursor_proto.Pass());
 }
 
-CaptureData* VideoFrameCapturerLinux::CaptureScreen() {
+scoped_refptr<CaptureData> VideoFrameCapturerLinux::CaptureScreen() {
   VideoFrame* current = queue_.current_frame();
   DataPlanes planes;
   planes.data[0] = current->pixels();
   planes.strides[0] = current->bytes_per_row();
 
-  CaptureData* capture_data = new CaptureData(planes, current->dimensions(),
-                                              media::VideoFrame::RGB32);
+  scoped_refptr<CaptureData> capture_data(
+      new CaptureData(planes, current->dimensions(), media::VideoFrame::RGB32));
 
   // Pass the screen size to the helper, so it can clip the invalid region if it
   // expands that region to a grid.
