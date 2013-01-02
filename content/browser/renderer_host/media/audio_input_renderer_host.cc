@@ -209,11 +209,14 @@ void AudioInputRendererHost::OnCreateStream(
   VLOG(1) << "AudioInputRendererHost::OnCreateStream(stream_id="
           << stream_id << ")";
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  DCHECK(LookupById(stream_id) == NULL);
+  // media::AudioParameters is validated in the deserializer.
+  if (LookupById(stream_id) != NULL) {
+    SendErrorMessage(stream_id);
+    return;
+  }
 
   media::AudioParameters audio_params(params);
 
-  DCHECK_GT(audio_params.frames_per_buffer(), 0);
   uint32 buffer_size = audio_params.GetBytesPerBuffer();
 
   // Create a new AudioEntry structure.
