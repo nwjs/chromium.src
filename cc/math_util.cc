@@ -367,10 +367,10 @@ static inline float scaleOnAxis(double a, double b, double c)
     return std::sqrt(a * a + b * b + c * c);
 }
 
-FloatPoint MathUtil::computeTransform2dScaleComponents(const WebTransformationMatrix& transform, float fallbackValue)
+FloatPoint MathUtil::computeTransform2dScaleComponents(const WebTransformationMatrix& transform)
 {
     if (transform.hasPerspective())
-        return FloatPoint(fallbackValue, fallbackValue);
+        return FloatPoint(1, 1);
     float xScale = scaleOnAxis(transform.m11(), transform.m12(), transform.m13());
     float yScale = scaleOnAxis(transform.m21(), transform.m22(), transform.m23());
     return FloatPoint(xScale, yScale);
