@@ -33,16 +33,12 @@ class BookmarksTest : public InProcessBrowserTest {
     GURL url;
     std::string out;
     ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-        tab->GetRenderViewHost(),
-        "",
-        "domAutomationController.send(location.protocol)",
-        &out));
+        tab->GetRenderViewHost(), L"",
+        L"domAutomationController.send(location.protocol)", &out));
     ASSERT_EQ("chrome-extension:", out);
     ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-        tab->GetRenderViewHost(),
-        "",
-        "domAutomationController.send(location.pathname)",
-        &out));
+        tab->GetRenderViewHost(), L"",
+        L"domAutomationController.send(location.pathname)", &out));
     ASSERT_EQ("/main.html", out);
   }
 };

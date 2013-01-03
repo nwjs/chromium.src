@@ -29,10 +29,9 @@ void OptionsBrowserTest::VerifyNavbar() {
   bool navbar_exist = false;
   EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "domAutomationController.send("
-      "    !!document.getElementById('navigation'))",
-      &navbar_exist));
+      L"",
+      L"domAutomationController.send("
+      L"!!document.getElementById('navigation'))", &navbar_exist));
   EXPECT_EQ(true, navbar_exist);
 }
 

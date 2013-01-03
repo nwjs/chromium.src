@@ -105,7 +105,8 @@ class InstantTest : public InProcessBrowserTest {
     if (omnibox()->model()->has_focus()) {
       instant()->OmniboxFocusChanged(OMNIBOX_FOCUS_VISIBLE,
                                      OMNIBOX_FOCUS_CHANGE_EXPLICIT, NULL);
-    } else {
+    }
+    else {
       browser()->window()->GetLocationBar()->FocusLocation(false);
     }
   }
@@ -130,30 +131,29 @@ class InstantTest : public InProcessBrowserTest {
     observer.WaitUntilDesiredPreviewState();
   }
 
-  std::string WrapScript(const std::string& script) const {
-    return "domAutomationController.send(" + script + ")";
+  std::wstring WrapScript(const std::string& script) const {
+    return UTF8ToWide("domAutomationController.send(" + script + ")");
   }
 
   bool GetBoolFromJS(content::RenderViewHost* rvh,
                      const std::string& script,
                      bool* result) WARN_UNUSED_RESULT {
-    return content::ExecuteJavaScriptAndExtractBool(rvh, "", WrapScript(script),
-                                                    result);
+    return content::ExecuteJavaScriptAndExtractBool(rvh, std::wstring(),
+                                                    WrapScript(script), result);
   }
 
   bool GetIntFromJS(content::RenderViewHost* rvh,
                     const std::string& script,
                     int* result) WARN_UNUSED_RESULT {
-    return content::ExecuteJavaScriptAndExtractInt(rvh, "", WrapScript(script),
-                                                   result);
+    return content::ExecuteJavaScriptAndExtractInt(rvh, std::wstring(),
+                                                   WrapScript(script), result);
   }
 
   bool GetStringFromJS(content::RenderViewHost* rvh,
                        const std::string& script,
                        std::string* result) WARN_UNUSED_RESULT {
-    return content::ExecuteJavaScriptAndExtractString(rvh, "",
-                                                      WrapScript(script),
-                                                      result);
+    return content::ExecuteJavaScriptAndExtractString(
+        rvh, std::wstring(), WrapScript(script), result);
   }
 
   bool UpdateSearchState(content::WebContents* contents) WARN_UNUSED_RESULT {
@@ -170,9 +170,8 @@ class InstantTest : public InProcessBrowserTest {
 
   bool ExecuteScript(const std::string& script) WARN_UNUSED_RESULT {
     return content::ExecuteJavaScript(
-        instant()->GetPreviewContents()->GetRenderViewHost(),
-        "",
-        script);
+        instant()->GetPreviewContents()->GetRenderViewHost(), std::wstring(),
+        UTF8ToWide(script));
   }
 
   bool CheckVisibilityIs(content::WebContents* contents,

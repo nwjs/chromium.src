@@ -192,9 +192,8 @@ void ExtensionWebRequestApiTest::RunPermissionTest(
   std::string body;
   WebContents* tab = chrome::GetActiveWebContents(browser());
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-        tab->GetRenderViewHost(),
-        "",
-        "window.domAutomationController.send(document.body.textContent)",
+        tab->GetRenderViewHost(), L"",
+        L"window.domAutomationController.send(document.body.textContent)",
         &body));
   EXPECT_EQ(expected_content_regular_window, body);
 
@@ -214,9 +213,8 @@ void ExtensionWebRequestApiTest::RunPermissionTest(
   body.clear();
   WebContents* otr_tab = chrome::GetActiveWebContents(otr_browser);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      otr_tab->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.body.textContent)",
+      otr_tab->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.body.textContent)",
       &body));
   EXPECT_EQ(exptected_content_incognito_window, body);
 }

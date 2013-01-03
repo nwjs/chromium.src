@@ -81,8 +81,8 @@ class PrefMapping {
               const std::string& indicator_selector)
       : pref_(pref),
         is_local_state_(is_local_state),
-        indicator_test_setup_js_(indicator_test_setup_js),
         indicator_selector_(indicator_selector) {
+    indicator_test_setup_js_ = ASCIIToWide(indicator_test_setup_js);
   }
   ~PrefMapping() {}
 
@@ -90,7 +90,7 @@ class PrefMapping {
 
   bool is_local_state() const { return is_local_state_; }
 
-  const std::string& indicator_test_setup_js() const {
+  const std::wstring& indicator_test_setup_js() const {
     return indicator_test_setup_js_;
   }
 
@@ -108,7 +108,7 @@ class PrefMapping {
  private:
   std::string pref_;
   bool is_local_state_;
-  std::string indicator_test_setup_js_;
+  std::wstring indicator_test_setup_js_;
   std::string indicator_selector_;
   ScopedVector<IndicatorTestCase> indicator_test_cases_;
 
@@ -311,7 +311,7 @@ void VerifyControlledSettingIndicators(Browser* browser,
                                        const std::string& value,
                                        const std::string& controlled_by,
                                        bool readonly) {
-  std::stringstream javascript;
+  std::wstringstream javascript;
   javascript << "var nodes = document.querySelectorAll("
              << "    'span.controlled-setting-indicator"
              <<          selector.c_str() << "');"
@@ -332,7 +332,7 @@ void VerifyControlledSettingIndicators(Browser* browser,
   // Retrieve the state of all controlled setting indicators matching the
   // |selector| as JSON.
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      contents->GetRenderViewHost(), "", javascript.str(), &json));
+      contents->GetRenderViewHost(), L"", javascript.str(), &json));
   scoped_ptr<base::Value> value_ptr(base::JSONReader::Read(json));
   const base::ListValue* indicators = NULL;
   ASSERT_TRUE(value_ptr.get());
@@ -492,8 +492,7 @@ IN_PROC_BROWSER_TEST_P(PolicyPrefsTest, CheckPolicyIndicators) {
     ui_test_utils::NavigateToURL(browser(), GURL(kMainSettingsPage));
     if (!(*pref_mapping)->indicator_test_setup_js().empty()) {
       ASSERT_TRUE(content::ExecuteJavaScript(
-          chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-          "",
+          chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
           (*pref_mapping)->indicator_test_setup_js()));
     }
 

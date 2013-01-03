@@ -51,10 +51,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
       browser(), web_resource.ReplaceComponents(make_host_a_com));
   std::string result;
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ(result, "Loaded");
 
   // A web host that loads a non-existent extension.
@@ -64,10 +63,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
           "non_existent_extension.html"));
   ui_test_utils::NavigateToURL(browser(), non_existent_extension);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ(result, "Image failed to load");
 
   // A data URL. Data URLs should always be able to load chrome-extension://
@@ -79,9 +77,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
   ui_test_utils::NavigateToURL(browser(),
       GURL(std::string("data:text/html;charset=utf-8,") + file_source));
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Loaded");
 
@@ -96,9 +93,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
       browser(),
       GURL("chrome-extension://pbkkcbgdkliohhfaeefcijaghglkahja/index.html"));
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Loaded");
 }
@@ -161,10 +157,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/accessible_resource.html"));
   ui_test_utils::NavigateToURL(browser(), accessible_resource);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("Loaded", result);
 
   GURL xhr_accessible_resource(
@@ -174,10 +169,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
   ui_test_utils::NavigateToURL(
       browser(), xhr_accessible_resource);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("XHR completed with status: 200", result);
 
   GURL xhr_inaccessible_resource(
@@ -187,10 +181,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
   ui_test_utils::NavigateToURL(
       browser(), xhr_inaccessible_resource);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("XHR failed to load resource", result);
 
   GURL nonaccessible_resource(
@@ -199,10 +192,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/nonaccessible_resource.html"));
   ui_test_utils::NavigateToURL(browser(), nonaccessible_resource);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("Image failed to load", result);
 
   GURL nonexistent_resource(
@@ -211,10 +203,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/nonexistent_resource.html"));
   ui_test_utils::NavigateToURL(browser(), nonexistent_resource);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("Image failed to load", result);
 
   GURL nonaccessible_cer_resource(
@@ -223,10 +214,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/nonaccessible_chrome_resource_scheme.html"));
   ui_test_utils::NavigateToURL(browser(), nonaccessible_cer_resource);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("Loading CER:// failed.", result);
 
   GURL newtab_page("chrome://newtab");
@@ -238,10 +228,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
   ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
       browser(), accessible_newtab_override, 2);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("New Tab Page Loaded Successfully", result);
 }
 
@@ -259,10 +248,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/accessible_resource_with_csp.html"));
   ui_test_utils::NavigateToURL(browser(), accessible_resource_with_csp);
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
-      &result));
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
   EXPECT_EQ("Loaded", result);
 }
 

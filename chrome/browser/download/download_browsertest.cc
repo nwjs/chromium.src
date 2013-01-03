@@ -998,8 +998,8 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadResourceThrottleCancels) {
   bool download_assempted;
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(startDownload());",
+      L"",
+      L"window.domAutomationController.send(startDownload());",
       &download_assempted));
   ASSERT_TRUE(download_assempted);
   observer.WaitForObservation(
@@ -1427,8 +1427,8 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, ChromeURLAfterDownload) {
   bool webui_responded = false;
   EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       contents->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(window.webui_responded_);",
+      L"",
+      L"window.domAutomationController.send(window.webui_responded_);",
       &webui_responded));
   EXPECT_TRUE(webui_responded);
 }
@@ -1447,9 +1447,9 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, BrowserCloseAfterDownload) {
   bool result = false;
   EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       contents->GetRenderViewHost(),
-      "",
-      "window.onunload = function() { var do_nothing = 0; }; "
-      "window.domAutomationController.send(true);",
+      L"",
+      L"window.onunload = function() { var do_nothing = 0; }; "
+      L"window.domAutomationController.send(true);",
       &result));
   EXPECT_TRUE(result);
 

@@ -153,7 +153,7 @@ class SitePerProcessBrowserTest : public ContentBrowserTest {
         Source<NavigationController>(
             &shell()->web_contents()->GetController()));
     bool result = ExecuteJavaScript(window->web_contents()->GetRenderViewHost(),
-                                    "", script);
+                                    L"", ASCIIToWide(script));
     load_observer.Wait();
     return result;
   }

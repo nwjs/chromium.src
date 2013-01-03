@@ -100,17 +100,18 @@ void RunTestFunction(DevToolsWindow* window, const char* test_name) {
   ASSERT_TRUE(
       content::ExecuteJavaScriptAndExtractString(
           window->GetRenderViewHost(),
-          "",
-          "window.domAutomationController.send("
-          "    '' + (window.uiTests && (typeof uiTests.runTest)));",
+          L"",
+          L"window.domAutomationController.send("
+          L"'' + (window.uiTests && (typeof uiTests.runTest)));",
           &result));
 
   if (result == "function") {
     ASSERT_TRUE(
         content::ExecuteJavaScriptAndExtractString(
             window->GetRenderViewHost(),
-            "",
-            base::StringPrintf("uiTests.runTest('%s')", test_name),
+            L"",
+            UTF8ToWide(base::StringPrintf("uiTests.runTest('%s')",
+                                          test_name)),
             &result));
     EXPECT_EQ("[OK]", result);
   } else {
@@ -532,9 +533,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestPageWithNoJavaScript) {
   ASSERT_TRUE(
       content::ExecuteJavaScriptAndExtractString(
           window_->GetRenderViewHost(),
-          "",
-          "window.domAutomationController.send("
-          "    '' + (window.uiTests && (typeof uiTests.runTest)));",
+          L"",
+          L"window.domAutomationController.send("
+          L"'' + (window.uiTests && (typeof uiTests.runTest)));",
           &result));
   ASSERT_EQ("function", result) << "DevTools front-end is broken.";
   CloseDevToolsWindow();

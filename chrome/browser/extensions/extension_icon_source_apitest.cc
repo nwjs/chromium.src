@@ -35,9 +35,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionIconSourceTest, IconsLoaded) {
       browser(),
       GURL("chrome-extension://gbmgkahjioeacddebbnengilkgbkhodg/index.html"));
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Loaded");
 
@@ -47,9 +46,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionIconSourceTest, IconsLoaded) {
       browser(),
       GURL("chrome-extension://apocjbpjpkghdepdngjlknfpmabcmlao/index.html"));
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Not Loaded");
 }
@@ -68,9 +66,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionIconSourceTest, IconsLoadedIncognito) {
       browser()->profile(),
       GURL("chrome-extension://gbmgkahjioeacddebbnengilkgbkhodg/index.html"));
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(otr_browser)->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
+      chrome::GetActiveWebContents(otr_browser)->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Loaded");
 
@@ -80,9 +77,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionIconSourceTest, IconsLoadedIncognito) {
       browser()->profile(),
       GURL("chrome-extension://apocjbpjpkghdepdngjlknfpmabcmlao/index.html"));
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
-      chrome::GetActiveWebContents(otr_browser)->GetRenderViewHost(),
-      "",
-      "window.domAutomationController.send(document.title)",
+      chrome::GetActiveWebContents(otr_browser)->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Not Loaded");
 }

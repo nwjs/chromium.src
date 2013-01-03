@@ -22,10 +22,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, WebContents) {
 
   bool result = false;
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "testTabsAPI()",
-      &result));
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"testTabsAPI()", &result));
   EXPECT_TRUE(result);
 
   // There was a bug where we would crash if we navigated to a page in the same
@@ -36,9 +34,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, WebContents) {
       GURL("chrome-extension://behllobkkfkfnphdnhnkndlbkcpglgmj/page.html"));
   result = false;
   ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
-      "",
-      "testTabsAPI()",
-      &result));
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"testTabsAPI()", &result));
   EXPECT_TRUE(result);
 }
