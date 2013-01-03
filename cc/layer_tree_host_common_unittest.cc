@@ -333,7 +333,7 @@ TEST(LayerTreeHostCommonTest, verifyTransformsForSingleRenderSurface)
     parentTranslationToCenter.translate(50, 60);
     WebTransformationMatrix parentCompositeTransform = parentTranslationToAnchor * parentLayerTransform * parentTranslationToAnchor.inverse()
             * parentTranslationToCenter * parentSublayerMatrix * parentTranslationToCenter.inverse();
-    FloatPoint parentCompositeScale = MathUtil::computeTransform2dScaleComponents(parentCompositeTransform);
+    FloatPoint parentCompositeScale = MathUtil::computeTransform2dScaleComponents(parentCompositeTransform, 1.f);
     WebTransformationMatrix surfaceSublayerTransform;
     surfaceSublayerTransform.scaleNonUniform(parentCompositeScale.x(), parentCompositeScale.y());
     WebTransformationMatrix surfaceSublayerCompositeTransform = parentCompositeTransform * surfaceSublayerTransform.inverse();
@@ -391,7 +391,7 @@ TEST(LayerTreeHostCommonTest, verifyTransformsForReplica)
     childTranslationToCenter.translate(8, 9);
     WebTransformationMatrix replicaLayerTransform;
     replicaLayerTransform.scale3d(3, 3, 1);
-    FloatPoint parentCompositeScale = MathUtil::computeTransform2dScaleComponents(parentCompositeTransform);
+    FloatPoint parentCompositeScale = MathUtil::computeTransform2dScaleComponents(parentCompositeTransform, 1.f);
     WebTransformationMatrix surfaceSublayerTransform;
     surfaceSublayerTransform.scaleNonUniform(parentCompositeScale.x(), parentCompositeScale.y());
     WebTransformationMatrix replicaCompositeTransform = parentCompositeTransform * replicaLayerTransform * surfaceSublayerTransform.inverse();
@@ -471,7 +471,7 @@ TEST(LayerTreeHostCommonTest, verifyTransformsForRenderSurfaceHierarchy)
     WebTransformationMatrix R = A * translationToAnchor * replicaLayerTransform * translationToAnchor.inverse();
     WebTransformationMatrix identityMatrix;
 
-    FloatPoint surface1ParentTransformScale = MathUtil::computeTransform2dScaleComponents(A * B);
+    FloatPoint surface1ParentTransformScale = MathUtil::computeTransform2dScaleComponents(A * B, 1.f);
     WebTransformationMatrix surface1SublayerTransform;
     surface1SublayerTransform.scaleNonUniform(surface1ParentTransformScale.x(), surface1ParentTransformScale.y());
 
@@ -480,7 +480,7 @@ TEST(LayerTreeHostCommonTest, verifyTransformsForRenderSurfaceHierarchy)
     // S1 = transform to move from renderSurface1 pixels to the layer space of the owning layer
     WebTransformationMatrix S1 = surface1SublayerTransform.inverse();
 
-    FloatPoint surface2ParentTransformScale = MathUtil::computeTransform2dScaleComponents(SS1 * A * B);
+    FloatPoint surface2ParentTransformScale = MathUtil::computeTransform2dScaleComponents(SS1 * A * B, 1.f);
     WebTransformationMatrix surface2SublayerTransform;
     surface2SublayerTransform.scaleNonUniform(surface2ParentTransformScale.x(), surface2ParentTransformScale.y());
 

@@ -354,7 +354,7 @@ static inline void updateLayerContentsScale(Layer* layer, const WebTransformatio
         rasterScale = 1;
 
         if (layer->automaticallyComputeRasterScale()) {
-            FloatPoint transformScale = MathUtil::computeTransform2dScaleComponents(combinedTransform);
+            FloatPoint transformScale = MathUtil::computeTransform2dScaleComponents(combinedTransform, 0.f);
             float combinedScale = std::max(transformScale.x(), transformScale.y());
             rasterScale = combinedScale / deviceScaleFactor;
             if (!layer->boundsContainPageScale())
@@ -562,7 +562,7 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
     WebTransformationMatrix nextHierarchyMatrix = fullHierarchyMatrix;
     WebTransformationMatrix sublayerMatrix;
 
-    FloatPoint renderSurfaceSublayerScale = MathUtil::computeTransform2dScaleComponents(combinedTransform);
+    FloatPoint renderSurfaceSublayerScale = MathUtil::computeTransform2dScaleComponents(combinedTransform, deviceScaleFactor * pageScaleFactor);
 
     if (subtreeShouldRenderToSeparateSurface(layer, isScaleOrTranslation(combinedTransform))) {
         // Check back-face visibility before continuing with this surface and its subtree
