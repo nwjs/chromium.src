@@ -1133,7 +1133,9 @@ void DownloadItemImpl::OnDownloadRenamedToIntermediateName(
 void DownloadItemImpl::MaybeCompleteDownload() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (!IsDownloadReadyForCompletion())
+  if (!IsDownloadReadyForCompletion(
+          base::Bind(&DownloadItemImpl::MaybeCompleteDownload,
+                     weak_ptr_factory_.GetWeakPtr())))
     return;
 
   // TODO(rdsmith): DCHECK that we only pass through this point
@@ -1157,16 +1159,6 @@ void DownloadItemImpl::MaybeCompleteDownload() {
 void DownloadItemImpl::OnDownloadCompleting() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (state_ != IN_PROGRESS_INTERNAL)
-    return;
-
-  // Give the delegate a chance to override.
-  delegate_->ReadyForDownloadCompletion(
-      this, base::Bind(&DownloadItemImpl::ReadyForDownloadCompletionDone,
-                       weak_ptr_factory_.GetWeakPtr()));
-}
-
-void DownloadItemImpl::ReadyForDownloadCompletionDone() {
   if (state_ != IN_PROGRESS_INTERNAL)
     return;
 
@@ -1305,7 +1297,8 @@ void DownloadItemImpl::CancelDownloadFile() {
   }
 }
 
-bool DownloadItemImpl::IsDownloadReadyForCompletion() {
+bool DownloadItemImpl::IsDownloadReadyForCompletion(
+    const base::Closure& state_change_notification) {
   // If we don't have all the data, the download is not ready for
   // completion.
   if (!AllDataSaved())
@@ -1325,6 +1318,11 @@ bool DownloadItemImpl::IsDownloadReadyForCompletion() {
   // (which occurs strictly after file name determination, intermediate
   // file rename, and UI display) then it's not ready for completion.
   if (!IsPersisted())
+    return false;
+
+  // Give the delegate a chance to hold up a stop sign.  It'll call
+  // use back through the passed callback if it does and that state changes.
+  if (!delegate_->ShouldCompleteDownload(this, state_change_notification))
     return false;
 
   return true;
