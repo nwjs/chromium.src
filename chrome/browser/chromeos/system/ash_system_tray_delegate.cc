@@ -556,8 +556,8 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     std::set<const Network*> added;
 
     // Add the active network first.
-    if (crosnet->active_network())
-      AddNetworkToList(list, &added, crosnet->active_network());
+    if (crosnet->active_nonvirtual_network())
+      AddNetworkToList(list, &added, crosnet->active_nonvirtual_network());
 
     if (crosnet->ethernet_network() &&
         crosnet->ethernet_network()->connecting_or_connected()) {
@@ -917,7 +917,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   }
 
   void RefreshNetworkObserver(NetworkLibrary* crosnet) {
-    const Network* network = crosnet->active_network();
+    const Network* network = crosnet->active_nonvirtual_network();
     std::string new_path = network ? network->service_path() : std::string();
     if (active_network_path_ != new_path) {
       if (!active_network_path_.empty())
