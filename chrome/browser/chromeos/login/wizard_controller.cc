@@ -420,6 +420,7 @@ void WizardController::RegisterPrefs(PrefService* local_state) {
   local_state->RegisterBooleanPref(prefs::kFactoryResetRequested, false);
   local_state->RegisterStringPref(prefs::kRLZBrand, std::string(),
                                   PrefService::UNSYNCABLE_PREF);
+  local_state->RegisterBooleanPref(prefs::kRLZDisabled, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
