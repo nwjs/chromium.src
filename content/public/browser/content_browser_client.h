@@ -27,6 +27,7 @@
 
 class CommandLine;
 class GURL;
+class RendererPreferences;
 
 namespace base {
 class FilePath;

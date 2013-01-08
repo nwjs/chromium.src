@@ -144,12 +144,12 @@ int RendererMain(const MainFunctionParams& parameters) {
 #if defined(OS_MACOSX)
   // As long as we use Cocoa in the renderer (for the forseeable future as of
   // now; see http://crbug.com/13890 for info) we need to have a UI loop.
-  MessageLoop main_message_loop(MessageLoop::TYPE_UI);
+  MessageLoop main_message_loop(MessageLoop::TYPE_NODE);
 #else
   // The main message loop of the renderer services doesn't have IO or UI tasks,
   // unless in-process-plugins is used.
   MessageLoop main_message_loop(RenderProcessImpl::InProcessPlugins() ?
-              MessageLoop::TYPE_UI : MessageLoop::TYPE_DEFAULT);
+              MessageLoop::TYPE_UI : MessageLoop::TYPE_NODE);
 #endif
   main_message_loop.AddTaskObserver(&task_observer);
 

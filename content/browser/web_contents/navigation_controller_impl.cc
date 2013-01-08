@@ -271,9 +271,13 @@ void NavigationControllerImpl::ReloadIgnoringCache(bool check_for_repost) {
 void NavigationControllerImpl::ReloadOriginalRequestURL(bool check_for_repost) {
   ReloadInternal(check_for_repost, RELOAD_ORIGINAL_REQUEST_URL);
 }
+void NavigationControllerImpl::ReloadDev(bool check_for_repost) {
+  ReloadInternal(check_for_repost, RELOAD_IGNORING_CACHE, true);
+}
 
 void NavigationControllerImpl::ReloadInternal(bool check_for_repost,
-                                              ReloadType reload_type) {
+                                              ReloadType reload_type,
+                                              bool dev_reload) {
   if (transient_entry_index_ != -1) {
     // If an interstitial is showing, treat a reload as a navigation to the
     // transient entry's URL.
@@ -320,8 +324,8 @@ void NavigationControllerImpl::ReloadInternal(bool check_for_repost,
     // as new navigation (which happens to clear forward history).
     // Tabs that are discarded due to low memory conditions may not have a site
     // instance, and should not be treated as a cross-site reload.
-    if (site_instance &&
-        site_instance->HasWrongProcessForURL(entry->GetURL())) {
+    if (dev_reload || (site_instance &&
+                       site_instance->HasWrongProcessForURL(entry->GetURL()))) {
       // Create a navigation entry that resembles the current one, but do not
       // copy page id, site instance, content state, or timestamp.
       NavigationEntryImpl* nav_entry = NavigationEntryImpl::FromNavigationEntry(
@@ -334,6 +338,7 @@ void NavigationControllerImpl::ReloadInternal(bool check_for_repost,
       reload_type = NavigationController::NO_RELOAD;
 
       nav_entry->set_should_replace_entry(true);
+      nav_entry->set_is_dev_reload(dev_reload);
       pending_entry_ = nav_entry;
     } else {
       pending_entry_index_ = current_index;

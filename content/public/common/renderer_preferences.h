@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "base/values.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -126,6 +127,9 @@ struct CONTENT_EXPORT RendererPreferences {
 
   // Controls deacceleration of touchscreen-initiated flings.
   std::vector<float> touchscreen_fling_profile;
+
+  // node-webkit: remote page rules in package.json
+  std::string nw_remote_page_rules;
 };
 
 }  // namespace content

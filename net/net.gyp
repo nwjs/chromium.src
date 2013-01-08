@@ -1131,7 +1131,7 @@
             'conditions': [
               ['use_openssl==1', {
                 'dependencies': [
-                  '../third_party/openssl/openssl.gyp:openssl',
+                  '../third_party/node/deps/openssl/openssl.gyp:openssl',
                 ],
               },
               {  # else use_openssl==0, use NSS
@@ -1273,7 +1273,7 @@
         }],
         [ 'OS == "android"', {
             'dependencies': [
-              '../third_party/openssl/openssl.gyp:openssl',
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
               'net_jni_headers',
             ],
             'sources!': [
@@ -1866,7 +1866,7 @@
         ],
         [ 'OS == "android"', {
             'dependencies': [
-              '../third_party/openssl/openssl.gyp:openssl',
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
             ],
             'sources!': [
               'dns/dns_config_service_posix_unittest.cc',
@@ -2012,7 +2012,7 @@
           'conditions': [
             ['use_openssl==1', {
               'dependencies': [
-                '../third_party/openssl/openssl.gyp:openssl',
+                '../third_party/node/deps/openssl/openssl.gyp:openssl',
               ],
             }, {
               'dependencies': [
@@ -2335,7 +2335,7 @@
           ],
           'dependencies': [
             '../base/base.gyp:base',
-            '../third_party/openssl/openssl.gyp:openssl',
+            '../third_party/node/deps/openssl/openssl.gyp:openssl',
             'net',
           ],
           'sources': [

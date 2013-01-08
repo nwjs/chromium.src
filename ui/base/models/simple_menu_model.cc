@@ -59,6 +59,10 @@ void SimpleMenuModel::Delegate::MenuWillShow(SimpleMenuModel* /*source*/) {
 void SimpleMenuModel::Delegate::MenuClosed(SimpleMenuModel* /*source*/) {
 }
 
+bool SimpleMenuModel::Delegate::HasIcon(int command_id) {
+  return false;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // SimpleMenuModel, public:
 
@@ -214,6 +218,10 @@ void SimpleMenuModel::SetIcon(int index, const gfx::Image& icon) {
   items_[ValidateItemIndex(index)].icon = icon;
 }
 
+void SimpleMenuModel::RemoveAt(int index) {
+  items_.erase(items_.begin() + index);
+}
+
 void SimpleMenuModel::Clear() {
   items_.clear();
 }
@@ -231,7 +239,7 @@ int SimpleMenuModel::GetIndexOfCommandId(int command_id) {
 
 bool SimpleMenuModel::HasIcons() const {
   for (ItemVector::const_iterator i = items_.begin(); i != items_.end(); ++i) {
-    if (!i->icon.IsEmpty())
+    if (delegate_->HasIcon(i->command_id))
       return true;
   }
 

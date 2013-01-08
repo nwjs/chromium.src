@@ -1407,6 +1407,9 @@ void WebContentsImpl::CreateNewWindow(
     pending_contents_[route_id] = new_contents;
   }
 
+  // Save window features
+  new_contents->window_features_ = params.window_features;
+
   if (delegate_) {
     delegate_->WebContentsCreated(
         this, params.opener_frame_id, params.target_url, new_contents);
@@ -2002,6 +2005,10 @@ void WebContentsImpl::DidEndColorChooser(int color_chooser_id) {
   if (delegate_)
     delegate_->DidEndColorChooser();
   color_chooser_ = NULL;
+}
+
+WebKit::WebWindowFeatures WebContentsImpl::GetWindowFeatures() const {
+  return window_features_;
 }
 
 int WebContentsImpl::DownloadFavicon(const GURL& url, int image_size,

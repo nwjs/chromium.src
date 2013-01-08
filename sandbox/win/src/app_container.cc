@@ -69,6 +69,7 @@ ResultCode AppContainerAttributes::ShareForStartup(
   if (!capabilities_.AppContainerSid)
     return SBOX_ERROR_INVALID_APP_CONTAINER;
 
+#if 0
   if (!startup_information->UpdateProcThreadAttribute(
            PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
            const_cast<SECURITY_CAPABILITIES*>(&capabilities_),
@@ -76,6 +77,7 @@ ResultCode AppContainerAttributes::ShareForStartup(
     DPLOG(ERROR) << "Failed UpdateProcThreadAttribute";
     return SBOX_ERROR_CANNOT_INIT_APPCONTAINER;
   }
+#endif
   return SBOX_ALL_OK;
 }
 

@@ -1928,6 +1928,7 @@ WebView* RenderViewImpl::createView(
   params.opener_security_origin = security_url;
   params.opener_suppressed = creator->willSuppressOpenerInNewFrame();
   params.disposition = NavigationPolicyToDisposition(policy);
+  params.window_features = features;
   if (!request.isNull())
     params.target_url = request.url();
 
@@ -2243,6 +2244,7 @@ bool RenderViewImpl::runFileChooser(
     ipc_params.mode = FileChooserParams::Save;
   else
     ipc_params.mode = FileChooserParams::Open;
+  ipc_params.extract_directory = params.extractDirectory;
   ipc_params.title = params.title;
   ipc_params.default_file_name =
       webkit_base::WebStringToFilePath(params.initialValue);
@@ -4002,6 +4004,12 @@ void RenderViewImpl::didCreateScriptContext(WebFrame* frame,
                                             int world_id) {
   GetContentClient()->renderer()->DidCreateScriptContext(
       frame, context, extension_group, world_id);
+}
+
+bool RenderViewImpl::willSetSecurityToken(WebFrame* frame,
+                                          v8::Handle<v8::Context> context) {
+  return content::GetContentClient()->renderer()->WillSetSecurityToken(
+      frame, context);
 }
 
 void RenderViewImpl::willReleaseScriptContext(WebFrame* frame,

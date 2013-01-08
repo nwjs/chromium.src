@@ -189,6 +189,12 @@ class CONTENT_EXPORT NavigationEntryImpl
   const scoped_refptr<base::RefCountedBytes> screenshot() const {
     return screenshot_;
   }
+  void set_is_dev_reload(bool is_dev_reload) {
+    is_dev_reload_ = is_dev_reload;
+  }
+  bool is_dev_reload() const {
+    return is_dev_reload_;
+  }
 
  private:
   // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
@@ -288,6 +294,7 @@ class CONTENT_EXPORT NavigationEntryImpl
   // time (see TabNavigation for an example of this).
   std::map<std::string, string16> extra_data_;
 
+  bool is_dev_reload_;
   // Copy and assignment is explicitly allowed for this class.
 };
 

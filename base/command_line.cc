@@ -219,6 +219,7 @@ void CommandLine::InitFromArgv(int argc,
 }
 
 void CommandLine::InitFromArgv(const StringVector& argv) {
+  original_argv_ = argv;
   argv_ = StringVector(1);
   begin_args_ = 1;
   SetProgram(argv.empty() ? FilePath() : FilePath(argv[0]));

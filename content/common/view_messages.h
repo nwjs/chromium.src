@@ -43,6 +43,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginAction.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/range/range.h"
@@ -137,6 +138,27 @@ IPC_STRUCT_TRAITS_BEGIN(WebKit::WebScreenInfo)
   IPC_STRUCT_TRAITS_MEMBER(availableRect)
 IPC_STRUCT_TRAITS_END()
 
+IPC_STRUCT_TRAITS_BEGIN(WebKit::WebWindowFeatures)
+  IPC_STRUCT_TRAITS_MEMBER(x)
+  IPC_STRUCT_TRAITS_MEMBER(xSet)
+  IPC_STRUCT_TRAITS_MEMBER(y)
+  IPC_STRUCT_TRAITS_MEMBER(ySet)
+  IPC_STRUCT_TRAITS_MEMBER(width)
+  IPC_STRUCT_TRAITS_MEMBER(widthSet)
+  IPC_STRUCT_TRAITS_MEMBER(height)
+  IPC_STRUCT_TRAITS_MEMBER(heightSet)
+
+  IPC_STRUCT_TRAITS_MEMBER(menuBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(statusBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(toolBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(locationBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(scrollbarsVisible)
+  IPC_STRUCT_TRAITS_MEMBER(resizable)
+
+  IPC_STRUCT_TRAITS_MEMBER(fullscreen)
+  IPC_STRUCT_TRAITS_MEMBER(dialog)
+IPC_STRUCT_TRAITS_END()
+
 IPC_STRUCT_TRAITS_BEGIN(WebMenuItem)
   IPC_STRUCT_TRAITS_MEMBER(label)
   IPC_STRUCT_TRAITS_MEMBER(toolTip)
@@ -199,6 +221,7 @@ IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FileChooserParams)
   IPC_STRUCT_TRAITS_MEMBER(mode)
+  IPC_STRUCT_TRAITS_MEMBER(extract_directory)
   IPC_STRUCT_TRAITS_MEMBER(title)
   IPC_STRUCT_TRAITS_MEMBER(default_file_name)
   IPC_STRUCT_TRAITS_MEMBER(accept_types)
@@ -257,6 +280,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(report_frame_name_changes)
   IPC_STRUCT_TRAITS_MEMBER(touchpad_fling_profile)
   IPC_STRUCT_TRAITS_MEMBER(touchscreen_fling_profile)
+  IPC_STRUCT_TRAITS_MEMBER(nw_remote_page_rules)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebCookie)
@@ -328,6 +352,9 @@ IPC_STRUCT_BEGIN(ViewHostMsg_CreateWindow_Params)
   // The URL that will be loaded in the new window (empty if none has been
   // sepcified).
   IPC_STRUCT_MEMBER(GURL, target_url)
+
+  // The window features
+  IPC_STRUCT_MEMBER(WebKit::WebWindowFeatures, window_features)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_CreateWorker_Params)
@@ -1388,6 +1415,10 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SelectPopupMenuItem,
 // Sent by the browser as a reply to ViewHostMsg_SwapCompositorFrame.
 IPC_MESSAGE_ROUTED1(ViewMsg_SwapCompositorFrameAck,
                     cc::CompositorFrameAck /* ack */)
+
+// Notifies that the render process will shutdown
+IPC_SYNC_MESSAGE_CONTROL0_1(ViewMsg_WillQuit,
+                            int /* no_use */)
 
 // -----------------------------------------------------------------------------
 // Messages sent from the renderer to the browser.

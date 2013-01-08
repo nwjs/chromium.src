@@ -103,6 +103,7 @@ v8.log
 /chrome_frame/tools/test/reference_build
 /content/test/data/layout_tests/
 /content/test/data/plugin/
+/content/nw/
 /data
 /delegate_execute
 /googleurl
@@ -289,3 +290,7 @@ v8.log
 /xcodebuild
 cscope.*
 Session.vim
+
+# Dependencies of the node-webkit project
+/third_party/node
+

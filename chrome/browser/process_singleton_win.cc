@@ -20,17 +20,17 @@
 #include "base/win/windows_version.h"
 #include "base/win/wrapped_window_proc.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/shell_integration.h"
-#include "chrome/browser/ui/metro_chrome_win.h"
-#include "chrome/browser/ui/simple_message_box.h"
+//#include "chrome/browser/shell_integration.h"
+//#include "chrome/browser/ui/metro_chrome_win.h"
+//#include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_paths_internal.h"
+//#include "chrome/common/chrome_paths.h"
+//#include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/installer/util/wmi.h"
+//#include "chrome/installer/util/wmi.h"
 #include "content/public/common/result_codes.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+//#include "grit/chromium_strings.h"
+//#include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/win/hwnd_util.h"
@@ -169,6 +169,10 @@ bool ParseCommandLine(const COPYDATASTRUCT* cds,
   return false;
 }
 
+bool ActivateMetroChrome() {
+  return false;
+}
+
 // Returns true if Chrome needs to be relaunched into Windows 8 immersive mode.
 // Following conditions apply:-
 // 1. Windows 8 or greater.
@@ -180,7 +184,10 @@ bool ParseCommandLine(const COPYDATASTRUCT* cds,
 // TODO(ananta)
 // Move this function to a common place as the Windows 8 delegate_execute
 // handler can possibly use this.
+
 bool ShouldLaunchInWindows8ImmersiveMode(const base::FilePath& user_data_dir) {
+  return false;
+#if 0
 #if defined(USE_AURA)
   return false;
 #endif
@@ -216,6 +223,7 @@ bool ShouldLaunchInWindows8ImmersiveMode(const base::FilePath& user_data_dir) {
     return reg_value == 1;
   }
   return base::win::IsMachineATablet();
+#endif
 }
 
 }  // namespace
@@ -226,6 +234,7 @@ bool ShouldLaunchInWindows8ImmersiveMode(const base::FilePath& user_data_dir) {
 // http://code.google.com/p/chromium/issues/detail?id=43650
 bool ProcessSingleton::EscapeVirtualization(
     const base::FilePath& user_data_dir) {
+#if 0
   if (::GetModuleHandle(L"sftldr_wow64.dll") ||
       ::GetModuleHandle(L"sftldr.dll")) {
     int process_id;
@@ -249,6 +258,7 @@ bool ProcessSingleton::EscapeVirtualization(
     }
     return true;
   }
+#endif
   return false;
 }
 
@@ -369,6 +379,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
                     &BrowserWindowEnumeration,
                     reinterpret_cast<LPARAM>(&visible_window));
 
+#if 0
   // If there is a visible browser window, ask the user before killing it.
   if (visible_window && chrome::ShowMessageBox(NULL,
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
@@ -377,6 +388,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
     // The user denied. Quit silently.
     return PROCESS_NOTIFIED;
   }
+#endif
 
   // Time to take action. Kill the browser process.
   base::KillProcessById(process_id, content::RESULT_CODE_HUNG, true);

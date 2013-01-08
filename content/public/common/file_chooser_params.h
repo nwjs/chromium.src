@@ -35,6 +35,8 @@ struct CONTENT_EXPORT FileChooserParams {
 
   Mode mode;
 
+  bool extract_directory;
+
   // Title to be used for the dialog. This may be empty for the default title,
   // which will be either "Open" or "Save" depending on the mode.
   string16 title;

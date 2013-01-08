@@ -1058,6 +1058,7 @@ bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewMsg_PurgePluginListCache, OnPurgePluginListCache)
     IPC_MESSAGE_HANDLER(ViewMsg_NetworkStateChanged, OnNetworkStateChanged)
     IPC_MESSAGE_HANDLER(ViewMsg_TempCrashWithData, OnTempCrashWithData)
+    IPC_MESSAGE_HANDLER(ViewMsg_WillQuit, OnWillQuit)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -1187,6 +1188,14 @@ void RenderThreadImpl::OnNetworkStateChanged(bool online) {
 void RenderThreadImpl::OnTempCrashWithData(const GURL& data) {
   GetContentClient()->SetActiveURL(data);
   CHECK(false);
+}
+
+void RenderThreadImpl::OnWillQuit(int*) {
+  ObserverListBase<RenderProcessObserver>::Iterator it(observers_);
+  RenderProcessObserver* observer;
+  while ((observer = it.GetNext()) != NULL) {
+    observer->OnRenderProcessWillShutdown();
+  }
 }
 
 scoped_refptr<base::MessageLoopProxy>
