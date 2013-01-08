@@ -354,6 +354,8 @@ void LayerTreeHostImpl::scheduleAnimation()
 
 bool LayerTreeHostImpl::haveTouchEventHandlersAt(const gfx::Point& viewportPoint)
 {
+    if (!ensureRenderSurfaceLayerList())
+      return false;
 
     gfx::PointF deviceViewportPoint = gfx::ScalePoint(viewportPoint, m_deviceScaleFactor);
 
