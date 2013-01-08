@@ -171,6 +171,12 @@ class CONTENT_EXPORT NavigationEntryImpl
   const scoped_refptr<base::RefCountedBytes> screenshot() const {
     return screenshot_;
   }
+  void set_is_dev_reload(bool is_dev_reload) {
+    is_dev_reload_ = is_dev_reload;
+  }
+  bool is_dev_reload() const {
+    return is_dev_reload_;
+  }
 
  private:
   // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
@@ -259,6 +265,7 @@ class CONTENT_EXPORT NavigationEntryImpl
   // value is not needed after the entry commits and is not persisted.
   bool can_load_local_resources_;
 
+  bool is_dev_reload_;
   // Copy and assignment is explicitly allowed for this class.
 };
 

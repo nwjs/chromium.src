@@ -632,6 +632,8 @@ class CONTENT_EXPORT RenderViewImpl
   virtual void willReleaseScriptContext(WebKit::WebFrame* frame,
                                         v8::Handle<v8::Context>,
                                         int world_id);
+  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void didChangeScrollOffset(WebKit::WebFrame* frame);
 #if defined(OS_ANDROID)
   virtual void didFirstVisuallyNonEmptyLayout(WebKit::WebFrame*) OVERRIDE;
@@ -880,6 +882,7 @@ class CONTENT_EXPORT RenderViewImpl
   void UpdateEncoding(WebKit::WebFrame* frame,
                       const std::string& encoding_name);
 
+ public:
   void OpenURL(WebKit::WebFrame* frame,
                const GURL& url,
                const Referrer& referrer,

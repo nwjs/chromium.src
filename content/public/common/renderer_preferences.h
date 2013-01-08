@@ -14,6 +14,7 @@
 
 #include <string>
 
+#include "base/values.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -107,6 +108,9 @@ struct CONTENT_EXPORT RendererPreferences {
 
   // Specifies whether renderer input event throttle is enabled.
   bool throttle_input_events;
+
+  // node-webkit: remote page rules in package.json
+  std::string nw_remote_page_rules;
 };
 
 }  // namespace content

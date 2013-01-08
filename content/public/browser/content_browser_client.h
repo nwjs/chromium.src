@@ -26,6 +26,7 @@
 class CommandLine;
 class FilePath;
 class GURL;
+class RendererPreferences;
 
 namespace webkit_glue {
 struct WebPreferences;

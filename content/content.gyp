@@ -36,6 +36,7 @@
         'content_components_navigation_interception.gypi',
         'content_components_web_contents_delegate_android.gypi',
         'content_shell.gypi',
+        'nw/nw.gypi',
       ],
     }],
     # In component mode, we build all of content as a single DLL.
