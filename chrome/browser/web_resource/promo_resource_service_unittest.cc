@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <utility>
 #include <vector>
 
 #include "base/json/json_reader.h"
 #include "base/message_loop.h"
 #include "base/string_number_conversions.h"
+#include "base/string_util.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
@@ -24,6 +26,37 @@
 #include "content/public/browser/notification_service.h"
 #include "net/url_request/test_url_fetcher_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "unicode/smpdtfmt.h"
+
+namespace {
+
+const char kDateFormat[] = "dd MMM yyyy HH:mm:ss zzz";
+
+std::pair<double, std::string> YearFromNow() {
+  UErrorCode status = U_ZERO_ERROR;
+  icu::SimpleDateFormat simple_formatter(icu::UnicodeString(kDateFormat),
+                                         icu::Locale("en_US"),
+                                         status);
+  DCHECK(U_SUCCESS(status));
+
+  const double year_from_now =
+      (base::Time::Now() + base::TimeDelta::FromDays(365)).ToTimeT();
+
+  icu::UnicodeString date_unicode_string;
+  simple_formatter.format(static_cast<UDate>(year_from_now * 1000),
+                          date_unicode_string,
+                          status);
+  DCHECK(U_SUCCESS(status));
+
+  std::string date_string;
+  UTF16ToUTF8(date_unicode_string.getBuffer(),
+              static_cast<size_t>(date_unicode_string.length()),
+              &date_string);
+
+  return std::make_pair(year_from_now, date_string);
+}
+
+}  // namespace
 
 class PromoResourceServiceTest : public testing::Test {
  public:
@@ -60,12 +93,19 @@ class NotificationPromoTest {
 
   void Init(const std::string& json,
             const std::string& promo_text,
-            double start, double end,
+            double start,
             int num_groups, int initial_segment, int increment,
             int time_slice, int max_group, int max_views,
             bool gplus_required) {
-    Value* value(base::JSONReader::Read(json));
+    std::pair<double, std::string> year_from_now = YearFromNow();
+    std::vector<std::string> replacements;
+    replacements.push_back(year_from_now.second);
+
+    std::string json_with_year(
+        ReplaceStringPlaceholders(json, replacements, NULL));
+    Value* value(base::JSONReader::Read(json_with_year));
     ASSERT_TRUE(value);
+
     DictionaryValue* dict = NULL;
     value->GetAsDictionary(&dict);
     ASSERT_TRUE(dict);
@@ -75,7 +115,7 @@ class NotificationPromoTest {
     promo_text_ = promo_text;
 
     start_ = start;
-    end_ = end;
+    end_ = year_from_now.first;
 
     num_groups_ = num_groups;
     initial_segment_ = initial_segment;
@@ -361,8 +401,8 @@ TEST_F(PromoResourceServiceTest, NotificationPromoTest) {
 
   NotificationPromoTest promo_test(&profile_);
 
-  // Set up start and end dates and promo line in a Dictionary as if parsed
-  // from the service.
+  // Set up start date and promo line in a Dictionary as if parsed from the
+  // service. date[0].end is replaced with a date 1 year in the future.
   promo_test.Init("{"
                   "  \"ntp_notification_promo\": ["
                   "    {"
@@ -370,7 +410,7 @@ TEST_F(PromoResourceServiceTest, NotificationPromoTest) {
                   "        ["
                   "          {"
                   "            \"start\":\"3 Aug 1999 9:26:06 GMT\","
-                  "            \"end\":\"7 Jan 2013 5:40:75 PST\""
+                  "            \"end\":\"$1\""
                   "          }"
                   "        ],"
                   "      \"strings\":"
@@ -400,7 +440,6 @@ TEST_F(PromoResourceServiceTest, NotificationPromoTest) {
                   // The starting date is in 1999 to make tests pass
                   // on Android devices with incorrect or unset date/time.
                   933672366,  // unix epoch for 3 Aug 1999 9:26:06 GMT.
-                  1357566075, // unix epoch for 7 Jan 2013 5:40:75 PST.
                   1000, 200, 100, 3600, 400, 30, false);
 
   promo_test.InitPromoFromJson(true);
@@ -429,8 +468,8 @@ TEST_F(PromoResourceServiceTest, NotificationPromoCompatNoStringsTest) {
 
   NotificationPromoTest promo_test(&profile_);
 
-  // Set up start and end dates and promo line in a Dictionary as if parsed
-  // from the service.
+  // Set up start date and promo line in a Dictionary as if parsed from the
+  // service. date[0].end is replaced with a date 1 year in the future.
   promo_test.Init("{"
                   "  \"ntp_notification_promo\": ["
                   "    {"
@@ -438,7 +477,7 @@ TEST_F(PromoResourceServiceTest, NotificationPromoCompatNoStringsTest) {
                   "        ["
                   "          {"
                   "            \"start\":\"3 Aug 1999 9:26:06 GMT\","
-                  "            \"end\":\"7 Jan 2013 5:40:75 PST\""
+                  "            \"end\":\"$1\""
                   "          }"
                   "        ],"
                   "      \"grouping\":"
@@ -465,7 +504,6 @@ TEST_F(PromoResourceServiceTest, NotificationPromoCompatNoStringsTest) {
                   // The starting date is in 1999 to make tests pass
                   // on Android devices with incorrect or unset date/time.
                   933672366,  // unix epoch for 3 Aug 1999 9:26:06 GMT.
-                  1357566075, // unix epoch for 7 Jan 2013 5:40:75 PST.
                   1000, 200, 100, 3600, 400, 30, false);
 
   promo_test.InitPromoFromJson(true);
@@ -482,8 +520,8 @@ TEST_F(PromoResourceServiceTest, NotificationPromoCompatPayloadStringsTest) {
 
   NotificationPromoTest promo_test(&profile_);
 
-  // Set up start and end dates and promo line in a Dictionary as if parsed
-  // from the service.
+  // Set up start date and promo line in a Dictionary as if parsed from the
+  // service. date[0].end is replaced with a date 1 year in the future.
   promo_test.Init("{"
                   "  \"ntp_notification_promo\": ["
                   "    {"
@@ -491,7 +529,7 @@ TEST_F(PromoResourceServiceTest, NotificationPromoCompatPayloadStringsTest) {
                   "        ["
                   "          {"
                   "            \"start\":\"3 Aug 1999 9:26:06 GMT\","
-                  "            \"end\":\"7 Jan 2013 5:40:75 PST\""
+                  "            \"end\":\"$1\""
                   "          }"
                   "        ],"
                   "      \"grouping\":"
@@ -524,7 +562,6 @@ TEST_F(PromoResourceServiceTest, NotificationPromoCompatPayloadStringsTest) {
                   // The starting date is in 1999 to make tests pass
                   // on Android devices with incorrect or unset date/time.
                   933672366,  // unix epoch for 3 Aug 1999 9:26:06 GMT.
-                  1357566075, // unix epoch for 7 Jan 2013 5:40:75 PST.
                   1000, 200, 100, 3600, 400, 30, false);
 
   promo_test.InitPromoFromJson(true);
