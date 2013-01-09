@@ -175,6 +175,8 @@ cr.define('login', function() {
      */
     onBeforeShow: function(data) {
       chrome.send('loginUIStateChanged', ['gaia', true]);
+      $('login-header-bar').signinUIActive = true;
+
       // Announce the name of the screen, if accessibility is on.
       $('gaia-signin-aria-label').setAttribute(
           'aria-label', localStrings.getString('signinScreenTitle'));
@@ -189,6 +191,7 @@ cr.define('login', function() {
      */
     onBeforeHide: function() {
       chrome.send('loginUIStateChanged', ['gaia', false]);
+      $('login-header-bar').signinUIActive = false;
     },
 
     /**
