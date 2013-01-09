@@ -93,6 +93,13 @@ class Preferences : public content::NotificationObserver {
   // underlying XKB API requires it.
   void UpdateAutoRepeatRate();
 
+  // Force natural scroll to on if --enable-natural-scroll-default is specified
+  // on the cmd line.
+  void ForceNaturalScrollDefault();
+
+  // PrefServiceObserver implementation.
+  virtual void OnIsSyncingChanged() OVERRIDE;
+
   PrefService* prefs_;
 
   input_method::InputMethodManager* input_method_manager_;
