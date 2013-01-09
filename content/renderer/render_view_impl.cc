@@ -4659,6 +4659,7 @@ void RenderViewImpl::SyncSelectionIfRequired() {
     selection_text_offset_ = offset;
     selection_range_ = range;
     Send(new ViewHostMsg_SelectionChanged(routing_id_, text, offset, range));
+    UpdateTextInputState(SHOW_IME_IF_NEEDED);
   }
 }
 
