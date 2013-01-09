@@ -49,9 +49,7 @@ Preferences::Preferences(input_method::InputMethodManager* input_method_manager)
     : input_method_manager_(input_method_manager) {
 }
 
-Preferences::~Preferences() {
-  prefs_->RemoveObserver(this);
-}
+Preferences::~Preferences() {}
 
 // static
 void Preferences::RegisterUserPrefs(PrefService* prefs) {
@@ -360,10 +358,6 @@ void Preferences::InitUserPrefs(PrefService* prefs) {
 void Preferences::Init(PrefService* prefs) {
   InitUserPrefs(prefs);
 
-  // This causes OnIsSyncingChanged to be called when the value of
-  // PrefService::IsSyncing() changes.
-  prefs->AddObserver(this);
-
   // Initialize preferences to currently saved state.
   NotifyPrefChanged(NULL);
 
@@ -416,9 +410,16 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
       UMA_HISTOGRAM_BOOLEAN("Touchpad.ThreeFingerClick.Started", enabled);
   }
   if (!pref_name || *pref_name == prefs::kNaturalScroll) {
-    // Force natural scroll default if we've sync'd and if the cmd line arg is
-    // set.
-    ForceNaturalScrollDefault();
+    // Force natural scroll to on if kNaturalScrollDefault is specified on the
+    // cmd line.
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kNaturalScrollDefault) &&
+        !pref_name &&
+        !prefs_->GetUserPrefValue(prefs::kNaturalScroll)) {
+      natural_scroll_.SetValue(true);
+      DVLOG(1) << "Natural scroll forced to true";
+      UMA_HISTOGRAM_BOOLEAN("Touchpad.NaturalScroll.Forced", true);
+    }
 
     const bool enabled = natural_scroll_.GetValue();
     ui::SetNaturalScroll(enabled);
@@ -632,23 +633,6 @@ void Preferences::NotifyPrefChanged(const std::string* pref_name) {
                             download_util::GetDefaultDownloadDirectory());
       }
     }
-  }
-}
-
-void Preferences::OnIsSyncingChanged() {
-  DVLOG(1) << "OnIsSyncingChanged";
-  ForceNaturalScrollDefault();
-}
-
-void Preferences::ForceNaturalScrollDefault() {
-  DVLOG(1) << "ForceNaturalScrollDefault";
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kNaturalScrollDefault) &&
-      prefs_->IsSyncing() &&
-      !prefs_->GetUserPrefValue(prefs::kNaturalScroll)) {
-    DVLOG(1) << "Natural scroll forced to true";
-    natural_scroll_.SetValue(true);
-    UMA_HISTOGRAM_BOOLEAN("Touchpad.NaturalScroll.Forced", true);
   }
 }
 
