@@ -473,6 +473,12 @@ bool InstantController::CommitIfPossible(InstantCommitType type) {
   if (!IsPreviewingSearchResults() && type != INSTANT_COMMIT_NAVIGATED)
     return false;
 
+  // There may re-entrance here, from the call to browser_->CommitInstant below,
+  // which can cause a TabDeactivated notification which gets back here.
+  // In this case, loader_->ReleaseContents() was called already.
+  if (!GetPreviewContents())
+    return false;
+
   // Never commit the local omnibox.
   if (loader_->IsUsingLocalPreview())
     return false;
