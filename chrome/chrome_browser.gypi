@@ -1388,6 +1388,7 @@
         'browser/prefs/pref_notifier_impl.h',
         'browser/prefs/pref_service.cc',
         'browser/prefs/pref_service.h',
+        'browser/prefs/pref_service_observer.h',
         'browser/prefs/pref_set_observer.cc',
         'browser/prefs/pref_set_observer.h',
         'browser/prefs/pref_value_map.cc',

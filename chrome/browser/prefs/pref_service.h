@@ -17,6 +17,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/non_thread_safe.h"
+#include "base/observer_list.h"
 #include "chrome/browser/api/prefs/pref_service_base.h"
 
 class CommandLine;
@@ -25,6 +26,7 @@ class PersistentPrefStore;
 class PrefModelAssociator;
 class PrefNotifier;
 class PrefNotifierImpl;
+class PrefServiceObserver;
 class PrefStore;
 class PrefValueStore;
 
@@ -127,6 +129,18 @@ class PrefService : public PrefServiceBase, public base::NonThreadSafe {
   // Lands pending writes to disk. This should only be used if we need to save
   // immediately (basically, during shutdown).
   void CommitPendingWrite();
+
+  // Returns true if preferences state has synchronized with the remote
+  // preferences. If true is returned it can be assumed the local preferences
+  // has applied changes from the remote preferences. The two may not be
+  // identical if a change is in flight (from either side).
+  bool IsSyncing();
+
+  void AddObserver(PrefServiceObserver* observer);
+  void RemoveObserver(PrefServiceObserver* observer);
+
+  // Invoked internally when the IsSyncing() state changes.
+  void OnIsSyncingChanged();
 
   // PrefServiceBase implementation.
   virtual bool IsManagedPreference(const char* pref_name) const OVERRIDE;
@@ -342,6 +356,8 @@ class PrefService : public PrefServiceBase, public base::NonThreadSafe {
   // CreatePrefServiceWithPerTabPrefStore() have been called to create a
   // "forked" PrefService.
   bool pref_service_forked_;
+
+  ObserverList<PrefServiceObserver> observer_list_;
 
   DISALLOW_COPY_AND_ASSIGN(PrefService);
 };
