@@ -205,6 +205,9 @@ class InstallerState {
                             int string_resource_id,
                             const std::wstring* launch_cmd) const;
 
+  // Returns true if this install needs to register an Active Setup command.
+  bool RequiresActiveSetup() const;
+
  protected:
   static bool IsFileInUse(const FilePath& file);
 
