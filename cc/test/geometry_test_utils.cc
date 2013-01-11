@@ -6,6 +6,7 @@
 
 #include <public/WebTransformationMatrix.h>
 
+#include "base/logging.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/transform.h"
 
@@ -55,6 +56,14 @@ void ExpectTransformationMatrixEq(const gfx::Transform& expected,
     EXPECT_FLOAT_EQ((expected).matrix().getDouble(1, 3), (actual).matrix().getDouble(1, 3));
     EXPECT_FLOAT_EQ((expected).matrix().getDouble(2, 3), (actual).matrix().getDouble(2, 3));
     EXPECT_FLOAT_EQ((expected).matrix().getDouble(3, 3), (actual).matrix().getDouble(3, 3));
+}
+
+gfx::Transform inverse(const gfx::Transform& transform)
+{
+    gfx::Transform result(gfx::Transform::kSkipInitialization);
+    bool invertedSuccessfully = transform.GetInverse(&result);
+    DCHECK(invertedSuccessfully);
+    return result;
 }
 
 }  // namespace cc

@@ -56,7 +56,7 @@ void OcclusionTrackerBase<LayerType, RenderSurfaceType>::leaveLayer(const LayerI
 template<typename RenderSurfaceType>
 static gfx::Rect screenSpaceClipRectInTargetSurface(const RenderSurfaceType* targetSurface, gfx::Rect screenSpaceClipRect)
 {
-    gfx::Transform inverseScreenSpaceTransform;
+    gfx::Transform inverseScreenSpaceTransform(gfx::Transform::kSkipInitialization);
     if (!targetSurface->screenSpaceTransform().GetInverse(&inverseScreenSpaceTransform))
         return targetSurface->contentRect();
 
@@ -126,7 +126,7 @@ void OcclusionTrackerBase<LayerType, RenderSurfaceType>::enterRenderTarget(const
     bool enteringSubtreeThatMovesPixels = newAncestorThatMovesPixels && newAncestorThatMovesPixels != oldAncestorThatMovesPixels;
 
     bool haveTransformFromScreenToNewTarget = false;
-    gfx::Transform inverseNewTargetScreenSpaceTransform;
+    gfx::Transform inverseNewTargetScreenSpaceTransform(gfx::Transform::kSkipInitialization); // Note carefully, not used if screen space transform is uninvertible.
     if (surfaceTransformsToScreenKnown(newTarget->renderSurface()))
         haveTransformFromScreenToNewTarget = newTarget->renderSurface()->screenSpaceTransform().GetInverse(&inverseNewTargetScreenSpaceTransform);
 
@@ -355,7 +355,7 @@ bool OcclusionTrackerBase<LayerType, RenderSurfaceType>::occluded(const LayerTyp
     DCHECK(renderTarget->renderSurface());
     DCHECK(renderTarget == m_stack.back().target);
 
-    gfx::Transform inverseDrawTransform;
+    gfx::Transform inverseDrawTransform(gfx::Transform::kSkipInitialization);
     if (!drawTransform.GetInverse(&inverseDrawTransform))
         return false;
 
@@ -398,7 +398,7 @@ gfx::Rect OcclusionTrackerBase<LayerType, RenderSurfaceType>::unoccludedContentR
     DCHECK(renderTarget->renderSurface());
     DCHECK(renderTarget == m_stack.back().target);
 
-    gfx::Transform inverseDrawTransform;
+    gfx::Transform inverseDrawTransform(gfx::Transform::kSkipInitialization);
     if (!drawTransform.GetInverse(&inverseDrawTransform))
         return contentRect;
 
@@ -447,7 +447,7 @@ gfx::Rect OcclusionTrackerBase<LayerType, RenderSurfaceType>::unoccludedContribu
         return contentRect;
 
     gfx::Transform drawTransform = forReplica ? surface->replicaDrawTransform() : surface->drawTransform();
-    gfx::Transform inverseDrawTransform;
+    gfx::Transform inverseDrawTransform(gfx::Transform::kSkipInitialization);
     if (!drawTransform.GetInverse(&inverseDrawTransform))
         return contentRect;
 
