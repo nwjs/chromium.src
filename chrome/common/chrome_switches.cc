@@ -1421,6 +1421,10 @@ const char kEnableUnsupportedBluetoothDevices[] =
 // Passed to Chrome on first boot. Not passed on restart after sign out.
 const char kFirstBoot[] = "first-boot";
 
+// If true, the Chromebook has a Chrome OS keyboard. Don't use the flag for
+// Chromeboxes.
+const char kHasChromeOSKeyboard[]           = "has-chromeos-keyboard";
+
 // Path for the screensaver used in Kiosk mode
 const char kKioskModeScreensaverPath[]      = "kiosk-mode-screensaver-path";
 
