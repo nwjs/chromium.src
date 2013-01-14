@@ -723,7 +723,10 @@ void RenderThreadImpl::RecordUserMetrics(const std::string& action) {
 }
 
 scoped_ptr<base::SharedMemory>
-    RenderThreadImpl::HostAllocateSharedMemoryBuffer(uint32 size) {
+    RenderThreadImpl::HostAllocateSharedMemoryBuffer(size_t size) {
+  if (size > static_cast<size_t>(std::numeric_limits<int>::max()))
+    return scoped_ptr<base::SharedMemory>();
+
   //if (!size)
   //  return scoped_ptr<base::SharedMemory>();
 
@@ -937,7 +940,7 @@ base::WaitableEvent* RenderThreadImpl::GetShutDownEvent() {
 }
 
 scoped_ptr<base::SharedMemory> RenderThreadImpl::AllocateSharedMemory(
-    uint32 size) {
+    size_t size) {
   return scoped_ptr<base::SharedMemory>(
       HostAllocateSharedMemoryBuffer(size));
 }

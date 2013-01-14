@@ -1375,7 +1375,7 @@ PP_FlashLSORestrictions PepperPluginDelegateImpl::GetLocalDataRestrictions(
 }
 
 base::SharedMemory* PepperPluginDelegateImpl::CreateAnonymousSharedMemory(
-    uint32_t size) {
+    size_t size) {
   return RenderThread::Get()->HostAllocateSharedMemoryBuffer(size).release();
 }
 
