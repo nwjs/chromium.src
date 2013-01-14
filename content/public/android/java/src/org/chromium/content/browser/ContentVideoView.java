@@ -214,7 +214,7 @@ public class ContentVideoView extends FrameLayout implements MediaPlayerControl,
                 Gravity.CENTER);
         this.addView(mVideoSurfaceView, layoutParams);
         this.addView(mProgressView, layoutParams);
-        mVideoSurfaceView.setZOrderMediaOverlay(true);
+        mVideoSurfaceView.setZOrderOnTop(true);
         mVideoSurfaceView.setOnKeyListener(this);
         mVideoSurfaceView.setOnTouchListener(this);
         mVideoSurfaceView.getHolder().addCallback(this);
