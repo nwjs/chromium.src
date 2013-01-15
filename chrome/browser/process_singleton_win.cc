@@ -440,8 +440,10 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessOrCreate(
     if (result == PROCESS_NONE)
       result = PROFILE_IN_USE;
   } else {
-    g_browser_process->PlatformSpecificCommandLineProcessing(
-        *CommandLine::ForCurrentProcess());
+    //// we don't use g_browser_process in node-webkit's
+    //// code path
+    // g_browser_process->PlatformSpecificCommandLineProcessing(
+    //    *CommandLine::ForCurrentProcess());
   }
   return result;
 }
