@@ -345,15 +345,15 @@ WebTransformationMatrix computeScrollCompensationMatrixForChildren(LayerImpl* la
 }
 
 // There is no contentsScale on impl thread.
-static inline void updateLayerContentsScale(LayerImpl*, const WebTransformationMatrix&, float, float) { }
+static inline void updateLayerContentsScale(LayerImpl*, const WebTransformationMatrix&, float, float, bool) { }
 
-static inline void updateLayerContentsScale(Layer* layer, const WebTransformationMatrix& combinedTransform, float deviceScaleFactor, float pageScaleFactor)
+static inline void updateLayerContentsScale(Layer* layer, const WebTransformationMatrix& combinedTransform, float deviceScaleFactor, float pageScaleFactor, bool animatingTransformToScreen)
 {
     float rasterScale = layer->rasterScale();
     if (!rasterScale) {
         rasterScale = 1;
 
-        if (layer->automaticallyComputeRasterScale()) {
+        if (!animatingTransformToScreen && layer->automaticallyComputeRasterScale()) {
             FloatPoint transformScale = MathUtil::computeTransform2dScaleComponents(combinedTransform, 0.f);
             float combinedScale = std::max(transformScale.x(), transformScale.y());
             rasterScale = combinedScale / deviceScaleFactor;
@@ -502,6 +502,13 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         drawOpacityIsAnimating |= layer->parent()->drawOpacityIsAnimating();
     }
 
+    bool animatingTransformToTarget = layer->transformIsAnimating();
+    bool animatingTransformToScreen = animatingTransformToTarget;
+    if (layer->parent()) {
+        animatingTransformToTarget |= layer->parent()->drawTransformIsAnimating();
+        animatingTransformToScreen |= layer->parent()->screenSpaceTransformIsAnimating();
+    }
+
     IntSize bounds = layer->bounds();
     FloatPoint anchorPoint = layer->anchorPoint();
     FloatPoint position = layer->position() - layer->scrollDelta();
@@ -519,7 +526,7 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
 
     // The layer's contentsSize is determined from the combinedTransform, which then informs the
     // layer's drawTransform.
-    updateLayerContentsScale(layer, combinedTransform, deviceScaleFactor, pageScaleFactor);
+    updateLayerContentsScale(layer, combinedTransform, deviceScaleFactor, pageScaleFactor, animatingTransformToScreen);
 
     // If there is a tranformation from the impl thread then it should be at the
     // start of the combinedTransform, but we don't want it to affect the contentsScale.
@@ -547,13 +554,6 @@ static void calculateDrawTransformsInternal(LayerType* layer, LayerType* rootLay
         MathUtil::flattenTransformTo2d(layerScreenSpaceTransform);
     layerScreenSpaceTransform.multiply(drawTransform);
     layer->setScreenSpaceTransform(layerScreenSpaceTransform);
-
-    bool animatingTransformToTarget = layer->transformIsAnimating();
-    bool animatingTransformToScreen = animatingTransformToTarget;
-    if (layer->parent()) {
-        animatingTransformToTarget |= layer->parent()->drawTransformIsAnimating();
-        animatingTransformToScreen |= layer->parent()->screenSpaceTransformIsAnimating();
-    }
 
     FloatRect contentRect(FloatPoint(), layer->contentBounds());
 
