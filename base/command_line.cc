@@ -42,7 +42,7 @@ size_t GetSwitchPrefixLength(const CommandLine::StringType& string) {
   }
   return 0;
 }
-
+} // anonymous namespace
 // Fills in |switch_string| and |switch_value| if |string| is a switch.
 // This will preserve the input switch prefix in the output |switch_string|.
 bool IsSwitch(const CommandLine::StringType& string,
@@ -61,6 +61,7 @@ bool IsSwitch(const CommandLine::StringType& string,
   return true;
 }
 
+namespace {
 // Append switches and arguments, keeping switches before arguments.
 void AppendSwitchesAndArguments(CommandLine& command_line,
                                 const CommandLine::StringVector& argv) {

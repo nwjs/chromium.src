@@ -177,4 +177,7 @@ class BASE_EXPORT CommandLine {
   size_t begin_args_;
 };
 
+bool BASE_EXPORT IsSwitch(const CommandLine::StringType& string,
+              CommandLine::StringType* switch_string,
+              CommandLine::StringType* switch_value);
 #endif  // BASE_COMMAND_LINE_H_
