@@ -55,7 +55,6 @@ class WebContentsObserverAndroid : public WebContentsObserver {
       bool is_main_frame,
       const GURL& validated_url,
       bool is_error_page,
-      bool is_iframe_srcdoc,
       RenderViewHost* render_view_host) OVERRIDE;
   virtual void WebContentsDestroyed(WebContents* web_contents) OVERRIDE;
 

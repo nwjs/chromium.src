@@ -73,7 +73,6 @@ public abstract class WebContentsObserverAndroid {
      * @param isMainFrame Whether the load is happening for the main frame.
      * @param validatedUrl The validated URL that is being navigated to.
      * @param isErrorPage Whether this is navigating to an error page.
-     * @param isIframeSrcdoc Whether this is navigating to about:srcdoc.
      */
     @CalledByNative
     public void didStartProvisionalLoadForFrame(
@@ -81,8 +80,7 @@ public abstract class WebContentsObserverAndroid {
             long parentFrameId,
             boolean isMainFrame,
             String validatedUrl,
-            boolean isErrorPage,
-            boolean isIframeSrcdoc) {
+            boolean isErrorPage) {
     }
 
     /**

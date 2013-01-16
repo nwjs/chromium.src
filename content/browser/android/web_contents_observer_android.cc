@@ -143,7 +143,6 @@ void WebContentsObserverAndroid::DidStartProvisionalLoadForFrame(
       bool is_main_frame,
       const GURL& validated_url,
       bool is_error_page,
-      bool is_iframe_srcdoc,
       RenderViewHost* render_view_host) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj(weak_java_observer_.get(env));
@@ -153,7 +152,7 @@ void WebContentsObserverAndroid::DidStartProvisionalLoadForFrame(
       ConvertUTF8ToJavaString(env, validated_url.spec()));
   Java_WebContentsObserverAndroid_didStartProvisionalLoadForFrame(
       env, obj.obj(), frame_id, parent_frame_id, is_main_frame,
-      jstring_url.obj(), is_error_page, is_iframe_srcdoc);
+      jstring_url.obj(), is_error_page);
 }
 
 void WebContentsObserverAndroid::DidFailLoadInternal(
