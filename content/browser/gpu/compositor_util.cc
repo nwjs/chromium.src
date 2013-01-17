@@ -36,6 +36,13 @@ bool CanDoAcceleratedCompositing() {
   return true;
 }
 
+bool IsForceCompositingModeBlacklisted() {
+  GpuFeatureType blacklisted_features =
+      GpuDataManager::GetInstance()->GetBlacklistedFeatures();
+  return GPU_FEATURE_TYPE_FORCE_COMPOSITING_MODE ==
+      (blacklisted_features & GPU_FEATURE_TYPE_FORCE_COMPOSITING_MODE);
+}
+
 }  // namespace
 
 namespace content {
@@ -60,13 +67,16 @@ bool IsThreadedCompositingEnabled() {
 
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
 
-  // Command line switches take precedence over field trials.
+  // Command line switches take precedence over blacklist and field trials.
   if (command_line.HasSwitch(switches::kDisableForceCompositingMode) ||
       command_line.HasSwitch(switches::kDisableThreadedCompositing))
     return false;
 
   if (command_line.HasSwitch(switches::kEnableThreadedCompositing))
     return true;
+
+  if (IsForceCompositingModeBlacklisted())
+    return false;
 
   base::FieldTrial* trial =
       base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
@@ -86,12 +96,15 @@ bool IsForceCompositingModeEnabled() {
 
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
 
-  // Command line switches take precedence over field trials.
+  // Command line switches take precedence over blacklisting and field trials.
   if (command_line.HasSwitch(switches::kDisableForceCompositingMode))
     return false;
 
   if (command_line.HasSwitch(switches::kForceCompositingMode))
     return true;
+
+  if (IsForceCompositingModeBlacklisted())
+    return false;
 
   base::FieldTrial* trial =
       base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
