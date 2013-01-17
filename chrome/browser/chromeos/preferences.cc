@@ -274,13 +274,15 @@ void Preferences::RegisterUserPrefs(PrefService* prefs) {
                             "0.0.0.0",
                             PrefService::SYNCABLE_PREF);
 
-  // OAuth1 all access token and secret pair.
-  prefs->RegisterStringPref(prefs::kOAuth1Token,
-                            "",
-                            PrefService::UNSYNCABLE_PREF);
-  prefs->RegisterStringPref(prefs::kOAuth1Secret,
-                            "",
-                            PrefService::UNSYNCABLE_PREF);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kForceOAuth1)) {
+    // Legacy OAuth1 all access token and secret pair.
+    prefs->RegisterStringPref(prefs::kOAuth1Token,
+                              "",
+                              PrefService::UNSYNCABLE_PREF);
+    prefs->RegisterStringPref(prefs::kOAuth1Secret,
+                              "",
+                              PrefService::UNSYNCABLE_PREF);
+  }
 
   // TODO(wad): Once UI is connected, a final default can be set. At that point
   // change this pref from UNSYNCABLE to SYNCABLE.
