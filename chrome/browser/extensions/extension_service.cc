@@ -113,6 +113,7 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/extensions/file_browser_event_router.h"
+#include "chrome/browser/chromeos/extensions/install_limiter.h"
 #include "chrome/browser/chromeos/extensions/media_player_event_router.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/extensions/api/input_ime/input_ime_api.h"
@@ -2652,7 +2653,11 @@ bool ExtensionService::OnExternalExtensionFileFound(
   installer->set_expected_version(*version);
   installer->set_install_cause(extension_misc::INSTALL_CAUSE_EXTERNAL_FILE);
   installer->set_creation_flags(creation_flags);
+#if defined(OS_CHROMEOS)
+  extensions::InstallLimiter::Get(profile_)->Add(installer, path);
+#else
   installer->InstallCrx(path);
+#endif
 
   // Depending on the source, a new external extension might not need a user
   // notification on installation. For such extensions, mark them acknowledged
