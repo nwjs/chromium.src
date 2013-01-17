@@ -581,7 +581,8 @@ void MediaStreamManager::PostRequestToUI(const std::string& label) {
                                 request->render_view_id,
                                 request->options,
                                 request->security_origin,
-                                request->type);
+                                request->type,
+                                request->requested_device_id);
 }
 
 void MediaStreamManager::HandleRequest(const std::string& label) {
