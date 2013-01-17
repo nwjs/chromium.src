@@ -75,7 +75,7 @@
 {
   "name": "software rendering list",
   // Please update the version number whenever you change this file.
-  "version": "4.10",
+  "version": "4.11",
   "entries": [
     {
       "id": 1,
@@ -944,6 +944,21 @@
       "vendor_id": "0x1002",
       "blacklist": [
         "multisampling"
+      ]
+    },
+    {
+      "id": 65,
+      "description": "Force compositing mode is unstable in Win Vista.",
+      "cr_bugs": [170421],
+      "os": {
+        "type": "win",
+        "version": {
+          "op": "=",
+          "number": "6.0"
+        }
+      },
+      "blacklist": [
+        "force_compositing_mode"
       ]
     }
   ]
