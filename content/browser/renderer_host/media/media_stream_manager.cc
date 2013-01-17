@@ -460,8 +460,6 @@ std::string MediaStreamManager::OpenDevice(
   const std::string& label = AddRequest(request);
   StartEnumeration(request);
 
-  PostRequestToUI(label);
-
   return label;
 }
 
