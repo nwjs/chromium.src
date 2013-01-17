@@ -152,6 +152,7 @@ void RegisterLocalState(PrefService* local_state) {
   browser_shutdown::RegisterPrefs(local_state);
   chrome::RegisterScreenshotPrefs(local_state);
   ExternalProtocolHandler::RegisterPrefs(local_state);
+  FlagsUI::RegisterPrefs(local_state);
   geolocation::RegisterPrefs(local_state);
   IntranetRedirectDetector::RegisterPrefs(local_state);
   KeywordEditorController::RegisterPrefs(local_state);
@@ -164,6 +165,7 @@ void RegisterLocalState(PrefService* local_state) {
   PromoResourceService::RegisterPrefs(local_state);
   SigninManagerFactory::RegisterPrefs(local_state);
   SSLConfigServiceManager::RegisterPrefs(local_state);
+  UpgradeDetector::RegisterPrefs(local_state);
   WebCacheManager::RegisterPrefs(local_state);
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
@@ -192,9 +194,7 @@ void RegisterLocalState(PrefService* local_state) {
   BackgroundModeManager::RegisterPrefs(local_state);
   chrome_variations::VariationsService::RegisterPrefs(local_state);
   RegisterBrowserPrefs(local_state);
-  FlagsUI::RegisterPrefs(local_state);
   ManagedMode::RegisterPrefs(local_state);
-  UpgradeDetector::RegisterPrefs(local_state);
 #endif
 
 #if defined(OS_CHROMEOS)
