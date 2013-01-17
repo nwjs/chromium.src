@@ -93,13 +93,13 @@ TokenService* OAuth2LoginManager::SetupTokenService() {
 }
 
 void OAuth2LoginManager::RemoveLegacyTokens() {
-  PrefServiceSyncable* prefs = user_profile_->GetPrefs();
+  PrefService* prefs = user_profile_->GetPrefs();
   prefs->RegisterStringPref(prefs::kOAuth1Token,
                             "",
-                            PrefServiceSyncable::UNSYNCABLE_PREF);
+                            PrefService::UNSYNCABLE_PREF);
   prefs->RegisterStringPref(prefs::kOAuth1Secret,
                             "",
-                            PrefServiceSyncable::UNSYNCABLE_PREF);
+                            PrefService::UNSYNCABLE_PREF);
   prefs->ClearPref(prefs::kOAuth1Token);
   prefs->ClearPref(prefs::kOAuth1Secret);
   prefs->UnregisterPreference(prefs::kOAuth1Token);
