@@ -43,7 +43,8 @@ const char* kReportingFlags[] = {
 
 VersionInfoUpdater::VersionInfoUpdater(Delegate* delegate)
     : cros_settings_(chromeos::CrosSettings::Get()),
-      delegate_(delegate) {
+      delegate_(delegate),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_pointer_factory_(this)) {
 }
 
 VersionInfoUpdater::~VersionInfoUpdater() {
@@ -62,12 +63,13 @@ void VersionInfoUpdater::StartUpdate(bool is_official_build) {
     version_loader_.GetVersion(
         is_official_build ? VersionLoader::VERSION_SHORT_WITH_DATE
                           : VersionLoader::VERSION_FULL,
-        base::Bind(&VersionInfoUpdater::OnVersion, base::Unretained(this)),
+        base::Bind(&VersionInfoUpdater::OnVersion,
+                   weak_pointer_factory_.GetWeakPtr()),
         &tracker_);
     boot_times_loader_.GetBootTimes(
         base::Bind(is_official_build ? &VersionInfoUpdater::OnBootTimesNoop
                                      : &VersionInfoUpdater::OnBootTimes,
-                   base::Unretained(this)),
+                   weak_pointer_factory_.GetWeakPtr()),
         &tracker_);
   } else {
     UpdateVersionLabel();
