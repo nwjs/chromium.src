@@ -40,6 +40,10 @@ VisitedLinkMasterFactory::BuildServiceInstanceFor(Profile* profile) const {
   return NULL;
 }
 
+bool VisitedLinkMasterFactory::ServiceIsCreatedWithProfile() const {
+  return true;
+}
+
 bool VisitedLinkMasterFactory::ServiceIsNULLWhileTesting() const {
   return true;
 }
