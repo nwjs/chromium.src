@@ -338,7 +338,6 @@ void NetworkListDetailedViewBase::RefreshNetworkList() {
     if (it == service_path_map_.end()) {
       // Create a new view.
       container = new HoverHighlightView(this);
-      container->set_fixed_height(kTrayPopupItemHeight);
       container->AddIconAndLabel(network_list_[i].image,
           network_list_[i].description.empty() ?
               network_list_[i].name : network_list_[i].description,
