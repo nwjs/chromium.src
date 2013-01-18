@@ -298,6 +298,10 @@ bool TestSystemTrayDelegate::GetWifiScanning() {
   return false;
 }
 
+bool TestSystemTrayDelegate::GetCellularInitializing() {
+  return false;
+}
+
 void TestSystemTrayDelegate::ShowCellularURL(const std::string& url) {
 }
 
