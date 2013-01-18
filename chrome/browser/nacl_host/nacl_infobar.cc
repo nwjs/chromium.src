@@ -28,10 +28,18 @@ void ShowInfobar(int render_process_id, int render_view_id,
         PP_NACL_MANIFEST_MISSING_ARCH);
   RenderViewHost* rvh = RenderViewHost::FromID(render_process_id,
                                                render_view_id);
+  if (!rvh)
+    return;
+
   WebContents* wc = WebContents::FromRenderViewHost(rvh);
+  if (!wc)
+    return;
+
   InfoBarService* ibs = InfoBarService::FromWebContents(wc);
-  ibs->AddInfoBar(new SimpleAlertInfoBarDelegate(ibs, NULL,
+  if (ibs) {
+    ibs->AddInfoBar(new SimpleAlertInfoBarDelegate(ibs, NULL,
         l10n_util::GetStringUTF16(IDS_NACL_APP_MISSING_ARCH_MESSAGE), true));
+  }
 }
 
 }  // namespace
