@@ -61,7 +61,8 @@ GpuVideoDecodeAccelerator::GpuVideoDecodeAccelerator(
       init_done_msg_(NULL),
       host_route_id_(host_route_id),
       stub_(stub->AsWeakPtr()),
-      video_decode_accelerator_(NULL) {
+      video_decode_accelerator_(NULL),
+      texture_target_(0) {
   if (!stub_)
     return;
   stub_->AddDestructionObserver(this);
@@ -104,6 +105,7 @@ void GpuVideoDecodeAccelerator::ProvidePictureBuffers(
     DLOG(ERROR) << "Send(AcceleratedVideoDecoderHostMsg_ProvidePictureBuffers) "
                 << "failed";
   }
+  texture_target_ = texture_target;
 }
 
 void GpuVideoDecodeAccelerator::DismissPictureBuffer(
@@ -242,7 +244,7 @@ void GpuVideoDecodeAccelerator::OnAssignPictureBuffers(
       return;
     }
     GLsizei width, height;
-    info->GetLevelSize(0, 0, &width, &height);
+    info->GetLevelSize(texture_target_, 0, &width, &height);
     if (width != sizes[i].width() || height != sizes[i].height()) {
       DLOG(FATAL) << "Size mismatch for texture id " << texture_ids[i];
       NotifyError(media::VideoDecodeAccelerator::INVALID_ARGUMENT);
