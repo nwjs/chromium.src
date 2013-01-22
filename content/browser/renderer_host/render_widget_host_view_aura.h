@@ -438,6 +438,12 @@ class RenderWidgetHostViewAura
   };
   CanLockCompositorState can_lock_compositor_;
 
+  // Frames receveived with an unregistered surface_handle.
+  size_t consecutive_bad_frames_received_;
+
+  // Whether the last frame received used an unregistered surface handle.
+  bool last_frame_was_bad_;
+
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAura);
 };
 

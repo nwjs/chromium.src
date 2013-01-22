@@ -308,7 +308,9 @@ RenderWidgetHostViewAura::RenderWidgetHostViewAura(RenderWidgetHost* host)
       paint_canvas_(NULL),
       synthetic_move_sent_(false),
       accelerated_compositing_state_changed_(false),
-      can_lock_compositor_(YES) {
+      can_lock_compositor_(YES),
+      consecutive_bad_frames_received_(0),
+      last_frame_was_bad_(false) {
   host_->SetView(this);
   window_observer_.reset(new WindowObserver(this));
   window_->AddObserver(window_observer_.get());
@@ -843,7 +845,21 @@ bool RenderWidgetHostViewAura::SwapBuffersPrepare(
     last_swapped_surface_size_ = surface_rect.size();
   }
 
-  if (ShouldSkipFrame(surface_rect.size())) {
+  bool handle_is_bad = image_transport_clients_.find(params->surface_handle) ==
+      image_transport_clients_.end();
+
+  CHECK(params->surface_handle == 1 || params->surface_handle == 2);
+  if (last_frame_was_bad_) {
+    if (handle_is_bad) {
+      consecutive_bad_frames_received_++;
+      CHECK(consecutive_bad_frames_received_ < 10);
+    } else {
+      consecutive_bad_frames_received_ = 0;
+    }
+  }
+  last_frame_was_bad_ = handle_is_bad;
+
+  if (ShouldSkipFrame(surface_rect.size()) || handle_is_bad) {
     skipped_damage_.op(RectToSkIRect(damage_rect), SkRegion::kUnion_Op);
     InsertSyncPointAndACK(*params);
     return false;
