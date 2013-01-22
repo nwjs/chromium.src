@@ -1354,7 +1354,6 @@ public class ContentViewCore implements MotionEventDelegate {
             } else {
                 undoScrollFocusedEditableNodeIntoViewIfNeeded(false);
             }
-            mImeAdapter.dispatchKeyEventPreIme(event);
             return mContainerViewInternals.super_dispatchKeyEventPreIme(event);
         } finally {
             TraceEvent.end();
@@ -1369,16 +1368,14 @@ public class ContentViewCore implements MotionEventDelegate {
                 !mImeAdapter.isNativeImeAdapterAttached() && mNativeContentViewCore != 0) {
             mImeAdapter.attach(nativeGetNativeImeAdapter(mNativeContentViewCore));
         }
-        // The key handling logic is kind of confusing here.
-        // The purpose of shouldOverrideKeyEvent() is to filter out some keys that is critical
-        // to browser function but useless in renderer process (for example, the back button),
-        // so the browser can still respond to these keys in a timely manner when the renderer
-        // process is busy/blocked/busted. mImeAdapter.dispatchKeyEvent() forwards the key event
-        // to the renderer process. If mImeAdapter is bypassed or is not interested to the event,
-        // fall back to the default dispatcher to propagate the event to sub-views.
-        return (!getContentViewClient().shouldOverrideKeyEvent(event)
-                && mImeAdapter.dispatchKeyEvent(event))
-                || mContainerViewInternals.super_dispatchKeyEvent(event);
+
+        if (getContentViewClient().shouldOverrideKeyEvent(event)) {
+            return mContainerViewInternals.super_dispatchKeyEvent(event);
+        }
+
+        if (mKeyboardConnected && mImeAdapter.dispatchKeyEvent(event)) return true;
+
+        return mContainerViewInternals.super_dispatchKeyEvent(event);
     }
 
     /**
