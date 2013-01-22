@@ -89,7 +89,8 @@ class MediaFileSystemRegistry
 
   size_t GetExtensionHostCountForTests() const;
 
-  std::string GetTransientIdForDeviceId(const std::string& device_id) const;
+  // See TransientDeviceIds::GetTransientIdForDeviceId().
+  std::string GetTransientIdForDeviceId(const std::string& device_id);
 
  private:
   friend class TestMediaFileSystemContext;
