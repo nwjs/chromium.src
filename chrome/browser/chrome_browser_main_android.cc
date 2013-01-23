@@ -6,6 +6,7 @@
 
 #include "base/path_service.h"
 #include "chrome/app/breakpad_linux.h"
+#include "chrome/browser/android/crash_dump_manager.h"
 #include "content/public/browser/android/compositor.h"
 #include "content/public/common/main_function_params.h"
 #include "net/android/network_change_notifier_factory_android.h"
@@ -27,6 +28,7 @@ void ChromeBrowserMainPartsAndroid::PreProfileInit() {
   // enabled. Right now if it is disabled we still generate the minidumps but we
   // do not upload them.
   InitCrashReporter();
+  crash_dump_manager_.reset(new CrashDumpManager());
 #endif
 
   ChromeBrowserMainParts::PreProfileInit();
