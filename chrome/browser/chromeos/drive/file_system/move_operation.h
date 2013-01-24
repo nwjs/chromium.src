@@ -86,34 +86,36 @@ class MoveOperation {
                           const FileMoveCallback& callback,
                           google_apis::GDataErrorCode status);
 
-  // Removes a file or directory at |file_path| from the current directory.
-  // It moves the entry to a dangle, no-parent state on the server side.
+  // Removes a file or directory at |file_path| from the current directory if
+  // it's not in the root directory. This essentially moves an entry to the
+  // root directory on the server side.
   //
   // Can be called from UI thread. |callback| is run on the calling thread.
   // |callback| must not be null.
-  void RemoveEntryFromDirectory(const FileMoveCallback& callback,
-                                DriveFileError error,
-                                const FilePath& file_path);
+  void RemoveEntryFromNonRootDirectory(const FileMoveCallback& callback,
+                                       DriveFileError error,
+                                       const FilePath& file_path);
 
-  // Part of RemoveEntryFromDirectory(). Called after
+  // Part of RemoveEntryFromNonRootDirectory(). Called after
   // GetEntryInfoPairByPaths() is complete. |callback| must not be null.
-  void RemoveEntryFromDirectoryAfterEntryInfoPair(
+  void RemoveEntryFromNonRootDirectoryAfterEntryInfoPair(
     const FileMoveCallback& callback,
     scoped_ptr<EntryInfoPairResult> result);
 
-  // Moves a file or directory at |file_path| to another directory at
-  // |dir_path|.
+  // Moves a file or directory at |file_path| in the root directory to
+  // another directory at |dir_path|. This function does nothing if
+  // |dir_path| points to the root directory.
   //
   // Can be called from UI thread. |callback| is run on the calling thread.
   // |callback| must not be null.
-  void AddEntryToDirectory(const FilePath& directory_path,
-                           const FileOperationCallback& callback,
-                           DriveFileError error,
-                           const FilePath& file_path);
+  void MoveEntryFromRootDirectory(const FilePath& directory_path,
+                                  const FileOperationCallback& callback,
+                                  DriveFileError error,
+                                  const FilePath& file_path);
 
-  // Part of AddEntryToDirectory(). Called after
+  // Part of MoveEntryFromRootDirectory(). Called after
   // GetEntryInfoPairByPaths() is complete. |callback| must not be null.
-  void AddEntryToDirectoryAfterGetEntryInfoPair(
+  void MoveEntryFromRootDirectoryAfterGetEntryInfoPair(
     const FileOperationCallback& callback,
     scoped_ptr<EntryInfoPairResult> result);
 

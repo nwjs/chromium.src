@@ -85,23 +85,19 @@ void MoveOperation::MoveAfterGetEntryInfoPair(
   // 1. Renames the file at |src_file_path| to basename(|dest_file_path|)
   //    within the same directory. The rename operation is a no-op if
   //    basename(|src_file_path|) equals to basename(|dest_file_path|).
-  // 2. Removes the file from its parent directory (the file is not deleted, but
-  //    just becomes orphaned).
-  // 3. Adds the file to the parent directory of |dest_file_path|.
-  //
-  // TODO(kinaba): After the step 2, the file gets into the state with no parent
-  // node. Our current implementation regards the state as belonging to the root
-  // directory, so below the file is dealt as such. In fact, this is not the
-  // case on the server side. No-parent and in-root is a different concept. We
-  // need to make our implementation consistent to the server: crbug.com/171207.
+  // 2. Removes the file from its parent directory (the file is not deleted),
+  //    which effectively moves the file to the root directory.
+  // 3. Adds the file to the parent directory of |dest_file_path|, which
+  //    effectively moves the file from the root directory to the parent
+  //    directory of |dest_file_path|.
   const FileMoveCallback add_file_to_directory_callback =
-      base::Bind(&MoveOperation::AddEntryToDirectory,
+      base::Bind(&MoveOperation::MoveEntryFromRootDirectory,
                  weak_ptr_factory_.GetWeakPtr(),
                  dest_parent_path,
                  callback);
 
   const FileMoveCallback remove_file_from_directory_callback =
-      base::Bind(&MoveOperation::RemoveEntryFromDirectory,
+      base::Bind(&MoveOperation::RemoveEntryFromNonRootDirectory,
                  weak_ptr_factory_.GetWeakPtr(),
                  add_file_to_directory_callback);
 
@@ -208,23 +204,30 @@ void MoveOperation::RenameEntryLocally(
                  callback));
 }
 
-void MoveOperation::RemoveEntryFromDirectory(
+void MoveOperation::RemoveEntryFromNonRootDirectory(
     const FileMoveCallback& callback,
     DriveFileError error,
     const FilePath& file_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
+  const FilePath dir_path = file_path.DirName();
+  // Return if there is an error or |dir_path| is the root directory.
+  if (error != DRIVE_FILE_OK || dir_path == FilePath(kDriveRootDirectory)) {
+    callback.Run(error, file_path);
+    return;
+  }
+
   metadata_->GetEntryInfoPairByPaths(
       file_path,
-      file_path.DirName(),
+      dir_path,
       base::Bind(
-          &MoveOperation::RemoveEntryFromDirectoryAfterEntryInfoPair,
+          &MoveOperation::RemoveEntryFromNonRootDirectoryAfterEntryInfoPair,
           weak_ptr_factory_.GetWeakPtr(),
           callback));
 }
 
-void MoveOperation::RemoveEntryFromDirectoryAfterEntryInfoPair(
+void MoveOperation::RemoveEntryFromNonRootDirectoryAfterEntryInfoPair(
     const FileMoveCallback& callback,
     scoped_ptr<EntryInfoPairResult> result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -263,25 +266,34 @@ void MoveOperation::RemoveEntryFromDirectoryAfterEntryInfoPair(
 
 // TODO(zork): Share with CopyOperation.
 // See: crbug.com/150050
-void MoveOperation::AddEntryToDirectory(const FilePath& directory_path,
-                                        const FileOperationCallback& callback,
-                                        DriveFileError error,
-                                        const FilePath& file_path) {
+void MoveOperation::MoveEntryFromRootDirectory(
+    const FilePath& directory_path,
+    const FileOperationCallback& callback,
+    DriveFileError error,
+    const FilePath& file_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
+  DCHECK_EQ(kDriveRootDirectory, file_path.DirName().value());
+
+  // Return if there is an error or |dir_path| is the root directory.
+  if (error != DRIVE_FILE_OK ||
+      directory_path == FilePath(kDriveRootDirectory)) {
+    callback.Run(error);
+    return;
+  }
 
   metadata_->GetEntryInfoPairByPaths(
       file_path,
       directory_path,
       base::Bind(
-          &MoveOperation::AddEntryToDirectoryAfterGetEntryInfoPair,
+          &MoveOperation::MoveEntryFromRootDirectoryAfterGetEntryInfoPair,
           weak_ptr_factory_.GetWeakPtr(),
           callback));
 }
 
 // TODO(zork): Share with CopyOperation.
 // See: crbug.com/150050
-void MoveOperation::AddEntryToDirectoryAfterGetEntryInfoPair(
+void MoveOperation::MoveEntryFromRootDirectoryAfterGetEntryInfoPair(
     const FileOperationCallback& callback,
     scoped_ptr<EntryInfoPairResult> result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
