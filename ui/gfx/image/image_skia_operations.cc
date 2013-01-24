@@ -264,30 +264,37 @@ class HSLImageSource : public gfx::ImageSkiaSource {
 
 // ImageSkiaSource which uses SkBitmapOperations::CreateButtonBackground
 // to generate image reps for the target image.
-class ButtonImageSource: public BinaryImageSource {
+class ButtonImageSource: public gfx::ImageSkiaSource {
  public:
   ButtonImageSource(SkColor color,
                     const ImageSkia& image,
                     const ImageSkia& mask)
-      : BinaryImageSource(image, mask, "ButtonImageSource"),
-        color_(color) {
+      : color_(color),
+        image_(image),
+        mask_(mask) {
   }
 
   virtual ~ButtonImageSource() {
   }
 
-  // BinaryImageSource overrides:
-  virtual ImageSkiaRep CreateImageSkiaRep(
-      const ImageSkiaRep& first_rep,
-      const ImageSkiaRep& second_rep) const OVERRIDE {
-    return ImageSkiaRep(
+  // gfx::ImageSkiaSource overrides:
+  virtual ImageSkiaRep GetImageForScale(ui::ScaleFactor scale_factor) OVERRIDE {
+    ImageSkiaRep image_rep = image_.GetRepresentation(scale_factor);
+    ImageSkiaRep mask_rep = mask_.GetRepresentation(scale_factor);
+    if (image_rep.scale_factor() != mask_rep.scale_factor()) {
+      image_rep = image_.GetRepresentation(ui::SCALE_FACTOR_100P);
+      mask_rep = mask_.GetRepresentation(ui::SCALE_FACTOR_100P);
+    }
+    return gfx::ImageSkiaRep(
         SkBitmapOperations::CreateButtonBackground(color_,
-            first_rep.sk_bitmap(), second_rep.sk_bitmap()),
-        first_rep.scale_factor());
+              image_rep.sk_bitmap(), mask_rep.sk_bitmap()),
+          image_rep.scale_factor());
   }
 
  private:
   const SkColor color_;
+  const ImageSkia image_;
+  const ImageSkia mask_;
 
   DISALLOW_COPY_AND_ASSIGN(ButtonImageSource);
 };
