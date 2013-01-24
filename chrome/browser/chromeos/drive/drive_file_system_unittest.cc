@@ -1591,6 +1591,10 @@ TEST_F(DriveFileSystemTest, MoveFileFromRootToSubDirectory) {
               RenameResource(GURL(src_entry_proto->edit_url()),
                              FILE_PATH_LITERAL("Test.log"), _));
   EXPECT_CALL(*mock_drive_service_,
+              RemoveResourceFromDirectory(
+                  GURL(),
+                  src_file_resource_id, _));
+  EXPECT_CALL(*mock_drive_service_,
               AddResourceToDirectory(
                   GURL(dest_parent_proto->content_url()),
                   GURL(src_entry_proto->edit_url()), _));
@@ -1601,14 +1605,13 @@ TEST_F(DriveFileSystemTest, MoveFileFromRootToSubDirectory) {
 
   // Expect notification for both source and destination directories.
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
-      Eq(FilePath(FILE_PATH_LITERAL("drive"))))).Times(1);
+      Eq(FilePath(FILE_PATH_LITERAL("drive"))))).Times(2);
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
       Eq(FilePath(FILE_PATH_LITERAL("drive/Directory 1"))))).Times(1);
 
   file_system_->Move(src_file_path, dest_file_path, callback);
   google_apis::test_util::RunBlockingPoolTask();
   EXPECT_EQ(DRIVE_FILE_OK, callback_helper_->last_error_);
-
   EXPECT_FALSE(EntryExists(src_file_path));
   EXPECT_TRUE(EntryExists(dest_file_path));
   EXPECT_EQ(src_file_resource_id, GetResourceIdByPath(dest_file_path));
@@ -1644,6 +1647,10 @@ TEST_F(DriveFileSystemTest, MoveFileFromSubDirectoryToRoot) {
               RemoveResourceFromDirectory(
                   GURL(src_parent_proto->content_url()),
                   src_file_resource_id, _));
+  EXPECT_CALL(*mock_drive_service_,
+              AddResourceToDirectory(
+                  GURL(),
+                  GURL(src_entry_proto->edit_url()), _));
 
   FileOperationCallback callback =
       base::Bind(&CallbackHelper::FileOperationCallback,
@@ -1651,7 +1658,7 @@ TEST_F(DriveFileSystemTest, MoveFileFromSubDirectoryToRoot) {
 
   // Expect notification for both source and destination directories.
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
-      Eq(FilePath(FILE_PATH_LITERAL("drive"))))).Times(1);
+      Eq(FilePath(FILE_PATH_LITERAL("drive"))))).Times(2);
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
       Eq(FilePath(FILE_PATH_LITERAL("drive/Directory 1"))))).Times(1);
 
