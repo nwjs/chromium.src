@@ -1326,7 +1326,9 @@ TEST_F(DriveFileSystemTest, TransferFileFromLocalToRemote_HostedDocument) {
       FILE_PATH_LITERAL("drive/Directory 1/Document 1.gdoc"));
   EXPECT_FALSE(EntryExists(remote_dest_file_path));
 
-  // We'll add a file to "Directory 1" directory on Drive.
+  // We'll add a file to the Drive root and then move to "Directory 1".
+  EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
+      Eq(FilePath(FILE_PATH_LITERAL("drive"))))).Times(1);
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
       Eq(FilePath(FILE_PATH_LITERAL("drive/Directory 1"))))).Times(1);
 
@@ -1342,7 +1344,9 @@ TEST_F(DriveFileSystemTest, TransferFileFromLocalToRemote_HostedDocument) {
                                  _))
       .WillOnce(MockCopyHostedDocument(google_apis::HTTP_SUCCESS,
                                        &resource_entry));
-  // We'll then add the hosted document to the destination directory.
+  // We'll then move the hosted document from the root to the destination.
+  EXPECT_CALL(*mock_drive_service_,
+              RemoveResourceFromDirectory(_, _, _)).Times(1);
   EXPECT_CALL(*mock_drive_service_,
               AddResourceToDirectory(_, _, _)).Times(1);
 
