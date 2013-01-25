@@ -12,8 +12,8 @@
 #include "content/browser/download/download_file_impl.h"
 #include "content/browser/download/download_item_impl.h"
 #include "content/browser/download/download_manager_impl.h"
-#include "content/browser/power_save_blocker.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/public/browser/power_save_blocker.h"
 #include "content/public/test/download_test_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/shell/shell.h"
@@ -204,7 +204,7 @@ DownloadFile* DownloadFileWithDelayFactory::CreateFile(
     const net::BoundNetLog& bound_net_log,
     base::WeakPtr<DownloadDestinationObserver> observer) {
   scoped_ptr<PowerSaveBlocker> psb(
-      new PowerSaveBlocker(
+      PowerSaveBlocker::Create(
           PowerSaveBlocker::kPowerSaveBlockPreventAppSuspension,
           "Download in progress"));
   return new DownloadFileWithDelay(
@@ -303,7 +303,7 @@ class CountingDownloadFileFactory : public DownloadFileFactory {
     const net::BoundNetLog& bound_net_log,
     base::WeakPtr<DownloadDestinationObserver> observer) OVERRIDE {
     scoped_ptr<PowerSaveBlocker> psb(
-        new PowerSaveBlocker(
+        PowerSaveBlocker::Create(
             PowerSaveBlocker::kPowerSaveBlockPreventAppSuspension,
             "Download in progress"));
     return new CountingDownloadFile(
