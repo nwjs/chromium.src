@@ -133,9 +133,6 @@ void PPAPITestBase::SetUpCommandLine(CommandLine* command_line) {
 
   // Smooth scrolling confuses the scrollbar test.
   command_line->AppendSwitch(switches::kDisableSmoothScrolling);
-
-  // Enable threading since we test that feature.
-  command_line->AppendSwitch(switches::kEnablePepperThreading);
 }
 
 void PPAPITestBase::SetUpOnMainThread() {
