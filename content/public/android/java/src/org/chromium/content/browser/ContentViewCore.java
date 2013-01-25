@@ -342,8 +342,14 @@ public class ContentViewCore implements MotionEventDelegate {
         };
     }
 
-    public ImeAdapter getImeAdapterForTest() {
+    @VisibleForTesting
+    protected ImeAdapter getImeAdapterForTest() {
         return mImeAdapter;
+    }
+
+    @VisibleForTesting
+    protected ImeAdapter.AdapterInputConnection getInputConnectionForTest() {
+        return mInputConnection;
     }
 
     private ImeAdapter createImeAdapter(Context context) {
