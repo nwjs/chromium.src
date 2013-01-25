@@ -268,12 +268,12 @@ void FreePixmap(Display* display, XID pixmap);
 UI_EXPORT bool GetOutputDeviceHandles(std::vector<XID>* outputs);
 
 // Gets some useful data from the specified output device, such like
-// manufacturer's ID, serial#, and human readable name. Returns false if it
-// fails to get those data and doesn't touch manufacturer ID/serial#/name.
+// manufacturer's ID, product code, and human readable name. Returns false if it
+// fails to get those data and doesn't touch manufacturer ID/product code/name.
 // NULL can be passed for unwanted output parameters.
 UI_EXPORT bool GetOutputDeviceData(XID output,
                                    uint16* manufacturer_id,
-                                   uint32* serial_number,
+                                   uint16* product_code,
                                    std::string* human_readable_name);
 
 // Gets the names of the all displays physically connected to the system.
