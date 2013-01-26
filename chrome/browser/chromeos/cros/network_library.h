@@ -538,7 +538,8 @@ class Network {
   friend class OncNetworkParser;
   friend class OncWifiNetworkParser;
   friend class OncVirtualNetworkParser;
-
+  // We reach directly into the network for testing purposes.
+  friend class MobileActivatorTest;
   // This allows the implementation classes access to privates.
   NETWORK_LIBRARY_IMPL_FRIENDS;
 
@@ -873,7 +874,7 @@ class CellularNetwork : public WirelessNetwork {
 
   // Starts device activation process. Returns false if the device state does
   // not permit activation.
-  bool StartActivation();
+  virtual bool StartActivation();
 
   bool activate_over_non_cellular_network() const {
     return activate_over_non_cellular_network_;
@@ -927,6 +928,8 @@ class CellularNetwork : public WirelessNetwork {
   // this class can evolve without having to change all the parsers.
   friend class NativeCellularNetworkParser;
   friend class OncCellularNetworkParser;
+  // We reach directly into the network for testing purposes.
+  friend class MobileActivatorTest;
 
   // This allows the implementation classes access to privates.
   NETWORK_LIBRARY_IMPL_FRIENDS;
