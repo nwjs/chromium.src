@@ -295,6 +295,9 @@ void CrosSetCarrier(const std::string& device_path,
                     const std::string& carrier,
                     const NetworkOperationCallback& callback);
 
+// Resets the device.
+void CrosReset(const std::string& device_path);
+
 }  // namespace chromeos
 
 #endif  // CHROME_BROWSER_CHROMEOS_CROS_CROS_NETWORK_FUNCTIONS_H_
