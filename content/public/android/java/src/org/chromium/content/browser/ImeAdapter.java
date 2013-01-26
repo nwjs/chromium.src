@@ -19,8 +19,6 @@ import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputMethodManager;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 
@@ -138,9 +136,6 @@ class ImeAdapter {
 
     private DelayedDismissInput mDismissInput = null;
 
-    @VisibleForTesting
-    protected boolean mIsShowWithoutHideOutstanding = false;
-
     // Delay introduced to avoid hiding the keyboard if new show requests are received.
     // The time required by the unfocus-focus events triggered by tab has been measured in soju:
     // Mean: 18.633 ms, Standard deviation: 7.9837 ms.
@@ -256,7 +251,6 @@ class ImeAdapter {
 
     private void showKeyboard() {
         mInputDialogContainer.dismissDialog();
-        mIsShowWithoutHideOutstanding = true;
         InputMethodManager manager = (InputMethodManager)
                 mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
         manager.showSoftInput(mViewEmbedder.getAttachedView(), 0,
@@ -269,7 +263,6 @@ class ImeAdapter {
     }
 
     private void hideKeyboard(boolean unzoomIfNeeded) {
-        mIsShowWithoutHideOutstanding  = false;
         InputMethodManager manager = (InputMethodManager)
                 mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
         View view = mViewEmbedder.getAttachedView();
