@@ -78,17 +78,18 @@ InterceptNavigationResourceThrottle::~InterceptNavigationResourceThrottle() {
 }
 
 void InterceptNavigationResourceThrottle::WillStartRequest(bool* defer) {
-  *defer = CheckIfShouldIgnoreNavigation(request_->url());
+  *defer = CheckIfShouldIgnoreNavigation(request_->url(), false);
 }
 
 void InterceptNavigationResourceThrottle::WillRedirectRequest(
     const GURL& new_url,
     bool* defer) {
-  *defer = CheckIfShouldIgnoreNavigation(new_url);
+  *defer = CheckIfShouldIgnoreNavigation(new_url, true);
 }
 
 bool InterceptNavigationResourceThrottle::CheckIfShouldIgnoreNavigation(
-    const GURL& url) {
+    const GURL& url,
+    bool is_redirect) {
   const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request_);
   if (!info)
     return false;
@@ -106,7 +107,11 @@ bool InterceptNavigationResourceThrottle::CheckIfShouldIgnoreNavigation(
   params.has_user_gesture = info->HasUserGesture();
   params.is_post = request_->method() == "POST";
   params.transition_type = info->GetPageTransition();
-
+  if (is_redirect) {
+    uint32 transition = params.transition_type |
+        content::PAGE_TRANSITION_SERVER_REDIRECT;
+    params.transition_type = static_cast<content::PageTransition>(transition);
+  }
   BrowserThread::PostTask(
       BrowserThread::UI,
       FROM_HERE,
