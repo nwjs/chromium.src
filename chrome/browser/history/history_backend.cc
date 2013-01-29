@@ -1362,9 +1362,8 @@ void HistoryBackend::QueryHistoryBasic(URLDatabase* url_db,
                                        QueryResults* result) {
   // First get all visits.
   VisitVector visits;
-  visit_db->GetVisibleVisitsInRange(options, &visits);
-  DCHECK(options.max_count == 0 ||
-         static_cast<int>(visits.size()) <= options.max_count);
+  bool has_more_results = visit_db->GetVisibleVisitsInRange(options, &visits);
+  DCHECK(static_cast<int>(visits.size()) <= options.EffectiveMaxCount());
 
   // Now add them and the URL rows to the results.
   URLResult url_result;
@@ -1407,7 +1406,7 @@ void HistoryBackend::QueryHistoryBasic(URLDatabase* url_db,
   }
   result->set_cursor(cursor);
 
-  if (options.begin_time <= first_recorded_time_)
+  if (!has_more_results && options.begin_time <= first_recorded_time_)
     result->set_reached_beginning(true);
 }
 
@@ -1465,7 +1464,7 @@ void HistoryBackend::QueryHistoryFTS(const string16& text_query,
   }
   result->set_cursor(cursor);
 
-  if (options.begin_time <= first_recorded_time_)
+  if (first_time_searched <= first_recorded_time_)
     result->set_reached_beginning(true);
 }
 
