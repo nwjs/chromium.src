@@ -1519,7 +1519,8 @@ AccessTokenStore* ChromeContentBrowserClient::CreateAccessTokenStore() {
 }
 
 bool ChromeContentBrowserClient::IsFastShutdownPossible() {
-  return true;
+  const CommandLine& browser_command_line = *CommandLine::ForCurrentProcess();
+  return !browser_command_line.HasSwitch(switches::kChromeFrame);
 }
 
 void ChromeContentBrowserClient::OverrideWebkitPrefs(
