@@ -7,7 +7,6 @@
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/api/infobars/infobar_service.h"
-#include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/url_constants.h"
@@ -27,31 +26,29 @@ bool MediaStreamInfoBarDelegate::Create(
     const content::MediaResponseCallback& callback) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  TabSpecificContentSettings* content_settings =
-      TabSpecificContentSettings::FromWebContents(web_contents);
+
   scoped_ptr<MediaStreamDevicesController> controller(
-      new MediaStreamDevicesController(profile, content_settings,
-                                       request, callback));
-  if (controller->DismissInfoBarAndTakeActionOnSettings())
-    return false;
+      new MediaStreamDevicesController(profile, request, callback));
+  if (!controller->DismissInfoBarAndTakeActionOnSettings()) {
+    InfoBarService* infobar_service =
+        InfoBarService::FromWebContents(web_contents);
+    InfoBarDelegate* old_infobar = NULL;
+    for (size_t i = 0; i < infobar_service->GetInfoBarCount(); ++i) {
+      old_infobar = infobar_service->GetInfoBarDelegateAt(i)->
+          AsMediaStreamInfoBarDelegate();
+      if (old_infobar)
+        break;
+    }
 
-  InfoBarService* infobar_service =
-      InfoBarService::FromWebContents(web_contents);
-  InfoBarDelegate* old_infobar = NULL;
-  for (size_t i = 0; i < infobar_service->GetInfoBarCount(); ++i) {
-    old_infobar = infobar_service->GetInfoBarDelegateAt(i)->
-        AsMediaStreamInfoBarDelegate();
+    scoped_ptr<InfoBarDelegate> infobar(
+        new MediaStreamInfoBarDelegate(infobar_service, controller.release()));
     if (old_infobar)
-      break;
+      infobar_service->ReplaceInfoBar(old_infobar, infobar.Pass());
+    else
+      infobar_service->AddInfoBar(infobar.Pass());
+    return true;
   }
-  scoped_ptr<InfoBarDelegate> infobar(
-      new MediaStreamInfoBarDelegate(infobar_service, controller.release()));
-  if (old_infobar)
-    infobar_service->ReplaceInfoBar(old_infobar, infobar.Pass());
-  else
-    infobar_service->AddInfoBar(infobar.Pass());
-
-  return true;
+  return false;
 }
 
 void MediaStreamInfoBarDelegate::InfoBarDismissed() {

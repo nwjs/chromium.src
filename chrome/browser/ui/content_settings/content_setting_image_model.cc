@@ -30,14 +30,6 @@ class ContentSettingGeolocationImageModel : public ContentSettingImageModel {
   virtual void UpdateFromWebContents(WebContents* web_contents) OVERRIDE;
 };
 
-// Image model for displaying media icons in the location bar.
-class ContentSettingMediaImageModel : public ContentSettingImageModel {
- public:
-  ContentSettingMediaImageModel();
-
-  virtual void UpdateFromWebContents(WebContents* web_contents) OVERRIDE;
-};
-
 class ContentSettingRPHImageModel : public ContentSettingImageModel {
  public:
   ContentSettingRPHImageModel();
@@ -174,34 +166,6 @@ void ContentSettingGeolocationImageModel::UpdateFromWebContents(
       IDS_GEOLOCATION_ALLOWED_TOOLTIP : IDS_GEOLOCATION_BLOCKED_TOOLTIP));
 }
 
-ContentSettingMediaImageModel::ContentSettingMediaImageModel()
-    : ContentSettingImageModel(CONTENT_SETTINGS_TYPE_MEDIASTREAM) {
-}
-
-void ContentSettingMediaImageModel::UpdateFromWebContents(
-    WebContents* web_contents) {
-  set_visible(false);
-  if (!web_contents)
-    return;
-
-  TabSpecificContentSettings* content_settings =
-      TabSpecificContentSettings::FromWebContents(web_contents);
-  if (!content_settings)
-    return;
-
-  bool blocked =
-      content_settings->IsContentBlocked(CONTENT_SETTINGS_TYPE_MEDIASTREAM);
-  if (!blocked &&
-      !content_settings->IsContentAccessed(get_content_settings_type()))
-    return;
-
-  set_tooltip(
-      l10n_util::GetStringUTF8(blocked ?
-          IDS_MEDIASTREAM_BLOCKED_TOOLTIP : IDS_MEDIASTREAM_ALLOWED_TOOLTIP));
-  set_icon(blocked ? IDR_BLOCKED_MEDIA : IDR_ASK_MEDIA);
-  set_visible(true);
-}
-
 ContentSettingRPHImageModel::ContentSettingRPHImageModel()
     : ContentSettingImageModel(
         CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS) {
@@ -254,8 +218,6 @@ ContentSettingImageModel*
       return new ContentSettingNotificationsImageModel();
     case CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS:
       return new ContentSettingRPHImageModel();
-    case CONTENT_SETTINGS_TYPE_MEDIASTREAM:
-      return new ContentSettingMediaImageModel();
     default:
       return new ContentSettingBlockedImageModel(content_settings_type);
   }

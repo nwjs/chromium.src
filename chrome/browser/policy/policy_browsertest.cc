@@ -24,7 +24,6 @@
 #include "chrome/browser/api/infobars/infobar_service.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/extensions/crx_installer.h"
@@ -1781,13 +1780,8 @@ class MediaStreamDevicesControllerBrowserTest
                                         content::MEDIA_OPEN_DEVICE, "fake_dev",
                                         content::MEDIA_DEVICE_AUDIO_CAPTURE,
                                         content::MEDIA_NO_SERVICE);
-    TabSpecificContentSettings* content_settings =
-        TabSpecificContentSettings::FromWebContents(
-            chrome::GetActiveWebContents(browser()));
     MediaStreamDevicesController controller(
-        browser()->profile(),
-        content_settings,
-        request,
+        browser()->profile(), request,
         base::Bind(&MediaStreamDevicesControllerBrowserTest::Accept, this));
     controller.DismissInfoBarAndTakeActionOnSettings();
 
@@ -1799,11 +1793,8 @@ class MediaStreamDevicesControllerBrowserTest
                                         content::MEDIA_OPEN_DEVICE, "fake_dev",
                                         content::MEDIA_NO_SERVICE,
                                         content::MEDIA_DEVICE_VIDEO_CAPTURE);
-    TabSpecificContentSettings* content_settings =
-        TabSpecificContentSettings::FromWebContents(
-            chrome::GetActiveWebContents(browser()));
     MediaStreamDevicesController controller(
-        browser()->profile(), content_settings, request,
+        browser()->profile(), request,
         base::Bind(&MediaStreamDevicesControllerBrowserTest::Accept, this));
     controller.DismissInfoBarAndTakeActionOnSettings();
 

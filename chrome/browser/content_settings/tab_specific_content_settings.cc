@@ -206,8 +206,7 @@ bool TabSpecificContentSettings::IsContentBlocked(
       content_type == CONTENT_SETTINGS_TYPE_PLUGINS ||
       content_type == CONTENT_SETTINGS_TYPE_COOKIES ||
       content_type == CONTENT_SETTINGS_TYPE_POPUPS ||
-      content_type == CONTENT_SETTINGS_TYPE_MIXEDSCRIPT ||
-      content_type == CONTENT_SETTINGS_TYPE_MEDIASTREAM)
+      content_type == CONTENT_SETTINGS_TYPE_MIXEDSCRIPT)
     return content_blocked_[content_type];
 
   return false;
@@ -225,10 +224,8 @@ void TabSpecificContentSettings::SetBlockageHasBeenIndicated(
 
 bool TabSpecificContentSettings::IsContentAccessed(
     ContentSettingsType content_type) const {
-  // This method currently only returns meaningful values for the content type
-  // cookies and mediastream.
-  if (content_type != CONTENT_SETTINGS_TYPE_COOKIES &&
-      content_type != CONTENT_SETTINGS_TYPE_MEDIASTREAM)
+  // This method currently only returns meaningful values for cookies.
+  if (content_type != CONTENT_SETTINGS_TYPE_COOKIES)
     return false;
 
   return content_accessed_[content_type];
@@ -423,10 +420,6 @@ void TabSpecificContentSettings::OnGeolocationPermissionSet(
       chrome::NOTIFICATION_WEB_CONTENT_SETTINGS_CHANGED,
       content::Source<WebContents>(web_contents()),
       content::NotificationService::NoDetails());
-}
-
-void TabSpecificContentSettings::OnMediaStreamAccessed() {
-  OnContentAccessed(CONTENT_SETTINGS_TYPE_MEDIASTREAM);
 }
 
 void TabSpecificContentSettings::ClearBlockedContentSettingsExceptForCookies() {
