@@ -459,8 +459,8 @@ void RenderMessageFilter::OnMsgCreateWindow(
   bool no_javascript_access;
   bool can_create_window =
       GetContentClient()->browser()->CanCreateWindow(
-          GURL(params.opener_url),
-          GURL(params.opener_security_origin),
+          params.opener_url,
+          params.opener_security_origin,
           params.window_container_type,
           resource_context_,
           render_process_id_,
