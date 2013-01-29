@@ -5936,7 +5936,7 @@ void RenderViewImpl::OnWasShown(bool needs_repainting) {
 bool RenderViewImpl::SupportsAsynchronousSwapBuffers() {
   // Contexts using the command buffer support asynchronous swapbuffers.
   // See RenderViewImpl::createOutputSurface().
-  if (RenderThreadImpl::current()->compositor_thread() ||
+  if (WebWidgetHandlesCompositorScheduling() ||
       CommandLine::ForCurrentProcess()->HasSwitch(switches::kInProcessWebGL))
     return false;
 
@@ -6502,6 +6502,10 @@ void RenderViewImpl::OnEnableViewSourceMode() {
   if (!main_frame)
     return;
   main_frame->enableViewSourceMode(true);
+}
+
+bool RenderViewImpl::WebWidgetHandlesCompositorScheduling() const {
+  return !!RenderThreadImpl::current()->compositor_thread();
 }
 
 void RenderViewImpl::OnJavaBridgeInit() {

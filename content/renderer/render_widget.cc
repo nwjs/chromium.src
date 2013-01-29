@@ -1399,9 +1399,8 @@ void RenderWidget::didCompleteSwapBuffers() {
 
 void RenderWidget::scheduleComposite() {
   TRACE_EVENT0("gpu", "RenderWidget::scheduleComposite");
-  if (RenderThreadImpl::current()->compositor_thread() &&
-      web_layer_tree_view_) {
-    web_layer_tree_view_->setNeedsRedraw();
+  if (WebWidgetHandlesCompositorScheduling()) {
+    webwidget_->composite(false);
   } else {
     // TODO(nduca): replace with something a little less hacky.  The reason this
     // hack is still used is because the Invalidate-DoDeferredUpdate loop
@@ -2106,6 +2105,10 @@ bool RenderWidget::WillHandleMouseEvent(const WebKit::WebMouseEvent& event) {
 
 bool RenderWidget::WillHandleGestureEvent(
     const WebKit::WebGestureEvent& event) {
+  return false;
+}
+
+bool RenderWidget::WebWidgetHandlesCompositorScheduling() const {
   return false;
 }
 
