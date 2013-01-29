@@ -340,6 +340,10 @@ class Network {
     void SetDisconnected() {
       network_->set_disconnected();
     }
+    void SetConnectionStarted(bool connection_started) {
+      network_->set_connection_started(connection_started);
+    }
+
    private:
     Network* network_;
   };
