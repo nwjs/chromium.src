@@ -613,12 +613,6 @@ void URLFetcherCore::OnReadCompleted(URLRequest* request,
   }
 }
 
-void URLFetcherCore::OnCertificateRequested(
-    URLRequest* request,
-    SSLCertRequestInfo* cert_request_info) {
-  request->ContinueWithCertificate(NULL);
-}
-
 void URLFetcherCore::CancelAll() {
   g_registry.Get().CancelAll();
 }
