@@ -200,6 +200,12 @@ FileTransferController.prototype = {
   },
 
   onDragStart_: function(list, event) {
+    // Nothing selected.
+    if (!this.selectedEntries_.length) {
+      event.preventDefault();
+      return;
+    }
+
     var dt = event.dataTransfer;
     var doc = list.ownerDocument;
     var container = doc.querySelector('#drag-image-container');
