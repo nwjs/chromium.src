@@ -84,7 +84,8 @@ void AddHistogramFramesPerBuffer(int param) {
 WebRtcAudioRenderer::WebRtcAudioRenderer(int source_render_view_id)
     : state_(UNINITIALIZED),
       source_render_view_id_(source_render_view_id),
-      source_(NULL) {
+      source_(NULL),
+      play_ref_count_(0) {
 }
 
 WebRtcAudioRenderer::~WebRtcAudioRenderer() {
@@ -217,6 +218,8 @@ void WebRtcAudioRenderer::Play() {
   if (state_ == UNINITIALIZED)
     return;
 
+  DCHECK(play_ref_count_ == 0 || state_ == PLAYING);
+  ++play_ref_count_;
   state_ = PLAYING;
 }
 
@@ -225,7 +228,10 @@ void WebRtcAudioRenderer::Pause() {
   if (state_ == UNINITIALIZED)
     return;
 
-  state_ = PAUSED;
+  DCHECK_EQ(state_, PLAYING);
+  DCHECK_GT(play_ref_count_, 0);
+  if (!--play_ref_count_)
+    state_ = PAUSED;
 }
 
 void WebRtcAudioRenderer::Stop() {
