@@ -334,7 +334,7 @@ void DriveInternalsWebUIHandler::UpdateDriveRelatedFlagsSection() {
   const char* kDriveRelatedFlags[] = {
     google_apis::switches::kEnableDriveV2Api,
     switches::kDisableDrive,
-    switches::kDisableDrivePrefetch,
+    switches::kEnableDrivePrefetch,
   };
 
   base::ListValue flags;
