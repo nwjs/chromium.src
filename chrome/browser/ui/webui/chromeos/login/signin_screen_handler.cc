@@ -123,6 +123,7 @@ SigninScreenHandler::SigninScreenHandler(
       dns_cleared_(false),
       dns_clear_task_running_(false),
       cookies_cleared_(false),
+      proxy_dialog_was_displayed_(false),
       network_state_informer_(network_state_informer),
       cookie_remover_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
@@ -131,6 +132,10 @@ SigninScreenHandler::SigninScreenHandler(
   DCHECK(network_state_informer_);
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowNewUser, this);
   CrosSettings::Get()->AddSettingsObserver(kAccountsPrefAllowGuest, this);
+
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_AUTH_NEEDED,
+                 content::NotificationService::AllSources());
 }
 
 SigninScreenHandler::~SigninScreenHandler() {
@@ -518,11 +523,18 @@ void SigninScreenHandler::OnCapsLockChange(bool enabled) {
 void SigninScreenHandler::Observe(int type,
                                   const content::NotificationSource& source,
                                   const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_SYSTEM_SETTING_CHANGED) {
-    UpdateAuthExtension();
-    UpdateAddButtonStatus();
-  } else {
-    NOTREACHED() << "Unexpected notification " << type;
+  switch (type) {
+    case chrome::NOTIFICATION_SYSTEM_SETTING_CHANGED: {
+      UpdateAuthExtension();
+      UpdateAddButtonStatus();
+      break;
+    }
+    case chrome::NOTIFICATION_AUTH_NEEDED: {
+      proxy_dialog_was_displayed_ = true;
+      break;
+    }
+    default:
+      NOTREACHED() << "Unexpected notification " << type;
   }
 }
 
@@ -537,10 +549,13 @@ void SigninScreenHandler::ShowSigninScreenIfReady() {
   if (!dns_cleared_ || !cookies_cleared_ || !delegate_)
     return;
 
+  // TODO (ygorshenin@): |proxy_dialog_was_displayed_| is used to fix
+  // 169068. Must be removed on M26 when 171668 will be fixed.
   if (gaia_silent_load_ &&
       (!network_state_informer_->is_online() ||
        gaia_silent_load_network_ !=
-          network_state_informer_->active_network_id())) {
+          network_state_informer_->active_network_id() ||
+       proxy_dialog_was_displayed_)) {
     // Network has changed. Force Gaia reload.
     gaia_silent_load_ = false;
     // Gaia page will be realoded, so focus isn't stolen anymore.

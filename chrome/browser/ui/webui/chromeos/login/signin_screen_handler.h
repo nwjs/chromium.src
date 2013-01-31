@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/webui/chromeos/login/base_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/network_state_informer.h"
 #include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_ui.h"
 
 class BrowsingDataRemover;
@@ -316,6 +317,12 @@ class SigninScreenHandler
   // True if cookie jar cleanup is done.
   bool cookies_cleared_;
 
+  // True if proxy auth dialog was displayed.
+  //
+  // TODO (ygorshenin@): |proxy_dialog_was_displayed_| is used to fix
+  // 169068. Must be removed on M26 when 171668 will be fixed.
+  bool proxy_dialog_was_displayed_;
+
   // Help application used for help dialogs.
   scoped_refptr<HelpAppLauncher> help_app_;
 
@@ -341,6 +348,8 @@ class SigninScreenHandler
 
   // True when signin UI is shown to user (either sign in form or user pods).
   bool login_ui_active_;
+
+  content::NotificationRegistrar registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(SigninScreenHandler);
 };
