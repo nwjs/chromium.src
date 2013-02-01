@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Partager"</string>
+<string name="actionbar_web_search">"Recherche sur le Web"</string>
+<string name="accessibility_content_view">"Vue Web"</string>
+<string name="date_picker_dialog_set">"Définir"</string>
+<string name="date_picker_dialog_clear">"Effacer"</string>
+<string name="date_time_picker_dialog_title">"Définir la date et l\'heure"</string>
+<string name="month_picker_dialog_title">"Définir le mois"</string>
+<string name="accessibility_datetime_picker_date">"Date"</string>
+<string name="accessibility_datetime_picker_time">"Heure"</string>
+<string name="accessibility_date_picker_month">"Mois"</string>
+<string name="accessibility_date_picker_year">"Année"</string>
+<string name="media_player_error_title">"Impossible de lire la vidéo."</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Désolé, cette vidéo ne peut être lue en streaming sur cet appareil."</string>
+<string name="media_player_error_text_unknown">"Impossible de lire cette vidéo."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Chargement vidéo"</string>
+</resources>

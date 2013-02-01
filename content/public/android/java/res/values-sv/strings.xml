@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Dela"</string>
+<string name="actionbar_web_search">"Webbsökning"</string>
+<string name="accessibility_content_view">"Webbvy"</string>
+<string name="date_picker_dialog_set">"Spara"</string>
+<string name="date_picker_dialog_clear">"Ta bort"</string>
+<string name="date_time_picker_dialog_title">"Ange datum och tid"</string>
+<string name="month_picker_dialog_title">"Ange månad"</string>
+<string name="accessibility_datetime_picker_date">"Datum"</string>
+<string name="accessibility_datetime_picker_time">"Tid"</string>
+<string name="accessibility_date_picker_month">"Månad"</string>
+<string name="accessibility_date_picker_year">"År"</string>
+<string name="media_player_error_title">"Det går inte att spela upp video"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Videon kan inte spelas upp."</string>
+<string name="media_player_error_text_unknown">"Videon kan inte spelas upp."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Videon läses in"</string>
+</resources>

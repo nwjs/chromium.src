@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"שתף"</string>
+<string name="actionbar_web_search">"חיפוש Google"</string>
+<string name="accessibility_content_view">"תצוגת אינטרנט"</string>
+<string name="date_picker_dialog_set">"הגדר"</string>
+<string name="date_picker_dialog_clear">"נקה"</string>
+<string name="date_time_picker_dialog_title">"הגדר תאריך ושעה"</string>
+<string name="month_picker_dialog_title">"הגדר חודש"</string>
+<string name="accessibility_datetime_picker_date">"תאריך"</string>
+<string name="accessibility_datetime_picker_time">"שעה"</string>
+<string name="accessibility_date_picker_month">"חודש"</string>
+<string name="accessibility_date_picker_year">"שנה"</string>
+<string name="media_player_error_title">"אין אפשרות להפעיל את הסרטון"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"מצטערים, סרטון זה אינו חוקי כמדיה זורמת במכשיר זה."</string>
+<string name="media_player_error_text_unknown">"מצטערים, לא ניתן להפעיל סרטון זה."</string>
+<string name="media_player_error_button">"אישור"</string>
+<string name="media_player_loading_video">"טוען סרטון"</string>
+</resources>

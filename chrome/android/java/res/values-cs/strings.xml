@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Opustit tuto stránku"</string>
+<string name="stay_on_this_page">"Zůstat na této stránce"</string>
+<string name="reload_this_page">"Načíst stránku znovu"</string>
+<string name="dont_reload_this_page">"Nenačítat znovu"</string>
+<string name="show_history_label">"Zobrazit celou historii"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Zrušit"</string>
+<string name="suppress_js_modal_dialogs">"Bránit této stránce ve vytváření dalších dialogových oken."</string>
+<string name="accessibility_js_modal_dialog_prompt">"Výzva"</string>
+</resources>

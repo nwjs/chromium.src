@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"แบ่งปัน"</string>
+<string name="actionbar_web_search">"ค้นเว็บ"</string>
+<string name="accessibility_content_view">"มุมมองเว็บ"</string>
+<string name="date_picker_dialog_set">"ตั้งค่า"</string>
+<string name="date_picker_dialog_clear">"ล้าง"</string>
+<string name="date_time_picker_dialog_title">"ตั้งวันที่และเวลา"</string>
+<string name="month_picker_dialog_title">"ตั้งเดือน"</string>
+<string name="accessibility_datetime_picker_date">"วันที่"</string>
+<string name="accessibility_datetime_picker_time">"เวลา"</string>
+<string name="accessibility_date_picker_month">"เดือน"</string>
+<string name="accessibility_date_picker_year">"ปี"</string>
+<string name="media_player_error_title">"ไม่สามารถเล่นวิดีโอ"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"ขออภัย ไม่สามารถสตรีมวิดีโอไปยังอุปกรณ์นี้"</string>
+<string name="media_player_error_text_unknown">"ขออภัย วิดีโอนี้เล่นไม่ได้"</string>
+<string name="media_player_error_button">"ตกลง"</string>
+<string name="media_player_loading_video">"กำลังโหลดวิดีโอ"</string>
+</resources>

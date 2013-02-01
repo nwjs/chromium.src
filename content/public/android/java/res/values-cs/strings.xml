@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Sdílet"</string>
+<string name="actionbar_web_search">"Vyhledávání na webu"</string>
+<string name="accessibility_content_view">"Webové zobrazení"</string>
+<string name="date_picker_dialog_set">"Nastavit"</string>
+<string name="date_picker_dialog_clear">"Vymazat"</string>
+<string name="date_time_picker_dialog_title">"Nastavit datum a čas"</string>
+<string name="month_picker_dialog_title">"Nastavit měsíc"</string>
+<string name="accessibility_datetime_picker_date">"Datum"</string>
+<string name="accessibility_datetime_picker_time">"Čas"</string>
+<string name="accessibility_date_picker_month">"Měsíc"</string>
+<string name="accessibility_date_picker_year">"Rok"</string>
+<string name="media_player_error_title">"Video nelze přehrát"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Video do zař. nelze streamovat."</string>
+<string name="media_player_error_text_unknown">"Toto video nelze přehrát."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Načítání videa"</string>
+</resources>

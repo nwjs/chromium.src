@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Έξοδος από αυτή τη σελίδα"</string>
+<string name="stay_on_this_page">"Παραμονή σε αυτή τη σελίδα"</string>
+<string name="reload_this_page">"Επαναφόρτωση σελ."</string>
+<string name="dont_reload_this_page">"Να μην γίνει επαναφ."</string>
+<string name="show_history_label">"Εμφάνιση πλήρους ιστορικού"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Ακύρωση"</string>
+<string name="suppress_js_modal_dialogs">"Αποτροπή δημιουργίας πρόσθετων πλαισίων διαλόγου από αυτήν τη σελίδα"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Είσοδος"</string>
+</resources>

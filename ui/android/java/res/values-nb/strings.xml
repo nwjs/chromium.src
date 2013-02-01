@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"Kan ikke fullføre forrige handling på grunn av lite minne"</string>
+<string name="opening_file_error">"Kunne ikke åpne den valgte filen"</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"メモリ不足のため直前の操作を完了できません"</string>
+<string name="opening_file_error">"選択したファイルを開くことができませんでした"</string>
+</resources>

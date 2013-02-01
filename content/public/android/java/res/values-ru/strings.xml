@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Поделиться"</string>
+<string name="actionbar_web_search">"Результаты веб-поиска"</string>
+<string name="accessibility_content_view">"Веб-версия"</string>
+<string name="date_picker_dialog_set">"Применить"</string>
+<string name="date_picker_dialog_clear">"Очистить"</string>
+<string name="date_time_picker_dialog_title">"Установите дату и время"</string>
+<string name="month_picker_dialog_title">"Установите месяц"</string>
+<string name="accessibility_datetime_picker_date">"Дата"</string>
+<string name="accessibility_datetime_picker_time">"Время"</string>
+<string name="accessibility_date_picker_month">"Месяц"</string>
+<string name="accessibility_date_picker_year">"Год"</string>
+<string name="media_player_error_title">"Не удается воспроизвести видео"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Невозможно воспроизвести видео."</string>
+<string name="media_player_error_text_unknown">"Невозможно воспроизвести видео."</string>
+<string name="media_player_error_button">"ОК"</string>
+<string name="media_player_loading_video">"Загрузка видео…"</string>
+</resources>

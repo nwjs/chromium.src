@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Keluar dari Laman"</string>
+<string name="stay_on_this_page">"Tetap di Laman ini"</string>
+<string name="reload_this_page">"Muat ulang Laman ini"</string>
+<string name="dont_reload_this_page">"Jangan muat ulang"</string>
+<string name="show_history_label">"Tampilkan riwayat lengkap"</string>
+<string name="js_modal_dialog_confirm">"Oke"</string>
+<string name="js_modal_dialog_cancel">"Batal"</string>
+<string name="suppress_js_modal_dialogs">"Cegah dialog lain dari laman ini."</string>
+<string name="accessibility_js_modal_dialog_prompt">"Meminta"</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Покинуть эту страницу"</string>
+<string name="stay_on_this_page">"Остаться на этой странице"</string>
+<string name="reload_this_page">"Обновить страницу"</string>
+<string name="dont_reload_this_page">"Отмена"</string>
+<string name="show_history_label">"Вся история"</string>
+<string name="js_modal_dialog_confirm">"ОК"</string>
+<string name="js_modal_dialog_cancel">"Отмена"</string>
+<string name="suppress_js_modal_dialogs">"Запретить создание дополнительных диалоговых окон на этой странице"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Запрос"</string>
+</resources>

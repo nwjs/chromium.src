@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"कम स्‍मृति के कारण पिछली कार्रवाई पूरी करने में असमर्थ"</string>
+<string name="opening_file_error">"चयनित फ़ाइल खोलने में विफल"</string>
+</resources>

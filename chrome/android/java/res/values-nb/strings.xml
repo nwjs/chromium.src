@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Forlat siden"</string>
+<string name="stay_on_this_page">"Bli værende på denne siden"</string>
+<string name="reload_this_page">"Last inn denne siden på nytt"</string>
+<string name="dont_reload_this_page">"Ikke last inn på nytt"</string>
+<string name="show_history_label">"Vis hele loggen"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Avbryt"</string>
+<string name="suppress_js_modal_dialogs">"Hindre denne siden i å opprette flere dialogbokser"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Ledetekst"</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Pamest šo lapu"</string>
+<string name="stay_on_this_page">"Palikt šajā lapā"</string>
+<string name="reload_this_page">"Atkārt. ielādēt lapu"</string>
+<string name="dont_reload_this_page">"Neielādēt atkārtoti"</string>
+<string name="show_history_label">"Rādīt pilnu vēsturi"</string>
+<string name="js_modal_dialog_confirm">"Labi"</string>
+<string name="js_modal_dialog_cancel">"Atcelt"</string>
+<string name="suppress_js_modal_dialogs">"Neļaut šai lapai veidot papildu dialoglodziņus."</string>
+<string name="accessibility_js_modal_dialog_prompt">"Uzvedne"</string>
+</resources>

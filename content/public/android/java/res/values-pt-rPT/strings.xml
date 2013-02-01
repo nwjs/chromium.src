@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Partilhar"</string>
+<string name="actionbar_web_search">"Pesquisa Web"</string>
+<string name="accessibility_content_view">"Visualização na Web"</string>
+<string name="date_picker_dialog_set">"Definir"</string>
+<string name="date_picker_dialog_clear">"Limpar"</string>
+<string name="date_time_picker_dialog_title">"Definir data e hora"</string>
+<string name="month_picker_dialog_title">"Definir mês"</string>
+<string name="accessibility_datetime_picker_date">"Data"</string>
+<string name="accessibility_datetime_picker_time">"Tempo"</string>
+<string name="accessibility_date_picker_month">"Mês"</string>
+<string name="accessibility_date_picker_year">"Ano"</string>
+<string name="media_player_error_title">"Impossível reproduzir vídeo"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Lamentamos, este vídeo não é válido para transmissão em fluxo contínuo neste aparelho."</string>
+<string name="media_player_error_text_unknown">"Lamentamos, não é possível reproduzir este vídeo."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"A carregar vídeo"</string>
+</resources>

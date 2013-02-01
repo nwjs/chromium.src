@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"צא מדף זה"</string>
+<string name="stay_on_this_page">"הישאר בדף זה"</string>
+<string name="reload_this_page">"טען מחדש דף זה"</string>
+<string name="dont_reload_this_page">"אל תטען מחדש"</string>
+<string name="show_history_label">"הצג את ההיסטוריה במלואה"</string>
+<string name="js_modal_dialog_confirm">"אישור"</string>
+<string name="js_modal_dialog_cancel">"ביטול"</string>
+<string name="suppress_js_modal_dialogs">"מנע מדף זה ליצור דיאלוגים נוספים"</string>
+<string name="accessibility_js_modal_dialog_prompt">"בקשה"</string>
+</resources>

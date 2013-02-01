@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Condividi"</string>
+<string name="actionbar_web_search">"Ricerca Google"</string>
+<string name="accessibility_content_view">"Visualizzazione web"</string>
+<string name="date_picker_dialog_set">"Imposta"</string>
+<string name="date_picker_dialog_clear">"Cancella"</string>
+<string name="date_time_picker_dialog_title">"Imposta data e ora"</string>
+<string name="month_picker_dialog_title">"Imposta mese"</string>
+<string name="accessibility_datetime_picker_date">"Data"</string>
+<string name="accessibility_datetime_picker_time">"Ora"</string>
+<string name="accessibility_date_picker_month">"Mese"</string>
+<string name="accessibility_date_picker_year">"Anno"</string>
+<string name="media_player_error_title">"Impossibile riprodurre il video"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Video non valido per streaming."</string>
+<string name="media_player_error_text_unknown">"Impossibile riprodurre il video."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Caricamento video"</string>
+</resources>

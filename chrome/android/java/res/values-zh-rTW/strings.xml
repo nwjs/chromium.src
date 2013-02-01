@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"離開此頁"</string>
+<string name="stay_on_this_page">"停留在此頁"</string>
+<string name="reload_this_page">"重新載入這個網頁"</string>
+<string name="dont_reload_this_page">"不要重新載入"</string>
+<string name="show_history_label">"顯示完整紀錄"</string>
+<string name="js_modal_dialog_confirm">"確定"</string>
+<string name="js_modal_dialog_cancel">"取消"</string>
+<string name="suppress_js_modal_dialogs">"防止這個網頁建立其他對話方塊"</string>
+<string name="accessibility_js_modal_dialog_prompt">"提示"</string>
+</resources>

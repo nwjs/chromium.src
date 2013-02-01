@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Напусти ову страницу"</string>
+<string name="stay_on_this_page">"Остани на овој страници"</string>
+<string name="reload_this_page">"Учитај поново"</string>
+<string name="dont_reload_this_page">"Не учитавај поново"</string>
+<string name="show_history_label">"Прикажи целу историју"</string>
+<string name="js_modal_dialog_confirm">"Потврди"</string>
+<string name="js_modal_dialog_cancel">"Откажи"</string>
+<string name="suppress_js_modal_dialogs">"Спречи ову страницу да прави додатне дијалоге"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Упит"</string>
+</resources>

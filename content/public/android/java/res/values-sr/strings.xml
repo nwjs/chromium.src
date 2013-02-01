@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Дели"</string>
+<string name="actionbar_web_search">"Веб-претрага"</string>
+<string name="accessibility_content_view">"Веб-приказ"</string>
+<string name="date_picker_dialog_set">"Подеси"</string>
+<string name="date_picker_dialog_clear">"Обриши"</string>
+<string name="date_time_picker_dialog_title">"Подешавање датума и времена"</string>
+<string name="month_picker_dialog_title">"Подешавање месеца"</string>
+<string name="accessibility_datetime_picker_date">"Датум"</string>
+<string name="accessibility_datetime_picker_time">"Време"</string>
+<string name="accessibility_date_picker_month">"Месец"</string>
+<string name="accessibility_date_picker_year">"Година"</string>
+<string name="media_player_error_title">"Није могуће пустити видео"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Жао нам је, овај видео није погодан за стрим. на овај уређ."</string>
+<string name="media_player_error_text_unknown">"Жао нам је, овај видео не може да се пусти."</string>
+<string name="media_player_error_button">"Потврди"</string>
+<string name="media_player_loading_video">"Учитавање видеа"</string>
+</resources>

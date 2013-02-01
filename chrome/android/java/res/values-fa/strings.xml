@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"ترک کردن این صفحه"</string>
+<string name="stay_on_this_page">"ماندن در این صفحه"</string>
+<string name="reload_this_page">"بارگیری مجدد صفحه"</string>
+<string name="dont_reload_this_page">"بارگیری مجدد نشود"</string>
+<string name="show_history_label">"نمایش کل سابقه"</string>
+<string name="js_modal_dialog_confirm">"تأیید"</string>
+<string name="js_modal_dialog_cancel">"لغو"</string>
+<string name="suppress_js_modal_dialogs">"از ایجاد گفتگوهای دیگر توسط این صفحه جلوگیری شود"</string>
+<string name="accessibility_js_modal_dialog_prompt">"فرمان:"</string>
+</resources>

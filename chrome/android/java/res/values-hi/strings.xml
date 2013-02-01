@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"इस पृष्ठ से जाएं"</string>
+<string name="stay_on_this_page">"इस पृष्ठ पर बनें रहें"</string>
+<string name="reload_this_page">"पृष्ठ पुन: लोड करें"</string>
+<string name="dont_reload_this_page">"पुनः लोड न करें"</string>
+<string name="show_history_label">"संपूर्ण इतिहास दिखाएं"</string>
+<string name="js_modal_dialog_confirm">"ठीक"</string>
+<string name="js_modal_dialog_cancel">"रद्द करें"</string>
+<string name="suppress_js_modal_dialogs">"इस पृष्ठ को अतिरिक्त संवाद बनाने से रोकें"</string>
+<string name="accessibility_js_modal_dialog_prompt">"शीघ्र"</string>
+</resources>

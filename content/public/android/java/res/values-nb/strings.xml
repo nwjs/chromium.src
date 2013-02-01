@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Del"</string>
+<string name="actionbar_web_search">"Nettsøk"</string>
+<string name="accessibility_content_view">"Nettvisning"</string>
+<string name="date_picker_dialog_set">"Angi"</string>
+<string name="date_picker_dialog_clear">"Tøm"</string>
+<string name="date_time_picker_dialog_title">"Angi dato og klokkeslett"</string>
+<string name="month_picker_dialog_title">"Angi måned"</string>
+<string name="accessibility_datetime_picker_date">"Dato"</string>
+<string name="accessibility_datetime_picker_time">"Klokkeslett"</string>
+<string name="accessibility_date_picker_month">"Måned"</string>
+<string name="accessibility_date_picker_year">"År"</string>
+<string name="media_player_error_title">"Kan ikke spille av videoen"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Videoen er ikke gyldig for direkteavsp. på enheten."</string>
+<string name="media_player_error_text_unknown">"Videoen kan ikke spilles av."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Laster inn videoen ..."</string>
+</resources>

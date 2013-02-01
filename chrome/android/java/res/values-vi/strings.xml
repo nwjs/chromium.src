@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Rời khỏi Trang này"</string>
+<string name="stay_on_this_page">"Ở lại Trang này"</string>
+<string name="reload_this_page">"Tải lại trang này"</string>
+<string name="dont_reload_this_page">"Không tải lại"</string>
+<string name="show_history_label">"Hiển thị toàn bộ lịch sử"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Hủy"</string>
+<string name="suppress_js_modal_dialogs">"Ngăn không cho trang này tạo hộp thoại bổ sung"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Lời nhắc"</string>
+</resources>

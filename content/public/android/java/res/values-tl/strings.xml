@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Ibahagi"</string>
+<string name="actionbar_web_search">"Paghahanap sa web"</string>
+<string name="accessibility_content_view">"View ng Web"</string>
+<string name="date_picker_dialog_set">"Itakda"</string>
+<string name="date_picker_dialog_clear">"I-clear"</string>
+<string name="date_time_picker_dialog_title">"Itakda ang petsa at oras"</string>
+<string name="month_picker_dialog_title">"Itakda ang buwan"</string>
+<string name="accessibility_datetime_picker_date">"Petsa"</string>
+<string name="accessibility_datetime_picker_time">"Oras"</string>
+<string name="accessibility_date_picker_month">"Buwan"</string>
+<string name="accessibility_date_picker_year">"Taon"</string>
+<string name="media_player_error_title">"Hindi ma-play ang video"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Paumnhn,d wsto strmng dvce vdeo."</string>
+<string name="media_player_error_text_unknown">"Paumanhin, di ma-play video ito."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Nilo-load video"</string>
+</resources>

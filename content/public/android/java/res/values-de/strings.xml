@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Teilen"</string>
+<string name="actionbar_web_search">"Websuche"</string>
+<string name="accessibility_content_view">"Webaufruf"</string>
+<string name="date_picker_dialog_set">"Festlegen"</string>
+<string name="date_picker_dialog_clear">"Löschen"</string>
+<string name="date_time_picker_dialog_title">"Datum und Uhrzeit einstellen"</string>
+<string name="month_picker_dialog_title">"Monat einstellen"</string>
+<string name="accessibility_datetime_picker_date">"Datum"</string>
+<string name="accessibility_datetime_picker_time">"Zeit"</string>
+<string name="accessibility_date_picker_month">"Monat"</string>
+<string name="accessibility_date_picker_year">"Jahr"</string>
+<string name="media_player_error_title">"Videowiedergabe nicht möglich"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Dieses Video ist zum Streaming auf diesem Gerät ungültig."</string>
+<string name="media_player_error_text_unknown">"Videowiedergabe nicht möglich"</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Lädt Video..."</string>
+</resources>

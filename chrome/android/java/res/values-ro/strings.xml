@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Părăsiți această pagină"</string>
+<string name="stay_on_this_page">"Rămâneți pe această pagină"</string>
+<string name="reload_this_page">"Reîncărcați pagina"</string>
+<string name="dont_reload_this_page">"Nu reîncărcați"</string>
+<string name="show_history_label">"Afișați întregul istoric"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Anulaţi"</string>
+<string name="suppress_js_modal_dialogs">"Restricţionaţi capacitatea acestei pagini de a crea casete de dialog suplimentare"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Solicitare"</string>
+</resources>

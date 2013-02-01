@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Залишити цю сторінку"</string>
+<string name="stay_on_this_page">"Залишатися на цій сторінці"</string>
+<string name="reload_this_page">"Оновити цю сторінку"</string>
+<string name="dont_reload_this_page">"Не оновлювати"</string>
+<string name="show_history_label">"Показати всю історію"</string>
+<string name="js_modal_dialog_confirm">"ОК"</string>
+<string name="js_modal_dialog_cancel">"Скасувати"</string>
+<string name="suppress_js_modal_dialogs">"Заборонити цій сторінці створювати додаткові діалогові вікна."</string>
+<string name="accessibility_js_modal_dialog_prompt">"Підказка"</string>
+</resources>

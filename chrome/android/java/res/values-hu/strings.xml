@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Az oldal elhagyása"</string>
+<string name="stay_on_this_page">"Maradok ezen az oldalon"</string>
+<string name="reload_this_page">"Az oldal újratöltése"</string>
+<string name="dont_reload_this_page">"Ne töltse újra"</string>
+<string name="show_history_label">"Az összes előzmény megjelenítése"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Mégse"</string>
+<string name="suppress_js_modal_dialogs">"Akadályozza meg, hogy ez az oldal további párbeszédablakokat hozzon létre."</string>
+<string name="accessibility_js_modal_dialog_prompt">"Kérés"</string>
+</resources>

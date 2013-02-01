@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Κοινή χρήση"</string>
+<string name="actionbar_web_search">"Αναζήτηση στον Ιστό"</string>
+<string name="accessibility_content_view">"Προβολή ιστού"</string>
+<string name="date_picker_dialog_set">"Ορισμός"</string>
+<string name="date_picker_dialog_clear">"Εκκαθάριση"</string>
+<string name="date_time_picker_dialog_title">"Ορισμός ημερομηνίας και ώρας"</string>
+<string name="month_picker_dialog_title">"Ορισμός μήνα"</string>
+<string name="accessibility_datetime_picker_date">"Ημερομηνία"</string>
+<string name="accessibility_datetime_picker_time">"Ώρα"</string>
+<string name="accessibility_date_picker_month">"Μήνας"</string>
+<string name="accessibility_date_picker_year">"Έτος"</string>
+<string name="media_player_error_title">"Αδυναμία αναπαραγωγής βίντεο"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Μη έγκυρο βίντεο για ροή."</string>
+<string name="media_player_error_text_unknown">"Αδυναμία προβολής του βίντεο."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Φόρτωση βίντεο"</string>
+</resources>

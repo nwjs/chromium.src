@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Comparteix"</string>
+<string name="actionbar_web_search">"Cerca al web"</string>
+<string name="accessibility_content_view">"Visualització web"</string>
+<string name="date_picker_dialog_set">"Defineix"</string>
+<string name="date_picker_dialog_clear">"Esborra"</string>
+<string name="date_time_picker_dialog_title">"Establiment de data i d\'hora"</string>
+<string name="month_picker_dialog_title">"Establiment de mes"</string>
+<string name="accessibility_datetime_picker_date">"Data"</string>
+<string name="accessibility_datetime_picker_time">"Hora"</string>
+<string name="accessibility_date_picker_month">"Mes"</string>
+<string name="accessibility_date_picker_year">"Any"</string>
+<string name="media_player_error_title">"No es pot reproduir el vídeo"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Aquest vídeo no és vàlid per a la transmissió en aquest dispositiu."</string>
+<string name="media_player_error_text_unknown">"No es pot reproduir aquest vídeo."</string>
+<string name="media_player_error_button">"D\'acord"</string>
+<string name="media_player_loading_video">"Carregant vídeo"</string>
+</resources>

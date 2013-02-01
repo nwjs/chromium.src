@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Jaa"</string>
+<string name="actionbar_web_search">"Verkkohaku"</string>
+<string name="accessibility_content_view">"Verkkonäkymä"</string>
+<string name="date_picker_dialog_set">"Aseta"</string>
+<string name="date_picker_dialog_clear">"Tyhjennä"</string>
+<string name="date_time_picker_dialog_title">"Aseta päivämäärä ja aika"</string>
+<string name="month_picker_dialog_title">"Aseta kuukausi"</string>
+<string name="accessibility_datetime_picker_date">"Päiväys"</string>
+<string name="accessibility_datetime_picker_time">"Aika"</string>
+<string name="accessibility_date_picker_month">"Kuukausi"</string>
+<string name="accessibility_date_picker_year">"Vuosi"</string>
+<string name="media_player_error_title">"Videon toistaminen epäonnistui"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Videota ei voi suoratoistaa tällä laitteella."</string>
+<string name="media_player_error_text_unknown">"Tätä videota ei voi toistaa."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Videota ladataan"</string>
+</resources>

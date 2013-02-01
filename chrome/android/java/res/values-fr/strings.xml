@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Quitter cette page"</string>
+<string name="stay_on_this_page">"Rester sur cette page"</string>
+<string name="reload_this_page">"Actualiser la page"</string>
+<string name="dont_reload_this_page">"Ne pas actualiser"</string>
+<string name="show_history_label">"Afficher l\'historique complet"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Annuler"</string>
+<string name="suppress_js_modal_dialogs">"Empêcher cette page de générer des boîtes de dialogue supplémentaires"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Invite"</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Dijeli"</string>
+<string name="actionbar_web_search">"Pretraživanje weba"</string>
+<string name="accessibility_content_view">"Web-prikaz"</string>
+<string name="date_picker_dialog_set">"Postavi"</string>
+<string name="date_picker_dialog_clear">"Izbriši"</string>
+<string name="date_time_picker_dialog_title">"Postavite datum i vrijeme"</string>
+<string name="month_picker_dialog_title">"Postavi mjesec"</string>
+<string name="accessibility_datetime_picker_date">"Datum"</string>
+<string name="accessibility_datetime_picker_time">"Vrijeme"</string>
+<string name="accessibility_date_picker_month">"Mjesec"</string>
+<string name="accessibility_date_picker_year">"Godina"</string>
+<string name="media_player_error_title">"Nije moguće reprod. videozapis"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Video nije valjan za str. na ur."</string>
+<string name="media_player_error_text_unknown">"Videoz. nije moguće reproducir."</string>
+<string name="media_player_error_button">"U redu"</string>
+<string name="media_player_loading_video">"Učitavanje videa"</string>
+</resources>

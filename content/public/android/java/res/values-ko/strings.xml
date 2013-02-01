@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"공유"</string>
+<string name="actionbar_web_search">"웹 검색"</string>
+<string name="accessibility_content_view">"웹 보기"</string>
+<string name="date_picker_dialog_set">"설정"</string>
+<string name="date_picker_dialog_clear">"지우기"</string>
+<string name="date_time_picker_dialog_title">"날짜 및 시간 설정"</string>
+<string name="month_picker_dialog_title">"월 설정"</string>
+<string name="accessibility_datetime_picker_date">"날짜"</string>
+<string name="accessibility_datetime_picker_time">"시간"</string>
+<string name="accessibility_date_picker_month">"월"</string>
+<string name="accessibility_date_picker_year">"연도"</string>
+<string name="media_player_error_title">"동영상 재생 안됨"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"죄송합니다. 이 동영상은 이 기기로 스트리밍할 수 없습니다."</string>
+<string name="media_player_error_text_unknown">"동영상을 재생할 수 없습니다."</string>
+<string name="media_player_error_button">"확인"</string>
+<string name="media_player_loading_video">"동영상 로드 중"</string>
+</resources>

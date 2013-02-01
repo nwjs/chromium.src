@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Išeiti iš šio puslapio"</string>
+<string name="stay_on_this_page">"Likti šiame puslapyje"</string>
+<string name="reload_this_page">"Iš naujo įk. šį psl."</string>
+<string name="dont_reload_this_page">"Neįkelti iš naujo"</string>
+<string name="show_history_label">"Rodyti visą istoriją"</string>
+<string name="js_modal_dialog_confirm">"Gerai"</string>
+<string name="js_modal_dialog_cancel">"Atšaukti"</string>
+<string name="suppress_js_modal_dialogs">"Neleiskite šiam puslapiui kurti papildomų dialogo langų"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Raginimas"</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"Kan vorige bewerking niet voltooien. Te weinig geheugen"</string>
+<string name="opening_file_error">"Kan geselec. bestand niet openen"</string>
+</resources>

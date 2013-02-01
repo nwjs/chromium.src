@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"이 페이지 나오기"</string>
+<string name="stay_on_this_page">"이 페이지에 머무르기"</string>
+<string name="reload_this_page">"페이지 새로고침"</string>
+<string name="dont_reload_this_page">"새로고침 안함"</string>
+<string name="show_history_label">"방문 기록 전체보기"</string>
+<string name="js_modal_dialog_confirm">"확인"</string>
+<string name="js_modal_dialog_cancel">"취소"</string>
+<string name="suppress_js_modal_dialogs">"이 페이지가 추가적인 대화를 생성하지 않도록 차단"</string>
+<string name="accessibility_js_modal_dialog_prompt">"프롬프트"</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Lämna denna sida"</string>
+<string name="stay_on_this_page">"Stanna på den här sidan"</string>
+<string name="reload_this_page">"Läs in sidan igen"</string>
+<string name="dont_reload_this_page">"Läs inte in igen"</string>
+<string name="show_history_label">"Visa fullständig historik"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Avbryt"</string>
+<string name="suppress_js_modal_dialogs">"Förhindra att den här sidan öppnar ytterligare dialogrutor"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Fråga"</string>
+</resources>

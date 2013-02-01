@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"Föregående åtgärden kan inte slutföras. För lite minne."</string>
+<string name="opening_file_error">"Det gick inte att öppna filen"</string>
+</resources>

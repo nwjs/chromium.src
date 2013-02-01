@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Bendrinti"</string>
+<string name="actionbar_web_search">"Paieška žiniatinklyje"</string>
+<string name="accessibility_content_view">"Žiniatinklio rodinys"</string>
+<string name="date_picker_dialog_set">"Nustatyti"</string>
+<string name="date_picker_dialog_clear">"Išvalyti"</string>
+<string name="date_time_picker_dialog_title">"Nustatyti datą ir laiką"</string>
+<string name="month_picker_dialog_title">"Nustatyti mėnesį"</string>
+<string name="accessibility_datetime_picker_date">"Data"</string>
+<string name="accessibility_datetime_picker_time">"Laikas"</string>
+<string name="accessibility_date_picker_month">"Mėnuo"</string>
+<string name="accessibility_date_picker_year">"Metai"</string>
+<string name="media_player_error_title">"Nepavyksta paleisti vaizdo įrašo"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Deja, šis vaizdo įrašas netinka perduoti srautu į šį įrenginį."</string>
+<string name="media_player_error_text_unknown">"Vaizdo įrašo paleisti nepavyksta"</string>
+<string name="media_player_error_button">"Gerai"</string>
+<string name="media_player_loading_video">"Įkel. v. įrašas"</string>
+</resources>

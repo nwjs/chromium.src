@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"साझा करें"</string>
+<string name="actionbar_web_search">"वेब खोज"</string>
+<string name="accessibility_content_view">"वेब दृश्य"</string>
+<string name="date_picker_dialog_set">"सेट करें"</string>
+<string name="date_picker_dialog_clear">"साफ़ करें"</string>
+<string name="date_time_picker_dialog_title">"दिनांक और समय सेट करें"</string>
+<string name="month_picker_dialog_title">"माह सेट करें"</string>
+<string name="accessibility_datetime_picker_date">"दिनांक"</string>
+<string name="accessibility_datetime_picker_time">"समय"</string>
+<string name="accessibility_date_picker_month">"माह"</string>
+<string name="accessibility_date_picker_year">"वर्ष"</string>
+<string name="media_player_error_title">"वीडियो नहीं चला सकता"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"उपकरण पर वीडियो स्‍ट्रीम अमान्य."</string>
+<string name="media_player_error_text_unknown">"यह वीडियो नहीं चलाया जा सकता."</string>
+<string name="media_player_error_button">"ठीक"</string>
+<string name="media_player_loading_video">"वीडियो लोड हो रहा है"</string>
+</resources>

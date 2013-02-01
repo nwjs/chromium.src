@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"ออกจากหน้านี้"</string>
+<string name="stay_on_this_page">"อยู่ในหน้านี้"</string>
+<string name="reload_this_page">"โหลดหน้าเว็บนี้ซ้ำ"</string>
+<string name="dont_reload_this_page">"อย่าโหลดซ้ำ"</string>
+<string name="show_history_label">"แสดงประวัติการเข้าชมทั้งหมด"</string>
+<string name="js_modal_dialog_confirm">"ตกลง"</string>
+<string name="js_modal_dialog_cancel">"ยกเลิก"</string>
+<string name="suppress_js_modal_dialogs">"ป้องกันหน้าเว็บนี้จากการสร้างการโต้ตอบเพิ่มเติม"</string>
+<string name="accessibility_js_modal_dialog_prompt">"หน้าต่างแจ้งเตือน"</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Abandona aquesta pàgina"</string>
+<string name="stay_on_this_page">"Roman en aquesta pàgina"</string>
+<string name="reload_this_page">"Torna a carreg. pàg."</string>
+<string name="dont_reload_this_page">"No tornis a carregar"</string>
+<string name="show_history_label">"Mostra l\'historial complet"</string>
+<string name="js_modal_dialog_confirm">"D\'acord"</string>
+<string name="js_modal_dialog_cancel">"Cancel·la"</string>
+<string name="suppress_js_modal_dialogs">"Impedeix que aquesta pàgina creï diàlegs addicionals"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Sol·licitud"</string>
+</resources>

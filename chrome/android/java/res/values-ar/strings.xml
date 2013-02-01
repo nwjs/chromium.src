@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"مغادرة هذه الصفحة"</string>
+<string name="stay_on_this_page">"البقاء في هذه الصفحة"</string>
+<string name="reload_this_page">"إعادة تحميل الصفحة"</string>
+<string name="dont_reload_this_page">"عدم إعادة التحميل"</string>
+<string name="show_history_label">"إظهار السجل بأكمله"</string>
+<string name="js_modal_dialog_confirm">"موافق"</string>
+<string name="js_modal_dialog_cancel">"إلغاء"</string>
+<string name="suppress_js_modal_dialogs">"منع هذه الصفحة من إنشاء مربعات حوار إضافية."</string>
+<string name="accessibility_js_modal_dialog_prompt">"مطالبة"</string>
+</resources>

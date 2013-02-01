@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"메모리가 부족하여 이전 작업을 완료할 수 없습니다."</string>
+<string name="opening_file_error">"선택한 파일을 열지 못했습니다."</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Udostępnij"</string>
+<string name="actionbar_web_search">"Wyszukaj w Google"</string>
+<string name="accessibility_content_view">"Widok sieci"</string>
+<string name="date_picker_dialog_set">"Ustaw"</string>
+<string name="date_picker_dialog_clear">"Wyczyść"</string>
+<string name="date_time_picker_dialog_title">"Ustaw datę i godzinę"</string>
+<string name="month_picker_dialog_title">"Ustaw miesiąc"</string>
+<string name="accessibility_datetime_picker_date">"Data"</string>
+<string name="accessibility_datetime_picker_time">"Godzina"</string>
+<string name="accessibility_date_picker_month">"Miesiąc"</string>
+<string name="accessibility_date_picker_year">"Rok"</string>
+<string name="media_player_error_title">"Nie można odtworzyć filmu."</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Przepraszamy, ten film nie nadaje się do strumieniowego przesyłania do tego urządzenia."</string>
+<string name="media_player_error_text_unknown">"Niestety, nie można odtworzyć tego filmu."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Wczytuję film"</string>
+</resources>

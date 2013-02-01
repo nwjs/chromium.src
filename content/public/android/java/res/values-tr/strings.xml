@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Paylaş"</string>
+<string name="actionbar_web_search">"Web arama"</string>
+<string name="accessibility_content_view">"Web Görüntüleme"</string>
+<string name="date_picker_dialog_set">"Ayarla"</string>
+<string name="date_picker_dialog_clear">"Temizle"</string>
+<string name="date_time_picker_dialog_title">"Tarih ve saati ayarla"</string>
+<string name="month_picker_dialog_title">"Ayı ayarla"</string>
+<string name="accessibility_datetime_picker_date">"Tarih"</string>
+<string name="accessibility_datetime_picker_time">"Zaman"</string>
+<string name="accessibility_date_picker_month">"Ay"</string>
+<string name="accessibility_date_picker_year">"Yıl"</string>
+<string name="media_player_error_title">"Video oynatılamıyor"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Bu video cihaza akışla gönderilemez."</string>
+<string name="media_player_error_text_unknown">"Maalesef bu video oynatılamıyor."</string>
+<string name="media_player_error_button">"Tamam"</string>
+<string name="media_player_loading_video">"Video yükleniyor"</string>
+</resources>

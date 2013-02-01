@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Opuść tę stronę"</string>
+<string name="stay_on_this_page">"Pozostań na tej stronie"</string>
+<string name="reload_this_page">"Przeładuj stronę"</string>
+<string name="dont_reload_this_page">"Nie ładuj ponownie"</string>
+<string name="show_history_label">"Wyświetl całą historię"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Anuluj"</string>
+<string name="suppress_js_modal_dialogs">"Zapobiegaj wyświetlaniu dodatkowych okien dialogowych na tej stronie."</string>
+<string name="accessibility_js_modal_dialog_prompt">"Monit"</string>
+</resources>

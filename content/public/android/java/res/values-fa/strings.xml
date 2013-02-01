@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"اشتراک‌گذاری"</string>
+<string name="actionbar_web_search">"جستجوی وب"</string>
+<string name="accessibility_content_view">"بازدید از وب"</string>
+<string name="date_picker_dialog_set">"تنظیم"</string>
+<string name="date_picker_dialog_clear">"پاک کردن"</string>
+<string name="date_time_picker_dialog_title">"تنظیم تاریخ و ساعت"</string>
+<string name="month_picker_dialog_title">"تنظیم ماه"</string>
+<string name="accessibility_datetime_picker_date">"تاریخ"</string>
+<string name="accessibility_datetime_picker_time">"زمان"</string>
+<string name="accessibility_date_picker_month">"ماه"</string>
+<string name="accessibility_date_picker_year">"سال"</string>
+<string name="media_player_error_title">"نمی‌توان ویدئو پخش کرد"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"متأسفیم، این ویدئو برای پخش جریانی بااین دستگاه معتبر نیست."</string>
+<string name="media_player_error_text_unknown">"متأسفیم، این ویدئو پخش نمی‌شود."</string>
+<string name="media_player_error_button">"تأیید"</string>
+<string name="media_player_loading_video">"بارگیری ویدیو"</string>
+</resources>

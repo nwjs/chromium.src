@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"ไม่สามารถดำเนินการก่อนหน้าให้สิ้นสุดได้เพราะหน่วยความจำต่ำ"</string>
+<string name="opening_file_error">"ไม่สามารถเปิดไฟล์ที่เลือก"</string>
+</resources>

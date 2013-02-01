@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Forlad denne side"</string>
+<string name="stay_on_this_page">"Bliv på denne side"</string>
+<string name="reload_this_page">"Genindlæs denne side"</string>
+<string name="dont_reload_this_page">"Genindlæs ikke"</string>
+<string name="show_history_label">"Vis hele historikken"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Annuller"</string>
+<string name="suppress_js_modal_dialogs">"Undgå, at denne side laver nye dialogbokse."</string>
+<string name="accessibility_js_modal_dialog_prompt">"Meddelelse"</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"分享"</string>
+<string name="actionbar_web_search">"网页搜索"</string>
+<string name="accessibility_content_view">"网络视图"</string>
+<string name="date_picker_dialog_set">"设置"</string>
+<string name="date_picker_dialog_clear">"清除"</string>
+<string name="date_time_picker_dialog_title">"设置日期和时间"</string>
+<string name="month_picker_dialog_title">"设置月份"</string>
+<string name="accessibility_datetime_picker_date">"日期"</string>
+<string name="accessibility_datetime_picker_time">"时间"</string>
+<string name="accessibility_date_picker_month">"月"</string>
+<string name="accessibility_date_picker_year">"年"</string>
+<string name="media_player_error_title">"无法播放视频"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"抱歉，该视频不适合在此设备上播放。"</string>
+<string name="media_player_error_text_unknown">"很抱歉，无法播放此视频。"</string>
+<string name="media_player_error_button">"确定"</string>
+<string name="media_player_loading_video">"正在加载视频"</string>
+</resources>

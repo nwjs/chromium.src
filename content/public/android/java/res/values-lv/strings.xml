@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Kopīgot"</string>
+<string name="actionbar_web_search">"Meklēšana tīmeklī"</string>
+<string name="accessibility_content_view">"Tīmekļa skatījums"</string>
+<string name="date_picker_dialog_set">"Iestatīt"</string>
+<string name="date_picker_dialog_clear">"Notīrīt"</string>
+<string name="date_time_picker_dialog_title">"Iestatīt datumu un laiku"</string>
+<string name="month_picker_dialog_title">"Iestatīt mēnesi"</string>
+<string name="accessibility_datetime_picker_date">"Datums"</string>
+<string name="accessibility_datetime_picker_time">"Laiks"</string>
+<string name="accessibility_date_picker_month">"Mēnesis"</string>
+<string name="accessibility_date_picker_year">"Gads"</string>
+<string name="media_player_error_title">"Nevar demonstrēt videoklipu"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Šo video nevar straumēt ierīcē."</string>
+<string name="media_player_error_text_unknown">"Šo video nevar demonstrēt."</string>
+<string name="media_player_error_button">"Labi"</string>
+<string name="media_player_loading_video">"Video ielāde"</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Compartir"</string>
+<string name="actionbar_web_search">"Búsqueda en la Web"</string>
+<string name="accessibility_content_view">"Vista web"</string>
+<string name="date_picker_dialog_set">"Configurar"</string>
+<string name="date_picker_dialog_clear">"Borrar"</string>
+<string name="date_time_picker_dialog_title">"Configurar fecha y hora"</string>
+<string name="month_picker_dialog_title">"Configurar el mes"</string>
+<string name="accessibility_datetime_picker_date">"Fecha"</string>
+<string name="accessibility_datetime_picker_time">"Hora"</string>
+<string name="accessibility_date_picker_month">"Mes"</string>
+<string name="accessibility_date_picker_year">"Año"</string>
+<string name="media_player_error_title">"No se puede reproducir el video."</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Error al transmitir video"</string>
+<string name="media_player_error_text_unknown">"El video no se puede reproducir."</string>
+<string name="media_player_error_button">"Aceptar"</string>
+<string name="media_player_loading_video">"Cargando video"</string>
+</resources>

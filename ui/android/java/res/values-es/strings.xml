@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="low_memory_error">"Memoria insuficiente para completar la operación anterior"</string>
+<string name="opening_file_error">"Error al abrir archivo seleccionado"</string>
+</resources>

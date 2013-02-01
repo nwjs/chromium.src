@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Излизане от тази страница"</string>
+<string name="stay_on_this_page">"Нека остана на тази страница"</string>
+<string name="reload_this_page">"Презареждане на стр."</string>
+<string name="dont_reload_this_page">"Без презареждане"</string>
+<string name="show_history_label">"Показване на пълната история"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Отказ"</string>
+<string name="suppress_js_modal_dialogs">"Да не се създават допълнителни диалогови прозорци от тази страница"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Подкана"</string>
+</resources>

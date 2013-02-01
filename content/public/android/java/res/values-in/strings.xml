@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Bagikan"</string>
+<string name="actionbar_web_search">"Penelusuran web"</string>
+<string name="accessibility_content_view">"Tampilan Web"</string>
+<string name="date_picker_dialog_set">"Setel"</string>
+<string name="date_picker_dialog_clear">"Hapus"</string>
+<string name="date_time_picker_dialog_title">"Setel tanggal dan waktu"</string>
+<string name="month_picker_dialog_title">"Setel bulan"</string>
+<string name="accessibility_datetime_picker_date">"Tanggal"</string>
+<string name="accessibility_datetime_picker_time">"Waktu"</string>
+<string name="accessibility_date_picker_month">"Bulan"</string>
+<string name="accessibility_date_picker_year">"Tahun"</string>
+<string name="media_player_error_title">"Tidak dapat memutar video"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Maaf, video ini tak dapat dialirkan pada perangkat ini."</string>
+<string name="media_player_error_text_unknown">"Maaf, video tidak dapat diputar."</string>
+<string name="media_player_error_button">"Oke"</string>
+<string name="media_player_loading_video">"Memuat video"</string>
+</resources>

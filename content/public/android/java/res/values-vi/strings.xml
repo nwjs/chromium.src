@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Chia sẻ"</string>
+<string name="actionbar_web_search">"Tìm kiếm trên web"</string>
+<string name="accessibility_content_view">"Xem trên web"</string>
+<string name="date_picker_dialog_set">"Đặt"</string>
+<string name="date_picker_dialog_clear">"Xóa"</string>
+<string name="date_time_picker_dialog_title">"Đặt ngày giờ"</string>
+<string name="month_picker_dialog_title">"Đặt tháng"</string>
+<string name="accessibility_datetime_picker_date">"Ngày"</string>
+<string name="accessibility_datetime_picker_time">"Thời gian"</string>
+<string name="accessibility_date_picker_month">"Tháng"</string>
+<string name="accessibility_date_picker_year">"Năm"</string>
+<string name="media_player_error_title">"Không thể phát video"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Rất tiếc, không thể phát video."</string>
+<string name="media_player_error_text_unknown">"Rất tiếc, không thể phát video."</string>
+<string name="media_player_error_button">"OK"</string>
+<string name="media_player_loading_video">"Đang tải video"</string>
+</resources>

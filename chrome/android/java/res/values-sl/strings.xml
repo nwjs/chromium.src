@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Zapusti to stran"</string>
+<string name="stay_on_this_page">"Ostani na tej strani"</string>
+<string name="reload_this_page">"Znova naloži stran"</string>
+<string name="dont_reload_this_page">"Ne naloži znova"</string>
+<string name="show_history_label">"Prikaži celotno zgodovino"</string>
+<string name="js_modal_dialog_confirm">"V redu"</string>
+<string name="js_modal_dialog_cancel">"Prekliči"</string>
+<string name="suppress_js_modal_dialogs">"Tej strani prepreči, da bi ustvarila dodatna pogovorna okna"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Poziv"</string>
+</resources>

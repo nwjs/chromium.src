@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="actionbar_share">"Deli"</string>
+<string name="actionbar_web_search">"Spletno iskanje"</string>
+<string name="accessibility_content_view">"Spletni pogled"</string>
+<string name="date_picker_dialog_set">"Nastavi"</string>
+<string name="date_picker_dialog_clear">"Izbriši"</string>
+<string name="date_time_picker_dialog_title">"Nastavitev datuma in ure"</string>
+<string name="month_picker_dialog_title">"Nastavitev meseca"</string>
+<string name="accessibility_datetime_picker_date">"Datum"</string>
+<string name="accessibility_datetime_picker_time">"Čas"</string>
+<string name="accessibility_date_picker_month">"Mesec"</string>
+<string name="accessibility_date_picker_year">"Leto"</string>
+<string name="media_player_error_title">"Videa ni mogoče predvajati"</string>
+<string name="media_player_error_text_invalid_progressive_playback">"Ta videoposnetek ni veljaven za pretakanje v to napravo."</string>
+<string name="media_player_error_text_unknown">"Tega videa ni mogoče predvajati."</string>
+<string name="media_player_error_button">"V redu"</string>
+<string name="media_player_loading_video">"Nalaganje videa"</string>
+</resources>

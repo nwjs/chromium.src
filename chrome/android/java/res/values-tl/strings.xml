@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Iwanan ang Pahinang ito"</string>
+<string name="stay_on_this_page">"Manatili sa Pahinang ito"</string>
+<string name="reload_this_page">"I-reload ang Pahina"</string>
+<string name="dont_reload_this_page">"Huwag i-reload"</string>
+<string name="show_history_label">"Ipakita ang buong kasaysayan"</string>
+<string name="js_modal_dialog_confirm">"OK"</string>
+<string name="js_modal_dialog_cancel">"Kanselahin"</string>
+<string name="suppress_js_modal_dialogs">"Pigilan ang pahinang ito mula sa paglikha ng mga karagdagang dialog"</string>
+<string name="accessibility_js_modal_dialog_prompt">"Prompt"</string>
+</resources>

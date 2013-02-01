@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<string name="leave_this_page">"Bu Sayfadan Ayrıl"</string>
+<string name="stay_on_this_page">"Bu Sayfada Kal"</string>
+<string name="reload_this_page">"Bu Sayfayı yeniden yükle"</string>
+<string name="dont_reload_this_page">"Yeniden yükleme"</string>
+<string name="show_history_label">"Tam geçmişi göster"</string>
+<string name="js_modal_dialog_confirm">"Tamam"</string>
+<string name="js_modal_dialog_cancel">"İptal"</string>
+<string name="suppress_js_modal_dialogs">"Bu sayfanın ek iletişim kutuları oluşturmasını önle"</string>
+<string name="accessibility_js_modal_dialog_prompt">"İstem"</string>
+</resources>
