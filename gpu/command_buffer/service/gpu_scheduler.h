@@ -99,8 +99,6 @@ class GPU_EXPORT GpuScheduler
     return parser_.get();
   }
 
-  bool IsPreempted();
-
  private:
   // Artificially reschedule if the scheduler is still unscheduled after a
   // timeout.
