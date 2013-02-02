@@ -168,9 +168,9 @@ void ImageTransportHelper::DeferToFence(base::Closure task) {
   scheduler->DeferToFence(task);
 }
 
-void ImageTransportHelper::SetPreemptByFlag(
-    scoped_refptr<gpu::PreemptionFlag> preemption_flag) {
-  stub_->channel()->SetPreemptByFlag(preemption_flag);
+void ImageTransportHelper::SetPreemptByCounter(
+    scoped_refptr<gpu::RefCountedCounter> preempt_by_counter) {
+  stub_->channel()->SetPreemptByCounter(preempt_by_counter);
 }
 
 bool ImageTransportHelper::MakeCurrent() {
