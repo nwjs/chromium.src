@@ -3037,6 +3037,7 @@
 
               'GCC_VERSION': 'com.apple.compilers.llvm.clang.1_0',
               'WARNING_CFLAGS': [
+                '-Wno-unknown-warning-option',  # See http://crbug.com/156530
                 '-Wheader-hygiene',
                 # Don't die on dtoa code that uses a char as an array index.
                 # This is required solely for base/third_party/dmg_fp/dtoa.cc.
