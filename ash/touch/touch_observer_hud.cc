@@ -199,6 +199,17 @@ class TouchHudCanvas : public views::View {
     SchedulePaint();
   }
 
+  void Clear() {
+    path_index_ = 0;
+    color_index_ = 0;
+    for (size_t i = 0; i < arraysize(paths_); ++i) {
+      paths_[i].reset();
+      traces_[i].Reset();
+    }
+
+    SchedulePaint();
+  }
+
   scoped_ptr<ListValue> GetAsList() const {
     scoped_ptr<ListValue> list(new ListValue());
     for (size_t i = 0; i < arraysize(traces_); ++i) {
@@ -306,6 +317,11 @@ void TouchObserverHUD::ChangeToNextMode() {
     label_container_->SetVisible(false);
     widget_->Show();
   }
+}
+
+void TouchObserverHUD::Clear() {
+  if (widget_->IsVisible())
+    canvas_->Clear();
 }
 
 std::string TouchObserverHUD::GetLogAsString() const {
