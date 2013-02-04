@@ -41,9 +41,11 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
+#include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "ui/aura/client/user_action_client.h"
 #include "ui/aura/window.h"
+#include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_CHROMEOS)
 #include "ash/keyboard_overlay/keyboard_overlay_view.h"
@@ -543,6 +545,10 @@ aura::client::StackingClient* ChromeShellDelegate::CreateStackingClient() {
 
 ash::RootWindowHostFactory* ChromeShellDelegate::CreateRootWindowHostFactory() {
   return ash::RootWindowHostFactory::Create();
+}
+
+string16 ChromeShellDelegate::GetProductName() const {
+  return l10n_util::GetStringUTF16(IDS_PRODUCT_NAME);
 }
 
 void ChromeShellDelegate::Observe(int type,
