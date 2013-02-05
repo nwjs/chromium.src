@@ -16,7 +16,6 @@
 #include "base/timer.h"
 #include "chromeos/dbus/power_state_control.pb.h"
 #include "chromeos/dbus/power_supply_properties.pb.h"
-#include "chromeos/dbus/suspend.pb.h"
 #include "chromeos/dbus/video_activity_update.pb.h"
 #include "dbus/bus.h"
 #include "dbus/message.h"
@@ -26,15 +25,11 @@
 
 namespace chromeos {
 
-const int kSuspendDelayTimeoutMs = 5000;
-
 // The PowerManagerClient implementation used in production.
 class PowerManagerClientImpl : public PowerManagerClient {
  public:
   explicit PowerManagerClientImpl(dbus::Bus* bus)
       : power_manager_proxy_(NULL),
-        suspend_delay_id_(-1),
-        has_suspend_delay_id_(false),
         weak_ptr_factory_(this) {
     power_manager_proxy_ = bus->GetObjectProxy(
         power_manager::kPowerManagerServiceName,
@@ -83,47 +78,9 @@ class PowerManagerClientImpl : public PowerManagerClient {
             weak_ptr_factory_.GetWeakPtr()),
         base::Bind(&PowerManagerClientImpl::SignalConnected,
                    weak_ptr_factory_.GetWeakPtr()));
-
-    power_manager_proxy_->ConnectToSignal(
-        power_manager::kPowerManagerInterface,
-        power_manager::kSuspendImminentSignal,
-        base::Bind(
-            &PowerManagerClientImpl::SuspendImminentReceived,
-            weak_ptr_factory_.GetWeakPtr()),
-        base::Bind(&PowerManagerClientImpl::SignalConnected,
-                   weak_ptr_factory_.GetWeakPtr()));
-
-    // Register to powerd for suspend notifications.
-    dbus::MethodCall method_call(
-        power_manager::kPowerManagerInterface,
-        power_manager::kRegisterSuspendDelayMethod);
-    dbus::MessageWriter writer(&method_call);
-
-    power_manager::RegisterSuspendDelayRequest protobuf_request;
-    base::TimeDelta timeout =
-        base::TimeDelta::FromMilliseconds(kSuspendDelayTimeoutMs);
-    protobuf_request.set_timeout(timeout.ToInternalValue());
-
-    if (!writer.AppendProtoAsArrayOfBytes(protobuf_request)) {
-      LOG(ERROR) << "Error constructing message for "
-                 << power_manager::kRegisterSuspendDelayMethod;
-      return;
-    }
-    power_manager_proxy_->CallMethod(
-        &method_call,
-        dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-        base::Bind(
-            &PowerManagerClientImpl::OnRegisterSuspendDelayReply,
-            weak_ptr_factory_.GetWeakPtr()));
   }
 
   virtual ~PowerManagerClientImpl() {
-    // Here we should unregister suspend notifications from powerd,
-    // however:
-    // - The lifetime of the PowerManagerClientImpl can extend past that of
-    //   the objectproxy,
-    // - power_manager can already detect that the client is gone and
-    //   unregister our suspend delay.
   }
 
   // PowerManagerClient overrides:
@@ -469,23 +426,6 @@ class PowerManagerClientImpl : public PowerManagerClient {
     callback.Run(percent);
   }
 
-  void OnRegisterSuspendDelayReply(dbus::Response* response) {
-    if (!response) {
-      LOG(ERROR) << "Error calling "
-                 << power_manager::kRegisterSuspendDelayMethod;
-      return;
-    }
-    dbus::MessageReader reader(response);
-    power_manager::RegisterSuspendDelayReply protobuf;
-    if (!reader.PopArrayOfBytesAsProto(&protobuf)) {
-      LOG(ERROR) << "Unable to parse reply from "
-                 << power_manager::kRegisterSuspendDelayMethod;
-      return;
-    }
-    suspend_delay_id_ = protobuf.delay_id();
-    has_suspend_delay_id_ = true;
-  }
-
   void IdleNotifySignalReceived(dbus::Signal* signal) {
     dbus::MessageReader reader(signal);
     int64 threshold = 0;
@@ -523,112 +463,8 @@ class PowerManagerClientImpl : public PowerManagerClient {
     FOR_EACH_OBSERVER(Observer, observers_, ScreenDimmingRequested(state));
   }
 
-  void SuspendImminentReceived(dbus::Signal* signal) {
-    if (!has_suspend_delay_id_) {
-      LOG(ERROR) << "Received unrequested "
-                 << power_manager::kSuspendImminentSignal << " signal";
-      return;
-    }
-
-    dbus::MessageReader reader(signal);
-    power_manager::SuspendImminent protobuf_imminent;
-    if (!reader.PopArrayOfBytesAsProto(&protobuf_imminent)) {
-      LOG(ERROR) << "Unable to decode protocol buffer from "
-                 << power_manager::kSuspendImminentSignal << " signal";
-      return;
-    }
-    int32 suspend_id = protobuf_imminent.suspend_id();
-
-    FOR_EACH_OBSERVER(Observer, observers_, SuspendImminent());
-
-    dbus::MethodCall method_call(
-        power_manager::kPowerManagerInterface,
-        power_manager::kHandleSuspendReadinessMethod);
-    dbus::MessageWriter writer(&method_call);
-
-    power_manager::SuspendReadinessInfo protobuf_request;
-    protobuf_request.set_delay_id(suspend_delay_id_);
-    protobuf_request.set_suspend_id(suspend_id);
-
-    if (!writer.AppendProtoAsArrayOfBytes(protobuf_request)) {
-      LOG(ERROR) << "Error constructing message for "
-                 << power_manager::kHandleSuspendReadinessMethod;
-      return;
-    }
-    power_manager_proxy_->CallMethod(
-        &method_call,
-        dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-        dbus::ObjectProxy::EmptyResponseCallback());
-  }
-
-  void InputEventReceived(dbus::Signal* signal) {
-    dbus::MessageReader reader(signal);
-    power_manager::InputEvent proto;
-    if (!reader.PopArrayOfBytesAsProto(&proto)) {
-      LOG(ERROR) << "Unable to decode protocol buffer from "
-                 << power_manager::kInputEventSignal << " signal";
-      return;
-    }
-
-    base::TimeTicks timestamp =
-        base::TimeTicks::FromInternalValue(proto.timestamp());
-    VLOG(1) << "Got " << power_manager::kInputEventSignal << " signal:"
-            << " type=" << proto.type() << " timestamp=" << proto.timestamp();
-    switch (proto.type()) {
-      case power_manager::InputEvent_Type_POWER_BUTTON_DOWN:
-      case power_manager::InputEvent_Type_POWER_BUTTON_UP: {
-        bool down =
-            (proto.type() == power_manager::InputEvent_Type_POWER_BUTTON_DOWN);
-        FOR_EACH_OBSERVER(PowerManagerClient::Observer, observers_,
-                          PowerButtonEventReceived(down, timestamp));
-        break;
-      }
-      case power_manager::InputEvent_Type_LID_OPEN:
-      case power_manager::InputEvent_Type_LID_CLOSED: {
-        bool open =
-            (proto.type() == power_manager::InputEvent_Type_LID_OPEN);
-        FOR_EACH_OBSERVER(PowerManagerClient::Observer, observers_,
-                          LidEventReceived(open, timestamp));
-        break;
-      }
-    }
-  }
-
-  void SuspendStateChangedReceived(dbus::Signal* signal) {
-    dbus::MessageReader reader(signal);
-    power_manager::SuspendState proto;
-    if (!reader.PopArrayOfBytesAsProto(&proto)) {
-      LOG(ERROR) << "Unable to decode protocol buffer from "
-                 << power_manager::kSuspendStateChangedSignal << " signal";
-      return;
-    }
-
-    VLOG(1) << "Got " << power_manager::kSuspendStateChangedSignal << " signal:"
-            << " type=" << proto.type() << " wall_time=" << proto.wall_time();
-    base::Time wall_time =
-        base::Time::FromInternalValue(proto.wall_time());
-    switch (proto.type()) {
-      case power_manager::SuspendState_Type_SUSPEND_TO_MEMORY:
-        last_suspend_wall_time_ = wall_time;
-        break;
-      case power_manager::SuspendState_Type_RESUME:
-        FOR_EACH_OBSERVER(
-            PowerManagerClient::Observer, observers_,
-            SystemResumed(wall_time - last_suspend_wall_time_));
-        break;
-    }
-  }
-
   dbus::ObjectProxy* power_manager_proxy_;
   ObserverList<Observer> observers_;
-
-  // The delay_id_ obtained from the RegisterSuspendDelay request.
-  int32 suspend_delay_id_;
-  bool has_suspend_delay_id_;
-
-  // Wall time from the latest signal telling us that the system was about to
-  // suspend to memory.
-  base::Time last_suspend_wall_time_;
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.
