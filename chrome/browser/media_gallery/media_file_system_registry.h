@@ -112,7 +112,7 @@ class MediaFileSystemRegistry
       MTPDeviceDelegateMap;
 #endif
 
-  void OnMediaGalleriesRememberedGalleriesChanged(PrefServiceBase* service);
+  void OnRememberedGalleriesChanged(PrefServiceBase* service);
 
 #if defined(SUPPORT_MTP_DEVICE_FILESYSTEM)
   // Returns ScopedMTPDeviceMapEntry object for the given |device_location|.
