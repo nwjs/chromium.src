@@ -34,7 +34,7 @@ class GLSurface;
 
 namespace gpu {
 class GpuScheduler;
-struct RefCountedCounter;
+class PreemptionFlag;
 namespace gles2 {
 class GLES2Decoder;
 }
@@ -124,8 +124,8 @@ class ImageTransportHelper
 
   void DeferToFence(base::Closure task);
 
-  void SetPreemptByCounter(
-      scoped_refptr<gpu::RefCountedCounter> preempt_by_counter);
+  void SetPreemptByFlag(
+      scoped_refptr<gpu::PreemptionFlag> preemption_flag);
 
   // Make the surface's context current.
   bool MakeCurrent();
