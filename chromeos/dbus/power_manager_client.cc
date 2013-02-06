@@ -561,39 +561,6 @@ class PowerManagerClientImpl : public PowerManagerClient {
         dbus::ObjectProxy::EmptyResponseCallback());
   }
 
-  void InputEventReceived(dbus::Signal* signal) {
-    dbus::MessageReader reader(signal);
-    power_manager::InputEvent proto;
-    if (!reader.PopArrayOfBytesAsProto(&proto)) {
-      LOG(ERROR) << "Unable to decode protocol buffer from "
-                 << power_manager::kInputEventSignal << " signal";
-      return;
-    }
-
-    base::TimeTicks timestamp =
-        base::TimeTicks::FromInternalValue(proto.timestamp());
-    VLOG(1) << "Got " << power_manager::kInputEventSignal << " signal:"
-            << " type=" << proto.type() << " timestamp=" << proto.timestamp();
-    switch (proto.type()) {
-      case power_manager::InputEvent_Type_POWER_BUTTON_DOWN:
-      case power_manager::InputEvent_Type_POWER_BUTTON_UP: {
-        bool down =
-            (proto.type() == power_manager::InputEvent_Type_POWER_BUTTON_DOWN);
-        FOR_EACH_OBSERVER(PowerManagerClient::Observer, observers_,
-                          PowerButtonEventReceived(down, timestamp));
-        break;
-      }
-      case power_manager::InputEvent_Type_LID_OPEN:
-      case power_manager::InputEvent_Type_LID_CLOSED: {
-        bool open =
-            (proto.type() == power_manager::InputEvent_Type_LID_OPEN);
-        FOR_EACH_OBSERVER(PowerManagerClient::Observer, observers_,
-                          LidEventReceived(open, timestamp));
-        break;
-      }
-    }
-  }
-
   void SuspendStateChangedReceived(dbus::Signal* signal) {
     dbus::MessageReader reader(signal);
     power_manager::SuspendState proto;
