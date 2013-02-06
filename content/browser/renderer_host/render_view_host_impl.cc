@@ -994,6 +994,8 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_OpenURL, OnMsgOpenURL)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidContentsPreferredSizeChange,
                         OnMsgDidContentsPreferredSizeChange)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_DidChangeScrollOffset,
+                        OnDidChangeScrollOffset)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidChangeScrollbarsForMainFrame,
                         OnMsgDidChangeScrollbarsForMainFrame)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidChangeScrollOffsetPinningForMainFrame,
@@ -1405,6 +1407,11 @@ void RenderViewHostImpl::OnMsgDidContentsPreferredSizeChange(
 
 void RenderViewHostImpl::OnRenderAutoResized(const gfx::Size& new_size) {
   delegate_->ResizeDueToAutoResize(new_size);
+}
+
+void RenderViewHostImpl::OnDidChangeScrollOffset() {
+  if (view_)
+    view_->ScrollOffsetChanged();
 }
 
 void RenderViewHostImpl::OnMsgDidChangeScrollbarsForMainFrame(

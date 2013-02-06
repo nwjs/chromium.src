@@ -4049,6 +4049,8 @@ void RenderViewImpl::UpdateScrollState(WebFrame* frame) {
     cached_is_main_frame_pinned_to_left_ = is_pinned_to_left;
     cached_is_main_frame_pinned_to_right_ = is_pinned_to_right;
   }
+
+  Send(new ViewHostMsg_DidChangeScrollOffset(routing_id_));
 }
 
 void RenderViewImpl::didChangeScrollOffset(WebFrame* frame) {

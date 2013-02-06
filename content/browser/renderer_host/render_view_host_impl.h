@@ -510,6 +510,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnMsgToggleFullscreen(bool enter_fullscreen);
   void OnMsgOpenURL(const ViewHostMsg_OpenURL_Params& params);
   void OnMsgDidContentsPreferredSizeChange(const gfx::Size& new_size);
+  void OnDidChangeScrollOffset();
   void OnMsgDidChangeScrollbarsForMainFrame(bool has_horizontal_scrollbar,
                                             bool has_vertical_scrollbar);
   void OnMsgDidChangeScrollOffsetPinningForMainFrame(bool is_pinned_to_left,
