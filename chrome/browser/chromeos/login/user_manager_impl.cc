@@ -536,6 +536,7 @@ void UserManagerImpl::OnStateChanged() {
 
 void UserManagerImpl::OnPolicyUpdated(const std::string& account_id) {
   UpdatePublicAccountDisplayName(account_id);
+  NotifyUserListChanged();
 }
 
 void UserManagerImpl::OnDeviceLocalAccountsChanged() {
@@ -766,12 +767,8 @@ void UserManagerImpl::RetrieveTrustedDevicePolicies() {
     }
   }
 
-  if (changed) {
-    content::NotificationService::current()->Notify(
-        chrome::NOTIFICATION_POLICY_USER_LIST_CHANGED,
-        content::Source<UserManager>(this),
-        content::NotificationService::NoDetails());
-  }
+  if (changed)
+    NotifyUserListChanged();
 
   cros_settings_->AddSettingsObserver(kAccountsPrefDeviceLocalAccounts,
                                       this);
@@ -958,6 +955,13 @@ void UserManagerImpl::UpdatePublicAccountDisplayName(
 
   // Set or clear the display name.
   SaveUserDisplayName(username, UTF8ToUTF16(display_name));
+}
+
+void UserManagerImpl::NotifyUserListChanged() {
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_USER_LIST_CHANGED,
+      content::Source<UserManager>(this),
+      content::NotificationService::NoDetails());
 }
 
 }  // namespace chromeos
