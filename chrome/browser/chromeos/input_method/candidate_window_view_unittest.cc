@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/input_method/candidate_view.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -51,6 +52,17 @@ void ClearInputMethodLookupTable(size_t page_size,
   table->orientation = InputMethodLookupTable::kVertical;
   table->labels.clear();
   table->annotations.clear();
+}
+
+void InitIBusLookupTableWithCandidatesFilled(size_t page_size,
+                                             InputMethodLookupTable* table) {
+  ClearInputMethodLookupTable(page_size, table);
+  for (size_t i = 0; i < page_size; ++i) {
+    table->candidates.push_back(
+        base::StringPrintf("value %lld", static_cast<unsigned long long>(i)));
+    table->labels.push_back(
+        base::StringPrintf("%lld", static_cast<unsigned long long>(i)));
+  }
 }
 
 }  // namespace
@@ -207,6 +219,35 @@ TEST_F(CandidateWindowViewTest, ShouldUpdateCandidateViewsTest) {
   old_table.annotations.clear();
   EXPECT_TRUE(CandidateWindowView::ShouldUpdateCandidateViews(old_table,
                                                               new_table));
+}
+
+TEST_F(CandidateWindowViewTest, SelectCandidateAtTest) {
+  views::Widget* widget = new views::Widget;
+  views::Widget::InitParams params =
+      CreateParams(views::Widget::InitParams::TYPE_WINDOW);
+  widget->Init(params);
+
+  CandidateWindowView candidate_window_view(widget);
+  candidate_window_view.Init();
+
+  // Set 9 candidates.
+  InputMethodLookupTable table_large;
+  const int table_large_size = 9;
+  InitIBusLookupTableWithCandidatesFilled(table_large_size, &table_large);
+  table_large.cursor_absolute_index = table_large_size - 1;
+  candidate_window_view.UpdateCandidates(table_large);
+  // Select the last candidate.
+  candidate_window_view.SelectCandidateAt(table_large_size - 1);
+
+  // Reduce the number of candidates to 3.
+  InputMethodLookupTable table_small;
+  const int table_small_size = 3;
+  InitIBusLookupTableWithCandidatesFilled(table_small_size, &table_small);
+  table_small.cursor_absolute_index = table_small_size - 1;
+ // Make sure the test doesn't crash if the candidate table reduced its size.
+  // (crbug.com/174163)
+  candidate_window_view.UpdateCandidates(table_small);
+ candidate_window_view.SelectCandidateAt(table_small_size - 1);
 }
 
 TEST_F(CandidateWindowViewTest, ShortcutSettingTest) {
@@ -460,6 +501,8 @@ TEST_F(CandidateWindowViewTest, DoNotChangeRowHeightWithLabelSwitchTest) {
   // Initialize with a shortcut mode lookup table.
   candidate_window_view.MaybeInitializeCandidateViews(table);
   ASSERT_EQ(3UL, candidate_window_view.candidate_views_.size());
+  // Check the selected index is invalidated.
+  EXPECT_EQ(-1, candidate_window_view.selected_candidate_index_in_page_);
   before_height =
       candidate_window_view.candidate_views_[0]->GetContentsBounds().height();
   // Checks all entry have same row height.
@@ -471,6 +514,8 @@ TEST_F(CandidateWindowViewTest, DoNotChangeRowHeightWithLabelSwitchTest) {
   // Initialize with a no shortcut mode lookup table.
   candidate_window_view.MaybeInitializeCandidateViews(no_shortcut_table);
   ASSERT_EQ(3UL, candidate_window_view.candidate_views_.size());
+  // Check the selected index is invalidated.
+  EXPECT_EQ(-1, candidate_window_view.selected_candidate_index_in_page_);
   EXPECT_EQ(before_height,
             candidate_window_view.candidate_views_[0]->GetContentsBounds()
                 .height());
@@ -484,6 +529,8 @@ TEST_F(CandidateWindowViewTest, DoNotChangeRowHeightWithLabelSwitchTest) {
   // Initialize with a no shortcut mode lookup table.
   candidate_window_view.MaybeInitializeCandidateViews(no_shortcut_table);
   ASSERT_EQ(3UL, candidate_window_view.candidate_views_.size());
+  // Check the selected index is invalidated.
+  EXPECT_EQ(-1, candidate_window_view.selected_candidate_index_in_page_);
   before_height =
       candidate_window_view.candidate_views_[0]->GetContentsBounds().height();
   // Checks all entry have same row height.
@@ -495,6 +542,8 @@ TEST_F(CandidateWindowViewTest, DoNotChangeRowHeightWithLabelSwitchTest) {
   // Initialize with a shortcut mode lookup table.
   candidate_window_view.MaybeInitializeCandidateViews(table);
   ASSERT_EQ(3UL, candidate_window_view.candidate_views_.size());
+  // Check the selected index is invalidated.
+  EXPECT_EQ(-1, candidate_window_view.selected_candidate_index_in_page_);
   EXPECT_EQ(before_height,
             candidate_window_view.candidate_views_[0]->GetContentsBounds()
                 .height());
