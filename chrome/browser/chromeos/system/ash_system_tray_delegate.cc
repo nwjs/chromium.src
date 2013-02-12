@@ -472,6 +472,8 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   }
 
   virtual void RequestLockScreen() OVERRIDE {
+    // TODO(antrim) : additional logging for crbug/173178
+    LOG(WARNING) << "Requesting screen lock from AshSystemTrayDelegate";
     DBusThreadManager::Get()->GetSessionManagerClient()->RequestLockScreen();
   }
 
