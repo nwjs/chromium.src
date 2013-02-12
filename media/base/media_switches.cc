@@ -64,4 +64,8 @@ const char kEnableEncryptedMedia[] = "enable-encrypted-media";
 // Enables Opus playback in media elements.
 const char kEnableOpusPlayback[] = "enable-opus-playback";
 
+#if defined(OS_WIN)
+const char kWaveOutBuffers[] = "waveout-buffers";
+#endif
+
 }  // namespace switches
