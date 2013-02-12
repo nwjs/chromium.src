@@ -288,7 +288,7 @@ namespace {
 bool AllowHostedAppAPICall(const Extension& extension,
                            const GURL& source_url,
                            const std::string& function_name) {
-  if (extension.location() != extensions::Manifest::COMPONENT)
+  if (extension.location() != Extension::COMPONENT)
     return false;
 
   if (!extension.web_extent().MatchesURL(source_url))
