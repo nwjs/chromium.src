@@ -284,10 +284,21 @@ void NetworkPortalDetector::OnPortalDetectionCompleted(
 
   switch (results.result) {
     case captive_portal::RESULT_NO_RESPONSE:
-      if (attempt_count_ >= kMaxRequestAttempts)
-        SetCaptivePortalState(active_network, CAPTIVE_PORTAL_STATE_OFFLINE);
-      else
+      if (attempt_count_ >= kMaxRequestAttempts) {
+        // Take into account shill's detection results.
+        if (active_network->restricted_pool()) {
+          LOG(WARNING) << "Network " << active_network->unique_id() << " "
+                       << "is marked as "
+                       << CaptivePortalStatusString(state.status) << " "
+                       << "despite the fact that CaptivePortalDetector "
+                       << "received no response";
+          SetCaptivePortalState(active_network, CAPTIVE_PORTAL_STATUS_PORTAL);
+        } else {
+          SetCaptivePortalState(active_network, CAPTIVE_PORTAL_STATE_OFFLINE);
+        }
+      } else {
         DetectCaptivePortal(results.retry_after_delta);
+      }
       break;
     case captive_portal::RESULT_INTERNET_CONNECTED:
       SetCaptivePortalState(active_network, CAPTIVE_PORTAL_STATE_ONLINE);
