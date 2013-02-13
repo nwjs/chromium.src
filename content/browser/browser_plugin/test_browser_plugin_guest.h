@@ -45,13 +45,8 @@ class TestBrowserPluginGuest : public BrowserPluginGuest {
   virtual bool ViewTakeFocus(bool reverse) OVERRIDE;
   virtual void Reload() OVERRIDE;
   virtual void Stop() OVERRIDE;
-  virtual void SetDamageBuffer(TransportDIB* damage_buffer,
-#if defined(OS_WIN)
-                               int damage_buffer_size,
-                               TransportDIB::Handle remote_handle,
-#endif
-                               const gfx::Size& damage_view_size,
-                               float scale_factor) OVERRIDE;
+  virtual void SetDamageBuffer(
+      const BrowserPluginHostMsg_ResizeGuest_Params& params) OVERRIDE;
   virtual void DidStopLoading(RenderViewHost* render_view_host) OVERRIDE;
 
   // Test utilities to wait for a event we are interested in.

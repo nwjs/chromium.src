@@ -33,6 +33,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/id_map.h"
+#include "base/shared_memory.h"
 #include "base/time.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -236,13 +237,9 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   // Stop loading the guest.
   virtual void Stop();
   // Overridden in tests.
-  virtual void SetDamageBuffer(TransportDIB* damage_buffer,
-#if defined(OS_WIN)
-                               int damage_buffer_size,
-                               TransportDIB::Handle remote_handle,
-#endif
-                               const gfx::Size& damage_view_size,
-                               float scale_factor);
+  virtual void SetDamageBuffer(
+      const BrowserPluginHostMsg_ResizeGuest_Params& params);
+
   // Overridden in tests.
   virtual void SetCompositingBufferData(int gpu_process_id,
                                         uint32 client_id,
@@ -263,14 +260,13 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   // Returns the identifier that uniquely identifies a browser plugin guest
   // within an embedder.
   int instance_id() const { return instance_id_; }
-  TransportDIB* damage_buffer() const { return damage_buffer_.get(); }
+  base::SharedMemory* damage_buffer() const { return damage_buffer_.get(); }
   const gfx::Size& damage_view_size() const { return damage_view_size_; }
   float damage_buffer_scale_factor() const {
     return damage_buffer_scale_factor_;
   }
-  // Returns the transport DIB associated with the dib in resize |params|.
-  TransportDIB* GetDamageBufferFromEmbedder(
-      RenderViewHost* embedder_rvh,
+  // Returns the damage buffer corresponding to the handle in resize |params|.
+  base::SharedMemory* GetDamageBufferFromEmbedder(
       const BrowserPluginHostMsg_ResizeGuest_Params& params);
 
   // Returns the embedder's routing ID.
@@ -294,11 +290,10 @@ class CONTENT_EXPORT BrowserPluginGuest : public NotificationObserver,
   // An identifier that uniquely identifies a browser plugin guest within an
   // embedder.
   int instance_id_;
-  scoped_ptr<TransportDIB> damage_buffer_;
-#if defined(OS_WIN)
+  scoped_ptr<base::SharedMemory> damage_buffer_;
+  // An identifier that uniquely identifies a damage buffer.
+  uint32 damage_buffer_sequence_id_;
   size_t damage_buffer_size_;
-  TransportDIB::Handle remote_damage_buffer_handle_;
-#endif
   gfx::Size damage_view_size_;
   float damage_buffer_scale_factor_;
   gfx::Rect guest_window_rect_;
