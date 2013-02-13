@@ -1042,6 +1042,15 @@ function canExecuteForList(e) {
     return list.selectedItems.length == 1;
   }
 
+  function canCopyItem(item) {
+    return item.id != 'new';
+  }
+
+  function canCopyItems() {
+    var selectedItems = list.selectedItems;
+    return selectedItems && selectedItems.some(canCopyItem);
+  }
+
   function isRecentOrSearch() {
     return list.isRecent() || list.isSearch();
   }
@@ -1079,11 +1088,11 @@ function canExecuteForList(e) {
 
     case 'delete-command':
     case 'cut-command':
-      e.canExecute = hasSelected() && canEdit;
+      e.canExecute = canCopyItems() && canEdit;
       break;
 
     case 'copy-command':
-      e.canExecute = hasSelected();
+      e.canExecute = canCopyItems();
       break;
 
     case 'open-in-same-window-command':
