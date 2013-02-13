@@ -1831,6 +1831,8 @@
         'browser/speech/speech_recognition_bubble.h',
         'browser/speech/speech_recognition_bubble_controller.cc',
         'browser/speech/speech_recognition_bubble_controller.h',
+        'browser/speech/speech_recognition_tray_icon_controller.cc',
+        'browser/speech/speech_recognition_tray_icon_controller.h',
         'browser/spellchecker/spellcheck_custom_dictionary.cc',
         'browser/spellchecker/spellcheck_custom_dictionary.h',
         'browser/spellchecker/spellcheck_dictionary.h',
