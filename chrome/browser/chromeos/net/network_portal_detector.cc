@@ -271,8 +271,7 @@ void NetworkPortalDetector::OnPortalDetectionCompleted(
   VLOG(1) << "Portal detection completed: "
           << "network=" << active_network_id_ << ", "
           << "result=" << CaptivePortalDetector::CaptivePortalResultToString(
-              results.result) << ", "
-          << "response_code=" << results.response_code;
+              results.result);
 
   state_ = STATE_IDLE;
   detection_timeout_.Cancel();
