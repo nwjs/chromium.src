@@ -214,8 +214,16 @@ TEST_F(WebRTCAudioDeviceTest, TestValidOutputRates) {
 }
 
 // Basic test that instantiates and initializes an instance of
+// WebRtcAudioDeviceImpl. Disabled on android because it's not implemented yet.
+#ifdef OS_ANDROID
+#define MAYBE_Construct DISABLED_Construct
+#else
+#define MAYBE_Construct Construct
+#endif
+
+// Basic test that instantiates and initializes an instance of
 // WebRtcAudioDeviceImpl.
-TEST_F(WebRTCAudioDeviceTest, Construct) {
+TEST_F(WebRTCAudioDeviceTest, MAYBE_Construct) {
   media::AudioHardwareConfig audio_config(
       480, 48000, 48000, media::CHANNEL_LAYOUT_MONO);
   SetAudioHardwareConfig(&audio_config);
