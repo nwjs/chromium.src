@@ -74,6 +74,7 @@ class PipelineIntegrationTestBase {
   base::MD5Context md5_context_;
   bool hashing_enabled_;
   scoped_refptr<Pipeline> pipeline_;
+  scoped_refptr<VideoRendererBase> renderer_;
   scoped_refptr<NullAudioSink> audio_sink_;
   bool ended_;
   PipelineStatus pipeline_status_;
@@ -89,7 +90,7 @@ class PipelineIntegrationTestBase {
       const scoped_refptr<Demuxer>& demuxer, Decryptor* decryptor);
   void SetDecryptor(Decryptor* decryptor,
                     const DecryptorReadyCB& decryptor_ready_cb);
-  void OnVideoRendererPaint(const scoped_refptr<VideoFrame>& frame);
+  void OnVideoRendererPaint();
 
   MOCK_METHOD1(OnSetOpaque, void(bool));
   MOCK_METHOD1(OnBufferingState, void(Pipeline::BufferingState));

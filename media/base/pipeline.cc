@@ -523,12 +523,6 @@ void Pipeline::StateTransitionTask(PipelineStatus status) {
   }
 }
 
-// Note that the usage of base::Unretained() with the audio/video renderers
-// in the following DoXXX() functions is considered safe as they are owned by
-// |pending_callbacks_| and share the same lifetime.
-//
-// That being said, deleting the renderers while keeping |pending_callbacks_|
-// running on the media thread would result in crashes.
 void Pipeline::DoInitialPreroll(const PipelineStatusCB& done_cb) {
   DCHECK(message_loop_->BelongsToCurrentThread());
   DCHECK(!pending_callbacks_.get());
@@ -539,14 +533,12 @@ void Pipeline::DoInitialPreroll(const PipelineStatusCB& done_cb) {
   // Preroll renderers.
   if (audio_renderer_) {
     bound_fns.Push(base::Bind(
-        &AudioRenderer::Preroll, base::Unretained(audio_renderer_.get()),
-        seek_timestamp));
+        &AudioRenderer::Preroll, audio_renderer_, seek_timestamp));
   }
 
   if (video_renderer_) {
     bound_fns.Push(base::Bind(
-        &VideoRenderer::Preroll, base::Unretained(video_renderer_.get()),
-        seek_timestamp));
+        &VideoRenderer::Preroll, video_renderer_, seek_timestamp));
   }
 
   pending_callbacks_ = SerialRunner::Run(bound_fns, done_cb);
@@ -560,24 +552,16 @@ void Pipeline::DoSeek(
   SerialRunner::Queue bound_fns;
 
   // Pause.
-  if (audio_renderer_) {
-    bound_fns.Push(base::Bind(
-        &AudioRenderer::Pause, base::Unretained(audio_renderer_.get())));
-  }
-  if (video_renderer_) {
-    bound_fns.Push(base::Bind(
-        &VideoRenderer::Pause, base::Unretained(video_renderer_.get())));
-  }
+  if (audio_renderer_)
+    bound_fns.Push(base::Bind(&AudioRenderer::Pause, audio_renderer_));
+  if (video_renderer_)
+    bound_fns.Push(base::Bind(&VideoRenderer::Pause, video_renderer_));
 
   // Flush.
-  if (audio_renderer_) {
-    bound_fns.Push(base::Bind(
-        &AudioRenderer::Flush, base::Unretained(audio_renderer_.get())));
-  }
-  if (video_renderer_) {
-    bound_fns.Push(base::Bind(
-        &VideoRenderer::Flush, base::Unretained(video_renderer_.get())));
-  }
+  if (audio_renderer_)
+    bound_fns.Push(base::Bind(&AudioRenderer::Flush, audio_renderer_));
+  if (video_renderer_)
+    bound_fns.Push(base::Bind(&VideoRenderer::Flush, video_renderer_));
 
   // Seek demuxer.
   bound_fns.Push(base::Bind(
@@ -586,14 +570,12 @@ void Pipeline::DoSeek(
   // Preroll renderers.
   if (audio_renderer_) {
     bound_fns.Push(base::Bind(
-        &AudioRenderer::Preroll, base::Unretained(audio_renderer_.get()),
-        seek_timestamp));
+        &AudioRenderer::Preroll, audio_renderer_, seek_timestamp));
   }
 
   if (video_renderer_) {
     bound_fns.Push(base::Bind(
-        &VideoRenderer::Preroll, base::Unretained(video_renderer_.get()),
-        seek_timestamp));
+        &VideoRenderer::Preroll, video_renderer_, seek_timestamp));
   }
 
   pending_callbacks_ = SerialRunner::Run(bound_fns, done_cb);
@@ -607,15 +589,11 @@ void Pipeline::DoPlay(const PipelineStatusCB& done_cb) {
   PlaybackRateChangedTask(GetPlaybackRate());
   VolumeChangedTask(GetVolume());
 
-  if (audio_renderer_) {
-    bound_fns.Push(base::Bind(
-        &AudioRenderer::Play, base::Unretained(audio_renderer_.get())));
-  }
+  if (audio_renderer_)
+    bound_fns.Push(base::Bind(&AudioRenderer::Play, audio_renderer_));
 
-  if (video_renderer_) {
-    bound_fns.Push(base::Bind(
-        &VideoRenderer::Play, base::Unretained(video_renderer_.get())));
-  }
+  if (video_renderer_)
+    bound_fns.Push(base::Bind(&VideoRenderer::Play, video_renderer_));
 
   pending_callbacks_ = SerialRunner::Run(bound_fns, done_cb);
 }
@@ -628,15 +606,11 @@ void Pipeline::DoStop(const PipelineStatusCB& done_cb) {
   if (demuxer_)
     bound_fns.Push(base::Bind(&Demuxer::Stop, demuxer_));
 
-  if (audio_renderer_) {
-    bound_fns.Push(base::Bind(
-        &AudioRenderer::Stop, base::Unretained(audio_renderer_.get())));
-  }
+  if (audio_renderer_)
+    bound_fns.Push(base::Bind(&AudioRenderer::Stop, audio_renderer_));
 
-  if (video_renderer_) {
-    bound_fns.Push(base::Bind(
-        &VideoRenderer::Stop, base::Unretained(video_renderer_.get())));
-  }
+  if (video_renderer_)
+    bound_fns.Push(base::Bind(&VideoRenderer::Stop, video_renderer_));
 
   pending_callbacks_ = SerialRunner::Run(bound_fns, done_cb);
 }
@@ -652,8 +626,8 @@ void Pipeline::OnStopCompleted(PipelineStatus status) {
   SetState(kStopped);
   pending_callbacks_.reset();
   filter_collection_.reset();
-  audio_renderer_.reset();
-  video_renderer_.reset();
+  audio_renderer_ = NULL;
+  video_renderer_ = NULL;
   demuxer_ = NULL;
 
   // If we stop during initialization/seeking we want to run |seek_cb_|
@@ -910,7 +884,7 @@ void Pipeline::InitializeAudioRenderer(const PipelineStatusCB& done_cb) {
       demuxer_->GetStream(DemuxerStream::AUDIO);
   DCHECK(stream);
 
-  audio_renderer_ = filter_collection_->GetAudioRenderer();
+  filter_collection_->SelectAudioRenderer(&audio_renderer_);
   audio_renderer_->Initialize(
       stream,
       *filter_collection_->GetAudioDecoders(),
@@ -938,7 +912,7 @@ void Pipeline::InitializeVideoRenderer(const PipelineStatusCB& done_cb) {
     natural_size_ = stream->video_decoder_config().natural_size();
   }
 
-  video_renderer_ = filter_collection_->GetVideoRenderer();
+  filter_collection_->SelectVideoRenderer(&video_renderer_);
   video_renderer_->Initialize(
       stream,
       *filter_collection_->GetVideoDecoders(),

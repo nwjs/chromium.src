@@ -44,12 +44,12 @@ class VideoRendererBaseTest : public ::testing::Test {
         demuxer_stream_(new MockDemuxerStream()),
         video_config_(kCodecVP8, VIDEO_CODEC_PROFILE_UNKNOWN, kVideoFormat,
                       kCodedSize, kVisibleRect, kNaturalSize, NULL, 0, false) {
-    renderer_.reset(new VideoRendererBase(
+    renderer_ = new VideoRendererBase(
         message_loop_.message_loop_proxy(),
         media::SetDecryptorReadyCB(),
         base::Bind(&VideoRendererBaseTest::OnPaint, base::Unretained(this)),
         base::Bind(&VideoRendererBaseTest::OnSetOpaque, base::Unretained(this)),
-        true));
+        true);
 
     EXPECT_CALL(*demuxer_stream_, type())
         .WillRepeatedly(Return(DemuxerStream::VIDEO));
@@ -63,6 +63,8 @@ class VideoRendererBaseTest : public ::testing::Test {
         .Times(AnyNumber());
     EXPECT_CALL(*this, OnTimeUpdate(_))
         .Times(AnyNumber());
+    EXPECT_CALL(*this, OnPaint())
+        .Times(AnyNumber());
     EXPECT_CALL(*this, OnSetOpaque(_))
         .Times(AnyNumber());
   }
@@ -70,6 +72,7 @@ class VideoRendererBaseTest : public ::testing::Test {
   virtual ~VideoRendererBaseTest() {}
 
   // Callbacks passed into VideoRendererBase().
+  MOCK_CONST_METHOD0(OnPaint, void());
   MOCK_CONST_METHOD1(OnSetOpaque, void(bool));
 
   // Callbacks passed into Initialize().
@@ -225,14 +228,11 @@ class VideoRendererBaseTest : public ::testing::Test {
     }
   }
 
-  void ResetCurrentFrame() {
-    base::AutoLock l(lock_);
-    current_frame_ = NULL;
-  }
-
   scoped_refptr<VideoFrame> GetCurrentFrame() {
-    base::AutoLock l(lock_);
-    return current_frame_;
+    scoped_refptr<VideoFrame> frame;
+    renderer_->GetCurrentFrame(&frame);
+    renderer_->PutCurrentFrame(frame);
+    return frame;
   }
 
   int GetCurrentTimestampInMs() {
@@ -290,7 +290,7 @@ class VideoRendererBaseTest : public ::testing::Test {
 
  protected:
   // Fixture members.
-  scoped_ptr<VideoRendererBase> renderer_;
+  scoped_refptr<VideoRendererBase> renderer_;
   scoped_refptr<MockVideoDecoder> decoder_;
   scoped_refptr<MockDemuxerStream> demuxer_stream_;
   MockStatisticsCB statistics_cb_object_;
@@ -303,11 +303,6 @@ class VideoRendererBaseTest : public ::testing::Test {
 
   base::TimeDelta GetDuration() {
     return duration_;
-  }
-
-  void OnPaint(const scoped_refptr<VideoFrame>& frame) {
-    base::AutoLock l(lock_);
-    current_frame_ = frame;
   }
 
   void FrameRequested(const VideoDecoder::ReadCB& read_cb) {
@@ -340,10 +335,9 @@ class VideoRendererBaseTest : public ::testing::Test {
 
   VideoDecoderConfig video_config_;
 
-  // Used to protect |time_| and |current_frame_|.
+  // Used to protect |time_|.
   base::Lock lock_;
   base::TimeDelta time_;
-  scoped_refptr<VideoFrame> current_frame_;
 
   // Used for satisfying reads.
   VideoDecoder::ReadCB read_cb_;
@@ -494,12 +488,8 @@ TEST_F(VideoRendererBaseTest, GetCurrentFrame_Flushed) {
   Initialize();
   Play();
   Pause();
-
-  // Frame shouldn't be updated.
-  ResetCurrentFrame();
   Flush();
   EXPECT_FALSE(GetCurrentFrame());
-
   Shutdown();
 }
 
@@ -511,9 +501,6 @@ TEST_F(VideoRendererBaseTest, GetCurrentFrame_EndOfStream) {
 
   // Preroll only end of stream frames.
   QueueEndOfStream();
-
-  // Frame shouldn't be updated.
-  ResetCurrentFrame();
   Preroll(0, PIPELINE_OK);
   EXPECT_FALSE(GetCurrentFrame());
 
@@ -526,9 +513,6 @@ TEST_F(VideoRendererBaseTest, GetCurrentFrame_EndOfStream) {
 
 TEST_F(VideoRendererBaseTest, GetCurrentFrame_Shutdown) {
   Initialize();
-
-  // Frame shouldn't be updated.
-  ResetCurrentFrame();
   Shutdown();
   EXPECT_FALSE(GetCurrentFrame());
 }
@@ -536,11 +520,31 @@ TEST_F(VideoRendererBaseTest, GetCurrentFrame_Shutdown) {
 // Stop() is called immediately during an error.
 TEST_F(VideoRendererBaseTest, GetCurrentFrame_Error) {
   Initialize();
-
-  // Frame shouldn't be updated.
-  ResetCurrentFrame();
   Stop();
   EXPECT_FALSE(GetCurrentFrame());
+}
+
+// Verify that shutdown can only proceed after we return the current frame.
+TEST_F(VideoRendererBaseTest, Shutdown_DuringPaint) {
+  Initialize();
+  Play();
+
+  // Grab the frame.
+  scoped_refptr<VideoFrame> frame;
+  renderer_->GetCurrentFrame(&frame);
+  EXPECT_TRUE(frame);
+
+  Pause();
+
+  // Start flushing -- it won't complete until we return the frame.
+  WaitableMessageLoopEvent event;
+  renderer_->Flush(event.GetClosure());
+
+  // Return the frame and wait.
+  renderer_->PutCurrentFrame(frame);
+  event.RunAndWait();
+
+  Stop();
 }
 
 // Verify that a late decoder response doesn't break invariants in the renderer.
