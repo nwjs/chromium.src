@@ -1236,13 +1236,6 @@ const Experiment kExperiments[] = {
     kOsWin | kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kEnableExperimentalFormFilling)
   },
-  {
-    "enable-interactive-autocomplete",
-    IDS_FLAGS_ENABLE_INTERACTIVE_AUTOCOMPLETE_NAME,
-    IDS_FLAGS_ENABLE_INTERACTIVE_AUTOCOMPLETE_DESCRIPTION,
-    kOsWin | kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableInteractiveAutocomplete)
-  },
 #if defined(USE_AURA)
   {
     "enable-overscroll-history-navigation",
