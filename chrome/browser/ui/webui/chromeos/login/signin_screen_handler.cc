@@ -195,6 +195,18 @@ NetworkPortalDetector::CaptivePortalState GetCaptivePortalState(
   return detector->GetCaptivePortalState(network);
 }
 
+void EnableLazyDetection() {
+  NetworkPortalDetector* detector = NetworkPortalDetector::GetInstance();
+  if (detector)
+    detector->EnableLazyDetection();
+}
+
+void DisableLazyDetection() {
+  NetworkPortalDetector* detector = NetworkPortalDetector::GetInstance();
+  if (detector)
+    detector->DisableLazyDetection();
+}
+
 }  // namespace
 
 // SigninScreenHandler implementation ------------------------------------------
@@ -586,6 +598,8 @@ void SigninScreenHandler::UpdateStateInternal(
       params.SetInteger("lastNetworkType", static_cast<int>(connection_type));
       error_screen_actor_->Show(OobeUI::SCREEN_GAIA_SIGNIN, &params);
     }
+
+    EnableLazyDetection();
   } else {
     if (IsSigninScreenHiddenByError()) {
       LOG(WARNING) << "Hide offline message. state=" << state << ", "
@@ -599,6 +613,8 @@ void SigninScreenHandler::UpdateStateInternal(
         is_gaia_reloaded = true;
       }
     }
+
+    DisableLazyDetection();
   }
 }
 
