@@ -767,4 +767,5 @@ const char kEnableDeferredImageDecoding[] = "enable-deferred-image-decoding";
 const char kEnableOverscrollHistoryNavigation[] =
     "enable-overscroll-history-navigation";
 
+const char kNodejs[] = "nodejs";
 }  // namespace switches

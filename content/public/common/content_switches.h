@@ -243,7 +243,7 @@ CONTENT_EXPORT extern const char kTestCompositor[];
 #endif
 
 CONTENT_EXPORT extern const char kEnableOverscrollHistoryNavigation[];
-
+CONTENT_EXPORT extern const char kNodejs[];
 }  // namespace switches
 
 #endif  // CONTENT_PUBLIC_COMMON_CONTENT_SWITCHES_H_

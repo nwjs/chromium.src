@@ -470,6 +470,10 @@ bool RenderProcessHostImpl::Init() {
         GetID(),
         this));
 
+    // node renderer need to be shutdown gracefully
+    if (cmd_line->HasSwitch(switches::kNodejs))
+      child_process_launcher_->SetTerminateChildOnShutdown(false);
+
     fast_shutdown_started_ = false;
   }
 
