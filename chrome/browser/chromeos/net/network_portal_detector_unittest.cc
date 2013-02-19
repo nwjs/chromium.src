@@ -71,6 +71,14 @@ class NetworkPortalDetectorTest
     return network_portal_detector()->state();
   }
 
+  void enable_lazy_detection() {
+    network_portal_detector()->EnableLazyDetection();
+  }
+
+  void disable_lazy_detection() {
+    network_portal_detector()->DisableLazyDetection();
+  }
+
   bool is_state_idle() {
     return (NetworkPortalDetector::STATE_IDLE == state());
   }
@@ -97,6 +105,10 @@ class NetworkPortalDetectorTest
 
   void set_min_time_between_attempts(const base::TimeDelta& delta) {
     network_portal_detector()->set_min_time_between_attempts_for_testing(delta);
+  }
+
+  void set_lazy_check_interval(const base::TimeDelta& delta) {
+    network_portal_detector()->set_lazy_check_interval_for_testing(delta);
   }
 
   void set_time_ticks(const base::TimeTicks& time_ticks) {
@@ -440,6 +452,85 @@ TEST_F(NetworkPortalDetectorTest, NoResponseButBehindPortal) {
 
   ASSERT_EQ(NetworkPortalDetector::CAPTIVE_PORTAL_STATE_PORTAL,
             network_portal_detector()->GetCaptivePortalState(wifi1_network()));
+}
+
+TEST_F(NetworkPortalDetectorTest, LazyDetectionForOnlineNetwork) {
+  ASSERT_TRUE(is_state_idle());
+  set_min_time_between_attempts(base::TimeDelta());
+  set_lazy_check_interval(base::TimeDelta());
+
+  SetConnected(wifi1_network());
+  enable_lazy_detection();
+  CompleteURLFetch(net::OK, 204, NULL);
+
+  ASSERT_EQ(3, attempt_count());
+  ASSERT_TRUE(is_state_portal_detection_pending());
+  ASSERT_EQ(NetworkPortalDetector::CAPTIVE_PORTAL_STATE_ONLINE,
+            network_portal_detector()->GetCaptivePortalState(wifi1_network()));
+
+  // To run CaptivePortalDetector::DetectCaptivePortal().
+  MessageLoop::current()->RunUntilIdle();
+
+  CompleteURLFetch(net::OK, 204, NULL);
+
+  ASSERT_EQ(3, attempt_count());
+  ASSERT_TRUE(is_state_portal_detection_pending());
+  ASSERT_EQ(NetworkPortalDetector::CAPTIVE_PORTAL_STATE_ONLINE,
+            network_portal_detector()->GetCaptivePortalState(wifi1_network()));
+
+  // To run CaptivePortalDetector::DetectCaptivePortal().
+  MessageLoop::current()->RunUntilIdle();
+
+  disable_lazy_detection();
+  ASSERT_TRUE(is_state_idle());
+}
+
+TEST_F(NetworkPortalDetectorTest, LazyDetectionForPortalNetwork) {
+  ASSERT_TRUE(is_state_idle());
+  set_min_time_between_attempts(base::TimeDelta());
+  set_lazy_check_interval(base::TimeDelta());
+
+  SetConnected(wifi1_network());
+  enable_lazy_detection();
+
+  CompleteURLFetch(net::ERR_CONNECTION_CLOSED,
+                   net::URLFetcher::RESPONSE_CODE_INVALID,
+                   NULL);
+  ASSERT_EQ(1, attempt_count());
+  ASSERT_TRUE(is_state_portal_detection_pending());
+  ASSERT_EQ(NetworkPortalDetector::CAPTIVE_PORTAL_STATE_UNKNOWN,
+            network_portal_detector()->GetCaptivePortalState(wifi1_network()));
+
+  // To run CaptivePortalDetector::DetectCaptivePortal().
+  MessageLoop::current()->RunUntilIdle();
+
+  CompleteURLFetch(net::ERR_CONNECTION_CLOSED,
+                   net::URLFetcher::RESPONSE_CODE_INVALID,
+                   NULL);
+  ASSERT_EQ(2, attempt_count());
+  ASSERT_TRUE(is_state_portal_detection_pending());
+  ASSERT_EQ(NetworkPortalDetector::CAPTIVE_PORTAL_STATE_UNKNOWN,
+            network_portal_detector()->GetCaptivePortalState(wifi1_network()));
+
+  // To run CaptivePortalDetector::DetectCaptivePortal().
+  MessageLoop::current()->RunUntilIdle();
+
+  CompleteURLFetch(net::OK, 200, NULL);
+  ASSERT_EQ(3, attempt_count());
+  ASSERT_TRUE(is_state_portal_detection_pending());
+  ASSERT_EQ(NetworkPortalDetector::CAPTIVE_PORTAL_STATE_PORTAL,
+            network_portal_detector()->GetCaptivePortalState(wifi1_network()));
+
+  // To run CaptivePortalDetector::DetectCaptivePortal().
+  MessageLoop::current()->RunUntilIdle();
+  CompleteURLFetch(net::OK, 200, NULL);
+  ASSERT_EQ(3, attempt_count());
+  ASSERT_TRUE(is_state_portal_detection_pending());
+  ASSERT_EQ(NetworkPortalDetector::CAPTIVE_PORTAL_STATE_PORTAL,
+            network_portal_detector()->GetCaptivePortalState(wifi1_network()));
+
+  disable_lazy_detection();
+  ASSERT_TRUE(is_state_idle());
 }
 
 }  // namespace chromeos

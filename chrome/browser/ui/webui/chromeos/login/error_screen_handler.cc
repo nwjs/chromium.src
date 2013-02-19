@@ -11,6 +11,7 @@
 #include "base/values.h"
 #include "chrome/browser/chromeos/login/captive_portal_window_proxy.h"
 #include "chrome/browser/chromeos/login/webui_login_display_host.h"
+#include "chrome/browser/chromeos/net/network_portal_detector.h"
 #include "chrome/browser/ui/webui/chromeos/login/native_window_delegate.h"
 #include "chrome/browser/ui/webui/chromeos/login/network_state_informer.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -32,6 +33,18 @@ const int kConnectingTimeoutSec = 60;
 bool IsProxyError(const std::string& reason) {
   return reason == ErrorScreenHandler::kErrorReasonProxyAuthCancelled ||
       reason == ErrorScreenHandler::kErrorReasonProxyConnectionFailed;
+}
+
+void EnableLazyDetection() {
+  NetworkPortalDetector* detector = NetworkPortalDetector::GetInstance();
+  if (detector);
+    detector->EnableLazyDetection();
+}
+
+void DisableLazyDetection() {
+  NetworkPortalDetector* detector = NetworkPortalDetector::GetInstance();
+  if (detector);
+    detector->DisableLazyDetection();
 }
 
 }  // namespace
@@ -211,6 +224,7 @@ void ErrorScreenHandler::UpdateStateInternal(NetworkStateInformer::State state,
       ShowOfflineError();
     }
     Show();
+    EnableLazyDetection();
   } else {
     HideCaptivePortal();
 
@@ -219,6 +233,7 @@ void ErrorScreenHandler::UpdateStateInternal(NetworkStateInformer::State state,
                    << "network_name=" << network_name << ", reason=" << reason;
       OnBeforeHide();
       Hide();
+      DisableLazyDetection();
 
       // Forces a reload for Gaia screen on hiding error message.
       if (is_gaia_signin && !is_gaia_reloaded) {
