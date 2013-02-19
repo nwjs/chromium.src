@@ -223,15 +223,23 @@ public class ContentViewCore implements MotionEventDelegate, NavigationClient {
     private class NormalizedPoint {
         final PointF document = new PointF();
         final PointF window = new PointF();
+        final PointF screen = new PointF();
+
         void updateDocumentFromWindow() {
             float x = window.x / mNativePageScaleFactor + mNativeScrollX;
             float y = window.y / mNativePageScaleFactor + mNativeScrollY;
             document.set(x, y);
+            updateScreenFromWindow();
         }
         void updateWindowFromDocument() {
             float x = (document.x - mNativeScrollX) * mNativePageScaleFactor;
             float y = (document.y - mNativeScrollY) * mNativePageScaleFactor;
             window.set(x, y);
+            updateScreenFromWindow();
+        }
+        void updateScreenFromWindow() {
+            float dpi = getContext().getResources().getDisplayMetrics().density;
+            screen.set(window.x * dpi, window.y * dpi);
         }
         void setWindow(float x, float y) {
             window.set(x, y);
@@ -1716,12 +1724,12 @@ public class ContentViewCore implements MotionEventDelegate, NavigationClient {
         mEndHandlePoint.updateWindowFromDocument();
         mInsertionHandlePoint.updateWindowFromDocument();
         if (mSelectionHandleController != null && mSelectionHandleController.isShowing()) {
-            mSelectionHandleController.setStartHandlePosition(mStartHandlePoint.window);
-            mSelectionHandleController.setEndHandlePosition(mEndHandlePoint.window);
+            mSelectionHandleController.setStartHandlePosition(mStartHandlePoint.screen);
+            mSelectionHandleController.setEndHandlePosition(mEndHandlePoint.screen);
         }
 
         if (mInsertionHandleController != null && mInsertionHandleController.isShowing()) {
-            mInsertionHandleController.setHandlePosition(mInsertionHandlePoint.window);
+            mInsertionHandleController.setHandlePosition(mInsertionHandlePoint.screen);
         }
     }
 
@@ -1984,7 +1992,7 @@ public class ContentViewCore implements MotionEventDelegate, NavigationClient {
                 InputMethodManager manager = (InputMethodManager)
                         getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (manager.isWatchingCursor(mContainerView)) {
-                    PointF point = mInsertionHandlePoint.window;
+                    PointF point = mInsertionHandlePoint.screen;
                     manager.updateCursor(mContainerView, (int)point.x, (int)point.y, (int)point.x,
                             (int)point.y);
                 }
@@ -2012,8 +2020,9 @@ public class ContentViewCore implements MotionEventDelegate, NavigationClient {
     @CalledByNative
     private void showPastePopup(int x, int y) {
         mInsertionHandlePoint.setWindow(x, y);
-        getInsertionHandleController().showHandleWithPastePopup();
+        getInsertionHandleController().showHandle();
         updateHandleScreenPositions();
+        getInsertionHandleController().showHandleWithPastePopup();
     }
 
     @SuppressWarnings("unused")
