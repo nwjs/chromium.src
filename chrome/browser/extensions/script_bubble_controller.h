@@ -12,8 +12,6 @@
 #include "chrome/browser/extensions/tab_helper.h"
 #include "content/public/browser/web_contents_observer.h"
 
-class ExtensionService;
-
 namespace extensions {
 
 class ExtensionSystem;

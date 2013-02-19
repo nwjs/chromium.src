@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/profiles/profile.h"
 #include "ipc/ipc_sender.h"
 #include "googleurl/src/gurl.h"
 

@@ -360,9 +360,7 @@ TEST_F(ClipboardTest, SharedBitmapTest) {
   objects[Clipboard::CBF_SMBITMAP] = params;
   Clipboard::ReplaceSharedMemHandle(&objects, handle_to_share, current_process);
 
-  clipboard().WriteObjects(Clipboard::BUFFER_STANDARD,
-                           objects,
-                           Clipboard::SourceTag());
+  clipboard().WriteObjects(Clipboard::BUFFER_STANDARD, objects);
 
   EXPECT_TRUE(clipboard().IsFormatAvailable(Clipboard::GetBitmapFormatType(),
                                             Clipboard::BUFFER_STANDARD));

@@ -16,11 +16,9 @@ class GURL;
 
 namespace content {
 
-class BrowserContext;
-
 class ClipboardMessageFilter : public BrowserMessageFilter {
  public:
-  ClipboardMessageFilter(BrowserContext* browser_context);
+  ClipboardMessageFilter();
 
   virtual void OverrideThreadForMessage(
       const IPC::Message& message,
@@ -31,7 +29,7 @@ class ClipboardMessageFilter : public BrowserMessageFilter {
   virtual ~ClipboardMessageFilter();
 
   void OnWriteObjectsAsync(const ui::Clipboard::ObjectMap& objects);
-  void OnWriteObjectsSync(ui::Clipboard::ObjectMap objects,
+  void OnWriteObjectsSync(const ui::Clipboard::ObjectMap& objects,
                           base::SharedMemoryHandle bitmap_handle);
 
   void OnGetSequenceNumber(const ui::Clipboard::Buffer buffer,
@@ -65,8 +63,6 @@ class ClipboardMessageFilter : public BrowserMessageFilter {
   // thread. This instance of the clipboard should be accessed only on the IO
   // thread.
   static ui::Clipboard* GetClipboard();
-
-  BrowserContext* const browser_context_;
 
   DISALLOW_COPY_AND_ASSIGN(ClipboardMessageFilter);
 };
