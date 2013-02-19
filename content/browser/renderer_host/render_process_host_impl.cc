@@ -455,6 +455,11 @@ bool RenderProcessHostImpl::Init() {
     AppendRendererCommandLine(cmd_line);
     cmd_line->AppendSwitchASCII(switches::kProcessChannelID, channel_id);
 
+    bool terminate_child = true;
+    // node renderer need to be shutdown gracefully
+    if (cmd_line->HasSwitch(switches::kNodejs))
+      terminate_child = false;
+
     // Spawn the child process asynchronously to avoid blocking the UI thread.
     // As long as there's no renderer prefix, we can use the zygote process
     // at this stage.
@@ -470,9 +475,8 @@ bool RenderProcessHostImpl::Init() {
         GetID(),
         this));
 
-    // node renderer need to be shutdown gracefully
-    if (cmd_line->HasSwitch(switches::kNodejs))
-      child_process_launcher_->SetTerminateChildOnShutdown(false);
+    if (!terminate_child)
+      child_process_launcher_->SetTerminateChildOnShutdown(terminate_child);
 
     fast_shutdown_started_ = false;
   }
