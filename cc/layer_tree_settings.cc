@@ -20,6 +20,7 @@ LayerTreeSettings::LayerTreeSettings()
     , renderVSyncEnabled(true)
     , perTilePaintingEnabled(false)
     , partialSwapEnabled(false)
+    , cacheRenderPassContents(true)
     , acceleratedAnimationEnabled(true)
     , pageScalePinchZoomEnabled(false)
     , backgroundColorInsteadOfCheckerboard(false)
@@ -68,6 +69,9 @@ LayerTreeSettings::LayerTreeSettings()
                 num_raster_threads;
         }
     }
+
+    // TODO(danakj): Renable surface caching when we can do it more realiably. crbug.com/170713
+    cacheRenderPassContents = false;
 }
 
 LayerTreeSettings::~LayerTreeSettings()
