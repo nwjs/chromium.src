@@ -317,6 +317,34 @@ void VideoRendererBase::ThreadMain() {
     // At this point we've rendered |current_frame_| for the proper amount
     // of time and also have the next frame that ready for rendering.
 
+    // Check to see if we have any ready frames that we can drop if they've
+    // already expired.
+    if (drop_frames_) {
+      while (!ready_frames_.empty()) {
+        // Can't drop anything if we're at the end.
+        if (ready_frames_.front()->IsEndOfStream())
+          break;
+
+        base::TimeDelta remaining_time =
+            ready_frames_.front()->GetTimestamp() - get_time_cb_.Run();
+
+        // Still a chance we can render the frame!
+        if (remaining_time.InMicroseconds() > 0)
+          break;
+
+        // Frame dropped: read again.
+        ++frames_dropped;
+        ready_frames_.pop_front();
+        message_loop_->PostTask(FROM_HERE, base::Bind(
+            &VideoRendererBase::AttemptRead, this));
+      }
+    }
+
+    // Continue waiting if all |ready_frames_| are dropped.
+    if (ready_frames_.empty()) {
+      frame_available_.TimedWait(kIdleTimeDelta);
+      continue;
+    }
 
     // If the next frame is end of stream then we are truly at the end of the
     // video stream.
@@ -332,37 +360,11 @@ void VideoRendererBase::ThreadMain() {
       continue;
     }
 
-    // We cannot update |current_frame_| until we've completed the pending
-    // paint. Furthermore, the pending paint might be really slow: check to
-    // see if we have any ready frames that we can drop if they've already
-    // expired.
     if (pending_paint_) {
-      while (!ready_frames_.empty()) {
-        // Can't drop anything if we're at the end.
-        if (ready_frames_.front()->IsEndOfStream())
-          break;
-
-        base::TimeDelta remaining_time =
-            ready_frames_.front()->GetTimestamp() - get_time_cb_.Run();
-
-        // Still a chance we can render the frame!
-        if (remaining_time.InMicroseconds() > 0)
-          break;
-
-        if (!drop_frames_)
-          break;
-
-        // Frame dropped: read again.
-        ++frames_dropped;
-        ready_frames_.pop_front();
-        message_loop_->PostTask(FROM_HERE, base::Bind(
-            &VideoRendererBase::AttemptRead, this));
-      }
       // Continue waiting for the current paint to finish.
       frame_available_.TimedWait(kIdleTimeDelta);
       continue;
     }
-
 
     // Congratulations! You've made it past the video frame timing gauntlet.
     //
