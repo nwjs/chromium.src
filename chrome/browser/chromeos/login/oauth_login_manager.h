@@ -5,8 +5,6 @@
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_OAUTH_LOGIN_MANAGER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_OAUTH_LOGIN_MANAGER_H_
 
-#include <string>
-
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chromeos/cros/cert_library.h"
@@ -44,6 +42,9 @@ class OAuthLoginManager {
   class Delegate {
    public:
     virtual ~Delegate() {}
+
+    // Raised when merge session is completed.
+    virtual void OnCompletedMergeSession() = 0;
 
     // Raised when cookie jar authentication is successfully completed.
     virtual void OnCompletedAuthentication(Profile* user_profile) = 0;
