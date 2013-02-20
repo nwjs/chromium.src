@@ -495,7 +495,7 @@ void TileManager::AssignGpuMemoryToTiles() {
   }
 
   size_t bytes_allocatable = global_state_.memory_limit_in_bytes - unreleasable_bytes;
-  size_t bytes_that_exceeded_memory_budget = 0;
+  size_t bytes_that_exceeded_memory_budget_in_now_bin = 0;
   size_t bytes_left = bytes_allocatable;
   for (TileVector::iterator it = tiles_.begin(); it != tiles_.end(); ++it) {
     Tile* tile = *it;
@@ -511,7 +511,9 @@ void TileManager::AssignGpuMemoryToTiles() {
     }
     if (tile_bytes > bytes_left) {
       managed_tile_state.can_use_gpu_memory = false;
-      bytes_that_exceeded_memory_budget += tile_bytes;
+      if (managed_tile_state.bin[HIGH_PRIORITY_BIN] == NOW_BIN ||
+          managed_tile_state.bin[LOW_PRIORITY_BIN] == NOW_BIN)
+          bytes_that_exceeded_memory_budget_in_now_bin += tile_bytes;
       FreeResourcesForTile(tile);
       continue;
     }
@@ -524,11 +526,12 @@ void TileManager::AssignGpuMemoryToTiles() {
     }
   }
 
-  ever_exceeded_memory_budget_ |= bytes_that_exceeded_memory_budget > 0;
+  ever_exceeded_memory_budget_ |=
+      bytes_that_exceeded_memory_budget_in_now_bin > 0;
   if (ever_exceeded_memory_budget_) {
       TRACE_COUNTER_ID2("cc", "over_memory_budget", this,
                         "budget", global_state_.memory_limit_in_bytes,
-                        "over", bytes_that_exceeded_memory_budget);
+                        "over", bytes_that_exceeded_memory_budget_in_now_bin);
   }
   memory_stats_from_last_assign_.total_budget_in_bytes =
       global_state_.memory_limit_in_bytes;
@@ -536,7 +539,7 @@ void TileManager::AssignGpuMemoryToTiles() {
       bytes_allocatable - bytes_left;
   memory_stats_from_last_assign_.bytes_unreleasable = unreleasable_bytes;
   memory_stats_from_last_assign_.bytes_over =
-      bytes_that_exceeded_memory_budget;
+      bytes_that_exceeded_memory_budget_in_now_bin;
 
   // Reverse two tiles_that_need_* vectors such that pop_back gets
   // the highest priority tile.
