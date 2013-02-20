@@ -119,7 +119,13 @@ BASE_EXPORT bool DeleteAfterReboot(const FilePath& path);
 // If a simple rename is not possible, such as in the case where the paths are
 // on different volumes, this will attempt to copy and delete. Returns
 // true for success.
+// This function fails if either path contains traversal components ('..').
 BASE_EXPORT bool Move(const FilePath& from_path, const FilePath& to_path);
+
+// Same as Move but allows paths with traversal components.
+// Use only with extreme care.
+BASE_EXPORT bool MoveUnsafe(const FilePath& from_path,
+                            const FilePath& to_path);
 
 // Renames file |from_path| to |to_path|. Both paths must be on the same
 // volume, or the function will fail. Destination file will be created
@@ -130,7 +136,13 @@ BASE_EXPORT bool ReplaceFile(const FilePath& from_path,
                              const FilePath& to_path);
 
 // Copies a single file. Use CopyDirectory to copy directories.
+// This function fails if either path contains traversal components ('..').
 BASE_EXPORT bool CopyFile(const FilePath& from_path, const FilePath& to_path);
+
+// Same as CopyFile but allows paths with traversal components.
+// Use only with extreme care.
+BASE_EXPORT bool CopyFileUnsafe(const FilePath& from_path,
+                                const FilePath& to_path);
 
 // Copies the given path, and optionally all subdirectories and their contents
 // as well.
