@@ -26,6 +26,8 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBCursor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBDatabase.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBDatabaseCallbacks.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBDatabaseError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBDatabaseException.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBFactory.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBIndex.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBMetadata.h"
@@ -42,6 +44,7 @@ using WebKit::WebExceptionCode;
 using WebKit::WebIDBCallbacks;
 using WebKit::WebIDBCursor;
 using WebKit::WebIDBDatabase;
+using WebKit::WebIDBDatabaseError;
 using WebKit::WebIDBIndex;
 using WebKit::WebIDBKey;
 using WebKit::WebIDBMetadata;
@@ -714,6 +717,14 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnPut(
   scoped_ptr<WebIDBCallbacks> callbacks(
       new IndexedDBCallbacks<WebIDBKey>(parent_, params.ipc_thread_id,
                                         params.ipc_response_id));
+
+  if (params.index_ids.size() != params.index_keys.size()) {
+    callbacks->onError(WebIDBDatabaseError(
+        WebKit::WebIDBDatabaseExceptionUnknownError,
+        "Malformed IPC message: index_ids.size() != index_keys.size()"));
+    return;
+  }
+
   idb_object_store->put(params.serialized_value, params.key,
                         params.put_mode, callbacks.release(),
                         *idb_transaction, params.index_ids,
@@ -735,6 +746,12 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnSetIndexKeys(
       &map_, ipc_object_store_id);
   WebIDBTransaction* idb_transaction = parent_->GetOrTerminateProcess(
       &parent_->transaction_dispatcher_host_->map_, ipc_transaction_id);
+
+  if (index_names.size() != index_keys.size()) {
+    idb_transaction->abort();
+    return;
+  }
+
   if (!idb_transaction || !idb_object_store)
     return;
   idb_object_store->setIndexKeys(primary_key,
