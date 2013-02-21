@@ -1294,8 +1294,8 @@ ErrorCode RestrictIoctl() {
 ErrorCode RendererOrWorkerProcessPolicy(int sysno, void *) {
   switch (sysno) {
     case __NR_ioctl:
-      // Restrict IOCTL on x86_64 on Linux but not Chrome OS.
-      if (IsArchitectureX86_64() && !IsChromeOS()) {
+      // Restrict IOCTL on x86_64.
+      if (IsArchitectureX86_64()) {
         return RestrictIoctl();
       } else {
         return ErrorCode(ErrorCode::ERR_ALLOWED);
