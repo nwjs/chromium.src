@@ -90,6 +90,7 @@ struct CC_EXPORT TilePriority {
   }
 
   static const float kMaxDistanceInContentSpace;
+  static const int64 kNumTilesToCoverWithInflatedViewportRectForPrioritization;
 
   static inline float manhattanDistance(const gfx::RectF& a, const gfx::RectF& b) {
     // Compute the union explicitly.
