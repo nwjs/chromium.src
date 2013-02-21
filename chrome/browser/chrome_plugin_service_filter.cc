@@ -87,10 +87,9 @@ bool ChromePluginServiceFilter::IsPluginEnabled(
            details->overridden_plugins[i].url.is_empty())) {
 
         bool use = details->overridden_plugins[i].plugin.path == plugin->path;
-        if (!use)
-          return false;
-        *plugin = details->overridden_plugins[i].plugin;
-        break;
+        if (use)
+          *plugin = details->overridden_plugins[i].plugin;
+        return use;
       }
     }
   }
