@@ -329,6 +329,7 @@ void LayerTreeHost::finishCommitOnImplThread(LayerTreeHostImpl* hostImpl)
         if (syncTree->ContentsTexturesPurged())
             syncTree->ResetContentsTexturesPurged();
     }
+    syncTree->ResetViewportSizeInvalid();
 
     m_commitNumber++;
 }
