@@ -54,6 +54,14 @@ inline bool IsChromeOS() {
 #endif
 }
 
+inline bool IsArchitectureX86_64() {
+#if defined(__x86_64__)
+  return true;
+#else
+  return false;
+#endif
+}
+
 inline bool IsArchitectureI386() {
 #if defined(__i386__)
   return true;
