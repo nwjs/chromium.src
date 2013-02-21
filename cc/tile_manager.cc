@@ -102,7 +102,8 @@ ManagedTileState::ManagedTileState()
       contents_swizzled(false),
       need_to_gather_pixel_refs(true),
       gpu_memmgr_stats_bin(NEVER_BIN),
-      raster_state(IDLE_STATE) {
+      raster_state(IDLE_STATE),
+      distance_to_visible_in_pixels(std::numeric_limits<float>::infinity()) {
   for (int i = 0; i < NUM_TREES; ++i)
     tree_bin[i] = NEVER_BIN;
 }
@@ -214,6 +215,9 @@ public:
     if (ams.time_to_needed_in_seconds !=  bms.time_to_needed_in_seconds)
       return ams.time_to_needed_in_seconds < bms.time_to_needed_in_seconds;
 
+    if (ams.distance_to_visible_in_pixels != bms.distance_to_visible_in_pixels)
+      return ams.distance_to_visible_in_pixels < bms.distance_to_visible_in_pixels;
+
     gfx::Rect a_rect = a->content_rect();
     gfx::Rect b_rect = b->content_rect();
     if (a_rect.y() != b_rect.y())
@@ -289,6 +293,8 @@ void TileManager::ManageTiles() {
     mts.resolution = prio[HIGH_PRIORITY_BIN].resolution;
     mts.time_to_needed_in_seconds =
         prio[HIGH_PRIORITY_BIN].time_to_visible_in_seconds;
+    mts.distance_to_visible_in_pixels =
+        prio[HIGH_PRIORITY_BIN].distance_to_visible_in_pixels;
     mts.bin[HIGH_PRIORITY_BIN] = BinFromTilePriority(prio[HIGH_PRIORITY_BIN]);
     mts.bin[LOW_PRIORITY_BIN] = BinFromTilePriority(prio[LOW_PRIORITY_BIN]);
     mts.gpu_memmgr_stats_bin = BinFromTilePriority(tile->combined_priority());
