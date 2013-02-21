@@ -2781,7 +2781,7 @@
             'cflags': [ '-g' ],
             'defines': ['USE_LINUX_BREAKPAD'],
             'conditions': [
-              ['target_arch=="ia32"', {
+              ['target_arch=="ia32" and OS!="android"', {
                 'target_conditions': [
                   ['_toolset=="target"', {
                     'ldflags': [
