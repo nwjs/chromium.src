@@ -360,7 +360,6 @@ void PictureLayerTiling::UpdateTilePriorities(
     const gfx::Transform& current_screen_transform,
     int current_source_frame_number,
     double current_frame_time) {
-  TRACE_EVENT0("cc", "PictureLayerTiling::UpdateTilePriorities");
   if (ContentRect().IsEmpty())
     return;
 
