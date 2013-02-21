@@ -1938,6 +1938,13 @@ public class ContentViewCore implements MotionEventDelegate, NavigationClient {
 
     @SuppressWarnings("unused")
     @CalledByNative
+    private void processImeBatchStateAck(boolean isBegin) {
+        if (mInputConnection == null) return;
+        mInputConnection.setIgnoreTextInputStateUpdates(isBegin);
+    }
+
+    @SuppressWarnings("unused")
+    @CalledByNative
     private void setTitle(String title) {
         getContentViewClient().onUpdateTitle(title);
     }

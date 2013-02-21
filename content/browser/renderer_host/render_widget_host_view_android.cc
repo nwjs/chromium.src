@@ -65,6 +65,18 @@ RenderWidgetHostViewAndroid::~RenderWidgetHostViewAndroid() {
   }
 }
 
+
+bool RenderWidgetHostViewAndroid::OnMessageReceived(
+    const IPC::Message& message) {
+  bool handled = true;
+  IPC_BEGIN_MESSAGE_MAP(RenderWidgetHostViewAndroid, message)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_ImeBatchStateChanged_ACK,
+                        ProcessImeBatchStateAck)
+    IPC_MESSAGE_UNHANDLED(handled = false)
+  IPC_END_MESSAGE_MAP()
+  return handled;
+}
+
 void RenderWidgetHostViewAndroid::InitAsChild(gfx::NativeView parent_view) {
   NOTIMPLEMENTED();
 }
@@ -283,6 +295,11 @@ void RenderWidgetHostViewAndroid::TextInputStateChanged(
 
 int RenderWidgetHostViewAndroid::GetNativeImeAdapter() {
   return reinterpret_cast<int>(&ime_adapter_android_);
+}
+
+void RenderWidgetHostViewAndroid::ProcessImeBatchStateAck(bool is_begin) {
+  if (content_view_core_)
+    content_view_core_->ProcessImeBatchStateAck(is_begin);
 }
 
 void RenderWidgetHostViewAndroid::ImeCancelComposition() {
