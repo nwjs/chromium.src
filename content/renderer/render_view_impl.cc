@@ -4210,12 +4210,6 @@ void RenderViewImpl::didChangeScrollOffset(WebFrame* frame) {
 #endif
 }
 
-void RenderViewImpl::willInsertBody(WebKit::WebFrame* frame) {
-  if (!frame->parent()) {
-    Send(new ViewHostMsg_WillInsertBody(routing_id()));
-  }
-}
-
 #if defined(OS_ANDROID)
 void RenderViewImpl::didFirstVisuallyNonEmptyLayout(WebFrame* frame) {
   if (frame != webview()->mainFrame())
