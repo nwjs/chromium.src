@@ -21,6 +21,7 @@
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chrome_plugin_service_filter.h"
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
@@ -70,6 +71,7 @@
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/user_metrics.h"
@@ -1316,7 +1318,14 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
   if (id >= IDC_CONTENT_CONTEXT_CUSTOM_FIRST &&
       id <= IDC_CONTENT_CONTEXT_CUSTOM_LAST) {
     unsigned action = id - IDC_CONTENT_CONTEXT_CUSTOM_FIRST;
-    rvh->ExecuteCustomContextMenuCommand(action, params_.custom_context);
+    const content::CustomContextMenuContext& context = params_.custom_context;
+#if defined(ENABLE_PLUGINS)
+    if (context.request_id && !context.is_pepper_menu) {
+      ChromePluginServiceFilter::GetInstance()->AuthorizeAllPlugins(
+        rvh->GetProcess()->GetID());
+    }
+#endif
+    rvh->ExecuteCustomContextMenuCommand(action, context);
     return;
   }
 
