@@ -506,7 +506,8 @@ class DwarfCUToModule::NamedScopeHandler: public GenericDIEHandler {
                     uint64 offset)
       : GenericDIEHandler(cu_context, parent_context, offset) { }
   bool EndAttributes();
-  DIEHandler *FindChildHandler(uint64 offset, enum DwarfTag tag);
+  DIEHandler *FindChildHandler(uint64 offset, enum DwarfTag tag,
+                               const AttributeList &attrs);
 
  private:
   DIEContext child_context_; // A context for our children.
@@ -520,7 +521,8 @@ bool DwarfCUToModule::NamedScopeHandler::EndAttributes() {
 
 dwarf2reader::DIEHandler *DwarfCUToModule::NamedScopeHandler::FindChildHandler(
     uint64 offset,
-    enum DwarfTag tag) {
+    enum DwarfTag tag,
+    const AttributeList &attrs) {
   switch (tag) {
     case dwarf2reader::DW_TAG_subprogram:
       return new FuncHandler(cu_context_, &child_context_, offset);
@@ -661,7 +663,8 @@ bool DwarfCUToModule::EndAttributes() {
 
 dwarf2reader::DIEHandler *DwarfCUToModule::FindChildHandler(
     uint64 offset,
-    enum DwarfTag tag) {
+    enum DwarfTag tag,
+    const AttributeList &attrs) {
   switch (tag) {
     case dwarf2reader::DW_TAG_subprogram:
       return new FuncHandler(cu_context_, child_context_, offset);
@@ -1014,7 +1017,8 @@ bool DwarfCUToModule::StartCompilationUnit(uint64 offset,
   return dwarf_version >= 2;
 }
 
-bool DwarfCUToModule::StartRootDIE(uint64 offset, enum DwarfTag tag) {
+bool DwarfCUToModule::StartRootDIE(uint64 offset, enum DwarfTag tag,
+                                   const AttributeList& attrs) {
   // We don't deal with partial compilation units (the only other tag
   // likely to be used for root DIE).
   return tag == dwarf2reader::DW_TAG_compile_unit;

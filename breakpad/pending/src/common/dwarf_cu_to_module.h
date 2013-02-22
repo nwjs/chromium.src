@@ -49,6 +49,7 @@
 
 namespace google_breakpad {
 
+using dwarf2reader::AttributeList;
 using dwarf2reader::DwarfAttribute;
 using dwarf2reader::DwarfForm;
 using dwarf2reader::DwarfLanguage;
@@ -198,7 +199,8 @@ class DwarfCUToModule: public dwarf2reader::RootDIEHandler {
                               enum DwarfForm form,
                               const string &data);
   bool EndAttributes();
-  DIEHandler *FindChildHandler(uint64 offset, enum DwarfTag tag);
+  DIEHandler *FindChildHandler(uint64 offset, enum DwarfTag tag,
+                               const AttributeList &attrs);
 
   // Assign all our source Lines to the Functions that cover their
   // addresses, and then add them to module_.
@@ -207,7 +209,8 @@ class DwarfCUToModule: public dwarf2reader::RootDIEHandler {
   bool StartCompilationUnit(uint64 offset, uint8 address_size,
                             uint8 offset_size, uint64 cu_length,
                             uint8 dwarf_version);
-  bool StartRootDIE(uint64 offset, enum DwarfTag tag);
+  bool StartRootDIE(uint64 offset, enum DwarfTag tag,
+                    const AttributeList& attrs);
 
  private:
 
