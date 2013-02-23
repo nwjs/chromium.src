@@ -227,6 +227,7 @@ class LoginUtilsImpl
   virtual void CompleteProfileCreate(Profile* user_profile) OVERRIDE;
 
   // OAuthLoginManager::Delegate overrides.
+  virtual void OnCompletedMergeSession() OVERRIDE;
   virtual void OnCompletedAuthentication(Profile* user_profile) OVERRIDE;
   virtual void OnFoundStoredTokens() OVERRIDE;
 
@@ -519,6 +520,8 @@ void LoginUtilsImpl::CompleteProfileCreate(Profile* user_profile) {
 void LoginUtilsImpl::RestoreAuthSession(Profile* user_profile,
                                         bool restore_from_auth_cookies) {
   DCHECK(authenticator_ || !restore_from_auth_cookies);
+  UserManager::Get()->SetMergeSessionState(
+      UserManager::MERGE_STATUS_IN_PROCESS);
   // Remove legacy OAuth1 token if we have one. If it's valid, we should already
   // have OAuth2 refresh token in TokenService that could be used to retrieve
   // all other tokens and credentials.
@@ -952,6 +955,10 @@ void LoginUtilsImpl::StopBackgroundFetchers() {
 
 void LoginUtilsImpl::OnCompletedAuthentication(Profile* user_profile) {
   StartSignedInServices(user_profile);
+}
+
+void LoginUtilsImpl::OnCompletedMergeSession() {
+  UserManager::Get()->SetMergeSessionState(UserManager::MERGE_STATUS_DONE);
 }
 
 void LoginUtilsImpl::OnFoundStoredTokens() {
