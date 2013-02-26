@@ -869,7 +869,7 @@ void OneClickSigninHelper::ShowInfoBarUIThread(
     helper->continue_url_ = continue_url;
 }
 
-void OneClickSigninHelper::RedirectToNTP() {
+void OneClickSigninHelper::RedirectToNTP(bool show_bubble) {
   VLOG(1) << "OneClickSigninHelper::RedirectToNTP";
 
   // Redirect to NTP with sign in bubble visible.
@@ -877,8 +877,10 @@ void OneClickSigninHelper::RedirectToNTP() {
   Profile* profile =
       Profile::FromBrowserContext(contents->GetBrowserContext());
   PrefService* pref_service = profile->GetPrefs();
-  pref_service->SetBoolean(prefs::kSyncPromoShowNTPBubble, true);
-  pref_service->SetString(prefs::kSyncPromoErrorMessage, error_message_);
+  if (show_bubble) {
+    pref_service->SetBoolean(prefs::kSyncPromoShowNTPBubble, true);
+    pref_service->SetString(prefs::kSyncPromoErrorMessage, error_message_);
+  }
 
   contents->GetController().LoadURL(GURL(chrome::kChromeUINewTabURL),
                                     content::Referrer(),
@@ -960,7 +962,7 @@ void OneClickSigninHelper::DidStopLoading(
   // explicit sign ins.
   if (!error_message_.empty() && auto_accept_ == AUTO_ACCEPT_EXPLICIT) {
     VLOG(1) << "OneClickSigninHelper::DidStopLoading: error=" << error_message_;
-    RedirectToNTP();
+    RedirectToNTP(true);
     return;
   }
 
@@ -979,6 +981,9 @@ void OneClickSigninHelper::DidStopLoading(
   if (email_.empty() || password_.empty()) {
     if (continue_url_match_accept)
       RedirectToSignin();
+    std::string unused_value;
+    if (net::GetValueForKeyInQuery(url, "ntp", &unused_value))
+      RedirectToNTP(false);
     return;
   }
 
@@ -1124,7 +1129,7 @@ void OneClickSigninHelper::DidStopLoading(
       if (source_ != SyncPromoUI::SOURCE_SETTINGS &&
           source_ != SyncPromoUI::SOURCE_WEBSTORE_INSTALL) {
         signin_tracker_.reset(new SigninTracker(profile, this));
-        RedirectToNTP();
+        RedirectToNTP(true);
       }
       break;
     }
@@ -1191,7 +1196,7 @@ void OneClickSigninHelper::SigninFailed(const GoogleServiceAuthError& error) {
     }
   }
 
-  RedirectToNTP();
+  RedirectToNTP(true);
   signin_tracker_.reset();
 }
 
