@@ -24,6 +24,7 @@
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_icon_set.h"
+#include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/interstitial_page.h"
@@ -34,7 +35,6 @@
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/webui/jstemplate_builder.h"
 
 using content::BrowserThread;
 using content::InterstitialPage;
@@ -89,7 +89,7 @@ std::string MergeSessionLoadPage::GetHTMLContents() {
   base::StringPiece html(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
           IDR_MERGE_SESSION_LOAD_HTML));
-  return webui::GetI18nTemplateHtml(html, &strings);
+  return jstemplate_builder::GetI18nTemplateHtml(html, &strings);
 }
 
 void MergeSessionLoadPage::OverrideRendererPrefs(
