@@ -28,6 +28,7 @@
         '../sync/sync.gyp:sync',
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
+        '../third_party/zlib/zlib.gyp:zlib',
       ],
       'export_dependent_settings': [
         'app/policy/cloud_policy_codegen.gyp:policy_test_support',
@@ -618,6 +619,7 @@
         'browser/chromeos/language_preferences_unittest.cc',
         'browser/chromeos/login/merge_session_load_page_unittest.cc',
         'browser/chromeos/login/mock_auth_attempt_state_resolver.cc',
+        'browser/chromeos/login/hwid_checker_unittest.cc',
         'browser/chromeos/login/mock_auth_attempt_state_resolver.h',
         'browser/chromeos/login/online_attempt_unittest.cc',
         'browser/chromeos/login/parallel_authenticator_unittest.cc',
