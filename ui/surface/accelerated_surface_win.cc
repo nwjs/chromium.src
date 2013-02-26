@@ -195,6 +195,7 @@ void PresentThread::ResetDevice() {
   // reseting the device, which would be disappointing.
   query_ = NULL;
   device_ = NULL;
+  surface_transformer_.ReleaseAll();
 
   if (!d3d_utils::CreateDevice(d3d_module_,
                                D3DDEVTYPE_HAL,
