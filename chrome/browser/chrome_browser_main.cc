@@ -89,6 +89,7 @@
 #include "chrome/browser/ui/uma_browsing_activity_observer.h"
 #include "chrome/browser/ui/user_data_dir_dialog.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager_backend.h"
+#include "chrome/browser/visitedlink/visitedlink_master.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
@@ -1255,6 +1256,15 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       pref_service->GetInteger(first_run::GetPingDelayPrefName().c_str());
   RLZTracker::InitRlzFromProfileDelayed(profile_, is_first_run_, ping_delay);
 #endif  // defined(ENABLE_RLZ) && !defined(OS_CHROMEOS)
+
+  // Force creation of the VisitedLinkMaster so that it catches the visited
+  // links in the first tab. This is a workaround for crbug.com/171475 and
+  // crbug.com/160025 which require that the VisitedLinkMaster be created after
+  // the importer is done, but before page navigation starts.
+  //
+  // Note: This is a temporary fix for M25. In later releases, it has been fixed
+  // by the refactoring of the VisitedLinkMaster functionality.
+  VisitedLinkMaster::FromProfile(profile_);
 
   // Configure modules that need access to resources.
   net::NetModule::SetResourceProvider(chrome_common_net::NetResourceProvider);
