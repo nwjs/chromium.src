@@ -411,6 +411,9 @@
       # Managed users are enabled by default.
       'enable_managed_users%': 1,
 
+      'spdy_proxy_auth_origin%' : '',
+      'spdy_proxy_auth_property%' : '',
+
       'conditions': [
         # TODO(epoger): Figure out how to set use_skia=1 for Mac outside of
         # the 'conditions' clause.  Initial attempts resulted in chromium and
@@ -748,6 +751,8 @@
     'google_default_client_id%': '<(google_default_client_id)',
     'google_default_client_secret%': '<(google_default_client_secret)',
     'enable_managed_users%': '<(enable_managed_users)',
+    'spdy_proxy_auth_origin%': '<(spdy_proxy_auth_origin)',
+    'spdy_proxy_auth_property%': '<(spdy_proxy_auth_property)',
 
     # Use system mesa instead of bundled one.
     'use_system_mesa%': 0,
@@ -2002,6 +2007,12 @@
       }],
       ['enable_managed_users==1', {
         'defines': ['ENABLE_MANAGED_USERS=1'],
+      }],
+      ['spdy_proxy_auth_origin != ""', {
+        'defines': ['SPDY_PROXY_AUTH_ORIGIN="<(spdy_proxy_auth_origin)"'],
+      }],
+      ['spdy_proxy_auth_property != ""', {
+        'defines': ['SPDY_PROXY_AUTH_PROPERTY="<(spdy_proxy_auth_property)"'],
       }],
     ],  # conditions for 'target_defaults'
     'target_conditions': [
