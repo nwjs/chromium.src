@@ -141,9 +141,11 @@ intptr_t ReportCloneFailure(const struct arch_seccomp_data& args, void* aux) {
   RAW_LOG(ERROR, __FILE__":**CRASHING**:clone() failure\n");
 #endif
   volatile uint64_t clone_flags = args.args[0];
-  volatile char* addr =
-      reinterpret_cast<volatile char*>(clone_flags & 0xFFFFFF);
-  *addr = '\0';
+  volatile char* addr;
+  if (IsArchitectureX86_64()) {
+    addr = reinterpret_cast<volatile char*>(clone_flags & 0xFFFFFF);
+    *addr = '\0';
+  }
   // Hit the NULL page if this fails to fault.
   addr = reinterpret_cast<volatile char*>(clone_flags & 0xFFF);
   *addr = '\0';
@@ -1341,10 +1343,7 @@ ErrorCode RendererOrWorkerProcessPolicy(int sysno, void *) {
       return RestrictPrctl();
     // Allow the system calls below.
     case __NR_clone:
-#if defined(__x86_64__) && defined(OS_LINUX)
-      // TODO(jln): extend to other architectures.
       return RestrictCloneToThreads();
-#endif
     case __NR_fdatasync:
     case __NR_fsync:
 #if defined(__i386__) || defined(__x86_64__)
