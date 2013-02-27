@@ -1026,6 +1026,11 @@
           ],
           'variables': {
             'yasm_output_path': '<(SHARED_INTERMEDIATE_DIR)/media',
+            'yasm_flags': [
+              # In addition to the same path as source asm, let yasm %include
+              # search path be relative to src/ per Chromium policy.
+              '-I..',
+            ],
           },
           'msvs_2010_disable_uldi_when_referenced': 1,
           'includes': [
