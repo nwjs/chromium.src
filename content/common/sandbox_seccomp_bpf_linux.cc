@@ -46,6 +46,14 @@ namespace {
 void StartSandboxWithPolicy(Sandbox::EvaluateSyscall syscall_policy,
                             BrokerProcess* broker_process);
 
+inline bool RunningOnASAN() {
+#if defined(ADDRESS_SANITIZER)
+  return true;
+#else
+  return false;
+#endif
+}
+
 inline bool IsChromeOS() {
 #if defined(OS_CHROMEOS)
   return true;
@@ -1297,6 +1305,22 @@ ErrorCode GpuBrokerProcessPolicy_x86_64(int sysno, void*) {
   }
 }
 
+// Allow clone for threads, crash if anything else is attempted.
+// Don't restrict on ASAN.
+ErrorCode RestrictCloneToThreads() {
+  // Glibc's pthread.
+  if (!RunningOnASAN()) {
+    return Sandbox::Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
+        CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
+        CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS |
+        CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,
+        ErrorCode(ErrorCode::ERR_ALLOWED),
+        Sandbox::Trap(ReportCloneFailure, NULL));
+  } else {
+    return ErrorCode(ErrorCode::ERR_ALLOWED);
+  }
+}
+
 ErrorCode RestrictPrctl() {
   // Allow PR_SET_NAME, PR_SET_DUMPABLE, PR_GET_DUMPABLE. Will need to add
   // seccomp compositing in the future.
@@ -1317,17 +1341,6 @@ ErrorCode RestrictIoctl() {
          Sandbox::Cond(1, ErrorCode::TP_64BIT, ErrorCode::OP_EQUAL, FIONREAD,
                        ErrorCode(ErrorCode::ERR_ALLOWED),
                        Sandbox::Trap(ReportIoctlFailure, NULL)));
-}
-
-// Allow clone for threads, crash if anything else is attempted.
-ErrorCode RestrictCloneToThreads() {
-  // Glibc's pthread.
-  return Sandbox::Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
-                       CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
-                       CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS |
-                       CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,
-                       ErrorCode(ErrorCode::ERR_ALLOWED),
-                       Sandbox::Trap(ReportCloneFailure, NULL));
 }
 
 ErrorCode RendererOrWorkerProcessPolicy(int sysno, void *) {
