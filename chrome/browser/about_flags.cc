@@ -248,6 +248,14 @@ const Experiment::Choice kChromeCaptivePortalDetectionChoices[] = {
 };
 #endif
 
+const Experiment::Choice kImplSidePaintingChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
+    cc::switches::kEnableImplSidePainting, ""},
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
+    cc::switches::kDisableImplSidePainting, ""}
+};
+
 // RECORDING USER METRICS FOR FLAGS:
 // -----------------------------------------------------------------------------
 // The first line of the experiment is the internal name. If you'd like to
@@ -1283,6 +1291,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_SCREEN_CAPTURE_DESCRIPTION,
     kOsDesktop,
     SINGLE_VALUE_TYPE(switches::kEnableUserMediaScreenCapturing)
+  },
+  {
+    "impl-side-painting",
+    IDS_FLAGS_IMPL_SIDE_PAINTING_NAME,
+    IDS_FLAGS_IMPL_SIDE_PAINTING_DESCRIPTION,
+    kOsAndroid,
+    MULTI_VALUE_TYPE(kImplSidePaintingChoices)
   },
 };
 

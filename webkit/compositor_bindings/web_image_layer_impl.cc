@@ -13,7 +13,7 @@
 
 static bool usingPictureLayer()
 {
-    return CommandLine::ForCurrentProcess()->HasSwitch(cc::switches::kEnableImplSidePainting);
+    return cc::switches::IsImplSidePaintingEnabled();
 }
 
 namespace WebKit {
