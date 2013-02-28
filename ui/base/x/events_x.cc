@@ -271,9 +271,12 @@ class CMTEventData {
                     bool* is_cancel) {
     XIDeviceEvent* xiev = static_cast<XIDeviceEvent*>(xev.xcookie.data);
 
-    *vx = 0;
-    *vy = 0;
-    *is_cancel = false;
+    if (vx)
+      *vx = 0;
+    if (vy)
+      *vy = 0;
+    if (is_cancel)
+      *is_cancel = false;
 
     const int sourceid = xiev->sourceid;
     if (!cmt_devices_[sourceid])
@@ -293,17 +296,17 @@ class CMTEventData {
       if (XIMaskIsSet(xiev->valuators.mask, i)) {
         // Convert values to unsigned ints representing ms before storing them,
         // as that is how they were encoded before conversion to doubles.
-        if (v.fling_vx_dbl == i) {
+        if (vx && v.fling_vx_dbl == i) {
           *vx = natural_scroll_factor * *valuators;
-        } else if (v.fling_vx == i) {
+        } else if (vx && v.fling_vx == i) {
           *vx = natural_scroll_factor *
               static_cast<double>(static_cast<int>(*valuators)) / 1000.0f;
-        } else if (v.fling_vy_dbl == i) {
+        } else if (vy && v.fling_vy_dbl == i) {
           *vy = natural_scroll_factor * *valuators;
-        } else if (v.fling_vy == i) {
+        } else if (vy && v.fling_vy == i) {
           *vy = natural_scroll_factor *
               static_cast<double>(static_cast<int>(*valuators)) / 1000.0f;
-        } else if (v.fling_state == i) {
+        } else if (is_cancel && v.fling_state == i) {
           *is_cancel = !!static_cast<unsigned int>(*valuators);
         }
         valuators++;
