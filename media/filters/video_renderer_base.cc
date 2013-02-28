@@ -336,8 +336,17 @@ void VideoRendererBase::ThreadMain() {
         base::TimeDelta remaining_time =
             ready_frames_.front()->GetTimestamp() - get_time_cb_.Run();
 
-        // Still a chance we can render the frame!
-        if (remaining_time.InMicroseconds() > 0)
+        // Since we waited/slept if we still had time (see above). In theory,
+        // the |remaining_time| here should be either:
+        // 1) 0, the frame is ready to be rendered right now, or
+        // 2) < 0, the frame is late and should be dropped.
+        // In reality, the timer is never perfect and has errors. Therefore, for
+        // frames that are actually not late, the |remaining_time| here actually
+        // fluctuates around 0. Taking this into account, we allow frames to be
+        // rendered if they are only slightly late (not more than
+        // kMaxTimerErrorAllowedInMs ms).
+        static const int kMaxTimerErrorAllowedInMs = 30;
+        if (remaining_time.InMilliseconds() + kMaxTimerErrorAllowedInMs >= 0)
           break;
 
         // Frame dropped: read again.
