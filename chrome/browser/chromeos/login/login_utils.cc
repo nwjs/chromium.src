@@ -763,6 +763,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kEnableViewport,
       ::switches::kForceDeviceScaleFactor,
       ::switches::kGpuStartupDialog,
+      ::switches::kHasChromeOSDiamondKey,
       ::switches::kHasChromeOSKeyboard,
       ::switches::kLoginProfile,
       ::switches::kNaturalScrollDefault,
