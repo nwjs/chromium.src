@@ -134,9 +134,7 @@ void NetErrorTabHelper::PostStartDnsProbeTask() {
 }
 
 bool NetErrorTabHelper::ProbesAllowed() const {
-  // TODO(ttuttle): Disable on mobile?
-  return (pref_initialized_ && *resolve_errors_with_web_service_)
-         && enabled_for_testing_;
+  return (enabled_for_testing_ == TESTING_FORCE_ENABLED);
 }
 
 void NetErrorTabHelper::set_enabled_for_testing(bool enabled_for_testing) {
