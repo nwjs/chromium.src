@@ -61,8 +61,19 @@ Value* NetLogSpdySynCallback(const SpdyHeaderBlock* headers,
   ListValue* headers_list = new ListValue();
   for (SpdyHeaderBlock::const_iterator it = headers->begin();
        it != headers->end(); ++it) {
-    headers_list->Append(new StringValue(base::StringPrintf(
+#if defined(OS_ANDROID)
+    if (it->first == "proxy-authorization") {
+      headers_list->Append(new base::StringValue(base::StringPrintf(
+          "%s: %s", it->first.c_str(), "[elided]")));
+    } else {
+      headers_list->Append(new base::StringValue(base::StringPrintf(
+          "%s: %s", it->first.c_str(), it->second.c_str())));
+    }
+#else
+    headers_list->Append(new base::StringValue(base::StringPrintf(
         "%s: %s", it->first.c_str(), it->second.c_str())));
+#endif
+
   }
   dict->SetBoolean("fin", fin);
   dict->SetBoolean("unidirectional", unidirectional);
