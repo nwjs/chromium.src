@@ -52,6 +52,7 @@ class CC_EXPORT PicturePileBase : public base::RefCounted<PicturePileBase> {
   TilingData tiling_;
   Region recorded_region_;
   float min_contents_scale_;
+  SkColor background_color_;
 
  private:
   void SetBufferPixels(int buffer_pixels);

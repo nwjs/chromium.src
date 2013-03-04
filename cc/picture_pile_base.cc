@@ -5,6 +5,8 @@
 #include "cc/picture_pile_base.h"
 
 #include "base/logging.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/gfx/rect_conversions.h"
 
 namespace {
 // Dimensions of the tiles in this picture pile as well as the dimensions of
@@ -15,7 +17,8 @@ const int kBasePictureSize = 3000;
 namespace cc {
 
 PicturePileBase::PicturePileBase()
-    : min_contents_scale_(0) {
+    : min_contents_scale_(0)
+    , background_color_(SkColorSetARGBInline(0, 0, 0, 0)) {
   tiling_.SetMaxTextureSize(gfx::Size(kBasePictureSize, kBasePictureSize));
 }
 
@@ -84,6 +87,7 @@ void PicturePileBase::PushPropertiesTo(PicturePileBase* other) {
   other->tiling_ = tiling_;
   other->recorded_region_ = recorded_region_;
   other->min_contents_scale_ = min_contents_scale_;
+  other->background_color_ = background_color_;
 }
 
 void PicturePileBase::UpdateRecordedRegion() {
