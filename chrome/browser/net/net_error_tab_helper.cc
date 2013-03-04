@@ -134,7 +134,7 @@ void NetErrorTabHelper::PostStartDnsProbeTask() {
 }
 
 bool NetErrorTabHelper::ProbesAllowed() const {
-  return (enabled_for_testing_ == TESTING_FORCE_ENABLED);
+  return false;
 }
 
 void NetErrorTabHelper::set_enabled_for_testing(bool enabled_for_testing) {
