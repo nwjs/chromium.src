@@ -38,8 +38,6 @@ static const int kInternetProtocolReadIndex = 9;
 static const int kInternetProtocolStartExIndex = 13;
 static const int kInternetProtocolLockRequestIndex = 11;
 static const int kInternetProtocolUnlockRequestIndex = 12;
-static const int kInternetProtocolAbortIndex = 5;
-static const int kInternetProtocolTerminateIndex = 6;
 
 
 // IInternetProtocol/Ex patches.
@@ -66,20 +64,10 @@ STDMETHODIMP Hook_Read(InternetProtocol_Read_Fn orig_read,
                        ULONG* size_read);
 
 STDMETHODIMP Hook_LockRequest(InternetProtocol_LockRequest_Fn orig_req,
-                              IInternetProtocol* protocol,
-                              DWORD options);
+                              IInternetProtocol* protocol, DWORD dwOptions);
 
 STDMETHODIMP Hook_UnlockRequest(InternetProtocol_UnlockRequest_Fn orig_req,
                                 IInternetProtocol* protocol);
-
-STDMETHODIMP Hook_Abort(InternetProtocol_Abort_Fn orig_req,
-                        IInternetProtocol* protocol,
-                        HRESULT hr,
-                        DWORD options);
-
-STDMETHODIMP Hook_Terminate(InternetProtocol_Terminate_Fn orig_req,
-                            IInternetProtocol* protocol,
-                            DWORD options);
 
 /////////////////////////////////////////////////////////////////////////////
 BEGIN_VTABLE_PATCHES(CTransaction)
@@ -87,8 +75,6 @@ BEGIN_VTABLE_PATCHES(CTransaction)
   VTABLE_PATCH_ENTRY(kInternetProtocolReadIndex, Hook_Read)
   VTABLE_PATCH_ENTRY(kInternetProtocolLockRequestIndex, Hook_LockRequest)
   VTABLE_PATCH_ENTRY(kInternetProtocolUnlockRequestIndex, Hook_UnlockRequest)
-  VTABLE_PATCH_ENTRY(kInternetProtocolAbortIndex, Hook_Abort)
-  VTABLE_PATCH_ENTRY(kInternetProtocolTerminateIndex, Hook_Terminate)
 END_VTABLE_PATCHES()
 
 BEGIN_VTABLE_PATCHES(CTransaction2)
@@ -821,8 +807,7 @@ STDMETHODIMP Hook_Read(InternetProtocol_Read_Fn orig_read,
 }
 
 STDMETHODIMP Hook_LockRequest(InternetProtocol_LockRequest_Fn orig_req,
-                              IInternetProtocol* protocol,
-                              DWORD options) {
+                              IInternetProtocol* protocol, DWORD options) {
   DCHECK(orig_req);
 
   scoped_refptr<ProtData> prot_data = ProtData::DataFromProtocol(protocol);
@@ -851,33 +836,6 @@ STDMETHODIMP Hook_UnlockRequest(InternetProtocol_UnlockRequest_Fn orig_req,
   // reports.
   ExceptionBarrierReportOnlyModule barrier;
   return orig_req(protocol);
-}
-
-STDMETHODIMP Hook_Abort(InternetProtocol_Abort_Fn orig_req,
-                        IInternetProtocol* protocol,
-                        HRESULT hr,
-                        DWORD options) {
-  scoped_refptr<ProtData> prot_data = ProtData::DataFromProtocol(protocol);
-  if (prot_data)
-    prot_data->Invalidate();
-
-  // We are just pass through at this point, avoid false positive crash
-  // reports.
-  ExceptionBarrierReportOnlyModule barrier;
-  return orig_req(protocol, hr, options);
-}
-
-STDMETHODIMP Hook_Terminate(InternetProtocol_Terminate_Fn orig_req,
-                            IInternetProtocol* protocol,
-                            DWORD options) {
-  scoped_refptr<ProtData> prot_data = ProtData::DataFromProtocol(protocol);
-  if (prot_data)
-    prot_data->Invalidate();
-
-  // We are just pass through at this point, avoid false positive crash
-  // reports.
-  ExceptionBarrierReportOnlyModule barrier;
-  return orig_req(protocol, options);
 }
 
 // Patching / Hooking code.

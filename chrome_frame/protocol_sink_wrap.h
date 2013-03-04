@@ -40,10 +40,7 @@ typedef HRESULT (STDMETHODCALLTYPE* InternetProtocol_LockRequest_Fn)(
     IInternetProtocol* this_object, DWORD options);
 typedef HRESULT (STDMETHODCALLTYPE* InternetProtocol_UnlockRequest_Fn)(
     IInternetProtocol* this_object);
-typedef HRESULT (STDMETHODCALLTYPE* InternetProtocol_Abort_Fn)(
-    IInternetProtocol* this_object,  HRESULT hr, DWORD options);
-typedef HRESULT (STDMETHODCALLTYPE* InternetProtocol_Terminate_Fn)(
-    IInternetProtocol* this_object, DWORD options);
+
 
 class ProtData;
 
