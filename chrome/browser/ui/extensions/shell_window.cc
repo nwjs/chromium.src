@@ -356,8 +356,7 @@ void ShellWindow::OnNativeWindowChanged() {
   DictionaryValue* dictionary = new DictionaryValue();
   args.Append(dictionary);
 
-  gfx::Rect bounds = native_app_window_->GetBounds();
-  bounds.Inset(native_app_window_->GetFrameInsets());
+  gfx::Rect bounds = GetClientBounds();
   app_window::Bounds update;
   update.left.reset(new int(bounds.x()));
   update.top.reset(new int(bounds.y()));
@@ -397,6 +396,12 @@ NativeAppWindow* ShellWindow::GetBaseWindow() {
 
 gfx::NativeWindow ShellWindow::GetNativeWindow() {
   return GetBaseWindow()->GetNativeWindow();
+}
+
+gfx::Rect ShellWindow::GetClientBounds() const {
+  gfx::Rect bounds = native_app_window_->GetBounds();
+  bounds.Inset(native_app_window_->GetFrameInsets());
+  return bounds;
 }
 
 string16 ShellWindow::GetTitle() const {
@@ -609,7 +614,8 @@ void ShellWindow::SaveWindowPosition() {
       extensions::ExtensionSystem::Get(profile())->
           shell_window_geometry_cache();
 
-  gfx::Rect bounds = native_app_window_->GetBounds();
+  gfx::Rect bounds = native_app_window_->GetRestoredBounds();
+  bounds.Inset(native_app_window_->GetFrameInsets());
   cache->SaveGeometry(extension()->id(), window_key_, bounds);
 }
 
