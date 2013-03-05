@@ -8,7 +8,6 @@
 
 #include <map>
 
-#include "base/strings/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
@@ -28,7 +27,7 @@ namespace {
 std::string GetTransientIdForDeviceId(const std::string& device_id) {
   chrome::MediaFileSystemRegistry* registry =
       g_browser_process->media_file_system_registry();
-  return base::Uint64ToString(registry->GetTransientIdForDeviceId(device_id));
+  return registry->GetTransientIdForDeviceId(device_id);
 }
 
 }  // namespace

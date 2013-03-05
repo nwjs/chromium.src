@@ -83,7 +83,7 @@ MediaFileSystemInfo::MediaFileSystemInfo(const std::string& fs_name,
                                          const base::FilePath& fs_path,
                                          const std::string& filesystem_id,
                                          MediaGalleryPrefId pref_id,
-                                         uint64 transient_device_id,
+                                         const std::string& transient_device_id,
                                          bool removable,
                                          bool media_device)
     : name(fs_name),
@@ -96,6 +96,7 @@ MediaFileSystemInfo::MediaFileSystemInfo(const std::string& fs_name,
 }
 
 MediaFileSystemInfo::MediaFileSystemInfo() {}
+MediaFileSystemInfo::~MediaFileSystemInfo() {}
 
 // Tracks the liveness of multiple RenderProcessHosts that the caller is
 // interested in. Once all of the RPHs have closed or been terminated a call
@@ -399,9 +400,9 @@ class ExtensionGalleriesHost
     callback.Run(result);
   }
 
-  uint64 GetTransientIdForRemovableDeviceId(const std::string& device_id) {
+  std::string GetTransientIdForRemovableDeviceId(const std::string& device_id) {
     if (!MediaStorageUtil::IsRemovableDevice(device_id))
-      return 0;
+      return std::string();
     MediaFileSystemRegistry* registry =
         file_system_context_->GetMediaFileSystemRegistry();
     return registry->GetTransientIdForDeviceId(device_id);
@@ -432,12 +433,11 @@ class ExtensionGalleriesHost
         MediaFileSystemRegistry::kGalleryIdKey, pref_id);
 
     // |device_id| can be empty, in which case, just omit it.
-    uint64 transient_device_id =
+    std::string transient_device_id =
         GetTransientIdForRemovableDeviceId(device_id);
-    if (transient_device_id) {
+    if (!transient_device_id.empty()) {
       dict_value.SetStringWithoutPathExpansion(
-          MediaFileSystemRegistry::kDeviceIdKey,
-          base::Uint64ToString(transient_device_id));
+          MediaFileSystemRegistry::kDeviceIdKey, transient_device_id);
     }
     dict_value.SetStringWithoutPathExpansion(
         "DEPRECATED",
@@ -629,7 +629,7 @@ size_t MediaFileSystemRegistry::GetExtensionHostCountForTests() const {
   return extension_hosts_map_.size();
 }
 
-uint64 MediaFileSystemRegistry::GetTransientIdForDeviceId(
+std::string MediaFileSystemRegistry::GetTransientIdForDeviceId(
     const std::string& device_id) {
   return transient_device_ids_.GetTransientIdForDeviceId(device_id);
 }

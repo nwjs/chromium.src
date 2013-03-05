@@ -6,27 +6,32 @@
 
 #include "chrome/browser/media_gallery/transient_device_ids.h"
 
+#include "base/guid.h"
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "chrome/browser/system_monitor/media_storage_util.h"
 
 namespace chrome {
 
-TransientDeviceIds::TransientDeviceIds() : next_transient_id_(1) {}
+TransientDeviceIds::TransientDeviceIds() {}
 
 TransientDeviceIds::~TransientDeviceIds() {}
 
-uint64 TransientDeviceIds::GetTransientIdForDeviceId(
+std::string TransientDeviceIds::GetTransientIdForDeviceId(
     const std::string& device_id) {
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(MediaStorageUtil::IsRemovableDevice(device_id));
 
-  bool inserted =
-      id_map_.insert(std::make_pair(device_id, next_transient_id_)).second;
-  if (inserted) {
-    // Inserted a device that has never been seen before.
-    ++next_transient_id_;
+  if (!ContainsKey(device_id_map_, device_id)) {
+    std::string transient_id;
+    do {
+      transient_id = base::GenerateGUID();
+    } while (ContainsKey(transient_id_map_, transient_id));
+
+    device_id_map_[device_id] = transient_id;
+    transient_id_map_[transient_id] = device_id;
   }
-  return id_map_[device_id];
+  return device_id_map_[device_id];
 }
 
 }  // namespace chrome
