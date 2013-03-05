@@ -121,10 +121,8 @@ BrowserPolicyConnector::BrowserPolicyConnector()
     chromeos::CryptohomeLibrary* cryptohome =
         cros_library->GetCryptohomeLibrary();
     install_attributes_.reset(new EnterpriseInstallAttributes(cryptohome));
-    base::FilePath install_attrs_file;
-    CHECK(PathService::Get(chrome::FILE_INSTALL_ATTRIBUTES,
-                           &install_attrs_file));
-    install_attributes_->ReadCacheFile(install_attrs_file);
+    install_attributes_->ReadCacheFile(
+        base::FilePath(policy::EnterpriseInstallAttributes::kCacheFilePath));
 
     scoped_ptr<DeviceCloudPolicyStoreChromeOS> device_cloud_policy_store(
         new DeviceCloudPolicyStoreChromeOS(
