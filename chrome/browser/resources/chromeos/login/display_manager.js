@@ -688,6 +688,13 @@ cr.define('cr.ui.login', function() {
         localStrings.getString('disabledAddUserTooltip') : '';
   }
 
+  /**
+   * Clears password field in user-pod.
+   */
+  DisplayManager.clearUserPodPassword = function() {
+    $('pod-row').clearFocusedPod();
+  };
+
   // Export
   return {
     DisplayManager: DisplayManager
