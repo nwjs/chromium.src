@@ -55,7 +55,6 @@ void PepperBrokerInfoBarDelegate::Show(
   // it can only come installed with the OS.
   if (plugin_path.BaseName().value() ==
           FILE_PATH_LITERAL(kNetflixPluginFileName)) {
-    tab_content_settings->SetPepperBrokerAllowed(true);
     callback.Run(true);
     return;
   }
