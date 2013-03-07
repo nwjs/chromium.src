@@ -56,7 +56,6 @@
       'action': [
         'gcc',                 # invoke host gcc.
         '-E',                  # stop after preprocessing.
-        '-D', 'ANDROID',       # Specify ANDROID define for pre-processor.
         '-x', 'c-header',      # treat sources as C header files
         '-P',                  # disable line markers, i.e. '#line 309'
         '-I', '<(DEPTH)',      # Add project top-level to include path

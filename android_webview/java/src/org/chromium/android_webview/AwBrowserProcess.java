@@ -11,6 +11,7 @@ import org.chromium.base.PathUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.content.app.LibraryLoader;
 import org.chromium.content.browser.AndroidBrowserProcess;
+import org.chromium.content.browser.ResourceExtractor;
 import org.chromium.content.common.ProcessInitException;
 
 /**
@@ -34,11 +35,7 @@ public abstract class AwBrowserProcess {
     public static void loadLibrary() {
         PathUtils.setPrivateDataDirectorySuffix(PRIVATE_DATA_DIRECTORY_SUFFIX);
         LibraryLoader.setLibraryToLoad(NATIVE_LIBRARY);
-        try {
-            LibraryLoader.loadNow();
-        } catch (ProcessInitException e) {
-            throw new RuntimeException("Cannot load WebView", e);
-        }
+        LibraryLoader.loadNow();
     }
 
     // TODO(joth): remove when downstream is using new version below.
