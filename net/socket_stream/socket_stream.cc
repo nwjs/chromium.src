@@ -1143,10 +1143,9 @@ GURL SocketStream::ProxyAuthOrigin() const {
 }
 
 int SocketStream::HandleCertificateRequest(int result, SSLConfig* ssl_config) {
-  if (ssl_config->send_client_cert) {
+  if (ssl_config->send_client_cert)
     // We already have performed SSL client authentication once and failed.
     return result;
-  }
 
   DCHECK(socket_.get());
   scoped_refptr<SSLCertRequestInfo> cert_request_info = new SSLCertRequestInfo;
@@ -1161,22 +1160,14 @@ int SocketStream::HandleCertificateRequest(int result, SSLConfig* ssl_config) {
   if (!session.get())
     return result;
 
-  // If the user selected one of the certificates in client_certs or declined
-  // to provide one for this server before, use the past decision
-  // automatically.
   scoped_refptr<X509Certificate> client_cert;
-  if (!session->ssl_client_auth_cache()->Lookup(
-          cert_request_info->host_and_port, &client_cert)) {
+  bool found_cached_cert = session->ssl_client_auth_cache()->Lookup(
+      cert_request_info->host_and_port, &client_cert);
+  if (!found_cached_cert)
     return result;
-  }
+  if (!client_cert)
+    return result;
 
-  // Note: |client_cert| may be NULL, indicating that the caller
-  // wishes to proceed anonymously (eg: continue the handshake
-  // without sending a client cert)
-  //
-  // Check that the certificate selected is still a certificate the server
-  // is likely to accept, based on the criteria supplied in the
-  // CertificateRequest message.
   const std::vector<scoped_refptr<X509Certificate> >& client_certs =
       cert_request_info->client_certs;
   bool cert_still_valid = false;
@@ -1186,7 +1177,7 @@ int SocketStream::HandleCertificateRequest(int result, SSLConfig* ssl_config) {
       break;
     }
   }
-  if (client_cert && !cert_still_valid)
+  if (!cert_still_valid)
     return result;
 
   ssl_config->send_client_cert = true;
