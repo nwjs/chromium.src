@@ -609,7 +609,7 @@ void ShellWindow::SaveWindowPosition() {
       extensions::ExtensionSystem::Get(profile())->
           shell_window_geometry_cache();
 
-  gfx::Rect bounds = native_app_window_->GetBounds();
+  gfx::Rect bounds = native_app_window_->GetRestoredBounds();
   cache->SaveGeometry(extension()->id(), window_key_, bounds);
 }
 
