@@ -30,7 +30,7 @@ static const char kHUPCullRedirectsFieldTrialName[] = "OmniboxHUPCullRedirects";
 static const char kHUPCreateShorterMatchFieldTrialName[] =
     "OmniboxHUPCreateShorterMatch";
 static const char kHQPReplaceHUPScoringFieldTrialName[] =
-    "OmniboxHQPReplaceHUPHostFix";
+    "OmniboxHQPReplaceHUPProhibitTrumpingInlineableResult";
 static const char kHQPOnlyCountMatchesAtWordBoundariesFieldTrialName[] =
     "OmniboxHQPOnlyCountMatchesAtWordBoundaries";
 static const char kHQPUseCursorPositionFieldTrialName[] =
