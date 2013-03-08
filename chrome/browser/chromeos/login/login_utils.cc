@@ -18,6 +18,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "base/path_service.h"
+#include "base/prefs/json_pref_store.h"
 #include "base/prefs/pref_service.h"
 #include "base/prefs/public/pref_member.h"
 #include "base/string_util.h"
@@ -66,6 +67,7 @@
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
+#include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -144,8 +146,12 @@ class JobRestartRequest
           &JobRestartRequest::RestartJob);
       // Post task on FILE thread thus it occurs last on task queue, so it
       // would be executed after committing pending write on file thread.
-      BrowserThread::PostTask(
-          BrowserThread::FILE, FROM_HERE,
+      scoped_refptr<base::SequencedTaskRunner> local_state_task_runner =
+          JsonPrefStore::GetTaskRunnerForFile(
+              base::FilePath(chrome::kLocalStorePoolName),
+              BrowserThread::GetBlockingPool());
+      local_state_task_runner->PostTask(
+          FROM_HERE,
           base::Bind(&JobRestartRequest::RestartJob, this));
     } else {
       RestartJob();
