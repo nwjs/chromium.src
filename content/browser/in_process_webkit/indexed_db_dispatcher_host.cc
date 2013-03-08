@@ -287,6 +287,7 @@ void IndexedDBDispatcherHost::FinishTransaction(
         database_dispatcher_host_->transaction_url_map_[host_transaction_id]);
   database_dispatcher_host_->transaction_url_map_.erase(host_transaction_id);
   database_dispatcher_host_->transaction_size_map_.erase(host_transaction_id);
+  database_dispatcher_host_->transaction_database_map_.erase(host_transaction_id);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -332,6 +333,23 @@ IndexedDBDispatcherHost::DatabaseDispatcherHost::~DatabaseDispatcherHost() {
 }
 
 void IndexedDBDispatcherHost::DatabaseDispatcherHost::CloseAll() {
+  // Abort outstanding transactions started by connections in the associated
+  // front-end to unblock later transactions. This should only occur on unclean
+  // (crash) or abrupt (process-kill) shutdowns.
+  for (TransactionIDToDatabaseIDMap::iterator iter =
+           transaction_database_map_.begin();
+       iter != transaction_database_map_.end();) {
+    int64 transaction_id = iter->first;
+    int32 ipc_database_id = iter->second;
+    ++iter;
+    WebIDBDatabase* database = map_.Lookup(ipc_database_id);
+    if (database) {
+      database->abort(transaction_id, WebIDBDatabaseError(
+          WebKit::WebIDBDatabaseExceptionUnknownError));
+    }
+  }
+  DCHECK(transaction_database_map_.empty());
+
   for (WebIDBObjectIDToURLMap::iterator iter = database_url_map_.begin();
        iter != database_url_map_.end(); iter++) {
     WebIDBDatabase* database = map_.Lookup(iter->first);
@@ -434,6 +452,7 @@ void IndexedDBDispatcherHost::DatabaseDispatcherHost::OnCreateTransaction(
       new IndexedDBDatabaseCallbacks(parent_, params.ipc_thread_id,
                                      params.ipc_database_response_id),
       object_stores, params.mode);
+  transaction_database_map_[host_transaction_id] = params.ipc_database_id;
   parent_->RegisterTransactionId(host_transaction_id,
                                  database_url_map_[params.ipc_database_id]);
 }
