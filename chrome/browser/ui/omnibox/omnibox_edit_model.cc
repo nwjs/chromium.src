@@ -606,12 +606,12 @@ void OmniboxEditModel::OpenMatch(const AutocompleteMatch& match,
           match.fill_into_edit.length() - match.inline_autocomplete_offset;
     }
 
-    if (disposition == CURRENT_TAB) {
+    if ((disposition == CURRENT_TAB) && web_contents) {
       // If we know the destination is being opened in the current tab,
       // we can easily get the tab ID.  (If it's being opened in a new
       // tab, we don't know the tab ID yet.)
       log.tab_id = SessionTabHelper::FromWebContents(
-          controller_->GetWebContents())->session_id().id();
+          web_contents)->session_id().id();
     }
     autocomplete_controller_->AddProvidersInfo(&log.providers_info);
     content::NotificationService::current()->Notify(
