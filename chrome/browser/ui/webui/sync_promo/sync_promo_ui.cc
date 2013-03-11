@@ -132,8 +132,7 @@ bool SyncPromoUI::ShouldShowSyncPromo(Profile* profile) {
   // Display the signin promo if the user is not signed in.
   SigninManager* signin = SigninManagerFactory::GetForProfile(
       profile->GetOriginalProfile());
-  return !signin->AuthInProgress() &&
-      signin->GetAuthenticatedUsername().empty();
+  return signin->GetAuthenticatedUsername().empty();
 #endif
 }
 
