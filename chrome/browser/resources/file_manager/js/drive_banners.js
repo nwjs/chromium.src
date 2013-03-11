@@ -17,8 +17,7 @@ function FileListBannerController(directoryModel, volumeManager, document) {
 
   if (!util.boardIs('x86-mario') &&
       !util.boardIs('x86-zgb') &&
-      !util.boardIs('x86-alex') &&
-      !util.boardIs('stout')) {
+      !util.boardIs('x86-alex')) {
     this.checkPromoAvailable_();
   } else {
     this.newWelcome_ = false;
