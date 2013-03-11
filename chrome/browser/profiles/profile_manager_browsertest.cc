@@ -3,8 +3,11 @@
 // found in the LICENSE file.
 
 #include "base/bind.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -27,10 +30,10 @@ void OnUnblockOnProfileCreation(Profile* profile,
 
 // TODO(jeremy): crbug.com/103355 - These tests should be enabled on all
 // platforms.
-#if defined(OS_MACOSX)
 class ProfileManagerBrowserTest : public InProcessBrowserTest {
 };
 
+#if defined(OS_MACOSX)
 // Delete single profile and make sure a new one is created.
 IN_PROC_BROWSER_TEST_F(ProfileManagerBrowserTest, DeleteSingletonProfile) {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
