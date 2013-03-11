@@ -103,7 +103,6 @@ AutofillPopupControllerImpl::AutofillPopupControllerImpl(
       element_bounds_(element_bounds),
       selected_line_(kNoSelection),
       delete_icon_hovered_(false),
-      is_hiding_(false),
       weak_ptr_factory_(this) {
 #if !defined(OS_ANDROID)
   subtext_font_ = name_font_.DeriveFont(kLabelFontSizeDelta);
@@ -170,18 +169,14 @@ void AutofillPopupControllerImpl::Show(
 }
 
 void AutofillPopupControllerImpl::Hide() {
-  if (is_hiding_)
-    return;
-  is_hiding_ = true;
-
   SetSelectedLine(kNoSelection);
 
   delegate_->OnPopupHidden(this);
 
   if (view_)
     view_->Hide();
-  else
-    delete this;
+
+  delete this;
 }
 
 bool AutofillPopupControllerImpl::HandleKeyPressEvent(
@@ -210,10 +205,6 @@ bool AutofillPopupControllerImpl::HandleKeyPressEvent(
     default:
       return false;
   }
-}
-
-void AutofillPopupControllerImpl::ViewDestroyed() {
-  delete this;
 }
 
 void AutofillPopupControllerImpl::UpdateBoundsAndRedrawPopup() {
