@@ -188,7 +188,7 @@ class ImeAdapter {
             if (showIfNeeded) {
                 showKeyboard();
             }
-        } else if (hasInputType()) {
+        } else if (hasInputType() && showIfNeeded) {
             showKeyboard();
         }
     }
