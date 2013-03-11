@@ -10,6 +10,4 @@ void AutofillPopupView::Hide() {
 
 AutofillPopupView::AutofillPopupView() : hide_called_(false) {}
 
-AutofillPopupView::~AutofillPopupView() {
-  CHECK(hide_called_);
-}
+AutofillPopupView::~AutofillPopupView() {}
