@@ -61,8 +61,6 @@ class LocaleChangeGuard : public content::NotificationObserver,
   std::string to_locale_;
   Profile* profile_;
   bool reverted_;
-  bool session_started_;
-  bool main_frame_loaded_;
   content::NotificationRegistrar registrar_;
 
   // We want to show locale change notification in previous language however
