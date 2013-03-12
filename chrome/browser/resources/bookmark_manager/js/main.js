@@ -1664,9 +1664,36 @@ function handleCommand(e) {
   }
 }
 
+<<<<<<< .working
 // Delete on all platforms. On Mac we also allow Meta+Backspace.
 $('delete-command').shortcut = 'U+007F' +
                                (cr.isMac ? ' U+0008 Meta-U+0008' : '');
+=======
+// Execute the copy, cut and paste commands when those events are dispatched by
+// the browser. This allows us to rely on the browser to handle the keyboard
+// shortcuts for these commands.
+function installEventHandlerForCommand(eventName, commandId) {
+  function handle(e) {
+    if (document.activeElement != list || document.activeElement != tree)
+      return;
+    var command = $(commandId);
+    if (!command.disabled) {
+      command.execute();
+      if (e)
+        e.preventDefault();  // Prevent the system beep.
+    }
+  }
+  if (eventName == 'paste') {
+    // Paste is a bit special since we need to do an async call to see if we
+    // can paste because the paste command might not be up to date.
+    document.addEventListener(eventName, function(e) {
+      updatePasteCommand(handle);
+    });
+  } else {
+    document.addEventListener(eventName, handle);
+  }
+}
+>>>>>>> .merge-right.r186312
 
 // Global undo is Ctrl-Z (Command-Z on Mac). It is not in any menu.
 $('undo-command').shortcut = (cr.isMac ? 'Meta' : 'Ctrl') + '-U+005A';
@@ -1691,8 +1718,6 @@ document.addEventListener('command', handleCommand);
 (function() {
   function handle(id) {
     return function(e) {
-      if (document.activeElement != list && document.activeElement != tree)
-        return;
       var command = $(id);
       if (!command.disabled) {
         command.execute();
