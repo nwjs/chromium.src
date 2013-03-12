@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/tab_contents/core_tab_helper_delegate.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/page_navigator.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "ipc/ipc_message.h"
@@ -164,6 +165,22 @@ bool InstantLoader::WebContentsDelegateImpl::OnGoToEntryOffset(int offset) {
 content::WebContents* InstantLoader::WebContentsDelegateImpl::OpenURLFromTab(
     content::WebContents* source,
     const content::OpenURLParams& params) {
+  if (!loader_->supports_instant_) {
+    // If the page doesn't yet support Instant, it hasn't fully loaded.
+    // This is a redirect that we should allow. http://crbug.com/177948
+    content::NavigationController::LoadURLParams load_params(params.url);
+    load_params.transition_type = params.transition;
+    load_params.referrer = params.referrer;
+    load_params.extra_headers = params.extra_headers;
+    load_params.is_renderer_initiated = params.is_renderer_initiated;
+    load_params.transferred_global_request_id =
+        params.transferred_global_request_id;
+    load_params.is_cross_site_redirect = params.is_cross_site_redirect;
+
+    loader_->contents_->GetController().LoadURLWithParams(load_params);
+    return loader_->contents_.get();
+  }
+
   content::WebContents* preview = loader_->contents_.get();
   if (loader_->controller_->CommitIfPossible(INSTANT_COMMIT_NAVIGATED))
     return preview->GetDelegate()->OpenURLFromTab(source, params);
@@ -323,6 +340,8 @@ void InstantLoader::RenderViewGone() {
 }
 
 void InstantLoader::AboutToNavigateMainFrame(const GURL& url) {
+  if (!supports_instant_)
+    return;
   controller_->InstantLoaderAboutToNavigateMainFrame(url);
 }
 
