@@ -1691,6 +1691,8 @@ document.addEventListener('command', handleCommand);
 (function() {
   function handle(id) {
     return function(e) {
+      if (document.activeElement != list && document.activeElement != tree)
+        return;
       var command = $(id);
       if (!command.disabled) {
         command.execute();
