@@ -643,6 +643,7 @@
         'controls/combobox/native_combobox_views_unittest.cc',
         'controls/label_unittest.cc',
         'controls/menu/menu_model_adapter_unittest.cc',
+        'controls/native/native_view_host_aura_unittest.cc',
         'controls/native/native_view_host_unittest.cc',
         'controls/progress_bar_unittest.cc',
         'controls/scrollbar/scrollbar_unittest.cc',
@@ -712,6 +713,7 @@
           'sources/': [
             ['exclude', '../aura/test/test_desktop_delegate.cc'],
             ['exclude', '../aura/test/test_desktop_delegate.h'],
+            ['exclude', 'controls/native/native_view_host_aura_unittest.cc'],
             ['exclude', 'corewm'],
             ['exclude', 'widget/native_widget_aura_unittest.cc'],
           ],
