@@ -65,6 +65,8 @@
 #include "chrome/browser/search_engines/search_provider_install_state_message_filter.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/signin/signin_manager.h"
+#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/speech/chrome_speech_recognition_manager_delegate.h"
 #include "chrome/browser/spellchecker/spellcheck_message_filter.h"
 #include "chrome/browser/ssl/ssl_add_certificate.h"
@@ -75,6 +77,7 @@
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/browser/ui/tab_contents/chrome_web_contents_view_delegate.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
+#include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
 #include "chrome/browser/user_style_sheet_watcher.h"
 #include "chrome/browser/user_style_sheet_watcher_factory.h"
 #include "chrome/browser/view_type_utils.h"
@@ -482,6 +485,16 @@ GURL GetEffectiveInstantURL(const GURL& url, Profile* profile) {
   return effective_url;
 }
 
+GURL GetEffectiveURLForSignin(const GURL& url) {
+  CHECK(SigninManager::IsWebBasedSigninFlowURL(url));
+
+  GURL effective_url(SigninManager::kChromeSigninEffectiveSite);
+  GURL::Replacements replacements;
+  replacements.SetPathStr(url.path());
+  effective_url = effective_url.ReplaceComponents(replacements);
+  return effective_url;
+}
+
 }  // namespace
 
 namespace chrome {
@@ -733,6 +746,13 @@ GURL ChromeContentBrowserClient::GetEffectiveURL(
   if (IsInstantURL(url, profile))
     return GetEffectiveInstantURL(url, profile);
 
+  // If the input |url| should be assigned to the Signin renderer, make its
+  // effective URL distinct from other URLs on the signin service's domain.
+  // Note that the signin renderer will be allowed to sign the user in to
+  // Chrome.
+  if (SigninManager::IsWebBasedSigninFlowURL(url))
+    return GetEffectiveURLForSignin(url);
+
   // If the input |url| is part of an installed app, the effective URL is an
   // extension URL with the ID of that extension as the host. This has the
   // effect of grouping apps together in a common SiteInstance.
@@ -768,6 +788,9 @@ bool ChromeContentBrowserClient::ShouldUseProcessPerSite(
     return false;
 
   if (IsInstantURL(effective_url, profile))
+    return true;
+
+  if (SigninManager::IsWebBasedSigninFlowURL(effective_url))
     return true;
 
   if (!effective_url.SchemeIs(extensions::kExtensionScheme))
@@ -867,6 +890,10 @@ bool ChromeContentBrowserClient::IsSuitableHost(
       instant_service->IsInstantProcess(process_host->GetID()))
     return IsInstantURL(site_url, profile);
 
+  SigninManager* signin_manager = SigninManagerFactory::GetForProfile(profile);
+  if (signin_manager && signin_manager->IsSigninProcess(process_host->GetID()))
+    return SigninManager::IsWebBasedSigninFlowURL(site_url);
+
   ExtensionService* service =
       extensions::ExtensionSystem::Get(profile)->extension_service();
   extensions::ProcessMap* process_map = service->process_map();
@@ -960,6 +987,16 @@ void ChromeContentBrowserClient::SiteInstanceGotProcess(
         InstantServiceFactory::GetForProfile(profile);
     if (instant_service)
       instant_service->AddInstantProcess(site_instance->GetProcess()->GetID());
+  }
+
+  // We only expect there to be one signin process as we use process-per-site
+  // for signin URLs. The signin process will be cleared from SigninManager
+  // when the renderer is destroyed.
+  if (SigninManager::IsWebBasedSigninFlowURL(site_instance->GetSiteURL())) {
+    SigninManager* signin_manager =
+        SigninManagerFactory::GetForProfile(profile);
+    if (signin_manager)
+      signin_manager->SetSigninProcess(site_instance->GetProcess()->GetID());
   }
 
   ExtensionService* service =
@@ -1148,6 +1185,11 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       if (instant_service &&
           instant_service->IsInstantProcess(process->GetID()))
         command_line->AppendSwitch(switches::kInstantProcess);
+
+      SigninManager* signin_manager =
+          SigninManagerFactory::GetForProfile(profile);
+      if (signin_manager && signin_manager->IsSigninProcess(process->GetID()))
+        command_line->AppendSwitch(switches::kSigninProcess);
     }
 
     if (content::IsThreadedCompositingEnabled())

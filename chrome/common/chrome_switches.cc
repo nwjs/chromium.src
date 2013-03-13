@@ -1199,6 +1199,9 @@ const char kShowIcons[]                     = "show-icons";
 // If true the alignment of the launcher can be changed.
 const char kShowLauncherAlignmentMenu[]     = "show-launcher-alignment-menu";
 
+// Marks a renderer as the signin process.
+const char kSigninProcess[]                 = "signin-process";
+
 // Enables or disables sideload wipeout extension effort.
 const char kSideloadWipeout[]               = "sideload-wipeout";
 
