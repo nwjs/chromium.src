@@ -65,6 +65,8 @@ const char kGoogleAccountsUrl[] = "https://accounts.google.com";
 
 const int kInvalidProcessId = -1;
 
+const char kChromiumSyncService[] = "service=chromiumsync";
+
 }  // namespace
 
 // This class fetches GAIA cookie on IO thread on behalf of SigninManager which
@@ -167,7 +169,10 @@ bool SigninManager::IsWebBasedSigninFlowURL(const GURL& url) {
   if (url.GetOrigin() != service_login.GetOrigin())
     return false;
 
-  return url.path() == service_login.path();
+  // Any login UI URLs with signin=chromiumsync should be considered a web
+  // URL (relies on GAIA keeping the "service=chromiumsync" query string
+  // fragment intact even when embedding inside a "continue" parameter).
+  return url.query().find(kChromiumSyncService) != std::string::npos;
 }
 
 // static
