@@ -29,6 +29,9 @@
       <message desc="Content description for the input javascript modal dialog prompt. [CHAR-LIMIT=32]" name="IDS_ACCESSIBILITY_JS_MODAL_DIALOG_PROMPT">
         Prompt
       </message>
+      <message desc="Dialog box title for viewing security certificates. [CHAR-LIMIT=32]" name="IDS_CERTTITLE">
+        Certificate Viewer
+      </message>
     </messages>
   </release>
   <translations>
