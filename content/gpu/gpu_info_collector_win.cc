@@ -330,11 +330,6 @@ bool CollectDriverInfoD3D(const std::wstring& device_id,
                           content::GPUInfo* gpu_info) {
   TRACE_EVENT0("gpu", "CollectDriverInfoD3D");
 
-  base::WorkerPool::PostTask(
-      FROM_HERE,
-      base::Bind(CollectD3D11Support),
-      false);
-
   // create device info for the display device
   HDEVINFO device_info = SetupDiGetClassDevsW(
       NULL, device_id.c_str(), NULL,
