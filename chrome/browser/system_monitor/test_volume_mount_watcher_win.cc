@@ -131,5 +131,9 @@ bool TestVolumeMountWatcherWin::GetRawDeviceInfo(
       device_path, device_location, unique_id, name, removable);
 }
 
+void TestVolumeMountWatcherWin::ShutdownWorkerPool() {
+  device_info_worker_pool_->Shutdown();
+}
+
 }  // namespace test
 }  // namespace chrome

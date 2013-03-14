@@ -14,6 +14,7 @@
 #include "base/callback.h"
 #include "base/file_path.h"
 #include "base/memory/weak_ptr.h"
+#include "base/sequenced_task_runner.h"
 #include "base/string16.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/system_monitor/removable_storage_notifications.h"
@@ -90,6 +91,7 @@ class VolumeMountWatcherWin {
   // devices freeze workers trying to get device info, resulting in
   // shutdown hangs.
   scoped_refptr<base::SequencedWorkerPool> device_info_worker_pool_;
+  scoped_refptr<base::SequencedTaskRunner> task_runner_;
 
   // These closures can be overridden for testing to remove calling Windows API
   // functions.
