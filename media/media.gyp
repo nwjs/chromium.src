@@ -723,6 +723,12 @@
             '../build/linux/system.gyp:gtk',
           ],
         }],
+        # ios check is necessary due to http://crbug.com/172682.
+        ['OS != "ios" and (target_arch == "ia32" or target_arch == "x64")', {
+          'dependencies': [
+            'media_sse',
+          ],
+        }],
       ],
       'target_conditions': [
         ['OS == "ios"', {
@@ -923,12 +929,15 @@
             }],
           ],
         }],
-        [ 'target_arch=="ia32" or target_arch=="x64"', {
+        ['OS != "ios" and (target_arch=="ia32" or target_arch=="x64")', {
           'sources': [
             'base/simd/convert_rgb_to_yuv_unittest.cc',
           ],
+          'dependencies': [
+            'media_sse',
+          ],
         }],
-        [ 'screen_capture_supported == 0', {
+        ['screen_capture_supported == 0', {
           'sources/': [
             ['exclude', '^video/capture/screen/'],
           ],
@@ -1483,6 +1492,28 @@
             'video/capture/screen/differ_block_sse2.h',
           ],
         }, # end of target differ_block_sse2
+      ],
+    }],
+    # ios check is necessary due to http://crbug.com/172682.
+    ['OS != "ios" and (target_arch=="ia32" or target_arch=="x64")', {
+      'targets': [
+        {
+          'target_name': 'media_sse',
+          'type': 'static_library',
+          'cflags': [
+            '-msse',
+          ],
+          'include_dirs': [
+            '..',
+          ],
+          'defines': [
+            'MEDIA_IMPLEMENTATION',
+          ],
+          'sources': [
+            'base/simd/sinc_resampler_sse.cc',
+            'base/simd/vector_math_sse.cc',
+          ],
+        }, # end of target media_sse
       ],
     }],
   ],
