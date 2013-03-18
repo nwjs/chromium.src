@@ -1276,6 +1276,7 @@ ErrorCode GpuProcessPolicy(int sysno, void *broker_process) {
   switch(sysno) {
     case __NR_ioctl:
     case __NR_sched_getaffinity:
+    case __NR_sched_setaffinity:
       return ErrorCode(ErrorCode::ERR_ALLOWED);
     case __NR_open:
     case __NR_openat:
