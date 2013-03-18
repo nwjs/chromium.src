@@ -42,6 +42,7 @@
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_urls.h"
+#include "net/base/escape.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -171,8 +172,10 @@ bool SigninManager::IsWebBasedSigninFlowURL(const GURL& url) {
 
   // Any login UI URLs with signin=chromiumsync should be considered a web
   // URL (relies on GAIA keeping the "service=chromiumsync" query string
-  // fragment intact even when embedding inside a "continue" parameter).
-  return url.query().find(kChromiumSyncService) != std::string::npos;
+  // fragment present even when embedding inside a "continue" parameter).
+  return net::UnescapeURLComponent(
+      url.query(), net::UnescapeRule::URL_SPECIAL_CHARS)
+          .find(kChromiumSyncService) != std::string::npos;
 }
 
 // static
