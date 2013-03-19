@@ -2923,7 +2923,6 @@ DialogType.isModal = function(type) {
    * @private
    */
   FileManager.prototype.onBeforeUnload_ = function() {
-    this.butterBar_.forceDeleteAndHide();
     if (this.filePopup_ &&
         this.filePopup_.contentWindow &&
         this.filePopup_.contentWindow.beforeunload) {
