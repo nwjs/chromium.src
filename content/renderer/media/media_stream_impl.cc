@@ -282,6 +282,10 @@ MediaStreamImpl::GetAudioRenderer(const GURL& url) {
       static_cast<MediaStreamExtraData*>(descriptor.extraData());
 
   if (extra_data->remote_stream()) {
+    if (!extra_data->remote_stream()->audio_tracks() ||
+        extra_data->remote_stream()->audio_tracks()->count() == 0)
+      return NULL;
+
     WebRtcAudioDeviceImpl* audio_device =
         dependency_factory_->GetWebRtcAudioDevice();
 
