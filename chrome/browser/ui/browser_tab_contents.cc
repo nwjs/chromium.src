@@ -108,13 +108,6 @@ void BrowserTabContents::AttachTabHelpers(WebContents* web_contents) {
   TabAutofillManagerDelegate::CreateForWebContents(web_contents);
   AutofillManager::CreateForWebContentsAndDelegate(
       web_contents, TabAutofillManagerDelegate::FromWebContents(web_contents));
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableNewAutofillUi)) {
-    AutofillExternalDelegate::CreateForWebContentsAndManager(
-        web_contents, AutofillManager::FromWebContents(web_contents));
-    AutofillManager::FromWebContents(web_contents)->SetExternalDelegate(
-        AutofillExternalDelegate::FromWebContents(web_contents));
-  }
   BlockedContentTabHelper::CreateForWebContents(web_contents);
   BookmarkTabHelper::CreateForWebContents(web_contents);
   chrome_browser_net::LoadTimeStatsTabHelper::CreateForWebContents(
