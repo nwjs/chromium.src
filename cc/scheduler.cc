@@ -128,7 +128,6 @@ void Scheduler::didSwapBuffersComplete()
 void Scheduler::didLoseOutputSurface()
 {
     TRACE_EVENT0("cc", "Scheduler::didLoseOutputSurface");
-    m_frameRateController->didAbortAllPendingFrames();
     m_stateMachine.didLoseOutputSurface();
     processScheduledActions();
 }
@@ -136,6 +135,7 @@ void Scheduler::didLoseOutputSurface()
 void Scheduler::didRecreateOutputSurface()
 {
     TRACE_EVENT0("cc", "Scheduler::didRecreateOutputSurface");
+    m_frameRateController->didAbortAllPendingFrames();
     m_stateMachine.didRecreateOutputSurface();
     processScheduledActions();
 }
