@@ -6,6 +6,7 @@
 
 #include "base/message_loop.h"
 #include "base/time.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_pref_service.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -72,6 +73,56 @@ TEST_F(SyncPrefsTest, Basic) {
   EXPECT_EQ("token", sync_prefs.GetEncryptionBootstrapToken());
 }
 
+#if defined(OS_ANDROID)
+#define MAYBE_DefaultTypes DefaultTypes
+#else
+#define MAYBE_DefaultTypes DISABLED_DefaultTypes
+#endif
+TEST_F(SyncPrefsTest, MAYBE_DefaultTypes) {
+  SyncPrefs sync_prefs(&pref_service_);
+  sync_prefs.SetKeepEverythingSynced(false);
+
+  // Only bookmarks are enabled by default.
+  syncer::ModelTypeSet preferred_types = sync_prefs.GetPreferredDataTypes(
+      syncer::UserTypes());
+  EXPECT_TRUE(preferred_types.Equals(syncer::ModelTypeSet(syncer::BOOKMARKS)));
+
+  // Simulate an upgrade to passwords and autofill support. None of the
+  // new types or their pref group types should be registering, ensuring they
+  // don't have pref values.
+  syncer::ModelTypeSet registered_types = syncer::UserTypes();
+  registered_types.Remove(syncer::PASSWORDS);
+  registered_types.Remove(syncer::AUTOFILL);
+  registered_types.Remove(syncer::AUTOFILL_PROFILE);
+
+  // Enable all other types.
+  sync_prefs.SetPreferredDataTypes(registered_types,
+                                   registered_types);
+  EXPECT_FALSE(preferred_types.Has(syncer::AUTOFILL));
+  EXPECT_FALSE(preferred_types.Has(syncer::AUTOFILL_PROFILE));
+  EXPECT_TRUE(preferred_types.Has(syncer::BOOKMARKS));
+  EXPECT_FALSE(preferred_types.Has(syncer::PASSWORDS));
+
+  // Now manually enable autofill, which should result in autofill profile also
+  // being enabled.
+  pref_service_.SetBoolean(prefs::kSyncAutofill, true);
+  preferred_types =
+      sync_prefs.GetPreferredDataTypes(syncer::UserTypes());
+  EXPECT_TRUE(preferred_types.Has(syncer::AUTOFILL));
+  EXPECT_TRUE(preferred_types.Has(syncer::AUTOFILL_PROFILE));
+  EXPECT_TRUE(preferred_types.Has(syncer::BOOKMARKS));
+  EXPECT_FALSE(preferred_types.Has(syncer::PASSWORDS));
+
+  // Now manually enable passwords.
+  pref_service_.SetBoolean(prefs::kSyncPasswords, true);
+  preferred_types =
+      sync_prefs.GetPreferredDataTypes(syncer::UserTypes());
+  EXPECT_TRUE(preferred_types.Has(syncer::AUTOFILL));
+  EXPECT_TRUE(preferred_types.Has(syncer::AUTOFILL_PROFILE));
+  EXPECT_TRUE(preferred_types.Has(syncer::BOOKMARKS));
+  EXPECT_TRUE(preferred_types.Has(syncer::PASSWORDS));
+}
+
 TEST_F(SyncPrefsTest, PreferredTypesKeepEverythingSynced) {
   SyncPrefs sync_prefs(&pref_service_);
 
@@ -97,8 +148,13 @@ TEST_F(SyncPrefsTest, PreferredTypesNotKeepEverythingSynced) {
   sync_prefs.SetKeepEverythingSynced(false);
 
   const syncer::ModelTypeSet user_types = syncer::UserTypes();
+#if defined(OS_ANDROID)
+  EXPECT_FALSE(user_types.Equals(
+      sync_prefs.GetPreferredDataTypes(user_types)));
+#else
   EXPECT_TRUE(user_types.Equals(
       sync_prefs.GetPreferredDataTypes(user_types)));
+#endif
   const syncer::ModelTypeSet user_visible_types = GetUserVisibleTypes();
   for (syncer::ModelTypeSet::Iterator it = user_visible_types.First();
        it.Good(); it.Inc()) {

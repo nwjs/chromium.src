@@ -56,18 +56,27 @@ void SyncPrefs::RegisterUserPrefs(PrefService* prefs,
                               0,
                               PrefRegistrySyncable::UNSYNCABLE_PREF);
 
-  // If you've never synced before, or if you're using Chrome OS or Android,
-  // all datatypes are on by default.
   // TODO(nick): Perhaps a better model would be to always default to false,
   // and explicitly call SetDataTypes() when the user shows the wizard.
-#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
-  bool enable_by_default = true;
+#if defined(OS_CHROMEOS)
+  // If you're using Chrome OS all datatypes are on by default.
+  bool enable_sync_everything_by_default = true;
+  bool enable_specific_datatypes_by_default = true;
+#elif defined(OS_ANDROID)
+  // If you're using Android sync everything flag is on by default, but the
+  // individual datatypes are turned off by default.
+  bool enable_sync_everything_by_default = true;
+  bool enable_specific_datatypes_by_default = false;
 #else
-  bool enable_by_default = !prefs->HasPrefPath(prefs::kSyncHasSetupCompleted);
+  // If you've never synced before all datatypes are on by default.
+  bool enable_sync_everything_by_default =
+      !prefs->HasPrefPath(prefs::kSyncHasSetupCompleted);
+  bool enable_specific_datatypes_by_default =
+      !prefs->HasPrefPath(prefs::kSyncHasSetupCompleted);
 #endif
 
   registry->RegisterBooleanPref(prefs::kSyncKeepEverythingSynced,
-                                enable_by_default,
+                                enable_sync_everything_by_default,
                                 PrefRegistrySyncable::UNSYNCABLE_PREF);
 
   syncer::ModelTypeSet user_types = syncer::UserTypes();
@@ -82,7 +91,8 @@ void SyncPrefs::RegisterUserPrefs(PrefService* prefs,
 
   for (syncer::ModelTypeSet::Iterator it = user_types.First();
        it.Good(); it.Inc()) {
-    RegisterDataTypePreferredPref(registry, it.Get(), enable_by_default);
+    RegisterDataTypePreferredPref(
+        registry, it.Get(), enable_specific_datatypes_by_default);
   }
 
   registry->RegisterBooleanPref(prefs::kSyncManaged,
