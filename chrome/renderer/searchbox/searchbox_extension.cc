@@ -913,7 +913,7 @@ void SearchBoxExtension::DispatchResize(WebKit::WebFrame* frame) {
 // static
 bool SearchBoxExtension::PageSupportsInstant(WebKit::WebFrame* frame) {
   if (!frame) return false;
-
+  v8::HandleScope handle_scope;
   v8::Handle<v8::Value> v = frame->executeScriptAndReturnValue(
       WebKit::WebScriptSource(kSupportsInstantScript));
   return !v.IsEmpty() && v->BooleanValue();
