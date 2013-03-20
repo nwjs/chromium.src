@@ -783,6 +783,7 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kOldCheckboxStyle,
       ::switches::kUIEnablePartialSwap,
       ::switches::kUIEnableThreadedCompositing,
+      ::switches::kUIMaxFramesPending,
       ::switches::kUIPrioritizeInGpuProcess,
 #if defined(USE_CRAS)
       ::switches::kUseCras,

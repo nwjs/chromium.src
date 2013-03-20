@@ -12,6 +12,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/threading/non_thread_safe.h"
 #include "cc/output_surface.h"
 #include "cc/output_surface_client.h"
@@ -300,6 +301,16 @@ class BrowserCompositorOutputSurface
         surface_id_(surface_id),
         client_(NULL),
         output_surface_proxy_(output_surface_proxy) {
+    CommandLine* command_line = CommandLine::ForCurrentProcess();
+    if (command_line->HasSwitch(switches::kUIMaxFramesPending)) {
+      std::string string_value = command_line->GetSwitchValueASCII(
+        switches::kUIMaxFramesPending);
+      int int_value;
+      if (base::StringToInt(string_value, &int_value))
+        capabilities_.max_frames_pending = int_value;
+      else
+        LOG(ERROR) << "Trouble parsing --" << switches::kUIMaxFramesPending;
+    }
     DetachFromThread();
   }
 
