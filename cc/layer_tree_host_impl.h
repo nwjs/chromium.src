@@ -260,6 +260,8 @@ public:
     void beginNextFrame();
     base::TimeTicks currentFrameTime();
 
+    bool pageScaleAnimationActive() const { return !!m_pageScaleAnimation; }
+
 protected:
     LayerTreeHostImpl(const LayerTreeSettings&, LayerTreeHostImplClient*, Proxy*);
     void activatePendingTree();
