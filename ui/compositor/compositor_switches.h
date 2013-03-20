@@ -16,7 +16,6 @@ COMPOSITOR_EXPORT extern const char kUIShowLayerBorders[];
 COMPOSITOR_EXPORT extern const char kUIShowLayerTree[];
 COMPOSITOR_EXPORT extern const char kUIEnablePerTilePainting[];
 COMPOSITOR_EXPORT extern const char kUIEnableThreadedCompositing[];
-COMPOSITOR_EXPORT extern const char kUIMaxFramesPending[];
 
 }  // namespace switches
 

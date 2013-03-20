@@ -39,11 +39,9 @@ class CC_EXPORT OutputSurface : public WebKit::WebCompositorOutputSurface {
 
   struct Capabilities {
     Capabilities()
-        : has_parent_compositor(false),
-          max_frames_pending(0) {}
+        : has_parent_compositor(false) {}
 
     bool has_parent_compositor;
-    int max_frames_pending;
   };
 
   virtual const Capabilities& Capabilities() const = 0;
