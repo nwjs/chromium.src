@@ -10,7 +10,7 @@
 
 // Constants for the new menu style field trial.
 const char kNewMenuStyleFieldTrialName[] = "NewMenuStyle";
-const char kNewMenuStyleFieldTrialGroupName[] = "OldStyle";
+const char kNewMenuStyleFieldTrialGroupName[] = "NewStyle";
 
 namespace ui {
 
@@ -33,7 +33,7 @@ bool NativeTheme::IsNewMenuStyleEnabled() {
   // Run experiment only if there is no kDisableNewMenuStyle flag.
   if (enable_new_menu_style) {
     enable_new_menu_style =
-        base::FieldTrialList::FindFullName(kNewMenuStyleFieldTrialName) !=
+        base::FieldTrialList::FindFullName(kNewMenuStyleFieldTrialName) ==
         kNewMenuStyleFieldTrialGroupName;
   }
   return enable_new_menu_style;
