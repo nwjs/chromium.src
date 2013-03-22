@@ -595,6 +595,29 @@ TYPED_TEST_P(CookieStoreTest, PathTest) {
   this->MatchCookieLines("A=C", this->GetCookies(cs, GURL(url + "/")));
 }
 
+TYPED_TEST_P(CookieStoreTest, EmptyExpires) {
+  scoped_refptr<CookieStore> cs(this->GetCookieStore());
+  CookieOptions options;
+  GURL url("http://www7.ipdl.inpit.go.jp/Tokujitu/tjkta.ipdl?N0000=108");
+  std::string set_cookie_line =
+      "ACSTM=20130308043820420042; path=/; domain=ipdl.inpit.go.jp; Expires=";
+  std::string cookie_line = "ACSTM=20130308043820420042";
+
+  this->SetCookieWithOptions( cs, url, set_cookie_line, options);
+  this->MatchCookieLines(cookie_line,
+                         this->GetCookiesWithOptions(cs, url, options));
+
+  options.set_server_time(base::Time::Now() - base::TimeDelta::FromHours(1));
+  this->SetCookieWithOptions( cs, url, set_cookie_line, options);
+  this->MatchCookieLines(cookie_line,
+                         this->GetCookiesWithOptions(cs, url, options));
+
+  options.set_server_time(base::Time::Now() + base::TimeDelta::FromHours(1));
+  this->SetCookieWithOptions( cs, url, set_cookie_line, options);
+  this->MatchCookieLines(cookie_line,
+                         this->GetCookiesWithOptions(cs, url, options));
+}
+
 TYPED_TEST_P(CookieStoreTest, HttpOnlyTest) {
   if (!TypeParam::supports_http_only)
     return;
@@ -907,9 +930,9 @@ REGISTER_TYPED_TEST_CASE_P(CookieStoreTest,
     TypeTest, DomainTest, DomainWithTrailingDotTest, ValidSubdomainTest,
     InvalidDomainTest, DomainWithoutLeadingDotTest, CaseInsensitiveDomainTest,
     TestIpAddress, TestNonDottedAndTLD, TestHostEndsWithDot, InvalidScheme,
-    InvalidScheme_Read, PathTest, HttpOnlyTest, TestGetCookiesWithInfo,
-    TestCookieDeletion, TestDeleteAllCreatedBetween, TestSecure,
-    NetUtilCookieTest, OverwritePersistentCookie, CookieOrdering);
+    InvalidScheme_Read, PathTest, EmptyExpires, HttpOnlyTest,
+    TestGetCookiesWithInfo, TestCookieDeletion, TestDeleteAllCreatedBetween,
+    TestSecure, NetUtilCookieTest, OverwritePersistentCookie, CookieOrdering);
 
 template<class CookieStoreTestTraits>
 class MultiThreadedCookieStoreTest :

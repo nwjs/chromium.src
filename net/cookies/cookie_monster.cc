@@ -1724,6 +1724,8 @@ bool CookieMonster::SetCanonicalCookie(scoped_ptr<CanonicalCookie>* cc,
     }
 
     InternalInsertCookie(key, cc->release(), true);
+  } else {
+    VLOG(kVlogSetCookies) << "SetCookie() not storing already expired cookie.";
   }
 
   // We assume that hopefully setting a cookie will be less common than
