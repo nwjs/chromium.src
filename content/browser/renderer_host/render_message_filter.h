@@ -22,7 +22,6 @@
 #include "content/common/pepper_renderer_instance_data.h"
 #include "content/public/browser/browser_message_filter.h"
 #include "content/public/common/three_d_api_types.h"
-#include "media/audio/audio_parameters.h"
 #include "media/base/channel_layout.h"
 #include "net/cookies/canonical_cookie.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
@@ -191,8 +190,9 @@ class RenderMessageFilter : public BrowserMessageFilter {
 
   void OnGetCPUUsage(int* cpu_usage);
 
-  void OnGetAudioHardwareConfig(media::AudioParameters* input_params,
-                                media::AudioParameters* output_params);
+  void OnGetAudioHardwareConfig(int* output_buffer_size,
+                                int* output_sample_rate, int* input_sample_rate,
+                                media::ChannelLayout* input_channel_layout);
 
   // Used to look up the monitor color profile.
   void OnGetMonitorColorProfile(std::vector<char>* profile);

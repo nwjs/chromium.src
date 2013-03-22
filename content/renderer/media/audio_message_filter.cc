@@ -172,22 +172,7 @@ void AudioMessageFilter::OnOutputDeviceChanged(int stream_id,
   if (!audio_hardware_config_)
     return;
 
-  // TODO(crogers): fix OnOutputDeviceChanged() to pass AudioParameters.
-  media::ChannelLayout channel_layout =
-      audio_hardware_config_->GetOutputChannelLayout();
-  int channels = audio_hardware_config_->GetOutputChannels();
-
-  media::AudioParameters output_params;
-  output_params.Reset(
-      media::AudioParameters::AUDIO_PCM_LOW_LATENCY,
-      channel_layout,
-      channels,
-      0,
-      new_sample_rate,
-      16,
-      new_buffer_size);
-
-  audio_hardware_config_->UpdateOutputConfig(output_params);
+  audio_hardware_config_->UpdateOutputConfig(new_buffer_size, new_sample_rate);
 }
 
 void AudioMessageFilter::SetAudioHardwareConfig(

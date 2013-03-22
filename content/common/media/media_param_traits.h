@@ -5,7 +5,6 @@
 #ifndef CONTENT_COMMON_MEDIA_MEDIA_PARAM_TRAITS_H_
 #define CONTENT_COMMON_MEDIA_MEDIA_PARAM_TRAITS_H_
 
-#include "content/common/content_export.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_param_traits.h"
 
@@ -17,7 +16,7 @@ struct VideoCaptureParams;
 namespace IPC {
 
 template <>
-struct CONTENT_EXPORT ParamTraits<media::AudioParameters> {
+struct ParamTraits<media::AudioParameters> {
   typedef media::AudioParameters param_type;
   static void Write(Message* m, const param_type& p);
   static bool Read(const Message* m, PickleIterator* iter, param_type* r);
@@ -25,7 +24,7 @@ struct CONTENT_EXPORT ParamTraits<media::AudioParameters> {
 };
 
 template <>
-struct CONTENT_EXPORT ParamTraits<media::VideoCaptureParams> {
+struct ParamTraits<media::VideoCaptureParams> {
   typedef media::VideoCaptureParams param_type;
   static void Write(Message* m, const param_type& p);
   static bool Read(const Message* m, PickleIterator* iter, param_type* r);

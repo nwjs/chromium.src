@@ -132,8 +132,9 @@ class WebRTCAudioDeviceTest : public ::testing::Test, public IPC::Listener {
   void CreateChannel(const char* name);
   void DestroyChannel();
 
-  void OnGetAudioHardwareConfig(media::AudioParameters* input_params,
-                                media::AudioParameters* output_params);
+  void OnGetAudioHardwareConfig(int* output_buffer_size,
+                                int* output_sample_rate, int* input_sample_rate,
+                                media::ChannelLayout* input_channel_layout);
 
   // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
