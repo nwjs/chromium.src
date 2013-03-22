@@ -1521,6 +1521,10 @@
             'browser/extensions/extension_nacl_browsertest.cc',
             'browser/nacl_host/test/gdb_debug_stub_browsertest.cc',
           ],
+          'dependencies': [
+            # Runtime dependency.
+            '../ppapi/native_client/src/trusted/plugin/plugin.gyp:ppGoogleNaClPluginChrome',
+          ],
           'conditions': [
             ['disable_nacl_untrusted==0', {
               'sources': [
@@ -1584,7 +1588,7 @@
             'browser/printing/cloud_print/test/cloud_print_proxy_process_browsertest.cc',
             'browser/service/service_process_control_browsertest.cc',
             # chromeos does not use cross-platform panels
-	    'browser/ui/panels/panel_extension_browsertest.cc',
+            'browser/ui/panels/panel_extension_browsertest.cc',
           ],
           'dependencies': [
             '../dbus/dbus.gyp:dbus_test_support',
@@ -1805,6 +1809,13 @@
           'sources!': [
             'browser/notifications/message_center_notifications_browsertest.cc',
             'browser/ui/views/message_center/web_notification_tray_win_browsertest.cc',
+          ],
+        }],
+        ['enable_plugins==1', {
+          'dependencies': [
+            # Runtime dependency.
+            '../third_party/widevine/cdm/widevine_cdm.gyp:widevinecdmadapter',
+            '../webkit/support/webkit_support.gyp:clearkeycdmadapter',
           ],
         }],
       ],  # conditions
