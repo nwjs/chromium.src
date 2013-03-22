@@ -44,6 +44,9 @@ class CC_EXPORT Tile : public base::RefCounted<Tile> {
   }
 
   void set_priority(WhichTree tree, const TilePriority& priority) {
+    if (priority_[tree] == priority)
+      return;
+
     tile_manager_->WillModifyTilePriority(this, tree, priority);
     priority_[tree] = priority;
   }
