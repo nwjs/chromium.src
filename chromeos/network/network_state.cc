@@ -37,6 +37,8 @@ bool NetworkState::PropertyChanged(const std::string& key,
     return GetStringValue(key, value, &technology_);
   } else if (key == flimflam::kDeviceProperty) {
     return GetStringValue(key, value, &device_path_);
+  } else if (key == shill::kOutOfCreditsProperty) {
+    return GetBooleanValue(key, value, &cellular_out_of_credits_);
   }
   return false;
 }

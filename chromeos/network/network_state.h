@@ -33,6 +33,7 @@ class CHROMEOS_EXPORT NetworkState : public ManagedState {
   const std::string& activation_state() const { return activation_state_; }
   const std::string& roaming() const { return roaming_; }
   int signal_strength() const { return signal_strength_; }
+  bool cellular_out_of_credits() const { return cellular_out_of_credits_; }
 
   bool IsConnectedState() const;
   bool IsConnectingState() const;
@@ -62,6 +63,7 @@ class CHROMEOS_EXPORT NetworkState : public ManagedState {
   std::string technology_;
   std::string activation_state_;
   std::string roaming_;
+  bool cellular_out_of_credits_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkState);
 };

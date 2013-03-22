@@ -7,6 +7,7 @@
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/system/chromeos/network/network_observer.h"
+#include "ash/system/chromeos/network/network_tray_delegate.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_notifier.h"
 #include "base/bind.h"
@@ -57,6 +58,7 @@ class NetworkMessageNotification : public ash::NetworkTrayDelegate {
       : error_type_(error_type) {
     switch (error_type) {
       case ash::NetworkObserver::ERROR_CONNECT_FAILED:
+      case ash::NetworkObserver::ERROR_OUT_OF_CREDITS:
         title_ = l10n_util::GetStringUTF16(IDS_NETWORK_CONNECTION_ERROR_TITLE);
         return;
       case ash::NetworkObserver::MESSAGE_DATA_PROMO:
@@ -67,7 +69,9 @@ class NetworkMessageNotification : public ash::NetworkTrayDelegate {
   }
 
   // Overridden from ash::NetworkTrayDelegate:
-  virtual void NotificationLinkClicked(size_t index) OVERRIDE {
+  virtual void NotificationLinkClicked(
+      ash::NetworkObserver::MessageType message_type,
+      size_t link_index) OVERRIDE {
     base::ListValue empty_value;
     if (!callback_.is_null())
       callback_.Run(&empty_value);
