@@ -10,7 +10,6 @@
 #include <map>
 #include <queue>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "base/callback.h"
@@ -147,9 +146,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   virtual void AddKeyboardListener(KeyboardListener* listener) OVERRIDE;
   virtual void RemoveKeyboardListener(KeyboardListener* listener) OVERRIDE;
   virtual void GetWebScreenInfo(WebKit::WebScreenInfo* result) OVERRIDE;
-  virtual void GetSnapshotFromRenderer(
-      const gfx::Rect& src_subrect,
-      const base::Callback<void(bool, const SkBitmap&)>& callback) OVERRIDE;
 
   // Notification that the screen info has changed.
   void NotifyScreenInfoChanged();
@@ -606,7 +602,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnWindowlessPluginDummyWindowDestroyed(
       gfx::NativeViewId dummy_activation_window);
 #endif
-  void OnSnapshot(bool success, const SkBitmap& bitmap);
 
   // Called (either immediately or asynchronously) after we're done with our
   // BackingStore and can send an ACK to the renderer so it can paint onto it
@@ -865,9 +860,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 #if defined(OS_WIN)
   std::list<HWND> dummy_windows_for_activation_;
 #endif
-
-  // List of callbacks for pending snapshot requests to the renderer.
-  std::queue<base::Callback<void(bool, const SkBitmap&)> > pending_snapshots_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostImpl);
 };
