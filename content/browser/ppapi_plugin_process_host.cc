@@ -39,19 +39,11 @@ namespace content {
 class PpapiPluginSandboxedProcessLauncherDelegate
     : public content::SandboxedProcessLauncherDelegate {
  public:
-  explicit PpapiPluginSandboxedProcessLauncherDelegate(bool is_broker)
-      : is_broker_(is_broker) {}
+  PpapiPluginSandboxedProcessLauncherDelegate() {}
   virtual ~PpapiPluginSandboxedProcessLauncherDelegate() {}
-
-  virtual void ShouldSandbox(bool* in_sandbox) OVERRIDE {
-    if (is_broker_)
-      *in_sandbox = false;
-  }
 
   virtual void PreSpawnTarget(sandbox::TargetPolicy* policy,
                               bool* success) {
-    if (is_broker_)
-      return;
     // The Pepper process as locked-down as a renderer execpt that it can
     // create the server side of chrome pipes.
     sandbox::ResultCode result;
@@ -60,11 +52,6 @@ class PpapiPluginSandboxedProcessLauncherDelegate
                              L"\\\\.\\pipe\\chrome.*");
     *success = (result == sandbox::SBOX_ALL_OK);
   }
-
- private:
-  bool is_broker_;
-
-  DISALLOW_COPY_AND_ASSIGN(PpapiPluginSandboxedProcessLauncherDelegate);
 };
 #endif  // OS_WIN
 
@@ -322,7 +309,7 @@ bool PpapiPluginProcessHost::Init(const PepperPluginInfo& info) {
 #endif  // OS_POSIX
   process_->Launch(
 #if defined(OS_WIN)
-      new PpapiPluginSandboxedProcessLauncherDelegate(is_broker_),
+      is_broker_ ? NULL : new PpapiPluginSandboxedProcessLauncherDelegate,
 #elif defined(OS_POSIX)
       use_zygote,
       base::EnvironmentVector(),

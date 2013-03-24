@@ -164,6 +164,8 @@
     'common/database_util.h',
     'common/db_message_filter.cc',
     'common/db_message_filter.h',
+    'common/debug_flags.cc',
+    'common/debug_flags.h',
     'common/desktop_notification_messages.h',
     'common/device_motion_messages.h',
     'common/device_orientation_messages.h',
