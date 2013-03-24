@@ -60,7 +60,7 @@ void executeCalculateDrawProperties(Layer* rootLayer, float deviceScaleFactor = 
 
     // We are probably not testing what is intended if the rootLayer bounds are empty.
     DCHECK(!rootLayer->bounds().IsEmpty());
-    LayerTreeHostCommon::CalculateDrawProperties(rootLayer, deviceViewportSize, deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, canUseLCDText, &dummyRenderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(rootLayer, deviceViewportSize, deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, canUseLCDText, dummyRenderSurfaceLayerList);
 }
 
 void executeCalculateDrawProperties(LayerImpl* rootLayer, float deviceScaleFactor = 1, float pageScaleFactor = 1, bool canUseLCDText = false)
@@ -72,7 +72,7 @@ void executeCalculateDrawProperties(LayerImpl* rootLayer, float deviceScaleFacto
 
     // We are probably not testing what is intended if the rootLayer bounds are empty.
     DCHECK(!rootLayer->bounds().IsEmpty());
-    LayerTreeHostCommon::CalculateDrawProperties(rootLayer, deviceViewportSize, deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, canUseLCDText, &dummyRenderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(rootLayer, deviceViewportSize, deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, canUseLCDText, dummyRenderSurfaceLayerList, false);
 }
 
 scoped_ptr<LayerImpl> createTreeForFixedPositionTests(LayerTreeHostImpl* hostImpl)
@@ -891,7 +891,7 @@ TEST(LayerTreeHostCommonTest, verifyRenderSurfaceListForRenderSurfaceWithClipped
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // The child layer's content is entirely outside the parent's clip rect, so the intermediate
     // render surface should not be listed here, even if it was forced to be created. Render surfaces without children or visible
@@ -918,7 +918,7 @@ TEST(LayerTreeHostCommonTest, verifyRenderSurfaceListForTransparentChild)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // Since the layer is transparent, renderSurface1->render_surface() should not have gotten added anywhere.
     // Also, the drawable content rect should not have been extended by the children.
@@ -950,7 +950,7 @@ TEST(LayerTreeHostCommonTest, verifyForceRenderSurface)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // The root layer always creates a renderSurface
     EXPECT_TRUE(parent->render_surface());
@@ -959,7 +959,7 @@ TEST(LayerTreeHostCommonTest, verifyForceRenderSurface)
 
     renderSurfaceLayerList.clear();
     renderSurface1->SetForceRenderSurface(false);
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
     EXPECT_TRUE(parent->render_surface());
     EXPECT_FALSE(renderSurface1->render_surface());
     EXPECT_EQ(1U, renderSurfaceLayerList.size());
@@ -1574,7 +1574,7 @@ TEST(LayerTreeHostCommonTest, verifyClipRectCullsRenderSurfaces)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     ASSERT_EQ(2U, renderSurfaceLayerList.size());
     EXPECT_EQ(parent->id(), renderSurfaceLayerList[0]->id());
@@ -1621,7 +1621,7 @@ TEST(LayerTreeHostCommonTest, verifyClipRectCullsSurfaceWithoutVisibleContent)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // Without an animation, we should cull child and grandChild from the renderSurfaceLayerList.
     ASSERT_EQ(1U, renderSurfaceLayerList.size());
@@ -1635,7 +1635,7 @@ TEST(LayerTreeHostCommonTest, verifyClipRectCullsSurfaceWithoutVisibleContent)
     grandChild->ClearRenderSurface();
     renderSurfaceLayerList.clear();
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // With an animating transform, we should keep child and grandChild in the renderSurfaceLayerList.
     ASSERT_EQ(3U, renderSurfaceLayerList.size());
@@ -1687,7 +1687,7 @@ TEST(LayerTreeHostCommonTest, verifyIsClippedIsSetCorrectly)
     // Case 1: nothing is clipped except the root renderSurface.
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     ASSERT_TRUE(root->render_surface());
     ASSERT_TRUE(child2->render_surface());
@@ -1708,7 +1708,7 @@ TEST(LayerTreeHostCommonTest, verifyIsClippedIsSetCorrectly)
     // that clip.
     renderSurfaceLayerList.clear();
     parent->SetMasksToBounds(true);
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     ASSERT_TRUE(root->render_surface());
     ASSERT_TRUE(child2->render_surface());
@@ -1728,7 +1728,7 @@ TEST(LayerTreeHostCommonTest, verifyIsClippedIsSetCorrectly)
     renderSurfaceLayerList.clear();
     parent->SetMasksToBounds(false);
     child2->SetMasksToBounds(true);
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     ASSERT_TRUE(root->render_surface());
     ASSERT_TRUE(child2->render_surface());
@@ -1787,7 +1787,7 @@ TEST(LayerTreeHostCommonTest, verifydrawable_content_rectForLayers)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_RECT_EQ(gfx::Rect(gfx::Point(5, 5), gfx::Size(10, 10)), grandChild1->drawable_content_rect());
     EXPECT_RECT_EQ(gfx::Rect(gfx::Point(15, 15), gfx::Size(5, 5)), grandChild3->drawable_content_rect());
@@ -1857,7 +1857,7 @@ TEST(LayerTreeHostCommonTest, verifyClipRectIsPropagatedCorrectlyToSurfaces)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     ASSERT_TRUE(grandChild1->render_surface());
     ASSERT_TRUE(grandChild2->render_surface());
@@ -2021,18 +2021,18 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectForIdentityTransform)
     // Case 1: Layer is contained within the surface.
     gfx::Rect layerContentRect = gfx::Rect(gfx::Point(10, 10), gfx::Size(30, 30));
     gfx::Rect expected = gfx::Rect(gfx::Point(10, 10), gfx::Size(30, 30));
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 
     // Case 2: Layer is outside the surface rect.
     layerContentRect = gfx::Rect(gfx::Point(120, 120), gfx::Size(30, 30));
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_TRUE(actual.IsEmpty());
 
     // Case 3: Layer is partially overlapping the surface rect.
     layerContentRect = gfx::Rect(gfx::Point(80, 80), gfx::Size(30, 30));
     expected = gfx::Rect(gfx::Point(80, 80), gfx::Size(20, 20));
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 }
 
@@ -2048,20 +2048,20 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectForTranslations)
     layerToSurfaceTransform.MakeIdentity();
     layerToSurfaceTransform.Translate(10, 10);
     gfx::Rect expected = gfx::Rect(gfx::Point(0, 0), gfx::Size(30, 30));
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 
     // Case 2: Layer is outside the surface rect.
     layerToSurfaceTransform.MakeIdentity();
     layerToSurfaceTransform.Translate(120, 120);
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_TRUE(actual.IsEmpty());
 
     // Case 3: Layer is partially overlapping the surface rect.
     layerToSurfaceTransform.MakeIdentity();
     layerToSurfaceTransform.Translate(80, 80);
     expected = gfx::Rect(gfx::Point(0, 0), gfx::Size(20, 20));
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 }
 
@@ -2079,14 +2079,14 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor2DRotations)
     layerToSurfaceTransform.Translate(50, 50);
     layerToSurfaceTransform.Rotate(45);
     gfx::Rect expected = gfx::Rect(gfx::Point(0, 0), gfx::Size(30, 30));
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 
     // Case 2: Layer is outside the surface rect.
     layerToSurfaceTransform.MakeIdentity();
     layerToSurfaceTransform.Translate(-50, 0);
     layerToSurfaceTransform.Rotate(45);
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_TRUE(actual.IsEmpty());
 
     // Case 3: The layer is rotated about its top-left corner. In surface space, the layer
@@ -2097,7 +2097,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor2DRotations)
     layerToSurfaceTransform.MakeIdentity();
     layerToSurfaceTransform.Rotate(45);
     expected = gfx::Rect(gfx::Point(0, 0), gfx::Size(30, 30));
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 
     // Case 4: The layer is rotated about its top-left corner, and translated upwards. In
@@ -2109,7 +2109,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor2DRotations)
     layerToSurfaceTransform.Translate(0, -sqrt(2.0) * 15);
     layerToSurfaceTransform.Rotate(45);
     expected = gfx::Rect(gfx::Point(15, 0), gfx::Size(15, 30)); // right half of layer bounds.
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 }
 
@@ -2125,7 +2125,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor3dOrthographicTransform)
     layerToSurfaceTransform.MakeIdentity();
     layerToSurfaceTransform.RotateAboutYAxis(45);
     gfx::Rect expected = gfx::Rect(gfx::Point(0, 0), gfx::Size(100, 100));
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 
     // Case 2: Orthographic projection of a layer rotated about y-axis by 45 degrees, but
@@ -2136,7 +2136,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor3dOrthographicTransform)
     layerToSurfaceTransform.Translate(-halfWidthOfRotatedLayer, 0);
     layerToSurfaceTransform.RotateAboutYAxis(45); // rotates about the left edge of the layer
     expected = gfx::Rect(gfx::Point(50, 0), gfx::Size(50, 100)); // right half of the layer.
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 }
 
@@ -2163,7 +2163,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor3dPerspectiveTransform)
     layerToSurfaceTransform.Translate3d(0, 0, -27);
 
     gfx::Rect expected = gfx::Rect(gfx::Point(-50, -50), gfx::Size(200, 200));
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 
     // Case 2: same projection as before, except that the layer is also translated to the
@@ -2176,7 +2176,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor3dPerspectiveTransform)
     //
     layerToSurfaceTransform.Translate3d(-200, 0, 0);
     expected = gfx::Rect(gfx::Point(50, -50), gfx::Size(100, 200)); // The right half of the layer's bounding rect.
-    actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 }
 
@@ -2199,7 +2199,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor3dOrthographicIsNotClippedBehi
     layerToSurfaceTransform.Translate(-50, 0);
 
     gfx::Rect expected = gfx::Rect(gfx::Point(0, 0), gfx::Size(100, 100));
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 }
 
@@ -2232,7 +2232,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectFor3dPerspectiveWhenClippedByW)
 
     int expectedXPosition = 0;
     int expectedWidth = 10;
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_EQ(expectedXPosition, actual.x());
     EXPECT_EQ(expectedWidth, actual.width());
 }
@@ -2265,7 +2265,7 @@ TEST(LayerTreeHostCommonTest, verifyVisibleRectForPerspectiveUnprojection)
     // clipped. But, the net result of rounding visible region to an axis-aligned rect is
     // that the entire layer should still be considered visible.
     gfx::Rect expected = gfx::Rect(gfx::Point(-10, -10), gfx::Size(20, 20));
-    gfx::Rect actual = LayerTreeHostCommon::CalculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
+    gfx::Rect actual = LayerTreeHostCommon::calculateVisibleRect(targetSurfaceRect, layerContentRect, layerToSurfaceTransform);
     EXPECT_RECT_EQ(expected, actual);
 }
 
@@ -2693,7 +2693,7 @@ TEST(LayerTreeHostCommonTest, verifyBackFaceCullingWithoutPreserves3d)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // Verify which renderSurfaces were created.
     EXPECT_FALSE(frontFacingChild->render_surface());
@@ -2792,7 +2792,7 @@ TEST(LayerTreeHostCommonTest, verifyBackFaceCullingWithPreserves3d)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // Verify which renderSurfaces were created.
     EXPECT_FALSE(frontFacingChild->render_surface());
@@ -2872,7 +2872,7 @@ TEST(LayerTreeHostCommonTest, verifyBackFaceCullingWithAnimatingTransforms)
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_FALSE(child->render_surface());
     EXPECT_TRUE(animatingSurface->render_surface());
@@ -2938,7 +2938,7 @@ TEST(LayerTreeHostCommonTest, verifyBackFaceCullingWithPreserves3dForFlatteningS
 
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // Verify which renderSurfaces were created.
     EXPECT_TRUE(frontFacingSurface->render_surface());
@@ -2967,11 +2967,11 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForEmptyLayerList)
     std::vector<LayerImpl*> renderSurfaceLayerList;
 
     gfx::Point testPoint(0, 0);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(10, 20);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 }
 
@@ -2990,7 +2990,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleLayer)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -2998,21 +2998,21 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleLayer)
 
     // Hit testing for a point outside the layer should return a null pointer.
     gfx::Point testPoint(101, 101);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(-1, -1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the root layer.
     testPoint = gfx::Point(1, 1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(99, 99);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -3041,7 +3041,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleLayerAndHud)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), hudBounds, 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), hudBounds, 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3049,21 +3049,21 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleLayerAndHud)
 
     // Hit testing for a point inside HUD, but outside root should return null
     gfx::Point testPoint(101, 101);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(-1, -1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the root layer, never the HUD layer.
     testPoint = gfx::Point(1, 1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(99, 99);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -3090,7 +3090,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForUninvertibleTransform)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3101,31 +3101,31 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForUninvertibleTransform)
     // accidentally ignored and treated like an identity, then the hit testing will
     // incorrectly hit the layer when it shouldn't.
     gfx::Point testPoint(1, 1);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(10, 10);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(10, 30);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(50, 50);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(67, 48);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(99, 99);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(-1, -1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 }
 
@@ -3144,7 +3144,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSinglePositionedLayer)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3152,22 +3152,22 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSinglePositionedLayer)
 
     // Hit testing for a point outside the layer should return a null pointer.
     gfx::Point testPoint(49, 49);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Even though the layer exists at (101, 101), it should not be visible there since the root renderSurface would clamp it.
     testPoint = gfx::Point(101, 101);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the root layer.
     testPoint = gfx::Point(51, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(99, 99);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -3191,7 +3191,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleRotatedLayer)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3200,26 +3200,26 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleRotatedLayer)
     // Hit testing for points outside the layer.
     // These corners would have been inside the un-transformed layer, but they should not hit the correctly transformed layer.
     gfx::Point testPoint(99, 99);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(1, 1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the root layer.
     testPoint = gfx::Point(1, 50);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     // Hit testing the corners that would overlap the unclipped layer, but are outside the clipped region.
     testPoint = gfx::Point(50, -1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_FALSE(resultLayer);
 
     testPoint = gfx::Point(-1, 50);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_FALSE(resultLayer);
 }
 
@@ -3247,7 +3247,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSinglePerspectiveLayer)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3256,21 +3256,21 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSinglePerspectiveLayer)
     // Hit testing for points outside the layer.
     // These corners would have been inside the un-transformed layer, but they should not hit the correctly transformed layer.
     gfx::Point testPoint(24, 24);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(76, 76);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the root layer.
     testPoint = gfx::Point(26, 26);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(74, 74);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -3312,7 +3312,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleLayerWithScaledContents)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     // The visibleContentRect for testLayer is actually 100x100, even though its layout size is 50x50, positioned at 25x25.
@@ -3323,25 +3323,25 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSingleLayerWithScaledContents)
 
     // Hit testing for a point outside the layer should return a null pointer (the root layer does not draw content, so it will not be hit tested either).
     gfx::Point testPoint(101, 101);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(24, 24);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(76, 76);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the test layer.
     testPoint = gfx::Point(26, 26);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(74, 74);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -3376,7 +3376,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSimpleClippedLayer)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3386,22 +3386,22 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForSimpleClippedLayer)
     // Hit testing for a point outside the layer should return a null pointer.
     // Despite the child layer being very large, it should be clipped to the root layer's bounds.
     gfx::Point testPoint(24, 24);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Even though the layer exists at (101, 101), it should not be visible there since the clippingLayer would clamp it.
     testPoint = gfx::Point(76, 76);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the child layer.
     testPoint = gfx::Point(26, 26);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(456, resultLayer->id());
 
     testPoint = gfx::Point(74, 74);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(456, resultLayer->id());
 }
@@ -3466,7 +3466,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForMultiClippedRotatedLayer)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     // The grandChild is expected to create a renderSurface because it masksToBounds and is not axis aligned.
@@ -3478,12 +3478,12 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForMultiClippedRotatedLayer)
 
     // (11, 89) is close to the the bottom left corner within the clip, but it is not inside the layer.
     gfx::Point testPoint(11, 89);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Closer inwards from the bottom left will overlap the layer.
     testPoint = gfx::Point(25, 75);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(2468, resultLayer->id());
 
@@ -3492,24 +3492,24 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForMultiClippedRotatedLayer)
     // visibleContentRect without considering how parent may clip the layer, then hit
     // testing would accidentally think that the point successfully hits the layer.
     testPoint = gfx::Point(4, 50);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // (11, 50) is inside the layer and within the clipped area.
     testPoint = gfx::Point(11, 50);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(2468, resultLayer->id());
 
     // Around the middle, just to the right and up, would have hit the layer except that
     // that area should be clipped away by the parent.
     testPoint = gfx::Point(51, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Around the middle, just to the left and down, should successfully hit the layer.
     testPoint = gfx::Point(49, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(2468, resultLayer->id());
 }
@@ -3548,7 +3548,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForNonClippingIntermediateLayer)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3557,21 +3557,21 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForNonClippingIntermediateLayer)
 
     // Hit testing for a point outside the layer should return a null pointer.
     gfx::Point testPoint(69, 69);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(91, 91);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit testing for a point inside should return the child layer.
     testPoint = gfx::Point(71, 71);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(456, resultLayer->id());
 
     testPoint = gfx::Point(89, 89);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(456, resultLayer->id());
 }
@@ -3628,7 +3628,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForMultipleLayers)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_TRUE(child1);
@@ -3643,37 +3643,37 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForMultipleLayers)
 
     // Nothing overlaps the rootLayer at (1, 1), so hit testing there should find the root layer.
     gfx::Point testPoint = gfx::Point(1, 1);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(1, resultLayer->id());
 
     // At (15, 15), child1 and root are the only layers. child1 is expected to be on top.
     testPoint = gfx::Point(15, 15);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(2, resultLayer->id());
 
     // At (51, 20), child1 and child2 overlap. child2 is expected to be on top.
     testPoint = gfx::Point(51, 20);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(3, resultLayer->id());
 
     // At (80, 51), child2 and grandChild1 overlap. child2 is expected to be on top.
     testPoint = gfx::Point(80, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(3, resultLayer->id());
 
     // At (51, 51), all layers overlap each other. child2 is expected to be on top of all other layers.
     testPoint = gfx::Point(51, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(3, resultLayer->id());
 
     // At (20, 51), child1 and grandChild1 overlap. grandChild1 is expected to be on top.
     testPoint = gfx::Point(20, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(4, resultLayer->id());
 }
@@ -3736,7 +3736,7 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForMultipleLayerLists)
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_TRUE(child1);
@@ -3757,37 +3757,37 @@ TEST(LayerTreeHostCommonTest, verifyHitTestingForMultipleLayerLists)
 
     // Nothing overlaps the rootLayer at (1, 1), so hit testing there should find the root layer.
     gfx::Point testPoint = gfx::Point(1, 1);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(1, resultLayer->id());
 
     // At (15, 15), child1 and root are the only layers. child1 is expected to be on top.
     testPoint = gfx::Point(15, 15);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(2, resultLayer->id());
 
     // At (51, 20), child1 and child2 overlap. child2 is expected to be on top.
     testPoint = gfx::Point(51, 20);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(3, resultLayer->id());
 
     // At (80, 51), child2 and grandChild1 overlap. child2 is expected to be on top.
     testPoint = gfx::Point(80, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(3, resultLayer->id());
 
     // At (51, 51), all layers overlap each other. child2 is expected to be on top of all other layers.
     testPoint = gfx::Point(51, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(3, resultLayer->id());
 
     // At (20, 51), child1 and grandChild1 overlap. grandChild1 is expected to be on top.
     testPoint = gfx::Point(20, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPoint(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(4, resultLayer->id());
 }
@@ -3798,11 +3798,11 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForEmptyLayerL
     std::vector<LayerImpl*> renderSurfaceLayerList;
 
     gfx::Point testPoint(0, 0);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(10, 20);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 }
 
@@ -3822,7 +3822,7 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSingleLayer
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3830,36 +3830,36 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSingleLayer
 
     // Hit checking for any point should return a null pointer for a layer without any touch event handler regions.
     gfx::Point testPoint(11, 11);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     root->SetTouchEventHandlerRegion(touchHandlerRegion);
     // Hit checking for a point outside the layer should return a null pointer.
     testPoint = gfx::Point(101, 101);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(-1, -1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the layer, but outside the touch handler region should return a null pointer.
     testPoint = gfx::Point(1, 1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(99, 99);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the touch event handler region should return the root layer.
     testPoint = gfx::Point(11, 11);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(59, 59);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -3888,7 +3888,7 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForUninvertibl
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3899,31 +3899,31 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForUninvertibl
     // accidentally ignored and treated like an identity, then the hit testing will
     // incorrectly hit the layer when it shouldn't.
     gfx::Point testPoint(1, 1);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(10, 10);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(10, 30);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(50, 50);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(67, 48);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(99, 99);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(-1, -1);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 }
 
@@ -3944,7 +3944,7 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSinglePosit
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -3952,27 +3952,27 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSinglePosit
 
     // Hit checking for a point outside the layer should return a null pointer.
     gfx::Point testPoint(49, 49);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Even though the layer has a touch handler region containing (101, 101), it should not be visible there since the root renderSurface would clamp it.
     testPoint = gfx::Point(101, 101);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the layer, but outside the touch handler region should return a null pointer.
     testPoint = gfx::Point(51, 51);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the touch event handler region should return the root layer.
     testPoint = gfx::Point(61, 61);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(99, 99);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -4016,7 +4016,7 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSingleLayer
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     // The visibleContentRect for testLayer is actually 100x100, even though its layout size is 50x50, positioned at 25x25.
@@ -4027,34 +4027,34 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSingleLayer
 
     // Hit checking for a point outside the layer should return a null pointer (the root layer does not draw content, so it will not be tested either).
     gfx::Point testPoint(76, 76);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the layer, but outside the touch handler region should return a null pointer.
     testPoint = gfx::Point(26, 26);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(34, 34);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(65, 65);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(74, 74);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the touch event handler region should return the root layer.
     testPoint = gfx::Point(35, 35);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(64, 64);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -4092,7 +4092,7 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSingleLayer
     pageScaleTransform.Scale(pageScaleFactor, pageScaleFactor);
     root->SetImplTransform(pageScaleTransform); // Applying the pageScaleFactor through implTransform.
     gfx::Size scaledBoundsForRoot = gfx::ToCeiledSize(gfx::ScaleSize(root->bounds(), deviceScaleFactor * pageScaleFactor));
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), scaledBoundsForRoot, deviceScaleFactor, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), scaledBoundsForRoot, deviceScaleFactor, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     // The visibleContentRect for testLayer is actually 100x100, even though its layout size is 50x50, positioned at 25x25.
@@ -4106,40 +4106,40 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSingleLayer
     // Hit checking for a point outside the layer should return a null pointer (the root layer does not draw content, so it will not be tested either).
     gfx::PointF testPoint(76, 76);
     testPoint = gfx::ScalePoint(testPoint, deviceScaleFactor * pageScaleFactor);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the layer, but outside the touch handler region should return a null pointer.
     testPoint = gfx::Point(26, 26);
     testPoint = gfx::ScalePoint(testPoint, deviceScaleFactor * pageScaleFactor);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(34, 34);
     testPoint = gfx::ScalePoint(testPoint, deviceScaleFactor * pageScaleFactor);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(65, 65);
     testPoint = gfx::ScalePoint(testPoint, deviceScaleFactor * pageScaleFactor);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(74, 74);
     testPoint = gfx::ScalePoint(testPoint, deviceScaleFactor * pageScaleFactor);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the touch event handler region should return the root layer.
     testPoint = gfx::Point(35, 35);
     testPoint = gfx::ScalePoint(testPoint, deviceScaleFactor * pageScaleFactor);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 
     testPoint = gfx::Point(64, 64);
     testPoint = gfx::ScalePoint(testPoint, deviceScaleFactor * pageScaleFactor);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(12345, resultLayer->id());
 }
@@ -4176,7 +4176,7 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSimpleClipp
 
     std::vector<LayerImpl*> renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
-    LayerTreeHostCommon::CalculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList, false);
+    LayerTreeHostCommon::calculateDrawProperties(root.get(), root->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList, false);
 
     // Sanity check the scenario we just created.
     ASSERT_EQ(1u, renderSurfaceLayerList.size());
@@ -4186,26 +4186,26 @@ TEST(LayerTreeHostCommonTest, verifyHitCheckingTouchHandlerRegionsForSimpleClipp
     // Hit checking for a point outside the layer should return a null pointer.
     // Despite the child layer being very large, it should be clipped to the root layer's bounds.
     gfx::Point testPoint(24, 24);
-    LayerImpl* resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    LayerImpl* resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the layer, but outside the touch handler region should return a null pointer.
     testPoint = gfx::Point(35, 35);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     testPoint = gfx::Point(74, 74);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     EXPECT_FALSE(resultLayer);
 
     // Hit checking for a point inside the touch event handler region should return the root layer.
     testPoint = gfx::Point(25, 25);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(456, resultLayer->id());
 
     testPoint = gfx::Point(34, 34);
-    resultLayer = LayerTreeHostCommon::FindLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
+    resultLayer = LayerTreeHostCommon::findLayerThatIsHitByPointInTouchHandlerRegion(testPoint, renderSurfaceLayerList);
     ASSERT_TRUE(resultLayer);
     EXPECT_EQ(456, resultLayer->id());
 }
@@ -4271,7 +4271,7 @@ TEST(LayerTreeHostCommonTest, verifyLayerTransformsInHighDPI)
     const double deviceScaleFactor = 2.5;
     const double pageScaleFactor = 1;
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, child);
@@ -4366,7 +4366,7 @@ TEST(LayerTreeHostCommonTest, verifySurfaceLayerTransformsInHighDPI)
     pageScaleTransform.Scale(pageScaleFactor, pageScaleFactor);
     parent->SetImplTransform(pageScaleTransform);
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, perspectiveSurface);
@@ -4425,7 +4425,7 @@ TEST(LayerTreeHostCommonTest, verifyLayerTransformsInHighDPIAccurateScaleZeroChi
     const float deviceScaleFactor = 1.7f;
     const float pageScaleFactor = 1;
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, child);
@@ -4530,7 +4530,7 @@ TEST(LayerTreeHostCommonTest, verifyContentsScale)
     pageScaleMatrix.Scale(pageScaleFactor, pageScaleFactor);
     parent->SetSublayerTransform(pageScaleMatrix);
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * initialParentScale, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor * initialParentScale * initialChildScale, childScale);
@@ -4561,7 +4561,7 @@ TEST(LayerTreeHostCommonTest, verifyContentsScale)
     parent->SetSublayerTransform(pageScaleMatrix);
 
     renderSurfaceLayerList.clear();
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * initialParentScale, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor * initialParentScale * initialChildScale, childScale);
@@ -4576,7 +4576,7 @@ TEST(LayerTreeHostCommonTest, verifyContentsScale)
     childEmpty->SetTransform(childScaleMatrix);
 
     renderSurfaceLayerList.clear();
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * initialParentScale, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, childScale);
@@ -4593,7 +4593,7 @@ TEST(LayerTreeHostCommonTest, verifyContentsScale)
     parent->SetSublayerTransform(pageScaleMatrix);
 
     renderSurfaceLayerList.clear();
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * initialParentScale, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor, childScale);
@@ -4638,7 +4638,7 @@ TEST(LayerTreeHostCommonTest, verifySmallContentsScale)
     pageScaleMatrix.Scale(pageScaleFactor, pageScaleFactor);
     parent->SetSublayerTransform(pageScaleMatrix);
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * initialParentScale, parent);
     // The child's scale is < 1, so we should not save and use that scale factor.
@@ -4651,7 +4651,7 @@ TEST(LayerTreeHostCommonTest, verifySmallContentsScale)
     childScale->SetTransform(childScaleMatrix);
 
     renderSurfaceLayerList.clear();
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * initialParentScale, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor * initialParentScale * finalChildScale, childScale);
@@ -4735,7 +4735,7 @@ TEST(LayerTreeHostCommonTest, verifyContentsScaleForSurfaces)
     pageScaleMatrix.Scale(pageScaleFactor, pageScaleFactor);
     parent->SetSublayerTransform(pageScaleMatrix);
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, pageScaleFactor, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * initialParentScale, parent);
     EXPECT_CONTENTS_SCALE_EQ(deviceScaleFactor * pageScaleFactor * initialParentScale * initialChildScale, surfaceScale);
@@ -4829,7 +4829,7 @@ TEST(LayerTreeHostCommonTest, verifyContentsScaleForAnimatingLayer)
     std::vector<scoped_refptr<Layer> > renderSurfaceLayerList;
     int dummyMaxTextureSize = 512;
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(initialParentScale, parent);
     // The layers with animating transforms should not compute a contentsScale other than 1 until they finish animating.
@@ -4838,7 +4838,7 @@ TEST(LayerTreeHostCommonTest, verifyContentsScaleForAnimatingLayer)
     // Remove the animation, now it can save a raster scale.
     childScale->layer_animation_controller()->RemoveAnimation(animationId);
 
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), 1, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     EXPECT_CONTENTS_SCALE_EQ(initialParentScale, parent);
     // The layers with animating transforms should not compute a contentsScale other than 1 until they finish animating.
@@ -4875,7 +4875,7 @@ TEST(LayerTreeHostCommonTest, verifyRenderSurfaceTransformsInHighDPI)
     int dummyMaxTextureSize = 512;
 
     const double deviceScaleFactor = 1.5;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // We should have two render surfaces. The root's render surface and child's
     // render surface (it needs one because it has a replica layer).
@@ -4953,7 +4953,7 @@ TEST(LayerTreeHostCommonTest, verifyRenderSurfaceTransformsInHighDPIAccurateScal
     int dummyMaxTextureSize = 512;
 
     const float deviceScaleFactor = 1.7f;
-    LayerTreeHostCommon::CalculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, 1, dummyMaxTextureSize, false, &renderSurfaceLayerList);
+    LayerTreeHostCommon::calculateDrawProperties(parent.get(), parent->bounds(), deviceScaleFactor, 1, dummyMaxTextureSize, false, renderSurfaceLayerList);
 
     // We should have two render surfaces. The root's render surface and child's
     // render surface (it needs one because it has a replica layer).
@@ -4997,12 +4997,12 @@ TEST(LayerTreeHostCommonTest, verifySubtreeSearch)
     root->AddChild(child.get());
 
     int nonexistentId = -1;
-    EXPECT_EQ(root, LayerTreeHostCommon::FindLayerInSubtree(root.get(), root->id()));
-    EXPECT_EQ(child, LayerTreeHostCommon::FindLayerInSubtree(root.get(), child->id()));
-    EXPECT_EQ(grandChild, LayerTreeHostCommon::FindLayerInSubtree(root.get(), grandChild->id()));
-    EXPECT_EQ(maskLayer, LayerTreeHostCommon::FindLayerInSubtree(root.get(), maskLayer->id()));
-    EXPECT_EQ(replicaLayer, LayerTreeHostCommon::FindLayerInSubtree(root.get(), replicaLayer->id()));
-    EXPECT_EQ(0, LayerTreeHostCommon::FindLayerInSubtree(root.get(), nonexistentId));
+    EXPECT_EQ(root, LayerTreeHostCommon::findLayerInSubtree(root.get(), root->id()));
+    EXPECT_EQ(child, LayerTreeHostCommon::findLayerInSubtree(root.get(), child->id()));
+    EXPECT_EQ(grandChild, LayerTreeHostCommon::findLayerInSubtree(root.get(), grandChild->id()));
+    EXPECT_EQ(maskLayer, LayerTreeHostCommon::findLayerInSubtree(root.get(), maskLayer->id()));
+    EXPECT_EQ(replicaLayer, LayerTreeHostCommon::findLayerInSubtree(root.get(), replicaLayer->id()));
+    EXPECT_EQ(0, LayerTreeHostCommon::findLayerInSubtree(root.get(), nonexistentId));
 }
 
 TEST(LayerTreeHostCommonTest, verifyTransparentChildRenderSurfaceCreation)

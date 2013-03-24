@@ -293,7 +293,7 @@ void LayerTreeHost::FinishCommitOnImplThread(LayerTreeHostImpl* host_impl) {
   needs_full_tree_sync_ = false;
 
   if (root_layer_ && hud_layer_) {
-    LayerImpl* hud_impl = LayerTreeHostCommon::FindLayerInSubtree(
+    LayerImpl* hud_impl = LayerTreeHostCommon::findLayerInSubtree(
         sync_tree->root_layer(), hud_layer_->id());
     sync_tree->set_hud_layer(static_cast<HeadsUpDisplayLayerImpl*>(hud_impl));
   } else {
@@ -702,14 +702,14 @@ void LayerTreeHost::UpdateLayers(Layer* root_layer,
     UpdateHudLayer();
 
     TRACE_EVENT0("cc", "LayerTreeHost::UpdateLayers::calcDrawProps");
-    LayerTreeHostCommon::CalculateDrawProperties(
+    LayerTreeHostCommon::calculateDrawProperties(
         root_layer,
         device_viewport_size(),
         device_scale_factor_,
         page_scale_factor_,
         GetRendererCapabilities().max_texture_size,
         settings_.can_use_lcd_text,
-        &update_list);
+        update_list);
   }
 
   // Reset partial texture update requests.
@@ -907,18 +907,18 @@ void LayerTreeHost::ApplyScrollAndScale(const ScrollAndScaleSet& info) {
 
   for (size_t i = 0; i < info.scrolls.size(); ++i) {
     Layer* layer =
-        LayerTreeHostCommon::FindLayerInSubtree(root_layer_.get(),
-                                                info.scrolls[i].layer_id);
+        LayerTreeHostCommon::findLayerInSubtree(root_layer_.get(),
+                                                info.scrolls[i].layerId);
     if (!layer)
       continue;
     if (layer == root_scroll_layer)
-      root_scroll_delta += info.scrolls[i].scroll_delta;
+      root_scroll_delta += info.scrolls[i].scrollDelta;
     else
       layer->SetScrollOffset(layer->scroll_offset() +
-                             info.scrolls[i].scroll_delta);
+                             info.scrolls[i].scrollDelta);
   }
-  if (!root_scroll_delta.IsZero() || info.page_scale_delta != 1.f)
-    client_->ApplyScrollAndScale(root_scroll_delta, info.page_scale_delta);
+  if (!root_scroll_delta.IsZero() || info.pageScaleDelta != 1.f)
+    client_->ApplyScrollAndScale(root_scroll_delta, info.pageScaleDelta);
 }
 
 void LayerTreeHost::SetImplTransform(const gfx::Transform& transform) {

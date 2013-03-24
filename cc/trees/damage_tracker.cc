@@ -190,7 +190,7 @@ gfx::RectF DamageTracker::TrackDamageFromActiveLayers(
     // Visit layers in back-to-front order.
     LayerImpl* layer = layer_list[layerIndex];
 
-    if (LayerTreeHostCommon::RenderSurfaceContributesToTarget<LayerImpl>(
+    if (LayerTreeHostCommon::renderSurfaceContributesToTarget<LayerImpl>(
             layer, target_surface_layer_id))
       ExtendDamageForRenderSurface(layer, &damage_rect);
     else

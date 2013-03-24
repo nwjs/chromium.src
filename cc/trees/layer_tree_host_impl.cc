@@ -342,14 +342,14 @@ bool LayerTreeHostImpl::HaveTouchEventHandlersAt(gfx::Point viewport_point) {
 
   // First find out which layer was hit from the saved list of visible layers
   // in the most recent frame.
-  LayerImpl* layer_impl = LayerTreeHostCommon::FindLayerThatIsHitByPoint(
+  LayerImpl* layer_impl = LayerTreeHostCommon::findLayerThatIsHitByPoint(
       device_viewport_point,
       active_tree_->RenderSurfaceLayerList());
 
   // Walk up the hierarchy and look for a layer with a touch event handler
   // region that the given point hits.
   for (; layer_impl; layer_impl = layer_impl->parent()) {
-    if (LayerTreeHostCommon::LayerHasTouchEventHandlersAt(device_viewport_point,
+    if (LayerTreeHostCommon::layerHasTouchEventHandlersAt(device_viewport_point,
                                                           layer_impl))
       return true;
   }
@@ -1375,7 +1375,7 @@ InputHandlerClient::ScrollStatus LayerTreeHostImpl::ScrollBegin(
 
   // First find out which layer was hit from the saved list of visible layers
   // in the most recent frame.
-  LayerImpl* layer_impl = LayerTreeHostCommon::FindLayerThatIsHitByPoint(
+  LayerImpl* layer_impl = LayerTreeHostCommon::findLayerThatIsHitByPoint(
       device_viewport_point, active_tree_->RenderSurfaceLayerList());
 
   // Walk up the hierarchy and look for a scrollable layer.
@@ -1702,8 +1702,8 @@ static void CollectScrollDeltas(ScrollAndScaleSet* scroll_info,
       gfx::ToFlooredVector2d(layer_impl->scroll_delta());
   if (!scroll_delta.IsZero()) {
     LayerTreeHostCommon::ScrollUpdateInfo scroll;
-    scroll.layer_id = layer_impl->id();
-    scroll.scroll_delta = scroll_delta;
+    scroll.layerId = layer_impl->id();
+    scroll.scrollDelta = scroll_delta;
     scroll_info->scrolls.push_back(scroll);
     layer_impl->SetSentScrollDelta(scroll_delta);
   }
@@ -1716,8 +1716,8 @@ scoped_ptr<ScrollAndScaleSet> LayerTreeHostImpl::ProcessScrollDeltas() {
   scoped_ptr<ScrollAndScaleSet> scroll_info(new ScrollAndScaleSet());
 
   CollectScrollDeltas(scroll_info.get(), active_tree_->root_layer());
-  scroll_info->page_scale_delta = active_tree_->page_scale_delta();
-  active_tree_->set_sent_page_scale_delta(scroll_info->page_scale_delta);
+  scroll_info->pageScaleDelta = active_tree_->page_scale_delta();
+  active_tree_->set_sent_page_scale_delta(scroll_info->pageScaleDelta);
 
   return scroll_info.Pass();
 }

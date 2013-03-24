@@ -142,9 +142,9 @@ public:
         int timesEncountered = 0;
 
         for (size_t i = 0; i < scrollInfo.scrolls.size(); ++i) {
-            if (scrollInfo.scrolls[i].layer_id != id)
+            if (scrollInfo.scrolls[i].layerId != id)
                 continue;
-            EXPECT_VECTOR_EQ(scrollDelta, scrollInfo.scrolls[i].scroll_delta);
+            EXPECT_VECTOR_EQ(scrollDelta, scrollInfo.scrolls[i].scrollDelta);
             timesEncountered++;
         }
 
@@ -156,7 +156,7 @@ public:
         int timesEncountered = 0;
 
         for (size_t i = 0; i < scrollInfo.scrolls.size(); ++i) {
-            if (scrollInfo.scrolls[i].layer_id != id)
+            if (scrollInfo.scrolls[i].layerId != id)
                 continue;
             timesEncountered++;
         }
@@ -616,7 +616,7 @@ TEST_F(LayerTreeHostImplTest, implPinchZoom)
         EXPECT_TRUE(m_didRequestCommit);
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, pageScaleDelta);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
 
         EXPECT_EQ(gfx::Vector2d(75, 75), m_hostImpl->active_tree()->root_layer()->max_scroll_offset());
     }
@@ -671,7 +671,7 @@ TEST_F(LayerTreeHostImplTest, pinchGesture)
         EXPECT_TRUE(m_didRequestCommit);
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, pageScaleDelta);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
     }
 
     // Zoom-in clamping
@@ -686,7 +686,7 @@ TEST_F(LayerTreeHostImplTest, pinchGesture)
         m_hostImpl->PinchGestureEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, maxPageScale);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, maxPageScale);
     }
 
     // Zoom-out clamping
@@ -702,7 +702,7 @@ TEST_F(LayerTreeHostImplTest, pinchGesture)
         m_hostImpl->PinchGestureEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, minPageScale);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
 
         EXPECT_TRUE(scrollInfo->scrolls.empty());
     }
@@ -721,7 +721,7 @@ TEST_F(LayerTreeHostImplTest, pinchGesture)
         m_hostImpl->PinchGestureEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, pageScaleDelta);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
         EXPECT_TRUE(scrollInfo->scrolls.empty());
     }
 
@@ -742,7 +742,7 @@ TEST_F(LayerTreeHostImplTest, pinchGesture)
         m_hostImpl->ScrollEnd();
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, pageScaleDelta);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, pageScaleDelta);
         expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-10, -10));
     }
 }
@@ -777,7 +777,7 @@ TEST_F(LayerTreeHostImplTest, pageScaleAnimation)
         EXPECT_TRUE(m_didRequestCommit);
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, 2);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, 2);
         expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-50, -50));
     }
 
@@ -793,7 +793,7 @@ TEST_F(LayerTreeHostImplTest, pageScaleAnimation)
         EXPECT_TRUE(m_didRequestCommit);
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, minPageScale);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, minPageScale);
         // Pushed to (0,0) via clamping against contents layer size.
         expectContains(*scrollInfo, scrollLayer->id(), gfx::Vector2d(-50, -50));
     }
@@ -829,7 +829,7 @@ TEST_F(LayerTreeHostImplTest, pageScaleAnimationNoOp)
         EXPECT_TRUE(m_didRequestCommit);
 
         scoped_ptr<ScrollAndScaleSet> scrollInfo = m_hostImpl->ProcessScrollDeltas();
-        EXPECT_EQ(scrollInfo->page_scale_delta, 1);
+        EXPECT_EQ(scrollInfo->pageScaleDelta, 1);
         expectNone(*scrollInfo, scrollLayer->id());
     }
 }

@@ -276,7 +276,7 @@ protected:
 
         DCHECK(!root->render_surface());
 
-        LayerTreeHostCommon::CalculateDrawProperties(root, root->bounds(), 1, 1, dummyMaxTextureSize, false, &m_renderSurfaceLayerListImpl, false);
+        LayerTreeHostCommon::calculateDrawProperties(root, root->bounds(), 1, 1, dummyMaxTextureSize, false, m_renderSurfaceLayerListImpl, false);
 
         m_layerIterator = m_layerIteratorBegin = Types::TestLayerIterator::Begin(&m_renderSurfaceLayerListImpl);
     }
@@ -288,7 +288,7 @@ protected:
 
         DCHECK(!root->render_surface());
 
-        LayerTreeHostCommon::CalculateDrawProperties(root, root->bounds(), 1, 1, dummyMaxTextureSize, false, &m_renderSurfaceLayerList);
+        LayerTreeHostCommon::calculateDrawProperties(root, root->bounds(), 1, 1, dummyMaxTextureSize, false, m_renderSurfaceLayerList);
 
         m_layerIterator = m_layerIteratorBegin = Types::TestLayerIterator::Begin(&m_renderSurfaceLayerList);
     }
