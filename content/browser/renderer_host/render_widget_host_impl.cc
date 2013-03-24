@@ -146,7 +146,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(RenderWidgetHostDelegate* delegate,
       is_accelerated_compositing_active_(false),
       repaint_ack_pending_(false),
       resize_ack_pending_(false),
-      overdraw_bottom_height_(0.f),
       should_auto_resize_(false),
       waiting_for_screen_rects_ack_(false),
       mouse_move_pending_(false),
@@ -494,14 +493,11 @@ void RenderWidgetHostImpl::WasResized() {
   physical_backing_size_ = view_->GetPhysicalBackingSize();
   bool was_fullscreen = is_fullscreen_;
   is_fullscreen_ = IsFullscreen();
-  float old_overdraw_bottom_height = overdraw_bottom_height_;
-  overdraw_bottom_height_ = view_->GetOverdrawBottomHeight();
 
   bool size_changed = new_size != current_size_;
   bool side_payload_changed =
       old_physical_backing_size != physical_backing_size_ ||
-      was_fullscreen != is_fullscreen_ ||
-      old_overdraw_bottom_height != overdraw_bottom_height_;
+      was_fullscreen != is_fullscreen_;
 
   if (!size_changed && !side_payload_changed)
     return;
@@ -516,7 +512,6 @@ void RenderWidgetHostImpl::WasResized() {
     resize_ack_pending_ = true;
 
   if (!Send(new ViewMsg_Resize(routing_id_, new_size, physical_backing_size_,
-                               overdraw_bottom_height_,
                                GetRootWindowResizerRect(), is_fullscreen_))) {
     resize_ack_pending_ = false;
   } else {

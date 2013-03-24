@@ -272,7 +272,6 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   gfx::Size GetPhysicalBackingSize() const;
   gfx::Size GetViewportSizeDip() const;
-  float GetOverdrawBottomHeightDip() const;
 
   InputEventAckState FilterInputEvent(const WebKit::WebInputEvent& input_event);
 
