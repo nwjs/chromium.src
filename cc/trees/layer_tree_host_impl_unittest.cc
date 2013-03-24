@@ -32,7 +32,6 @@
 #include "cc/test/animation_test_common.h"
 #include "cc/test/fake_output_surface.h"
 #include "cc/test/fake_proxy.h"
-#include "cc/test/fake_rendering_stats_instrumentation.h"
 #include "cc/test/fake_video_frame_provider.h"
 #include "cc/test/fake_web_scrollbar_theme_geometry.h"
 #include "cc/test/geometry_test_utils.h"
@@ -79,7 +78,7 @@ public:
         LayerTreeSettings settings;
         settings.minimum_occlusion_tracking_size = gfx::Size();
 
-        m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+        m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
         m_hostImpl->InitializeRenderer(createOutputSurface());
         m_hostImpl->SetViewportSize(gfx::Size(10, 10), gfx::Size(10, 10));
     }
@@ -113,7 +112,7 @@ public:
         settings.minimum_occlusion_tracking_size = gfx::Size();
         settings.partial_swap_enabled = partialSwap;
 
-        m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+        m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
         m_hostImpl->InitializeRenderer(outputSurface.Pass());
         m_hostImpl->SetViewportSize(gfx::Size(10, 10), gfx::Size(10, 10));
@@ -225,7 +224,6 @@ protected:
     DebugScopedSetMainThreadBlocked m_alwaysMainThreadBlocked;
 
     scoped_ptr<LayerTreeHostImpl> m_hostImpl;
-    FakeRenderingStatsInstrumentation m_statsInstrumentation;
     bool m_onCanDrawStateChangedCalled;
     bool m_hasPendingTree;
     bool m_didRequestCommit;
@@ -386,7 +384,7 @@ TEST_F(LayerTreeHostImplTest, scrollWithoutRootLayer)
 TEST_F(LayerTreeHostImplTest, scrollWithoutRenderer)
 {
     LayerTreeSettings settings;
-    m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     // Initialization will fail here.
     m_hostImpl->InitializeRenderer(FakeOutputSurface::Create3d(scoped_ptr<WebKit::WebGraphicsContext3D>(new TestWebGraphicsContext3DMakeCurrentFails)).PassAs<OutputSurface>());
@@ -1137,7 +1135,7 @@ TEST_F(LayerTreeHostImplTest, scrollNonScrollableRootWithTopControls)
     settings.calculate_top_controls_position = true;
     settings.top_controls_height = 50;
 
-    m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    m_hostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
     m_hostImpl->InitializeRenderer(createOutputSurface());
     m_hostImpl->SetViewportSize(gfx::Size(10, 10), gfx::Size(10, 10));
 
@@ -2187,7 +2185,7 @@ TEST_F(LayerTreeHostImplTest, partialSwapReceivesDamageRect)
     // that we can force partial swap enabled.
     LayerTreeSettings settings;
     settings.partial_swap_enabled = true;
-    scoped_ptr<LayerTreeHostImpl> layerTreeHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> layerTreeHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
     layerTreeHostImpl->InitializeRenderer(outputSurface.Pass());
     layerTreeHostImpl->SetViewportSize(gfx::Size(500, 500), gfx::Size(500, 500));
 
@@ -2479,13 +2477,13 @@ public:
     }
 };
 
-static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, LayerTreeHostImplClient* client, Proxy* proxy, RenderingStatsInstrumentation* statsInstrumentation)
+static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, LayerTreeHostImplClient* client, Proxy* proxy)
 {
     scoped_ptr<OutputSurface> outputSurface = FakeOutputSurface::Create3d(scoped_ptr<WebKit::WebGraphicsContext3D>(new PartialSwapContext)).PassAs<OutputSurface>();
 
     LayerTreeSettings settings;
     settings.partial_swap_enabled = partialSwap;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, client, proxy, statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, client, proxy);
     myHostImpl->InitializeRenderer(outputSurface.Pass());
     myHostImpl->SetViewportSize(gfx::Size(100, 100), gfx::Size(100, 100));
 
@@ -2549,7 +2547,7 @@ static scoped_ptr<LayerTreeHostImpl> setupLayersForOpacity(bool partialSwap, Lay
 
 TEST_F(LayerTreeHostImplTest, contributingLayerEmptyScissorPartialSwap)
 {
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(true, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(true, this, &m_proxy);
 
     {
         LayerTreeHostImpl::FrameData frame;
@@ -2569,7 +2567,7 @@ TEST_F(LayerTreeHostImplTest, contributingLayerEmptyScissorPartialSwap)
 
 TEST_F(LayerTreeHostImplTest, contributingLayerEmptyScissorNoPartialSwap)
 {
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(false, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = setupLayersForOpacity(false, this, &m_proxy);
 
     {
         LayerTreeHostImpl::FrameData frame;
@@ -2784,7 +2782,7 @@ TEST_F(LayerTreeHostImplTest, textureCachingWithOcclusion)
     LayerTreeSettings settings;
     settings.minimum_occlusion_tracking_size = gfx::Size();
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     // Layers are structure as follows:
     //
@@ -2899,7 +2897,7 @@ TEST_F(LayerTreeHostImplTest, textureCachingWithOcclusionEarlyOut)
     LayerTreeSettings settings;
     settings.minimum_occlusion_tracking_size = gfx::Size();
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     // Layers are structure as follows:
     //
@@ -3014,7 +3012,7 @@ TEST_F(LayerTreeHostImplTest, textureCachingWithOcclusionExternalOverInternal)
     LayerTreeSettings settings;
     settings.minimum_occlusion_tracking_size = gfx::Size();
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     // Layers are structured as follows:
     //
@@ -3101,7 +3099,7 @@ TEST_F(LayerTreeHostImplTest, textureCachingWithOcclusionExternalNotAligned)
 {
     LayerTreeSettings settings;
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     // Layers are structured as follows:
     //
@@ -3176,7 +3174,7 @@ TEST_F(LayerTreeHostImplTest, textureCachingWithOcclusionPartialSwap)
     settings.minimum_occlusion_tracking_size = gfx::Size();
     settings.partial_swap_enabled = true;
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     // Layers are structure as follows:
     //
@@ -3288,7 +3286,7 @@ TEST_F(LayerTreeHostImplTest, textureCachingWithScissor)
     LayerTreeSettings settings;
     settings.minimum_occlusion_tracking_size = gfx::Size();
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     /*
       Layers are created as follows:
@@ -3395,7 +3393,7 @@ TEST_F(LayerTreeHostImplTest, surfaceTextureCaching)
     settings.minimum_occlusion_tracking_size = gfx::Size();
     settings.partial_swap_enabled = true;
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     LayerImpl* rootPtr;
     LayerImpl* intermediateLayerPtr;
@@ -3554,7 +3552,7 @@ TEST_F(LayerTreeHostImplTest, surfaceTextureCachingNoPartialSwap)
     LayerTreeSettings settings;
     settings.minimum_occlusion_tracking_size = gfx::Size();
     settings.cache_render_pass_contents = true;
-    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy, &m_statsInstrumentation);
+    scoped_ptr<LayerTreeHostImpl> myHostImpl = LayerTreeHostImpl::Create(settings, this, &m_proxy);
 
     LayerImpl* rootPtr;
     LayerImpl* intermediateLayerPtr;

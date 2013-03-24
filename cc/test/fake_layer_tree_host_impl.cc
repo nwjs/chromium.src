@@ -7,11 +7,7 @@
 namespace cc {
 
 FakeLayerTreeHostImpl::FakeLayerTreeHostImpl(Proxy* proxy)
-    : LayerTreeHostImpl(LayerTreeSettings(),
-                        &client_,
-                        proxy,
-                        &stats_instrumentation_)
-{
+    : LayerTreeHostImpl(LayerTreeSettings(), &client_, proxy) {
   // Explicitly clear all debug settings.
   SetDebugState(LayerTreeDebugState());
 }
@@ -19,11 +15,7 @@ FakeLayerTreeHostImpl::FakeLayerTreeHostImpl(Proxy* proxy)
 FakeLayerTreeHostImpl::FakeLayerTreeHostImpl(
     const LayerTreeSettings& settings,
     Proxy* proxy)
-    : LayerTreeHostImpl(settings,
-                        &client_,
-                        proxy,
-                        &stats_instrumentation_)
-{
+    : LayerTreeHostImpl(settings, &client_, proxy) {
   // Explicitly clear all debug settings.
   SetDebugState(LayerTreeDebugState());
 }

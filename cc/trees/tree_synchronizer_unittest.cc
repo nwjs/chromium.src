@@ -484,12 +484,8 @@ TEST_F(TreeSynchronizerTest, SynchronizeAnimations) {
   LayerTreeSettings settings;
   FakeProxy proxy(scoped_ptr<Thread>(NULL));
   DebugScopedSetImplThread impl(&proxy);
-  FakeRenderingStatsInstrumentation stats_instrumentation;
   scoped_ptr<LayerTreeHostImpl> host_impl =
-      LayerTreeHostImpl::Create(settings,
-                                NULL,
-                                &proxy,
-                                &stats_instrumentation);
+      LayerTreeHostImpl::Create(settings, NULL, &proxy);
 
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
 
