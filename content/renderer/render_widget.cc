@@ -535,7 +535,8 @@ void RenderWidget::OnUpdateRectAck() {
 bool RenderWidget::SupportsAsynchronousSwapBuffers() {
   // Contexts using the command buffer support asynchronous swapbuffers.
   // See RenderWidget::CreateOutputSurface().
-  if (RenderThreadImpl::current()->compositor_message_loop_proxy())
+  if (RenderThreadImpl::current()->compositor_message_loop_proxy() ||
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kInProcessWebGL))
     return false;
 
   return true;
@@ -2292,19 +2293,27 @@ WebGraphicsContext3D* RenderWidget::CreateGraphicsContext3D(
     const WebGraphicsContext3D::Attributes& attributes) {
   if (!webwidget_)
     return NULL;
-  scoped_ptr<WebGraphicsContext3DCommandBufferImpl> context(
-      new WebGraphicsContext3DCommandBufferImpl(
-          surface_id(),
-          GetURLForGraphicsContext3D(),
-          RenderThreadImpl::current(),
-          weak_ptr_factory_.GetWeakPtr()));
+  // The WebGraphicsContext3DInProcessImpl code path is used for
+  // layout tests (though not through this code) as well as for
+  // debugging and bringing up new ports.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kInProcessWebGL)) {
+    return webkit::gpu::WebGraphicsContext3DInProcessImpl::CreateForWebView(
+        attributes, true);
+  } else {
+    scoped_ptr<WebGraphicsContext3DCommandBufferImpl> context(
+        new WebGraphicsContext3DCommandBufferImpl(
+            surface_id(),
+            GetURLForGraphicsContext3D(),
+            RenderThreadImpl::current(),
+            weak_ptr_factory_.GetWeakPtr()));
 
-  if (!context->Initialize(
-          attributes,
-          false /* bind generates resources */,
-          CAUSE_FOR_GPU_LAUNCH_WEBGRAPHICSCONTEXT3DCOMMANDBUFFERIMPL_INITIALIZE))
-    return NULL;
-  return context.release();
+    if (!context->Initialize(
+            attributes,
+            false /* bind generates resources */,
+            CAUSE_FOR_GPU_LAUNCH_WEBGRAPHICSCONTEXT3DCOMMANDBUFFERIMPL_INITIALIZE))
+      return NULL;
+    return context.release();
+  }
 }
 
 }  // namespace content
