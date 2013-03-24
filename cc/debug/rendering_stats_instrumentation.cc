@@ -49,7 +49,7 @@ void RenderingStatsInstrumentation::IncrementAnimationFrameCount() {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.animation_frame_count++;
+  rendering_stats_.numAnimationFrames++;
 }
 
 void RenderingStatsInstrumentation::SetScreenFrameCount(int64 count) {
@@ -57,7 +57,7 @@ void RenderingStatsInstrumentation::SetScreenFrameCount(int64 count) {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.screen_frame_count = count;
+  rendering_stats_.numFramesSentToScreen = count;
 }
 
 void RenderingStatsInstrumentation::SetDroppedFrameCount(int64 count) {
@@ -65,7 +65,7 @@ void RenderingStatsInstrumentation::SetDroppedFrameCount(int64 count) {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.dropped_frame_count = count;
+  rendering_stats_.droppedFrameCount = count;
 }
 
 void RenderingStatsInstrumentation::AddCommit(base::TimeDelta duration) {
@@ -73,8 +73,8 @@ void RenderingStatsInstrumentation::AddCommit(base::TimeDelta duration) {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.total_commit_time += duration;
-  rendering_stats_.total_commit_count++;
+  rendering_stats_.totalCommitTime += duration;
+  rendering_stats_.totalCommitCount++;
 }
 
 void RenderingStatsInstrumentation::AddPaint(base::TimeDelta duration,
@@ -83,8 +83,8 @@ void RenderingStatsInstrumentation::AddPaint(base::TimeDelta duration,
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.total_paint_time += duration;
-  rendering_stats_.total_pixels_painted += pixels;
+  rendering_stats_.totalPaintTime += duration;
+  rendering_stats_.totalPixelsPainted += pixels;
 }
 
 void RenderingStatsInstrumentation::AddRaster(base::TimeDelta duration,
@@ -94,13 +94,11 @@ void RenderingStatsInstrumentation::AddRaster(base::TimeDelta duration,
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.total_rasterize_time += duration;
-  rendering_stats_.total_pixels_rasterized += pixels;
+  rendering_stats_.totalRasterizeTime += duration;
+  rendering_stats_.totalPixelsRasterized += pixels;
 
-  if (is_in_pending_tree_now_bin) {
-    rendering_stats_.total_rasterize_time_for_now_bins_on_pending_tree +=
-        duration;
-  }
+  if (is_in_pending_tree_now_bin)
+    rendering_stats_.totalRasterizeTimeForNowBinsOnPendingTree += duration;
 }
 
 void RenderingStatsInstrumentation::IncrementImplThreadScrolls() {
@@ -108,7 +106,7 @@ void RenderingStatsInstrumentation::IncrementImplThreadScrolls() {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.num_impl_thread_scrolls++;
+  rendering_stats_.numImplThreadScrolls++;
 }
 
 void RenderingStatsInstrumentation::IncrementMainThreadScrolls() {
@@ -116,7 +114,7 @@ void RenderingStatsInstrumentation::IncrementMainThreadScrolls() {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.num_main_thread_scrolls++;
+  rendering_stats_.numMainThreadScrolls++;
 }
 
 void RenderingStatsInstrumentation::AddLayersDrawn(int64 amount) {
@@ -124,7 +122,7 @@ void RenderingStatsInstrumentation::AddLayersDrawn(int64 amount) {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.num_layers_drawn += amount;
+  rendering_stats_.numLayersDrawn += amount;
 }
 
 void RenderingStatsInstrumentation::AddMissingTiles(int64 amount) {
@@ -132,7 +130,7 @@ void RenderingStatsInstrumentation::AddMissingTiles(int64 amount) {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.num_missing_tiles += amount;
+  rendering_stats_.numMissingTiles += amount;
 }
 
 void RenderingStatsInstrumentation::AddDeferredImageDecode(
@@ -141,8 +139,8 @@ void RenderingStatsInstrumentation::AddDeferredImageDecode(
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.total_deferred_image_decode_time += duration;
-  rendering_stats_.total_deferred_image_decode_count++;
+  rendering_stats_.totalDeferredImageDecodeTime += duration;
+  rendering_stats_.totalDeferredImageDecodeCount++;
 }
 
 void RenderingStatsInstrumentation::AddImageGathering(
@@ -151,8 +149,8 @@ void RenderingStatsInstrumentation::AddImageGathering(
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.total_image_gathering_time += duration;
-  rendering_stats_.total_image_gathering_count++;
+  rendering_stats_.totalImageGatheringTime += duration;
+  rendering_stats_.totalImageGatheringCount++;
 }
 
 void RenderingStatsInstrumentation::IncrementDeferredImageCacheHitCount() {
@@ -160,7 +158,7 @@ void RenderingStatsInstrumentation::IncrementDeferredImageCacheHitCount() {
     return;
 
   base::AutoLock scoped_lock(lock_);
-  rendering_stats_.total_deferred_image_cache_hit_count++;
+  rendering_stats_.totalDeferredImageCacheHitCount++;
 }
 
 }  // namespace cc
