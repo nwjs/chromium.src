@@ -146,7 +146,11 @@ class MEDIA_EXPORT AudioManagerBase : public AudioManager {
   // Called by Shutdown().
   void ShutdownOnAudioThread();
 
+#if defined(OS_ANDROID)
   void SetAudioMode(int mode);
+  void RegisterHeadsetReceiver();
+  void UnregisterHeadsetReceiver();
+#endif
 
   // Counts the number of active input streams to find out if something else
   // is currently recording in Chrome.
@@ -181,6 +185,11 @@ class MEDIA_EXPORT AudioManagerBase : public AudioManager {
   // create all audio output streams as virtual streams so as to redirect audio
   // data to this virtual input stream.
   VirtualAudioInputStream* virtual_audio_input_stream_;
+
+#if defined(OS_ANDROID)
+  // Java AudioManager instance.
+  base::android::ScopedJavaGlobalRef<jobject> j_audio_manager_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(AudioManagerBase);
 };
