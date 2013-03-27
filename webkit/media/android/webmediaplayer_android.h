@@ -15,11 +15,10 @@
 #include "third_party/WebKit/Source/Platform/chromium/public/WebURL.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebVideoFrame.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayer.h"
+#include "webkit/media/android/stream_texture_factory_android.h"
 
 namespace webkit_media {
 
-class StreamTextureFactory;
-class StreamTextureProxy;
 class WebMediaPlayerManagerAndroid;
 
 // An abstract class that serves as the common base class for implementing
@@ -236,7 +235,7 @@ class WebMediaPlayerAndroid
 
   // Object for calling back the compositor thread to repaint the video when a
   // frame available. It should be initialized on the compositor thread.
-  scoped_ptr<StreamTextureProxy> stream_texture_proxy_;
+  ScopedStreamTextureProxy stream_texture_proxy_;
 
   DISALLOW_COPY_AND_ASSIGN(WebMediaPlayerAndroid);
 };
