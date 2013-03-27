@@ -291,6 +291,7 @@ class SigninScreenHandler
   void HandleOfflineLogin(const base::ListValue* args);
   void HandleShutdownSystem(const base::ListValue* args);
   void HandleLoadWallpaper(const base::ListValue* args);
+  void HandleRebootSystem(const base::ListValue* args);
   void HandleRemoveUser(const base::ListValue* args);
   void HandleShowAddUser(const base::ListValue* args);
   void HandleToggleEnrollmentScreen(const base::ListValue* args);

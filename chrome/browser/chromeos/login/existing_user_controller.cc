@@ -672,18 +672,9 @@ void ExistingUserController::ShowResetScreen() {
   login_display_->OnFadeOut();
 }
 
-void ExistingUserController::ShowTPMErrorAndScheduleReboot() {
+void ExistingUserController::ShowTPMError() {
   login_display_->SetUIEnabled(false);
   login_display_->ShowErrorScreen(LoginDisplay::TPM_ERROR);
-  reboot_timer_.Start(
-      FROM_HERE,
-      base::TimeDelta::FromMilliseconds(kCriticalErrorRebootDelayMs),
-      this,
-      &ExistingUserController::OnRebootTimeElapsed);
-}
-
-void ExistingUserController::OnRebootTimeElapsed() {
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -711,7 +702,7 @@ void ExistingUserController::OnLoginFailure(const LoginFailure& failure) {
                                     GetSessionManagerClient())),
         base::TimeDelta::FromMilliseconds(kSafeModeRestartUiDelayMs));
   } else if (failure.reason() == LoginFailure::TPM_ERROR) {
-    ShowTPMErrorAndScheduleReboot();
+    ShowTPMError();
   } else if (!online_succeeded_for_.empty()) {
     ShowGaiaPasswordChanged(online_succeeded_for_);
   } else {
