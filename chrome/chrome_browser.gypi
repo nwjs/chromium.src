@@ -2163,10 +2163,6 @@
         'browser/usb/usb_service.h',
         'browser/usb/usb_service_factory.cc',
         'browser/usb/usb_service_factory.h',
-        'browser/user_data_dir_extractor.cc',
-        'browser/user_data_dir_extractor.h',
-        'browser/user_data_dir_extractor_win.cc',
-        'browser/user_data_dir_extractor_win.h',
         'browser/user_style_sheet_watcher.cc',
         'browser/user_style_sheet_watcher.h',
         'browser/user_style_sheet_watcher_factory.cc',
@@ -2876,7 +2872,6 @@
             'browser/importer/nss_decryptor_system_nss.h',
             'browser/lifetime/application_lifetime_stub.cc',
             'browser/profiles/profile_shortcut_manager_stub.cc',
-            'browser/user_data_dir_extractor.cc',
           ],
           'conditions': [
             ['win_use_allocator_shim==1', {
