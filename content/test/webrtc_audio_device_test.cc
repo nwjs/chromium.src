@@ -40,11 +40,6 @@
 #include "base/win/scoped_com_initializer.h"
 #endif
 
-#if defined(OS_ANDROID)
-#include "base/android/jni_android.h"
-#include "media/audio/audio_manager_base.h"
-#endif
-
 using testing::_;
 using testing::InvokeWithoutArgs;
 using testing::Return;
@@ -129,11 +124,6 @@ WebRTCAudioDeviceTest::WebRTCAudioDeviceTest()
 WebRTCAudioDeviceTest::~WebRTCAudioDeviceTest() {}
 
 void WebRTCAudioDeviceTest::SetUp() {
-#if defined(OS_ANDROID)
-    media::AudioManagerBase::RegisterAudioManager(
-        base::android::AttachCurrentThread());
-#endif
-
   // This part sets up a RenderThread environment to ensure that
   // RenderThread::current() (<=> TLS pointer) is valid.
   // Main parts are inspired by the RenderViewFakeResourcesTest.
