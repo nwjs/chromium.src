@@ -9,9 +9,6 @@
 #include "base/command_line.h"
 #include "base/message_loop_proxy.h"
 #include "base/threading/thread.h"
-#if defined(OS_ANDROID)
-#include "jni/AudioManagerAndroid_jni.h"
-#endif
 #include "media/audio/audio_output_dispatcher_impl.h"
 #include "media/audio/audio_output_proxy.h"
 #include "media/audio/audio_output_resampler.h"
@@ -35,11 +32,6 @@ static const int kDefaultMaxOutputStreams = 16;
 static const int kDefaultMaxInputStreams = 16;
 
 static const int kMaxInputChannels = 2;
-
-#if defined(OS_ANDROID)
-static const int kAudioModeNormal = 0x00000000;
-static const int kAudioModeInCommunication = 0x00000003;
-#endif
 
 const char AudioManagerBase::kDefaultDeviceName[] = "Default";
 const char AudioManagerBase::kDefaultDeviceId[] = "default";
@@ -201,11 +193,6 @@ AudioInputStream* AudioManagerBase::MakeAudioInputStream(
   if (stream)
     ++num_input_streams_;
 
-#if defined(OS_ANDROID)
-  if (num_input_streams_ == 1)
-    SetAudioMode(kAudioModeInCommunication);
-#endif
-
   return stream;
 }
 
@@ -305,10 +292,6 @@ void AudioManagerBase::ReleaseInputStream(AudioInputStream* stream) {
   // TODO(xians) : Have a clearer destruction path for the AudioInputStream.
   --num_input_streams_;
   delete stream;
-#if defined(OS_ANDROID)
-  if (!num_input_streams_)
-    SetAudioMode(kAudioModeNormal);
-#endif
 }
 
 void AudioManagerBase::ReleaseVirtualInputStream(
@@ -413,13 +396,6 @@ AudioParameters AudioManagerBase::GetPreferredLowLatencyOutputStreamParameters(
 #endif  // defined(OS_IOS)
 }
 
-#if defined(OS_ANDROID)
-// static
-bool AudioManagerBase::RegisterAudioManager(JNIEnv* env) {
-  return RegisterNativesImpl(env);
-}
-#endif
-
 void AudioManagerBase::AddOutputDeviceChangeListener(
     AudioDeviceListener* listener) {
   DCHECK(message_loop_->BelongsToCurrentThread());
@@ -437,15 +413,5 @@ void AudioManagerBase::NotifyAllOutputDeviceChangeListeners() {
   DVLOG(1) << "Firing OnDeviceChange() notifications.";
   FOR_EACH_OBSERVER(AudioDeviceListener, output_listeners_, OnDeviceChange());
 }
-
-#if defined(OS_ANDROID)
-void AudioManagerBase::SetAudioMode(int mode) {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  jobject context = base::android::GetApplicationContext();
-  DCHECK(context);
-
-  Java_AudioManagerAndroid_setMode(env, context, mode);
-}
-#endif
 
 }  // namespace media

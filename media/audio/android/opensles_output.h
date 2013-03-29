@@ -5,14 +5,13 @@
 #ifndef MEDIA_AUDIO_ANDROID_OPENSLES_OUTPUT_H_
 #define MEDIA_AUDIO_ANDROID_OPENSLES_OUTPUT_H_
 
-#include <SLES/OpenSLES.h>
-#include <SLES/OpenSLES_Android.h>
-#include <SLES/OpenSLES_AndroidConfiguration.h>
+#include <vector>
 
 #include "base/compiler_specific.h"
 #include "media/audio/android/opensles_util.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_parameters.h"
+#include <SLES/OpenSLES_Android.h>
 
 namespace media {
 

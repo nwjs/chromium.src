@@ -72,14 +72,7 @@ class AudioInputControllerTest : public testing::Test {
 };
 
 // Test AudioInputController for create and close without recording audio.
-// TODO(leozwang): Because java calls were introduced in audio_manager_base,
-// unit test has to register jni first, else it will crash.
-#if defined(OS_ANDROID)
-#define MAYBE_CreateAndClose DISABLED_CreateAndClose
-#else
-#define MAYBE_CreateAndClose CreateAndClose
-#endif
-TEST_F(AudioInputControllerTest, MAYBE_CreateAndClose) {
+TEST_F(AudioInputControllerTest, CreateAndClose) {
   MockAudioInputControllerEventHandler event_handler;
 
   // OnCreated() will be posted once.
@@ -101,14 +94,7 @@ TEST_F(AudioInputControllerTest, MAYBE_CreateAndClose) {
 }
 
 // Test a normal call sequence of create, record and close.
-// TODO(leozwang): Because java calls were introduced in audio_manager_base,
-// unit test has to register jni first, else it will crash.
-#if defined(OS_ANDROID)
-#define MAYBE_RecordAndClose DISABLED_RecordAndClose
-#else
-#define MAYBE_RecordAndClose RecordAndClose
-#endif
-TEST_F(AudioInputControllerTest, MAYBE_RecordAndClose) {
+TEST_F(AudioInputControllerTest, RecordAndClose) {
   MockAudioInputControllerEventHandler event_handler;
   int count = 0;
 
@@ -148,14 +134,7 @@ TEST_F(AudioInputControllerTest, MAYBE_RecordAndClose) {
 // Test that the AudioInputController reports an error when the input stream
 // stops without an OnClose() callback. This can happen when the underlying
 // audio layer stops feeding data as a result of a removed microphone device.
-// TODO(leozwang): Because java calls were introduced in audio_manager_base,
-// unit test has to register jni first to make unit test run.
-#if defined(OS_ANDROID)
-#define MAYBE_RecordAndError DISABLED_RecordAndError
-#else
-#define MAYBE_RecordAndError RecordAndError
-#endif
-TEST_F(AudioInputControllerTest, MAYBE_RecordAndError) {
+TEST_F(AudioInputControllerTest, RecordAndError) {
   MockAudioInputControllerEventHandler event_handler;
   int count = 0;
 
@@ -221,12 +200,7 @@ TEST_F(AudioInputControllerTest, SamplesPerPacketTooLarge) {
 }
 
 // Test calling AudioInputController::Close multiple times.
-#if defined(OS_ANDROID)
-#define MAYBE_CloseTwice DISABLED_CloseTwice
-#else
-#define MAYBE_CloseTwice CloseTwice
-#endif
-TEST_F(AudioInputControllerTest, MAYBE_CloseTwice) {
+TEST_F(AudioInputControllerTest, CloseTwice) {
   MockAudioInputControllerEventHandler event_handler;
 
   // OnRecording() will be called only once.
