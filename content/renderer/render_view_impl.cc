@@ -4049,7 +4049,7 @@ void RenderViewImpl::EnsureMediaStreamImpl() {
     return;
 
 #if defined(OS_ANDROID)
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableWebRTC))
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableWebRTC))
     return;
 #endif
 

@@ -65,8 +65,4 @@ DownloadContentTest.ResumeInterruptedDownloadBadPrecondition
 DownloadContentTest.ResumeWithDeletedFile
 
 # http://crbug.com/181069
-WebrtcBrowserTest.CanSetupVideoCall
-WebrtcBrowserTest.CanSetupAudioAndVideoCall
-WebrtcBrowserTest.CanSetupAudioAndVideoCallWithoutMsidAndBundle
-WebrtcBrowserTest.CallWithDataOnly
-WebrtcBrowserTest.CallWithDataAndMedia
+WebrtcBrowserTest.*

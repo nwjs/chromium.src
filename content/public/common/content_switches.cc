@@ -208,8 +208,8 @@ const char kSpeechRecognitionWebserviceKey[] = "speech-service-key";
 // Enable web audio API.
 const char kEnableWebAudio[]                = "enable-webaudio";
 
-// WebRTC is enabled by default on Android.
-const char kDisableWebRTC[]                 = "disable-webrtc";
+// WebRTC is disabled by default on Android.
+const char kEnableWebRTC[]                  = "enable-webrtc";
 #else
 // Disable web audio API.
 const char kDisableWebAudio[]               = "disable-webaudio";
