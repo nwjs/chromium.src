@@ -326,6 +326,14 @@ class CC_EXPORT LayerTreeHost : public RateLimiterClient {
 
   scoped_ptr<AnimationRegistrar> animation_registrar_;
 
+  struct PendingPageScaleAnimation {
+    gfx::Vector2d target_offset;
+    bool use_anchor;
+    float scale;
+    base::TimeDelta duration;
+  };
+  scoped_ptr<PendingPageScaleAnimation> pending_page_scale_animation_;
+
   DISALLOW_COPY_AND_ASSIGN(LayerTreeHost);
 };
 
