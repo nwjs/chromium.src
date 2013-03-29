@@ -32,7 +32,7 @@ void ObsoleteOSInfoBar::Create(InfoBarService* infobar_service) {
   //   Ubuntu Lucid:       GTK 2.20
   //   openSUSE 12.2       GTK 2.24
   //   Ubuntu Precise:     GTK 2.24
-  if (!gtk_check_version(2, 24, 0))
+  if (!gtk_check_version(2, 18, 0))
     return;
 #else
   // No other platforms currently show this infobar.
