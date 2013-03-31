@@ -807,5 +807,5 @@ const char kEnableDeferredImageDecoding[] = "enable-deferred-image-decoding";
 // Disables history navigation in response to horizontal overscroll.
 const char kDisableOverscrollHistoryNavigation[] =
     "disable-overscroll-history-navigation";
-
+const char kNodejs[] = "nodejs";
 }  // namespace switches
