@@ -704,8 +704,7 @@ bool ChromeContentRendererClient::IsNaClAllowed(
   bool is_whitelisted_url =
       top_url.SchemeIs("https") &&
       (top_url.host() == "plus.google.com" ||
-          top_url.host() == "plus.sandbox.google.com") &&
-      top_url.path().find("/games") == 0;
+          top_url.host() == "plus.sandbox.google.com");
 
   // Allow Chrome Web Store extensions, built-in extensions, extensions
   // under development, invocations from whitelisted URLs, and all invocations
