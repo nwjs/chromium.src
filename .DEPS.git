@@ -138,11 +138,11 @@ deps = {
     'src/tools/swarm_client':
         Var('git_url') + '/chromium/tools/swarm_client.git@8f01d4d512b820d5b6db33eb0a92fbff10e9483d',
     'src/v8':
-        'https://github.com/rogerwang/v8.git@origin/nwebkit',
+        'https://github.com/rogerwang/v8.git@origin/dev27',
     'src/third_party/node':
         'https://github.com/zcbenz/node.git@origin/master',
     'src/content/nw':
-        'https://github.com/rogerwang/node-webkit.git@origin/master',
+        'https://github.com/rogerwang/node-webkit.git@origin/nw-rebase',
     'src/webkit/media/crypto/ppapi/cdm':
         Var('git_url') + '/chromium/cdm.git@c2b192a02546916d28233cfd8b7717ffcdcc8347',
 }
