@@ -519,9 +519,12 @@ bool PictureLayerImpl::AreVisibleResourcesReady() const {
         twin->raster_device_scale_ *
         twin->raster_source_scale_;
 
-    min_acceptable_scale = std::min(
-        min_acceptable_scale,
-        std::min(twin->ideal_contents_scale_, twin_raster_contents_scale));
+    float twin_min_acceptable_scale =
+        std::min(twin->ideal_contents_scale_, twin_raster_contents_scale);
+    if (twin_min_acceptable_scale != 0.0f) {
+      min_acceptable_scale =
+          std::min(min_acceptable_scale, twin_min_acceptable_scale);
+    }
   }
 
   Region missing_region = rect;
