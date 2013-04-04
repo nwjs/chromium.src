@@ -570,6 +570,11 @@
             "type": "array",
             "description": "Array of selected paths",
             "items": {"type": "string"}
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": []
           }
         ]
       },
@@ -587,6 +592,11 @@
             "name": "index",
             "type": "integer",
             "description": "Index of Filter"
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": []
           }
         ]
       },
