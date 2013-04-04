@@ -211,6 +211,7 @@ extern const char kMaxUntiledLayerHeight[];
 CONTENT_EXPORT extern const char kEnableFixedPositionCreatesStackingContext[];
 CONTENT_EXPORT extern const char kDisableFixedPositionCreatesStackingContext[];
 CONTENT_EXPORT extern const char kEnableDeferredImageDecoding[];
+CONTENT_EXPORT extern const char kEnableOverscrollHistoryNavigation[];
 
 extern const char kEnableVisualWordMovement[];
 CONTENT_EXPORT extern const char kUseMobileUserAgent[];
@@ -237,8 +238,6 @@ extern const char kDisableCarbonInterposing[];
 #if defined(USE_AURA)
 CONTENT_EXPORT extern const char kTestCompositor[];
 #endif
-
-CONTENT_EXPORT extern const char kDisableOverscrollHistoryNavigation[];
 
 }  // namespace switches
 
