@@ -7,6 +7,8 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/prefs/pref_service.h"
+#include "base/sha1.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/media/audio_stream_indicator.h"
 #include "chrome/browser/media/media_stream_capture_indicator.h"
@@ -49,8 +51,22 @@ const content::MediaStreamDevice* FindDefaultDeviceWithId(
 // TODO(sergeyu): Remove this whitelist as soon as possible.
 bool IsOriginWhitelistedForScreenCapture(const GURL& origin) {
 #if defined(OFFICIAL_BUILD)
-  return origin.spec() == "https://staging.talkgadget.google.com/" ||
-      origin.spec() == "https://plus.google.com/";
+  if (// Google Hangouts.
+      origin.spec() == "https://staging.talkgadget.google.com/" ||
+      origin.spec() == "https://plus.google.com/" ||
+      origin.spec() == "chrome-extension://pkedcjkdefgpdelpbcmbmeomcjbeemfm/" ||
+      origin.spec() == "chrome-extension://fmfcbgogabcbclcofgocippekhfcmgfj/" ||
+      origin.spec() == "chrome-extension://hfaagokkkhdbgiakmmlclaapfelnkoah/") {
+    return true;
+  }
+  // Check against hashed origins.
+  const std::string origin_hash = base::SHA1HashString(origin.spec());
+  DCHECK_EQ(origin_hash.length(), base::kSHA1Length);
+  const std::string hexencoded_origin_hash =
+      base::HexEncode(origin_hash.data(), origin_hash.length());
+  return
+      hexencoded_origin_hash == "3C2705BC432E7C51CA8553FDC5BEE873FF2468EE" ||
+      hexencoded_origin_hash == "50F02B8A668CAB274527D58356F07C2143080FCC";
 #else
   return false;
 #endif
@@ -135,10 +151,12 @@ void MediaCaptureDevicesDispatcher::RequestAccess(
   // Deny request automatically in the following cases:
   //  1. Screen capturing is not enabled via command line switch.
   //  2. Audio capture was requested (it's not supported yet).
-  //  3. Request from a page that was not loaded from a secure origin.
+  //  3. Request from a page that was not loaded from a secure origin or
+  //     extension.
   if (screen_capture_enabled &&
       request.audio_type == content::MEDIA_NO_SERVICE &&
-      request.security_origin.SchemeIsSecure()) {
+      (request.security_origin.SchemeIsSecure() ||
+       request.security_origin.SchemeIs("chrome-extension"))) {
     string16 application_name = UTF8ToUTF16(request.security_origin.spec());
     chrome::MessageBoxResult result = chrome::ShowMessageBox(
         NULL,
