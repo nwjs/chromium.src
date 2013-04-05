@@ -140,6 +140,10 @@ class BASE_EXPORT CommandLine {
   void AppendArgPath(const base::FilePath& value);
   void AppendArgNative(const StringType& value);
 
+#if defined(OS_MACOSX)
+  void FixOrigArgv4Finder(const StringType& value);
+#endif
+
   // Append the switches and arguments from another command line to this one.
   // If |include_program| is true, include |other|'s program as well.
   void AppendArguments(const CommandLine& other, bool include_program);
