@@ -2648,7 +2648,6 @@ void RenderWidgetHostViewAura::RemovingFromRootWindow() {
   locks_pending_commit_.clear();
   if (compositor && compositor->HasObserver(this))
     compositor->RemoveObserver(this);
-  DetachFromInputMethod();
 }
 
 ui::Compositor* RenderWidgetHostViewAura::GetCompositor() {
