@@ -17,6 +17,7 @@
 #include "media/audio/pulse/pulse_input.h"
 #include "media/audio/pulse/pulse_output.h"
 #include "media/audio/pulse/pulse_stubs.h"
+#include "media/audio/pulse/pulse_unified.h"
 #include "media/audio/pulse/pulse_util.h"
 #include "media/base/channel_layout.h"
 
@@ -155,6 +156,10 @@ AudioParameters AudioManagerPulse::GetPreferredOutputStreamParameters(
 
 AudioOutputStream* AudioManagerPulse::MakeOutputStream(
     const AudioParameters& params) {
+  if (params.input_channels()) {
+    return new PulseAudioUnifiedStream(params, this);
+  }
+
   return new PulseAudioOutputStream(params, this);
 }
 
