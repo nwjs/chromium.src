@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
 #include "base/prefs/pref_service.h"
@@ -99,7 +100,8 @@ class SetAsDefaultBrowserHandler
       public base::SupportsWeakPtr<SetAsDefaultBrowserHandler>,
       public ShellIntegration::DefaultWebClientObserver {
  public:
-  explicit SetAsDefaultBrowserHandler(ResponseDelegate* response_delegate);
+  explicit SetAsDefaultBrowserHandler(
+      const base::WeakPtr<ResponseDelegate>& response_delegate);
   virtual ~SetAsDefaultBrowserHandler();
 
   // WebUIMessageHandler implementation.
@@ -125,13 +127,13 @@ class SetAsDefaultBrowserHandler
   scoped_refptr<ShellIntegration::DefaultBrowserWorker> default_browser_worker_;
   bool set_default_returned_;
   bool set_default_result_;
-  ResponseDelegate* response_delegate_;
+  base::WeakPtr<ResponseDelegate> response_delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(SetAsDefaultBrowserHandler);
 };
 
 SetAsDefaultBrowserHandler::SetAsDefaultBrowserHandler(
-    ResponseDelegate* response_delegate)
+    const base::WeakPtr<ResponseDelegate>& response_delegate)
     : ALLOW_THIS_IN_INITIALIZER_LIST(default_browser_worker_(
           new ShellIntegration::DefaultBrowserWorker(this))),
       set_default_returned_(false), set_default_result_(false),
@@ -247,6 +249,7 @@ class SetAsDefaultBrowserDialogImpl : public ui::WebDialogDelegate,
   Profile* profile_;
   Browser* browser_;
   mutable bool owns_handler_;
+  base::WeakPtrFactory<ResponseDelegate> response_delegate_ptr_factory_;
   SetAsDefaultBrowserHandler* handler_;
   MakeChromeDefaultResult dialog_interaction_result_;
 
@@ -258,7 +261,9 @@ SetAsDefaultBrowserDialogImpl::SetAsDefaultBrowserDialogImpl(Profile* profile,
     : profile_(profile),
       browser_(browser),
       owns_handler_(true),
-      handler_(new SetAsDefaultBrowserHandler(this)),
+      ALLOW_THIS_IN_INITIALIZER_LIST(response_delegate_ptr_factory_(this)),
+      handler_(new SetAsDefaultBrowserHandler(
+          response_delegate_ptr_factory_.GetWeakPtr())),
       dialog_interaction_result_(MAKE_CHROME_DEFAULT_DECLINED) {
 }
 
