@@ -2255,6 +2255,8 @@ bool RenderViewImpl::runFileChooser(
   ipc_params.capture = params.capture;
 #endif
 
+  ipc_params.initial_path = webkit_base::WebStringToFilePath(params.initialPath);
+
   return ScheduleFileChooser(ipc_params, chooser_completion);
 }
 
