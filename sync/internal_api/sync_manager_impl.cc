@@ -121,6 +121,8 @@ class NudgeStrategy {
        return ACCOMPANY_ONLY;
      case PREFERENCES:
      case SESSIONS:
+     case FAVICON_IMAGES:
+     case FAVICON_TRACKING:
        return CUSTOM;
      default:
        return IMMEDIATE;
@@ -148,6 +150,8 @@ class NudgeStrategy {
                kPreferencesNudgeDelayMilliseconds);
            break;
          case SESSIONS:
+         case FAVICON_IMAGES:
+         case FAVICON_TRACKING:
            delay = core->scheduler()->GetSessionsCommitDelay();
            break;
          default:
