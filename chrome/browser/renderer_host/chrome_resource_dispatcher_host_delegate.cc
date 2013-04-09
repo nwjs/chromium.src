@@ -74,6 +74,7 @@ using content::RenderViewHost;
 using content::ResourceDispatcherHostLoginDelegate;
 using content::ResourceRequestInfo;
 using extensions::Extension;
+using extensions::StreamsPrivateAPI;
 
 namespace {
 
@@ -131,8 +132,10 @@ void SendExecuteMimeTypeHandlerEvent(scoped_ptr<content::StreamHandle> stream,
   if (!profile)
     return;
 
-  extensions::StreamsPrivateAPI::Get(profile)->ExecuteMimeTypeHandler(
-      extension_id, stream.Pass());
+  StreamsPrivateAPI* streams_private = StreamsPrivateAPI::Get(profile);
+  if (!streams_private)
+    return;
+  streams_private->ExecuteMimeTypeHandler(extension_id, stream.Pass());
 }
 
 }  // end namespace
