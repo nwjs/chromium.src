@@ -340,7 +340,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
           process_id, PROCESS_QUERY_INFORMATION,
           process_handle.Receive()) &&
       base::win::IsProcessImmersive(process_handle.Get())) {
-    chrome::ActivateMetroChrome();
+    //chrome::ActivateMetroChrome();
   }
 
   // Allow the current running browser window making itself the foreground
@@ -404,8 +404,10 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessOrCreate(
     if (result == PROCESS_NONE)
       result = PROFILE_IN_USE;
   } else {
-    g_browser_process->PlatformSpecificCommandLineProcessing(
-        *CommandLine::ForCurrentProcess());
+    //// we don't use g_browser_process in node-webkit's
+    //// code path
+    // g_browser_process->PlatformSpecificCommandLineProcessing(
+    //    *CommandLine::ForCurrentProcess());
   }
   return result;
 }
@@ -467,11 +469,11 @@ bool ProcessSingleton::Create(
         // Metro mode: activate and rendez-vous with the activated process.
         metro_activation_event.Set(
             CreateEvent(NULL, TRUE, FALSE, kMetroActivationEventName));
-        if (!chrome::ActivateMetroChrome()) {
-          // Failed to launch immersive Chrome, default to launching on Desktop.
-          LOG(ERROR) << "Failed to launch immersive chrome";
-          metro_activation_event.Close();
-        }
+        //if (!chrome::ActivateMetroChrome()) {
+          //// Failed to launch immersive Chrome, default to launching on Desktop.
+          //LOG(ERROR) << "Failed to launch immersive chrome";
+          //metro_activation_event.Close();
+        //}
       }
 
       if (metro_activation_event.IsValid()) {
