@@ -141,10 +141,18 @@ void ShellWindowLauncherItemController::Clicked(const ui::Event& event) {
   if (type() == TYPE_APP_PANEL) {
     DCHECK(shell_windows_.size() == 1);
     ShellWindow* panel = shell_windows_.front();
-    if (panel->GetBaseWindow()->IsActive())
-      panel->GetBaseWindow()->Minimize();
-    else
-      ShowAndActivate(panel);
+    // If the panel is on another display, move it to the current display and
+    // activate it.
+    if (ash::launcher::MoveToEventRootIfPanel(panel->GetNativeWindow(),
+                                              event)) {
+      if (!panel->GetBaseWindow()->IsActive())
+        ShowAndActivate(panel);
+    } else {
+      if (panel->GetBaseWindow()->IsActive())
+        panel->GetBaseWindow()->Minimize();
+      else
+        ShowAndActivate(panel);
+    }
   } else if (launcher_controller()->GetPerAppInterface() ||
       shell_windows_.size() == 1) {
     ShellWindow* window_to_show = last_active_shell_window_ ?

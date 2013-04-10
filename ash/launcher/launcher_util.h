@@ -25,8 +25,8 @@ ASH_EXPORT int GetBrowserItemIndex(const LauncherModel& launcher_model);
 
 // Move the |maybe_panel| to the root window where the |event| occured if
 // |maybe_panel| is of aura::client::WINDOW_TYPE_PANEL and it's not
-// in the same root window.
-ASH_EXPORT void MoveToEventRootIfPanel(aura::Window* maybe_panel,
+// in the same root window. Returns true if |maybe_panel| was moved.
+ASH_EXPORT bool MoveToEventRootIfPanel(aura::Window* maybe_panel,
                                        const ui::Event& event);
 
 }  // namespace launcher

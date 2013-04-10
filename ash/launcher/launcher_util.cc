@@ -23,10 +23,10 @@ int GetBrowserItemIndex(const LauncherModel& launcher_model) {
   return -1;
 }
 
-void MoveToEventRootIfPanel(aura::Window* maybe_panel,
+bool MoveToEventRootIfPanel(aura::Window* maybe_panel,
                             const ui::Event& event) {
   if (maybe_panel->type() != aura::client::WINDOW_TYPE_PANEL)
-    return;
+    return false;
   views::View* target = static_cast<views::View*>(event.target());
   aura::RootWindow* target_root =
       target ? target->GetWidget()->GetNativeView()->GetRootWindow() : NULL;
@@ -35,7 +35,9 @@ void MoveToEventRootIfPanel(aura::Window* maybe_panel,
         ash::Shell::GetContainer(target_root, maybe_panel->parent()->id());
     // Move the panel to the target launcher.
     panel_container->AddChild(maybe_panel);
+    return true;
   }
+  return false;
 }
 
 }  // namespace launcher
