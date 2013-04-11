@@ -206,7 +206,8 @@ void DestroyUnusedCrtcs(Display* display,
       XRRModeInfo* mode_info = ModeInfoForID(screen, config.mode);
       int current_width = DisplayWidth(display, DefaultScreen(display));
       int current_height = DisplayHeight(display, DefaultScreen(display));
-      if (static_cast<int>(mode_info->width) > current_width ||
+      if (!mode_info ||
+          static_cast<int>(mode_info->width) > current_width ||
           static_cast<int>(mode_info->height) > current_height) {
         config.mode = None;
         config.output = None;
@@ -957,6 +958,8 @@ bool OutputConfigurator::FindOrCreateMirrorMode(Display* display,
 
   XRRModeInfo* internal_native_mode = ModeInfoForID(screen, internal_mode_id);
   XRRModeInfo* external_native_mode = ModeInfoForID(screen, external_mode_id);
+  if (!internal_native_mode || !external_native_mode )
+    return false;
 
   // Check if some external output resolution can be mirrored on internal.
   // Prefer the modes in the order that X sorts them,
@@ -966,6 +969,8 @@ bool OutputConfigurator::FindOrCreateMirrorMode(Display* display,
   for (int i = 0; i < external_info->nmode; i++) {
     external_mode_id = external_info->modes[i];
     XRRModeInfo* external_mode = ModeInfoForID(screen, external_mode_id);
+    if (!external_mode)
+      continue;
     bool is_native_aspect_ratio =
         external_native_mode->width * external_mode->height ==
         external_native_mode->height * external_mode->width;
@@ -976,6 +981,8 @@ bool OutputConfigurator::FindOrCreateMirrorMode(Display* display,
     for (int j = 0; j < internal_info->nmode; j++) {
       internal_mode_id = internal_info->modes[j];
       XRRModeInfo* internal_mode = ModeInfoForID(screen, internal_mode_id);
+      if (!internal_mode)
+        continue;
       bool is_internal_interlaced = internal_mode->modeFlags & RR_Interlace;
       bool is_external_interlaced = external_mode->modeFlags & RR_Interlace;
       if (internal_mode->width == external_mode->width &&
