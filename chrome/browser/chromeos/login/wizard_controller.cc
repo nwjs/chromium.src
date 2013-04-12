@@ -802,6 +802,7 @@ void WizardController::OnExit(ExitCodes exit_code) {
       break;
     case TERMS_OF_SERVICE_ACCEPTED:
       OnTermsOfServiceAccepted();
+      break;
     case WRONG_HWID_WARNING_SKIPPED:
       OnWrongHWIDWarningSkipped();
       break;
