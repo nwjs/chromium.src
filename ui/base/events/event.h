@@ -269,10 +269,9 @@ class UI_EXPORT LocatedEvent : public Event {
   }
   const gfx::Point& system_location() const { return system_location_; }
 
-  // Transform the locations using |inverted_root_transform|.
+  // Applies |root_transform| to the event.
   // This is applied to both |location_| and |root_location_|.
-  virtual void UpdateForRootTransform(
-      const gfx::Transform& inverted_root_transform);
+  virtual void UpdateForRootTransform(const gfx::Transform& root_transform);
 
   template <class T> void ConvertLocationToTarget(T* source, T* target) {
     if (target && target != source)

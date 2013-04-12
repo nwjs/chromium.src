@@ -268,10 +268,13 @@ LocatedEvent::LocatedEvent(EventType type,
 }
 
 void LocatedEvent::UpdateForRootTransform(
-    const gfx::Transform& reversed_root_transform) {
+    const gfx::Transform& root_transform) {
   // Transform has to be done at root level.
   gfx::Point3F p(location_);
-  reversed_root_transform.TransformPoint(p);
+  root_transform.TransformPointReverse(p);
+  // TODO(oshima): Translating a point using reversed matrix can
+  // results in small error like 0 -> -0.01, whose floored value
+  // is -1 instead of 0. crbug.com/222483.
   root_location_ = location_ = gfx::ToFlooredPoint(p.AsPointF());
 }
 

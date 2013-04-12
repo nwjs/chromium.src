@@ -5,6 +5,7 @@
 #include "ash/display/display_controller.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "ash/ash_switches.h"
 #include "ash/display/display_manager.h"
@@ -20,6 +21,7 @@
 #include "base/string_piece.h"
 #include "base/stringprintf.h"
 #include "base/values.h"
+#include "third_party/skia/include/utils/SkMatrix44.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
@@ -122,6 +124,18 @@ internal::DisplayManager* GetDisplayManager() {
   return Shell::GetInstance()->display_manager();
 }
 
+// Round near zero value to zero.
+void RoundNearZero(gfx::Transform* transform) {
+  const float kEpsilon = 0.001f;
+  SkMatrix44& matrix = transform->matrix();
+  for (int x = 0; x < 4; ++x) {
+    for (int y = 0; y < 4; ++y) {
+      if (std::abs(SkMScalarToFloat(matrix.get(x, y))) < kEpsilon)
+        matrix.set(x, y, SkFloatToMScalar(0.0f));
+    }
+  }
+}
+
 void RotateRootWindow(aura::RootWindow* root_window,
                       const gfx::Display& display,
                       const internal::DisplayInfo& info) {
@@ -136,39 +150,29 @@ void RotateRootWindow(aura::RootWindow* root_window,
   root_window->SetProperty(kRotationPropertyKey, info.rotation());
 #endif
   gfx::Transform rotate;
-  // TODO(oshima): Manually complute the inverse of the
-  // rotate+translate matrix to compensate for computation error in
-  // the inverted matrix. Ideally, SkMatrix should have special
-  // case handling for rotate+translate case. crbug.com/222483.
-  gfx::Transform reverse_rotate;
+  // The origin is (0, 0), so the translate width/height must be reduced by
+  // 1 pixel.
+  float one_pixel = 1.0f / display.device_scale_factor();
 
-  // The origin is (0, 0), so the translate width/height must be reduced by 1.
   switch (info.rotation()) {
     case gfx::Display::ROTATE_0:
       break;
     case gfx::Display::ROTATE_90:
-      rotate.Translate(display.bounds().height() - 1, 0);
+      rotate.Translate(display.bounds().height() - one_pixel, 0);
       rotate.Rotate(90);
-      // Rotate 270 instead of 90 as it will cause calcuration error.
-      reverse_rotate.Rotate(270);
-      reverse_rotate.Translate(-(display.bounds().height() - 1), 0);
       break;
     case gfx::Display::ROTATE_270:
-      rotate.Translate(0, display.bounds().width() - 1);
+      rotate.Translate(0, display.bounds().width() - one_pixel);
       rotate.Rotate(270);
-      reverse_rotate.Rotate(90);
-      reverse_rotate.Translate(0, -(display.bounds().width() - 1));
       break;
     case gfx::Display::ROTATE_180:
-      rotate.Translate(display.bounds().width() - 1,
-                       display.bounds().height() - 1);
+      rotate.Translate(display.bounds().width() - one_pixel,
+                       display.bounds().height() - one_pixel);
       rotate.Rotate(180);
-      reverse_rotate.Rotate(180);
-      reverse_rotate.Translate(-(display.bounds().width() - 1),
-                               -(display.bounds().height() - 1));
       break;
   }
-  root_window->SetTransformPair(rotate, reverse_rotate);
+  RoundNearZero(&rotate);
+  root_window->SetTransform(rotate);
 }
 
 void SetDisplayPropertiesOnHostWindow(aura::RootWindow* root,

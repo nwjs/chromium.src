@@ -98,12 +98,10 @@ class TestEventHandler : public ui::EventHandler {
   virtual ~TestEventHandler() {}
 
   virtual void OnMouseEvent(ui::MouseEvent* event) OVERRIDE {
+    if (event->flags() & ui::EF_IS_SYNTHESIZED)
+       return;
     aura::Window* target = static_cast<aura::Window*>(event->target());
-    // Only record when the target is the background which covers
-    // entire root window.
-    if (target->name() != "DesktopBackgroundView")
-      return;
-    mouse_location_ = event->location();
+    mouse_location_ = event->root_location();
     target_root_ = target->GetRootWindow();
     event->StopPropagation();
   }
@@ -128,6 +126,14 @@ gfx::Display::Rotation GetStoredRotation(int64 id) {
 
 float GetStoredUIScale(int64 id) {
   return Shell::GetInstance()->display_manager()->GetDisplayInfo(id).ui_scale();
+}
+
+void MoveMouseToInHostCoord(aura::RootWindow* root_window,
+                            int host_x,
+                            int host_y) {
+  gfx::Point move_point(host_x, host_y);
+  ui::MouseEvent mouseev(ui::ET_MOUSE_MOVED, move_point, move_point, 0);
+  root_window->AsRootWindowHostDelegate()->OnHostMouseEvent(&mouseev);
 }
 
 }  // namespace
@@ -367,7 +373,7 @@ TEST_F(DisplayControllerTest, SwapPrimary) {
   EXPECT_EQ("left, -50", inverted_layout.ToString());
 
   EXPECT_EQ(secondary_display.id(),
-      Shell::GetScreen()->GetPrimaryDisplay().id());
+            Shell::GetScreen()->GetPrimaryDisplay().id());
   EXPECT_EQ(primary_display.id(), ScreenAsh::GetSecondaryDisplay().id());
   EXPECT_EQ(secondary_display.id(),
             Shell::GetScreen()->GetDisplayNearestPoint(
@@ -673,8 +679,12 @@ TEST_F(DisplayControllerTest, MAYBE_OverscanInsets) {
 // SetTransform updates the window using the orignal host window
 // size.
 #define MAYBE_Rotate DISABLED_Rotate
+#define MAYBE_ScaleRootWindow DISABLED_ScaleRootWindow
+#define MAYBE_ConvertHostToRootCoords DISABLED_ConvertHostToRootCoords
 #else
 #define MAYBE_Rotate Rotate
+#define MAYBE_ScaleRootWindow ScaleRootWindow
+#define MAYBE_ConvertHostToRootCoords ConvertHostToRootCoords
 #endif
 
 TEST_F(DisplayControllerTest, MAYBE_Rotate) {
@@ -745,15 +755,6 @@ TEST_F(DisplayControllerTest, MAYBE_Rotate) {
   Shell::GetInstance()->RemovePreTargetHandler(&event_handler);
 }
 
-#if defined(OS_WIN)
-// On Win8 bots, the host window can't be resized and
-// SetTransform updates the window using the orignal host window
-// size.
-#define MAYBE_ScaleRootWindow DISABLED_ScaleRootWindow
-#else
-#define MAYBE_ScaleRootWindow ScaleRootWindow
-#endif
-
 TEST_F(DisplayControllerTest, MAYBE_ScaleRootWindow) {
   TestEventHandler event_handler;
   Shell::GetInstance()->AddPreTargetHandler(&event_handler);
@@ -783,6 +784,62 @@ TEST_F(DisplayControllerTest, MAYBE_ScaleRootWindow) {
   EXPECT_EQ("375,0 500x300", display2.bounds().ToString());
   EXPECT_EQ(1.25f, GetStoredUIScale(display1.id()));
   EXPECT_EQ(1.0f, GetStoredUIScale(display2.id()));
+
+  UpdateDisplay("600x400*2/u@1.5");
+  display1 = Shell::GetScreen()->GetPrimaryDisplay();
+  root_windows = Shell::GetAllRootWindows();
+  EXPECT_EQ("0,0 450x300", display1.bounds().ToString());
+  EXPECT_EQ("0,0 450x300", root_windows[0]->bounds().ToString());
+  EXPECT_EQ(1.5f, GetStoredUIScale(display1.id()));
+
+  MoveMouseToInHostCoord(root_windows[0], 0, 0);
+  EXPECT_EQ("449,299", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 599, 0);
+  EXPECT_EQ("0,299", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 599, 399);
+  EXPECT_EQ("0,0", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 0, 399);
+  EXPECT_EQ("449,0", event_handler.GetLocationAndReset());
+
+  UpdateDisplay("600x400*2/l@1.5");
+  display1 = Shell::GetScreen()->GetPrimaryDisplay();
+  root_windows = Shell::GetAllRootWindows();
+  EXPECT_EQ("0,0 300x450", display1.bounds().ToString());
+  EXPECT_EQ("0,0 300x450", root_windows[0]->bounds().ToString());
+  EXPECT_EQ(1.5f, GetStoredUIScale(display1.id()));
+
+  MoveMouseToInHostCoord(root_windows[0], 0, 0);
+  EXPECT_EQ("299,0", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 599, 0);
+  EXPECT_EQ("299,449", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 599, 399);
+  EXPECT_EQ("0,449", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 0, 399);
+  EXPECT_EQ("0,0", event_handler.GetLocationAndReset());
+
+  Shell::GetInstance()->RemovePreTargetHandler(&event_handler);
+}
+
+TEST_F(DisplayControllerTest, MAYBE_ConvertHostToRootCoords) {
+  TestEventHandler event_handler;
+  Shell::GetInstance()->AddPreTargetHandler(&event_handler);
+
+  UpdateDisplay("600x400*2/r@1.5");
+
+  gfx::Display display1 = Shell::GetScreen()->GetPrimaryDisplay();
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  EXPECT_EQ("0,0 300x450", display1.bounds().ToString());
+  EXPECT_EQ("0,0 300x450", root_windows[0]->bounds().ToString());
+  EXPECT_EQ(1.5f, GetStoredUIScale(display1.id()));
+
+  MoveMouseToInHostCoord(root_windows[0], 0, 0);
+  EXPECT_EQ("0,449", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 599, 0);
+  EXPECT_EQ("0,0", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 599, 399);
+  EXPECT_EQ("299,0", event_handler.GetLocationAndReset());
+  MoveMouseToInHostCoord(root_windows[0], 0, 399);
+  EXPECT_EQ("299,449", event_handler.GetLocationAndReset());
 
   Shell::GetInstance()->RemovePreTargetHandler(&event_handler);
 }
