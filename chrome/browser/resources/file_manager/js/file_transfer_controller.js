@@ -478,8 +478,8 @@ FileTransferController.prototype = {
     if (this.dropTarget_ == domElement)
       return;
 
-    /** @type {string?} */
-    this.destinationPath_ = null;
+    // Remove the old drop target.
+    this.clearDropTarget_();
 
     // Add accept class if the domElement can accept the drag.
     if (isDirectory &&
@@ -487,9 +487,6 @@ FileTransferController.prototype = {
       domElement.classList.add('accepts');
       this.destinationPath_ = destinationPath;
     }
-
-    // Remove the old drag target.
-    this.clearDropTarget_();
 
     // Set the new drop target.
     this.dropTarget_ = domElement;
@@ -515,6 +512,7 @@ FileTransferController.prototype = {
     if (this.dropTarget_ && this.dropTarget_.classList.contains('accepts'))
       this.dropTarget_.classList.remove('accepts');
     this.dropTarget_ = null;
+    this.destinationPath_ = null;
     if (this.navigateTimer_ !== undefined) {
       clearTimeout(this.navigateTimer_);
       this.navigateTimer_ = undefined;
