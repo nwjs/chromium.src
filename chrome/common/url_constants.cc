@@ -518,8 +518,6 @@ const char kChromeSearchLocalOmniboxPopupHost[] = "local-omnibox-popup";
 const char kChromeSearchLocalOmniboxPopupURL[]
     = "chrome-search://local-omnibox-popup/local-omnibox-popup.html";
 
-const char kChromeSearchSuggestionHost[] = "suggestion";
-
 // Google SafeSearch query parameters.
 const char kSafeSearchSafeParameter[] = "safe=active";
 const char kSafeSearchSsuiParameter[] = "ssui=on";

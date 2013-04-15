@@ -431,9 +431,6 @@ extern const char kChromeSearchLocalOmniboxPopupURL[];
 extern const char kChromeSearchLocalNtpHost[];
 extern const char kChromeSearchLocalNtpUrl[];
 
-// Host for search suggestions iframes.
-extern const char kChromeSearchSuggestionHost[];
-
 #if defined(OS_CHROMEOS)
 extern const char kCrosScheme[];
 extern const char kDriveScheme[];

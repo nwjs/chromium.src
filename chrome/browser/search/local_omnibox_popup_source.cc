@@ -7,7 +7,6 @@
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/string_util.h"
-#include "base/stringprintf.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/common/content_client.h"
 #include "googleurl/src/gurl.h"
@@ -92,11 +91,4 @@ bool LocalOmniboxPopupSource::ShouldServiceRequest(
            filename == kSearchIcon2xFilename;
   }
   return false;
-}
-
-std::string LocalOmniboxPopupSource::GetContentSecurityPolicyFrameSrc() const {
-  // Allow embedding of chrome search suggestion host.
-  return base::StringPrintf("frame-src %s://%s/;",
-                            chrome::kChromeSearchScheme,
-                            chrome::kChromeSearchSuggestionHost);
 }
