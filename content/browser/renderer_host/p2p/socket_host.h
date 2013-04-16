@@ -69,7 +69,9 @@ class CONTENT_EXPORT P2PSocketHost {
   // TODO(sergeyu): Consider implementing congestion notifications to
   // minimize buffering. This will require some fixes in libjingle,
   // see crbug.com/91495 .
-  static const int kMaxSendBufferSize = 256 * 1024;
+  //
+  // This value is changed to 40KB and details is in crbug.com/231705.
+  static const int kMaxSendBufferSize = 40 * 1024;
 
   P2PSocketHost(IPC::Sender* message_sender, int id);
 
