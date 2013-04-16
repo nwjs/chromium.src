@@ -736,16 +736,18 @@ TEST_F(WebContentsVideoCaptureDeviceTest, BadFramesGoodFrames) {
 
 // 60Hz sampled at 30Hz should produce 30Hz.
 TEST(SmoothEventSamplerTest, Sample60HertzAt30Hertz) {
-  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true);
+  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true, 200);
   const base::TimeDelta vsync = base::TimeDelta::FromSeconds(1) / 60;
 
   base::Time t;
   ASSERT_TRUE(base::Time::FromString("Sat, 23 Mar 2013 1:21:08 GMT", &t));
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "First timer event should sample.";
-  sampler.RecordSample();
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "Should always be overdue until first paint.";
+  for (int i = 0; i < 200; i++) {
+    ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
+        << "Should sample until redundant capture goal is hit";
+    sampler.RecordSample();
+  }
+  ASSERT_FALSE(sampler.IsOverdueForSamplingAt(t))
+      << "Should not be overdue once redundant capture goal achieved.";
 
   // Steady state, we should capture every other vsync, indefinitely.
   for (int i = 0; i < 100; i++) {
@@ -785,16 +787,20 @@ TEST(SmoothEventSamplerTest, Sample60HertzAt30Hertz) {
 
 // 50Hz sampled at 30Hz should produce 25Hz.
 TEST(SmoothEventSamplerTest, Sample50HertzAt30Hertz) {
-  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true);
+  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true, 2);
   const base::TimeDelta vsync = base::TimeDelta::FromSeconds(1) / 50;
 
   base::Time t;
   ASSERT_TRUE(base::Time::FromString("Sat, 23 Mar 2013 1:21:08 GMT", &t));
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "First timer event should sample.";
-  sampler.RecordSample();
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "Should always be overdue until first paint.";
+  for (int i = 0; i < 2; i++) {
+    ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
+        << "Should sample until redundant capture goal is hit";
+    sampler.RecordSample();
+  }
+  ASSERT_FALSE(sampler.IsOverdueForSamplingAt(t))
+      << "Should not be overdue once redundant capture goal achieved.";
+
+
 
   // Steady state, we should capture every other vsync, indefinitely.
   for (int i = 0; i < 100; i++) {
@@ -834,16 +840,18 @@ TEST(SmoothEventSamplerTest, Sample50HertzAt30Hertz) {
 
 // 30Hz sampled at 30Hz should produce 30Hz.
 TEST(SmoothEventSamplerTest, Sample30HertzAt30Hertz) {
-  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true);
+  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true, 3);
   const base::TimeDelta vsync = base::TimeDelta::FromSeconds(1) / 30;
 
   base::Time t;
   ASSERT_TRUE(base::Time::FromString("Sat, 23 Mar 2013 1:21:08 GMT", &t));
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "First timer event should sample.";
-  sampler.RecordSample();
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "Should always be overdue until first paint.";
+  for (int i = 0; i < 3; i++) {
+    ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
+        << "Should sample until redundant capture goal is hit";
+    sampler.RecordSample();
+  }
+  ASSERT_FALSE(sampler.IsOverdueForSamplingAt(t))
+      << "Should not be overdue once redundant capture goal achieved.";
 
   // Steady state, we should capture every vsync, indefinitely.
   for (int i = 0; i < 200; i++) {
@@ -875,16 +883,18 @@ TEST(SmoothEventSamplerTest, Sample30HertzAt30Hertz) {
 
 // 24Hz sampled at 30Hz should produce 24Hz.
 TEST(SmoothEventSamplerTest, Sample24HertzAt30Hertz) {
-  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true);
+  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true, 333);
   const base::TimeDelta vsync = base::TimeDelta::FromSeconds(1) / 24;
 
   base::Time t;
   ASSERT_TRUE(base::Time::FromString("Sat, 23 Mar 2013 1:21:08 GMT", &t));
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "First timer event should sample.";
-  sampler.RecordSample();
-  ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
-      << "Should always be overdue until first paint.";
+  for (int i = 0; i < 333; i++) {
+    ASSERT_TRUE(sampler.IsOverdueForSamplingAt(t))
+        << "Should sample until redundant capture goal is hit";
+    sampler.RecordSample();
+  }
+  ASSERT_FALSE(sampler.IsOverdueForSamplingAt(t))
+      << "Should not be overdue once redundant capture goal achieved.";
 
   // Steady state, we should capture every vsync, indefinitely.
   for (int i = 0; i < 200; i++) {
@@ -915,7 +925,7 @@ TEST(SmoothEventSamplerTest, Sample24HertzAt30Hertz) {
 }
 
 TEST(SmoothEventSamplerTest, DoubleDrawAtOneTimeStillDirties) {
-  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true);
+  SmoothEventSampler sampler(base::TimeDelta::FromSeconds(1) / 30, true, 1);
   const base::TimeDelta overdue_period = base::TimeDelta::FromSeconds(1);
 
   base::Time t;
@@ -939,8 +949,8 @@ TEST(SmoothEventSamplerTest, DoubleDrawAtOneTimeStillDirties) {
 
 TEST(SmoothEventSamplerTest, FallbackToPollingIfUpdatesUnreliable) {
   const base::TimeDelta timer_interval = base::TimeDelta::FromSeconds(1) / 30;
-  SmoothEventSampler should_not_poll(timer_interval, true);
-  SmoothEventSampler should_poll(timer_interval, false);
+  SmoothEventSampler should_not_poll(timer_interval, true, 1);
+  SmoothEventSampler should_poll(timer_interval, false, 1);
 
   base::Time t;
   ASSERT_TRUE(base::Time::FromString("Sat, 23 Mar 2013 1:21:08 GMT", &t));
