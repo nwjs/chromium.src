@@ -1008,9 +1008,6 @@
     # Disable Dart by default.
     'enable_dart%': 0,
 
-    # Turn V8 handle zapping on by default.
-    'v8_enable_extra_checks': 1,
-
     # The desired version of Windows SDK can be set in ~/.gyp/include.gypi.
     'msbuild_toolset%': '',
 
