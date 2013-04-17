@@ -12,6 +12,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/spellchecker/spellcheck_service.h"
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
+#include "chrome/browser/view_type_utils.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/spellcheck_messages.h"
@@ -72,8 +73,16 @@ void SpellCheckerSubMenuObserver::InitMenu(
   // Add a check item "Ask Google for spelling suggestions" item. (This class
   // does not handle this item because the SpellingMenuObserver class handles it
   // on behalf of this class.)
-  submenu_model_.AddCheckItem(IDC_CONTENT_CONTEXT_SPELLING_TOGGLE,
-      l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE));
+#if defined(TOOLKIT_GTK)
+  chrome::ViewType view_type =
+      chrome::GetViewType(proxy_->GetWebContents());
+  if (view_type != chrome::VIEW_TYPE_PANEL) {
+#endif
+    submenu_model_.AddCheckItem(IDC_CONTENT_CONTEXT_SPELLING_TOGGLE,
+        l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE));
+#if defined(TOOLKIT_GTK)
+  }
+#endif
 
   // Add a check item "Automatically correct spelling".
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
