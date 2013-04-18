@@ -333,7 +333,6 @@
   },
   "power": {
     "channel": "stable",
-    "platform": "chromeos",
     "extension_types": [
       "extension", "hosted_app", "packaged_app", "platform_app"
     ]
