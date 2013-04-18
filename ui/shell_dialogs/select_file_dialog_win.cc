@@ -500,7 +500,8 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
   // dialog thread.
   bool RunSelectFolderDialog(const std::wstring& title,
                              HWND owner,
-                             base::FilePath* path);
+                             base::FilePath* path,
+                             const std::wstring& working_dir);
 
   // Runs an Open file dialog box, with similar semantics for input paramaters
   // as RunSelectFolderDialog.
@@ -634,7 +635,8 @@ void SelectFileDialogImpl::ExecuteSelectFile(
   if (params.type == SELECT_FOLDER) {
     success = RunSelectFolderDialog(params.title,
                                     params.run_state.owner,
-                                    &path);
+                                    &path,
+                                    working_dir_as_wstring);
   } else if (params.type == SELECT_SAVEAS_FILE) {
     std::wstring path_as_wstring = path.value();
     success = SaveFileAsWithFilter(params.run_state.owner,
@@ -712,7 +714,8 @@ int CALLBACK SelectFileDialogImpl::BrowseCallbackProc(HWND window,
 
 bool SelectFileDialogImpl::RunSelectFolderDialog(const std::wstring& title,
                                                  HWND owner,
-                                                 base::FilePath* path) {
+                                                 base::FilePath* path,
+                                                 const std::wstring& working_dir) {
   DCHECK(path);
 
   wchar_t dir_buffer[MAX_PATH + 1];
@@ -727,7 +730,13 @@ bool SelectFileDialogImpl::RunSelectFolderDialog(const std::wstring& title,
   if (path->value().length()) {
     // Highlight the current value.
     browse_info.lParam = (LPARAM)path->value().c_str();
-    browse_info.lpfn = &BrowseCallbackProc;
+    browse_info.lpfn = BrowseCallbackProc;
+  }
+
+  if (!working_dir.empty()) {
+    // Highlight the current value.
+    browse_info.lParam = (LPARAM)working_dir.c_str();
+    browse_info.lpfn = BrowseCallbackProc;
   }
 
   LPITEMIDLIST list = SHBrowseForFolder(&browse_info);
