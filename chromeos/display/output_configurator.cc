@@ -1156,7 +1156,9 @@ bool OutputConfigurator::EnterState(
            outputs[0].is_internal);
       bool secondary_power_on = power_state == DISPLAY_POWER_ALL_ON ||
           (power_state == DISPLAY_POWER_INTERNAL_ON_EXTERNAL_OFF &&
-           outputs[1].is_internal);
+           outputs[1].is_internal) ||
+          (power_state == DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON &&
+           outputs[0].is_internal && !outputs[1].is_internal);
 
       if (output_state == STATE_DUAL_MIRROR) {
         XRRModeInfo* mode_info = ModeInfoForID(screen, outputs[0].mirror_mode);
