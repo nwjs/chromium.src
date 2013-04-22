@@ -192,7 +192,7 @@ void StartupHelper::LimitedInstallFromWebstore(
   }
 
   AppInstallHelper* helper = new AppInstallHelper();
-  helper->BeginInstall(profile, id, true /*show_prompt*/,
+  helper->BeginInstall(profile, id, false /*show_prompt*/,
                        base::Bind(&DeleteHelperAndRunCallback,
                                   helper, done_callback));
 }
