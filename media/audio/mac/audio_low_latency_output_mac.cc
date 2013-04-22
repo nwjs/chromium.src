@@ -79,12 +79,8 @@ AUAudioOutputStream::AUAudioOutputStream(
   DVLOG(1) << "Desired ouput format: " << format_;
 
   // Calculate the number of sample frames per callback.
-  number_of_frames_ = params.GetBytesPerBuffer() / format_.mBytesPerPacket;
+  number_of_frames_ = params.frames_per_buffer();
   DVLOG(1) << "Number of frames per callback: " << number_of_frames_;
-  const AudioParameters parameters =
-      manager_->GetDefaultOutputStreamParameters();
-  CHECK_EQ(number_of_frames_,
-           static_cast<size_t>(parameters.frames_per_buffer()));
 }
 
 AUAudioOutputStream::~AUAudioOutputStream() {
@@ -100,7 +96,7 @@ bool AUAudioOutputStream::Open() {
                                                &size,
                                                &output_device_id_);
   if (result != noErr || output_device_id_ == kAudioObjectUnknown) {
-    OSSTATUS_DLOG(WARNING, result)
+    OSSTATUS_DLOG(ERROR, result)
         << "Could not get default audio output device.";
     return false;
   }
@@ -120,13 +116,13 @@ bool AUAudioOutputStream::Open() {
 
   result = AudioComponentInstanceNew(comp, &output_unit_);
   if (result != noErr) {
-    OSSTATUS_DLOG(WARNING, result) << "AudioComponentInstanceNew() failed.";
+    OSSTATUS_DLOG(ERROR, result) << "AudioComponentInstanceNew() failed.";
     return false;
   }
 
   result = AudioUnitInitialize(output_unit_);
   if (result != noErr) {
-    OSSTATUS_DLOG(WARNING, result) << "AudioUnitInitialize() failed.";
+    OSSTATUS_DLOG(ERROR, result) << "AudioUnitInitialize() failed.";
     return false;
   }
 
@@ -148,7 +144,7 @@ bool AUAudioOutputStream::Configure() {
       &input,
       sizeof(input));
   if (result != noErr) {
-    OSSTATUS_DLOG(WARNING, result)
+    OSSTATUS_DLOG(ERROR, result)
       << "AudioUnitSetProperty(kAudioUnitProperty_SetRenderCallback) failed.";
     return false;
   }
@@ -162,7 +158,7 @@ bool AUAudioOutputStream::Configure() {
       &format_,
       sizeof(format_));
   if (result != noErr) {
-    OSSTATUS_DLOG(WARNING, result)
+    OSSTATUS_DLOG(ERROR, result)
         << "AudioUnitSetProperty(kAudioUnitProperty_StreamFormat) failed.";
     return false;
   }
@@ -173,6 +169,13 @@ bool AUAudioOutputStream::Configure() {
   // be the same as the frames_per_buffer() returned by
   // GetDefaultOutputStreamParameters.
   // See http://crbug.com/154352 for details.
+  const AudioParameters hw_params =
+      manager_->GetDefaultOutputStreamParameters();
+  if (number_of_frames_ != static_cast<size_t>(hw_params.frames_per_buffer())) {
+    DLOG(ERROR) << "Audio buffer size does not match hardware buffer size.";
+    return false;
+  }
+
   UInt32 buffer_size = number_of_frames_;
   result = AudioUnitSetProperty(
       output_unit_,
@@ -182,7 +185,7 @@ bool AUAudioOutputStream::Configure() {
       &buffer_size,
       sizeof(buffer_size));
   if (result != noErr) {
-    OSSTATUS_DLOG(WARNING, result)
+    OSSTATUS_DLOG(ERROR, result)
         << "AudioUnitSetProperty(kAudioDevicePropertyBufferFrameSize) failed.";
     return false;
   }
