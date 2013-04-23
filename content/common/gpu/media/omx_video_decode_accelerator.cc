@@ -28,6 +28,14 @@ enum { kNumPictureBuffers = 8 };
 // for more difficult frames.
 enum { kSyncPollDelayMs = 5 };
 
+// TODO(ihf): Remove this delay once issue 225563 is fixed.
+// This extra delay is added to wait after the (unreliable) sync object has
+// signaled completion (and before a picture buffer is returned to the decoder).
+// Experimentally tearing gets smaller and is mostly gone as we approach 20 ms.
+// I wanted to use 60ms, but that sometimes confuses html5 when switching to
+// 1080p. (Video stops.)
+enum { kExtraSyncDelayMs = 20 };
+
 void* omx_handle = NULL;
 
 typedef OMX_ERRORTYPE (*OMXInit)();
@@ -464,9 +472,13 @@ void OmxVideoDecodeAccelerator::CheckPictureStatus(
         base::TimeDelta::FromMilliseconds(kSyncPollDelayMs));
     return;
   }
-
-  // Synced successfully. Queue the buffer for reuse.
-  QueuePictureBuffer(picture_buffer_id);
+  // TODO(ihf): Directly call again once the driver in issue 225563 is fixed.
+  // Synced successfully. Queue the buffer for reuse with some delay to cover
+  // for bad sync object signaling.
+  MessageLoop::current()->PostDelayedTask(FROM_HERE, base::Bind(
+      &OmxVideoDecodeAccelerator::QueuePictureBuffer, weak_this_,
+      picture_buffer_id),
+      base::TimeDelta::FromMilliseconds(kExtraSyncDelayMs));
 }
 
 void OmxVideoDecodeAccelerator::QueuePictureBuffer(int32 picture_buffer_id) {
