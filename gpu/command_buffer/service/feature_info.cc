@@ -95,6 +95,7 @@ FeatureInfo::Workarounds::Workarounds()
       use_current_program_after_successful_link(false),
       restore_scissor_on_fbo_change(false),
       flush_on_context_switch(false),
+      makecurrent_recreates_surfaces(false),
       delete_instead_of_resize_fbo(false),
       use_client_side_arrays_for_stream_buffers(false),
       max_texture_size(0),
@@ -172,6 +173,7 @@ void FeatureInfo::AddFeatures() {
   bool is_qualcomm = false;
   bool is_imagination = false;
   bool is_arm = false;
+  bool is_hisilicon = false;
   for (size_t ii = 0; ii < arraysize(string_ids); ++ii) {
     const char* str = reinterpret_cast<const char*>(
           glGetString(string_ids[ii]));
@@ -185,6 +187,7 @@ void FeatureInfo::AddFeatures() {
       is_qualcomm |= string_set.Contains("qualcomm");
       is_imagination |= string_set.Contains("imagination");
       is_arm |= string_set.Contains("arm");
+      is_hisilicon |= string_set.Contains("hisilicon");
     }
   }
 
@@ -654,6 +657,10 @@ void FeatureInfo::AddFeatures() {
       workarounds_.flush_on_context_switch = true;
       // This is only needed on the ICS driver.
       workarounds_.delete_instead_of_resize_fbo = true;
+    }
+
+    if (is_hisilicon) {
+      workarounds_.makecurrent_recreates_surfaces = true;
     }
 
 #if defined(OS_MACOSX)

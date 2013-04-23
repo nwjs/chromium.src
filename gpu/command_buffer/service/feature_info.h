@@ -55,6 +55,7 @@ class GPU_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
     bool use_current_program_after_successful_link;
     bool restore_scissor_on_fbo_change;
     bool flush_on_context_switch;
+    bool makecurrent_recreates_surfaces;
     bool delete_instead_of_resize_fbo;
     bool use_client_side_arrays_for_stream_buffers;
 
