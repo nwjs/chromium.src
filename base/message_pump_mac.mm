@@ -18,9 +18,9 @@
 #import <AppKit/AppKit.h>
 #endif  // !defined(OS_IOS)
 
-// Export private functions.
-extern "C" unsigned int uv__poll_timeout(uv_loop_t* loop);
-extern "C" void ev__run(EV_P_ ev_tstamp timeout);
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
 
 namespace {
 
@@ -578,7 +578,7 @@ MessagePumpNSApplication::MessagePumpNSApplication(bool for_node)
     uv_thread_create(&embed_thread_, EmbedThreadRunner, this);
 
     // Execute loop for once.
-    uv_run_once_nowait(uv_default_loop());
+    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
   }
 }
 
@@ -625,8 +625,10 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
 
       if (for_node_ && nesting_level() == 0) {
         // Deal with uv events.
-        if (!uv_run_once_nowait(uv_default_loop()))
+        if (!uv_run(uv_default_loop(), UV_RUN_NOWAIT)) {
+          VLOG(1) << "Quit from uv";
           keep_running_ = false; // Quit from uv.
+        }
 
         // Tell the worker thread to continue polling.
         uv_sem_post(&embed_sem_);
@@ -668,16 +670,25 @@ void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
   base::MessagePumpNSApplication* message_pump =
       static_cast<base::MessagePumpNSApplication*>(arg);
 
+  int r;
+
   while (!message_pump->embed_closed_) {
     uv_loop_t* loop = uv_default_loop();
 
     // We should at leat poll every 500ms.
-    unsigned int timeout = uv__poll_timeout(loop);
-    if (timeout > 500)
+    int timeout = uv_backend_timeout(loop);
+    if (timeout > 500 || timeout < 0)
       timeout = 500;
 
     // Wait for new libuv events.
-    ev__run(loop->ev, timeout / 1000.);
+    int fd = uv_backend_fd(loop);
+
+    do {
+      struct timespec ts;
+      ts.tv_sec = timeout / 1000;
+      ts.tv_nsec = (timeout % 1000) * 1000000;
+      r = kevent(fd, NULL, 0, NULL, 0, &ts);
+    } while (r == -1 && errno == EINTR);
 
     // Don't wake up main loop if in a nested loop, so we'll keep waiting for
     // the semaphore and uv loop will be paused.

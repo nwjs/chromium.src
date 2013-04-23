@@ -27,7 +27,7 @@
         '../third_party/modp_b64/modp_b64.gyp:modp_b64',
         'third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../third_party/node/node.gyp:node',
-        '../third_party/node/deps/uv/uv.gyp:uv',
+        '../third_party/node/deps/uv/uv.gyp:libuv',
         '../v8/tools/gyp/v8.gyp:v8',
       ],
       # TODO(gregoryd): direct_dependent_settings should be shared with the

@@ -85,13 +85,13 @@ void MessagePumpUV::Run(Delegate* delegate) {
       continue;
 
     if (delayed_work_time_.is_null()) {
-      uv_run_once(loop);
+      uv_run(loop, UV_RUN_ONCE);
     } else {
       TimeDelta delay = delayed_work_time_ - TimeTicks::Now();
       if (delay > TimeDelta()) {
         uv_timer_start(&delay_timer, timer_callback,
                        delay.InMilliseconds(), 0);
-        uv_run_once(loop);
+        uv_run(loop, UV_RUN_ONCE);
         uv_idle_stop(&idle_handle);
         uv_timer_stop(&delay_timer);
       } else {
