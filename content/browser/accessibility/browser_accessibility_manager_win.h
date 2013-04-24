@@ -39,6 +39,7 @@ class CONTENT_EXPORT BrowserAccessibilityManagerWin
 
   // BrowserAccessibilityManager methods
   virtual void NotifyAccessibilityEvent(int type, BrowserAccessibility* node);
+  virtual void Remove(BrowserAccessibility* node) OVERRIDE;
 
   // Track this object and post a VISIBLE_DATA_CHANGED notification when
   // its container scrolls.

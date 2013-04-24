@@ -153,6 +153,14 @@ void BrowserAccessibilityManagerWin::NotifyAccessibilityEvent(
   }
 }
 
+void BrowserAccessibilityManagerWin::Remove(BrowserAccessibility* node) {
+  if (node == tracked_scroll_object_) {
+    tracked_scroll_object_->Release();
+    tracked_scroll_object_ = NULL;
+  }
+  BrowserAccessibilityManager::Remove(node);
+}
+
 void BrowserAccessibilityManagerWin::TrackScrollingObject(
     BrowserAccessibilityWin* node) {
   if (tracked_scroll_object_)

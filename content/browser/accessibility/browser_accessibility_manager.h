@@ -75,7 +75,7 @@ class CONTENT_EXPORT BrowserAccessibilityManager {
   BrowserAccessibility* GetRoot();
 
   // Removes a node from the manager.
-  void Remove(BrowserAccessibility* node);
+  virtual void Remove(BrowserAccessibility* node);
 
   // Return a pointer to the object corresponding to the given child_id,
   // does not make a new reference.
