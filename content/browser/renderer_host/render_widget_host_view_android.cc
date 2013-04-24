@@ -813,11 +813,6 @@ WebKit::WebGraphicsContext3D* RenderWidgetHostViewAndroid::Context3d() {
   return ImageTransportFactoryAndroid::GetInstance()->GetContext3D();
 }
 
-bool RenderWidgetHostViewAndroid::PrepareTextureMailbox(
-    cc::TextureMailbox* mailbox) {
-  return false;
-}
-
 // static
 void RenderWidgetHostViewPort::GetDefaultScreenInfo(
     WebKit::WebScreenInfo* results) {
