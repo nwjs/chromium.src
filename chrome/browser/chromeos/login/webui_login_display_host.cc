@@ -127,6 +127,8 @@ WebUILoginDisplayHost::WebUILoginDisplayHost(const gfx::Rect& background_bounds)
       && initialize_webui_hidden_) {
     registrar_.Add(this, chrome::NOTIFICATION_LOGIN_WEBUI_VISIBLE,
                    content::NotificationService::AllSources());
+    registrar_.Add(this, chrome::NOTIFICATION_LOGIN_NETWORK_ERROR_SHOWN,
+                   content::NotificationService::AllSources());
   }
   LOG(INFO) << "Login WebUI >> "
             << "zero_delay: " << zero_delay_enabled
@@ -252,7 +254,8 @@ void WebUILoginDisplayHost::Observe(
     registrar_.Remove(this,
                       chrome::NOTIFICATION_WALLPAPER_ANIMATION_FINISHED,
                       content::NotificationService::AllSources());
-  } else if (chrome::NOTIFICATION_LOGIN_WEBUI_VISIBLE == type) {
+  } else if (chrome::NOTIFICATION_LOGIN_WEBUI_VISIBLE == type ||
+             chrome::NOTIFICATION_LOGIN_NETWORK_ERROR_SHOWN == type) {
     LOG(INFO) << "Login WebUI >> WEBUI_VISIBLE";
     if (waiting_for_user_pods_ && initialize_webui_hidden_) {
       waiting_for_user_pods_ = false;
@@ -264,6 +267,9 @@ void WebUILoginDisplayHost::Observe(
     }
     registrar_.Remove(this,
                       chrome::NOTIFICATION_LOGIN_WEBUI_VISIBLE,
+                      content::NotificationService::AllSources());
+    registrar_.Remove(this,
+                      chrome::NOTIFICATION_LOGIN_NETWORK_ERROR_SHOWN,
                       content::NotificationService::AllSources());
   } else {
     BaseLoginDisplayHost::Observe(type, source, details);
