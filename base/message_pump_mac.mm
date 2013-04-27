@@ -671,6 +671,7 @@ void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
       static_cast<base::MessagePumpNSApplication*>(arg);
 
   int r;
+  struct kevent errors[1];
 
   while (!message_pump->embed_closed_) {
     uv_loop_t* loop = uv_default_loop();
@@ -687,7 +688,7 @@ void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
       struct timespec ts;
       ts.tv_sec = timeout / 1000;
       ts.tv_nsec = (timeout % 1000) * 1000000;
-      r = kevent(fd, NULL, 0, NULL, 0, &ts);
+      r = kevent(fd, NULL, 0, errors, 1, &ts);
     } while (r == -1 && errno == EINTR);
 
     // Don't wake up main loop if in a nested loop, so we'll keep waiting for
