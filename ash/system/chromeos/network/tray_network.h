@@ -73,12 +73,14 @@ class TrayNetwork : public SystemTrayItem,
   virtual void NetworkServiceChanged(
       const chromeos::NetworkState* network) OVERRIDE;
 
-  // Gets the correct icon and label for |icon_type|.
+  // Gets the correct icon and label for |icon_type|. Also sets |animating|
+  // based on whether or not the icon is animating (i.e. connecting).
   void GetNetworkStateHandlerImageAndLabel(network_icon::IconType icon_type,
                                            gfx::ImageSkia* image,
-                                           string16* label);
+                                           string16* label,
+                                           bool* animating);
 
-private:
+ private:
   friend class tray::NetworkMessageView;
   friend class tray::NetworkNotificationView;
 
