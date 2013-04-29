@@ -1766,13 +1766,6 @@
       ],
     },
     'conditions': [
-      ['OS=="win"', {
-        'msvs_settings': {
-          'VCCLCompilerTool': {
-            'AdditionalOptions': ['/bigobj'],
-          },
-        },
-      }],
       ['(OS=="mac" or OS=="ios") and asan==1', {
         'dependencies': [
           '<(DEPTH)/build/mac/asan.gyp:asan_dynamic_runtime',
