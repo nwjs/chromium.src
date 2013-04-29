@@ -691,7 +691,14 @@ class ImeAdapter {
                 return true;
             }
             super.finishComposingText();
-            return mImeAdapter.checkCompositionQueueAndCallNative("", 0, true);
+
+            beginBatchEdit();
+            int selectionStart = Selection.getSelectionStart(editable);
+            int selectionEnd = Selection.getSelectionEnd(editable);
+            if (!mImeAdapter.checkCompositionQueueAndCallNative("", 0, true)) return false;
+            if (!mImeAdapter.setEditableSelectionOffsets(selectionStart, selectionEnd)) return false;
+            endBatchEdit();
+            return true;
         }
 
         @Override
