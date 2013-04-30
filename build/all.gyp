@@ -692,7 +692,6 @@
                 '../chrome/chrome.gyp:chromedriver',
                 '../chrome/chrome.gyp:crash_service',
                 '../chrome/chrome.gyp:interactive_ui_tests',
-                '../chrome/chrome.gyp:performance_ui_tests',
                 '../chrome/chrome.gyp:policy_templates',
                 '../chrome/chrome.gyp:reliability_tests',
                 '../chrome/chrome.gyp:automated_ui_tests',
