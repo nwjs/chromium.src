@@ -757,6 +757,8 @@ std::string LoginUtilsImpl::GetOffTheRecordCommandLine(
       ::switches::kDisableSeccompSandbox,
       ::switches::kEnableAcceleratedOverflowScroll,
       ::switches::kEnableCompositingForFixedPosition,
+      ::switches::kDisableGpuSandbox,
+      ::switches::kEnableGpuSandbox,
       ::switches::kEnableLogging,
       ::switches::kEnablePinch,
       ::switches::kEnableGestureTapHighlight,
