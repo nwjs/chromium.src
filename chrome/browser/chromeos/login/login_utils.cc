@@ -820,6 +820,10 @@ class WarmingObserver : public ConnectivityStateHelperObserver,
     }
   }
 
+  virtual void DefaultNetworkChanged() OVERRIDE {
+    NetworkManagerChanged();
+  }
+
   // content::NotificationObserver overrides.
   virtual void Observe(int type,
                        const content::NotificationSource& source,
