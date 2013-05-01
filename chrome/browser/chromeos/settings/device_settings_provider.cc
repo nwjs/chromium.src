@@ -616,7 +616,7 @@ void DeviceSettingsProvider::DecodeGenericPolicies(
   } else {
     new_values_cache->SetBoolean(
         kAllowRedeemChromeOsRegistrationOffers,
-        !g_browser_process->browser_policy_connector()->IsEnterpriseManaged());
+        true);
   }
 }
 
