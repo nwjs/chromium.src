@@ -31,7 +31,6 @@ template <typename T> class JSONValueConverter;
 namespace ash {
 namespace internal {
 class DisplayManager;
-class FocusActivationStore;
 class RootWindowController;
 }
 
@@ -258,8 +257,6 @@ class ASH_EXPORT DisplayController : public gfx::DisplayObserver {
   // Store the primary root window temporarily while replacing
   // display.
   aura::RootWindow* primary_root_window_for_replace_;
-
-  scoped_ptr<internal::FocusActivationStore> focus_activation_store_;
 
   DISALLOW_COPY_AND_ASSIGN(DisplayController);
 };
