@@ -371,7 +371,7 @@ void RegisterPnaclComponent(ComponentUpdateService* cus,
                             const CommandLine& command_line) {
   // Only register when given the right flag.  This is important since
   // we do an early component updater check above (in DoCheckForUpdate).
-  if (command_line.HasSwitch(switches::kEnablePnacl)) {
+  if (false /* Disable for now */) {
     BrowserThread::PostTask(
         BrowserThread::FILE, FROM_HERE,
         base::Bind(&StartPnaclUpdateRegistration, cus));
