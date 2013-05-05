@@ -18,6 +18,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
+#include "ui/gfx/point3_f.h"
 #include "ui/gfx/point_conversions.h"
 #include "ui/gfx/point_f.h"
 #include "ui/gfx/rect_conversions.h"
@@ -37,6 +38,14 @@ const float kScrollScaleChangeFactor = 0.05f;
 // Threadshold of panning. If the cursor moves to within pixels (in DIP) of
 // |kPanningMergin| from the edge, the view-port moves.
 const int kPanningMergin = 100;
+
+void MoveCursorTo(aura::RootWindow* root_window,
+                  const gfx::Point root_location) {
+  gfx::Point3F host_location_3f(root_location);
+  root_window->GetRootTransform().TransformPoint(host_location_3f);
+  root_window->MoveCursorToHostLocation(
+      gfx::ToCeiledPoint(host_location_3f.AsPointF()));
+}
 
 }  // namespace
 
@@ -358,7 +367,7 @@ void MagnificationControllerImpl::OnMouseMove(const gfx::Point& location) {
     if (ret) {
       // If the magnified region is moved, hides the mouse cursor and moves it.
       if (x_diff != 0 || y_diff != 0)
-        root_window_->MoveCursorTo(mouse);
+        MoveCursorTo(root_window_, mouse);
     }
   }
 }
@@ -418,7 +427,7 @@ void MagnificationControllerImpl::OnImplicitAnimationsCompleted() {
     return;
 
   if (move_cursor_after_animation_) {
-    root_window_->MoveCursorTo(position_after_animation_);
+    MoveCursorTo(root_window_, position_after_animation_);
     move_cursor_after_animation_ = false;
 
     aura::client::CursorClient* cursor_client =

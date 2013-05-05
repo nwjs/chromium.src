@@ -136,6 +136,9 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // Moves the cursor to the specified location relative to the root window.
   virtual void MoveCursorTo(const gfx::Point& location) OVERRIDE;
 
+  // Moves the cursor to the |host_location| given in host coordinates.
+  void MoveCursorToHostLocation(const gfx::Point& host_location);
+
   // Clips the cursor movement to the root_window.
   bool ConfineCursorToWindow();
 
@@ -256,6 +259,9 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   virtual RootWindow* GetRootWindow() OVERRIDE;
   virtual const RootWindow* GetRootWindow() const OVERRIDE;
   virtual void SetTransform(const gfx::Transform& transform) OVERRIDE;
+
+  // Returns the current transform matrix.
+  gfx::Transform GetRootTransform() const;
 
   // Overridden from ui::EventTarget:
   virtual ui::EventTarget* GetParentTarget() OVERRIDE;
@@ -404,8 +410,6 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // Creates and dispatches synthesized mouse move event using the
   // current mouse location.
   void SynthesizeMouseMoveEvent();
-
-  gfx::Transform GetRootTransform() const;
 
   scoped_ptr<ui::Compositor> compositor_;
 

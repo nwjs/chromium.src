@@ -276,6 +276,20 @@ void RootWindow::MoveCursorTo(const gfx::Point& location_in_dip) {
   }
 }
 
+void RootWindow::MoveCursorToHostLocation(const gfx::Point& host_location) {
+  gfx::Point root_location(host_location);
+  ConvertPointFromHost(&root_location);
+  host_->MoveCursorTo(host_location);
+  SetLastMouseLocation(this, root_location);
+  client::CursorClient* cursor_client = client::GetCursorClient(this);
+  if (cursor_client) {
+    const gfx::Display& display =
+        gfx::Screen::GetScreenFor(this)->GetDisplayNearestWindow(this);
+    cursor_client->SetDisplay(display);
+  }
+  synthesize_mouse_move_ = false;
+}
+
 bool RootWindow::ConfineCursorToWindow() {
   // We would like to be able to confine the cursor to that window. However,
   // currently, we do not have such functionality in X. So we just confine
@@ -513,6 +527,14 @@ void RootWindow::SetTransformInternal(const gfx::Transform& transform) {
   float invert = 1.0f / root_window_scale_;
   translate.Scale(invert, invert);
   Window::SetTransform(translate * transform);
+}
+
+gfx::Transform RootWindow::GetRootTransform() const {
+  float scale = ui::GetDeviceScaleFactor(layer());
+  gfx::Transform transform;
+  transform.Scale(scale, scale);
+  transform *= layer()->transform();
+  return transform;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1169,14 +1191,6 @@ void RootWindow::SynthesizeMouseMoveEvent() {
   ConvertPointToNativeScreen(&root_mouse_location);
   event.set_system_location(root_mouse_location);
   OnHostMouseEvent(&event);
-}
-
-gfx::Transform RootWindow::GetRootTransform() const {
-  float scale = ui::GetDeviceScaleFactor(layer());
-  gfx::Transform transform;
-  transform.Scale(scale, scale);
-  transform *= layer()->transform();
-  return transform;
 }
 
 }  // namespace aura
