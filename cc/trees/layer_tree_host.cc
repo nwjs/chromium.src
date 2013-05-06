@@ -79,6 +79,7 @@ LayerTreeHost::LayerTreeHost(LayerTreeHostClient* client,
       client_(client),
       commit_number_(0),
       rendering_stats_instrumentation_(RenderingStatsInstrumentation::Create()),
+      renderer_can_be_initialized_(true),
       renderer_initialized_(false),
       output_surface_lost_(false),
       num_failed_recreate_attempts_(0),
@@ -150,6 +151,7 @@ void LayerTreeHost::InitializeRenderer() {
   if (!proxy_->InitializeRenderer()) {
     // Uh oh, better tell the client that we can't do anything with this output
     // surface.
+    renderer_can_be_initialized_ = false;
     client_->DidRecreateOutputSurface(false);
     return;
   }
@@ -209,6 +211,7 @@ LayerTreeHost::RecreateResult LayerTreeHost::RecreateOutputSurface() {
 
   // We have tried too many times to recreate the output surface. Tell the
   // host to fall back to software rendering.
+  renderer_can_be_initialized_ = false;
   client_->DidRecreateOutputSurface(false);
   return RecreateFailedAndGaveUp;
 }
@@ -653,6 +656,9 @@ void LayerTreeHost::ScheduleComposite() {
 }
 
 bool LayerTreeHost::InitializeRendererIfNeeded() {
+  if (!renderer_can_be_initialized_)
+    return false;
+
   if (!renderer_initialized_) {
     InitializeRenderer();
     // If we couldn't initialize, then bail since we're returning to software
