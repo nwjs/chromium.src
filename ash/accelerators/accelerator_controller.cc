@@ -172,6 +172,9 @@ gfx::Display::Rotation GetNextRotation(gfx::Display::Rotation current) {
 }
 
 bool HandleScaleUI(bool up) {
+  if (ash::Shell::GetInstance()->magnification_controller()->IsEnabled())
+    return false;
+
   internal::DisplayManager* display_manager =
       Shell::GetInstance()->display_manager();
   int64 display_id = display_manager->GetDisplayIdForUIScaling();
@@ -196,6 +199,9 @@ bool HandleScaleReset() {
 
 // Rotates the screen.
 bool HandleRotateScreen() {
+  if (ash::Shell::GetInstance()->magnification_controller()->IsEnabled())
+    return false;
+
   gfx::Point point = Shell::GetScreen()->GetCursorScreenPoint();
   gfx::Display display = Shell::GetScreen()->GetDisplayNearestPoint(point);
   const DisplayInfo& display_info =

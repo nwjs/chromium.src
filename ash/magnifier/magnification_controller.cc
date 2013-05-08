@@ -5,6 +5,7 @@
 #include "ash/magnifier/magnification_controller.h"
 
 #include "ash/display/display_controller.h"
+#include "ash/display/display_manager.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/system/tray/system_tray_delegate.h"
@@ -534,6 +535,16 @@ void MagnificationControllerImpl::SetEnabled(bool enabled) {
     // Do nothing, if already enabled with same scale.
     if (is_enabled_ && scale == scale_)
       return;
+
+    // If the rotation is enabled, disable it.
+    gfx::Display display =
+        Shell::GetScreen()->GetDisplayNearestWindow(root_window_);
+    internal::DisplayManager* display_manager =
+        Shell::GetInstance()->display_manager();
+    display_manager->SetDisplayRotation(display.id(), gfx::Display::ROTATE_0);
+
+    // If the ui scaling is enabled, disable it.
+    display_manager->SetDisplayUIScale(display.id(), 1.0f);
 
     RedrawKeepingMousePosition(scale, true);
     ash::Shell::GetInstance()->delegate()->SaveScreenMagnifierScale(scale);
