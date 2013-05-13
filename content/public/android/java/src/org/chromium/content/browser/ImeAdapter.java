@@ -426,7 +426,6 @@ class ImeAdapter {
 
     private boolean setComposingRegion(int start, int end) {
         if (mNativeImeAdapterAndroid == 0) return false;
-
         nativeSetComposingRegion(mNativeImeAdapterAndroid, start, end);
         return true;
     }
@@ -725,6 +724,8 @@ class ImeAdapter {
             if (DEBUG) Log.w(TAG, "setComposingRegion [" + start + " " + end + "]");
             int a = Math.min(start, end);
             int b = Math.max(start, end);
+            if (a < 0) a = 0;
+            if (b < 0) b = 0;
             super.setComposingRegion(a, b);
             return mImeAdapter.setComposingRegion(a, b);
         }
