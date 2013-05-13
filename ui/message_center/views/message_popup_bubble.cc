@@ -214,6 +214,9 @@ void MessagePopupBubble::OnMouseExitedView() {
 }
 
 void MessagePopupBubble::OnAutoClose(const std::string& id) {
+  if (!message_center()->notification_list()->HasNotification(id))
+    return;
+
   message_center()->notification_list()->MarkSinglePopupAsShown(id, false);
   DeleteTimer(id);
   UpdateBubbleView();
