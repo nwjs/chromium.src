@@ -171,12 +171,14 @@ IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FileChooserParams)
   IPC_STRUCT_TRAITS_MEMBER(mode)
+  IPC_STRUCT_TRAITS_MEMBER(extract_directory)
   IPC_STRUCT_TRAITS_MEMBER(title)
   IPC_STRUCT_TRAITS_MEMBER(default_file_name)
   IPC_STRUCT_TRAITS_MEMBER(accept_types)
 #if defined(OS_ANDROID)
   IPC_STRUCT_TRAITS_MEMBER(capture)
 #endif
+  IPC_STRUCT_TRAITS_MEMBER(initial_path)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::PepperRendererInstanceData)
