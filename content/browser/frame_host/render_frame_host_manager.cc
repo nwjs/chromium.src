@@ -871,6 +871,9 @@ SiteInstance* RenderFrameHostManager::GetSiteInstanceForURL(
     return SiteInstance::CreateForURL(browser_context, dest_url);
   }
 
+  if (entry.is_dev_reload())
+    return SiteInstance::CreateForURL(browser_context, dest_url);
+
   // Use the current SiteInstance for same site navigations, as long as the
   // process type is correct.  (The URL may have been installed as an app since
   // the last time we visited it.)
@@ -1321,7 +1324,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
 
   // We do not currently swap processes for navigations in webview tag guests.
   bool is_guest_scheme = current_instance->GetSiteURL().SchemeIs(kGuestScheme);
-
+  bool dev_reload = entry.is_dev_reload();
   // Determine if we need a new BrowsingInstance for this entry.  If true, this
   // implies that it will get a new SiteInstance (and likely process), and that
   // other tabs in the current BrowsingInstance will be unable to script it.
@@ -1344,7 +1347,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
           entry.site_instance(),
           SiteInstanceImpl::GetEffectiveURL(browser_context, entry.GetURL()),
           entry.IsViewSourceMode());
-  if (!is_guest_scheme && (ShouldTransitionCrossSite() || force_swap)) {
+  if (!is_guest_scheme && (ShouldTransitionCrossSite() || force_swap || dev_reload)) {
     new_instance = GetSiteInstanceForURL(
         entry.GetURL(),
         entry.site_instance(),
