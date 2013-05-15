@@ -55,7 +55,8 @@ class SelectFileDialogImplGTK : public ui::SelectFileDialogImpl {
       int file_type_index,
       const base::FilePath::StringType& default_extension,
       gfx::NativeWindow owning_window,
-      void* params) OVERRIDE;
+      void* params,
+      const base::FilePath& working_dir) OVERRIDE;
 
  private:
   virtual bool HasMultipleFileTypeChoicesImpl() OVERRIDE;
@@ -175,7 +176,8 @@ void SelectFileDialogImplGTK::SelectFileImpl(
     int file_type_index,
     const base::FilePath::StringType& default_extension,
     gfx::NativeWindow owning_window,
-    void* params) {
+    void* params,
+    const base::FilePath& working_dir) {
   type_ = type;
   // |owning_window| can be null when user right-clicks on a downloadable item
   // and chooses 'Open Link in New Tab' when 'Ask where to save each file
@@ -212,6 +214,13 @@ void SelectFileDialogImplGTK::SelectFileImpl(
       NOTREACHED();
       return;
   }
+  if (!working_dir.empty()) {
+    if (CallDirectoryExistsOnUIThread(working_dir)) {
+      gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog),
+                                          working_dir.value().c_str());
+    }
+  }
+
   g_signal_connect(dialog, "delete-event",
                    G_CALLBACK(gtk_widget_hide_on_delete), NULL);
   dialogs_.insert(dialog);
