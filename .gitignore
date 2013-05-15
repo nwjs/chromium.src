@@ -122,6 +122,7 @@ v8.log
 /cloud_print/cloud_print_version_resources.xml
 /content/test/data/layout_tests/
 /content/test/data/plugin/
+/content/nw/
 /data
 /delegate_execute
 /google_apis/internal
@@ -325,3 +326,7 @@ v8.log
 /xcodebuild
 cscope.*
 Session.vim
+
+# Dependencies of the node-webkit project
+/third_party/node
+

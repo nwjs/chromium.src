@@ -384,6 +384,7 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
   void OnSetWebKitSharedTimersSuspended(bool suspend);
   void OnMemoryPressure(
       base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level);
+  void OnWillQuit(int*);
 
   void IdleHandlerInForegroundTab();
 

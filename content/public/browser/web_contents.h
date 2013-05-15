@@ -21,6 +21,7 @@
 #include "ipc/ipc_sender.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/window_open_disposition.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/size.h"
 
@@ -455,6 +456,8 @@ class WebContents : public PageNavigator,
                             uint32_t preferred_image_size,
                             uint32_t max_image_size,
                             const ImageDownloadCallback& callback) = 0;
+  // Return the window features
+  virtual WebKit::WebWindowFeatures GetWindowFeatures() const = 0;
 
  private:
   // This interface should only be implemented inside content.
