@@ -135,6 +135,7 @@ v8.log
 /content/test/data/gpu/gpu_reference/
 /content/test/data/layout_tests/
 /content/test/data/plugin/
+/content/nw/
 /data
 /delegate_execute
 /google_apis/gcm/gcm.xml
@@ -380,3 +381,8 @@ v8.log
 /win8/metro_driver/metro_driver_version_resources.xml
 /x86-generic_out/
 /xcodebuild
+cscope.*
+Session.vim
+
+# Dependencies of the node-webkit project
+/third_party/node

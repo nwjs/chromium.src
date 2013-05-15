@@ -158,7 +158,7 @@ int RendererMain(const MainFunctionParams& parameters) {
   base::StatsScope<base::StatsCounterTimer> startup_timer(stats_counter_timer);
 
   RendererMessageLoopObserver task_observer;
-#if defined(OS_MACOSX)
+#if 0 //defined(OS_MACOSX)
   // As long as scrollbars on Mac are painted with Cocoa, the message pump
   // needs to be backed by a Foundation-level loop to process NSTimers. See
   // http://crbug.com/306348#c24 for details.
@@ -166,7 +166,7 @@ int RendererMain(const MainFunctionParams& parameters) {
   base::MessageLoop main_message_loop(pump.Pass());
 #else
   // The main message loop of the renderer services doesn't have IO or UI tasks.
-  base::MessageLoop main_message_loop;
+  base::MessageLoop main_message_loop(base::MessageLoop::TYPE_NODE);
 #endif
   main_message_loop.AddTaskObserver(&task_observer);
 
@@ -224,7 +224,7 @@ int RendererMain(const MainFunctionParams& parameters) {
     if (!no_sandbox) {
       run_loop = platform.EnableSandbox();
     } else {
-      LOG(ERROR) << "Running without renderer sandbox";
+      // LOG(ERROR) << "Running without renderer sandbox";
 #ifndef NDEBUG
       // For convenience, we print the stack traces for crashes.  When sandbox
       // is enabled, the in-process stack dumping is enabled as part of the

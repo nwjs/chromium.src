@@ -206,6 +206,7 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
 #if defined(OS_WIN)
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>(new MessagePumpForUI())
 #define MESSAGE_PUMP_IO scoped_ptr<MessagePump>(new MessagePumpForIO())
+#define MESSAGE_PUMP_UV scoped_ptr<MessagePump>(new base::MessagePumpUV())
 #elif defined(OS_IOS)
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>(MessagePumpMac::Create())
 #define MESSAGE_PUMP_IO scoped_ptr<MessagePump>(new MessagePumpIOSForIO())
@@ -222,9 +223,17 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
 #elif defined(OS_POSIX)  // POSIX but not MACOSX.
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>(new MessagePumpForUI())
 #define MESSAGE_PUMP_IO scoped_ptr<MessagePump>(new MessagePumpLibevent())
+#define MESSAGE_PUMP_UV scoped_ptr<MessagePump>(new base::MessagePumpUV())
 #else
 #error Not implemented
 #endif
+
+  if (type == MessageLoop::TYPE_NODE) {
+#if defined(OS_MACOSX)
+    return MESSAGE_PUMP_NODE;
+#else
+    return MESSAGE_PUMP_UV;
+  }
 
   if (type == MessageLoop::TYPE_UI) {
     if (message_pump_for_ui_factory_)

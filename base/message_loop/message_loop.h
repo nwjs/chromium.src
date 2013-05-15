@@ -49,6 +49,10 @@
 #endif
 #endif
 
+#if !defined(OS_MACOSX)
+#include "base/message_pump_uv.h"
+#endif
+
 namespace base {
 
 class HistogramBase;
@@ -130,6 +134,9 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
   // TYPE_CUSTOM
   //   MessagePump was supplied to constructor.
   //
+  // TYPE_NODE
+  //   For integration with NodeJS/libuv in the renderer thread
+
   enum Type {
     TYPE_DEFAULT,
     TYPE_UI,
@@ -141,6 +148,7 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
 #if defined(OS_ANDROID)
     TYPE_JAVA,
 #endif // defined(OS_ANDROID)
+    TYPE_NODE
   };
 
   // Normally, it is not necessary to instantiate a MessageLoop.  Instead, it
@@ -715,6 +723,43 @@ class BASE_EXPORT MessageLoopForIO : public MessageLoop {
 // data that you need should be stored on the MessageLoop's pump_ instance.
 COMPILE_ASSERT(sizeof(MessageLoop) == sizeof(MessageLoopForIO),
                MessageLoopForIO_should_not_have_extra_member_variables);
+
+#if !defined(OS_MACOSX)
+
+//-----------------------------------------------------------------------------
+// MessageLoopForUV extends MessageLoop with methods that are particular to a
+// MessageLoop instantiated with TYPE_NODE.
+//
+// This class is typically used like so:
+//   MessageLoopForUV::current()->...call some method...
+//
+
+class BASE_EXPORT MessageLoopForUV : public MessageLoop {
+ public:
+
+  MessageLoopForUV() : MessageLoop(TYPE_NODE) {
+  }
+
+  // Returns the MessageLoopForUV of the current thread.
+  static MessageLoopForUV* current() {
+    MessageLoop* loop = MessageLoop::current();
+    //DCHECK_EQ(MessageLoop::TYPE_NODE, loop->type());
+    return static_cast<MessageLoopForUV*>(loop);
+  }
+
+  base::MessagePumpUV* pump_uv() {
+    return static_cast<base::MessagePumpUV*>(pump_.get());
+  }
+
+};
+
+// Do not add any member variables to MessageLoopForUV!  This is important b/c
+// MessageLoopForUV is often allocated via MessageLoop(TYPE_IO).  Any extra
+// data that you need should be stored on the MessageLoop's pump_ instance.
+COMPILE_ASSERT(sizeof(MessageLoop) == sizeof(MessageLoopForUV),
+               MessageLoopForUV_should_not_have_extra_member_variables);
+
+#endif
 
 }  // namespace base
 

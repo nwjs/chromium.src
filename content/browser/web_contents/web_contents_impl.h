@@ -278,6 +278,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual bool HasOpener() const OVERRIDE;
   virtual void DidChooseColorInColorChooser(SkColor color) OVERRIDE;
   virtual void DidEndColorChooser() OVERRIDE;
+  virtual WebKit::WebWindowFeatures GetWindowFeatures() const OVERRIDE;
   virtual int DownloadImage(const GURL& url,
                             bool is_favicon,
                             uint32_t max_bitmap_size,
@@ -1047,6 +1048,8 @@ class CONTENT_EXPORT WebContentsImpl
   // Whether this WebContents is responsible for displaying a subframe in a
   // different process from its parent page.
   bool is_subframe_;
+  // Saved window features
+  WebKit::WebWindowFeatures window_features_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsImpl);
 };
