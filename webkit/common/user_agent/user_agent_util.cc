@@ -155,7 +155,7 @@ int GetWebKitMinorVersion() {
   return WEBKIT_VERSION_MINOR;
 }
 
-std::string BuildUserAgentFromProduct(const std::string& product) {
+std::string BuildOSInfo() {
   const char kUserAgentPlatform[] =
 #if defined(OS_WIN)
       "";
@@ -172,6 +172,11 @@ std::string BuildUserAgentFromProduct(const std::string& product) {
   std::string os_info;
   base::StringAppendF(&os_info, "%s%s", kUserAgentPlatform,
                       webkit_glue::BuildOSCpuInfo().c_str());
+  return os_info;
+}
+
+std::string BuildUserAgentFromProduct(const std::string& product) {
+  std::string os_info = BuildOSInfo();
   return BuildUserAgentFromOSAndProduct(os_info, product);
 }
 
