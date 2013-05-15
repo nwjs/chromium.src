@@ -1514,6 +1514,8 @@ void WebContentsImpl::CreateNewWindow(
     pending_contents_[route_id] = new_contents;
     AddDestructionObserver(new_contents);
   }
+  // Save window features
+  new_contents->window_features_ = params.window_features;
 
   if (delegate_) {
     delegate_->WebContentsCreated(
@@ -2073,6 +2075,10 @@ void WebContentsImpl::DidEndColorChooser() {
                                       color_chooser_identifier_));
   color_chooser_.reset();
   color_chooser_identifier_ = 0;
+}
+
+WebKit::WebWindowFeatures WebContentsImpl::GetWindowFeatures() const {
+  return window_features_;
 }
 
 int WebContentsImpl::DownloadImage(const GURL& url,

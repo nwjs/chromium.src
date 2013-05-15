@@ -29,6 +29,15 @@ using WebKit::WebView;
 
 namespace {
 
+// In HTML5, all text fields except password are text input fields to
+// autocomplete.
+bool IsTextInput(const WebInputElement* element) {
+  if (!element)
+    return false;
+
+  return element->isTextField() && !element->isPasswordField();
+}
+
 // Casts |node| to a WebInputElement.
 // Returns an empty (isNull()) WebInputElement if |node| is not a text field.
 const WebInputElement GetTextWebInputElement(const WebNode& node) {
@@ -38,7 +47,7 @@ const WebInputElement GetTextWebInputElement(const WebNode& node) {
   if (!element.hasTagName("input"))
     return WebInputElement();
   const WebInputElement* input = WebKit::toWebInputElement(&element);
-  if (!autofill::IsTextInput(input))
+  if (!IsTextInput(input))
     return WebInputElement();
   return *input;
 }

@@ -221,5 +221,9 @@
   "components/component_strings.grd": {
     "messages": [30000],
   },
+  "content/nw/src/resources/nw_resources.grd": {
+    "includes": [27500],
+    "structures": [28000],
+  },
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
 }

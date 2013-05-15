@@ -47,6 +47,7 @@
 #include "third_party/WebKit/public/web/WebTextDirection.h"
 #include "third_party/WebKit/public/platform/WebFloatPoint.h"
 #include "third_party/WebKit/public/platform/WebFloatRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/range/range.h"
@@ -141,6 +142,27 @@ IPC_STRUCT_TRAITS_BEGIN(WebKit::WebScreenInfo)
   IPC_STRUCT_TRAITS_MEMBER(isMonochrome)
   IPC_STRUCT_TRAITS_MEMBER(rect)
   IPC_STRUCT_TRAITS_MEMBER(availableRect)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(WebKit::WebWindowFeatures)
+  IPC_STRUCT_TRAITS_MEMBER(x)
+  IPC_STRUCT_TRAITS_MEMBER(xSet)
+  IPC_STRUCT_TRAITS_MEMBER(y)
+  IPC_STRUCT_TRAITS_MEMBER(ySet)
+  IPC_STRUCT_TRAITS_MEMBER(width)
+  IPC_STRUCT_TRAITS_MEMBER(widthSet)
+  IPC_STRUCT_TRAITS_MEMBER(height)
+  IPC_STRUCT_TRAITS_MEMBER(heightSet)
+
+  IPC_STRUCT_TRAITS_MEMBER(menuBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(statusBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(toolBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(locationBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(scrollbarsVisible)
+  IPC_STRUCT_TRAITS_MEMBER(resizable)
+
+  IPC_STRUCT_TRAITS_MEMBER(fullscreen)
+  IPC_STRUCT_TRAITS_MEMBER(dialog)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(WebMenuItem)
@@ -341,6 +363,9 @@ IPC_STRUCT_BEGIN(ViewHostMsg_CreateWindow_Params)
   // The URL that will be loaded in the new window (empty if none has been
   // sepcified).
   IPC_STRUCT_MEMBER(GURL, target_url)
+
+  // The window features
+  IPC_STRUCT_MEMBER(WebKit::WebWindowFeatures, window_features)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_CreateWorker_Params)
@@ -1319,6 +1344,10 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SwapCompositorFrameAck,
 // Sent by the browser to ask the renderer for a snapshot of the current view.
 IPC_MESSAGE_ROUTED1(ViewMsg_Snapshot,
                     gfx::Rect /* src_subrect */)
+
+// Notifies that the render process will shutdown
+IPC_SYNC_MESSAGE_CONTROL0_1(ViewMsg_WillQuit,
+                            int /* no_use */)
 
 // -----------------------------------------------------------------------------
 // Messages sent from the renderer to the browser.

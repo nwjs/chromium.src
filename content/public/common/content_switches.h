@@ -271,6 +271,8 @@ CONTENT_EXPORT extern const char kOverscrollHistoryNavigation[];
 CONTENT_EXPORT extern const char kEnableOverscrollNotifications[];
 CONTENT_EXPORT extern const char kEnableWebGLDraftExtensions[];
 
+CONTENT_EXPORT extern const char kNodejs[];
+
 }  // namespace switches
 
 #endif  // CONTENT_PUBLIC_COMMON_CONTENT_SWITCHES_H_

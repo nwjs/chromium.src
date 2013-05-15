@@ -866,4 +866,6 @@ const char kEnableOverscrollNotifications[] = "enable-overscroll-notifications";
 // Enables WebGL extensions not yet approved by the community.
 const char kEnableWebGLDraftExtensions[] = "enable-webgl-draft-extensions";
 
+const char kNodejs[] = "nodejs";
+
 }  // namespace switches
