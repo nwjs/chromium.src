@@ -107,6 +107,9 @@ class BASE_EXPORT CommandLine {
   // Returns the original command line string as a vector of strings.
   const StringVector& argv() const { return argv_; }
 
+  // Returns the original command line string as a vector of strings (keeps precedence).
+  const StringVector& original_argv() const { return original_argv_; }
+
   // Get and Set the program part of the command line string (the first item).
   FilePath GetProgram() const;
   void SetProgram(const FilePath& program);
@@ -151,6 +154,10 @@ class BASE_EXPORT CommandLine {
   void AppendArgPath(const FilePath& value);
   void AppendArgNative(const StringType& value);
 
+#if defined(OS_MACOSX)
+  void FixOrigArgv4Finder(const StringType& value);
+#endif
+
   // Append the switches and arguments from another command line to this one.
   // If |include_program| is true, include |other|'s program as well.
   void AppendArguments(const CommandLine& other, bool include_program);
@@ -178,6 +185,9 @@ class BASE_EXPORT CommandLine {
 
   // The argv array: { program, [(--|-|/)switch[=value]]*, [--], [argument]* }
   StringVector argv_;
+
+  // The argv array (precedence not messed).
+  StringVector original_argv_;
 
   // Parsed-out switch keys and values.
   SwitchMap switches_;
