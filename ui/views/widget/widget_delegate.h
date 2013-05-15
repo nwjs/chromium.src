@@ -92,6 +92,10 @@ class VIEWS_EXPORT WidgetDelegate {
   // was handled, false if it was not.
   virtual bool ExecuteWindowsCommand(int command_id);
 
+  // Execute an app command, usually a menu item or accelerator. Return true
+  // if the command was handled, false if it was not.
+  virtual bool ExecuteAppCommand(int command_id);
+
   // Returns the window's name identifier. Used to identify this window for
   // state restoration.
   virtual std::string GetWindowName() const;

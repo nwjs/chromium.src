@@ -223,6 +223,7 @@ bool IsLocalePartiallyPopulated(const std::string& locale_name) {
 
 #if !defined(OS_MACOSX)
 bool IsLocaleAvailable(const std::string& locale) {
+#if 0
   // If locale has any illegal characters in it, we don't want to try to
   // load it because it may be pointing outside the locale data file directory.
   if (!file_util::IsFilenameLegal(ASCIIToUTF16(locale)))
@@ -245,6 +246,8 @@ bool IsLocaleAvailable(const std::string& locale) {
   // so that this can be invoked without initializing the global instance.
   // See crbug.com/230432: CHECK failure in GetUserDataDir().
   return ResourceBundle::GetSharedInstance().LocaleDataPakExists(locale);
+#endif
+  return true;
 }
 #endif
 

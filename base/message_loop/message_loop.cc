@@ -157,11 +157,13 @@ MessageLoop::MessageLoop(Type type)
 #if defined(OS_WIN)
 #define MESSAGE_PUMP_UI new MessagePumpForUI()
 #define MESSAGE_PUMP_IO new MessagePumpForIO()
+#define MESSAGE_PUMP_UV new base::MessagePumpUV()
 #elif defined(OS_IOS)
 #define MESSAGE_PUMP_UI MessagePumpMac::Create()
 #define MESSAGE_PUMP_IO new MessagePumpIOSForIO()
 #elif defined(OS_MACOSX)
 #define MESSAGE_PUMP_UI MessagePumpMac::Create()
+#define MESSAGE_PUMP_NODE base::MessagePumpMac::Create(true)
 #define MESSAGE_PUMP_IO new MessagePumpLibevent()
 #elif defined(OS_NACL)
 // Currently NaCl doesn't have a UI MessageLoop.
@@ -173,6 +175,7 @@ MessageLoop::MessageLoop(Type type)
 #elif defined(OS_POSIX)  // POSIX but not MACOSX.
 #define MESSAGE_PUMP_UI new MessagePumpForUI()
 #define MESSAGE_PUMP_IO new MessagePumpLibevent()
+#define MESSAGE_PUMP_UV new base::MessagePumpUV()
 #else
 #error Not implemented
 #endif
@@ -191,6 +194,12 @@ MessageLoop::MessageLoop(Type type)
 #if defined(OS_ANDROID)
   } else if (type_ == TYPE_JAVA) {
     pump_.reset(MESSAGE_PUMP_UI);
+#endif
+  } else if (type_ == TYPE_NODE) {
+#if defined(OS_MACOSX)
+    pump_.reset(MESSAGE_PUMP_NODE);
+#else
+    pump_.reset(MESSAGE_PUMP_UV);
 #endif
   } else {
     DCHECK_EQ(TYPE_DEFAULT, type_);
