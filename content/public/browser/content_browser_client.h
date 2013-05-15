@@ -38,6 +38,7 @@
 #endif
 
 class GURL;
+class RendererPreferences;
 struct WebPreferences;
 
 namespace base {
