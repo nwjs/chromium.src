@@ -244,6 +244,16 @@ void CommandLine::InitFromArgv(int argc,
 }
 
 void CommandLine::InitFromArgv(const StringVector& argv) {
+#if !defined(OS_MACOSX)
+  original_argv_ = argv;
+#else
+  for (size_t index = 0; index < argv.size(); ++index) {
+    if (argv[index].compare(0, strlen("--psn_"), "--psn_") != 0 &&
+        argv[index].compare(0, strlen("-psn_"), "-psn_") != 0) {
+      original_argv_.push_back(argv[index]);
+    }
+  }
+#endif
   argv_ = StringVector(1);
   switches_.clear();
   begin_args_ = 1;
@@ -405,6 +415,12 @@ void CommandLine::AppendArgPath(const FilePath& path) {
 void CommandLine::AppendArgNative(const CommandLine::StringType& value) {
   argv_.push_back(value);
 }
+
+#if defined(OS_MACOSX)
+void CommandLine::FixOrigArgv4Finder(const CommandLine::StringType& value) {
+  original_argv_.push_back(value);
+}
+#endif
 
 void CommandLine::AppendArguments(const CommandLine& other,
                                   bool include_program) {
