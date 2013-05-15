@@ -206,5 +206,6 @@
   "content/nw/src/resources/nw_strings.grd": {
     "messages": [60000],
   },
+
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
 }
