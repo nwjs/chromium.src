@@ -345,6 +345,9 @@ class NavigationController {
   // user agent after following a redirect.
   virtual void ReloadOriginalRequestURL(bool check_for_repost) = 0;
 
+  // Force a new renderer process to reload all the source files from
+  // both Node and Webkit for development
+  virtual void ReloadDev(bool check_for_repost) {}
   // Removing of entries -------------------------------------------------------
 
   // Removes the entry at the specified |index|.  This call discards any
