@@ -77,8 +77,8 @@ bool DOMStorageMap::SetItem(
 
   // Only check quota if the size is increasing, this allows
   // shrinking changes to pre-existing files that are over budget.
-  if (new_item_size > old_item_size && new_bytes_used > quota_)
-    return false;
+  // if (new_item_size > old_item_size && new_bytes_used > quota_)
+  //  return false;
 
   values_[key] = base::NullableString16(value, false);
   ResetKeyIterator();
