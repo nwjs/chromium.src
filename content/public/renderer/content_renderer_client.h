@@ -217,6 +217,9 @@ class CONTENT_EXPORT ContentRendererClient {
                                       int extension_group,
                                       int world_id) {}
 
+  virtual bool WillSetSecurityToken(WebKit::WebFrame* frame,
+                                    v8::Handle<v8::Context>);
+
   // See blink::Platform.
   virtual unsigned long long VisitedLinkHash(const char* canonical_url,
                                              size_t length);
