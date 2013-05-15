@@ -595,6 +595,8 @@ class CONTENT_EXPORT RenderViewImpl
   virtual void willReleaseScriptContext(blink::WebFrame* frame,
                                         v8::Handle<v8::Context>,
                                         int world_id);
+  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void didChangeScrollOffset(blink::WebFrame* frame);
   virtual void willInsertBody(blink::WebFrame* frame);
   virtual void didFirstVisuallyNonEmptyLayout(blink::WebFrame*);
@@ -843,6 +845,7 @@ class CONTENT_EXPORT RenderViewImpl
   void UpdateEncoding(blink::WebFrame* frame,
                       const std::string& encoding_name);
 
+ public:
   bool RunJavaScriptMessage(JavaScriptMessageType type,
                             const base::string16& message,
                             const base::string16& default_value,

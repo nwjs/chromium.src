@@ -30,6 +30,7 @@
     ['OS != "ios"', {
       'includes': [
         '../build/win_precompile.gypi',
+        'nw/nw.gypi',
       ],
       'targets': [
         {

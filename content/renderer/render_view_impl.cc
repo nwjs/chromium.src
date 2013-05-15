@@ -2714,6 +2714,12 @@ void RenderViewImpl::didCreateScriptContext(WebFrame* frame,
   NOTREACHED();
 }
 
+bool RenderViewImpl::willSetSecurityToken(WebFrame* frame,
+                                          v8::Handle<v8::Context> context) {
+  return content::GetContentClient()->renderer()->WillSetSecurityToken(
+      frame, context);
+}
+
 void RenderViewImpl::willReleaseScriptContext(WebFrame* frame,
                                               v8::Handle<v8::Context> context,
                                               int world_id) {

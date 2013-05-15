@@ -1255,6 +1255,7 @@ bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewMsg_TempCrashWithData, OnTempCrashWithData)
     IPC_MESSAGE_HANDLER(WorkerProcessMsg_CreateWorker, OnCreateNewSharedWorker)
     IPC_MESSAGE_HANDLER(ViewMsg_TimezoneChange, OnUpdateTimezone)
+    IPC_MESSAGE_HANDLER(ViewMsg_WillQuit, OnWillQuit)
 #if defined(OS_ANDROID)
     IPC_MESSAGE_HANDLER(ViewMsg_SetWebKitSharedTimersSuspended,
                         OnSetWebKitSharedTimersSuspended)
@@ -1456,6 +1457,14 @@ void RenderThreadImpl::OnMemoryPressure(
     // Otherwise trigger a couple of v8 GCs using IdleNotification.
     if (!v8::V8::IdleNotification())
       v8::V8::IdleNotification();
+  }
+}
+
+void RenderThreadImpl::OnWillQuit(int*) {
+  ObserverListBase<RenderProcessObserver>::Iterator it(observers_);
+  RenderProcessObserver* observer;
+  while ((observer = it.GetNext()) != NULL) {
+    observer->OnRenderProcessWillShutdown();
   }
 }
 
