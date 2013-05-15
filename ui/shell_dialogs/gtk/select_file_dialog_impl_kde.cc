@@ -55,7 +55,8 @@ class SelectFileDialogImplKDE : public ui::SelectFileDialogImpl {
       int file_type_index,
       const base::FilePath::StringType& default_extension,
       gfx::NativeWindow owning_window,
-      void* params) OVERRIDE;
+      void* params,
+      const base::FilePath& working_dir) OVERRIDE;
 
  private:
   virtual bool HasMultipleFileTypeChoicesImpl() OVERRIDE;
@@ -177,7 +178,8 @@ void SelectFileDialogImplKDE::SelectFileImpl(
     int file_type_index,
     const base::FilePath::StringType& default_extension,
     gfx::NativeWindow owning_window,
-    void* params) {
+    void* params,
+    const base::FilePath& working_dir) {
   type_ = type;
   // |owning_window| can be null when user right-clicks on a downloadable item
   // and chooses 'Open Link in New Tab' when 'Ask where to save each file
