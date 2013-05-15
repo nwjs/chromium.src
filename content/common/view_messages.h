@@ -235,12 +235,14 @@ IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FileChooserParams)
   IPC_STRUCT_TRAITS_MEMBER(mode)
+  IPC_STRUCT_TRAITS_MEMBER(extract_directory)
   IPC_STRUCT_TRAITS_MEMBER(title)
   IPC_STRUCT_TRAITS_MEMBER(default_file_name)
   IPC_STRUCT_TRAITS_MEMBER(accept_types)
 #if defined(OS_ANDROID)
   IPC_STRUCT_TRAITS_MEMBER(capture)
 #endif
+  IPC_STRUCT_TRAITS_MEMBER(initial_path)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FrameNavigateParams)
@@ -294,6 +296,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(touchpad_fling_profile)
   IPC_STRUCT_TRAITS_MEMBER(touchscreen_fling_profile)
   IPC_STRUCT_TRAITS_MEMBER(tap_multiple_targets_strategy)
+  IPC_STRUCT_TRAITS_MEMBER(nw_remote_page_rules)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::CookieData)
