@@ -51,6 +51,10 @@ struct CONTENT_EXPORT FileChooserParams {
   // SelectFileDialog.java for more details.
   string16 capture;
 #endif
+
+  base::FilePath initial_path;
+  bool extract_directory;
+
 };
 
 }  // namespace content
