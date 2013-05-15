@@ -52,6 +52,10 @@ struct CONTENT_EXPORT FileChooserParams {
   // TODO(jrg): upstream SelectFileDialog.java!  Currently lives in chrome/.
   string16 capture;
 #endif
+
+  base::FilePath initial_path;
+  bool extract_directory;
+
 };
 
 }  // namespace content
