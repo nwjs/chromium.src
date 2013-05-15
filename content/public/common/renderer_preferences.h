@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/values.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 
