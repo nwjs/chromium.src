@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "base/values.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -144,6 +145,9 @@ struct CONTENT_EXPORT RendererPreferences {
 
   // Determines whether plugins are allowed to enter fullscreen mode.
   bool plugin_fullscreen_allowed;
+
+  // node-webkit: remote page rules in package.json
+  std::string nw_remote_page_rules;
 };
 
 }  // namespace content
