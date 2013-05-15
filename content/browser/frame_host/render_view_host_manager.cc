@@ -678,6 +678,8 @@ SiteInstance* RenderViewHostManager::GetSiteInstanceForEntry(
     return SiteInstance::CreateForURL(browser_context, dest_url);
   }
 
+  if (entry.is_dev_reload())
+    return SiteInstance::CreateForURL(browser_context, dest_url);
   // Use the current SiteInstance for same site navigations, as long as the
   // process type is correct.  (The URL may have been installed as an app since
   // the last time we visited it.)
@@ -919,7 +921,8 @@ RenderViewHostImpl* RenderViewHostManager::UpdateRendererStateForNavigate(
       delegate_->GetLastCommittedNavigationEntryForRenderManager();
   bool is_guest_scheme = curr_instance->GetSiteURL().SchemeIs(kGuestScheme);
   bool force_swap = ShouldSwapProcessesForNavigation(curr_entry, &entry);
-  if (!is_guest_scheme && (ShouldTransitionCrossSite() || force_swap))
+  bool dev_reload = entry.is_dev_reload();
+  if (!is_guest_scheme && (ShouldTransitionCrossSite() || force_swap || dev_reload))
     new_instance = GetSiteInstanceForEntry(entry, curr_instance);
 
   if (!is_guest_scheme && (new_instance != curr_instance || force_swap)) {
