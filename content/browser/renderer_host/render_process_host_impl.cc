@@ -519,6 +519,9 @@ bool RenderProcessHostImpl::Init() {
         GetID(),
         this));
 
+    // renderer needs to exit gracefully
+    // see https://github.com/rogerwang/node-webkit/issues/408
+    child_process_launcher_->SetTerminateChildOnShutdown(false);
     fast_shutdown_started_ = false;
   }
 
