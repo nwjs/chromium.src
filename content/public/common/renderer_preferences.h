@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "base/values.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -137,6 +138,9 @@ struct CONTENT_EXPORT RendererPreferences {
 
   // How to handle a tap gesture touching multiple targets
   TapMultipleTargetsStrategy tap_multiple_targets_strategy;
+
+  // node-webkit: remote page rules in package.json
+  std::string nw_remote_page_rules;
 };
 
 }  // namespace content
