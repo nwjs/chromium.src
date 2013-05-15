@@ -214,6 +214,19 @@ enum NotificationType {
   // the RenderViewHost, and the details is a DomOperationNotificationDetails.
   NOTIFICATION_DOM_OPERATION_RESPONSE,
 
+  // Printing ----------------------------------------------------------------
+
+  // Notification from PrintJob that an event occurred. It can be that a page
+  // finished printing or that the print job failed. Details is
+  // PrintJob::EventDetails. Source is a PrintJob.
+  NOTIFICATION_PRINT_JOB_EVENT,
+
+  // Sent when a PrintJob has been released.
+  // Source is the WebContents that holds the print job.
+  NOTIFICATION_PRINT_JOB_RELEASED,
+
+  NOTIFICATION_CONTENT_BLOCKED_STATE_CHANGED,
+
   // Custom notifications used by the embedder should start from here.
   NOTIFICATION_CONTENT_END,
 };
