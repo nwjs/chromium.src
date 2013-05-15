@@ -35,6 +35,7 @@ WEBKIT_USER_AGENT_EXPORT std::string BuildUserAgentFromOSAndProduct(
     const std::string& os_info,
     const std::string& product);
 
+WEBKIT_USER_AGENT_EXPORT std::string BuildOSInfo();
 }  // namespace webkit_glue
 
 #endif  // WEBKIT_COMMON_USER_AGENT_USER_AGENT_UTIL_H_
