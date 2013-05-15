@@ -2650,6 +2650,7 @@ bool RenderViewImpl::runFileChooser(
     ipc_params.mode = FileChooserParams::Save;
   else
     ipc_params.mode = FileChooserParams::Open;
+  ipc_params.extract_directory = params.extractDirectory;
   ipc_params.title = params.title;
   ipc_params.default_file_name =
       base::FilePath::FromUTF16Unsafe(params.initialValue);
@@ -2659,6 +2660,8 @@ bool RenderViewImpl::runFileChooser(
 #if defined(OS_ANDROID)
   ipc_params.capture = params.useMediaCapture;
 #endif
+
+  ipc_params.initial_path = webkit_base::WebStringToFilePath(params.initialPath);
 
   return ScheduleFileChooser(ipc_params, chooser_completion);
 }
