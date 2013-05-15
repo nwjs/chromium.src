@@ -31,6 +31,7 @@
 
 class CommandLine;
 class GURL;
+class RendererPreferences;
 struct WebPreferences;
 
 namespace base {
