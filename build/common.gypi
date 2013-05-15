@@ -86,6 +86,7 @@
             # Compute the architecture that we're building on.
             ['OS=="win" or OS=="mac" or OS=="ios"', {
               'host_arch%': 'ia32',
+              'use_openssl%': '0',
             }, {
               # This handles the Unix platforms for which there is some support.
               # Anything else gets passed through, which probably won't work
@@ -960,6 +961,13 @@
     # to ~/.gyp/include.gypi, gclient runhooks --force, and do a release build.
     'win_use_allocator_shim%': 1, # 1 = shim allocator via libcmt; 0 = msvcrt
 
+    # Whether usage of OpenMAX is enabled.
+    'enable_openmax%': 0,
+
+    # Whether proprietary audio/video codecs are assumed to be included with
+    # this build (only meaningful if branding!=Chrome).
+    'proprietary_codecs%': 1,
+
     # TODO(bradnelson): eliminate this when possible.
     # To allow local gyp files to prevent release.vsprops from being included.
     # Yes(1) means include release.vsprops.
@@ -995,7 +1003,7 @@
     # flag allows us to have warnings as errors in general to prevent
     # regressions in most modules, while working on the bits that are
     # remaining.
-    'win_third_party_warn_as_error%': 'true',
+    'win_third_party_warn_as_error%': 'false',
 
     # Clang stuff.
     'clang%': '<(clang)',
@@ -2371,6 +2379,9 @@
       }]
     ],  # conditions for 'target_defaults'
     'target_conditions': [
+      [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+        'ldflags': [ '-rdynamic' ],
+      }],
       ['enable_wexit_time_destructors==1', {
         'conditions': [
           [ 'clang==1', {
@@ -2812,6 +2823,16 @@
     }],
     ['os_posix==1 and OS!="mac" and OS!="ios"', {
       'target_defaults': {
+        'target_conditions': [
+          ['_target_name=="v8" or _target_name=="v8_snapshot" or _target_name=="v8_base" or _target_name=="uv" or _target_name=="node" or _target_name=="openssl" or _target_name=="zlib"', {
+            'cflags!': [
+              '-fvisibility=hidden',
+              '-fdata-sections',
+              '-ffunction-sections',
+            ],
+            'cflags_cc!': ['-fvisibility-inlines-hidden'],
+          }],
+        ],
         # Enable -Werror by default, but put it in a variable so it can
         # be disabled in ~/.gyp/include.gypi on the valgrind builders.
         'variables': {
@@ -2912,7 +2933,7 @@
               # (This is currently observed only in chromeos valgrind bots)
               # The following flag is to disable --gc-sections linker
               # option for these bots.
-              'no_gc_sections%': 0,
+              'no_gc_sections%': 1,
 
               # TODO(bradnelson): reexamine how this is done if we change the
               # expansion of configurations
@@ -3878,7 +3899,7 @@
           'GCC_OBJC_CALL_CXX_CDTORS': 'YES',        # -fobjc-call-cxx-cdtors
           'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
-          'GCC_TREAT_WARNINGS_AS_ERRORS': 'YES',    # -Werror
+          'GCC_TREAT_WARNINGS_AS_ERRORS': 'NO',    # -Werror
           'GCC_VERSION': '4.2',
           'GCC_WARN_ABOUT_MISSING_NEWLINE': 'YES',  # -Wnewline-eof
           'USE_HEADERMAP': 'NO',
@@ -4076,6 +4097,13 @@
           ],
         },
         'target_conditions': [
+          ['_target_name=="v8" or _target_name=="v8_snapshot" or _target_name=="v8_base" or _target_name=="uv" or _target_name=="node" or _target_name=="openssl" or _target_name=="zlib"', {
+            'xcode_settings': {
+              'DEAD_CODE_STRIPPING': 'NO',  # -Wl,-dead_strip
+              'GCC_INLINES_ARE_PRIVATE_EXTERN': 'NO',
+              'GCC_SYMBOLS_PRIVATE_EXTERN': 'NO',
+            },
+          }],
           ['_type=="executable"', {
             'postbuilds': [
               {
@@ -4273,8 +4301,8 @@
     ['OS=="win"', {
       'target_defaults': {
         'defines': [
-          '_WIN32_WINNT=0x0602',
-          'WINVER=0x0602',
+          '_WIN32_WINNT=0x0601',
+          'WINVER=0x0601',
           'WIN32',
           '_WINDOWS',
           'NOMINMAX',
@@ -4283,6 +4311,8 @@
           'CERT_CHAIN_PARA_HAS_EXTRA_FIELDS',
           'WIN32_LEAN_AND_MEAN',
           '_ATL_NO_OPENGL',
+          'BUILDING_V8_SHARED=1',
+          'BUILDING_UV_SHARED=1',
         ],
         'conditions': [
           ['buildtype=="Official"', {

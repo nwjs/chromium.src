@@ -7,6 +7,7 @@
     {
       'target_name': 'zlib',
       'type': 'static_library',
+      'toolsets': [ 'host', 'target' ],
       'sources': [
         'adler32.c',
         'compress.c',

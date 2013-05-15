@@ -100,11 +100,13 @@ NativeTextfieldWin::NativeTextfieldWin(Textfield* textfield)
       bg_color_(0),
       tsf_event_router_(base::win::IsTSFAwareRequired() ?
           new ui::TSFEventRouter(this) : NULL) {
+#if 0
   if (!loaded_libarary_module_) {
     // msftedit.dll is RichEdit ver 4.1.
     // This version is available from WinXP SP1 and has TSF support.
     loaded_libarary_module_ = LoadLibrary(L"msftedit.dll");
   }
+#endif
 
   DWORD style = kDefaultEditStyle | ES_AUTOHSCROLL;
   if (textfield_->style() & Textfield::STYLE_OBSCURED)
@@ -130,12 +132,14 @@ NativeTextfieldWin::NativeTextfieldWin(Textfield* textfield)
   SendMessage(EM_SETLANGOPTIONS, 0, lang_option & ~IMF_AUTOFONT);
 
   // Set up the text_object_model_.
+#if 0
   base::win::ScopedComPtr<IRichEditOle, &IID_IRichEditOle> ole_interface;
   ole_interface.Attach(GetOleInterface());
   if (ole_interface)
     text_object_model_.QueryFrom(ole_interface);
 
   InitializeAccessibilityInfo();
+#endif
 }
 
 NativeTextfieldWin::~NativeTextfieldWin() {
@@ -186,7 +190,9 @@ void NativeTextfieldWin::UpdateText() {
   if (textfield_->style() & Textfield::STYLE_LOWERCASE)
     text = base::i18n::ToLower(text);
   SetWindowText(text.c_str());
+#if 0
   UpdateAccessibleValue(text);
+#endif
 }
 
 void NativeTextfieldWin::AppendText(const string16& text) {
@@ -758,7 +764,8 @@ void NativeTextfieldWin::OnKeyDown(TCHAR key, UINT repeat_count, UINT flags) {
 
     // Ignore Return
     case VK_RETURN:
-      return;
+      textfield_->SyncText();
+      break;
 
     // Hijacking Editing Commands
     //
@@ -778,6 +785,7 @@ void NativeTextfieldWin::OnKeyDown(TCHAR key, UINT repeat_count, UINT flags) {
     // This behavior matches most, but not all Windows programs, and largely
     // conforms to what users expect.
 
+#if 0
     case VK_DELETE:
     case 'X':
       if ((flags & KF_ALTDOWN) ||
@@ -815,6 +823,7 @@ void NativeTextfieldWin::OnKeyDown(TCHAR key, UINT repeat_count, UINT flags) {
         OnAfterPossibleChange(true);
       }
       return;
+#endif
 
     case 0xbb:  // Ctrl-'='.  Triggers subscripting, even in plain text mode.
                 // We don't use VK_OEM_PLUS in case the macro isn't defined.

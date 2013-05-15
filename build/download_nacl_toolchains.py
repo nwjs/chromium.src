@@ -10,6 +10,7 @@ import sys
 
 
 def Main(args):
+  return 0
   # Exit early if disable_nacl=1.
   if 'disable_nacl=1' in os.environ.get('GYP_DEFINES', ''):
     return 0

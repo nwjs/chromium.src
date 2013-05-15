@@ -60,7 +60,6 @@ class StatusIcon {
   void DispatchBalloonClickEvent();
 #endif
 
- protected:
   // Invoked after a call to SetContextMenu() to let the platform-specific
   // subclass update the native context menu based on the new model. If NULL is
   // passed, subclass should destroy the native context menu.

@@ -153,6 +153,8 @@ void WebContentsViewGtk::Focus() {
     web_contents_->GetInterstitialPage()->Focus();
   } else if (delegate_) {
     delegate_->Focus();
+  } else {
+    gtk_widget_grab_focus(GetContentNativeView());
   }
 }
 

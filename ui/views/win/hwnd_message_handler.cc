@@ -1207,14 +1207,16 @@ void HWNDMessageHandler::LockUpdates(bool force) {
   //    attempting to present a child window's backbuffer onscreen. When these
   //    two actions race with one another, the child window will either flicker
   //    or will simply stop updating entirely.
-  if ((force || !ui::win::IsAeroGlassEnabled()) && ++lock_updates_count_ == 1) {
+  bool skip = !delegate_->IsUsingCustomFrame();
+  if ((force || !skip) && ++lock_updates_count_ == 1) {
     SetWindowLong(hwnd(), GWL_STYLE,
                   GetWindowLong(hwnd(), GWL_STYLE) & ~WS_VISIBLE);
   }
 }
 
 void HWNDMessageHandler::UnlockUpdates(bool force) {
-  if ((force || !ui::win::IsAeroGlassEnabled()) && --lock_updates_count_ <= 0) {
+  bool skip = !delegate_->IsUsingCustomFrame();
+  if ((force || !skip) && --lock_updates_count_ <= 0) {
     SetWindowLong(hwnd(), GWL_STYLE,
                   GetWindowLong(hwnd(), GWL_STYLE) | WS_VISIBLE);
     lock_updates_count_ = 0;
@@ -1821,10 +1823,15 @@ LRESULT HWNDMessageHandler::OnNCHitTest(const CPoint& point) {
   // If the DWM is rendering the window controls, we need to give the DWM's
   // default window procedure first chance to handle hit testing.
   if (!remove_standard_frame_ && !delegate_->IsUsingCustomFrame()) {
-    LRESULT result;
-    if (DwmDefWindowProc(hwnd(), WM_NCHITTEST, 0,
-                         MAKELPARAM(point.x, point.y), &result)) {
-      return result;
+    if (base::win::GetVersion() > base::win::VERSION_VISTA) {
+      LRESULT result;
+      if (DwmDefWindowProc(hwnd(), WM_NCHITTEST, 0,
+                           MAKELPARAM(point.x, point.y), &result)) {
+        return result;
+      }
+    } else {
+      SetMsgHandled(FALSE);
+      return 0;
     }
   }
 

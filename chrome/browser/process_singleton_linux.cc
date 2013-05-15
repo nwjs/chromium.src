@@ -78,12 +78,12 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #if defined(TOOLKIT_GTK)
-#include "chrome/browser/ui/gtk/process_singleton_dialog.h"
+// #include "chrome/browser/ui/gtk/process_singleton_dialog.h"
 #endif
 #include "chrome/common/chrome_constants.h"
 #include "content/public/browser/browser_thread.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+// #include "grit/chromium_strings.h"
+// #include "grit/generated_resources.h"
 #include "net/base/net_util.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -298,6 +298,7 @@ bool ParseLockPath(const base::FilePath& path,
 bool DisplayProfileInUseError(const base::FilePath& lock_path,
                               const std::string& hostname,
                               int pid) {
+#if 0
   string16 error = l10n_util::GetStringFUTF16(
       IDS_PROFILE_IN_USE_LINUX,
       base::IntToString16(pid),
@@ -313,6 +314,7 @@ bool DisplayProfileInUseError(const base::FilePath& lock_path,
     NOTIMPLEMENTED();
 #endif
   }
+#endif
   return false;
 }
 

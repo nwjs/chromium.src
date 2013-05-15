@@ -64,6 +64,9 @@ class UI_EXPORT SimpleMenuModel : public MenuModel {
     // Notifies the delegate that the menu has closed.
     virtual void MenuClosed(SimpleMenuModel* source);
 
+    // Get whether this item has an icon.
+    virtual bool HasIcon(int command_id);
+
    protected:
     virtual ~Delegate() {}
   };
@@ -132,6 +135,9 @@ class UI_EXPORT SimpleMenuModel : public MenuModel {
 
   // Sets the minor text for the item at |index|.
   void SetMinorText(int index, const base::string16& minor_text);
+
+  // Remove item from index.
+  void RemoveAt(int index);
 
   // Clears all items. Note that it does not free MenuModel of submenu.
   void Clear();

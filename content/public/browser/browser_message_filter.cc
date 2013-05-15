@@ -153,6 +153,7 @@ base::TaskRunner* BrowserMessageFilter::OverrideTaskRunnerForMessage(
 
 bool BrowserMessageFilter::CheckCanDispatchOnUI(const IPC::Message& message,
                                                 IPC::Sender* sender) {
+#if 0
 #if defined(OS_WIN)
   // On Windows there's a potential deadlock with sync messsages going in
   // a circle from browser -> plugin -> renderer -> browser.
@@ -172,6 +173,7 @@ bool BrowserMessageFilter::CheckCanDispatchOnUI(const IPC::Message& message,
     sender->Send(reply);
     return false;
   }
+#endif
 #endif
   return true;
 }

@@ -7,7 +7,7 @@ vars = {
     'ffmpeg_hash':
          '@79ff844dd6746854847e65a08535673de811930b',
     'webkit_url':
-         'https://chromium.googlesource.com/chromium/blink.git',
+         'https://github.com/rogerwang/WebKit_trimmed.git',
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
