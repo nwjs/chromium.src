@@ -280,6 +280,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void DidChooseColorInColorChooser(int color_chooser_id,
                                             SkColor color) OVERRIDE;
   virtual void DidEndColorChooser(int color_chooser_id) OVERRIDE;
+  virtual WebKit::WebWindowFeatures GetWindowFeatures() const OVERRIDE;
   virtual int DownloadImage(const GURL& url,
                             bool is_favicon,
                             int image_size,
@@ -895,6 +896,9 @@ class CONTENT_EXPORT WebContentsImpl
   // Maps the ids of pending image downloads to their callbacks
   typedef std::map<int, ImageDownloadCallback> ImageDownloadMap;
   ImageDownloadMap image_download_map_;
+
+  // Saved window features
+  WebKit::WebWindowFeatures window_features_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsImpl);
 };

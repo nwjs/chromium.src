@@ -57,7 +57,6 @@ class StatusIcon {
   // Dispatches a click event to the observers.
   void DispatchClickEvent();
 
- protected:
   // Invoked after a call to SetContextMenu() to let the platform-specific
   // subclass update the native context menu based on the new model. If NULL is
   // passed, subclass should destroy the native context menu.

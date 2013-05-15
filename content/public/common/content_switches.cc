@@ -804,4 +804,6 @@ const char kOverscrollHistoryNavigation[] =
 // Enables 'image/webp' accept header for image requests.
 const char kEnableWebPInAcceptHeader[] = "enable-webp-in-accept-header";
 
+const char kNodejs[] = "nodejs";
+
 }  // namespace switches

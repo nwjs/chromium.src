@@ -370,6 +370,7 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
   void OnGetAccessibilityTree();
   void OnTempCrashWithData(const GURL& data);
   void OnSetWebKitSharedTimersSuspended(bool suspend);
+  void OnWillQuit(int*);
 
   void IdleHandlerInForegroundTab();
 

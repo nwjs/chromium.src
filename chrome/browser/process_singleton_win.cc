@@ -20,17 +20,17 @@
 #include "base/win/windows_version.h"
 #include "base/win/wrapped_window_proc.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/shell_integration.h"
-#include "chrome/browser/ui/metro_chrome_win.h"
-#include "chrome/browser/ui/simple_message_box.h"
+//#include "chrome/browser/shell_integration.h"
+//#include "chrome/browser/ui/metro_chrome_win.h"
+//#include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_paths_internal.h"
+//#include "chrome/common/chrome_paths.h"
+//#include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/installer/util/wmi.h"
+//#include "chrome/installer/util/wmi.h"
 #include "content/public/common/result_codes.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+//#include "grit/chromium_strings.h"
+//#include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/win/hwnd_util.h"
@@ -169,6 +169,10 @@ bool ParseCommandLine(const COPYDATASTRUCT* cds,
   return false;
 }
 
+bool ActivateMetroChrome() {
+  return false;
+}
+
 // Returns true if Chrome needs to be relaunched into Windows 8 immersive mode.
 // Following conditions apply:-
 // 1. Windows 8 or greater.
@@ -181,6 +185,8 @@ bool ParseCommandLine(const COPYDATASTRUCT* cds,
 // Move this function to a common place as the Windows 8 delegate_execute
 // handler can possibly use this.
 bool ShouldLaunchInWindows8ImmersiveMode(const base::FilePath& user_data_dir) {
+  return false;
+#if 0
   if (base::win::GetVersion() < base::win::VERSION_WIN8)
     return false;
 
@@ -220,6 +226,7 @@ bool ShouldLaunchInWindows8ImmersiveMode(const base::FilePath& user_data_dir) {
     return reg_value == 1;
   }
   return base::win::IsTouchEnabledDevice();
+#endif
 }
 
 }  // namespace
@@ -230,6 +237,7 @@ bool ShouldLaunchInWindows8ImmersiveMode(const base::FilePath& user_data_dir) {
 // http://code.google.com/p/chromium/issues/detail?id=43650
 bool ProcessSingleton::EscapeVirtualization(
     const base::FilePath& user_data_dir) {
+#if 0
   if (::GetModuleHandle(L"sftldr_wow64.dll") ||
       ::GetModuleHandle(L"sftldr.dll")) {
     int process_id;
@@ -253,6 +261,7 @@ bool ProcessSingleton::EscapeVirtualization(
     }
     return true;
   }
+#endif
   return false;
 }
 
@@ -336,7 +345,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
           process_id, PROCESS_QUERY_INFORMATION,
           process_handle.Receive()) &&
       base::win::IsProcessImmersive(process_handle.Get())) {
-    chrome::ActivateMetroChrome();
+    //chrome::ActivateMetroChrome();
   }
 
   // Allow the current running browser window making itself the foreground
@@ -372,9 +381,10 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
   // The window is hung. Scan for every window to find a visible one.
   bool visible_window = false;
   ::EnumThreadWindows(thread_id,
-                      &BrowserWindowEnumeration,
-                      reinterpret_cast<LPARAM>(&visible_window));
+                    &BrowserWindowEnumeration,
+                    reinterpret_cast<LPARAM>(&visible_window));
 
+#if 0
   // If there is a visible browser window, ask the user before killing it.
   if (visible_window && chrome::ShowMessageBox(NULL,
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
@@ -383,6 +393,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
     // The user denied. Quit silently.
     return PROCESS_NOTIFIED;
   }
+#endif
 
   // Time to take action. Kill the browser process.
   base::KillProcessById(process_id, content::RESULT_CODE_HUNG, true);
@@ -397,8 +408,10 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessOrCreate() {
     if (result == PROCESS_NONE)
       result = PROFILE_IN_USE;
   } else {
-    g_browser_process->PlatformSpecificCommandLineProcessing(
-        *CommandLine::ForCurrentProcess());
+    //// we don't use g_browser_process in node-webkit's
+    //// code path
+    // g_browser_process->PlatformSpecificCommandLineProcessing(
+    //    *CommandLine::ForCurrentProcess());
   }
   return result;
 }
@@ -457,11 +470,6 @@ bool ProcessSingleton::Create() {
         // Metro mode: activate and rendez-vous with the activated process.
         metro_activation_event.Set(
             ::CreateEvent(NULL, TRUE, FALSE, kMetroActivationEventName));
-        if (!chrome::ActivateMetroChrome()) {
-          // Failed to launch immersive Chrome, default to launching on Desktop.
-          LOG(ERROR) << "Failed to launch immersive chrome";
-          metro_activation_event.Close();
-        }
       }
 
       if (metro_activation_event.IsValid()) {

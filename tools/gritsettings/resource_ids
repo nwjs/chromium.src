@@ -218,5 +218,9 @@
   "chrome/browser/resources/sync_file_system_internals_resources.grd": {
     "includes": [29000],
   },
+  "content/nw/src/resources/nw_resources.grd": {
+    "includes": [27500],
+    "structures": [28000],
+  },
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
 }

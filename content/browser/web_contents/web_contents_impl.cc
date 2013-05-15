@@ -1415,6 +1415,8 @@ void WebContentsImpl::CreateNewWindow(
     registrar_.Add(this, NOTIFICATION_WEB_CONTENTS_DESTROYED,
                    Source<WebContents>(new_contents));
   }
+  // Save window features
+  new_contents->window_features_ = params.window_features;
 
   if (delegate_) {
     delegate_->WebContentsCreated(
@@ -1984,6 +1986,10 @@ void WebContentsImpl::DidEndColorChooser(int color_chooser_id) {
   if (delegate_)
     delegate_->DidEndColorChooser();
   color_chooser_ = NULL;
+}
+
+WebKit::WebWindowFeatures WebContentsImpl::GetWindowFeatures() const {
+  return window_features_;
 }
 
 int WebContentsImpl::DownloadImage(const GURL& url,

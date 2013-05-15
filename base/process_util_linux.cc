@@ -745,6 +745,10 @@ void OnNoMemory() {
 
 }  // namespace
 
+#ifndef USE_TCMALLOC
+#define USE_TCMALLOC
+#endif
+
 #if !defined(OS_ANDROID) && !defined(USE_TCMALLOC) && \
     !defined(ADDRESS_SANITIZER) && !defined(MEMORY_SANITIZER) && \
     !defined(THREAD_SANITIZER)

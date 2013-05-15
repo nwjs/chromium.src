@@ -16,7 +16,7 @@
 {
   'variables': {
     'grit_cmd': ['python', '<(DEPTH)/tools/grit/grit.py'],
-    'grit_resource_ids%': '<(DEPTH)/tools/gritsettings/resource_ids',
+    'grit_resource_ids%': 'GRIT_DIR/../gritsettings/resource_ids',
     # This makes it possible to add more defines in specific targets,
     # instead of build/common.gypi .
     'grit_additional_defines%': [],
