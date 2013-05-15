@@ -229,6 +229,13 @@ class CONTENT_EXPORT NavigationEntryImpl
   void set_nw_win_id(int id) { nw_win_id_ = id; }
   int nw_win_id() const { return nw_win_id_; }
 
+  void set_is_dev_reload(bool is_dev_reload) {
+    is_dev_reload_ = is_dev_reload;
+  }
+  bool is_dev_reload() const {
+    return is_dev_reload_;
+  }
+
  private:
   // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
   // Session/Tab restore save portions of this class so that it can be recreated
@@ -351,6 +358,7 @@ class CONTENT_EXPORT NavigationEntryImpl
   bool is_dev_reload_;
 
   int nw_win_id_;
+  bool is_dev_reload_;
   // Copy and assignment is explicitly allowed for this class.
 };
 
