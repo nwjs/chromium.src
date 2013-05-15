@@ -262,7 +262,8 @@ bool SaveFileAsWithFilter(HWND owner,
                           const std::wstring& def_ext,
                           bool ignore_suggested_ext,
                           unsigned* index,
-                          std::wstring* final_name) {
+                          std::wstring* final_name,
+                          std::wstring& working_dir) {
   DCHECK(final_name);
   // Having an empty filter makes for a bad user experience. We should always
   // specify a filter when saving.
@@ -312,6 +313,8 @@ bool SaveFileAsWithFilter(HWND owner,
       directory = suggested_path.DirName().value();
     }
   }
+  if (!working_dir.empty())
+    directory = working_dir;
 
   save_as.lpstrInitialDir = directory.c_str();
   save_as.lpstrTitle = NULL;
@@ -392,6 +395,7 @@ bool SaveFileAs(HWND owner,
                 std::wstring* final_name) {
   std::wstring file_ext =
       base::FilePath(suggested_name).Extension().insert(0, L"*");
+  std::wstring working_dir;
   std::wstring filter = FormatFilterForExtensions(
       std::vector<std::wstring>(1, file_ext),
       std::vector<std::wstring>(),
@@ -403,7 +407,8 @@ bool SaveFileAs(HWND owner,
                               L"",
                               false,
                               &index,
-                              final_name);
+                              final_name,
+                              working_dir);
 }
 
 // Implementation of SelectFileDialog that shows a Windows common dialog for
@@ -428,7 +433,8 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
       int file_type_index,
       const base::FilePath::StringType& default_extension,
       gfx::NativeWindow owning_window,
-      void* params) OVERRIDE;
+      void* params,
+      const base::FilePath& working_dir) OVERRIDE;
 
  private:
   virtual ~SelectFileDialogImpl();
@@ -443,7 +449,8 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
                         const std::wstring& default_extension,
                         RunState run_state,
                         HWND owner,
-                        void* params)
+                        void* params,
+                        const base::FilePath& working_dir)
         : type(type),
           title(title),
           default_path(default_path),
@@ -452,7 +459,8 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
           run_state(run_state),
           ui_proxy(base::MessageLoopForUI::current()->message_loop_proxy()),
           owner(owner),
-          params(params) {
+          params(params),
+          working_dir(working_dir) {
       if (file_types)
         this->file_types = *file_types;
     }
@@ -466,6 +474,7 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
     scoped_refptr<base::MessageLoopProxy> ui_proxy;
     HWND owner;
     void* params;
+    base::FilePath working_dir;
   };
 
   // Shows the file selection dialog modal to |owner| and calls the result
@@ -492,14 +501,16 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
   // dialog thread.
   bool RunSelectFolderDialog(const std::wstring& title,
                              HWND owner,
-                             base::FilePath* path);
+                             base::FilePath* path,
+                             const std::wstring& working_dir);
 
   // Runs an Open file dialog box, with similar semantics for input paramaters
   // as RunSelectFolderDialog.
   bool RunOpenFileDialog(const std::wstring& title,
                          const std::wstring& filters,
                          HWND owner,
-                         base::FilePath* path);
+                         base::FilePath* path,
+                         const std::wstring& working_dir);
 
   // Runs an Open file dialog box that supports multi-select, with similar
   // semantics for input paramaters as RunOpenFileDialog.
@@ -543,7 +554,8 @@ void SelectFileDialogImpl::SelectFileImpl(
     int file_type_index,
     const base::FilePath::StringType& default_extension,
     gfx::NativeWindow owning_window,
-    void* params) {
+    void* params,
+    const base::FilePath& working_dir) {
   has_multiple_file_type_choices_ =
       file_types ? file_types->extensions.size() > 1 : true;
 #if defined(USE_AURA)
@@ -608,7 +620,7 @@ void SelectFileDialogImpl::SelectFileImpl(
   ExecuteSelectParams execute_params(type, base::UTF16ToWide(title),
                                      default_path, file_types, file_type_index,
                                      default_extension, BeginRun(owner),
-                                     owner, params);
+                                     owner, params, working_dir);
   execute_params.run_state.dialog_thread->message_loop()->PostTask(
       FROM_HERE,
       base::Bind(&SelectFileDialogImpl::ExecuteSelectFile, this,
@@ -653,22 +665,26 @@ void SelectFileDialogImpl::ExecuteSelectFile(
     }
     success = RunSelectFolderDialog(title,
                                     params.run_state.owner,
-                                    &path);
+                                    &path,
+                                    working_dir_as_wstring);
   } else if (params.type == SELECT_SAVEAS_FILE) {
     std::wstring path_as_wstring = path.value();
     success = SaveFileAsWithFilter(params.run_state.owner,
-        params.default_path.value(), filter,
-        params.default_extension, false, &filter_index, &path_as_wstring);
+                                   params.default_path.value(), filter,
+                                   params.default_extension, false, &filter_index, &path_as_wstring,
+                                   params.working_dir);
     if (success)
       path = base::FilePath(path_as_wstring);
     DisableOwner(params.run_state.owner);
   } else if (params.type == SELECT_OPEN_FILE) {
     success = RunOpenFileDialog(params.title, filter,
-                                params.run_state.owner, &path);
+                                params.run_state.owner, &path,
+                                params.working_dir);
   } else if (params.type == SELECT_OPEN_MULTI_FILE) {
     std::vector<base::FilePath> paths;
     if (RunOpenMultiFileDialog(params.title, filter,
-                               params.run_state.owner, &paths)) {
+                               params.run_state.owner, &paths,
+                               params.working_dir)) {
       params.ui_proxy->PostTask(
           FROM_HERE,
           base::Bind(&SelectFileDialogImpl::MultiFilesSelected, this, paths,
@@ -728,7 +744,8 @@ int CALLBACK SelectFileDialogImpl::BrowseCallbackProc(HWND window,
 
 bool SelectFileDialogImpl::RunSelectFolderDialog(const std::wstring& title,
                                                  HWND owner,
-                                                 base::FilePath* path) {
+                                                 base::FilePath* path,
+                                                 const std::wstring& working_dir) {
   DCHECK(path);
 
   wchar_t dir_buffer[MAX_PATH + 1];
@@ -743,7 +760,13 @@ bool SelectFileDialogImpl::RunSelectFolderDialog(const std::wstring& title,
   if (path->value().length()) {
     // Highlight the current value.
     browse_info.lParam = (LPARAM)path->value().c_str();
-    browse_info.lpfn = &BrowseCallbackProc;
+    browse_info.lpfn = BrowseCallbackProc;
+  }
+
+  if (!working_dir.empty()) {
+    // Highlight the current value.
+    browse_info.lParam = (LPARAM)working_dir.c_str();
+    browse_info.lpfn = BrowseCallbackProc;
   }
 
   LPITEMIDLIST list = SHBrowseForFolder(&browse_info);
@@ -782,7 +805,8 @@ bool SelectFileDialogImpl::RunOpenFileDialog(
     const std::wstring& title,
     const std::wstring& filter,
     HWND owner,
-    base::FilePath* path) {
+    base::FilePath* path,
+    const std::wstring& working_dir) {
   OPENFILENAME ofn;
   // We must do this otherwise the ofn's FlagsEx may be initialized to random
   // junk in release builds which can cause the Places Bar not to show up!
@@ -799,6 +823,7 @@ bool SelectFileDialogImpl::RunOpenFileDialog(
   // GetOpenFileName.
   base::FilePath dir;
   // Use lpstrInitialDir to specify the initial directory
+
   if (!path->empty()) {
     if (IsDirectory(*path)) {
       ofn.lpstrInitialDir = path->value().c_str();
@@ -809,6 +834,10 @@ bool SelectFileDialogImpl::RunOpenFileDialog(
       base::wcslcpy(filename, path->BaseName().value().c_str(),
                     arraysize(filename));
     }
+  }
+
+  if (!working_dir.empty()) {
+    ofn.lpstrInitialDir = working_dir.c_str();
   }
 
   ofn.lpstrFile = filename;
@@ -831,7 +860,8 @@ bool SelectFileDialogImpl::RunOpenMultiFileDialog(
     const std::wstring& title,
     const std::wstring& filter,
     HWND owner,
-    std::vector<base::FilePath>* paths) {
+    std::vector<base::FilePath>* paths,
+    const std::wstring& working_dir) {
   OPENFILENAME ofn;
   // We must do this otherwise the ofn's FlagsEx may be initialized to random
   // junk in release builds which can cause the Places Bar not to show up!
@@ -851,6 +881,10 @@ bool SelectFileDialogImpl::RunOpenMultiFileDialog(
 
   if (!filter.empty()) {
     ofn.lpstrFilter = filter.c_str();
+  }
+
+  if (!working_dir.empty()) {
+    ofn.lpstrInitialDir = working_dir.c_str();
   }
 
   bool success = CallGetOpenFileName(&ofn);
