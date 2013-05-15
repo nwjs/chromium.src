@@ -65,7 +65,7 @@
         }],
         [ 'OS == "android"', {
             'dependencies': [
-              '../third_party/openssl/openssl.gyp:openssl',
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
             ],
             'sources/': [
               ['exclude', 'ec_private_key_nss\.cc$'],
@@ -119,6 +119,9 @@
           'msvs_disabled_warnings': [4267, ],
         }],
         [ 'use_openssl==1', {
+            'dependencies': [
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
+            ],
             # TODO(joth): Use a glob to match exclude patterns once the
             #             OpenSSL file set is complete.
             'sources!': [

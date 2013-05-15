@@ -934,6 +934,7 @@ extern const char kTestCompositor[]         = "test-compositor";
 #endif
 
 // Don't dump stuff here, follow the same order as the header.
+const char kNodejs[] = "nodejs";
 
 // Allows filters (SkImageFilter objects) to be sent between processes over IPC
 const char kAllowFiltersOverIPC[] = "allow-filters-over-ipc";
