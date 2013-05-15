@@ -234,6 +234,7 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>()
 #else
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>(new MessagePumpForUI())
+#define MESSAGE_PUMP_UV scoped_ptr<MessagePump>(new base::MessagePumpUV())
 #endif
 
 #if defined(OS_MACOSX)
@@ -243,6 +244,13 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
 #else
   #define MESSAGE_PUMP_DEFAULT scoped_ptr<MessagePump>(new MessagePumpDefault())
 #endif
+
+  if (type == MessageLoop::TYPE_NODE) {
+#if defined(OS_MACOSX)
+    return MESSAGE_PUMP_NODE;
+#else
+    return MESSAGE_PUMP_UV;
+  }
 
   if (type == MessageLoop::TYPE_UI) {
     if (message_pump_for_ui_factory_)

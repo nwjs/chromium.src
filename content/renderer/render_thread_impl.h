@@ -460,6 +460,7 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
 #endif
   void OnCreateNewSharedWorker(
       const WorkerProcessMsg_CreateWorker_Params& params);
+  void OnWillQuit(int*);
 
   void IdleHandlerInForegroundTab();
 

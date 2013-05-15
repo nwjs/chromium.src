@@ -255,7 +255,7 @@
               'third_party/mozilla_security_manager/nsPKCS12Blob.h',
             ],
             'dependencies': [
-              '../third_party/boringssl/boringssl.gyp:boringssl',
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
             ],
           },
           {  # else !use_openssl: remove the unneeded files
@@ -469,7 +469,7 @@
         }],
         [ 'OS == "android"', {
             'dependencies': [
-              '../third_party/boringssl/boringssl.gyp:boringssl',
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
               'net_jni_headers',
             ],
             'sources!': [
@@ -593,7 +593,7 @@
         [ 'use_openssl == 1', {
           # Avoid compiling/linking with the system library.
           'dependencies': [
-            '../third_party/boringssl/boringssl.gyp:boringssl',
+            '../third_party/node/deps/openssl/openssl.gyp:openssl',
           ],
         }, {  # use_openssl == 0
           'conditions': [
@@ -798,7 +798,7 @@
         }],
         [ 'OS == "android"', {
             'dependencies': [
-              '../third_party/boringssl/boringssl.gyp:boringssl',
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
             ],
             'sources!': [
               'dns/dns_config_service_posix_unittest.cc',
@@ -980,7 +980,7 @@
           'conditions': [
             ['use_openssl==1', {
               'dependencies': [
-                '../third_party/boringssl/boringssl.gyp:boringssl',
+                '../third_party/node/deps/openssl/openssl.gyp:openssl',
               ],
             }, {
               'dependencies': [
@@ -1383,7 +1383,7 @@
           ],
           'dependencies': [
             '../base/base.gyp:base',
-            '../third_party/boringssl/boringssl.gyp:boringssl',
+            '../third_party/node/deps/openssl/openssl.gyp:openssl',
             'balsa',
             'epoll_server',
             'net',
@@ -1428,7 +1428,7 @@
           'dependencies': [
               '../testing/gtest.gyp:gtest',
               '../testing/gmock.gyp:gmock',
-              '../third_party/boringssl/boringssl.gyp:boringssl',
+              '../third_party/node/deps/openssl/openssl.gyp:openssl',
               'flip_in_mem_edsm_server_base',
               'net',
               'net_test_support',

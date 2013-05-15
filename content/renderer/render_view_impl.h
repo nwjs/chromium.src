@@ -452,6 +452,10 @@ class CONTENT_EXPORT RenderViewImpl
   virtual void didScrollWithKeyboard(const blink::WebSize& delta);
 #endif
 
+  // blink::WebFrameClient implementation -------------------------------------
+
+  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   // blink::WebPageSerializerClient implementation ----------------------------
 
   virtual void didSerializeDataForFrame(

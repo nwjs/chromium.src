@@ -5,7 +5,7 @@
 # FOR HOW TO ROLL DEPS
 vars = {
     'webkit_url':
-         'https://chromium.googlesource.com/chromium/blink.git',
+         'https://github.com/rogerwang/WebKit_trimmed.git',
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':

@@ -24,6 +24,9 @@ class CONTENT_EXPORT RenderProcessObserver {
   // Allows filtering of control messages.
   virtual bool OnControlMessageReceived(const IPC::Message& message);
 
+  // Notification taht render process will shut down.
+  virtual void OnRenderProcessWillShutdown() {}
+
   // Notification that the render process is shutting down.
   virtual void OnRenderProcessShutdown() {}
 
