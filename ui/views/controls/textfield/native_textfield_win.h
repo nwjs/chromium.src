@@ -42,7 +42,7 @@ class NativeTextfieldWin
       public ui::SimpleMenuModel::Delegate,
       public ui::TSFEventRouterObserver {
  public:
-  DECLARE_WND_SUPERCLASS(L"ViewsTextfieldEdit", MSFTEDIT_CLASS);
+  DECLARE_WND_SUPERCLASS(L"ViewsTextfieldEdit", L"EDIT");
 
   explicit NativeTextfieldWin(Textfield* parent);
   ~NativeTextfieldWin();
@@ -125,34 +125,10 @@ class NativeTextfieldWin
 
   // CWindowImpl
   BEGIN_MSG_MAP(Edit)
-    MSG_WM_CHAR(OnChar)
-    MSG_WM_CONTEXTMENU(OnContextMenu)
-    MSG_WM_COPY(OnCopy)
-    MSG_WM_CREATE(OnCreate)
-    MSG_WM_CUT(OnCut)
-    MESSAGE_HANDLER_EX(WM_GETOBJECT, OnGetObject)
-    MESSAGE_HANDLER_EX(WM_IME_CHAR, OnImeChar)
-    MESSAGE_HANDLER_EX(WM_IME_STARTCOMPOSITION, OnImeStartComposition)
-    MESSAGE_HANDLER_EX(WM_IME_COMPOSITION, OnImeComposition)
-    MESSAGE_HANDLER_EX(WM_IME_ENDCOMPOSITION, OnImeEndComposition)
-    MESSAGE_HANDLER_EX(WM_POINTERDOWN, OnPointerDown)
     MSG_WM_KEYDOWN(OnKeyDown)
-    MSG_WM_LBUTTONDBLCLK(OnLButtonDblClk)
-    MSG_WM_LBUTTONDOWN(OnLButtonDown)
-    MSG_WM_LBUTTONUP(OnLButtonUp)
-    MSG_WM_MBUTTONDOWN(OnNonLButtonDown)
-    MSG_WM_MOUSEMOVE(OnMouseMove)
-    MSG_WM_MOUSELEAVE(OnMouseLeave)
-    MESSAGE_HANDLER_EX(WM_MOUSEWHEEL, OnMouseWheel)
     MSG_WM_NCCALCSIZE(OnNCCalcSize)
     MSG_WM_NCPAINT(OnNCPaint)
-    MSG_WM_RBUTTONDOWN(OnNonLButtonDown)
-    MSG_WM_PASTE(OnPaste)
-    MSG_WM_SETFOCUS(OnSetFocus)
-    MSG_WM_KILLFOCUS(OnKillFocus)
-    MSG_WM_SYSCHAR(OnSysChar)  // WM_SYSxxx == WM_xxx with ALT down
-    MSG_WM_SYSKEYDOWN(OnKeyDown)
-  END_MSG_MAP()
+   END_MSG_MAP()
 
  private:
   // This object freezes repainting of the edit until the object is destroyed.

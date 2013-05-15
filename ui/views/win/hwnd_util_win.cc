@@ -26,13 +26,14 @@ HWND HWNDForNativeWindow(const gfx::NativeWindow window) {
 }
 
 gfx::Rect GetWindowBoundsForClientBounds(View* view,
-                                         const gfx::Rect& client_bounds) {
+                                         const gfx::Rect& client_bounds,
+                                         BOOL has_menu) {
   DCHECK(view);
   HWND hwnd = view->GetWidget()->GetNativeWindow();
   RECT rect = client_bounds.ToRECT();
   DWORD style = ::GetWindowLong(hwnd, GWL_STYLE);
   DWORD ex_style = ::GetWindowLong(hwnd, GWL_EXSTYLE);
-  AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+  AdjustWindowRectEx(&rect, style, has_menu, ex_style);
   return gfx::Rect(rect);
 }
 
