@@ -35,8 +35,8 @@ deps = {
         Var('git_url') + '/external/googlemock.git@6b1759c3816d574bddde3e1725c51a811c8870e7',
     'src/testing/gtest':
         Var('git_url') + '/external/googletest.git@a6772271f71672e889776bfe49ec4efd9da036df',
-    'src/third_party/WebKit':
-        Var('webkit_url') + Var('webkit_rev'),
+    #'src/third_party/WebKit':
+    #    Var('webkit_url') + Var('webkit_rev'),
     'src/third_party/accessibility-developer-tools':
         Var('git_url') + '/external/accessibility-developer-tools.git@ad5df9a5341d38778658c90e4aa241c4ebe4e8aa',
     'src/third_party/angle':
@@ -137,12 +137,12 @@ deps = {
         Var('git_url') + '/chromium/deps/acid3.git@6be0a66a1ebd7ebc5abc1b2f405a945f6d871521',
     'src/tools/swarm_client':
         Var('git_url') + '/chromium/tools/swarm_client.git@f45530cfdad793e211f0befcc85df13fbbe8165f',
-    'src/v8':
-        'https://github.com/rogerwang/v8.git@origin/nwebkit',
-    'src/third_party/node':
-        'https://github.com/zcbenz/node.git@origin/master',
-    'src/content/nw':
-        'https://github.com/rogerwang/node-webkit.git@origin/master',
+#    'src/v8':
+#        'https://github.com/rogerwang/v8.git@origin/nwebkit',
+#    'src/third_party/node':
+#        'https://github.com/zcbenz/node.git@origin/master',
+#    'src/content/nw':
+#        'https://github.com/rogerwang/node-webkit.git@origin/master',
     'src/webkit/media/crypto/ppapi/cdm':
         Var('git_url') + '/chromium/cdm.git@c2b192a02546916d28233cfd8b7717ffcdcc8347',
 }
