@@ -931,8 +931,8 @@ void BrowserView::SetWindowSwitcherButton(views::Button* button) {
   if (window_switcher_button_)
     RemoveChildView(window_switcher_button_);
   window_switcher_button_ = button;
-  GetBrowserViewLayout()->set_window_switcher_button(button);
   AddChildView(button);
+  GetBrowserViewLayout()->set_window_switcher_button(button);
 }
 
 void BrowserView::ToolbarSizeChanged(bool is_animating) {
