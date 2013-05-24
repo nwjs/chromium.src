@@ -868,9 +868,9 @@ TEST_F(SSLClientSocketTest, Read) {
 // the socket connection uncleanly.
 // This is a regression test for http://crbug.com/238536
 TEST_F(SSLClientSocketTest, Read_WithSynchronousError) {
-  net::SpawnedTestServer test_server(net::SpawnedTestServer::TYPE_HTTPS,
-                                     net::SpawnedTestServer::kLocalhost,
-                                     base::FilePath());
+  net::TestServer test_server(net::TestServer::TYPE_HTTPS,
+                              net::TestServer::kLocalhost,
+                              base::FilePath());
   ASSERT_TRUE(test_server.Start());
 
   net::AddressList addr;
@@ -993,9 +993,9 @@ TEST_F(SSLClientSocketTest, Read_FullDuplex) {
 // callback, the Write() callback should not be invoked.
 // Regression test for http://crbug.com/232633
 TEST_F(SSLClientSocketTest, Read_DeleteWhilePendingFullDuplex) {
-  net::SpawnedTestServer test_server(net::SpawnedTestServer::TYPE_HTTPS,
-                                     net::SpawnedTestServer::kLocalhost,
-                                     base::FilePath());
+  net::TestServer test_server(net::TestServer::TYPE_HTTPS,
+                              net::TestServer::kLocalhost,
+                              base::FilePath());
   ASSERT_TRUE(test_server.Start());
 
   net::AddressList addr;
