@@ -671,6 +671,10 @@ const Experiment kExperiments[] = {
     kOsDesktop,
     SINGLE_VALUE_TYPE(switches::kEnableOpusPlayback)
   },
+// Disable VP9 support in M27: https://crbug.com/238367 will not be fixed in
+// M27, and the VP9 bitstream has changed. Incompatible VP9 files could cause
+// decode errors (at best) and additional crashes.
+#if 0
   {
     "enable-vp9-playback",
     IDS_FLAGS_ENABLE_VP9_PLAYBACK_NAME,
@@ -678,6 +682,7 @@ const Experiment kExperiments[] = {
     kOsDesktop,
     SINGLE_VALUE_TYPE(switches::kEnableVp9Playback)
   },
+#endif
   {
     "enable-managed-users",
     IDS_FLAGS_ENABLE_LOCALLY_MANAGED_USERS_NAME,

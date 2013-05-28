@@ -40,6 +40,10 @@ static void AddDefaultDecodersToCollection(
       new media::FFmpegVideoDecoder(message_loop);
   filter_collection->GetVideoDecoders()->push_back(ffmpeg_video_decoder);
 
+// Disable VP9 support in M27: https://crbug.com/238367 will not be fixed in
+// M27, and the VP9 bitstream has changed. Incompatible VP9 files could cause
+// decode errors (at best) and additional crashes.
+#if 0
   // TODO(phajdan.jr): Remove ifdefs when libvpx with vp9 support is released
   // (http://crbug.com/174287) .
 #if !defined(MEDIA_DISABLE_LIBVPX)
@@ -50,6 +54,8 @@ static void AddDefaultDecodersToCollection(
     filter_collection->GetVideoDecoders()->push_back(vpx_video_decoder);
   }
 #endif  // !defined(MEDIA_DISABLE_LIBVPX)
+#endif
+
 }
 
 void BuildMediaSourceCollection(
