@@ -1299,12 +1299,12 @@ bool Extension::InitFromValue(int flags, string16* error) {
   if (!LoadAppIsolation(error))
     return false;
 
-  if (!LoadSharedFeatures(error))
-    return false;
-
   if (manifest_->HasKey(keys::kConvertedFromUserScript))
     manifest_->GetBoolean(keys::kConvertedFromUserScript,
                           &converted_from_user_script_);
+
+  if (!LoadSharedFeatures(error))
+    return false;
 
   if (!LoadManagedModeFeatures(error))
     return false;
