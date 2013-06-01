@@ -27,10 +27,14 @@ size_t CountBytes(const dom_storage::ValuesMap& values) {
 
 namespace dom_storage {
 
+size_t DomStorageMap::quota_override_ = 0;
+
 DomStorageMap::DomStorageMap(size_t quota)
     : bytes_used_(0),
       quota_(quota) {
   ResetKeyIterator();
+  if (quota_override_)
+    quota_ = quota_override_;
 }
 
 DomStorageMap::~DomStorageMap() {}
@@ -77,8 +81,8 @@ bool DomStorageMap::SetItem(
 
   // Only check quota if the size is increasing, this allows
   // shrinking changes to pre-existing files that are over budget.
-  // if (new_item_size > old_item_size && new_bytes_used > quota_)
-  //  return false;
+  if (new_item_size > old_item_size && new_bytes_used > quota_)
+    return false;
 
   values_[key] = NullableString16(value, false);
   ResetKeyIterator();

@@ -21,6 +21,7 @@ namespace dom_storage {
 class WEBKIT_STORAGE_EXPORT DomStorageMap
     : public base::RefCountedThreadSafe<DomStorageMap> {
  public:
+  static void SetQuotaOverride(size_t quota) {quota_override_ = quota; }
   explicit DomStorageMap(size_t quota);
 
   unsigned Length() const;
@@ -44,7 +45,7 @@ class WEBKIT_STORAGE_EXPORT DomStorageMap
 
   size_t bytes_used() const { return bytes_used_; }
   size_t quota() const { return quota_; }
-  void set_quota(size_t quota) { quota_ = quota; }
+  void set_quota(size_t quota) { quota_ = quota > quota_override_ ? quota : quota_override_; }
 
  private:
   friend class base::RefCountedThreadSafe<DomStorageMap>;
@@ -57,6 +58,7 @@ class WEBKIT_STORAGE_EXPORT DomStorageMap
   unsigned last_key_index_;
   size_t bytes_used_;
   size_t quota_;
+  static size_t quota_override_;
 };
 
 }  // namespace dom_storage
