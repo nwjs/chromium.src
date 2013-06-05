@@ -275,7 +275,7 @@ TEST_F(ShellTest, CreateLockScreenModalWindow) {
   EXPECT_EQ(modal_container, modal_widget->GetNativeWindow()->parent());
 
   // Modal dialog without parent, caused crash see crbug.com/226141
-  views::Widget* modal_dialog = views::DialogDelegate::CreateDialogWidget(
+  views::Widget* modal_dialog = views::DialogDelegateView::CreateDialogWidget(
       new TestModalDialogDelegate(), CurrentContext(), NULL);
 
   modal_dialog->Show();
