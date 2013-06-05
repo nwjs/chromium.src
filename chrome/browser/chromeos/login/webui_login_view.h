@@ -11,6 +11,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
 #include "chrome/browser/chromeos/login/scoped_gaia_auth_extension.h"
+#include "chrome/browser/extensions/scoped_gaia_auth_extension.h"
 #include "chrome/browser/ui/chrome_web_modal_dialog_manager_delegate.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/notification_observer.h"
