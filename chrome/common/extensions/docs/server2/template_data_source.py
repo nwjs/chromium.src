@@ -19,7 +19,7 @@ _STRING_CONSTANTS = {
   'extension': 'extension',
   'extensions_title': 'Extensions',
   'events': 'events',
-  'functions': 'functions',
+  'methods': 'methods',
   'properties': 'properties',
   }
 
