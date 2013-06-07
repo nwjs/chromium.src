@@ -4,15 +4,15 @@
     "items": [
       {
         "title": "What Are Packaged Apps?",
-        "fileName": "about_apps.html"
+        "href": "/apps/about_apps.html"
       },
       {
         "title": "Understand the Architecture",
-        "fileName": "app_architecture.html"
+        "href": "/apps/app_architecture.html"
       },
       {
         "title": "Create Your First App",
-        "fileName": "first_app.html"
+        "href": "/apps/first_app.html"
       }
     ]
   },
@@ -21,7 +21,7 @@
     "items": [
       {
         "title": "Before You Start",
-        "fileName": "develop_apps.html"
+        "href": "/apps/develop_apps.html"
       },
       {
         "title": "The Fundamentals",
@@ -29,19 +29,19 @@
         "items": [
           {
             "title": "Manage App Lifecycle",
-            "fileName": "app_lifecycle.html"
+            "href": "/apps/app_lifecycle.html"
           },
           {
             "title": "Manage Data",
-            "fileName": "app_storage.html"
+            "href": "/apps/app_storage.html"
           },
           {
             "title": "Offline First",
-            "fileName": "offline_apps.html"
+            "href": "/apps/offline_apps.html"
           },
           {
             "title": "Embed Content",
-            "fileName": "app_external.html"
+            "href": "/apps/app_external.html"
           }
         ]
       },
@@ -51,11 +51,11 @@
         "items": [
           {
             "title": "Identify User",
-            "fileName": "app_identity.html"
+            "href": "/apps/app_identity.html"
           },
           {
             "title": "Comply with CSP",
-            "fileName": "app_csp.html"
+            "href": "/apps/app_csp.html"
           }
         ]
       },
@@ -69,25 +69,25 @@
             "items": [
               {
                 "title": "About Cloud Messaging",
-                "fileName": "cloudMessaging.html"
+                "href": "/apps/cloudMessaging.html"
               },
               {
                 "title": "Client Reference",
-                "fileName": "pushMessaging.html"
+                "href": "/apps/pushMessaging.html"
               },
               {
                 "title": "Service Reference",
-                "fileName": "gcm_server.html"
+                "href": "/apps/gcm_server.html"
               },
               {
                 "title": "Terms of Service",
-                "fileName": "gcm_tos.html"
+                "href": "/apps/gcm_tos.html"
               }
             ]
           },
           {
             "title": "Desktop Notifications",
-            "fileName": "desktop_notifications.html"
+            "href": "/apps/desktop_notifications.html"
           }
         ]
       },
@@ -97,11 +97,11 @@
         "items": [
           {
             "title": "Network Communications",
-            "fileName": "app_network.html"
+            "href": "/apps/app_network.html"
           },
           {
             "title": "Access Hardware Devices",
-            "fileName": "app_hardware.html"
+            "href": "/apps/app_hardware.html"
           }
         ]
       },
@@ -111,15 +111,15 @@
         "items": [
           {
             "title": "About MVC Architecture",
-            "fileName": "app_frameworks.html"
+            "href": "/apps/app_frameworks.html"
           },
           {
             "title": "Build Apps with AngularJS",
-            "fileName": "angular_framework.html"
+            "href": "/apps/angular_framework.html"
           },
           {
             "title": "Build Apps with Sencha Ext JS",
-            "fileName": "sencha_framework.html"
+            "href": "/apps/sencha_framework.html"
           }
         ]
       }
@@ -130,7 +130,7 @@
     "items": [
       {
         "title": "Publish",
-        "fileName": "publish_app.html"
+        "href": "/apps/publish_app.html"
       }
     ]
   },
@@ -139,23 +139,23 @@
     "items": [
       {
         "title": "Manifest Files",
-        "fileName": "manifest.html"
+        "href": "/apps/manifest.html"
       },
       {
         "title": "Chrome JavaScript APIs",
-        "fileName": "api_index.html"
+        "href": "/apps/api_index.html"
       },
       {
         "title": "Webview Tag API",
-        "fileName": "webview_tag.html"
+        "href": "/apps/webview_tag.html"
       },
       {
         "title": "Supported Libraries",
-        "fileName": "api_other.html"
+        "href": "/apps/api_other.html"
       },
       {
         "title": "Disabled Web Features",
-        "fileName": "app_deprecated.html"
+        "href": "/apps/app_deprecated.html"
       }
     ]
   },
@@ -164,11 +164,11 @@
     "items": [
       {
         "title": "FAQ",
-        "fileName": "faq.html"
+        "href": "/apps/faq.html"
       },
       {
         "title": "Samples",
-        "fileName": "samples.html"
+        "href": "/apps/samples.html"
       }
     ]
   }
