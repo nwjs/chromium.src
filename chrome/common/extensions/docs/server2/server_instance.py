@@ -133,10 +133,12 @@ class ServerInstance(object):
 
   def __init__(self,
                channel,
-               object_store_creator_factory,
-               svn_file_system,
-               github_file_system):
-    self.svn_file_system = svn_file_system
+               object_store_creator,
+               host_file_system,
+               app_samples_file_system,
+               base_path,
+               compiled_fs_factory):
+    self.channel = channel
 
     self.github_file_system = github_file_system
 
@@ -186,7 +188,8 @@ class ServerInstance(object):
 
     self.sidenav_data_source_factory = SidenavDataSource.Factory(
         self.compiled_fs_factory,
-        svn_constants.JSON_PATH)
+        svn_constants.JSON_PATH,
+        base_path)
 
     self.template_data_source_factory = TemplateDataSource.Factory(
         channel,
@@ -198,7 +201,8 @@ class ServerInstance(object):
         self.compiled_fs_factory,
         self.ref_resolver_factory,
         svn_constants.PUBLIC_TEMPLATE_PATH,
-        svn_constants.PRIVATE_TEMPLATE_PATH)
+        svn_constants.PRIVATE_TEMPLATE_PATH,
+        base_path)
 
     self.example_zipper = ExampleZipper(
         self.compiled_fs_factory,
@@ -208,4 +212,32 @@ class ServerInstance(object):
         channel,
         self.compiled_fs_factory)
 
-    self.content_cache = self.compiled_fs_factory.CreateIdentity(ServerInstance)
+    self.content_cache = self.compiled_host_fs_factory.CreateIdentity(
+        ServerInstance)
+
+  @staticmethod
+  def ForTest(file_system):
+    object_store_creator = ObjectStoreCreator.ForTest()
+    return ServerInstance('test',
+                          object_store_creator,
+                          file_system,
+                          EmptyDirFileSystem(),
+                          '',
+                          CompiledFileSystem.Factory(file_system,
+                                                     object_store_creator))
+
+  @staticmethod
+  def ForLocal():
+    channel = 'trunk'
+    object_store_creator = ObjectStoreCreator(channel,
+                                              start_empty=False,
+                                              store_type=TestObjectStore)
+    file_system = CachingFileSystem(LocalFileSystem.Create(),
+                                    object_store_creator)
+    return ServerInstance(
+        channel,
+        object_store_creator,
+        file_system,
+        EmptyDirFileSystem(),
+        '',
+        CompiledFileSystem.Factory(file_system, object_store_creator))
