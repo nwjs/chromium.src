@@ -9,7 +9,10 @@
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
+#include "base/observer_list.h"
 #include "chrome/browser/chromeos/login/scoped_gaia_auth_extension.h"
+#include "chrome/browser/ui/web_contents_modal_dialog_host.h"
+#include "chrome/browser/ui/web_contents_modal_dialog_manager_delegate.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -35,7 +38,9 @@ namespace chromeos {
 // WebUI based start up and lock screens. It contains a WebView.
 class WebUILoginView : public views::View,
                        public content::WebContentsDelegate,
-                       public content::NotificationObserver {
+                       public content::NotificationObserver,
+                       public WebContentsModalDialogManagerDelegate,
+                       public WebContentsModalDialogHost {
  public:
   // Internal class name.
   static const char kViewClassName[];
@@ -50,6 +55,22 @@ class WebUILoginView : public views::View,
   virtual bool AcceleratorPressed(
       const ui::Accelerator& accelerator) OVERRIDE;
   virtual std::string GetClassName() const OVERRIDE;
+
+  // Overridden from WebContentsModalDialogManagerDelegate:
+  virtual void SetWebContentsBlocked(content::WebContents* web_contents,
+                                     bool blocked) OVERRIDE;
+  virtual WebContentsModalDialogHost*
+      GetWebContentsModalDialogHost() OVERRIDE;
+  virtual bool IsWebContentsVisible(
+      content::WebContents* web_contents) OVERRIDE;
+
+  // Overridden from WebContentsModalDialogHost:
+  virtual gfx::NativeView GetHostView() const OVERRIDE;
+  virtual gfx::Point GetDialogPosition(const gfx::Size& size) OVERRIDE;
+  virtual void AddObserver(
+      WebContentsModalDialogHostObserver* observer) OVERRIDE;
+  virtual void RemoveObserver(
+      WebContentsModalDialogHostObserver* observer) OVERRIDE;
 
   // Called when WebUI window is created.
   virtual void OnWindowCreated();
@@ -160,6 +181,8 @@ class WebUILoginView : public views::View,
   bool forward_keyboard_event_;
 
   scoped_ptr<ScopedGaiaAuthExtension> auth_extension_;
+
+  ObserverList<WebContentsModalDialogHostObserver> observer_list_;
 
   DISALLOW_COPY_AND_ASSIGN(WebUILoginView);
 };

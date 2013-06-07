@@ -13,6 +13,7 @@
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate_impl.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model_delegate.h"
@@ -21,9 +22,12 @@
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 #include "chrome/browser/ui/views/reload_button.h"
 #include "chrome/browser/ui/web_contents_modal_dialog_manager.h"
+#include "chrome/common/render_messages.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_view.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ipc/ipc_message.h"
@@ -158,6 +162,8 @@ void SimpleWebViewDialog::StartLoad(const GURL& url) {
 
   // LoginHandlerViews uses a constrained window for the password manager view.
   WebContentsModalDialogManager::CreateForWebContents(web_contents);
+  WebContentsModalDialogManager::FromWebContents(web_contents)->
+      set_delegate(this);
 }
 
 void SimpleWebViewDialog::Init() {
@@ -235,6 +241,14 @@ void SimpleWebViewDialog::Init() {
   UpdateReload(web_view_->web_contents()->IsLoading(), true);
 
   Layout();
+}
+
+void SimpleWebViewDialog::Layout() {
+  views::WidgetDelegateView::Layout();
+
+  FOR_EACH_OBSERVER(WebContentsModalDialogHostObserver,
+                    observer_list_,
+                    OnPositionRequiresUpdate());
 }
 
 views::View* SimpleWebViewDialog::GetContentsView() {
@@ -344,6 +358,49 @@ void SimpleWebViewDialog::ExecuteCommandWithDisposition(
     default:
       NOTREACHED();
   }
+}
+
+void SimpleWebViewDialog::SetWebContentsBlocked(
+    content::WebContents* web_contents,
+    bool blocked) {
+  // RenderViewHost may be NULL during shutdown.
+  content::RenderViewHost* host = web_contents->GetRenderViewHost();
+  if (host) {
+    host->Send(new ChromeViewMsg_SetVisuallyDeemphasized(
+               host->GetRoutingID(), blocked));
+  }
+}
+
+WebContentsModalDialogHost*
+    SimpleWebViewDialog::GetWebContentsModalDialogHost() {
+  return this;
+}
+
+bool SimpleWebViewDialog::IsWebContentsVisible(
+    content::WebContents* web_contents) {
+  return platform_util::IsVisible(web_contents->GetView()->GetNativeView());
+}
+
+gfx::NativeView SimpleWebViewDialog::GetHostView() const {
+  return GetWidget()->GetNativeView();
+}
+
+gfx::Point SimpleWebViewDialog::GetDialogPosition(const gfx::Size& size) {
+  // Center the widget.
+  gfx::Size widget_size = GetWidget()->GetWindowBoundsInScreen().size();
+  return gfx::Point(widget_size.width() / 2 - size.width() / 2,
+                    widget_size.height() / 2 - size.height() / 2);
+}
+
+void SimpleWebViewDialog::AddObserver(
+    WebContentsModalDialogHostObserver* observer) {
+  if (observer && !observer_list_.HasObserver(observer))
+    observer_list_.AddObserver(observer);
+}
+
+void SimpleWebViewDialog::RemoveObserver(
+    WebContentsModalDialogHostObserver* observer) {
+  observer_list_.RemoveObserver(observer);
 }
 
 void SimpleWebViewDialog::LoadImages() {

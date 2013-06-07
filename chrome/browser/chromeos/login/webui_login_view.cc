@@ -21,6 +21,7 @@
 #include "chrome/browser/media/media_stream_infobar_delegate.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate_impl.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/renderer_preferences_util.h"
 #include "chrome/browser/ui/web_contents_modal_dialog_manager.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
@@ -194,6 +195,8 @@ void WebUILoginView::Init(views::Widget* login_window) {
 
   // LoginHandlerViews uses a constrained window for the password manager view.
   WebContentsModalDialogManager::CreateForWebContents(web_contents);
+  WebContentsModalDialogManager::FromWebContents(web_contents)->
+      set_delegate(this);
 
   web_contents->SetDelegate(this);
   renderer_preferences_util::UpdateFromSystemSettings(
@@ -207,6 +210,49 @@ void WebUILoginView::Init(views::Widget* login_window) {
 
 std::string WebUILoginView::GetClassName() const {
   return kViewClassName;
+}
+
+void WebUILoginView::SetWebContentsBlocked(
+    content::WebContents* web_contents,
+    bool blocked) {
+  // RenderViewHost may be NULL during shutdown.
+  content::RenderViewHost* host = web_contents->GetRenderViewHost();
+  if (host) {
+    host->Send(new ChromeViewMsg_SetVisuallyDeemphasized(
+               host->GetRoutingID(), blocked));
+  }
+}
+
+WebContentsModalDialogHost*
+    WebUILoginView::GetWebContentsModalDialogHost() {
+  return this;
+}
+
+bool WebUILoginView::IsWebContentsVisible(content::WebContents* web_contents) {
+  return platform_util::IsVisible(web_contents->GetView()->GetNativeView());
+}
+
+
+gfx::NativeView WebUILoginView::GetHostView() const {
+  return GetWidget()->GetNativeView();
+}
+
+gfx::Point WebUILoginView::GetDialogPosition(const gfx::Size& size) {
+  // Center the widget.
+  gfx::Size widget_size = GetWidget()->GetWindowBoundsInScreen().size();
+  return gfx::Point(widget_size.width() / 2 - size.width() / 2,
+                    widget_size.height() / 2 - size.height() / 2);
+}
+
+void WebUILoginView::AddObserver(
+    WebContentsModalDialogHostObserver* observer) {
+  if (observer && !observer_list_.HasObserver(observer))
+    observer_list_.AddObserver(observer);
+}
+
+void WebUILoginView::RemoveObserver(
+    WebContentsModalDialogHostObserver* observer) {
+  observer_list_.RemoveObserver(observer);
 }
 
 bool WebUILoginView::AcceleratorPressed(
@@ -295,6 +341,10 @@ void WebUILoginView::SetUIEnabled(bool enabled) {
 void WebUILoginView::Layout() {
   DCHECK(webui_login_);
   webui_login_->SetBoundsRect(bounds());
+
+  FOR_EACH_OBSERVER(WebContentsModalDialogHostObserver,
+                    observer_list_,
+                    OnPositionRequiresUpdate());
 }
 
 void WebUILoginView::OnLocaleChanged() {
