@@ -24,7 +24,7 @@
 #include "base/threading/non_thread_safe.h"
 #include "ui/gfx/native_widget_types.h"
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
+#if defined(OS_POSIX) && !defined(OS_ANDROID)
 #include "base/files/scoped_temp_dir.h"
 #endif
 
@@ -88,7 +88,7 @@ class ProcessSingleton : public base::NonThreadSafe {
   // Clear any lock state during shutdown.
   void Cleanup();
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
+#if defined(OS_POSIX) && !defined(OS_ANDROID)
   static void DisablePromptForTesting();
 #endif
 
@@ -99,7 +99,7 @@ class ProcessSingleton : public base::NonThreadSafe {
   // On Windows, Create() has to be called before this.
   NotifyResult NotifyOtherProcess();
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
+#if defined(OS_POSIX) && !defined(OS_ANDROID)
   // Exposed for testing.  We use a timeout on Linux, and in tests we want
   // this timeout to be short.
   NotifyResult NotifyOtherProcessWithTimeout(const CommandLine& command_line,
@@ -114,11 +114,11 @@ class ProcessSingleton : public base::NonThreadSafe {
 #endif
 
  private:
-#if !defined(OS_MACOSX)
+//#if !defined(OS_MACOSX)
   // Timeout for the current browser process to respond. 20 seconds should be
   // enough. It's only used in Windows and Linux implementations.
   static const int kTimeoutInSeconds = 20;
-#endif
+//#endif
 
   NotificationCallback notification_callback_;  // Handler for notifications.
 
@@ -130,11 +130,13 @@ class ProcessSingleton : public base::NonThreadSafe {
   bool is_virtualized_;  // Stuck inside Microsoft Softricity VM environment.
   HANDLE lock_file_;
   base::FilePath user_data_dir_;
-#elif defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
+#elif defined(OS_POSIX) && !defined(OS_ANDROID)
   // Return true if the given pid is one of our child processes.
   // Assumes that the current pid is the root of all pids of the current
   // instance.
+#if !defined(OS_MACOSX)
   bool IsSameChromeInstance(pid_t pid);
+#endif
 
   // Extract the process's pid from a symbol link path and if it is on
   // the same host, kill the process, unlink the lock file and return true.
@@ -169,7 +171,7 @@ class ProcessSingleton : public base::NonThreadSafe {
   // because it posts messages between threads.
   class LinuxWatcher;
   scoped_refptr<LinuxWatcher> watcher_;
-#elif defined(OS_MACOSX)
+#elif defined(OS_MACOSX__)
   // Path in file system to the lock.
   base::FilePath lock_path_;
 
