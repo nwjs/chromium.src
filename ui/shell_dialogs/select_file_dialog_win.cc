@@ -517,7 +517,8 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
   bool RunOpenMultiFileDialog(const std::wstring& title,
                               const std::wstring& filter,
                               HWND owner,
-                              std::vector<base::FilePath>* paths);
+                              std::vector<base::FilePath>* paths,
+                              const std::wstring& working_dir);
 
   // The callback function for when the select folder dialog is opened.
   static int CALLBACK BrowseCallbackProc(HWND window, UINT message,
@@ -655,6 +656,7 @@ void SelectFileDialogImpl::ExecuteSelectFile(
   base::FilePath path = params.default_path;
   bool success = false;
   unsigned filter_index = params.file_type_index;
+  std::wstring working_dir_as_wstring = params.working_dir.value();
   if (params.type == SELECT_FOLDER || params.type == SELECT_UPLOAD_FOLDER) {
     std::wstring title = params.title;
     if (title.empty() && params.type == SELECT_UPLOAD_FOLDER) {
@@ -672,19 +674,19 @@ void SelectFileDialogImpl::ExecuteSelectFile(
     success = SaveFileAsWithFilter(params.run_state.owner,
                                    params.default_path.value(), filter,
                                    params.default_extension, false, &filter_index, &path_as_wstring,
-                                   params.working_dir);
+                                   working_dir_as_wstring);
     if (success)
       path = base::FilePath(path_as_wstring);
     DisableOwner(params.run_state.owner);
   } else if (params.type == SELECT_OPEN_FILE) {
     success = RunOpenFileDialog(params.title, filter,
                                 params.run_state.owner, &path,
-                                params.working_dir);
+                                working_dir_as_wstring);
   } else if (params.type == SELECT_OPEN_MULTI_FILE) {
     std::vector<base::FilePath> paths;
     if (RunOpenMultiFileDialog(params.title, filter,
                                params.run_state.owner, &paths,
-                               params.working_dir)) {
+                               working_dir_as_wstring)) {
       params.ui_proxy->PostTask(
           FROM_HERE,
           base::Bind(&SelectFileDialogImpl::MultiFilesSelected, this, paths,
