@@ -89,8 +89,10 @@ class AudioHandler {
   // change notification is received.
   void ApplyAudioPolicy();
 
-  // Sets volume to specified value and notifies observers.
-  void SetVolumePercentInternal(double volume_percent);
+  // Sets volume/muted to specified value and notifies observers if |notify|
+  // is true.
+  void SetVolumePercentInternal(double volume_percent, bool notify);
+  void SetMutedInternal(bool do_mute, bool notify);
 
   scoped_ptr<AudioMixer> mixer_;
 
@@ -100,8 +102,7 @@ class AudioHandler {
 
   PrefChangeRegistrar pref_change_registrar_;
 
-  // Track state for triggering callbacks
-  double volume_percent_;
+  // Track state for triggering callbacks in ApplyAudioPolicy().
   bool muted_;
 
   DISALLOW_COPY_AND_ASSIGN(AudioHandler);

@@ -103,16 +103,15 @@ void AudioHandler::SetVolumePercent(double volume_percent) {
     SetMuted(false);
   if (!IsMuted() && volume_percent == 0.0)
     SetMuted(true);
-  SetVolumePercentInternal(volume_percent);
+  SetVolumePercentInternal(volume_percent, true);
 }
 
-void AudioHandler::SetVolumePercentInternal(double volume_percent) {
+void AudioHandler::SetVolumePercentInternal(double volume_percent,
+                                            bool notify) {
   mixer_->SetVolumePercent(volume_percent);
   local_state_->SetDouble(prefs::kAudioVolumePercent, volume_percent);
-  if (volume_percent != volume_percent_) {
-    volume_percent_ = volume_percent;
+  if (notify)
     FOR_EACH_OBSERVER(VolumeObserver, volume_observers_, OnVolumeChanged());
-  }
 }
 
 void AudioHandler::AdjustVolumeByPercent(double adjust_by_percent) {
@@ -124,6 +123,10 @@ bool AudioHandler::IsMuted() {
 }
 
 void AudioHandler::SetMuted(bool mute) {
+  SetMutedInternal(mute, true);
+}
+
+void AudioHandler::SetMutedInternal(bool mute, bool notify) {
   if (!mixer_->IsMuteLocked()) {
     mixer_->SetMuted(mute);
     local_state_->SetInteger(prefs::kAudioMute,
@@ -133,13 +136,12 @@ void AudioHandler::SetMuted(bool mute) {
       if (GetVolumePercent() <= kMuteThresholdPercent) {
         // Avoid the situation when sound has been unmuted, but the volume
         // is set to a very low value, so user still can't hear any sound.
-        SetVolumePercentInternal(kDefaultUnmuteVolumePercent);
+        SetVolumePercentInternal(kDefaultUnmuteVolumePercent, notify);
       }
     }
-    if (mute != muted_) {
-      muted_ = mute;
+    muted_ = mute;
+    if (notify)
       FOR_EACH_OBSERVER(VolumeObserver, volume_observers_, OnMuteToggled());
-    }
   }
 }
 
@@ -163,16 +165,14 @@ void AudioHandler::RemoveVolumeObserver(VolumeObserver* observer) {
 AudioHandler::AudioHandler(AudioMixer* mixer)
     : mixer_(mixer),
       local_state_(g_browser_process->local_state()),
-      volume_percent_(0),
       muted_(false) {
   InitializePrefObservers();
   mixer_->Init();
   ApplyAudioPolicy();
-  // Set initial state so that notifications are not triggered.
-  muted_ = (local_state_->GetInteger(prefs::kAudioMute) == kPrefMuteOn);
-  volume_percent_ = local_state_->GetDouble(prefs::kAudioVolumePercent);
-  SetMuted(muted_);
-  SetVolumePercentInternal(volume_percent_);
+  SetMutedInternal(
+      local_state_->GetInteger(prefs::kAudioMute) == kPrefMuteOn, false);
+  SetVolumePercentInternal(
+      local_state_->GetDouble(prefs::kAudioVolumePercent), false);
 }
 
 AudioHandler::~AudioHandler() {
