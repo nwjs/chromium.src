@@ -201,6 +201,11 @@ static const struct Executables {
   { "sh", AllowOnUserGesture },
   { "shar", AllowOnUserGesture },
   { "tcsh", AllowOnUserGesture },
+#elif defined(OS_ANDROID)
+  { "apk", AllowOnUserGesture },
+  { "sh", AllowOnUserGesture },
+  { "shar", AllowOnUserGesture },
+  { "dex", AllowOnUserGesture },
 #elif defined(OS_POSIX)
   // TODO(estade): lengthen this list.
   { "bash", AllowOnUserGesture },
@@ -212,11 +217,6 @@ static const struct Executables {
   { "sh", AllowOnUserGesture },
   { "shar", AllowOnUserGesture },
   { "tcsh", AllowOnUserGesture },
-#elif defined(OS_ANDROID)
-  { "apk", AllowOnUserGesture },
-  { "sh", AllowOnUserGesture },
-  { "shar", AllowOnUserGesture },
-  { "dex", AllowOnUserGesture },
 #endif
 };
 
