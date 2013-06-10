@@ -283,7 +283,7 @@ cr.define('options.internet', function() {
       // The string isn't available because
       // chrome://settings-frame/strings.js (where the string is
       // stored) is not accessible from the login screen.
-      if (loadTimeData.data) {
+      if (loadTimeData.data_) {
         $('google-dns-label').innerHTML =
           loadTimeData.getString('googleNameServers');
       }
