@@ -1017,8 +1017,8 @@ bool GetFileTasksFileBrowserFunction::RunImpl() {
   // the extension tasks to the Drive task list. We know there aren't duplicates
   // because they're entirely different kinds of tasks, but there could be both
   // kinds of tasks for a file type (an image file, for instance).
-  file_handler_util::FileBrowserHandlerList common_tasks;
-  file_handler_util::FileBrowserHandlerList default_tasks;
+  std::set<const FileBrowserHandler*> common_tasks;
+  std::set<const FileBrowserHandler*> default_tasks;
   if (!file_handler_util::FindCommonTasks(profile_, file_urls, &common_tasks))
     return false;
   file_handler_util::FindDefaultTasks(profile_, file_paths,
@@ -1026,7 +1026,7 @@ bool GetFileTasksFileBrowserFunction::RunImpl() {
 
   ExtensionService* service =
       extensions::ExtensionSystem::Get(profile_)->extension_service();
-  for (file_handler_util::FileBrowserHandlerList::const_iterator iter =
+  for (std::set<const FileBrowserHandler*>::const_iterator iter =
            common_tasks.begin();
        iter != common_tasks.end();
        ++iter) {
@@ -1050,8 +1050,7 @@ bool GetFileTasksFileBrowserFunction::RunImpl() {
 
     // Only set the default if there isn't already a default set.
     if (!default_already_set &&
-        std::find(default_tasks.begin(), default_tasks.end(), *iter) !=
-            default_tasks.end()) {
+        default_tasks.find(*iter) != default_tasks.end()) {
       task->SetBoolean("isDefault", true);
       default_already_set = true;
     } else {
