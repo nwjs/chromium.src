@@ -208,9 +208,10 @@ void ConflictingModuleView::GetAccessibleState(
   state->role = ui::AccessibilityTypes::ROLE_ALERT;
 }
 
-void ConflictingModuleView::ViewHierarchyChanged(
-  const ViewHierarchyChangedDetails& details) {
-  if (details.is_add && details.child == this)
+void ConflictingModuleView::ViewHierarchyChanged(bool is_add,
+                                                 views::View* parent,
+                                                 views::View* child) {
+  if (is_add && child == this)
     NotifyAccessibilityEvent(ui::AccessibilityTypes::EVENT_ALERT, true);
 }
 
