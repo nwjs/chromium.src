@@ -904,6 +904,8 @@ extern const char kAppListLaunchCount[];
 extern const char kLastAppListAppLaunchPing[];
 extern const char kAppListAppLaunchCount[];
 
+extern const char kModuleConflictBubbleShown[];
+
 extern const char kDRMSalt[];
 extern const char kEnableDRM[];
 
