@@ -416,6 +416,16 @@ class FileSystem : public FileSystemInterface,
       const base::FilePath& file_path,
       scoped_ptr<ResourceEntry> entry);
 
+  // Part of GetFileContentByPath(). Called after CheckLocalModificationAndRun()
+  // is complete. All three callbacks must not be null.
+  void GetFileContentByPathAfterGetResourceMetadataEntry(
+      const base::FilePath& file_path,
+      const GetFileContentInitializedCallback& initialized_callback,
+      const google_apis::GetContentCallback& get_content_callback,
+      const FileOperationCallback& completion_callback,
+      FileError error,
+      scoped_ptr<ResourceEntry> entry);
+
   // Part of GetFileContentByPath(). Called after
   // ResourceMetadata::GetEntryInfoByPath() is complete.
   // |initialized_callback|, |get_content_callback| and |completion_callback|

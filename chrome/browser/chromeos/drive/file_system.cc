@@ -618,6 +618,30 @@ void FileSystem::GetFileContentByPath(
 
   resource_metadata_->GetEntryInfoByPath(
       file_path,
+      base::Bind(&FileSystem::GetFileContentByPathAfterGetResourceMetadataEntry,
+                 weak_ptr_factory_.GetWeakPtr(),
+                 file_path,
+                 initialized_callback,
+                 get_content_callback,
+                 completion_callback));
+}
+
+void FileSystem::GetFileContentByPathAfterGetResourceMetadataEntry(
+    const base::FilePath& file_path,
+    const GetFileContentInitializedCallback& initialized_callback,
+    const google_apis::GetContentCallback& get_content_callback,
+    const FileOperationCallback& completion_callback,
+    FileError error,
+    scoped_ptr<ResourceEntry> entry) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (error != FILE_ERROR_OK) {
+    completion_callback.Run(error);
+    return;
+  }
+
+  CheckLocalModificationAndRun(
+      entry.Pass(),
       base::Bind(&FileSystem::GetFileContentByPathAfterGetEntry,
                  weak_ptr_factory_.GetWeakPtr(),
                  file_path,
