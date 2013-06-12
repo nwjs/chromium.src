@@ -887,7 +887,6 @@ void BrowserView::SetWindowSwitcherButton(views::Button* button) {
   if (window_switcher_button_)
     RemoveChildView(window_switcher_button_);
   window_switcher_button_ = button;
-  AddChildView(button);
 }
 
 void BrowserView::ToolbarSizeChanged(bool is_animating) {
@@ -1988,6 +1987,9 @@ void BrowserView::InitViews() {
   toolbar_ = new ToolbarView(browser_.get());
   top_container_->AddChildView(toolbar_);
   toolbar_->Init();
+
+  if (window_switcher_button_)
+    AddChildView(window_switcher_button_);
 
   BrowserViewLayout* browser_view_layout = new BrowserViewLayout;
   browser_view_layout->Init(browser(),
