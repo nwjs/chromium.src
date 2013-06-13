@@ -192,6 +192,7 @@ void FeatureInfo::AddFeatures(const CommandLine& command_line) {
   bool is_imagination = false;
   bool is_arm = false;
   bool is_vivante = false;
+  bool is_mali400 = false;
   const char* gl_strings[2];
   gl_strings[0] = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
   gl_strings[1] = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
@@ -211,6 +212,7 @@ void FeatureInfo::AddFeatures(const CommandLine& command_line) {
         is_arm |= string_set.Contains("arm");
         is_vivante |= string_set.Contains("vivante");
         is_vivante |= string_set.Contains("hisilicon");
+        is_mali400 |= string_set.Contains("mali-400");
       }
     }
 
@@ -412,6 +414,10 @@ void FeatureInfo::AddFeatures(const CommandLine& command_line) {
 
   if (is_arm || is_imagination) {
     workarounds_.use_client_side_arrays_for_stream_buffers = true;
+  }
+
+  if (is_mali400) {
+    workarounds_.use_non_zero_size_for_client_side_stream_buffers = true;
   }
 
   // If we're using client_side_arrays we have to emulate
