@@ -19,9 +19,6 @@ var forEach = require('utils').forEach;
 var PERMISSION_TYPES = ['download', 'media', 'geolocation', 'pointerLock'];
 
 /** @type {string} */
-var REQUEST_TYPE_NEW_WINDOW = 'newwindow';
-
-/** @type {string} */
 var ERROR_MSG_PERMISSION_ALREADY_DECIDED = '<webview>: ' +
     'Permission has already been decided for this "permissionrequest" event.';
 
@@ -33,21 +30,12 @@ var EXPOSED_PERMISSION_EVENT_ATTRIBS = [
     'userGesture'
 ];
 
-/** @type {string} */
-var ERROR_MSG_NEWWINDOW_ACTION_ALREADY_TAKEN = '<webview>: ' +
-    'An action has already been taken for this "newwindow" event.';
-
-/** @type {string} */
-var ERROR_MSG_WEBVIEW_EXPECTED = '<webview> element expected.';
-
 /**
  * @private
  */
 WebView.prototype.maybeSetupExperimentalAPI_ = function() {
-  this.setupNewWindowEvent_();
   this.setupPermissionEvent_();
   this.setupExecuteCodeAPI_();
-  this.setupWebRequestEvents_();
 }
 
 /**
@@ -117,78 +105,4 @@ WebView.prototype.setupExecuteCodeAPI_ = function() {
                     Array.prototype.slice.call(arguments));
     chrome.webview.executeScript.apply(null, args);
   }
-};
-
-/**
- * @private
- */
-WebView.prototype.setupNewWindowEvent_ = function() {
-  var NEW_WINDOW_EVENT_ATTRIBUTES = [
-    'initialHeight',
-    'initialWidth',
-    'targetUrl',
-    'windowOpenDisposition',
-    'name'
-  ];
-
-  var node = this.webviewNode_;
-  var browserPluginNode = this.browserPluginNode_;
-  browserPluginNode.addEventListener('-internal-newwindow', function(e) {
-    var evt = new Event('newwindow', { bubbles: true, cancelable: true });
-    var detail = e.detail ? JSON.parse(e.detail) : {};
-
-    NEW_WINDOW_EVENT_ATTRIBUTES.forEach(function(attribName) {
-      evt[attribName] = detail[attribName];
-    });
-    var requestId = detail.requestId;
-    var actionTaken = false;
-
-    var validateCall = function () {
-      if (actionTaken)
-        throw new Error(ERROR_MSG_NEWWINDOW_ACTION_ALREADY_TAKEN);
-      actionTaken = true;
-    };
-
-    var window = {
-      attach: function(webview) {
-        validateCall();
-        if (!webview)
-          throw new Error(ERROR_MSG_WEBVIEW_EXPECTED);
-        // Attach happens asynchronously to give the tagWatcher an opportunity
-        // to pick up the new webview before attach operates on it, if it hasn't
-        // been attached to the DOM already.
-        // Note: Any subsequent errors cannot be exceptions because they happen
-        // asynchronously.
-        setTimeout(function() {
-          var attached =
-              browserPluginNode['-internal-attachWindowTo'](webview,
-                                                            detail.windowId);
-          if (!attached) {
-            console.error('Unable to attach the new window to the provided ' +
-                'webview.');
-          }
-          // If the object being passed into attach is not a valid <webview>
-          // then we will fail and it will be treated as if the new window
-          // was rejected. The permission API plumbing is used here to clean
-          // up the state created for the new window if attaching fails.
-          browserPluginNode['-internal-setPermission'](requestId, attached);
-        }, 0);
-      },
-      discard: function() {
-        validateCall();
-        browserPluginNode['-internal-setPermission'](requestId, false);
-      }
-    };
-    evt.window = window;
-    // Make browser plugin track lifetime of |window|.
-    browserPluginNode['-internal-persistObject'](
-        window, detail.permission, requestId);
-
-    var defaultPrevented = !node.dispatchEvent(evt);
-    if (!actionTaken && !defaultPrevented) {
-      actionTaken = true;
-      // The default action is to discard the window.
-      browserPluginNode['-internal-setPermission'](requestId, false);
-    }
-  });
 };
