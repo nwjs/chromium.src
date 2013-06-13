@@ -41,13 +41,24 @@ var ERROR_MSG_NEWWINDOW_ACTION_ALREADY_TAKEN = '<webview>: ' +
 var ERROR_MSG_WEBVIEW_EXPECTED = '<webview> element expected.';
 
 /**
+ * @private
+ */
+WebView.prototype.maybeSetupExperimentalAPI_ = function() {
+  this.setupNewWindowEvent_();
+  this.setupPermissionEvent_();
+  this.setupExecuteCodeAPI_();
+  this.setupWebRequestEvents_();
+}
+
+/**
  * @param {!Object} detail The event details, originated from <object>.
  * @private
  */
-WebView.prototype.maybeSetupPermissionEvent_ = function() {
-  var node = this.node_;
-  var objectNode = this.objectNode_;
-  this.objectNode_.addEventListener('-internal-permissionrequest', function(e) {
+WebView.prototype.setupPermissionEvent_ = function() {
+  var node = this.webviewNode_;
+  var browserPluginNode = this.browserPluginNode_;
+  var internalevent = '-internal-permissionrequest';
+  browserPluginNode.addEventListener(internalevent, function(e) {
     var evt = new Event('permissionrequest', {bubbles: true, cancelable: true});
     var detail = e.detail ? JSON.parse(e.detail) : {};
     forEach(EXPOSED_PERMISSION_EVENT_ATTRIBS, function(i, attribName) {
@@ -67,7 +78,7 @@ WebView.prototype.maybeSetupPermissionEvent_ = function() {
           if (decisionMade) {
             throw new Error(ERROR_MSG_PERMISSION_ALREADY_DECIDED);
           } else {
-            objectNode['-internal-setPermission'](requestId, true);
+            browserPluginNode['-internal-setPermission'](requestId, true);
             decisionMade = true;
           }
         },
@@ -75,7 +86,7 @@ WebView.prototype.maybeSetupPermissionEvent_ = function() {
           if (decisionMade) {
             throw new Error(ERROR_MSG_PERMISSION_ALREADY_DECIDED);
           } else {
-            objectNode['-internal-setPermission'](requestId, false);
+            browserPluginNode['-internal-setPermission'](requestId, false);
             decisionMade = true;
           }
         }
@@ -83,13 +94,13 @@ WebView.prototype.maybeSetupPermissionEvent_ = function() {
       evt.request = request;
 
       // Make browser plugin track lifetime of |request|.
-      objectNode['-internal-persistObject'](
+      browserPluginNode['-internal-persistObject'](
           request, detail.permission, requestId);
 
       var defaultPrevented = !node.dispatchEvent(evt);
       if (!decisionMade && !defaultPrevented) {
         decisionMade = true;
-        objectNode['-internal-setPermission'](requestId, false);
+        browserPluginNode['-internal-setPermission'](requestId, false);
       }
     }
   });
@@ -98,11 +109,11 @@ WebView.prototype.maybeSetupPermissionEvent_ = function() {
 /**
  * @private
  */
-WebView.prototype.maybeSetupExecuteScript_ = function() {
+WebView.prototype.setupExecuteCodeAPI_ = function() {
   var self = this;
-  this.node_['executeScript'] = function(var_args) {
-    var args = [self.objectNode_.getProcessId(),
-                self.objectNode_.getRouteId()].concat(
+  this.webviewNode_['executeScript'] = function(var_args) {
+    var args = [self.browserPluginNode_.getProcessId(),
+                self.browserPluginNode_.getRouteId()].concat(
                     Array.prototype.slice.call(arguments));
     chrome.webview.executeScript.apply(null, args);
   }
@@ -111,7 +122,7 @@ WebView.prototype.maybeSetupExecuteScript_ = function() {
 /**
  * @private
  */
-WebView.prototype.maybeSetupNewWindowEvent_ = function() {
+WebView.prototype.setupNewWindowEvent_ = function() {
   var NEW_WINDOW_EVENT_ATTRIBUTES = [
     'initialHeight',
     'initialWidth',
@@ -120,9 +131,9 @@ WebView.prototype.maybeSetupNewWindowEvent_ = function() {
     'name'
   ];
 
-  var node = this.node_;
-  var objectNode = this.objectNode_;
-  objectNode.addEventListener('-internal-newwindow', function(e) {
+  var node = this.webviewNode_;
+  var browserPluginNode = this.browserPluginNode_;
+  browserPluginNode.addEventListener('-internal-newwindow', function(e) {
     var evt = new Event('newwindow', { bubbles: true, cancelable: true });
     var detail = e.detail ? JSON.parse(e.detail) : {};
 
@@ -150,7 +161,8 @@ WebView.prototype.maybeSetupNewWindowEvent_ = function() {
         // asynchronously.
         setTimeout(function() {
           var attached =
-              objectNode['-internal-attachWindowTo'](webview, detail.windowId);
+              browserPluginNode['-internal-attachWindowTo'](webview,
+                                                            detail.windowId);
           if (!attached) {
             console.error('Unable to attach the new window to the provided ' +
                 'webview.');
@@ -159,24 +171,24 @@ WebView.prototype.maybeSetupNewWindowEvent_ = function() {
           // then we will fail and it will be treated as if the new window
           // was rejected. The permission API plumbing is used here to clean
           // up the state created for the new window if attaching fails.
-          objectNode['-internal-setPermission'](requestId, attached);
+          browserPluginNode['-internal-setPermission'](requestId, attached);
         }, 0);
       },
       discard: function() {
         validateCall();
-        objectNode['-internal-setPermission'](requestId, false);
+        browserPluginNode['-internal-setPermission'](requestId, false);
       }
     };
     evt.window = window;
     // Make browser plugin track lifetime of |window|.
-    objectNode['-internal-persistObject'](
+    browserPluginNode['-internal-persistObject'](
         window, detail.permission, requestId);
 
     var defaultPrevented = !node.dispatchEvent(evt);
     if (!actionTaken && !defaultPrevented) {
       actionTaken = true;
       // The default action is to discard the window.
-      objectNode['-internal-setPermission'](requestId, false);
+      browserPluginNode['-internal-setPermission'](requestId, false);
     }
   });
 };
