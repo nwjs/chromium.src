@@ -969,8 +969,7 @@ public class ContentViewGestureHandlerTest extends InstrumentationTestCase {
         };
         mGestureHandler = new ContentViewGestureHandler(
                 getInstrumentation().getTargetContext(), eventDelegate,
-                new MockZoomManager(getInstrumentation().getTargetContext(), null),
-                ContentViewCore.INPUT_EVENTS_DELIVERED_AT_VSYNC);
+                new MockZoomManager(getInstrumentation().getTargetContext(), null));
         mLongPressDetector = new LongPressDetector(
                 getInstrumentation().getTargetContext(), mGestureHandler);
 
