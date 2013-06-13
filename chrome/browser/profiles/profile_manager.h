@@ -299,7 +299,7 @@ class ProfileManager : public base::NonThreadSafe,
   void InitProfileUserPrefs(Profile* profile);
 
   // For ChromeOS, determines if profile should be otr.
-  bool ShouldGoOffTheRecord();
+  bool ShouldGoOffTheRecord(Profile* profile);
 
   // Get the path of the next profile directory and increment the internal
   // count.
