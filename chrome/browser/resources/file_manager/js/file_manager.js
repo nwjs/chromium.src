@@ -1418,22 +1418,9 @@ DialogType.isModal = function(type) {
    * @private
    */
   FileManager.prototype.onResize_ = function() {
-    if (this.listType_ == FileManager.ListType.THUMBNAIL) {
-      var g = this.grid_;
-      g.startBatchUpdates();
-      setTimeout(function() {
-        g.columns = 0;
-        g.redraw();
-        g.endBatchUpdates();
-      }, 0);
-    } else {
-      if (util.platform.newUI()) {
-        if (this.table_.clientWidth > 0)
-          this.table_.normalizeColumns();
-      }
-      this.table_.redraw();
-      this.volumeList_.redraw();
-    }
+    this.table_.relayout();
+    this.grid_.relayout();
+    this.directoryTree_.relayout();
 
     if (!util.platform.newUI())
       this.breadcrumbs_.truncate();
