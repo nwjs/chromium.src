@@ -117,7 +117,7 @@ class ProcessSingleton : public base::NonThreadSafe {
 //#if !defined(OS_MACOSX)
   // Timeout for the current browser process to respond. 20 seconds should be
   // enough. It's only used in Windows and Linux implementations.
-  static const int kTimeoutInSeconds = 20;
+  static const int kTimeoutInSeconds = 5;
 //#endif
 
   NotificationCallback notification_callback_;  // Handler for notifications.
