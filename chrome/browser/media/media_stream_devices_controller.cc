@@ -47,10 +47,14 @@ MediaStreamDevicesController::MediaStreamDevicesController(
       content_settings_(content_settings),
       request_(request),
       callback_(callback),
+      // For MEDIA_OPEN_DEVICE requests (Pepper) we always request both webcam
+      // and microphone to avoid popping two infobars.
       microphone_requested_(
-          request.audio_type == content::MEDIA_DEVICE_AUDIO_CAPTURE),
+          request.audio_type == content::MEDIA_DEVICE_AUDIO_CAPTURE ||
+          request.request_type == content::MEDIA_OPEN_DEVICE),
       webcam_requested_(
-          request.video_type == content::MEDIA_DEVICE_VIDEO_CAPTURE) {
+          request.video_type == content::MEDIA_DEVICE_VIDEO_CAPTURE ||
+          request.request_type == content::MEDIA_OPEN_DEVICE) {
   // Don't call GetDevicePolicy from the initializer list since the
   // implementation depends on member variables.
   if (microphone_requested_ &&
@@ -79,13 +83,6 @@ void MediaStreamDevicesController::RegisterUserPrefs(
 
 
 bool MediaStreamDevicesController::DismissInfoBarAndTakeActionOnSettings() {
-  // If this is a no UI check for policies only go straight to accept - policy
-  // check will be done automatically on the way.
-  if (request_.request_type == content::MEDIA_OPEN_DEVICE) {
-    Accept(false);
-    return true;
-  }
-
   if (request_.audio_type == content::MEDIA_TAB_AUDIO_CAPTURE ||
       request_.video_type == content::MEDIA_TAB_VIDEO_CAPTURE) {
     HandleTabMediaRequest();
@@ -144,8 +141,8 @@ void MediaStreamDevicesController::Accept(bool update_content_setting) {
         // first available of the given type.
         MediaCaptureDevicesDispatcher::GetInstance()->GetRequestedDevice(
             request_.requested_device_id,
-            microphone_requested_,
-            webcam_requested_,
+            request_.audio_type == content::MEDIA_DEVICE_AUDIO_CAPTURE,
+            request_.video_type == content::MEDIA_DEVICE_VIDEO_CAPTURE,
             &devices);
         break;
       case content::MEDIA_DEVICE_ACCESS:

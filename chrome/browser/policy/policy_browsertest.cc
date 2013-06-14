@@ -1863,26 +1863,32 @@ class MediaStreamDevicesControllerBrowserTest
   }
 
   void FinishAudioTest() {
-    content::MediaStreamRequest request(0, 0, GURL(),
-                                        content::MEDIA_OPEN_DEVICE, "fake_dev",
+   // TODO(raymes): Test MEDIA_DEVICE_OPEN (Pepper) which grants both webcam
+   // and microphone permissions at the same time.
+   content::MediaStreamRequest request(0, 0, GURL(),
+                                        content::MEDIA_DEVICE_ACCESS,
+                                        "fake_dev",
                                         content::MEDIA_DEVICE_AUDIO_CAPTURE,
                                         content::MEDIA_NO_SERVICE);
     TabSpecificContentSettings* content_settings =
         TabSpecificContentSettings::FromWebContents(
             browser()->tab_strip_model()->GetActiveWebContents());
-    MediaStreamDevicesController controller(
+        MediaStreamDevicesController controller(
         browser()->profile(),
         content_settings,
         request,
         base::Bind(&MediaStreamDevicesControllerBrowserTest::Accept, this));
-    controller.DismissInfoBarAndTakeActionOnSettings();
+    controller.Accept(false);
 
     MessageLoop::current()->QuitWhenIdle();
   }
 
   void FinishVideoTest() {
+    // TODO(raymes): Test MEDIA_DEVICE_OPEN (Pepper) which grants both webcam
+    // and microphone permissions at the same time.
     content::MediaStreamRequest request(0, 0, GURL(),
-                                        content::MEDIA_OPEN_DEVICE, "fake_dev",
+                                        content::MEDIA_DEVICE_ACCESS,
+                                        "fake_dev",
                                         content::MEDIA_NO_SERVICE,
                                         content::MEDIA_DEVICE_VIDEO_CAPTURE);
     TabSpecificContentSettings* content_settings =
@@ -1891,7 +1897,7 @@ class MediaStreamDevicesControllerBrowserTest
     MediaStreamDevicesController controller(
         browser()->profile(), content_settings, request,
         base::Bind(&MediaStreamDevicesControllerBrowserTest::Accept, this));
-    controller.DismissInfoBarAndTakeActionOnSettings();
+    controller.Accept(false);
 
     MessageLoop::current()->QuitWhenIdle();
   }

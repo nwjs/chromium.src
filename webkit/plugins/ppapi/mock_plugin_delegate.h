@@ -47,6 +47,7 @@ class MockPluginDelegate : public PluginDelegate {
       int32 command_buffer_route_id);
   virtual PlatformVideoCapture* CreateVideoCapture(
       const std::string& device_id,
+      const GURL& document_url,
       PlatformVideoCaptureEventHandler* handler);
   virtual uint32_t GetAudioHardwareOutputSampleRate();
   virtual uint32_t GetAudioHardwareOutputBufferSize();
@@ -56,6 +57,7 @@ class MockPluginDelegate : public PluginDelegate {
       PlatformAudioOutputClient* client);
   virtual PlatformAudioInput* CreateAudioInput(
       const std::string& device_id,
+      const GURL& document_url,
       uint32_t sample_rate,
       uint32_t sample_count,
       PlatformAudioInputClient* client);
