@@ -902,7 +902,7 @@
                   ],
                   'postbuilds': [
                     {
-                      'action_name': 'Dump Symbols',
+                      'postbuild_name': 'Dump Symbols',
                       'variables': {
                         'dump_product_syms_path':
                             'scripts/mac/dump_product_syms',
