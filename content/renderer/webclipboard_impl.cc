@@ -33,6 +33,17 @@ using WebKit::WebString;
 using WebKit::WebURL;
 using WebKit::WebVector;
 
+#if defined(__GNUC__)
+// Triggered by the auto-generated pplval variable.
+#if !defined(__clang__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#else
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#endif
+#elif defined(_MSC_VER)
+#pragma warning(disable: 4065 4701)
+#endif
+
 namespace content {
 
 WebClipboardImpl::WebClipboardImpl(ClipboardClient* client)
