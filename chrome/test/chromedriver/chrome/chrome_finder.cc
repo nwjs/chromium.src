@@ -88,7 +88,7 @@ bool FindChrome(base::FilePath* browser_exe) {
   };
 #elif defined(OS_MACOSX)
   base::FilePath browser_exes_array[] = {
-    base::FilePath("node-webkit")
+    base::FilePath("node-webkit.app/Contents/MacOS/node-webkit")
   };
 #elif defined(OS_LINUX)
   base::FilePath browser_exes_array[] = {
