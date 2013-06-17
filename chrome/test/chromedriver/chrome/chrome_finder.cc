@@ -84,28 +84,23 @@ void GetApplicationDirs(std::vector<base::FilePath>* locations);
 bool FindChrome(base::FilePath* browser_exe) {
 #if defined(OS_WIN)
   base::FilePath browser_exes_array[] = {
-      base::FilePath(L"chrome.exe")
+    base::FilePath(L"nw.exe")
   };
 #elif defined(OS_MACOSX)
   base::FilePath browser_exes_array[] = {
-      base::FilePath("Google Chrome.app/Contents/MacOS/Google Chrome"),
-      base::FilePath("Chromium.app/Contents/MacOS/Chromium")
+    base::FilePath("node-webkit")
   };
 #elif defined(OS_LINUX)
   base::FilePath browser_exes_array[] = {
-      base::FilePath("google-chrome"),
-      base::FilePath("chrome"),
-      base::FilePath("chromium"),
-      base::FilePath("chromium-browser")
+      base::FilePath("nw")
   };
 #endif
   std::vector<base::FilePath> browser_exes(
       browser_exes_array, browser_exes_array + arraysize(browser_exes_array));
   std::vector<base::FilePath> locations;
-  base::FilePath module_dir;
-  if (PathService::Get(base::DIR_MODULE, &module_dir))
-    locations.push_back(module_dir);
-  GetApplicationDirs(&locations);
+  base::FilePath exe_path;
+  PathService::Get(base::DIR_EXE, &exe_path);
+  locations.push_back(exe_path);
   return internal::FindExe(
       base::Bind(&base::PathExists),
       browser_exes,
