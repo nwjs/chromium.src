@@ -418,6 +418,7 @@ class PluginDelegate {
   // object.
   virtual PlatformVideoCapture* CreateVideoCapture(
       const std::string& device_id,
+      const GURL& document_url,
       PlatformVideoCaptureEventHandler* handler) = 0;
 
   // The caller will own the pointer returned from this.
@@ -443,6 +444,7 @@ class PluginDelegate {
   // to clean up the corresponding resources allocated during this call.
   virtual PlatformAudioInput* CreateAudioInput(
       const std::string& device_id,
+      const GURL& document_url,
       uint32_t sample_rate,
       uint32_t sample_count,
       PlatformAudioInputClient* client) = 0;

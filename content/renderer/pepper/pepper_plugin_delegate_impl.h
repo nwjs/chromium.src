@@ -96,6 +96,7 @@ class PepperPluginDelegateImpl
   // CloseDevice() and GetSesssionID().
   int OpenDevice(PP_DeviceType_Dev type,
                  const std::string& device_id,
+                 const GURL& document_url,
                  const OpenDeviceCallback& callback);
   void CloseDevice(const std::string& label);
   // Gets audio/video session ID given a label.
@@ -177,6 +178,7 @@ class PepperPluginDelegateImpl
       PlatformAudioOutputClient* client) OVERRIDE;
   virtual PlatformAudioInput* CreateAudioInput(
       const std::string& device_id,
+      const GURL& document_url,
       uint32_t sample_rate,
       uint32_t sample_count,
       PlatformAudioInputClient* client) OVERRIDE;
@@ -188,6 +190,7 @@ class PepperPluginDelegateImpl
   virtual void ReparentContext(PlatformContext3D*) OVERRIDE;
   virtual PlatformVideoCapture* CreateVideoCapture(
       const std::string& device_id,
+      const GURL& document_url,
       PlatformVideoCaptureEventHandler* handler) OVERRIDE;
   virtual PlatformVideoDecoder* CreateVideoDecoder(
       media::VideoDecodeAccelerator::Client* client,

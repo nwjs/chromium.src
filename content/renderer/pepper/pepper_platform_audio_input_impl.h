@@ -15,6 +15,8 @@
 #include "media/audio/audio_parameters.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 
+class GURL;
+
 namespace media {
 class AudioParameters;
 }
@@ -41,6 +43,7 @@ class PepperPlatformAudioInputImpl
   static PepperPlatformAudioInputImpl* Create(
       const base::WeakPtr<PepperPluginDelegateImpl>& plugin_delegate,
       const std::string& device_id,
+      const GURL& document_url,
       int sample_rate,
       int frames_per_buffer,
       webkit::ppapi::PluginDelegate::PlatformAudioInputClient* client);
@@ -71,6 +74,7 @@ class PepperPlatformAudioInputImpl
   bool Initialize(
       const base::WeakPtr<PepperPluginDelegateImpl>& plugin_delegate,
       const std::string& device_id,
+      const GURL& document_url,
       int sample_rate,
       int frames_per_buffer,
       webkit::ppapi::PluginDelegate::PlatformAudioInputClient* client);
