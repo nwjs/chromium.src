@@ -111,6 +111,8 @@ bool HandleAccessibleFocusCycle(bool reverse) {
   if (!focus_manager)
     return false;
   views::View* view = focus_manager->GetFocusedView();
+  if (!view)
+    return false;
   if (view->GetClassName() == views::WebView::kViewClassName)
     return false;
 
