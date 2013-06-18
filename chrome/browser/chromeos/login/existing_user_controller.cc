@@ -984,6 +984,7 @@ void ExistingUserController::InitializeStartUrls() const {
 
   PrefService* prefs = g_browser_process->local_state();
   const base::ListValue *urls;
+  bool can_show_getstarted_guide = true;
   if (UserManager::Get()->IsLoggedInAsDemoUser()) {
     if (CrosSettings::Get()->GetList(kStartUpUrls, &urls)) {
       // The retail mode user will get start URLs from a special policy if it is
@@ -995,6 +996,7 @@ void ExistingUserController::InitializeStartUrls() const {
           start_urls.push_back(url);
       }
     }
+    can_show_getstarted_guide = false;
   // Skip the default first-run behavior for public accounts.
   } else if (!UserManager::Get()->IsLoggedInAsPublicAccount()) {
     if (prefs->GetBoolean(prefs::kSpokenFeedbackEnabled)) {
@@ -1003,6 +1005,7 @@ void ExistingUserController::InitializeStartUrls() const {
           StringToLowerASCII(prefs->GetString(prefs::kApplicationLocale));
       std::string vox_url = base::StringPrintf(url, current_locale.c_str());
       start_urls.push_back(vox_url);
+      can_show_getstarted_guide = false;
     }
   }
 
@@ -1014,11 +1017,13 @@ void ExistingUserController::InitializeStartUrls() const {
     customization->ApplyCustomization();
   }
 
+  // Only show getting started guide for a new user.
+  const bool should_show_getstarted_guide =
+      UserManager::Get()->IsCurrentUserNew();
 
-  // Don't open default Chrome window for the first login of a new
-  // user because it will hide the Getting Started App window (which is
-  // launched automatically in that situation).
-  if (UserManager::Get()->IsCurrentUserNew()) {
+  if (can_show_getstarted_guide && should_show_getstarted_guide) {
+    // Don't open default Chrome window if we're going to launch the GS app.
+    // Because we dont' want the GS app to be hidden in the background.
     CommandLine::ForCurrentProcess()->AppendSwitch(::switches::kSilentLaunch);
   } else {
     for (size_t i = 0; i < start_urls.size(); ++i) {
