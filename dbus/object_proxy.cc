@@ -18,8 +18,6 @@
 #include "dbus/object_proxy.h"
 #include "dbus/scoped_dbus_error.h"
 
-namespace dbus {
-
 namespace {
 
 const char kErrorServiceUnknown[] = "org.freedesktop.DBus.Error.ServiceUnknown";
@@ -29,15 +27,6 @@ const int kSuccessRatioHistogramMaxValue = 2;
 
 // The path of D-Bus Object sending NameOwnerChanged signal.
 const char kDBusSystemObjectPath[] = "/org/freedesktop/DBus";
-
-// The D-Bus Object interface.
-const char kDBusSystemObjectInterface[] = "org.freedesktop.DBus";
-
-// The D-Bus Object address.
-const char kDBusSystemObjectAddress[] = "org.freedesktop.DBus";
-
-// The NameOwnerChanged member in |kDBusSystemObjectInterface|.
-const char kNameOwnerChangedMember[] = "NameOwnerChanged";
 
 // Gets the absolute signal name by concatenating the interface name and
 // the signal name. Used for building keys for method_table_ in
@@ -49,10 +38,12 @@ std::string GetAbsoluteSignalName(
 }
 
 // An empty function used for ObjectProxy::EmptyResponseCallback().
-void EmptyResponseCallbackBody(Response* /*response*/) {
+void EmptyResponseCallbackBody(dbus::Response* unused_response) {
 }
 
 }  // namespace
+
+namespace dbus {
 
 ObjectProxy::ObjectProxy(Bus* bus,
                          const std::string& service_name,
@@ -294,17 +285,18 @@ void ObjectProxy::RunResponseCallback(ResponseCallback response_callback,
   } else if (dbus_message_get_type(response_message) ==
              DBUS_MESSAGE_TYPE_ERROR) {
     // This will take |response_message| and release (unref) it.
-    scoped_ptr<ErrorResponse> error_response(
-        ErrorResponse::FromRawMessage(response_message));
+    scoped_ptr<dbus::ErrorResponse> error_response(
+        dbus::ErrorResponse::FromRawMessage(response_message));
     error_callback.Run(error_response.get());
     // Delete the message  on the D-Bus thread. See below for why.
     bus_->PostTaskToDBusThread(
         FROM_HERE,
-        base::Bind(&base::DeletePointer<ErrorResponse>,
+        base::Bind(&base::DeletePointer<dbus::ErrorResponse>,
                    error_response.release()));
   } else {
     // This will take |response_message| and release (unref) it.
-    scoped_ptr<Response> response(Response::FromRawMessage(response_message));
+    scoped_ptr<dbus::Response> response(
+        dbus::Response::FromRawMessage(response_message));
     // The response is successfully received.
     response_callback.Run(response.get());
     // The message should be deleted on the D-Bus thread for a complicated
@@ -327,7 +319,8 @@ void ObjectProxy::RunResponseCallback(ResponseCallback response_callback,
     // thread, not from the current thread here, which is likely UI thread.
     bus_->PostTaskToDBusThread(
         FROM_HERE,
-        base::Bind(&base::DeletePointer<Response>, response.release()));
+        base::Bind(&base::DeletePointer<dbus::Response>,
+                   response.release()));
 
     method_call_successful = true;
     // Record time spent for the method call. Don't include failures.
@@ -446,10 +439,10 @@ DBusHandlerResult ObjectProxy::HandleMessage(
   // Verify the signal comes from the object we're proxying for, this is
   // our last chance to return DBUS_HANDLER_RESULT_NOT_YET_HANDLED and
   // allow other object proxies to handle instead.
-  const ObjectPath path = signal->GetPath();
+  const dbus::ObjectPath path = signal->GetPath();
   if (path != object_path_) {
     if (path.value() == kDBusSystemObjectPath &&
-        signal->GetMember() == kNameOwnerChangedMember) {
+        signal->GetMember() == "NameOwnerChanged") {
       // Handle NameOwnerChanged separately
       return HandleNameOwnerChanged(signal.Pass());
     }
@@ -514,7 +507,7 @@ void ObjectProxy::RunMethod(base::TimeTicks start_time,
   // RunResponseCallback().
   bus_->PostTaskToDBusThread(
       FROM_HERE,
-      base::Bind(&base::DeletePointer<Signal>, signal));
+      base::Bind(&base::DeletePointer<dbus::Signal>, signal));
 
   // Record time spent for handling the signal.
   UMA_HISTOGRAM_TIMES("DBus.SignalHandleTime",
@@ -548,7 +541,7 @@ void ObjectProxy::OnCallMethodError(const std::string& interface_name,
                                     ErrorResponse* error_response) {
   if (error_response) {
     // Error message may contain the error message as string.
-    MessageReader reader(error_response);
+    dbus::MessageReader reader(error_response);
     std::string error_message;
     reader.PopString(&error_message);
     LogMethodCallFailure(interface_name,
@@ -571,8 +564,8 @@ bool ObjectProxy::AddMatchRuleWithCallback(
     ScopedDBusError error;
     bus_->AddMatch(match_rule, error.get());
     if (error.is_set()) {
-      LOG(ERROR) << "Failed to add match rule \"" << match_rule << "\". Got "
-                 << error.name() << ": " << error.message();
+      LOG(ERROR) << "Failed to add match rule \"" << match_rule << "\". Got " <<
+          error.name() << ": " << error.message();
       return false;
     } else {
       // Store the match rule, so that we can remove this in Detach().
@@ -601,8 +594,8 @@ bool ObjectProxy::AddMatchRuleWithoutCallback(
   ScopedDBusError error;
   bus_->AddMatch(match_rule, error.get());
   if (error.is_set()) {
-    LOG(ERROR) << "Failed to add match rule \"" << match_rule << "\". Got "
-               << error.name() << ": " << error.message();
+    LOG(ERROR) << "Failed to add match rule \"" << match_rule << "\". Got " <<
+        error.name() << ": " << error.message();
     return false;
   }
   // Store the match rule, so that we can remove this in Detach().
@@ -612,8 +605,37 @@ bool ObjectProxy::AddMatchRuleWithoutCallback(
 
 void ObjectProxy::UpdateNameOwnerAndBlock() {
   bus_->AssertOnDBusThread();
-  service_name_owner_ =
-      bus_->GetServiceOwnerAndBlock(service_name_, Bus::SUPPRESS_ERRORS);
+
+  MethodCall get_name_owner_call("org.freedesktop.DBus", "GetNameOwner");
+  MessageWriter writer(&get_name_owner_call);
+  writer.AppendString(service_name_);
+  VLOG(1) << "Method call: " << get_name_owner_call.ToString();
+
+  const dbus::ObjectPath obj_path("/org/freedesktop/DBus");
+  ScopedDBusError error;
+  if (!get_name_owner_call.SetDestination("org.freedesktop.DBus") ||
+      !get_name_owner_call.SetPath(obj_path)) {
+    LOG(ERROR) << "Failed to get name owner.";
+    return;
+  }
+
+  DBusMessage* response_message = bus_->SendWithReplyAndBlock(
+      get_name_owner_call.raw_message(),
+      TIMEOUT_USE_DEFAULT,
+      error.get());
+  if (!response_message) {
+    LOG(ERROR) << "Failed to get name owner. Got " << error.name() << ": " <<
+        error.message();
+    return;
+  }
+  scoped_ptr<Response> response(Response::FromRawMessage(response_message));
+  MessageReader reader(response.get());
+
+  std::string new_service_name_owner;
+  if (reader.PopString(&new_service_name_owner))
+    service_name_owner_ = new_service_name_owner;
+  else
+    service_name_owner_.clear();
 }
 
 DBusHandlerResult ObjectProxy::HandleNameOwnerChanged(
@@ -622,9 +644,9 @@ DBusHandlerResult ObjectProxy::HandleNameOwnerChanged(
   bus_->AssertOnDBusThread();
 
   // Confirm the validity of the NameOwnerChanged signal.
-  if (signal->GetMember() == kNameOwnerChangedMember &&
-      signal->GetInterface() == kDBusSystemObjectInterface &&
-      signal->GetSender() == kDBusSystemObjectAddress) {
+  if (signal->GetMember() == "NameOwnerChanged" &&
+      signal->GetInterface() == "org.freedesktop.DBus" &&
+      signal->GetSender() == "org.freedesktop.DBus") {
     MessageReader reader(signal.get());
     std::string name, old_owner, new_owner;
     if (reader.PopString(&name) &&
