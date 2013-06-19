@@ -635,7 +635,7 @@ public class ContentView extends FrameLayout
         mContentViewCore.onVisibilityChanged(changedView, visibility);
     }
 
-    void updateMultiTouchZoomSupport() {
+    public void updateMultiTouchZoomSupport() {
         mContentViewCore.updateMultiTouchZoomSupport();
     }
 

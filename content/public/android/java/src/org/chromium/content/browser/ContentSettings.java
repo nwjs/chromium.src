@@ -53,20 +53,18 @@ public class ContentSettings {
         private Handler mHandler;
 
         EventHandler() {
-            if (mContentViewCore.isPersonalityView()) {
-                mHandler = new Handler(Looper.getMainLooper()) {
-                    @Override
-                    public void handleMessage(Message msg) {
-                        switch (msg.what) {
-                            case UPDATE_MULTI_TOUCH:
-                                if (mContentViewCore.isAlive()) {
-                                    mContentViewCore.updateMultiTouchZoomSupport();
-                                }
-                                break;
-                        }
+            mHandler = new Handler(Looper.getMainLooper()) {
+                @Override
+                public void handleMessage(Message msg) {
+                    switch (msg.what) {
+                        case UPDATE_MULTI_TOUCH:
+                            if (mContentViewCore.isAlive()) {
+                                mContentViewCore.updateMultiTouchZoomSupport();
+                            }
+                            break;
                     }
-                };
-            }
+                }
+            };
         }
 
         private void sendUpdateMultiTouchMessageLocked() {
