@@ -12,6 +12,7 @@
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "net/base/address_list.h"
 #include "net/base/completion_callback.h"
 #include "net/base/io_buffer.h"
@@ -127,8 +128,8 @@ class NET_EXPORT SocketStream
   Delegate* delegate() const { return delegate_; }
   int max_pending_send_allowed() const { return max_pending_send_allowed_; }
 
-  const URLRequestContext* context() const { return context_; }
-  void set_context(const URLRequestContext* context);
+  URLRequestContext* context() const { return context_.get(); }
+  void set_context(URLRequestContext* context);
 
   BoundNetLog* net_log() { return &net_log_; }
 
@@ -336,7 +337,7 @@ class NET_EXPORT SocketStream
   //   sum of the size of buffers in |pending_write_bufs_|
   // exceeds this limit, SendData() fails.
   int max_pending_send_allowed_;
-  const URLRequestContext* context_;
+  base::WeakPtr<URLRequestContext> context_;
 
   UserDataMap user_data_;
 
