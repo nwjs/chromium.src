@@ -90,7 +90,6 @@ SocketStream::SocketStream(const GURL& url, Delegate* delegate)
     : delegate_(delegate),
       url_(url),
       max_pending_send_allowed_(kMaxPendingSendAllowed),
-      context_(NULL),
       next_state_(STATE_NONE),
       host_resolver_(NULL),
       cert_verifier_(NULL),
@@ -132,10 +131,14 @@ bool SocketStream::is_secure() const {
   return url_.SchemeIs("wss");
 }
 
-void SocketStream::set_context(const URLRequestContext* context) {
-  const URLRequestContext* prev_context = context_;
+void SocketStream::set_context(URLRequestContext* context) {
+  const URLRequestContext* prev_context = context_.get();
 
-  context_ = context;
+  if (context) {
+    context_ = context->AsWeakPtr();
+  } else {
+    context_.reset();
+  }
 
   if (prev_context != context) {
     if (prev_context && pac_request_) {
@@ -155,7 +158,7 @@ void SocketStream::set_context(const URLRequestContext* context) {
     }
   }
 
-  if (context_) {
+  if (context_.get()) {
     host_resolver_ = context_->host_resolver();
     cert_verifier_ = context_->cert_verifier();
     server_bound_cert_service_ = context_->server_bound_cert_service();
@@ -167,7 +170,7 @@ void SocketStream::Connect() {
       "The current MessageLoop must exist";
   DCHECK_EQ(MessageLoop::TYPE_IO, MessageLoop::current()->type()) <<
       "The current MessageLoop must be TYPE_IO";
-  if (context_) {
+  if (context_.get()) {
     ssl_config_service()->GetSSLConfig(&server_ssl_config_);
     proxy_ssl_config_ = server_ssl_config_;
   }
@@ -449,7 +452,7 @@ void SocketStream::OnWriteCompleted(int result) {
 
 void SocketStream::DoLoop(int result) {
   // If context was not set, close immediately.
-  if (!context_)
+  if (!context_.get())
     next_state_ = STATE_CLOSE;
 
   if (next_state_ == STATE_NONE)
@@ -575,8 +578,10 @@ void SocketStream::DoLoop(int result) {
 
 int SocketStream::DoBeforeConnect() {
   next_state_ = STATE_BEFORE_CONNECT_COMPLETE;
-  if (!context_ || !context_->network_delegate())
+  if (!context_.get() || !context_->network_delegate()) {
+    // TODO(yhirano): This should not be OK.
     return OK;
+  }
 
   int result = context_->network_delegate()->NotifyBeforeSocketStreamConnect(
       this, io_callback_);
@@ -756,7 +761,7 @@ int SocketStream::DoTcpConnectComplete(int result) {
 int SocketStream::DoGenerateProxyAuthToken() {
   next_state_ = STATE_GENERATE_PROXY_AUTH_TOKEN_COMPLETE;
   if (!proxy_auth_controller_.get()) {
-    DCHECK(context_);
+    DCHECK(context_.get());
     DCHECK(context_->http_transaction_factory());
     DCHECK(context_->http_transaction_factory()->GetSession());
     HttpNetworkSession* session =
@@ -1283,6 +1288,9 @@ int SocketStream::HandleCertificateError(int result) {
   SSLClientSocket* ssl_socket = static_cast<SSLClientSocket*>(socket_.get());
   DCHECK(ssl_socket);
 
+  if (!context_.get())
+    return result;
+
   if (SSLClientSocket::IgnoreCertError(result, LOAD_IGNORE_ALL_CERT_ERRORS)) {
     const HttpNetworkSession::Params* session_params =
         context_->GetNetworkSessionParams();
@@ -1297,7 +1305,6 @@ int SocketStream::HandleCertificateError(int result) {
   ssl_socket->GetSSLInfo(&ssl_info);
 
   TransportSecurityState::DomainState domain_state;
-  DCHECK(context_);
   const bool fatal = context_->transport_security_state() &&
       context_->transport_security_state()->GetDomainState(url_.host(),
           SSLConfigService::IsSNIAvailable(context_->ssl_config_service()),
