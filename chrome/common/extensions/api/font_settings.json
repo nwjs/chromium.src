@@ -6,6 +6,7 @@
   {
     "namespace": "fontSettings",
     "documentation_permissions_required": ["fontSettings"],
+    "description": "fontSettings",
     "types": [
       {
         "id": "FontName",

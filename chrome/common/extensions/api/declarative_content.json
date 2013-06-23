@@ -6,6 +6,7 @@
   {
     "namespace": "declarativeContent",
     "documentation_permissions_required": ["declarative", "declarativeContent"],
+    "description": "declarativeContent",
     "types": [
       {
         "id": "PageStateMatcher",

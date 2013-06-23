@@ -336,6 +336,7 @@ class Namespace(object):
       else:
         sys.exit('Did not process %s %s' % (node.cls, node))
     return {'namespace': self.namespace.GetName(),
+            'description': self.description,
             'nodoc': self.nodoc,
             'documentation_permissions_required': self.permissions,
             'types': self.types,

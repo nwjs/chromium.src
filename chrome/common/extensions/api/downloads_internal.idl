@@ -10,7 +10,4 @@ namespace downloadsInternal {
                                   DOMString filename,
                                   DOMString conflict_action);
   };
-
-  interface Events {
-  };
 };

@@ -6,6 +6,7 @@
   {
     "namespace": "declarativeWebRequest",
     "documentation_permissions_required": ["declarative", "declarativeWebRequest"],
+    "description": "declarativeWebRequest",
     "types": [
       {
         "id": "HeaderFilter",
