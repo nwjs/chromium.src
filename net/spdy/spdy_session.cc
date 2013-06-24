@@ -1211,11 +1211,15 @@ void SpdySession::CloseAllStreamsAfter(SpdyStreamId last_good_stream_id,
     }
   }
 
-  ActiveStreamMap::iterator it =
-      active_streams_.lower_bound(last_good_stream_id + 1);
-  while (it != active_streams_.end()) {
+  // The loops below are carefully written to avoid problems with
+  // streams closing other streams.
+
+  while (true) {
+    ActiveStreamMap::iterator it =
+        active_streams_.lower_bound(last_good_stream_id + 1);
+    if (it == active_streams_.end())
+      break;
     const scoped_refptr<SpdyStream>& stream = it->second;
-    ++it;
     LogAbandonedStream(stream, status);
     DeleteStream(stream->stream_id(), status);
     streams_abandoned_count_++;
