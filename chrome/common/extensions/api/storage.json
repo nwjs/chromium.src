@@ -6,7 +6,6 @@
   {
     "namespace": "storage",
     "unprivileged": true,
-    "description": "storage",
     "types": [
       {
         "id": "StorageChange",

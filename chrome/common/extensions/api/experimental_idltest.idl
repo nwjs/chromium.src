@@ -3,7 +3,8 @@
 // found in the LICENSE file.
 
 // An API to test IDL schema specifications.
-namespace experimental.idltest {
+
+[nodoc] namespace experimental.idltest {
 
   callback LongArrayCallback = void(long[] array);
   callback ArrayBufferCallback = void(ArrayBuffer buffer);

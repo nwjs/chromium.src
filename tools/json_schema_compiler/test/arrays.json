@@ -1,7 +1,6 @@
 [
   {
     "namespace": "arrays",
-    "description": "The arrays API.",
     "types": [
       {
         "id": "EnumArrayType",

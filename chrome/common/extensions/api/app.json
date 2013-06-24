@@ -5,7 +5,7 @@
 [
   {
     "namespace": "app",
-    "description": "none",
+    "nodoc": true,
     "types": [
       {
         "id": "Details",

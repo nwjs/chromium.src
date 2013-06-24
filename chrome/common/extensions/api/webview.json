@@ -5,7 +5,7 @@
 [
   {
     "namespace": "webview",
-    "description": "none",
+    "nodoc": true,
     "functions": [
       {
         "name": "executeScript",

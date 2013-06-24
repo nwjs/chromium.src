@@ -5,7 +5,8 @@
 [
   {
     "namespace": "webSocketProxyPrivate",
-    "description": "none",
+    "nodoc": true,
+    "types": [],
     "functions": [
       {
         "name": "getPassportForTCP",

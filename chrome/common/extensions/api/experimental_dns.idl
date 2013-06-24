@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Experimental.dns.
-namespace experimental.dns {
+[nodoc] namespace experimental.dns {
 
   dictionary ResolveCallbackResolveInfo {
     // The result code. Zero indicates success.

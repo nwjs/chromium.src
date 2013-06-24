@@ -5,7 +5,6 @@
 [
   {
     "namespace": "bookmarkManagerPrivate",
-    "description": "none",
     "nodoc": true,
     "types": [
       {

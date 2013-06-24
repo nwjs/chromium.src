@@ -1,7 +1,6 @@
 [
   {
     "namespace": "callbacks",
-    "description": "The callbacks API.",
     "types": [],
     "functions": [
       {

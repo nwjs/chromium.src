@@ -1,7 +1,6 @@
 [
   {
     "namespace": "simple_api",
-    "description": "This is a simple API.",
     "types": [
       {
         "id": "TestType",

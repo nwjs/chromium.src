@@ -5,7 +5,6 @@
 [
   {
     "namespace": "webNavigation",
-    "description": "Use the <code>chrome.webNavigation</code> API to receive notifications about the status of navigation requests in-flight.",
     "types": [],
     "functions": [
       {

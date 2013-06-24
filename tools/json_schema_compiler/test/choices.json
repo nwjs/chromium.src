@@ -1,7 +1,6 @@
 [
   {
     "namespace": "choices",
-    "description": "The choices API.",
     "types": [
       {
         "id": "ChoiceType",

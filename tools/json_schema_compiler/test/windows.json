@@ -1,7 +1,6 @@
 [
   {
     "namespace": "windows",
-    "description": "The windows API.",
     "types": [
       {
         "id": "Window",

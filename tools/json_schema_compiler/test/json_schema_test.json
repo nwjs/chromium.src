@@ -1,14 +1,12 @@
 [
   {
     "namespace": "compile",
-    "description": "The compile API.",
     "functions": [],
     "types":     {}
   },
 
   {
     "namespace": "nocompile",
-    "description": "The nocompile API.",
     "nocompile": true,
     "functions": [],
     "types":     {}
@@ -16,7 +14,6 @@
 
   {
     "namespace": "functions",
-    "description": "The functions API.",
     "functions": [
       {
         "id": "one",
@@ -41,7 +38,6 @@
 
   {
     "namespace": "types",
-    "description": "The types API.",
     "functions": [
       { "id": "one" }
     ],
@@ -65,7 +61,6 @@
 
   {
     "namespace": "nested",
-    "description": "The nested API.",
     "properties": {
       "sync": {
         "functions": [

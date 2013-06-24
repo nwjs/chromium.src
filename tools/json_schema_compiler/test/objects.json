@@ -1,7 +1,6 @@
 [
   {
     "namespace": "objects",
-    "description": "The objects API.",
     "types": [],
     "functions": [
       {

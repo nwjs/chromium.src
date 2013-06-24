@@ -5,7 +5,7 @@
 [
   {
     "namespace": "cloudPrintPrivate",
-    "description": "none",
+    "nodoc": "true",
     "types": [
       {
         "id": "PrinterSettings",

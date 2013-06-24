@@ -8,8 +8,9 @@
     "compiler_options": {
       "implemented_in": "chrome/browser/chromeos/extensions/echo_private_api.h"
     },
-    "description": "none",
+    "nodoc": true,
     "platforms": ["chromeos"],
+    "types": [],
     "functions": [
       {
         "name": "getRegistrationCode",

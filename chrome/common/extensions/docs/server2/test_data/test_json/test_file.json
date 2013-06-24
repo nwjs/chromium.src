@@ -1,7 +1,6 @@
 [
   {
     "namespace": "tester",
-    "description": "a test api",
     "types": [
       {
         "id": "TypeA",

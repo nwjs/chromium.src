@@ -1,7 +1,6 @@
 [
   {
     "namespace": "ref_test",
-    "description": "An API for testing ref's",
     "types": [
       {
         "id": "type1",

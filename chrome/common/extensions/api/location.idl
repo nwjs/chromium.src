@@ -1,11 +1,8 @@
 // Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-// TODO(vadimt): Consider reusing WebKit/Blink types, if this is possible.
 
-// The <code>chrome.location</code> API augments the events from the
-// <a href="http://dev.w3.org/geo/api/spec-source.html">HTML Geolocation API</a>
-// to be event page compatible.
+// TODO(vadimt): Consider reusing WebKit/Blink types, if this is possible.
 namespace location {
   // Coordinates part of the Location object.
   dictionary Coordinates {

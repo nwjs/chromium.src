@@ -5,7 +5,6 @@
 [
   {
     "namespace": "fontSettings",
-    "description": "The fontSettings API.",
     "types": [
       {
         "id": "FontName",

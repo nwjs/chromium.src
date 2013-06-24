@@ -5,7 +5,8 @@
 [
   {
     "namespace": "experimental.input.virtualKeyboard",
-    "description": "none",
+    "nodoc": true,
+    "types": [],
     "functions": [
       {
         "name": "sendKeyboardEvent",
