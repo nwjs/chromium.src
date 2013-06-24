@@ -817,8 +817,10 @@ Extension::SyncType Extension::GetSyncType() const {
   //
   // TODO(akalin): Relax this restriction once we've put in UI to
   // approve synced extensions.
-  if (PluginInfo::HasPlugins(this))
+  if (PluginInfo::HasPlugins(this) ||
+      HasAPIPermission(APIPermission::kPlugin)) {
     return SYNC_TYPE_NONE;
+  }
 
   switch (GetType()) {
     case Manifest::TYPE_EXTENSION:

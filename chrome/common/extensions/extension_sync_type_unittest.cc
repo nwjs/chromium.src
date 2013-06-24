@@ -23,14 +23,15 @@ class ExtensionSyncTypeTest : public testing::Test {
     THEME
   };
 
-  static scoped_refptr<Extension> MakeSyncTestExtension(
+  static scoped_refptr<Extension> MakeSyncTestExtensionWithPluginPermission(
       SyncTestExtensionType type,
       const GURL& update_url,
       const GURL& launch_url,
       Manifest::Location location,
       int num_plugins,
       const base::FilePath& extension_path,
-      int creation_flags) {
+      int creation_flags,
+      bool has_plugin_permission) {
     DictionaryValue source;
     source.SetString(keys::kName, "PossiblySyncableExtension");
     source.SetString(keys::kVersion, "0.0.0.0");
@@ -54,6 +55,11 @@ class ExtensionSyncTypeTest : public testing::Test {
       }
       source.Set(keys::kPlugins, plugins);
     }
+    if (has_plugin_permission) {
+      ListValue* plugins = new ListValue();
+      plugins->Set(0, new StringValue("plugin"));
+      source.Set(keys::kPermissions, plugins);
+    }
 
     std::string error;
     scoped_refptr<Extension> extension = Extension::Create(
@@ -61,6 +67,19 @@ class ExtensionSyncTypeTest : public testing::Test {
     EXPECT_TRUE(extension);
     EXPECT_EQ("", error);
     return extension;
+  }
+
+  static scoped_refptr<Extension> MakeSyncTestExtension(
+      SyncTestExtensionType type,
+      const GURL& update_url,
+      const GURL& launch_url,
+      Manifest::Location location,
+      int num_plugins,
+      const base::FilePath& extension_path,
+      int creation_flags) {
+    return MakeSyncTestExtensionWithPluginPermission(
+        type, update_url, launch_url, location, num_plugins, extension_path,
+        creation_flags, false);
   }
 
   static const char kValidUpdateUrl1[];
@@ -234,6 +253,16 @@ TEST_F(ExtensionSyncTypeTest, ExtensionWithTwoPlugins) {
       MakeSyncTestExtension(EXTENSION, GURL(), GURL(),
                             Manifest::INTERNAL, 2, base::FilePath(),
                             Extension::NO_FLAGS));
+  if (extension)
+    EXPECT_EQ(extension->GetSyncType(), Extension::SYNC_TYPE_NONE);
+}
+
+TEST_F(ExtensionSyncTypeTest, ExtensionWithPluginPermission) {
+  scoped_refptr<Extension> extension(
+      MakeSyncTestExtensionWithPluginPermission(EXTENSION, GURL(), GURL(),
+                                                Manifest::INTERNAL,
+                                                0, base::FilePath(),
+                                                Extension::NO_FLAGS, true));
   if (extension)
     EXPECT_EQ(extension->GetSyncType(), Extension::SYNC_TYPE_NONE);
 }
