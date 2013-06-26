@@ -696,10 +696,8 @@
               'target_name': 'chrome_official_builder',
               'type': 'none',
               'dependencies': [
-                '../chrome/chrome.gyp:chromedriver',
                 '../chrome/chrome.gyp:crash_service',
                 '../chrome/chrome.gyp:policy_templates',
-                '../chrome/chrome.gyp:automated_ui_tests',
                 '../chrome/installer/mini_installer.gyp:mini_installer',
                 '../chrome_frame/chrome_frame.gyp:npchrome_frame',
                 '../courgette/courgette.gyp:courgette',
