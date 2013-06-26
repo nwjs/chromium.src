@@ -21,6 +21,8 @@ class ProfileIOData;
 
 namespace content {
 class WebContents;
+struct FrameNavigateParams;
+struct LoadCommittedDetails;
 struct PasswordForm;
 }
 
@@ -204,6 +206,9 @@ class OneClickSigninHelper
   virtual void NavigateToPendingEntry(
       const GURL& url,
       content::NavigationController::ReloadType reload_type) OVERRIDE;
+  virtual void DidNavigateMainFrame(
+      const content::LoadCommittedDetails& details,
+      const content::FrameNavigateParams& params) OVERRIDE;
   virtual void DidStopLoading(
       content::RenderViewHost* render_view_host) OVERRIDE;
 
