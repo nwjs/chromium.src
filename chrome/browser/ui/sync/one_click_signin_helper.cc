@@ -1020,7 +1020,8 @@ void OneClickSigninHelper::DidNavigateMainFrame(
         Profile::FromBrowserContext(web_contents()->GetBrowserContext());
     SigninManager* manager = profile ?
         SigninManagerFactory::GetForProfile(profile) : NULL;
-    if (manager)
+    int process_id = web_contents()->GetRenderProcessHost()->GetID();
+    if (manager && manager->IsSigninProcess(process_id))
       manager->ClearSigninProcess();
   }
 }
