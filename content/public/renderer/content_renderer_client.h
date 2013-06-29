@@ -208,7 +208,7 @@ class CONTENT_EXPORT ContentRendererClient {
                                         v8::Handle<v8::Context>,
                                         int world_id) {}
   virtual bool WillSetSecurityToken(WebKit::WebFrame* frame,
-                                    v8::Handle<v8::Context>) { return false; }
+                                    v8::Handle<v8::Context>);
 
   // See WebKit::Platform.
   virtual unsigned long long VisitedLinkHash(const char* canonical_url,
