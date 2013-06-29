@@ -26,6 +26,11 @@ bool ContentRendererClient::OverrideCreatePlugin(
   return false;
 }
 
+bool ContentRendererClient::WillSetSecurityToken(WebKit::WebFrame* frame,
+                                                 v8::Handle<v8::Context>) {
+  return false;
+}
+
 WebKit::WebPlugin* ContentRendererClient::CreatePluginReplacement(
     RenderView* render_view,
     const base::FilePath& plugin_path) {
