@@ -835,18 +835,22 @@ void AutofillAgent::ShowSuggestions(const WebInputElement& element,
   // as it does not allow us to distinguish the case where autocomplete is
   // disabled for *both* the element and for the form.
   // Also, if the field has no name, then we won't have values.
+#if 0
   const base::string16 autocomplete_attribute =
       element.getAttribute("autocomplete");
   if (LowerCaseEqualsASCII(autocomplete_attribute, "off") ||
       element.nameForAutofill().isEmpty()) {
+#endif
     CombineDataListEntriesAndShow(element, std::vector<base::string16>(),
                                   std::vector<base::string16>(),
                                   std::vector<base::string16>(),
                                   std::vector<int>(), false);
     return;
+#if 0
   }
 
   QueryAutofillSuggestions(element, display_warning_if_disabled);
+#endif
 }
 
 void AutofillAgent::QueryAutofillSuggestions(const WebInputElement& element,
