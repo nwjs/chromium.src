@@ -140,7 +140,7 @@ deps = {
     'src/v8':
         'https://github.com/rogerwang/v8.git@origin/nwebkit',
     'src/third_party/node':
-        'https://github.com/zcbenz/node.git@origin/master',
+        'https://github.com/rogerwang/node.git@origin/master',
     'src/content/nw':
         'https://github.com/rogerwang/node-webkit.git@origin/master',
     'src/webkit/media/crypto/ppapi/cdm':
