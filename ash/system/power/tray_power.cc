@@ -238,10 +238,17 @@ int TrayPower::GetBatteryImageIndex(const PowerSupplyStatus& supply_status) {
 
 // static
 int TrayPower::GetBatteryImageOffset(const PowerSupplyStatus& supply_status) {
-  if (IsBatteryChargingUnreliable(supply_status) ||
-      !supply_status.line_power_on)
+  // Unreliable charging uses its own image set with one column of images.
+  if (IsBatteryChargingUnreliable(supply_status))
     return 0;
-  return 1;
+  // Offset 1 has the charging icons. Consider NOT_CHARGING_NOT_DISCHARGING
+  // to be charging, as the charger is plugged in.
+  if (supply_status.line_power_on ||
+      supply_status.battery_state ==
+          PowerSupplyStatus::NEITHER_CHARGING_NOR_DISCHARGING)
+    return 1;
+  // Offset 0 has the discharging icons.
+  return 0;
 }
 
 // static
