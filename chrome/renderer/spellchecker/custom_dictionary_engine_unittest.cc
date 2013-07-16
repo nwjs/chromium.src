@@ -13,3 +13,16 @@ TEST(CustomDictionaryTest, HandlesEmptyWordWithInvalidSubstring) {
   EXPECT_FALSE(engine.SpellCheckWord(string16().c_str(), 15, 23));
 }
 
+TEST(CustomDictionaryTest, Basic) {
+  CustomDictionaryEngine engine;
+  EXPECT_FALSE(engine.SpellCheckWord(ASCIIToUTF16("helllo").c_str(), 0, 6));
+  std::set<std::string> custom_words;
+  custom_words.insert("helllo");
+  engine.Init(custom_words);
+  EXPECT_TRUE(engine.SpellCheckWord(ASCIIToUTF16("helllo").c_str(), 0, 6));
+}
+
+TEST(CustomDictionaryTest, HandlesNullCharacters) {
+  char16 data[4] = {'a', 0, 'b', 'c'};
+  EXPECT_FALSE(CustomDictionaryEngine().SpellCheckWord(data, 1, 1));
+}
