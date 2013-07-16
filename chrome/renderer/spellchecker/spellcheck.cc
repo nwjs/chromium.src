@@ -223,7 +223,7 @@ bool SpellCheck::SpellCheckParagraph(
     }
 
     if (!custom_dictionary_.SpellCheckWord(
-            text, misspelling_start + offset, misspelling_length)) {
+            &text[offset], misspelling_start, misspelling_length)) {
       string16 replacement;
       textcheck_results.push_back(WebTextCheckingResult(
           WebKit::WebTextCheckingTypeSpelling,
@@ -368,8 +368,7 @@ void SpellCheck::CreateTextCheckingResults(
         type = WebKit::WebTextCheckingTypeGrammar;
       }
     }
-    if (!custom_dictionary_.SpellCheckWord(
-            line_text, word_location, word_length)) {
+    if (!custom_dictionary_.SpellCheckWord(text, word_location, word_length)) {
       list.push_back(WebTextCheckingResult(
           type,
           word_location + line_offset,
