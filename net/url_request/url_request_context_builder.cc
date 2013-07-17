@@ -191,7 +191,7 @@ URLRequestContextBuilder::HttpNetworkSessionParams::~HttpNetworkSessionParams()
 
 URLRequestContextBuilder::URLRequestContextBuilder()
     : data_enabled_(false),
-      file_enabled_(false),
+      file_enabled_(true),
 #if !defined(DISABLE_FTP_SUPPORT)
       ftp_enabled_(false),
 #endif

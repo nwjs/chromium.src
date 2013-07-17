@@ -263,11 +263,11 @@ DomStorageDispatcher::~DomStorageDispatcher() {
   proxy_->Shutdown();
 }
 
-scoped_refptr<DOMStorageCachedArea> DomStorageDispatcher::OpenCachedArea(
-    int connection_id, int64 namespace_id, const GURL& origin) {
+scoped_refptr<DomStorageCachedArea> DomStorageDispatcher::OpenCachedArea(
+    int routing_id, int connection_id, int64 namespace_id, const GURL& origin) {
   RenderThreadImpl::current()->Send(
       new DOMStorageHostMsg_OpenStorageArea(
-          connection_id, namespace_id, origin));
+        routing_id, connection_id, namespace_id, origin));
   return proxy_->OpenCachedArea(namespace_id, origin);
 }
 
