@@ -29,7 +29,8 @@ class DomStorageDispatcher {
   ~DomStorageDispatcher();
 
   // Each call to open should be balanced with a call to close.
-  scoped_refptr<DOMStorageCachedArea> OpenCachedArea(int connection_id,
+  scoped_refptr<DomStorageCachedArea> OpenCachedArea(int routing_id,
+                                                     int connection_id,
                                                      int64 namespace_id,
                                                      const GURL& origin);
   void CloseCachedArea(int connection_id, DOMStorageCachedArea* area);

@@ -15,16 +15,27 @@
 #include "content/browser/dom_storage/dom_storage_namespace.h"
 #include "content/browser/dom_storage/dom_storage_task_runner.h"
 #include "content/common/dom_storage/dom_storage_messages.h"
+#include "base/synchronization/waitable_event.h"
+#include "content/public/browser/user_metrics.h"
+#include "content/public/browser/web_contents_delegate.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/user_metrics.h"
 #include "url/gurl.h"
+
+using base::WaitableEvent;
+using dom_storage::DomStorageTaskRunner;
+using WebKit::WebStorageArea;
 
 namespace content {
 
 DOMStorageMessageFilter::DOMStorageMessageFilter(
-    int unused,
+    int render_process_id,
     DOMStorageContextWrapper* context)
     : context_(context->context()),
-      connection_dispatching_message_for_(0) {
+      connection_dispatching_message_for_(0),
+      render_process_id_(render_process_id) {
 }
 
 DOMStorageMessageFilter::~DOMStorageMessageFilter() {
@@ -72,6 +83,7 @@ bool DOMStorageMessageFilter::OnMessageReceived(const IPC::Message& message,
     return false;
   DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(host_.get());
+  current_routing_id_ = message.routing_id();
 
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP_EX(DOMStorageMessageFilter, message, *message_was_ok)
@@ -87,11 +99,38 @@ bool DOMStorageMessageFilter::OnMessageReceived(const IPC::Message& message,
   return handled;
 }
 
-void DOMStorageMessageFilter::OnOpenStorageArea(int connection_id,
+void DOMStorageMessageFilter::HandleOnOpenStorageAreaOnUIThread(
+      int routing_id,
+      const GURL& origin,
+      GURL* override,
+      WaitableEvent* done) {
+  RenderViewHost* view = RenderViewHost::FromID(render_process_id_, routing_id);
+  WebContents* web_contents = NULL;
+  web_contents = WebContents::FromRenderViewHost(view);
+  if (web_contents) {
+    WebContentsDelegate* delegate = web_contents->GetDelegate();
+    if (delegate) {
+      *override = delegate->OverrideDOMStorageOrigin(origin);
+    }
+  }
+  done->Signal();
+}
+
+void DOMStorageMessageFilter::OnOpenStorageArea(
+                                                int connection_id,
                                                 int64 namespace_id,
                                                 const GURL& origin) {
   DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::IO));
-  if (!host_->OpenStorageArea(connection_id, namespace_id, origin)) {
+  WaitableEvent done(false, false);
+  GURL origin_override(origin);
+
+  BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
+                          base::Bind(&DOMStorageMessageFilter::HandleOnOpenStorageAreaOnUIThread,
+                                     this, current_routing_id_, origin, &origin_override, &done));
+
+  done.Wait();
+
+  if (!host_->OpenStorageArea(connection_id, namespace_id, origin_override)) {
     RecordAction(UserMetricsAction("BadMessageTerminate_DSMF_1"));
     BadMessageReceived();
   }
