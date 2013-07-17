@@ -448,6 +448,8 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual gfx::Size GetSizeForNewRenderView(
       const WebContents* web_contents) const;
 
+  virtual GURL OverrideDOMStorageOrigin(const GURL& origin) { return origin; }
+
  protected:
   virtual ~WebContentsDelegate();
 

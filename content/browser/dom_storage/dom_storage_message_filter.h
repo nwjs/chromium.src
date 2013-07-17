@@ -17,6 +17,10 @@ namespace base {
 class NullableString16;
 }
 
+namespace base{
+  class WaitableEvent;
+}
+
 namespace content {
 
 class DOMStorageArea;
@@ -30,7 +34,7 @@ class DOMStorageMessageFilter
     : public BrowserMessageFilter,
       public DOMStorageContextImpl::EventObserver {
  public:
-  explicit DOMStorageMessageFilter(int unused,
+  explicit DOMStorageMessageFilter(int render_process_id,
                                    DOMStorageContextWrapper* context);
 
  private:
@@ -59,6 +63,12 @@ class DOMStorageMessageFilter
   void OnClear(int connection_id, const GURL& page_url);
   void OnFlushMessages();
 
+  void HandleOnOpenStorageAreaOnUIThread(
+      int routing_id,
+      const GURL& origin,
+      GURL* override,
+      base::WaitableEvent* done);
+
   // DOMStorageContextImpl::EventObserver implementation which
   // sends events back to our renderer process.
   virtual void OnDOMStorageItemSet(
@@ -86,6 +96,8 @@ class DOMStorageMessageFilter
   scoped_refptr<DOMStorageContextImpl> context_;
   scoped_ptr<DOMStorageHost> host_;
   int connection_dispatching_message_for_;
+  int render_process_id_;
+  int current_routing_id_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(DOMStorageMessageFilter);
 };

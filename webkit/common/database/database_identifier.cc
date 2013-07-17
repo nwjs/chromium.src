@@ -31,6 +31,9 @@ const DatabaseIdentifier DatabaseIdentifier::UniqueFileIdentifier() {
 
 // static
 DatabaseIdentifier DatabaseIdentifier::CreateFromOrigin(const GURL& origin) {
+  if (origin.scheme() == "devtools")
+    return DatabaseIdentifier("devtools", "", 0, false, false);
+
   if (!origin.is_valid() || origin.is_empty() ||
       !origin.IsStandard() || SchemeIsUnique(origin.scheme()))
     return DatabaseIdentifier();
