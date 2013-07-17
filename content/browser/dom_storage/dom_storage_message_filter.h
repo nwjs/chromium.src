@@ -15,6 +15,10 @@
 class GURL;
 class NullableString16;
 
+namespace base{
+  class WaitableEvent;
+}
+
 namespace dom_storage {
 class DomStorageArea;
 class DomStorageContext;
@@ -30,7 +34,7 @@ class DOMStorageMessageFilter
     : public BrowserMessageFilter,
       public dom_storage::DomStorageContext::EventObserver {
  public:
-  explicit DOMStorageMessageFilter(int unused, DOMStorageContextImpl* context);
+  explicit DOMStorageMessageFilter(int render_process_id, DOMStorageContextImpl* context);
 
  private:
   virtual ~DOMStorageMessageFilter();
@@ -57,6 +61,12 @@ class DOMStorageMessageFilter
                     const GURL& page_url);
   void OnClear(int connection_id, const GURL& page_url);
   void OnFlushMessages();
+
+  void HandleOnOpenStorageAreaOnUIThread(
+      int routing_id,
+      const GURL& origin,
+      GURL* override,
+      base::WaitableEvent* done);
 
   // DomStorageContext::EventObserver implementation which
   // sends events back to our renderer process.
@@ -85,6 +95,8 @@ class DOMStorageMessageFilter
   scoped_refptr<dom_storage::DomStorageContext> context_;
   scoped_ptr<dom_storage::DomStorageHost> host_;
   int connection_dispatching_message_for_;
+  int render_process_id_;
+  int current_routing_id_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(DOMStorageMessageFilter);
 };

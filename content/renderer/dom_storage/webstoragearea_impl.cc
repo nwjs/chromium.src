@@ -9,14 +9,20 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "content/common/dom_storage_messages.h"
+#include "content/public/renderer/render_view.h"
 #include "content/renderer/dom_storage/dom_storage_dispatcher.h"
 #include "content/renderer/render_thread_impl.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
 #include "webkit/dom_storage/dom_storage_cached_area.h"
 
 using dom_storage::DomStorageCachedArea;
 using WebKit::WebString;
 using WebKit::WebURL;
+using content::RenderView;
+using WebKit::WebFrame;
+using WebKit::WebView;
 
 namespace content {
 
@@ -28,6 +34,20 @@ base::LazyInstance<AreaImplMap>::Leaky
 DomStorageDispatcher* dispatcher() {
   return RenderThreadImpl::current()->dom_storage_dispatcher();
 }
+
+RenderView* GetCurrentRenderView() {
+  WebFrame* frame = WebFrame::frameForCurrentContext();
+  if (!frame)
+    return NULL;
+
+  WebView* view = frame->view();
+  if (!view)
+    return NULL;  // can happen during closing.
+
+  RenderView* render_view = RenderView::FromWebView(view);
+  return render_view;
+}
+
 }  // namespace
 
 // static
@@ -37,9 +57,15 @@ WebStorageAreaImpl* WebStorageAreaImpl::FromConnectionId(int id) {
 
 WebStorageAreaImpl::WebStorageAreaImpl(
     int64 namespace_id, const GURL& origin)
-    : connection_id_(g_all_areas_map.Pointer()->Add(this)),
-      cached_area_(dispatcher()->
-          OpenCachedArea(connection_id_, namespace_id, origin)) {
+  : connection_id_(g_all_areas_map.Pointer()->Add(this)) {
+  RenderView* render_view = GetCurrentRenderView();
+  int routing_id;
+  if (render_view) {
+    routing_id = render_view->GetRoutingID();
+  }else
+    routing_id = MSG_ROUTING_CONTROL;
+  cached_area_ = dispatcher()->OpenCachedArea(
+           routing_id, connection_id_, namespace_id, origin);
 }
 
 WebStorageAreaImpl::~WebStorageAreaImpl() {
