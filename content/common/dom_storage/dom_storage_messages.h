@@ -56,7 +56,7 @@ IPC_MESSAGE_CONTROL1(DOMStorageMsg_AsyncOperationComplete,
 // Note: The 'connection_id' must be the first parameter in these message.
 
 // Open the storage area for a particular origin within a namespace.
-IPC_MESSAGE_CONTROL3(DOMStorageHostMsg_OpenStorageArea,
+IPC_MESSAGE_ROUTED3(DOMStorageHostMsg_OpenStorageArea,
                      int /* connection_id */,
                      int64 /* namespace_id */,
                      GURL /* origin */)
