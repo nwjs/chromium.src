@@ -490,7 +490,6 @@
             'common/extensions/api/extension_api_stub.cc',
           ],
           'dependencies': [
-            '../device/bluetooth/bluetooth.gyp:device_bluetooth',
             '../device/usb/usb.gyp:device_usb',
           ],
         }, {  # enable_extensions == 0
