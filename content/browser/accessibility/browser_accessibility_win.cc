@@ -863,7 +863,7 @@ STDMETHODIMP BrowserAccessibilityWin::get_appName(BSTR* app_name) {
   if (!app_name)
     return E_INVALIDARG;
 
-  std::string product_name = GetContentClient()->GetProduct();
+  std::string product_name = "Chrome";  // Hardcoded for Chrome 28.
   *app_name = SysAllocString(UTF8ToUTF16(product_name).c_str());
   DCHECK(*app_name);
   return *app_name ? S_OK : E_FAIL;
