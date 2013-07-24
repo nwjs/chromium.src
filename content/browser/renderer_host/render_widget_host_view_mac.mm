@@ -1476,6 +1476,7 @@ void RenderWidgetHostViewMac::GotSoftwareFrame() {
         // for content shell.
         // http://crbug.com/178408
         compositing_iosurface_->ClearDrawable();
+      }
     }
   }
 }
