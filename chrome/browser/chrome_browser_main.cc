@@ -79,7 +79,6 @@
 #include "chrome/browser/policy/policy_service.h"
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
 #include "chrome/browser/prefs/command_line_pref_store.h"
-#include "chrome/browser/prefs/pref_metrics_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_proxy_service.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_proxy_service_factory.h"
@@ -1497,9 +1496,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   }
   NaClProcessHost::EarlyStartup();
 #endif
-
-  // Make sure initial prefs are recorded
-  PrefMetricsService::Factory::GetForProfile(profile_);
 
   PreBrowserStart();
 
