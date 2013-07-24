@@ -6618,6 +6618,20 @@ other types of suffix sets.
   </summary>
 </histogram>
 
+<histogram name="Settings.HomePageIsNewTabPage" enum="Boolean">
+  <summary>
+    Whether or not the home page user preference is set to the default NTP value
+    when a profile is loaded.
+  </summary>
+</histogram>
+
+<histogram name="Settings.ShowHomeButton" enum="BooleanEnabled">
+  <summary>
+    Whether or not the Home button is enabled in user preferences when a profile
+    is loaded.
+  </summary>
+</histogram>
+
 <histogram name="SimpleCache.CreationToIndex" units="milliseconds">
   <summary>
     The time from the creation of the simple cache backend until the index has
