@@ -46,7 +46,7 @@ uint64 WebClipboardImpl::getSequenceNumber() {
 }
 
 uint64 WebClipboardImpl::sequenceNumber(Buffer buffer) {
-  ui::Clipboard::Buffer buffer_type;
+  ui::Clipboard::Buffer buffer_type = ui::Clipboard::BUFFER_STANDARD;
   if (!ConvertBufferType(buffer, &buffer_type))
     return 0;
 
@@ -85,7 +85,7 @@ bool WebClipboardImpl::isFormatAvailable(Format format, Buffer buffer) {
 
 WebVector<WebString> WebClipboardImpl::readAvailableTypes(
     Buffer buffer, bool* contains_filenames) {
-  ui::Clipboard::Buffer buffer_type;
+  ui::Clipboard::Buffer buffer_type = ui::Clipboard::BUFFER_STANDARD;
   std::vector<base::string16> types;
   if (ConvertBufferType(buffer, &buffer_type)) {
     client_->ReadAvailableTypes(buffer_type, &types, contains_filenames);
@@ -94,7 +94,7 @@ WebVector<WebString> WebClipboardImpl::readAvailableTypes(
 }
 
 WebString WebClipboardImpl::readPlainText(Buffer buffer) {
-  ui::Clipboard::Buffer buffer_type;
+  ui::Clipboard::Buffer buffer_type = ui::Clipboard::BUFFER_STANDARD;
   if (!ConvertBufferType(buffer, &buffer_type))
     return WebString();
 
@@ -120,7 +120,7 @@ WebString WebClipboardImpl::readPlainText(Buffer buffer) {
 WebString WebClipboardImpl::readHTML(Buffer buffer, WebURL* source_url,
                                      unsigned* fragment_start,
                                      unsigned* fragment_end) {
-  ui::Clipboard::Buffer buffer_type;
+  ui::Clipboard::Buffer buffer_type = ui::Clipboard::BUFFER_STANDARD;
   if (!ConvertBufferType(buffer, &buffer_type))
     return WebString();
 
@@ -134,7 +134,7 @@ WebString WebClipboardImpl::readHTML(Buffer buffer, WebURL* source_url,
 }
 
 WebData WebClipboardImpl::readImage(Buffer buffer) {
-  ui::Clipboard::Buffer buffer_type;
+  ui::Clipboard::Buffer buffer_type = ui::Clipboard::BUFFER_STANDARD;
   if (!ConvertBufferType(buffer, &buffer_type))
     return WebData();
 
@@ -145,7 +145,7 @@ WebData WebClipboardImpl::readImage(Buffer buffer) {
 
 WebString WebClipboardImpl::readCustomData(Buffer buffer,
                                            const WebString& type) {
-  ui::Clipboard::Buffer buffer_type;
+  ui::Clipboard::Buffer buffer_type = ui::Clipboard::BUFFER_STANDARD;
   if (!ConvertBufferType(buffer, &buffer_type))
     return WebString();
 
