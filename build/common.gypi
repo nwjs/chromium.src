@@ -1411,7 +1411,10 @@
         'conditions': [
           ['component=="shared_library"', {
             'win_use_allocator_shim%': 0,
-          }],
+          },{
+		    # Turn on multiple dll by default on Windows when in static_library.
+			'chrome_multiple_dll': '1',
+		  }],
           ['component=="shared_library" and "<(GENERATOR)"=="ninja"', {
             # Only enabled by default for ninja because it's buggy in VS.
             # Not enabled for component=static_library because some targets
