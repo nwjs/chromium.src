@@ -21,7 +21,7 @@
 #include "ipc/ipc_sender.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/window_open_disposition.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
+#include "third_party/WebKit/public/web/WebWindowFeatures.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/size.h"
 
