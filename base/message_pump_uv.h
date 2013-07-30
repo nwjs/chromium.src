@@ -6,7 +6,7 @@
 #define BASE_MESSAGE_PUMP_UV_H_
 #pragma once
 
-#include "base/message_pump.h"
+#include "base/message_loop/message_pump.h"
 #include "base/time.h"
 #include "base/base_export.h"
 #include "third_party/node/deps/uv/include/uv.h"
