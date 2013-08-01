@@ -7,11 +7,11 @@ vars = {
     'ffmpeg_hash':
          '@245a8c0cdfdd5ab3da9045089661017e9ddd8d0e',
     'webkit_url':
-         'https://github.com/rogerwang/WebKit_trimmed.git',
+         'https://github.com/rogerwang/blink.git',
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@204fed49d403a3623e92061b46ce2951d0d1cdf7'
+         '@origin/node'
 }
 
 deps = {
@@ -35,8 +35,8 @@ deps = {
         Var('git_url') + '/external/googlemock.git@6b1759c3816d574bddde3e1725c51a811c8870e7',
     'src/testing/gtest':
         Var('git_url') + '/external/googletest.git@a6772271f71672e889776bfe49ec4efd9da036df',
-    #'src/third_party/WebKit':
-    #    Var('webkit_url') + Var('webkit_rev'),
+    'src/third_party/WebKit':
+        Var('webkit_url') + Var('webkit_rev'),
     'src/third_party/accessibility-developer-tools':
         Var('git_url') + '/external/accessibility-developer-tools.git@ad5df9a5341d38778658c90e4aa241c4ebe4e8aa',
     'src/third_party/angle_dx11':
@@ -138,7 +138,11 @@ deps = {
     'src/tools/swarm_client':
         Var('git_url') + '/chromium/tools/swarm_client.git@53f8d5a2d9de5904c9d455fcba7a8af3e5a10e96',
     'src/v8':
-        Var('git_url') + '/external/v8.git@db6c80e9dfa14411c3f8d2f848633dae39b9a2dc',
+        'https://github.com/rogerwang/v8.git@origin/nwebkit',
+    'src/third_party/node':
+        'https://github.com/rogerwang/node.git@origin/master',
+    'src/content/nw':
+        'https://github.com/rogerwang/node-webkit.git@origin/master',
     'src/webkit/renderer/media/crypto/ppapi/cdm':
         Var('git_url') + '/chromium/cdm.git@c2b192a02546916d28233cfd8b7717ffcdcc8347',
 }
