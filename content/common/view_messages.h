@@ -290,6 +290,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(touchpad_fling_profile)
   IPC_STRUCT_TRAITS_MEMBER(touchscreen_fling_profile)
   IPC_STRUCT_TRAITS_MEMBER(nw_remote_page_rules)
+  IPC_STRUCT_TRAITS_MEMBER(nw_app_root_path)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::CookieData)
