@@ -22,7 +22,6 @@
             'nlib_target': 'libgles2_utils_untrusted.a',
             'build_glibc': 0,
             'build_newlib': 1,
-            'build_irt': 1,
           },
           'dependencies': [
             '../../native_client/tools.gyp:prep_toolchain',

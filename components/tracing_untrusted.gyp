@@ -27,7 +27,6 @@
             'nlib_target': 'libtracing_untrusted.a',
             'build_glibc': 0,
             'build_newlib': 1,
-            'build_irt': 1,
           },
           'sources': [
             'tracing/child_trace_message_filter.cc',
