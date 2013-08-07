@@ -74,7 +74,8 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
  public:
   SecurityState()
     : enabled_bindings_(0),
-      can_read_raw_cookies_(false) { }
+      can_read_raw_cookies_(false),
+      universal_access_(false) { }
 
   ~SecurityState() {
     scheme_policy_.clear();
@@ -87,6 +88,10 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
     }
     UMA_HISTOGRAM_COUNTS("ChildProcessSecurityPolicy.PerChildFilePermissions",
                          file_permissions_.size());
+  }
+
+  void GrantUniversalAccess() {
+    universal_access_ = true;
   }
 
   // Grant permission to request URLs with the specified scheme.
@@ -151,6 +156,9 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
 
   // Determine whether permission has been granted to request |url|.
   bool CanRequestURL(const GURL& url) {
+    if (universal_access_)
+      return true;
+
     // Having permission to a scheme implies permssion to all of its URLs.
     SchemeMap::const_iterator judgment(scheme_policy_.find(url.scheme()));
     if (judgment != scheme_policy_.end())
@@ -169,6 +177,9 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
 
   // Determine if the certain permissions have been granted to a file.
   bool HasPermissionsForFile(const base::FilePath& file, int permissions) {
+    if (universal_access_)
+      return true;
+
     if (!permissions || file.empty() || !file.IsAbsolute())
       return false;
     base::FilePath current_path = file.StripTrailingSeparators();
@@ -193,6 +204,9 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   }
 
   bool CanLoadPage(const GURL& gurl) {
+    if (universal_access_)
+      return true;
+
     if (origin_lock_.is_empty())
       return true;
 
@@ -204,6 +218,9 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   }
 
   bool CanAccessCookiesForOrigin(const GURL& gurl) {
+    if (universal_access_)
+      return true;
+
     if (origin_lock_.is_empty())
       return true;
     // TODO(creis): We must pass the valid browser_context to convert hosted
@@ -214,6 +231,9 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   }
 
   bool CanSendCookiesForOrigin(const GURL& gurl) {
+    if (universal_access_)
+      return true;
+
     // We only block cross-site cookies on network requests if the
     // --enable-strict-site-isolation flag is passed.  This is expected to break
     // compatibility with many sites.  The similar --site-per-process flag only
@@ -241,6 +261,9 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   }
 
   bool can_read_raw_cookies() const {
+    if (universal_access_)
+      return true;
+
     return can_read_raw_cookies_;
   }
 
@@ -273,6 +296,8 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
 
   // The set of isolated filesystems the child process is permitted to access.
   FileSystemMap filesystem_permissions_;
+
+  bool universal_access_;
 
   DISALLOW_COPY_AND_ASSIGN(SecurityState);
 };
@@ -363,6 +388,15 @@ bool ChildProcessSecurityPolicyImpl::IsPseudoScheme(
   base::AutoLock lock(lock_);
 
   return (pseudo_schemes_.find(scheme) != pseudo_schemes_.end());
+}
+
+void ChildProcessSecurityPolicyImpl::GrantUniversalAccess(
+    int child_id) {
+  base::AutoLock lock(lock_);
+  SecurityStateMap::iterator state = security_state_.find(child_id);
+  if (state == security_state_.end())
+    return;
+  state->second->GrantUniversalAccess();
 }
 
 void ChildProcessSecurityPolicyImpl::GrantRequestURL(
