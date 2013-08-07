@@ -40,6 +40,9 @@ class ChildProcessSecurityPolicy {
   // Returns true iff |scheme| has been registered as a web-safe scheme.
   virtual bool IsWebSafeScheme(const std::string& scheme) = 0;
 
+  // node-webkit: grant all to node.js frames
+  virtual void GrantUniversalAccess(int child_id) = 0;
+
   // Grants certain permissions to a file. |permissions| must be a bit-set of
   // base::PlatformFileFlags.
   virtual void GrantPermissionsForFile(int child_id,
