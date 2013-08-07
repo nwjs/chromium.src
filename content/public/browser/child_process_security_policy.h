@@ -40,7 +40,9 @@ class ChildProcessSecurityPolicy {
   // Returns true iff |scheme| has been registered as a web-safe scheme.
   virtual bool IsWebSafeScheme(const std::string& scheme) = 0;
 
-  // This permission grants only read access to a file.
+  // node-webkit: grant all to node.js frames
+  virtual void GrantUniversalAccess(int child_id) = 0;
+
   // Whenever the user picks a file from a <input type="file"> element, the
   // browser should call this function to grant the child process the capability
   // to upload the file to the web. Grants FILE_PERMISSION_READ_ONLY.
