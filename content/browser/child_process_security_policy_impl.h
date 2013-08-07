@@ -42,6 +42,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // ChildProcessSecurityPolicy implementation.
   virtual void RegisterWebSafeScheme(const std::string& scheme) OVERRIDE;
   virtual bool IsWebSafeScheme(const std::string& scheme) OVERRIDE;
+  virtual void GrantUniversalAccess(int child_id) OVERRIDE;
   virtual void GrantReadFile(int child_id, const base::FilePath& file) OVERRIDE;
   virtual void GrantCreateReadWriteFile(int child_id,
                                         const base::FilePath& file) OVERRIDE;
