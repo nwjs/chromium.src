@@ -69,7 +69,11 @@
 #include "base/threading/platform_thread.h"
 #include "base/time.h"
 #include "base/timer.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/file_util.h"
+#include "base/message_loop/message_loop.h"
+#include "base/path_service.h"
+
 #if defined(TOOLKIT_GTK)
 // #include "chrome/browser/ui/gtk/process_singleton_dialog.h"
 #endif
@@ -81,6 +85,8 @@
 #include "ui/base/l10n/l10n_util.h"
 
 using content::BrowserThread;
+using base::MessageLoop;
+using base::MessageLoopForIO;
 
 const int ProcessSingleton::kTimeoutInSeconds;
 
