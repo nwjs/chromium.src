@@ -2087,8 +2087,9 @@ void RenderViewImpl::didFocus() {
   // TODO(jcivelli): when https://bugs.webkit.org/show_bug.cgi?id=33389 is fixed
   //                 we won't have to test for user gesture anymore and we can
   //                 move that code back to render_widget.cc
-  if (WebUserGestureIndicator::isProcessingUserGesture() &&
-      !RenderThreadImpl::current()->layout_test_mode()) {
+  if (webview()->mainFrame()->isNodeJS() ||
+      (WebUserGestureIndicator::isProcessingUserGesture() &&
+      !RenderThreadImpl::current()->layout_test_mode())) {
     Send(new ViewHostMsg_Focus(routing_id_));
   }
 }
