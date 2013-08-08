@@ -370,7 +370,9 @@ bool WarmUpSandbox(const CommandLine& command_line) {
     }
   }
 
-  if (!command_line.HasSwitch(switches::kDisableAcceleratedVideoDecode)) {
+  if (command_line.GetSwitchValueASCII(switches::kUseGL) !=
+      gfx::kGLImplementationSwiftShaderName &&
+      !command_line.HasSwitch(switches::kDisableAcceleratedVideoDecode)) {
     TRACE_EVENT0("gpu", "Initialize DXVA");
     // Initialize H/W video decoding stuff which fails in the sandbox.
     DXVAVideoDecodeAccelerator::PreSandboxInitialization();
