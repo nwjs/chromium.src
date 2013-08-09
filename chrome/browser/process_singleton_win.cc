@@ -23,9 +23,9 @@
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chrome_process_finder_win.h"
 #if 0
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chrome/browser/chrome_process_finder_win.h"
 #include "chrome/browser/metro_utils/metro_chrome_win.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/simple_message_box.h"
