@@ -142,7 +142,7 @@ NotifyChromeResult AttemptToNotifyRunningChrome(HWND remote_window,
           process_id, PROCESS_QUERY_INFORMATION,
           process_handle.Receive()) &&
       base::win::IsProcessImmersive(process_handle.Get())) {
-    chrome::ActivateMetroChrome();
+    // chrome::ActivateMetroChrome();
   }
 
   CommandLine command_line(*CommandLine::ForCurrentProcess());
