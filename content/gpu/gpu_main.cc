@@ -369,8 +369,8 @@ bool WarmUpSandbox(const CommandLine& command_line) {
       return false;
     }
   }
-
-  if (!command_line.HasSwitch(switches::kDisableAcceleratedVideoDecode)) {
+  // TODO(apatrick): Disabling DXVA for one canary.
+  if (false && !command_line.HasSwitch(switches::kDisableAcceleratedVideoDecode)) {
     TRACE_EVENT0("gpu", "Initialize DXVA");
     // Initialize H/W video decoding stuff which fails in the sandbox.
     DXVAVideoDecodeAccelerator::PreSandboxInitialization();
