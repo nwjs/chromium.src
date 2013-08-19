@@ -100,11 +100,10 @@ class ExitWarningWidgetDelegateView : public views::WidgetDelegateView {
   DISALLOW_COPY_AND_ASSIGN(ExitWarningWidgetDelegateView);
 };
 
-} // namespace
+}  // namespace
 
 ExitWarningHandler::ExitWarningHandler()
     : state_(IDLE),
-      widget_(NULL),
       stub_timer_for_test_(false) {
 }
 
@@ -170,6 +169,7 @@ void ExitWarningHandler::Show() {
   params.type = views::Widget::InitParams::TYPE_POPUP;
   params.transient = true;
   params.transparent = true;
+  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.accept_events = false;
   params.can_activate = false;
   params.keep_on_top = true;
@@ -179,7 +179,7 @@ void ExitWarningHandler::Show() {
   params.parent = Shell::GetContainer(
       root_window,
       internal::kShellWindowId_SettingBubbleContainer);
-  widget_ = new views::Widget;
+  widget_.reset(new views::Widget);
   widget_->Init(params);
   widget_->SetContentsView(delegate);
   widget_->GetNativeView()->SetName("ExitWarningWindow");
@@ -189,10 +189,7 @@ void ExitWarningHandler::Show() {
 }
 
 void ExitWarningHandler::Hide() {
-  if (!widget_)
-    return;
-  widget_->Close();
-  widget_ = NULL;
+  widget_.reset();
 }
 
 }  // namespace ash
