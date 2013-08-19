@@ -490,8 +490,6 @@
       'sources': [
         'common/gpu/media/exynos_video_decode_accelerator.cc',
         'common/gpu/media/exynos_video_decode_accelerator.h',
-        'common/gpu/media/exynos_video_encode_accelerator.cc',
-        'common/gpu/media/exynos_video_encode_accelerator.h',
       ],
       'include_dirs': [
         '<(DEPTH)/third_party/khronos',
