@@ -2,14 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef MEDIA_FILTERS_MOCK_GPU_VIDEO_ACCELERATOR_FACTORIES_H_
-#define MEDIA_FILTERS_MOCK_GPU_VIDEO_ACCELERATOR_FACTORIES_H_
+#ifndef MEDIA_FILTERS_MOCK_GPU_VIDEO_DECODER_FACTORIES_H_
+#define MEDIA_FILTERS_MOCK_GPU_VIDEO_DECODER_FACTORIES_H_
 
-#include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop_proxy.h"
-#include "media/filters/gpu_video_accelerator_factories.h"
+#include "media/filters/gpu_video_decoder_factories.h"
 #include "media/video/video_decode_accelerator.h"
-#include "media/video/video_encode_accelerator.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
@@ -22,18 +20,12 @@ class SharedMemory;
 
 namespace media {
 
-class MockGpuVideoAcceleratorFactories : public GpuVideoAcceleratorFactories {
+class MockGpuVideoDecoderFactories : public GpuVideoDecoderFactories {
  public:
-  MockGpuVideoAcceleratorFactories();
-
-  // CreateVideo{Decode,Encode}Accelerator returns scoped_ptr, which the mocking
-  // framework does not want.  Trampoline them.
-  MOCK_METHOD2(DoCreateVideoDecodeAccelerator,
+  MockGpuVideoDecoderFactories();
+  MOCK_METHOD2(CreateVideoDecodeAccelerator,
                VideoDecodeAccelerator*(VideoCodecProfile,
                                        VideoDecodeAccelerator::Client*));
-  MOCK_METHOD1(DoCreateVideoEncodeAccelerator,
-               VideoEncodeAccelerator*(VideoEncodeAccelerator::Client*));
-
   MOCK_METHOD5(CreateTextures,
                uint32(int32 count,
                       const gfx::Size& size,
@@ -52,19 +44,12 @@ class MockGpuVideoAcceleratorFactories : public GpuVideoAcceleratorFactories {
   MOCK_METHOD0(Abort, void());
   MOCK_METHOD0(IsAborted, bool());
 
-  virtual scoped_ptr<VideoDecodeAccelerator> CreateVideoDecodeAccelerator(
-      VideoCodecProfile profile,
-      VideoDecodeAccelerator::Client* client) OVERRIDE;
-
-  virtual scoped_ptr<VideoEncodeAccelerator> CreateVideoEncodeAccelerator(
-      VideoEncodeAccelerator::Client* client) OVERRIDE;
-
  private:
-  virtual ~MockGpuVideoAcceleratorFactories();
+  virtual ~MockGpuVideoDecoderFactories();
 
-  DISALLOW_COPY_AND_ASSIGN(MockGpuVideoAcceleratorFactories);
+  DISALLOW_COPY_AND_ASSIGN(MockGpuVideoDecoderFactories);
 };
 
 }  // namespace media
 
-#endif  // MEDIA_FILTERS_MOCK_GPU_VIDEO_ACCELERATOR_FACTORIES_H_
+#endif  // MEDIA_FILTERS_MOCK_GPU_VIDEO_DECODER_FACTORIES_H_

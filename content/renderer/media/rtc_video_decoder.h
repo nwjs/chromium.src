@@ -30,7 +30,7 @@ class MessageLoopProxy;
 
 namespace media {
 class DecoderBuffer;
-class GpuVideoAcceleratorFactories;
+class GpuVideoDecoderFactories;
 }
 
 namespace content {
@@ -52,7 +52,7 @@ class CONTENT_EXPORT RTCVideoDecoder
   // run on the message loop of |factories|.
   static scoped_ptr<RTCVideoDecoder> Create(
       webrtc::VideoCodecType type,
-      const scoped_refptr<media::GpuVideoAcceleratorFactories>& factories);
+      const scoped_refptr<media::GpuVideoDecoderFactories>& factories);
 
   // webrtc::VideoDecoder implementation.
   // Called on WebRTC DecodingThread.
@@ -113,7 +113,7 @@ class CONTENT_EXPORT RTCVideoDecoder
 
   // The meessage loop of |factories| will be saved to |vda_loop_proxy_|.
   RTCVideoDecoder(
-      const scoped_refptr<media::GpuVideoAcceleratorFactories>& factories);
+      const scoped_refptr<media::GpuVideoDecoderFactories>& factories);
 
   void Initialize(base::WaitableEvent* waiter);
 
@@ -197,7 +197,7 @@ class CONTENT_EXPORT RTCVideoDecoder
   base::WeakPtrFactory<RTCVideoDecoder> weak_factory_;
   base::WeakPtr<RTCVideoDecoder> weak_this_;
 
-  scoped_refptr<media::GpuVideoAcceleratorFactories> factories_;
+  scoped_refptr<media::GpuVideoDecoderFactories> factories_;
 
   // The message loop to run callbacks on. This is from |factories_|.
   scoped_refptr<base::MessageLoopProxy> vda_loop_proxy_;

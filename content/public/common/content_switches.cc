@@ -873,9 +873,6 @@ const char kEnableWebRtcAecRecordings[]     = "enable-webrtc-aec-recordings";
 // Enables HW decode acceleration for WebRTC.
 const char kEnableWebRtcHWDecoding[]        = "enable-webrtc-hw-decoding";
 
-// Enables HW encode acceleration for WebRTC.
-const char kEnableWebRtcHWEncoding[] = "enable-webrtc-hw-encoding";
-
 #endif
 
 #if defined(OS_ANDROID)
