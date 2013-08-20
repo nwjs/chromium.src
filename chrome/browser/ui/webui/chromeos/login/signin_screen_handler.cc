@@ -1292,7 +1292,6 @@ void SigninScreenHandler::HandleShowAddUser(const base::ListValue* args) {
         &SigninScreenHandler::ShowSigninScreenIfReady,
         weak_factory_.GetWeakPtr()));
   }
-  SetUserInputMethodHWDefault();
 }
 
 void SigninScreenHandler::HandleToggleEnrollmentScreen() {
