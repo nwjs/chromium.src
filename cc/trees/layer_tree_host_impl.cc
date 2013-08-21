@@ -1527,6 +1527,11 @@ void LayerTreeHostImpl::SetVisible(bool visible) {
   DidVisibilityChange(this, visible_);
   EnforceManagedMemoryPolicy(ActualManagedMemoryPolicy());
 
+  // Evict tiles immediately if invisible since this tab may never get another
+  // draw or timer tick.
+  if (!visible_)
+    ManageTiles();
+
   if (!renderer_)
     return;
 
