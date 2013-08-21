@@ -175,7 +175,7 @@ TileManager::~TileManager() {
 void TileManager::SetGlobalState(
     const GlobalStateThatImpactsTilePriority& global_state) {
   global_state_ = global_state;
-  resource_pool_->SetResourceUsageLimits(
+  resource_pool_->SetMemoryUsageLimits(
       global_state_.memory_limit_in_bytes,
       global_state_.unused_memory_limit_in_bytes,
       global_state_.num_resources_limit);
@@ -501,10 +501,9 @@ void TileManager::AssignGpuMemoryToTiles(
       static_cast<int64>(bytes_releasable) +
       static_cast<int64>(global_state_.memory_limit_in_bytes) -
       static_cast<int64>(resource_pool_->acquired_memory_usage_bytes());
-  int resources_available =
-      resources_releasable +
-      global_state_.num_resources_limit -
-      resource_pool_->acquired_resource_count();
+  int resources_available = resources_releasable +
+                            global_state_.num_resources_limit -
+                            resource_pool_->NumResources();
 
   size_t bytes_allocatable =
       std::max(static_cast<int64>(0), bytes_available);
@@ -700,10 +699,6 @@ void TileManager::ScheduleTasks(
 
     tasks.Append(tile_version.raster_task_, tile->required_for_activation());
   }
-
-  // We must reduce the amount of unused resoruces before calling
-  // ScheduleTasks to prevent usage from rising above limits.
-  resource_pool_->ReduceResourceUsage();
 
   // Schedule running of |tasks|. This replaces any previously
   // scheduled tasks and effectively cancels all tasks not present
