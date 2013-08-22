@@ -192,7 +192,7 @@ bool PdfMetafileSkia::RenderPage(unsigned int page_number,
 }
 #endif
 
-#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
+#if defined(OS_CHROMEOS)
 bool PdfMetafileSkia::SaveToFD(const base::FileDescriptor& fd) const {
   DCHECK_GT(data_->pdf_stream_.getOffset(), 0U);
 

@@ -370,16 +370,15 @@ IPC_SYNC_MESSAGE_ROUTED1_1(PrintHostMsg_ScriptedPrint,
                            PrintMsg_PrintPages_Params
                                /* settings chosen by the user*/)
 
-#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
+#if defined(USE_X11)
 // Asks the browser to create a temporary file for the renderer to fill
 // in resulting NativeMetafile in printing.
-IPC_SYNC_MESSAGE_CONTROL1_2(PrintHostMsg_AllocateTempFileForPrinting,
-                            int /* render_view_id */,
+IPC_SYNC_MESSAGE_CONTROL0_2(PrintHostMsg_AllocateTempFileForPrinting,
                             base::FileDescriptor /* temp file fd */,
-                            int /* fd in browser*/) // Used only by Chrome OS.
+                            int /* fd in browser*/)
 IPC_MESSAGE_CONTROL2(PrintHostMsg_TempFileForPrintingWritten,
                      int /* render_view_id */,
-                     int /* fd in browser */) // Used only by Chrome OS.
+                     int /* fd in browser */)
 #endif
 
 // Asks the browser to do print preview.

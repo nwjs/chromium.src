@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -56,9 +56,6 @@ class PrintViewManagerBase : public content::NotificationObserver,
   // content::WebContentsObserver implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
-  // IPC Message handlers.
-  virtual void OnPrintingFailed(int cookie);
-
  private:
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -76,6 +73,7 @@ class PrintViewManagerBase : public content::NotificationObserver,
   void OnDidGetPrintedPagesCount(int cookie, int number_pages);
   void OnDidGetDocumentCookie(int cookie);
   void OnDidPrintPage(const PrintHostMsg_DidPrintPage_Params& params);
+  void OnPrintingFailed(int cookie);
 
   // Processes a NOTIFY_PRINT_JOB_EVENT notification.
   void OnNotifyPrintJobEvent(const JobEventDetails& event_details);

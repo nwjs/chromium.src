@@ -4,8 +4,10 @@
 
 #include "chrome/renderer/printing/print_web_view_helper.h"
 
+#include "base/file_descriptor_posix.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/metrics/histogram.h"
 #include "chrome/common/print_messages.h"
 #include "content/public/renderer/render_thread.h"
 #include "printing/metafile.h"
@@ -16,11 +18,9 @@
 #include "skia/ext/vector_canvas.h"
 #include "third_party/WebKit/public/web/WebFrame.h"
 
-#if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
+#if !defined(OS_CHROMEOS)
 #include "base/process/process_handle.h"
-#else
-#include "base/file_descriptor_posix.h"
-#endif  // !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
+#endif  // !defined(OS_CHROMEOS)
 
 namespace printing {
 
@@ -101,14 +101,12 @@ bool PrintWebViewHelper::PrintPagesNative(WebKit::WebFrame* frame,
   uint32 buf_size = metafile.GetDataSize();
   DCHECK_GT(buf_size, 0u);
 
-#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
+#if defined(OS_CHROMEOS)
   int sequence_number = -1;
   base::FileDescriptor fd;
 
   // Ask the browser to open a file for us.
-  Send(new PrintHostMsg_AllocateTempFileForPrinting(routing_id(),
-                                                    &fd,
-                                                    &sequence_number));
+  Send(new PrintHostMsg_AllocateTempFileForPrinting(&fd, &sequence_number));
   if (!metafile.SaveToFD(fd))
     return false;
 
