@@ -82,7 +82,7 @@ class RendererPpapiHostImpl
       CreateInProcessResourceCreationAPI(
           webkit::ppapi::PluginInstance* instance);
 
-  // RendererPpapiHost implementation.
+  // RendererPpapiHost.
   virtual ppapi::host::PpapiHost* GetPpapiHost() OVERRIDE;
   virtual bool IsValidInstance(PP_Instance instance) const OVERRIDE;
   virtual webkit::ppapi::PluginInstance* GetPluginInstance(
@@ -91,7 +91,6 @@ class RendererPpapiHostImpl
       PP_Instance instance) const OVERRIDE;
   virtual WebKit::WebPluginContainer* GetContainerForInstance(
       PP_Instance instance) const OVERRIDE;
-  virtual base::ProcessId GetPluginPID() const OVERRIDE;
   virtual bool HasUserGesture(PP_Instance instance) const OVERRIDE;
   virtual int GetRoutingIDForWidget(PP_Instance instance) const OVERRIDE;
   virtual gfx::Point PluginPointToRenderView(
@@ -124,9 +123,7 @@ class RendererPpapiHostImpl
 
   webkit::ppapi::PluginModule* module_;  // Non-owning pointer.
 
-  // The dispatcher we use to send messagse when the plugin is out-of-process.
-  // Will be null when running in-process. Non-owning pointer.
-  ppapi::proxy::HostDispatcher* dispatcher_;
+  ppapi::proxy::HostDispatcher* dispatcher_;  // Non-owning pointer.
 
   scoped_ptr<ppapi::host::PpapiHost> ppapi_host_;
 

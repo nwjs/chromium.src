@@ -22,6 +22,7 @@
 #include "webkit/plugins/ppapi/ppb_scrollbar_impl.h"
 #include "webkit/plugins/ppapi/ppb_tcp_server_socket_private_impl.h"
 #include "webkit/plugins/ppapi/ppb_tcp_socket_private_impl.h"
+#include "webkit/plugins/ppapi/ppb_url_loader_impl.h"
 #include "webkit/plugins/ppapi/ppb_video_decoder_impl.h"
 #include "webkit/plugins/ppapi/ppb_x509_certificate_private_impl.h"
 #include "webkit/plugins/ppapi/resource_helper.h"
@@ -82,13 +83,6 @@ PP_Resource ResourceCreationImpl::CreateFileRef(
   PPB_FileRef_Impl* res = PPB_FileRef_Impl::CreateInternal(
       instance, file_system, path);
   return res ? res->GetReference() : 0;
-}
-
-PP_Resource ResourceCreationImpl::CreateFileRef(
-    const ::ppapi::PPB_FileRef_CreateInfo& serialized) {
-  // When we're in-process, the host resource in the create info *is* the
-  // resource, so we don't need to do anything.
-  return serialized.resource.host_resource();
 }
 
 PP_Resource ResourceCreationImpl::CreateFlashDRM(PP_Instance instance) {
@@ -273,6 +267,10 @@ PP_Resource ResourceCreationImpl::CreateUDPSocket(PP_Instance instance) {
 
 PP_Resource ResourceCreationImpl::CreateUDPSocketPrivate(PP_Instance instance) {
   return 0;  // Not supported in-process.
+}
+
+PP_Resource ResourceCreationImpl::CreateURLLoader(PP_Instance instance) {
+  return (new PPB_URLLoader_Impl(instance, false))->GetReference();
 }
 
 PP_Resource ResourceCreationImpl::CreateVideoCapture(PP_Instance instance) {

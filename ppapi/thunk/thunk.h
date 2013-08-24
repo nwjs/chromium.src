@@ -6,6 +6,7 @@
 #define PPAPI_THUNK_THUNK_H_
 
 #include "ppapi/c/private/ppb_instance_private.h"
+#include "ppapi/c/trusted/ppb_url_loader_trusted.h"
 #include "ppapi/thunk/ppapi_thunk_export.h"
 
 // Declares a getter for the interface thunk of the form:
@@ -38,6 +39,8 @@ namespace thunk {
 // the appropriate interfaces_*.h file.
 PPAPI_THUNK_EXPORT const PPB_Instance_Private_0_1*
     GetPPB_Instance_Private_0_1_Thunk();
+PPAPI_THUNK_EXPORT const PPB_URLLoaderTrusted_0_3*
+    GetPPB_URLLoaderTrusted_0_3_Thunk();
 
 }  // namespace thunk
 }  // namespace ppapi

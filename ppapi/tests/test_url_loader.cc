@@ -800,6 +800,7 @@ std::string TestURLLoader::TestUntendedLoad() {
       event.Wait();
     }
   }
+
   // The loader should now have the data and have finished successfully.
   std::string body;
   std::string error = ReadEntireResponseBody(&loader, &body);

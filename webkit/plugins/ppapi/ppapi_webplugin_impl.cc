@@ -28,6 +28,7 @@
 #include "webkit/plugins/ppapi/npobject_var.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
+#include "webkit/plugins/ppapi/ppb_url_loader_impl.h"
 
 using ppapi::NPObjectVar;
 using WebKit::WebCanvas;
@@ -201,26 +202,38 @@ bool WebPluginImpl::handleInputEvent(const WebKit::WebInputEvent& event,
 
 void WebPluginImpl::didReceiveResponse(
     const WebKit::WebURLResponse& response) {
-  DCHECK(!instance_->document_loader());
-  instance_->HandleDocumentLoad(response);
+  DCHECK(!document_loader_);
+
+  if (instance_->module()->is_crashed()) {
+    // Don't create a resource for a crashed plugin.
+    instance_->container()->element().document().frame()->stopLoading();
+    return;
+  }
+
+  document_loader_ = new PPB_URLLoader_Impl(instance_->pp_instance(), true);
+  document_loader_->didReceiveResponse(NULL, response);
+
+  if (!instance_->HandleDocumentLoad(document_loader_))
+    document_loader_ = NULL;
 }
 
 void WebPluginImpl::didReceiveData(const char* data, int data_length) {
-  WebKit::WebURLLoaderClient* document_loader = instance_->document_loader();
-  if (document_loader)
-    document_loader->didReceiveData(NULL, data, data_length, 0);
+  if (document_loader_)
+    document_loader_->didReceiveData(NULL, data, data_length, data_length);
 }
 
 void WebPluginImpl::didFinishLoading() {
-  WebKit::WebURLLoaderClient* document_loader = instance_->document_loader();
-  if (document_loader)
-    document_loader->didFinishLoading(NULL, 0.0);
+  if (document_loader_) {
+    document_loader_->didFinishLoading(NULL, 0);
+    document_loader_ = NULL;
+  }
 }
 
 void WebPluginImpl::didFailLoading(const WebKit::WebURLError& error) {
-  WebKit::WebURLLoaderClient* document_loader = instance_->document_loader();
-  if (document_loader)
-    document_loader->didFail(NULL, error);
+  if (document_loader_) {
+    document_loader_->didFail(NULL, error);
+    document_loader_ = NULL;
+  }
 }
 
 void WebPluginImpl::didFinishLoadingFrameRequest(const WebKit::WebURL& url,
