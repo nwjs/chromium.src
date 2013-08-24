@@ -300,7 +300,6 @@ class TestPageHandler(testserver_base.BasePageHandler):
       'jpg' : 'image/jpeg',
       'json': 'application/json',
       'pdf' : 'application/pdf',
-      'txt' : 'text/plain',
       'wav' : 'audio/wav',
       'xml' : 'text/xml'
     }
