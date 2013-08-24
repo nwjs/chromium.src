@@ -47,11 +47,6 @@ WebKit::WebPluginContainer* MockRendererPpapiHost::GetContainerForInstance(
   return NULL;
 }
 
-base::ProcessId MockRendererPpapiHost::GetPluginPID() const {
-  NOTIMPLEMENTED();
-  return base::kNullProcessId;
-}
-
 bool MockRendererPpapiHost::HasUserGesture(PP_Instance instance) const {
   return has_user_gesture_;
 }

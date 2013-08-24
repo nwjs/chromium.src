@@ -44,6 +44,7 @@
 #include "ppapi/shared_impl/tracked_callback.h"
 #include "ppapi/thunk/ppb_gamepad_api.h"
 #include "ppapi/thunk/resource_creation_api.h"
+#include "third_party/skia/include/core/SkRefCnt.h"
 #include "skia/ext/refptr.h"
 #include "third_party/WebKit/public/platform/WebCanvas.h"
 #include "third_party/WebKit/public/platform/WebString.h"
@@ -68,11 +69,8 @@ class WebInputEvent;
 class WebLayer;
 class WebMouseEvent;
 class WebPluginContainer;
-class WebURLLoader;
-class WebURLResponse;
 struct WebCompositionUnderline;
 struct WebCursorInfo;
-struct WebURLError;
 struct WebPrintParams;
 }
 
@@ -136,10 +134,6 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   // nonzero.
   PP_Instance pp_instance() const { return pp_instance_; }
 
-  ::ppapi::PPP_Instance_Combined* instance_interface() const {
-    return instance_interface_.get();
-  }
-
   ::ppapi::thunk::ResourceCreationAPI& resource_creation() {
     return *resource_creation_.get();
   }
@@ -178,11 +172,11 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   bool full_frame() const { return full_frame_; }
   const ::ppapi::ViewData& view_data() const { return view_data_; }
 
-  // PPP_Instance and PPP_Instance_Private.
+  // PPP_Instance and PPP_Instance_Private pass-through.
   bool Initialize(const std::vector<std::string>& arg_names,
                   const std::vector<std::string>& arg_values,
                   bool full_frame);
-  bool HandleDocumentLoad(const WebKit::WebURLResponse& response);
+  bool HandleDocumentLoad(PPB_URLLoader_Impl* loader);
   bool HandleInputEvent(const WebKit::WebInputEvent& event,
                         WebKit::WebCursorInfo* cursor_info);
   PP_Var GetInstanceObject();
@@ -357,17 +351,6 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   void SimulateImeSetCompositionEvent(
       const ::ppapi::InputEventData& input_event);
 
-  // The document loader is valid when the plugin is "full-frame" and in this
-  // case is non-NULL as long as the corresponding loader resource is alive.
-  // This pointer is non-owning, so the loader must use set_document_loader to
-  // clear itself when it is destroyed.
-  WebKit::WebURLLoaderClient* document_loader() const {
-    return document_loader_;
-  }
-  void set_document_loader(WebKit::WebURLLoaderClient* loader) {
-    document_loader_ = loader;
-  }
-
   ContentDecryptorDelegate* GetContentDecryptorDelegate();
 
   // PPB_Instance_API implementation.
@@ -499,31 +482,6 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
 
  private:
   friend class PpapiUnittest;
-
-  // Class to record document load notifications and play them back once the
-  // real document loader becomes available. Used only by NaCl instances.
-  class NaClDocumentLoader : public WebKit::WebURLLoaderClient {
-   public:
-    NaClDocumentLoader();
-    virtual ~NaClDocumentLoader();
-
-    void ReplayReceivedData(WebURLLoaderClient* document_loader);
-
-    // WebKit::WebURLLoaderClient implementation.
-    virtual void didReceiveData(WebKit::WebURLLoader* loader,
-                                const char* data,
-                                int data_length,
-                                int encoded_data_length);
-    virtual void didFinishLoading(WebKit::WebURLLoader* loader,
-                                  double finish_time);
-    virtual void didFail(WebKit::WebURLLoader* loader,
-                         const WebKit::WebURLError& error);
-
-   private:
-    std::list<std::string> data_;
-    bool finished_loading_;
-    scoped_ptr<WebKit::WebURLError> error_;
-  };
 
   // Implements PPB_Gamepad_API. This is just to avoid having an excessive
   // number of interfaces implemented by PluginInstance.
@@ -818,12 +776,9 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   std::vector<std::string> argn_;
   std::vector<std::string> argv_;
 
-  // Non-owning pointer to the document loader, if any.
-  WebKit::WebURLLoaderClient* document_loader_;
-  // State for deferring document loads. Used only by NaCl instances.
-  WebKit::WebURLResponse nacl_document_response_;
-  scoped_ptr<NaClDocumentLoader> nacl_document_loader_;
-  bool nacl_document_load_;
+  // This is NULL unless HandleDocumentLoad has called. In that case, we store
+  // the pointer so we can re-send it later if we are reset to talk to NaCl.
+  scoped_refptr<PPB_URLLoader_Impl> document_loader_;
 
   // The ContentDecryptorDelegate forwards PPP_ContentDecryptor_Private
   // calls and handles PPB_ContentDecryptor_Private calls.

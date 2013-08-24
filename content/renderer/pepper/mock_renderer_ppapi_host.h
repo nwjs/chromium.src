@@ -45,7 +45,6 @@ class MockRendererPpapiHost : public RendererPpapiHost {
       PP_Instance instance) const OVERRIDE;
   virtual WebKit::WebPluginContainer* GetContainerForInstance(
       PP_Instance instance) const OVERRIDE;
-  virtual base::ProcessId GetPluginPID() const OVERRIDE;
   virtual bool HasUserGesture(PP_Instance instance) const OVERRIDE;
   virtual int GetRoutingIDForWidget(PP_Instance instance) const OVERRIDE;
   virtual gfx::Point PluginPointToRenderView(

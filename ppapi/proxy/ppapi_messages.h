@@ -610,10 +610,10 @@ IPC_MESSAGE_ROUTED3(PpapiMsg_PPPInstance_DidChangeView,
 IPC_MESSAGE_ROUTED2(PpapiMsg_PPPInstance_DidChangeFocus,
                     PP_Instance /* instance */,
                     PP_Bool /* has_focus */)
-IPC_MESSAGE_ROUTED3(PpapiMsg_PPPInstance_HandleDocumentLoad,
-    PP_Instance /* instance */,
-    int /* pending_loader_host_id */,
-    ppapi::URLResponseInfoData /* response */)
+IPC_SYNC_MESSAGE_ROUTED2_1(PpapiMsg_PPPInstance_HandleDocumentLoad,
+                           PP_Instance /* instance */,
+                           ppapi::HostResource /* url_loader */,
+                           PP_Bool /* result */)
 
 // PPP_Messaging.
 IPC_MESSAGE_ROUTED2(PpapiMsg_PPPMessaging_HandleMessage,
@@ -652,6 +652,19 @@ IPC_MESSAGE_ROUTED2(PpapiMsg_PPPTextInput_RequestSurroundingText,
                    PP_Instance /* instance */,
                    uint32_t /* desired_number_of_characters */)
 
+// PPB_URLLoader
+// (Messages from browser to plugin to notify it of changes in state.)
+//
+// NOTE: The ReadResponseBody_Ack message is a custom generated message
+// with the following fields appended:
+//   ppapi::HostResource
+//   response data (array of bytes stored via WriteData)
+//   int result
+//
+IPC_MESSAGE_ROUTED0(PpapiMsg_PPBURLLoader_ReadResponseBody_Ack)
+IPC_MESSAGE_ROUTED2(PpapiMsg_PPBURLLoader_CallbackComplete,
+                    ppapi::HostResource /* loader */,
+                    int32_t /* result */)
 #if !defined(OS_NACL) && !defined(NACL_WIN64)
 // PPB_Broker.
 IPC_MESSAGE_ROUTED3(
@@ -728,6 +741,11 @@ IPC_MESSAGE_ROUTED3(PpapiMsg_PPBTCPSocket_SetOptionACK,
                     uint32 /* plugin_dispatcher_id */,
                     uint32 /* socket_id */,
                     int32_t /* result */)
+
+// PPB_URLLoader_Trusted
+IPC_MESSAGE_ROUTED1(
+    PpapiMsg_PPBURLLoader_UpdateProgress,
+    ppapi::proxy::PPBURLLoader_UpdateProgress_Params /* params */)
 
 // PPB_TCPServerSocket_Private.
 
@@ -1004,6 +1022,30 @@ IPC_MESSAGE_ROUTED4(PpapiHostMsg_PPBInstance_UpdateSurroundingText,
                     std::string /* text */,
                     uint32_t /* caret */,
                     uint32_t /* anchor */)
+
+// PPB_URLLoader.
+IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBURLLoader_Create,
+                           PP_Instance /* instance */,
+                           ppapi::HostResource /* result */)
+IPC_MESSAGE_ROUTED2(PpapiHostMsg_PPBURLLoader_Open,
+                    ppapi::HostResource /* loader */,
+                    ppapi::URLRequestInfoData /* request_data */)
+IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBURLLoader_FollowRedirect,
+                    ppapi::HostResource /* loader */)
+IPC_SYNC_MESSAGE_ROUTED1_2(
+    PpapiHostMsg_PPBURLLoader_GetResponseInfo,
+    ppapi::HostResource /* loader */,
+    bool /* success */,
+    ppapi::URLResponseInfoData /* result */)
+IPC_MESSAGE_ROUTED2(PpapiHostMsg_PPBURLLoader_ReadResponseBody,
+                    ppapi::HostResource /* loader */,
+                    int32_t /* bytes_to_read */)
+IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBURLLoader_FinishStreamingToFile,
+                    ppapi::HostResource /* loader */)
+IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBURLLoader_Close,
+                    ppapi::HostResource /* loader */)
+IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBURLLoader_GrantUniversalAccess,
+                    ppapi::HostResource /* loader */)
 
 // PPB_Var.
 IPC_SYNC_MESSAGE_ROUTED1_1(PpapiHostMsg_PPBVar_AddRefObject,
@@ -1613,61 +1655,6 @@ IPC_MESSAGE_CONTROL2(PpapiHostMsg_UDPSocket_SendTo,
 IPC_MESSAGE_CONTROL1(PpapiPluginMsg_UDPSocket_SendToReply,
                      int32_t /* bytes_written */)
 IPC_MESSAGE_CONTROL0(PpapiHostMsg_UDPSocket_Close)
-
-// URLLoader ------------------------------------------------------------------
-
-IPC_MESSAGE_CONTROL0(PpapiHostMsg_URLLoader_Create)
-
-// These messages correspond to PPAPI calls and all should get a
-// CallbackComplete message.
-IPC_MESSAGE_CONTROL1(PpapiHostMsg_URLLoader_Open,
-                     ppapi::URLRequestInfoData /* request_data */)
-
-// The plugin can tell the host to defer a load to hold off on sending more
-// data because the buffer in the plugin is full. When defers_loading is set to
-// false, data streaming will resume.
-//
-// When auditing redirects (no auto follow) the load will be automatically
-// deferred each time we get a redirect. The plugin will reset this to false
-// by sending this message when it wants to continue following the redirect.
-//
-// When streaming data, the host may still send more data after this call (for
-// example, it could already be in-flight at the time of this request).
-IPC_MESSAGE_CONTROL1(PpapiHostMsg_URLLoader_SetDeferLoading,
-                     bool /* defers_loading */)
-
-// Closes the URLLoader. There is no reply.
-IPC_MESSAGE_CONTROL0(PpapiHostMsg_URLLoader_Close)
-
-// Requests that cross-site restrictions be ignored. The plugin must have
-// the private permission set. Otherwise this message will be ignored by the
-// renderer. There is no reply.
-IPC_MESSAGE_CONTROL0(PpapiHostMsg_URLLoader_GrantUniversalAccess)
-
-// Push notification that a response is available.
-IPC_MESSAGE_CONTROL1(PpapiPluginMsg_URLLoader_ReceivedResponse,
-                     ppapi::URLResponseInfoData /* response */)
-
-// Push notification with load data from the renderer. It is a custom generated
-// message with the response data (array of bytes stored via WriteData)
-// appended.
-IPC_MESSAGE_CONTROL0(PpapiPluginMsg_URLLoader_SendData)
-
-// Push notification indicating that all data has been sent, either via
-// SendData or by streaming it to a file. Note that since this is a push
-// notification, we don't use the result field of the ResourceMessageReply.
-IPC_MESSAGE_CONTROL1(PpapiPluginMsg_URLLoader_FinishedLoading,
-                     int32_t /* result */)
-
-// Push notification from the renderer to the plugin to tell it about download
-// and upload progress. This will only be sent if the plugin has requested
-// progress updates, and only the fields requested by the plugin will be
-// valid.
-IPC_MESSAGE_CONTROL4(PpapiPluginMsg_URLLoader_UpdateProgress,
-                     int64_t /* bytes_sent */,
-                     int64_t /* total_bytes_to_be_sent */,
-                     int64_t /* bytes_received */,
-                     int64_t /* total_bytes_to_be_received */)
 
 // Shared memory ---------------------------------------------------------------
 

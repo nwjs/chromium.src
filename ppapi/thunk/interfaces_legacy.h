@@ -9,6 +9,8 @@ LEGACY_IFACE(PPB_INPUT_EVENT_INTERFACE_1_0,
              ::ppapi::thunk::GetPPB_InputEvent_1_0_Thunk())
 LEGACY_IFACE(PPB_INSTANCE_PRIVATE_INTERFACE_0_1,
              ::ppapi::thunk::GetPPB_Instance_Private_0_1_Thunk())
+LEGACY_IFACE(PPB_URLLOADERTRUSTED_INTERFACE_0_3,
+             ::ppapi::thunk::GetPPB_URLLoaderTrusted_0_3_Thunk())
 LEGACY_IFACE(PPB_CORE_INTERFACE_1_0, &core_interface)
 LEGACY_IFACE(PPB_GPUBLACKLIST_PRIVATE_INTERFACE,
              PPB_GpuBlacklist_Private_Impl::GetInterface())
@@ -39,5 +41,4 @@ LEGACY_IFACE(PPB_VAR_INTERFACE_1_1,
              ::ppapi::PPB_Var_Shared::GetVarInterface1_1())
 LEGACY_IFACE(PPB_VAR_ARRAY_BUFFER_INTERFACE_1_0,
              ::ppapi::PPB_Var_Shared::GetVarArrayBufferInterface1_0())
-
 

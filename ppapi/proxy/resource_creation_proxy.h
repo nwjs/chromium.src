@@ -41,8 +41,6 @@ class ResourceCreationProxy : public InterfaceProxy,
   virtual PP_Resource CreateFileRef(PP_Instance instance,
                                     PP_Resource file_system,
                                     const char* path) OVERRIDE;
-  virtual PP_Resource CreateFileRef(
-      const PPB_FileRef_CreateInfo& create_info) OVERRIDE;
   virtual PP_Resource CreateFileSystem(PP_Instance instance,
                                        PP_FileSystemType type) OVERRIDE;
   virtual PP_Resource CreateIsolatedFileSystem(
@@ -87,6 +85,10 @@ class ResourceCreationProxy : public InterfaceProxy,
   virtual PP_Resource CreateURLLoader(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateURLRequestInfo(
       PP_Instance instance) OVERRIDE;
+  virtual PP_Resource CreateURLResponseInfo(
+      PP_Instance instance,
+      const URLResponseInfoData& data,
+      PP_Resource file_ref_resource) OVERRIDE;
   virtual PP_Resource CreateWheelInputEvent(
       PP_Instance instance,
       PP_TimeTicks time_stamp,

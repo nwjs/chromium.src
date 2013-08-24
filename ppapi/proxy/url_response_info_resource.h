@@ -37,8 +37,6 @@ class PPAPI_PROXY_EXPORT URLResponseInfoResource
   virtual PP_Var GetProperty(PP_URLResponseProperty property) OVERRIDE;
   virtual PP_Resource GetBodyAsFileRef() OVERRIDE;
 
-  const URLResponseInfoData& data() const { return data_; }
-
  private:
   URLResponseInfoData data_;
 
