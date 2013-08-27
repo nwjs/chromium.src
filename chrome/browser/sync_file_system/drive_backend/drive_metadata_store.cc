@@ -134,7 +134,7 @@ scoped_ptr<leveldb::DB> OpenDatabase(const base::FilePath& path,
   DCHECK(created);
 
   leveldb::Options options;
-  options.max_open_files = 0;  // Use minimum.
+  options.max_open_files = 64;  // Use minimum.
   options.create_if_missing = true;
   leveldb::DB* db = NULL;
   leveldb::Status db_status = leveldb::DB::Open(

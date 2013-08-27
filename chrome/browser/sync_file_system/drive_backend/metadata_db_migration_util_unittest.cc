@@ -107,7 +107,7 @@ TEST(DriveMetadataDBMigrationUtilTest, MigrationFromV0) {
 
   leveldb::Options options;
   options.create_if_missing = true;
-  options.max_open_files = 0;  // Use minimum.
+  options.max_open_files = 64;  // Use minimum.
   leveldb::DB* db_ptr = NULL;
   std::string db_dir = fileapi::FilePathToString(
       base_dir.path().Append(DriveMetadataStore::kDatabaseName));

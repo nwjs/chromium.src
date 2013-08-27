@@ -306,7 +306,7 @@ SyncStatusCode LocalFileChangeTracker::TrackerDB::Init(
   std::string path = fileapi::FilePathToString(
       base_path_.Append(kDatabaseName));
   leveldb::Options options;
-  options.max_open_files = 0;  // Use minimum.
+  options.max_open_files = 64;  // Use minimum.
   options.create_if_missing = true;
   leveldb::DB* db;
   leveldb::Status status = leveldb::DB::Open(options, path, &db);
@@ -336,7 +336,7 @@ SyncStatusCode LocalFileChangeTracker::TrackerDB::Repair(
   LOG(WARNING) << "Attempting to repair TrackerDB.";
 
   leveldb::Options options;
-  options.max_open_files = 0;  // Use minimum.
+  options.max_open_files = 64;  // Use minimum.
   if (leveldb::RepairDB(db_path, options).ok() &&
       Init(FAIL_ON_CORRUPTION) == SYNC_STATUS_OK) {
     // TODO(nhiroki): perform some consistency checks between TrackerDB and

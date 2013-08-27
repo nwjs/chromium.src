@@ -181,7 +181,7 @@ void ContactDatabase::InitFromTaskRunner(const base::FilePath& database_dir,
 
   leveldb::Options options;
   options.create_if_missing = true;
-  options.max_open_files = 0;  // Use minimum.
+  options.max_open_files = 64;  // Use minimum.
   bool delete_and_retry_on_corruption = true;
 
   while (true) {
