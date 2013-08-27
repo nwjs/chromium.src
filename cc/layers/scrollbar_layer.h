@@ -73,6 +73,7 @@ class CC_EXPORT ScrollbarLayer : public ContentsScalingLayer {
   int thumb_thickness_;
   int thumb_length_;
   gfx::Rect track_rect_;
+  gfx::Point location_;
   int scroll_layer_id_;
 
   unsigned texture_format_;

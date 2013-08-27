@@ -121,10 +121,10 @@ void ScrollbarLayer::PushPropertiesTo(LayerImpl* layer) {
   }
   scrollbar_layer->SetThumbLength(thumb_length_);
   if (Orientation() == HORIZONTAL) {
-    scrollbar_layer->SetTrackStart(track_rect_.x());
+    scrollbar_layer->SetTrackStart(track_rect_.x() - location_.x());
     scrollbar_layer->SetTrackLength(track_rect_.width());
   } else {
-    scrollbar_layer->SetTrackStart(track_rect_.y());
+    scrollbar_layer->SetTrackStart(track_rect_.y() - location_.y());
     scrollbar_layer->SetTrackLength(track_rect_.height());
   }
 
@@ -298,6 +298,7 @@ void ScrollbarLayer::SetTexturePriorities(
 bool ScrollbarLayer::Update(ResourceUpdateQueue* queue,
                             const OcclusionTracker* occlusion) {
   track_rect_ = scrollbar_->TrackRect();
+  location_ = scrollbar_->Location();
 
   if (layer_tree_host()->settings().solid_color_scrollbars)
     return false;
