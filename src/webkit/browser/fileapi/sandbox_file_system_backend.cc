@@ -1,0 +1,163 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "webkit/browser/fileapi/sandbox_file_system_backend.h"
+
+#include "base/bind.h"
+#include "base/file_util.h"
+#include "base/logging.h"
+#include "base/metrics/histogram.h"
+#include "base/task_runner_util.h"
+#include "url/gurl.h"
+#include "webkit/browser/fileapi/async_file_util_adapter.h"
+#include "webkit/browser/fileapi/copy_or_move_file_validator.h"
+#include "webkit/browser/fileapi/file_system_context.h"
+#include "webkit/browser/fileapi/file_system_file_stream_reader.h"
+#include "webkit/browser/fileapi/file_system_operation_context.h"
+#include "webkit/browser/fileapi/file_system_operation_impl.h"
+#include "webkit/browser/fileapi/file_system_options.h"
+#include "webkit/browser/fileapi/file_system_usage_cache.h"
+#include "webkit/browser/fileapi/obfuscated_file_util.h"
+#include "webkit/browser/fileapi/sandbox_file_stream_writer.h"
+#include "webkit/browser/fileapi/sandbox_file_system_backend_delegate.h"
+#include "webkit/browser/fileapi/sandbox_quota_observer.h"
+#include "webkit/browser/quota/quota_manager.h"
+#include "webkit/common/fileapi/file_system_types.h"
+#include "webkit/common/fileapi/file_system_util.h"
+
+using quota::QuotaManagerProxy;
+using quota::SpecialStoragePolicy;
+
+namespace fileapi {
+
+SandboxFileSystemBackend::SandboxFileSystemBackend(
+    SandboxFileSystemBackendDelegate* delegate)
+    : delegate_(delegate),
+      enable_temporary_file_system_in_incognito_(false) {
+}
+
+SandboxFileSystemBackend::~SandboxFileSystemBackend() {
+}
+
+bool SandboxFileSystemBackend::CanHandleType(FileSystemType type) const {
+  return type == kFileSystemTypeTemporary ||
+         type == kFileSystemTypePersistent;
+}
+
+void SandboxFileSystemBackend::Initialize(FileSystemContext* context) {
+  DCHECK(delegate_);
+
+  // Set quota observers.
+  delegate_->AddFileUpdateObserver(
+      fileapi::kFileSystemTypeTemporary,
+      delegate_->quota_observer(),
+      delegate_->file_task_runner());
+  delegate_->AddFileAccessObserver(
+      fileapi::kFileSystemTypeTemporary,
+      delegate_->quota_observer(), NULL);
+
+  delegate_->AddFileUpdateObserver(
+      fileapi::kFileSystemTypePersistent,
+      delegate_->quota_observer(),
+      delegate_->file_task_runner());
+  delegate_->AddFileAccessObserver(
+      fileapi::kFileSystemTypePersistent,
+      delegate_->quota_observer(), NULL);
+}
+
+void SandboxFileSystemBackend::OpenFileSystem(
+    const GURL& origin_url,
+    fileapi::FileSystemType type,
+    OpenFileSystemMode mode,
+    const OpenFileSystemCallback& callback) {
+  DCHECK(CanHandleType(type));
+  DCHECK(delegate_);
+  if (delegate_->file_system_options().is_incognito() &&
+      !(type == kFileSystemTypeTemporary &&
+        enable_temporary_file_system_in_incognito_)) {
+    // TODO(kinuko): return an isolated temporary directory.
+    callback.Run(GURL(), std::string(), base::PLATFORM_FILE_ERROR_SECURITY);
+    return;
+  }
+
+  delegate_->OpenFileSystem(
+      origin_url, type, mode, callback,
+      GetFileSystemRootURI(origin_url, type));
+}
+
+FileSystemFileUtil* SandboxFileSystemBackend::GetFileUtil(
+    FileSystemType type) {
+  return delegate_->sync_file_util();
+}
+
+AsyncFileUtil* SandboxFileSystemBackend::GetAsyncFileUtil(
+    FileSystemType type) {
+  DCHECK(delegate_);
+  return delegate_->file_util();
+}
+
+CopyOrMoveFileValidatorFactory*
+SandboxFileSystemBackend::GetCopyOrMoveFileValidatorFactory(
+    FileSystemType type,
+    base::PlatformFileError* error_code) {
+  DCHECK(error_code);
+  *error_code = base::PLATFORM_FILE_OK;
+  return NULL;
+}
+
+FileSystemOperation* SandboxFileSystemBackend::CreateFileSystemOperation(
+    const FileSystemURL& url,
+    FileSystemContext* context,
+    base::PlatformFileError* error_code) const {
+  DCHECK(CanHandleType(url.type()));
+  DCHECK(error_code);
+
+  DCHECK(delegate_);
+  scoped_ptr<FileSystemOperationContext> operation_context =
+      delegate_->CreateFileSystemOperationContext(url, context, error_code);
+  if (!operation_context)
+    return NULL;
+
+  SpecialStoragePolicy* policy = delegate_->special_storage_policy();
+  if (policy && policy->IsStorageUnlimited(url.origin()))
+    operation_context->set_quota_limit_type(quota::kQuotaLimitTypeUnlimited);
+  else
+    operation_context->set_quota_limit_type(quota::kQuotaLimitTypeLimited);
+
+  return new FileSystemOperationImpl(url, context, operation_context.Pass());
+}
+
+scoped_ptr<webkit_blob::FileStreamReader>
+SandboxFileSystemBackend::CreateFileStreamReader(
+    const FileSystemURL& url,
+    int64 offset,
+    const base::Time& expected_modification_time,
+    FileSystemContext* context) const {
+  DCHECK(CanHandleType(url.type()));
+  DCHECK(delegate_);
+  return delegate_->CreateFileStreamReader(
+      url, offset, expected_modification_time, context);
+}
+
+scoped_ptr<fileapi::FileStreamWriter>
+SandboxFileSystemBackend::CreateFileStreamWriter(
+    const FileSystemURL& url,
+    int64 offset,
+    FileSystemContext* context) const {
+  DCHECK(CanHandleType(url.type()));
+  DCHECK(delegate_);
+  return delegate_->CreateFileStreamWriter(url, offset, context, url.type());
+}
+
+FileSystemQuotaUtil* SandboxFileSystemBackend::GetQuotaUtil() {
+  return delegate_;
+}
+
+SandboxFileSystemBackendDelegate::OriginEnumerator*
+SandboxFileSystemBackend::CreateOriginEnumerator() {
+  DCHECK(delegate_);
+  return delegate_->CreateOriginEnumerator();
+}
+
+}  // namespace fileapi

@@ -1,0 +1,24 @@
+Name: mach_override
+Short Name: Part of the mach_star project
+Version: Unknown
+URL: https://github.com/rentzsch/mach_star
+Date: 11/14/2012
+Revision: 10860416803280f05cbe20f97a3ec02a7c697bf4
+License: MIT
+Security Critical: Yes
+
+
+Description:
+This is the mach_override part of mach_star, namely:
+https://github.com/rentzsch/mach_star/tree/10860416803280f05cbe20f97a3ec02a7c697bf4
+
+This package is used to replace framework functions with different
+implementations at run time.
+
+
+Local Modifications:
+Ensure no rwx pages remain after mach_override_ptr:
+https://codereview.chromium.org/21208002/ 
+
+Randomize mach_override_ptr trampoline addresses on 32-bit:
+https://codereview.chromium.org/22798004/

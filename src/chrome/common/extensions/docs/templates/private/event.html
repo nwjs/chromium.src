@@ -1,0 +1,65 @@
+<div>
+  <h4 id="{{id}}">{{name}}</h4>
+  <div class="description">
+    {{?description}}<p>
+      {{{description}}}
+    </p>{{/description}}
+    {{?conditions}}
+    {{?supportsRules}}
+      <h4>Supported conditions</h4>
+      <p>
+        The following conditions may be used in rules registered through
+        <a href="#{{id}}-{{addRulesFunction.name}}">
+          {{addRulesFunction.name}}
+        </a>.
+      </p>
+      <ul>
+        {{#conditions}}<div><li>{{+partials.ref_link}}</li></div>{{/}}
+      </ul>
+    {{/supportsRules}}
+    {{/conditions}}
+    {{?actions}}
+    {{?supportsRules}}
+      <h4>Supported actions</h4>
+      <p>
+        The following actions may be used in rules registered through
+        <a href="#{{id}}-{{addRulesFunction.name}}">
+          {{addRulesFunction.name}}
+        </a>.
+      </p>
+      <ul>
+        {{#actions}}<div><li>{{+partials.ref_link}}</li></div>{{/}}
+      </ul>
+    {{/supportsRules}}
+    {{/actions}}
+    {{?filters}}
+      <h4>Filters</h4>
+      <dl>
+        {{#filters}}{{+partials.parameter_full}}{{/}}
+      </dl>
+    {{/filters}}
+    {{?supportsRules}}
+      {{-
+      TODO(vabr): For addRulesFunction it would be better to call
+      partials.function directly as follows:
+      {{+partials.function @:addRulesFunction
+                           parentName:name
+                           api:api
+                           parentId:id}}
+      but for some reason the parentName:name does not override the
+      'parentName' property of addRulesFunction (which is 'Event'). This will
+      get fixed as soon as we get rid of using @ in partials.function.
+      -}}
+      <h4 id="{{id}}-{{addRulesFunction.name}}">{{addRulesFunction.name}}</h4>
+      {{+partials.function_details function:addRulesFunction
+                                   parentName:name
+                                   api:api}}
+    {{/supportsRules}}
+    {{?supportsListeners}}
+      {{+partials.function @:addListenerFunction
+                           parentName:name
+                           api:api
+                           parentId:id}}
+    {{/supportsListeners}}
+  </div>
+</div>

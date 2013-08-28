@@ -1,0 +1,452 @@
+<h1>Message Passing</h1>
+
+
+<p>
+Since content scripts run in the context of a web page and not the extension,
+they often need some way of communicating with the rest of the extension. For
+example, an RSS reader extension might use content scripts to detect the
+presence of an RSS feed on a page, then notify the background page in order to
+display a page action icon for that page.
+
+<p>
+Communication between extensions and their content scripts works by using
+message passing. Either side can listen for messages sent from the other end,
+and respond on the same channel. A message can contain any valid JSON object
+(null, boolean, number, string, array, or object). There is a simple API for
+<a href="#simple">one-time requests</a>
+and a more complex API that allows you to have
+<a href="#connect">long-lived connections</a>
+for exchanging multiple messages with a shared context. It is also possible to
+send a message to another extension if you know its ID, which is covered in
+the
+<a href="#external">cross-extension messages</a>
+section.
+
+
+<h2 id="simple">Simple one-time requests</h2>
+<p>
+If you only need to send a single message to another part of your extension
+(and optionally get a response back), you should use the simplified
+$ref:runtime.sendMessage
+or
+$ref:tabs.sendMessage
+methods. This lets you send a one-time JSON-serializable message from a
+content script to extension, or vice versa, respectively. An optional
+callback parameter allows you handle the response from the other side, if
+there is one.
+
+<p>
+Sending a request from a content script looks like this:
+<pre>
+contentscript.js
+================
+chrome.runtime.sendMessage({greeting: "hello"}, function(response) {
+  console.log(response.farewell);
+});
+</pre>
+
+<p>
+Sending a request from the extension to a content script looks very similar,
+except that you need to specify which tab to send it to. This example
+demonstrates sending a message to the content script in the selected tab.
+<pre>
+background.html
+===============
+chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+  chrome.tabs.sendMessage(tabs[0].id, {greeting: "hello"}, function(response) {
+    console.log(response.farewell);
+  });
+});
+</pre>
+
+<p>
+On the receiving end, you need to set up an
+$ref:runtime.onMessage
+event listener to handle the message. This looks the same from a content
+script or extension page.
+<pre>
+chrome.runtime.onMessage.addListener(
+  function(request, sender, sendResponse) {
+    console.log(sender.tab ?
+                "from a content script:" + sender.tab.url :
+                "from the extension");
+    if (request.greeting == "hello")
+      sendResponse({farewell: "goodbye"});
+  });
+</pre>
+
+<p class="note">
+<b>Note:</b> If multiple pages are listening for onMessage events, only the
+first to call sendResponse() for a particular event will succeed in sending the
+response. All other responses to that event will be ignored.
+</p>
+
+
+<h2 id="connect">Long-lived connections</h2>
+<p>
+Sometimes it's useful to have a conversation that lasts longer than a single
+request and response. In this case, you can open a long-lived channel from
+your content script to an extension page, or vice versa, using
+$ref:runtime.connect
+or
+$ref:tabs.connect respectively. The
+channel can optionally have a name, allowing you to distinguish between
+different types of connections.
+
+<p>
+One use case might be an automatic form fill extension. The content script
+could open a channel to the extension page for a particular login, and send a
+message to the extension for each input element on the page to request the
+form data to fill in. The shared connection allows the extension to keep
+shared state linking the several messages coming from the content script.
+
+<p>
+When establishing a connection, each end is given a
+$ref:runtime.Port
+object which is used for sending and receiving messages through that
+connection.
+
+<p>
+Here is how you open a channel from a content script, and send and listen for
+messages:
+<pre>
+contentscript.js
+================
+var port = chrome.runtime.connect({name: "knockknock"});
+port.postMessage({joke: "Knock knock"});
+port.onMessage.addListener(function(msg) {
+  if (msg.question == "Who's there?")
+    port.postMessage({answer: "Madame"});
+  else if (msg.question == "Madame who?")
+    port.postMessage({answer: "Madame... Bovary"});
+});
+</pre>
+
+<p>
+Sending a request from the extension to a content script looks very similar,
+except that you need to specify which tab to connect to. Simply replace the
+call to connect in the above example with
+$ref:tabs.connect.
+
+<p>
+In order to handle incoming connections, you need to set up a
+$ref:runtime.onConnect
+event listener. This looks the same from a content script or an extension
+page. When another part of your extension calls "connect()", this event is
+fired, along with the
+$ref:runtime.Port
+object you can use to send and receive messages through the connection. Here's
+what it looks like to respond to incoming connections:
+<pre>
+chrome.runtime.onConnect.addListener(function(port) {
+  console.assert(port.name == "knockknock");
+  port.onMessage.addListener(function(msg) {
+    if (msg.joke == "Knock knock")
+      port.postMessage({question: "Who's there?"});
+    else if (msg.answer == "Madame")
+      port.postMessage({question: "Madame who?"});
+    else if (msg.answer == "Madame... Bovary")
+      port.postMessage({question: "I don't get it."});
+  });
+});
+</pre>
+
+<p>
+You may want to find out when a connection is closed, for example if you are
+maintaining separate state for each open port. For this you can listen to the
+$ref:runtime.Port.onDisconnect
+event. This event is fired either when the other side of the channel manually
+calls
+$ref:runtime.Port.disconnect, or when the page
+containing the port is unloaded (for example if the tab is navigated).
+onDisconnect is guaranteed to be fired only once for any given port.
+
+
+<h2 id="external">Cross-extension messaging</h2>
+<p>
+In addition to sending messages between different components in your
+extension, you can use the messaging API to communicate with other extensions.
+This lets you expose a public API that other extensions can take advantage of.
+
+<p>
+Listening for incoming requests and connections is similar to the internal
+case, except you use the
+$ref:runtime.onMessageExternal
+or
+$ref:runtime.onConnectExternal
+methods. Here's an example of each:
+<pre>
+// For simple requests:
+chrome.runtime.onMessageExternal.addListener(
+  function(request, sender, sendResponse) {
+    if (sender.id == blacklistedExtension)
+      return;  // don't allow this extension access
+    else if (request.getTargetData)
+      sendResponse({targetData: targetData});
+    else if (request.activateLasers) {
+      var success = activateLasers();
+      sendResponse({activateLasers: success});
+    }
+  });
+
+// For long-lived connections:
+chrome.runtime.onConnectExternal.addListener(function(port) {
+  port.onMessage.addListener(function(msg) {
+    // See other examples for sample onMessage handlers.
+  });
+});
+</pre>
+
+<p>
+Likewise, sending a message to another extension is similar to sending one
+within your extension. The only difference is that you must pass the ID of the
+extension you want to communicate with. For example:
+<pre>
+// The ID of the extension we want to talk to.
+var laserExtensionId = "abcdefghijklmnoabcdefhijklmnoabc";
+
+// Make a simple request:
+chrome.runtime.sendMessage(laserExtensionId, {getTargetData: true},
+  function(response) {
+    if (targetInRange(response.targetData))
+      chrome.runtime.sendMessage(laserExtensionId, {activateLasers: true});
+  });
+
+// Start a long-running conversation:
+var port = chrome.runtime.connect(laserExtensionId);
+port.postMessage(...);
+</pre>
+
+
+<h2 id="external-webpage">Sending messages from web pages</h2>
+<p>
+Similar to <a href="#external">cross-extension messaging</a>,
+your app or extension can receive and
+respond to messages from regular web pages.
+To use this feature, you must first
+specify in your manifest.json which web sites you want to communicate with. For
+example:
+
+<pre>
+"externally_connectable": {
+  "matches": ["*://*.example.com/*"]
+}
+</pre>
+
+<p>
+This will expose the messaging API to any page which matches the URL patterns
+you specify. The URL pattern must contain at least a
+<a href="http://en.wikipedia.org/wiki/Second-level_domain">second-level domain</a>
+- that is, hostname
+patterns like "*", "*.com", "*.co.uk", and "*.appspot.com" are prohibited.
+From the web page, use the
+$ref:runtime.sendMessage
+or
+$ref:runtime.connect
+APIs to send a message to a specific app or extension. For example:
+<pre>
+// The ID of the extension we want to talk to.
+var editorExtensionId = "abcdefghijklmnoabcdefhijklmnoabc";
+
+// Make a simple request:
+chrome.runtime.sendMessage(editorExtensionId, {openUrlInEditor: url},
+  function(response) {
+    if (!response.success)
+      handleError(url);
+  });
+</pre>
+
+<p>
+From your app or extension, you may listen to messages from web pages via the
+$ref:runtime.onMessageExternal
+or
+$ref:runtime.onConnectExternal
+APIs, similar to <a href="#external">cross-extension messaging</a>.
+Only the web page can initiate a connection.
+Here is an example:
+
+<pre>
+chrome.runtime.onMessageExternal.addListener(
+  function(request, sender, sendResponse) {
+    if (sender.url == blacklistedWebsite)
+      return;  // don't allow this web page access
+    if (request.openUrlInEditor)
+      openUrl(request.openUrlInEditor);
+  });
+</pre>
+
+
+<h2 id="native-messaging">Native messaging</h2>
+<p>
+Extensions can exchange messages with native applications. Native
+applications that support this feature must register a <em>native messaging
+host</em> that knows how to communicate with the extension. Chrome starts the
+host in a separate process and communicates with it using standard input and
+standard output streams.
+
+<h3 id="native-messaging-host">Native messaging host</h3>
+<p>
+In order to register a native messaging host the application must install a
+manifest file that defines native messaging host configuration. Below is an
+example of the manifest file:
+<pre>{
+  "name": "com.my_company.my_application",
+  "description": "My Application",
+  "path": "C:\Program Files\My Application\chrome_native_messaging_host.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://knldjmfmopnpolahpmmgbagdohdnhkik/"
+  ]
+}
+</pre>
+
+<p>Native messaging host manifest file contains the following fields:
+<table class="simple">
+  <tr>
+    <th>Name</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>name</code></td>
+    <td>Native messaging host name.</td>
+  </tr>
+  <tr>
+    <td><code>description</code></td>
+    <td>Short application description.</td>
+  </tr>
+  <tr>
+    <td><code>path</code></td>
+    <td>Path to the native messaging host binary. On Linux and OSX the path must
+    be absolute. On Windows it can be relative to the directory in which the
+    manifest file is located.</td>
+  </tr>
+  <tr>
+    <td><code>type</code></td>
+    <td>Type of the interface used to communicate with the native messaging
+    host. Currently there is only one possible value for this parameter:
+    <code>stdio</code>. It indicates that Chrome should use <code>stdin</code>
+    and <code>stdout</code> to communicate with the host.</td>
+  </tr>
+  <tr>
+    <td><code>allowed_origins</code></td>
+    <td>List of extensions that should have access to the native messaging host.</td>
+  </tr>
+</table>
+
+<p>Location of the manifest file depends on the platform:
+
+<dl>
+  <dt>Windows:</dt>
+    <dd>The manifest file can be located anywhere in the file system.
+     The application installer must create registry key
+     <code>HKEY_LOCAL_MACHINE\SOFTWARE\Google\Chrome\NativeMessagingHosts\<em>host_name</em></code>
+     and set default value of that key to the full path to the manifest file.
+    </dd>
+
+  <dt>OSX:</dt>
+    <dd>The manifest file must be placed at
+    <code>/Library/Google/Chrome/NativeMessagingHosts/<em>host_name</em>.json</code>
+    </dd>
+  <dt>Linux:</dt>
+    <dd>The manifest file must be placed at
+    <code>/etc/opt/chrome/native-messaging-hosts/<em>host_name</em>.json</code>
+    </dd>
+</dl>
+
+<p>
+Chrome starts each native messaging host in a separate process and communicates
+with it using standard input (<code>stdin</code>) and standard output
+(<code>stdout</code>). The same format is used to send messages in both
+directions: each message is serialized using JSON, UTF-8 encoded
+and is preceded with 32-bit message length in native byte order.
+
+<h3 id="native-messaging-client">Connecting to a native application</h3>
+<p>
+Sending and receiving messages to and from a native application is very similar
+to cross-extension messaging. The main difference is that
+$ref:runtime.connectNative is used instead of $ref:runtime.connect,
+and $ref:runtime.sendNativeMessage is used instead of $ref:runtime.sendMessage.
+
+<p>
+The Following example creates a $ref:runtime.Port object that's connected to native
+messaging host <code>com.my_company.my_application</code>, starts listening for
+messages from that port and sends one outgoing message:
+<pre>
+var port = chrome.runtime.connectNative('com.my_company.my_application');
+port.onMessage.addListener(function(msg) {
+  console.log("Received" + msg);
+});
+port.onDisconnect.addListener(function() {
+  console.log("Disconnected");
+});
+port.postMessage({ text: "Hello, my_application" });
+</pre>
+
+<p>
+$ref:runtime.sendNativeMessage can be used to send a message to native
+application without creating a port, e.g.:
+<pre>
+chrome.runtime.sendNativeMessage('com.my_company.my_application',
+  { text: "Hello" },
+  function(response) {
+    console.log("Received " + response);
+  });
+</pre>
+
+<h2 id="security-considerations">Security considerations</h2>
+
+<p>
+When receiving a message from a content script or another extension, your
+background page should be careful not to fall victim to <a
+href="http://en.wikipedia.org/wiki/Cross-site_scripting">cross-site
+scripting</a>.  Specifically, avoid using dangerous APIs such as the
+below:
+</p>
+<pre>background.html
+===============
+chrome.tabs.sendMessage(tab.id, {greeting: "hello"}, function(response) {
+  // WARNING! Might be evaluating an evil script!
+  var resp = eval("(" + response.farewell + ")");
+});
+
+background.html
+===============
+chrome.tabs.sendMessage(tab.id, {greeting: "hello"}, function(response) {
+  // WARNING! Might be injecting a malicious script!
+  document.getElementById("resp").innerHTML = response.farewell;
+});
+</pre>
+<p>
+Instead, prefer safer APIs that do not run scripts:
+</p>
+<pre>background.html
+===============
+chrome.tabs.sendMessage(tab.id, {greeting: "hello"}, function(response) {
+  // JSON.parse does not evaluate the attacker's scripts.
+  var resp = JSON.parse(response.farewell);
+});
+
+background.html
+===============
+chrome.tabs.sendMessage(tab.id, {greeting: "hello"}, function(response) {
+  // innerText does not let the attacker inject HTML elements.
+  document.getElementById("resp").innerText = response.farewell;
+});
+</pre>
+
+<h2 id="examples">Examples</h2>
+
+<p>
+You can find simple examples of communication via messages in the
+<a href="http://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/extensions/docs/examples/api/messaging/">examples/api/messaging</a>
+directory.
+<a href="http://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/extensions/docs/examples/api/nativeMessaging/">examples/api/nativeMessaging</a>
+contains an example application that uses native messaging.
+Also see the
+<a href="http://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/extensions/docs/examples/howto/contentscript_xhr">contentscript_xhr</a> example,
+in which a content script and its parent extension exchange messages,
+so that the parent extension can perform
+cross-site requests on behalf of the content script.
+For more examples and for help in viewing the source code, see
+<a href="samples.html">Samples</a>.
+</p>

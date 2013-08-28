@@ -1,0 +1,26 @@
+include_rules = [
+  "+cc/switches.h", # For cc command line switches.
+  "+media/base",  # For media command line switches.
+  "+media/audio/audio_util.h",  # For audio hardware sample-rate.
+  "+third_party/zlib",
+  "+third_party/libyuv",
+
+  # The renderer_host files should only call upwards in the layering via the
+  # delegate interfaces.
+  "-content/browser/web_contents",
+  "-content/public/browser/web_contents.h",
+  "-content/public/browser/web_contents_view.h",
+]
+
+specific_include_rules = {
+  ".*_(unit|browser)test\.cc": [
+    "+content/browser/web_contents",
+    "+content/public/browser/web_contents.h",
+    "+content/public/browser/web_contents_view.h",
+    "+media/filters",
+  ],
+  "render_sandbox_host_linux\.cc": [
+    "+third_party/WebKit/public/web/WebKit.h",
+    "+third_party/WebKit/public/web/linux/WebFontInfo.h",
+  ],
+}

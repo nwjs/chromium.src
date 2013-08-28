@@ -1,0 +1,31 @@
+include_rules = [
+  # Bookmarks is being made into a component (it will end up at
+  # //components/bookmarks and not depend on //chrome), so we have these basic
+  # rules followed by temporary exceptions.  Please don't add to the list of
+  # exceptions!
+  "-chrome/browser",
+  "+chrome/browser/bookmarks",
+  "+chrome/browser/favicon",
+  "+chrome/browser/chrome_notification_types.h",
+
+  # TODO(kaiwang): Bring this list to zero.
+  # Do not add to the list of temporarily-allowed dependencies below,
+  # and please do not introduce more #includes of these files.
+  "!chrome/browser/history/history_service.h",
+  "!chrome/browser/history/history_service_factory.h",
+  "!chrome/browser/history/query_parser.h",
+  "!chrome/browser/history/url_database.h",
+  "!chrome/browser/profiles/incognito_helpers.h",
+  "!chrome/browser/profiles/profile.h",
+  "!chrome/browser/profiles/startup_task_runner_service.h",
+  "!chrome/browser/profiles/startup_task_runner_service_factory.h",
+  # Do not add to the list of temporarily-allowed dependencies above,
+  # and please do not introduce more #includes of these files.
+]
+
+specific_include_rules = {
+  # For unit tests, it's fine to include utility process code.
+  '.*test\.cc': [
+    "+chrome/utility/importer/bookmark_html_reader.h",
+  ],
+}

@@ -1,0 +1,10 @@
+include_rules = [
+  "+ppapi",
+  "+jingle/glue",
+  "+net",
+  "+third_party/webrtc",
+
+  "+remoting/codec",
+  "+remoting/protocol",
+  "+remoting/jingle_glue",
+]

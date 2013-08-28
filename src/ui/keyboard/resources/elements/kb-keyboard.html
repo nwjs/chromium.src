@@ -1,0 +1,497 @@
+<!--
+  -- Copyright 2013 The Chromium Authors. All rights reserved.
+  -- Use of this source code is governed by a BSD-style license that can be
+  -- found in the LICENSE file.
+  -->
+
+<polymer-element name="kb-keyboard" on-key-over="keyOver" on-key-up="keyUp"
+    on-key-down="keyDown" on-key-longpress="keyLongpress" on-pointerup="up"
+    on-pointerdown="down" on-enable-sel="enableSel"
+    on-enable-dbl="enableDbl" attributes="keyset layout rows">
+  <template>
+    <style>
+      @host {
+        * {
+          position: relative;
+        }
+      }
+    </style>
+    <!-- The ID for a keyset follows the naming convention of combining the
+      -- layout name with a base keyset name. This convention is used to
+      -- allow multiple layouts to be loaded (enablign fast switching) while
+      -- allowing the shift and spacebar keys to be common across multiple
+      -- keyboard layouts.
+      -->
+    <content select="#{{layout}}-{{keyset}}"></content>
+  </template>
+  <script>
+    /**
+     * The repeat delay in milliseconds before a key starts repeating. Use the
+     * same rate as Chromebook.
+     * (See chrome/browser/chromeos/language_preferences.cc)
+     * @const
+     * @type {number}
+     */
+    var REPEAT_DELAY_MSEC = 500;
+
+    /**
+     * The repeat interval or number of milliseconds between subsequent
+     * keypresses. Use the same rate as Chromebook.
+     * @const
+     * @type {number}
+     */
+    var REPEAT_INTERVAL_MSEC = 50;
+
+    /**
+     * The double click/tap interval.
+     * @const
+     * @type {number}
+     */
+    var DBL_INTERVAL_MSEC = 300;
+
+    /**
+     * The boolean to decide if keyboard should transit to upper case keyset
+     * when spacebar is pressed. If a closing punctuation is followed by a
+     * spacebar, keyboard should automatically transit to upper case.
+     * @type {boolean}
+     */
+    var enterUpperOnSpace = false;
+
+    /**
+     * A structure to track the currently repeating key on the keyboard.
+     */
+    var repeatKey = {
+
+      /**
+        * The timer for the delay before repeating behaviour begins.
+        * @type {number|undefined}
+        */
+      timer: undefined,
+
+      /**
+       * The interval timer for issuing keypresses of a repeating key.
+       * @type {number|undefined}
+       */
+      interval: undefined,
+
+      /**
+       * The key which is currently repeating.
+       * @type {BaseKey|undefined}
+       */
+      key: undefined,
+
+      /**
+       * Cancel the repeat timers of the currently active key.
+       */
+      cancel: function() {
+        clearTimeout(this.timer);
+        clearInterval(this.interval);
+        this.timer = undefined;
+        this.interval = undefined;
+        this.key = undefined;
+      }
+    };
+
+    /**
+     * The minimum movement interval needed to trigger cursor move on
+     * horizontal and vertical way.
+     * @const
+     * @type {number}
+     */
+    var MIN_SWIPE_DIST = 30;
+
+    /**
+     * The flags constants when shift is on. It is according to the EventFlags
+     * in event_constants.h in chromium c++ code.
+     * @const
+     * @type {number}
+     * TODO(zyaozhujun): Might add more flags here according to the defination
+     * in EventFlags.
+     */
+    var SHIFT = 2;
+
+    /**
+     * The boolean to decide if it is swipe in process or finished.
+     * @type {boolean}
+     */
+    var swipeInProgress = false;
+
+    /**
+     * The enumeration of swipe directions.
+     * @const
+     * @type {Enum}
+     */
+    var SWIPE_DIRECTION = {
+      RIGHT: 0x1,
+      LEFT: 0x2,
+      UP: 0x4,
+      DOWN: 0x8
+    };
+
+    /**
+     * A structure to track the current swipe status.
+     */
+    var swipeStatus = {
+
+      /**
+       * The count of horizontal and vertical movement.
+       * @type {number}
+       */
+       offset_x : 0,
+       offset_y : 0,
+
+      /**
+       * Last touch coordinate.
+       * @type {number}
+       */
+      pre_x : 0,
+      pre_y : 0,
+
+      /**
+       * The flag of current modifier key.
+       * @type {number}
+       */
+      swipeFlags : 0,
+
+      /**
+       * Current swipe direction.
+       * @type {number}
+       */
+      swipeDirection : 0,
+
+      /**
+       * Reset all the values when swipe finished.
+       */
+      resetAll: function() {
+        this.offset_x = 0;
+        this.offset_y = 0;
+        this.pre_x = 0;
+        this.pre_y = 0;
+	this.swipeFlags = 0;
+	this.swipeDirection = 0;
+      }
+    };
+
+    Polymer('kb-keyboard', {
+      lastPressedKey: null,
+      voiceInput_: null,
+      dblDetail_: null,
+      dblTimer_: null,
+      swipeHandler: null,
+
+      /**
+      * Handles the state of the shift key.
+      */
+      keysetChanged: function() {
+        // TODO (rsadam): Generalize to avoid the need to hardcode upper. Add
+        // state attribute to shift key.
+        if (this.keyset == 'upper') {
+          // Deals with the edge case where caps was triggered by a long press.
+          // Do not want to highlight the shift key in this case.
+          if (!this.classList.contains('caps'))
+            this.classList.add('highlight');
+        } else {
+          this.classList.remove('highlight');
+          this.classList.remove('caps');
+        }
+      },
+
+      ready: function() {
+        this.voiceInput_ = new VoiceInput(this);
+        this.swipeHandler = this.onSwipeUpdate.bind(this);
+      },
+
+      /**
+       * When double click/tap event is enabled, the second key-down and key-up
+       * events on the same key should be skipped. Return true when the event
+       * with |detail| should be skipped.
+       * @param {Object} detail The detail of key-up or key-down event.
+       */
+      skipEvent: function(detail) {
+        if (this.dblDetail_) {
+          if (this.dblDetail_.char != detail.char) {
+            // The second key down is not on the same key. Double click/tap
+            // should be ignored.
+            this.dblDetail_ = null;
+            clearTimeout(this.dblTimer_);
+          } else if (this.dblDetail_.clickCount == 1) {
+            return true;
+          }
+        }
+        return false;
+      },
+
+      /**
+       * This function is bound to swipeHandler. And swipeHandler handle
+       * the pointermove event after pointerdown event happened.
+       * @para {PointerEvent} event.
+       */
+      onSwipeUpdate: function(event) {
+	swipeStatus.offset_x += event.screenX - swipeStatus.pre_x;
+	swipeStatus.offset_y += event.screenY - swipeStatus.pre_y;
+        if (Math.abs(swipeStatus.offset_x) > MIN_SWIPE_DIST ||
+            Math.abs(swipeStatus.offset_y) > MIN_SWIPE_DIST) {
+          swipeInProgress = true;
+          this.lastPressedKey.classList.remove('active');
+        }
+        if (swipeStatus.offset_x > MIN_SWIPE_DIST) {
+	  swipeStatus.swipeDirection |= SWIPE_DIRECTION.RIGHT;
+          swipeStatus.offset_x = 0;
+        }
+        else if (swipeStatus.offset_x < -MIN_SWIPE_DIST) {
+	  swipeStatus.swipeDirection |= SWIPE_DIRECTION.LEFT;
+	  swipeStatus.offset_x = 0;
+	}
+        // Swipe vertically only when the swipe reaches the gradient of 45
+        // degree. This can also be larger.
+	if (Math.abs(event.screenY - swipeStatus.pre_y) >
+            Math.abs(event.screenX - swipeStatus.pre_x)) {
+          if (swipeStatus.offset_y > MIN_SWIPE_DIST) {
+            swipeStatus.swipeDirection |= SWIPE_DIRECTION.DOWN;
+	    swipeStatus.offset_y = 0;
+	  }
+          else if (swipeStatus.offset_y < -MIN_SWIPE_DIST) {
+	    swipeStatus.swipeDirection |= SWIPE_DIRECTION.UP;
+            swipeStatus.offset_y = 0;
+	  }
+        }
+       if (swipeStatus.swipeDirection) {
+	  MoveCursor(swipeStatus.swipeDirection, swipeStatus.swipeFlags);
+          swipeStatus.swipeDirection = 0;
+        }
+	swipeStatus.pre_x = event.screenX;
+	swipeStatus.pre_y = event.screenY;
+      },
+
+      /**
+       * Handles key-down event that is sent by kb-key-base.
+       * @param {CustomEvent} event The key-down event dispatched by
+       *     kb-key-base.
+       * @param {Object} detail The detail of pressed kb-key.
+       */
+      keyDown: function(event, detail) {
+        if (this.skipEvent(detail))
+          return;
+
+        if (this.lastPressedKey)
+          this.lastPressedKey.classList.remove('active');
+        this.lastPressedKey = event.target;
+        this.lastPressedKey.classList.add('active');
+        repeatKey.cancel();
+        var toKeyset = detail.toKeyset;
+        if (toKeyset) {
+          this.keyset = toKeyset;
+          this.querySelector('#' + this.layout + '-' + this.keyset).nextKeyset =
+              detail.nextKeyset;
+          return;
+        }
+
+        if (detail.repeat) {
+          insertText(detail.char);
+          repeatKey.key = this.lastPressedKey;
+          repeatKey.timer = setTimeout(function() {
+            repeatKey.timer = undefined;
+            repeatKey.interval = setInterval(function() {
+               insertText(detail.char);
+            }, REPEAT_INTERVAL_MSEC);
+          }, Math.max(0, REPEAT_DELAY_MSEC - REPEAT_INTERVAL_MSEC));
+        }
+      },
+
+      /**
+       * Enable/start double click/tap event recognition.
+       * @param {CustomEvent} event The enable-dbl event dispatched by
+       *     kb-shift-key.
+       * @param {Object} detail The detail of pressed kb-shift-key.
+       */
+      enableDbl: function(event, detail) {
+        if (!this.dblDetail_) {
+          this.dblDetail_ = detail;
+          this.dblDetail_.clickCount = 0;
+          var self = this;
+          this.dblTimer_ = setTimeout(function() {
+            self.dblDetail_ = null;
+          }, DBL_INTERVAL_MSEC);
+        }
+      },
+
+      /**
+       * Enable the selection while swipe.
+       * @param {CustomEvent} event The enable-dbl event dispatched by
+       *    kb-shift-key.
+       */
+      enableSel: function(event) {
+        swipeStatus.swipeFlags = SHIFT;
+      },
+
+      /**
+       * Handles pointerdown event. This is used for swipe selection process.
+       * to get the start pre_x and pre_y. And also add a pointermove handler
+       * to start handling the swipe selection event.
+       * @param {PointerEvent} event The pointerup event that received by
+       *     kb-keyboard.
+       */
+      down: function(event) {
+        swipeStatus.pre_x = event.screenX;
+        swipeStatus.pre_y = event.screenY;
+        this.addEventListener("pointermove", this.swipeHandler, false);
+      },
+
+      /**
+       * Handles pointerup event. This is used for double tap/click events.
+       * @param {PointerEvent} event The pointerup event that bubbled to
+       *     kb-keyboard.
+       */
+      up: function(event) {
+        if (this.dblDetail_) {
+          this.dblDetail_.clickCount++;
+          if (this.dblDetail_.clickCount == 2) {
+            this.keyset = this.dblDetail_.toKeyset;
+            var keysetId = '#' + this.layout + '-' + this.keyset
+            this.querySelector(keysetId).nextKeyset = this.dblTimer_.nextKeyset;
+            clearTimeout(this.dblTimer_);
+            
+            // Checks if shift is capitalized.
+            if (this.keyset == 'upper') {
+              this.classList.remove('highlight');
+              this.classList.add('caps');
+            }
+
+            this.dblDetail_ = null;
+          }
+        }
+
+        // TODO(zyaozhujun): There are some edge cases to deal with later.
+        // (for instance, what if a second finger trigger a down and up
+	// event sequence while swiping).
+        // When pointer up from the screen, a swipe selection session finished,
+        // all the data should be reset to prepare for the next session.
+        if (swipeInProgress) {
+          swipeInProgress = false;
+          swipeStatus.resetAll();
+        }
+        this.removeEventListener('pointermove', this.swipeHandler, false);
+      },
+
+      /**
+       * Handles key-up event that is sent by kb-key-base.
+       * @param {CustomEvent} event The key-up event dispatched by kb-key-base.
+       * @param {Object} detail The detail of pressed kb-key.
+       */
+      keyUp: function(event, detail) {
+        if (this.skipEvent(detail))
+          return;
+        if (swipeInProgress)
+          return;
+        this.lastPressedKey.classList.remove('active');
+        if (this.lastPressedKey != event.target)
+          return;
+        if (repeatKey.key == event.target) {
+          repeatKey.cancel();
+          return;
+        }
+        var toKeyset = detail.toKeyset;
+        // Keyset transition key.
+        if (toKeyset) {
+          this.keyset = toKeyset;
+          this.querySelector('#' + this.layout + '-' + this.keyset).nextKeyset =
+              detail.nextKeyset;
+        }
+        var toLayout = detail.toLayout;
+        // Layout transition key.
+        if (toLayout)
+          this.layout = toLayout;
+        var char = detail.char;
+        if (enterUpperOnSpace) {
+          enterUpperOnSpace = false;
+          if (char == ' ')
+            this.keyset = 'upper';
+        }
+        switch(char) {
+          case 'Invalid':
+          case 'Shift':
+            swipeStatus.swipeFlags = 0;
+            return;
+          case 'Microphone':
+            this.voiceInput_.onDown();
+            return;
+          case '.':
+          case '?':
+          case '!':
+            enterUpperOnSpace = true;
+            break;
+          default:
+            break;
+        }
+        insertText(char);
+      },
+
+      /*
+       * Handles key-longpress event that is sent by kb-key-base.
+       * @param {CustomEvent} event The key-longpress event dispatched by
+       *     kb-key-base.
+       * @param {Object} detail The detail of pressed key.
+       */
+      keyLongpress: function(event, detail) {
+        // If the gesture is long press, remove the pointermove listener.
+        this.removeEventListener('pointermove', this.swipeHandler, false);
+        var toKeyset = detail.toKeyset;
+        // Keyset transtion key.
+        if (toKeyset) {
+          this.keyset = toKeyset;
+          this.querySelector('#' + this.layout + '-' + this.keyset).nextKeyset =
+              detail.nextKeyset;
+
+          // Sets the caps class before removing active to prevent flicker.
+          this.classList.add('caps');
+          // Makes last pressed key inactive if transit to a new keyset on long
+          // press.
+          this.lastPressedKey.classList.remove('active');
+        }
+      },
+
+      /**
+       * Handles a change in the keyboard layout. Auto-selects the default
+       * keyset for the new layout.
+       */
+      layoutChanged: function() {
+        if (!this.selectDefaultKeyset()) {
+          // Keyset selection fails if the keysets have not been loaded yet.
+          var keysets = document.querySelector('#' + this.layout);
+          if (keysets) {
+            keyboard.appendChild(flattenKeysets(keysets.content));
+            this.selectDefaultKeyset();
+          } else {
+            console.error('Unable to find layout ' + this.layout);
+         }
+        }
+      },
+
+      /**
+       * Selects the default keyset for a layout.
+       * @return {boolean} True if successful. This method can fail if the
+       *     keysets corresponding to the layout have not been injected.
+       */
+      selectDefaultKeyset: function() {
+        var keysets = this.querySelectorAll('kb-keyset');
+        // Full name of the keyset is of the form 'layout-keyset'.
+        var regex = new RegExp('^' + this.layout + '-(.+)');
+        var keysetsLoaded = false;
+        for (var i = 0; i < keysets.length; i++) {
+          var matches = keysets[i].id.match(regex);
+          if (matches && matches.length == 2) {
+             keysetsLoaded = true;
+             if (keysets[i].isDefault) {
+               this.keyset = matches[1];
+               return true;
+             }
+          }
+        }
+        if (keysetsLoaded)
+          console.error('No default keyset found for ' + this.layout);
+        return false;
+      }
+    });
+  </script>
+</polymer-element>
+

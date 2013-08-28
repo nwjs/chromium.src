@@ -1,0 +1,172 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef NET_TEST_EMBEDDED_TEST_SERVER_EMBEDDED_TEST_SERVER_H_
+#define NET_TEST_EMBEDDED_TEST_SERVER_EMBEDDED_TEST_SERVER_H_
+
+#include <map>
+#include <string>
+#include <vector>
+
+#include "base/basictypes.h"
+#include "base/compiler_specific.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/weak_ptr.h"
+#include "base/threading/thread_checker.h"
+#include "net/socket/tcp_listen_socket.h"
+#include "url/gurl.h"
+
+namespace base {
+class FilePath;
+}
+
+namespace net {
+namespace test_server {
+
+class HttpConnection;
+class HttpResponse;
+struct HttpRequest;
+
+// This class is required to be able to have composition instead of inheritance,
+class HttpListenSocket : public TCPListenSocket {
+ public:
+  HttpListenSocket(const SocketDescriptor socket_descriptor,
+                   StreamListenSocket::Delegate* delegate);
+  virtual void Listen();
+
+ private:
+  virtual ~HttpListenSocket();
+
+  base::ThreadChecker thread_checker_;
+};
+
+// Class providing an HTTP server for testing purpose. This is a basic server
+// providing only an essential subset of HTTP/1.1 protocol. Especially,
+// it assumes that the request syntax is correct. It *does not* support
+// a Chunked Transfer Encoding.
+//
+// The common use case is below:
+//
+// base::Thread io_thread_;
+// scoped_ptr<EmbeddedTestServer> test_server_;
+//
+// void SetUp() {
+//   base::Thread::Options thread_options;
+//   thread_options.message_loop_type = MessageLoop::TYPE_IO;
+//   ASSERT_TRUE(io_thread_.StartWithOptions(thread_options));
+//
+//   test_server_.reset(
+//       new EmbeddedTestServer(io_thread_.message_loop_proxy()));
+//   ASSERT_TRUE(test_server_.InitializeAndWaitUntilReady());
+//   test_server_->RegisterRequestHandler(
+//       base::Bind(&FooTest::HandleRequest, base::Unretained(this)));
+// }
+//
+// scoped_ptr<HttpResponse> HandleRequest(const HttpRequest& request) {
+//   GURL absolute_url = test_server_->GetURL(request.relative_url);
+//   if (absolute_url.path() != "/test")
+//     return scoped_ptr<HttpResponse>();
+//
+//   scoped_ptr<HttpResponse> http_response(new HttpResponse());
+//   http_response->set_code(test_server::SUCCESS);
+//   http_response->set_content("hello");
+//   http_response->set_content_type("text/plain");
+//   return http_response.Pass();
+// }
+//
+class EmbeddedTestServer : public StreamListenSocket::Delegate {
+ public:
+  typedef base::Callback<scoped_ptr<HttpResponse>(
+      const HttpRequest& request)> HandleRequestCallback;
+
+  // Creates a http test server. |io_thread| is a task runner
+  // with IO message loop, used as a backend thread.
+  // InitializeAndWaitUntilReady() must be called to start the server.
+  explicit EmbeddedTestServer(
+      const scoped_refptr<base::SingleThreadTaskRunner>& io_thread);
+  virtual ~EmbeddedTestServer();
+
+  // Initializes and waits until the server is ready to accept requests.
+  bool InitializeAndWaitUntilReady() WARN_UNUSED_RESULT;
+
+  // Shuts down the http server and waits until the shutdown is complete.
+  bool ShutdownAndWaitUntilComplete() WARN_UNUSED_RESULT;
+
+  // Checks if the server is started.
+  bool Started() const {
+    return listen_socket_.get() != NULL;
+  }
+
+  // Returns the base URL to the server, which looks like
+  // http://127.0.0.1:<port>/, where <port> is the actual port number used by
+  // the server.
+  const GURL& base_url() const { return base_url_; }
+
+  // Returns a URL to the server based on the given relative URL, which
+  // should start with '/'. For example: GetURL("/path?query=foo") =>
+  // http://127.0.0.1:<port>/path?query=foo.
+  GURL GetURL(const std::string& relative_url) const;
+
+  // Returns the port number used by the server.
+  int port() const { return port_; }
+
+  // Registers request handler which serves files from |directory|.
+  // For instance, a request to "/foo.html" is served by "foo.html" under
+  // |directory|. Files under sub directories are also handled in the same way
+  // (i.e. "/foo/bar.html" is served by "foo/bar.html" under |directory|).
+  void ServeFilesFromDirectory(const base::FilePath& directory);
+
+  // The most general purpose method. Any request processing can be added using
+  // this method. Takes ownership of the object. The |callback| is called
+  // on UI thread.
+  void RegisterRequestHandler(const HandleRequestCallback& callback);
+
+ private:
+  // Initializes and starts the server. If initialization succeeds, Starts()
+  // will return true.
+  void InitializeOnIOThread();
+
+  // Shuts down the server.
+  void ShutdownOnIOThread();
+
+  // Handles a request when it is parsed. It passes the request to registed
+  // request handlers and sends a http response.
+  void HandleRequest(HttpConnection* connection,
+                     scoped_ptr<HttpRequest> request);
+
+  // StreamListenSocket::Delegate overrides:
+  virtual void DidAccept(StreamListenSocket* server,
+                         StreamListenSocket* connection) OVERRIDE;
+  virtual void DidRead(StreamListenSocket* connection,
+                       const char* data,
+                       int length) OVERRIDE;
+  virtual void DidClose(StreamListenSocket* connection) OVERRIDE;
+
+  HttpConnection* FindConnection(StreamListenSocket* socket);
+
+  scoped_refptr<base::SingleThreadTaskRunner> io_thread_;
+
+  scoped_refptr<HttpListenSocket> listen_socket_;
+  int port_;
+  GURL base_url_;
+
+  // Owns the HttpConnection objects.
+  std::map<StreamListenSocket*, HttpConnection*> connections_;
+
+  // Vector of registered request handlers.
+  std::vector<HandleRequestCallback> request_handlers_;
+
+  // Note: This should remain the last member so it'll be destroyed and
+  // invalidate its weak pointers before any other members are destroyed.
+  base::WeakPtrFactory<EmbeddedTestServer> weak_factory_;
+
+  base::ThreadChecker thread_checker_;
+
+  DISALLOW_COPY_AND_ASSIGN(EmbeddedTestServer);
+};
+
+}  // namespace test_servers
+}  // namespace net
+
+#endif  // NET_TEST_EMBEDDED_TEST_SERVER_EMBEDDED_TEST_SERVER_H_

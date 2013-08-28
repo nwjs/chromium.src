@@ -1,0 +1,42 @@
+﻿include_rules = [
+  # Favicon is being made into a Browser Component, so we have these
+  # three basic rules followed by temporary exceptions.  Please don't
+  # add to the list of exceptions!
+  "-chrome/browser",
+  "+chrome/browser/chrome_notification_types.h",
+  "+chrome/browser/common",
+  "+chrome/browser/favicon",
+
+  # Permanently-allowed DEPS beyond the standard Browser
+  # Components-like DEPS above go here.
+  "+chrome/browser/search/search.h",
+  "+third_party/skia/include/core/SkBitmap.h",
+
+  # TODO(caitkp): Bring this list to zero.
+  #
+  # Do not add to the list of temporarily-allowed dependencies below,
+  # and please do not introduce more #includes of these files.
+  "!chrome/browser/bookmarks/bookmark_service.h",
+  "!chrome/browser/history/history_backend.h",
+  "!chrome/browser/history/history_details.h",
+  "!chrome/browser/history/history_service.h",
+  "!chrome/browser/history/history_service_factory.h",
+  "!chrome/browser/history/select_favicon_frames.h",
+  "!chrome/browser/profiles/profile.h",
+  "!chrome/browser/ui/webui/chrome_web_ui_controller_factory.h",
+  # Do not add to the list of temporarily-allowed dependencies above,
+  # and please do not introduce more #includes of these files.
+]
+
+specific_include_rules = {
+  # TODO(caitkp): Look into removing history/ dependencies.
+  'favicon_util\.(h|cc)': [
+    "-chrome",
+    "-chrome/browser",
+    "+chrome/browser/favicon/favicon_util.h",
+    "+chrome/common/favicon/favicon_types.h",
+    "+chrome/common/icon_messages.h",
+    "!chrome/browser/history/history_types.h",
+    "!chrome/browser/history/select_favicon_frames.h",
+  ]
+}

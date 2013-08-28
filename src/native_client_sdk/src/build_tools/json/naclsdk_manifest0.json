@@ -1,0 +1,23 @@
+{
+  "bundles": [
+    {
+      "archives": [
+        {
+          "checksum": {
+            "sha1": "9c9af9e050cce3d490c7c1dd612910bed3f32b59"
+          },
+          "host_os": "all",
+          "size": 29354,
+          "url": "https://commondatastorage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/trunk.201132/sdk_tools.tgz"
+        }
+      ],
+      "description": "Native Client SDK Tools, revision 201132",
+      "name": "sdk_tools",
+      "recommended": "yes",
+      "revision": 201132,
+      "stability": "stable",
+      "version": 1
+    }
+  ],
+  "manifest_version": 2
+}

@@ -1,0 +1,1941 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* Special attribute used in HTML to hide elements. */
+body[type='folder'] [invisibleif~='folder'],
+body[type='upload-folder'] [invisibleif~='upload-folder'],
+body[type='saveas-file'] [invisibleif~='saveas-file'],
+body[type='open-file'] [invisibleif~='open-file'],
+body[type='open-multi-file'] [invisibleif~='open-multi-file'],
+body[type='full-page'] [invisibleif~='full-page'],
+
+body[type='folder'] [visibleif]:not([visibleif~='folder']),
+body[type='upload-folder'] [visibleif]:not([visibleif~='upload-folder']),
+body[type='saveas-file'] [visibleif]:not([visibleif~='saveas-file']),
+body[type='open-file'] [visibleif]:not([visibleif~='open-file']),
+body[type='open-multi-file'] [visibleif]:not([visibleif~='open-multi-file']),
+body[type='full-page'] [visibleif]:not([visibleif~='full-page']) {
+  display: none !important;
+}
+
+html {
+  height: 100%;
+}
+
+html.col-resize * {
+  cursor: col-resize !important;
+}
+
+/* Outer frame of the dialog. */
+body {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  cursor: default;
+  display: -webkit-box;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Drop opacity of selected rows to give a visual feedback on copy/cut
+ * operation. */
+.blink {
+  opacity: 0.8;
+}
+
+::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+}
+
+/* TODO(mtomasz): Flip scrollbars to the opposite side for RTL languages. */
+.scrollbar-vertical {
+  bottom: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 10px;
+  z-index: 1000;
+}
+
+.scrollbar-button {
+  background-color: black;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-sizing: border-box;
+  height: 50%;
+  margin-right: 2px;
+  opacity: 0;
+  position: absolute;
+  transition: opacity 100ms;
+  width: 8px;
+}
+
+:hover > .scrollbar-vertical > .scrollbar-button {
+  opacity: 0.3;
+}
+
+.scrollbar-vertical > .scrollbar-button:hover {
+  opacity: 0.4;
+}
+
+.scrollbar-vertical > .scrollbar-button.pressed {
+  opacity: 0.5;
+}
+
+#butter-bar-container {
+  width: 100%;
+}
+
+#butter-bar {
+  color: #666;
+  display: -webkit-box;
+  padding: 15px;
+}
+
+#butter-bar:not(.visible) {
+  display: none;
+}
+
+#butter-bar .content {
+  -webkit-box-flex: 1.0;
+  -webkit-box-orient: block-axis;
+  -webkit-box-pack: end;
+  display: -webkit-box;
+}
+
+#butter-bar .actions {
+  -webkit-box-align: end;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: end;
+  -webkit-margin-start: 6px;
+  display: -webkit-box;
+}
+
+#butter-bar .actions a {
+  color: rgb(17, 85, 204);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+#butter-bar .actions a.x {
+  background: center center no-repeat;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/close_bar.png') 1x,
+    url('../images/files/ui/2x/close_bar.png') 2x);
+  display: inline-block;
+  height: 35px;  /* #butter-bar .content's min-height. */
+  margin-right: -12px;
+  width: 35px;
+}
+
+#butter-bar .actions a.x:first-child {
+  margin-left: -6px;
+}
+
+#butter-bar .actions a.x {
+  margin-bottom: -14px;
+}
+
+#butter-bar .butter-message.single-line {
+  line-height: 2.0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Main part of the dialog between header and footer. */
+.dialog-container {
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  background-color: white;  /* Makes #drag-container invisible. */
+  border-radius: 2px;
+  display: -webkit-box;
+  overflow: hidden;
+  position: relative;
+}
+
+/* List/grid and preview are inside this container. */
+.dialog-main {
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+/* Directory tree at the left. */
+.dialog-sidebar {
+  -webkit-border-end: 1px solid rgb(225, 225, 225);
+  -webkit-box-flex: 0;
+  -webkit-box-orient: vertical;
+  background-color: #f1f1f1;
+  display: -webkit-box;
+  max-width: 50%;
+  min-width: 100px;
+  overflow: hidden;
+  position: relative;
+  width: 150px;
+}
+
+.dialog-sidebar-header {
+  -webkit-app-region: drag;
+  -webkit-box-flex: 0;
+  display: -webkit-box;
+  height: 48px;  /* Keep in sync with #dialog-header. */
+  line-height: 45px;
+}
+
+.dialog-sidebar-header #app-name {
+  -webkit-margin-start: 15px;
+  color: #303030;
+  font-size: 130%;
+}
+
+.dialog-sidebar-contents {
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+  position: relative;
+}
+
+.dialog-sidebar-footer {
+  -webkit-box-flex: 0;
+  display: -webkit-box;
+}
+
+/* A vertical splitter between the roots list and the file list. It is actually
+   a transparent area centered on the roots list right border.*/
+div.splitter {
+  -webkit-box-flex: 0;
+  cursor: col-resize;
+  margin-left: -3px;
+  margin-right: -3px;
+  position: relative;
+  width: 6px;
+  z-index: 100;
+}
+
+#volume-list {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+#volume-list > * {
+  height: 40px;
+  padding: 0 5px;
+}
+
+#volume-list > .accepts,
+#volume-list > [lead][selected],
+#volume-list > [lead],
+#volume-list > [selected],
+#volume-list > [anchor] {
+  background-color: rgb(225, 225, 225);
+}
+
+#volume-list:focus > .accepts,
+#volume-list:focus > [lead][selected],
+#volume-list:focus > [lead],
+#volume-list:focus > [selected],
+#volume-list:focus > [anchor] {
+  background-color: rgb(66, 129, 244);
+  color: white;
+}
+
+#volume-list li.root-item {
+  -webkit-box-align: center;
+  display: -webkit-box;
+  line-height: 22px;  /* To accomodate for icons. */
+  padding-left: 11px;
+}
+
+/* TODO(yoshiki): Animation is temporary disabled for volumes. Add animation
+   back. crbug.com/276132. */
+#volume-list li.root-item.fadein {
+  -webkit-animation: fadeIn 150ms ease-in-out;
+}
+
+/* This selector is used by JavaScript. "fadeout" class will be dinamically
+   added to elements.
+   Must keep the class name 'fadeout' and the animation name 'fadeOut' in sync
+   with JavaScript. */
+#volume-list li.root-item.fadeout {
+  -webkit-animation: fadeOut 150ms ease-in-out 0 1 normal both;
+  opacity: 0;
+}
+
+#volume-list li.root-item > .root-label {
+  -webkit-box-flex: 1;
+  margin: 0 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#volume-list .volume-icon {
+  background-position: center 2px;
+  background-repeat: no-repeat;
+  height: 24px;
+  width: 24px;
+}
+
+#middlebar-header {
+  -webkit-box-sizing: border-box;
+  -webkit-padding-start: 20px;
+  border-right: 1px solid rgb(212, 212, 212);
+  color: rgb(100, 100, 100);
+  height: 47px;
+  line-height: 40px;
+  overflow-x: hidden;
+  position: absolute;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+#directory-tree {
+  border-right: 1px solid rgb(212, 212, 212);
+  bottom: 0;
+  left: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 0;  /* For the preview panel. Will be overridden by JS. */
+  position: absolute;
+  right: 0;
+  top: 47px;
+}
+
+#directory-tree .tree-row {
+  cursor: pointer;
+  display: -webkit-box;
+  line-height: 29px;
+  padding: 0 3px;
+}
+
+/* For rows of subitems (non-top items) */
+#directory-tree .tree-children .tree-row {
+  line-height: 29px;
+}
+
+#directory-tree .tree-row > .expand-icon {
+  height: 37px;
+  left: 3px;
+  margin: -13px;
+  top: 0;
+  vertical-align: middle;
+  width: 37px;
+}
+
+#directory-tree:focus .tree-row[selected] > .expand-icon {
+  background-image: -webkit-canvas(tree-triangle-inverted);
+}
+
+#directory-tree .tree-row > .volume-icon {
+  background-position: center 2px;
+  background-repeat: no-repeat;
+  height: 24px;
+  vertical-align: middle;
+  width: 24px;
+}
+
+#directory-tree .tree-row > .label {
+  -webkit-box-flex: 1;
+  display: block;
+  margin: 0 3px;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+}
+
+#directory-tree .tree-item.accepts > .tree-row,
+#directory-tree .tree-row[lead][selected],
+#directory-tree .tree-row[lead],
+#directory-tree .tree-row[selected],
+#directory-tree .tree-row[anchor] {
+  background-color: rgb(204, 204, 204);
+}
+
+#directory-tree .tree-item.accepts > .tree-row,
+#directory-tree .tree-row[lead][selected],
+#directory-tree .tree-row[lead],
+#directory-tree .tree-row[selected],
+#directory-tree .tree-row[anchor] {
+  background-color: rgb(225, 225, 225);
+}
+
+#directory-tree:focus .tree-item.accepts > .tree-row,
+#directory-tree:focus .tree-row[lead][selected],
+#directory-tree:focus .tree-row[lead],
+#directory-tree:focus .tree-row[selected],
+#directory-tree:focus .tree-row[anchor] {
+  background-color: rgb(193, 209, 232);
+}
+
+#directory-tree:focus .tree-item.accepts > .tree-row,
+#directory-tree:focus .tree-row[lead][selected],
+#directory-tree:focus .tree-row[lead],
+#directory-tree:focus .tree-row[selected],
+#directory-tree:focus .tree-row[anchor] {
+  background-color: rgb(66, 129, 244);
+  color: white;
+}
+
+#volume-list .root-item > div.root-eject {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/eject.png') 1x,
+    url('../images/files/ui/2x/eject.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  height: 20px;
+  margin-right: 6px;
+  opacity: 0.7;
+  transition: opacity 70ms linear;
+  vertical-align: middle;
+  width: 20px;
+}
+
+#volume-list:focus .root-item[selected] > div.root-eject {
+  -webkit-filter: brightness(0) invert();
+  opacity: 1;
+}
+
+#directory-tree .tree-row > div.root-eject:hover {
+  opacity: 1;
+}
+
+#directory-tree .root-item[disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Breadcrumbs and things under the title but above the list view. */
+.dialog-header {
+  -webkit-app-region: drag;
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  height: 48px;
+  margin: 0;
+  transition: all 180ms ease;
+}
+
+.search-box-wrapper {
+  -webkit-align-items: center;
+  -webkit-box-flex: 1;
+  display: -webkit-flex;
+  height: 100%;
+}
+
+.search-box-wrapper.too-short {
+  visibility: hidden;
+}
+
+.dialog-header #search-box,
+.dialog-header #autocomplete-list,
+.dialog-header #search-icon,
+.dialog-header #search-clear-button {
+  -webkit-app-region: no-drag;
+}
+
+/* Container for the detail and thumbnail list views. */
+.dialog-body {
+  -webkit-box-flex: 1;
+  -webkit-transition: all 180ms ease;
+  border-top: 1px solid rgb(225, 225, 225);
+  position: relative;
+}
+
+.main-panel {
+  bottom: 0;
+  display: -webkit-box;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.dialog-middlebar-contents {
+  display: -webkit-box;
+  max-width: 50%;
+  min-width: 45px;
+  position: relative;
+  width: 180px;
+}
+
+/* Container for the ok/cancel buttons. */
+.dialog-footer {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  border-top: 1px solid rgb(225, 225, 225);
+  display: -webkit-box;
+  outline: none;
+  padding: 10px;
+}
+
+.progressable:not([progress]) .progress-bar,
+.progressable:not([progress]) .preparing-label {
+  display: none;
+}
+
+.progressable[progress] .ok,
+.progressable[progress] #filename-input-box,
+.progressable[progress] #preview-lines,
+.progressable[progress] .file-type {
+  display: none;
+}
+
+.progressable .progress-bar {
+  -webkit-box-flex: 1;
+  -webkit-margin-end: 20px;
+  -webkit-margin-start: 20px;
+}
+
+/* The container for breadcrumb elements. */
+.breadcrumbs {
+  -webkit-box-align: center;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  line-height: 20px;
+  overflow: hidden;
+  padding-top: 1px;
+}
+
+#dir-breadcrumbs {
+  -webkit-margin-end: 5px;
+  -webkit-margin-start: 10px;
+}
+
+/* The icon for offline mode */
+.offline-icon {
+  -webkit-margin-end: 0;
+  -webkit-margin-start: 10px;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/offline.png') 1x,
+    url('../images/files/ui/2x/offline.png') 2x);
+  height: 16px;
+  opacity: 0;
+  transition-duration: 200ms;
+  transition-property: opacity;
+  transition-timing-function: ease-out;
+  width: 16px;
+}
+
+/* Transition for '-webkit-margin-start' (or -end) property is not working.
+ * So I added .offline-icon-space to animate 'width' property. */
+.offline-icon-space {
+  -webkit-margin-end: 0;
+  -webkit-margin-start: -26px; /* Clear width of .offline-icon */
+  transition-duration: 200ms;
+  transition-property: width;
+  transition-timing-function: ease-out;
+  width: 0;
+}
+
+body[drive] .dialog-container[connection='offline'] .offline-icon,
+body[drive] .dialog-container[connection='metered'] .offline-icon {
+  opacity: 1;
+}
+
+body[drive] .dialog-container[connection='offline'] .offline-icon-space,
+body[drive] .dialog-container[connection='metered'] .offline-icon-space {
+  width: 26px;
+}
+
+.breadcrumbs > [collapsed]::before {
+  content: '...';
+}
+
+.breadcrumbs > [collapsed] {
+  width: 1em;
+}
+
+/* A single directory name in the list of path breadcrumbs. */
+.breadcrumb-path {
+  color: #969696;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The final breadcrumb, representing the current directory. */
+#search-breadcrumbs .breadcrumb-path.breadcrumb-last {
+  color: #141414;
+  cursor: default;
+}
+
+/* The > arrow between breadcrumbs. */
+
+.breadcrumbs .separator {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/breadcrumb-separator.png') 1x,
+    url('../images/files/ui/2x/breadcrumb-separator.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  height: 10px;
+  overflow: hidden;
+  width: 25px;
+}
+
+#search-box,
+#filename-input-box input {
+  border: 1px solid #c8c8c8;
+  border-radius: 1px;
+  box-sizing: border-box;
+  height: 31px;  /* border-box */
+  margin-right: 30px;
+}
+
+#search-box {
+  -webkit-margin-end: 0;
+  -webkit-padding-after: 2px;
+  -webkit-padding-before: 1px;
+  -webkit-padding-end: 24px;
+  -webkit-padding-start: 23px;
+  background-color: #fff;
+  background-position: 4px 5.5px;
+  background-repeat: no-repeat;
+  border-style: none;
+  color: #333;
+  display: block;
+  height: 48px;
+  line-height: 1em;
+  max-width: 100%;
+  outline: none;
+  padding: 0;
+  pointer-events: none;
+  position: relative;
+  transition: width 0;
+  width: 0; /* Overrided by script */
+}
+
+#search-box:focus,
+#search-box:active,
+.has-text #search-box {
+  pointer-events: auto;
+}
+
+#search-box::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  right: 2px;
+}
+
+#search-icon {
+  -webkit-flex-shrink: 0;
+  -webkit-margin-end: 3px;
+  -webkit-margin-start: 10px;
+  -webkit-order: -1;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_icon_inactive.png') 1x,
+    url('../images/files/ui/2x/search_icon_inactive.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 32px;
+  width: 32px;
+}
+
+#search-icon:hover,
+#search-box:active + #search-icon,
+#search-box:focus + #search-icon,
+.has-text #search-icon {
+  background: -webkit-image-set(
+    url('../images/files/ui/search_icon_active.png') 1x,
+    url('../images/files/ui/2x/search_icon_active.png') 2x);
+}
+
+#search-clear-button {
+  -webkit-margin-end: 30px;
+  -webkit-margin-start: 10px;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear.png') 1x,
+    url('../images/files/ui/2x/search_clear.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  display: none;
+  height: 12px;
+  width: 12px;
+}
+
+.search-box-wrapper.has-text + #search-clear-button {
+  display: block;
+}
+
+.search-box-wrapper.too-short + #search-clear-button {
+  display: none;
+}
+
+#search-clear-button:hover {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear_hover.png') 1x,
+    url('../images/files/ui/2x/search_clear_hover.png') 2x);
+}
+
+#search-clear-button:active {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear_pressed.png') 1x,
+    url('../images/files/ui/2x/search_clear_pressed.png') 2x);
+}
+
+.filelist-panel {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+#list-container {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  position: relative;
+}
+
+#detail-table {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+#detail-table > list,
+.thumbnail-grid {
+  -webkit-box-flex: 1;
+  padding-bottom: 0;  /* For the preview panel. Will be overridden by JS. */
+}
+
+.main-panel #detail-table > list > .drag-selection-border {
+  -webkit-box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  position: absolute;
+  z-index: 2;
+}
+
+.spinner {
+  background-image: url('../images/common/spinner.svg');
+  background-size: 100%;
+  height: 22px;
+  left: 50%;
+  margin-left: -11px;
+  margin-top: -11px;
+  opacity: 0.5;
+  position: absolute;
+  top: 50%;
+  width: 22px;
+}
+
+#spinner-container,
+.spinner-container {
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  bottom: 0;
+  display: -webkit-box;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+#spinner-with-text {
+  background-image: url('../images/common/spinner.svg');
+  background-repeat: no-repeat;
+  font-size: 16px;
+  height: 22px;
+  min-width: 22px;
+  opacity: 0.6;
+  padding-left: 26px;
+  position: relative;
+  z-index: 10;
+}
+
+.downloads-warning {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  background-color: #f0f0f0;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/warning_icon_square.png') 1x,
+    url('../images/files/ui/2x/warning_icon_square.png') 2x);
+  background-position: 15px center;
+  background-repeat: no-repeat;
+  color: #666;
+  display: -webkit-box;
+  font-size: 13px;
+  height: 57px;
+  overflow: hidden;
+  padding-left: 57px;  /* Make space for the icon. */
+  transition: height 70ms linear;
+}
+
+.downloads-warning[hidden] {
+  display: -webkit-box !important;  /* Overrides [hidden] for animation. */
+  height: 0;
+}
+
+@-webkit-keyframes heightAnimation {
+  0% {
+    height: 0;
+    display: -webkit-box;
+  }
+}
+
+/* Drive space warning banner. */
+.volume-warning {
+  -webkit-animation: heightAnimation 70ms linear;
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  background-image: url(chrome://resources/images/clouds.png);
+  background-repeat: repeat-x;
+  background-size: 150px 44px;
+  color: #333;
+  display: -webkit-box;
+  font-size: 13px;
+  height: 44px;
+  overflow: hidden;
+  position: relative;
+}
+
+.volume-warning[hidden] {
+  border-top-width: 0;
+  height: 0;
+}
+
+.volume-warning .drive-icon {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/drive_logo.png') 1x,
+    url('../images/files/ui/2x/drive_logo.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 25px 22px;
+  height: 44px;
+  width: 50px;
+}
+
+.volume-warning .drive-text {
+  margin-right: 11px;
+}
+
+/* The cr.ui.Grid representing the detailed file list. */
+.thumbnail-grid {
+  overflow-y: auto;
+  padding-bottom: 0;  /* For the preview panel. Will be overridden by JS. */
+  width: 100%;
+}
+
+body[type='full-page'] .thumbnail-frame > .img-container {
+  position: relative;
+}
+
+body[type='full-page'] .thumbnail-frame > .img-container,
+body[type='full-page'] .detail-name .detail-icon {
+  cursor: pointer;
+}
+
+.img-container > img {
+  -webkit-user-drag: none;
+  position: absolute;
+}
+
+.img-container > img:not(.cached):not(.drag-thumbnail) {
+  -webkit-animation: fadeIn 250ms linear;
+}
+
+.thumbnail-bottom {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  bottom: 0;
+  cursor: auto;
+  display: -webkit-box;
+  left: 0;
+  padding: 0 10px;
+  position: absolute;
+  right: 0;
+}
+
+.thumbnail-bottom .filename-label {
+  -webkit-box-flex: 1;
+}
+
+/* Styles specific for the grid view. */
+
+.thumbnail-grid .thumbnail-item {
+  -webkit-margin-start: 8px;
+  border: 3px solid transparent;  /* Selection will make the border visible. */
+  margin-top: 7px;
+  position: relative;
+}
+
+.thumbnail-grid .thumbnail-frame {
+  background-color: rgb(245, 245, 245);
+  height: 180px;
+  overflow: hidden;
+  position: relative;
+  width: 240px;
+}
+
+.thumbnail-grid .thumbnail-item[selected] .thumbnail-frame,
+.thumbnail-grid .thumbnail-item.accepts .thumbnail-frame {
+  border-color: white;
+}
+
+.thumbnail-grid .img-container {
+  height: 100%;
+  width: 100%;
+}
+
+.thumbnail-grid .thumbnail-bottom {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  height: 30px;
+}
+
+/* In the full page mode we can afford to show thumbnails as large as 320x240
+   with no downscaling. */
+body[type='full-page'] .thumbnail-grid .thumbnail-item {
+  -webkit-margin-start: 21px;
+  margin-top: 20px;
+}
+
+body[type='full-page'] .thumbnail-grid .thumbnail-frame {
+  height: 240px;
+  width: 320px;
+}
+
+body[type='full-page'] .thumbnail-grid .thumbnail-bottom {
+  height: 34px;
+}
+
+/* Padding counterweights negative margins of items, thus eliminating scroll
+   bar when it's not needed. Max height is set to fit 8 items before showing
+   scroll bar. */
+#default-actions-list {
+  max-height: 328px;
+  padding: 1px 0;
+}
+
+#default-actions-list > li > * {
+  background-position: 5px center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  padding-left: 26px;
+}
+
+#list-container list > li[selected],
+#list-container grid > li[selected],
+#default-actions-list > li[selected] {
+  background-color: rgb(225, 225, 225);
+}
+
+#list-container list:focus > li[selected],
+#list-container grid:focus > li[selected],
+#default-actions-list:focus > li[selected] {
+  background-color: rgb(66, 129, 244);
+  color: white;
+}
+
+#list-container list > li.accepts[selected],
+#list-container grid > li.accepts[selected] {
+  background-color: rgb(215, 215, 215);
+}
+
+#list-container list:focus > li.accepts[selected],
+#list-container grid:focus > li.accepts[selected] {
+  background-color: rgb(48, 125, 254);
+}
+
+#list-container list > li.accepts,
+#list-container grid > li.accepts {
+  background-color: #f1f1f1;
+}
+
+#list-container.nohover grid > .accepts {
+  background-color: transparent;
+}
+
+#directory-tree .tree-item.accepts > .tree-row,
+#volume-list > .accepts,
+#list-container list > li.accepts,
+#list-container grid > li.accepts {
+  -webkit-animation: acceptsBlink 200ms linear 1s 3;
+}
+
+@-webkit-keyframes acceptsBlink {
+  0% {
+    background-color: transparent;
+  }
+}
+
+.table-row-cell .selection-label {
+  -webkit-margin-end: 10px;
+  height: 15px;
+}
+
+.table-row-cell .filename-label,
+.thumbnail-item .filename-label,
+/* Show ellipsis in cells. The name column has different structure and overrides
+   this rule. */
+.table-row-cell > div {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Text box used for renaming in the detail list. */
+.table-row-cell input.rename {
+  border-width: 0;
+  padding: 2px 0;
+}
+
+input.rename:focus {
+  outline-color: rgb(77, 144, 254);
+}
+
+input.rename {
+  font: inherit;
+  line-height: 1;
+  text-align: inherit;
+}
+
+.table-row-cell .filename-label,
+.table-row-cell input.rename {
+  -webkit-box-flex: 1;
+}
+
+[renaming] > .filename-label {
+  display: none;
+}
+
+/* Text box used for renaming in the thumbnail list. */
+.thumbnail-grid input.rename {
+  -webkit-margin-start: -1px;
+  box-sizing: border-box;
+  height: 20px;
+  width: 114px;
+}
+
+/* The cr.ui.Table representing the detailed file list. */
+.detail-table {
+  width: 100%;
+}
+
+/* Bottom pane describing current selection. */
+.preview-panel {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-transition: background-color 150ms ease;
+  background: linear-gradient(
+      to bottom, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 1));
+  border-top: 1px solid rgb(225, 225, 225);
+  bottom: 0;
+  display: -webkit-box;
+  height: 51px;
+  left: 0;
+  opacity: 1;
+  padding: 0 10px 0 7px;
+  position: absolute;
+  right: 0;
+  z-index: 3;
+}
+
+.preview-panel[visibility=hiding] {
+  /* Using all seems to cause preview panel and checkbox flicking issue. */
+  -webkit-transform: translate(0, 5px);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.preview-panel[visibility=hidden] {
+  display: none;
+  opacity: 0;
+}
+
+.preview-panel > .left,
+.dialog-footer > .left {
+  -webkit-box-align: center;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+}
+
+.preview-panel > .right,
+.dialog-footer > .right {
+  -webkit-box-pack: end;
+}
+
+.preview-panel .preparing-label {
+  -webkit-margin-start: 30px;
+}
+
+.preview-panel .progress-bar {
+  -webkit-box-flex: 1;
+}
+
+.preview-thumbnails {
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+  padding-left: 25px;
+}
+
+.preview-thumbnails > .thumbnail {
+  background-color: white;
+  border: 1px solid #fff;
+  box-shadow: 0 1px 1px rgba(80, 80, 80, 0.5);
+  height: 35px;
+  margin: 0 0 0 -25px;  /* Overlapped images. */
+  position: relative;
+  width: 35px;
+}
+
+.preview-thumbnails > .thumbnail > .img-container {
+  background-size: 35px 35px;
+  border: 1px solid white;
+  box-sizing: border-box;
+  height: 35px;
+  overflow: hidden;
+  position: relative;
+  width: 35px;
+}
+
+@-webkit-keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@-webkit-keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.preview-thumbnails > .popup {
+  -webkit-transform: translate(0, 3px) scale(0.95);
+  background-color: #f2f2f2;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #F0F0F0,
+              0 0 0 2px #D0D0D0,
+              2px 2px 6px rgba(0, 0, 0, 0.2);
+  margin: 6px 0 0 -40px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.preview-thumbnails > .popup > img {
+  -webkit-user-drag: none;
+}
+
+.preview-thumbnails > * {
+  transition: all 180ms ease-in;
+  transition-delay: 300ms;
+}
+
+.preview-thumbnails.has-zoom:hover > .popup {
+  -webkit-transform: translate(0, 0) scale(1.0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.preview-thumbnails.has-zoom:hover > .thumbnail {
+  opacity: 0;
+}
+
+/* Table splitter element */
+.table-header-splitter {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/vertical_separator.png') 1x,
+    url('../images/files/ui/2x/vertical_separator.png') 2x);
+  background-position: center;
+  background-repeat: repeat-y;
+  height: 20px;
+  top: 10px;
+  width: 5px;
+}
+
+.table-header-splitter:last-child {
+  display: none;
+}
+
+/* Container for a table header. */
+.table-header {
+  box-sizing: border-box;
+  height: 47px;
+}
+
+.table-header-sort-image-desc::after {
+  -webkit-padding-start: 13px;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/sort_desc.png') 1x,
+    url('../images/files/ui/2x/sort_desc.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  color: #888;
+  content: '\00a0';
+  position: relative;
+  top: 1px;
+}
+
+.table-header-sort-image-asc::after {
+  -webkit-padding-start: 13px;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/sort_asc.png') 1x,
+    url('../images/files/ui/2x/sort_asc.png') 2x);
+  background-position: center center;
+  background-repeat: no-repeat;
+  color: #888;
+  content: '\00a0';
+  position: relative;
+  top: -1px;
+}
+
+.preview-container .table-header {
+  border-radius: 0 4px 0 0;
+}
+
+/* Text label in a table header. */
+.table-header-label {
+  color: rgb(100, 100, 100);
+  line-height: 40px;
+  margin: 0 7px;
+}
+
+.table-row-cell > * {
+  -webkit-box-align: center;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  padding: 0 10px;
+}
+
+.table-row-cell {
+  color: rgb(100, 100, 100);
+}
+
+.table-row-cell > .detail-name {
+  display: -webkit-box;
+}
+
+.table-row-cell > .detail-name {
+  color: rgb(0, 0, 0);
+}
+
+
+#list-container list:focus > [selected] .table-row-cell,
+#list-container list:focus > [selected] .detail-name {
+  color: white;
+}
+
+.table-row-cell {
+  -webkit-box-align: center;
+}
+
+.file-checkbox {
+  -webkit-margin-end: 0;
+  -webkit-margin-start: 0;
+  position: relative;
+  z-index: 2;
+}
+
+#select-all-checkbox {
+  -webkit-margin-end: 13px;
+  -webkit-margin-start: 3px;
+  margin-bottom: 0;
+  margin-top: 0;
+  vertical-align: middle;
+}
+
+#list-container .table-header #select-all-checkbox,
+#list-container li.table-row .file-checkbox {
+  -webkit-appearance: none;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/select_checkbox.png') 1x,
+    url('../images/files/ui/2x/select_checkbox.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  border-style: none;
+  height: 15px;
+  width: 15px;
+}
+
+#list-container li.table-row .file-checkbox {
+  vertical-align: top;
+}
+
+#list-container .table-header #select-all-checkbox::after,
+#list-container li.table-row .file-checkbox::after {
+  content: none;
+}
+
+#list-container .table-header #select-all-checkbox:checked,
+#list-container li.table-row .file-checkbox:checked {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/select_checkbox_checked.png') 1x,
+    url('../images/files/ui/2x/select_checkbox_checked.png') 2x);
+}
+
+#list-container .table-header #select-all-checkbox:checked,
+#list-container list li.table-row[selected] .file-checkbox {
+  -webkit-filter: brightness(0) opacity(40%);
+}
+
+#list-container list:focus li.table-row[selected] .file-checkbox {
+  -webkit-filter: brightness(0) invert();
+}
+
+#list-container li.table-row,
+#default-actions-list li {
+  height: 29px;
+  line-height: 29px;
+}
+
+/* The icon in the name column. See file_types.css for specific icons. */
+.detail-icon {
+  height: 24px;
+  width: 24px;
+}
+
+#detail-table .detail-icon {
+  /* To shift the icon position. */
+  margin-bottom: 2px;
+}
+
+.metadata-item {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: horizontal;
+  -webkit-padding-start: 8px;
+  display: -webkit-box;
+}
+
+.metadata-label {
+  -webkit-margin-end: 6px;
+}
+
+.preview-panel .spacer {
+  -webkit-box-flex: 1;
+}
+
+#delete-button {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/onbutton_trash.png') 1x,
+    url('../images/files/ui/2x/onbutton_trash.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  display: -webkit-box;
+  min-width: 21px;  /* overrride */
+  padding: 0;  /* overrride */
+  width: 21px;
+}
+
+#delete-button[disabled] {
+  display: none;
+}
+
+#tasks-menu menuitem:not(.change-default) {
+  background-position: left 10px center;
+  padding-left: 32px;
+}
+
+#share-button {
+  min-width: 0;  /* overrride */
+}
+
+#preview-lines {
+  -webkit-box-flex: 1;
+  -webkit-margin-end: 10px;
+  -webkit-margin-start: 10px;
+  vertical-align: middle;
+}
+
+/* The selection summary text at the bottom of the preview pane. */
+.preview-summary {
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.preview-summary .calculating-size {
+  margin-left: 5px;
+  opacity: 0.5;
+}
+
+.detail-name > * {
+  -webkit-box-align: center;
+  display: -webkit-box;
+}
+
+/* Overriding input.common[type='checkbox'] rule in common.css. */
+.detail-name > input.common[type='checkbox'] {
+  -webkit-margin-end: 4px;
+  -webkit-margin-start: -1px;
+  border-color: #444;
+}
+
+list .detail-name > .file-checkbox::before,
+.pin::before {
+  /* Invisible area that reacts on mouse events. */
+  content: '';
+  display: -webkit-box;
+  height: 38px;
+  left: -8px;
+  position: absolute;
+  right: -9px;
+  top: -14px;
+}
+
+#filename-input-box {
+  -webkit-box-align: center;
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+}
+
+#filename-input-box input {
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+  padding: 1px 2px;
+}
+
+#filename-input-box .filename-label {
+  -webkit-box-orient: horizontal;
+  background-color: white;
+  color: #333;
+  display: -webkit-box;
+  padding-right: 4px;
+}
+
+body:not([type='saveas-file']) #filename-input-box {
+  display: none;
+}
+
+/* A vertical spring. */
+.vertical-spacer {
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+/* Dimmed items */
+
+body[type='folder'] .file,
+body[type='upload-folder'] .file,
+body[drive] .dialog-container[connection='offline'] .dim-offline {
+  opacity: 0.4;
+}
+
+/* Overlay pane covering the entire file manager window (e.g. image editor)*/
+.overlay-pane {
+  border: none;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 100;
+}
+
+/* When the overlay pane is visible hide everything else so that the tab order
+  is not confused. */
+body[overlay-visible] > :not(.overlay-pane) {
+  display: none !important;
+}
+
+/* Invisible container for elements representing files while dragging. */
+#drag-container {
+  left: 0;
+  /* Hack for extra margins caused by setDragImage(). */
+  padding: 1000px 0 0 1000px;
+  position: fixed;
+  top: 0;
+  z-index: -1;  /* below .dialog-container */
+}
+
+#drag-container .drag-contents {
+  -webkit-box-orient: horizontal;
+  background-color: #fafafa;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  box-shadow: 0 2px 2px 0 rgba(0, 0, 0, .2);
+  display: -webkit-box;
+  margin-bottom: 5px;
+  padding: 6px;
+  transition: opacity 200ms ease-in;
+}
+
+#drag-container .drag-contents.for-image  {
+  padding: 2px;
+}
+
+#drag-container .thumbnail-item {
+  -webkit-box-orient: horizontal;
+  display: -webkit-box;
+}
+
+/* When changing these properties please preserve these conditions:
+   1. width == height (so that the rotated thumbnail does not look off-center)
+   2. width % 8 == 0 (to minimize rounding errors in the centering code) */
+#drag-container .img-container {
+  -webkit-box-flex: 0;
+  display: -webkit-box;
+  height: 64px;
+  overflow: hidden;
+  position: relative;
+  width: 64px;
+}
+
+#drag-container .label {
+  -webkit-box-flex: 1;
+  font-weight: bold;
+  line-height: 24px;
+  max-width: 320px;
+  overflow: hidden;
+  padding: 0 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+menu.file-context-menu {
+  z-index: 4;
+}
+
+menu.chrome-menu hr {
+  color: transparent;
+  font-size: 0;
+}
+
+div.offline {
+  -webkit-box-pack: center;
+  display: -webkit-box;
+}
+
+div.offline > * {
+  -webkit-box-align: center;
+  display: -webkit-box;
+}
+
+div.shade {
+  /* transition: opacity 1000ms linear; */
+  background-color: rgba(255, 255, 255, 0.8);
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+div.shade[fadein] {
+  opacity: 1;
+}
+
+/* Message panel for unmounted Drive */
+#unmounted-panel,
+#format-panel {
+  bottom: 0;
+  color: #333;
+  display: none;
+  left: 0;
+  padding-left: 50px;
+  padding-top: 20px;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+body[drive='mounting'] .dialog-container #unmounted-panel,
+body[drive='error'] .dialog-container #unmounted-panel,
+body[unformatted] .dialog-container #format-panel {
+  display: block;
+}
+
+body[drive='unmounted'] .dialog-container .filelist-panel,
+body[drive='mounting'] .dialog-container .filelist-panel,
+body[drive='error'] .dialog-container .filelist-panel,
+body[unformatted] .dialog-container .filelist-panel {
+  /* Hide file list when Drive is not mounted.
+     Use opacity to avoid manual resizing.*/
+  opacity: 0;
+}
+
+#unmounted-panel > *,
+#format-panel > * {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: start;
+  display: none;
+  height: 22px;
+  margin-bottom: 10px;
+}
+
+#unmounted-panel > .loading {
+  position: relative;
+}
+
+#unmounted-panel > .loading > .spinner-box {
+  bottom: 0;
+  position: absolute;
+  right: 100%;
+  top: 0;
+  width: 40px;
+}
+
+body[unformatted] #format-panel > .error,
+body[drive='mounting'] #unmounted-panel > .loading,
+body[drive='error'] #unmounted-panel > .error,
+#format-panel > #format-button,
+#unmounted-panel.retry-enabled > .retry,
+#unmounted-panel.retry-enabled > .learn-more {
+  display: -webkit-box;
+}
+
+.plain-link {
+  color: rgb(17, 85, 204);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.buttonbar > * {
+  position: relative;
+}
+
+.buttonbar .tooltip,
+.topbutton-bar .tooltip {
+  right: -12px;
+  top: 35px;
+}
+
+/* Tooltips */
+.tooltip {
+  background: #2d2d2d;
+  border-radius: 0;
+  box-shadow: 1px 2px 4px #ccc;
+  box-sizing: border-box;
+  color: white;
+  display: block;
+  font-size: 11px;
+  font-weight: bold;
+  height: 29px;
+  line-height: 29px;
+  margin-left: -20px;
+  min-width: 50px;
+  opacity: 0;
+  outline: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0 10px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  top: 5px;
+  white-space: nowrap;
+  z-index: 15;
+}
+
+.tooltip::after,
+.tooltip::before {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: transparent;
+  content: '';
+  display: block;
+  margin-left: -5px;
+  position: absolute;
+  right: 24px;
+  top: -5px;
+}
+
+.tooltip::after {
+  border-bottom: 5px solid #2d2d2d;
+}
+
+.tooltip::before {
+  border-bottom: 5px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Show with delay, disappear instantly */
+@-webkit-keyframes tooltip-show {
+  0% { opacity: 0; }
+  90% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+:hover > .tooltip {
+  -webkit-animation-duration: 800ms;
+  -webkit-animation-iteration-count: 1;
+  -webkit-animation-name: tooltip-show;
+  -webkit-animation-timing-function: linear;
+  opacity: 1;
+}
+
+#no-search-results {
+  bottom: 0;
+  display: none;
+  left: 0;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  top: 28px;  /* Leave room for the file list header. */
+}
+
+.dialog-container:not([drive-welcome='page']) #no-search-results[show] {
+  display: block;
+}
+
+#volume-space-info-contents {
+  -webkit-box-align: center;
+  display: -webkit-box;
+}
+
+#volume-space-info-contents > div {
+  -webkit-box-flex: 1;
+  -webkit-margin-start: 15px;
+  display: -webkit-box;
+}
+
+#list-container .table-header-inner {
+  height: 100%;
+}
+
+#list-container .table-header-cell:hover {
+  background-color: inherit;
+}
+
+#list-container .table-header-cell:first-child {
+  -webkit-box-sizing: border-box;
+  -webkit-padding-start: 8px;
+}
+
+button:focus {
+  outline-color: rgb(77, 144, 254);
+}
+
+#new-folder {
+  margin-right: 30px;
+}
+
+#default-action-dialog {
+  min-width: 300px;
+  width: auto;
+}
+
+.drive-welcome-wrapper {
+  /* drive_welcome.css will override it once loaded. */
+  display: none;
+}
+
+list.autocomplete-suggestions {
+  -webkit-margin-before: -7px;
+  -webkit-margin-start: -38px;
+  background-color: rgb(250, 250, 250);
+  border: 1px solid rgb(255, 255, 255);
+  border-radius: 3px;
+  box-shadow: 0 1px 4px 0 rgba(0, 0, 0, .5);
+  box-sizing: border-box;  /* To match the width with the search box's. */
+  color: rgb(34, 34, 34);
+  overflow: hidden;
+  padding: 5px 0;
+  position: fixed;
+  width: 300px !important; /* This overrides the value specified by script. */
+  z-index: 3;
+}
+
+list.autocomplete-suggestions > li {
+  -webkit-box-align: center;
+  display: -webkit-box;
+  padding: 3px 0;
+}
+
+list.autocomplete-suggestions > li > div.detail-icon {
+  -webkit-margin-end: 6px;
+  -webkit-margin-start: 6px;
+}
+
+list.autocomplete-suggestions > li > div.detail-text {
+  -webkit-box-flex: 1;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
+}
+
+list.autocomplete-suggestions > li > div.detail-text em {
+  color: rgb(150, 150, 150);
+  font-style: normal;
+}
+
+list.autocomplete-suggestions > li > div[search-icon] {
+  background: -webkit-image-set(
+    url('../images/files/ui/search_icon_active.png') 1x,
+    url('../images/files/ui/2x/search_icon_active.png') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+list.autocomplete-suggestions > li[selected] > div[search-icon],
+list.autocomplete-suggestions > li[lead] > div[search-icon] {
+  -webkit-filter: brightness(0) invert();
+}
+
+list.autocomplete-suggestions > [selected],
+list.autocomplete-suggestions > [lead] {
+  background-color: rgb(66, 129, 244);
+  color: white;
+}
+
+list.autocomplete-suggestions > [selected] > div.detail-text em,
+list.autocomplete-suggestions > [lead] > div.detail-text em {
+  color: white;
+}
+
+#gear-menu {
+  margin-top: 8px;
+}
+
+#gear-menu > menuitem:not(.menuitem-button) {
+  margin-right: 50px;
+}
+
+/* View buttons in the gear menu. */
+
+menuitem#detail-view {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/button_list_view.png') 1x,
+    url('../images/files/ui/2x/button_list_view.png') 2x);
+}
+
+menuitem#detail-view[selected]:not([disabled]),
+menuitem#detail-view[lead]:not([disabled]) {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/button_list_view_white.png') 1x,
+    url('../images/files/ui/2x/button_list_view_white.png') 2x);
+}
+
+menuitem#thumbnail-view {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/button_mosaic_view.png') 1x,
+    url('../images/files/ui/2x/button_mosaic_view.png') 2x);
+}
+
+menuitem#thumbnail-view[selected]:not([disabled]),
+menuitem#thumbnail-view[lead]:not([disabled]) {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/button_mosaic_view_white.png') 1x,
+    url('../images/files/ui/2x/button_mosaic_view_white.png') 2x);
+}
+
+#iframe-drag-area {
+  -webkit-app-region: drag;
+  height: 45px;
+  left: 64px;
+  position: absolute;
+  right: 70px;
+  top: 0;
+  width: auto;
+  z-index: 101;
+}
+
+#suggest-app-dialog {
+  background-color: #fff;
+  border: 0;
+  padding: 0;
+  width: auto;
+}
+
+#suggest-app-dialog #suggested-app-list {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  width: 450px;
+}
+
+#suggest-app-dialog .cr-dialog-title {
+  font-size: 16px;
+  height: 18px;
+  padding: 10px 18px;
+}
+
+#suggest-app-dialog .cr-dialog-buttons,
+#suggest-app-dialog .cr-dialog-text,
+#suggest-app-dialog .cr-dialog-ok,
+#suggest-app-dialog .cr-dialog-cancel {
+  display: none;
+}
+
+#suggest-app-dialog #buttons {
+  background: #eee;
+  width: 100%;
+}
+
+#suggest-app-dialog #buttons > #webstore-button {
+  -webkit-padding-start: 32px;
+  background-image: -webkit-image-set(
+    url('chrome://theme/IDR_WEBSTORE_ICON_16') 1x,
+    url('chrome://theme/IDR_WEBSTORE_ICON_16@2x') 2x);
+  background-position: 12px center;
+  background-repeat: no-repeat;
+  color: #00f;
+  cursor: pointer;
+  display: inline-block;
+  height: 16px;
+  padding: 10px;
+}
+
+.cr-dialog-frame.error-dialog-frame {
+  width: 300px;
+}
+
+.error-dialog-frame .error-dialog-img {
+  background-image: -webkit-image-set(
+    url('chrome://theme/IDR_ERROR_NETWORK_GENERIC') 1x,
+    url('chrome://theme/IDR_ERROR_NETWORK_GENERIC@2x') 2x);
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 40px;
+}
+
+.error-dialog-frame .cr-dialog-cancel {
+  display: none;
+}
+
+.error-dialog-frame .cr-dialog-close,
+.error-dialog-frame .cr-dialog-title {
+  display: none;
+}
+
+.error-dialog-frame .cr-dialog-text {
+  text-align: center;
+}
+
+.cr-dialog-frame.share-dialog-frame {
+  background-color: white;
+  width: auto;
+}
+
+.share-dialog-webview-wrapper {
+  height: 100px;
+  margin-top: 10px;
+  min-width: 300px;
+  overflow: hidden;
+  transition: height 200ms ease;
+}
+
+.share-dialog-webview {
+  height: 100%;
+  width: 100%;
+}
+
+.share-dialog-webview-wrapper:not(.loaded) .share-dialog-webview {
+  visibility: hidden;
+}
+
+.share-dialog-frame .cr-dialog-text,
+.share-dialog-frame .cr-dialog-buttons {
+  display: none;
+}

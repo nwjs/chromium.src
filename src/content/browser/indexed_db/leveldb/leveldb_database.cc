@@ -1,0 +1,469 @@
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "content/browser/indexed_db/leveldb/leveldb_database.h"
+
+#include <cerrno>
+
+#include "base/basictypes.h"
+#include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/metrics/histogram.h"
+#include "base/strings/string16.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/sys_info.h"
+#include "content/browser/indexed_db/leveldb/leveldb_comparator.h"
+#include "content/browser/indexed_db/leveldb/leveldb_iterator.h"
+#include "content/browser/indexed_db/leveldb/leveldb_write_batch.h"
+#include "third_party/leveldatabase/env_chromium.h"
+#include "third_party/leveldatabase/env_idb.h"
+#include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
+#include "third_party/leveldatabase/src/include/leveldb/comparator.h"
+#include "third_party/leveldatabase/src/include/leveldb/db.h"
+#include "third_party/leveldatabase/src/include/leveldb/env.h"
+#include "third_party/leveldatabase/src/include/leveldb/slice.h"
+
+using base::StringPiece;
+
+namespace content {
+
+static leveldb::Slice MakeSlice(const StringPiece& s) {
+  return leveldb::Slice(s.begin(), s.size());
+}
+
+static StringPiece MakeStringPiece(const leveldb::Slice& s) {
+  return StringPiece(s.data(), s.size());
+}
+
+class ComparatorAdapter : public leveldb::Comparator {
+ public:
+  explicit ComparatorAdapter(const LevelDBComparator* comparator)
+      : comparator_(comparator) {}
+
+  virtual int Compare(const leveldb::Slice& a, const leveldb::Slice& b) const
+      OVERRIDE {
+    return comparator_->Compare(MakeStringPiece(a), MakeStringPiece(b));
+  }
+
+  virtual const char* Name() const OVERRIDE { return comparator_->Name(); }
+
+  // TODO(jsbell): Support the methods below in the future.
+  virtual void FindShortestSeparator(std::string* start,
+                                     const leveldb::Slice& limit) const
+      OVERRIDE {}
+  virtual void FindShortSuccessor(std::string* key) const OVERRIDE {}
+
+ private:
+  const LevelDBComparator* comparator_;
+};
+
+LevelDBSnapshot::LevelDBSnapshot(LevelDBDatabase* db)
+    : db_(db->db_.get()), snapshot_(db_->GetSnapshot()) {}
+
+LevelDBSnapshot::~LevelDBSnapshot() { db_->ReleaseSnapshot(snapshot_); }
+
+LevelDBDatabase::LevelDBDatabase() {}
+
+LevelDBDatabase::~LevelDBDatabase() {
+  // db_'s destructor uses comparator_adapter_; order of deletion is important.
+  db_.reset();
+  comparator_adapter_.reset();
+  env_.reset();
+}
+
+static leveldb::Status OpenDB(leveldb::Comparator* comparator,
+                              leveldb::Env* env,
+                              const base::FilePath& path,
+                              leveldb::DB** db) {
+  leveldb::Options options;
+  options.comparator = comparator;
+  options.create_if_missing = true;
+  options.paranoid_checks = true;
+
+  // Marking compression as explicitly off so snappy support can be
+  // compiled in for other leveldb clients without implicitly enabling
+  // it for IndexedDB. http://crbug.com/81384
+  options.compression = leveldb::kNoCompression;
+
+  // For info about the troubles we've run into with this parameter, see:
+  // https://code.google.com/p/chromium/issues/detail?id=227313#c11
+  options.max_open_files = 80;
+  options.env = env;
+
+  // ChromiumEnv assumes UTF8, converts back to FilePath before using.
+  return leveldb::DB::Open(options, path.AsUTF8Unsafe(), db);
+}
+
+bool LevelDBDatabase::Destroy(const base::FilePath& file_name) {
+  leveldb::Options options;
+  options.env = leveldb::IDBEnv();
+  // ChromiumEnv assumes UTF8, converts back to FilePath before using.
+  const leveldb::Status s =
+      leveldb::DestroyDB(file_name.AsUTF8Unsafe(), options);
+  return s.ok();
+}
+
+static int CheckFreeSpace(const char* const type,
+                          const base::FilePath& file_name) {
+  std::string name =
+      std::string("WebCore.IndexedDB.LevelDB.Open") + type + "FreeDiskSpace";
+  int64 free_disk_space_in_k_bytes =
+      base::SysInfo::AmountOfFreeDiskSpace(file_name) / 1024;
+  if (free_disk_space_in_k_bytes < 0) {
+    base::Histogram::FactoryGet(
+        "WebCore.IndexedDB.LevelDB.FreeDiskSpaceFailure",
+        1,
+        2 /*boundary*/,
+        2 /*boundary*/ + 1,
+        base::HistogramBase::kUmaTargetedHistogramFlag)->Add(1 /*sample*/);
+    return -1;
+  }
+  int clamped_disk_space_k_bytes = free_disk_space_in_k_bytes > INT_MAX
+                                       ? INT_MAX
+                                       : free_disk_space_in_k_bytes;
+  const uint64 histogram_max = static_cast<uint64>(1e9);
+  COMPILE_ASSERT(histogram_max <= INT_MAX, histogram_max_too_big);
+  base::Histogram::FactoryGet(name,
+                              1,
+                              histogram_max,
+                              11 /*buckets*/,
+                              base::HistogramBase::kUmaTargetedHistogramFlag)
+      ->Add(clamped_disk_space_k_bytes);
+  return clamped_disk_space_k_bytes;
+}
+
+static void ParseAndHistogramIOErrorDetails(const std::string& histogram_name,
+                                            const leveldb::Status& s) {
+  leveldb_env::MethodID method;
+  int error = -1;
+  leveldb_env::ErrorParsingResult result =
+      leveldb_env::ParseMethodAndError(s.ToString().c_str(), &method, &error);
+  if (result == leveldb_env::NONE)
+    return;
+  std::string method_histogram_name(histogram_name);
+  method_histogram_name.append(".EnvMethod");
+  base::LinearHistogram::FactoryGet(
+      method_histogram_name,
+      1,
+      leveldb_env::kNumEntries,
+      leveldb_env::kNumEntries + 1,
+      base::HistogramBase::kUmaTargetedHistogramFlag)->Add(method);
+
+  std::string error_histogram_name(histogram_name);
+
+  if (result == leveldb_env::METHOD_AND_PFE) {
+    DCHECK(error < 0);
+    error_histogram_name.append(std::string(".PFE.") +
+                                leveldb_env::MethodIDToString(method));
+    base::LinearHistogram::FactoryGet(
+        error_histogram_name,
+        1,
+        -base::PLATFORM_FILE_ERROR_MAX,
+        -base::PLATFORM_FILE_ERROR_MAX + 1,
+        base::HistogramBase::kUmaTargetedHistogramFlag)->Add(-error);
+  } else if (result == leveldb_env::METHOD_AND_ERRNO) {
+    error_histogram_name.append(std::string(".Errno.") +
+                                leveldb_env::MethodIDToString(method));
+    base::LinearHistogram::FactoryGet(
+        error_histogram_name,
+        1,
+        ERANGE + 1,
+        ERANGE + 2,
+        base::HistogramBase::kUmaTargetedHistogramFlag)->Add(error);
+  }
+}
+
+static void ParseAndHistogramCorruptionDetails(
+    const std::string& histogram_name,
+    const leveldb::Status& status) {
+  DCHECK(!status.IsIOError());
+  DCHECK(!status.ok());
+  const int kOtherError = 0;
+  int error = kOtherError;
+  const std::string& str_error = status.ToString();
+  // Keep in sync with LevelDBCorruptionTypes in histograms.xml.
+  const char* patterns[] = {
+    "missing files",
+    "log record too small",
+    "corrupted internal key",
+    "partial record",
+    "missing start of fragmented record",
+    "error in middle of record",
+    "unknown record type",
+    "truncated record at end",
+    "bad record length",
+    "VersionEdit",
+    "FileReader invoked with unexpected value",
+    "corrupted key",
+    "CURRENT file does not end with newline",
+    "no meta-nextfile entry",
+    "no meta-lognumber entry",
+    "no last-sequence-number entry",
+    "malformed WriteBatch",
+    "bad WriteBatch Put",
+    "bad WriteBatch Delete",
+    "unknown WriteBatch tag",
+    "WriteBatch has wrong count",
+    "bad entry in block",
+    "bad block contents",
+    "bad block handle",
+    "truncated block read",
+    "block checksum mismatch",
+    "checksum mismatch",
+    "corrupted compressed block contents",
+    "bad block type",
+    "bad magic number",
+    "file is too short",
+  };
+  const size_t kNumPatterns = arraysize(patterns);
+  for (size_t i = 0; i < kNumPatterns; ++i) {
+    if (str_error.find(patterns[i]) != std::string::npos) {
+      error = i + 1;
+      break;
+    }
+  }
+  DCHECK(error >= 0);
+  std::string corruption_histogram_name(histogram_name);
+  corruption_histogram_name.append(".Corruption");
+  base::LinearHistogram::FactoryGet(
+      corruption_histogram_name,
+      1,
+      kNumPatterns + 1,
+      kNumPatterns + 2,
+      base::HistogramBase::kUmaTargetedHistogramFlag)->Add(error);
+}
+
+static void HistogramLevelDBError(const std::string& histogram_name,
+                                  const leveldb::Status& s) {
+  if (s.ok()) {
+    NOTREACHED();
+    return;
+  }
+  enum {
+    LEVEL_DB_NOT_FOUND,
+    LEVEL_DB_CORRUPTION,
+    LEVEL_DB_IO_ERROR,
+    LEVEL_DB_OTHER,
+    LEVEL_DB_MAX_ERROR
+  };
+  int leveldb_error = LEVEL_DB_OTHER;
+  if (s.IsNotFound())
+    leveldb_error = LEVEL_DB_NOT_FOUND;
+  else if (s.IsCorruption())
+    leveldb_error = LEVEL_DB_CORRUPTION;
+  else if (s.IsIOError())
+    leveldb_error = LEVEL_DB_IO_ERROR;
+  base::Histogram::FactoryGet(histogram_name,
+                              1,
+                              LEVEL_DB_MAX_ERROR,
+                              LEVEL_DB_MAX_ERROR + 1,
+                              base::HistogramBase::kUmaTargetedHistogramFlag)
+      ->Add(leveldb_error);
+  if (s.IsIOError())
+    ParseAndHistogramIOErrorDetails(histogram_name, s);
+  else
+    ParseAndHistogramCorruptionDetails(histogram_name, s);
+}
+
+leveldb::Status LevelDBDatabase::Open(const base::FilePath& file_name,
+                                      const LevelDBComparator* comparator,
+                                      scoped_ptr<LevelDBDatabase>* result,
+                                      bool* is_disk_full) {
+  scoped_ptr<ComparatorAdapter> comparator_adapter(
+      new ComparatorAdapter(comparator));
+
+  leveldb::DB* db;
+  const leveldb::Status s =
+      OpenDB(comparator_adapter.get(), leveldb::IDBEnv(), file_name, &db);
+
+  if (!s.ok()) {
+    HistogramLevelDBError("WebCore.IndexedDB.LevelDBOpenErrors", s);
+    int free_space_k_bytes = CheckFreeSpace("Failure", file_name);
+    // Disks with <100k of free space almost never succeed in opening a
+    // leveldb database.
+    if (is_disk_full)
+      *is_disk_full = free_space_k_bytes >= 0 && free_space_k_bytes < 100;
+
+    LOG(ERROR) << "Failed to open LevelDB database from "
+               << file_name.AsUTF8Unsafe() << "," << s.ToString();
+    return s;
+  }
+
+  CheckFreeSpace("Success", file_name);
+
+  (*result).reset(new LevelDBDatabase);
+  (*result)->db_ = make_scoped_ptr(db);
+  (*result)->comparator_adapter_ = comparator_adapter.Pass();
+  (*result)->comparator_ = comparator;
+
+  return s;
+}
+
+scoped_ptr<LevelDBDatabase> LevelDBDatabase::OpenInMemory(
+    const LevelDBComparator* comparator) {
+  scoped_ptr<ComparatorAdapter> comparator_adapter(
+      new ComparatorAdapter(comparator));
+  scoped_ptr<leveldb::Env> in_memory_env(leveldb::NewMemEnv(leveldb::IDBEnv()));
+
+  leveldb::DB* db;
+  const leveldb::Status s = OpenDB(
+      comparator_adapter.get(), in_memory_env.get(), base::FilePath(), &db);
+
+  if (!s.ok()) {
+    LOG(ERROR) << "Failed to open in-memory LevelDB database: " << s.ToString();
+    return scoped_ptr<LevelDBDatabase>();
+  }
+
+  scoped_ptr<LevelDBDatabase> result(new LevelDBDatabase);
+  result->env_ = in_memory_env.Pass();
+  result->db_ = make_scoped_ptr(db);
+  result->comparator_adapter_ = comparator_adapter.Pass();
+  result->comparator_ = comparator;
+
+  return result.Pass();
+}
+
+bool LevelDBDatabase::Put(const StringPiece& key, std::string* value) {
+  leveldb::WriteOptions write_options;
+  write_options.sync = true;
+
+  const leveldb::Status s =
+      db_->Put(write_options, MakeSlice(key), MakeSlice(*value));
+  if (s.ok())
+    return true;
+  LOG(ERROR) << "LevelDB put failed: " << s.ToString();
+  return false;
+}
+
+bool LevelDBDatabase::Remove(const StringPiece& key) {
+  leveldb::WriteOptions write_options;
+  write_options.sync = true;
+
+  const leveldb::Status s = db_->Delete(write_options, MakeSlice(key));
+  if (s.ok())
+    return true;
+  if (s.IsNotFound())
+    return false;
+  LOG(ERROR) << "LevelDB remove failed: " << s.ToString();
+  return false;
+}
+
+bool LevelDBDatabase::Get(const StringPiece& key,
+                          std::string* value,
+                          bool* found,
+                          const LevelDBSnapshot* snapshot) {
+  *found = false;
+  leveldb::ReadOptions read_options;
+  read_options.verify_checksums = true;  // TODO(jsbell): Disable this if the
+                                         // performance impact is too great.
+  read_options.snapshot = snapshot ? snapshot->snapshot_ : 0;
+
+  const leveldb::Status s = db_->Get(read_options, MakeSlice(key), value);
+  if (s.ok()) {
+    *found = true;
+    return true;
+  }
+  if (s.IsNotFound())
+    return true;
+  HistogramLevelDBError("WebCore.IndexedDB.LevelDBReadErrors", s);
+  LOG(ERROR) << "LevelDB get failed: " << s.ToString();
+  return false;
+}
+
+bool LevelDBDatabase::Write(const LevelDBWriteBatch& write_batch) {
+  leveldb::WriteOptions write_options;
+  write_options.sync = true;
+
+  const leveldb::Status s =
+      db_->Write(write_options, write_batch.write_batch_.get());
+  if (s.ok())
+    return true;
+  HistogramLevelDBError("WebCore.IndexedDB.LevelDBWriteErrors", s);
+  LOG(ERROR) << "LevelDB write failed: " << s.ToString();
+  return false;
+}
+
+namespace {
+class IteratorImpl : public LevelDBIterator {
+ public:
+  virtual ~IteratorImpl() {}
+
+  virtual bool IsValid() const OVERRIDE;
+  virtual void SeekToLast() OVERRIDE;
+  virtual void Seek(const StringPiece& target) OVERRIDE;
+  virtual void Next() OVERRIDE;
+  virtual void Prev() OVERRIDE;
+  virtual StringPiece Key() const OVERRIDE;
+  virtual StringPiece Value() const OVERRIDE;
+
+ private:
+  friend class content::LevelDBDatabase;
+  explicit IteratorImpl(scoped_ptr<leveldb::Iterator> iterator);
+  void CheckStatus();
+
+  scoped_ptr<leveldb::Iterator> iterator_;
+};
+}
+
+IteratorImpl::IteratorImpl(scoped_ptr<leveldb::Iterator> it)
+    : iterator_(it.Pass()) {}
+
+void IteratorImpl::CheckStatus() {
+  const leveldb::Status s = iterator_->status();
+  if (!s.ok())
+    LOG(ERROR) << "LevelDB iterator error: " << s.ToString();
+}
+
+bool IteratorImpl::IsValid() const { return iterator_->Valid(); }
+
+void IteratorImpl::SeekToLast() {
+  iterator_->SeekToLast();
+  CheckStatus();
+}
+
+void IteratorImpl::Seek(const StringPiece& target) {
+  iterator_->Seek(MakeSlice(target));
+  CheckStatus();
+}
+
+void IteratorImpl::Next() {
+  DCHECK(IsValid());
+  iterator_->Next();
+  CheckStatus();
+}
+
+void IteratorImpl::Prev() {
+  DCHECK(IsValid());
+  iterator_->Prev();
+  CheckStatus();
+}
+
+StringPiece IteratorImpl::Key() const {
+  DCHECK(IsValid());
+  return MakeStringPiece(iterator_->key());
+}
+
+StringPiece IteratorImpl::Value() const {
+  DCHECK(IsValid());
+  return MakeStringPiece(iterator_->value());
+}
+
+scoped_ptr<LevelDBIterator> LevelDBDatabase::CreateIterator(
+    const LevelDBSnapshot* snapshot) {
+  leveldb::ReadOptions read_options;
+  read_options.verify_checksums = true;  // TODO(jsbell): Disable this if the
+                                         // performance impact is too great.
+  read_options.snapshot = snapshot ? snapshot->snapshot_ : 0;
+
+  scoped_ptr<leveldb::Iterator> i(db_->NewIterator(read_options));
+  return scoped_ptr<LevelDBIterator>(new IteratorImpl(i.Pass()));
+}
+
+const LevelDBComparator* LevelDBDatabase::Comparator() const {
+  return comparator_;
+}
+
+}  // namespace content

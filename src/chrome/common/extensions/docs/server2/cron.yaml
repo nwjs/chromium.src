@@ -1,0 +1,5 @@
+cron:
+- description: Repopulates all cached data.
+  url: /_cron
+  schedule: every 5 minutes
+  target: 2-27-2

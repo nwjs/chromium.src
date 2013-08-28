@@ -1,0 +1,6 @@
+include_rules = [
+  "+content/child",
+  "+sandbox/win/src",
+  "+webkit/glue",
+]
+

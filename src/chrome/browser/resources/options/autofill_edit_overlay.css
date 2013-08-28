@@ -1,0 +1,84 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+#autofill-edit-address-overlay {
+  min-width: 55em;
+}
+
+#autofill-edit-credit-card-overlay {
+  min-width: 500px;
+}
+
+#full-name-list input,
+#company-name,
+#addr-line-1,
+#addr-line-2 {
+  width: 16em;
+}
+
+#country {
+  max-width: 450px;
+}
+
+#autofill-edit-address-overlay list {
+  -webkit-margin-start: -3px;
+  /* Min height is a multiple of the list item height (32px). */
+  min-height: 32px;
+}
+
+#autofill-edit-address-overlay list div.static-text {
+  -webkit-border-radius: 2px;
+  -webkit-box-flex: 1;
+  -webkit-padding-end: 4px;
+  -webkit-padding-start: 4px;
+  border: 1px solid darkGray;
+  /* Set the line-height and min-height to match the height of an input element,
+   * so that even empty cells renderer with the correct height. */
+  line-height: 1.75em;
+  min-height: 1.75em;
+}
+
+:-webkit-any(#autofill-edit-credit-card-overlay, #autofill-edit-address-overlay)
+    .settings-row div + :-webkit-any(input, select) {
+  margin-top: 4px;
+}
+
+#autofill-name-labels {
+  display: -webkit-inline-box;
+}
+
+#autofill-name-labels span {
+  -webkit-box-flex: 1;
+  display: block;
+}
+
+#full-name-list {
+  display: inline-block;
+}
+
+#full-name-list div[role='listitem'] > div {
+  display: -webkit-box;
+}
+
+#full-name-list div[role='listitem'] > div > div,
+#autofill-name-labels span {
+  -webkit-margin-end: 5px;
+  width: 16em;
+}
+
+:-webkit-any(#phone-list, #email-list) div[role='listitem'] > div > div,
+:-webkit-any(#phone-list, #email-list) input {
+  width: 14em;
+}
+
+.input-group > * {
+  -webkit-box-orient: vertical;
+  -webkit-margin-end: 2px;
+  display: -webkit-inline-box;
+  vertical-align: top;
+}
+
+#autofill-edit-credit-card-overlay .content-area > *:first-child {
+  margin-top: 0;
+}

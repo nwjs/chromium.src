@@ -1,0 +1,128 @@
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.notifications</code> API to create rich notifications
+// using templates and show these notifications to users in the system tray.
+namespace notifications {
+  [noinline_doc] enum TemplateType {
+    // icon, title, message, expandedMessage, up to two buttons
+    basic,
+
+    // icon, title, message, expandedMessage, image, up to two buttons
+    image,
+
+    // icon, title, message, items, up to two buttons
+    list,
+
+    // icon, title, message, progress, up to two buttons
+    progress
+  };
+
+  dictionary NotificationItem {
+    // Title of one item of a list notification.
+    DOMString title;
+
+    // Additional details about this item.
+    DOMString message;
+  };
+
+  [nodoc] dictionary NotificationBitmap {
+    long width;
+    long height;
+    ArrayBuffer? data;
+  };
+
+  dictionary NotificationButton {
+    DOMString title;
+    DOMString? iconUrl;
+    [nodoc] NotificationBitmap? iconBitmap;
+  };
+
+  dictionary NotificationOptions {
+    // Which type of notification to display.
+    TemplateType? type;
+
+    // Sender's avatar, app icon, or a thumbnail for image notifications.
+    DOMString? iconUrl;
+    [nodoc] NotificationBitmap? iconBitmap;
+
+    // Title of the notification (e.g. sender name for email).
+    DOMString? title;
+
+    // Main notification content.
+    DOMString? message;
+
+    // Priority ranges from -2 to 2. -2 is lowest priority. 2 is highest. Zero
+    // is default.
+    long? priority;
+
+    // A timestamp associated with the notification, in milliseconds past the
+    // epoch (e.g. <code>Date.now() + n</code>).
+    double? eventTime;
+
+    // Text and icons for up to two notification action buttons.
+    NotificationButton[]? buttons;
+
+    // Secondary notification content.
+    [nodoc] DOMString? expandedMessage;
+
+    // Image thumbnail for image-type notifications.
+    DOMString? imageUrl;
+    [nodoc] NotificationBitmap? imageBitmap;
+
+    // Items for multi-item notifications.
+    NotificationItem[]? items;
+
+    // Current progress ranges from 0 to 100.
+    long? progress;
+  };
+
+  callback CreateCallback = void (DOMString notificationId);
+
+  callback UpdateCallback = void (boolean wasUpdated);
+
+  callback ClearCallback = void (boolean wasCleared);
+
+  callback GetAllCallback = void (object notifications);
+
+  interface Functions {
+    // Creates and displays a notification having the contents in |options|,
+    // identified by the id |notificationId|. If |notificationId| is empty,
+    // |create| generates an id. If |notificationId| matches an existing
+    // notification, |create| first clears that notification before proceeding
+    // with the create operation. |callback| returns the notification id
+    // (either supplied or generated) that represents the created notification.
+    static void create(DOMString notificationId,
+                       NotificationOptions options,
+                       CreateCallback callback);
+
+    // Updates an existing notification having the id |notificationId| and the
+    // options |options|. |callback| indicates whether a matching notification
+    // existed.
+    static void update(DOMString notificationId,
+                       NotificationOptions options,
+                       UpdateCallback callback);
+
+    // Given a |notificationId| returned by the |create| method, clears the
+    // corresponding notification. |callback| indicates whether a matching
+    // notification existed.
+    static void clear(DOMString notificationId, ClearCallback callback);
+
+    // |callback| is executed with the set of notification_ids currently in
+    // the system.
+    static void getAll(GetAllCallback callback);
+  };
+
+  interface Events {
+    // The notification closed, either by the system or by user action.
+    static void onClosed(DOMString notificationId, boolean byUser);
+
+    // The user clicked in a non-button area of the notification.
+    static void onClicked(DOMString notificationId);
+
+    // The user pressed a button in the notification.
+    static void onButtonClicked(DOMString notificationId, long buttonIndex);
+  };
+
+};

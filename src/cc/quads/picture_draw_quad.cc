@@ -1,0 +1,83 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "cc/quads/picture_draw_quad.h"
+
+#include "base/values.h"
+#include "cc/base/math_util.h"
+
+namespace cc {
+
+PictureDrawQuad::PictureDrawQuad() {
+}
+
+PictureDrawQuad::~PictureDrawQuad() {
+}
+
+scoped_ptr<PictureDrawQuad> PictureDrawQuad::Create() {
+  return make_scoped_ptr(new PictureDrawQuad);
+}
+
+void PictureDrawQuad::SetNew(const SharedQuadState* shared_quad_state,
+                             gfx::Rect rect,
+                             gfx::Rect opaque_rect,
+                             const gfx::RectF& tex_coord_rect,
+                             gfx::Size texture_size,
+                             bool swizzle_contents,
+                             gfx::Rect content_rect,
+                             float contents_scale,
+                             bool can_draw_direct_to_backbuffer,
+                             scoped_refptr<PicturePileImpl> picture_pile) {
+  ContentDrawQuadBase::SetNew(shared_quad_state, DrawQuad::PICTURE_CONTENT,
+                              rect, opaque_rect, tex_coord_rect, texture_size,
+                              swizzle_contents);
+  this->content_rect = content_rect;
+  this->contents_scale = contents_scale;
+  this->can_draw_direct_to_backbuffer = can_draw_direct_to_backbuffer;
+  this->picture_pile = picture_pile;
+}
+
+void PictureDrawQuad::SetAll(const SharedQuadState* shared_quad_state,
+                             gfx::Rect rect,
+                             gfx::Rect opaque_rect,
+                             gfx::Rect visible_rect,
+                             bool needs_blending,
+                             const gfx::RectF& tex_coord_rect,
+                             gfx::Size texture_size,
+                             bool swizzle_contents,
+                             gfx::Rect content_rect,
+                             float contents_scale,
+                             bool can_draw_direct_to_backbuffer,
+                             scoped_refptr<PicturePileImpl> picture_pile) {
+  ContentDrawQuadBase::SetAll(shared_quad_state,
+                              DrawQuad::PICTURE_CONTENT, rect, opaque_rect,
+                              visible_rect, needs_blending, tex_coord_rect,
+                              texture_size, swizzle_contents);
+  this->content_rect = content_rect;
+  this->contents_scale = contents_scale;
+  this->can_draw_direct_to_backbuffer = can_draw_direct_to_backbuffer;
+  this->picture_pile = picture_pile;
+}
+
+void PictureDrawQuad::IterateResources(
+    const ResourceIteratorCallback& callback) {
+  // TODO(danakj): Convert to TextureDrawQuad?
+  NOTIMPLEMENTED();
+}
+
+const PictureDrawQuad* PictureDrawQuad::MaterialCast(const DrawQuad* quad) {
+  DCHECK(quad->material == DrawQuad::PICTURE_CONTENT);
+  return static_cast<const PictureDrawQuad*>(quad);
+}
+
+void PictureDrawQuad::ExtendValue(base::DictionaryValue* value) const {
+  ContentDrawQuadBase::ExtendValue(value);
+  value->Set("content_rect", MathUtil::AsValue(content_rect).release());
+  value->SetDouble("contents_scale", contents_scale);
+  value->SetBoolean("can_draw_direct_to_backbuffer",
+                    can_draw_direct_to_backbuffer);
+  // TODO(piman): picture_pile?
+}
+
+}  // namespace cc

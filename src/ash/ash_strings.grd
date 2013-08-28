@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+This file contains the strings for ash.
+-->
+
+<grit base_dir="." latest_public_release="0" current_release="1"
+      source_lang_id="en" enc_check="möl">
+  <outputs>
+    <output filename="grit/ash_strings.h" type="rc_header">
+      <emit emit_type='prepend'></emit>
+    </output>
+    <output filename="ash_strings_am.pak" type="data_package" lang="am" />
+    <output filename="ash_strings_ar.pak" type="data_package" lang="ar" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_ast.pak" type="data_package" lang="ast" />
+    </if>
+    <output filename="ash_strings_bg.pak" type="data_package" lang="bg" />
+    <output filename="ash_strings_bn.pak" type="data_package" lang="bn" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_bs.pak" type="data_package" lang="bs" />
+    </if>
+    <output filename="ash_strings_ca.pak" type="data_package" lang="ca" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_ca@valencia.pak" type="data_package" lang="ca@valencia" />
+    </if>
+    <output filename="ash_strings_cs.pak" type="data_package" lang="cs" />
+    <output filename="ash_strings_da.pak" type="data_package" lang="da" />
+    <output filename="ash_strings_de.pak" type="data_package" lang="de" />
+    <output filename="ash_strings_el.pak" type="data_package" lang="el" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_en-AU.pak" type="data_package" lang="en-AU" />
+    </if>
+    <output filename="ash_strings_en-GB.pak" type="data_package" lang="en-GB" />
+    <output filename="ash_strings_en-US.pak" type="data_package" lang="en" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_eo.pak" type="data_package" lang="eo" />
+    </if>
+    <output filename="ash_strings_es.pak" type="data_package" lang="es" />
+    <output filename="ash_strings_es-419.pak" type="data_package" lang="es-419" />
+    <output filename="ash_strings_et.pak" type="data_package" lang="et" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_eu.pak" type="data_package" lang="eu" />
+    </if>
+    <output filename="ash_strings_fa.pak" type="data_package" lang="fa" />
+    <output filename="ash_strings_fake-bidi.pak" type="data_package" lang="fake-bidi" />
+    <output filename="ash_strings_fi.pak" type="data_package" lang="fi" />
+    <output filename="ash_strings_fil.pak" type="data_package" lang="fil" />
+    <output filename="ash_strings_fr.pak" type="data_package" lang="fr" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_gl.pak" type="data_package" lang="gl" />
+    </if>
+    <output filename="ash_strings_gu.pak" type="data_package" lang="gu" />
+    <output filename="ash_strings_he.pak" type="data_package" lang="he" />
+    <output filename="ash_strings_hi.pak" type="data_package" lang="hi" />
+    <output filename="ash_strings_hr.pak" type="data_package" lang="hr" />
+    <output filename="ash_strings_hu.pak" type="data_package" lang="hu" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_hy.pak" type="data_package" lang="hy" />
+      <output filename="ash_strings_ia.pak" type="data_package" lang="ia" />
+    </if>
+    <output filename="ash_strings_id.pak" type="data_package" lang="id" />
+    <output filename="ash_strings_it.pak" type="data_package" lang="it" />
+    <output filename="ash_strings_ja.pak" type="data_package" lang="ja" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_ka.pak" type="data_package" lang="ka" />
+    </if>
+    <output filename="ash_strings_kn.pak" type="data_package" lang="kn" />
+    <output filename="ash_strings_ko.pak" type="data_package" lang="ko" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_ku.pak" type="data_package" lang="ku" />
+      <output filename="ash_strings_kw.pak" type="data_package" lang="kw" />
+    </if>
+    <output filename="ash_strings_lt.pak" type="data_package" lang="lt" />
+    <output filename="ash_strings_lv.pak" type="data_package" lang="lv" />
+    <output filename="ash_strings_ml.pak" type="data_package" lang="ml" />
+    <output filename="ash_strings_mr.pak" type="data_package" lang="mr" />
+    <output filename="ash_strings_ms.pak" type="data_package" lang="ms" />
+    <output filename="ash_strings_nl.pak" type="data_package" lang="nl" />
+    <!-- The translation console uses 'no' for Norwegian Bokmål. It should
+         be 'nb'. -->
+    <output filename="ash_strings_nb.pak" type="data_package" lang="no" />
+    <output filename="ash_strings_pl.pak" type="data_package" lang="pl" />
+    <output filename="ash_strings_pt-BR.pak" type="data_package" lang="pt-BR" />
+    <output filename="ash_strings_pt-PT.pak" type="data_package" lang="pt-PT" />
+    <output filename="ash_strings_ro.pak" type="data_package" lang="ro" />
+    <output filename="ash_strings_ru.pak" type="data_package" lang="ru" />
+    <output filename="ash_strings_sk.pak" type="data_package" lang="sk" />
+    <output filename="ash_strings_sl.pak" type="data_package" lang="sl" />
+    <output filename="ash_strings_sr.pak" type="data_package" lang="sr" />
+    <output filename="ash_strings_sv.pak" type="data_package" lang="sv" />
+    <output filename="ash_strings_sw.pak" type="data_package" lang="sw" />
+    <output filename="ash_strings_ta.pak" type="data_package" lang="ta" />
+    <output filename="ash_strings_te.pak" type="data_package" lang="te" />
+    <output filename="ash_strings_th.pak" type="data_package" lang="th" />
+    <output filename="ash_strings_tr.pak" type="data_package" lang="tr" />
+    <if expr="pp_ifdef('use_third_party_translations')">
+      <output filename="ash_strings_ug.pak" type="data_package" lang="ug" />
+    </if>
+    <output filename="ash_strings_uk.pak" type="data_package" lang="uk" />
+    <output filename="ash_strings_vi.pak" type="data_package" lang="vi" />
+    <output filename="ash_strings_zh-CN.pak" type="data_package" lang="zh-CN" />
+    <output filename="ash_strings_zh-TW.pak" type="data_package" lang="zh-TW" />
+  </outputs>
+  <translations>
+    <file path="strings/ash_strings_am.xtb" lang="am" />
+    <file path="strings/ash_strings_ar.xtb" lang="ar" />
+    <file path="strings/ash_strings_bg.xtb" lang="bg" />
+    <file path="strings/ash_strings_bn.xtb" lang="bn" />
+    <file path="strings/ash_strings_ca.xtb" lang="ca" />
+    <file path="strings/ash_strings_cs.xtb" lang="cs" />
+    <file path="strings/ash_strings_da.xtb" lang="da" />
+    <file path="strings/ash_strings_de.xtb" lang="de" />
+    <file path="strings/ash_strings_el.xtb" lang="el" />
+    <file path="strings/ash_strings_en-GB.xtb" lang="en-GB" />
+    <file path="strings/ash_strings_es.xtb" lang="es" />
+    <file path="strings/ash_strings_es-419.xtb" lang="es-419" />
+    <file path="strings/ash_strings_et.xtb" lang="et" />
+    <file path="strings/ash_strings_fa.xtb" lang="fa" />
+    <file path="strings/ash_strings_fi.xtb" lang="fi" />
+    <file path="strings/ash_strings_fil.xtb" lang="fil" />
+    <file path="strings/ash_strings_fr.xtb" lang="fr" />
+    <file path="strings/ash_strings_gu.xtb" lang="gu" />
+    <file path="strings/ash_strings_hi.xtb" lang="hi" />
+    <file path="strings/ash_strings_hr.xtb" lang="hr" />
+    <file path="strings/ash_strings_hu.xtb" lang="hu" />
+    <file path="strings/ash_strings_id.xtb" lang="id" />
+    <file path="strings/ash_strings_it.xtb" lang="it" />
+    <!-- The translation console uses 'iw' for Hebrew, but we use 'he'. -->
+    <file path="strings/ash_strings_iw.xtb" lang="he" />
+    <file path="strings/ash_strings_ja.xtb" lang="ja" />
+    <file path="strings/ash_strings_kn.xtb" lang="kn" />
+    <file path="strings/ash_strings_ko.xtb" lang="ko" />
+    <file path="strings/ash_strings_lt.xtb" lang="lt" />
+    <file path="strings/ash_strings_lv.xtb" lang="lv" />
+    <file path="strings/ash_strings_ml.xtb" lang="ml" />
+    <file path="strings/ash_strings_mr.xtb" lang="mr" />
+    <file path="strings/ash_strings_ms.xtb" lang="ms" />
+    <file path="strings/ash_strings_nl.xtb" lang="nl" />
+    <file path="strings/ash_strings_no.xtb" lang="no" />
+    <file path="strings/ash_strings_pl.xtb" lang="pl" />
+    <file path="strings/ash_strings_pt-BR.xtb" lang="pt-BR" />
+    <file path="strings/ash_strings_pt-PT.xtb" lang="pt-PT" />
+    <file path="strings/ash_strings_ro.xtb" lang="ro" />
+    <file path="strings/ash_strings_ru.xtb" lang="ru" />
+    <file path="strings/ash_strings_sk.xtb" lang="sk" />
+    <file path="strings/ash_strings_sl.xtb" lang="sl" />
+    <file path="strings/ash_strings_sr.xtb" lang="sr" />
+    <file path="strings/ash_strings_sv.xtb" lang="sv" />
+    <file path="strings/ash_strings_sw.xtb" lang="sw" />
+    <file path="strings/ash_strings_ta.xtb" lang="ta" />
+    <file path="strings/ash_strings_te.xtb" lang="te" />
+    <file path="strings/ash_strings_th.xtb" lang="th" />
+    <file path="strings/ash_strings_tr.xtb" lang="tr" />
+    <file path="strings/ash_strings_uk.xtb" lang="uk" />
+    <file path="strings/ash_strings_vi.xtb" lang="vi" />
+    <file path="strings/ash_strings_zh-CN.xtb" lang="zh-CN" />
+    <file path="strings/ash_strings_zh-TW.xtb" lang="zh-TW" />
+  </translations>
+  <release seq="1" allow_pseudo="false">
+    <messages fallback_to_english="true">
+      <!-- TODO add all of your "string table" messages here.  Remember to
+      change nontranslateable parts of the messages into placeholders (using the
+      <ph> element).  You can also use the 'grit add' tool to help you identify
+      nontranslateable parts and create placeholders for them. -->
+      <!-- TODO(zork): Only include these in Aura builds -->
+      <message name="IDS_AURA_APP_LIST_TITLE" desc="The title used for the Aura app list in the launcher">
+        Apps
+      </message>
+      <message name="IDS_AURA_APP_LIST_SYNCING_TITLE" desc="The title used for the Aura app list in the launcher to indicate loading/syncing apps.">
+        Syncing apps...
+      </message>
+      <message name="IDS_ASH_SHELF_OVERFLOW_NAME" desc="The title used for the Ash overflow button in the shelf">
+        Overflow Button
+      </message>
+      <message name="IDS_ASH_SHELF_CONTEXT_MENU_AUTO_HIDE" desc="Title of the menu item in the context menu for auto-hiding the shelf when the current window is not maximized">
+        Autohide shelf
+      </message>
+      <message name="IDS_ASH_SHELF_CONTEXT_MENU_POSITION" desc="Title of the menu item in the context menu for aligning the shelf">
+        Shelf position
+      </message>
+      <message name="IDS_ASH_SHELF_CONTEXT_MENU_ALIGN_BOTTOM" desc="Title of the menu item in the context menu for aligning the shelf to the bottom of the screen">
+        Bottom
+      </message>
+      <message name="IDS_ASH_SHELF_CONTEXT_MENU_ALIGN_LEFT" desc="Title of the menu item in the context menu for aligning the shelf to the left of the screen">
+        Left
+      </message>
+      <message name="IDS_ASH_SHELF_CONTEXT_MENU_ALIGN_RIGHT" desc="Title of the menu item in the context menu for aligning the shelf to the right of the screen">
+        Right
+      </message>
+      <message name="IDS_ASH_SHELF_ACCESSIBLE_NAME" desc="The accessible name of the shelf.">
+        Shelf
+      </message>
+
+      <message name="IDS_AURA_SET_DESKTOP_WALLPAPER" desc="The label used for change wallpaper in context menu">
+        Set wallpaper...
+      </message>
+
+      <message name="IDS_ASH_KEYBOARD_OVERLAY_TITLE" desc="The title of the keyboard overlay.">
+        Keyboard Overlay
+      </message>
+
+      <message name="IDS_ASH_LEARN_MORE" desc="Text of Learn more links.">
+        Learn more
+      </message>
+
+      <!-- Status tray items -->
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the status tray.">
+        Status tray
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SPOKEN_FEEDBACK_ENABLED_BUBBLE" desc="The message shown on a bubble when spoken feedback is enabled">
+Spoken feedback is enabled.
+Press Ctrl+Alt+Z to disable.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SETTINGS" desc="The label used for the settings item in the status tray.">
+        Settings
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SIGN_OUT" desc="The label used for the button in the status tray to sign out of the system.">
+        Sign out
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SIGN_OUT_ALL" desc="The label used for the button in the status tray to sign out all users of the system.">
+        Sign out all
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_GUEST_LABEL" desc="The label used in the system tray's user card to indicate that the current session is a guest session.">
+        Guest
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_EXIT_GUEST" desc="The label used for the button in the status tray to terminate a guest session.">
+        Exit guest
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_KIOSK_LABEL" desc="The label used in the system tray's user card to indicate that the current session is running in demo mode.">
+        Demo mode
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_EXIT_KIOSK" desc="The label used for the button in the status tray to terminate a session kiosk mode.">
+        Exit session
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_EXIT_PUBLIC" desc="The label used for the button in the status tray to terminate a public account session. If the label is long, indicate where it may be broken into two lines by inserting \n instead of a whitespace.">
+        Exit session
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_PUBLIC_LABEL" desc="Text of the the ash system bubble's user card when the current session is a public account session.">
+        <ph name="DISPLAY_NAME">$1<ex>Internet kiosk</ex></ph> is a public session managed by <ph name="DOMAIN">$2<ex>yourdomain.com</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_LOCK" desc="The label used for the button in the status tray to lock the screen.">
+        Lock
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SMS" desc="The label used in the status tray for SMS.">
+        SMS
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SMS_MESSAGES" desc="The label used in the default status tray view for SMS with the number of messages.">
+        SMS messages: <ph name="MESSAGE_COUNT">$1<ex>3</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SMS_NUMBER" desc="Sender for SMS messagees in the system tray.">
+        SMS from <ph name="PHONE_NUMBER">$1<ex>08700 776655</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SIGN_IN_ANOTHER_ACCOUNT" desc="The string for the button which lets the user add another account to the current session.">
+        Sign in another account...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPTION_CANNOT_ADD_USER" desc="The caption for the error message when the user has reached the limit of multi profile users.">
+        Can't sign into another account.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_MESSAGE_CANNOT_ADD_USER" desc="The error message when the user has reached the limit of multi profile users.">
+        You can only have up to three accounts in multiple sign-in.
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH" desc="The label used as the header in the bluetooth popup.">
+        Bluetooth
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_ENABLED" desc="The label used in the tray popup to notify that bluetooth is enabled.">
+        Bluetooth enabled
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_DISABLED" desc="The label used in the tray popup to notify that bluetooth is disabled.">
+        Bluetooth disabled
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_CONNECTING" desc="Shows a connecting bluetooth device in the bluetooth list.">
+        <ph name="BLUETOOTH">$1<ex>Apple Magic Mouse</ex></ph>: Connecting...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISABLE_BLUETOOTH" desc="The label used in the tray popup to disable bluetooth.">
+        Disable Bluetooth
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ENABLE_BLUETOOTH" desc="The label used in the tray popup to enable bluetooth.">
+        Enable Bluetooth
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_MANAGE_DEVICES" desc="The label used in the tray popup to manage bluetooth devices.">
+        Manage devices...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_DISCOVERING" desc="The label used in the tray popup to show bluetooth is discovering devices.">
+        Scanning for devices...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_TRACING" desc="The status tray item indicating that performance tracing is running.">
+        Performance tracing enabled
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_UPDATE" desc="The label used in the tray popup to notify that the user should restart to get system updates.">
+        Restart to update
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_RESTART_AND_POWERWASH_UPDATE" desc="The label used in the tray popup to notify that the user should restart and powerwash to get system updates.">
+        Restart and Powerwash to update
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_BRIGHTNESS" desc="The accessible text for the brightness slider.">
+        Brightness
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_VOLUME" desc="The accessible text for the volume slider.">
+        Volume
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUDIO" desc="The label used in audio detailed page bottom header of ash tray pop up.">
+        Audio Settings
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUDIO_OUTPUT" desc="The label used in audio detailed page for audio output section of ash tray pop up.">
+        OUTPUT
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUDIO_INPUT" desc="The label used in audio detailed page for audio input section of ash tray pop up.">
+        INPUT
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_MIRRORING" desc="The label used in the tray to show that the current status is mirroring.">
+        Mirroring to <ph name="DISPLAY_NAME">$1</ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_EXTENDED" desc="The label used in the tray to show that the current status is extended.">
+        Extending screen to <ph name="DISPLAY_NAME">$1</ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_MIRRORING_NO_INTERNAL" desc="The label used in the tray to show that the current status is mirroring and the device doesn't have the internal display.">
+        Mirroring
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_EXTENDED_NO_INTERNAL" desc="The label used in the tray to show that the current status is extended and the device doesn't have the internal display.">
+        Extending screen
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_DOCKED" desc="The label used in the tray to show that the current status is docked mode.">
+        Docked mode
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_DOCKED_DESCRIPTION" desc="The label used in the notification body to describe what the docked mode means.">
+        Your Chromebook will stay on while connected to an external display, even with the lid closed.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_RESOLUTION_CHANGED" desc="The label used in the tray to notify that the display resolution settings has changed.">
+        <ph name="DISPLAY_NAME">$1</ph> resolution was changed to <ph name="RESOLUTION">$2</ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ROTATED" desc="The label used in the tray to notify that the display rotation settings has changed.">
+        <ph name="DISPLAY_NAME">$1</ph> was rotated to <ph name="ROTATION">$2</ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_SINGLE_DISPLAY" desc="The label used in the tray to show a single display's configuration">
+        <ph name="DISPLAY_NAME">$1</ph>: <ph name="ANNOTATION">$2</ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_UNKNOWN_DISPLAY_NAME" desc="Label shown in tray for a display whose name is unknown.">
+        Unknown Display
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ANNOTATED_NAME" desc="Label used to show a display name with annotation (like screen resolution or overscan info).">
+	<ph name="DISPLAY_NAME">$1</ph> (<ph name="ANNOTATION">$2</ph>)
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ANNOTATION" desc="Label used to annotate the display's status like resolution or overscan flag.">
+        <ph name="RESOLUTION">$1</ph>, <ph name="OVERSCAN">$2</ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ANNOTATION_OVERSCAN" desc="Label used to describe that the system notice that this display device may have overscan area.">
+        overscan
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_STANDARD_ORIENTATION" desc="The default value of display orientation option item.">
+        0&#x00B0;
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ORIENTATION_90" desc="The value of display orientation option item: 90-degree rotated">
+        90&#x00B0;
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ORIENTATION_180" desc="The value of display orientation option item: 180-degree rotated">
+        180&#x00B0;
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ORIENTATION_270" desc="The value of display orientation option item: 270-degree rotated">
+        270&#x00B0;
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DRIVE_SYNCING" desc="The label in the tray to indicate onoing file sync operations.">
+        Syncing <ph name="count">$1<ex>3</ex></ph> file(s)
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DRIVE" desc="The label used for Google Drive tray details header.">
+        Google Drive
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DRIVE_SETTINGS" desc="The label used for Google Drive settings entry.">
+        Google Drive settings...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_IME" desc="The label used as the header in the IME popup.">
+        Input methods
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_IME_SETTINGS" desc="The label used for IME settings entry.">
+        Customize languages and input...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_ENABLED" desc="The label used for the tray item to indicate caps lock is on and to toggle caps lock by the click.">
+        CAPS LOCK is on
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_DISABLED" desc="The label used for the tray item to indicate caps lock is on and to toggle caps lock by the click.">
+        CAPS LOCK is off
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_SHORTCUT_SEARCH" desc="The shortcut text used for the caps lock tray item.">
+        Search
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_SHORTCUT_SEARCH_OR_SHIFT" desc="The shortcut text used for the caps lock tray item.">
+        Search or Shift
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_SHORTCUT_ALT_SEARCH" desc="The shortcut text used for the caps lock tray item.">
+        Alt+Search
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_SHORTCUT_ALT_SEARCH_OR_SHIFT" desc="The shortcut text used for the caps lock tray item.">
+        Alt+Search or Shift
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_CANCEL_BY_ALT_SEARCH" desc="The message shown on a bubble when caps lock is turned on.">
+CAPS LOCK is on.
+Press Alt+Search or Shift to cancel.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_CANCEL_BY_SEARCH" desc="The message shown on a bubble when caps lock is turned on.">
+CAPS LOCK is on.
+Press Search or Shift to cancel.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_IME_TURNED_ON_BUBBLE" desc="The message shown on a bubble when an IME is enabled">
+        Your input method has changed to <ph name="INPUT_METHOD_ID">$1<ex>EN</ex></ph>.
+Press Shift + Alt to switch.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_THIRD_PARTY_IME_TURNED_ON_BUBBLE" desc="The message shown on a bubble when a third party IME is enabled">
+        Your input method has changed to <ph name="INPUT_METHOD_ID">$1<ex>EN</ex></ph>*(<ph name="BEGIN_LINK">&lt;a target="_blank" href="$2"&gt;</ph>3rd party<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>).
+Press Shift + Alt to switch.
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_LOCALE_CHANGE_MESSAGE" desc="The message used for locale change notifications in the system tray.">
+        The language has changed from "<ph name="FROM_LOCALE">$1<ex>Italian</ex></ph>" to "<ph name="TO_LOCALE">$2<ex>English (United States)</ex></ph>" after syncing your settings.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_LOCALE_REVERT_MESSAGE" desc="Link to revert a change.">
+        Change back to "<ph name="FROM_LOCALE">$1<ex>Italian</ex></ph>" (requires restart)
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY" desc="The label used in the tray menu to show the accessibility option menu.">
+        Accessibility
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_TITLE" desc="The label used in the title of the accessibility option menu.">
+        Accessibility
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_SPOKEN_FEEDBACK" desc="The label used in the accessibility menu of the
+    system tray to toggle on/off spoken feedback feature.">
+        Spoken feedback
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_HIGH_CONTRAST_MODE" desc="The label used in the accessibility menu of the system tray to toggle on/off high contrast feature.">
+        High contrast mode
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_SCREEN_MAGNIFIER" desc="The label used in the accessibility menu of the system tray to toggle on/off magnifier feature.">
+        Screen magnifier
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_LARGE_CURSOR" desc="The label used in the accessibility menu of the system tray to toggle on/off large mouse cursor feature.">
+        Large mouse cursor
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_LEARN_MORE" desc="The label used in the accessibility menu of the system tray
+     to open a webpage (article on help center) containing explanation about accessibility feature.">
+        Learn more...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_SETTINGS" desc="The label of the item 'Settings...' used in the accessibility menu of the system tray to open an accessibility setting page.">
+        Settings...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_FULL" desc="The label in the tray dialog to indicate that the battery is full.">
+        Battery full
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT" desc="The label in the tray dialog to show the remaining battery power as a percent.">
+        <ph name="percentage">$1<ex>56</ex></ph>% remaining
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_ONLY" desc="The label in the tray bubble setting row to show the remaining battery power as a percent.">
+        <ph name="percentage">$1<ex>56</ex></ph>%
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_UNTIL_FULL" desc="The label in the tray dialog to show a time estimate until the battery is fully charged.">
+        <ph name="hour">$1<ex>2</ex></ph>h <ph name="minute">$2<ex>53</ex></ph>m until full
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_CALCULATING" desc="The label in the tray dialog indicating that the time to charge or discharge the battery is being calculated.">
+        Calculating...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_LEFT_SHORT" desc="The label in the tray bubble settings row to show a time estimate until the battery is empty.">
+        <ph name="hour">$1<ex>2</ex></ph>:<ph name="minute">$2<ex>53</ex></ph> left
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_TIME_UNTIL_FULL_SHORT" desc="The label in the tray bubble settings row to show a time estimate until the battery is fully charged.">
+        <ph name="hour">$1<ex>2</ex></ph>:<ph name="minute">$2<ex>53</ex></ph> until full
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_CHARGING_UNRELIABLE" desc="The label in the tray dialog to indicate that battery charging is unreliable.">
+        Low-power charger
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_FULL_CHARGE_ACCESSIBLE" desc="The message used by accessibility to show battery is fully charged.">
+        Battery is full.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_ACCESSIBLE" desc="The message used by accessibility to show battery is discharging.">
+        Battery is <ph name="percentage">$1<ex>56</ex></ph>% full.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_CHARGING_ACCESSIBLE" desc="The message used by accessibility to show battery is being charged.">
+        Battery is <ph name="percentage">$1<ex>56</ex></ph>% full and charging.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_CALCULATING_ACCESSIBLE" desc="The message used by accessibility to show battery is calculating its time in short message.">
+        Calculating battery time.
+      </message>
+      <message name= "IDS_ASH_STATUS_TRAY_BATTERY_TIME_LEFT_ACCESSIBLE" desc="The message used by accessibility to read remaining battery time until empty.">
+        Time left until battery is empty, <ph name="time_left">$1<ex>1 hour and 15 minutes</ex></ph>
+      </message>
+      <message name= "IDS_ASH_STATUS_TRAY_BATTERY_TIME_UNTIL_FULL_ACCESSIBLE" desc="The message used by accessibility to read the estimated time until full.">
+        Time remaining until battery is fully charged, <ph name="time_remaining">$1<ex>1 hour and 15 minutes</ex></ph>
+      </message>
+      <message name = "IDS_ASH_STATUS_TRAY_BATTERY_TIME_ACCESSIBLE" desc="The message used by accessibility to read battery time, which includes both non-zero hours and minutes.">
+        <ph name="hour">$1<ex> 1 hour</ex></ph> and <ph name="minute">$2<ex>15 minutes</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_CHARGING_UNRELIABLE_ACCESSIBLE" desc="The message used by accessibility to indicate that battery charging is unreliable.">
+        Plugged in to a low-power charger. Battery charging may not be reliable.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_HELP" desc="The accessible text for the help button.">
+        Help
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_DATE" desc="The date displayed on ash system bubble, Depending on launguage, please choose the best separator(eg ',') between abbreviated weekday and date">
+        <ph name="short_weekday">$1<ex>Fri</ex></ph>, <ph name="date">$2<ex>Aug 31, 2012</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_SHUTDOWN" desc="The accessible text for the shutdown button.">
+        Shutdown
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_REMAINING_SESSION_TIME" desc="The time remaining until the end of the session. Shown if the session length is limited.">
+        <ph name="hours">$1<ex>01</ex></ph>:<ph name="minutes">$2<ex>35</ex></ph>:<ph name="seconds">$3<ex>12</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_REMAINING_SESSION_TIME_NOTIFICATION" desc="Notification shown to inform the user that the session length is limited.">
+        This session will end in <ph name="session_time_remaining">$1<ex>15 minutes</ex></ph>. You will be automatically signed out.
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_LOCALLY_MANAGED_LABEL" desc="Label shown instead of email for supervised users">
+         Supervised user
+      </message>
+
+      <message name="IDS_ASH_STATUS_TRAY_PREVIOUS_MENU" desc="The accessible text for header entries for detailed versions of status tray items.">
+        Previous menu
+      </message>
+
+      <message name="IDS_ASH_NOTIFICATION_UNREAD_COUNT_NINE_PLUS" desc="The text shown in the notification icon for the unread count when the count is more than 9.">
+        9+
+      </message>
+      <message name="IDS_ASH_MAXIMIZE_WINDOW" desc="A help text to show that when the button gets clicked the window get maximized.">
+        Maximize
+      </message>
+      <message name="IDS_ASH_SNAP_WINDOW_RIGHT" desc="A help text to show that when the button gets clicked the window get snapped to the right side.">
+        Right
+      </message>
+      <message name="IDS_ASH_SNAP_WINDOW_LEFT" desc="A help text to show that when the button gets clicked the window get snapped to the left side.">
+        Left
+      </message>
+      <message name="IDS_ASH_RESTORE_WINDOW" desc="A help text to show that when the button gets clicked the window gets restored to its normal - non maximized - state.">
+        Restore
+      </message>
+      <message name="IDS_ASH_MINIMIZE_WINDOW" desc="A help text to show that when the button gets clicked the window gets minimized.">
+        Minimize
+      </message>
+      <message name="IDS_ASH_DISPLAY_FAILURE_ON_MIRRORING" desc="An error message to show that the system failed to enter the mirroring mode.">
+        Could not mirror displays since no supported resolutions found. Entered extended desktop instead.
+      </message>
+      <message name="IDS_ASH_DISPLAY_FAILURE_ON_NON_MIRRORING" desc="An error message to show that the system failed to enter the extended desktop mode or unknown status. Please translate the parentized text.">
+        Dear Monitor, it's not working out between us. (That monitor is not supported)
+      </message>
+      <message name="IDS_ASH_DISPLAY_RESOLUTION_CHANGE_ACCEPT" desc="A button label shown in the notification for the resolution change to accept the change">
+        Accept
+      </message>
+      <message name="IDS_ASH_DISPLAY_RESOLUTION_CHANGE_REVERT" desc="A button label shown in the notification for the resolution change to revert the change">
+        Revert
+      </message>
+      <message name="IDS_ASH_DISPLAY_RESOLUTION_TIMEOUT" desc="A message for to notify the user about the timeout of display resolution change.">
+        Reverting to old resolution in <ph name="TIMEOUT_SECONDS">$1</ph>
+      </message>
+      <message name="IDS_ASH_INTERNAL_DISPLAY_NAME" desc="The name of the internal display which is shown in the display settings.">
+        Internal Display
+      </message>
+      <message name="IDS_ASH_LOW_PERIPHERAL_BATTERY_NOTIFICATION_TEXT" desc="The text of the notification when a peripheral device is in low battery condition.">
+        Battery low (<ph name="percentage">$1<ex>56</ex></ph>%)
+      </message>
+      <message name="IDS_ASH_SCREENSHOT_NOTIFICATION_TITLE_SUCCESS" desc="The title of the notification when a screenshot was taken.">
+        Screenshot taken
+      </message>
+      <message name="IDS_ASH_SCREENSHOT_NOTIFICATION_TITLE_FAIL" desc="The title of the notification when taking a screenshot failed.">
+        An error occurred
+      </message>
+      <message name="IDS_ASH_SCREENSHOT_NOTIFICATION_TEXT_SUCCESS" desc="The text of the notification when a screenshot was taken.">
+        Click to view
+      </message>
+      <message name="IDS_ASH_SCREENSHOT_NOTIFICATION_TEXT_FAIL" desc="The text of the notification when taking a screenshot failed.">
+        Failed to save screenshot
+      </message>
+      <message name="IDS_ASH_EXIT_WARNING_POPUP_TEXT" desc="The text of the popup when the user preses the exit shortcut.">
+        Press Ctrl+Shift+Q twice to quit.
+      </message>
+      <message name="IDS_ASH_EXIT_WARNING_POPUP_TEXT_ACCESSIBLE" desc="The message used by accessibility to indicate the content of the popup when the user preses the exit shortcut.">
+        Press Control Shift Q twice to quit.
+      </message>
+
+      <!-- ChromeOS-specific strings -->
+      <if expr="pp_ifdef('chromeos')">
+        <part file="ash_chromeos_strings.grdp" />
+      </if>
+
+    </messages>
+  </release>
+</grit>
+

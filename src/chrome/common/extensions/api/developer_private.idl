@@ -1,0 +1,214 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// developerPrivate API.
+// This is a private API exposing developing and debugging functionalities for
+// apps and extensions.
+namespace developerPrivate {
+
+  enum ItemType {
+    hosted_app,
+    packaged_app,
+    legacy_packaged_app,
+    extension,
+    theme
+  };
+
+  dictionary ItemInspectView {
+    // path to the inspect page.
+    DOMString path;
+
+    // For lazy background pages, the value is -1.
+    long render_process_id;
+
+    long render_view_id;
+    boolean incognito;
+    boolean generatedBackgroundPage;
+  };
+
+  dictionary InstallWarning {
+    DOMString message;
+  };
+
+  dictionary ItemInfo {
+    DOMString id;
+    DOMString name;
+    DOMString version;
+    DOMString description;
+    boolean may_disable;
+    boolean enabled;
+    DOMString? disabled_reason;
+    boolean isApp;
+    ItemType type;
+    boolean allow_activity;
+    boolean allow_file_access;
+    boolean wants_file_access;
+    boolean incognito_enabled;
+    boolean is_unpacked;
+    boolean allow_reload;
+    boolean terminated;
+    boolean allow_incognito;
+    DOMString icon_url;
+
+    // Path of an unpacked extension.
+    DOMString? path;
+
+    // Options settings page for the item.
+    DOMString? options_url;
+    DOMString? app_launch_url;
+    DOMString? homepage_url;
+    DOMString? update_url;
+    InstallWarning[] install_warnings;
+    boolean offline_enabled;
+
+    // All views of the current extension.
+    ItemInspectView[] views;
+  };
+
+  dictionary InspectOptions {
+    DOMString extension_id;
+    DOMString render_process_id;
+    DOMString render_view_id;
+    boolean incognito;
+  };
+
+  enum PackStatus {
+    SUCCESS,
+    ERROR,
+    WARNING
+  };
+
+  enum FileType {
+    LOAD,
+    PEM
+  };
+
+  enum SelectType {
+    FILE,
+    FOLDER
+  };
+
+  enum EventType {
+    INSTALLED,
+    UNINSTALLED,
+    LOADED,
+    UNLOADED,
+    // New window / view opened.
+    VIEW_REGISTERED,
+    // window / view closed.
+    VIEW_UNREGISTERED
+  };
+
+  dictionary PackDirectoryResponse {
+    // The response message of success or error.
+    DOMString message;
+
+    // Unpacked items's path.
+    DOMString item_path;
+
+    // Permanent key path.
+    DOMString pem_path;
+
+    long override_flags;
+    PackStatus status;
+  };
+
+  dictionary ProjectInfo {
+    DOMString name;
+  };
+
+  dictionary EventData {
+    EventType event_type;
+    DOMString item_id;
+  };
+
+  callback VoidCallback = void ();
+  callback BooleanCallback = void (boolean result);
+  callback ItemsInfoCallback = void (ItemInfo[] result);
+  callback GetStringsCallback = void (object result);
+  callback GetProjectsInfoCallback = void (ProjectInfo[] result);
+  callback PathCallback = void (DOMString path);
+  callback PackCallback = void (PackDirectoryResponse response);
+  callback VoidCallback = void();
+
+  interface Functions {
+    // Runs auto update for extensions and apps immediately.
+    // |callback| : Called with the boolean result, true if autoUpdate is
+    // successful.
+    static void autoUpdate(BooleanCallback callback);
+
+    // Returns information of all the extensions and apps installed.
+    // |include_disabled| : include disabled items.
+    // |include_terminated| : include terminated items.
+    // |callback| : Called with items info.
+    static void getItemsInfo(boolean include_disabled,
+                             boolean include_terminated,
+                             ItemsInfoCallback callback);
+
+    // Opens a permissions dialog for given |itemId|.
+    static void showPermissionsDialog(DOMString itemId,
+                                      optional VoidCallback callback);
+
+    // Opens an inspect window for given |options|
+    static void inspect(InspectOptions options,
+                        optional VoidCallback callback);
+
+    // Enable / Disable file access for a given |item_id|
+    static void allowFileAccess(DOMString item_id,
+                                boolean allow,
+                                optional VoidCallback callback);
+
+    // Reloads a given item with |itemId|.
+    static void reload(DOMString itemId, optional VoidCallback callback);
+
+    // Enable / Disable a given item with id |itemId|.
+    static void enable(DOMString itemId,
+                       boolean enable,
+                       optional VoidCallback callback);
+
+    // Allow / Disallow item with |item_id| in incognito mode.
+    static void allowIncognito(DOMString item_id,
+                               boolean allow,
+                               VoidCallback callback);
+
+    // Load a user selected unpacked item
+    static void loadUnpacked(optional VoidCallback callback);
+
+    // Copies the syncfs folder for the extension to local disk.
+    static void exportSyncfsFolderToLocalfs(DOMString folder_name,
+                                            optional VoidCallback callback);
+
+    // Loads the unpacked app / extension.
+    // |callback| called with itemId of the loaded item.
+    static void loadProject(DOMString project_name,
+                            PathCallback callback);
+
+    // Open Dialog to browse to an entry.
+    // |select_type| : Select a file or a folder.
+    // |file_type| : Required file type. For Example pem type is for private
+    // key and load type is for an unpacked item.
+    // |callback| : called with selected item's path.
+    static void choosePath(SelectType select_type,
+                           FileType file_type,
+                           PathCallback callback);
+
+    // Pack an item with given |path| and |private_key_path|
+    // |callback| : called with the success result string.
+    static void packDirectory(DOMString path,
+                              DOMString private_key_path,
+                              long flags,
+                              PackCallback callback);
+
+    // Gets localized translated strings for apps_debugger. It returns the
+    // strings as a dictionary mapping from string identifier to the
+    // translated string to use in the apps_debugger app UI.
+    static void getStrings(GetStringsCallback callback);
+  };
+
+  interface Events {
+    // Fired when a item state is changed.
+    static void onItemStateChanged(EventData response);
+  };
+
+};

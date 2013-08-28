@@ -1,0 +1,135 @@
+{
+  "OpenVPN and IssuerCARef": {
+    "WithCertRefs": [
+      {
+        "GUID": "{a3860e83-f03d-4cb1-bafa-789oij}",
+        "Type": "VPN",
+        "VPN": {
+          "Type": "OpenVPN",
+          "OpenVPN": {
+            "PushPeerInfo": true,
+            "Recommended" : [ "Username", "Password" ],
+            "RemoteCertEKU": "TLS Web Server Authentication",
+            "ServerCARef": "cert_google",
+            "ClientCertType": "Pattern",
+            "ClientCertPattern": {
+              "IssuerCARef": [
+                "cert_google",
+                "cert_webkit"
+              ],
+            }
+          }
+        },
+        "ProxySettings": {
+          "Type": "PAC",
+          "PAC": "http://proxycfg.my.domain/proxy.dat"
+        }
+      } ],
+    "WithResolvedRefs": [
+      {
+        "GUID": "{a3860e83-f03d-4cb1-bafa-789oij}",
+        "Type": "VPN",
+        "VPN": {
+          "Type": "OpenVPN",
+          "OpenVPN": {
+            "PushPeerInfo": true,
+            "Recommended" : [ "Username", "Password" ],
+            "RemoteCertEKU": "TLS Web Server Authentication",
+            "ServerCAPEMs":  [ "pem_google" ],
+            "ClientCertType": "Pattern",
+            "ClientCertPattern": {
+              "IssuerCAPEMs": [
+                "pem_google",
+                "pem_webkit"
+              ],
+            }
+          }
+        },
+        "ProxySettings": {
+          "Type": "PAC",
+          "PAC": "http://proxycfg.my.domain/proxy.dat"
+        }
+      } ]
+  },
+  "EAP and L2TP without ref": {
+    "WithCertRefs": 
+    [ { "WiFi": {
+          "EAP": {
+            "ServerCARef": "cert_google",
+            "ClientCertType": "Pattern",
+            "ClientCertPattern": {
+              "EnrollmentURI": [
+                "http://youtu.be/dQw4w9WgXcQ",
+                "chrome-extension://abc/keygen-cert.html"
+              ]
+            }
+          }
+        }
+      },
+      { "VPN": {
+          "IPsec": {
+            "SaveCredentials": true,
+          }
+        }
+      }
+    ],
+    "WithResolvedRefs": 
+    [ { "WiFi": {
+          "EAP": {
+            "ServerCAPEMs": [ 
+              "pem_google"
+            ],
+            "ClientCertType": "Pattern",
+            "ClientCertPattern": {
+              "EnrollmentURI": [
+                "http://youtu.be/dQw4w9WgXcQ",
+                "chrome-extension://abc/keygen-cert.html"
+              ]
+            }
+          }
+        }
+      },
+      { "VPN": {
+          "IPsec": {
+            "SaveCredentials": true,
+          }
+        }
+      }
+    ]
+  },
+  "L2TP and EAP with unknown ref": {
+    "WithCertRefs": 
+    [ { "WiFi": {
+          "EAP": {
+            "ServerCARef": "cert_unknown",
+            "ClientCertType": "Pattern",
+            "ClientCertPattern": {
+              "EnrollmentURI": [
+                "http://youtu.be/dQw4w9WgXcQ",
+                "chrome-extension://abc/keygen-cert.html"
+              ]
+            }
+          }
+        }
+      },
+      { "VPN": {
+          "IPsec": {
+            "SaveCredentials": true,
+            "ServerCARef": "cert_google"
+          }
+        }
+      }
+    ],
+    "WithResolvedRefs": 
+    [ { "VPN": {
+          "IPsec": {
+            "SaveCredentials": true,
+            "ServerCAPEMs": [ 
+              "pem_google"
+            ],
+          }
+        }
+      }
+    ]
+  }
+}

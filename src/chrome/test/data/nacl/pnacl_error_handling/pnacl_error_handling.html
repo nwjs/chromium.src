@@ -1,0 +1,84 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<!--
+  Copyright (c) 2012 The Chromium Authors. All rights reserved.
+  Use of this source code is governed by a BSD-style license that can be
+  found in the LICENSE file.
+-->
+<head>
+  <META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+  <META HTTP-EQUIV="Expires" CONTENT="-1" />
+  <script type="text/javascript" src="nacltest.js"></script>
+  <script type="text/javascript" src="ppapi_bad.js"></script>
+  <title>PNaCl Error Handling Test</title>
+  <style type="text/css">
+  .naclModule { background-color: gray; margin: 2px 2px; }
+  </style>
+</head>
+<body id="body">
+<script type="text/javascript">
+//<![CDATA[
+
+function declareTests(tester) {
+  // 'bad_pexe' loads a manifest, then loads a pexe that is invalid.
+  badLoadTest(
+      tester,
+      'bad_pexe',
+      'pnacl_bad_pexe.nmf',
+      'application/x-pnacl',
+      'NaCl module load failed: PnaclCoordinator: compile failed.');
+
+  // 'nonexistent_pexe' loads a manifest, then tries to to load a nonexistent
+  // pexe and fails.
+  badLoadTest(
+      tester,
+      'nonexistent_pexe',
+      'pnacl_bad_doesnotexist.nmf',
+      'application/x-pnacl',
+      'NaCl module load failed: PnaclCoordinator: ' +
+      'pexe load failed (pp_error=-2).');
+
+  // 'illformed_manifest' loads a manifest that isn't quite right for pexes
+  // (looks like the format for NaCl portable data files).
+  badLoadTest(
+      tester,
+      'illformed_manifest',
+      'pnacl_illformed_manifest.nmf',
+      'application/x-pnacl',
+      'NaCl module load failed: manifest: program property \'portable\' does ' +
+      'not have required key: \'pnacl-translate\'.');
+
+  // 'wrong_mimetype' loads an okay manifest, but with the wrong mimetype
+  // (the NaCl mimetype instead of PNaCl mimetype).
+  badLoadTest(
+      tester,
+      'wrong_mimetype',
+      'pnacl_bad_pexe.nmf',
+      'application/x-nacl',
+      'NaCl module load failed: manifest: PNaCl-like NMF with ' +
+      'application/x-nacl mimetype instead of x-pnacl mimetype ' +
+      '(has pnacl-translate).');
+}
+
+
+// The driver invoked when the body has finished loading.
+function runTests() {
+  var tester = new Tester($('body'));
+  tester.loadErrorsAreOK();
+  declareTests(tester);
+  tester.run();
+}
+//]]>
+</script>
+
+<!-- The tests will create and remove embeds from this div. -->
+<div id="embeds"></div>
+
+<script type="text/javascript">
+//<![CDATA[
+runTests();
+//]]>
+</script>
+</body>
+</html>

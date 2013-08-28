@@ -1,0 +1,10 @@
+include_rules = [
+  "+chrome/app",
+  "+chrome/browser",
+  "+content/public/android",
+  "+content/public/browser",
+  "+content/public/browser/android",
+  "+sync/android/java/src/org/chromium/sync/notifier",
+  "+sync/android/java/src/org/chromium/sync/signin",
+]
+

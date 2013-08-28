@@ -1,0 +1,16 @@
+<dt>
+  <span class="variable">{{name}}</span>
+  <span class="property">
+    (
+      {{?optional}}<span class="optional">optional</span>{{/}}
+      {{+partials.variable_type}}
+    )
+  </span>
+</dt>
+{{?description}}<dd>
+  {{{description}}}
+</dd>{{/description}}
+{{?array.is_object}}
+  <h4>Properties of each item</h4>
+  {{+partials.type @:array}}
+{{/array.is_object}}

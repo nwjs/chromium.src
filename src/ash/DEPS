@@ -1,0 +1,16 @@
+include_rules = [
+  "+cc/debug",
+  "+chromeos",
+  "+content/public",
+  "+gpu/config",
+  "+grit/ash_resources.h",
+  "+grit/ash_strings.h",
+  "+grit/ui_resources.h",
+  "+grit/ui_strings.h",
+  "+skia/ext",
+  "+third_party/cros_system_api",
+  "+third_party/skia",
+  "+net",
+  "+ui",
+  "+win8",
+]

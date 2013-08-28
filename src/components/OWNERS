@@ -1,0 +1,46 @@
+joi@chromium.org
+
+per-file autofill*=dhollowa@chromium.org
+per-file autofill*=isherman@chromium.org
+per-file autofill*=kaiwang@chromium.org
+
+per-file breakpad.gypi=jochen@chromium.org
+per-file breakpad.gypi=rsesek@chromium.org
+per-file breakpad.gypi=thestig@chromium.org
+
+per-file json_schema.gypi=asargent@chromium.org
+per-file json_schema.gypi=calamity@chromium.org
+per-file json_schema.gypi=kalman@chromium.org
+per-file json_schema.gypi=koz@chromium.org
+per-file json_schema.gypi=mpcomplete@chromium.org
+
+per-file nacl*=bradchen@chromium.org
+per-file nacl*=bradnelson@chromium.org
+per-file nacl*=jvoung@chromium.org
+per-file nacl*=mseaborn@chromium.org
+per-file nacl*=noelallen@chromium.org
+per-file nacl*=sehr@chromium.org
+
+per-file navigation_interception.gypi=joth@chromium.org
+per-file navigation_interception.gypi=mkosiba@chromium.org
+
+per-file policy.gypi=mnissler@chromium.org
+per-file policy.gypi=pastarmovj@chromium.org
+per-file policy.gypi=joaodasilva@chromium.org
+per-file policy.gypi=bartfab@chromium.org
+per-file policy.gypi=atwilson@chromium.org
+per-file policy.gypi=pneubeck@chromium.org
+
+per-file sessions.gypi=marja@chromium.org
+per-file sessions.gypi=sky@chromium.org
+
+per-file tracing*=jbauman@chromium.org
+per-file tracing*=nduca@chromium.org
+
+per-file user_prefs.gypi=battre@chromium.org
+per-file user_prefs.gypi=bauerb@chromium.org
+per-file user_prefs.gypi=mnissler@chromium.org
+per-file user_prefs.gypi=pam@chromium.org
+
+per-file *.isolate=csharp@chromium.org
+per-file *.isolate=maruel@chromium.org

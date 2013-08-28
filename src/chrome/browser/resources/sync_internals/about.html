@@ -1,0 +1,122 @@
+<script src="chrome://sync-internals/about.js"></script>
+
+<style>
+div#aboutInfo {
+  -webkit-columns: 3;
+}
+
+div#aboutInfo h2 {
+  color: #4a8ee6;
+  font-size: 100%;
+  margin-bottom: 0;
+}
+
+div#aboutInfo .err {
+  color: red;
+}
+
+div#aboutInfo div.section {
+  display: inline-block;
+  width: 100%;
+  -webkit-column-break-inside: avoid;
+}
+
+table.aboutDetails {
+  width: 100%;
+}
+
+table.aboutDetails tr:nth-child(odd) {
+  background: #eff3ff;
+}
+
+div#aboutInfo div.section > td#detail {
+  width: 50%;
+}
+
+div#aboutInfo div.section > td#value {
+  width: 50%;
+}
+
+table#typeInfo tr.error {
+ background: #ffcccc;
+}
+
+table#typeInfo tr.warning {
+ background: #ffffcc;
+}
+
+table#typeInfo tr.ok {
+ background: #ccffcc;
+}
+
+@-webkit-keyframes highlight1 {
+  0% { background: #ffff00; }
+  100% { background: #ffffff; }
+}
+
+@-webkit-keyframes highlight2 {
+  0% { background: #9b9ea6; }
+  100% { background: #eff3ff; }
+}
+
+table.aboutDetails tr[highlighted] {
+  -webkit-animation-name: highlight1;
+  -webkit-animation-duration: 3s;
+  -webkit-animation-timing-function: linear;
+}
+
+table.aboutDetails tr[highlighted]:nth-child(odd) {
+  -webkit-animation-name: highlight2;
+  -webkit-animation-duration: 3s;
+  -webkit-animation-timing-function: linear;
+}
+
+table.aboutDetails tr.uninitialized {
+  color: #7f7f7f;
+}
+
+</style>
+
+<div id='aboutInfo'>
+  <div class="section" jsselect="details">
+    <h2 jscontent="title"></h2>
+    <table class="aboutDetails">
+      <tr jsselect="data"
+            jsvalues="class:$this.is_valid ? '' : 'uninitialized'"
+            jseval='highlightIfChanged(this, this.children[1].innerText, stat_value)'>
+        <td class="detail" jscontent="stat_name" width=50%></td>
+        <td class="value" jscontent="stat_value" width=50%></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section" style="overflow-x: auto">
+    <h2>Type Info</h2>
+    <table id="typeInfo">
+      <tr jsselect="type_status" jsvalues="class:$this.status">
+        <td jscontent="name" width=50%></td>
+        <td jscontent="value" width=30%></td>
+        <td jscontent="num_entries" width=10%></td>
+        <td jscontent="num_live" width=10%></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section" jsdisplay="unrecoverable_error_detected">
+    <p>
+      <span class="err" jscontent="unrecoverable_error_message"></span>
+    </p>
+  </div>
+
+  <div class="section" jsdisplay="actionable_error_detected">
+    <p>
+      <h2>Actionable Error</h2>
+      <table id="actionableError">
+        <tr jsselect="actionable_error">
+          <td jscontent="stat_name"></td>
+          <td jscontent="stat_value"></td>
+        </tr>
+      </table>
+    </p>
+  </div>
+</div>

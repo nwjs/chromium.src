@@ -1,0 +1,50 @@
+--------
+Overview
+
+This is a Google App Engine server which serves the documentation for Chrome
+apps and extensions. At time of this writing, the primary URL is:
+http://developer.chrome.com/.
+
+
+---------------------
+Developing the Server
+
+You shouldn't need app engine locally to develop the server, preview.py should
+be sufficient. If for some reason you want to test against the app engine SDK:
+
+  1. Download the python Google App Engine SDK from:
+     https://developers.google.com/appengine/downloads
+
+  2. Run './start_dev_server.py <path/to/dev_appserver.py>'
+     (dev_appserver.py is part of the App Engine)
+
+  3. View docs at http://localhost:8080/(apps|extensions)/<doc_name>
+
+
+--------------------
+Deploying the Server
+
+You will need to have access to the http://chrome-apps-doc.appspot.com app.
+Contact aa@chromium.org, erikkay@chromium.org, miket@chromium.org,
+kalman@chromium.org, or ernestd@chromium.org to obtain access.
+
+Once you have access:
+
+1. Increment the version in app.yaml so we can roll back if the update breaks.
+
+2. Run build_server.py. This copies some depenencies from /third_party into the
+   server directory so that they get uploaded to App Engine.
+
+3. Run appcfg.py (supplied with the App Engine SDK) to upload the server code:
+
+    appcfg.py update .
+
+4. When prompted for your credentials, enter the information for the account
+   that has access to the production app.
+
+5. Go to http://www.appspot.com, select the docs project, click "versions" in
+   the sidebar, and make the version you just deployed the "default" version.
+
+   If you get an error about too many versions when deploying, go into this
+   view and delete the version which was deployed the longest time ago.  Then
+   try to deploy again.

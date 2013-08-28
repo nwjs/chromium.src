@@ -1,0 +1,73 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+{
+  'conditions': [
+    ['OS=="android" or OS=="linux" or OS=="mac" or OS=="win"', {
+      'variables': {
+        'isolate_dependency_untracked': [
+          '../media/test/data/',
+          '../webkit/data/',
+          'test/data/',
+        ],
+      },
+    }],
+    ['OS=="android" or OS=="mac"', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/content_resources.pak',
+        ],
+      },
+    }],
+    ['OS=="linux"', {
+      'variables': {
+        'command': [
+          '../testing/xvfb.py',
+          '<(PRODUCT_DIR)',
+          '../tools/swarm_client/googletest/run_test_cases.py',
+          '<(PRODUCT_DIR)/content_unittests<(EXECUTABLE_SUFFIX)',
+        ],
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/libffmpegsumo.so',
+        ],
+        'isolate_dependency_untracked': [
+          '<(PRODUCT_DIR)/test_data/',
+        ],
+      },
+    }],
+    ['OS=="linux" or OS=="mac" or OS=="win"', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/content_unittests<(EXECUTABLE_SUFFIX)',
+        ],
+        'isolate_dependency_untracked': [
+          '../tools/swarm_client/',
+        ],
+      },
+    }],
+    ['OS=="mac"', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/ffmpegsumo.so',
+        ],
+      },
+    }],
+    ['OS=="mac" or OS=="win"', {
+      'variables': {
+        'command': [
+          '../testing/test_env.py',
+          '../tools/swarm_client/googletest/run_test_cases.py',
+          '<(PRODUCT_DIR)/content_unittests<(EXECUTABLE_SUFFIX)',
+        ],
+      },
+    }],
+    ['OS=="win"', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/ffmpegsumo.dll',
+          '<(PRODUCT_DIR)/icudt.dll',
+        ],
+      },
+    }],
+  ],
+}

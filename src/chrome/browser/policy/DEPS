@@ -1,0 +1,89 @@
+# The //chrome/browser/policy code is being converted into a component at
+# //components/policy. This DEPS file is temporarily restricting the include
+# rules for this code; once all the exceptions are fixed then the code will
+# be moved, and this file will be removed.
+# http://crbug.com/271392
+
+include_rules = [
+  "-chrome",
+  "-chromeos",
+  "-content",
+  "+chrome/browser/policy",
+]
+
+specific_include_rules = {
+  # These files will stay.
+  r"(browser_policy_connector|"
+  r"managed_mode_policy_provider|"
+  r"policy_browsertest|"
+  r"policy_prefs_browsertest|"
+  r"profile_policy_connector|"
+  r"profile_policy_connector_factory|"
+  r"url_blacklist_manager|"
+  r"url_blacklist_manager_unittest)"
+  r"\.(cc|h)": [
+    "+chrome",
+    "+chromeos",
+    "+content/public/browser",
+    "+content/public/common",
+    "+content/public/test",
+    "+content/test/net",
+  ],
+
+  # TODO(joaodasilva): remove these exceptions.
+  r"configuration_policy_handler_android\.cc": [
+    "+chrome/common/net/url_fixer_upper.h",
+    "+chrome/common/pref_names.h",
+  ],
+
+  r"configuration_policy_handler\.cc": [
+    "+chrome/browser/chrome_notification_types.h",
+    "+chrome/browser/download/download_prefs.h",
+    "+chrome/browser/extensions/external_policy_loader.h",
+    "+chrome/browser/prefs/proxy_config_dictionary.h",
+    "+chrome/browser/prefs/proxy_prefs.h",
+    "+chrome/browser/prefs/session_startup_pref.h",
+    "+chrome/browser/search_engines/search_terms_data.h",
+    "+chrome/browser/search_engines/template_url.h",
+    "+chrome/common/extensions/extension.h",
+    "+chrome/common/pref_names.h",
+    "+content/public/browser/notification_service.h",
+  ],
+
+  r"configuration_policy_handler\.h": [
+    "+chrome/browser/prefs/incognito_mode_prefs.h",
+    "+chrome/common/content_settings.h",
+  ],
+
+  r"configuration_policy_handler_list\.cc": [
+    "+chrome/common/extensions/manifest.h",
+    "+chrome/common/pref_names.h",
+    "+chrome/browser/chromeos/policy/configuration_policy_handler_chromeos.h",
+    "+chromeos/dbus/power_policy_controller.h",
+  ],
+
+  r"configuration_policy_handler_unittest\.cc": [
+    "+chrome/browser/extensions/external_policy_loader.h",
+    "+chrome/common/pref_names.h",
+  ],
+
+  r"configuration_policy_pref_store_unittest\.cc": [
+    "+chrome/browser/prefs/incognito_mode_prefs.h",
+    "+chrome/browser/prefs/proxy_config_dictionary.h",
+    "+chrome/common/content_settings.h",
+    "+chrome/common/pref_names.h",
+  ],
+
+  r"policy_path_parser_win\.cc": [
+    "+chrome/common/chrome_switches.h",
+  ],
+
+  r"policy_statistics_collector\.cc": [
+    "+chrome/common/pref_names.h",
+  ],
+
+  r"policy_statistics_collector_unittest\.cc": [
+    "+chrome/browser/prefs/browser_prefs.h",
+    "+chrome/common/pref_names.h",
+  ],
+}

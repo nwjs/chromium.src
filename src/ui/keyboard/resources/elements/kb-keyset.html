@@ -1,0 +1,77 @@
+<!--
+  -- Copyright 2013 The Chromium Authors. All rights reserved.
+  -- Use of this source code is governed by a BSD-style license that can be
+  -- found in the LICENSE file.
+  -->
+
+<polymer-element name="kb-keyset" attributes="nextKeyset isDefault"
+    on-key-up="keyUp" on-key-longpress="keyLongpress">
+  <template>
+    <style>
+      @host {
+        * {
+          -webkit-box-orient: vertical;
+          -webkit-box-flex: 1;
+          display: -webkit-box;
+        }
+      }
+    </style>
+    <content select="kb-row"></content>
+    <content select="kb-altkey-container" id="altkeyContainer"
+        touch-action="none"></content>
+    <kb-altkey-data id="altkeyMetadata"></kb-altkey-data> 
+  </template>
+  <script>
+    Polymer('kb-keyset', {
+      isDefault: false,
+      nextKeyset: undefined,
+      // TODO(bshe): support select keyset on down, long and dbl events.
+      keyUp: function(event, detail) {
+        if (!detail.toKeyset)
+          detail.toKeyset = this.nextKeyset;
+      },
+      keyLongpress: function(event, detail) {
+        if (!detail.char)
+          return;
+
+        var altkeyContainer = this.$.altkeyContainer.getDistributedNodes()[0];
+        if (!altkeyContainer)
+          return;
+
+        var altkeyMetadata = this.$.altkeyMetadata;
+        var altkeys = altkeyMetadata.getAltkeys(detail.char,
+                                                !!detail.superscript);
+        if (!altkeys)
+          return;
+
+        var id = altkeys.id;
+        var activeAltKeySet = altkeyContainer.querySelector('#' + id);
+        if (!activeAltKeySet) {
+          var keyWidth = event.target.clientWidth;
+          var leftMargin = event.target.offsetLeft;
+          var maxLeftOffset = Math.round(leftMargin / keyWidth);
+          var rightMargin = this.clientWidth - leftMargin - keyWidth;
+          var maxRightOffset = Math.round(rightMargin / keyWidth);
+          activeAltKeySet = altkeyMetadata.createAltkeySet(detail.char,
+                                                           maxLeftOffset,
+                                                           maxRightOffset,
+                                                           detail.superscript);
+          altkeyContainer.appendChild(activeAltKeySet);
+        }
+
+        altkeyContainer.keyset = id;
+        event.target.classList.remove('active');
+        activeAltKeySet.style.width = event.target.clientWidth *
+            activeAltKeySet.childElementCount + 'px';
+        activeAltKeySet.style.height = event.target.clientHeight + 'px';
+        activeAltKeySet.style.top = event.target.offsetTop + 'px';
+        var leftOffset = activeAltKeySet.offset * event.target.clientWidth;
+        activeAltKeySet.style.left = event.target.offsetLeft - leftOffset +
+            'px';
+        var nodes = activeAltKeySet.childNodes;
+        nodes[activeAltKeySet.offset].classList.add('active');
+        altkeyContainer.hidden = false;
+      }
+    });
+  </script>
+</polymer-element>

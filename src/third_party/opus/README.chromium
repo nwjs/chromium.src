@@ -1,0 +1,12 @@
+Name: opus
+URL: http://downloads.xiph.org/releases/opus/opus-1.0.2.tar.gz
+Version: 1.0.2
+License: BSD
+License File: src/COPYING
+Security Critical: yes
+
+Description:
+This directory contains a copy of Opus library
+
+This library is used by Chrome Remote Desktop and WebRTC for audio stream
+encoding/decoding.

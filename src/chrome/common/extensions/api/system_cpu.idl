@@ -1,0 +1,23 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>system.cpu</code> API to query CPU metadata.
+namespace system.cpu {
+
+  dictionary CpuInfo {
+    // The number of logical processors.
+    long numOfProcessors;
+    // The architecture name of the processors.
+    DOMString archName;
+    // The model name of the processors.
+    DOMString modelName;
+  };
+
+  callback CpuInfoCallback = void (CpuInfo info);
+
+  interface Functions {
+    // Queries basic CPU information of the system.
+    static void getInfo(CpuInfoCallback callback);
+  };
+};

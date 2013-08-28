@@ -1,0 +1,80 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "cc/output/managed_memory_policy.h"
+
+#include "base/logging.h"
+#include "cc/resources/priority_calculator.h"
+
+namespace cc {
+
+const size_t ManagedMemoryPolicy::kDefaultNumResourcesLimit = 10 * 1000 * 1000;
+
+ManagedMemoryPolicy::ManagedMemoryPolicy(size_t bytes_limit_when_visible)
+    : bytes_limit_when_visible(bytes_limit_when_visible),
+      priority_cutoff_when_visible(CUTOFF_ALLOW_EVERYTHING),
+      bytes_limit_when_not_visible(0),
+      priority_cutoff_when_not_visible(CUTOFF_ALLOW_NOTHING),
+      num_resources_limit(kDefaultNumResourcesLimit) {}
+
+ManagedMemoryPolicy::ManagedMemoryPolicy(
+    size_t bytes_limit_when_visible,
+    PriorityCutoff priority_cutoff_when_visible,
+    size_t bytes_limit_when_not_visible,
+    PriorityCutoff priority_cutoff_when_not_visible,
+    size_t num_resources_limit)
+    : bytes_limit_when_visible(bytes_limit_when_visible),
+      priority_cutoff_when_visible(priority_cutoff_when_visible),
+      bytes_limit_when_not_visible(bytes_limit_when_not_visible),
+      priority_cutoff_when_not_visible(priority_cutoff_when_not_visible),
+      num_resources_limit(num_resources_limit) {}
+
+bool ManagedMemoryPolicy::operator==(const ManagedMemoryPolicy& other) const {
+  return bytes_limit_when_visible == other.bytes_limit_when_visible &&
+         priority_cutoff_when_visible == other.priority_cutoff_when_visible &&
+         bytes_limit_when_not_visible == other.bytes_limit_when_not_visible &&
+         priority_cutoff_when_not_visible ==
+             other.priority_cutoff_when_not_visible &&
+         num_resources_limit == other.num_resources_limit;
+}
+
+bool ManagedMemoryPolicy::operator!=(const ManagedMemoryPolicy& other) const {
+  return !(*this == other);
+}
+
+// static
+int ManagedMemoryPolicy::PriorityCutoffToValue(PriorityCutoff priority_cutoff) {
+  switch (priority_cutoff) {
+    case CUTOFF_ALLOW_NOTHING:
+      return PriorityCalculator::AllowNothingCutoff();
+    case CUTOFF_ALLOW_REQUIRED_ONLY:
+      return PriorityCalculator::AllowVisibleOnlyCutoff();
+    case CUTOFF_ALLOW_NICE_TO_HAVE:
+      return PriorityCalculator::AllowVisibleAndNearbyCutoff();
+    case CUTOFF_ALLOW_EVERYTHING:
+      return PriorityCalculator::AllowEverythingCutoff();
+  }
+  NOTREACHED();
+  return PriorityCalculator::AllowNothingCutoff();
+}
+
+// static
+TileMemoryLimitPolicy
+ManagedMemoryPolicy::PriorityCutoffToTileMemoryLimitPolicy(
+    PriorityCutoff priority_cutoff) {
+  switch (priority_cutoff) {
+    case CUTOFF_ALLOW_NOTHING:
+      return ALLOW_NOTHING;
+    case CUTOFF_ALLOW_REQUIRED_ONLY:
+      return ALLOW_ABSOLUTE_MINIMUM;
+    case CUTOFF_ALLOW_NICE_TO_HAVE:
+      return ALLOW_PREPAINT_ONLY;
+    case CUTOFF_ALLOW_EVERYTHING:
+      return ALLOW_ANYTHING;
+  }
+  NOTREACHED();
+  return ALLOW_NOTHING;
+}
+
+}  // namespace cc

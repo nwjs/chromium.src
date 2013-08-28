@@ -1,0 +1,34 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+.buttonbar button.combobutton {
+  -webkit-box-align: stretch;
+  display: -webkit-box;
+}
+
+.buttonbar .combobutton > .action {
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  padding-left: 21px;
+}
+
+.buttonbar .combobutton > .trigger {
+  border-left: solid 1px #dcdcdc;
+  margin-left: 8px;
+  margin-right: -8px;
+  width: 22px;
+}
+
+.buttonbar .combobutton:not([multiple]) > .trigger {
+  display: none;
+}
+
+.buttonbar .combobutton > div > span.disclosureindicator {
+  -webkit-transform: rotate(90deg);
+}
+
+.buttonbar .combobutton[hidden] {
+  display: none;
+}

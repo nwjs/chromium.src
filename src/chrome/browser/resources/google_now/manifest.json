@@ -1,0 +1,32 @@
+{
+  //chrome-extension://pmofbkohncoogjjhahejjfbppikbjigm
+  "name": "Google Now",
+  "version": "1.2.0.1",
+  "description": "Integrates Google Now into Chrome.",
+  "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDh/njCc/GTuP7uYix39uinhkX+7RyEoMaOQyoc065gsQ5b9cLpZToK78xgpsc9ThrpLVDOwqz6cGeLgIk+kPeRMQe07T+/mh3U5klegDx9pfr9T3aiRNQnJYJv8niVs9aJ/sBSqxtHt2LlhEt9ajFXue7Q3LkzyTlXpxoEFH1keQIDAQAB",
+  "permissions": [
+    "alarms",
+    "location",
+    "metricsPrivate",
+    "notifications",
+    "preferencesPrivate",
+    "storage",
+    "tabs",
+    // TODO(vadimt): Replace <all_urls> with real URL patterns once we know
+    // them.
+    "<all_urls>",
+    "identity"
+  ],
+  "optional_permissions": ["background"],
+  "manifest_version": 2,
+  "background": {
+    "scripts": ["utility.js", "cards.js", "background.js"],
+    "persistent": false
+  },
+  // TODO(vadimt): Remove using chrome.omnibox.
+  "omnibox": { "keyword" : "gn_url" },
+  "oauth2": {
+    "auto_approve": true,
+    "scopes": ["https://www.googleapis.com/auth/googlenow"]
+  }
+}

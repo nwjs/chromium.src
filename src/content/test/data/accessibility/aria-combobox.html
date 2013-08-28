@@ -1,0 +1,19 @@
+<!--
+@WIN-DENY:description*
+-->
+<html>
+  <body>
+    <span id="state_label">State</span>
+    <input type="text"
+        role="combobox" 
+        aria-labelledby="state_label"
+        aria-autocomplete="list"
+        aria-owns="state_list" 
+        aria-readonly="true" 
+        aria-activedescendant="state2"/> 
+    <ul id="state_list" role="listbox" aria-expanded="true">
+      <li id="state1" role="option" tabindex="-1">Alabama</li> 
+      <li id="state2" role="option" tabindex="-1">Alaska</li> 
+    </ul>
+  </body>
+</html>

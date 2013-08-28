@@ -1,0 +1,34 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.app.runtime</code> API to manage the app lifecycle.
+// The app runtime manages app installation, controls the event page, and can
+// shut down the app at anytime.
+namespace app.runtime {
+
+  [inline_doc] dictionary LaunchItem {
+    // FileEntry for the file.
+    [instanceOf=FileEntry] object entry;
+
+    // The MIME type of the file.
+    DOMString type;
+  };
+
+  // Optional data for the launch.
+  [inline_doc] dictionary LaunchData {
+    // The id of the file handler that the app is being invoked with.
+    DOMString? id;
+
+    LaunchItem[]? items;
+  };
+
+  interface Events {
+    // Fired when an app is launched from the launcher.
+    static void onLaunched(optional LaunchData launchData);
+
+    // Fired at Chrome startup to apps that were running when Chrome last shut
+    // down.
+    static void onRestarted();
+  };
+};

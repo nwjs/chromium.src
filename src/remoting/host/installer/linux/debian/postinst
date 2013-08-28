@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+set -e
+
+LOGOUT_MSG="
+Name: Please log out to update
+Priority: Medium
+OnlyAdminUsers: False
+DontShowAfterReboot: true
+DisplayIf: /opt/google/chrome-remote-desktop/is-remoting-session
+Description: Chrome Remote Desktop has been updated. Please save your work and log out in order to apply this update. Your virtual desktop will be restarted automatically.
+"
+
+NOTIFIER_DIR="/var/lib/update-notifier/user.d"
+VAR_DIR="/var/lib/chrome-remote-desktop"
+HASHES_FILE="$VAR_DIR/hashes"
+
+case "$1" in
+  "configure")
+    # Kill host processes. The wrapper script will restart them.
+    echo "Shutting down Chrome Remote Desktop hosts (they will restart automatically)..."
+    killall -q chrome-remote-desktop-host || true
+    # If any files have changed that require the user to restart their virtual
+    # desktops (eg, the wrapper script itself) then notify them but don't do
+    # anything that would result in them losing state.
+    if [ -f "$HASHES_FILE" ]; then
+      if [ -d "$NOTIFIER_DIR" ]; then
+        if ! md5sum --status -c "$HASHES_FILE" 2>/dev/null; then
+          echo "Sending logout notification messages to virtual desktops."
+          echo "$LOGOUT_MSG" > "$NOTIFIER_DIR/chrome-remote-desktop-logout"
+        fi
+      fi
+      rm "$HASHES_FILE"
+      rmdir --ignore-fail-on-non-empty "$VAR_DIR"
+    fi
+    ;;
+esac
+
+#DEBHELPER#

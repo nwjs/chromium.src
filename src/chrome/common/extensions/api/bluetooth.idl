@@ -1,0 +1,285 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.bluetooth</code> API to connect to a Bluetooth
+// device.
+namespace bluetooth {
+  dictionary AdapterState {
+    // The address of the adapter, in the format 'XX:XX:XX:XX:XX:XX'.
+    DOMString address;
+
+    // The human-readable name of the adapter.
+    DOMString name;
+
+    // Indicates whether or not the adapter has power.
+    boolean powered;
+
+    // Indicates whether or not the adapter is available (i.e. enabled).
+    boolean available;
+
+    // Indicates whether or not the adapter is currently discovering.
+    boolean discovering;
+  };
+
+  dictionary Device {
+    // The address of the device, in the format 'XX:XX:XX:XX:XX:XX'.
+    DOMString address;
+
+    // The human-readable name of the device.
+    DOMString? name;
+
+    // Indicates whether or not the device is paired with the system.
+    boolean? paired;
+
+    // Indicates whether the device is currently connected to the system.
+    boolean? connected;
+  };
+
+  dictionary Profile {
+    // Unique profile identifier, e.g. 00001401-0000-1000-8000-00805F9B23FB
+    DOMString uuid;
+
+    // Human-readable name of the Profile, e.g. "Health Device"
+    DOMString? name;
+
+    // The RFCOMM channel id, used when the profile is to be exported to remote
+    // devices.
+    long? channel;
+
+    // The LS2CAP PSM number, used when the profile is to be exported to remote
+    // deviecs.
+    long? psm;
+
+    // Specifies whether pairing (and encryption) is required to be able to
+    // connect.
+    boolean? requireAuthentication;
+
+    // Specifies whether user authorization is required to be able to connect.
+    boolean? requireAuthorization;
+
+    // Specifies whether this profile will be automatically connected if any
+    // other profile of device also exporting this profile connects to the host.
+    boolean? autoConnect;
+
+    // Specifies the implemented version of the profile.
+    long? version;
+
+    // Specifies the profile-specific bit field of features the implementation
+    // supports.
+    long? features;
+  };
+
+  dictionary ServiceRecord {
+    // The name of the service.
+    DOMString name;
+
+    // The UUID of the service.
+    DOMString? uuid;
+  };
+
+  dictionary Socket {
+    // The remote Bluetooth device associated with this socket.
+    Device device;
+
+    // The remote Bluetooth profile associated with this socket.
+    Profile profile;
+
+    // An identifier for this socket that should be used with the
+    // read/write/disconnect methods.
+    long id;
+  };
+
+  dictionary OutOfBandPairingData {
+    // Simple Pairing Hash C.
+    // Always 16 octets long.
+    ArrayBuffer hash;
+
+    // Simple Pairing Randomizer R.
+    // Always 16 octets long.
+    ArrayBuffer randomizer;
+  };
+
+  callback AdapterStateCallback = void(AdapterState result);
+  callback AddressCallback = void (DOMString result);
+  callback BooleanCallback = void (boolean result);
+  callback DataCallback = void (optional ArrayBuffer result);
+  callback DeviceCallback = void (Device device);
+  callback DevicesCallback = void (Device[] result);
+  callback NameCallback = void (DOMString result);
+  callback OutOfBandPairingDataCallback = void (OutOfBandPairingData data);
+  callback ProfilesCallback = void(Profile[] result);
+  callback ResultCallback = void ();
+  callback ServicesCallback = void(ServiceRecord[] result);
+  callback SizeCallback = void (long result);
+  callback SocketCallback = void (Socket result);
+
+  // Options for the getDevices function. If |profile| is not provided, all
+  // devices known to the system are returned.
+  dictionary GetDevicesOptions {
+    // Only devices providing |profile| will be returned.
+    Profile? profile;
+
+    // Called for each matching device.  Note that a service discovery request
+    // must be made to each non-matching device before it can be definitively
+    // excluded.  This can take some time.
+    DeviceCallback deviceCallback;
+  };
+
+  // Options for the getProfiles function.
+  dictionary GetProfilesOptions {
+    // The remote Bluetooth device to retrieve the exported profiles list from.
+    Device device;
+  };
+
+  // Options for the getServices function.
+  dictionary GetServicesOptions {
+    // The address of the device to inquire about. |deviceAddress| should be
+    // in the format 'XX:XX:XX:XX:XX:XX'.
+    DOMString deviceAddress;
+  };
+
+  // Options for the connect function.
+  dictionary ConnectOptions {
+    // The connection is made to |device|.
+    Device device;
+
+    // The connection is made to |profile|.
+    Profile profile;
+  };
+
+  // Options for the disconnect function.
+  dictionary DisconnectOptions {
+    // The socket to disconnect.
+    Socket socket;
+  };
+
+  // Options for the read function.
+  dictionary ReadOptions {
+    // The socket to read from.
+    Socket socket;
+  };
+
+  // Options for the write function.
+  dictionary WriteOptions {
+    // The socket to write to.
+    Socket socket;
+
+    // The data to write.
+    ArrayBuffer data;
+  };
+
+  // Options for the setOutOfBandPairingData function.
+  dictionary SetOutOfBandPairingDataOptions {
+    // The address of the remote device that the data should be associated
+    // with. |deviceAddress| should be in the format 'XX:XX:XX:XX:XX:XX'.
+    DOMString address;
+
+    // The Out Of Band Pairing Data. If this is omitted, the data for the
+    // device is cleared instead.
+    OutOfBandPairingData? data;
+  };
+
+  // Options for the startDiscovery function.
+  dictionary StartDiscoveryOptions {
+    // Called for each device that is discovered.
+    DeviceCallback deviceCallback;
+  };
+
+  // These functions all report failures via chrome.runtime.lastError.
+  interface Functions {
+    // Registers the JavaScript application as an implementation for the given
+    // Profile; if a channel or PSM is specified, the profile will be exported
+    // in the host's SDP and GATT tables and advertised to other devices.
+    static void addProfile(Profile profile, ResultCallback callback);
+
+    // Unregisters the JavaScript application as an implementation for the given
+    // Profile; only the uuid field of the Profile object is used.
+    static void removeProfile(Profile profile, ResultCallback callback);
+
+    // Get information about the Bluetooth adapter.
+    // |callback| : Called with an AdapterState object describing the adapter
+    //              state.
+    static void getAdapterState(AdapterStateCallback callback);
+
+    // Get a bluetooth devices known to the system.  Known devices are either
+    // currently paired, or have been paired in the past.
+    // |options|  : Controls which devices are returned and provides
+    //              |deviceCallback|, which is called for each matching device.
+    // |callback| : Called when the search is completed.
+    //              |options.deviceCallback| will not be called after
+    //              |callback| has been called.
+    static void getDevices(GetDevicesOptions options,
+                           ResultCallback callback);
+
+    // Returns the set of exported profiles for the device specified in options.
+    // This function will not initiate a connection to the remote device.
+    static void getProfiles(GetProfilesOptions options,
+                            ProfilesCallback callback);
+
+    // Get a list of services provided by a device.
+    static void getServices(GetServicesOptions options,
+                            ServicesCallback callback);
+
+    // Connect to a service on a device.
+    // |options|  : The options for the connection.
+    // |callback| : Called to indicate success or failure.
+    static void connect(ConnectOptions options,
+                        ResultCallback callback);
+
+    // Close a Bluetooth connection.
+    // |options|  : The options for this function.
+    // |callback| : Called to indicate success or failure.
+    static void disconnect(DisconnectOptions options,
+                           optional ResultCallback callback);
+
+    // Read data from a Bluetooth connection.
+    // |options|  : The options for this function.
+    // |callback| : Called with the data when it is available.
+    static void read(ReadOptions options,
+                     DataCallback callback);
+
+    // Write data to a Bluetooth connection.
+    // |options|  : The options for this function.
+    // |callback| : Called with the number of bytes written.
+    static void write(WriteOptions options,
+                      optional SizeCallback callback);
+
+    // Get the local Out of Band Pairing data.
+    // |callback| : Called with the data.
+    static void getLocalOutOfBandPairingData(
+        OutOfBandPairingDataCallback callback);
+
+    // Set the Out of Band Pairing data for a remote device.
+    // Any previous Out Of Band Pairing Data for this device is overwritten.
+    // |options|  : The options for this function.
+    // |callback| : Called to indicate success or failure.
+    static void setOutOfBandPairingData(SetOutOfBandPairingDataOptions options,
+                                        optional ResultCallback callback);
+
+    // Start discovery. Discovered devices will be returned via the
+    // |onDeviceDiscovered| callback.  Discovery will fail to start if it is
+    // already in progress.  Discovery can be resource intensive: stopDiscovery
+    // should be called as soon as possible.
+    // |options|  : The options for this function.
+    // |callback| : Called to indicate success or failure.
+    static void startDiscovery(
+        StartDiscoveryOptions options,
+        optional ResultCallback callback);
+
+    // Stop discovery.
+    // |callback| : Called to indicate success or failure.
+    static void stopDiscovery(
+        optional ResultCallback callback);
+  };
+
+  interface Events {
+    // Fired when the state of the Bluetooth adapter changes.
+    // |state| : The new state of the adapter.
+    static void onAdapterStateChanged(AdapterState state);
+
+    // Fired when a connection has been made for a registered profile.
+    // |socket| : The socket for the connection.
+    static void onConnection(Socket socket);
+  };
+};

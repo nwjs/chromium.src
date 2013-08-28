@@ -1,0 +1,13 @@
+include_rules = [
+  "+net",
+  "+sync/base",
+  "+sync/engine",
+  "+sync/js",
+  "+sync/notifier",
+  "+sync/protocol",
+  "+sync/sessions",
+  "+sync/syncable",
+  "+sync/test",
+  "+sync/util",
+  "+third_party/zlib",  # For UniquePosition compression
+]

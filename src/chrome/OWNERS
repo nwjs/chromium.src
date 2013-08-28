@@ -1,0 +1,45 @@
+# This OWNERS list is a last resort. Please prefer to use more specific OWNERS
+# where possible.
+
+# Reviewers:
+jochen@chromium.org
+jhawkins@chromium.org
+sky@chromium.org
+thakis@chromium.org
+thestig@chromium.org
+
+# Just owners:
+darin@chromium.org
+jam@chromium.org
+
+# per-file rules:
+# These are for the common case of adding or renaming files. If you're doing
+# structural changes, please get a review from a reviewer in this file.
+per-file *.gypi=*
+per-file *.isolate=csharp@chromium.org
+per-file *.isolate=maruel@chromium.org
+per-file nacl.gypi=bradchen@chromium.org
+per-file nacl.gypi=bradnelson@chromium.org
+per-file nacl.gypi=jvoung@chromium.org
+per-file nacl.gypi=mseaborn@chromium.org
+per-file nacl.gypi=noelallen@chromium.org
+per-file nacl.gypi=sehr@chromium.org
+
+# Android OWNERS from chrome/android/OWNERS
+per-file chrome_android.gypi=aruslan@chromium.org
+per-file chrome_android.gypi=bulach@chromium.org
+per-file chrome_android.gypi=dtrainor@chromium.org
+per-file chrome_android.gypi=tedchoc@chromium.org
+per-file chrome_android.gypi=yfriedman@chromium.org
+
+# Chrome OS OWNERS from chrome/browser/chromeos/OWNERS
+per-file chrome_browser_chromeos.gypi=achuith@chromium.org
+per-file chrome_browser_chromeos.gypi=davemoore@chromium.org
+per-file chrome_browser_chromeos.gypi=derat@chromium.org
+per-file chrome_browser_chromeos.gypi=dpolukhin@chromium.org
+per-file chrome_browser_chromeos.gypi=nkostylev@chromium.org
+per-file chrome_browser_chromeos.gypi=oshima@chromium.org
+per-file chrome_browser_chromeos.gypi=satorux@chromium.org
+per-file chrome_browser_chromeos.gypi=stevenjb@chromium.org
+per-file chrome_browser_chromeos.gypi=xiyuan@chromium.org
+per-file chrome_browser_chromeos.gypi=zelidrag@chromium.org

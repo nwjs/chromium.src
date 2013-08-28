@@ -1,0 +1,79 @@
+<!--
+  -- Copyright 2013 The Chromium Authors. All rights reserved.
+  -- Use of this source code is governed by a BSD-style license that can be
+  -- found in the LICENSE file.
+  -->
+
+<polymer-element name="kb-key" extends="kb-key-base"
+    attributes="keyCode shiftModifier weight">
+  <template>
+    <style>
+      @host {
+        * {
+          -webkit-box-flex: {{weight}};
+        }
+      }
+    </style>
+    <div id="key" pseudo="x-key" inverted?={{invert}}>
+      <content></content>
+    </div>
+    <div pseudo="x-superscript" inverted?={{invert}}>{{superscript}}</div>
+  </template>
+  <script>
+    Polymer('kb-key', {
+      /**
+       * Key codes have been deprecated in DOM3 key events, but are required
+       * for legacy web content. The key codes depend on the position of the
+       * key on the keyboard and is independent of which modifier keys (shift,
+       *  alt, ...) are active.
+       * @type {number|undefined}
+       */
+      keyCode: undefined,
+      /**
+       * Whether the shift key is pressed when producing the key value.
+       * @type {boolean}
+       */
+      shiftModifier: false,
+      /**
+       * Weighting to use for layout in order to properly size the key.
+       * Keys with a high weighting are wider than normal keys.
+       * @type {number}
+       */
+      weight: 1
+    });
+  </script>
+</polymer-element>
+
+<!-- Special keys -->
+
+<polymer-element name="kb-shift-key" class="shift dark" char="Shift"
+    extends="kb-key">
+  <script>
+    Polymer('kb-shift-key', {
+      down: function(event) {
+        this.super();
+        var detail = {};
+        if (this.keysetRules && this.keysetRules.dbl != undefined) {
+          detail.char = this.char || this.textContent;
+          detail.toKeyset = this.keysetRules.dbl[TO_KEYSET - OFFSET];
+          detail.nextKeyset = this.keysetRules.dbl[NEXT_KEYSET - OFFSET];
+        }
+        this.fire('enable-dbl', detail);
+        this.fire('enable-sel');
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+  -- TODO(kevers): Display popup menu for selecting layout on keypress. Display
+  -- code for keyboard layout in place of image.
+  -->
+<polymer-element name="kb-layout-selector" class="layout-selector dark" char="Invalid"
+    extends="kb-key">
+  <script>
+    Polymer('kb-layout-selector', {
+      toLayout: 'qwerty'
+    });
+  </script>
+</polymer-element>

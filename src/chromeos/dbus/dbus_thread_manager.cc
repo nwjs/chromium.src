@@ -1,0 +1,523 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chromeos/dbus/dbus_thread_manager.h"
+
+#include <map>
+
+#include "base/chromeos/chromeos_version.h"
+#include "base/command_line.h"
+#include "base/observer_list.h"
+#include "base/threading/thread.h"
+#include "chromeos/chromeos_switches.h"
+#include "chromeos/dbus/bluetooth_adapter_client.h"
+#include "chromeos/dbus/bluetooth_agent_manager_client.h"
+#include "chromeos/dbus/bluetooth_device_client.h"
+#include "chromeos/dbus/bluetooth_input_client.h"
+#include "chromeos/dbus/bluetooth_profile_manager_client.h"
+#include "chromeos/dbus/cras_audio_client.h"
+#include "chromeos/dbus/cros_disks_client.h"
+#include "chromeos/dbus/cryptohome_client.h"
+#include "chromeos/dbus/dbus_client_implementation_type.h"
+#include "chromeos/dbus/dbus_thread_manager_observer.h"
+#include "chromeos/dbus/debug_daemon_client.h"
+#include "chromeos/dbus/gsm_sms_client.h"
+#include "chromeos/dbus/shill_device_client.h"
+#include "chromeos/dbus/shill_ipconfig_client.h"
+#include "chromeos/dbus/shill_manager_client.h"
+#include "chromeos/dbus/shill_profile_client.h"
+#include "chromeos/dbus/shill_service_client.h"
+#include "chromeos/dbus/system_clock_client.h"
+#include "chromeos/dbus/ibus/ibus_client.h"
+#include "chromeos/dbus/ibus/ibus_engine_factory_service.h"
+#include "chromeos/dbus/ibus/ibus_engine_service.h"
+#include "chromeos/dbus/ibus/ibus_input_context_client.h"
+#include "chromeos/dbus/ibus/ibus_panel_service.h"
+#include "chromeos/dbus/image_burner_client.h"
+#include "chromeos/dbus/introspectable_client.h"
+#include "chromeos/dbus/modem_messaging_client.h"
+#include "chromeos/dbus/permission_broker_client.h"
+#include "chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/power_policy_controller.h"
+#include "chromeos/dbus/session_manager_client.h"
+#include "chromeos/dbus/sms_client.h"
+#include "chromeos/dbus/update_engine_client.h"
+#include "dbus/bus.h"
+#include "dbus/dbus_statistics.h"
+
+namespace chromeos {
+
+static DBusThreadManager* g_dbus_thread_manager = NULL;
+static bool g_dbus_thread_manager_set_for_testing = false;
+
+// The DBusThreadManager implementation used in production.
+class DBusThreadManagerImpl : public DBusThreadManager {
+ public:
+  explicit DBusThreadManagerImpl(DBusClientImplementationType client_type) {
+    DBusClientImplementationType client_type_override = client_type;
+    // If --dbus-stub was requested, pass STUB to specific components;
+    // Many components like login are not useful with a stub implementation.
+    if (CommandLine::ForCurrentProcess()->HasSwitch(
+            chromeos::switches::kDbusStub)) {
+      client_type_override = STUB_DBUS_CLIENT_IMPLEMENTATION;
+    }
+
+    // Create the D-Bus thread.
+    base::Thread::Options thread_options;
+    thread_options.message_loop_type = base::MessageLoop::TYPE_IO;
+    dbus_thread_.reset(new base::Thread("D-Bus thread"));
+    dbus_thread_->StartWithOptions(thread_options);
+
+    // Create the connection to the system bus.
+    dbus::Bus::Options system_bus_options;
+    system_bus_options.bus_type = dbus::Bus::SYSTEM;
+    system_bus_options.connection_type = dbus::Bus::PRIVATE;
+    system_bus_options.dbus_task_runner = dbus_thread_->message_loop_proxy();
+    system_bus_ = new dbus::Bus(system_bus_options);
+
+    CreateDefaultClients(client_type, client_type_override);
+  }
+
+  // InitializeClients gets called after g_dbus_thread_manager is set.
+  // NOTE: Clients that access other clients in their Init() must be
+  // initialized in the correct order. This is the only place where Clients'
+  // Init() should be called if DBusThreadManager is being used.
+  void InitializeClients() {
+    InitClient(bluetooth_adapter_client_.get());
+    InitClient(bluetooth_agent_manager_client_.get());
+    InitClient(bluetooth_device_client_.get());
+    InitClient(bluetooth_input_client_.get());
+    InitClient(bluetooth_profile_manager_client_.get());
+    InitClient(cras_audio_client_.get());
+    InitClient(cros_disks_client_.get());
+    InitClient(cryptohome_client_.get());
+    InitClient(debug_daemon_client_.get());
+
+    // Initialization order of the Stub implementations of the Shill clients
+    // matters; stub clients may only have initialization dependencies on
+    // clients previously initialized.
+    InitClient(shill_manager_client_.get());
+    InitClient(shill_device_client_.get());
+    InitClient(shill_ipconfig_client_.get());
+    InitClient(shill_service_client_.get());
+    InitClient(shill_profile_client_.get());
+    InitClient(gsm_sms_client_.get());
+
+    // If the Service client has a TestInterface, add the default services.
+    ShillServiceClient::TestInterface* service_client_test =
+        DBusThreadManager::Get()->GetShillServiceClient()->GetTestInterface();
+    if (service_client_test)
+      service_client_test->AddDefaultServices();
+
+    InitClient(image_burner_client_.get());
+    InitClient(introspectable_client_.get());
+    InitClient(modem_messaging_client_.get());
+    InitClient(permission_broker_client_.get());
+    InitClient(power_manager_client_.get());
+    InitClient(session_manager_client_.get());
+    InitClient(sms_client_.get());
+    InitClient(system_clock_client_.get());
+    InitClient(update_engine_client_.get());
+
+    // PowerPolicyController is dependent on PowerManagerClient, so
+    // initialize it after the main list of clients.
+    power_policy_controller_.reset(
+        new PowerPolicyController(this, power_manager_client_.get()));
+
+    // This must be called after the list of clients so they've each had a
+    // chance to register with their object managers.
+    system_bus_->GetManagedObjects();
+  }
+
+  virtual ~DBusThreadManagerImpl() {
+    FOR_EACH_OBSERVER(DBusThreadManagerObserver, observers_,
+                      OnDBusThreadManagerDestroying(this));
+
+    // Shut down the bus. During the browser shutdown, it's ok to shut down
+    // the bus synchronously.
+    system_bus_->ShutdownOnDBusThreadAndBlock();
+    if (ibus_bus_.get())
+      ibus_bus_->ShutdownOnDBusThreadAndBlock();
+
+    // Release IBusEngineService instances.
+    for (std::map<dbus::ObjectPath, IBusEngineService*>::iterator it
+            = ibus_engine_services_.begin();
+         it != ibus_engine_services_.end(); it++) {
+      delete it->second;
+    }
+
+    // Stop the D-Bus thread.
+    dbus_thread_->Stop();
+  }
+
+  // DBusThreadManager override.
+  virtual void AddObserver(DBusThreadManagerObserver* observer) OVERRIDE {
+    DCHECK(observer);
+    observers_.AddObserver(observer);
+  }
+
+  // DBusThreadManager override.
+  virtual void RemoveObserver(DBusThreadManagerObserver* observer) OVERRIDE {
+    DCHECK(observer);
+    observers_.RemoveObserver(observer);
+  }
+
+  // DBusThreadManager override.
+  virtual void InitIBusBus(
+      const std::string &ibus_address,
+      const base::Closure& on_disconnected_callback) OVERRIDE {
+    DCHECK(!ibus_bus_.get());
+    dbus::Bus::Options ibus_bus_options;
+    ibus_bus_options.bus_type = dbus::Bus::CUSTOM_ADDRESS;
+    ibus_bus_options.address = ibus_address;
+    ibus_bus_options.connection_type = dbus::Bus::PRIVATE;
+    ibus_bus_options.dbus_task_runner = dbus_thread_->message_loop_proxy();
+    ibus_bus_options.disconnected_callback = on_disconnected_callback;
+    ibus_bus_ = new dbus::Bus(ibus_bus_options);
+    ibus_address_ = ibus_address;
+    VLOG(1) << "Connected to ibus-daemon: " << ibus_address;
+
+    DBusClientImplementationType client_type = STUB_DBUS_CLIENT_IMPLEMENTATION;
+
+    ibus_client_.reset(
+        IBusClient::Create(client_type, ibus_bus_.get()));
+    ibus_input_context_client_.reset(
+        IBusInputContextClient::Create(client_type));
+    ibus_engine_factory_service_.reset(
+        IBusEngineFactoryService::Create(ibus_bus_.get(), client_type));
+    ibus_panel_service_.reset(
+        IBusPanelService::Create(client_type,
+                                 ibus_bus_.get(),
+                                 ibus_input_context_client_.get()));
+
+    ibus_engine_services_.clear();
+  }
+
+  // DBusThreadManager overrides:
+  virtual dbus::Bus* GetSystemBus() OVERRIDE {
+    return system_bus_.get();
+  }
+
+  virtual dbus::Bus* GetIBusBus() OVERRIDE {
+    return ibus_bus_.get();
+  }
+
+  virtual BluetoothAdapterClient* GetBluetoothAdapterClient() OVERRIDE {
+    return bluetooth_adapter_client_.get();
+  }
+
+  virtual BluetoothAgentManagerClient* GetBluetoothAgentManagerClient()
+      OVERRIDE {
+    return bluetooth_agent_manager_client_.get();
+  }
+
+  virtual BluetoothDeviceClient* GetBluetoothDeviceClient() OVERRIDE {
+    return bluetooth_device_client_.get();
+  }
+
+  virtual BluetoothInputClient* GetBluetoothInputClient() OVERRIDE {
+    return bluetooth_input_client_.get();
+  }
+
+  virtual BluetoothProfileManagerClient* GetBluetoothProfileManagerClient()
+      OVERRIDE {
+    return bluetooth_profile_manager_client_.get();
+  }
+
+  virtual CrasAudioClient* GetCrasAudioClient() OVERRIDE {
+    return cras_audio_client_.get();
+  }
+
+  virtual CrosDisksClient* GetCrosDisksClient() OVERRIDE {
+    return cros_disks_client_.get();
+  }
+
+  virtual CryptohomeClient* GetCryptohomeClient() OVERRIDE {
+    return cryptohome_client_.get();
+  }
+
+  virtual DebugDaemonClient* GetDebugDaemonClient() OVERRIDE {
+    return debug_daemon_client_.get();
+  }
+
+  virtual ShillDeviceClient* GetShillDeviceClient() OVERRIDE {
+    return shill_device_client_.get();
+  }
+
+  virtual ShillIPConfigClient* GetShillIPConfigClient() OVERRIDE {
+    return shill_ipconfig_client_.get();
+  }
+
+  virtual ShillManagerClient* GetShillManagerClient() OVERRIDE {
+    return shill_manager_client_.get();
+  }
+
+  virtual ShillServiceClient* GetShillServiceClient() OVERRIDE {
+    return shill_service_client_.get();
+  }
+
+  virtual ShillProfileClient* GetShillProfileClient() OVERRIDE {
+    return shill_profile_client_.get();
+  }
+
+  virtual GsmSMSClient* GetGsmSMSClient() OVERRIDE {
+    return gsm_sms_client_.get();
+  }
+
+  virtual ImageBurnerClient* GetImageBurnerClient() OVERRIDE {
+    return image_burner_client_.get();
+  }
+
+  virtual IntrospectableClient* GetIntrospectableClient() OVERRIDE {
+    return introspectable_client_.get();
+  }
+
+  virtual ModemMessagingClient* GetModemMessagingClient() OVERRIDE {
+    return modem_messaging_client_.get();
+  }
+
+  virtual PermissionBrokerClient* GetPermissionBrokerClient() OVERRIDE {
+    return permission_broker_client_.get();
+  }
+
+  virtual PowerManagerClient* GetPowerManagerClient() OVERRIDE {
+    return power_manager_client_.get();
+  }
+
+  virtual PowerPolicyController* GetPowerPolicyController() OVERRIDE {
+    return power_policy_controller_.get();
+  }
+
+  virtual SessionManagerClient* GetSessionManagerClient() OVERRIDE {
+    return session_manager_client_.get();
+  }
+
+  virtual SMSClient* GetSMSClient() OVERRIDE {
+    return sms_client_.get();
+  }
+
+  virtual SystemClockClient* GetSystemClockClient() OVERRIDE {
+    return system_clock_client_.get();
+  }
+
+  virtual UpdateEngineClient* GetUpdateEngineClient() OVERRIDE {
+    return update_engine_client_.get();
+  }
+
+  virtual IBusClient* GetIBusClient() OVERRIDE {
+    return ibus_client_.get();
+  }
+
+  virtual IBusInputContextClient* GetIBusInputContextClient() OVERRIDE {
+    return ibus_input_context_client_.get();
+  }
+
+  virtual IBusEngineFactoryService* GetIBusEngineFactoryService() OVERRIDE {
+    return ibus_engine_factory_service_.get();
+  }
+
+  virtual IBusEngineService* GetIBusEngineService(
+      const dbus::ObjectPath& object_path) OVERRIDE {
+    if (ibus_engine_services_.find(object_path)
+            == ibus_engine_services_.end()) {
+      ibus_engine_services_[object_path] =
+          IBusEngineService::Create(STUB_DBUS_CLIENT_IMPLEMENTATION,
+                                    ibus_bus_.get(), object_path);
+    }
+    return ibus_engine_services_[object_path];
+  }
+
+  virtual void RemoveIBusEngineService(
+      const dbus::ObjectPath& object_path) OVERRIDE {
+    if (ibus_engine_services_.find(object_path) !=
+        ibus_engine_services_.end()) {
+      LOG(WARNING) << "Object path not found: " << object_path.value();
+      return;
+    }
+    delete ibus_engine_services_[object_path];
+    ibus_engine_services_.erase(object_path);
+  }
+
+  virtual IBusPanelService* GetIBusPanelService() OVERRIDE {
+    return ibus_panel_service_.get();
+  }
+
+ private:
+  // Initializes |client| with the |system_bus_|.
+  void InitClient(DBusClient* client) {
+    client->Init(system_bus_.get());
+  }
+
+  // Constructs all clients -- stub or real implementation according to
+  // |client_type| and |client_type_override| -- and stores them in the
+  // respective *_client_ member variable.
+  void CreateDefaultClients(DBusClientImplementationType client_type,
+                            DBusClientImplementationType client_type_override) {
+    bluetooth_adapter_client_.reset(
+        BluetoothAdapterClient::Create(client_type));
+    bluetooth_agent_manager_client_.reset(
+        BluetoothAgentManagerClient::Create(client_type));
+    bluetooth_device_client_.reset(BluetoothDeviceClient::Create(client_type));
+    bluetooth_input_client_.reset(BluetoothInputClient::Create(client_type));
+    bluetooth_profile_manager_client_.reset(
+        BluetoothProfileManagerClient::Create(client_type));
+    cras_audio_client_.reset(CrasAudioClient::Create(client_type));
+    cros_disks_client_.reset(CrosDisksClient::Create(client_type));
+    cryptohome_client_.reset(CryptohomeClient::Create(client_type));
+    debug_daemon_client_.reset(DebugDaemonClient::Create(client_type));
+    shill_manager_client_.reset(
+        ShillManagerClient::Create(client_type_override));
+    shill_device_client_.reset(
+        ShillDeviceClient::Create(client_type_override));
+    shill_ipconfig_client_.reset(
+        ShillIPConfigClient::Create(client_type_override));
+    shill_service_client_.reset(
+        ShillServiceClient::Create(client_type_override));
+    shill_profile_client_.reset(
+        ShillProfileClient::Create(client_type_override));
+    gsm_sms_client_.reset(GsmSMSClient::Create(client_type_override));
+    image_burner_client_.reset(ImageBurnerClient::Create(client_type));
+    introspectable_client_.reset(IntrospectableClient::Create(client_type));
+    modem_messaging_client_.reset(ModemMessagingClient::Create(client_type));
+    permission_broker_client_.reset(
+        PermissionBrokerClient::Create(client_type));
+    power_manager_client_.reset(
+        PowerManagerClient::Create(client_type_override));
+    session_manager_client_.reset(SessionManagerClient::Create(client_type));
+    sms_client_.reset(SMSClient::Create(client_type));
+    system_clock_client_.reset(SystemClockClient::Create(client_type));
+    update_engine_client_.reset(UpdateEngineClient::Create(client_type));
+  }
+
+  // Note: Keep this before other members so they can call AddObserver() in
+  // their c'tors.
+  ObserverList<DBusThreadManagerObserver> observers_;
+
+  scoped_ptr<base::Thread> dbus_thread_;
+  scoped_refptr<dbus::Bus> system_bus_;
+  scoped_refptr<dbus::Bus> ibus_bus_;
+  scoped_ptr<BluetoothAdapterClient> bluetooth_adapter_client_;
+  scoped_ptr<BluetoothAgentManagerClient> bluetooth_agent_manager_client_;
+  scoped_ptr<BluetoothDeviceClient> bluetooth_device_client_;
+  scoped_ptr<BluetoothInputClient> bluetooth_input_client_;
+  scoped_ptr<BluetoothProfileManagerClient> bluetooth_profile_manager_client_;
+  scoped_ptr<CrasAudioClient> cras_audio_client_;
+  scoped_ptr<CrosDisksClient> cros_disks_client_;
+  scoped_ptr<CryptohomeClient> cryptohome_client_;
+  scoped_ptr<DebugDaemonClient> debug_daemon_client_;
+  scoped_ptr<ShillDeviceClient> shill_device_client_;
+  scoped_ptr<ShillIPConfigClient> shill_ipconfig_client_;
+  scoped_ptr<ShillManagerClient> shill_manager_client_;
+  scoped_ptr<ShillServiceClient> shill_service_client_;
+  scoped_ptr<ShillProfileClient> shill_profile_client_;
+  scoped_ptr<GsmSMSClient> gsm_sms_client_;
+  scoped_ptr<ImageBurnerClient> image_burner_client_;
+  scoped_ptr<IntrospectableClient> introspectable_client_;
+  scoped_ptr<ModemMessagingClient> modem_messaging_client_;
+  scoped_ptr<PermissionBrokerClient> permission_broker_client_;
+  scoped_ptr<SystemClockClient> system_clock_client_;
+  scoped_ptr<PowerManagerClient> power_manager_client_;
+  scoped_ptr<SessionManagerClient> session_manager_client_;
+  scoped_ptr<SMSClient> sms_client_;
+  scoped_ptr<UpdateEngineClient> update_engine_client_;
+  scoped_ptr<IBusClient> ibus_client_;
+  scoped_ptr<IBusInputContextClient> ibus_input_context_client_;
+  scoped_ptr<IBusEngineFactoryService> ibus_engine_factory_service_;
+  std::map<dbus::ObjectPath, IBusEngineService*> ibus_engine_services_;
+  scoped_ptr<IBusPanelService> ibus_panel_service_;
+  scoped_ptr<PowerPolicyController> power_policy_controller_;
+
+  std::string ibus_address_;
+};
+
+// static
+void DBusThreadManager::Initialize() {
+  // Ignore Initialize() if we set a test DBusThreadManager.
+  if (g_dbus_thread_manager_set_for_testing)
+    return;
+  // If we initialize DBusThreadManager twice we may also be shutting it down
+  // early; do not allow that.
+  CHECK(g_dbus_thread_manager == NULL);
+  // Determine whether we use stub or real client implementations.
+  DBusThreadManagerImpl* dbus_thread_manager_impl;
+  if (base::chromeos::IsRunningOnChromeOS()) {
+    dbus_thread_manager_impl =
+        new DBusThreadManagerImpl(REAL_DBUS_CLIENT_IMPLEMENTATION);
+    VLOG(1) << "DBusThreadManager initialized for ChromeOS";
+  } else {
+    dbus_thread_manager_impl =
+        new DBusThreadManagerImpl(STUB_DBUS_CLIENT_IMPLEMENTATION);
+    VLOG(1) << "DBusThreadManager initialized with Stub";
+  }
+  g_dbus_thread_manager = dbus_thread_manager_impl;
+  dbus_thread_manager_impl->InitializeClients();
+}
+
+// static
+void DBusThreadManager::InitializeForTesting(
+    DBusThreadManager* dbus_thread_manager) {
+  // If we initialize DBusThreadManager twice we may also be shutting it down
+  // early; do not allow that.
+  CHECK(g_dbus_thread_manager == NULL);
+  CHECK(dbus_thread_manager);
+  g_dbus_thread_manager = dbus_thread_manager;
+  g_dbus_thread_manager_set_for_testing = true;
+  VLOG(1) << "DBusThreadManager initialized with test implementation";
+}
+
+// static
+void DBusThreadManager::InitializeWithStub() {
+  // If we initialize DBusThreadManager twice we may also be shutting it down
+  // early; do not allow that.
+  CHECK(g_dbus_thread_manager == NULL);
+  DBusThreadManagerImpl* dbus_thread_manager_impl =
+      new DBusThreadManagerImpl(STUB_DBUS_CLIENT_IMPLEMENTATION);
+  g_dbus_thread_manager = dbus_thread_manager_impl;
+  dbus_thread_manager_impl->InitializeClients();
+  VLOG(1) << "DBusThreadManager initialized with stub implementation";
+}
+
+// static
+bool DBusThreadManager::IsInitialized() {
+  return g_dbus_thread_manager != NULL;
+}
+
+// static
+void DBusThreadManager::Shutdown() {
+  // If we called InitializeForTesting, this may get called more than once.
+  // Ensure that we only shutdown DBusThreadManager once.
+  CHECK(g_dbus_thread_manager || g_dbus_thread_manager_set_for_testing);
+  DBusThreadManager* dbus_thread_manager = g_dbus_thread_manager;
+  g_dbus_thread_manager = NULL;
+  delete dbus_thread_manager;
+  VLOG(1) << "DBusThreadManager Shutdown completed";
+}
+
+DBusThreadManager::DBusThreadManager() {
+  dbus::statistics::Initialize();
+}
+
+DBusThreadManager::~DBusThreadManager() {
+  dbus::statistics::Shutdown();
+  if (g_dbus_thread_manager == NULL)
+    return;  // Called form Shutdown() or local test instance.
+  // There should never be both a global instance and a local instance.
+  CHECK(this == g_dbus_thread_manager);
+  if (g_dbus_thread_manager_set_for_testing) {
+    g_dbus_thread_manager = NULL;
+    g_dbus_thread_manager_set_for_testing = false;
+    VLOG(1) << "DBusThreadManager destroyed";
+  } else {
+    LOG(FATAL) << "~DBusThreadManager() called outside of Shutdown()";
+  }
+}
+
+// static
+DBusThreadManager* DBusThreadManager::Get() {
+  CHECK(g_dbus_thread_manager)
+      << "DBusThreadManager::Get() called before Initialize()";
+  return g_dbus_thread_manager;
+}
+
+}  // namespace chromeos

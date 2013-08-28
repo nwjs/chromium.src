@@ -1,0 +1,19 @@
+<h2 id="manifest">Manifest</h2>
+
+<p>You must declare the "management" permission
+in the <a href="manifest.html">extension manifest</a>
+to use the management API.
+For example:</p>
+<pre>{
+  "name": "My extension",
+  ...
+  <b>"permissions": [
+    "management"
+  ]</b>,
+  ...
+}</pre>
+
+<p>
+$ref:management.getPermissionWarningsByManifest and
+$ref:management.uninstallSelf do not require the management permission
+</p>

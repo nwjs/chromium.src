@@ -1,0 +1,71 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+body {
+  font-family: sans-serif;
+}
+
+h2 {
+  margin: 15px 0 5px 0;
+}
+
+ul,
+p,
+canvas {
+  margin: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#media-players td,
+#media-players th {
+  padding: 0 10px;
+}
+
+#cache-entries ul,
+#media-players ul,
+#media-players {
+  list-style-type: none;
+}
+
+.cache-entry {
+  margin: 0 0 5px 0;
+}
+
+.cache-entry-controls {
+  font-size: smaller;
+}
+
+.cache-table {
+  table-layout: fixed;
+  width: 500px;
+}
+
+thead {
+  text-align: left;
+}
+
+tfoot {
+  text-align: right;
+}
+
+.buffered {
+  display: table;
+}
+
+.buffered > div {
+  display: table-row;
+}
+
+.buffered > div > div {
+  display: table-cell;
+  vertical-align: bottom;
+}
+
+.buffered > div > div:first-child {
+  font-weight: bold;
+  padding-right: 2px;
+}

@@ -1,0 +1,14 @@
+<a href="#{{?parentName}}{{parentName}}-{{/}}types">Types</a>
+<ol>
+  {{#types}}
+  <li>
+    <a href="#{{id}}">{{name}}</a>
+    {{?functions}}<ol><li>
+      {{+partials.toc_functions parentName:name functions:functions}}
+    </li></ol>{{/}}
+    {{?events}}<ol><li>
+      {{+partials.toc_events parentName:name events:events}}
+    </li></ol>{{/}}
+  </li>
+  {{/}}
+</ol>

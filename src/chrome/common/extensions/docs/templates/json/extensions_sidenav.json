@@ -1,0 +1,222 @@
+[
+  {
+    "title": "Getting Started",
+    "href": "/extensions/getstarted.html"
+  },
+  {
+    "title": "Overview",
+    "href": "/extensions/overview.html"
+  },
+  {
+    "title": "What's New?",
+    "href": "/extensions/whats_new.html"
+  },
+  {
+    "title": "Developer's Guide",
+    "href": "/extensions/devguide.html",
+    "items": [
+      {
+        "title": "Browser UI",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Browser Actions",
+            "href": "/extensions/browserAction.html"
+          },
+          {
+            "title": "Context Menus",
+            "href": "/extensions/contextMenus.html"
+          },
+          {
+            "title": "Desktop Notifications",
+            "href": "/extensions/desktop_notifications.html"
+          },
+          {
+            "title": "Omnibox",
+            "href": "/extensions/omnibox.html"
+          },
+          {
+            "title": "Options Pages",
+            "href": "/extensions/options.html"
+          },
+          {
+            "title": "Override Pages",
+            "href": "/extensions/override.html"
+          },
+          {
+            "title": "Page Actions",
+            "href": "/extensions/pageAction.html"
+          }
+        ]
+      },
+      {
+        "title": "Browser Interaction",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Bookmarks",
+            "href": "/extensions/bookmarks.html"
+          },
+          {
+            "title": "Cookies",
+            "href": "/extensions/cookies.html"
+          },
+          {
+            "title": "Developer Tools",
+            "href": "/extensions/devtools.html"
+          },
+          {
+            "title": "Events",
+            "href": "/extensions/events.html"
+          },
+          {
+            "title": "History",
+            "href": "/extensions/history.html"
+          },
+          {
+            "title": "Management",
+            "href": "/extensions/management.html"
+          },
+          {
+            "title": "Tabs",
+            "href": "/extensions/tabs.html"
+          },
+          {
+            "title": "Windows",
+            "href": "/extensions/windows.html"
+          }
+        ]
+      },
+      {
+        "title": "Implementation",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Accessibility",
+            "href": "/extensions/a11y.html"
+          },
+          {
+            "title": "Event Pages",
+            "href": "/extensions/event_pages.html"
+          },
+          {
+            "title": "Content Security Policy",
+            "href": "/extensions/contentSecurityPolicy.html"
+          },
+          {
+            "title": "Content Scripts",
+            "href": "/extensions/content_scripts.html"
+          },
+          {
+            "title": "Cross-Origin XHR",
+            "href": "/extensions/xhr.html"
+          },
+          {
+            "title": "Internationalization",
+            "href": "/extensions/i18n.html"
+          },
+          {
+            "title": "Message Passing",
+            "href": "/extensions/messaging.html"
+          },
+          {
+            "title": "Optional Permissions",
+            "href": "/extensions/permissions.html"
+          },
+          {
+            "title": "NPAPI Plugins",
+            "href": "/extensions/npapi.html"
+          }
+        ]
+      },
+      {
+        "title": "Finishing",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Hosting",
+            "href": "/extensions/hosting.html"
+          },
+          {
+            "title": "Other Deployment Options",
+            "href": "/extensions/external_extensions.html"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Tutorials",
+    "href": "/extensions/tutorials.html",
+    "items": [
+      {
+        "title": "Manifest V2",
+        "href": "/extensions/tut_migration_to_manifest_v2.html"
+      },
+      {
+        "title": "Debugging",
+        "href": "/extensions/tut_debugging.html"
+      },
+      {
+        "title": "Google Analytics",
+        "href": "/extensions/tut_analytics.html"
+      },
+      {
+        "title": "OAuth",
+        "href": "/extensions/tut_oauth.html"
+      }
+    ]
+  },
+  {
+    "title": "Reference",
+    "items": [
+      {
+        "title": "Formats",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Manifest Files",
+            "href": "/extensions/manifest.html"
+          },
+          {
+            "title": "Match Patterns",
+            "href": "/extensions/match_patterns.html"
+          }
+        ]
+      },
+      {
+        "title": "Permission Warnings",
+        "href": "/extensions/permission_warnings.html"
+      },
+      {
+        "title": "chrome.* APIs",
+        "href": "/extensions/api_index.html"
+      },
+      {
+        "title": "Other APIs",
+        "href": "/extensions/api_other.html"
+      }
+    ]
+  },
+  {
+    "title": "More",
+    "items": [
+      {
+        "title": "FAQ",
+        "href": "/extensions/faq.html"
+      },
+      {
+        "title": "Chrome Web Store",
+        "href": "http://code.google.com/chrome/webstore/docs/index.html"
+      },
+      {
+        "title": "Hosted Apps",
+        "href": "http://code.google.com/chrome/apps/docs/developers_guide.html"
+      },
+      {
+        "title": "Themes",
+        "href": "/extensions/themes.html"
+      }
+    ]
+  }
+]

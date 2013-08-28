@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2012 The Chromium Authors. All rights reserved.
+
+     Use of this source code is governed by a BSD-style license that can be
+     found in the LICENSE file.
+ -->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.chromium.chrome.testshell">
+
+    <permission android:name="org.chromium.chrome.testshell.permission.SANDBOX"
+            android:protectionLevel="signature" />
+
+    <application android:name="org.chromium.chrome.testshell.ChromiumTestShellApplication"
+            android:label="ChromiumTestShell">
+        <activity android:name="org.chromium.chrome.testshell.ChromiumTestShellActivity"
+                  android:label="ChromiumTestShellActivity"
+                  android:launchMode="singleTask"
+                  android:theme="@android:style/Theme.Holo.Light.NoActionBar"
+                  android:configChanges="orientation|keyboardHidden|keyboard|screenSize"
+                  android:hardwareAccelerated="true">
+              <intent-filter>
+                  <action android:name="android.intent.action.MAIN" />
+                  <category android:name="android.intent.category.LAUNCHER" />
+              </intent-filter>
+         </activity>
+        <!-- The following service entries exist in order to allow us to
+             start more than one sandboxed process. -->
+
+        <!-- NOTE: If you change the values of "android:process" for any of the below services,
+             you also need to update kHelperProcessExecutableName in chrome_constants.cc. -->
+        <service android:name="org.chromium.content.app.SandboxedProcessService0"
+                 android:process=":sandboxed_process0"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService1"
+                 android:process=":sandboxed_process1"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService2"
+                 android:process=":sandboxed_process2"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService3"
+                 android:process=":sandboxed_process3"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService4"
+                 android:process=":sandboxed_process4"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService5"
+                 android:process=":sandboxed_process5"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService6"
+                 android:process=":sandboxed_process6"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService7"
+                 android:process=":sandboxed_process7"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService8"
+                 android:process=":sandboxed_process8"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService9"
+                 android:process=":sandboxed_process9"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService10"
+                 android:process=":sandboxed_process10"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService11"
+                 android:process=":sandboxed_process11"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService12"
+                 android:process=":sandboxed_process12"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+
+        <!-- Sync adapter for browser sync. -->
+        <service android:exported="false"
+                 android:name="org.chromium.chrome.testshell.sync.ChromiumTestShellSyncAdapterService">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+            <meta-data android:name="android.content.SyncAdapter"
+                       android:resource="@xml/syncadapter" />
+        </service>
+
+        <!-- Name of the class implementing the invalidation client, for sync notifications. -->
+        <meta-data android:name="org.chromium.sync.notifier.IMPLEMENTING_CLASS_NAME"
+                   android:value="org.chromium.sync.notifier.TEST_VALUE" />
+    </application>
+
+    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="17" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+</manifest>

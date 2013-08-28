@@ -1,0 +1,230 @@
+[
+  {
+    "title": "Getting Started",
+    "items": [
+      {
+        "title": "What Are Packaged Apps?",
+        "href": "/apps/about_apps.html"
+      },
+      {
+        "title": "Understand the Architecture",
+        "href": "/apps/app_architecture.html"
+      },
+      {
+        "title": "Create Your First App",
+        "href": "/apps/first_app.html"
+      }
+    ]
+  },
+  {
+    "title": "Developing",
+    "items": [
+      {
+        "title": "Before You Start",
+        "href": "/apps/develop_apps.html"
+      },
+      {
+        "title": "The Fundamentals",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Manage App Lifecycle",
+            "href": "/apps/app_lifecycle.html"
+          },
+          {
+            "title": "Manage Data",
+            "href": "/apps/app_storage.html"
+          },
+          {
+            "title": "Offline First",
+            "href": "/apps/offline_apps.html"
+          },
+          {
+            "title": "Embed Content",
+            "href": "/apps/app_external.html"
+          }
+        ]
+      },
+      {
+        "title": "Learn with a Codelab",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "About this Codelab",
+            "href": "/apps/app_codelab.html"
+          },
+          {
+            "title": "1 - Set Up Development Environment",
+            "href": "/apps/app_codelab1_setup.html"
+          },
+          {
+            "title": "2 -  Create Basic App",
+            "href": "/apps/app_codelab2_basic.html"
+          },
+          {
+            "title": "3 - Create MVC",
+            "href": "/apps/app_codelab3_mvc.html"
+          },
+          {
+            "title": "4 - Save and Fetch Data",
+            "href": "/apps/app_codelab5_data.html"
+          },
+          {
+            "title": "5 - Manage App Lifecycle",
+            "href": "/apps/app_codelab6_lifecycle.html"
+          },
+          {
+            "title": "6 - Access User's Data",
+            "href": "/apps/app_codelab7_useridentification.html"
+          },
+          {
+            "title": "7 - Access Web Resources",
+            "href": "/apps/app_codelab8_webresources.html"
+          },
+          {
+            "title": "8 - Publish App",
+            "href": "/apps/app_codelab_10_publishing.html"
+          }
+        ]
+      },
+      {
+        "title": "Security & Privacy",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Identify User",
+            "href": "/apps/app_identity.html"
+          },
+          {
+            "title": "Comply with CSP",
+            "href": "/apps/contentSecurityPolicy.html"
+          }
+        ]
+      },
+      {
+        "title": "Notifications",
+        "toggleable": true,
+        "items": [
+            {
+            "title": "Cloud Messaging",
+            "toggleable": true,
+            "items": [
+              {
+                "title": "About Cloud Messaging",
+                "href": "/apps/cloudMessaging.html"
+              },
+              {
+                "title": "Client Reference",
+                "href": "/apps/pushMessaging.html"
+              },
+              {
+                "title": "Service Reference",
+                "href": "/apps/gcm_server.html"
+              },
+              {
+                "title": "Terms of Service",
+                "href": "/apps/gcm_tos.html"
+              }
+            ]
+          },
+          {
+            "title": "Desktop Notifications",
+            "href": "/apps/desktop_notifications.html"
+          }
+        ]
+      },
+      {
+        "title": "Advanced Technologies",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "Network Communications",
+            "href": "/apps/app_network.html"
+          },
+          {
+            "title": "Access Hardware Devices",
+            "href": "/apps/app_hardware.html"
+          }
+        ]
+      },
+      {
+        "title": "MVC Architecture",
+        "toggleable": true,
+        "items": [
+          {
+            "title": "About MVC Architecture",
+            "href": "/apps/app_frameworks.html"
+          },
+          {
+            "title": "Build Apps with AngularJS",
+            "href": "/apps/angular_framework.html"
+          },
+          {
+            "title": "Build Apps with Sencha Ext JS",
+            "href": "/apps/sencha_framework.html"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Deploying",
+    "items": [
+      {
+        "title": "Publish",
+        "href": "/apps/publish_app.html"
+      }
+    ]
+  },
+  {
+    "title": "Google Services",
+    "items": [
+      {
+        "title": "Analytics",
+        "href": "/apps/analytics.html"
+      },
+      {
+        "title": "In-App Payments",
+        "href": "/apps/in_app_payments.html"
+      }
+    ]
+  },
+  {
+    "title": "Reference",
+    "items": [
+      {
+        "title": "Manifest Files",
+        "href": "/apps/manifest.html"
+      },
+      {
+        "title": "Chrome JavaScript APIs",
+        "href": "/apps/api_index.html"
+      },
+      {
+        "title": "Webview Tag API",
+        "href": "/apps/webview_tag.html"
+      },
+      {
+        "title": "Supported Libraries",
+        "href": "/apps/api_other.html"
+      },
+      {
+        "title": "Disabled Web Features",
+        "href": "/apps/app_deprecated.html"
+      }
+    ]
+  },
+  {
+    "title": "More",
+    "items": [
+      {
+        "title": "FAQ",
+        "href": "/apps/faq.html"
+      },
+      {
+        "title": "Samples",
+        "href": "/apps/samples.html"
+      }
+    ]
+  }
+]

@@ -1,0 +1,70 @@
+<!DOCTYPE HTML>
+<html>
+<!--
+Copyright (c) 2012 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<head>
+<meta charset="utf-8">
+<title>Inspect with Chrome Developer Tools</title>
+
+<link rel="stylesheet" href="inspect.css">
+<script src="chrome://resources/js/util.js"></script>
+<script src="inspect.js"></script>
+</head>
+
+<body>
+
+<div id="container">
+  <div id="navigation">
+    <div id="caption">DevTools</div>
+  </div>
+  <div id="content">
+    <div id="devices">
+      <div class="content-header">Devices</div>
+      <div id="port-forwarding-settings">
+        <label for="port-forwarding-enable">
+          <input id="port-forwarding-enable" type="checkbox" disabled/>
+          <span>Enable port forwarding</span>
+        </label>
+        <button id="port-forwarding-config-open" disabled>
+          Configure port forwarding</button>
+      </div>
+      <div id="devices-list"></div>
+    </div>
+    <div id="pages">
+      <div class="content-header">Pages</div>
+      <div id="pages-list" class="list pages"></div>
+    </div>
+    <div id="extensions">
+      <div class="content-header">Extensions</div>
+      <div id="extensions-list" class="list"></div>
+    </div>
+    <div id="apps">
+      <div class="content-header">Apps</div>
+      <div id="apps-list" class="list"></div>
+    </div>
+    <div id="workers">
+      <div class="content-header">Shared workers</div>
+      <div id="workers-list" class="list"></div>
+    </div>
+    <div id="other">
+      <div class="content-header">Other</div>
+      <div id="others-list" class="list"></div>
+    </div>
+  </div>
+</div>
+<div id="port-forwarding-overlay">
+  <div id="port-forwarding-config">
+    <div id="port-forwarding-config-close" class="close-button"></div>
+    <div id="port-forwarding-config-title">Port forwarding settings</div>
+    <div id="port-forwarding-config-list">
+    </div>
+    <div id="port-forwarding-config-buttons">
+      <button id="port-forwarding-config-done">Done</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<div>
+  {{?display_name}}
+  <h3 id="{{id}}">{{display_name}}</h3>
+  {{/display_name}}
+  <div>
+    {{^is_object}}
+    {{?enum_values}}
+    <dd>enum of
+      {{#enum_values}}
+      {{?last}}or {{/}}<code>"{{name}}"</code>{{^last}}, {{/}}
+      {{/enum_values}}
+    </dd>
+    {{:enum_values}}
+    <dd>
+      {{+partials.variable_type}}
+    </dd>
+    {{/enum_values}}
+    {{/is_object}}
+    {{?description}}
+    <dd>{{{description}}}</dd>
+    {{/description}}
+    {{?properties}}
+      {{+partials.type_item title:strings.properties
+                            display_name:display_name
+                            items:properties
+                            item_partial:partials.parameter_full}}
+    {{/properties}}
+    {{?functions}}
+      {{+partials.type_item title:strings.methods
+                            display_name:display_name
+                            items:functions
+                            item_partial:partials.function}}
+    {{/functions}}
+    {{?events}}
+      {{+partials.type_item title:strings.events
+                            display_name:display_name
+                            items:events
+                            item_partial:partials.event}}
+    {{/events}}
+  </div>
+</div>

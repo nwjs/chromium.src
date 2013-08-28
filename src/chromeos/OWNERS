@@ -1,0 +1,9 @@
+per-file chromeos_switches.cc=*
+per-file chromeos_switches.h=*
+
+zelidrag@chromium.org
+davemoore@chromium.org
+stevenjb@chromium.org
+oshima@chromium.org
+derat@chromium.org
+satorux@chromium.org

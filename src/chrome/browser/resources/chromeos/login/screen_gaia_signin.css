@@ -1,0 +1,126 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+#gaia-signin {
+  height: 609px; /* Should be the same as #user-image.loading min-heigth. */
+  padding: 70px 17px 69px;    /* Screen has no controls. */
+  width: 722px; /* Should be the same as #user-image.loading width. */
+}
+
+#gaia-signin.no-right-panel {
+  width: 522px;
+}
+
+#signin-right {
+  -webkit-margin-before: 80px;
+  -webkit-margin-start: 30px;
+  top: 60px;
+  width: 200px;
+}
+
+#signin-right,
+#enterprise-info-container {
+  font-size: 12px;
+}
+
+/*  For touch-optimized UI, make the links bigger. */
+@media (pointer:coarse) {
+  #signin-right {
+    font-size: 14px;
+  }
+}
+
+.no-right-panel #signin-right {
+  display: none;
+}
+
+.signin-text {
+  color: #666;
+  margin-top: 20px;
+}
+
+.signin-link {
+  color: rgb(37, 79, 155);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.signin-link:focus {
+  -webkit-transition: outline-color 200ms;
+  /* Note: May use 1px solid here. */
+  outline-color: rgb(77, 144, 254);
+}
+
+#gaia-signin-form-container,
+#signin-frame {
+  height: 100%;
+}
+
+#gaia-signin-divider {
+  background: -webkit-gradient(
+                   linear, left top, left bottom,
+                   color-stop(0, #e3e3e3),
+                   color-stop(0.5, #cacaca),
+                   color-stop(1, #e3e3e3));
+  border: none;
+  width: 1px;
+}
+
+.no-right-panel #gaia-signin-divider {
+  display: none;
+}
+
+#signin-frame {
+  background-color: transparent;
+  vertical-align: top;
+  width: 340px;
+}
+
+/* Position to be aligned with the login box in iframe  */
+#login-box {
+  height: 31px;
+  position: absolute;
+  top: 77px;
+  visibility: hidden;
+  z-index: -1;
+}
+
+#enterprise-info-container {
+  bottom: 10px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  text-align: center;
+}
+
+#enterprise-info-container #enterprise-info {
+  display: inline-block;
+}
+
+#gaia-signin .step-contents {
+  -webkit-box-pack: center;
+  display: -webkit-box;
+}
+
+#createManagedUserSeparator {
+  background-color: rgba(128,128,128,0.3);
+  height: 1px;
+  width: 200px;
+}
+
+#createManagedUserLogo {
+  font-weight: bold;
+  margin-top: 16px;
+}
+
+#createManagedUserLogo img {
+  vertical-align: text-bottom;
+}
+
+#createManagedUserLinkPlaceholder,
+#createManagedUserNoManagerText {
+  margin-top: 10px;
+}
+

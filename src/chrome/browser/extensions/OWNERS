@@ -1,0 +1,20 @@
+# Core extension team members. Specific extension APIs may have other authors
+# (e.g. dmazzoni@ for TTS, kalman@ for settings), please check with them when
+# making significant changes.
+#
+# If you are editing this file, please also update
+# chrome/browser/chromeos/extensions/OWNERS
+# chrome/common/extensions/OWNERS
+# chrome/renderer/extensions/OWNERS
+# chrome/renderer/resources/extensions/OWNERS
+# extensions/OWNERS
+asargent@chromium.org
+benwells@chromium.org
+finnur@chromium.org
+jyasskin@chromium.org
+kalman@chromium.org
+koz@chromium.org
+mek@chromium.org
+miket@chromium.org
+mpcomplete@chromium.org
+yoz@chromium.org

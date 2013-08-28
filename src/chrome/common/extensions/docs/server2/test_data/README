@@ -1,0 +1,23 @@
+Test JSON Files:
+
+branch_utility/first.json
+  Downloaded from:
+     http://omahaproxy.appspot.com/json
+  - Contains data on all current releases of Chrome, as found on the main
+    omahaproxy page (http://omahaproxy.appspot.com) in JSON format.
+  - File has been formatted for readability.
+
+
+branch_utility/second.json
+  Downloaded from:
+      http://omahaproxy.appspot.com/history?channel=dev&os=win&json=1
+  - Contains a history of revision names for the dev channel on Windows.
+  - File has been formatted for readability. To view a readable version of the
+    data at the above URL, remove '&json=1'.
+
+subversion_file_system/public_extensions_214898
+  Downloaded from:
+      http://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/extensions/docs/templates/public/extensions/?pathrev=214898
+  - Subversion ViewVC list of files in c/c/e/d/templates/public/extensions where
+    the most recent operation in that directory is deleting a file.
+  - Used in SubversionFileSystemTest.testDirectoryVersionOnDelection.

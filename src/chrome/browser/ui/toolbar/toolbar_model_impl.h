@@ -1,0 +1,74 @@
+// Copyright 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_UI_TOOLBAR_TOOLBAR_MODEL_IMPL_H_
+#define CHROME_BROWSER_UI_TOOLBAR_TOOLBAR_MODEL_IMPL_H_
+
+#include <string>
+
+#include "base/basictypes.h"
+#include "base/compiler_specific.h"
+#include "base/strings/string16.h"
+#include "chrome/browser/ui/toolbar/toolbar_model.h"
+#include "url/gurl.h"
+
+class Profile;
+class ToolbarModelDelegate;
+
+namespace content {
+class NavigationController;
+class WebContents;
+}
+
+namespace net {
+class X509Certificate;
+}
+
+// This class is the model used by the toolbar, location bar and autocomplete
+// edit.  It populates its states from the current navigation entry retrieved
+// from the navigation controller returned by GetNavigationController().
+class ToolbarModelImpl : public ToolbarModel {
+ public:
+  explicit ToolbarModelImpl(ToolbarModelDelegate* delegate);
+  virtual ~ToolbarModelImpl();
+
+  static SecurityLevel GetSecurityLevelForWebContents(
+      content::WebContents* web_contents);
+
+  // Overriden from ToolbarModel.
+  virtual string16 GetText(
+      bool display_search_urls_as_search_terms) const OVERRIDE;
+  virtual string16 GetCorpusNameForMobile() const OVERRIDE;
+  virtual GURL GetURL() const OVERRIDE;
+  virtual bool WouldReplaceSearchURLWithSearchTerms(
+      bool ignore_editing) const OVERRIDE;
+  virtual SecurityLevel GetSecurityLevel(bool ignore_editing) const OVERRIDE;
+  virtual int GetIcon() const OVERRIDE;
+  virtual string16 GetEVCertName() const OVERRIDE;
+  virtual bool ShouldDisplayURL() const OVERRIDE;
+
+  // Returns "<organization_name> [<country>]".
+  static string16 GetEVCertName(const net::X509Certificate& cert);
+
+ private:
+  // Returns the navigation controller used to retrieve the navigation entry
+  // from which the states are retrieved.
+  // If this returns NULL, default values are used.
+  content::NavigationController* GetNavigationController() const;
+
+  // Helper method to extract the profile from the navigation controller.
+  Profile* GetProfile() const;
+
+  // Returns search terms as in chrome::GetSearchTerms() unless the page is
+  // insufficiently secure.  If |ignore_editing| is true, the result reflects
+  // the underlying state of the page without regard to any user edits that
+  // may be in progress in the omnibox.
+  string16 GetSearchTerms(bool ignore_editing) const;
+
+  ToolbarModelDelegate* delegate_;
+
+  DISALLOW_IMPLICIT_CONSTRUCTORS(ToolbarModelImpl);
+};
+
+#endif  // CHROME_BROWSER_UI_TOOLBAR_TOOLBAR_MODEL_IMPL_H_

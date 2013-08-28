@@ -1,0 +1,1177 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+[
+  {
+    "namespace":"fileBrowserPrivate",
+    "description": "none",
+    "platforms": ["chromeos"],
+    "types": [
+      {
+        "id": "FileTask",
+        "type": "object",
+        "description": "A file task represents an action that the file manager can perform over the currently selected files. See chrome/browser/chromeos/extensions/file_manager/file_tasks.h for details about how file tasks are handled.",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "The unique identifier of the task."
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title (ex. App name)."
+          },
+          "iconUrl": {
+            "type": "string",
+            "description": "Task icon url (from chrome://extension-icon/...)"
+          },
+          "driveApp": {
+            "type": "boolean",
+            "description": "True if this is Drive App."
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "True if this task is a default task for the selected files."
+          }
+        }
+      },
+      {
+        "id": "VolumeInfo",
+        "type": "object",
+        "description": "Mounted disk volume information.",
+        "properties": {
+          "mountPath": {
+            "type": "string",
+            "description": "Disk volume mount point path. The value corresponds to its Entry.fullPath in File API."
+          },
+          "devicePath": {
+            "type": "string",
+            "description": "Disk volume device path."
+          },
+          "label": {
+            "type": "string",
+            "description": "Volume label."
+          },
+          "deviceType": {
+            "type": "string",
+            "enum": ["sd", "usb", "optical", "mobile", "unknown"],
+            "description": "Device type."
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "Flag that specifies if volume is mounted in read-only mode."
+          },
+          "totalSize": {
+            "type": "number",
+            "description": "Approximated total disk volume size in bytes."
+          }
+        }
+      },
+      {
+        "id": "DriveEntryProperties",
+        "type": "object",
+        "description": "Drive file properties.",
+        "properties": {
+          "fileUrl": {
+            "type": "string",
+            "optional": true,
+            "description": "the URL given for this file."
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "optional": true,
+            "description": "URL to the Drive thumbnail image for this file."
+          },
+          "isPinned": {
+            "type": "boolean",
+            "optional": true,
+            "description": "True if the file is pinned in Drive cache."
+          },
+          "isPresent": {
+            "type": "boolean",
+            "optional": true,
+            "description": "True if the file is present in Drive cache."
+          },
+          "isDirty": {
+            "type": "boolean",
+            "optional": true,
+            "description": "True if the file is awaiting upload in Drive cache."
+          },
+          "isHosted": {
+            "type": "boolean",
+            "optional": true,
+            "description": "True if the file is hosted on a Drive server instead of local."
+          },
+          "errorCode": {
+            "type": "integer",
+            "optional": true,
+            "description": "The error code (from base::PlatformFileError) if fetching the properties for this file had an error."
+          },
+          "customIconUrl": {
+            "type": "string",
+            "optional": true,
+            "description": "URL to the custom icon for this file."
+          },
+          "contentMimeType": {
+            "type": "string",
+            "optional": true,
+            "description": "Drive MIME type for this file."
+          },
+          "sharedWithMe": {
+            "type": "boolean",
+            "optional": true,
+            "description": "True if the entry is labeled as shared-with-me."
+          }
+        }
+      },
+      {
+        "id": "MountPointInfo",
+        "type": "object",
+        "description": "Mounted point information.",
+        "properties": {
+          "mountPath": {
+            "type": "string",
+            "optional": true,
+            "description": "Disk volume mount point path. The value corresponds to its Entry.fullPath in File API."
+          },
+          "sourcePath": {
+            "type": "string",
+            "description": "The path to the mounted device, archive file or network resource."
+          },
+          "mountType": {
+            "type": "string",
+            "enum": ["device", "file", "network"],
+            "description": "Type of the mount."
+          },
+          "mountCondition": {
+            "type": "string",
+            "description": "Additional data about mount, for example, that the filesystem is not supported."
+          }
+        }
+      },
+      {
+        "id": "MountPointSizeStats",
+        "type": "object",
+        "description": "Information about total and remaining size on the mount point.",
+        "properties": {
+          "totalSize": {
+            "type": "number",
+            "description": "Approximate total available size on the mount point."
+          },
+          "remainingSize": {
+            "type": "number",
+            "description": "Approximate remaining available size on the mount point."
+          }
+        }
+      },
+      {
+        "id": "VolumeMetadata",
+        "type": "object",
+        "description": "Mounted disk volume metadata.",
+        "properties": {
+          "mountPath": {
+            "type": "string",
+            "description": "Disk volume mount point path."
+          },
+          "devicePath": {
+            "type": "string",
+            "description": "Disk volume device path."
+          },
+          "systemPath": {
+            "type": "string",
+            "description": "Disk volume system path."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "Disk volume file path."
+          },
+          "deviceLabel": {
+            "type": "string",
+            "description": "Volume label."
+          },
+          "driveLabel": {
+            "type": "string",
+            "description": "Volume's disk label."
+          },
+          "deviceType": {
+            "type": "string",
+            "enum": ["usb", "sd", "optical", "mobile", "unknown"],
+            "description": "Device type."
+          },
+          "isParent": {
+            "type": "boolean",
+            "description": "Flag that specifies if volume is a parent device."
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Flag that specifies if volume is mounted in read-only mode."
+          },
+          "hasMedia": {
+            "type": "boolean",
+            "description": "Flag that specifies if volume has any media."
+          },
+          "isOnBootDevice": {
+            "type": "boolean",
+            "description": "Flag that specifies if volume is on boot device."
+          },
+          "totalSize": {
+            "type": "integer",
+            "description": "Total disk volume size."
+          }
+        }
+      },
+      {
+        "id": "MountEvent",
+        "type": "object",
+        "description": "Payload data for disk mount / unmount event.",
+        "properties": {
+          "eventType": {
+            "type": "string",
+            "enum": ["added", "removed"],
+            "description": "Event type that tells listeners which disk volume even was raised."
+          },
+          "volumeInfo": {
+            "$ref": "VolumeInfo",
+            "description":"Volume information that this mount event applies to."
+          }
+        }
+      },
+      {
+        "id": "MountCompletedEvent",
+        "type": "object",
+        "description": "Payload data for mount event.",
+        "properties": {
+          "eventType": {
+            "type": "string",
+            "enum": ["mount", "unmount"],
+            "description": "Is the event raised for mounting or unmounting."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["success", "error_unknown", "error_internal",
+                     "error_invalid_argument", "error_invalid_path",
+                     "error_path_already_mounted", "error_path_not_mounted",
+                     "error_directory_creation_failed",
+                     "error_invalid_mount_options",
+                     "error_invalid_unmount_options",
+                     "error_insufficient_permissions",
+                     "error_mount_program_not_found",
+                     "error_mount_program_failed", "error_invalid_device_path",
+                     "error_unknown_filesystem", "error_unsuported_filesystem",
+                     "error_invalid_archive", "error_authentication",
+                     "error_path_unmounted"],
+            "description": "Event type that tells listeners if mount was successful or an error occurred. It also specifies the error."
+          },
+          "sourcePath": {
+            "type": "string",
+            "description": "Path that has been mounted."
+          },
+          "mountPath": {
+            "type": "string",
+            "optional": true,
+            "description": "Path that sourcePath was mounted to."
+          },
+          "mountType": {
+            "type": "string",
+            "enum": ["device", "file", "network", "drive"],
+            "description": "Type of the mount."
+          }
+        }
+      },
+      {
+        "id": "FileTransferStatus",
+        "type": "object",
+        "description": "Payload data for file transfer status updates.",
+        "properties": {
+          "fileUrl": {
+            "type": "string",
+            "description": "URL of file that is being transfered."
+          },
+          "transferState": {
+            "type": "string",
+            "enum": ["started", "in_progress", "completed", "failed"],
+            "description": "File transfer progress state."
+          },
+          "transferType": {
+            "type": "string",
+            "enum": ["upload", "download"],
+            "description": "Defines file transfer direction."
+          },
+          "processed": {
+            "type": "number",
+            "optional": true,
+            "description": "Approximated completed portion of the transfer operation."
+          },
+          "total": {
+            "type": "number",
+            "optional": true,
+            "description": "Approximated total size of transfer operation."
+          }
+        }
+      },
+      {
+        "id": "FileTransferCancelStatus",
+        "type": "object",
+        "description": "Payload data for file transfer cancel response.",
+        "properties": {
+          "fileUrl": {
+            "type": "string",
+            "description": "URL of file that is being transfered."
+          },
+          "canceled": {
+            "type": "boolean",
+            "description": "True if ongoing transfer operation was found and canceled."
+          }
+        }
+      },
+      {
+        "id": "FileWatchEvent",
+        "type": "object",
+        "description": "Directory change notification details.",
+        "properties": {
+          "eventType": {
+            "type": "string",
+            "enum": ["changed", "error"],
+            "description": "Specifies type of event that is raised."
+          },
+          "directoryUrl": {
+            "type": "string",
+            "description": "URL of watched directory."
+          },
+          "changedEntries": {
+            "type": "array",
+            "items": {"$ref": "FileWatchChangedEntry"}
+          }
+        }
+      },
+      {
+        "id": "FileWatchChangedEntry",
+        "type": "object",
+        "description": "Information about changed file or directory",
+        "properties": {
+          "changeType": {
+            "type": "string",
+            "enum": ["added", "deleted", "updated"],
+            "description": "Specifies type of the change."
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "URL of the changed file."
+          }
+        }
+      }
+    ],
+    "functions": [
+      {
+        "name": "logoutUser",
+        "type": "function",
+        "description": "Logout the current user.",
+        "parameters": []
+      },
+      {
+        "name": "cancelDialog",
+        "type": "function",
+        "description": "Cancels file selection.",
+        "parameters": []
+      },
+      {
+        "name": "executeTask",
+        "description": "Executes file browser task over selected files",
+        "parameters": [
+          {
+            "name": "taskId",
+            "type": "string",
+            "description": "The unique identifier of task to execute."
+          },
+          {
+            "name": "fileURLs",
+            "type": "array",
+            "description": "Array of file URLs",
+            "items": { "type": "string" }
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "optional": true,
+            "parameters": [
+              {
+                "name": "success",
+                "type": "boolean",
+                "optional": true,
+                "description": "True of task execution was successfully initiated."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "setDefaultTask",
+        "description": "Sets the default task for the supplied MIME types and suffixes of the supplied file URLs. Lists of MIME types and URLs may contain duplicates.",
+        "parameters": [
+          {
+            "name": "taskId",
+            "type": "string",
+            "description": "The unique identifier of task to mark as default."
+          },
+          {
+            "name": "fileURLs",
+            "type": "array",
+            "description": "Array of selected file URLs to extract suffixes from.",
+            "items": { "type": "string" }
+          },
+          {
+            "name": "mimeTypes",
+            "type": "array",
+            "optional": true,
+            "description": "Array of selected file MIME types.",
+            "items": { "type": "string" }
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "optional": true,
+            "parameters": []
+          }
+        ]
+      },
+      {
+        "name": "getFileTasks",
+        "description": "Gets the list of tasks that can be performed over selected files.",
+        "parameters": [
+          {
+            "name": "fileURLs",
+            "type": "array",
+            "description": "Array of selected file URLs",
+            "items": { "type": "string" }
+          },
+          {
+            "name": "mimeTypes",
+            "type": "array",
+            "description": "Array of selected file MIME types",
+            "items": { "type": "string" }
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "tasks",
+                "type": "array",
+                "items": {"$ref": "FileTask"},
+                "description": "The list of matched file URL patterns for this task."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "getStrings",
+        "type": "function",
+        "description": "Gets localized strings and initialization data.",
+        "parameters": [
+          {
+            "type": "function",
+            "name": "callback",
+            "parameters": [
+              {
+                "name": "result",
+                "type": "object",
+                "additionalProperties": { "type": "any" }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "addFileWatch",
+        "description": "Adds file watch.",
+        "parameters": [
+          {
+            "name": "fileUrl",
+            "type": "string",
+            "description": "URL of file to watch"
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "success",
+                "type": "boolean",
+                "optional": true,
+                "description": "True when file watch is successfully added."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "removeFileWatch",
+        "description": "Removes file watch.",
+        "parameters": [
+          {
+            "name": "fileUrl",
+            "type": "string",
+            "description": "URL of watched file to remove"
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "success",
+                "type": "boolean",
+                "optional": true,
+                "description": "True when file watch is successfully removed."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "requestFileSystem",
+        "description": "Requests access to the file system specially set up for Files.app. The filesystem has multiple mount points which provide access to the user's Downloadsfolder, removal media like SD cards, and Drive. See comments at CrosDiskMountPorivder for details.",
+        "parameters": [
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "fileSystem",
+                "type": "object",
+                "optional": true,
+                "additionalProperties": { "type": "any" },
+                "description": "A DOMFileSystem instance for local file system access. null if the caller has no appropriate permissions."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "selectFiles",
+        "type": "function",
+        "description": "Selects multiple files.",
+        "parameters": [
+          {
+            "name": "selectedPaths",
+            "type": "array",
+            "description": "Array of selected paths",
+            "items": {"type": "string"}
+          },
+          {
+            "name": "shouldReturnLocalPath",
+            "type": "boolean",
+            "description": "true if paths need to be resolved to local paths."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": []
+          }
+        ]
+      },
+      {
+        "name": "selectFile",
+        "type": "function",
+        "description": "Selects a file.",
+        "parameters": [
+          {
+            "name": "selectedPath",
+            "type": "string",
+            "description": "A selected path"
+          },
+          {
+            "name": "index",
+            "type": "integer",
+            "description": "Index of Filter"
+          },
+          {
+            "name": "forOpening",
+            "type": "boolean",
+            "description": "true if paths are selected for opening. false if for saving."
+          },
+          {
+            "name": "shouldReturnLocalPath",
+            "type": "boolean",
+            "description": "true if paths need to be resolved to local paths."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": []
+          }
+        ]
+      },
+      {
+        "name": "getDriveEntryProperties",
+        "description": "Requests Drive file properties for a file",
+        "parameters": [
+          {
+            "name": "fileUrl",
+            "type": "string",
+            "description": "URL of a file"
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "fileProperties",
+                "$ref": "DriveEntryProperties",
+                "description": "A dictionary containing properties of the requested entry."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "pinDriveFile",
+        "description": "Pins/unpins a Drive file in the cache",
+        "parameters": [
+          {
+            "name": "fileUrl",
+            "type": "string",
+            "description": "URL of a file to pin/unpin."
+          },
+          {
+            "name": "pin",
+            "type": "boolean",
+            "description": "Pass true to pin the file."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "optional": true,
+            "description": "Completion callback. $ref:runtime.lastError will be set if there was an error.",
+            "parameters": []
+          }
+        ]
+      },
+      {
+        "name": "getDriveFiles",
+        "description": "Get Drive files",
+        "parameters": [
+          {
+            "name": "fileUrls",
+            "type": "array",
+            "description": "Array of Drive file URLs to get.",
+            "items": { "type": "string" }
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "localFilePaths",
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "An array of the local file paths for the requested files, one entry for each file in fileUrls."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "getVolumeMetadata",
+        "description": "Requests volume's metadata",
+        "parameters": [
+          {
+            "name": "mountUrl",
+            "type": "string",
+            "description": "Mount url of the volume."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "volumeMetadata",
+                "$ref": "VolumeMetadata",
+                "optional": true,
+                "description": "A requested metadata dictionary object. undefined if there is no volume with selected devicePath"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "addMount",
+        "description": "Mount a resource or a file.",
+        "parameters": [
+          {
+            "name": "source",
+            "type": "string",
+            "description": "Mount point source. For compressed files it is relative file path within external file system"
+          },
+          {
+            "name": "mountType",
+            "type": "string",
+            "enum": ["device", "file", "network", "drive"],
+            "description": "Mount point type. 'file' for compressed files"
+          },
+          {
+            "name": "options",
+            "type": "object",
+            "additionalProperties": { "type": "any" },
+            "description": "Name/value pairs for source specific options"
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "sourcePath",
+                "type": "string",
+                "description": "Source path of the mount."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "removeMount",
+        "description": "Unmounts a mounted resource.",
+        "parameters": [
+          {
+            "name": "mountPath",
+            "type": "string",
+            "description": "A path of the mount."
+          }
+        ]
+      },
+      {
+        "name": "getMountPoints",
+        "description": "Get the list of mount points.",
+        "parameters": [
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "mountPoints",
+                "type": "array",
+                "items": {"$ref": "MountPointInfo"},
+                "description": "The list of MountPointInfo representing mounted devices."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "cancelFileTransfers",
+        "description": "Cancels ongoing file transfers for selected files.",
+        "parameters": [
+          {
+            "name": "fileUrls",
+            "type": "array",
+            "description": "Array of files for which ongoing transfer should be canceled.",
+            "items": {"type": "string"}
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "fileTransferCancelStatuses",
+                "type": "array",
+                "items": {"$ref": "FileTransferCancelStatus"},
+                "description": "The list of FileTransferCancelStatus."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "setLastModified",
+        "description": "Updates last modified to specified time in seconds",
+        "parameters": [
+          {
+            "name": "fileUrl",
+            "type": "string",
+            "description": "File url from the local file system."
+          },
+          {
+            "name": "lastModified",
+            "type": "string",
+            "description": "Date to set as last modification date in ms. Should be passed to C++ as string, since 'long' type isn't supported"
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "optional": true,
+            "description": "Completion callback. $ref:runtime.lastError will be set if there was an error.",
+            "parameters": []
+          }
+        ]
+      },
+      {
+        "name": "getSizeStats",
+        "description": "Retrieves total and remaining size of a mount point.",
+        "parameters": [
+          {
+            "name": "mountPath",
+            "type": "string",
+            "description": "Mount point path."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name" : "sizeStats",
+                "optional": true,
+                "$ref": "MountPointSizeStats",
+                "description": "Name/value pairs of size stats. Will be undefined if stats could not be determined."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "formatDevice",
+        "description": "Formats a mounted device",
+        "parameters": [
+          {
+            "name": "mountPath",
+            "type": "string",
+            "description": "Device's mount path."
+          }
+        ]
+      },
+      {
+        "name": "getPreferences",
+        "description": "Retrieves file manager preferences .",
+        "parameters": [
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "result",
+                "type": "object",
+                "properties": {
+                  "driveEnabled": {"type":"boolean"},
+                  "cellularDisabled": {"type":"boolean"},
+                  "hostedFilesDisabled": {"type":"boolean"},
+                  "use24hourClock": {"type":"boolean"},
+                  "allowRedeemOffers": {"type":"boolean"}
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "setPreferences",
+        "description": "Sets file manager preferences.",
+        "parameters": [
+          {
+            "name": "changeInfo",
+            "type": "object",
+            "properties": {
+              "cellularDisabled": {"type":"boolean", "optional":true},
+              "hostedFilesDisabled": {"type":"boolean", "optional":true}
+            }
+          }
+        ]
+      },
+      {
+        "name": "searchDrive",
+        "type": "function",
+        "description": "Performs drive content search.",
+        "parameters": [
+          {
+            "name": "searchParams",
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "optional": true,
+                "description": "Search query."
+              },
+              "nextFeed": {
+                "type": "string",
+                "optional": true,
+                "description": "ID of the search feed that should be fetched next. Value passed here should be gotten from previous searchDrive call. It can be empty for the initial search request."
+              }
+            }
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "entries",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "isInstanceOf": "Entry",
+                  "additionalProperties": { "type": "any" },
+                  "description": "An Entry object which represents a Drive file. The conversion into a kind of FileEntry object is done in file_browser_handler_custom_bindings.cc. For filesystem API's Entry interface, see <a href='http://www.w3.org/TR/file-system-api/#the-entry-interface'>The Entry interface</a>."
+                }
+              },
+              {
+                "name": "nextFeed",
+                "type": "string",
+                "description": "ID of the feed that contains next chunk of the search result. Should be sent to the next searchDrive request to perform incremental search."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "searchDriveMetadata",
+        "type": "function",
+        "description": "Performs drive metadata search.",
+        "parameters": [
+          {
+            "name": "searchParams",
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "optional": true,
+                "description": "Search query. It can be empty. Any filename matches to an empty query."
+              },
+              "types": {
+                "type": "string",
+                "enum": ["EXCLUDE_DIRECTORIES", "SHARED_WITH_ME", "OFFLINE", "ALL"],
+                "optional": true,
+                "description": "The type of entry that is needed. Default to ALL."
+              },
+              "maxResults": {
+                "type": "integer",
+                "optional": true,
+                "description": "Maximum number of results."
+              }
+            }
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "results",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "entry": {
+                      "type": "object",
+                      "isInstanceOf": "Entry",
+                      "additionalProperties": { "type": "any" },
+                      "description": "A dictionary object which represents a Drive file. This will be converted into a kind of FileEntry object. See file_browser_handler_custom_bindings.cc for details. For filesystem API's Entry interface, see <a href='http://www.w3.org/TR/file-system-api/#the-entry-interface'>The Entry interface</a>."
+                    },
+                    "highlightedBaseName": {
+                      "type": "string",
+                      "description": "The base name of a Drive file that matched the search query. The matched sub strings are highlighted with <b> element. Meta characters are escaped like &lt;."
+                    }
+                  },
+                  "description": "Entry and Drive-related properties representing a search result."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "clearDriveCache",
+        "description": "Clear all Drive local caches including locally cached user files and filesystem metadata. The file system metadata will be reloaded from the server immediately.",
+        "parameters": []
+      },
+      {
+        "name": "zipSelection",
+        "description": "Create a zip file for the selected files.",
+        "parameters": [
+          {
+            "name": "dirURL",
+            "type": "string",
+            "description": "URL of the directory containing the selected files."
+          },
+          {
+            "name": "selectionURLs",
+            "type": "array",
+            "description": "URLs of the selected files. The files must be under the directory specified by dirURL.",
+            "items": { "type": "string" }
+          },
+          {
+            "name": "destName",
+            "type": "string",
+            "description": "Name of the destination zip file. The zip file will be created under the directory specified by dirURL."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "optional": true,
+            "parameters": [
+              {
+                "name" : "success",
+                "type" : "boolean",
+                "optional": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "getDriveConnectionState",
+        "description": "Retrieves the state of the current drive connection.",
+        "parameters": [
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "result",
+                "type": "object",
+                "properties": {
+                  "type": {"type": "string"},
+                  "reasons": {
+                    "type": "array",
+                    "description": "Reasons of offline.",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "validatePathNameLength",
+        "description": "Checks whether the path name length fits in the limit of the filesystem.",
+        "parameters": [
+          {
+            "name": "parent_directory_url",
+            "type": "string",
+            "description": "The URL of the parent directory entry."
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "The name of the file."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "description": "Called back when the check is finished.",
+            "parameters": [
+              {
+                "name": "result",
+                "type": "boolean",
+                "description": "true if the length is in the valid range, false otherwise."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "zoom",
+        "description": "Changes the zoom factor of the Files.app.",
+        "parameters": [
+          {
+            "name": "operation",
+            "type": "string",
+            "description": "Zooming mode.",
+            "enum": ["in", "out", "reset"]
+          }
+        ]
+      },
+      {
+        "name": "requestAccessToken",
+        "description": "Requests a Drive API OAuth2 access token.",
+        "parameters": [
+          {
+            "name": "refresh",
+            "type": "boolean",
+            "description": "Whether the token should be refetched instead of using the cached one."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "accessToken",
+                "type": "string",
+                "description": "OAuth2 access token, or an empty string if failed to fetch."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "getShareUrl",
+        "description": "Requests a share dialog url for the specified file.",
+        "parameters": [
+          {
+            "name": "url",
+            "type": "string",
+            "description": "Url for the file."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "shareUrl",
+                "type": "string",
+                "description": "Share Url for the sharing dialog."
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "onMountCompleted",
+        "type": "function",
+        "description": "Fired when mount event is detected.",
+        "parameters": [
+          {
+            "$ref": "MountCompletedEvent",
+            "name": "event",
+            "description": "MountCompleted event information."
+          }
+        ]
+      },
+      {
+        "name": "onFileTransfersUpdated",
+        "type": "function",
+        "description": "Fired when file transfers with remote file system are in progress.",
+        "parameters": [
+          {
+            "type": "array",
+            "items": {"$ref": "FileTransferStatus"},
+            "name": "event",
+            "description": "List of ongoing file statuses for ongoing transfer operations."
+          }
+        ]
+      },
+      {
+        "name": "onDirectoryChanged",
+        "type": "function",
+        "description": "Fired when watched file change event is detected in a watched directory.",
+        "parameters": [
+          {
+            "$ref": "FileWatchEvent",
+            "name": "event",
+            "description": "File watch event information."
+          }
+        ]
+      },
+      {
+        "name": "onPreferencesChanged",
+        "type": "function",
+        "description": "Fired when file manager preferences change. The preferences can be retrieved via 'getPreferences'.",
+        "parameters": []
+      },
+      {
+        "name": "onDriveConnectionStatusChanged",
+        "type": "function",
+        "description": "Fired when the active network connection state changes. The network connection state can be retrieved via 'getDriveConnectionState'.",
+        "parameters": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,460 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chromeos/network/network_configuration_handler.h"
+
+#include <string>
+#include <vector>
+
+#include "base/bind.h"
+#include "base/format_macros.h"
+#include "base/json/json_writer.h"
+#include "base/logging.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/stl_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/values.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/shill_manager_client.h"
+#include "chromeos/dbus/shill_profile_client.h"
+#include "chromeos/dbus/shill_service_client.h"
+#include "chromeos/network/network_event_log.h"
+#include "chromeos/network/network_state.h"
+#include "chromeos/network/network_state_handler.h"
+#include "dbus/object_path.h"
+#include "third_party/cros_system_api/dbus/service_constants.h"
+
+namespace chromeos {
+
+namespace {
+
+// Strip surrounding "" from keys (if present).
+std::string StripQuotations(const std::string& in_str) {
+  size_t len = in_str.length();
+  if (len >= 2 && in_str[0] == '"' && in_str[len-1] == '"')
+    return in_str.substr(1, len-2);
+  return in_str;
+}
+
+void InvokeErrorCallback(const std::string& error,
+                         const std::string& path,
+                         const network_handler::ErrorCallback& error_callback) {
+  NET_LOG_ERROR(error, path);
+  if (error_callback.is_null())
+    return;
+  scoped_ptr<base::DictionaryValue> error_data(
+      network_handler::CreateErrorData(path, error, ""));
+  error_callback.Run(error, error_data.Pass());
+}
+
+void GetPropertiesCallback(
+    const network_handler::DictionaryResultCallback& callback,
+    const network_handler::ErrorCallback& error_callback,
+    const std::string& service_path,
+    DBusMethodCallStatus call_status,
+    const base::DictionaryValue& properties) {
+  // Get the correct name from WifiHex if necessary.
+  scoped_ptr<base::DictionaryValue> properties_copy(properties.DeepCopy());
+  std::string name = NetworkState::GetNameFromProperties(
+      service_path, properties);
+  if (!name.empty()) {
+    properties_copy->SetStringWithoutPathExpansion(
+        flimflam::kNameProperty, name);
+  }
+  if (call_status != DBUS_METHOD_CALL_SUCCESS) {
+    // Because network services are added and removed frequently, we will see
+    // failures regularly, so don't log these.
+    if (!error_callback.is_null()) {
+      scoped_ptr<base::DictionaryValue> error_data(
+          network_handler::CreateErrorData(
+              service_path,
+              network_handler::kDBusFailedError,
+              network_handler::kDBusFailedErrorMessage));
+      error_callback.Run(network_handler::kDBusFailedError, error_data.Pass());
+    }
+  } else if (!callback.is_null()) {
+    callback.Run(service_path, *properties_copy.get());
+  }
+}
+
+void SetNetworkProfileErrorCallback(
+    const std::string& service_path,
+    const std::string& profile_path,
+    const network_handler::ErrorCallback& error_callback,
+    const std::string& dbus_error_name,
+    const std::string& dbus_error_message) {
+  network_handler::ShillErrorCallbackFunction(
+      "Config.SetNetworkProfile Failed: " + profile_path,
+      service_path, error_callback,
+      dbus_error_name, dbus_error_message);
+}
+
+bool IsPassphrase(const std::string& key) {
+  return key == flimflam::kEapPrivateKeyPasswordProperty ||
+      key == flimflam::kEapPasswordProperty ||
+      key == flimflam::kL2tpIpsecPasswordProperty ||
+      key == flimflam::kOpenVPNPasswordProperty ||
+      key == flimflam::kPassphraseProperty ||
+      key == flimflam::kOpenVPNOTPProperty ||
+      key == flimflam::kEapPrivateKeyProperty ||
+      key == flimflam::kEapPinProperty ||
+      key == flimflam::kApnPasswordProperty;
+}
+
+void LogConfigProperties(const std::string& desc,
+                         const std::string& path,
+                         const base::DictionaryValue& properties) {
+  for (base::DictionaryValue::Iterator iter(properties);
+       !iter.IsAtEnd(); iter.Advance()) {
+    std::string v = "******";
+    if (!IsPassphrase(iter.key()))
+      base::JSONWriter::Write(&iter.value(), &v);
+    NET_LOG_DEBUG(desc,  path + "." + iter.key() + "=" + v);
+  }
+}
+
+}  // namespace
+
+// Helper class to request from Shill the profile entries associated with a
+// Service and delete the service from each profile. Triggers either
+// |callback| on success or |error_callback| on failure, and calls
+// |handler|->ProfileEntryDeleterCompleted() on completion to delete itself.
+class NetworkConfigurationHandler::ProfileEntryDeleter
+    : public base::SupportsWeakPtr<ProfileEntryDeleter> {
+ public:
+  ProfileEntryDeleter(NetworkConfigurationHandler* handler,
+                      const std::string& service_path,
+                      const base::Closure& callback,
+                      const network_handler::ErrorCallback& error_callback)
+      : owner_(handler),
+        service_path_(service_path),
+        callback_(callback),
+        error_callback_(error_callback) {
+  }
+
+  void Run() {
+    DBusThreadManager::Get()->GetShillServiceClient()->
+        GetLoadableProfileEntries(
+            dbus::ObjectPath(service_path_),
+            base::Bind(&ProfileEntryDeleter::GetProfileEntriesToDeleteCallback,
+                       AsWeakPtr()));
+  }
+
+ private:
+  void GetProfileEntriesToDeleteCallback(
+      DBusMethodCallStatus call_status,
+      const base::DictionaryValue& profile_entries) {
+    if (call_status != DBUS_METHOD_CALL_SUCCESS) {
+      InvokeErrorCallback(
+          "GetLoadableProfileEntries Failed", service_path_, error_callback_);
+      owner_->ProfileEntryDeleterCompleted(service_path_);  // Deletes this.
+      return;
+    }
+
+    for (base::DictionaryValue::Iterator iter(profile_entries);
+         !iter.IsAtEnd(); iter.Advance()) {
+      std::string profile_path = StripQuotations(iter.key());
+      std::string entry_path;
+      iter.value().GetAsString(&entry_path);
+      if (profile_path.empty() || entry_path.empty()) {
+        NET_LOG_ERROR("Failed to parse Profile Entry", base::StringPrintf(
+            "%s: %s", profile_path.c_str(), entry_path.c_str()));
+        continue;
+      }
+      if (profile_delete_entries_.count(profile_path) != 0) {
+        NET_LOG_ERROR("Multiple Profile Entries", base::StringPrintf(
+            "%s: %s", profile_path.c_str(), entry_path.c_str()));
+        continue;
+      }
+      NET_LOG_DEBUG("Delete Profile Entry", base::StringPrintf(
+          "%s: %s", profile_path.c_str(), entry_path.c_str()));
+      profile_delete_entries_[profile_path] = entry_path;
+      DBusThreadManager::Get()->GetShillProfileClient()->DeleteEntry(
+          dbus::ObjectPath(profile_path),
+          entry_path,
+          base::Bind(&ProfileEntryDeleter::ProfileEntryDeletedCallback,
+                     AsWeakPtr(), profile_path, entry_path),
+          base::Bind(&ProfileEntryDeleter::ShillErrorCallback,
+                     AsWeakPtr(), profile_path, entry_path));
+    }
+  }
+
+  void ProfileEntryDeletedCallback(const std::string& profile_path,
+                                   const std::string& entry) {
+    NET_LOG_DEBUG("Profile Entry Deleted", base::StringPrintf(
+        "%s: %s", profile_path.c_str(), entry.c_str()));
+    profile_delete_entries_.erase(profile_path);
+    if (!profile_delete_entries_.empty())
+      return;
+    // Run the callback if this is the last pending deletion.
+    if (!callback_.is_null())
+      callback_.Run();
+    // Request NetworkStateHandler manager update to update ServiceCompleteList.
+    owner_->network_state_handler_->UpdateManagerProperties();
+    owner_->ProfileEntryDeleterCompleted(service_path_);  // Deletes this.
+  }
+
+  void ShillErrorCallback(const std::string& profile_path,
+                          const std::string& entry,
+                          const std::string& dbus_error_name,
+                          const std::string& dbus_error_message) {
+    // Any Shill Error triggers a failure / error.
+    network_handler::ShillErrorCallbackFunction(
+        "GetLoadableProfileEntries Failed", profile_path, error_callback_,
+        dbus_error_name, dbus_error_message);
+    // Delete this even if there are pending deletions; any callbacks will
+    // safely become no-ops (by invalidating the WeakPtrs).
+    owner_->ProfileEntryDeleterCompleted(service_path_);  // Deletes this.
+  }
+
+  NetworkConfigurationHandler* owner_;  // Unowned
+  std::string service_path_;
+  base::Closure callback_;
+  network_handler::ErrorCallback error_callback_;
+
+  // Map of pending profile entry deletions, indexed by profile path.
+  std::map<std::string, std::string> profile_delete_entries_;
+
+  DISALLOW_COPY_AND_ASSIGN(ProfileEntryDeleter);
+};
+
+// NetworkConfigurationHandler
+
+void NetworkConfigurationHandler::GetProperties(
+    const std::string& service_path,
+    const network_handler::DictionaryResultCallback& callback,
+    const network_handler::ErrorCallback& error_callback) const {
+  DBusThreadManager::Get()->GetShillServiceClient()->GetProperties(
+      dbus::ObjectPath(service_path),
+      base::Bind(&GetPropertiesCallback,
+                 callback, error_callback, service_path));
+}
+
+void NetworkConfigurationHandler::SetProperties(
+    const std::string& service_path,
+    const base::DictionaryValue& properties,
+    const base::Closure& callback,
+    const network_handler::ErrorCallback& error_callback) {
+  if (properties.empty()) {
+    if (!callback.is_null())
+      callback.Run();
+    return;
+  }
+  NET_LOG_USER("SetProperties", service_path);
+  LogConfigProperties("SetProperty", service_path, properties);
+
+  DBusThreadManager::Get()->GetShillServiceClient()->SetProperties(
+      dbus::ObjectPath(service_path),
+      properties,
+      base::Bind(&NetworkConfigurationHandler::SetPropertiesSuccessCallback,
+                 AsWeakPtr(), service_path, callback),
+      base::Bind(&NetworkConfigurationHandler::SetPropertiesErrorCallback,
+                 AsWeakPtr(), service_path, error_callback));
+}
+
+void NetworkConfigurationHandler::ClearProperties(
+    const std::string& service_path,
+    const std::vector<std::string>& names,
+    const base::Closure& callback,
+    const network_handler::ErrorCallback& error_callback) {
+  if (names.empty()) {
+    if (!callback.is_null())
+      callback.Run();
+    return;
+  }
+  NET_LOG_USER("ClearProperties", service_path);
+  for (std::vector<std::string>::const_iterator iter = names.begin();
+       iter != names.end(); ++iter) {
+    NET_LOG_DEBUG("ClearProperty", service_path + "." + *iter);
+  }
+  DBusThreadManager::Get()->GetShillServiceClient()->ClearProperties(
+      dbus::ObjectPath(service_path),
+      names,
+      base::Bind(&NetworkConfigurationHandler::ClearPropertiesSuccessCallback,
+                 AsWeakPtr(), service_path, names, callback, error_callback),
+      base::Bind(&NetworkConfigurationHandler::ClearPropertiesErrorCallback,
+                 AsWeakPtr(), service_path, error_callback));
+}
+
+void NetworkConfigurationHandler::CreateConfiguration(
+    const base::DictionaryValue& properties,
+    const network_handler::StringResultCallback& callback,
+    const network_handler::ErrorCallback& error_callback) {
+  ShillManagerClient* manager =
+      DBusThreadManager::Get()->GetShillManagerClient();
+  std::string type;
+  properties.GetStringWithoutPathExpansion(flimflam::kTypeProperty, &type);
+
+  NET_LOG_USER("CreateConfiguration", type);
+  LogConfigProperties("Configure", type, properties);
+
+  std::string profile;
+  properties.GetStringWithoutPathExpansion(flimflam::kProfileProperty,
+                                           &profile);
+  DCHECK(!profile.empty());
+  manager->ConfigureServiceForProfile(
+      dbus::ObjectPath(profile),
+      properties,
+      base::Bind(&NetworkConfigurationHandler::RunCreateNetworkCallback,
+                 AsWeakPtr(),
+                 callback),
+      base::Bind(&network_handler::ShillErrorCallbackFunction,
+                 "Config.CreateConfiguration Failed",
+                 "",
+                 error_callback));
+}
+
+void NetworkConfigurationHandler::RemoveConfiguration(
+    const std::string& service_path,
+    const base::Closure& callback,
+    const network_handler::ErrorCallback& error_callback) {
+  // Service.Remove is not reliable. Instead, request the profile entries
+  // for the service and remove each entry.
+  if (profile_entry_deleters_.count(service_path)) {
+    InvokeErrorCallback(
+        "RemoveConfiguration In-Progress", service_path, error_callback);
+    return;
+  }
+  NET_LOG_USER("Remove Configuration", service_path);
+  ProfileEntryDeleter* deleter =
+      new ProfileEntryDeleter(this, service_path, callback, error_callback);
+  profile_entry_deleters_[service_path] = deleter;
+  deleter->Run();
+}
+
+void NetworkConfigurationHandler::SetNetworkProfile(
+    const std::string& service_path,
+    const std::string& profile_path,
+    const base::Closure& callback,
+    const network_handler::ErrorCallback& error_callback) {
+  NET_LOG_USER("SetNetworkProfile", service_path + ": " + profile_path);
+  base::StringValue profile_path_value(profile_path);
+  DBusThreadManager::Get()->GetShillServiceClient()->SetProperty(
+      dbus::ObjectPath(service_path),
+      flimflam::kProfileProperty,
+      profile_path_value,
+      callback,
+      base::Bind(&SetNetworkProfileErrorCallback,
+                 service_path, profile_path, error_callback));
+}
+
+// NetworkConfigurationHandler Private methods
+
+NetworkConfigurationHandler::NetworkConfigurationHandler()
+    : network_state_handler_(NULL) {
+}
+
+NetworkConfigurationHandler::~NetworkConfigurationHandler() {
+  STLDeleteContainerPairSecondPointers(
+      profile_entry_deleters_.begin(), profile_entry_deleters_.end());
+}
+
+void NetworkConfigurationHandler::Init(
+    NetworkStateHandler* network_state_handler) {
+  network_state_handler_ = network_state_handler;
+}
+
+void NetworkConfigurationHandler::RunCreateNetworkCallback(
+    const network_handler::StringResultCallback& callback,
+    const dbus::ObjectPath& service_path) {
+  if (!callback.is_null())
+    callback.Run(service_path.value());
+  // This may also get called when CreateConfiguration is used to update an
+  // existing configuration, so request a service update just in case.
+  // TODO(pneubeck): Separate 'Create' and 'Update' calls and only trigger
+  // this on an update.
+  network_state_handler_->RequestUpdateForNetwork(service_path.value());
+}
+
+void NetworkConfigurationHandler::ProfileEntryDeleterCompleted(
+    const std::string& service_path) {
+  std::map<std::string, ProfileEntryDeleter*>::iterator iter =
+      profile_entry_deleters_.find(service_path);
+  DCHECK(iter != profile_entry_deleters_.end());
+  delete iter->second;
+  profile_entry_deleters_.erase(iter);
+}
+
+void NetworkConfigurationHandler::SetPropertiesSuccessCallback(
+    const std::string& service_path,
+    const base::Closure& callback) {
+  if (!callback.is_null())
+    callback.Run();
+  network_state_handler_->RequestUpdateForNetwork(service_path);
+}
+
+void NetworkConfigurationHandler::SetPropertiesErrorCallback(
+    const std::string& service_path,
+    const network_handler::ErrorCallback& error_callback,
+    const std::string& dbus_error_name,
+    const std::string& dbus_error_message) {
+  network_handler::ShillErrorCallbackFunction(
+      "Config.SetProperties Failed",
+      service_path, error_callback,
+      dbus_error_name, dbus_error_message);
+  // Some properties may have changed so request an update regardless.
+  network_state_handler_->RequestUpdateForNetwork(service_path);
+}
+
+void NetworkConfigurationHandler::ClearPropertiesSuccessCallback(
+    const std::string& service_path,
+    const std::vector<std::string>& names,
+    const base::Closure& callback,
+    const network_handler::ErrorCallback& error_callback,
+    const base::ListValue& result) {
+  const std::string kClearPropertiesFailedError("Error.ClearPropertiesFailed");
+  DCHECK(names.size() == result.GetSize())
+      << "Incorrect result size from ClearProperties.";
+
+  bool some_failed = false;
+  for (size_t i = 0; i < result.GetSize(); ++i) {
+    bool success = false;
+    result.GetBoolean(i, &success);
+    if (!success) {
+      NET_LOG_ERROR("ClearProperties Failed: " + names[i], service_path);
+      some_failed = true;
+    }
+  }
+
+  if (some_failed) {
+    if (!error_callback.is_null()) {
+      scoped_ptr<base::DictionaryValue> error_data(
+          network_handler::CreateErrorData(
+              service_path, kClearPropertiesFailedError,
+              base::StringPrintf("Errors: %" PRIuS, result.GetSize())));
+      error_data->Set("errors", result.DeepCopy());
+      scoped_ptr<base::ListValue> name_list(new base::ListValue);
+      name_list->AppendStrings(names);
+      error_data->Set("names", name_list.release());
+      error_callback.Run(kClearPropertiesFailedError, error_data.Pass());
+    }
+  } else if (!callback.is_null()) {
+    callback.Run();
+  }
+  network_state_handler_->RequestUpdateForNetwork(service_path);
+}
+
+void NetworkConfigurationHandler::ClearPropertiesErrorCallback(
+    const std::string& service_path,
+    const network_handler::ErrorCallback& error_callback,
+    const std::string& dbus_error_name,
+    const std::string& dbus_error_message) {
+  network_handler::ShillErrorCallbackFunction(
+      "Config.ClearProperties Failed",
+      service_path, error_callback,
+      dbus_error_name, dbus_error_message);
+  // Some properties may have changed so request an update regardless.
+  network_state_handler_->RequestUpdateForNetwork(service_path);
+}
+
+// static
+NetworkConfigurationHandler* NetworkConfigurationHandler::InitializeForTest(
+    NetworkStateHandler* network_state_handler) {
+  NetworkConfigurationHandler* handler = new NetworkConfigurationHandler();
+  handler->Init(network_state_handler);
+  return handler;
+}
+
+}  // namespace chromeos

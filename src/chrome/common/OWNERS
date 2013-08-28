@@ -1,0 +1,45 @@
+per-file chrome_switches.cc=*
+per-file chrome_switches.h=*
+per-file pref_names.cc=*
+per-file pref_names.h=*
+per-file url_constants.cc=*
+per-file url_constants.h=*
+
+# Mac Sandbox profiles.
+per-file nacl_loader.sb=set noparent
+per-file nacl_loader.sb=jeremy@chromium.org
+
+# Changes to IPC messages require a security review to avoid introducing
+# new sandbox escapes.
+per-file *_messages*.h=set noparent
+per-file *_messages*.h=cdn@chromium.org
+per-file *_messages*.h=cevans@chromium.org
+per-file *_messages*.h=jln@chromium.org
+per-file *_messages*.h=jschuh@chromium.org
+per-file *_messages*.h=palmer@chromium.org
+per-file *_messages*.h=tsepez@chromium.org
+
+# Spellcheck files. Not using spellcheck* since it covers IPC messages too.
+per-file spellcheck_common.*=groby@chromium.org
+per-file spellcheck_common.*=rlp@chromium.org
+per-file spellcheck_common.*=rouslan@chromium.org
+per-file spellcheck_marker.h=groby@chromium.org
+per-file spellcheck_marker.h=rlp@chromium.org
+per-file spellcheck_marker.h=rouslan@chromium.org
+per-file spellcheck_result.h=groby@chromium.org
+per-file spellcheck_result.h=rlp@chromium.org
+per-file spellcheck_result.h=rouslan@chromium.org
+
+# Instant/Search files.
+per-file instant_restricted_id_cache*=brettw@chromium.org
+per-file instant_restricted_id_cache*=jered@chromium.org
+per-file instant_restricted_id_cache*=samarth@chromium.org
+per-file instant_types.*=brettw@chromium.org
+per-file instant_types.*=jered@chromium.org
+per-file instant_types.*=samarth@chromium.org
+per-file search_types.*=brettw@chromium.org
+per-file search_types.*=jered@chromium.org
+per-file search_types.*=samarth@chromium.org
+
+# Debugging crash keys.
+per-file crash_keys.*=rsesek@chromium.org

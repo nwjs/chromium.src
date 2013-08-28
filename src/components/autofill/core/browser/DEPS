@@ -1,0 +1,53 @@
+include_rules = [
+  "+components/webdata/common",
+  "+crypto/random.h",
+  "+google_apis/gaia",
+  "+google_apis/google_api_keys.h",
+  "+net",
+  "+sql",
+  "+third_party/libjingle",
+  "+third_party/libphonenumber",  # For phone number i18n.
+
+  # TODO(blundell): Bring this list to zero.
+  #
+  # Do not add to the list of temporarily-allowed dependencies below,
+  # and please do not introduce more #includes of these files.
+  "!components/autofill/content/browser/autocheckout/whitelist_manager.h",
+  "!components/autofill/content/browser/autocheckout_manager.h",
+  "!components/autofill/content/browser/autocheckout_page_meta_data.h",
+  "!components/autofill/content/browser/autocheckout_steps.h",
+  "!content/public/browser/android/content_view_core.h",
+  "!content/public/browser/browser_context.h",
+  "!content/public/browser/browser_thread.h",
+  "!content/public/browser/render_view_host.h",
+  "!content/public/browser/web_contents.h",
+  "!content/public/browser/web_contents_observer.h",
+  "!content/public/browser/web_contents_view.h",
+  "!content/public/common/url_constants.h",
+  "!third_party/WebKit/public/web/WebAutofillClient.h",
+  "!third_party/WebKit/public/web/WebInputElement.h",
+]
+
+specific_include_rules = {
+  '.*_[a-z]*test\.cc': [
+    "+content/public/test",
+
+    # TODO(joi): Bring this list to zero.
+    #
+    # Do not add to the list of temporarily-allowed dependencies below,
+    # and please do not introduce more #includes of these files.
+    "!chrome/browser/autofill/autofill_cc_infobar_delegate.h",
+    "!chrome/browser/autofill/personal_data_manager_factory.h",
+    "!chrome/browser/password_manager/password_manager.h",
+    "!chrome/browser/password_manager/password_manager_delegate_impl.h",
+    "!chrome/browser/profiles/profile.h",
+    "!chrome/browser/sync/profile_sync_service.h",
+    "!chrome/browser/sync/profile_sync_service_factory.h",
+    "!chrome/browser/ui/autofill/tab_autofill_manager_delegate.h",
+    "!chrome/browser/webdata/web_data_service.h",
+    "!chrome/browser/webdata/web_data_service_factory.h",
+    "!chrome/common/chrome_paths.h",
+    "!chrome/test/base/chrome_render_view_host_test_harness.h",
+    "!chrome/test/base/testing_profile.h",
+  ],
+}

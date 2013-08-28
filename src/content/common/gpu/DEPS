@@ -1,0 +1,12 @@
+include_rules = [
+  "+gpu/command_buffer",
+  "+libEGL",
+  "+libGLESv2",
+  "+media/video/video_decode_accelerator.h",
+  "+media/video/video_encode_accelerator.h",
+  "+skia",
+  "+third_party/mesa",
+
+  # For single process mode
+  "+content/child/child_thread.h",
+]

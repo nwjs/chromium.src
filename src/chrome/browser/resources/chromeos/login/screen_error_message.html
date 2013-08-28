@@ -1,0 +1,81 @@
+<div id="error-message" class="step hidden show-offline-error">
+  <div class="step-contents">
+    <div class="error-header">
+      <img alt class="error-icon" src="chrome://theme/IDR_ERROR_NETWORK_OFFLINE">
+      <div id="captive-portal-title" i18n-content="captivePortalTitle"
+          class="error-title
+                 show-with-error-state-portal
+                 show-with-error-state-offline"></div>
+      <div id="proxy-error-title" i18n-content="proxyErrorTitle"
+          class="error-title
+                 show-with-error-state-proxy
+                 show-with-error-state-auth-ext-timeout">
+      </div>
+    </div>
+    <div class="error-body">
+      <div id="offline-message-body"
+          class="error-message-paragraph
+                 show-with-error-state-offline
+                 show-with-error-state-auth-ext-timeout">
+        <span id="update-offline-message-text"
+            i18n-content="updateOfflineMessageBody"
+            class="show-with-ui-state-update"></span>
+        <span id="signin-offline-message-text"
+            i18n-content="signinOfflineMessageBody"
+            class="show-with-ui-state-signin
+                   show-with-ui-state-locally-managed"></span>
+      </div>
+      <div id="captive-portal-message-body"
+          class="error-message-paragraph
+                 show-with-error-state-portal">
+        <span id="captive-portal-message-text"
+            class="show-with-ui-state-update
+                   show-with-ui-state-signin
+                   show-with-ui-state-locally-managed"></span>
+      </div>
+      <div id="captive-portal-proxy-message-body"
+          class="error-message-paragraph
+                 show-with-error-state-portal
+                 show-with-error-state-auth-ext-timeout">
+        <span id="captive-portal-proxy-message-text"
+            class="show-with-ui-state-update
+                   show-with-ui-state-signin
+                   show-with-ui-state-locally-managed"></span>
+      </div>
+      <div id="proxy-message-body"
+          class="error-message-paragraph
+                 show-with-error-state-proxy">
+        <span id="update-proxy-message-text"
+            class="show-with-ui-state-update"></span>
+        <span id="signin-proxy-message-text"
+            class="show-with-ui-state-signin
+                   show-with-ui-state-locally-managed"></span>
+      </div>
+      <div id="offline-network-control-body"
+          class="show-with-ui-state-update
+                 show-with-ui-state-signin
+                 show-with-ui-state-locally-managed">
+        <div id="offline-network-control" class="error-message-paragraph">
+          <label for="offline-networks-list-dropdown"
+              i18n-content="selectNetwork"
+              class="offline-network-list-label
+                     show-with-error-state-offline
+                     show-with-error-state-proxy
+                     show-with-error-state-auth-timeout"></label>
+          <label for="offline-networks-list-dropdown"
+              i18n-content="selectAnotherNetwork"
+              class="offline-network-list-label
+                     show-with-error-state-portal">
+          </label>
+          <div class="menu-area">
+            <div id="offline-networks-list" class="menu-control"></div>
+          </div>
+        </div>
+      </div>
+      <div id="error-guest-signin" class="error-message-paragraph guest-signin">
+      </div>
+      <div id="error-offline-login"
+          class="error-message-paragraph offline-login"></div>
+    </div>
+  </div>
+</div>

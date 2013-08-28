@@ -1,0 +1,94 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+[
+  {
+    "namespace": "activityLogPrivate",
+    "description": "none",
+    "types": [
+      {
+        "id": "ExtensionActivity",
+        "type": "object",
+        "description": "This corresponds to a row from the ActivityLog database. Fields will be blank if they were specified precisely in a lookup filter.",
+        "properties": {
+          "extensionId": {"type": "string", "optional": true},
+          "activityType": {"type": "string", "enum": ["api_call", "api_event", "content_script", "dom_access", "dom_event", "web_request"]},
+          "time": {"type": "number", "optional": true},
+          "apiCall": {"type": "string", "optional": true},
+          "args": {"type": "string", "optional": true},
+          "count": {"type": "number", "optional": true},
+          "pageUrl": {"type": "string", "optional": true},
+          "pageTitle": {"type": "string", "optional": true},
+          "argUrl": {"type": "string", "optional": true},
+          "extra": {"type": "string", "optional": true}
+        }
+      },
+      {
+        "id": "Filter",
+        "type": "object",
+        "description": "Used to specify values for a lookup.",
+        "properties": {
+          "extensionId": {"type": "string", "optional": true, "description": "Exact match"},
+          "activityType": {"type": "string", "enum": ["api_call", "api_event", "content_script", "dom_access", "dom_event", "web_request", "any"], "description": "Exact match or any"},
+          "apiCall": {"type": "string", "optional": true, "description": "Exact match"},
+          "pageUrl": {"type": "string", "optional": true, "description": "Treated as a prefix"},
+          "argUrl": {"type": "string", "optional": true, "description": "Treated as a prefix"}
+        }
+      },
+      {
+        "id": "ActivityResultSet",
+        "type": "object",
+        "description": "This holds the results of a lookup, the filter of the lookup, the time of the lookup, and whether there are more results that match.",
+        "properties": {
+          "activities": {"type": "array", "items": {"$ref": "ExtensionActivity"}},
+          "maxTime": {"type": "integer", "optional": true},
+          "moreResults": {"type": "boolean"}
+        }
+      }
+    ],
+    "functions": [
+      {
+        "name": "getExtensionActivities",
+        "type": "function",
+        "description": "Retrieves activity from the ActivityLog that matches the specified filter.",
+        "parameters": [
+          {
+            "name": "filter",
+            "$ref": "Filter",
+            "description": "Fill out the fields that you want to search for in the database."
+          },
+          {
+            "name": "maxTime",
+            "type": "integer",
+            "optional": true,
+            "description": "Specify this if you want results that weren't available in the first page."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "result",
+                "$ref": "ActivityResultSet"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "onExtensionActivity",
+        "type": "function",
+        "description": "Fired when a given extension performs another activity.",
+        "parameters": [
+          {
+            "name": "activity",
+            "$ref": "ExtensionActivity"
+          }
+        ]
+      }
+    ]
+  }
+]

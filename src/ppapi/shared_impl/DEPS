@@ -1,0 +1,21 @@
+include_rules = [
+  "+base",
+  "+gpu",
+  "+media/audio",
+  "+media/base",
+  "+skia",
+  "+webkit/common/webpreferences.h",
+
+  # The untrusted build references the NaCl integrated runtime (IRT).
+  "+native_client/src/untrusted/irt",
+
+  # Since this is used by the implementation in /webkit, we don't want it to
+  # depend on IPC.
+  "-ipc",
+
+  "-ppapi/cpp",
+  "-ppapi/proxy",
+
+  # For testing purpose.
+  "+ppapi/proxy/ppapi_proxy_test.h",
+]

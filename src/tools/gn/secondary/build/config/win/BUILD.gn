@@ -1,0 +1,22 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+config("sdk") {
+  # The include path is the stuff returned by the script.
+  #includes = msvc_config[0]  TODO(brettw) make this work.
+
+  defines = [
+    "_ATL_NO_OPENGL",
+    "_SECURE_ATL",
+    "_WIN32_WINNT=0x0602",
+    "_WINDOWS",
+    "CERT_CHAIN_PARA_HAS_EXTRA_FIELDS",
+    "NOMINMAX",
+    "NTDDI_VERSION=0x06020000",
+    "PSAPI_VERSION=1",
+    "WIN32",
+    "WIN32_LEAN_AND_MEAN",
+    "WINVER=0x0602",
+  ]
+}

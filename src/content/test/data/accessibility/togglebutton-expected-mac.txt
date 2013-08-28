@@ -1,0 +1,3 @@
+AXWebArea
+    AXButton AXTitle='Regular button'
+    AXButton AXTitle='Toggle button'
