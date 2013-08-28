@@ -26,7 +26,10 @@ static void SetRuntimeFeatureDefaultsForPlatform() {
 #if defined(OS_ANDROID)
   bool enable_webaudio = false;
 #if defined(ARCH_CPU_ARMEL)
+  // WebAudio needs Android MediaCodec API that was introduced in
+  // JellyBean, and also currently needs NEON support for the FFT.
   enable_webaudio =
+      (base::android::BuildInfo::GetInstance()->sdk_int() >= 16) &&
       ((android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_NEON) != 0);
 #endif
   WebRuntimeFeatures::enableWebAudio(enable_webaudio);
