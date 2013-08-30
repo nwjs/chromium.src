@@ -1232,12 +1232,6 @@ void SyncManagerImpl::OnInvalidatorStateChange(InvalidatorState state) {
   allstatus_.SetNotificationsEnabled(notifications_enabled);
   scheduler_->SetNotificationsEnabled(notifications_enabled);
 
-  if (invalidator_state_ == syncer::INVALIDATION_CREDENTIALS_REJECTED) {
-    // If the invalidator's credentials were rejected, that means that
-    // our sync credentials are also bad, so invalidate those.
-    connection_manager_->OnInvalidationCredentialsRejected();
-  }
-
   if (js_event_handler_.IsInitialized()) {
     base::DictionaryValue details;
     details.SetString("state", state_str);
