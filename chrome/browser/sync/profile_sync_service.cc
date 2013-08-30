@@ -952,6 +952,8 @@ void ProfileSyncService::DisableBrokenDatatype(
 void ProfileSyncService::OnInvalidatorStateChange(
     syncer::InvalidatorState state) {
   invalidator_state_ = state;
+  if (invalidator_state_ == syncer::INVALIDATION_CREDENTIALS_REJECTED)
+    RequestAccessToken();
   UpdateInvalidatorRegistrarState();
 }
 
