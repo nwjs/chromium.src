@@ -168,7 +168,7 @@ void ShiftOriginY(NSView* view, CGFloat amount) {
 
   if (isSyncDialog_) {
     [messageTextField_ setStringValue:l10n_util::GetNSStringFWithFixup(
-        IDS_ONE_CLICK_SIGNIN_DIALOG_TITLE_NEW, email_)];
+        IDS_ONE_CLICK_SIGNIN_DIALOG_TITLE, email_)];
   } else if ([errorMessage_ length] != 0) {
     [messageTextField_ setStringValue:errorMessage_];
   }

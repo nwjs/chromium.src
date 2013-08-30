@@ -207,7 +207,7 @@ void OneClickSigninBubbleGtk::InitializeWidgets(
 
   // The email is always set for the sync dialog.
   header_label_ = theme_provider->BuildLabel(
-      l10n_util::GetStringFUTF8(IDS_ONE_CLICK_SIGNIN_DIALOG_TITLE_NEW, email_),
+      l10n_util::GetStringFUTF8(IDS_ONE_CLICK_SIGNIN_DIALOG_TITLE, email_),
       ui::kGdkBlack);
 
   PangoAttrList* attributes = pango_attr_list_new();
