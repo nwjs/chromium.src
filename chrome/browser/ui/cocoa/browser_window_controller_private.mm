@@ -1041,6 +1041,12 @@ willPositionSheet:(NSWindow*)sheet
 
   BOOL allowOverlappingViews =
       [self shouldAllowOverlappingViews:inPresentationMode];
+
+  // The rendering path with overlapping views disabled causes bugs when
+  // transitioning between composited and non-composited mode.
+  // http://crbug.com/279472
+  allowOverlappingViews = YES;
+
   contents->GetView()->SetAllowOverlappingViews(allowOverlappingViews);
 
   DevToolsWindow* devToolsWindow =
