@@ -34,6 +34,7 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/page_state.h"
+#include "content/public/common/url_constants.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_notification_tracker.h"
 #include "content/public/test/test_utils.h"
