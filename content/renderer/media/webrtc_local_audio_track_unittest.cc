@@ -175,7 +175,7 @@ TEST_F(WebRtcLocalAudioTrackTest, ConnectAndDisconnectOneSink) {
   EXPECT_CALL(*sink, SetCaptureFormat(_)).WillOnce(Return());
   EXPECT_CALL(*sink, CaptureData(
       kNumberOfNetworkChannels, params.sample_rate(), params.channels(),
-      params.frames_per_buffer(), 0, 0, false))
+      params.frames_per_buffer(), 0, 0, _))
       .Times(AtLeast(1)).WillRepeatedly(SignalEvent(&event));
   track->AddSink(sink.get());
 
@@ -245,7 +245,7 @@ TEST_F(WebRtcLocalAudioTrackTest, MultipleAudioTracks) {
   EXPECT_CALL(*sink_1, SetCaptureFormat(_)).WillOnce(Return());
   EXPECT_CALL(*sink_1, CaptureData(
       1, params.sample_rate(), params.channels(),
-      params.frames_per_buffer(), 0, 0, false))
+      params.frames_per_buffer(), 0, 0, _))
       .Times(AtLeast(1)).WillRepeatedly(SignalEvent(&event_1));
   track_1->AddSink(sink_1.get());
   EXPECT_TRUE(event_1.TimedWait(TestTimeouts::tiny_timeout()));
@@ -266,11 +266,11 @@ TEST_F(WebRtcLocalAudioTrackTest, MultipleAudioTracks) {
   EXPECT_CALL(*sink_2, SetCaptureFormat(_)).WillOnce(Return());
   EXPECT_CALL(*sink_1, CaptureData(
       1, params.sample_rate(), params.channels(),
-      params.frames_per_buffer(), 0, 0, false))
+      params.frames_per_buffer(), 0, 0, _))
       .Times(AtLeast(1)).WillRepeatedly(SignalEvent(&event_1));
   EXPECT_CALL(*sink_2, CaptureData(
       1, params.sample_rate(), params.channels(),
-      params.frames_per_buffer(), 0, 0, false))
+      params.frames_per_buffer(), 0, 0, _))
       .Times(AtLeast(1)).WillRepeatedly(SignalEvent(&event_2));
   track_2->AddSink(sink_2.get());
   EXPECT_TRUE(event_1.TimedWait(TestTimeouts::tiny_timeout()));
@@ -319,7 +319,7 @@ TEST_F(WebRtcLocalAudioTrackTest, StartAndStopAudioTracks) {
   scoped_ptr<MockWebRtcAudioCapturerSink> sink(
       new MockWebRtcAudioCapturerSink());
   event.Reset();
-  EXPECT_CALL(*sink, CaptureData(_, _, _, _, 0, 0, false))
+  EXPECT_CALL(*sink, CaptureData(_, _, _, _, 0, 0, _))
       .Times(AnyNumber()).WillRepeatedly(Return());
   EXPECT_CALL(*sink, SetCaptureFormat(_)).Times(1);
   track_1->AddSink(sink.get());
@@ -397,7 +397,7 @@ TEST_F(WebRtcLocalAudioTrackTest, ConnectTracksToDifferentCapturers) {
   scoped_ptr<MockWebRtcAudioCapturerSink> sink_1(
       new MockWebRtcAudioCapturerSink());
   EXPECT_CALL(*sink_1.get(), CaptureData(kNumberOfNetworkChannelsForTrack1,
-                                         48000, 2, _, 0, 0, false))
+                                         48000, 2, _, 0, 0, _))
       .Times(AnyNumber()).WillRepeatedly(Return());
   EXPECT_CALL(*sink_1.get(), SetCaptureFormat(_)).Times(1);
   track_1->AddSink(sink_1.get());
