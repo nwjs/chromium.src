@@ -324,10 +324,8 @@ NavigationList.prototype.renderRoot_ = function(path) {
  */
 NavigationList.prototype.changeDirectory_ = function(path) {
   var onErrorCallback = function() {
-    var e = new Event('shortcut-target-not-found');
-    e.path = path;
-    e.label = PathUtil.getFolderLabel(path);
-    this.dispatchEvent(e);
+    // TODO(yoshiki): Remove this if the teporary patch is merged to the M30.
+    // crbug.com/270436
   }.bind(this);
 
   this.directoryModel_.changeDirectory(path, onErrorCallback);
