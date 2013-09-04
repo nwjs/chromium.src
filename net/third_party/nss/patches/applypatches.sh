@@ -47,3 +47,5 @@ patch -p4 < $patches_dir/tls12chromium.patch
 patch -p4 < $patches_dir/alpn.patch
 
 patch -p5 < $patches_dir/sslsock_903565.patch
+
+patch -p4 < $patches_dir/tls12backuphash.patch

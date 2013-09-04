@@ -97,6 +97,10 @@ Patches:
     https://bugzilla.mozilla.org/show_bug.cgi?id=903565
     patches/sslsock_903565.patch
 
+  * On Windows, prefer to generate SHA-1 signatures for TLS 1.2 client
+    authentication if the client private key is in a CAPI service provider.
+    patches/tls12backuphash.patch
+
 Apply the patches to NSS by running the patches/applypatches.sh script.  Read
 the comments at the top of patches/applypatches.sh for instructions.
 
