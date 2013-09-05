@@ -229,6 +229,45 @@ ash::NetworkObserver::NetworkType NetworkTypeForCellular(
   return ash::NetworkObserver::NETWORK_CELLULAR;
 }
 
+void HandleUnconfiguredNetwork(const std::string& service_path,
+                               gfx::NativeWindow parent_window) {
+  const NetworkState* network = NetworkHandler::Get()->network_state_handler()->
+      GetNetworkState(service_path);
+  if (!network) {
+    NET_LOG_ERROR("Configuring unknown network", service_path);
+    return;
+  }
+
+  if (network->type() == flimflam::kTypeWifi) {
+    // Only show the config view for secure networks, otherwise do nothing.
+    if (network->security() != flimflam::kSecurityNone)
+      NetworkConfigView::Show(service_path, parent_window);
+    return;
+  }
+
+  if (network->type() == flimflam::kTypeWimax ||
+      network->type() == flimflam::kTypeVPN) {
+    NetworkConfigView::Show(service_path, parent_window);
+    return;
+  }
+
+  if (network->type() == flimflam::kTypeCellular) {
+    if (network->activation_state() != flimflam::kActivationStateActivated) {
+      ash::network_connect::ActivateCellular(service_path);
+      return;
+    }
+    if (network->cellular_out_of_credits()) {
+      ash::network_connect::ShowMobileSetup(service_path);
+      return;
+    }
+    // No special configure or setup for |network|, show the settings UI.
+    if (LoginState::Get()->IsUserLoggedIn())
+      ShowNetworkSettingsPage(service_path);
+    return;
+  }
+  NOTREACHED();
+}
+
 class SystemTrayDelegate : public ash::SystemTrayDelegate,
                            public PowerManagerClient::Observer,
                            public SessionManagerClient::Observer,
@@ -757,7 +796,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
   }
 
   virtual void ConfigureNetwork(const std::string& network_id) OVERRIDE {
-    network_connect::HandleUnconfiguredNetwork(network_id, GetNativeWindow());
+    HandleUnconfiguredNetwork(network_id, GetNativeWindow());
   }
 
   virtual void EnrollOrConfigureNetwork(
@@ -765,7 +804,7 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
       gfx::NativeWindow parent_window) OVERRIDE {
     if (network_connect::EnrollNetwork(network_id, parent_window))
       return;
-    network_connect::HandleUnconfiguredNetwork(network_id, parent_window);
+    HandleUnconfiguredNetwork(network_id, parent_window);
   }
 
   virtual void ManageBluetoothDevices() OVERRIDE {
