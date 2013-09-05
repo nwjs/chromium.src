@@ -72,7 +72,7 @@ bool IsProcessImmersive(HANDLE process) {
 
 bool IsTSFAwareRequired() {
 #if defined(USE_AURA)
-  if (base::win::GetVersion() >= base::win::VERSION_WIN8)
+  if (base::win::GetVersion() > base::win::VERSION_WIN8)
     return true;
 #endif
   // Although this function is equal to IsMetroProcess at this moment,
