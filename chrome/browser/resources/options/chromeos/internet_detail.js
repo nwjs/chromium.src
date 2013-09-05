@@ -389,12 +389,6 @@ cr.define('options.internet', function() {
       updateHidden('#details-internet-page .wimax-details', !this.wimax);
       updateHidden('#details-internet-page .vpn-details', !this.vpn);
       updateHidden('#details-internet-page .proxy-details', !this.showProxy);
-      // Conditionally call updateHidden on .gsm-only, so that we don't unhide
-      // a previously hidden element.
-      if (this.gsm)
-        updateHidden('#details-internet-page .cdma-only', true);
-      else
-        updateHidden('#details-internet-page .gsm-only', true);
       /* Network information merged into the Wifi tab for wireless networks
          unless the option is set for enabling a static IP configuration. */
       updateHidden('#details-internet-page .network-details',
@@ -1100,34 +1094,18 @@ cr.define('options.internet', function() {
       $('model-id').textContent = data.modelId;
       $('firmware-revision').textContent = data.firmwareRevision;
       $('hardware-revision').textContent = data.hardwareRevision;
+      $('prl-version').textContent = data.prlVersion;
+      $('meid').textContent = data.meid;
+      $('iccid').textContent = data.iccid;
+      $('imei').textContent = data.imei;
       $('mdn').textContent = data.mdn;
-      $('operator-name').textContent = data.operatorName;
-      $('operator-code').textContent = data.operatorCode;
-
-      // Make sure that GSM/CDMA specific properties that shouldn't be hidden
-      // are visible.
-      updateHidden('#details-internet-page .gsm-only', false);
-      updateHidden('#details-internet-page .cdma-only', false);
-
-      // Show IMEI/ESN/MEID/MIN/PRL only if they are available.
-      (function() {
-        var setContentOrHide = function(property) {
-          var value = data[property];
-          if (value)
-            $(property).textContent = value;
-          else
-            $(property).parentElement.hidden = true;
-        };
-        setContentOrHide('esn');
-        setContentOrHide('imei');
-        setContentOrHide('meid');
-        setContentOrHide('min');
-        setContentOrHide('prl-version');
-      })();
+      $('esn').textContent = data.esn;
+      $('min').textContent = data.min;
       detailsPage.gsm = data.gsm;
       if (data.gsm) {
-        $('iccid').textContent = data.iccid ? data.iccid : '';
-        $('imsi').textContent = data.imsi ? data.imsi : '';
+        $('operator-name').textContent = data.operatorName;
+        $('operator-code').textContent = data.operatorCode;
+        $('imsi').textContent = data.imsi;
 
         var apnSelector = $('select-apn');
         // Clear APN lists, keep only last element that "other".
