@@ -232,8 +232,7 @@ AwBrowserContext::GetGeolocationPermissionContext() {
 }
 
 quota::SpecialStoragePolicy* AwBrowserContext::GetSpecialStoragePolicy() {
-  // TODO(boliu): Implement this so we are not relying on default behavior.
-  NOTIMPLEMENTED();
+  // Intentionally returning NULL as 'Extensions' and 'Apps' not supported.
   return NULL;
 }
 
