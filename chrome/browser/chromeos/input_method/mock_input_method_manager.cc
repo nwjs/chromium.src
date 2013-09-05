@@ -120,6 +120,9 @@ void MockInputMethodManager::SetEnabledExtensionImes(
     std::vector<std::string>* ids) {
 }
 
+void MockInputMethodManager::SetInputMethodDefault() {
+}
+
 bool MockInputMethodManager::SwitchToNextInputMethod() {
   return true;
 }
