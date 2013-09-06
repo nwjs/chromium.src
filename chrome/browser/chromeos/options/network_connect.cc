@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/webui/chromeos/mobile_setup_dialog.h"
 #include "chrome/common/url_constants.h"
 #include "chromeos/chromeos_switches.h"
+#include "chromeos/login/login_state.h"
 #include "chromeos/network/certificate_pattern.h"
 #include "chromeos/network/managed_network_configuration_handler.h"
 #include "chromeos/network/network_event_log.h"
@@ -126,7 +127,8 @@ void HandleUnconfiguredNetwork(const std::string& service_path,
       return;
     }
     // No special configure or setup for |network|, show the settings UI.
-    ShowNetworkSettings(service_path);
+    if (LoginState::Get()->IsUserLoggedIn())
+      ShowNetworkSettings(service_path);
   }
   NOTREACHED();
 }
