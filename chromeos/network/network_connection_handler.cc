@@ -118,10 +118,16 @@ const char NetworkConnectionHandler::kErrorConfigurationRequired[] =
 const char NetworkConnectionHandler::kErrorAuthenticationRequired[] =
     "authentication-required";
 const char NetworkConnectionHandler::kErrorShillError[] = "shill-error";
+const char NetworkConnectionHandler::kErrorConnectFailed[] = "connect-failed";
 const char NetworkConnectionHandler::kErrorConfigureFailed[] =
     "configure-failed";
+const char NetworkConnectionHandler::kErrorActivateFailed[] =
+    "activate-failed";
+const char NetworkConnectionHandler::kErrorMissingProvider[] =
+    "missing-provider";
 const char NetworkConnectionHandler::kErrorConnectCanceled[] =
     "connect-canceled";
+const char NetworkConnectionHandler::kErrorUnknown[] = "unknown-error";
 
 struct NetworkConnectionHandler::ConnectRequest {
   ConnectRequest(const std::string& service_path,
@@ -248,8 +254,14 @@ void NetworkConnectionHandler::ConnectToNetwork(
 
     if (check_error_state) {
       const std::string& error = network->error();
+      if (error == flimflam::kErrorConnectFailed) {
+        InvokeErrorCallback(
+            service_path, error_callback, kErrorPassphraseRequired);
+        return;
+      }
       if (error == flimflam::kErrorBadPassphrase) {
-        InvokeErrorCallback(service_path, error_callback, error);
+        InvokeErrorCallback(
+            service_path, error_callback, kErrorPassphraseRequired);
         return;
       }
       if (IsAuthenticationError(error)) {
@@ -389,7 +401,7 @@ void NetworkConnectionHandler::VerifyConfiguredAndConnect(
           flimflam::kHostProperty, &vpn_provider_host);
     }
     if (vpn_provider_type.empty() || vpn_provider_host.empty()) {
-      ErrorCallbackForPendingRequest(service_path, kErrorConfigurationRequired);
+      ErrorCallbackForPendingRequest(service_path, kErrorMissingProvider);
       return;
     }
     // VPN requires a host and username to be set.
@@ -562,7 +574,7 @@ void NetworkConnectionHandler::HandleShillConnectFailure(
   network_handler::ErrorCallback error_callback = request->error_callback;
   pending_requests_.erase(service_path);
   network_handler::ShillErrorCallbackFunction(
-      flimflam::kErrorConnectFailed, service_path, error_callback,
+      kErrorConnectFailed, service_path, error_callback,
       dbus_error_name, dbus_error_message);
 }
 
@@ -602,7 +614,7 @@ void NetworkConnectionHandler::CheckPendingRequest(
     error_name = kErrorConnectCanceled;
     error_detail = "";
   } else {
-    error_name = flimflam::kErrorConnectFailed;
+    error_name = kErrorConnectFailed;
     error_detail = network->error();
     if (error_detail.empty()) {
       if (network->connection_state() == flimflam::kStateFailure)
