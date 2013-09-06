@@ -35,7 +35,7 @@ string16 GetConnectErrorString(const std::string& error_name) {
   if (error_name == NetworkConnectionHandler::kErrorConfigureFailed)
     return l10n_util::GetStringUTF16(
         IDS_CHROMEOS_NETWORK_ERROR_CONFIGURE_FAILED);
-  if (error_name == NetworkConnectionHandler::kErrorActivateFailed)
+  if (error_name == ash::network_connect::kErrorActivateFailed)
     return l10n_util::GetStringUTF16(
         IDS_CHROMEOS_NETWORK_ERROR_ACTIVATION_FAILED);
   return string16();
@@ -71,7 +71,7 @@ void NetworkStateNotifier::NetworkListChanged() {
   // case a connect attempt fails because a network is no longer visible.
   if (!connect_failed_network_.empty()) {
     ShowNetworkConnectError(
-        NetworkConnectionHandler::kErrorConnectFailed, connect_failed_network_);
+        flimflam::kErrorConnectFailed, connect_failed_network_);
   }
 }
 
@@ -92,7 +92,7 @@ void NetworkStateNotifier::NetworkPropertiesUpdated(
   // property has been set.
   if (network->path() == connect_failed_network_ && !network->error().empty()) {
     ShowNetworkConnectError(
-        NetworkConnectionHandler::kErrorConnectFailed, connect_failed_network_);
+        flimflam::kErrorConnectFailed, connect_failed_network_);
   }
   // Trigger "Out of credits" notification if the cellular network is the most
   // recent default network (i.e. we have not switched to another network).
@@ -141,7 +141,7 @@ void NetworkStateNotifier::ShowNetworkConnectError(
     const std::string& service_path) {
   const NetworkState* network = NetworkHandler::Get()->network_state_handler()->
       GetNetworkState(service_path);
-  if (error_name == NetworkConnectionHandler::kErrorConnectFailed &&
+  if (error_name == flimflam::kErrorConnectFailed &&
       service_path != connect_failed_network_) {
     // Shill may not have set the Error property yet. First request an update
     // and wait for either the update to complete or the network list to be
