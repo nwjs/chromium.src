@@ -679,6 +679,15 @@ class ExtensionService
   void AddUpdateObserver(extensions::UpdateObserver* observer);
   void RemoveUpdateObserver(extensions::UpdateObserver* observer);
 
+#if defined(OS_CHROMEOS)
+  void disable_garbage_collection() {
+    disable_garbage_collection_ = true;
+  }
+  void enable_garbage_collection() {
+    disable_garbage_collection_ = false;
+  }
+#endif
+
  private:
   // Contains Extension data that can change during the life of the process,
   // but does not persist across restarts.
@@ -929,6 +938,14 @@ class ExtensionService
 #endif
 
   ObserverList<extensions::UpdateObserver, true> update_observers_;
+
+#if defined(OS_CHROMEOS)
+  // TODO(rkc): HACK alert - this is only in place to allow the
+  // kiosk_mode_screensaver to prevent its extension from getting garbage
+  // collected. Remove this once KioskModeScreensaver is removed.
+  // See crbug.com/280363
+  bool disable_garbage_collection_;
+#endif
 
   FRIEND_TEST_ALL_PREFIXES(ExtensionServiceTest,
                            InstallAppsWithUnlimtedStorage);
