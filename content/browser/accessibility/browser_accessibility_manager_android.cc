@@ -90,6 +90,12 @@ void BrowserAccessibilityManagerAndroid::NotifyAccessibilityEvent(
   if (obj.is_null())
     return;
 
+  // Always send AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED to notify
+  // the Android system that the accessibility hierarchy rooted at this
+  // node has changed.
+  Java_BrowserAccessibilityManager_handleContentChanged(
+      env, obj.obj(), node->renderer_id());
+
   switch (type) {
     case AccessibilityNotificationLoadComplete:
       Java_BrowserAccessibilityManager_handlePageLoaded(
@@ -130,9 +136,6 @@ void BrowserAccessibilityManagerAndroid::NotifyAccessibilityEvent(
     case AccessibilityNotificationValueChanged:
       if (node->IsEditableText()) {
         Java_BrowserAccessibilityManager_handleEditableTextChanged(
-            env, obj.obj(), node->renderer_id());
-      } else {
-        Java_BrowserAccessibilityManager_handleContentChanged(
             env, obj.obj(), node->renderer_id());
       }
       break;
