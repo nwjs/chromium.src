@@ -161,7 +161,12 @@ void MediaDecoderJob::DecodeInternal(
   if (needs_flush) {
     DVLOG(1) << "DecodeInternal needs flush.";
     input_eos_encountered_ = false;
-    media_codec_bridge_->Reset();
+    int reset_status = media_codec_bridge_->Reset();
+    if (0 != reset_status) {
+      ui_loop_->PostTask(FROM_HERE, base::Bind(
+          callback, DECODE_FAILED, start_presentation_timestamp, 0));
+      return;
+    }
   }
 
   DecodeStatus decode_status = DECODE_INPUT_END_OF_STREAM;

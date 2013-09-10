@@ -94,9 +94,9 @@ void MediaCodecBridge::StartInternal() {
   GetOutputBuffers();
 }
 
-void MediaCodecBridge::Reset() {
+int MediaCodecBridge::Reset() {
   JNIEnv* env = AttachCurrentThread();
-  Java_MediaCodecBridge_flush(env, j_media_codec_.obj());
+  return Java_MediaCodecBridge_flush(env, j_media_codec_.obj());
 }
 
 void MediaCodecBridge::Stop() {
