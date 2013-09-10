@@ -136,6 +136,7 @@ class CONTENT_EXPORT BrowserPluginGuest
   bool focused() const { return focused_; }
   bool visible() const { return guest_visible_; }
   void clear_damage_buffer() { damage_buffer_.reset(); }
+  bool is_in_destruction() { return is_in_destruction_; }
 
   BrowserPluginGuest* opener() const { return opener_.get(); }
 
@@ -514,6 +515,8 @@ class CONTENT_EXPORT BrowserPluginGuest
   // This is used to determine whether or not to create a new RenderView when
   // this guest is attached.
   bool has_render_view_;
+
+  bool is_in_destruction_;
 
   // This is a queue of messages that are destined to be sent to the embedder
   // once the guest is attached to a particular embedder.
