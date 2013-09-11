@@ -83,8 +83,9 @@ ADDITIONAL_PATHS = (
     os.path.join('chrome', 'common', 'extensions', 'docs', 'examples'),
     os.path.join('chrome', 'test', 'chromeos', 'autotest'),
     os.path.join('chrome', 'test', 'data'),
-    os.path.join('native_client'),
-    os.path.join('native_client_sdk'),
+    os.path.join('googleurl'),
+#    os.path.join('native_client'),
+#    os.path.join('native_client_sdk'),
     os.path.join('net', 'tools', 'spdyshark'),
     os.path.join('ppapi'),
     os.path.join('sdch', 'open-vcdiff'),
@@ -100,6 +101,9 @@ ADDITIONAL_PATHS = (
     os.path.join('v8'),
     # Fake directory so we can include the strongtalk license.
     os.path.join('v8', 'strongtalk'),
+
+    os.path.join('content', 'nw'),
+    os.path.join('third_party', 'node'),
 )
 
 
@@ -107,6 +111,12 @@ ADDITIONAL_PATHS = (
 # can't provide a README.chromium.  Please prefer a README.chromium
 # wherever possible.
 SPECIAL_CASES = {
+    os.path.join('content', 'nw'): {
+        "Name": "node-webkit",
+        "URL": "https://github.com/rogerwang/node-webkit",
+        "License": "MIT",
+        "License File": "LICENSE",
+    },
     os.path.join('native_client'): {
         "Name": "native client",
         "URL": "http://code.google.com/p/nativeclient",
@@ -153,6 +163,12 @@ SPECIAL_CASES = {
         "URL": "http://code.google.com/p/linux-syscall-support/",
         "License": "BSD",
         "License File": "/LICENSE",
+    },
+    os.path.join('third_party', 'node'): {
+        "Name": "Node.js",
+        "URL": "http://nodejs.org",
+        "License": "MIT",
+        "License File": "LICENSE",
     },
     os.path.join('third_party', 'ots'): {
         "Name": "OTS (OpenType Sanitizer)",
