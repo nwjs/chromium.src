@@ -25,12 +25,21 @@ namespace policy {
 UserCloudPolicyManagerChromeOS::UserCloudPolicyManagerChromeOS(
     scoped_ptr<CloudPolicyStore> store,
     scoped_ptr<ResourceCache> resource_cache,
-    bool wait_for_policy_fetch)
+    bool wait_for_policy_fetch,
+    base::TimeDelta initial_policy_fetch_timeout)
     : CloudPolicyManager(
           PolicyNamespaceKey(dm_protocol::kChromeUserPolicyType, std::string()),
           store.get()),
       store_(store.Pass()),
-      wait_for_policy_fetch_(wait_for_policy_fetch) {
+      wait_for_policy_fetch_(wait_for_policy_fetch),
+      policy_fetch_timeout_(false, false) {
+  if (wait_for_policy_fetch_) {
+    policy_fetch_timeout_.Start(
+        FROM_HERE,
+        initial_policy_fetch_timeout,
+        base::Bind(&UserCloudPolicyManagerChromeOS::CancelWaitForPolicyFetch,
+                   base::Unretained(this)));
+  }
   if (resource_cache) {
     component_policy_service_.reset(new ComponentCloudPolicyService(
         this, store_.get(), resource_cache.Pass()));
@@ -234,6 +243,9 @@ void UserCloudPolicyManagerChromeOS::OnInitialPolicyFetchComplete(
 }
 
 void UserCloudPolicyManagerChromeOS::CancelWaitForPolicyFetch() {
+  if (!wait_for_policy_fetch_)
+    return;
+
   wait_for_policy_fetch_ = false;
   CheckAndPublishPolicy();
   // Now that |wait_for_policy_fetch_| is guaranteed to be false, the scheduler

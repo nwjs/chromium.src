@@ -11,6 +11,7 @@
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/policy/cloud/cloud_policy_client.h"
 #include "chrome/browser/policy/cloud/cloud_policy_constants.h"
 #include "chrome/browser/policy/cloud/cloud_policy_manager.h"
@@ -45,7 +46,8 @@ class UserCloudPolicyManagerChromeOS
   UserCloudPolicyManagerChromeOS(
       scoped_ptr<CloudPolicyStore> store,
       scoped_ptr<ResourceCache> resource_cache,
-      bool wait_for_policy_fetch);
+      bool wait_for_policy_fetch,
+      base::TimeDelta initial_policy_fetch_timeout);
   virtual ~UserCloudPolicyManagerChromeOS();
 
   // Initializes the cloud connection. |local_state| and
@@ -122,6 +124,10 @@ class UserCloudPolicyManagerChromeOS
   // Whether to wait for a policy fetch to complete before reporting
   // IsInitializationComplete().
   bool wait_for_policy_fetch_;
+
+  // A timer that puts a hard limit on the maximum time to wait for the intial
+  // policy fetch.
+  base::Timer policy_fetch_timeout_;
 
   // The pref service to pass to the refresh scheduler on initialization.
   PrefService* local_state_;
