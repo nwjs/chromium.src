@@ -74,6 +74,9 @@ class UserImageManager {
   // Returns the result of the last successful profile image download, if any.
   // Otherwise, returns an empty bitmap.
   virtual const gfx::ImageSkia& DownloadedProfileImage() const = 0;
+
+  // Cancels any profile image download in progress.
+  virtual void Shutdown() = 0;
 };
 
 }  // namespace chromeos

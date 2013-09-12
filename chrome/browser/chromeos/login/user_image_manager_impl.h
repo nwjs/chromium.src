@@ -49,6 +49,7 @@ class UserImageManagerImpl : public UserImageManager,
   virtual void DeleteUserImage(const std::string& username) OVERRIDE;
   virtual void DownloadProfileImage(const std::string& reason) OVERRIDE;
   virtual const gfx::ImageSkia& DownloadedProfileImage() const OVERRIDE;
+  virtual void Shutdown() OVERRIDE;
 
  private:
   friend class UserImageManagerTest;

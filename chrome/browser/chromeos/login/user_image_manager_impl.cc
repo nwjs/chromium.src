@@ -401,6 +401,10 @@ void UserImageManagerImpl::DownloadProfileImage(const std::string& reason) {
   DownloadProfileData(reason, true);
 }
 
+void UserImageManagerImpl::Shutdown() {
+  profile_image_downloader_.reset();
+}
+
 const gfx::ImageSkia& UserImageManagerImpl::DownloadedProfileImage() const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   return downloaded_profile_image_;
