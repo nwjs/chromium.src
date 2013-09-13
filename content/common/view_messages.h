@@ -339,6 +339,9 @@ IPC_STRUCT_BEGIN(ViewHostMsg_CreateWindow_Params)
   // The URL of the frame initiating the open.
   IPC_STRUCT_MEMBER(GURL, opener_url)
 
+  // The URL of the top frame containing the opener.
+  IPC_STRUCT_MEMBER(GURL, opener_top_level_frame_url)
+
   // The security origin of the frame initiating the open.
   IPC_STRUCT_MEMBER(GURL, opener_security_origin)
 
