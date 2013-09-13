@@ -22,6 +22,8 @@
 
 using WebKit::WebWindowFeatures;
 
+const size_t kMaximumNumberOfPopups = 25;
+
 DEFINE_WEB_CONTENTS_USER_DATA_KEY(PopupBlockerTabHelper);
 
 struct PopupBlockerTabHelper::BlockedRequest {
@@ -86,9 +88,11 @@ bool PopupBlockerTabHelper::MaybeBlockPopup(
           CONTENT_SETTING_ALLOW) {
     return false;
   } else {
-    blocked_popups_.Add(new BlockedRequest(params, window_features));
-    TabSpecificContentSettings::FromWebContents(web_contents())->
-        OnContentBlocked(CONTENT_SETTINGS_TYPE_POPUPS, std::string());
+    if (blocked_popups_.size() < kMaximumNumberOfPopups) {
+      blocked_popups_.Add(new BlockedRequest(params, window_features));
+      TabSpecificContentSettings::FromWebContents(web_contents())->
+          OnContentBlocked(CONTENT_SETTINGS_TYPE_POPUPS, std::string());
+    }
     return true;
   }
 }
@@ -130,9 +134,11 @@ void PopupBlockerTabHelper::AddBlockedPopup(
   else
     nav_params.disposition = disposition;
 
-  blocked_popups_.Add(new BlockedRequest(nav_params, features));
-  TabSpecificContentSettings::FromWebContents(web_contents())->
-      OnContentBlocked(CONTENT_SETTINGS_TYPE_POPUPS, std::string());
+  if (blocked_popups_.size() < kMaximumNumberOfPopups) {
+    blocked_popups_.Add(new BlockedRequest(nav_params, features));
+    TabSpecificContentSettings::FromWebContents(web_contents())->
+        OnContentBlocked(CONTENT_SETTINGS_TYPE_POPUPS, std::string());
+  }
 }
 
 void PopupBlockerTabHelper::ShowBlockedPopup(int32 id) {
