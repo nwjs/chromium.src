@@ -70,6 +70,7 @@ const char kLocalOnlyFlagName[] = "local_only";
 const char kPreloadLocalOnlyNTPFlagName[] = "preload_local_only_ntp";
 const char kUseRemoteNTPOnStartupFlagName[] = "use_remote_ntp_on_startup";
 const char kShowNtpFlagName[] = "show_ntp";
+const char kSuppressInstantExtendedOnSRPFlagName[] = "suppress_on_srp";
 
 // Constants for the field trial name and group prefix.
 const char kInstantExtendedFieldTrialName[] = "InstantExtended";
@@ -203,7 +204,8 @@ bool IsInstantURL(const GURL& url, Profile* profile) {
   if (MatchesOriginAndPath(effective_url, instant_url))
     return true;
 
-  if (extended_api_enabled && MatchesAnySearchURL(effective_url, template_url))
+  if (extended_api_enabled && MatchesAnySearchURL(effective_url, template_url)
+      && !ShouldSuppressInstantExtendedOnSRP())
     return true;
 
   return false;
@@ -247,9 +249,8 @@ bool IsInstantExtendedAPIEnabled() {
 #if defined(OS_IOS) || defined(OS_ANDROID)
   return false;
 #else
-  // On desktop, query extraction is part of Instant extended, so if one is
-  // enabled, the other is too.
-  return IsQueryExtractionEnabled() || IsLocalOnlyInstantExtendedAPIEnabled();
+  return (EmbeddedSearchPageVersion() != kEmbeddedPageVersionDisabled) ||
+      IsLocalOnlyInstantExtendedAPIEnabled();
 #endif  // defined(OS_IOS) || defined(OS_ANDROID)
 }
 
@@ -288,7 +289,8 @@ uint64 EmbeddedSearchPageVersion() {
 }
 
 bool IsQueryExtractionEnabled() {
-  return EmbeddedSearchPageVersion() != kEmbeddedPageVersionDisabled;
+  return EmbeddedSearchPageVersion() != kEmbeddedPageVersionDisabled &&
+      !ShouldSuppressInstantExtendedOnSRP();
 }
 
 bool IsLocalOnlyInstantExtendedAPIEnabled() {
@@ -572,6 +574,18 @@ bool ShouldShowInstantNTP() {
     return GetBoolValueForFlagWithDefault(kShowNtpFlagName, true, flags);
   }
   return true;
+}
+
+bool ShouldSuppressInstantExtendedOnSRP() {
+  FieldTrialFlags flags;
+  if (GetFieldTrialInfo(
+          base::FieldTrialList::FindFullName(kInstantExtendedFieldTrialName),
+          &flags, NULL)) {
+    return GetBoolValueForFlagWithDefault(
+        kSuppressInstantExtendedOnSRPFlagName, false, flags);
+  }
+
+  return false;
 }
 
 bool MatchesOriginAndPath(const GURL& my_url, const GURL& other_url) {
