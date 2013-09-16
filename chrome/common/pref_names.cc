@@ -2548,4 +2548,9 @@ const char kDRMSalt[] = "settings.privacy.drm_salt";
 // A boolean pref that enables the (private) pepper GetDeviceID() call.
 const char kEnableDRM[] = "settings.privacy.drm_enabled";
 
+// A dictionary pref which maps profile names to dictionary values which hold
+// hashes of profile prefs that we track to detect changes that happen outside
+// of Chrome.
+const char kProfilePreferenceHashes[] = "profile.preference_hashes";
+
 }  // namespace prefs

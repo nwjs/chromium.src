@@ -370,6 +370,9 @@
         <include name="IDR_IDENTITY_INTERNALS_CSS" file="resources\identity_internals.css" type="BINDATA" />
         <include name="IDR_IDENTITY_INTERNALS_JS" file="resources\identity_internals.js" type="BINDATA" />
       </if>
+      <if expr="pp_ifdef('_google_chrome')">
+        <include name="IDR_PREF_HASH_SEED_BIN" file="resources\settings_internal\pref_hash_seed.bin" type="BINDATA" />
+      </if>
     </includes>
   </release>
 </grit>
