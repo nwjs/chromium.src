@@ -752,7 +752,7 @@ bool DictionaryValue::RemoveWithoutPathExpansion(const std::string& key,
   return true;
 }
 
-DictionaryValue* DictionaryValue::DeepCopyWithoutEmptyChildren() {
+DictionaryValue* DictionaryValue::DeepCopyWithoutEmptyChildren() const {
   Value* copy = CopyWithoutEmptyChildren(this);
   return copy ? static_cast<DictionaryValue*>(copy) : new DictionaryValue;
 }
