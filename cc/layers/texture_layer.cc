@@ -195,6 +195,7 @@ bool TextureLayer::Update(ResourceUpdateQueue* queue,
           client_->Context3d()->getGraphicsResetStatusARB() != GL_NO_ERROR)
         texture_id_ = 0;
       updated = true;
+      SetNeedsPushProperties();
     }
   }
 
