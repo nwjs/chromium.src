@@ -348,7 +348,8 @@ void RendererAccessibilityComplete::SendPendingAccessibilityNotifications() {
     AccessibilityHostMsg_NotificationParams notification_msg;
     notification_msg.notification_type = notification.notification_type;
     notification_msg.id = notification.id;
-    SerializeChangedNodes(obj, &notification_msg.nodes);
+    std::set<int> ids_serialized;
+    SerializeChangedNodes(obj, &notification_msg.nodes, &ids_serialized);
     notification_msgs.push_back(notification_msg);
 
 #ifndef NDEBUG
@@ -419,7 +420,12 @@ RendererAccessibilityComplete::CreateBrowserTreeNode() {
 
 void RendererAccessibilityComplete::SerializeChangedNodes(
     const WebKit::WebAccessibilityObject& obj,
-    std::vector<AccessibilityNodeData>* dst) {
+    std::vector<AccessibilityNodeData>* dst,
+    std::set<int>* ids_serialized) {
+  if (ids_serialized->find(obj.axID()) != ids_serialized->end())
+    return;
+  ids_serialized->insert(obj.axID());
+
   // This method has three responsibilities:
   // 1. Serialize |obj| into an AccessibilityNodeData, and append it to
   //    the end of the |dst| vector to be send to the browser process.
@@ -474,6 +480,7 @@ void RendererAccessibilityComplete::SerializeChangedNodes(
         WebAccessibilityObject parent_obj;
         while (parent) {
           parent_obj = document.accessibilityObjectFromID(parent->id);
+
           if (!parent_obj.isDetached())
             break;
           parent = parent->parent;
@@ -483,7 +490,7 @@ void RendererAccessibilityComplete::SerializeChangedNodes(
         // so that the update that clears |child| from its old parent
         // occurs stricly before the update that adds |child| to its
         // new parent.
-        SerializeChangedNodes(parent_obj, dst);
+        SerializeChangedNodes(parent_obj, dst, ids_serialized);
       }
     }
   }
@@ -556,7 +563,7 @@ void RendererAccessibilityComplete::SerializeChangedNodes(
 
   // Serialize all of the new children, recursively.
   for (size_t i = 0; i < children_to_serialize.size(); ++i)
-    SerializeChangedNodes(children_to_serialize[i], dst);
+    SerializeChangedNodes(children_to_serialize[i], dst, ids_serialized);
 }
 
 void RendererAccessibilityComplete::ClearBrowserTreeNode(
