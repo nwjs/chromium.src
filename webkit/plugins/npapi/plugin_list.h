@@ -240,6 +240,10 @@ class PluginList {
                          const std::string& extension,
                          std::string* actual_mime_type);
 
+  // Removes |plugin_path| from the list of extra plugin paths. Should only be
+  // called while holding |lock_|.
+  void RemoveExtraPluginPathLocked(const base::FilePath& plugin_path);
+
   //
   // Platform functions
   //
