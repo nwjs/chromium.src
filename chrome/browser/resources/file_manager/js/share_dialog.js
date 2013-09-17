@@ -28,7 +28,7 @@ function ShareDialog(parentNode) {
  * @type {number}
  * @const
  */
-ShareDialog.FAILURE_TIMEOUT = 5000;
+ShareDialog.FAILURE_TIMEOUT = 10000;
 
 /**
  * Wraps a Web View element and adds authorization headers to it.
@@ -152,6 +152,9 @@ ShareDialog.prototype.onLoaded = function() {
     this.failureTimeout_ = null;
   }
 
+  // Logs added temporarily to track crbug.com/288783.
+  console.debug('Loaded.');
+
   this.okButton_.hidden = false;
   this.spinnerWrapper_.hidden = true;
   this.webViewWrapper_.classList.add('loaded');
@@ -171,10 +174,12 @@ ShareDialog.prototype.onLoadFailed = function() {
  * @override
  */
 ShareDialog.prototype.hide = function() {
+
   if (this.shareClient_) {
     this.shareClient_.dispose();
     this.shareClient_ = null;
   }
+
   this.webViewWrapper_.textContent = '';
   this.onQueueTaskFinished_();
   this.onQueueTaskFinished_ = null;
@@ -210,6 +215,9 @@ ShareDialog.prototype.show = function(entry, onFailure) {
     // give up and show an error message.
     this.failureTimeout_ = setTimeout(function() {
       onError();
+
+      // Logs added temporarily to track crbug.com/288783.
+      console.debug('Timeout. Web View points at: ' + this.webView_.src);
     }, ShareDialog.FAILURE_TIMEOUT);
 
     // TODO(mtomasz): Move to initDom_() once and reuse <webview> once it gets
@@ -250,6 +258,9 @@ ShareDialog.prototype.show = function(entry, onFailure) {
     // Loads the share widget once all the previous async calls are finished.
     group.run(function() {
       if (!shareUrl) {
+        // Logs added temporarily to track crbug.com/288783.
+        console.debug('URL not available.');
+
         onError();
         return;
       }
