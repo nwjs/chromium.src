@@ -444,12 +444,6 @@ public class ContentView extends FrameLayout
     }
 
     @Override
-    public void onWindowFocusChanged(boolean hasWindowFocus) {
-        super.onWindowFocusChanged(hasWindowFocus);
-        mContentViewCore.onWindowFocusChanged(hasWindowFocus);
-    }
-
-    @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         return mContentViewCore.onKeyUp(keyCode, event);
     }
