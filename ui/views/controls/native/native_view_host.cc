@@ -6,7 +6,6 @@
 
 #include "base/logging.h"
 #include "ui/gfx/canvas.h"
-#include "ui/views/accessibility/native_view_accessibility.h"
 #include "ui/views/controls/native/native_view_host_wrapper.h"
 #include "ui/views/widget/widget.h"
 
@@ -14,7 +13,6 @@ namespace views {
 
 // static
 const char NativeViewHost::kViewClassName[] = "NativeViewHost";
-const char kWidgetNativeViewHostKey[] = "WidgetNativeViewHost";
 
 #if defined(USE_AURA)
 // Views implmenetatxion draws the focus.
@@ -50,10 +48,6 @@ void NativeViewHost::Attach(gfx::NativeView native_view) {
   native_wrapper_->NativeViewWillAttach();
   Widget::ReparentNativeView(native_view_, GetWidget()->GetNativeView());
   Layout();
-
-  Widget* widget = Widget::GetWidgetForNativeView(native_view);
-  if (widget)
-    widget->SetNativeWindowProperty(kWidgetNativeViewHostKey, this);
 }
 
 void NativeViewHost::Detach() {
@@ -201,12 +195,8 @@ gfx::NativeViewAccessible NativeViewHost::GetNativeViewAccessible() {
 
 void NativeViewHost::Detach(bool destroyed) {
   if (native_view_) {
-    if (!destroyed) {
-      Widget* widget = Widget::GetWidgetForNativeView(native_view_);
-      if (widget)
-        widget->SetNativeWindowProperty(kWidgetNativeViewHostKey, NULL);
+    if (!destroyed)
       ClearFocus();
-    }
     native_wrapper_->NativeViewDetaching(destroyed);
     native_view_ = NULL;
   }
