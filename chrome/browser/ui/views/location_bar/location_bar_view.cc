@@ -192,7 +192,8 @@ LocationBarView::LocationBarView(Browser* browser,
       is_popup_mode_(is_popup_mode),
       show_focus_rect_(false),
       template_url_service_(NULL),
-      animation_offset_(0) {
+      animation_offset_(0),
+      weak_ptr_factory_(this) {
   if (!views::Textfield::IsViewsTextfieldEnabled())
     set_id(VIEW_ID_OMNIBOX);
 
@@ -1320,6 +1321,9 @@ bool LocationBarView::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
 }
 
 void LocationBarView::GetAccessibleState(ui::AccessibleViewState* state) {
+  if (!location_entry_)
+    return;
+
   state->role = ui::AccessibilityTypes::ROLE_LOCATION_BAR;
   state->name = l10n_util::GetStringUTF16(IDS_ACCNAME_LOCATION);
   state->value = location_entry_->GetText();
@@ -1329,6 +1333,14 @@ void LocationBarView::GetAccessibleState(ui::AccessibleViewState* state) {
   location_entry_->GetSelectionBounds(&entry_start, &entry_end);
   state->selection_start = entry_start;
   state->selection_end = entry_end;
+
+  if (is_popup_mode_) {
+    state->state |= ui::AccessibilityTypes::STATE_READONLY;
+  } else {
+    state->set_value_callback =
+        base::Bind(&LocationBarView::AccessibilitySetValue,
+                   weak_ptr_factory_.GetWeakPtr());
+  }
 }
 
 bool LocationBarView::HasFocus() const {
@@ -1547,4 +1559,8 @@ int LocationBarView::GetInternalHeight(bool use_preferred_size) {
 bool LocationBarView::HasValidSuggestText() const {
   return suggested_text_view_->visible() &&
       !suggested_text_view_->size().IsEmpty();
+}
+
+void LocationBarView::AccessibilitySetValue(const string16& new_value) {
+  location_entry_->SetUserText(new_value);
 }

@@ -684,6 +684,7 @@
         '..',
       ],
       'sources': [
+        'accessibility/native_view_accessibility_win_unittest.cc',
         'accessible_pane_view_unittest.cc',
         'animation/bounds_animator_unittest.cc',
         'bubble/bubble_border_unittest.cc',

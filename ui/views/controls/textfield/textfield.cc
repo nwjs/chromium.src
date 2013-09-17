@@ -89,7 +89,8 @@ Textfield::Textfield()
       vertical_margins_were_set_(false),
       vertical_alignment_(gfx::ALIGN_VCENTER),
       placeholder_text_color_(kDefaultPlaceholderTextColor),
-      text_input_type_(ui::TEXT_INPUT_TYPE_TEXT) {
+      text_input_type_(ui::TEXT_INPUT_TYPE_TEXT),
+      weak_ptr_factory_(this) {
   set_focusable(true);
 
   if (ViewsDelegate::views_delegate) {
@@ -114,7 +115,8 @@ Textfield::Textfield(StyleFlags style)
       vertical_margins_were_set_(false),
       vertical_alignment_(gfx::ALIGN_VCENTER),
       placeholder_text_color_(kDefaultPlaceholderTextColor),
-      text_input_type_(ui::TEXT_INPUT_TYPE_TEXT) {
+      text_input_type_(ui::TEXT_INPUT_TYPE_TEXT),
+      weak_ptr_factory_(this) {
   set_focusable(true);
   if (IsObscured())
     SetTextInputType(ui::TEXT_INPUT_TYPE_PASSWORD);
@@ -506,6 +508,12 @@ void Textfield::GetAccessibleState(ui::AccessibleViewState* state) {
   const ui::Range range = native_wrapper_->GetSelectedRange();
   state->selection_start = range.start();
   state->selection_end = range.end();
+
+  if (!read_only()) {
+    state->set_value_callback =
+        base::Bind(&Textfield::AccessibilitySetValue,
+                   weak_ptr_factory_.GetWeakPtr());
+  }
 }
 
 ui::TextInputClient* Textfield::GetTextInputClient() {
@@ -547,11 +555,21 @@ const char* Textfield::GetClassName() const {
   return kViewClassName;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Textfield, private:
+
 gfx::Insets Textfield::GetTextInsets() const {
   gfx::Insets insets = GetInsets();
   if (draw_border_ && native_wrapper_)
     insets += native_wrapper_->CalculateInsets();
   return insets;
+}
+
+void Textfield::AccessibilitySetValue(const string16& new_value) {
+  if (!read_only()) {
+    SetText(new_value);
+    ClearSelection();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
