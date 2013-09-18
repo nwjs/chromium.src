@@ -436,21 +436,6 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
       "features": [
         "disable_angle_instanced_arrays"
       ]
-    },
-    {
-      "id": 38,
-      "cr_bugs": [289461],
-      "description": "Non-virtual contexts on Qualcomm sometimes cause out-of-order frames",
-      "os": {
-        "type": "android"
-      },
-      "gl_vendor": {
-        "op": "beginwith",
-        "value": "Qualcomm"
-      },
-      "features": [
-        "use_virtualized_gl_contexts"
-      ]
     }
   ]
 }
