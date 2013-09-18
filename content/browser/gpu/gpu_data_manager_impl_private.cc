@@ -284,8 +284,8 @@ void ApplyAndroidWorkarounds(const gpu::GPUInfo& gpu_info,
   // IMG: avoid context switching perf problems, crashes with share groups
   // Mali-T604: http://crbug.com/154715
   // QualComm, NVIDIA: Crashes with share groups
-  if (is_vivante || is_img || is_mali_t604 ||
-      ((is_nvidia || is_qualcomm) && sdk_int < 18) || is_broadcom) {
+  if (is_vivante || is_img || is_mali_t604 || (is_nvidia && (sdk_int < 18)) ||
+      is_qualcomm || is_broadcom) {
     command_line->AppendSwitch(switches::kEnableVirtualGLContexts);
   }
 
