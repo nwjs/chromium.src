@@ -602,6 +602,16 @@ HistoryService::Handle HistoryService::GetPageThumbnail(
                   new history::GetPageThumbnailRequest(callback), page_url);
 }
 
+void HistoryService::SetPageContents(const GURL& url,
+                                     const string16& contents) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  if (!CanAddURL(url))
+    return;
+
+  ScheduleAndForget(PRIORITY_LOW, &HistoryBackend::SetPageContents,
+                    url, contents);
+}
+
 CancelableTaskTracker::TaskId HistoryService::GetFavicons(
     const std::vector<GURL>& icon_urls,
     int icon_types,
