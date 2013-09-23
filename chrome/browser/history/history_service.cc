@@ -593,14 +593,13 @@ void HistoryService::AddPagesWithDetails(const history::URLRows& info,
                     &HistoryBackend::AddPagesWithDetails, info, visit_source);
 }
 
-void HistoryService::SetPageContents(const GURL& url,
-                                     const string16& contents) {
+HistoryService::Handle HistoryService::GetPageThumbnail(
+    const GURL& page_url,
+    CancelableRequestConsumerBase* consumer,
+    const ThumbnailDataCallback& callback) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (!CanAddURL(url))
-    return;
-
-  ScheduleAndForget(PRIORITY_LOW, &HistoryBackend::SetPageContents,
-                    url, contents);
+  return Schedule(PRIORITY_NORMAL, &HistoryBackend::GetPageThumbnail, consumer,
+                  new history::GetPageThumbnailRequest(callback), page_url);
 }
 
 CancelableTaskTracker::TaskId HistoryService::GetFavicons(
