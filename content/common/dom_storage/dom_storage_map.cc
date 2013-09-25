@@ -27,7 +27,7 @@ size_t CountBytes(const DOMStorageValuesMap& values) {
 
 }  // namespace
 
-size_t DomStorageMap::quota_override_ = 0;
+size_t DOMStorageMap::quota_override_ = 0;
 
 DOMStorageMap::DOMStorageMap(size_t quota)
     : bytes_used_(0),

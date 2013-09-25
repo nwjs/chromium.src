@@ -1325,7 +1325,7 @@ void WebContentsImpl::CreateNewWindow(
     AddDestructionObserver(new_contents);
   }
   // Save window features
-  new_contents->window_features_ = params.window_features;
+  new_contents->window_features_ = params.features;
 
   if (delegate_) {
     delegate_->WebContentsCreated(
