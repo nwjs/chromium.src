@@ -25,7 +25,6 @@
 #include "url/gurl.h"
 
 using base::WaitableEvent;
-using dom_storage::DomStorageTaskRunner;
 using WebKit::WebStorageArea;
 
 namespace content {
