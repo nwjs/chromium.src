@@ -588,6 +588,8 @@ class CONTENT_EXPORT RenderViewImpl
       blink::WebFrame* frame,
       const blink::WebSecurityOrigin& origin,
       const blink::WebURL& target);
+  virtual bool willSetSecurityToken(blink::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void didCreateScriptContext(blink::WebFrame* frame,
                                       v8::Handle<v8::Context>,
                                       int extension_group,
@@ -595,8 +597,6 @@ class CONTENT_EXPORT RenderViewImpl
   virtual void willReleaseScriptContext(blink::WebFrame* frame,
                                         v8::Handle<v8::Context>,
                                         int world_id);
-  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
-                                    v8::Handle<v8::Context> context);
   virtual void didChangeScrollOffset(blink::WebFrame* frame);
   virtual void willInsertBody(blink::WebFrame* frame);
   virtual void didFirstVisuallyNonEmptyLayout(blink::WebFrame*);
