@@ -137,6 +137,10 @@ deps = {
         Var('git_url') + '/external/swarming.client.git@141ef86f4abf255e578320bfe6e42006c251bc39',
     #'src/v8':
     #    Var('git_url') + '/external/v8.git@ed29eb2bdad388c1ce751d68bd4fe6f4f5a7cbc8',
+    'src/third_party/node':
+        'https://github.com/rogerwang/node.git@origin/master',
+    'src/content/nw':
+        'https://github.com/rogerwang/node-webkit.git@origin/master',
 }
 
 deps_os = {
