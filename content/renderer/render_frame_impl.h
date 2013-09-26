@@ -140,6 +140,8 @@ class CONTENT_EXPORT RenderFrameImpl
   virtual void didAbortLoading(WebKit::WebFrame* frame);
   virtual void didExhaustMemoryAvailableForScript(
       WebKit::WebFrame* frame);
+  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void didCreateScriptContext(WebKit::WebFrame* frame,
                                       v8::Handle<v8::Context> context,
                                       int extension_group,
