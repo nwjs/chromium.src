@@ -297,6 +297,8 @@ class CONTENT_EXPORT RenderFrameImpl
                                      const blink::WebSecurityOrigin& origin,
                                      const blink::WebURL& target);
   virtual void didAbortLoading(blink::WebFrame* frame);
+  virtual bool willSetSecurityToken(blink::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void didCreateScriptContext(blink::WebFrame* frame,
                                       v8::Handle<v8::Context> context,
                                       int extension_group,
