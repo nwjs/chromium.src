@@ -708,6 +708,12 @@ void RenderFrameImpl::didExhaustMemoryAvailableForScript(
   Send(new ViewHostMsg_JSOutOfMemory(GetRoutingID()));
 }
 
+bool RenderFrameImpl::willSetSecurityToken(WebFrame* frame,
+                                          v8::Handle<v8::Context> context) {
+  return GetContentClient()->renderer()->WillSetSecurityToken(
+      frame, context);
+}
+
 void RenderFrameImpl::didCreateScriptContext(WebKit::WebFrame* frame,
                                              v8::Handle<v8::Context> context,
                                              int extension_group,
