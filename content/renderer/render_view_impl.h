@@ -609,6 +609,8 @@ class CONTENT_EXPORT RenderViewImpl
       const WebKit::WebSecurityOrigin& origin,
       const WebKit::WebURL& target);
   virtual void didExhaustMemoryAvailableForScript(WebKit::WebFrame* frame);
+  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void didCreateScriptContext(WebKit::WebFrame* frame,
                                       v8::Handle<v8::Context>,
                                       int extension_group,
@@ -616,8 +618,6 @@ class CONTENT_EXPORT RenderViewImpl
   virtual void willReleaseScriptContext(WebKit::WebFrame* frame,
                                         v8::Handle<v8::Context>,
                                         int world_id);
-  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
-                                    v8::Handle<v8::Context> context);
   virtual void didChangeScrollOffset(WebKit::WebFrame* frame);
   virtual void willInsertBody(WebKit::WebFrame* frame);
   virtual void didFirstVisuallyNonEmptyLayout(WebKit::WebFrame*);
