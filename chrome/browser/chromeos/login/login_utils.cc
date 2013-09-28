@@ -106,6 +106,7 @@ class LoginUtilsImpl
         login_manager_(OAuthLoginManager::Create(this)),
         delegate_(NULL),
         should_restore_auth_session_(false),
+        exit_after_session_restore_(false),
         session_restore_strategy_(
             OAuthLoginManager::RESTORE_FROM_SAVED_OAUTH2_REFRESH_TOKEN) {
     net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
@@ -138,6 +139,7 @@ class LoginUtilsImpl
   virtual void OnCompletedMergeSession() OVERRIDE;
   virtual void OnCompletedAuthentication(Profile* user_profile) OVERRIDE;
   virtual void OnFoundStoredTokens() OVERRIDE;
+  virtual void OnNewRefreshTokenAvaiable(Profile* user_profile) OVERRIDE;
 
   // net::NetworkChangeNotifier::ConnectionTypeObserver overrides.
   virtual void OnConnectionTypeChanged(
@@ -185,6 +187,10 @@ class LoginUtilsImpl
   // Starts signing related services. Initiates TokenService token retrieval.
   void StartSignedInServices(Profile* profile);
 
+  // Attempts exiting browser process and esures this does not happen
+  // while we are still fetching new OAuth refresh tokens.
+  void AttemptExit(Profile* profile);
+
   UserContext user_context_;
   bool using_oauth_;
   // True if the authentication profile's cookie jar should contain
@@ -200,6 +206,9 @@ class LoginUtilsImpl
   // True if should restore authentication session when notified about
   // online state change.
   bool should_restore_auth_session_;
+
+  // True if we should restart chrome right after session restore.
+  bool exit_after_session_restore_;
 
   // Sesion restore strategy.
   OAuthLoginManager::SessionRestoreStrategy session_restore_strategy_;
@@ -260,7 +269,7 @@ void LoginUtilsImpl::DoBrowserLaunch(Profile* profile,
     VLOG(1) << "Restarting to apply per-session flags...";
     DBusThreadManager::Get()->GetSessionManagerClient()->SetFlagsForUser(
         UserManager::Get()->GetActiveUser()->email(), flags);
-    chrome::ExitCleanly();
+    AttemptExit(profile);
     return;
   }
 
@@ -467,7 +476,7 @@ void LoginUtilsImpl::RestoreAuthSession(Profile* user_profile,
 
   UserManager::Get()->SetMergeSessionState(
       UserManager::MERGE_STATUS_IN_PROCESS);
-
+  exit_after_session_restore_ = false;
   // Remove legacy OAuth1 token if we have one. If it's valid, we should already
   // have OAuth2 refresh token in TokenService that could be used to retrieve
   // all other tokens and user_context.
@@ -725,6 +734,22 @@ void LoginUtilsImpl::OnCompletedAuthentication(Profile* user_profile) {
   StartSignedInServices(user_profile);
 }
 
+void LoginUtilsImpl::OnNewRefreshTokenAvaiable(Profile* user_profile) {
+  // Check if we were waiting to restart chrome.
+  if (!exit_after_session_restore_)
+    return;
+
+  // Mark user auth token status as valid.
+  UserManager::Get()->SaveUserOAuthStatus(
+      UserManager::Get()->GetLoggedInUser()->email(),
+      User::OAUTH2_TOKEN_STATUS_VALID);
+
+  LOG(WARNING) << "Exiting after new refresh token fetched";
+  // We need to exit cleanly in this case to make sure OAuth2 RT is actually
+  // saved.
+  chrome::ExitCleanly();
+}
+
 void LoginUtilsImpl::OnCompletedMergeSession() {
   UserManager::Get()->SetMergeSessionState(UserManager::MERGE_STATUS_DONE);
 }
@@ -754,6 +779,26 @@ void LoginUtilsImpl::OnConnectionTypeChanged(
       RestoreAuthSession(user_profile, has_web_auth_cookies_);
     }
   }
+}
+
+void LoginUtilsImpl::AttemptExit(Profile* profile) {
+  if (!login_manager_.get() ||
+      session_restore_strategy_ !=
+          OAuthLoginManager::RESTORE_FROM_COOKIE_JAR) {
+    chrome::AttemptExit();
+    return;
+  }
+
+  // We can't really quit if the session restore process that mints new
+  // refresh token is still in progress.
+  if (login_manager_->state() !=
+          OAuthLoginManager::SESSION_RESTORE_IN_PROGRESS) {
+    chrome::AttemptExit();
+    return;
+  }
+
+  LOG(WARNING) << "Attempting browser restart during session restore.";
+  exit_after_session_restore_ = true;
 }
 
 // static

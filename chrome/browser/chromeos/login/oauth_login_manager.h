@@ -54,6 +54,9 @@ class OAuthLoginManager {
     // Raised when stored OAuth(1|2) tokens are found and authentication
     // profile is no longer needed.
     virtual void OnFoundStoredTokens() = 0;
+
+    // Raised when a new OAuth2 refresh token is avaialble.
+    virtual void OnNewRefreshTokenAvaiable(Profile* user_profile) {}
   };
 
   // Factory method.
