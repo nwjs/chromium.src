@@ -204,7 +204,9 @@ chrome.Window = function() {
   this.type = '';
 };
 
-/** @param {string} message*/
+/**
+ * @param {*} message
+ */
 chrome.extension.sendMessage = function(message) {}
 
 /** @type {chrome.Event} */
