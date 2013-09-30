@@ -785,7 +785,7 @@ void LoginUtilsImpl::AttemptExit(Profile* profile) {
   if (!login_manager_.get() ||
       session_restore_strategy_ !=
           OAuthLoginManager::RESTORE_FROM_COOKIE_JAR) {
-    chrome::AttemptExit();
+    chrome::ExitCleanly();
     return;
   }
 
@@ -793,7 +793,7 @@ void LoginUtilsImpl::AttemptExit(Profile* profile) {
   // refresh token is still in progress.
   if (login_manager_->state() !=
           OAuthLoginManager::SESSION_RESTORE_IN_PROGRESS) {
-    chrome::AttemptExit();
+    chrome::ExitCleanly();
     return;
   }
 
