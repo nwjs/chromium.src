@@ -47,6 +47,12 @@ class CC_EXPORT DelayBasedTimeSource : public TimeSource {
   void PostNextTickTask(base::TimeTicks now);
   void OnTimerFired();
 
+  enum State {
+    STATE_INACTIVE,
+    STATE_STARTING,
+    STATE_ACTIVE,
+  };
+
   struct Parameters {
     Parameters(base::TimeDelta interval, base::TimeTicks tick_target)
         : interval(interval), tick_target(tick_target) {}
@@ -55,6 +61,7 @@ class CC_EXPORT DelayBasedTimeSource : public TimeSource {
   };
 
   TimeSourceClient* client_;
+  bool has_tick_target_;
   base::TimeTicks last_tick_time_;
 
   // current_parameters_ should only be written by PostNextTickTask.
@@ -64,7 +71,7 @@ class CC_EXPORT DelayBasedTimeSource : public TimeSource {
   Parameters current_parameters_;
   Parameters next_parameters_;
 
-  bool active_;
+  State state_;
 
   base::SingleThreadTaskRunner* task_runner_;
   base::WeakPtrFactory<DelayBasedTimeSource> weak_factory_;
