@@ -1575,7 +1575,10 @@ bool ChromeBrowserMainParts::MainMessageLoopRun(int* result_code) {
   base::RunLoop run_loop;
 #endif
 
-  performance_monitor::PerformanceMonitor::GetInstance()->Start();
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kPerformanceMonitorGathering)) {
+    performance_monitor::PerformanceMonitor::GetInstance()->Start();
+  }
 
   run_loop.Run();
 
