@@ -26,7 +26,7 @@
 
     // Increment this if you change the data in ways that mean users with
     // existing data should get a new version.
-    "kCurrentDataVersion": 61
+    "kCurrentDataVersion": 62
   },
 
   // The following engines are included in country lists and are added to the
@@ -994,9 +994,9 @@
 
     "yahoo_za": {
       "name": "Yahoo! South Africa",
-      "keyword": "sa.yahoo.com",
-      "favicon_url": "http://sa.search.yahoo.com/favicon.ico",
-      "search_url": "http://sa.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
+      "keyword": "za.yahoo.com",
+      "favicon_url": "http://za.search.yahoo.com/favicon.ico",
+      "search_url": "http://za.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
