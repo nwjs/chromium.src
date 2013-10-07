@@ -126,9 +126,11 @@ void OAuth2TokenFetched(JNIEnv* env, jclass clazz,
           reinterpret_cast<
               AndroidProfileOAuth2TokenService::FetchOAuth2TokenCallback*>(
                   nativeCallback));
+  // Android does not provide enough information to know if the credentials are
+  // wrong, so assume any error is transient by using CONNECTION_FAILED.
   GoogleServiceAuthError err(result ?
                              GoogleServiceAuthError::NONE :
-                             GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
+                             GoogleServiceAuthError::CONNECTION_FAILED);
   heap_callback->Run(err, token, base::Time());
 }
 
