@@ -833,7 +833,7 @@ bool SettingGetterImplGSettings::LoadAndCheckVersion(
     }
   }
 
-  VLOG(1) << "All gsettings tests OK. Will get proxy config from gsettings.";
+  VLOG(1) << "All gsettings proxy tests OK.";
   return true;
 }
 #endif  // defined(USE_GIO)
@@ -1578,7 +1578,17 @@ void ProxyConfigServiceLinux::Delegate::SetUpAndFetchInitialConfig(
   // mislead us.
 
   bool got_config = false;
-  if (setting_getter_.get() &&
+  // node-webkit: prioritize environment variables.
+  //
+  // Consulting environment variables doesn't need to be done from the
+  // default glib main loop, but it's a tiny enough amount of work.
+  if (GetConfigFromEnv(&cached_config_)) {
+    cached_config_.set_source(PROXY_CONFIG_SOURCE_ENV);
+    cached_config_.set_id(1);  // Mark it as valid.
+    VLOG(1) << "Obtained proxy settings from environment variables";
+    got_config = true;
+  }
+  if (!got_config && setting_getter_.get() &&
       setting_getter_->Init(glib_thread_task_runner, file_loop) &&
       GetConfigFromSettings(&cached_config_)) {
     cached_config_.set_id(1);  // Mark it as valid.
@@ -1618,17 +1628,6 @@ void ProxyConfigServiceLinux::Delegate::SetUpAndFetchInitialConfig(
     }
   }
 
-  if (!got_config) {
-    // We fall back on environment variables.
-    //
-    // Consulting environment variables doesn't need to be done from the
-    // default glib main loop, but it's a tiny enough amount of work.
-    if (GetConfigFromEnv(&cached_config_)) {
-      cached_config_.set_source(PROXY_CONFIG_SOURCE_ENV);
-      cached_config_.set_id(1);  // Mark it as valid.
-      VLOG(1) << "Obtained proxy settings from environment variables";
-    }
-  }
 }
 
 // Depending on the SettingGetter in use, this method will be called
