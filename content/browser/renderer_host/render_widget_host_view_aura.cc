@@ -1487,7 +1487,6 @@ void RenderWidgetHostViewAura::SwapDelegatedFrame(
   if (frame_size.IsEmpty()) {
     DCHECK_EQ(0u, frame_data->resource_list.size());
     window_->layer()->SetShowPaintedContent();
-    frame_provider_ = NULL;
   } else {
     if (!resource_collection_) {
       resource_collection_ = new cc::DelegatedFrameResourceCollection;
@@ -2650,10 +2649,8 @@ void RenderWidgetHostViewAura::DidRecreateLayer(ui::Layer *old_layer,
                                    callback.Pass(),
                                    mailbox_scale_factor);
     }
-  } else if (frame_provider_.get()) {
-    new_layer->SetShowDelegatedContent(frame_provider_.get(),
-                                       current_frame_size_);
   }
+  // TODO(piman): handle delegated frames.
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3375,8 +3372,7 @@ void RenderWidgetHostViewAura::AddedToRootWindow() {
     cursor_client->AddObserver(this);
     NotifyRendererOfCursorVisibilityState(cursor_client->IsCursorVisible());
   }
-  if (current_surface_.get())
-    UpdateExternalTexture();
+  UpdateExternalTexture();
 }
 
 void RenderWidgetHostViewAura::RemovingFromRootWindow() {
@@ -3389,14 +3385,12 @@ void RenderWidgetHostViewAura::RemovingFromRootWindow() {
   window_->GetRootWindow()->RemoveRootWindowObserver(this);
   host_->ParentChanged(0);
   ui::Compositor* compositor = GetCompositor();
-  if (current_surface_.get()) {
-    // We can't get notification for commits after this point, which would
-    // guarantee that the compositor isn't using an old texture any more, so
-    // instead we force the layer to stop using any external resources which
-    // synchronizes with the compositor thread, and makes it safe to run the
-    // callback.
-    window_->layer()->SetShowPaintedContent();
-  }
+  // We can't get notification for commits after this point, which would
+  // guarantee that the compositor isn't using an old texture any more, so
+  // instead we force the layer to stop using any external resources which
+  // synchronizes with the compositor thread, and makes it safe to run the
+  // callback.
+  window_->layer()->SetShowPaintedContent();
   RunOnCommitCallbacks();
   resize_lock_.reset();
   host_->WasResized();
