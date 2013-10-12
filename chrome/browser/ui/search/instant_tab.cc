@@ -40,6 +40,10 @@ bool InstantTab::ShouldProcessAboutToNavigateMainFrame() {
   return true;
 }
 
+bool InstantTab::ShouldProcessFocusOmnibox() {
+  return true;
+}
+
 bool InstantTab::ShouldProcessNavigateToURL() {
   return true;
 }

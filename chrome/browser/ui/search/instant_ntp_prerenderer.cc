@@ -207,6 +207,12 @@ void InstantNTPPrerenderer::InstantPageAboutToNavigateMainFrame(
   NOTREACHED();
 }
 
+void InstantNTPPrerenderer::FocusOmnibox(
+    const content::WebContents* /* contents */,
+    OmniboxFocusState /* state */) {
+  NOTREACHED();
+}
+
 void InstantNTPPrerenderer::NavigateToURL(
     const content::WebContents* /* contents */,
     const GURL& /* url */,

@@ -45,10 +45,6 @@ bool SearchIPCRouterPolicyImpl::ShouldProcessSetVoiceSearchSupport() {
   return true;
 }
 
-bool SearchIPCRouterPolicyImpl::ShouldProcessFocusOmnibox() {
-  return !is_incognito_ && chrome::IsInstantNTP(web_contents_);
-}
-
 bool SearchIPCRouterPolicyImpl::ShouldProcessDeleteMostVisitedItem() {
   return !is_incognito_ && chrome::IsInstantNTP(web_contents_);
 }

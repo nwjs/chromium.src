@@ -125,6 +125,8 @@ class InstantNTPPrerenderer
   virtual void InstantPageAboutToNavigateMainFrame(
       const content::WebContents* contents,
       const GURL& url) OVERRIDE;
+  virtual void FocusOmnibox(const content::WebContents* contents,
+                            OmniboxFocusState state) OVERRIDE;
   virtual void NavigateToURL(const content::WebContents* contents,
                              const GURL& url,
                              content::PageTransition transition,
