@@ -21,16 +21,9 @@ IN_PROC_BROWSER_TEST_F(CompositorUtilTest, CompositingModeAsExpected) {
   enum CompositingMode {
     DISABLED,
     ENABLED,
-    THREADED,  // Implies FCM
-    DELEGATED,  // Implies threaded
+    THREADED,
   } expected_mode = DISABLED;
-#if defined(USE_AURA)
-#if defined(OS_CHROMEOS)
-  expected_mode = THREADED;
-#else
-  expected_mode = DELEGATED;
-#endif
-#elif defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(USE_AURA)
   expected_mode = THREADED;
 #elif defined(OS_MACOSX)
   if (base::mac::IsOSMountainLionOrLater())
@@ -40,15 +33,9 @@ IN_PROC_BROWSER_TEST_F(CompositorUtilTest, CompositingModeAsExpected) {
     expected_mode = ENABLED;
 #endif
 
-  EXPECT_EQ(expected_mode == ENABLED ||
-            expected_mode == THREADED ||
-            expected_mode == DELEGATED,
+  EXPECT_EQ(expected_mode == ENABLED || expected_mode == THREADED,
             IsForceCompositingModeEnabled());
-  EXPECT_EQ(expected_mode == THREADED ||
-            expected_mode == DELEGATED,
-            IsThreadedCompositingEnabled());
-  EXPECT_EQ(expected_mode == DELEGATED,
-            IsDelegatedRendererEnabled());
+  EXPECT_EQ(expected_mode == THREADED, IsThreadedCompositingEnabled());
 }
 
 }
