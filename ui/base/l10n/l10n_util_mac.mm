@@ -23,6 +23,32 @@ const std::string& GetLocaleOverride() {
   return g_overridden_locale.Get();
 }
 
+void OverrideLocaleWithUserDefault() {
+  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+  NSArray* languages = [defaults objectForKey:@"AppleLanguages"];
+  NSString* firstLocale = [languages objectAtIndex:0];
+  std::string locale_value =
+      [[firstLocale stringByReplacingOccurrencesOfString:@"_"
+                                              withString:@"-"] UTF8String];
+
+  // On disk the "en-US" resources are just "en" (http://crbug.com/25578), so
+  // the reverse mapping is done here to continue to feed Chrome the same values
+  // in all cases on all platforms.  (l10n_util maps en to en-US if it gets
+  // passed this on the command line)
+  if (locale_value == "en")
+    locale_value = "en-US";
+
+  std::replace(locale_value.begin(), locale_value.end(), '_', '-');
+
+  // Map the Chinese locale names over to zh-CN and zh-TW.
+  if (LowerCaseEqualsASCII(locale_value, "zh-hans")) {
+    locale_value = "zh-CN";
+  } else if (LowerCaseEqualsASCII(locale_value, "zh-hant")) {
+    locale_value = "zh-TW";
+  }
+  g_overridden_locale.Get() = locale_value;
+}
+
 void OverrideLocaleWithCocoaLocale() {
   // NSBundle really should only be called on the main thread.
   DCHECK([NSThread isMainThread]);
