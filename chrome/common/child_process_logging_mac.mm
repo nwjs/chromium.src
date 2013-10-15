@@ -211,7 +211,7 @@ void SetExperimentList(const std::vector<string16>& experiments) {
   const char* kExperimentChunkFormat = "experiment-chunk-%zu";  // 1-based
 
   std::vector<string16> chunks;
-  chrome_variations::GenerateVariationChunks(experiments, &chunks);
+  // chrome_variations::GenerateVariationChunks(experiments, &chunks);
 
   // Store up to |kMaxReportedVariationChunks| chunks.
   for (size_t i = 0; i < kMaxReportedVariationChunks; ++i) {
