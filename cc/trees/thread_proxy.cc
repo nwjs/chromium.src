@@ -367,7 +367,10 @@ void ThreadProxy::SetNeedsCommit() {
 void ThreadProxy::DidLoseOutputSurfaceOnImplThread() {
   DCHECK(IsImplThread());
   TRACE_EVENT0("cc", "ThreadProxy::DidLoseOutputSurfaceOnImplThread");
-  CheckOutputSurfaceStatusOnImplThread();
+  Proxy::ImplThreadTaskRunner()->PostTask(
+      FROM_HERE,
+      base::Bind(&ThreadProxy::CheckOutputSurfaceStatusOnImplThread,
+                 impl_thread_weak_ptr_));
 }
 
 void ThreadProxy::CheckOutputSurfaceStatusOnImplThread() {
