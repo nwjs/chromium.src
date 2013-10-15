@@ -75,6 +75,7 @@ UI_EXPORT NSString* GetNSStringFWithFixup(int message_id,
 
 // Support the override of the locale with the value from Cocoa.
 UI_EXPORT void OverrideLocaleWithCocoaLocale();
+UI_EXPORT void OverrideLocaleWithUserDefault(); 
 UI_EXPORT const std::string& GetLocaleOverride();
 
 }  // namespace l10n_util
