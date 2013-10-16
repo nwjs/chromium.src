@@ -71,7 +71,6 @@ class NET_EXPORT_PRIVATE HttpAuthController
 
   virtual bool IsAuthSchemeDisabled(HttpAuth::Scheme scheme) const;
   virtual void DisableAuthScheme(HttpAuth::Scheme scheme);
-  virtual void DisableEmbeddedIdentity();
 
  private:
   // Actions for InvalidateCurrentHandler()

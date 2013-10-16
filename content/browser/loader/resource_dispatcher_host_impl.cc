@@ -1850,7 +1850,7 @@ int ResourceDispatcherHostImpl::BuildLoadFlagsForRequest(
     HttpAuthRelationType relation_type = HttpAuthRelationTypeOf(
         request_data.url, request_data.first_party_for_cookies);
     if (relation_type == HTTP_AUTH_RELATION_BLOCKED_CROSS) {
-      load_flags |= (net::LOAD_DO_NOT_USE_EMBEDDED_IDENTITY |
+      load_flags |= (net::LOAD_DO_NOT_SEND_AUTH_DATA |
                      net::LOAD_DO_NOT_PROMPT_FOR_LOGIN);
     }
   }
