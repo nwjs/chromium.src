@@ -18,9 +18,9 @@ namespace net {
 static const int kDefaultNumHostsToRemember = 200;
 
 HttpServerPropertiesImpl::HttpServerPropertiesImpl()
-    : pipeline_capability_map_(
-        new CachedPipelineCapabilityMap(kDefaultNumHostsToRemember)),
-      weak_ptr_factory_(this) {
+    : weak_ptr_factory_(this),
+      pipeline_capability_map_(
+        new CachedPipelineCapabilityMap(kDefaultNumHostsToRemember)) {
 }
 
 HttpServerPropertiesImpl::~HttpServerPropertiesImpl() {
