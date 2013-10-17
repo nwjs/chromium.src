@@ -18,7 +18,7 @@ const char kSoftwareRenderingListJson[] = LONG_STRING_CONST(
 {
   "name": "software rendering list",
   // Please update the version number whenever you change this file.
-  "version": "6.12",
+  "version": "6.13",
   "entries": [
     {
       "id": 1,
@@ -1168,6 +1168,17 @@ LONG_STRING_CONST(
       },
       "features": [
         "force_compositing_mode"
+      ]
+    },
+    {
+      "id": 80,
+      "description": "Forcing the software compositor everywhere. Don't panic, your GPU will be back tomorrow!",
+      "cr_bugs": [308255],
+      "os": {
+        "type": "win"
+      },
+      "features": [
+        "all"
       ]
     }
   ]
