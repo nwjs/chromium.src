@@ -456,6 +456,9 @@ std::string GetApplicationLocale(const std::string& pref_locale) {
   candidates.push_back(GetDefaultLocale());
 
 #elif defined(OS_LINUX)
+  if (!pref_locale.empty())
+    candidates.push_back(pref_locale);
+
   // If we're on a different Linux system, we have glib.
 
   // GLib implements correct environment variable parsing with
