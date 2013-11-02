@@ -33,25 +33,16 @@ scoped_ptr<GURL> ParseHomepage(const ChromeSettingsOverrides& overrides,
   return manifest_url.Pass();
 }
 
-std::vector<GURL> ParseStartupPage(const ChromeSettingsOverrides& overrides,
-                                   string16* error) {
-  std::vector<GURL> urls;
-  if (!overrides.startup_pages)
-    return urls;
-
-  for (std::vector<std::string>::const_iterator i =
-       overrides.startup_pages->begin(); i != overrides.startup_pages->end();
-       ++i) {
-    scoped_ptr<GURL> manifest_url = CreateManifestURL(*i);
-    if (!manifest_url) {
-      *error = extensions::ErrorUtils::FormatErrorMessageUTF16(
-          manifest_errors::kInvalidStartupOverrideURL, *i);
-    } else {
-      urls.push_back(GURL());
-      urls.back().Swap(manifest_url.get());
-    }
+scoped_ptr<GURL> ParseStartupPage(const ChromeSettingsOverrides& overrides,
+                                  string16* error) {
+  if (!overrides.startup_page)
+    return scoped_ptr<GURL>();
+  scoped_ptr<GURL> manifest_url = CreateManifestURL(*overrides.startup_page);
+  if (!manifest_url) {
+    *error = extensions::ErrorUtils::FormatErrorMessageUTF16(
+        manifest_errors::kInvalidStartupOverrideURL, *overrides.startup_page);
   }
-  return urls;
+  return manifest_url.Pass();
 }
 
 }  // namespace
@@ -75,8 +66,8 @@ bool SettingsOverrideHandler::Parse(Extension* extension, string16* error) {
   scoped_ptr<SettingsOverride> info(new SettingsOverride);
   info->homepage = ParseHomepage(*settings, error);
   info->search_engine = settings->search_provider.Pass();
-  info->startup_pages = ParseStartupPage(*settings, error);
-  if (!info->homepage && !info->search_engine && info->startup_pages.empty()) {
+  info->startup_page = ParseStartupPage(*settings, error);
+  if (!info->homepage && !info->search_engine && !info->startup_page) {
     *error = ASCIIToUTF16(manifest_errors::kInvalidEmptySettingsOverrides);
     return false;
   }

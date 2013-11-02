@@ -21,7 +21,7 @@ struct SettingsOverride : public Extension::ManifestData {
   scoped_ptr<api::manifest_types::ChromeSettingsOverrides::Search_provider>
       search_engine;
   scoped_ptr<GURL> homepage;
-  std::vector<GURL> startup_pages;
+  scoped_ptr<GURL> startup_page;
  private:
   DISALLOW_COPY_AND_ASSIGN(SettingsOverride);
 };
