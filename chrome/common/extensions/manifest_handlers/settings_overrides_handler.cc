@@ -56,21 +56,15 @@ std::vector<GURL> ParseStartupPage(const ChromeSettingsOverrides& overrides,
 
 }  // namespace
 
-SettingsOverrides::SettingsOverrides() {}
+SettingsOverride::SettingsOverride() {}
 
-SettingsOverrides::~SettingsOverrides() {}
+SettingsOverride::~SettingsOverride() {}
 
-const SettingsOverrides* SettingsOverrides::Get(
-    const Extension* extension) {
-  return static_cast<SettingsOverrides*>(
-      extension->GetManifestData(manifest_keys::kSettingsOverride));
-}
+SettingsOverrideHandler::SettingsOverrideHandler() {}
 
-SettingsOverridesHandler::SettingsOverridesHandler() {}
+SettingsOverrideHandler::~SettingsOverrideHandler() {}
 
-SettingsOverridesHandler::~SettingsOverridesHandler() {}
-
-bool SettingsOverridesHandler::Parse(Extension* extension, string16* error) {
+bool SettingsOverrideHandler::Parse(Extension* extension, string16* error) {
   const base::Value* dict = NULL;
   CHECK(extension->manifest()->Get(manifest_keys::kSettingsOverride, &dict));
   scoped_ptr<ChromeSettingsOverrides> settings(
@@ -78,7 +72,7 @@ bool SettingsOverridesHandler::Parse(Extension* extension, string16* error) {
   if (!settings)
     return false;
 
-  scoped_ptr<SettingsOverrides> info(new SettingsOverrides);
+  scoped_ptr<SettingsOverride> info(new SettingsOverride);
   info->homepage = ParseHomepage(*settings, error);
   info->search_engine = settings->search_provider.Pass();
   info->startup_pages = ParseStartupPage(*settings, error);
@@ -91,7 +85,7 @@ bool SettingsOverridesHandler::Parse(Extension* extension, string16* error) {
   return true;
 }
 
-const std::vector<std::string> SettingsOverridesHandler::Keys() const {
+const std::vector<std::string> SettingsOverrideHandler::Keys() const {
   return SingleKey(manifest_keys::kSettingsOverride);
 }
 
