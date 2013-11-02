@@ -39,7 +39,6 @@
 #include "chrome/common/extensions/manifest_handlers/offline_enabled_info.h"
 #include "chrome/common/extensions/manifest_handlers/requirements_handler.h"
 #include "chrome/common/extensions/manifest_handlers/sandboxed_page_info.h"
-#include "chrome/common/extensions/manifest_handlers/settings_overrides_handler.h"
 #include "chrome/common/extensions/manifest_handlers/shared_module_info.h"
 #include "chrome/common/extensions/manifest_handlers/theme_handler.h"
 #include "chrome/common/extensions/manifest_url_handler.h"
@@ -87,7 +86,6 @@ void RegisterChromeManifestHandlers() {
   (new PluginsHandler)->Register();
   (new RequirementsHandler)->Register();
   (new SandboxedPageHandler)->Register();
-  (new SettingsOverrideHandler)->Register();
   (new ScriptBadgeHandler)->Register();
   (new SharedModuleHandler)->Register();
   (new SocketsHandler)->Register();
