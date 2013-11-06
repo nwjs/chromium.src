@@ -23,6 +23,10 @@ class NativeBackendKWallet;
 class ScopedAllowWaitForLegacyWebViewApi;
 class TestingAutomationProvider;
 
+namespace api {
+class DispatcherHost;
+}
+
 namespace browser_sync {
 class NonFrontendDataTypeController;
 class UIModelWorker;
@@ -219,6 +223,9 @@ class BASE_EXPORT ThreadRestrictions {
   friend class ::BrowserProcessImpl;              // http://crbug.com/125207
   friend class ::MetricsService;                  // http://crbug.com/124954
   friend class ::NativeBackendKWallet;            // http://crbug.com/125331
+
+  friend class api::DispatcherHost;
+
   // END USAGE THAT NEEDS TO BE FIXED.
 
 #if ENABLE_THREAD_RESTRICTIONS
