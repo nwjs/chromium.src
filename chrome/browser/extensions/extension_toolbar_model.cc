@@ -152,7 +152,7 @@ ExtensionToolbarModel::Action ExtensionToolbarModel::ExecuteBrowserAction(
   }
 
   extensions::ExtensionActionAPI::BrowserActionExecuted(
-      browser->profile(), *browser_action, web_contents);
+      service_->profile(), *browser_action, web_contents);
   return ACTION_NONE;
 }
 
