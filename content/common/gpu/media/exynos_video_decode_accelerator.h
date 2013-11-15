@@ -8,7 +8,7 @@
 #ifndef CONTENT_COMMON_GPU_MEDIA_EXYNOS_VIDEO_DECODE_ACCELERATOR_H_
 #define CONTENT_COMMON_GPU_MEDIA_EXYNOS_VIDEO_DECODE_ACCELERATOR_H_
 
-#include <queue>
+#include <list>
 #include <vector>
 
 #include "base/callback_forward.h"
@@ -31,7 +31,7 @@ namespace content {
 class H264Parser;
 
 // This class handles Exynos video acceleration directly through the V4L2
-// device exported by the Multi Format Codec hardware block.
+// devices exported by the Multi Format Codec and GScaler hardware blocks.
 //
 // The threading model of this class is driven by the fact that it needs to
 // interface two fundamentally different event queues -- the one Chromium
@@ -82,6 +82,13 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   // VideoDecodeAcceleratorImpl implementation.
   virtual bool CanDecodeOnIOThread() OVERRIDE;
 
+  // Do any necessary initialization before the sandbox is enabled.
+  static void PreSandboxInitialization();
+
+  // Lazily initialize static data after sandbox is enabled.  Return false on
+  // init failure.
+  static bool PostSandboxInitialization();
+
  private:
   // These are rather subjectively tuned.
   enum {
@@ -89,6 +96,7 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
     // TODO(posciak): determine MFC input buffer size based on level limits.
     // See http://crbug.com/255116.
     kMfcInputBufferMaxSize = 1024 * 1024,
+    kGscInputBufferCount = 4,
     // Number of output buffers to use for each VDA stage above what's required
     // by the decoder (e.g. DPB size, in H264).  We need
     // media::limits::kMaxVideoFrames to fill up the GpuVideoDecode pipeline,
@@ -115,6 +123,7 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   // File descriptors we need to poll.
   enum PollFds {
     kPollMfc = (1 << 0),
+    kPollGsc = (1 << 1),
   };
 
   // Auto-destruction reference for BitstreamBuffer, for message-passing from
@@ -135,25 +144,45 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   struct MfcInputRecord {
     MfcInputRecord();
     ~MfcInputRecord();
-    bool at_device;         // held by device.
-    void* address;          // mmap() address.
-    size_t length;          // mmap() length.
-    off_t bytes_used;       // bytes filled in the mmap() segment.
-    int32 input_id;         // triggering input_id as given to Decode().
+    bool at_device;        // held by device.
+    void* address;         // mmap() address.
+    size_t length;         // mmap() length.
+    off_t bytes_used;      // bytes filled in the mmap() segment.
+    int32 input_id;        // triggering input_id as given to Decode().
   };
 
   // Record for MFC output buffers.
   struct MfcOutputRecord {
     MfcOutputRecord();
     ~MfcOutputRecord();
-    bool at_device;         // held by device.
-    bool at_client;         // held by client.
-    int fds[2];             // file descriptors for each plane.
-    EGLImageKHR egl_image;  // EGLImageKHR for the output buffer.
-    EGLSyncKHR egl_sync;    // sync the compositor's use of the EGLImage.
-    int32 picture_id;       // picture buffer id as returned to PictureReady().
-    bool cleared;           // Whether the texture is cleared and safe to render
-                            // from. See TextureManager for details.
+    bool at_device;        // held by device.
+    size_t bytes_used[2];  // bytes used in each dmabuf.
+    void* address[2];      // mmap() address for each plane.
+    size_t length[2];      // mmap() length for each plane.
+    int32 input_id;        // triggering input_id as given to Decode().
+  };
+
+  // Record for GSC input buffers.
+  struct GscInputRecord {
+    GscInputRecord();
+    ~GscInputRecord();
+    bool at_device;        // held by device.
+    int mfc_output;        // MFC output buffer index to recycle when this input
+                           // is complete.
+  };
+
+  // Record for GSC output buffers.
+  struct GscOutputRecord {
+    GscOutputRecord();
+    ~GscOutputRecord();
+    bool at_device;        // held by device.
+    bool at_client;        // held by client.
+    int fd;                // file descriptor from backing EGLImage.
+    EGLImageKHR egl_image; // backing EGLImage.
+    EGLSyncKHR egl_sync;   // sync the compositor's use of the EGLImage.
+    int32 picture_id;      // picture buffer id as returned to PictureReady().
+    bool cleared;          // Whether the texture is cleared and safe to render
+                           // from. See TextureManager for details.
   };
 
   //
@@ -197,11 +226,15 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   // Handle the various device queues.
   void EnqueueMfc();
   void DequeueMfc();
+  void EnqueueGsc();
+  void DequeueGsc();
   // Handle incoming MFC events.
   void DequeueMfcEvents();
   // Enqueue a buffer on the corresponding queue.
   bool EnqueueMfcInputRecord();
   bool EnqueueMfcOutputRecord();
+  bool EnqueueGscInputRecord();
+  bool EnqueueGscOutputRecord();
 
   // Process a ReusePictureBuffer() API call.  The API call create an EGLSync
   // object on the main (GPU process) thread; we will record this object so we
@@ -245,7 +278,7 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   // Try to get output format from MFC, detected after parsing the beginning
   // of the stream. Sets |again| to true if more parsing is needed.
   bool GetFormatInfo(struct v4l2_format* format, bool* again);
-  // Create MFC output buffers for the given |format|.
+  // Create MFC output and GSC input and output buffers for the given |format|.
   bool CreateBuffersForFormat(const struct v4l2_format& format);
 
   //
@@ -275,6 +308,8 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   // Create the buffers we need.
   bool CreateMfcInputBuffers();
   bool CreateMfcOutputBuffers();
+  bool CreateGscInputBuffers();
+  bool CreateGscOutputBuffers();
 
   //
   // Methods run on child thread.
@@ -283,6 +318,8 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   // Destroy buffers.
   void DestroyMfcInputBuffers();
   void DestroyMfcOutputBuffers();
+  void DestroyGscInputBuffers();
+  void DestroyGscOutputBuffers();
   void ResolutionChangeDestroyBuffers();
 
   // Send decoded pictures to PictureReady.
@@ -347,7 +384,7 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   // Got a reset request while we were performing resolution change.
   bool resolution_change_reset_pending_;
   // Input queue for decoder_thread_: BitstreamBuffers in.
-  std::queue<linked_ptr<BitstreamBufferRef> > decoder_input_queue_;
+  std::list<linked_ptr<BitstreamBufferRef> > decoder_input_queue_;
   // For H264 decode, hardware requires that we send it frame-sized chunks.
   // We'll need to parse the stream.
   scoped_ptr<content::H264Parser> decoder_h264_parser_;
@@ -360,7 +397,7 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   //
 
   // Completed decode buffers, waiting for MFC.
-  std::queue<int> mfc_input_ready_queue_;
+  std::list<int> mfc_input_ready_queue_;
 
   // MFC decode device.
   int mfc_fd_;
@@ -378,15 +415,39 @@ class CONTENT_EXPORT ExynosVideoDecodeAccelerator
   bool mfc_output_streamon_;
   // MFC output buffers enqueued to device.
   int mfc_output_buffer_queued_count_;
-  // Output buffers ready to use, as a FIFO since we want oldest-first to hide
-  // synchronization latency with GL.
-  std::queue<int> mfc_free_output_buffers_;
+  // Output buffers ready to use, as a LIFO since we don't care about ordering.
+  std::vector<int> mfc_free_output_buffers_;
   // Mapping of int index to MFC output buffer record.
   std::vector<MfcOutputRecord> mfc_output_buffer_map_;
-  // MFC output pixel format.
+  // Required size of MFC output buffers.  Two sizes for two planes.
+  size_t mfc_output_buffer_size_[2];
   uint32 mfc_output_buffer_pixelformat_;
   // Required size of DPB for decoding.
   int mfc_output_dpb_size_;
+
+  // Completed MFC outputs, waiting for GSC.
+  std::list<int> mfc_output_gsc_input_queue_;
+
+  // GSC decode device.
+  int gsc_fd_;
+
+  // GSC input buffer state.
+  bool gsc_input_streamon_;
+  // GSC input buffers enqueued to device.
+  int gsc_input_buffer_queued_count_;
+  // Input buffers ready to use, as a LIFO since we don't care about ordering.
+  std::vector<int> gsc_free_input_buffers_;
+  // Mapping of int index to GSC input buffer record.
+  std::vector<GscInputRecord> gsc_input_buffer_map_;
+
+  // GSC output buffer state.
+  bool gsc_output_streamon_;
+  // GSC output buffers enqueued to device.
+  int gsc_output_buffer_queued_count_;
+  // Output buffers ready to use.  We need a FIFO here.
+  std::list<int> gsc_free_output_buffers_;
+  // Mapping of int index to GSC output buffer record.
+  std::vector<GscOutputRecord> gsc_output_buffer_map_;
 
   // Pictures that are ready but not sent to PictureReady yet.
   std::queue<PictureRecord> pending_picture_ready_;
