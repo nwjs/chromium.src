@@ -110,8 +110,8 @@ ui::TextInputType DetermineTextInputType() {
 }
 
 bool IsOmniboxAutoCompletionForImeEnabled() {
-  return !CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kDisableOmniboxAutoCompletionForIme);
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableOmniboxAutoCompletionForIme);
 }
 
 }  // namespace
