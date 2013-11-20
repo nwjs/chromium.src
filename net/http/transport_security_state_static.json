@@ -140,7 +140,8 @@
         "UTNUSERFirstClientAuthenticationandEmail",
         "UTNUSERFirstHardware",
         "UTNUSERFirstObject",
-        "GTECyberTrustGlobalRoot"
+        "GTECyberTrustGlobalRoot",
+        "BaltimoreCyberTrustRoot"
       ]
     },
     {
