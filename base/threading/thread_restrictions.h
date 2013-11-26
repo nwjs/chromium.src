@@ -23,7 +23,7 @@ class NativeBackendKWallet;
 class ScopedAllowWaitForLegacyWebViewApi;
 class TestingAutomationProvider;
 
-namespace api {
+namespace nwapi {
 class DispatcherHost;
 }
 
@@ -224,7 +224,7 @@ class BASE_EXPORT ThreadRestrictions {
   friend class ::MetricsService;                  // http://crbug.com/124954
   friend class ::NativeBackendKWallet;            // http://crbug.com/125331
 
-  friend class api::DispatcherHost;
+  friend class nwapi::DispatcherHost;
 
   // END USAGE THAT NEEDS TO BE FIXED.
 
