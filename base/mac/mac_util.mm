@@ -610,6 +610,7 @@ enum {
   SNOW_LEOPARD_MINOR_VERSION = 6,
   LION_MINOR_VERSION = 7,
   MOUNTAIN_LION_MINOR_VERSION = 8,
+  MAVERICKS_MINOR_VERSION = 9
 };
 
 }  // namespace
@@ -641,6 +642,12 @@ bool IsOSLionOrLater() {
 #if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_8)
 bool IsOSMountainLion() {
   return MacOSXMinorVersion() == MOUNTAIN_LION_MINOR_VERSION;
+}
+#endif
+
+#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_9)
+bool IsOSMavericks() {
+  return MacOSXMinorVersion() == MAVERICKS_MINOR_VERSION;
 }
 #endif
 
