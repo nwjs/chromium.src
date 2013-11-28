@@ -147,6 +147,8 @@ BASE_EXPORT bool IsOSLionOrLater();
 BASE_EXPORT bool IsOSMountainLion();
 BASE_EXPORT bool IsOSMountainLionOrLater();
 
+BASE_EXPORT bool IsOSMavericks();
+
 // This should be infrequently used. It only makes sense to use this to avoid
 // codepaths that are very likely to break on future (unreleased, untested,
 // unborn) OS releases, or to log when the OS is newer than any known version.
