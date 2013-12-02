@@ -24,6 +24,7 @@ static const char FAKE_CERTIFICATE[] = "fake cert";
 static const char FAKE_PRIVATE_KEY[] = "fake private key";
 static const int FAKE_ERROR = 100;
 static const int FAKE_RENDERER_ID = 10;
+const int FAKE_SEQUENCE_NUMBER = 1;
 
 class MockWebRTCIdentityStore : public WebRTCIdentityStore {
  public:
@@ -105,8 +106,10 @@ class WebRTCIdentityServiceHostTest : public ::testing::Test {
   void SendRequestToHost() {
     bool ok;
     host_->OnMessageReceived(
-        WebRTCIdentityMsg_RequestIdentity(
-            GURL(FAKE_ORIGIN), FAKE_IDENTITY_NAME, FAKE_COMMON_NAME),
+        WebRTCIdentityMsg_RequestIdentity(FAKE_SEQUENCE_NUMBER,
+                                          GURL(FAKE_ORIGIN),
+                                          FAKE_IDENTITY_NAME,
+                                          FAKE_COMMON_NAME),
         &ok);
     ASSERT_TRUE(ok);
   }
@@ -122,9 +125,10 @@ class WebRTCIdentityServiceHostTest : public ::testing::Test {
     IPC::Message ipc = host_->GetLastMessage();
     EXPECT_EQ(ipc.type(), WebRTCIdentityHostMsg_RequestFailed::ID);
 
-    Tuple1<int> error_in_message;
+    Tuple2<int, int> error_in_message;
     WebRTCIdentityHostMsg_RequestFailed::Read(&ipc, &error_in_message);
-    EXPECT_EQ(error, error_in_message.a);
+    EXPECT_EQ(FAKE_SEQUENCE_NUMBER, error_in_message.a);
+    EXPECT_EQ(error, error_in_message.b);
   }
 
   void VerifyIdentityReadyMessage(const std::string& cert,
@@ -133,10 +137,11 @@ class WebRTCIdentityServiceHostTest : public ::testing::Test {
     IPC::Message ipc = host_->GetLastMessage();
     EXPECT_EQ(ipc.type(), WebRTCIdentityHostMsg_IdentityReady::ID);
 
-    Tuple2<std::string, std::string> identity_in_message;
+    Tuple3<int, std::string, std::string> identity_in_message;
     WebRTCIdentityHostMsg_IdentityReady::Read(&ipc, &identity_in_message);
-    EXPECT_EQ(cert, identity_in_message.a);
-    EXPECT_EQ(key, identity_in_message.b);
+    EXPECT_EQ(FAKE_SEQUENCE_NUMBER, identity_in_message.a);
+    EXPECT_EQ(cert, identity_in_message.b);
+    EXPECT_EQ(key, identity_in_message.c);
   }
 
  protected:
