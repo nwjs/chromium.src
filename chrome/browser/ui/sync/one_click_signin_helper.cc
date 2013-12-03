@@ -829,7 +829,7 @@ void OneClickSigninHelper::ShowInfoBarIfPossible(net::URLRequest* request,
             << " g-c-s='" << google_chrome_signin_value << "'";
   }
 
-  if (!gaia::IsGaiaSignonRealm(request->url().GetOrigin()))
+  if (!gaia::IsGaiaSignonRealm(request->original_url().GetOrigin()))
     return;
 
   // Parse Google-Accounts-SignIn.
