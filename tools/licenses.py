@@ -103,7 +103,7 @@ ADDITIONAL_PATHS = (
     os.path.join('v8', 'strongtalk'),
 
     os.path.join('content', 'nw'),
-    os.path.join('third_party', 'node'),
+    #os.path.join('third_party', 'node'),
 )
 
 
