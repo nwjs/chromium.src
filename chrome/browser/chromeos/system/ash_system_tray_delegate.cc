@@ -48,7 +48,6 @@
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
 #include "chrome/browser/chromeos/accessibility/magnification_manager.h"
 #include "chrome/browser/chromeos/bluetooth/bluetooth_pairing_dialog.h"
-#include "chrome/browser/chromeos/charger_replace/charger_replacement_dialog.h"
 #include "chrome/browser/chromeos/choose_mobile_network_dialog.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
 #include "chrome/browser/chromeos/drive/job_list.h"
@@ -84,7 +83,6 @@
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/chromeos/charger_replacement_handler.h"
 #include "chrome/browser/ui/webui/chromeos/mobile_setup_dialog.h"
 #include "chrome/browser/upgrade_detector.h"
 #include "chrome/common/pref_names.h"
@@ -695,20 +693,6 @@ class SystemTrayDelegate : public ash::SystemTrayDelegate,
     // Launch sign in screen to add another user to current session.
     if (UserManager::Get()->GetUsersAdmittedForMultiProfile().size())
       UserAddingScreen::Get()->Start();
-  }
-
-  virtual void ShowSpringChargerReplacementDialog() OVERRIDE {
-    if (!ChargerReplacementDialog::ShouldShowDialog())
-      return;
-
-    ChargerReplacementDialog* dialog =
-        new ChargerReplacementDialog(GetNativeWindow());
-    dialog->Show();
-  }
-
-  virtual bool HasUserConfirmedSafeSpringCharger() OVERRIDE {
-    return ChargerReplacementHandler::GetChargerStatusPref() ==
-        ChargerReplacementHandler::CONFIRM_SAFE_CHARGER;
   }
 
   virtual void ShutDown() OVERRIDE {

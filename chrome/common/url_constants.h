@@ -90,7 +90,6 @@ extern const char kChromeUIWelcomeURL[];
 #if defined(OS_CHROMEOS)
 extern const char kChromeUIActivationMessage[];
 extern const char kChromeUIBluetoothPairingURL[];
-extern const char kChromeUIChargerReplacementURL[];
 extern const char kChromeUIChooseMobileNetworkURL[];
 extern const char kChromeUIDiagnosticsURL[];
 extern const char kChromeUIDiscardsURL[];
@@ -237,7 +236,6 @@ extern const char kChromeUISandboxHost[];
 extern const char kChromeUIActivationMessageHost[];
 extern const char kChromeUIAppLaunchHost[];
 extern const char kChromeUIBluetoothPairingHost[];
-extern const char kChromeUIChargerReplacementHost[];
 extern const char kChromeUIChooseMobileNetworkHost[];
 extern const char kChromeUICryptohomeHost[];
 extern const char kChromeUIDiagnosticsHost[];
