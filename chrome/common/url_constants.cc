@@ -95,6 +95,7 @@ const char kChromeUIWelcomeURL[] = "chrome://welcome/";
 #if defined(OS_CHROMEOS)
 const char kChromeUIActivationMessage[] = "chrome://activationmessage/";
 const char kChromeUIBluetoothPairingURL[] = "chrome://bluetooth-pairing/";
+const char kChromeUIChargerReplacementURL[] = "chrome://charger-replacement/";
 const char kChromeUIChooseMobileNetworkURL[] =
     "chrome://choose-mobile-network/";
 const char kChromeUIDiagnosticsURL[] = "chrome://diagnostics/";
@@ -244,6 +245,7 @@ const char kChromeUISandboxHost[] = "sandbox";
 const char kChromeUIActivationMessageHost[] = "activationmessage";
 const char kChromeUIAppLaunchHost[] = "app-launch";
 const char kChromeUIBluetoothPairingHost[] = "bluetooth-pairing";
+const char kChromeUIChargerReplacementHost[] = "charger-replacement";
 const char kChromeUIChooseMobileNetworkHost[] = "choose-mobile-network";
 const char kChromeUICryptohomeHost[] = "cryptohome";
 const char kChromeUIDiagnosticsHost[] = "diagnostics";
