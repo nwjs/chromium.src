@@ -2067,8 +2067,10 @@ void HWNDMessageHandler::OnSize(UINT param, const CSize& size) {
     base::MessageLoop::current()->PostTask(
         FROM_HERE,
         base::Bind(&AddScrollStylesToWindow, hwnd()));
-#endif
   }
+#endif
+  if (delegate_->ShouldHandleOnSize())
+    delegate_->HandleSize(param, size);
 }
 
 void HWNDMessageHandler::OnSysCommand(UINT notification_code,
