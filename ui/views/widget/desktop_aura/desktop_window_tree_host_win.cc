@@ -718,6 +718,10 @@ bool DesktopWindowTreeHostWin::ShouldHandleSystemCommands() const {
   return GetWidget()->widget_delegate()->ShouldHandleSystemCommands();
 }
 
+bool DesktopWindowTreeHostWin::ShouldHandleOnSize() const {
+  return GetWidget()->widget_delegate()->ShouldHandleOnSize();
+}
+
 void DesktopWindowTreeHostWin::HandleAppDeactivated() {
   native_widget_delegate_->EnableInactiveRendering();
 }
