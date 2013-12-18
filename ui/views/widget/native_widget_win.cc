@@ -610,6 +610,10 @@ bool NativeWidgetWin::ShouldHandleSystemCommands() const {
   return GetWidget()->widget_delegate()->ShouldHandleSystemCommands();
 }
 
+bool NativeWidgetWin::ShouldHandleOnSize() const {
+  return GetWidget()->widget_delegate()->ShouldHandleOnSize();
+}
+
 void NativeWidgetWin::HandleAppDeactivated() {
   if (IsInactiveRenderingDisabled()) {
     delegate_->EnableInactiveRendering();
@@ -645,6 +649,10 @@ void NativeWidgetWin::HandleClose() {
 
 bool NativeWidgetWin::HandleCommand(int command) {
   return GetWidget()->widget_delegate()->ExecuteWindowsCommand(command);
+}
+
+bool NativeWidgetWin::HandleSize(UINT param, const CSize& size) {
+  return GetWidget()->widget_delegate()->HandleSize(param, gfx::Size(size.cx, size.cy));
 }
 
 void NativeWidgetWin::HandleAccelerator(const ui::Accelerator& accelerator) {

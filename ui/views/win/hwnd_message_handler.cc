@@ -1984,6 +1984,8 @@ void HWNDMessageHandler::OnSize(UINT param, const CSize& size) {
   // ResetWindowRegion is going to trigger WM_NCPAINT. By doing it after we've
   // invoked OnSize we ensure the RootView has been laid out.
   ResetWindowRegion(false);
+  if (delegate_->ShouldHandleOnSize())
+    delegate_->HandleSize(param, size);
 }
 
 void HWNDMessageHandler::OnSysCommand(UINT notification_code,
