@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Не удается получить настройки. Некоторые функции могут быть недоступны, а изменения настроек не будут сохраняться.</translation>
 <translation id="4222661289444749267">Обновление Chromium Frame.</translation>
 <translation id="4423735387467980091">Настройка и управление Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Выполнив вход в управляемый аккаунт, вы предоставляете администратору право контролировать настройки вашего профиля Chromium. Ваши данные Chromium (приложения, закладки, история, пароли и другие настройки) будут временно связаны с аккаунтом <ph name="USER_NAME"/>. Эти данные можно удалить в Личном кабинете Google, но их нельзя связать с другим аккаунтом. Чтобы сохранить данные Chromium отдельно, создайте новый профиль. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame уже установлен и доступен для всех пользователей. Если вы хотите установить Chromium Frame на уровне пользователя, необходимо сначала отменить установку на системном уровне, выполненную администратором.</translation>
 <translation id="731644333568559921">Обновить &amp;Chromium OS</translation>
@@ -120,7 +119,6 @@
 <translation id="6248213926982192922">Назначить Chromium браузером по умолчанию</translation>
 <translation id="6309712487085796862">Chromium использует камеру.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Больше не спрашивать</translation>
 <translation id="1745962126679160932">Chromium будет хранить ваши данные в защищенном виде, и их не придется вводить повторно – достаточно будет лишь указать код безопасности кредитной карты.</translation>
@@ -152,7 +150,6 @@
 Некоторые возможности могут быть недоступны. Укажите другой каталог профиля либо используйте более новую версию Chromium.</translation>
 <translation id="9013087743919948559">Добавить в Chromium</translation>
 <translation id="6212496753309875659">На этом компьютере установлена актуальная версия Chromium. Если программа не работает, удалите Chromium и повторите попытку.</translation>
-<translation id="3014684866565908571">Утилиты Chromium</translation>
 <translation id="1298199220304005244">Помощь по использованию Chromium OS</translation>
 <translation id="8187289872471304532">Выберите
           Программы &gt; Системные настройки &gt; Сеть &gt; Дополнительно &gt; Прокси
@@ -196,7 +193,6 @@
 <translation id="7331621180831839236">Файл &quot;<ph name="FILE_NAME"/>&quot; может внести изменения в настройки Chromium.</translation>
 <translation id="8724049448828509830">Идет загрузка. Отменить ее и закрыть Chromium?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Хост плагинов Chromium</translation>
 <translation id="8985587603644336029">Ранее вход в Chromium на этом компьютере выполнялся с помощью аккаунта <ph name="ACCOUNT_EMAIL_LAST"/>. Если это не ваш аккаунт и вы хотите закрыть доступ к ранее сохраненным в Chromium данным, создайте новый профиль Chromium. 
 
 Если войти в систему сейчас, закладки, история и прочие данные Chromium будут синхронизированы с новым аккаунтом: <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

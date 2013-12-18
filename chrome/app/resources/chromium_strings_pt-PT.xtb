@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Não é possível ler as suas preferências. Algumas funcionalidades poderão estar indisponíveis e as alterações efetuadas às preferências não serão guardadas.</translation>
 <translation id="4222661289444749267">Atualização do Chromium Frame.</translation>
 <translation id="4423735387467980091">Personalizar e controlar o Chromium</translation>
-<translation id="2843244238218937196">Renderizador do Chromium</translation>
 <translation id="1881322772814446296">Está a iniciar sessão com uma conta gerida e a permitir que o administrador controle o seu perfil do Chromium. Os seus dados do Chromium, como aplicações, marcadores, histórico, palavras-passe e outras definições, ficarão associados definitivamente a <ph name="USER_NAME"/>. Poderá eliminar estes dados através do Painel de Controlo das Contas Google, mas não poderá associá-los a outra conta. Opcionalmente, pode criar um perfil novo para manter os seus dados atuais do Chromium em separado. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">O Chromium Frame já está instalado e disponível para todos os utilizadores deste computador. Se pretender instalar o Chromium Frame ao nível do utilizador, tem de desinstalar primeiro a versão ao nível do sistema instalada por um administrador.</translation>
 <translation id="731644333568559921">Atualizar o SO &amp;Chromium</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Definir o Chromium como navegador predefinido</translation>
 <translation id="6309712487085796862">O Chromium está a utilizar a câmara.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Trabalhador do Chromium</translation>
 <translation id="5820394555380036790">SO Chromium</translation>
 <translation id="6757767188268205357">Não incomodar</translation>
 <translation id="1745962126679160932">O Chromium armazenará as suas informações em segurança para que não necessite de as introduzir novamente, mas continuará a ser necessário confirmar o código de segurança do seu cartão para futuros pagamentos.</translation>
@@ -154,7 +152,6 @@
 Algumas funcionalidades podem não estar disponíveis. Especifique um diretório de perfil diferente ou utilize uma versão mais recente do Chromium.</translation>
 <translation id="9013087743919948559">Adicionar ao Chromium</translation>
 <translation id="6212496753309875659">Este computador já tem uma versão mais recente do Chromium. Se o software não estiver a funcionar, desinstale o Chromium e tente novamente.</translation>
-<translation id="3014684866565908571">Utilitário do Chromium</translation>
 <translation id="1298199220304005244">Obter ajuda para utilizar o SO Chromium</translation>
 <translation id="8187289872471304532">Aceda a Aplicações &gt; Preferências do Sistema &gt; Rede &gt; Avançadas &gt; Proxies e desmarque todos os proxies selecionados.</translation>
 <translation id="4488676065623537541">Os seus detalhes de faturação foram guardados no Chromium.</translation>
@@ -196,7 +193,6 @@ Algumas funcionalidades podem não estar disponíveis. Especifique um diretório
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> pode alterar as suas definições no Chromium.</translation>
 <translation id="8724049448828509830">A transferência está atualmente em curso. Pretende sair do Chromium e cancelar a transferência?</translation>
 <translation id="3360567213983886831">Binários do Chromium</translation>
-<translation id="7503101070699687603">Anfitrião do Plug-In do Chromium </translation>
 <translation id="8985587603644336029">Anteriormente, alguém iniciou sessão no Chromium neste computador com a conta <ph name="ACCOUNT_EMAIL_LAST"/>. Se esta conta não for sua, crie um novo utilizador do Chromium para manter as informações em separado.
 
 Se continuar com este início de sessão, as informações do Chromium, como marcadores, histórico e outras definições, fundir-se-ão com <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Jūsu preferences nevar nolasīt. Dažas funkcijas var nebūt pieejamas, un preferenču izmaiņas netiks saglabātas</translation>
 <translation id="4222661289444749267">Chromium Frame atjaunināšana.</translation>
 <translation id="4423735387467980091">Pielāgot un kontrolēt Chromium</translation>
-<translation id="2843244238218937196">Chromium renderētājs</translation>
 <translation id="1881322772814446296">Jūs pierakstāties ar pārvaldītu kontu, kura administrators var kontrolēt jūsu profilu. Jūsu Chromium dati, piemēram, lietotnes, grāmatzīmes, vēsture, paroles un citi iestatījumi, tiks neatgriezeniski saistīti ar lietotāju <ph name="USER_NAME"/>. Varēsiet dzēst šos datus, izmantojot Google kontu informācijas paneli, taču nevarēsiet šos datus saistīt ar citu kontu. Ja vēlaties, varat izveidot jaunu profilu, lai atsevišķi glabātu Chromium datus. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame jau ir instalēta un pieejama visiem šī datora lietotājiem. Ja vēlaties instalēt Chromium Frame lietotāja līmenī, vispirms atinstalējiet sistēmas līmeņa versiju, kuru instalējis administrators.</translation>
 <translation id="731644333568559921">Atjaunināt &amp;Chromium OS</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Padarīt Chromium par noklusējuma pārlūku</translation>
 <translation id="6309712487085796862">Chrome saitē tiek izmantota kamera.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium darbinieks</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Netraucējiet mani</translation>
 <translation id="1745962126679160932">Pārlūkā Chromium tiks droši saglabāta jūsu informācija, lai jums vairs nevajadzētu to atkārtoti ievadīt, bet, veicot turpmākus maksājumus, jums joprojām būs jāapstiprina kartes drošības kods.</translation>
@@ -154,7 +152,6 @@
 Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai izmantojiet jaunāku Chromium versiju.</translation>
 <translation id="9013087743919948559">Pievienot pārlūkam Chromium</translation>
 <translation id="6212496753309875659">Šim datoram jau ir jaunākā Chromium versija. Ja programmatūra nedarbojas, atinstalējiet pārlūku Chromium un mēģiniet vēlreiz.</translation>
-<translation id="3014684866565908571">Chromium utilītprogramma</translation>
 <translation id="1298199220304005244">Saņemt palīdzību par Chromium OS izmantošanu</translation>
 <translation id="8187289872471304532">Atveriet izvēlni
           Applications (Lietojumprogrammas) &gt; System Preferences (Sistēmas preferences) &gt; Network (Tīkls) &gt; Advanced (Papildu) &gt; (Proxies) Starpniekserveri
@@ -199,7 +196,6 @@ Dažas funkcijas var nebūt pieejamas. Norādiet citu profila direktoriju vai iz
 <translation id="7331621180831839236">Izmantojot failu <ph name="FILE_NAME"/>, var tikt mainīti Chromium iestatījumi.</translation>
 <translation id="8724049448828509830">Lejupielāde vēl nav pabeigta. Vai vēlaties iziet no pārlūkprogrammas Chromium un atcelt lejupielādi?</translation>
 <translation id="3360567213983886831">Chromium binārie faili</translation>
-<translation id="7503101070699687603">Chromium spraudņa saimniekdators</translation>
 <translation id="8985587603644336029">Kāds iepriekš pierakstījās operētājsistēmā Chromium šajā datorā, izmantojot e-pasta adresi <ph name="ACCOUNT_EMAIL_LAST"/>. Ja tas nav jūsu konts, izveidojiet jaunu Chromium lietotāju, lai jūsu informācija tiktu glabāta atsevišķi.
 
 Ja pierakstīsieties tik un tā, Chromium informācija, piemēram, grāmatzīmes, vēsture un citi iestatījumi, tiks apvienota ar konta <ph name="ACCOUNT_EMAIL_NEW"/> informāciju.</translation>

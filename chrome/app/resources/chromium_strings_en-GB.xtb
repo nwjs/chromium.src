@@ -18,7 +18,6 @@
 Some features may be unavailable and changes to preferences won't be saved.</translation>
 <translation id="4222661289444749267">Chromium Frame Update.</translation>
 <translation id="4423735387467980091">Customise and control Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">You are signing in with a managed account and giving its administrator control over your Chromium profile. Your Chromium data, such as your apps, bookmarks, history, passwords and other settings will become permanently tied to <ph name="USER_NAME"/>. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account. You can optionally create a new profile to keep your existing Chromium data separate. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame is already installed and available to all users of this computer. If you want to install Chromium Frame at the user level, you must first uninstall the system-level version installed by an administrator.</translation>
 <translation id="731644333568559921">Update &amp;Chromium OS</translation>
@@ -124,7 +123,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="6248213926982192922">Make Chromium the default browser</translation>
 <translation id="6309712487085796862">Chromium is using your camera.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Don't bother me</translation>
 <translation id="1745962126679160932">Chromium will securely store your information so that you don't need to type it in again, but you will still need to verify your card's security code for future payments.</translation>
@@ -156,7 +154,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 Some features may be unavailable. Please specify a different profile directory or use a newer version of Chromium.</translation>
 <translation id="9013087743919948559">Add to Chromium</translation>
 <translation id="6212496753309875659">This computer already has a more recent version of Chromium. If the software is not working, please uninstall Chromium and try again.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Get help with using Chromium OS</translation>
 <translation id="8187289872471304532">Go to
           Applications &gt; System Preferences &gt; Network &gt; Advanced &gt; Proxies
@@ -201,7 +198,6 @@ Some features may be unavailable. Please specify a different profile directory o
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> may change your Chromium settings.</translation>
 <translation id="8724049448828509830">A download is currently in progress. Do you want to exit Chromium and cancel the download?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">Someone previously signed in to Chromium on this computer as <ph name="ACCOUNT_EMAIL_LAST"/>. If that isn't your account, create a new Chromium user to keep your information separate.
 
 Signing in anyway will merge Chromium information like bookmarks, history, and other settings to <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

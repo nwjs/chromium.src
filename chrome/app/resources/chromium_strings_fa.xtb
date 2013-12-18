@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">تنظیمات برگزیده شما را نمی‌توان خواند. بعضی ویژگی‌ها ممکن است در دسترس نباشند و تغییرات تنظیمات برگزیده ذخیره نخواهد شد.</translation>
 <translation id="4222661289444749267">‏به‌روزرسانی Chromium Frame.</translation>
 <translation id="4423735387467980091">‏سفارشی کردن و کنترل Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">‏شما با حساب مدیریت‌شده وارد سیستم می‌شوید و به سرپرست آن اجازه کنترل بر نمایه Chromium خود را می‌دهید. داده‌های Chromium شما شامل برنامه‌ها، نشانک‌ها، سابقه، گذرواژه‌ها و سایر تنظیمات برای همیشه به <ph name="USER_NAME"/> مرتبط خواهد شد. می‌توانید این داده‌ها را از طریق داشبورد حساب‌های Google حذف کنید اما نمی‌توانید این داده‌ها را به حساب دیگری مرتبط سازید. در صورت تمایل برای ذخیره داده‌های Chromium موجود به صورت جداگانه می‌توانید نمایه جدیدی ایجاد کنید. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">‏Chromium Frame در حال حاضر نصب است و برای همه کاربران این رایانه موجود است. اگر می‌خواهید Chromium Frame را در سطح کاربر نصب کنید، باید ابتدا نسخه سطح سیستم نصب شده توسط یک سرپرست را حذف نصب کنید.</translation>
 <translation id="731644333568559921">‏به‌روزرسانی &amp;سیستم عامل Chromium</translation>
@@ -120,7 +119,6 @@
 <translation id="6248213926982192922">‏Chromium  مرورگر پیش‌فرض شود</translation>
 <translation id="6309712487085796862">‏Chromium درحال استفاده از دوربین شما است.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">‏سیستم عامل Chromium </translation>
 <translation id="6757767188268205357">مرا اذیت نکن</translation>
 <translation id="1745962126679160932">‏Chromium اطلاعات شما را به صورت ایمن ذخیره می‌کند بنابراین لازم نیست دوباره آن را تایپ کنید، اما برای پرداخت‌های بعدی همچنان باید کد امنیتی کارت خود را تأیید کنید.</translation>
@@ -152,7 +150,6 @@
 برخی از ویژگی‌ها ممکن است موجود نباشند. لطفاً یک فهرست راهنمای نمایه دیگری را مشخص کنید یا از نسخه جدیدتری از Chromium استفاده کنید.</translation>
 <translation id="9013087743919948559">‏افزودن به Chromium</translation>
 <translation id="6212496753309875659">‏این رایانه در حال حاضر دارای یک نسخه جدیدتر از Chromium است. در صورتی که نرم‌افزار کار نمی‌کند، لطفاً Chromium را حذف نصب کنید و دوباره سعی کنید.</translation>
-<translation id="3014684866565908571">‏برنامه کمکی Chromium </translation>
 <translation id="1298199220304005244">‏دریافت راهنمایی برای استفاده از سیستم عامل Chromium </translation>
 <translation id="8187289872471304532">به
           برنامه‌ها &gt; 
@@ -197,7 +194,6 @@
 <translation id="7331621180831839236">‏<ph name="FILE_NAME"/> ممکن است تنظیمات Chromium شما را تغییر دهد.</translation>
 <translation id="8724049448828509830">‏دانلود اکنون در حال انجام است. آیا می‌خواهید از Chromium خارج شوید و دانلود را لغو کنید.</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">‏میزبان افزونه Chromium </translation>
 <translation id="8985587603644336029">‏شخصی قبلاً بعنوان <ph name="ACCOUNT_EMAIL_LAST"/> وارد Chromium در این رایانه شده است. اگر این حساب شما نیست، کاربر جدید Chromium را ایجاد کنید تا اطلاعات خود را جدا نگهدارید.
 
 ورود به سیستم به هر حال اطلاعات Chromium مانند نشانک‌ها، سابقه، و سایر تنظیمات را در <ph name="ACCOUNT_EMAIL_NEW"/> ادغام می‌کند.</translation>

@@ -32,7 +32,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="2721687379934343312">Sa Mac, ang mga password ay sine-save sa iyong Keychain at maaaring ma-access o ma-sync ng ibang mga user ng Chrome na nakikihati sa OS X account na ito.</translation>
 <translation id="3993188379797269327">Maaaring baguhin ng <ph name="FILE_NAME"/> ang iyong mga setting ng Chrome.</translation>
 <translation id="1761870329818521071">Hindi ma-install ang parehong bersyon ng Google Chrome Frame na kasalukuyang tumatakbo. Pakisara ang Google Chrome Frame at subukang muli.</translation>
-<translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="6014844626092547096">Naka-sign in ka na ngayon sa Chrome! Na-disable ng iyong administrator ang pag-sync.</translation>
 <translation id="3140883423282498090">Magkakaroon ng bisa ang iyong mga pagbabago sa susunod na pagkakataong muli mong ilunsad ang Google Chrome.</translation>
 <translation id="1773601347087397504">Kumuha ng tulong sa paggamit ng Chrome OS</translation>
@@ -52,7 +51,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="3080151273017101988">Magpatuloy sa pagpapatakbo ng apps sa background kapag nakasara ang Google Chrome</translation>
 <translation id="4149882025268051530">Nabigo ang installer sa pag-uncompress ng archive. Paki-download muli ang Google Chrome.</translation>
 <translation id="6989339256997917931">Na-update na ang Google Chrome, ngunit hindi mo pa ito ginamit sa huling 30 araw.</translation>
-<translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="7060865993964054389">App Launcher ng Google Chrome</translation>
 <translation id="1682634494516646069">Hindi makapagbasa at makapagsulat ang Google Chrome sa direktoryo nito ng data:
 
@@ -127,7 +125,6 @@ Kapag nag-sign in ka pa rin, isasama sa <ph name="ACCOUNT_EMAIL_NEW"/> ang impor
 <translation id="911206726377975832">Tatanggalin din ang iyong data sa pag-browse?</translation>
 <translation id="5855036575689098185">Hindi tumutugma ang software na tumatakbo sa iyong computer sa Google Chrome.</translation>
 <translation id="2044287590254833138">Toolbar ng Google Chrome</translation>
-<translation id="5074344184765391290">Plug-In Host ng Chrome</translation>
 <translation id="8862326446509486874">Wala kang naaangkop na mga karapatan para sa pag-install sa antas ng system. Subukan muling patakbuhin ang installer bilang Administrator.</translation>
 <translation id="2874156562296220396">Ang Google Chrome ay ginawang posible ng <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> open source project at iba pang <ph name="BEGIN_LINK_OSS"/>open source software<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Maaaring gumamit ang Google Chrome ng mga serbisyo sa web upang mapabuti ang iyong karanasan sa pagba-browse.</translation>
@@ -177,12 +174,10 @@ Kapag nag-sign in ka pa rin, isasama sa <ph name="ACCOUNT_EMAIL_NEW"/> ang impor
 <translation id="576822117893741893">Ipakita ang Chrome menu</translation>
 <translation id="3444832043240812445">Ipinapakita lang ng pahinang ito ang impormasyon ng iyong kamakailang mga pag-crash kung <ph name="BEGIN_LINK"/>papaganahin mo ang pag-uulat ng pag-crash<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Hindi gumagana ang Google Chrome. Ilunsad muli ngayon?</translation>
-<translation id="5318056482164160049">Plug-In Host ng Google Chrome</translation>
 <translation id="6126631249883707068">Nais mo bang i-save ng Google Chrome ang iyong password?</translation>
 <translation id="7773845170078702898">Nais mo bang i-save ng Google Chrome ang iyong password para sa site na ito?</translation>
 <translation id="5046764976540625289">Lumabas sa Chrome</translation>
 <translation id="4251615635259297716">I-link ang iyong data sa Chrome sa account na ito</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Internet Browser</translation>
 <translation id="8142608456917638009">Hindi makagawa ng shortcut ng application ang Google Chrome.</translation>

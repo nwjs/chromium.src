@@ -18,15 +18,16 @@
 <translation id="1058418043520174283"><ph name="INDEX"/> od <ph name="COUNT"/></translation>
 <translation id="1128109161498068552">Ne dozvoli nijednoj web-lokaciji upotrebu posebnih sistemskih poruka za pristup MIDI uređajima</translation>
 <translation id="2516632596252643567">&lt;p&gt;
-          Upravo ovdje pristupite otvorenim karticama na računalu.
+          Upravo ovdje pristupite karticama koje ste otvorili na računalu.
           &lt;/p&gt;
           &lt;p&gt;
-          Samo otvorite Chrome na svojem računalu, posjetite izbornik i odaberite &quot;Prijava na Chrome...&quot;
+          Samo otvorite Chrome na svojem računalu, posjetite izbornik i odaberite opciju &quot;Prijava na Chrome...&quot;
           &lt;/p&gt;</translation>
 <translation id="8417199120207155527">Omogućavanje te opcije sprječava da web-aplikacije pristupaju API-ju WebRTC.</translation>
 <translation id="778579833039460630">Nema primljenih podataka</translation>
 <translation id="32279126412636473">Ponovno učitavanje (⌘R)</translation>
 <translation id="1852799913675865625">Došlo je do pogreške pri pokušaju čitanja datoteke: <ph name="ERROR_TEXT"/>.</translation>
+<translation id="6114740317862089559">U <ph name="BEGIN_LINK"/>pravilima o privatnosti<ph name="END_LINK"/> potražite više pojedinosti o tome kako postupamo s tim informacijama.</translation>
 <translation id="3828924085048779000">Prazne zaporke nisu dopuštene.</translation>
 <translation id="1844692022597038441">Ova datoteka nije dostupna izvan mreže.</translation>
 <translation id="2709516037105925701">Automatsko popunjavanje</translation>
@@ -399,6 +400,8 @@
 <translation id="667115622929458276">U tijeku su anonimna preuzimanja. Želite li napustiti anonimni način rada i otkazati ta preuzimanja?</translation>
 <translation id="1528372117901087631">Internetska veza</translation>
 <translation id="1788636309517085411">Upotrijebi zadano</translation>
+<translation id="4159435316791146348">U skladu sa smjernicama i uz odobrenje CPSC-a i drugih regulatornih tijela Google i HP opozivaju originalni punjač HP Chromebooka 11.</translation>
+<translation id="7659660321065362272">Važna obavijest o HP Chromebooku 11</translation>
 <translation id="1228893227497259893">Pogrešan identifikator entiteta</translation>
 <translation id="9177499212658576372">Trenutačno ste povezani sa sljedećom vrstom mreže: <ph name="NETWORK_TYPE"/>.</translation>
 <translation id="8589311641140863898">API-ji eksperimentalnih proširenja</translation>
@@ -483,6 +486,7 @@
 <translation id="5866557323934807206">Obriši ove postavke za buduće posjete</translation>
 <translation id="5355351445385646029">Pritisnite razmaknicu za odabir kandidata</translation>
 <translation id="5453029940327926427">Zatvori kartice</translation>
+<translation id="949088605431823851">Gdje ste kupili taj HP Chromebook 11?</translation>
 <translation id="9087353528325876418">URL za automatsko otkrivanje web-proxyja</translation>
 <translation id="2958431318199492670">Mrežna konfiguracija nije u skladu sa standardima ONC. Dijelove konfiguracije nije moguće uvesti.</translation>
 <translation id="3878840326289104869">Izrada nadziranog korisnika</translation>
@@ -876,6 +880,8 @@
 <translation id="3600456501114769456">Pristup lokalnim datotekama na vašem uređaju onemogućio je administrator.</translation>
 <translation id="7879478708475862060">Praćenje načina unosa</translation>
 <translation id="1042174272890264476">Vaše računalo ima ugrađenu RLZ biblioteku preglednika <ph name="SHORT_PRODUCT_NAME"/>. RLZ dodjeljuje nejedinstvenu oznaku koja ne može poslužiti za osobnu identifikaciju za mjerenje pretraživanja i upotrebu proizvoda <ph name="SHORT_PRODUCT_NAME"/> potaknutu određenom promotivnom kampanjom. Te se oznake ponekad prikazuju u upitima Google pretraživanja u pregledniku <ph name="PRODUCT_NAME"/>.</translation>
+<translation id="6311841686068461841">Provjerite punjač</translation>
+<translation id="8436138142074894820">Više mi ne prikazuj tu poruku.</translation>
 <translation id="348780365869651045">Čeka se AppCache...</translation>
 <translation id="817894225563172061">Ethernet mreže:</translation>
 <translation id="3125649188848276916">Da (ne snimaj nove podatke)</translation>
@@ -1084,6 +1090,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="5800020978570554460">Odredišna datoteka skraćena je ili uklonjena nakon posljednjeg preuzimanja.</translation>
 <translation id="5270547718570958938">Google kalendar</translation>
 <translation id="5823933238730612365">PPAPI (izvan sigurne okoline)</translation>
+<translation id="2071128513678800377">Vaš je punjač ažuran</translation>
 <translation id="5301751748813680278">Ulazite kao Gost.</translation>
 <translation id="121827551500866099">Prikaži sva preuzimanja...</translation>
 <translation id="5949910269212525572">Nije moguće razriješiti DNS adresu poslužitelja.</translation>
@@ -1308,6 +1315,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="273093730430620027">Ova stranica pristupa vašoj kameri.</translation>
 <translation id="5605623530403479164">Ostale tražilice</translation>
 <translation id="657064425229075395">Nije bilo moguće učitati pozadinsku skriptu &quot;<ph name="BACKGROUND_SCRIPT"/>&quot;.</translation>
+<translation id="3345234884557051648">Nazvao sam navedeni broj i zatražio zamjenski punjač.</translation>
 <translation id="5710435578057952990">Identitet ove web lokacije nije ovjeren.</translation>
 <translation id="1319997607168632851">Recite nam što mislite o Pokretaču aplikacija.</translation>
 <translation id="1303319084542230573">Dodaj pisač</translation>
@@ -1323,8 +1331,10 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="7952408061263786094">Odjavite se, a zatim ponovo prijavite...</translation>
 <translation id="5880247576487732437">Oznaka je prisutna</translation>
 <translation id="4689960105160368473">Prati vrijeme provedeno na svakoj stranici</translation>
+<translation id="8412498037462710569">Potvrđujem da ne želim primiti besplatni zamjenski punjač.</translation>
 <translation id="3368922792935385530">Spojeno</translation>
 <translation id="8340999562596018839">Govorne povratne informacije</translation>
+<translation id="5431473096922271583">Molimo vas da provjerite upotrebljavate li jedan od originalnih punjača.</translation>
 <translation id="3866443872548686097">Medij za oporavak je spreman. Možete ga ukloniti iz sustava.</translation>
 <translation id="6824564591481349393">Kopiraj &amp;adresu e-pošte</translation>
 <translation id="907148966137935206">Nemoj dopustiti nijednoj web-lokaciji da prikazuje skočne prozore (preporučuje se)</translation>
@@ -1538,6 +1548,7 @@ Nakon što izradite novog nadziranog korisnika, možete upravljati njegovim post
 <translation id="5109044022078737958">Blanka</translation>
 <translation id="6291953229176937411">&amp;Prikaži u programu Finder</translation>
 <translation id="8598687241883907630">Prekini vezu s Google računom...</translation>
+<translation id="3790571977176307462">Odaberite punjač koji je sada priključen na vaš Chromebook:</translation>
 <translation id="2556718757702023317">Da biste spremili datoteku &quot;<ph name="FILE_NAME"/>&quot; izvan mreže, morate osloboditi još <ph name="TOTAL_FILE_SIZE"/> prostora:<ph name="MARKUP_1"/>
         <ph name="MARKUP_2"/>otkvačite datoteke kojima više ne morate pristupati izvan mreže<ph name="MARKUP_3"/>
         <ph name="MARKUP_4"/>izbiršite datoteke iz mape Preuzimanja<ph name="MARKUP_5"/></translation>
@@ -1577,6 +1588,7 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 <translation id="1886996562706621347">Dopusti web-lokacijama traženje dopuštenja da postanu zadani rukovatelji za protokole (preporučeno)</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY"/> [<ph name="ISSUED_TO"/>]</translation>
 <translation id="8899388739470541164">vijetnamski</translation>
+<translation id="2053686653008575655">Možete pročitati <ph name="BEGIN_LINK"/>Česta pitanja<ph name="END_LINK"/> i nastaviti upotrebljavati HP Chromebook 11 s bilo kojim drugim certificiranim mikro-USB punjačem, na primjer, onim koji ste dobili uz tablet ili pametni telefon. Još se jednom ispričavamo zbog neugodnosti. Vaša nam je sigurnost na prvom mjestu.</translation>
 <translation id="6423064450797205562">Mjerenja u vezi s brzinom kojom proizvod <ph name="SHORT_PRODUCT_NAME"/> izvodi tražene radnje</translation>
 <translation id="2048118585307365263">Omogući MediaDrm.</translation>
 <translation id="4091434297613116013">listova papira</translation>
@@ -1654,6 +1666,7 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 <translation id="3449839693241009168">Pritisnite <ph name="SEARCH_KEY"/> da biste poslali naredbe usluzi <ph name="EXTENSION_NAME"/></translation>
 <translation id="968174221497644223">Predmemorija aplikacije</translation>
 <translation id="6352609311795654248">Omogućuje eksperimentalnu reprodukciju Opusa u elementu videozapisa.</translation>
+<translation id="9126999385065535384">Manji broj korisnika obavijestio nas je da su neki originalni punjači HP Chromebooka 11 oštećeni zbog pregrijavanja. Za svaki slučaj besplatno zamjenjujemo sve originalne punjače.</translation>
 <translation id="4343792725927556911">Nove postavke kamere i mikrofona postat će aktivne nakon ponovnog učitavanja stranice.</translation>
 <translation id="3847089579761895589">Primate pomoć. Želite li nastaviti?</translation>
 <translation id="8452588990572106089">Broj kartice nije važeći. Provjerite i pokušajte ponovo.</translation>
@@ -1829,6 +1842,7 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 <translation id="1000498691615767391">Odaberite mapu za otvaranje</translation>
 <translation id="3593152357631900254">Omogući način Fuzzy-Pinyin</translation>
 <translation id="2570059561924004903">Onemogući govorne povratne informacije</translation>
+<translation id="2462911512468050799">Više informacija možete pronaći na stranici</translation>
 <translation id="2276503375879033601">Dodajte još aplikacija</translation>
 <translation id="5015344424288992913">Traženje proxyja...</translation>
 <translation id="4389091756366370506">Korisnik <ph name="VALUE"/></translation>
@@ -2026,6 +2040,7 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 
 &lt;p&gt;Još uvijek možete konfigurirati putem naredbenog retka. Pogledajte &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME"/>&lt;/code&gt; za više informacija o oznakama i varijablama okruženja.&lt;/p&gt;</translation>
 <translation id="7205869271332034173">SSID:</translation>
+<translation id="8907701755790961703">Odaberite zemlju</translation>
 <translation id="7084579131203911145">Naziv pretplate:</translation>
 <translation id="4731351517694976331">Dopustite Googleovim uslugama da pristupaju vašoj lokaciji</translation>
 <translation id="5815645614496570556">X.400 adresa</translation>
@@ -2370,6 +2385,7 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 <translation id="2086712242472027775">Vaš račun ne radi na usluzi <ph name="PRODUCT_NAME"/>. Obratite se administratoru domene ili za prijavu upotrijebite obični Google Račun.</translation>
 <translation id="1970103697564110434">Google novčanik štiti vašu karticu</translation>
 <translation id="7222232353993864120">Adresa e-pošte</translation>
+<translation id="1324451548764108666">Nazovite broj (866) 628-1371 (SAD) ili 0800 026 0613 (UK) da biste zatražili besplatni zamjenski punjač.</translation>
 <translation id="2128531968068887769">Lokalni klijent</translation>
 <translation id="7175353351958621980">Učitano iz:</translation>
 <translation id="7186367841673660872">Ova je stranica prevedena s jezika<ph name="ORIGINAL_LANGUAGE"/>na<ph name="LANGUAGE_LANGUAGE"/></translation>
@@ -2414,6 +2430,7 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 <translation id="6432458268957186486">Ispis dijaloškim okvirom <ph name="CLOUD_PRINT_NAME"/>...</translation>
 <translation id="2950186680359523359">Poslužitelj je prekinuo vezu, a nije poslao nikakve podatke.</translation>
 <translation id="4269099019648381197">Omogući opciju zahtjeva za web-lokaciju tabletnog računala u izborniku postavki.</translation>
+<translation id="1645250822384430568">Primili smo vaše informacije i obrađujemo vaš zahtjev.</translation>
 <translation id="9142623379911037913">Dozvoljavate li da <ph name="SITE"/> prikazuje obavijesti na radnoj površini?</translation>
 <translation id="6546686722964485737">Pridruživanje mreži WiMAX</translation>
 <translation id="266983583785200437">Događaji u vezi s padovima i neuspjelim radnjama proizvoda <ph name="SHORT_PRODUCT_NAME"/></translation>
@@ -2674,6 +2691,7 @@ Morate biti prijavljeni da biste upotrebljavali tu značajku.</translation>
 <translation id="5400640815024374115">Čip modula pouzdane platforme onemogućen je ili ga nema.</translation>
 <translation id="2025623846716345241">Potvrda ponovnog učitavanja</translation>
 <translation id="2151576029659734873">Unesen je nevažeći indeks kartice.</translation>
+<translation id="496546018524231664">Irska</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD"/>Oprez:<ph name="END_BOLD"/> Ove su datoteke privremene i mogu se automatski izbrisati za oslobađanje prostora na disku. <ph name="BEGIN_LINK"/>Saznajte više<ph name="END_LINK"/></translation>
 <translation id="4722920479021006856"><ph name="APP_NAME"/> dijeli vaš zaslon.</translation>
 <translation id="5599620772482612321">Premještanje stavki ($1).</translation>
@@ -2763,6 +2781,7 @@ Morate biti prijavljeni da biste upotrebljavali tu značajku.</translation>
 <translation id="6571070086367343653">Uređivanje kreditne kartice</translation>
 <translation id="1204242529756846967">Taj se jezik koristi za provjeru pravopisa</translation>
 <translation id="3981760180856053153">Unesena je nevažeća vrsta spremanja.</translation>
+<translation id="8865709004086313039">U međuvremenu možete pročitati <ph name="BEGIN_LINK"/>Česta pitanja<ph name="END_LINK"/> i nastaviti upotrebljavati HP Chromebook 11 s bilo kojim drugim certificiranim mikro-USB punjačem, na primjer, onim koji ste dobili uz tablet ili pametni telefon. Još se jednom ispričavamo zbog neugodnosti. Vaša nam je sigurnost na prvom mjestu.</translation>
 <translation id="593917093612693620">Kada kliknete &quot;Nastavi&quot; prihvaćate dokumente <ph name="LEGAL_DOC_LINK_TEXT_1"/>, <ph name="LEGAL_DOC_LINK_TEXT_2"/> i <ph name="LEGAL_DOC_LINK_TEXT_3"/>. Kako bismo vas zaštitili od prijevare, informacije o vašem računalu (uključujući njegovu lokaciju) dijelit će se s Google novčanikom.</translation>
 <translation id="4508345242223896011">Neprimjetno pomicanje</translation>
 <translation id="6192792657125177640">Iznimke</translation>
@@ -2962,6 +2981,7 @@ Ove i daljnje upute pronaći ćete u e-poruci koju smo poslali na adresu <ph nam
           <ph name="BEGIN_LINK"/>Saznajte više<ph name="END_LINK"/> o gostujućem pregledavanju.</translation>
 <translation id="8004582292198964060">Preglednik</translation>
 <translation id="695755122858488207">Neoznačeni izborni gumb</translation>
+<translation id="6745625605706446078">Obrazac za podnošenje zahtjeva za punjač HP Chromebooka 11</translation>
 <translation id="1934636348456381428">Omogućuje se primjena eksperimentalnih klizača preklapanja. Također morate omogućiti slaganje nitima kako bi se klizači animirali.</translation>
 <translation id="8666678546361132282">Engleski</translation>
 <translation id="2224551243087462610">Uredi naziv mape</translation>
@@ -3155,6 +3175,7 @@ Ove i daljnje upute pronaći ćete u e-poruci koju smo poslali na adresu <ph nam
 <translation id="889901481107108152">Nažalost, ovaj eksperiment nije dostupan na vašoj platformi.</translation>
 <translation id="2042900667172886929">Pražnjenje lokalne predmemorije</translation>
 <translation id="3228969707346345236">Prijevod nije uspio jer stranica već je na jeziku: <ph name="LANGUAGE"/>.</translation>
+<translation id="8238191901674777266">SAD</translation>
 <translation id="1873879463550486830">Sigurna okolina SUID</translation>
 <translation id="8118860139461251237">Upravljanje vašim preuzimanjima</translation>
 <translation id="5111852801054039429">Onemogući WebRTC</translation>
@@ -3182,6 +3203,7 @@ Ove i daljnje upute pronaći ćete u e-poruci koju smo poslali na adresu <ph nam
 <translation id="8923542159871018393">Proširenje <ph name="EXTENSION_NAME"/> izvršava se na ovoj stranici.</translation>
 <translation id="580886651983547002"><ph name="PRODUCT_NAME"/> ne može dosegnuti web-lokaciju. Uzrok tomu obično su poteškoće s mrežom, ali može biti i loše konfiguriran vatrozid ili proxy poslužitelj.</translation>
 <translation id="5445557969380904478">O prepoznavanju glasa</translation>
+<translation id="4104400246019119780">Hvala!</translation>
 <translation id="3487007233252413104">anonimna funkcija</translation>
 <translation id="8965037249707889821">Unesite staru zaporku</translation>
 <translation id="6410328738210026208">Promijeni kanal i pokreni Powerwash</translation>
@@ -3494,6 +3516,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="5045550434625856497">Netočna zaporka</translation>
 <translation id="6397592254427394018">Otvaranje svih oznaka u anonimnom prozoru</translation>
 <translation id="27822970480436970">Ovo proširenje nije uspjelo izmijeniti mrežni zahtjev jer je izmjena u sukobu s drugim proširenjem.</translation>
+<translation id="2453860139492968684">Završi</translation>
 <translation id="756445078718366910">Otvori prozor preglednika</translation>
 <translation id="6132383530370527946">Sitna slova</translation>
 <translation id="9033780830059217187">Proxy poslužitelj nametnut je proširenjem.</translation>
@@ -3596,6 +3619,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="7299721129597238157">Izbriši oznaku</translation>
 <translation id="3031557471081358569">Odaberi stavke za uvoz:</translation>
 <translation id="1368832886055348810">Slijeva udesno</translation>
+<translation id="834106456999819211">Vaša se narudžba obrađuje</translation>
 <translation id="133014027510889724">Omogućavanje praćenja uspješnosti</translation>
 <translation id="3627320433825461852">Preostalo je manje od 1 minute</translation>
 <translation id="3031433885594348982">Vaša veza s <ph name="DOMAIN"/> šifrirana je pomoću slabog šifriranja.</translation>
@@ -3658,6 +3682,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="5358016106459232452">Vrijeme koje je potrebno za potpuni početak rada proizvoda <ph name="SHORT_PRODUCT_NAME"/> u testnom okruženju</translation>
 <translation id="7509179828847922845">Prekinuta je veza s hostom <ph name="HOST_NAME"/>.</translation>
 <translation id="2911372483530471524">PID prostori naziva</translation>
+<translation id="6030886059850316251">Pošaljite mi novi punjač</translation>
 <translation id="4267171000817377500">Dodaci</translation>
 <translation id="8584134039559266300">Aktiviranje kartice 8</translation>
 <translation id="3140978158653201367">Potvrda nove teme</translation>
@@ -3820,6 +3845,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="479989351350248267">pretraživanje</translation>
 <translation id="472177018469288237">Google novčanik nije omogućen</translation>
 <translation id="7730449930968088409">Snimi sadržaj na zaslonu</translation>
+<translation id="1431605150566631089">Provjerite punjač</translation>
 <translation id="7714464543167945231">Certifikat</translation>
 <translation id="8324294541009002530">Onemogući eksperimentalni objekt WebKitMediaSource. Taj objekt omogućuje JavaScriptu slanje medijskih podataka izravno na videoelement.</translation>
 <translation id="4966802378343010715">Izradi novog korisnika</translation>
@@ -3892,6 +3918,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="1479356886123917758">Pristup fotografijama, glazbi i drugim medijima s vašeg računala i njihova izmjena.</translation>
 <translation id="5295309862264981122">Potvrdi navigaciju</translation>
 <translation id="8249320324621329438">Zadnje dohvaćanje:</translation>
+<translation id="718827667662449283">Ujedinjeno Kraljevstvo</translation>
 <translation id="5804241973901381774">Dozvole</translation>
 <translation id="901834265349196618">e-pošta</translation>
 <translation id="8382207127145268451">Omogući proxy poslužitelj za komprimiranje podataka</translation>
@@ -3925,6 +3952,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="4441124369922430666">Želite li automatski pokrenuti tu aplikaciju kada se uređaj uključi?</translation>
 <translation id="3748412725338508953">Bilo je previše preusmjeravanja.</translation>
 <translation id="999754487240933182">Omogućavanje udaljenog ispravljanja pogrešaka u Chromeu za Android putem izravnog USB sučelja (nije potrebno instalirati/pokrenuti Android Debug Bridge).</translation>
+<translation id="7741303706372017829">Ne želim zamijeniti opozvani punjač</translation>
 <translation id="5833726373896279253">Ove postavke može izmjenjivati samo vlasnik:</translation>
 <translation id="9203962528777363226">Administrator ovog uređaja onemogućio je dodavanje novih korisnika</translation>
 <translation id="6005282720244019462">Latinoamerička tipkovnica</translation>
@@ -4184,6 +4212,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="216169395504480358">Dodaj Wi-Fi...</translation>
 <translation id="1804251416207250805">Onemogući slanje signala za provjeru hiperveze.</translation>
 <translation id="5116628073786783676">Sp&amp;remi zvučni zapis kao...</translation>
+<translation id="6172346010137455972">Spremni ste.</translation>
 <translation id="7638054264543643210">Pošaljite e-poruku toj osobi</translation>
 <translation id="2539507112146602356">Alternativni stil gumba opisa okvira</translation>
 <translation id="2557899542277210112">Za brzi pristup dodajte oznake na traku za oznake.</translation>
@@ -4276,6 +4305,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="5831217499016131155">Google novčanik</translation>
 <translation id="3958088479270651626">Uvoz oznaka i postavki</translation>
 <translation id="8518865679229538285">Tamilski način unosa (pisaći stroj)</translation>
+<translation id="4918745183464912186">Australija</translation>
 <translation id="5257456363153333584">Vilin konjic</translation>
 <translation id="4557136421275541763">Upozorenje:</translation>
 <translation id="3872687746103784075">Uklanjanje bugova lokalnog klijenta na temelju GDB-a</translation>
@@ -4398,6 +4428,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="7674629440242451245">Zanimaju li vas nove, kul značajke preglednika Chrome? Isprobajte naš razvojni kanal na stranici chrome.com/dev.</translation>
 <translation id="7568593326407688803">Ova je stranica na ovom jeziku:<ph name="ORIGINAL_LANGUAGE"/>Želite li je prevesti?</translation>
 <translation id="7818135753970109980">Dodana je nova tema (<ph name="EXTENSION_NAME"/>)</translation>
+<translation id="917306543655291301">U međuvremenu možete pronaći više informacija na stranici</translation>
 <translation id="5448293924669608770">Ups, nešto je pošlo po krivu s prijavom</translation>
 <translation id="6870130893560916279">Ukrajinska tipkovnica</translation>
 <translation id="8931394284949551895">Novi uređaji</translation>
@@ -4585,6 +4616,7 @@ Vaši su podaci o prijavi na račun zastarjeli.</translation>
 <translation id="3366404380928138336">Zahtjev vanjskog protokola</translation>
 <translation id="5300589172476337783">Prikaži</translation>
 <translation id="3160041952246459240">Imate certifikate u arhivi koji identificiraju ove poslužitelje:</translation>
+<translation id="5806573568064269889">Potvrđujem da upotrebljavam punjač sa zelenom naljepnicom.</translation>
 <translation id="566920818739465183">Prvi ste put posjetili ovu web lokaciju na datum <ph name="VISIT_DATE"/>.</translation>
 <translation id="2961695502793809356">Kliknite za kretanje prema naprijed, zadržite da biste vidjeli povijest</translation>
 <translation id="4092878864607680421">Najnovija verzija aplikacije &quot;<ph name="APP_NAME"/>&quot; zahtijeva više dopuštenja i stoga je onemogućena.</translation>
@@ -4780,6 +4812,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="1852583733258643568"><ph name="BEGIN_BOLD"/>2. <ph name="END_BOLD"/>Testiranje veze s usmjerivačem</translation>
 <translation id="48607902311828362">Način rada u zrakoplovu</translation>
 <translation id="680572642341004180">Omogući praćenje RLZ-a za <ph name="SHORT_PRODUCT_OS_NAME"/>.</translation>
+<translation id="688797901999351107">Prestanite upotrebljavati opozvani punjač.</translation>
 <translation id="8142699993796781067">Privatna mreža</translation>
 <translation id="1374468813861204354">prijedlozi</translation>
 <translation id="5906065664303289925">Hardverska adresa:</translation>

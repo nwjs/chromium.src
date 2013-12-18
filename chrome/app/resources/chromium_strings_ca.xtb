@@ -12,11 +12,10 @@
 <translation id="6613594504749178791">Els canvis s'aplicaran la propera vegada que reinicieu Chromium.</translation>
 <translation id="3748537968684000502">Esteu visualitzant una pàgina segura de Chromium.</translation>
 <translation id="8971920611044657379">Chromium Frame</translation>
-<translation id="2077129598763517140">Utilitza l'acceleració de maquinari quan estigui disponible</translation>
+<translation id="2077129598763517140">Utilitza l'acceleració per maquinari quan estigui disponible</translation>
 <translation id="1065672644894730302">No es poden llegir les vostres preferències. És possible que algunes funcions no estiguin disponibles i que els canvis a les preferències no es desin.</translation>
 <translation id="4222661289444749267">Actualització de Chromium Frame.</translation>
 <translation id="4423735387467980091">Personalitza i controla Chromium</translation>
-<translation id="2843244238218937196">Renderitzador de Chromium</translation>
 <translation id="1881322772814446296">Esteu a punt d'iniciar la sessió amb un compte gestionat i d'atorgar el control del vostre perfil de Chromium a l'administrador corresponent. Les dades de Chromium, com ara aplicacions, adreces d'interès, historial, contrasenyes i altres configuracions, s'enllaçaran permanentment amb <ph name="USER_NAME"/>. Podreu suprimir aquestes dades mitjançant el Tauler de Comptes de Google, però no les podreu associar amb un altre compte. De manera opcional, podeu crear un perfil nou per mantenir les vostres dades de Chromium a part. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame ja està instal·lat i disponible per a tots els usuaris d'aquest equip. Si voleu instal·lar Chromium Frame a nivell d'usuari, primer cal desinstal·lar la versió de nivell de sistema que un administrador ha instal·lat.</translation>
 <translation id="731644333568559921">Actualitza &amp;Chromium OS</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Estableix Chromium com a navegador predeterminat</translation>
 <translation id="6309712487085796862">Chromium està utilitzant la càmera.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Aplicació de treball de Chromium</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">No em molestis</translation>
 <translation id="1745962126679160932">Chromium emmagatzemarà de manera segura la vostra informació perquè no hàgiu de tornar-la a escriure, però continuareu havent de verificar el codi de seguretat de la targeta per a pagaments futurs.</translation>
@@ -154,7 +152,6 @@
 És possible que algunes funcions no estiguin disponibles. Especifiqueu un altre directori de perfil o utilitzeu una versió més nova de Chromium.</translation>
 <translation id="9013087743919948559">Addició a Chromium</translation>
 <translation id="6212496753309875659">Aquest equip ja té una versió més recent de Chromium. Si el programari no funciona, desinstal·leu Chromium i torneu-ho a provar.</translation>
-<translation id="3014684866565908571">Utilitat de Chromium</translation>
 <translation id="1298199220304005244">Obtén ajuda per a l'ús de Chromium OS</translation>
 <translation id="8187289872471304532">Aneu a
           Aplicacions &gt; Preferències del sistema &gt; Xarxa &gt; Opcions avançades &gt; Servidors intermediaris
@@ -198,7 +195,6 @@
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> pot canviar la vostra configuració de Chromium.</translation>
 <translation id="8724049448828509830">En aquests moments hi ha una baixada en curs. Voleu sortir de Chromium i cancel·lar la baixada?</translation>
 <translation id="3360567213983886831">Binaris Chromium</translation>
-<translation id="7503101070699687603">Amfitrió del connector de Chromium</translation>
 <translation id="8985587603644336029">Algú ha iniciat anteriorment la sessió a Chromium en aquest ordinador com a <ph name="ACCOUNT_EMAIL_LAST"/>. Si no és el vostre compte, creeu un usuari de Chromium per mantenir la informació separada.
 
 En iniciar la sessió, sigui amb l'usuari que sigui, es combinarà amb <ph name="ACCOUNT_EMAIL_NEW"/> la informació de Chromium com ara adreces d'interès, historial i altres configuracions.</translation>

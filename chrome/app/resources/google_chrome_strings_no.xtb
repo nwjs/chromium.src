@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">På Mac blir passord lagret i nøkkelringen. Andre Chrome-brukere som deler denne OS X-kontoen, har adgang til og kan synkronisere med disse passordene.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> kan endre Chrome-innstillingene dine.</translation>
 <translation id="1761870329818521071">Versjonen av Google Chrome Frame du prøver å installere, kjører allerede. Lukk Google Chrome Frame, og forsøk å installere på nytt.</translation>
-<translation id="2040709530900803995">Google Chrome-gjengiver</translation>
 <translation id="6014844626092547096">Du er nå logget på Chrome. Synkronisering er deaktivert av administratoren din.</translation>
 <translation id="3140883423282498090">Endringene dine trer i kraft neste gang du starter Google Chrome.</translation>
 <translation id="1773601347087397504">Få hjelp med å bruke Chrome OS</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Fortsett kjøringen av bakgrunnsprogrammer når Google Chrome er lukket</translation>
 <translation id="4149882025268051530">Installasjonsprogrammet fikk ikke dekomprimert arkivet. Last ned Google Chrome på nytt.</translation>
 <translation id="6989339256997917931">Google Chrome har blitt oppdatert, men du har ikke brukt programmet på minst 30 dager.</translation>
-<translation id="5744005218040929396">Google Chromes verktøy</translation>
 <translation id="7060865993964054389">Google Chrome Appvelger</translation>
 <translation id="1682634494516646069">Google Chrome kan ikke lese og skrive til sin egen datakatalog: <ph name="USER_DATA_DIRECTORY"/></translation>
 <translation id="4343226815564935778">Det ser ut til at installasjonsmappen for Google Chrome er i bruk. Du må starte datamaskinen på nytt og prøve igjen.</translation>
@@ -119,7 +117,6 @@ Hvis du logger deg på allikevel, blir Chrome-informasjon som bokmerker, loggen 
 <translation id="911206726377975832">Vil du slette all nettleserdata også?</translation>
 <translation id="5855036575689098185">Programvaren som kjører på datamaskinen din er ikke kompatibel med Google Chrome.</translation>
 <translation id="2044287590254833138">Google Chrome-verktøyraden</translation>
-<translation id="5074344184765391290">Chromes vert for programtillegg</translation>
 <translation id="8862326446509486874">Du har ikke de nødvendige rettighetene for å installere på systemnivå. Prøv å kjøre installasjonsprogrammet som administrator.</translation>
 <translation id="2874156562296220396">Google Chrome er tilgjengelig som følge av prosjektet for åpen kilde, <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/>, og annen <ph name="BEGIN_LINK_OSS"/>programvare for åpen kilde<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Det kan hende at Google Chrome bruker nettbaserte tjenester for å forbedre din surfeopplevelse.</translation>
@@ -167,12 +164,10 @@ Hvis du logger deg på allikevel, blir Chrome-informasjon som bokmerker, loggen 
 <translation id="576822117893741893">Vis Chrome-menyen</translation>
 <translation id="3444832043240812445">Denne siden viser kun informasjon om nylige programstopp hvis du <ph name="BEGIN_LINK"/>aktiverer rapportering av programstopp<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome svarer ikke. Vil du starte på nytt nå?</translation>
-<translation id="5318056482164160049">Vert for programtillegg i Google Chrome</translation>
 <translation id="6126631249883707068">Vil du at Google Chrome skal lagre passordet?</translation>
 <translation id="7773845170078702898">Vil du at Google Chrome skal lagre passordet du bruker på dette nettstedet?</translation>
 <translation id="5046764976540625289">Avslutt Chrome</translation>
 <translation id="4251615635259297716">Vil du koble Chrome-dataene dine til denne kontoen?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Nettleser</translation>
 <translation id="8142608456917638009">Google Chrome kunne ikke opprette appsnarveien.</translation>

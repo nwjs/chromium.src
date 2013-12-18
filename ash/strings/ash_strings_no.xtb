@@ -22,7 +22,7 @@
 <translation id="938582441709398163">Tastaturbelegg</translation>
 <translation id="4387004326333427325">Autentiseringssertifikatet ble avvist eksternt</translation>
 <translation id="6979158407327259162">Google Disk</translation>
-<translation id="3683428399328702079"><ph name="DISPLAY_NAME"/>-oppløsningen ble endret til <ph name="RESOLUTION"/></translation>
+<translation id="3683428399328702079">Oppløsningen for <ph name="DISPLAY_NAME"/> ble endret til <ph name="RESOLUTION"/></translation>
 <translation id="6943836128787782965">Henting av HTTP mislyktes</translation>
 <translation id="2297568595583585744">Status-felt</translation>
 <translation id="1661867754829461514">Personlig kode mangler</translation>
@@ -151,6 +151,7 @@ Trykk på Ctrl+Alt+Z for å deaktivere.</translation>
 <translation id="3473479545200714844">Skjermforstørrer</translation>
 <translation id="7005812687360380971">Feil</translation>
 <translation id="882279321799040148">Klikk for å se den</translation>
+<translation id="1753067873202720523">Chromebook lades kanskje ikke mens den er slått på.</translation>
 <translation id="5045550434625856497">Feil passord</translation>
 <translation id="1602076796624386989">Aktivér mobildata</translation>
 <translation id="6981982820502123353">Tilgjengelighet</translation>

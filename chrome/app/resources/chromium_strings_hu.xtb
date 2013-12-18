@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">A beállításait nem sikerült olvasni. Egyes funkciókat esetleg nem ér el, és a beállításaiban végrehajtott módosításokat nem menti a rendszer.</translation>
 <translation id="4222661289444749267">Chromium Frame-frissítés.</translation>
 <translation id="4423735387467980091">A Chromium személyre szabása és beállításai</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Kezelt fiókkal jelentkezik be, és annak adminisztrátora számára hozzáférést biztosít Chromium-profiljához. Chromium-adatait – például alkalmazásait, könyvjelzőit, előzményeit, jelszavait és más beállításait – a rendszer véglegesen társítja a(z) <ph name="USER_NAME"/> fiókhoz. Ezen adatokat a Google-fiók Irányítópultján törölheti, de más fiókhoz nem társíthatja őket. Létrehozhat egy új profilt is meglévő Chromium-adatainak elkülönített tárolásához. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">A Chromium Frame már telepítve van, és elérhető a számítógép minden felhasználója számára. Ha felhasználói szinten szeretné telepíteni a Chromium Frame-et, először el kell távolítania a rendszergazda által telepített rendszerszintű verziót.</translation>
 <translation id="731644333568559921">A &amp;Chromium OS frissítése</translation>
@@ -121,7 +120,6 @@
 <translation id="6248213926982192922">Legyen a Chromium az alapértelmezett böngészőm</translation>
 <translation id="6309712487085796862">A Chromium használja a kamerát.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Ne zavarjanak ezzel</translation>
 <translation id="1745962126679160932">A Chromium biztonságosan tárolja az Ön adatait, így nem kell újra begépelnie azokat, de kártyája biztonsági kódját igazolnia kell majd a későbbi kifizetésekhez.</translation>
@@ -151,7 +149,6 @@
 <translation id="6717134281241384636">A profilja nem használható, mert az a Chromium egy újabb verziójából származik. Előfordulhat, hogy egyes funkciók nem érhetők el. Kérjük, adjon meg egy másik profilmappát, vagy használja a Chromium újabb verzióját.</translation>
 <translation id="9013087743919948559">Hozzáadás a Chromiumhoz</translation>
 <translation id="6212496753309875659">A számítógépen már megtalálható a Chromium újabb verziója. Ha a szoftver nem működik, kérjük, távolítsa el a Chromiumot, majd próbálkozzon újra.</translation>
-<translation id="3014684866565908571">Chromium segédprogram</translation>
 <translation id="1298199220304005244">Segítség kérése a Chromium OS használatával  kapcsolatban</translation>
 <translation id="8187289872471304532">Az Applications &gt; System Preferences &gt; Network &gt; Advanced &gt; Proxies (Alkalmazások &gt; Rendszerbeállítások &gt; Hálózat &gt; Speciális &gt; Proxyk) menüpont alatt törölje a jelet minden kijelölt proxy mellől.</translation>
 <translation id="4488676065623537541">Számlázási adatait a Chromium mentette.</translation>
@@ -194,7 +191,6 @@
 <translation id="7331621180831839236">A(z) <ph name="FILE_NAME"/> módosíthatja a Chromium beállításait.</translation>
 <translation id="8724049448828509830">Folyamatban van egy letöltés. Szeretne kilépni a Chromiumból, és megszakítja a letöltést?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium plug-in tárhely</translation>
 <translation id="8985587603644336029">Valaki korábban <ph name="ACCOUNT_EMAIL_LAST"/> néven bejelentkezett a Chromiumba erről a számítógépről. Ha ez nem az Ön fiókja, hozzon létre egy új Chromium-felhasználót, hogy elkülönítse adatait.
 
 Ha mindenképp bejelentkezik, akkor egyesíti a(z) <ph name="ACCOUNT_EMAIL_NEW"/> fiókkal az olyan Chromium-adatokat, mint a könyvjelzők, az előzmények és más beállítások.</translation>

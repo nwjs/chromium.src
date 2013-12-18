@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">‏در Mac، گذرواژه‌ها در Keychain شما ذخیره می‌شوند و توسط سایر کاربران Chrome که این حساب OS X را به اشتراک می‌گذارند، قابل دسترسی و همگام‌سازی است.</translation>
 <translation id="3993188379797269327">‏<ph name="FILE_NAME"/> ممکن است تنظیمات Chrome شما را تغییر دهد.</translation>
 <translation id="1761870329818521071">‏نمی‌توان همان نسخه Google Chrome Frame را که اکنون در حال اجراست نصب کرد. لطفاً Google Chrome Frame را ببندید و دوباره امتحان کنید.</translation>
-<translation id="2040709530900803995">‏رندرساز Google Chrome</translation>
 <translation id="6014844626092547096">‏اکنون وارد Chrome شدید! سرپرست سیستم شما همگام‌سازی را از کار انداخته است.</translation>
 <translation id="3140883423282498090">‏دفعه بعد که Google Chrome را مجدداً راه‌اندازی می‌کنید، این تغییرات اعمال می‌شوند.</translation>
 <translation id="1773601347087397504">‏دریافت راهنمایی برای استفاده از سیستم عامل Chrome </translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">‏ادامه اجرای برنامه‌ها در پس‌زمینه هنگامیکه Google Chrome بسته می‌شود</translation>
 <translation id="4149882025268051530">‏نصب کننده در خارج کردن آرشیو از حالت فشرده ناموفق بود. لطفاً دوباره Google Chrome را دانلود کنید.</translation>
 <translation id="6989339256997917931">‏Google Chrome به روز شده است اما حداقل ۳۰ روز از آن استفاده نکرده‌اید.</translation>
-<translation id="5744005218040929396">‏برنامه کمکی Google Chrome</translation>
 <translation id="7060865993964054389">‏راه‌انداز برنامه Google Chrome</translation>
 <translation id="1682634494516646069">‏Google Chrome نمی‌تواند مسیر داده‌های خود را بخواند یا در آن بنویسد: <ph name="USER_DATA_DIRECTORY"/></translation>
 <translation id="4343226815564935778">‏دایرکتوری نصب Google Chrome در حال استفاده است. لطفاً رایانهٔ خود را مجدداً راه‌اندازی کنید و دوباره سعی کنید.</translation>
@@ -120,7 +118,6 @@
 <translation id="911206726377975832">داده‌های مرور شما نیز حذف شود؟</translation>
 <translation id="5855036575689098185">‏نرم‌افزار در حال اجرا در رایانه شما با Google Chrome سازگار نیست.</translation>
 <translation id="2044287590254833138">‏نوارابزار Google Chrome</translation>
-<translation id="5074344184765391290">‏میزبان افزونه Chrome</translation>
 <translation id="8862326446509486874">شما حقوق لازم برای نصب در سطح سیستم را ندارید. دوباره به‌عنوان سرپرست نصب کننده را اجرا کنید.</translation>
 <translation id="2874156562296220396">‏Google Chrome با پروژه منبع باز <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> و دیگر <ph name="BEGIN_LINK_OSS"/>نرم‌افزارهای منبع باز<ph name="END_LINK_OSS"/> کار می‌کند.</translation>
 <translation id="3847841918622877581">‏Google Chrome ممکن است از سرویس‌های وب برای بهبود تجربه مرور استفاده کند.</translation>
@@ -170,12 +167,10 @@
 <translation id="576822117893741893">‏نمایش منوی Chrome</translation>
 <translation id="3444832043240812445">در صورتی که <ph name="BEGIN_LINK"/>ارسال گزارش خرابی را فعال کنید<ph name="END_LINK"/>، این صفحه فقط اطلاعاتی را در مورد مشکلات اخیر شما نشان می‌دهد.</translation>
 <translation id="8614913330719544658">‏Google Chrome پاسخ نمی‌دهد. مجدداً راه‌اندازی شود؟</translation>
-<translation id="5318056482164160049">‏میزبان افزونه Google Chrome</translation>
 <translation id="6126631249883707068">‏آیا می‌خواهید Google Chrome رمز ورود شما را ذخیره کند؟</translation>
 <translation id="7773845170078702898">‏آیا می‌خواهید Google Chrome گذرواژه شما برای این سایت را ذخیره کند؟</translation>
 <translation id="5046764976540625289">‏خروج از Chrome</translation>
 <translation id="4251615635259297716">‏داده‌های Chrome شما به این حساب مرتبط شوند؟</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">مرورگر اینترنت</translation>
 <translation id="8142608456917638009">‏Google Chrome نمی‌تواند میانبر برنامه کاربردی ایجاد کند.</translation>

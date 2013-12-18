@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Pilihan anda tidak dapat dibaca. Beberapa ciri mungkin tidak tersedia dan perubahan terhadap pilihan tidak akan disimpan.</translation>
 <translation id="4222661289444749267">Kemas Kini Chromium Frame.</translation>
 <translation id="4423735387467980091">Sesuaikan dan kawal Chromium</translation>
-<translation id="2843244238218937196">Pemapar Chromium</translation>
 <translation id="1881322772814446296">Anda log masuk menggunakan akaun yang terurus dan memberikan pentadbirnya kawalan ke atas profil Chromium anda. Data Chromium anda, seperti apl, penanda halaman, sejarah, kata laluan dan tetapan anda yang lain akan terikat kepada <ph name="USER_NAME"/> secara kekal. Anda akan dapat memadamkan data ini melalui Papan Pemuka Akaun Google, tetapi anda tidak akan dapat mengaitkan data ini dengan akaun lain. Anda boleh memilih untuk membuat profil baharu untuk mengasingkan data Chromium anda yang sedia ada. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame telah dipasang dan tersedia untuk semua pengguna komputer ini. Jika anda ingin memasang Chromium Frame pada tahap pengguna, mula-mula anda mesti menyahpasang versi tahap sistem yang dipasang oleh pihak pentadbir.</translation>
 <translation id="731644333568559921">Kemas kini &amp;Chromium OS</translation>
@@ -121,7 +120,6 @@
 <translation id="6248213926982192922">Jadikan Chromium penyemak imbas lalai</translation>
 <translation id="6309712487085796862">Chromium menggunakan kamera anda.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Pekerja Chromium</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Jangan ganggu saya</translation>
 <translation id="1745962126679160932">Chromium akan menyimpan maklumat anda dengan selamat supaya anda tidak perlu menaipkannya semula, tetapi anda masih perlu mengesahkan kod keselamatan kad anda untuk pembayaran pada masa hadapan.</translation>
@@ -153,7 +151,6 @@
 Beberapa ciri mungkin tidak tersedia. Sila nyatakan direktori profil yang berbeza atau gunakan versi Chromium yang lebih baharu.</translation>
 <translation id="9013087743919948559">Tambah ke Chromium</translation>
 <translation id="6212496753309875659">Komputer ini telah mempunyai versi Chromium yang lebih baharu. Jika perisian tidak berfungsi, sila nyahpasang Chromium dan cuba lagi.</translation>
-<translation id="3014684866565908571">Utiliti Chromium</translation>
 <translation id="1298199220304005244">Dapatkan bantuan untuk menggunakan Chromium OS</translation>
 <translation id="8187289872471304532">Pergi ke
           Apikasi &gt; Pilihan Sistem &gt; Rangkaian &gt; Terperinci &gt; Proksi
@@ -198,7 +195,6 @@ Beberapa ciri mungkin tidak tersedia. Sila nyatakan direktori profil yang berbez
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> boleh mengubah tetapan Chromium anda.</translation>
 <translation id="8724049448828509830">Muat turun sedang dijalankan. Adakah anda ingin keluar dari Chromium dan membatalkan muat turun?</translation>
 <translation id="3360567213983886831">Perduaan Chromium</translation>
-<translation id="7503101070699687603">Hos Pemalam Chromium</translation>
 <translation id="8985587603644336029">Seseorang telah log masuk ke Chromium pada komputer ini sebagai <ph name="ACCOUNT_EMAIL_LAST"/> sebelum ini. Jika itu bukan akaun anda, buat pengguna Chromium baharu untuk mengasingkan maklumat anda.
 
 Meneruskan juga log masuk akan menggabungkan maklumat Chromium seperti penanda halaman, sejarah dan tetapan lain ke <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

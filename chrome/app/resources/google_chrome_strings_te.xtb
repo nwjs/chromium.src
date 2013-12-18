@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Macలో, పాస్‌వర్డ్‌లు మీ కీచైన్‌కు సేవ్ చేయబడతాయి మరియు ఈ OS X ఖాతాను భాగస్వామ్యం చేయడం ద్వారా ఇతర Chrome వినియోగదారులు ప్రాప్తి చేయవచ్చు లేదా సమకాలీకరించవచ్చు.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> మీ Chrome సెట్టింగ్‌లను మార్చవచ్చు.</translation>
 <translation id="1761870329818521071">ప్రస్తుతం అమలవుతున్న అదే Google Chrome Frame సంస్కరణను వ్యవస్థాపించలేదు. దయచేసి Google Chrome Frameను మూసివేసి, మళ్ళీ ప్రయత్నించండి.</translation>
-<translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="6014844626092547096">ఇప్పుడు మీరు Chromeకు సైన్ ఇన్ చేసారు! మీ నిర్వాహకులు సమకాలీకరణని నిలిపివేసారు.</translation>
 <translation id="3140883423282498090">మీ మార్పులు మీరు Google Chromeను మళ్లీ ప్రారంభించినప్పుడు ప్రభావాన్ని చూపుతాయి.</translation>
 <translation id="1773601347087397504">Chrome OSని ఉపయోగించి సహాయాన్ని పొందండి</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Google Chrome మూసివేసినపుడు అనువర్తనాలను నేపథ్యంలో అమలు చేయడాన్ని కొనసాగించు</translation>
 <translation id="4149882025268051530">ఆర్కైవ్‌ను విస్తరించడంలో ఇన్‌స్టాలర్ విఫలమైంది. దయచేసి Google Chromeను మళ్ళీ డౌన్‌లోడ్ చెయ్యండి.</translation>
 <translation id="6989339256997917931">Google Chrome నవీకరింబడింది, కానీ మీరు దీన్ని కనీసం 30 రోజులు ఉయోగించలేరు.</translation>
-<translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="7060865993964054389">Google Chrome అనువర్తన లాంచర్</translation>
 <translation id="1682634494516646069">Google Chrome దీని డేటా డైరెక్టరీని చదవలేదు మరియు దీనిలో వ్రాయలేదు: <ph name="USER_DATA_DIRECTORY"/></translation>
 <translation id="4343226815564935778">Google Chrome ఇన్‌స్టాలేషన్ డైరెక్టరీ ఉపయోగంలో ఉన్నట్టుగా ఉంది. దయచేసి మీ కంప్యూటర్‌ను రీబూట్ చేసి మళ్ళీ ప్రయత్నించండి.</translation>
@@ -118,7 +116,6 @@
 <translation id="911206726377975832">మీ బ్రౌజింగ్ డేటాని కూడా తొలగించాలా?</translation>
 <translation id="5855036575689098185">మీ కంప్యూటర్‌లో అమలవుతున్న సాఫ్ట్‌వేర్ Google Chromeకు అనుకూలంగా లేదు.</translation>
 <translation id="2044287590254833138">Google Chrome ఉపకరణ పట్టీ</translation>
-<translation id="5074344184765391290">Chrome Plug-In Host</translation>
 <translation id="8862326446509486874">సిస్టమ్-స్థాయిలో ఇన్‌స్టాల్‌ చెయ్యడానికి మీకు సరైన హక్కులు లేవు. నిర్వాహకుడి లాగ ఇన్‌స్టాలర్‌ను మళ్ళీ రన్ చెయ్యడానికి ప్రయత్నించండి.</translation>
 <translation id="2874156562296220396">Google Chrome <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> ఓపెన్ సోర్స్ ప్రాజెక్ట్‌ మరియు ఇతర <ph name="BEGIN_LINK_OSS"/>open source software‌<ph name="END_LINK_OSS"/> వల్ల సాధ్యం అవుతుంది.</translation>
 <translation id="3847841918622877581">Google Chrome మీ బ్రౌజింగ్ అనుభవాన్ని మెరుగుపరచడానికి వెబ్ సేవలను ఉపయోగించవచ్చు.</translation>
@@ -166,12 +163,10 @@
 <translation id="576822117893741893">Chrome మెనును చూపు</translation>
 <translation id="3444832043240812445">మీరు <ph name="BEGIN_LINK"/>క్రాష్‌ నివేదికను ప్రారంభించినపుడు<ph name="END_LINK"/> ఈ పేజీ మీ ఇటీవలి క్రాష్‌ల సమాచారాన్ని మాత్రమే చూపిస్తుంది.</translation>
 <translation id="8614913330719544658">Google Chrome స్పందించడం లేదు. ఇప్పుడే పునఃప్రారంభించాలా?</translation>
-<translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
 <translation id="6126631249883707068">మీ పాస్‌వర్డ్‌ను Google Chrome సేవ్ చేయాలని మీరు అనుకుంటున్నారా?</translation>
 <translation id="7773845170078702898">మీరు Google Chrome ఈ సైట్ కోసం మీ పాస్‌వర్డ్‌ను సేవ్ చేయాలనుకుంటున్నారా?</translation>
 <translation id="5046764976540625289">Chrome నుండి నిష్క్రమించు</translation>
 <translation id="4251615635259297716">మీ Chrome డేటాను ఈ ఖాతాకు జోడించాలా?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">ఇంటర్నెట్ బ్రౌజర్</translation>
 <translation id="8142608456917638009">Google Chrome అనువర్తన సత్వరమార్గాన్ని సృష్టించలేకపోయింది.</translation>

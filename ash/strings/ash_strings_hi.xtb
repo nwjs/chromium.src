@@ -117,7 +117,7 @@
 <translation id="8528322925433439945">मोबाइल ...</translation>
 <translation id="7049357003967926684">संबद्धता</translation>
 <translation id="8428213095426709021">सेटिंग</translation>
-<translation id="2372145515558759244">एप्स समन्वयित किए जा रहे हैं...</translation>
+<translation id="2372145515558759244">ऐप्स  समन्वयित किए जा रहे हैं...</translation>
 <translation id="7256405249507348194">अपरिचित त्रुटि: <ph name="DESC"/></translation>
 <translation id="7925247922861151263">AAA जांच विफल</translation>
 <translation id="8456362689280298700">पूरा होने में <ph name="HOUR"/>:<ph name="MINUTE"/> शेष</translation>
@@ -136,7 +136,7 @@
 <translation id="1882897271359938046"><ph name="DISPLAY_NAME"/> पर मिरर कर रहा है</translation>
 <translation id="2727977024730340865">कम-शक्ति वाले चार्जर में प्लग इन करें. बैटरी चार्ज करना संभवत: विश्वसनीय नहीं होगा.</translation>
 <translation id="3784455785234192852">लॉक करें</translation>
-<translation id="2805756323405976993">एप्स</translation>
+<translation id="2805756323405976993">ऐप्स </translation>
 <translation id="1512064327686280138">सक्रियण विफलता</translation>
 <translation id="5097002363526479830">नेटवर्क से कनेक्ट करने में विफल '<ph name="NAME"/>': <ph name="DETAILS"/></translation>
 <translation id="1850504506766569011">Wi-Fi बंद है.</translation>
@@ -151,6 +151,7 @@
 <translation id="3473479545200714844">स्क्रीन आवर्द्धक</translation>
 <translation id="7005812687360380971">विफलता</translation>
 <translation id="882279321799040148">देखने के लिए क्लिक करें</translation>
+<translation id="1753067873202720523">हो सकता है कि आपका Chrome बुक चालू होने पर चार्ज न हो.</translation>
 <translation id="5045550434625856497">गलत पासवर्ड</translation>
 <translation id="1602076796624386989">मोबाइल डेटा सक्षम करें</translation>
 <translation id="6981982820502123353">पहुंच क्षमता</translation>

@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Preferințele dvs. nu pot fi citite. Este posibil ca unele funcții să nu fie disponibile, iar modificările aduse preferințelor nu vor fi salvate.</translation>
 <translation id="4222661289444749267">Actualizare Chromium Frame.</translation>
 <translation id="4423735387467980091">Personalizați și controlați Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Vă conectați cu un cont gestionat și îi permiteți administratorului acestuia controlul asupra profilului dvs. Chromium. Datele Chromium, cum ar fi aplicațiile, marcajele, istoricul, parolele și alte setări vor fi asociate definitiv cu <ph name="USER_NAME"/>. Veți putea să ștergeți aceste date prin intermediul Tabloului de bord pentru Conturi Google, însă nu veți putea să asociați aceste date cu alt cont. Aveți opțiunea de a crea un profil nou, pentru a păstra separat datele Chromium existente. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame este instalat deja și disponibil pentru toți utilizatorii de pe acest computer. Dacă doriți să instalați Chromium Frame la nivel de utilizator, trebuie să dezinstalați mai întâi versiunea la nivel de sistem, instalată de un administrator.</translation>
 <translation id="731644333568559921">Actualizați sistemul de operare &amp;Chromium</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Setați Chromium ca browser prestabilit</translation>
 <translation id="6309712487085796862">Chromium utilizează camera foto.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Sistemul de operare Chromium</translation>
 <translation id="6757767188268205357">Doresc să nu mai fiu deranjat</translation>
 <translation id="1745962126679160932">Chromium va stoca în siguranță informațiile dvs., astfel încât să nu trebuiască să le introduceți din nou, dar va trebui în continuare să confirmați codul de securitate al cardului pentru viitoarele plăți.</translation>
@@ -154,7 +152,6 @@
 Este posibil ca unele funcții să nu fie disponibile. Specificați un director de profil diferit sau utilizați o versiune mai nouă de Chromium.</translation>
 <translation id="9013087743919948559">Adăugați la Chromium</translation>
 <translation id="6212496753309875659">Acest computer are deja o versiune mai recentă de Chromium. Dacă software-ul nu funcționează, dezinstalați Chromium și încercați din nou.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Obțineți ajutor în legătură cu utilizarea sistemului de operare Chromium</translation>
 <translation id="8187289872471304532">Accesați
           Applications (Aplicații) &gt; System Preferences (Preferințe de sistem) &gt; Network (Rețea) &gt; Advanced (Avansat) &gt; Proxies (Servere proxy)
@@ -199,7 +196,6 @@ Este posibil ca unele funcții să nu fie disponibile. Specificați un director 
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> vă poate modifica setările pentru Chromium.</translation>
 <translation id="8724049448828509830">O descărcare este în desfășurare. Doriți să ieșiți din Chromium și să anulați descărcarea?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">Un alt utilizator s-a conectat anterior la Chromium de pe acest computer ca <ph name="ACCOUNT_EMAIL_LAST"/>. Dacă acesta nu este contul dvs., creați un nou utilizator Chromium, pentru a vă păstra separat datele.
 
 Dacă totuși vă conectați, informațiile Chromium cum ar fi marcajele, istoricul și alte setări vor fi îmbinate cu <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

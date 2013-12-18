@@ -19,15 +19,16 @@
 <translation id="1058418043520174283"><ph name="INDEX"/> de <ph name="COUNT"/></translation>
 <translation id="1128109161498068552">Não permitir que nenhum site use mensagens exclusivas do sistema para acessar dispositivos MIDI</translation>
 <translation id="2516632596252643567">&lt;p&gt;
-         Acesse aqui as guias abertas em seu computador.
+          Acesse aqui as guias abertas no seu computador.
           &lt;/p&gt;
           &lt;p&gt;
-          Basta abrir o Google Chrome em seu computador, ir para o menu e selecionar &quot;Fazer login no Google Chrome...&quot;
+          Basta abrir o Google Chrome no seu computador, ir para o menu e selecionar &quot;Fazer login no Google Chrome...&quot;
           &lt;/p&gt;</translation>
 <translation id="8417199120207155527">Ativar esta opção impede que aplicativos da Web acessem a API WebRTC.</translation>
 <translation id="778579833039460630">Nenhum dado foi recebido</translation>
 <translation id="32279126412636473">Atualizar (⌘R)</translation>
 <translation id="1852799913675865625">Ocorreu um erro ao tentar ler o arquivo: <ph name="ERROR_TEXT"/></translation>
+<translation id="6114740317862089559">Consulte a <ph name="BEGIN_LINK"/>Política de Privacidade <ph name="END_LINK"/> para ver mais detalhes sobre como lidamos com essas informações.</translation>
 <translation id="3828924085048779000">Uma senha vazia não é permitida.</translation>
 <translation id="1844692022597038441">Este arquivo não está disponível off-line.</translation>
 <translation id="2709516037105925701">Preenchimento automático</translation>
@@ -401,6 +402,8 @@
 <translation id="667115622929458276">Há downloads anônimos em andamento. Deseja sair do modo de navegação anônima e cancelar os downloads?</translation>
 <translation id="1528372117901087631">Conexão com a Internet</translation>
 <translation id="1788636309517085411">Usar padrão</translation>
+<translation id="4159435316791146348">Com a orientação e a aprovação da CPSC e de outras agências reguladoras, o Google e a HP estão fazendo o recall do carregador original do HP Chromebook 11.</translation>
+<translation id="7659660321065362272">Atualização importante sobre seu Chromebook HP 11</translation>
 <translation id="1228893227497259893">Identificador de entidade incorreto</translation>
 <translation id="9177499212658576372">No momento, você está conectado à rede <ph name="NETWORK_TYPE"/>.</translation>
 <translation id="8589311641140863898">APIs de extensões experimentais</translation>
@@ -485,6 +488,7 @@
 <translation id="5866557323934807206">Limpar estas configurações para visitas futuras</translation>
 <translation id="5355351445385646029">Pressione a barra de espaço para selecionar o candidato</translation>
 <translation id="5453029940327926427">Fechar guias</translation>
+<translation id="949088605431823851">Onde você comprou este Chromebook HP 11?</translation>
 <translation id="9087353528325876418">URL de descoberta automática de proxies da Web</translation>
 <translation id="2958431318199492670">A configuração de rede não está de acordo com o padrão ONC. Partes da configuração podem não ser importadas.</translation>
 <translation id="3878840326289104869">Criando usuário supervisionado</translation>
@@ -735,7 +739,7 @@
 <translation id="4538417792467843292">Excluir palavra</translation>
 <translation id="7309257895202129721">Mostrar &amp;controles</translation>
 <translation id="8412392972487953978">Você deve inserir a mesma senha duas vezes.</translation>
-<translation id="9121814364785106365">Abrir como guia marcada</translation>
+<translation id="9121814364785106365">Abrir como guia fixada</translation>
 <translation id="6292030868006209076">Método de entrada Tamil (itrans)</translation>
 <translation id="6753269504797312559">Valor da política</translation>
 <translation id="5396126354477659676">O plug-in <ph name="PEPPER_PLUGIN_NAME"/> do domínio <ph name="PEPPER_PLUGIN_DOMAIN"/> deseja acessar seu computador.</translation>
@@ -882,6 +886,8 @@
 <translation id="3600456501114769456">O acesso aos arquivos locais de seu dispositivo foi desativado pelo administrador.</translation>
 <translation id="7879478708475862060">Seguir modo de entrada</translation>
 <translation id="1042174272890264476">Seu computador já vem com a biblioteca RLZ do <ph name="SHORT_PRODUCT_NAME"/> integrada. O RLZ atribui uma tag não exclusiva e sem identificação pessoal para medir as pesquisas e o uso do <ph name="SHORT_PRODUCT_NAME"/> gerados por uma campanha promocional específica. Esses marcadores às vezes aparecem em consultas da Pesquisa do Google no <ph name="PRODUCT_NAME"/>.</translation>
+<translation id="6311841686068461841">Verifique seu carregador</translation>
+<translation id="8436138142074894820">Não mostrar esta mensagem novamente.</translation>
 <translation id="348780365869651045">Aguardando AppCache...</translation>
 <translation id="817894225563172061">Redes Ethernet:</translation>
 <translation id="3125649188848276916">Sim (não registrar novos dados)</translation>
@@ -1090,6 +1096,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="5800020978570554460">O arquivo de destino foi truncado ou removido desde o último download.</translation>
 <translation id="5270547718570958938">Google Agenda</translation>
 <translation id="5823933238730612365">PPAPI (sem sandbox)</translation>
+<translation id="2071128513678800377">Seu carregador está atualizado</translation>
 <translation id="5301751748813680278">Entrando como Visitante.</translation>
 <translation id="121827551500866099">Mostrar todos os downloads...</translation>
 <translation id="5949910269212525572">Não foi possível determinar o endereço DNS do servidor.</translation>
@@ -1275,7 +1282,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="6151323131516309312">Pressione <ph name="SEARCH_KEY"/> para pesquisar <ph name="SITE_NAME"/></translation>
 <translation id="7541121857749629630">Exceções de imagens</translation>
 <translation id="9033857511263905942">&amp;Colar</translation>
-<translation id="1028690605877243613">Use o layout alternativo de prateleira.</translation>
+<translation id="1028690605877243613">Use o layout alternativo de estante.</translation>
 <translation id="6736045498964449756">Ops, as senhas não correspondem.</translation>
 <translation id="394721563466171818">Campo de texto experimental para a interface do aplicativo, que não afeta o conteúdo da Web.</translation>
 <translation id="1221825588892235038">Apenas seleção</translation>
@@ -1314,6 +1321,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="273093730430620027">Esta página está acessando sua câmera.</translation>
 <translation id="5605623530403479164">Outros mecanismos de pesquisa</translation>
 <translation id="657064425229075395">Não foi possível carregar o script de plano de fundo &quot;<ph name="BACKGROUND_SCRIPT"/>&quot;.</translation>
+<translation id="3345234884557051648">Liguei para o número e solicitei a troca do carregador.</translation>
 <translation id="5710435578057952990">A identidade deste site não foi confirmada.</translation>
 <translation id="1319997607168632851">Diga-nos o que você acha do Iniciador de aplicativos.</translation>
 <translation id="1303319084542230573">Adicionar impressora</translation>
@@ -1329,8 +1337,10 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY"/> pode ser útil da
 <translation id="7952408061263786094">Saia e faça login novamente...</translation>
 <translation id="5880247576487732437">Token presente</translation>
 <translation id="4689960105160368473">Monitorar o tempo gasto em cada página</translation>
+<translation id="8412498037462710569">Confirmo que não desejo receber uma troca gratuita do carregador.</translation>
 <translation id="3368922792935385530">Conectado</translation>
 <translation id="8340999562596018839">Feedback falado</translation>
+<translation id="5431473096922271583">Solicitamos que você verifique se está usando um dos carregadores originais.</translation>
 <translation id="3866443872548686097">Sua mídia de recuperação está pronta. Você pode removê-la do seu sistema.</translation>
 <translation id="6824564591481349393">Copiar &amp;endereço de e-mail</translation>
 <translation id="907148966137935206">Não permitir que nenhum site mostre pop-ups (recomendado)</translation>
@@ -1540,6 +1550,7 @@ Após criar um novo usuário supervisionado, você poderá gerenciar suas config
 <translation id="5109044022078737958">Ju</translation>
 <translation id="6291953229176937411">&amp;Mostrar no Finder</translation>
 <translation id="8598687241883907630">Desconectar sua Conta do Google...</translation>
+<translation id="3790571977176307462">Selecione o carregador que está conectado ao seu Chromebook agora:</translation>
 <translation id="2556718757702023317">Para salvar &quot;<ph name="FILE_NAME"/>&quot; off-line, é preciso liberar mais <ph name="TOTAL_FILE_SIZE"/> de espaço:<ph name="MARKUP_1"/> 
         <ph name="MARKUP_2"/>libere arquivos que você não precisa mais acessar off-line<ph name="MARKUP_3"/>
         <ph name="MARKUP_4"/>exclua arquivos da pasta Downloads<ph name="MARKUP_5"/></translation>
@@ -1579,6 +1590,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="1886996562706621347">Permitir que os sites peçam para se tornar manipuladores padrão de protocolos (recomendado)</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY"/> [<ph name="ISSUED_TO"/>]</translation>
 <translation id="8899388739470541164">Vietnamita</translation>
+<translation id="2053686653008575655">Você pode consultar as <ph name="BEGIN_LINK"/>Perguntas frequentes<ph name="END_LINK"/> e continuar usando seu Chromebook HP 11 com qualquer outro carregador micro-USB certificado (por exemplo, um carregador fornecido com um tablet ou smartphone). Lamentamos pelo inconveniente. Sua segurança é nossa prioridade máxima.</translation>
 <translation id="6423064450797205562">Métricas relacionadas à velocidade em que o <ph name="SHORT_PRODUCT_NAME"/> realiza as ações solicitadas</translation>
 <translation id="2048118585307365263">Ativar MediaDrm.</translation>
 <translation id="4091434297613116013">folhas de papel</translation>
@@ -1656,6 +1668,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="3449839693241009168">Pressione <ph name="SEARCH_KEY"/> para enviar comandos para <ph name="EXTENSION_NAME"/></translation>
 <translation id="968174221497644223">Cache de aplicativo</translation>
 <translation id="6352609311795654248">Ativa reprodução experimental Opus em elementos de vídeo.</translation>
+<translation id="9126999385065535384">Recebemos um pequeno número de relatos de usuários informando que alguns carregadores originais do Chromebook HP 11 foram danificados devido a superaquecimento. Por motivos de segurança, estamos substituindo gratuitamente todos os carregadores originais.</translation>
 <translation id="4343792725927556911">As novas configurações da câmera e do microfone entrarão em vigor quando a página for atualizada.</translation>
 <translation id="3847089579761895589">Você está recebendo ajuda. Deseja continuar?</translation>
 <translation id="8452588990572106089">Número do cartão inválido. Verifique e tente novamente.</translation>
@@ -1743,7 +1756,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="1114202307280046356">Diamante</translation>
 <translation id="4215350869199060536">Ops, o nome contém símbolos inválidos.</translation>
 <translation id="5805190494033159960">Monitora a quantidade de tempo gasto em cada página, para melhorar a classificação das páginas mais visitadas.</translation>
-<translation id="8911393093747857497">Layout alternativo de prateleira</translation>
+<translation id="8911393093747857497">Layout alternativo de estante</translation>
 <translation id="894360074127026135">Netscape International Step-Up</translation>
 <translation id="8420060421540670057">Mostrar arquivos do Google Docs</translation>
 <translation id="6075731018162044558">Ops! O sistema encontrou uma falha ao conseguir um token de acesso de longo prazo à API para este dispositivo.</translation>
@@ -1831,6 +1844,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="1000498691615767391">Selecionar uma pasta para ser aberta</translation>
 <translation id="3593152357631900254">Ativar o modo Fuzzy-Pinyn</translation>
 <translation id="2570059561924004903">Desativar feedback falado</translation>
+<translation id="2462911512468050799">Você pode encontrar mais informações em</translation>
 <translation id="2276503375879033601">Adicionar mais aplicativos</translation>
 <translation id="5015344424288992913">Resolvendo proxy...</translation>
 <translation id="4389091756366370506">Usuário <ph name="VALUE"/></translation>
@@ -2030,6 +2044,7 @@ Não exponha nenhuma informação confidencial.</translation>
 
         &lt;p&gt;Porém, você ainda pode configurar por meio da linha de comando.  Consulte &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME"/>&lt;/code&gt; para obter mais informações sobre variáveis de sinalizadores e ambiente.&lt;/p&gt;</translation>
 <translation id="7205869271332034173">SSID:</translation>
+<translation id="8907701755790961703">Selecione um país</translation>
 <translation id="7084579131203911145">Nome do plano:</translation>
 <translation id="4731351517694976331">Permitir que os serviços do Google acessem sua localização</translation>
 <translation id="5815645614496570556">Endereço X.400</translation>
@@ -2375,6 +2390,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="2086712242472027775">Sua conta não funciona com <ph name="PRODUCT_NAME"/>. Entre em contato com o administrador do domínio ou use uma Conta do Google normal para fazer login.</translation>
 <translation id="1970103697564110434">A Carteira virtual do Google está protegendo seu cartão</translation>
 <translation id="7222232353993864120">Endereço de e-mail</translation>
+<translation id="1324451548764108666">Ligue para (866) 628-1371 (EUA) ou para 0800 026 0613 (Reino Unido) a fim de solicitar a troca gratuita do seu carregador.</translation>
 <translation id="2128531968068887769">Cliente nativo</translation>
 <translation id="7175353351958621980">Carregado de:</translation>
 <translation id="7186367841673660872">Esta página foi traduzida de<ph name="ORIGINAL_LANGUAGE"/>para<ph name="LANGUAGE_LANGUAGE"/></translation>
@@ -2419,6 +2435,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="6432458268957186486">Imprimir usando caixa de diálogo do <ph name="CLOUD_PRINT_NAME"/>...</translation>
 <translation id="2950186680359523359">O servidor encerrou a conexão sem enviar os dados.</translation>
 <translation id="4269099019648381197">Ativar opção de solicitar site para tablet no menu de configurações.</translation>
+<translation id="1645250822384430568">Recebemos suas informações e estamos processando sua solicitação.</translation>
 <translation id="9142623379911037913">Permitir que o <ph name="SITE"/> mostre notificações na área de trabalho?</translation>
 <translation id="6546686722964485737">Entrar para a rede WiMAX</translation>
 <translation id="266983583785200437">Eventos relacionados a falhas do <ph name="SHORT_PRODUCT_NAME"/></translation>
@@ -2679,6 +2696,7 @@ Faça login para usar este recurso.</translation>
 <translation id="5400640815024374115">O chip do TPM (Module Platform Trusted) está desativado ou ausente.</translation>
 <translation id="2025623846716345241">Confirmar atualização</translation>
 <translation id="2151576029659734873">Índice de guias inválido inserido.</translation>
+<translation id="496546018524231664">Irlanda</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD"/>Atenção:<ph name="END_BOLD"/> Estes arquivos são temporários e podem ser excluídos automaticamente para liberar espaço em disco. <ph name="BEGIN_LINK"/>Saiba mais<ph name="END_LINK"/></translation>
 <translation id="4722920479021006856">O <ph name="APP_NAME"/> está compartilhando sua tela.</translation>
 <translation id="5599620772482612321">Transferindo $1 itens.</translation>
@@ -2768,6 +2786,7 @@ Faça login para usar este recurso.</translation>
 <translation id="6571070086367343653">Editar cartão de crédito</translation>
 <translation id="1204242529756846967">Este idioma está sendo usado no corretor ortográfico</translation>
 <translation id="3981760180856053153">Tipo de salvamento inválido digitado.</translation>
+<translation id="8865709004086313039">Enquanto isso, você pode consultar as <ph name="BEGIN_LINK"/>Perguntas frequentes<ph name="END_LINK"/> e continuar usando seu Chromebook HP 11 com qualquer carregador micro-USB certificado, por exemplo, carregadores fornecidos com um tablet ou microfone. Mais uma vez, lamentamos pela inconveniência. Sua segurança é nossa maior prioridade.</translation>
 <translation id="593917093612693620">Ao clicar em &quot;Continuar&quot;, você concorda com os <ph name="LEGAL_DOC_LINK_TEXT_1"/>, com o <ph name="LEGAL_DOC_LINK_TEXT_2"/> e com os <ph name="LEGAL_DOC_LINK_TEXT_3"/>. Para protegê-lo contra fraude, as informações sobre seu computador (incluindo o local) serão compartilhadas com a Carteira virtual do Google.</translation>
 <translation id="4508345242223896011">Rolagem suave</translation>
 <translation id="6192792657125177640">Exceções</translation>
@@ -2968,6 +2987,7 @@ Verifique seu e-mail em <ph name="ACCOUNT_EMAIL"/> para ver estas e outras instr
           <ph name="BEGIN_LINK"/>Saiba mais<ph name="END_LINK"/> sobre a navegação como visitante.</translation>
 <translation id="8004582292198964060">Navegador</translation>
 <translation id="695755122858488207">Botão de opção desmarcado</translation>
+<translation id="6745625605706446078">Formulário de solicitação do carregador para o Chromebook HP 11</translation>
 <translation id="1934636348456381428">Ativa a implementação experimental das barras de rolagem de sobreposição. Você também deve ativar a composição em sequência para animar as barras de rolagem.</translation>
 <translation id="8666678546361132282">Inglês</translation>
 <translation id="2224551243087462610">Editar nome da pasta</translation>
@@ -3161,6 +3181,7 @@ Verifique seu e-mail em <ph name="ACCOUNT_EMAIL"/> para ver estas e outras instr
 <translation id="889901481107108152">Esta experiência não está disponível na sua plataforma.</translation>
 <translation id="2042900667172886929">Limpar cache local</translation>
 <translation id="3228969707346345236">A tradução falhou porque a página já está em <ph name="LANGUAGE"/>.</translation>
+<translation id="8238191901674777266">Estados Unidos</translation>
 <translation id="1873879463550486830">Sandbox de SUID</translation>
 <translation id="8118860139461251237">Gerenciar seus downloads</translation>
 <translation id="5111852801054039429">Desativar WebRTC</translation>
@@ -3190,6 +3211,7 @@ Verifique seu e-mail em <ph name="ACCOUNT_EMAIL"/> para ver estas e outras instr
         não consegue acessar este site. Normalmente, isso é causado por problemas na rede,
         mas também pode ser resultado de problemas na configuração de um firewall ou servidor proxy.</translation>
 <translation id="5445557969380904478">Sobre o reconhecimento de voz</translation>
+<translation id="4104400246019119780">Obrigado.</translation>
 <translation id="3487007233252413104">função anônima</translation>
 <translation id="8965037249707889821">Digite a senha antiga</translation>
 <translation id="6410328738210026208">Mudar de canal e executar PowerWash</translation>
@@ -3502,6 +3524,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="5045550434625856497">Senha incorreta</translation>
 <translation id="6397592254427394018">Abrir todos os favoritos em &amp;janela  anônima</translation>
 <translation id="27822970480436970">Esta extensão não conseguiu modificar uma solicitação de rede pois a modificação entrou em conflito com outra extensão.</translation>
+<translation id="2453860139492968684">Concluir</translation>
 <translation id="756445078718366910">Abrir janela do navegador</translation>
 <translation id="6132383530370527946">Texto legal</translation>
 <translation id="9033780830059217187">O proxy é aplicado por uma extensão.</translation>
@@ -3604,6 +3627,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="7299721129597238157">Excluir favorito</translation>
 <translation id="3031557471081358569">Selecione os itens que serão importados:</translation>
 <translation id="1368832886055348810">Da esquerda para a direita</translation>
+<translation id="834106456999819211">Seu pedido está sendo processado</translation>
 <translation id="133014027510889724">Ativar o monitoramento de desempenho</translation>
 <translation id="3627320433825461852">Menos de 1 minuto restante</translation>
 <translation id="3031433885594348982">Sua conexão com <ph name="DOMAIN"/> tem uma criptografia fraca.</translation>
@@ -3666,6 +3690,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="5358016106459232452">O tempo que leva para iniciar completamente o <ph name="SHORT_PRODUCT_NAME"/> em um ambiente de teste</translation>
 <translation id="7509179828847922845">A conexão com <ph name="HOST_NAME"/> foi interrompida.</translation>
 <translation id="2911372483530471524">Namespaces de identificação pessoal</translation>
+<translation id="6030886059850316251">Envie-me um novo carregador</translation>
 <translation id="4267171000817377500">Plug-ins</translation>
 <translation id="8584134039559266300">Ativar a guia 8</translation>
 <translation id="3140978158653201367">Confirmar novo tema</translation>
@@ -3828,6 +3853,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="479989351350248267">pesquisar</translation>
 <translation id="472177018469288237">A Carteira virtual do Googel está desativada</translation>
 <translation id="7730449930968088409">Capturar o conteúdo da sua tela</translation>
+<translation id="1431605150566631089">Verifique o carregador</translation>
 <translation id="7714464543167945231">Certificado</translation>
 <translation id="8324294541009002530">Desativar o objeto experimental WebKitMediaSource. Esse objeto permite que o JavaScript envie dados de mídia diretamente a um elemento de vídeo.</translation>
 <translation id="4966802378343010715">Criar um novo usuário</translation>
@@ -3900,6 +3926,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="1479356886123917758">Acessar e alterar fotos, música e outras mídias em seu computador.</translation>
 <translation id="5295309862264981122">Confirmar navegação</translation>
 <translation id="8249320324621329438">Última busca:</translation>
+<translation id="718827667662449283">Reino Unido</translation>
 <translation id="5804241973901381774">Permissões</translation>
 <translation id="901834265349196618">e-mail</translation>
 <translation id="8382207127145268451">Ativar proxy de compactação de dados</translation>
@@ -3933,6 +3960,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="4441124369922430666">Deseja iniciar automaticamente este aplicativo quando o computador for ligado?</translation>
 <translation id="3748412725338508953">Houve muitos redirecionamentos.</translation>
 <translation id="999754487240933182">Ative a Depuração remota do Google Chrome para Android em interface USB bruta (não há necessidade de instalar/executar o Android Debug Bridge).</translation>
+<translation id="7741303706372017829">Não quero trocar meu carregador submetido a recall</translation>
 <translation id="5833726373896279253">Estas definições somente poderão ser alteradas pelo proprietário:</translation>
 <translation id="9203962528777363226">O administrador deste dispositivo desativou a adição de novos usuários</translation>
 <translation id="6005282720244019462">Teclado da América Latina</translation>
@@ -4192,6 +4220,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="216169395504480358">Adicionar Wi-Fi...</translation>
 <translation id="1804251416207250805">Desativa o envio de pings de auditoria de hiperlinks</translation>
 <translation id="5116628073786783676">Sal&amp;var áudio como...</translation>
+<translation id="6172346010137455972">Você está com tudo em dia.</translation>
 <translation id="7638054264543643210">Enviar e-mail para esta pessoa</translation>
 <translation id="2539507112146602356">Estilo alternativo do botão de legenda do frame</translation>
 <translation id="2557899542277210112">Para acessar rapidamente, coloque os seus favoritos aqui na barra de favoritos.</translation>
@@ -4284,6 +4313,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="5831217499016131155">Carteira virtual do Google</translation>
 <translation id="3958088479270651626">Importar favoritos e configurações</translation>
 <translation id="8518865679229538285">Método de entrada Tamil (máquina de escrever)</translation>
+<translation id="4918745183464912186">Austrália</translation>
 <translation id="5257456363153333584">Libélula</translation>
 <translation id="4557136421275541763">Aviso:</translation>
 <translation id="3872687746103784075">Depuração de cliente nativo baseada em GDB</translation>
@@ -4405,6 +4435,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="7674629440242451245">Interessado em novos recursos interessantes do Google Chrome? Veja nosso Canal Dev em chrome.com/dev.</translation>
 <translation id="7568593326407688803">Esta página está em<ph name="ORIGINAL_LANGUAGE"/>Deseja traduzi-la?</translation>
 <translation id="7818135753970109980">Novo tema adicionado (<ph name="EXTENSION_NAME"/>)</translation>
+<translation id="917306543655291301">Enquanto isso, você pode encontrar mais informações em</translation>
 <translation id="5448293924669608770">Ops, ocorreu algo errado no login</translation>
 <translation id="6870130893560916279">Teclado ucraniano</translation>
 <translation id="8931394284949551895">Novos dispositivos</translation>
@@ -4592,6 +4623,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="3366404380928138336">Solicitação de protocolo externo</translation>
 <translation id="5300589172476337783">Mostrar</translation>
 <translation id="3160041952246459240">Você tem certificados no arquivo que identificam estes servidores:</translation>
+<translation id="5806573568064269889">Confirmo que estou usando um carregador que tem um adesivo verde</translation>
 <translation id="566920818739465183">Você visitou este site pela primeira vez em <ph name="VISIT_DATE"/>.</translation>
 <translation id="2961695502793809356">Clique para avançar, mantenha pressionado para ver o histórico</translation>
 <translation id="4092878864607680421">A versão mais recente do aplicativo &quot;<ph name="APP_NAME"/>&quot; exige mais permissões, e por isso foi desativada.</translation>
@@ -4785,6 +4817,7 @@ Os dados de login de sua conta estão desatualizados.</translation>
 <translation id="1852583733258643568"><ph name="BEGIN_BOLD"/>2. <ph name="END_BOLD"/>Testando conexão ao roteador</translation>
 <translation id="48607902311828362">Modo avião</translation>
 <translation id="680572642341004180">Ativar rastreamento RLZ no <ph name="SHORT_PRODUCT_OS_NAME"/>.</translation>
+<translation id="688797901999351107">Pare de usar o carregador submetido a recall.</translation>
 <translation id="8142699993796781067">Rede privada</translation>
 <translation id="1374468813861204354">sugestões</translation>
 <translation id="5906065664303289925">Endereço do hardware:</translation>

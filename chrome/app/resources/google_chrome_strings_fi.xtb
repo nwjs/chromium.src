@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Salasanat tallennetaan Macilla Avainnippuusi, ja muut Chrome-käyttäjät, jotka jakavat saman OS X -käyttöjärjestelmän tilin, voivat käyttää tai synkronoida niitä.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> voi muuttaa Chromen asetuksia.</translation>
 <translation id="1761870329818521071">Ei voi asentaa samaa Google Chrome -kehyksen versiota, joka tällä hetkellä on käytössä. Sulje Google Chrome -kehys ja yritä uudelleen.</translation>
-<translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="6014844626092547096">Olet nyt kirjautunut sisään Chromeen! Järjestelmänvalvoja on poistanut synkronoinnin käytöstä.</translation>
 <translation id="3140883423282498090">Muutokset tulevat voimaan, kun käynnistät Google Chromen seuraavan kerran.</translation>
 <translation id="1773601347087397504">Apua Chrome-käyttöjärjestelmän käytössä</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Jätä taustaohjelmat käyntiin, kun Google Chrome suljetaan</translation>
 <translation id="4149882025268051530">Asennusohjelma ei pystynyt purkamaan arkistotiedostoa. Lataa Google Chrome uudelleen.</translation>
 <translation id="6989339256997917931">Google Chrome on päivitetty, mutta et ole käyttänyt sitä ainakaan 30 päivään.</translation>
-<translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="7060865993964054389">Google Chromen sovellusten käynnistysohjelma</translation>
 <translation id="1682634494516646069">Chrome ei voi lukea tietohakemistoaan <ph name="USER_DATA_DIRECTORY"/> tai kirjoittaa siihen</translation>
 <translation id="4343226815564935778">Google Chromen asennushakemisto vaikuttaa olevan käytössä. Käynnistä tietokoneesi uudelleen ja yritä uudestaan.</translation>
@@ -120,7 +118,6 @@ Jos kirjaudut silti sisään, Chrome-tiedot, kuten kirjanmerkit, historia ja ase
 <translation id="911206726377975832">Poistetaanko myös selailutiedot?</translation>
 <translation id="5855036575689098185">Tietokoneellasi käynnissä oleva ohjelmisto on yhteensopimaton Google Chromen kanssa.</translation>
 <translation id="2044287590254833138">Google Chrome-työkalupalkki</translation>
-<translation id="5074344184765391290">Chrome-laajennuksen isäntä</translation>
 <translation id="8862326446509486874">Sinulla ei ole käyttöoikeuksia järjestelmätason asennukseen. Kokeile asennusohjelman suorittamista uudelleen järjestelmänvalvojana.</translation>
 <translation id="2874156562296220396">Google Chromen mahdollistivat avoimen lähdekoodin projekti <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> ja muut <ph name="BEGIN_LINK_OSS"/>avoimen lähdekoodin ohjelmistot<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Google Chrome voi käyttää verkkopalveluita parantaakseen selauskokemusta.</translation>
@@ -170,12 +167,10 @@ Jos kirjaudut silti sisään, Chrome-tiedot, kuten kirjanmerkit, historia ja ase
 <translation id="576822117893741893">Näytä Chrome-valikko</translation>
 <translation id="3444832043240812445">Tällä sivulla näkyy tietoja viimeaikaisista kaatumisista vain, jos <ph name="BEGIN_LINK"/>otat kaatumisraportit käyttöön<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome ei vastaa. Käynnistetäänkö uudelleen?</translation>
-<translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
 <translation id="6126631249883707068">Haluatko, että Google Chrome tallentaa salasanasi?</translation>
 <translation id="7773845170078702898">Haluatko Google Chromen tallentavan tämän sivuston salasanan?</translation>
 <translation id="5046764976540625289">Poistu Chromesta</translation>
 <translation id="4251615635259297716">Linkitetäänkö Chrome-tiedot tähän tiliin?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Internetselain</translation>
 <translation id="8142608456917638009">Google Chrome ei voinut luoda sovelluksen pikakuvaketta.</translation>

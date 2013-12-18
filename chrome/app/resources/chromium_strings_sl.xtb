@@ -18,7 +18,6 @@
 Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.</translation>
 <translation id="4222661289444749267">Posodobitev vtičnika Chromium Frame.</translation>
 <translation id="4423735387467980091">Prilagajanje in nadziranje Chromiuma</translation>
-<translation id="2843244238218937196">Upodabljalnik za Chromium</translation>
 <translation id="1881322772814446296">Prijavljate se z upravljanim računom in s tem njegovemu skrbniku omogočate nadzor vašega profila v Chromiumu. Vaši podatki v Chromiumu, kot so aplikacije, zaznamki, zgodovina, gesla in druge nastavitve, bodo postali trajno povezani z uporabnikom <ph name="USER_NAME"/>. Te podatke boste lahko izbrisali na nadzorni plošči za Google Račune, vendar jih ne boste mogli povezati z drugim računom. Če želite, lahko ustvarite nov profil, da bodo obstoječi podatki v Chromiumu ostali ločeni. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame je že nameščen in na voljo vsem uporabnikom tega računalnika. Če želite namestiti vtičnik Chromium Frame na ravni uporabnika, morate najprej odstraniti različico na ravni sistema, ki jo je namestil skrbnik.</translation>
 <translation id="731644333568559921">Posodobi sistem &amp;Chromium OS</translation>
@@ -124,7 +123,6 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="6248213926982192922">Nastavi Chromium kot privzeti brskalnik</translation>
 <translation id="6309712487085796862">Chromium uporablja vašo kamero.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Ne nadleguj me</translation>
 <translation id="1745962126679160932">Chromium bo varno shranil vaše podatke, tako da vam jih ne bo treba več vnesti, vendar boste za plačila v prihodnosti še vedno morali preveriti varnostno kodo kartice.</translation>
@@ -156,7 +154,6 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 Nekatere funkcije morda ne bodo na voljo. Določite drug imenik profila ali uporabite novejšo različico Chromiuma.</translation>
 <translation id="9013087743919948559">Dodaj v Chromium</translation>
 <translation id="6212496753309875659">Ta računalnik že ima novejšo različico Chromiuma. Če programska oprema ne deluje, odstranite Chromium in poskusite znova.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Pomoč pri uporabi sistema Chromium OS</translation>
 <translation id="8187289872471304532">Odprite
           Aplikacije &gt; Sistemske nastavitve &gt; Omrežje &gt; Dodatno &gt; Namestniški strežniki
@@ -201,7 +198,6 @@ Nekatere funkcije morda ne bodo na voljo. Določite drug imenik profila ali upor
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> lahko spremeni nastavitve Chromiuma.</translation>
 <translation id="8724049448828509830">Trenutno poteka prenos. Ali želite zapreti Chromium in preklicati prenos?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Gostitelj za vtičnike za Chromium</translation>
 <translation id="8985587603644336029">Nekdo se je prijavil v Chromium v tem računalniku kot <ph name="ACCOUNT_EMAIL_LAST"/>. Če to ni vaš račun, ustvarite novega uporabnika za Chromium, da bodo vaši podatki ločeni.
 
 Če se boste kljub temu prijavili, se bodo podatki iz Chromiuma, na primer zaznamki, zgodovina in druge nastavitve, združili v računu <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

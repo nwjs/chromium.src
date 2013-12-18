@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Su Mac, le password vengono salvate su Keychain e sono accessibili o sincronizzate da parte degli utenti Chrome che condividono questo account OS X.</translation>
 <translation id="3993188379797269327">Il file <ph name="FILE_NAME"/> potrebbe modificare le impostazioni di Chrome.</translation>
 <translation id="1761870329818521071">Impossibile installare la stessa versione di Google Chrome Frame attualmente in esecuzione. Chiudi Google Chrome Frame e riprova.</translation>
-<translation id="2040709530900803995">Programma di rendering di Google Chrome</translation>
 <translation id="6014844626092547096">Hai eseguito l'accesso a Chrome. La sincronizzazione è stata disattivata dall'amministratore.</translation>
 <translation id="3140883423282498090">Le modifiche verranno applicate al prossimo riavvio di Google Chrome.</translation>
 <translation id="1773601347087397504">Ricevi assistenza per l'utilizzo di Chrome OS</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Continua a eseguire applicazioni in background dopo la chiusura di Google Chrome</translation>
 <translation id="4149882025268051530">Il programma di installazione non è riuscito a decomprimere il file. Scarica nuovamente Google Chrome.</translation>
 <translation id="6989339256997917931">Google Chrome è stato aggiornato ma non lo utilizzi da almeno 30 giorni.</translation>
-<translation id="5744005218040929396">Utilità Google Chrome</translation>
 <translation id="7060865993964054389">Avvio applicazioni di Google Chrome</translation>
 <translation id="1682634494516646069">Google Chrome non è in grado di leggere e scrivere nella directory dei dati: <ph name="USER_DATA_DIRECTORY"/></translation>
 <translation id="4343226815564935778">Sembra che sia in uso la directory di installazione di Google Chrome. Riavvia il computer e riprova.</translation>
@@ -119,7 +117,6 @@ Se esegui comunque l'accesso, le informazioni di Chrome come Preferiti, cronolog
 <translation id="911206726377975832">Eliminare anche i tuoi dati di navigazione?</translation>
 <translation id="5855036575689098185">Il software in esecuzione sul computer non è compatibile con Google Chrome.</translation>
 <translation id="2044287590254833138">Barra degli strumenti di Google Chrome</translation>
-<translation id="5074344184765391290">Host plug-in Chrome</translation>
 <translation id="8862326446509486874">Non disponi dei diritti appropriati per l'installazione a livello di sistema. Prova a eseguire nuovamente il programma di installazione come Amministratore.</translation>
 <translation id="2874156562296220396">Google Chrome è reso possibile dal progetto open source <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> e da altri <ph name="BEGIN_LINK_OSS"/>software open source<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Google Chrome potrebbe utilizzare servizi web per migliorare la navigazione.</translation>
@@ -169,12 +166,10 @@ Se esegui comunque l'accesso, le informazioni di Chrome come Preferiti, cronolog
 <translation id="576822117893741893">Consente di visualizzare il menu Chrome</translation>
 <translation id="3444832043240812445">Questa pagina mostra solo informazioni sugli arresti anomali recenti se <ph name="BEGIN_LINK"/>attivi la segnalazione degli arresti anomali<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome non risponde. Riavviarlo ora?</translation>
-<translation id="5318056482164160049">Host plug-in Google Chrome</translation>
 <translation id="6126631249883707068">Desideri che Google Chrome salvi la tua password?</translation>
 <translation id="7773845170078702898">Vuoi che Google Chrome salvi la password per questo sito?</translation>
 <translation id="5046764976540625289">Esci da Chrome</translation>
 <translation id="4251615635259297716">Collegare i tuoi dati Chrome a questo account?</translation>
-<translation id="9039578207253536065">Applicazione di lavoro Google Chrome</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Browser Internet</translation>
 <translation id="8142608456917638009">Impossibile creare una scorciatoia applicazione in Google Chrome.</translation>

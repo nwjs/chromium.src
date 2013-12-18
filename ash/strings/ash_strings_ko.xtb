@@ -55,7 +55,7 @@
 <translation id="3294437725009624529">손님</translation>
 <translation id="8190698733819146287">언어 및 입력 설정...</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME"/>(<ph name="ANNOTATION"/>)</translation>
-<translation id="2942516765047364088">서가 위치</translation>
+<translation id="2942516765047364088">서가 정렬</translation>
 <translation id="8676770494376880701">저출력 충전기 연결됨</translation>
 <translation id="7170041865419449892">범위를 벗어났습니다.</translation>
 <translation id="4804818685124855865">연결 해제</translation>
@@ -151,6 +151,7 @@
 <translation id="3473479545200714844">화면 돋보기</translation>
 <translation id="7005812687360380971">실패</translation>
 <translation id="882279321799040148">클릭하여 보기</translation>
+<translation id="1753067873202720523">크롬북이 켜져 있으면 충전되지 않을 수 있습니다.</translation>
 <translation id="5045550434625856497">비밀번호가 잘못되었습니다.</translation>
 <translation id="1602076796624386989">모바일 데이터 사용</translation>
 <translation id="6981982820502123353">접근성</translation>

@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Nie można odczytać ustawień. Niektóre funkcje mogą być niedostępne, a zmiany w ustawieniach nie zostaną zapisane.</translation>
 <translation id="4222661289444749267">Aktualizacja Chromium Frame</translation>
 <translation id="4423735387467980091">Dostosowywanie i kontrolowanie Chromium</translation>
-<translation id="2843244238218937196">Moduł renderowania Chrome</translation>
 <translation id="1881322772814446296">Logujesz się na zarządzane konto i przekazujesz jego administratorowi kontrolę nad swoim profilem Chromium. Twoje dane Chromium, takie jak aplikacje, zakładki, historia, hasła i inne ustawienia, zostaną trwale powiązane z użytkownikiem <ph name="USER_NAME"/>. Będzie można je usunąć w Panelu kont Google, ale nie będzie można ich powiązać z innym kontem. Możesz też utworzyć nowy profil, by przechowywać swoje dotychczasowe dane Chromium osobno. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Wtyczka Chromium Frame jest już zainstalowana i dostępna dla wszystkich użytkowników tego komputera. Jeśli chcesz zainstalować Chromium Frame na poziomie użytkownika, musisz najpierw odinstalować wersję z poziomu systemu zainstalowaną przez administratora.</translation>
 <translation id="731644333568559921">Aktualizuj system operacyjny &amp;Chromium</translation>
@@ -120,7 +119,6 @@
 <translation id="6248213926982192922">Ustaw Chromium jako domyślną przeglądarkę</translation>
 <translation id="6309712487085796862">Chromium używa Twojej kamery.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Moduł roboczy Chromium</translation>
 <translation id="5820394555380036790">System operacyjny Chromium</translation>
 <translation id="6757767188268205357">Nie proponuj więcej</translation>
 <translation id="1745962126679160932">Chromium będzie bezpiecznie przechowywać Twoje dane, dzięki czemu nie będzie trzeba wpisywać ich ponownie. W przypadku przyszłych płatności konieczne jednak będzie zweryfikowanie kodu bezpieczeństwa karty.</translation>
@@ -152,7 +150,6 @@
 Niektóre funkcje mogą być niedostępne. Podaj inny katalog z profilem lub użyj nowszej wersji Chromium.</translation>
 <translation id="9013087743919948559">Dodaj do Chromium</translation>
 <translation id="6212496753309875659">Na tym komputerze jest już zainstalowana nowsza wersja Chromium. Jeśli program nie działa, odinstaluj go i spróbuj ponownie.</translation>
-<translation id="3014684866565908571">Program Chromium</translation>
 <translation id="1298199220304005244">Skorzystaj z pomocy dotyczącej używania systemu operacyjnego Chromium</translation>
 <translation id="8187289872471304532">Wybierz
           Aplikacje &gt; Ustawienia systemowe &gt; Sieć &gt; Zaawansowane &gt; Serwery proxy
@@ -197,7 +194,6 @@ Niektóre funkcje mogą być niedostępne. Podaj inny katalog z profilem lub uż
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> może zmienić ustawienia Chromium.</translation>
 <translation id="8724049448828509830">Trwa pobieranie pliku. Czy chcesz wyjść z Chromium i anulować pobieranie?</translation>
 <translation id="3360567213983886831">Pliki binarne Chromium</translation>
-<translation id="7503101070699687603">Serwer wtyczek Chromium</translation>
 <translation id="8985587603644336029">Ktoś zalogował się wcześniej w Chromium na tym komputerze jako <ph name="ACCOUNT_EMAIL_LAST"/>. Jeśli to nie jest Twoje konto, utwórz nowego użytkownika Chromium, by Twoje informacje były przechowywane oddzielnie.
 
 Jeśli jednak zalogujesz się teraz, informacje Chromium, takie jak zakładki, historia i inne ustawienia, zostaną połączone z kontem <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Không thể đọc tùy chọn của bạn. Một số tính năng có thể không khả dụng và các thay đổi đối với tùy chọn sẽ không được lưu.</translation>
 <translation id="4222661289444749267">Cập nhật Chromium Frame.</translation>
 <translation id="4423735387467980091">Tùy chỉnh và điều khiển Chromium</translation>
-<translation id="2843244238218937196">Trình kết xuất Chromium</translation>
 <translation id="1881322772814446296">Bạn đang đăng nhập bằng tài khoản được quản lý và cấp cho quản trị viên của tài khoản quyền kiểm soát cấu hình Chromium của bạn. Dữ liệu Chromium của bạn, chẳng hạn như ứng dụng, dấu trang, lịch sử, mật khẩu và các cài đặt khác sẽ vĩnh viễn được liên kết với <ph name="USER_NAME"/>. Bạn có thể xóa dữ liệu này thông qua Trang tổng quan của tài khoản Google nhưng không thể liên kết dữ liệu này với tài khoản khác. Bạn có thể tùy chọn tạo cấu hình mới để giữ cho dữ liệu Chromium hiện có của bạn riêng biệt. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame đã được cài đặt và khả dụng cho tất cả người dùng máy tính này. Nếu bạn muốn cài đặt Chromium Frame ở cấp người dùng, trước hết bạn phải gỡ cài đặt phiên bản cấp hệ thống đã được quản trị viên cài đặt.</translation>
 <translation id="731644333568559921">Cập nhật &amp;Chromium OS</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Đặt Chromium làm trình duyệt mặc định</translation>
 <translation id="6309712487085796862">Chromium đang sử dụng máy ảnh của bạn.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Hệ điều hành Chromium</translation>
 <translation id="6757767188268205357">Đừng hỏi lại</translation>
 <translation id="1745962126679160932">Chromium sẽ lưu trữ an toàn thông tin của bạn nên bạn không cần phải nhập lại thông tin nhưng sẽ vẫn phải xác minh mã bảo mật cho thẻ của bạn để thanh toán trong tương lai.</translation>
@@ -154,7 +152,6 @@
 Một số tính năng có thể không khả dụng. Hãy chỉ định thư mục cấu hình khác hoặc sử dụng phiên bản Chromium mới hơn.</translation>
 <translation id="9013087743919948559">Thêm vào Chromium</translation>
 <translation id="6212496753309875659">Máy tính này đã có phiên bản Chromium mới hơn. Nếu phần mềm không hoạt động, hãy gỡ cài đặt Chromium và thử lại.</translation>
-<translation id="3014684866565908571">Tiện ích Chromium</translation>
 <translation id="1298199220304005244">Nhận trợ giúp về cách sử dụng Chromium OS</translation>
 <translation id="8187289872471304532">Đi tới
           Ứng dụng&gt; Tùy chọn hệ thống &gt; Mạng &gt; Nâng cao &gt; Proxy
@@ -199,7 +196,6 @@ Một số tính năng có thể không khả dụng. Hãy chỉ định thư m�
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> có thể thay đổi cài đặt Chromium của bạn.</translation>
 <translation id="8724049448828509830">Quá trình tải xuống hiện đang diễn ra. Bạn có muốn thoát Chromium và hủy tải xuống không?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Máy chủ lưu trữ trình cắm Chromium</translation>
 <translation id="8985587603644336029">Ai đó trước đây đã đăng nhập vào Chromium trên máy tính này là <ph name="ACCOUNT_EMAIL_LAST"/>. Nếu đó không phải là tài khoản của bạn, hãy tạo một người dùng Chromium mới để giữ thông tin của bạn riêng biệt.
 
 Đăng nhập bằng mọi cách sẽ kết hợp thông tin Chromium như dấu trang, lịch sử và các cài đặt khác vào <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

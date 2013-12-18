@@ -18,7 +18,6 @@
 Niektoré funkcie nemusia byť k dispozícii a zmeny vykonané v predvoľbách sa neuložia.</translation>
 <translation id="4222661289444749267">Aktualizácia aplikácie Chromium Frame.</translation>
 <translation id="4423735387467980091">Prispôsobiť a spravovať Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Prihlasujete sa pomocou spravovaného účtu a jeho správcovi dávate kontrolu nad vaším profilom Chromium. Vaše údaje prehliadača Chromium, ako sú aplikácie, záložky, história, heslá a iné nastavenia, sa natrvalo priradia k účtu <ph name="USER_NAME"/>. Tieto údaje budete môcť odstrániť len pomocou panela Dashboard v Účtoch Google, ale nebudete ich môcť priradiť k inému účtu. Ak chcete, aby boli existujúce údaje prehliadača Chromium oddelené, môžete vytvoriť nový profil. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Aplikácia Chromium Frame už je nainštalovaná a je k dispozícii pre všetkých používateľov v tomto počítači. Ak chcete nainštalovať aplikáciu Chromium Frame na úrovni používateľa, musíte najskôr odinštalovať verziu na úrovni systému, ktorú nainštaloval správca.</translation>
 <translation id="731644333568559921">Aktualizovať systém &amp;Chromium OS</translation>
@@ -124,7 +123,6 @@ Niektoré funkcie nemusia byť k dispozícii a zmeny vykonané v predvoľbách s
 <translation id="6248213926982192922">Nastavte Chromium ako svoj predvolený prehliadač</translation>
 <translation id="6309712487085796862">Chromium používa vašu kameru.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Nezobrazovať výzvu</translation>
 <translation id="1745962126679160932">Chromium vaše informácie bezpečne uloží, aby ste ich už nemuseli zadávať znova. V prípade budúcich platieb však budete musieť bezpečnostný kód svojej karty stále overiť.</translation>
@@ -156,7 +154,6 @@ Niektoré funkcie nemusia byť k dispozícii a zmeny vykonané v predvoľbách s
 Niektoré funkcie nemusia byť k dispozícii. Zadajte iný adresár profilu alebo použite novšiu verziu prehliadača Chromium.</translation>
 <translation id="9013087743919948559">Pridať do prehliadača Chromium</translation>
 <translation id="6212496753309875659">Tento počítač už obsahuje novšiu verziu prehliadača Chromium. Ak softvér nefunguje, odinštalujte prehliadač Chromium a skúste to znova.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Získajte pomoc pri používaní systému Chromium OS</translation>
 <translation id="8187289872471304532">Prejdite na možnosť
           Aplikácie &gt; Systémové predvoľby &gt; Sieť &gt; Rozšírené nastavenia &gt; Servery proxy
@@ -200,7 +197,6 @@ Niektoré funkcie nemusia byť k dispozícii. Zadajte iný adresár profilu aleb
 <translation id="7331621180831839236">Súbor <ph name="FILE_NAME"/> môže zmeniť nastavenia prehliadača Chromium.</translation>
 <translation id="8724049448828509830">Prebieha preberanie. Chcete Chromium ukončiť a preberanie zrušiť?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">Do prehliadača Chromium sa už na tomto počítači niekto prihlásil pomocou účtu <ph name="ACCOUNT_EMAIL_LAST"/>. Ak tento účet nepatrí vám, vytvorte nového používateľa prehliadača Chromium, aby ste zachovali oddelenie informácií.
 
 Ak sa chcete aj napriek tomu prihlásiť, informácie prehliadača Chromium, ako sú záložky, história a iné nastavenia, sa priradia k účtu <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

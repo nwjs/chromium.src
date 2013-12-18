@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">‏في نظام التشغيل Mac، يتم حفظ كلمات المرور في تطبيق Keychain  ويمكن الدخول إليها أو مزامنتها من قبل مستخدمي Chrome الآخرين الذين يشاركون حساب نظام التشغيل X هذا.</translation>
 <translation id="3993188379797269327">‏<ph name="FILE_NAME"/> قد يغيّر إعدادات Chrome.</translation>
 <translation id="1761870329818521071">‏لا يمكن تثبيت إصدار إطار Google Chrome نفسه الذي يتم تشغيله حاليًا. الرجاء إغلاق إطار Google Chrome وإعادة المحاولة.</translation>
-<translation id="2040709530900803995">‏عارض Google Chrome</translation>
 <translation id="6014844626092547096">‏لقد سجلت الدخول الآن إلى Chrome! عطّل المشرف المزامنة.</translation>
 <translation id="3140883423282498090">‏ستسري التغييرات في المرة التالية التي تعيد فيها تشغيل Google Chrome.</translation>
 <translation id="1773601347087397504">‏الحصول على مساعدة بشأن استخدام نظام التشغيل Chrome</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">‏استمرار تشغيل تطبيقات الخلفية عند إغلاق Google Chrome</translation>
 <translation id="4149882025268051530">‏فشلت أداة المثبِّت في فك ضغط الأرشيف. يُرجى تنزيل Google Chrome مرة أخرى.</translation>
 <translation id="6989339256997917931">‏تم تحديث متصفح Google Chrome، ولكنك لم تستخدمه منذ أكثر من 30 يومًا.</translation>
-<translation id="5744005218040929396">‏أداة Google Chrome</translation>
 <translation id="7060865993964054389">‏مشغل تطبيقات Google Chrome</translation>
 <translation id="1682634494516646069">‏يتعذر على Google Chrome القراءة والكتابة في دليل البيانات الخاص به:
 
@@ -123,7 +121,6 @@
 <translation id="911206726377975832">هل تريد أيضًا حذف بيانات التصفح؟</translation>
 <translation id="5855036575689098185">‏البرامج التي تعمل على جهاز الكمبيوتر لا تتوافق مع Google Chrome.</translation>
 <translation id="2044287590254833138">‏شريط أدوات Google Chrome</translation>
-<translation id="5074344184765391290">‏مضيف المكون الإضافي لمتصفح Chrome</translation>
 <translation id="8862326446509486874">لا تملك الحقوق الكافية للتثبيت على مستوى النظام. جرّب تشغيل المثبِّت بصفة مشرف.</translation>
 <translation id="2874156562296220396">‏نوفر لكم Google Chrome بفضل المشروع المفتوح المصدر <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> و<ph name="BEGIN_LINK_OSS"/>برامج أخرى مفتوحة المصدر<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">‏قد يستخدم Google Chrome خدمات الويب لتحسين تجربة التصفح لديك.</translation>
@@ -171,12 +168,10 @@
 <translation id="576822117893741893">‏إظهار قائمة Chrome</translation>
 <translation id="3444832043240812445">تعرض هذه الصفحة فقط معلومات عن الأعطال الحديثة إذا <ph name="BEGIN_LINK"/>مكّنت الإبلاغ عن الأعطال<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">‏لا يستجيب Google Chrome. هل تريد إعادة التشغيل الآن؟</translation>
-<translation id="5318056482164160049">‏مضيف المكون الإضافي لمتصفح Google Chrome</translation>
 <translation id="6126631249883707068">‏هل تريد من Google Chrome حفظ كلمة المرور؟</translation>
 <translation id="7773845170078702898">‏هل تريد من Google Chrome حفظ كلمة المرور لهذا الموقع؟</translation>
 <translation id="5046764976540625289">‏إنهاء Chrome</translation>
 <translation id="4251615635259297716">‏هل ترغب في ربط بياناتك في Chrome بهذا الحساب؟</translation>
-<translation id="9039578207253536065">‏عامل Google Chrome</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">متصفح الإنترنت</translation>
 <translation id="8142608456917638009">‏لم يتمكن Google Chrome من إنشاء اختصار للتطبيق.</translation>

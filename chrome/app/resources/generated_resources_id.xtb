@@ -28,6 +28,7 @@
 <translation id="778579833039460630">Tidak ada data yang diterima</translation>
 <translation id="32279126412636473">Muat ulang (⌘R)</translation>
 <translation id="1852799913675865625">Terdapat kesalahan saat mencoba membaca file: <ph name="ERROR_TEXT"/>.</translation>
+<translation id="6114740317862089559">Lihat <ph name="BEGIN_LINK"/>Kebijakan Privasi<ph name="END_LINK"/> untuk detail selengkapnya tentang cara kami menangani informasi ini.</translation>
 <translation id="3828924085048779000">Frasa sandi kosong tidak dibolehkan.</translation>
 <translation id="1844692022597038441">File ini tidak tersedia secara offline.</translation>
 <translation id="2709516037105925701">IsiOtomatis</translation>
@@ -91,7 +92,7 @@
 <translation id="4764776831041365478">Laman web di <ph name="URL"/> mungkin sedang tidak aktif untuk sementara atau dipindahkan secara permanen ke alamat web baru.</translation>
 <translation id="6156863943908443225">Cache skrip</translation>
 <translation id="4274187853770964845">Kesalahan Sinkronisasi: Hentikan dan mulai ulang Sinkronisasi.</translation>
-<translation id="3045873480188610022">Tab Baru - Paling Banyak Dikunjungi</translation>
+<translation id="3045873480188610022">Tab Baru - Sering Dibuka</translation>
 <translation id="6499114579475440437">Masuk untuk membayar dengan Google Wallet</translation>
 <translation id="656293578423618167">Jalur atau nama file terlalu panjang. Simpan dengan nama yang lebih pendek atau ke lokasi lain.</translation>
 <translation id="3484869148456018791">Dapatkan sertifikat baru</translation>
@@ -196,7 +197,7 @@
 <translation id="7624154074265342755">Jaringan nirkabel</translation>
 <translation id="2391762656119864333">Cabut</translation>
 <translation id="3315158641124845231">Sembunyikan <ph name="PRODUCT_NAME"/></translation>
-<translation id="7069168971636881066">Setidaknya harus ada satu akun di perangkat ini sebelum membuat pengguna yang diawasi.</translation>
+<translation id="7069168971636881066">Setidaknya harus ada satu akun di perangkat ini sebelum membuat pengguna yang dilindungi.</translation>
 <translation id="7809034755304591547"><ph name="EXTENSION_NAME"/> (ID ekstensi &quot;<ph name="EXTENSION_ID"/>&quot;) dicekal oleh administrator.</translation>
 <translation id="6373256700241079718">Jaringan:</translation>
 <translation id="7766807826975222231">Ikuti tur</translation>
@@ -225,7 +226,7 @@
 <translation id="645705751491738698">Lanjutkan mencekal JavaScript</translation>
 <translation id="9177556055091995297">Kelola kartu kredit</translation>
 <translation id="4780321648949301421">Simpan Laman Sebagai...</translation>
-<translation id="8630903300770275248">Impor pengguna yang diawasi</translation>
+<translation id="8630903300770275248">Impor pengguna yang dilindungi</translation>
 <translation id="3866863539038222107">Periksa</translation>
 <translation id="4552678318981539154">Beli penyimpanan lagi</translation>
 <translation id="2262243747453050782">Kesalahan HTTP</translation>
@@ -276,7 +277,7 @@
 <translation id="5748743223699164725">Mengaktifkan fitur Platform Web eksperimental yang sedang dikembangkan.</translation>
 <translation id="8110513421455578152">Menentukan tinggi ubin default.</translation>
 <translation id="8848519885565996859">Frame tautan URL buatan pengguna</translation>
-<translation id="7002454948392136538">Pilih pengelola untuk pengguna yang diawasi ini</translation>
+<translation id="7002454948392136538">Pilih pengelola untuk pengguna yang dilindungi ini</translation>
 <translation id="4640525840053037973">Masuk dengan Akun Google</translation>
 <translation id="5255315797444241226">Frasa sandi yang Anda masukkan salah.</translation>
 <translation id="762917759028004464">Browser default saat ini: <ph name="BROWSER_NAME"/>.</translation>
@@ -345,7 +346,7 @@
 <translation id="6928441285542626375">Aktifkan TCP Fast Open</translation>
 <translation id="7792388396321542707">Hentikan berbagi</translation>
 <translation id="5463275305984126951">Pengindeksan <ph name="LOCATION"/></translation>
-<translation id="8959810181433034287">Pengguna yang diawasi harus menggunakan sandi ini untuk masuk, jadi pilih sandi yang aman dan jangan lupa untuk membicarakannya dengan pengguna yang diawasi.</translation>
+<translation id="8959810181433034287">Pengguna yang diawasi harus menggunakan sandi ini untuk masuk, jadi pilih sandi yang aman dan jangan lupa untuk membicarakannya dengan pengguna yang dilindungi.</translation>
 <translation id="5154917547274118687">Memori</translation>
 <translation id="1493492096534259649">Bahasa ini tidak dapat digunakan untuk pemeriksaan ejaan</translation>
 <translation id="2103866351350079276">Menonaktifkan objek MediaSource tanpa awalan. Objek ini memungkinkan JavaScript mengirimkan data media langsung ke elemen video.</translation>
@@ -358,7 +359,7 @@
 <translation id="6243774244933267674">Server tidak tersedia</translation>
 <translation id="2436707352762155834">Minimum</translation>
 <translation id="5556206011531515970">Klik selanjutnya untuk memilih browser default Anda.</translation>
-<translation id="8158300065514217730">Masuk untuk mengimpor pengguna yang diawasi</translation>
+<translation id="8158300065514217730">Masuk untuk mengimpor pengguna yang dilindungi</translation>
 <translation id="2789486458103222910">Oke</translation>
 <translation id="4792711294155034829">Lapo&amp;rkan Masalah...</translation>
 <translation id="5819484510464120153">Buat pinta&amp;san aplikasi...</translation>
@@ -401,6 +402,8 @@
 <translation id="667115622929458276">Unduhan mode penyamaran sedang berlangsung. Anda ingin keluar dari mode penyamaran dan membatalkan unduhan?</translation>
 <translation id="1528372117901087631">Sambungan internet</translation>
 <translation id="1788636309517085411">Gunakan default</translation>
+<translation id="4159435316791146348">Dengan panduan dan persetujuan dari CPSC serta lembaga peraturan lain, Google dan HP menarik kembali pengisi daya (charger) asli untuk Chromebook HP 11.</translation>
+<translation id="7659660321065362272">Pembaruan penting pada Chromebook HP 11 Anda</translation>
 <translation id="1228893227497259893">Pengidentifikasi entitas salah</translation>
 <translation id="9177499212658576372">Saat ini Anda tersambung ke jaringan <ph name="NETWORK_TYPE"/>.</translation>
 <translation id="8589311641140863898">API Ekstensi Eksperimental</translation>
@@ -485,9 +488,10 @@
 <translation id="5866557323934807206">Hapus setelan ini untuk kunjungan di waktu mendatang</translation>
 <translation id="5355351445385646029">Tekan Spasi untuk memilih calon</translation>
 <translation id="5453029940327926427">Tutup tab</translation>
+<translation id="949088605431823851">Di mana Anda membeli Chromebook HP 11 ini?</translation>
 <translation id="9087353528325876418">URL Penemuan Otomatis Proxy Web</translation>
 <translation id="2958431318199492670">Konfigurasi jaringan tidak mematuhi standar ONC. Bagian dari konfigurasi mungkin tidak diimpor.</translation>
-<translation id="3878840326289104869">Membuat pengguna yang diawasi</translation>
+<translation id="3878840326289104869">Membuat pengguna yang dilindungi</translation>
 <translation id="406070391919917862">Aplikasi Latar Belakang</translation>
 <translation id="7000777920654628318">Jika diaktifkan, untaian raster akan menulis langsung ke memori GPU.</translation>
 <translation id="8820817407110198400">Bookmark</translation>
@@ -540,7 +544,7 @@
 <translation id="977057166964922044"><ph name="COUNT"/> item dihapus</translation>
 <translation id="1916935104118658523">Sembunyikan Plugin Ini</translation>
 <translation id="1046059554679513793">Ups, nama ini sudah digunakan!</translation>
-<translation id="2587922270115112871">Dengan membuat pengguna yang diawasi, Anda tidak membuat Akun Google, dan setelan
+<translation id="2587922270115112871">Dengan membuat pengguna yang dilindungi, Anda tidak membuat Akun Google, dan setelan
     serta datanya tidak akan mengikutinya ke perangkat lain dengan Penyinkronan Chrome. Pengguna yang diawasi hanya berlaku untuk perangkat ini.</translation>
 <translation id="4497097279402334319">Gagal terhubung ke jaringan.</translation>
 <translation id="7342729285348293164">Masuk ke <ph name="PRODUCT_NAME"/> dengan Akun Google Anda untuk menyimpan fitur browser hasil personalisasi ke web dan mengaksesnya dari <ph name="PRODUCT_NAME"/> pada komputer mana pun. Anda juga akan masuk ke layanan Google favorit secara otomatis.</translation>
@@ -801,7 +805,7 @@
 <translation id="3872166400289564527">Penyimpanan Eksternal</translation>
 <translation id="1442912890475371290">Usaha yang diblokir <ph name="BEGIN_LINK"/> untuk mengunjungi laman di <ph name="DOMAIN"/><ph name="END_LINK"/>.</translation>
 <translation id="5912378097832178659">&amp;Edit mesin telusur...</translation>
-<translation id="6187065185557150870">Obrolan</translation>
+<translation id="6187065185557150870">Chat</translation>
 <translation id="3749289110408117711">Nama file</translation>
 <translation id="5538092967727216836">Muat ulang frame</translation>
 <translation id="4813345808229079766">Sambungan</translation>
@@ -818,9 +822,9 @@
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP"/>.html</translation>
 <translation id="3127360977178108225">Akhiri sesi tamu</translation>
 <translation id="6327653052522436195">Kota</translation>
-<translation id="164814987133974965">Pengguna yang diawasi dapat menjelajahi web dengan panduan Anda. Sebagai pengelola pengguna yang diawasi, Anda dapat
+<translation id="164814987133974965">Pengguna yang diawasi dapat menjelajahi web dengan panduan Anda. Sebagai pengelola pengguna yang dilindungi, Anda dapat
     <ph name="BEGIN_BOLD"/>mengizinkan atau melarang<ph name="END_BOLD"/> situs web tertentu,
-    <ph name="BEGIN_BOLD"/>meninjau<ph name="END_BOLD"/> situs web yang dikunjungi pengguna yang diawasi, dan
+    <ph name="BEGIN_BOLD"/>meninjau<ph name="END_BOLD"/> situs web yang dikunjungi pengguna yang dilindungi, dan
     <ph name="BEGIN_BOLD"/>mengelola<ph name="END_BOLD"/> setelan lainnya.</translation>
 <translation id="6828153365543658583">Batasi akses masuk hanya untuk pengguna berikut:</translation>
 <translation id="8106045200081704138">Dibagikan dengan saya</translation>
@@ -882,6 +886,8 @@
 <translation id="3600456501114769456">Akses ke file lokal di perangkat Anda dinonaktifkan oleh administrator Anda.</translation>
 <translation id="7879478708475862060">Ikuti mode masukan</translation>
 <translation id="1042174272890264476">Komputer Anda juga dilengkapi dengan perpustakaan RLZ <ph name="SHORT_PRODUCT_NAME"/> yang tertanam di dalamnya. RLZ menetapkan tag tak unik dan tidak dapat diidentifikasi secara pribadi untuk mengukur penelusuran dan penggunaan <ph name="SHORT_PRODUCT_NAME"/> yang didorong oleh kampanye promosi tertentu. Biasanya label ini muncul di kueri Google Penelusuran di <ph name="PRODUCT_NAME"/>.</translation>
+<translation id="6311841686068461841">Periksa pengisi daya (charger) Anda</translation>
+<translation id="8436138142074894820">Jangan tampilkan pesan ini lagi.</translation>
 <translation id="348780365869651045">Menunggu AppCache...</translation>
 <translation id="817894225563172061">Jaringan Ethernet:</translation>
 <translation id="3125649188848276916">Ya (jangan rekam data baru)</translation>
@@ -1091,6 +1097,7 @@ Ssst! <ph name="SHORTCUT_KEY"/> mode penyamaran mungkin berguna suatu saat nanti
 <translation id="5800020978570554460">File tujuan terpotong atau terhapus sejak unduhan terakhir.</translation>
 <translation id="5270547718570958938">Google Kalender</translation>
 <translation id="5823933238730612365">PPAPI (tidak dikotakpasirkan)</translation>
+<translation id="2071128513678800377">Pengisi daya (charger) Anda sudah versi terbaru</translation>
 <translation id="5301751748813680278">Masuk sebagai Tamu.</translation>
 <translation id="121827551500866099">Tampilkan semua unduhan...</translation>
 <translation id="5949910269212525572">Tidak dapat menentukan alamat DNS server.</translation>
@@ -1143,7 +1150,7 @@ Ssst! <ph name="SHORTCUT_KEY"/> mode penyamaran mungkin berguna suatu saat nanti
 <translation id="6840313690797192085">$1 PB</translation>
 <translation id="284232663722007589">Aktifkan aplikasi apps-devtool.</translation>
 <translation id="2374144379568843525">&amp;Sembunyikan panel ejaan</translation>
-<translation id="3313590242757056087">Untuk menyetel situs web yang dapat dilihat pengguna yang diawasi, Anda dapat mengonfigurasi batasan
+<translation id="3313590242757056087">Untuk menyetel situs web yang dapat dilihat pengguna yang dilindungi, Anda dapat mengonfigurasi batasan
     dan setelan dengan mengunjungi <ph name="MANAGEMENT_URL"/>.
     Jika Anda tidak mengubah setelan default, <ph name="USER_DISPLAY_NAME"/>
     dapat menjelajahi semua situs di web.</translation>
@@ -1315,6 +1322,7 @@ Ssst! <ph name="SHORTCUT_KEY"/> mode penyamaran mungkin berguna suatu saat nanti
 <translation id="273093730430620027">Laman ini mengakses kamera Anda.</translation>
 <translation id="5605623530403479164">Mesin telusur lainnya</translation>
 <translation id="657064425229075395">Tidak dapat memuat skrip latar belakang '<ph name="BACKGROUND_SCRIPT"/>'.</translation>
+<translation id="3345234884557051648">Saya telah menelepon nomor tersebut dan meminta penggantian pengisi daya (charger).</translation>
 <translation id="5710435578057952990">Identitas situs Web ini belum diverifikasi.</translation>
 <translation id="1319997607168632851">Beri tahu pendapat Anda tentang Peluncur Aplikasi.</translation>
 <translation id="1303319084542230573">Tambahkan printer</translation>
@@ -1330,8 +1338,10 @@ Ssst! <ph name="SHORTCUT_KEY"/> mode penyamaran mungkin berguna suatu saat nanti
 <translation id="7952408061263786094">Keluar kemudian Masuk Lagi...</translation>
 <translation id="5880247576487732437">Token Tersedia</translation>
 <translation id="4689960105160368473">Lacak waktu yang dihabiskan di setiap laman</translation>
+<translation id="8412498037462710569">Saya mengonfirmasi bahwa saya tidak ingin menerima penggantian pengisi daya (charger) gratis.</translation>
 <translation id="3368922792935385530">Tersambung</translation>
 <translation id="8340999562596018839">Masukan lisan</translation>
+<translation id="5431473096922271583">Kami ingin memeriksa apakah Anda menggunakan salah satu pengisi daya (charger) asli.</translation>
 <translation id="3866443872548686097">Media pemulihan telah siap. Anda dapat melepasnya dari sistem.</translation>
 <translation id="6824564591481349393">Salin Alamat &amp;Email</translation>
 <translation id="907148966137935206">Jangan izinkan situs apa pun menampilkan munculan (disarankan)</translation>
@@ -1381,18 +1391,18 @@ Ssst! <ph name="SHORTCUT_KEY"/> mode penyamaran mungkin berguna suatu saat nanti
 <translation id="1105608846356399385">Kunjungi situs web</translation>
 <translation id="7218608093942361839"><ph name="PRODUCT_NAME"/> <ph name="PRODUCT_VERSION"/> (Platform <ph name="PLATFORM_VERSION"/>)</translation>
 <translation id="1644184664548287040">Konfigurasi cadangan tidak valid dan tidak dapat diimpor.</translation>
-<translation id="54870580363317966">Pilih avatar untuk pengguna yang diawasi ini.</translation>
+<translation id="54870580363317966">Pilih avatar untuk pengguna yang dilindungi ini.</translation>
 <translation id="2776026170754897883">Berbagi desktop - <ph name="APP_NAME"/></translation>
 <translation id="839736845446313156">Daftar</translation>
 <translation id="2660779039299703961">Acara</translation>
 <translation id="4249248555939881673">Menunggu sambungan jaringan...</translation>
-<translation id="8651130890368571179">Pengguna yang diawasi dapat menjelajah web dengan panduan Anda. Sebagai pengelola pengguna yang diawasi di Chrome, Anda dapat
+<translation id="8651130890368571179">Pengguna yang diawasi dapat menjelajah web dengan panduan Anda. Sebagai pengelola pengguna yang dilindungi di Chrome, Anda dapat
 
  • mengizinkan atau melarang situs web tertentu,
  • meninjau situs web yang dikunjungi pengguna yang dikelola, dan
  • mengelola setelan lainnya.
 
-Dengan membuat pengguna yang diawasi, Anda tidak membuat Akun Google, dan setelan serta datanya tidak akan mengikutinya ke perangkat lain dengan Penyinkronan Chrome. Saat ini, pengguna yang diawasi hanya berlaku untuk pemasangan Chrome ini, pada perangkat ini.
+Dengan membuat pengguna yang dilindungi, Anda tidak membuat Akun Google, dan setelan serta datanya tidak akan mengikutinya ke perangkat lain dengan Penyinkronan Chrome. Saat ini, pengguna yang dilindungi hanya berlaku untuk pemasangan Chrome ini, pada perangkat ini.
       
 Setelah membuat pengguna baru yang diawasi, Anda dapat mengelola setelannya kapan pun, dari perangkat apa pun, di www.chrome.com/manage.</translation>
 <translation id="2409527877874991071">Masukkan nama baru</translation>
@@ -1475,7 +1485,7 @@ Setelah membuat pengguna baru yang diawasi, Anda dapat mengelola setelannya kapa
 <translation id="6980956047710795611">Pindahkan semua data Chrome OS ke sandi baru (memerlukan sandi sebelumnya)</translation>
 <translation id="8652487083013326477">tombol radio rentang laman</translation>
 <translation id="5204967432542742771">Masukkan sandi</translation>
-<translation id="9025098623496448965">Oke, Bawa saya kembali ke layar info masuk</translation>
+<translation id="9025098623496448965">Oke, Bawa saya kembali ke layar proses masuk</translation>
 <translation id="589737135092634133">Periksa setelan proxy atau hubungi administrator jaringan untuk
           memastikan bahwa server proxy bekerja. Jika Anda tidak yakin harus
           menggunakan server proxy:
@@ -1496,14 +1506,14 @@ Setelah membuat pengguna baru yang diawasi, Anda dapat mengelola setelannya kapa
 <translation id="9187787570099877815">Lanjutkan mencekal plugin</translation>
 <translation id="8425492902634685834">Sematkan ke Bilah Tugas</translation>
 <translation id="6710464349423168835"><ph name="PRODUCT_NAME"/> tidak dapat menyinkronkan data Anda karena Sinkronisasi tidak tersedia untuk domain Anda.</translation>
-<translation id="4024762138030568728">Aktifkan info masuk SAML.</translation>
+<translation id="4024762138030568728">Aktifkan proses masuk SAML.</translation>
 <translation id="8597109877291678953">Tukar data dengan komputer yang bernama <ph name="HOSTNAME"/></translation>
 <translation id="825608351287166772">Sertifikat memiliki masa berlaku, sama seperti dokumen identitas apapun (misalnya paspor) yang Anda miliki. Sertifikat yang diberikan ke browser tidak valid. Bila masa berlaku sertifikat berakhir, informasi tertentu tentang status sertifikat (baik telah dibatalkan dan tidak dapat dipercaya lagi) tidak perlu disimpan. Dengan demikian, verifikasi bahwa sertifikat tersebut terpercaya tidak dapat dilakukan. Anda tidak boleh melanjutkan.</translation>
 <translation id="2381823505763074471">Keluar untuk pengguna <ph name="PROFILE_USERNAME"/>.</translation>
 <translation id="3616113530831147358">Audio</translation>
 <translation id="23030561267973084">&quot;<ph name="EXTENSION_NAME"/>&quot; telah meminta izin tambahan.</translation>
 <translation id="6957887021205513506">Sertifikat server tampaknya palsu.</translation>
-<translation id="8957709627709183338">Pembuatan pengguna yang diawasi dibatasi oleh pemilik perangkat ini.</translation>
+<translation id="8957709627709183338">Pembuatan pengguna yang dilindungi dibatasi oleh pemilik perangkat ini.</translation>
 <translation id="1227224963052638717">Kebijakan tidak dikenal.</translation>
 <translation id="4803909571878637176">Copot pemasangan</translation>
 <translation id="5209518306177824490">SHA-1 Fingerprint</translation>
@@ -1545,6 +1555,7 @@ Setelah membuat pengguna baru yang diawasi, Anda dapat mengelola setelannya kapa
 <translation id="5109044022078737958">Susanti</translation>
 <translation id="6291953229176937411">&amp;Tampilkan di Penemu</translation>
 <translation id="8598687241883907630">Putuskan kaitan Akun Google Anda...</translation>
+<translation id="3790571977176307462">Pilih pengisi daya (charger) yang dicolokkan ke Chromebook Anda sekarang:</translation>
 <translation id="2556718757702023317">Untuk menyimpan &quot;<ph name="FILE_NAME"/>&quot; secara offline, Anda harus mengosongkan tambahan ruang <ph name="TOTAL_FILE_SIZE"/>:<ph name="MARKUP_1"/>
         <ph name="MARKUP_2"/>lepas sematan file yang tidak lagi Anda gunakan untuk mengakses secara offline<ph name="MARKUP_3"/>
         <ph name="MARKUP_4"/>hapus file dari folder Unduhan Anda<ph name="MARKUP_5"/></translation>
@@ -1573,7 +1584,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="49896407730300355">Putar &amp;berlawanan arah jarum jam</translation>
 <translation id="4366553784388256545">Mendaftarkan perangkat. Harap tunggu...</translation>
 <translation id="5745056705311424885">Stik memori USB terdeteksi.</translation>
-<translation id="7651319298187296870">Info masuk diperlukan untuk sertifikat pengguna.</translation>
+<translation id="7651319298187296870">Perlu masuk untuk sertifikat pengguna.</translation>
 <translation id="626568068055008686">Sandi salah atau file rusak.</translation>
 <translation id="5895875028328858187">Tunjukkan pemberitahuan ketika data tinggal sedikit atau mendekati kedaluwarsa</translation>
 <translation id="939598580284253335">Masukkan frasa sandi</translation>
@@ -1584,6 +1595,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="1886996562706621347">Izinkan situs meminta untuk menjadi penangan default bagi protokol (direkomendasikan)</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY"/> [<ph name="ISSUED_TO"/>]</translation>
 <translation id="8899388739470541164">Vietnam</translation>
+<translation id="2053686653008575655">Anda dapat memeriksa <ph name="BEGIN_LINK"/>FAQ<ph name="END_LINK"/> dan terus menggunakan Chromebook HP 11 Anda dengan pengisi daya USB mikro lain yang tesertifikasi, misalnya yang disertakan bersama tablet atau ponsel cerdas. Sekali lagi kami mohon maaf atas ketidaknyamanan ini. Keamanan Anda adalah prioritas utama.</translation>
 <translation id="6423064450797205562">Metrik yang terkait dengan kecepatan saat <ph name="SHORT_PRODUCT_NAME"/> melakukan tindakan yang diminta</translation>
 <translation id="2048118585307365263">Aktifkan MediaDrm.</translation>
 <translation id="4091434297613116013">lembaran kertas</translation>
@@ -1623,7 +1635,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="3029595853063638932">Membuat Kartu Virtual Google Wallet...</translation>
 <translation id="1354868058853714482">Adobe Reader sudah usang dan mungkin tidak aman.</translation>
 <translation id="6146204502384987450">Muat yang belum dibuka...</translation>
-<translation id="3925083541997316308">Aplikasi dan ekstensi tidak dapat dimodifikasi oleh pengguna yang diawasi.</translation>
+<translation id="3925083541997316308">Aplikasi dan ekstensi tidak dapat dimodifikasi oleh pengguna yang dilindungi.</translation>
 <translation id="2317808232945809">Operasi penyalinan gagal, item yang ada: &quot;$1&quot;</translation>
 <translation id="8425755597197517046">Tempel dan Telu&amp;suri</translation>
 <translation id="6341850831632289108">Mendeteksi lokasi fisik Anda</translation>
@@ -1661,6 +1673,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="3449839693241009168">Tekan <ph name="SEARCH_KEY"/> untuk mengirimkan perintah ke <ph name="EXTENSION_NAME"/></translation>
 <translation id="968174221497644223">Cache aplikasi</translation>
 <translation id="6352609311795654248">Mengaktifkan pemutaran Opus eksperimental di elemen video.</translation>
+<translation id="9126999385065535384">Sejumlah kecil pengguna melapor bahwa pengisi daya (charger) asli Chromebook HP 11 rusak karena terlalu panas. Demi keamanan, kami mengganti semua pengisi daya (charger) asli tanpa biaya.</translation>
 <translation id="4343792725927556911">Setelan mikrofon dan kamera yang baru akan berlaku setelah laman ini dimuat ulang.</translation>
 <translation id="3847089579761895589">Anda sedang dibantu. Ingin melanjutkan?</translation>
 <translation id="8452588990572106089">Nomor kartu kredit tidak valid. Harap periksa dan coba lagi.</translation>
@@ -1747,7 +1760,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="4956752588882954117">Laman tersedia untuk dilihat.</translation>
 <translation id="1114202307280046356">Berlian</translation>
 <translation id="4215350869199060536">Ups! Ada simbol ilegal dalam nama.</translation>
-<translation id="5805190494033159960">Lacak jumlah waktu yang dihabiskan di setiap laman untuk penghitungan skor &quot;paling banyak dikunjungi&quot; yang lebih baik.</translation>
+<translation id="5805190494033159960">Lacak jumlah waktu yang dihabiskan di setiap laman untuk penghitungan skor &quot;sering dibuka&quot; yang lebih baik.</translation>
 <translation id="8911393093747857497">Tata letak rak alternatif</translation>
 <translation id="894360074127026135">Netscape International Step-Up</translation>
 <translation id="8420060421540670057">Tampilkan file Google Documents</translation>
@@ -1836,6 +1849,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="1000498691615767391">Pilih yang akan dibuka</translation>
 <translation id="3593152357631900254">Aktifkan mode Pinyin Fuzi</translation>
 <translation id="2570059561924004903">Nonaktifkan masukan lisan</translation>
+<translation id="2462911512468050799">Baca info selengkapnya di</translation>
 <translation id="2276503375879033601">Tambahkan aplikasi lainnya</translation>
 <translation id="5015344424288992913">Mengontak proxy...</translation>
 <translation id="4389091756366370506">Pengguna <ph name="VALUE"/></translation>
@@ -1846,7 +1860,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="4479812471636796472">Keyboard Dvorak AS</translation>
 <translation id="8774379383902544371">Akses perangkat USB</translation>
 <translation id="8673026256276578048">Telusuri Web...</translation>
-<translation id="2969972665754920929">Aplikasi dan ekstensi tidak dapat dimodifikasi oleh pengguna yang diawasi. Alat Pengembang Aplikasi akan ditutup.</translation>
+<translation id="2969972665754920929">Aplikasi dan ekstensi tidak dapat dimodifikasi oleh pengguna yang dilindungi. Alat Pengembang Aplikasi akan ditutup.</translation>
 <translation id="149347756975725155">Tidak dapat memuat ikon ekstensi '<ph name="ICON"/>'.</translation>
 <translation id="3011362742078013760">Buka Semua Bookmark di &amp;Jendela Penyamaran</translation>
 <translation id="3009300415590184725">Yakin ingin membatalkan proses penyiapan layanan data seluler?</translation>
@@ -2036,6 +2050,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 
         &lt;p&gt;Tetapi, Anda tetap dapat mengonfigurasi melalui baris perintah.  Lihat &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME"/>&lt;/code&gt; untuk informasi lebih lanjut tentang variabel lingkungan dan panji.&lt;/p&gt;</translation>
 <translation id="7205869271332034173">SSID:</translation>
+<translation id="8907701755790961703">Pilih negara</translation>
 <translation id="7084579131203911145">Nama paket layanan:</translation>
 <translation id="4731351517694976331">Mengizinkan layanan Google mengakses lokasi Anda</translation>
 <translation id="5815645614496570556">X.400 Address</translation>
@@ -2089,7 +2104,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="4131410914670010031">Hitam dan putih</translation>
 <translation id="3800503346337426623">Lompati masuk dan jelajahi sebagai Tamu</translation>
 <translation id="2615413226240911668">Tetapi, laman ini mencakup sumber daya yang tidak aman. Sumber daya ini dapat dilihat oleh orang lain saat transit, dan dapat dimodifikasi oleh penyerang untuk mengubah tampilan laman.</translation>
-<translation id="1416136326154112077">Setelan dan riwayat penjelajahan untuk pengguna yang diawasi ini masih dapat dilihat oleh pengelola di <ph name="BEGIN_LINK"/>www.chrome.com/manage<ph name="END_LINK"/>.</translation>
+<translation id="1416136326154112077">Setelan dan riwayat penjelajahan untuk pengguna yang dilindungi ini masih dapat dilihat oleh pengelola di <ph name="BEGIN_LINK"/>www.chrome.com/manage<ph name="END_LINK"/>.</translation>
 <translation id="197288927597451399">Tetap Unduh</translation>
 <translation id="5880867612172997051">Akses jaringan ditangguhkan</translation>
 <translation id="5495466433285976480">Hal ini akan menghapus semua pengguna lokal, file, data, dan setelan lain setelah Anda memulai ulang lagi. Semua pengguna perlu masuk kembali.</translation>
@@ -2225,7 +2240,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="3898521660513055167">Status Token</translation>
 <translation id="1950295184970569138">* Foto Google profil (memuat)</translation>
 <translation id="8063491445163840780">Aktifkan tab 4</translation>
-<translation id="7939997691108949385">Pengelola akan dapat mengonfigurasi batasan dan setelan untuk pengguna yang diawasi ini di <ph name="MANAGEMENT_URL"/>.</translation>
+<translation id="7939997691108949385">Pengelola akan dapat mengonfigurasi batasan dan setelan untuk pengguna yang dilindungi ini di <ph name="MANAGEMENT_URL"/>.</translation>
 <translation id="2322193970951063277">Header dan footer</translation>
 <translation id="6436164536244065364">Lihat di Toko Web</translation>
 <translation id="9137013805542155359">Perlihatkan laman asli</translation>
@@ -2380,6 +2395,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="2086712242472027775">Akun Anda tidak berfungsi di <ph name="PRODUCT_NAME"/>. Harap hubungi administrator domain atau gunakan Akun Google biasa untuk masuk.</translation>
 <translation id="1970103697564110434">Google Wallet melindungi kartu Anda</translation>
 <translation id="7222232353993864120">Alamat Email</translation>
+<translation id="1324451548764108666">Hubungi (866) 628-1371 (AS) atau 0800 026 0613 (Inggris) untuk meminta penggantian pengisi daya (charger) gratis.</translation>
 <translation id="2128531968068887769">Native Client</translation>
 <translation id="7175353351958621980">Dimuat dari:</translation>
 <translation id="7186367841673660872">Laman ini telah diterjemahkan dari<ph name="ORIGINAL_LANGUAGE"/>ke<ph name="LANGUAGE_LANGUAGE"/></translation>
@@ -2424,6 +2440,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="6432458268957186486">Cetak menggunakan dialog <ph name="CLOUD_PRINT_NAME"/>...</translation>
 <translation id="2950186680359523359">Server memutus sambungan tanpa mengirim data apa pun.</translation>
 <translation id="4269099019648381197">Mengaktifkan opsi situs tablet permintaan dalam menu setelan.</translation>
+<translation id="1645250822384430568">Kami telah menerima informasi Anda dan sedang memproses permintaan Anda.</translation>
 <translation id="9142623379911037913">Izinkan <ph name="SITE"/> untuk menampilkan pemberitahuan dekstop?</translation>
 <translation id="6546686722964485737">Gabung dengan jaringan WiMAX</translation>
 <translation id="266983583785200437">Kejadian yang terkait dengan kerusakan dan kegagalan <ph name="SHORT_PRODUCT_NAME"/></translation>
@@ -2462,7 +2479,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="5094721898978802975">Berkomunikasi dengan aplikasi asli yang kooperatif</translation>
 <translation id="1077946062898560804">Menyiapkan Pembaruan Otomatis untuk Semua Pengguna</translation>
 <translation id="3122496702278727796">Gagal Membuat Direktori Data</translation>
-<translation id="6690751852586194791">Pilih pengguna yang diawasi untuk ditambahkan ke perangkat ini.</translation>
+<translation id="6690751852586194791">Pilih pengguna yang dilindungi untuk ditambahkan ke perangkat ini.</translation>
 <translation id="6990081529015358884">Anda telah kehabisan ruang</translation>
 <translation id="350945665292790777">Menggunakan pemaduan yang dipercepat GPU di semua laman, tidak hanya yang berisi lapisan yang dipercepat GPU.</translation>
 <translation id="5273628206174272911">Navigasi riwayat eksperimental saat menanggapi gulir horizontal.</translation>
@@ -2543,7 +2560,7 @@ Pastikan Anda tidak mengekspos informasi penting apa pun.</translation>
 <translation id="8382913212082956454">Salin alamat &amp;email</translation>
 <translation id="7447930227192971403">Aktifkan tab 3</translation>
 <translation id="3010559122411665027">Entri daftar &quot;<ph name="ENTRY_INDEX"/>&quot;: <ph name="ERROR"/></translation>
-<translation id="134260045699141506">Ini adalah pengguna yang diawasi yang akan Anda kelola.
+<translation id="134260045699141506">Ini adalah pengguna yang dilindungi yang akan Anda kelola.
 Anda harus masuk untuk menggunakan fitur ini.</translation>
 <translation id="2903493209154104877">Alamat</translation>
 <translation id="3479552764303398839">Jangan sekarang</translation>
@@ -2683,6 +2700,7 @@ Anda harus masuk untuk menggunakan fitur ini.</translation>
 <translation id="5400640815024374115">Chip Modul Platform Tepercaya (Trusted Platform Module/TPM) dinonaktifkan atau tidak ada.</translation>
 <translation id="2025623846716345241">Konfirmasi Pemuatan Ulang</translation>
 <translation id="2151576029659734873">Indeks tab yang dimasukkan tidak valid.</translation>
+<translation id="496546018524231664">Irlandia</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD"/>Perhatian:<ph name="END_BOLD"/> File ini bersifat sementara dan dapat dihapus secara otomatis untuk menambah ruang disk. <ph name="BEGIN_LINK"/>Pelajari Lebih Lanjut<ph name="END_LINK"/></translation>
 <translation id="4722920479021006856"><ph name="APP_NAME"/> berbagi layar Anda.</translation>
 <translation id="5599620772482612321">Memindahkan item $1.</translation>
@@ -2772,6 +2790,7 @@ Anda harus masuk untuk menggunakan fitur ini.</translation>
 <translation id="6571070086367343653">Edit kartu kredit</translation>
 <translation id="1204242529756846967">Bahasa ini digunakan untuk pemeriksaan ejaan</translation>
 <translation id="3981760180856053153">Jenis penyimpanan yang dimasukkan tidak valid.</translation>
+<translation id="8865709004086313039">Sementara itu, Anda dapat memeriksa <ph name="BEGIN_LINK"/>FAQ<ph name="END_LINK"/> dan terus menggunakan Chromebook HP 11 Anda dengan pengisi daya USB mikro lain yang tesertifikasi, misalnya yang disertakan bersama tablet atau ponsel cerdas. Sekali lagi kami mohon maaf atas ketidaknyamanan ini. Keamanan Anda adalah prioritas utama.</translation>
 <translation id="593917093612693620">Dengan mengeklik Lanjutkan, Anda menyetujui <ph name="LEGAL_DOC_LINK_TEXT_1"/>, <ph name="LEGAL_DOC_LINK_TEXT_2"/>, dan <ph name="LEGAL_DOC_LINK_TEXT_3"/>. Untuk melindungi Anda dari penipuan, informasi tentang komputer Anda (termasuk lokasinya) akan dibagikan dengan Google Wallet.</translation>
 <translation id="4508345242223896011">Pengguliran Lancar</translation>
 <translation id="6192792657125177640">Pengecualian</translation>
@@ -2847,7 +2866,7 @@ Anda harus masuk untuk menggunakan fitur ini.</translation>
 <translation id="2912905526406334195"><ph name="HOST"/> ingin menggunakan mikrofon Anda.</translation>
 <translation id="2805756323405976993">Apl</translation>
 <translation id="1608626060424371292">Hapus pengguna ini</translation>
-<translation id="3075239840551149663"><ph name="NEW_PROFILE_NAME"/> telah dibuat sebagai pengguna yang diawasi!</translation>
+<translation id="3075239840551149663"><ph name="NEW_PROFILE_NAME"/> telah dibuat sebagai pengguna yang dilindungi!</translation>
 <translation id="3651020361689274926">Sumber daya yang diminta sudah tidak ada lagi, dan tidak ada alamat terusan.  Kondisi ini diperkirakan permanen.</translation>
 <translation id="7541236596838501870">Log WebRTC yang diunggah (<ph name="WEBRTC_LOG_COUNT"/>)</translation>
 <translation id="6003284010415283671">Tambahkan Aplikasi</translation>
@@ -2860,12 +2879,12 @@ Anda harus masuk untuk menggunakan fitur ini.</translation>
 <translation id="7525067979554623046">Buat</translation>
 <translation id="4853020600495124913">Buka di &amp;jendela baru</translation>
 <translation id="6847758263950452722">Simpan Laman sebagai MHTML</translation>
-<translation id="4217998989792742258">Ini adalah pengguna yang diawasi yang dikelola oleh <ph name="CUSTODIAN_EMAIL"/></translation>
+<translation id="4217998989792742258">Ini adalah pengguna yang dilindungi yang dikelola oleh <ph name="CUSTODIAN_EMAIL"/></translation>
 <translation id="4711094779914110278">Turki</translation>
 <translation id="5121130586824819730">Hard disk Anda sudah penuh. Simpan ke lokasi lain atau kosongkan lebih banyak ruang pada hard disk.</translation>
 <translation id="7643802497509977994">Ubah kembali ke &quot;<ph name="FROM_LOCALE"/>&quot; (harus keluar)</translation>
 <translation id="1875987452136482705">Opsi ini menonaktifkan dukungan di WebRTC untuk mendekode streaming video menggunakan perangkat keras platform.</translation>
-<translation id="6164005077879661055">Semua file dan data lokal yang terkait dengan pengguna yang diawasi akan dihapus secara permanen setelah pengguna yang diawasi ini dihapus. Situs web yang dikunjungi dan setelan untuk pengguna yang diawasi ini mungkin tetap dapat dilihat oleh pengelola di <ph name="MANAGEMENT_URL"/>.</translation>
+<translation id="6164005077879661055">Semua file dan data lokal yang terkait dengan pengguna yang dilindungi akan dihapus secara permanen setelah pengguna yang dilindungi ini dihapus. Situs web yang dikunjungi dan setelan untuk pengguna yang dilindungi ini mungkin tetap dapat dilihat oleh pengelola di <ph name="MANAGEMENT_URL"/>.</translation>
 <translation id="1031460590482534116">Terjadi kesalahan ketika mencoba menyimpan sertifikat klien. Kesalahan <ph name="ERROR_NUMBER"/> (<ph name="ERROR_NAME"/>).</translation>
 <translation id="7296774163727375165">Persyaratan <ph name="DOMAIN"/></translation>
 <translation id="25597840138324075">Unduhan mode penyamaran sedang berlangsung</translation>
@@ -2926,7 +2945,7 @@ Anda harus masuk untuk menggunakan fitur ini.</translation>
 <translation id="2319236583141234177">Periksa setelan DNS Anda.</translation>
 <translation id="114140604515785785">Direktori akar ekstensi:</translation>
 <translation id="6664237456442406323">Sayangnya, komputer Anda dikonfigurasi dengan ID perangkat keras yang rusak. Hal ini mencegah Chrome OS memperbarui dengan perbaikan keamanan terbaru dan komputer Anda <ph name="BEGIN_BOLD"/>mungkin rentan terhadap serangan berbahaya<ph name="END_BOLD"/>.</translation>
-<translation id="785160701896930981">Pengguna yang diawasi dengan nama <ph name="NEW_PROFILE_NAME"/> telah dibuat. Untuk menyetel situs web yang dapat dilihat oleh pengguna yang diawasi ini, Anda dapat mengonfigurasikan batasan dan setelan dengan mengunjungi <ph name="BEGIN_LINK"/>www.chrome.com/manage<ph name="END_LINK"/>. Jika Anda tidak mengubah setelan default, <ph name="NEW_PROFILE_NAME"/> dapat menjelajahi semua situs di web.
+<translation id="785160701896930981">Pengguna yang diawasi dengan nama <ph name="NEW_PROFILE_NAME"/> telah dibuat. Untuk menyetel situs web yang dapat dilihat oleh pengguna yang dilindungi ini, Anda dapat mengonfigurasikan batasan dan setelan dengan mengunjungi <ph name="BEGIN_LINK"/>www.chrome.com/manage<ph name="END_LINK"/>. Jika Anda tidak mengubah setelan default, <ph name="NEW_PROFILE_NAME"/> dapat menjelajahi semua situs di web.
 
 Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk selengkapnya.</translation>
 <translation id="8493236660459102203">Mikrofon:</translation>
@@ -2971,6 +2990,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk sele
           <ph name="BEGIN_LINK"/>Pelajari lebih lanjut<ph name="END_LINK"/> tentang penjelajahan Tamu.</translation>
 <translation id="8004582292198964060">Browser</translation>
 <translation id="695755122858488207">Tombol radio yang tidak dipilih</translation>
+<translation id="6745625605706446078">Formulir permintaan pengisi daya (charger) Chromebook HP 11</translation>
 <translation id="1934636348456381428">Aktifkan penerapan bilah gulir hamparan eksperimental. Anda juga harus mengaktifkan pengomposisian berantai agar bilah gulir dianimasikan.</translation>
 <translation id="8666678546361132282">Inggris</translation>
 <translation id="2224551243087462610">Edit nama folder</translation>
@@ -2999,7 +3019,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk sele
 <translation id="6739254200873843030">Kartu ini habis masa berlakunya. Periksa tanggalnya atau masukkan kartu baru.</translation>
 <translation id="8793043992023823866">Mengimpor...</translation>
 <translation id="8106211421800660735">Nomor kartu kredit</translation>
-<translation id="8843709518995654957"><ph name="LINK_START"/>Buat pengguna yang diawasi<ph name="LINK_END"/> untuk perangkat ini.</translation>
+<translation id="8843709518995654957"><ph name="LINK_START"/>Buat pengguna yang dilindungi<ph name="LINK_END"/> untuk perangkat ini.</translation>
 <translation id="2872961005593481000">Matikan</translation>
 <translation id="8986267729801483565">Lokasi unduhan:</translation>
 <translation id="7021076338299963900">Alamat (opsional)</translation>
@@ -3074,7 +3094,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk sele
 <translation id="6691936601825168937">&amp;Maju</translation>
 <translation id="6566142449942033617">Tidak dapat memuat '<ph name="PLUGIN_PATH"/>' untuk plugin.</translation>
 <translation id="7299337219131431707">Aktifkan penjelajahan Tamu</translation>
-<translation id="2312980885338881851">Ups! Saat ini sepertinya tidak ada pengguna yang diawasi yang dapat Anda impor. Buat satu atau beberapa pengguna dari perangkat lain, lalu impor ke perangkat ini.</translation>
+<translation id="2312980885338881851">Ups! Saat ini sepertinya tidak ada pengguna yang dilindungi yang dapat Anda impor. Buat satu atau beberapa pengguna dari perangkat lain, lalu impor ke perangkat ini.</translation>
 <translation id="6823506025919456619">Anda harus masuk ke Chrome untuk melihat perangkat Anda</translation>
 <translation id="7065534935986314333">Tentang Sistem</translation>
 <translation id="4691088804026137116">Tidak ada yang disinkronkan</translation>
@@ -3134,7 +3154,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk sele
 <translation id="6615455863669487791">Tunjukkan</translation>
 <translation id="3543393733900874979">Gagal memperbarui (kesalahan: <ph name="ERROR_NUMBER"/>)</translation>
 <translation id="1017280919048282932">&amp;Tambahkan ke kamus</translation>
-<translation id="3534879087479077042">Apa itu pengguna yang diawasi?</translation>
+<translation id="3534879087479077042">Apa itu pengguna yang dilindungi?</translation>
 <translation id="7211828883345145708">Mengaktifkan pintasan keyboard tambahan yang berguna untuk Chromium debugging.</translation>
 <translation id="8319414634934645341">Extended Key Usage</translation>
 <translation id="6056710589053485679">Muat Ulang Normal</translation>
@@ -3164,6 +3184,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk sele
 <translation id="889901481107108152">Maaf, percobaan ini tidak tersedia di platform Anda.</translation>
 <translation id="2042900667172886929">Hapus cache lokal</translation>
 <translation id="3228969707346345236">Terjemahan gagal karena laman sudah dalam bahasa <ph name="LANGUAGE"/>.</translation>
+<translation id="8238191901674777266">Amerika Serikat</translation>
 <translation id="1873879463550486830">Sandbox SUID</translation>
 <translation id="8118860139461251237">Mengelola unduhan Anda</translation>
 <translation id="5111852801054039429">Nonaktifkan WebRTC</translation>
@@ -3193,6 +3214,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk sele
         tidak dapat menjangkau situs web.  Ini biasanya terjadi karena masalah jaringan,
         tetapi juga bisa disebabkan oleh firewall atau server proxy yang salah dikonfigurasi.</translation>
 <translation id="5445557969380904478">Tentang pengenalan suara</translation>
+<translation id="4104400246019119780">Terima kasih!</translation>
 <translation id="3487007233252413104">fungsi anonim</translation>
 <translation id="8965037249707889821">Masukkan sandi lama</translation>
 <translation id="6410328738210026208">Ganti saluran dan Powerwash</translation>
@@ -3231,7 +3253,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL"/> untuk hal ini dan petunjuk sele
 <translation id="8891727572606052622">Mode proxy tidak valid.</translation>
 <translation id="8813873272012220470">Aktifkan pemeriksaan latar belakang yang mengingatkan Anda saat inkompatibilitas perangkat lunak terdeteksi (misal: modul pihak ketiga yang mogok dalam browser).</translation>
 <translation id="3660234220361471169">Tidak tepercaya</translation>
-<translation id="3504669335572969216">Ini adalah pengguna yang diawasi yang dikelola oleh <ph name="CUSTODIAN_EMAIL"/>
+<translation id="3504669335572969216">Ini adalah pengguna yang dilindungi yang dikelola oleh <ph name="CUSTODIAN_EMAIL"/>
 Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="2679385451463308372">Cetak menggunakan dialog sistem...</translation>
 <translation id="959890390740139744">Otomatis Perbaiki Ejaan</translation>
@@ -3344,14 +3366,14 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="5832669303303483065">Tambahkan alamat jalan yang baru...</translation>
 <translation id="4516542078385226197">Untuk mengatasi masalah ini, Anda harus masuk ke Akun Google
     dari layar masuk. Anda dapat keluar dari Akun Google dan
-    mencoba membuat pengguna yang diawasi lagi.</translation>
+    mencoba membuat pengguna yang dilindungi lagi.</translation>
 <translation id="3127919023693423797">Autentikasi...</translation>
 <translation id="3712624925041724820">Lisensi habis</translation>
 <translation id="4195643157523330669">Buka di tab baru</translation>
 <translation id="8030169304546394654">Diputuskan</translation>
 <translation id="6672789615126913676">Penggunaan dan riwayat pengguna ini dapat ditinjau oleh pengelola (<ph name="CUSTODIAN_EMAIL"/>) di chrome.com.</translation>
 <translation id="4010065515774514159">Tindakan Browser</translation>
-<translation id="7295019613773647480">Aktifkan pengguna yang diawasi</translation>
+<translation id="7295019613773647480">Aktifkan pengguna yang dilindungi</translation>
 <translation id="2893389635995517838">Mengakses foto, musik, dan media lain dari komputer Anda.</translation>
 <translation id="3529423920239848704">Kekerapan saat <ph name="SHORT_PRODUCT_NAME"/> tidak mati dengan semestinya</translation>
 <translation id="7022562585984256452">Beranda Anda telah disetel.</translation>
@@ -3505,6 +3527,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="5045550434625856497">Sandi salah</translation>
 <translation id="6397592254427394018">Buka semua bookmark di &amp;jendela penyamaran</translation>
 <translation id="27822970480436970">Ekstensi ini gagal memodifikasi permintaan jaringan karena modifikasi bentrok dengan ekstensi lain.</translation>
+<translation id="2453860139492968684">Selesai</translation>
 <translation id="756445078718366910">Buka Jendela Browser</translation>
 <translation id="6132383530370527946">Cetak kecil</translation>
 <translation id="9033780830059217187">Proxy diterapkan oleh ekstensi.</translation>
@@ -3574,7 +3597,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="2750518858905599015"><ph name="SHORT_PRODUCT_NAME"/> Diperbarui</translation>
 <translation id="7554791636758816595">Tab Baru</translation>
 <translation id="3630337581925712713"><ph name="PERMISSION_TYPE_LABEL"/>:</translation>
-<translation id="2740393541869613458">meninjau situs web yang telah dikunjungi oleh pengguna yang diawasi, dan</translation>
+<translation id="2740393541869613458">meninjau situs web yang telah dikunjungi oleh pengguna yang dilindungi, dan</translation>
 <translation id="1114091355035739006">Gunakan nilai tengah sehingga mengurangi efek terpisah dalam data kinerja</translation>
 <translation id="3330616135759834145">Beberapa tajuk Disposisi Konten berbeda diterima. Yang seperti ini tidak diizinkan untuk
         melindungi terhadap serangan yang memecah respons HTTP.</translation>
@@ -3608,6 +3631,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="7299721129597238157">Hapus bookmark</translation>
 <translation id="3031557471081358569">Pilih item yang akan diimpor:</translation>
 <translation id="1368832886055348810">Kiri ke Kanan</translation>
+<translation id="834106456999819211">Pesanan Anda sedang diproses</translation>
 <translation id="133014027510889724">Aktifkan pemantauan kinerja</translation>
 <translation id="3627320433825461852">Kurang dari 1 menit lagi</translation>
 <translation id="3031433885594348982">Sambungan ke <ph name="DOMAIN"/> dienkripsi dengan enkripsi lemah.</translation>
@@ -3670,6 +3694,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="5358016106459232452">Waktu yang diperlukan untuk memulai <ph name="SHORT_PRODUCT_NAME"/> sepenuhnya dalam lingkungan pengujian</translation>
 <translation id="7509179828847922845">Koneksi ke <ph name="HOST_NAME"/> terputus.</translation>
 <translation id="2911372483530471524">Namespace PID</translation>
+<translation id="6030886059850316251">Kirimi saya pengisi daya (charger) baru</translation>
 <translation id="4267171000817377500">Plugin</translation>
 <translation id="8584134039559266300">Aktifkan tab 8</translation>
 <translation id="3140978158653201367">Konfirmasi Tema Baru</translation>
@@ -3832,6 +3857,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="479989351350248267">telusuri</translation>
 <translation id="472177018469288237">Google Wallet tidak aktif</translation>
 <translation id="7730449930968088409">Menangkap konten layar Anda</translation>
+<translation id="1431605150566631089">Periksa pengisi daya (charger)</translation>
 <translation id="7714464543167945231">Sertifikat</translation>
 <translation id="8324294541009002530">Menonaktifkan objek WebKitMediaSource eksperimental. Objek ini memungkinkan JavaScript mengirimkan data media langsung ke elemen video.</translation>
 <translation id="4966802378343010715">Buat pengguna baru</translation>
@@ -3904,6 +3930,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="1479356886123917758">Mengakses dan mengubah foto, musik, dan media lain dari komputer Anda.</translation>
 <translation id="5295309862264981122">Konfirmasikan Navigasi</translation>
 <translation id="8249320324621329438">Terakhir diambil:</translation>
+<translation id="718827667662449283">Inggris</translation>
 <translation id="5804241973901381774">Izin</translation>
 <translation id="901834265349196618">email</translation>
 <translation id="8382207127145268451">Aktifkan Proxy Kompresi Data</translation>
@@ -3937,6 +3964,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="4441124369922430666">Ingin memulai aplikasi ini secara otomatis saat komputer diaktifkan?</translation>
 <translation id="3748412725338508953">Terlalu banyak arahan ulang.</translation>
 <translation id="999754487240933182">Mengaktifkan Debugging Jarak Jauh Chrome untuk Android melalui antarmuka USB mentah (tidak perlu memasang / menjalankan Android Debug Bridge).</translation>
+<translation id="7741303706372017829">Pengisi daya (charger) yang ditarik kembali milik saya tidak perlu diganti</translation>
 <translation id="5833726373896279253">Setelan ini hanya boleh diubah-ubah oleh pemiliknya:</translation>
 <translation id="9203962528777363226">Administrator perangkat ini telah menonaktifkan pengguna baru agar tidak ditambahkan</translation>
 <translation id="6005282720244019462">Keyboard untuk wilayah Amerika Latin</translation>
@@ -3951,7 +3979,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="6681668084120808868">Ambil foto</translation>
 <translation id="1368265273904755308">Laporkan masalah</translation>
 <translation id="780301667611848630">Tidak, terima kasih</translation>
-<translation id="8209677645716428427">Pengguna yang diawasi dapat menjelajah web dengan panduan Anda. Sebagai pengelola pengguna yang diawasi di Chrome, Anda dapat:</translation>
+<translation id="8209677645716428427">Pengguna yang diawasi dapat menjelajah web dengan panduan Anda. Sebagai pengelola pengguna yang dilindungi di Chrome, Anda dapat:</translation>
 <translation id="2812989263793994277">Jangan tampilkan gambar apa pun</translation>
 <translation id="722363467515709460">Aktifkan kaca pembesar layar</translation>
 <translation id="7190251665563814471">Selalu izinkan plugin ini di <ph name="HOST"/></translation>
@@ -4196,6 +4224,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="216169395504480358">Tambahkan Wi-Fi...</translation>
 <translation id="1804251416207250805">Nonaktifkan mengirim ping pengauditan hyperlink.</translation>
 <translation id="5116628073786783676">Sim&amp;pan Audio Sebagai...</translation>
+<translation id="6172346010137455972">Sudah siap.</translation>
 <translation id="7638054264543643210">Kirim email ke orang ini</translation>
 <translation id="2539507112146602356">Gaya tombol teks bingkai alternatif</translation>
 <translation id="2557899542277210112">Untuk akses yang cepat, tempatkan bookmark pada bilah bookmark.</translation>
@@ -4227,7 +4256,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="943803541173786810">Aktifkan sinkronisasi ikon favorit.</translation>
 <translation id="8735794438432839558">Sambungkan ke internet untuk masuk ke Chromebook.</translation>
 <translation id="7939412583708276221">Lanjutkan saja</translation>
-<translation id="8140778357236808512">Impor pengguna yang diawasi yang sudah ada</translation>
+<translation id="8140778357236808512">Impor pengguna yang dilindungi yang sudah ada</translation>
 <translation id="6953992620120116713">HTTPS melalui protokol QUIC eksperimental.</translation>
 <translation id="8737260648576902897">Pasang Adobe Reader</translation>
 <translation id="7876243839304621966">Hapus semua</translation>
@@ -4287,6 +4316,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="5831217499016131155">Google Wallet</translation>
 <translation id="3958088479270651626">Impor bookmark dan setelan</translation>
 <translation id="8518865679229538285">Metode masukan Tamil (Typewriter)</translation>
+<translation id="4918745183464912186">Australia</translation>
 <translation id="5257456363153333584">Capung</translation>
 <translation id="4557136421275541763">Peringatan:</translation>
 <translation id="3872687746103784075">Debugging berbasis GDB Native Client</translation>
@@ -4301,7 +4331,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME"/> memerlukan izin baru</translation>
 <translation id="8581176815801839038">Adaptor <ph name="ADAPTER_NAME"/> tidak diaktifkan.</translation>
 <translation id="8928220460877261598">Sekarang Anda sudah masuk ke Chrome.</translation>
-<translation id="1409390508152595145">Membuat pengguna yang diawasi</translation>
+<translation id="1409390508152595145">Membuat pengguna yang dilindungi</translation>
 <translation id="7484964289312150019">Buka semua bookmark di &amp;jendela baru</translation>
 <translation id="1731346223650886555">Titik koma</translation>
 <translation id="7339763383339757376">PKCS #7, satu sertifikat</translation>
@@ -4409,6 +4439,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="7674629440242451245">Tertarik dengan fitur Chrome baru yang keren? Coba saluran dev kami di chrome.com/dev.</translation>
 <translation id="7568593326407688803">Laman ini dalam bahasa<ph name="ORIGINAL_LANGUAGE"/>Ingin diterjemahkan?</translation>
 <translation id="7818135753970109980">Tema baru ditambahkan (<ph name="EXTENSION_NAME"/>)</translation>
+<translation id="917306543655291301">Silakan baca info selengkapnya di</translation>
 <translation id="5448293924669608770">Ups, ada yang tidak beres dengan proses masuk</translation>
 <translation id="6870130893560916279">Keyboard untuk bahasa Ukraina</translation>
 <translation id="8931394284949551895">Perangkat baru</translation>
@@ -4596,6 +4627,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="3366404380928138336">Permintaan Protokol Eksternal</translation>
 <translation id="5300589172476337783">Tampilkan</translation>
 <translation id="3160041952246459240">Anda memiliki sertifikat pada file yang mengidentifikasi server ini:</translation>
+<translation id="5806573568064269889">Saya mengonfirmasi bahwa saya menggunakan pengisi daya (charger) dengan stiker hijau.</translation>
 <translation id="566920818739465183">Anda pertama kali mengunjungi situs ini pada tanggal <ph name="VISIT_DATE"/>.</translation>
 <translation id="2961695502793809356">Klik untuk maju, tahan untuk melihat riwayat</translation>
 <translation id="4092878864607680421">Versi terbaru dari apl &quot;<ph name="APP_NAME"/>&quot; memerlukan izin lebih lanjut, jadi aplikasi ini belum diaktifkan.</translation>
@@ -4652,7 +4684,7 @@ Detail masuk akun Anda kedaluwarsa.</translation>
 <translation id="5170477580121653719">Sisa ruang Google Drive: <ph name="SPACE_AVAILABLE"/>.</translation>
 <translation id="4114470632216071239">Kunci kartu SIM (memerlukan PIN untuk menggunakan data seluler)</translation>
 <translation id="6581162200855843583">Tautan Google Drive</translation>
-<translation id="5783221160790377646">Karena kesalahan, pengguna yang diawasi tidak dibuat. Coba lagi nanti.</translation>
+<translation id="5783221160790377646">Karena kesalahan, pengguna yang dilindungi tidak dibuat. Coba lagi nanti.</translation>
 <translation id="340771324714262530">Hentikan pencerminan</translation>
 <translation id="3303260552072730022">Sebuah ekstensi memicu layar penuh.</translation>
 <translation id="1021323901059345250">Data Anda mungkin telah hilang atau rusak. Lain kali, pastikan mengeklik ikon keluarkan di aplikasi File sebelum menghapus perangkat Anda.</translation>
@@ -4756,7 +4788,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="1981905533439890161">Konfirmasi Apl Baru</translation>
 <translation id="7717014941119698257">Mengunduh: <ph name="STATUS"/></translation>
 <translation id="2785530881066938471">Tidak dapat memuat file '<ph name="RELATIVE_PATH"/>' untuk skrip konten. File ini tidak bersandiaksara UTF-8.</translation>
-<translation id="8744525654891896746">Pilih avatar untuk pengguna yang diawasi ini</translation>
+<translation id="8744525654891896746">Pilih avatar untuk pengguna yang dilindungi ini</translation>
 <translation id="3807747707162121253">&amp;Batal</translation>
 <translation id="2740531572673183784">Oke</translation>
 <translation id="202352106777823113">Unduhan terlalu lama, jadi dihentikan oleh jaringan.</translation>
@@ -4791,6 +4823,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="1852583733258643568"><ph name="BEGIN_BOLD"/>2. <ph name="END_BOLD"/>Menguji sambungan ke router</translation>
 <translation id="48607902311828362">Mode pesawat</translation>
 <translation id="680572642341004180">Aktifkan pelacakan RLZ pada <ph name="SHORT_PRODUCT_OS_NAME"/>.</translation>
+<translation id="688797901999351107">Jangan memakai pengisi daya (charger) yang ditarik kembali.</translation>
 <translation id="8142699993796781067">Jaringan pribadi</translation>
 <translation id="1374468813861204354">saran</translation>
 <translation id="5906065664303289925">Alamat perangkat keras:</translation>

@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Trên máy Mac, mật khẩu được lưu vào Keychain và có thể được truy cập hoặc đồng bộ hóa bởi những người dùng Chrome khác dùng chung tài khoản OS X này.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> có thể thay đổi cài đặt Chrome của bạn.</translation>
 <translation id="1761870329818521071">Không thể cài đặt phiên bản Google Chrome Frame giống với phiên bản hiện đang chạy. Vui lòng đóng Google Chrome Frame và thử lại.</translation>
-<translation id="2040709530900803995">Trình kết xuất của Google Chrome</translation>
 <translation id="6014844626092547096">Bạn hiện đã đăng nhập vào Chrome! Quản trị viên của bạn đã tắt tính năng Đồng bộ hóa.</translation>
 <translation id="3140883423282498090">Thay đổi của bạn sẽ có hiệu lực vào lần tiếp theo bạn khởi chạy lại Google Chrome.</translation>
 <translation id="1773601347087397504">Nhận trợ giúp về cách sử dụng Chrome OS</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Tiếp tục chạy các ứng dụng nền khi Google Chrome đóng</translation>
 <translation id="4149882025268051530">Trình cài đặt không thể giải nén lưu trữ được. Vui lòng tải xuống lại Google Chrome.</translation>
 <translation id="6989339256997917931">Google Chrome đã được cập nhật, nhưng bạn đã không sử dụng chương trình này ít nhất 30 ngày.</translation>
-<translation id="5744005218040929396">Tiện ích của Google Chrome</translation>
 <translation id="7060865993964054389">Trình khởi chạy ứng dụng Google Chrome</translation>
 <translation id="1682634494516646069">Google Chrome không thể đọc và ghi vào thư mục dữ liệu:
 
@@ -124,7 +122,6 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="911206726377975832">Bạn cũng muốn xóa dữ liệu duyệt web của mình?</translation>
 <translation id="5855036575689098185">Phần mềm đang chạy trên máy tính của bạn không tương thích với Google Chrome.</translation>
 <translation id="2044287590254833138">Thanh công cụ Google Chrome</translation>
-<translation id="5074344184765391290">Máy chủ lưu trữ Trình cắm của Chrome</translation>
 <translation id="8862326446509486874">Bạn không có quyền thích hợp để cài đặt cấp hệ thống. Thử chạy lại trình cài đặt với vai trò Quản trị viên.</translation>
 <translation id="2874156562296220396">Google Chrome được xây dựng bằng dự án nguồn mở <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> và <ph name="BEGIN_LINK_OSS"/>phần mềm nguồn mở<ph name="END_LINK_OSS"/> khác.</translation>
 <translation id="3847841918622877581">Google Chrome có thể sử dụng dịch vụ web để cải thiện trải nghiệm duyệt web của bạn.</translation>
@@ -174,12 +171,10 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="576822117893741893">Hiển thị trình đơn Chrome</translation>
 <translation id="3444832043240812445">Trang này chỉ hiển thị thông tin về các sự cố gần đây của bạn nếu bạn <ph name="BEGIN_LINK"/>bật báo cáo sự cố<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome không hồi đáp. Khởi chạy lại ngay bây giờ?</translation>
-<translation id="5318056482164160049">Máy chủ lưu trữ Trình cắm của Google Chrome</translation>
 <translation id="6126631249883707068">Bạn có muốn Google Chrome lưu mật khẩu không?</translation>
 <translation id="7773845170078702898">Bạn có muốn Google Chrome lưu mật khẩu của bạn cho trang web này không?</translation>
 <translation id="5046764976540625289">Thoát khỏi Chrome</translation>
 <translation id="4251615635259297716">Bạn muốn liên kết dữ liệu Chrome của bạn với tài khoản này?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Trình duyệt Internet</translation>
 <translation id="8142608456917638009">Google Chrome không thể tạo lối tắt cho ứng dụng.</translation>

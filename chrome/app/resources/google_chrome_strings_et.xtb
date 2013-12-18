@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Macis salvestatakse paroolid rakendusse Keychain. Teised Chrome'i kasutajad, kes kasutavad sama OS X-i kontot, saavad neid paroole kasutada ja neid sünkroonida.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> võib muuta teie Chrome'i seadeid.</translation>
 <translation id="1761870329818521071">Töötava Google Chrome Frame'iga sama versiooni ei saa installida. Sulgege Google Chrome Frame ja proovige uuesti.</translation>
-<translation id="2040709530900803995">Google Chrome'i renderdaja</translation>
 <translation id="6014844626092547096">Olete nüüd Chrome'i sisse logitud. Administraator on sünkroonimise keelanud.</translation>
 <translation id="3140883423282498090">Teie muudatused jõustuvad järgmine kord, kui avate Google Chrome'i.</translation>
 <translation id="1773601347087397504">Hankige abi Chrome OS-i kasutamise kohta</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Jätka taustal olevate rakenduste tööd, kui Google Chrome on suletud</translation>
 <translation id="4149882025268051530">Installijal ei õnnestunud arhiivi lahti pakkida. Palun laadige Google Chrome uuesti alla.</translation>
 <translation id="6989339256997917931">Google Chrome'i on värskendatud, aga te pole seda kasutanud vähemalt 30 päeva.</translation>
-<translation id="5744005218040929396">Google Chrome'i utiliit</translation>
 <translation id="7060865993964054389">Google Chrome'i rakenduste käiviti</translation>
 <translation id="1682634494516646069">Google Chrome ei saa andmekataloogi lugeda ega sellesse kirjutada:
 
@@ -123,7 +121,6 @@ Kui logite siiski sisse, liidetakse Chrome'i teave, nagu järjehoidjad, ajalugu 
 <translation id="911206726377975832">Kas kustutada ka teie sirvimisandmed?</translation>
 <translation id="5855036575689098185">Teie arvutis töötav tarkvara ei ühildu Google Chrome'iga.</translation>
 <translation id="2044287590254833138">Google Chrome'i tööriistariba</translation>
-<translation id="5074344184765391290">Chrome'i Plug-In Host</translation>
 <translation id="8862326446509486874">Teil ei ole süsteemi tasemel installimiseks sobivaid õigusi. Proovige installijat administraatorina uuesti käivitada.</translation>
 <translation id="2874156562296220396">Google Chrome'i on teinud võimalikuks avatud lähtekoodiga <ph name="BEGIN_LINK_CHROMIUM"/>Chromiumi<ph name="END_LINK_CHROMIUM"/> projekt ja muu <ph name="BEGIN_LINK_OSS"/>avatud lähtekoodiga tarkvara<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Google Chrome võib teie sirvimiskogemuse täiustamiseks kasutada veebiteenuseid.</translation>
@@ -173,12 +170,10 @@ Kui logite siiski sisse, liidetakse Chrome'i teave, nagu järjehoidjad, ajalugu 
 <translation id="576822117893741893">Chrome'i menüü kuvamine</translation>
 <translation id="3444832043240812445">Lehel näidatakse vaid teavet hiljutiste krahhide kohta, kui olete <ph name="BEGIN_LINK"/>krahhide aruandluse lubanud<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome ei reageeri. Kas soovite kohe taaskäivitada?</translation>
-<translation id="5318056482164160049">Google Chrome'i pistikprogrammi host</translation>
 <translation id="6126631249883707068">Kas soovite, et Google Chrome salvestaks teie parooli?</translation>
 <translation id="7773845170078702898">Kas soovite, et Google Chrome salvestaks parooli, mida selle saidi jaoks kasutate?</translation>
 <translation id="5046764976540625289">Välju Chrome'ist</translation>
 <translation id="4251615635259297716">Kas soovite linkida Chrome'i andmed selle kontoga?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=et<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Interneti-brauser</translation>
 <translation id="8142608456917638009">Google Chrome ei suutnud luua rakenduse otseteed.</translation>

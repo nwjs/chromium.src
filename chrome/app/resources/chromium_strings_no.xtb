@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Kan ikke lese innstillingene. Enkelte funksjoner kan være utilgjengelige, og endringer av innstillingene blir ikke lagret.</translation>
 <translation id="4222661289444749267">Chrome Frame-oppdatering.</translation>
 <translation id="4423735387467980091">Tilpass og kontrollér Chromium</translation>
-<translation id="2843244238218937196">Chromium-gjengiver</translation>
 <translation id="1881322772814446296">Du logger deg på med en administrert konto og gir tilhørende administratorer kontroll over Chromium-profilen din. Chromium-dataene dine, slik som apper, bokmerker, loggen, passord og andre innstillinger knyttes permanent til <ph name="USER_NAME"/>. Du kan slette disse dataene via oversikten for Google-kontoer, men du kan ikke knytte disse dataene til en annen konto. Du kan velge om du vil opprette en ny profil for å holde de eksisterende Chromium-dataene atskilte. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame er allerede installert og tilgjengelig for alle brukere av denne datamaskinen. Hvis du ønsker å installere Chromium Frame på brukernivå, må du først avinstallere versjonen på systemnivå, som ble installert av en administrator.</translation>
 <translation id="731644333568559921">Oppdater &amp;Chromium OS</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Gjør Chromium til standard nettleser</translation>
 <translation id="6309712487085796862">Chromium bruker kameraet ditt.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium-arbeider</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Ikke spør meg igjen</translation>
 <translation id="1745962126679160932">Chromium lagrer informasjonen din sikkert, slik at du slipper å skrive den inn på nytt. Du må imidlertid bekrefte sikkerhetskoden for kortet ved fremtidige betalinger.</translation>
@@ -154,7 +152,6 @@
 Det er mulig at enkelte funksjoner ikke er tilgjengelige. Angi en annen profilkatalog eller bruk en nyere versjon av Chromium.</translation>
 <translation id="9013087743919948559">Legg til i Chromium</translation>
 <translation id="6212496753309875659">Denne datamaskinen har allerede en nyere versjon av Chromium. Hvis programvaren ikke fungerer, må du avinstallere Chromium og prøve på nytt.</translation>
-<translation id="3014684866565908571">Chromium-verktøy</translation>
 <translation id="1298199220304005244">Få hjelp med å bruke Chromium OS</translation>
 <translation id="8187289872471304532">Gå til Programmer &gt; Systeminnstillinger &gt; Nettverk &gt; Avansert &gt; Mellomtjenere og fjern avmerkingen for alle valgte mellomtjenere.</translation>
 <translation id="4488676065623537541">Faktureringsdetaljene dine er lagret i Chromium.</translation>
@@ -196,7 +193,6 @@ Det er mulig at enkelte funksjoner ikke er tilgjengelige. Angi en annen profilka
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> kan endre Chromium-innstillingene dine.</translation>
 <translation id="8724049448828509830">Du har en aktiv nedlasting. Vil du avslutte Chromium og avbryte nedlastingen?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium-vert for programtillegg</translation>
 <translation id="8985587603644336029">Noen har tidligere logget seg på Chromium på denne datamaskinen som <ph name="ACCOUNT_EMAIL_LAST"/>. Hvis det ikke er kontoen din, må du opprette en ny Chromium-bruker for å holde informasjonen din atskilt.
 
 Hvis du logger deg på allikevel, blir Chromium-informasjon som bokmerker, loggen og andre innstillinger slått sammen med <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

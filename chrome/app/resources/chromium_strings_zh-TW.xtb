@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">系統無法讀取您的偏好設定。部分功能可能無法使用，且系統也不會儲存任何偏好設定的變更。</translation>
 <translation id="4222661289444749267">Chromium 頁框更新。</translation>
 <translation id="4423735387467980091">自訂及控制 Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">您已登入管理化環境下的帳戶，並將管理控制權授予您的 Chromium 設定檔。您的 Chromium 資料 (例如應用程式、書籤、紀錄、密碼和其他設定) 均將永久與 <ph name="USER_NAME"/> 建立關聯。您可以透過 Google 帳戶資訊主頁刪除這些資料，但您無法將這些資料與其他帳戶建立關聯。如要另行保留現有的 Chromium 資料，您可以選擇建立新的設定檔。<ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame 已安裝，並且支援這台電腦的所有使用者。如果您要安裝使用者等級的 Chromium 頁框，首先必須解除安裝管理員安裝的系統等級版本。</translation>
 <translation id="731644333568559921">更新 Chromium 作業系統(&amp;C)</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">將 Chromium 設為預設瀏覽器</translation>
 <translation id="6309712487085796862">Chromium 正在使用您的攝影機。</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium 作業系統</translation>
 <translation id="6757767188268205357">不要再問我</translation>
 <translation id="1745962126679160932">Chromium 會妥善保存您的資訊，讓您日後付款時不必再重新輸入。不過，您仍然必需驗證驗證信用卡安全碼。</translation>
@@ -154,7 +152,6 @@
 這表示您可能無法使用部分功能。請指定另一個設定檔目錄，或使用較新版本的 Chromium。</translation>
 <translation id="9013087743919948559">新增至 Chromium</translation>
 <translation id="6212496753309875659">這台電腦已安裝較新的 Chromium 版本。如果軟體無法順利運作，請解除安裝 Chromium，然後再試一次。</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">前往 Chromium 作業系統說明頁面</translation>
 <translation id="8187289872471304532">前往
           [應用程式] &gt; [系統偏好設定] &gt; [網路] &gt; [進階] &gt; [Proxy]
@@ -199,7 +196,6 @@
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> 會變更您的 Chromium 設定。</translation>
 <translation id="8724049448828509830">目前正在進行下載，您要結束 Chromium 並取消下載嗎？</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">先前已有其他使用者使用 <ph name="ACCOUNT_EMAIL_LAST"/> 在這台電腦上登入 Chromium。如果這不是您的帳戶，請建立新的 Chromium 使用者以便個別保存您的資訊。
 
 如果您仍要繼續登入帳戶，各項 Chromium 資訊 (例如書籤、紀錄和其他設定) 則會合併至 <ph name="ACCOUNT_EMAIL_NEW"/>。</translation>

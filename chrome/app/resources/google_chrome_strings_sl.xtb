@@ -32,7 +32,6 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="2721687379934343312">V računalnikih Mac so gesla shranjena v orodju Keychain, pri čemer lahko do njih dostopajo ali jih sinhronizirajo drugi uporabniki Chroma, s katerimi si delite ta račun v sistemu OS X.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> lahko spremeni nastavitve Chroma.</translation>
 <translation id="1761870329818521071">Ni mogoče namestiti različice programa Google Chrome Frame, enake tisti, ki se trenutno izvaja. Zaprite Google Chrome Frame in poskusite znova.</translation>
-<translation id="2040709530900803995">Upodabljalnik za Google Chrome</translation>
 <translation id="6014844626092547096">Zdaj ste prijavljeni v Chrome. Sinhronizacijo je onemogočil skrbnik.</translation>
 <translation id="3140883423282498090">Spremembe bodo začele veljati ob naslednjem zagonu Google Chroma.</translation>
 <translation id="1773601347087397504">Pomoč pri uporabi sistema Chrome OS</translation>
@@ -52,7 +51,6 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="3080151273017101988">Nadaljuj izvajanje programov v ozadju, ko je Google Chrome zaprt</translation>
 <translation id="4149882025268051530">Namestitvenemu programu ni uspelo razširiti arhiva. Ponovno prenesite program Google Chrome.</translation>
 <translation id="6989339256997917931">Google Chrome je posodobljen, a ga niste uporabljali že vsaj 30 dni.</translation>
-<translation id="5744005218040929396">Orodje za Google Chrome</translation>
 <translation id="7060865993964054389">Zaganjalnik aplikacij v Google Chromu</translation>
 <translation id="1682634494516646069">Google Chrome ne more brati svojega imenika s podatki ali pisati vanj:
 
@@ -127,7 +125,6 @@ Nekatere funkcije morda ne bodo na voljo. Navedite drug imenik profila ali upora
 <translation id="911206726377975832">Ali želite izbrisati tudi podatke brskanja?</translation>
 <translation id="5855036575689098185">Programska oprema, ki se izvaja v računalniku, ni združljiva z Google Chromom.</translation>
 <translation id="2044287590254833138">Orodna vrstica za Google Chrome</translation>
-<translation id="5074344184765391290">Gostitelj za vtičnike za Chrome</translation>
 <translation id="8862326446509486874">Nimate ustreznih pravic za namestitev na ravni sistema. Poskusite znova zagnati namestitveni program kot skrbnik.</translation>
 <translation id="2874156562296220396">Brskalnik Google Chrome omogoča odprtokodni projekt <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> in druga <ph name="BEGIN_LINK_OSS"/>odprtokodna programska oprema<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Google Chrome lahko za boljšo izkušnjo brskanja uporablja spletne storitve.</translation>
@@ -177,12 +174,10 @@ Nekatere funkcije morda ne bodo na voljo. Navedite drug imenik profila ali upora
 <translation id="576822117893741893">Prikaz menija Chroma</translation>
 <translation id="3444832043240812445">Ta stran prikazuje informacije o zadnjih zrušitvah, samo če <ph name="BEGIN_LINK"/>omogočite poročanje o zrušitvah<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome se ne odziva. Ga želite znova zagnati?</translation>
-<translation id="5318056482164160049">Gostitelj za vtičnike za Google Chrome</translation>
 <translation id="6126631249883707068">Ali želite, da Google Chrome shrani vaše geslo?</translation>
 <translation id="7773845170078702898">Ali želite, da Google Chrome shrani vaše geslo za to spletno mesto?</translation>
 <translation id="5046764976540625289">Izhod iz brskalnika Chrome</translation>
 <translation id="4251615635259297716">Želite svoje podatke v Chromu povezati s tem računom?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Internetni brskalnik</translation>
 <translation id="8142608456917638009">Google Chrome ni mogel ustvariti bližnjice do aplikacije.</translation>

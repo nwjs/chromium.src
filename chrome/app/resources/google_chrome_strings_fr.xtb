@@ -31,7 +31,6 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="2721687379934343312">Sur Mac, les mots de passe sont sauvegardés dans votre trousseau. D'autres utilisateurs de Google Chrome partageant ce compte OS X peuvent les consulter ou les synchroniser.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> risque de modifier vos paramètres Chrome.</translation>
 <translation id="1761870329818521071">Impossible d'installer la version de Google Chrome Frame qui est en cours d'exécution. Fermez Google Chrome Frame et réessayez.</translation>
-<translation id="2040709530900803995">Moteur de rendu de Google Chrome</translation>
 <translation id="6014844626092547096">Vous êtes maintenant connecté à Chrome. La synchronisation a été désactivée par votre administrateur.</translation>
 <translation id="3140883423282498090">Vos modifications seront prises en compte au prochain redémarrage de Google Chrome.</translation>
 <translation id="1773601347087397504">Obtenir de l'aide sur l'utilisation de Chrome OS</translation>
@@ -51,7 +50,6 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="3080151273017101988">Poursuivre l'exécution d'applications en arrière-plan après la fermeture de Google Chrome</translation>
 <translation id="4149882025268051530">Échec de la décompression de l'archive par le programme d'installation. Veuillez télécharger de nouveau Google Chrome.</translation>
 <translation id="6989339256997917931">Google Chrome a été mis à jour, mais vous ne l'avez pas utilisé depuis plus de 30 jours.</translation>
-<translation id="5744005218040929396">Utilitaire Google Chrome</translation>
 <translation id="7060865993964054389">Lanceur d'applications Google Chrome</translation>
 <translation id="1682634494516646069">Google Chrome ne peut pas lire et écrire dans son répertoire de données : 
 
@@ -127,7 +125,6 @@ Si vous vous connectez quand même, toutes les informations Chrome, comme les fa
 <translation id="911206726377975832">Supprimer également vos données de navigation ?</translation>
 <translation id="5855036575689098185">Le logiciel exécuté sur votre ordinateur n'est pas compatible avec Google Chrome.</translation>
 <translation id="2044287590254833138">Barre d'outils de Google Chrome</translation>
-<translation id="5074344184765391290">Hôte du plug-in Chrome</translation>
 <translation id="8862326446509486874">Vous ne disposez pas des droits requis pour installer la version système. Relancez l'installation en vous connectant comme administrateur.</translation>
 <translation id="2874156562296220396">Google Chrome fonctionne grâce au projet Open Source <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> et à d'autres <ph name="BEGIN_LINK_OSS"/>logiciels libres<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Google Chrome utilise parfois des services Web pour améliorer votre confort de navigation.</translation>
@@ -177,12 +174,10 @@ Si vous vous connectez quand même, toutes les informations Chrome, comme les fa
 <translation id="576822117893741893">Afficher le menu Chrome</translation>
 <translation id="3444832043240812445">Cette page affiche uniquement des informations sur les erreurs récentes si vous <ph name="BEGIN_LINK"/>activez l'envoi de rapports d'erreur<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome ne répond pas. Voulez-vous le relancer maintenant ?</translation>
-<translation id="5318056482164160049">Hôte du plug-in Google Chrome</translation>
 <translation id="6126631249883707068">Souhaitez-vous que Google Chrome enregistre votre mot de passe ?</translation>
 <translation id="7773845170078702898">Voulez-vous que Google Chrome enregistre votre mot de passe pour ce site ?</translation>
 <translation id="5046764976540625289">Quitter Chrome</translation>
 <translation id="4251615635259297716">Associer vos données Chrome à ce compte ?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Navigateur Internet</translation>
 <translation id="8142608456917638009">Échec de la création d'un raccourci d'application dans Google Chrome.</translation>

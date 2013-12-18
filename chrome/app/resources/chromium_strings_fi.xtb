@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Asetuksiasi ei voi lukea. Kaikkia toimintoja ei voi välttämättä käyttää eikä asetuksiin tehtäviä muutoksia tallenneta.</translation>
 <translation id="4222661289444749267">Chromium-kehyksen päivitys</translation>
 <translation id="4423735387467980091">Chromiumin muokkaus ja hallinta</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Olet kirjautumassa sisään hallinnoidulla tilillä ja antamassa tilin järjestelmänvalvojalle oikeuden hallita Chromium-profiiliasi. Chromium-tietosi, kuten sovelluksesi, kirjanmerkkisi, historiasi, salasanasi ja muut asetuksesi, yhdistetään pysyvästi käyttäjätiliin <ph name="USER_NAME"/>. Voit poistaa nämä tiedot Google-tilien Hallintapaneelissa, mutta et voi liittää tietoja toiseen tiliin. Halutessasi voit luoda uuden profiilin, jolloin aiemmat Chromium-tietosi pysyvät erillään. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium-kehys on jo asennettu tämän tietokoneen kaikille käyttäjille. Jos haluat asentaa Chromium-kehyksen käyttäjätasolla, poista ensin järjestelmänvalvojan järjestelmätasolla asentama Chromium-kehys.</translation>
 <translation id="731644333568559921">Päivitä &amp;Chromium-käyttöjärjestelmä</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Tee Chromiumista oletusselain</translation>
 <translation id="6309712487085796862">Chromium käyttää kameraasi.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium-käyttöjärjestelmä</translation>
 <translation id="6757767188268205357">Älä häiritse</translation>
 <translation id="1745962126679160932">Chromium tallentaa tietosi turvalliseen paikkaan, jottei sinun tarvitse kirjoittaa tietoja uudelleen. Sinun täytyy kuitenkin vahvistaa korttisi turvakoodi tulevien maksujen yhteydessä.</translation>
@@ -154,7 +152,6 @@
 Kaikki ominaisuudet eivät ehkä ole käytettävissä. Määritä jokin muu profiilihakemisto tai käytä Chromiumin uudempaa versiota.</translation>
 <translation id="9013087743919948559">Lisää Chromiumiin</translation>
 <translation id="6212496753309875659">Tälle tietokoneelle on jo asennettu Chromiumin uudempi versio. Jos Chromium ei toimi, poista sen asennus ja yritä uudelleen.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Hanki apua Chromium-käyttöjärjestelmän käytössä</translation>
 <translation id="8187289872471304532">Avaa
           Sovellukset &gt; Järjestelmäasetukset &gt; Verkko &gt; Lisäasetukset &gt; Välityspalvelimet
@@ -198,7 +195,6 @@ Kaikki ominaisuudet eivät ehkä ole käytettävissä. Määritä jokin muu prof
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> voi muuttaa Chromiumin asetuksia.</translation>
 <translation id="8724049448828509830">Lataus on käynnissä. Haluatko sulkea Chromiumin ja peruuttaa latauksen?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">Joku on jo kirjautunut tällä tietokoneella Chromiumiin käyttäjätilillä <ph name="ACCOUNT_EMAIL_LAST"/>. Jos se ei ole sinun käyttäjätilisi, luo uusi Chromium-käyttäjä, jos haluat pitää tiedot erillään.
 
 Jos kirjaudut silti sisään, Chromium-tiedot, kuten kirjanmerkit, historia ja asetukset, yhdistetään tilin <ph name="ACCOUNT_EMAIL_NEW"/> tietoihin.</translation>

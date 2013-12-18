@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Tercihleriniz okunamıyor. Bazı özellikler kullanılamayabilir. Tercihlerde yapılan değişiklikler kaydedilmeyecektir.</translation>
 <translation id="4222661289444749267">Chromium Frame Güncellemesi.</translation>
 <translation id="4423735387467980091">Chromium'u özelleştirin ve kontrol edin</translation>
-<translation id="2843244238218937196">Chromium Oluşturucusu</translation>
 <translation id="1881322772814446296">Yönetilen bir hesapla oturum açıyor ve hesabın yöneticisine Chromium profilinizi denetleme izni veriyorsunuz. Uygulamalarınız, yer işaretleriniz, geçmişiniz, şifreleriniz ve diğer ayarlarınız gibi Chromium verileriniz kalıcı olarak <ph name="USER_NAME"/> ile bağlantılandırılacaktır. Google Hesapları Hesap Özeti'ni kullanarak bu verileri silebilecek, ancak bu verileri başka bir hesapla ilişkilendiremeyeceksiniz. İsterseniz mevcut Chromium verilerinizi ayrı tutmak için yeni bir profil oluşturabilirsiniz. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame zaten yüklü ve bu bilgisayarın tüm kullanıcıları için kullanılabilir durumda. Chromium Frame'i kullanıcı düzeyinde yüklemek istiyorsanız, öncelikle bir yönetici tarafından yüklenmiş olan sistem düzeyindeki sürümü kaldırmanız gerekir.</translation>
 <translation id="731644333568559921">&amp;Chromium OS'u güncelle</translation>
@@ -118,7 +117,6 @@
 <translation id="6248213926982192922">Chromium varsayılan tarayıcı olsun</translation>
 <translation id="6309712487085796862">Chromium kameranızı kullanıyor.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium İşçisi</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Beni rahatsız etmeyin</translation>
 <translation id="1745962126679160932">Chromium, bilgilerinizi güvenli şekilde depoladığından bu bilgileri tekrar yazmak zorunda kalmazsınız, ancak yine de bundan sonraki ödemeler için kartınızın güvenlik kodunu doğrulamanız gerekir.</translation>
@@ -149,7 +147,6 @@
 Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirtin veya daha yeni bir Chromium sürümünü kullanın.</translation>
 <translation id="9013087743919948559">Chromium'a ekle</translation>
 <translation id="6212496753309875659">Bu bilgisayarda Chromium'un daha yeni bir sürümü de var. Yazılım çalışmıyorsa, Chromium'u kaldırın ve tekrar deneyin.</translation>
-<translation id="3014684866565908571">Chromium Yardımcı Programı</translation>
 <translation id="1298199220304005244">Chromium OS'u kullanma konusunda yardım alın</translation>
 <translation id="8187289872471304532">Uygulamalar &gt; Sistem Tercihleri &gt; Ağ &gt; Gelişmiş &gt; Proxy'ler
           öğesine gidin ve seçilmiş olabilecek proxy'lerin seçimini kaldırın.</translation>
@@ -193,7 +190,6 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> dosyası, Chromium ayarlarınızı değiştirebilir.</translation>
 <translation id="8724049448828509830">Şu anda devam eden bir indirme işlemi var. Chromium'dan çıkmak ve indirme işlemini iptal etmek istiyor musunuz?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Eklentisi Ana Makinesi</translation>
 <translation id="8985587603644336029">Bu bilgisayarda daha önce birisi <ph name="ACCOUNT_EMAIL_LAST"/> olarak Chromium'da oturum açmış. Bu sizin hesabınız değilse, bilgilerinizi ayrı tutmak için yeni bir Chromium kullanıcısı oluşturun.
 
 Yine de oturum açarsanız, yer işaretleriniz, geçmişiniz ve diğer ayarlarınız gibi Chromium bilgileriniz <ph name="ACCOUNT_EMAIL_NEW"/> ile birleştirilecektir.</translation>

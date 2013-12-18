@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Ihre Einstellungen können nicht gelesen werden. Einige Funktionen sind möglicherweise nicht verfügbar und Änderungen an Einstellungen werden nicht gespeichert.</translation>
 <translation id="4222661289444749267">Chromium Frame-Update</translation>
 <translation id="4423735387467980091">Chromium anpassen und einstellen</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Sie melden sich mit einem verwalteten Konto an und ermöglichen dessen Administrator Zugriff auf Ihr Chromium-Profil. Ihre Chromium-Daten, wie Apps, Lesezeichen, Verlauf, Passwörter und andere Einstellungen, werden dauerhaft mit <ph name="USER_NAME"/> verknüpft. Sie können diese Daten über das Google Konten-Dashboard löschen, aber nicht mit einem anderen Konto verknüpfen. Wenn Sie Ihre bestehenden Chromium-Daten getrennt verwenden möchten, können Sie ein neues Profil erstellen. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame ist bereits installiert und steht allen Nutzern dieses Computers zur Verfügung. Falls Sie Chromium Frame auf Nutzerebene installieren möchten, müssen Sie vorher die Version auf Systemebene deinstallieren, die von einem Administrator installiert wurde.</translation>
 <translation id="731644333568559921">&amp;Chromium OS aktualisieren</translation>
@@ -108,7 +107,6 @@
 <translation id="6248213926982192922">Chromium als Standardbrowser verwenden</translation>
 <translation id="6309712487085796862">Chromium verwendet Ihre Kamera.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Keine Anfragen mehr</translation>
 <translation id="1745962126679160932">Ihre Informationen werden von Chromium sicher gespeichert. Dadurch brauchen Sie sie nicht erneut einzugeben. Sie müssen aber bei zukünftigen Zahlungen immer noch den Sicherheitscode Ihrer Karte bestätigen.</translation>
@@ -131,7 +129,6 @@
 Einige Funktionen stehen möglicherweise nicht zur Verfügung. Geben Sie bitte ein anderes Profilverzeichnis an oder verwenden Sie eine neuere Version von Chromium.</translation>
 <translation id="9013087743919948559">Zu Chromium hinzufügen</translation>
 <translation id="6212496753309875659">Auf diesem Computer befindet sich bereits eine neuere Version von Chromium. Falls die Software nicht funktioniert, deinstallieren Sie Chromium bitte und versuchen Sie es erneut.</translation>
-<translation id="3014684866565908571">Chromium-Dienstprogramm</translation>
 <translation id="1298199220304005244">Hilfe für Chromium OS aufrufen</translation>
 <translation id="8187289872471304532">Gehen Sie zu &quot;Anwendungen&quot; &gt; &quot;Systemeinstellungen&quot; &gt; &quot;Netzwerk&quot; &gt; &quot;Erweitert&quot; &gt; &quot;Proxys&quot; und deaktivieren Sie alle ausgewählten Proxyserver.</translation>
 <translation id="4488676065623537541">Ihre Zahlungsangaben wurden in Chromium gespeichert.</translation>
@@ -173,7 +170,6 @@ Einige Funktionen stehen möglicherweise nicht zur Verfügung. Geben Sie bitte e
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> kann Ihre Chromium-Einstellungen ändern.</translation>
 <translation id="8724049448828509830">Momentan wird ein Download durchgeführt. Möchten Sie Chromium beenden und den Download abbrechen?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium-Plug-in-Host</translation>
 <translation id="8985587603644336029">Auf diesem Computer war zuvor ein Nutzer mit dem Konto <ph name="ACCOUNT_EMAIL_LAST"/> in Chromium angemeldet. Falls dies nicht Ihr Konto ist, erstellen Sie einen neuen Chromium-Nutzer, um Ihre Daten getrennt zu verwenden.
 
 Sollten Sie sich trotzdem anmelden, werden die Chromium-Daten wie Lesezeichen, Verlauf und andere Einstellungen in <ph name="ACCOUNT_EMAIL_NEW"/> zusammengeführt.</translation>

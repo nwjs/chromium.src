@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Auf einem Mac werden die Passwörter in Ihrem Schlüsselbund gespeichert. Sie können von anderen Chrome-Nutzern über dieses OS X-Konto abgerufen oder synchronisiert werden.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> kann Ihre Chrome-Einstellungen ändern.</translation>
 <translation id="1761870329818521071">Die Google Chrome Frame-Version kann nicht installiert werden, da sie aktuell ausgeführt wird. Schließen Sie Google Chrome Frame und versuchen Sie es erneut.</translation>
-<translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="6014844626092547096">Sie sind nun in Chrome angemeldet. Die Synchronisierung wurde von Ihrem Administrator deaktiviert.</translation>
 <translation id="3140883423282498090">Ihre Änderungen werden beim nächsten Neustart von Google Chrome wirksam.</translation>
 <translation id="1773601347087397504">Hilfe für Chrome OS aufrufen</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Apps im Hintergrund ausführen, wenn Google Chrome geschlossen ist</translation>
 <translation id="4149882025268051530">Das Installationsprogramm konnte das Archiv nicht dekomprimieren. Laden Sie Google Chrome erneut herunter.</translation>
 <translation id="6989339256997917931">Google Chrome wurde aktualisiert, Sie haben den Browser jedoch mindestens 30 Tage nicht verwendet.</translation>
-<translation id="5744005218040929396">Google Chrome-Dienstprogramm</translation>
 <translation id="7060865993964054389">Google Chrome App Launcher</translation>
 <translation id="1682634494516646069">Google Chrome kann im folgenden Datenverzeichnis weder lesen noch schreiben: <ph name="USER_DATA_DIRECTORY"/>.</translation>
 <translation id="4343226815564935778">Das Installationsverzeichnis von Google Chrome scheint bereits verwendet zu werden. Starten Sie Ihren Computer neu und versuchen Sie es erneut.</translation>
@@ -112,7 +110,6 @@ Sollten Sie sich trotzdem anmelden, werden die Chrome-Daten wie Lesezeichen, Ver
 <translation id="911206726377975832">Auch die Browserdaten löschen?</translation>
 <translation id="5855036575689098185">Auf Ihrem Computer befindet sich Software, die nicht mit Google Chrome kompatibel ist.</translation>
 <translation id="2044287590254833138">Google Chrome-Toolbar</translation>
-<translation id="5074344184765391290">Chrome-Plug-in-Host</translation>
 <translation id="8862326446509486874">Sie verfügen nicht über die erforderlichen Rechte für eine systemweite Installation. Starten Sie das Installationsprogramm als Administrator.</translation>
 <translation id="2874156562296220396">Google Chrome wird durch das Open-Source-Projekt <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> und andere <ph name="BEGIN_LINK_OSS"/>Open-Source-Software<ph name="END_LINK_OSS"/> ermöglicht.</translation>
 <translation id="3847841918622877581">Google Chrome kann das Browserverhalten mithilfe von Webdiensten verbessern.</translation>
@@ -153,12 +150,10 @@ Sollten Sie sich trotzdem anmelden, werden die Chrome-Daten wie Lesezeichen, Ver
 <translation id="576822117893741893">Chrome-Menü anzeigen</translation>
 <translation id="3444832043240812445">Diese Seite zeigt nur Informationen zu Ihren letzten Abstürzen, wenn Sie die <ph name="BEGIN_LINK"/>Absturzberichtsfunktion aktivieren<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome reagiert nicht. Jetzt neu starten?</translation>
-<translation id="5318056482164160049">Google Chrome-Plug-in-Host</translation>
 <translation id="6126631249883707068">Möchten Sie, dass Ihr Passwort von Google Chrome gespeichert wird?</translation>
 <translation id="7773845170078702898">Soll Google Chrome Ihr Passwort für diese Website speichern?</translation>
 <translation id="5046764976540625289">Google Chrome beenden</translation>
 <translation id="4251615635259297716">Ihre Chrome-Daten mit diesem Konto verknüpfen?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Internetbrowser</translation>
 <translation id="8142608456917638009">Google Chrome konnte keine Anwendungsverknüpfung erstellen.</translation>

@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Pe Mac, parolele sunt salvate în aplicația dvs. Keychain și pot fi accesate sau sincronizate de alți utilizatori Chrome care utilizează același cont de OS X.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> vă poate modifica setările pentru Chrome.</translation>
 <translation id="1761870329818521071">Nu se poate instala aceeași versiune Google Chrome Frame care rulează în prezent. Închideți Google Chrome Frame și încercați din nou.</translation>
-<translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="6014844626092547096">Sunteți conectat(ă) la Chrome! Sincronizarea este dezactivată de administrator.</translation>
 <translation id="3140883423282498090">Modificările se vor aplica următoarea dată când relansați Google Chrome.</translation>
 <translation id="1773601347087397504">Obțineți ajutor în legătură cu utilizarea sistemului de operare Chrome</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Rulați în continuare aplicații de fundal când Google Chrome este închis</translation>
 <translation id="4149882025268051530">Programul de instalare nu a putut decomprima arhiva. Descărcați din nou Google Chrome.</translation>
 <translation id="6989339256997917931">Google Chrome a fost actualizat, dar nu l-ați utilizat de cel puțin 30 de zile.</translation>
-<translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="7060865993964054389">Lansatorul de aplicații Google Chrome</translation>
 <translation id="1682634494516646069">Google Chrome nu poate citi și scrie în directorul propriu de date: <ph name="USER_DATA_DIRECTORY"/></translation>
 <translation id="4343226815564935778">Directorul de instalare al Google Chrome pare a fi utilizat. Reporniți computerul și încercați din nou.</translation>
@@ -119,7 +117,6 @@ Dacă totuși vă conectați, informațiile Chrome cum ar fi marcajele, istoricu
 <translation id="911206726377975832">Ștergeți și datele de navigare?</translation>
 <translation id="5855036575689098185">Software-ul care rulează pe computer este incompatibil cu Google Chrome.</translation>
 <translation id="2044287590254833138">Bara de instrumente Google Chrome</translation>
-<translation id="5074344184765391290">Chrome Plug-In Host</translation>
 <translation id="8862326446509486874">Nu aveți drepturile adecvate pentru instalarea la nivel de sistem. Încercați să rulați din nou programul de instalare ca Administrator.</translation>
 <translation id="2874156562296220396">Google Chrome există ca urmare a proiectului open source <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> și a altor <ph name="BEGIN_LINK_OSS"/>produse software open source<ph name="END_LINK_OSS"/>.</translation>
 <translation id="3847841918622877581">Google Chrome poate utiliza servicii web pentru îmbunătățirea experienței de navigare.</translation>
@@ -169,12 +166,10 @@ Dacă totuși vă conectați, informațiile Chrome cum ar fi marcajele, istoricu
 <translation id="576822117893741893">Afișați meniul Chrome</translation>
 <translation id="3444832043240812445">Această pagină afișează informații cu privire la recentele opriri cu eroare numai dacă <ph name="BEGIN_LINK"/>activați raportarea opririlor cu eroare<ph name="END_LINK"/>.</translation>
 <translation id="8614913330719544658">Google Chrome nu mai răspunde. Îl reporniți acum?</translation>
-<translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
 <translation id="6126631249883707068">Doriți ca Google Chrome să vă salveze parola?</translation>
 <translation id="7773845170078702898">Doriți ca Google Chrome să salveze parola pentru acest site?</translation>
 <translation id="5046764976540625289">Ieșiți din Chrome</translation>
 <translation id="4251615635259297716">Vă conectați datele Chrome cu acest cont?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">Browser de Internet</translation>
 <translation id="8142608456917638009">Google Chrome nu a putut crea o comandă rapidă pentru aplicație.</translation>

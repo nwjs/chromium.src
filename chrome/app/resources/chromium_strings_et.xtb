@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Teie eelistusi ei saa lugeda. Mõned funktsioonid ei pruugi saadaval olla ja eelistuste muudatusi ei salvestata.</translation>
 <translation id="4222661289444749267">Chromium Frame'i värskendus.</translation>
 <translation id="4423735387467980091">Chromiumi kohandamine ja juhtimine</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Logite sisse hallatud kontoga ja annate selle administraatorile üle Chromiumi profiili juhtimise. Teie Chromiumi andmed, näiteks rakendused, järjehoidjad, ajalugu, paroolid ja muud seaded seotakse jäädavalt kasutajaga <ph name="USER_NAME"/>. Saate need andmed kustutada Google'i kontode juhtpaneeli kaudu, kuid te ei saa neid seostada teise kontoga. Võite olemasolevate Chrome'i andmete eraldi hoidmiseks luua aga uue profiili. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame on juba installitud ja arvutis kõikidele kasutajatele saadaval. Kui soovite installida Chromium Frame'i kasutaja tasemel, siis tuleb teil esmalt desinstallida süsteemi taseme versioon, mille on installinud administraator.</translation>
 <translation id="731644333568559921">Värskenda &amp;Chromium OS-i</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Määra Chromium vaikebrauseriks</translation>
 <translation id="6309712487085796862">Chromium kasutab teie kaamerat.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Ära tüüta mind</translation>
 <translation id="1745962126679160932">Chromium salvestab turvaliselt teie teabe, nii et te ei pea seda uuesti sisestama, kuid peate ka tulevaste maksete puhul kinnitama oma kaardi turvakoodi.</translation>
@@ -154,7 +152,6 @@
 On võimalik, et mõni funktsioon ei ole saadaval. Määrake muu profiilikataloog või kasutage Chromiumi uuemat versiooni.</translation>
 <translation id="9013087743919948559">Chromiumi lisamine</translation>
 <translation id="6212496753309875659">Arvutis on juba Chromiumi uuem versioon. Kui tarkvara ei tööta, siis desinstallige Chromium ja proovige uuesti.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Hangi abi Chromium OS-i kasutamise kohta</translation>
 <translation id="8187289872471304532">Tehke valikud
           Rakendused &gt; Süsteemieelised &gt; Võrk &gt; Täpsem &gt; Puhverserverid
@@ -199,7 +196,6 @@ On võimalik, et mõni funktsioon ei ole saadaval. Määrake muu profiilikataloo
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> võib muuta Chromiumi seadeid.</translation>
 <translation id="8724049448828509830">Allalaadimine on pooleli. Kas soovite Chromiumist väljuda ja allalaadimise tühistada?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">Keegi on varem selles arvutis Chromiumi sisse loginud kasutajana <ph name="ACCOUNT_EMAIL_LAST"/>. Kui see pole teie konto, looge uus Chromiumi kasutaja, et oma teave eraldi hoida.
 
 Kui logite siiski sisse, liidetakse Chromiumi teave, nagu järjehoidjad, ajalugu ja muud seaded, kontoga <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

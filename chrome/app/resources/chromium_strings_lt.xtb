@@ -18,7 +18,6 @@
 Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išsaugoti.</translation>
 <translation id="4222661289444749267">„Chromium“ rėmelio naujinys.</translation>
 <translation id="4423735387467980091">Tinkinkite ir valdykite „Chromium“</translation>
-<translation id="2843244238218937196">„Chromium“ pateikimo priemonė</translation>
 <translation id="1881322772814446296">Prisijungiate su valdoma paskyra ir leidžiate jos administratoriui valdyti jūsų „Chromium“ profilį. „Chromium“ duomenys, pvz., programos, žymės, istorija, slaptažodžiai ir kiti nustatymai, bus visam laikui susieti su <ph name="USER_NAME"/>. Galėsite ištrinti šiuos duomenis naudodami „Google“ paskyrų informacijos suvestinę, bet negalėsite susieti šių duomenų su kita paskyra. Galite pasirinktinai sukurti naują profilį, kad esami „Chromium“ duomenys būtų saugomi atskirai. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">„Chromium“ rėmelis jau įdiegtas ir pasiekiamas visiems šio kompiuterio naudotojams. Jei norite „Chromium“ rėmelį įdiegti naudotojo lygiu, pirmiausia turite pašalinti administratoriaus įdiegtą sistemos lygio versiją.</translation>
 <translation id="731644333568559921">&amp;„Chromium“ OS naujinys</translation>
@@ -124,7 +123,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="6248213926982192922">Padaryti „Chromium“ numatytąja naršykle</translation>
 <translation id="6309712487085796862">„Chromium“ naudoja jūsų fotoaparatą.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">„Chromium“ darbo priemonė</translation>
 <translation id="5820394555380036790">„Chromium“ OS</translation>
 <translation id="6757767188268205357">Netrukdykite</translation>
 <translation id="1745962126679160932">„Chromium“ patikimai saugos jūsų informaciją, kad nebereikėtų jos vėl įvesti, bet ateityje atlikdami mokėjimus vis tiek turėsite patvirtinti kortelės saugos kodą.</translation>
@@ -156,7 +154,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalogą arba naudokite naujesnės versijos „Chromium“.</translation>
 <translation id="9013087743919948559">Pridėti prie „Chromium“</translation>
 <translation id="6212496753309875659">Šiame kompiuteryje jau yra naujesnės versijos „Chromium“. Jei programinė įranga neveikia, pašalinkite „Chromium“ ir bandykite dar kartą.</translation>
-<translation id="3014684866565908571">„Chromium“ paslaugų programa</translation>
 <translation id="1298199220304005244">Gauti su „Chromium“ OS naudojimu susijusios pagalbos</translation>
 <translation id="8187289872471304532">Eikite į
           „Programos“ &gt; „Sistemos nuostatos“ &gt; „Tinklas“ &gt; „Išplėstinis“ &gt; „Tarpiniai serveriai“
@@ -201,7 +198,6 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="7331621180831839236">„<ph name="FILE_NAME"/>“ gali pakeisti „Chromium“ nustatymus.</translation>
 <translation id="8724049448828509830">Šiuo metu vykdomas atsisiuntimas. Ar norite išeiti iš „Chromium“ ir atšaukti atsisiuntimą?</translation>
 <translation id="3360567213983886831">„Chromium“ dvejetainės programos</translation>
-<translation id="7503101070699687603">„Chromium“ papildinio priegloba</translation>
 <translation id="8985587603644336029">Kažkas anksčiau prisijungė prie „Chromium“ šiame kompiuteryje kaip <ph name="ACCOUNT_EMAIL_LAST"/>. Jei tai ne jūsų paskyra, sukurkite naują „Chromium“ naudotoją, kad apsaugotumėte savo informaciją.
 
 Prisijungus bet kuriuo būdu, „Chromium“ informacija, pvz., žymės, istorija ir kiti nustatymai, bus sujungta su <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

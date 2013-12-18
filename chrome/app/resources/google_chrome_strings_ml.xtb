@@ -32,7 +32,6 @@
 <translation id="2721687379934343312">Mac-ൽ നിങ്ങളുടെ കീചെയിനിലേക്ക് സംരക്ഷിക്കപ്പെടുകയും ഈ  OS X പങ്കിടുന്ന മറ്റ്  Chrome ഉപയോക്താക്കൾക്ക് ഇതിൽ പ്രവേശിക്കാനോ അല്ലെങ്കിൽ സമന്വയിപ്പിക്കാനോ കഴിഞ്ഞേക്കാം.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/>, നിങ്ങളുടെ Chrome ക്രമീകരണങ്ങൾ മാറ്റാനിടയുണ്ട്.</translation>
 <translation id="1761870329818521071">നിലവില്‍ പ്രവര്‍ത്തിക്കുന്ന സമാന Google Chrome ഫ്രെയിം പതിപ്പ് ഇന്‍സ്റ്റാള്‍ ചെയ്യാന്‍ കഴിയില്ല. ദയവായി Google Chrome ഫ്രെയിം അടച്ച് വീണ്ടും ശ്രമിക്കുക.</translation>
-<translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="6014844626092547096">നിങ്ങൾ ഇപ്പോൾ Chrome-ലേക്ക് സൈൻ ഇൻ ചെയ്‌തു! നിങ്ങളുടെ അഡ്‌മിനിസ്‌ട്രേറ്റർ സമന്വയം പ്രവർത്തനരഹിതമാക്കി.</translation>
 <translation id="3140883423282498090">നിങ്ങളുടെ മാറ്റങ്ങൾ അടുത്ത തവണ Google Chrome പുനഃസമാരംഭിക്കുമ്പോൾ പ്രാബല്യത്തിൽ വരും.</translation>
 <translation id="1773601347087397504">Chrome OS ഉപയോഗിച്ച് സഹായം നേടുക</translation>
@@ -52,7 +51,6 @@
 <translation id="3080151273017101988">Google Chrome അടച്ചാലും പശ്ചാത്തല ആപ്ലിക്കേഷനുകള്‍ പ്രവര്‍ത്തിപ്പിക്കുന്നത് തുടരുക</translation>
 <translation id="4149882025268051530">ആര്‍ക്കൈവ് അണ്‍‌കം‌പ്രസ്സ് ചെയ്യാന്‍ ഇന്‍സ്റ്റാളറിന് കഴിഞ്ഞില്ല. ദയവായി Google Chrome വീണ്ടും ഡൗൺലോഡ് ചെയ്യുക.</translation>
 <translation id="6989339256997917931">Google Chrome അപ്ഡേറ്റുചെയ്തു, പക്ഷേ 30 ദിവസം പോലും നിങ്ങള്‍ ഇത് ഉപയോഗിച്ചിട്ടില്ല.</translation>
-<translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="7060865993964054389">Google Chrome അപ്ലിക്കേഷൻ ലോഞ്ചർ</translation>
 <translation id="1682634494516646069">Google Chrome-ന് ഇതിന്റെ ഡാറ്റാ ഡയറക്‌ടറി വായിക്കാനും അതിൽ എഴുതാനും കഴിയില്ല:
 
@@ -127,7 +125,6 @@
 <translation id="911206726377975832">നിങ്ങളുടെ ബ്രൌസിംഗ് ഡാറ്റയും ഇതോടൊപ്പം ഇല്ലാതാക്കണോ?</translation>
 <translation id="5855036575689098185">നിങ്ങളുടെ കമ്പ്യൂട്ടറിൽ പ്രവർത്തിക്കുന്ന സോഫ്റ്റ്‌വെയർ Google Chrome-ന് അനുയോജ്യമല്ല.</translation>
 <translation id="2044287590254833138">Google Chrome ടൂള്‍ബാര്‍</translation>
-<translation id="5074344184765391290">Chrome Plug-In Host</translation>
 <translation id="8862326446509486874">സിസ്റ്റം-ലെവല്‍‌ ഇന്‍‌സ്റ്റാള്‍‌ ചെയ്യുന്നതിന് നിങ്ങള്‍‌ക്ക് ഉചിതമായ അവകാശങ്ങളില്ല. അഡ്‌മിനിസ്‌ട്രേറ്ററായി ഇന്‍‌സ്റ്റാളര്‍‌ പ്രവര്‍‌ത്തിപ്പിക്കാന്‍‌ വീണ്ടും ശ്രമിക്കൂ.</translation>
 <translation id="2874156562296220396">Google Chrome <ph name="BEGIN_LINK_CHROMIUM"/>ക്രോമിയം<ph name="END_LINK_CHROMIUM"/> ഓപ്പണ്‍ സോഴ്സ് പ്രോജക്‌ടും മറ്റ് <ph name="BEGIN_LINK_OSS"/>ഓപ്പണ്‍ സോഴ്സ് സോഫ്‌റ്റ്‌വെയറും<ph name="END_LINK_OSS"/> ഉപയോഗിച്ച് നിര്‍മ്മിച്ചതാണ്.</translation>
 <translation id="3847841918622877581">നിങ്ങളുടെ ബ്രൌസിംഗ് അനുഭവം മെച്ചപ്പെടുത്താനായി Google Chrome വെബ് സേവനങ്ങള്‍ ഉപയോഗിക്കാം.</translation>
@@ -175,12 +172,10 @@
 <translation id="576822117893741893">Chrome മെനു കാണിക്കുക</translation>
 <translation id="3444832043240812445">നിങ്ങള്‍ <ph name="BEGIN_LINK"/>ക്രാഷ് റിപ്പോര്‍ട്ടിംഗ് പ്രാപ്തമാക്കുകയാണെങ്കില്‍<ph name="END_LINK"/> നിങ്ങളുടെ സമീപകാല ക്രാഷുകളിലെ വിവരങ്ങള്‍ മാത്രം ഈ പേജ് കാണിക്കുന്നു.</translation>
 <translation id="8614913330719544658">Google Chrome പ്രതികരിക്കുന്നില്ല. ഇപ്പോള്‍ വീണ്ടും സമാരംഭിക്കണോ?</translation>
-<translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
 <translation id="6126631249883707068">നിങ്ങളുടെ പാസ്‌വേഡ് സംരക്ഷിക്കുന്നതിന് നിങ്ങള്‍‌ക്ക് Google Chrome ആവശ്യമുണ്ടോ?</translation>
 <translation id="7773845170078702898">ഈ സൈറ്റിനായുള്ള നിങ്ങളുടെ പാസ്‌വേഡ് Google Chrome സംരക്ഷിക്കണമെന്ന് നിങ്ങൾ താൽപ്പര്യപ്പെടുന്നുണ്ടോ?</translation>
 <translation id="5046764976540625289">Chrome ല്‍ നിന്ന് പുറത്തുകടക്കുക</translation>
 <translation id="4251615635259297716">നിങ്ങളുടെ Chrome ഡാറ്റ ഈ അക്കൗണ്ടുമായി ലിങ്കുചെയ്യണോ?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">ഇന്റര്‍‌നെറ്റ് ബ്രൌസര്‍‌</translation>
 <translation id="8142608456917638009">Google Chrome-ന് ഒരു അപ്ലിക്കേഷൻ കുറുക്കുവഴി സൃഷ്‌ടിക്കാനായില്ല.</translation>

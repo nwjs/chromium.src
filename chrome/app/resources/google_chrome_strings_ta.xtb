@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">Mac இல்,உங்கள் Keychain இல் கடவுச்சொல்கள் சேம்க்கப்படும் மேலும் இந்த OS X கணக்குகளை பகிரும் Chrome பயனர்களால் அணுகவோ ஒத்திசைக்கவோ முடுயும்.</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> உங்கள் Chrome அமைப்புகளை மாற்றலாம்.</translation>
 <translation id="1761870329818521071">நடப்பில் இயங்கிக்கொண்டிருக்கும் அதே Google Chrome Frame பதிப்பை நிறுவ முடியாது. Google Chrome Frame ஐ மூடிவிட்டு மீண்டும் முயற்சி செய்க.</translation>
-<translation id="2040709530900803995">Google Chrome Renderer</translation>
 <translation id="6014844626092547096">தற்போது Chrome இல் உள்நுழைந்துள்ளீர்கள்! உங்கள் நிர்வாகியால் ஒத்திசைவு முடக்கப்பட்டுள்ளது.</translation>
 <translation id="3140883423282498090">அடுத்த முறை Google Chrome ஐ மீண்டும் தொடங்கியவுடன் உங்கள் மாற்றங்கள் செயல்படும்.</translation>
 <translation id="1773601347087397504">Chrome OS ஐப் பயன்படுத்தி உதவி பெறுக</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">Google Chrome மூடப்பட்டிருக்கும்போது பின்புல பயன்பாடுகளை இயக்க அனுமதி</translation>
 <translation id="4149882025268051530">காப்பகத்தை விரிவுபடுத்துவதில் இன்ஸ்டாலர் தோல்வியுற்றது. Google Chrome ஐ மீண்டும் பதிவிறக்குக.</translation>
 <translation id="6989339256997917931">Google Chrome புதுப்பிக்கப்பட்டது, ஆனால் இதை நீங்கள் குறைந்தபட்சம் 30 நாட்களாகப் பயன்படுத்தவில்லை.</translation>
-<translation id="5744005218040929396">Google Chrome Utility</translation>
 <translation id="7060865993964054389">Google Chrome பயன்பாட்டுத் துவக்கி</translation>
 <translation id="1682634494516646069">பின்வரும் தரவுக் கோப்பகத்தில் Google Chrome படிக்கவும் எழுதவும் செய்யாது:<ph name="USER_DATA_DIRECTORY"/></translation>
 <translation id="4343226815564935778">Google Chrome இன் நிறுவல் கோப்பகமானது பயன்பாட்டில் உள்ளது. உங்கள் கணினியை மறுதொடக்கம் செய்து மீண்டும் முயற்சி செய்க.</translation>
@@ -118,7 +116,6 @@
 <translation id="911206726377975832">உங்கள் உலாவுதல் தரவையும் நீக்க வேண்டுமா?</translation>
 <translation id="5855036575689098185">உங்கள் கணினியில் இயங்கும் மென்பொருள் Google Chrome உடன் இணங்கவில்லை.</translation>
 <translation id="2044287590254833138">Google Chrome கருவிப்பட்டி</translation>
-<translation id="5074344184765391290">Chrome Plug-In Host</translation>
 <translation id="8862326446509486874">கணினி-சார்ந்த நிறுவலுக்கான முறையான உரிமைகள் உங்களிடம் இல்லை. அதனால் நிர்வாகியாக மீண்டும் நிறுவலை இயக்க முயற்சி செய்க.</translation>
 <translation id="2874156562296220396"><ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/>ஓபன் சோர்ஸ் திட்டப்பணி மற்றும் <ph name="BEGIN_LINK_OSS"/>ஓபன் சோர்ஸ் மென்பொருள்<ph name="END_LINK_OSS"/> இவற்றால் Google Chrome ஐ உருவாக்குவது சாத்தியமானது.</translation>
 <translation id="3847841918622877581">உங்கள் உலாவுதல் அனுபவத்தை மேம்படுத்த, Google Chrome ஆனது வலைச் சேவைகளைப் பயன்படுத்தக்கூடும்.</translation>
@@ -165,12 +162,10 @@
 <translation id="576822117893741893">Chrome மெனுவைக் காட்டு</translation>
 <translation id="3444832043240812445">நீங்கள் <ph name="BEGIN_LINK"/>செயலிழப்பு புகாரளித்தலை இயக்கியிருந்தால்<ph name="END_LINK"/> மட்டுமே, இந்தப் பக்கம் உங்களுடைய சமீபத்திய செயலிழப்புகளைப் பற்றிய தகவல்களைக் காண்பிக்கும்.</translation>
 <translation id="8614913330719544658">Google Chrome பதிலளிக்கவில்லை. இப்போது மீண்டும் தொடங்கவா?</translation>
-<translation id="5318056482164160049">Google Chrome Plug-In Host</translation>
 <translation id="6126631249883707068">Google Chrome உங்கள் கடவுச்சொல்லைச் சேமிக்க  வேண்டுமா?</translation>
 <translation id="7773845170078702898">இந்தத் தளத்தில் உங்கள் கடவுச்சொல்லை Google Chrome சேமிக்க வேண்டுமா?</translation>
 <translation id="5046764976540625289">Chrome இலிருந்து வெளியேறு</translation>
 <translation id="4251615635259297716">உங்கள் Chrome தரவை இந்தக் கணக்குடன் இணைக்கவா?</translation>
-<translation id="9039578207253536065">Google Chrome Worker</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">இணைய உலாவி</translation>
 <translation id="8142608456917638009">Google Chrome ஆல் பயன்பாட்டிற்கான குறுக்குவழியை உருவாக்க முடியவில்லை.</translation>

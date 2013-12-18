@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">لا يمكن قراءة تفضيلاتك. قد تكون بعض الميزات غير متاحة، ولن يتم حفظ التغييرات في التفضيلات.</translation>
 <translation id="4222661289444749267">‏تحديث إطار Chromium</translation>
 <translation id="4423735387467980091">‏تخصيص Chromium والتحكم فيه</translation>
-<translation id="2843244238218937196">‏عارض Chromium</translation>
 <translation id="1881322772814446296">‏أنت تسجل الدخول باستخدام حساب يخضع للإدارة وتتيح للمشرف إمكانية التحكم في ملفك الشخصي على Chromium. وستكون بياناتك في Chromium مثل تطبيقاتك وإشاراتك المرجعية وسجلك وكلمات المرور التابعة لك والإعدادات الأخرى مرتبطة دائمًا بالمستخدم <ph name="USER_NAME"/>. ستتمكن من حذف هذه البيانات عبر لوحة تحكم حسابات Google، ولكنك لن تتمكن من إقران هذه البيانات بحساب آخر. ويُمكنك اختيار إنشاء ملف شخصي جديد للإبقاء على بياناتك الحالية في Chromium بشكل مستقل. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">‏إطار Chromium مثبت فعلاً ومتاح لجميع مستخدمي هذا الكمبيوتر. إذا أردت تثبيت إطار Chromium على مستوى المستخدم، يجب عليك إزالة إصدار مستوى النظام المثبت بواسطة المشرف أولاً.</translation>
 <translation id="731644333568559921">‏تحديث ن&amp;ظام التشغيل Chromium</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">‏جعل Chromium المتصفح الافتراضي</translation>
 <translation id="6309712487085796862">‏يستخدم Chromium الكاميرا.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">‏عامل Chromium</translation>
 <translation id="5820394555380036790">‏نظام التشغيل Chromium</translation>
 <translation id="6757767188268205357">عدم المطالبة مرة أخرى</translation>
 <translation id="1745962126679160932">‏سيخزن Chromium معلوماتك في مكان آمن ولذلك لن تحتاج إلى كتابتها مرة أخرى، ولكن سيظل يلزمك التحقق من رمز الأمان في بطاقتك لإجراء عمليات دفع مستقبلية.</translation>
@@ -154,7 +152,6 @@
 قد تكون بعض الميزات غير متاحة. الرجاء تحديد دليل ملف شخصي مختلف أو استخدام إصدار أحدث من Chromium.</translation>
 <translation id="9013087743919948559">‏إضافة إلى Chromium</translation>
 <translation id="6212496753309875659">‏يحتوي هذا الكمبيوتر فعلاً على إصدار أحدث من Chromium. إذا كان البرنامج لا يعمل، فالرجاء إزالة Chromium وإعادة المحاولة.</translation>
-<translation id="3014684866565908571">‏أداة Chromium المساعدة</translation>
 <translation id="1298199220304005244">‏الحصول على مساعدة بشأن استخدام نظام التشغيل Chromium</translation>
 <translation id="8187289872471304532">‏انتقل إلى Applications (التطبيقات) &gt; System Preferences (تفضيلات النظام) &gt; Network (الشبكة) &gt; Advanced (الخيارات المتقدمة) &gt; Proxies (الخوادم الوكيلة) وألغ تحديد أي خوادم وكيلة تم تحديدها.</translation>
 <translation id="4488676065623537541">‏تم حفظ تفاصيل الفوترة في Chromium.</translation>
@@ -197,7 +194,6 @@
 <translation id="7331621180831839236">‏<ph name="FILE_NAME"/> قد يغيّر إعدادات Chromium.</translation>
 <translation id="8724049448828509830">‏هناك تنزيل قيد التقدم. هل تريد الخروج من Chromium وإلغاء التنزيل؟</translation>
 <translation id="3360567213983886831">‏ثنائيات Chromium</translation>
-<translation id="7503101070699687603">‏مضيف المكوّن الإضافي لـ Chromium</translation>
 <translation id="8985587603644336029">‏سجّل شخص ما الدخول من قبل إلى Chromium على هذا الكمبيوتر باعتباره <ph name="ACCOUNT_EMAIL_LAST"/>. فإذا لم يكن هذا هو حسابك، فأنشئ حساب مستخدم Chromium جديدًا للإبقاء على معلوماتك بشكل منفصل.
 
 سيؤدي تسجيل الدخول على أية حال إلى دمج معلومات Chromium مثل الإشارات المرجعية والسجل والإعدادات الأخرى مع <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

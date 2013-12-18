@@ -18,7 +18,6 @@
 Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago sa mga kagustuhan.</translation>
 <translation id="4222661289444749267">Update sa Chromium Frame.</translation>
 <translation id="4423735387467980091">I-customize at kontrolin ang Chromium</translation>
-<translation id="2843244238218937196">Renderer ng Chromium</translation>
 <translation id="1881322772814446296">Nagsa-sign in ka gamit ang isang pinamamahalaang account at nagbibigay sa administrator nito ng kontrol sa iyong profile sa Chromium. Permanenteng mauugnay ang iyong data sa Chromium, gaya ng iyong apps, mga bookmark, kasaysayan, password, at iba pang mga setting sa <ph name="USER_NAME"/>. Matatanggal mo ang data na ito sa Google Accounts Dashboard, ngunit hindi mo maiuugnay ang data na ito sa isa pang account. Maaari ka ring gumawa ng bagong profile upang ihiwalay ang iyong umiiral na data sa Chromium. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Naka-install at available na ang Chromium Frame sa lahat ng user ng computer na ito. Kung nais mong i-install ang Chromium Frame sa antas ng user, dapat mo munang i-uninstall ang bersyon sa antas ng system na na-install ng administrator.</translation>
 <translation id="731644333568559921">I-update ang &amp;Chromium OS</translation>
@@ -124,7 +123,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="6248213926982192922">Gawing default na browser ang Chromium</translation>
 <translation id="6309712487085796862">Ginagamit ng Chromium ang iyong camera.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Worker ng Chromium</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Huwag akong istorbohin</translation>
 <translation id="1745962126679160932">Secure na iiimbak ng Chromium ang iyong impormasyon upang hindi mo na ito kailangang i-type muli, ngunit kakailanganin mo pa ring i-verify ang panseguridad na code ng iyong card para sa mga pagbabayad sa hinaharap.</translation>
@@ -156,7 +154,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 Maaaring hindi available ang ilang tampok. Mangyaring tumukoy ng ibang direktoryo ng profile o gumamit ng mas bagong bersyon ng Chromium.</translation>
 <translation id="9013087743919948559">Idagdag sa Chromium</translation>
 <translation id="6212496753309875659">May mas bagong bersyon ng Chromium na ang computer na ito. Kung hindi gumagana ang software, mangyaring i-uninstall ang Chromium at subukang muli.</translation>
-<translation id="3014684866565908571">Utility ng Chromium</translation>
 <translation id="1298199220304005244">Kumuha ng tulong sa paggamit ng Chromium OS</translation>
 <translation id="8187289872471304532">Pumunta sa
           Applications &gt; System Preferences &gt; Network &gt; Advanced &gt; Proxies
@@ -201,7 +198,6 @@ Maaaring hindi available ang ilang tampok. Mangyaring tumukoy ng ibang direktory
 <translation id="7331621180831839236">Maaaring baguhin ng <ph name="FILE_NAME"/> ang iyong mga setting ng Chromium.</translation>
 <translation id="8724049448828509830">Kasalukuyang ginagawa ang pag-download. Gusto mo bang lumabas ng Chromium at kanselahin ang pag-download?</translation>
 <translation id="3360567213983886831">Mga Chromium Binary</translation>
-<translation id="7503101070699687603">Host ng Plug-In ng Chromium</translation>
 <translation id="8985587603644336029">May nag-sign in dati sa Chromium sa computer na ito bilang <ph name="ACCOUNT_EMAIL_LAST"/>. Kung hindi iyon ang iyong account, lumikha ng bagong user ng Chromium upang ihiwalay ang iyong impormasyon.
 
 Kapag nag-sign in ka pa rin, isasama sa <ph name="ACCOUNT_EMAIL_NEW"/> ang impormasyon sa Chromium gaya ng mga bookmark, kasaysayan, at iba pang mga setting.</translation>

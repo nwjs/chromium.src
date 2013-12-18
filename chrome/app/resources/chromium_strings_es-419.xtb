@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">No se pueden leer tus preferencias. Es posible que algunas funciones no estén disponibles y que no se guarden los cambios realizados a las preferencias.</translation>
 <translation id="4222661289444749267">Actualización de Chromium Frame</translation>
 <translation id="4423735387467980091">Personaliza y controla Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Estás por acceder con una cuenta administrada, lo que significa que proporcionarás al administrador el control sobre tu perfil de Chromium. Tus datos de Chromium, como las aplicaciones, los marcadores, el historial, las contraseñas y otros parámetros de configuración quedarán vinculados a <ph name="USER_NAME"/> de forma permanente. Podrás eliminar estos datos a través del Panel de control de Cuentas de Google, pero no podrás asociarlos a otra cuenta. También puedes crear un perfil para mantener separados tus datos de Chromium. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame ya está instalado y disponible para todos los usuarios de este equipo. Si quieres instalar Chromium Frame en el nivel de usuario, primero debes desinstalar la versión de nivel de sistema instalada por un administrador.</translation>
 <translation id="731644333568559921">Actualizar &amp;Chromium OS</translation>
@@ -120,7 +119,6 @@
 <translation id="6248213926982192922">Establecer Chromium como navegador predeterminado</translation>
 <translation id="6309712487085796862">Chromium está usando tu cámara.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">No preguntar de nuevo</translation>
 <translation id="1745962126679160932">Chromium almacenará tu información de forma segura, de modo que no deberás ingresarla de nuevo. No obstante, deberás verificar el código de seguridad de tu tarjeta cuando realices pagos en el futuro.</translation>
@@ -150,7 +148,6 @@
 <translation id="6717134281241384636">Tu perfil no se puede utilizar porque proviene de una versión más actualizada de Chromium. Es posible que algunas características no estén disponibles. Especifica un directorio de perfil diferente o utiliza una versión más reciente de Chromium.</translation>
 <translation id="9013087743919948559">Agregar a Chromium</translation>
 <translation id="6212496753309875659">Este equipo ya tiene una versión más reciente de Chromium. Si el software no funciona, desinstala Chromium y vuelve a intentarlo.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Obtener ayuda para usar Chromium OS</translation>
 <translation id="8187289872471304532">Accede a
           Aplicaciones &gt; Preferencias del Sistema &gt; Red &gt; Avanzado &gt; Proxies
@@ -194,7 +191,6 @@
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> puede cambiar tu configuración de Chromium.</translation>
 <translation id="8724049448828509830">Hay una descarga en curso. ¿Quieres salir de Chromium y cancelarla?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Host complemento de Chromium</translation>
 <translation id="8985587603644336029">Alguien accedió anteriormente a Chromium en esta computadora como <ph name="ACCOUNT_EMAIL_LAST"/>. Si esta no es tu cuenta, crea un nuevo usuario de Chromium para mantener tu información por separado.
 
 Si accedes de todos modos, se fusionará la información de Chromium, como los marcadores, el historial y otros parámetros de configuración en <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

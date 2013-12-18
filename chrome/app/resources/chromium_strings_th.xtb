@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">ค่ากำหนดของคุณไม่สามารถอ่านได้ คุณลักษณะบางอย่างอาจใช้ไม่ได้และการเปลี่ยนแปลงค่ากำหนดจะไม่ได้รับการบันทึก</translation>
 <translation id="4222661289444749267">การอัปเดต Chromium Frame</translation>
 <translation id="4423735387467980091">กำหนดค่าและควบคุม Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">คุณกำลังลงชื่อเข้าใช้ด้วยบัญชีที่จัดการ และให้การควบคุมระดับผู้ดูแลระบบของบัญชีดังกล่าวเหนือโปรไฟล์ Chromium ของคุณ ข้อมูล Chromium เช่น แอป บุ๊กมาร์ก ประวัติการเข้าชม รหัสผ่าน และการตั้งค่าอื่นๆ จะเชื่อมโยงอย่างถาวรกับ <ph name="USER_NAME"/> คุณจะสามารถลบข้อมูลนี้ผ่านทางแผงควบคุมบัญชี Google แต่คุณจะไม่สามารถเชื่อมโยงข้อมูลนี้กับบัญชีอื่น คุณสามารถเลือกที่จะสร้างโปรไฟล์ใหม่เพื่อแยกเก็บข้อมูล Chromium ที่มีอยู่ของคุณ <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">คอมพิวเตอร์เครื่องนี้ติดตั้ง Chromium Frame แล้วและผู้ใช้คอมพิวเตอร์นี้ทุกคนสามารถใช้ได้ ถ้าคุณต้องการติดตั้ง Chromium Frame ในระดับผู้ใช้ คุณต้องถอนการติดตั้งรุ่นระดับระบบที่ติดตั้งโดยผู้ดูแลระบบก่อน</translation>
 <translation id="731644333568559921">อัปเดต &amp;Chromium OS</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">ทำให้ Chromium เป็นเบราว์เซอร์เริ่มต้น</translation>
 <translation id="6309712487085796862">Chromium ใช้กล้องของคุณอยู่</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">อย่ากวนใจฉัน</translation>
 <translation id="1745962126679160932">Chromium จะเก็บข้อมูลของคุณอย่างปลอดภัยเพื่อให้คุณไม่จำเป็นต้องพิมพ์ข้อมูลนั้นอีกครั้ง แต่คุณจะยังคงต้องยืนยันรหัสรักษาความปลอดภัยของบัตรของคุณสำหรับการชำระเงินในอนาคต</translation>
@@ -154,7 +152,6 @@
 คุณลักษณะบางประการอาจไม่มี โปรดระบุไดเรกทอรีโปรไฟล์อื่น หรือใช้ Chromium รุ่นใหม่</translation>
 <translation id="9013087743919948559">เพิ่มลงใน Chromium</translation>
 <translation id="6212496753309875659">คอมพิวเตอร์เครื่องนี้ติดตั้ง Chromium รุ่นที่ใหม่กว่าอยู่แล้ว ถ้าซอฟต์แวร์ไม่ทำงาน โปรดถอนการติดตั้ง Chromium และลองอีกครั้ง</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">รับความช่วยเหลือเกี่ยวกับการใช้ Chromium OS</translation>
 <translation id="8187289872471304532">ไปที่
           แอปพลิเคชัน &gt; ค่ากำหนดของระบบ &gt; เครือข่าย &gt; ขั้นสูง &gt; พร็อกซี
@@ -199,7 +196,6 @@
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> อาจเปลี่ยนแปลงการตั้งค่า Chromium ของคุณ</translation>
 <translation id="8724049448828509830">ขณะนี้อยู่ระหว่างการดาวน์โหลดหนึ่งรายการ คุณต้องการออกจาก Chromium และยกเลิกการดาวน์โหลดหรือไม่</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">โฮสต์ปลั๊กอินของ Chromium</translation>
 <translation id="8985587603644336029">ก่อนหน้านี้มีผู้ลงชื่อเข้าใช้ Chromium บนคอมพิวเตอร์นี้ในชื่อ <ph name="ACCOUNT_EMAIL_LAST"/> หากนั่นไม่ใช่บัญชีของคุณ ให้สร้างผู้ใช้ Chromium ใหม่เพื่อเก็บข้อมูลแยก
 
 การลงชื่อเข้าใช้ต่อไปจะรวมข้อมูล Chromium เช่น บุ๊กมาร์ก ประวัติการเข้าชม และการตั้งค่าอื่นๆ เข้ากับ <ph name="ACCOUNT_EMAIL_NEW"/></translation>

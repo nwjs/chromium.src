@@ -18,7 +18,6 @@
 Неке функције су можда недоступне и промене подешавања неће бити сачуване.</translation>
 <translation id="4222661289444749267">Ажурирање Chromium Frame-а.</translation>
 <translation id="4423735387467980091">Прилагодите и контролишите Chromium</translation>
-<translation id="2843244238218937196">Chromium приказивач</translation>
 <translation id="1881322772814446296">Пријављујете се помоћу налога којим се управља и дајете његовом администратору контролу над Chromium профилом. Chromium подаци, као што су апликације, обележивачи, историја, лозинке и друга подешавања, биће трајно повезани са налогом <ph name="USER_NAME"/>. Моћи ћете да избришете те податке преко Контролне табле Google налога, али нећете моћи да их повежете са неким другим налогом. Можете опционално да направите нови профил да би постојећи Chromium подаци остали одвојени. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame је већ инсталиран и доступан свим корисницима овог рачунара. Ако желите да инсталирате Chromium Frame на нивоу корисника, морате прво да деинсталирате верзију на нивоу система коју је инсталирао администратор.</translation>
 <translation id="731644333568559921">Ажурирај &amp;Chromium ОС</translation>
@@ -124,7 +123,6 @@
 <translation id="6248213926982192922">Подеси Chromium за подразумевани прегледач</translation>
 <translation id="6309712487085796862">Chromium користи камеру.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium радник</translation>
 <translation id="5820394555380036790">Chromium ОС</translation>
 <translation id="6757767188268205357">Не досађуј</translation>
 <translation id="1745962126679160932">Chromium ће безбедно складиштити информације, па нећете морати поново да их уносите, али ћете и даље морати да верификујете безбедносни кôд картице за будућа плаћања.</translation>
@@ -156,7 +154,6 @@
 Неке функције ће можда бити недоступне. Наведите други директоријум профила или користите новију верзију Chromium-а.</translation>
 <translation id="9013087743919948559">Додавање у Chromium</translation>
 <translation id="6212496753309875659">Овај рачунар већ има новију верзију Chromium-а. Ако софтвер не функционише, деинсталирајте Chromium и покушајте поново.</translation>
-<translation id="3014684866565908571">Chromium услужни програм</translation>
 <translation id="1298199220304005244">Пронађи помоћ за коришћење Chromium ОС-а</translation>
 <translation id="8187289872471304532">Идите на Applications (Апликације) &gt; System Preferences (Подешавања система) &gt; Network (Мрежа) &gt; Advanced (Више опција) &gt; Proxies (Проксији) и опозовите избор свих проксија који су изабрани.</translation>
 <translation id="4488676065623537541">Детаљи обрачуна су сачувани у Chromium-у.</translation>
@@ -199,7 +196,6 @@
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> може да измени подешавања Chromium-а.</translation>
 <translation id="8724049448828509830">Преузимање је у току. Да ли желите да изађете из Chromium-а и откажете преузимање?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Хост Chromium додатне компоненте</translation>
 <translation id="8985587603644336029">Неко се претходно пријавио на Chromium на овом рачунару као <ph name="ACCOUNT_EMAIL_LAST"/>. Ако то није ваш налог, направите новог Chromium корисника да би информације биле раздвојене.
 
 Ако се ипак пријавите, Chromium информације као што су обележивачи, историја и друга подешавања ће бити обједињене на <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

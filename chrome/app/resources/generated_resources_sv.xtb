@@ -19,7 +19,7 @@
 <translation id="1058418043520174283"><ph name="INDEX"/> av <ph name="COUNT"/></translation>
 <translation id="1128109161498068552">Tillåt inte att några webbplatser använder systemexklusiva meddelanden för att komma åt MIDI-enheter</translation>
 <translation id="2516632596252643567">&lt;p&gt;
-          Använd flikar som du öppnar på datorn även här.
+          Använd samma flikar här som du använder på datorn.
           &lt;/p&gt;
           &lt;p&gt;
           Du behöver bara öppna Chrome på datorn, öppna menyn och välja Logga in i Chrome ...
@@ -28,6 +28,7 @@
 <translation id="778579833039460630">Inga data har tagits emot</translation>
 <translation id="32279126412636473">Läs in igen (⌘R)</translation>
 <translation id="1852799913675865625">Ett fel uppstod när följande fil skulle läsas: <ph name="ERROR_TEXT"/>.</translation>
+<translation id="6114740317862089559">Mer information om hur vi hanterar dessa uppgifter finns i <ph name="BEGIN_LINK"/>sekretesspolicyn<ph name="END_LINK"/>.</translation>
 <translation id="3828924085048779000">Lösenfrasen får inte vara tom.</translation>
 <translation id="1844692022597038441">Den här filen är inte tillgänglig offline.</translation>
 <translation id="2709516037105925701">Autofyll</translation>
@@ -416,6 +417,8 @@
 <translation id="667115622929458276">Inkognitohämtningar pågår. Vill du avsluta inkognitoläget och avbryta hämtningarna?</translation>
 <translation id="1528372117901087631">Internetanslutning</translation>
 <translation id="1788636309517085411">Använd standardinställning</translation>
+<translation id="4159435316791146348">Google och HP återkallar originalladdaren till HP Chromebook 11 efter rekommendation och godkännande från CPSC och andra myndigheter.</translation>
+<translation id="7659660321065362272">Viktig uppdatering om HP Chromebook 11</translation>
 <translation id="1228893227497259893">Fel enhetsidentifierare</translation>
 <translation id="9177499212658576372">Du är ansluten till nätverket <ph name="NETWORK_TYPE"/>.</translation>
 <translation id="8589311641140863898">Tillägg med experimentella programmeringsgränssnitt</translation>
@@ -500,6 +503,7 @@
 <translation id="5866557323934807206">Rensa inställningarna för framtida besök</translation>
 <translation id="5355351445385646029">Tryck på blanksteg om du vill välja kandidaten</translation>
 <translation id="5453029940327926427">Stäng flikar</translation>
+<translation id="949088605431823851">Var köpte du din HP Chromebook 11?</translation>
 <translation id="9087353528325876418">Webbadress för automatisk identifiering av webbproxy</translation>
 <translation id="2958431318199492670">Nätverkskonfigurationen uppfyller inte ONC-standarden. Det kan hända att delar av konfigurationen inte kan importeras.</translation>
 <translation id="3878840326289104869">Skapar övervakad användare</translation>
@@ -898,6 +902,8 @@
 <translation id="3600456501114769456">Administratören har inaktiverat åtkomsten till lokala filer på enheten.</translation>
 <translation id="7879478708475862060">Följ inmatningsläge</translation>
 <translation id="1042174272890264476">Datorn har även RLZ-biblioteket för <ph name="SHORT_PRODUCT_NAME"/> inbyggt. RLZ tilldelar en icke-unik, icke-personligt identifierbar tagg för att mäta antalet sökningar och användningen av <ph name="SHORT_PRODUCT_NAME"/> som drivs av en viss reklamkampanj. Dessa etiketter visas ibland vid sökningar på Google i <ph name="PRODUCT_NAME"/>.</translation>
+<translation id="6311841686068461841">Kontrollera laddaren</translation>
+<translation id="8436138142074894820">Visa inte det här meddelandet igen</translation>
 <translation id="348780365869651045">Väntar på AppCache ...</translation>
 <translation id="817894225563172061">Ethernet-nätverk:</translation>
 <translation id="3125649188848276916">Ja (registrera inte nya uppgifter)</translation>
@@ -1059,7 +1065,7 @@ Psst! Nästa gång kanske inkognitoläget <ph name="SHORTCUT_KEY"/> kan vara nå
 <translation id="8494979374722910010">Försöket att ansluta till servern misslyckades.</translation>
 <translation id="1864756863218646478">Filen hittades inte.</translation>
 <translation id="7810202088502699111">Popup-fönster är blockerade på den här sidan.</translation>
-<translation id="3808873045540128170">Han är död, Jim!</translation>
+<translation id="3808873045540128170">Attans!</translation>
 <translation id="3452404311384756672">Hämta intervall:</translation>
 <translation id="646727171725540434">HTTP-proxy</translation>
 <translation id="7576690715254076113">Jämför</translation>
@@ -1107,6 +1113,7 @@ Psst! Nästa gång kanske inkognitoläget <ph name="SHORTCUT_KEY"/> kan vara nå
 <translation id="5800020978570554460">Målfilen har trunkerats eller tagits bort efter den senaste hämtningen.</translation>
 <translation id="5270547718570958938">Google Kalender</translation>
 <translation id="5823933238730612365">PPAPI (utan sandlåda)</translation>
+<translation id="2071128513678800377">Laddaren är uppdaterad</translation>
 <translation id="5301751748813680278">Loggar in som gäst.</translation>
 <translation id="121827551500866099">Visa alla nedladdningar...</translation>
 <translation id="5949910269212525572">Det går inte att lösa serverns DNS-adress.</translation>
@@ -1331,6 +1338,7 @@ Psst! Nästa gång kanske inkognitoläget <ph name="SHORTCUT_KEY"/> kan vara nå
 <translation id="273093730430620027">Den här sidan använder din kamera.</translation>
 <translation id="5605623530403479164">Andra sökmotorer</translation>
 <translation id="657064425229075395">Det gick inte att läsa in bakgrundsskriptet <ph name="BACKGROUND_SCRIPT"/>.</translation>
+<translation id="3345234884557051648">Jag har ringt det angivna numret och beställt en ny laddare som ersättning för den gamla.</translation>
 <translation id="5710435578057952990">Webbplatsens identitet har inte verifierats.</translation>
 <translation id="1319997607168632851">Berätta vad du tycker om startprogrammet för appar.</translation>
 <translation id="1303319084542230573">Lägg till en skrivare</translation>
@@ -1346,8 +1354,10 @@ Psst! Nästa gång kanske inkognitoläget <ph name="SHORTCUT_KEY"/> kan vara nå
 <translation id="7952408061263786094">Logga ut och sedan in igen ...</translation>
 <translation id="5880247576487732437">En token finns</translation>
 <translation id="4689960105160368473">Spåra hur lång tid som tillbringats på varje sida</translation>
+<translation id="8412498037462710569">Jag bekräftar att jag inte vill ha någon gratis ersättningsladdare.</translation>
 <translation id="3368922792935385530">Ansluten</translation>
 <translation id="8340999562596018839">Talad feedback</translation>
+<translation id="5431473096922271583">Vi vill be dig kontrollera om du har en originalladdare.</translation>
 <translation id="3866443872548686097">Dina återställningsmedia är klara. Du kan ta bort dem från systemet.</translation>
 <translation id="6824564591481349393">Kopiera &amp;e-postadress</translation>
 <translation id="907148966137935206">Tillåt inte att någon webbplats visar popup-fönster (rekommenderas)</translation>
@@ -1561,6 +1571,7 @@ När du har skapat en ny övervakad användare kan du hantera dennes inställnin
 <translation id="5109044022078737958">Mia</translation>
 <translation id="6291953229176937411">&amp;Visa i Finder</translation>
 <translation id="8598687241883907630">Koppla bort Google-kontot ...</translation>
+<translation id="3790571977176307462">Välj den laddare som är ansluten till din Chromebook:</translation>
 <translation id="2556718757702023317">För att kunna spara <ph name="FILE_NAME"/> offline måste du frigöra ytterligare <ph name="TOTAL_FILE_SIZE"/> utrymme:<ph name="MARKUP_1"/>
         <ph name="MARKUP_2"/>ta bort filer som du inte längre behöver kunna använda offline<ph name="MARKUP_3"/>
         <ph name="MARKUP_4"/>ta bort filer från mappen Hämtade filer<ph name="MARKUP_5"/></translation>
@@ -1603,6 +1614,7 @@ Lämna inte ut känsliga uppgifter.</translation>
 <translation id="1886996562706621347">Tillåt att webbplatser begär att bli standardhanterare för protokoll (rekommenderas)</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY"/> [<ph name="ISSUED_TO"/>]</translation>
 <translation id="8899388739470541164">Vietnamesiska</translation>
+<translation id="2053686653008575655">Du kan läsa de <ph name="BEGIN_LINK"/>vanliga frågorna<ph name="END_LINK"/> och fortsätta använda din HP Chromebook 11 med en annan certifierad mikro-USB-laddare, t.ex. en som medföljde en surfplatta eller smartphone. Vi ber återigen om ursäkt för besväret. Din säkerhet är viktig för oss.</translation>
 <translation id="6423064450797205562">Statistik för den hastighet med vilken <ph name="SHORT_PRODUCT_NAME"/> utför begärda åtgärder</translation>
 <translation id="2048118585307365263">Aktivera MediaDrm.</translation>
 <translation id="4091434297613116013">pappersark</translation>
@@ -1680,6 +1692,7 @@ Lämna inte ut känsliga uppgifter.</translation>
 <translation id="3449839693241009168">Tryck på <ph name="SEARCH_KEY"/> om du vill skicka kommandon till <ph name="EXTENSION_NAME"/></translation>
 <translation id="968174221497644223">Programmets cacheminne</translation>
 <translation id="6352609311795654248">Aktivera experimentell Opus-uppspelning i videoelementet.</translation>
+<translation id="9126999385065535384">Vi har fått ett litet antal rapporter om att vissa originalladdare till HP Chromebook 11 har skadats genom överhettning. För att vara på den säkra sidan ersätter vi alla originalladdare gratis.</translation>
 <translation id="4343792725927556911">De nya inställningarna för kamera och mikrofon börjar gälla när sidan uppdateras.</translation>
 <translation id="3847089579761895589">Du får hjälp. Vill du fortsätta?</translation>
 <translation id="8452588990572106089">Ogiltigt kortnummer. Kontrollera uppgiften och försök igen.</translation>
@@ -1855,6 +1868,7 @@ Lämna inte ut känsliga uppgifter.</translation>
 <translation id="1000498691615767391">Välj mapp att öppna</translation>
 <translation id="3593152357631900254">Aktivera Fuzzy-Pinyin-läge</translation>
 <translation id="2570059561924004903">Inaktivera talad feedback</translation>
+<translation id="2462911512468050799">Mer information finns på</translation>
 <translation id="2276503375879033601">Lägg till fler appar</translation>
 <translation id="5015344424288992913">Tolkar proxy...</translation>
 <translation id="4389091756366370506">Användare <ph name="VALUE"/></translation>
@@ -2062,6 +2076,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 
         &lt;p&gt;Du kan fortfarande konfigurera via kommandoraden. Läs &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME"/>&lt;/code&gt; om du vill veta mer om flaggningar och miljövariabler.&lt;/p&gt;</translation>
 <translation id="7205869271332034173">SSID:</translation>
+<translation id="8907701755790961703">Välj ett land</translation>
 <translation id="7084579131203911145">Abonnemangsnamn:</translation>
 <translation id="4731351517694976331">Tillåt Googles tjänster att ta reda på var du är</translation>
 <translation id="5815645614496570556">X.400-adress</translation>
@@ -2113,7 +2128,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="7469894403370665791">Anslut automatiskt till det här nätverket.</translation>
 <translation id="4807098396393229769">Namn på kort</translation>
 <translation id="4131410914670010031">Svartvitt</translation>
-<translation id="3800503346337426623">Hoppa över inloggningen och läs som gäst</translation>
+<translation id="3800503346337426623">Hoppa över inloggningen och använd som gäst</translation>
 <translation id="2615413226240911668">Den här sidan innehåller emellertid andra resurser som inte är säkra. Andra kan se resurserna när de överförs och hackare kan ändra resurserna så att sidan får ett annat utseende.</translation>
 <translation id="1416136326154112077">Den som hanterar användaren kan fortfarande se vilka webbplatser som har besökts och användarens inställningar på <ph name="BEGIN_LINK"/>www.chrome.com/manage<ph name="END_LINK"/>.</translation>
 <translation id="197288927597451399">Behåll</translation>
@@ -2223,7 +2238,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="5299682071747318445">Alla data krypteras med din lösenfras för synkronisering</translation>
 <translation id="7556242789364317684">Tyvärr kan inte <ph name="SHORT_PRODUCT_NAME"/> återställa dina inställningar. <ph name="SHORT_PRODUCT_NAME"/> måste återställa enheten med en Powerwash för att åtgärda felet.</translation>
 <translation id="4041408658944722952">Tillåt att matchningar från HistoryQuickProvider infogas i autoslutföranden i adressfältet.</translation>
-<translation id="1383876407941801731">Sökning</translation>
+<translation id="1383876407941801731">Sök</translation>
 <translation id="6352623521404034263">Logga in på <ph name="PRODUCT_NAME"/> med ditt Google-konto om du vill spara dina personliga webbläsarfunktioner och komma åt dem från <ph name="PRODUCT_NAME"/> på en valfri enhet. Du loggas också in automatiskt på dina favorittjänster från Google.</translation>
 <translation id="23362385947277794">Bakgrundsfärger och bakgrundsbilder</translation>
 <translation id="409579654357498729">Lägg till i Cloud Print</translation>
@@ -2323,7 +2338,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="2607101320794533334">Information om mottagarens publika nyckel</translation>
 <translation id="7071586181848220801">Okänt plugin-program</translation>
 <translation id="498957508165411911">Vill du översätta från <ph name="ORIGINAL_LANGUAGE"/> till <ph name="TARGET_LANGUAGE"/>?</translation>
-<translation id="89720367119469899">Avsluta</translation>
+<translation id="89720367119469899">Escape</translation>
 <translation id="4419409365248380979">Tillåt alltid <ph name="HOST"/> att använda cookies</translation>
 <translation id="813582937903338561">Senaste dagen</translation>
 <translation id="5337771866151525739">Installerad av tredje part.</translation>
@@ -2406,6 +2421,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="2086712242472027775">Kontot fungerar inte på <ph name="PRODUCT_NAME"/>. Kontakta domänadministratören eller logga in med ett vanligt Google-konto.</translation>
 <translation id="1970103697564110434">Google Wallet skyddar ditt kort</translation>
 <translation id="7222232353993864120">E-postadress</translation>
+<translation id="1324451548764108666">Ring (866) 628-1371 (USA) eller 0800 026 0613 (Storbritannien) och beställ en ny laddare som ersättning utan kostnad.</translation>
 <translation id="2128531968068887769">Native Client</translation>
 <translation id="7175353351958621980">Överförd från:</translation>
 <translation id="7186367841673660872">Sidan har översatts från<ph name="ORIGINAL_LANGUAGE"/>till<ph name="LANGUAGE_LANGUAGE"/></translation>
@@ -2450,6 +2466,7 @@ Publik exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS"/> bitar):
 <translation id="6432458268957186486">Skriv ut med hjälp av dialogrutan för <ph name="CLOUD_PRINT_NAME"/> ...</translation>
 <translation id="2950186680359523359">Servern avslutade anslutningen utan att skicka data.</translation>
 <translation id="4269099019648381197">Aktiverar alternativet att begära webbplats för surfplatta i inställningsmenyn.</translation>
+<translation id="1645250822384430568">Vi har tagit emot uppgifterna och behandlar din beställning.</translation>
 <translation id="9142623379911037913">Tillåt att <ph name="SITE"/> visar meddelanden på skrivbordet?</translation>
 <translation id="6546686722964485737">Anslut till WiMAX-nätverk</translation>
 <translation id="266983583785200437">Händelser som är kopplade till kraschar och fel i <ph name="SHORT_PRODUCT_NAME"/></translation>
@@ -2703,6 +2720,7 @@ Du måste vara inloggad om du vill använda den här funktionen.</translation>
 <translation id="5400640815024374115">TPM-chippet (Trusted Platform Module) har inaktiverats eller tagits bort.</translation>
 <translation id="2025623846716345241">Bekräfta ny sidhämtning</translation>
 <translation id="2151576029659734873">Du har angett ett ogiltigt flikindex.</translation>
+<translation id="496546018524231664">Irland</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD"/>Varning!<ph name="END_BOLD"/>  De här filerna är tillfälliga och kan tas bort automatiskt för att frigöra utrymme på hårddisken.  <ph name="BEGIN_LINK"/>Läs mer<ph name="END_LINK"/></translation>
 <translation id="4722920479021006856"><ph name="APP_NAME"/> delar din skärm.</translation>
 <translation id="5599620772482612321">$1 objekt flyttas.</translation>
@@ -2792,6 +2810,7 @@ Du måste vara inloggad om du vill använda den här funktionen.</translation>
 <translation id="6571070086367343653">Redigera kreditkort</translation>
 <translation id="1204242529756846967">Stavningskontrollen utförs på detta språk</translation>
 <translation id="3981760180856053153">Du har angett en ogiltig typ att spara.</translation>
+<translation id="8865709004086313039">Under tiden kan du läsa de <ph name="BEGIN_LINK"/>vanliga frågorna<ph name="END_LINK"/> och fortsätta använda din HP Chromebook 11 med en annan certifierad mikro-USB-laddare, t.ex. en som medföljde en surfplatta eller smartphone. Vi ber återigen om ursäkt för besväret. Din säkerhet är viktig för oss.</translation>
 <translation id="593917093612693620">Genom att klicka på Fortsätt godkänner du <ph name="LEGAL_DOC_LINK_TEXT_1"/>, <ph name="LEGAL_DOC_LINK_TEXT_2"/> och <ph name="LEGAL_DOC_LINK_TEXT_3"/>. För att skydda dig från bedrägeri kommer information om din dator (och var den är) delas med Google Wallet.</translation>
 <translation id="4508345242223896011">Jämn rullning</translation>
 <translation id="6192792657125177640">Undantag</translation>
@@ -2991,6 +3010,7 @@ Läs din e-post på <ph name="ACCOUNT_EMAIL"/>. Där finns dessa och andra anvis
           <ph name="BEGIN_LINK"/>Läs mer<ph name="END_LINK"/> om gästsessioner.</translation>
 <translation id="8004582292198964060">Webbläsare</translation>
 <translation id="695755122858488207">Avmarkerad alternativknapp</translation>
+<translation id="6745625605706446078">Beställningsformulär för laddare till HP Chromebook 11</translation>
 <translation id="1934636348456381428">Aktiverar implementering av experimentella rullningslister för överlagring. Du måste även aktivera sammansättning i trådar för att animera rullningslisterna.</translation>
 <translation id="8666678546361132282">Engelska</translation>
 <translation id="2224551243087462610">Redigera mappnamn</translation>
@@ -3184,6 +3204,7 @@ Läs din e-post på <ph name="ACCOUNT_EMAIL"/>. Där finns dessa och andra anvis
 <translation id="889901481107108152">Experimentet finns tyvärr inte på din plattform.</translation>
 <translation id="2042900667172886929">Rensa lokalt cacheminne</translation>
 <translation id="3228969707346345236">Det gick inte att översätta eftersom sidan redan är på <ph name="LANGUAGE"/>.</translation>
+<translation id="8238191901674777266">USA</translation>
 <translation id="1873879463550486830">SUID-sandlåda</translation>
 <translation id="8118860139461251237">Hantera dina hämtningar</translation>
 <translation id="5111852801054039429">Inaktivera WebRTC</translation>
@@ -3213,6 +3234,7 @@ Läs din e-post på <ph name="ACCOUNT_EMAIL"/>. Där finns dessa och andra anvis
         kan inte nå webbplatsen. Detta beror oftast på nätverksproblem,
         men det kan också bero på att brandväggen eller proxyservern är felaktigt konfigurerad.</translation>
 <translation id="5445557969380904478">Om röstigenkänning</translation>
+<translation id="4104400246019119780">Tack!</translation>
 <translation id="3487007233252413104">anonym funktion</translation>
 <translation id="8965037249707889821">Ange det gamla lösenordet</translation>
 <translation id="6410328738210026208">Byt kanal och Powerwash</translation>
@@ -3240,7 +3262,7 @@ Läs din e-post på <ph name="ACCOUNT_EMAIL"/>. Där finns dessa och andra anvis
 <translation id="2643698698624765890">Hantera tillägg genom att klicka på Tillägg på menyn Fönster.</translation>
 <translation id="4846680374085650406">Du följer administratörens rekommendation för den här inställningen.</translation>
 <translation id="1974060860693918893">Avancerat</translation>
-<translation id="1701364987952948449">Läs som gäst</translation>
+<translation id="1701364987952948449">Använd som gäst</translation>
 <translation id="4509017836361568632">Ta bort fotot</translation>
 <translation id="1244303850296295656">Fel i tillägg</translation>
 <translation id="4406768222108105473">Aktivera HTTP/2 draft 04.</translation>
@@ -3526,6 +3548,7 @@ Din inloggningsuppgifter för kontot är inaktuella.</translation>
 <translation id="5045550434625856497">Felaktigt lösenord</translation>
 <translation id="6397592254427394018">Öppna alla bokmärken i ett &amp;inkognitofönster</translation>
 <translation id="27822970480436970">Tillägget misslyckades att ändra en nätverksbegäran eftersom ändringen står i konflikt med ett annat tillägg.</translation>
+<translation id="2453860139492968684">Slutför</translation>
 <translation id="756445078718366910">Öppna webbläsarfönster</translation>
 <translation id="6132383530370527946">Det finstilta</translation>
 <translation id="9033780830059217187">Proxyinställningen aktiveras av ett tillägg.</translation>
@@ -3630,6 +3653,7 @@ Din inloggningsuppgifter för kontot är inaktuella.</translation>
 <translation id="7299721129597238157">Ta bort bokmärke</translation>
 <translation id="3031557471081358569">Välj objekt att importera:</translation>
 <translation id="1368832886055348810">Vänster till höger</translation>
+<translation id="834106456999819211">Din beställning bearbetas</translation>
 <translation id="133014027510889724">Aktivera prestandaövervakning</translation>
 <translation id="3627320433825461852">Mindre än 1 minut kvar</translation>
 <translation id="3031433885594348982">Din anslutning till <ph name="DOMAIN"/> är krypterad med svag kryptering.</translation>
@@ -3692,6 +3716,7 @@ Din inloggningsuppgifter för kontot är inaktuella.</translation>
 <translation id="5358016106459232452">Den tid det tar att starta <ph name="SHORT_PRODUCT_NAME"/> i en testmiljö</translation>
 <translation id="7509179828847922845">Anslutningen till <ph name="HOST_NAME"/> avbröts.</translation>
 <translation id="2911372483530471524">Namnutrymmen för PID</translation>
+<translation id="6030886059850316251">Skicka mig en ny laddare</translation>
 <translation id="4267171000817377500">Plugin-program</translation>
 <translation id="8584134039559266300">Aktivera flik 8</translation>
 <translation id="3140978158653201367">Bekräfta nytt tema</translation>
@@ -3857,6 +3882,7 @@ hanteraren
 <translation id="479989351350248267">sök</translation>
 <translation id="472177018469288237">Google Wallet har inaktiverats</translation>
 <translation id="7730449930968088409">Ta en bild av innehållet på skärmen</translation>
+<translation id="1431605150566631089">Kontrollera laddaren</translation>
 <translation id="7714464543167945231">Certifikat</translation>
 <translation id="8324294541009002530">Inaktivera det experimentella WebKitMediaSource-objektet. Med detta objekt kan mediedata skickas direkt till ett videoelement via JavaScript.</translation>
 <translation id="4966802378343010715">Skapa en ny användare</translation>
@@ -3929,6 +3955,7 @@ hanteraren
 <translation id="1479356886123917758">Få åtkomst till och ändra foton, musik och andra media från datorn.</translation>
 <translation id="5295309862264981122">Bekräfta navigering</translation>
 <translation id="8249320324621329438">Senast hämtad:</translation>
+<translation id="718827667662449283">Storbritannien</translation>
 <translation id="5804241973901381774">Behörigheter</translation>
 <translation id="901834265349196618">e-post</translation>
 <translation id="8382207127145268451">Aktivera proxyinställningar för datakomprimering</translation>
@@ -3962,6 +3989,7 @@ hanteraren
 <translation id="4441124369922430666">Vill du starta denna app automatiskt när maskinen slås på?</translation>
 <translation id="3748412725338508953">Det fanns för många omdirigeringar.</translation>
 <translation id="999754487240933182">Aktivera fjärrstyrd felsökning av Chrome för Android via obearbetat USB-gränssnitt (du behöver inte installera/köra Android Debug Bridge).</translation>
+<translation id="7741303706372017829">Jag vill inte få en ny laddare i stället för den återkallade laddaren</translation>
 <translation id="5833726373896279253">Inställningarna kan bara ändras av ägaren:</translation>
 <translation id="9203962528777363226">Administratören av den här enheten har inaktiverat nya användare från att läggas till</translation>
 <translation id="6005282720244019462">Latinamerikanskt tangentbord</translation>
@@ -4115,7 +4143,7 @@ hanteraren
 <translation id="2867768963760577682">Öppna som en fast flik</translation>
 <translation id="8631032106121706562">Blomster</translation>
 <translation id="1639239467298939599">Läser in</translation>
-<translation id="5457599981699367932">Läs som gäst</translation>
+<translation id="5457599981699367932">Använd som gäst</translation>
 <translation id="6850233365366645553">En omstart krävs innan enheten kan återställas med en powerwash. Med en powerwash återställs <ph name="IDS_SHORT_PRODUCT_NAME"/>-enheten så att den blir som ny.</translation>
 <translation id="4292622557427736684">Aktiverar MediaDrm som standard för krypterade medietillägg.</translation>
 <translation id="1812514023095547458">Välj färg</translation>
@@ -4221,6 +4249,7 @@ hanteraren
 <translation id="216169395504480358">Lägg till Wi-Fi ...</translation>
 <translation id="1804251416207250805">Inaktivera sändning av kontrollping för hyperlänkar.</translation>
 <translation id="5116628073786783676">S&amp;para ljud som...</translation>
+<translation id="6172346010137455972">Nu är det klart.</translation>
 <translation id="7638054264543643210">Skicka e-post till den här personen</translation>
 <translation id="2539507112146602356">Format på knappen för alternativ bildtext</translation>
 <translation id="2557899542277210112">Placera bokmärkena här i bokmärkesfältet så att de blir lättillgängliga.</translation>
@@ -4313,6 +4342,7 @@ hanteraren
 <translation id="5831217499016131155">Google Wallet</translation>
 <translation id="3958088479270651626">Importera bokmärken och inställningar</translation>
 <translation id="8518865679229538285">Inmatningsmetod för tamil (Typewriter)</translation>
+<translation id="4918745183464912186">Australien</translation>
 <translation id="5257456363153333584">Trollslända</translation>
 <translation id="4557136421275541763">Varning:</translation>
 <translation id="3872687746103784075">Native Client GDB-baserad felsökning</translation>
@@ -4435,6 +4465,7 @@ hanteraren
 <translation id="7674629440242451245">Är du intresserad av häftiga nya funktioner i Chrome? Pröva vår utvecklarkanal på chrome.com/dev.</translation>
 <translation id="7568593326407688803">Den här sidan är på<ph name="ORIGINAL_LANGUAGE"/>Vill du översätta den?</translation>
 <translation id="7818135753970109980">Ett nytt tema har lagts till (<ph name="EXTENSION_NAME"/>)</translation>
+<translation id="917306543655291301">Under tiden finns mer information på</translation>
 <translation id="5448293924669608770">Det uppstod problem vid inloggningen</translation>
 <translation id="6870130893560916279">Ukrainskt tangentbord</translation>
 <translation id="8931394284949551895">Nya enheter</translation>
@@ -4622,6 +4653,7 @@ hanteraren
 <translation id="3366404380928138336">Extern protokollbegäran</translation>
 <translation id="5300589172476337783">Visa</translation>
 <translation id="3160041952246459240">Du har sparade certifikat som identifierar dessa servrar:</translation>
+<translation id="5806573568064269889">Jag bekräftar att jag använder en laddare som det sitter en grön klisterlapp på.</translation>
 <translation id="566920818739465183">Du besökte den här webbplatsen första gången den <ph name="VISIT_DATE"/>.</translation>
 <translation id="2961695502793809356">Klicka för att fortsätta, håll ned för att se historik</translation>
 <translation id="4092878864607680421">Den senaste versionen av programmet <ph name="APP_NAME"/> kräver mer behörighet och har därför inaktiverats.</translation>
@@ -4819,6 +4851,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="1852583733258643568"><ph name="BEGIN_BOLD"/>2. <ph name="END_BOLD"/>Anslutning till router testas</translation>
 <translation id="48607902311828362">Flygplansläge</translation>
 <translation id="680572642341004180">Aktivera RLZ-spårning på <ph name="SHORT_PRODUCT_OS_NAME"/>.</translation>
+<translation id="688797901999351107">Använd inte den återkallade laddaren mer.</translation>
 <translation id="8142699993796781067">Privat nätverk</translation>
 <translation id="1374468813861204354">förslag</translation>
 <translation id="5906065664303289925">Maskinvaruadress:</translation>

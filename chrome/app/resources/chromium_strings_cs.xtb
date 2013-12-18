@@ -18,7 +18,6 @@
 Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</translation>
 <translation id="4222661289444749267">Aktualizace pluginu Chromium Frame.</translation>
 <translation id="4423735387467980091">Přizpůsobit a ovládat Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">Přihlašujete se pomocí spravovaného účtu a poskytujete jeho správci kontrolu nad vaším profilem prohlížeče Chromium. Vaše údaje prohlížeče Chromium, například aplikace, záložky, historie, hesla a jiná nastavení, budou trvale přidružena k účtu <ph name="USER_NAME"/>. Tyto údaje budete moci smazat pomocí stránky Dashboard služby Účty Google, ale nebudete je moci přidružit k jinému účtu. Pokud chcete uchovat existující údaje prohlížeče Chromium odděleně, můžete vytvořit nový profil. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Plugin Chromium Frame je již nainstalován a je přístupný pro všechny uživatele tohoto počítače. Chcete-li nainstalovat Chromium Frame na úrovni uživatele, musíte nejprve odinstalovat správcem nainstalovanou verzi na úrovni systému.</translation>
 <translation id="731644333568559921">Aktualizovat &amp;Chromium OS</translation>
@@ -124,7 +123,6 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="6248213926982192922">Nastavit Chromium jako výchozí prohlížeč</translation>
 <translation id="6309712487085796862">Chromium používá vaši kameru.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Již se neptat</translation>
 <translation id="1745962126679160932">Prohlížeč Chromium vaše informace bezpečně uloží, abyste je nemuseli zadávat znovu. I přesto však bude třeba ověřit bezpečnostní kód karty pro budoucí platby.</translation>
@@ -156,7 +154,6 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 Některé funkce mohou být nedostupné. Zadejte prosím jiný adresář profilu, nebo používejte novější verzi prohlížeče Chromium.</translation>
 <translation id="9013087743919948559">Přidat do prohlížeče Chromium</translation>
 <translation id="6212496753309875659">V tomto počítači je již nainstalována novější verze prohlížeče Chromium. Jestliže tento software nefunguje, odinstalujte Chromium a zkuste to znovu.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Pomoc s používáním operačního systému Chromium OS</translation>
 <translation id="8187289872471304532">Přejděte do nabídky
           Aplikace &gt; Nastavení systému &gt; Síť &gt; Rozšířená nastavení &gt; Servery proxy
@@ -201,7 +198,6 @@ Některé funkce mohou být nedostupné. Zadejte prosím jiný adresář profilu
 <translation id="7331621180831839236">Soubor <ph name="FILE_NAME"/> může změnit nastavení prohlížeče Chromium.</translation>
 <translation id="8724049448828509830">Probíhá stahování. Chcete Chromium ukončit a stahování zrušit?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">Prohlížeč Chromium v tomto počítači je již přihlášen k účtu <ph name="ACCOUNT_EMAIL_LAST"/>. Pokud se nejedná o váš účet, vytvořte nového uživatele prohlížeče Chromium, aby zůstala vaše data oddělená.
 
 Pokud se přesto přihlásíte, budou data prohlížeče Chromium (například záložky, historie a další nastavení) sloučena s účtem <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

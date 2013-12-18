@@ -28,7 +28,6 @@
 <translation id="2721687379934343312">在苹果机上，密码会保存到您的钥匙串中，可供共用此 OS X 帐户的其他 Chrome 浏览器用户使用或同步。</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> 可能会更改您的 Chrome 设置。</translation>
 <translation id="1761870329818521071">无法安装与当前运行版本相同的 Google Chrome 浏览器内嵌框架。请关闭 Google Chrome 浏览器内嵌框架，然后重试。</translation>
-<translation id="2040709530900803995">Google Chrome 浏览器呈现器</translation>
 <translation id="6014844626092547096">您现在已登录 Chrome！不过，管理员已停用同步功能。</translation>
 <translation id="3140883423282498090">您所做的更改会在下次重新启动 Google Chrome 时生效。</translation>
 <translation id="1773601347087397504">获取 Chrome 操作系统使用帮助</translation>
@@ -48,7 +47,6 @@
 <translation id="3080151273017101988">关闭 Google Chrome 后继续运行后台应用</translation>
 <translation id="4149882025268051530">安装程序无法解压缩存档文件。请重新下载 Google Chrome。</translation>
 <translation id="6989339256997917931">Google Chrome 浏览器已更新，但您已经至少 30 天未使用它了。</translation>
-<translation id="5744005218040929396">Google Chrome 浏览器实用工具</translation>
 <translation id="7060865993964054389">Google Chrome 应用启动器</translation>
 <translation id="1682634494516646069">Google Chrome 无法对其数据目录 <ph name="USER_DATA_DIRECTORY"/> 执行读写操作</translation>
 <translation id="4343226815564935778">Google Chrome 的安装目录正在使用中。请重新启动计算机并重试。</translation>
@@ -113,7 +111,6 @@
 <translation id="911206726377975832">同时删除您的浏览数据吗？</translation>
 <translation id="5855036575689098185">您计算机上运行的软件与 Google Chrome 不兼容。</translation>
 <translation id="2044287590254833138">Google Chrome 浏览器工具栏</translation>
-<translation id="5074344184765391290">Chrome 浏览器插件主程序</translation>
 <translation id="8862326446509486874">您的权限不足，无法进行系统级安装。请尝试以管理员身份再次运行安装程序。</translation>
 <translation id="2874156562296220396">Google Chrome 的诞生离不开 <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> 开源项目以及其他<ph name="BEGIN_LINK_OSS"/>开源软件<ph name="END_LINK_OSS"/>。</translation>
 <translation id="3847841918622877581">Google Chrome 浏览器可能会使用网络服务改善您的浏览体验。</translation>
@@ -154,12 +151,10 @@
 <translation id="576822117893741893">显示 Chrome 菜单</translation>
 <translation id="3444832043240812445">如果<ph name="BEGIN_LINK"/>启用崩溃报告<ph name="END_LINK"/>，则该网页将只显示您最近的崩溃信息。</translation>
 <translation id="8614913330719544658">Google Chrome 未响应。是否立即重新启动？</translation>
-<translation id="5318056482164160049">Google Chrome 浏览器插件主程序</translation>
 <translation id="6126631249883707068">想让 Google Chrome 浏览器保存您的密码吗？</translation>
 <translation id="7773845170078702898">您希望 Google Chrome 浏览器保存您在此网站上使用的密码吗？</translation>
 <translation id="5046764976540625289">退出 Chrome</translation>
 <translation id="4251615635259297716">是否将您的 Chrome 数据与此帐户相关联？</translation>
-<translation id="9039578207253536065">Google Chrome 浏览器工作应用</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">互联网浏览器</translation>
 <translation id="8142608456917638009">Google Chrome 无法创建应用快捷方式。</translation>

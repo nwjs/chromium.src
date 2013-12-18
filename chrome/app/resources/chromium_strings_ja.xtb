@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">ユーザー設定ファイルを読み込むことができません。一部の機能が利用できない可能性があります。また、設定への変更は保存されません。</translation>
 <translation id="4222661289444749267">Chromium Frame が更新されました。</translation>
 <translation id="4423735387467980091">Chromium の設定</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">現在、管理対象アカウントでログインしており、あなたの Chromium プロフィールを管理者が制御できる状態になっています。あなたの Chromium データ（アプリ、ブックマーク、履歴、パスワードなどの設定）は永続的に <ph name="USER_NAME"/> に関連付けられます。このデータは Google アカウントのダッシュボードを介して削除できますが、このデータを別のアカウントに関連付けることはできなくなります。新しいプロフィールを作成して、既存の Chromium データを別に保管することができます。<ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">このパソコンには既に Chromium Frame がインストールされており、パソコンのすべてのユーザーが使用できます。ユーザー レベルで Chromium Frame をインストールする場合は、管理者がインストールしたシステム レベルの Chromium Frame を最初にアンインストールする必要があります。</translation>
 <translation id="731644333568559921">Chromium OS を更新(&amp;C)</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Chromium を既定のブラウザにする</translation>
 <translation id="6309712487085796862">Chromium がカメラを使用しています。</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">今後は表示しない</translation>
 <translation id="1745962126679160932">Chromium で情報が安全に保存されるので、再度入力する必要はありません。ただし、今後もお支払いの際にカードのセキュリティ コードを入力する必要があります。</translation>
@@ -154,7 +152,6 @@
 一部の機能が利用できない可能性があります。別の場所のプロフィールを指定するか、新しいバージョンの Chromium をご使用ください。</translation>
 <translation id="9013087743919948559">Chromium に追加</translation>
 <translation id="6212496753309875659">新しいバージョンの Chromium が既にインストールされています。ソフトウェアが動作しない場合は、Chromium をアンインストールしてからもう一度お試しください。</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">Chromium OS の使用に関するアドバイス</translation>
 <translation id="8187289872471304532">このオプションを無効にするには:
           [アプリケーション] &gt; [システム環境設定] &gt; [ネットワーク] &gt; [詳細] &gt; [プロキシ] の順に移動して、
@@ -199,7 +196,6 @@
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> によって Chromium の設定が変更される場合があります。</translation>
 <translation id="8724049448828509830">現在ダウンロードを実行中です。ダウンロードがキャンセルされますが、Chromium を終了してもよろしいですか？</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Chromium Plug-In Host</translation>
 <translation id="8985587603644336029">別のユーザーが前回このパソコンから <ph name="ACCOUNT_EMAIL_LAST"/> として Chromium にログインしました。このメール アドレスがご自分のアカウントでない場合は、新しい Chromium ユーザーを作成して情報を個別に保持してください。
 
 このままログインすると、ブックマーク、履歴、その他の設定などの Chromium データが <ph name="ACCOUNT_EMAIL_NEW"/> と統合されます。</translation>

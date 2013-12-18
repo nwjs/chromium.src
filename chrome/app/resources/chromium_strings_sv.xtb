@@ -18,7 +18,6 @@
 Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna sparas inte.</translation>
 <translation id="4222661289444749267">Uppdatering av Chromium Frame.</translation>
 <translation id="4423735387467980091">Anpassa och kontrollera Chromium</translation>
-<translation id="2843244238218937196">Renderaren för Chromium</translation>
 <translation id="1881322772814446296">Du loggar in med ett hanterat konto och ger dess administratör kontroll över din Chromium-profil. Dina uppgifter i Chromium, t.ex. dina appar, bokmärken, din historik, ditt lösenord och andra inställningar, kopplas då permanent till <ph name="USER_NAME"/>. Du kommer att kunna ta bort dessa uppgifter via instrumentpanelen i Google Konton, men du kommer inte att kunna koppla dem till något annat konto. Du kan skapa en ny profil om du vill hålla dina befintliga Chromium-uppgifter separata. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame är redan installerat och tillgängligt för alla användare på den här datorn. Om du vill installera Chromium Frame på användarnivå måste du först avinstallera versionen på systemnivå som installerats av en administratör.</translation>
 <translation id="731644333568559921">Uppdatera &amp;Chromium OS</translation>
@@ -124,7 +123,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="6248213926982192922">Använd Chromium som standardwebbläsare</translation>
 <translation id="6309712487085796862">Chromium använder din kamera.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Arbetsfunktion för Chromium</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Stör mig inte</translation>
 <translation id="1745962126679160932">Chromium lagrar din information på ett säkert sätt så att du inte behöver skriva in den igen, men du måste dock bekräfta kortets säkerhetskod vid framtida betalningar.</translation>
@@ -156,7 +154,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog eller använd en nyare version av Chromium.</translation>
 <translation id="9013087743919948559">Lägg till i Chromium</translation>
 <translation id="6212496753309875659">Det finns redan en nyare version av Chromium på den här datorn. Avinstallera Chromium och försök igen om programvaran inte fungerar.</translation>
-<translation id="3014684866565908571">Verktyg för Chromium</translation>
 <translation id="1298199220304005244">Få hjälp med att använda Chromium OS</translation>
 <translation id="8187289872471304532">Öppna
           Program &gt; Systeminställningar &gt; Nätverk &gt; Avancerat &gt; Proxyservrar
@@ -201,7 +198,6 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog elle
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> ändrar eventuellt dina Chromium-inställningar.</translation>
 <translation id="8724049448828509830">En hämtning pågår. Vill du avsluta Chromium och avbryta hämtningen?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">Plugin-värd för Chromium</translation>
 <translation id="8985587603644336029">Någon har tidigare loggat in i Chromium på den här datorn som <ph name="ACCOUNT_EMAIL_LAST"/>. Om det inte är ditt konto skapar du en ny Chromium-användare för att hålla din information privat för dig.
 
 Om du loggar in ändå kommer information som bokmärken, historik och andra inställningar i Chromium att synkroniseras med <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

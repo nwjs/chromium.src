@@ -30,7 +30,6 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="2721687379934343312">在 Mac 上，密碼會儲存到您的「鑰匙圈」資料庫中，因此其他共用這個 OS X 帳戶的 Chrome 使用者都能存取或同步處理這些密碼。</translation>
 <translation id="3993188379797269327"><ph name="FILE_NAME"/> 會變更您的 Chrome 設定。</translation>
 <translation id="1761870329818521071">無法安裝這個版本的「Google Chrome 內嵌框架」，因為相同的版本目前正在執行中。請關閉「Google Chrome 內嵌框架」，然後再試一次。</translation>
-<translation id="2040709530900803995">Google Chrome 成像器</translation>
 <translation id="6014844626092547096">您現在已登入 Chrome！但管理員已關閉同步功能。</translation>
 <translation id="3140883423282498090">您的變更將於下次重新啟動 Google Chrome 時生效。</translation>
 <translation id="1773601347087397504">前往 Chrome 作業系統說明頁面</translation>
@@ -50,7 +49,6 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="3080151273017101988">Google Chrome 關閉時繼續執行背景應用程式</translation>
 <translation id="4149882025268051530">安裝程式無法解壓縮封存檔案，請再次下載 Google Chrome。</translation>
 <translation id="6989339256997917931">Google Chrome 已更新，但您至少已有 30 天未使用該瀏覽器。</translation>
-<translation id="5744005218040929396">Google Chrome 公用程式</translation>
 <translation id="7060865993964054389">Google Chrome 應用程式啟動器</translation>
 <translation id="1682634494516646069">Google Chrome 無法讀取及寫入資料目錄：<ph name="USER_DATA_DIRECTORY"/></translation>
 <translation id="4343226815564935778">Google Chrome 安裝目錄使用中。請重新啟動電腦，然後再試一次。</translation>
@@ -121,7 +119,6 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="911206726377975832">您要一併刪除瀏覽資料嗎？</translation>
 <translation id="5855036575689098185">您電腦上執行的軟體與 Google Chrome 不相容。</translation>
 <translation id="2044287590254833138">Google Chrome 工具列</translation>
-<translation id="5074344184765391290">Chrome Plug-In Host</translation>
 <translation id="8862326446509486874">您沒有在系統層級進行安裝的權限，請以管理員的身分執行安裝檔。</translation>
 <translation id="2874156562296220396">Google Chrome 的開發仰賴 <ph name="BEGIN_LINK_CHROMIUM"/>Chromium<ph name="END_LINK_CHROMIUM"/> 開放原始碼計劃與其他<ph name="BEGIN_LINK_OSS"/>開放原始碼軟體<ph name="END_LINK_OSS"/>的協助才得以完成。</translation>
 <translation id="3847841918622877581">Google Chrome 會使用網路服務來改善瀏覽品質。</translation>
@@ -171,12 +168,10 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="576822117893741893">顯示 Chrome 選單</translation>
 <translation id="3444832043240812445">如果您<ph name="BEGIN_LINK"/>啟用當機報告功能<ph name="END_LINK"/>，這個頁面僅會顯示最近的當機資訊。</translation>
 <translation id="8614913330719544658">Google Chrome 沒有回應，要立即重新啟動嗎？</translation>
-<translation id="5318056482164160049">Google Chrome 外掛程式主控中心</translation>
 <translation id="6126631249883707068">您希望 Google Chrome 儲存密碼嗎？</translation>
 <translation id="7773845170078702898">您要讓 Google Chrome 儲存您在這個網站的密碼嗎？</translation>
 <translation id="5046764976540625289">結束 Chrome</translation>
 <translation id="4251615635259297716">要將您的 Chrome 資料連結至這個帳戶嗎？</translation>
-<translation id="9039578207253536065">Google Chrome 作業工具</translation>
 <translation id="9171640504251796339">http://www.google.com/support/chrome/bin/answer.py?hl=<ph name="GRITLANGCODE_1"/>&amp;answer=161796</translation>
 <translation id="8865765905101981392">網際網路瀏覽器</translation>
 <translation id="8142608456917638009">Google Chrome 無法建立應用程式捷徑。</translation>

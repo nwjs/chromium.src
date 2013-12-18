@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">Preferensi Anda tidak dapat dibaca. Beberapa fitur mungkin tidak tersedia dan perubahan pada preferensi tidak akan disimpan.</translation>
 <translation id="4222661289444749267">Pembaruan Chromium Frame.</translation>
 <translation id="4423735387467980091">Menyesuaikan dan mengontrol Chromium</translation>
-<translation id="2843244238218937196">Perender Chromium</translation>
 <translation id="1881322772814446296">Anda masuk dengan akun yang dikelola dan memberikan administratornya kontrol atas profil Chromium Anda. Data Chromium Anda, seperti aplikasi, bookmark, riwayat, sandi, dan setelan lain selamanya akan dikaitkan ke <ph name="USER_NAME"/>. Anda dapat menghapus data ini melalui Dasbor Akun Google, namun Anda tidak akan dapat mengaitkan data ini dengan akun yang lain. Secara opsional, Anda dapat membuat profil untuk menjaga data Chromium Anda yang sudah ada tetap terpisah. <ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">Chromium Frame sudah terpasang dan tersedia untuk semua pengguna komputer ini. Jika Anda ingin memasang Chromium Frame pada tingkat pengguna, Anda harus mencopot pemasangan versi tingkat sistem yang tadinya dipasang oleh administrator.</translation>
 <translation id="731644333568559921">Pembaruan &amp;Chromium OS</translation>
@@ -122,7 +121,6 @@
 <translation id="6248213926982192922">Jadikan Chromium browser default</translation>
 <translation id="6309712487085796862">Chromium menggunakan kamera Anda.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Pekerja Chromium</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="6757767188268205357">Jangan ganggu saya</translation>
 <translation id="1745962126679160932">Chromium akan menyimpan informasi Anda dengan aman sehingga Anda tidak harus mengetiknya lagi, namun Anda harus memverifikasi kode keamanan kartu untuk pembayaran di masa mendatang.</translation>
@@ -154,7 +152,6 @@
 Sebagian fitur mungkin tidak tersedia. Tentukan direktori profil yang berbeda atau gunakan versi Chromium yang lebih baru.</translation>
 <translation id="9013087743919948559">Tambahkan ke Chromium</translation>
 <translation id="6212496753309875659">Komputer ini sudah memiliki Chromium versi yang lebih anyar. Jika perangkat lunak tidak bekerja, copot Chromium dan coba lagi.</translation>
-<translation id="3014684866565908571">Utilitas Chromium</translation>
 <translation id="1298199220304005244">Dapatkan bantuan tentang penggunaan Chromium OS</translation>
 <translation id="8187289872471304532">Buka
           Aplikasi &gt; Preferensi Sistem &gt; Jaringan &gt; Lanjutan &gt; Proxy
@@ -199,7 +196,6 @@ Sebagian fitur mungkin tidak tersedia. Tentukan direktori profil yang berbeda at
 <translation id="7331621180831839236"><ph name="FILE_NAME"/> mungkin mengubah setelan Chromium Anda.</translation>
 <translation id="8724049448828509830">Unduhan saat ini sedang berlangsung. Anda ingin keluar dari Chromium dan membatalkan unduhan?</translation>
 <translation id="3360567213983886831">Biner Chromium</translation>
-<translation id="7503101070699687603">Host Plugin Chromium</translation>
 <translation id="8985587603644336029">Sebelumnya ada seseorang yang masuk ke Chromium di komputer ini sebagai <ph name="ACCOUNT_EMAIL_LAST"/>. Jika itu bukan akun Anda, buatlah pengguna Chromium baru untuk menjaga informasi Anda tetap terpisah.
 
 Tetap masuk akan menggabungkan informasi Chromium seperti bookmark, riwayat, dan setelan lain ke <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>

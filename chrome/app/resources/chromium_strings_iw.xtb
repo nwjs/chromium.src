@@ -16,7 +16,6 @@
 <translation id="1065672644894730302">לא היתה אפשרות לקרוא את ההעדפות שלך. ייתכן שחלק מהתכונות לא יהיו זמינות ושינויים בהעדפות לא יישמרו.</translation>
 <translation id="4222661289444749267">‏עדכון Chrome Frame.</translation>
 <translation id="4423735387467980091">‏התאם אישית ושלוט ב-Chromium</translation>
-<translation id="2843244238218937196">Chromium Renderer</translation>
 <translation id="1881322772814446296">‏אתה נכנס עם חשבון מנוהל ונותן למנהל המערכת שלו שליטה על הפרופיל שלך ב-Chromium. הנתונים שלך ב-Chromium, כגון יישומים, סימניות, היסטוריה, סיסמאות והגדרות אחרות ייקשרו באופן קבוע ל-<ph name="USER_NAME"/>. תוכל למחוק את הנתונים האלה באמצעות מרכז השליטה של חשבונות Google, אבל לא תוכל לשייך את הנתונים האלה לחשבון אחר. לחלופין, תוכל ליצור פרופיל חדש כדי לשמור את הנתונים הקיימים שלך ב-Chromium בנפרד.<ph name="LEARN_MORE"/></translation>
 <translation id="7128196614940529818">‏Chromium Frame כבר מותקן וזמין לכל המשתמשים במחשב זה. אם ברצונך להתקין את Chromium Frame ברמת המשתמש, עליך ראשית להסיר התקנת את הגרסה ברמת המערכת שהותקנה על ידי מנהל המערכת.</translation>
 <translation id="731644333568559921">‏עדכן את &amp;מערכת ההפעלה של Chromium‏</translation>
@@ -120,7 +119,6 @@
 <translation id="6248213926982192922">‏הפוך את Chromium לדפדפן ברירת המחדל</translation>
 <translation id="6309712487085796862">‏Chromium משתמש במצלמה שלך.</translation>
 <translation id="7337881442233988129">Chromium</translation>
-<translation id="3069161343438701711">Chromium Worker</translation>
 <translation id="5820394555380036790">‏מערכת ההפעלה של Chromium</translation>
 <translation id="6757767188268205357">אל תנדנד לי</translation>
 <translation id="1745962126679160932">‏Chromium יאחסן את המידע שלך באופן מאובטח כך שלא תידרש להקליד אותו שוב, אך עדיין תידרש לאמת את קוד האבטחה של הכרטיס שלך לביצוע תשלומים בעתיד.</translation>
@@ -152,7 +150,6 @@
 ייתכן שחלק מהתכונות לא יהיו זמינות. ציין ספריית פרופיל אחרת או השתמש בגרסה חדשה יותר של Chromium.</translation>
 <translation id="9013087743919948559">‏הוסף ל-‏Chromium‏</translation>
 <translation id="6212496753309875659">‏במחשב זה קיימת כבר גרסה מתקדמת יותר של Chromium. אם התוכנה אינה פועלת, הסר את ההתקנה של Chromium ונסה שוב.</translation>
-<translation id="3014684866565908571">Chromium Utility</translation>
 <translation id="1298199220304005244">‏קבלת עזרה באמצעות מערכת ההפעלה של Chromium</translation>
 <translation id="8187289872471304532">‏עבור אל
           'יישומים' &gt; 'העדפות מערכת' &gt; 'רשת' &gt; 'מתקדם' &gt; שרתי Proxy'
@@ -196,7 +193,6 @@
 <translation id="7331621180831839236">‏<ph name="FILE_NAME"/> עשוי לשנות את ההגדרות שלך ב-Chromium.</translation>
 <translation id="8724049448828509830">‏הורדה מתבצעת כעת. האם ברצונך לצאת מ-Chromium ולבטל את ההורדה?</translation>
 <translation id="3360567213983886831">Chromium Binaries</translation>
-<translation id="7503101070699687603">‏מארח הפלאגין של Chromium</translation>
 <translation id="8985587603644336029">‏מישהו נכנס בעבר ל-Chromuim מהמחשב הזה כ-<ph name="ACCOUNT_EMAIL_LAST"/>. אם זה לא החשבון שלך, צור משתמש חדש ל-Chromuim כדי לשמור על הפרדת המידע שלך.
 
 אם תמשיך בכניסה, המידע ב-Chromuim , כמו סימניות, היסטוריה והגדרות אחרות, ימוזג עם <ph name="ACCOUNT_EMAIL_NEW"/>.</translation>
@@ -211,7 +207,7 @@
 <translation id="7318036098707714271">‏קובץ ההעדפות שלך פגום או לא חוקי. 
 
 Chromium לא יכול לשחזר את ההגדרות שלך.</translation>
-<translation id="6403826409255603130">‏Chromium הוא דפדפן אינטרנט שמפעיל דפי אינטרנט ויישומים במהירות הבזק. הוא מהיר, יציב ונוח לשימוש. הוא מאפשר גלישה בטוחה יותר באינטרנט, הודות להגנה מובנית כנגד התחזות ותוכנות זדוניות.</translation>
+<translation id="6403826409255603130">‏Chromium הוא דפדפן אינטרנט המפעיל דפי אינטרנט ואפליקציות במהירות הבזק. זהו דפדפן מהיר, יציב וקל לשימוש. תוכל לגלוש באינטרנט בצורה מאובטחת יותר הודות להגנה מפני תוכנות זדוניות ודיוג המובנית ב-Chromium.</translation>
 <translation id="2927042866129133279">‏ארגומנטים לא חוקיים. לא ניתן להתקין את Chromium Frame במצב מוכן מבלי להתקין גם את Chromium.</translation>
 <translation id="4019464536895378627">‏ניסית להגיע אל &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, אך השרת הציג אישור שהונפק על ידי ישות ש-Chromium אינו בוטח בה. ייתכן שהשרת יצר את פרטי הכניסה בעצמו, ו-Chromium אינו יכול להסתמך עליהם כפרטי זהות, או שתוקף מנסה ליירט את התקשורת שלך.</translation>
 <translation id="4230135487732243613">‏האם לקשר את הנתונים שלך ב-Chromium לחשבון זה?</translation>
