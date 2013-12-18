@@ -187,6 +187,7 @@ class VIEWS_EXPORT NativeWidgetWin : public internal::NativeWidgetPrivate,
   virtual InputMethod* GetInputMethod() OVERRIDE;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
   virtual bool ShouldHandleSystemCommands() const OVERRIDE;
+  virtual bool ShouldHandleOnSize() const OVERRIDE;
   virtual void HandleAppDeactivated() OVERRIDE;
   virtual void HandleActivationChanged(bool active) OVERRIDE;
   virtual bool HandleAppCommand(short command) OVERRIDE;
@@ -194,6 +195,7 @@ class VIEWS_EXPORT NativeWidgetWin : public internal::NativeWidgetPrivate,
   virtual void HandleCaptureLost() OVERRIDE;
   virtual void HandleClose() OVERRIDE;
   virtual bool HandleCommand(int command) OVERRIDE;
+  virtual bool HandleSize(UINT param, const CSize& size) OVERRIDE;
   virtual void HandleAccelerator(const ui::Accelerator& accelerator) OVERRIDE;
   virtual void HandleCreate() OVERRIDE;
   virtual void HandleDestroying() OVERRIDE;
