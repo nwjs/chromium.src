@@ -87,6 +87,10 @@ bool WidgetDelegate::ShouldHandleSystemCommands() const {
   return widget->non_client_view() != NULL;
 }
 
+bool WidgetDelegate::ShouldHandleOnSize() const {
+  return false;
+}
+
 gfx::ImageSkia WidgetDelegate::GetWindowAppIcon() {
   // Use the window icon as app icon by default.
   return GetWindowIcon();
@@ -102,6 +106,10 @@ bool WidgetDelegate::ShouldShowWindowIcon() const {
 }
 
 bool WidgetDelegate::ExecuteWindowsCommand(int command_id) {
+  return false;
+}
+
+bool WidgetDelegate::HandleSize(unsigned int param, const gfx::Size& size) {
   return false;
 }
 
