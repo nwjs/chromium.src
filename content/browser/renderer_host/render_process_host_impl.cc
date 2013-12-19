@@ -1039,6 +1039,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kNoSandbox,
     switches::kPpapiInProcess,
     switches::kProfilerTiming,
+    switches::kReduceSecurityForTesting,
     switches::kRegisterPepperPlugins,
     switches::kRendererAssertTest,
     switches::kRendererStartupDialog,
