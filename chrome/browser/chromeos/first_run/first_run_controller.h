@@ -18,13 +18,7 @@
 
 class Profile;
 
-namespace content {
-class WebContents;
-}
-
 namespace chromeos {
-
-class FirstRunUIBrowserTest;
 
 namespace first_run {
 class Step;
@@ -47,19 +41,14 @@ class FirstRunController : public FirstRunActor::Delegate,
   static void Stop();
 
  private:
-  friend class FirstRunUIBrowserTest;
-
   FirstRunController();
   void Init();
   void Finalize();
-
-  static FirstRunController* GetInstanceForTest();
 
   // Overriden from FirstRunActor::Delegate.
   virtual void OnActorInitialized() OVERRIDE;
   virtual void OnNextButtonClicked(const std::string& step_name) OVERRIDE;
   virtual void OnHelpButtonClicked() OVERRIDE;
-  virtual void OnStepShown(const std::string& step_name) OVERRIDE;
   virtual void OnStepHidden(const std::string& step_name) OVERRIDE;
   virtual void OnActorFinalized() OVERRIDE;
   virtual void OnActorDestroyed() OVERRIDE;
@@ -90,9 +79,6 @@ class FirstRunController : public FirstRunActor::Delegate,
 
   // The work that should be made after actor has been finalized.
   base::Closure on_actor_finalized_;
-
-  // Web contents of WebUI.
-  content::WebContents* web_contents_for_tests_;
 
   DISALLOW_COPY_AND_ASSIGN(FirstRunController);
 };
