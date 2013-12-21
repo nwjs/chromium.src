@@ -11,13 +11,14 @@ vars = {
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@2cc039b4720333bdf2cd51165b41d0f41e79b5c6'
+         '@origin/rb32'
+         #'@2cc039b4720333bdf2cd51165b41d0f41e79b5c6'
 }
 
 deps = {
-    #'src/breakpad/src':
+    'src/breakpad/src':
     #    Var('git_url') + '/external/google-breakpad/src.git@44fd3d06cb4b57b80a44004a2b7d5a7d28d96ebc',
-        #'https://github.com/rogerwang/breakpad.git@origin/node',
+        'https://github.com/rogerwang/breakpad.git@origin/rb32',
     'src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin':
         Var('git_url') + '/native_client/src/native_client/tests/prebuilt.git@3e17365176c94624f46cace174f61834b7f3c35d',
     'src/chrome/test/data/perf/canvas_bench':
@@ -36,8 +37,8 @@ deps = {
         Var('git_url') + '/external/googlemock.git@6b1759c3816d574bddde3e1725c51a811c8870e7',
     'src/testing/gtest':
         Var('git_url') + '/external/googletest.git@a6772271f71672e889776bfe49ec4efd9da036df',
-    #'src/third_party/WebKit':
-    #    Var('webkit_url') + Var('webkit_rev'),
+    'src/third_party/WebKit':
+        Var('webkit_url') + Var('webkit_rev'),
     'src/third_party/angle_dx11':
         Var('git_url') + '/external/angle.git@0f0edf94bfe1fc28979b0d12747a900164bb966a',
     'src/third_party/bidichecker':
@@ -136,12 +137,13 @@ deps = {
         Var('git_url') + '/chromium/deps/acid3.git@6be0a66a1ebd7ebc5abc1b2f405a945f6d871521',
     'src/tools/swarming_client':
         Var('git_url') + '/external/swarming.client.git@141ef86f4abf255e578320bfe6e42006c251bc39',
-    #'src/v8':
+    'src/v8':
+         'https://github.com/rogerwang/v8.git@origin/rb32',
     #    Var('git_url') + '/external/v8.git@ed29eb2bdad388c1ce751d68bd4fe6f4f5a7cbc8',
     'src/third_party/node':
-        'https://github.com/rogerwang/node.git@origin/master',
+        'https://github.com/rogerwang/node.git@origin/rb32',
     'src/content/nw':
-        'https://github.com/rogerwang/node-webkit.git@origin/master',
+        'https://github.com/rogerwang/node-webkit.git@origin/rb32',
 }
 
 deps_os = {
