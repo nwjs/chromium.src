@@ -30,10 +30,7 @@ class FirstRunActor {
     // Called when user clicked "Keep exploring" button.
     virtual void OnHelpButtonClicked() = 0;
 
-    // Called after step with |step_name| has been shown.
-    virtual void OnStepShown(const std::string& step_name) = 0;
-
-    // Called after step with |step_name| has been shown.
+    // Called after setp with |step_name| has been hidden.
     virtual void OnStepHidden(const std::string& step_name) = 0;
 
     // Called in answer to Finalize() call.
