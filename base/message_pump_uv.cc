@@ -8,6 +8,9 @@
 #include "base/command_line.h"
 #include "content/public/common/content_switches.h"
 #include "v8/include/v8.h"
+#include "third_party/node/src/node.h"
+#undef CHECK
+#include "third_party/node/src/node_internals.h"
 
 namespace base {
 
@@ -74,15 +77,22 @@ void MessagePumpUV::Run(Delegate* delegate) {
     if (!keep_running_)
       break;
 
-    if (did_work)
+    if (did_work) {
+      // call tick callback after done work in V8,
+      // in the same way node upstream handle this in MakeCallBack,
+      // or the tick callback is blocked in some cases
+      node::CallTickCallback(node::g_env, v8::Undefined());
       continue;
+    }
 
     did_work = delegate->DoIdleWork();
     if (!keep_running_)
       break;
 
-    if (did_work)
+    if (did_work) {
+      node::CallTickCallback(node::g_env, v8::Undefined());
       continue;
+    }
 
     if (delayed_work_time_.is_null()) {
       uv_run(loop, UV_RUN_ONCE);
