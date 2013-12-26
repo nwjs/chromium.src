@@ -583,6 +583,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnRunFileChooser(const FileChooserParams& params);
   void OnDidAccessInitialDocument();
   void OnFocusedNodeTouched(bool editable);
+  void OnGrantUniversalPermissions(int *ret);
 
 #if defined(OS_MACOSX) || defined(OS_ANDROID)
   void OnShowPopup(const ViewHostMsg_ShowPopup_Params& params);

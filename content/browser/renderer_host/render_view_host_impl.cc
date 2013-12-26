@@ -1151,6 +1151,7 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(AccessibilityHostMsg_LocationChanges,
                         OnAccessibilityLocationChanges)
     IPC_MESSAGE_HANDLER(ViewHostMsg_FocusedNodeTouched, OnFocusedNodeTouched)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_GrantUniversalPermissions, OnGrantUniversalPermissions)
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(
         handled = RenderWidgetHostImpl::OnMessageReceived(msg))
@@ -1872,6 +1873,12 @@ void RenderViewHostImpl::OnFocusedNodeTouched(bool editable) {
   }
 #endif
 }
+
+void RenderViewHostImpl::OnGrantUniversalPermissions(int *ret) {
+  content::ChildProcessSecurityPolicy::GetInstance()->GrantUniversalAccess(GetProcess()->GetID());
+  *ret = 1;
+}
+
 
 #if defined(OS_MACOSX) || defined(OS_ANDROID)
 void RenderViewHostImpl::OnShowPopup(

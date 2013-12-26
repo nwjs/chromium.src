@@ -1869,6 +1869,9 @@ IPC_MESSAGE_ROUTED0(ViewHostMsg_HideValidationMessage)
 IPC_MESSAGE_ROUTED1(ViewHostMsg_MoveValidationMessage,
                     gfx::Rect /* anchor rectangle in root view coordinate */)
 
+// grant the policy permissions
+IPC_SYNC_MESSAGE_ROUTED0_1(ViewHostMsg_GrantUniversalPermissions, int)
+
 #if defined(OS_ANDROID)
 // Response to ViewMsg_FindMatchRects.
 //
