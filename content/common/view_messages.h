@@ -2272,6 +2272,9 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_UpdateFaviconURL,
 IPC_MESSAGE_ROUTED1(ViewHostMsg_DidFirstVisuallyNonEmptyPaint,
                     int /* page_id */)
 
+// grant the policy permissions
+IPC_SYNC_MESSAGE_ROUTED0_1(ViewHostMsg_GrantUniversalPermissions, int)
+
 #if defined(OS_ANDROID)
 // Response to ViewMsg_FindMatchRects.
 //

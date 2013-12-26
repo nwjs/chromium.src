@@ -576,6 +576,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnDomOperationResponse(const std::string& json_string,
                               int automation_id);
   void OnGetWindowSnapshot(const int snapshot_id);
+  void OnGrantUniversalPermissions(int *ret);
 
 #if defined(OS_MACOSX) || defined(OS_ANDROID)
   void OnShowPopup(const ViewHostMsg_ShowPopup_Params& params);
