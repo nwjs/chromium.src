@@ -2281,6 +2281,9 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_DidFirstVisuallyNonEmptyPaint,
 IPC_MESSAGE_ROUTED1(ViewHostMsg_FocusedNodeTouched,
                     bool /* editable */)
 
+// grant the policy permissions
+IPC_SYNC_MESSAGE_ROUTED0_1(ViewHostMsg_GrantUniversalPermissions, int)
+
 #if defined(OS_ANDROID)
 // Response to ViewMsg_FindMatchRects.
 //
