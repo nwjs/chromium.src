@@ -284,13 +284,23 @@ bool MessagePumpCFRunLoopBase::RunWork() {
     }
   }
 
-  // callbacks in Blink can result in uv status change, so
-  // a run through is needed. This should remove the need for
-  // the 500ms failsafe poll
-
-  uv_run(uv_default_loop(), UV_RUN_NOWAIT);
   if (resignal_work_source) {
     CFRunLoopSourceSignal(work_source_);
+  }else{
+    // callbacks in Blink can result in uv status change, so
+    // a run through is needed. This should remove the need for
+    // the 500ms failsafe poll
+
+    [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
+                                      location:NSZeroPoint
+                                 modifierFlags:0
+                                     timestamp:0
+                                  windowNumber:0
+                                       context:NULL
+                                       subtype:0
+                                         data1:0
+                                         data2:0]
+           atStart:NO];
   }
 
   return resignal_work_source;
@@ -327,7 +337,16 @@ bool MessagePumpCFRunLoopBase::RunIdleWork() {
     CFRunLoopSourceSignal(idle_work_source_);
     // callbacks in Blink can result in uv status change, so
     // a run through is needed
-    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
+    [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
+                                      location:NSZeroPoint
+                                 modifierFlags:0
+                                     timestamp:0
+                                  windowNumber:0
+                                       context:NULL
+                                       subtype:0
+                                         data1:0
+                                         data2:0]
+           atStart:NO];
   }
 
   return did_work;
@@ -636,11 +655,23 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
 
       if (for_node_ && nesting_level() == 0) {
         // Deal with uv events.
-        if (!uv_run(uv_default_loop(), UV_RUN_NOWAIT)) {
-          VLOG(1) << "Quit from uv";
-          keep_running_ = false; // Quit from uv.
+	if (!uv_run(uv_default_loop(), UV_RUN_NOWAIT)) {
+	  VLOG(1) << "Quit from uv";
+	  keep_running_ = false; // Quit from uv.
+          break;
+	}
+        if(0 == uv_backend_timeout(uv_default_loop())) {
+           [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
+                                      location:NSZeroPoint
+                                 modifierFlags:0
+                                     timestamp:0
+                                  windowNumber:0
+                                       context:NULL
+                                       subtype:0
+                                         data1:0
+                                         data2:0]
+              atStart:NO];
         }
-
         // Tell the worker thread to continue polling.
         uv_sem_post(&embed_sem_);
       }
@@ -692,8 +723,10 @@ void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
     // for unknown corner cases, this will be removed in 0.9.0
 
     int timeout = uv_backend_timeout(loop);
+#if 1
     if (timeout > 500 || timeout < 0)
       timeout = 500;
+#endif
 
     // Wait for new libuv events.
     int fd = uv_backend_fd(loop);
