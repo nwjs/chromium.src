@@ -513,7 +513,12 @@ mark_failed_patch_update() {
   local old_version_app="${4}"
   local system_ticket="${5}"
 
-  set +e
+  # This step isn't critical.
+  local set_e=
+  if [[ "${-}" =~ e ]]; then
+    set_e="y"
+    set +e
+  fi
 
   note "marking failed patch update"
 
@@ -540,6 +545,9 @@ mark_failed_patch_update() {
   note "read_tag = ${read_tag}"
   if [[ -z "${read_tag}" ]]; then
     note "couldn't mark failed patch update"
+    if [[ -n "${set_e}" ]]; then
+      set -e
+    fi
     return 0
   fi
 
@@ -595,12 +603,15 @@ mark_failed_patch_update() {
   note "ksadmin_args = ${ksadmin_args[*]}"
 
   if ! ksadmin "${ksadmin_args[@]}"; then
-    err "ksadmin failed"
+    err "ksadmin failed to mark failed patch update"
+  else
+    note "marked failed patch update"
   fi
 
-  note "marked failed patch update"
-
-  set -e
+  # Go back to how things were.
+  if [[ -n "${set_e}" ]]; then
+    set -e
+  fi
 }
 
 usage() {
