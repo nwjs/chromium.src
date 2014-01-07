@@ -163,6 +163,11 @@ Patches:
     https://bugzilla.mozilla.org/show_bug.cgi?id=930857
     patches/disableticketrenewal.patch
 
+  * Add explicit functions for managing the SSL/TLS session cache.
+    This is a temporary workaround until Chromium migrates to NSS's
+    asynchronous certificate verification.
+    patches/sessioncache.patch
+
   * Remove static storage qualifier from variables in sslnonce.c. Due to
     a clang codegen bug on Mac, this caused an infinite loop.
     https://code.google.com/p/chromium/issues/detail?id=326011
