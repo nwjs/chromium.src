@@ -136,8 +136,10 @@ namespace platform_util {
 void ShowItemInFolder(const base::FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+#if defined(USE_AURA)
   if (chrome::GetActiveDesktop() == chrome::HOST_DESKTOP_TYPE_ASH)
     chrome::ActivateDesktopHelper(chrome::ASH_KEEP_RUNNING);
+#endif
 
   BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
       base::Bind(&ShowItemInFolderOnFileThread, full_path));
@@ -146,8 +148,10 @@ void ShowItemInFolder(const base::FilePath& full_path) {
 void OpenItem(const base::FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+#if defined(USE_AURA)
   if (chrome::GetActiveDesktop() == chrome::HOST_DESKTOP_TYPE_ASH)
     chrome::ActivateDesktopHelper(chrome::ASH_KEEP_RUNNING);
+#endif
 
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
@@ -155,8 +159,10 @@ void OpenItem(const base::FilePath& full_path) {
 }
 
 void OpenExternal(const GURL& url) {
+#if defined(USE_AURA)
   if (chrome::GetActiveDesktop() == chrome::HOST_DESKTOP_TYPE_ASH)
     chrome::ActivateDesktopHelper(chrome::ASH_KEEP_RUNNING);
+#endif
 
   // Quote the input scheme to be sure that the command does not have
   // parameters unexpected by the external program. This url should already

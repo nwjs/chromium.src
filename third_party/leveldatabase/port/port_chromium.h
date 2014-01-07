@@ -22,7 +22,9 @@
 
 #if defined(OS_WIN)
 #define snprintf _snprintf
+#if !defined(_SSIZE_T_)
 typedef SSIZE_T ssize_t;
+#endif
 #if !defined(__clang__) && _MSC_VER <= 1700
 # define va_copy(a, b) do { (a) = (b); } while (0)
 #endif

@@ -1860,8 +1860,13 @@ void RenderWidgetHostImpl::OnWindowlessPluginDummyWindowCreated(
     return;
   }
 
+#if defined(USE_AURA)
   SetParent(hwnd,
             reinterpret_cast<HWND>(view_->GetParentForWindowlessPlugin()));
+#else
+  SetParent(hwnd,
+            reinterpret_cast<HWND>(GetNativeViewId()));
+#endif
   dummy_windows_for_activation_.push_back(hwnd);
 }
 

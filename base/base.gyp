@@ -37,6 +37,11 @@
           '..',
         ],
       },
+      'configurations': {
+        'Debug': {
+          'defines': [ 'DEBUG' ],
+        },
+      },
       'conditions': [
         ['use_glib==1', {
           'conditions': [

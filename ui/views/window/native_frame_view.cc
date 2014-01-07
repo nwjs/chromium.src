@@ -52,9 +52,10 @@ int NativeFrameView::NonClientHitTest(const gfx::Point& point) {
       frame_->widget_delegate() &&
       !frame_->widget_delegate()->CanResize()) {
     // Get what's the component under the mouse.
+    HWND hwnd = (HWND)GetWidget()->GetNativeView();
     POINT temp = point.ToPOINT();
-    MapWindowPoints(GetWidget()->GetNativeView(), HWND_DESKTOP, &temp, 1);
-    int component = DefWindowProc(GetWidget()->GetNativeView(), WM_NCHITTEST,
+    MapWindowPoints(hwnd, HWND_DESKTOP, &temp, 1);
+    int component = DefWindowProc(hwnd, WM_NCHITTEST,
                                   0, MAKELPARAM(temp.x, temp.y));
 
     // Return border if the component is resize handle.
