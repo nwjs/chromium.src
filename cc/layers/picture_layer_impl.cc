@@ -1006,8 +1006,8 @@ void PictureLayerImpl::RecalculateRasterScales(
   raster_source_scale_ = ideal_source_scale_;
 
   bool is_pinching = layer_tree_impl()->PinchGestureActive();
-  if (!is_pinching) {
-    // When not pinching, we use ideal scale:
+  if (!is_pinching || raster_contents_scale_ == 0.f) {
+    // When not pinching or when we have no previous scale, we use ideal scale:
     raster_page_scale_ = ideal_page_scale_;
     raster_contents_scale_ = ideal_contents_scale_;
   } else {
@@ -1021,6 +1021,9 @@ void PictureLayerImpl::RecalculateRasterScales(
     raster_contents_scale_ = SnappedContentsScale(desired_contents_scale);
     raster_page_scale_ = raster_contents_scale_ / raster_device_scale_;
   }
+
+  raster_contents_scale_ =
+      std::max(raster_contents_scale_, MinimumContentsScale());
 
   // Don't allow animating CSS scales to drop below 1.  This is needed because
   // changes in raster source scale aren't handled.  See the comment in
