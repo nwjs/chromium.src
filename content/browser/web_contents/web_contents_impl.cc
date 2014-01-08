@@ -1049,7 +1049,7 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params) {
       params.main_frame_routing_id);
 
   view_.reset(GetContentClient()->browser()->
-      OverrideCreateWebContentsView(this, &render_view_host_delegate_view_));
+              OverrideCreateWebContentsView(this, &render_view_host_delegate_view_, params));
   if (view_) {
     CHECK(render_view_host_delegate_view_);
   } else {

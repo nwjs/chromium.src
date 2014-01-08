@@ -144,6 +144,14 @@ struct CONTENT_EXPORT RendererPreferences {
 
   // Determines whether plugins are allowed to enter fullscreen mode.
   bool plugin_fullscreen_allowed;
+
+  // node-webkit: remote page rules in package.json
+  std::string nw_remote_page_rules;
+
+  base::FilePath nw_app_root_path;
+
+  std::string nw_inject_css_fn;
+  std::string nw_inject_js_fn;
 };
 
 }  // namespace content
