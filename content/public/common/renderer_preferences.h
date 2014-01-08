@@ -144,6 +144,9 @@ struct CONTENT_EXPORT RendererPreferences {
   std::string nw_remote_page_rules;
 
   base::FilePath nw_app_root_path;
+
+  std::string nw_inject_css_fn;
+  std::string nw_inject_js_fn;
 };
 
 }  // namespace content
