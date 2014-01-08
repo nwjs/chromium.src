@@ -278,6 +278,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(plugin_fullscreen_allowed)
   IPC_STRUCT_TRAITS_MEMBER(nw_remote_page_rules)
   IPC_STRUCT_TRAITS_MEMBER(nw_app_root_path)
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_css_fn)
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_fn)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::CookieData)
