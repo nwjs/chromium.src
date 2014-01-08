@@ -72,12 +72,12 @@ bool ShouldHideCursorOnKeyEvent(const ui::KeyEvent& event) {
 
 // Returns true if the cursor should be hidden on touch events.
 bool ShouldHideCursorOnTouch() {
-#if defined(OS_CHROMEOS) || defined(OS_WIN)
+#if defined(OS_CHROMEOS)
   return true;
 #else
-  // Linux Aura does not hide the cursor on touch by default.
-  // TODO(tdanderson): Change this if having consistency across
-  // all platforms which use Aura is desired.
+  // Not necessary on windows as windows does it for us. If we do need this
+  // funcionality on linux (non-chromeos) we need to make sure
+  // CompoundEventFilter shows on the right root (it currently doesn't always).
   return false;
 #endif
 }
