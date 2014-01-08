@@ -11,11 +11,13 @@
 namespace views {
 
 DesktopNativeCursorManager::DesktopNativeCursorManager(
+    aura::RootWindow* window,
     scoped_ptr<DesktopCursorLoaderUpdater> cursor_loader_updater)
-    : cursor_loader_updater_(cursor_loader_updater.Pass()),
+    : root_window_(window),
+      cursor_loader_updater_(cursor_loader_updater.Pass()),
       cursor_loader_(ui::CursorLoader::Create()) {
   if (cursor_loader_updater_.get())
-    cursor_loader_updater_->OnCreate(1.0f, cursor_loader_.get());
+    cursor_loader_updater_->OnCreate(root_window_, cursor_loader_.get());
 }
 
 DesktopNativeCursorManager::~DesktopNativeCursorManager() {
@@ -25,15 +27,6 @@ gfx::NativeCursor DesktopNativeCursorManager::GetInitializedCursor(int type) {
   gfx::NativeCursor cursor(type);
   cursor_loader_->SetPlatformCursor(&cursor);
   return cursor;
-}
-
-void DesktopNativeCursorManager::AddRootWindow(aura::RootWindow* root_window) {
-  root_windows_.insert(root_window);
-}
-
-void DesktopNativeCursorManager::RemoveRootWindow(
-    aura::RootWindow* root_window) {
-  root_windows_.erase(root_window);
 }
 
 void DesktopNativeCursorManager::SetDisplay(
@@ -55,13 +48,8 @@ void DesktopNativeCursorManager::SetCursor(
   cursor_loader_->SetPlatformCursor(&new_cursor);
   delegate->CommitCursor(new_cursor);
 
-  if (delegate->IsCursorVisible()) {
-    for (RootWindows::const_iterator i = root_windows_.begin();
-         i != root_windows_.end();
-         ++i) {
-      (*i)->SetCursor(new_cursor);
-    }
-  }
+  if (delegate->IsCursorVisible())
+    root_window_->SetCursor(new_cursor);
 }
 
 void DesktopNativeCursorManager::SetVisibility(
@@ -74,18 +62,10 @@ void DesktopNativeCursorManager::SetVisibility(
   } else {
     gfx::NativeCursor invisible_cursor(ui::kCursorNone);
     cursor_loader_->SetPlatformCursor(&invisible_cursor);
-    for (RootWindows::const_iterator i = root_windows_.begin();
-         i != root_windows_.end();
-         ++i) {
-      (*i)->SetCursor(invisible_cursor);
-    }
+    root_window_->SetCursor(invisible_cursor);
   }
 
-  for (RootWindows::const_iterator i = root_windows_.begin();
-       i != root_windows_.end();
-       ++i) {
-    (*i)->OnCursorVisibilityChanged(visible);
-  }
+  root_window_->OnCursorVisibilityChanged(visible);
 }
 
 void DesktopNativeCursorManager::SetCursorSet(
@@ -110,11 +90,7 @@ void DesktopNativeCursorManager::SetMouseEventsEnabled(
 
   SetVisibility(delegate->IsCursorVisible(), delegate);
 
-  for (RootWindows::const_iterator i = root_windows_.begin();
-       i != root_windows_.end();
-       ++i) {
-    (*i)->OnMouseEventsEnableStateChanged(enabled);
-  }
+  root_window_->OnMouseEventsEnableStateChanged(enabled);
 }
 
 }  // namespace views

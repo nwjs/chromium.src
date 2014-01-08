@@ -5,8 +5,6 @@
 #ifndef UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_NATIVE_CURSOR_MANAGER_H_
 #define UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_NATIVE_CURSOR_MANAGER_H_
 
-#include <set>
-
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "ui/views/corewm/native_cursor_manager.h"
@@ -27,24 +25,18 @@ namespace corewm {
 class NativeCursorManagerDelegate;
 }
 
-// A NativeCursorManager that performs the desktop-specific setting of cursor
-// state. Similar to AshNativeCursorManager, it also communicates these changes
-// to all root windows.
+// A NativeCursorManager that interacts with only one RootWindow. (Unlike the
+// one in ash, which interacts with all the RootWindows that ash knows about.)
 class VIEWS_EXPORT DesktopNativeCursorManager
     : public views::corewm::NativeCursorManager {
  public:
   DesktopNativeCursorManager(
+      aura::RootWindow* window,
       scoped_ptr<DesktopCursorLoaderUpdater> cursor_loader_updater);
   virtual ~DesktopNativeCursorManager();
 
   // Builds a cursor and sets the internal platform representation.
   gfx::NativeCursor GetInitializedCursor(int type);
-
-  // Adds |root_window| to the set |root_windows_|.
-  void AddRootWindow(aura::RootWindow* root_window);
-
-  // Removes |root_window| from the set |root_windows_|.
-  void RemoveRootWindow(aura::RootWindow* root_window);
 
  private:
   // Overridden from views::corewm::NativeCursorManager:
@@ -67,10 +59,7 @@ class VIEWS_EXPORT DesktopNativeCursorManager
       bool enabled,
       views::corewm::NativeCursorManagerDelegate* delegate) OVERRIDE;
 
-  // The set of root windows to notify of changes in cursor state.
-  typedef std::set<aura::RootWindow*> RootWindows;
-  RootWindows root_windows_;
-
+  aura::RootWindow* root_window_;
   scoped_ptr<DesktopCursorLoaderUpdater> cursor_loader_updater_;
   scoped_ptr<ui::CursorLoader> cursor_loader_;
 

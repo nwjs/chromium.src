@@ -17,7 +17,7 @@ class DesktopCursorLoaderUpdaterAuraLinux : public DesktopCursorLoaderUpdater {
   virtual ~DesktopCursorLoaderUpdaterAuraLinux();
 
   // Overridden from DesktopCursorLoaderUpdater:
-  virtual void OnCreate(float device_scale_factor,
+  virtual void OnCreate(aura::RootWindow* window,
                         ui::CursorLoader* loader) OVERRIDE;
   virtual void OnDisplayUpdated(const gfx::Display& display,
                                 ui::CursorLoader* loader) OVERRIDE;
