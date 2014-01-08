@@ -109,6 +109,9 @@ class WebContents : public PageNavigator,
     // Used to specify the location context which display the new view should
     // belong. This can be NULL if not needed.
     gfx::NativeView context;
+
+    std::string nw_inject_css_fn;
+    std::string nw_inject_js_fn;
   };
 
   // Creates a new WebContents.

@@ -16,6 +16,8 @@
 #include "base/memory/scoped_vector.h"
 #include "base/values.h"
 #include "content/public/browser/certificate_request_result_type.h"
+#include "content/public/browser/file_descriptor_info.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/socket_permission_request.h"
 #include "content/public/common/window_container_type.h"
@@ -138,7 +140,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   // owned by the embedder.
   virtual WebContentsViewPort* OverrideCreateWebContentsView(
       WebContents* web_contents,
-      RenderViewHostDelegateView** render_view_host_delegate_view);
+      RenderViewHostDelegateView** render_view_host_delegate_view,
+      const WebContents::CreateParams& params);
 
   // If content creates the WebContentsView implementation, it will ask the
   // embedder to return an (optional) delegate to customize it. The view will
