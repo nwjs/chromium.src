@@ -17,6 +17,8 @@
 #include "base/values.h"
 #include "content/public/browser/certificate_request_result_type.h"
 #include "content/public/browser/desktop_notification_delegate.h"
+#include "content/public/browser/file_descriptor_info.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/resource_type.h"
 #include "content/public/common/socket_permission_request.h"
@@ -135,6 +137,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   // browser_main_parts.h.
   virtual BrowserMainParts* CreateBrowserMainParts(
       const MainFunctionParams& parameters);
+
+  virtual void OverrideCreateWebContentsView(
+      WebContents* web_contents,
+      RenderViewHostDelegateView** render_view_host_delegate_view,
+      const WebContents::CreateParams& params);
 
   // If content creates the WebContentsView implementation, it will ask the
   // embedder to return an (optional) delegate to customize it. The view will

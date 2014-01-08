@@ -132,6 +132,13 @@ struct CONTENT_EXPORT RendererPreferences {
   // Whether video-overlay (hole-punching) should be used for the embedded
   // encrypted video.  Currently only used by Android.
   bool use_video_overlay_for_embedded_encrypted_video;
+  // node-webkit: remote page rules in package.json
+  std::string nw_remote_page_rules;
+
+  base::FilePath nw_app_root_path;
+
+  std::string nw_inject_css_fn;
+  std::string nw_inject_js_fn;
 };
 
 }  // namespace content
