@@ -60,7 +60,7 @@ class FirstRunUIBrowserTest : public InProcessBrowserTest,
   }
 
   void LaunchTutorial() {
-    chromeos::LaunchFirstRunTutorial();
+    chromeos::first_run::LaunchTutorial();
     EXPECT_TRUE(controller() != NULL);
     // Replacing delegate to observe all messages coming from WebUI to
     // controller.
