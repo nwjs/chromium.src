@@ -241,7 +241,7 @@ void PepperFileIOHost::DidOpenInternalFile(
     if (check_quota_) {
       file_system_host_->OpenQuotaFile(
           this,
-          file_system_url_.path(),
+          file_system_url_,
           base::Bind(&PepperFileIOHost::DidOpenQuotaFile,
                      weak_factory_.GetWeakPtr(),
                      reply_context,
