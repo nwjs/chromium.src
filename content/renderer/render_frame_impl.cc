@@ -914,4 +914,12 @@ void RenderFrameImpl::didLoseWebGLContext(WebKit::WebFrame* frame,
       arb_robustness_status_code));
 }
 
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                WebKit::WebFrame* frame,
+                                                const WebKit::WebURLRequest& request,
+                                                WebKit::WebNavigationPolicy* policy) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_, frame, request, policy);
+}
+
 }  // namespace content

@@ -245,6 +245,11 @@ class CONTENT_EXPORT ContentRendererClient {
 
   // Returns true if the page at |url| can use Pepper MediaStream APIs.
   virtual bool AllowPepperMediaStreamAPI(const GURL& url);
+
+  virtual void willHandleNavigationPolicy(RenderView* rv,
+                                          WebKit::WebFrame* frame,
+                                          const WebKit::WebURLRequest& request,
+                                          WebKit::WebNavigationPolicy* policy) {}
 };
 
 }  // namespace content

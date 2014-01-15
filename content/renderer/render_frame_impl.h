@@ -187,6 +187,10 @@ class CONTENT_EXPORT RenderFrameImpl
   virtual bool allowWebGL(WebKit::WebFrame* frame, bool default_value);
   virtual void didLoseWebGLContext(WebKit::WebFrame* frame,
                                    int arb_robustness_status_code);
+  virtual void willHandleNavigationPolicy(
+                                          WebKit::WebFrame*,
+                                          const WebKit::WebURLRequest&,
+                                          WebKit::WebNavigationPolicy*);
 
   // RenderFrameImpl methods
   int GetRoutingID() const;
