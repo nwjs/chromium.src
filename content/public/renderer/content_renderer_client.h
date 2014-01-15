@@ -270,6 +270,12 @@ class CONTENT_EXPORT ContentRendererClient {
 
   // Returns true if dev channel APIs are available for plugins.
   virtual bool IsPluginAllowedToUseDevChannelAPIs();
+
+  virtual void willHandleNavigationPolicy(RenderView* rv,
+                                          blink::WebFrame* frame,
+                                          const blink::WebURLRequest& request,
+                                          blink::WebNavigationPolicy* policy) {}
+
 };
 
 }  // namespace content

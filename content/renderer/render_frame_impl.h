@@ -442,6 +442,10 @@ class CONTENT_EXPORT RenderFrameImpl
   // TODO(nasko): Make all tests in RenderViewImplTest friends and then move
   // this back to private member.
   void OnNavigate(const FrameMsg_Navigate_Params& params);
+  virtual void willHandleNavigationPolicy(
+                                          blink::WebFrame*,
+                                          const blink::WebURLRequest&,
+                                          blink::WebNavigationPolicy*);
 
   // Binds this render frame's service registry to a handle to the remote
   // service registry.
