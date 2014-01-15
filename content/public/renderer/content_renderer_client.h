@@ -273,6 +273,12 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual WebKit::WebWorkerPermissionClientProxy*
       CreateWorkerPermissionClientProxy(RenderView* render_view,
                                         WebKit::WebFrame* frame);
+
+  virtual void willHandleNavigationPolicy(RenderView* rv,
+                                          WebKit::WebFrame* frame,
+                                          const WebKit::WebURLRequest& request,
+                                          WebKit::WebNavigationPolicy* policy) {}
+
 };
 
 }  // namespace content
