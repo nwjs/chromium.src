@@ -2416,6 +2416,7 @@ void RenderFrameImpl::didLoseWebGLContext(blink::WebFrame* frame,
       arb_robustness_status_code));
 }
 
+<<<<<<< HEAD
 void RenderFrameImpl::forwardInputEvent(const blink::WebInputEvent* event) {
   Send(new FrameHostMsg_ForwardInputEvent(routing_id_, event));
 }
@@ -2976,6 +2977,14 @@ void RenderFrameImpl::SyncSelectionIfRequired() {
         GetRenderWidget()->routing_id(), text, offset, range));
   }
   GetRenderWidget()->UpdateSelectionBounds();
+}
+
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                blink::WebFrame* frame,
+                                                const blink::WebURLRequest& request,
+                                                blink::WebNavigationPolicy* policy) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_, frame, request, policy);
 }
 
 }  // namespace content

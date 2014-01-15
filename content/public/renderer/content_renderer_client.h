@@ -263,6 +263,12 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual blink::WebWorkerPermissionClientProxy*
       CreateWorkerPermissionClientProxy(RenderFrame* render_frame,
                                         blink::WebFrame* frame);
+
+  virtual void willHandleNavigationPolicy(RenderView* rv,
+                                          blink::WebFrame* frame,
+                                          const blink::WebURLRequest& request,
+                                          blink::WebNavigationPolicy* policy) {}
+
 };
 
 }  // namespace content
