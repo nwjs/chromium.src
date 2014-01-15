@@ -151,7 +151,8 @@ struct CONTENT_EXPORT RendererPreferences {
   base::FilePath nw_app_root_path;
 
   std::string nw_inject_css_fn;
-  std::string nw_inject_js_fn;
+  std::string nw_inject_js_doc_start;
+  std::string nw_inject_js_doc_end;
 };
 
 }  // namespace content

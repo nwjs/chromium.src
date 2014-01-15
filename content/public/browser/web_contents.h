@@ -111,7 +111,8 @@ class WebContents : public PageNavigator,
     gfx::NativeView context;
 
     std::string nw_inject_css_fn;
-    std::string nw_inject_js_fn;
+    std::string nw_inject_js_doc_start;
+    std::string nw_inject_js_doc_end;
   };
 
   // Creates a new WebContents.
