@@ -805,7 +805,8 @@ int OmniboxViewViews::OnDrop(const ui::OSExchangeData& data) {
   if (data.HasURL()) {
     GURL url;
     base::string16 title;
-    if (data.GetURLAndTitle(&url, &title)) {
+    if (data.GetURLAndTitle(
+            ui::OSExchangeData::CONVERT_FILENAMES, &url, &title)) {
       base::string16 text(StripJavascriptSchemas(UTF8ToUTF16(url.spec())));
       if (model()->CanPasteAndGo(text)) {
         model()->PasteAndGo(text);

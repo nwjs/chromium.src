@@ -177,6 +177,7 @@ bool OSExchangeDataProviderAuraX11::GetString(base::string16* result) const {
 }
 
 bool OSExchangeDataProviderAuraX11::GetURLAndTitle(
+    OSExchangeData::FilenameToURLPolicy policy,
     GURL* url,
     base::string16* title) const {
   std::vector< ::Atom> url_atoms = ui::GetURLAtomsFrom(&atom_cache_);

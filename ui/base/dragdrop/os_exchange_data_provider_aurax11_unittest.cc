@@ -26,7 +26,8 @@ TEST(OSExchangeDataProviderAuraX11Test, MozillaURL) {
   {
     GURL out_gurl;
     base::string16 out_str;
-    EXPECT_TRUE(provider.GetURLAndTitle(&out_gurl, &out_str));
+    EXPECT_TRUE(provider.GetURLAndTitle(
+        OSExchangeData::DO_NOT_CONVERT_FILENAMES, &out_gurl, &out_str));
     EXPECT_EQ(ASCIIToUTF16(kGoogleTitle), out_str);
     EXPECT_EQ(kGoogleURL, out_gurl.spec());
   }
@@ -36,7 +37,8 @@ TEST(OSExchangeDataProviderAuraX11Test, MozillaURL) {
   {
     GURL out_gurl;
     base::string16 out_str;
-    EXPECT_TRUE(provider.GetURLAndTitle(&out_gurl, &out_str));
+    EXPECT_TRUE(provider.GetURLAndTitle(
+        OSExchangeData::DO_NOT_CONVERT_FILENAMES, &out_gurl, &out_str));
     EXPECT_EQ(string16(), out_str);
     EXPECT_EQ(kGoogleURL, out_gurl.spec());
   }
