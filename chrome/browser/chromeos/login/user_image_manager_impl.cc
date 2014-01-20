@@ -549,13 +549,13 @@ void UserImageManagerImpl::LoadUserImages(const UserList& users) {
     image_properties->GetString(kImagePathNodeName, &image_path);
 
     user->SetImageURL(image_url);
+    user->SetStubImage(image_index, true);
     DCHECK(!image_path.empty() || image_index == User::kProfileImageIndex);
     if (image_path.empty() || needs_migration) {
-      // Use a stub image (gray avatar) if either of the following is true:
+      // Return if either of the following is true:
       // * The profile image is to be used but has not been downloaded yet. The
       //   profile image will be downloaded after login.
       // * The image needs migration. Migration will be performed after login.
-      user->SetStubImage(image_index, true);
       continue;
     }
 
