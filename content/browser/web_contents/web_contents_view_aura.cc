@@ -1405,7 +1405,7 @@ void WebContentsViewAura::SetOverscrollControllerEnabled(bool enabled) {
 
 void WebContentsViewAura::ShowContextMenu(const ContextMenuParams& params) {
   if (touch_editable_)
-    touch_editable_->EndTouchEditing(false);
+    touch_editable_->EndTouchEditing();
   if (delegate_) {
     delegate_->ShowContextMenu(params);
     // WARNING: we may have been deleted during the call to ShowContextMenu().
@@ -1436,7 +1436,7 @@ void WebContentsViewAura::StartDragging(
   }
 
   if (touch_editable_)
-    touch_editable_->EndTouchEditing(false);
+    touch_editable_->EndTouchEditing();
 
   ui::OSExchangeData::Provider* provider = ui::OSExchangeData::CreateProvider();
   PrepareDragData(drop_data, provider, web_contents_);
