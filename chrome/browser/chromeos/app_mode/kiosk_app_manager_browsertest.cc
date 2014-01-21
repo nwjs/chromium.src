@@ -6,6 +6,8 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/message_loop/message_loop.h"
 #include "base/path_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
@@ -16,13 +18,16 @@
 #include "chrome/browser/chromeos/policy/device_local_account.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "content/public/test/test_utils.h"
+#include "extensions/common/extension.h"
 #include "net/base/host_port_pair.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 
 namespace chromeos {
 
@@ -58,6 +63,27 @@ void OnEnterpriseDeviceLock(
   LOG(INFO) << "Enterprise lock  = " << in_locked;
   *out_locked = in_locked;
   runner_quit_task.Run();
+}
+
+scoped_refptr<extensions::Extension> MakeApp(const std::string& name,
+                                             const std::string& version,
+                                             const std::string& url,
+                                             const std::string& id) {
+  std::string err;
+  base::DictionaryValue value;
+  value.SetString("name", name);
+  value.SetString("version", version);
+  value.SetString("app.launch.web_url", url);
+  scoped_refptr<extensions::Extension> app =
+      extensions::Extension::Create(
+          base::FilePath(),
+          extensions::Manifest::INTERNAL,
+          value,
+          extensions::Extension::WAS_INSTALLED_BY_DEFAULT,
+          id,
+          &err);
+  EXPECT_EQ(err, "");
+  return app;
 }
 
 class TestKioskAppManagerObserver : public KioskAppManagerObserver {
@@ -101,14 +127,15 @@ class AppDataLoadWaiter : public KioskAppManagerObserver {
   explicit AppDataLoadWaiter(KioskAppManager* manager)
       : manager_(manager),
         loaded_(false) {
-    manager_->AddObserver(this);
   }
   virtual ~AppDataLoadWaiter() {
-    manager_->RemoveObserver(this);
   }
 
   void Wait() {
-    base::MessageLoop::current()->Run();
+    manager_->AddObserver(this);
+    runner_ = new content::MessageLoopRunner;
+    runner_->Run();
+    manager_->RemoveObserver(this);
   }
 
   bool loaded() const { return loaded_; }
@@ -124,6 +151,7 @@ class AppDataLoadWaiter : public KioskAppManagerObserver {
     base::MessageLoop::current()->Quit();
   }
 
+  scoped_refptr<content::MessageLoopRunner> runner_;
   KioskAppManager* manager_;
   bool loaded_;
 
@@ -138,20 +166,47 @@ class KioskAppManagerTest : public InProcessBrowserTest {
   virtual ~KioskAppManagerTest() {}
 
   // InProcessBrowserTest overrides:
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    // We start the test server now instead of in
-    // SetUpInProcessBrowserTestFixture so that we can get its port number.
-    ASSERT_TRUE(test_server()->Start());
+  virtual void SetUp() OVERRIDE {
+    base::FilePath test_data_dir;
+    PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir);
+    base::FilePath webstore_dir =
+        test_data_dir.Append(FILE_PATH_LITERAL("chromeos/app_mode/"));
+    embedded_test_server()->ServeFilesFromDirectory(webstore_dir);
+    ASSERT_TRUE(embedded_test_server()->InitializeAndWaitUntilReady());
+    // Stop IO thread here because no threads are allowed while
+    // spawning sandbox host process. See crbug.com/322732.
+    embedded_test_server()->StopThread();
 
-    net::HostPortPair host_port = test_server()->host_port_pair();
-    test_gallery_url_ = base::StringPrintf(
-        "http://%s:%d/files/chromeos/app_mode/webstore",
-        kWebstoreDomain, host_port.port());
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
 
-    command_line->AppendSwitchASCII(
-        switches::kAppsGalleryURL, test_gallery_url_);
+    InProcessBrowserTest::SetUp();
   }
+
+  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
+    InProcessBrowserTest::SetUpCommandLine(command_line);
+
+    // Get fake webstore gallery URL. At the end, it should look something like
+    // http://cws.com:<test_server_port>/webstore.
+    const GURL& server_url = embedded_test_server()->base_url();
+    std::string google_host(kWebstoreDomain);
+    GURL::Replacements replace_google_host;
+    replace_google_host.SetHostStr(google_host);
+    GURL google_url = server_url.ReplaceComponents(replace_google_host);
+    GURL fake_store_url = google_url.Resolve("/webstore");
+    command_line->AppendSwitchASCII(switches::kAppsGalleryURL,
+                                    fake_store_url.spec());
+  }
+
+  virtual void SetUpOnMainThread() OVERRIDE {
+    InProcessBrowserTest::SetUpOnMainThread();
+
+    // Restart the thread as the sandbox host process has already been spawned.
+    embedded_test_server()->RestartThreadAndListen();
+  }
+
   virtual void SetUpInProcessBrowserTestFixture() OVERRIDE {
+    InProcessBrowserTest::SetUpInProcessBrowserTestFixture();
+
     host_resolver()->AddRule(kWebstoreDomain, "127.0.0.1");
   }
 
@@ -168,8 +223,6 @@ class KioskAppManagerTest : public InProcessBrowserTest {
 
     return str;
   }
-
-  KioskAppManager* manager() const { return KioskAppManager::Get(); }
 
   // Locks device for enterprise.
   policy::EnterpriseInstallAttributes::LockResult LockDeviceForEnterprise() {
@@ -190,9 +243,48 @@ class KioskAppManagerTest : public InProcessBrowserTest {
     return *lock_result.get();
   }
 
+  void SetExistingApp(const std::string& app_id,
+                      const std::string& app_name,
+                      const std::string& icon_file_name) {
+    base::FilePath test_dir;
+    ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_dir));
+    base::FilePath data_dir = test_dir.AppendASCII("chromeos/app_mode/");
+
+    // Copy the icon file to temp dir for using because ClearAppData test
+    // deletes it.
+    base::FilePath icon_path = temp_dir_.path().AppendASCII(icon_file_name);
+    base::CopyFile(data_dir.AppendASCII(icon_file_name), icon_path);
+
+    scoped_ptr<base::DictionaryValue> apps_dict(new base::DictionaryValue);
+    apps_dict->SetString(app_id + ".name", app_name);
+    apps_dict->SetString(app_id + ".icon", icon_path.MaybeAsASCII());
+
+    PrefService* local_state = g_browser_process->local_state();
+    DictionaryPrefUpdate dict_update(local_state,
+                                     KioskAppManager::kKioskDictionaryName);
+    dict_update->Set(KioskAppManager::kKeyApps, apps_dict.release());
+
+    // Make the app appear in device settings.
+    base::ListValue device_local_accounts;
+    scoped_ptr<base::DictionaryValue> entry(new base::DictionaryValue);
+    entry->SetStringWithoutPathExpansion(
+        kAccountsPrefDeviceLocalAccountsKeyId,
+        app_id + "_id");
+    entry->SetIntegerWithoutPathExpansion(
+        kAccountsPrefDeviceLocalAccountsKeyType,
+        policy::DeviceLocalAccount::TYPE_KIOSK_APP);
+    entry->SetStringWithoutPathExpansion(
+        kAccountsPrefDeviceLocalAccountsKeyKioskAppId,
+        app_id);
+    device_local_accounts.Append(entry.release());
+    CrosSettings::Get()->Set(kAccountsPrefDeviceLocalAccounts,
+                             device_local_accounts);
+  }
+
+  KioskAppManager* manager() const { return KioskAppManager::Get(); }
+
  private:
-  std::string test_gallery_url_;
-  base::ShadowingAtExitManager exit_manager_;
+  base::ScopedTempDir temp_dir_;
 
   DISALLOW_COPY_AND_ASSIGN(KioskAppManagerTest);
 };
@@ -246,36 +338,7 @@ IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, Basic) {
 }
 
 IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, LoadCached) {
-  base::FilePath test_dir;
-  ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_dir));
-  base::FilePath data_dir = test_dir.AppendASCII("chromeos/app_mode/");
-
-  scoped_ptr<base::DictionaryValue> apps_dict(new base::DictionaryValue);
-  apps_dict->SetString("app_1.name", "App1 Name");
-  std::string icon_path =
-      base::StringPrintf("%s/red16x16.png", data_dir.value().c_str());
-  apps_dict->SetString("app_1.icon", icon_path);
-
-  PrefService* local_state = g_browser_process->local_state();
-  DictionaryPrefUpdate dict_update(local_state,
-                                   KioskAppManager::kKioskDictionaryName);
-  dict_update->Set(KioskAppManager::kKeyApps, apps_dict.release());
-
-  // Make the app appear in device settings.
-  base::ListValue device_local_accounts;
-  scoped_ptr<base::DictionaryValue> entry(new base::DictionaryValue);
-  entry->SetStringWithoutPathExpansion(
-      kAccountsPrefDeviceLocalAccountsKeyId,
-      "app_1_id");
-  entry->SetIntegerWithoutPathExpansion(
-      kAccountsPrefDeviceLocalAccountsKeyType,
-      policy::DeviceLocalAccount::TYPE_KIOSK_APP);
-  entry->SetStringWithoutPathExpansion(
-      kAccountsPrefDeviceLocalAccountsKeyKioskAppId,
-      "app_1");
-  device_local_accounts.Append(entry.release());
-  CrosSettings::Get()->Set(kAccountsPrefDeviceLocalAccounts,
-                           device_local_accounts);
+  SetExistingApp("app_1", "Cached App1 Name", "red16x16.png");
 
   AppDataLoadWaiter waiter(manager());
   waiter.Wait();
@@ -285,8 +348,50 @@ IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, LoadCached) {
   manager()->GetApps(&apps);
   EXPECT_EQ(1u, apps.size());
   EXPECT_EQ("app_1", apps[0].app_id);
-  EXPECT_EQ("App1 Name", apps[0].name);
+  EXPECT_EQ("Cached App1 Name", apps[0].name);
   EXPECT_EQ(gfx::Size(16, 16), apps[0].icon.size());
+}
+
+IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, ClearAppData) {
+  SetExistingApp("app_1", "Cached App1 Name", "red16x16.png");
+
+  PrefService* local_state = g_browser_process->local_state();
+  const base::DictionaryValue* dict =
+      local_state->GetDictionary(KioskAppManager::kKioskDictionaryName);
+  const base::DictionaryValue* apps_dict;
+  EXPECT_TRUE(dict->GetDictionary(KioskAppManager::kKeyApps, &apps_dict));
+  EXPECT_TRUE(apps_dict->HasKey("app_1"));
+
+  manager()->ClearAppData("app_1");
+
+  EXPECT_FALSE(apps_dict->HasKey("app_1"));
+}
+
+IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, UpdateAppDataFromProfile) {
+  SetExistingApp("app_1", "Cached App1 Name", "red16x16.png");
+
+  AppDataLoadWaiter waiter(manager());
+  waiter.Wait();
+  EXPECT_TRUE(waiter.loaded());
+
+  KioskAppManager::Apps apps;
+  manager()->GetApps(&apps);
+  EXPECT_EQ(1u, apps.size());
+  EXPECT_EQ("app_1", apps[0].app_id);
+  EXPECT_EQ("Cached App1 Name", apps[0].name);
+
+  scoped_refptr<extensions::Extension> updated_app =
+      MakeApp("Updated App1 Name", "2.0", "http://localhost/", "app_1");
+  manager()->UpdateAppDataFromProfile(
+      "app_1", browser()->profile(), updated_app.get());
+
+  waiter.Wait();
+  EXPECT_TRUE(waiter.loaded());
+
+  manager()->GetApps(&apps);
+  EXPECT_EQ(1u, apps.size());
+  EXPECT_EQ("app_1", apps[0].app_id);
+  EXPECT_EQ("Updated App1 Name", apps[0].name);
 }
 
 IN_PROC_BROWSER_TEST_F(KioskAppManagerTest, BadApp) {
