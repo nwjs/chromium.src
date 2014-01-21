@@ -385,6 +385,8 @@ void InstallSigner::HandleSignatureResult(const std::string& signature,
       UMA_HISTOGRAM_BOOLEAN("InstallSigner.InvalidSignature", true);
       result.reset();
     }
+    UMA_HISTOGRAM_COUNTS_100("ExtensionInstallSigner.InvalidCount",
+                             invalid_ids.size());
   }
 
   if (!callback_.is_null())
