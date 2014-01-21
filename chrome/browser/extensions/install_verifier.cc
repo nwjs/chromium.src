@@ -104,6 +104,24 @@ InstallVerifier::InstallVerifier(ExtensionPrefs* prefs,
 
 InstallVerifier::~InstallVerifier() {}
 
+namespace {
+
+bool FromStore(const Extension& extension) {
+  bool updates_from_store = ManifestURL::UpdatesFromGallery(&extension);
+  return extension.from_webstore() || updates_from_store;
+}
+
+bool CanUseExtensionApis(const Extension& extension) {
+  return extension.is_extension() || extension.is_legacy_packaged_app();
+}
+
+}  // namespace
+
+// static
+bool InstallVerifier::NeedsVerification(const Extension& extension) {
+  return FromStore(extension) && CanUseExtensionApis(extension);
+}
+
 void InstallVerifier::Init() {
   const DictionaryValue* pref = prefs_->GetInstallSignature();
   if (pref) {
@@ -206,15 +224,10 @@ std::string InstallVerifier::GetDebugPolicyProviderName() const {
   return std::string("InstallVerifier");
 }
 
-static bool FromStore(const Extension* extension) {
-  bool updates_from_store = ManifestURL::UpdatesFromGallery(extension);
-  return extension->from_webstore() || updates_from_store;
-}
-
 bool InstallVerifier::MustRemainDisabled(const Extension* extension,
                                          Extension::DisableReason* reason,
                                          base::string16* error) const {
-  if (!extension->is_extension() ||
+  if (!CanUseExtensionApis(*extension) ||
       Manifest::IsUnpackedLocation(extension->location()) ||
       AllowedByEnterprisePolicy(extension->id()))
     return false;
@@ -225,7 +238,7 @@ bool InstallVerifier::MustRemainDisabled(const Extension* extension,
   // this class to check NeedsBootstrap() and schedule a first check so we can
   // get a signature.
   bool verified =
-      FromStore(extension) &&
+      FromStore(*extension) &&
       (signature_.get() == NULL || IsVerified(extension->id())) &&
       !ContainsKey(InstallSigner::GetForcedNotFromWebstore(), extension->id());
 
