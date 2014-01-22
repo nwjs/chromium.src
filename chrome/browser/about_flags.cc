@@ -445,7 +445,6 @@ const Experiment kExperiments[] = {
          switches::kEnableUniversalAcceleratedOverflowScroll,
          switches::kDisableUniversalAcceleratedOverflowScroll)
   },
-  {
 #if defined(OS_WIN)
   {
     "enable-direct-write",
