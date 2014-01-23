@@ -800,12 +800,12 @@ var BOTTOM_MARGIN_FOR_PREVIEW_PANEL_PX = 52;
 
     this.detailViewButton_ =
         this.dialogDom_.querySelector('#detail-view');
-    this.detailViewButton_.addEventListener('click',
+    this.detailViewButton_.addEventListener('activate',
         this.onDetailViewButtonClick_.bind(this));
 
     this.thumbnailViewButton_ =
         this.dialogDom_.querySelector('#thumbnail-view');
-    this.thumbnailViewButton_.addEventListener('click',
+    this.thumbnailViewButton_.addEventListener('activate',
         this.onThumbnailViewButtonClick_.bind(this));
 
     cr.ui.ComboButton.decorate(this.taskItems_);
@@ -2811,6 +2811,11 @@ var BOTTOM_MARGIN_FOR_PREVIEW_PANEL_PX = 52;
    * @private
    */
   FileManager.prototype.onDetailViewButtonClick_ = function(event) {
+    // Stop propagate and hide the menu manually, in order to prevent the focus
+    // from being back to the button. (cf. http://crbug.com/248479)
+    event.stopPropagation();
+    this.gearButton_.hideMenu();
+
     this.setListType(FileManager.ListType.DETAIL);
     this.currentList_.focus();
   };
@@ -2820,6 +2825,11 @@ var BOTTOM_MARGIN_FOR_PREVIEW_PANEL_PX = 52;
    * @private
    */
   FileManager.prototype.onThumbnailViewButtonClick_ = function(event) {
+    // Stop propagate and hide the menu manually, in order to prevent the focus
+    // from being back to the button. (cf. http://crbug.com/248479)
+    event.stopPropagation();
+    this.gearButton_.hideMenu();
+
     this.setListType(FileManager.ListType.THUMBNAIL);
     this.currentList_.focus();
   };

@@ -1502,6 +1502,13 @@ testcase.restoreCurrentView = function() {
                          ['.thumbnail-grid[hidden]'],
                          this.next);
     },
+    // Opens the gear menu.
+    function() {
+      callRemoteTestUtil('fakeMouseClick',
+                         appId,
+                         ['#gear-button'],
+                         this.next);
+    },
     // Change the current view.
     function() {
       callRemoteTestUtil('fakeMouseClick',
