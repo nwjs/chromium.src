@@ -395,15 +395,6 @@ void PrerenderHistograms::RecordEvent(Origin origin, uint8 experiment_id,
       UMA_HISTOGRAM_ENUMERATION(name, event, PRERENDER_EVENT_MAX));
 }
 
-void PrerenderHistograms::RecordPrerenderPageVisitedStatus(
-    Origin origin,
-    uint8 experiment_id,
-    bool visited_before) const {
-  PREFIXED_HISTOGRAM_ORIGIN_EXPERIMENT(
-      "PageVisitedStatus", origin, experiment_id,
-      UMA_HISTOGRAM_BOOLEAN(name, visited_before));
-}
-
 uint8 PrerenderHistograms::GetCurrentExperimentId() const {
   if (!WithinWindow())
     return kNoExperiment;
