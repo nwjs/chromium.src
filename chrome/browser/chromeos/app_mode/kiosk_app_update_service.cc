@@ -8,6 +8,7 @@
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_chromeos.h"
+#include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #include "chrome/browser/chromeos/system/automatic_reboot_manager.h"
 #include "chrome/browser/extensions/api/runtime/runtime_api.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -69,6 +70,10 @@ void KioskAppUpdateService::OnAppUpdateAvailable(const std::string& app_id) {
   DCHECK(!app_id_.empty());
   if (app_id != app_id_)
     return;
+
+  // Clears cached app data so that it will be reloaded if update from app
+  // does not finish in this run.
+  KioskAppManager::Get()->ClearAppData(app_id_);
 
   extensions::RuntimeEventRouter::DispatchOnRestartRequiredEvent(
       profile_,
