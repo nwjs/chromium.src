@@ -514,22 +514,37 @@ void RenderWidgetHostViewMac::EnableCoreAnimation() {
 }
 
 bool RenderWidgetHostViewMac::CreateCompositedIOSurface() {
-  if (compositing_iosurface_context_ && compositing_iosurface_)
+  int current_window_number = window_number();
+  bool new_surface_needed = !compositing_iosurface_;
+  bool new_context_needed =
+    !compositing_iosurface_context_ ||
+        (compositing_iosurface_context_ &&
+            compositing_iosurface_context_->window_number() !=
+                current_window_number);
+
+  if (!new_surface_needed && !new_context_needed)
     return true;
 
   ScopedCAActionDisabler disabler;
 
   // Create the GL context and shaders.
-  if (!compositing_iosurface_context_) {
-    compositing_iosurface_context_ =
-        CompositingIOSurfaceContext::Get(window_number());
-    if (!compositing_iosurface_context_) {
+  if (new_context_needed) {
+    scoped_refptr<CompositingIOSurfaceContext> new_context =
+        CompositingIOSurfaceContext::Get(current_window_number);
+    // Un-bind the GL context from this view before binding the new GL
+    // context. Having two GL contexts bound to a view will result in
+    // crashes and corruption.
+    // http://crbug.com/230883
+    ClearBoundContextDrawable();
+    if (!new_context) {
       LOG(ERROR) << "Failed to create CompositingIOSurfaceContext";
       return false;
     }
+    compositing_iosurface_context_ = new_context;
   }
+
   // Create the IOSurface texture.
-  if (!compositing_iosurface_) {
+  if (new_surface_needed) {
     compositing_iosurface_.reset(CompositingIOSurfaceMac::Create());
     if (!compositing_iosurface_) {
       LOG(ERROR) << "Failed to create CompositingIOSurface";
@@ -595,6 +610,9 @@ void RenderWidgetHostViewMac::ClearBoundContextDrawable() {
       cocoa_view_ &&
       [[compositing_iosurface_context_->nsgl_context() view]
           isEqual:cocoa_view_]) {
+    // Disable screen updates because removing the GL context from below can
+    // cause flashes.
+    [[cocoa_view_ window] disableScreenUpdatesUntilFlush];
     [compositing_iosurface_context_->nsgl_context() clearDrawable];
   }
 }
@@ -1990,17 +2008,9 @@ void RenderWidgetHostViewMac::WindowFrameChanged() {
         GetViewBounds()));
   }
 
-  if (compositing_iosurface_ && use_core_animation_) {
-    scoped_refptr<CompositingIOSurfaceContext> new_context =
-        CompositingIOSurfaceContext::Get(window_number());
-    if (new_context) {
-      // Un-bind the GL context from this view before binding the new GL
-      // context. Having two GL contexts bound to a view will result in
-      // crashes and corruption.
-      // http://crbug.com/230883
-      ClearBoundContextDrawable();
-      compositing_iosurface_context_ = new_context;
-    }
+  if (compositing_iosurface_) {
+    // This will migrate the context to the appropriate window.
+    CreateCompositedIOSurface();
   }
 }
 
