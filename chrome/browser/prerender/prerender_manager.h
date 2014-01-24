@@ -19,6 +19,7 @@
 #include "base/threading/non_thread_safe.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/history/history_service.h"
 #include "chrome/browser/media/media_capture_devices_dispatcher.h"
 #include "chrome/browser/predictors/logged_in_predictor_table.h"
 #include "chrome/browser/prerender/prerender_config.h"
@@ -32,6 +33,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/session_storage_namespace.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_monster.h"
 #include "url/gurl.h"
 
@@ -298,6 +300,11 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
       PrerenderContents::MatchCompleteStatus mc_status,
       FinalStatus final_status) const;
 
+  // Record a cookie status histogram (see prerender_histograms.h).
+  void RecordCookieStatus(Origin origin,
+                          uint8 experiment_id,
+                          int cookie_status) const;
+
   // content::NotificationObserver
   virtual void Observe(int type,
                        const content::NotificationSource& source,
@@ -330,6 +337,13 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
                                   bool* database_was_present,
                                   const base::Closure& result_cb);
 
+  void OnHistoryServiceDidQueryURL(Origin origin,
+                                   uint8 experiment_id,
+                                   CancelableRequestProvider::Handle handle,
+                                   bool success,
+                                   const history::URLRow* url_row,
+                                   history::VisitVector* visits);
+
   Profile* profile() const { return profile_; }
 
   // Classes which will be tested in prerender unit browser tests should use
@@ -346,6 +360,16 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
   PrerenderLocalPredictor* local_predictor() {
     return local_predictor_.get();
   }
+
+  // Notification that a cookie event happened on a render frame. Will record a
+  // cookie event for a given render frame, if it is being prerendered.
+  // If cookies were sent, all cookies must be supplied in |cookie_list|.
+  static void RecordCookieEvent(int process_id,
+                                int render_view_id,
+                                const GURL& url,
+                                const GURL& frame_url,
+                                PrerenderContents::CookieEvent event,
+                                const net::CookieList* cookie_list);
 
  protected:
   class PendingSwap;
@@ -748,6 +772,8 @@ class PrerenderManager : public base::SupportsWeakPtr<PrerenderManager>,
   scoped_ptr<LoggedInStateMap> logged_in_state_;
 
   content::NotificationRegistrar notification_registrar_;
+
+  CancelableRequestConsumer query_url_consumer_;
 
   DISALLOW_COPY_AND_ASSIGN(PrerenderManager);
 };

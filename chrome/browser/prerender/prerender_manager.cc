@@ -24,6 +24,7 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/net/chrome_cookie_notification_details.h"
 #include "chrome/browser/predictors/predictor_database.h"
 #include "chrome/browser/predictors/predictor_database_factory.h"
@@ -1451,6 +1452,21 @@ PrerenderHandle* PrerenderManager::AddPrerender(
   if (GetMode() == PRERENDER_MODE_EXPERIMENT_MULTI_PRERENDER_GROUP)
     histograms_->RecordConcurrency(active_prerenders_.size());
 
+  // Query the history to see if the URL being prerendered has ever been
+  // visited before.
+  HistoryService* history_service = HistoryServiceFactory::GetForProfile(
+      profile_, Profile::EXPLICIT_ACCESS);
+  if (history_service) {
+    history_service->QueryURL(
+        url,
+        false,
+        &query_url_consumer_,
+        base::Bind(&PrerenderManager::OnHistoryServiceDidQueryURL,
+                   base::Unretained(this),
+                   origin,
+                   experiment));
+  }
+
   StartSchedulingPeriodicCleanups();
   return prerender_handle;
 }
@@ -1872,6 +1888,68 @@ void PrerenderManager::RecordEvent(PrerenderContents* contents,
   else
     histograms_->RecordEvent(contents->origin(), contents->experiment_id(),
                              event);
+}
+
+// static
+void PrerenderManager::RecordCookieEvent(int process_id,
+                                         int render_view_id,
+                                         const GURL& url,
+                                         const GURL& frame_url,
+                                         PrerenderContents::CookieEvent event,
+                                         const net::CookieList* cookie_list) {
+  RenderViewHost* rvh = RenderViewHost::FromID(process_id, render_view_id);
+  if (!rvh)
+    return;
+
+  WebContents* web_contents = WebContents::FromRenderViewHost(rvh);
+  if (!web_contents)
+    return;
+
+  bool is_main_frame = true;
+
+  PrerenderManager* prerender_manager = PrerenderManagerFactory::GetForProfile(
+      Profile::FromBrowserContext(web_contents->GetBrowserContext()));
+
+  if (!prerender_manager)
+    return;
+
+  PrerenderContents* prerender_contents =
+      prerender_manager->GetPrerenderContents(web_contents);
+
+  if (!prerender_contents)
+    return;
+
+  base::Time earliest_create_date;
+  if (event == PrerenderContents::COOKIE_EVENT_SEND) {
+    if (!cookie_list || cookie_list->empty())
+      return;
+    for (size_t i = 0; i < cookie_list->size(); i++) {
+      if (earliest_create_date.is_null() ||
+          (*cookie_list)[i].CreationDate() < earliest_create_date) {
+        earliest_create_date = (*cookie_list)[i].CreationDate();
+      }
+    }
+  }
+
+  prerender_contents->RecordCookieEvent(event,
+                                        is_main_frame && url == frame_url,
+                                        earliest_create_date);
+}
+
+void PrerenderManager::RecordCookieStatus(Origin origin,
+                                          uint8 experiment_id,
+                                          int cookie_status) const {
+  histograms_->RecordCookieStatus(origin, experiment_id, cookie_status);
+}
+
+void PrerenderManager::OnHistoryServiceDidQueryURL(
+    Origin origin,
+    uint8 experiment_id,
+    CancelableRequestProvider::Handle handle,
+    bool success,
+    const history::URLRow* url_row,
+    history::VisitVector* visists) {
+  histograms_->RecordPrerenderPageVisitedStatus(origin, experiment_id, success);
 }
 
 }  // namespace prerender
