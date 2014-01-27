@@ -16,6 +16,7 @@
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/win/tsf_bridge.h"
 #include "ui/base/win/shell.h"
+#include "ui/compositor/compositor_constants.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/path.h"
@@ -139,6 +140,12 @@ void DesktopRootWindowHostWin::Init(
   message_handler_->set_remove_standard_frame(params.remove_standard_frame);
 
   has_non_client_view_ = Widget::RequiresNonClientView(params.type);
+
+  if (params.type == Widget::InitParams::TYPE_MENU) {
+    ::SetProp(GetAcceleratedWidget(),
+              kForceSoftwareCompositor,
+              reinterpret_cast<HANDLE>(true));
+  }
 
   gfx::Rect pixel_bounds = gfx::win::DIPToScreenRect(params.bounds);
   message_handler_->Init(parent_hwnd, pixel_bounds);
