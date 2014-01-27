@@ -198,6 +198,8 @@
         'common/extensions/extension_test_util.h',
         'renderer/chrome_mock_render_thread.cc',
         'renderer/chrome_mock_render_thread.h',
+        'renderer/media/mock_webrtc_logging_message_filter.cc',
+        'renderer/media/mock_webrtc_logging_message_filter.h',
         'renderer/mock_printer.cc',
         'renderer/mock_printer.h',
         'renderer/safe_browsing/mock_feature_extractor_clock.cc',
@@ -414,6 +416,12 @@
               'browser/local_discovery/test_service_discovery_client.cc',
               'browser/local_discovery/test_service_discovery_client.h',
             ]
+        }],
+        ['enable_webrtc==0', {
+          'sources!': [
+            'renderer/media/mock_webrtc_logging_message_filter.cc',
+            'renderer/media/mock_webrtc_logging_message_filter.h',
+          ],
         }],
       ],
     },
