@@ -143,7 +143,7 @@ deps = {
     'src/third_party/node':
         'https://github.com/rogerwang/node.git@origin/rb32',
     'src/content/nw':
-        'https://github.com/rogerwang/node-webkit.git@origin/rb32',
+        'https://github.com/rogerwang/node-webkit.git@origin/master',
 }
 
 deps_os = {
