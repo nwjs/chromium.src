@@ -299,6 +299,11 @@ TEST_F(MultiProfileUserControllerTest,
   // Verifies that if a regular user is signed-in then other regular users can
   // be added but tainted users can't.
   LoginUser(1);
+
+  // TODO(xiyuan): Remove the following SetPrefBehavor when default is
+  // changed back to enabled.
+  SetPrefBehavior(1, MultiProfileUserController::kBehaviorUnrestricted);
+
   EXPECT_TRUE(controller()->IsUserAllowedInSession(kUsers[0]));
   policy::PolicyCertServiceFactory::SetUsedPolicyCertificates(kUsers[0]);
   EXPECT_FALSE(controller()->IsUserAllowedInSession(kUsers[0]));
@@ -331,6 +336,10 @@ TEST_F(MultiProfileUserControllerTest,
   // Verifies that if a user is signed-in and has policy certificates installed
   // then no other users can be added.
   LoginUser(0);
+
+  // TODO(xiyuan): Remove the following SetPrefBehavor when default is
+  // changed back to enabled.
+  SetPrefBehavior(0, MultiProfileUserController::kBehaviorUnrestricted);
 
   // Double parenthesis to avoid http://en.wikipedia.org/wiki/Most_vexing_parse.
   policy::PolicyCertVerifier verifier((base::Closure()));

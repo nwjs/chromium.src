@@ -130,6 +130,11 @@ const char kFirstExecAfterBoot[]            = "first-exec-after-boot";
 // tests can change how it's brought up. This flag disables that.
 const char kForceLoginManagerInTests[]      = "force-login-manager-in-tests";
 
+// Sets primary user's default multiprofile behavior to 'unrestricted' for
+// tests so that multiprofile is enabled for any user.
+// TODO(xiyuan): Remove when multiprofile is released to everyone.
+const char kForceMultiProfileInTests[]      = "force-multi-profiles-in-tests";
+
 // Indicates that the browser is in "browse without sign-in" (Guest session)
 // mode. Should completely disable extensions, sync and bookmarks.
 const char kGuestSession[]                  = "bwsi";

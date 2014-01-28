@@ -10,7 +10,6 @@
 #include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/message_loop/message_loop.h"
-#include "base/metrics/field_trial.h"
 #include "base/port.h"
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
@@ -30,7 +29,6 @@
 #include "chrome/common/metrics/variations/variations_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/installer/util/google_update_settings.h"
-#include "components/variations/entropy_provider.h"
 #include "components/variations/metrics_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/process_type.h"
@@ -197,11 +195,6 @@ class MetricsLogTest : public testing::Test {
 
     // Enable multi-profiles.
     CommandLine::ForCurrentProcess()->AppendSwitch(switches::kMultiProfiles);
-    field_trial_list_.reset(new base::FieldTrialList(
-        new metrics::SHA1EntropyProvider("42")));
-    base::FieldTrialList::CreateTrialsFromString(
-        "ChromeOSUseMultiProfiles/Enable/",
-        base::FieldTrialList::ACTIVATE_TRIALS);
 #endif  // OS_CHROMEOS
   }
 
@@ -260,9 +253,7 @@ class MetricsLogTest : public testing::Test {
   // functions and a message loop is required for that.
   base::MessageLoop message_loop_;
 
-#if defined(OS_CHROMEOS)
-  scoped_ptr<base::FieldTrialList> field_trial_list_;
-#endif  // OS_CHROMEOS
+  DISALLOW_COPY_AND_ASSIGN(MetricsLogTest);
 };
 
 TEST_F(MetricsLogTest, RecordEnvironment) {
