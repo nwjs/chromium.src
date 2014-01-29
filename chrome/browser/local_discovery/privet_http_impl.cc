@@ -22,10 +22,12 @@ const char kUrlPlaceHolder[] = "http://host/";
 const char kPrivetRegisterActionArgName[] = "action";
 const char kPrivetRegisterUserArgName[] = "user";
 
-const char kPrivetURLKeyUser[] = "user";
-const char kPrivetURLKeyJobname[] = "jobname";
+const char kPrivetURLKeyUserName[] = "user_name";
+const char kPrivetURLKeyClientName[] = "client_name";
+const char kPrivetURLKeyJobname[] = "job_name";
 const char kPrivetURLKeyOffline[] = "offline";
 const char kPrivetURLValueOffline[] = "1";
+const char kPrivetURLValueClientName[] = "Chrome";
 
 const char kPrivetContentTypePDF[] = "application/pdf";
 const char kPrivetContentTypePWGRaster[] = "image/pwg-raster";
@@ -463,9 +465,13 @@ void PrivetLocalPrintOperationImpl::DoSubmitdoc() {
 
   GURL url = CreatePrivetURL(kPrivetSubmitdocPath);
 
+  url = net::AppendQueryParameter(url,
+                                  kPrivetURLKeyClientName,
+                                  kPrivetURLValueClientName);
+
   if (!user_.empty()) {
     url = net::AppendQueryParameter(url,
-                                    kPrivetURLKeyUser,
+                                    kPrivetURLKeyUserName,
                                     user_);
   }
 
