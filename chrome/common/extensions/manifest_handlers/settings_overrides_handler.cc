@@ -111,9 +111,7 @@ class SettingsOverridesHandler::ManifestPermissionImpl
 
   // extensions::ManifestPermission overrides.
   virtual std::string name() const OVERRIDE {
-    return base::StringPrintf("%s.%s",
-                              manifest_keys::kBookmarkUI,
-                              manifest_keys::kHideBookmarkButton);
+    return manifest_keys::kSettingsOverride;
   }
 
   virtual std::string id() const OVERRIDE {
