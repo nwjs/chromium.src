@@ -35,7 +35,6 @@ struct Mappings {
     contexts["unblessed_extension"] = Feature::UNBLESSED_EXTENSION_CONTEXT;
     contexts["content_script"] = Feature::CONTENT_SCRIPT_CONTEXT;
     contexts["web_page"] = Feature::WEB_PAGE_CONTEXT;
-    contexts["blessed_web_page"] = Feature::BLESSED_WEB_PAGE_CONTEXT;
 
     locations["component"] = Feature::COMPONENT_LOCATION;
 
@@ -198,8 +197,6 @@ std::string GetDisplayName(Feature::Context context) {
       return "content script";
     case Feature::WEB_PAGE_CONTEXT:
       return "web page";
-    case Feature::BLESSED_WEB_PAGE_CONTEXT:
-      return "hosted app";
   }
   NOTREACHED();
   return "";

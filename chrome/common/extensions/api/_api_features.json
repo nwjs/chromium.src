@@ -22,11 +22,7 @@
     "channel": "stable",
     "extension_types": ["hosted_app", "extension", "legacy_packaged_app"],
     "contexts": [
-      "blessed_extension",
-      "unblessed_extension",
-      "content_script",
-      "web_page",
-      "blessed_web_page"
+      "blessed_extension", "unblessed_extension", "content_script", "web_page"
     ],
     "matches": [
       "http://*/*", "https://*/*", "chrome-extension://*/*", "file://*/*"
@@ -241,7 +237,9 @@
     "internal": true,
     "channel": "stable",
     "extension_types": ["platform_app", "extension"],
-    "contexts": "all",
+    "contexts": [
+      "blessed_extension", "unblessed_extension", "content_script", "web_page"
+    ],
     "matches": ["<all_urls>"]
   },
   "experimental.accessibility": {
@@ -711,7 +709,7 @@
     // Hosted apps can use the webstore API from within a blessed context.
     "channel": "stable",
     "extension_types": ["hosted_app"],
-    "contexts": ["blessed_web_page", "web_page"],
+    "contexts": ["blessed_extension", "web_page"],
     // Any webpage can use the webstore API.
     "matches": ["http://*/*", "https://*/*"]
   },
