@@ -3545,7 +3545,7 @@ var BOTTOM_MARGIN_FOR_PREVIEW_PANEL_PX = 52;
         var onDirectoryChanged = function(event) {
           self.directoryModel_.removeEventListener('scan-completed',
                                                    onDirectoryChanged);
-          self.directoryModel_.selectEntry(entry.name);
+          self.directoryModel_.selectEntry(entry);
           openIt();
         };
         // changeDirectory() returns immediately. We should wait until the
