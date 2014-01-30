@@ -180,7 +180,8 @@ void ResourceBundle::InitSharedInstanceWithPakPath(const base::FilePath& path) {
 void ResourceBundle::InitSharedInstanceWithPakPath2(const base::FilePath& path,
                                                     const base::FilePath& lpath) {
   DCHECK(g_shared_instance_ == NULL) << "ResourceBundle initialized twice";
-  g_shared_instance_ = new ResourceBundle(NULL);
+  InitSharedInstance(NULL);
+  // g_shared_instance_ = new ResourceBundle(NULL);
 
   g_shared_instance_->LoadTestResources(path, lpath);
 }
