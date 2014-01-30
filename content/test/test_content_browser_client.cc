@@ -20,7 +20,8 @@ TestContentBrowserClient::~TestContentBrowserClient() {
 
 WebContentsViewPort* TestContentBrowserClient::OverrideCreateWebContentsView(
     WebContents* web_contents,
-    RenderViewHostDelegateView** render_view_host_delegate_view) {
+    RenderViewHostDelegateView** render_view_host_delegate_view,
+    const WebContents::CreateParams& params) {
 #if defined(OS_IOS)
   return NULL;
 #else
