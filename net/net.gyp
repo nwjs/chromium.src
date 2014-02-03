@@ -1510,6 +1510,9 @@
                 '$(SDKROOT)/System/Library/Frameworks/SystemConfiguration.framework',
                 '$(SDKROOT)/usr/lib/libresolv.dylib',
               ],
+              'sources!': [
+                'disk_cache/file_posix.cc',
+              ],
             },
           },
         ],
