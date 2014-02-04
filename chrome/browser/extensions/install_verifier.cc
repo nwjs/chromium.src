@@ -299,7 +299,7 @@ bool InstallVerifier::MustRemainDisabled(const Extension* extension,
   if (ContainsKey(InstallSigner::GetForcedNotFromWebstore(), extension->id())) {
     verified = false;
     outcome = FORCED_NOT_VERIFIED;
-  } else if (!FromStore(extension)) {
+  } else if (!FromStore(*extension)) {
     verified = false;
     outcome = NOT_FROM_STORE;
   } else if (signature_.get() == NULL) {
