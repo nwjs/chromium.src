@@ -329,6 +329,7 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   // WebContentsObserver implementation.
   virtual void RenderViewReady() OVERRIDE;
+  virtual void WebContentsDestroyed(WebContents* web_contents) OVERRIDE;
 
   // --------------------------------------------------------------------------
   // Other private methods and data

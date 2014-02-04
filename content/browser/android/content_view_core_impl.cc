@@ -1652,6 +1652,13 @@ void ContentViewCoreImpl::OnSmartClipDataExtracted(const string16& result) {
       env, obj.obj(), jresult.obj());
 }
 
+void ContentViewCoreImpl::WebContentsDestroyed(WebContents* web_contents) {
+  WebContentsViewAndroid* wcva =
+      static_cast<WebContentsViewAndroid*>(web_contents->GetView());
+  DCHECK(wcva);
+  wcva->SetContentViewCore(NULL);
+}
+
 // This is called for each ContentView.
 jlong Init(JNIEnv* env, jobject obj,
            jboolean hardware_accelerated,
