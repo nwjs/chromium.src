@@ -13,7 +13,6 @@ import org.chromium.android_webview.test.util.CommonResources;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.ContentViewCore;
-import org.chromium.content.browser.LoadUrlParams;
 import org.chromium.content.browser.test.util.Criteria;
 import org.chromium.content.browser.test.util.CriteriaHelper;
 import org.chromium.content.browser.test.util.HistoryUtils;
@@ -22,7 +21,6 @@ import org.chromium.net.test.util.TestWebServer;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Tests for the {@link android.webkit.WebView#loadDataWithBaseURL(String, String, String, String,
@@ -47,24 +45,8 @@ public class LoadDataWithBaseUrlTest extends AwTestBase {
     protected void loadDataWithBaseUrlSync(
         final String data, final String mimeType, final boolean isBase64Encoded,
         final String baseUrl, final String historyUrl) throws Throwable {
-        TestCallbackHelperContainer.OnPageFinishedHelper onPageFinishedHelper =
-                mContentsClient.getOnPageFinishedHelper();
-        int currentCallCount = onPageFinishedHelper.getCallCount();
-        loadDataWithBaseUrlAsync(data, mimeType, isBase64Encoded, baseUrl, historyUrl);
-        onPageFinishedHelper.waitForCallback(currentCallCount, 1, WAIT_TIMEOUT_MS,
-                TimeUnit.MILLISECONDS);
-    }
-
-    protected void loadDataWithBaseUrlAsync(
-        final String data, final String mimeType, final boolean isBase64Encoded,
-        final String baseUrl, final String historyUrl) throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mAwContents.loadUrl(LoadUrlParams.createLoadDataParamsWithBaseUrl(
-                        data, mimeType, isBase64Encoded, baseUrl, historyUrl));
-            }
-        });
+        loadDataWithBaseUrlSync(mAwContents, mContentsClient.getOnPageFinishedHelper(),
+                data, mimeType, isBase64Encoded, baseUrl, historyUrl);
     }
 
     private static final String SCRIPT_FILE = "/script.js";
@@ -204,8 +186,8 @@ public class LoadDataWithBaseUrlTest extends AwTestBase {
         TestCallbackHelperContainer.OnPageStartedHelper onPageStartedHelper =
                 mContentsClient.getOnPageStartedHelper();
         final int callCount = onPageStartedHelper.getCallCount();
-        loadDataWithBaseUrlAsync(CommonResources.ABOUT_HTML, "text/html", false, baseUrl,
-                "about:blank");
+        loadDataWithBaseUrlAsync(mAwContents, CommonResources.ABOUT_HTML, "text/html", false,
+                baseUrl, "about:blank");
         onPageStartedHelper.waitForCallback(callCount);
         assertEquals(baseUrl, onPageStartedHelper.getUrl());
     }
