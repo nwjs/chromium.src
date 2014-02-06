@@ -1205,6 +1205,9 @@
         {
           'target_name': 'aura_builder',
           'type': 'none',
+          'dependencies': [
+            '../chrome/chrome.gyp:chrome',
+          ],
         },
       ],  # targets
     }], # "use_aura==1"
