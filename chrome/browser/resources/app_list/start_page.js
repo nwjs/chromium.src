@@ -67,13 +67,6 @@ cr.define('appList.startPage', function() {
   }
 
   /**
-   * Invoked when the hotword plugin should be loaded.
-   */
-  function maybeInitializePlugin() {
-    speechManager.maybeInitializePlugin();
-  }
-
-  /**
    * Invoked when the app-list bubble is shown.
    */
   function onAppListShown() {
@@ -98,7 +91,6 @@ cr.define('appList.startPage', function() {
   return {
     initialize: initialize,
     setRecommendedApps: setRecommendedApps,
-    maybeInitializePlugin: maybeInitializePlugin,
     onAppListShown: onAppListShown,
     onAppListHidden: onAppListHidden,
     toggleSpeechRecognition: toggleSpeechRecognition

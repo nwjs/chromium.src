@@ -38,6 +38,14 @@ cr.define('speech', function() {
   var recognitionPattern = /^HotwordFiredEvent: \[(.*)\] confidence: (.*)/;
 
   /**
+   * Checks the availability of the plugin.
+   * @return {boolean} True only if the plugin is available.
+   */
+  function isPluginAvailable() {
+    return !!($('recognizer') && $('recognizer').postMessage);
+  }
+
+  /**
    * @constructor
    */
   function PluginManager(onReady, onRecognized) {
@@ -46,18 +54,10 @@ cr.define('speech', function() {
     this.onRecognized_ = onRecognized;
     this.samplingRate_ = null;
     this.config_ = null;
-    var recognizer = $('recognizer');
-    if (!recognizer) {
-      recognizer = document.createElement('EMBED');
-      recognizer.id = 'recognizer';
-      recognizer.type = 'application/x-nacl';
-      recognizer.src = 'chrome://app-list/hotword_nacl.nmf';
-      recognizer.width = '1';
-      recognizer.height = '1';
-      document.body.appendChild(recognizer);
+    if (isPluginAvailable()) {
+      $('recognizer').addEventListener('message', this.onMessage_.bind(this));
+      $('recognizer').addEventListener('load', this.onLoad_.bind(this));
     }
-    recognizer.addEventListener('message', this.onMessage_.bind(this));
-    recognizer.addEventListener('load', this.onLoad_.bind(this));
   };
 
   /**
@@ -158,5 +158,6 @@ cr.define('speech', function() {
   return {
     PluginManager: PluginManager,
     PluginState: PluginState,
+    isPluginAvailable: isPluginAvailable
   };
 });
