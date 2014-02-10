@@ -2143,7 +2143,11 @@
               'caption': '''Do not allow any site to show popups''',
             },
           ],
-          'supported_on': ['chrome.*:10-', 'chrome_os:11-'],
+          'supported_on': [
+            'chrome.*:10-',
+            'chrome_os:11-',
+            'android:33-',
+          ],
           'features': {
             'dynamic_refresh': True,
             'per_profile': True,
