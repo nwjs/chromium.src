@@ -33,11 +33,6 @@ class GPU_EXPORT Program : public base::RefCounted<Program> {
  public:
   static const int kMaxAttachedShaders = 2;
 
-  enum VaryingsPackingOption {
-    kCountOnlyStaticallyUsed,
-    kCountAll
-  };
-
   struct UniformInfo {
     UniformInfo();
     UniformInfo(
@@ -161,7 +156,6 @@ class GPU_EXPORT Program : public base::RefCounted<Program> {
   bool Link(ShaderManager* manager,
             ShaderTranslator* vertex_translator,
             ShaderTranslator* fragment_shader,
-            VaryingsPackingOption varyings_packing_option,
             const ShaderCacheCallback& shader_callback);
 
   // Performs glValidateProgram and related activities.
@@ -204,7 +198,7 @@ class GPU_EXPORT Program : public base::RefCounted<Program> {
 
   // Return false if varyings can't be packed into the max available
   // varying registers.
-  bool CheckVaryingsPacking(VaryingsPackingOption option) const;
+  bool CheckVaryingsPacking() const;
 
   // Visible for testing
   const LocationMap& bind_attrib_location_map() const {
