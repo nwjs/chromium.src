@@ -44,8 +44,7 @@ index d1f8d1f..67bf660 100644
 +    "nativeMessaging",
 +    "fullscreen",
 +    "identity",
-+    "contextMenus",
-+    "overrideEscFullscreen"
++    "contextMenus"
    ],
 -  "plugins": [
 -    { "path": "remoting_host_plugin.dll", "public": false },
