@@ -226,7 +226,7 @@ class OmniboxFieldTrial {
   static const char kHQPAllowMatchInTLDRule[];
   static const char kHQPAllowMatchInSchemeRule[];
   // Rule values.
-  static const char kReorderForLegalDefaultMatchRuleEnabled[];
+  static const char kReorderForLegalDefaultMatchRuleDisabled[];
 
  private:
   friend class OmniboxFieldTrialTest;

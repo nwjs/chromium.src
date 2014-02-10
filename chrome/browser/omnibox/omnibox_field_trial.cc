@@ -301,8 +301,8 @@ OmniboxFieldTrial::GetUndemotableTopTypes(
 bool OmniboxFieldTrial::ReorderForLegalDefaultMatch(
     AutocompleteInput::PageClassification current_page_classification) {
   return OmniboxFieldTrial::GetValueForRuleInContext(
-      kReorderForLegalDefaultMatchRule, current_page_classification) ==
-      kReorderForLegalDefaultMatchRuleEnabled;
+      kReorderForLegalDefaultMatchRule, current_page_classification) !=
+      kReorderForLegalDefaultMatchRuleDisabled;
 }
 
 int OmniboxFieldTrial::HQPBookmarkValue() {
@@ -356,8 +356,8 @@ const char OmniboxFieldTrial::kHQPDiscountFrecencyWhenFewVisitsRule[] =
 const char OmniboxFieldTrial::kHQPAllowMatchInTLDRule[] = "HQPAllowMatchInTLD";
 const char OmniboxFieldTrial::kHQPAllowMatchInSchemeRule[] =
     "HQPAllowMatchInScheme";
-const char OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleEnabled[] =
-    "ReorderForLegalDefaultMatch";
+const char OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleDisabled[] =
+    "DontReorderForLegalDefaultMatch";
 
 // Background and implementation details:
 //

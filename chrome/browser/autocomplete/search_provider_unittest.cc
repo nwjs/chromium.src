@@ -1382,6 +1382,14 @@ TEST_F(SearchProviderTest, DefaultFetcherSuggestRelevance) {
       std::string() },
   };
 
+  std::map<std::string, std::string> params;
+  params[std::string(OmniboxFieldTrial::kReorderForLegalDefaultMatchRule) +
+      ":*:*"] = OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleDisabled;
+  ASSERT_TRUE(chrome_variations::AssociateVariationParams(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params));
+  base::FieldTrialList::CreateFieldTrial(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
+
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     QueryForInput(ASCIIToUTF16("a"), false, false);
     net::TestURLFetcher* fetcher =
@@ -1640,14 +1648,6 @@ TEST_F(SearchProviderTest, DefaultFetcherSuggestRelevanceWithReorder) {
         kEmptyMatch },
       std::string() },
   };
-
-  std::map<std::string, std::string> params;
-  params[std::string(OmniboxFieldTrial::kReorderForLegalDefaultMatchRule) +
-      ":*:*"] = OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleEnabled;
-  ASSERT_TRUE(chrome_variations::AssociateVariationParams(
-      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params));
-  base::FieldTrialList::CreateFieldTrial(
-      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     QueryForInput(ASCIIToUTF16("a"), false, false);
@@ -2112,6 +2112,14 @@ TEST_F(SearchProviderTest, KeywordFetcherSuggestRelevance) {
         kEmptyMatch },
       "3" },
   };
+
+  std::map<std::string, std::string> params;
+  params[std::string(OmniboxFieldTrial::kReorderForLegalDefaultMatchRule) +
+      ":*:*"] = OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleDisabled;
+  ASSERT_TRUE(chrome_variations::AssociateVariationParams(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params));
+  base::FieldTrialList::CreateFieldTrial(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     QueryForInput(ASCIIToUTF16("k a"), false, true);
@@ -2579,14 +2587,6 @@ TEST_F(SearchProviderTest, KeywordFetcherSuggestRelevanceWithReorder) {
       "3" },
   };
 
-  std::map<std::string, std::string> params;
-  params[std::string(OmniboxFieldTrial::kReorderForLegalDefaultMatchRule) +
-      ":*:*"] = OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleEnabled;
-  ASSERT_TRUE(chrome_variations::AssociateVariationParams(
-      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params));
-  base::FieldTrialList::CreateFieldTrial(
-      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
-
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     QueryForInput(ASCIIToUTF16("k a"), false, true);
 
@@ -2695,21 +2695,7 @@ TEST_F(SearchProviderTest, LocalAndRemoteRelevances) {
        "{\"google:suggesttype\":[\"QUERY\", \"QUERY\", \"QUERY\", \"QUERY\"],"
         "\"google:verbatimrelevance\":1450,"
         "\"google:suggestrelevance\":[1430, 1410, 1390, 1370]}]",
-      { "term", "a1", "a2", "term2", "a3", "a4" } },
-    // When the input looks like a URL, we disallow having a query as the
-    // highest-ranking result.  If the query was provided by a suggestion, we
-    // reset the suggest scores to enforce this (see
-    // SearchProvider::UpdateMatches()).  Even if we reset the suggest scores,
-    // however, we should still allow navsuggestions to be treated as
-    // server-provided.
-    { ASCIIToUTF16("a.com"),
-      "[\"a.com\",[\"a1\", \"a2\", \"a.com/1\", \"a.com/2\"],[],[],"
-       "{\"google:suggesttype\":[\"QUERY\", \"QUERY\", \"NAVIGATION\","
-                                "\"NAVIGATION\"],"
-        // A verbatim query for URL-like input scores 850, so the navigation
-        // scores here should bracket it.
-        "\"google:suggestrelevance\":[9999, 9998, 900, 800]}]",
-      { "a.com/1", "a.com", "a.com/2", "a1", kNotApplicable, kNotApplicable } },
+      { "term", "a1", "a2", "term2", "a3", "a4" } }
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
@@ -2816,6 +2802,14 @@ TEST_F(SearchProviderTest, DefaultProviderSuggestRelevanceScoringUrlInput) {
         { "a.com/a", AutocompleteMatchType::SEARCH_SUGGEST,        true },
         kEmptyMatch } },
   };
+
+  std::map<std::string, std::string> params;
+  params[std::string(OmniboxFieldTrial::kReorderForLegalDefaultMatchRule) +
+      ":*:*"] = OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleDisabled;
+  ASSERT_TRUE(chrome_variations::AssociateVariationParams(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params));
+  base::FieldTrialList::CreateFieldTrial(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     QueryForInput(ASCIIToUTF16(cases[i].input), false, false);
@@ -2942,14 +2936,6 @@ TEST_F(SearchProviderTest,
         { "a.com", AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED, true },
         kEmptyMatch, kEmptyMatch } },
   };
-
-  std::map<std::string, std::string> params;
-  params[std::string(OmniboxFieldTrial::kReorderForLegalDefaultMatchRule) +
-      ":*:*"] = OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleEnabled;
-  ASSERT_TRUE(chrome_variations::AssociateVariationParams(
-      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params));
-  base::FieldTrialList::CreateFieldTrial(
-      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     QueryForInput(ASCIIToUTF16(cases[i].input), false, false);
@@ -3365,6 +3351,14 @@ TEST_F(SearchProviderTest, RemoveStaleResultsTest) {
         { "friend",             false, 1266, true  },
         { "http://friend.com/", true,  1255, true  } } },
   };
+
+  std::map<std::string, std::string> params;
+  params[std::string(OmniboxFieldTrial::kReorderForLegalDefaultMatchRule) +
+      ":*:*"] = OmniboxFieldTrial::kReorderForLegalDefaultMatchRuleDisabled;
+  ASSERT_TRUE(chrome_variations::AssociateVariationParams(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params));
+  base::FieldTrialList::CreateFieldTrial(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     // Initialize cached results for this test case.
