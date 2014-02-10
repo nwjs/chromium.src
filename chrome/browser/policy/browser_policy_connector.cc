@@ -59,6 +59,8 @@
 #include "components/policy/core/common/preferences_mac.h"
 #elif defined(OS_POSIX) && !defined(OS_ANDROID)
 #include "components/policy/core/common/config_dir_policy_loader.h"
+#elif defined(OS_ANDROID)
+#include "components/policy/core/common/policy_provider_android.h"
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -602,6 +604,8 @@ ConfigurationPolicyProvider* BrowserPolicyConnector::CreatePlatformProvider() {
   } else {
     return NULL;
   }
+#elif defined(OS_ANDROID)
+  return new PolicyProviderAndroid();
 #else
   return NULL;
 #endif
