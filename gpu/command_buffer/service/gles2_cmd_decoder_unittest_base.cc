@@ -1253,9 +1253,6 @@ void GLES2DecoderTestBase::SetupShader(
   link_cmd.Init(program_client_id);
 
   EXPECT_EQ(error::kNoError, ExecuteCmd(link_cmd));
-
-  // Assume the next command will be UseProgram.
-  SetupExpectationsForClearingUniforms(uniforms, num_uniforms);
 }
 
 void GLES2DecoderTestBase::DoEnableVertexAttribArray(GLint index) {
