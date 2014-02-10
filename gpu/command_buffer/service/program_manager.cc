@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "gpu/command_buffer/common/gles2_cmd_format.h"
 #include "gpu/command_buffer/common/gles2_cmd_utils.h"
+#include "gpu/command_buffer/service/feature_info.h"
 #include "gpu/command_buffer/service/gles2_cmd_decoder.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/program_cache.h"
@@ -460,10 +461,9 @@ void Program::ExecuteBindAttribLocationCalls() {
   }
 }
 
-void ProgramManager::DoCompileShader(
-    Shader* shader,
-    ShaderTranslator* translator,
-    ProgramManager::TranslatedShaderSourceType translated_shader_source_type) {
+void ProgramManager::DoCompileShader(Shader* shader,
+                                     ShaderTranslator* translator,
+                                     FeatureInfo* feature_info) {
   // Translate GL ES 2.0 shader to Desktop GL shader and pass that to
   // glShaderSource and then glCompileShader.
   const std::string* source = shader->source();
@@ -474,13 +474,13 @@ void ProgramManager::DoCompileShader(
       return;
     }
     shader_src = translator->translated_shader();
-    if (translated_shader_source_type != kANGLE)
+    if (!feature_info->feature_flags().angle_translated_shader_source)
       shader->UpdateTranslatedSource(shader_src);
   }
 
   glShaderSource(shader->service_id(), 1, &shader_src, NULL);
   glCompileShader(shader->service_id());
-  if (translated_shader_source_type == kANGLE) {
+  if (feature_info->feature_flags().angle_translated_shader_source) {
     GLint max_len = 0;
     glGetShaderiv(shader->service_id(),
                   GL_TRANSLATED_SHADER_SOURCE_LENGTH_ANGLE,
@@ -522,6 +522,7 @@ void ProgramManager::DoCompileShader(
 bool Program::Link(ShaderManager* manager,
                    ShaderTranslator* vertex_translator,
                    ShaderTranslator* fragment_translator,
+                   FeatureInfo* feature_info,
                    const ShaderCacheCallback& shader_callback) {
   ClearLinkStatus();
   if (!CanLink()) {
@@ -1237,6 +1238,9 @@ ProgramManager::ProgramManager(ProgramCache* program_cache,
                                uint32 max_varying_vectors)
     : program_count_(0),
       have_context_(true),
+      disable_workarounds_(
+          CommandLine::ForCurrentProcess()->HasSwitch(
+              switches::kDisableGpuDriverBugWorkarounds)),
       program_cache_(program_cache),
       max_varying_vectors_(max_varying_vectors) { }
 
@@ -1331,6 +1335,7 @@ void ProgramManager::UseProgram(Program* program) {
   DCHECK(program);
   DCHECK(IsOwned(program));
   program->IncUseCount();
+  ClearUniforms(program);
 }
 
 void ProgramManager::UnuseProgram(
@@ -1345,7 +1350,9 @@ void ProgramManager::UnuseProgram(
 
 void ProgramManager::ClearUniforms(Program* program) {
   DCHECK(program);
-  program->ClearUniforms(&zero_);
+  if (!disable_workarounds_) {
+    program->ClearUniforms(&zero_);
+  }
 }
 
 int32 ProgramManager::MakeFakeLocation(int32 index, int32 element) {
