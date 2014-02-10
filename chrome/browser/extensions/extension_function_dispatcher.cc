@@ -32,6 +32,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/result_codes.h"
+#include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/quota_service.h"
 #include "extensions/common/extension_api.h"
@@ -41,6 +42,7 @@
 
 using extensions::Extension;
 using extensions::ExtensionAPI;
+using extensions::ExtensionsBrowserClient;
 using extensions::ExtensionSystem;
 using extensions::Feature;
 using content::RenderViewHost;
@@ -62,6 +64,10 @@ void LogSuccess(const std::string& extension_id,
                                        base::Passed(&args),
                                        browser_context));
   } else {
+    // The BrowserContext may become invalid after the task above is posted.
+    if (!ExtensionsBrowserClient::Get()->IsValidContext(browser_context))
+      return;
+
     extensions::ActivityLog* activity_log =
         extensions::ActivityLog::GetInstance(browser_context);
     scoped_refptr<extensions::Action> action =
