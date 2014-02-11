@@ -1861,6 +1861,7 @@ LRESULT HWNDMessageHandler::OnNCHitTest(const CPoint& point) {
   return hit_test_code;
 #else
   SetMsgHandled(FALSE);
+  return 0;
 #endif
 }
 
