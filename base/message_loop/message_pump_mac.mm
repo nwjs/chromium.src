@@ -28,6 +28,8 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
+#include "third_party/node/src/node_webkit.h"
+
 namespace base {
 
 namespace {
@@ -132,7 +134,7 @@ class MessagePumpScopedAutoreleasePool {
 };
 
 // Must be called on the run loop thread.
-MessagePumpCFRunLoopBase::MessagePumpCFRunLoopBase()
+MessagePumpCFRunLoopBase::MessagePumpCFRunLoopBase(bool forNode)
     : delegate_(NULL),
       delayed_work_fire_time_(kCFTimeIntervalMax),
       timer_slack_(base::TIMER_SLACK_NONE),
@@ -140,7 +142,8 @@ MessagePumpCFRunLoopBase::MessagePumpCFRunLoopBase()
       run_nesting_level_(0),
       deepest_nesting_level_(0),
       delegateless_work_(false),
-      delegateless_idle_work_(false) {
+      delegateless_idle_work_(false),
+      for_node_(forNode) {
   run_loop_ = CFRunLoopGetCurrent();
   CFRetain(run_loop_);
 
@@ -483,6 +486,15 @@ void MessagePumpCFRunLoopBase::PreWaitObserver(CFRunLoopObserverRef observer,
   // Attempt to do some idle work before going to sleep.
   self->RunIdleWork();
 
+  // call tick callback before sleep in mach port
+  // in the same way node upstream handle this in MakeCallBack,
+  // or the tick callback is blocked in some cases
+  if (node::g_env && self->for_node_) {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope scope(isolate);
+    node::CallTickCallback(node::g_env, v8::Undefined(isolate));
+  }
+
   // The run loop is about to go to sleep.  If any of the work done since it
   // started or woke up resulted in a nested run loop running,
   // nesting-deferred work may have accumulated.  Schedule it for processing
@@ -610,8 +622,8 @@ void MessagePumpCFRunLoop::EnterExitRunLoop(CFRunLoopActivity activity) {
   }
 }
 
-MessagePumpNSRunLoop::MessagePumpNSRunLoop()
-    : keep_running_(true) {
+MessagePumpNSRunLoop::MessagePumpNSRunLoop(bool forNode)
+    : MessagePumpCFRunLoopBase(forNode), keep_running_(true) {
   CFRunLoopSourceContext source_context = CFRunLoopSourceContext();
   source_context.perform = NoOp;
   quit_source_ = CFRunLoopSourceCreate(NULL,  // allocator
@@ -666,7 +678,8 @@ void MessagePumpUIApplication::Attach(Delegate* delegate) {
 #else
 
 MessagePumpNSApplication::MessagePumpNSApplication(bool for_node)
-    : keep_running_(true),
+    : MessagePumpCFRunLoopBase(for_node),
+      keep_running_(true),
       running_own_loop_(false),
       pause_uv_(false),
       for_node_(for_node) {
@@ -927,7 +940,7 @@ MessagePump* MessagePumpMac::Create(bool forNode) {
 #endif
   }
 
-  return new MessagePumpNSRunLoop;
+  return new MessagePumpNSRunLoop(forNode);
 }
 
 }  // namespace base
