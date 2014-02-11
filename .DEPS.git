@@ -11,7 +11,7 @@ vars = {
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@origin/rb32'
+         '@origin/node'
          #'@2cc039b4720333bdf2cd51165b41d0f41e79b5c6'
 }
 
@@ -141,7 +141,7 @@ deps = {
          'https://github.com/rogerwang/v8.git@origin/rb32',
     #    Var('git_url') + '/external/v8.git@ed29eb2bdad388c1ce751d68bd4fe6f4f5a7cbc8',
     'src/third_party/node':
-        'https://github.com/rogerwang/node.git@origin/rb32',
+        'https://github.com/rogerwang/node.git@origin/master',
     'src/content/nw':
         'https://github.com/rogerwang/node-webkit.git@origin/master',
 }
