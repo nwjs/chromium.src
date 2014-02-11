@@ -11,7 +11,7 @@ vars = {
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@origin/node'
+         '@origin/nw0.8'
          #'@2901640416871fcfce5c4650ea7c2b5c545ef324'
 }
 
@@ -141,7 +141,7 @@ deps = {
     'src/v8':
         'https://github.com/rogerwang/v8.git@origin/nwebkit',
     'src/third_party/node':
-        'https://github.com/rogerwang/node.git@origin/master',
+        'https://github.com/rogerwang/node.git@origin/nw0.8',
     'src/content/nw':
         'https://github.com/rogerwang/node-webkit.git@origin/v0.8',
 }
