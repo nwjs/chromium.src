@@ -457,6 +457,9 @@ const char kDoNotTrackLearnMoreURL[] =
 #if defined(OS_CHROMEOS)
 const char kAttestationForContentProtectionLearnMoreURL[] =
     "https://support.google.com/chromebook/?p=tpm";
+
+const char kEnhancedPlaybackNotificationLearnMoreURL[] =
+    "https://support.google.com/chromebook/?p=enhanced_playback";
 #endif
 
 const char kChromiumProjectURL[] = "http://www.chromium.org/";
