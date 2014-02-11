@@ -3310,9 +3310,8 @@ void GLES2DecoderImpl::Destroy(bool have_context) {
   // by the context group.
   async_pixel_transfer_manager_.reset();
 
-  framebuffer_manager()->RemoveObserver(this);
-
   if (group_.get()) {
+    framebuffer_manager()->RemoveObserver(this);
     group_->Destroy(this, have_context);
     group_ = NULL;
   }
