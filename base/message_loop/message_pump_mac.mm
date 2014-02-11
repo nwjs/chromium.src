@@ -30,6 +30,9 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
+#include "third_party/node/src/node.h"
+#include "third_party/node/src/node_internals.h"
+
 namespace {
 
 void NoOp(void* info) {
@@ -521,6 +524,12 @@ bool MessagePumpCFRunLoopBase::RunWork() {
         resignal_work_source = true;
       }
     }
+  } else {
+      // call tick callback after done work in V8,
+      // in the same way node upstream handle this in MakeCallBack,
+      // or the tick callback is blocked in some cases
+    if (node::g_env)
+      node::CallTickCallback(node::g_env, v8::Undefined());
   }
 
   if (resignal_work_source) {
@@ -561,6 +570,8 @@ bool MessagePumpCFRunLoopBase::RunIdleWork() {
   // again as long as the loop is still running.
   bool did_work = delegate_->DoIdleWork();
   if (did_work) {
+    if (node::g_env)
+      node::CallTickCallback(node::g_env, v8::Undefined());
     CFRunLoopSourceSignal(idle_work_source_);
   }
 
