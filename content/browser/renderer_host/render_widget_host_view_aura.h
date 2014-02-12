@@ -68,10 +68,6 @@ class Texture;
 }
 
 namespace content {
-#if defined(OS_WIN)
-class LegacyRenderWidgetHostHWND;
-#endif
-
 class RenderWidgetHostImpl;
 class RenderWidgetHostView;
 class ResizeLock;
@@ -776,12 +772,10 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   base::WeakPtrFactory<RenderWidgetHostViewAura> weak_ptr_factory_;
 
 #if defined(OS_WIN)
-  // The LegacyRenderWidgetHostHWND class provides a dummy HWND which is used
-  // for accessibility, as the container for windowless plugins like
-  // Flash/Silverlight, etc and for legacy drivers for trackpoints/trackpads,
-  // etc.
-  scoped_ptr<content::LegacyRenderWidgetHostHWND>
-      legacy_render_widget_host_HWND_;
+  // The dummy HWND which corresponds to the bounds of the web page. This is
+  // passed to windowless plugins like Flash/Silverlight, etc as the
+  // container window.
+  HWND plugin_parent_window_;
 #endif
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAura);
 };
