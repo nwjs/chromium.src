@@ -30,10 +30,6 @@
 class PrefService;
 class ProfileSyncService;
 
-namespace extensions {
-class ExternalComponentLoaderTest;
-}
-
 namespace policy {
 struct DeviceLocalAccount;
 }
@@ -153,7 +149,6 @@ class UserManagerImpl
       scoped_ptr<locale_util::SwitchLanguageCallback> callback) const OVERRIDE;
 
  private:
-  friend class extensions::ExternalComponentLoaderTest;
   friend class SupervisedUserManagerImpl;
   friend class UserManager;
   friend class WallpaperManager;

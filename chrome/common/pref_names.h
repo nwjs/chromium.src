@@ -275,7 +275,6 @@ extern const char kOpenNetworkConfiguration[];
 extern const char kRAConsentFirstTime[];
 extern const char kMultiProfileNotificationDismissed[];
 extern const char kMultiProfileUserBehavior[];
-extern const char kHighQualitySpeechSynthesisLanguages[];
 #endif  // defined(OS_CHROMEOS)
 extern const char kIpcDisabledMessages[];
 extern const char kShowHomeButton[];

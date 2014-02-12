@@ -165,8 +165,6 @@ void TtsController::SpeakNow(Utterance* utterance) {
   else
     voice.native = true;
 
-  GetPlatformImpl()->WillSpeakUtteranceWithVoice(utterance, voice);
-
   if (!voice.native) {
 #if !defined(OS_ANDROID)
     DCHECK(!voice.extension_id.empty());
@@ -195,6 +193,14 @@ void TtsController::SpeakNow(Utterance* utterance) {
         utterance->continuous_parameters());
     if (!success)
       current_utterance_ = NULL;
+
+    // If the native voice wasn't able to process this speech, see if
+    // the browser has built-in TTS that isn't loaded yet.
+    if (!success &&
+        GetPlatformImpl()->LoadBuiltInTtsExtension(utterance->profile())) {
+      utterance_queue_.push(utterance);
+      return;
+    }
 
     if (!success) {
       utterance->OnTtsEvent(TTS_EVENT_ERROR, kInvalidCharIndex,
@@ -304,6 +310,11 @@ void TtsController::SpeakNextUtterance() {
     utterance_queue_.pop();
     SpeakNow(utterance);
   }
+}
+
+void TtsController::RetrySpeakingQueuedUtterances() {
+  if (current_utterance_ == NULL && !utterance_queue_.empty())
+    SpeakNextUtterance();
 }
 
 void TtsController::ClearUtteranceQueue(bool send_events) {
