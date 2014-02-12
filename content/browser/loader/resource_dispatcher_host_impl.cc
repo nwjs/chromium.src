@@ -964,6 +964,11 @@ void ResourceDispatcherHostImpl::UpdateRequestForTransfer(
                                                request_id);
   }
 
+  appcache::AppCacheInterceptor::CompleteCrossSiteTransfer(
+      loader->request(),
+      child_id,
+      request_data.appcache_host_id);
+
   // We should have a CrossSiteResourceHandler to finish the transfer.
   DCHECK(info->cross_site_handler());
 }
