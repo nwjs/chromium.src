@@ -209,6 +209,7 @@ ExynosVideoDecodeAccelerator::ExynosVideoDecodeAccelerator(
       mfc_output_buffer_pixelformat_(0),
       mfc_output_dpb_size_(0),
       picture_clearing_count_(0),
+      pictures_assigned_(false, false),
       device_poll_thread_("ExynosDevicePollThread"),
       device_poll_interrupt_fd_(-1),
       make_context_current_(make_context_current),
@@ -387,6 +388,8 @@ void ExynosVideoDecodeAccelerator::AssignPictureBuffers(
     return;
   }
 
+  // It's safe to manipulate all the buffer state here, because the decoder
+  // thread is waiting on pictures_assigned_.
   scoped_ptr<PictureBufferArrayRef> picture_buffers_ref(
       new PictureBufferArrayRef(egl_display_));
   gfx::ScopedTextureBinder bind_restore(GL_TEXTURE_EXTERNAL_OES, 0);
@@ -421,11 +424,29 @@ void ExynosVideoDecodeAccelerator::AssignPictureBuffers(
     picture_buffers_ref->picture_buffers.push_back(
         PictureBufferArrayRef::PictureBufferRef(egl_image, buffers[i].id()));
   }
-  decoder_thread_.message_loop()->PostTask(
-      FROM_HERE,
-      base::Bind(&ExynosVideoDecodeAccelerator::AssignPictureBuffersTask,
-                 base::Unretained(this),
-                 base::Passed(&picture_buffers_ref)));
+
+  DCHECK(mfc_free_output_buffers_.empty());
+  DCHECK_EQ(picture_buffers_ref->picture_buffers.size(),
+            mfc_output_buffer_map_.size());
+  for (size_t i = 0; i < mfc_output_buffer_map_.size(); ++i) {
+    MfcOutputRecord& output_record = mfc_output_buffer_map_[i];
+    PictureBufferArrayRef::PictureBufferRef& buffer_ref =
+        picture_buffers_ref->picture_buffers[i];
+    // We should be blank right now.
+    DCHECK(!output_record.at_device);
+    DCHECK(!output_record.at_client);
+    DCHECK_EQ(output_record.egl_image, EGL_NO_IMAGE_KHR);
+    DCHECK_EQ(output_record.egl_sync, EGL_NO_SYNC_KHR);
+    DCHECK_EQ(output_record.picture_id, -1);
+    DCHECK_EQ(output_record.cleared, false);
+    output_record.egl_image = buffer_ref.egl_image;
+    output_record.picture_id = buffer_ref.picture_id;
+    mfc_free_output_buffers_.push(i);
+    DVLOG(3) << "AssignPictureBuffers(): buffer[" << i
+             << "]: picture_id=" << buffer_ref.picture_id;
+  }
+  picture_buffers_ref->picture_buffers.clear();
+  pictures_assigned_.Signal();
 }
 
 void ExynosVideoDecodeAccelerator::ReusePictureBuffer(int32 picture_buffer_id) {
@@ -479,6 +500,7 @@ void ExynosVideoDecodeAccelerator::Destroy() {
   if (decoder_thread_.IsRunning()) {
     decoder_thread_.message_loop()->PostTask(FROM_HERE, base::Bind(
         &ExynosVideoDecodeAccelerator::DestroyTask, base::Unretained(this)));
+    pictures_assigned_.Signal();
     // DestroyTask() will cause the decoder_thread_ to flush all tasks.
     decoder_thread_.Stop();
   } else {
@@ -511,7 +533,7 @@ void ExynosVideoDecodeAccelerator::DecodeTask(
     NOTIFY_ERROR(UNREADABLE_INPUT);
     return;
   }
-  DVLOG(3) << "Decode(): mapped to addr=" << bitstream_record->shm->memory();
+  DVLOG(3) << "DecodeTask(): mapped at=" << bitstream_record->shm->memory();
 
   if (decoder_state_ == kResetting || decoder_flushing_) {
     // In the case that we're resetting or flushing, we need to delay decoding
@@ -926,46 +948,6 @@ bool ExynosVideoDecodeAccelerator::FlushInputFrame() {
   return (decoder_state_ != kError);
 }
 
-void ExynosVideoDecodeAccelerator::AssignPictureBuffersTask(
-    scoped_ptr<PictureBufferArrayRef> pic_buffers) {
-  DVLOG(3) << "AssignPictureBuffersTask()";
-  DCHECK_EQ(decoder_thread_.message_loop(), base::MessageLoop::current());
-  DCHECK_NE(decoder_state_, kUninitialized);
-  TRACE_EVENT0("Video Decoder", "EVDA::AssignPictureBuffersTask");
-
-  // We run AssignPictureBuffersTask even if we're in kResetting.
-  if (decoder_state_ == kError) {
-    DVLOG(2) << "AssignPictureBuffersTask(): early out: kError state";
-    return;
-  }
-
-  DCHECK_EQ(pic_buffers->picture_buffers.size(), mfc_output_buffer_map_.size());
-  for (size_t i = 0; i < mfc_output_buffer_map_.size(); ++i) {
-    MfcOutputRecord& output_record = mfc_output_buffer_map_[i];
-    PictureBufferArrayRef::PictureBufferRef& buffer_ref =
-        pic_buffers->picture_buffers[i];
-    // We should be blank right now.
-    DCHECK(!output_record.at_device);
-    DCHECK(!output_record.at_client);
-    DCHECK_EQ(output_record.egl_image, EGL_NO_IMAGE_KHR);
-    DCHECK_EQ(output_record.egl_sync, EGL_NO_SYNC_KHR);
-    DCHECK_EQ(output_record.picture_id, -1);
-    DCHECK_EQ(output_record.cleared, false);
-    output_record.egl_image = buffer_ref.egl_image;
-    output_record.picture_id = buffer_ref.picture_id;
-    mfc_free_output_buffers_.push(i);
-    DVLOG(3) << "AssignPictureBuffersTask(): buffer[" << i
-             << "]: picture_id=" << buffer_ref.picture_id;
-  }
-  pic_buffers->picture_buffers.clear();
-
-  // We got buffers!  Kick the MFC.
-  EnqueueMfc();
-
-  if (decoder_state_ == kChangingResolution)
-    ResumeAfterResolutionChange();
-}
-
 void ExynosVideoDecodeAccelerator::ServiceDeviceTask(bool mfc_event_pending) {
   DVLOG(3) << "ServiceDeviceTask()";
   DCHECK_EQ(decoder_thread_.message_loop(), base::MessageLoop::current());
@@ -1200,7 +1182,7 @@ bool ExynosVideoDecodeAccelerator::EnqueueMfcInputRecord() {
   input_record.at_device = true;
   mfc_input_buffer_queued_count_++;
   DVLOG(3) << "EnqueueMfcInputRecord(): enqueued input_id="
-           << input_record.input_id;
+           << input_record.input_id << " size="  << input_record.bytes_used;
   return true;
 }
 
@@ -1266,8 +1248,13 @@ void ExynosVideoDecodeAccelerator::ReusePictureBufferTask(
       break;
 
   if (index >= mfc_output_buffer_map_.size()) {
-    DLOG(ERROR) << "ReusePictureBufferTask(): picture_buffer_id not found";
-    NOTIFY_ERROR(INVALID_ARGUMENT);
+    // It's possible that we've already posted a DismissPictureBuffer for this
+    // picture, but it has not yet executed when this ReusePictureBuffer was
+    // posted to us by the client. In that case just ignore this (we've already
+    // dismissed it and accounted for that) and let the sync object get
+    // destroyed.
+    DVLOG(4) << "ReusePictureBufferTask(): got picture id= "
+             << picture_buffer_id << " not in use (anymore?).";
     return;
   }
 
@@ -1279,6 +1266,7 @@ void ExynosVideoDecodeAccelerator::ReusePictureBufferTask(
   }
 
   DCHECK_EQ(output_record.egl_sync, EGL_NO_SYNC_KHR);
+  DCHECK(!output_record.at_device);
   output_record.at_client = false;
   output_record.egl_sync = egl_sync_ref->egl_sync;
   mfc_free_output_buffers_.push(index);
@@ -1431,7 +1419,14 @@ void ExynosVideoDecodeAccelerator::ResetDoneTask() {
 
   // Jobs drained, we're finished resetting.
   DCHECK_EQ(decoder_state_, kResetting);
-  decoder_state_ = kAfterReset;
+  if (mfc_output_buffer_map_.empty()) {
+    // We must have gotten Reset() before we had a chance to request buffers
+    // from the client.
+    decoder_state_ = kInitialized;
+  } else {
+    decoder_state_ = kAfterReset;
+  }
+
   decoder_partial_frame_pending_ = false;
   decoder_delay_bitstream_buffer_id_ = -1;
   child_message_loop_proxy_->PostTask(FROM_HERE, base::Bind(
@@ -1521,15 +1516,22 @@ bool ExynosVideoDecodeAccelerator::StopDevicePoll(bool keep_mfc_input_state) {
     }
     mfc_input_buffer_queued_count_ = 0;
   }
+
   while (!mfc_free_output_buffers_.empty())
     mfc_free_output_buffers_.pop();
+
   for (size_t i = 0; i < mfc_output_buffer_map_.size(); ++i) {
     MfcOutputRecord& output_record = mfc_output_buffer_map_[i];
-    // Only mark those free that aren't being held by the VDA client.
+    DCHECK(!(output_record.at_client && output_record.at_device));
+
+    // After streamoff, the device drops ownership of all buffers, even if
+    // we don't dequeue them explicitly.
+    mfc_output_buffer_map_[i].at_device = false;
+    // Some of them may still be owned by the client however.
+    // Reuse only those that aren't.
     if (!output_record.at_client) {
       DCHECK_EQ(output_record.egl_sync, EGL_NO_SYNC_KHR);
       mfc_free_output_buffers_.push(i);
-      mfc_output_buffer_map_[i].at_device = false;
     }
   }
   mfc_output_buffer_queued_count_ = 0;
@@ -1595,6 +1597,7 @@ void ExynosVideoDecodeAccelerator::StartResolutionChangeIfNeeded() {
 
 void ExynosVideoDecodeAccelerator::FinishResolutionChange() {
   DCHECK_EQ(decoder_thread_.message_loop(), base::MessageLoop::current());
+  DCHECK_EQ(decoder_state_, kChangingResolution);
   DVLOG(3) << "FinishResolutionChange()";
 
   if (decoder_state_ == kError) {
@@ -1617,8 +1620,7 @@ void ExynosVideoDecodeAccelerator::FinishResolutionChange() {
     return;
   }
 
-  // From here we stay in kChangingResolution and wait for
-  // AssignPictureBuffers() before we can resume.
+  ResumeAfterResolutionChange();
 }
 
 void ExynosVideoDecodeAccelerator::ResumeAfterResolutionChange() {
@@ -1726,7 +1728,7 @@ bool ExynosVideoDecodeAccelerator::GetFormatInfo(struct v4l2_format* format,
       *again = true;
       return true;
     } else {
-      DPLOG(ERROR) << "DecodeBufferInitial(): ioctl() failed: VIDIOC_G_FMT";
+      DPLOG(ERROR) << __func__ << "(): ioctl() failed: VIDIOC_G_FMT";
       NOTIFY_ERROR(PLATFORM_FAILURE);
       return false;
     }
@@ -1865,6 +1867,22 @@ bool ExynosVideoDecodeAccelerator::CreateMfcOutputBuffers() {
                                                  frame_buffer_size_,
                                                  GL_TEXTURE_EXTERNAL_OES));
 
+  // Wait for the client to call AssignPictureBuffers() on the Child thread.
+  // We do this, because if we continue decoding without finishing buffer
+  // allocation, we may end up Resetting before AssignPictureBuffers arrives,
+  // resulting in unnecessary complications and subtle bugs.
+  // For example, if the client calls Decode(Input1), Reset(), Decode(Input2)
+  // in a sequence, and Decode(Input1) results in us getting here and exiting
+  // without waiting, we might end up running Reset{,Done}Task() before
+  // AssignPictureBuffers is scheduled, thus cleaning up and pushing buffers
+  // to the free_output_buffers_ map twice. If we somehow marked buffers as
+  // not ready, we'd need special handling for restarting the second Decode
+  // task and delaying it anyway.
+  // Waiting here is not very costly and makes reasoning about different
+  // situations much simpler.
+  pictures_assigned_.Wait();
+
+  EnqueueMfc();
   return true;
 }
 
