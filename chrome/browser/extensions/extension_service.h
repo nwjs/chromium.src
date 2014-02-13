@@ -209,9 +209,6 @@ class ExtensionService
   // Initialize and start all installed extensions.
   void Init();
 
-  // See if we need to bootstrap the install verifier.
-  void MaybeBootstrapVerifier();
-
   // Attempts to verify all extensions using the InstallVerifier. The
   // |bootstrap| parameter indicates whether we're doing this because the
   // InstallVerifier needed to be bootstrapped (otherwise it's for another
