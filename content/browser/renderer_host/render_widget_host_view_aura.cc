@@ -67,6 +67,7 @@
 #include "ui/base/hit_test.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/compositor/compositor_vsync_manager.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
@@ -3347,6 +3348,7 @@ RenderWidgetHostViewAura::~RenderWidgetHostViewAura() {
   if (::IsWindow(plugin_parent_window_))
     ::DestroyWindow(plugin_parent_window_);
 #endif
+  DCHECK(!vsync_manager_);
 }
 
 void RenderWidgetHostViewAura::UpdateCursorIfOverSelf() {
@@ -3510,8 +3512,11 @@ void RenderWidgetHostViewAura::AddedToRootWindow() {
   }
 
   ui::Compositor* compositor = GetCompositor();
-  if (compositor)
-    compositor->vsync_manager()->AddObserver(this);
+  if (compositor) {
+    DCHECK(!vsync_manager_);
+    vsync_manager_ = compositor->vsync_manager();
+    vsync_manager_->AddObserver(this);
+  }
 }
 
 void RenderWidgetHostViewAura::RemovingFromRootWindow() {
@@ -3537,11 +3542,12 @@ void RenderWidgetHostViewAura::RemovingFromRootWindow() {
   resize_lock_.reset();
   host_->WasResized();
 
-  if (compositor) {
-    if (compositor->HasObserver(this))
-      compositor->RemoveObserver(this);
-    compositor->vsync_manager()->RemoveObserver(this);
-  }
+  if (compositor && compositor->HasObserver(this)) 
+     compositor->RemoveObserver(this);
+
+  if (vsync_manager_) {
+    vsync_manager_->RemoveObserver(this);
+    vsync_manager_ = NULL;
 }
 
 ui::Compositor* RenderWidgetHostViewAura::GetCompositor() const {
