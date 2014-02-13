@@ -82,7 +82,6 @@
 #if defined(OS_WIN)
 #include "content/browser/accessibility/browser_accessibility_manager_win.h"
 #include "content/browser/accessibility/browser_accessibility_win.h"
-#include "content/browser/renderer_host/legacy_render_widget_host_win.h"
 #include "content/common/plugin_constants_win.h"
 #include "ui/base/win/hidden_window.h"
 #include "ui/gfx/gdi_util.h"
@@ -490,6 +489,9 @@ RenderWidgetHostViewAura::RenderWidgetHostViewAura(RenderWidgetHost* host)
   gfx::Screen::GetScreenFor(window_)->AddObserver(this);
   software_frame_manager_.reset(new SoftwareFrameManager(
       weak_ptr_factory_.GetWeakPtr()));
+#if defined(OS_WIN)
+  plugin_parent_window_ = NULL;
+#endif
   ImageTransportFactory::GetInstance()->AddObserver(this);
 }
 
@@ -619,18 +621,15 @@ void RenderWidgetHostViewAura::WasShown() {
   }
 
 #if defined(OS_WIN)
-  if (legacy_render_widget_host_HWND_) {
-    // Reparent the legacy Chrome_RenderWidgetHostHWND window to the parent
-    // window before reparenting any plugins. This ensures that the plugin
-    // windows stay on top of the child Zorder in the parent and receive
-    // mouse events, etc.
-    legacy_render_widget_host_HWND_->UpdateParent(
-        GetNativeView()->GetDispatcher()->host()->GetAcceleratedWidget());
-    legacy_render_widget_host_HWND_->SetBounds(
-        window_->GetBoundsInRootWindow());
-  }
   LPARAM lparam = reinterpret_cast<LPARAM>(this);
   EnumChildWindows(ui::GetHiddenWindow(), ShowWindowsCallback, lparam);
+
+  if (::IsWindow(plugin_parent_window_)) {
+    gfx::Rect window_bounds = window_->GetBoundsInRootWindow();
+    ::SetWindowPos(plugin_parent_window_, NULL, window_bounds.x(),
+                   window_bounds.y(), window_bounds.width(),
+                   window_bounds.height(), 0);
+  }
 #endif
 }
 
@@ -648,12 +647,11 @@ void RenderWidgetHostViewAura::WasHidden() {
   if (dispatcher) {
     HWND parent = dispatcher->host()->GetAcceleratedWidget();
     LPARAM lparam = reinterpret_cast<LPARAM>(this);
+
     EnumChildWindows(parent, HideWindowsCallback, lparam);
-    // We reparent the legacy Chrome_RenderWidgetHostHWND window to the global
-    // hidden window on the same lines as Windowed plugin windows.
-    if (legacy_render_widget_host_HWND_)
-      legacy_render_widget_host_HWND_->UpdateParent(ui::GetHiddenWindow());
   }
+  if (::IsWindow(plugin_parent_window_))
+    ::SetWindowPos(plugin_parent_window_, NULL, 0, 0, 0, 0, 0);
 #endif
 }
 
@@ -872,19 +870,11 @@ bool RenderWidgetHostViewAura::IsSurfaceAvailableForCopy() const {
 void RenderWidgetHostViewAura::Show() {
   window_->Show();
   WasShown();
-#if defined(OS_WIN)
-  if (legacy_render_widget_host_HWND_)
-    legacy_render_widget_host_HWND_->Show();
-#endif
 }
 
 void RenderWidgetHostViewAura::Hide() {
   window_->Hide();
   WasHidden();
-#if defined(OS_WIN)
-  if (legacy_render_widget_host_HWND_)
-    legacy_render_widget_host_HWND_->Hide();
-#endif
 }
 
 bool RenderWidgetHostViewAura::IsShowing() {
@@ -1226,25 +1216,26 @@ void RenderWidgetHostViewAura::InternalSetBounds(const gfx::Rect& rect) {
       selection_focus_rect_);
   }
 #if defined(OS_WIN)
-  // Create the legacy dummy window which corresponds to the bounds of the
-  // webcontents. This will be passed as the container window for windowless
-  // plugins.
+  // Create the dummy plugin parent window which will be passed as the
+  // container window to windowless plugins.
   // Plugins like Flash assume the container window which is returned via the
   // NPNVnetscapeWindow property corresponds to the bounds of the webpage.
   // This is not true in Aura where we have only HWND which is the main Aura
   // window. If we return this window to plugins like Flash then it causes the
   // coordinate translations done by these plugins to break.
-  // Additonally the legacy dummy window is needed for accessibility and for
-  // scrolling to work in legacy drivers for trackpoints/trackpads, etc.
-  if (GetNativeViewId()) {
-    if (!legacy_render_widget_host_HWND_) {
-      legacy_render_widget_host_HWND_ = LegacyRenderWidgetHostHWND::Create(
-          reinterpret_cast<HWND>(GetNativeViewId()));
-    }
-    if (legacy_render_widget_host_HWND_) {
-      legacy_render_widget_host_HWND_->SetBounds(
-          window_->GetBoundsInRootWindow());
-    }
+  if (!plugin_parent_window_ && GetNativeViewId()) {
+    plugin_parent_window_ = ::CreateWindowEx(
+        0, L"Static", NULL, WS_CHILDWINDOW, 0, 0, 0, 0,
+        reinterpret_cast<HWND>(GetNativeViewId()), NULL, NULL, NULL);
+    if (::IsWindow(plugin_parent_window_))
+      ::SetProp(plugin_parent_window_, content::kPluginDummyParentProperty,
+                reinterpret_cast<HANDLE>(true));
+  }
+  if (::IsWindow(plugin_parent_window_)) {
+    gfx::Rect window_bounds = window_->GetBoundsInRootWindow();
+    ::SetWindowPos(plugin_parent_window_, NULL, window_bounds.x(),
+                   window_bounds.y(), window_bounds.width(),
+                   window_bounds.height(), 0);
   }
 #endif
 }
@@ -1712,11 +1703,7 @@ void RenderWidgetHostViewAura::SetParentNativeViewAccessible(
 
 gfx::NativeViewId RenderWidgetHostViewAura::GetParentForWindowlessPlugin()
     const {
-  if (legacy_render_widget_host_HWND_) {
-    return reinterpret_cast<gfx::NativeViewId>(
-        legacy_render_widget_host_HWND_->hwnd());
-  }
-  return NULL;
+  return reinterpret_cast<gfx::NativeViewId>(plugin_parent_window_);
 }
 #endif
 
@@ -2215,7 +2202,6 @@ void RenderWidgetHostViewAura::CreateBrowserAccessibilityManagerIfNeeded() {
   if (GetBrowserAccessibilityManager())
     return;
 
-  BrowserAccessibilityManager* manager = NULL;
 #if defined(OS_WIN)
   aura::WindowEventDispatcher* dispatcher = window_->GetDispatcher();
   if (!dispatcher)
@@ -2229,15 +2215,14 @@ void RenderWidgetHostViewAura::CreateBrowserAccessibilityManagerIfNeeded() {
   gfx::NativeViewAccessible accessible_parent =
       host_->GetParentNativeViewAccessible();
 
-  if (legacy_render_widget_host_HWND_) {
-    manager = new BrowserAccessibilityManagerWin(
-        legacy_render_widget_host_HWND_.get(), accessible_parent,
-        BrowserAccessibilityManagerWin::GetEmptyDocument(), this);
-  }
+  BrowserAccessibilityManager* manager = new BrowserAccessibilityManagerWin(
+      hwnd, accessible_parent,
+      BrowserAccessibilityManagerWin::GetEmptyDocument(), this);
 #else
-  manager = BrowserAccessibilityManager::Create(
+  BrowserAccessibilityManager* manager = BrowserAccessibilityManager::Create(
       BrowserAccessibilityManager::GetEmptyDocument(), this);
 #endif
+
   SetBrowserAccessibilityManager(manager);
 }
 
@@ -3359,7 +3344,8 @@ RenderWidgetHostViewAura::~RenderWidgetHostViewAura() {
   active_frame_subscriber_textures_.clear();
 
 #if defined(OS_WIN)
-  legacy_render_widget_host_HWND_.reset(NULL);
+  if (::IsWindow(plugin_parent_window_))
+    ::DestroyWindow(plugin_parent_window_);
 #endif
 }
 
@@ -3506,6 +3492,7 @@ void RenderWidgetHostViewAura::AddOnCommitCallbackAndDisableLocks(
 
 void RenderWidgetHostViewAura::AddedToRootWindow() {
   window_->GetDispatcher()->AddRootWindowObserver(this);
+  host_->ParentChanged(GetNativeViewId());
   UpdateScreenInfo(window_);
 
   aura::client::CursorClient* cursor_client =
@@ -3522,14 +3509,6 @@ void RenderWidgetHostViewAura::AddedToRootWindow() {
       input_method->SetFocusedTextInputClient(this);
   }
 
-#if defined(OS_WIN)
-  // The parent may have changed here. Ensure that the legacy window is
-  // reparented accordingly.
-  if (legacy_render_widget_host_HWND_)
-    legacy_render_widget_host_HWND_->UpdateParent(
-        reinterpret_cast<HWND>(GetNativeViewId()));
-#endif
-
   ui::Compositor* compositor = GetCompositor();
   if (compositor)
     compositor->vsync_manager()->AddObserver(this);
@@ -3544,6 +3523,7 @@ void RenderWidgetHostViewAura::RemovingFromRootWindow() {
   DetachFromInputMethod();
 
   window_->GetDispatcher()->RemoveRootWindowObserver(this);
+  host_->ParentChanged(0);
   ui::Compositor* compositor = GetCompositor();
   if (current_surface_.get()) {
     // We can't get notification for commits after this point, which would
@@ -3562,13 +3542,6 @@ void RenderWidgetHostViewAura::RemovingFromRootWindow() {
       compositor->RemoveObserver(this);
     compositor->vsync_manager()->RemoveObserver(this);
   }
-
-#if defined(OS_WIN)
-  // Update the legacy window's parent temporarily to the desktop window. It
-  // will eventually get reparented to the right root.
-  if (legacy_render_widget_host_HWND_)
-    legacy_render_widget_host_HWND_->UpdateParent(::GetDesktopWindow());
-#endif
 }
 
 ui::Compositor* RenderWidgetHostViewAura::GetCompositor() const {
