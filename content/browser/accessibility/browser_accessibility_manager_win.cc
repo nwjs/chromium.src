@@ -120,7 +120,6 @@ BrowserAccessibilityManagerWin::BrowserAccessibilityManagerWin(
       parent_iaccessible_(parent_iaccessible),
       tracked_scroll_object_(NULL),
       accessible_hwnd_(NULL) {
-  accessible_hwnd_->set_browser_accessibility_manager(this);
 }
 
 BrowserAccessibilityManagerWin::~BrowserAccessibilityManagerWin() {
