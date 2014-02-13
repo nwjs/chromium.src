@@ -153,10 +153,8 @@ class ContentScriptLoader {
 void LoadChromeVoxExtension(Profile* profile, content::WebUI* login_web_ui) {
   ExtensionService* extension_service =
       extensions::ExtensionSystem::Get(profile)->extension_service();
-  base::FilePath path = GetChromeVoxPath();
   std::string extension_id =
-      extension_service->component_loader()->Add(IDR_CHROMEVOX_MANIFEST,
-                                                 path);
+      extension_service->component_loader()->AddChromeVoxExtension();
   if (login_web_ui) {
     ExtensionService* extension_service =
         extensions::ExtensionSystem::Get(profile)->extension_service();
