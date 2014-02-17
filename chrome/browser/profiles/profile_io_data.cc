@@ -478,8 +478,7 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
     signin_allowed_.MoveToThread(io_message_loop_proxy);
   }
 
-  media_device_id_salt_.reset(new MediaDeviceIDSalt(pref_service,
-                                                    is_incognito()));
+  media_device_id_salt_ = new MediaDeviceIDSalt(pref_service, is_incognito());
 
 #if defined(OS_CHROMEOS)
   cert_verifier_ = policy::PolicyCertServiceFactory::CreateForProfile(profile);
@@ -780,8 +779,8 @@ HostContentSettingsMap* ProfileIOData::GetHostContentSettingsMap() const {
   return host_content_settings_map_.get();
 }
 
-std::string ProfileIOData::GetMediaDeviceIDSalt() const {
-  return media_device_id_salt_->GetSalt();
+ResourceContext::SaltCallback ProfileIOData::GetMediaDeviceIDSalt() const {
+  return base::Bind(&MediaDeviceIDSalt::GetSalt, media_device_id_salt_);
 }
 
 void ProfileIOData::InitializeMetricsEnabledStateOnUIThread() {
@@ -919,7 +918,8 @@ bool ProfileIOData::ResourceContext::AllowContentAccess(
   return setting == CONTENT_SETTING_ALLOW;
 }
 
-std::string ProfileIOData::ResourceContext::GetMediaDeviceIDSalt() {
+ResourceContext::SaltCallback
+ProfileIOData::ResourceContext::GetMediaDeviceIDSalt() {
   return io_data_->GetMediaDeviceIDSalt();
 }
 

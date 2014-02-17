@@ -314,7 +314,7 @@ WebrtcAudioPrivateGetAssociatedSinkFunction::GetRawSourceIDOnIOThread(
        ++it) {
     const std::string& id = it->unique_id;
     if (content::DoesMediaDeviceIDMatchHMAC(
-            context,
+            context->GetMediaDeviceIDSalt(),
             security_origin,
             source_id_in_origin,
             id)) {
