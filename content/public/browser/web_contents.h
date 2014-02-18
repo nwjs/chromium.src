@@ -466,6 +466,10 @@ class WebContents : public PageNavigator,
                             uint32_t max_bitmap_size,
                             const ImageDownloadCallback& callback) = 0;
 
+  // Sets the zoom level for the current page and all BrowserPluginGuests
+  // within the page.
+  virtual void SetZoomLevel(double level) = 0;
+
 #if defined(OS_ANDROID)
   CONTENT_EXPORT static WebContents* FromJavaWebContents(
       jobject jweb_contents_android);
