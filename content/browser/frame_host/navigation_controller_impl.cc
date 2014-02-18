@@ -720,6 +720,7 @@ void NavigationControllerImpl::LoadURLWithParams(const LoadURLParams& params) {
       break;
   };
 
+  entry->set_nw_win_id(params.nw_win_id);
   LoadEntry(entry);
 }
 

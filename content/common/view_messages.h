@@ -756,6 +756,8 @@ IPC_STRUCT_BEGIN(ViewMsg_New_Params)
   // allowed for a renderer. Partial swaps will be used if they are both
   // allowed and supported.
   IPC_STRUCT_MEMBER(bool, allow_partial_swap)
+
+  IPC_STRUCT_MEMBER(int32, nw_win_id)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewMsg_PostMessage_Params)

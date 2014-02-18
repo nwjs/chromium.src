@@ -52,7 +52,8 @@ NavigationEntryImpl::NavigationEntryImpl()
       is_renderer_initiated_(false),
       should_replace_entry_(false),
       should_clear_history_list_(false),
-      can_load_local_resources_(false) {
+      can_load_local_resources_(false),
+      nw_win_id_(0) {
 }
 
 NavigationEntryImpl::NavigationEntryImpl(SiteInstanceImpl* instance,
@@ -80,7 +81,8 @@ NavigationEntryImpl::NavigationEntryImpl(SiteInstanceImpl* instance,
       is_renderer_initiated_(is_renderer_initiated),
       should_replace_entry_(false),
       should_clear_history_list_(false),
-      can_load_local_resources_(false) {
+      can_load_local_resources_(false),
+      nw_win_id_(0) {
 }
 
 NavigationEntryImpl::~NavigationEntryImpl() {

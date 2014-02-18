@@ -200,7 +200,8 @@ class CONTENT_EXPORT RenderViewImpl
       int32 next_page_id,
       const WebKit::WebScreenInfo& screen_info,
       AccessibilityMode accessibility_mode,
-      bool allow_partial_swap);
+      bool allow_partial_swap,
+      int nw_win_id = 0);
 
   // Used by content_layouttest_support to hook into the creation of
   // RenderViewImpls.

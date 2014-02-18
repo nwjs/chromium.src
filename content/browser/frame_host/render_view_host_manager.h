@@ -58,7 +58,7 @@ class CONTENT_EXPORT RenderViewHostManager
     // If you are attaching to an already-existing RenderView, you should call
     // InitWithExistingID.
     virtual bool CreateRenderViewForRenderManager(
-        RenderViewHost* render_view_host, int opener_route_id) = 0;
+        RenderViewHost* render_view_host, int opener_route_id, int nw_win_id = 0) = 0;
     virtual void BeforeUnloadFiredFromRenderManager(
         bool proceed, const base::TimeTicks& proceed_time,
         bool* proceed_to_fire_unload) = 0;
@@ -188,7 +188,8 @@ class CONTENT_EXPORT RenderViewHostManager
   int CreateRenderView(SiteInstance* instance,
                        int opener_route_id,
                        bool swapped_out,
-                       bool hidden);
+                       bool hidden,
+                       int nw_win_id = 0);
 
   // Called when a provisional load on the given renderer is aborted.
   void RendererAbortedProvisionalLoad(RenderViewHost* render_view_host);
@@ -315,7 +316,7 @@ class CONTENT_EXPORT RenderViewHostManager
       SiteInstance* curr_instance);
 
   // Sets up the necessary state for a new RenderViewHost with the given opener.
-  bool InitRenderView(RenderViewHost* render_view_host, int opener_route_id);
+  bool InitRenderView(RenderViewHost* render_view_host, int opener_route_id, int nw_win_id);
 
   // Sets the pending RenderViewHost/WebUI to be the active one. Note that this
   // doesn't require the pending render_view_host_ pointer to be non-NULL, since
