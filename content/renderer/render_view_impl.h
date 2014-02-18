@@ -195,7 +195,7 @@ class CONTENT_EXPORT RenderViewImpl
                                 bool hidden,
                                 int32 next_page_id,
                                 const blink::WebScreenInfo& screen_info,
-                                AccessibilityMode accessibility_mode);
+                                AccessibilityMode accessibility_mode, int nw_win_id = 0);
 
   // Used by content_layouttest_support to hook into the creation of
   // RenderViewImpls.

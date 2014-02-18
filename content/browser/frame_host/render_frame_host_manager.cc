@@ -176,7 +176,7 @@ RenderFrameHostImpl* RenderFrameHostManager::Navigate(
     // Note: we don't call InitRenderView here because we are navigating away
     // soon anyway, and we don't have the NavigationEntry for this host.
     delegate_->CreateRenderViewForRenderManager(
-        render_frame_host_->render_view_host(), MSG_ROUTING_NONE, NULL);
+                                                render_frame_host_->render_view_host(), MSG_ROUTING_NONE, NULL, entry.nw_win_id());
   }
 
   // If the renderer crashed, then try to create a new one to satisfy this
@@ -186,7 +186,7 @@ RenderFrameHostImpl* RenderFrameHostManager::Navigate(
     int opener_route_id = delegate_->CreateOpenerRenderViewsForRenderManager(
         dest_render_frame_host->GetSiteInstance());
     if (!InitRenderView(dest_render_frame_host->render_view_host(),
-                        opener_route_id))
+                        opener_route_id, entry.nw_win_id()))
       return NULL;
 
     // Now that we've created a new renderer, be sure to hide it if it isn't
@@ -878,7 +878,8 @@ int RenderFrameHostManager::CreateRenderFrame(
     SiteInstance* instance,
     int opener_route_id,
     bool swapped_out,
-    bool hidden) {
+    bool hidden,
+    int nw_win_id) {
   CHECK(instance);
   DCHECK(!swapped_out || hidden); // Swapped out views should always be hidden.
 
@@ -927,7 +928,7 @@ int RenderFrameHostManager::CreateRenderFrame(
 
     RenderViewHostImpl* render_view_host =
         new_render_frame_host->render_view_host();
-    bool success = InitRenderView(render_view_host, opener_route_id);
+    bool success = InitRenderView(render_view_host, opener_route_id, nw_win_id);
     if (success && frame_tree_node_->IsMainFrame()) {
       // Don't show the main frame's view until we get a DidNavigate from it.
       render_view_host->GetView()->Hide();
@@ -944,7 +945,7 @@ int RenderFrameHostManager::CreateRenderFrame(
 }
 
 bool RenderFrameHostManager::InitRenderView(RenderViewHost* render_view_host,
-                                            int opener_route_id) {
+                                            int opener_route_id, int nw_win_id) {
   // We may have initialized this RenderViewHost for another RenderFrameHost.
   if (render_view_host->IsRenderViewLive())
     return true;
@@ -966,7 +967,7 @@ bool RenderFrameHostManager::InitRenderView(RenderViewHost* render_view_host,
   }
 
   return delegate_->CreateRenderViewForRenderManager(
-      render_view_host, opener_route_id, cross_process_frame_connector_);
+                                                     render_view_host, opener_route_id, cross_process_frame_connector_, nw_win_id);
 }
 
 void RenderFrameHostManager::CommitPending() {
@@ -1220,7 +1221,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateRendererStateForNavigate(
     // Create a non-swapped-out pending RFH with the given opener and navigate
     // it.
     int route_id = CreateRenderFrame(new_instance, opener_route_id, false,
-                                     delegate_->IsHidden());
+                                     delegate_->IsHidden(), enty.nw_win_id());
     if (route_id == MSG_ROUTING_NONE)
       return NULL;
 

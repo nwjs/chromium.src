@@ -36,7 +36,7 @@ struct CONTENT_EXPORT RenderViewImplParams {
                        bool hidden,
                        int32 next_page_id,
                        const blink::WebScreenInfo& screen_info,
-                       AccessibilityMode accessibility_mode);
+                       AccessibilityMode accessibility_mode, int nw_win_id);
   ~RenderViewImplParams();
 
   int32 opener_id;
@@ -53,6 +53,7 @@ struct CONTENT_EXPORT RenderViewImplParams {
   int32 next_page_id;
   const blink::WebScreenInfo& screen_info;
   AccessibilityMode accessibility_mode;
+  int nw_win_id;
 };
 
 }  // namespace content
