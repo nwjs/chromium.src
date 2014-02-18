@@ -4037,7 +4037,8 @@ bool WebContentsImpl::CreateRenderViewForRenderManager(
     RenderViewHost* render_view_host,
     int opener_route_id,
     int proxy_routing_id,
-    bool for_main_frame_navigation) {
+    bool for_main_frame_navigation,
+    int nw_win_id) {
   TRACE_EVENT0("browser", "WebContentsImpl::CreateRenderViewForRenderManager");
   // Can be NULL during tests.
   RenderWidgetHostViewBase* rwh_view;
@@ -4067,7 +4068,8 @@ bool WebContentsImpl::CreateRenderViewForRenderManager(
                                               opener_route_id,
                                               proxy_routing_id,
                                               max_page_id,
-                                              created_with_opener_)) {
+                                              created_with_opener_,
+                                              nw_win_id)) {
     return false;
   }
 

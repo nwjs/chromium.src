@@ -257,7 +257,8 @@ bool RenderViewHostImpl::CreateRenderView(
     int opener_route_id,
     int proxy_route_id,
     int32 max_page_id,
-    bool window_was_created_with_opener) {
+    bool window_was_created_with_opener,
+    int nw_win_id) {
   TRACE_EVENT0("renderer_host", "RenderViewHostImpl::CreateRenderView");
   DCHECK(!IsRenderViewLive()) << "Creating view twice";
 
@@ -300,6 +301,7 @@ bool RenderViewHostImpl::CreateRenderView(
   params.window_was_created_with_opener = window_was_created_with_opener;
   params.next_page_id = next_page_id;
   GetWebScreenInfo(&params.screen_info);
+  params.nw_win_id = nw_win_id;
 
   Send(new ViewMsg_New(params));
 

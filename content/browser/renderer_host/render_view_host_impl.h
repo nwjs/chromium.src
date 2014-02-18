@@ -235,7 +235,8 @@ class CONTENT_EXPORT RenderViewHostImpl
                                 int opener_route_id,
                                 int proxy_route_id,
                                 int32 max_page_id,
-                                bool window_was_created_with_opener);
+                                bool window_was_created_with_opener,
+                                int nw_win_id = 0);
 
   base::TerminationStatus render_view_termination_status() const {
     return render_view_termination_status_;

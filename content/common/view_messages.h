@@ -493,6 +493,8 @@ IPC_STRUCT_BEGIN(ViewMsg_New_Params)
 
   // The properties of the screen associated with the view.
   IPC_STRUCT_MEMBER(blink::WebScreenInfo, screen_info)
+
+  IPC_STRUCT_MEMBER(int32, nw_win_id)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewMsg_PostMessage_Params)
