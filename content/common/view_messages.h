@@ -514,6 +514,8 @@ IPC_STRUCT_BEGIN(ViewMsg_New_Params)
 
   // The accessibility mode of the renderer.
   IPC_STRUCT_MEMBER(AccessibilityMode, accessibility_mode)
+
+  IPC_STRUCT_MEMBER(int32, nw_win_id)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewMsg_PostMessage_Params)

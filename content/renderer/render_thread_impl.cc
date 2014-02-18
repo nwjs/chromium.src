@@ -1284,7 +1284,8 @@ void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
                          params.hidden,
                          params.next_page_id,
                          params.screen_info,
-                         params.accessibility_mode);
+                         params.accessibility_mode,
+                         params.nw_win_id);
 }
 
 GpuChannelHost* RenderThreadImpl::EstablishGpuChannelSync(

@@ -174,6 +174,8 @@ class NavigationController {
     // commits.
     bool should_clear_history_list;
 
+    int nw_win_id;
+
     explicit LoadURLParams(const GURL& url);
     ~LoadURLParams();
 

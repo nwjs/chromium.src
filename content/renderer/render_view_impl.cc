@@ -844,6 +844,11 @@ void RenderViewImpl::Initialize(RenderViewImplParams* params) {
   // This ensures we are in a unique origin that others cannot script.
   if (is_swapped_out_)
     NavigateToSwappedOutURL(webview()->mainFrame());
+
+  if (params->nw_win_id) {
+    v8::Handle<v8::Value> v8win = webview()->mainFrame()->mainWorldScriptContext()->Global();
+    v8win->ToObject()->Set(v8::String::New("__nwWindowId"), v8::Integer::New(params->nw_win_id));
+  }
 }
 
 RenderViewImpl::~RenderViewImpl() {
@@ -929,7 +934,8 @@ RenderViewImpl* RenderViewImpl::Create(
     bool hidden,
     int32 next_page_id,
     const blink::WebScreenInfo& screen_info,
-    AccessibilityMode accessibility_mode) {
+    AccessibilityMode accessibility_mode,
+    int nw_win_id) {
   DCHECK(routing_id != MSG_ROUTING_NONE);
   RenderViewImplParams params(opener_id,
                               renderer_prefs,
@@ -944,7 +950,8 @@ RenderViewImpl* RenderViewImpl::Create(
                               hidden,
                               next_page_id,
                               screen_info,
-                              accessibility_mode);
+                              accessibility_mode,
+                              nw_win_id);
   RenderViewImpl* render_view = NULL;
   if (g_create_render_view_impl)
     render_view = g_create_render_view_impl(&params);

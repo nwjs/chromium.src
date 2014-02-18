@@ -63,7 +63,8 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
     virtual bool CreateRenderViewForRenderManager(
         RenderViewHost* render_view_host,
         int opener_route_id,
-        CrossProcessFrameConnector* cross_process_frame_connector) = 0;
+        CrossProcessFrameConnector* cross_process_frame_connector,
+        int nw_win_id = 0) = 0;
     virtual void BeforeUnloadFiredFromRenderManager(
         bool proceed, const base::TimeTicks& proceed_time,
         bool* proceed_to_fire_unload) = 0;
@@ -233,7 +234,8 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
   int CreateRenderFrame(SiteInstance* instance,
                         int opener_route_id,
                         bool swapped_out,
-                        bool hidden);
+                        bool hidden,
+                        int nw_win_id);
 
   // Sets the passed passed interstitial as the currently showing interstitial.
   // |interstitial_page| should be non NULL (use the remove_interstitial_page
@@ -378,7 +380,7 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
   // initialized for another RenderFrameHost.
   // TODO(creis): opener_route_id is currently for the RenderViewHost but should
   // be for the RenderFrame, since frames can have openers.
-  bool InitRenderView(RenderViewHost* render_view_host, int opener_route_id);
+  bool InitRenderView(RenderViewHost* render_view_host, int opener_route_id, int nw_win_id = 0);
 
   // Sets the pending RenderFrameHost/WebUI to be the active one. Note that this
   // doesn't require the pending render_frame_host_ pointer to be non-NULL,

@@ -256,7 +256,8 @@ class CONTENT_EXPORT RenderViewHostImpl
   // RenderView is told to start issuing page IDs at |max_page_id| + 1.
   virtual bool CreateRenderView(const base::string16& frame_name,
                                 int opener_route_id,
-                                int32 max_page_id);
+                                int32 max_page_id,
+                                int nw_win_id = 0);
 
   base::TerminationStatus render_view_termination_status() const {
     return render_view_termination_status_;

@@ -500,7 +500,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual bool CreateRenderViewForRenderManager(
       RenderViewHost* render_view_host,
       int opener_route_id,
-      CrossProcessFrameConnector* frame_connector) OVERRIDE;
+      CrossProcessFrameConnector* frame_connector, int nw_win_id) OVERRIDE;
   virtual void BeforeUnloadFiredFromRenderManager(
       bool proceed, const base::TimeTicks& proceed_time,
       bool* proceed_to_fire_unload) OVERRIDE;

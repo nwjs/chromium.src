@@ -275,7 +275,8 @@ SiteInstance* RenderViewHostImpl::GetSiteInstance() const {
 bool RenderViewHostImpl::CreateRenderView(
     const base::string16& frame_name,
     int opener_route_id,
-    int32 max_page_id) {
+    int32 max_page_id,
+    int nw_win_id) {
   TRACE_EVENT0("renderer_host", "RenderViewHostImpl::CreateRenderView");
   DCHECK(!IsRenderViewLive()) << "Creating view twice";
 
@@ -316,6 +317,7 @@ bool RenderViewHostImpl::CreateRenderView(
   params.next_page_id = next_page_id;
   GetWebScreenInfo(&params.screen_info);
   params.accessibility_mode = accessibility_mode();
+  params.nw_win_id = nw_win_id;
 
   Send(new ViewMsg_New(params));
 
