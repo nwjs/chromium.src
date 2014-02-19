@@ -55,4 +55,10 @@ std::string FakeSupervisedUserManager::GetManagerDisplayEmail(
   return std::string();
 }
 
+void FakeSupervisedUserManager::LoadSupervisedUserToken(
+    Profile * profile,
+    const LoadTokenCallback& callback) {
+  callback.Run("token");
+}
+
 }  // namespace chromeos

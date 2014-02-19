@@ -8,7 +8,9 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "base/strings/string16.h"
+#include "chrome/browser/profiles/profile.h"
 
 class PrefRegistrySimple;
 
@@ -21,6 +23,9 @@ class User;
 // lookup methods that make sense only for supervised users.
 class SupervisedUserManager {
  public:
+  typedef base::Callback<void(const std::string& /* token */)>
+      LoadTokenCallback;
+
   // Registers user manager preferences.
   static void RegisterPrefs(PrefRegistrySimple* registry);
 
@@ -80,6 +85,14 @@ class SupervisedUserManager {
 
   // Remove locally managed user creation transaction record.
   virtual void CommitCreationTransaction() = 0;
+
+  // Loads a sync oauth token in background, and passes it to callback.
+  virtual void LoadSupervisedUserToken(Profile* profile,
+                                       const LoadTokenCallback& callback) = 0;
+
+  // Configures sync service with oauth token.
+  virtual void ConfigureSyncWithToken(Profile* profile,
+                                      const std::string& token) = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SupervisedUserManager);

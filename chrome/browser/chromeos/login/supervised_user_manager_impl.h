@@ -42,6 +42,12 @@ class SupervisedUserManagerImpl
   virtual void SetCreationTransactionUserId(const std::string& user_id)
       OVERRIDE;
   virtual void CommitCreationTransaction() OVERRIDE;
+  virtual void LoadSupervisedUserToken(
+      Profile * profile,
+      const LoadTokenCallback& callback) OVERRIDE;
+  virtual void ConfigureSyncWithToken(
+      Profile* profile,
+      const std::string& token) OVERRIDE;
 
  private:
   friend class UserManager;
