@@ -35,10 +35,11 @@ struct ManagedModeURLFilter::Contents {
 
 namespace {
 
-const char* kStandardSchemes[] = {
+// URL schemes not in this list (e.g., file:// and chrome://) will always be
+// allowed.
+const char* kFilteredSchemes[] = {
   "http",
   "https",
-  "file",
   "ftp",
   "gopher",
   "ws",
@@ -200,9 +201,9 @@ GURL ManagedModeURLFilter::Normalize(const GURL& url) {
 }
 
 // static
-bool ManagedModeURLFilter::HasStandardScheme(const GURL& url) {
-  for (size_t i = 0; i < arraysize(kStandardSchemes); ++i) {
-      if (url.scheme() == kStandardSchemes[i])
+bool ManagedModeURLFilter::HasFilteredScheme(const GURL& url) {
+  for (size_t i = 0; i < arraysize(kFilteredSchemes); ++i) {
+      if (url.scheme() == kFilteredSchemes[i])
         return true;
     }
   return false;
@@ -256,7 +257,7 @@ ManagedModeURLFilter::GetFilteringBehaviorForURL(const GURL& url) const {
   DCHECK(CalledOnValidThread());
 
   // URLs with a non-standard scheme (e.g. chrome://) are always allowed.
-  if (!HasStandardScheme(url))
+  if (!HasFilteredScheme(url))
     return ALLOW;
 
   // Check manual overrides for the exact URL.
