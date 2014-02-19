@@ -884,7 +884,7 @@ void CrxUpdateService::OnParseUpdateResponseSucceeded(
 
   // If there are updates pending we do a short wait, otherwise we take
   // a longer delay until we check the components again.
-  ScheduleNextRun(num_updates_pending > 0 ? kStepDelayShort : kStepDelayMedium);
+  ScheduleNextRun(num_updates_pending > 0 ? kStepDelayShort : kStepDelayLong);
 }
 
 void CrxUpdateService::OnParseUpdateResponseFailed(
