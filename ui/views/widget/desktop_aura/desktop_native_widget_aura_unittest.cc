@@ -5,6 +5,7 @@
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 
 #include "ui/aura/root_window.h"
+#include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/window.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/widget/widget.h"
@@ -65,6 +66,32 @@ TEST_F(DesktopNativeWidgetAuraTest, NativeViewInitiallyHidden) {
   init_params.native_widget = new DesktopNativeWidgetAura(&widget);
   widget.Init(init_params);
   EXPECT_FALSE(widget.GetNativeView()->IsVisible());
+}
+
+// Verifies FocusController doesn't attempt to access |content_window_| during
+// destruction. Previously the FocusController was destroyed after the window.
+// This could be problematic as FocusController references |content_window_| and
+// could attempt to use it after |content_window_| was destroyed. This test
+// verifies this doesn't happen. Note that this test only failed under ASAN.
+TEST_F(DesktopNativeWidgetAuraTest, DontAccessContentWindowDuringDestruction) {
+  aura::test::TestWindowDelegate delegate;
+  {
+    Widget widget;
+    Widget::InitParams init_params =
+        CreateParams(Widget::InitParams::TYPE_WINDOW);
+    init_params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+    DesktopNativeWidgetAura* desktop_native_widget_aura =
+        new DesktopNativeWidgetAura(&widget);
+    init_params.native_widget = desktop_native_widget_aura;
+    widget.Init(init_params);
+
+    // Owned by |widget|.
+    aura::Window* window = new aura::Window(&delegate);
+    window->Show();
+    widget.GetNativeWindow()->parent()->AddChild(window);
+
+    widget.Show();
+  }
 }
 
 }  // namespace views
