@@ -525,6 +525,21 @@ bool MessagePumpCFRunLoopBase::RunWork() {
 
   if (resignal_work_source) {
     CFRunLoopSourceSignal(work_source_);
+  }else{
+    // callbacks in Blink can result in uv status change, so
+    // a run through is needed. This should remove the need for
+    // the 500ms failsafe poll
+
+    [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
+                                      location:NSZeroPoint
+                                 modifierFlags:0
+                                     timestamp:0
+                                  windowNumber:0
+                                       context:NULL
+                                       subtype:0
+                                         data1:0
+                                         data2:0]
+           atStart:NO];
   }
 
   if (instrumentation_)
@@ -562,6 +577,18 @@ bool MessagePumpCFRunLoopBase::RunIdleWork() {
   bool did_work = delegate_->DoIdleWork();
   if (did_work) {
     CFRunLoopSourceSignal(idle_work_source_);
+    // callbacks in Blink can result in uv status change, so
+    // a run through is needed
+    [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
+                                      location:NSZeroPoint
+                                 modifierFlags:0
+                                     timestamp:0
+                                  windowNumber:0
+                                       context:NULL
+                                       subtype:0
+                                         data1:0
+                                         data2:0]
+           atStart:NO];
   }
 
   return did_work;
@@ -876,6 +903,9 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     while (keep_running_) {
       MessagePumpScopedAutoreleasePool autorelease_pool(this);
 
+      // In this call CFRunLoop will deal with sources then block
+      // on mach port. So additionall run through of libuv is needed
+      // in source callback
       NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
                                           untilDate:[NSDate distantFuture]
                                              inMode:NSDefaultRunLoopMode
@@ -886,11 +916,23 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
 
       if (for_node_ && nesting_level() == 0) {
         // Deal with uv events.
-        if (!uv_run(uv_default_loop(), UV_RUN_NOWAIT)) {
-          VLOG(1) << "Quit from uv";
-          keep_running_ = false; // Quit from uv.
+	if (!uv_run(uv_default_loop(), UV_RUN_NOWAIT)) {
+	  VLOG(1) << "Quit from uv";
+	  keep_running_ = false; // Quit from uv.
+          break;
+	}
+        if(0 == uv_backend_timeout(uv_default_loop())) {
+           [NSApp postEvent:[NSEvent otherEventWithType:NSApplicationDefined
+                                      location:NSZeroPoint
+                                 modifierFlags:0
+                                     timestamp:0
+                                  windowNumber:0
+                                       context:NULL
+                                       subtype:0
+                                         data1:0
+                                         data2:0]
+              atStart:NO];
         }
-
         // Tell the worker thread to continue polling.
         uv_sem_post(&embed_sem_);
       }
@@ -938,9 +980,14 @@ void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
     uv_loop_t* loop = uv_default_loop();
 
     // We should at leat poll every 500ms.
+    // theoratically it's not needed, but act as a fail-safe
+    // for unknown corner cases
+
     int timeout = uv_backend_timeout(loop);
+#if 1
     if (timeout > 500 || timeout < 0)
       timeout = 500;
+#endif
 
     // Wait for new libuv events.
     int fd = uv_backend_fd(loop);
@@ -949,7 +996,7 @@ void MessagePumpNSApplication::EmbedThreadRunner(void *arg) {
       struct timespec ts;
       ts.tv_sec = timeout / 1000;
       ts.tv_nsec = (timeout % 1000) * 1000000;
-      r = kevent(fd, NULL, 0, errors, 1, &ts);
+      r = kevent(fd, NULL, 0, errors, 1, timeout < 0 ? NULL : &ts);
     } while (r == -1 && errno == EINTR);
 
     // Don't wake up main loop if in a nested loop, so we'll keep waiting for
