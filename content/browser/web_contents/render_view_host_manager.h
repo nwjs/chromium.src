@@ -182,7 +182,7 @@ class CONTENT_EXPORT RenderViewHostManager
   int CreateRenderView(SiteInstance* instance,
                        int opener_route_id,
                        bool swapped_out,
-                       int nw_win_id);
+                       int nw_win_id = 0);
 
   // Called when a provisional load on the given renderer is aborted.
   void RendererAbortedProvisionalLoad(RenderViewHost* render_view_host);

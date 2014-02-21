@@ -11,6 +11,7 @@
     '../base/base.gyp:base_i18n',
     '../crypto/crypto.gyp:crypto',
     '../ui/ui.gyp:ui',
+    '../skia/skia.gyp:skia',
   ],
   'sources': [
     'app/android/app_jni_registrar.cc',

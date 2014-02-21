@@ -7,6 +7,8 @@
 #include "content/browser/accessibility/browser_accessibility_gtk.h"
 #include "content/common/accessibility_messages.h"
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 namespace content {
 
 // static
