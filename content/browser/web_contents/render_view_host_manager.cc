@@ -152,7 +152,7 @@ RenderViewHostImpl* RenderViewHostManager::Navigate(
     // Recreate the opener chain.
     int opener_route_id = delegate_->CreateOpenerRenderViewsForRenderManager(
         dest_render_view_host->GetSiteInstance());
-    if (!InitRenderView(dest_render_view_host, opener_route_id))
+    if (!InitRenderView(dest_render_view_host, opener_route_id, entry.nw_win_id()))
       return NULL;
 
     // Now that we've created a new renderer, be sure to hide it if it isn't
@@ -644,7 +644,8 @@ SiteInstance* RenderViewHostManager::GetSiteInstanceForEntry(
 int RenderViewHostManager::CreateRenderView(
     SiteInstance* instance,
     int opener_route_id,
-    bool swapped_out) {
+    bool swapped_out,
+    int nw_win_id) {
   CHECK(instance);
 
   // Check if we've already created an RVH for this SiteInstance.  If so, try
@@ -674,7 +675,7 @@ int RenderViewHostManager::CreateRenderView(
       new_render_view_host->GetProcess()->AddPendingView();
     }
 
-    bool success = InitRenderView(new_render_view_host, opener_route_id);
+    bool success = InitRenderView(new_render_view_host, opener_route_id, nw_win_id);
     if (success) {
       // Don't show the view until we get a DidNavigate from it.
       new_render_view_host->GetView()->Hide();
@@ -691,14 +692,16 @@ int RenderViewHostManager::CreateRenderView(
 }
 
 bool RenderViewHostManager::InitRenderView(RenderViewHost* render_view_host,
-                                           int opener_route_id) {
+                                           int opener_route_id,
+                                           int nw_win_id) {
   // If the pending navigation is to a WebUI, tell the RenderView about any
   // bindings it will need enabled.
   if (pending_web_ui())
     render_view_host->AllowBindings(pending_web_ui()->GetBindings());
 
   return delegate_->CreateRenderViewForRenderManager(render_view_host,
-                                                     opener_route_id);
+                                                     opener_route_id,
+                                                     nw_win_id);
 }
 
 void RenderViewHostManager::CommitPending() {
@@ -897,7 +900,7 @@ RenderViewHostImpl* RenderViewHostManager::UpdateRendererStateForNavigate(
 
     // Create a non-swapped-out pending RVH with the given opener and navigate
     // it.
-    int route_id = CreateRenderView(new_instance, opener_route_id, false);
+    int route_id = CreateRenderView(new_instance, opener_route_id, false, entry.nw_win_id());
     if (route_id == MSG_ROUTING_NONE)
       return NULL;
 

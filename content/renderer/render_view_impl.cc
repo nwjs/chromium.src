@@ -987,6 +987,11 @@ void RenderViewImpl::Initialize(RenderViewImplParams* params) {
   // This ensures we are in a unique origin that others cannot script.
   if (is_swapped_out_)
     NavigateToSwappedOutURL(webview()->mainFrame());
+
+  if (params->nw_win_id) {
+    v8::Handle<v8::Value> v8win = webview()->mainFrame()->mainWorldScriptContext()->Global();
+    v8win->ToObject()->Set(v8::String::New("__nwWindowId"), v8::Integer::New(params->nw_win_id));
+  }
 }
 
 RenderViewImpl::~RenderViewImpl() {
@@ -1076,7 +1081,8 @@ RenderViewImpl* RenderViewImpl::Create(
     int32 next_page_id,
     const WebKit::WebScreenInfo& screen_info,
     AccessibilityMode accessibility_mode,
-    bool allow_partial_swap) {
+    bool allow_partial_swap,
+    int nw_win_id) {
   DCHECK(routing_id != MSG_ROUTING_NONE);
   RenderViewImplParams params(
       opener_id,
@@ -1093,7 +1099,8 @@ RenderViewImpl* RenderViewImpl::Create(
       next_page_id,
       screen_info,
       accessibility_mode,
-      allow_partial_swap);
+      allow_partial_swap,
+      nw_win_id);
   RenderViewImpl* render_view = NULL;
   if (g_create_render_view_impl)
     render_view = g_create_render_view_impl(&params);

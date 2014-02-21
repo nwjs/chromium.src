@@ -21,7 +21,8 @@ RenderViewImplParams::RenderViewImplParams(
     int32 next_page_id,
     const WebKit::WebScreenInfo& screen_info,
     AccessibilityMode accessibility_mode,
-    bool allow_partial_swap)
+    bool allow_partial_swap,
+    int nw_win_id)
     : opener_id(opener_id),
       renderer_prefs(renderer_prefs),
       webkit_prefs(webkit_prefs),
@@ -36,7 +37,8 @@ RenderViewImplParams::RenderViewImplParams(
       next_page_id(next_page_id),
       screen_info(screen_info),
       accessibility_mode(accessibility_mode),
-      allow_partial_swap(allow_partial_swap){
+      allow_partial_swap(allow_partial_swap),
+      nw_win_id(nw_win_id){
 }
 
 RenderViewImplParams::~RenderViewImplParams() {}
