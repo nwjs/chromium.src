@@ -28,6 +28,7 @@
 #include "ui/gfx/font.h"
 #include "ui/gfx/screen.h"
 #include "ui/native_theme/native_theme_aura.h"
+#include "ui/views/corewm/window_util.h"
 #include "ui/views/drag_utils.h"
 #include "ui/views/ime/input_method_bridge.h"
 #include "ui/views/views_delegate.h"
