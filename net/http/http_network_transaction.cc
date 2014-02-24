@@ -994,7 +994,12 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
 #endif
 
     if (chrome_proxy_used || chrome_fallback_proxy_used) {
-      if (!IsChromeProxyResponse(response_.headers.get())) {
+      // A Via header might not be present in a 304. Since the goal of a 304
+      // response is to minimize information transfer, a sender in general
+      // should not generate representation metadata other than Cache-Control,
+      // Content-Location, Date, ETag, Expires, and Vary.
+      if (!IsChromeProxyResponse(response_.headers.get()) &&
+          (response_.headers->response_code() != HTTP_NOT_MODIFIED)) {
         proxy_bypass_event = ProxyService::MISSING_VIA_HEADER;
       } else if (response_.headers->GetChromeProxyInfo(&chrome_proxy_info)) {
         if (chrome_proxy_info.bypass_duration < TimeDelta::FromMinutes(30))
