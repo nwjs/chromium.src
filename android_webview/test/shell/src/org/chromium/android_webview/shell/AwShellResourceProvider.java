@@ -18,7 +18,7 @@ public class AwShellResourceProvider {
 
         AwResource.setResources(context.getResources());
 
-        AwResource.RAW_LOAD_ERROR = R.raw.blank_html;
+        AwResource.RAW_LOAD_ERROR = R.raw.error;
         AwResource.RAW_NO_DOMAIN = R.raw.blank_html;
 
         AwResource.STRING_DEFAULT_TEXT_ENCODING = R.string.test_string;
