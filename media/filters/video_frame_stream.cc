@@ -145,7 +145,7 @@ void VideoFrameStream::Stop(const base::Closure& closure) {
     message_loop_->PostTask(FROM_HERE, base::ResetAndReturn(&reset_cb_));
 
   if (decrypting_demuxer_stream_) {
-    decrypting_demuxer_stream_->Reset(base::Bind(
+    decrypting_demuxer_stream_->Stop(base::Bind(
         &VideoFrameStream::StopDecoder, weak_factory_.GetWeakPtr()));
     return;
   }

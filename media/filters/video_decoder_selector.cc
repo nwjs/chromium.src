@@ -89,14 +89,14 @@ void VideoDecoderSelector::Abort() {
 
   if (video_decoder_) {
     // |decrypted_stream_| is either NULL or already initialized. We don't
-    // need to Reset() |decrypted_stream_| in either case.
+    // need to Stop() |decrypted_stream_| in either case.
     video_decoder_->Stop(base::Bind(&VideoDecoderSelector::ReturnNullDecoder,
                                     weak_ptr_factory_.GetWeakPtr()));
     return;
   }
 
   if (decrypted_stream_) {
-    decrypted_stream_->Reset(
+    decrypted_stream_->Stop(
         base::Bind(&VideoDecoderSelector::ReturnNullDecoder,
                    weak_ptr_factory_.GetWeakPtr()));
     return;
