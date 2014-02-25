@@ -794,6 +794,7 @@ RenderViewImpl::RenderViewImpl(RenderViewImplParams* params)
       next_page_id_(params->next_page_id),
       history_list_offset_(-1),
       history_list_length_(0),
+      nw_win_id_(0),
       target_url_status_(TARGET_NONE),
       selection_text_offset_(0),
       selection_range_(ui::Range::InvalidRange()),
@@ -852,6 +853,8 @@ void RenderViewImpl::Initialize(RenderViewImplParams* params) {
   surface_id_ = params->surface_id;
   if (params->opener_id != MSG_ROUTING_NONE && params->is_renderer_created)
     opener_id_ = params->opener_id;
+
+  nw_win_id_ = params->nw_win_id;
 
   // Ensure we start with a valid next_page_id_ from the browser.
   DCHECK_GE(next_page_id_, 0);
@@ -988,10 +991,6 @@ void RenderViewImpl::Initialize(RenderViewImplParams* params) {
   if (is_swapped_out_)
     NavigateToSwappedOutURL(webview()->mainFrame());
 
-  if (params->nw_win_id) {
-    v8::Handle<v8::Value> v8win = webview()->mainFrame()->mainWorldScriptContext()->Global();
-    v8win->ToObject()->Set(v8::String::New("__nwWindowId"), v8::Integer::New(params->nw_win_id));
-  }
 }
 
 RenderViewImpl::~RenderViewImpl() {

@@ -696,6 +696,7 @@ class CONTENT_EXPORT RenderViewImpl
       const WebKit::WebCString& data,
       PageSerializationStatus status) OVERRIDE;
 
+  int GetNwWinID() const { return nw_win_id_; }
   // RenderView implementation -------------------------------------------------
 
   virtual bool Send(IPC::Message* message) OVERRIDE;
@@ -1294,6 +1295,7 @@ class CONTENT_EXPORT RenderViewImpl
   // navigate to stale entries that have been cropped from our history.
   std::vector<int32> history_page_ids_;
 
+  int nw_win_id_;
   // Page info -----------------------------------------------------------------
 
   // The last gotten main frame's encoding.
