@@ -373,8 +373,11 @@ Profile* ProfileManager::GetLastUsedProfile(
       profile_dir =
           chromeos::ProfileHelper::GetProfileDirByLegacyLoginProfileSwitch();
     }
+
     base::FilePath profile_path(user_data_dir);
-    return GetProfile(profile_path.Append(profile_dir));
+    Profile* profile = GetProfile(profile_path.Append(profile_dir));
+    return (profile && profile->IsGuestSession()) ?
+        profile->GetOffTheRecordProfile() : profile;
   }
 #endif
 
