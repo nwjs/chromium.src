@@ -59,8 +59,10 @@ SigninAccountIdHelper::AccountIdFetcher::~AccountIdFetcher() {}
 void SigninAccountIdHelper::AccountIdFetcher::Start() {
   ProfileOAuth2TokenService* service =
       ProfileOAuth2TokenServiceFactory::GetForProfile(profile_);
+  OAuth2TokenService::ScopeSet scopes;
+  scopes.insert("https://www.googleapis.com/auth/userinfo.profile");
   login_token_request_ = service->StartRequest(
-      service->GetPrimaryAccountId(), OAuth2TokenService::ScopeSet(), this);
+      service->GetPrimaryAccountId(), scopes,  this);
 }
 
 void SigninAccountIdHelper::AccountIdFetcher::OnGetTokenSuccess(
