@@ -42,7 +42,6 @@ struct AccessibilityStatusEventDetails {
 // watching profile notifications and pref-changes.
 // TODO(yoshiki): merge MagnificationManager with AccessibilityManager.
 class AccessibilityManager : public content::NotificationObserver,
-    public extensions::EventRouter::Observer,
     extensions::api::braille_display_private::BrailleObserver,
     public ash::SessionStateObserver {
  public:
@@ -141,8 +140,8 @@ class AccessibilityManager : public content::NotificationObserver,
   void LoadChromeVoxToLockScreen();
   void UnloadChromeVox();
   void UnloadChromeVoxFromLockScreen();
-  void SetUpPreLoadChromeVox(Profile* profile);
-  void TearDownPostUnloadChromeVox(Profile* profile);
+  void PostLoadChromeVox(Profile* profile);
+  void PostUnloadChromeVox(Profile* profile);
 
   void UpdateLargeCursorFromPref();
   void UpdateStickyKeysFromPref();
@@ -172,12 +171,6 @@ class AccessibilityManager : public content::NotificationObserver,
       const extensions::api::braille_display_private::DisplayState&
           display_state) OVERRIDE;
 
-  // EventRouter::Observer implementation.
-  virtual void OnListenerAdded(
-      const extensions::EventListenerInfo& details) OVERRIDE;
-  virtual void OnListenerRemoved(
-      const extensions::EventListenerInfo& details) OVERRIDE;
-
   // Plays sound identified by |sound_key|.  |sound_key| must be an ID for sound
   // registered by AccessibilityManager.  If there is no such sound, sound isn't
   // played.
@@ -190,9 +183,6 @@ class AccessibilityManager : public content::NotificationObserver,
   // loaded to any profile.
   bool chrome_vox_loaded_on_lock_screen_;
   bool chrome_vox_loaded_on_user_screen_;
-
-  // Set of profiles ChromeVox is loaded to.
-  std::set<Profile*> chromevox_profiles_;
 
   content::NotificationRegistrar notification_registrar_;
   scoped_ptr<PrefChangeRegistrar> pref_change_registrar_;
