@@ -4,20 +4,19 @@
 
 class TimelineImporter(object):
   """Interface for classes that can add events to
-  a timeline model from an TimelineData."""
-  def __init__(self, model, timeline_data, import_priority=0):
+  a timeline model from raw event data."""
+  def __init__(self, model, event_data, import_priority=0):
     self._model = model
-    self._timeline_data = timeline_data
+    self._event_data = event_data
     self.import_priority = import_priority
 
   @staticmethod
-  def CanImport(event_data_wrapper):
-    """Returns true if the importer can process the given event data in the
-    wrapper."""
+  def CanImport(event_data):
+    """Returns true if the importer can process the given event data."""
     raise NotImplementedError
 
   def ImportEvents(self):
-    """Processes the event data in the wrapper and creates and adds
+    """Processes the event data and creates and adds
     new timeline events to the model"""
     raise NotImplementedError
 

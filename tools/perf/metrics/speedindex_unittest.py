@@ -10,7 +10,6 @@ import os
 import unittest
 
 from telemetry.core import bitmap
-from telemetry.core.backends.chrome import inspector_timeline_data
 from telemetry.core.timeline import model
 from metrics import speedindex
 
@@ -18,10 +17,7 @@ from metrics import speedindex
 # The sample events will be used in several tests below.
 _TEST_DIR = os.path.join(os.path.dirname(__file__), 'unittest_data')
 _SAMPLE_DATA = json.load(open(os.path.join(_TEST_DIR, 'sample_timeline.json')))
-_SAMPLE_TIMELINE_DATA = inspector_timeline_data.InspectorTimelineData(
-    _SAMPLE_DATA)
-_SAMPLE_EVENTS = model.TimelineModel(
-    timeline_data=_SAMPLE_TIMELINE_DATA).GetAllEvents()
+_SAMPLE_EVENTS = model.TimelineModel(event_data=_SAMPLE_DATA).GetAllEvents()
 
 
 class FakeTimelineModel(object):
@@ -192,9 +188,8 @@ class WPTComparisonTest(unittest.TestCase):
     file_path = os.path.join(_TEST_DIR, filename)
     with open(file_path) as json_file:
       raw_events = json.load(json_file)
-      timeline_data = inspector_timeline_data.InspectorTimelineData(raw_events)
       tab.timeline_model.SetAllEvents(
-          model.TimelineModel(timeline_data=timeline_data).GetAllEvents())
+          model.TimelineModel(event_data=raw_events).GetAllEvents())
       tab.SetEvaluateJavaScriptResult(viewport)
       actual = impl.CalculateSpeedIndex(tab)
       # The result might differ by 1 or more milliseconds due to rounding,
@@ -222,3 +217,4 @@ class WPTComparisonTest(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+

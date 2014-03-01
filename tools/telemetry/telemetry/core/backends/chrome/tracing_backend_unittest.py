@@ -8,9 +8,8 @@ import logging
 import unittest
 
 from telemetry.core import util
-from telemetry.core.backends.chrome import tracing_timeline_data
+from telemetry.core.backends.chrome import chrome_trace_result
 from telemetry.core.backends.chrome import tracing_backend
-from telemetry.core.timeline.model import TimelineModel
 from telemetry.unittest import tab_test_case
 
 class CategoryFilterTest(unittest.TestCase):
@@ -87,7 +86,7 @@ class ChromeTraceResultTest(unittest.TestCase):
     super(ChromeTraceResultTest, self).__init__(method_name)
 
   def testWrite1(self):
-    ri = tracing_timeline_data.TracingTimelineData(map(json.loads, []))
+    ri = chrome_trace_result.ChromeTraceResult(map(json.loads, []))
     f = cStringIO.StringIO()
     ri.Serialize(f)
     v = f.getvalue()
@@ -97,7 +96,7 @@ class ChromeTraceResultTest(unittest.TestCase):
     self.assertEquals(j['traceEvents'], [])
 
   def testWrite2(self):
-    ri = tracing_timeline_data.TracingTimelineData(map(json.loads, [
+    ri = chrome_trace_result.ChromeTraceResult(map(json.loads, [
         '"foo"',
         '"bar"']))
     f = cStringIO.StringIO()
@@ -109,7 +108,7 @@ class ChromeTraceResultTest(unittest.TestCase):
     self.assertEquals(j['traceEvents'], ['foo', 'bar'])
 
   def testWrite3(self):
-    ri = tracing_timeline_data.TracingTimelineData(map(json.loads, [
+    ri = chrome_trace_result.ChromeTraceResult(map(json.loads, [
         '"foo"',
         '"bar"',
         '"baz"']))
@@ -123,12 +122,12 @@ class ChromeTraceResultTest(unittest.TestCase):
                       ['foo', 'bar', 'baz'])
 
   def testBrowserProcess(self):
-    ri = tracing_timeline_data.TracingTimelineData(map(json.loads, [
+    ri = chrome_trace_result.ChromeTraceResult(map(json.loads, [
         '{"name": "process_name",'
         '"args": {"name": "Browser"},'
         '"pid": 5, "ph": "M"}',
         '{"name": "thread_name",'
         '"args": {"name": "CrBrowserMain"},'
         '"pid": 5, "tid": 32578, "ph": "M"}']))
-    model = TimelineModel(ri)
+    model = ri.AsTimelineModel()
     self.assertEquals(model.browser_process.pid, 5)

@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 import unittest
 
-from telemetry.core.backends.chrome import inspector_timeline_data
 from telemetry.core.timeline import inspector_importer
 from telemetry.core.timeline import model
 
@@ -125,15 +124,12 @@ class InspectorEventParsingTest(unittest.TestCase):
          'type': 'CompositeLayers', 'children': []},
         {'startTime': 5305.004, 'data': {}, 'type': 'MarkFirstPaint'}
     ]}
-    timeline_data = inspector_timeline_data.InspectorTimelineData([raw_event])
-    model.TimelineModel(timeline_data=timeline_data, shift_world_to_zero=False)
+    model.TimelineModel([raw_event], shift_world_to_zero=False)
 
 class InspectorImporterTest(unittest.TestCase):
   def testImport(self):
     messages = [_BACKGROUND_MESSAGE, _SAMPLE_MESSAGE]
-    timeline_data = inspector_timeline_data.InspectorTimelineData(messages)
-    m = model.TimelineModel(timeline_data=timeline_data,
-                            shift_world_to_zero=False)
+    m = model.TimelineModel(messages, shift_world_to_zero=False)
     self.assertEquals(1, len(m.processes))
     process = m.processes.values()[0]
     threads = process.threads

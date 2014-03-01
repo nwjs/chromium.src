@@ -10,7 +10,6 @@ from metrics import rendering_stats
 from telemetry.page import page_measurement
 from telemetry.page.perf_tests_helper import FlattenList
 import telemetry.core.timeline.bounds as timeline_bounds
-from telemetry.core.timeline.model import TimelineModel
 from telemetry.core.timeline.model import MarkerMismatchError
 from telemetry.core.timeline.model import MarkerOverlapError
 
@@ -104,8 +103,7 @@ class RasterizeAndRecord(page_measurement.PageMeasurement):
     tab.ExecuteJavaScript(
         'console.timeEnd("' + TIMELINE_MARKER + '")')
 
-    tracing_timeline_data = tab.browser.StopTracing()
-    timeline = TimelineModel(timeline_data=tracing_timeline_data)
+    timeline = tab.browser.StopTracing().AsTimelineModel()
     try:
       timeline_markers = timeline.FindTimelineMarkers(TIMELINE_MARKER)
     except (MarkerMismatchError, MarkerOverlapError) as e:

@@ -7,7 +7,6 @@ from metrics import rendering_stats
 from metrics import statistics
 from telemetry.page import page_measurement
 from telemetry.page.perf_tests_helper import FlattenList
-from telemetry.core.timeline.model import TimelineModel
 
 TIMELINE_MARKER = 'Smoothness'
 
@@ -61,8 +60,7 @@ class SmoothnessMetric(Metric):
     if tab.browser.platform.IsRawDisplayFrameRateSupported():
       tab.browser.platform.StopRawDisplayFrameRateMeasurement()
     tab.ExecuteJavaScript('console.timeEnd("' + TIMELINE_MARKER + '")')
-    tracing_timeline_data = tab.browser.StopTracing()
-    timeline_model = TimelineModel(timeline_data=tracing_timeline_data)
+    timeline_model = tab.browser.StopTracing().AsTimelineModel()
     timeline_ranges = [ action.GetActiveRangeOnTimeline(timeline_model)
                         for action in self._actions ]
 

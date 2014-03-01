@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from telemetry.core.backends.chrome import inspector_timeline_data
 from telemetry.core.timeline import model
 
 
@@ -63,9 +62,8 @@ class InspectorTimeline(object):
     request = {'method': 'Timeline.stop'}
     result = self._SendSyncRequest(request)
     raw_events = result['events']
-    timeline_data = inspector_timeline_data.InspectorTimelineData(raw_events)
     self._timeline_model = model.TimelineModel(
-        timeline_data=timeline_data, shift_world_to_zero=False)
+        event_data=raw_events, shift_world_to_zero=False)
     self._inspector_backend.UnregisterDomain('Timeline')
     self._is_recording = False
 
@@ -99,3 +97,4 @@ class InspectorTimeline(object):
   def _OnClose(self):
     """Handler called when a domain is unregistered."""
     pass
+
