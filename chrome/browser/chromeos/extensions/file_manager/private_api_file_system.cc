@@ -33,6 +33,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/storage_partition.h"
+#include "net/base/escape.h"
 #include "webkit/browser/fileapi/file_system_context.h"
 #include "webkit/browser/fileapi/file_system_file_util.h"
 #include "webkit/browser/fileapi/file_system_operation_context.h"
@@ -540,7 +541,7 @@ bool FileBrowserPrivateStartCopyFunction::RunImpl() {
   fileapi::FileSystemURL source_url(
       file_system_context->CrackURL(GURL(params->source_url)));
   fileapi::FileSystemURL destination_url(file_system_context->CrackURL(
-      GURL(params->parent + "/" + params->new_name)));
+      GURL(params->parent + "/" + net::EscapePath(params->new_name))));
 
   if (!source_url.is_valid() || !destination_url.is_valid()) {
     error_ = base::IntToString(fileapi::PlatformFileErrorToWebFileError(
