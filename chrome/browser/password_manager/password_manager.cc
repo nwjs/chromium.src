@@ -44,15 +44,6 @@ const char kSpdyProxyRealm[] = "/SpdyProxy";
 const char kOtherPossibleUsernamesExperiment[] =
     "PasswordManagerOtherPossibleUsernames";
 
-void ReportOsPassword() {
-  password_manager_util::OsPasswordStatus status =
-      password_manager_util::GetOsPasswordStatus();
-
-  UMA_HISTOGRAM_ENUMERATION("PasswordManager.OsPasswordStatus",
-                            status,
-                            password_manager_util::MAX_PASSWORD_STATUS);
-}
-
 // This routine is called when PasswordManagers are constructed.
 //
 // Currently we report metrics only once at startup. We require
@@ -68,13 +59,6 @@ void ReportMetrics(bool password_manager_enabled) {
   if (ran_once)
     return;
   ran_once = true;
-
-  // Avoid checking OS password until later on in browser startup
-  // since it calls a few Windows APIs.
-  BrowserThread::PostDelayedTask(BrowserThread::UI,
-                                 FROM_HERE,
-                                 base::Bind(&ReportOsPassword),
-                                 base::TimeDelta::FromSeconds(10));
 
   UMA_HISTOGRAM_BOOLEAN("PasswordManager.Enabled", password_manager_enabled);
 }
