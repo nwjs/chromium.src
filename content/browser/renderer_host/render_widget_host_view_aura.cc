@@ -1579,6 +1579,8 @@ void RenderWidgetHostViewAura::SwapSoftwareFrame(
         base::Bind(&RenderWidgetHostViewAura::SendSoftwareFrameAck,
                    AsWeakPtr(),
                    output_surface_id));
+  } else {
+    SendSoftwareFrameAck(output_surface_id);
   }
   if (paint_observer_)
     paint_observer_->OnUpdateCompositorContent();
