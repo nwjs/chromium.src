@@ -115,9 +115,6 @@ class DeviceCloudPolicyManagerChromeOS : public CloudPolicyManager {
   void EnrollmentCompleted(const EnrollmentCallback& callback,
                            EnrollmentStatus status);
 
-  // Initializes requisition settings at OOBE with values from VPD.
-  void InitalizeRequisition();
-
   // Points to the same object as the base CloudPolicyManager::store(), but with
   // actual device policy specific type.
   scoped_ptr<DeviceCloudPolicyStoreChromeOS> device_store_;
