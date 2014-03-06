@@ -235,10 +235,16 @@ void CoreOobeHandler::HandleEnableSpokenFeedback() {
 
 void CoreOobeHandler::HandleSetDeviceRequisition(
     const std::string& requisition) {
-  g_browser_process->browser_policy_connector()->GetDeviceCloudPolicyManager()->
-      SetDeviceRequisition(requisition);
+  policy::BrowserPolicyConnector* connector =
+      g_browser_process->browser_policy_connector();
+  std::string initial_requisition =
+      connector->GetDeviceCloudPolicyManager()->GetDeviceRequisition();
+  connector->GetDeviceCloudPolicyManager()->SetDeviceRequisition(requisition);
   // Exit Chrome to force the restart as soon as a new requisition is set.
-  chrome::ExitCleanly();
+  if (initial_requisition !=
+          connector->GetDeviceCloudPolicyManager()->GetDeviceRequisition()) {
+    chrome::AttemptRestart();
+  }
 }
 
 void CoreOobeHandler::HandleScreenAssetsLoaded(
