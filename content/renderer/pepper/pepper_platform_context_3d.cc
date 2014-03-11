@@ -107,6 +107,7 @@ bool PlatformContext3D::Init(const int32* attrib_list,
   if (!command_buffer_->ProduceFrontBuffer(names[0]))
     return false;
   mailbox_ = names[0];
+  sync_point_ = command_buffer_->InsertSyncPoint();
 
   command_buffer_->SetChannelErrorCallback(
       base::Bind(&PlatformContext3D::OnContextLost,
@@ -118,8 +119,15 @@ bool PlatformContext3D::Init(const int32* attrib_list,
   return true;
 }
 
-void PlatformContext3D::GetBackingMailbox(gpu::Mailbox* mailbox) {
+void PlatformContext3D::GetBackingMailbox(gpu::Mailbox* mailbox,
+                                          uint32* sync_point) {
   *mailbox = mailbox_;
+  *sync_point = sync_point_;
+}
+
+void PlatformContext3D::InsertSyncPointForBackingMailbox() {
+  DCHECK(command_buffer_);
+  sync_point_ = command_buffer_->InsertSyncPoint();
 }
 
 bool PlatformContext3D::IsOpaque() {
