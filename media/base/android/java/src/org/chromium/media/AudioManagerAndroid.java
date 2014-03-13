@@ -171,12 +171,6 @@ class AudioManagerAndroid {
         mSavedIsSpeakerphoneOn = mAudioManager.isSpeakerphoneOn();
         mSavedIsMicrophoneMute = mAudioManager.isMicrophoneMute();
 
-        // Always enable speaker phone by default. This state might be reset
-        // by the wired headset receiver when it gets its initial sticky
-        // intent, if any.
-        setSpeakerphoneOn(true);
-        mAudioDeviceState = STATE_SPEAKERPHONE_ON;
-
         // Initialize audio device list with things we know is always available.
         synchronized (mLock) {
             if (hasEarpiece()) {
