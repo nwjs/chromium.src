@@ -95,10 +95,10 @@ class UI_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
     const std::string& ToString() const { return data_; }
 #endif
 
+    bool Equals(const FormatType& other) const;
+
    private:
     friend class Clipboard;
-
-    bool Equals(const FormatType& other) const;
 
     // Platform-specific glue used internally by the Clipboard class. Each
     // plaform should define,at least one of each of the following:
