@@ -84,6 +84,10 @@ Clipboard::FormatType Clipboard::FormatType::Deserialize(
   return FormatType(base::SysUTF8ToNSString(serialization));
 }
 
+bool Clipboard::FormatType::operator<(const FormatType& other) const {
+  return [data_ compare:other.data_] == NSOrderedAscending;
+}
+
 Clipboard::Clipboard() {
   DCHECK(CalledOnValidThread());
 }
@@ -369,7 +373,7 @@ void Clipboard::ReadData(const FormatType& format, std::string* result) const {
 }
 
 // static
-Clipboard::FormatType Clipboard::GetFormatType(
+Clipboard::FormatType Clipboard::GetFormatTypeInternal(
     const std::string& format_string) {
   return FormatType::Deserialize(format_string);
 }
@@ -433,13 +437,17 @@ const Clipboard::FormatType& Clipboard::GetWebKitSmartPasteFormatType() {
 
 // static
 const Clipboard::FormatType& Clipboard::GetWebCustomDataFormatType() {
-  CR_DEFINE_STATIC_LOCAL(FormatType, type, (kWebCustomDataPboardType));
+  CR_DEFINE_STATIC_LOCAL(
+      FormatType, type, (GetFormatType([kWebCustomDataPboardType UTF8String])));
   return type;
 }
 
 // static
 const Clipboard::FormatType& Clipboard::GetPepperCustomDataFormatType() {
-  CR_DEFINE_STATIC_LOCAL(FormatType, type, (kPepperCustomDataPboardType));
+  CR_DEFINE_STATIC_LOCAL(
+      FormatType,
+      type,
+      (GetFormatType([kPepperCustomDataPboardType UTF8String])));
   return type;
 }
 
