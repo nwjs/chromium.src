@@ -203,6 +203,10 @@ bool Clipboard::FormatType::operator<(const FormatType& other) const {
   return ToUINT() < other.ToUINT();
 }
 
+bool Clipboard::FormatType::Equals(const FormatType& other) const {
+  return ToUINT() == other.ToUINT();
+}
+
 Clipboard::Clipboard() {
   if (base::MessageLoop::current()->type() == base::MessageLoop::TYPE_UI)
     clipboard_owner_.reset(new base::win::MessageWindow());
