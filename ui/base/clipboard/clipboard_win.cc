@@ -679,7 +679,7 @@ void Clipboard::ParseBookmarkClipboardFormat(const string16& bookmark,
 }
 
 // static
-Clipboard::FormatType Clipboard::GetFormatTypeInternal(
+Clipboard::FormatType Clipboard::GetFormatType(
     const std::string& format_string) {
   return FormatType(
       ::RegisterClipboardFormat(ASCIIToWide(format_string).c_str()));
@@ -804,7 +804,7 @@ const Clipboard::FormatType& Clipboard::GetWebCustomDataFormatType() {
   CR_DEFINE_STATIC_LOCAL(
       FormatType,
       type,
-      (GetFormatType("Chromium Web Custom MIME Data Format")));
+      (::RegisterClipboardFormat(L"Chromium Web Custom MIME Data Format")));
   return type;
 }
 
@@ -813,7 +813,7 @@ const Clipboard::FormatType& Clipboard::GetPepperCustomDataFormatType() {
   CR_DEFINE_STATIC_LOCAL(
       FormatType,
       type,
-      (GetFormatType("Chromium Pepper MIME Data Format")));
+      (::RegisterClipboardFormat(L"Chromium Pepper MIME Data Format")));
   return type;
 }
 
