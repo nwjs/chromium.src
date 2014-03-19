@@ -19,6 +19,7 @@
 #include "chrome/browser/translate/translate_manager.h"
 #include "chrome/browser/translate/translate_url_fetcher.h"
 #include "chrome/browser/translate/translate_url_util.h"
+#include "components/translate/common/translate_util.h"
 #include "net/base/url_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -95,8 +96,7 @@ const char* const kDefaultSupportedLanguages[] = {
 };
 
 // Constant URL string to fetch server supporting language list.
-const char kLanguageListFetchURL[] =
-    "https://translate.googleapis.com/translate_a/l?client=chrome&cb=sl";
+const char kLanguageListFetchPath[] = "translate_a/l?client=chrome&cb=sl";
 
 // Used in kTranslateScriptURL to request supporting languages list including
 // "alpha languages".
@@ -167,7 +167,9 @@ void SetSupportedLanguages(const std::string& language_list,
     return;
   }
 
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
   const std::string& locale = g_browser_process->GetApplicationLocale();
+#endif  // !defined(OS_ANDROID) && !defined(OS_IOS)
 
   // Now we can clear language list.
   target_language_set->clear();
@@ -177,10 +179,15 @@ void SetSupportedLanguages(const std::string& language_list,
        !iter.IsAtEnd();
        iter.Advance()) {
     const std::string& lang = iter.key();
+
+// Mobile can provide manual triggers for languages where we don't yet
+// have an ICU translation
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
     if (!l10n_util::IsLocaleNameTranslated(lang.c_str(), locale)) {
       TranslateBrowserMetrics::ReportUndisplayableLanguage(lang);
       continue;
     }
+#endif  // !defined(OS_ANDROID) && !defined(OS_IOS)
     target_language_set->insert(lang);
     if (message.empty())
       message += lang;
@@ -203,8 +210,10 @@ void SetSupportedLanguages(const std::string& language_list,
   for (DictionaryValue::Iterator iter(*alpha_languages);
        !iter.IsAtEnd(); iter.Advance()) {
     const std::string& lang = iter.key();
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
     if (!l10n_util::IsLocaleNameTranslated(lang.c_str(), locale))
       continue;
+#endif  // !defined(OS_ANDROID) && !defined(OS_IOS)
     alpha_language_set->insert(lang);
   }
 }
@@ -219,7 +228,7 @@ const char TranslateLanguageList::kAlphaLanguagesKey[] = "al";
 TranslateLanguageList::TranslateLanguageList() {
   // We default to our hard coded list of languages in
   // |kDefaultSupportedLanguages|. This list will be overriden by a server
-  // providing supported langauges list.
+  // providing supported languages list.
   for (size_t i = 0; i < arraysize(kDefaultSupportedLanguages); ++i)
     all_supported_languages_.insert(kDefaultSupportedLanguages[i]);
 
@@ -267,6 +276,12 @@ bool TranslateLanguageList::IsAlphaLanguage(const std::string& language) {
   return alpha_languages_.count(language) != 0;
 }
 
+GURL TranslateLanguageList::TranslateLanguageUrl() {
+  std::string url = translate::GetTranslateSecurityOrigin().spec() +
+      kLanguageListFetchPath;
+  return GURL(url);
+}
+
 void TranslateLanguageList::RequestLanguageList() {
   // If resource requests are not allowed, we'll get a callback when they are.
   if (resource_request_allowed_notifier_.ResourceRequestsAllowed())
@@ -277,7 +292,7 @@ void TranslateLanguageList::OnResourceRequestsAllowed() {
   if (language_list_fetcher_.get() &&
       (language_list_fetcher_->state() == TranslateURLFetcher::IDLE ||
        language_list_fetcher_->state() == TranslateURLFetcher::FAILED)) {
-    GURL url = GURL(kLanguageListFetchURL);
+    GURL url = TranslateLanguageUrl();
     url = TranslateURLUtil::AddHostLocaleToUrl(url);
     url = TranslateURLUtil::AddApiKeyToUrl(url);
     url = net::AppendQueryParameter(url,

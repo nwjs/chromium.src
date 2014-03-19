@@ -9,7 +9,6 @@
 #include "base/android/jni_helper.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/translate/translate_infobar_delegate.h"
-#include "components/translate/core/browser/translate_download_manager.h"
 #include "grit/generated_resources.h"
 #include "jni/TranslateInfoBarDelegate_jni.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -41,8 +40,7 @@ ScopedJavaLocalRef<jobject> TranslateInfoBar::CreateRenderInfoBar(JNIEnv* env) {
   std::vector<base::string16> languages;
   languages.reserve(delegate->num_languages());
 
-  const std::string& locale =
-      TranslateDownloadManager::GetInstance()->application_locale();
+  const std::string locale = "en";
 
   for (size_t i = 0; i < delegate->num_languages(); ++i) {
     std::string lang = delegate->language_code_at(i);

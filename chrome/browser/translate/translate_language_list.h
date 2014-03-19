@@ -13,6 +13,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/web_resource/resource_request_allowed_notifier.h"
 
+class GURL;
 class TranslateURLFetcher;
 
 // The TranslateLanguageList class is responsible for maintaining the latest
@@ -66,6 +67,9 @@ class TranslateLanguageList : public ResourceRequestAllowedNotifier::Observer {
   void OnLanguageListFetchComplete(int id,
                                    bool success,
                                    const std::string& data);
+
+  // Returns the url from which to load the list of languages.
+  GURL TranslateLanguageUrl();
 
   // All the languages supported by the translation server.
   std::set<std::string> all_supported_languages_;

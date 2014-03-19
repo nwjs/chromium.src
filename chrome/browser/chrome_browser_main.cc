@@ -1508,6 +1508,11 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       browser_process_->variations_service();
   if (variations_service)
     variations_service->StartRepeatedVariationsSeedFetch();
+
+  if (translate_manager_ != NULL) {
+    translate_manager_->FetchLanguageListFromTranslateServer(
+        profile_->GetPrefs());
+  }
 #else
   // Most general initialization is behind us, but opening a
   // tab and/or session restore and such is still to be done.
