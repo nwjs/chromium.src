@@ -21,6 +21,8 @@ public class TranslateOptions {
     private static final int NEVER_DOMAIN = 1;
     private static final int ALWAYS_LANGUAGE = 2;
 
+    private static String EMOJI_TRANSLATION = "Emoji";
+
     private final String[] mAllLanguages;
 
     // Will reflect the state before the object was ever modified
@@ -32,9 +34,6 @@ public class TranslateOptions {
     private int mSourceLanguageIndex;
     private int mTargetLanguageIndex;
     private final boolean mTriggeredFromMenu;
-
-    // Placeholder while i18tn is supported.
-    private static final String UNTRANSLATED_LANGUAGE_PLAHOLDER = "\ud83c\udfc4";
 
     private TranslateOptions(int sourceLanguageCode, int targetLanguageCode, String[] allLanguages,
             boolean neverLanguage, boolean neverDomain, boolean alwaysLanguage,
@@ -60,6 +59,14 @@ public class TranslateOptions {
         mOriginalTargetLanguageIndex = mTargetLanguageIndex;
     }
 
+    /**
+     * Hook to inject the translation id of the word emoji from the
+     * downstream code to the upstream code.
+     */
+    public static void setEmojiTranslation(String emoji) {
+        EMOJI_TRANSLATION = emoji;
+    }
+
     public TranslateOptions(int sourceLanguageCode, int targetLanguageCode, String[] allLanguages,
            boolean alwaysTranslate, boolean triggeredFromMenu) {
         this(sourceLanguageCode, targetLanguageCode, allLanguages, false, false, alwaysTranslate,
@@ -79,7 +86,7 @@ public class TranslateOptions {
     public String sourceLanguage() {
         if (checkLanguageBoundaries(mSourceLanguageIndex)) {
             if (mAllLanguages[mSourceLanguageIndex].isEmpty()) {
-                return TranslateOptions.UNTRANSLATED_LANGUAGE_PLAHOLDER;
+                return EMOJI_TRANSLATION;
             }
             return mAllLanguages[mSourceLanguageIndex];
         }
@@ -89,8 +96,9 @@ public class TranslateOptions {
     public String targetLanguage() {
         if (checkLanguageBoundaries(mTargetLanguageIndex)) {
             if (mAllLanguages[mTargetLanguageIndex].isEmpty()) {
-                return TranslateOptions.UNTRANSLATED_LANGUAGE_PLAHOLDER;
+                return EMOJI_TRANSLATION;
             }
+
             return mAllLanguages[mTargetLanguageIndex];
         }
         return "";
