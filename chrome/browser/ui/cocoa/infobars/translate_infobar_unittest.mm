@@ -42,7 +42,7 @@ class MockTranslateInfoBarDelegate : public TranslateInfoBarDelegate {
                                PrefService* prefs,
                                ShortcutConfiguration config)
       : TranslateInfoBarDelegate(web_contents, type, NULL, "en", "es", error,
-                                 prefs, config) {
+                                 prefs, config, false) {
   }
 
   MOCK_METHOD0(Translate, void());

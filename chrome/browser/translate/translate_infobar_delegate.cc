@@ -40,7 +40,8 @@ void TranslateInfoBarDelegate::Create(
     const std::string& target_language,
     TranslateErrors::Type error_type,
     PrefService* prefs,
-    const ShortcutConfiguration& shortcut_config) {
+    const ShortcutConfiguration& shortcut_config,
+    bool triggered_from_menu) {
   // Check preconditions.
   if (infobar_type != TRANSLATION_ERROR) {
     DCHECK(TranslateManager::IsSupportedLanguage(target_language));
@@ -82,7 +83,8 @@ void TranslateInfoBarDelegate::Create(
   scoped_ptr<InfoBar> infobar(CreateInfoBar(
       scoped_ptr<TranslateInfoBarDelegate>(new TranslateInfoBarDelegate(
           web_contents, infobar_type, old_delegate, original_language,
-          target_language, error_type, prefs, shortcut_config))));
+          target_language, error_type, prefs, shortcut_config,
+          triggered_from_menu))));
   if (old_delegate)
     infobar_service->ReplaceInfoBar(old_infobar, infobar.Pass());
   else
@@ -226,7 +228,8 @@ void TranslateInfoBarDelegate::MessageInfoBarButtonPressed() {
   }
   // This is the "Try again..." case.
   TranslateManager::GetInstance()->TranslatePage(
-      web_contents(), original_language_code(), target_language_code());
+      web_contents(), original_language_code(),
+      target_language_code(), false);
 }
 
 bool TranslateInfoBarDelegate::ShouldShowMessageInfoBarButton() {
@@ -297,14 +300,16 @@ TranslateInfoBarDelegate::TranslateInfoBarDelegate(
     const std::string& target_language,
     TranslateErrors::Type error_type,
     PrefService* prefs,
-    ShortcutConfiguration shortcut_config)
+    ShortcutConfiguration shortcut_config,
+    bool triggered_from_menu)
     : InfoBarDelegate(),
       infobar_type_(infobar_type),
       background_animation_(NONE),
       ui_delegate_(web_contents, original_language, target_language),
       error_type_(error_type),
       prefs_(prefs),
-      shortcut_config_(shortcut_config) {
+      shortcut_config_(shortcut_config),
+      triggered_from_menu_(triggered_from_menu) {
   DCHECK_NE((infobar_type_ == TRANSLATION_ERROR),
             (error_type_ == TranslateErrors::NONE));
 

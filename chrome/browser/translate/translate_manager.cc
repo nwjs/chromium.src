@@ -399,7 +399,7 @@ void TranslateManager::InitiateTranslation(WebContents* web_contents,
     if (!auto_target_lang.empty()) {
       TranslateBrowserMetrics::ReportInitiationStatus(
           TranslateBrowserMetrics::INITIATION_STATUS_AUTO_BY_CONFIG);
-      TranslatePage(web_contents, language_code, auto_target_lang);
+      TranslatePage(web_contents, language_code, auto_target_lang, false);
       return;
     }
   }
@@ -410,7 +410,7 @@ void TranslateManager::InitiateTranslation(WebContents* web_contents,
     // This page was navigated through a click from a translated page.
     TranslateBrowserMetrics::ReportInitiationStatus(
         TranslateBrowserMetrics::INITIATION_STATUS_AUTO_BY_LINK);
-    TranslatePage(web_contents, language_code, auto_translate_to);
+    TranslatePage(web_contents, language_code, auto_translate_to, false);
     return;
   }
 
@@ -429,7 +429,7 @@ void TranslateManager::InitiateTranslation(WebContents* web_contents,
     TranslateInfoBarDelegate::Create(
         false, web_contents, TranslateInfoBarDelegate::BEFORE_TRANSLATE,
         language_code, target_lang, TranslateErrors::NONE, profile->GetPrefs(),
-        ShortcutConfig());
+        ShortcutConfig(), false);
   }
 }
 
@@ -467,7 +467,8 @@ void TranslateManager::InitiateTranslationPosted(int process_id,
 
 void TranslateManager::TranslatePage(WebContents* web_contents,
                                      const std::string& original_source_lang,
-                                     const std::string& target_lang) {
+                                     const std::string& target_lang,
+                                      bool triggered_from_menu) {
   NavigationEntry* entry = web_contents->GetController().GetActiveEntry();
   if (!entry) {
     NOTREACHED();
@@ -491,7 +492,7 @@ void TranslateManager::TranslatePage(WebContents* web_contents,
     TranslateInfoBarDelegate::Create(
         true, web_contents, TranslateInfoBarDelegate::TRANSLATING, source_lang,
         target_lang, TranslateErrors::NONE, profile->GetPrefs(),
-        ShortcutConfig());
+        ShortcutConfig(), triggered_from_menu);
   }
 
   DCHECK(script_.get() != NULL);
@@ -619,7 +620,7 @@ void TranslateManager::PageTranslated(WebContents* web_contents,
             TranslateInfoBarDelegate::AFTER_TRANSLATE :
             TranslateInfoBarDelegate::TRANSLATION_ERROR,
         details->source_language, details->target_language, details->error_type,
-        prefs, ShortcutConfig());
+        prefs, ShortcutConfig(), false);
   }
 
   if (details->error_type != TranslateErrors::NONE &&
@@ -687,7 +688,7 @@ void TranslateManager::OnTranslateScriptFetchComplete(
         TranslateInfoBarDelegate::Create(
             true, web_contents, TranslateInfoBarDelegate::TRANSLATION_ERROR,
             request.source_lang, request.target_lang, TranslateErrors::NETWORK,
-            profile->GetPrefs(), ShortcutConfig());
+            profile->GetPrefs(), ShortcutConfig(), false);
       }
 
       if (!web_contents->GetBrowserContext()->IsOffTheRecord()) {
