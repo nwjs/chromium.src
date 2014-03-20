@@ -11,11 +11,13 @@
 #include "base/prefs/pref_service.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/infobars/infobar.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
+#include "chrome/browser/signin/signin_manager.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/ui/sync/sync_promo_ui.h"
 #include "chrome/common/chrome_switches.h"
@@ -23,6 +25,11 @@
 #include "chrome/common/url_constants.h"
 #include "components/signin/core/profile_oauth2_token_service.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/notification_details.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
+#include "content/public/browser/notification_source.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -155,21 +162,13 @@ AutoLoginInfoBarDelegate::AutoLoginInfoBarDelegate(const Params& params,
                                                    Profile* profile)
     : ConfirmInfoBarDelegate(),
       params_(params),
-      profile_(profile),
       button_pressed_(false) {
   RecordHistogramAction(SHOWN);
-  SigninManagerFactory::GetInstance()->GetForProfile(profile_)->AddObserver(
-      this);
+  registrar_.Add(this, chrome::NOTIFICATION_GOOGLE_SIGNED_OUT,
+                 content::Source<Profile>(profile));
 }
 
 AutoLoginInfoBarDelegate::~AutoLoginInfoBarDelegate() {
-  // The SigninManagerFactory is scoped to the lifetime of the app and the
-  // SigninManager is scoped to the lifetime of the Profile, both of which are
-  // longer than the lifetime of the WebContents that this object cannot
-  // outlive. Therefore, it's safe to call RemoveObserver() unconditionally.
-  SigninManagerFactory::GetInstance()->GetForProfile(profile_)->RemoveObserver(
-      this);
-
   if (!button_pressed_)
     RecordHistogramAction(IGNORED);
 }
@@ -220,7 +219,11 @@ bool AutoLoginInfoBarDelegate::Cancel() {
   return true;
 }
 
-void AutoLoginInfoBarDelegate::GoogleSignedOut(const std::string& username) {
+void AutoLoginInfoBarDelegate::Observe(
+    int type,
+    const content::NotificationSource& source,
+    const content::NotificationDetails& details) {
+  DCHECK_EQ(chrome::NOTIFICATION_GOOGLE_SIGNED_OUT, type);
   infobar()->RemoveSelf();
 }
 
