@@ -19,6 +19,7 @@
 #include "chrome/browser/chromeos/file_manager/path_util.h"
 #include "chrome/browser/chromeos/file_manager/volume_manager_factory.h"
 #include "chrome/browser/chromeos/file_manager/volume_manager_observer.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/dbus/cros_disks_client.h"
@@ -180,6 +181,10 @@ void VolumeManager::Initialize() {
     }
   }
 
+  // If in Sign in profile, then skip mounting and listening for mount events.
+  if (chromeos::ProfileHelper::IsSigninProfile(profile_))
+    return;
+
   // Register 'Downloads' folder for the profile to the file system.
   fileapi::ExternalMountPoints* mount_points =
       content::BrowserContext::GetMountPoints(profile_);
@@ -312,7 +317,8 @@ void VolumeManager::OnDiskEvent(
     return;
 
   switch (event) {
-    case chromeos::disks::DiskMountManager::DISK_ADDED: {
+    case chromeos::disks::DiskMountManager::DISK_ADDED:
+    case chromeos::disks::DiskMountManager::DISK_CHANGED: {
       if (disk->device_path().empty()) {
         DVLOG(1) << "Empty system path for " << disk->device_path();
         return;
@@ -350,10 +356,6 @@ void VolumeManager::OnDiskEvent(
       // Notify to observers.
       FOR_EACH_OBSERVER(VolumeManagerObserver, observers_,
                         OnDiskRemoved(*disk));
-      return;
-
-    case chromeos::disks::DiskMountManager::DISK_CHANGED:
-      DVLOG(1) << "Ignore CHANGED event.";
       return;
   }
   NOTREACHED();
