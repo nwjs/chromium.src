@@ -1,20 +1,40 @@
 # DO NOT EDIT EXCEPT FOR LOCAL TESTING.
 # THIS IS A GENERATED FILE.
 # ALL MANUAL CHANGES WILL BE OVERWRITTEN.
-# SEE http://code.google.com/p/chromium/wiki/UsingNewGit
+# SEE http://code.google.com/p/chromium/wiki/UsingGit
 # FOR HOW TO ROLL DEPS
 vars = {
-    'ffmpeg_hash':
-         '@bb82a38d45e65c1fba378c15180b98ad76ebe1ca',
     'webkit_url':
-         'https://chromium.googlesource.com/external/WebKit_trimmed.git',
+         'https://chromium.googlesource.com/chromium/blink.git',
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@0812bb138627306c7a10222ed020d3e2a37bb722'
+         '@0812bb138627306c7a10222ed020d3e2a37bb722',
+    'angle_revision':
+         'eb78f6c676337aa6bf1ee6c8a8120ddfd1184d5f'
 }
 
 deps = {
+    'build':
+        Var('git_url') + '/chromium/tools/build.git@b84c499c386186a3449ee9c5a6303897c3262ff8',
+    'build/scripts/command_wrapper/bin':
+        Var('git_url') + '/chromium/tools/command_wrapper/bin.git@2eeebba9a512cae9e4e9312f5ec728dbdad80bd0',
+    'build/scripts/gsd_generate_index':
+        Var('git_url') + '/chromium/tools/gsd_generate_index.git@d2f5d5a5d212d8fb337d751c0351644a6ac83ac8',
+    'build/scripts/private/data/reliability':
+        Var('git_url') + '/chromium/src.git@acfbc85e2980a8f596194dd8c0f49cbdc3860a5b',
+    'build/third_party/gsutil':
+        Var('git_url') + '/external/gsutil/src.git@5cba434b828da428a906c8197a23c9ae120d2636',
+    'build/third_party/lighttpd':
+        Var('git_url') + '/chromium/deps/lighttpd.git@9dfa55d15937a688a92cbf2b7a8621b0927d06eb',
+    'build/third_party/swarm_client':
+        Var('git_url') + '/chromium/tools/swarm_client.git@82a22c9a63af4f613cee7e6bcb1420f7e46bcdf5',
+    'commit-queue':
+        Var('git_url') + '/chromium/tools/commit-queue.git@c73eaa5e754b67259f457fc7641c7d855526dcb3',
+    'depot_tools':
+        Var('git_url') + '/chromium/tools/depot_tools.git@aa574c6a22112ec0080100a260ec5bcb567728be',
+    'src':
+        Var('git_url') + '/chromium/src.git@e5c743aef20240f933ba11de7d8e79657252f246',
     'src/breakpad/src':
         Var('git_url') + '/external/google-breakpad/src.git@f3f050cd97ad86fac2700ef9ca98bd9f0319d304',
     'src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin':
@@ -38,17 +58,17 @@ deps = {
     'src/testing/gtest':
         Var('git_url') + '/external/googletest.git@a6772271f71672e889776bfe49ec4efd9da036df',
     'src/third_party/WebKit':
-        Var('webkit_url') + Var('webkit_rev'),
+        Var('git_url') + '/external/WebKit_trimmed.git' + Var('webkit_rev'),
     'src/third_party/accessibility-developer-tools':
         Var('git_url') + '/external/accessibility-developer-tools.git@ad5df9a5341d38778658c90e4aa241c4ebe4e8aa',
     'src/third_party/angle':
-        Var('git_url') + '/external/angleproject.git@eb78f6c676337aa6bf1ee6c8a8120ddfd1184d5f',
+        Var('git_url') + '/external/angleproject.git' + '@' + Var('angle_revision'),
     'src/third_party/bidichecker':
         Var('git_url') + '/external/bidichecker/lib.git@97f2aa645b74c28c57eca56992235c79850fa9e0',
     'src/third_party/cacheinvalidation/src':
         Var('git_url') + '/external/google-cache-invalidation-api/src.git@f2ed4ba0d0faf8f0d61e17fc91a55e6c789beff9',
     'src/third_party/ffmpeg':
-        Var('git_url') + '/chromium/third_party/ffmpeg.git' + Var('ffmpeg_hash'),
+        Var('git_url') + '/chromium/deps/ffmpeg.git@88ea985e675d0703810e7b5ce0b0de5dd07b1996',
     'src/third_party/flac':
         Var('git_url') + '/chromium/deps/flac.git@78a2e692ecce084e1bb2cd6fde2d44eae2045f0b',
     'src/third_party/hunspell':
@@ -138,7 +158,7 @@ deps = {
     'src/tools/swarm_client':
         Var('git_url') + '/chromium/tools/swarm_client.git@5605e676de31f454caef95201f09b304fecc4f15',
     'src/v8':
-        Var('git_url') + '/external/v8.git@7bd87f0fe09b5d7c12de8f1db0bdb759dc4130ac',
+        Var('git_url') + '/external/v8.git@c99cd48a7a41dae45e3b166f9d71a3dd1f76fa27',
     'src/webkit/media/crypto/ppapi/cdm':
         Var('git_url') + '/chromium/cdm.git@c2b192a02546916d28233cfd8b7717ffcdcc8347',
 }
@@ -319,7 +339,7 @@ deps_os = {
         'src/chrome/installer/mac/third_party/xz/xz':
             Var('git_url') + '/chromium/deps/xz.git@dd8415469606fe7bfdc2ebc12b8457b912ede326',
         'src/chrome/tools/test/reference_build/chrome_mac':
-            Var('git_url') + '/chromium/reference_builds/chrome_mac.git@b43b0539e14bf908e771dbbf0b080f7dc9b75219',
+            Var('git_url') + '/chromium/reference_builds/chrome.git@1add884151176e42ddb946b68530e61c971ee3fa',
         'src/third_party/GTM':
             Var('git_url') + '/external/google-toolbox-for-mac.git@6ea10b5e00258b98e91a9c9067f524c3e2cda252',
         'src/third_party/lighttpd':
@@ -333,8 +353,14 @@ deps_os = {
     },
     'unix':
     {
+        'build/third_party/cbuildbot_chromite':
+            Var('git_url') + '/chromiumos/chromite.git@65930b2efeb60305dc2e7b153bdd2d281b390203',
+        'build/third_party/xvfb':
+            Var('git_url') + '/chromium/tools/third_party/xvfb.git@aebb1aadf1422e4d81e831e13746b8f7ae322e07',
+        'build/xvfb':
+            Var('git_url') + '/chromium/tools/xvfb.git@077af3535e54dbb782a355b81ba69ea17ec6bde5',
         'src/chrome/tools/test/reference_build/chrome_linux':
-            Var('git_url') + '/chromium/reference_builds/chrome_linux.git@53d4cfaf7032086779f2f4f40a9b6f21b7dbc3bf',
+            Var('git_url') + '/chromium/reference_builds/chrome.git@1add884151176e42ddb946b68530e61c971ee3fa',
         'src/third_party/cros_dbus_cplusplus/source':
             Var('git_url') + '/chromiumos/third_party/dbus-cplusplus.git@5e8f6d9db5c2abfb91d91f751184f25bb5cd0900',
         'src/third_party/cros_system_api':
@@ -359,9 +385,9 @@ deps_os = {
     'win':
     {
         'src/chrome/tools/test/reference_build/chrome_win':
-            Var('git_url') + '/chromium/reference_builds/chrome_win.git@fc239c7dcabcd2a225c281963eedb6a5441fb13b',
+            Var('git_url') + '/chromium/reference_builds/chrome.git@1add884151176e42ddb946b68530e61c971ee3fa',
         'src/chrome_frame/tools/test/reference_build/chrome_win':
-            Var('git_url') + '/chromium/reference_builds/chrome_win.git@b9f52667918a74977cb85eefd4e967150f852fbc',
+            Var('git_url') + '/chromium/reference_builds/chrome.git@1add884151176e42ddb946b68530e61c971ee3fa',
         'src/third_party/bison':
             Var('git_url') + '/chromium/deps/bison.git@083c9a45e4affdd5464ee2b224c2df649c6e26c3',
         'src/third_party/cygwin':
