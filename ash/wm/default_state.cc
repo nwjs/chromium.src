@@ -26,7 +26,7 @@ namespace {
 
 bool IsPanel(aura::Window* window) {
   return window->parent() &&
-      window->parent()->id() == internal::kShellWindowId_DockedContainer;
+      window->parent()->id() == internal::kShellWindowId_PanelContainer;
 }
 
 gfx::Rect BoundsWithScreenEdgeVisible(
