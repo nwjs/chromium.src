@@ -120,6 +120,7 @@ HRESULT GetPin(IBaseFilter* filter, PIN_DIRECTION pin_dir, REFGUID category,
         return S_OK;
     }
     (*pin)->Release();
+    (*pin) = NULL;
   }
 
   return E_FAIL;
