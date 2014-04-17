@@ -34,7 +34,7 @@
   ],
   'action': [
     'python', '<(DEPTH)/build/android/gyp/finalize_apk.py',
-    '--android-sdk-root=<(android_sdk_root)',
+    '--zipalign-path=<!@(find <(android_sdk_root) -name zipalign)',
     '--unsigned-apk-path=<(input_apk_path)',
     '--final-apk-path=<(output_apk_path)',
     '--key-path=<(keystore_path)',
