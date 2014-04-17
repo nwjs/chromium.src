@@ -26,6 +26,7 @@
 #include "ui/views/controls/link.h"
 #include "ui/views/controls/link_listener.h"
 #include "ui/views/layout/layout_constants.h"
+#include "ui/views/widget/widget_observer.h"
 
 using content::WebContents;
 
@@ -310,7 +311,9 @@ void SpeechRecognitionBubbleView::Layout() {
 }
 
 // Implementation of SpeechRecognitionBubble.
-class SpeechRecognitionBubbleImpl : public SpeechRecognitionBubbleBase {
+class SpeechRecognitionBubbleImpl
+    : public SpeechRecognitionBubbleBase,
+      public views::WidgetObserver {
  public:
   SpeechRecognitionBubbleImpl(int render_process_id, int render_view_id,
                               Delegate* delegate,
@@ -324,6 +327,9 @@ class SpeechRecognitionBubbleImpl : public SpeechRecognitionBubbleBase {
   // SpeechRecognitionBubbleBase methods.
   virtual void UpdateLayout() OVERRIDE;
   virtual void UpdateImage() OVERRIDE;
+
+  // views::WidgetObserver methods.
+  virtual void OnWidgetDestroying(views::Widget* widget) OVERRIDE;
 
  private:
   Delegate* delegate_;
@@ -344,9 +350,14 @@ SpeechRecognitionBubbleImpl::SpeechRecognitionBubbleImpl(
 
 SpeechRecognitionBubbleImpl::~SpeechRecognitionBubbleImpl() {
   if (bubble_) {
+    bubble_->GetWidget()->RemoveObserver(this);
     bubble_->set_notify_delegate_on_activation_change(false);
     bubble_->GetWidget()->Close();
   }
+}
+
+void SpeechRecognitionBubbleImpl::OnWidgetDestroying(views::Widget* widget) {
+  bubble_ = NULL;
 }
 
 void SpeechRecognitionBubbleImpl::Show() {
@@ -378,7 +389,8 @@ void SpeechRecognitionBubbleImpl::Show() {
 
     views::BubbleDelegateView::CreateBubble(bubble_);
     UpdateLayout();
-  }
+    bubble_->GetWidget()->AddObserver(this);
+   }
   bubble_->GetWidget()->Show();
 }
 
