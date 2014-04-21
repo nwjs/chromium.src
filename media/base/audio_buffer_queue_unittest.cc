@@ -39,7 +39,6 @@ static scoped_refptr<AudioBuffer> MakeTestBuffer(SampleFormat format,
   const base::TimeDelta kNoTime = kNoTimestamp();
   return MakeAudioBuffer<T>(format,
                             channel_layout,
-                            ChannelLayoutToChannelCount(channel_layout),
                             kSampleRate,
                             start,
                             end,
@@ -389,7 +388,6 @@ TEST(AudioBufferQueueTest, Time) {
   //   second: start=30s, duration=10s
   buffer.Append(MakeAudioBuffer<int16>(kSampleFormatS16,
                                        channel_layout,
-                                       channels,
                                        kSampleRate,
                                        1,
                                        1,
@@ -414,7 +412,6 @@ TEST(AudioBufferQueueTest, Time) {
   // Add second buffer for more data.
   buffer.Append(MakeAudioBuffer<int16>(kSampleFormatS16,
                                        channel_layout,
-                                       channels,
                                        kSampleRate,
                                        1,
                                        1,

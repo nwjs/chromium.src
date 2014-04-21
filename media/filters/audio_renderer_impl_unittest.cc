@@ -34,7 +34,6 @@ namespace media {
 static AudioCodec kCodec = kCodecVorbis;
 static SampleFormat kSampleFormat = kSampleFormatPlanarF32;
 static ChannelLayout kChannelLayout = CHANNEL_LAYOUT_STEREO;
-static int kChannelCount = 2;
 static int kChannels = ChannelLayoutToChannelCount(kChannelLayout);
 static int kSamplesPerSecond = 44100;
 
@@ -298,7 +297,6 @@ class AudioRendererImplTest : public ::testing::Test {
     scoped_refptr<AudioBuffer> buffer =
         MakeAudioBuffer<float>(kSampleFormat,
                                kChannelLayout,
-                               kChannelCount,
                                kSamplesPerSecond,
                                kPlayingAudio,
                                0.0f,

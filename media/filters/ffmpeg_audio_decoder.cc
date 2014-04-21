@@ -92,7 +92,6 @@ static int GetAudioBuffer(struct AVCodecContext* s, AVFrame* frame, int flags) {
   scoped_refptr<AudioBuffer> buffer = AudioBuffer::CreateBuffer(
       sample_format,
       ChannelLayoutToChromeChannelLayout(s->channel_layout, s->channels),
-      channels,
       s->sample_rate,
       frames_required);
 

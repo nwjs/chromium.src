@@ -13,7 +13,6 @@ namespace media {
 
 AudioBuffer::AudioBuffer(SampleFormat sample_format,
                          ChannelLayout channel_layout,
-                         int channel_count,
                          int sample_rate,
                          int frame_count,
                          bool create_buffer,
@@ -22,7 +21,7 @@ AudioBuffer::AudioBuffer(SampleFormat sample_format,
                          const base::TimeDelta duration)
     : sample_format_(sample_format),
       channel_layout_(channel_layout),
-      channel_count_(channel_count),
+      channel_count_(ChannelLayoutToChannelCount(channel_layout)),
       sample_rate_(sample_rate),
       adjusted_frame_count_(frame_count),
       trim_start_(0),
@@ -32,9 +31,6 @@ AudioBuffer::AudioBuffer(SampleFormat sample_format,
   CHECK_GE(channel_count_, 0);
   CHECK_LE(channel_count_, limits::kMaxChannels);
   CHECK_GE(frame_count, 0);
-  DCHECK(channel_layout == CHANNEL_LAYOUT_DISCRETE ||
-         ChannelLayoutToChannelCount(channel_layout) == channel_count);
-
   int bytes_per_channel = SampleFormatToBytesPerChannel(sample_format);
   DCHECK_LE(bytes_per_channel, kChannelAlignment);
   int data_size = frame_count * bytes_per_channel;
@@ -87,7 +83,6 @@ AudioBuffer::~AudioBuffer() {}
 scoped_refptr<AudioBuffer> AudioBuffer::CopyFrom(
     SampleFormat sample_format,
     ChannelLayout channel_layout,
-    int channel_count,
     int sample_rate,
     int frame_count,
     const uint8* const* data,
@@ -98,7 +93,6 @@ scoped_refptr<AudioBuffer> AudioBuffer::CopyFrom(
   CHECK(data[0]);
   return make_scoped_refptr(new AudioBuffer(sample_format,
                                             channel_layout,
-                                            channel_count,
                                             sample_rate,
                                             frame_count,
                                             true,
@@ -111,13 +105,11 @@ scoped_refptr<AudioBuffer> AudioBuffer::CopyFrom(
 scoped_refptr<AudioBuffer> AudioBuffer::CreateBuffer(
     SampleFormat sample_format,
     ChannelLayout channel_layout,
-    int channel_count,
     int sample_rate,
     int frame_count) {
   CHECK_GT(frame_count, 0);  // Otherwise looks like an EOF buffer.
   return make_scoped_refptr(new AudioBuffer(sample_format,
                                             channel_layout,
-                                            channel_count,
                                             sample_rate,
                                             frame_count,
                                             true,
@@ -129,7 +121,6 @@ scoped_refptr<AudioBuffer> AudioBuffer::CreateBuffer(
 // static
 scoped_refptr<AudioBuffer> AudioBuffer::CreateEmptyBuffer(
     ChannelLayout channel_layout,
-    int channel_count,
     int sample_rate,
     int frame_count,
     const base::TimeDelta timestamp,
@@ -138,7 +129,6 @@ scoped_refptr<AudioBuffer> AudioBuffer::CreateEmptyBuffer(
   // Since data == NULL, format doesn't matter.
   return make_scoped_refptr(new AudioBuffer(kSampleFormatF32,
                                             channel_layout,
-                                            channel_count,
                                             sample_rate,
                                             frame_count,
                                             false,
@@ -151,7 +141,6 @@ scoped_refptr<AudioBuffer> AudioBuffer::CreateEmptyBuffer(
 scoped_refptr<AudioBuffer> AudioBuffer::CreateEOSBuffer() {
   return make_scoped_refptr(new AudioBuffer(kUnknownSampleFormat,
                                             CHANNEL_LAYOUT_NONE,
-                                            0,
                                             0,
                                             0,
                                             false,
