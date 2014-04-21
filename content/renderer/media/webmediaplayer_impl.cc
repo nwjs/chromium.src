@@ -577,7 +577,7 @@ unsigned WebMediaPlayerImpl::droppedFrameCount() const {
   unsigned frames_dropped = stats.video_frames_dropped;
 
   frames_dropped += const_cast<VideoFrameCompositor&>(compositor_)
-                        .GetFramesDroppedBeforeCompositorWasNotified();
+                        .GetFramesDroppedBeforeComposite();
 
   DCHECK_LE(frames_dropped, stats.video_frames_decoded);
   return frames_dropped;
