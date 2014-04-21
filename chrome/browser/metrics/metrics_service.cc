@@ -435,7 +435,6 @@ class MetricsMemoryDetails : public MemoryDetails {
 // static
 void MetricsService::RegisterPrefs(PrefRegistrySimple* registry) {
   DCHECK(IsSingleThreaded());
-  registry->RegisterBooleanPref(prefs::kMetricsResetIds, false);
   registry->RegisterStringPref(prefs::kMetricsClientID, std::string());
   registry->RegisterIntegerPref(prefs::kMetricsLowEntropySource,
                                 kLowEntropySourceNotSet);
@@ -522,8 +521,7 @@ void MetricsService::DiscardOldStabilityStats(PrefService* local_state) {
 }
 
 MetricsService::MetricsService()
-    : metrics_ids_reset_check_performed_(false),
-      recording_active_(false),
+    : recording_active_(false),
       reporting_active_(false),
       test_mode_active_(false),
       state_(INITIALIZED),
@@ -635,9 +633,6 @@ MetricsService::CreateEntropyProvider(ReportingState reporting_state) {
 void MetricsService::ForceClientIdCreation() {
   if (!client_id_.empty())
     return;
-
-  ResetMetricsIDsIfNecessary();
-
   PrefService* pref = g_browser_process->local_state();
   client_id_ = pref->GetString(prefs::kMetricsClientID);
   if (!client_id_.empty())
@@ -1190,34 +1185,12 @@ void MetricsService::GetUptimes(PrefService* pref,
   }
 }
 
-void MetricsService::ResetMetricsIDsIfNecessary() {
-  if (metrics_ids_reset_check_performed_)
-    return;
-
-  metrics_ids_reset_check_performed_ = true;
-
-  PrefService* local_state = g_browser_process->local_state();
-  if (!local_state->GetBoolean(prefs::kMetricsResetIds))
-    return;
-
-  UMA_HISTOGRAM_BOOLEAN("UMA.MetricsIDsReset", true);
-
-  DCHECK(client_id_.empty());
-  DCHECK_EQ(kLowEntropySourceNotSet, low_entropy_source_);
-
-  local_state->ClearPref(prefs::kMetricsClientID);
-  local_state->ClearPref(prefs::kMetricsLowEntropySource);
-  local_state->ClearPref(prefs::kMetricsResetIds);
-}
-
 int MetricsService::GetLowEntropySource() {
   // Note that the default value for the low entropy source and the default pref
   // value are both kLowEntropySourceNotSet, which is used to identify if the
   // value has been set or not.
   if (low_entropy_source_ != kLowEntropySourceNotSet)
     return low_entropy_source_;
-
-  ResetMetricsIDsIfNecessary();
 
   PrefService* local_state = g_browser_process->local_state();
   const CommandLine* command_line(CommandLine::ForCurrentProcess());

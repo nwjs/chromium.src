@@ -72,14 +72,8 @@ void ClonedInstallDetector::SaveMachineId(
 
   MachineIdState id_state = ID_NO_STORED_VALUE;
   if (local_state->HasPrefPath(prefs::kMetricsMachineId)) {
-    if (local_state->GetInteger(prefs::kMetricsMachineId) != hashed_id) {
-      id_state = ID_CHANGED;
-      // TODO(jwd): Use a callback to set the reset pref. That way
-      // ClonedInstallDetector doesn't need to know about this pref.
-      local_state->SetBoolean(prefs::kMetricsResetIds, true);
-    } else {
-      id_state = ID_UNCHANGED;
-    }
+    id_state = local_state->GetInteger(prefs::kMetricsMachineId) == hashed_id ?
+        ID_UNCHANGED : ID_CHANGED;
   }
 
   LogMachineIdState(id_state);
