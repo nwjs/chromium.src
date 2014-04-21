@@ -21,8 +21,6 @@ class FakeVideoFrameProvider : public VideoFrameProvider {
   virtual void PutCurrentFrame(const scoped_refptr<media::VideoFrame>&)
       OVERRIDE {}
 
-  Client* client() { return client_; }
-
   void set_frame(const scoped_refptr<media::VideoFrame>& frame) {
     frame_ = frame;
   }

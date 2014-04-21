@@ -22,7 +22,7 @@ VideoFrameProviderClientImpl::~VideoFrameProviderClientImpl() {}
 
 VideoFrameProviderClientImpl::VideoFrameProviderClientImpl(
     VideoFrameProvider* provider)
-    : active_video_layer_(NULL), provider_(provider) {
+    : provider_(provider) {
   // This only happens during a commit on the compositor thread while the main
   // thread is blocked. That makes this a thread-safe call to set the video
   // frame provider client that does not require a lock. The same is true of
