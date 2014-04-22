@@ -19,19 +19,6 @@ Polymer('kb-keyset', {
    */
   pitch: "10",
 
-  /**
-   * Expands kb-key-sequences into individual keys.
-   */
-  flattenKeyset: function() {
-    var keySequences = this.querySelectorAll('kb-key-sequence');
-    if (keySequences.length != 0) {
-      keySequences.array().forEach(function(element) {
-        var generatedDom = element.generateDom();
-        element.parentNode.replaceChild(generatedDom, element);
-      });
-    }
-  },
-
   // TODO(bshe): support select keyset on down, long and dbl events.
   keyUp: function(event, detail) {
     switch (detail.char) {
@@ -97,6 +84,15 @@ Polymer('kb-keyset', {
     this.fire('stateChange', {
       state: 'keysetChanged',
       value: this.id
+    });
+  },
+
+  enteredView: function() {
+    var self = this;
+    Platform.endOfMicrotask(function(){
+      self.fire('realign');
+      if (self.isDefault)
+        self.show();
     });
   },
 });
