@@ -339,16 +339,11 @@ RenderFrameImpl::RenderFrameImpl(RenderViewImpl* render_view, int routing_id)
       cookie_jar_(this),
       selection_text_offset_(0),
       selection_range_(gfx::Range::InvalidRange()),
-      handling_select_range_(false),
-      notification_provider_(NULL) {
+      handling_select_range_(false) {
   RenderThread::Get()->AddRoute(routing_id_, this);
 
 #if defined(OS_ANDROID)
   new JavaBridgeDispatcher(this);
-#endif
-
-#if defined(ENABLE_NOTIFICATIONS)
-  notification_provider_ = new NotificationProvider(this);
 #endif
 }
 
@@ -2030,7 +2025,7 @@ void RenderFrameImpl::didUpdateCurrentHistoryItem(blink::WebLocalFrame* frame) {
 }
 
 blink::WebNotificationPresenter* RenderFrameImpl::notificationPresenter() {
-  return notification_provider_;
+  return render_view_->notification_provider_;
 }
 
 void RenderFrameImpl::didChangeSelection(bool is_empty_selection) {

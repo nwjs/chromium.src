@@ -17,6 +17,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::ShowDesktopNotificationHostMsgParams)
   IPC_STRUCT_TRAITS_MEMBER(body)
   IPC_STRUCT_TRAITS_MEMBER(direction)
   IPC_STRUCT_TRAITS_MEMBER(replace_id)
+  IPC_STRUCT_TRAITS_MEMBER(notification_id)
 IPC_STRUCT_TRAITS_END()
 
 // Messages sent from the browser to the renderer.
@@ -28,8 +29,9 @@ IPC_MESSAGE_ROUTED1(DesktopNotificationMsg_PostDisplay,
 
 // Used to inform the renderer that the browser has encountered an error
 // trying to display a notification.
-IPC_MESSAGE_ROUTED1(DesktopNotificationMsg_PostError,
-                    int /* notification_id */)
+IPC_MESSAGE_ROUTED2(DesktopNotificationMsg_PostError,
+                    int /* notification_id */,
+                    base::string16 /* message */)
 
 // Informs the renderer that the one if its notifications has closed.
 IPC_MESSAGE_ROUTED2(DesktopNotificationMsg_PostClose,
@@ -46,9 +48,8 @@ IPC_MESSAGE_ROUTED1(DesktopNotificationMsg_PermissionRequestDone,
 
 // Messages sent from the renderer to the browser.
 
-IPC_MESSAGE_ROUTED2(DesktopNotificationHostMsg_Show,
-                    int /* notification_id */,
-                    content::ShowDesktopNotificationHostMsgParams /* params */)
+IPC_MESSAGE_ROUTED1(DesktopNotificationHostMsg_Show,
+                    content::ShowDesktopNotificationHostMsgParams)
 
 IPC_MESSAGE_ROUTED1(DesktopNotificationHostMsg_Cancel,
                     int /* notification_id */)

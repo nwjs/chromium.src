@@ -73,9 +73,6 @@ class MessageCenterNotificationManagerTest : public testing::Test {
                           GURL(),
                           base::string16(),
                           base::string16(),
-                          blink::WebTextDirectionDefault,
-                          base::string16(),
-                          base::string16(),
                           new MockNotificationDelegate(id));
   }
 

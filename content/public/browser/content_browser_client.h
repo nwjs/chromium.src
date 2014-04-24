@@ -87,12 +87,10 @@ class BrowserMainParts;
 class BrowserPluginGuestDelegate;
 class BrowserPpapiHost;
 class BrowserURLHandler;
-class DesktopNotificationDelegate;
 class ExternalVideoSurfaceContainer;
 class LocationProvider;
 class MediaObserver;
 class QuotaPermissionContext;
-class RenderFrameHost;
 class RenderProcessHost;
 class RenderViewHost;
 class RenderViewHostDelegateView;
@@ -450,12 +448,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // return NULL if they're not interested.
   virtual MediaObserver* GetMediaObserver();
 
-  // Asks permission to show desktop notifications. |callback| needs to be run
-  // when the user approves the request.
+  // Asks permission to show desktop notifications.
   virtual void RequestDesktopNotificationPermission(
       const GURL& source_origin,
-      RenderFrameHost* render_frame_host,
-      base::Closure& callback) {}
+      int callback_context,
+      int render_process_id,
+      int render_view_id) {}
 
   // Checks if the given page has permission to show desktop notifications.
   // This is called on the IO thread.
@@ -465,13 +463,18 @@ class CONTENT_EXPORT ContentBrowserClient {
           ResourceContext* context,
           int render_process_id);
 
-  // Show a desktop notification. If |cancel_callback| is non-null, it's set to
-  // a callback which can be used to cancel the notification.
+  // Show a desktop notification.  If |worker| is true, the request came from an
+  // HTML5 web worker, otherwise, it came from a renderer.
   virtual void ShowDesktopNotification(
       const ShowDesktopNotificationHostMsgParams& params,
-      RenderFrameHost* render_frame_host,
-      DesktopNotificationDelegate* delegate,
-      base::Closure* cancel_callback) {}
+      int render_process_id,
+      int render_view_id) {}
+
+  // Cancels a displayed desktop notification.
+  virtual void CancelDesktopNotification(
+      int render_process_id,
+      int render_view_id,
+      int notification_id) {}
 
   // Returns true if the given page is allowed to open a window of the given
   // type. If true is returned, |no_javascript_access| will indicate whether

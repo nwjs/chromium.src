@@ -4,7 +4,6 @@
 
 #include "chrome/browser/notifications/desktop_notification_service.h"
 
-#include "base/bind.h"
 #include "base/metrics/histogram.h"
 #include "base/prefs/scoped_user_pref_update.h"
 #include "base/strings/utf_string_conversions.h"
@@ -36,8 +35,6 @@
 #include "components/user_prefs/pref_registry_syncable.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
-#include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/show_desktop_notification_params.h"
@@ -58,13 +55,11 @@
 #include "ui/message_center/message_center_util.h"
 #include "ui/message_center/notifier_settings.h"
 
-using blink::WebTextDirection;
 using content::BrowserThread;
 using content::RenderViewHost;
 using content::WebContents;
 using message_center::NotifierId;
-
-namespace {
+using blink::WebTextDirection;
 
 const char kChromeNowExtensionID[] = "pafkbggdmjlpgkdkcbjmhmfcdpncadgh";
 
@@ -76,7 +71,9 @@ class NotificationPermissionRequest : public PermissionBubbleRequest {
       DesktopNotificationService* notification_service,
       const GURL& origin,
       base::string16 display_name,
-      const base::Closure& callback);
+      int process_id,
+      int route_id,
+      int callback_context);
   virtual ~NotificationPermissionRequest();
 
   // PermissionBubbleDelegate:
@@ -101,8 +98,11 @@ class NotificationPermissionRequest : public PermissionBubbleRequest {
   // origin_ for extensions.
   base::string16 display_name_;
 
-  // The callback information that tells us how to respond to javascript.
-  base::Closure callback_;
+  // The callback information that tells us how to respond to javascript via
+  // the correct RenderView.
+  int process_id_;
+  int route_id_;
+  int callback_context_;
 
   // Whether the user clicked one of the buttons.
   bool action_taken_;
@@ -114,11 +114,15 @@ NotificationPermissionRequest::NotificationPermissionRequest(
     DesktopNotificationService* notification_service,
     const GURL& origin,
     base::string16 display_name,
-    const base::Closure& callback)
+    int process_id,
+    int route_id,
+    int callback_context)
     : notification_service_(notification_service),
       origin_(origin),
       display_name_(display_name),
-      callback_(callback),
+      process_id_(process_id),
+      route_id_(route_id),
+      callback_context_(callback_context),
       action_taken_(false) {}
 
 NotificationPermissionRequest::~NotificationPermissionRequest() {}
@@ -166,7 +170,9 @@ void NotificationPermissionRequest::RequestFinished() {
   if (!action_taken_)
     UMA_HISTOGRAM_COUNTS("NotificationPermissionRequest.Ignored", 1);
 
-  callback_.Run();
+  RenderViewHost* host = RenderViewHost::FromID(process_id_, route_id_);
+  if (host)
+    host->DesktopNotificationPermissionRequestDone(callback_context_);
 
   delete this;
 }
@@ -184,14 +190,18 @@ class NotificationPermissionInfoBarDelegate : public ConfirmInfoBarDelegate {
                      DesktopNotificationService* notification_service,
                      const GURL& origin,
                      const base::string16& display_name,
-                     const base::Closure& callback);
+                     int process_id,
+                     int route_id,
+                     int callback_context);
 
  private:
   NotificationPermissionInfoBarDelegate(
       DesktopNotificationService* notification_service,
       const GURL& origin,
       const base::string16& display_name,
-      const base::Closure& callback);
+      int process_id,
+      int route_id,
+      int callback_context);
   virtual ~NotificationPermissionInfoBarDelegate();
 
   // ConfirmInfoBarDelegate:
@@ -212,8 +222,11 @@ class NotificationPermissionInfoBarDelegate : public ConfirmInfoBarDelegate {
   // The notification service to be used.
   DesktopNotificationService* notification_service_;
 
-  // The callback information that tells us how to respond to javascript.
-  base::Closure callback_;
+  // The callback information that tells us how to respond to javascript via
+  // the correct RenderView.
+  int process_id_;
+  int route_id_;
+  int callback_context_;
 
   // Whether the user clicked one of the buttons.
   bool action_taken_;
@@ -227,23 +240,30 @@ void NotificationPermissionInfoBarDelegate::Create(
     DesktopNotificationService* notification_service,
     const GURL& origin,
     const base::string16& display_name,
-    const base::Closure& callback) {
+    int process_id,
+    int route_id,
+    int callback_context) {
   infobar_service->AddInfoBar(ConfirmInfoBarDelegate::CreateInfoBar(
       scoped_ptr<ConfirmInfoBarDelegate>(
           new NotificationPermissionInfoBarDelegate(
-              notification_service, origin, display_name, callback))));
+              notification_service, origin, display_name, process_id, route_id,
+              callback_context))));
 }
 
 NotificationPermissionInfoBarDelegate::NotificationPermissionInfoBarDelegate(
     DesktopNotificationService* notification_service,
     const GURL& origin,
     const base::string16& display_name,
-    const base::Closure& callback)
+    int process_id,
+    int route_id,
+    int callback_context)
     : ConfirmInfoBarDelegate(),
       origin_(origin),
       display_name_(display_name),
       notification_service_(notification_service),
-      callback_(callback),
+      process_id_(process_id),
+      route_id_(route_id),
+      callback_context_(callback_context),
       action_taken_(false) {
 }
 
@@ -252,7 +272,9 @@ NotificationPermissionInfoBarDelegate::
   if (!action_taken_)
     UMA_HISTOGRAM_COUNTS("NotificationPermissionRequest.Ignored", 1);
 
-  callback_.Run();
+  RenderViewHost* host = RenderViewHost::FromID(process_id_, route_id_);
+  if (host)
+    host->DesktopNotificationPermissionRequestDone(callback_context_);
 }
 
 int NotificationPermissionInfoBarDelegate::GetIconID() const {
@@ -288,12 +310,6 @@ bool NotificationPermissionInfoBarDelegate::Cancel() {
   action_taken_ = true;
   return true;
 }
-
-void CancelNotification(const std::string& id) {
-  g_browser_process->notification_ui_manager()->CancelById(id);
-}
-
-}  // namespace
 
 
 // DesktopNotificationService -------------------------------------------------
@@ -498,61 +514,67 @@ ContentSetting DesktopNotificationService::GetContentSetting(
 }
 
 void DesktopNotificationService::RequestPermission(
-    const GURL& origin,
-    content::RenderFrameHost* render_frame_host,
-    const base::Closure& callback) {
+    const GURL& origin, int process_id, int route_id, int callback_context,
+    WebContents* contents) {
   // If |origin| hasn't been seen before and the default content setting for
   // notifications is "ask", show an infobar.
   // The cache can only answer queries on the IO thread once it's initialized,
   // so don't ask the cache.
-  WebContents* web_contents = WebContents::FromRenderFrameHost(
-      render_frame_host);
   ContentSetting setting = GetContentSetting(origin);
   if (setting == CONTENT_SETTING_ASK) {
     if (PermissionBubbleManager::Enabled()) {
       PermissionBubbleManager* bubble_manager =
-          PermissionBubbleManager::FromWebContents(web_contents);
-      bubble_manager->AddRequest(new NotificationPermissionRequest(
-          this,
-          origin,
-          DisplayNameForOriginInProcessId(
-              origin, render_frame_host->GetProcess()->GetID()),
-          callback));
+          PermissionBubbleManager::FromWebContents(contents);
+      bubble_manager->AddRequest(new NotificationPermissionRequest(this,
+              origin, DisplayNameForOriginInProcessId(origin, process_id),
+              process_id, route_id, callback_context));
       return;
     }
 
     // Show an info bar requesting permission.
     InfoBarService* infobar_service =
-        InfoBarService::FromWebContents(web_contents);
+        InfoBarService::FromWebContents(contents);
     // |infobar_service| may be NULL, e.g., if this request originated in a
     // browser action popup, extension background page, or any HTML that runs
     // outside of a tab.
     if (infobar_service) {
       NotificationPermissionInfoBarDelegate::Create(
-          infobar_service, this, origin,
-          DisplayNameForOriginInProcessId(
-              origin, render_frame_host->GetProcess()->GetID()),
-          callback);
+          infobar_service, this,
+          origin, DisplayNameForOriginInProcessId(origin, process_id),
+          process_id, route_id, callback_context);
       return;
     }
   }
 
   // Notify renderer immediately.
-  callback.Run();
+  RenderViewHost* host = RenderViewHost::FromID(process_id, route_id);
+  if (host)
+    host->DesktopNotificationPermissionRequestDone(callback_context);
 }
 
-void DesktopNotificationService::ShowDesktopNotification(
+void DesktopNotificationService::ShowNotification(
+    const Notification& notification) {
+  GetUIManager()->Add(notification, profile_);
+}
+
+bool DesktopNotificationService::CancelDesktopNotification(
+    int process_id, int route_id, int notification_id) {
+  scoped_refptr<NotificationObjectProxy> proxy(
+      new NotificationObjectProxy(process_id, route_id, notification_id));
+  return GetUIManager()->CancelById(proxy->id());
+}
+
+bool DesktopNotificationService::ShowDesktopNotification(
     const content::ShowDesktopNotificationHostMsgParams& params,
-    content::RenderFrameHost* render_frame_host,
-    content::DesktopNotificationDelegate* delegate,
-    base::Closure* cancel_callback) {
+    int process_id, int route_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   const GURL& origin = params.origin;
   NotificationObjectProxy* proxy =
-      new NotificationObjectProxy(render_frame_host, delegate);
+      new NotificationObjectProxy(process_id, route_id,
+                                  params.notification_id);
 
-  base::string16 display_source = DisplayNameForOriginInProcessId(
-      origin, render_frame_host->GetProcess()->GetID());
+  base::string16 display_source =
+      DisplayNameForOriginInProcessId(origin, process_id);
   Notification notification(origin, params.icon_url, params.title,
       params.body, params.direction, display_source, params.replace_id,
       proxy);
@@ -560,9 +582,8 @@ void DesktopNotificationService::ShowDesktopNotification(
   // The webkit notification doesn't timeout.
   notification.set_never_timeout(true);
 
-  GetUIManager()->Add(notification, profile_);
-  if (cancel_callback)
-    *cancel_callback = base::Bind(&CancelNotification, proxy->id());
+  ShowNotification(notification);
+  return true;
 }
 
 base::string16 DesktopNotificationService::DisplayNameForOriginInProcessId(

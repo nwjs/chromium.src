@@ -7,12 +7,13 @@
 #include "base/strings/string_util.h"
 #include "content/common/desktop_notification_messages.h"
 #include "content/common/frame_messages.h"
-#include "content/renderer/render_frame_impl.h"
+#include "content/renderer/render_view_impl.h"
 #include "third_party/WebKit/public/platform/WebURL.h"
 #include "third_party/WebKit/public/web/WebDocument.h"
 #include "third_party/WebKit/public/web/WebFrame.h"
 #include "third_party/WebKit/public/web/WebNotificationPermissionCallback.h"
 #include "third_party/WebKit/public/web/WebUserGestureIndicator.h"
+#include "third_party/WebKit/public/web/WebView.h"
 
 using blink::WebDocument;
 using blink::WebNotification;
@@ -26,15 +27,15 @@ using blink::WebUserGestureIndicator;
 namespace content {
 
 
-NotificationProvider::NotificationProvider(RenderFrame* render_frame)
-    : RenderFrameObserver(render_frame) {
+NotificationProvider::NotificationProvider(RenderViewImpl* render_view)
+    : RenderViewObserver(render_view) {
 }
 
 NotificationProvider::~NotificationProvider() {
 }
 
 bool NotificationProvider::show(const WebNotification& notification) {
-  WebDocument document = render_frame()->GetWebFrame()->document();
+  WebDocument document = render_view()->GetWebView()->mainFrame()->document();
   int notification_id = manager_.RegisterNotification(notification);
 
   ShowDesktopNotificationHostMsgParams params;
@@ -43,9 +44,9 @@ bool NotificationProvider::show(const WebNotification& notification) {
   params.title = notification.title();
   params.body = notification.body();
   params.direction = notification.direction();
+  params.notification_id = notification_id;
   params.replace_id = notification.replaceId();
-  return Send(new DesktopNotificationHostMsg_Show(
-      routing_id(), notification_id, params));
+  return Send(new DesktopNotificationHostMsg_Show(routing_id(), params));
 }
 
 void NotificationProvider::cancel(const WebNotification& notification) {
@@ -115,13 +116,13 @@ void NotificationProvider::OnDisplay(int id) {
     notification.dispatchDisplayEvent();
 }
 
-void NotificationProvider::OnError(int id) {
+void NotificationProvider::OnError(int id, const WebString& message) {
   WebNotification notification;
   bool found = manager_.GetNotification(id, &notification);
   // |found| may be false if the WebNotification went out of scope in
   // the page before the error occurred.
   if (found)
-    notification.dispatchErrorEvent(WebString());
+    notification.dispatchErrorEvent(message);
 }
 
 void NotificationProvider::OnClose(int id, bool by_user) {
