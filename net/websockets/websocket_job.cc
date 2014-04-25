@@ -303,10 +303,9 @@ void WebSocketJob::OnSentSpdyHeaders() {
   DCHECK_NE(INITIALIZED, state_);
   if (state_ != CONNECTING)
     return;
-  size_t original_length = handshake_request_->original_length();
-  handshake_request_.reset();
   if (delegate_)
-    delegate_->OnSentData(socket_.get(), original_length);
+    delegate_->OnSentData(socket_.get(), handshake_request_->original_length());
+  handshake_request_.reset();
 }
 
 void WebSocketJob::OnSpdyResponseHeadersUpdated(
@@ -423,12 +422,11 @@ void WebSocketJob::OnSentHandshakeRequest(
   if (handshake_request_sent_ >= handshake_request_->raw_length()) {
     // handshake request has been sent.
     // notify original size of handshake request to delegate.
-    // Reset the handshake_request_ first in case this object is deleted by the
-    // delegate.
-    size_t original_length = handshake_request_->original_length();
-    handshake_request_.reset();
     if (delegate_)
-      delegate_->OnSentData(socket, original_length);
+      delegate_->OnSentData(
+          socket,
+          handshake_request_->original_length());
+    handshake_request_.reset();
   }
 }
 
