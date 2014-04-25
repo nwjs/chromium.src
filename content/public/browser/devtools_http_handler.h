@@ -19,6 +19,7 @@ class URLRequestContextGetter;
 namespace content {
 
 class DevToolsHttpHandlerDelegate;
+class DevToolsAgentHost;
 
 // This class is used for managing DevTools remote debugging server.
 // Clients can connect to the specified ip:port and start debugging
@@ -44,7 +45,7 @@ class DevToolsHttpHandler {
   virtual void Stop() = 0;
 
   // Returns the URL for the address to debug |agent_host|.
-  virtual GURL GetFrontendURL() = 0;
+  virtual GURL GetFrontendURL(DevToolsAgentHost* agent_host = NULL) = 0;
 
  protected:
   virtual ~DevToolsHttpHandler() {}
