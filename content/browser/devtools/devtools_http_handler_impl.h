@@ -34,11 +34,15 @@ namespace content {
 
 class DevToolsBrowserTarget;
 class DevToolsClientHost;
+class DevToolsAgentHost;
 
 class DevToolsHttpHandlerImpl
     : public DevToolsHttpHandler,
       public base::RefCountedThreadSafe<DevToolsHttpHandlerImpl>,
       public net::HttpServer::Delegate {
+ public:
+  void EnumerateTargets();
+
  private:
   friend class base::RefCountedThreadSafe<DevToolsHttpHandlerImpl>;
   friend class DevToolsHttpHandler;
@@ -52,7 +56,7 @@ class DevToolsHttpHandlerImpl
 
   // DevToolsHttpHandler implementation.
   virtual void Stop() OVERRIDE;
-  virtual GURL GetFrontendURL() OVERRIDE;
+  virtual GURL GetFrontendURL(DevToolsAgentHost* agent_host = NULL) OVERRIDE;
 
   // net::HttpServer::Delegate implementation.
   virtual void OnHttpRequest(int connection_id,
@@ -81,6 +85,10 @@ class DevToolsHttpHandlerImpl
       int connection_id,
       const std::string& host,
       const DevToolsHttpHandlerDelegate::TargetList& targets);
+
+  void OnTargetListReceived2(
+      const DevToolsHttpHandlerDelegate::TargetList& targets);
+
 
   DevToolsTarget* GetTarget(const std::string& id);
 

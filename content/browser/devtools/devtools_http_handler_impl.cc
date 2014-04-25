@@ -211,11 +211,17 @@ void DevToolsHttpHandlerImpl::Stop() {
       base::Bind(&DevToolsHttpHandlerImpl::ResetHandlerThreadAndRelease, this));
 }
 
-GURL DevToolsHttpHandlerImpl::GetFrontendURL() {
+GURL DevToolsHttpHandlerImpl::GetFrontendURL(DevToolsAgentHost* agent_host) {
   net::IPEndPoint ip_address;
   if (server_->GetLocalAddress(&ip_address))
     return GURL();
-  return GURL(std::string("http://") + ip_address.ToString() + frontend_url_);
+  if (!agent_host)
+    return GURL(std::string("http://") + ip_address.ToString() + frontend_url_);
+  std::string host = ip_address.ToString();
+  std::string id = agent_host->GetId();
+  return GURL(std::string("http://") +
+              ip_address.ToString() +
+              GetFrontendURLInternal(id, host));
 }
 
 static std::string PathWithoutParams(const std::string& path) {
@@ -421,6 +427,13 @@ static bool ParseJsonPath(
   return true;
 }
 
+void DevToolsHttpHandlerImpl::EnumerateTargets() {
+  AddRef();  // Balanced in OnTargetListReceived2.
+  delegate_->EnumerateTargets(
+        base::Bind(&DevToolsHttpHandlerImpl::OnTargetListReceived2, this));
+    return;
+}
+
 void DevToolsHttpHandlerImpl::OnJsonRequestUI(
     int connection_id,
     const net::HttpServerRequestInfo& info) {
@@ -551,6 +564,20 @@ void DevToolsHttpHandlerImpl::OnTargetListReceived(
     list_value.Append(SerializeTarget(*target, host));
   }
   SendJson(connection_id, net::HTTP_OK, &list_value, std::string());
+  Release();  // Balanced in OnJsonRequestUI.
+}
+
+void DevToolsHttpHandlerImpl::OnTargetListReceived2(
+    const DevToolsHttpHandlerDelegate::TargetList& targets) {
+  DevToolsHttpHandlerDelegate::TargetList sorted_targets = targets;
+  std::sort(sorted_targets.begin(), sorted_targets.end(), TimeComparator);
+
+  STLDeleteValues(&target_map_);
+  for (DevToolsHttpHandlerDelegate::TargetList::const_iterator it =
+      sorted_targets.begin(); it != sorted_targets.end(); ++it) {
+    DevToolsTarget* target = *it;
+    target_map_[target->GetId()] = target;
+  }
   Release();  // Balanced in OnJsonRequestUI.
 }
 
