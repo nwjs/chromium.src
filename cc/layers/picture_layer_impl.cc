@@ -676,12 +676,7 @@ void PictureLayerImpl::SyncTiling(
     return;
   tilings_->AddTiling(tiling->contents_scale());
 
-  // If this tree needs update draw properties, then the tiling will
-  // get updated prior to drawing or activation.  If this tree does not
-  // need update draw properties, then its transforms are up to date and
-  // we can create tiles for this tiling immediately.
-  if (!layer_tree_impl()->needs_update_draw_properties() &&
-      should_update_tile_priorities_) {
+  if (!layer_tree_impl()->needs_update_draw_properties()) {
     // When the tree is up to date, the set of tilings must either be empty or
     // contain at least one high resolution tiling.  (If it is up to date,
     // then it would be invalid to sync a tiling if it is the first tiling
@@ -689,9 +684,15 @@ void PictureLayerImpl::SyncTiling(
     SanityCheckTilingState();
     // TODO(enne): temporary sanity CHECK for http://crbug.com/358350
     CHECK_GT(tilings_->num_tilings(), 1u);
-
-    UpdateTilePriorities();
   }
+
+  // If this tree needs update draw properties, then the tiling will
+  // get updated prior to drawing or activation.  If this tree does not
+  // need update draw properties, then its transforms are up to date and
+  // we can create tiles for this tiling immediately.
+  if (!layer_tree_impl()->needs_update_draw_properties() &&
+      should_update_tile_priorities_)
+    UpdateTilePriorities();
 }
 
 void PictureLayerImpl::SetIsMask(bool is_mask) {
