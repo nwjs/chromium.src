@@ -35,7 +35,7 @@
 <translation id="5429818411180678468">Độ rộng tối đa</translation>
 <translation id="250599269244456932">Chạy tự động (được khuyến nghị)</translation>
 <translation id="4121993058175073134">Để gửi dữ liệu đã xuất, hãy định cấu hình tài khoản email trong ứng dụng Cài đặt.</translation>
-<translation id="8099771777867258638">Lấy tiêu điểm trình khởi chạy</translation>
+<translation id="8099771777867258638">Lấy tiêu điểm trình chạy</translation>
 <translation id="6865313869410766144">Tự động điền dữ liệu biểu mẫu</translation>
 <translation id="3581034179710640788">Chứng chỉ an toàn của trang web đã hết hạn!</translation>
 <translation id="2825758591930162672">Khoá Công cộng của Đối tượng</translation>
@@ -69,7 +69,7 @@
 <translation id="2501173422421700905">Chứng chỉ bị Thu hồi</translation>
 <translation id="4031468775258578238">Vô hiệu hóa nhắm mục tiêu theo hình chữ nhật trong các chế độ xem. Nhắm mục tiêu theo hình chữ nhật sử dụng một phương pháp thử nghiệm để xác định mục tiêu có khả năng xảy ra nhất của thao tác, nơi vùng cảm ứng được tượng trưng bằng hình chữ nhật.</translation>
 <translation id="368260109873638734">Chi tiết về các sự cố trên trang web này</translation>
-<translation id="7409233648990234464">Khởi chạy lại và Powerwash</translation>
+<translation id="7409233648990234464">Chạy lại và Powerwash</translation>
 <translation id="7428534988046001922">Các ứng dụng sau hiện đã được cài đặt:</translation>
 <translation id="787386463582943251">Thêm địa chỉ email</translation>
 <translation id="2833791489321462313">Cần có mật khẩu để đánh thức hệ thống</translation>
@@ -492,7 +492,7 @@
 <translation id="7027779093245283639">Nội dung từ <ph name="ELEMENTS_HOST_NAME"/>, một nhà phân phối phần mềm độc hại đã biết, được chèn vào trang web này. Việc truy cập trang này bây giờ có rất nhiều khả năng lây nhiễm phần mềm độc hại sang thiết bị của bạn.</translation>
 <translation id="1918338513364019734">SHA1</translation>
 <translation id="238039057627789696">Nếu bật, trình kết xuất sẽ ủy quyền kết hợp cho trình duyệt, sáp nhập cả hai quá trình thông qua kết hợp.</translation>
-<translation id="4792148404905252597">Bật thử nghiệm bằng cách khởi chạy ứng dụng tạm thời từ các siêu liên kết. Ví dụ: các liên kết tới các trang chi tiết về ứng dụng Cửa hàng Chrome trực tuyến trong kết quả tìm kiếm của Google sẽ khởi chạy ứng dụng thay vì điều hướng tới trang chi tiết.</translation>
+<translation id="4792148404905252597">Bật thử nghiệm bằng cách chạy ứng dụng tạm thời từ các siêu liên kết. Ví dụ: các liên kết tới các trang chi tiết về ứng dụng Cửa hàng Chrome trực tuyến trong kết quả tìm kiếm của Google sẽ chạy ứng dụng thay vì điều hướng tới trang chi tiết.</translation>
 <translation id="3245321423178950146">Nghệ sĩ không xác định</translation>
 <translation id="2437838871182492352">Số lần bật một tiện ích mở rộng</translation>
 <translation id="9050666287014529139">Cụm mật khẩu</translation>
@@ -680,10 +680,10 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="1155128971867755382">Tôi hiểu rằng truy cập trang web này có thể gây hại cho thiết bị của tôi.</translation>
 <translation id="4487088045714738411">Bàn phím tiếng Bỉ</translation>
 <translation id="8158362770816748971">Thẻ ảo của bạn đã sẵn sàng.</translation>
-<translation id="450298799867490781">Cho phép thử nghiệm với ứng dụng tạm thời được khởi chạy mà không cần cài đặt trong Chrome.</translation>
+<translation id="450298799867490781">Cho phép thử nghiệm với ứng dụng tạm thời được chạy mà không cần cài đặt trong Chrome.</translation>
 <translation id="637601477428304897">Ngay cả khi trước đây bạn đã truy cập trang web này một cách an toàn nhưng truy cập trang web này bây giờ có rất nhiều khả năng lây nhiễm phần mềm độc hại sang máy tính của bạn.</translation>
 <translation id="2152580633399033274">Hiển thị tất cả hình ảnh (nên chọn)</translation>
-<translation id="5618075537869101857">Rất tiếc, không thể khởi chạy ứng dụng kiosk.</translation>
+<translation id="5618075537869101857">Rất tiếc, không thể chạy ứng dụng kiosk.</translation>
 <translation id="337286756654493126">Đọc thư mục mà bạn mở trong ứng dụng</translation>
 <translation id="2783661497142353826">Quản lý ứng dụng kiosk</translation>
 <translation id="6272247697534482847">Vô hiệu GPU VSync</translation>
@@ -715,7 +715,7 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="6567688344210276845">Không thể tải biểu tượng '<ph name="ICON"/>' cho tác vụ trang.</translation>
 <translation id="5210365745912300556">Đóng tab</translation>
 <translation id="8628085465172583869">Tên máy chủ:</translation>
-<translation id="3633586230741134985">Cài đặt trình khởi chạy ứng dụng</translation>
+<translation id="3633586230741134985">Cài đặt trình chạy ứng dụng</translation>
 <translation id="1992397118740194946">Chưa đặt</translation>
 <translation id="6867678160199975333">Chuyển sang <ph name="NEW_PROFILE_NAME"/></translation>
 <translation id="3718720264653688555">Bàn phím ảo</translation>
@@ -852,7 +852,7 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP"/>.html</translation>
 <translation id="3127360977178108225">Kết thúc phiên khách</translation>
 <translation id="6327653052522436195">Thành phố</translation>
-<translation id="8437332772351535342">Việc khởi chạy lại ở chế độ Màn hình sẽ đóng và khởi chạy lại ứng dụng Chrome của bạn.</translation>
+<translation id="8437332772351535342">Việc chạy lại ở chế độ Màn hình sẽ đóng và chạy lại ứng dụng Chrome của bạn.</translation>
 <translation id="164814987133974965">Người dùng được giám sát có thể khám phá web dưới sự hướng dẫn của bạn. Là người quản lý của người dùng được giám sát, bạn có thể
     <ph name="BEGIN_BOLD"/>cho phép hoặc cấm<ph name="END_BOLD"/> các trang web nhất định,
     <ph name="BEGIN_BOLD"/>xem lại<ph name="END_BOLD"/> các trang web mà người dùng được giám sát đã truy cập và
@@ -980,7 +980,7 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="5920618722884262402">Chặn các từ xúc phạm</translation>
 <translation id="7782102568078991263">Không có đề xuất nào khác từ Google</translation>
 <translation id="8038111231936746805">(mặc định)</translation>
-<translation id="774931929940050765">Ứng dụng kiosk giờ đây có thể được định cấu hình để tự động khởi chạy trên thiết bị này.</translation>
+<translation id="774931929940050765">Ứng dụng kiosk giờ đây có thể được định cấu hình để tự động chạy trên thiết bị này.</translation>
 <translation id="567881659373499783">Phiên bản <ph name="PRODUCT_VERSION"/></translation>
 <translation id="344100820105975148">Bật các luồng đăng nhập dựa trên web đơn thuần</translation>
 <translation id="8261378640211443080">Tiện ích mở rộng này không được liệt kê trong <ph name="IDS_EXTENSION_WEB_STORE_TITLE"/> và có thể đã được thêm mà bạn không biết.</translation>
@@ -1002,8 +1002,8 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="3441653493275994384">Màn hình</translation>
 <translation id="5945992478690277605">Bật chế độ xem ảo chụm kéo ngón tay để thu phóng</translation>
 <translation id="4755240240651974342">Bàn phím tiếng Phần Lan</translation>
-<translation id="7059858479264779982">Đặt thành tự động khởi chạy</translation>
-<translation id="1940398440143315839">Kích hoạt mục trình khởi chạy 8</translation>
+<translation id="7059858479264779982">Đặt thành tự động chạy</translation>
+<translation id="1940398440143315839">Kích hoạt mục trình chạy 8</translation>
 <translation id="7421925624202799674">&amp;Xem Nguồn Trang</translation>
 <translation id="4439244508678316632">Giấy phép nội dung</translation>
 <translation id="3940082421246752453">Máy chủ không hỗ trợ phiên bản HTTP được sử dụng trong yêu cầu này.</translation>
@@ -1051,7 +1051,7 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="7219357088166514551">Tìm kiếm <ph name="ENGINE"/> hoặc nhập URL</translation>
 <translation id="8642489171979176277">Được nhập Từ Thanh công cụ của Google</translation>
 <translation id="4684427112815847243">Đồng bộ hóa tất cả</translation>
-<translation id="4699357559218762027">(tự động khởi chạy)</translation>
+<translation id="4699357559218762027">(tự động chạy)</translation>
 <translation id="4037463823853863991">Bật trình chuyển đổi tab khả năng truy cập cho Anroid.</translation>
 <translation id="7394102162464064926">Bạn có chắc chắn muốn xóa những trang này khỏi lịch sử của mình không?
 
@@ -1287,7 +1287,7 @@ Lưu ý! Chế độ ẩn danh <ph name="SHORTCUT_KEY"/> có thể hữu ích v�
 <translation id="5974943308520469117">Chi tiết kỹ thuật</translation>
 <translation id="1914436586714907696">Chrome đã hết bộ nhớ.</translation>
 <translation id="5747785204778348146">Nhà phát triển - không chính thức</translation>
-<translation id="3590194807845837023">Mở khóa cấu hình và khởi chạy lại</translation>
+<translation id="3590194807845837023">Mở khóa cấu hình và chạy lại</translation>
 <translation id="6644756108386233011">Đặt lại cài đặt <ph name="IDS_SHORT_PRODUCT_NAME"/> đã thay đổi?</translation>
 <translation id="1090126737595388931">Không có ứng dụng nền nào đang chạy</translation>
 <translation id="6285905808004014074">Bật chế độ tự động tải lại ngoại tuyến</translation>
@@ -1384,7 +1384,7 @@ Lưu ý! Chế độ ẩn danh <ph name="SHORTCUT_KEY"/> có thể hữu ích v�
 <translation id="657064425229075395">Không thể tải tập lệnh nền '<ph name="BACKGROUND_SCRIPT"/>'.</translation>
 <translation id="3345234884557051648">Tôi đã gọi điện và yêu cầu bộ sạc thay thế.</translation>
 <translation id="5710435578057952990">Nhận dạng trang web này chưa được xác minh.</translation>
-<translation id="1319997607168632851">Hãy cho chúng tôi biết ý kiến của bạn về Trình khởi chạy ứng dụng.</translation>
+<translation id="1319997607168632851">Hãy cho chúng tôi biết ý kiến của bạn về Trình chạy ứng dụng.</translation>
 <translation id="5813119285467412249">&amp;Làm lại thêm</translation>
 <translation id="1303319084542230573">Thêm máy in</translation>
 <translation id="5254249723746039492">Thiết bị không được gắn nhãn</translation>
@@ -1502,7 +1502,7 @@ Lưu ý! Chế độ ẩn danh <ph name="SHORTCUT_KEY"/> có thể hữu ích v�
 <translation id="7788080748068240085">Để lưu &quot;<ph name="FILE_NAME"/>&quot; ngoại tuyến, bạn phải giải phóng thêm <ph name="TOTAL_FILE_SIZE"/> dung lượng lưu trữ:<ph name="MARKUP_1"/>
     <ph name="MARKUP_2"/>bỏ ghim các tệp mà bạn không cần truy cập ngoại tuyến nữa<ph name="MARKUP_3"/>
     <ph name="MARKUP_4"/>xóa các tệp khỏi thư mục Tải xuống của bạn<ph name="MARKUP_5"/></translation>
-<translation id="2995880258819891653">Kích hoạt mục trình khởi chạy cuối cùng</translation>
+<translation id="2995880258819891653">Kích hoạt mục trình chạy cuối cùng</translation>
 <translation id="5332360333956573658">Không thể lưu dữ liệu vào Wallet.</translation>
 <translation id="3759371141211657149">Quản lý cài đặt trình xử lý...</translation>
 <translation id="8856844195561710094">Không thể ngừng khám phá thiết bị Bluetooth.</translation>
@@ -1531,8 +1531,8 @@ Lưu ý! Chế độ ẩn danh <ph name="SHORTCUT_KEY"/> có thể hữu ích v�
 <translation id="8194797478851900357">&amp;Hoàn tác di chuyển</translation>
 <translation id="2266011376676382776">(Các) Trang không Hồi đáp</translation>
 <translation id="2907619724991574506">URL khởi động</translation>
-<translation id="6780476430578694241">Trình khởi chạy ứng dụng</translation>
-<translation id="5328285148748012771">Truy cập tất cả ứng dụng của bạn từ trình khởi chạy tiện dụng này. Chơi trò chơi, trò chuyện video, nghe nhạc, chỉnh sửa tài liệu hoặc tải thêm ứng dụng từ Cửa hàng Chrome trực tuyến.</translation>
+<translation id="6780476430578694241">Trình chạy ứng dụng</translation>
+<translation id="5328285148748012771">Truy cập tất cả ứng dụng của bạn từ trình chạy tiện dụng này. Chơi trò chơi, trò chuyện video, nghe nhạc, chỉnh sửa tài liệu hoặc tải thêm ứng dụng từ Cửa hàng Chrome trực tuyến.</translation>
 <translation id="2739191690716947896">Gỡ lỗi</translation>
 <translation id="3100609564180505575">Mô-đun (<ph name="TOTAL_COUNT"/>) - Các xung đột đã biết: <ph name="BAD_COUNT"/>, bị nghi ngờ: <ph name="SUSPICIOUS_COUNT"/></translation>
 <translation id="3627671146180677314">Thời gian Gia hạn Chứng chỉ Netscape</translation>
@@ -1599,7 +1599,7 @@ Lưu ý! Chế độ ẩn danh <ph name="SHORTCUT_KEY"/> có thể hữu ích v�
 <translation id="3124111068741548686">Quản lý NGƯỜI DÙNG</translation>
 <translation id="4874539263382920044">Tiêu đề phải chứa ít nhất một ký tự</translation>
 <translation id="369955970572959658">Bật giao diện người dùng thử nghiệm cho thông báo</translation>
-<translation id="9214520840402538427">Rất tiếc! Việc khởi chạy thuộc tính thời gian cài đặt đã hết thời gian. Vui lòng liên hệ với người đại diện hỗ trợ của bạn.</translation>
+<translation id="9214520840402538427">Rất tiếc! Việc chạy thuộc tính thời gian cài đặt đã hết thời gian. Vui lòng liên hệ với người đại diện hỗ trợ của bạn.</translation>
 <translation id="798525203920325731">Không gian tên của mạng</translation>
 <translation id="7092106376816104">Ngoại lệ cho cửa sổ bật lên</translation>
 <translation id="8594787581355215556">Đăng nhập với địa chỉ <ph name="USER_EMAIL_ADDRESS"/>. Quản lý dữ liệu đã đồng bộ hóa của bạn trên <ph name="BEGIN_LINK"/>Trang tổng quan của Google<ph name="END_LINK"/>.</translation>
@@ -1727,7 +1727,7 @@ Sau khi tạo người dùng được giám sát mới, bạn có thể quản l
 <translation id="2758939858455657368">Các thông báo, cửa sổ và hộp thoại tiếp theo có thể bị chia nhỏ giữa các màn hình.</translation>
 <translation id="8143602169284966549">sử dụng vị trí của thiết bị của bạn.</translation>
 <translation id="4181898366589410653">Không tìm thấy cơ chế thu hồi trong chứng chỉ của máy chủ.</translation>
-<translation id="1515163294334130951">Khởi chạy</translation>
+<translation id="1515163294334130951">Chạy</translation>
 <translation id="6914291514448387591">Cần có sự cho phép của bạn để chạy <ph name="PLUGIN_NAME"/>.</translation>
 <translation id="1123316951456119629">Bằng cách ngắt kết nối tài khoản Google khỏi <ph name="PRODUCT_NAME"/>, dữ liệu của bạn sẽ vẫn còn trên máy tính này nhưng các thay đổi sẽ không còn được đồng bộ hóa với tài khoản Google của bạn. Dữ liệu đã được lưu trữ trong tài khoản Google của bạn sẽ vẫn ở đó cho tới khi bạn xóa dữ liệu bằng <ph name="BEGIN_LINK"/>Trang tổng quan của Google<ph name="END_LINK"/>.</translation>
 <translation id="8705331520020532516">Số Sê-ri</translation>
@@ -1785,7 +1785,7 @@ Sau khi tạo người dùng được giám sát mới, bạn có thể quản l
 <translation id="5486261815000869482">Xác nhận mật khẩu</translation>
 <translation id="6968649314782363508">Truy cập dữ liệu của bạn trên <ph name="WEBSITE_1"/>, <ph name="WEBSITE_2"/> và <ph name="WEBSITE_3"/></translation>
 <translation id="1883255238294161206">Thu gọn danh sách</translation>
-<translation id="4558426062282641716">Đã yêu cầu quyền tự động khởi chạy</translation>
+<translation id="4558426062282641716">Đã yêu cầu quyền tự động chạy</translation>
 <translation id="3100472813537288234">Ẩn chính tả và ngữ pháp</translation>
 <translation id="358344266898797651">Celtic</translation>
 <translation id="3625870480639975468">Đặt lại thu phóng</translation>
@@ -1876,7 +1876,7 @@ Sau khi tạo người dùng được giám sát mới, bạn có thể quản l
 <translation id="4222982218026733335">Chứng chỉ Máy chủ Không hợp lệ</translation>
 <translation id="1410616244180625362">Tiếp tục cho phép <ph name="HOST"/> truy cập máy ảnh của bạn</translation>
 <translation id="8494214181322051417">Mới!</translation>
-<translation id="1745087082567737511">Kích hoạt mục trình khởi chạy 1</translation>
+<translation id="1745087082567737511">Kích hoạt mục trình chạy 1</translation>
 <translation id="2937174152333875430">Bật đồng bộ hóa Trình chạy ứng dụng</translation>
 <translation id="2386255080630008482">Chứng chỉ của máy chủ đã bị thu hồi.</translation>
 <translation id="1586260122947707821">Tắt tiện ích mở rộng thành phần của Quickoffice</translation>
@@ -2066,7 +2066,7 @@ Sau khi tạo người dùng được giám sát mới, bạn có thể quản l
 <translation id="7273110280511444812">được đính kèm lần cuối vào <ph name="DATE"/></translation>
 <translation id="6588399906604251380">Bật kiểm tra chính tả</translation>
 <translation id="4572815280350369984">Tệp <ph name="FILE_TYPE"/></translation>
-<translation id="3012890944909934180">Khởi chạy lại Chrome trên máy tính để bàn</translation>
+<translation id="3012890944909934180">Chạy lại Chrome trên máy tính để bàn</translation>
 <translation id="7053983685419859001">Chặn</translation>
 <translation id="7912024687060120840">Trong thư mục:</translation>
 <translation id="7853659566314288686">Chạy ứng dụng</translation>
@@ -2153,12 +2153,12 @@ Sau khi tạo người dùng được giám sát mới, bạn có thể quản l
 <translation id="2861941300086904918">Trình quản lý bảo mật Native Client</translation>
 <translation id="5650203097176527467">Đang tải chi tiết thanh toán</translation>
 <translation id="5581700288664681403">Đang tải <ph name="CLOUD_PRINT_NAME"/></translation>
-<translation id="6991443949605114807">&lt;p&gt;Khi chạy <ph name="PRODUCT_NAME"/> trong môi trường màn hình được hỗ trợ, cài đặt proxy hệ thống sẽ được sử dụng.  Tuy nhiên, hệ thống của bạn không được hỗ trợ hoặc đã xảy ra sự cố khi khởi chạy cấu hình hệ thống của bạn.&lt;/p&gt;
+<translation id="6991443949605114807">&lt;p&gt;Khi chạy <ph name="PRODUCT_NAME"/> trong môi trường màn hình được hỗ trợ, cài đặt proxy hệ thống sẽ được sử dụng.  Tuy nhiên, hệ thống của bạn không được hỗ trợ hoặc đã xảy ra sự cố khi chạy cấu hình hệ thống của bạn.&lt;/p&gt;
 
         &lt;p&gt;Nhưng bạn vẫn có thể định cấu hình qua dòng lệnh.  Hãy xem &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME"/>&lt;/code&gt; để biết thêm thông tin về cờ và biến môi trường.&lt;/p&gt;</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="8907701755790961703">Vui lòng chọn một quốc gia</translation>
-<translation id="5089703344588164513">Khởi chạy &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
+<translation id="5089703344588164513">Chạy &quot;<ph name="EXTENSION_NAME"/>&quot;?</translation>
 <translation id="7084579131203911145">Tên gói:</translation>
 <translation id="4731351517694976331">Cho phép các dịch vụ của Google truy cập vị trí của bạn</translation>
 <translation id="5815645614496570556">Địa chỉ X.400</translation>
@@ -2364,7 +2364,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="7639178625568735185">Bỏ qua!</translation>
 <translation id="1901769927849168791">Đã phát hiện thấy thẻ SD</translation>
 <translation id="818454486170715660"><ph name="NAME"/> - Chủ sở hữu</translation>
-<translation id="1858472711358606890">Kích hoạt mục trình khởi chạy 4</translation>
+<translation id="1858472711358606890">Kích hoạt mục trình chạy 4</translation>
 <translation id="4763830802490665879">Cookie từ nhiều trang web sẽ bị xóa khi thoát.</translation>
 <translation id="3346842721364589112">Đã bật; ẩn khi nhấp chuột trên Thanh địa chỉ</translation>
 <translation id="1358032944105037487">Bàn phím tiếng Nhật</translation>
@@ -2434,7 +2434,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
     từ màn hình đăng nhập. Sau đó, bạn có thể đăng xuất khỏi tài khoản Google của mình và
     thử tạo lại người dùng được giám sát.</translation>
 <translation id="3530279468460174821">Tắt tiện ích mở rộng thành phần của Quickoffice cho mục đích thử nghiệm.</translation>
-<translation id="3578308799074845547">Kích hoạt mục trình khởi chạy 7</translation>
+<translation id="3578308799074845547">Kích hoạt mục trình chạy 7</translation>
 <translation id="917450738466192189">Chứng chỉ của máy chủ không hợp lệ.</translation>
 <translation id="2649045351178520408">ASCII được mã hóa base64, chuỗi chứng chỉ</translation>
 <translation id="5656862584067297168">Đã nhận từ thiết bị khác</translation>
@@ -2564,7 +2564,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="9142623379911037913">Cho phép <ph name="SITE"/> hiển thị thông báo trên màn hình?</translation>
 <translation id="6546686722964485737">Tham gia mạng Wimax</translation>
 <translation id="266983583785200437">Các sự kiện liên quan đến sự cố và lỗi của <ph name="SHORT_PRODUCT_NAME"/></translation>
-<translation id="5785746630574083988">Chế độ khởi chạy lại trong Windows 8 sẽ đóng và khởi chạy lại ứng dụng Chrome của bạn.</translation>
+<translation id="5785746630574083988">Chế độ chạy lại trong Windows 8 sẽ đóng và chạy lại ứng dụng Chrome của bạn.</translation>
 <translation id="9118804773997839291">Bên dưới là danh sách tất cả các yếu tố không an toàn cho trang. Nhấp vào liên kết Chẩn đoán để biết thêm thông tin về tuyến đoạn cho yếu tố cụ thể.</translation>
 <translation id="6287852322318138013">Chọn một ứng dụng để mở tệp này</translation>
 <translation id="1313065465616456728">Được phát hành lúc</translation>
@@ -2735,7 +2735,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="2454247629720664989">Từ khóa</translation>
 <translation id="3950820424414687140">Đăng nhập</translation>
 <translation id="4626106357471783850"><ph name="PRODUCT_NAME"/> cần phải được khởi động lại để áp dụng cập nhật.</translation>
-<translation id="5369927996833026114">Khám phá Trình khởi chạy ứng dụng Chrome</translation>
+<translation id="5369927996833026114">Khám phá Trình chạy ứng dụng Chrome</translation>
 <translation id="8800420788467349919">Âm lượng: <ph name="PRECENTAGE"/>%</translation>
 <translation id="1697068104427956555">Chọn vùng hình vuông của hình ảnh.</translation>
 <translation id="29232676912973978">Quản lý kết nối...</translation>
@@ -2819,7 +2819,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="4809190954660909198">Chi tiết thanh toán mới...</translation>
 <translation id="3942946088478181888">Giúp tôi hiểu</translation>
 <translation id="3722396466546931176">Thêm ngôn ngữ và kéo để sắp xếp các ngôn ngữ đó dựa trên tùy chọn của bạn.</translation>
-<translation id="7396845648024431313"><ph name="APP_NAME"/> sẽ khởi chạy khi khởi động hệ thống và tiếp tục chạy ở chế độ nền ngay cả khi bạn đã đóng tất cả các cửa sổ khác của <ph name="PRODUCT_NAME"/>.</translation>
+<translation id="7396845648024431313"><ph name="APP_NAME"/> sẽ chạy khi khởi động hệ thống và tiếp tục chạy ở chế độ nền ngay cả khi bạn đã đóng tất cả các cửa sổ khác của <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="8539727552378197395">Không (HttpOnly)</translation>
 <translation id="1611704746353331382">Xuất dấu trang sang tệp HTML...</translation>
 <translation id="662607201886173483">DSA</translation>
@@ -2870,7 +2870,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="1829129547161959350">Chim cánh cụt</translation>
 <translation id="8988255471271407508">Không tìm thấy trang web này trong bộ nhớ cache. Một số tài nguyên chỉ có thể được tải một cách an toàn từ bộ nhớ cache, chẳng hạn như các trang được tạo từ dữ liệu đã gửi. <ph name="LINE_BREAK"/> Lỗi này cũng có thể do hỏng bộ nhớ cache khi tắt không đúng cách. <ph name="LINE_BREAK"/> Nếu sự cố vẫn tiếp diễn, hãy thử xóa bộ nhớ cache.</translation>
 <translation id="1653828314016431939">OK - Khởi động lại ngay bây giờ</translation>
-<translation id="7364796246159120393">Chọn Tệp tin</translation>
+<translation id="7364796246159120393">Chọn tệp</translation>
 <translation id="6585283250473596934">Đăng nhập vào phiên công khai.</translation>
 <translation id="7870278953869613713">Bắt đầu Hangout</translation>
 <translation id="8915370057835397490">Đang tải đề xuất</translation>
@@ -2944,10 +2944,10 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="3031417829280473749">Đặc vụ X</translation>
 <translation id="2893168226686371498">Trình duyệt mặc định</translation>
 <translation id="1895934970388272448">Bạn phải xác nhận đăng ký trên máy in của mình để hoàn tất quy trình này - hãy kiểm tra đăng ký ngay.</translation>
-<translation id="8215958724991462102">Kéo và thả từ trình đơn Khởi chạy ứng dụng vào giá.</translation>
+<translation id="8215958724991462102">Kéo và thả từ trình đơn Chạy ứng dụng vào giá.</translation>
 <translation id="7839580021124293374">3</translation>
 <translation id="2435457462613246316">Hiển thị mật khẩu</translation>
-<translation id="2350182423316644347">Đang khởi chạy ứng dụng...</translation>
+<translation id="2350182423316644347">Đang chạy ứng dụng...</translation>
 <translation id="132101382710394432">Mạng ưa thích...</translation>
 <translation id="532360961509278431">Không thể mở &quot;$1&quot;: $2</translation>
 <translation id="8096505003078145654">Máy chủ proxy là máy chủ đóng vai trò trung gian giữa máy tính của bạn và các máy chủ khác. Hiện tại, hệ thống của bạn được định cấu hình để sử dụng proxy nhưng
@@ -3414,7 +3414,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="3187212781151025377">Bàn phím tiếng Do Thái</translation>
 <translation id="1142012852508714031">Tên tiểu sử</translation>
 <translation id="5894253024636469711">Bật chế độ xem toàn màn hình được đơn giản hóa.</translation>
-<translation id="6325191661371220117">Tắt tính năng tự động khởi chạy</translation>
+<translation id="6325191661371220117">Tắt tính năng tự động chạy</translation>
 <translation id="6817358880000653228">Đã lưu mật khẩu cho trang web này:</translation>
 <translation id="351152300840026870">Phông chữ có chiều rộng cố định</translation>
 <translation id="4301786491084298653">Tắt trên <ph name="DOMAIN"/></translation>
@@ -3538,7 +3538,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="4964383828912709895">Không sắp xếp lại</translation>
 <translation id="4336032328163998280">Thao tác sao chép không thành công. <ph name="ERROR_MESSAGE"/></translation>
 <translation id="351486934407749662">rất lâu</translation>
-<translation id="2267273557509361161">Khởi chạy lại Chrome ở chế độ Windows 8</translation>
+<translation id="2267273557509361161">Chạy lại Chrome ở chế độ Windows 8</translation>
 <translation id="5269977353971873915">In không thành công</translation>
 <translation id="3193734264051635522">Tốc độ:</translation>
 <translation id="869884720829132584">Trình đơn ứng dụng</translation>
@@ -3713,7 +3713,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="715118844758971915">Máy in cổ điển</translation>
 <translation id="7877451762676714207">Lỗi máy chủ không xác định. Vui lòng thử lại hoặc liên hệ với quản trị viên máy chủ.</translation>
 <translation id="5085162214018721575">Đang kiểm tra bản cập nhật</translation>
-<translation id="5264252276333215551">Vui lòng két nối Internet để khởi chạy ứng dụng của bạn ở chế độ kiosk.</translation>
+<translation id="5264252276333215551">Vui lòng két nối Internet để chạy ứng dụng của bạn ở chế độ kiosk.</translation>
 <translation id="7180865173735832675">Tùy chỉnh</translation>
 <translation id="7054808953701320293">Tôi hiểu rồi, đừng hiển thị lại thông báo này.</translation>
 <translation id="144932861331386147">Vui lòng kết nối với Internet để cập nhật Chromebook của bạn.</translation>
@@ -3761,7 +3761,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="1012794136286421601">Các tệp Google Tài liệu, Trang tính, Trang trình bày và Bản vẽ của bạn đang được đồng bộ hóa. Mở ứng dụng Google Drive để truy cập chúng trực tuyến hoặc ngoại tuyến.</translation>
 <translation id="6374100501221763867">Tắt giải mã video được tăng tốc phần cứng.</translation>
 <translation id="5530819628665366444">Tính không tương thích của phần mềm: Tìm hiểu thêm</translation>
-<translation id="9101691533782776290">Khởi chạy ứng dụng</translation>
+<translation id="9101691533782776290">Chạy ứng dụng</translation>
 <translation id="7477347901712410606">Nếu bạn đã quên cụm mật khẩu của mình, hãy dừng lại và đặt lại Đồng bộ hóa qua <ph name="BEGIN_LINK"/>Trang tổng quan của Google<ph name="END_LINK"/>.</translation>
 <translation id="2722842803943052276">Hiển thị trong khay hệ thống các biểu tượng cho tất cả người dùng đã đăng nhập.</translation>
 <translation id="4677772697204437347">Bộ nhớ GPU</translation>
@@ -3802,7 +3802,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="3220630151624181591">Kích hoạt tab 2</translation>
 <translation id="249113932447298600">Rất tiếc, thiết bị <ph name="DEVICE_LABEL"/> không được hỗ trợ vào thời điểm này.</translation>
 <translation id="2351520734632194850"><ph name="MHZ"/> MHz</translation>
-<translation id="2799223571221894425">Khởi chạy lại</translation>
+<translation id="2799223571221894425">Chạy lại</translation>
 <translation id="5771816112378578655">Đang thiết lập...</translation>
 <translation id="1197979282329025000">Đã xảy ra lỗi khi truy xuất các chức năng máy in cho máy in <ph name="PRINTER_NAME"/>. Không thể đăng ký máy in này bằng <ph name="CLOUD_PRINT_NAME"/>.</translation>
 <translation id="890308499387283275">Chrome không thể tải xuống tệp này.</translation>
@@ -3820,7 +3820,6 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="3228279582454007836">Bạn chưa bao giờ truy cập trang web này trước đó.</translation>
 <translation id="7027125358315426638">Tên cơ sở dữ liệu:</translation>
 <translation id="4030383055268325496">&amp;Hoàn tác thêm</translation>
-<translation id="5474648613967354713">Tắt tìm kiếm bằng giọng nói trong Trình chạy ứng dụng.</translation>
 <translation id="5449716055534515760">Đóng cửa &amp;sổ</translation>
 <translation id="2814489978934728345">Dừng tải trang này</translation>
 <translation id="7887246537438213420">Đã xảy ra sự cố đăng nhập.<ph name="LINE_BREAK"/>Hãy liên hệ với quản trị viên của bạn hoặc thử lại.</translation>
@@ -3885,7 +3884,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="3535652963535405415">Bật hỗ trợ thử nghiệm API Web MIDI.</translation>
 <translation id="2413557815400210189">Không cho phép kéo và thả từ trình đơn Trình chạy ứng dụng vào giá.</translation>
 <translation id="8600982036490131878">Trang đề xuất NTP</translation>
-<translation id="4945718003175993758">Kích hoạt mục trình khởi chạy 6</translation>
+<translation id="4945718003175993758">Kích hoạt mục trình chạy 6</translation>
 <translation id="2885378588091291677">Trình quản lý Tác vụ</translation>
 <translation id="7412226954991670867">Bộ nhớ GPU</translation>
 <translation id="4916679969857390442">Ống kính</translation>
@@ -3987,7 +3986,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="945522503751344254">Gửi phản hồi</translation>
 <translation id="1215411991991485844">Đã thêm ứng dụng nền mới</translation>
 <translation id="7158238151765743968">Vẫn đang kết nối với &quot;<ph name="DEVICE_NAME"/>&quot;.</translation>
-<translation id="8782565991310229362">Đã hủy khởi chạy ứng dụng kiosk.</translation>
+<translation id="8782565991310229362">Đã hủy chạy ứng dụng kiosk.</translation>
 <translation id="2252923619938421629">Giúp cải thiện Google Chrome bằng cách báo cáo cài đặt hiện tại</translation>
 <translation id="4647697156028544508">Vui lòng nhập PIN cho &quot;<ph name="DEVICE_NAME"/>&quot;:</translation>
 <translation id="5604961908909363516">Truy cập bất kỳ nội dung nào bạn nhập.</translation>
@@ -4112,7 +4111,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="6418481728190846787">Xóa vĩnh viễn quyền truy cập cho tất cả các ứng dụng</translation>
 <translation id="1999115740519098545">Khi khởi động</translation>
 <translation id="6120205520491252677">Ghim trang này vào màn hình Bắt đầu...</translation>
-<translation id="4190120546241260780">Kích hoạt mục trình khởi chạy 5</translation>
+<translation id="4190120546241260780">Kích hoạt mục trình chạy 5</translation>
 <translation id="8272443605911821513">Quản lý tiện ích mở rộng của bạn bằng cách nhấp vào Tiện ích mở rộng trong trình đơn &quot;Công cụ khác&quot;.</translation>
 <translation id="6905163627763043954">Dùng thử</translation>
 <translation id="3510797500218907545">WiMAX</translation>
@@ -4182,7 +4181,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="8211154138148153396">Thông báo phát hiện thiết bị trên mạng cục bộ.</translation>
 <translation id="5039512255859636053">$1 TB</translation>
 <translation id="4285498937028063278">Bỏ ghim</translation>
-<translation id="8734073480934656039">Bật cài đặt này cho phép ứng dụng kiosk tự động khởi chạy khi khởi động.</translation>
+<translation id="8734073480934656039">Bật cài đặt này cho phép ứng dụng kiosk tự động chạy khi khởi động.</translation>
 <translation id="2588322182880276190">Biểu trưng Chrome</translation>
 <translation id="5449624072515809082">Bật tự động sửa lỗi văn bản trong khi gõ. Kiểm tra chính tả đồng bộ không tương thích với tính năng này.</translation>
 <translation id="2668079306436607263">Điều hướng lịch sử từ thanh cuộn qua</translation>
@@ -4201,7 +4200,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="5139955368427980650">&amp;Mở</translation>
 <translation id="8136149669168180907">Đã tải xuống <ph name="DOWNLOADED_AMOUNT"/> trong tổng số <ph name="TOTAL_SIZE"/></translation>
 <translation id="4643612240819915418">&amp;Mở Video trong Tab Mới</translation>
-<translation id="2791952154587244007">Đã xảy ra lỗi. Ứng dụng kiosk sẽ không thể tự động khởi chạy trên thiết bị này.</translation>
+<translation id="2791952154587244007">Đã xảy ra lỗi. Ứng dụng kiosk sẽ không thể tự động chạy trên thiết bị này.</translation>
 <translation id="7997479212858899587">Nhận dạng:</translation>
 <translation id="2213819743710253654">Tác vụ Trang</translation>
 <translation id="641105183165925463">$1 MB</translation>
@@ -4221,7 +4220,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="641087317769093025">Không thể giải nén tiện ích mở rộng</translation>
 <translation id="7461850476009326849">Tắt trình cắm riêng lẻ...</translation>
 <translation id="2231990265377706070">Dấu chấm than</translation>
-<translation id="7199540622786492483"><ph name="PRODUCT_NAME"/> đã lỗi thời vì sản phẩm này không được khởi chạy lại trong một thời gian. Đã có bản cập nhật và bản cập nhật này sẽ được áp dụng ngay khi bạn khởi chạy lại.</translation>
+<translation id="7199540622786492483"><ph name="PRODUCT_NAME"/> đã lỗi thời vì sản phẩm này không được chạy lại trong một thời gian. Đã có bản cập nhật và bản cập nhật này sẽ được áp dụng ngay khi bạn chạy lại.</translation>
 <translation id="2171101176734966184">Bạn đã cố truy cập vào <ph name="DOMAIN"/> nhưng máy chủ xuất trình một chứng chỉ được ký bằng một thuật toán chữ ký yếu. Điều này có nghĩa là giấy ủy nhiệm bảo mật mà máy chủ xuất trình có thể đã bị giả mạo và máy chủ đó có thể không phải là máy chủ mà bạn mong đợi (bạn có thể đang giao tiếp với một kẻ tấn công).</translation>
 <translation id="3726527440140411893">Các cookie sau đây đã được đặt khi bạn xem trang này:</translation>
 <translation id="6989763994942163495">Hiển thị cài đặt nâng cao...</translation>
@@ -4263,13 +4262,13 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="3129140854689651517">Tìm văn bản</translation>
 <translation id="2473195200299095979">Dịch trang này</translation>
 <translation id="5558129378926964177">Phóng &amp;to</translation>
-<translation id="7667447388810597359">Kích hoạt mục trình khởi chạy 2</translation>
+<translation id="7667447388810597359">Kích hoạt mục trình chạy 2</translation>
 <translation id="3549761410225185768"><ph name="NUM_TABS_MORE"/> tab nữa...</translation>
 <translation id="7217838517480956708">Quản trị viên của máy này yêu cầu cài đặt <ph name="EXTENSION_NAME"/>. Bạn không thể xóa hoặc sửa đổi tiện ích mở rộng này.</translation>
 <translation id="7108668606237948702">nhập</translation>
 <translation id="6451458296329894277">Xác nhận việc Gửi lại Biểu mẫu</translation>
 <translation id="2576842806987913196">Hiện có tệp CRX hiển thị với tên này.</translation>
-<translation id="7015226785571892184">Ứng dụng sau sẽ được khởi chạy nếu bạn chấp nhận yêu cầu này: <ph name="APPLICATION"/></translation>
+<translation id="7015226785571892184">Ứng dụng sau sẽ được chạy nếu bạn chấp nhận yêu cầu này: <ph name="APPLICATION"/></translation>
 <translation id="177336675152937177">Dữ liệu ứng dụng được lưu trữ trên máy chủ</translation>
 <translation id="6804671422566312077">Mở tất cả dấu trang trong &amp;Cửa sổ mới</translation>
 <translation id="4356871690555779302">Trang web tại <ph name="HOST_NAME"/> chứa các phần tử từ các trang web có vẻ lưu trữ phần mềm độc hại – phần mềm có thể gây hại cho thiết bị của bạn hoặc hoạt động mà không cần bạn cho phép.  Chỉ cần truy cập trang web chứa phần mềm độc hại là có thể lây truyền phần mềm độc hại sang thiết bị của bạn.</translation>
@@ -4277,7 +4276,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="7017219178341817193">Thêm trang mới</translation>
 <translation id="1038168778161626396">Chỉ Mã hóa</translation>
 <translation id="8765985713192161328">Quản lý trình xử lý ...</translation>
-<translation id="7179921470347911571">Khởi chạy lại ngay bây giờ</translation>
+<translation id="7179921470347911571">Chạy lại ngay bây giờ</translation>
 <translation id="9065203028668620118">Chỉnh sửa</translation>
 <translation id="2251218783371366160">Mở bằng trình xem hệ thống</translation>
 <translation id="1177863135347784049">Tùy chỉnh</translation>
@@ -4304,7 +4303,6 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="6850233365366645553">Cần phải khởi động lại trước khi đặt lại thiết bị của bạn với Powerwash. Powerwash đặt lại thiết bị <ph name="IDS_SHORT_PRODUCT_NAME"/> của bạn giống như mới.</translation>
 <translation id="1812514023095547458">Chọn màu</translation>
 <translation id="7047998246166230966">Con trỏ</translation>
-<translation id="743268637741709136">Tắt tìm kiếm bằng giọng nói trong Trình chạy ứng dụng. Nếu tính năng này bị tắt, người dùng sẽ không thể tìm kiếm bằng giọng nói.</translation>
 <translation id="2665717534925640469">Trang này hiện đang ở chế độ toàn màn hình và đã tắt con trỏ chuột của bạn.</translation>
 <translation id="3414952576877147120">Kích thước:</translation>
 <translation id="7009102566764819240">Bên dưới là danh sách tất cả các yếu tố không an toàn cho trang. Nhấp vào liên kết Chẩn đoán để biết thêm thông tin về tuyến đoạn phần mềm độc hại đối với tài nguyên cụ thể. Nếu bạn biết rằng tài nguyên đã được báo cáo nhầm là lừa đảo trực tuyến, hãy nhấp vào liên kết 'Báo cáo lỗi'.</translation>
@@ -4432,7 +4430,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="4589268276914962177">Thiết bị đầu cuối mới</translation>
 <translation id="5489059749897101717">&amp;Hiển thị Bảng Chính tả</translation>
 <translation id="421017592316736757">Bạn phải trực tuyến để truy cập tệp này.</translation>
-<translation id="3423858849633684918">Vui lòng khởi chạy lại <ph name="PRODUCT_NAME"/></translation>
+<translation id="3423858849633684918">Vui lòng chạy lại <ph name="PRODUCT_NAME"/></translation>
 <translation id="1232569758102978740">Không tên</translation>
 <translation id="3489444618744432220">Được cho phép theo chính sách</translation>
 <translation id="6626108645084335023">Đang chờ thăm dò DNS.</translation>
@@ -4617,7 +4615,7 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="3082780749197361769">Tab này đang sử dụng máy ảnh hoặc micrô của bạn.</translation>
 <translation id="7278870042769914968">Sử dụng chủ đề GTK+</translation>
 <translation id="4501530680793980440">Xác nhận xóa</translation>
-<translation id="6456623799351433175">Xác nhận khởi chạy ứng dụng</translation>
+<translation id="6456623799351433175">Xác nhận chạy ứng dụng</translation>
 <translation id="1902576642799138955">Thời gian Có hiệu lực</translation>
 <translation id="1883460408637458805">Terabyte</translation>
 <translation id="4910021444507283344">WebGL</translation>
@@ -4713,11 +4711,11 @@ Hãy đảm bảo bạn không hiển thị bất kỳ thông tin nhạy cảm n
 <translation id="8307376264102990850">Đang tính thời gian đến khi sạc đầy</translation>
 <translation id="636850387210749493">Đăng ký doanh nghiệp</translation>
 <translation id="4602466770786743961">Luôn cho phép <ph name="HOST"/> truy cập vào máy ảnh và micrô của bạn</translation>
-<translation id="852573274664085347">Có thể khởi chạy chỉnh sửa dựa trên cảm ứng bằng cách nhấn vào trường văn bản hoặc văn bản đã chọn.</translation>
+<translation id="852573274664085347">Có thể chạy chỉnh sửa dựa trên cảm ứng bằng cách nhấn vào trường văn bản hoặc văn bản đã chọn.</translation>
 <translation id="2746106911980887717">Cài đặt máy ảnh và micrô Adobe Flash Player khác nhau.</translation>
 <translation id="1947424002851288782">Bàn phím tiếng Đức</translation>
 <translation id="2799046819183570437">Bật tinh lọc bố cục thử nghiệm để nâng cao trải nghiệm người dùng với màn hình cảm ứng.</translation>
-<translation id="932508678520956232">Không thể khởi chạy in.</translation>
+<translation id="932508678520956232">Không thể chạy in.</translation>
 <translation id="7953955868932471628">Quản lý lối tắt</translation>
 <translation id="3154429428035006212">Ngoại tuyến hơn một tháng</translation>
 <translation id="4861833787540810454">&amp;Phát</translation>
@@ -4953,7 +4951,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
         in nội dung cho họ từ Chrome, điện thoại, máy tính bảng, PC hoặc bất kỳ
         thiết bị kết nối web nào khác.</translation>
 <translation id="4668954208278016290">Đã xảy ra sự cố khi trích xuất hình ảnh vào máy.</translation>
-<translation id="5822838715583768518">Khởi chạy Ứng dụng</translation>
+<translation id="5822838715583768518">Chạy Ứng dụng</translation>
 <translation id="5914724413750400082">Mô-đun (<ph name="MODULUS_NUM_BITS"/> bit):
   <ph name="MODULUS_HEX_DUMP"/>
 
@@ -5029,7 +5027,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="8759408218731716181">Không thể thiết lập đăng nhập nhiều tài khoản</translation>
 <translation id="8102535138653976669"><ph name="PRODUCT_NAME"/> đồng bộ hóa dữ liệu một cách an toàn bằng tài khoản Google của bạn. Luôn giữ mọi thứ được đồng bộ hóa hoặc tùy chỉnh loại dữ liệu được đồng bộ hóa và cài đặt mã hóa.</translation>
 <translation id="8278536065345637606">Tab mới - Dấu trang</translation>
-<translation id="824543159844843373">Kích hoạt mục trình khởi chạy 3</translation>
+<translation id="824543159844843373">Kích hoạt mục trình chạy 3</translation>
 <translation id="3819800052061700452">&amp;Toàn màn hình</translation>
 <translation id="48607902311828362">Chế độ trên máy bay</translation>
 <translation id="3360297538363969800">Không in được. Vui lòng kiểm tra máy in và thử lại.</translation>
@@ -5254,7 +5252,7 @@ Bạn có chấp nhận không?</translation>
 <translation id="747459581954555080">Khôi phục tất cả</translation>
 <translation id="7602079150116086782">Không có tab nào từ thiết bị khác</translation>
 <translation id="7167486101654761064">&amp;Luôn mở loại tệp này</translation>
-<translation id="6218364611373262432">Đặt lại trạng thái cài đặt của Trình chạy ứng dụng mỗi khi khởi động lại. Trong khi đặt cờ này, Chrome sẽ quên trình khởi chạy đã được cài đặt mỗi lần khởi động. Tùy chọn này được sử dụng để kiểm tra tiến trình cài đặt Trình chạy ứng dụng.</translation>
+<translation id="6218364611373262432">Đặt lại trạng thái cài đặt của Trình chạy ứng dụng mỗi khi khởi động lại. Trong khi đặt cờ này, Chrome sẽ quên trình chạy đã được cài đặt mỗi lần khởi động. Tùy chọn này được sử dụng để kiểm tra tiến trình cài đặt Trình chạy ứng dụng.</translation>
 <translation id="4396124683129237657">Thẻ tín dụng mới...</translation>
 <translation id="4103763322291513355">Truy cập &lt;strong&gt;chrome://policy&lt;/strong&gt; để xem danh sách các URL bị chặn quyền truy cập và các chính sách khác bị quản trị viên hệ thống buộc phải thực thi.</translation>
 <translation id="8799314737325793817">Hiển thị thêm...</translation>
@@ -5266,7 +5264,7 @@ Bạn có chấp nhận không?</translation>
 <translation id="2273562597641264981">Nhà cung cấp:</translation>
 <translation id="122082903575839559">Thuật toán Chữ ký Chứng chỉ</translation>
 <translation id="9013587737291179248">Rất tiếc! Không thể nhập người dùng được giám sát. Vui lòng kiểm tra dung lượng ổ đĩa cứng và quyền của bạn rồi thử lại.</translation>
-<translation id="7254951428499890870">Bạn có chắc chắn muốn khởi chạy &quot;<ph name="APP_NAME"/>&quot; ở chế độ chẩn đoán không?</translation>
+<translation id="7254951428499890870">Bạn có chắc chắn muốn chạy &quot;<ph name="APP_NAME"/>&quot; ở chế độ chẩn đoán không?</translation>
 <translation id="4462159676511157176">Máy chủ có tên tùy chỉnh</translation>
 <translation id="4575703660920788003">Ấn Shift-Alt để chuyển bố cục bàn phím.</translation>
 <translation id="7240120331469437312">Tên Thay thế Đối tượng của Chứng chỉ</translation>

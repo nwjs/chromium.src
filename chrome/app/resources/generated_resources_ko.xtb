@@ -3812,7 +3812,6 @@ http://support.google.com/chromebook/?p=tpm</translation>
 <translation id="3228279582454007836">이 페이지에 오늘 처음 방문했습니다.</translation>
 <translation id="7027125358315426638">데이터베이스 이름:</translation>
 <translation id="4030383055268325496">추가 실행 취소(&amp;U)</translation>
-<translation id="5474648613967354713">앱 런처에서 음성 검색을 사용 중지합니다.</translation>
 <translation id="5449716055534515760">창 닫기(&amp;D)</translation>
 <translation id="2814489978934728345">해당 페이지 로드 중지</translation>
 <translation id="7887246537438213420">로그인하는 중에 문제가 발생했습니다.<ph name="LINE_BREAK"/>관리자에게 문의하거나 다시 시도해 보세요.</translation>
@@ -4297,7 +4296,6 @@ http://support.google.com/chromebook/?p=tpm</translation>
 <translation id="6850233365366645553">기기를 Powerwash로 재설정하기 전에 다시 시작해야 합니다. Powerwash로 <ph name="IDS_SHORT_PRODUCT_NAME"/> 기기를 재설정하면 새것처럼 초기화됩니다.</translation>
 <translation id="1812514023095547458">색상 선택</translation>
 <translation id="7047998246166230966">포인터</translation>
-<translation id="743268637741709136">앱 런처에서 음성 검색을 사용 중지합니다. 사용 중지하면 사용자는 음성으로 검색할 수 없습니다.</translation>
 <translation id="2665717534925640469">페이지가 현재 전체화면으로 전환되었으며 마우스 커서를 사용 중지했습니다.</translation>
 <translation id="3414952576877147120">크기:</translation>
 <translation id="7009102566764819240">다음은 페이지에 포함된 안전하지 않은 모든 요소의 목록입니다. 특정 리소스의 악성 코드 요소에 대한 자세한 내용을 보려면 진단 링크를 클릭하세요. 피싱으로 잘못 신고된 리소스가 있다면 '오류 신고하기' 링크를 클릭하세요.</translation>
@@ -4705,7 +4703,7 @@ http://support.google.com/chromebook/?p=tpm</translation>
 <translation id="1779652936965200207">다음 패스키를 '<ph name="DEVICE_NAME"/>'에 입력하세요.</translation>
 <translation id="8307376264102990850">충전 완료까지
 남은 시간 계산 중</translation>
-<translation id="636850387210749493">기업 등록</translation>
+<translation id="636850387210749493">엔터프라이즈 등록</translation>
 <translation id="4602466770786743961"><ph name="HOST"/>에서 카메라와 마이크에 액세스하도록 항상 허용</translation>
 <translation id="852573274664085347">텍스트 입력란 또는 선택한 텍스트를 탭하여 터치 편집을 시작할 수 있습니다.</translation>
 <translation id="2746106911980887717">Adobe Flash Player 카메라 및 마이크 설정이 다릅니다.</translation>
@@ -5301,7 +5299,7 @@ http://support.google.com/chromebook/?p=tpm</translation>
 <translation id="7336748286991450492">어디서나 북마크를 가져오려면 <ph name="SIGN_IN_LINK"/>하세요.</translation>
 <translation id="8487700953926739672">오프라인으로 사용 가능</translation>
 <translation id="6098975396189420741">이 옵션을 사용하면 웹 애플리케이션이 WebGL API에 액세스할 수 없습니다.</translation>
-<translation id="4377301101584272308">전체 사이트에서 내 실제 위치를 추적하도록 허용</translation>
+<translation id="4377301101584272308">모든 사이트에서 내 실제 위치를 추적하도록 허용</translation>
 <translation id="6872947427305732831">메모리 삭제</translation>
 <translation id="2742870351467570537">선택한 항목 삭제</translation>
 <translation id="7561196759112975576">항상</translation>

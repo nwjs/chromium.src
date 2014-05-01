@@ -763,7 +763,7 @@ Všetci používatelia sa musia odhlásiť a až potom môžu pokračovať.</tra
 <translation id="9121814364785106365">Otvoriť ako pevnú kartu</translation>
 <translation id="6292030868006209076">Metóda vstupu tamilčiny (ITRANS)</translation>
 <translation id="5396126354477659676">Doplnok <ph name="PEPPER_PLUGIN_NAME"/> na stránkach <ph name="PEPPER_PLUGIN_DOMAIN"/> chce získať prístup k vášmu počítaču.</translation>
-<translation id="3435896845095436175">Povoliť</translation>
+<translation id="3435896845095436175">Aktivovať</translation>
 <translation id="5849294688757445020">GPU compositing on all pages (Kompozícia pomocou grafickej karty na všetkých stránkach)</translation>
 <translation id="1891668193654680795">Dôverovať tomuto certifikátu na identifikáciu tvorcov softvéru.</translation>
 <translation id="7968833647796919681">Povoliť zhromažďovanie údajov o výkonnosti</translation>
@@ -3805,7 +3805,6 @@ Do úplného nabitia zostáva: <ph name="HOUR"/>:<ph name="MINUTE"/></translatio
 <translation id="3228279582454007836">Túto stránku ste v minulosti nikdy nenavštívili.</translation>
 <translation id="7027125358315426638">Názov databázy:</translation>
 <translation id="4030383055268325496">&amp;Vrátiť späť pridanie</translation>
-<translation id="5474648613967354713">Zakázať hlasové vyhľadávanie v Spúšťači aplikácií.</translation>
 <translation id="5449716055534515760">Zavrieť o&amp;kno</translation>
 <translation id="2814489978934728345">Zastaviť otváranie tejto stránky</translation>
 <translation id="7887246537438213420">Pri prihlasovaní sa vyskytla chyba.<ph name="LINE_BREAK"/>Kontaktujte svojho správcu alebo to skúste znova.</translation>
@@ -4290,7 +4289,6 @@ Do úplného nabitia zostáva: <ph name="HOUR"/>:<ph name="MINUTE"/></translatio
 <translation id="6850233365366645553">Zariadenie je nevyhnutné pred obnovením pomocou funkcie Powerwash reštartovať. Funkcia Powerwash vo vašom zariadení <ph name="IDS_SHORT_PRODUCT_NAME"/> úplne obnoví počiatočné nastavenie.</translation>
 <translation id="1812514023095547458">Vyberte farbu</translation>
 <translation id="7047998246166230966">Kurzor</translation>
-<translation id="743268637741709136">Zakázať hlasové vyhľadávanie v Spúšťači aplikácií. Ak je zakázané, používateľ nebude môcť vyhľadávať hlasom.</translation>
 <translation id="2665717534925640469">Táto stránka je zobrazená na celú obrazovku a zakázala kurzor myši.</translation>
 <translation id="3414952576877147120">Veľkosť:</translation>
 <translation id="7009102566764819240">Nižšie je uvedený zoznam všetkých nebezpečných prvkov pre stránku. Ak chcete získať viac informácií o škodlivosti konkrétneho zdroja, kliknite na odkaz Diagnostika. Ak viete, že tento zdroj bol nahlásený ako „phishing“ (neoprávnené získavanie údajov) omylom, kliknite na odkaz „Nahlásiť chybu“.</translation>

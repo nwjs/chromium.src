@@ -28,7 +28,7 @@
 <translation id="2224444042887712269">Ce paramètre appartient à <ph name="OWNER_EMAIL"/>.</translation>
 <translation id="1852799913675865625">Une erreur s'est produite lors de la tentative de lecture du fichier : <ph name="ERROR_TEXT"/>.</translation>
 <translation id="6114740317862089559">Pour en savoir plus sur le traitement de ces informations, reportez-vous aux <ph name="BEGIN_LINK"/>Règles de confidentialité<ph name="END_LINK"/>.</translation>
-<translation id="3828924085048779000">Le mot de passe multiterme est obligatoire.</translation>
+<translation id="3828924085048779000">La phrase secrète est obligatoire.</translation>
 <translation id="1844692022597038441">Ce fichier n'est pas disponible hors connexion.</translation>
 <translation id="2709516037105925701">Saisie automatique</translation>
 <translation id="3916445069167113093">Ce type de fichier risque d'endommager votre ordinateur. Voulez-vous vraiment enregistrer <ph name="FILE_NAME"/> ?</translation>
@@ -286,7 +286,7 @@
 <translation id="7002454948392136538">Sélectionner le gestionnaire de cet utilisateur supervisé</translation>
 <translation id="4640525840053037973">Connexion à l'aide de votre compte Google</translation>
 <translation id="4923279099980110923">Je souhaite apporter mon aide</translation>
-<translation id="5255315797444241226">Le mot de passe multiterme entré est incorrect.</translation>
+<translation id="5255315797444241226">La phrase secrète saisie est incorrecte.</translation>
 <translation id="762917759028004464">Le navigateur par défaut est actuellement <ph name="BROWSER_NAME"/>.</translation>
 <translation id="7740287852186792672">Résultats de recherche</translation>
 <translation id="218492098606937156">Activer les événements tactiles</translation>
@@ -390,7 +390,7 @@ puis cliquez sur <ph name="BEGIN_BOLD"/>OK<ph name="END_BOLD"/>.</translation>
 <translation id="1015255576907412255">Pour plus d'informations, contactez votre administrateur système.</translation>
 <translation id="404493185430269859">Moteur de recherche par défaut</translation>
 <translation id="3150927491400159470">Actualisation forcée</translation>
-<translation id="3549644494707163724">Chiffrer toutes les données synchronisées avec votre propre mot de passe multiterme de synchronisation</translation>
+<translation id="3549644494707163724">Chiffrer toutes les données synchronisées avec votre propre phrase secrète de synchronisation</translation>
 <translation id="7531238562312180404"><ph name="PRODUCT_NAME"/> ne contrôlant pas la façon dont les extensions gèrent vos données personnelles, toutes les extensions sont désactivées dans les fenêtres de navigation privée. Vous pouvez les réactiver individuellement dans le <ph name="BEGIN_LINK"/>gestionnaire des extensions<ph name="END_LINK"/>.</translation>
 <translation id="5667293444945855280">Logiciels malveillants</translation>
 <translation id="3119327016906050329">Active un menu permettant de modifier l'alignement de l'étagère.</translation>
@@ -488,7 +488,7 @@ puis cliquez sur <ph name="BEGIN_BOLD"/>OK<ph name="END_BOLD"/>.</translation>
 <translation id="4792148404905252597">Activer l'expérimentation du lancement des applications éphémères depuis des liens hypertextes. Par exemple, dans les résultats de recherche Google, les liens vers les pages d'information des applications du Chrome Web Store permettent de lancer l'application, plutôt que d'accéder à sa page d'information.</translation>
 <translation id="3245321423178950146">Artiste inconnu</translation>
 <translation id="2437838871182492352">Événements d'activation d'une extension</translation>
-<translation id="9050666287014529139">Mot de passe multiterme</translation>
+<translation id="9050666287014529139">Phrase secrète</translation>
 <translation id="4880320188904265650">ouvrir tous les liens &quot;<ph name="PROTOCOL"/>&quot; ?</translation>
 <translation id="8373486119359090598">Activer les gestes avancés</translation>
 <translation id="5197255632782567636">Internet</translation>
@@ -735,7 +735,7 @@ Tous les utilisateurs doivent se déconnecter pour continuer.</translation>
 <translation id="773426152488311044">Vous êtes actuellement le seul utilisateur de <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="2042078858148122628">Impossible de trouver le serveur de <ph name="HOST_NAME"/>, car la résolution DNS a échoué. DNS est le service Web qui convertit les noms de sites Web en adresses Internet. Cette erreur est généralement due à l'absence de connexion Internet ou à une configuration incorrecte du réseau. Elle peut également être causée par un serveur DNS qui ne répond pas ou par un pare-feu qui interdit l'accès de <ph name="PRODUCT_NAME"/> au réseau.</translation>
 <translation id="2159087636560291862">Cela signifie que le certificat n'a pas été vérifié par un tiers reconnu par votre ordinateur. N'importe qui peut émettre un certificat en se faisant passer pour un autre site Web. Ce certificat doit donc être vérifié par un tiers approuvé. Sans cette vérification, les informations sur l'identité du certificat sont sans intérêt. Par conséquent, il nous est impossible de vérifier que vous communiquez bien avec <ph name="DOMAIN"/> et non avec un pirate informatique ayant émis son propre certificat en prétendant être <ph name="DOMAIN2"/>. Nous vous déconseillons vivement de continuer.</translation>
-<translation id="58625595078799656"><ph name="PRODUCT_NAME"/> requiert que vous cryptiez vos données à l'aide de votre mot de passe Google ou de votre propre mot de passe multiterme.</translation>
+<translation id="58625595078799656"><ph name="PRODUCT_NAME"/> requiert que vous cryptiez vos données à l'aide de votre mot de passe Google ou de votre propre phrase secrète.</translation>
 <translation id="8393592654894265520">Photo supprimée.</translation>
 <translation id="3026050830483105579">Tout est là.</translation>
 <translation id="8017335670460187064"><ph name="LABEL"/></translation>
@@ -757,7 +757,7 @@ Tous les utilisateurs doivent se déconnecter pour continuer.</translation>
 <translation id="8695825812785969222">Ouvrir une &amp;adresse...</translation>
 <translation id="4538417792467843292">Supprimer le mot</translation>
 <translation id="7309257895202129721">Afficher les &amp;commandes</translation>
-<translation id="8412392972487953978">Vous devez saisir deux fois le même mot de passe multiterme.</translation>
+<translation id="8412392972487953978">Vous devez saisir deux fois la même phrase secrète.</translation>
 <translation id="9121814364785106365">Ouvrir dans un onglet épinglé</translation>
 <translation id="6292030868006209076">Mode de saisie en tamoul (itrans)</translation>
 <translation id="5396126354477659676">Le plug-in <ph name="PEPPER_PLUGIN_NAME"/> provenant du domaine <ph name="PEPPER_PLUGIN_DOMAIN"/> demande l'accès à votre ordinateur.</translation>
@@ -1058,7 +1058,7 @@ Conseil : Le mode navigation privée (<ph name="SHORTCUT_KEY"/>) pourra vous ê
 <translation id="1049376040497900836">Événements de modification de la version de <ph name="SHORT_PRODUCT_NAME"/></translation>
 <translation id="1422780722984745882">Plusieurs en-têtes Location ont été reçus. Ceci n'est pas autorisé afin de se prémunir
         contre les attaques de type séparation de réponse HTTP.</translation>
-<translation id="7787129790495067395">Vous utilisez actuellement un mot de passe multiterme. Si vous l'oubliez, vous pouvez réinitialiser la synchronisation afin de supprimer vos données des serveurs Google à l'aide de Google Dashboard.</translation>
+<translation id="7787129790495067395">Vous utilisez actuellement une phrase secrète. Si vous l'oubliez, vous pouvez réinitialiser la synchronisation afin de supprimer vos données des serveurs Google à l'aide de Google Dashboard.</translation>
 <translation id="2098305189700762159">Introuvable</translation>
 <translation id="2521119273159503752">Identifiant du journal</translation>
 <translation id="1273135602584709125">Annuler l'inscription d'entreprise</translation>
@@ -1649,7 +1649,7 @@ Une fois que vous avez créé un compte utilisateur supervisé, vous pouvez gér
 <translation id="5745056705311424885">Mémoire USB détectée</translation>
 <translation id="626568068055008686">Mot de passe incorrect ou fichier corrompu.</translation>
 <translation id="5895875028328858187">M'avertir lorsque le flux de données est faible ou presque inexistant</translation>
-<translation id="939598580284253335">Saisir le mot de passe multiterme</translation>
+<translation id="939598580284253335">Saisir la phrase secrète</translation>
 <translation id="8418240940464873056">Caractères chinois</translation>
 <translation id="7917972308273378936">Clavier lituanien</translation>
 <translation id="4263757076580287579">L'enregistrement de l'imprimante a été annulé.</translation>
@@ -1821,7 +1821,7 @@ Une fois que vous avez créé un compte utilisateur supervisé, vous pouvez gér
 <translation id="1187722533808055681">Sorties de veille</translation>
 <translation id="684265517037058883">(pas encore valide)</translation>
 <translation id="2027538664690697700">Mettre à jour le plug-in...</translation>
-<translation id="8075539548641175231">Vos données ont été chiffrées avec votre mot de passe multiterme de synchronisation le <ph name="TIME"/>. Veuillez le saisir ci-dessous.</translation>
+<translation id="8075539548641175231">Vos données ont été chiffrées avec votre phrase secrète de synchronisation le <ph name="TIME"/>. Veuillez la saisir ci-dessous.</translation>
 <translation id="1815083418640426271">Coller en tant que texte brut</translation>
 <translation id="39964277676607559">Impossible de charger le JavaScript &quot;<ph name="RELATIVE_PATH"/>&quot; du script de contenu.</translation>
 <translation id="979598830323579437">Zoom avant</translation>
@@ -1835,7 +1835,7 @@ Une fois que vous avez créé un compte utilisateur supervisé, vous pouvez gér
 <translation id="6662016084451426657">Erreur de synchronisation. Veuillez contacter l'administrateur pour activer la synchronisation.</translation>
 <translation id="3426704822745136852">Indiquez le nombre de fils de trame.</translation>
 <translation id="7093596599142678827">Impossible d'installer le package en raison du plantage d'un processus associé à un utilitaire. Veuillez redémarrer Chrome, puis réessayer.</translation>
-<translation id="2129904043921227933">Erreur de synchronisation. Veuillez mettre à jour le mot de passe multiterme de synchronisation...</translation>
+<translation id="2129904043921227933">Erreur de synchronisation. Veuillez mettre à jour la phrase secrète de synchronisation...</translation>
 <translation id="1476949146811612304">Définir le moteur de recherche à utiliser pour les recherches effectuées depuis l'<ph name="BEGIN_LINK"/>Omnibox<ph name="END_LINK"/> (barre d'adresse et de recherche)</translation>
 <translation id="4114360727879906392">Fenêtre précédente</translation>
 <translation id="7558050486864662801">Me demander lorsqu'un site demande l'accès à mon micro (recommandé)</translation>
@@ -2181,7 +2181,7 @@ Sinon, vous devrez en obtenir un nouveau d'un autre émetteur.</translation>
 <translation id="4366509400410520531">Autorisée par vous-même</translation>
 <translation id="2218947405056773815">Mince ! <ph name="API_NAME"/> a rencontré un problème.</translation>
 <translation id="6797509194603611336">ouvrir tous les liens &quot;<ph name="PROTOCOL"/>&quot; à la place du gestionnaire de protocole &quot;<ph name="REPLACED_HANDLER_TITLE"/>&quot; ?</translation>
-<translation id="1783075131180517613">Mettre à jour votre mot de passe multiterme de synchronisation</translation>
+<translation id="1783075131180517613">Mettre à jour votre phrase secrète de synchronisation</translation>
 <translation id="1601560923496285236">Appliquer</translation>
 <translation id="2390045462562521613">Ignorer ce réseau</translation>
 <translation id="1450927657625573300">Désactiver une optimisation visant à améliorer la réactivité du défilement tactile. Renvoyer obligatoirement tous les événements tactiles vers le fil d'exécution principal de clignotement pour chercher des gestionnaires, au lieu de subir un court-circuit éventuel par le fil d'exécution du compositeur.</translation>
@@ -2314,7 +2314,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="8329978297633540474">Texte brut</translation>
 <translation id="7704305437604973648">Tâche</translation>
 <translation id="4710257996998566163">Dernière mise à jour :</translation>
-<translation id="5299682071747318445">Toutes les données sont chiffrées avec votre mot de passe multiterme de synchronisation.</translation>
+<translation id="5299682071747318445">Toutes les données sont chiffrées avec votre phrase secrète de synchronisation.</translation>
 <translation id="7556242789364317684">Malheureusement, il est impossible de récupérer vos paramètres <ph name="SHORT_PRODUCT_NAME"/>. Pour corriger cette erreur, votre appareil doit être réinitialisé avec la fonctionnalité <ph name="SHORT_PRODUCT_NAME"/> Powerwash.</translation>
 <translation id="4041408658944722952">Lors de la saisie automatique dans un champ polyvalent, cette fonctionnalité active l'intégration des correspondances issues de l'outil de proposition rapide d'historique.</translation>
 <translation id="1383876407941801731">Recherche</translation>
@@ -2858,7 +2858,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="4195814663415092787">Reprendre mes activités là où je m'étais arrêté</translation>
 <translation id="7622994733745016847">Utilisation de la mémoire privée</translation>
 <translation id="1951615167417147110">Faire défiler d'une page vers le haut</translation>
-<translation id="488726935215981469">Vos données sont chiffrées avec votre mot de passe multiterme de synchronisation. Veuillez le saisir ci-dessous.</translation>
+<translation id="488726935215981469">Vos données sont chiffrées avec votre phrase secrète de synchronisation. Veuillez la saisir ci-dessous.</translation>
 <translation id="6147020289383635445">Échec de l'aperçu avant impression.</translation>
 <translation id="4154664944169082762">Empreintes</translation>
 <translation id="4193297030838143153">Nouvelle adresse de facturation…</translation>
@@ -3251,7 +3251,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6454421252317455908">Mode de saisie du chinois (quick)</translation>
 <translation id="368789413795732264">Une erreur s'est produite lors de la tentative d'écriture du fichier : <ph name="ERROR_TEXT"/>.</translation>
 <translation id="1173894706177603556">Renommer</translation>
-<translation id="2128691215891724419">Erreur de synchronisation. Veuillez mettre à jour le mot de passe multiterme de synchronisation...</translation>
+<translation id="2128691215891724419">Erreur de synchronisation. Veuillez mettre à jour la phrase secrète de synchronisation...</translation>
 <translation id="2148716181193084225">Aujourd'hui</translation>
 <translation id="1002064594444093641">Imp&amp;rimer le cadre...</translation>
 <translation id="7816975051619137001">Corriger l'orthographe automatiquement</translation>
@@ -3758,7 +3758,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6374100501221763867">Désactiver le décodage vidéo avec accélération matérielle</translation>
 <translation id="5530819628665366444">Incompatibilité logicielle : en savoir plus</translation>
 <translation id="9101691533782776290">Lancer l'application</translation>
-<translation id="7477347901712410606">Si vous avez oublié votre mot de passe multiterme, interrompez la synchronisation, puis reconfigurez-la via <ph name="BEGIN_LINK"/>Google Dashboard<ph name="END_LINK"/>.</translation>
+<translation id="7477347901712410606">Si vous avez oublié votre phrase secrète, interrompez la synchronisation, puis reconfigurez-la via <ph name="BEGIN_LINK"/>Google Dashboard<ph name="END_LINK"/>.</translation>
 <translation id="2722842803943052276">Afficher les icônes de tous les utilisateurs connectés dans la barre d'état système</translation>
 <translation id="4677772697204437347">Mémoire du processeur graphique</translation>
 <translation id="3085235303151103497">Activer le débogage pour les applications en package</translation>
@@ -3816,7 +3816,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="3228279582454007836">Vous n'avez jamais visité ce site auparavant.</translation>
 <translation id="7027125358315426638">Nom de la base de données :</translation>
 <translation id="4030383055268325496">&amp;Annuler l'ajout</translation>
-<translation id="5474648613967354713">Désactiver la recherche vocale dans le lanceur d'applications</translation>
 <translation id="5449716055534515760">Fe&amp;rmer la fenêtre</translation>
 <translation id="2814489978934728345">Arrêter le chargement de cette page</translation>
 <translation id="7887246537438213420">Une erreur s'est produite lors de la connexion.<ph name="LINE_BREAK"/>Veuillez contacter votre administrateur ou réessayer.</translation>
@@ -3970,7 +3969,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="3895034729709274924">Activer le débogage en arrière-plan</translation>
 <translation id="884923133447025588">Aucun système de révocation trouvé</translation>
 <translation id="8830796635868321089">Échec de la vérification de mise à jour avec les paramètres de proxy actuels. Veuillez modifier vos <ph name="PROXY_SETTINGS_LINK_START"/>paramètres de proxy<ph name="PROXY_SETTINGS_LINK_END"/>.</translation>
-<translation id="7801746894267596941">Seule une personne en possession de votre mot de passe multiterme peut lire vos données chiffrées. Google ne reçoit ni n'enregistre votre mot de passe multiterme. Si vous oubliez votre mot de passe multiterme, vous devrez</translation>
+<translation id="7801746894267596941">Seule une personne en possession de votre phrase secrète peut lire vos données chiffrées. Google ne reçoit ni n'enregistre votre phrase secrète. Si vous l'oubliez, vous devrez</translation>
 <translation id="9218350802691534808">Activez l'affichage des fenêtres des applications après le premier passage.</translation>
 <translation id="291886813706048071">Vous pouvez effectuer des recherches à partir d'ici à l'aide de <ph name="SEARCH_ENGINE"/></translation>
 <translation id="556042886152191864">Bouton</translation>
@@ -4300,7 +4299,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6850233365366645553">Vous devez redémarrer votre appareil avant de pouvoir le réinitialiser via un Powerwash. Cette opération rétablira la configuration d'usine de votre appareil &quot;<ph name="IDS_SHORT_PRODUCT_NAME"/>&quot;.</translation>
 <translation id="1812514023095547458">Sélectionner une couleur</translation>
 <translation id="7047998246166230966">Curseur</translation>
-<translation id="743268637741709136">Désactiver la recherche vocale dans le lanceur d'applications. Si ce paramètre est désactivé, l'utilisateur ne peut pas effectuer de recherche vocale.</translation>
 <translation id="2665717534925640469">Cette page est maintenant en mode plein écran et a désactivé le curseur de votre souris.</translation>
 <translation id="3414952576877147120">Taille :</translation>
 <translation id="7009102566764819240">La liste suivante fait état des éléments dangereux détectés sur la page. Cliquez sur le lien &quot;Diagnostic&quot; pour obtenir plus d'informations sur une ressource particulière. Si une ressource a été signalée comme site de phishing alors que vous êtes certain de sa fiabilité, cliquez sur le lien &quot;Signaler une erreur&quot;.</translation>
@@ -4558,7 +4556,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="3255228561559750854">Effectuez une recherche ou dites &quot;OK Google&quot;</translation>
 <translation id="8148264977957212129">Mode de saisie du pinyin</translation>
 <translation id="2288278176040912387">Tourne-disque</translation>
-<translation id="7772032839648071052">Confirmer le mot de passe multiterme</translation>
+<translation id="7772032839648071052">Confirmer la phrase secrète</translation>
 <translation id="2871813825302180988">Ce compte est déjà utilisé sur cet appareil.</translation>
 <translation id="6277518330158259200">F&amp;aire une capture d'écran</translation>
 <translation id="1642505962779453775">Dernier trimestre</translation>

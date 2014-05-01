@@ -2070,7 +2070,7 @@
 <translation id="6466988389784393586">開啟所有書籤(&amp;O)</translation>
 <translation id="9193357432624119544">錯誤代碼：<ph name="ERROR_NAME"/></translation>
 <translation id="5288678174502918605">重新開啟先前關閉的分頁(&amp;E)</translation>
-<translation id="7238461040709361198">您上次使用這台電腦登入時已變更了「Google 帳戶」密碼。</translation>
+<translation id="7238461040709361198">自從您上次使用這台電腦登入之後，Google 帳戶的密碼已經變更。</translation>
 <translation id="1956050014111002555">檔案含有多個憑證，但全都無法匯入：</translation>
 <translation id="302620147503052030">顯示按鈕</translation>
 <translation id="1895658205118569222">關閉</translation>
@@ -2823,7 +2823,7 @@
 <translation id="961805664415579088">與網域「<ph name="DOMAIN"/>」中的任何電腦交換資料</translation>
 <translation id="4521805507184738876">(已過期)</translation>
 <translation id="111844081046043029">您確定要離開此網頁嗎?</translation>
-<translation id="4195814663415092787">開啟上次瀏覽的內容</translation>
+<translation id="4195814663415092787">繼續瀏覽上次開啟的網頁</translation>
 <translation id="7622994733745016847">專用記憶體使用量</translation>
 <translation id="1951615167417147110">向上捲動一頁</translation>
 <translation id="488726935215981469">您已使用同步通關密語對資料進行加密，請在下方輸入通關密語。</translation>
@@ -3783,7 +3783,6 @@
 <translation id="3228279582454007836">您在今天以前從未造訪過此網站。</translation>
 <translation id="7027125358315426638">資料庫名稱：</translation>
 <translation id="4030383055268325496">復原新增(&amp;U)</translation>
-<translation id="5474648613967354713">在應用程式啟動器中停用語音搜尋。</translation>
 <translation id="5449716055534515760">關閉視窗(&amp;D)</translation>
 <translation id="2814489978934728345">停止載入此網頁</translation>
 <translation id="7887246537438213420">登入帳戶時發生錯誤。<ph name="LINE_BREAK"/>請與您的管理員聯絡，或再試一次。</translation>
@@ -4267,7 +4266,6 @@
 <translation id="6850233365366645553">您必須先重新啟動，才能透過 Powerwash 重設裝置。Powerwash 會將您的 <ph name="IDS_SHORT_PRODUCT_NAME"/> 裝置重設為出廠狀態。</translation>
 <translation id="1812514023095547458">選取顏色</translation>
 <translation id="7047998246166230966">指標裝置</translation>
-<translation id="743268637741709136">在應用程式啟動器中停用語音搜尋。停用後，使用者將無法透過語音進行搜尋。</translation>
 <translation id="2665717534925640469">這個網頁已顯示為全螢幕，並停用了滑鼠游標。</translation>
 <translation id="3414952576877147120">空間大小：</translation>
 <translation id="7009102566764819240">以下清單顯示的是這個網頁的所有不安全元素。請按一下 [診斷] 連結查看各資源的惡意程式詳情。如果您認為其中的資源遭誤報為包含網上釣魚行為，請按一下 [回報錯誤] 連結。</translation>

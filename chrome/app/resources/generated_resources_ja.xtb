@@ -3745,7 +3745,7 @@
 <translation id="5275973617553375938">Google ドライブから復元されたファイル</translation>
 <translation id="8213577208796878755">利用可能なデバイスが 1 つあります。</translation>
 <translation id="3445092916808119474">メインにする</translation>
-<translation id="1012794136286421601">文書、スプレッドシート、スライド、図形描画ファイルは同期されています。Google ドライブ アプリを起動すると、これらのファイルにオンラインまたはオフラインでアクセスします。</translation>
+<translation id="1012794136286421601">ドキュメント、スプレッドシート、スライド、図形描画ファイルは同期されています。Google ドライブ アプリを起動すると、これらのファイルにオンラインまたはオフラインでアクセスします。</translation>
 <translation id="6374100501221763867">ハードウェア アクセラレーションによる動画デコードを無効にする</translation>
 <translation id="5530819628665366444">ソフトウェア非互換性: 詳細</translation>
 <translation id="9101691533782776290">アプリを起動</translation>
@@ -3807,7 +3807,6 @@
 <translation id="3228279582454007836">このサイトにアクセスしたのは今日がはじめてです。</translation>
 <translation id="7027125358315426638">データベース名:</translation>
 <translation id="4030383055268325496">追加の取り消し（&amp;U）</translation>
-<translation id="5474648613967354713">アプリ ランチャーでの音声検索を無効にする。</translation>
 <translation id="5449716055534515760">ウィンドウを閉じる(&amp;D)</translation>
 <translation id="2814489978934728345">このページの読み込みを停止します</translation>
 <translation id="7887246537438213420">ログインで問題が発生しました。<ph name="LINE_BREAK"/>管理者に問い合わせるか、もう一度お試しください。</translation>
@@ -4291,7 +4290,6 @@
 <translation id="6850233365366645553">Powerwash でデバイスをリセットするには、その前に再起動が必要です。Powerwash を実行すると、お使いの <ph name="IDS_SHORT_PRODUCT_NAME"/> デバイスは出荷時と同じ状態にリセットされます。</translation>
 <translation id="1812514023095547458">色を選択</translation>
 <translation id="7047998246166230966">ポインタ</translation>
-<translation id="743268637741709136">アプリ ランチャーでの音声検索を無効にします。無効にした場合、ユーザーは音声で検索できなくなります。</translation>
 <translation id="2665717534925640469">現在このページは全画面表示で、マウス カーソルは無効になります。</translation>
 <translation id="3414952576877147120">サイズ:</translation>
 <translation id="7009102566764819240">以下のリストは危険性のある要素の一覧です。マルウェアの脅威に関する詳細情報については、[診断] をクリックしてください。誤ってフィッシングとして報告されているリソースがある場合は、[エラーを報告] リンクをクリックしてください。</translation>

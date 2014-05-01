@@ -12,7 +12,7 @@
     deaktiveres eller ignoreres.</translation>
 <translation id="166179487779922818">Adgangskoden er for kort.</translation>
 <translation id="2345460471437425338">Forkert certifikat til vært.</translation>
-<translation id="3688507211863392146">Skriv til filer og mapper, som du åbner i applikationen</translation>
+<translation id="3688507211863392146">Skrive til filer og mapper, som du åbner i applikationen</translation>
 <translation id="3595596368722241419">Batteri fuldt</translation>
 <translation id="8098352321677019742"><ph name="PRODUCT_NAME"/>-underretninger</translation>
 <translation id="8130276680150879341">Afbryd forbindelsen til privat netværk</translation>
@@ -173,7 +173,7 @@
         <ph name="HOST_NAME"/>
         blev afbrudt af en ændring i netværksforbindelsen.</translation>
 <translation id="6026631153308084012">Denne enhed er klar til konfiguration.</translation>
-<translation id="8804398419035066391">Kommuniker med andre websites</translation>
+<translation id="8804398419035066391">Kommunikere med andre websites</translation>
 <translation id="7082055294850503883">Ignorer som standard CapsLock og indtastning af små bogstaver</translation>
 <translation id="4989966318180235467">Inspicer &amp;baggrundsside</translation>
 <translation id="4744603770635761495">Eksekverbar sti</translation>
@@ -1627,11 +1627,11 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME"/>?</translation>
 
  • tillade eller forbyde visse websites,
  • gennemse websites, som den administrerede bruger har besøgt
- • administrere andre indstillinger.
+ • administrere andre præferencer.
 
-Når der oprettes en administreret bruger, oprettes der ikke automatisk en Google-konto, og brugerens bogmærker, browserhistorik og øvrige indstillinger vil ikke blive synkroniseret til andre enheder med Chrome-synkronisering.
+Når der oprettes en administreret bruger, oprettes der ikke automatisk en Google-konto, og brugerens bogmærker, browserhistorik og øvrige præferencer vil ikke blive synkroniseret til andre enheder med Chrome-synkronisering.
 
-Når du har oprettet en ny administreret bruger, kan du til enhver tid administrere vedkommendes indstillinger på en hvilken som helst enhed på www.chrome.com/manage. <ph name="BEGIN_LINK"/>Få flere oplysninger om administrerede brugere<ph name="END_LINK"/></translation>
+Når du har oprettet en ny administreret bruger, kan du til enhver tid administrere vedkommendes præferencer på en hvilken som helst enhed på www.chrome.com/manage. <ph name="BEGIN_LINK"/>Få flere oplysninger om administrerede brugere<ph name="END_LINK"/></translation>
 <translation id="6562758426028728553">Angiv den gamle og nye pinkode.</translation>
 <translation id="614161640521680948">Sprog:</translation>
 <translation id="6404511346730675251">Rediger bogmærke</translation>
@@ -3796,7 +3796,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="3228279582454007836">Du har ikke besøgt dette website før i dag.</translation>
 <translation id="7027125358315426638">Databasenavn:</translation>
 <translation id="4030383055268325496">&amp;Fortryd tilføjelse</translation>
-<translation id="5474648613967354713">Deaktiver stemmesøgning i applisten.</translation>
 <translation id="5449716055534515760">Luk vin&amp;due</translation>
 <translation id="2814489978934728345">Stop indlæsning af denne side</translation>
 <translation id="7887246537438213420">Der opstod et problem under forsøg på login.<ph name="LINE_BREAK"/>Kontakt din administrator, eller prøv igen.</translation>
@@ -4279,7 +4278,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6850233365366645553">En genstart er nødvendig, før enheden kan nulstilles med Powerwash. En Powerwash nulstiller din <ph name="IDS_SHORT_PRODUCT_NAME"/>-enhed, så den bliver som ny.</translation>
 <translation id="1812514023095547458">Vælg farve</translation>
 <translation id="7047998246166230966">Markør</translation>
-<translation id="743268637741709136">Deaktiver stemmesøgning i applisten. Brugeren kan dermed ikke søge ved hjælp af stemmen.</translation>
 <translation id="2665717534925640469">Denne side vises nu i fuld skærm og har deaktiveret din musemarkør.</translation>
 <translation id="3414952576877147120">Størrelse:</translation>
 <translation id="7009102566764819240">Nedenfor findes en liste over alle usikre elementer på siden. Klik på linket Diagnosticering for at få flere oplysninger i malwaretråden til et specifikt element. Hvis du kender en ressource, der er blevet fejlagtigt rapporteret som phishing, skal du klikke på linket 'Rapporter fejl'.</translation>

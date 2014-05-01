@@ -313,7 +313,7 @@
 <translation id="7393381084163773901">Morada</translation>
 <translation id="6980028882292583085">Alerta de JavaScript</translation>
 <translation id="577624874850706961">Pesquisar cookies</translation>
-<translation id="5494920125229734069">Seleccionar tudo</translation>
+<translation id="5494920125229734069">Selecionar tudo</translation>
 <translation id="2857834222104759979">O ficheiro de manifesto é inválido.</translation>
 <translation id="3868718841498638222">Mudou para o canal <ph name="CHANNEL_NAME"/>.</translation>
 <translation id="7856030300390419687">Mostre caixas de verificação selecionadas na aplicação Ficheiros.</translation>
@@ -3798,7 +3798,6 @@ Certifique-se de que não revela informações sensíveis.</translation>
 <translation id="3228279582454007836">Nunca visitou este site antes do dia de hoje.</translation>
 <translation id="7027125358315426638">Nome da base de dados:</translation>
 <translation id="4030383055268325496">&amp;Anular adição</translation>
-<translation id="5474648613967354713">Desativar a pesquisa por voz no App Launcher.</translation>
 <translation id="5449716055534515760">Fechar &amp;Janela</translation>
 <translation id="2814489978934728345">Parar de carregar esta página</translation>
 <translation id="7887246537438213420">Ocorreu um erro ao iniciar sessão.<ph name="LINE_BREAK"/>Contacte o administrador ou tente novamente.</translation>
@@ -4281,7 +4280,6 @@ Certifique-se de que não revela informações sensíveis.</translation>
 <translation id="6850233365366645553">É necessário reiniciar antes de poder repor o seu dispositivo com a Powerwash. Uma Powerwash repõe o dispositivo <ph name="IDS_SHORT_PRODUCT_NAME"/> para funcionar como se fosse novo.</translation>
 <translation id="1812514023095547458">Selecionar a Cor</translation>
 <translation id="7047998246166230966">Ponteiro</translation>
-<translation id="743268637741709136">Desativar a pesquisa por voz no App Launcher. Se estiver desativada, o utilizador não poderá pesquisar por voz.</translation>
 <translation id="2665717534925640469">Esta página está agora em ecrã inteiro e desativou o cursor do rato.</translation>
 <translation id="3414952576877147120">Tamanho:</translation>
 <translation id="7009102566764819240">Listamos, a seguir, todos os elementos não seguros para a página. Clique no link Diagnóstico para mais informações sobre a linha de execução do software maligno de um recurso específico. Se tiver conhecimento de algum recurso que tenha sido registado erradamente como phishing, clique no link &quot;Comunicar erro&quot;.</translation>
@@ -4973,7 +4971,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="6953771362519040711">Ativar esta opção fará com que RenderLayers, com uma transição na opacidade, na transformação ou na filtragem, tenha a sua própria camada composta.</translation>
 <translation id="5130080518784460891">Eten</translation>
 <translation id="1394853081832053657">Opções de reconhecimento de voz</translation>
-<translation id="5037676449506322593">Seleccionar tudo</translation>
+<translation id="5037676449506322593">Selecionar tudo</translation>
 <translation id="4124987746317609294">Intervalo de Tempo</translation>
 <translation id="1981905533439890161">Confirmar Nova Aplicação</translation>
 <translation id="7717014941119698257">A transferir: <ph name="STATUS"/></translation>

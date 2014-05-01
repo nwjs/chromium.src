@@ -1275,7 +1275,7 @@ Psst! Suosittelemme käyttämään ensi kerralla incognito-tilaa <ph name="SHORT
 <translation id="6285905808004014074">Poista käytöstä offline-tilan automaattinen sivun päivitys -tila</translation>
 <translation id="1195447618553298278">Tuntematon virhe.</translation>
 <translation id="2617653079636271958">Zoom: <ph name="VALUE"/> %</translation>
-<translation id="7427916543828159271">Wifi ja mobiilitiedonsiirto ovat pois käytöstä.
+<translation id="7427916543828159271">Wi-Fi ja mobiilitiedonsiirto ovat pois käytöstä.
           <ph name="LINE_BREAK"/>
           Sivu voidaan ladata, kun muodostat yhteyden verkkoon.</translation>
 <translation id="1718685839849651010">Tuntemattomasta lokista</translation>
@@ -1330,7 +1330,7 @@ Psst! Suosittelemme käyttämään ensi kerralla incognito-tilaa <ph name="SHORT
 <translation id="3283971109253195306">Jos otat tämän asetuksen käyttöön, verkkosovellukset voivat ladata HTML-tuonteja.</translation>
 <translation id="2462724976360937186">Varmenteen myöntäjän avaimen tunnus</translation>
 <translation id="981121421437150478">Offline</translation>
-<translation id="2964193600955408481">Wifi pois käytöstä</translation>
+<translation id="2964193600955408481">Wi-Fi pois käytöstä</translation>
 <translation id="6786747875388722282">Laajennukset</translation>
 <translation id="2570648609346224037">Virhe ladattaessa palautusnäköistiedostoa.</translation>
 <translation id="5372384633701027870">Poista evästeet ja muut sivuston tiedot, kun suljet selaimen</translation>
@@ -2724,7 +2724,7 @@ Varmista, että et paljasta arkaluonteisia tietoja.</translation>
 <translation id="7785791760347294399">Sovelluksen tiedot…</translation>
 <translation id="8059417245945632445">Tark&amp;ista laitteet</translation>
 <translation id="3391392691301057522">Vanha PIN-koodi</translation>
-<translation id="96421021576709873">Wifi-verkko</translation>
+<translation id="96421021576709873">Wi-Fi-verkko</translation>
 <translation id="1344519653668879001">Poista hyperlinkkien tarkistus käytöstä</translation>
 <translation id="6463795194797719782">M&amp;uokkaa</translation>
 <translation id="8816881387529772083">Täysi MIDI-hallinta</translation>
@@ -2793,7 +2793,7 @@ Varmista, että et paljasta arkaluonteisia tietoja.</translation>
 <translation id="427243282273028705">Suorita vianetsintä vain, jos luettelon URL-osoite päättyy debug.nmf</translation>
 <translation id="2471964272749426546">Tamilin syöttötapa (Tamil99)</translation>
 <translation id="9088917181875854783">Vahvista, että tämä salasana näkyy laitteella <ph name="DEVICE_NAME"/>:</translation>
-<translation id="8814190375133053267">Wifi</translation>
+<translation id="8814190375133053267">Wi-Fi</translation>
 <translation id="5236831943526452400">Poista evästeet ja muut sivuston tiedot, kun suljet selaimen</translation>
 <translation id="1558834950088298812">Esiintymät, kun laajennus päivitettiin</translation>
 <translation id="8410619858754994443">Vahvista salasana:</translation>
@@ -3766,7 +3766,6 @@ ei saa yhteyttä sivustoon. Syynä on yleensä verkon ongelma, mutta ongelma saa
 <translation id="3228279582454007836">Et ole käynyt tässä sivustossa ennen tätä päivää.</translation>
 <translation id="7027125358315426638">Tietokannan nimi:</translation>
 <translation id="4030383055268325496">K&amp;umoa lisäys</translation>
-<translation id="5474648613967354713">Poista puhehaku käytöstä sovelluksien käynnistysohjelmassa.</translation>
 <translation id="5449716055534515760">&amp;Sulje ikkuna</translation>
 <translation id="2814489978934728345">Pysäytä tämän sivun lataus</translation>
 <translation id="7887246537438213420">Kirjautumisessa tapahtui virhe.<ph name="LINE_BREAK"/>Ota yhteyttä järjestelmänvalvojaasi tai yritä uudelleen.</translation>
@@ -4247,7 +4246,6 @@ ei saa yhteyttä sivustoon. Syynä on yleensä verkon ongelma, mutta ongelma saa
 <translation id="6850233365366645553">Laite on käynnistettävä uudelleen ennen Powerwashin suorittamista. Powerwash palauttaa <ph name="IDS_SHORT_PRODUCT_NAME"/>-laitteesi uutta vastaavaan tilaan.</translation>
 <translation id="1812514023095547458">Valitse väri</translation>
 <translation id="7047998246166230966">Osoitin</translation>
-<translation id="743268637741709136">Poista puhehaku käytöstä sovelluksien käynnistysohjelmassa. Jos asetus ei ole käytössä, käyttäjä ei voi tehdä puhehakuja.</translation>
 <translation id="2665717534925640469">Tämä sivu on nyt koko ruudun kokoinen ja on poistanut hiiren osoittimen käytöstä.</translation>
 <translation id="3414952576877147120">Koko:</translation>
 <translation id="7009102566764819240">Alla on luettelo kaikista sivun uhkaavista osista. Saat lisätietoja tiettyyn resurssiin liittyvästä haittaohjelmasta klikkaamalla Diagnostiikka-linkkiä. Jos tiedät, että joku tietty resurssi on ilmoitettu tietojenkalastelusivustoksi virheellisesti, klikkaa Ilmoita virheestä -linkkiä.</translation>

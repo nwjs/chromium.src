@@ -3762,7 +3762,6 @@ L'accesso automatico è sempre disattivato se il profilo non è collegato a un a
 <translation id="3228279582454007836">Non hai mai visitato questo sito prima di oggi.</translation>
 <translation id="7027125358315426638">Nome database:</translation>
 <translation id="4030383055268325496">&amp;Annulla aggiunta</translation>
-<translation id="5474648613967354713">Disattiva ricerca vocale in Avvio applicazioni.</translation>
 <translation id="5449716055534515760">Chiu&amp;di finestra</translation>
 <translation id="2814489978934728345">Interrompi il caricamento della pagina</translation>
 <translation id="7887246537438213420">Si è verificato un problema durante l'accesso.<ph name="LINE_BREAK"/>Contatta il tuo amministratore o riprova.</translation>
@@ -4243,7 +4242,6 @@ L'accesso automatico è sempre disattivato se il profilo non è collegato a un a
 <translation id="6850233365366645553">È necessario riavviare prima che il dispositivo possa essere ripristinato con un Powerwash. Un Powerwash ripristina il tuo dispositivo <ph name="IDS_SHORT_PRODUCT_NAME"/> facendolo tornare come nuovo.</translation>
 <translation id="1812514023095547458">Seleziona colore</translation>
 <translation id="7047998246166230966">Puntatore</translation>
-<translation id="743268637741709136">Disattiva ricerca vocale in Avvio applicazioni. Se disattivi la funzione, l'utente non potrà eseguire ricerche utilizzando comandi vocali.</translation>
 <translation id="2665717534925640469">Questa pagina ora è a schermo intero e ha disattivato il puntatore del mouse.</translation>
 <translation id="3414952576877147120">Dimensioni:</translation>
 <translation id="7009102566764819240">Di seguito è riportato un elenco di tutti gli elementi non sicuri della pagina. Fai clic sul link Diagnostica per ulteriori informazioni sul thread di uno specifico elemento. Se ritieni che una risorsa sia stata segnalata erroneamente come phishing, fai clic sul link &quot;Segnala errore&quot;.</translation>

@@ -2176,7 +2176,7 @@ När du har skapat en kontrollerad användare kan du hantera inställningarna n�
 <translation id="2767649238005085901">Tryck på Retur om du vill gå framåt och på snabbmenyn om du vill visa historiken</translation>
 <translation id="8580634710208701824">Hämta ram igen</translation>
 <translation id="7606992457248886637">Auktoriteter</translation>
-<translation id="4197674956721858839">Val för zip-fil</translation>
+<translation id="4197674956721858839">Zippa markerade filer</translation>
 <translation id="707392107419594760">Välj tangentbord:</translation>
 <translation id="8605503133013456784">Det gick inte att koppla från och ta bort parkopplingen för <ph name="DEVICE_NAME"/>.</translation>
 <translation id="2007404777272201486">Rapportera ett problem...</translation>
@@ -3812,7 +3812,6 @@ Lämna inte ut känsliga uppgifter.</translation>
 <translation id="3228279582454007836">Du har aldrig besökt den här webbplatsen tidigare.</translation>
 <translation id="7027125358315426638">Databasnamn:</translation>
 <translation id="4030383055268325496">&amp;Ångra Lägg till</translation>
-<translation id="5474648613967354713">Inaktivera röstsökning i startprogrammet för appar.</translation>
 <translation id="5449716055534515760">Stäng fön&amp;ster</translation>
 <translation id="2814489978934728345">Sluta ladda den här sidan</translation>
 <translation id="7887246537438213420">Något gick snett vid inloggningen.<ph name="LINE_BREAK"/>Kontakta administratören eller försök igen.</translation>
@@ -4298,7 +4297,6 @@ hanteraren
 <translation id="6850233365366645553">En omstart krävs innan enheten kan återställas med en powerwash. Med en powerwash återställs <ph name="IDS_SHORT_PRODUCT_NAME"/>-enheten så att den blir som ny.</translation>
 <translation id="1812514023095547458">Välj färg</translation>
 <translation id="7047998246166230966">Pekare</translation>
-<translation id="743268637741709136">Inaktivera röstsökning i startprogrammet för appar. När detta alternativ är inaktiverat kan användaren inte söka med hjälp av rösten.</translation>
 <translation id="2665717534925640469">Sidan visas nu i helskärm och har inaktiverat muspekaren.</translation>
 <translation id="3414952576877147120">Storlek:</translation>
 <translation id="7009102566764819240">Här nedan finns en lista med alla osäkra komponenter på sidan. Klicka på länken Diagnostik om du vill ha mer information om tråden för en given resurs. Om du vet att en resurs felaktigt har rapporterats ägna sig åt lösenordsfiske klickar du på länken Rapportera ett fel.</translation>

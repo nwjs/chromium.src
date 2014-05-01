@@ -4,7 +4,7 @@
 <translation id="8914504000324227558">Genstart Chrome</translation>
 <translation id="8000275528373650868">Google Chrome kræver Windows Vista eller Windows XP med SP2 eller nyere.</translation>
 <translation id="8485767968786176057">I dette tilfælde stemmer adressen i certifikatet ikke overens med adressen på det website, som din browser forsøger at gå til. Årsagen kan være, at din kommunikation bliver opsnappet af en hacker, som viser et certifikat for et andet website, hvilket medfører en uoverensstemmelse. Det kan også skyldes, at serveren er konfigureret til at returnere det samme certifikat for flere websites, heriblandt et, som du forsøger at besøge, selvom certifikatet ikke er gyldigt for alle disse websites. Google Chrome kan sige med sikkerhed, at du er kommet til &lt;strong&gt;<ph name="DOMAIN2"/>&lt;/strong&gt;, men kan ikke bekræfte, at det er det samme website som &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, som du forsøgte at åbne. Hvis du fortsætter, kontrollerer Chrome ikke yderligere uoverensstemmelser mellem navne.</translation>
-<translation id="5430073640787465221">Din præferencefil er beskadiget eller ugyldig. Google Chrome kan ikke gendanne dine indstillinger.</translation>
+<translation id="5430073640787465221">Din præferencefil er beskadiget eller ugyldig. Google Chrome kan ikke gendanne dine præferencer.</translation>
 <translation id="6676384891291319759">Få adgang til internettet</translation>
 <translation id="7115445779188493842">Du skal genstarte Google Chrome på computeren for at kunne bruge applikationslisten.</translation>
 <translation id="6236285698028833233">Google Chrome er holdt op med at opdatere og understøtter ikke længere denne version af dit operativsystem.</translation>

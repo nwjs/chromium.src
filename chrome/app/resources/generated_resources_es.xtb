@@ -3800,7 +3800,6 @@ Asegúrate de no revelar información confidencial.</translation>
 <translation id="3228279582454007836">No has visitado nunca este sitio.</translation>
 <translation id="7027125358315426638">Nombre de la base de datos:</translation>
 <translation id="4030383055268325496">&amp;Deshacer acción de añadir</translation>
-<translation id="5474648613967354713">Inhabilitar la búsqueda por voz en el menú de aplicaciones.</translation>
 <translation id="5449716055534515760">Cerrar &amp;ventana</translation>
 <translation id="2814489978934728345">Interrumpir la carga de esta página</translation>
 <translation id="7887246537438213420">Se ha producido un error al iniciar sesión.<ph name="LINE_BREAK"/>Ponte en contacto con el administrador o vuelve a intentarlo.</translation>
@@ -4284,7 +4283,6 @@ Asegúrate de no revelar información confidencial.</translation>
 <translation id="6850233365366645553">Para que el dispositivo pueda restablecerse con el Powerwash, es necesario reiniciarlo. Un Powerwash restablece la configuración de fábrica del dispositivo <ph name="IDS_SHORT_PRODUCT_NAME"/> y lo deja como si fuera nuevo.</translation>
 <translation id="1812514023095547458">Seleccionar color</translation>
 <translation id="7047998246166230966">Puntero</translation>
-<translation id="743268637741709136">Permite inhabilitar la búsqueda por voz en el menú de aplicaciones. Si se inhabilita, el usuario no podrá hacer búsquedas por voz.</translation>
 <translation id="2665717534925640469">Esta página se muestra ahora en pantalla completa y ha inhabilitado el cursor del ratón.</translation>
 <translation id="3414952576877147120">Tamaño:</translation>
 <translation id="7009102566764819240">A continuación, se incluye una lista de todos los elementos no seguros de la página. Haz clic en el enlace de diagnóstico para obtener más información sobre el subproceso del software malicioso de un recurso en concreto. Si crees que se ha identificado erróneamente a un recurso como responsable de actividades de suplantación de identidad, haz clic en el enlace &quot;Informar de un error&quot;.</translation>

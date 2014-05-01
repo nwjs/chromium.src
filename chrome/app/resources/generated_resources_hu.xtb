@@ -3780,7 +3780,6 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="3228279582454007836">A mai nap előtt még soha nem látogatta meg ezt a webhelyet.</translation>
 <translation id="7027125358315426638">Adatbázis neve:</translation>
 <translation id="4030383055268325496">&amp;Hozzáadás visszavonása</translation>
-<translation id="5474648613967354713">A hangalapú keresés letiltása az Alkalmazásindítóban.</translation>
 <translation id="5449716055534515760">A&amp;blak bezárása</translation>
 <translation id="2814489978934728345">Oldal betöltésének leállítása</translation>
 <translation id="7887246537438213420">Valami probléma merült fel a bejelentkezéskor.<ph name="LINE_BREAK"/>Forduljon rendszergazdájához, vagy próbálja meg újra.</translation>
@@ -4263,7 +4262,6 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6850233365366645553">Újra kell indítania rendszerét, mielőtt a Powerwash segítségével visszaállíthatná azt. A Powerwash alaphelyzetbe állítja <ph name="IDS_SHORT_PRODUCT_NAME"/> eszközét, mintha csak új lenne.</translation>
 <translation id="1812514023095547458">Szín kiválasztása</translation>
 <translation id="7047998246166230966">Mutató</translation>
-<translation id="743268637741709136">Hangalapú keresés letiltása az Alkalmazásindítóban. Ha le van tiltva, a felhasználó nem lesz képes kimondott parancsokkal keresni.</translation>
 <translation id="2665717534925640469">Ez az oldal most teljes képernyős nézetben van, és letiltotta az egérmutatót.</translation>
 <translation id="3414952576877147120">Méret:</translation>
 <translation id="7009102566764819240">Az alábbiakban az oldal nem biztonságos elemeinek listája található. Kattintson a Diagnosztika linkre, ha további információt szeretne az adott forráshoz tartozó ártalmas szálról. Ha egy forrást tévesen adathalászatot folytató webhely forrásaként jelentettek, kattintson a &quot;Hibajelentés&quot; linkre.</translation>

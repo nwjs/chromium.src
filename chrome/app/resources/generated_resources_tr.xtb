@@ -2851,7 +2851,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="961805664415579088"><ph name="DOMAIN"/> alanındaki herhangi bir bilgisayarla veri değişimi</translation>
 <translation id="4521805507184738876">(süresi doldu)</translation>
 <translation id="111844081046043029">Bu sayfadan ayrılmak istediğinizden emin misiniz?</translation>
-<translation id="4195814663415092787">Bıraktığım yerden devam et</translation>
+<translation id="4195814663415092787">Kaldığım yerden devam et</translation>
 <translation id="7622994733745016847">Özel Bellek Kullanımı</translation>
 <translation id="1951615167417147110">Bir sayfa yukarı kaydır</translation>
 <translation id="488726935215981469">Verileriniz senkronizasyon parolanızla şifrelendi. Lütfen senkronizasyon parolanızı aşağıya girin.</translation>
@@ -3813,7 +3813,6 @@ Dolması için gereken süre: <ph name="HOUR"/>:<ph name="MINUTE"/></translation
 <translation id="3228279582454007836">Bu siteyi bugün hiç ziyaret etmediniz.</translation>
 <translation id="7027125358315426638">Veritabanı adı:</translation>
 <translation id="4030383055268325496">Eklemeyi &amp;geri al</translation>
-<translation id="5474648613967354713">Uygulama Başlatıcı'da sesli aramayı devre dışı bırak.</translation>
 <translation id="5449716055534515760">Pencereyi &amp;Kapat</translation>
 <translation id="2814489978934728345">Bu sayfayı yüklemeyi durdur</translation>
 <translation id="7887246537438213420">Oturum açarken bir şeyler ters gitti.<ph name="LINE_BREAK"/>Lütfen yöneticinizle görüşün ve tekrar deneyin.</translation>
@@ -4299,7 +4298,6 @@ Dolması için gereken süre: <ph name="HOUR"/>:<ph name="MINUTE"/></translation
 <translation id="6850233365366645553">Cihazınızın Powerwash ile sıfırlanmasından önce yeniden başlatılması gerekir. Powerwash <ph name="IDS_SHORT_PRODUCT_NAME"/> cihazınızı yeni alınmış gibi sıfırlar.</translation>
 <translation id="1812514023095547458">Renk Seç</translation>
 <translation id="7047998246166230966">İşaretçi</translation>
-<translation id="743268637741709136">Uygulama Başlatıcı'da sesli aramayı devre dışı bırak. Devre dışı bırakıldığında, kullanıcı sesle arama yapamaz.</translation>
 <translation id="2665717534925640469">Bu sayfa artık tam ekran görüntüleniyor ve fare imlecinizi devre dışı bıraktı.</translation>
 <translation id="3414952576877147120">Boyut:</translation>
 <translation id="7009102566764819240">Sayfa için güvenli olmayan tüm öğelerin listesini aşağıda görebilirsiniz. Belirli bir kaynağa ilişkin kötü amaçlı yazılım hakkında daha fazla bilgi edinmek için Tanı bağlantısını tıklayın. Bir öğenin yanlışlıkla kimlik avı yapan bir kaynak olarak bildirildiğini düşünüyorsanız, &quot;Hata bildir&quot; bağlantısını tıklayın.</translation>

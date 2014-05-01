@@ -209,7 +209,7 @@ Hvis du logger ind alligevel, flettes Chromium-oplysninger, som f.eks. bogmærke
 <translation id="5862307444128926510">Velkommen til Chromium</translation>
 <translation id="7318036098707714271">Din præferencefil er beskadiget eller ugyldig.
 
-Chromium kan ikke gendanne dine indstillinger.</translation>
+Chromium kan ikke gendanne dine præferencer.</translation>
 <translation id="6403826409255603130">Chromium er en webbrowser, der kører websider og applikationer med lynets hast. Den er hurtig, stabil og brugervenlig. Beskyttelse mod malware og phishing er indbygget i Chromium, så du kan søge mere sikkert på internettet.</translation>
 <translation id="4019464536895378627">Du forsøgte at oprette forbindelse til &lt;strong&gt;<ph name="DOMAIN"/>&lt;/strong&gt;, men serveren præsenterede et certifikat, der er udstedt af en enhed, som Chromium ikke har tillid til. Dette kan betyde, at serveren har genereret sine egne sikkerhedsoplysninger, som Chromium ikke kan benytte til at skaffe identitetsoplysninger, eller at en ondsindet person forsøger at opsnappe din kommunikation.</translation>
 <translation id="4230135487732243613">Vil du knytte dine Chromium-data til denne konto?</translation>

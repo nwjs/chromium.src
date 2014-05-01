@@ -28,7 +28,7 @@
 <translation id="2224444042887712269">Aquesta configuració pertany a <ph name="OWNER_EMAIL"/>.</translation>
 <translation id="1852799913675865625">S'ha produït un error en intentar llegir el fitxer: <ph name="ERROR_TEXT"/>.</translation>
 <translation id="6114740317862089559">Consulteu la <ph name="BEGIN_LINK"/>Política de privadesa<ph name="END_LINK"/> per obtenir més detalls sobre com fem servir aquesta informació.</translation>
-<translation id="3828924085048779000">No es permeten les paraules de pas buides.</translation>
+<translation id="3828924085048779000">Les frases de contrasenya no poder estar buides.</translation>
 <translation id="1844692022597038441">Aquest fitxer no està disponible fora de línia.</translation>
 <translation id="2709516037105925701">Emplenament autom.</translation>
 <translation id="3916445069167113093">Aquest tipus de fitxer pot malmetre el vostre equip. Voleu mantenir <ph name="FILE_NAME"/> igualment?</translation>
@@ -285,7 +285,7 @@
 <translation id="7002454948392136538">Selecció de l'administrador d'aquest usuari supervisat</translation>
 <translation id="4640525840053037973">Inicieu la sessió amb el vostre Compte de Google</translation>
 <translation id="4923279099980110923">Sí, vull contribuir-hi</translation>
-<translation id="5255315797444241226">La paraula de pas que heu introduït no és correcta.</translation>
+<translation id="5255315797444241226">La frase de contrasenya que heu introduït no és correcta.</translation>
 <translation id="762917759028004464">El navegador predeterminat actualment és <ph name="BROWSER_NAME"/>.</translation>
 <translation id="7740287852186792672">Resultats de la cerca</translation>
 <translation id="218492098606937156">Activa els esdeveniments tàctils</translation>
@@ -386,7 +386,7 @@
 <translation id="1015255576907412255">Contacteu amb l'administrador del sistema per obtenir més informació.</translation>
 <translation id="404493185430269859">Motor de cerca predeterminat</translation>
 <translation id="3150927491400159470">Torna a carregar de manera forçada</translation>
-<translation id="3549644494707163724">Encripta totes les dades sincronitzades amb la vostra contrasenya de sincronització</translation>
+<translation id="3549644494707163724">Encripta totes les dades sincronitzades amb la vostra frase de contrasenya de sincronització</translation>
 <translation id="7531238562312180404">Com que <ph name="PRODUCT_NAME"/> no controla la manera com les extensions gestionen les dades personals, s'han desactivat totes les extensions per a les finestres d'incògnit. Podeu tornar a activar-les individualment a
         l'<ph name="BEGIN_LINK"/>administrador d'extensions<ph name="END_LINK"/>.</translation>
 <translation id="5667293444945855280">Programari maliciós</translation>
@@ -485,7 +485,7 @@
 <translation id="4792148404905252597">Permet l'experimentació amb aplicacions efímeres obertes des d'enllaços. Per exemple, els enllaços a la pàgina de detalls de l'aplicació Chrome Web Store dels resultats de la cerca de Google obren l'aplicació en comptes de navegar per la pàgina de detalls.</translation>
 <translation id="3245321423178950146">Artista desconegut</translation>
 <translation id="2437838871182492352">Nombre de vegades que s'ha activat una extensió</translation>
-<translation id="9050666287014529139">Contrasenya</translation>
+<translation id="9050666287014529139">Frase de contrasenya</translation>
 <translation id="4880320188904265650">obrir tots els enllaços <ph name="PROTOCOL"/>?</translation>
 <translation id="8373486119359090598">Activa els gestos avançats</translation>
 <translation id="5197255632782567636">Internet</translation>
@@ -727,7 +727,7 @@ Tots els usuaris han de tancar la sessió per continuar.</translation>
 <translation id="773426152488311044">Actualment sou l'únic usuari de <ph name="PRODUCT_NAME"/>.</translation>
 <translation id="2042078858148122628">No s'ha trobat el servidor a <ph name="HOST_NAME"/> perquè la consulta de DNS ha fallat. DNS és el servei de xarxa que tradueix el nom d'un lloc web a la seva adreça d'Internet. Aquest error sovint es produeix perquè no hi ha connexió a Internet o perquè una xarxa està mal configurada. També pot ser que el servidor DNS no respongui o que un tallafoc impedeixi l'accés de <ph name="PRODUCT_NAME"/> a la xarxa.</translation>
 <translation id="2159087636560291862">En aquest cas, el certificat no ha estat verificat per un tercer en què confiï l'equip. Tothom pot crear un certificat fent-se passar pel lloc web que vulgui i, en conseqüència, cal que un tercer de confiança verifiqui el certificat. Sense aquesta verificació, la informació d'identitat del certificat no té cap significat. Per tant, no es pot verificar que us esteu comunicant amb <ph name="DOMAIN"/> en lloc de amb un atacant que ha generat el seu propi certificat fent-se passar per <ph name="DOMAIN2"/>. No hauríeu de continuar.</translation>
-<translation id="58625595078799656"><ph name="PRODUCT_NAME"/> requereix que encripteu les dades mitjançant la contrasenya de Google o la vostra pròpia paraula de pas.</translation>
+<translation id="58625595078799656"><ph name="PRODUCT_NAME"/> necessita que encripteu les dades mitjançant la vostra contrasenya de Google o frase de contrasenya.</translation>
 <translation id="8393592654894265520">Foto descartada</translation>
 <translation id="3026050830483105579">Ho teniu tot aquí.</translation>
 <translation id="8017335670460187064"><ph name="LABEL"/></translation>
@@ -749,7 +749,7 @@ Tots els usuaris han de tancar la sessió per continuar.</translation>
 <translation id="8695825812785969222">Obre la &amp;ubicació...</translation>
 <translation id="4538417792467843292">Suprimeix la paraula</translation>
 <translation id="7309257895202129721">Mostra els &amp;controls</translation>
-<translation id="8412392972487953978">Heu d'introduir la mateixa paraula de pas dues vegades.</translation>
+<translation id="8412392972487953978">Heu d'introduir la mateixa frase de contrasenya dues vegades.</translation>
 <translation id="9121814364785106365">Obre-ho com a pestanya reduïda</translation>
 <translation id="6292030868006209076">Mètode d'introducció en tàmil (itrans)</translation>
 <translation id="5396126354477659676">El connector <ph name="PEPPER_PLUGIN_NAME"/> de <ph name="PEPPER_PLUGIN_DOMAIN"/> vol accedir al vostre ordinador.</translation>
@@ -775,7 +775,7 @@ Tots els usuaris han de tancar la sessió per continuar.</translation>
 <translation id="7528983820605922285">Administrador d'usuaris</translation>
 <translation id="657402800789773160">&amp;Torna a carregar aquesta pàgina</translation>
 <translation id="6163363155248589649">&amp;Normal</translation>
-<translation id="2399147786307302860">Configuració de sincronització avançada...</translation>
+<translation id="2399147786307302860">Configuració avançada de sincronització...</translation>
 <translation id="490074449735753175">Utilitza un servei web per solucionar els errors d'ortografia</translation>
 <translation id="7972714317346275248">PKCS #1 SHA-384 amb encriptació RSA</translation>
 <translation id="3020990233660977256">Número de sèrie: <ph name="SERIAL_NUMBER"/></translation>
@@ -1049,7 +1049,7 @@ El mode d'incògnit, <ph name="SHORTCUT_KEY"/>, us pot resultar pràctic la prop
 <translation id="1049376040497900836">Nombre de vegades que ha canviat la versió de <ph name="SHORT_PRODUCT_NAME"/></translation>
 <translation id="1422780722984745882">S'han rebut diverses capçaleres d'ubicació diferent. Això no està permès per protegir-vos
         contra atacs de divisió de respostes HTTP.</translation>
-<translation id="7787129790495067395">Actualment utilitzeu una paraula de pas. Si l'heu oblidat, podeu restablir la sincronització per esborrar les dades dels servidors de Google mitjançant Google Dashboard.</translation>
+<translation id="7787129790495067395">Actualment utilitzeu una frase de contrasenya. Si no la recordeu, podeu restablir la sincronització per esborrar les dades dels servidors de Google mitjançant Google Dashboard.</translation>
 <translation id="2098305189700762159">No s'ha trobat</translation>
 <translation id="2521119273159503752">ID de registre</translation>
 <translation id="1273135602584709125">Cancel·la la inscripció d'empresa</translation>
@@ -1640,7 +1640,7 @@ Després de crear un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="5745056705311424885">S'ha detectat un llapis de memòria USB</translation>
 <translation id="626568068055008686">Contrasenya incorrecta o fitxer corromput.</translation>
 <translation id="5895875028328858187">Mostra una notificació quan hi hagi poques dades o estiguin a punt de caducar</translation>
-<translation id="939598580284253335">Introduïu la paraula de pas</translation>
+<translation id="939598580284253335">Introduïu la frase de contrasenya</translation>
 <translation id="8418240940464873056">Mode hanja</translation>
 <translation id="7917972308273378936">Teclat lituà</translation>
 <translation id="4263757076580287579">El registre de la impressora s'ha cancel·lat.</translation>
@@ -1810,7 +1810,7 @@ Després de crear un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="1187722533808055681">Activacions en estat de repòs</translation>
 <translation id="684265517037058883">(encara no és vàlid)</translation>
 <translation id="2027538664690697700">Actualitza el connector...</translation>
-<translation id="8075539548641175231">Les vostres dades s'han encriptat amb la vostra contrasenya de sincronització el <ph name="TIME"/>. Escriviu-la a continuació.</translation>
+<translation id="8075539548641175231">Les vostres dades s'han encriptat amb la vostra frase de contrasenya de sincronització el <ph name="TIME"/>. Escriviu-la a continuació.</translation>
 <translation id="1815083418640426271">Enganxa com a text sense format</translation>
 <translation id="39964277676607559">No s'ha pogut carregar el JavaScript &quot;<ph name="RELATIVE_PATH"/>&quot; per a l'script de contingut.</translation>
 <translation id="979598830323579437">Zoom d'apropament de la lupa</translation>
@@ -1824,7 +1824,7 @@ Després de crear un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="6662016084451426657">Error de sincronització: contacteu amb l'administrador per activar la sincronització.</translation>
 <translation id="3426704822745136852">Especifiqueu el nombre de fils de ràster.</translation>
 <translation id="7093596599142678827">No s'ha pogut instal·lar el paquet perquè un dels processos d'utilitat ha fallat. Reinicieu Chrome i torneu-ho a provar.</translation>
-<translation id="2129904043921227933">Error de sincronització: actualitzeu la contrasenya de sincronització...</translation>
+<translation id="2129904043921227933">Error de sincronització: actualitzeu la frase de contrasenya de sincronització...</translation>
 <translation id="1476949146811612304">Definiu el motor de cerca que s'ha de fer servir en cercar des de l'<ph name="BEGIN_LINK"/>omnibox<ph name="END_LINK"/>.</translation>
 <translation id="4114360727879906392">Finestra anterior</translation>
 <translation id="7558050486864662801">Pregunta'm quan un lloc requereixi accés al micròfon (opció recomanada)</translation>
@@ -2158,7 +2158,7 @@ Després de crear un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="4366509400410520531">Permès pel vostre usuari</translation>
 <translation id="2218947405056773815"><ph name="API_NAME"/> ha detectat un problema.</translation>
 <translation id="6797509194603611336">obrir tots els enllaços <ph name="PROTOCOL"/> en comptes de <ph name="REPLACED_HANDLER_TITLE"/>?</translation>
-<translation id="1783075131180517613">Actualitzeu la contrasenya de sincronització.</translation>
+<translation id="1783075131180517613">Actualitzeu la frase de contrasenya de sincronització.</translation>
 <translation id="1601560923496285236">Aplica</translation>
 <translation id="2390045462562521613">Oblida aquesta xarxa</translation>
 <translation id="1450927657625573300">Desactiva una optimització dissenyada per millorar la capacitat de resposta al desplaçament tàctil. Fa que tots els esdeveniments tàctils vagin al procés principal de parpelleig per cercar gestors, en comptes de fer un curtcircuit des del procés de composició.</translation>
@@ -2291,7 +2291,7 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="8329978297633540474">Text sense format</translation>
 <translation id="7704305437604973648">Tasca</translation>
 <translation id="4710257996998566163">Última actualització:</translation>
-<translation id="5299682071747318445">Totes les dades s'encripten amb la vostra contrasenya de sincronització</translation>
+<translation id="5299682071747318445">Totes les dades s'encripten amb la vostra frase de contrasenya de sincronització</translation>
 <translation id="7556242789364317684"><ph name="SHORT_PRODUCT_NAME"/> no pot recuperar la vostra configuració. Per solucionar l'error, <ph name="SHORT_PRODUCT_NAME"/> ha de restablir el dispositiu amb Powerwash.</translation>
 <translation id="4041408658944722952">Permet integrar les cerques que vinguin de HistoryQuickProvider a la funció per completar automàticament de l'omnibox.</translation>
 <translation id="1383876407941801731">Cerca</translation>
@@ -2831,7 +2831,7 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="4195814663415092787">Continua des d'on ho vaig deixar</translation>
 <translation id="7622994733745016847">Ús de la memòria privada</translation>
 <translation id="1951615167417147110">Es desplaça una pàgina cap amunt</translation>
-<translation id="488726935215981469">Les vostres dades s'han encriptat amb la vostra contrasenya de sincronització. Escriviu-la a continuació.</translation>
+<translation id="488726935215981469">Les vostres dades s'han encriptat amb la vostra frase de contrasenya de sincronització. Escriviu-la a continuació.</translation>
 <translation id="6147020289383635445">La visualització prèvia d'impressió ha fallat.</translation>
 <translation id="4154664944169082762">Empremtes</translation>
 <translation id="4193297030838143153">Adreça de facturació nova...</translation>
@@ -3224,7 +3224,7 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="6454421252317455908">Mètode d'entrada de xinès (ràpid)</translation>
 <translation id="368789413795732264">S'ha produït un error quan s'intentava escriure el fitxer: <ph name="ERROR_TEXT"/></translation>
 <translation id="1173894706177603556">Canvia el nom</translation>
-<translation id="2128691215891724419">Error de sincronització: actualitzeu la contrasenya de sincronització...</translation>
+<translation id="2128691215891724419">Error de sincronització: actualitzeu la frase de contrasenya de sincronització...</translation>
 <translation id="2148716181193084225">Avui</translation>
 <translation id="1002064594444093641">Imp&amp;rimeix el marc...</translation>
 <translation id="7816975051619137001">Corregeix l'ortografia automàticament</translation>
@@ -3313,7 +3313,7 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="3399055427338982746">No hi ha cap extensió sense empaquetar.</translation>
 <translation id="5818003990515275822">Coreà</translation>
 <translation id="4182252350869425879">Advertència: Lloc sospitós de pesca!</translation>
-<translation id="2453021845418314664">Configuració de sincronització avançada</translation>
+<translation id="2453021845418314664">Configuració avançada de sincronització</translation>
 <translation id="14720830734893704">Activa la compatibilitat del teclat virtual.</translation>
 <translation id="5458214261780477893">Dvorak</translation>
 <translation id="3960121209995357026">Activa la correcció ortogràfica automàtica</translation>
@@ -3732,7 +3732,7 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="6374100501221763867">Desactiva la descodificació de vídeo accelerada mitjançant maquinari.</translation>
 <translation id="5530819628665366444">Incompatibilitat de programari: més informació</translation>
 <translation id="9101691533782776290">Inicia l'aplicació</translation>
-<translation id="7477347901712410606">Si heu oblidat la contrasenya, atureu i restabliu la sincronització mitjançant <ph name="BEGIN_LINK"/>Google Dashboard<ph name="END_LINK"/>.</translation>
+<translation id="7477347901712410606">Si heu oblidat la frase de contrasenya, atureu i restabliu la sincronització mitjançant <ph name="BEGIN_LINK"/>Google Dashboard<ph name="END_LINK"/>.</translation>
 <translation id="2722842803943052276">Mostra les icones de tots els usuaris que tinguin iniciada la sessió a la safata del sistema</translation>
 <translation id="4677772697204437347">Memòria de la GPU</translation>
 <translation id="3085235303151103497">Activa la depuració de paquets d'aplicacions.</translation>
@@ -3790,7 +3790,6 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="3228279582454007836">No has visitat mai abans aquest lloc.</translation>
 <translation id="7027125358315426638">Nom de la base de dades:</translation>
 <translation id="4030383055268325496">&amp;Desfés l'addició</translation>
-<translation id="5474648613967354713">Desactiva la cerca per veu al Menú d'aplicacions.</translation>
 <translation id="5449716055534515760">Tanca la &amp;finestra</translation>
 <translation id="2814489978934728345">Atura la càrrega d'aquesta pàgina</translation>
 <translation id="7887246537438213420">S'ha produït un problema en iniciar la sessió.<ph name="LINE_BREAK"/>Contacteu amb l'administrador o torneu-ho a provar.</translation>
@@ -3944,7 +3943,7 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="3895034729709274924">Activa la depuració silenciosa.</translation>
 <translation id="884923133447025588">No s'ha trobat cap mecanisme de revocació.</translation>
 <translation id="8830796635868321089">No s'ha pogut realitzar la comprovació d'actualitzacions amb la configuració del servidor intermediari actual. Ajusteu la <ph name="PROXY_SETTINGS_LINK_START"/>configuració del servidor intermediari<ph name="PROXY_SETTINGS_LINK_END"/>.</translation>
-<translation id="7801746894267596941">Només una persona que tingui la vostra contrasenya pot llegir les dades encriptades: la contrasenya no s'envia ni s'emmagatzema a Google. Si oblideu la contrasenya, haureu de</translation>
+<translation id="7801746894267596941">Només una persona que tingui la vostra frase de contrasenya pot llegir les dades encriptades (Google no envia ni emmagatzema la frase de contrasenya). Si no la recordeu, haureu de</translation>
 <translation id="9218350802691534808">Activa la primera càrrega per a les aplicacions.</translation>
 <translation id="291886813706048071">Podeu fer cerques des d'aquí amb <ph name="SEARCH_ENGINE"/></translation>
 <translation id="556042886152191864">Botó</translation>
@@ -4274,7 +4273,6 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="6850233365366645553">Per poder restablir el dispositiu amb Powerwash, abans cal reiniciar-lo. Una operació Powerwash restableix la configuració de fàbrica del dispositiu <ph name="IDS_SHORT_PRODUCT_NAME"/> i el deixa com si fos nou.</translation>
 <translation id="1812514023095547458">Selecció de color</translation>
 <translation id="7047998246166230966">Busca</translation>
-<translation id="743268637741709136">Desactiva la cerca per veu al Menú d'aplicacions. Si està desactivada, l'usuari no podrà fer cerques per veu.</translation>
 <translation id="2665717534925640469">Aquesta pàgina es visualitza a pantalla completa i ha desactivat el cursor del ratolí.</translation>
 <translation id="3414952576877147120">Mida:</translation>
 <translation id="7009102566764819240">A continuació trobareu una llista de tots els elements no segurs de la pàgina. Feu clic a l'enllaç &quot;Diagnòstic&quot; per obtenir més informació sobre el perill de programari maliciós que suposa un recurs determinat. Si creieu que un recurs s'ha detectat com a lloc de pesca per error, feu clic a l'enllaç &quot;Informa sobre un error&quot;.</translation>
@@ -4532,7 +4530,7 @@ Assegureu-vos que no es mostri informació confidencial.</translation>
 <translation id="3255228561559750854">Cerqueu o digueu &quot;OK Google&quot;.</translation>
 <translation id="8148264977957212129">Mètode d'entrada de pinyin</translation>
 <translation id="2288278176040912387">Tocadiscos</translation>
-<translation id="7772032839648071052">Confirmeu la contrasenya</translation>
+<translation id="7772032839648071052">Confirmeu la frase de contrasenya</translation>
 <translation id="2871813825302180988">Aquest compte ja s'utilitza en aquest dispositiu.</translation>
 <translation id="6277518330158259200">Fes una c&amp;aptura de pantalla</translation>
 <translation id="1642505962779453775">El darrer trimestre</translation>

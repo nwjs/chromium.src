@@ -3775,7 +3775,6 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 <translation id="3228279582454007836">Do danas niste posjetili ovu web lokaciju.</translation>
 <translation id="7027125358315426638">Naziv baze podataka:</translation>
 <translation id="4030383055268325496">&amp;Poništi dodavanje</translation>
-<translation id="5474648613967354713">Onemogući glasovno pretraživanje u Pokretaču aplikacija.</translation>
 <translation id="5449716055534515760">Close Win&amp;dow (Zatvori prozor)</translation>
 <translation id="2814489978934728345">Prekini učitavanje ove stranice</translation>
 <translation id="7887246537438213420">Nešto je pošlo po krivu s prijavom.<ph name="LINE_BREAK"/>Obratite se administratoru ili pokušajte ponovo.</translation>
@@ -4258,7 +4257,6 @@ Ne otkrivajte nikakve osjetljive podatke.</translation>
 <translation id="6850233365366645553">Prvo morate ponovo pokrenuti uređaj da biste ga mogli poništiti funkcijom Powerwash. Powerwash vraća vaš <ph name="IDS_SHORT_PRODUCT_NAME"/> uređaj na zadano kako bi ponovo bio kao nov.</translation>
 <translation id="1812514023095547458">Odabir boje</translation>
 <translation id="7047998246166230966">Pokazivač</translation>
-<translation id="743268637741709136">Onemogućuje glasovno pretraživanje u Pokretaču aplikacija. Ako je ta opcija onemogućena, korisnik neće moći pretraživati govorom.</translation>
 <translation id="2665717534925640469">Ova je stranica sada na cijelom zaslonu i onemogućila je pokazivač miša.</translation>
 <translation id="3414952576877147120">Veličina:</translation>
 <translation id="7009102566764819240">U nastavku se nalazi popis nesigurnih elemenata za stranicu. Kliknite na vezu Dijagnostika da biste saznali više u nizu uzastopnih poruka o zlonamjernom softveru za određeni resurs. Ako znate da je neki resurs pogreškom prijavljen kao stranica za krađu identiteta, kliknite vezu &quot;Prijavi pogrešku&quot;.</translation>
