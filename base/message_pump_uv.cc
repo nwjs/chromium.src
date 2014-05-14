@@ -36,15 +36,19 @@ void timer_callback(uv_timer_t* timer, int status) {
 MessagePumpUV::MessagePumpUV()
     : keep_running_(true),
       nesting_level_(0),
-      wakeup_event_ref_(&wakeup_event_) {
+      wakeup_event_ref_(NULL) {
+  wakeup_event_ref_ = wakeup_event_ = new uv_async_t;
   uv_async_init(uv_default_loop(), wakeup_event_ref_, wakeup_callback);
 }
 
 MessagePumpUV::~MessagePumpUV() {
+  delete wakeup_event_;
+  wakeup_event_ = NULL;
 }
 
 void MessagePumpUV::Run(Delegate* delegate) {
-  v8::HandleScope scope;
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  v8::HandleScope scope(isolate);
 
   ++nesting_level_;
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
@@ -81,7 +85,8 @@ void MessagePumpUV::Run(Delegate* delegate) {
       // call tick callback after done work in V8,
       // in the same way node upstream handle this in MakeCallBack,
       // or the tick callback is blocked in some cases
-      node::CallTickCallback(node::g_env, v8::Undefined());
+      if (node::g_env)
+        node::CallTickCallback(node::g_env, v8::Undefined(isolate));
       continue;
     }
 
@@ -90,7 +95,8 @@ void MessagePumpUV::Run(Delegate* delegate) {
       break;
 
     if (did_work) {
-      node::CallTickCallback(node::g_env, v8::Undefined());
+      if (node::g_env)
+        node::CallTickCallback(node::g_env, v8::Undefined(isolate));
       continue;
     }
 
@@ -120,7 +126,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
 
     // Restore previous async handle.
     delete wakeup_event_ref_;
-    wakeup_event_ref_ = &wakeup_event_;
+    wakeup_event_ref_ = wakeup_event_;
   }
 
   keep_running_ = true;
