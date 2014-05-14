@@ -26,7 +26,6 @@
       'includes': [
         'content_common_mojo_bindings.gypi',
         '../build/win_precompile.gypi',
-        'nw/nw.gypi',
       ],
     }],
     # In component mode, we build all of content as a single DLL.

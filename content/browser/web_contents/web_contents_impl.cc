@@ -1541,7 +1541,7 @@ void WebContentsImpl::CreateNewWindow(
     AddDestructionObserver(new_contents);
   }
   // Save window features
-  new_contents->window_features_ = params.window_features;
+  // new_contents->window_features_ = params.window_features;
 
   if (delegate_) {
     delegate_->WebContentsCreated(
@@ -2369,7 +2369,7 @@ void WebContentsImpl::DidEndColorChooser() {
   color_chooser_info_.reset();
 }
 
-WebKit::WebWindowFeatures WebContentsImpl::GetWindowFeatures() const {
+blink::WebWindowFeatures WebContentsImpl::GetWindowFeatures() const {
   return window_features_;
 }
 

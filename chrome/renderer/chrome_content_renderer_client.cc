@@ -78,11 +78,13 @@
 #include "components/plugins/renderer/mobile_youtube_plugin.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "components/visitedlink/renderer/visitedlink_slave.h"
+#include "content/common/view_messages.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "content/public/renderer/render_view_visitor.h"
+#include "content/renderer/render_view_impl.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
@@ -135,6 +137,11 @@
 #include "chrome_elf/blacklist/blacklist.h"
 #endif
 
+#include "third_party/node/src/node.h"
+#undef CHECK
+#include "third_party/node/src/node_internals.h"
+#include "third_party/node/src/req_wrap.h"
+
 using autofill::AutofillAgent;
 using autofill::PasswordAutofillAgent;
 using autofill::PasswordGenerationAgent;
@@ -159,6 +166,7 @@ using blink::WebURLError;
 using blink::WebURLRequest;
 using blink::WebURLResponse;
 using blink::WebVector;
+using content::RenderViewImpl;
 
 namespace {
 
@@ -1276,6 +1284,8 @@ void ChromeContentRendererClient::DidCreateScriptContext(
     int world_id) {
   extension_dispatcher_->DidCreateScriptContext(
       frame, context, extension_group, world_id);
+  GURL url(frame->document().url());
+  InstallNodeSymbols(frame, context, url);
 }
 
 unsigned long long ChromeContentRendererClient::VisitedLinkHash(

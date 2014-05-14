@@ -3020,7 +3020,6 @@ void RenderFrameImpl::didLoseWebGLContext(blink::WebLocalFrame* frame,
       arb_robustness_status_code));
 }
 
-<<<<<<< HEAD
 void RenderFrameImpl::forwardInputEvent(const blink::WebInputEvent* event) {
   Send(new FrameHostMsg_ForwardInputEvent(routing_id_, event));
 }
@@ -3737,7 +3736,7 @@ void RenderFrameImpl::willHandleNavigationPolicy(
                                                 const blink::WebURLRequest& request,
                                                 blink::WebNavigationPolicy* policy) {
   GetContentClient()->renderer()
-    ->willHandleNavigationPolicy(render_view_, frame, request, policy);
+    ->willHandleNavigationPolicy(render_view_.get(), frame, request, policy);
 }
 
 }  // namespace content

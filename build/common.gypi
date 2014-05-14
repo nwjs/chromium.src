@@ -1403,11 +1403,11 @@
     # Disable Dart by default.
     'enable_dart%': 0,
 
-    # Copy out the setting of disable_nacl.
-    'disable_nacl%': '<(disable_nacl)',
+    # Native Client is enabled by default.
+    'disable_nacl%': 1,
 
     # Portable Native Client is enabled by default.
-    'disable_pnacl%': 0,
+    'disable_pnacl%': 1,
 
     # Whether to build full debug version for Debug configuration on Android.
     # Compared to full debug version, the default Debug configuration on Android
@@ -2482,7 +2482,7 @@
     'includes': [ 'set_clang_warning_flags.gypi', ],
     'defines': [
       # Don't use deprecated V8 APIs anywhere.
-      'V8_DEPRECATION_WARNINGS',
+      #'V8_DEPRECATION_WARNINGS',
     ],
     'include_dirs': [
       '<(SHARED_INTERMEDIATE_DIR)',

@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "base/files/file_path.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/font_render_params.h"
