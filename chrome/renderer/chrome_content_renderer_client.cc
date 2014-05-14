@@ -72,11 +72,13 @@
 #include "components/nacl/renderer/ppb_nacl_private_impl.h"
 #include "components/plugins/renderer/mobile_youtube_plugin.h"
 #include "components/visitedlink/renderer/visitedlink_slave.h"
+#include "content/common/view_messages.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "content/public/renderer/render_view_visitor.h"
+#include "content/renderer/render_view_impl.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
@@ -121,6 +123,11 @@
 #include "chrome_elf/blacklist/blacklist.h"
 #endif  // OS_WIN
 
+#include "third_party/node/src/node.h"
+#undef CHECK
+#include "third_party/node/src/node_internals.h"
+#include "third_party/node/src/req_wrap.h"
+
 using autofill::AutofillAgent;
 using autofill::PasswordAutofillAgent;
 using autofill::PasswordGenerationAgent;
@@ -144,6 +151,7 @@ using blink::WebURLError;
 using blink::WebURLRequest;
 using blink::WebURLResponse;
 using blink::WebVector;
+using content::RenderViewImpl;
 
 namespace {
 
@@ -1217,6 +1225,8 @@ void ChromeContentRendererClient::DidCreateScriptContext(
     int world_id) {
   extension_dispatcher_->DidCreateScriptContext(
       frame, context, extension_group, world_id);
+  GURL url(frame->document().url());
+  InstallNodeSymbols(frame, context, url);
 }
 
 unsigned long long ChromeContentRendererClient::VisitedLinkHash(
@@ -1438,4 +1448,154 @@ ChromeContentRendererClient::CreateWorkerPermissionClientProxy(
     content::RenderFrame* render_frame,
     blink::WebFrame* frame) {
   return new WorkerPermissionClientProxy(render_frame, frame);
+}
+
+#if 0
+bool ChromeContentRendererClient::goodForNode(WebKit::WebFrame* frame)
+{
+  RenderViewImpl* rv = RenderViewImpl::FromWebView(frame->view());
+  GURL url(frame->document().url());
+  ProxyBypassRules rules;
+  rules.ParseFromString(rv->renderer_preferences_.nw_remote_page_rules);
+  bool force_on = rules.Matches(url);
+  bool is_nw_protocol = url.SchemeIs("nw") || !url.is_valid();
+  bool use_node =
+    CommandLine::ForCurrentProcess()->HasSwitch(switches::kNodejs) &&
+    !frame->isNwDisabledChildFrame() &&
+    (force_on || url.SchemeIsFile() || is_nw_protocol || url.SchemeIs("app"));
+  return use_node;
+}
+#endif
+
+void ChromeContentRendererClient::InstallNodeSymbols(
+    blink::WebFrame* frame,
+    v8::Handle<v8::Context> context,
+    const GURL& url) {
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  v8::HandleScope handle_scope(isolate);
+
+  static bool installed_once = false;
+
+  v8::Local<v8::Context> node_context =
+        v8::Local<v8::Context>::New(context->GetIsolate(), node::g_context);
+  v8::Local<v8::Object> nodeGlobal = node_context->Global();
+  v8::Local<v8::Object> v8Global = context->Global();
+
+  // Use WebKit's console globally
+  nodeGlobal->Set(v8::String::NewFromUtf8(isolate, "console"),
+                  v8Global->Get(v8::String::NewFromUtf8(isolate, "console")));
+
+  // Do we integrate node?
+  bool use_node = true; // goodForNode(frame);
+
+  // Test if protocol is 'nw:'
+  // test for 'about:blank' is also here becuase window.open would
+  // open 'about:blank' first // FIXME
+  bool is_nw_protocol = url.SchemeIs("nw") || !url.is_valid();
+
+  if (use_node || is_nw_protocol) {
+    frame->setNodeJS(true);
+
+    v8::Local<v8::Array> symbols = v8::Array::New(isolate, 5);
+    symbols->Set(0, v8::String::NewFromUtf8(isolate, "global"));
+    symbols->Set(1, v8::String::NewFromUtf8(isolate, "process"));
+    symbols->Set(2, v8::String::NewFromUtf8(isolate, "Buffer"));
+    symbols->Set(3, v8::String::NewFromUtf8(isolate, "root"));
+    symbols->Set(4, v8::String::NewFromUtf8(isolate, "__nw_require"));
+
+    for (unsigned i = 0; i < symbols->Length(); ++i) {
+      v8::Local<v8::Value> key = symbols->Get(i);
+      v8::Local<v8::Value> val = nodeGlobal->Get(key);
+      if (val->IsUndefined()) {
+        v8::String::Utf8Value name(key);
+        LOG(WARNING) << "undefined key in Node: " << *name;
+      }
+      v8Global->Set(key, nodeGlobal->Get(key));
+    }
+
+    if (!installed_once) {
+      installed_once = true;
+
+      // The following listener on process should not be added each
+      // time when a document is created, or it will leave the
+      // reference to the closure created by the call back and leak
+      // memory (see #203)
+
+      nodeGlobal->Set(v8::String::NewFromUtf8(isolate, "window"), v8Global);
+#if 0
+      // Listen uncaughtException with ReportException.
+      v8::Local<v8::Function> cb = v8::FunctionTemplate::New(ReportException)->
+        GetFunction();
+      v8::Local<v8::Value> argv[] = { v8::String::NewFromUtf8(isolate, "uncaughtException"), cb };
+      node::MakeCallback(node::g_env->process_object(), "on", 2, argv);
+#endif
+    }
+  }
+
+#if 0
+  if (use_node) {
+    RenderViewImpl* rv = RenderViewImpl::FromWebView(frame->view());
+    std::string root_path = rv->renderer_preferences_.nw_app_root_path.AsUTF8Unsafe();
+#if defined(OS_WIN)
+    ReplaceChars(root_path, "\\", "\\\\", &root_path);
+#endif
+    ReplaceChars(root_path, "'", "\\'", &root_path);
+    v8::Local<v8::Script> script = v8::Script::New(v8::String::New((
+        // Make node's relative modules work
+        "if (!process.mainModule.filename) {"
+        "  var root = '" + root_path + "';"
+#if defined(OS_WIN)
+        "process.mainModule.filename = decodeURIComponent(window.location.pathname.substr(1));"
+#else
+        "process.mainModule.filename = decodeURIComponent(window.location.pathname);"
+#endif
+        "if (window.location.href.indexOf('app://') === 0) {process.mainModule.filename = root + '/' + process.mainModule.filename}"
+        "process.mainModule.paths = global.require('module')._nodeModulePaths(process.cwd());"
+        "process.mainModule.loaded = true;"
+        "}").c_str()
+    ));
+    CHECK(*script);
+    script->Run();
+  }
+
+  if (use_node || is_nw_protocol) {
+    v8::Local<v8::Script> script = v8::Script::New(v8::String::New(
+        // Overload require
+        "window.require = function(name) {"
+        "  if (name == 'nw.gui')"
+        "    return nwDispatcher.requireNwGui();"
+        "  return global.require(name);"
+        "};"
+
+        // Save node-webkit version
+        "process.versions['node-webkit'] = '" NW_VERSION_STRING "';"
+        "process.versions['chromium'] = '" CHROME_VERSION "';"
+    ));
+    script->Run();
+  }
+#endif
+}
+
+bool ChromeContentRendererClient::WillSetSecurityToken(
+    blink::WebFrame* frame,
+    v8::Handle<v8::Context> context) {
+  GURL url(frame->document().url());
+  VLOG(1) << "WillSetSecurityToken: " << url;
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  v8::HandleScope handle_scope(isolate);
+
+  v8::Local<v8::Context> node_context =
+        v8::Local<v8::Context>::New(isolate, node::g_context);
+  if (true) { //goodForNode(frame)) {
+    // Override context's security token
+    context->SetSecurityToken(node_context->GetSecurityToken());
+    frame->document().securityOrigin().grantUniversalAccess();
+
+    int ret = 0;
+    RenderViewImpl* rv = RenderViewImpl::FromWebView(frame->view());
+    rv->Send(new ViewHostMsg_GrantUniversalPermissions(rv->GetRoutingID(), &ret));
+
+    return true;
+  }
+  return false;
 }

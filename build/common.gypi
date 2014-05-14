@@ -1307,10 +1307,10 @@
     'enable_dart%': 0,
 
     # Native Client is enabled by default.
-    'disable_nacl%': 0,
+    'disable_nacl%': 1,
 
     # Portable Native Client is enabled by default.
-    'disable_pnacl%': 0,
+    'disable_pnacl%': 1,
 
     # Whether to build full debug version for Debug configuration on Android.
     # Compared to full debug version, the default Debug configuration on Android
@@ -2231,7 +2231,7 @@
     },
     'defines': [
       # Don't use deprecated V8 APIs anywhere.
-      'V8_DEPRECATION_WARNINGS',
+      #'V8_DEPRECATION_WARNINGS',
       # Temporary suppression until Blink code can be removed.
       'BLINK_SCALE_FILTERS_AT_RECORD_TIME',
     ],

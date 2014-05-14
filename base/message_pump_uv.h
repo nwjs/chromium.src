@@ -6,11 +6,12 @@
 #define BASE_MESSAGE_PUMP_UV_H_
 #pragma once
 
-#include "base/message_pump.h"
-#include "base/time.h"
+#include "base/message_loop/message_pump.h"
+#include "base/time/time.h"
 #include "base/base_export.h"
-#include "third_party/node/deps/uv/include/uv.h"
+//#include "third_party/node/deps/uv/include/uv.h"
 
+typedef struct uv_async_s uv_async_t;
 namespace base {
 
 class BASE_EXPORT MessagePumpUV : public MessagePump {
@@ -33,7 +34,7 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   int nesting_level_;
 
   // Handle to wake up loop.
-  uv_async_t wakeup_event_;
+  uv_async_t* wakeup_event_;
   uv_async_t* wakeup_event_ref_;
 
   TimeTicks delayed_work_time_;
