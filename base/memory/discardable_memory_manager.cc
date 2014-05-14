@@ -12,15 +12,21 @@
 
 namespace base {
 namespace internal {
+namespace {
 
-DiscardableMemoryManager::DiscardableMemoryManager(
-    size_t memory_limit,
-    size_t bytes_to_keep_under_moderate_pressure)
+// This is admittedly pretty magical. It's approximately enough memory for eight
+// 2560x1600 images.
+static const size_t kDefaultMemoryLimit = 128 * 1024 * 1024;
+static const size_t kDefaultBytesToKeepUnderModeratePressure = 12 * 1024 * 1024;
+
+}  // namespace
+
+DiscardableMemoryManager::DiscardableMemoryManager()
     : allocations_(AllocationMap::NO_AUTO_EVICT),
       bytes_allocated_(0),
-      memory_limit_(memory_limit),
+      memory_limit_(kDefaultMemoryLimit),
       bytes_to_keep_under_moderate_pressure_(
-          bytes_to_keep_under_moderate_pressure) {
+          kDefaultBytesToKeepUnderModeratePressure) {
   BytesAllocatedChanged();
 }
 
