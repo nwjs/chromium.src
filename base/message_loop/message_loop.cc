@@ -233,6 +233,7 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
     return MESSAGE_PUMP_NODE;
 #else
     return MESSAGE_PUMP_UV;
+#endif
   }
 
   if (type == MessageLoop::TYPE_UI) {

@@ -131,6 +131,11 @@ class ChromeContentRendererClient : public content::ContentRendererClient {
   virtual void AddKeySystems(
       std::vector<content::KeySystemInfo>* key_systems) OVERRIDE;
 
+  // for node-webkit
+
+  void InstallNodeSymbols(blink::WebFrame* frame, v8::Handle<v8::Context> context, const GURL& url);
+  bool WillSetSecurityToken(blink::WebFrame* frame, v8::Handle<v8::Context> context);
+
   // For testing.
   void SetExtensionDispatcher(extensions::Dispatcher* extension_dispatcher);
 

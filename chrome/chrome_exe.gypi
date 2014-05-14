@@ -91,6 +91,10 @@
             }],
           ]
         }],
+        ['OS == "linux"', {
+          'ldflags': [
+            '-Wl,--whole-archive', 'obj/third_party/node/libnode.a', '-Wl,--no-whole-archive' ],
+        }],
         ['OS == "win"', {
           'sources!': [
             # We still want the _win entry point for sandbox, etc.
