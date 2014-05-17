@@ -891,7 +891,7 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   v8::HandleScope scope;
 
   // Pause uv in nested loop.
-  if (nesting_level() > 0) {
+  if (nesting_level() > 0 && for_node_) {
     pause_uv_ = true;
   }
 
@@ -954,7 +954,7 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   running_own_loop_ = last_running_own_loop_;
 
   // Resume uv.
-  if (nesting_level() > 0) {
+  if (nesting_level() > 0 && for_node_) {
     pause_uv_ = false;
     uv_sem_post(&embed_sem_);
   }
