@@ -204,10 +204,11 @@ bool IsImplSidePaintingEnabled() {
       switches::kEnableBleedingEdgeRenderingFastPaths))
     return true;
 
-#if defined(OS_MACOSX)
-  return false;
+#if defined(OS_ANDROID)
+  return true;
 #else
-  return IsThreadedCompositingEnabled();
+  return false;
+#endif
 #endif
 }
 
