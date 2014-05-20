@@ -1202,7 +1202,7 @@
     'profiling_full_stack_frames%': '0',
 
     # And if we want to dump symbols for Breakpad-enabled builds.
-    'linux_dump_symbols%': 0,
+    'linux_dump_symbols%': 1,
     # And if we want to strip the binary after dumping symbols.
     'linux_strip_binary%': 0,
     # Strip the test binaries needed for Linux reliability tests.
