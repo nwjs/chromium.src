@@ -2199,7 +2199,9 @@ void RenderWidgetHostViewMac::FrameSwapped() {
   // We do not return |YES| for every keypress because we don't get |keyDown:|
   // events for keys that we handle this way.
   NSUInteger modifierFlags = [theEvent modifierFlags];
-  if ((modifierFlags & NSCommandKeyMask) == 0) {
+  if ((modifierFlags & NSCommandKeyMask) == 0 &&
+      (modifierFlags & NSControlKeyMask) == 0 &&
+      (modifierFlags & NSAlternateKeyMask) == 0) {
     // Make sure the menu does not contain key equivalents that don't
     // contain cmd.
     DCHECK(![[NSApp mainMenu] performKeyEquivalent:theEvent]);
@@ -2238,8 +2240,8 @@ void RenderWidgetHostViewMac::FrameSwapped() {
 
 - (void)keyEvent:(NSEvent*)theEvent wasKeyEquivalent:(BOOL)equiv {
   TRACE_EVENT0("browser", "RenderWidgetHostViewCocoa::keyEvent");
-  DCHECK([theEvent type] != NSKeyDown ||
-         !equiv == !([theEvent modifierFlags] & NSCommandKeyMask));
+  // DCHECK([theEvent type] != NSKeyDown ||
+  //       !equiv == !([theEvent modifierFlags] & NSCommandKeyMask));
 
   if ([theEvent type] == NSFlagsChanged) {
     // Ignore NSFlagsChanged events from the NumLock and Fn keys as
