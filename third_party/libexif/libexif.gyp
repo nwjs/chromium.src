@@ -56,17 +56,13 @@
             ['clang==1', {
               'cflags': [
                 '-Wno-enum-conversion', 
-                '-Wno-switch',
-                # libexif uses fabs(int) to cast to float.
-                '-Wno-absolute-value',
+                '-Wno-switch'
               ],
               'xcode_settings': {
                 'WARNING_CFLAGS': [
                   '-Wno-enum-conversion', 
                   '-Wno-switch',
                   '-Wno-format',
-                  # libexif uses fabs(int) to cast to float.
-                  '-Wno-absolute-value',
                 ],
               },
             }],
