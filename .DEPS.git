@@ -17,7 +17,7 @@ vars = {
 
 deps = {
     'src/breakpad/src':
-        'https://github.com/rogerwang/breakpad.git@origin/node',
+        'https://github.com/rogerwang/breakpad.git@origin/nw0.8',
     'src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin':
         Var('git_url') + '/native_client/src/native_client/tests/prebuilt.git@3e17365176c94624f46cace174f61834b7f3c35d',
     'src/chrome/test/data/perf/canvas_bench':
@@ -139,11 +139,11 @@ deps = {
     #'src/v8':
     #    Var('git_url') + '/external/v8.git@387c3b089100ae5db9136ef045e71086f007d907',
     'src/v8':
-        'https://github.com/rogerwang/v8.git@origin/nwebkit',
+        'https://github.com/rogerwang/v8.git@origin/nw0.8',
     'src/third_party/node':
         'https://github.com/rogerwang/node.git@origin/nw0.8',
     'src/content/nw':
-        'https://github.com/rogerwang/node-webkit.git@origin/v0.8',
+        'https://github.com/rogerwang/node-webkit.git@origin/nw0.8',
 }
 
 deps_os = {
