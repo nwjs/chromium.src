@@ -11,14 +11,14 @@ vars = {
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@origin/node'
+         '@origin/nw'
          #'@2cc039b4720333bdf2cd51165b41d0f41e79b5c6'
 }
 
 deps = {
     'src/breakpad/src':
     #    Var('git_url') + '/external/google-breakpad/src.git@44fd3d06cb4b57b80a44004a2b7d5a7d28d96ebc',
-        'https://github.com/rogerwang/breakpad.git@origin/rb32',
+        'https://github.com/rogerwang/breakpad.git@origin/nw',
     'src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin':
         Var('git_url') + '/native_client/src/native_client/tests/prebuilt.git@3e17365176c94624f46cace174f61834b7f3c35d',
     'src/chrome/test/data/perf/canvas_bench':
@@ -138,10 +138,10 @@ deps = {
     'src/tools/swarming_client':
         Var('git_url') + '/external/swarming.client.git@141ef86f4abf255e578320bfe6e42006c251bc39',
     'src/v8':
-         'https://github.com/rogerwang/v8.git@origin/rb32',
+         'https://github.com/rogerwang/v8.git@origin/nw',
     #    Var('git_url') + '/external/v8.git@ed29eb2bdad388c1ce751d68bd4fe6f4f5a7cbc8',
     'src/third_party/node':
-        'https://github.com/rogerwang/node.git@origin/master',
+        'https://github.com/rogerwang/node.git@origin/nw',
     'src/content/nw':
         'https://github.com/rogerwang/node-webkit.git@origin/master',
 }
