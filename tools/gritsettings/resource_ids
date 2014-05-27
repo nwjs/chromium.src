@@ -198,5 +198,13 @@
   "third_party/WebKit/public/blink_resources.grd": {
     "includes": [30500],
   },
+  "content/nw/src/resources/nw_resources.grd": {
+    "includes": [57500],
+    "structures": [58000],
+    "messages": [59000],
+  },
+  "content/nw/src/resources/nw_strings.grd": {
+    "messages": [60000],
+  },
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
 }
