@@ -644,7 +644,7 @@ hooks = [
     # Pull clang if on Mac or clang is requested via GYP_DEFINES.
     "name": "clang",
     "pattern": ".",
-    "action": ["python", "src/tools/clang/scripts/update.py", "--if-needed"],
+    "action": ["python", "src/tools/clang/scripts/update.py", "--if-needed", "--without-android"],
   },
   {
     # Update the Windows toolchain if necessary.
