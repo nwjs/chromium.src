@@ -240,7 +240,7 @@ void WebRTCInternals::EnableAecDump(content::WebContents* web_contents) {
       0,
       FILE_PATH_LITERAL(""),
       web_contents->GetView()->GetTopLevelNativeWindow(),
-      NULL);
+      NULL, base::FilePath());
 #endif
 #endif
 }

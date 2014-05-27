@@ -39,7 +39,10 @@
 #include "url/url_canon.h"
 
 #if defined(USE_GIO)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include "library_loaders/libgio.h"
+#pragma GCC diagnostic pop
 #endif  // defined(USE_GIO)
 
 namespace net {
