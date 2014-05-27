@@ -90,7 +90,7 @@
             # ChromeOS and Windows use Aura and Ash.
             ['chromeos==1 or OS=="win"', {
               'use_ash%': 1,
-              'use_aura%': 1,
+              'use_aura%': 0,
             }],
 
             # Ozone uses Aura.
@@ -103,7 +103,7 @@
             # TODO(erg): Merge this into the previous block once compiling with
             # aura safely implies including ash capabilities.
             ['OS=="linux"', {
-              'use_aura%': 1,
+              'use_aura%': 0,
             }],
 
             # Whether we're a traditional desktop unix.
