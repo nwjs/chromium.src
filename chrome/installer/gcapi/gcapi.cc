@@ -203,9 +203,7 @@ bool CanReOfferChrome(BOOL set_flag) {
 
 bool IsChromeInstalled(HKEY root_key) {
   RegKey key;
-  return key.Open(root_key,
-                  kChromeRegClientsKey,
-                  KEY_READ | KEY_WOW64_32KEY) == ERROR_SUCCESS &&
+  return key.Open(root_key, kChromeRegClientsKey, KEY_READ) == ERROR_SUCCESS &&
          key.HasValue(kChromeRegVersion);
 }
 
@@ -213,7 +211,7 @@ bool IsChromeInstalled(HKEY root_key) {
 bool RegKeyHasC1F(HKEY root, const wchar_t* subkey) {
   RegKey key;
   DWORD value;
-  return key.Open(root, subkey, KEY_READ | KEY_WOW64_32KEY) == ERROR_SUCCESS &&
+  return key.Open(root, subkey, KEY_READ) == ERROR_SUCCESS &&
       key.ReadValueDW(kC1FKey, &value) == ERROR_SUCCESS &&
       value == static_cast<DWORD>(1);
 }
@@ -278,8 +276,7 @@ bool VerifyHKLMAccess() {
   HKEY key = NULL;
 
   if (::RegCreateKeyEx(HKEY_LOCAL_MACHINE, kGCAPITempKey, 0, NULL,
-                       REG_OPTION_NON_VOLATILE,
-                       KEY_READ | KEY_WRITE | KEY_WOW64_32KEY, NULL,
+                       REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, NULL,
                        &key, &disposition) == ERROR_SUCCESS) {
     if (::RegSetValueEx(key, str, 0, REG_SZ, (LPBYTE)str,
         (DWORD)lstrlen(str)) == ERROR_SUCCESS) {
@@ -598,9 +595,8 @@ int __stdcall GoogleChromeDaysSinceLastRun() {
 
   if (IsChromeInstalled(HKEY_LOCAL_MACHINE) ||
       IsChromeInstalled(HKEY_CURRENT_USER)) {
-    RegKey client_state(HKEY_CURRENT_USER,
-                        kChromeRegClientStateKey,
-                        KEY_QUERY_VALUE | KEY_WOW64_32KEY);
+    RegKey client_state(
+        HKEY_CURRENT_USER, kChromeRegClientStateKey, KEY_QUERY_VALUE);
     if (client_state.Valid()) {
       std::wstring last_run;
       int64 last_run_value = 0;
@@ -752,9 +748,8 @@ BOOL __stdcall CanOfferRelaunch(const wchar_t** partner_brandcode_list,
   // relaunch offer for the current user;
   RegKey key;
   DWORD min_relaunch_date;
-  if (key.Open(HKEY_CURRENT_USER,
-               kChromeRegClientStateKey,
-               KEY_QUERY_VALUE | KEY_WOW64_32KEY) == ERROR_SUCCESS &&
+  if (key.Open(HKEY_CURRENT_USER, kChromeRegClientStateKey,
+               KEY_QUERY_VALUE) == ERROR_SUCCESS &&
       key.ReadValueDW(kRelaunchAllowedAfterValue,
                       &min_relaunch_date) == ERROR_SUCCESS &&
       FormatDateOffsetByMonths(0) < min_relaunch_date) {
@@ -778,9 +773,8 @@ BOOL __stdcall SetRelaunchOffered(const wchar_t** partner_brandcode_list,
   // Store the relaunched brand code and the minimum date for relaunch (6 months
   // from now), and set the Omaha experiment label.
   RegKey key;
-  if (key.Create(HKEY_CURRENT_USER,
-                 kChromeRegClientStateKey,
-                 KEY_SET_VALUE | KEY_WOW64_32KEY) != ERROR_SUCCESS ||
+  if (key.Create(HKEY_CURRENT_USER, kChromeRegClientStateKey,
+                 KEY_SET_VALUE) != ERROR_SUCCESS ||
       key.WriteValue(kRelaunchBrandcodeValue,
                      relaunch_brandcode) != ERROR_SUCCESS ||
       key.WriteValue(kRelaunchAllowedAfterValue,

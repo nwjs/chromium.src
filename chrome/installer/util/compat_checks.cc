@@ -15,9 +15,7 @@ namespace {
 std::wstring GetSEPVersion() {
   const wchar_t kProductKey[] =
       L"SOFTWARE\\Symantec\\Symantec Endpoint Protection\\SMC";
-  // Versions before 11MR3 were always 32-bit, so check in the 32-bit hive.
-  base::win::RegKey key(
-      HKEY_LOCAL_MACHINE, kProductKey, KEY_READ | KEY_WOW64_32KEY);
+  base::win::RegKey key(HKEY_LOCAL_MACHINE, kProductKey, KEY_READ);
   std::wstring version_str;
   key.ReadValue(L"ProductVersion", &version_str);
   return version_str;

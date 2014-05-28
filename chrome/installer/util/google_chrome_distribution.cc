@@ -211,8 +211,7 @@ base::string16 GoogleChromeDistribution::GetDistributionData(HKEY root_key) {
   sub_key.append(L"\\");
   sub_key.append(product_guid());
 
-  base::win::RegKey client_state_key(
-      root_key, sub_key.c_str(), KEY_READ | KEY_WOW64_32KEY);
+  base::win::RegKey client_state_key(root_key, sub_key.c_str(), KEY_READ);
   base::string16 result;
   base::string16 brand_value;
   if (client_state_key.ReadValue(google_update::kRegRLZBrandField,
