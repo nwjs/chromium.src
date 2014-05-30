@@ -255,13 +255,8 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
   int CreateRenderFrame(SiteInstance* instance,
                         int opener_route_id,
                         bool swapped_out,
-<<<<<<< HEAD
                         bool for_main_frame_navigation,
-                        bool hidden);
-=======
-                        bool hidden,
                         int nw_win_id);
->>>>>>> 8a006f3... setting nw window id when new window is created
 
   // Helper method to create and initialize a RenderFrameProxyHost and return
   // its routing id.

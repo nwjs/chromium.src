@@ -28,6 +28,8 @@ CONTENT_EXPORT std::string BuildOSCpuInfo();
 CONTENT_EXPORT std::string BuildUserAgentFromProduct(
     const std::string& product);
 
+ CONTENT_EXPORT std::string BuildOSInfo();
+
 // Builds a full user agent string given a string describing the OS and a
 // product name.
 CONTENT_EXPORT std::string BuildUserAgentFromOSAndProduct(

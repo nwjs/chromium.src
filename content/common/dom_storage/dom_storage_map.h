@@ -21,7 +21,7 @@ namespace content {
 class CONTENT_EXPORT DOMStorageMap
     : public base::RefCountedThreadSafe<DOMStorageMap> {
  public:
-  explicit DomStorageMap(size_t quota);
+  explicit DOMStorageMap(size_t quota);
   static void SetQuotaOverride(size_t quota) {quota_override_ = quota; }
 
   unsigned Length() const;

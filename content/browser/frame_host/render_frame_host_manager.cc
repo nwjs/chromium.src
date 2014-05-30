@@ -1399,7 +1399,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
                                      opener_route_id,
                                      false,
                                      frame_tree_node_->IsMainFrame(),
-                                     delegate_->IsHidden(), entry.nw_win_id());
+                                     entry.nw_win_id());
     if (route_id == MSG_ROUTING_NONE)
       return NULL;
 
