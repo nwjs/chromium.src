@@ -73,6 +73,11 @@ void StatusIconWin::HandleBalloonClickEvent() {
     DispatchBalloonClickEvent();
 }
 
+void StatusIconWin::HandleBalloonEvent(int event) {
+	if (HasObservers())
+		DispatchBalloonEvent(event);
+}
+
 void StatusIconWin::ResetIcon() {
   NOTIFYICONDATA icon_data;
   InitIconData(&icon_data);
@@ -120,7 +125,7 @@ void StatusIconWin::SetToolTip(const base::string16& tool_tip) {
     LOG(WARNING) << "Unable to set tooltip for status tray icon";
 }
 
-void StatusIconWin::DisplayBalloon(const gfx::ImageSkia& icon,
+bool StatusIconWin::DisplayBalloon(const gfx::ImageSkia& icon,
                                    const base::string16& title,
                                    const base::string16& contents) {
   NOTIFYICONDATA icon_data;
@@ -147,6 +152,7 @@ void StatusIconWin::DisplayBalloon(const gfx::ImageSkia& icon,
   BOOL result = Shell_NotifyIcon(NIM_MODIFY, &icon_data);
   if (!result)
     LOG(WARNING) << "Unable to create status tray balloon.";
+  return result;
 }
 
 void StatusIconWin::ForceVisible() {

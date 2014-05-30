@@ -103,7 +103,7 @@ dev_list="apache2.2-bin bison curl dpkg-dev elfutils devscripts fakeroot flex
           libglu1-mesa-dev libgnome-keyring-dev libgtk2.0-dev libkrb5-dev
           libnspr4-dev libnss3-dev libpam0g-dev libpci-dev libpulse-dev
           libsctp-dev libspeechd-dev libsqlite3-dev libssl-dev libudev-dev
-          libwww-perl libxslt1-dev libxss-dev libxt-dev libxtst-dev
+          libwww-perl libxslt1-dev libxss-dev libxt-dev libxtst-dev libnotify-dev
           mesa-common-dev openbox patch perl php5-cgi pkg-config python
           python-cherrypy3 python-dev python-psutil rpm ruby subversion
           ttf-dejavu-core ttf-indic-fonts ttf-kochi-gothic ttf-kochi-mincho

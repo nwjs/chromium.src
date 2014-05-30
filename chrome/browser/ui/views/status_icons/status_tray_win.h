@@ -29,6 +29,7 @@ class StatusTrayWin : public StatusTray {
  public:
   StatusTrayWin();
   ~StatusTrayWin();
+  StatusIcon* GetStatusIcon();
 
   void UpdateIconVisibilityInBackground(StatusIconWin* status_icon);
 
