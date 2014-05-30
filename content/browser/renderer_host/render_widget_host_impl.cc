@@ -338,8 +338,10 @@ RenderWidgetHostImpl* RenderWidgetHostImpl::From(RenderWidgetHost* rwh) {
 void RenderWidgetHostImpl::SetView(RenderWidgetHostView* view) {
   view_ = RenderWidgetHostViewPort::FromRWHV(view);
 
-  GpuSurfaceTracker::Get()->SetSurfaceHandle(
-      surface_id_, GetCompositingSurface());
+  if (!view_) {
+    GpuSurfaceTracker::Get()->SetSurfaceHandle(
+        surface_id_, gfx::GLSurfaceHandle());
+  }
 
   synthetic_gesture_controller_.reset();
 }
