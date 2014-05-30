@@ -311,6 +311,8 @@ class UI_BASE_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   static const FormatType& GetIDListFormatType();
 #endif
 
+  void WriteObjects(ClipboardType type, const ObjectMap& objects);
+
  private:
   FRIEND_TEST_ALL_PREFIXES(ClipboardTest, SharedBitmapTest);
   FRIEND_TEST_ALL_PREFIXES(ClipboardTest, EmptyHTMLTest);
@@ -325,7 +327,6 @@ class UI_BASE_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
 
   // Write a bunch of objects to the system clipboard. Copies are made of the
   // contents of |objects|.
-  void WriteObjects(ClipboardType type, const ObjectMap& objects);
 
   void DispatchObject(ObjectType type, const ObjectMapParams& params);
 

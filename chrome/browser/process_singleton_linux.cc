@@ -300,6 +300,7 @@ bool ParseLockPath(const base::FilePath& path,
 bool DisplayProfileInUseError(const base::FilePath& lock_path,
                               const std::string& hostname,
                               int pid) {
+#if 0
   base::string16 error = l10n_util::GetStringFUTF16(
       IDS_PROFILE_IN_USE_LINUX,
       base::IntToString16(pid),
@@ -310,6 +311,8 @@ bool DisplayProfileInUseError(const base::FilePath& lock_path,
   if (!g_disable_prompt)
     return ShowProcessSingletonDialog(error, relaunch_button_text);
   return false;
+#endif
+  return true;
 }
 
 bool IsChromeProcess(pid_t pid) {

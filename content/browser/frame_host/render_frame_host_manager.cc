@@ -1224,7 +1224,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateRendererStateForNavigate(
     // Create a non-swapped-out pending RFH with the given opener and navigate
     // it.
     int route_id = CreateRenderFrame(new_instance, opener_route_id, false,
-                                     delegate_->IsHidden(), enty.nw_win_id());
+                                     delegate_->IsHidden(), entry.nw_win_id());
     if (route_id == MSG_ROUTING_NONE)
       return NULL;
 
