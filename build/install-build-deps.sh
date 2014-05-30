@@ -63,8 +63,8 @@ do
   shift
 done
 
-ubuntu_versions="12\.04|12\.10|13\.04|13\.10"
-ubuntu_codenames="precise|quantal|raring|saucy"
+ubuntu_versions="12\.04|12\.10|13\.04|13\.10|14\.04"
+ubuntu_codenames="precise|quantal|raring|saucy|trusty"
 ubuntu_issue="Ubuntu ($ubuntu_versions|$ubuntu_codenames)"
 # GCEL is an Ubuntu-derived VM image used on Google Compute Engine; /etc/issue
 # doesn't contain a version number so just trust that the user knows what
@@ -73,7 +73,7 @@ gcel_issue="^GCEL"
 
 if [ 0 -eq "${do_unsupported-0}" ] && [ 0 -eq "${do_quick_check-0}" ] ; then
   if ! egrep -q "($ubuntu_issue|$gcel_issue)" /etc/issue; then
-    echo "ERROR: Only Ubuntu 12.04 (precise) through 13.10 (saucy) are"\
+    echo "ERROR: Only Ubuntu 12.04 (precise) through 14.04 (trusty) are"\
         "currently supported" >&2
     exit 1
   fi
@@ -100,7 +100,7 @@ dev_list="apache2.2-bin bison curl dpkg-dev elfutils fakeroot flex g++ git-core
           libbz2-dev libcairo2-dev libcap-dev libcups2-dev libcurl4-gnutls-dev
           libdrm-dev libelf-dev libexif-dev libgconf2-dev libgl1-mesa-dev
           libglib2.0-dev libglu1-mesa-dev libgnome-keyring-dev libgtk2.0-dev
-          libkrb5-dev libnspr4-dev libnss3-dev libpam0g-dev libpci-dev
+          libkrb5-dev libnotify-dev libnspr4-dev libnss3-dev libpam0g-dev libpci-dev
           libpulse-dev libsctp-dev libspeechd-dev libsqlite3-dev libssl-dev
           libudev-dev libwww-perl libxslt1-dev libxss-dev libxt-dev libxtst-dev
           mesa-common-dev openbox patch perl php5-cgi pkg-config python

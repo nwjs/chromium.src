@@ -8,7 +8,11 @@
 
 #include "chrome/browser/status_icons/status_icon.h"
 
+StatusTray* StatusTray::singleton_ = NULL;
+
 StatusTray::~StatusTray() {
+  if (singleton_ == this)
+    singleton_ = NULL;
 }
 
 StatusIcon* StatusTray::CreateStatusIcon(StatusIconType type,

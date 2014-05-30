@@ -32,6 +32,9 @@ void StatusIcon::DispatchClickEvent() {
 void StatusIcon::DispatchBalloonClickEvent() {
   FOR_EACH_OBSERVER(StatusIconObserver, observers_, OnBalloonClicked());
 }
+void StatusIcon::DispatchBalloonEvent(int event) {
+	FOR_EACH_OBSERVER(StatusIconObserver, observers_, OnBalloonEvent(event));
+}
 #endif
 
 void StatusIcon::SetContextMenu(scoped_ptr<StatusIconMenuModel> menu) {
