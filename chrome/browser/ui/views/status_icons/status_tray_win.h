@@ -14,6 +14,7 @@ class StatusTrayWin : public StatusTray {
  public:
   StatusTrayWin();
   ~StatusTrayWin();
+  StatusIcon* GetStatusIcon();
 
   // Exposed for testing.
   LRESULT CALLBACK WndProc(HWND hwnd,

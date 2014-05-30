@@ -907,6 +907,20 @@
       ],
     },
     {
+      'target_name': 'notify',
+      'type': 'none',
+      'direct_dependent_settings': {
+        'cflags': [
+          '<!@(<(pkg-config) --cflags libnotify)',
+        ],
+      },
+      'link_settings': {
+        'libraries': [
+          '<!@(<(pkg-config) --libs-only-l libnotify)',
+        ],
+      },
+    },
+    {
       'target_name': 'pangocairo',
       'type': 'none',
       'toolsets': ['host', 'target'],

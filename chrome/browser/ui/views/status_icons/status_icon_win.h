@@ -36,6 +36,9 @@ class StatusIconWin : public StatusIcon {
   // Handles a click on the balloon from the user.
   void HandleBalloonClickEvent();
 
+  // Handles an event on the balloon from the user.
+  void HandleBalloonEvent(int event);
+
   // Re-creates the status tray icon now after the taskbar has been created.
   void ResetIcon();
 
@@ -46,7 +49,7 @@ class StatusIconWin : public StatusIcon {
   virtual void SetImage(const gfx::ImageSkia& image) OVERRIDE;
   virtual void SetPressedImage(const gfx::ImageSkia& image) OVERRIDE;
   virtual void SetToolTip(const base::string16& tool_tip) OVERRIDE;
-  virtual void DisplayBalloon(const gfx::ImageSkia& icon,
+  virtual bool DisplayBalloon(const gfx::ImageSkia& icon,
                               const base::string16& title,
                               const base::string16& contents) OVERRIDE;
 
@@ -93,7 +96,7 @@ class StatusIconMetro : public StatusIcon {
   virtual void SetImage(const gfx::ImageSkia& image) OVERRIDE;
   virtual void SetPressedImage(const gfx::ImageSkia& image) OVERRIDE;
   virtual void SetToolTip(const base::string16& tool_tip) OVERRIDE;
-  virtual void DisplayBalloon(const gfx::ImageSkia& icon,
+  virtual bool DisplayBalloon(const gfx::ImageSkia& icon,
                               const base::string16& title,
                               const base::string16& contents) OVERRIDE;
  protected:

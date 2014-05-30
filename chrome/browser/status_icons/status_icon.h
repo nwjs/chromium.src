@@ -36,7 +36,7 @@ class StatusIcon {
 
   // Displays a notification balloon with the specified contents.
   // Depending on the platform it might not appear by the icon tray.
-  virtual void DisplayBalloon(const gfx::ImageSkia& icon,
+  virtual bool DisplayBalloon(const gfx::ImageSkia& icon,
                               const base::string16& title,
                               const base::string16& contents) = 0;
 
@@ -58,6 +58,7 @@ class StatusIcon {
   void DispatchClickEvent();
 #if defined(OS_WIN)
   void DispatchBalloonClickEvent();
+  void DispatchBalloonEvent(int event);
 #endif
 
  public:
