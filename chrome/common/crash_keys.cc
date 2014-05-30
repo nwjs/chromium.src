@@ -227,7 +227,7 @@ void SetClientID(const std::string& client_id) {
     return;
 
   base::debug::SetCrashKeyValue(kClientID, guid);
-  GoogleUpdateSettings::SetMetricsId(guid);
+  //GoogleUpdateSettings::SetMetricsId(guid);
 }
 
 static bool IsBoringSwitch(const std::string& flag) {

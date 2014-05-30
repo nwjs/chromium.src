@@ -358,7 +358,6 @@ class CONTENT_EXPORT NavigationEntryImpl
   bool is_dev_reload_;
 
   int nw_win_id_;
-  bool is_dev_reload_;
   // Copy and assignment is explicitly allowed for this class.
 };
 

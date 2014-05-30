@@ -235,7 +235,7 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
                         int opener_route_id,
                         bool swapped_out,
                         bool hidden,
-                        int nw_win_id);
+                        int nw_win_id = 0);
 
   // Sets the passed passed interstitial as the currently showing interstitial.
   // |interstitial_page| should be non NULL (use the remove_interstitial_page
