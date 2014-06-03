@@ -8,7 +8,9 @@
 #include <gtk/gtk.h>
 
 #include "base/logging.h"
+#include "base/observer_list.h"
 #include "ui/gfx/display.h"
+#include "ui/gfx/display_observer.h"
 
 namespace {
 
@@ -76,11 +78,63 @@ gfx::Display GetMonitorAreaNearestWindow(gfx::NativeView view) {
 }
 
 class ScreenGtk : public gfx::Screen {
+  ObserverList<gfx::DisplayObserver> observer_list_;
+  std::vector<gfx::Display> last_known_display_;
+
+  static const gfx::Display* FindDisplay(const std::vector<gfx::Display>& list, int64 id) {
+    for (std::vector<gfx::Display>::const_iterator i = list.begin(); i != list.end(); i++) {
+      if (i->id() == id)
+        return &(*i);
+    }
+    return NULL;
+  }
+
+  static void OnMonitorsChanged (GdkScreen *screen, gpointer user_data) {
+    ScreenGtk* pThis = static_cast<ScreenGtk*>(user_data);
+
+    // get current configuration
+    const std::vector<gfx::Display>& current_display = pThis->GetAllDisplays();
+
+    // find removed display
+    for (std::vector<gfx::Display>::const_iterator i = pThis->last_known_display_.begin(); i != pThis->last_known_display_.end(); i++) {
+      if (FindDisplay(current_display, i->id()) == NULL) {
+        FOR_EACH_OBSERVER(gfx::DisplayObserver, pThis->observer_list_,
+          OnDisplayRemoved(*i));
+      }
+    }
+
+    // find added display
+    for (std::vector<gfx::Display>::const_iterator i = current_display.begin(); i != current_display.end(); i++) {
+      if (FindDisplay(pThis->last_known_display_, i->id()) == NULL) {
+        FOR_EACH_OBSERVER(gfx::DisplayObserver, pThis->observer_list_,
+          OnDisplayAdded(*i));
+      }
+    }
+
+    // find changed display
+    for (std::vector<gfx::Display>::const_iterator i = current_display.begin(); i != current_display.end(); i++) {
+      const gfx::Display* matched_display = FindDisplay(pThis->last_known_display_, i->id());
+      if (matched_display && memcmp(&(*i), matched_display, sizeof(gfx::Display)) != 0 ) {
+        FOR_EACH_OBSERVER(gfx::DisplayObserver, pThis->observer_list_,
+          OnDisplayBoundsChanged(*i));
+      }
+    }
+
+    // update the last known display configuration with current;
+    pThis->last_known_display_ = current_display;
+
+  }
+
  public:
   ScreenGtk() {
+	last_known_display_ = GetAllDisplays();
+    GdkScreen *screen = gdk_screen_get_default ();
+    g_signal_connect(screen, "monitors-changed", G_CALLBACK(OnMonitorsChanged), this);
   }
 
   virtual ~ScreenGtk() {
+    GdkScreen *screen = gdk_screen_get_default ();
+    g_signal_handlers_disconnect_by_func(screen, reinterpret_cast<gpointer>(&OnMonitorsChanged), this);
   }
 
   virtual bool IsDIPEnabled() OVERRIDE {
@@ -188,11 +242,11 @@ class ScreenGtk : public gfx::Screen {
   }
 
   virtual void AddObserver(gfx::DisplayObserver* observer) OVERRIDE {
-    // TODO(oshima): crbug.com/122863.
+    observer_list_.AddObserver(observer);
   }
 
   virtual void RemoveObserver(gfx::DisplayObserver* observer) OVERRIDE {
-    // TODO(oshima): crbug.com/122863.
+    observer_list_.RemoveObserver(observer);
   }
 
  private:

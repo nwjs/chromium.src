@@ -6,15 +6,20 @@
 #define UI_GFX_SCREEN_WIN_H_
 
 #include "base/compiler_specific.h"
+#include "base/observer_list.h"
 #include "ui/gfx/gfx_export.h"
 #include "ui/gfx/screen.h"
 
 namespace gfx {
 
 class GFX_EXPORT ScreenWin : public gfx::Screen {
+  ObserverList<gfx::DisplayObserver> observer_list_;
+  std::vector<gfx::Display> last_known_display_;
+
  public:
   ScreenWin();
   virtual ~ScreenWin();
+  void OnDisplayChanged();
 
  protected:
   // Overridden from gfx::Screen:
