@@ -10,8 +10,10 @@
 #include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/win_util.h"
+#include "base/observer_list.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/win/dpi.h"
+#include "ui/gfx/display_observer.h"
 
 namespace {
 
@@ -53,6 +55,7 @@ BOOL CALLBACK EnumMonitorCallback(HMONITOR monitor,
 namespace gfx {
 
 ScreenWin::ScreenWin() {
+  last_known_display_ = GetAllDisplays();
 }
 
 ScreenWin::~ScreenWin() {
@@ -137,12 +140,53 @@ gfx::Display ScreenWin::GetPrimaryDisplay() const {
   return display;
 }
 
+const gfx::Display* FindDisplay(const std::vector<gfx::Display>& list, int64 id) {
+  for (std::vector<gfx::Display>::const_iterator i = list.begin(); i != list.end(); i++) {
+    if (i->id() == id)
+      return &(*i);
+  }
+  return NULL;
+}
+
+void ScreenWin::OnDisplayChanged() {
+  // get current configuration
+  const std::vector<gfx::Display>& current_display = GetAllDisplays();
+
+  // find removed display
+  for (std::vector<gfx::Display>::const_iterator i = last_known_display_.begin(); i != last_known_display_.end(); i++) {
+    if (FindDisplay(current_display, i->id()) == NULL) {
+      FOR_EACH_OBSERVER(gfx::DisplayObserver, observer_list_,
+        OnDisplayRemoved(*i));
+    }
+  }
+
+  // find added display
+  for (std::vector<gfx::Display>::const_iterator i = current_display.begin(); i != current_display.end(); i++) {
+    if (FindDisplay(last_known_display_, i->id()) == NULL) {
+      FOR_EACH_OBSERVER(gfx::DisplayObserver, observer_list_,
+        OnDisplayAdded(*i));
+    }
+  }
+
+  // find changed display
+  for (std::vector<gfx::Display>::const_iterator i = current_display.begin(); i != current_display.end(); i++) {
+    const gfx::Display* matched_display = FindDisplay(last_known_display_, i->id());
+    if (matched_display && memcmp(&(*i), matched_display, sizeof(gfx::Display)) != 0 ) {
+      FOR_EACH_OBSERVER(gfx::DisplayObserver, observer_list_,
+        OnDisplayBoundsChanged(*i));
+    }
+  }
+
+  // update the last known display configuration with current;
+  last_known_display_ = current_display;
+}
+
 void ScreenWin::AddObserver(DisplayObserver* observer) {
-  // TODO(oshima): crbug.com/122863.
+  observer_list_.AddObserver(observer);
 }
 
 void ScreenWin::RemoveObserver(DisplayObserver* observer) {
-  // TODO(oshima): crbug.com/122863.
+  observer_list_.RemoveObserver(observer);
 }
 
 HWND ScreenWin::GetHWNDFromNativeView(NativeView window) const {
