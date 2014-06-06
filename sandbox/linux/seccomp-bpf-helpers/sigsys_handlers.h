@@ -33,6 +33,8 @@ intptr_t SIGSYSPrctlFailure(const struct arch_seccomp_data& args, void* aux);
 // The crashing address will be request & 0xFFFF, where request is the ioctl(2)
 // argument.
 intptr_t SIGSYSIoctlFailure(const struct arch_seccomp_data& args, void* aux);
+intptr_t
+    SIGSYSFutexFailure(const struct arch_seccomp_data& args, void* aux);
 
 }  // namespace sandbox.
 

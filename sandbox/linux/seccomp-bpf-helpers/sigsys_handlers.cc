@@ -143,4 +143,16 @@ intptr_t SIGSYSIoctlFailure(const struct arch_seccomp_data& args,
     _exit(1);
 }
 
+intptr_t SIGSYSFutexFailure(const struct arch_seccomp_data& args,
+                            void* /* aux */) {
+  static const char kSeccompFutexError[] =
+      __FILE__ ":**CRASHING**:futex() failure\n";
+  WriteToStdErr(kSeccompFutexError, sizeof(kSeccompFutexError) - 1);
+  volatile int futex_op = args.args[1];
+  volatile char* addr = reinterpret_cast<volatile char*>(futex_op & 0xFFF);
+  *addr = '\0';
+  for (;;)
+    _exit(1);
+}
+
 }  // namespace sandbox.

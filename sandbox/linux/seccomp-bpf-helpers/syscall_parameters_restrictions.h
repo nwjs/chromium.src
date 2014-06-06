@@ -53,6 +53,9 @@ ErrorCode RestrictFcntlCommands(SandboxBPF* sandbox);
 ErrorCode RestrictSocketcallCommand(SandboxBPF* sandbox);
 #endif
 
+// Crash if FUTEX_CMP_REQUEUE_PI is used in the second argument of futex(2).
+ErrorCode RestrictFutex(SandboxBPF* sandbox);
+
 }  // namespace sandbox.
 
 #endif  // SANDBOX_LINUX_SECCOMP_BPF_HELPERS_SYSCALL_PARAMETERS_RESTRICTIONS_H_
