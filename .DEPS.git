@@ -11,14 +11,16 @@ vars = {
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@ccb8fb9bdc3943a1c59f4fa4ec87850696db6d27',
+         '@origin/nw10',
+         #'@ccb8fb9bdc3943a1c59f4fa4ec87850696db6d27',
     'angle_revision':
          '740a2f8daa9cc45c53ecf7333c3ae5aa64c821f8'
 }
 
 deps = {
     'src/breakpad/src':
-        Var('git_url') + '/external/google-breakpad/src.git@f6a39aeb95a35bde6eb8fb1f2c130f9fa6f6b33f',
+        #Var('git_url') + '/external/google-breakpad/src.git@f6a39aeb95a35bde6eb8fb1f2c130f9fa6f6b33f',
+        'https://github.com/rogerwang/breakpad.git@origin/nw10',
     'src/chrome/browser/resources/pdf/html_office':
         Var('git_url') + '/chromium/html-office-public.git@9f76cc282c471ae4ff77415384db039fcab2faa8',
     'src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin':
@@ -158,7 +160,13 @@ deps = {
     'src/tools/swarming_client':
         Var('git_url') + '/external/swarming.client.git@8472efa59518a6e28db6da249685d65f49ce8244',
     'src/v8':
-        Var('git_url') + '/external/v8.git@895f00d1d8c5a7a7209c36d690688e3552de3df4',
+        'https://github.com/rogerwang/v8.git@origin/nw10',
+        #Var('git_url') + '/external/v8.git@895f00d1d8c5a7a7209c36d690688e3552de3df4',
+    'src/third_party/node':
+        'https://github.com/rogerwang/node.git@origin/nw10',
+    'src/content/nw':
+        'https://github.com/rogerwang/node-webkit.git@origin/nw10',
+
 }
 
 deps_os = {
