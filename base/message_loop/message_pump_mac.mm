@@ -877,7 +877,8 @@ MessagePumpNSApplication::~MessagePumpNSApplication() {
 void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   if (instrumentation_)
     instrumentation_->StartIfNeeded();
-  v8::HandleScope scope;
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  v8::HandleScope scope(isolate);
 
   // Pause uv in nested loop.
   if (nesting_level() > 0) {

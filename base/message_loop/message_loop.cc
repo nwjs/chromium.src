@@ -213,6 +213,7 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
 #elif defined(OS_MACOSX)
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>(MessagePumpMac::Create())
 #define MESSAGE_PUMP_IO scoped_ptr<MessagePump>(new MessagePumpLibevent())
+#define MESSAGE_PUMP_NODE scoped_ptr<MessagePump>(MessagePumpMac::Create(true))
 #elif defined(OS_NACL)
 // Currently NaCl doesn't have a UI MessageLoop.
 // TODO(abarth): Figure out if we need this.
