@@ -139,6 +139,8 @@ class UI_BASE_EXPORT ResourceBundle {
 
   // Initialize the ResourceBundle using given data pack path for testing.
   static void InitSharedInstanceWithPakPath(const base::FilePath& path);
+  static void InitSharedInstanceWithPakPath2(const base::FilePath& path,
+                                             const base::FilePath& lpath);
 
   // Delete the ResourceBundle for this process if it exists.
   static void CleanupSharedInstance();
