@@ -130,6 +130,10 @@ void OpenExternal(Profile* profile, const GURL& url) {
     LOG(WARNING) << "NSWorkspace failed to open URL " << url;
 }
 
+void OpenExternal2(const GURL& url) {
+  OpenExternal(NULL, url);
+}
+
 gfx::NativeWindow GetTopLevel(gfx::NativeView view) {
   return [view window];
 }
