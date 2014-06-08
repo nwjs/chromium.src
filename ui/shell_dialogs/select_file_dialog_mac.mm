@@ -215,7 +215,7 @@ void SelectFileDialogImpl::SelectFileImpl(
 
   if (!working_dir.empty()) {
     base::ThreadRestrictions::ScopedAllowIO allow_io;
-    if (file_util::DirectoryExists(working_dir)) {
+    if (base::DirectoryExists(working_dir)) 
       default_dir = base::SysUTF8ToNSString(working_dir.value());
   }
 
