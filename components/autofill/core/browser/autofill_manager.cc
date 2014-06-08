@@ -753,7 +753,7 @@ void AutofillManager::OnDidEndTextFieldEditing() {
 }
 
 bool AutofillManager::IsAutofillEnabled() const {
-  return client_->GetPrefs()->GetBoolean(prefs::kAutofillEnabled);
+  return true;
 }
 
 void AutofillManager::ImportFormData(const FormStructure& submitted_form) {
@@ -903,10 +903,12 @@ bool AutofillManager::RefreshDataModels() const {
     return false;
 
   // No autofill data to return if the profiles are empty.
+#if 0
   if (personal_data_->GetProfiles().empty() &&
       personal_data_->GetCreditCards().empty()) {
     return false;
   }
+#endif
 
   return true;
 }
