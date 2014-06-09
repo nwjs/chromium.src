@@ -274,7 +274,7 @@ class UI_BASE_EXPORT ResourceBundle {
   ~ResourceBundle();
 
   // Shared initialization.
-  static void InitSharedInstance(Delegate* delegate);
+  static void InitSharedInstance(Delegate* delegate, bool init_bundle = true);
 
   // Free skia_images_.
   void FreeImages();
