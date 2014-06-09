@@ -191,10 +191,12 @@ void ResourceBundle::InitSharedInstanceWithPakPath(const base::FilePath& path) {
 // static
 void ResourceBundle::InitSharedInstanceWithPakPath2(const base::FilePath& path,
                                                     const base::FilePath& lpath) {
-  DCHECK(g_shared_instance_ == NULL) << "ResourceBundle initialized twice";
-  g_shared_instance_ = new ResourceBundle(NULL);
+  // DCHECK(g_shared_instance_ == NULL) << "ResourceBundle initialized twice";
+  // g_shared_instance_ = new ResourceBundle(NULL);
+  InitSharedInstance(NULL);
 
   g_shared_instance_->LoadTestResources(path, lpath);
+  InitDefaultFontList();
 }
 
 // static
@@ -555,9 +557,11 @@ ResourceBundle::~ResourceBundle() {
 }
 
 // static
-void ResourceBundle::InitSharedInstance(Delegate* delegate) {
-  DCHECK(g_shared_instance_ == NULL) << "ResourceBundle initialized twice";
-  g_shared_instance_ = new ResourceBundle(delegate);
+void ResourceBundle::InitSharedInstance(Delegate* delegate, bool init_bundle) {
+  if (init_bundle) {
+    DCHECK(g_shared_instance_ == NULL) << "ResourceBundle initialized twice";
+    g_shared_instance_ = new ResourceBundle(delegate);
+  }
   static std::vector<ScaleFactor> supported_scale_factors;
 #if !defined(OS_IOS) && !defined(OS_WIN)
   // On platforms other than iOS, 100P is always a supported scale factor.
