@@ -13,7 +13,7 @@
 #include "base/mac/mac_logging.h"
 #include "base/mac/scoped_aedesc.h"
 #include "base/strings/sys_string_conversions.h"
-#include "grit/generated_resources.h"
+//#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "url/gurl.h"
