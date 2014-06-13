@@ -45,6 +45,10 @@ bool WebContentsObserver::OnMessageReceived(const IPC::Message& message) {
   return false;
 }
 
+bool WebContentsObserver::OnMessageReceived(RenderViewHost* render_view_host, const IPC::Message& message) {
+  return false;
+}
+
 bool WebContentsObserver::Send(IPC::Message* message) {
   if (!web_contents_) {
     delete message;
