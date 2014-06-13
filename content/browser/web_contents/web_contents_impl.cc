@@ -524,9 +524,12 @@ bool WebContentsImpl::OnMessageReceived(RenderViewHost* render_view_host,
       if (observer->OnMessageReceived(message, render_frame_host))
         return true;
   } else {
-    while ((observer = it.GetNext()) != NULL)
+    while ((observer = it.GetNext()) != NULL) {
+      if (observer->OnMessageReceived(render_view_host, message))
+        return true;
       if (observer->OnMessageReceived(message))
         return true;
+    }
   }
 
   // Message handlers should be aware of which

@@ -329,6 +329,9 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener,
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  RenderFrameHost* render_frame_host);
 
+
+  virtual bool OnMessageReceived(RenderViewHost* render_view_host, const IPC::Message& message);
+
   // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
