@@ -16,7 +16,9 @@
 #include "base/memory/scoped_vector.h"
 #include "base/values.h"
 #include "content/public/browser/certificate_request_result_type.h"
+#if defined(OS_POSIX) && !defined(OS_MACOSX)
 #include "content/public/browser/file_descriptor_info.h"
+#endif
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/socket_permission_request.h"
