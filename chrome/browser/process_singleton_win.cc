@@ -34,8 +34,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/installer/util/wmi.h"
 #include "content/public/common/result_codes.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+//#include "grit/chromium_strings.h"
+//#include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/win/hwnd_util.h"
@@ -311,6 +311,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
                       &BrowserWindowEnumeration,
                       reinterpret_cast<LPARAM>(&visible_window));
 
+#if 0
   // If there is a visible browser window, ask the user before killing it.
   if (visible_window &&
       chrome::ShowMessageBox(
@@ -321,6 +322,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
     // The user denied. Quit silently.
     return PROCESS_NOTIFIED;
   }
+#endif
 
   // Time to take action. Kill the browser process.
   base::KillProcessById(process_id, content::RESULT_CODE_HUNG, true);
