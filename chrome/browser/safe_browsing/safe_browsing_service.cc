@@ -4,8 +4,6 @@
 
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 
-#include <vector>
-
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
@@ -21,13 +19,11 @@
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/prefs/tracked/tracked_preference_validation_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/safe_browsing/client_side_detection_service.h"
 #include "chrome/browser/safe_browsing/database_manager.h"
 #include "chrome/browser/safe_browsing/download_protection_service.h"
-#include "chrome/browser/safe_browsing/incident_reporting_service.h"
 #include "chrome/browser/safe_browsing/malware_details.h"
 #include "chrome/browser/safe_browsing/ping_manager.h"
 #include "chrome/browser/safe_browsing/protocol_manager.h"
@@ -222,9 +218,6 @@ void SafeBrowsingService::Initialize() {
   }
   download_service_.reset(new safe_browsing::DownloadProtectionService(
       this, url_request_context_getter_.get()));
-
-  incident_service_.reset(new safe_browsing::IncidentReportingService(
-      this, url_request_context_getter_));
 #endif
 
   // Track the safe browsing preference of existing profiles.
@@ -261,7 +254,6 @@ void SafeBrowsingService::ShutDown() {
   // on it.
   csd_service_.reset();
   download_service_.reset();
-  incident_service_.reset();
 
   url_request_context_getter_ = NULL;
   BrowserThread::PostNonNestableTask(
@@ -309,20 +301,12 @@ SafeBrowsingPingManager* SafeBrowsingService::ping_manager() const {
   return ping_manager_;
 }
 
-scoped_ptr<TrackedPreferenceValidationDelegate>
-SafeBrowsingService::CreatePreferenceValidationDelegate() const {
-#if defined(FULL_SAFE_BROWSING)
-  if (incident_service_)
-    return incident_service_->CreatePreferenceValidationDelegate();
-#endif
-  return scoped_ptr<TrackedPreferenceValidationDelegate>();
-}
-
 SafeBrowsingUIManager* SafeBrowsingService::CreateUIManager() {
   return new SafeBrowsingUIManager(this);
 }
 
 SafeBrowsingDatabaseManager* SafeBrowsingService::CreateDatabaseManager() {
+
 #if defined(FULL_SAFE_BROWSING)
   return new SafeBrowsingDatabaseManager(this);
 #else
@@ -516,11 +500,10 @@ void SafeBrowsingService::RefreshState() {
     Stop(false);
 
 #if defined(FULL_SAFE_BROWSING)
-  if (csd_service_)
+  if (csd_service_.get())
     csd_service_->SetEnabledAndRefreshState(enable);
-  if (download_service_)
+  if (download_service_.get()) {
     download_service_->SetEnabled(enable);
-  if (incident_service_)
-    incident_service_->SetEnabled(enable);
+  }
 #endif
 }
