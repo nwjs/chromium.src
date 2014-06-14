@@ -80,8 +80,6 @@ void DecoderStream<StreamType>::Initialize(DemuxerStream* stream,
   decoder_selector_->SelectDecoder(
       stream, low_delay,
       base::Bind(&DecoderStream<StreamType>::OnDecoderSelected,
-                 weak_factory_.GetWeakPtr()),
-      base::Bind(&DecoderStream<StreamType>::OnDecodeOutputReady,
                  weak_factory_.GetWeakPtr()));
 }
 
@@ -115,7 +113,19 @@ void DecoderStream<StreamType>::Read(const ReadCB& read_cb) {
     ready_outputs_.pop_front();
   }
 
-  if (state_ == STATE_NORMAL && CanDecodeMore())
+  // Decoder may be in reinitializing state as result of the previous Read().
+  if (state_ == STATE_REINITIALIZING_DECODER)
+    return;
+
+  if (!CanDecodeMore())
+    return;
+
+  if (state_ == STATE_FLUSHING_DECODER) {
+    FlushDecoder();
+    return;
+  }
+
+  if (state_ != STATE_PENDING_DEMUXER_READ)
     ReadFromDemuxerStream();
 }
 
@@ -206,23 +216,13 @@ void DecoderStream<StreamType>::Stop(const base::Closure& closure) {
 template <DemuxerStream::Type StreamType>
 bool DecoderStream<StreamType>::CanReadWithoutStalling() const {
   DCHECK(task_runner_->BelongsToCurrentThread());
-  return !ready_outputs_.empty() || decoder_->CanReadWithoutStalling();
+  return decoder_->CanReadWithoutStalling();
 }
 
 template <>
 bool DecoderStream<DemuxerStream::AUDIO>::CanReadWithoutStalling() const {
   DCHECK(task_runner_->BelongsToCurrentThread());
   return true;
-}
-
-template <DemuxerStream::Type StreamType>
-int DecoderStream<StreamType>::GetMaxDecodeRequests() const {
-  return decoder_->GetMaxDecodeRequests();
-}
-
-template <>
-int DecoderStream<DemuxerStream::AUDIO>::GetMaxDecodeRequests() const {
-  return 1;
 }
 
 template <DemuxerStream::Type StreamType>
@@ -234,7 +234,13 @@ bool DecoderStream<StreamType>::CanDecodeMore() const {
   // empty.
   int num_decodes =
       static_cast<int>(ready_outputs_.size()) + pending_decode_requests_;
-  return num_decodes < GetMaxDecodeRequests();
+  return num_decodes < decoder_->GetMaxDecodeRequests();
+}
+
+template <>
+bool DecoderStream<DemuxerStream::AUDIO>::CanDecodeMore() const {
+  DCHECK(task_runner_->BelongsToCurrentThread());
+  return !pending_decode_requests_ && ready_outputs_.empty();
 }
 
 template <DemuxerStream::Type StreamType>
@@ -284,7 +290,7 @@ void DecoderStream<StreamType>::Decode(
     const scoped_refptr<DecoderBuffer>& buffer) {
   FUNCTION_DVLOG(2);
   DCHECK(state_ == STATE_NORMAL || state_ == STATE_FLUSHING_DECODER) << state_;
-  DCHECK_LT(pending_decode_requests_, GetMaxDecodeRequests());
+  DCHECK(CanDecodeMore());
   DCHECK(reset_cb_.is_null());
   DCHECK(stop_cb_.is_null());
   DCHECK(buffer);
@@ -294,26 +300,28 @@ void DecoderStream<StreamType>::Decode(
   TRACE_EVENT_ASYNC_BEGIN0("media", GetTraceString<StreamType>(), this);
   ++pending_decode_requests_;
   decoder_->Decode(buffer,
-                   base::Bind(&DecoderStream<StreamType>::OnDecodeDone,
+                   base::Bind(&DecoderStream<StreamType>::OnDecodeOutputReady,
                               weak_factory_.GetWeakPtr(),
-                              buffer_size,
-                              buffer->end_of_stream()));
+                              buffer_size));
 }
 
 template <DemuxerStream::Type StreamType>
 void DecoderStream<StreamType>::FlushDecoder() {
-  Decode(DecoderBuffer::CreateEOSBuffer());
+  if (pending_decode_requests_ == 0)
+    Decode(DecoderBuffer::CreateEOSBuffer());
 }
 
 template <DemuxerStream::Type StreamType>
-void DecoderStream<StreamType>::OnDecodeDone(int buffer_size,
-                                             bool end_of_stream,
-                                             typename Decoder::Status status) {
-  FUNCTION_DVLOG(2) << status;
+void DecoderStream<StreamType>::OnDecodeOutputReady(
+    int buffer_size,
+    typename Decoder::Status status,
+    const scoped_refptr<Output>& output) {
+  FUNCTION_DVLOG(2) << status << " " << output;
   DCHECK(state_ == STATE_NORMAL || state_ == STATE_FLUSHING_DECODER ||
          state_ == STATE_PENDING_DEMUXER_READ || state_ == STATE_ERROR)
       << state_;
   DCHECK(stop_cb_.is_null());
+  DCHECK_EQ(status == Decoder::kOk, output != NULL);
   DCHECK_GT(pending_decode_requests_, 0);
 
   --pending_decode_requests_;
@@ -325,68 +333,61 @@ void DecoderStream<StreamType>::OnDecodeDone(int buffer_size,
     return;
   }
 
+  if (status == Decoder::kDecodeError) {
+    state_ = STATE_ERROR;
+    ready_outputs_.clear();
+    if (!read_cb_.is_null())
+      SatisfyRead(DECODE_ERROR, NULL);
+    return;
+  }
+
+  if (status == Decoder::kDecryptError) {
+    state_ = STATE_ERROR;
+    ready_outputs_.clear();
+    if (!read_cb_.is_null())
+      SatisfyRead(DECRYPT_ERROR, NULL);
+    return;
+  }
+
+  if (status == Decoder::kAborted) {
+    if (!read_cb_.is_null())
+      SatisfyRead(ABORTED, NULL);
+    return;
+  }
+
+  // Any successful decode counts!
+  if (buffer_size > 0) {
+    StreamTraits::ReportStatistics(statistics_cb_, buffer_size);
+  }
+
   // Drop decoding result if Reset() was called during decoding.
   // The resetting process will be handled when the decoder is reset.
   if (!reset_cb_.is_null())
     return;
 
-  switch (status) {
-    case Decoder::kDecodeError:
-    case Decoder::kDecryptError:
-      state_ = STATE_ERROR;
-      ready_outputs_.clear();
-      if (!read_cb_.is_null())
-        SatisfyRead(DECODE_ERROR, NULL);
-      break;
-
-    case Decoder::kAborted:
-      // Decoder can return kAborted only when Reset is pending.
-      NOTREACHED();
-      break;
-
-    case Decoder::kOk:
-      // Any successful decode counts!
-      if (buffer_size > 0) {
-        StreamTraits::ReportStatistics(statistics_cb_, buffer_size);
-      }
-
-      if (state_ == STATE_NORMAL) {
-        if (CanDecodeMore() && !end_of_stream)
-          ReadFromDemuxerStream();
-      } else if (state_ == STATE_FLUSHING_DECODER) {
-        if (!pending_decode_requests_)
-          ReinitializeDecoder();
-      }
-      break;
+  // Decoder flushed. Reinitialize the decoder.
+  if (state_ == STATE_FLUSHING_DECODER &&
+      status == Decoder::kOk && output->end_of_stream()) {
+    ReinitializeDecoder();
+    return;
   }
-}
 
-template <DemuxerStream::Type StreamType>
-void DecoderStream<StreamType>::OnDecodeOutputReady(
-    const scoped_refptr<Output>& output) {
-  FUNCTION_DVLOG(2) << output;
+  if (status == Decoder::kNotEnoughData) {
+    if (state_ == STATE_NORMAL)
+      ReadFromDemuxerStream();
+    else if (state_ == STATE_FLUSHING_DECODER)
+      FlushDecoder();
+    return;
+  }
+
   DCHECK(output);
-  DCHECK(state_ == STATE_NORMAL || state_ == STATE_FLUSHING_DECODER ||
-         state_ == STATE_PENDING_DEMUXER_READ || state_ == STATE_ERROR)
-      << state_;
-
-  if (state_ == STATE_ERROR) {
-    DCHECK(read_cb_.is_null());
-    return;
-  }
-
-  // Drop decoding result if Reset() was called during decoding.
-  // The resetting process will be handled when the decoder is reset.
-  if (!reset_cb_.is_null())
-    return;
-
-  if (state_ == STATE_FLUSHING_DECODER && output->end_of_stream()) {
-    // ReinitializeDecoder() will be called from OnDecodeDone().
-    return;
-  }
 
   // Store decoded output.
   ready_outputs_.push_back(output);
+  scoped_refptr<Output> extra_output;
+  while ((extra_output = decoder_->GetDecodeOutput()) != NULL) {
+    ready_outputs_.push_back(extra_output);
+  }
 
   // Satisfy outstanding read request, if any.
   if (!read_cb_.is_null()) {
@@ -459,8 +460,7 @@ void DecoderStream<StreamType>::OnBufferReady(
   }
 
   if (status == DemuxerStream::kAborted) {
-    if (!read_cb_.is_null())
-      SatisfyRead(DEMUXER_READ_ABORTED, NULL);
+    SatisfyRead(DEMUXER_READ_ABORTED, NULL);
     return;
   }
 
@@ -494,8 +494,6 @@ void DecoderStream<StreamType>::ReinitializeDecoder() {
       StreamTraits::GetDecoderConfig(*stream_),
       low_delay_,
       base::Bind(&DecoderStream<StreamType>::OnDecoderReinitialized,
-                 weak_factory_.GetWeakPtr()),
-      base::Bind(&DecoderStream<StreamType>::OnDecodeOutputReady,
                  weak_factory_.GetWeakPtr()));
 }
 

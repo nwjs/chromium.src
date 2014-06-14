@@ -32,8 +32,7 @@ DecryptingVideoDecoder::DecryptingVideoDecoder(
 
 void DecryptingVideoDecoder::Initialize(const VideoDecoderConfig& config,
                                         bool live_mode,
-                                        const PipelineStatusCB& status_cb,
-                                        const OutputCB& output_cb) {
+                                        const PipelineStatusCB& status_cb) {
   DVLOG(2) << "Initialize()";
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(state_ == kUninitialized ||
@@ -45,7 +44,6 @@ void DecryptingVideoDecoder::Initialize(const VideoDecoderConfig& config,
   DCHECK(config.is_encrypted());
 
   init_cb_ = BindToCurrentLoop(status_cb);
-  output_cb_ = BindToCurrentLoop(output_cb);
   weak_this_ = weak_factory_.GetWeakPtr();
   config_ = config;
 
@@ -76,14 +74,13 @@ void DecryptingVideoDecoder::Decode(const scoped_refptr<DecoderBuffer>& buffer,
   decode_cb_ = BindToCurrentLoop(decode_cb);
 
   if (state_ == kError) {
-    base::ResetAndReturn(&decode_cb_).Run(kDecodeError);
+    base::ResetAndReturn(&decode_cb_).Run(kDecodeError, NULL);
     return;
   }
 
   // Return empty frames if decoding has finished.
   if (state_ == kDecodeFinished) {
-    output_cb_.Run(VideoFrame::CreateEOSFrame());
-    base::ResetAndReturn(&decode_cb_).Run(kOk);
+    base::ResetAndReturn(&decode_cb_).Run(kOk, VideoFrame::CreateEOSFrame());
     return;
   }
 
@@ -119,7 +116,7 @@ void DecryptingVideoDecoder::Reset(const base::Closure& closure) {
   if (state_ == kWaitingForKey) {
     DCHECK(!decode_cb_.is_null());
     pending_buffer_to_decode_ = NULL;
-    base::ResetAndReturn(&decode_cb_).Run(kAborted);
+    base::ResetAndReturn(&decode_cb_).Run(kAborted, NULL);
   }
 
   DCHECK(decode_cb_.is_null());
@@ -148,7 +145,7 @@ void DecryptingVideoDecoder::Stop() {
   if (!init_cb_.is_null())
     base::ResetAndReturn(&init_cb_).Run(DECODER_ERROR_NOT_SUPPORTED);
   if (!decode_cb_.is_null())
-    base::ResetAndReturn(&decode_cb_).Run(kAborted);
+    base::ResetAndReturn(&decode_cb_).Run(kAborted, NULL);
   if (!reset_cb_.is_null())
     base::ResetAndReturn(&reset_cb_).Run();
 
@@ -244,7 +241,7 @@ void DecryptingVideoDecoder::DeliverFrame(
   pending_buffer_to_decode_ = NULL;
 
   if (!reset_cb_.is_null()) {
-    base::ResetAndReturn(&decode_cb_).Run(kAborted);
+    base::ResetAndReturn(&decode_cb_).Run(kAborted, NULL);
     DoReset();
     return;
   }
@@ -254,7 +251,7 @@ void DecryptingVideoDecoder::DeliverFrame(
   if (status == Decryptor::kError) {
     DVLOG(2) << "DeliverFrame() - kError";
     state_ = kError;
-    base::ResetAndReturn(&decode_cb_).Run(kDecodeError);
+    base::ResetAndReturn(&decode_cb_).Run(kDecodeError, NULL);
     return;
   }
 
@@ -278,11 +275,13 @@ void DecryptingVideoDecoder::DeliverFrame(
     DVLOG(2) << "DeliverFrame() - kNeedMoreData";
     if (scoped_pending_buffer_to_decode->end_of_stream()) {
       state_ = kDecodeFinished;
-      output_cb_.Run(media::VideoFrame::CreateEOSFrame());
-    } else {
-      state_ = kIdle;
+      base::ResetAndReturn(&decode_cb_).Run(
+          kOk, media::VideoFrame::CreateEOSFrame());
+      return;
     }
-    base::ResetAndReturn(&decode_cb_).Run(kOk);
+
+    state_ = kIdle;
+    base::ResetAndReturn(&decode_cb_).Run(kNotEnoughData, NULL);
     return;
   }
 
@@ -290,8 +289,7 @@ void DecryptingVideoDecoder::DeliverFrame(
   // No frame returned with kSuccess should be end-of-stream frame.
   DCHECK(!frame->end_of_stream());
   state_ = kIdle;
-  output_cb_.Run(frame);
-  base::ResetAndReturn(&decode_cb_).Run(kOk);
+  base::ResetAndReturn(&decode_cb_).Run(kOk, frame);
 }
 
 void DecryptingVideoDecoder::OnKeyAdded() {

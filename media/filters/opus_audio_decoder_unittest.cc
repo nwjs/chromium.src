@@ -57,10 +57,7 @@ class OpusAudioDecoderTest : public testing::Test {
   }
 
   void InitializeDecoder(const AudioDecoderConfig& config) {
-    decoder_->Initialize(config,
-                         NewExpectedStatusCB(PIPELINE_OK),
-                         base::Bind(&OpusAudioDecoderTest::OnDecoderOutput,
-                                    base::Unretained(this)));
+    decoder_->Initialize(config, NewExpectedStatusCB(PIPELINE_OK));
     base::RunLoop().RunUntilIdle();
   }
 
@@ -94,16 +91,22 @@ class OpusAudioDecoderTest : public testing::Test {
     base::RunLoop().RunUntilIdle();
   }
 
-  void OnDecoderOutput(const scoped_refptr<AudioBuffer>& buffer) {
-    decoded_audio_.push_back(buffer);
-  }
-
-  void DecodeFinished(AudioDecoder::Status status) {
+  void DecodeFinished(AudioDecoder::Status status,
+                      const scoped_refptr<AudioBuffer>& buffer) {
     EXPECT_TRUE(pending_decode_);
     pending_decode_ = false;
 
-    // If we have a pending reset, we expect an abort.
-    if (pending_reset_) {
+    if (status == AudioDecoder::kNotEnoughData) {
+      EXPECT_TRUE(buffer.get() == NULL);
+      Decode();
+      return;
+    }
+
+    decoded_audio_.push_back(buffer);
+
+    // If we hit a NULL buffer or have a pending reset, we expect an abort.
+    if (buffer.get() == NULL || pending_reset_) {
+      EXPECT_TRUE(buffer.get() == NULL);
       EXPECT_EQ(status, AudioDecoder::kAborted);
       return;
     }

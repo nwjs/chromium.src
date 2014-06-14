@@ -88,9 +88,6 @@ class MEDIA_EXPORT DecoderStream {
   // behavior.
   bool CanReadWithoutStalling() const;
 
-  // Returns maximum concurrent decode requests for the current |decoder_|.
-  int GetMaxDecodeRequests() const;
-
   // Returns true if one more decode request can be submitted to the decoder.
   bool CanDecodeMore() const;
 
@@ -144,10 +141,9 @@ class MEDIA_EXPORT DecoderStream {
   void FlushDecoder();
 
   // Callback for Decoder::Decode().
-  void OnDecodeDone(int buffer_size, bool end_of_stream, DecoderStatus status);
-
-  // Output callback passed to Decoder::Initialize().
-  void OnDecodeOutputReady(const scoped_refptr<Output>& output);
+  void OnDecodeOutputReady(int buffer_size,
+                           DecoderStatus status,
+                           const scoped_refptr<Output>& output);
 
   // Reads a buffer from |stream_| and returns the result via OnBufferReady().
   void ReadFromDemuxerStream();
@@ -212,7 +208,7 @@ template <>
 bool DecoderStream<DemuxerStream::AUDIO>::CanReadWithoutStalling() const;
 
 template <>
-int DecoderStream<DemuxerStream::AUDIO>::GetMaxDecodeRequests() const;
+bool DecoderStream<DemuxerStream::AUDIO>::CanDecodeMore() const;
 
 typedef DecoderStream<DemuxerStream::VIDEO> VideoFrameStream;
 typedef DecoderStream<DemuxerStream::AUDIO> AudioBufferStream;

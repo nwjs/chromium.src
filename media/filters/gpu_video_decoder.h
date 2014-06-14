@@ -44,15 +44,13 @@ class MEDIA_EXPORT GpuVideoDecoder
   // VideoDecoder implementation.
   virtual void Initialize(const VideoDecoderConfig& config,
                           bool live_mode,
-                          const PipelineStatusCB& status_cb,
-                          const OutputCB& output_cb) OVERRIDE;
+                          const PipelineStatusCB& status_cb) OVERRIDE;
   virtual void Decode(const scoped_refptr<DecoderBuffer>& buffer,
                       const DecodeCB& decode_cb) OVERRIDE;
   virtual void Reset(const base::Closure& closure) OVERRIDE;
   virtual void Stop() OVERRIDE;
   virtual bool NeedsBitstreamConversion() const OVERRIDE;
   virtual bool CanReadWithoutStalling() const OVERRIDE;
-  virtual int GetMaxDecodeRequests() const OVERRIDE;
 
   // VideoDecodeAccelerator::Client implementation.
   virtual void ProvidePictureBuffers(uint32 count,
@@ -85,19 +83,25 @@ class MEDIA_EXPORT GpuVideoDecoder
   };
 
   // A SHMBuffer and the DecoderBuffer its data came from.
-  struct PendingDecoderBuffer {
-    PendingDecoderBuffer(SHMBuffer* s,
-                        const scoped_refptr<DecoderBuffer>& b,
-                        const DecodeCB& done_cb);
-    ~PendingDecoderBuffer();
+  struct BufferPair {
+    BufferPair(SHMBuffer* s, const scoped_refptr<DecoderBuffer>& b);
+    ~BufferPair();
     SHMBuffer* shm_buffer;
     scoped_refptr<DecoderBuffer> buffer;
-    DecodeCB done_cb;
   };
 
   typedef std::map<int32, PictureBuffer> PictureBufferMap;
 
-  void DeliverFrame(const scoped_refptr<VideoFrame>& frame);
+  // Return true if more decode work can be piled on to the VDA.
+  bool CanMoreDecodeWorkBeDone();
+
+  // Enqueue a frame for later delivery (or drop it on the floor if a
+  // vda->Reset() is in progress) and trigger out-of-line delivery of the oldest
+  // ready frame to the client if there is a pending read.  A NULL |frame|
+  // merely triggers delivery, and requires the ready_video_frames_ queue not be
+  // empty.
+  void EnqueueFrameAndTriggerFrameDelivery(
+      const scoped_refptr<VideoFrame>& frame);
 
   // Static method is to allow it to run even after GVD is deleted.
   static void ReleaseMailbox(
@@ -137,11 +141,9 @@ class MEDIA_EXPORT GpuVideoDecoder
   // occurs.
   scoped_ptr<VideoDecodeAccelerator> vda_;
 
-  OutputCB output_cb_;
-
-  DecodeCB eos_decode_cb_;
-
-  // Not null only during reset.
+  // Callbacks that are !is_null() only during their respective operation being
+  // asynchronously executed.
+  DecodeCB pending_decode_cb_;
   base::Closure pending_reset_cb_;
 
   State state_;
@@ -155,7 +157,7 @@ class MEDIA_EXPORT GpuVideoDecoder
 
   scoped_refptr<MediaLog> media_log_;
 
-  std::map<int32, PendingDecoderBuffer> bitstream_buffers_in_decoder_;
+  std::map<int32, BufferPair> bitstream_buffers_in_decoder_;
   PictureBufferMap assigned_picture_buffers_;
   // PictureBuffers given to us by VDA via PictureReady, which we sent forward
   // as VideoFrames to be rendered via decode_cb_, and which will be returned
@@ -180,6 +182,7 @@ class MEDIA_EXPORT GpuVideoDecoder
 
   // picture_buffer_id and the frame wrapping the corresponding Picture, for
   // frames that have been decoded but haven't been requested by a Decode() yet.
+  std::list<scoped_refptr<VideoFrame> > ready_video_frames_;
   int32 next_picture_buffer_id_;
   int32 next_bitstream_buffer_id_;
 

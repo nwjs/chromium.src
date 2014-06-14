@@ -29,7 +29,6 @@ using ::testing::_;
 using ::testing::AnyNumber;
 using ::testing::Invoke;
 using ::testing::Return;
-using ::testing::SaveArg;
 
 namespace media {
 
@@ -78,10 +77,9 @@ class AudioRendererImplTest : public ::testing::Test {
     EXPECT_CALL(*decoder_, Reset(_))
         .WillRepeatedly(Invoke(this, &AudioRendererImplTest::ResetDecoder));
 
-    // Mock out demuxer reads.
+    // Mock out demuxer reads
     EXPECT_CALL(demuxer_stream_, Read(_)).WillRepeatedly(
-        RunCallback<0>(DemuxerStream::kOk,
-                       scoped_refptr<DecoderBuffer>(new DecoderBuffer(0))));
+        RunCallback<0>(DemuxerStream::kOk, DecoderBuffer::CreateEOSBuffer()));
     EXPECT_CALL(demuxer_stream_, SupportsConfigChanges())
         .WillRepeatedly(Return(true));
     AudioParameters out_params(AudioParameters::AUDIO_PCM_LOW_LATENCY,
@@ -114,9 +112,8 @@ class AudioRendererImplTest : public ::testing::Test {
   }
 
   void ExpectUnsupportedAudioDecoder() {
-    EXPECT_CALL(*decoder_, Initialize(_, _, _))
-        .WillOnce(DoAll(SaveArg<2>(&output_cb_),
-                        RunCallback<1>(DECODER_ERROR_NOT_SUPPORTED)));
+    EXPECT_CALL(*decoder_, Initialize(_, _))
+        .WillOnce(RunCallback<1>(DECODER_ERROR_NOT_SUPPORTED));
   }
 
   MOCK_METHOD1(OnStatistics, void(const PipelineStatistics&));
@@ -144,9 +141,8 @@ class AudioRendererImplTest : public ::testing::Test {
   }
 
   void Initialize() {
-    EXPECT_CALL(*decoder_, Initialize(_, _, _))
-        .WillOnce(DoAll(SaveArg<2>(&output_cb_),
-                        RunCallback<1>(PIPELINE_OK)));
+    EXPECT_CALL(*decoder_, Initialize(_, _))
+        .WillOnce(RunCallback<1>(PIPELINE_OK));
     EXPECT_CALL(*decoder_, Stop());
     InitializeWithStatus(PIPELINE_OK);
 
@@ -166,9 +162,8 @@ class AudioRendererImplTest : public ::testing::Test {
   }
 
   void InitializeAndStop() {
-    EXPECT_CALL(*decoder_, Initialize(_, _, _))
-        .WillOnce(DoAll(SaveArg<2>(&output_cb_),
-                        RunCallback<1>(PIPELINE_OK)));
+    EXPECT_CALL(*decoder_, Initialize(_, _))
+        .WillOnce(RunCallback<1>(PIPELINE_OK));
     EXPECT_CALL(*decoder_, Stop());
 
     WaitableMessageLoopEvent event;
@@ -183,9 +178,8 @@ class AudioRendererImplTest : public ::testing::Test {
   }
 
   void InitializeAndStopDuringDecoderInit() {
-    EXPECT_CALL(*decoder_, Initialize(_, _, _))
-        .WillOnce(DoAll(SaveArg<2>(&output_cb_),
-                        EnterPendingDecoderInitStateAction(this)));
+    EXPECT_CALL(*decoder_, Initialize(_, _))
+        .WillOnce(EnterPendingDecoderInitStateAction(this));
     EXPECT_CALL(*decoder_, Stop());
 
     WaitableMessageLoopEvent event;
@@ -229,6 +223,9 @@ class AudioRendererImplTest : public ::testing::Test {
     WaitForPendingRead();
     DeliverRemainingAudio();
     event.RunAndWaitForStatus(PIPELINE_OK);
+
+    // We should have no reads.
+    EXPECT_TRUE(decode_cb_.is_null());
   }
 
   void StartRendering() {
@@ -289,11 +286,12 @@ class AudioRendererImplTest : public ::testing::Test {
     DeliverBuffer(AudioDecoder::kOk, buffer);
   }
 
+  void AbortPendingRead() {
+    DeliverBuffer(AudioDecoder::kAborted, NULL);
+  }
+
   void DeliverEndOfStream() {
-    // Repeatedly return EOS buffer
-    while (!decode_cb_.is_null()) {
-      DeliverBuffer(AudioDecoder::kOk, AudioBuffer::CreateEOSBuffer());
-    }
+    DeliverBuffer(AudioDecoder::kOk, AudioBuffer::CreateEOSBuffer());
   }
 
   // Delivers frames until |renderer_|'s internal buffer is full and no longer
@@ -467,12 +465,8 @@ class AudioRendererImplTest : public ::testing::Test {
   }
 
   void ResetDecoder(const base::Closure& reset_cb) {
-    if (!decode_cb_.is_null()) {
-      // |reset_cb| will be called in DeliverBuffer(), after the decoder is
-      // flushed.
-      reset_cb_ = reset_cb;
-      return;
-    }
+    CHECK(decode_cb_.is_null())
+        << "Reset overlapping with reads is not permitted";
 
     message_loop_.PostTask(FROM_HERE, reset_cb);
   }
@@ -480,14 +474,7 @@ class AudioRendererImplTest : public ::testing::Test {
   void DeliverBuffer(AudioDecoder::Status status,
                      const scoped_refptr<AudioBuffer>& buffer) {
     CHECK(!decode_cb_.is_null());
-    if (buffer)
-      output_cb_.Run(buffer);
-    base::ResetAndReturn(&decode_cb_).Run(status);
-
-    if (!reset_cb_.is_null())
-      base::ResetAndReturn(&reset_cb_).Run();
-
-    message_loop_.RunUntilIdle();
+    base::ResetAndReturn(&decode_cb_).Run(status, buffer);
   }
 
   MockDemuxerStream demuxer_stream_;
@@ -498,9 +485,7 @@ class AudioRendererImplTest : public ::testing::Test {
   TimeTicks time_;
 
   // Used for satisfying reads.
-  AudioDecoder::OutputCB output_cb_;
   AudioDecoder::DecodeCB decode_cb_;
-  base::Closure reset_cb_;
   scoped_ptr<AudioTimestampHelper> next_timestamp_;
 
   WaitableMessageLoopEvent ended_event_;
@@ -609,7 +594,7 @@ TEST_F(AudioRendererImplTest, Underflow_CapacityResetsAfterFlush) {
   EXPECT_GT(buffer_capacity(), initial_capacity);
 
   // Verify that the buffer capacity is restored to the |initial_capacity|.
-  DeliverEndOfStream();
+  AbortPendingRead();
   Flush();
   EXPECT_EQ(buffer_capacity(), initial_capacity);
 }
@@ -629,7 +614,7 @@ TEST_F(AudioRendererImplTest, Underflow_FlushWhileUnderflowed) {
   EXPECT_FALSE(ConsumeBufferedData(kDataSize, NULL));
 
   // Verify that we can still Flush() before entering the rebuffering state.
-  DeliverEndOfStream();
+  AbortPendingRead();
   Flush();
 }
 
@@ -773,6 +758,52 @@ TEST_F(AudioRendererImplTest, Underflow_PausePlay) {
   EXPECT_EQ(FakeAudioRendererSink::kPlaying, sink_->state());
 }
 
+TEST_F(AudioRendererImplTest, AbortPendingRead_Preroll) {
+  Initialize();
+
+  // Start prerolling and wait for a read.
+  WaitableMessageLoopEvent event;
+  renderer_->Preroll(TimeDelta(), event.GetPipelineStatusCB());
+  WaitForPendingRead();
+
+  // Simulate the decoder aborting the pending read.
+  AbortPendingRead();
+  event.RunAndWaitForStatus(PIPELINE_OK);
+
+  Flush();
+
+  // Preroll again to a different timestamp and verify it completed normally.
+  Preroll(1000, PIPELINE_OK);
+}
+
+TEST_F(AudioRendererImplTest, AbortPendingRead_Flush) {
+  Initialize();
+
+  Preroll();
+  StartRendering();
+
+  // Partially drain internal buffer so we get a pending read.
+  EXPECT_TRUE(ConsumeBufferedData(frames_buffered() / 2, NULL));
+  WaitForPendingRead();
+
+  StopRendering();
+
+  EXPECT_TRUE(IsReadPending());
+
+  // Start flushing.
+  WaitableMessageLoopEvent flush_event;
+  renderer_->Flush(flush_event.GetClosure());
+
+  // Simulate the decoder aborting the pending read.
+  AbortPendingRead();
+  flush_event.RunAndWait();
+
+  EXPECT_FALSE(IsReadPending());
+
+  // Preroll again to a different timestamp and verify it completed normally.
+  Preroll(1000, PIPELINE_OK);
+}
+
 TEST_F(AudioRendererImplTest, PendingRead_Flush) {
   Initialize();
 
@@ -894,7 +925,6 @@ TEST_F(AudioRendererImplTest, TimeUpdatesOnFirstBuffer) {
   int frames_to_consume = frames_buffered() / 2;
   EXPECT_TRUE(ConsumeBufferedData(frames_to_consume, NULL));
   WaitForPendingRead();
-  base::RunLoop().RunUntilIdle();
 
   // ConsumeBufferedData() uses an audio delay of zero, so ensure we received
   // a time update that's equal to |kFramesToConsume| from above.

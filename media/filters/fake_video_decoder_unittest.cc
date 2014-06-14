@@ -14,27 +14,18 @@
 
 namespace media {
 
+static const int kDecodingDelay = 9;
 static const int kTotalBuffers = 12;
 static const int kDurationMs = 30;
 
-struct FakeVideoDecoderTestParams {
-  FakeVideoDecoderTestParams(int decoding_delay, int max_decode_requests)
-      : decoding_delay(decoding_delay),
-        max_decode_requests(max_decode_requests) {}
-  int decoding_delay;
-  int max_decode_requests;
-};
-
-class FakeVideoDecoderTest
-    : public testing::Test,
-      public testing::WithParamInterface<FakeVideoDecoderTestParams> {
+class FakeVideoDecoderTest : public testing::Test,
+                             public testing::WithParamInterface<int> {
  public:
   FakeVideoDecoderTest()
-      : decoder_(new FakeVideoDecoder(GetParam().decoding_delay,
-                                      GetParam().max_decode_requests)),
+      : decoder_(new FakeVideoDecoder(kDecodingDelay, false, GetParam())),
         num_input_buffers_(0),
         num_decoded_frames_(0),
-        last_decode_status_(VideoDecoder::kOk),
+        last_decode_status_(VideoDecoder::kNotEnoughData),
         pending_decode_requests_(0),
         is_reset_pending_(false) {}
 
@@ -43,9 +34,7 @@ class FakeVideoDecoderTest
   }
 
   void InitializeWithConfig(const VideoDecoderConfig& config) {
-    decoder_->Initialize(
-        config, false, NewExpectedStatusCB(PIPELINE_OK),
-        base::Bind(&FakeVideoDecoderTest::FrameReady, base::Unretained(this)));
+    decoder_->Initialize(config, false, NewExpectedStatusCB(PIPELINE_OK));
     message_loop_.RunUntilIdle();
     current_config_ = config;
   }
@@ -64,16 +53,16 @@ class FakeVideoDecoderTest
     message_loop_.RunUntilIdle();
   }
 
-  // Callback for VideoDecoder::Decode().
-  void DecodeDone(VideoDecoder::Status status) {
+  // Callback for VideoDecoder::Read().
+  void FrameReady(VideoDecoder::Status status,
+                  const scoped_refptr<VideoFrame>& frame) {
     DCHECK_GT(pending_decode_requests_, 0);
+
     --pending_decode_requests_;
     last_decode_status_ = status;
-  }
-
-  void FrameReady(const scoped_refptr<VideoFrame>& frame) {
     last_decoded_frame_ = frame;
-    if (!frame->end_of_stream())
+
+    if (frame && !frame->end_of_stream())
       num_decoded_frames_++;
   }
 
@@ -98,7 +87,7 @@ class FakeVideoDecoderTest
         break;
       case NOT_ENOUGH_DATA:
         EXPECT_EQ(0, pending_decode_requests_);
-        ASSERT_EQ(VideoDecoder::kOk, last_decode_status_);
+        ASSERT_EQ(VideoDecoder::kNotEnoughData, last_decode_status_);
         ASSERT_FALSE(last_decoded_frame_);
         break;
       case ABORTED:
@@ -132,15 +121,15 @@ class FakeVideoDecoderTest
 
     decoder_->Decode(
         buffer,
-        base::Bind(&FakeVideoDecoderTest::DecodeDone, base::Unretained(this)));
+        base::Bind(&FakeVideoDecoderTest::FrameReady, base::Unretained(this)));
     message_loop_.RunUntilIdle();
   }
 
   void ReadOneFrame() {
-    last_decoded_frame_ = NULL;
     do {
       Decode();
-    } while (!last_decoded_frame_ && pending_decode_requests_ == 0);
+    } while (last_decode_status_ == VideoDecoder::kNotEnoughData &&
+             pending_decode_requests_ == 0);
   }
 
   void ReadUntilEOS() {
@@ -157,14 +146,14 @@ class FakeVideoDecoderTest
     ExpectReadResult(PENDING);
   }
 
-  void SatisfyDecodeAndExpect(CallbackResult result) {
+  void SatisfyReadAndExpect(CallbackResult result) {
     decoder_->SatisfyDecode();
     message_loop_.RunUntilIdle();
     ExpectReadResult(result);
   }
 
   void SatisfyRead() {
-    SatisfyDecodeAndExpect(OK);
+    SatisfyReadAndExpect(OK);
   }
 
   // Callback for VideoDecoder::Reset().
@@ -234,12 +223,10 @@ class FakeVideoDecoderTest
 
 INSTANTIATE_TEST_CASE_P(NoParallelDecode,
                         FakeVideoDecoderTest,
-                        ::testing::Values(FakeVideoDecoderTestParams(9, 1),
-                                          FakeVideoDecoderTestParams(0, 1)));
+                        ::testing::Values(1));
 INSTANTIATE_TEST_CASE_P(ParallelDecode,
                         FakeVideoDecoderTest,
-                        ::testing::Values(FakeVideoDecoderTestParams(9, 3),
-                                          FakeVideoDecoderTestParams(0, 3)));
+                        ::testing::Values(3));
 
 TEST_P(FakeVideoDecoderTest, Initialize) {
   Initialize();
@@ -256,13 +243,12 @@ TEST_P(FakeVideoDecoderTest, Read_DecodingDelay) {
 
   while (num_input_buffers_ < kTotalBuffers) {
     ReadOneFrame();
-    EXPECT_EQ(num_input_buffers_,
-              num_decoded_frames_ + GetParam().decoding_delay);
+    EXPECT_EQ(num_input_buffers_, num_decoded_frames_ + kDecodingDelay);
   }
 }
 
 TEST_P(FakeVideoDecoderTest, Read_ZeroDelay) {
-  decoder_.reset(new FakeVideoDecoder(0, 1));
+  decoder_.reset(new FakeVideoDecoder(0, false, 1));
   Initialize();
 
   while (num_input_buffers_ < kTotalBuffers) {
@@ -272,40 +258,34 @@ TEST_P(FakeVideoDecoderTest, Read_ZeroDelay) {
 }
 
 TEST_P(FakeVideoDecoderTest, Read_Pending_NotEnoughData) {
-  if (GetParam().decoding_delay < 1)
-    return;
-
   Initialize();
   decoder_->HoldDecode();
   ReadOneFrame();
   ExpectReadResult(PENDING);
-  SatisfyDecodeAndExpect(NOT_ENOUGH_DATA);
-
-  // Verify that FrameReady() hasn't been called.
-  EXPECT_FALSE(last_decoded_frame_);
+  SatisfyReadAndExpect(NOT_ENOUGH_DATA);
 }
 
 TEST_P(FakeVideoDecoderTest, Read_Pending_OK) {
   Initialize();
+  ReadOneFrame();
   EnterPendingReadState();
-  SatisfyDecodeAndExpect(OK);
+  SatisfyReadAndExpect(OK);
 }
 
 TEST_P(FakeVideoDecoderTest, Read_Parallel) {
-  if (GetParam().max_decode_requests < 2)
+  int max_decode_requests = GetParam();
+  if (max_decode_requests < 2)
     return;
 
   Initialize();
+  ReadOneFrame();
   decoder_->HoldDecode();
-  for (int i = 0; i < GetParam().max_decode_requests; ++i) {
+  for (int i = 0; i < max_decode_requests; ++i) {
     ReadOneFrame();
     ExpectReadResult(PENDING);
   }
-  EXPECT_EQ(GetParam().max_decode_requests, pending_decode_requests_);
-  SatisfyDecodeAndExpect(
-      GetParam().max_decode_requests > GetParam().decoding_delay
-          ? OK
-          : NOT_ENOUGH_DATA);
+  EXPECT_EQ(max_decode_requests, pending_decode_requests_);
+  SatisfyReadAndExpect(OK);
 }
 
 TEST_P(FakeVideoDecoderTest, ReadWithHold_DecodingDelay) {
@@ -323,7 +303,7 @@ TEST_P(FakeVideoDecoderTest, ReadWithHold_DecodingDelay) {
   }
 
   DCHECK_EQ(num_decoded_frames_, 1);
-  DCHECK_EQ(num_decodes_satisfied, GetParam().decoding_delay + 1);
+  DCHECK_EQ(num_decodes_satisfied, kDecodingDelay + 1);
 }
 
 TEST_P(FakeVideoDecoderTest, Reinitialize) {
@@ -336,9 +316,6 @@ TEST_P(FakeVideoDecoderTest, Reinitialize) {
 // Reinitializing the decoder during the middle of the decoding process can
 // cause dropped frames.
 TEST_P(FakeVideoDecoderTest, Reinitialize_FrameDropped) {
-  if (GetParam().decoding_delay < 1)
-    return;
-
   Initialize();
   ReadOneFrame();
   Initialize();
@@ -356,7 +333,7 @@ TEST_P(FakeVideoDecoderTest, Reset_DuringPendingRead) {
   Initialize();
   EnterPendingReadState();
   ResetAndExpect(PENDING);
-  SatisfyDecodeAndExpect(ABORTED);
+  SatisfyReadAndExpect(ABORTED);
 }
 
 TEST_P(FakeVideoDecoderTest, Reset_Pending) {
@@ -369,7 +346,7 @@ TEST_P(FakeVideoDecoderTest, Reset_PendingDuringPendingRead) {
   Initialize();
   EnterPendingReadState();
   EnterPendingResetState();
-  SatisfyDecodeAndExpect(ABORTED);
+  SatisfyReadAndExpect(ABORTED);
   SatisfyReset();
 }
 
@@ -402,6 +379,18 @@ TEST_P(FakeVideoDecoderTest, Stop_DuringPendingReadAndPendingReset) {
   EnterPendingReadState();
   EnterPendingResetState();
   Stop();
+}
+
+TEST_P(FakeVideoDecoderTest, GetDecodeOutput) {
+  decoder_.reset(new FakeVideoDecoder(kDecodingDelay, true, 1));
+  Initialize();
+
+  while (num_input_buffers_ < kTotalBuffers) {
+    ReadOneFrame();
+    while (decoder_->GetDecodeOutput())
+      ++num_decoded_frames_;
+    EXPECT_EQ(num_input_buffers_, num_decoded_frames_);
+  }
 }
 
 }  // namespace media

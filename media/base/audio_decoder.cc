@@ -12,4 +12,8 @@ AudioDecoder::AudioDecoder() {}
 
 AudioDecoder::~AudioDecoder() {}
 
+scoped_refptr<AudioBuffer> AudioDecoder::GetDecodeOutput() {
+  return NULL;
+}
+
 }  // namespace media

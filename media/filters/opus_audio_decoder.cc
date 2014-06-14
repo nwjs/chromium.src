@@ -249,13 +249,11 @@ OpusAudioDecoder::OpusAudioDecoder(
       start_input_timestamp_(kNoTimestamp()) {}
 
 void OpusAudioDecoder::Initialize(const AudioDecoderConfig& config,
-                                  const PipelineStatusCB& status_cb,
-                                  const OutputCB& output_cb) {
+                                  const PipelineStatusCB& status_cb) {
   DCHECK(task_runner_->BelongsToCurrentThread());
   PipelineStatusCB initialize_cb = BindToCurrentLoop(status_cb);
 
   config_ = config;
-  output_cb_ = BindToCurrentLoop(output_cb);
 
   if (!ConfigureDecoder()) {
     initialize_cb.Run(DECODER_ERROR_NOT_SUPPORTED);
@@ -266,7 +264,7 @@ void OpusAudioDecoder::Initialize(const AudioDecoderConfig& config,
 }
 
 void OpusAudioDecoder::Decode(const scoped_refptr<DecoderBuffer>& buffer,
-                              const DecodeCB& decode_cb) {
+            const DecodeCB& decode_cb) {
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(!decode_cb.is_null());
 
@@ -305,8 +303,7 @@ void OpusAudioDecoder::DecodeBuffer(
   // Libopus does not buffer output. Decoding is complete when an end of stream
   // input buffer is received.
   if (input->end_of_stream()) {
-    output_cb_.Run(AudioBuffer::CreateEOSBuffer());
-    decode_cb.Run(kOk);
+    decode_cb.Run(kOk, AudioBuffer::CreateEOSBuffer());
     return;
   }
 
@@ -314,7 +311,7 @@ void OpusAudioDecoder::DecodeBuffer(
   // occurs with some damaged files.
   if (input->timestamp() == kNoTimestamp()) {
     DLOG(ERROR) << "Received a buffer without timestamps!";
-    decode_cb.Run(kDecodeError);
+    decode_cb.Run(kDecodeError, NULL);
     return;
   }
 
@@ -329,15 +326,17 @@ void OpusAudioDecoder::DecodeBuffer(
   scoped_refptr<AudioBuffer> output_buffer;
 
   if (!Decode(input, &output_buffer)) {
-    decode_cb.Run(kDecodeError);
+    decode_cb.Run(kDecodeError, NULL);
     return;
   }
 
-  if (output_buffer) {
-    output_cb_.Run(output_buffer);
+  if (output_buffer.get()) {
+    // Execute callback to return the decoded audio.
+    decode_cb.Run(kOk, output_buffer);
+  } else {
+    // We exhausted the input data, but it wasn't enough for a frame.
+    decode_cb.Run(kNotEnoughData, NULL);
   }
-
-  decode_cb.Run(kOk);
 }
 
 bool OpusAudioDecoder::ConfigureDecoder() {

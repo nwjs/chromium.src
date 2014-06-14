@@ -215,8 +215,7 @@ VpxVideoDecoder::~VpxVideoDecoder() {
 
 void VpxVideoDecoder::Initialize(const VideoDecoderConfig& config,
                                  bool low_delay,
-                                 const PipelineStatusCB& status_cb,
-                                 const OutputCB& output_cb) {
+                                 const PipelineStatusCB& status_cb) {
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(config.IsValidConfig());
   DCHECK(!config.is_encrypted());
@@ -230,7 +229,6 @@ void VpxVideoDecoder::Initialize(const VideoDecoderConfig& config,
   // Success!
   config_ = config;
   state_ = kNormal;
-  output_cb_ = BindToCurrentLoop(output_cb);
   status_cb.Run(PIPELINE_OK);
 }
 
@@ -316,13 +314,13 @@ void VpxVideoDecoder::Decode(const scoped_refptr<DecoderBuffer>& buffer,
   decode_cb_ = BindToCurrentLoop(decode_cb);
 
   if (state_ == kError) {
-    base::ResetAndReturn(&decode_cb_).Run(kDecodeError);
+    base::ResetAndReturn(&decode_cb_).Run(kDecodeError, NULL);
     return;
   }
 
   // Return empty frames if decoding has finished.
   if (state_ == kDecodeFinished) {
-    base::ResetAndReturn(&decode_cb_).Run(kOk);
+    base::ResetAndReturn(&decode_cb_).Run(kOk, VideoFrame::CreateEOSFrame());
     return;
   }
 
@@ -354,22 +352,24 @@ void VpxVideoDecoder::DecodeBuffer(const scoped_refptr<DecoderBuffer>& buffer) {
   // Transition to kDecodeFinished on the first end of stream buffer.
   if (state_ == kNormal && buffer->end_of_stream()) {
     state_ = kDecodeFinished;
-    output_cb_.Run(VideoFrame::CreateEOSFrame());
-    base::ResetAndReturn(&decode_cb_).Run(kOk);
+    base::ResetAndReturn(&decode_cb_).Run(kOk, VideoFrame::CreateEOSFrame());
     return;
   }
 
   scoped_refptr<VideoFrame> video_frame;
   if (!VpxDecode(buffer, &video_frame)) {
     state_ = kError;
-    base::ResetAndReturn(&decode_cb_).Run(kDecodeError);
+    base::ResetAndReturn(&decode_cb_).Run(kDecodeError, NULL);
     return;
   }
 
-  base::ResetAndReturn(&decode_cb_).Run(kOk);
+  // If we didn't get a frame we need more data.
+  if (!video_frame.get()) {
+    base::ResetAndReturn(&decode_cb_).Run(kNotEnoughData, NULL);
+    return;
+  }
 
-  if (video_frame)
-    output_cb_.Run(video_frame);
+  base::ResetAndReturn(&decode_cb_).Run(kOk, video_frame);
 }
 
 bool VpxVideoDecoder::VpxDecode(const scoped_refptr<DecoderBuffer>& buffer,

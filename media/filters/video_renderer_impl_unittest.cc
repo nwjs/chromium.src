@@ -32,7 +32,6 @@ using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::NotNull;
 using ::testing::Return;
-using ::testing::SaveArg;
 using ::testing::StrictMock;
 
 namespace media {
@@ -68,9 +67,9 @@ class VideoRendererImplTest : public ::testing::Test {
     demuxer_stream_.set_video_decoder_config(TestVideoConfig::Normal());
 
     // We expect these to be called but we don't care how/when.
-    EXPECT_CALL(demuxer_stream_, Read(_)).WillRepeatedly(
-        RunCallback<0>(DemuxerStream::kOk,
-                       scoped_refptr<DecoderBuffer>(new DecoderBuffer(0))));
+    EXPECT_CALL(demuxer_stream_, Read(_))
+        .WillRepeatedly(RunCallback<0>(DemuxerStream::kOk,
+                                       DecoderBuffer::CreateEOSBuffer()));
     EXPECT_CALL(*decoder_, Stop())
         .WillRepeatedly(Invoke(this, &VideoRendererImplTest::StopRequested));
     EXPECT_CALL(statistics_cb_object_, OnStatistics(_))
@@ -91,12 +90,15 @@ class VideoRendererImplTest : public ::testing::Test {
   void InitializeWithLowDelay(bool low_delay) {
     // Monitor decodes from the decoder.
     EXPECT_CALL(*decoder_, Decode(_, _))
-        .WillRepeatedly(Invoke(this, &VideoRendererImplTest::DecodeRequested));
+        .WillRepeatedly(Invoke(this, &VideoRendererImplTest::FrameRequested));
 
     EXPECT_CALL(*decoder_, Reset(_))
         .WillRepeatedly(Invoke(this, &VideoRendererImplTest::FlushRequested));
 
     InSequence s;
+
+    EXPECT_CALL(*decoder_, Initialize(_, _, _))
+        .WillOnce(RunCallback<2>(PIPELINE_OK));
 
     // Set playback rate before anything else happens.
     renderer_->SetPlaybackRate(1.0f);
@@ -108,15 +110,11 @@ class VideoRendererImplTest : public ::testing::Test {
   void InitializeRenderer(PipelineStatus expected, bool low_delay) {
     SCOPED_TRACE(base::StringPrintf("InitializeRenderer(%d)", expected));
     WaitableMessageLoopEvent event;
-    CallInitialize(event.GetPipelineStatusCB(), low_delay, expected);
+    CallInitialize(event.GetPipelineStatusCB(), low_delay);
     event.RunAndWaitForStatus(expected);
   }
 
-  void CallInitialize(const PipelineStatusCB& status_cb,
-                      bool low_delay,
-                      PipelineStatus decoder_status) {
-    EXPECT_CALL(*decoder_, Initialize(_, _, _, _)).WillOnce(
-        DoAll(SaveArg<3>(&output_cb_), RunCallback<2>(decoder_status)));
+  void CallInitialize(const PipelineStatusCB& status_cb, bool low_delay) {
     renderer_->Initialize(
         &demuxer_stream_,
         low_delay,
@@ -221,7 +219,7 @@ class VideoRendererImplTest : public ::testing::Test {
   }
 
   bool IsReadPending() {
-    return !decode_cb_.is_null();
+    return !read_cb_.is_null();
   }
 
   void WaitForError(PipelineStatus expected) {
@@ -236,31 +234,31 @@ class VideoRendererImplTest : public ::testing::Test {
 
   void WaitForPendingRead() {
     SCOPED_TRACE("WaitForPendingRead()");
-    if (!decode_cb_.is_null())
+    if (!read_cb_.is_null())
       return;
 
-    DCHECK(wait_for_pending_decode_cb_.is_null());
+    DCHECK(wait_for_pending_read_cb_.is_null());
 
     WaitableMessageLoopEvent event;
-    wait_for_pending_decode_cb_ = event.GetClosure();
+    wait_for_pending_read_cb_ = event.GetClosure();
     event.RunAndWait();
 
-    DCHECK(!decode_cb_.is_null());
-    DCHECK(wait_for_pending_decode_cb_.is_null());
+    DCHECK(!read_cb_.is_null());
+    DCHECK(wait_for_pending_read_cb_.is_null());
   }
 
   void SatisfyPendingRead() {
-    CHECK(!decode_cb_.is_null());
+    CHECK(!read_cb_.is_null());
     CHECK(!decode_results_.empty());
 
-    // Post tasks for OutputCB and DecodeCB.
-    scoped_refptr<VideoFrame> frame = decode_results_.front().second;
-    if (frame)
-      message_loop_.PostTask(FROM_HERE, base::Bind(output_cb_, frame));
-    message_loop_.PostTask(
-        FROM_HERE, base::Bind(base::ResetAndReturn(&decode_cb_),
-                              decode_results_.front().first));
+    base::Closure closure = base::Bind(
+        read_cb_, decode_results_.front().first,
+        decode_results_.front().second);
+
+    read_cb_.Reset();
     decode_results_.pop_front();
+
+    message_loop_.PostTask(FROM_HERE, closure);
   }
 
   void AdvanceTimeInMs(int time_ms) {
@@ -294,15 +292,15 @@ class VideoRendererImplTest : public ::testing::Test {
     return base::TimeDelta::FromMilliseconds(kVideoDurationInMs);
   }
 
-  void DecodeRequested(const scoped_refptr<DecoderBuffer>& buffer,
-                       const VideoDecoder::DecodeCB& decode_cb) {
+  void FrameRequested(const scoped_refptr<DecoderBuffer>& buffer,
+                      const VideoDecoder::DecodeCB& read_cb) {
     DCHECK_EQ(&message_loop_, base::MessageLoop::current());
-    CHECK(decode_cb_.is_null());
-    decode_cb_ = decode_cb;
+    CHECK(read_cb_.is_null());
+    read_cb_ = read_cb;
 
     // Wake up WaitForPendingRead() if needed.
-    if (!wait_for_pending_decode_cb_.is_null())
-      base::ResetAndReturn(&wait_for_pending_decode_cb_).Run();
+    if (!wait_for_pending_read_cb_.is_null())
+      base::ResetAndReturn(&wait_for_pending_read_cb_).Run();
 
     if (decode_results_.empty())
       return;
@@ -313,7 +311,7 @@ class VideoRendererImplTest : public ::testing::Test {
   void FlushRequested(const base::Closure& callback) {
     DCHECK_EQ(&message_loop_, base::MessageLoop::current());
     decode_results_.clear();
-    if (!decode_cb_.is_null()) {
+    if (!read_cb_.is_null()) {
       QueueFrames("abort");
       SatisfyPendingRead();
     }
@@ -324,7 +322,7 @@ class VideoRendererImplTest : public ::testing::Test {
   void StopRequested() {
     DCHECK_EQ(&message_loop_, base::MessageLoop::current());
     decode_results_.clear();
-    if (!decode_cb_.is_null()) {
+    if (!read_cb_.is_null()) {
       QueueFrames("abort");
       SatisfyPendingRead();
     }
@@ -337,15 +335,14 @@ class VideoRendererImplTest : public ::testing::Test {
   base::TimeDelta time_;
 
   // Used for satisfying reads.
-  VideoDecoder::OutputCB output_cb_;
-  VideoDecoder::DecodeCB decode_cb_;
+  VideoDecoder::DecodeCB read_cb_;
   base::TimeDelta next_frame_timestamp_;
 
   WaitableMessageLoopEvent error_event_;
   WaitableMessageLoopEvent ended_event_;
 
-  // Run during DecodeRequested() to unblock WaitForPendingRead().
-  base::Closure wait_for_pending_decode_cb_;
+  // Run during FrameRequested() to unblock WaitForPendingRead().
+  base::Closure wait_for_pending_read_cb_;
 
   std::deque<std::pair<
       VideoDecoder::Status, scoped_refptr<VideoFrame> > > decode_results_;
@@ -381,7 +378,9 @@ static void ExpectNotCalled(PipelineStatus) {
 }
 
 TEST_F(VideoRendererImplTest, StopWhileInitializing) {
-  CallInitialize(base::Bind(&ExpectNotCalled), false, PIPELINE_OK);
+  EXPECT_CALL(*decoder_, Initialize(_, _, _))
+      .WillOnce(RunCallback<2>(PIPELINE_OK));
+  CallInitialize(base::Bind(&ExpectNotCalled), false);
   Stop();
 
   // ~VideoRendererImpl() will CHECK() if we left anything initialized.
@@ -582,9 +581,55 @@ TEST_F(VideoRendererImplTest, StopDuringOutstandingRead) {
   event.RunAndWait();
 }
 
+TEST_F(VideoRendererImplTest, AbortPendingRead_Playing) {
+  Initialize();
+  QueueFrames("0 10 20 30");
+  EXPECT_CALL(mock_display_cb_, Display(HasTimestamp(0)));
+  Preroll(0, PIPELINE_OK);
+  Play();
+
+  // Check that there is an outstanding Read() request.
+  EXPECT_TRUE(IsReadPending());
+
+  QueueFrames("abort");
+  SatisfyPendingRead();
+
+  Flush();
+  QueueFrames("60 70 80 90");
+  EXPECT_CALL(mock_display_cb_, Display(HasTimestamp(60)));
+  Preroll(60, PIPELINE_OK);
+  Shutdown();
+}
+
+TEST_F(VideoRendererImplTest, AbortPendingRead_Flush) {
+  Initialize();
+  QueueFrames("0 10 20 30");
+  EXPECT_CALL(mock_display_cb_, Display(HasTimestamp(0)));
+  Preroll(0, PIPELINE_OK);
+  Play();
+
+  // Check that there is an outstanding Read() request.
+  EXPECT_TRUE(IsReadPending());
+
+  Flush();
+  Shutdown();
+}
+
+TEST_F(VideoRendererImplTest, AbortPendingRead_Preroll) {
+  Initialize();
+  QueueFrames("0 10 abort");
+  EXPECT_CALL(mock_display_cb_, Display(HasTimestamp(0)));
+  Preroll(0, PIPELINE_OK);
+  Shutdown();
+}
+
 TEST_F(VideoRendererImplTest, VideoDecoder_InitFailure) {
   InSequence s;
+
+  EXPECT_CALL(*decoder_, Initialize(_, _, _))
+      .WillOnce(RunCallback<2>(DECODER_ERROR_NOT_SUPPORTED));
   InitializeRenderer(DECODER_ERROR_NOT_SUPPORTED, false);
+
   Stop();
 }
 
