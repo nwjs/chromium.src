@@ -94,6 +94,8 @@ class VIEWS_EXPORT WidgetDelegate {
   // was handled, false if it was not.
   virtual bool ExecuteWindowsCommand(int command_id);
 
+  virtual bool ExecuteAppCommand(int command_id);
+
   virtual bool HandleSize(unsigned int param, const gfx::Size& size);
 
   // Returns the window's name identifier. Used to identify this window for

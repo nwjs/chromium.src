@@ -402,6 +402,7 @@ NativeMenuWin::NativeMenuWin(ui::MenuModel* model, HWND system_menu_for)
       position_to_select_(-1),
       menu_to_select_factory_(this),
       parent_(NULL),
+      is_popup_menu_(true),
       destroyed_flag_(NULL) {
 }
 
@@ -734,14 +735,18 @@ void NativeMenuWin::ResetNativeMenu() {
   } else {
     if (menu_)
       DestroyMenu(menu_);
-    menu_ = CreatePopupMenu();
+    if (is_popup_menu_)
+      menu_ = CreatePopupMenu();
+    else
+      menu_ = CreateMenu();
     // Rather than relying on the return value of TrackPopupMenuEx, which is
     // always a command identifier, instead we tell the menu to notify us via
     // our host window and the WM_MENUCOMMAND message.
     MENUINFO mi = {0};
     mi.cbSize = sizeof(mi);
     mi.fMask = MIM_STYLE | MIM_MENUDATA;
-    mi.dwStyle = MNS_NOTIFYBYPOS;
+    if (is_popup_menu_)
+      mi.dwStyle = MNS_NOTIFYBYPOS;
     mi.dwMenuData = reinterpret_cast<ULONG_PTR>(this);
     SetMenuInfo(menu_, &mi);
   }

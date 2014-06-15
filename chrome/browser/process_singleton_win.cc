@@ -241,9 +241,11 @@ bool ProcessSingleton::EscapeVirtualization(
     const base::FilePath& user_data_dir) {
   if (::GetModuleHandle(L"sftldr_wow64.dll") ||
       ::GetModuleHandle(L"sftldr.dll")) {
+#if 0
     int process_id;
     if (!installer::WMIProcess::Launch(::GetCommandLineW(), &process_id))
       return false;
+#endif
     is_virtualized_ = true;
     // The new window was spawned from WMI, and won't be in the foreground.
     // So, first we sleep while the new chrome.exe instance starts (because
@@ -338,8 +340,10 @@ ProcessSingleton::NotifyOtherProcessOrCreate() {
     if (result == PROCESS_NONE)
       result = PROFILE_IN_USE;
   } else {
+#if 0
     g_browser_process->platform_part()->PlatformSpecificCommandLineProcessing(
         *CommandLine::ForCurrentProcess());
+#endif
   }
   return result;
 }
@@ -394,11 +398,13 @@ bool ProcessSingleton::Create() {
         // Metro mode: activate and rendez-vous with the activated process.
         metro_activation_event.Set(
             ::CreateEvent(NULL, TRUE, FALSE, kMetroActivationEventName));
+#if 0
         if (!chrome::ActivateMetroChrome()) {
           // Failed to launch immersive Chrome, default to launching on Desktop.
           LOG(ERROR) << "Failed to launch immersive chrome";
           metro_activation_event.Close();
         }
+#endif
       }
 
       if (metro_activation_event.IsValid()) {
