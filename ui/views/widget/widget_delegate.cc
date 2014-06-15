@@ -107,6 +107,10 @@ bool WidgetDelegate::ExecuteWindowsCommand(int command_id) {
   return false;
 }
 
+bool WidgetDelegate::ExecuteAppCommand(int command_id) {
+  return ExecuteWindowsCommand(command_id);
+}
+
 bool WidgetDelegate::HandleSize(unsigned int param, const gfx::Size& size) {
   return false;
 }

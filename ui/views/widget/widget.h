@@ -688,6 +688,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   bool movement_disabled() const { return movement_disabled_; }
   void set_movement_disabled(bool disabled) { movement_disabled_ = disabled; }
 
+  void set_has_menu_bar(bool has) { has_menu_bar_ = has; }
+  bool has_menu_bar() const { return has_menu_bar_; }
+
   // Returns the work area bounds of the screen the Widget belongs to.
   gfx::Rect GetWorkAreaBoundsInScreen() const;
 
@@ -874,6 +877,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // If true, a touch device is currently down.
   bool is_touch_down_;
+
+  // Whether this widget has native menu bar.
+  bool has_menu_bar_;
 
   // TODO(beng): Remove NativeWidgetGtk's dependence on these:
   // The following are used to detect duplicate mouse move events and not

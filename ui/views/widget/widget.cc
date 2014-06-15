@@ -179,6 +179,7 @@ Widget::Widget()
       native_widget_destroyed_(false),
       is_mouse_button_pressed_(false),
       is_touch_down_(false),
+      has_menu_bar_(false),
       last_mouse_event_was_move_(false),
       auto_release_capture_(true),
       root_layers_dirty_(false),

@@ -163,6 +163,7 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
   virtual bool ShouldHandleSystemCommands() const OVERRIDE;
   virtual bool ShouldHandleOnSize() const OVERRIDE;
+  virtual bool HandleSize(UINT param, const gfx::Size& new_size) OVERRIDE;
   virtual InputMethod* GetInputMethod() OVERRIDE;
   virtual void HandleAppDeactivated() OVERRIDE;
   virtual void HandleActivationChanged(bool active) OVERRIDE;

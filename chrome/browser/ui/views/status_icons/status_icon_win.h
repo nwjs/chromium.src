@@ -53,7 +53,7 @@ class StatusIconWin : public StatusIcon {
  protected:
   // Overridden from StatusIcon:
   virtual void UpdatePlatformContextMenu(
-      StatusIconMenuModel* menu) OVERRIDE;
+      ui::MenuModel* menu) OVERRIDE;
 
  private:
   void InitIconData(NOTIFYICONDATA* icon_data);
@@ -98,7 +98,7 @@ class StatusIconMetro : public StatusIcon {
                               const base::string16& contents) OVERRIDE;
  protected:
   virtual void UpdatePlatformContextMenu(
-      StatusIconMenuModel* menu) OVERRIDE;
+      ui::MenuModel* menu) OVERRIDE;
 
  private:
   base::string16 tool_tip_;

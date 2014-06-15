@@ -726,6 +726,11 @@ void DesktopWindowTreeHostWin::HandleAppDeactivated() {
   native_widget_delegate_->EnableInactiveRendering();
 }
 
+bool DesktopWindowTreeHostWin::HandleSize(UINT param, const gfx::Size& new_size) {
+  return GetWidget()->widget_delegate() &&
+      GetWidget()->widget_delegate()->HandleSize(param, new_size);
+}
+
 void DesktopWindowTreeHostWin::HandleActivationChanged(bool active) {
   // This can be invoked from HWNDMessageHandler::Init(), at which point we're
   // not in a good state and need to ignore it.
@@ -742,7 +747,7 @@ bool DesktopWindowTreeHostWin::HandleAppCommand(short command) {
   // We treat APPCOMMAND ids as an extension of our command namespace, and just
   // let the delegate figure out what to do...
   return GetWidget()->widget_delegate() &&
-      GetWidget()->widget_delegate()->ExecuteWindowsCommand(command);
+      GetWidget()->widget_delegate()->ExecuteAppCommand(command);
 }
 
 void DesktopWindowTreeHostWin::HandleCancelMode() {

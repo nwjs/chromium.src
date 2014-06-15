@@ -123,7 +123,7 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // true if the command was handled.
   virtual bool HandleCommand(int command) = 0;
 
-  virtual bool HandleSize(UINT param, const CSize& size) = 0;
+  virtual bool HandleSize(UINT param, const gfx::Size& size) = 0;
 
   // Called when an accelerator is invoked.
   virtual void HandleAccelerator(const ui::Accelerator& accelerator) = 0;
