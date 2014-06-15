@@ -40,8 +40,6 @@ class CONTENT_EXPORT BrowserAccessibilityManagerWin
     parent_iaccessible_ = parent_iaccessible;
   }
 
-  void SetAccessibleHWND(LegacyRenderWidgetHostHWND* accessible_hwnd);
-
   // Calls NotifyWinEvent if the parent window's IAccessible pointer is known.
   void MaybeCallNotifyWinEvent(DWORD event, LONG child_id);
 
