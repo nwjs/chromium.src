@@ -1716,8 +1716,8 @@
           ['component=="shared_library"', {
             'win_use_allocator_shim%': 0,
           },{
-            # Turn on multiple dll by default on Windows when in static_library.
-            'chrome_multiple_dll%': 1,
+            ## Turn on multiple dll by default on Windows when in static_library.
+            'chrome_multiple_dll%': 0,
           }],
           ['asan==1', {
             'win_use_allocator_shim%': 0,
