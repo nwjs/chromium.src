@@ -162,8 +162,10 @@ namespace platform_util {
 void ShowItemInFolder(Profile* profile, const base::FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+#if 0
   if (chrome::GetActiveDesktop() == chrome::HOST_DESKTOP_TYPE_ASH)
     chrome::ActivateDesktopHelper(chrome::ASH_KEEP_RUNNING);
+#endif
 
   BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
       base::Bind(&ShowItemInFolderOnFileThread, full_path));
@@ -172,8 +174,10 @@ void ShowItemInFolder(Profile* profile, const base::FilePath& full_path) {
 void OpenItem(Profile* profile, const base::FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+#if 0
   if (chrome::GetActiveDesktop() == chrome::HOST_DESKTOP_TYPE_ASH)
     chrome::ActivateDesktopHelper(chrome::ASH_KEEP_RUNNING);
+#endif
 
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
@@ -183,12 +187,18 @@ void OpenItem(Profile* profile, const base::FilePath& full_path) {
 void OpenExternal(Profile* profile, const GURL& url) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+#if 0
   if (chrome::GetActiveDesktop() == chrome::HOST_DESKTOP_TYPE_ASH &&
       !url.SchemeIsHTTPOrHTTPS())
     chrome::ActivateDesktopHelper(chrome::ASH_KEEP_RUNNING);
+#endif
 
   BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
                           base::Bind(&OpenExternalOnFileThread, url));
+}
+
+void OpenExternal2(const GURL& url) {
+  OpenExternal(NULL, url);
 }
 
 #if !defined(USE_AURA)
