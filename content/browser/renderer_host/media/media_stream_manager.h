@@ -128,15 +128,13 @@ class CONTENT_EXPORT MediaStreamManager
   // and video devices and also start monitoring device changes, such as
   // plug/unplug. The new device lists will be delivered via media observer to
   // MediaCaptureDevicesDispatcher.
-  // If |have_permission| is false, we remove the device label from the result.
   virtual std::string EnumerateDevices(MediaStreamRequester* requester,
                                        int render_process_id,
                                        int render_view_id,
                                        const ResourceContext::SaltCallback& sc,
                                        int page_request_id,
                                        MediaStreamType type,
-                                       const GURL& security_origin,
-                                       bool have_permission);
+                                       const GURL& security_origin);
 
   // Open a device identified by |device_id|.  |type| must be either
   // MEDIA_DEVICE_AUDIO_CAPTURE or MEDIA_DEVICE_VIDEO_CAPTURE.

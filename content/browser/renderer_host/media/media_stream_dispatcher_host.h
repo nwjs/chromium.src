@@ -19,7 +19,6 @@
 namespace content {
 
 class MediaStreamManager;
-class ResourceContext;
 
 // MediaStreamDispatcherHost is a delegate for Media Stream API messages used by
 // MediaStreamImpl. It's the complement of MediaStreamDispatcher
@@ -30,8 +29,7 @@ class CONTENT_EXPORT MediaStreamDispatcherHost : public BrowserMessageFilter,
   MediaStreamDispatcherHost(
       int render_process_id,
       const ResourceContext::SaltCallback& salt_callback,
-      MediaStreamManager* media_stream_manager,
-      ResourceContext* resource_context);
+      MediaStreamManager* media_stream_manager);
 
   // MediaStreamRequester implementation.
   virtual void StreamGenerated(
@@ -102,9 +100,6 @@ class CONTENT_EXPORT MediaStreamDispatcherHost : public BrowserMessageFilter,
   int render_process_id_;
   ResourceContext::SaltCallback salt_callback_;
   MediaStreamManager* media_stream_manager_;
-
-  // Owned by ProfileIOData which is guaranteed to outlive MSDH.
-  ResourceContext* const resource_context_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamDispatcherHost);
 };
