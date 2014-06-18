@@ -366,7 +366,7 @@ void DesktopWindowTreeHostWin::SetVisibilityChangedAnimationsEnabled(
 }
 
 bool DesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
-  return ui::win::IsAeroGlassEnabled();
+  return true;
 }
 
 bool DesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent() const {
