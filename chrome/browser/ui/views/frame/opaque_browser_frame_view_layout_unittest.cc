@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/views/tab_icon_view.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/common/chrome_switches.h"
-#include "components/signin/core/common/profile_management_switches.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
 #include "ui/gfx/text_constants.h"
@@ -514,8 +513,8 @@ TEST_F(OpaqueBrowserFrameViewLayoutTest,
 }
 
 TEST_F(OpaqueBrowserFrameViewLayoutTest, WindowWithNewAvatar) {
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+  CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kNewProfileManagement);
 
   // Tests a normal tabstrip window with the new style avatar icon.
   AddNewAvatarButton();

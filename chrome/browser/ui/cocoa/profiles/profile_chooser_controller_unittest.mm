@@ -22,7 +22,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_manager.h"
-#include "components/signin/core/common/profile_management_switches.h"
 
 const std::string kEmail = "user@gmail.com";
 const std::string kSecondaryEmail = "user2@gmail.com";
@@ -75,6 +74,11 @@ class ProfileChooserControllerTest : public CocoaProfileTest {
     [controller_ showWindow:nil];
   }
 
+  void EnableNewProfileManagement() {
+    CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kNewProfileManagement);
+  }
+
   void EnableNewAvatarMenuOnly() {
     CommandLine::ForCurrentProcess()->AppendSwitch(switches::kNewAvatarMenu);
   }
@@ -97,8 +101,7 @@ class ProfileChooserControllerTest : public CocoaProfileTest {
 };
 
 TEST_F(ProfileChooserControllerTest, InitialLayoutWithNewManagement) {
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+  EnableNewProfileManagement();
   StartProfileChooserController();
 
   NSArray* subviews = [[[controller() window] contentView] subviews];
@@ -198,8 +201,7 @@ TEST_F(ProfileChooserControllerTest, InitialLayoutWithNewMenu) {
 }
 
 TEST_F(ProfileChooserControllerTest, InitialLayoutWithFastUserSwitcher) {
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+  EnableNewProfileManagement();
   EnableFastUserSwitching();
   StartProfileChooserController();
 
@@ -282,9 +284,8 @@ TEST_F(ProfileChooserControllerTest, OtherProfilesSortedAlphabetically) {
 }
 
 TEST_F(ProfileChooserControllerTest,
-       LocalProfileActiveCardLinksWithNewManagement) {
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+    LocalProfileActiveCardLinksWithNewManagement) {
+  EnableNewProfileManagement();
   StartProfileChooserController();
   NSArray* subviews = [[[controller() window] contentView] subviews];
   EXPECT_EQ(1U, [subviews count]);
@@ -319,9 +320,8 @@ TEST_F(ProfileChooserControllerTest,
 }
 
 TEST_F(ProfileChooserControllerTest,
-       SignedInProfileActiveCardLinksWithNewManagement) {
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+    SignedInProfileActiveCardLinksWithNewManagement) {
+  EnableNewProfileManagement();
   // Sign in the first profile.
   ProfileInfoCache* cache = testing_profile_manager()->profile_info_cache();
   cache->SetUserNameOfProfileAtIndex(0, base::ASCIIToUTF16(kEmail));
@@ -365,8 +365,7 @@ TEST_F(ProfileChooserControllerTest,
 }
 
 TEST_F(ProfileChooserControllerTest, AccountManagementLayout) {
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+  EnableNewProfileManagement();
   // Sign in the first profile.
   ProfileInfoCache* cache = testing_profile_manager()->profile_info_cache();
   cache->SetUserNameOfProfileAtIndex(0, base::ASCIIToUTF16(kEmail));

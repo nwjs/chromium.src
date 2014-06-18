@@ -10,7 +10,6 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
 #include "grit/generated_resources.h"
@@ -24,11 +23,12 @@ class UserManagerUIBrowserTest : public InProcessBrowserTest,
  protected:
    virtual void SetUp() OVERRIDE {
     InProcessBrowserTest::SetUp();
-    DCHECK(switches::IsNewProfileManagement());
+    DCHECK(CommandLine::ForCurrentProcess()->HasSwitch(
+        switches::kNewProfileManagement));
   }
 
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    switches::EnableNewProfileManagementForTesting(command_line);
+    command_line->AppendSwitch(switches::kNewProfileManagement);
   }
 };
 

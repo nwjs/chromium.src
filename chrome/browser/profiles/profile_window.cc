@@ -23,7 +23,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "components/signin/core/browser/account_reconcilor.h"
-#include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/user_metrics.h"
 
@@ -318,9 +317,6 @@ void ShowUserManagerMaybeWithTutorial(Profile* profile) {
 }
 
 void EnableNewProfileManagementPreview(Profile* profile) {
-#if defined(OS_ANDROID)
-  NOTREACHED();
-#else
   about_flags::PrefServiceFlagsStorage flags_storage(
       g_browser_process->local_state());
   about_flags::SetExperimentEnabled(
@@ -328,11 +324,10 @@ void EnableNewProfileManagementPreview(Profile* profile) {
       kNewProfileManagementExperimentInternalName,
       true);
 
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+  CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kNewProfileManagement);
   chrome::ShowUserManagerWithTutorial(profiles::USER_MANAGER_TUTORIAL_OVERVIEW);
   UpdateServicesWithNewProfileManagementFlag(profile, true);
-#endif
 }
 
 void DisableNewProfileManagementPreview(Profile* profile) {

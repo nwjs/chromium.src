@@ -1443,16 +1443,14 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_NEW_PROFILE_MANAGEMENT_NAME,
     IDS_FLAGS_ENABLE_NEW_PROFILE_MANAGEMENT_DESCRIPTION,
     kOsAndroid | kOsMac | kOsWin | kOsLinux | kOsCrOS,
-    ENABLE_DISABLE_VALUE_TYPE(switches::kEnableNewProfileManagement,
-                              switches::kDisableNewProfileManagement)
+    SINGLE_VALUE_TYPE(switches::kNewProfileManagement)
   },
   {
     "enable-account-consistency",
     IDS_FLAGS_ENABLE_ACCOUNT_CONSISTENCY_NAME,
     IDS_FLAGS_ENABLE_ACCOUNT_CONSISTENCY_DESCRIPTION,
     kOsAndroid | kOsMac | kOsWin | kOsLinux | kOsCrOS,
-    ENABLE_DISABLE_VALUE_TYPE(switches::kEnableAccountConsistency,
-                              switches::kDisableAccountConsistency)
+    SINGLE_VALUE_TYPE(switches::kEnableAccountConsistency)
   },
   {
     "enable-fast-user-switching",

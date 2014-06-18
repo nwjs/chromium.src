@@ -35,7 +35,6 @@
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/test_browser_thread_bundle.h"
@@ -891,8 +890,8 @@ TEST_F(ProfileManagerTest, ProfileDisplayNameResetsDefaultName) {
     return;
 
   // The command line is reset at the end of every test by the test suite.
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+  CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kNewProfileManagement);
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
@@ -926,8 +925,8 @@ TEST_F(ProfileManagerTest, ProfileDisplayNamePreservesCustomName) {
     return;
 
   // The command line is reset at the end of every test by the test suite.
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+  CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kNewProfileManagement);
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
@@ -966,9 +965,9 @@ TEST_F(ProfileManagerTest, ProfileDisplayNamePreservesSignedInName) {
   if (!profiles::IsMultipleProfilesEnabled())
     return;
 
-  // The command line is reset at the end of every test by the test suite.
-  switches::EnableNewProfileManagementForTesting(
-      CommandLine::ForCurrentProcess());
+    // The command line is reset at the end of every test by the test suite.
+  CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kNewProfileManagement);
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
