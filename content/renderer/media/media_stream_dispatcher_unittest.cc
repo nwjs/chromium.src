@@ -65,7 +65,7 @@ class MockMediaStreamDispatcherEventHandler
     if (IsVideoMediaType(device_info.device.type)) {
       EXPECT_TRUE(StreamDeviceInfo::IsEqual(video_device_, device_info));
     }
-    if (IsAudioInputMediaType(device_info.device.type)) {
+    if (IsAudioMediaType(device_info.device.type)) {
       EXPECT_TRUE(StreamDeviceInfo::IsEqual(audio_device_, device_info));
     }
   }
