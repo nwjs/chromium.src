@@ -13,7 +13,7 @@
 #include "content/renderer/p2p/network_list_observer.h"
 #include "content/renderer/p2p/socket_client_impl.h"
 #include "content/renderer/render_view_impl.h"
-#include "ipc/ipc_sender.h"
+#include "ipc/ipc_channel.h"
 
 namespace content {
 
@@ -23,7 +23,7 @@ P2PSocketDispatcher::P2PSocketDispatcher(
       network_notifications_started_(false),
       network_list_observers_(
           new ObserverListThreadSafe<NetworkListObserver>()),
-      sender_(NULL) {
+      channel_(NULL) {
 }
 
 P2PSocketDispatcher::~P2PSocketDispatcher() {
@@ -48,13 +48,13 @@ void P2PSocketDispatcher::RemoveNetworkListObserver(
 
 void P2PSocketDispatcher::Send(IPC::Message* message) {
   DCHECK(message_loop_->BelongsToCurrentThread());
-  if (!sender_) {
-    DLOG(WARNING) << "P2PSocketDispatcher::Send() - Sender closed.";
+  if (!channel_) {
+    DLOG(WARNING) << "P2PSocketDispatcher::Send() - Channel closed.";
     delete message;
     return;
   }
 
-  sender_->Send(message);
+  channel_->Send(message);
 }
 
 bool P2PSocketDispatcher::OnMessageReceived(const IPC::Message& message) {
@@ -72,17 +72,17 @@ bool P2PSocketDispatcher::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
-void P2PSocketDispatcher::OnFilterAdded(IPC::Sender* sender) {
+void P2PSocketDispatcher::OnFilterAdded(IPC::Channel* channel) {
   DVLOG(1) << "P2PSocketDispatcher::OnFilterAdded()";
-  sender_ = sender;
+  channel_ = channel;
 }
 
 void P2PSocketDispatcher::OnFilterRemoved() {
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 void P2PSocketDispatcher::OnChannelClosing() {
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 base::MessageLoopProxy* P2PSocketDispatcher::message_loop() {

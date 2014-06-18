@@ -48,7 +48,7 @@ class WebRtcLoggingMessageFilter : public IPC::MessageFilter {
  private:
   // IPC::MessageFilter implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
-  virtual void OnFilterAdded(IPC::Sender* sender) OVERRIDE;
+  virtual void OnFilterAdded(IPC::Channel* channel) OVERRIDE;
   virtual void OnFilterRemoved() OVERRIDE;
   virtual void OnChannelClosing() OVERRIDE;
 
@@ -58,7 +58,7 @@ class WebRtcLoggingMessageFilter : public IPC::MessageFilter {
   void OnStopLogging();
   void Send(IPC::Message* message);
 
-  IPC::Sender* sender_;
+  IPC::Channel* channel_;
 
   DISALLOW_COPY_AND_ASSIGN(WebRtcLoggingMessageFilter);
 };

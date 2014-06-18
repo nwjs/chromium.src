@@ -24,7 +24,7 @@ namespace content {
 
 MidiMessageFilter::MidiMessageFilter(
     const scoped_refptr<base::MessageLoopProxy>& io_message_loop)
-    : sender_(NULL),
+    : channel_(NULL),
       io_message_loop_(io_message_loop),
       main_message_loop_(base::MessageLoopProxy::current()),
       next_available_id_(0),
@@ -35,10 +35,10 @@ MidiMessageFilter::~MidiMessageFilter() {}
 
 void MidiMessageFilter::Send(IPC::Message* message) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  if (!sender_) {
+  if (!channel_) {
     delete message;
   } else {
-    sender_->Send(message);
+    channel_->Send(message);
   }
 }
 
@@ -54,9 +54,9 @@ bool MidiMessageFilter::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
-void MidiMessageFilter::OnFilterAdded(IPC::Sender* sender) {
+void MidiMessageFilter::OnFilterAdded(IPC::Channel* channel) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = sender;
+  channel_ = channel;
 }
 
 void MidiMessageFilter::OnFilterRemoved() {
@@ -69,7 +69,7 @@ void MidiMessageFilter::OnFilterRemoved() {
 
 void MidiMessageFilter::OnChannelClosing() {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 void MidiMessageFilter::StartSession(blink::WebMIDIAccessorClient* client) {

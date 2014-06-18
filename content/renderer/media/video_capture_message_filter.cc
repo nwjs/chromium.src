@@ -6,13 +6,13 @@
 
 #include "content/common/media/video_capture_messages.h"
 #include "content/common/view_messages.h"
-#include "ipc/ipc_sender.h"
+#include "ipc/ipc_channel.h"
 
 namespace content {
 
 VideoCaptureMessageFilter::VideoCaptureMessageFilter()
     : last_device_id_(0),
-      sender_(NULL) {
+      channel_(NULL) {
 }
 
 void VideoCaptureMessageFilter::AddDelegate(Delegate* delegate) {
@@ -21,7 +21,7 @@ void VideoCaptureMessageFilter::AddDelegate(Delegate* delegate) {
   while (delegates_.find(last_device_id_) != delegates_.end())
     last_device_id_++;
 
-  if (sender_) {
+  if (channel_) {
     delegates_[last_device_id_] = delegate;
     delegate->OnDelegateAdded(last_device_id_);
   } else {
@@ -47,12 +47,12 @@ void VideoCaptureMessageFilter::RemoveDelegate(Delegate* delegate) {
 }
 
 bool VideoCaptureMessageFilter::Send(IPC::Message* message) {
-  if (!sender_) {
+  if (!channel_) {
     delete message;
     return false;
   }
 
-  return sender_->Send(message);
+  return channel_->Send(message);
 }
 
 bool VideoCaptureMessageFilter::OnMessageReceived(const IPC::Message& message) {
@@ -73,9 +73,9 @@ bool VideoCaptureMessageFilter::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
-void VideoCaptureMessageFilter::OnFilterAdded(IPC::Sender* sender) {
+void VideoCaptureMessageFilter::OnFilterAdded(IPC::Channel* channel) {
   DVLOG(1) << "VideoCaptureMessageFilter::OnFilterAdded()";
-  sender_ = sender;
+  channel_ = channel;
 
   for (Delegates::iterator it = pending_delegates_.begin();
        it != pending_delegates_.end(); it++) {
@@ -86,11 +86,11 @@ void VideoCaptureMessageFilter::OnFilterAdded(IPC::Sender* sender) {
 }
 
 void VideoCaptureMessageFilter::OnFilterRemoved() {
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 void VideoCaptureMessageFilter::OnChannelClosing() {
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 VideoCaptureMessageFilter::~VideoCaptureMessageFilter() {}

@@ -70,8 +70,8 @@ void ServiceWorkerDispatcherHost::Init(
       render_process_id_, this);
 }
 
-void ServiceWorkerDispatcherHost::OnFilterAdded(IPC::Sender* sender) {
-  BrowserMessageFilter::OnFilterAdded(sender);
+void ServiceWorkerDispatcherHost::OnFilterAdded(IPC::Channel* channel) {
+  BrowserMessageFilter::OnFilterAdded(channel);
   channel_ready_ = true;
   std::vector<IPC::Message*> messages;
   pending_messages_.release(&messages);

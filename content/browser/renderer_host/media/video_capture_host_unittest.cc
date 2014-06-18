@@ -309,7 +309,7 @@ class VideoCaptureHostTest : public testing::Test {
 
     CloseSession();
 
-    // Simulate closing the IPC sender.
+    // Simulate closing the IPC channel.
     host_->OnChannelClosing();
 
     // Release the reference to the mock object. The object will be destructed

@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "base/strings/string16.h"
 #include "content/common/child_process_messages.h"
+#include "ipc/ipc_channel.h"
 
 namespace content {
 namespace {
@@ -135,14 +136,14 @@ class FontCache {
 }
 
 FontCacheDispatcher::FontCacheDispatcher()
-    : sender_(NULL) {
+    : channel_(NULL) {
 }
 
 FontCacheDispatcher::~FontCacheDispatcher() {
 }
 
-void FontCacheDispatcher::OnFilterAdded(IPC::Sender* sender) {
-  sender_ = sender;
+void FontCacheDispatcher::OnFilterAdded(IPC::Channel* channel) {
+  channel_ = channel;
 }
 
 bool FontCacheDispatcher::OnMessageReceived(const IPC::Message& message) {
@@ -157,12 +158,12 @@ bool FontCacheDispatcher::OnMessageReceived(const IPC::Message& message) {
 }
 
 void FontCacheDispatcher::OnChannelClosing() {
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 bool FontCacheDispatcher::Send(IPC::Message* message) {
-  if (sender_)
-    return sender_->Send(message);
+  if (channel_)
+    return channel_->Send(message);
 
   delete message;
   return false;

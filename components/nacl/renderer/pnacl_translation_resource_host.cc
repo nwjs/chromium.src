@@ -21,26 +21,26 @@ PnaclTranslationResourceHost::CacheRequestInfo::~CacheRequestInfo() {}
 
 PnaclTranslationResourceHost::PnaclTranslationResourceHost(
     const scoped_refptr<base::MessageLoopProxy>& io_message_loop)
-    : io_message_loop_(io_message_loop), sender_(NULL) {}
+    : io_message_loop_(io_message_loop), channel_(NULL) {}
 
 PnaclTranslationResourceHost::~PnaclTranslationResourceHost() {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
   CleanupCacheRequests();
 }
 
-void PnaclTranslationResourceHost::OnFilterAdded(IPC::Sender* sender) {
+void PnaclTranslationResourceHost::OnFilterAdded(IPC::Channel* channel) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = sender;
+  channel_ = channel;
 }
 
 void PnaclTranslationResourceHost::OnFilterRemoved() {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 void PnaclTranslationResourceHost::OnChannelClosing() {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = NULL;
+  channel_ = NULL;
 }
 
 bool PnaclTranslationResourceHost::OnMessageReceived(
@@ -84,8 +84,8 @@ void PnaclTranslationResourceHost::SendRequestNexeFd(
     PP_FileHandle* file_handle,
     scoped_refptr<TrackedCallback> callback) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  if (!sender_ || !sender_->Send(new NaClHostMsg_NexeTempFileRequest(
-          render_view_id, instance, cache_info))) {
+  if (!channel_ || !channel_->Send(new NaClHostMsg_NexeTempFileRequest(
+                       render_view_id, instance, cache_info))) {
     PpapiGlobals::Get()->GetMainThreadMessageLoop()
         ->PostTask(FROM_HERE,
                    base::Bind(&TrackedCallback::Run,
@@ -115,13 +115,13 @@ void PnaclTranslationResourceHost::SendReportTranslationFinished(
     PP_Instance instance,
     PP_Bool success) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  // If the sender is closed or we have been detached, we are probably shutting
+  // If the channel is closed or we have been detached, we are probably shutting
   // down, so just don't send anything.
-  if (!sender_)
+  if (!channel_)
     return;
   DCHECK(pending_cache_requests_.count(instance) == 0);
-  sender_->Send(new NaClHostMsg_ReportTranslationFinished(instance,
-                                                          PP_ToBool(success)));
+  channel_->Send(new NaClHostMsg_ReportTranslationFinished(instance,
+                                                           PP_ToBool(success)));
 }
 
 void PnaclTranslationResourceHost::OnNexeTempFileReply(

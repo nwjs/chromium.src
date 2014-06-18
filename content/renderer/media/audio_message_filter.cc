@@ -46,7 +46,7 @@ AudioMessageFilter* AudioMessageFilter::g_filter = NULL;
 
 AudioMessageFilter::AudioMessageFilter(
     const scoped_refptr<base::MessageLoopProxy>& io_message_loop)
-    : sender_(NULL),
+    : channel_(NULL),
       audio_hardware_config_(NULL),
       io_message_loop_(io_message_loop) {
   DCHECK(!g_filter);
@@ -118,10 +118,10 @@ void AudioMessageFilter::AudioOutputIPCImpl::SetVolume(double volume) {
 
 void AudioMessageFilter::Send(IPC::Message* message) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  if (!sender_) {
+  if (!channel_) {
     delete message;
   } else {
-    sender_->Send(message);
+    channel_->Send(message);
   }
 }
 
@@ -137,9 +137,9 @@ bool AudioMessageFilter::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
-void AudioMessageFilter::OnFilterAdded(IPC::Sender* sender) {
+void AudioMessageFilter::OnFilterAdded(IPC::Channel* channel) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = sender;
+  channel_ = channel;
 }
 
 void AudioMessageFilter::OnFilterRemoved() {
@@ -152,7 +152,7 @@ void AudioMessageFilter::OnFilterRemoved() {
 
 void AudioMessageFilter::OnChannelClosing() {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = NULL;
+  channel_ = NULL;
 
   DLOG_IF(WARNING, !delegates_.IsEmpty())
       << "Not all audio devices have been closed.";

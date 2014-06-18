@@ -9,8 +9,8 @@
 #include "base/strings/stringprintf.h"
 #include "content/common/media/audio_messages.h"
 #include "content/renderer/media/webrtc_logging.h"
+#include "ipc/ipc_channel.h"
 #include "ipc/ipc_logging.h"
-#include "ipc/ipc_sender.h"
 
 namespace content {
 
@@ -45,7 +45,7 @@ AudioInputMessageFilter* AudioInputMessageFilter::g_filter = NULL;
 
 AudioInputMessageFilter::AudioInputMessageFilter(
     const scoped_refptr<base::MessageLoopProxy>& io_message_loop)
-    : sender_(NULL),
+    : channel_(NULL),
       io_message_loop_(io_message_loop) {
   DCHECK(!g_filter);
   g_filter = this;
@@ -63,10 +63,10 @@ AudioInputMessageFilter* AudioInputMessageFilter::Get() {
 
 void AudioInputMessageFilter::Send(IPC::Message* message) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  if (!sender_) {
+  if (!channel_) {
     delete message;
   } else {
-    sender_->Send(message);
+    channel_->Send(message);
   }
 }
 
@@ -84,11 +84,11 @@ bool AudioInputMessageFilter::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
-void AudioInputMessageFilter::OnFilterAdded(IPC::Sender* sender) {
+void AudioInputMessageFilter::OnFilterAdded(IPC::Channel* channel) {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
 
-  // Captures the sender for IPC.
-  sender_ = sender;
+  // Captures the channel for IPC.
+  channel_ = channel;
 }
 
 void AudioInputMessageFilter::OnFilterRemoved() {
@@ -101,7 +101,7 @@ void AudioInputMessageFilter::OnFilterRemoved() {
 
 void AudioInputMessageFilter::OnChannelClosing() {
   DCHECK(io_message_loop_->BelongsToCurrentThread());
-  sender_ = NULL;
+  channel_ = NULL;
 
   DLOG_IF(WARNING, !delegates_.IsEmpty())
       << "Not all audio devices have been closed.";

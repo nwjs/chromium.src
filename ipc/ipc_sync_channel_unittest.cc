@@ -934,8 +934,8 @@ class TestSyncMessageFilter : public SyncMessageFilter {
         message_loop_(message_loop) {
   }
 
-  virtual void OnFilterAdded(Sender* sender) OVERRIDE {
-    SyncMessageFilter::OnFilterAdded(sender);
+  virtual void OnFilterAdded(Channel* channel) OVERRIDE {
+    SyncMessageFilter::OnFilterAdded(channel);
     message_loop_->PostTask(
         FROM_HERE,
         base::Bind(&TestSyncMessageFilter::SendMessageOnHelperThread, this));
