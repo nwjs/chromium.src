@@ -418,7 +418,7 @@
               ],
             },
             {
-              'destination': '<(PRODUCT_DIR)/locales',
+              'destination': '<(PRODUCT_DIR)/locales-chrome',
               'files': [
                 '<!@pymod_do_main(repack_locales -o -p <(OS) -g <(grit_out_dir) -s <(SHARED_INTERMEDIATE_DIR) -x <(SHARED_INTERMEDIATE_DIR) <(locales))'
               ],
