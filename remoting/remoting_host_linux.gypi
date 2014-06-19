@@ -89,10 +89,13 @@
               'actions': [
                 {
                   'action_name': 'dump_symbols',
+                  'variables': {
+                    'plugin_file': '<(host_plugin_prefix)remoting_host_plugin.<(host_plugin_extension)',
+                  },
                   'inputs': [
                     '<(DEPTH)/build/linux/dump_app_syms',
                     '<(PRODUCT_DIR)/dump_syms',
-                    '<(PRODUCT_DIR)/remoting_me2me_host',
+                    '<(PRODUCT_DIR)/<(plugin_file)',
                   ],
                   'outputs': [
                     '<(PRODUCT_DIR)/<(plugin_file).breakpad.<(target_arch)',
@@ -100,14 +103,14 @@
                   'action': ['<(DEPTH)/build/linux/dump_app_syms',
                              '<(PRODUCT_DIR)/dump_syms',
                              '<(linux_strip_binary)',
-                             '<(PRODUCT_DIR)/remoting_me2me_host',
+                             '<(PRODUCT_DIR)/<(plugin_file)',
                              '<@(_outputs)'],
                   'message': 'Dumping breakpad symbols to <(_outputs)',
                   'process_outputs_as_sources': 1,
                 },
               ],
               'dependencies': [
-                'remoting_me2me_host',
+                'remoting_host_plugin',
                 '../breakpad/breakpad.gyp:dump_syms',
               ],
             }],  # 'linux_dump_symbols==1'
