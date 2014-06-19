@@ -7,6 +7,7 @@
 {
   'type': 'none',
   'variables': {
+    'include_host_plugin%': 0,
     'extra_files%': [],
     'generated_html_files': [
       '<(SHARED_INTERMEDIATE_DIR)/main.html',
@@ -18,6 +19,22 @@
     'remoting_webapp_html',
   ],
   'conditions': [
+    ['include_host_plugin==1', {
+      'dependencies': [
+        'remoting_host_plugin',
+      ],
+      'variables': {
+        'plugin_path': '<(PRODUCT_DIR)/<(host_plugin_prefix)remoting_host_plugin.<(host_plugin_extension)',
+        'plugin_args': [
+          '--locales', '<@(remoting_host_locale_files)',
+          '--plugin', '<(plugin_path)',
+        ],
+      },
+    }, {
+      'variables': {
+        'plugin_args': [],
+      },
+    }],
     ['webapp_type=="v2_pnacl"', {
       'dependencies': [
         'remoting_nacl.gyp:remoting_client_plugin_nacl',
@@ -66,6 +83,14 @@
         '<@(remoting_webapp_locale_files)',
         '<@(extra_files)',
       ],
+      'conditions': [
+        ['include_host_plugin==1', {
+          'inputs': [
+            '<(plugin_path)',
+            '<@(remoting_host_locale_files)',
+          ],
+        }],
+      ],
       'outputs': [
         '<(output_dir)',
         '<(zip_path)',
@@ -74,6 +99,7 @@
         'python', 'webapp/build-webapp.py',
         '<(buildtype)',
         '<(version_full)',
+        '<(host_plugin_mime_type)',
         '<(output_dir)',
         '<(zip_path)',
         'webapp/manifest.json.jinja2',
@@ -81,6 +107,7 @@
         '<@(generated_html_files)',
         '<@(remoting_webapp_files)',
         '<@(extra_files)',
+        '<@(plugin_args)',
         '--locales', '<@(remoting_webapp_locale_files)',
       ],
     },

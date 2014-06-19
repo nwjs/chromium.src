@@ -68,8 +68,15 @@ remoting.HostController.AsyncResult.fromString = function(result) {
  * @private
  */
 remoting.HostController.prototype.createDispatcher_ = function() {
+  /** @return {remoting.HostPlugin} */
+  var createPluginForMe2Me = function() {
+    /** @type {HTMLElement} @private */
+    var container = document.getElementById('daemon-plugin-container');
+    return remoting.createNpapiPlugin(container);
+  };
+
   /** @type {remoting.HostDispatcher} @private */
-  var hostDispatcher = new remoting.HostDispatcher();
+  var hostDispatcher = new remoting.HostDispatcher(createPluginForMe2Me);
 
   /** @param {string} version */
   var printVersion = function(version) {
@@ -116,6 +123,27 @@ remoting.HostController.prototype.hasFeature = function(feature, callback) {
  */
 remoting.HostController.prototype.getConsent = function(onDone, onError) {
   this.hostDispatcher_.getUsageStatsConsent(onDone, onError);
+};
+
+/**
+ * @param {function(remoting.HostController.AsyncResult):void} onDone
+ * @param {function(remoting.Error):void} onError
+ * @return {void}
+ */
+remoting.HostController.prototype.installHost = function(onDone, onError) {
+  /** @type {remoting.HostController} */
+  var that = this;
+
+  /** @param {remoting.HostController.AsyncResult} asyncResult */
+  var onHostInstalled = function(asyncResult) {
+    // Refresh the dispatcher after the host has been installed.
+    if (asyncResult == remoting.HostController.AsyncResult.OK) {
+      that.hostDispatcher_ = that.createDispatcher_();
+    }
+    onDone(asyncResult);
+  };
+
+  this.hostDispatcher_.installHost(onHostInstalled, onError);
 };
 
 /**
@@ -501,6 +529,14 @@ remoting.HostController.prototype.clearPairedClients = function(
     onDone, onError) {
   this.hostDispatcher_.clearPairedClients(onDone, onError);
 };
+
+/**
+ * Returns true if the NPAPI plugin is being used.
+ * @return {boolean}
+ */
+remoting.HostController.prototype.usingNpapiPlugin = function() {
+  return this.hostDispatcher_.usingNpapiPlugin();
+}
 
 /** @type {remoting.HostController} */
 remoting.hostController = null;
