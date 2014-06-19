@@ -272,7 +272,7 @@ def main():
   arg_type = ''
   files = []
   locales = []
-  for arg in sys.argv[7:]:
+  for arg in sys.argv[8:]:
     if arg in ['--locales']:
       arg_type = arg
     elif arg_type == '--locales':
