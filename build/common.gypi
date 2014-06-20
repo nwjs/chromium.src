@@ -1211,7 +1211,7 @@
 
     # The default value for mac_strip in target_defaults. This cannot be
     # set there, per the comment about variable% in a target_defaults.
-    'mac_strip_release%': 0,
+    'mac_strip_release%': 1,
 
     # Set to 1 to enable java code coverage. Instruments classes during build
     # to produce .ec files during runtime.
@@ -4856,7 +4856,7 @@
             }, {
               'conditions': [
                 ['mac_want_real_dsym=="default"', {
-                  'mac_real_dsym': 0, # Fake .dSYMs are fine in most cases.
+                  'mac_real_dsym': 1, # Fake .dSYMs are fine in most cases.
                 }, {
                   'mac_real_dsym': '<(mac_want_real_dsym)'
                 }],
