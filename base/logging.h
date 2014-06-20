@@ -893,6 +893,6 @@ EAT_STREAM_PARAMETERS
 #undef DPCHECK
 #define DPCHECK PCHECK
 #undef DCHECK_IS_ON
-#define DCHECK_IS_ON() true
+#define DCHECK_IS_ON 1
 
 #endif  // BASE_LOGGING_H_
