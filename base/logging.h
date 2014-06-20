@@ -886,4 +886,13 @@ inline std::ostream& operator<<(std::ostream& out, const std::wstring& wstr) {
 EAT_STREAM_PARAMETERS
 #endif
 
+#undef DCHECK
+#define DCHECK CHECK
+#undef DCHECK_OP
+#define DCHECK_OP CHECK_OP
+#undef DPCHECK
+#define DPCHECK PCHECK
+#undef DCHECK_IS_ON
+#define DCHECK_IS_ON() true
+
 #endif  // BASE_LOGGING_H_
