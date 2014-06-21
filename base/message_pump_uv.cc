@@ -121,8 +121,10 @@ void MessagePumpUV::Run(Delegate* delegate) {
   }
 
   if (nesting_level_ > 1) {
+    uv_close((uv_handle_t*)wakeup_event_ref_, NULL);
     // Delete external loop.
-    uv_loop_delete(loop);
+    uv_loop_close(loop);
+    free(loop);
 
     // Restore previous async handle.
     delete wakeup_event_ref_;
