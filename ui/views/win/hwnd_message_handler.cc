@@ -1707,10 +1707,15 @@ LRESULT HWNDMessageHandler::OnNCHitTest(const gfx::Point& point) {
   // If the DWM is rendering the window controls, we need to give the DWM's
   // default window procedure first chance to handle hit testing.
   if (!remove_standard_frame_ && !delegate_->IsUsingCustomFrame()) {
-    LRESULT result;
-    if (DwmDefWindowProc(hwnd(), WM_NCHITTEST, 0,
-                         MAKELPARAM(point.x(), point.y()), &result)) {
-      return result;
+    if (base::win::GetVersion() > base::win::VERSION_VISTA) {
+      LRESULT result;
+      if (DwmDefWindowProc(hwnd(), WM_NCHITTEST, 0,
+                           MAKELPARAM(point.x(), point.y()), &result)) {
+        return result;
+      }
+    } else {
+      SetMsgHandled(FALSE);
+      return 0;
     }
   }
 
