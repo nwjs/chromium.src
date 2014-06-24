@@ -29,7 +29,6 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_helper.h"
-#include "content/browser/transition_request_manager.h"
 #include "content/common/child_process_host_impl.h"
 #include "content/common/child_process_messages.h"
 #include "content/common/cookie_data.h"
@@ -438,8 +437,6 @@ bool RenderMessageFilter::OnMessageReceived(const IPC::Message& message) {
 #if defined(OS_ANDROID)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RunWebAudioMediaCodec, OnWebAudioMediaCodec)
 #endif
-    IPC_MESSAGE_HANDLER(FrameHostMsg_SetHasPendingTransitionRequest,
-                        OnSetHasPendingTransitionRequest)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -1222,11 +1219,5 @@ void RenderMessageFilter::OnWebAudioMediaCodec(
       true);
 }
 #endif
-
-void RenderMessageFilter::OnSetHasPendingTransitionRequest(int render_frame_id,
-                                                           bool is_transition) {
-  TransitionRequestManager::GetInstance()->SetHasPendingTransitionRequest(
-      render_process_id_, render_frame_id, is_transition);
-}
 
 }  // namespace content
