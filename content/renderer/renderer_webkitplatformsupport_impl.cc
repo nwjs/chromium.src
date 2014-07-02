@@ -1192,4 +1192,19 @@ void RendererWebKitPlatformSupportImpl::queryStorageUsageAndQuota(
           QuotaDispatcher::CreateWebStorageQuotaCallbacksWrapper(callbacks));
 }
 
+static char* g_argv[] = { const_cast<char*>("node"), NULL, NULL };
+void RendererWebKitPlatformSupportImpl::getCmdArg(int* argc, char*** argv) {
+  *argc = 1;
+  *argv = g_argv;
+  std::string node_main;
+
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  // Check if there is a 'node-main'.
+  if (command_line->HasSwitch("node-main")) {
+    (*argc)++;
+    node_main = command_line->GetSwitchValueASCII("node-main");
+    (*argv)[1] = const_cast<char*>(node_main.c_str());
+  }
+}
+
 }  // namespace content
