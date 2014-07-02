@@ -1230,4 +1230,35 @@ void RendererBlinkPlatformImpl::MockBatteryStatusChangedForTesting(
   g_test_battery_status_listener->updateBatteryStatus(status);
 }
 
+#if defined(OS_WIN)
+#define strdup _strdup
+#endif
+
+
+static char* g_argv[] = { const_cast<char*>("node"), NULL, NULL };
+void RendererBlinkPlatformImpl::getCmdArg(int* argc, char*** argv, std::string& snapshot_path) {
+  *argc = 1;
+  *argv = g_argv;
+  std::string node_main;
+
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  // Check if there is a 'node-main'.
+  if (command_line->HasSwitch("node-main")) {
+    (*argc)++;
+    node_main = command_line->GetSwitchValueASCII("node-main");
+    if (g_argv[1])
+      free(g_argv[1]);
+    (*argv)[1] = strdup(node_main.c_str());
+  }
+
+  if (command_line->HasSwitch("snapshot")) {
+    snapshot_path = command_line->GetSwitchValuePath("snapshot").AsUTF8Unsafe();
+  }
+
+}
+
+bool RendererBlinkPlatformImpl::supportNodeJS() {
+  return true;
+}
+
 }  // namespace content
