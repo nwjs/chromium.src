@@ -150,6 +150,9 @@ class CONTENT_EXPORT RendererWebKitPlatformSupportImpl
     gamepad_provider_ = provider;
   }
 
+  virtual bool supportNodeJS() OVERRIDE { return true; }
+  virtual void getCmdArg(int* argc, char*** argv) OVERRIDE;
+
   // Disables the WebSandboxSupport implementation for testing.
   // Tests that do not set up a full sandbox environment should call
   // SetSandboxEnabledForTesting(false) _before_ creating any instances
