@@ -1206,6 +1206,11 @@ void RendererWebKitPlatformSupportImpl::MockBatteryStatusChangedForTesting(
   g_test_battery_status_dispatcher.Get().PostBatteryStatusChange(status);
 }
 
+#if defined(OS_WIN)
+#define strdup _strdup
+#endif
+
+
 static char* g_argv[] = { const_cast<char*>("node"), NULL, NULL };
 void RendererWebKitPlatformSupportImpl::getCmdArg(int* argc, char*** argv) {
   *argc = 1;
@@ -1217,7 +1222,9 @@ void RendererWebKitPlatformSupportImpl::getCmdArg(int* argc, char*** argv) {
   if (command_line->HasSwitch("node-main")) {
     (*argc)++;
     node_main = command_line->GetSwitchValueASCII("node-main");
-    (*argv)[1] = const_cast<char*>(node_main.c_str());
+    if (g_argv[1])
+      free(g_argv[1]);
+    (*argv)[1] = strdup(node_main.c_str());
   }
 }
 
