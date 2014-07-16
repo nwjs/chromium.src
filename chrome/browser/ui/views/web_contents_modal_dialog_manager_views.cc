@@ -83,7 +83,7 @@ class NativeWebContentsModalDialogManagerViews
 #endif
 
 #if defined(USE_ASH)
-    gfx::NativeView parent = platform_util::GetParent(widget->GetNativeView());
+    gfx::NativeView parent = widget->GetNativeView()->parent();
     wm::SetChildWindowVisibilityChangesAnimated(parent);
     // No animations should get performed on the window since that will re-order
     // the window stack which will then cause many problems.
@@ -93,7 +93,7 @@ class NativeWebContentsModalDialogManagerViews
 
     wm::SetModalParent(
         widget->GetNativeWindow(),
-        platform_util::GetParent(widget->GetNativeView()));
+        widget->GetNativeView()->parent());
 #endif
   }
 
@@ -214,7 +214,7 @@ class NativeWebContentsModalDialogManagerViews
 
   void WidgetClosing(views::Widget* widget) {
 #if defined(USE_ASH)
-    gfx::NativeView view = platform_util::GetParent(widget->GetNativeView());
+    gfx::NativeView view = widget->GetNativeView()->parent();
     // Allow the parent to animate again.
     if (view && view->parent())
       view->parent()->ClearProperty(aura::client::kAnimationsDisabledKey);
