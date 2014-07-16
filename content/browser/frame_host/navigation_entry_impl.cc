@@ -54,6 +54,7 @@ NavigationEntryImpl::NavigationEntryImpl()
       should_clear_history_list_(false),
       can_load_local_resources_(false),
       frame_tree_node_id_(-1),
+      is_dev_reload_(false),
       nw_win_id_(0) {
 }
 
@@ -84,6 +85,7 @@ NavigationEntryImpl::NavigationEntryImpl(SiteInstanceImpl* instance,
       should_clear_history_list_(false),
       can_load_local_resources_(false),
       frame_tree_node_id_(-1),
+      is_dev_reload_(false),
       nw_win_id_(0) {
 }
 
