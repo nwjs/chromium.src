@@ -804,8 +804,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   // for accessibility, as the container for windowless plugins like
   // Flash/Silverlight, etc and for legacy drivers for trackpoints/trackpads,
   // etc.
-  scoped_ptr<content::LegacyRenderWidgetHostHWND>
-      legacy_render_widget_host_HWND_;
+  content::LegacyRenderWidgetHostHWND* legacy_render_widget_host_HWND_;
 #endif
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAura);
 };

@@ -510,6 +510,9 @@ RenderWidgetHostViewAura::RenderWidgetHostViewAura(RenderWidgetHost* host)
   software_frame_manager_.reset(new SoftwareFrameManager(
       weak_ptr_factory_.GetWeakPtr()));
   ImageTransportFactory::GetInstance()->AddObserver(this);
+#if defined(OS_WIN)
+  legacy_render_widget_host_HWND_ = NULL;
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1282,6 +1285,19 @@ void RenderWidgetHostViewAura::InternalSetBounds(const gfx::Rect& rect) {
     if (legacy_render_widget_host_HWND_) {
       legacy_render_widget_host_HWND_->SetBounds(
           window_->GetBoundsInRootWindow());
+      // There are cases where the parent window is created, made visible and
+      // the associated RenderWidget is also visible before the
+      // LegacyRenderWidgetHostHWND instace is created. Ensure that it is shown
+      // here.
+      if (!host_->is_hidden())
+        legacy_render_widget_host_HWND_->Show();
+#if 0
+      BrowserAccessibilityManagerWin* manager =
+          static_cast<BrowserAccessibilityManagerWin*>(
+              GetBrowserAccessibilityManager());
+      if (manager)
+        manager->SetAccessibleHWND(legacy_render_widget_host_HWND_);
+#endif
     }
   }
 
@@ -2279,7 +2295,7 @@ void RenderWidgetHostViewAura::CreateBrowserAccessibilityManagerIfNeeded() {
 
   if (legacy_render_widget_host_HWND_) {
     manager = new BrowserAccessibilityManagerWin(
-        legacy_render_widget_host_HWND_.get(), accessible_parent,
+        legacy_render_widget_host_HWND_, accessible_parent,
         BrowserAccessibilityManagerWin::GetEmptyDocument(), this);
   }
 #else
@@ -2720,6 +2736,19 @@ void RenderWidgetHostViewAura::OnWindowDestroying(aura::Window* window) {
   }
   LPARAM lparam = reinterpret_cast<LPARAM>(this);
   EnumChildWindows(parent, WindowDestroyingCallback, lparam);
+
+  // The LegacyRenderWidgetHostHWND instance is destroyed when its window is
+  // destroyed. Normally we control when that happens via the Destroy call
+  // in the dtor. However there may be cases where the window is destroyed
+  // by Windows, i.e. the parent window is destroyed before the
+  // RenderWidgetHostViewAura instance goes away etc. To avoid that we
+  // destroy the LegacyRenderWidgetHostHWND instance here.
+  if (legacy_render_widget_host_HWND_) {
+    legacy_render_widget_host_HWND_->Destroy();
+    // The Destroy call above will delete the LegacyRenderWidgetHostHWND
+    // instance.
+    legacy_render_widget_host_HWND_ = NULL;
+  }
 #endif
 
   // Make sure that the input method no longer references to this object before
@@ -3345,7 +3374,10 @@ RenderWidgetHostViewAura::~RenderWidgetHostViewAura() {
   active_frame_subscriber_textures_.clear();
 
 #if defined(OS_WIN)
-  legacy_render_widget_host_HWND_.reset(NULL);
+  // The LegacyRenderWidgetHostHWND window should have been destroyed in
+  // RenderWidgetHostViewAura::OnWindowDestroying and the pointer should
+  // be set to NULL.
+  DCHECK(!legacy_render_widget_host_HWND_);
 #endif
 
   DCHECK(!vsync_manager_);

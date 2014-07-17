@@ -20,7 +20,7 @@ BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory) {
   return new BrowserAccessibilityManagerWin(
-      content::LegacyRenderWidgetHostHWND::Create(GetDesktopWindow()).get(),
+      content::LegacyRenderWidgetHostHWND::Create(GetDesktopWindow()),
       NULL, src, delegate, factory);
 }
 
