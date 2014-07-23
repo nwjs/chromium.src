@@ -33,7 +33,7 @@ bool GestureTextSelector::OnGestureEvent(const ui::GestureEventData& gesture) {
   if (!text_selection_triggered_)
     return false;
 
-  switch (gesture.type()) {
+  switch (gesture.type) {
     case ui::ET_GESTURE_TAP: {
       client_->LongPress(gesture.time, gesture.x, gesture.y);
       break;
