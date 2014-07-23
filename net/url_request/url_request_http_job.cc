@@ -1064,7 +1064,9 @@ bool URLRequestHttpJob::IsSafeRedirect(const GURL& location) {
   // HTTP is always safe.
   // TODO(pauljensen): Remove once crbug.com/146591 is fixed.
   if (location.is_valid() &&
-      (location.scheme() == "http" || location.scheme() == "https")) {
+      (location.scheme() == "http" || location.scheme() == "https" || location.scheme() == "app")) {
+    // node-webkit: redirecting to app is secure because it's guarded
+    // by blink
     return true;
   }
   // Delegates may mark a URL as safe for redirection.
