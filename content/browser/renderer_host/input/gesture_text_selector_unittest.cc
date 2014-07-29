@@ -141,8 +141,7 @@ TEST_F(GestureTextSelectorTest, PenDragging) {
       ui::ET_GESTURE_SCROLL_BEGIN, 0, event_time,
       x1, y1, 1, gfx::RectF(0, 0, 0, 0));
   EXPECT_TRUE(selector_->OnGestureEvent(scroll_begin));
-  EXPECT_EQ(2u, event_log_.size());  // Unselect, Show
-  EXPECT_STREQ("Show", event_log_.back().c_str());
+  EXPECT_EQ(1u, event_log_.size());  // Unselect
 
   // 5. ET_GESTURE_SCROLL_UPDATE
   event_time += base::TimeDelta::FromMilliseconds(10);
@@ -214,7 +213,7 @@ TEST_F(GestureTextSelectorTest, TapToSelectWord) {
       ui::ET_GESTURE_TAP, 0, event_time,
       x1, y1, 1, gfx::RectF(0, 0, 0, 0));
   EXPECT_TRUE(selector_->OnGestureEvent(tap));
-  EXPECT_EQ(1u, event_log_.size());  // Unselect, Show
+  EXPECT_EQ(1u, event_log_.size());  // LongPress
   EXPECT_STREQ("LongPress", event_log_.back().c_str());
 }
 
