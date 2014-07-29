@@ -99,19 +99,24 @@ LRESULT CALLBACK StatusTrayWin::WndProc(HWND hwnd,
       return TRUE;
 
     switch (lparam) {
-      case TB_INDETERMINATE:
-        win_icon->HandleBalloonClickEvent();
-        return TRUE;
+    case NIN_BALLOONSHOW:
+    case NIN_BALLOONHIDE:
+    case NIN_BALLOONTIMEOUT:
+      win_icon->HandleBalloonEvent(lparam);
+      return TRUE;
+    case NIN_BALLOONUSERCLICK:
+      win_icon->HandleBalloonClickEvent();
+      return TRUE;
 
-      case WM_LBUTTONDOWN:
-      case WM_RBUTTONDOWN:
-      case WM_CONTEXTMENU:
-        // Walk our icons, find which one was clicked on, and invoke its
-        // HandleClickEvent() method.
-        gfx::Point cursor_pos(
-            gfx::Screen::GetNativeScreen()->GetCursorScreenPoint());
-        win_icon->HandleClickEvent(cursor_pos, lparam == WM_LBUTTONDOWN);
-        return TRUE;
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_CONTEXTMENU:
+      // Walk our icons, find which one was clicked on, and invoke its
+      // HandleClickEvent() method.
+      gfx::Point cursor_pos(
+        gfx::Screen::GetNativeScreen()->GetCursorScreenPoint());
+      win_icon->HandleClickEvent(cursor_pos, lparam == WM_LBUTTONDOWN);
+      return TRUE;
     }
   }
   return ::DefWindowProc(hwnd, message, wparam, lparam);
@@ -123,6 +128,10 @@ StatusTrayWin::~StatusTrayWin() {
 
   if (atom_)
     UnregisterClass(MAKEINTATOM(atom_), instance_);
+}
+
+StatusIcon* StatusTrayWin::GetStatusIcon() {
+  return status_icons().size() ? status_icons()[0] : NULL;
 }
 
 StatusIcon* StatusTrayWin::CreatePlatformStatusIcon(
@@ -151,6 +160,9 @@ UINT StatusTrayWin::NextIconId() {
   return kBaseIconId + static_cast<UINT>(NAMED_STATUS_ICON_COUNT) + icon_id;
 }
 
-StatusTray* StatusTray::Create() {
-  return new StatusTrayWin();
+StatusTray* StatusTray::GetSingleton() {
+  if (singleton_ == NULL)
+    singleton_ = new StatusTrayWin();
+  
+  return singleton_;
 }
