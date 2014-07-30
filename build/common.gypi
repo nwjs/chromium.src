@@ -4193,6 +4193,7 @@
                       # running out of address space. Considering installing a
                       # 64-bit kernel and switching to a 64-bit linker.
                       '-Wl,--no-keep-memory',
+                      '-Wl,--reduce-memory-overheads',
                     ],
                   }],
                 ],
