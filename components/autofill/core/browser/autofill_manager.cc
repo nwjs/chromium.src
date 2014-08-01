@@ -1031,7 +1031,8 @@ void AutofillManager::GetProfileSuggestions(
   }
   std::vector<GUIDPair> guid_pairs;
 
-  personal_data_->GetProfileSuggestions(
+  if (personal_data_)
+    personal_data_->GetProfileSuggestions(
       type, field.value, field.is_autofilled, field_types,
       base::Callback<bool(const AutofillProfile&)>(),
       values, labels, icons, &guid_pairs);
