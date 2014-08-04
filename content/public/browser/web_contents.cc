@@ -17,6 +17,8 @@ WebContents::CreateParams::CreateParams(BrowserContext* context)
       initially_hidden(false),
       context(NULL) {}
 
+WebContents::CreateParams::~CreateParams() {}
+
 WebContents::CreateParams::CreateParams(
     BrowserContext* context, SiteInstance* site)
     : browser_context(context),

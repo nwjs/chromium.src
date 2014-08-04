@@ -218,7 +218,7 @@ class CONTENT_EXPORT ContentRendererClient {
                                       int world_id) {}
 
   virtual bool WillSetSecurityToken(blink::WebFrame* frame,
-                                    v8::Handle<v8::Context>) { return false; }
+                                    v8::Handle<v8::Context>);
 
   // See blink::Platform.
   virtual unsigned long long VisitedLinkHash(const char* canonical_url,

@@ -1213,4 +1213,8 @@ void RendererWebKitPlatformSupportImpl::getCmdArg(int* argc, char*** argv) {
   }
 }
 
+bool RendererWebKitPlatformSupportImpl::supportNodeJS() {
+  return true;
+}
+
 }  // namespace content
