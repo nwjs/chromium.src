@@ -268,6 +268,9 @@ bool AutofillManager::OnFormSubmitted(const FormData& form,
   if (submitted_form->IsAutofillable(true))
     ImportFormData(*submitted_form);
 
+  if (!personal_data_)
+    return false;
+
   // Only upload server statistics and UMA metrics if at least some local data
   // is available to use as a baseline.
   const std::vector<AutofillProfile*>& profiles = personal_data_->GetProfiles();
@@ -711,7 +714,7 @@ bool AutofillManager::IsAutofillEnabled() const {
 
 void AutofillManager::ImportFormData(const FormStructure& submitted_form) {
   scoped_ptr<CreditCard> imported_credit_card;
-  if (!personal_data_->ImportFormData(submitted_form, &imported_credit_card))
+  if (!personal_data_ || !personal_data_->ImportFormData(submitted_form, &imported_credit_card))
     return;
 
   // If credit card information was submitted, we need to confirm whether to
