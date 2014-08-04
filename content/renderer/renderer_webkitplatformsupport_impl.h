@@ -156,7 +156,7 @@ class CONTENT_EXPORT RendererWebKitPlatformSupportImpl
     blink::WebScreenOrientationListener*) OVERRIDE;
   virtual void lockOrientation(blink::WebScreenOrientations) OVERRIDE;
   virtual void unlockOrientation() OVERRIDE;
-  virtual bool supportNodeJS() OVERRIDE { return true; }
+  virtual bool supportNodeJS() OVERRIDE;
   virtual void getCmdArg(int* argc, char*** argv) OVERRIDE;
 
   // Disables the WebSandboxSupport implementation for testing.

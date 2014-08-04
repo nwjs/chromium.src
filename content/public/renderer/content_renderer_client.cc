@@ -182,4 +182,9 @@ ContentRendererClient::CreateWorkerPermissionClientProxy(
   return NULL;
 }
 
+bool ContentRendererClient::WillSetSecurityToken(blink::WebFrame* frame,
+                                                 v8::Handle<v8::Context>) {
+  return false;
+}
+
 }  // namespace content
