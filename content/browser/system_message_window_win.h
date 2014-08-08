@@ -20,6 +20,7 @@ class CONTENT_EXPORT SystemMessageWindowWin {
   virtual ~SystemMessageWindowWin();
 
   virtual LRESULT OnDeviceChange(UINT event_type, LPARAM data);
+  virtual LRESULT OnDisplayChange(int bit, int width, int height);
 
  private:
   void Init();

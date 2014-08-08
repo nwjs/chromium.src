@@ -10,8 +10,10 @@
 #include <map>
 
 #include "base/logging.h"
+#include "base/observer_list.h"
 #include "base/mac/sdk_forward_declarations.h"
 #include "ui/gfx/display.h"
+#include "ui/gfx/display_observer.h"
 
 namespace {
 
@@ -46,8 +48,7 @@ NSScreen* GetMatchingScreen(const gfx::Rect& match_rect) {
 
 gfx::Display GetDisplayForScreen(NSScreen* screen) {
   NSRect frame = [screen frame];
-  // TODO(oshima): Implement ID and Observer.
-  gfx::Display display(0, gfx::Rect(NSRectToCGRect(frame)));
+  gfx::Display display([[[screen deviceDescription] objectForKey:@"NSScreenNumber"] unsignedIntValue], gfx::Rect(NSRectToCGRect(frame)));
 
   NSRect visible_frame = [screen visibleFrame];
   NSScreen* primary = [[NSScreen screens] objectAtIndex:0];
@@ -72,8 +73,58 @@ gfx::Display GetDisplayForScreen(NSScreen* screen) {
 }
 
 class ScreenMac : public gfx::Screen {
+  ObserverList<gfx::DisplayObserver> observer_list_;
+  
+  void ProcessDisplayReconfigured(CGDirectDisplayID displayID,
+                                  CGDisplayChangeSummaryFlags flags) {
+
+    if (flags & kCGDisplayBeginConfigurationFlag) {
+      return;
+    }
+    
+    if (flags & kCGDisplayRemoveFlag) {
+      FOR_EACH_OBSERVER(gfx::DisplayObserver, observer_list_,
+                        OnDisplayRemoved(gfx::Display(displayID)));
+      return;
+      
+    }
+
+    for( NSUInteger i=0; i<[[NSScreen screens] count]; i++) {
+      NSScreen* screen = [[NSScreen screens] objectAtIndex:i];
+      if([[[screen deviceDescription] objectForKey:@"NSScreenNumber"] unsignedIntValue] == displayID) {
+        gfx::Display display = ::GetDisplayForScreen(screen);
+        if (flags & kCGDisplayAddFlag) {
+          FOR_EACH_OBSERVER(gfx::DisplayObserver, observer_list_,
+                            OnDisplayAdded(display));
+          return;
+          
+        }
+        if (flags & (kCGDisplayMovedFlag | kCGDisplaySetModeFlag)) {
+          FOR_EACH_OBSERVER(gfx::DisplayObserver, observer_list_,
+                            OnDisplayBoundsChanged(display));
+
+        }
+        break;
+      }
+    }
+
+  }
+  
+  static void DisplaysReconfiguredCallback(
+                                    CGDirectDisplayID display,
+                                    CGDisplayChangeSummaryFlags flags,
+                                    void* user_parameter) {
+    ScreenMac* screen = reinterpret_cast<ScreenMac*>(user_parameter);
+    screen->ProcessDisplayReconfigured(display, flags);
+  }
+
  public:
-  ScreenMac() {}
+  ScreenMac() {
+    CGDisplayRegisterReconfigurationCallback(ScreenMac::DisplaysReconfiguredCallback, this);
+  }
+  virtual ~ScreenMac() {
+    CGDisplayRemoveReconfigurationCallback(ScreenMac::DisplaysReconfiguredCallback, this);
+  }
 
   virtual bool IsDIPEnabled() OVERRIDE {
     return true;
@@ -197,11 +248,11 @@ class ScreenMac : public gfx::Screen {
   }
 
   virtual void AddObserver(gfx::DisplayObserver* observer) OVERRIDE {
-    // TODO(oshima): crbug.com/122863.
+    observer_list_.AddObserver(observer);
   }
 
   virtual void RemoveObserver(gfx::DisplayObserver* observer) OVERRIDE {
-    // TODO(oshima): crbug.com/122863.
+    observer_list_.RemoveObserver(observer);
   }
 
  private:

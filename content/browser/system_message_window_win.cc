@@ -10,6 +10,7 @@
 #include "base/system_monitor/system_monitor.h"
 #include "base/win/wrapped_window_proc.h"
 #include "media/audio/win/core_audio_util_win.h"
+#include "ui/gfx/screen_win.h"
 
 namespace content {
 
@@ -102,6 +103,12 @@ SystemMessageWindowWin::~SystemMessageWindowWin() {
   }
 }
 
+LRESULT SystemMessageWindowWin::OnDisplayChange(int bit, int width, int height) {
+  gfx::ScreenWin* screenWin = static_cast<gfx::ScreenWin*>(gfx::Screen::GetNativeScreen());
+  screenWin->OnDisplayChanged();
+  return TRUE;
+}
+
 LRESULT SystemMessageWindowWin::OnDeviceChange(UINT event_type, LPARAM data) {
   base::SystemMonitor* monitor = base::SystemMonitor::Get();
   base::SystemMonitor::DeviceType device_type =
@@ -152,6 +159,8 @@ LRESULT CALLBACK SystemMessageWindowWin::WndProc(HWND hwnd, UINT message,
   switch (message) {
     case WM_DEVICECHANGE:
       return OnDeviceChange(static_cast<UINT>(wparam), lparam);
+    case WM_DISPLAYCHANGE:
+      return OnDisplayChange(wparam, HIWORD(lparam), LOWORD(lparam));
     default:
       break;
   }
