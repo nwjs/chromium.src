@@ -157,7 +157,7 @@ class CONTENT_EXPORT RendererWebKitPlatformSupportImpl
   virtual void lockOrientation(blink::WebScreenOrientations) OVERRIDE;
   virtual void unlockOrientation() OVERRIDE;
   virtual bool supportNodeJS() OVERRIDE;
-  virtual void getCmdArg(int* argc, char*** argv) OVERRIDE;
+  virtual void getCmdArg(int* argc, char*** argv, std::string& snapshot_path) OVERRIDE;
 
   // Disables the WebSandboxSupport implementation for testing.
   // Tests that do not set up a full sandbox environment should call
