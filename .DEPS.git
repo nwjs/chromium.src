@@ -9,12 +9,26 @@ vars = {
     'git_url':
          'https://chromium.googlesource.com',
     'webkit_rev':
-         '@4908556d2020764c7138f710a3ad9686c4b44d6e',
+         '@c938a1c823df394a1ec46eaf39f5b3e6bf701276',
     'angle_revision':
          'daf565720b9e26a004e8716a3f52d4a63b988217'
 }
 
 deps = {
+    'build':
+        Var('git_url') + '/chromium/tools/build.git@ab9e8795ec18d85b84dddfa7e03116c272b65277',
+    'build/scripts/command_wrapper/bin':
+        Var('git_url') + '/chromium/tools/command_wrapper/bin.git@2eeebba9a512cae9e4e9312f5ec728dbdad80bd0',
+    'build/scripts/gsd_generate_index':
+        Var('git_url') + '/chromium/tools/gsd_generate_index.git@d2f5d5a5d212d8fb337d751c0351644a6ac83ac8',
+    'build/scripts/private/data/reliability':
+        Var('git_url') + '/chromium/src/chrome/test/data/reliability.git@90d6f258a2fbff583dcfc107ab1727bd8efe65e8',
+    'build/scripts/tools/deps2git':
+        Var('git_url') + '/chromium/tools/deps2git.git@5687581bdb799f00060b6fa2275a011cacb7e0e3',
+    'build/third_party/lighttpd':
+        Var('git_url') + '/chromium/deps/lighttpd.git@9dfa55d15937a688a92cbf2b7a8621b0927d06eb',
+    'depot_tools':
+        Var('git_url') + '/chromium/tools/depot_tools.git@b9f2751b8797b19b3255ca20a88597310929e04d',
     'src/breakpad/src':
         Var('git_url') + '/external/google-breakpad/src.git@17f614cd8365f5b78577ffcc237300a970db9813',
     'src/buildtools':
@@ -162,6 +176,8 @@ deps = {
 deps_os = {
     'android':
     {
+        'src/pdf':
+            None,
         'src/third_party/android_tools':
             Var('git_url') + '/android_tools.git@8301b711a9ac7de56e9a9ff3dee0b2ebfc9a380f',
         'src/third_party/aosp':
@@ -295,6 +311,10 @@ deps_os = {
     },
     'unix':
     {
+        'build/third_party/cbuildbot_chromite':
+            Var('git_url') + '/chromiumos/chromite.git@2c123e54478926127e8efee535122bcd38789fe6',
+        'build/third_party/xvfb':
+            Var('git_url') + '/chromium/tools/third_party/xvfb.git@aebb1aadf1422e4d81e831e13746b8f7ae322e07',
         'src/chrome/tools/test/reference_build/chrome_linux':
             Var('git_url') + '/chromium/reference_builds/chrome_linux64.git@34e237c7cd03bac41e45a3148bc010d55cb79c95',
         'src/third_party/chromite':
