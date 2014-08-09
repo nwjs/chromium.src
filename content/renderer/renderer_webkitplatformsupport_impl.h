@@ -151,7 +151,7 @@ class CONTENT_EXPORT RendererWebKitPlatformSupportImpl
   }
 
   virtual bool supportNodeJS() OVERRIDE { return true; }
-  virtual void getCmdArg(int* argc, char*** argv) OVERRIDE;
+  virtual void getCmdArg(int* argc, char*** argv, std::string& snapshot_path) OVERRIDE;
 
   // Disables the WebSandboxSupport implementation for testing.
   // Tests that do not set up a full sandbox environment should call
