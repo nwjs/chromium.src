@@ -157,10 +157,10 @@ void CursorLoaderWin::SetPlatformCursor(gfx::NativeCursor* cursor) {
     } else {
       const wchar_t* cursor_id = GetCursorId(*cursor);
       PlatformCursor platform_cursor = LoadCursor(NULL, cursor_id);
-      if (!platform_cursor && !g_cursor_resource_module_name.Get().empty()) {
-        platform_cursor = LoadCursor(
-            GetModuleHandle(g_cursor_resource_module_name.Get().c_str()),
-                            cursor_id);
+      if (!platform_cursor) {
+        //node-webkit: we don't use g_cursor_resource_module_name
+        //because it's not fixed as Chrome
+        platform_cursor = LoadCursor(GetModuleHandle(NULL), cursor_id);
       }
       cursor->SetPlatformCursor(platform_cursor);
     }
