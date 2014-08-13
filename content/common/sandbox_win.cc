@@ -533,7 +533,7 @@ bool InitBrokerServices(sandbox::BrokerServices* broker_services) {
   g_broker_services = broker_services;
 
   // In non-official builds warn about dangerous uses of DuplicateHandle.
-#ifndef OFFICIAL_BUILD
+#if 0
   BOOL is_in_job = FALSE;
   CHECK(::IsProcessInJob(::GetCurrentProcess(), NULL, &is_in_job));
   // In a Syzygy-profiled binary, instrumented for import profiling, this
