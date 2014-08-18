@@ -379,8 +379,6 @@
       'browser/battery_status/battery_status_manager_linux.cc',
       'browser/battery_status/battery_status_manager_linux.h',
       'browser/battery_status/battery_status_manager_mac.cc',
-      'browser/battery_status/battery_status_manager_win.cc',
-      'browser/battery_status/battery_status_manager_win.h',
       'browser/battery_status/battery_status_manager.h',
       'browser/battery_status/battery_status_message_filter.cc',
       'browser/battery_status/battery_status_message_filter.h',
@@ -1851,7 +1849,6 @@
     }],
     ['OS == "win"', {
       'sources!': [
-        'browser/battery_status/battery_status_manager_default.cc',
         'browser/geolocation/empty_wifi_data_provider.cc',
       ],
     }],
