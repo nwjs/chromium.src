@@ -112,7 +112,7 @@ still higher than other birds upon the plain, even though they soar.
 
 I'm here to commit lines and drop rhymes
 *
-This is a line to test and try uploading a cl. 
+This is a line to test and try uploading a cl.
 
 And lo, in the year 2014, there was verily an attempt to upgrade to GCC 4.8 on
 the Android bots, and it was good. Except on one bot, where it was bad. And
@@ -125,3 +125,5 @@ bot, and perhaps it will rebuild with GCC 4.6, which hath worked for many many
 seasons. And so they modified the whitespace file with these immortal lines,
 and visited it upon the bots, that great destruction might be wrought upon
 their outdated binaries. In clobberus, veritas.
+
+Whitespace change to ensure numbering daemon is working.
