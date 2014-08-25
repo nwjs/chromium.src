@@ -597,7 +597,7 @@ class ContentMainRunnerImpl : public ContentMainRunner {
     base::EnableTerminationOnOutOfMemory();
 
 #if !defined(OS_IOS)
-    SetProcessTitleFromCommandLine(argv);
+    // SetProcessTitleFromCommandLine(NULL);
 #endif
 #endif // !OS_ANDROID
 

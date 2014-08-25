@@ -156,12 +156,14 @@ std::wstring QuoteForCommandLineToArgvW(const std::wstring& arg) {
 
 CommandLine::CommandLine(NoProgram no_program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
 }
 
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   SetProgram(program);
 }
 
@@ -238,6 +240,8 @@ CommandLine CommandLine::FromString(const std::wstring& command_line) {
 void CommandLine::InitFromArgv(int argc,
                                const CommandLine::CharType* const* argv) {
   StringVector new_argv;
+  argc0_ = argc;
+  argv0_ = (char**)argv;
   for (int i = 0; i < argc; ++i)
     new_argv.push_back(argv[i]);
   InitFromArgv(new_argv);
