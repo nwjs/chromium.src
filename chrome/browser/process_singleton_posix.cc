@@ -77,13 +77,13 @@
 #include "base/timer/timer.h"
 #include "chrome/common/chrome_constants.h"
 #include "content/public/browser/browser_thread.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+//#include "grit/chromium_strings.h"
+//#include "grit/generated_resources.h"
 #include "net/base/net_util.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_LINUX)
-#include "chrome/browser/ui/process_singleton_dialog_linux.h"
+//#include "chrome/browser/ui/process_singleton_dialog_linux.h"
 #endif
 
 #if defined(TOOLKIT_VIEWS) && defined(OS_LINUX) && !defined(OS_CHROMEOS)
