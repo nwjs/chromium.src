@@ -29,7 +29,10 @@
 //
 // To work around all this, we're going to generally use timeGetTime().  We
 // will only increase the system-wide timer if we're not running on battery
-// power.
+// power.  Using timeBeginPeriod(1) is a requirement in order to make our
+// message loop waits have the same resolution that our time measurements
+// do.  Otherwise, WaitForSingleObject(..., 1) will no less than 15ms when
+// there is nothing else to waken the Wait.
 
 #include "base/time/time.h"
 
@@ -84,19 +87,6 @@ void InitializeClock() {
   initial_time = CurrentWallclockMicroseconds();
 }
 
-// The two values that ActivateHighResolutionTimer uses to set the systemwide
-// timer interrupt frequency on Windows. It controls how precise timers are
-// but also has a big impact on battery life.
-const int kMinTimerIntervalHighResMs = 1;
-const int kMinTimerIntervalLowResMs = 4;
-// Track if kMinTimerIntervalHighResMs or kMinTimerIntervalLowResMs is active.
-bool g_high_res_timer_enabled = false;
-// How many times the high resolution timer has been called.
-int g_high_res_timer_count = 0;
-// The lock to control access to the above two variables.
-base::LazyInstance<base::Lock>::Leaky g_high_res_lock =
-    LAZY_INSTANCE_INITIALIZER;
-
 }  // namespace
 
 // Time -----------------------------------------------------------------------
@@ -107,6 +97,9 @@ base::LazyInstance<base::Lock>::Leaky g_high_res_lock =
 // 1700, 1800, and 1900.
 // static
 const int64 Time::kTimeTToMicrosecondsOffset = GG_INT64_C(11644473600000000);
+
+bool Time::high_resolution_timer_enabled_ = false;
+int Time::high_resolution_timer_activated_ = 0;
 
 // static
 Time Time::Now() {
@@ -172,51 +165,44 @@ FILETIME Time::ToFileTime() const {
 
 // static
 void Time::EnableHighResolutionTimer(bool enable) {
-  base::AutoLock lock(g_high_res_lock.Get());
-  if (g_high_res_timer_enabled == enable)
+  // Test for single-threaded access.
+  static PlatformThreadId my_thread = PlatformThread::CurrentId();
+  DCHECK(PlatformThread::CurrentId() == my_thread);
+
+  if (high_resolution_timer_enabled_ == enable)
     return;
-  g_high_res_timer_enabled = enable;
-  if (!g_high_res_timer_count)
-    return;
-  // Since g_high_res_timer_count != 0, an ActivateHighResolutionTimer(true)
-  // was called which called timeBeginPeriod with g_high_res_timer_enabled
-  // with a value which is the opposite of |enable|. With that information we
-  // call timeEndPeriod with the same value used in timeBeginPeriod and
-  // therefore undo the period effect.
-  if (enable) {
-    timeEndPeriod(kMinTimerIntervalLowResMs);
-    timeBeginPeriod(kMinTimerIntervalHighResMs);
-  } else {
-    timeEndPeriod(kMinTimerIntervalHighResMs);
-    timeBeginPeriod(kMinTimerIntervalLowResMs);
-  }
+
+  high_resolution_timer_enabled_ = enable;
 }
 
 // static
 bool Time::ActivateHighResolutionTimer(bool activating) {
-  // We only do work on the transition from zero to one or one to zero so we
-  // can easily undo the effect (if necessary) when EnableHighResolutionTimer is
-  // called.
-  base::AutoLock lock(g_high_res_lock.Get());
-  UINT period = g_high_res_timer_enabled ? kMinTimerIntervalHighResMs
-                                         : kMinTimerIntervalLowResMs;
-  int high_res_count =
-      activating ? ++g_high_res_timer_count : --g_high_res_timer_count;
+  if (!high_resolution_timer_enabled_ && activating)
+    return false;
 
+  // Using anything other than 1ms makes timers granular
+  // to that interval.
+  const int kMinTimerIntervalMs = 1;
+  MMRESULT result;
   if (activating) {
-    if (high_res_count == 1)
-      timeBeginPeriod(period);
+    result = timeBeginPeriod(kMinTimerIntervalMs);
+    high_resolution_timer_activated_++;
   } else {
-    if (high_res_count == 0)
-      timeEndPeriod(period);
+    result = timeEndPeriod(kMinTimerIntervalMs);
+    high_resolution_timer_activated_--;
   }
-  return (period == kMinTimerIntervalHighResMs);
+  return result == TIMERR_NOERROR;
 }
 
 // static
 bool Time::IsHighResolutionTimerInUse() {
-  base::AutoLock lock(g_high_res_lock.Get());
-  return g_high_res_timer_enabled && g_high_res_timer_count > 0;
+  // Note:  we should track the high_resolution_timer_activated_ value
+  // under a lock if we want it to be accurate in a system with multiple
+  // message loops.  We don't do that - because we don't want to take the
+  // expense of a lock for this.  We *only* track this value so that unit
+  // tests can see if the high resolution timer is on or off.
+  return high_resolution_timer_enabled_ &&
+      high_resolution_timer_activated_ > 0;
 }
 
 // static
