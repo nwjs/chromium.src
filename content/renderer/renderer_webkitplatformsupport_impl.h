@@ -150,7 +150,7 @@ class CONTENT_EXPORT RendererWebKitPlatformSupportImpl
     gamepad_provider_ = provider;
   }
 
-  virtual bool supportNodeJS() OVERRIDE { return true; }
+  virtual bool supportNodeJS() OVERRIDE;
   virtual void getCmdArg(int* argc, char*** argv, std::string& snapshot_path) OVERRIDE;
 
   // Disables the WebSandboxSupport implementation for testing.

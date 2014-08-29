@@ -362,7 +362,8 @@ void InterstitialPageImpl::WebContentsDestroyed() {
 
 bool InterstitialPageImpl::OnMessageReceived(
     const IPC::Message& message,
-    RenderFrameHost* render_frame_host) {
+    RenderFrameHost* render_frame_host,
+    RenderViewHost* render_view_host) {
   return OnMessageReceived(message);
 }
 

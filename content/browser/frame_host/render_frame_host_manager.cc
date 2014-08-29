@@ -202,7 +202,7 @@ RenderFrameHostImpl* RenderFrameHostManager::Navigate(
     if (!InitRenderView(dest_render_frame_host->render_view_host(),
                         opener_route_id,
                         MSG_ROUTING_NONE,
-                        frame_tree_node_->IsMainFrame()),
+                        frame_tree_node_->IsMainFrame(),
                         entry.nw_win_id()))
       return NULL;
 
@@ -871,7 +871,8 @@ SiteInstance* RenderFrameHostManager::GetSiteInstanceForURL(
     return SiteInstance::CreateForURL(browser_context, dest_url);
   }
 
-  if (entry.is_dev_reload())
+  NavigationEntryImpl* entry = NavigationEntryImpl::FromNavigationEntry(current_entry);
+  if (entry && entry->is_dev_reload())
     return SiteInstance::CreateForURL(browser_context, dest_url);
 
   // Use the current SiteInstance for same site navigations, as long as the
@@ -1399,6 +1400,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
                                      opener_route_id,
                                      false,
                                      frame_tree_node_->IsMainFrame(),
+                                     delegate_->IsHidden(),
                                      entry.nw_win_id());
     if (route_id == MSG_ROUTING_NONE)
       return NULL;

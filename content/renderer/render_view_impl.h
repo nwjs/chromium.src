@@ -455,7 +455,7 @@ class CONTENT_EXPORT RenderViewImpl
 
   // blink::WebFrameClient implementation -------------------------------------
 
-  virtual bool willSetSecurityToken(WebKit::WebFrame* frame,
+  virtual bool willSetSecurityToken(blink::WebFrame* frame,
                                     v8::Handle<v8::Context> context);
   // blink::WebPageSerializerClient implementation ----------------------------
 

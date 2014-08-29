@@ -102,6 +102,7 @@ class QuotaPermissionContext;
 class RenderFrameHost;
 class RenderProcessHost;
 class RenderViewHost;
+class RenderViewHostDelegateView;
 class ResourceContext;
 class SiteInstance;
 class SpeechRecognitionManagerDelegate;

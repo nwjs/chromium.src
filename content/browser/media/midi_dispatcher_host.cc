@@ -39,7 +39,8 @@ MidiDispatcherHost::~MidiDispatcherHost() {
 }
 
 bool MidiDispatcherHost::OnMessageReceived(const IPC::Message& message,
-                                           RenderFrameHost* render_frame_host) {
+                                           RenderFrameHost* render_frame_host,
+                                           RenderViewHost* render_view_host) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP_WITH_PARAM(MidiDispatcherHost, message,
                                    render_frame_host)

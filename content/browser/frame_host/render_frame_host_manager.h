@@ -256,6 +256,7 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
                         int opener_route_id,
                         bool swapped_out,
                         bool for_main_frame_navigation,
+                        bool hidden,
                         int nw_win_id);
 
   // Helper method to create and initialize a RenderFrameProxyHost and return

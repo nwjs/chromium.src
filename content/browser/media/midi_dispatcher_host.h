@@ -23,7 +23,8 @@ class MidiDispatcherHost : public WebContentsObserver {
 
   // WebContentsObserver implementation.
   virtual bool OnMessageReceived(const IPC::Message& message,
-                                 RenderFrameHost* render_frame_host) OVERRIDE;
+                                 RenderFrameHost* render_frame_host,
+                                 RenderViewHost* render_view_host) OVERRIDE;
 
  private:
   void OnRequestSysExPermission(RenderFrameHost* render_frame_host,

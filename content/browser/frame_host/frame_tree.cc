@@ -188,7 +188,7 @@ void FrameTree::CreateProxiesForSiteInstance(
                                                   MSG_ROUTING_NONE,
                                                   true,
                                                   false,
-                                                  true);
+                                                  true, 0);
     }
   }
 

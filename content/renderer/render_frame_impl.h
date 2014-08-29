@@ -387,11 +387,11 @@ class CONTENT_EXPORT RenderFrameImpl
                                      const blink::WebURL& target);
   virtual void didAbortLoading(blink::WebLocalFrame* frame);
   virtual void didCreateScriptContext(blink::WebLocalFrame* frame,
-  virtual bool willSetSecurityToken(blink::WebFrame* frame,
-                                    v8::Handle<v8::Context> context);
                                       v8::Handle<v8::Context> context,
                                       int extension_group,
                                       int world_id);
+  virtual bool willSetSecurityToken(blink::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   virtual void willReleaseScriptContext(blink::WebLocalFrame* frame,
                                         v8::Handle<v8::Context> context,
                                         int world_id);

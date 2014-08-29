@@ -3848,7 +3848,7 @@ WebPreferences WebContentsImpl::ComputeWebkitPrefs() {
 int WebContentsImpl::CreateSwappedOutRenderView(
     SiteInstance* instance) {
   return GetRenderManager()->CreateRenderFrame(
-      instance, MSG_ROUTING_NONE, true, true, true);
+                                               instance, MSG_ROUTING_NONE, true, true, true, 0);
 }
 
 void WebContentsImpl::OnUserGesture() {
@@ -4020,7 +4020,7 @@ int WebContentsImpl::CreateOpenerRenderViews(SiteInstance* instance) {
   // Create a swapped out RenderView in the given SiteInstance if none exists,
   // setting its opener to the given route_id.  Return the new view's route_id.
   return GetRenderManager()->CreateRenderFrame(
-      instance, opener_route_id, true, true, true);
+                                               instance, opener_route_id, true, true, true, 0);
 }
 
 NavigationControllerImpl& WebContentsImpl::GetControllerForRenderManager() {
@@ -4090,7 +4090,7 @@ bool WebContentsImpl::CreateRenderViewForRenderManager(
 
 bool WebContentsImpl::CreateRenderFrameForRenderManager(
     RenderFrameHost* render_frame_host,
-    int parent_routing_id) {
+    int parent_routing_id, int nw_win_id) {
   TRACE_EVENT0("browser", "WebContentsImpl::CreateRenderFrameForRenderManager");
 
   RenderFrameHostImpl* rfh =
