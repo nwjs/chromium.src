@@ -70,6 +70,10 @@ bool ContentClient::CanSendWhileSwappedOut(const IPC::Message* message) {
   return false;
 }
 
+bool ContentClient::CanHandleWhileSwappedOut(const IPC::Message& message) {
+  return false;
+}
+
 std::string ContentClient::GetProduct() const {
   return std::string();
 }
