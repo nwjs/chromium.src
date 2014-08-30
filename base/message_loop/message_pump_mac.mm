@@ -30,9 +30,6 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
-#include "third_party/node/src/node.h"
-#include "third_party/node/src/node_internals.h"
-
 namespace {
 
 void NoOp(void* info) {
@@ -487,8 +484,6 @@ bool MessagePumpCFRunLoopBase::RunWork() {
     delegateless_work_ = true;
     return false;
   }
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  v8::HandleScope scope(isolate);
 
   if (instrumentation_)
     instrumentation_->WorkSourceEntered(delegate_);
@@ -526,12 +521,6 @@ bool MessagePumpCFRunLoopBase::RunWork() {
         resignal_work_source = true;
       }
     }
-  } else {
-      // call tick callback after done work in V8,
-      // in the same way node upstream handle this in MakeCallBack,
-      // or the tick callback is blocked in some cases
-    if (node::g_env)
-      node::CallTickCallback(node::g_env, v8::Undefined(isolate));
   }
 
   if (resignal_work_source) {
@@ -582,15 +571,11 @@ bool MessagePumpCFRunLoopBase::RunIdleWork() {
   // objects if the app is not currently handling a UI event to ensure they're
   // released promptly even in the absence of UI events.
   MessagePumpScopedAutoreleasePool autorelease_pool(this);
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  v8::HandleScope scope(isolate);
 
   // Call DoIdleWork once, and if something was done, arrange to come back here
   // again as long as the loop is still running.
   bool did_work = delegate_->DoIdleWork();
   if (did_work) {
-    if (node::g_env)
-      node::CallTickCallback(node::g_env, v8::Undefined(isolate));
     CFRunLoopSourceSignal(idle_work_source_);
     // callbacks in Blink can result in uv status change, so
     // a run through is needed
