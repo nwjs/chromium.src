@@ -180,6 +180,12 @@ CommandLine::CommandLine(const StringVector& argv)
 }
 
 CommandLine::~CommandLine() {
+#if defined(OS_WIN)
+  for (int i = 0; i < argc0_; i++) {
+    delete[] argv0_[i];
+  }
+  delete[] argv0_;
+#endif
 }
 
 #if defined(OS_WIN)
@@ -241,7 +247,17 @@ void CommandLine::InitFromArgv(int argc,
                                const CommandLine::CharType* const* argv) {
   StringVector new_argv;
   argc0_ = argc;
+#if !defined(OS_WIN)
   argv0_ = (char**)argv;
+#else
+  argv0_ = new char*[argc + 1];
+  for (int i = 0; i < argc; ++i) {
+    std::string str(base::WideToUTF8(argv[i]));
+    argv0_[i] = new char[str.length() + 1];
+    strcpy(argv0_[i], str.c_str());
+  }
+  argv0_[argc] = NULL;
+#endif
   for (int i = 0; i < argc; ++i)
     new_argv.push_back(argv[i]);
   InitFromArgv(new_argv);
