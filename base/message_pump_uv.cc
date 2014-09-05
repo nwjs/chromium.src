@@ -142,7 +142,11 @@ void MessagePumpUV::Quit() {
 void MessagePumpUV::ScheduleWork() {
   // Since this can be called on any thread, we need to ensure that our Run
   // loop wakes up.
+#if defined(OS_WIN)
+  uv_async_send_nw(wakeup_event_ref_);
+#else
   uv_async_send(wakeup_event_ref_);
+#endif
 }
 
 void MessagePumpUV::ScheduleDelayedWork(
