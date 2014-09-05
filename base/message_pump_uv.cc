@@ -108,10 +108,6 @@ void MessagePumpUV::Run(Delegate* delegate) {
         uv_timer_start(&delay_timer, timer_callback,
                        delay.InMilliseconds(), 0);
         uv_run(loop, UV_RUN_ONCE);
-#if defined(OS_WIN)
-        while (uv_pending_reqs(loop))
-          uv_run(loop, UV_RUN_NOWAIT);
-#endif
         uv_idle_stop(&idle_handle);
         uv_timer_stop(&delay_timer);
       } else {
