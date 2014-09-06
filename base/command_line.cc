@@ -160,6 +160,27 @@ CommandLine::CommandLine(NoProgram no_program)
       argc0_(0), argv0_(NULL) {
 }
 
+#if defined(OS_WIN)
+CommandLine::CommandLine(const CommandLine& other)
+    : argv_(1),
+    begin_args_(1),
+    argc0_(0), argv0_(NULL) {
+  argv_ = other.argv_;
+  original_argv_ = other.original_argv_;
+  switches_ = other.switches_;
+  begin_args_ = other.begin_args_;
+  argc0_ = other.argc0_;
+  if (other.argv0_) {
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+}
+#endif
+
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
       begin_args_(1),
@@ -169,18 +190,22 @@ CommandLine::CommandLine(const FilePath& program)
 
 CommandLine::CommandLine(int argc, const CommandLine::CharType* const* argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argc, argv);
 }
 
 CommandLine::CommandLine(const StringVector& argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argv);
 }
 
 CommandLine::~CommandLine() {
 #if defined(OS_WIN)
+  if (!argv0_)
+    return;
   for (int i = 0; i < argc0_; i++) {
     delete[] argv0_[i];
   }
