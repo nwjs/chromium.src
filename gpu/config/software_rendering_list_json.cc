@@ -18,7 +18,7 @@ const char kSoftwareRenderingListJson[] = LONG_STRING_CONST(
 {
   "name": "software rendering list",
   // Please update the version number whenever you change this file.
-  "version": "8.8",
+  "version": "8.9",
   "entries": [
     {
       "id": 1,
@@ -1183,13 +1183,22 @@ LONG_STRING_CONST(
           },
           "machine_model_name": ["HTC One",
                                  "C5303", "C6603", "C6903",
-                                 "GT-I8262", "GT-I8552", "GT-I9195", "GT-I9300",
-                                 "GT-I9500", "GT-I9505", "GT-N7100",
+                                 "GT-I8262", "GT-I8552", "GT-I9195",
+                                 "GT-I9500", "GT-I9505",
                                  "SAMSUNG-SCH-I337", "SCH-I545", "SGH-M919",
                                  "SM-N900", "SM-N9005", "SPH-L720",
                                  "XT907", "XT1032", "XT1033", "XT1080"]
         }
       ],
+      "features": [
+        "gpu_rasterization_field_trial"
+      ]
+    },
+    {
+      "id": 100,
+      "description": "GPU rasterization is blacklisted on Nexus 10",
+      "cr_bugs": [407144],
+      "gl_renderer": ".*Mali-T604.*",
       "features": [
         "gpu_rasterization_field_trial"
       ]
