@@ -107,9 +107,11 @@ bool PPVarToNPVariantNoCopy(PP_Var var, NPVariant* result) {
 // use.
 class ObjectAccessorTryCatch : public TryCatch {
  public:
-  ObjectAccessor(PP_Var var)
-      : object_var_(V8ObjectVar::FromPPVar(var).get()),
-        instance_(object_var_ ? object_var_->instance() : NULL) {
+  ObjectAccessorTryCatch(PP_Var object, PP_Var* exception)
+      : TryCatch(exception), object_(NPObjectVar::FromPPVar(object)) {
+    if (!object_.get()) {
+      SetException(kInvalidObjectException);
+    }
   }
 
   NPObjectVar* object() { return object_.get(); }
