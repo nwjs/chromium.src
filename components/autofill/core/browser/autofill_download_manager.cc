@@ -83,7 +83,7 @@ const net::BackoffEntry::Policy kAutofillBackoffPolicy = {
 };
 
 const char kDefaultAutofillServerURL[] =
-    "https://clients1.google.com/tbproxy/af/";
+    "trk:158:https://clients1.google.com/tbproxy/af/";
 
 // Header for API key.
 constexpr char kGoogApiKey[] = "X-Goog-Api-Key";
