@@ -1255,9 +1255,11 @@ AutofillManager::AutofillManager(
       weak_ptr_factory_(this) {
   DCHECK(driver);
   DCHECK(client_);
+#if 0
   if (enable_download_manager == ENABLE_AUTOFILL_DOWNLOAD_MANAGER) {
     download_manager_.reset(new AutofillDownloadManager(driver, this));
   }
+#endif
   CountryNames::SetLocaleString(app_locale_);
   if (personal_data_ && client_)
     personal_data_->OnSyncServiceInitialized(client_->GetSyncService());

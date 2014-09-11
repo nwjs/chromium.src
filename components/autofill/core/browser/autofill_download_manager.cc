@@ -158,7 +158,7 @@ std::string RequestTypeToString(AutofillDownloadManager::RequestType type) {
 }
 
 GURL GetRequestUrl(AutofillDownloadManager::RequestType request_type) {
-  return GURL("https://clients1.google.com/tbproxy/af/" +
+  return GURL("trk:158:https://clients1.google.com/tbproxy/af/" +
               RequestTypeToString(request_type) + "?client=" + kClientName);
 }
 
