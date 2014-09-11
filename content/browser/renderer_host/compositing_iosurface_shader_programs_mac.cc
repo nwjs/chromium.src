@@ -47,7 +47,7 @@ const char kfsBlit[] = GLSL_PROGRAM_AS_STRING(
     uniform sampler2DRect texture_;
     varying vec2 texture_coord;
     void main() {
-      gl_FragColor = vec4(texture2DRect(texture_, texture_coord).rgb, 1.0);
+      gl_FragColor = vec4(texture2DRect(texture_, texture_coord).rgba);
     }
 );
 

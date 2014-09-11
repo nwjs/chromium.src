@@ -191,7 +191,6 @@ void CompositingIOSurfaceLayerHelper::EndPumpingFrames() {
       return nil;
     }
 
-    [self setBackgroundColor:CGColorGetConstantColor(kCGColorWhite)];
     [self setAnchorPoint:CGPointMake(0, 0)];
     // Setting contents gravity is necessary to prevent the layer from being
     // scaled during dyanmic resizes (especially with devtools open).
