@@ -30,7 +30,6 @@ NetworkPredictionStatus CanPrefetchAndPrerender(
         return NetworkPredictionStatus::ENABLED;
       }
     default:
-      DCHECK_EQ(NETWORK_PREDICTION_NEVER, network_prediction_options);
       return NetworkPredictionStatus::DISABLED_ALWAYS;
   }
 }
