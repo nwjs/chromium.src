@@ -134,7 +134,7 @@ void ContentSettingsRegistry::Init() {
   // WARNING: The string names of the permissions passed in below are used to
   // generate preference names and should never be changed!
 
-  Register(CONTENT_SETTINGS_TYPE_COOKIES, "cookies", CONTENT_SETTING_ALLOW,
+  Register(CONTENT_SETTINGS_TYPE_COOKIES, "cookies", CONTENT_SETTING_SESSION_ONLY,
            WebsiteSettingsInfo::SYNCABLE,
            WhitelistedSchemes(kChromeUIScheme, kChromeDevToolsScheme),
            ValidSettings(CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK,
