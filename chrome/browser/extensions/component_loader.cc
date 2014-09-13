@@ -481,9 +481,11 @@ void ComponentLoader::AddDefaultComponentExtensions(
         base::FilePath(FILE_PATH_LITERAL("bookmark_manager")));
   }
 #if BUILDFLAG(ENABLE_PRINTING)
+#if 0 /* IRIDIUM */
   // Cloud Print component app. Not required on Chrome OS.
   Add(IDR_CLOUDPRINT_MANIFEST,
       base::FilePath(FILE_PATH_LITERAL("cloud_print")));
+#endif
 #endif  // BUILDFLAG(ENABLE_PRINTING)
 #endif  // defined(OS_CHROMEOS)
 

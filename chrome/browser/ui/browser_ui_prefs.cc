@@ -74,7 +74,7 @@ void RegisterBrowserUserPrefs(user_prefs::PrefRegistrySyncable* registry) {
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterStringPref(prefs::kCloudPrintEmail, std::string());
   registry->RegisterBooleanPref(prefs::kCloudPrintProxyEnabled, true);
-  registry->RegisterBooleanPref(prefs::kCloudPrintSubmitEnabled, true);
+  registry->RegisterBooleanPref(prefs::kCloudPrintSubmitEnabled, false);
   registry->RegisterBooleanPref(prefs::kDevToolsDisabled, false);
   registry->RegisterDictionaryPref(prefs::kBrowserWindowPlacement);
   registry->RegisterDictionaryPref(prefs::kBrowserWindowPlacementPopup);
