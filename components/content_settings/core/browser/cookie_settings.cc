@@ -111,7 +111,7 @@ void CookieSettings::GetCookieSettings(
 void CookieSettings::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(
-      prefs::kBlockThirdPartyCookies, false,
+      prefs::kBlockThirdPartyCookies, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 
