@@ -710,7 +710,8 @@ void AutofillManager::RemoveAutofillProfileOrCreditCard(int unique_id) {
   if (variant != 0)
     return;
 
-  personal_data_->RemoveByGUID(data_model->guid());
+  if (personal_data_)
+    personal_data_->RemoveByGUID(data_model->guid());
 }
 
 void AutofillManager::RemoveAutocompleteEntry(const base::string16& name,
@@ -810,7 +811,8 @@ void AutofillManager::UploadFormData(const FormStructure& submitted_form) {
   }
 
   ServerFieldTypeSet non_empty_types;
-  personal_data_->GetNonEmptyTypes(&non_empty_types);
+  if (personal_data_)
+    personal_data_->GetNonEmptyTypes(&non_empty_types);
 
   download_manager_->StartUploadRequest(submitted_form, was_autofilled,
                                         non_empty_types);
@@ -1097,7 +1099,8 @@ void AutofillManager::GetCreditCardSuggestions(
     std::vector<base::string16>* icons,
     std::vector<int>* unique_ids) const {
   std::vector<GUIDPair> guid_pairs;
-  personal_data_->GetCreditCardSuggestions(
+  if (personal_data_)
+    personal_data_->GetCreditCardSuggestions(
       type, field.value, values, labels, icons, &guid_pairs);
 
   for (size_t i = 0; i < guid_pairs.size(); ++i) {
