@@ -574,6 +574,7 @@ void RenderThreadImpl::Init() {
   service_registry()->AddService<RenderFrameSetup>(
       base::Bind(CreateRenderFrameSetup));
 
+  EnsureWebKitInitialized();
   TRACE_EVENT_END_ETW("RenderThreadImpl::Init", 0, "");
 }
 

@@ -874,8 +874,9 @@ class CONTENT_EXPORT RenderViewImpl
   // Settings ------------------------------------------------------------------
 
   WebPreferences webkit_preferences_;
+ public:
   RendererPreferences renderer_preferences_;
-
+ private:
   HostZoomLevels host_zoom_levels_;
 
   // Whether content state (such as form state, scroll position and page

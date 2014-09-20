@@ -92,11 +92,13 @@
 
           'conditions': [
             # ChromeOS and Windows use Aura and Ash.
-            ['chromeos==1 or OS=="win" or OS=="linux"', {
+            ['chromeos==1 or OS=="win"', {
               'use_ash%': 1,
               'use_aura%': 1,
             }],
-
+            ['OS=="linux"', {
+              'use_aura%': 1,
+            }],
             ['chromecast==1', {
               'embedded%': 1,
               'use_ozone%': 1,
