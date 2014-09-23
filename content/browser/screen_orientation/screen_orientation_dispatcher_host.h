@@ -29,8 +29,7 @@ class CONTENT_EXPORT ScreenOrientationDispatcherHost
 
   // WebContentsObserver
   virtual bool OnMessageReceived(const IPC::Message&,
-                                 RenderFrameHost* render_frame_host,
-                                 RenderViewHost* render_view_host) OVERRIDE;
+                                 RenderFrameHost* render_frame_host) OVERRIDE;
 
   // Notifies that the lock with the given |request_id| has succeeded.
   // The renderer process will be notified that the lock succeeded only if

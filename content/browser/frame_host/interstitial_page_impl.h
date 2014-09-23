@@ -105,8 +105,7 @@ class CONTENT_EXPORT InterstitialPageImpl
 
   // WebContentsObserver implementation:
   virtual bool OnMessageReceived(const IPC::Message& message,
-                                 RenderFrameHost* render_frame_host,
-                                 RenderViewHost* render_view_host) OVERRIDE;
+                                 RenderFrameHost* render_frame_host) OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
   virtual void WebContentsDestroyed() OVERRIDE;
   virtual void NavigationEntryCommitted(

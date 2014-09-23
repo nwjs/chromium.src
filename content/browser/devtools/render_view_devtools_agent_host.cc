@@ -309,8 +309,7 @@ void RenderViewDevToolsAgentHost::RenderProcessGone(
 
 bool RenderViewDevToolsAgentHost::OnMessageReceived(
     const IPC::Message& message,
-    RenderFrameHost* render_frame_host,
-    RenderViewHost* render_view_host) {
+    RenderFrameHost* render_frame_host) {
   return DispatchIPCMessage(message);
 }
 

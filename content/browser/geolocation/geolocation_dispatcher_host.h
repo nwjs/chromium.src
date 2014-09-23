@@ -35,8 +35,7 @@ class GeolocationDispatcherHost : public WebContentsObserver {
   virtual void RenderFrameDeleted(RenderFrameHost* render_frame_host) OVERRIDE;
   virtual void RenderViewHostChanged(RenderViewHost* old_host,
                                      RenderViewHost* new_host) OVERRIDE;
-  virtual bool OnMessageReceived(
-                                 const IPC::Message& msg, RenderFrameHost* render_frame_host, RenderViewHost* render_view_host) OVERRIDE;
+  virtual bool OnMessageReceived(const IPC::Message& msg, RenderFrameHost* render_frame_host) OVERRIDE;
 
   // Message handlers:
   void OnRequestPermission(RenderFrameHost* render_frame_host,

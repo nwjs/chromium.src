@@ -105,7 +105,7 @@ void GeolocationDispatcherHost::RenderViewHostChanged(
 }
 
 bool GeolocationDispatcherHost::OnMessageReceived(
-                                                  const IPC::Message& msg, RenderFrameHost* render_frame_host, RenderViewHost* render_view_host) {
+                                                  const IPC::Message& msg, RenderFrameHost* render_frame_host) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP_WITH_PARAM(GeolocationDispatcherHost, msg,
                                    render_frame_host)
