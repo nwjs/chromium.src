@@ -112,8 +112,7 @@ class CC_EXPORT LayerTreeHost {
   void FinishCommitOnImplThread(LayerTreeHostImpl* host_impl);
   void WillCommit();
   void CommitComplete();
-  void SetOutputSurface(scoped_ptr<OutputSurface> output_surface);
-  void RequestNewOutputSurface();
+  scoped_ptr<OutputSurface> CreateOutputSurface();
   virtual scoped_ptr<LayerTreeHostImpl> CreateLayerTreeHostImpl(
       LayerTreeHostImplClient* client);
   void DidLoseOutputSurface();

@@ -35,8 +35,7 @@ TEST(PictureLayerTest, NoTilesIfEmptyBounds) {
   scoped_refptr<PictureLayer> layer = PictureLayer::Create(&client);
   layer->SetBounds(gfx::Size(10, 10));
 
-  FakeLayerTreeHostClient host_client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&host_client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
   host->SetRootLayer(layer);
   layer->SetIsDrawable(true);
   layer->SavePaintProperties();
@@ -89,14 +88,12 @@ TEST(PictureLayerTest, RecordingModes) {
   scoped_refptr<PictureLayer> layer = PictureLayer::Create(&client);
 
   LayerTreeSettings settings;
-  FakeLayerTreeHostClient host_client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host =
-      FakeLayerTreeHost::Create(&host_client, settings);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(settings);
   host->SetRootLayer(layer);
   EXPECT_EQ(Picture::RECORD_NORMALLY, layer->RecordingMode());
 
   settings.recording_mode = LayerTreeSettings::RecordWithSkRecord;
-  host = FakeLayerTreeHost::Create(&host_client, settings);
+  host = FakeLayerTreeHost::Create(settings);
   host->SetRootLayer(layer);
   EXPECT_EQ(Picture::RECORD_WITH_SKRECORD, layer->RecordingMode());
 }

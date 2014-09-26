@@ -35,15 +35,15 @@ class NinePatchLayerTest : public testing::Test {
 
  protected:
   virtual void SetUp() {
-    layer_tree_host_ = FakeLayerTreeHost::Create(&fake_client_);
+    layer_tree_host_ = FakeLayerTreeHost::Create();
   }
 
   virtual void TearDown() {
     Mock::VerifyAndClearExpectations(layer_tree_host_.get());
   }
 
-  FakeLayerTreeHostClient fake_client_;
   scoped_ptr<FakeLayerTreeHost> layer_tree_host_;
+  FakeLayerTreeHostClient fake_client_;
 };
 
 TEST_F(NinePatchLayerTest, SetLayerProperties) {

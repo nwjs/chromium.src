@@ -9,7 +9,6 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "cc/layers/layer_lists.h"
-#include "cc/test/fake_layer_tree_host_client.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace gfx {
@@ -21,7 +20,6 @@ class Transform;
 
 namespace cc {
 
-class FakeLayerTreeHost;
 class Layer;
 class LayerImpl;
 class RenderSurfaceLayerList;
@@ -118,13 +116,10 @@ class LayerTreeHostCommonTestBase {
     return render_surface_layer_list_count_;
   }
 
-  scoped_ptr<FakeLayerTreeHost> CreateFakeLayerTreeHost();
-
  private:
   scoped_ptr<RenderSurfaceLayerList> render_surface_layer_list_;
   scoped_ptr<std::vector<LayerImpl*> > render_surface_layer_list_impl_;
 
-  FakeLayerTreeHostClient client_;
   int render_surface_layer_list_count_;
 };
 

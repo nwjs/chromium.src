@@ -18,12 +18,12 @@ namespace cc {
 
 class FakeLayerTreeHost : public LayerTreeHost {
  public:
-  static scoped_ptr<FakeLayerTreeHost> Create(FakeLayerTreeHostClient* client);
+  static scoped_ptr<FakeLayerTreeHost> Create();
+
   static scoped_ptr<FakeLayerTreeHost> Create(
-      FakeLayerTreeHostClient* client,
       const LayerTreeSettings& settings);
 
-  virtual ~FakeLayerTreeHost();
+  virtual ~FakeLayerTreeHost() {}
 
   virtual void SetNeedsCommit() OVERRIDE;
   virtual void SetNeedsFullTreeSync() OVERRIDE {}
@@ -52,11 +52,10 @@ class FakeLayerTreeHost : public LayerTreeHost {
   bool needs_commit() { return needs_commit_; }
 
  private:
-  FakeLayerTreeHost(FakeLayerTreeHostClient* client,
+  FakeLayerTreeHost(LayerTreeHostClient* client,
                     const LayerTreeSettings& settings);
 
   FakeImplProxy proxy_;
-  FakeLayerTreeHostClient* client_;
   TestSharedBitmapManager manager_;
   FakeLayerTreeHostImpl host_impl_;
   bool needs_commit_;

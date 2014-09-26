@@ -796,8 +796,9 @@ void RenderWidgetCompositor::ApplyViewportDeltas(
       top_controls_delta);
 }
 
-void RenderWidgetCompositor::RequestNewOutputSurface(bool fallback) {
-  layer_tree_host_->SetOutputSurface(widget_->CreateOutputSurface(fallback));
+scoped_ptr<cc::OutputSurface> RenderWidgetCompositor::CreateOutputSurface(
+    bool fallback) {
+  return widget_->CreateOutputSurface(fallback);
 }
 
 void RenderWidgetCompositor::DidInitializeOutputSurface() {

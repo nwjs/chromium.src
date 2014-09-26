@@ -104,9 +104,7 @@ void CompareFixedBoundsLayerAndNormalLayer(const WebFloatPoint& anchor_point,
   normal_layer->setPosition(position);
   root_layer->addChild(normal_layer);
 
-  cc::FakeLayerTreeHostClient client(cc::FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<cc::FakeLayerTreeHost> host =
-      cc::FakeLayerTreeHost::Create(&client);
+  scoped_ptr<cc::FakeLayerTreeHost> host = cc::FakeLayerTreeHost::Create();
   host->SetRootLayer(root_layer->layer());
 
   {

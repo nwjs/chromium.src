@@ -124,7 +124,6 @@ class LayerTestCommon {
     const QuadList& quad_list() const { return render_pass_->quad_list; }
 
    private:
-    FakeLayerTreeHostClient client_;
     scoped_ptr<FakeLayerTreeHost> host_;
     scoped_ptr<LayerImpl> root_layer_impl_;
     scoped_ptr<RenderPass> render_pass_;

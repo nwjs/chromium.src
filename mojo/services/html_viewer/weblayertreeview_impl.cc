@@ -79,8 +79,9 @@ void WebLayerTreeViewImpl::ApplyViewportDeltas(
   widget_->applyViewportDeltas(scroll_delta, page_scale, top_controls_delta);
 }
 
-void WebLayerTreeViewImpl::RequestNewOutputSurface(bool fallback) {
-  layer_tree_host_->SetOutputSurface(output_surface_.Pass());
+scoped_ptr<cc::OutputSurface> WebLayerTreeViewImpl::CreateOutputSurface(
+    bool fallback) {
+  return output_surface_.Pass();
 }
 
 void WebLayerTreeViewImpl::DidInitializeOutputSurface() {

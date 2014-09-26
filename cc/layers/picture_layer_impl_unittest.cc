@@ -4234,8 +4234,7 @@ void PictureLayerImplTest::TestQuadsForSolidColor(bool test_for_solid) {
 
   FakeContentLayerClient client;
   scoped_refptr<PictureLayer> layer = PictureLayer::Create(&client);
-  FakeLayerTreeHostClient host_client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&host_client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
   host->SetRootLayer(layer);
   PicturePile* pile = layer->GetPicturePileForTesting();
 
@@ -4310,8 +4309,7 @@ TEST_F(PictureLayerImplTest, NonSolidToSolidNoTilings) {
 
   FakeContentLayerClient client;
   scoped_refptr<PictureLayer> layer = PictureLayer::Create(&client);
-  FakeLayerTreeHostClient host_client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&host_client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
   host->SetRootLayer(layer);
   PicturePile* pile = layer->GetPicturePileForTesting();
 

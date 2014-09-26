@@ -215,12 +215,13 @@ void ThreadProxy::DidLoseOutputSurface() {
   }
 }
 
-void ThreadProxy::RequestNewOutputSurface() {
+void ThreadProxy::CreateAndInitializeOutputSurface() {
+  TRACE_EVENT0("cc", "ThreadProxy::DoCreateAndInitializeOutputSurface");
   DCHECK(IsMainThread());
-  layer_tree_host()->RequestNewOutputSurface();
-}
 
-void ThreadProxy::SetOutputSurface(scoped_ptr<OutputSurface> output_surface) {
+  scoped_ptr<OutputSurface> output_surface =
+      layer_tree_host()->CreateOutputSurface();
+
   if (output_surface) {
     Proxy::ImplThreadTaskRunner()->PostTask(
         FROM_HERE,
@@ -244,7 +245,7 @@ void ThreadProxy::DidInitializeOutputSurface(
   if (!success) {
     Proxy::MainThreadTaskRunner()->PostTask(
         FROM_HERE,
-        base::Bind(&ThreadProxy::RequestNewOutputSurface,
+        base::Bind(&ThreadProxy::CreateAndInitializeOutputSurface,
                    main_thread_weak_ptr_));
   }
 }
@@ -1025,7 +1026,8 @@ void ThreadProxy::ScheduledActionBeginOutputSurfaceCreation() {
   DCHECK(IsImplThread());
   Proxy::MainThreadTaskRunner()->PostTask(
       FROM_HERE,
-      base::Bind(&ThreadProxy::RequestNewOutputSurface, main_thread_weak_ptr_));
+      base::Bind(&ThreadProxy::CreateAndInitializeOutputSurface,
+                 main_thread_weak_ptr_));
 }
 
 DrawResult ThreadProxy::DrawSwapInternal(bool forced_draw) {

@@ -301,9 +301,10 @@ void CompositorImpl::Composite(CompositingTrigger trigger) {
   if (!factory->GetGpuChannel() || factory->GetGpuChannel()->IsLost()) {
     CauseForGpuLaunch cause =
         CAUSE_FOR_GPU_LAUNCH_WEBGRAPHICSCONTEXT3DCOMMANDBUFFERIMPL_INITIALIZE;
-    factory->EstablishGpuChannel(cause,
-                                 base::Bind(&CompositorImpl::ScheduleComposite,
-                                            weak_factory_.GetWeakPtr()));
+    factory->EstablishGpuChannel(
+        cause,
+        base::Bind(&CompositorImpl::OnGpuChannelEstablished,
+                   weak_factory_.GetWeakPtr()));
     return;
   }
 
@@ -348,6 +349,10 @@ void CompositorImpl::Composite(CompositingTrigger trigger) {
 
   // Need to track vsync to avoid compositing more than once per frame.
   root_window_->RequestVSyncUpdate();
+}
+
+void CompositorImpl::OnGpuChannelEstablished() {
+  ScheduleComposite();
 }
 
 UIResourceProvider& CompositorImpl::GetUIResourceProvider() {
@@ -543,24 +548,8 @@ void CompositorImpl::Layout() {
   ignore_schedule_composite_ = false;
 }
 
-void CompositorImpl::RequestNewOutputSurface(bool fallback) {
-  BrowserGpuChannelHostFactory* factory =
-      BrowserGpuChannelHostFactory::instance();
-  if (!factory->GetGpuChannel() || factory->GetGpuChannel()->IsLost()) {
-    CauseForGpuLaunch cause =
-        CAUSE_FOR_GPU_LAUNCH_WEBGRAPHICSCONTEXT3DCOMMANDBUFFERIMPL_INITIALIZE;
-    factory->EstablishGpuChannel(
-        cause,
-        base::Bind(&CompositorImpl::CreateOutputSurface,
-                   weak_factory_.GetWeakPtr(),
-                   fallback));
-    return;
-  }
-
-  CreateOutputSurface(fallback);
-}
-
-void CompositorImpl::CreateOutputSurface(bool fallback) {
+scoped_ptr<cc::OutputSurface> CompositorImpl::CreateOutputSurface(
+    bool fallback) {
   blink::WebGraphicsContext3D::Attributes attrs;
   attrs.shareResources = true;
   attrs.noAutomaticFlushes = true;
@@ -580,13 +569,11 @@ void CompositorImpl::CreateOutputSurface(bool fallback) {
   }
   if (!context_provider.get()) {
     LOG(ERROR) << "Failed to create 3D context for compositor.";
-    host_->SetOutputSurface(scoped_ptr<cc::OutputSurface>());
-    return;
+    return scoped_ptr<cc::OutputSurface>();
   }
 
-  host_->SetOutputSurface(
-      scoped_ptr<cc::OutputSurface>(new OutputSurfaceWithoutParent(
-          context_provider, weak_factory_.GetWeakPtr())));
+  return scoped_ptr<cc::OutputSurface>(new OutputSurfaceWithoutParent(
+      context_provider, weak_factory_.GetWeakPtr()));
 }
 
 void CompositorImpl::PopulateGpuCapabilities(

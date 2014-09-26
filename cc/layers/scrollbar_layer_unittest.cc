@@ -60,8 +60,7 @@ LayerImpl* LayerImplForScrollAreaAndScrollbar(FakeLayerTreeHost* host,
 }
 
 TEST(ScrollbarLayerTest, ResolveScrollLayerPointer) {
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
   scoped_ptr<Scrollbar> scrollbar(new FakeScrollbar);
   LayerImpl* layer_impl_tree_root = LayerImplForScrollAreaAndScrollbar(
       host.get(), scrollbar.Pass(), false, false, 0, 0);
@@ -76,8 +75,7 @@ TEST(ScrollbarLayerTest, ResolveScrollLayerPointer) {
 }
 
 TEST(ScrollbarLayerTest, ResolveScrollLayerPointer_ReverseOrder) {
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
   scoped_ptr<Scrollbar> scrollbar(new FakeScrollbar);
   LayerImpl* layer_impl_tree_root = LayerImplForScrollAreaAndScrollbar(
       host.get(), scrollbar.Pass(), true, false, 0, 0);
@@ -92,8 +90,7 @@ TEST(ScrollbarLayerTest, ResolveScrollLayerPointer_ReverseOrder) {
 }
 
 TEST(ScrollbarLayerTest, ShouldScrollNonOverlayOnMainThread) {
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
 
   // Create and attach a non-overlay scrollbar.
   scoped_ptr<Scrollbar> scrollbar(new FakeScrollbar);
@@ -126,8 +123,7 @@ TEST(ScrollbarLayerTest, ShouldScrollNonOverlayOnMainThread) {
 }
 
 TEST(PaintedScrollbarLayerTest, ScrollOffsetSynchronization) {
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
 
   scoped_ptr<Scrollbar> scrollbar(new FakeScrollbar);
   scoped_refptr<Layer> layer_tree_root = Layer::Create();
@@ -197,8 +193,7 @@ TEST(PaintedScrollbarLayerTest, ScrollOffsetSynchronization) {
   } while (false)
 
 TEST(ScrollbarLayerTest, UpdatePropertiesOfScrollBarWhenThumbRemoved) {
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
   scoped_refptr<Layer> root_clip_layer = Layer::Create();
   scoped_refptr<Layer> root_layer = Layer::Create();
   scoped_refptr<Layer> content_layer = Layer::Create();
@@ -242,8 +237,7 @@ TEST(ScrollbarLayerTest, UpdatePropertiesOfScrollBarWhenThumbRemoved) {
 }
 
 TEST(ScrollbarLayerTest, ThumbRect) {
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
-  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(&client);
+  scoped_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create();
   scoped_refptr<Layer> root_clip_layer = Layer::Create();
   scoped_refptr<Layer> root_layer = Layer::Create();
   scoped_refptr<Layer> content_layer = Layer::Create();
@@ -327,10 +321,9 @@ TEST(ScrollbarLayerTest, SolidColorDrawQuads) {
   const int kTrackStart = 1;
   const int kTrackLength = 100;
 
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
   LayerTreeSettings layer_tree_settings;
   scoped_ptr<FakeLayerTreeHost> host =
-      FakeLayerTreeHost::Create(&client, layer_tree_settings);
+      FakeLayerTreeHost::Create(layer_tree_settings);
 
   scoped_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
   LayerImpl* layer_impl_tree_root = LayerImplForScrollAreaAndScrollbar(
@@ -413,10 +406,9 @@ TEST(ScrollbarLayerTest, LayerDrivenSolidColorDrawQuads) {
   const int kTrackStart = 0;
   const int kTrackLength = 10;
 
-  FakeLayerTreeHostClient client(FakeLayerTreeHostClient::DIRECT_3D);
   LayerTreeSettings layer_tree_settings;
   scoped_ptr<FakeLayerTreeHost> host =
-      FakeLayerTreeHost::Create(&client, layer_tree_settings);
+      FakeLayerTreeHost::Create(layer_tree_settings);
 
   scoped_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
 

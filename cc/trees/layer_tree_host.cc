@@ -413,12 +413,8 @@ void LayerTreeHost::CommitComplete() {
   client_->DidCommit();
 }
 
-void LayerTreeHost::SetOutputSurface(scoped_ptr<OutputSurface> surface) {
-  proxy_->SetOutputSurface(surface.Pass());
-}
-
-void LayerTreeHost::RequestNewOutputSurface() {
-  client_->RequestNewOutputSurface(num_failed_recreate_attempts_ >= 4);
+scoped_ptr<OutputSurface> LayerTreeHost::CreateOutputSurface() {
+  return client_->CreateOutputSurface(num_failed_recreate_attempts_ >= 4);
 }
 
 scoped_ptr<LayerTreeHostImpl> LayerTreeHost::CreateLayerTreeHostImpl(
@@ -722,13 +718,11 @@ void LayerTreeHost::Composite(base::TimeTicks frame_begin_time) {
   SingleThreadProxy* proxy = static_cast<SingleThreadProxy*>(proxy_.get());
 
   SetLayerTreeHostClientReady();
-  if (output_surface_lost_) {
-    RequestNewOutputSurface();
-    // RequestNewOutputSurface could have synchronously created an output
-    // surface, so check again before returning.
-    if (output_surface_lost_)
-      return;
-  }
+
+  if (output_surface_lost_)
+    proxy->CreateAndInitializeOutputSurface();
+  if (output_surface_lost_)
+    return;
 
   proxy->CompositeImmediately(frame_begin_time);
 }

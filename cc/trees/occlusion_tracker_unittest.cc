@@ -176,9 +176,7 @@ int OcclusionTrackerTestImplThreadTypes::next_layer_impl_id = 1;
 template <typename Types> class OcclusionTrackerTest : public testing::Test {
  protected:
   explicit OcclusionTrackerTest(bool opaque_layers)
-      : opaque_layers_(opaque_layers),
-        client_(FakeLayerTreeHostClient::DIRECT_3D),
-        host_(FakeLayerTreeHost::Create(&client_)) {}
+      : opaque_layers_(opaque_layers), host_(FakeLayerTreeHost::Create()) {}
 
   virtual void RunMyTest() = 0;
 
@@ -443,7 +441,6 @@ template <typename Types> class OcclusionTrackerTest : public testing::Test {
   }
 
   bool opaque_layers_;
-  FakeLayerTreeHostClient client_;
   scoped_ptr<FakeLayerTreeHost> host_;
   // These hold ownership of the layers for the duration of the test.
   typename Types::LayerPtrType root_;

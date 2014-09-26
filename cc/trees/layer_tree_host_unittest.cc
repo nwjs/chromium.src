@@ -1902,7 +1902,6 @@ class LayerTreeHostWithProxy : public LayerTreeHost {
                          scoped_ptr<FakeProxy> proxy)
       : LayerTreeHost(client, NULL, settings) {
     proxy->SetLayerTreeHost(this);
-    client->SetLayerTreeHost(this);
     InitializeForTesting(proxy.PassAs<Proxy>());
   }
 };
@@ -1977,7 +1976,6 @@ TEST(LayerTreeHostTest, PartialUpdatesWithGLRenderer) {
                                           shared_bitmap_manager.get(),
                                           settings,
                                           base::MessageLoopProxy::current());
-  client.SetLayerTreeHost(host.get());
   host->Composite(base::TimeTicks::Now());
 
   EXPECT_EQ(4u, host->settings().max_partial_texture_updates);
@@ -1998,7 +1996,6 @@ TEST(LayerTreeHostTest, PartialUpdatesWithSoftwareRenderer) {
                                           shared_bitmap_manager.get(),
                                           settings,
                                           base::MessageLoopProxy::current());
-  client.SetLayerTreeHost(host.get());
   host->Composite(base::TimeTicks::Now());
 
   EXPECT_EQ(4u, host->settings().max_partial_texture_updates);
@@ -2019,7 +2016,6 @@ TEST(LayerTreeHostTest, PartialUpdatesWithDelegatingRendererAndGLContent) {
                                           shared_bitmap_manager.get(),
                                           settings,
                                           base::MessageLoopProxy::current());
-  client.SetLayerTreeHost(host.get());
   host->Composite(base::TimeTicks::Now());
 
   EXPECT_EQ(0u, host->MaxPartialTextureUpdates());
@@ -2041,7 +2037,6 @@ TEST(LayerTreeHostTest,
                                           shared_bitmap_manager.get(),
                                           settings,
                                           base::MessageLoopProxy::current());
-  client.SetLayerTreeHost(host.get());
   host->Composite(base::TimeTicks::Now());
 
   EXPECT_EQ(0u, host->MaxPartialTextureUpdates());
