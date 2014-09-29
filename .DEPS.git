@@ -37,8 +37,8 @@ deps = {
         Var('git_url') + '/external/googlemock.git@896ba0e03f520fb9b6ed582bde2bd00847e3c3f2',
     'src/testing/gtest':
         Var('git_url') + '/external/googletest.git@4650552ff637bb44ecf7784060091cbed3252211',
-    #'src/third_party/WebKit':
-        #Var('webkit_url') + '' + Var('webkit_rev'),
+    'src/third_party/WebKit':
+        Var('webkit_url') + '' + Var('webkit_rev'),
     'src/third_party/WebKit/LayoutTests/w3c/csswg-test':
         Var('git_url') + '/external/w3c/csswg-test.git@f9b9daa33eac525923e941333d389fcb42f9b19f',
     'src/third_party/WebKit/LayoutTests/w3c/web-platform-tests':
