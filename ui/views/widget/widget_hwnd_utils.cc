@@ -106,7 +106,7 @@ void CalculateWindowStylesFromInitParams(
           native_widget_delegate->IsDialogBox() ? WS_EX_DLGMODALFRAME : 0;
 
       // See layered window comment above.
-      if (*ex_style & WS_EX_COMPOSITED)
+      if (*ex_style & WS_EX_COMPOSITED && params.remove_standard_frame)
         *style &= ~(WS_THICKFRAME | WS_CAPTION);
       break;
     }
