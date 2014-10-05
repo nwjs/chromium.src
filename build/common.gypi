@@ -5116,8 +5116,8 @@
     ['OS=="win"', {
       'target_defaults': {
         'defines': [
-          '_WIN32_WINNT=0x0601',
-          'WINVER=0x0601',
+          '_WIN32_WINNT=0x0602',
+          'WINVER=0x0602',
           'WIN32',
           '_WINDOWS',
           'NOMINMAX',
@@ -5317,6 +5317,7 @@
           4510, # Default constructor could not be generated
           4512, # Assignment operator could not be generated
           4610, # Object can never be instantiated
+          4819, 4201, 4996
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
