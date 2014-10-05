@@ -22,7 +22,7 @@ class StatusIconLinuxWrapper : public StatusIcon,
   virtual void SetImage(const gfx::ImageSkia& image) OVERRIDE;
   virtual void SetPressedImage(const gfx::ImageSkia& image) OVERRIDE;
   virtual void SetToolTip(const base::string16& tool_tip) OVERRIDE;
-  virtual void DisplayBalloon(const gfx::ImageSkia& icon,
+  virtual bool DisplayBalloon(const gfx::ImageSkia& icon,
                               const base::string16& title,
                               const base::string16& contents) OVERRIDE;
 
@@ -43,7 +43,7 @@ class StatusIconLinuxWrapper : public StatusIcon,
   // subclass update the native context menu based on the new model. If NULL is
   // passed, subclass should destroy the native context menu.
   virtual void UpdatePlatformContextMenu(
-      StatusIconMenuModel* model) OVERRIDE;
+                                         ui::MenuModel* model) OVERRIDE;
 
  private:
   // A status icon wrapper should only be created by calling
@@ -51,11 +51,11 @@ class StatusIconLinuxWrapper : public StatusIcon,
   explicit StatusIconLinuxWrapper(views::StatusIconLinux* status_icon);
 
   // Notification balloon.
-  DesktopNotificationBalloon notification_;
+  // DesktopNotificationBalloon notification_;
 
   scoped_ptr<views::StatusIconLinux> status_icon_;
 
-  StatusIconMenuModel* menu_model_;
+  ui::MenuModel* menu_model_;
 
   DISALLOW_COPY_AND_ASSIGN(StatusIconLinuxWrapper);
 };

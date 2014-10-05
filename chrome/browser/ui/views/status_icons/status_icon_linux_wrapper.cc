@@ -14,8 +14,10 @@ StatusIconLinuxWrapper::StatusIconLinuxWrapper(
 }
 
 StatusIconLinuxWrapper::~StatusIconLinuxWrapper() {
+#if 0
   if (menu_model_)
     menu_model_->RemoveObserver(this);
+#endif
 }
 
 void StatusIconLinuxWrapper::SetImage(const gfx::ImageSkia& image) {
@@ -30,10 +32,11 @@ void StatusIconLinuxWrapper::SetToolTip(const base::string16& tool_tip) {
   status_icon_->SetToolTip(tool_tip);
 }
 
-void StatusIconLinuxWrapper::DisplayBalloon(const gfx::ImageSkia& icon,
+bool StatusIconLinuxWrapper::DisplayBalloon(const gfx::ImageSkia& icon,
                                             const base::string16& title,
                                             const base::string16& contents) {
-  notification_.DisplayBalloon(icon, title, contents);
+  //notification_.DisplayBalloon(icon, title, contents);
+  return true;
 }
 
 void StatusIconLinuxWrapper::OnClick() {
@@ -62,14 +65,18 @@ StatusIconLinuxWrapper* StatusIconLinuxWrapper::CreateWrappedStatusIcon(
 }
 
 void StatusIconLinuxWrapper::UpdatePlatformContextMenu(
-    StatusIconMenuModel* model) {
+                                                       ui::MenuModel* model) {
+#if 0
   // If a menu already exists, remove ourself from its oberver list.
   if (menu_model_)
     menu_model_->RemoveObserver(this);
+#endif
 
   status_icon_->UpdatePlatformContextMenu(model);
   menu_model_ = model;
 
+#if 0
   if (model)
     model->AddObserver(this);
+#endif
 }
