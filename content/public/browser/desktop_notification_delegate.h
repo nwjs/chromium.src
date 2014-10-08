@@ -24,6 +24,8 @@ class DesktopNotificationDelegate {
 
   // The user clicked on the notification.
   virtual void NotificationClick() = 0;
+
+  virtual int notification_id() = 0;
 };
 
 }  // namespace content

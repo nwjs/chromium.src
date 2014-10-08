@@ -115,6 +115,8 @@ class DesktopNotificationDelegateImpl : public DesktopNotificationDelegate {
         rfh->GetRoutingID(), notification_id_));
   }
 
+  virtual int notification_id() OVERRIDE { return notification_id_; }
+
  private:
   int render_process_id_;
   int render_frame_id_;
