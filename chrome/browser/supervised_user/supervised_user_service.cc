@@ -421,7 +421,8 @@ bool SupervisedUserService::IncludesSyncSessionsType() const {
 void SupervisedUserService::OnStateChanged() {
   ProfileSyncService* service =
       ProfileSyncServiceFactory::GetForProfile(profile_);
-  if (waiting_for_sync_initialization_ && service->SyncActive()) {
+  if (waiting_for_sync_initialization_ && service->sync_initialized() &&
+      service->backend_mode() == ProfileSyncService::SYNC) {
     waiting_for_sync_initialization_ = false;
     service->RemoveObserver(this);
     FinishSetupSync();
@@ -452,7 +453,8 @@ void SupervisedUserService::FinishSetupSyncWhenReady() {
   // Continue in FinishSetupSync() once the Sync backend has been initialized.
   ProfileSyncService* service =
       ProfileSyncServiceFactory::GetForProfile(profile_);
-  if (service->SyncActive()) {
+  if (service->sync_initialized() &&
+      service->backend_mode() == ProfileSyncService::SYNC) {
     FinishSetupSync();
   } else {
     service->AddObserver(this);
@@ -463,7 +465,8 @@ void SupervisedUserService::FinishSetupSyncWhenReady() {
 void SupervisedUserService::FinishSetupSync() {
   ProfileSyncService* service =
       ProfileSyncServiceFactory::GetForProfile(profile_);
-  DCHECK(service->SyncActive());
+  DCHECK(service->sync_initialized() &&
+         service->backend_mode() == ProfileSyncService::SYNC);
 
   // Sync nothing (except types which are set via GetPreferredDataTypes).
   bool sync_everything = false;

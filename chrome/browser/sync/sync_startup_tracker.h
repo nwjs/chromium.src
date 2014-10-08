@@ -37,7 +37,7 @@ class SyncStartupTracker : public ProfileSyncServiceObserver {
     // An error has been detected that prevents the sync backend from starting
     // up.
     SYNC_STARTUP_ERROR,
-    // Sync startup has completed (i.e. ProfileSyncService::SyncActive()
+    // Sync startup has completed (i.e. ProfileSyncService::sync_initialized()
     // returns true).
     SYNC_STARTUP_COMPLETE
   };
