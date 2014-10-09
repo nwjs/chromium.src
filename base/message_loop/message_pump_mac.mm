@@ -705,8 +705,9 @@ MessagePumpNSApplication::~MessagePumpNSApplication() {
 }
 
 void MessagePumpNSApplication::DoRun(Delegate* delegate) {
-  v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  v8::HandleScope scope(isolate);
+  v8::Isolate* isolate = NULL;
+  if (for_node_)
+    isolate = v8::Isolate::GetCurrent();
 
   // Pause uv in nested loop.
   if (nesting_level() > 0) {
@@ -727,6 +728,7 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     // NSApplication manages autorelease pools itself when run this way.
     [NSApp run];
   } else {
+    v8::HandleScope scope(isolate);
     running_own_loop_ = true;
 
     while (keep_running_) {
