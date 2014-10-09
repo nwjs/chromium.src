@@ -573,7 +573,7 @@ class ProfileSyncServiceAutofillTest
 
     // It's possible this test triggered an unrecoverable error, in which case
     // we can't get the sync count.
-    if (sync_service_->SyncActive()) {
+    if (sync_service_->ShouldPushChanges()) {
       EXPECT_EQ(GetSyncCount(type),
                 association_stats_.num_sync_items_after_association);
     }

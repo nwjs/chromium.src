@@ -324,9 +324,11 @@ scoped_ptr<base::DictionaryValue> ConstructAboutInformation(
 
   syncer::SyncStatus full_status;
   bool is_status_valid = service->QueryDetailedSyncStatus(&full_status);
-  bool sync_active = service->SyncActive();
+  bool sync_initialized = service->sync_initialized();
   const syncer::sessions::SyncSessionSnapshot& snapshot =
-      service->GetLastSessionSnapshot();
+      sync_initialized ?
+      service->GetLastSessionSnapshot() :
+      syncer::sessions::SyncSessionSnapshot();
 
   if (is_status_valid)
     summary_string.SetValue(service->QuerySyncStatusSummaryString());
@@ -369,7 +371,7 @@ scoped_ptr<base::DictionaryValue> ConstructAboutInformation(
         full_status.notifications_enabled);
   }
 
-  if (sync_active) {
+  if (sync_initialized) {
     is_using_explicit_passphrase.SetValue(
         service->IsUsingSecondaryPassphrase());
     is_passphrase_required.SetValue(service->IsPassphraseRequired());

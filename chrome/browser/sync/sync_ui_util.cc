@@ -76,7 +76,7 @@ base::string16 GetSyncedStateStatusLabel(ProfileSyncService* service,
     }
   }
 
-  if (!service || !service->SyncActive()) {
+  if (!service || !service->sync_initialized()) {
     // User is not signed in, or sync is still initializing.
     return base::string16();
   }
