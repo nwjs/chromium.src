@@ -48,7 +48,6 @@ MessagePumpUV::~MessagePumpUV() {
 
 void MessagePumpUV::Run(Delegate* delegate) {
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  v8::HandleScope scope(isolate);
 
   ++nesting_level_;
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
