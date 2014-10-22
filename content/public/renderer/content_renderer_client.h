@@ -43,6 +43,7 @@ class WebRTCPeerConnectionHandlerClient;
 class WebSpeechSynthesizer;
 class WebSpeechSynthesizerClient;
 class WebThemeEngine;
+class WebURL;
 class WebURLRequest;
 class WebWorkerPermissionClientProxy;
 struct WebPluginParams;
@@ -275,7 +276,8 @@ class CONTENT_EXPORT ContentRendererClient {
                                           blink::WebFrame* frame,
                                           const blink::WebURLRequest& request,
                                           blink::WebNavigationPolicy* policy) {}
-
+  virtual void windowOpenBegin(const blink::WebURL& url) {}
+  virtual void windowOpenEnd() {}
 };
 
 }  // namespace content
