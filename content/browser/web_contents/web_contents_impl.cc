@@ -2549,9 +2549,9 @@ void WebContentsImpl::DidNavigateMainFramePreCommit(
     // No page change?  Then, the renderer and browser can remain in fullscreen.
     return;
   }
-  if (IsFullscreenForCurrentTab())
-    GetRenderViewHost()->ExitFullscreen();
-  DCHECK(!IsFullscreenForCurrentTab());
+  //  if (IsFullscreenForCurrentTab())
+  //  GetRenderViewHost()->ExitFullscreen();
+  //DCHECK(!IsFullscreenForCurrentTab());
 }
 
 void WebContentsImpl::DidNavigateMainFramePostCommit(
