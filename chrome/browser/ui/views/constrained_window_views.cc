@@ -20,10 +20,12 @@ using web_modal::ModalDialogHost;
 using web_modal::ModalDialogHostObserver;
 
 namespace {
+#if 0
 // The name of a key to store on the window handle to associate
 // BrowserModalDialogHostObserverViews with the Widget.
 const char* const kBrowserModalDialogHostObserverViewsKey =
     "__BROWSER_MODAL_DIALOG_HOST_OBSERVER_VIEWS__";
+#endif
 
 // Applies positioning changes from the ModalDialogHost to the Widget.
 class BrowserModalDialogHostObserverViews
