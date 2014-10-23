@@ -84,8 +84,10 @@ void MessagePumpUV::Run(Delegate* delegate) {
       // call tick callback after done work in V8,
       // in the same way node upstream handle this in MakeCallBack,
       // or the tick callback is blocked in some cases
-      if (node::g_env)
+      if (node::g_env) {
+        v8::HandleScope handleScope(isolate);
         node::CallTickCallback(node::g_env, v8::Undefined(isolate));
+      }
       continue;
     }
 
@@ -94,8 +96,10 @@ void MessagePumpUV::Run(Delegate* delegate) {
       break;
 
     if (did_work) {
-      if (node::g_env)
+      if (node::g_env) {
+        v8::HandleScope handleScope(isolate);
         node::CallTickCallback(node::g_env, v8::Undefined(isolate));
+      }
       continue;
     }
 
