@@ -728,7 +728,6 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     // NSApplication manages autorelease pools itself when run this way.
     [NSApp run];
   } else {
-    v8::HandleScope scope(isolate);
     running_own_loop_ = true;
 
     while (keep_running_) {
@@ -746,6 +745,7 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
       }
 
       if (for_node_ && nesting_level() == 0) {
+        v8::HandleScope scope(isolate);
         // Deal with uv events.
 	if (!uv_run(uv_default_loop(), UV_RUN_NOWAIT)) {
 	  VLOG(1) << "Quit from uv";
