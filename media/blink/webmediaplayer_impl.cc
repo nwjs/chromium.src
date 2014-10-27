@@ -15,7 +15,6 @@
 #include "base/debug/alias.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/trace_event.h"
-#include "base/float_util.h"
 #include "base/message_loop/message_loop_proxy.h"
 #include "base/metrics/histogram.h"
 #include "base/single_thread_task_runner.h"
@@ -495,15 +494,21 @@ blink::WebTimeRanges WebMediaPlayerImpl::buffered() const {
 blink::WebTimeRanges WebMediaPlayerImpl::seekable() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
-  // Media without duration are considered streaming and should not be seekable.
-  const double seekable_end = duration();
-  if (!base::IsFinite(seekable_end))
+  // If we haven't even gotten to ReadyStateHaveMetadata yet then there
+  // are no seekable ranges.
+  if (ready_state_ < WebMediaPlayer::ReadyStateHaveMetadata)
     return blink::WebTimeRanges();
 
-  // If we have a finite duration then use [0, duration] as the seekable range;
-  // unless it's a streaming source, in which case only allow a seek to zero.
-  blink::WebTimeRange seekable_range(
-      0.0, data_source_ && data_source_->IsStreaming() ? 0.0 : seekable_end);
+  // We don't support seeking in streaming media.
+  if (data_source_ && data_source_->IsStreaming())
+    return blink::WebTimeRanges();
+
+  // If we have a duration then use [0, duration] as the seekable range.
+  const double seekable_end = duration();
+  if (!seekable_end)
+    return blink::WebTimeRanges();
+
+  blink::WebTimeRange seekable_range(0.0, seekable_end);
   return blink::WebTimeRanges(&seekable_range, 1);
 }
 

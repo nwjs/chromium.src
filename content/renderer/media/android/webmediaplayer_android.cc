@@ -11,7 +11,6 @@
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "base/float_util.h"
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 #include "base/single_thread_task_runner.h"
@@ -525,12 +524,16 @@ blink::WebTimeRanges WebMediaPlayerAndroid::buffered() const {
 }
 
 blink::WebTimeRanges WebMediaPlayerAndroid::seekable() const {
-  // Media without duration are considered streaming and should not be seekable.
-  const double seekable_end = duration();
-  if (!base::IsFinite(seekable_end))
+  // If we haven't even gotten to ReadyStateHaveMetadata yet then there
+  // are no seekable ranges.
+  if (ready_state_ < WebMediaPlayer::ReadyStateHaveMetadata)
     return blink::WebTimeRanges();
 
-  // If we have a finite duration then use [0, duration] as the seekable range.
+  // If we have a duration then use [0, duration] as the seekable range.
+  const double seekable_end = duration();
+  if (!seekable_end)
+    return blink::WebTimeRanges();
+
   blink::WebTimeRange seekable_range(0.0, seekable_end);
   return blink::WebTimeRanges(&seekable_range, 1);
 }
