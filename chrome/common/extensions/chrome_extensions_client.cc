@@ -58,9 +58,9 @@ namespace {
 
 // TODO(battre): Delete the HTTP URL once the blacklist is downloaded via HTTPS.
 const char kExtensionBlocklistUrlPrefix[] =
-    "http://www.gstatic.com/chrome/extensions/blacklist";
+    "trk:269:http://www.gstatic.com/chrome/extensions/blacklist";
 const char kExtensionBlocklistHttpsUrlPrefix[] =
-    "https://www.gstatic.com/chrome/extensions/blacklist";
+    "trk:270:https://www.gstatic.com/chrome/extensions/blacklist";
 
 const char kThumbsWhiteListedExtension[] = "khopmbdjffemhegeeobelklnbglcdgfh";
 

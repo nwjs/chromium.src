@@ -102,7 +102,7 @@ namespace {
 
 // The URL from which to download a host blacklist if no local one exists yet.
 const char kBlacklistURL[] =
-    "https://www.gstatic.com/chrome/supervised_user/blacklist-20141001-1k.bin";
+    "trk:272:https://www.gstatic.com/chrome/supervised_user/blacklist-20141001-1k.bin";
 // The filename under which we'll store the blacklist (in the user data dir).
 const char kBlacklistFilename[] = "su-blacklist.bin";
 

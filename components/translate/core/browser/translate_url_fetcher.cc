@@ -106,6 +106,7 @@ bool TranslateURLFetcher::Request(
   if (!extra_request_header_.empty())
     fetcher_->SetExtraRequestHeaders(extra_request_header_);
 
+  fprintf(stderr, "translator: fetching something from %s\n", url_.spec().c_str());
   fetcher_->Start();
 
   return true;

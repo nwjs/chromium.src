@@ -295,7 +295,7 @@ remoting.XmppLoginHandler.prototype.startAuthStream_ = function() {
              'auth:allow-generated-jid="true" ' +
              'auth:client-uses-full-bind-result="true" ' +
              'auth:allow-non-google-login="true" ' +
-             'xmlns:auth="http://www.google.com/talk/protocol/auth">' +
+             'xmlns:auth="trk:176:http://www.google.com/talk/protocol/auth">' +
         cookie +
       '</auth>');
 };

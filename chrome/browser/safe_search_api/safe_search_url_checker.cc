@@ -32,7 +32,7 @@ using net::URLRequestStatus;
 namespace {
 
 const char kSafeSearchApiUrl[] =
-    "https://safesearch.googleapis.com/v1:classify";
+    "trk:238:https://safesearch.googleapis.com/v1:classify";
 const char kDataContentType[] = "application/x-www-form-urlencoded";
 const char kDataFormat[] = "key=%s&urls=%s";
 

@@ -1173,7 +1173,7 @@ void FileManagerPrivateInternalGetDownloadUrlFunction::OnGetResourceEntry(
       SigninManagerFactory::GetForProfile(GetProfile());
   const std::string& account_id = signin_manager->GetAuthenticatedAccountId();
   std::vector<std::string> scopes;
-  scopes.push_back("https://www.googleapis.com/auth/drive.readonly");
+  scopes.push_back("trk:208:https://www.googleapis.com/auth/drive.readonly");
 
   auth_service_.reset(
       new google_apis::AuthService(oauth2_token_service,

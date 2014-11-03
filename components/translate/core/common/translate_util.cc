@@ -57,7 +57,7 @@ const LanguageCodePair kLanguageCodeChineseCompatiblePairs[] = {
     {"zh-CN", "zh-SG"},
 };
 
-const char kSecurityOrigin[] = "https://translate.googleapis.com/";
+const char kSecurityOrigin[] = "trk:220:https://translate.googleapis.com/";
 
 void ToTranslateLanguageSynonym(std::string* language) {
   for (size_t i = 0; i < arraysize(kLanguageCodeSimilitudes); ++i) {

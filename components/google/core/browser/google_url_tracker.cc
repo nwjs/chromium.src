@@ -35,7 +35,7 @@
  * (So the naming problem was spotted, yet remains unfixed even today…)
  */
 const char GoogleURLTracker::kDefaultGoogleHomepage[] =
-    "https://www.google.com/";
+    "trk:192:https://www.google.com/";
 const char GoogleURLTracker::kSearchDomainCheckURL[] =
 /* trk:193 */
     "https://www.google.com/searchdomaincheck?format=domain&type=chrome";

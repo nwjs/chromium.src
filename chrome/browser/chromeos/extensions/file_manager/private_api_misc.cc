@@ -66,7 +66,7 @@ namespace {
 
 using api::file_manager_private::ProfileInfo;
 
-const char kCWSScope[] = "https://www.googleapis.com/auth/chromewebstore";
+const char kCWSScope[] = "trk:209:https://www.googleapis.com/auth/chromewebstore";
 
 // Obtains the current app window.
 AppWindow* GetCurrentAppWindow(UIThreadExtensionFunction* function) {
