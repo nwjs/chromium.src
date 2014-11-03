@@ -209,7 +209,7 @@ def _AddKeystoneKeys(plist, bundle_identifier):
   also requires the |bundle_identifier| argument (com.example.product)."""
   plist['KSVersion'] = plist['CFBundleShortVersionString']
   plist['KSProductID'] = bundle_identifier
-  plist['KSUpdateURL'] = 'https://tools.google.com/service/update2'
+  plist['KSUpdateURL'] = 'trk:132:https://tools.google.com/service/update2'
 
   _RemoveKeys(plist, 'KSChannelID')
   for tag_suffix in _TagSuffixes():

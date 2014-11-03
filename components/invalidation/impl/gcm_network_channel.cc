@@ -40,7 +40,7 @@ namespace syncer {
 namespace {
 
 const char kCacheInvalidationEndpointUrl[] =
-    "https://clients4.google.com/invalidation/android/request/";
+    "trk:264:https://clients4.google.com/invalidation/android/request/";
 const char kCacheInvalidationPackageName[] = "com.google.chrome.invalidations";
 
 // Register backoff policy.

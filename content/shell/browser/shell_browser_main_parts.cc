@@ -74,7 +74,7 @@ GURL GetStartupURL() {
 #endif
 
   if (args.empty())
-    return GURL("https://www.google.com/");
+    return GURL("trk:183:https://www.google.com/");
 
   GURL url(args[0]);
   if (url.is_valid() && url.has_scheme())

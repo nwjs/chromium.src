@@ -85,9 +85,9 @@ cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
   'position': '{}',
   'siteSpecificEnhancements': true,
   'siteSpecificScriptBase':
-      'https://ssl.gstatic.com/accessibility/javascript/ext/',
+      'trk:152:https://ssl.gstatic.com/accessibility/javascript/ext/',
   'siteSpecificScriptLoader':
-      'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
+      'trk:153:https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
   'speakTextUnderMouse': false,
   'sticky': false,
   'typingEcho': 0,

@@ -100,6 +100,7 @@ bool TranslateURLFetcher::Request(const GURL& url,
   if (!extra_request_header_.empty())
     resource_request->headers.AddHeaderFromString(extra_request_header_);
 
+  fprintf(stderr, "translator: fetching something from %s\n", url_.spec().c_str());
   simple_loader_ =
       variations::CreateSimpleURLLoaderWithVariationsHeadersUnknownSignedIn(
           std::move(resource_request),

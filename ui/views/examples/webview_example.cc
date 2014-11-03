@@ -27,7 +27,7 @@ void WebViewExample::CreateExampleView(View* container) {
   container->SetLayoutManager(std::make_unique<FillLayout>());
   container->AddChildView(webview_);
 
-  webview_->LoadInitialURL(GURL("http://www.google.com/"));
+  webview_->LoadInitialURL(GURL("trk:174:http://www.google.com/"));
   webview_->GetWebContents()->Focus();
 }
 
