@@ -5,6 +5,7 @@
 #include "net/cert/cert_verify_proc_mac.h"
 
 #include <CommonCrypto/CommonDigest.h>
+#include <CoreFoundation/CFArray.h>
 #include <CoreServices/CoreServices.h>
 #include <Security/Security.h>
 
@@ -13,6 +14,7 @@
 
 #include "base/logging.h"
 #include "base/mac/mac_logging.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/sha1.h"
 #include "base/strings/string_piece.h"
@@ -354,6 +356,7 @@ bool IsIssuedByKnownRoot(CFArrayRef chain) {
 int BuildAndEvaluateSecTrustRef(CFArrayRef cert_array,
                                 CFArrayRef trust_policies,
                                 int flags,
+                                const CertificateList& additional_trust_anchors,
                                 ScopedCFTypeRef<SecTrustRef>* trust_ref,
                                 SecTrustResultType* trust_result,
                                 ScopedCFTypeRef<CFArrayRef>* verified_chain,
@@ -369,6 +372,45 @@ int BuildAndEvaluateSecTrustRef(CFArrayRef cert_array,
     status = TestRootCerts::GetInstance()->FixupSecTrustRef(tmp_trust);
     if (status)
       return NetErrorFromOSStatus(status);
+  }
+
+  if (!additional_trust_anchors.empty()) {
+    // Code from TestRootCerts::FixupSecTrustRef in test_root_certs_mac.cc
+    base::ScopedCFTypeRef<CFMutableArrayRef> temporary_roots(
+        CFArrayCreateMutable(kCFAllocatorDefault, additional_trust_anchors.size(), &kCFTypeArrayCallBacks));
+    for (size_t i=0; i<additional_trust_anchors.size(); i++) {
+      CFArrayAppendValue(temporary_roots, additional_trust_anchors[i]->os_cert_handle());
+    }
+
+    // Despite SecTrustSetAnchorCertificatesOnly existing in OS X 10.6, and
+    // being documented as available, it is not actually implemented. On 10.7+,
+    // however, it always works.
+    if (base::mac::IsOSLionOrLater()) {
+      status = SecTrustSetAnchorCertificates(tmp_trust, temporary_roots);
+      if (status)
+        return NetErrorFromOSStatus(status);
+
+      status = SecTrustSetAnchorCertificatesOnly(tmp_trust, false);
+      if (status)
+        return NetErrorFromOSStatus(status);
+    } else {
+      // Otherwise, both system trust and temporary_roots must be trusted.
+      // Emulate the functionality of SecTrustSetAnchorCertificatesOnly by
+      // creating a copy of the system roots and merging with temporary_roots.
+      CFArrayRef system_roots = NULL;
+      status = SecTrustCopyAnchorCertificates(&system_roots);
+      if (status)
+        return NetErrorFromOSStatus(status);
+
+      base::ScopedCFTypeRef<CFArrayRef> scoped_system_roots(system_roots);
+      base::ScopedCFTypeRef<CFMutableArrayRef> scoped_roots(
+          CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, scoped_system_roots));
+      CFArrayAppendArray(scoped_roots, temporary_roots,
+                         CFRangeMake(0, CFArrayGetCount(temporary_roots)));
+      status = SecTrustSetAnchorCertificates(tmp_trust, scoped_roots);
+      if (status)
+        return NetErrorFromOSStatus(status);
+    }
   }
 
   CSSM_APPLE_TP_ACTION_DATA tp_action_data;
@@ -480,6 +522,7 @@ void RetrySecTrustEvaluateWithAdjustedChain(
     CFArrayRef cert_array,
     CFArrayRef trust_policies,
     int flags,
+    const CertificateList& additional_trust_anchors,
     ScopedCFTypeRef<SecTrustRef>* trust_ref,
     SecTrustResultType* trust_result,
     ScopedCFTypeRef<CFArrayRef>* verified_chain,
@@ -509,7 +552,7 @@ void RetrySecTrustEvaluateWithAdjustedChain(
 
   // Ignore the result; failure will preserve the old verification results.
   BuildAndEvaluateSecTrustRef(
-      adjusted_cert_array, trust_policies, flags, trust_ref, trust_result,
+      adjusted_cert_array, trust_policies, flags, additional_trust_anchors, trust_ref, trust_result,
       verified_chain, chain_info);
 }
 
@@ -520,7 +563,7 @@ CertVerifyProcMac::CertVerifyProcMac() {}
 CertVerifyProcMac::~CertVerifyProcMac() {}
 
 bool CertVerifyProcMac::SupportsAdditionalTrustAnchors() const {
-  return false;
+  return true;
 }
 
 int CertVerifyProcMac::VerifyInternal(
@@ -552,14 +595,14 @@ int CertVerifyProcMac::VerifyInternal(
   CSSM_TP_APPLE_EVIDENCE_INFO* chain_info = NULL;
 
   int rv = BuildAndEvaluateSecTrustRef(
-      cert_array, trust_policies, flags, &trust_ref, &trust_result,
+      cert_array, trust_policies, flags, additional_trust_anchors, &trust_ref, &trust_result,
       &completed_chain, &chain_info);
   if (rv != OK)
     return rv;
   if (trust_result != kSecTrustResultUnspecified &&
       trust_result != kSecTrustResultProceed) {
     RetrySecTrustEvaluateWithAdjustedChain(
-        cert_array, trust_policies, flags, &trust_ref, &trust_result,
+        cert_array, trust_policies, flags, additional_trust_anchors, &trust_ref, &trust_result,
         &completed_chain, &chain_info);
   }
 
