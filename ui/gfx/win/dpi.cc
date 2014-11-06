@@ -151,6 +151,10 @@ void ForceHighDPISupportForTesting(float scale) {
 }
 
 bool IsHighDPIEnabled() {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kHighDPISupport)) {
+    return CommandLine::ForCurrentProcess()->GetSwitchValueASCII(switches::kHighDPISupport).compare("1") == 0;
+  }
+
   // Flag stored in HKEY_CURRENT_USER\SOFTWARE\\Google\\Chrome\\Profile,
   // under the DWORD value high-dpi-support.
   // Default is disabled.
