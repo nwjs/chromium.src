@@ -15,6 +15,7 @@ GFX_EXPORT extern const char kDisableHarfBuzzRenderText[];
 GFX_EXPORT extern const char kEnableHarfBuzzRenderText[];
 GFX_EXPORT extern const char kEnableWebkitTextSubpixelPositioning[];
 GFX_EXPORT extern const char kForceDeviceScaleFactor[];
+GFX_EXPORT extern const char kHighDPISupport[];
 
 }  // namespace switches
 
