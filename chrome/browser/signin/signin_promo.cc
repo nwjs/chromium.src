@@ -130,6 +130,7 @@ namespace signin {
 
 bool ShouldShowPromoAtStartup(Profile* profile, bool is_new_profile) {
   DCHECK(profile);
+  return false;
 
   // Don't show if the profile is an incognito.
   if (profile->IsOffTheRecord())
@@ -383,8 +384,8 @@ void ForceWebBasedSigninFlowForTesting(bool force) {
 void RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterIntegerPref(prefs::kSignInPromoStartupCount, 0);
-  registry->RegisterBooleanPref(prefs::kSignInPromoUserSkipped, false);
-  registry->RegisterBooleanPref(prefs::kSignInPromoShowOnFirstRunAllowed, true);
+  registry->RegisterBooleanPref(prefs::kSignInPromoUserSkipped, true);
+  registry->RegisterBooleanPref(prefs::kSignInPromoShowOnFirstRunAllowed, false);
   registry->RegisterBooleanPref(prefs::kSignInPromoShowNTPBubble, false);
   registry->RegisterIntegerPref(prefs::kDiceSigninUserMenuPromoCount, 0);
 }
