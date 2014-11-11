@@ -34,8 +34,8 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   int nesting_level_;
 
   // Handle to wake up loop.
+  std::vector<uv_async_t*> wakeup_events_;
   uv_async_t* wakeup_event_;
-  uv_async_t* wakeup_event_ref_;
 
   TimeTicks delayed_work_time_;
 

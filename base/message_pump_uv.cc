@@ -35,10 +35,9 @@ void timer_callback(uv_timer_t* timer, int status) {
 
 MessagePumpUV::MessagePumpUV()
     : keep_running_(true),
-      nesting_level_(0),
-      wakeup_event_ref_(NULL) {
-  wakeup_event_ref_ = wakeup_event_ = new uv_async_t;
-  uv_async_init(uv_default_loop(), wakeup_event_ref_, wakeup_callback);
+      nesting_level_(0) {
+  wakeup_event_ = new uv_async_t;
+  uv_async_init(uv_default_loop(), wakeup_event_, wakeup_callback);
 }
 
 MessagePumpUV::~MessagePumpUV() {
@@ -58,8 +57,9 @@ void MessagePumpUV::Run(Delegate* delegate) {
   if (nesting_level_ > 1) {
     loop = uv_loop_new();
 
-    wakeup_event_ref_ = new uv_async_t;
-    uv_async_init(loop, wakeup_event_ref_, wakeup_callback);
+    wakeup_events_.push_back(wakeup_event_);
+    wakeup_event_ = new uv_async_t;
+    uv_async_init(loop, wakeup_event_, wakeup_callback);
   }
 
   // Create handles for the loop.
@@ -124,14 +124,15 @@ void MessagePumpUV::Run(Delegate* delegate) {
   }
 
   if (nesting_level_ > 1) {
-    uv_close((uv_handle_t*)wakeup_event_ref_, NULL);
+    uv_close((uv_handle_t*)wakeup_event_, NULL);
     // Delete external loop.
     uv_loop_close(loop);
     free(loop);
 
     // Restore previous async handle.
-    delete wakeup_event_ref_;
-    wakeup_event_ref_ = wakeup_event_;
+    delete wakeup_event_;
+    wakeup_event_ = wakeup_events_.back();
+    wakeup_events_.pop_back();
   }
 
   keep_running_ = true;
@@ -146,9 +147,9 @@ void MessagePumpUV::ScheduleWork() {
   // Since this can be called on any thread, we need to ensure that our Run
   // loop wakes up.
 #if defined(OS_WIN)
-  uv_async_send_nw(wakeup_event_ref_);
+  uv_async_send_nw(wakeup_event_);
 #else
-  uv_async_send(wakeup_event_ref_);
+  uv_async_send(wakeup_event_);
 #endif
 }
 
