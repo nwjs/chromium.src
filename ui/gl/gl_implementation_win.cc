@@ -36,7 +36,7 @@ namespace {
 // Version 43 is the latest version of D3DCompiler_nn.dll that works prior to
 // Windows Vista.
 const wchar_t kPreVistaD3DCompiler[] = L"D3DCompiler_43.dll";
-const wchar_t kPostVistaD3DCompiler[] = L"D3DCompiler_46.dll";
+const wchar_t kPostVistaD3DCompiler[] = L"D3DCompiler_47.dll";
 
 void GL_BINDING_CALL MarshalClearDepthToClearDepthf(GLclampd depth) {
   glClearDepthf(static_cast<GLclampf>(depth));

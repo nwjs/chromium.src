@@ -11,7 +11,7 @@ vars = {
     'webkit_rev':
          '@origin/custom',
     'angle_revision':
-         'bc75f36b04c8bab99bcecf8cdca16ecee3ac58ee'
+         '00f5d4bf581d744d7d071a964ee8d026e4f84b6c'
 }
 
 deps = {
@@ -44,7 +44,7 @@ deps = {
     'src/third_party/WebKit/LayoutTests/w3c/web-platform-tests':
         Var('git_url') + '/external/w3c/web-platform-tests.git@6c7bd34e408ff69687a95d75b7e562fa84148997',
     'src/third_party/angle':
-        Var('git_url') + '/angle/angle.git' + '@' + Var('angle_revision'),
+        'https://github.com/ghostoy/angle.git' + '@' + Var('angle_revision'),
     'src/third_party/bidichecker':
         Var('git_url') + '/external/bidichecker/lib.git@97f2aa645b74c28c57eca56992235c79850fa9e0',
     'src/third_party/boringssl/src':

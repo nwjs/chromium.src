@@ -23,7 +23,7 @@ chrome_100_percent.pak: %(VersionDir)s\
 chrome_child.dll: %(VersionDir)s\
 chrome_elf.dll: %(VersionDir)s\
 D3DCompiler_43.dll: %(VersionDir)s\
-d3dcompiler_46.dll: %(VersionDir)s\
+d3dcompiler_47.dll: %(VersionDir)s\
 ffmpegsumo.dll: %(VersionDir)s\
 icudt.dll: %(VersionDir)s\
 icudtl.dat: %(VersionDir)s\
