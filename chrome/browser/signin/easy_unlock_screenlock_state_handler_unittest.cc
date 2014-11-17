@@ -762,8 +762,6 @@ TEST_F(EasyUnlockScreenlockStateHandlerTest, NoOverrideOnlineSignin) {
   states.push_back(EasyUnlockScreenlockStateHandler::STATE_PHONE_LOCKED);
   states.push_back(EasyUnlockScreenlockStateHandler::STATE_PHONE_UNLOCKABLE);
   states.push_back(EasyUnlockScreenlockStateHandler::STATE_PHONE_UNSUPPORTED);
-  states.push_back(EasyUnlockScreenlockStateHandler::STATE_RSSI_TOO_LOW);
-  states.push_back(EasyUnlockScreenlockStateHandler::STATE_TX_POWER_TOO_HIGH);
   states.push_back(EasyUnlockScreenlockStateHandler::STATE_AUTHENTICATED);
 
   for (size_t i = 0; i < states.size(); ++i) {
