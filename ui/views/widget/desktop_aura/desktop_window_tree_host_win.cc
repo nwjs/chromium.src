@@ -388,7 +388,7 @@ void DesktopWindowTreeHostWin::SetVisibilityChangedAnimationsEnabled(
 }
 
 bool DesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
-  return true;
+  return IsTranslucentWindowOpacitySupported();
 }
 
 bool DesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent() const {
