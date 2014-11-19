@@ -635,6 +635,7 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate, bool init_bundle) {
   supported_scale_factors.push_back(SCALE_FACTOR_200P);
 #elif defined(OS_WIN)
   bool default_to_100P = true;
+#if 0
   if (gfx::IsHighDPIEnabled()) {
     // On Windows if the dpi scale is greater than 1.25 on high dpi machines
     // downscaling from 200 percent looks better than scaling up from 100
@@ -644,6 +645,7 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate, bool init_bundle) {
       default_to_100P = false;
     }
   }
+#endif
   if (default_to_100P)
     supported_scale_factors.push_back(SCALE_FACTOR_100P);
 #endif
