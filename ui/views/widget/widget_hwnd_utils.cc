@@ -17,6 +17,10 @@
 #include "ui/base/win/shell.h"
 #endif
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace views {
 
 namespace {
@@ -106,7 +110,7 @@ void CalculateWindowStylesFromInitParams(
           native_widget_delegate->IsDialogBox() ? WS_EX_DLGMODALFRAME : 0;
 
       // See layered window comment above.
-      if (*ex_style & WS_EX_COMPOSITED && params.remove_standard_frame)
+      if (content::g_support_transparency ? *ex_style & WS_EX_COMPOSITED && params.remove_standard_frame : *ex_style & WS_EX_COMPOSITED)
         *style &= ~(WS_THICKFRAME | WS_CAPTION);
       break;
     }

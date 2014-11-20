@@ -36,6 +36,7 @@
 #include "content/common/screen_orientation_messages.h"
 #include "content/common/view_messages.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/content_constants.h"
 #include "content/public/common/webplugininfo.h"
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/renderer/battery_status/battery_status_dispatcher.h"
@@ -142,6 +143,9 @@ using blink::WebURL;
 using blink::WebVector;
 
 namespace content {
+
+extern bool g_support_transparency;
+bool g_support_transparency = true;
 
 namespace {
 
@@ -1231,6 +1235,10 @@ void RendererWebKitPlatformSupportImpl::getCmdArg(int* argc, char*** argv, std::
     snapshot_path = command_line->GetSwitchValuePath("snapshot").AsUTF8Unsafe();
   }
 
+}
+
+bool RendererWebKitPlatformSupportImpl::supportTransparency() {
+  return g_support_transparency;
 }
 
 bool RendererWebKitPlatformSupportImpl::supportNodeJS() {
