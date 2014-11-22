@@ -42,6 +42,10 @@
 #include "ui/views/win/hwnd_message_handler_delegate.h"
 #include "ui/views/win/scoped_fullscreen_visibility.h"
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace views {
 namespace {
 
@@ -332,6 +336,7 @@ class HWNDMessageHandler::ScopedRedrawLock {
 // HWNDMessageHandler, public:
 
 long HWNDMessageHandler::last_touch_message_time_ = 0;
+#define TRANSPARENCY(original, addition) content::g_support_transparency ? original addition : original
 
 HWNDMessageHandler::HWNDMessageHandler(HWNDMessageHandlerDelegate* delegate)
     : delegate_(delegate),
@@ -1123,6 +1128,10 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
   if (custom_window_region_) {
     new_region = ::CreateRectRgn(0, 0, 0, 0);
     ::CombineRgn(new_region, custom_window_region_.Get(), NULL, RGN_COPY);
+  } else if (content::g_support_transparency && window_ex_style() & WS_EX_COMPOSITED) {
+    RECT work_rect = window_rect;
+    OffsetRect(&work_rect, -window_rect.left, -window_rect.top);
+    new_region = CreateRectRgnIndirect(&work_rect);
   } else if (IsMaximized()) {
     HMONITOR monitor = MonitorFromWindow(hwnd(), MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi;
@@ -1309,7 +1318,7 @@ LRESULT HWNDMessageHandler::OnCreate(CREATESTRUCT* create_struct) {
               MAKELPARAM(UIS_CLEAR, UISF_HIDEFOCUS),
               0);
 
-  if (remove_standard_frame_) {
+  if (TRANSPARENCY(remove_standard_frame_, && !(window_ex_style() & WS_EX_COMPOSITED))) {
     SetWindowLong(hwnd(), GWL_STYLE,
                   GetWindowLong(hwnd(), GWL_STYLE) & ~WS_CAPTION);
     SendFrameChanged();
@@ -1629,10 +1638,12 @@ LRESULT HWNDMessageHandler::OnNCCalcSize(BOOL mode, LPARAM l_param) {
     }
   }
 
+  const LONG noTitleBar = (window_ex_style() & WS_EX_COMPOSITED) && remove_standard_frame_;
+
   gfx::Insets insets;
   bool got_insets = GetClientAreaInsets(&insets);
-  if (!got_insets && !fullscreen_handler_->fullscreen() &&
-      !(mode && remove_standard_frame_)) {
+  if (TRANSPARENCY(!got_insets && !fullscreen_handler_->fullscreen() &&
+      !(mode && remove_standard_frame_), && !noTitleBar)) {
     SetMsgHandled(FALSE);
     return 0;
   }
@@ -2039,6 +2050,15 @@ void HWNDMessageHandler::OnSize(UINT param, const gfx::Size& size) {
   }
   if (delegate_->ShouldHandleOnSize())
     delegate_->HandleSize(param, size);
+}
+
+void HWNDMessageHandler::OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct) {
+  if (!content::g_support_transparency)
+    return;
+  if (nStyleType == GWL_EXSTYLE)
+    set_window_ex_style(lpStyleStruct->styleNew);
+  else if (nStyleType == GWL_STYLE)
+    set_window_style(lpStyleStruct->styleNew);
 }
 
 void HWNDMessageHandler::OnSysCommand(UINT notification_code,

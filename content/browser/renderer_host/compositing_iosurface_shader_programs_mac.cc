@@ -16,6 +16,7 @@
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
 
 namespace content {
+  extern bool g_support_transparency;
 
 namespace {
 
@@ -32,6 +33,9 @@ const char kVersionDirective[] = "#version 120\n";
 // workaround; see comments in CompositingIOSurfaceShaderPrograms ctor).
 const char kOutputSwizzleMacroNormal[] = "#define OUTPUT_PIXEL_ORDERING bgra\n";
 const char kOutputSwizzleMacroSwapRB[] = "#define OUTPUT_PIXEL_ORDERING rgba\n";
+const char kSupportTransparencyTrue[]  = "const bool g_support_transparency = true;\n";
+const char kSupportTransparencyFalse[] = "const bool g_support_transparency = false;\n";
+
 
 // Only the bare-bones calculations here for speed.
 const char kvsBlit[] = GLSL_PROGRAM_AS_STRING(
@@ -47,7 +51,10 @@ const char kfsBlit[] = GLSL_PROGRAM_AS_STRING(
     uniform sampler2DRect texture_;
     varying vec2 texture_coord;
     void main() {
-      gl_FragColor = vec4(texture2DRect(texture_, texture_coord).rgb, 1.0);
+      if(g_support_transparency)
+        gl_FragColor = vec4(texture2DRect(texture_, texture_coord).rgba);
+      else
+        gl_FragColor = vec4(texture2DRect(texture_, texture_coord).rgb, 1.0);
     }
 );
 
@@ -250,6 +257,7 @@ GLuint CompileShaderGLSL(ShaderProgram shader_program, GLenum shader_type,
     const GLchar* source_snippets[] = {
       kVersionDirective,
       output_swap_rb ? kOutputSwizzleMacroSwapRB : kOutputSwizzleMacroNormal,
+      g_support_transparency ? kSupportTransparencyTrue : kSupportTransparencyFalse,
       kFragmentShaderSourceCodeMap[shader_program],
     };
     glShaderSource(shader, arraysize(source_snippets), source_snippets, NULL);

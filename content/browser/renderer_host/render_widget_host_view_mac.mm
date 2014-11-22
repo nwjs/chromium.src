@@ -99,6 +99,10 @@ using blink::WebMouseEvent;
 using blink::WebMouseWheelEvent;
 using blink::WebGestureEvent;
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace {
 
 // Whether a keyboard event has been reserved by OSX.
@@ -524,7 +528,7 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
   // draw.
   background_layer_.reset([[CALayer alloc] init]);
   [background_layer_
-      setBackgroundColor:CGColorGetConstantColor(kCGColorWhite)];
+      setBackgroundColor:CGColorGetConstantColor([cocoa_view() isOpaque] || !content::g_support_transparency ? kCGColorWhite : kCGColorClear)];
   [cocoa_view_ setLayer:background_layer_];
   [cocoa_view_ setWantsLayer:YES];
 
@@ -655,6 +659,8 @@ void RenderWidgetHostViewMac::EnsureBrowserCompositorView() {
   browser_compositor_view_.reset(new BrowserCompositorViewMac(this));
   delegated_frame_host_->AddedToWindow();
   delegated_frame_host_->WasShown(ui::LatencyInfo());
+  if (content::g_support_transparency)
+    root_layer_->GetCompositor()->SetHostHasTransparentBackground(!cocoa_view_.isOpaque);
 }
 
 void RenderWidgetHostViewMac::DestroyBrowserCompositorView() {
@@ -4096,7 +4102,7 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 }
 
 - (BOOL)isOpaque {
-  return YES;
+  return content::g_support_transparency ? [super isOpaque] : YES;
 }
 
 // "-webkit-app-region: drag | no-drag" is implemented on Mac by excluding
