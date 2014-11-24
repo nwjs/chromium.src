@@ -103,6 +103,8 @@ class VIEWS_EXPORT WidgetDelegate {
 
   virtual bool HandleSize(unsigned int param, const gfx::Size& size);
 
+  virtual void HandleWMStateUpdate();
+
   // Returns the window's name identifier. Used to identify this window for
   // state restoration.
   virtual std::string GetWindowName() const;
