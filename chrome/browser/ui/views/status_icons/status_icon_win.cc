@@ -100,6 +100,8 @@ void StatusIconWin::ResetIcon() {
 void StatusIconWin::SetImage(const gfx::ImageSkia& image) {
   // Create the icon.
   NOTIFYICONDATA icon_data;
+  HICON old_icon = icon_.Get();
+
   InitIconData(&icon_data);
   icon_data.uFlags = NIF_ICON;
   icon_.Set(IconUtil::CreateHICONFromSkBitmap(*image.bitmap()));
@@ -107,6 +109,8 @@ void StatusIconWin::SetImage(const gfx::ImageSkia& image) {
   BOOL result = Shell_NotifyIcon(NIM_MODIFY, &icon_data);
   if (!result)
     LOG(WARNING) << "Error setting status tray icon image";
+  else if (old_icon)
+    ::DestroyIcon(old_icon);
 }
 
 void StatusIconWin::SetPressedImage(const gfx::ImageSkia& image) {
