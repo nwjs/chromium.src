@@ -36,7 +36,6 @@
 #include "content/common/screen_orientation_messages.h"
 #include "content/common/view_messages.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/content_constants.h"
 #include "content/public/common/webplugininfo.h"
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/renderer/battery_status/battery_status_dispatcher.h"
@@ -144,8 +143,13 @@ using blink::WebVector;
 
 namespace content {
 
+// Switch to enable / disable code for window's transparency
 extern bool g_support_transparency;
 bool g_support_transparency = true;
+
+// Switch to force cpu drawing, is used to enable click through on alpha pixels
+extern bool g_force_cpu_draw;
+bool g_force_cpu_draw = false;
 
 namespace {
 

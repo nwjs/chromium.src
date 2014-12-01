@@ -173,6 +173,7 @@ class Layer;
 @property(nonatomic, readonly) NSRange selectedRange;
 @property(nonatomic, readonly) BOOL suppressNextEscapeKeyUp;
 
+- (void)drawRect:(NSRect)dirty;
 - (void)setCanBeKeyView:(BOOL)can;
 - (void)setTakesFocusOnlyOnMouseDown:(BOOL)b;
 - (void)setCloseOnDeactivate:(BOOL)b;
