@@ -101,6 +101,7 @@ using blink::WebGestureEvent;
 
 namespace content {
   extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
 }
 
 namespace {
@@ -547,7 +548,7 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget,
     gfx::CGColorCreateFromSkColor(background_color_) : CGColorGetConstantColor(kCGColorClear)];
 
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   if (IsDelegatedRendererEnabled()) {
     root_layer_.reset(new ui::Layer(ui::LAYER_SOLID_COLOR));
@@ -1784,6 +1785,16 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
     return responderDelegate_.get();
 
   return [super forwardingTargetForSelector:selector];
+}
+
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    [[self layer] renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
 }
 
 - (void)setCanBeKeyView:(BOOL)can {

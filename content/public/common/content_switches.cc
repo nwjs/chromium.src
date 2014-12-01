@@ -522,6 +522,9 @@ const char kEnableZeroCopy[]                = "enable-zero-copy";
 // Load NPAPI plugins from the specified directory.
 const char kExtraPluginDir[]                = "extra-plugin-dir";
 
+// Force CPU drawing, needed to enable click through on transparent window
+const char kForceCpuDraw[]              = "force-cpu-draw";
+
 // This option can be used to force field trials when testing changes locally.
 // The argument is a list of name and value pairs, separated by slashes. If a
 // trial name is prefixed with an asterisk, that trial will start activated.
