@@ -406,8 +406,10 @@ bool UsbDeviceImpl::GetSerialNumber(base::string16* serial_number) {
 
   scoped_refptr<UsbDeviceHandle> device_handle = Open();
   if (device_handle.get()) {
-    return device_handle->GetStringDescriptor(desc.iSerialNumber,
-                                              serial_number);
+    bool success = device_handle->GetStringDescriptor(desc.iSerialNumber,
+                                                      serial_number);
+    device_handle->Close();
+    return success;
   }
   return false;
 #endif
