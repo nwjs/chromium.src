@@ -134,8 +134,8 @@ class BASE_EXPORT CommandLine {
   }
 #endif
 
-  const int argc0() { return argc0_; }
-  char** argv0() { return argv0_; }
+  int argc0() const { return argc0_; }
+  char** argv0() const { return argv0_; }
 
   // Returns the original command line string as a vector of strings.
   const StringVector& argv() const { return argv_; }
