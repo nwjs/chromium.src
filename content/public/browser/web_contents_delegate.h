@@ -320,7 +320,8 @@ class CONTENT_EXPORT WebContentsDelegate {
                                   int opener_render_frame_id,
                                   const base::string16& frame_name,
                                   const GURL& target_url,
-                                  WebContents* new_contents) {}
+                                  WebContents* new_contents,
+                                  const base::string16& nw_window_manifest) {}
 
   // Notification that the tab is hung.
   virtual void RendererUnresponsive(WebContents* source) {}

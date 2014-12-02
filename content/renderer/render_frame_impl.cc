@@ -3734,9 +3734,10 @@ RendererCdmManager* RenderFrameImpl::GetCdmManager() {
 void RenderFrameImpl::willHandleNavigationPolicy(
                                                 blink::WebFrame* frame,
                                                 const blink::WebURLRequest& request,
-                                                blink::WebNavigationPolicy* policy) {
+                                                blink::WebNavigationPolicy* policy,
+                                                blink::WebString* manifest) {
   GetContentClient()->renderer()
-    ->willHandleNavigationPolicy(render_view_.get(), frame, request, policy);
+    ->willHandleNavigationPolicy(render_view_.get(), frame, request, policy, manifest);
 }
 
 void RenderFrameImpl::windowOpenBegin(const blink::WebURL& url) {

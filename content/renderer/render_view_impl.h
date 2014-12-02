@@ -376,7 +376,8 @@ class CONTENT_EXPORT RenderViewImpl
                                      const blink::WebWindowFeatures& features,
                                      const blink::WebString& frame_name,
                                      blink::WebNavigationPolicy policy,
-                                     bool suppress_opener);
+                                     bool suppress_opener,
+                                     blink::WebString* manifest);
   virtual blink::WebWidget* createPopupMenu(blink::WebPopupType popup_type);
   virtual blink::WebExternalPopupMenu* createExternalPopupMenu(
       const blink::WebPopupMenuInfo& popup_menu_info,

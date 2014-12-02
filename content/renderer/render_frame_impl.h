@@ -445,7 +445,8 @@ class CONTENT_EXPORT RenderFrameImpl
   virtual void willHandleNavigationPolicy(
                                           blink::WebFrame*,
                                           const blink::WebURLRequest&,
-                                          blink::WebNavigationPolicy*);
+                                          blink::WebNavigationPolicy*,
+                                          blink::WebString* manifest = NULL);
 
   virtual void windowOpenBegin(const blink::WebURL&);
   virtual void windowOpenEnd();

@@ -306,6 +306,8 @@ IPC_STRUCT_BEGIN(ViewHostMsg_CreateWindow_Params)
   // separately from |features| above because we cannot serialize WebStrings
   // over IPC.
   IPC_STRUCT_MEMBER(std::vector<base::string16>, additional_features)
+
+  IPC_STRUCT_MEMBER(base::string16, nw_window_manifest)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_CreateWorker_Params)

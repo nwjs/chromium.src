@@ -1697,7 +1697,8 @@ WebView* RenderViewImpl::createView(WebLocalFrame* creator,
                                     const WebWindowFeatures& features,
                                     const WebString& frame_name,
                                     WebNavigationPolicy policy,
-                                    bool suppress_opener) {
+                                    bool suppress_opener,
+                                    WebString* manifest) {
   ViewHostMsg_CreateWindow_Params params;
   params.opener_id = routing_id_;
   params.user_gesture = WebUserGestureIndicator::isProcessingUserGesture();
@@ -1722,6 +1723,7 @@ WebView* RenderViewImpl::createView(WebLocalFrame* creator,
     params.referrer = GetReferrerFromRequest(creator, request);
   }
   params.features = features;
+  params.nw_window_manifest = *manifest;
 
   for (size_t i = 0; i < features.additionalFeatures.size(); ++i)
     params.additional_features.push_back(features.additionalFeatures[i]);

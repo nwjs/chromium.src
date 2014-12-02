@@ -592,7 +592,8 @@ class Browser : public TabStripModelObserver,
                                   int opener_render_frame_id,
                                   const base::string16& frame_name,
                                   const GURL& target_url,
-                                  content::WebContents* new_contents) OVERRIDE;
+                                  content::WebContents* new_contents,
+                                  const base::string16& nw_window_manifest) OVERRIDE;
   virtual void RendererUnresponsive(content::WebContents* source) OVERRIDE;
   virtual void RendererResponsive(content::WebContents* source) OVERRIDE;
   virtual void WorkerCrashed(content::WebContents* source) OVERRIDE;

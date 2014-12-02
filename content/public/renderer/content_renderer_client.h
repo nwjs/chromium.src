@@ -46,6 +46,7 @@ class WebThemeEngine;
 class WebURL;
 class WebURLRequest;
 class WebWorkerPermissionClientProxy;
+class WebString;
 struct WebPluginParams;
 struct WebURLError;
 }
@@ -275,7 +276,8 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual void willHandleNavigationPolicy(RenderView* rv,
                                           blink::WebFrame* frame,
                                           const blink::WebURLRequest& request,
-                                          blink::WebNavigationPolicy* policy) {}
+                                          blink::WebNavigationPolicy* policy,
+                                          blink::WebString* manifest) {}
   virtual void windowOpenBegin(const blink::WebURL& url) {}
   virtual void windowOpenEnd() {}
 };
