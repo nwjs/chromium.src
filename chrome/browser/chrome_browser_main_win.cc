@@ -58,6 +58,10 @@
 #include "ui/gfx/switches.h"
 #include "ui/strings/grit/app_locale_settings.h"
 
+#if defined(GOOGLE_CHROME_BUILD)
+#include "chrome/browser/google/did_run_updater_win.h"
+#endif
+
 namespace {
 
 typedef HRESULT (STDAPICALLTYPE* RegisterApplicationRestartProc)(
@@ -246,6 +250,10 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   // TODO(erikwright): Remove this and the implementation of the experiment by
   // September 2014.
   InitializeDisableTerminateOnHeapCorruptionExperiment();
+
+#if defined(GOOGLE_CHROME_BUILD)
+  did_run_updater_.reset(new DidRunUpdater);
+#endif
 }
 
 // static

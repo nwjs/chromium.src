@@ -2187,6 +2187,8 @@
       'browser/first_run/try_chrome_dialog_view.cc',
       'browser/first_run/try_chrome_dialog_view.h',
       'browser/first_run/upgrade_util.cc',
+      'browser/google/did_run_updater_win.cc',
+      'browser/google/did_run_updater_win.h',
       'browser/hang_monitor/hang_crash_dump_win.cc',
       'browser/hang_monitor/hang_crash_dump_win.h',
       'browser/hang_monitor/hung_plugin_action.cc',
@@ -3328,6 +3330,12 @@
             ['win_use_allocator_shim==1', {
               'dependencies': [
                 '<(allocator_target)',
+              ],
+            }],
+            ['branding!="Chrome"', {
+              'sources!': [
+                'browser/google/did_run_updater_win.cc',
+                'browser/google/did_run_updater_win.h',
               ],
             }],
           ],
