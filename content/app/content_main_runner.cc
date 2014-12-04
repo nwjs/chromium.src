@@ -629,7 +629,7 @@ class ContentMainRunnerImpl : public ContentMainRunner {
       SetContentClient(&empty_content_client_);
     ContentClientInitializer::Set(process_type, delegate_);
 
-#if defined(OS_WIN)
+#if 0
     // Route stdio to parent console (if any) or create one.
     if (command_line.HasSwitch(switches::kEnableLogging))
       base::RouteStdioToConsole();
