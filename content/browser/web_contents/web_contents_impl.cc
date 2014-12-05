@@ -3919,7 +3919,7 @@ int WebContentsImpl::CreateSwappedOutRenderView(
       instance, nullptr, MSG_ROUTING_NONE,
       CREATE_RF_SWAPPED_OUT | CREATE_RF_FOR_MAIN_FRAME_NAVIGATION |
           CREATE_RF_HIDDEN,
-      &render_view_routing_id);
+      &render_view_routing_id, 0);
   return render_view_routing_id;
 }
 
@@ -4097,7 +4097,7 @@ int WebContentsImpl::CreateOpenerRenderViews(SiteInstance* instance) {
                                         CREATE_RF_FOR_MAIN_FRAME_NAVIGATION |
                                             CREATE_RF_SWAPPED_OUT |
                                             CREATE_RF_HIDDEN,
-                                        &render_view_routing_id);
+                                        &render_view_routing_id, 0);
   return render_view_routing_id;
 }
 
@@ -4119,7 +4119,7 @@ bool WebContentsImpl::CreateRenderViewForRenderManager(
     RenderViewHost* render_view_host,
     int opener_route_id,
     int proxy_routing_id,
-    bool for_main_frame_navigation) {
+    bool for_main_frame_navigation, int nw_win_id) {
   TRACE_EVENT0("browser,navigation",
                "WebContentsImpl::CreateRenderViewForRenderManager");
   // Can be NULL during tests.
@@ -4150,7 +4150,8 @@ bool WebContentsImpl::CreateRenderViewForRenderManager(
                                               opener_route_id,
                                               proxy_routing_id,
                                               max_page_id,
-                                              created_with_opener_)) {
+                                              created_with_opener_,
+                                              nw_win_id)) {
     return false;
   }
 
@@ -4169,7 +4170,7 @@ bool WebContentsImpl::CreateRenderViewForRenderManager(
 bool WebContentsImpl::CreateRenderFrameForRenderManager(
     RenderFrameHost* render_frame_host,
     int parent_routing_id,
-    int proxy_routing_id) {
+    int proxy_routing_id, int nw_win_id) {
   TRACE_EVENT0("browser,navigation",
                "WebContentsImpl::CreateRenderFrameForRenderManager");
 
