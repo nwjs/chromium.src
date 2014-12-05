@@ -29,6 +29,9 @@ popd > /dev/null
 TOP="${BUILD_DIR}/.."
 
 case ${BUILD_BRANDING} in
+  node-webkit)
+    BRANDING_FILE="${TOP}/content/nw/BRANDING"
+    ;;
   Chromium)
     BRANDING_FILE="${TOP}/chrome/app/theme/chromium/BRANDING"
     ;;
