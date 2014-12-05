@@ -295,6 +295,11 @@ class CONTENT_EXPORT ContentRendererClient {
   // Returns true if dev channel APIs are available for plugins.
   virtual bool IsPluginAllowedToUseDevChannelAPIs();
 
+  virtual void willHandleNavigationPolicy(RenderView* rv,
+                                          blink::WebFrame* frame,
+                                          const blink::WebURLRequest& request,
+                                          blink::WebNavigationPolicy* policy) {}
+
   // Returns a user agent override specific for |url|, or empty string if
   // default user agent should be used.
   virtual std::string GetUserAgentOverrideForURL(const GURL& url);
