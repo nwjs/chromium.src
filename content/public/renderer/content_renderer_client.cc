@@ -213,4 +213,9 @@ std::string ContentRendererClient::GetUserAgentOverrideForURL(const GURL& url) {
   return std::string();
 }
 
+bool ContentRendererClient::WillSetSecurityToken(blink::WebFrame* frame,
+                                                 v8::Handle<v8::Context>) {
+  return false;
+}
+
 }  // namespace content

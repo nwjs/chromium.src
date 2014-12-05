@@ -424,6 +424,10 @@ class CONTENT_EXPORT RenderViewImpl
   virtual void didScrollWithKeyboard(const blink::WebSize& delta);
 #endif
 
+  // blink::WebFrameClient implementation -------------------------------------
+
+  virtual bool willSetSecurityToken(blink::WebFrame* frame,
+                                    v8::Handle<v8::Context> context);
   // blink::WebPageSerializerClient implementation ----------------------------
 
   virtual void didSerializeDataForFrame(
@@ -800,8 +804,9 @@ class CONTENT_EXPORT RenderViewImpl
   // Settings ------------------------------------------------------------------
 
   WebPreferences webkit_preferences_;
+ public:
   RendererPreferences renderer_preferences_;
-
+ private:
   HostZoomLevels host_zoom_levels_;
 
   // Whether content state (such as form state, scroll position and page

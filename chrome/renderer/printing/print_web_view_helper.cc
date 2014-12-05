@@ -1542,7 +1542,7 @@ bool PrintWebViewHelper::UpdatePrintSettings(
   return true;
 }
 
-bool PrintWebViewHelper::GetPrintSettingsFromUser(blink::WebFrame* frame,
+bool PrintWebViewHelper::GetPrintSettingsFromUser(blink::WebLocalFrame* frame,
                                                   const blink::WebNode& node,
                                                   int expected_pages_count,
                                                   bool is_scripted) {

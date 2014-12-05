@@ -117,7 +117,7 @@ Manifest::Manifest(Location location, scoped_ptr<base::DictionaryValue> value)
   } else if (value_->HasKey(keys::kExport)) {
     type_ = TYPE_SHARED_MODULE;
   } else if (value_->HasKey(keys::kApp)) {
-    if (value_->Get(keys::kWebURLs, NULL) ||
+    if (//value_->Get(keys::kWebURLs, NULL) ||
         value_->Get(keys::kLaunchWebURL, NULL)) {
       type_ = TYPE_HOSTED_APP;
     } else if (value_->Get(keys::kPlatformAppBackground, NULL)) {

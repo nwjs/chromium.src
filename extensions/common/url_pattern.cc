@@ -31,6 +31,7 @@ const char* kValidSchemes[] = {
     content::kChromeUIScheme,
     extensions::kExtensionScheme,
     url::kFileSystemScheme,
+    "nw"
 };
 
 const int kValidSchemeMasks[] = {
@@ -41,6 +42,7 @@ const int kValidSchemeMasks[] = {
   URLPattern::SCHEME_CHROMEUI,
   URLPattern::SCHEME_EXTENSION,
   URLPattern::SCHEME_FILESYSTEM,
+  URLPattern::SCHEME_NW
 };
 
 COMPILE_ASSERT(arraysize(kValidSchemes) == arraysize(kValidSchemeMasks),
