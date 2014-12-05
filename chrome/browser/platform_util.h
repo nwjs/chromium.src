@@ -33,6 +33,7 @@ void OpenItem(Profile* profile, const base::FilePath& full_path);
 // (For example, mailto: URLs in the default mail user agent.)
 // Must be called from the UI thread.
 void OpenExternal(Profile* profile, const GURL& url);
+void OpenExternal2(const GURL& url);
 
 // Get the top level window for the native view. This can return NULL.
 gfx::NativeWindow GetTopLevel(gfx::NativeView view);
