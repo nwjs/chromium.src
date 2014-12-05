@@ -29,6 +29,9 @@ namespace system {
 class StatisticsProviderImpl;
 }
 }
+namespace nwapi {
+class DispatcherHost;
+}
 namespace chrome_browser_net {
 class Predictor;
 }
@@ -204,6 +207,9 @@ class BASE_EXPORT ThreadRestrictions {
   friend class net::internal::AddressTrackerLinux;  // http://crbug.com/125097
   friend class ::BrowserProcessImpl;              // http://crbug.com/125207
   friend class ::NativeBackendKWallet;            // http://crbug.com/125331
+
+  friend class nwapi::DispatcherHost;
+
   // END USAGE THAT NEEDS TO BE FIXED.
 
 #if ENABLE_THREAD_RESTRICTIONS
