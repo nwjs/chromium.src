@@ -1167,9 +1167,12 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params) {
   WebContentsViewDelegate* delegate =
       GetContentClient()->browser()->GetWebContentsViewDelegate(this);
 
+  GetContentClient()->browser()->
+         OverrideCreateWebContentsView(this, &render_view_host_delegate_view_, params);
+
   if (browser_plugin_guest_) {
     scoped_ptr<WebContentsView> platform_view(CreateWebContentsView(
-        this, delegate, &render_view_host_delegate_view_));
+                    this, delegate, &render_view_host_delegate_view_));
 
     WebContentsViewGuest* rv = new WebContentsViewGuest(
         this, browser_plugin_guest_.get(), platform_view.Pass(),
@@ -1179,7 +1182,7 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params) {
   } else {
     // Regular WebContentsView.
     view_.reset(CreateWebContentsView(
-        this, delegate, &render_view_host_delegate_view_));
+               this, delegate, &render_view_host_delegate_view_));
   }
   CHECK(render_view_host_delegate_view_);
   CHECK(view_.get());

@@ -145,6 +145,14 @@ struct CONTENT_EXPORT RendererPreferences {
 
   base::string16 message_font_family_name;
   int32 message_font_height;
+  // node-webkit: remote page rules in package.json
+  std::string nw_remote_page_rules;
+
+  base::FilePath nw_app_root_path;
+
+  std::string nw_inject_css_fn;
+  std::string nw_inject_js_doc_start;
+  std::string nw_inject_js_doc_end;
 };
 
 }  // namespace content
