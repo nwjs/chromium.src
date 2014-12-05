@@ -597,6 +597,7 @@ void RenderThreadImpl::Init() {
   service_registry()->AddService<RenderFrameSetup>(
       base::Bind(CreateRenderFrameSetup));
 
+  EnsureWebKitInitialized();
   TRACE_EVENT_END_ETW("RenderThreadImpl::Init", 0, "");
 }
 
@@ -1330,6 +1331,7 @@ bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewMsg_TempCrashWithData, OnTempCrashWithData)
     IPC_MESSAGE_HANDLER(WorkerProcessMsg_CreateWorker, OnCreateNewSharedWorker)
     IPC_MESSAGE_HANDLER(ViewMsg_TimezoneChange, OnUpdateTimezone)
+    IPC_MESSAGE_HANDLER(ViewMsg_WillQuit, OnWillQuit)
 #if defined(OS_ANDROID)
     IPC_MESSAGE_HANDLER(ViewMsg_SetWebKitSharedTimersSuspended,
                         OnSetWebKitSharedTimersSuspended)
@@ -1557,6 +1559,14 @@ void RenderThreadImpl::OnMemoryPressure(
     // limit.
     size_t font_cache_limit = SkGraphics::SetFontCacheLimit(0);
     SkGraphics::SetFontCacheLimit(font_cache_limit);
+  }
+}
+
+void RenderThreadImpl::OnWillQuit(int*) {
+  ObserverListBase<RenderProcessObserver>::Iterator it(observers_);
+  RenderProcessObserver* observer;
+  while ((observer = it.GetNext()) != NULL) {
+    observer->OnRenderProcessWillShutdown();
   }
 }
 

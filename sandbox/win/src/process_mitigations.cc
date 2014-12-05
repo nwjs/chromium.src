@@ -204,6 +204,7 @@ void ConvertProcessMitigationsToPolicy(MitigationFlags flags,
   if (version < base::win::VERSION_WIN8)
     return;
 
+#if 0
   if (flags & MITIGATION_RELOCATE_IMAGE) {
     *policy_flags |=
         PROCESS_CREATION_MITIGATION_POLICY_FORCE_RELOCATE_IMAGES_ALWAYS_ON;
@@ -242,6 +243,7 @@ void ConvertProcessMitigationsToPolicy(MitigationFlags flags,
     *policy_flags |=
         PROCESS_CREATION_MITIGATION_POLICY_EXTENSION_POINT_DISABLE_ALWAYS_ON;
   }
+#endif
 }
 
 MitigationFlags FilterPostStartupProcessMitigations(MitigationFlags flags) {

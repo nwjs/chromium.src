@@ -28,7 +28,9 @@ gfx::NativeView GetParent(gfx::NativeView view) {
 
 bool IsWindowActive(gfx::NativeWindow window) {
 #if defined(USE_ASH)
-  return ash::wm::IsActiveWindow(window);
+  // return ash::wm::IsActiveWindow(window);
+  NOTIMPLEMENTED();
+  return false;
 #else
   NOTIMPLEMENTED();
   return false;
@@ -37,7 +39,8 @@ bool IsWindowActive(gfx::NativeWindow window) {
 
 void ActivateWindow(gfx::NativeWindow window) {
 #if defined(USE_ASH)
-  ash::wm::ActivateWindow(window);
+  // ash::wm::ActivateWindow(window);
+  NOTIMPLEMENTED();
 #else
   NOTIMPLEMENTED();
 #endif

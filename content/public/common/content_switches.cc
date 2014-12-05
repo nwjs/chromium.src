@@ -1002,5 +1002,6 @@ const char kEnablePluginPowerSaver[] = "enable-plugin-power-saver";
 #endif
 
 // Don't dump stuff here, follow the same order as the header.
+const char kNodejs[] = "nodejs";
 
 }  // namespace switches

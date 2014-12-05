@@ -35,6 +35,7 @@
 #include "base/basictypes.h"
 
 #include <CoreFoundation/CoreFoundation.h>
+#include "third_party/node/deps/uv/include/uv.h"
 
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop/timer_slack.h"
@@ -82,7 +83,7 @@ class MessagePumpCFRunLoopBase : public MessagePump {
   friend class MessagePumpScopedAutoreleasePool;
  public:
   MessagePumpCFRunLoopBase();
-  ~MessagePumpCFRunLoopBase() override;
+  ~MessagePumpCFRunLoopBase(bool forNode = false) override;
 
   // Subclasses should implement the work they need to do in MessagePump::Run
   // in the DoRun method.  MessagePumpCFRunLoopBase::Run calls DoRun directly.
@@ -214,6 +215,7 @@ class MessagePumpCFRunLoopBase : public MessagePump {
   bool delegateless_work_;
   bool delegateless_idle_work_;
 
+  bool for_node_;
   DISALLOW_COPY_AND_ASSIGN(MessagePumpCFRunLoopBase);
 };
 
@@ -239,7 +241,7 @@ class BASE_EXPORT MessagePumpCFRunLoop : public MessagePumpCFRunLoopBase {
 class BASE_EXPORT MessagePumpNSRunLoop : public MessagePumpCFRunLoopBase {
  public:
   MessagePumpNSRunLoop();
-  ~MessagePumpNSRunLoop() override;
+  ~MessagePumpNSRunLoop(bool forNode = false) override;
 
   void DoRun(Delegate* delegate) override;
   void Quit() override;
@@ -282,12 +284,15 @@ class MessagePumpUIApplication : public MessagePumpCFRunLoopBase {
 class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
  public:
   MessagePumpNSApplication();
-  ~MessagePumpNSApplication() override;
+  ~MessagePumpNSApplication(bool forNode = false) override;
 
   void DoRun(Delegate* delegate) override;
   void Quit() override;
 
  private:
+  // Thread to poll uv events.
+  static void EmbedThreadRunner(void *arg);
+
   // False after Quit is called.
   bool keep_running_;
 
@@ -296,6 +301,23 @@ class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
   // is managed by -[NSApplication run], inner run loops are handled by a loop
   // in DoRun.
   bool running_own_loop_;
+
+  // Flag to pause the libuv loop.
+  bool pause_uv_;
+
+  // Thread for polling events.
+  uv_thread_t embed_thread_;
+
+  // Semaphore to wait for main loop in the polling thread.
+  uv_sem_t embed_sem_;
+
+  // Dummy handle to make uv's loop not quit.
+  uv_async_t dummy_uv_handle_;
+
+  // Whether we're done.
+  int embed_closed_;
+
+  bool for_node_;
 
   DISALLOW_COPY_AND_ASSIGN(MessagePumpNSApplication);
 };
@@ -325,7 +347,7 @@ class BASE_EXPORT MessagePumpMac {
   //
   // Otherwise creates an instance of MessagePumpNSApplication using a
   // default NSApplication.
-  static MessagePump* Create();
+  static MessagePump* Create(bool forNode = false);
 
 #if !defined(OS_IOS)
   // If a pump is created before the required CrAppProtocol is
