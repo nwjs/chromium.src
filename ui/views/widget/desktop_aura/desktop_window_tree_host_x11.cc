@@ -55,6 +55,7 @@
 
 DECLARE_WINDOW_PROPERTY_TYPE(views::DesktopWindowTreeHostX11*);
 
+#include "ui/views/widget/widget_delegate.h"
 namespace views {
 
 DesktopWindowTreeHostX11* DesktopWindowTreeHostX11::g_current_capture =
@@ -1575,6 +1576,13 @@ void DesktopWindowTreeHostX11::MapWindow(ui::WindowShowState show_state) {
   size_hints.flags = PPosition;
   size_hints.x = bounds_.x();
   size_hints.y = bounds_.y();
+  if (!native_widget_delegate_->AsWidget()->widget_delegate()->CanResize()) {
+    size_hints.flags |= PMinSize | PMaxSize;
+    size_hints.min_width = bounds_.width();
+    size_hints.min_height = bounds_.height();
+    size_hints.max_width = bounds_.width();
+    size_hints.max_height = bounds_.height();
+  }
   XSetWMNormalHints(xdisplay_, xwindow_, &size_hints);
 
   // If SHOW_STATE_INACTIVE, tell the window manager not to focus the window
