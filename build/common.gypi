@@ -1338,7 +1338,7 @@
     'profiling_full_stack_frames%': '0',
 
     # And if we want to dump symbols for Breakpad-enabled builds.
-    'linux_dump_symbols%': 0,
+    'linux_dump_symbols%': 1,
     # And if we want to strip the binary after dumping symbols.
     'linux_strip_binary%': 0,
     # If we want stack unwind support for backtrace().
@@ -4364,6 +4364,7 @@
                       # running out of address space. Considering installing a
                       # 64-bit kernel and switching to a 64-bit linker.
                       '-Wl,--no-keep-memory',
+                      '-Wl,--reduce-memory-overheads',
                     ],
                   }],
                 ],
@@ -5281,8 +5282,8 @@
     ['OS=="win"', {
       'target_defaults': {
         'defines': [
-          '_WIN32_WINNT=0x0601',
-          'WINVER=0x0601',
+          '_WIN32_WINNT=0x0602',
+          'WINVER=0x0602',
           'WIN32',
           '_WINDOWS',
           'NOMINMAX',
@@ -5437,6 +5438,7 @@
           4512, # Assignment operator could not be generated
           4610, # Object can never be instantiated
           4996, # 'X': was declared deprecated (for GetVersionEx).
+          4819, 4201
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
