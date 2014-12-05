@@ -156,7 +156,7 @@ std::string BuildOSCpuInfo() {
   return os_cpu;
 }
 
-std::string BuildUserAgentFromProduct(const std::string& product) {
+std::string BuildOSInfo() {
   const char kUserAgentPlatform[] =
 #if defined(OS_WIN)
       "";
@@ -173,6 +173,11 @@ std::string BuildUserAgentFromProduct(const std::string& product) {
   std::string os_info;
   base::StringAppendF(
       &os_info, "%s%s", kUserAgentPlatform, BuildOSCpuInfo().c_str());
+  return os_info;
+}
+
+std::string BuildUserAgentFromProduct(const std::string& product) {
+  std::string os_info = BuildOSInfo();
   return BuildUserAgentFromOSAndProduct(os_info, product);
 }
 
