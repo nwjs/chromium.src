@@ -246,7 +246,7 @@ bool RenderViewHostImpl::CreateRenderView(
     int opener_route_id,
     int proxy_route_id,
     int32 max_page_id,
-    bool window_was_created_with_opener) {
+    bool window_was_created_with_opener, int nw_win_id) {
   TRACE_EVENT0("renderer_host,navigation",
                "RenderViewHostImpl::CreateRenderView");
   DCHECK(!IsRenderViewLive()) << "Creating view twice";
@@ -292,6 +292,7 @@ bool RenderViewHostImpl::CreateRenderView(
   params.enable_auto_resize = auto_resize_enabled();
   params.min_size = min_size_for_auto_resize();
   params.max_size = max_size_for_auto_resize();
+  params.nw_win_id = nw_win_id;
   GetResizeParams(&params.initial_size);
 
   if (!Send(new ViewMsg_New(params)))
