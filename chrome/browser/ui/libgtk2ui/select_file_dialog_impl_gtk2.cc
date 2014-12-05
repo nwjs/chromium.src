@@ -67,7 +67,7 @@ class SelectFileDialogImplGTK : public SelectFileDialogImpl,
                       int file_type_index,
                       const base::FilePath::StringType& default_extension,
                       gfx::NativeWindow owning_window,
-                      void* params) override;
+                      void* params, const base::FilePath& working_dir) override;
 
  private:
   bool HasMultipleFileTypeChoicesImpl() override;
@@ -222,7 +222,8 @@ void SelectFileDialogImplGTK::SelectFileImpl(
     int file_type_index,
     const base::FilePath::StringType& default_extension,
     gfx::NativeWindow owning_window,
-    void* params) {
+    void* params,
+    const base::FilePath& working_dir) {
   type_ = type;
   // |owning_window| can be null when user right-clicks on a downloadable item
   // and chooses 'Open Link in New Tab' when 'Ask where to save each file

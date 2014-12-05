@@ -54,6 +54,10 @@ struct CONTENT_EXPORT FileChooserParams {
   // If true, the data should be obtained using the device's camera/mic/etc.
   bool capture;
 #endif
+
+  base::FilePath initial_path;
+  bool extract_directory;
+
 };
 
 }  // namespace content

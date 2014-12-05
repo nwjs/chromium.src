@@ -65,7 +65,7 @@ class SelectFileDialogImplKDE : public SelectFileDialogImpl {
                       int file_type_index,
                       const base::FilePath::StringType& default_extension,
                       gfx::NativeWindow owning_window,
-                      void* params) override;
+                      void* params, const base::FilePath& working_dir) override;
 
  private:
   bool HasMultipleFileTypeChoicesImpl() override;
@@ -219,7 +219,7 @@ void SelectFileDialogImplKDE::SelectFileImpl(
     int file_type_index,
     const base::FilePath::StringType& default_extension,
     gfx::NativeWindow owning_window,
-    void* params) {
+    void* params, const base::FilePath& working_dir) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   type_ = type;
 
