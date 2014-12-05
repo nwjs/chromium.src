@@ -35,6 +35,12 @@ void ChromeContentClient::AddAdditionalSchemes(
   // No additional schemes for iOS.
 }
 
+bool ChromeContentClient::CanHandleWhileSwappedOut(
+    const IPC::Message& msg) {
+  NOTIMPLEMENTED();
+  return false;
+}
+
 std::string ChromeContentClient::GetProduct() const {
   chrome::VersionInfo version_info;
   std::string product("CriOS/");
