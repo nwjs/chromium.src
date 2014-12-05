@@ -85,4 +85,8 @@ void OpenExternal(Profile* profile, const GURL& url) {
     XDGOpen(url.spec());
 }
 
+void OpenExternal2(const GURL& url) {
+  OpenExternal(NULL, url);
+}
+
 }  // namespace platform_util
