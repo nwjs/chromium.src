@@ -46,6 +46,7 @@ class WebRTCPeerConnectionHandlerClient;
 class WebSpeechSynthesizer;
 class WebSpeechSynthesizerClient;
 class WebThemeEngine;
+class WebURL;
 class WebURLRequest;
 class WebWorkerPermissionClientProxy;
 struct WebPluginParams;
@@ -303,6 +304,9 @@ class CONTENT_EXPORT ContentRendererClient {
   // Returns a user agent override specific for |url|, or empty string if
   // default user agent should be used.
   virtual std::string GetUserAgentOverrideForURL(const GURL& url);
+
+  virtual void windowOpenBegin(const blink::WebURL& url) {}
+  virtual void windowOpenEnd() {}
 };
 
 }  // namespace content
