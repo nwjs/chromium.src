@@ -11,6 +11,7 @@
     '../base/base.gyp:base_i18n',
     '../crypto/crypto.gyp:crypto',
     '../ui/base/ui_base.gyp:ui_base',
+    '../skia/skia.gyp:skia',
     '../ui/gfx/gfx.gyp:gfx',
     '../ui/gfx/gfx.gyp:gfx_geometry',
   ],
