@@ -901,6 +901,7 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidZoomURL, OnDidZoomURL)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RunFileChooser, OnRunFileChooser)
     IPC_MESSAGE_HANDLER(ViewHostMsg_FocusedNodeTouched, OnFocusedNodeTouched)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_GrantUniversalPermissions, OnGrantUniversalPermissions)
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(
         handled = RenderWidgetHostImpl::OnMessageReceived(msg))
@@ -1491,6 +1492,11 @@ void RenderViewHostImpl::AttachToFrameTree() {
 
 void RenderViewHostImpl::SelectWordAroundCaret() {
   Send(new ViewMsg_SelectWordAroundCaret(GetRoutingID()));
+}
+
+void RenderViewHostImpl::OnGrantUniversalPermissions(int *ret) {
+  content::ChildProcessSecurityPolicy::GetInstance()->GrantUniversalAccess(GetProcess()->GetID());
+  *ret = 1;
 }
 
 }  // namespace content
