@@ -187,6 +187,8 @@ void GuestViewBase::Init(const std::string& embedder_extension_id,
     return;
   }
 
+  embedder_extension_id_ = embedder_extension_id;
+
   CreateWebContents(embedder_process_id,
                     embedder_site_url,
                     create_params,

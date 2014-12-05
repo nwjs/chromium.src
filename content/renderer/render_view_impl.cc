@@ -2413,6 +2413,12 @@ void RenderViewImpl::didUpdateCurrentHistoryItem(WebLocalFrame* frame) {
   StartNavStateSyncTimerIfNecessary();
 }
 
+bool RenderViewImpl::willSetSecurityToken(WebFrame* frame,
+                                          v8::Handle<v8::Context> context) {
+  return content::GetContentClient()->renderer()->WillSetSecurityToken(
+      frame, context);
+}
+
 void RenderViewImpl::CheckPreferredSize() {
   // We don't always want to send the change messages over IPC, only if we've
   // been put in that mode by getting a |ViewMsg_EnablePreferredSizeChangedMode|

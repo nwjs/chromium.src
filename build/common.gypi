@@ -43,6 +43,7 @@
               # Compute the architecture that we're building on.
               ['OS=="win" or OS=="ios"', {
                 'host_arch%': 'ia32',
+                'use_openssl%': '0',
               }, {
                 'host_arch%': '<!pymod_do_main(detect_host_arch)',
               }],
@@ -763,7 +764,7 @@
         ['OS=="android" or branding=="Chrome" or chromecast==1', {
           'proprietary_codecs%': 1,
         }, {
-          'proprietary_codecs%': 0,
+          'proprietary_codecs%': 1,
         }],
 
         ['OS=="mac" or OS=="ios"', {
@@ -1430,11 +1431,11 @@
     # Disable Dart by default.
     'enable_dart%': 0,
 
-    # Copy out the setting of disable_nacl.
-    'disable_nacl%': '<(disable_nacl)',
+    # Native Client is enabled by default.
+    'disable_nacl%': 1,
 
     # Portable Native Client is enabled by default.
-    'disable_pnacl%': 0,
+    'disable_pnacl%': 1,
 
     # Whether to build full debug version for Debug configuration on Android.
     # Compared to full debug version, the default Debug configuration on Android
@@ -1933,8 +1934,8 @@
           ['component=="shared_library"', {
             'win_use_allocator_shim%': 0,
           },{
-            # Turn on multiple dll by default on Windows when in static_library.
-            'chrome_multiple_dll%': 1,
+            ## Turn on multiple dll by default on Windows when in static_library.
+            'chrome_multiple_dll%': 0,
           }],
           ['asan==1', {
             'win_use_allocator_shim%': 0,
@@ -2527,7 +2528,7 @@
     'includes': [ 'set_clang_warning_flags.gypi', ],
     'defines': [
       # Don't use deprecated V8 APIs anywhere.
-      'V8_DEPRECATION_WARNINGS',
+      #'V8_DEPRECATION_WARNINGS',
     ],
     'include_dirs': [
       '<(SHARED_INTERMEDIATE_DIR)',
@@ -3007,6 +3008,9 @@
       ['<(chromeos)==1 and >(nacl_untrusted_build)==0', {
         'defines': ['OS_CHROMEOS=1'],
       }],
+      [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+        'ldflags': [ '-rdynamic' ],
+      }],
       ['enable_wexit_time_destructors==1 and OS!="win"', {
         # TODO: Enable on Windows too, http://crbug.com/404525
         'variables': { 'clang_warning_flags': ['-Wexit-time-destructors']},
@@ -3060,7 +3064,7 @@
             'msvs_settings': {
               'VCCLCompilerTool': {
                 'WarningLevel': '3',
-                'WarnAsError': 'true',
+                'WarnAsError': 'false',
                 'Detect64BitPortabilityProblems': 'false',
               },
             },
@@ -3539,6 +3543,16 @@
     }],
     ['os_posix==1 and OS!="mac" and OS!="ios"', {
       'target_defaults': {
+        'target_conditions': [
+          ['_target_name=="v8" or _target_name=="v8_snapshot" or _target_name=="v8_base" or _target_name=="uv" or _target_name=="node" or _target_name=="openssl" or _target_name=="zlib"', {
+            'cflags!': [
+              '-fvisibility=hidden',
+              '-fdata-sections',
+              '-ffunction-sections',
+            ],
+            'cflags_cc!': ['-fvisibility-inlines-hidden'],
+          }],
+        ],
         # Enable -Werror by default, but put it in a variable so it can
         # be disabled in ~/.gyp/include.gypi on the valgrind builders.
         'variables': {
@@ -3652,7 +3666,7 @@
               # (This is currently observed only in chromeos valgrind bots)
               # The following flag is to disable --gc-sections linker
               # option for these bots.
-              'no_gc_sections%': 0,
+              'no_gc_sections%': 1,
 
               # TODO(bradnelson): reexamine how this is done if we change the
               # expansion of configurations
@@ -4838,7 +4852,7 @@
           'GCC_OBJC_CALL_CXX_CDTORS': 'YES',        # -fobjc-call-cxx-cdtors
           'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
-          'GCC_TREAT_WARNINGS_AS_ERRORS': 'YES',    # -Werror
+          'GCC_TREAT_WARNINGS_AS_ERRORS': 'NO',    # -Werror
           'GCC_VERSION': '4.2',
           'GCC_WARN_ABOUT_MISSING_NEWLINE': 'YES',  # -Wnewline-eof
           'USE_HEADERMAP': 'NO',
@@ -5040,6 +5054,13 @@
           ],
         },
         'target_conditions': [
+          ['_target_name=="v8" or _target_name=="v8_snapshot" or _target_name=="v8_base" or _target_name=="uv" or _target_name=="node" or _target_name=="openssl" or _target_name=="zlib"', {
+            'xcode_settings': {
+              'DEAD_CODE_STRIPPING': 'NO',  # -Wl,-dead_strip
+              'GCC_INLINES_ARE_PRIVATE_EXTERN': 'NO',
+              'GCC_SYMBOLS_PRIVATE_EXTERN': 'NO',
+            },
+          }],
           ['_type=="executable"', {
             'postbuilds': [
               {
@@ -5260,8 +5281,8 @@
     ['OS=="win"', {
       'target_defaults': {
         'defines': [
-          '_WIN32_WINNT=0x0603',
-          'WINVER=0x0603',
+          '_WIN32_WINNT=0x0601',
+          'WINVER=0x0601',
           'WIN32',
           '_WINDOWS',
           'NOMINMAX',
@@ -5276,6 +5297,8 @@
           # Silence some warnings; we can't switch the the 'recommended'
           # versions as they're not available on old OSs.
           '_WINSOCK_DEPRECATED_NO_WARNINGS',
+          'BUILDING_V8_SHARED=1',
+          'BUILDING_UV_SHARED=1',
         ],
         'conditions': [
           ['buildtype=="Official"', {

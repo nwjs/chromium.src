@@ -3098,6 +3098,12 @@ void RenderFrameImpl::didAbortLoading(blink::WebLocalFrame* frame) {
 #endif
 }
 
+bool RenderFrameImpl::willSetSecurityToken(blink::WebFrame* frame,
+                                          v8::Handle<v8::Context> context) {
+  return GetContentClient()->renderer()->WillSetSecurityToken(
+      frame, context);
+}
+
 void RenderFrameImpl::didCreateScriptContext(blink::WebLocalFrame* frame,
                                              v8::Handle<v8::Context> context,
                                              int extension_group,

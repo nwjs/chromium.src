@@ -317,6 +317,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool HasOpener() const override;
   void DidChooseColorInColorChooser(SkColor color) override;
   void DidEndColorChooser() override;
+  virtual blink::WebWindowFeatures GetWindowFeatures() const OVERRIDE;
   int DownloadImage(const GURL& url,
                     bool is_favicon,
                     uint32_t max_bitmap_size,
@@ -1203,6 +1204,9 @@ class CONTENT_EXPORT WebContentsImpl
   // Whether this WebContents is responsible for displaying a subframe in a
   // different process from its parent page.
   bool is_subframe_;
+
+  // Saved window features
+  blink::WebWindowFeatures window_features_;
 
   // Whether overscroll should be unconditionally disabled.
   bool force_disable_overscroll_content_;

@@ -45,6 +45,9 @@
 #include "third_party/WebKit/public/web/WebPluginAction.h"
 #include "third_party/WebKit/public/web/WebPopupType.h"
 #include "third_party/WebKit/public/web/WebTextDirection.h"
+#include "third_party/WebKit/public/web/WebWindowFeatures.h"
+#include "third_party/WebKit/public/platform/WebFloatPoint.h"
+#include "third_party/WebKit/public/platform/WebFloatRect.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/ime/text_input_mode.h"
 #include "ui/base/ime/text_input_type.h"
@@ -147,6 +150,7 @@ IPC_STRUCT_TRAITS_BEGIN(blink::WebScreenInfo)
   IPC_STRUCT_TRAITS_MEMBER(orientationType)
   IPC_STRUCT_TRAITS_MEMBER(orientationAngle)
 IPC_STRUCT_TRAITS_END()
+
 
 IPC_STRUCT_TRAITS_BEGIN(content::MenuItem)
   IPC_STRUCT_TRAITS_MEMBER(label)
@@ -976,6 +980,11 @@ IPC_MESSAGE_ROUTED1(ViewMsg_ForceRedraw,
 // Sent by the browser when the renderer should generate a new frame.
 IPC_MESSAGE_ROUTED1(ViewMsg_BeginFrame,
                     cc::BeginFrameArgs /* args */)
+
+// Notifies that the render process will shutdown
+IPC_SYNC_MESSAGE_CONTROL0_1(ViewMsg_WillQuit,
+                            int /* no_use */)
+
 
 // -----------------------------------------------------------------------------
 // Messages sent from the renderer to the browser.

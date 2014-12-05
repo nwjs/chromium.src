@@ -151,6 +151,7 @@ v8.log
 /content/test/data/layout_tests/
 /content/test/data/plugin/
 /content/web_ui_test_mojo_bindings.xml
+/content/nw/
 /data
 /delegate_execute
 /device/serial/device_serial_mojo.xml
@@ -434,3 +435,8 @@ v8.log
 /win8/metro_driver/metro_driver_version_resources.xml
 /x86-generic_out/
 /xcodebuild
+cscope.*
+Session.vim
+
+# Dependencies of the node-webkit project
+/third_party/node

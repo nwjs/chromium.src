@@ -30,7 +30,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/grit/chromium_strings.h"
+//#include "chrome/grit/chromium_strings.h"
 #include "chrome/installer/util/wmi.h"
 #include "content/public/common/result_codes.h"
 #include "net/base/escape.h"
@@ -237,9 +237,11 @@ bool ProcessSingleton::EscapeVirtualization(
     const base::FilePath& user_data_dir) {
   if (::GetModuleHandle(L"sftldr_wow64.dll") ||
       ::GetModuleHandle(L"sftldr.dll")) {
+#if 0
     int process_id;
     if (!installer::WMIProcess::Launch(::GetCommandLineW(), &process_id))
       return false;
+#endif
     is_virtualized_ = true;
     // The new window was spawned from WMI, and won't be in the foreground.
     // So, first we sleep while the new chrome.exe instance starts (because
@@ -307,6 +309,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
                       &BrowserWindowEnumeration,
                       reinterpret_cast<LPARAM>(&visible_window));
 
+#if 0
   // If there is a visible browser window, ask the user before killing it.
   if (visible_window &&
       chrome::ShowMessageBox(
@@ -317,6 +320,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
     // The user denied. Quit silently.
     return PROCESS_NOTIFIED;
   }
+#endif
 
   // Time to take action. Kill the browser process.
   base::KillProcessById(process_id, content::RESULT_CODE_HUNG, true);
@@ -332,8 +336,10 @@ ProcessSingleton::NotifyOtherProcessOrCreate() {
     if (result == PROCESS_NONE)
       result = PROFILE_IN_USE;
   } else {
+#if 0
     g_browser_process->platform_part()->PlatformSpecificCommandLineProcessing(
         *CommandLine::ForCurrentProcess());
+#endif
   }
   return result;
 }
@@ -391,11 +397,13 @@ bool ProcessSingleton::Create() {
         // Metro mode: activate and rendez-vous with the activated process.
         metro_activation_event.Set(
             ::CreateEvent(NULL, TRUE, FALSE, kMetroActivationEventName));
+#if 0
         if (!chrome::ActivateMetroChrome()) {
           // Failed to launch immersive Chrome, default to launching on Desktop.
           LOG(ERROR) << "Failed to launch immersive chrome";
           metro_activation_event.Close();
         }
+#endif
       }
 
       if (metro_activation_event.IsValid()) {

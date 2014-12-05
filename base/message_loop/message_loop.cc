@@ -230,12 +230,14 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
 
 #if defined(OS_IOS) || defined(OS_MACOSX)
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>(MessagePumpMac::Create())
+#define MESSAGE_PUMP_NODE scoped_ptr<MessagePump>(MessagePumpMac::Create(true))
 #elif defined(OS_NACL)
 // Currently NaCl doesn't have a UI MessageLoop.
 // TODO(abarth): Figure out if we need this.
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>()
 #else
 #define MESSAGE_PUMP_UI scoped_ptr<MessagePump>(new MessagePumpForUI())
+#define MESSAGE_PUMP_UV scoped_ptr<MessagePump>(new base::MessagePumpUV())
 #endif
 
 #if defined(OS_MACOSX)
@@ -245,6 +247,14 @@ scoped_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
 #else
   #define MESSAGE_PUMP_DEFAULT scoped_ptr<MessagePump>(new MessagePumpDefault())
 #endif
+
+  if (type == MessageLoop::TYPE_NODE) {
+#if defined(OS_MACOSX)
+    return MESSAGE_PUMP_NODE;
+#else
+    return MESSAGE_PUMP_UV;
+#endif
+  }
 
   if (type == MessageLoop::TYPE_UI) {
     if (message_pump_for_ui_factory_)

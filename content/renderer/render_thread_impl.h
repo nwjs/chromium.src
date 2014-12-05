@@ -457,6 +457,7 @@ class CONTENT_EXPORT RenderThreadImpl : public RenderThread,
   void OnCreateNewSharedWorker(
       const WorkerProcessMsg_CreateWorker_Params& params);
 
+  void OnWillQuit(int*);
   scoped_ptr<WebGraphicsContext3DCommandBufferImpl> CreateOffscreenContext3d();
 
   // These objects live solely on the render thread.

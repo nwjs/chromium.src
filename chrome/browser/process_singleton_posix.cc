@@ -76,14 +76,14 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/grit/chromium_strings.h"
-#include "chrome/grit/generated_resources.h"
+//#include "chrome/grit/chromium_strings.h"
+//#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/base/net_util.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_LINUX)
-#include "chrome/browser/ui/process_singleton_dialog_linux.h"
+//#include "chrome/browser/ui/process_singleton_dialog_linux.h"
 #endif
 
 #if defined(TOOLKIT_VIEWS) && defined(OS_LINUX) && !defined(OS_CHROMEOS)
@@ -313,6 +313,7 @@ bool ParseLockPath(const base::FilePath& path,
 bool DisplayProfileInUseError(const base::FilePath& lock_path,
                               const std::string& hostname,
                               int pid) {
+#if 0
   base::string16 error = l10n_util::GetStringFUTF16(
       IDS_PROFILE_IN_USE_POSIX,
       base::IntToString16(pid),
@@ -333,6 +334,8 @@ bool DisplayProfileInUseError(const base::FilePath& lock_path,
 
   NOTREACHED();
   return false;
+#endif
+  return true;
 }
 
 bool IsChromeProcess(pid_t pid) {
