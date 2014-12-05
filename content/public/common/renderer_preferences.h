@@ -17,6 +17,7 @@
 
 #include "base/strings/string16.h"
 #include "base/files/file_path.h"
+#include "base/values.h"
 #include "content/common/content_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/font_render_params.h"
