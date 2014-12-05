@@ -338,6 +338,9 @@ bool AutofillManager::OnFormSubmitted(const FormData& form,
   if (submitted_form->IsAutofillable())
     ImportFormData(*submitted_form);
 
+  if (!personal_data_)
+    return false;
+
   // Only upload server statistics and UMA metrics if at least some local data
   // is available to use as a baseline.
   const std::vector<AutofillProfile*>& profiles = personal_data_->GetProfiles();
@@ -639,7 +642,8 @@ void AutofillManager::RemoveAutofillProfileOrCreditCard(int unique_id) {
   if (variant != 0)
     return;
 
-  personal_data_->RemoveByGUID(data_model->guid());
+  if (personal_data_)
+    personal_data_->RemoveByGUID(data_model->guid());
 }
 
 void AutofillManager::RemoveAutocompleteEntry(const base::string16& name,
@@ -715,12 +719,12 @@ void AutofillManager::OnDidEndTextFieldEditing() {
 }
 
 bool AutofillManager::IsAutofillEnabled() const {
-  return client_->GetPrefs()->GetBoolean(prefs::kAutofillEnabled);
+  return true;
 }
 
 void AutofillManager::ImportFormData(const FormStructure& submitted_form) {
   scoped_ptr<CreditCard> imported_credit_card;
-  if (!personal_data_->ImportFormData(submitted_form, &imported_credit_card))
+  if (!personal_data_ || !personal_data_->ImportFormData(submitted_form, &imported_credit_card))
     return;
 
   // If credit card information was submitted, we need to confirm whether to
@@ -766,7 +770,8 @@ void AutofillManager::UploadFormData(const FormStructure& submitted_form) {
   }
 
   ServerFieldTypeSet non_empty_types;
-  personal_data_->GetNonEmptyTypes(&non_empty_types);
+  if (personal_data_)
+    personal_data_->GetNonEmptyTypes(&non_empty_types);
 
   download_manager_->StartUploadRequest(submitted_form, was_autofilled,
                                         non_empty_types);
@@ -862,10 +867,12 @@ bool AutofillManager::RefreshDataModels() const {
     return false;
 
   // No autofill data to return if the profiles are empty.
+#if 0
   if (personal_data_->GetProfiles().empty() &&
       personal_data_->GetCreditCards().empty()) {
     return false;
   }
+#endif
 
   return true;
 }
@@ -1163,7 +1170,9 @@ std::vector<Suggestion> AutofillManager::GetProfileSuggestions(
     field_types.push_back(form.field(i)->Type().GetStorableType());
   }
 
-  std::vector<Suggestion> suggestions = personal_data_->GetProfileSuggestions(
+  std::vector<Suggestion> suggestions;
+  if (personal_data_)
+    suggestions = personal_data_->GetProfileSuggestions(
       autofill_field.Type(), field.value, field.is_autofilled, field_types);
 
   // Adjust phone number to display in prefix/suffix case.
@@ -1184,8 +1193,9 @@ std::vector<Suggestion> AutofillManager::GetProfileSuggestions(
 std::vector<Suggestion> AutofillManager::GetCreditCardSuggestions(
     const FormFieldData& field,
     const AutofillType& type) const {
-  std::vector<Suggestion> suggestions =
-      personal_data_->GetCreditCardSuggestions(type, field.value);
+  std::vector<Suggestion> suggestions;
+  if (personal_data_)
+    suggestions = personal_data_->GetCreditCardSuggestions(type, field.value);
   for (size_t i = 0; i < suggestions.size(); i++) {
     suggestions[i].frontend_id =
         MakeFrontendID(suggestions[i].backend_id, SuggestionBackendID());
