@@ -1142,6 +1142,9 @@ void DesktopWindowTreeHostX11::InitX11Window(
     ui::SetIntProperty(xwindow_, "_NET_WM_DESKTOP", "CARDINAL", kAllDesktops);
   }
 
+  if (params.show_state == ui::SHOW_STATE_FULLSCREEN) {
+    state_atom_list.push_back(atom_cache_.GetAtom("_NET_WM_STATE_FULLSCREEN"));
+  }
   // Setting _NET_WM_STATE by sending a message to the root_window (with
   // SetWMSpecState) has no effect here since the window has not yet been
   // mapped. So we manually change the state.
@@ -1554,11 +1557,18 @@ void DesktopWindowTreeHostX11::MapWindow(ui::WindowShowState show_state) {
   if (show_state != ui::SHOW_STATE_DEFAULT &&
       show_state != ui::SHOW_STATE_NORMAL &&
       show_state != ui::SHOW_STATE_INACTIVE &&
-      show_state != ui::SHOW_STATE_MAXIMIZED) {
+      show_state != ui::SHOW_STATE_MAXIMIZED &&
+      show_state != ui::SHOW_STATE_FULLSCREEN) {
     // It will behave like SHOW_STATE_NORMAL.
     NOTIMPLEMENTED();
   }
 
+  if (show_state == ui::SHOW_STATE_FULLSCREEN) {
+    ui::SetAtomProperty(xwindow_,
+                        "_NET_WM_STATE",
+                        "ATOM",
+                        atom_cache_.GetAtom("_NET_WM_STATE_FULLSCREEN"));
+  }
   // Before we map the window, set size hints. Otherwise, some window managers
   // will ignore toplevel XMoveWindow commands.
   XSizeHints size_hints;
