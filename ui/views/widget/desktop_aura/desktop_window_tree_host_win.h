@@ -153,6 +153,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   virtual void PaintLayeredWindow(gfx::Canvas* canvas) override;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() override;
   virtual bool ShouldHandleSystemCommands() const override;
+  virtual bool ShouldHandleOnSize() const override;
+  virtual bool HandleSize(UINT param, const gfx::Size& new_size) override;
   virtual InputMethod* GetInputMethod() override;
   virtual void HandleAppDeactivated() override;
   virtual void HandleActivationChanged(bool active) override;
