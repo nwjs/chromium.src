@@ -24,6 +24,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
+#include "third_party/WebKit/public/web/WebWindowFeatures.h"
 #include "ui/gfx/native_widget_types.h"
 
 #if defined(OS_ANDROID)
@@ -569,6 +570,8 @@ class WebContents : public PageNavigator,
                             bool is_favicon,
                             uint32_t max_bitmap_size,
                             const ImageDownloadCallback& callback) = 0;
+  // Return the window features
+  virtual blink::WebWindowFeatures GetWindowFeatures() const = 0;
 
   // Returns true if the WebContents is responsible for displaying a subframe
   // in a different process from its parent page.

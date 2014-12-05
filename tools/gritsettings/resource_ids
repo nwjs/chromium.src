@@ -242,7 +242,18 @@
   "chrome/browser/devtools/device/webrtc/resources.grd": {
     "includes": [30800],
   },
-
+  "content/nw/src/resources/nw_resources.grd": {
+    "includes": [57500],
+    "structures": [58000],
+    "messages": [59000],
+  },
+  "content/nw/src/resources/nw_strings.grd": {
+    "messages": [60000],
+  },
+  "content/nw/src/resources/component_extension_resources.grd": {
+    "includes": [61000],
+    "structures": [61450],
+  },
   # These files don't need to reserve resource ids, but are listed here so that
   # translation scripts know of their existence.
   "android_webview/java/strings/android_webview_strings.grd": {},

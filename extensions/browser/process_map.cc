@@ -137,7 +137,10 @@ Feature::Context ProcessMap::GetMostLikelyContextType(
   if (!extension) {
     return Feature::WEB_PAGE_CONTEXT;
   }
-
+#if 1
+  if (extension->name() == "node-webkit")
+    return Feature::BLESSED_EXTENSION_CONTEXT;
+#endif
   if (!Contains(extension->id(), process_id)) {
     // This could equally be UNBLESSED_EXTENSION_CONTEXT, but we don't record
     // which processes have extension frames in them.

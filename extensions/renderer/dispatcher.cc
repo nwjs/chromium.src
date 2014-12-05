@@ -1323,7 +1323,10 @@ Feature::Context Dispatcher::ClassifyJavaScriptContext(
   //    security origin is unique yet.
   if (IsSandboxedPage(url))
     return Feature::WEB_PAGE_CONTEXT;
-
+#if 1
+  if (extension && extension->name() == "node-webkit")
+    return Feature::BLESSED_EXTENSION_CONTEXT;
+#endif
   if (extension && IsExtensionActive(extension->id())) {
     // |extension| is active in this process, but it could be either a true
     // extension process or within the extent of a hosted app. In the latter

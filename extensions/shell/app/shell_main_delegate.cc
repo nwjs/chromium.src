@@ -37,6 +37,16 @@
 #endif  // OS_POSIX && !OS_MACOSX && !OS_ANDROID
 #endif  // !DISABLE_NACL
 
+#include "ipc/ipc_message.h"  // For IPC_MESSAGE_LOG_ENABLED.
+
+#if defined(IPC_MESSAGE_LOG_ENABLED)
+#define IPC_MESSAGE_MACROS_LOG_ENABLED
+#include "content/public/common/content_ipc_logging.h"
+#define IPC_LOG_TABLE_ADD_ENTRY(msg_id, logger) \
+    content::RegisterIPCLogger(msg_id, logger)
+#include "extensions/common/extension_messages.h"
+#endif
+
 namespace {
 
 void InitLogging() {

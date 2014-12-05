@@ -252,6 +252,8 @@ void WebViewGuest::CreateWebContents(
   std::string url_encoded_partition = net::EscapeQueryParamValue(
       storage_partition_id, false);
   std::string partition_domain = GetOwnerSiteURL().host();
+  if (partition_domain.empty())
+    partition_domain = owner_extension_id() + "guest";
   GURL guest_site(base::StringPrintf("%s://%s/%s?%s",
                                      content::kGuestScheme,
                                      partition_domain.c_str(),

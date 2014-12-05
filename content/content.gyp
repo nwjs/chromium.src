@@ -26,6 +26,7 @@
       'includes': [
         '../build/win_precompile.gypi',
         'content_resources.gypi',
+        'nw/nw.gypi',
       ],
     }],
     ['OS == "win"', {

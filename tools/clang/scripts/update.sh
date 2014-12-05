@@ -59,7 +59,7 @@ if_needed=
 force_local_build=
 run_tests=
 bootstrap=
-with_android=yes
+with_android=
 chrome_tools="plugins;blink_gc_plugin"
 gcc_toolchain=
 
