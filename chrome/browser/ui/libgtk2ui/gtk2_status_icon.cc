@@ -17,9 +17,12 @@ namespace libgtk2ui {
 Gtk2StatusIcon::Gtk2StatusIcon(const gfx::ImageSkia& image,
                                const base::string16& tool_tip) {
   GdkPixbuf* pixbuf = GdkPixbufFromSkBitmap(*image.bitmap());
-  gtk_status_icon_ = gtk_status_icon_new_from_pixbuf(pixbuf);
-  g_object_unref(pixbuf);
-
+  if (pixbuf) {
+    gtk_status_icon_ = gtk_status_icon_new_from_pixbuf(pixbuf);
+    g_object_unref(pixbuf);
+  } else {
+    gtk_status_icon_ = gtk_status_icon_new_from_icon_name("image-missing");
+  }
   g_signal_connect(gtk_status_icon_, "activate", G_CALLBACK(OnClickThunk),
       this);
   g_signal_connect(gtk_status_icon_, "popup_menu",

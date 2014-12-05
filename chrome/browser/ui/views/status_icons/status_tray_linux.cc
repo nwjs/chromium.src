@@ -21,14 +21,18 @@ StatusIcon* StatusTrayLinux::CreatePlatformStatusIcon(
   return StatusIconLinuxWrapper::CreateWrappedStatusIcon(image, tool_tip);
 }
 
-StatusTray* StatusTray::Create() {
+StatusTray* StatusTray::GetSingleton() {
+  if (singleton_)
+    return singleton_;
+
   const views::LinuxUI* linux_ui = views::LinuxUI::instance();
 
   // Only create a status tray if we can actually create status icons.
   if (linux_ui && linux_ui->IsStatusIconSupported())
-    return new StatusTrayLinux();
-  return NULL;
+    return (singleton_ = new StatusTrayLinux());
+  return (singleton_ = NULL);
 }
+
 #else  // defined(OS_CHROMEOS)
 StatusTray* StatusTray::Create() {
   return NULL;
