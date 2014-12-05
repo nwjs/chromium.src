@@ -48,6 +48,7 @@ class ChromeContentClient : public content::ContentClient {
       std::vector<content::PepperPluginInfo>* plugins) override;
   void AddAdditionalSchemes(std::vector<std::string>* standard_schemes,
                             std::vector<std::string>* saveable_shemes) override;
+  virtual bool CanHandleWhileSwappedOut(const IPC::Message& msg) override;
   std::string GetProduct() const override;
   std::string GetUserAgent() const override;
   base::string16 GetLocalizedString(int message_id) const override;
