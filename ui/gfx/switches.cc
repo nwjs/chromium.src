@@ -28,4 +28,7 @@ const char kDisableDirectWrite[] = "disable-direct-write";
 const char kDisableDirectWriteForUI[] = "disable-directwrite-for-ui";
 #endif
 
+// Enables/Disables High DPI support (windows)
+const char kHighDPISupport[] = "high-dpi-support";
+
 }  // namespace switches
