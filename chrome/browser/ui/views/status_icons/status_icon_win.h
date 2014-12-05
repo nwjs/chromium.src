@@ -55,7 +55,7 @@ class StatusIconWin : public StatusIcon {
 
  protected:
   // Overridden from StatusIcon:
-  virtual void UpdatePlatformContextMenu(StatusIconMenuModel* menu) override;
+  virtual void UpdatePlatformContextMenu(ui::MenuModel* menu) override;
 
  private:
   void InitIconData(NOTIFYICONDATA* icon_data);
