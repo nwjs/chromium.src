@@ -166,6 +166,27 @@ CommandLine::CommandLine(NoProgram no_program)
       begin_args_(1) {
 }
 
+#if defined(OS_WIN)
+CommandLine::CommandLine(const CommandLine& other)
+    : argv_(1),
+    begin_args_(1),
+    argc0_(0), argv0_(NULL) {
+  argv_ = other.argv_;
+  original_argv_ = other.original_argv_;
+  switches_ = other.switches_;
+  begin_args_ = other.begin_args_;
+  argc0_ = other.argc0_;
+  if (other.argv0_) {
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+}
+#endif
+
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
       begin_args_(1) {
@@ -251,6 +272,16 @@ void CommandLine::InitFromArgv(int argc,
 }
 
 void CommandLine::InitFromArgv(const StringVector& argv) {
+#if !defined(OS_MACOSX)
+  original_argv_ = argv;
+#else
+  for (size_t index = 0; index < argv.size(); ++index) {
+    if (argv[index].compare(0, strlen("--psn_"), "--psn_") != 0 &&
+        argv[index].compare(0, strlen("-psn_"), "-psn_") != 0) {
+      original_argv_.push_back(argv[index]);
+    }
+  }
+#endif
   argv_ = StringVector(1);
   switches_.clear();
   begin_args_ = 1;
@@ -369,6 +400,12 @@ void CommandLine::AppendArgPath(const FilePath& path) {
 void CommandLine::AppendArgNative(const CommandLine::StringType& value) {
   argv_.push_back(value);
 }
+
+#if defined(OS_MACOSX)
+void CommandLine::FixOrigArgv4Finder(const CommandLine::StringType& value) {
+  original_argv_.push_back(value);
+}
+#endif
 
 void CommandLine::AppendArguments(const CommandLine& other,
                                   bool include_program) {
