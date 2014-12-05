@@ -29,6 +29,7 @@
 
 using crash_reporter::GetCrashReporterClient;
 
+base::FilePath GetFrameworksPath();
 namespace breakpad {
 
 namespace {
@@ -165,7 +166,7 @@ void InitCrashReporter(const std::string& process_type) {
   // Helper processes may not have access to the disk or to the same data as
   // the browser process, so the browser passes the decision to them on the
   // command line.
-  NSBundle* main_bundle = base::mac::FrameworkBundle();
+  NSBundle* main_bundle = base::mac::MainBundle();
   bool is_browser = !base::mac::IsBackgroundOnlyProcess();
   bool enable_breakpad = false;
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -193,15 +194,17 @@ void InitCrashReporter(const std::string& process_type) {
   }
 
   // Tell Breakpad where crash_inspector and crash_report_sender are.
-  NSString* resource_path = [main_bundle resourcePath];
+  NSString* resource_path = [[NSString alloc] initWithUTF8String:GetFrameworksPath().value().c_str()];
   NSString *inspector_location =
       [resource_path stringByAppendingPathComponent:@"crash_inspector"];
+#if 0
   NSString *reporter_bundle_location =
       [resource_path stringByAppendingPathComponent:@"crash_report_sender.app"];
   NSString *reporter_location =
       [[NSBundle bundleWithPath:reporter_bundle_location] executablePath];
+#endif
 
-  if (!inspector_location || !reporter_location) {
+  if (!inspector_location) {
     VLOG_IF(1, is_browser && base::mac::AmIBundled()) << "Breakpad disabled";
     return;
   }
@@ -211,8 +214,6 @@ void InitCrashReporter(const std::string& process_type) {
       [[info_dictionary mutableCopy] autorelease];
   [breakpad_config setObject:inspector_location
                       forKey:@BREAKPAD_INSPECTOR_LOCATION];
-  [breakpad_config setObject:reporter_location
-                      forKey:@BREAKPAD_REPORTER_EXE_LOCATION];
 
   // In the main application (the browser process), crashes can be passed to
   // the system's Crash Reporter.  This allows the system to notify the user
@@ -225,6 +226,11 @@ void InitCrashReporter(const std::string& process_type) {
   GetCrashReporterClient()->GetCrashDumpLocation(&dir_crash_dumps);
   [breakpad_config setObject:base::SysUTF8ToNSString(dir_crash_dumps.value())
                       forKey:@BREAKPAD_DUMP_DIRECTORY];
+
+  if (![breakpad_config objectForKey:@BREAKPAD_URL]) {
+    [breakpad_config setObject:@"https://clients.node-webkit.org/cr/report"
+                        forKey:@BREAKPAD_URL];
+  }
 
   // Temporarily run Breakpad in-process on 10.10 and later because APIs that
   // it depends on got broken (http://crbug.com/386208).
