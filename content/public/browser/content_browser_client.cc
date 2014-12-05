@@ -20,6 +20,12 @@ WebContentsViewDelegate* ContentBrowserClient::GetWebContentsViewDelegate(
   return NULL;
 }
 
+void ContentBrowserClient::OverrideCreateWebContentsView(
+    WebContents* web_contents,
+    RenderViewHostDelegateView** render_view_host_delegate_view,
+    const WebContents::CreateParams& params) {
+}
+
 GURL ContentBrowserClient::GetEffectiveURL(BrowserContext* browser_context,
                                            const GURL& url) {
   return url;
