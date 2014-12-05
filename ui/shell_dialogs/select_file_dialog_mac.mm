@@ -84,7 +84,7 @@ class SelectFileDialogImpl : public ui::SelectFileDialog {
                       int file_type_index,
                       const base::FilePath::StringType& default_extension,
                       gfx::NativeWindow owning_window,
-                      void* params) override;
+                      void* params, const base::FilePath& working_dir) override;
 
  private:
   ~SelectFileDialogImpl() override;
@@ -163,7 +163,8 @@ void SelectFileDialogImpl::SelectFileImpl(
     int file_type_index,
     const base::FilePath::StringType& default_extension,
     gfx::NativeWindow owning_window,
-    void* params) {
+    void* params,
+    const base::FilePath& working_dir) {
   DCHECK(type == SELECT_FOLDER ||
          type == SELECT_UPLOAD_FOLDER ||
          type == SELECT_OPEN_FILE ||
@@ -184,6 +185,7 @@ void SelectFileDialogImpl::SelectFileImpl(
 
   NSString* default_dir = nil;
   NSString* default_filename = nil;
+
   if (!default_path.empty()) {
     // The file dialog is going to do a ton of stats anyway. Not much
     // point in eliminating this one.
@@ -195,6 +197,12 @@ void SelectFileDialogImpl::SelectFileImpl(
       default_filename =
           base::SysUTF8ToNSString(default_path.BaseName().value());
     }
+  }
+
+  if (!working_dir.empty()) {
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    if (base::DirectoryExists(working_dir)) 
+      default_dir = base::SysUTF8ToNSString(working_dir.value());
   }
 
   NSArray* allowed_file_types = nil;
