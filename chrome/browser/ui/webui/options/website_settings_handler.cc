@@ -207,8 +207,8 @@ void WebsiteSettingsHandler::HandleUpdateOrigins(const base::ListValue* args) {
   DCHECK(rv);
 
   ContentSettingsType content_type;
-  rv = content_settings::GetTypeFromName(content_setting_name, &content_type);
-  DCHECK(rv);
+  if (!content_settings::GetTypeFromName(content_setting_name, &content_type))
+    return;
   DCHECK_NE(
       kValidTypes + kValidTypesLength,
       std::find(kValidTypes, kValidTypes + kValidTypesLength, content_type));
@@ -278,7 +278,8 @@ void WebsiteSettingsHandler::UpdateOrigins() {
 
   ContentSettingsForOneType all_settings;
   ContentSettingsType last_setting;
-  content_settings::GetTypeFromName(last_setting_, &last_setting);
+  if (!content_settings::GetTypeFromName(last_setting_, &last_setting))
+    return;
 
   if (last_setting == CONTENT_SETTINGS_TYPE_MEDIASTREAM)
     last_setting = CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC;
@@ -371,8 +372,8 @@ void WebsiteSettingsHandler::HandleSetOriginPermission(
   bool rv = args->GetString(0, &setting_name);
   DCHECK(rv);
   ContentSettingsType settings_type;
-  rv = content_settings::GetTypeFromName(setting_name, &settings_type);
-  DCHECK(rv);
+  if (!content_settings::GetTypeFromName(setting_name, &settings_type))
+    return;
 
   std::string value;
   rv = args->GetString(1, &value);
@@ -458,7 +459,8 @@ void WebsiteSettingsHandler::HandleStopOrigin(const base::ListValue* args) {
 void WebsiteSettingsHandler::HandleUpdateDefaultSetting(
     const base::ListValue* args) {
   ContentSettingsType last_setting;
-  content_settings::GetTypeFromName(last_setting_, &last_setting);
+  if (!content_settings::GetTypeFromName(last_setting_, &last_setting))
+    return;
 
   base::DictionaryValue filter_settings;
   std::string provider_id;
@@ -482,7 +484,8 @@ void WebsiteSettingsHandler::HandleSetDefaultSetting(
       content_settings::ContentSettingFromString(setting);
 
   ContentSettingsType last_setting;
-  content_settings::GetTypeFromName(last_setting_, &last_setting);
+  if (!content_settings::GetTypeFromName(last_setting_, &last_setting))
+    return;
   Profile* profile = GetProfile();
 
   HostContentSettingsMap* map = profile->GetHostContentSettingsMap();
@@ -539,8 +542,8 @@ void WebsiteSettingsHandler::HandleSetGlobalToggle(
   DCHECK(rv);
 
   ContentSettingsType last_setting;
-  rv = content_settings::GetTypeFromName(last_setting_, &last_setting);
-  DCHECK(rv);
+  if (!content_settings::GetTypeFromName(last_setting_, &last_setting))
+    return;
 
   Profile* profile = GetProfile();
   HostContentSettingsMap* map = profile->GetHostContentSettingsMap();
