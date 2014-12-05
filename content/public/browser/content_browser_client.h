@@ -44,6 +44,7 @@
 #endif
 
 class GURL;
+class RendererPreferences;
 
 namespace base {
 class CommandLine;
