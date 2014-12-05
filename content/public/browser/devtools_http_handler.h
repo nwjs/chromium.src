@@ -21,6 +21,7 @@ class URLRequestContextGetter;
 namespace content {
 
 class DevToolsHttpHandlerDelegate;
+class DevToolsAgentHost;
 
 // This class is used for managing DevTools remote debugging server.
 // Clients can connect to the specified ip:port and start debugging
@@ -73,7 +74,7 @@ class DevToolsHttpHandler {
       const base::FilePath& active_port_output_directory);
 
   // Returns the URL for the file at |path| in frontend.
-  virtual GURL GetFrontendURL(const std::string& path) = 0;
+  virtual GURL GetFrontendURL(const std::string& path, DevToolsAgentHost* agent_host = NULL) = 0;
 
   virtual ~DevToolsHttpHandler() {}
 };
