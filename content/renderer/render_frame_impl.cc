@@ -4351,4 +4351,12 @@ void RenderFrameImpl::willHandleNavigationPolicy(
     ->willHandleNavigationPolicy(render_view_.get(), frame, request, policy);
 }
 
+void RenderFrameImpl::windowOpenBegin(const blink::WebURL& url) {
+  GetContentClient()->renderer()->windowOpenBegin(url);
+}
+
+void RenderFrameImpl::windowOpenEnd() {
+  GetContentClient()->renderer()->windowOpenEnd();
+}
+
 }  // namespace content

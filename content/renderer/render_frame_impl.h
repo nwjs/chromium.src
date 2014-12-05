@@ -514,6 +514,9 @@ class CONTENT_EXPORT RenderFrameImpl
   // TODO(nasko): Remove this method once swapped out state is no longer used.
   void NavigateToSwappedOutURL();
 
+  virtual void windowOpenBegin(const blink::WebURL&);
+  virtual void windowOpenEnd();
+
   // Binds this render frame's service registry to a handle to the remote
   // service registry.
   void BindServiceRegistry(
