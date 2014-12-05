@@ -81,6 +81,7 @@ class CONTENT_EXPORT NavigationControllerImpl
   void Reload(bool check_for_repost) override;
   void ReloadIgnoringCache(bool check_for_repost) override;
   void ReloadOriginalRequestURL(bool check_for_repost) override;
+  virtual void ReloadDev(bool check_for_repost) override;
   void NotifyEntryChanged(const NavigationEntry* entry, int index) override;
   void CopyStateFrom(const NavigationController& source) override;
   void CopyStateFromAndPrune(NavigationController* source,
@@ -270,7 +271,8 @@ class CONTENT_EXPORT NavigationControllerImpl
       const FrameHostMsg_DidCommitProvisionalLoad_Params& params);
 
   // Helper function for code shared between Reload() and ReloadIgnoringCache().
-  void ReloadInternal(bool check_for_repost, ReloadType reload_type);
+  void ReloadInternal(bool check_for_repost, ReloadType reload_type,
+                      bool dev_reload = false);
 
   // Actually issues the navigation held in pending_entry.
   void NavigateToPendingEntry(ReloadType reload_type);

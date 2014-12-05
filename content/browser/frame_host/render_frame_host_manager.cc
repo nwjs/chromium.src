@@ -832,7 +832,7 @@ SiteInstance* RenderFrameHostManager::GetSiteInstanceForNavigation(
       dest_instance,
       SiteInstanceImpl::GetEffectiveURL(browser_context, dest_url),
       dest_is_view_source_mode);
-  if (ShouldTransitionCrossSite() || force_swap) {
+  if (ShouldTransitionCrossSite() || force_swap || current_entry->is_dev_reload()) {
     new_instance = GetSiteInstanceForURL(
         dest_url, source_instance, current_instance, dest_instance,
         transition, dest_is_restore, dest_is_view_source_mode, force_swap);
@@ -995,6 +995,10 @@ SiteInstance* RenderFrameHostManager::GetSiteInstanceForURL(
   if (source_instance &&
       (dest_url == about_blank || dest_url.scheme() == url::kDataScheme))
     return source_instance;
+
+  NavigationEntryImpl* entry = NavigationEntryImpl::FromNavigationEntry(current_entry);
+  if (entry && entry->is_dev_reload())
+    return SiteInstance::CreateForURL(browser_context, dest_url);
 
   // Use the current SiteInstance for same site navigations, as long as the
   // process type is correct.  (The URL may have been installed as an app since
