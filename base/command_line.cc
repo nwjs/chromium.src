@@ -163,7 +163,8 @@ string16 QuoteForCommandLineToArgvW(const string16& arg,
 
 CommandLine::CommandLine(NoProgram no_program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
 }
 
 #if defined(OS_WIN)
@@ -189,23 +190,34 @@ CommandLine::CommandLine(const CommandLine& other)
 
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   SetProgram(program);
 }
 
 CommandLine::CommandLine(int argc, const CommandLine::CharType* const* argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argc, argv);
 }
 
 CommandLine::CommandLine(const StringVector& argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argv);
 }
 
 CommandLine::~CommandLine() {
+#if defined(OS_WIN)
+  if (!argv0_)
+    return;
+  for (int i = 0; i < argc0_; i++) {
+    delete[] argv0_[i];
+  }
+  delete[] argv0_;
+#endif
 }
 
 #if defined(OS_WIN)
@@ -266,6 +278,18 @@ CommandLine CommandLine::FromString(const string16& command_line) {
 void CommandLine::InitFromArgv(int argc,
                                const CommandLine::CharType* const* argv) {
   StringVector new_argv;
+  argc0_ = argc;
+#if !defined(OS_WIN)
+  argv0_ = (char**)argv;
+#else
+  argv0_ = new char*[argc + 1];
+  for (int i = 0; i < argc; ++i) {
+    std::string str(base::WideToUTF8(argv[i]));
+    argv0_[i] = new char[str.length() + 1];
+    strcpy(argv0_[i], str.c_str());
+  }
+  argv0_[argc] = NULL;
+#endif
   for (int i = 0; i < argc; ++i)
     new_argv.push_back(argv[i]);
   InitFromArgv(new_argv);
