@@ -137,6 +137,9 @@ class BASE_EXPORT CommandLine {
   // Returns the original command line string as a vector of strings.
   const StringVector& argv() const { return argv_; }
 
+  // Returns the original command line string as a vector of strings (keeps precedence).
+  const StringVector& original_argv() const { return original_argv_; }
+
   // Get and Set the program part of the command line string (the first item).
   FilePath GetProgram() const;
   void SetProgram(const FilePath& program);
@@ -181,6 +184,10 @@ class BASE_EXPORT CommandLine {
   void AppendArgPath(const FilePath& value);
   void AppendArgNative(const StringType& value);
 
+#if defined(OS_MACOSX)
+  void FixOrigArgv4Finder(const StringType& value);
+#endif
+
   // Append the switches and arguments from another command line to this one.
   // If |include_program| is true, include |other|'s program as well.
   void AppendArguments(const CommandLine& other, bool include_program);
@@ -193,6 +200,25 @@ class BASE_EXPORT CommandLine {
   // Initialize by parsing the given command line string.
   // The program name is assumed to be the first item in the string.
   void ParseFromString(const base::string16& command_line);
+  CommandLine(const CommandLine& other);
+  CommandLine& operator = (const CommandLine& other) {
+    if (this == &other)
+      return *this;
+    argv_ = other.argv_;
+    original_argv_ = other.original_argv_;
+    switches_ = other.switches_;
+    begin_args_ = other.begin_args_;
+    argc0_ = other.argc0_;
+    if (other.argv0_) {
+      argv0_ = new char*[argc0_ + 1];
+      for (int i = 0; i < argc0_; ++i) {
+        argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+        strcpy(argv0_[i], other.argv0_[i]);
+      }
+      argv0_[argc0_] = NULL;
+    }
+    return *this;
+  }
 #endif
 
  private:
@@ -216,6 +242,9 @@ class BASE_EXPORT CommandLine {
 
   // The argv array: { program, [(--|-|/)switch[=value]]*, [--], [argument]* }
   StringVector argv_;
+
+  // The argv array (precedence not messed).
+  StringVector original_argv_;
 
   // Parsed-out switch keys and values.
   SwitchMap switches_;
