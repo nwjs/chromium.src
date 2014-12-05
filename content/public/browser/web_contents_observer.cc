@@ -47,6 +47,10 @@ bool WebContentsObserver::OnMessageReceived(
   return false;
 }
 
+bool WebContentsObserver::OnMessageReceived(RenderViewHost* render_view_host, const IPC::Message& message) {
+  return false;
+}
+
 bool WebContentsObserver::OnMessageReceived(const IPC::Message& message) {
   return false;
 }
