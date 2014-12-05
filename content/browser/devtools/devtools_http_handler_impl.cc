@@ -513,11 +513,17 @@ DevToolsHttpHandlerImpl::~DevToolsHttpHandlerImpl() {
   STLDeleteValues(&connection_to_client_);
 }
 
-GURL DevToolsHttpHandlerImpl::GetFrontendURL(const std::string& path) {
+GURL DevToolsHttpHandlerImpl::GetFrontendURL(const std::string& path, DevToolsAgentHost* agent_host) {
   if (!server_ip_address_)
     return GURL();
-  return GURL(std::string("http://") + server_ip_address_->ToString() +
+  if (!agent_host)
+    return GURL(std::string("http://") + server_ip_address_->ToString() +
               (path.empty() ? frontend_url_ : path));
+  std::string host = ip_address.ToString();
+  std::string id = agent_host->GetId();
+  return GURL(std::string("http://") +
+              ip_address.ToString() +
+              GetFrontendURLInternal(id, host));
 }
 
 static std::string PathWithoutParams(const std::string& path) {
@@ -839,6 +845,27 @@ void DevToolsHttpHandlerImpl::OnTargetListReceived(
     list_value.Append(SerializeTarget(*target, host));
   }
   SendJson(connection_id, net::HTTP_OK, &list_value, std::string());
+}
+
+void DevToolsHttpHandlerImpl::OnTargetListReceived2(
+    const DevToolsHttpHandlerDelegate::TargetList& targets) {
+  DevToolsHttpHandlerDelegate::TargetList sorted_targets = targets;
+  std::sort(sorted_targets.begin(), sorted_targets.end(), TimeComparator);
+
+  STLDeleteValues(&target_map_);
+  for (DevToolsHttpHandlerDelegate::TargetList::const_iterator it =
+      sorted_targets.begin(); it != sorted_targets.end(); ++it) {
+    DevToolsTarget* target = *it;
+    target_map_[target->GetId()] = target;
+  }
+  Release();  // Balanced in OnJsonRequestUI.
+}
+
+void DevToolsHttpHandlerImpl::EnumerateTargets() {
+  AddRef();  // Balanced in OnTargetListReceived2.
+  delegate_->EnumerateTargets(
+        base::Bind(&DevToolsHttpHandlerImpl::OnTargetListReceived2, this));
+    return;
 }
 
 DevToolsTarget* DevToolsHttpHandlerImpl::GetTarget(const std::string& id) {
