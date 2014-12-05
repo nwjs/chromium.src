@@ -368,6 +368,7 @@ class CONTENT_EXPORT RenderViewHostImpl
   void OnDidZoomURL(double zoom_level, const GURL& url);
   void OnRunFileChooser(const FileChooserParams& params);
   void OnFocusedNodeTouched(bool editable);
+  void OnGrantUniversalPermissions(int *ret);
 
  private:
   // TODO(nasko): Temporarily friend RenderFrameHostImpl, so we don't duplicate
