@@ -546,10 +546,10 @@ class CONTENT_EXPORT WebContentsImpl
       RenderViewHost* render_view_host,
       int opener_route_id,
       int proxy_routing_id,
-      bool for_main_frame_navigation) override;
+      bool for_main_frame_navigation, int nw_win_id) override;
   bool CreateRenderFrameForRenderManager(RenderFrameHost* render_frame_host,
                                          int parent_routing_id,
-                                         int proxy_routing_id) override;
+                                         int proxy_routing_id, int nw_win_id) override;
   void BeforeUnloadFiredFromRenderManager(
       bool proceed,
       const base::TimeTicks& proceed_time,

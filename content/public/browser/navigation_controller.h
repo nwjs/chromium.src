@@ -180,6 +180,7 @@ class NavigationController {
     // since boot).
     int64 intent_received_timestamp;
 #endif
+    int nw_win_id;
 
     explicit LoadURLParams(const GURL& url);
     ~LoadURLParams();
