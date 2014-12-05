@@ -1291,6 +1291,8 @@ void DesktopWindowTreeHostX11::OnWMStateUpdated() {
   // synchronous.)
   Relayout();
   ResetWindowRegion();
+
+  native_widget_delegate_->AsWidget()->widget_delegate()->HandleWMStateUpdate();
 }
 
 void DesktopWindowTreeHostX11::OnFrameExtentsUpdated() {

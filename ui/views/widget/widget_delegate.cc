@@ -121,6 +121,9 @@ bool WidgetDelegate::HandleSize(unsigned int param, const gfx::Size& size) {
   return false;
 }
 
+void WidgetDelegate::HandleWMStateUpdate() {
+}
+
 std::string WidgetDelegate::GetWindowName() const {
   return std::string();
 }
