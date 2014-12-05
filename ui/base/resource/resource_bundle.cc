@@ -648,10 +648,12 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate, bool init_bundle) {
   // On Windows if the dpi scale is greater than 1.25 on high dpi machines
   // downscaling from 200 percent looks better than scaling up from 100
   // percent.
+#if 0
   if (gfx::GetDPIScale() > 1.25) {
     supported_scale_factors.push_back(SCALE_FACTOR_200P);
     default_to_100P = false;
   }
+#endif
   if (default_to_100P)
     supported_scale_factors.push_back(SCALE_FACTOR_100P);
 #endif
