@@ -4343,4 +4343,12 @@ RendererCdmManager* RenderFrameImpl::GetCdmManager() {
 }
 #endif  // defined(ENABLE_BROWSER_CDMS)
 
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                blink::WebFrame* frame,
+                                                const blink::WebURLRequest& request,
+                                                blink::WebNavigationPolicy* policy) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_.get(), frame, request, policy);
+}
+
 }  // namespace content
