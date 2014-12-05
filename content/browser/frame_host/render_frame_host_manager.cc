@@ -184,7 +184,8 @@ RenderFrameHostImpl* RenderFrameHostManager::Navigate(
     // soon anyway, and we don't have the NavigationEntry for this host.
     delegate_->CreateRenderViewForRenderManager(
         render_frame_host_->render_view_host(), MSG_ROUTING_NONE,
-        MSG_ROUTING_NONE, frame_tree_node_->IsMainFrame());
+        MSG_ROUTING_NONE, frame_tree_node_->IsMainFrame(),
+        entry.nw_win_id());
   }
 
   // If the renderer crashed, then try to create a new one to satisfy this
@@ -205,7 +206,8 @@ RenderFrameHostImpl* RenderFrameHostManager::Navigate(
     if (!InitRenderView(dest_render_frame_host->render_view_host(),
                         opener_route_id,
                         MSG_ROUTING_NONE,
-                        frame_tree_node_->IsMainFrame()))
+                        frame_tree_node_->IsMainFrame(),
+                        entry.nw_win_id()))
       return NULL;
 
     // Now that we've created a new renderer, be sure to hide it if it isn't
@@ -1085,7 +1087,7 @@ scoped_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrameHost(
     SiteInstance* site_instance,
     int view_routing_id,
     int frame_routing_id,
-    int flags) {
+    int flags, int nw_win_id) {
   if (frame_routing_id == MSG_ROUTING_NONE)
     frame_routing_id = site_instance->GetProcess()->GetNextRoutingID();
 
@@ -1189,7 +1191,7 @@ scoped_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrame(
 
     success =
         InitRenderView(render_view_host, opener_route_id, proxy_routing_id,
-                       !!(flags & CREATE_RF_FOR_MAIN_FRAME_NAVIGATION));
+                       !!(flags & CREATE_RF_FOR_MAIN_FRAME_NAVIGATION), nw_win_id);
     if (success) {
       if (frame_tree_node_->IsMainFrame()) {
         // Don't show the main frame's view until we get a DidNavigate from it.
@@ -1197,7 +1199,7 @@ scoped_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrame(
       } else if (!swapped_out) {
         // Init the RFH, so a RenderFrame is created in the renderer.
         DCHECK(new_render_frame_host.get());
-        success = InitRenderFrame(new_render_frame_host.get());
+        success = InitRenderFrame(new_render_frame_host.get(), nw_win_id);
       }
     }
 
@@ -1242,7 +1244,7 @@ bool RenderFrameHostManager::InitRenderView(
     RenderViewHostImpl* render_view_host,
     int opener_route_id,
     int proxy_routing_id,
-    bool for_main_frame_navigation) {
+    bool for_main_frame_navigation, int nw_win_id) {
   // We may have initialized this RenderViewHost for another RenderFrameHost.
   if (render_view_host->IsRenderViewLive())
     return true;
@@ -1264,11 +1266,12 @@ bool RenderFrameHostManager::InitRenderView(
   return delegate_->CreateRenderViewForRenderManager(render_view_host,
                                                      opener_route_id,
                                                      proxy_routing_id,
-                                                     for_main_frame_navigation);
+                                                     for_main_frame_navigation,
+                                                     nw_win_id);
 }
 
 bool RenderFrameHostManager::InitRenderFrame(
-    RenderFrameHostImpl* render_frame_host) {
+                                             RenderFrameHostImpl* render_frame_host, int nw_win_id) {
   if (render_frame_host->IsRenderFrameLive())
     return true;
 
@@ -1294,7 +1297,8 @@ bool RenderFrameHostManager::InitRenderFrame(
   }
   return delegate_->CreateRenderFrameForRenderManager(render_frame_host,
                                                       parent_routing_id,
-                                                      proxy_routing_id);
+                                                      proxy_routing_id,
+                                                      nw_win_id);
 }
 
 int RenderFrameHostManager::GetRoutingIdForSiteInstance(
@@ -1506,7 +1510,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
     // not have its bindings set appropriately.
     SetPendingWebUI(dest_url, bindings);
     CreatePendingRenderFrameHost(current_instance, new_instance.get(),
-                                 frame_tree_node_->IsMainFrame());
+                                 frame_tree_node_->IsMainFrame(), current_entry->nw_win_id());
     if (!pending_render_frame_host_.get()) {
       return NULL;
     }

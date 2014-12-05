@@ -119,11 +119,11 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
         RenderViewHost* render_view_host,
         int opener_route_id,
         int proxy_routing_id,
-        bool for_main_frame_navigation) = 0;
+        bool for_main_frame_navigation, int nw_win_id = 0) = 0;
     virtual bool CreateRenderFrameForRenderManager(
         RenderFrameHost* render_frame_host,
         int parent_routing_id,
-        int proxy_routing_id) = 0;
+        int proxy_routing_id, int nw_win_id = 0) = 0;
     virtual void BeforeUnloadFiredFromRenderManager(
         bool proceed, const base::TimeTicks& proceed_time,
         bool* proceed_to_fire_unload) = 0;
@@ -309,7 +309,8 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
                                                     WebUIImpl* web_ui,
                                                     int opener_route_id,
                                                     int flags,
-                                                    int* view_routing_id_ptr);
+                                                    int* view_routing_id_ptr,
+                                                    int nw_win_id);
 
   // Helper method to create and initialize a RenderFrameProxyHost and return
   // its routing id.
@@ -488,11 +489,11 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
   bool InitRenderView(RenderViewHostImpl* render_view_host,
                       int opener_route_id,
                       int proxy_routing_id,
-                      bool for_main_frame_navigation);
+                      bool for_main_frame_navigation, int nw_win_id = 0);
 
   // Initialization for RenderFrameHost uses the same sequence as InitRenderView
   // above.
-  bool InitRenderFrame(RenderFrameHostImpl* render_frame_host);
+  bool InitRenderFrame(RenderFrameHostImpl* render_frame_host, int nw_win_id = 0);
 
   // Sets the pending RenderFrameHost/WebUI to be the active one. Note that this
   // doesn't require the pending render_frame_host_ pointer to be non-NULL,

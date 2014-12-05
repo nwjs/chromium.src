@@ -223,6 +223,9 @@ class CONTENT_EXPORT NavigationEntryImpl
     frame_tree_node_id_ = frame_tree_node_id;
   }
 
+  void set_nw_win_id(int id) { nw_win_id_ = id; }
+  int nw_win_id() const { return nw_win_id_; }
+
  private:
   // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
   // Session/Tab restore save portions of this class so that it can be recreated
@@ -346,6 +349,7 @@ class CONTENT_EXPORT NavigationEntryImpl
   // time (see TabNavigation for an example of this).
   std::map<std::string, base::string16> extra_data_;
 
+  int nw_win_id_;
   // Copy and assignment is explicitly allowed for this class.
 };
 

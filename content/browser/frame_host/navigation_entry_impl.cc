@@ -67,7 +67,8 @@ NavigationEntryImpl::NavigationEntryImpl(SiteInstanceImpl* instance,
       should_replace_entry_(false),
       should_clear_history_list_(false),
       can_load_local_resources_(false),
-      frame_tree_node_id_(-1) {
+      frame_tree_node_id_(-1),
+      nw_win_id_(0) {
 }
 
 NavigationEntryImpl::~NavigationEntryImpl() {
