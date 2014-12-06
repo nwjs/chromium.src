@@ -49,6 +49,7 @@ class WebThemeEngine;
 class WebURL;
 class WebURLRequest;
 class WebWorkerPermissionClientProxy;
+class WebString;
 struct WebPluginParams;
 struct WebURLError;
 }
@@ -299,7 +300,8 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual void willHandleNavigationPolicy(RenderView* rv,
                                           blink::WebFrame* frame,
                                           const blink::WebURLRequest& request,
-                                          blink::WebNavigationPolicy* policy) {}
+                                          blink::WebNavigationPolicy* policy,
+                                          blink::WebString* manifest) {}
 
   // Returns a user agent override specific for |url|, or empty string if
   // default user agent should be used.

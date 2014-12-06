@@ -508,7 +508,8 @@ class CONTENT_EXPORT RenderFrameImpl
   virtual void willHandleNavigationPolicy(
                                           blink::WebFrame*,
                                           const blink::WebURLRequest&,
-                                          blink::WebNavigationPolicy*);
+                                          blink::WebNavigationPolicy*,
+                                          blink::WebString* manifest = NULL);
 
   // Make this frame show an empty, unscriptable page.
   // TODO(nasko): Remove this method once swapped out state is no longer used.
