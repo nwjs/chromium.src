@@ -1095,7 +1095,23 @@ ComponentExtensionIMEManager*
 
 scoped_refptr<InputMethodManager::State> InputMethodManagerImpl::CreateNewState(
     Profile* profile) {
-  return scoped_refptr<InputMethodManager::State>(new StateImpl(this, profile));
+  StateImpl* new_state = new StateImpl(this, profile);
+
+  // Active IM should be set to owner's default.
+  PrefService* prefs = g_browser_process->local_state();
+  const std::string initial_input_method_id =
+      prefs->GetString(chromeos::language_prefs::kPreferredKeyboardLayout);
+
+  const InputMethodDescriptor* descriptor =
+      GetInputMethodUtil()->GetInputMethodDescriptorFromId(
+          initial_input_method_id.empty()
+              ? GetInputMethodUtil()->GetFallbackInputMethodDescriptor().id()
+              : initial_input_method_id);
+  if (descriptor) {
+    new_state->active_input_method_ids.push_back(descriptor->id());
+    new_state->current_input_method = *descriptor;
+  }
+  return scoped_refptr<InputMethodManager::State>(new_state);
 }
 
 void InputMethodManagerImpl::SetCandidateWindowControllerForTesting(
