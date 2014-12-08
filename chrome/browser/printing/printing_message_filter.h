@@ -37,7 +37,7 @@ class PrinterQuery;
 // renderer process on the IPC thread.
 class PrintingMessageFilter : public content::BrowserMessageFilter {
  public:
-  PrintingMessageFilter(int render_process_id, Profile* profile);
+  PrintingMessageFilter(int render_process_id);
 
   // content::BrowserMessageFilter methods.
   void OverrideThreadForMessage(const IPC::Message& message,
@@ -113,8 +113,6 @@ class PrintingMessageFilter : public content::BrowserMessageFilter {
                         int preview_request_id,
                         bool* cancel);
 #endif
-
-  ProfileIOData* profile_io_data_;
 
   const int render_process_id_;
 

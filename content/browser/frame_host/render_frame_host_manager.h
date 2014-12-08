@@ -452,7 +452,7 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
   // and stores it in pending_render_frame_host_.
   void CreatePendingRenderFrameHost(SiteInstance* old_instance,
                                     SiteInstance* new_instance,
-                                    bool is_main_frame);
+                                    bool is_main_frame, int nw_win_id);
 
   // Ensure that we have created RFHs for the new RFH's opener chain if
   // we are staying in the same BrowsingInstance. This allows the new RFH
@@ -465,7 +465,7 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
   scoped_ptr<RenderFrameHostImpl> CreateRenderFrameHost(SiteInstance* instance,
                                                         int view_routing_id,
                                                         int frame_routing_id,
-                                                        int flags);
+                                                        int flags, int nw_win_id);
 
   // Sets up the necessary state for a new RenderViewHost with the given opener,
   // if necessary.  It creates a RenderFrameProxy in the target renderer process

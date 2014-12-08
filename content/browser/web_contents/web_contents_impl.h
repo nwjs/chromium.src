@@ -318,7 +318,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool HasOpener() const override;
   void DidChooseColorInColorChooser(SkColor color) override;
   void DidEndColorChooser() override;
-  virtual blink::WebWindowFeatures GetWindowFeatures() const OVERRIDE;
+  virtual blink::WebWindowFeatures GetWindowFeatures() const override;
   int DownloadImage(const GURL& url,
                     bool is_favicon,
                     uint32_t max_bitmap_size,

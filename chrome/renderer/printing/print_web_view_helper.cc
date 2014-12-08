@@ -412,7 +412,7 @@ PrintMsg_Print_Params CalculatePrintParamsForCss(
 
 // Return the PDF object element if |frame| is the out of process PDF extension.
 blink::WebElement GetPdfElement(blink::WebLocalFrame* frame) {
-#if defined(ENABLE_EXTENSIONS)
+#if 0
   GURL url = frame->document().url();
   if (url.SchemeIs(extensions::kExtensionScheme) &&
       url.host() == extension_misc::kPdfExtensionId) {

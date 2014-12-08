@@ -145,6 +145,9 @@ using blink::WebVector;
 
 namespace content {
 
+extern bool g_support_transparency;
+bool g_support_transparency = true;
+
 namespace {
 
 bool g_sandbox_enabled = true;
@@ -1246,6 +1249,10 @@ void RendererBlinkPlatformImpl::getCmdArg(int* argc, char*** argv, std::string& 
 
 bool RendererBlinkPlatformImpl::supportNodeJS() {
   return true;
+}
+
+bool RendererBlinkPlatformImpl::supportTransparency() {
+  return g_support_transparency;
 }
 
 }  // namespace content

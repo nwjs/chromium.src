@@ -10,13 +10,12 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/printing/printer_query.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_io_data.h"
 #include "chrome/common/print_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/child_process_host.h"
+#include "content/nw/src/shell_content_browser_client.h"
 
 #if defined(ENABLE_PRINT_PREVIEW)
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
@@ -89,13 +88,13 @@ void RenderParamsFromPrintSettings(const PrintSettings& settings,
 
 }  // namespace
 
-PrintingMessageFilter::PrintingMessageFilter(int render_process_id,
-                                             Profile* profile)
+PrintingMessageFilter::PrintingMessageFilter(int render_process_id)
     : BrowserMessageFilter(PrintMsgStart),
-      profile_io_data_(ProfileIOData::FromResourceContext(
-          profile->GetResourceContext())),
-      render_process_id_(render_process_id),
-      queue_(g_browser_process->print_job_manager()->queue()) {
+      render_process_id_(render_process_id) {
+  content::ShellContentBrowserClient* browser_client =
+    static_cast<content::ShellContentBrowserClient*>(content::GetContentClient()->browser());
+  queue_ = browser_client->print_job_manager()->queue();
+
   DCHECK(queue_.get());
 }
 
@@ -260,17 +259,12 @@ content::WebContents* PrintingMessageFilter::GetWebContentsForRenderView(
 
 void PrintingMessageFilter::OnIsPrintingEnabled(bool* is_enabled) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  *is_enabled = profile_io_data_->printing_enabled()->GetValue();
+  *is_enabled = true;
 }
 
 void PrintingMessageFilter::OnGetDefaultPrintSettings(IPC::Message* reply_msg) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   scoped_refptr<PrinterQuery> printer_query;
-  if (!profile_io_data_->printing_enabled()->GetValue()) {
-    // Reply with NULL query.
-    OnGetDefaultPrintSettingsReply(printer_query, reply_msg);
-    return;
-  }
   printer_query = queue_->PopPrinterQuery(0);
   if (!printer_query.get()) {
     printer_query =
@@ -388,11 +382,7 @@ void PrintingMessageFilter::OnUpdatePrintSettings(
   scoped_ptr<base::DictionaryValue> new_settings(job_settings.DeepCopy());
 
   scoped_refptr<PrinterQuery> printer_query;
-  if (!profile_io_data_->printing_enabled()->GetValue()) {
-    // Reply with NULL query.
-    OnUpdatePrintSettingsReply(printer_query, reply_msg);
-    return;
-  }
+
   printer_query = queue_->PopPrinterQuery(document_cookie);
   if (!printer_query.get()) {
     int host_id = render_process_id_;

@@ -74,7 +74,9 @@ class DevToolsHttpHandler {
       const base::FilePath& active_port_output_directory);
 
   // Returns the URL for the file at |path| in frontend.
-  virtual GURL GetFrontendURL(const std::string& path, DevToolsAgentHost* agent_host = NULL) = 0;
+  virtual GURL GetFrontendURL(const std::string& path) = 0;
+  virtual GURL GetFrontendURL(DevToolsAgentHost* agent) = 0;
+  virtual void EnumerateTargets() = 0;
 
   virtual ~DevToolsHttpHandler() {}
 };
