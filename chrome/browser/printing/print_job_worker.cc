@@ -24,6 +24,8 @@
 #include "printing/printing_utils.h"
 #include "ui/base/l10n/l10n_util.h"
 
+#include "content/nw/src/shell_content_browser_client.h"
+
 using content::BrowserThread;
 
 namespace printing {
@@ -69,7 +71,10 @@ gfx::NativeView PrintingContextDelegate::GetParentView() {
 }
 
 std::string PrintingContextDelegate::GetAppLocale() {
-  return g_browser_process->GetApplicationLocale();
+  content::ShellContentBrowserClient* browser_client =
+    static_cast<content::ShellContentBrowserClient*>(content::GetContentClient()->browser());
+
+  return browser_client->GetApplicationLocale();
 }
 
 void NotificationCallback(PrintJobWorkerOwner* print_job,

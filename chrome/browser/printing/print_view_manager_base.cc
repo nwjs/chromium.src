@@ -33,6 +33,8 @@
 #include "chrome/browser/printing/print_error_dialog.h"
 #endif
 
+#include "content/nw/src/shell_content_browser_client.h"
+
 using base::TimeDelta;
 using content::BrowserThread;
 
@@ -47,19 +49,16 @@ PrintViewManagerBase::PrintViewManagerBase(content::WebContents* web_contents)
       number_pages_(0),
       printing_succeeded_(false),
       inside_inner_message_loop_(false),
-      cookie_(0),
-      queue_(g_browser_process->print_job_manager()->queue()) {
+      cookie_(0) {
+
+  content::ShellContentBrowserClient* browser_client =
+    static_cast<content::ShellContentBrowserClient*>(content::GetContentClient()->browser());
+  queue_ = browser_client->print_job_manager()->queue();
+
   DCHECK(queue_.get());
 #if !defined(OS_MACOSX)
   expecting_first_page_ = true;
 #endif  // OS_MACOSX
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  printing_enabled_.Init(
-      prefs::kPrintingEnabled,
-      profile->GetPrefs(),
-      base::Bind(&PrintViewManagerBase::UpdateScriptedPrintingBlocked,
-                 base::Unretained(this)));
 }
 
 PrintViewManagerBase::~PrintViewManagerBase() {
@@ -76,7 +75,7 @@ bool PrintViewManagerBase::PrintNow() {
 void PrintViewManagerBase::UpdateScriptedPrintingBlocked() {
   Send(new PrintMsg_SetScriptedPrintingBlocked(
        routing_id(),
-       !printing_enabled_.GetValue()));
+       false));
 }
 
 void PrintViewManagerBase::NavigationStopped() {
@@ -195,11 +194,6 @@ void PrintViewManagerBase::OnPrintingFailed(int cookie) {
 }
 
 void PrintViewManagerBase::OnShowInvalidPrinterSettingsError() {
-  chrome::ShowMessageBox(NULL,
-                         base::string16(),
-                         l10n_util::GetStringUTF16(
-                             IDS_PRINT_INVALID_PRINTER_SETTINGS),
-                         chrome::MESSAGE_BOX_TYPE_WARNING);
 }
 
 void PrintViewManagerBase::DidStartLoading(
@@ -506,8 +500,11 @@ void PrintViewManagerBase::ReleasePrinterQuery() {
   int cookie = cookie_;
   cookie_ = 0;
 
-  printing::PrintJobManager* print_job_manager =
-      g_browser_process->print_job_manager();
+  content::ShellContentBrowserClient* browser_client =
+    static_cast<content::ShellContentBrowserClient*>(content::GetContentClient()->browser());
+
+  printing::PrintJobManager* print_job_manager = browser_client->print_job_manager();
+
   // May be NULL in tests.
   if (!print_job_manager)
     return;
