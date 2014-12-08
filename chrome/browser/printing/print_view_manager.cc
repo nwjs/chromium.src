@@ -52,22 +52,7 @@ bool PrintViewManager::PrintForSystemDialogNow() {
 }
 
 bool PrintViewManager::BasicPrint() {
-  PrintPreviewDialogController* dialog_controller =
-      PrintPreviewDialogController::GetInstance();
-  if (!dialog_controller)
-    return false;
-  content::WebContents* print_preview_dialog =
-      dialog_controller->GetPrintPreviewForContents(web_contents());
-  if (print_preview_dialog) {
-    if (!print_preview_dialog->GetWebUI())
-      return false;
-    PrintPreviewUI* print_preview_ui = static_cast<PrintPreviewUI*>(
-        print_preview_dialog->GetWebUI()->GetController());
-    print_preview_ui->OnShowSystemDialog();
-    return true;
-  } else {
-    return PrintNow();
-  }
+  return PrintNow();
 }
 #endif  // ENABLE_BASIC_PRINTING
 bool PrintViewManager::PrintPreviewNow(bool selection_only) {
@@ -144,12 +129,14 @@ void PrintViewManager::OnSetupScriptedPrintPreview(IPC::Message* reply_msg) {
     return;
   }
 
+#if 0
   PrintPreviewDialogController* dialog_controller =
       PrintPreviewDialogController::GetInstance();
   if (!dialog_controller) {
     Send(reply_msg);
     return;
   }
+#endif
 
   print_preview_state_ = SCRIPTED_PREVIEW;
   base::Closure callback =
@@ -161,17 +148,15 @@ void PrintViewManager::OnSetupScriptedPrintPreview(IPC::Message* reply_msg) {
 }
 
 void PrintViewManager::OnShowScriptedPrintPreview(bool source_is_modifiable) {
-  PrintPreviewDialogController* dialog_controller =
-      PrintPreviewDialogController::GetInstance();
-  if (!dialog_controller) {
     PrintPreviewDone();
     return;
-  }
+#if 0
   dialog_controller->PrintPreview(web_contents());
   PrintHostMsg_RequestPrintPreview_Params params;
   params.is_modifiable = source_is_modifiable;
   PrintPreviewUI::SetInitialParams(
       dialog_controller->GetPrintPreviewForContents(web_contents()), params);
+#endif
 }
 
 void PrintViewManager::OnScriptedPrintPreviewReply(IPC::Message* reply_msg) {

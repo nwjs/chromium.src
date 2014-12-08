@@ -830,7 +830,7 @@ void RenderViewImpl::Initialize(const ViewMsg_New_Params& params,
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::HandleScope scope(isolate);
     v8::Handle<v8::Value> v8win = webview()->mainFrame()->mainWorldScriptContext()->Global();
-    v8win->ToObject()->Set(v8::String::NewFromUtf8(isolate, "__nwWindowId"), v8::Integer::New(isolate, params->nw_win_id));
+    v8win->ToObject()->Set(v8::String::NewFromUtf8(isolate, "__nwWindowId"), v8::Integer::New(isolate, params.nw_win_id));
   }
 
 }

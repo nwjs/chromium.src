@@ -94,7 +94,7 @@ void RenderFrameHostManager::Init(BrowserContext* browser_context,
 
   int flags = delegate_->IsHidden() ? CREATE_RF_HIDDEN : 0;
   SetRenderFrameHost(CreateRenderFrameHost(site_instance, view_routing_id,
-                                           frame_routing_id, flags));
+                                           frame_routing_id, flags, 0));
 
   // Keep track of renderer processes as they start to shut down or are
   // crashed/killed.
@@ -832,7 +832,9 @@ SiteInstance* RenderFrameHostManager::GetSiteInstanceForNavigation(
       dest_instance,
       SiteInstanceImpl::GetEffectiveURL(browser_context, dest_url),
       dest_is_view_source_mode);
-  if (ShouldTransitionCrossSite() || force_swap || current_entry->is_dev_reload()) {
+  if (current_entry && ((NavigationEntryImpl*)current_entry)->is_dev_reload())
+    force_swap = true;
+  if (ShouldTransitionCrossSite() || force_swap) {
     new_instance = GetSiteInstanceForURL(
         dest_url, source_instance, current_instance, dest_instance,
         transition, dest_is_restore, dest_is_view_source_mode, force_swap);
@@ -1049,7 +1051,7 @@ const GURL& RenderFrameHostManager::GetCurrentURLForSiteInstance(
 void RenderFrameHostManager::CreatePendingRenderFrameHost(
     SiteInstance* old_instance,
     SiteInstance* new_instance,
-    bool is_main_frame) {
+    bool is_main_frame, int nw_win_id) {
   int create_render_frame_flags = 0;
   if (is_main_frame)
     create_render_frame_flags |= CREATE_RF_FOR_MAIN_FRAME_NAVIGATION;
@@ -1066,7 +1068,7 @@ void RenderFrameHostManager::CreatePendingRenderFrameHost(
   // Create a non-swapped-out RFH with the given opener.
   pending_render_frame_host_ =
       CreateRenderFrame(new_instance, pending_web_ui(), opener_route_id,
-                        create_render_frame_flags, nullptr);
+                        create_render_frame_flags, nullptr, nw_win_id);
 }
 
 int RenderFrameHostManager::CreateOpenerRenderViewsIfNeeded(
@@ -1123,7 +1125,7 @@ scoped_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrame(
     WebUIImpl* web_ui,
     int opener_route_id,
     int flags,
-    int* view_routing_id_ptr) {
+    int* view_routing_id_ptr, int nw_win_id) {
   bool swapped_out = !!(flags & CREATE_RF_SWAPPED_OUT);
   CHECK(instance);
   // Swapped out views should always be hidden.
@@ -1176,7 +1178,7 @@ scoped_ptr<RenderFrameHostImpl> RenderFrameHostManager::CreateRenderFrame(
   } else {
     // Create a new RenderFrameHost if we don't find an existing one.
     new_render_frame_host = CreateRenderFrameHost(instance, MSG_ROUTING_NONE,
-                                                  MSG_ROUTING_NONE, flags);
+                                                  MSG_ROUTING_NONE, flags, nw_win_id);
     RenderViewHostImpl* render_view_host =
         new_render_frame_host->render_view_host();
     int proxy_routing_id = MSG_ROUTING_NONE;
@@ -1514,7 +1516,7 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
     // not have its bindings set appropriately.
     SetPendingWebUI(dest_url, bindings);
     CreatePendingRenderFrameHost(current_instance, new_instance.get(),
-                                 frame_tree_node_->IsMainFrame(), current_entry->nw_win_id());
+                                 frame_tree_node_->IsMainFrame(), ((NavigationEntryImpl*)current_entry)->nw_win_id());
     if (!pending_render_frame_host_.get()) {
       return NULL;
     }

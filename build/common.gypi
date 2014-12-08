@@ -488,7 +488,7 @@
 
       # Enable printing with print preview. It does not imply
       # enable_basic_printing. It's possible to build Chrome with preview only.
-      'enable_print_preview%': 1,
+      'enable_print_preview%': 0,
 
       # Set the version of CLD.
       #   0: Don't specify the version. This option is for the Finch testing.

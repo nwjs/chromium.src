@@ -356,8 +356,8 @@ class CONTENT_EXPORT NavigationEntryImpl
   // time (see TabNavigation for an example of this).
   std::map<std::string, base::string16> extra_data_;
 
-  int nw_win_id_;
   bool is_dev_reload_;
+  int nw_win_id_;
   // Copy and assignment is explicitly allowed for this class.
 };
 

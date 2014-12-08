@@ -100,16 +100,23 @@ class DevToolsHttpHandlerImpl : public DevToolsHttpHandler {
  private:
   // DevToolsHttpHandler implementation.
   GURL GetFrontendURL(const std::string& path) override;
-
+  GURL GetFrontendURL(const std::string& path, DevToolsAgentHost* agent_host);
+  GURL GetFrontendURL(DevToolsAgentHost* agent_host) override;
   static void OnTargetListReceivedWeak(
       base::WeakPtr<DevToolsHttpHandlerImpl> handler,
       int connection_id,
       const std::string& host,
       const DevToolsManagerDelegate::TargetList& targets);
+  static void OnTargetListReceivedWeak2(
+      base::WeakPtr<DevToolsHttpHandlerImpl> handler,
+      const DevToolsManagerDelegate::TargetList& targets);
   void OnTargetListReceived(
       int connection_id,
       const std::string& host,
       const DevToolsManagerDelegate::TargetList& targets);
+  void OnTargetListReceived2(
+                             const DevToolsManagerDelegate::TargetList& targets);
+  void EnumerateTargets();
 
   DevToolsTarget* GetTarget(const std::string& id);
 
@@ -513,16 +520,24 @@ DevToolsHttpHandlerImpl::~DevToolsHttpHandlerImpl() {
   STLDeleteValues(&connection_to_client_);
 }
 
+GURL DevToolsHttpHandlerImpl::GetFrontendURL(const std::string& path) {
+  return GetFrontendURL(path, NULL);
+}
+
+GURL DevToolsHttpHandlerImpl::GetFrontendURL(DevToolsAgentHost* agent_host) {
+  return GetFrontendURL("", agent_host);
+}
+
 GURL DevToolsHttpHandlerImpl::GetFrontendURL(const std::string& path, DevToolsAgentHost* agent_host) {
   if (!server_ip_address_)
     return GURL();
   if (!agent_host)
     return GURL(std::string("http://") + server_ip_address_->ToString() +
               (path.empty() ? frontend_url_ : path));
-  std::string host = ip_address.ToString();
+  std::string host = server_ip_address_->ToString();
   std::string id = agent_host->GetId();
   return GURL(std::string("http://") +
-              ip_address.ToString() +
+              server_ip_address_->ToString() +
               GetFrontendURLInternal(id, host));
 }
 
@@ -829,6 +844,16 @@ void DevToolsHttpHandlerImpl::OnTargetListReceivedWeak(
   }
 }
 
+void DevToolsHttpHandlerImpl::OnTargetListReceivedWeak2(
+    base::WeakPtr<DevToolsHttpHandlerImpl> handler,
+    const DevToolsManagerDelegate::TargetList& targets) {
+  if (handler) {
+    handler->OnTargetListReceived2(targets);
+  } else {
+    STLDeleteContainerPointers(targets.begin(), targets.end());
+  }
+}
+
 void DevToolsHttpHandlerImpl::OnTargetListReceived(
     int connection_id,
     const std::string& host,
@@ -848,24 +873,26 @@ void DevToolsHttpHandlerImpl::OnTargetListReceived(
 }
 
 void DevToolsHttpHandlerImpl::OnTargetListReceived2(
-    const DevToolsHttpHandlerDelegate::TargetList& targets) {
-  DevToolsHttpHandlerDelegate::TargetList sorted_targets = targets;
+    const DevToolsManagerDelegate::TargetList& targets) {
+  DevToolsManagerDelegate::TargetList sorted_targets = targets;
   std::sort(sorted_targets.begin(), sorted_targets.end(), TimeComparator);
 
   STLDeleteValues(&target_map_);
-  for (DevToolsHttpHandlerDelegate::TargetList::const_iterator it =
+  for (DevToolsManagerDelegate::TargetList::const_iterator it =
       sorted_targets.begin(); it != sorted_targets.end(); ++it) {
     DevToolsTarget* target = *it;
     target_map_[target->GetId()] = target;
   }
-  Release();  // Balanced in OnJsonRequestUI.
 }
 
 void DevToolsHttpHandlerImpl::EnumerateTargets() {
-  AddRef();  // Balanced in OnTargetListReceived2.
-  delegate_->EnumerateTargets(
-        base::Bind(&DevToolsHttpHandlerImpl::OnTargetListReceived2, this));
-    return;
+   DevToolsManagerDelegate* manager_delegate =
+        DevToolsManager::GetInstance()->delegate();
+   if (manager_delegate) {
+      manager_delegate->EnumerateTargets(
+          base::Bind(&DevToolsHttpHandlerImpl::OnTargetListReceivedWeak2,
+                     weak_factory_.GetWeakPtr()));
+   }
 }
 
 DevToolsTarget* DevToolsHttpHandlerImpl::GetTarget(const std::string& id) {

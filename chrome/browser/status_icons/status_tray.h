@@ -31,7 +31,7 @@ class StatusTray {
   // Static factory method that is implemented separately for each platform to
   // produce the appropriate platform-specific instance. Returns NULL if this
   // platform does not support status icons.
-  static StatusTray* Create();
+  static StatusTray* GetSingleton();
 
   virtual ~StatusTray();
 
@@ -58,10 +58,11 @@ class StatusTray {
   // Returns the list of active status icons so subclasses can operate on them.
   const StatusIcons& status_icons() const { return status_icons_; }
 
- private:
+ protected:
   // List containing all active StatusIcons. The icons are owned by this
   // StatusTray.
   StatusIcons status_icons_;
+  static StatusTray* singleton_;
 
   DISALLOW_COPY_AND_ASSIGN(StatusTray);
 };
