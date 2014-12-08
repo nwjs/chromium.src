@@ -162,8 +162,9 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
       blink::WebPlatformEventType type,
       scoped_ptr<PlatformEventObserverBase> observer);
 
-  virtual bool supportNodeJS() OVERRIDE;
-  virtual void getCmdArg(int* argc, char*** argv, std::string& snapshot_path) OVERRIDE;
+  virtual bool supportTransparency() override;
+  virtual bool supportNodeJS() override;
+  virtual void getCmdArg(int* argc, char*** argv, std::string& snapshot_path) override;
 
   // Disables the WebSandboxSupport implementation for testing.
   // Tests that do not set up a full sandbox environment should call

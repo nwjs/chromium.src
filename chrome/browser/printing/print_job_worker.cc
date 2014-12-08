@@ -28,6 +28,8 @@
 #include "chrome/browser/android/tab_android.h"
 #endif
 
+#include "content/nw/src/shell_content_browser_client.h"
+
 using content::BrowserThread;
 
 namespace printing {
@@ -78,7 +80,10 @@ content::WebContents* PrintingContextDelegate::GetWebContents() {
 }
 
 std::string PrintingContextDelegate::GetAppLocale() {
-  return g_browser_process->GetApplicationLocale();
+  content::ShellContentBrowserClient* browser_client =
+    static_cast<content::ShellContentBrowserClient*>(content::GetContentClient()->browser());
+
+  return browser_client->GetApplicationLocale();
 }
 
 void NotificationCallback(PrintJobWorkerOwner* print_job,
