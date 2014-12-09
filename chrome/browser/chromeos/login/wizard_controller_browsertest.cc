@@ -206,6 +206,14 @@ class MockOutShowHide : public T {
   MOCK_METHOD0(Show, void());
   MOCK_METHOD0(Hide, void());
 
+  void RealShow() {
+    T::Show();
+  }
+
+  void RealHide() {
+    T::Hide();
+  }
+
  private:
   scoped_ptr<H> actor_;
 };
@@ -738,12 +746,10 @@ IN_PROC_BROWSER_TEST_F(WizardControllerEnrollmentFlowTest,
   EXPECT_CALL(*mock_auto_enrollment_check_screen_, Show()).Times(1);
   OnExit(ScreenObserver::UPDATE_INSTALLED);
 
-  AutoEnrollmentCheckScreen* screen =
-      AutoEnrollmentCheckScreen::Get(WizardController::default_controller());
-  EXPECT_EQ(screen,
-            WizardController::default_controller()->current_screen());
+  CheckCurrentScreen(WizardController::kAutoEnrollmentCheckScreenName);
   EXPECT_CALL(*mock_auto_enrollment_check_screen_, Hide()).Times(1);
-  screen->Start();
+  mock_auto_enrollment_check_screen_->RealShow();
+
   // Wait for auto-enrollment controller to encounter the connection error.
   WaitForAutoEnrollmentState(policy::AUTO_ENROLLMENT_STATE_CONNECTION_ERROR);
 
