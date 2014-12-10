@@ -301,13 +301,13 @@ CHAR-LIMIT guidelines:
         Account
       </message>
       <message name="IDS_SIGN_IN_TO_CHROME" desc="Title for the button to sign in to Chrome using one's Google account. [CHAR-LIMIT=27]">
-        Sign in to Chrome
+        Sign in to Google
       </message>
       <message name="IDS_PREFS_SYNC_AND_SERVICES" desc="Title for Settings section to manage data collection for Sync and Google services. [CHAR-LIMIT=40]">
         Sync and Google services
       </message>
       <message name="IDS_SIGN_IN_TO_CHROME_SUMMARY" desc="Summary for the button to sign in to Chrome, explaining benefits of signing in.">
-        Sign in to get your bookmarks, history, passwords, and other settings on all your devices
+        Sign in to Google to get your bookmarks, history, passwords, and other settings on all your devices
       </message>
       <message name="IDS_SIGNIN_PREF_SUMMARY" desc="Summary for the entry in Settings to sign in to Chrome, explaining benefits of signing in.">
         Sync and personalize across devices
@@ -466,7 +466,7 @@ CHAR-LIMIT guidelines:
         Billing address
       </message>
       <message name="IDS_AUTOFILL_DESCRIBE_LOCAL_COPY" desc="Text label that describes a Wallet credit card which has been copied to the local Chrome instance.">
-         Copied to Chrome
+         Copied to browser
       </message>
 
        <!-- Payment Request section preview strings -->
@@ -726,10 +726,10 @@ For example, some websites may respond to this request by showing you ads that a
         Clear history, cookies, site data, cache…
       </message>
       <message name="IDS_CLEAR_BROWSING_DATA_HISTORY_DIALOG_TITLE" desc="Title of a dialog that is shown after the deletion of browsing history finished.">
-        Cleared Chrome data
+        Cleared browser data
       </message>
       <message name="IDS_CLEAR_BROWSING_DATA_HISTORY_DIALOG_DATA_TEXT" desc="Text of the dialog that is shown after the deletion of browsing history items finished, indicating that the selected data has been removed, but there may be other forms of browsing history still present in user's Google account.">
-        The selected data has been removed from Chrome and your synced devices.
+        The selected data has been removed from the browser and your synced devices.
 
 Your Google account may have other forms of browsing history like searches and activity from other Google services at <ph name="BEGIN_LINK">&lt;link&gt;</ph>myactivity.google.com<ph name="END_LINK">&lt;/link&gt;</ph>.
       </message>
@@ -1150,10 +1150,10 @@ Your Google account may have other forms of browsing history like searches and a
         Location access
       </message>
       <message name="IDS_ANDROID_PERMISSION_OFF_PLURAL" desc="Text at the top of the Website list, explaining to the user that multiple permissions, such as the location service, are turned off. Contains a link to the settings menu to change it.">
-        Turn on permissions for Chrome in <ph name="BEGIN_LINK">&lt;link&gt;</ph>Android Settings<ph name="END_LINK">&lt;/link&gt;</ph>.
+        Turn on permissions for the browser in <ph name="BEGIN_LINK">&lt;link&gt;</ph>Android Settings<ph name="END_LINK">&lt;/link&gt;</ph>.
       </message>
       <message name="IDS_ANDROID_PERMISSION_OFF" desc="Text at the top of the Website list, explaining to the user that a permission, such as the location service, is turned off. Contains a link to the settings menu to change it.">
-        Turn on permission for Chrome in <ph name="BEGIN_LINK">&lt;link&gt;</ph>Android Settings<ph name="END_LINK">&lt;/link&gt;</ph>.
+        Turn on permission for the browser in <ph name="BEGIN_LINK">&lt;link&gt;</ph>Android Settings<ph name="END_LINK">&lt;/link&gt;</ph>.
       </message>
       <message name="IDS_ANDROID_PERMISSION_ALSO_OFF" desc="The message to show when a permission needs to be turned on not just in Chrome, but also in Android settings.">
         You also need to turn this permission on for Chrome. See <ph name="BEGIN_LINK">&lt;link&gt;</ph>Android Settings<ph name="END_LINK">&lt;/link&gt;</ph> for details.
@@ -1192,7 +1192,7 @@ Your Google account may have other forms of browsing history like searches and a
         Google Translate
       </message>
       <message name="IDS_TRANSLATE_PREFS_DESCRIPTION" desc="Translate preference description">
-        When this feature is turned on, Chrome will offer to translate pages written in other languages using Google Translate.
+        When this feature is turned on, the browser will offer to translate pages written in other languages using Google Translate.
       </message>
       <message name="IDS_TRANSLATE_PREFS_TOAST_DESCRIPTION" desc="Translate settings reset toast when resetting defaults">
         Your translate settings have been reset.
@@ -1243,7 +1243,7 @@ Your Google account may have other forms of browsing history like searches and a
          In Lite mode, Chrome loads pages faster and uses up to 60 percent less data.
       </message>
       <message name="IDS_DATA_REDUCTION_DESCRIPTION" desc="Text descripting how the Data Saver feature works. Seen only before the user has enabled the feature.">
-        When Data Saver is turned on, Chrome uses Google servers to speed up and compress page loads. On especially slow pages, Data Saver rewrites the page to load only the essential content. Data Saver does not optimize pages loaded in Incognito mode.
+        When Data Saver is turned on, the browser uses Google servers to speed up and compress page loads. On especially slow pages, Data Saver rewrites the page to load only the essential content. Data Saver does not optimize pages loaded in Incognito mode.
       </message>
       <message name="IDS_DATA_REDUCTION_DESCRIPTION_LITE_MODE" desc="Text describing how the Lite mode feature works. Seen only before the user has enabled the feature.">
         When Lite mode is on, Chrome uses Google servers to make pages load faster. Lite mode rewrites very slow pages to load only essential content. Lite mode does not apply to Incognito tabs.
@@ -1371,10 +1371,10 @@ Your Google account may have other forms of browsing history like searches and a
         Turn on Data Saver
       </message>
       <message name="IDS_DATA_REDUCTION_PROMO_SNACKBAR_TEXT_MB" desc="Text to be displayed in the data reduction promo snackbar that lets the user know they saved a certain amount of data in MB">
-        Chrome has saved you <ph name="megabytes">%1$d<ex>100</ex></ph> MB
+        We saved you <ph name="megabytes">%1$d<ex>100</ex></ph> MB
       </message>
       <message name="IDS_DATA_REDUCTION_PROMO_SNACKBAR_TEXT_GB" desc="Text to be displayed in the data reduction promo snackbar that lets the user know they saved a certain amount of data in GB">
-        Chrome has saved you <ph name="gigabytes">%1$d<ex>10</ex></ph> GB
+        We saved you <ph name="gigabytes">%1$d<ex>10</ex></ph> GB
       </message>
       <message name="IDS_DATA_REDUCTION_PROMO_SNACKBAR_BUTTON" desc="Text to be displayed in the data reduction promo snackbar view button that takes the user to the data reduction settings page">
         View
@@ -1435,7 +1435,7 @@ Your Google account may have other forms of browsing history like searches and a
 
       <!-- About Chrome preferences -->
       <message name="IDS_PREFS_ABOUT_CHROME" desc="Title for the About Chrome page. [CHAR-LIMIT=32]">
-        About Chrome
+        About browser
       </message>
       <message name="IDS_LEGAL_INFORMATION_SUMMARY" desc="Summary for legal information" meaning="Android">
         Copyright <ph name="year">%1$d<ex>2014</ex></ph> Google Inc. All rights reserved.
@@ -1450,7 +1450,7 @@ Your Google account may have other forms of browsing history like searches and a
         Operating system
       </message>
       <message name="IDS_DEPRECATION_WARNING" desc="Warning about Chrome updates no longer being supported">
-        Chrome updates are no longer supported for this version of Android
+        Browser updates are no longer supported for this version of Android
       </message>
 
       <!-- Account management UI strings. -->
@@ -1467,7 +1467,7 @@ Your Google account may have other forms of browsing history like searches and a
         Sync off for <ph name="SYNC_ACCOUNT_USER_NAME">%1$s<ex>johndoe@gmail.com</ex></ph>
       </message>
       <message name="IDS_ACCOUNT_MANAGEMENT_SIGN_OUT" desc="Button text for signing out of Chrome">
-        Sign out of Chrome
+        Sign out of Google
       </message>
 
       <!-- Child accounts -->
