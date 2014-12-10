@@ -786,19 +786,19 @@ Signing in anyway will merge Chrome information like bookmarks, history, and oth
           </message>
         </if>
         <message name="IDS_APP_LIST_SIGNIN_HEADING" desc="Heading for when the launcher needs to sign in.">
-          Sign in to Chrome
+          Sign in to browser
         </message>
         <message name="IDS_APP_LIST_SIGNIN_TEXT" desc="Text for when the launcher needs to sign in.">
-          You need to be signed in to Chrome to use apps. This allows Chrome to sync your apps, bookmarks, history, passwords and other settings across devices.
+          You need to be signed in to the browser to use apps. This allows the browser to sync your apps, bookmarks, history, passwords and other settings across devices.
         </message>
         <if expr="not use_titlecase">
           <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="Title text for the context menu item of a non-platform-app app list item that removes the app.">
-            Remove from Chrome...
+            Remove from browser...
           </message>
         </if>
         <if expr="use_titlecase">
           <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="In Title Case: Title text for the context menu item of a non-platform-app app list item that removes the app.">
-            Remove From Chrome...
+            Remove From browser...
           </message>
         </if>
       </if>
