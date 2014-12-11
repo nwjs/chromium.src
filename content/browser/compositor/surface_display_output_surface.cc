@@ -83,7 +83,7 @@ void SurfaceDisplayOutputSurface::ReturnResources(
     client_->ReclaimResources(&ack);
 }
 
-void SurfaceDisplayOutputSurface::SwapBuffersComplete(bool drawn) {
+void SurfaceDisplayOutputSurface::SwapBuffersComplete() {
   client_->DidSwapBuffersComplete();
 }
 

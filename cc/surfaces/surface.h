@@ -34,15 +34,13 @@ class SurfaceResourceHolder;
 
 class CC_SURFACES_EXPORT Surface {
  public:
-  using DrawCallback = base::Callback<void(bool)>;
-
   Surface(SurfaceId id, SurfaceFactory* factory);
   ~Surface();
 
   SurfaceId surface_id() const { return surface_id_; }
 
   void QueueFrame(scoped_ptr<CompositorFrame> frame,
-                  const DrawCallback& draw_callback);
+                  const base::Closure& draw_callback);
   void RequestCopyOfOutput(scoped_ptr<CopyOutputRequest> copy_request);
   // Adds each CopyOutputRequest in the current frame to copy_requests. The
   // caller takes ownership of them.
@@ -81,7 +79,7 @@ class CC_SURFACES_EXPORT Surface {
   int frame_index_;
   std::vector<SurfaceSequence> destruction_dependencies_;
 
-  DrawCallback draw_callback_;
+  base::Closure draw_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(Surface);
 };

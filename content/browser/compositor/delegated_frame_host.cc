@@ -423,10 +423,11 @@ void DelegatedFrameHost::SwapDelegatedFrame(
           latency_info.begin(),
           latency_info.end());
 
-      cc::SurfaceFactory::DrawCallback ack_callback;
+      base::Closure ack_callback;
       if (compositor) {
-        ack_callback = base::Bind(&DelegatedFrameHost::SurfaceDrawn,
-                                  AsWeakPtr(), output_surface_id);
+        ack_callback = base::Bind(&DelegatedFrameHost::SendDelegatedFrameAck,
+                                  AsWeakPtr(),
+                                  output_surface_id);
       }
       surface_factory_->SubmitFrame(
           surface_id_, compositor_frame.Pass(), ack_callback);
@@ -499,10 +500,6 @@ void DelegatedFrameHost::SendDelegatedFrameAck(uint32 output_surface_id) {
                                                    ack);
   DCHECK_GT(pending_delegated_ack_count_, 0);
   pending_delegated_ack_count_--;
-}
-
-void DelegatedFrameHost::SurfaceDrawn(uint32 output_surface_id, bool drawn) {
-  SendDelegatedFrameAck(output_surface_id);
 }
 
 void DelegatedFrameHost::UnusedResourcesAreAvailable() {

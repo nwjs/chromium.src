@@ -35,10 +35,6 @@ class SurfaceManager;
 class CC_SURFACES_EXPORT SurfaceFactory
     : public base::SupportsWeakPtr<SurfaceFactory> {
  public:
-  // This callback is called with true if the frame was drawn, or false if it
-  // was discarded.
-  using DrawCallback = base::Callback<void(bool)>;
-
   SurfaceFactory(SurfaceManager* manager, SurfaceFactoryClient* client);
   ~SurfaceFactory();
 
@@ -47,11 +43,10 @@ class CC_SURFACES_EXPORT SurfaceFactory
   void DestroyAll();
   // A frame can only be submitted to a surface created by this factory,
   // although the frame may reference surfaces created by other factories.
-  // The callback is called the first time this frame is used to draw, or if
-  // the frame is discarded.
+  // The callback is called the first time this frame is used to draw.
   void SubmitFrame(SurfaceId surface_id,
                    scoped_ptr<CompositorFrame> frame,
-                   const DrawCallback& callback);
+                   const base::Closure& callback);
   void RequestCopyOfSurface(SurfaceId surface_id,
                             scoped_ptr<CopyOutputRequest> copy_request);
 
