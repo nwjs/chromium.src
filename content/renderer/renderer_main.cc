@@ -150,9 +150,11 @@ int RendererMain(const MainFunctionParams& parameters) {
   scoped_ptr<base::MessagePump> pump(new base::MessagePumpNSRunLoop());
   scoped_ptr<base::MessageLoop> main_message_loop(
       new base::MessageLoop(pump.Pass()));
-#else
+#elif 1 //defined(NW_IMPLEMENTATION)
   // The main message loop of the renderer services doesn't have IO or UI tasks.
   scoped_ptr<base::MessageLoop> main_message_loop(new base::MessageLoop(base::MessageLoop::TYPE_NODE));
+#else
+  scoped_ptr<base::MessageLoop> main_message_loop(new base::MessageLoop());
 #endif
   main_message_loop->AddTaskObserver(&task_observer);
 
