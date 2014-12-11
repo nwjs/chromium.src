@@ -72,7 +72,8 @@ const int Extension::kInitFromValueFlagBits = 13;
 const char Extension::kMimeType[] = "application/x-chrome-extension";
 
 const int Extension::kValidWebExtentSchemes =
-    URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS;
+  URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS |
+  URLPattern::SCHEME_NW | URLPattern::SCHEME_FILE;
 
 const int Extension::kValidHostPermissionSchemes = URLPattern::SCHEME_CHROMEUI |
                                                    URLPattern::SCHEME_HTTP |
@@ -633,7 +634,7 @@ bool Extension::LoadExtent(const char* key,
           URLPattern::GetParseResultString(parse_result));
       return false;
     }
-
+#if 0
     // Do not allow authors to claim "<all_urls>".
     if (pattern.match_all_urls()) {
       *error = ErrorUtils::FormatErrorMessageUTF16(
@@ -661,6 +662,7 @@ bool Extension::LoadExtent(const char* key,
           errors::kNoWildCardsInPaths);
       return false;
     }
+#endif
     pattern.SetPath(pattern.path() + '*');
 
     extent->AddPattern(pattern);
