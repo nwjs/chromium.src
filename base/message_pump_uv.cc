@@ -16,15 +16,15 @@ namespace base {
 
 namespace {
 
-void wakeup_callback(uv_async_t* handle, int status) {
+void wakeup_callback(uv_async_t* handle) {
   // do nothing, just make libuv exit loop.
 }
 
-void idle_callback(uv_idle_t* handle, int status) {
+void idle_callback(uv_idle_t* handle) {
   // do nothing, just make libuv exit loop.
 }
 
-void timer_callback(uv_timer_t* timer, int status) {
+void timer_callback(uv_timer_t* timer) {
   // libuv would block unexpectedly with zero-timeout timer
   // this is a workaround of libuv bug #574:
   // https://github.com/joyent/libuv/issues/574
