@@ -5,10 +5,8 @@
 #include "components/autofill/content/renderer/password_autofill_agent.h"
 
 #include "base/bind.h"
-#include "base/command_line.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
-#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/content/common/autofill_messages.h"
@@ -16,7 +14,6 @@
 #include "components/autofill/content/renderer/password_form_conversion_utils.h"
 #include "components/autofill/content/renderer/renderer_save_password_progress_logger.h"
 #include "components/autofill/core/common/autofill_constants.h"
-#include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
@@ -45,10 +42,6 @@ namespace {
 
 // The size above which we stop triggering autocomplete.
 static const size_t kMaximumTextSizeForAutocomplete = 1000;
-
-// Experiment information
-const char kFillOnAccountSelectFieldTrialName[] = "FillOnAccountSelect";
-const char kFillOnAccountSelectFieldTrialEnabledGroup[] = "Enable";
 
 // Maps element names to the actual elements to simplify form filling.
 typedef std::map<base::string16, blink::WebInputElement> FormInputElementMap;
@@ -126,23 +119,6 @@ bool FindFormInputElement(blink::WebFormElement* form_element,
   }
 
   return true;
-}
-
-bool ShouldFillOnAccountSelect() {
-  std::string group_name =
-      base::FieldTrialList::FindFullName(kFillOnAccountSelectFieldTrialName);
-
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableFillOnAccountSelect)) {
-    return false;
-  }
-
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableFillOnAccountSelect)) {
-    return true;
-  }
-
-  return group_name == kFillOnAccountSelectFieldTrialEnabledGroup;
 }
 
 // Helper to search the given form element for the specified input elements in
@@ -299,8 +275,7 @@ bool GetSuggestionsStats(const PasswordFormFillData& fill_data,
 // with values from |fill_data|. The |password_element| will only have the
 // |suggestedValue| set, and will be registered for copying that to the real
 // value through |registration_callback|. The function returns true when
-// selected username comes from |fill_data.other_possible_usernames|. |options|
-// should be a bitwise mask of FillUserNameAndPasswordOptions values.
+// selected username comes from |fill_data.other_possible_usernames|.
 bool FillUserNameAndPassword(
     blink::WebInputElement* username_element,
     blink::WebInputElement* password_element,
@@ -416,34 +391,13 @@ bool FillFormOnPasswordReceived(
     return false;
 
   bool form_contains_username_field = FillDataContainsUsername(fill_data);
-  // If the form contains a username field, try to set the username to the
-  // preferred name, but only if:
-  //   (a) The username element is autocompletable, and
-  //   (b) The fill-on-account-select flag is not set, and
-  //   (c) The username element isn't prefilled
-  //
-  // If (a) is true but (b) is false, then just mark the username element as
-  // autofilled and return so the fill step is skipped.
-  //
-  // If (a) is false but (b) is true, then the username element should not be
-  // autofilled, but the user should still be able to select to fill the
-  // password element, so the password element must be marked as autofilled and
-  // the fill step should also be skipped.
-  //
-  // In all other cases, do nothing.
-  if (form_contains_username_field) {
-    if (IsElementAutocompletable(username_element)) {
-      if (ShouldFillOnAccountSelect()) {
-        username_element.setAutofilled(true);
-        return false;
-      } else if (username_element.value().isEmpty()) {
-        // TODO(tkent): Check maxlength and pattern.
-        username_element.setValue(fill_data.username_field.value, true);
-      }
-    } else if (ShouldFillOnAccountSelect()) {
-      password_element.setAutofilled(true);
-      return false;
-    }
+  // Try to set the username to the preferred name, but only if the field
+  // can be set and isn't prefilled.
+  if (form_contains_username_field &&
+      IsElementAutocompletable(username_element) &&
+      username_element.value().isEmpty()) {
+    // TODO(tkent): Check maxlength and pattern.
+    username_element.setValue(fill_data.username_field.value, true);
   }
 
   // Fill if we have an exact match for the username. Note that this sets
@@ -555,7 +509,11 @@ bool PasswordAutofillAgent::TextFieldDidEndEditing(
   // Do not set selection when ending an editing session, otherwise it can
   // mess with focus.
   if (FillUserNameAndPassword(
-          &username, &password, fill_data, true, false,
+          &username,
+          &password,
+          fill_data,
+          true /* exact_username_match */,
+          false /* set_selection */,
           base::Bind(&PasswordValueGatekeeper::RegisterElement,
                      base::Unretained(&gatekeeper_)))) {
     usernames_usage_ = OTHER_POSSIBLE_USERNAME_SELECTED;
@@ -617,7 +575,7 @@ bool PasswordAutofillAgent::TextDidChangeInTextField(
   // But refresh the popup.  Note, since this is ours, return true to signal
   // no further processing is required.
   if (iter->second.backspace_pressed_last) {
-    ShowSuggestionPopup(iter->second.fill_data, element, false, false);
+    ShowSuggestionPopup(iter->second.fill_data, element, false);
     return true;
   }
 
@@ -714,37 +672,12 @@ bool PasswordAutofillAgent::DidClearAutofillSelection(
   return true;
 }
 
-bool PasswordAutofillAgent::FindPasswordInfoForElement(
-    const blink::WebInputElement& element,
-    const blink::WebInputElement** username_element,
-    PasswordInfo** password_info) {
-  DCHECK(username_element && password_info);
-  if (!element.isPasswordField()) {
-    *username_element = &element;
-  } else {
-    PasswordToLoginMap::const_iterator password_iter =
-        password_to_username_.find(element);
-    if (password_iter == password_to_username_.end())
-      return false;
-    *username_element = &password_iter->second;
-  }
-
-  LoginToPasswordInfoMap::iterator iter =
-      login_to_password_info_.find(**username_element);
-
-  if (iter == login_to_password_info_.end())
-    return false;
-
-  *password_info = &iter->second;
-  return true;
-}
-
 bool PasswordAutofillAgent::ShowSuggestions(
     const blink::WebInputElement& element,
     bool show_all) {
-  const blink::WebInputElement* username_element;
-  PasswordInfo* password_info;
-  if (!FindPasswordInfoForElement(element, &username_element, &password_info))
+  LoginToPasswordInfoMap::const_iterator iter =
+      login_to_password_info_.find(element);
+  if (iter == login_to_password_info_.end())
     return false;
 
   // If autocomplete='off' is set on the form elements, no suggestion dialog
@@ -752,22 +685,10 @@ bool PasswordAutofillAgent::ShowSuggestions(
   // password form and that the request to show suggestions has been handled (as
   // a no-op).
   if (!IsElementAutocompletable(element) ||
-      !IsElementAutocompletable(password_info->password_field))
+      !IsElementAutocompletable(iter->second.password_field))
     return true;
 
-  // If the element is a password field, a popup should only be shown if the
-  // corresponding username element is not editable since it is only in that
-  // case that the username element does not have a suggestions popup.
-  if (element.isPasswordField() && IsElementEditable(*username_element))
-    return true;
-
-  // Chrome should never show more than one account for a password element since
-  // this implies that the username element cannot be modified. Thus even if
-  // |show_all| is true, check if the element in question is a password element
-  // for the call to ShowSuggestionPopup.
-  return ShowSuggestionPopup(password_info->fill_data, *username_element,
-                             show_all && !element.isPasswordField(),
-                             element.isPasswordField());
+  return ShowSuggestionPopup(iter->second.fill_data, element, show_all);
 }
 
 bool PasswordAutofillAgent::OriginCanAccessPasswordManager(
@@ -1121,8 +1042,7 @@ PasswordAutofillAgent::PasswordInfo::PasswordInfo()
 bool PasswordAutofillAgent::ShowSuggestionPopup(
     const PasswordFormFillData& fill_data,
     const blink::WebInputElement& user_input,
-    bool show_all,
-    bool show_on_password_field) {
+    bool show_all) {
   blink::WebFrame* frame = user_input.document().frame();
   if (!frame)
     return false;
@@ -1137,12 +1057,6 @@ bool PasswordAutofillAgent::ShowSuggestionPopup(
       user_input, &form, &field, REQUIRE_NONE);
 
   blink::WebInputElement selected_element = user_input;
-  if (show_on_password_field) {
-    LoginToPasswordInfoMap::const_iterator iter =
-        login_to_password_info_.find(user_input);
-    DCHECK(iter != login_to_password_info_.end());
-    selected_element = iter->second.password_field;
-  }
   gfx::Rect bounding_box(selected_element.boundsInViewportSpace());
 
   LoginToPasswordInfoKeyMap::const_iterator key_it =
@@ -1158,8 +1072,6 @@ bool PasswordAutofillAgent::ShowSuggestionPopup(
   int options = 0;
   if (show_all)
     options |= SHOW_ALL;
-  if (show_on_password_field)
-    options |= IS_PASSWORD_FIELD;
   Send(new AutofillHostMsg_ShowPasswordSuggestions(
       routing_id(), key_it->second, field.text_direction, user_input.value(),
       options, bounding_box_scaled));
@@ -1190,7 +1102,7 @@ void PasswordAutofillAgent::PerformInlineAutocomplete(
   }
 
   // Show the popup with the list of available usernames.
-  ShowSuggestionPopup(fill_data, username, false, false);
+  ShowSuggestionPopup(fill_data, username, false);
 
 #if !defined(OS_ANDROID)
   // Fill the user and password field with the most relevant match. Android
@@ -1200,7 +1112,7 @@ void PasswordAutofillAgent::PerformInlineAutocomplete(
           &password,
           fill_data,
           false /* exact_username_match */,
-          true /* set selection */,
+          true /* set_selection */,
           base::Bind(&PasswordValueGatekeeper::RegisterElement,
                      base::Unretained(&gatekeeper_)))) {
     usernames_usage_ = OTHER_POSSIBLE_USERNAME_SELECTED;
@@ -1227,10 +1139,14 @@ bool PasswordAutofillAgent::FindLoginInfo(const blink::WebNode& node,
   if (!element.hasHTMLTagName("input"))
     return false;
 
-  *found_input = element.to<blink::WebInputElement>();
-  const blink::WebInputElement* username_element;  // ignored
-  return FindPasswordInfoForElement(*found_input, &username_element,
-                                    found_password);
+  blink::WebInputElement input = element.to<blink::WebInputElement>();
+  LoginToPasswordInfoMap::iterator iter = login_to_password_info_.find(input);
+  if (iter == login_to_password_info_.end())
+    return false;
+
+  *found_input = input;
+  *found_password = &iter->second;
+  return true;
 }
 
 void PasswordAutofillAgent::ClearPreview(
