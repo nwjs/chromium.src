@@ -20,6 +20,8 @@
 
 static const UINT kStatusIconMessage = WM_APP + 1;
 
+StatusTray* StatusTray::singleton_;
+
 namespace {
 // |kBaseIconId| is 2 to avoid conflicts with plugins that hard-code id 1.
 const UINT kBaseIconId = 2;
@@ -259,6 +261,15 @@ void StatusTrayWin::SetStatusTrayStateChangerProxyForTest(
   state_changer_proxy_ = proxy.Pass();
 }
 
+StatusTray* StatusTray::GetSingleton() {
+  if (singleton_)
+    return singleton_;
+
+  return (singleton_ = new StatusTrayWin());
+}
+
+#if 0
 StatusTray* StatusTray::Create() {
   return new StatusTrayWin();
 }
+#endif
