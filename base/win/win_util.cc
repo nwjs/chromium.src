@@ -288,7 +288,6 @@ bool IsTabletDevice() {
   // If the device is docked, the user is treating the device as a PC.
   if (GetSystemMetrics(SM_SYSTEMDOCKED) != 0)
     return false;
-#endif //FIXME
 
   // PlatformRoleSlate was only added in Windows 8, but prior to Win8 it is
   // still possible to check for a mobile power profile.
@@ -298,7 +297,6 @@ bool IsTabletDevice() {
   if (version >= base::win::VERSION_WIN8)
     slate_power_profile = (role == PlatformRoleSlate);
 
-#if 0
   if (mobile_power_profile || slate_power_profile)
     return (GetSystemMetrics(SM_CONVERTIBLESLATEMODE) == 0);
 #endif //FIXME
