@@ -212,7 +212,7 @@
 
           # Enable the OpenSSL backend on Mac OS and Windows.
           ['OS=="mac" or OS=="win"', {
-            'use_openssl%': 1,
+            'use_openssl%': 0,
           }],
 
           # Enable App Launcher everywhere but mobile.
@@ -993,7 +993,7 @@
         # TODO(baixo): Enable v8_use_external_startup_data
         # http://crbug.com/421063
         ['android_webview_build==0 and chromecast==0 and chromeos==0 and (OS=="android" or OS=="linux" or OS=="mac")', {
-          'v8_use_external_startup_data%': 1,
+          'v8_use_external_startup_data%': 0,
         }, {
           'v8_use_external_startup_data%': 0,
         }],

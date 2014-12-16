@@ -71,7 +71,7 @@ void CFRunLoopRemoveObserverFromAllModes(CFRunLoopRef rl,
 void NoOp(void* info) {
 }
 
-void UvNoOp(uv_async_t* handle, int status) {
+void UvNoOp(uv_async_t* handle) {
 }
 
 const CFTimeInterval kCFTimeIntervalMax =

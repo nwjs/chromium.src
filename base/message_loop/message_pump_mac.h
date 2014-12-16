@@ -82,8 +82,8 @@ class MessagePumpCFRunLoopBase : public MessagePump {
   // Needs access to CreateAutoreleasePool.
   friend class MessagePumpScopedAutoreleasePool;
  public:
-  MessagePumpCFRunLoopBase();
-  ~MessagePumpCFRunLoopBase(bool forNode = false) override;
+  MessagePumpCFRunLoopBase(bool forNode = false);
+  virtual ~MessagePumpCFRunLoopBase();
 
   // Subclasses should implement the work they need to do in MessagePump::Run
   // in the DoRun method.  MessagePumpCFRunLoopBase::Run calls DoRun directly.
@@ -240,8 +240,8 @@ class BASE_EXPORT MessagePumpCFRunLoop : public MessagePumpCFRunLoopBase {
 
 class BASE_EXPORT MessagePumpNSRunLoop : public MessagePumpCFRunLoopBase {
  public:
-  MessagePumpNSRunLoop();
-  ~MessagePumpNSRunLoop(bool forNode = false) override;
+  MessagePumpNSRunLoop(bool forNode = false);
+  virtual ~MessagePumpNSRunLoop();
 
   void DoRun(Delegate* delegate) override;
   void Quit() override;
@@ -283,8 +283,8 @@ class MessagePumpUIApplication : public MessagePumpCFRunLoopBase {
 
 class MessagePumpNSApplication : public MessagePumpCFRunLoopBase {
  public:
-  MessagePumpNSApplication();
-  ~MessagePumpNSApplication(bool forNode = false) override;
+  MessagePumpNSApplication(bool forNode = false);
+  virtual ~MessagePumpNSApplication();
 
   void DoRun(Delegate* delegate) override;
   void Quit() override;
