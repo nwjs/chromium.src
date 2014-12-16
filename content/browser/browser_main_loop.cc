@@ -423,12 +423,12 @@ void BrowserMainLoop::EarlyInitialization() {
 
   if (parts_)
     parts_->PreEarlyInitialization();
-
-#if defined(OS_MACOSX)
+// Comment out following code so that file descriptor limit is not overwritten
+//#if defined(OS_MACOSX)
   // We use quite a few file descriptors for our IPC, and the default limit on
   // the Mac is low (256), so bump it up.
-  base::SetFdLimit(1024);
-#endif
+//  base::SetFdLimit(1024);
+//#endif
 
 #if defined(OS_WIN)
   net::EnsureWinsockInit();
