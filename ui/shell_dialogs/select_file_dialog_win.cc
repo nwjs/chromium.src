@@ -151,8 +151,10 @@ std::wstring FormatFilterForExtensions(
     result.append(all_desc.c_str(), all_desc.size() + 1);
     result.append(all_ext.c_str(), all_ext.size() + 1);
   }
+#if 0
   if (!working_dir.empty())
     directory = working_dir;
+#endif //FIXME
 
   result.append(1, '\0');  // Double NULL required.
   return result;
@@ -251,7 +253,8 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
                             const std::wstring& def_ext,
                             bool ignore_suggested_ext,
                             unsigned* index,
-                            std::wstring* final_name);
+                            std::wstring* final_name,
+                            std::wstring& working_dir);
 
   // Notifies the listener that a folder was chosen. Run on the ui thread.
   void FileSelected(const base::FilePath& path, int index,

@@ -159,12 +159,14 @@ void OpenExternalOnFileThread(const GURL& url) {
   }
 }
 
+#if 0
 void OpenItemViaShellInUtilityProcess(const base::FilePath& full_path) {
   base::WeakPtr<content::UtilityProcessHost> utility_process_host(
       content::UtilityProcessHost::Create(NULL, NULL)->AsWeakPtr());
   utility_process_host->DisableSandbox();
   utility_process_host->Send(new ChromeUtilityMsg_OpenItemViaShell(full_path));
 }
+#endif
 
 }  // namespace
 
@@ -185,21 +187,15 @@ void ShowItemInFolder(Profile* profile, const base::FilePath& full_path) {
 void OpenItem(Profile* profile, const base::FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+#if 0
   if (chrome::GetActiveDesktop() == chrome::HOST_DESKTOP_TYPE_ASH)
     chrome::ActivateDesktopHelper(chrome::ASH_KEEP_RUNNING);
+#endif
 
-  if (base::FieldTrialList::FindFullName("IsolateShellOperations") ==
-      "Enabled") {
-    BrowserThread::PostTask(
-        BrowserThread::IO,
-        FROM_HERE,
-        base::Bind(&OpenItemViaShellInUtilityProcess, full_path));
-  } else {
     BrowserThread::PostTask(
         BrowserThread::FILE,
         FROM_HERE,
         base::Bind(base::IgnoreResult(&ui::win::OpenItemViaShell), full_path));
-  }
 }
 
 void OpenExternal(Profile* profile, const GURL& url) {

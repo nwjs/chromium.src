@@ -132,8 +132,8 @@ deps = {
   'src/third_party/trace-viewer':
    Var('chromium_git') + '/external/trace-viewer.git' + '@' + '0b1ceb837137901b6f5ae55be61c29d28b2c13a4',
 
-  'src/third_party/WebKit':
-   Var('chromium_git') + '/chromium/blink.git' + '@' +  Var('webkit_revision'),
+  #'src/third_party/WebKit':
+   #Var('chromium_git') + '/chromium/blink.git' + '@' +  Var('webkit_revision'),
 
   'src/third_party/icu':
    Var('chromium_git') + '/chromium/deps/icu52.git' + '@' + '866ff696e9022a6000afbab516fba62cfa306075', # from svn revision 293126
