@@ -31,11 +31,12 @@ base::FilePath GetContentsPath() {
   return path;
 }
 
+}  // namespace
+
 base::FilePath GetFrameworksPath() {
   return GetContentsPath().Append("Frameworks");
 }
 
-}  // namespace
 
 void OverrideFrameworkBundlePath() {
   base::FilePath helper_path =

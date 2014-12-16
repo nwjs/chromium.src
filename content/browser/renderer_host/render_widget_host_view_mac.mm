@@ -542,7 +542,11 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget,
   // ready to draw.
   background_layer_.reset([[CALayer alloc] init]);
   base::ScopedCFTypeRef<CGColorRef> background(
-      gfx::CGColorCreateFromSkColor([cocoa_view() isOpaque] || !content::g_support_transparency ? background_color_ : kCGColorClear)]));
+#if 1
+      gfx::CGColorCreateFromSkColor(background_color_));
+#else
+      ([cocoa_view() isOpaque] || !content::g_support_transparency) ? gfx::CGColorCreateFromSkColor(background_color_) : CGColorGetConstantColor(kCGColorClear));
+#endif
   [background_layer_ setBackgroundColor:background];
   [cocoa_view_ setLayer:background_layer_];
   [cocoa_view_ setWantsLayer:YES];

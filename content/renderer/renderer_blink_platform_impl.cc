@@ -147,7 +147,7 @@ using blink::WebVector;
 namespace content {
 
 extern bool g_support_transparency;
-bool g_support_transparency = true;
+bool g_support_transparency = false;
 
 namespace {
 
