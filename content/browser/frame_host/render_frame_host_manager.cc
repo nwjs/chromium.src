@@ -1348,7 +1348,8 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
           entry.site_instance(),
           SiteInstanceImpl::GetEffectiveURL(browser_context, entry.GetURL()),
           entry.IsViewSourceMode());
-  if (!is_guest_scheme && (ShouldTransitionCrossSite() || force_swap || dev_reload)) {
+  force_swap = force_swap || dev_reload;
+  if (!is_guest_scheme && (ShouldTransitionCrossSite() || force_swap)) {
     new_instance = GetSiteInstanceForURL(
         entry.GetURL(),
         entry.site_instance(),
