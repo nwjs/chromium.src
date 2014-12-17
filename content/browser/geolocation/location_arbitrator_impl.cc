@@ -10,6 +10,7 @@
 #include "base/bind_helpers.h"
 #include "build/build_config.h"
 #include "content/browser/geolocation/network_location_provider.h"
+#include "content/browser/geolocation/system_location_provider.h"
 #include "content/public/browser/access_token_store.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/common/content_client.h"
@@ -25,7 +26,7 @@ const char* kDefaultNetworkProviderUrl =
 // To avoid oscillations, set this to twice the expected update interval of a
 // a GPS-type location provider (in case it misses a beat) plus a little.
 const int64_t LocationArbitratorImpl::kFixStaleTimeoutMilliseconds =
-    11 * base::Time::kMillisecondsPerSecond;
+    2000 * base::Time::kMillisecondsPerSecond;
 
 LocationArbitratorImpl::LocationArbitratorImpl(
     const LocationUpdateCallback& callback)
@@ -87,7 +88,7 @@ void LocationArbitratorImpl::StopProviders() {
   // the newly constructed providers.
   position_provider_ = NULL;
   position_ = Geoposition();
-
+  providers_results_count_.clear();
   providers_.clear();
   is_running_ = false;
 }
@@ -128,14 +129,16 @@ void LocationArbitratorImpl::RegisterProvider(
 
 void LocationArbitratorImpl::OnLocationUpdate(const LocationProvider* provider,
                                               const Geoposition& new_position) {
+  providers_results_count_[provider]++;
   DCHECK(new_position.Validate() ||
          new_position.error_code != Geoposition::ERROR_CODE_NONE);
-  if (!IsNewPositionBetter(position_, new_position,
-                           provider == position_provider_))
-    return;
-  position_provider_ = provider;
-  position_ = new_position;
-  arbitrator_update_callback_.Run(position_);
+  if (IsNewPositionBetter(position_, new_position,
+                           provider == position_provider_)) {
+    position_provider_ = provider;
+    position_ = new_position;
+  }
+  if (providers_results_count_.size() >= providers_.size())
+    arbitrator_update_callback_.Run(position_);
 }
 
 AccessTokenStore* LocationArbitratorImpl::NewAccessTokenStore() {
@@ -163,7 +166,7 @@ LocationProvider* LocationArbitratorImpl::NewNetworkLocationProvider(
 }
 
 LocationProvider* LocationArbitratorImpl::NewSystemLocationProvider() {
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
+#if defined(OS_LINUX)
   return NULL;
 #else
   return content::NewSystemLocationProvider();

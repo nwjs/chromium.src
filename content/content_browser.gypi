@@ -833,6 +833,11 @@
       'browser/geolocation/network_location_provider.h',
       'browser/geolocation/network_location_request.cc',
       'browser/geolocation/network_location_request.h',
+      'browser/geolocation/system_location_provider.h',
+      'browser/geolocation/system_location_provider_mac.h',
+      'browser/geolocation/system_location_provider_mac.mm',
+      'browser/geolocation/system_location_provider_win.h',
+      'browser/geolocation/system_location_provider_win.cc',
       'browser/geolocation/wifi_data.cc',
       'browser/geolocation/wifi_data.h',
       'browser/geolocation/wifi_data_provider.cc',
@@ -1977,6 +1982,7 @@
           '-ldxguid.lib',
           '-lsensorsapi.lib',
           '-lportabledeviceguids.lib',
+          '-llocationapi.lib',
         ],
         'msvs_settings': {
           'VCLinkerTool': {
@@ -1984,6 +1990,7 @@
               'dinput8.dll',
               'user32.dll',
               'dwmapi.dll',
+              'locationapi.dll',
             ],
           },
         },
@@ -2093,6 +2100,7 @@
       'link_settings': {
         'libraries': [
           '$(SDKROOT)/usr/lib/libbsm.dylib',
+          '$(SDKROOT)/System/Library/Frameworks/CoreLocation.framework',
         ],
       },
     }],

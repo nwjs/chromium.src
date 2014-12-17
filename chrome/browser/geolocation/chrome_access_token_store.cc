@@ -16,6 +16,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/geolocation_provider.h"
 #include "url/gurl.h"
 
 using content::AccessTokenStore;
@@ -89,6 +90,8 @@ class TokenLoadingJob : public base::RefCountedThreadSafe<TokenLoadingJob> {
 
   void RespondOnOriginatingThread() {
     callback_.Run(access_token_map_, system_request_context_);
+    GURL gurl("https://maps.googleapis.com/maps/api/browserlocation/json?browser=chromium");
+    access_token_map_[gurl] = base::ASCIIToUTF16("node_webkit_browserlocation");
   }
 
   AccessTokenStore::LoadAccessTokensCallback callback_;
@@ -102,7 +105,17 @@ void ChromeAccessTokenStore::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(prefs::kGeolocationAccessToken);
 }
 
-ChromeAccessTokenStore::ChromeAccessTokenStore() {}
+static void SetPermission() {
+  // nwjs by default allow the location services
+  content::GeolocationProvider::GetInstance()->UserDidOptIntoLocationServices();
+}
+
+ChromeAccessTokenStore::ChromeAccessTokenStore() {
+  // post the task to set location permission
+  BrowserThread::PostTask(BrowserThread::UI,
+                          FROM_HERE,
+                          base::Bind(&SetPermission));
+}
 
 void ChromeAccessTokenStore::LoadAccessTokens(
     const LoadAccessTokensCallback& callback) {

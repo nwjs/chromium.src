@@ -88,6 +88,7 @@ class CONTENT_EXPORT LocationArbitratorImpl : public LocationArbitrator {
   LocationUpdateCallback arbitrator_update_callback_;
   LocationProvider::LocationProviderUpdateCallback provider_update_callback_;
   ScopedVector<LocationProvider> providers_;
+  std::map<const LocationProvider*, int> providers_results_count_;
   bool use_high_accuracy_;
   // The provider which supplied the current |position_|
   const LocationProvider* position_provider_;
