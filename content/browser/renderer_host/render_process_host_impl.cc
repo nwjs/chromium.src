@@ -1784,12 +1784,16 @@ void RenderProcessHostImpl::FilterURL(RenderProcessHost* rph,
     RecordAction(base::UserMetricsAction("FilterURLTermiate_About"));
   }
 
+#if 0 //NWJS: we guard this only by CanRequestURL() because users want
+      //webview for Node frame
+
   // Do not allow browser plugin guests to navigate to non-web URLs, since they
   // cannot swap processes or grant bindings.
   bool non_web_url_in_guest = rph->IsIsolatedGuest() &&
       !(url->is_valid() && policy->IsWebSafeScheme(url->scheme()));
+#endif
 
-  if (non_web_url_in_guest || !policy->CanRequestURL(rph->GetID(), *url)) {
+  if (!policy->CanRequestURL(rph->GetID(), *url)) {
     // If this renderer is not permitted to request this URL, we invalidate the
     // URL.  This prevents us from storing the blocked URL and becoming confused
     // later.
