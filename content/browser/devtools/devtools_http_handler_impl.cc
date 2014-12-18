@@ -116,7 +116,7 @@ class DevToolsHttpHandlerImpl : public DevToolsHttpHandler {
       const DevToolsManagerDelegate::TargetList& targets);
   void OnTargetListReceived2(
                              const DevToolsManagerDelegate::TargetList& targets);
-  void EnumerateTargets();
+  void EnumerateTargets() override;
 
   DevToolsTarget* GetTarget(const std::string& id);
 
