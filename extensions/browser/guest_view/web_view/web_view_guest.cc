@@ -1211,6 +1211,10 @@ void WebViewGuest::RequestNewWindowPermission(
 }
 
 GURL WebViewGuest::ResolveURL(const std::string& src) {
+#if 1
+  GURL default_url(owner_web_contents()->GetURL());
+  return default_url.Resolve(src);
+#else
   if (!in_extension()) {
     return GURL(src);
   }
@@ -1219,6 +1223,7 @@ GURL WebViewGuest::ResolveURL(const std::string& src) {
                                       kExtensionScheme,
                                       embedder_extension_id().c_str()));
   return default_url.Resolve(src);
+#endif
 }
 
 void WebViewGuest::OnWebViewNewWindowResponse(
