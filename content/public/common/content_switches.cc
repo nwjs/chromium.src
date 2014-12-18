@@ -980,4 +980,6 @@ bool IsWin32kRendererLockdownEnabled() {
 // Don't dump stuff here, follow the same order as the header.
 const char kNodejs[] = "nodejs";
 
+const char kChromeExtension[] = "extension";
+
 }  // namespace switches

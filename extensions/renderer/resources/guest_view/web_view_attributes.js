@@ -92,6 +92,26 @@ AllowTransparencyAttribute.prototype.handleMutation = function(oldValue,
                                        this.getValue());
 };
 
+// Attribute that used to turn on/off Node
+function NWAttribute(webViewImpl) {
+  BooleanAttribute.call(
+      this, WebViewConstants.ATTRIBUTE_NW, webViewImpl);
+}
+
+NWAttribute.prototype.__proto__ = BooleanAttribute.prototype;
+
+NWAttribute.prototype.handleMutation = function(oldValue,
+                                                newValue) {
+  if (!this.webViewImpl.guest.getId()) {
+    return;
+  }
+  // FIXME(roger)
+  // WebViewInternal.setAllowTransparency(
+  //     this.webViewImpl.guest.getId(),
+  //     this.webViewImpl.attributes[
+  //         WebViewConstants.ATTRIBUTE_ALLOWTRANSPARENCY].getValue());
+};
+
 // Attribute used to define the demension limits of autosizing.
 function AutosizeDimensionAttribute(name, webViewImpl) {
   WebViewAttribute.call(this, name, webViewImpl);
@@ -272,6 +292,8 @@ WebViewImpl.prototype.setupWebViewAttributes = function() {
       new PartitionAttribute(this);
   this.attributes[WebViewConstants.ATTRIBUTE_SRC] =
       new SrcAttribute(this);
+  this.attributes[WebViewConstants.ATTRIBUTE_NW] =
+      new NWAttribute(this);
 
   var autosizeAttributes = [WebViewConstants.ATTRIBUTE_MAXHEIGHT,
                             WebViewConstants.ATTRIBUTE_MAXWIDTH,
