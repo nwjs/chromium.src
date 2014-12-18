@@ -296,6 +296,12 @@ void WebViewGuest::DidAttachToEmbedder() {
     }
   }
 
+  //NWJS: we need to do this earlier than NavigateGuest to setup the
+  //child process permissions
+
+  if (web_view_guest_delegate_)
+    web_view_guest_delegate_->OnDidAttachToEmbedder();
+
   // Only read the src attribute if this is not a New Window API flow.
   if (!is_pending_new_window) {
     std::string src;
@@ -312,8 +318,6 @@ void WebViewGuest::DidAttachToEmbedder() {
   // there is a RenderWidgetHostView available.
   SetAllowTransparency(allow_transparency);
 
-  if (web_view_guest_delegate_)
-    web_view_guest_delegate_->OnDidAttachToEmbedder();
 }
 
 void WebViewGuest::DidInitialize() {
@@ -917,6 +921,8 @@ void WebViewGuest::NavigateGuest(const std::string& src,
 
   GURL url = ResolveURL(src);
 
+#if 0 //NWJS: we control this by RenderProcessHost::FilterURL() instead
+
   // Do not allow navigating a guest to schemes other than known safe schemes.
   // This will block the embedder trying to load unwanted schemes, e.g.
   // chrome://settings.
@@ -930,6 +936,7 @@ void WebViewGuest::NavigateGuest(const std::string& src,
               net::ErrorToShortString(net::ERR_ABORTED));
     return;
   }
+#endif
   if (!force_navigation && (src_ == url))
     return;
 

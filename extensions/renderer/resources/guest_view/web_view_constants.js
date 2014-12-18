@@ -16,6 +16,7 @@ var WebViewConstants = {
   ATTRIBUTE_NAME: 'name',
   ATTRIBUTE_PARTITION: 'partition',
   ATTRIBUTE_SRC: 'src',
+  ATTRIBUTE_NW:  'nwdisable',
 
   // Internal attribute.
   ATTRIBUTE_INTERNALINSTANCEID: 'internalinstanceid',
