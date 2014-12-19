@@ -21,7 +21,7 @@ class PageNotificationDelegate : public DesktopNotificationDelegate {
   void NotificationDisplayed() override;
   void NotificationClosed(bool by_user) override;
   void NotificationClick() override;
-
+  virtual int notification_id() override;
  private:
   int render_process_id_;
   int notification_id_;

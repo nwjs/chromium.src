@@ -21,6 +21,7 @@ class StatusIconObserver {
   // TODO(dewittj): Implement on platforms other than Windows.  Currently this
   // event will never fire on non-Windows platforms.
   virtual void OnBalloonClicked() {}
+  virtual void OnBalloonEvent(int event) {}
 #endif
 
  protected:
