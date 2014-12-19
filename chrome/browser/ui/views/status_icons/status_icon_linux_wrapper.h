@@ -21,7 +21,7 @@ class StatusIconLinuxWrapper : public StatusIcon,
   // StatusIcon overrides:
   void SetImage(const gfx::ImageSkia& image) override;
   void SetToolTip(const base::string16& tool_tip) override;
-  void DisplayBalloon(const gfx::ImageSkia& icon,
+  bool DisplayBalloon(const gfx::ImageSkia& icon,
                       const base::string16& title,
                       const base::string16& contents) override;
 

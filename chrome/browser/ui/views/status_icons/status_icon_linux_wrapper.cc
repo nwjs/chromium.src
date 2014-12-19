@@ -28,10 +28,11 @@ void StatusIconLinuxWrapper::SetToolTip(const base::string16& tool_tip) {
   status_icon_->SetToolTip(tool_tip);
 }
 
-void StatusIconLinuxWrapper::DisplayBalloon(const gfx::ImageSkia& icon,
+bool StatusIconLinuxWrapper::DisplayBalloon(const gfx::ImageSkia& icon,
                                             const base::string16& title,
                                             const base::string16& contents) {
   //notification_.DisplayBalloon(icon, title, contents);
+  return true;
 }
 
 void StatusIconLinuxWrapper::OnClick() {
