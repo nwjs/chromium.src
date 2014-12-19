@@ -45,4 +45,8 @@ void PageNotificationDelegate::NotificationClick() {
   sender->Send(new PlatformNotificationMsg_DidClick(notification_id_));
 }
 
+int PageNotificationDelegate::notification_id() {
+  return notification_id_;
+}
+
 }  // namespace content
