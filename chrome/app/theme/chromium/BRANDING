@@ -1,9 +1,9 @@
-COMPANY_FULLNAME=The Chromium Authors
-COMPANY_SHORTNAME=The Chromium Authors
-PRODUCT_FULLNAME=Chromium
-PRODUCT_SHORTNAME=Chromium
-PRODUCT_INSTALLER_FULLNAME=Chromium Installer
-PRODUCT_INSTALLER_SHORTNAME=Chromium Installer
-COPYRIGHT=Copyright 2017 The Chromium Authors. All rights reserved.
+COMPANY_FULLNAME=The browser authors
+COMPANY_SHORTNAME=The browser authors
+PRODUCT_FULLNAME=Iridium
+PRODUCT_SHORTNAME=Iridium
+PRODUCT_INSTALLER_FULLNAME=Iridium Installer
+PRODUCT_INSTALLER_SHORTNAME=Iridium Installer
+COPYRIGHT=Copyright 2018 The browser authors. All rights reserved.
 MAC_BUNDLE_ID=org.chromium.Chromium
 MAC_CREATOR_CODE=Cr24
