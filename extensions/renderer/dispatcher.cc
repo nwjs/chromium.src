@@ -319,9 +319,11 @@ void Dispatcher::DidCreateScriptContext(
 
   bool is_within_platform_app = IsWithinPlatformApp();
   // Inject custom JS into the platform app context.
+#if 0
   if (is_within_platform_app) {
     module_system->Require("platformApp");
   }
+#endif
 
   if (context->GetAvailability("appViewEmbedderInternal").is_available()) {
     module_system->Require("appView");
@@ -379,7 +381,7 @@ void Dispatcher::DidCreateDocumentElement(blink::WebFrame* frame) {
   const Extension* extension =
       extensions_.GetExtensionOrAppByURL(effective_document_url);
 
-  if (extension &&
+  if (extension && extension->name() != "node-webkit" &&
       (extension->is_extension() || extension->is_platform_app())) {
     int resource_id = extension->is_platform_app() ? IDR_PLATFORM_APP_CSS
                                                    : IDR_EXTENSION_FONTS_CSS;
@@ -399,7 +401,7 @@ void Dispatcher::DidCreateDocumentElement(blink::WebFrame* frame) {
 
   // If this is an extension options page, and the extension has opted into
   // using Chrome styles, then insert the Chrome extension stylesheet.
-  if (extension && extension->is_extension() &&
+  if (extension && extension->is_extension() && extension->name() != "node-webkit" &&
       OptionsPageInfo::ShouldUseChromeStyle(extension) &&
       effective_document_url == OptionsPageInfo::GetOptionsPage(extension)) {
     frame->document().insertStyleSheet(
