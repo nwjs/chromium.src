@@ -1663,7 +1663,9 @@ LRESULT HWNDMessageHandler::OnNCActivate(UINT message,
   // Avoid DefWindowProc non-client rendering over our custom frame on newer
   // Windows versions only (breaks taskbar activation indication on XP/Vista).
   if (delegate_->IsUsingCustomFrame() &&
-      base::win::GetVersion() > base::win::VERSION_VISTA) {
+      base::win::GetVersion() > base::win::VERSION_VISTA
+      || remove_standard_frame_ // Fix the Win Caption flicker on frameless window, Node Webkit issue #2784
+      ) {
     SetMsgHandled(TRUE);
     return TRUE;
   }
