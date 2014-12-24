@@ -44,6 +44,7 @@
 
 namespace content {
   extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
 }
 
 namespace views {
@@ -810,7 +811,7 @@ void HWNDMessageHandler::FrameTypeChanged() {
   // The non-client view needs to update too.
   delegate_->HandleFrameChanged();
 
-  if (IsVisible() && !delegate_->IsUsingCustomFrame()) {
+  if (IsVisible() && !delegate_->IsUsingCustomFrame() && !content::g_force_cpu_draw) {
     // For some reason, we need to hide the window after we change from a custom
     // frame to a native frame.  If we don't, the client area will be filled
     // with black.  This seems to be related to an interaction between DWM and
@@ -1611,7 +1612,9 @@ LRESULT HWNDMessageHandler::OnNCActivate(UINT message,
   // Avoid DefWindowProc non-client rendering over our custom frame on newer
   // Windows versions only (breaks taskbar activation indication on XP/Vista).
   if (delegate_->IsUsingCustomFrame() &&
-      base::win::GetVersion() > base::win::VERSION_VISTA) {
+      base::win::GetVersion() > base::win::VERSION_VISTA
+      || remove_standard_frame_ // Fix the Win Caption flicker on frameless window, Node Webkit issue #2784
+      ) {
     SetMsgHandled(TRUE);
     return TRUE;
   }

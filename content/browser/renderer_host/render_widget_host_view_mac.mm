@@ -101,6 +101,7 @@ using blink::WebGestureEvent;
 
 namespace content {
   extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
 }
 
 namespace {
@@ -530,7 +531,7 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
   [background_layer_
       setBackgroundColor:CGColorGetConstantColor([cocoa_view() isOpaque] || !content::g_support_transparency ? kCGColorWhite : kCGColorClear)];
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   if (!IsDelegatedRendererEnabled()) {
     // Add a flipped transparent layer as a child, so that we don't need to
@@ -2507,6 +2508,16 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
     return responderDelegate_.get();
 
   return [super forwardingTargetForSelector:selector];
+}
+
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    [[self layer] renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
 }
 
 - (void)setCanBeKeyView:(BOOL)can {
