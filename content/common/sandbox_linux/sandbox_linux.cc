@@ -128,7 +128,7 @@ LinuxSandbox::LinuxSandbox()
 
 LinuxSandbox::~LinuxSandbox() {
   if (pre_initialized_) {
-    CHECK(initialize_sandbox_ran_);
+    //CHECK(initialize_sandbox_ran_);
   }
 }
 
