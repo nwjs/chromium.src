@@ -641,7 +641,7 @@ bool RenderProcessHostImpl::Init() {
         cmd_line,
         GetID(),
         this));
-
+    child_process_launcher_->SetTerminateChildOnShutdown(false);
     fast_shutdown_started_ = false;
   }
 
