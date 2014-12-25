@@ -20,6 +20,7 @@ using content::ResourceRequestInfo;
 
 namespace {
 
+#if 0
 // Returns true if the URL is sensitive and requests to this URL must not be
 // modified/canceled by extensions, e.g. because it is targeted to the webstore
 // to check for updates, extension blacklisting, etc.
@@ -62,7 +63,7 @@ bool IsSensitiveURL(const GURL& url) {
       extension_urls::IsWebstoreUpdateUrl(url_without_query) ||
       extension_urls::IsBlacklistUpdateUrl(url);
 }
-
+#endif
 // Returns true if the scheme is one we want to allow extensions to have access
 // to. Extensions still need specific permissions for a given URL, which is
 // covered by CanExtensionAccessURL.
@@ -97,7 +98,7 @@ bool WebRequestPermissions::HideRequest(
   }
 
   const GURL& url = request->url();
-  return IsSensitiveURL(url) || !HasWebRequestScheme(url);
+  return !HasWebRequestScheme(url);
 }
 
 // static

@@ -356,10 +356,10 @@
   },
   "webRequest": {
     "channel": "stable",
-    "extension_types": ["extension", "legacy_packaged_app"]
+    "extension_types": ["extension", "legacy_packaged_app", "platform_app"]
    },
   "webRequestBlocking": {
     "channel": "stable",
-    "extension_types": ["extension", "legacy_packaged_app"]
+    "extension_types": ["extension", "legacy_packaged_app", "platform_app"]
   }
 }
