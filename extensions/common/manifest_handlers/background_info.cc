@@ -255,6 +255,7 @@ bool BackgroundManifestHandler::Parse(Extension* extension,
     *error = ASCIIToUTF16(errors::kBackgroundRequiredForPlatformApps);
     return false;
   }
+#if 0
   // Lazy background pages are incompatible with the webRequest API.
   if (info->has_lazy_background_page() &&
       PermissionsParser::HasAPIPermission(extension,
@@ -262,6 +263,7 @@ bool BackgroundManifestHandler::Parse(Extension* extension,
     *error = ASCIIToUTF16(errors::kWebRequestConflictsWithLazyBackground);
     return false;
   }
+#endif
 
   extension->SetManifestData(kBackground, info.release());
   return true;
