@@ -171,7 +171,7 @@ RenderFrameHostImpl* RenderFrameHostManager::Navigate(
       entry.GetTransitionType(),
       entry.restore_type() != NavigationEntryImpl::RESTORE_NONE,
       entry.IsViewSourceMode(), entry.transferred_global_request_id(),
-      entry.bindings());
+      entry.bindings(), entry.is_dev_reload());
   if (!dest_render_frame_host)
     return NULL;  // We weren't able to create a pending render frame host.
 
@@ -802,7 +802,8 @@ SiteInstance* RenderFrameHostManager::GetSiteInstanceForNavigation(
     SiteInstance* dest_instance,
     ui::PageTransition transition,
     bool dest_is_restore,
-    bool dest_is_view_source_mode) {
+    bool dest_is_view_source_mode,
+    bool is_dev_reload) {
   SiteInstance* current_instance = render_frame_host_->GetSiteInstance();
   SiteInstance* new_instance = current_instance;
 
@@ -831,9 +832,8 @@ SiteInstance* RenderFrameHostManager::GetSiteInstanceForNavigation(
       current_is_view_source_mode,
       dest_instance,
       SiteInstanceImpl::GetEffectiveURL(browser_context, dest_url),
-      dest_is_view_source_mode);
-  if (current_entry && ((NavigationEntryImpl*)current_entry)->is_dev_reload())
-    force_swap = true;
+      dest_is_view_source_mode) || is_dev_reload;
+
   if (ShouldTransitionCrossSite() || force_swap) {
     new_instance = GetSiteInstanceForURL(
         dest_url, source_instance, current_instance, dest_instance,
@@ -1480,7 +1480,8 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
     bool dest_is_restore,
     bool dest_is_view_source_mode,
     const GlobalRequestID& transferred_request_id,
-    int bindings) {
+    int bindings,
+    bool is_dev_reload) {
   // If we are currently navigating cross-process, we want to get back to normal
   // and then navigate as usual.
   if (cross_navigation_pending_) {
@@ -1492,7 +1493,13 @@ RenderFrameHostImpl* RenderFrameHostManager::UpdateStateForNavigate(
   SiteInstance* current_instance = render_frame_host_->GetSiteInstance();
   scoped_refptr<SiteInstance> new_instance = GetSiteInstanceForNavigation(
       dest_url, source_instance, dest_instance, transition,
-      dest_is_restore, dest_is_view_source_mode);
+      dest_is_restore, dest_is_view_source_mode, is_dev_reload);
+
+  if (is_dev_reload) {
+    RenderProcessHostImpl* process =
+      static_cast<RenderProcessHostImpl*>(render_frame_host_->GetProcess());
+    process->child_process_launcher()->SetTerminateChildOnShutdown(true);
+  }
 
   const NavigationEntry* current_entry =
       delegate_->GetLastCommittedNavigationEntryForRenderManager();
