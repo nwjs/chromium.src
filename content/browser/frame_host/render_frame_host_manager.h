@@ -425,7 +425,8 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
       SiteInstance* dest_instance,
       ui::PageTransition dest_transition,
       bool dest_is_restore,
-      bool dest_is_view_source_mode);
+      bool dest_is_view_source_mode,
+      bool is_dev_reload = false);
 
   // Returns an appropriate SiteInstance object for the given |dest_url|,
   // possibly reusing the current SiteInstance.  If --process-per-tab is used,
@@ -522,7 +523,8 @@ class CONTENT_EXPORT RenderFrameHostManager : public NotificationObserver {
       bool is_restore,
       bool is_view_source_mode,
       const GlobalRequestID& transferred_request_id,
-      int bindings);
+      int bindings,
+      bool is_dev_reload = false);
 
   // Called when a renderer process is starting to close.  We should not
   // schedule new navigations in its swapped out RenderFrameHosts after this.
