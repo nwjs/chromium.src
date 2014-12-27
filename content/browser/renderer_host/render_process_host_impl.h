@@ -170,6 +170,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
     child_process_activity_time_ = base::TimeTicks::Now();
   }
 
+  ChildProcessLauncher* child_process_launcher() {
+    return child_process_launcher_.get();
+  }
   // Returns the current number of active views in this process.  Excludes
   // any RenderViewHosts that are swapped out.
   int GetActiveViewCount();
