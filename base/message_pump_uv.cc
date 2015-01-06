@@ -86,6 +86,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
       // or the tick callback is blocked in some cases
       if (node::g_env) {
         v8::HandleScope handleScope(isolate);
+        uv_run(loop, UV_RUN_NOWAIT);
         node::CallTickCallback(node::g_env, v8::Undefined(isolate));
       }
       continue;
@@ -98,6 +99,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
     if (did_work) {
       if (node::g_env) {
         v8::HandleScope handleScope(isolate);
+        uv_run(loop, UV_RUN_NOWAIT);
         node::CallTickCallback(node::g_env, v8::Undefined(isolate));
       }
       continue;
