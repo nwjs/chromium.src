@@ -4,12 +4,16 @@
 
 #include "chrome/browser/ui/views/javascript_app_modal_event_blocker_x11.h"
 
-#include "chrome/browser/ui/views/frame/browser_view.h"
+//#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/events/event.h"
 #include "ui/wm/core/window_animations.h"
 #include "ui/wm/core/window_util.h"
+
+#include "content/nw/src/browser/native_window_aura.h"
+
+using nw::NativeWindowAura;
 
 namespace {
 
@@ -30,7 +34,7 @@ JavascriptAppModalEventBlockerX11::JavascriptAppModalEventBlockerX11(
   aura::Window* topmost_transient_parent =
       GetTopmostTransientParent(modal_window);
   browser_view_with_modal_dialog_ =
-      BrowserView::GetBrowserViewForNativeWindow(topmost_transient_parent);
+      NativeWindowAura::GetBrowserViewForNativeWindow(topmost_transient_parent);
   // |browser_view_with_modal_dialog_| is NULL if the dialog was opened by an
   // extension background page.
 
@@ -56,8 +60,8 @@ bool JavascriptAppModalEventBlockerX11::ShouldStopPropagationTo(
       GetTopmostTransientParent(static_cast<aura::Window*>(target));
   if (!window)
     return false;
-  BrowserView* browser_view =
-      BrowserView::GetBrowserViewForNativeWindow(window);
+  NativeWindowAura* browser_view =
+      NativeWindowAura::GetBrowserViewForNativeWindow(window);
   return browser_view && browser_view != browser_view_with_modal_dialog_;
 }
 

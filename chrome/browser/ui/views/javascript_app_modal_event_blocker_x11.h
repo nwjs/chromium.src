@@ -7,7 +7,9 @@
 
 #include "ui/events/event_handler.h"
 
-class BrowserView;
+namespace nw {
+class NativeWindowAura;
+}
 
 namespace aura {
 class Window;
@@ -37,7 +39,7 @@ class JavascriptAppModalEventBlockerX11 : public ui::EventHandler {
   aura::Window* modal_window_;
 
   // The BrowserView which hosts the app modal dialog.
-  BrowserView* browser_view_with_modal_dialog_;
+  nw::NativeWindowAura* browser_view_with_modal_dialog_;
 
   DISALLOW_COPY_AND_ASSIGN(JavascriptAppModalEventBlockerX11);
 };
