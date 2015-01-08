@@ -20,6 +20,9 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // IOSurfaceLayerHelper
+namespace content {
+extern bool g_support_transparency;
+}
 
 namespace ui {
 
@@ -182,7 +185,8 @@ void IOSurfaceLayerHelper::EndPumpingFrames() {
       return nil;
     }
 
-    [self setBackgroundColor:CGColorGetConstantColor(kCGColorWhite)];
+    if(!content::g_support_transparency)
+      [self setBackgroundColor:CGColorGetConstantColor(kCGColorWhite)];
     [self setAnchorPoint:CGPointMake(0, 0)];
     // Setting contents gravity is necessary to prevent the layer from being
     // scaled during dyanmic resizes (especially with devtools open).
