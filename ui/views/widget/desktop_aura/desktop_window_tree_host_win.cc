@@ -40,6 +40,10 @@
 #include "ui/wm/core/window_animations.h"
 #include "ui/wm/public/scoped_tooltip_disabler.h"
 
+namespace content {
+  extern bool g_force_cpu_draw;
+}
+
 namespace views {
 
 namespace {
@@ -906,6 +910,7 @@ void DesktopWindowTreeHostWin::HandleInputLanguageChange(
 
 bool DesktopWindowTreeHostWin::HandlePaintAccelerated(
     const gfx::Rect& invalid_rect) {
+  if (content::g_force_cpu_draw) return false;
   return native_widget_delegate_->OnNativeWidgetPaintAccelerated(invalid_rect);
 }
 

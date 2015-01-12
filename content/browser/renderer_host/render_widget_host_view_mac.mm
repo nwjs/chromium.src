@@ -101,6 +101,7 @@ using blink::WebGestureEvent;
 
 namespace content {
   extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
 }
 
 namespace {
@@ -542,15 +543,12 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget,
   // Paint this view host with |background_color_| when there is no content
   // ready to draw.
   background_layer_.reset([[CALayer alloc] init]);
-  base::ScopedCFTypeRef<CGColorRef> background(
-#if 1
-      gfx::CGColorCreateFromSkColor(background_color_));
-#else
-      ([cocoa_view() isOpaque] || !content::g_support_transparency) ? gfx::CGColorCreateFromSkColor(background_color_) : CGColorGetConstantColor(kCGColorClear));
-#endif
-  [background_layer_ setBackgroundColor:background];
+
+  [background_layer_ setBackgroundColor: ([cocoa_view_ isOpaque] || !content::g_support_transparency) ?
+    gfx::CGColorCreateFromSkColor(background_color_) : CGColorGetConstantColor(kCGColorClear)];
+
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   if (IsDelegatedRendererEnabled()) {
     root_layer_.reset(new ui::Layer(ui::LAYER_SOLID_COLOR));
@@ -1787,6 +1785,16 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
     return responderDelegate_.get();
 
   return [super forwardingTargetForSelector:selector];
+}
+
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    [[self layer] renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
 }
 
 - (void)setCanBeKeyView:(BOOL)can {
