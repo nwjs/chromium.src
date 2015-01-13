@@ -54,6 +54,7 @@ class URLPattern {
     SCHEME_EXTENSION  = 1 << 5,
     SCHEME_FILESYSTEM = 1 << 6,
     SCHEME_NW         = 1 << 7,
+    SCHEME_APP        = 1 << 8,
 
     // IMPORTANT!
     // SCHEME_ALL will match every scheme, including chrome://, chrome-

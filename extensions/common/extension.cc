@@ -73,7 +73,7 @@ const char Extension::kMimeType[] = "application/x-chrome-extension";
 
 const int Extension::kValidWebExtentSchemes =
   URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS |
-  URLPattern::SCHEME_NW | URLPattern::SCHEME_FILE;
+  URLPattern::SCHEME_NW | URLPattern::SCHEME_FILE | URLPattern::SCHEME_APP;
 
 const int Extension::kValidHostPermissionSchemes = URLPattern::SCHEME_CHROMEUI |
                                                    URLPattern::SCHEME_HTTP |
