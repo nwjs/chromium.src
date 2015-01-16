@@ -788,7 +788,8 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest, AccessibilityInputColor) {
   RunTest(FILE_PATH_LITERAL("input-color.html"));
 }
 
-IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest, AccessibilityInputDate) {
+IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
+    DISABLED_AccessibilityInputDate) {
   RunTest(FILE_PATH_LITERAL("input-date.html"));
 }
 
@@ -861,7 +862,8 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest, AccessibilityInputTextValue) {
   RunTest(FILE_PATH_LITERAL("input-text-value.html"));
 }
 
-IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest, AccessibilityInputTime) {
+IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
+    DISABLED_AccessibilityInputTime) {
   RunTest(FILE_PATH_LITERAL("input-time.html"));
 }
 
