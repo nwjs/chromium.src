@@ -80,8 +80,7 @@ def TestCleanUp(user_profile_dir):
     shutil.rmtree(user_profile_dir)
 
 
-def InitialiseTestMachineForLinux(cfg_file, me2me_manifest_file,
-                                  it2me_manifest_file, user_profile_dir):
+def InitialiseTestMachineForLinux(cfg_file, manifest_file, user_profile_dir):
   """Sets up a Linux machine for connect-to-host browser-tests.
 
   Copy over me2me host-config and manifest files to expected locations.
@@ -90,8 +89,8 @@ def InitialiseTestMachineForLinux(cfg_file, me2me_manifest_file,
   Its name is expected to have a hash that is specific to a machine.
 
   When a user launches the remoting web-app, the native-message host process is
-  started. For this to work, the manifest file for me2me host and it2me host is
-  expected to be in a specific folder under the user-profile dir.
+  started. For this to work, the manifest file for me2me host is expected to be
+  in a specific folder under the user-profile dir.
 
   This function performs both the above tasks.
 
@@ -103,8 +102,7 @@ def InitialiseTestMachineForLinux(cfg_file, me2me_manifest_file,
 
   Args:
     cfg_file: location of test account's host-config file.
-    me2me_manifest_file: location of me2me host manifest file.
-    it2me_manifest_file: location of it2me host manifest file.
+    manifest_file: location of me2me host manifest file.
     user_profile_dir: user-profile-dir to be used by the connect-to-host tests.
   """
 
@@ -131,12 +129,10 @@ def InitialiseTestMachineForLinux(cfg_file, me2me_manifest_file,
     shutil.rmtree(user_profile_dir)
   os.makedirs(native_messaging_folder)
 
-  manifest_files = [me2me_manifest_file, it2me_manifest_file]
-  for manifest_file in manifest_files:
-    manifest_file_src = os.path.join(os.getcwd(), manifest_file)
-    manifest_file_dest = (
-        os.path.join(native_messaging_folder, os.path.basename(manifest_file)))
-    shutil.copyfile(manifest_file_src, manifest_file_dest)
+  manifest_file_src = os.path.join(os.getcwd(), manifest_file)
+  manifest_file_dest = (
+      os.path.join(native_messaging_folder, os.path.basename(manifest_file)))
+  shutil.copyfile(manifest_file_src, manifest_file_dest)
 
   # Finally, start chromoting host.
   RunCommandInSubProcess(CHROMOTING_HOST_PATH + ' --start')
@@ -150,18 +146,16 @@ def main():
                       help='path to folder having product and test binaries.')
   parser.add_argument('-c', '--cfg_file',
                       help='path to test host config file.')
-  parser.add_argument('--me2me_manifest_file',
+  parser.add_argument('-m', '--manifest_file',
                       help='path to me2me host manifest file.')
-  parser.add_argument('--it2me_manifest_file',
-                      help='path to it2me host manifest file.')
   parser.add_argument(
       '-u', '--user_profile_dir',
       help='path to user-profile-dir, used by connect-to-host tests.')
 
   args = parser.parse_args()
 
-  InitialiseTestMachineForLinux(args.cfg_file, args.me2me_manifest_file,
-                                args.it2me_manifest_file, args.user_profile_dir)
+  InitialiseTestMachineForLinux(args.cfg_file, args.manifest_file,
+                                args.user_profile_dir)
 
   with open(args.commands_file) as f:
     for line in f:
