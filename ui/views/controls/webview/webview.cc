@@ -204,10 +204,12 @@ bool WebView::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
 }
 
 bool WebView::OnMousePressed(const ui::MouseEvent& event) {
+#if 0
   if (event.IsOnlyLeftMouseButton() && HitTestPoint(event.location())) {
     RequestFocus();
     return true;
   }
+#endif
   return View::OnMousePressed(event);
 }
 
