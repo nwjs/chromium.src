@@ -95,8 +95,8 @@ void CalculateWindowStylesFromInitParams(
         *style &= ~WS_MINIMIZEBOX;
       if (!widget_delegate->CanResize())
         *style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
-      if (params.remove_standard_frame)
-        *style &= ~(WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+      if (params.remove_standard_frame) // NWJS regression #1021 fix
+        *style |= WS_OVERLAPPEDWINDOW;  // frameless window must have all the overlapped window styles
 
       if (native_widget_delegate->IsDialogBox()) {
         *style |= DS_MODALFRAME;
