@@ -30,9 +30,8 @@ class MEDIA_EXPORT Renderer {
 
   // Initializes the Renderer with |demuxer_stream_provider|, executing
   // |init_cb| upon completion.  If initialization failed, fires |error_cb|
-  // before |init_cb|.  |demuxer_stream_provider| must be valid throughout the
-  // lifetime of the Renderer object.  |init_cb| must only be run after this
-  // method has returned.
+  // before |init_cb|. |demuxer_stream_provider| must be valid throughout the
+  // lifetime of the Renderer object.
   //
   // Permanent callbacks:
   // - |statistics_cb|: Executed periodically with rendering statistics.
