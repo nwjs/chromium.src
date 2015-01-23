@@ -78,8 +78,8 @@ base::LazyInstance<base::ThreadLocalPointer<ChildThread> > g_lazy_tls =
 #if defined(OS_POSIX)
 
 // TODO(earthdok): Re-enable on CrOS http://crbug.com/360622
-#if 1 //(defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER) ||       \
-  //    defined(THREAD_SANITIZER)) && !defined(OS_CHROMEOS)
+#if 1 /*(defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER) ||       \
+      defined(THREAD_SANITIZER)) && !defined(OS_CHROMEOS)*/
 // A thread delegate that waits for |duration| and then exits the process with
 // _exit(0).
 class WaitAndExitDelegate : public base::PlatformThread::Delegate {
@@ -136,8 +136,8 @@ class SuicideOnChannelErrorFilter : public IPC::MessageFilter {
     // So, we install a filter on the sender so that we can process this event
     // here and kill the process.
     // TODO(earthdok): Re-enable on CrOS http://crbug.com/360622
-#if 1 //(defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER) ||       \
-  //    defined(THREAD_SANITIZER)) && !defined(OS_CHROMEOS)
+#if 1 /*(defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER) ||       \
+      defined(THREAD_SANITIZER)) && !defined(OS_CHROMEOS)*/
     // Some sanitizer tools rely on exit handlers (e.g. to run leak detection,
     // or dump code coverage data to disk). Instead of exiting the process
     // immediately, we give it 60 seconds to run exit handlers.
