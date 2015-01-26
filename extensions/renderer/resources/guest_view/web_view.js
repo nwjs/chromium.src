@@ -65,11 +65,16 @@ WebViewImpl.setupElement = function(proto) {
 
 // Initiates navigation once the <webview> element is attached to the DOM.
 WebViewImpl.prototype.onElementAttached = function() {
+  if (this.element.reserveOnDetach) {
+    return;
+  }
   this.attributes[WebViewConstants.ATTRIBUTE_SRC].parse();
 };
 
 // Resets some state upon detaching <webview> element from the DOM.
 WebViewImpl.prototype.onElementDetached = function() {
+  if (this.element.reserveOnDetach)
+    return;
   this.guest.destroy();
   this.beforeFirstNavigation = true;
   this.attributes[WebViewConstants.ATTRIBUTE_PARTITION].validPartitionId =
@@ -102,6 +107,13 @@ WebViewImpl.prototype.setupElementProperties = function() {
     }.bind(this),
     // No setter.
     enumerable: true
+  });
+
+  Object.defineProperty(this.element, 'reserveOnDetach', {
+    value: false,
+    writable: true,
+    enumerable: true,
+    configurable: true
   });
 };
 
