@@ -75,11 +75,15 @@ WebViewImpl.setupElement = function(proto) {
 
 // Initiates navigation once the <webview> element is attached to the DOM.
 WebViewImpl.prototype.onElementAttached = function() {
-  this.parseSrcAttribute();
+  if (!this.element.reserveOnDetach) {
+    this.parseSrcAttribute();
+  }
 };
 
 // Resets some state upon detaching <webview> element from the DOM.
 WebViewImpl.prototype.onElementDetached = function() {
+  if (this.element.reserveOnDetach)
+    return;
   // If the guest's ID is defined then the <webview> has navigated and has
   // already picked up a partition ID. Thus, we need to reset the initialization
   // state. However, it may be the case that beforeFirstNavigation is false BUT
@@ -139,6 +143,13 @@ WebViewImpl.prototype.setupElementProperties = function() {
     }.bind(this),
     // No setter.
     enumerable: true
+  });
+
+  Object.defineProperty(this.element, 'reserveOnDetach', {
+    value: false,
+    writable: true,
+    enumerable: true,
+    configurable: true
   });
 };
 
