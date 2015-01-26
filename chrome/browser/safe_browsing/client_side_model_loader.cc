@@ -36,7 +36,7 @@ namespace safe_browsing {
 const size_t ModelLoader::kMaxModelSizeBytes = 150 * 1024;
 const int ModelLoader::kClientModelFetchIntervalMs = 3600 * 1000;
 const char ModelLoader::kClientModelUrlPrefix[] =
-    "https://ssl.gstatic.com/safebrowsing/csd/";
+    "https://cache.iridiumbrowser.de/";
 const char ModelLoader::kClientModelNamePattern[] =
     "client_model_v5%s_variation_%d.pb";
 const char ModelLoader::kClientModelFinchExperiment[] =
