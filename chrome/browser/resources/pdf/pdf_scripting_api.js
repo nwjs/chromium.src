@@ -9,6 +9,7 @@
  * @param {Object} plugin the plugin element containing the pdf viewer.
  */
 function PDFScriptingAPI(window, plugin) {
+  this.loaded_ = false;
   this.pendingScriptingMessages_ = [];
   this.setPlugin(plugin);
 
@@ -28,10 +29,9 @@ function PDFScriptingAPI(window, plugin) {
                                         event.data.viewportHeight);
         break;
       case 'documentLoaded':
-        if (this.loadCallback_) {
+        this.loaded_ = true;
+        if (this.loadCallback_)
           this.loadCallback_();
-          this.loadCallback_ = null;
-        }
         break;
       case 'getAccessibilityJSONReply':
         if (this.accessibilityCallback_) {
@@ -72,8 +72,14 @@ PDFScriptingAPI.prototype = {
   setPlugin: function(plugin) {
     this.plugin_ = plugin;
 
+    // Send an initialization message to the plugin indicating the window to
+    // respond to.
     if (this.plugin_) {
-      // Flush pending messages.
+      this.sendMessage_({
+        type: 'setParentWindow'
+      });
+
+      // Now we can flush pending messages
       while (this.pendingScriptingMessages_.length > 0)
         this.sendMessage_(this.pendingScriptingMessages_.shift());
     }
@@ -91,17 +97,11 @@ PDFScriptingAPI.prototype = {
    * Sets the callback which will be run when the PDF document has finished
    * loading. If the document is already loaded, it will be run immediately.
    * @param {Function} callback the callback to be called.
-   * @return {boolean} false if there is a callback already set and true
-   *     otherwise.
    */
   setLoadCallback: function(callback) {
-    if (this.loadCallback_)
-      return false;
     this.loadCallback_ = callback;
-    this.sendMessage_({
-      type: 'isDocumentLoaded'
-    });
-    return true;
+    if (this.loaded_ && callback)
+      callback();
   },
 
   /**
