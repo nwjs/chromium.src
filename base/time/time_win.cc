@@ -307,13 +307,13 @@ DWORD timeGetTimeWrapper() {
   return timeGetTime();
 }
 
-DWORD (*g_tick_function)(void) = &timeGetTimeWrapper;
+DWORD (*tick_function)(void) = &timeGetTimeWrapper;
 
 // Accumulation of time lost due to rollover (in milliseconds).
-int64 g_rollover_ms = 0;
+int64 rollover_ms = 0;
 
 // The last timeGetTime value we saw, to detect rollover.
-DWORD g_last_seen_now = 0;
+DWORD last_seen_now = 0;
 
 // Lock protecting rollover_ms and last_seen_now.
 // Note: this is a global object, and we usually avoid these. However, the time
@@ -321,161 +321,169 @@ DWORD g_last_seen_now = 0;
 // easy to use a Singleton without even knowing it, and that may lead to many
 // gotchas). Its impact on startup time should be negligible due to low-level
 // nature of time code.
-base::Lock g_rollover_lock;
+base::Lock rollover_lock;
 
 // We use timeGetTime() to implement TimeTicks::Now().  This can be problematic
 // because it returns the number of milliseconds since Windows has started,
 // which will roll over the 32-bit value every ~49 days.  We try to track
 // rollover ourselves, which works if TimeTicks::Now() is called at least every
 // 49 days.
-TimeTicks RolloverProtectedNow() {
-  base::AutoLock locked(g_rollover_lock);
+TimeDelta RolloverProtectedNow() {
+  base::AutoLock locked(rollover_lock);
   // We should hold the lock while calling tick_function to make sure that
   // we keep last_seen_now stay correctly in sync.
-  DWORD now = g_tick_function();
-  if (now < g_last_seen_now)
-    g_rollover_ms += 0x100000000I64;  // ~49.7 days.
-  g_last_seen_now = now;
-  return TimeTicks() + TimeDelta::FromMilliseconds(now + g_rollover_ms);
+  DWORD now = tick_function();
+  if (now < last_seen_now)
+    rollover_ms += 0x100000000I64;  // ~49.7 days.
+  last_seen_now = now;
+  return TimeDelta::FromMilliseconds(now + rollover_ms);
 }
 
-// Discussion of tick counter options on Windows:
-//
+bool IsBuggyAthlon(const base::CPU& cpu) {
+  // On Athlon X2 CPUs (e.g. model 15) QueryPerformanceCounter is
+  // unreliable.  Fallback to low-res clock.
+  return cpu.vendor_name() == "AuthenticAMD" && cpu.family() == 15;
+}
+
+// Overview of time counters:
 // (1) CPU cycle counter. (Retrieved via RDTSC)
 // The CPU counter provides the highest resolution time stamp and is the least
-// expensive to retrieve. However, on older CPUs, two issues can affect its
-// reliability: First it is maintained per processor and not synchronized
-// between processors. Also, the counters will change frequency due to thermal
-// and power changes, and stop in some states.
+// expensive to retrieve. However, the CPU counter is unreliable and should not
+// be used in production. Its biggest issue is that it is per processor and it
+// is not synchronized between processors. Also, on some computers, the counters
+// will change frequency due to thermal and power changes, and stop in some
+// states.
 //
 // (2) QueryPerformanceCounter (QPC). The QPC counter provides a high-
-// resolution (<1 microsecond) time stamp. On most hardware running today, it
-// auto-detects and uses the constant-rate RDTSC counter to provide extremely
-// efficient and reliable time stamps.
-//
-// On older CPUs where RDTSC is unreliable, it falls back to using more
-// expensive (20X to 40X more costly) alternate clocks, such as HPET or the ACPI
-// PM timer, and can involve system calls; and all this is up to the HAL (with
-// some help from ACPI). According to
-// http://blogs.msdn.com/oldnewthing/archive/2005/09/02/459952.aspx, in the
-// worst case, it gets the counter from the rollover interrupt on the
+// resolution (100 nanoseconds) time stamp but is comparatively more expensive
+// to retrieve. What QueryPerformanceCounter actually does is up to the HAL.
+// (with some help from ACPI).
+// According to http://blogs.msdn.com/oldnewthing/archive/2005/09/02/459952.aspx
+// in the worst case, it gets the counter from the rollover interrupt on the
 // programmable interrupt timer. In best cases, the HAL may conclude that the
 // RDTSC counter runs at a constant frequency, then it uses that instead. On
 // multiprocessor machines, it will try to verify the values returned from
 // RDTSC on each processor are consistent with each other, and apply a handful
 // of workarounds for known buggy hardware. In other words, QPC is supposed to
-// give consistent results on a multiprocessor computer, but for older CPUs it
-// can be unreliable due bugs in BIOS or HAL.
+// give consistent result on a multiprocessor computer, but it is unreliable in
+// reality due to bugs in BIOS or HAL on some, especially old computers.
+// With recent updates on HAL and newer BIOS, QPC is getting more reliable but
+// it should be used with caution.
 //
-// (3) System time. The system time provides a low-resolution (from ~1 to ~15.6
-// milliseconds) time stamp but is comparatively less expensive to retrieve and
-// more reliable. Time::EnableHighResolutionTimer() and
-// Time::ActivateHighResolutionTimer() can be called to alter the resolution of
-// this timer; and also other Windows applications can alter it, affecting this
-// one.
+// (3) System time. The system time provides a low-resolution (typically 10ms
+// to 55 milliseconds) time stamp but is comparatively less expensive to
+// retrieve and more reliable.
+class HighResNowSingleton {
+ public:
+  HighResNowSingleton()
+      : ticks_per_second_(0),
+        skew_(0) {
 
-using NowFunction = TimeTicks (*)(void);
+    base::CPU cpu;
+    if (IsBuggyAthlon(cpu))
+      return;
 
-TimeTicks InitialNowFunction();
-TimeTicks InitialSystemTraceNowFunction();
+    // Synchronize the QPC clock with GetSystemTimeAsFileTime.
+    LARGE_INTEGER ticks_per_sec = {0};
+    if (!QueryPerformanceFrequency(&ticks_per_sec))
+      return; // QPC is not available.
+    ticks_per_second_ = ticks_per_sec.QuadPart;
 
-// See "threading notes" in InitializeNowFunctionPointers() for details on how
-// concurrent reads/writes to these globals has been made safe.
-NowFunction g_now_function = &InitialNowFunction;
-NowFunction g_system_trace_now_function = &InitialSystemTraceNowFunction;
-int64 g_qpc_ticks_per_second = 0;
-
-// As of January 2015, use of <atomic> is forbidden in Chromium code. This is
-// what std::atomic_thread_fence does on Windows on all Intel architectures when
-// the memory_order argument is anything but std::memory_order_seq_cst:
-#define ATOMIC_THREAD_FENCE(memory_order) _ReadWriteBarrier();
-
-TimeDelta QPCValueToTimeDelta(LONGLONG qpc_value) {
-  // Ensure that the assignment to |g_qpc_ticks_per_second|, made in
-  // InitializeNowFunctionPointers(), has happened by this point.
-  ATOMIC_THREAD_FENCE(memory_order_acquire);
-
-  DCHECK_GT(g_qpc_ticks_per_second, 0);
-
-  // If the QPC Value is below the overflow threshold, we proceed with
-  // simple multiply and divide.
-  if (qpc_value < Time::kQPCOverflowThreshold) {
-    return TimeDelta::FromMicroseconds(
-        qpc_value * Time::kMicrosecondsPerSecond / g_qpc_ticks_per_second);
+    skew_ = UnreliableNow() - ReliableNow();
   }
-  // Otherwise, calculate microseconds in a round about manner to avoid
-  // overflow and precision issues.
-  int64 whole_seconds = qpc_value / g_qpc_ticks_per_second;
-  int64 leftover_ticks = qpc_value - (whole_seconds * g_qpc_ticks_per_second);
-  return TimeDelta::FromMicroseconds(
-      (whole_seconds * Time::kMicrosecondsPerSecond) +
-      ((leftover_ticks * Time::kMicrosecondsPerSecond) /
-       g_qpc_ticks_per_second));
+
+  bool IsUsingHighResClock() {
+    return ticks_per_second_ != 0;
+  }
+
+  TimeDelta Now() {
+    if (IsUsingHighResClock())
+      return TimeDelta::FromMicroseconds(UnreliableNow());
+
+    // Just fallback to the slower clock.
+    return RolloverProtectedNow();
+  }
+
+  int64 GetQPCDriftMicroseconds() {
+    if (!IsUsingHighResClock())
+      return 0;
+    return abs((UnreliableNow() - ReliableNow()) - skew_);
+  }
+
+  int64 QPCValueToMicroseconds(LONGLONG qpc_value) {
+    if (!ticks_per_second_)
+      return 0;
+    // If the QPC Value is below the overflow threshold, we proceed with
+    // simple multiply and divide.
+    if (qpc_value < Time::kQPCOverflowThreshold)
+      return qpc_value * Time::kMicrosecondsPerSecond / ticks_per_second_;
+    // Otherwise, calculate microseconds in a round about manner to avoid
+    // overflow and precision issues.
+    int64 whole_seconds = qpc_value / ticks_per_second_;
+    int64 leftover_ticks = qpc_value - (whole_seconds * ticks_per_second_);
+    int64 microseconds = (whole_seconds * Time::kMicrosecondsPerSecond) +
+                         ((leftover_ticks * Time::kMicrosecondsPerSecond) /
+                          ticks_per_second_);
+    return microseconds;
+  }
+
+ private:
+  // Get the number of microseconds since boot in an unreliable fashion.
+  int64 UnreliableNow() {
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    return QPCValueToMicroseconds(now.QuadPart);
+  }
+
+  // Get the number of microseconds since boot in a reliable fashion.
+  int64 ReliableNow() {
+    return RolloverProtectedNow().InMicroseconds();
+  }
+
+  int64 ticks_per_second_;  // 0 indicates QPF failed and we're broken.
+  int64 skew_;  // Skew between lo-res and hi-res clocks (for debugging).
+};
+
+static base::LazyInstance<HighResNowSingleton>::Leaky
+    leaky_high_res_now_singleton = LAZY_INSTANCE_INITIALIZER;
+
+HighResNowSingleton* GetHighResNowSingleton() {
+  return leaky_high_res_now_singleton.Pointer();
 }
 
-TimeTicks QPCNow() {
-  LARGE_INTEGER now;
-  QueryPerformanceCounter(&now);
-  return TimeTicks() + QPCValueToTimeDelta(now.QuadPart);
+TimeDelta HighResNowWrapper() {
+  return GetHighResNowSingleton()->Now();
 }
 
-bool IsBuggyAthlon(const base::CPU& cpu) {
-  // On Athlon X2 CPUs (e.g. model 15) QueryPerformanceCounter is unreliable.
-  return cpu.vendor_name() == "AuthenticAMD" && cpu.family() == 15;
-}
+typedef TimeDelta (*NowFunction)(void);
 
-void InitializeNowFunctionPointers() {
-  LARGE_INTEGER ticks_per_sec = {0};
-  if (!QueryPerformanceFrequency(&ticks_per_sec))
-    ticks_per_sec.QuadPart = 0;
-
-  // If Windows cannot provide a QPC implementation, both Now() and
-  // NowFromSystemTraceTime() must use the low-resolution clock.
-  //
-  // If the QPC implementation is expensive and/or unreliable, Now() will use
-  // the low-resolution clock, but NowFromSystemTraceTime() will use the QPC (in
-  // the hope that it is still useful for tracing purposes). A CPU lacking a
-  // non-stop time counter will cause Windows to provide an alternate QPC
-  // implementation that works, but is expensive to use. Certain Athlon CPUs are
-  // known to make the QPC implementation unreliable.
-  //
-  // Otherwise, both Now functions can use the high-resolution QPC clock. As of
-  // 4 January 2015, ~68% of users fall within this category.
-  NowFunction now_function;
-  NowFunction system_trace_now_function;
+bool CPUReliablySupportsHighResTime() {
   base::CPU cpu;
-  if (ticks_per_sec.QuadPart <= 0) {
-    now_function = system_trace_now_function = &RolloverProtectedNow;
-  } else if (!cpu.has_non_stop_time_stamp_counter() || IsBuggyAthlon(cpu)) {
-    now_function = &RolloverProtectedNow;
-    system_trace_now_function = &QPCNow;
-  } else {
-    now_function = system_trace_now_function = &QPCNow;
+  if (!cpu.has_non_stop_time_stamp_counter() ||
+      !GetHighResNowSingleton()->IsUsingHighResClock())
+    return false;
+
+  if (IsBuggyAthlon(cpu))
+    return false;
+
+  return true;
+}
+
+TimeDelta InitialNowFunction();
+
+volatile NowFunction now_function = InitialNowFunction;
+
+TimeDelta InitialNowFunction() {
+  if (!CPUReliablySupportsHighResTime()) {
+    InterlockedExchangePointer(
+        reinterpret_cast<void* volatile*>(&now_function),
+        &RolloverProtectedNow);
+    return RolloverProtectedNow();
   }
-
-  // Threading note 1: In an unlikely race condition, it's possible for two or
-  // more threads to enter InitializeNowFunctionPointers() in parallel. This is
-  // not a problem since all threads should end up writing out the same values
-  // to the global variables.
-  //
-  // Threading note 2: A release fence is placed here to ensure, from the
-  // perspective of other threads using the function pointers, that the
-  // assignment to |g_qpc_ticks_per_second| happens before the function pointers
-  // are changed.
-  g_qpc_ticks_per_second = ticks_per_sec.QuadPart;
-  ATOMIC_THREAD_FENCE(memory_order_release);
-  g_now_function = now_function;
-  g_system_trace_now_function = system_trace_now_function;
-}
-
-TimeTicks InitialNowFunction() {
-  InitializeNowFunctionPointers();
-  return g_now_function();
-}
-
-TimeTicks InitialSystemTraceNowFunction() {
-  InitializeNowFunctionPointers();
-  return g_system_trace_now_function();
+  InterlockedExchangePointer(
+        reinterpret_cast<void* volatile*>(&now_function),
+        &HighResNowWrapper);
+  return HighResNowWrapper();
 }
 
 }  // namespace
@@ -483,24 +491,27 @@ TimeTicks InitialSystemTraceNowFunction() {
 // static
 TimeTicks::TickFunctionType TimeTicks::SetMockTickFunction(
     TickFunctionType ticker) {
-  base::AutoLock locked(g_rollover_lock);
-  TickFunctionType old = g_tick_function;
-  g_tick_function = ticker;
-  g_rollover_ms = 0;
-  g_last_seen_now = 0;
+  base::AutoLock locked(rollover_lock);
+  TickFunctionType old = tick_function;
+  tick_function = ticker;
+  rollover_ms = 0;
+  last_seen_now = 0;
   return old;
 }
 
 // static
 TimeTicks TimeTicks::Now() {
-  return g_now_function();
+  return TimeTicks() + now_function();
 }
 
 // static
-bool TimeTicks::IsHighResolution() {
-  if (g_now_function == &InitialNowFunction)
-    InitializeNowFunctionPointers();
-  return g_now_function == &QPCNow;
+TimeTicks TimeTicks::HighResNow() {
+  return TimeTicks() + HighResNowWrapper();
+}
+
+// static
+bool TimeTicks::IsHighResNowFastAndReliable() {
+  return CPUReliablySupportsHighResTime();
 }
 
 // static
@@ -511,17 +522,27 @@ TimeTicks TimeTicks::ThreadNow() {
 
 // static
 TimeTicks TimeTicks::NowFromSystemTraceTime() {
-  return g_system_trace_now_function();
+  return HighResNow();
+}
+
+// static
+int64 TimeTicks::GetQPCDriftMicroseconds() {
+  return GetHighResNowSingleton()->GetQPCDriftMicroseconds();
 }
 
 // static
 TimeTicks TimeTicks::FromQPCValue(LONGLONG qpc_value) {
-  return TimeTicks() + QPCValueToTimeDelta(qpc_value);
+  return TimeTicks(GetHighResNowSingleton()->QPCValueToMicroseconds(qpc_value));
+}
+
+// static
+bool TimeTicks::IsHighResClockWorking() {
+  return GetHighResNowSingleton()->IsUsingHighResClock();
 }
 
 // TimeDelta ------------------------------------------------------------------
 
 // static
 TimeDelta TimeDelta::FromQPCValue(LONGLONG qpc_value) {
-  return QPCValueToTimeDelta(qpc_value);
+  return TimeDelta(GetHighResNowSingleton()->QPCValueToMicroseconds(qpc_value));
 }

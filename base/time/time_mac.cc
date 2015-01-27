@@ -219,7 +219,12 @@ TimeTicks TimeTicks::Now() {
 }
 
 // static
-bool TimeTicks::IsHighResolution() {
+TimeTicks TimeTicks::HighResNow() {
+  return Now();
+}
+
+// static
+bool TimeTicks::IsHighResNowFastAndReliable() {
   return true;
 }
 
