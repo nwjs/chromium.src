@@ -300,6 +300,12 @@ class ExtensionServiceObserverBridge
 - (void)dealloc {
   if (toolbarModel_)
     toolbarModel_->RemoveObserver(observer_.get());
+  for (BrowserActionButton* button in [buttons_ allValues]) {
+    [button removeFromSuperview];
+    [button onRemoved];
+  }
+  [hiddenButtons_ removeAllObjects];
+  [buttons_ removeAllObjects];
 
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   [super dealloc];
@@ -485,6 +491,7 @@ class ExtensionServiceObserverBridge
   BrowserActionButton* button = [buttons_ objectForKey:buttonKey];
 
   [button removeFromSuperview];
+  [button onRemoved];
   // It may or may not be hidden, but it won't matter to NSMutableArray either
   // way.
   [hiddenButtons_ removeObject:button];

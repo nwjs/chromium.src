@@ -275,6 +275,14 @@ void ToolbarActionViewDelegateBridge::SetContextMenuController(
   [self setNeedsDisplay:YES];
 }
 
+- (void)onRemoved {
+  // The button is being removed from the toolbar, and the backing controller
+  // will also be removed. Destroy the delegate.
+  // We only need to do this because in Cocoa's memory management, removing the
+  // button from the toolbar doesn't synchronously dealloc it.
+  viewControllerDelegate_.reset();
+}
+
 - (BOOL)isAnimating {
   return [moveAnimation_ isAnimating];
 }

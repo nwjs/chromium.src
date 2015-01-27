@@ -56,6 +56,9 @@ extern NSString* const kBrowserActionButtonDragEndNotification;
 
 - (void)setFrame:(NSRect)frameRect animate:(BOOL)animate;
 
+// Called when the button is removed from the toolbar and will soon be deleted.
+- (void)onRemoved;
+
 - (void)updateState;
 
 - (BOOL)isAnimating;
