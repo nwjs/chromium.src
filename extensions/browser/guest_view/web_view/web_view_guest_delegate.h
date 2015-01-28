@@ -56,6 +56,11 @@ class WebViewGuestDelegate {
   virtual void OnShowContextMenu(
       int request_id,
       const MenuItemVector* items) = 0;
+
+  // Called after the guest has been attached to an embedder and
+  // suspended resource loads have been resumed.
+
+  virtual void OnDidAttachToEmbedder() = 0;
 };
 
 }  // namespace extensions

@@ -324,7 +324,6 @@ void WebViewGuest::DidAttachToEmbedder() {
 
   //NWJS: we need to do this earlier than NavigateGuest to setup the
   //child process permissions
-
   if (web_view_guest_delegate_)
     web_view_guest_delegate_->OnDidAttachToEmbedder();
 

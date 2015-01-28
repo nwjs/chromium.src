@@ -11,8 +11,8 @@
 
 JavaScriptAppModalDialogViewsX11::JavaScriptAppModalDialogViewsX11(
     app_modal::JavaScriptAppModalDialog* parent)
-    : app_modal::JavaScriptAppModalDialogViews(parent),
-      helper_(new AppModalDialogHelper(parent->web_contents())) {
+  : app_modal::JavaScriptAppModalDialogViews(parent) {
+  //      helper_(new AppModalDialogHelper(parent->web_contents())) {
 }
 
 JavaScriptAppModalDialogViewsX11::~JavaScriptAppModalDialogViewsX11() {

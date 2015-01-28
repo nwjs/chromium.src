@@ -1249,7 +1249,7 @@ void RendererBlinkPlatformImpl::getCmdArg(int* argc, char*** argv, std::string& 
   *argv = g_argv;
   std::string node_main;
 
-  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   // Check if there is a 'node-main'.
   if (command_line->HasSwitch("node-main")) {
     (*argc)++;

@@ -219,7 +219,7 @@ class PrintWebViewHelper
 
   // Get final print settings from the user.
   // Return false if the user cancels or on error.
-  bool GetPrintSettingsFromUser(blink::WebFrame* frame,
+  bool GetPrintSettingsFromUser(blink::WebLocalFrame* frame,
                                 const blink::WebNode& node,
                                 int expected_pages_count,
                                 bool is_scripted);
