@@ -48,7 +48,7 @@ class SelectFileDialogImpl : public ui::SelectFileDialog {
 
   // SelectFileDialog implementation.
   // |params| is user data we pass back via the Listener interface.
-  virtual void SelectFileImpl(
+  void SelectFileImpl(
       Type type,
       const base::string16& title,
       const base::FilePath& default_path,
@@ -57,7 +57,7 @@ class SelectFileDialogImpl : public ui::SelectFileDialog {
       const base::FilePath::StringType& default_extension,
       gfx::NativeWindow owning_window,
       void* params,
-      const base::FilePath& working_dir) = 0;
+      const base::FilePath& working_dir) override = 0;
 
   // Wrapper for base::DirectoryExists() that allow access on the UI
   // thread. Use this only in the file dialog functions, where it's ok
