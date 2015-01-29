@@ -78,8 +78,9 @@ std::string GetExtensionID(RenderViewHost* render_view_host) {
   const GURL& site_url = site_instance->GetSiteURL();
 
   if (!site_url.SchemeIs(kExtensionScheme) &&
-      !site_url.SchemeIs(content::kGuestScheme))
-    return std::string();
+      !site_url.SchemeIs(content::kGuestScheme)) {
+      return std::string();
+  }
 
   return site_url.host();
 }
@@ -398,8 +399,17 @@ const Extension* ProcessManager::GetExtensionForRenderViewHost(
   if (!render_view_host->GetSiteInstance())
     return NULL;
 
-  return extension_registry_->enabled_extensions().GetByID(
-      GetExtensionID(render_view_host));
+  const Extension* extension = extension_registry_->enabled_extensions().GetByID(GetExtensionID(render_view_host));
+  if (!extension) {
+    content::SiteInstance* site_instance = render_view_host->GetSiteInstance();
+    if (!site_instance)
+      return nullptr;
+    const GURL& site_url = site_instance->GetSiteURL();
+    const ExtensionSet& enabled_extensions = extension_registry_->enabled_extensions();
+    std::string id = enabled_extensions.GetExtensionOrAppIDByURL(site_url);
+    extension = enabled_extensions.GetByID(id);
+  }
+  return extension;
 }
 
 void ProcessManager::AcquireLazyKeepaliveCountForView(
