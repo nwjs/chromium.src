@@ -414,7 +414,7 @@ class NativeBackendLibsecretTest : public testing::Test {
       target_form.signon_realm.append("Realm");
       target_form.scheme = scheme;
     }
-    std::vector<PasswordForm*> form_list;
+    ScopedVector<autofill::PasswordForm> form_list;
     backend.GetLogins(target_form, &form_list);
 
     EXPECT_EQ(1u, global_mock_libsecret_items.size());
@@ -428,7 +428,6 @@ class NativeBackendLibsecretTest : public testing::Test {
     EXPECT_EQ(1u, form_list.size());
     if (result)
       *result = *form_list[0];
-    STLDeleteElements(&form_list);
     return true;
   }
 
@@ -447,13 +446,13 @@ class NativeBackendLibsecretTest : public testing::Test {
     PasswordForm m_facebook_lookup;
     m_facebook_lookup.origin = kMobileURL;
     m_facebook_lookup.signon_realm = kMobileURL.spec();
-    std::vector<PasswordForm*> form_list;
+    ScopedVector<autofill::PasswordForm> form_list;
     backend.GetLogins(m_facebook_lookup, &form_list);
 
     EXPECT_EQ(1u, global_mock_libsecret_items.size());
     EXPECT_EQ(1u, form_list.size());
     PasswordForm m_facebook = *form_list[0];
-    STLDeleteElements(&form_list);
+    form_list.clear();
     EXPECT_EQ(kMobileURL, m_facebook.origin);
     EXPECT_EQ(kMobileURL.spec(), m_facebook.signon_realm);
 
@@ -490,7 +489,7 @@ class NativeBackendLibsecretTest : public testing::Test {
     EXPECT_EQ(kMobileURL, form_list[index_non_psl]->origin);
     EXPECT_EQ(kMobileURL.spec(), form_list[index_non_psl]->signon_realm);
     EXPECT_EQ(kOldPassword, form_list[index_non_psl]->password_value);
-    STLDeleteElements(&form_list);
+    form_list.clear();
 
     // Check that www.facebook.com login was modified by the update.
     backend.GetLogins(form_facebook_, &form_list);
@@ -503,7 +502,7 @@ class NativeBackendLibsecretTest : public testing::Test {
     EXPECT_EQ(form_facebook_.signon_realm,
               form_list[index_non_psl]->signon_realm);
     EXPECT_EQ(kNewPassword, form_list[index_non_psl]->password_value);
-    STLDeleteElements(&form_list);
+    form_list.clear();
   }
 
   // Checks various types of matching for forms with a non-HTML |scheme|.
@@ -604,12 +603,12 @@ TEST_F(NativeBackendLibsecretTest, BasicListLogins) {
 
   backend.AddLogin(form_google_);
 
-  std::vector<PasswordForm*> form_list;
+  ScopedVector<autofill::PasswordForm> form_list;
   backend.GetAutofillableLogins(&form_list);
 
   // Quick check that we got something back.
   EXPECT_EQ(1u, form_list.size());
-  STLDeleteElements(&form_list);
+  form_list.clear();
 
   EXPECT_EQ(1u, global_mock_libsecret_items.size());
   if (global_mock_libsecret_items.size() > 0)
@@ -735,12 +734,12 @@ TEST_F(NativeBackendLibsecretTest, RemoveNonexistentLogin) {
   backend.RemoveLogin(form_isc_);
 
   // Make sure we can still get the first form back.
-  std::vector<PasswordForm*> form_list;
+  ScopedVector<autofill::PasswordForm> form_list;
   backend.GetAutofillableLogins(&form_list);
 
   // Quick check that we got something back.
   EXPECT_EQ(1u, form_list.size());
-  STLDeleteElements(&form_list);
+  form_list.clear();
 
   EXPECT_EQ(1u, global_mock_libsecret_items.size());
   if (global_mock_libsecret_items.size() > 0)
@@ -801,13 +800,13 @@ TEST_F(NativeBackendLibsecretTest, ListLoginsAppends) {
   backend.AddLogin(form_google_);
 
   // Send the same request twice with the same list both times.
-  std::vector<PasswordForm*> form_list;
+  ScopedVector<autofill::PasswordForm> form_list;
   backend.GetAutofillableLogins(&form_list);
   backend.GetAutofillableLogins(&form_list);
 
   // Quick check that we got two results back.
   EXPECT_EQ(2u, form_list.size());
-  STLDeleteElements(&form_list);
+  form_list.clear();
 
   EXPECT_EQ(1u, global_mock_libsecret_items.size());
   if (global_mock_libsecret_items.size() > 0)

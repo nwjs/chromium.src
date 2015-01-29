@@ -683,8 +683,9 @@ LoginDatabase::EncryptionResult LoginDatabase::InitPasswordFormFromStatement(
   return ENCRYPTION_RESULT_SUCCESS;
 }
 
-bool LoginDatabase::GetLogins(const PasswordForm& form,
-                              std::vector<PasswordForm*>* forms) const {
+bool LoginDatabase::GetLogins(
+    const PasswordForm& form,
+    ScopedVector<autofill::PasswordForm>* forms) const {
   DCHECK(forms);
   // You *must* change LoginTableColumns if this query changes.
   const std::string sql_query =
@@ -781,7 +782,7 @@ bool LoginDatabase::GetLogins(const PasswordForm& form,
 bool LoginDatabase::GetLoginsCreatedBetween(
     const base::Time begin,
     const base::Time end,
-    std::vector<autofill::PasswordForm*>* forms) const {
+    ScopedVector<autofill::PasswordForm>* forms) const {
   DCHECK(forms);
   sql::Statement s(db_.GetCachedStatement(
       SQL_FROM_HERE,
@@ -814,7 +815,7 @@ bool LoginDatabase::GetLoginsCreatedBetween(
 bool LoginDatabase::GetLoginsSyncedBetween(
     const base::Time begin,
     const base::Time end,
-    std::vector<autofill::PasswordForm*>* forms) const {
+    ScopedVector<autofill::PasswordForm>* forms) const {
   DCHECK(forms);
   sql::Statement s(db_.GetCachedStatement(
       SQL_FROM_HERE,
@@ -845,18 +846,18 @@ bool LoginDatabase::GetLoginsSyncedBetween(
 }
 
 bool LoginDatabase::GetAutofillableLogins(
-    std::vector<PasswordForm*>* forms) const {
+    ScopedVector<autofill::PasswordForm>* forms) const {
   return GetAllLoginsWithBlacklistSetting(false, forms);
 }
 
 bool LoginDatabase::GetBlacklistLogins(
-    std::vector<PasswordForm*>* forms) const {
+    ScopedVector<autofill::PasswordForm>* forms) const {
   return GetAllLoginsWithBlacklistSetting(true, forms);
 }
 
 bool LoginDatabase::GetAllLoginsWithBlacklistSetting(
     bool blacklisted,
-    std::vector<PasswordForm*>* forms) const {
+    ScopedVector<autofill::PasswordForm>* forms) const {
   DCHECK(forms);
   // You *must* change LoginTableColumns if this query changes.
   sql::Statement s(db_.GetCachedStatement(
