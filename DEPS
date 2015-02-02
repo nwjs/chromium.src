@@ -109,8 +109,8 @@ allowed_hosts = [
 ]
 
 deps = {
-  'src/breakpad/src':
-   Var('chromium_git') + '/external/google-breakpad/src.git' + '@' + '3a09bb0766eba3ef1766a1617caf1bb5460de85e', # from svn revision 1409
+  #'src/breakpad/src':
+   #'https://github.com/nwjs/breakpad.git' + '@' + 'origin/nw12', # from svn revision 1409
 
   'src/buildtools':
    Var('chromium_git') + '/chromium/buildtools.git' + '@' +  Var('buildtools_revision'),
@@ -178,8 +178,8 @@ deps = {
   'src/tools/swarming_client':
    Var('chromium_git') + '/external/swarming.client.git' + '@' +  Var('swarming_revision'),
 
-  'src/v8':
-    Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
+  #'src/v8':
+    #Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src/native_client':
    Var('chromium_git') + '/native_client/src/native_client.git' + '@' + Var('nacl_revision'),
