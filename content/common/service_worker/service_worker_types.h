@@ -27,6 +27,11 @@ namespace content {
 // and embedded worker.
 static const int kInvalidServiceWorkerRequestId = -1;
 
+// Constants for error messages.
+extern const char kServiceWorkerRegisterErrorPrefix[];
+extern const char kServiceWorkerUnregisterErrorPrefix[];
+extern const char kServiceWorkerGetRegistrationErrorPrefix[];
+
 // Constants for invalid identifiers.
 static const int kInvalidServiceWorkerHandleId = -1;
 static const int kInvalidServiceWorkerRegistrationHandleId = -1;
