@@ -51,9 +51,8 @@ X11WholeScreenMoveLoop::X11WholeScreenMoveLoop(X11MoveLoopDelegate* delegate)
 X11WholeScreenMoveLoop::~X11WholeScreenMoveLoop() {}
 
 void X11WholeScreenMoveLoop::DispatchMouseMovement() {
-  if (!weak_factory_.HasWeakPtrs())
+  if (last_xmotion_.type == LASTEvent)
     return;
-  weak_factory_.InvalidateWeakPtrs();
   DCHECK_EQ(MotionNotify, last_xmotion_.type);
   delegate_->OnMouseMovement(&last_xmotion_);
   last_xmotion_.type = LASTEvent;
@@ -74,8 +73,9 @@ uint32_t X11WholeScreenMoveLoop::DispatchEvent(const ui::PlatformEvent& event) {
   XEvent* xev = event;
   switch (xev->type) {
     case MotionNotify: {
+      bool dispatch_mouse_event = (last_xmotion_.type == LASTEvent);
       last_xmotion_ = xev->xmotion;
-      if (!weak_factory_.HasWeakPtrs()) {
+      if (dispatch_mouse_event) {
         // Post a task to dispatch mouse movement event when control returns to
         // the message loop. This allows smoother dragging since the events are
         // dispatched without waiting for the drag widget updates.
@@ -189,6 +189,8 @@ bool X11WholeScreenMoveLoop::RunMoveLoop(aura::Window* source,
     should_reset_mouse_flags_ = true;
   }
 
+  base::WeakPtr<X11WholeScreenMoveLoop> alive(weak_factory_.GetWeakPtr());
+
   in_move_loop_ = true;
   canceled_ = false;
   base::MessageLoopForUI* loop = base::MessageLoopForUI::current();
@@ -196,6 +198,10 @@ bool X11WholeScreenMoveLoop::RunMoveLoop(aura::Window* source,
   base::RunLoop run_loop;
   quit_closure_ = run_loop.QuitClosure();
   run_loop.Run();
+
+  if (!alive)
+    return false;
+
   nested_dispatcher_ = old_dispatcher.Pass();
   return !canceled_;
 }
