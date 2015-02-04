@@ -31,6 +31,8 @@
 #include "base/win/pe_image.h"
 #include "base/win/registry.h"
 #include "base/win/win_util.h"
+#include "base/files/file_path.h"
+#include "base/path_service.h"
 #include "breakpad/src/client/windows/handler/exception_handler.h"
 #include "components/breakpad/app/breakpad_client.h"
 #include "components/breakpad/app/crash_keys_win.h"
@@ -547,8 +549,13 @@ void InitCrashReporter(const std::string& process_type_switch) {
 #endif
 
   // Get the alternate dump directory. We use the temp path.
-  wchar_t temp_dir[MAX_PATH] = {0};
-  ::GetTempPathW(MAX_PATH, temp_dir);
+  // wchar_t temp_dir[MAX_PATH] = {0};
+  // ::GetTempPathW(MAX_PATH, temp_dir);
+  base::FilePath tmp_path(L"");
+  PathService::Get(base::DIR_TEMP, &tmp_path);
+
+  base::FilePath dumps_path(tmp_path);
+  GetBreakpadClient()->GetCrashDumpLocation(&dumps_path);
 
   MINIDUMP_TYPE dump_type = kSmallDumpType;
   // Capture full memory if explicitly instructed to.
@@ -557,13 +564,13 @@ void InitCrashReporter(const std::string& process_type_switch) {
   else if (GetBreakpadClient()->GetShouldDumpLargerDumps(is_per_user_install))
     dump_type = kLargerDumpType;
 
-  g_breakpad = new google_breakpad::ExceptionHandler(temp_dir, &FilterCallback,
+  g_breakpad = new google_breakpad::ExceptionHandler(dumps_path.value(), &FilterCallback,
                    callback, NULL,
                    google_breakpad::ExceptionHandler::HANDLER_ALL,
                    dump_type, pipe_name.c_str(), custom_info);
 
   // Now initialize the non crash dump handler.
-  g_dumphandler_no_crash = new google_breakpad::ExceptionHandler(temp_dir,
+  g_dumphandler_no_crash = new google_breakpad::ExceptionHandler(dumps_path.value(),
       &FilterCallbackWhenNoCrash,
       &DumpDoneCallbackWhenNoCrash,
       NULL,
