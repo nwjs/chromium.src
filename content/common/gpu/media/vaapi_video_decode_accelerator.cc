@@ -15,7 +15,6 @@
 #include "media/base/bind_to_current_loop.h"
 #include "media/video/picture.h"
 #include "ui/gl/gl_bindings.h"
-#include "ui/gl/gl_image.h"
 
 static void ReportToUMA(
     content::VaapiH264Decoder::VAVDAH264DecoderFailure failure) {
@@ -73,9 +72,7 @@ VaapiPicture* VaapiVideoDecodeAccelerator::PictureById(
 }
 
 VaapiVideoDecodeAccelerator::VaapiVideoDecodeAccelerator(
-    const base::Callback<bool(void)>& make_context_current,
-    const base::Callback<void(uint32, uint32, scoped_refptr<gfx::GLImage>)>&
-        bind_image)
+    const base::Callback<bool(void)>& make_context_current)
     : make_context_current_(make_context_current),
       state_(kUninitialized),
       input_ready_(&lock_),
@@ -87,7 +84,6 @@ VaapiVideoDecodeAccelerator::VaapiVideoDecodeAccelerator(
       finish_flush_pending_(false),
       awaiting_va_surfaces_recycle_(false),
       requested_num_pics_(0),
-      bind_image_(bind_image),
       weak_this_factory_(this) {
   weak_this_ = weak_this_factory_.GetWeakPtr();
   va_surface_release_cb_ = media::BindToCurrentLoop(
@@ -190,9 +186,8 @@ void VaapiVideoDecodeAccelerator::OutputPicture(
   // TODO(posciak): Use visible size from decoder here instead
   // (crbug.com/402760).
   if (client_)
-    client_->PictureReady(media::Picture(output_id, input_id,
-                                         gfx::Rect(picture->size()),
-                                         picture->AllowOverlay()));
+    client_->PictureReady(
+        media::Picture(output_id, input_id, gfx::Rect(picture->size()), false));
 }
 
 void VaapiVideoDecodeAccelerator::TryOutputSurface() {
@@ -529,12 +524,6 @@ void VaapiVideoDecodeAccelerator::AssignPictureBuffers(
     linked_ptr<VaapiPicture> picture(VaapiPicture::CreatePicture(
         vaapi_wrapper_.get(), make_context_current_, buffers[i].id(),
         buffers[i].texture_id(), requested_pic_size_));
-
-    scoped_refptr<gfx::GLImage> image = picture->GetImageToBind();
-    if (image) {
-      bind_image_.Run(buffers[i].internal_texture_id(),
-                      VaapiPicture::GetGLTextureTarget(), image);
-    }
 
     RETURN_AND_NOTIFY_ON_FAILURE(
         picture.get(), "Failed assigning picture buffer to a texture.",

@@ -7,17 +7,9 @@
 namespace media {
 
 PictureBuffer::PictureBuffer(int32 id, gfx::Size size, uint32 texture_id)
-    : id_(id), size_(size), texture_id_(texture_id), internal_texture_id_(0) {
-}
-
-PictureBuffer::PictureBuffer(int32 id,
-                             gfx::Size size,
-                             uint32 texture_id,
-                             uint32 internal_texture_id)
     : id_(id),
       size_(size),
-      texture_id_(texture_id),
-      internal_texture_id_(internal_texture_id) {
+      texture_id_(texture_id) {
 }
 
 PictureBuffer::PictureBuffer(int32 id,
@@ -27,7 +19,6 @@ PictureBuffer::PictureBuffer(int32 id,
     : id_(id),
       size_(size),
       texture_id_(texture_id),
-      internal_texture_id_(0),
       texture_mailbox_(texture_mailbox) {
 }
 

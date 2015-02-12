@@ -13,7 +13,6 @@
 #include "ui/gfx/gpu_memory_buffer.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/ozone/gpu/ozone_gpu_export.h"
-#include "ui/ozone/public/native_pixmap.h"
 
 namespace gfx {
 class GLImage;
@@ -48,12 +47,6 @@ class OZONE_GPU_EXPORT GpuMemoryBufferFactoryOzoneNativeBuffer {
       gfx::GpuMemoryBuffer::Format format,
       unsigned internalformat,
       int client_id);
-
-  static scoped_refptr<gfx::GLImage> CreateImageForPixmap(
-      scoped_refptr<NativePixmap> pixmap,
-      const gfx::Size& size,
-      gfx::GpuMemoryBuffer::Format format,
-      unsigned internalformat);
 
  private:
   BufferToPixmapMap native_pixmap_map_;

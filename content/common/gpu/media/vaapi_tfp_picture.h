@@ -39,8 +39,6 @@ class VaapiTFPPicture : public VaapiPicture {
 
   bool DownloadFromSurface(const scoped_refptr<VASurface>& va_surface) override;
 
-  scoped_refptr<gfx::GLImage> GetImageToBind() override;
-
  private:
   VaapiWrapper* vaapi_wrapper_;  // Not owned.
 

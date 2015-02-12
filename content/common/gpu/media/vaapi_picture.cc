@@ -37,10 +37,6 @@ linked_ptr<VaapiPicture> VaapiPicture::CreatePicture(
   return picture;
 }
 
-bool VaapiPicture::AllowOverlay() const {
-  return false;
-}
-
 // static
 uint32 VaapiPicture::GetGLTextureTarget() {
 #if defined(USE_OZONE)
