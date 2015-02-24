@@ -891,14 +891,14 @@ void HWNDMessageHandler::SizeConstraintsChanged() {
     return;
 
   LONG exstyle = GetWindowLong(hwnd(), GWL_EXSTYLE);
-  // Windows cannot have WS_THICKFRAME set if WS_EX_COMPOSITED is set.
   // See CalculateWindowStylesFromInitParams().
   if (delegate_->CanResize() && (exstyle & WS_EX_COMPOSITED) == 0) {
     style |= WS_THICKFRAME | WS_MAXIMIZEBOX;
     if (!delegate_->CanMaximize())
       style &= ~WS_MAXIMIZEBOX;
   } else {
-    style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    if (!content::g_support_transparency)
+      style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
   }
   if (delegate_->CanMinimize()) {
     style |= WS_MINIMIZEBOX;
