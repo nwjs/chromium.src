@@ -109,8 +109,8 @@ allowed_hosts = [
 ]
 
 deps = {
-  #'src/breakpad/src':
-   #'https://github.com/nwjs/breakpad.git' + '@' + 'origin/nw12', # from svn revision 1409
+  'src/breakpad/src':
+   'https://github.com/nwjs/breakpad.git' + '@' + 'origin/nw12', # from svn revision 1409
 
   'src/buildtools':
    Var('chromium_git') + '/chromium/buildtools.git' + '@' +  Var('buildtools_revision'),
@@ -133,11 +133,10 @@ deps = {
   'src/third_party/trace-viewer':
    Var('chromium_git') + '/external/trace-viewer.git' + '@' + '2a348ed4cbdf27a8c9f0431d34ecbabf66182f08',
 
-  #'src/third_party/WebKit': 'https://github.com/rogerwang/blink.git@origin/nw12',
-   #Var('chromium_git') + '/chromium/blink.git' + '@' +  Var('webkit_revision'),
+  'src/third_party/WebKit': 'https://github.com/nwjs/blink.git@origin/nw12',
 
-  #'src/third_party/node': 'https://github.com/rogerwang/node.git@origin/nw12',
-  #'src/content/nw': 'https://github.com/rogerwang/node-webkit.git@origin/nw12',
+  'src/third_party/node': 'https://github.com/nwjs/node.git@origin/nw12',
+  'src/content/nw': 'https://github.com/nwjs/nw.js.git@origin/nw12',
 
   'src/third_party/icu':
    Var('chromium_git') + '/chromium/deps/icu.git' + '@' + '51c1a4ce5f362676aa1f1cfdb5b7e52edabfa5aa',
@@ -178,8 +177,7 @@ deps = {
   'src/tools/swarming_client':
    Var('chromium_git') + '/external/swarming.client.git' + '@' +  Var('swarming_revision'),
 
-  #'src/v8':
-    #Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
+  'src/v8': 'https://github.com/nwjs/v8.git@origin/nw12',
 
   'src/native_client':
    Var('chromium_git') + '/native_client/src/native_client.git' + '@' + Var('nacl_revision'),
