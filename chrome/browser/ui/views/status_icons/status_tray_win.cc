@@ -30,6 +30,7 @@ UINT ReservedIconId(StatusTray::StatusIconType type) {
   return kBaseIconId + static_cast<UINT>(type);
 }
 
+#if 0
 // See http://crbug.com/412384.
 void TraceSessionEnding(LPARAM lparam) {
   browser_watcher::ExitFunnel funnel;
@@ -54,6 +55,7 @@ void TraceSessionEnding(LPARAM lparam) {
   if (lparam & ~kKnownBits)
     funnel.RecordEvent(L"ES_Other");
 }
+#endif
 
 }  // namespace
 
@@ -229,11 +231,13 @@ LRESULT CALLBACK StatusTrayWin::WndProc(HWND hwnd,
       return TRUE;
     }
   } else if (message == WM_ENDSESSION) {
+#if 0
     // If Chrome is in background-only mode, this is the only notification
     // it gets that Windows is exiting. Make sure we shutdown in an orderly
     // fashion.
     TraceSessionEnding(lparam);
     chrome::SessionEnding();
+#endif
   }
   return ::DefWindowProc(hwnd, message, wparam, lparam);
 }
