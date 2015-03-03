@@ -16,15 +16,15 @@ namespace base {
 
 namespace {
 
-void wakeup_callback(uv_async_t* handle, int status) {
+void wakeup_callback(uv_async_t* handle) {
   // do nothing, just make libuv exit loop.
 }
 
-void idle_callback(uv_idle_t* handle, int status) {
+void idle_callback(uv_idle_t* handle) {
   // do nothing, just make libuv exit loop.
 }
 
-void timer_callback(uv_timer_t* timer, int status) {
+void timer_callback(uv_timer_t* timer) {
   // libuv would block unexpectedly with zero-timeout timer
   // this is a workaround of libuv bug #574:
   // https://github.com/joyent/libuv/issues/574
@@ -86,6 +86,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
       // or the tick callback is blocked in some cases
       if (node::g_env) {
         v8::HandleScope handleScope(isolate);
+        uv_run(loop, UV_RUN_NOWAIT);
         node::CallTickCallback(node::g_env, v8::Undefined(isolate));
       }
       continue;
@@ -98,6 +99,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
     if (did_work) {
       if (node::g_env) {
         v8::HandleScope handleScope(isolate);
+        uv_run(loop, UV_RUN_NOWAIT);
         node::CallTickCallback(node::g_env, v8::Undefined(isolate));
       }
       continue;
