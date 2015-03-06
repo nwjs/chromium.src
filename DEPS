@@ -136,7 +136,7 @@ deps = {
   'src/third_party/WebKit': 'https://github.com/nwjs/blink.git@origin/nw12',
 
   'src/third_party/node': 'https://github.com/nwjs/node.git@origin/nw12',
-  'src/content/nw': 'https://github.com/nwjs/nw.js.git@origin/nw12',
+  'src/content/nw': 'https://github.com/nwjs/nw.js.git@origin/master',
 
   'src/third_party/icu':
    Var('chromium_git') + '/chromium/deps/icu.git' + '@' + '51c1a4ce5f362676aa1f1cfdb5b7e52edabfa5aa',
