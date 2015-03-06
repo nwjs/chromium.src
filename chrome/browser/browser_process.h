@@ -34,7 +34,6 @@ class PrefRegistrySimple;
 class PrefService;
 class Profile;
 class ProfileManager;
-class PromoResourceService;
 class SafeBrowsingService;
 class StatusTray;
 class WatchDogThread;
@@ -122,7 +121,6 @@ class BrowserProcess {
   virtual PrefService* local_state() = 0;
   virtual net::URLRequestContextGetter* system_request_context() = 0;
   virtual chrome_variations::VariationsService* variations_service() = 0;
-  virtual PromoResourceService* promo_resource_service() = 0;
 
   virtual BrowserProcessPlatformPart* platform_part() = 0;
 
