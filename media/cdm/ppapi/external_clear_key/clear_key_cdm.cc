@@ -671,8 +671,7 @@ void ClearKeyCdm::LoadLoadableSession() {
 
 void ClearKeyCdm::OnSessionMessage(const std::string& web_session_id,
                                    MediaKeys::MessageType message_type,
-                                   const std::vector<uint8>& message,
-                                   const GURL& legacy_destination_url) {
+                                   const std::vector<uint8>& message) {
   DVLOG(1) << "OnSessionMessage: " << message.size();
 
   // Ignore the message when we are waiting to update the loadable session.
@@ -683,11 +682,13 @@ void ClearKeyCdm::OnSessionMessage(const std::string& web_session_id,
   // involved (OnSessionCreated() called to resolve the CreateSession()
   // promise).
   // TODO(jrummell): Pass |message_type| on when this class is updated
-  // to Host_7.
-  host_->OnSessionMessage(web_session_id.data(), web_session_id.length(),
+  // to Host_7. For now, pass NULL as the |destination_url| since we have
+  // no idea what it should be.
+  host_->OnSessionMessage(web_session_id.data(),
+                          web_session_id.length(),
                           reinterpret_cast<const char*>(message.data()),
-                          message.size(), legacy_destination_url.spec().data(),
-                          legacy_destination_url.spec().size());
+                          message.size(),
+                          nullptr, 0);
 }
 
 void ClearKeyCdm::OnSessionKeysChange(const std::string& web_session_id,

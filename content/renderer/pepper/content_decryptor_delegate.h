@@ -109,8 +109,7 @@ class ContentDecryptorDelegate {
                          PP_Var error_description);
   void OnSessionMessage(PP_Var web_session_id,
                         PP_CdmMessageType message_type,
-                        PP_Var message,
-                        PP_Var legacy_destination_url);
+                        PP_Var message);
   void OnSessionKeysChange(PP_Var web_session_id,
                            PP_Bool has_additional_usable_key,
                            uint32_t key_count,

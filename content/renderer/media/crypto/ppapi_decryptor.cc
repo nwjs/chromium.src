@@ -388,11 +388,9 @@ void PpapiDecryptor::OnDecoderInitialized(StreamType stream_type,
 
 void PpapiDecryptor::OnSessionMessage(const std::string& web_session_id,
                                       MessageType message_type,
-                                      const std::vector<uint8>& message,
-                                      const GURL& legacy_destination_url) {
+                                      const std::vector<uint8>& message) {
   DCHECK(render_loop_proxy_->BelongsToCurrentThread());
-  session_message_cb_.Run(web_session_id, message_type, message,
-                          legacy_destination_url);
+  session_message_cb_.Run(web_session_id, message_type, message);
 }
 
 void PpapiDecryptor::OnSessionKeysChange(const std::string& web_session_id,

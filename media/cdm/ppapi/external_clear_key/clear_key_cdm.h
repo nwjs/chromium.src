@@ -91,8 +91,7 @@ class ClearKeyCdm : public ClearKeyCdmInterface {
   // ContentDecryptionModule callbacks.
   void OnSessionMessage(const std::string& web_session_id,
                         MediaKeys::MessageType message_type,
-                        const std::vector<uint8>& message,
-                        const GURL& legacy_destination_url);
+                        const std::vector<uint8>& message);
   void OnSessionKeysChange(const std::string& web_session_id,
                            bool has_additional_usable_key,
                            CdmKeysInfo keys_info);

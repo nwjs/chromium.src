@@ -211,21 +211,24 @@ scoped_ptr<MediaKeys> ProxyDecryptor::CreateMediaKeys(
 
 void ProxyDecryptor::OnSessionMessage(const std::string& web_session_id,
                                       MediaKeys::MessageType message_type,
-                                      const std::vector<uint8>& message,
-                                      const GURL& legacy_destination_url) {
+                                      const std::vector<uint8>& message) {
   // Assumes that OnSessionCreated() has been called before this.
+
+  // EME v0.1b gets passed |destination_url| rather than |message_type|.
+  // Since we have no idea what the URL should be, return an empty one in all
+  // cases.
 
   // For ClearKey, convert the message from JSON into just passing the key
   // as the message. If unable to extract the key, return the message unchanged.
   if (is_clear_key_) {
     std::vector<uint8> key;
     if (ExtractFirstKeyIdFromLicenseRequest(message, &key)) {
-      key_message_cb_.Run(web_session_id, key, legacy_destination_url);
+      key_message_cb_.Run(web_session_id, key, GURL());
       return;
     }
   }
 
-  key_message_cb_.Run(web_session_id, message, legacy_destination_url);
+  key_message_cb_.Run(web_session_id, message, GURL());
 }
 
 void ProxyDecryptor::OnSessionKeysChange(const std::string& web_session_id,

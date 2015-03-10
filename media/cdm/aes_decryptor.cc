@@ -265,9 +265,7 @@ void AesDecryptor::CreateSessionAndGenerateRequest(
 
   promise->resolve(web_session_id);
 
-  // No URL needed for license requests.
-  session_message_cb_.Run(web_session_id, LICENSE_REQUEST, message,
-                          GURL::EmptyGURL());
+  session_message_cb_.Run(web_session_id, LICENSE_REQUEST, message);
 }
 
 void AesDecryptor::LoadSession(SessionType session_type,

@@ -148,8 +148,7 @@ class FakeEncryptedMedia {
 
     virtual void OnSessionMessage(const std::string& web_session_id,
                                   MediaKeys::MessageType message_type,
-                                  const std::vector<uint8>& message,
-                                  const GURL& legacy_destination_url) = 0;
+                                  const std::vector<uint8>& message) = 0;
 
     virtual void OnSessionClosed(const std::string& web_session_id) = 0;
 
@@ -185,10 +184,8 @@ class FakeEncryptedMedia {
   // Callbacks for firing session events. Delegate to |app_|.
   void OnSessionMessage(const std::string& web_session_id,
                         MediaKeys::MessageType message_type,
-                        const std::vector<uint8>& message,
-                        const GURL& legacy_destination_url) {
-    app_->OnSessionMessage(web_session_id, message_type, message,
-                           legacy_destination_url);
+                        const std::vector<uint8>& message) {
+    app_->OnSessionMessage(web_session_id, message_type, message);
   }
 
   void OnSessionClosed(const std::string& web_session_id) {
@@ -283,8 +280,7 @@ class KeyProvidingApp : public FakeEncryptedMedia::AppBase {
 
   void OnSessionMessage(const std::string& web_session_id,
                         MediaKeys::MessageType message_type,
-                        const std::vector<uint8>& message,
-                        const GURL& legacy_destination_url) override {
+                        const std::vector<uint8>& message) override {
     EXPECT_FALSE(web_session_id.empty());
     EXPECT_FALSE(message.empty());
     EXPECT_EQ(current_session_id_, web_session_id);
@@ -410,8 +406,7 @@ class NoResponseApp : public FakeEncryptedMedia::AppBase {
  public:
   void OnSessionMessage(const std::string& web_session_id,
                         MediaKeys::MessageType message_type,
-                        const std::vector<uint8>& message,
-                        const GURL& legacy_destination_url) override {
+                        const std::vector<uint8>& message) override {
     EXPECT_FALSE(web_session_id.empty());
     EXPECT_FALSE(message.empty());
     FAIL() << "Unexpected Message";
