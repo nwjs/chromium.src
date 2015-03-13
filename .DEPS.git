@@ -16,7 +16,7 @@ vars = {
 
 deps = {
     'src/breakpad/src':
-        'https://github.com/rogerwang/breakpad.git@origin/nw',
+        'https://github.com/rogerwang/breakpad.git@origin/nw11',
     'src/buildtools':
         Var('git_url') + '/chromium/buildtools.git@48edf30c463fc41fb9fb0926f8466b473cb177fa',
     'src/chrome/browser/resources/pdf/html_office':
@@ -156,9 +156,9 @@ deps = {
     'src/tools/swarming_client':
         Var('git_url') + '/external/swarming.client.git@bbf1fcca7932d92cca9d7dab46ea271a7f6d61fb',
     'src/v8':
-        'https://github.com/rogerwang/v8.git@origin/nw',
+        'https://github.com/rogerwang/v8.git@origin/nw11',
     'src/third_party/node':
-        'https://github.com/rogerwang/node.git@origin/nw',
+        'https://github.com/rogerwang/node.git@origin/custom',
     'src/content/nw':
         'https://github.com/rogerwang/node-webkit.git@origin/custom',
 }
