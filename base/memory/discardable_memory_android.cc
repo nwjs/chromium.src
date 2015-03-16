@@ -23,7 +23,7 @@ const char kAshmemAllocatorName[] = "DiscardableMemoryAshmemAllocator";
 
 // For Ashmem, have the DiscardableMemoryManager trigger userspace eviction
 // when address space usage gets too high (e.g. 512 MBytes).
-const size_t kAshmemMemoryLimit = 512 * 1024 * 1024;
+const int64 kAshmemMemoryLimit = 512 * 1024 * 1024;
 
 size_t GetAshmemMemoryLimit() {
   // Allow 25% of physical memory to be used for discardable memory.
