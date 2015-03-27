@@ -310,6 +310,7 @@ void SelectFileDialogImpl::SelectFileImpl(
       [open_dialog setCanChooseDirectories:NO];
     }
 
+    [open_dialog setResolvesAliases:NO];
     [open_dialog setDelegate:bridge_.get()];
     [open_dialog setAllowedFileTypes:allowed_file_types];
   }
