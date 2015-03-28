@@ -84,7 +84,7 @@ class CONTENT_EXPORT ChildProcessHostImpl : public ChildProcessHost,
                                  uint32 height,
                                  gfx::GpuMemoryBuffer::Format format,
                                  gfx::GpuMemoryBuffer::Usage usage,
-                                 gfx::GpuMemoryBufferHandle* handle);
+                                 IPC::Message* reply);
   void OnDeletedGpuMemoryBuffer(gfx::GpuMemoryBufferId id,
                                 uint32 sync_point);
 
