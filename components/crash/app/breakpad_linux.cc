@@ -224,7 +224,7 @@ const char g_dump_msg[] = "upload_file_minidump\"; filename=\"dump\"";
 #if defined(ADDRESS_SANITIZER)
 const char g_log_msg[] = "upload_file_log\"; filename=\"log\"";
 #endif
-const char g_content_type_msg[] = "Content-Type: application/octet-stream";
+//const char g_content_type_msg[] = "Content-Type: application/octet-stream";
 
 // MimeWriter manages an iovec for writing MIMEs to a file.
 class MimeWriter {
@@ -368,14 +368,18 @@ void MimeWriter::AddPairDataInChunks(const char* msg_type,
 
 void MimeWriter::AddFileContents(const char* filename_msg, uint8_t* file_data,
                                  size_t file_size) {
+#if 0
   AddString(g_form_data_msg);
   AddString(filename_msg);
   AddString(g_rn);
   AddString(g_content_type_msg);
   AddString(g_rn);
   AddString(g_rn);
+#endif
   AddItem(file_data, file_size);
+#if 0
   AddString(g_rn);
+#endif
 }
 
 void MimeWriter::AddItem(const void* base, size_t size) {
@@ -1394,6 +1398,7 @@ void HandleCrashDump(const BreakpadInfo& info) {
 #else
   MimeWriter writer(temp_file_fd, mime_boundary);
 #endif
+#if 0
   {
     const char* product_name = "";
     const char* version = "";
@@ -1498,7 +1503,7 @@ void HandleCrashDump(const BreakpadInfo& info) {
       writer.Flush();
     }
   }
-
+#endif //does not write headers
   writer.AddFileContents(g_dump_msg, dump_data, dump_size);
 #if defined(ADDRESS_SANITIZER)
   // Append a multipart boundary and the contents of the AddressSanitizer log.
