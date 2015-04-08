@@ -51,9 +51,8 @@ class GFX_EXPORT GpuMemoryBuffer {
     RGBA_8888,
     RGBX_8888,
     BGRA_8888,
-    YUV_420,
 
-    FORMAT_LAST = YUV_420
+    FORMAT_LAST = BGRA_8888
   };
 
   // The usage mode affects how a buffer can be used. Only buffers created with

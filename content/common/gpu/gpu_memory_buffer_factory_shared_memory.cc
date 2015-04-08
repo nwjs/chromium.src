@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "content/common/gpu/client/gpu_memory_buffer_impl_shared_memory.h"
+#include "content/common/gpu/client/gpu_memory_buffer_impl.h"
 #include "ui/gl/gl_image.h"
 #include "ui/gl/gl_image_shared_memory.h"
 
@@ -24,8 +24,7 @@ void GpuMemoryBufferFactorySharedMemory::
         std::vector<Configuration>* configurations) {
   const Configuration supported_configurations[] = {
     { gfx::GpuMemoryBuffer::RGBA_8888, gfx::GpuMemoryBuffer::MAP },
-    { gfx::GpuMemoryBuffer::BGRA_8888, gfx::GpuMemoryBuffer::MAP },
-    { gfx::GpuMemoryBuffer::YUV_420, gfx::GpuMemoryBuffer::MAP }
+    { gfx::GpuMemoryBuffer::BGRA_8888, gfx::GpuMemoryBuffer::MAP }
   };
   configurations->assign(
       supported_configurations,
@@ -40,13 +39,19 @@ GpuMemoryBufferFactorySharedMemory::CreateGpuMemoryBuffer(
     gfx::GpuMemoryBuffer::Usage usage,
     int client_id,
     gfx::PluginWindowHandle surface_handle) {
-  size_t buffer_size = 0u;
-  if (!GpuMemoryBufferImplSharedMemory::BufferSizeInBytes(size, format,
-                                                          &buffer_size))
+  base::SharedMemory shared_memory;
+
+  size_t stride_in_bytes = 0;
+  if (!GpuMemoryBufferImpl::StrideInBytes(
+          size.width(), format, &stride_in_bytes))
     return gfx::GpuMemoryBufferHandle();
 
-  base::SharedMemory shared_memory;
-  if (!shared_memory.CreateAnonymous(buffer_size))
+  base::CheckedNumeric<size_t> size_in_bytes = stride_in_bytes;
+  size_in_bytes *= size.height();
+  if (!size_in_bytes.IsValid())
+    return gfx::GpuMemoryBufferHandle();
+
+  if (!shared_memory.CreateAnonymous(size_in_bytes.ValueOrDie()))
     return gfx::GpuMemoryBufferHandle();
 
   gfx::GpuMemoryBufferHandle handle;

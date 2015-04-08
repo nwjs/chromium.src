@@ -38,7 +38,6 @@ bool ValidFormat(gfx::GpuMemoryBuffer::Format format) {
     case gfx::GpuMemoryBuffer::BGRA_8888:
       return true;
     case gfx::GpuMemoryBuffer::RGBX_8888:
-    case gfx::GpuMemoryBuffer::YUV_420:
       return false;
   }
 
@@ -53,7 +52,6 @@ bool IsCompressedFormat(gfx::GpuMemoryBuffer::Format format) {
     case gfx::GpuMemoryBuffer::DXT1:
     case gfx::GpuMemoryBuffer::DXT5:
     case gfx::GpuMemoryBuffer::ETC1:
-    case gfx::GpuMemoryBuffer::YUV_420:
       return true;
     case gfx::GpuMemoryBuffer::RGBA_8888:
     case gfx::GpuMemoryBuffer::BGRA_8888:
@@ -82,7 +80,6 @@ GLenum TextureFormat(gfx::GpuMemoryBuffer::Format format) {
     case gfx::GpuMemoryBuffer::BGRA_8888:
       return GL_BGRA_EXT;
     case gfx::GpuMemoryBuffer::RGBX_8888:
-    case gfx::GpuMemoryBuffer::YUV_420:
       NOTREACHED();
       return 0;
   }
@@ -106,7 +103,6 @@ GLenum DataType(gfx::GpuMemoryBuffer::Format format) {
     case gfx::GpuMemoryBuffer::DXT5:
     case gfx::GpuMemoryBuffer::ETC1:
     case gfx::GpuMemoryBuffer::RGBX_8888:
-    case gfx::GpuMemoryBuffer::YUV_420:
       NOTREACHED();
       return 0;
   }
@@ -157,6 +153,10 @@ bool GLImageMemory::StrideInBytes(size_t width,
                                   size_t* stride_in_bytes) {
   base::CheckedNumeric<size_t> s = width;
   switch (format) {
+    case gfx::GpuMemoryBuffer::ATCIA:
+    case gfx::GpuMemoryBuffer::DXT5:
+      *stride_in_bytes = width;
+      return true;
     case gfx::GpuMemoryBuffer::ATC:
     case gfx::GpuMemoryBuffer::DXT1:
     case gfx::GpuMemoryBuffer::ETC1:
@@ -164,21 +164,18 @@ bool GLImageMemory::StrideInBytes(size_t width,
       s /= 2;
       if (!s.IsValid())
         return false;
+
       *stride_in_bytes = s.ValueOrDie();
-      return true;
-    case gfx::GpuMemoryBuffer::ATCIA:
-    case gfx::GpuMemoryBuffer::DXT5:
-      *stride_in_bytes = width;
       return true;
     case gfx::GpuMemoryBuffer::RGBA_8888:
     case gfx::GpuMemoryBuffer::BGRA_8888:
       s *= 4;
       if (!s.IsValid())
         return false;
+
       *stride_in_bytes = s.ValueOrDie();
       return true;
     case gfx::GpuMemoryBuffer::RGBX_8888:
-    case gfx::GpuMemoryBuffer::YUV_420:
       NOTREACHED();
       return false;
   }

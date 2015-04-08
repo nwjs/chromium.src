@@ -39,7 +39,6 @@ bool ValidFormat(unsigned internalformat, gfx::GpuMemoryBuffer::Format format) {
         case gfx::GpuMemoryBuffer::ETC1:
         case gfx::GpuMemoryBuffer::RGBA_8888:
         case gfx::GpuMemoryBuffer::BGRA_8888:
-        case gfx::GpuMemoryBuffer::YUV_420:
           return false;
       }
       NOTREACHED();
@@ -55,7 +54,6 @@ bool ValidFormat(unsigned internalformat, gfx::GpuMemoryBuffer::Format format) {
         case gfx::GpuMemoryBuffer::ETC1:
         case gfx::GpuMemoryBuffer::RGBX_8888:
         case gfx::GpuMemoryBuffer::RGBA_8888:
-        case gfx::GpuMemoryBuffer::YUV_420:
           return false;
       }
       NOTREACHED();
@@ -77,7 +75,6 @@ EGLint FourCC(gfx::GpuMemoryBuffer::Format format) {
     case gfx::GpuMemoryBuffer::DXT5:
     case gfx::GpuMemoryBuffer::ETC1:
     case gfx::GpuMemoryBuffer::RGBA_8888:
-    case gfx::GpuMemoryBuffer::YUV_420:
       NOTREACHED();
       return 0;
   }

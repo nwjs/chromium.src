@@ -77,86 +77,57 @@ GpuMemoryBufferImpl* GpuMemoryBufferImpl::FromClientBuffer(
 }
 
 // static
-size_t GpuMemoryBufferImpl::NumberOfPlanesForGpuMemoryBufferFormat(
-    Format format) {
-  switch (format) {
-    case ATC:
-    case ATCIA:
-    case DXT1:
-    case DXT5:
-    case ETC1:
-    case RGBA_8888:
-    case RGBX_8888:
-    case BGRA_8888:
-      return 1;
-    case YUV_420:
-      return 3;
-  }
-  NOTREACHED();
-  return 0;
-}
-
-// static
 bool GpuMemoryBufferImpl::StrideInBytes(size_t width,
                                         Format format,
-                                        int plane,
                                         size_t* stride_in_bytes) {
+  base::CheckedNumeric<size_t> s = width;
   switch (format) {
     case ATCIA:
     case DXT5:
-      DCHECK_EQ(plane, 0);
       *stride_in_bytes = width;
       return true;
     case ATC:
     case DXT1:
     case ETC1:
-      DCHECK_EQ(plane, 0);
       DCHECK_EQ(width % 2, 0U);
-      *stride_in_bytes = width / 2;
+      s /= 2;
+      if (!s.IsValid())
+        return false;
+
+      *stride_in_bytes = s.ValueOrDie();
       return true;
     case RGBA_8888:
     case RGBX_8888:
-    case BGRA_8888: {
-      base::CheckedNumeric<size_t> s = width;
-      DCHECK_EQ(plane, 0);
+    case BGRA_8888:
       s *= 4;
       if (!s.IsValid())
         return false;
+
       *stride_in_bytes = s.ValueOrDie();
       return true;
-    }
-    case YUV_420: {
-      DCHECK_EQ(width % 2, 0u);
-      *stride_in_bytes = width / SubsamplingFactor(format, plane);
-      return true;
-    }
   }
+
   NOTREACHED();
   return false;
 }
 
 // static
-size_t GpuMemoryBufferImpl::SubsamplingFactor(
-    Format format,
-    int plane) {
+size_t GpuMemoryBufferImpl::NumberOfPlanesForGpuMemoryBufferFormat(
+    gfx::GpuMemoryBuffer::Format format) {
   switch (format) {
-    case ATC:
-    case ATCIA:
-    case DXT1:
-    case DXT5:
-    case ETC1:
-    case RGBA_8888:
-    case RGBX_8888:
-    case BGRA_8888:
+    case gfx::GpuMemoryBuffer::Format::ATC:
+    case gfx::GpuMemoryBuffer::Format::ATCIA:
+    case gfx::GpuMemoryBuffer::Format::DXT1:
+    case gfx::GpuMemoryBuffer::Format::DXT5:
+    case gfx::GpuMemoryBuffer::Format::ETC1:
+    case gfx::GpuMemoryBuffer::Format::RGBA_8888:
+    case gfx::GpuMemoryBuffer::Format::RGBX_8888:
+    case gfx::GpuMemoryBuffer::Format::BGRA_8888:
       return 1;
-    case YUV_420: {
-      static size_t factor[] = {1, 2, 2};
-      DCHECK_LT(static_cast<size_t>(plane), arraysize(factor));
-      return factor[plane];
-    }
+    default:
+      NOTREACHED();
+      return 0;
   }
-  NOTREACHED();
-  return 0;
 }
 
 gfx::GpuMemoryBuffer::Format GpuMemoryBufferImpl::GetFormat() const {
