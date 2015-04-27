@@ -224,6 +224,26 @@ void InitCrashReporter(const std::string& process_type) {
 
   base::FilePath dir_crash_dumps;
   GetCrashReporterClient()->GetCrashDumpLocation(&dir_crash_dumps);
+  if (dir_crash_dumps.empty()) {
+    NSArray *libraryDirectories =
+      NSSearchPathForDirectoriesInDomains(NSLibraryDirectory,
+                                          NSUserDomainMask,
+                                          YES);
+
+    NSString *applicationSupportDirectory =
+        [libraryDirectories objectAtIndex:0];
+    NSString *library_subdirectory = [NSString
+        stringWithUTF8String:kDefaultLibrarySubdirectory];
+
+    NSArray *path_components = [NSArray
+        arrayWithObjects:applicationSupportDirectory,
+                         library_subdirectory,
+                         nil];
+
+    NSString* minidumpDir = [NSString pathWithComponents:path_components];
+    dir_crash_dumps = base::mac::NSStringToFilePath(minidumpDir);
+  }
+  VLOG(1) << "crash dump dir: " << dir_crash_dumps.value();
   [breakpad_config setObject:base::SysUTF8ToNSString(dir_crash_dumps.value())
                       forKey:@BREAKPAD_DUMP_DIRECTORY];
 
