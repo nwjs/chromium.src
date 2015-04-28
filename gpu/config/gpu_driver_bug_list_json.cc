@@ -19,7 +19,7 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
 {
   "name": "gpu driver bug list",
   // Please update the version number whenever you change this file.
-  "version": "7.18",
+  "version": "7.18.1.42",
   "entries": [
     {
       "id": 1,
@@ -1188,6 +1188,28 @@ LONG_STRING_CONST(
       "gl_renderer": ".*420",
       "features": [
         "disable_fbo_invalidations"
+      ]
+    },
+    {
+      "id": 104,
+      "description": "Disable android webview gpu thread on PowerVR G6xxx",
+      "cr_bugs": [480992],
+      "os": {
+        "type": "android",
+        "version": {
+          "op": ">=",
+          "value": "5.0.0"
+        }
+      },
+      "gl_vendor": "Imagination.*",
+      "gl_renderer": "PowerVR Rogue.*",
+      "driver_version": {
+        "op": "between",
+        "value": "1.3",
+        "value2": "1.4"
+      },
+      "features": [
+        "disable_android_webview_gpu_thread"
       ]
     }
   ]
