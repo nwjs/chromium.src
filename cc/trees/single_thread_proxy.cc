@@ -50,21 +50,11 @@ SingleThreadProxy::SingleThreadProxy(
       commit_requested_(false),
       inside_synchronous_composite_(false),
       output_surface_creation_requested_(false),
+      external_begin_frame_source_(external_begin_frame_source.Pass()),
       weak_factory_(this) {
   TRACE_EVENT0("cc", "SingleThreadProxy::SingleThreadProxy");
   DCHECK(Proxy::IsMainThread());
   DCHECK(layer_tree_host);
-
-  if (layer_tree_host->settings().single_thread_proxy_scheduler &&
-      !scheduler_on_impl_thread_) {
-    SchedulerSettings scheduler_settings(
-        layer_tree_host->settings().ToSchedulerSettings());
-    // SingleThreadProxy should run in main thread low latency mode.
-    scheduler_settings.main_thread_should_always_be_low_latency = true;
-    scheduler_on_impl_thread_ = Scheduler::Create(
-        this, scheduler_settings, layer_tree_host_->id(),
-        MainThreadTaskRunner(), external_begin_frame_source.Pass());
-  }
 }
 
 void SingleThreadProxy::Start() {
@@ -105,7 +95,18 @@ void SingleThreadProxy::SetLayerTreeHostClientReady() {
   // nothing to do.
   DCHECK(Proxy::IsMainThread());
   DebugScopedSetImplThread impl(this);
-  if (scheduler_on_impl_thread_) {
+  if (layer_tree_host_->settings().single_thread_proxy_scheduler &&
+      !scheduler_on_impl_thread_) {
+    SchedulerSettings scheduler_settings(
+        layer_tree_host_->settings().ToSchedulerSettings());
+    // SingleThreadProxy should run in main thread low latency mode.
+    scheduler_settings.main_thread_should_always_be_low_latency = true;
+    scheduler_on_impl_thread_ =
+        Scheduler::Create(this,
+                          scheduler_settings,
+                          layer_tree_host_->id(),
+                          MainThreadTaskRunner(),
+                          external_begin_frame_source_.Pass());
     scheduler_on_impl_thread_->SetCanStart();
     scheduler_on_impl_thread_->SetVisible(layer_tree_host_impl_->visible());
   }
@@ -213,6 +214,7 @@ void SingleThreadProxy::DoCommit() {
   // fixed.
   tracked_objects::ScopedTracker tracking_profile1(
       FROM_HERE_WITH_EXPLICIT_FUNCTION("461509 SingleThreadProxy::DoCommit1"));
+  commit_requested_ = false;
   layer_tree_host_->WillCommit();
   devtools_instrumentation::ScopedCommitTrace commit_task(
       layer_tree_host_->id());
@@ -332,10 +334,8 @@ void SingleThreadProxy::CommitComplete() {
 
 void SingleThreadProxy::SetNeedsCommit() {
   DCHECK(Proxy::IsMainThread());
-  client_->ScheduleComposite();
-  if (commit_requested_)
-    return;
   DebugScopedSetImplThread impl(this);
+  client_->ScheduleComposite();
   if (scheduler_on_impl_thread_)
     scheduler_on_impl_thread_->SetNeedsCommit();
   commit_requested_ = true;
@@ -766,11 +766,7 @@ void SingleThreadProxy::DidCommitAndDrawFrame() {
 }
 
 bool SingleThreadProxy::MainFrameWillHappenForTesting() {
-  if (layer_tree_host_->output_surface_lost())
-    return false;
-  if (!scheduler_on_impl_thread_)
-    return false;
-  return scheduler_on_impl_thread_->MainFrameForTestingWillHappen();
+  return false;
 }
 
 void SingleThreadProxy::SetChildrenNeedBeginFrames(
@@ -808,8 +804,6 @@ void SingleThreadProxy::SendBeginMainFrameNotExpectedSoon() {
 }
 
 void SingleThreadProxy::BeginMainFrame() {
-  commit_requested_ = false;
-
   if (defer_commits_) {
     TRACE_EVENT_INSTANT0("cc", "EarlyOut_DeferCommit",
                          TRACE_EVENT_SCOPE_THREAD);
@@ -837,9 +831,6 @@ void SingleThreadProxy::BeginMainFrame() {
     return;
   }
 
-  // Prevent new commits from being requested inside DoBeginMainFrame.
-  commit_requested_ = true;
-
   const BeginFrameArgs& begin_frame_args =
       layer_tree_host_impl_->CurrentBeginFrameArgs();
   DoBeginMainFrame(begin_frame_args);
@@ -863,9 +854,6 @@ void SingleThreadProxy::DoBeginMainFrame(
 
   DCHECK(!queue_for_commit_);
   queue_for_commit_ = make_scoped_ptr(new ResourceUpdateQueue);
-
-  // New commits requested inside UpdateLayers should be respected.
-  commit_requested_ = false;
 
   layer_tree_host_->UpdateLayers(queue_for_commit_.get());
 
