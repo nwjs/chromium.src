@@ -178,14 +178,6 @@ class BASE_EXPORT TimeDelta {
     return delta_ / a.delta_;
   }
 
-  // Multiplicative computations with floats.
-  TimeDelta multiply_by(double a) const {
-    return TimeDelta(delta_ * a);
-  }
-  TimeDelta divide_by(double a) const {
-    return TimeDelta(delta_ / a);
-  }
-
   // Defined below because it depends on the definition of the other classes.
   Time operator+(Time t) const;
   TimeTicks operator+(TimeTicks t) const;

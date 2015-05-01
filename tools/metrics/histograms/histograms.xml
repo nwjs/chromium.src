@@ -5652,9 +5652,6 @@ Therefore, the affected-histogram name has to have at least one dot in it.
 </histogram>
 
 <histogram name="DOMStorage.clear" units="milliseconds">
-  <obsolete>
-    Deprecated 2012.
-  </obsolete>
   <owner>michaeln@chromium.org</owner>
   <summary>
     Duration to execute localStorage.clear() or sessionStorage.clear().
@@ -5662,9 +5659,6 @@ Therefore, the affected-histogram name has to have at least one dot in it.
 </histogram>
 
 <histogram name="DOMStorage.getItem" units="milliseconds">
-  <obsolete>
-    Deprecated 2012.
-  </obsolete>
   <owner>michaeln@chromium.org</owner>
   <summary>
     Duration to execute localStorage.getItem() or sessionStorage.getItem().
@@ -5672,9 +5666,6 @@ Therefore, the affected-histogram name has to have at least one dot in it.
 </histogram>
 
 <histogram name="DOMStorage.key" units="milliseconds">
-  <obsolete>
-    Deprecated 2012.
-  </obsolete>
   <owner>michaeln@chromium.org</owner>
   <summary>
     Duration to execute localStorage.key() or sessionStorage.key().
@@ -5682,9 +5673,6 @@ Therefore, the affected-histogram name has to have at least one dot in it.
 </histogram>
 
 <histogram name="DOMStorage.length" units="milliseconds">
-  <obsolete>
-    Deprecated 2012.
-  </obsolete>
   <owner>michaeln@chromium.org</owner>
   <summary>
     Duration to execute localStorage.length() or sessionStorage.length().
@@ -5692,9 +5680,6 @@ Therefore, the affected-histogram name has to have at least one dot in it.
 </histogram>
 
 <histogram name="DOMStorage.removeItem" units="milliseconds">
-  <obsolete>
-    Deprecated 2012.
-  </obsolete>
   <owner>michaeln@chromium.org</owner>
   <summary>
     Duration to execute localStorage.removeItem() or
@@ -5703,9 +5688,6 @@ Therefore, the affected-histogram name has to have at least one dot in it.
 </histogram>
 
 <histogram name="DOMStorage.setItem" units="milliseconds">
-  <obsolete>
-    Deprecated 2012.
-  </obsolete>
   <owner>michaeln@chromium.org</owner>
   <summary>
     Duration to execute localStorage.setItem() or sessionStorage.setItem().
@@ -12595,14 +12577,6 @@ Therefore, the affected-histogram name has to have at least one dot in it.
   <owner>michaeln@chromium.org</owner>
   <summary>
     Time to load HTML5 LocalStorage into the browser-side cache.
-  </summary>
-</histogram>
-
-<histogram name="LocalStorage.CommitDelay">
-  <owner>michaeln@chromium.org</owner>
-  <summary>
-    Delay between a page making changes and those changes being written to the
-    DB.
   </summary>
 </histogram>
 

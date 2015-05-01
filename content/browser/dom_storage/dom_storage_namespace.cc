@@ -123,23 +123,16 @@ void DOMStorageNamespace::PurgeMemory(PurgeOption option) {
     return;  // We can't purge w/o backing on disk.
   AreaMap::iterator it = areas_.begin();
   while (it != areas_.end()) {
-    const AreaHolder& holder = it->second;
-
-    // We can't purge if there are changes pending.
-    if (holder.area_->HasUncommittedChanges()) {
-      if (holder.open_count_ == 0) {
-         // Schedule an immediate commit so the next time we're asked to purge,
-         // we can drop it from memory.
-         holder.area_->ScheduleImmediateCommit();
-      }
+    // Leave it alone if changes are pending
+    if (it->second.area_->HasUncommittedChanges()) {
       ++it;
       continue;
     }
 
     // If not in use, we can shut it down and remove
     // it from our collection entirely.
-    if (holder.open_count_ == 0) {
-      holder.area_->Shutdown();
+    if (it->second.open_count_ == 0) {
+      it->second.area_->Shutdown();
       areas_.erase(it++);
       continue;
     }
@@ -147,7 +140,7 @@ void DOMStorageNamespace::PurgeMemory(PurgeOption option) {
     if (option == PURGE_AGGRESSIVE) {
       // If aggressive is true, we clear caches and such
       // for opened areas.
-      holder.area_->PurgeMemory();
+      it->second.area_->PurgeMemory();
     }
 
     ++it;
