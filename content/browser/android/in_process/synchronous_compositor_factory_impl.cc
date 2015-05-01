@@ -9,14 +9,12 @@
 #include "content/browser/android/in_process/synchronous_compositor_external_begin_frame_source.h"
 #include "content/browser/android/in_process/synchronous_compositor_impl.h"
 #include "content/browser/android/in_process/synchronous_compositor_output_surface.h"
-#include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/renderer/gpu/frame_swap_message_queue.h"
 #include "gpu/blink/webgraphicscontext3d_in_process_command_buffer_impl.h"
 #include "gpu/command_buffer/client/gl_in_process_context.h"
 #include "gpu/command_buffer/common/gles2_cmd_utils.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
-#include "gpu/config/gpu_driver_bug_workaround_type.h"
 #include "ui/gl/android/surface_texture.h"
 #include "ui/gl/gl_surface.h"
 #include "ui/gl/gl_surface_stub.h"
@@ -219,20 +217,12 @@ scoped_refptr<cc::ContextProvider>
 SynchronousCompositorFactoryImpl::CreateContextProviderForCompositor() {
   DCHECK(service_.get());
 
-  bool is_offscreen = true;
-  scoped_refptr<gpu::InProcessCommandBuffer::Service> service;
-  if (GpuDataManagerImpl::GetInstance()->IsDriverBugWorkaroundActive(
-          gpu::DISABLE_ANDROID_WEBVIEW_GPU_THREAD)) {
-    is_offscreen = false;
-    service = service_;
-  }
-
   gpu::GLInProcessContextSharedMemoryLimits mem_limits;
   // This is half of what RenderWidget uses because synchronous compositor
   // pipeline is only one frame deep.
   mem_limits.mapped_memory_reclaim_limit = 6 * 1024 * 1024;
   return webkit::gpu::ContextProviderInProcess::Create(
-      WrapContext(CreateContext(service, mem_limits, is_offscreen, true)),
+      WrapContext(CreateContext(nullptr, mem_limits, true, true)),
       "Child-Compositor");
 }
 

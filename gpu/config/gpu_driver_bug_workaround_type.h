@@ -18,8 +18,6 @@
          count_all_in_varyings_packing)                      \
   GPU_OP(DISABLE_ANGLE_INSTANCED_ARRAYS,                     \
          disable_angle_instanced_arrays)                     \
-  GPU_OP(DISABLE_ANDROID_WEBVIEW_GPU_THREAD,                 \
-         disable_android_webview_gpu_thread)                 \
   GPU_OP(DISABLE_ARB_SYNC,                                   \
          disable_arb_sync)                                   \
   GPU_OP(DISABLE_ASYNC_READPIXELS,                           \
