@@ -19,7 +19,7 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
 {
   "name": "gpu driver bug list",
   // Please update the version number whenever you change this file.
-  "version": "7.18.1.44",
+  "version": "7.18.1.45",
   "entries": [
     {
       "id": 1,
@@ -1192,7 +1192,7 @@ LONG_STRING_CONST(
     },
     {
       "id": 107,
-      "description": "EGL Sync server wait broken on IMG G6xxx drivers",
+      "description": "Workaround IMG PowerVR G6xxx drivers bugs",
       "cr_bugs": [480992],
       "os": {
         "type": "android",
@@ -1210,6 +1210,7 @@ LONG_STRING_CONST(
         "value2": "1.4"
       },
       "features": [
+        "avoid_egl_image_target_texture_reuse",
         "disable_egl_khr_wait_sync"
       ]
     }

@@ -14,6 +14,7 @@
 #include "base/strings/string_util.h"
 #include "gpu/command_buffer/service/gl_utils.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
+#include "gpu/command_buffer/service/texture_definition.h"
 #include "ui/gl/gl_fence.h"
 #include "ui/gl/gl_implementation.h"
 
@@ -1030,6 +1031,10 @@ void FeatureInfo::InitializeFeatures() {
     gfx::GLFenceEGL::SetIgnoreFailures();
   }
 #endif
+
+  if (workarounds_.avoid_egl_image_target_texture_reuse) {
+    TextureDefinition::AvoidEGLTargetTextureReuse();
+  }
 }
 
 void FeatureInfo::AddExtensionString(const char* s) {
