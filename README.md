@@ -1,11 +1,18 @@
-# ![Logo](chrome/app/theme/chromium/product_logo_64.png) Chromium
+Iridium Browser
+==============================
 
-Chromium is an open-source browser project that aims to build a safer, faster,
-and more stable way for all users to experience the web.
+Iridium is a free, open, and libre browser modification of the Chromium code base, with privacy being enhanced in several key areas. Automatic transmission of partial queries, keywords, metrics to central services inhibited and only occurs with consent. In addition, all our builds are reproducible, and modifications are auditable, setting the project ahead of other secure browser providers.
 
-The project's web site is https://www.chromium.org.
+## Development
 
-Documentation in the source is rooted in [docs/README.md](docs/README.md).
+The Iridium code is currently not on GitHub. You find our repository at [https://git.iridiumbrowser.de/cgit.cgi/iridium-browser/](https://git.iridiumbrowser.de/cgit.cgi/iridium-browser/).
 
-Learn how to [Get Around the Chromium Source Code Directory Structure
-](https://www.chromium.org/developers/how-tos/getting-around-the-chrome-source-code).
+See [https://iridiumbrowser.de/development.html](https://iridiumbrowser.de/development.html) for details.
+
+## Download
+
+More information and binary downloads can be found at [https://iridiumbrowser.de](https://iridiumbrowser.de).
+
+## Reporting bugs and issues
+
+Please use the [Iridium Browser tracker](https://github.com/iridium-browser/iridium-browser/issues) on GitHub to report your findings or to add feature requests.
