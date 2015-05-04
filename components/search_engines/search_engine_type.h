@@ -64,6 +64,7 @@ enum SearchEngineType {
   SEARCH_ENGINE_ZOZNAM,
   SEARCH_ENGINE_360,
   SEARCH_ENGINE_DUCKDUCKGO,
+  SEARCH_ENGINE_QWANT,
   SEARCH_ENGINE_MAX          // Bounding value needed for UMA histogram macro.
 };
 

@@ -38,6 +38,15 @@
   // The following engines are included in country lists and are added to the
   // list of search engines on the first run depending on user's country.
   "elements": {
+    "qwant": {
+      "name": "Qwant",
+      "keyword": "qwant.com",
+      "favicon_url": "https://qwant.com/favicon.ico",
+      "search_url": "https://qwant.com/?q={searchTerms}&t=web",
+      "new_tab_url": "https://qwant.com/",
+      "type": "SEARCH_ENGINE_QWANT",
+      "id": 12
+    },
     "duckduckgo": {
       "name": "DuckDuckGo",
       "keyword": "duckduckgo.com",
