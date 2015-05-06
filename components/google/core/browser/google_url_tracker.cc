@@ -25,9 +25,19 @@
 #include "net/url_request/url_request_status.h"
 
 
+/*
+ * Developer "evmar" writes on
+ * http://neugierig.org/software/chromium/notes/2009/12/iron.html :
+ *
+ * “the GoogleURLTracker class. This unforutnately-named class figures out
+ * whether to use google.com or google.es for searches from the URL bar,”
+ *
+ * (So the naming problem was spotted, yet remains unfixed even today…)
+ */
 const char GoogleURLTracker::kDefaultGoogleHomepage[] =
     "https://www.google.com/";
 const char GoogleURLTracker::kSearchDomainCheckURL[] =
+/* trk:193 */
     "https://www.google.com/searchdomaincheck?format=domain&type=chrome";
 
 GoogleURLTracker::GoogleURLTracker(
