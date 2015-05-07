@@ -103,7 +103,14 @@ static leveldb::Status OpenDB(
   options.create_if_missing = true;
   options.paranoid_checks = true;
   options.filter_policy = filter_policy->get();
+#if defined(OS_CHROMEOS)
+  // Reusing logs on Chrome OS resulted in an unacceptably high leveldb
+  // corruption rate (at least for Indexed DB). More info at
+  // https://crbug.com/460568
+  options.reuse_logs = false;
+#else
   options.reuse_logs = true;
+#endif
   options.compression = leveldb::kSnappyCompression;
 
   // For info about the troubles we've run into with this parameter, see:
