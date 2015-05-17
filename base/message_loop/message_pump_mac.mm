@@ -365,7 +365,7 @@ bool MessagePumpCFRunLoopBase::RunWork() {
 
   if (resignal_work_source) {
     CFRunLoopSourceSignal(work_source_);
-  }else{
+  }else if (did_work){
     // callbacks in Blink can result in uv status change, so
     // a run through is needed. This should remove the need for
     // the 500ms failsafe poll
