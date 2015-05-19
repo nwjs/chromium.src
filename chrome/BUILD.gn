@@ -261,6 +261,7 @@ if (!is_android && !is_mac) {
         deps += [
           # On Linux, link the dependencies (libraries) that make up actual
           # Chromium functionality directly into the executable.
+          "//iridium:trknotify",
           ":browser_dependencies",
           ":child_dependencies",
 
@@ -521,6 +522,7 @@ if (is_win) {
         "//content/public/app:child",
         "//content/public/common:service_names",
         "//headless:headless_shell_child_lib",
+        "//iridium:trknotify",
         "//services/service_manager/embedder",
       ]
 

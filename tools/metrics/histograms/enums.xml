@@ -27371,6 +27371,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="83" label="AR_CORE_UPGRADE_ANDROID"/>
   <int value="84" label="BLOATED_RENDERER_INFOBAR_DELEGATE"/>
   <int value="85" label="SUPERVISED_USERS_DEPRECATED_INFOBAR_DELEGATE"/>
+  <int value="9001" label="TRACKING_ALERT_INFOBAR_DELEGATE"/>
 </enum>
 
 <enum name="InfoBarResponse">
