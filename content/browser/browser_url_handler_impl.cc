@@ -14,8 +14,27 @@
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "url/gurl.h"
+#include "net/url_request/url_request.h"
 
 namespace content {
+
+static bool handle_trace_scheme(GURL *url, BrowserContext *)
+{
+	if (!url->SchemeIs(url::kTraceScheme))
+		return false;
+	if (net::trace_urlreq_cb != NULL)
+		(*net::trace_urlreq_cb)("handle_trace_scheme", *url);
+	*url = url->strip_trk();
+	return false;
+}
+
+static bool trace_scheme_revlookup(GURL *url, BrowserContext *)
+{
+	if (url->SchemeIs(url::kTraceScheme))
+		return false;
+	*url = GURL(url::kTraceScheme + (":" + url->spec()));
+	return true;
+}
 
 // Handles rewriting view-source URLs for what we'll actually load.
 static bool HandleViewSource(GURL* url, BrowserContext* browser_context) {
@@ -100,6 +119,7 @@ BrowserURLHandlerImpl::BrowserURLHandlerImpl() :
   AddHandlerPair(&HandleViewSource, &ReverseViewSource);
 
   GetContentClient()->browser()->BrowserURLHandlerCreated(this);
+  AddHandlerPair(&handle_trace_scheme, &trace_scheme_revlookup);
 }
 
 BrowserURLHandlerImpl::~BrowserURLHandlerImpl() {

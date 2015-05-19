@@ -24,6 +24,7 @@ const char kHttpScheme[] = "http";
 const char kHttpsScheme[] = "https";
 const char kJavaScriptScheme[] = "javascript";
 const char kMailToScheme[] = "mailto";
+const char kTraceScheme[] = "trk";
 const char kWsScheme[] = "ws";
 const char kWssScheme[] = "wss";
 

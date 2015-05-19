@@ -150,6 +150,7 @@ class InfoBarDelegate {
     NEAR_OOM_INFOBAR_ANDROID = 79,
     INSTALLABLE_AMBIENT_BADGE_INFOBAR_DELEGATE = 80,
     PAGE_LOAD_CAPPING_INFOBAR_DELEGATE = 81,
+    TRACKING_ALERT_INFOBAR_DELEGATE = 9001,
   };
 
   // Describes navigation events, used to decide whether infobars should be

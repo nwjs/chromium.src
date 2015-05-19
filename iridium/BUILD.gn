@@ -1,0 +1,9 @@
+config("trknotify_c") {
+        include_dirs = ["..", "../third_party/skia/include/config", "../third_party/skia/include/core"]
+}
+
+component("trknotify") {
+        sources = ["trkbar.cpp", "trkbar.h", "trknotify.cpp", "trknotify.h"]
+        public_configs = [":trknotify_c"]
+        deps = ["//chrome/browser/ui"]
+}

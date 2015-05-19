@@ -935,6 +935,8 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   DISALLOW_COPY_AND_ASSIGN(URLRequest);
 };
 
+extern void NET_EXPORT (*trace_urlreq_cb)(const std::string &, const GURL &);
+
 }  // namespace net
 
 #endif  // NET_URL_REQUEST_URL_REQUEST_H_
