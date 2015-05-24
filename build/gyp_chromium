@@ -252,8 +252,8 @@ if __name__ == '__main__':
   # option.  http://crbug.com/35878.
   # TODO(tc): Fix circular dependencies in ChromiumOS then add linux2 to the
   # list.
-  if sys.platform not in ('darwin',):
-    args.append('--no-circular-check')
+  # if sys.platform not in ('darwin',):
+  args.append('--no-circular-check')
 
   # We explicitly don't support the make gyp generator (crbug.com/348686). Be
   # nice and fail here, rather than choking in gyp.
