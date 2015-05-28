@@ -1070,7 +1070,7 @@ bool MimeUtil::GetDefaultCodec(const std::string& mime_type,
 
 
 bool MimeUtil::IsDefaultCodecSupported(const std::string& mime_type) const {
-  Codec default_codec = Codec::INVALID_CODEC;
+  Codec default_codec = INVALID_CODEC;
   if (!GetDefaultCodec(mime_type, &default_codec))
     return false;
   return IsCodecSupported(default_codec);
