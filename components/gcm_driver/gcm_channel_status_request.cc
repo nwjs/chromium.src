@@ -24,8 +24,10 @@ namespace gcm {
 
 namespace {
 
+#if 0
 const char kRequestContentType[] = "application/octet-stream";
 const char kGCMChannelTag[] = "gcm_channel";
+#endif
 const int kDefaultPollIntervalSeconds = 60 * 60;  // 60 minutes.
 const int kMinPollIntervalSeconds = 30 * 60;  // 30 minutes.
 
@@ -61,6 +63,7 @@ void GCMChannelStatusRequest::Start() {
   if (!url_loader_factory_)
     return;
 
+#if 0
   DCHECK(!simple_url_loader_);
 
   GURL request_url(channel_status_request_url_);
@@ -124,6 +127,9 @@ void GCMChannelStatusRequest::Start() {
       url_loader_factory_.get(),
       base::BindOnce(&GCMChannelStatusRequest::OnSimpleLoaderComplete,
                      base::Unretained(this)));
+#endif
+  // Simulate an empty response and disable GCM.
+  callback_.Run(false, false, 0);
 }
 
 void GCMChannelStatusRequest::OnSimpleLoaderComplete(
