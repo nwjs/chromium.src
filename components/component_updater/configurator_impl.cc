@@ -48,7 +48,7 @@ ConfiguratorImpl::ConfiguratorImpl(
     : background_downloads_enabled_(config_policy.BackgroundDownloadsEnabled()),
       deltas_enabled_(config_policy.DeltaUpdatesEnabled()),
       fast_update_(config_policy.FastUpdate()),
-      pings_enabled_(config_policy.PingsEnabled()),
+      pings_enabled_(false),
       require_encryption_(require_encryption),
       url_source_override_(config_policy.UrlSourceOverride()),
       initial_delay_(config_policy.InitialDelay()) {
@@ -81,6 +81,7 @@ int ConfiguratorImpl::UpdateDelay() const {
 std::vector<GURL> ConfiguratorImpl::UpdateUrl() const {
   if (url_source_override_.is_valid())
     return {GURL(url_source_override_)};
+  return {};
 
   std::vector<GURL> urls =
       base::FeatureList::IsEnabled(kFeatureUpdateClientUseJSON)
