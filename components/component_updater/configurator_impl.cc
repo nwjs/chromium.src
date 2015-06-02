@@ -43,7 +43,9 @@ const char kSwitchRequestParam[] = "test-request";
 
 // Disables pings. Pings are the requests sent to the update server that report
 // the success or the failure of component install or update attempts.
+#if 0
 const char kSwitchDisablePings[] = "disable-pings";
+#endif
 
 // Sets the URL for updates.
 const char kSwitchUrlSource[] = "url-source";
@@ -93,7 +95,6 @@ ConfiguratorImpl::ConfiguratorImpl(const base::CommandLine* cmdline,
       cmdline->GetSwitchValueASCII(switches::kComponentUpdater), ",",
       base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
   fast_update_ = base::ContainsValue(switch_values, kSwitchFastUpdate);
-  pings_enabled_ = !base::ContainsValue(switch_values, kSwitchDisablePings);
   deltas_enabled_ =
       !base::ContainsValue(switch_values, kSwitchDisableDeltaUpdates);
 
@@ -140,6 +141,7 @@ std::vector<GURL> ConfiguratorImpl::UpdateUrl() const {
     return urls;
   }
 
+#if 0
   if (base::FeatureList::IsEnabled(kAlternateComponentUrls)) {
     urls.push_back(GURL(kUpdaterDefaultUrlAlt));
     urls.push_back(GURL(kUpdaterFallbackUrlAlt));
@@ -150,7 +152,7 @@ std::vector<GURL> ConfiguratorImpl::UpdateUrl() const {
 
   if (require_encryption_)
     update_client::RemoveUnsecureUrls(&urls);
-
+#endif
   return urls;
 }
 
