@@ -119,6 +119,106 @@ TEST_F(DataReductionProxyChromeSettingsTest,
   }
 }
 
+TEST_F(DataReductionProxyChromeSettingsTest,
+       MigratePacGooglezipDataReductionProxy) {
+  const struct {
+    const char* pac_url;
+    bool expect_pref_cleared;
+  } test_cases[] = {
+      // PAC with bypass rules that returns 'HTTPS proxy.googlezip.net:443;
+      // PROXY compress.googlezip.net:80; DIRECT'.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkgeyAgaWYgKChzaEV4cE1hdGN"
+       "oKHVybCwgJ2h0dHA6Ly93d3cuZ29vZ2xlLmNvbS9wb2xpY2llcy9wcml2YWN5KicpKSkgey"
+       "AgICByZXR1cm4gJ0RJUkVDVCc7ICB9ICAgaWYgKHVybC5zdWJzdHJpbmcoMCwgNSkgPT0gJ"
+       "2h0dHA6JykgeyAgICByZXR1cm4gJ0hUVFBTIHByb3h5Lmdvb2dsZXppcC5uZXQ6NDQzOyBQ"
+       "Uk9YWSBjb21wcmVzcy5nb29nbGV6aXAubmV0OjgwOyBESVJFQ1QnOyAgfSAgcmV0dXJuICd"
+       "ESVJFQ1QnO30=",
+       true},
+      // PAC with bypass rules that returns 'PROXY compress.googlezip.net:80;
+      // DIRECT'.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkgeyAgaWYgKChzaEV4cE1hdGN"
+       "oKHVybCwgJ2h0dHA6Ly93d3cuZ29vZ2xlLmNvbS9wb2xpY2llcy9wcml2YWN5KicpKSkgey"
+       "AgICByZXR1cm4gJ0RJUkVDVCc7ICB9ICAgaWYgKHVybC5zdWJzdHJpbmcoMCwgNSkgPT0gJ"
+       "2h0dHA6JykgeyAgICByZXR1cm4gJ1BST1hZIGNvbXByZXNzLmdvb2dsZXppcC5uZXQ6ODA7"
+       "IERJUkVDVCc7ICB9ICByZXR1cm4gJ0RJUkVDVCc7fQ==",
+       true},
+      // PAC with bypass rules that returns 'PROXY proxy-dev.googlezip.net:80;
+      // DIRECT'.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkgeyAgaWYgKChzaEV4cE1hdGN"
+       "oKHVybCwgJ2h0dHA6Ly93d3cuZ29vZ2xlLmNvbS9wb2xpY2llcy9wcml2YWN5KicpKSkgey"
+       "AgICByZXR1cm4gJ0RJUkVDVCc7ICB9ICAgaWYgKHVybC5zdWJzdHJpbmcoMCwgNSkgPT0gJ"
+       "2h0dHA6JykgeyAgICByZXR1cm4gJ1BST1hZIHByb3h5LWRldi5nb29nbGV6aXAubmV0Ojgw"
+       "OyBESVJFQ1QnOyAgfSAgcmV0dXJuICdESVJFQ1QnO30=",
+       true},
+      // Simple PAC that returns 'PROXY compress.googlezip.net:80'.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkge3JldHVybiAnUFJPWFkgY29"
+       "tcHJlc3MuZ29vZ2xlemlwLm5ldDo4MCc7fQo=",
+       true},
+      // Simple PAC that returns 'PROXY compress.googlezip.net'. Note that since
+      // the port is not specified, the pref will not be cleared.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkge3JldHVybiAnUFJPWFkgY29"
+       "tcHJlc3MuZ29vZ2xlemlwLm5ldCc7fQ==",
+       false},
+      // Simple PAC that returns 'PROXY mycustomdrp.net:80'.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkge3JldHVybiAnUFJPWFkgb3J"
+       "pZ2luLm5ldDo4MCc7fQo=",
+       false},
+      // Simple PAC that returns 'PROXY myprefixgooglezip.net:80'.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkge3JldHVybiAnUFJPWFkgbXl"
+       "wcmVmaXhnb29nbGV6aXAubmV0OjgwJzt9Cg==",
+       false},
+      // Simple PAC that returns 'PROXY compress.googlezip.net.mydomain.com:80'.
+      {"data:application/"
+       "x-ns-proxy-autoconfig;base64,"
+       "ZnVuY3Rpb24gRmluZFByb3h5Rm9yVVJMKHVybCwgaG9zdCkge3JldHVybiAnUFJPWFkgY29"
+       "tcHJlc3MuZ29vZ2xlemlwLm5ldC5teWRvbWFpbi5jb206ODAnO30K",
+       false},
+      // PAC URL that doesn't embed a script.
+      {"http://compress.googlezip.net/pac", false},
+  };
+
+  for (const auto& test : test_cases) {
+    dict_.reset(new base::DictionaryValue());
+    dict_->SetString("mode", "pac_script");
+    dict_->SetString("pac_url", test.pac_url);
+    test_context_->pref_service()->Set(prefs::kProxy, *dict_.get());
+    EXPECT_CALL(*config_, ContainsDataReductionProxy(_)).Times(0);
+
+    drp_chrome_settings_->MigrateDataReductionProxyOffProxyPrefs(
+        test_context_->pref_service());
+
+    if (test.expect_pref_cleared) {
+      EXPECT_EQ(NULL,
+                test_context_->pref_service()->GetUserPref(prefs::kProxy));
+    } else {
+      const base::DictionaryValue* value;
+      EXPECT_TRUE(test_context_->pref_service()
+                      ->GetUserPref(prefs::kProxy)
+                      ->GetAsDictionary(&value));
+      std::string mode;
+      EXPECT_TRUE(value->GetString("mode", &mode));
+      EXPECT_EQ("pac_script", mode);
+      std::string pac_url;
+      EXPECT_TRUE(value->GetString("pac_url", &pac_url));
+      EXPECT_EQ(test.pac_url, pac_url);
+    }
+  }
+}
+
 TEST_F(DataReductionProxyChromeSettingsTest, MigrateIgnoreOtherProxy) {
   const std::string kTestServers[] = {
       "http=https://youtube.com",
