@@ -156,7 +156,7 @@ deps = {
     'src/tools/swarming_client':
         Var('git_url') + '/external/swarming.client.git@bbf1fcca7932d92cca9d7dab46ea271a7f6d61fb',
     'src/v8':
-        'https://github.com/rogerwang/v8.git@origin/nw11',
+        'https://github.com/rogerwang/v8.git@origin/custom',
     'src/third_party/node':
         'https://github.com/rogerwang/node.git@origin/custom',
     'src/content/nw':
