@@ -66,7 +66,7 @@ deps = {
   'src/testing/gtest':
     (Var("chromium_git")) + '/external/googletest.git@23574bf2333f834ff665f894c97bef8a5b33a0a9',
   'src/third_party/WebKit':
-    (Var("chromium_git")) + '/chromium/blink.git@bf7d69edf081345477c922676187c35a786944b6',
+    (Var("chromium_git")) + '/chromium/blink.git@e1c1c8a2a0c72862871862b710254c0955303e44',
   'src/third_party/angle':
     (Var("chromium_git")) + '/angle/angle.git@2539fffa36857396a0c0671a82a3ec9e605e6658',
   'src/third_party/bidichecker':
