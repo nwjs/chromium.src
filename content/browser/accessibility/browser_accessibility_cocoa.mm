@@ -18,10 +18,12 @@
 #include "content/public/common/content_client.h"
 #import "ui/accessibility/platform/ax_platform_node_mac.h"
 
-// See http://openradar.appspot.com/9896491. This SPI has been tested on 10.5,
-// 10.6, and 10.7. It allows accessibility clients to observe events posted on
-// this object.
-extern "C" void NSAccessibilityUnregisterUniqueIdForUIElement(id element);
+#if !defined(NWJS_MAS)
+ // See http://openradar.appspot.com/9896491. This SPI has been tested on 10.5,
+ // 10.6, and 10.7. It allows accessibility clients to observe events posted on
+ // this object.
+ extern "C" void NSAccessibilityUnregisterUniqueIdForUIElement(id element);
+#endif
 
 using ui::AXNodeData;
 using content::BrowserAccessibility;
@@ -136,7 +138,9 @@ NSDictionary* attributeToMethodNameMap = nil;
 
 - (void)detach {
   if (browserAccessibility_) {
-    NSAccessibilityUnregisterUniqueIdForUIElement(self);
+#if !defined(NWJS_MAS)
+     NSAccessibilityUnregisterUniqueIdForUIElement(self);
+#endif
     browserAccessibility_ = NULL;
   }
 }

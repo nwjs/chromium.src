@@ -4,7 +4,7 @@
 
 // VideoCaptureDeviceQTKit implements all QTKit related code for
 // communicating with a QTKit capture device.
-
+#if !defined(NWJS_MAS)
 #ifndef MEDIA_VIDEO_CAPTURE_MAC_VIDEO_CAPTURE_DEVICE_QTKIT_MAC_H_
 #define MEDIA_VIDEO_CAPTURE_MAC_VIDEO_CAPTURE_DEVICE_QTKIT_MAC_H_
 
@@ -74,3 +74,4 @@ class VideoCaptureDeviceMac;
 @end
 
 #endif  // MEDIA_VIDEO_CAPTURE_MAC_VIDEO_CAPTURE_DEVICE_QTKIT_MAC_H_
+#endif // MAC_APP_STORE

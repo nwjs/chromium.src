@@ -171,8 +171,18 @@ const base::FilePath::CharType kShortcutsDatabaseName[] = FPL("Shortcuts");
 const base::FilePath::CharType kSingletonCookieFilename[] =
     FPL("SingletonCookie");
 const base::FilePath::CharType kSingletonLockFilename[] = FPL("SingletonLock");
-const base::FilePath::CharType kSingletonSocketFilename[] =
-    FPL("SingletonSocket");
+#if defined(NWJS_MAS)
+// Used to be SingletonSocket but due to length limits of sockets we must peal this down.
+// See: https://code.google.com/p/chromium/issues/detail?id=33097 this is a temporary
+// work around.
+//
+// See: https://developer.apple.com/library/mac/documentation/Darwin/Reference/Manpages/man4/unix.4.html
+ const base::FilePath::CharType kSingletonSocketFilename[] =
+    FPL("S");
+#else
+ const base::FilePath::CharType kSingletonSocketFilename[] =
+      FPL("SingletonSocket");
+#endif
 const base::FilePath::CharType kSupervisedUserSettingsFilename[] =
     FPL("Managed Mode Settings");
 const base::FilePath::CharType kSyncCredentialsFilename[] =

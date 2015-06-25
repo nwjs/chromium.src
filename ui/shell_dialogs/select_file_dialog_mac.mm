@@ -402,7 +402,9 @@ bool SelectFileDialogImpl::HasMultipleFileTypeChoicesImpl() {
         index = 1;
       }
     } else {
+#if !defined(NWJS_MAS)
       CHECK([panel isKindOfClass:[NSOpenPanel class]]);
+#endif
       NSArray* urls = [static_cast<NSOpenPanel*>(panel) URLs];
       for (NSURL* url in urls)
         if ([url isFileURL])

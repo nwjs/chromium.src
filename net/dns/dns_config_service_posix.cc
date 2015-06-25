@@ -208,6 +208,10 @@ class DnsConfigServicePosix::Watcher {
 
   bool Watch() {
     bool success = true;
+#if !defined(NWJS_MAS)
+    // this is disabled for acceptance to the mac app store,
+    // entitlements do not allow watching sensitive file system
+    // data in /etc/
     if (!config_watcher_.Watch(base::Bind(&Watcher::OnConfigChanged,
                                           base::Unretained(this)))) {
       LOG(ERROR) << "DNS config watch failed to start.";
@@ -225,6 +229,7 @@ class DnsConfigServicePosix::Watcher {
                                 DNS_CONFIG_WATCH_FAILED_TO_START_HOSTS,
                                 DNS_CONFIG_WATCH_MAX);
     }
+#endif
     return success;
   }
 
