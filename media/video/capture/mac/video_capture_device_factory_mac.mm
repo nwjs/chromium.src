@@ -44,6 +44,7 @@ static bool IsDeviceBlacklisted(const VideoCaptureDevice::Name& name) {
 
 static scoped_ptr<media::VideoCaptureDevice::Names>
 EnumerateDevicesUsingQTKit() {
+#if !defined(NWJS_MAS)
   scoped_ptr<VideoCaptureDevice::Names> device_names(
         new VideoCaptureDevice::Names());
   NSMutableDictionary* capture_devices =
@@ -58,6 +59,9 @@ EnumerateDevicesUsingQTKit() {
     device_names->push_back(name);
   }
   return device_names.Pass();
+#else
+  return scoped_ptr<media::VideoCaptureDevice::Names>();
+#endif
 }
 
 static void RunDevicesEnumeratedCallback(
@@ -82,6 +86,7 @@ VideoCaptureDeviceFactoryMac::~VideoCaptureDeviceFactoryMac() {}
 
 scoped_ptr<VideoCaptureDevice> VideoCaptureDeviceFactoryMac::Create(
     const VideoCaptureDevice::Name& device_name) {
+#if !defined(NWJS_MAS)
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK_NE(device_name.capture_api_type(),
             VideoCaptureDevice::Name::API_TYPE_UNKNOWN);
@@ -115,10 +120,14 @@ scoped_ptr<VideoCaptureDevice> VideoCaptureDeviceFactoryMac::Create(
     }
   }
   return scoped_ptr<VideoCaptureDevice>(capture_device.Pass());
+#else
+  return scoped_ptr<VideoCaptureDevice>();
+#endif
 }
 
 void VideoCaptureDeviceFactoryMac::GetDeviceNames(
     VideoCaptureDevice::Names* device_names) {
+#if !defined(NWJS_MAS)
   DCHECK(thread_checker_.CalledOnValidThread());
   // Loop through all available devices and add to |device_names|.
   NSDictionary* capture_devices;
@@ -149,6 +158,7 @@ void VideoCaptureDeviceFactoryMac::GetDeviceNames(
     // We should not enumerate QTKit devices in Device Thread;
     NOTREACHED();
   }
+#endif
 }
 
 void VideoCaptureDeviceFactoryMac::EnumerateDeviceNames(const base::Callback<

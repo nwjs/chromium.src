@@ -1466,6 +1466,7 @@
     # IPC fuzzer is disabled by default.
     'enable_ipc_fuzzer%': 0,
 
+    'nwjs_mas%': 0,
     # Force disable libstdc++ debug mode.
     'disable_glibcxx_debug%': 0,
 
@@ -2977,6 +2978,9 @@
       }],
       ['enable_ipc_fuzzer==1', {
         'defines': ['ENABLE_IPC_FUZZER=1'],
+      }],
+      ['nwjs_mas==1', {
+        'defines': ['NWJS_MAS'],
       }],
       ['video_hole==1', {
         'defines': ['VIDEO_HOLE=1'],

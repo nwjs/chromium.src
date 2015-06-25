@@ -94,6 +94,39 @@ using content::BrowserThread;
 
 namespace {
 
+#if defined(NWJS_MAS)
+// XXX:
+class SanitizedSocketPath {
+ public:
+  explicit SanitizedSocketPath(const base::FilePath& socket_path)
+      : socket_path_(socket_path) {
+    if (socket_path.value().length() >= arraysize(sockaddr_un::sun_path)) {
+      bool found_current_dir = GetCurrentDirectory(&old_path_);
+      CHECK(found_current_dir) << "Failed to determine the current directory.";
+      changed_directory_ = SetCurrentDirectory(socket_path.DirName());
+      CHECK(changed_directory_) << "Failed to change directory: " <<
+          socket_path.DirName().value();
+    }
+  }
+
+  ~SanitizedSocketPath() {
+    if (changed_directory_)
+      SetCurrentDirectory(old_path_);
+  }
+
+  base::FilePath SocketPath() const {
+    return changed_directory_ ? socket_path_.BaseName() : socket_path_;
+  }
+
+ private:
+  bool changed_directory_ = false;
+  base::FilePath socket_path_;
+  base::FilePath old_path_;
+
+  DISALLOW_COPY_AND_ASSIGN(SanitizedSocketPath);
+};
+#endif
+
 // Timeout for the current browser process to respond. 20 seconds should be
 // enough.
 const int kTimeoutInSeconds = 20;
@@ -389,6 +422,7 @@ bool ConnectSocket(ScopedSocket* socket,
       return false;
     // Now we know the directory was (at that point) created by the profile
     // owner. Try to connect.
+#if !defined(NWJS_MAS)
     sockaddr_un addr;
     SetupSockAddr(socket_target.value(), &addr);
     int ret = HANDLE_EINTR(connect(socket->fd(),
@@ -396,6 +430,18 @@ bool ConnectSocket(ScopedSocket* socket,
                                    sizeof(addr)));
     if (ret != 0)
       return false;
+#else
+    {
+      SanitizedSocketPath sanitized_socket_target(socket_target);
+      sockaddr_un addr;
+      SetupSockAddr(sanitized_socket_target.SocketPath().value(), &addr);
+      int ret = HANDLE_EINTR(connect(socket->fd(),
+                                     reinterpret_cast<sockaddr*>(&addr),
+                                     sizeof(addr)));
+      if (ret != 0)
+        return false;
+    }
+#endif
     // Check the cookie again. We only link in /tmp, which is sticky, so, if the
     // directory is still correct, it must have been correct in-between when we
     // connected. POSIX, sadly, lacks a connectat().
@@ -408,8 +454,14 @@ bool ConnectSocket(ScopedSocket* socket,
   } else if (errno == EINVAL) {
     // It exists, but is not a symlink (or some other error we detect
     // later). Just connect to it directly; this is an older version of Chrome.
+#if !defined(NWJS_MAS)
     sockaddr_un addr;
     SetupSockAddr(socket_path.value(), &addr);
+#else
+    SanitizedSocketPath sanitized_socket_path(socket_path);
+    sockaddr_un addr;
+    SetupSockAddr(sanitized_socket_path.SocketPath().value(), &addr);
+#endif
     int ret = HANDLE_EINTR(connect(socket->fd(),
                                    reinterpret_cast<sockaddr*>(&addr),
                                    sizeof(addr)));
@@ -986,14 +1038,19 @@ bool ProcessSingleton::Create() {
       << "Temp directory mode is not 700: " << std::oct << dir_mode;
 
   // Setup the socket symlink and the two cookies.
+#if !defined(NWJS_MAS)
   base::FilePath socket_target_path =
       socket_dir_.path().Append(chrome::kSingletonSocketFilename);
+#endif
   base::FilePath cookie(GenerateCookie());
   base::FilePath remote_cookie_path =
       socket_dir_.path().Append(chrome::kSingletonCookieFilename);
   UnlinkPath(socket_path_);
   UnlinkPath(cookie_path_);
-  if (!SymlinkPath(socket_target_path, socket_path_) ||
+  if (
+#if !defined(NWJS_MAS)
+      !SymlinkPath(socket_target_path, socket_path_) ||
+#endif
       !SymlinkPath(cookie, cookie_path_) ||
       !SymlinkPath(cookie, remote_cookie_path)) {
     // We've already locked things, so we can't have lost the startup race,
@@ -1004,10 +1061,19 @@ bool ProcessSingleton::Create() {
     return false;
   }
 
-  SetupSocket(socket_target_path.value(), &sock, &addr);
+#if !defined(NWJS_MAS)
+	SanitizedSocketPath sanitized_socket_target(socket_target_path);
+#else
+	SanitizedSocketPath sanitized_socket_target(socket_path_);
+#endif
+  SetupSocket(sanitized_socket_target.SocketPath().value(), &sock, &addr);
 
   if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+#if !defined(NWJS_MAS)
     PLOG(ERROR) << "Failed to bind() " << socket_target_path.value();
+#else
+    PLOG(ERROR) << "Failed to bind() " << socket_path_.value();
+#endif
     CloseSocket(sock);
     return false;
   }

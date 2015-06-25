@@ -21,7 +21,9 @@
 #include "media/video/capture/video_capture_device.h"
 #include "media/video/capture/video_capture_types.h"
 
+#if !defined(NWJS_MAS)
 @protocol PlatformVideoCapturingMac;
+#endif
 
 namespace base {
 class SingleThreadTaskRunner;
@@ -104,9 +106,9 @@ class VideoCaptureDeviceMac : public VideoCaptureDevice {
   // Only read and write state_ from inside this loop.
   const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   InternalState state_;
-
+#if !defined(NWJS_MAS)
   id<PlatformVideoCapturingMac> capture_device_;
-
+#endif
   // Used with Bind and PostTask to ensure that methods aren't called after the
   // VideoCaptureDeviceMac is destroyed.
   // NOTE: Weak pointers must be invalidated before all other member variables.

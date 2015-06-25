@@ -942,6 +942,12 @@
               '$(SDKROOT)/System/Library/Frameworks/CoreMIDI.framework',
               '$(SDKROOT)/System/Library/Frameworks/CoreVideo.framework',
               '$(SDKROOT)/System/Library/Frameworks/OpenGL.framework',
+            ],
+          },
+        }],
+        ['OS=="mac" and nwjs_mas != 1', {
+          'link_settings': {
+            'libraries': [
               '$(SDKROOT)/System/Library/Frameworks/QTKit.framework',
             ],
           },

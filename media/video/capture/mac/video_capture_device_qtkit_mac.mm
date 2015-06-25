@@ -1,7 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
+#if !defined(NWJS_MAS)
 #import "media/video/capture/mac/video_capture_device_qtkit_mac.h"
 
 #import <QTKit/QTKit.h>
@@ -355,3 +355,4 @@
 }
 
 @end
+#endif // MAC_APP_STORE

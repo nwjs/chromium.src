@@ -19,7 +19,9 @@
 #import "media/base/mac/avfoundation_glue.h"
 #import "media/video/capture/mac/platform_video_capturing_mac.h"
 #import "media/video/capture/mac/video_capture_device_avfoundation_mac.h"
-#import "media/video/capture/mac/video_capture_device_qtkit_mac.h"
+#if !defined(NWJS_MAS)
+ #import "media/video/capture/mac/video_capture_device_qtkit_mac.h"
+#endif
 #include "ui/gfx/geometry/size.h"
 
 @implementation DeviceNameAndTransportType
@@ -324,6 +326,7 @@ static void SetAntiFlickerInUsbDevice(const int vendor_id,
 }
 
 const std::string VideoCaptureDevice::Name::GetModel() const {
+#if !defined(NWJS_MAS)
   // Skip the AVFoundation's not USB nor built-in devices.
   if (capture_api_type() == AVFOUNDATION && transport_type() != USB_OR_BUILT_IN)
     return "";
@@ -340,6 +343,9 @@ const std::string VideoCaptureDevice::Name::GetModel() const {
   std::string id_product = unique_id_.substr(pid_location, kVidPidSize);
 
   return id_vendor + ":" + id_product;
+#else
+  return "";
+#endif
 }
 
 VideoCaptureDeviceMac::VideoCaptureDeviceMac(const Name& device_name)
@@ -347,7 +353,9 @@ VideoCaptureDeviceMac::VideoCaptureDeviceMac(const Name& device_name)
       tried_to_square_pixels_(false),
       task_runner_(base::MessageLoopProxy::current()),
       state_(kNotInitialized),
+#if !defined(NWJS_MAS)
       capture_device_(nil),
+#endif
       weak_factory_(this) {
   // Avoid reconfiguring AVFoundation or blacklisted devices.
   final_resolution_selected_ = AVFoundationGlue::IsAVFoundationSupported() ||
@@ -355,13 +363,16 @@ VideoCaptureDeviceMac::VideoCaptureDeviceMac(const Name& device_name)
 }
 
 VideoCaptureDeviceMac::~VideoCaptureDeviceMac() {
+#if !defined(NWJS_MAS)
   DCHECK(task_runner_->BelongsToCurrentThread());
   [capture_device_ release];
+#endif
 }
 
 void VideoCaptureDeviceMac::AllocateAndStart(
     const VideoCaptureParams& params,
     scoped_ptr<VideoCaptureDevice::Client> client) {
+#if !defined(NWJS_MAS)
   DCHECK(task_runner_->BelongsToCurrentThread());
   if (state_ != kIdle) {
     return;
@@ -429,9 +440,11 @@ void VideoCaptureDeviceMac::AllocateAndStart(
   }
 
   state_ = kCapturing;
+#endif
 }
 
 void VideoCaptureDeviceMac::StopAndDeAllocate() {
+#if !defined(NWJS_MAS)
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(state_ == kCapturing || state_ == kError) << state_;
 
@@ -440,17 +453,20 @@ void VideoCaptureDeviceMac::StopAndDeAllocate() {
   client_.reset();
   state_ = kIdle;
   tried_to_square_pixels_ = false;
+#endif
 }
 
 bool VideoCaptureDeviceMac::Init(
     VideoCaptureDevice::Name::CaptureApiType capture_api_type) {
+#if !defined(NWJS_MAS)
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK_EQ(state_, kNotInitialized);
 
   if (capture_api_type == Name::AVFOUNDATION) {
     capture_device_ =
         [[VideoCaptureDeviceAVFoundation alloc] initWithFrameReceiver:this];
-  } else {
+  } 
+  else {
     capture_device_ =
         [[VideoCaptureDeviceQTKit alloc] initWithFrameReceiver:this];
   }
@@ -460,6 +476,7 @@ bool VideoCaptureDeviceMac::Init(
 
   state_ = kIdle;
   return true;
+#endif
 }
 
 void VideoCaptureDeviceMac::ReceiveFrame(
@@ -468,6 +485,7 @@ void VideoCaptureDeviceMac::ReceiveFrame(
     const VideoCaptureFormat& frame_format,
     int aspect_numerator,
     int aspect_denominator) {
+#if !defined(NWJS_MAS)
   // This method is safe to call from a device capture thread, i.e. any thread
   // controlled by QTKit/AVFoundation.
   if (!final_resolution_selected_) {
@@ -542,19 +560,24 @@ void VideoCaptureDeviceMac::ReceiveFrame(
                                   capture_format_,
                                   0,
                                   base::TimeTicks::Now());
+#endif
 }
 
 void VideoCaptureDeviceMac::ReceiveError(const std::string& reason) {
+#if !defined(NWJS_MAS)
   task_runner_->PostTask(FROM_HERE,
                          base::Bind(&VideoCaptureDeviceMac::SetErrorState,
                                     weak_factory_.GetWeakPtr(),
                                     reason));
+#endif
 }
 
 void VideoCaptureDeviceMac::SetErrorState(const std::string& reason) {
+#if !defined(NWJS_MAS)
   DCHECK(task_runner_->BelongsToCurrentThread());
   state_ = kError;
   client_->OnError(reason);
+#endif
 }
 
 void VideoCaptureDeviceMac::LogMessage(const std::string& message) {
@@ -564,6 +587,7 @@ void VideoCaptureDeviceMac::LogMessage(const std::string& message) {
 }
 
 bool VideoCaptureDeviceMac::UpdateCaptureResolution() {
+#if !defined(NWJS_MAS)
   if (![capture_device_ setCaptureHeight:capture_format_.frame_size.height()
                                    width:capture_format_.frame_size.width()
                                frameRate:capture_format_.frame_rate]) {
@@ -571,6 +595,7 @@ bool VideoCaptureDeviceMac::UpdateCaptureResolution() {
     return false;
   }
   return true;
+#endif
 }
 
 } // namespace media
