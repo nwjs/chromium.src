@@ -388,9 +388,12 @@ bool Extension::ShouldDisplayInExtensionSettings() const {
 }
 
 bool Extension::ShouldExposeViaManagementAPI() const {
+#if 0
   // Hide component extensions because they are only extensions as an
   // implementation detail of Chrome.
   return !extensions::Manifest::IsComponentLocation(location());
+#endif
+  return false;
 }
 
 Extension::ManifestData* Extension::GetManifestData(const std::string& key)
