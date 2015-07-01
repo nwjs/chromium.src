@@ -2229,7 +2229,8 @@ void RenderProcessHostImpl::SetBackgrounded(bool backgrounded) {
   // get coverage on the perf waterfall.
   base::FieldTrial* trial =
       base::FieldTrialList::Find("BackgroundRendererProcesses");
-  if (!trial || !base::StartsWithASCII(trial->group_name(), "Disallow", true)) {
+  if (!trial || (trial->group_name() != "Disallow" &&
+                 trial->group_name() != "AllowBackgroundModeFromRenderer")) {
     child_process_launcher_->SetProcessBackgrounded(backgrounded);
   }
 #else
