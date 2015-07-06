@@ -181,6 +181,7 @@ struct NewTabURLDetails {
       : url(url), state(state) {}
 
   static NewTabURLDetails ForProfile(Profile* profile) {
+    return NewTabURLDetails(GURL("about:blank"), NEW_TAB_URL_VALID);
     // Incognito has its own New Tab.
     if (profile->IsOffTheRecord())
       return NewTabURLDetails(GURL(), NEW_TAB_URL_INCOGNITO);
