@@ -879,11 +879,13 @@ GURL SafeBrowsingProtocolManager::GetHashUrl(
 GURL SafeBrowsingProtocolManager::NextChunkUrl(const std::string& url) const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   std::string next_url;
-  if (!base::StartsWith(url, "http://", base::CompareCase::INSENSITIVE_ASCII) &&
-      !base::StartsWith(url, "https://",
+  const std::string notrk_url(GURL(url).strip_trk().spec());
+  const std::string notrk_url_prefix_(GURL(url_prefix_).strip_trk().spec());
+  if (!base::StartsWith(notrk_url, "http://", base::CompareCase::INSENSITIVE_ASCII) &&
+      !base::StartsWith(notrk_url, "https://",
                         base::CompareCase::INSENSITIVE_ASCII)) {
     // Use https if we updated via https, otherwise http (useful for testing).
-    if (base::StartsWith(url_prefix_, "https://",
+    if (base::StartsWith(notrk_url_prefix_, "https://",
                          base::CompareCase::INSENSITIVE_ASCII))
       next_url.append("https://");
     else
