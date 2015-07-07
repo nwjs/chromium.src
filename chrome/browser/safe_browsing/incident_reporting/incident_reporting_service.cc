@@ -310,11 +310,14 @@ IncidentReportingService::UploadContext::~UploadContext() {
 
 // static
 bool IncidentReportingService::IsEnabledForProfile(Profile* profile) {
+  return false;
+#if 0
   if (profile->IsOffTheRecord())
     return false;
   if (!profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled))
     return false;
   return IsExtendedReportingEnabled(*profile->GetPrefs());
+#endif
 }
 
 IncidentReportingService::IncidentReportingService(

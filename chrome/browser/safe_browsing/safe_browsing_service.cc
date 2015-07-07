@@ -353,7 +353,9 @@ SafeBrowsingDatabaseManager* SafeBrowsingService::CreateDatabaseManager() {
 
 void SafeBrowsingService::RegisterAllDelayedAnalysis() {
 #if defined(FULL_SAFE_BROWSING)
+#if 0
   RegisterBinaryIntegrityAnalysis();
+#endif
 #endif
 }
 
