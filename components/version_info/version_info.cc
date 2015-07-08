@@ -13,7 +13,7 @@
 namespace version_info {
 
 std::string GetProductNameAndVersionForUserAgent() {
-  return "Chrome/" + GetVersionNumber();
+  return "Iridium/" + GetVersionNumber();
 }
 
 std::string GetProductName() {

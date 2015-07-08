@@ -15,8 +15,8 @@ import extract_histograms
 import merge_xml
 
 _DATE_FILE_RE = re.compile(r".*MAJOR_BRANCH_DATE=(.+).*")
-_CURRENT_MILESTONE_RE = re.compile(r"MAJOR=([0-9]{2,3})\n")
-_MILESTONE_EXPIRY_RE = re.compile(r"\AM([0-9]{2,3})")
+_CURRENT_MILESTONE_RE = re.compile(r"MAJOR=([0-9]{2,4})\n")
+_MILESTONE_EXPIRY_RE = re.compile(r"\AM([0-9]{2,4})")
 
 _SCRIPT_NAME = "generate_expired_histograms_array.py"
 _HASH_DATATYPE = "uint64_t"
