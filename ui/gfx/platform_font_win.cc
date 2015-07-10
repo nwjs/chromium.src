@@ -25,6 +25,7 @@
 #include "ui/gfx/font.h"
 #include "ui/gfx/font_render_params.h"
 #include "ui/gfx/win/scoped_set_map_mode.h"
+#include "ui/gfx/win/dpi.h"
 
 namespace {
 
@@ -375,8 +376,10 @@ PlatformFontWin::HFontRef* PlatformFontWin::GetBaseFontRef() {
 
     if (adjust_font_callback)
       adjust_font_callback(&metrics.lfMessageFont);
-    metrics.lfMessageFont.lfHeight =
-        AdjustFontSize(metrics.lfMessageFont.lfHeight, 0);
+    Size dpi = gfx::GetDPI();
+    int targetSize = MulDiv(metrics.lfMessageFont.lfHeight, 96, dpi.height());
+    metrics.lfMessageFont.lfHeight = 
+        AdjustFontSize(metrics.lfMessageFont.lfHeight, metrics.lfMessageFont.lfHeight - targetSize);
     HFONT font = CreateFontIndirect(&metrics.lfMessageFont);
     DLOG_ASSERT(font);
     base_font_ref_ = PlatformFontWin::CreateHFontRef(font);
