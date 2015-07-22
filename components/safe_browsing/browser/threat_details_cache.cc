@@ -113,6 +113,7 @@ void ThreatDetailsCacheCollector::OpenEntry() {
   // Only from cache, and don't save cookies.
   resource_request->load_flags = net::LOAD_ONLY_FROM_CACHE |
                                  net::LOAD_SKIP_CACHE_VALIDATION |
+                                 net::LOAD_DO_NOT_SEND_COOKIES |
                                  net::LOAD_DO_NOT_SAVE_COOKIES;
   current_load_ = network::SimpleURLLoader::Create(std::move(resource_request),
                                                    traffic_annotation);

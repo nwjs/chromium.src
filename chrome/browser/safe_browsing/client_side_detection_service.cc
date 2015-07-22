@@ -348,7 +348,7 @@ void ClientSideDetectionService::StartClientReportPhishingRequest(
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = GetClientReportUrl(kClientReportPhishingUrl);
   resource_request->method = "POST";
-  resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->load_flags = net::LOAD_DISABLE_CACHE | net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES;
   auto loader = network::SimpleURLLoader::Create(std::move(resource_request),
                                                  traffic_annotation);
   loader->AttachStringForUpload(request_data, "application/octet-stream");
@@ -430,7 +430,7 @@ void ClientSideDetectionService::StartClientReportMalwareRequest(
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = GetClientReportUrl(kClientReportMalwareUrl);
   resource_request->method = "POST";
-  resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->load_flags = net::LOAD_DISABLE_CACHE | net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES;
   auto loader = network::SimpleURLLoader::Create(std::move(resource_request),
                                                  traffic_annotation);
   loader->AttachStringForUpload(request_data, "application/octet-stream");

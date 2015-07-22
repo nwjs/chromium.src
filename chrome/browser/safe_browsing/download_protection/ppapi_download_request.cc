@@ -242,7 +242,7 @@ void PPAPIDownloadRequest::SendRequest() {
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = GetDownloadRequestUrl();
   resource_request->method = "POST";
-  resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->load_flags = net::LOAD_DISABLE_CACHE | net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES;
   loader_ = network::SimpleURLLoader::Create(std::move(resource_request),
                                              traffic_annotation);
   loader_->AttachStringForUpload(client_download_request_data_,

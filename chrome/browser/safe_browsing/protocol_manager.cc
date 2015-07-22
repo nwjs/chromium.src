@@ -282,7 +282,7 @@ void SafeBrowsingProtocolManager::GetFullHash(
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = gethash_url;
   resource_request->method = "POST";
-  resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->load_flags = net::LOAD_DISABLE_CACHE | net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES;
   auto loader_ptr = network::SimpleURLLoader::Create(
       std::move(resource_request), traffic_annotation);
   loader_ptr->AttachStringForUpload(FormatGetHash(prefixes), "text/plain");
@@ -688,7 +688,7 @@ bool SafeBrowsingProtocolManager::IssueBackupUpdateRequest(
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = backup_update_url;
   resource_request->method = "POST";
-  resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->load_flags = net::LOAD_DISABLE_CACHE | net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES;
   request_ = network::SimpleURLLoader::Create(std::move(resource_request),
                                               traffic_annotation);
   request_->AttachStringForUpload(update_list_data_, "text/plain");
@@ -719,7 +719,7 @@ void SafeBrowsingProtocolManager::IssueChunkRequest() {
 
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = chunk_url;
-  resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->load_flags = net::LOAD_DISABLE_CACHE | net::LOAD_DO_NOT_SEND_COOKIES | net::LOAD_DO_NOT_SAVE_COOKIES;
   request_ = network::SimpleURLLoader::Create(
       std::move(resource_request), kChunkBackupRequestTrafficAnnotation);
   request_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
@@ -777,7 +777,7 @@ void SafeBrowsingProtocolManager::OnGetChunksComplete(
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = update_url;
   resource_request->method = "POST";
-  resource_request->load_flags = net::LOAD_DISABLE_CACHE;
+  resource_request->load_flags = net::LOAD_DISABLE_CACHE | net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES;
   request_ = network::SimpleURLLoader::Create(
       std::move(resource_request), kChunkBackupRequestTrafficAnnotation);
   request_->AttachStringForUpload(update_list_data_, "text/plain");
