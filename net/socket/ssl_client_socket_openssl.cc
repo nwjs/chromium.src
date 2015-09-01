@@ -629,7 +629,7 @@ int SSLClientSocketOpenSSL::Read(IOBuffer* buf,
   user_read_buf_ = buf;
   user_read_buf_len_ = buf_len;
 
-  int rv = DoReadLoop(OK);
+  int rv = DoReadLoop();
 
   if (rv == ERR_IO_PENDING) {
     user_read_callback_ = callback;
@@ -654,7 +654,7 @@ int SSLClientSocketOpenSSL::Write(IOBuffer* buf,
   user_write_buf_ = buf;
   user_write_buf_len_ = buf_len;
 
-  int rv = DoWriteLoop(OK);
+  int rv = DoWriteLoop();
 
   if (rv == ERR_IO_PENDING) {
     user_write_callback_ = callback;
@@ -1133,7 +1133,7 @@ void SSLClientSocketOpenSSL::OnRecvComplete(int result) {
   if (!user_read_buf_.get())
     return;
 
-  int rv = DoReadLoop(result);
+  int rv = DoReadLoop();
   if (rv != ERR_IO_PENDING)
     DoReadCallback(rv);
 }
@@ -1185,10 +1185,7 @@ int SSLClientSocketOpenSSL::DoHandshakeLoop(int last_io_result) {
   return rv;
 }
 
-int SSLClientSocketOpenSSL::DoReadLoop(int result) {
-  if (result < 0)
-    return result;
-
+int SSLClientSocketOpenSSL::DoReadLoop() {
   bool network_moved;
   int rv;
   do {
@@ -1199,10 +1196,7 @@ int SSLClientSocketOpenSSL::DoReadLoop(int result) {
   return rv;
 }
 
-int SSLClientSocketOpenSSL::DoWriteLoop(int result) {
-  if (result < 0)
-    return result;
-
+int SSLClientSocketOpenSSL::DoWriteLoop() {
   bool network_moved;
   int rv;
   do {
@@ -1260,6 +1254,15 @@ int SSLClientSocketOpenSSL::DoPayloadRead() {
     } else if (*next_result < 0) {
       int err = SSL_get_error(ssl_, *next_result);
       *next_result = MapOpenSSLError(err, err_tracer);
+
+      // Many servers do not reliably send a close_notify alert when shutting
+      // down a connection, and instead terminate the TCP connection. This is
+      // reported as ERR_CONNECTION_CLOSED. Because of this, map the unclean
+      // shutdown to a graceful EOF, instead of treating it as an error as it
+      // should be.
+      if (*next_result == ERR_CONNECTION_CLOSED)
+        *next_result = 0;
+
       if (rv > 0 && *next_result == ERR_IO_PENDING) {
           // If at least some data was read from SSL_read(), do not treat
           // insufficient data as an error to return in the next call to
