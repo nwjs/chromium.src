@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/mac/mac_logging.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_aedesc.h"
 #include "base/strings/sys_string_conversions.h"
 #include "url/gurl.h"
@@ -37,6 +38,24 @@ void OpenItem(Profile* profile, const base::FilePath& full_path) {
   NSString* path_string = base::SysUTF8ToNSString(full_path.value());
   if (!path_string)
     return;
+
+  // On Mavericks or later, NSWorkspaceLaunchWithErrorPresentation will
+  // properly handle Finder activation for quarantined files
+  // (http://crbug.com/32921) and unassociated file types
+  // (http://crbug.com/50263).
+  if (base::mac::IsOSMavericksOrLater()) {
+    NSURL* url = [NSURL fileURLWithPath:path_string];
+    if (!url)
+      return;
+    const NSWorkspaceLaunchOptions launch_options =
+        NSWorkspaceLaunchAsync | NSWorkspaceLaunchWithErrorPresentation;
+    [[NSWorkspace sharedWorkspace] openURLs:@[ url ]
+                    withAppBundleIdentifier:nil
+                                    options:launch_options
+             additionalEventParamDescriptor:nil
+                          launchIdentifiers:NULL];
+    return;
+  }
 
   // Create the target of this AppleEvent, the Finder.
   base::mac::ScopedAEDesc<AEAddressDesc> address;
