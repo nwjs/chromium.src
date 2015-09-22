@@ -221,7 +221,6 @@ const char g_dump_msg[] = "upload_file_minidump\"; filename=\"dump\"";
 #if defined(ADDRESS_SANITIZER)
 const char g_log_msg[] = "upload_file_log\"; filename=\"log\"";
 #endif
-const char g_content_type_msg[] = "Content-Type: application/octet-stream";
 
 // MimeWriter manages an iovec for writing MIMEs to a file.
 class MimeWriter {
@@ -365,14 +364,7 @@ void MimeWriter::AddPairDataInChunks(const char* msg_type,
 
 void MimeWriter::AddFileContents(const char* filename_msg, uint8_t* file_data,
                                  size_t file_size) {
-  AddString(g_form_data_msg);
-  AddString(filename_msg);
-  AddString(g_rn);
-  AddString(g_content_type_msg);
-  AddString(g_rn);
-  AddString(g_rn);
   AddItem(file_data, file_size);
-  AddString(g_rn);
 }
 
 void MimeWriter::AddItem(const void* base, size_t size) {
@@ -1304,119 +1296,9 @@ void HandleCrashDump(const BreakpadInfo& info) {
 #else
   MimeWriter writer(temp_file_fd, mime_boundary);
 #endif
-  {
-    // TODO(thestig) Do not use this inside a compromised context.
-    std::string product_name;
-    std::string version;
-
-    GetBreakpadClient()->GetProductNameAndVersion(&product_name, &version);
-
-    writer.AddBoundary();
-    writer.AddPairString("prod", product_name.c_str());
-    writer.AddBoundary();
-    writer.AddPairString("ver", version.c_str());
-    writer.AddBoundary();
-    if (info.pid > 0) {
-      char pid_value_buf[kUint64StringSize];
-      uint64_t pid_value_len = my_uint64_len(info.pid);
-      my_uint64tos(pid_value_buf, info.pid, pid_value_len);
-      static const char pid_key_name[] = "pid";
-      writer.AddPairData(pid_key_name, sizeof(pid_key_name) - 1,
-                         pid_value_buf, pid_value_len);
-      writer.AddBoundary();
-    }
-#if defined(OS_ANDROID)
-    // Addtional MIME blocks are added for logging on Android devices.
-    static const char android_build_id[] = "android_build_id";
-    static const char android_build_fp[] = "android_build_fp";
-    static const char device[] = "device";
-    static const char model[] = "model";
-    static const char brand[] = "brand";
-    static const char exception_info[] = "exception_info";
-
-    base::android::BuildInfo* android_build_info =
-        base::android::BuildInfo::GetInstance();
-    writer.AddPairString(
-        android_build_id, android_build_info->android_build_id());
-    writer.AddBoundary();
-    writer.AddPairString(
-        android_build_fp, android_build_info->android_build_fp());
-    writer.AddBoundary();
-    writer.AddPairString(device, android_build_info->device());
-    writer.AddBoundary();
-    writer.AddPairString(model, android_build_info->model());
-    writer.AddBoundary();
-    writer.AddPairString(brand, android_build_info->brand());
-    writer.AddBoundary();
-    if (android_build_info->java_exception_info() != NULL) {
-      writer.AddPairString(exception_info,
-                           android_build_info->java_exception_info());
-      writer.AddBoundary();
-    }
-#endif
-    writer.Flush();
-  }
-
-  if (info.process_start_time > 0) {
-    struct kernel_timeval tv;
-    if (!sys_gettimeofday(&tv, NULL)) {
-      uint64_t time = kernel_timeval_to_ms(&tv);
-      if (time > info.process_start_time) {
-        time -= info.process_start_time;
-        char time_str[kUint64StringSize];
-        const unsigned time_len = my_uint64_len(time);
-        my_uint64tos(time_str, time, time_len);
-
-        static const char process_time_msg[] = "ptime";
-        writer.AddPairData(process_time_msg, sizeof(process_time_msg) - 1,
-                           time_str, time_len);
-        writer.AddBoundary();
-        writer.Flush();
-      }
-    }
-  }
-
-  if (info.process_type_length) {
-    writer.AddPairString("ptype", info.process_type);
-    writer.AddBoundary();
-    writer.Flush();
-  }
-
-  if (info.distro_length) {
-    static const char distro_msg[] = "lsb-release";
-    writer.AddPairString(distro_msg, info.distro);
-    writer.AddBoundary();
-    writer.Flush();
-  }
-
-  if (info.oom_size) {
-    char oom_size_str[kUint64StringSize];
-    const unsigned oom_size_len = my_uint64_len(info.oom_size);
-    my_uint64tos(oom_size_str, info.oom_size, oom_size_len);
-    static const char oom_size_msg[] = "oom-size";
-    writer.AddPairData(oom_size_msg, sizeof(oom_size_msg) - 1,
-                       oom_size_str, oom_size_len);
-    writer.AddBoundary();
-    writer.Flush();
-  }
-
-  if (info.crash_keys) {
-    CrashKeyStorage::Iterator crash_key_iterator(*info.crash_keys);
-    const CrashKeyStorage::Entry* entry;
-    while ((entry = crash_key_iterator.Next())) {
-      writer.AddPairString(entry->key, entry->value);
-      writer.AddBoundary();
-      writer.Flush();
-    }
-  }
 
   writer.AddFileContents(g_dump_msg, dump_data, dump_size);
-#if defined(ADDRESS_SANITIZER)
-  // Append a multipart boundary and the contents of the AddressSanitizer log.
-  writer.AddBoundary();
-  writer.AddFileContents(g_log_msg, log_data, log_size);
-#endif
-  writer.AddEnd();
+
   writer.Flush();
 
   IGNORE_RET(sys_close(temp_file_fd));
