@@ -132,7 +132,7 @@ deps = {
     'depot_tools':
         Var('git_url') + '/chromium/tools/depot_tools.git@a5a945a18d007079395947e20a74e0e551fe4902',
     'src/breakpad/src':
-        'https://github.com/rogerwang/breakpad.git@origin/nw11',
+        'https://github.com/rogerwang/breakpad.git@origin/custom',
     'src/buildtools':
         Var('git_url') + '/chromium/buildtools.git@48edf30c463fc41fb9fb0926f8466b473cb177fa',
     'src/chrome/browser/resources/pdf/html_office':
