@@ -23,8 +23,7 @@ class VideoDecoderJob : public MediaDecoderJob {
   // demuxer config has changed.
   VideoDecoderJob(const base::Closure& request_data_cb,
                   const base::Closure& request_resources_cb,
-                  const base::Closure& on_demuxer_config_changed_cb,
-                  FrameStatistics* frame_statistics);
+                  const base::Closure& on_demuxer_config_changed_cb);
   ~VideoDecoderJob() override;
 
   // Passes a java surface object to the codec. Returns true if the surface
@@ -46,6 +45,7 @@ class VideoDecoderJob : public MediaDecoderJob {
       size_t offset,
       size_t size,
       bool render_output,
+      bool is_late_frame,
       base::TimeDelta current_presentation_timestamp,
       const ReleaseOutputCompletionCallback& callback) override;
   bool ComputeTimeToRender() const override;
