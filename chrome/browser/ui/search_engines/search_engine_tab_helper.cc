@@ -97,6 +97,12 @@ bool SearchEngineTabHelper::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
+bool SearchEngineTabHelper::OnMessageReceived(
+    const IPC::Message& message,
+    content::RenderFrameHost* render_frame_host) {
+  return OnMessageReceived(message);
+}
+
 SearchEngineTabHelper::SearchEngineTabHelper(WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
       delegate_(nullptr),

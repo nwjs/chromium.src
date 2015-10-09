@@ -31,6 +31,8 @@ class SearchEngineTabHelper
       const content::LoadCommittedDetails& details,
       const content::FrameNavigateParams& params) override;
   bool OnMessageReceived(const IPC::Message& message) override;
+  bool OnMessageReceived(const IPC::Message& message,
+                         content::RenderFrameHost* rfh) override;
 
  private:
   explicit SearchEngineTabHelper(content::WebContents* web_contents);
