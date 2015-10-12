@@ -4,7 +4,7 @@
 <translation id="1032854598605920125">Putar ikut arah jam</translation>
 <translation id="1055184225775184556">&amp;Buat Asal Tambahkan</translation>
 <translation id="106701514854093668">Penanda Halaman Desktop</translation>
-<translation id="1080116354587839789">Muat kelebaran</translation>
+<translation id="1080116354587839789">Muat ikut lebar</translation>
 <translation id="1103523840287552314">Sentiasa terjemahkan <ph name="LANGUAGE" /></translation>
 <translation id="1113869188872983271">&amp;Buat asal susun semula</translation>
 <translation id="111844081046043029">Adakah anda pasti anda mahu meninggalkan halaman ini?</translation>
@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">Pelayan ini tidak dapat membuktikan bahawa domainnya ialah <ph name="DOMAIN" />; sijil keselamatannya tidak dipercayai oleh sistem pengendalian peranti anda. Ini mungkin disebabkan oleh kesilapan konfigurasi atau penyerang yang memintasi sambungan anda.</translation>
 <translation id="1821930232296380041">Permintaan atau parameter permintaan tidak sah</translation>
 <translation id="1871208020102129563">Proksi ditetapkan untuk menggunakan pelayan proksi tetap, bukannya URL skrip .pac.</translation>
-<translation id="1875753206475436906">jenis heuristik: <ph name="HEURISTIC_TYPE" />
-    jenis pelayan: <ph name="SERVER_TYPE" />
-    tandatangan medan: <ph name="FIELD_SIGNATURE" />
-    tandatangan borang: <ph name="FORM_SIGNATURE" />
-    id percubaan: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Pergi ke <ph name="LINK" /></translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> Penanda halaman</translation>
 <translation id="1973335181906896915">Ralat penyirian</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">Tandatangan tidak elok</translation>
 <translation id="4269787794583293679">(Tiada nama pengguna)</translation>
 <translation id="4300246636397505754">Cadangan ibu bapa</translation>
+<translation id="4325863107915753736">Gagal menemui artikel</translation>
 <translation id="4372948949327679948">Nilai <ph name="VALUE_TYPE" /> yang dijangka.</translation>
 <translation id="4377125064752653719">Anda cuba untuk mencapai <ph name="DOMAIN" />, tetapi sijil yang diberi pelayan telah dibatalkan oleh pengeluarnya. Ini bermakna bahawa bukti kelayakan keselamatan yang diberi pelayan sememangnya tidak harus dipercayai. Anda mungkin berkomunikasi dengan penyerang.</translation>
 <translation id="4394049700291259645">Lumpuhkan</translation>
@@ -174,7 +170,8 @@
 <translation id="4968547170521245791">Tidak boleh Proksi</translation>
 <translation id="498957508165411911">Terjemahkan daripada <ph name="ORIGINAL_LANGUAGE" /> kepada <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Simpanan penyandaran dalam keadaan buruk</translation>
-<translation id="5031870354684148875">Mengenai Terjemahan Google</translation>
+<translation id="5031870354684148875">Perihal Google Terjemah</translation>
+<translation id="5045550434625856497">Kata laluan tidak sah</translation>
 <translation id="5087286274860437796">Sijil pelayan tidak sah pada masa ini.</translation>
 <translation id="5089810972385038852">Negeri</translation>
 <translation id="5094747076828555589">Pelayan ini tidak dapat membuktikan bahawa domainnya ialah <ph name="DOMAIN" />; sijil keselamatannya tidak dipercayai oleh Chromium. Ini mungkin disebabkan oleh kesilapan konfigurasi atau penyerang yang memintasi sambungan anda.</translation>

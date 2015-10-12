@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">Este servidor não conseguiu provar que é <ph name="DOMAIN" />. O certificado de segurança não é confiável para o sistema operacional do seu dispositivo. Isso pode ser causado por uma configuração incorreta ou pela interceptação da sua conexão por um invasor.</translation>
 <translation id="1821930232296380041">Solicitação ou parâmetros de solicitação inválidos</translation>
 <translation id="1871208020102129563">O proxy foi configurado para utilizar servidores de proxy fixo e não um URL de script .pac.</translation>
-<translation id="1875753206475436906">tipo de heurística: <ph name="HEURISTIC_TYPE" />
-    tipo de servidor: <ph name="SERVER_TYPE" />
-    assinatura do campo: <ph name="FIELD_SIGNATURE" />
-    assinatura do formulário: <ph name="FORM_SIGNATURE" />
-    código do experimento: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Ir para <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Favoritos de <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Erro de serialização</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">Assinatura inválida</translation>
 <translation id="4269787794583293679">Sem nome de usuário</translation>
 <translation id="4300246636397505754">Sugestões para pais</translation>
+<translation id="4325863107915753736">Falha ao encontrar artigo</translation>
 <translation id="4372948949327679948">Valor <ph name="VALUE_TYPE" /> esperado.</translation>
 <translation id="4377125064752653719">Você tentou acessar <ph name="DOMAIN" />, mas o certificado que o servidor apresentou foi revogado pelo seu emissor. Isso significa que as credenciais de segurança que o servidor apresentou não são nem um pouco seguras. Talvez você esteja se comunicando com um invasor.</translation>
 <translation id="4394049700291259645">Desativar</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911">Traduzir de <ph name="ORIGINAL_LANGUAGE" /> para <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Armazenamento de backup em estado inválido</translation>
 <translation id="5031870354684148875">Sobre o Google Tradutor</translation>
+<translation id="5045550434625856497">Senha incorreta</translation>
 <translation id="5087286274860437796">O certificado do servidor não é válido no momento.</translation>
 <translation id="5089810972385038852">Estado</translation>
 <translation id="5094747076828555589">Este servidor não conseguiu provar que é <ph name="DOMAIN" />. O certificado de segurança não é confiável para o Chromium. Isso pode ser causado por uma configuração incorreta ou pela interceptação da sua conexão por um invasor.</translation>

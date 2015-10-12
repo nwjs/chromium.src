@@ -38,6 +38,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1773601347087397504">Get help with using Chrome OS</translation>
 <translation id="1818142563254268765">Chrome could not update itself to the latest version, so you are missing out on amazing new features and security fixes. You need to update Chrome.</translation>
 <translation id="1877026089748256423">Chrome is out of date</translation>
+<translation id="1924381329666691588">Google Chrome cannot be displayed in this language.</translation>
 <translation id="2077129598763517140">Use hardware acceleration when available</translation>
 <translation id="2084710999043359739">Add to Chrome</translation>
 <translation id="2246246234298806438">Google Chrome cannot show the print preview when the built-in PDF viewer is missing.</translation>
@@ -66,6 +67,7 @@ Signing in anyway will merge Chrome information like bookmarks, history and othe
 <translation id="2748463065602559597">You are viewing a secure Google Chrome page.</translation>
 <translation id="2769762047821873045">Google Chrome isn't your default browser.</translation>
 <translation id="2770231113462710648">Change default browser to:</translation>
+<translation id="2847461019998147611">Display Google Chrome in this language</translation>
 <translation id="2871893339301912279">You're signed in to Chrome!</translation>
 <translation id="2874156562296220396">Google Chrome is made possible by the <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> open source project and other <ph name="BEGIN_LINK_OSS" />open source software<ph name="END_LINK_OSS" />.</translation>
 <translation id="3037838751736561277">Google Chrome is in background mode.</translation>
@@ -143,14 +145,15 @@ Some features may be unavailable. Please specify a different profile directory o
 Google Chrome is unable to recover your settings.</translation>
 <translation id="5453904507266736060">Let Google Chrome Run In The Background</translation>
 <translation id="5495581687705680288">Modules loaded into Google Chrome</translation>
-<translation id="5531349711857992002">The certificate chain for this website contains at least one certificate that was signed using a deprecated signature algorithm based on SHA-1.</translation>
 <translation id="556024056938947818">Google Chrome is trying to show passwords.</translation>
 <translation id="5563479599352954471">Search with one touch</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> normally uses encryption to protect your information. When Chrome tried to connect to <ph name="SITE" /> this time, the website sent back unusual and incorrect credentials. Either an attacker is trying to pretend to be <ph name="SITE" />, or a Wi-Fi sign-in screen has interrupted the connection. Your information is still secure because Chrome stopped the connection before any data was exchanged.</translation>
 <translation id="5620765574781326016">Learn about topics on websites without leaving the page.</translation>
+<translation id="5637867606963802593">Chrome OS cannot be displayed in this language.</translation>
 <translation id="568643307450491754">Find your bookmarks in the Chrome menu or on the bookmarks bar.</translation>
 <translation id="573759479754913123">About Chrome OS</translation>
+<translation id="5749068826913805084">Chrome needs storage access to download files.</translation>
 <translation id="5785746630574083988">Relaunching in Windows 8 mode will close and relaunch your Chrome apps.</translation>
 <translation id="5799551393681493217">Enables iframe-based Chrome sign-in flows. This flag overrides --enable-web-based-sign-in.</translation>
 <translation id="5855036575689098185">Software running on your computer is incompatible with Google Chrome.</translation>
@@ -213,6 +216,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7164397146364144019">You can help make Chrome safer and easier to use by automatically reporting details of possible security incidents to Google.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> has been added to Chrome.</translation>
 <translation id="7191567847629796517">Google Chrome OS does not support launching an external application to handle <ph name="SCHEME" /> links. The link requested is <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome is displayed in this language.</translation>
 <translation id="7196020411877309443">Why am I seeing this?</translation>
 <translation id="7242029209006116544">You are signing in with a managed account and giving its administrator control over your Google Chrome profile. Your Chrome data, such as your apps, bookmarks, history, passwords and other settings will become permanently tied to <ph name="USER_NAME" />. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account. You can optionally create a new profile to keep your existing Chrome data separate. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome - Notifications (<ph name="QUANTITY" /> unread)</translation>
@@ -228,6 +232,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7473136999113284234">Chrome updates automatically so that you always have the freshest version.</translation>
 <translation id="7473891865547856676">No Thanks</translation>
 <translation id="7494905215383356681">Chrome open source licences</translation>
+<translation id="7552219221109926349">Display Chrome OS in this language</translation>
 <translation id="7592736734348559088">Google Chrome could not sync your data because your account sign-in details are out of date.</translation>
 <translation id="7626032353295482388">Welcome to Chrome</translation>
 <translation id="7747138024166251722">The installer couldn't create a temporary directory. Please check for free disk space and permission to install software.</translation>
@@ -241,6 +246,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7825851276765848807">Installation failed due to unspecified error. Please download Google Chrome again.</translation>
 <translation id="7890208801193284374">If you share a computer, friends and family can browse separately and set up Chrome just the way they want.</translation>
 <translation id="7908968924842975895">This computer will no longer receive Google Chrome updates because its hardware is no longer supported.</translation>
+<translation id="7964230182933713106">Chrome OS is displayed in this language.</translation>
 <translation id="7984945080620862648">You cannot visit <ph name="SITE" /> at the moment because the website sent scrambled credentials that Chrome cannot process. Network errors and attacks are usually temporary, so this page will probably work later.</translation>
 <translation id="8000275528373650868">Google Chrome requires Windows Vista or Windows XP with SP2 or higher.</translation>
 <translation id="8005540215158006229">Chrome is almost ready.</translation>

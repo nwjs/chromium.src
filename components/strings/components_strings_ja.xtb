@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">このサーバーが <ph name="DOMAIN" /> であることを確認できませんでした。このサーバーのセキュリティ証明書は、ご使用のデバイスのオペレーティング システムによって信頼されているものではありません。原因としては、不適切な設定や、悪意のあるユーザーによる接続妨害が考えられます。</translation>
 <translation id="1821930232296380041">無効なリクエストまたはリクエスト パラメータです</translation>
 <translation id="1871208020102129563">プロキシは .pac スクリプト URL ではなく固定プロキシ サーバーを使用するように設定されています。</translation>
-<translation id="1875753206475436906">ヒューリスティック タイプ: <ph name="HEURISTIC_TYPE" />
-    サーバー タイプ: <ph name="SERVER_TYPE" />
-    フィールドの署名: <ph name="FIELD_SIGNATURE" />
-    フォームの署名: <ph name="FORM_SIGNATURE" />
-    テスト用 ID: 「<ph name="EXPERIMENT_ID" />」</translation>
 <translation id="194030505837763158"><ph name="LINK" /> に移動します</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> のブックマーク</translation>
 <translation id="1973335181906896915">シリアル化エラーです</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">署名が不適切です</translation>
 <translation id="4269787794583293679">（ユーザー名なし）</translation>
 <translation id="4300246636397505754">保護者からのおすすめ</translation>
+<translation id="4325863107915753736">記事が見つかりませんでした</translation>
 <translation id="4372948949327679948"><ph name="VALUE_TYPE" /> 値が想定されます。</translation>
 <translation id="4377125064752653719"><ph name="DOMAIN" /> にアクセスしようとしましたが、サーバーから提示された証明書は発行元により取り消されています。これは、サーバーから提示されたセキュリティ認証情報が信頼できないことを示しており、悪意のあるユーザーと通信しようとしている可能性があります。</translation>
 <translation id="4394049700291259645">無効にする</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911"><ph name="ORIGINAL_LANGUAGE" />から<ph name="TARGET_LANGUAGE" />に翻訳しますか？</translation>
 <translation id="5019198164206649151">代替ストアの状態が不適切です</translation>
 <translation id="5031870354684148875">Google 翻訳について</translation>
+<translation id="5045550434625856497">パスワードが正しくありません</translation>
 <translation id="5087286274860437796">サーバーの証明書が現在有効ではありません。</translation>
 <translation id="5089810972385038852">都道府県 / 州</translation>
 <translation id="5094747076828555589">このサーバーが <ph name="DOMAIN" /> であることを確認できませんでした。このサーバーのセキュリティ証明書は Chromium によって信頼されているものではありません。原因としては、不適切な設定や、悪意のあるユーザーによる接続妨害が考えられます。</translation>

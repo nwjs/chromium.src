@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da operativsystemet på din enhed ikke har tillid til sikkerhedscertifikatet. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.</translation>
 <translation id="1821930232296380041">Ugyldig anmodning eller anmodningsparametre</translation>
 <translation id="1871208020102129563">Proxy er indstillet til at bruge faste proxyservere, ikke webadresser til .pac-scripts.</translation>
-<translation id="1875753206475436906">heuristisk type: <ph name="HEURISTIC_TYPE" />
-    servertype: <ph name="SERVER_TYPE" />
-    feltsignatur: <ph name="FIELD_SIGNATURE" />
-    formsignatur: <ph name="FORM_SIGNATURE" />
-    eksperiment-id: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Gå til <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Bogmærker fra <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Serialiseringsfejl</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">Forkert signatur</translation>
 <translation id="4269787794583293679">(Intet brugernavn)</translation>
 <translation id="4300246636397505754">Forslag fra forældre</translation>
+<translation id="4325863107915753736">Artiklen blev ikke fundet.</translation>
 <translation id="4372948949327679948">Forventet <ph name="VALUE_TYPE" />-værdi.</translation>
 <translation id="4377125064752653719">Du har forsøgt at få fat på <ph name="DOMAIN" />, men serverens certifikat er blevet tilbagekaldt af udgiveren. Det betyder, at du bestemt ikke bør have tillid til serverens sikkerhedsoplysninger. Du kommunikerer muligvis med en hacker.</translation>
 <translation id="4394049700291259645">Deaktiver</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911">Vil du oversætte fra <ph name="ORIGINAL_LANGUAGE" /> til <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Sikkerhedskopien er fejlbehæftet</translation>
 <translation id="5031870354684148875">Om Google Oversæt</translation>
+<translation id="5045550434625856497">Ugyldig adgangskode</translation>
 <translation id="5087286274860437796">Serverens certifikatet er ikke gyldigt i øjeblikket.</translation>
 <translation id="5089810972385038852">Delstat</translation>
 <translation id="5094747076828555589">Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da Chromium ikke har tillid til sikkerhedscertifikatet. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.</translation>

@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">De server kan niet bewijzen dat dit <ph name="DOMAIN" /> is. Het beveiligingscertificaat van de server wordt niet vertrouwd door het besturingssysteem van je apparaat. Dit kan worden veroorzaakt door een verkeerde configuratie of een aanvaller die je verbinding onderschept.</translation>
 <translation id="1821930232296380041">Ongeldige aanvraag of aanvraagparameters</translation>
 <translation id="1871208020102129563">Proxy is ingesteld op het gebruik van vaste proxyservers, niet op een script-URL van het PAC-type.</translation>
-<translation id="1875753206475436906">heuristisch type: <ph name="HEURISTIC_TYPE" />
-    servertype: <ph name="SERVER_TYPE" />
-    veldhandtekening: <ph name="FIELD_SIGNATURE" />
-    formulierhandtekening: <ph name="FORM_SIGNATURE" />
-    experiment-id: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Ga naar <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Bladwijzers voor <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Serialisatiefout</translation>
@@ -66,7 +61,7 @@
 <translation id="2354001756790975382">Andere bladwijzers</translation>
 <translation id="2359808026110333948">Doorgaan</translation>
 <translation id="2367567093518048410">Niveau</translation>
-<translation id="2384307209577226199">Enterprise-standaard</translation>
+<translation id="2384307209577226199">Standaardinstelling van bedrijf</translation>
 <translation id="2386255080630008482">Het servercertificaat is ingetrokken.</translation>
 <translation id="2392959068659972793">Beleid weergeven zonder waarde ingesteld</translation>
 <translation id="2396249848217231973">&amp;Verwijderen ongedaan maken</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">Onjuiste handtekening</translation>
 <translation id="4269787794583293679">(Geen gebruikersnaam)</translation>
 <translation id="4300246636397505754">Bovenliggende suggesties</translation>
+<translation id="4325863107915753736">Kan artikel niet vinden</translation>
 <translation id="4372948949327679948">Verwachte <ph name="VALUE_TYPE" /> waarde.</translation>
 <translation id="4377125064752653719">Je probeert <ph name="DOMAIN" /> te bereiken, maar het certificaat dat de server heeft geretourneerd, is ingetrokken door de uitgever. Dat betekent dat de veiligheidsgaranties die de server heeft geretourneerd, absoluut niet kunnen worden vertrouwd. Het kan zijn dat je met een hacker aan het communiceren bent.</translation>
 <translation id="4394049700291259645">Uitschakelen</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911">Vertalen uit het <ph name="ORIGINAL_LANGUAGE" /> naar het <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Backend-opslag in slechte staat</translation>
 <translation id="5031870354684148875">Over Google Translate</translation>
+<translation id="5045550434625856497">Onjuist wachtwoord</translation>
 <translation id="5087286274860437796">Het servercertificaat is momenteel niet geldig.</translation>
 <translation id="5089810972385038852">Staat</translation>
 <translation id="5094747076828555589">De server kan niet bewijzen dat dit <ph name="DOMAIN" /> is. Het beveiligingscertificaat van de server wordt niet vertrouwd door Chromium. Dit kan worden veroorzaakt door een verkeerde configuratie of een aanvaller die je verbinding onderschept.</translation>
@@ -288,7 +285,7 @@
 <translation id="7983301409776629893"><ph name="ORIGINAL_LANGUAGE" /> altijd vertalen in het <ph name="TARGET_LANGUAGE" /></translation>
 <translation id="7988324688042446538">Desktopbladwijzers</translation>
 <translation id="7995512525968007366">Niet opgegeven</translation>
-<translation id="8003882219468422867">Enterprise-override</translation>
+<translation id="8003882219468422867">Overschrijving door bedrijf</translation>
 <translation id="8034522405403831421">Deze pagina is in het <ph name="SOURCE_LANGUAGE" />. Vertalen naar het <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="8088680233425245692">Kan artikel niet bekijken.</translation>
 <translation id="8091372947890762290">Activering is in behandeling op de server</translation>

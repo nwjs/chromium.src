@@ -22,6 +22,7 @@
 <translation id="1285320974508926690">このサイトは翻訳しない</translation>
 <translation id="129553762522093515">最近閉じたタブ</translation>
 <translation id="1312168552565502328">Cookie、サイトデータ</translation>
+<translation id="1346090444609141578">ここに保存されているページはありません</translation>
 <translation id="1369915414381695676">サイト <ph name="SITE_NAME" /> を追加しました</translation>
 <translation id="1373696734384179344">選択したコンテンツをダウンロードするにはメモリが不足しています。</translation>
 <translation id="1379156015317873965">ページの表示速度が向上します</translation>
@@ -198,7 +199,7 @@
 <translation id="423410644998903704">このサイトと機能を共有するには Chrome にアクセスを許可する必要があります。</translation>
 <translation id="4256782883801055595">オープンソース ライセンス</translation>
 <translation id="4259722352634471385"><ph name="URL" /> へのアクセスがブロックされました</translation>
-<translation id="4269820728363426813">リンクのアドレスをコピー</translation>
+<translation id="4269820728363426813">リンクアドレスをコピー</translation>
 <translation id="4271185234001491831"><ph name="LANGUAGE" />を翻訳しない</translation>
 <translation id="4278390842282768270">許可</translation>
 <translation id="4297410240212242334">タブとアプリの分離</translation>

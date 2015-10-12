@@ -137,7 +137,6 @@ incomuns e incorretas. Um invasor está tentando fingir ser <ph name="SITE" />, 
 <translation id="5427571867875391349">Definir o Chromium como seu navegador padrão</translation>
 <translation id="5466153949126434691">O Chromium é atualizado automaticamente para que você sempre tenha a versão mais recente. Quando o download estiver concluído, o Chromium será reiniciado e você estará pronto.</translation>
 <translation id="549669000822060376">Aguarde enquanto o Chromium instala as últimas atualizações do sistema.</translation>
-<translation id="5531349711857992002">A cadeia de certificados desse website contém pelo menos um certificado que foi assinado utilizando um algoritmo de assinatura de uso suspenso com base em SHA-1.</translation>
 <translation id="5563479599352954471">Pesquisar com um toque</translation>
 <translation id="5620765574781326016">Saiba mais sobre tópicos em websites sem sair da página.</translation>
 <translation id="5772805321386874569">(requer a <ph name="BEGIN_BUTTON" />reinicialização<ph name="END_BUTTON" /> do Chromium)</translation>

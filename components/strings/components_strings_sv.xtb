@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">Servern kunde inte bevisa att den är <ph name="DOMAIN" /> eftersom enhetens operativsystem inte litar på dess säkerhetscertifikat. Detta kan orsakas av en felaktig konfigurering eller att någon spärrar anslutningen.</translation>
 <translation id="1821930232296380041">Begäran eller parametrar i begäran var ogiltiga</translation>
 <translation id="1871208020102129563">Proxyn är inställd på att använda fasta proxyservrar, inte en webbadress med PAC-skript.</translation>
-<translation id="1875753206475436906">heuristisk typ: <ph name="HEURISTIC_TYPE" />
-    servertyp: <ph name="SERVER_TYPE" />
-    fältsignatur: <ph name="FIELD_SIGNATURE" />
-    formulärsignatur: <ph name="FORM_SIGNATURE" />
-    experiment-id: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Öppna <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Bokmärken på <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Serieproduktionsfel</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">Felaktig signatur</translation>
 <translation id="4269787794583293679">(Inget användarnamn)</translation>
 <translation id="4300246636397505754">Föräldratips</translation>
+<translation id="4325863107915753736">Det gick inte att hitta artikeln</translation>
 <translation id="4372948949327679948">Ett <ph name="VALUE_TYPE" />-värde förväntades.</translation>
 <translation id="4377125064752653719">Du försökte öppna <ph name="DOMAIN" />, men servern visade ett certifikat som har återkallats av utfärdaren. Det innebär att säkerhetsuppgifterna som servern visar inte är absolut tillförlitliga. Du kanske kommunicerar med en skadlig server.</translation>
 <translation id="4394049700291259645">Inaktivera</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911">Vill du översätta från <ph name="ORIGINAL_LANGUAGE" /> till <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Säkerhetskopian har dålig status</translation>
 <translation id="5031870354684148875">Om Google Översätt</translation>
+<translation id="5045550434625856497">Felaktigt lösenord</translation>
 <translation id="5087286274860437796">Servercertifikatet är inte giltigt för närvarande.</translation>
 <translation id="5089810972385038852">Delstat</translation>
 <translation id="5094747076828555589">Servern kunde inte bevisa att den är <ph name="DOMAIN" /> eftersom Chromium inte litar på dess säkerhetscertifikat. Detta kan orsakas av en felaktig konfigurering eller att någon spärrar anslutningen.</translation>

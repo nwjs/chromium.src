@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">השרת הזה לא הצליח להוכיח שהוא <ph name="DOMAIN" />. אישור האבטחה שלו לא נחשב כמהימן על ידי מערכת ההפעלה של המכשיר. ייתכן שהסיבה לכך היא תצורה שגויה או תוקף המיירט את החיבור שלך.</translation>
 <translation id="1821930232296380041">הבקשה או הפרמטרים של הבקשה אינם חוקיים</translation>
 <translation id="1871208020102129563">‏שרת ה-Proxy מוגדר להשתמש בשרתי Proxy קבועים, לא בכתובת אתר של סקריפט ‎.Pac</translation>
-<translation id="1875753206475436906">סוג היוריסטיקה: <ph name="HEURISTIC_TYPE" />
-    סוג שרת: <ph name="SERVER_TYPE" />
-    חתימת שדה: <ph name="FIELD_SIGNATURE" />
-    חתימת טופס: <ph name="FORM_SIGNATURE" />
-    מזהה ניסוי: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">עבור ל-<ph name="LINK" /></translation>
 <translation id="1962204205936693436">סימניות של <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">שגיאה בעריכה בסידרה</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">חתימה שגויה</translation>
 <translation id="4269787794583293679">(אין שם משתמש)</translation>
 <translation id="4300246636397505754">הצעות להורים</translation>
+<translation id="4325863107915753736">לא ניתן היה למצוא את הפריט</translation>
 <translation id="4372948949327679948">צפוי ערך מסוג <ph name="VALUE_TYPE" />.</translation>
 <translation id="4377125064752653719">ניסית להשיג את <ph name="DOMAIN" />, אך האישור שהשרת הציג בוטל על ידי המנפיק שלו. פירוש הדבר שאין כל אפשרות לתת אמון באישורי האבטחה שהשרת הציג. ייתכן שאתה מתקשר עם תוקף.</translation>
 <translation id="4394049700291259645">השבת</translation>
@@ -179,6 +175,7 @@ Del</translation>
 <translation id="498957508165411911">האם לתרגם מ<ph name="ORIGINAL_LANGUAGE" /> ל<ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">האחסון המשמש כגיבוי אינו תקין</translation>
 <translation id="5031870354684148875">‏מידע על Google Translate</translation>
+<translation id="5045550434625856497">סיסמה שגויה</translation>
 <translation id="5087286274860437796">האישור של השרת אינו תקף כעת.</translation>
 <translation id="5089810972385038852">מדינה</translation>
 <translation id="5094747076828555589">‏השרת הזה לא הצליח להוכיח שהוא <ph name="DOMAIN" />. אישור האבטחה שלו לא נחשב כמהימן על ידי Chromium. ייתכן שהסיבה לכך היא תצורה שגויה או תוקף המיירט את החיבור שלך.</translation>

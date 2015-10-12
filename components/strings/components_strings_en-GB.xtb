@@ -31,14 +31,10 @@
 <translation id="1693754753824026215">The page at <ph name="SITE" /> says:</translation>
 <translation id="1706954506755087368">{1,plural, =1{This server could not prove that it is <ph name="DOMAIN" />; its security certificate is supposedly from tomorrow. This may be caused by a misconfiguration or an attacker intercepting your connection.}other{This server could not prove that it is <ph name="DOMAIN" />; its security certificate is supposedly from # days in the future. This may be caused by a misconfiguration or an attacker intercepting your connection.}}</translation>
 <translation id="1734864079702812349">Amex</translation>
+<translation id="1753706481035618306">Page number</translation>
 <translation id="1763864636252898013">This server could not prove that it is <ph name="DOMAIN" />; its security certificate is not trusted by your device's operating system. This may be caused by a misconfiguration or an attacker intercepting your connection.</translation>
 <translation id="1821930232296380041">Invalid request or request parameters</translation>
 <translation id="1871208020102129563">Proxy is set to use fixed proxy servers, not a .pac script URL.</translation>
-<translation id="1875753206475436906">heuristic type: <ph name="HEURISTIC_TYPE" />
-    server type: <ph name="SERVER_TYPE" />
-    field signature: <ph name="FIELD_SIGNATURE" />
-    form signature: <ph name="FORM_SIGNATURE" />
-    experiment id: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Go to <ph name="LINK" /></translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> Bookmarks</translation>
 <translation id="1973335181906896915">Serialisation error</translation>
@@ -151,6 +147,7 @@
 <translation id="4258748452823770588">Bad signature</translation>
 <translation id="4269787794583293679">(No username)</translation>
 <translation id="4300246636397505754">Parent suggestions</translation>
+<translation id="4325863107915753736">Failed to find article</translation>
 <translation id="4372948949327679948">Expected <ph name="VALUE_TYPE" /> value.</translation>
 <translation id="4377125064752653719">You attempted to reach <ph name="DOMAIN" />, but the certificate that the server presented has been revoked by its issuer. This means that the security credentials the server presented absolutely should not be trusted. You may be communicating with an attacker.</translation>
 <translation id="4394049700291259645">Disable</translation>
@@ -175,6 +172,7 @@
 <translation id="498957508165411911">Translate from <ph name="ORIGINAL_LANGUAGE" /> to <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Backing store in bad state</translation>
 <translation id="5031870354684148875">About Google Translate</translation>
+<translation id="5045550434625856497">Incorrect password</translation>
 <translation id="5087286274860437796">Server's certificate is not valid at this time.</translation>
 <translation id="5089810972385038852">County</translation>
 <translation id="5094747076828555589">This server could not prove that it is <ph name="DOMAIN" />; its security certificate is not trusted by Chromium. This may be caused by a misconfiguration or an attacker intercepting your connection.</translation>

@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證未取得您裝置作業系統的信任。這可能是因為設定錯誤，或有攻擊者攔截您的連線所致。</translation>
 <translation id="1821930232296380041">要求或要求參數無效</translation>
 <translation id="1871208020102129563">Proxy 設定為使用固定的 Proxy 伺服器，而非 .pac 指令碼網址。</translation>
-<translation id="1875753206475436906">啟發式演算法類型：<ph name="HEURISTIC_TYPE" />
-    伺服器類型：<ph name="SERVER_TYPE" />
-    欄位簽名：<ph name="FIELD_SIGNATURE" />
-    表單簽名：<ph name="FORM_SIGNATURE" />
-    實驗 ID：「<ph name="EXPERIMENT_ID" />」</translation>
 <translation id="194030505837763158">前往 <ph name="LINK" /></translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> 書籤</translation>
 <translation id="1973335181906896915">序列化錯誤</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">簽名有誤</translation>
 <translation id="4269787794583293679">(沒有使用者名稱)</translation>
 <translation id="4300246636397505754">家長建議</translation>
+<translation id="4325863107915753736">找不到文章</translation>
 <translation id="4372948949327679948">預期的「<ph name="VALUE_TYPE" />」值。</translation>
 <translation id="4377125064752653719">您嘗試前往 <ph name="DOMAIN" />，但是發行者已撤銷伺服器提供的憑證。在這種情況下，請勿信任伺服器提供的安全性憑證，因為您的連線對象可能是攻擊者的電腦。</translation>
 <translation id="4394049700291259645">停用</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911">將網頁內容由<ph name="ORIGINAL_LANGUAGE" />翻譯成<ph name="TARGET_LANGUAGE" />？</translation>
 <translation id="5019198164206649151">備份儲存狀態不佳</translation>
 <translation id="5031870354684148875">關於「Google 翻譯」</translation>
+<translation id="5045550434625856497">密碼不正確</translation>
 <translation id="5087286274860437796">伺服器憑證目前無效。</translation>
 <translation id="5089810972385038852">州</translation>
 <translation id="5094747076828555589">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證未取得 Chromium 的信任。這可能是因為設定錯誤，或有攻擊者攔截您的連線所致。</translation>

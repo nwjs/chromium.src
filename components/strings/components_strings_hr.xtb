@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">Poslužitelj nije mogao dokazati da je <ph name="DOMAIN" />; operativni sustav vašeg uređaja smatra da njegov sigurnosni certifikat nije pouzdan. To može biti uzrokovano pogrešnom konfiguracijom ili napadom na vašu vezu.</translation>
 <translation id="1821930232296380041">Nevažeći zahtjev ili parametri zahtjeva</translation>
 <translation id="1871208020102129563">Proxy poslužitelj postavljen je na upotrebu fiksnih proxy poslužitelja, a ne URL .pac skripte.</translation>
-<translation id="1875753206475436906">vrsta heuristike: <ph name="HEURISTIC_TYPE" />
-    vrsta poslužitelja: <ph name="SERVER_TYPE" />
-    potpis polja: <ph name="FIELD_SIGNATURE" />
-    potpis obrasca: <ph name="FORM_SIGNATURE" />
-    id eksperimenta: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Posjetite <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Oznake s domene <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Pogreška postavljanja u seriju</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">Potpis nije valjan</translation>
 <translation id="4269787794583293679">(Nema korisničkog imena)</translation>
 <translation id="4300246636397505754">Nadređeni prijedlozi</translation>
+<translation id="4325863107915753736">Članak nije pronađen</translation>
 <translation id="4372948949327679948">Očekivana vrijednost vrste <ph name="VALUE_TYPE" />.</translation>
 <translation id="4377125064752653719">Pokušali ste doseći domenu <ph name="DOMAIN" />, ali certifikat koji je poslužitelj predstavio povučen je od strane izdavača. Prema tome nikako ne biste trebali vjerovati sigurnosnim certifikatima koje predstavlja poslužitelj. Možda komunicirate s napadačem.</translation>
 <translation id="4394049700291259645">Onemogući</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911">Želite li prijevod s jezika <ph name="ORIGINAL_LANGUAGE" /> na <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Sigurnosno pohranjivanje u neispravnom je stanju</translation>
 <translation id="5031870354684148875">O Google Prevoditelju</translation>
+<translation id="5045550434625856497">Netočna zaporka</translation>
 <translation id="5087286274860437796">Certifikat poslužitelja trenutačno nije važeći.</translation>
 <translation id="5089810972385038852">Država</translation>
 <translation id="5094747076828555589">Poslužitelj nije mogao dokazati da je <ph name="DOMAIN" />; Chromium smatra da njegov sigurnosni certifikat nije pouzdan. To može biti uzrokovano pogrešnom konfiguracijom ili napadom na vašu vezu.</translation>

@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="sl">
-<translation id="1032854598605920125">Sukanje v smeri urinega kazalca</translation>
+<translation id="1032854598605920125">Sukanje v smeri urnega kazalca</translation>
 <translation id="1055184225775184556">&amp;Razveljavi dodajanje</translation>
 <translation id="106701514854093668">Zaznamki namizja</translation>
 <translation id="1080116354587839789">Prilagoditev prikaza širini</translation>
@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">Strežniku ni uspelo dokazati, da je <ph name="DOMAIN" />; operacijski sistem vaše naprave ne zaupa njegovemu varnostnemu potrdilu. Razlog za to je lahko napačna konfiguracija ali napadalčevo prestrezanje povezave.</translation>
 <translation id="1821930232296380041">Neveljavna zahteva ali parametri zahteve</translation>
 <translation id="1871208020102129563">Proxy je nastavljen na uporabo stalnih strežnikov proxy, ne na URL skripta .pac.</translation>
-<translation id="1875753206475436906">vrsta hevristike: <ph name="HEURISTIC_TYPE" />
-    vrsta strežnika: <ph name="SERVER_TYPE" />
-    podpis polja: <ph name="FIELD_SIGNATURE" />
-    podpis obrazca: <ph name="FORM_SIGNATURE" />
-    id poskusa: "<ph name="EXPERIMENT_ID" />"</translation>
 <translation id="194030505837763158">Pojdite na <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Zaznamki domene <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Napaka pri serializaciji</translation>
@@ -152,6 +147,7 @@
 <translation id="4258748452823770588">Napačen podpis</translation>
 <translation id="4269787794583293679">(Ni uporabniškega imena)</translation>
 <translation id="4300246636397505754">Predlogi staršev</translation>
+<translation id="4325863107915753736">Članka ni bilo mogoče najti</translation>
 <translation id="4372948949327679948">Pričakovana vrednost je vrste <ph name="VALUE_TYPE" />.</translation>
 <translation id="4377125064752653719">Poskusili ste dostopati do domene <ph name="DOMAIN" />, vendar je izdajatelj preklical potrdilo, ki ga je poslal strežnik. To pomeni, da varnostnim poverilnicam, ki jih je poslal strežnik, nikakor ne smete zaupati. Morda komunicirate z napadalcem.</translation>
 <translation id="4394049700291259645">Onemogoči</translation>
@@ -176,6 +172,7 @@
 <translation id="498957508165411911">Želite prevesti iz jezika <ph name="ORIGINAL_LANGUAGE" /> v jezik <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Neprimerno stanje rezervne shrambe</translation>
 <translation id="5031870354684148875">Google Prevajalnik – vizitka</translation>
+<translation id="5045550434625856497">Napačno geslo</translation>
 <translation id="5087286274860437796">Potrdilo strežnika trenutno ni veljavno.</translation>
 <translation id="5089810972385038852">Zvezna država</translation>
 <translation id="5094747076828555589">Strežniku ni uspelo dokazati, da je <ph name="DOMAIN" />; Chromium ne zaupa njegovemu varnostnemu potrdilu. Razlog za to je lahko napačna konfiguracija ali napadalčevo prestrezanje povezave.</translation>
@@ -188,7 +185,7 @@
 <translation id="5251803541071282808">Oblak</translation>
 <translation id="5295309862264981122">Potrditev krmarjenja</translation>
 <translation id="5299298092464848405">Napaka pri razčlenjevanju pravilnika</translation>
-<translation id="5316812925700871227">Sukanje v nasprotni smeri urinega kazalca</translation>
+<translation id="5316812925700871227">Sukanje v nasprotni smeri urnega kazalca</translation>
 <translation id="5317780077021120954">Shrani</translation>
 <translation id="536296301121032821">Nastavitev pravilnika ni bilo mogoče shraniti</translation>
 <translation id="540969355065856584">Strežniku ni uspelo dokazati, da je <ph name="DOMAIN" />; njegovo varnostno potrdilo trenutno ni veljavno. Razlog za to je lahko napačna konfiguracija ali napadalčevo prestrezanje povezave.</translation>

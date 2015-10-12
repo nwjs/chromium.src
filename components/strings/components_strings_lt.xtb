@@ -34,11 +34,6 @@
 <translation id="1763864636252898013">Šiam serveriui nepavyko patvirtinti, kad tai yra <ph name="DOMAIN" />; jo saugos sertifikatas nėra patikimas įrenginio operacinei sistemai. Taip gali nutikti dėl netinkamos konfigūracijos ar dėl ryšį pertraukusio užgrobėjo.</translation>
 <translation id="1821930232296380041">Netinkama užklausa arba jos parametrai</translation>
 <translation id="1871208020102129563">Įgaliotasis serveris nustatytas naudoti fiksuotų įgaliotųjų serverių, o ne .pac scenarijaus URL.</translation>
-<translation id="1875753206475436906">euristinis tipas: <ph name="HEURISTIC_TYPE" />
-    serverio tipas: <ph name="SERVER_TYPE" />
-    lauko parašas: <ph name="FIELD_SIGNATURE" />
-    formos parašas: <ph name="FORM_SIGNATURE" />
-    eksperimento ID: „<ph name="EXPERIMENT_ID" />“</translation>
 <translation id="194030505837763158">Apsilankykite <ph name="LINK" /></translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> žymės</translation>
 <translation id="1973335181906896915">Serijinio rengimo klaida</translation>
@@ -151,6 +146,7 @@
 <translation id="4258748452823770588">Netinkamas parašas</translation>
 <translation id="4269787794583293679">(Nėra naudotojo vardo)</translation>
 <translation id="4300246636397505754">Pasiūlymai tėvams</translation>
+<translation id="4325863107915753736">Nepavyko rasti straipsnio</translation>
 <translation id="4372948949327679948">Numatyta „<ph name="VALUE_TYPE" />“ vertė.</translation>
 <translation id="4377125064752653719">Bandėte pasiekti svetainę „<ph name="DOMAIN" />“, bet sertifikatą, kurį pateikė serveris, anuliavo jo išdavėjas. Tai reiškia, kad saugos kredencialais, kuriuos pateikė serveris, visiškai negalima pasitikėti. Galbūt bendraujate su užpuoliku.</translation>
 <translation id="4394049700291259645">Neleisti</translation>
@@ -175,6 +171,7 @@
 <translation id="498957508165411911">Versti iš <ph name="ORIGINAL_LANGUAGE" /> į <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="5019198164206649151">Bloga atsarginio atminties įrenginio būsena</translation>
 <translation id="5031870354684148875">Apie „Google“ vertėją</translation>
+<translation id="5045550434625856497">Netinkamas slaptažodis</translation>
 <translation id="5087286274860437796">Šiuo metu serverio sertifikatas negalioja.</translation>
 <translation id="5089810972385038852">Valstija</translation>
 <translation id="5094747076828555589">Šiam serveriui nepavyko patvirtinti, kad tai yra <ph name="DOMAIN" />; jo saugos sertifikatas nėra patikimas „Chromium“. Taip gali nutikti dėl netinkamos konfigūracijos ar dėl ryšį pertraukusio užgrobėjo.</translation>

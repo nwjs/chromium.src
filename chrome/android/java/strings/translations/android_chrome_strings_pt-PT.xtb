@@ -22,6 +22,7 @@
 <translation id="1285320974508926690">Nunca traduzir este site</translation>
 <translation id="129553762522093515">Fechados recentemente</translation>
 <translation id="1312168552565502328">Cookies, dados de sites</translation>
+<translation id="1346090444609141578">Nenhuma página guardada aqui</translation>
 <translation id="1369915414381695676">Site <ph name="SITE_NAME" /> adicionado</translation>
 <translation id="1373696734384179344">Memória insuficiente para transferir o conteúdo selecionado.</translation>
 <translation id="1379156015317873965">Melhorar o desempenho de carregamento de páginas</translation>
@@ -116,6 +117,7 @@
 <translation id="2816165854387457183">Ligação lenta detetada.</translation>
 <translation id="2842985007712546952">Pasta superior</translation>
 <translation id="2870560284913253234">Site</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL próximo}other{# URLs próximos}}</translation>
 <translation id="2888126860611144412">Acerca do Chrome</translation>
 <translation id="2891154217021530873">Parar carregamento da página</translation>
 <translation id="2902702728133930130">O Chrome falhou durante o arranque com um erro inesperado.</translation>
@@ -314,6 +316,7 @@ As estatísticas de utilização incluem informações como preferências, cliqu
 No entanto, a navegação não é invisível. Passar para o modo de navegação anónima não oculta a navegação do empregador ou do prestador de serviços de Internet, nem os Websites que visitar.</translation>
 <translation id="572328651809341494">Separadores recentes</translation>
 <translation id="5733727110006255111">Com esta funcionalidade ativada, o Chrome utiliza os servidores da Google para comprimir as páginas visitadas antes de as transferir. As páginas SSL e de navegação anónima não são incluídas.</translation>
+<translation id="5749068826913805084">O Chrome necessita de acesso ao armazenamento para transferir ficheiros.</translation>
 <translation id="5763382633136178763">Separadores de navegação anónima</translation>
 <translation id="5765780083710877561">Descrição:</translation>
 <translation id="5771382037724542929">Pretende substituir o ficheiro <ph name="FILE_NAME" /> existente no diretório <ph name="DIRECTORY_NAME" />?</translation>
@@ -322,6 +325,7 @@ No entanto, a navegação não é invisível. Passar para o modo de navegação 
 <translation id="5817918615728894473">Sincronizar</translation>
 <translation id="5832934273103296195">Expandida – clicar para reduzir</translation>
 <translation id="583891442612896534">O Chrome não consegue comunicar com os servidores da Google para a compressão de dados. A poupança de dados pode ser limitada.</translation>
+<translation id="585027516397408832">Poupança de dados ativada</translation>
 <translation id="5860033963881614850">Desativado</translation>
 <translation id="5869522115854928033">Palavras-passe guardadas</translation>
 <translation id="588258955323874662">Ecrã inteiro</translation>
@@ -424,6 +428,7 @@ Por exemplo, alguns Websites podem responder a este pedido ao mostrar-lhe anúnc
 <translation id="7096034533295549981">A carregar vídeo</translation>
 <translation id="7191430249889272776">Separador aberto em segundo plano.</translation>
 <translation id="7201341158316793215">A remover…</translation>
+<translation id="7208788139759694678">Poupança de dados desativada</translation>
 <translation id="7243308994586599757">Opções disponíveis junto à parte inferior do ecrã</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> utiliza a sua localização para mostrar resultados da pesquisa locais</translation>
 <translation id="7299721129597238157">Eliminar marcador</translation>

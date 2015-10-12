@@ -13,6 +13,7 @@ and incorrect credentials. Either an attacker is trying to pretend to be <ph nam
 <translation id="1221340462641866827">Chromium OS does not support launching an external application to handle <ph name="SCHEME" /> links. The link requested is <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">A conflicting installation of Chromium was found on the system. Please uninstall it and try again.</translation>
 <translation id="1298199220304005244">Get help with using Chromium OS</translation>
+<translation id="1347507563453473396">Chromium cannot be displayed in this language.</translation>
 <translation id="1396446129537741364">Chromium is trying to show passwords.</translation>
 <translation id="1414495520565016063">You're signed in to Chromium!</translation>
 <translation id="1444754455097148408">Chromium open source licences</translation>
@@ -63,6 +64,7 @@ and incorrect credentials. Either an attacker is trying to pretend to be <ph nam
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> is malicious and Chromium has blocked it.</translation>
 <translation id="2847479871509788944">Remove from Chromium...</translation>
 <translation id="2886012850691518054">Optional: Help make Chrome better by automatically sending usage statistics and crash reports to Google.</translation>
+<translation id="2905536371227304018">Chromium OS is displayed in this language.</translation>
 <translation id="2910007522516064972">About &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium needs to launch an external application to handle <ph name="SCHEME" /> links. The link requested is <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Adding to Chromium ...</translation>
@@ -141,9 +143,11 @@ and incorrect credentials. Either an attacker is trying to pretend to be <ph nam
 <translation id="5427571867875391349">Set Chromium as your default browser</translation>
 <translation id="5466153949126434691">Chromium updates automatically so you always have the freshest version. When this download completes, Chromium will restart and you'll be on your way.</translation>
 <translation id="549669000822060376">Please wait while Chromium installs the latest system updates.</translation>
-<translation id="5531349711857992002">The certificate chain for this website contains at least one certificate that was signed using a deprecated signature algorithm based on SHA-1.</translation>
+<translation id="556167189552180495">Chromium is displayed in this language.</translation>
 <translation id="5563479599352954471">Search with one touch</translation>
 <translation id="5620765574781326016">Learn about topics on websites without leaving the page.</translation>
+<translation id="5698481217667032250">Display Chromium in this language</translation>
+<translation id="5768914737813585044">Display Chromium OS in this language</translation>
 <translation id="5772805321386874569">(requires Chromium <ph name="BEGIN_BUTTON" />restart<ph name="END_BUTTON" />)</translation>
 <translation id="5796460469508169315">Chromium is almost ready.</translation>
 <translation id="580822234363523061">Go to
@@ -174,6 +178,7 @@ and incorrect credentials. Either an attacker is trying to pretend to be <ph nam
 <translation id="6475912303565314141">It also controls what page is shown when you start Chromium.</translation>
 <translation id="6485906693002546646">You're using <ph name="PROFILE_EMAIL" /> to sync your Chromium stuff. To update your sync preference or to use Chromium without a Google account, visit <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Uninstall Chromium</translation>
+<translation id="6526111688217511984">Chromium needs storage access to download files.</translation>
 <translation id="6637001341228460105">Chromium needs microphone access to share it with this site.</translation>
 <translation id="6638567566961868659">Find your bookmarks in the Chromium menu or on the bookmarks bar.</translation>
 <translation id="6676384891291319759">Access the Internet</translation>
@@ -211,6 +216,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="734373864078049451">Your web, bookmarks and other Chromium stuff live here.</translation>
 <translation id="7419987137528340081">If you prefer to keep your existing Chromium data separate, you can create a new Chromium user for <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium requires Windows XP or later. Some features may not work.</translation>
+<translation id="7437562785125777404">Chromium OS cannot be displayed in this language.</translation>
 <translation id="7463979740390522693">Chromium - Notifications (<ph name="QUANTITY" /> unread)</translation>
 <translation id="7473891865547856676">No Thanks</translation>
 <translation id="7483335560992089831">Can not install the same Chromium version that is currently running. Please close Chromium and try again.</translation>
