@@ -190,6 +190,10 @@ public:
 
     void setIsPlayingRemotely(bool);
 
+    // This will show a cast button if it is not covered by another element.
+    // This MUST be called for cast button elements that are overlay elements.
+    void tryShowOverlay();
+
 private:
     explicit MediaControlCastButtonElement(MediaControls&, bool isOverlayButton);
 
@@ -198,6 +202,21 @@ private:
     bool keepEventInNode(Event*) override;
 
     bool m_isOverlayButton;
+
+    // This is used for UMA histogram (Cast.Sender.Overlay). New values should
+    // be appended only and must be added before |Count|.
+    enum class CastOverlayMetrics {
+        Created = 0,
+        Shown,
+        Clicked,
+        Count // Keep last.
+    };
+    void recordMetrics(CastOverlayMetrics);
+
+    // UMA related boolean. They are used to prevent counting something twice
+    // for the same media element.
+    bool m_clickUseCounted = false;
+    bool m_showUseCounted = false;
 };
 
 // ----------------------------

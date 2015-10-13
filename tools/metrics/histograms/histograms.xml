@@ -3441,6 +3441,15 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   </summary>
 </histogram>
 
+<histogram name="Cast.Sender.Overlay" enum="CastOverlayEvents">
+  <owner>avayvod@chromium.org</owner>
+  <owner>mlamouri@chromium.org</owner>
+  <summary>
+    Records events and user interactions related to the Cast overlay shown on
+    video elements.
+  </summary>
+</histogram>
+
 <histogram name="Cast.Sender.VideoEncodeAcceleratorInitializeSuccess"
     enum="BooleanSuccess">
   <owner>posciak@chromium.org</owner>
@@ -53486,6 +53495,12 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   <int value="3" label="Failed to open stream"/>
 </enum>
 
+<enum name="CastOverlayEvents" type="int">
+  <int value="0" label="Created"/>
+  <int value="1" label="Shown"/>
+  <int value="2" label="Clicked"/>
+</enum>
+
 <enum name="CastPlayBackState" type="int">
   <int value="0" label="YT_PLAYER_SUCCESS"/>
   <int value="1" label="YT_PLAYER_FAILURE"/>
@@ -59906,6 +59921,11 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   <int value="957" label="BackspaceNavigatedBack"/>
   <int value="958" label="BackspaceNavigatedBackAfterFormInteraction"/>
   <int value="959" label="CSPSourceWildcardWouldMatchExactHost"/>
+  <int value="960" label="CredentialManagerGet"/>
+  <int value="961" label="CredentialManagerGetWithUI"/>
+  <int value="962" label="CredentialManagerGetWithoutUI"/>
+  <int value="963" label="CredentialManagerStore"/>
+  <int value="964" label="CredentialManagerRequireUserMediation"/>
 </enum>
 
 <enum name="FetchRequestMode" type="int">
