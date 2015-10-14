@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.webapps;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -330,11 +331,22 @@ public class WebappActivity extends FullScreenActivity {
                 && (mWebappInfo.themeColor() & 0xFF000000L) != 0) {
             mBrandColor = (int) mWebappInfo.themeColor();
         }
-        int color = mBrandColor == null
-                ? ApiCompatibilityUtils.getColor(getResources(), R.color.default_primary_color)
-                : mBrandColor;
 
-        ApiCompatibilityUtils.setTaskDescription(this, title, icon, color);
+        int taskDescriptionColor =
+                ApiCompatibilityUtils.getColor(getResources(), R.color.default_primary_color);
+        int statusBarColor = Color.BLACK;
+        if (mBrandColor != null) {
+            taskDescriptionColor = mBrandColor;
+            statusBarColor = ColorUtils.getDarkenedColorForStatusBar(mBrandColor);
+        }
+
+        ApiCompatibilityUtils.setTaskDescription(this, title, icon, taskDescriptionColor);
+        ApiCompatibilityUtils.setStatusBarColor(getWindow(), statusBarColor);
+    }
+
+    @Override
+    protected void setStatusBarColor(Tab tab, int color) {
+        // Intentionally do nothing as WebappActivity explicitly sets status bar color.
     }
 
     /** Returns a unique identifier for this WebappActivity. */
