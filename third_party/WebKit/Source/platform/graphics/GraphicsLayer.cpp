@@ -100,6 +100,7 @@ GraphicsLayer::GraphicsLayer(GraphicsLayerClient* client)
     , m_hasScrollParent(false)
     , m_hasClipParent(false)
     , m_needsDisplay(true)
+    , m_textPainted(false)
     , m_paintingPhase(GraphicsLayerPaintAllWithOverflowClip)
     , m_parent(0)
     , m_maskLayer(0)
@@ -306,6 +307,10 @@ void GraphicsLayer::paintGraphicsLayerContents(GraphicsContext& context, const I
     }
 #endif
     m_client->paintContents(this, context, m_paintingPhase, clip);
+    if (!m_textPainted && m_displayItemList->textPainted()) {
+        m_textPainted = true;
+        m_client->notifyTextPainted();
+    }
 }
 
 void GraphicsLayer::updateChildList()

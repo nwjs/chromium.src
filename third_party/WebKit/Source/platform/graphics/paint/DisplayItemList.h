@@ -130,6 +130,9 @@ public:
     bool displayItemConstructionIsDisabled() const { return m_constructionDisabled; }
     void setDisplayItemConstructionIsDisabled(const bool disable) { m_constructionDisabled = disable; }
 
+    bool textPainted() const { return m_textPainted; }
+    void setTextPainted() { m_textPainted = true; }
+
     // Returns displayItems added using createAndAppend() since beginning or the last
     // commitNewDisplayItems(). Use with care.
     DisplayItems& newDisplayItems() { return m_newDisplayItems; }
@@ -160,6 +163,7 @@ protected:
         , m_newDisplayItems(kInitialDisplayItemsCapacity * kMaximumDisplayItemSize)
         , m_validlyCachedClientsDirty(false)
         , m_constructionDisabled(false)
+        , m_textPainted(false)
         , m_skippingCacheCount(0)
         , m_numCachedItems(0)
         , m_nextScope(1) { }
@@ -215,6 +219,9 @@ private:
     // Allow display item construction to be disabled to isolate the costs of construction
     // in performance metrics.
     bool m_constructionDisabled;
+
+    // Indicates this DisplayItemList has ever had text. It is never reset to false.
+    bool m_textPainted;
 
     int m_skippingCacheCount;
 
