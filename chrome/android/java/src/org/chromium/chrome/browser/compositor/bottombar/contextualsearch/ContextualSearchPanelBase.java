@@ -269,7 +269,7 @@ abstract class ContextualSearchPanelBase implements ContextualSearchPromoHost {
      * Event notification that the Panel did get closed.
      * @param reason The reason the panel is closing.
      */
-    protected abstract void onClose(StateChangeReason reason);
+    protected abstract void onClosed(StateChangeReason reason);
 
     // ============================================================================================
     // General methods from Contextual Search Manager
@@ -818,8 +818,7 @@ abstract class ContextualSearchPanelBase implements ContextualSearchPromoHost {
 
         if (state == PanelState.CLOSED) {
             mIsShowing = false;
-            destroyPromoView();
-            onClose(reason);
+            onClosed(reason);
         } else if (state == PanelState.EXPANDED && isFullscreenSizePanel()
                 || (state == PanelState.MAXIMIZED && !isFullscreenSizePanel())) {
             showPromoViewAtYPosition(getPromoYPx());
