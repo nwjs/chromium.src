@@ -743,7 +743,7 @@ void PasswordManager::Autofill(password_manager::PasswordManagerDriver* driver,
       break;
   }
 
-  client_->PasswordWasAutofilled(best_matches);
+  client_->PasswordWasAutofilled(best_matches, form_for_autofill.origin);
 }
 
 void PasswordManager::ProcessAutofillPredictions(
