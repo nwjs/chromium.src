@@ -251,23 +251,6 @@ public class WebappActivity extends FullScreenActivity {
             public void didDetachInterstitialPage() {
                 updateUrlBar();
             }
-
-            @Override
-            public void didFirstVisuallyNonEmptyPaint() {
-                if (mSplashScreen == null) return;
-
-                mSplashScreen.animate()
-                        .alpha(0f)
-                        .withEndAction(new Runnable() {
-                            @Override
-                            public void run() {
-                                ViewGroup contentView =
-                                        (ViewGroup) findViewById(android.R.id.content);
-                                contentView.removeView(mSplashScreen);
-                                mSplashScreen = null;
-                            }
-                        });
-            }
         };
     }
 
@@ -307,6 +290,21 @@ public class WebappActivity extends FullScreenActivity {
             public void onFaviconUpdated(Tab tab) {
                 if (!isWebappDomain()) return;
                 updateTaskDescription();
+            }
+
+            @Override
+            public void didFirstVisuallyNonEmptyPaint(Tab tab) {
+                hideSplashScreen();
+            }
+
+            @Override
+            public void onPageLoadFinished(Tab tab) {
+                hideSplashScreen();
+            }
+
+            @Override
+            public void onPageLoadFailed(Tab tab, int errorCode) {
+                hideSplashScreen();
             }
         };
     }
@@ -391,6 +389,23 @@ public class WebappActivity extends FullScreenActivity {
             appNameView.setTextColor(ApiCompatibilityUtils.getColor(getResources(),
                     R.color.webapp_splash_title_light));
         }
+    }
+
+    private void hideSplashScreen() {
+        if (mSplashScreen == null) return;
+
+        mSplashScreen.animate()
+                .alpha(0f)
+                .withEndAction(new Runnable() {
+                    @Override
+                    public void run() {
+                        ViewGroup contentView =
+                                (ViewGroup) findViewById(android.R.id.content);
+                        if (mSplashScreen == null) return;
+                        contentView.removeView(mSplashScreen);
+                        mSplashScreen = null;
+                    }
+                });
     }
 
     @VisibleForTesting
