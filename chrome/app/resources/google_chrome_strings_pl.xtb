@@ -34,6 +34,7 @@
 <translation id="1773601347087397504">Skorzystaj z pomocy dotyczącej używania systemu operacyjnego Chrome</translation>
 <translation id="1818142563254268765">Nie udało się zaktualizować Chrome do najnowszej wersji, więc nie masz nowych, przydatnych funkcji ani poprawek zabezpieczeń. Musisz zaktualizować Chrome.</translation>
 <translation id="1877026089748256423">Chrome jest nieaktualny</translation>
+<translation id="1924381329666691588">Google Chrome nie może działać w tym języku.</translation>
 <translation id="2077129598763517140">Użyj akceleracji sprzętowej, gdy jest dostępna</translation>
 <translation id="2084710999043359739">Dodaj do Chrome</translation>
 <translation id="2246246234298806438">Google Chrome nie może pokazać podglądu wydruku, gdy nie ma wbudowanej przeglądarki PDF.</translation>
@@ -62,6 +63,7 @@ Jeśli jednak zalogujesz się teraz, informacje Chrome, takie jak zakładki, his
 <translation id="2748463065602559597">Przeglądasz bezpieczną stronę Google Chrome.</translation>
 <translation id="2769762047821873045">Google Chrome nie jest domyślną przeglądarką.</translation>
 <translation id="2770231113462710648">Zmień przeglądarkę domyślną na:</translation>
+<translation id="2847461019998147611">Wyświetlaj Google Chrome w tym języku</translation>
 <translation id="2871893339301912279">Jesteś zalogowany w Chrome.</translation>
 <translation id="2874156562296220396">Stworzenie przeglądarki Google Chrome było możliwe dzięki projektowi open source <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> i innym <ph name="BEGIN_LINK_OSS" />programom o otwartym kodzie źródłowym<ph name="END_LINK_OSS" />.</translation>
 <translation id="3037838751736561277">Google Chrome jest w trybie działania w tle</translation>
@@ -142,8 +144,10 @@ Jeśli jednak zalogujesz się teraz, informacje Chrome, takie jak zakładki, his
 <translation id="5618769508111928343"><ph name="SITE" /> normalnie używa szyfrowania do ochrony Twoich informacji. Tym razem gdy Chrome próbował połączyć się ze stroną <ph name="SITE" />, odesłała ona nietypowe
 i nieprawidłowe dane logowania. Oznacza to, że osoba atakująca próbuje podszyć się pod stronę <ph name="SITE" /> albo ekran logowania Wi-Fi przerwał połączenie. Twoje informacje są nadal bezpieczne, bo Chrome zatrzymał połączenie przed wymianą jakichkolwiek danych.</translation>
 <translation id="5620765574781326016">Poznaj tematy omawiane w witrynach, nie opuszczając strony.</translation>
+<translation id="5637867606963802593">Chrome OS nie może działać w tym języku.</translation>
 <translation id="568643307450491754">Zakładki są dostępne w menu Chrome i na pasku zakładek.</translation>
 <translation id="573759479754913123">System operacyjny &amp;Chrome – informacje</translation>
+<translation id="5749068826913805084">Chrome musi mieć dostęp do pamięci, by pobierać pliki.</translation>
 <translation id="5785746630574083988">Ponowne uruchomienie w trybie Windows 8 spowoduje zamknięcie i ponowne otwarcie aplikacji Chrome.</translation>
 <translation id="5799551393681493217">Włącza procesy logowania w Chrome oparte na iframe. Ta flaga zastępuje internetowy proces logowania.</translation>
 <translation id="5855036575689098185">Oprogramowanie, które działa na Twoim komputerze jest niezgodne z Google Chrome.</translation>
@@ -206,6 +210,7 @@ i nieprawidłowe dane logowania. Oznacza to, że osoba atakująca próbuje podsz
 <translation id="7164397146364144019">Możesz pomóc zwiększyć bezpieczeństwo i komfort korzystania z Chrome, automatycznie przesyłając do Google szczegółowe informacje o możliwych zagrożeniach.</translation>
 <translation id="7185038942300673794">Rozszerzenie <ph name="EXTENSION_NAME" /> zostało dodane do Chrome.</translation>
 <translation id="7191567847629796517">Google Chrome OS nie umożliwia uruchamiania zewnętrznej aplikacji do obsługi linków <ph name="SCHEME" />. Żądany link to <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome działa obecnie w tym języku.</translation>
 <translation id="7196020411877309443">Dlaczego wyświetla mi się to okienko?</translation>
 <translation id="7242029209006116544">Logujesz się na zarządzane konto i przekazujesz jego administratorowi kontrolę nad swoim profilem Google Chrome. Twoje dane Chrome, takie jak aplikacje, zakładki, historia, hasła i inne ustawienia, zostaną trwale powiązane z użytkownikiem <ph name="USER_NAME" />. Będzie można je usunąć w Panelu kont Google, ale nie będzie można ich powiązać z innym kontem. Możesz też utworzyć nowy profil, by przechowywać swoje dotychczasowe dane Chrome osobno. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome – powiadomienia (nieprzeczytane: <ph name="QUANTITY" />)</translation>
@@ -221,6 +226,7 @@ i nieprawidłowe dane logowania. Oznacza to, że osoba atakująca próbuje podsz
 <translation id="7473136999113284234">Chrome aktualizuje się automatycznie, więc zawsze masz najnowszą wersję.</translation>
 <translation id="7473891865547856676">Nie, dziękuję</translation>
 <translation id="7494905215383356681">Licencje oprogramowania typu open source w Chrome</translation>
+<translation id="7552219221109926349">Wyświetlaj Chrome OS w tym języku</translation>
 <translation id="7592736734348559088">Google Chrome nie może zsynchronizować danych, ponieważ dane logowania na Twoje konto są nieaktualne.</translation>
 <translation id="7626032353295482388">Chrome - witamy!</translation>
 <translation id="7747138024166251722">Instalator nie mógł utworzyć katalogu tymczasowego. Sprawdź, czy na dysku jest dość wolnego miejsca oraz sprawdź, czy posiadasz uprawnienia do instalowania programów.</translation>
@@ -234,6 +240,7 @@ i nieprawidłowe dane logowania. Oznacza to, że osoba atakująca próbuje podsz
 <translation id="7825851276765848807">Instalacja nie powiodła się z powodu nieokreślonego błędu. Pobierz Google Chrome ponownie.</translation>
 <translation id="7890208801193284374">Jeśli dzielisz komputer ze znajomymi lub rodziną, wszyscy możecie niezależnie przeglądać internet i po swojemu skonfigurować Chrome.</translation>
 <translation id="7908968924842975895">Ten komputer nie będzie otrzymywać aktualizacji Google Chrome, ponieważ zawiera sprzęt, który nie jest już obsługiwany.</translation>
+<translation id="7964230182933713106">Chrome OS działa obecnie w tym języku.</translation>
 <translation id="7984945080620862648">Nie możesz teraz odwiedzić strony <ph name="SITE" />, bo wysłała ona zakodowane poświadczenia, których Chrome nie może przetworzyć. Błędy sieci i ataki są zazwyczaj przejściowe, więc prawdopodobnie strona będzie wkrótce działać.</translation>
 <translation id="8000275528373650868">Google Chrome wymaga systemu Windows Vista bądź Windows XP z dodatkiem SP2 lub nowszym.</translation>
 <translation id="8005540215158006229">Chrome jest już prawie gotowy.</translation>

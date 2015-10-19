@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">‏سیستم عامل Chromium از راه‌اندازی یک برنامه خارجی برای کار با پیوندهای <ph name="SCHEME" /> پشتیبانی نمی‌کند. پیوند موردنیاز، <ph name="PROTOLINK" /> است.</translation>
 <translation id="1293235220023151515">‏یک مورد نصب شده متناقض از Chromium در سیستم یافت شد. لطفاً آنرا حذف نصب کنید و دوباره امتحان کنید.</translation>
 <translation id="1298199220304005244">‏دریافت راهنمایی برای استفاده از سیستم عامل Chromium </translation>
+<translation id="1347507563453473396">‏Chromium نمی‌تواند به این زبان نشان داده شود.</translation>
 <translation id="1396446129537741364">‏Chromium می‌خواهد گذرواژه‌ها را نشان دهد.</translation>
 <translation id="1414495520565016063">‏شما وارد سیستم Chromium شدید!</translation>
 <translation id="1444754455097148408">‏مجوزهای منبع باز Chromium</translation>
@@ -38,7 +39,7 @@
 <translation id="2233513990531887259">‏راه‌اندازی مجدد در حالت تمرکز برمحتوای Chromium</translation>
 <translation id="2241627712206172106">‏اگر رایانه‌ای را به صورت مشترک استفاده می‌کنید، دوستان و خانواده می‌توانند به صورت جداگانه مرور کنند و Chromium را به صورتی که مایلند تنظیم کنند.</translation>
 <translation id="225614027745146050">خوش آمدید</translation>
-<translation id="2316129865977710310">خیر، سپاسگزارم</translation>
+<translation id="2316129865977710310">نه سپاسگزارم</translation>
 <translation id="2347108572062610441">‏این افزونه، صفحه‌ای را تغییر داده است که هنگام راه‌اندازی Chromium نشان داده می‌شود.</translation>
 <translation id="2389622953163669926">{NUM_DOWNLOAD,plural, =1{‏در حال حاضر یک دانلود در حال انجام است. آیا می‌خواهید دانلود را لغو کنید و از Chromium خارج شوید؟}one{‏در حال حاضر # دانلود در حال انجام است. آیا می‌خواهید دانلود را لغو کنید و از Chromium خارج شوید؟}other{‏در حال حاضر # دانلود در حال انجام است. آیا می‌خواهید دانلودها را لغو کنید و از Chromium خارج شوید؟}}</translation>
 <translation id="2396765026452590966">‏افزونه «<ph name="EXTENSION_NAME" />»، صفحه‌ای را تغییر داده است که هنگام راه‌اندازی Chromium نشان داده می‌شود.</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">‏<ph name="FILE_NAME" /> مخرب است، و Chromium آن را مسدود کرده است.</translation>
 <translation id="2847479871509788944">‏حذف از Chromium...</translation>
 <translation id="2886012850691518054">‏اختیاری: با ارسال خودکار آمار کاربرد و گزارش‌های خرابی برنامه به Chromium، به پیشرفت Chrome کمک کنید.</translation>
+<translation id="2905536371227304018">‏سیستم عامل Chromium به این زبان نشان داده می‌شود.</translation>
 <translation id="2910007522516064972">‏درباره &amp;Chromium</translation>
 <translation id="2966088006374919794">‏برای کار با پیوندهای <ph name="SCHEME" />، Chromium باید برنامه خارجی را راه‌اندازی کند. پیوند <ph name="PROTOLINK" /> مورد نیاز است.</translation>
 <translation id="3032787606318309379">‏افزودن به Chromium…</translation>
@@ -137,8 +139,11 @@
 <translation id="5427571867875391349">‏تنظیم Chromium به عنوان مرورگر پیش‌فرضتان</translation>
 <translation id="5466153949126434691">‏Chromium به صورت خودکار به‌روزرسانی می‌شود بنابراین همیشه جدیدترین نسخه را دارید. وقتی این دانلود تمام شد، Chromium دوباره شروع به کار می‌کند و می‌توانید کارتان را ادامه دهید.</translation>
 <translation id="549669000822060376">‏وقتی Chromium جدیدترین به‌روزرسانی‌های سیستم را نصب می‌کند، لطفاً صبر کنید.</translation>
+<translation id="556167189552180495">‏Chromium به این زبان نشان داده می‌شود.</translation>
 <translation id="5563479599352954471">جستجو فقط با یک تماس</translation>
 <translation id="5620765574781326016">بدون اینکه صفحه را ترک کنید، درباره موضوعات در وب‌سایت‌ها اطلاعاتی به دست آورید.</translation>
+<translation id="5698481217667032250">‏نمایش Chromium به این زبان</translation>
+<translation id="5768914737813585044">‏نمایش سیستم عامل Chromium به این زبان</translation>
 <translation id="5772805321386874569">‏(Chromium باید <ph name="BEGIN_BUTTON" />راه‌اندازی مجدد<ph name="END_BUTTON" /> شود)</translation>
 <translation id="5796460469508169315">‏Chromium تقریباً آماده است.</translation>
 <translation id="580822234363523061">‏به
@@ -169,6 +174,7 @@
 <translation id="6475912303565314141">‏این برنامه همچنین صفحه‌ای را که هنگام راه‌اندازی Chromium نشان داده می‌شود، کنترل می‌کند.</translation>
 <translation id="6485906693002546646">‏شما از <ph name="PROFILE_EMAIL" /> برای همگام‌سازی موارد Chromium خودتان استفاده می‌کنید. برای به‌روزرسانی تنظیمات ترجیحی همگام‌سازی‌تان یا استفاده از Chromium بدون حساب Google، به <ph name="SETTINGS_LINK" /> مراجعه کنید.</translation>
 <translation id="6510925080656968729">‏حذف نصب Chromium </translation>
+<translation id="6526111688217511984">‏Chromium برای دانلود فایل‌ها باید به حافظه دسترسی داشته باشد.</translation>
 <translation id="6637001341228460105">‏Chromium نیاز به مجوز دسترسی به میکروفن دارد تا آن را با این سایت به اشتراک بگذارد.</translation>
 <translation id="6638567566961868659">‏نشانک‌های خود را در منوی Chromium یا از نوار نشانک‌ها پیدا کنید.</translation>
 <translation id="6676384891291319759">دسترسی به اینترنت</translation>
@@ -205,8 +211,9 @@ Chromium قادر به بازیابی تنظیمات شما نیست.</translati
 <translation id="734373864078049451">‏وب، نشانک‌ها و موارد دیگر Chromium شما در اینجا هستند.</translation>
 <translation id="7419987137528340081">‏اگر ترجیح می‌دهید داده‌های Chromium خود را جدا نگهدارید، می‌توانید برای <ph name="USER_NAME" />، کاربر Chromium جدیدی ایجاد کنید.</translation>
 <translation id="7421823331379285070">‏Chromium به Windows XP یا نسخه بالاتر آن نیاز دارد. برخی از ویژگی‌ها ممکن است کار نکند.</translation>
+<translation id="7437562785125777404">‏سیستم عامل Chromium نمی‌تواند به این زبان نشان داده شود.</translation>
 <translation id="7463979740390522693">‏Chromium - اعلان‌ها (<ph name="QUANTITY" /> خوانده نشده)</translation>
-<translation id="7473891865547856676">خیر سپاسگزارم</translation>
+<translation id="7473891865547856676">نه سپاسگزارم</translation>
 <translation id="7483335560992089831">‏نمی‌توانید Chromium دارای نسخه مشابه با نسخه در حال اجرا را نصب کنید. لطفاً Chromium را ببندید و دوباره سعی کنید.</translation>
 <translation id="750717762378961310">‏این فایل مخرب است و Chromium آن را مسدود کرده است.</translation>
 <translation id="7549178288319965365">‏درباره سیستم عامل Chromium </translation>

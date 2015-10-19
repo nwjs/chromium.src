@@ -31,6 +31,7 @@
 <translation id="1693754753824026215">Siden på <ph name="SITE" /> siger:</translation>
 <translation id="1706954506755087368">{1,plural, =1{Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da dens sikkerhedscertifikat tilsyneladende først gælder fra i morgen. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.}one{Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da dens sikkerhedscertifikat tilsyneladende først gælder fra om # dag. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.}other{Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da dens sikkerhedscertifikat tilsyneladende først gælder fra om # dage. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.}}</translation>
 <translation id="1734864079702812349">Amex</translation>
+<translation id="1753706481035618306">Sidetal</translation>
 <translation id="1763864636252898013">Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da operativsystemet på din enhed ikke har tillid til sikkerhedscertifikatet. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.</translation>
 <translation id="1821930232296380041">Ugyldig anmodning eller anmodningsparametre</translation>
 <translation id="1871208020102129563">Proxy er indstillet til at bruge faste proxyservere, ikke webadresser til .pac-scripts.</translation>
@@ -194,7 +195,7 @@
 <translation id="5509780412636533143">Administrerede bogmærker</translation>
 <translation id="5523118979700054094">Navn på politik</translation>
 <translation id="552553974213252141">Blev teksten trukket korrekt ud?</translation>
-<translation id="5540224163453853">Den anmodede artikel kunne ikke findes.</translation>
+<translation id="5540224163453853">Den anmodede artikel blev ikke fundet.</translation>
 <translation id="5556459405103347317">Genindlæs</translation>
 <translation id="5565735124758917034">Aktiv</translation>
 <translation id="560412284261940334">Administration er ikke understøttet</translation>

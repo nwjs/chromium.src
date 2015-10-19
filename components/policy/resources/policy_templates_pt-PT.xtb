@@ -1836,7 +1836,7 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 <translation id="8566842294717252664">Ocultar a Web Store da Página novo separador e do iniciador de aplicações</translation>
 <translation id="857925079934558818">Especifica se a otimização TLS False Start deve ser desativada. Por razões históricas, o nome desta política é DisableSSLRecordSplitting.
 
-      Se a política não for definida ou for definida como falsa, o TLS False Start está ativado. Se for definida como verdadeira, o TLS False Start está desativado.</translation>
+      Se a política não for definida ou for definida como falsa, o TLS False Start estará ativado. Se for definida como verdadeira, o TLS False Start estará desativado.</translation>
 <translation id="8587229956764455752">Permitir a criação de novas contas de utilizador</translation>
 <translation id="8614804915612153606">Desativar a Atualização Automática</translation>
 <translation id="8631434304112909927">até à versão <ph name="UNTIL_VERSION" /></translation>

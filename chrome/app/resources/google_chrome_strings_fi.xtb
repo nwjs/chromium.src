@@ -34,6 +34,7 @@
 <translation id="1773601347087397504">Apua Chrome-käyttöjärjestelmän käytössä</translation>
 <translation id="1818142563254268765">Chrome ei voinut päivittää uusimpaan versioon, joten uudet ominaisuudet ja tietoturvapäivitykset eivät ole käytössäsi. Päivitä Chrome.</translation>
 <translation id="1877026089748256423">Chrome on vanhentunut</translation>
+<translation id="1924381329666691588">Google Chromea ei voi näyttää tällä kielellä.</translation>
 <translation id="2077129598763517140">Käytä laitteistokiihdytystä, jos mahdollista</translation>
 <translation id="2084710999043359739">Lisää Chromeen</translation>
 <translation id="2246246234298806438">Google Chrome ei voi näyttää tulostusesikatselua, koska PDF-katseluohjelma puuttuu.</translation>
@@ -62,6 +63,7 @@ Jos kirjaudut silti sisään, Chrome-tiedot, kuten kirjanmerkit, historia ja ase
 <translation id="2748463065602559597">Katselet suojattua Google Chrome -sivua.</translation>
 <translation id="2769762047821873045">Google Chrome ei ole oletusselain.</translation>
 <translation id="2770231113462710648">Vaihda oletusselaimeksi:</translation>
+<translation id="2847461019998147611">Näytä Google Chrome tällä kielellä</translation>
 <translation id="2871893339301912279">Olet kirjautunut Chromeen!</translation>
 <translation id="2874156562296220396">Google Chromen mahdollistivat avoimen lähdekoodin projekti <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> ja muut <ph name="BEGIN_LINK_OSS" />avoimen lähdekoodin ohjelmistot<ph name="END_LINK_OSS" />.</translation>
 <translation id="3037838751736561277">Google Chrome on käynnissä taustalla.</translation>
@@ -141,8 +143,10 @@ Jos kirjaudut silti sisään, Chrome-tiedot, kuten kirjanmerkit, historia ja ase
 <translation id="5566025111015594046">Google Chrome (saapuva mDNS)</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> suojaa tietosi normaalisti salauksen avulla. Kun Chrome yritti yhdistää sivustoon <ph name="SITE" /> tällä kertaa, sivusto palautti epätavalliset ja virheelliset tiedot. Joko hyökkääjä yrittää esiintyä sivustona <ph name="SITE" /> tai Wi-Fi-kirjautumisruutu on keskeyttänyt yhteyden. Tietosi ovat edelleen turvassa, sillä Chrome katkaisi yhteyden, ennen kuin mitään tietoja vaihdettiin.</translation>
 <translation id="5620765574781326016">Tutustu verkkosivuston aiheisiin poistumatta sivulta.</translation>
+<translation id="5637867606963802593">Chrome-käyttöjärjestelmää ei voi näyttää tällä kielellä.</translation>
 <translation id="568643307450491754">Etsi kirjanmerkit Chrome-valikosta tai kirjanmerkkipalkista.</translation>
 <translation id="573759479754913123">Tietoja Chrome-käyttöjärjestelmästä</translation>
+<translation id="5749068826913805084">Chrome tarvitsee tallennustilan käyttöoikeuden tiedostojen lataamiseen.</translation>
 <translation id="5785746630574083988">Jos käynnistät uudelleen Windows 8 -tilassa, Chrome-sovelluksesi suljetaan ja käynnistetään uudelleen.</translation>
 <translation id="5799551393681493217">Ota käyttöön iframe-pohjaiset Chromen kirjautumistyönkulut. Tämä merkintä ohittaa verkkopohjaisen kirjautumisen käyttöönoton.</translation>
 <translation id="5855036575689098185">Tietokoneellasi käynnissä oleva ohjelmisto on yhteensopimaton Google Chromen kanssa.</translation>
@@ -205,6 +209,7 @@ Jos kirjaudut silti sisään, Chrome-tiedot, kuten kirjanmerkit, historia ja ase
 <translation id="7164397146364144019">Voit auttaa meitä parantamaan Chromen turvallisuutta ja tekemään selaimesta helppokäyttöisemmän ilmoittamalla mahdollisista turvallisuusongelmista Googlelle automaattisesti.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> on lisätty Chromeen.</translation>
 <translation id="7191567847629796517">Google Chrome -käyttöjärjestelmä ei tue ulkopuolisten sovellusten käynnistämistä <ph name="SCHEME" />-linkkien käsittelyä varten. Pyyntöön liittyvä linkki on <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome näytetään tällä kielellä.</translation>
 <translation id="7196020411877309443">Miksi minulle näytetään tämä ilmoitus?</translation>
 <translation id="7242029209006116544">Olet kirjautumassa sisään hallinnoidulla tilillä ja antamassa tilin järjestelmänvalvojalle oikeuden hallita Google Chrome -profiiliasi. Chrome-tietosi, kuten sovelluksesi, kirjanmerkkisi, historiasi, salasanasi ja muut asetuksesi, yhdistetään pysyvästi käyttäjätiliin <ph name="USER_NAME" />. Voit poistaa nämä tiedot Google-tilien Hallintapaneelissa, mutta et voi liittää tietoja toiseen tiliin. Voit myös halutessasi luoda uuden profiilin, jos haluat pitää aiemmat Chrome-tietosi erillään. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome – ilmoitukset (lukematta: <ph name="QUANTITY" />)</translation>
@@ -219,6 +224,7 @@ Jos kirjaudut silti sisään, Chrome-tiedot, kuten kirjanmerkit, historia ja ase
 <translation id="7473136999113284234">Chrome päivitetään automaattisesti, joten käytössäsi on aina uusin versio</translation>
 <translation id="7473891865547856676">Ei kiitos</translation>
 <translation id="7494905215383356681">Chromen avoimen lähdekoodin lisenssit</translation>
+<translation id="7552219221109926349">Näytä Chrome-käyttöjärjestelmä tällä kielellä</translation>
 <translation id="7592736734348559088">Google Chrome ei voinut synkronoida tietoja, sillä tilin kirjautumistiedot ovat vanhentuneet.</translation>
 <translation id="7626032353295482388">Tervetuloa Chromeen</translation>
 <translation id="7747138024166251722">Asennusohjelma ei pystynyt luomaan väliaikaista hakemistoa. Tarkista, että käytettävissä on riittävästi levytilaa ja että sinulla on oikeus asentaa ohjelmia.</translation>
@@ -232,6 +238,7 @@ Jos kirjaudut silti sisään, Chrome-tiedot, kuten kirjanmerkit, historia ja ase
 <translation id="7825851276765848807">Asennus epäonnistui tuntemattoman virheen vuoksi. Lataa Google Chrome uudelleen.</translation>
 <translation id="7890208801193284374">Jos käytät jaettua tietokonetta, kaverisi ja perheenjäsenesi voivat selata verkkoa omista profiileistaan käsin ja muokata Chromesta juuri itselleen sopivan.</translation>
 <translation id="7908968924842975895">Tämän tietokoneen Google Chrome -päivitykset päättyvät, sillä sen laitteistoa ei enää tueta.</translation>
+<translation id="7964230182933713106">Chrome-käyttöjärjestelmä näytetään tällä kielellä.</translation>
 <translation id="7984945080620862648">Et voi siirtyä sivustoon <ph name="SITE" /> juuri nyt, koska sivusto lähetti sekoitetut tiedot, joita Chrome ei voi käsitellä. Verkkovirheet ja hyökkäykset ovat yleensä väliaikaisia, joten sivu luultavasti toimii myöhemmin.</translation>
 <translation id="8000275528373650868">Google Chrome edellyttää, että käyttöjärjestelmä on Windows Vista tai Windows XP (SP2 tai uudempi).</translation>
 <translation id="8005540215158006229">Chrome on melkein valmis.</translation>

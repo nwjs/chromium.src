@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">ቀርፋፋ ግንኙነት ተገኝቷል።</translation>
 <translation id="2842985007712546952">ወላጅ አቃፊ</translation>
 <translation id="2870560284913253234">ጣቢያ</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 ዩአርኤል በአቅራቢያ}one{# ዩአርኤሎች በአቅራቢያ}other{# ዩአርኤሎች በአቅራቢያ}}</translation>
 <translation id="2888126860611144412">ስለChrome</translation>
 <translation id="2891154217021530873">ገጹን መጫን አቁም</translation>
 <translation id="2902702728133930130">Chrome ባልተጠበቀ ስህተት ምክንያት ሊጀምር አልቻለም።</translation>
@@ -315,6 +316,7 @@
 ይሁንና እርስዎ ስውር አይደሉም። ማንነት በማያሳውቅ ሁነታ ላይ መሆን የእርስዎን አሰሳ ከአሰሪዎ፣ ከበይነመረብ አገልጋይዎ ወይም ከሚጎበኟቸው ድር ጣቢያዎች አይደብቁዎውም።</translation>
 <translation id="572328651809341494">የቅርብ ጊዜ ትሮች</translation>
 <translation id="5733727110006255111">ይህ ባህሪ ሲበራ Chrome የጎበኟቸውን ገጾች ከማውረዱ በፊት ለመጭመቅ የGoogle አገልጋዮችን ይጠቀማል። SSL እና ማንነት የማያሳውቁ ገጾች አይካተቱም።</translation>
+<translation id="5749068826913805084">Chrome ፋይሎችን ለማውረድ የማከማቻ መዳረሻ ያስፈልገዋል።</translation>
 <translation id="5763382633136178763">ማንነት የማያሳውቁ ትሮች</translation>
 <translation id="5765780083710877561">መግለጫ</translation>
 <translation id="5771382037724542929">በ<ph name="DIRECTORY_NAME" /> ውስጥ ያለውን ነባር <ph name="FILE_NAME" /> መተካት ይፈልጋሉ?</translation>
@@ -323,6 +325,7 @@
 <translation id="5817918615728894473">አጣምር</translation>
 <translation id="5832934273103296195">ተዘርግቷል - ለመሰብሰብ ጠቅ ያድርጉ</translation>
 <translation id="583891442612896534">Chrome ለውሂብ እመቃ የGoogle አገልጋዮችን መድረስ አልቻለም። የውሂብ ቁጠባዎችዎ የተገደቡ ሊሆኑ ይችላሉ።</translation>
+<translation id="585027516397408832">ውሂብ ቆጣቢ ነቅቷል</translation>
 <translation id="5860033963881614850">አጥፋ</translation>
 <translation id="5869522115854928033">የተቀመጡ የይለፍ ቃሎች</translation>
 <translation id="588258955323874662">ሙሉ ገጽ ዕይታ</translation>
@@ -425,6 +428,7 @@
 <translation id="7096034533295549981">ቪዲዮን በመጫን ላይ</translation>
 <translation id="7191430249889272776">ትር ጀርባ ላይ ተከፍቷል።</translation>
 <translation id="7201341158316793215">በማስወገድ ላይ…</translation>
+<translation id="7208788139759694678">ውሂብ ቆጣቢ ተሰናክሏል</translation>
 <translation id="7243308994586599757">አማራጮች ከማያ ገጹ ግርጌ አጠገብ ይገኛሉ</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> አካባቢያዊ የፍለጋ ውጤቶችን ለማሳየት የእርስዎን አካባቢ ይጠቀማል</translation>
 <translation id="7299721129597238157">ዕልባት ሰርዝ</translation>

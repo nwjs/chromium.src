@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">Το Chromium OS δεν υποστηρίζει την εκκίνηση μιας εξωτερικής εφαρμογής για τον χειρισμό συνδέσμων <ph name="SCHEME" />. Ο σύνδεσμος που απαιτείται είναι ο <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">Εντοπίστηκε στο σύστημα εγκατάσταση σε διένεξη του Chromium. Καταργήστε την εγκατάσταση και δοκιμάστε ξανά.</translation>
 <translation id="1298199220304005244">Λήψη βοήθειας σχετικά με τη χρήση του Chromium OS</translation>
+<translation id="1347507563453473396">Δεν είναι δυνατή η εμφάνιση του Chromium σε αυτήν τη γλώσσα.</translation>
 <translation id="1396446129537741364">Το Chromium επιχειρεί να εμφανίσει κωδικούς πρόσβασης.</translation>
 <translation id="1414495520565016063">Έχετε συνδεθεί στο Chromium!</translation>
 <translation id="1444754455097148408">Άδειες λογισμικού ανοικτού κώδικα του Chromium</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">Το αρχείο <ph name="FILE_NAME" /> είναι κακόβουλο και έχει αποκλειστεί από το Chromium.</translation>
 <translation id="2847479871509788944">Κατάργηση από το Chromium…</translation>
 <translation id="2886012850691518054">Προαιρετικό: συμβάλετε στη βελτίωση του Chromium στέλνοντας αυτόματα στην Google στατιστικά στοιχεία χρήσης και αναφορές σφαλμάτων.</translation>
+<translation id="2905536371227304018">Το Chromium OS εμφανίζεται σε αυτήν τη γλώσσα.</translation>
 <translation id="2910007522516064972">Σχετικά με το &amp;Chromium</translation>
 <translation id="2966088006374919794">Το Chromium πρέπει να εκκινήσει μια εξωτερική εφαρμογή για τον χειρισμό συνδέσμων <ph name="SCHEME" />. Ο σύνδεσμος που ζητήθηκε είναι ο <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Προσθήκη στο Chromium…</translation>
@@ -139,8 +141,11 @@
 <translation id="5427571867875391349">Ορισμός του Chromium ως προεπιλεγμένου προγράμματος περιήγησης</translation>
 <translation id="5466153949126434691">Το Chromium ενημερώνεται αυτόματα, προκειμένου να έχετε πάντα στη διάθεσή σας τη νεότερη έκδοση. Όταν ολοκληρωθεί αυτή η λήψη, θα γίνει επανεκκίνηση του Chromium και θα είστε έτοιμοι.</translation>
 <translation id="549669000822060376">Περιμένετε μέχρι να γίνει εγκατάσταση των πιο πρόσφατων ενημερώσεων συστήματος από το Chromium.</translation>
+<translation id="556167189552180495">Το Chromium εμφανίζεται σε αυτήν τη γλώσσα.</translation>
 <translation id="5563479599352954471">Αναζήτηση με ένα μόνο άγγιγμα</translation>
 <translation id="5620765574781326016">Μάθετε πληροφορίες σχετικά με θέματα σε ιστότοπους, χωρίς να απομακρυνθείτε από τη σελίδα.</translation>
+<translation id="5698481217667032250">Να εμφανίζεται το Chromium σε αυτήν τη γλώσσα</translation>
+<translation id="5768914737813585044">Να εμφανίζεται το Chromium OS σε αυτήν τη γλώσσα</translation>
 <translation id="5772805321386874569">(απαιτείται <ph name="BEGIN_BUTTON" />επανεκκίνηση<ph name="END_BUTTON" /> του Chromium)</translation>
 <translation id="5796460469508169315">Το Chromium είναι σχεδόν έτοιμο.</translation>
 <translation id="580822234363523061">Μεταβείτε
@@ -172,6 +177,7 @@
 <translation id="6475912303565314141">Επίσης, ελέγχει τη σελίδα που εμφανίζεται κατά την εκκίνηση του Chromium.</translation>
 <translation id="6485906693002546646">Χρησιμοποιείτε το προφίλ <ph name="PROFILE_EMAIL" /> για το συγχρονισμό του περιεχομένου σας στο Chromium. Για να ενημερώσετε τις προτιμήσεις συγχρονισμού ή για να χρησιμοποιήστε το Chromium χωρίς Λογαριασμό Google, μεταβείτε στην περιοχή <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Κατάργηση εγκατάστασης Chromium</translation>
+<translation id="6526111688217511984">Το Chromium χρειάζεται πρόσβαση στο χώρο αποθήκευσης για τη λήψη αρχείων.</translation>
 <translation id="6637001341228460105">Το Chromium χρειάζεται πρόσβαση στο μικρόφωνο για να το μοιραστεί με αυτόν τον ιστότοπο.</translation>
 <translation id="6638567566961868659">Βρείτε τους σελιδοδείκτες σας στο μενού του Chromium ή στη γραμμή σελιδοδεικτών.</translation>
 <translation id="6676384891291319759">Πρόσβαση στο Διαδίκτυο</translation>
@@ -209,6 +215,7 @@
 <translation id="734373864078049451">Εδώ μπορείτε να βρείτε τις ιστοσελίδες, τους σελιδοδείκτες σας και άλλα δεδομένα του Chromium.</translation>
 <translation id="7419987137528340081">Αν προτιμάτε να κρατήσετε ξεχωριστά τα υπάρχοντα δεδομένα σας στο Chromium, μπορείτε να δημιουργήσετε ένα νέο χρήστη του Chromium για το χρήστη <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Το Chromium απαιτεί Windows XP ή νεότερη έκδοση. Ορισμένες λειτουργίες ενδέχεται να μην είναι διαθέσιμες.</translation>
+<translation id="7437562785125777404">Δεν είναι δυνατή η εμφάνιση του Chromium OS σε αυτήν τη γλώσσα.</translation>
 <translation id="7463979740390522693">Chromium - Ειδοποιήσεις (<ph name="QUANTITY" /> μη αναγνωσμένες)</translation>
 <translation id="7473891865547856676">Όχι, ευχαριστώ</translation>
 <translation id="7483335560992089831">Δεν είναι δυνατή η εγκατάσταση της ίδια έκδοσης του Chromium που εκτελείται αυτήν τη στιγμή. Κλείστε το Chromium και δοκιμάστε ξανά.</translation>

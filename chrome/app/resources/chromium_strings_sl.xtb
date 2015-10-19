@@ -12,6 +12,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="1221340462641866827">Chromium OS ne podpira zagona zunanjega programa za obdelavo povezav <ph name="SCHEME" />. Zahtevana povezava je <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">V sistemu je bila odkrita namestitev Chromiuma v sporu. Odstranite jo in poskusite znova.</translation>
 <translation id="1298199220304005244">Pomoč pri uporabi sistema Chromium OS</translation>
+<translation id="1347507563453473396">Chromiuma ni mogoče prikazati v tem jeziku.</translation>
 <translation id="1396446129537741364">Chromium poskuša prikazati gesla.</translation>
 <translation id="1414495520565016063">Prijavljeni ste v Chromium.</translation>
 <translation id="1444754455097148408">Odprtokodne licence za Chromium</translation>
@@ -62,6 +63,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="2801146392936645542">Datoteka <ph name="FILE_NAME" /> je zlonamerna, zato jo je Chromium blokiral.</translation>
 <translation id="2847479871509788944">Odstranitev iz Chromiuma ...</translation>
 <translation id="2886012850691518054">Izbirno: Pomagajte izboljšati Chromium, tako da Googlu samodejno pošiljate statistične podatke o uporabi in poročila o zrušitvah.</translation>
+<translation id="2905536371227304018">Chromium OS je v tem jeziku.</translation>
 <translation id="2910007522516064972">O &amp;Chromiumu</translation>
 <translation id="2966088006374919794">Chromium mora zagnati zunanji program za obdelavo povezav <ph name="SCHEME" />. Zahtevana povezava je <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Dodajanje v Chromium ...</translation>
@@ -140,8 +142,11 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="5427571867875391349">Nastavitev Chromiuma za privzeti brskalnik</translation>
 <translation id="5466153949126434691">Chromium se samodejno posodablja, zato boste vedno imeli najnovejšo različico. Ko bo ta prenos končan, se bo Chromium znova zagnal in lahko boste nadaljevali z delom.</translation>
 <translation id="549669000822060376">Počakajte, da Chromium namesti najnovejše sistemske posodobitve.</translation>
+<translation id="556167189552180495">Chromium je v tem jeziku.</translation>
 <translation id="5563479599352954471">Iskanje z enim dotikom</translation>
 <translation id="5620765574781326016">Preberite več o temah na spletnih mestih, ne da bi vam bilo treba zapustiti stran.</translation>
+<translation id="5698481217667032250">Prikaži Chromium v tem jeziku</translation>
+<translation id="5768914737813585044">Prikaži Chromium OS v tem jeziku</translation>
 <translation id="5772805321386874569">(zahteva <ph name="BEGIN_BUTTON" />vnovični zagon<ph name="END_BUTTON" /> Chromiuma)</translation>
 <translation id="5796460469508169315">Chromium je skoraj pripravljen.</translation>
 <translation id="580822234363523061">Odprite
@@ -172,6 +177,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="6475912303565314141">Določa tudi, katera stran je prikazana, ko zaženete Chromium.</translation>
 <translation id="6485906693002546646">Za sinhronizacijo stvari v Chromiumu uporabljate <ph name="PROFILE_EMAIL" />. Če želite posodobiti nastavitve sinhroniziranja ali uporabljati Chromium brez Google Računa, odprite <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Odstranitev Chromiuma</translation>
+<translation id="6526111688217511984">Chromium potrebuje za prenos datotek dostop do shrambe.</translation>
 <translation id="6637001341228460105">Chromium potrebuje dostop do mikrofona, če želite, da temu spletnemu mestu omogoči dostop do njega.</translation>
 <translation id="6638567566961868659">Poiščite svoje zaznamke v meniju Chromiuma ali v vrstici z zaznamki.</translation>
 <translation id="6676384891291319759">Dostop do interneta</translation>
@@ -209,6 +215,7 @@ Chromium ne more obnoviti vaših nastavitev.</translation>
 <translation id="734373864078049451">Tu so shranjeni vaš splet, zaznamki in druge stvari v Chromiumu.</translation>
 <translation id="7419987137528340081">Če želite, da bodo vaši obstoječi podatki v Chromiumu ločeni, lahko ustvarite nov profil v Chromiumu za uporabnika <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium zahteva Windows XP ali novejši. Nekatere funkcije morda ne bodo delovale.</translation>
+<translation id="7437562785125777404">Chromiuma OS ni mogoče prikazati v tem jeziku.</translation>
 <translation id="7463979740390522693">Chromium – Obvestila (št. neprebranih: <ph name="QUANTITY" />)</translation>
 <translation id="7473891865547856676">Ne, hvala</translation>
 <translation id="7483335560992089831">Ni mogoče namestiti iste različice Chromiuma, ki se trenutno izvaja. Zaprite Chromium in poskusite znova.</translation>

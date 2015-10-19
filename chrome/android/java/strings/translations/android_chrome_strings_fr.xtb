@@ -88,7 +88,7 @@
 <translation id="2354750644801399986">Interdire le suivi</translation>
 <translation id="2359808026110333948">Continuer</translation>
 <translation id="2381756643783702095">Demander l'autorisation avant d'envoyer (recommandé)</translation>
-<translation id="2387895666653383613">Mise à l'échelle texte</translation>
+<translation id="2387895666653383613">Mise à l'échelle du texte</translation>
 <translation id="238909021488141516">Une erreur s'est produite lors du téléchargement du contenu.</translation>
 <translation id="2414886740292270097">Foncé</translation>
 <translation id="2433507940547922241">Apparence</translation>
@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Connexion lente détectée</translation>
 <translation id="2842985007712546952">Dossier parent</translation>
 <translation id="2870560284913253234">Site</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL à proximité}one{# URL à proximité}other{# URL à proximité}}</translation>
 <translation id="2888126860611144412">À propos de Chrome</translation>
 <translation id="2891154217021530873">Arrêter le chargement de la page</translation>
 <translation id="2902702728133930130">Échec du démarrage de Chrome, en raison d'une erreur inattendue.</translation>
@@ -316,6 +317,7 @@ Les statistiques d'utilisation englobent des informations telles que les préfé
 Vous n'êtes cependant pas devenu invisible. L'utilisation du mode navigation privée n'empêche pas votre employeur, votre fournisseur d'accès à Internet ou les sites Web que vous avez consultés d'avoir accès aux informations relatives à votre navigation.</translation>
 <translation id="572328651809341494">Onglets récents</translation>
 <translation id="5733727110006255111">Lorsque cette fonctionnalité est activée, les pages consultées dans Chrome sont d'abord compressées via les serveurs Google avant d'être téléchargées, à l'exception des pages SSL et des pages de navigation privée.</translation>
+<translation id="5749068826913805084">Pour télécharger des fichiers, Chrome a besoin d'accéder à l'espace de stockage.</translation>
 <translation id="5763382633136178763">Onglets de navigation privée</translation>
 <translation id="5765780083710877561">Description :</translation>
 <translation id="5771382037724542929">Voulez-vous vraiment remplacer le fichier <ph name="FILE_NAME" /> dans le répertoire "<ph name="DIRECTORY_NAME" />" ?</translation>
@@ -324,6 +326,7 @@ Vous n'êtes cependant pas devenu invisible. L'utilisation du mode navigation pr
 <translation id="5817918615728894473">Associer</translation>
 <translation id="5832934273103296195">Développé – Cliquer pour réduire</translation>
 <translation id="583891442612896534">Impossible de se connecter aux serveurs de Google dans Chrome pour la compression de données. Les sauvegardes de données peuvent être limitées.</translation>
+<translation id="585027516397408832">Économiseur de données activé</translation>
 <translation id="5860033963881614850">Désactivé</translation>
 <translation id="5869522115854928033">Mots de passe enregistrés</translation>
 <translation id="588258955323874662">Plein écran</translation>
@@ -426,6 +429,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7096034533295549981">Chargement vidéo…</translation>
 <translation id="7191430249889272776">L'onglet a été ouvert en arrière-plan.</translation>
 <translation id="7201341158316793215">Suppression en cours…</translation>
+<translation id="7208788139759694678">Économiseur de données désactivé</translation>
 <translation id="7243308994586599757">Options disponibles au bas de l'écran</translation>
 <translation id="7244362611678346589">Le site <ph name="SEARCH_ENGINE_URL" /> utilise votre position pour afficher les résultats de recherche à proximité.</translation>
 <translation id="7299721129597238157">Supprimer le favori</translation>

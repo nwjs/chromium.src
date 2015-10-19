@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Hidas yhteys havaittu.</translation>
 <translation id="2842985007712546952">Ylätason kansio</translation>
 <translation id="2870560284913253234">Sivusto</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{Lähistöllä on 1 URL-osoite.}other{Lähistöllä on # URL-osoitetta.}}</translation>
 <translation id="2888126860611144412">Tietoja Chromesta</translation>
 <translation id="2891154217021530873">Pysäytä sivun lataus</translation>
 <translation id="2902702728133930130">Chromen käynnistys epäonnistui odottamattoman virheen takia.</translation>
@@ -315,6 +316,7 @@ Käyttötilastot sisältävät tietoja esimerkiksi asetuksista, painetuista pain
 Et ole kuitenkaan näkymätön. Incognito-tila ei piilota selaustietojasi työnantajaltasi, internetpalveluntarjoajaltasi tai vierailemiltasi verkkosivustoilta.</translation>
 <translation id="572328651809341494">Hiljattain suljetut välilehdet</translation>
 <translation id="5733727110006255111">Kun tämä toiminto on käytössä, Chrome pakkaa lukemasi sivut Googlen palvelimilla ennen niiden lataamista. SSL- ja incognito-sivuja ei pakata.</translation>
+<translation id="5749068826913805084">Chrome tarvitsee tallennustilan käyttöoikeuden tiedostojen lataamiseen.</translation>
 <translation id="5763382633136178763">Incognito-välilehdet</translation>
 <translation id="5765780083710877561">Kuvaus:</translation>
 <translation id="5771382037724542929">Haluako korvata olemassa olevan tiedoston <ph name="FILE_NAME" /> hakemistossa <ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@ Et ole kuitenkaan näkymätön. Incognito-tila ei piilota selaustietojasi työna
 <translation id="5817918615728894473">Muodosta laitepari</translation>
 <translation id="5832934273103296195">Laajennettu – tiivistä klikkaamalla</translation>
 <translation id="583891442612896534">Chrome ei saa yhteyttä Googlen palvelimiin tietojen pakkausta varten. Tietojen tallentaminen voi olla rajoitettua.</translation>
+<translation id="585027516397408832">Data Saver käytössä</translation>
 <translation id="5860033963881614850">Pois käytöstä</translation>
 <translation id="5869522115854928033">Tallennetut salasanat</translation>
 <translation id="588258955323874662">Koko ruutu</translation>
@@ -425,6 +428,7 @@ Jotkin verkkosivut voivat vastata tähän pyyntöön esimerkiksi näyttämällä
 <translation id="7096034533295549981">Videota ladataan</translation>
 <translation id="7191430249889272776">Välilehti avattiin taustalla.</translation>
 <translation id="7201341158316793215">Poistetaan…</translation>
+<translation id="7208788139759694678">Data Saver on poistettu käytöstä.</translation>
 <translation id="7243308994586599757">Asetukset löytyvät näytön alalaidasta.</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> käyttää sijaintiasi paikallisten hakutulosten näyttämiseen.</translation>
 <translation id="7299721129597238157">Poista kirjanmerkki</translation>

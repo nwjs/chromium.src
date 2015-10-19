@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Виявлено повільне з’єднання.</translation>
 <translation id="2842985007712546952">Батьківська папка</translation>
 <translation id="2870560284913253234">Сайт</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL-адреса поруч}one{# URL-адреса поруч}few{# URL-адреси поруч}many{# URL-адрес поруч}other{# URL-адреси поруч}}</translation>
 <translation id="2888126860611144412">Про Chrome</translation>
 <translation id="2891154217021530873">Припинити завантаження сторінки</translation>
 <translation id="2902702728133930130">Не вдалося запустити Chrome через неочікувану помилку.</translation>
@@ -315,6 +316,7 @@
 Проте ви не можете сховати все. Навіть у режимі анонімного перегляду ваш роботодавець, постачальник послуг Інтернету чи адміністратори веб-сайтів, які ви відвідуєте, можуть бачити, що ви переглядаєте.</translation>
 <translation id="572328651809341494">Останні вкладки</translation>
 <translation id="5733727110006255111">Якщо цю функцію ввімкнено, Chrome використовує сервери Google, щоб перед завантаженням стискати сторінки, які ви відвідуєте (це не стосується сторінок із підтримкою протоколу SSL і сторінок у режимі анонімного перегляду).</translation>
+<translation id="5749068826913805084">Щоб завантажувати файли, Chrome потребує доступу до пам’яті.</translation>
 <translation id="5763382633136178763">Анонімні вкладки</translation>
 <translation id="5765780083710877561">Опис:</translation>
 <translation id="5771382037724542929">Замінити наявний файл "<ph name="FILE_NAME" />" у каталозі "<ph name="DIRECTORY_NAME" />"?</translation>
@@ -323,6 +325,7 @@
 <translation id="5817918615728894473">Підключити</translation>
 <translation id="5832934273103296195">Розгорнуто – натисніть, щоб згорнути</translation>
 <translation id="583891442612896534">Chrome не може зв’язатись із серверами Google для стиснення даних. Можливо, у вас обмежене заощадження даних.</translation>
+<translation id="585027516397408832">Заощадження трафіку ввімкнено</translation>
 <translation id="5860033963881614850">Вимк.</translation>
 <translation id="5869522115854928033">Збережені паролі</translation>
 <translation id="588258955323874662">Повноекранний режим</translation>
@@ -425,6 +428,7 @@
 <translation id="7096034533295549981">Завантаж. відео</translation>
 <translation id="7191430249889272776">Вкладку відкрито у фоновому режимі.</translation>
 <translation id="7201341158316793215">Вилучення…</translation>
+<translation id="7208788139759694678">Заощадження трафіку вимкнено</translation>
 <translation id="7243308994586599757">Опції можна знайти внизу екрана</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> використовує ваші геодані, щоб показувати результати місцевого пошуку</translation>
 <translation id="7299721129597238157">Видалити закладку</translation>

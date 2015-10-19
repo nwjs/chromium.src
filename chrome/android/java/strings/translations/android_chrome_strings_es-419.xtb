@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Se detectó una conexión lenta.</translation>
 <translation id="2842985007712546952">Carpeta principal</translation>
 <translation id="2870560284913253234">Sitio</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL cercana}other{# URL cercanas}}</translation>
 <translation id="2888126860611144412">Acerca de Chrome</translation>
 <translation id="2891154217021530873">Detener la carga de la página</translation>
 <translation id="2902702728133930130">Se produjo un error inesperado durante el inicio de Chrome.</translation>
@@ -316,6 +317,7 @@ Las estadísticas de uso incluyen información, como las preferencias, los clics
 Sin embargo, no vas a pasar completamente desapercibido. El modo de navegación de incógnito no oculta tu información de navegación de un empleador, del proveedor de servicios de Internet ni de los sitios web que visitas.</translation>
 <translation id="572328651809341494">Pestañas recientes</translation>
 <translation id="5733727110006255111">Cuando se active esta función, Chrome usará los servidores de Google para comprimir las páginas que visites antes de descargarlas. No se incluirán las páginas de incógnito ni SSL.</translation>
+<translation id="5749068826913805084">Chrome necesita acceder al almacenamiento para descargar archivos.</translation>
 <translation id="5763382633136178763">Pestañas en modo de incógnito</translation>
 <translation id="5765780083710877561">Descripción:</translation>
 <translation id="5771382037724542929">¿Quieres reemplazar el archivo <ph name="FILE_NAME" /> existente en <ph name="DIRECTORY_NAME" />?</translation>
@@ -324,6 +326,7 @@ Sin embargo, no vas a pasar completamente desapercibido. El modo de navegación 
 <translation id="5817918615728894473">Sincronizar</translation>
 <translation id="5832934273103296195">Expandido (hacer clic para contraer)</translation>
 <translation id="583891442612896534">Chrome no puede acceder a los servidores de Google para la compresión de datos. Es posible que el ahorro de datos esté reducido.</translation>
+<translation id="585027516397408832">Extensión Reducir datos habilitada</translation>
 <translation id="5860033963881614850">Desactivado</translation>
 <translation id="5869522115854928033">Contraseñas almacenadas</translation>
 <translation id="588258955323874662">Pantalla completa</translation>
@@ -426,6 +429,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mediante anuncio
 <translation id="7096034533295549981">Cargando video</translation>
 <translation id="7191430249889272776">Pestaña abierta en segundo plano</translation>
 <translation id="7201341158316793215">Borrando…</translation>
+<translation id="7208788139759694678">Extensión Reducir datos inhabilitada</translation>
 <translation id="7243308994586599757">Opciones disponibles junto a la parte inferior de la pantalla</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> usa tu ubicación para mostrar resultados de la búsqueda a nivel local.</translation>
 <translation id="7299721129597238157">Eliminar marcador</translation>

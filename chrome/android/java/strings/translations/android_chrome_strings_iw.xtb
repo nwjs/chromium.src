@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">זוהה חיבור איטי.</translation>
 <translation id="2842985007712546952">תיקיית אב</translation>
 <translation id="2870560284913253234">אתר</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{כתובת אתר אחת בקרבת מקום}two{שתי כתובות אתרים בקרבת מקום}many{# כתובות אתרים בקרבת מקום}other{# כתובות אתרים בקרבת מקום}}</translation>
 <translation id="2888126860611144412">‏מידע כללי על Chrome</translation>
 <translation id="2891154217021530873">הפסק את טעינת הדף</translation>
 <translation id="2902702728133930130">‏שגיאה בלתי צפויה גרמה לכשל של Chrome בעת ההפעלה.</translation>
@@ -315,6 +316,7 @@
 עם זאת, אינך בלתי נראה. מעבר למצב גלישה בסתר אינו מסתיר את הגלישה שלך מהמעסיק, ספק שירות האינטרנט או האתרים שבהם אתה מבקר.</translation>
 <translation id="572328651809341494">כרטיסיות אחרונות</translation>
 <translation id="5733727110006255111">‏כשהתכונה הזו פועלת, Chrome ישתמש בשרתי Google כדי לדחוס דפים שבהם אתה מבקר לפני שהוא מוריד אותם. דפי SSL וגלישה בסתר אינם נכללים.</translation>
+<translation id="5749068826913805084">‏לצורך הורדת קבצים, Chrome זקוק לגישה לאחסון.</translation>
 <translation id="5763382633136178763">כרטיסיות גלישה בסתר</translation>
 <translation id="5765780083710877561">תיאור:</translation>
 <translation id="5771382037724542929">האם ברצונך להחליף את <ph name="FILE_NAME" /> הקיים ב-<ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@
 <translation id="5817918615728894473">התאם</translation>
 <translation id="5832934273103296195">מורחב - הקש כדי לכווץ</translation>
 <translation id="583891442612896534">‏ל-Chrome אין אפשרות לגשת אל שרתי Google לדחיסת נתונים. ייתכן שהחיסכון בנתונים יהיה מוגבל.</translation>
+<translation id="585027516397408832">‏חוסך הנתונים (Data Saver) מופעל</translation>
 <translation id="5860033963881614850">כבוי</translation>
 <translation id="5869522115854928033">סיסמאות שמורות</translation>
 <translation id="588258955323874662">מסך מלא</translation>
@@ -425,6 +428,7 @@
 <translation id="7096034533295549981">טוען סרטון</translation>
 <translation id="7191430249889272776">הכרטיסייה נפתחה ברקע.</translation>
 <translation id="7201341158316793215">מסיר…</translation>
+<translation id="7208788139759694678">‏חוסך הנתונים (Data Saver) מושבת</translation>
 <translation id="7243308994586599757">אפשרויות הזמינות באזור החלק התחתון של המסך</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> משתמש במיקום שלך כדי להציג תוצאות חיפוש מקומיות</translation>
 <translation id="7299721129597238157">מחק סימניה</translation>

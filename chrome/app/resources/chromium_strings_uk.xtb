@@ -11,6 +11,7 @@
 <translation id="1221340462641866827">ОС Chromium не підтримує запуск зовнішньої програми обробки посилань типу <ph name="SCHEME" />. Потрібний тип посилання: <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">У системі знайдено конфліктуючу встановлену версію Chromium. Видаліть її та повторіть спробу.</translation>
 <translation id="1298199220304005244">Отримати довідку щодо користування ОС Chromium</translation>
+<translation id="1347507563453473396">Не можна вибрати цю мову для Chromium.</translation>
 <translation id="1396446129537741364">Chromium намагається показати паролі.</translation>
 <translation id="1414495520565016063">Ви ввійшли в Chromium.</translation>
 <translation id="1444754455097148408">Ліцензії Chromium із відкритим кодом</translation>
@@ -61,6 +62,7 @@
 <translation id="2801146392936645542">Файл <ph name="FILE_NAME" /> шкідливий, тому Chromium заблокував його.</translation>
 <translation id="2847479871509788944">Видалити з Chromium…</translation>
 <translation id="2886012850691518054">Додатково: допоможіть покращити Chromium,  автоматично надсилаючи статистику використання та звіти про аварійне завершення роботи в Google.</translation>
+<translation id="2905536371227304018">Для ОС Chromium вибрано цю мову.</translation>
 <translation id="2910007522516064972">Про &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium потребує запуску зовнішньої програми обробки посилань типу <ph name="SCHEME" />. Потрібний тип посилання: <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Додавання в Chromium...</translation>
@@ -139,8 +141,11 @@
 <translation id="5427571867875391349">Зробити Chromium веб-переглядачем за умовчанням</translation>
 <translation id="5466153949126434691">Chromium оновлюється автоматично, щоб у вас завжди була найновіша версія. Щойно це завантаження завершиться, Chromium перезапуститься й ви зможете продовжувати роботу.</translation>
 <translation id="549669000822060376">Зачекайте, доки Chromium установить найновіші оновлення системи.</translation>
+<translation id="556167189552180495">Для Chromium вибрано цю мову.</translation>
 <translation id="5563479599352954471">Пошук одним дотиком</translation>
 <translation id="5620765574781326016">Дізнавайтеся про теми на веб-сайтах, залишаючись на сторінці.</translation>
+<translation id="5698481217667032250">Вибрати цю мову для Chromium</translation>
+<translation id="5768914737813585044">Вибрати цю мову для ОС Chromium</translation>
 <translation id="5772805321386874569">(потрібно <ph name="BEGIN_BUTTON" />перезапустити<ph name="END_BUTTON" /> Chromium)</translation>
 <translation id="5796460469508169315">Chromium майже готовий.</translation>
 <translation id="580822234363523061">Перейдіть у
@@ -171,6 +176,7 @@
 <translation id="6475912303565314141">Також указує сторінку, яка відкривається під час запуску Chromium.</translation>
 <translation id="6485906693002546646">Ви синхронізуєте дані Chromium через обліковий запис <ph name="PROFILE_EMAIL" />. Щоб оновити параметри синхронізації або використовувати Chromium без облікового запису Google, перейдіть на сторінку <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Видалити Chromium</translation>
+<translation id="6526111688217511984">Щоб завантажувати файли, Chromium потребує доступу до пам’яті.</translation>
 <translation id="6637001341228460105">Chromium потрібен доступ до мікрофона, щоб використовувати його на цьому сайті.</translation>
 <translation id="6638567566961868659">Шукайте свої закладки в меню Chromium або на панелі закладок.</translation>
 <translation id="6676384891291319759">Доступ до Інтернету</translation>
@@ -208,6 +214,7 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="734373864078049451">Тут містяться ваші веб-сторінки, закладки та інші дані Chromium.</translation>
 <translation id="7419987137528340081">Якщо ви хочете зберігати існуючі дані Chromium окремо, можна створити нового користувача Chromium для облікового запису <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium потребує ОС Windows XP або новішої версії. Деякі функції можуть не працювати.</translation>
+<translation id="7437562785125777404">Не можна вибрати цю мову для ОС Chromium.</translation>
 <translation id="7463979740390522693">Chromium – сповіщення (непрочитаних: <ph name="QUANTITY" />)</translation>
 <translation id="7473891865547856676">Ні, дякую</translation>
 <translation id="7483335560992089831">Неможливо встановити версію Chromium, аналогічну запущеній зараз. Закрийте Chromium і повторіть спробу.</translation>

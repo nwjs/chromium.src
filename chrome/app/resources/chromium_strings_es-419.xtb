@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">Chromium OS no admite la inicialización de una aplicación externa para utilizar vínculos <ph name="SCHEME" />. El vínculo solicitado es <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">Se encontró una instalación conflictiva de Chromium en el sistema. Desinstálala y vuelve a intentarlo.</translation>
 <translation id="1298199220304005244">Obtener ayuda para usar Chromium OS</translation>
+<translation id="1347507563453473396">Chromium no se puede mostrar en este idioma.</translation>
 <translation id="1396446129537741364">Chromium está intentando mostrar contraseñas.</translation>
 <translation id="1414495520565016063">Accediste a Chromium.</translation>
 <translation id="1444754455097148408">Licencias de código abierto de Chromium</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">Chromium bloqueó <ph name="FILE_NAME" /> porque es un archivo malicioso.</translation>
 <translation id="2847479871509788944">Eliminar de Chromium…</translation>
 <translation id="2886012850691518054">Opcional: Ayúdanos a mejorar Chromium enviando estadísticas de uso e informes de errores a Google de manera automática.</translation>
+<translation id="2905536371227304018">El SO Chromium se muestra en este idioma.</translation>
 <translation id="2910007522516064972">Acerca de &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium necesita iniciar una aplicación externa para utilizar vínculos <ph name="SCHEME" />. El vínculo solicitado es <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Agregar a Chromium...</translation>
@@ -136,8 +138,11 @@
 <translation id="5427571867875391349">Establecer Chromium como navegador predeterminado</translation>
 <translation id="5466153949126434691">Chromium se actualiza automáticamente para que siempre tengas la versión más reciente. Cuando se complete esta descarga, Chromium se reiniciará y podrás usarlo.</translation>
 <translation id="549669000822060376">Espera mientras Chromium instala las últimas actualizaciones del sistema.</translation>
+<translation id="556167189552180495">Chromium se muestra en este idioma.</translation>
 <translation id="5563479599352954471">Buscar con un toque</translation>
 <translation id="5620765574781326016">Obtén información sobre los temas en sitios web sin salir de la página.</translation>
+<translation id="5698481217667032250">Mostrar Chromium en este idioma</translation>
+<translation id="5768914737813585044">Mostrar el SO Chromium en este idioma</translation>
 <translation id="5772805321386874569">(Es necesario <ph name="BEGIN_BUTTON" />reiniciar<ph name="END_BUTTON" /> Chromium).</translation>
 <translation id="5796460469508169315">Chromium está casi listo.</translation>
 <translation id="580822234363523061">Accede
@@ -168,6 +173,7 @@
 <translation id="6475912303565314141">También controla qué página se muestra al iniciar Chromium.</translation>
 <translation id="6485906693002546646">Estás utilizando <ph name="PROFILE_EMAIL" /> para sincronizar los datos de Chromium. Si quieres actualizar las preferencias de sincronización o utilizar Chromium sin una cuenta de Google, accede a <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Desinstalar Chromium</translation>
+<translation id="6526111688217511984">Chromium necesita acceder al almacenamiento para descargar archivos.</translation>
 <translation id="6637001341228460105">Chromium necesita acceso al micrófono para compartirlo con el sitio.</translation>
 <translation id="6638567566961868659">Busca tus marcadores en el menú de Chromium o en la barra de marcadores.</translation>
 <translation id="6676384891291319759">Acceder a Internet</translation>
@@ -201,6 +207,7 @@
 <translation id="734373864078049451">Aquí puedes encontrar tus páginas web, marcadores y otros contenidos de Chromium.</translation>
 <translation id="7419987137528340081">Si prefieres mantener tus datos de Chromium existentes por separado, puedes crear un nuevo usuario de Chromium para <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium requiere Windows XP o versiones posteriores. Es posible que no funcionen algunas características.</translation>
+<translation id="7437562785125777404">El SO Chromium no se puede mostrar en este idioma.</translation>
 <translation id="7463979740390522693">Chromium: notificaciones (<ph name="QUANTITY" /> sin leer)</translation>
 <translation id="7473891865547856676">No, gracias</translation>
 <translation id="7483335560992089831">No es posible instalar la misma versión de Chromium que se está ejecutando. Cierra Chromium y vuelve a intentarlo.</translation>

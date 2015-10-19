@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">System operacyjny Chromium nie umożliwia uruchamiania zewnętrznej aplikacji w celu obsługi linków typu <ph name="SCHEME" />. Żądany link to <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">W systemie znaleziono zainstalowaną przeglądarkę Chromium, która powoduje konflikt. Odinstaluj ją i spróbuj ponownie.</translation>
 <translation id="1298199220304005244">Skorzystaj z pomocy dotyczącej używania systemu operacyjnego Chromium</translation>
+<translation id="1347507563453473396">Chromium nie może działać w tym języku.</translation>
 <translation id="1396446129537741364">Chromium próbuje pokazać hasła.</translation>
 <translation id="1414495520565016063">Jesteś zalogowany w Chromium.</translation>
 <translation id="1444754455097148408">Licencje oprogramowania typu open source w Chromium</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">Plik <ph name="FILE_NAME" /> jest złośliwy i został zablokowany przez Chromium.</translation>
 <translation id="2847479871509788944">Usuń z Chromium...</translation>
 <translation id="2886012850691518054">Opcjonalnie: pomóż nam udoskonalać Chromium, wysyłając do Google statystyki użytkowania i raporty o awariach.</translation>
+<translation id="2905536371227304018">Chromium OS działa obecnie w tym języku.</translation>
 <translation id="2910007522516064972">&amp;Chromium – informacje</translation>
 <translation id="2966088006374919794">Chromium musi uruchomić zewnętrzną aplikację do obsługi linków <ph name="SCHEME" />. Żądany link to <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Dodawanie do Chromium...</translation>
@@ -136,8 +138,11 @@
 <translation id="5427571867875391349">Ustaw Chromium jako domyślną przeglądarkę</translation>
 <translation id="5466153949126434691">Chromium aktualizuje się automatycznie, więc zawsze masz najnowszą wersję. Po zakończeniu pobierania Chromium uruchomi się ponownie i będzie gotowy do działania.</translation>
 <translation id="549669000822060376">Poczekaj, aż Chromium zainstaluje najnowsze aktualizacje systemu.</translation>
+<translation id="556167189552180495">Chromium działa obecnie w tym języku.</translation>
 <translation id="5563479599352954471">Szukaj jednym kliknięciem</translation>
 <translation id="5620765574781326016">Poznaj tematy omawiane w witrynach, nie opuszczając strony.</translation>
+<translation id="5698481217667032250">Wyświetlaj Chromium w tym języku</translation>
+<translation id="5768914737813585044">Wyświetlaj Chromium OS w tym języku</translation>
 <translation id="5772805321386874569">(wymaga <ph name="BEGIN_BUTTON" />ponownego uruchomienia<ph name="END_BUTTON" /> Chromium)</translation>
 <translation id="5796460469508169315">Chromium jest prawie gotowy.</translation>
 <translation id="580822234363523061">Wybierz
@@ -168,6 +173,7 @@
 <translation id="6475912303565314141">Kontroluje także to, jaka strona wyświetla się po uruchomieniu Chromium.</translation>
 <translation id="6485906693002546646">Używasz adresu <ph name="PROFILE_EMAIL" /> do synchronizowania danych w Chromium. Aby zaktualizować ustawienia synchronizacji lub używać Chromium bez konta Google, wejdź na stronę <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Odinstaluj Chromium</translation>
+<translation id="6526111688217511984">Chromium musi mieć dostęp do pamięci, by pobierać pliki.</translation>
 <translation id="6637001341228460105">Chromium potrzebuje dostępu do mikrofonu, by móc go udostępnić tej stronie.</translation>
 <translation id="6638567566961868659">Zakładki są dostępne w menu Chromium i na pasku zakładek.</translation>
 <translation id="6676384891291319759">Skorzystaj z internetu</translation>
@@ -205,6 +211,7 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="734373864078049451">Tu są Twoje strony, zakładki i inne dane z Chromium.</translation>
 <translation id="7419987137528340081">Jeśli chcesz, by Twoje bieżące dane Chromium były przechowywane oddzielnie, możesz utworzyć nowego użytkownika Chromium dla użytkownika <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium wymaga systemu Windows XP lub nowszego. Niektóre funkcje mogą nie działać.</translation>
+<translation id="7437562785125777404">Chromium OS nie może działać w tym języku.</translation>
 <translation id="7463979740390522693">Chromium – powiadomienia (nieprzeczytane: <ph name="QUANTITY" />)</translation>
 <translation id="7473891865547856676">Nie, dziękuję</translation>
 <translation id="7483335560992089831">Nie można zainstalować tej samej wersji Chromium co obecnie uruchomiona. Zamknij Chromium i spróbuj ponownie.</translation>

@@ -12,6 +12,7 @@
 <translation id="1221340462641866827"><ph name="SCHEME" /> ലിങ്കുകൾ കൈകാര്യം ചെയ്യുന്നതിന് ഒരു ബാഹ്യ അപ്ലിക്കേഷൻ സമാരംഭിക്കുന്നതിനെ Chromium OS പിന്തുണയ്‌ക്കുന്നില്ല. ലിങ്ക് അഭ്യർത്ഥിച്ചത് <ph name="PROTOLINK" /> ആണ്.</translation>
 <translation id="1293235220023151515">സിസ്റ്റത്തിൽ Chromium-ത്തിന്റെ ഒരു വിരുദ്ധ ഇൻസ്റ്റാളേഷൻ കണ്ടെത്തി. അത് അൺഇൻസ്റ്റാൾ ചെയ്‌ത് വീണ്ടും ശ്രമിക്കുക.</translation>
 <translation id="1298199220304005244">Chromium OS ഉപയോഗിക്കുന്നതിനുള്ള സഹായം നേടുക</translation>
+<translation id="1347507563453473396">Chromium ഈ ഭാഷയിൽ പ്രദർശിപ്പിക്കാൻ കഴിയില്ല.</translation>
 <translation id="1396446129537741364">Chromium പാസ്‌വേഡുകൾ ദൃശ്യമാക്കാൻ ശ്രമിക്കുന്നു.</translation>
 <translation id="1414495520565016063">നിങ്ങൾ Chromium-ൽ സൈൻ ഇൻ ചെയ്‌തു!</translation>
 <translation id="1444754455097148408">Chromium ഓപ്പൺ സോഴ്‌സ് ലൈസൻസുകൾ</translation>
@@ -62,6 +63,7 @@
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> എന്നത് ക്ഷുദ്രകരമായതിനാൽ Chromium അതിനെ തടഞ്ഞു.</translation>
 <translation id="2847479871509788944">Chromium-ൽ നിന്ന് നീക്കംചെയ്യുക...</translation>
 <translation id="2886012850691518054">ഓപ്‌ഷണൽ: ഉപയോഗ സ്ഥിതിവിവരക്കണക്കുകളും ക്രാഷ് റിപ്പോർട്ടുകളും Google-ലേക്ക് യാന്ത്രികമായി അയയ്‌ക്കുന്നതിലൂടെ Chromium-ത്തിനെ മികച്ചതാക്കി മാറ്റാൻ സഹായിക്കുക.</translation>
+<translation id="2905536371227304018">Chromium OS ഈ ഭാഷയിൽ പ്രദർശിപ്പിച്ചിരിക്കുന്നു.</translation>
 <translation id="2910007522516064972">&amp;Chromium-നെക്കുറിച്ച്</translation>
 <translation id="2966088006374919794">Chromium-ത്തിന് <ph name="SCHEME" /> ലിങ്കുകൾ കൈകാര്യം ചെയ്യുന്നതിന് ഒരു ബാഹ്യ അപ്ലിക്കേഷൻ സമാരംഭിക്കേണ്ടതുണ്ട്. ലിങ്ക് അഭ്യർത്ഥിച്ചത് <ph name="PROTOLINK" /> ആണ്.</translation>
 <translation id="3032787606318309379">Chromium-ലേക്ക് ചേർക്കുന്നു...</translation>
@@ -140,8 +142,11 @@
 <translation id="5427571867875391349">നിങ്ങളുടെ സ്ഥിര ബ്രൗസറായി Chromium സജ്ജമാക്കുക</translation>
 <translation id="5466153949126434691">Chromium യാന്ത്രികമായി അപ്‌ഡേറ്റുചെയ്യുന്നതിനാൽ, നിങ്ങളുടേത് എല്ലായ്പ്പോഴും ഏറ്റവും പുതിയ പതിപ്പായിരിക്കും. ഈ ഡൗൺലോഡ് പൂർത്തിയാകുമ്പോൾ Chromium പുനരാരംഭിക്കും, അതിനുശേഷം നിങ്ങൾക്ക് തുടരാം.</translation>
 <translation id="549669000822060376">Chromium ഏറ്റവും പുതിയ സിസ്‌റ്റം അപ്‌ഡേറ്റുകൾ ഇൻസ്റ്റാളുചെയ്യുന്നതുവരെ കാത്തിരിക്കുക.</translation>
+<translation id="556167189552180495">Chromium ഈ ഭാഷയിൽ പ്രദർശിപ്പിച്ചിരിക്കുന്നു.</translation>
 <translation id="5563479599352954471">ഒരു സ്പർശനത്തിലൂടെ തിരയുക</translation>
 <translation id="5620765574781326016">പേജ് വിട്ടുപോകാതെ തന്നെ വെബ്‌സൈറ്റുകളിലെ വിഷയങ്ങളെക്കുറിച്ച് അറിയുക.</translation>
+<translation id="5698481217667032250">ഈ ഭാഷയിൽ Chromium പ്രദർശിപ്പിക്കുക</translation>
+<translation id="5768914737813585044">ഈ ഭാഷയിൽ Chromium OS പ്രദർശിപ്പിക്കുക</translation>
 <translation id="5772805321386874569">( Chromium <ph name="BEGIN_BUTTON" />പുനരാരംഭിക്കൽ<ph name="END_BUTTON" /> ആവശ്യമാണ്)</translation>
 <translation id="5796460469508169315">Chromium ഏകദേശം തയാറായിക്കഴിഞ്ഞു.</translation>
 <translation id="580822234363523061">Chromium മെനുവിലേക്ക്
@@ -172,6 +177,7 @@
 <translation id="6475912303565314141">നിങ്ങൾ Chromium ആരംഭിക്കുമ്പോൾ ദൃശ്യമാകുന്ന പേജും അത് നിയന്ത്രിയ്ക്കും.</translation>
 <translation id="6485906693002546646">Chromium ഫയൽ സമന്വയിപ്പിക്കാൻ നിങ്ങൾ <ph name="PROFILE_EMAIL" /> ഉപയോഗിക്കുന്നു. നിങ്ങളുടെ സമന്വയ മുൻഗണനകൾ അപ്‌ഡേറ്റുചെയ്യാനോ ഒരു Google അക്കൗണ്ട് ഇല്ലാതെ Chromium ഉപയോഗിക്കാനോ, <ph name="SETTINGS_LINK" /> സന്ദർശിക്കുക.</translation>
 <translation id="6510925080656968729">Chromium അൺഇൻസ്റ്റാളുചെയ്യുക</translation>
+<translation id="6526111688217511984">ഫയലുകൾ ഡൗൺലോഡുചെയ്യാൻ Chromium-ത്തിന് സ്റ്റോറേജ് ആക്‌സസ്സ് ആവശ്യമാണ്.</translation>
 <translation id="6637001341228460105">Chromium-ത്തിന് ഈ സൈറ്റുമായി മൈക്രോഫോൺ പങ്കിടാൻ അതിലേക്ക് ആക്‌സസ്സ് ആവശ്യമാണ്.</translation>
 <translation id="6638567566961868659">Chromium മെനു അല്ലെങ്കിൽ ബുക്ക്‌മാർക്കുകൾ ബാർ എന്നിവയിൽ നിങ്ങളുടെ ബുക്ക്മാർക്കുകൾ കണ്ടെത്തുക.</translation>
 <translation id="6676384891291319759">ഇന്റര്‍‌നെറ്റ് ആക്‌സസ് ചെയ്യുക</translation>
@@ -209,6 +215,7 @@
 <translation id="734373864078049451">നിങ്ങളുടെ വെബ്, ബുക്ക്മാർക്കുകൾ,മറ്റ് Chromium ഫയൽ എന്നിവ ഇവിടെ തത്സമയമാണ്.</translation>
 <translation id="7419987137528340081">നിങ്ങളുടെ നിലവിലെ Chromium ഡാറ്റ വേർതിരിച്ച് നിലനിർത്താൻ താൽപ്പര്യപ്പെടുന്നുവെങ്കിൽ, <ph name="USER_NAME" /> എന്നതിനായി നിങ്ങൾക്ക് പുതിയ ഒരു Chromium ഉപയോക്താവിനെ സൃഷ്‌ടിക്കാനാകും.</translation>
 <translation id="7421823331379285070">Chromium-ത്തിന് Windows XP അല്ലെങ്കിൽ അതിനുശേഷമുള്ള പതിപ്പ് ആവശ്യമാണ്. ചില സവിശേഷതകൾ പ്രവർത്തിച്ചേക്കില്ല.</translation>
+<translation id="7437562785125777404">Chromium OS ഈ ഭാഷയിൽ പ്രദർശിപ്പിക്കാനാകില്ല.</translation>
 <translation id="7463979740390522693">Chromium - അറിയിപ്പുകൾ (<ph name="QUANTITY" /> വായിക്കാത്തവ)</translation>
 <translation id="7473891865547856676">വേണ്ട, നന്ദി</translation>
 <translation id="7483335560992089831">നിലവിൽ പ്രവർത്തിച്ചു കൊണ്ടിരിക്കുന്ന Chromium-ത്തിന്റെ സമാന പതിപ്പ് ഇൻസ്റ്റാളുചെയ്യാൻ കഴിയില്ല. Chromium അടച്ചതിനുശേഷം വീണ്ടും ശ്രമിക്കുക.</translation>

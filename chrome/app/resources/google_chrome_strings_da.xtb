@@ -34,6 +34,7 @@
 <translation id="1773601347087397504">Få hjælp til at bruge Chrome OS</translation>
 <translation id="1818142563254268765">Chrome kunne ikke opdatere sig selv til den nyeste version, så du går glip af nye fantastiske funktioner og sikkerhedsrettelser. Du skal opdatere Chrome.</translation>
 <translation id="1877026089748256423">Chrome er forældet</translation>
+<translation id="1924381329666691588">Google Chrome kan ikke vises på dette sprog.</translation>
 <translation id="2077129598763517140">Brug hardwareacceleration, når det er muligt</translation>
 <translation id="2084710999043359739">Føj til Chrome</translation>
 <translation id="2246246234298806438">Google Chrome kan ikke vise udskrifter, når den indbyggede PDF-fremviser mangler.</translation>
@@ -62,6 +63,7 @@ Hvis du logger ind alligevel, flettes Chrome-oplysninger, som f.eks. bogmærker,
 <translation id="2748463065602559597">Du får vist en sikker Google Chrome-side.</translation>
 <translation id="2769762047821873045">Google Chrome er ikke din standardbrowser.</translation>
 <translation id="2770231113462710648">Skift standardbrowser til:</translation>
+<translation id="2847461019998147611">Vis Google Chrome på dette sprog</translation>
 <translation id="2871893339301912279">Du er logget ind på Chrome.</translation>
 <translation id="2874156562296220396">Google Chrome er blevet en realitet på grund af <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> open source-projektet og anden <ph name="BEGIN_LINK_OSS" />open source-software<ph name="END_LINK_OSS" />.</translation>
 <translation id="3037838751736561277">Google Chrome kører i baggrunden.</translation>
@@ -140,8 +142,10 @@ Hvis du logger ind alligevel, flettes Chrome-oplysninger, som f.eks. bogmærker,
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> bruger normalt kryptering til at beskytte dine oplysninger. Da Chrome forsøgte at oprette forbindelse til <ph name="SITE" /> denne gang, returnerede websitet usædvanlige og forkerte loginoplysninger. Enten forsøger en hacker at give sig ud for at være <ph name="SITE" />, eller også har en Wi-Fi-loginskærm forstyrret forbindelsen. Dine oplysninger er stadig sikre, da Chrome afbrød forbindelsen, inden der blev udvekslet data.</translation>
 <translation id="5620765574781326016">Læs om emner på websites uden at forlade siden.</translation>
+<translation id="5637867606963802593">Chrome OS kan ikke vises på dette sprog.</translation>
 <translation id="568643307450491754">Find dine bogmærker i Chrome-menuen eller på bogmærkelinjen.</translation>
 <translation id="573759479754913123">Om Chrome OS</translation>
+<translation id="5749068826913805084">Chrome skal have lageradgang for at kunne downloade filer.</translation>
 <translation id="5785746630574083988">En genstart i Windows 8-tilstand vil lukke og genstarte dine Chrome-apps.</translation>
 <translation id="5799551393681493217">Aktiverer iframe-baserede login-flows i Chrome. Dette flag tilsidesætter --enable-web-based-signin.</translation>
 <translation id="5855036575689098185">Du har software på din computer, som ikke er kompatibel med Google Chrome.</translation>
@@ -204,6 +208,7 @@ Hvis du logger ind alligevel, flettes Chrome-oplysninger, som f.eks. bogmærker,
 <translation id="7164397146364144019">Du kan hjælpe med at gøre Chrome sikrere og nemmere at bruge ved automatisk at rapportere oplysninger om mulige sikkerhedsproblemer til Google.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> er føjet til Chrome.</translation>
 <translation id="7191567847629796517">Google Chrome OS understøtter ikke aktivering af eksterne applikationer, som håndterer <ph name="SCHEME" />-links. Det anmodede link er <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome vises på dette sprog.</translation>
 <translation id="7196020411877309443">Hvorfor får jeg vist dette?</translation>
 <translation id="7242029209006116544">Du er ved at logge ind med en administreret konto og give dens administrator kontrol over din profil i Google Chrome. Dine Chrome-data, f.eks. dine apps, bogmærker, historikdata, adgangskoder og andre indstillinger, knyttes permanent til <ph name="USER_NAME" />. Du kan slette disse data via betjeningspanelet for Google Konti, men du kan ikke knytte disse data til en anden konto. Du kan eventuelt oprette en ny profil for at holde dine eksisterende Chrome-data adskilt. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome – Underretninger (<ph name="QUANTITY" /> ulæste)</translation>
@@ -219,6 +224,7 @@ Hvis du logger ind alligevel, flettes Chrome-oplysninger, som f.eks. bogmærker,
 <translation id="7473136999113284234">Chrome opdateres automatisk, så du altid har den nyeste version.</translation>
 <translation id="7473891865547856676">Nej tak</translation>
 <translation id="7494905215383356681">Chrome open source-licenser</translation>
+<translation id="7552219221109926349">Vis Chrome OS på dette sprog</translation>
 <translation id="7592736734348559088">Google Chrome kunne ikke synkronisere dine data, fordi loginoplysningerne til din konto er forældede.</translation>
 <translation id="7626032353295482388">Velkommen til Chrome</translation>
 <translation id="7747138024166251722">Installationsprogrammet kunne ikke oprette en midlertidig mappe. Kontroller, om der er tilstrækkelig diskplads, og om der er tilladelse til at installere software.</translation>
@@ -232,6 +238,7 @@ Hvis du logger ind alligevel, flettes Chrome-oplysninger, som f.eks. bogmærker,
 <translation id="7825851276765848807">Installationen mislykkedes på grund af en uspecificeret fejl. Download Google Chrome igen.</translation>
 <translation id="7890208801193284374">Hvis du deler en computer, kan venner og familie browse individuelt og konfigurere Chrome, som de ønsker hver især.</translation>
 <translation id="7908968924842975895">Denne computer vil ikke længere modtage Google Chrome-opdateringer, fordi dens hardware ikke understøttes længere.</translation>
+<translation id="7964230182933713106">Chrome OS vises på dette sprog.</translation>
 <translation id="7984945080620862648">Du kan ikke gå til <ph name="SITE" /> lige nu, da websitet sendte krypterede legitimationsoplysninger, som Chrome ikke kan håndtere. Netværksfejl og angreb er normalt midlertidige, så denne side vil sandsynligvis fungere senere.</translation>
 <translation id="8000275528373650868">Google Chrome kræver Windows Vista eller Windows XP med SP2 eller nyere.</translation>
 <translation id="8005540215158006229">Chrome er næsten klar.</translation>

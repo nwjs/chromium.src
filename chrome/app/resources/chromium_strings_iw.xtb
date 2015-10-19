@@ -11,6 +11,7 @@
 <translation id="1221340462641866827">‏מערכת ההפעלה של Chromium אינה תומכת בהפעלת יישום חיצוני כדי לטפל בקישורים של <ph name="SCHEME" />. הקישור הנדרש הוא <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">‏נמצאה במערכת התקנה מתנגשת של Chromium. הסר את ההתקנה ונסה שוב.</translation>
 <translation id="1298199220304005244">‏עזרה באמצעות מערכת ההפעלה של Chromium</translation>
+<translation id="1347507563453473396">‏לא ניתן להציג את Chromium בשפה זו.</translation>
 <translation id="1396446129537741364">‏Chromium מנסה להציג סיסמאות.</translation>
 <translation id="1414495520565016063">‏נכנסת ל-Chromium!</translation>
 <translation id="1444754455097148408">‏רישיונות קוד פתוח של Chromium</translation>
@@ -61,6 +62,7 @@
 <translation id="2801146392936645542">‏<ph name="FILE_NAME" /> הוא קובץ זדוני, ו-Chromium חסם אותו.</translation>
 <translation id="2847479871509788944">‏הסר מ-Chromium...</translation>
 <translation id="2886012850691518054">‏אופציונלי: עזור לנו לשפר את Chromium באמצעות שליחת נתוני שימוש ודוחות קריסה אל Google באופן אוטומטי.</translation>
+<translation id="2905536371227304018">‏Chromium OS מוצג בשפה זו.</translation>
 <translation id="2910007522516064972">‏מידע על &amp;Chromium‏</translation>
 <translation id="2966088006374919794">‏Chromium צריך להפעיל יישום חיצוני כדי לטפל בקישורים של <ph name="SCHEME" />. הקישור הנדרש הוא <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">‏הוספה ל-Chromium</translation>
@@ -137,8 +139,11 @@
 <translation id="5427571867875391349">‏הגדר את Chromium כדפדפן ברירת המחדל שלך</translation>
 <translation id="5466153949126434691">‏Chromium מתעדכן באופן אוטומטי, כך שתמיד ברשותך הגרסה העדכנית ביותר. כשההורדה תסתיים, Chromium יופעל מחדש ותוכל להמשיך.</translation>
 <translation id="549669000822060376">‏המתן בזמן ש-Chromium מתקין את עדכוני המערכת האחרונים.</translation>
+<translation id="556167189552180495">‏Chromium מוצג בשפה זו.</translation>
 <translation id="5563479599352954471">חיפוש בנגיעה אחת</translation>
 <translation id="5620765574781326016">קרא מידע על נושאים באתרים בלי לעזוב את הדף.</translation>
+<translation id="5698481217667032250">‏הצג את Chromium בשפה זו</translation>
+<translation id="5768914737813585044">‏הצג את Chromium OS בשפה זו</translation>
 <translation id="5772805321386874569">‏(נדרש <ph name="BEGIN_BUTTON" />אתחול<ph name="END_BUTTON" /> של Chromium)</translation>
 <translation id="5796460469508169315">‏Chromium כמעט מוכן.</translation>
 <translation id="580822234363523061">‏עבור אל
@@ -169,6 +174,7 @@
 <translation id="6475912303565314141">‏הגדרה זו גם קובעת איזה דף מוצג כשאתה מפעיל את Chromium.</translation>
 <translation id="6485906693002546646">‏אתה משתמש ב-<ph name="PROFILE_EMAIL" /> כדי לסנכרן את הפריטים שלך ב-Chromium. עבור אל '<ph name="SETTINGS_LINK" />' כדי לעדכן את העדפות הסנכרון או להשתמש ב-Chromium ללא חשבון Google.</translation>
 <translation id="6510925080656968729">‏הסר את התקנת Chromium</translation>
+<translation id="6526111688217511984">‏לצורך הורדת קבצים, Chromium זקוק לגישה לאחסון.</translation>
 <translation id="6637001341228460105">‏Chromium זקוק לגישה אל המיקרופון כדי לשתף אותו עם האתר הזה.</translation>
 <translation id="6638567566961868659">‏מצא את הסימניות שלך בתפריט Chromium או בסרגל הסימניות.</translation>
 <translation id="6676384891291319759">גישה אל האינטרנט</translation>
@@ -206,6 +212,7 @@ Chromium לא יכול לשחזר את ההגדרות שלך.</translation>
 <translation id="734373864078049451">‏היסטוריית האתרים, הסימניות ונתונים נוספים מ-Chromium נמצאים כאן.</translation>
 <translation id="7419987137528340081">‏אם אתה מעדיף לשמור את נתוני Chromium הקיימים שלך בנפרד, תוכל ליצור משתמש Chromium חדש עבור <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">‏Chromium דורש גרסת Windows XP או מאוחרת יותר. תכונות מסוימות עלולות שלא לפעול.</translation>
+<translation id="7437562785125777404">‏לא ניתן להציג את Chromium OS בשפה זו.</translation>
 <translation id="7463979740390522693">‏Chromium - הודעות (<ph name="QUANTITY" /> שלא נקראו)</translation>
 <translation id="7473891865547856676">לא, תודה</translation>
 <translation id="7483335560992089831">‏לא ניתן להתקין את אותה גרסת Chromium שפועלת כרגע. סגור את Chromium ונסה שוב.</translation>

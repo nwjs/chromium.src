@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Bylo zjištěno pomalé připojení.</translation>
 <translation id="2842985007712546952">Nadřazená složka</translation>
 <translation id="2870560284913253234">Stránky</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 adresa URL v okolí}few{# adresy URL v okolí}many{# adresy URL v okolí}other{# adres URL v okolí}}</translation>
 <translation id="2888126860611144412">O aplikaci Chrome</translation>
 <translation id="2891154217021530873">Zastavit načítání stránky</translation>
 <translation id="2902702728133930130">Spuštění Chromu se nezdařilo kvůli neočekávané chybě.</translation>
@@ -315,6 +316,7 @@ Statistiky využití obsahují informace, jako jsou předvolby, kliknutí na tla
 Nejste však neviditelní. Anonymní režim neskryje vaši aktivitu před zaměstnavatelem, poskytovatelem internetových služeb ani webovými stránkami, které navštívíte.</translation>
 <translation id="572328651809341494">Nedávno použité karty</translation>
 <translation id="5733727110006255111">Je-li tato funkce zapnutá, Chrome navštívené stránky před stažením zkomprimuje pomocí serverů Google. Stránky SSL a stránky navštívené v anonymním režimu nebudou zahrnuty.</translation>
+<translation id="5749068826913805084">Aby bylo možné stahovat soubory, Chrome potřebuje přístup k úložišti.</translation>
 <translation id="5763382633136178763">Anonymní karty</translation>
 <translation id="5765780083710877561">Popis:</translation>
 <translation id="5771382037724542929">Chcete nahradit existující soubor <ph name="FILE_NAME" /> v adresáři <ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@ Nejste však neviditelní. Anonymní režim neskryje vaši aktivitu před zaměs
 <translation id="5817918615728894473">Spárovat</translation>
 <translation id="5832934273103296195">Rozbaleno – kliknutím sbalíte</translation>
 <translation id="583891442612896534">Chrome se nemůže připojit k serverům společnosti Google pro kompresi dat. Úspora dat může být omezena.</translation>
+<translation id="585027516397408832">Spořič dat je aktivní</translation>
 <translation id="5860033963881614850">Vypnuto</translation>
 <translation id="5869522115854928033">Uložená hesla</translation>
 <translation id="588258955323874662">Celá obrazovka</translation>
@@ -425,6 +428,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="7096034533295549981">Načítání videa</translation>
 <translation id="7191430249889272776">Karta je otevřena na pozadí.</translation>
 <translation id="7201341158316793215">Odstraňování…</translation>
+<translation id="7208788139759694678">Spořič dat není aktivní</translation>
 <translation id="7243308994586599757">Možnosti jsou k dispozici ve spodní části obrazovky</translation>
 <translation id="7244362611678346589">Stránky <ph name="SEARCH_ENGINE_URL" /> zobrazují lokální výsledky vyhledávání na základě vaší polohy</translation>
 <translation id="7299721129597238157">Smazat záložku</translation>

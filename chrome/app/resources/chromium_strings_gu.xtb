@@ -13,6 +13,7 @@
 <translation id="1221340462641866827">Chromium OS <ph name="SCHEME" /> લિંક્સને હેન્ડલ કરવા માટે કોઈ બાહ્ય એપ્લિકેશન શરૂ કરવાને સપોર્ટ કરતું નથી. વિનંતી કરેલી લિંક <ph name="PROTOLINK" /> છે.</translation>
 <translation id="1293235220023151515">સિસ્ટમ પર Chromium નું એક વિરોધાભાસી ઇન્સ્ટોલેશન મળ્યું. કૃપા કરીને તેને અનઇન્સ્ટોલ કરો અને ફરીથી પ્રયાસ કરો.</translation>
 <translation id="1298199220304005244">Chromium OS નો ઉપયોગ કરવા સહાય મેળવો</translation>
+<translation id="1347507563453473396">આ ભાષામાં Chromium પ્રદર્શિત કરી શકાતું નથી.</translation>
 <translation id="1396446129537741364">Chromium પાસવર્ડ્સ બતાવવાનો પ્રયાસ કરી રહ્યું છે.</translation>
 <translation id="1414495520565016063">તમે Chromium માં સાઇન ઇન કર્યું છે!</translation>
 <translation id="1444754455097148408">Chromium ખુલ્લા સ્ત્રોત લાઇસેંસેસ</translation>
@@ -63,6 +64,7 @@
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> દૂષિત છે અને Chromium એ તેને અવરોધિત કરી છે.</translation>
 <translation id="2847479871509788944">Chromium માંથી દૂર કરો...</translation>
 <translation id="2886012850691518054">વૈકલ્પિક: ઉપયોગનાં આંકડાઓ અને ક્રેશ રીપોર્ટ્સ આપમેળે Google ને મોકલીને Chromium ને વધુ સારું બનાવવમાં સહાય કરો.</translation>
+<translation id="2905536371227304018">આ ભાષામાં Chromium OS પ્રદર્શિત થાય છે.</translation>
 <translation id="2910007522516064972">&amp;Chromium વિશે</translation>
 <translation id="2966088006374919794">Chromium <ph name="SCHEME" /> લિંક્સને હેન્ડલ કરવા માટે કોઈ બાહ્ય એપ્લિકેશન શરૂ કરવાની જરૂર છે. વિનંતી કરેલી લિંક <ph name="PROTOLINK" /> છે.</translation>
 <translation id="3032787606318309379">Chromium માં ઉમેરી રહ્યું છે...</translation>
@@ -141,8 +143,11 @@
 <translation id="5427571867875391349">Chromium ને તમારા ડિફોલ્ટ બ્રાઉઝર તરીકે સેટ કરો</translation>
 <translation id="5466153949126434691">Chromium આપમેળે અપડેટ થાય છે જેથી કરીને તમારી પાસે હંમેશા તાજું સંસ્કરણ રહે છે. જ્યારે આ ડાઉનલોડ પૂર્ણ થાય છે, ત્યારે Chromium પુનઃપ્રારંભ થશે અને તમે તમારા માર્ગે હશો.</translation>
 <translation id="549669000822060376">કૃપા કરીને Chromium, નવીનતમ સિસ્ટમ અપડેટ્સ ઇન્સ્ટોલ કરે ત્યાં સુધી રાહ જુઓ.</translation>
+<translation id="556167189552180495">આ ભાષામાં Chromium પ્રદર્શિત થાય છે.</translation>
 <translation id="5563479599352954471">એક ટચ વડે શોધ કરો</translation>
 <translation id="5620765574781326016">પૃષ્ઠને છોડ્યાં વિના વેબસાઇટ્સ પરના મુદ્દાઓ વિશે જાણો.</translation>
+<translation id="5698481217667032250">આ ભાષામાં Chromium પ્રદર્શિત કરો</translation>
+<translation id="5768914737813585044">આ ભાષામાં Chromium OS પ્રદર્શિત કરો</translation>
 <translation id="5772805321386874569">(Chromium <ph name="BEGIN_BUTTON" />પુનઃપ્રારંભ કરવું<ph name="END_BUTTON" /> આવશ્યક છે)</translation>
 <translation id="5796460469508169315">Chromium લગભગ તૈયાર છે.</translation>
 <translation id="580822234363523061">Chromium મેનૂ &gt;
@@ -172,6 +177,7 @@
 <translation id="6475912303565314141">જ્યારે તમે Chromium શરૂ કરો ત્યારે કયું પૃષ્ઠ બતાવવામાં આવે તે તેનું પણ નિયંત્રણ કરે છે.</translation>
 <translation id="6485906693002546646">તમે તમારી Chromium સામગ્રીનું સમન્વયન કરવા માટે <ph name="PROFILE_EMAIL" /> નો ઉપયોગ કરી રહ્યાં છો. તમારી સમન્વયન પસંદગીને અપડેટ કરવા માટે અથવા Chromium ને Google એકાઉન્ટ વગર ઉપયોગ કરવા માટે, <ph name="SETTINGS_LINK" /> ની મુલાકાત લો.</translation>
 <translation id="6510925080656968729">Chromium ને અનઇન્સ્ટોલ કરો</translation>
+<translation id="6526111688217511984">ફાઇલો ડાઉનલોડ કરવા માટે Chromium ને સ્ટોરેજ ઍક્સેસની જરૂર છે.</translation>
 <translation id="6637001341228460105">Chromium ને આ સાઇટ સાથે માઇક્રોફોન શેર કરવા માટે તેની ઍક્સેસની જરૂર છે.</translation>
 <translation id="6638567566961868659">Chromium મેનૂમાં અથવા બુકમાર્ક્સ બાર પર તમારા બુકમાર્ક્સ શોધો.</translation>
 <translation id="6676384891291319759">ઇંટરનેટ ઍક્સેસ કરો</translation>
@@ -209,6 +215,7 @@ Chromium તમારી સેટિંગ્સને પુનઃપ્રા
 <translation id="734373864078049451">તમારું વેબ, બુકમાર્ક્સ, અને અન્ય Chromium સામગ્રી અહીં રહે છે.</translation>
 <translation id="7419987137528340081">જો તમે તમારા હાલનાં Chromium ડેટાને અલગ રાખવા ઇચ્છો છો, તો તમે <ph name="USER_NAME" /> માટે એક નવો Chromium વપરાશકર્તા બનાવી શકો છો.</translation>
 <translation id="7421823331379285070">Chromium ને Windows XP અથવા તે પછીનાની આવશ્યકતા છે. કેટલીક સુવિધાઓ કામ કરશે નહીં.</translation>
+<translation id="7437562785125777404">આ ભાષામાં Chromium OS પ્રદર્શિત કરી શકાતું નથી.</translation>
 <translation id="7463979740390522693">Chromium - સૂચનાઓ (<ph name="QUANTITY" /> ન વાંચેલ)</translation>
 <translation id="7473891865547856676">નહીં આભાર</translation>
 <translation id="7483335560992089831">હાલમાં ચાલી રહ્યું છે તેના જેવું સમાન Chromium સંસ્કરણ ઇન્સ્ટોલ કરી શકાતું નથી. કૃપા કરીને Chromium ને બંધ કરો અને ફરી પ્રયાસ કરો.</translation>

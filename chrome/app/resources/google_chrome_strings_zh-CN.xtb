@@ -34,6 +34,7 @@
 <translation id="1773601347087397504">获取 Chrome 操作系统使用帮助</translation>
 <translation id="1818142563254268765">Chrome无法自动更新到最新版本，因此其中缺少一些非常棒的新功能和安全修复程序。要获得这些内容，您需要更新Chrome。</translation>
 <translation id="1877026089748256423">Chrome版本太旧</translation>
+<translation id="1924381329666691588">Google Chrome 无法以这种语言显示。</translation>
 <translation id="2077129598763517140">使用硬件加速模式（如果可用）</translation>
 <translation id="2084710999043359739">添加到 Chrome 浏览器</translation>
 <translation id="2246246234298806438">在缺少内置 PDF 查看器的情况下，Google Chrome 浏览器无法显示打印预览。</translation>
@@ -62,6 +63,7 @@
 <translation id="2748463065602559597">您正在查看的是安全的 Google Chrome 浏览器网页。</translation>
 <translation id="2769762047821873045">Google Chrome 浏览器不是您的默认浏览器。</translation>
 <translation id="2770231113462710648">将默认浏览器更改为：</translation>
+<translation id="2847461019998147611">以这种语言显示 Google Chrome</translation>
 <translation id="2871893339301912279">您已登录 Chrome！</translation>
 <translation id="2874156562296220396">Google Chrome 的诞生离不开 <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> 开源项目以及其他<ph name="BEGIN_LINK_OSS" />开源软件<ph name="END_LINK_OSS" />。</translation>
 <translation id="3037838751736561277">Google Chrome处于后台运行模式。</translation>
@@ -141,8 +143,10 @@
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> 通常使用加密技术来保护您的信息。Chrome 此次尝试连接到 <ph name="SITE" /> 时，此网站返回了异常的错误凭据。这可能是因为有攻击程序在试图冒充 <ph name="SITE" />，或 Wi-Fi 登录屏幕中断了此次连接。请放心，您的信息仍然是安全的，因为 Chrome 尚未进行任何数据交换便停止了连接。</translation>
 <translation id="5620765574781326016">无需离开所在页面，即可了解网站上的主题。</translation>
+<translation id="5637867606963802593">Chrome 操作系统无法以这种语言显示。</translation>
 <translation id="568643307450491754">在 Chrome 菜单或书签栏中查找您的书签。</translation>
 <translation id="573759479754913123">关于 Chrome 操作系统</translation>
+<translation id="5749068826913805084">Chrome 需要具备存储空间使用权限，才能下载文件。</translation>
 <translation id="5785746630574083988">若以Windows 8模式重新启动，将会关闭并重新启动您的Chrome应用。</translation>
 <translation id="5799551393681493217">启用基于 iframe 的 Chrome 登录流程。此项会覆盖 --enable-web-based-signin。</translation>
 <translation id="5855036575689098185">您计算机上运行的软件与 Google Chrome 不兼容。</translation>
@@ -189,6 +193,7 @@
 <translation id="7164397146364144019">您可以选择自动向Google报告可能出现的安全事件详情，以帮助我们提高Chrome的安全性和易用性。</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" />已添加到 Chrome 浏览器。</translation>
 <translation id="7191567847629796517">Google Chrome操作系统不支持启动外部应用来处理<ph name="SCHEME" />链接。请求的链接是<ph name="PROTOLINK" />。</translation>
+<translation id="7193750696137290001">Google Chrome 目前以这种语言显示。</translation>
 <translation id="7196020411877309443">为何会出现这个窗口？</translation>
 <translation id="7242029209006116544">您目前登录的帐户是一个托管帐户，该帐户的管理员将能够控制您的 Google Chrome 个人资料。您的 Chrome 数据（例如您的应用、书签、历史记录、密码和其他设置）将永远与 <ph name="USER_NAME" /> 相关联。您可以通过 Google 帐户信息中心删除这些数据，但无法将这些数据与其他帐户相关联。您可以选择创建新的个人资料来单独存储现有的 Chrome 数据。<ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome - 通知（<ph name="QUANTITY" />条未读）</translation>
@@ -203,6 +208,7 @@
 <translation id="7473136999113284234">Chrome会自动更新，因此您使用的始终都是最新版本。</translation>
 <translation id="7473891865547856676">不，谢谢</translation>
 <translation id="7494905215383356681">Chrome开放源代码许可</translation>
+<translation id="7552219221109926349">以这种语言显示 Chrome 操作系统</translation>
 <translation id="7592736734348559088">由于您的帐户登录详细信息已过期，Google Chrome无法同步您的数据。</translation>
 <translation id="7626032353295482388">欢迎使用 Chrome</translation>
 <translation id="7747138024166251722">安装程序无法创建临时目录。请检查您是否有足够的磁盘空间和权限来安装该软件。</translation>
@@ -216,6 +222,7 @@
 <translation id="7825851276765848807">由于未指定的错误导致安装失败。请重新下载 Google Chrome 浏览器。</translation>
 <translation id="7890208801193284374">如果您与亲朋好友共用计算机，他们将能够使用单独的帐户进行浏览，并可随心所欲地设置Chrome。</translation>
 <translation id="7908968924842975895">此计算机将不再接收Google Chrome更新，因为其硬件不再受支持。</translation>
+<translation id="7964230182933713106">Chrome 操作系统目前以这种语言显示。</translation>
 <translation id="7984945080620862648">您目前无法访问<ph name="SITE" />，因为此网站发送了Chrome无法处理的杂乱凭据。网络错误和攻击通常是暂时的，因此，此网页稍后可能会恢复正常。</translation>
 <translation id="8000275528373650868">Google Chrome 浏览器要求操作系统必须为 Windows Vista 或者 Windows XP SP2 或更高版本。</translation>
 <translation id="8005540215158006229">Chrome 浏览器即将准备就绪。</translation>

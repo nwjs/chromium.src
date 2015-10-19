@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Conexión lenta detectada.</translation>
 <translation id="2842985007712546952">Carpeta principal</translation>
 <translation id="2870560284913253234">Sitio</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL cercana}other{# URL cercanas}}</translation>
 <translation id="2888126860611144412">Acerca de Chrome</translation>
 <translation id="2891154217021530873">Detener la carga de la página</translation>
 <translation id="2902702728133930130">Se ha producido un error inesperado en Chrome durante el inicio.</translation>
@@ -315,6 +316,7 @@ Las estadísticas de uso incluyen información sobre preferencias, clics en boto
 No obstante, tus acciones no serán totalmente invisibles. El uso del modo incógnito no te permite ocultar tu actividad de navegación a tu empresa, a tu proveedor de servicios de Internet o a los sitios web que visites.</translation>
 <translation id="572328651809341494">Pestañas recientes</translation>
 <translation id="5733727110006255111">Si se activa esta función, Chrome utiliza los servidores de Google para comprimir las páginas que visitas antes de descargarlas. No se incluyen páginas en modo incógnito ni SSL.</translation>
+<translation id="5749068826913805084">Chrome necesita acceso de almacenamiento para descargar archivos.</translation>
 <translation id="5763382633136178763">Pestañas de incógnito</translation>
 <translation id="5765780083710877561">Descripción:</translation>
 <translation id="5771382037724542929">¿Quieres sustituir el archivo <ph name="FILE_NAME" /> de <ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@ No obstante, tus acciones no serán totalmente invisibles. El uso del modo incó
 <translation id="5817918615728894473">Vincular</translation>
 <translation id="5832934273103296195">Vista expandida (hacer clic para contraerla)</translation>
 <translation id="583891442612896534">Chrome no puede acceder a los servidores de Google para comprimir los datos. El ahorro de datos puede estar limitado.</translation>
+<translation id="585027516397408832">Economizador de datos habilitado</translation>
 <translation id="5860033963881614850">No</translation>
 <translation id="5869522115854928033">Contraseñas guardadas</translation>
 <translation id="588258955323874662">Pantalla completa</translation>
@@ -425,6 +428,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anu
 <translation id="7096034533295549981">Cargando vídeo</translation>
 <translation id="7191430249889272776">Pestaña abierta en segundo plano.</translation>
 <translation id="7201341158316793215">Eliminando…</translation>
+<translation id="7208788139759694678">Economizador de datos inhabilitado</translation>
 <translation id="7243308994586599757">Opciones disponibles cerca de la parte inferior de la pantalla</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> utiliza tu ubicación para mostrar resultados de búsqueda locales</translation>
 <translation id="7299721129597238157">Eliminar marcador</translation>

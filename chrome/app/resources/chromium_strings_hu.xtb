@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">A Chromium OS nem támogatja külső alkalmazás indítását a(z) <ph name="SCHEME" /> linkek kezeléséhez. A kért link: <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">A Chromium már telepítve van a rendszeren, és ez ütközést okoz. Kérjük, távolítsa el, majd próbálkozzon újra.</translation>
 <translation id="1298199220304005244">Segítség kérése a Chromium OS használatával  kapcsolatban</translation>
+<translation id="1347507563453473396">A Chromium nem jeleníthető meg ezen a nyelven.</translation>
 <translation id="1396446129537741364">A Chromium megpróbálja megjeleníteni a jelszavakat.</translation>
 <translation id="1414495520565016063">Bejelentkezett a Chromiumba.</translation>
 <translation id="1444754455097148408">Chromium nyílt forráskódú licencek</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">A(z) <ph name="FILE_NAME" /> fájl rosszindulatú, ezért a Chromium letiltotta.</translation>
 <translation id="2847479871509788944">Eltávolítás a Chromiumból…</translation>
 <translation id="2886012850691518054">Opcionális: Segítsen a Chromium fejlesztésében azáltal, hogy automatikusan elküldi a használati statisztikákat és hibajelentéseket a Google-nak.</translation>
+<translation id="2905536371227304018">A Chromium operációs rendszer ezen a nyelven jelenik meg.</translation>
 <translation id="2910007522516064972">A &amp;Chromium névjegye</translation>
 <translation id="2966088006374919794">A Chromiumnak külső alkalmazást kell indítania a(z) <ph name="SCHEME" /> linkek kezeléséhez. A kért link: <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Hozzáadás a Chromiumhoz...</translation>
@@ -138,8 +140,11 @@
 <translation id="5427571867875391349">A Chromium beállítása alapértelmezett böngészőként</translation>
 <translation id="5466153949126434691">A Chromium automatikusan frissít, így Ön mindig a legújabb verzióval rendelkezik. A letöltés befejezése után a Chromium újraindul, és máris rendelkezésre áll.</translation>
 <translation id="549669000822060376">Kérjük, várjon, amíg a Chromium telepíti a legutóbbi rendszerfrissítéseket.</translation>
+<translation id="556167189552180495">A Chromium ezen a nyelven jelenik meg.</translation>
 <translation id="5563479599352954471">Keresés egyetlen érintéssel</translation>
 <translation id="5620765574781326016">Tudjon meg többet a webhelyeken lévő egyes témákról anélkül, hogy elhagyná az adott oldalt.</translation>
+<translation id="5698481217667032250">A Chromium megjelenítése ezen a nyelven</translation>
+<translation id="5768914737813585044">A Chromium operációs rendszer megjelenítése ezen a nyelven</translation>
 <translation id="5772805321386874569">(a Chromium <ph name="BEGIN_BUTTON" />újraindítását<ph name="END_BUTTON" /> igényli)</translation>
 <translation id="5796460469508169315">A Chromium majdnem készen áll.</translation>
 <translation id="580822234363523061">Lépjen ide:
@@ -170,6 +175,7 @@
 <translation id="6475912303565314141">Továbbá azt is szabályozza, hogy melyik oldal jelenik meg a Chromium indításakor.</translation>
 <translation id="6485906693002546646">Chromiumos dolgainak szinkronizálásához a(z) <ph name="PROFILE_EMAIL" /> fiókot használja. Szinkronizálási beállításainak frissítéséhez, illetve a Chromium Google-fiók nélküli használatához keresse fel a <ph name="SETTINGS_LINK" /> linket.</translation>
 <translation id="6510925080656968729">Chromium eltávolítása</translation>
+<translation id="6526111688217511984">A Chromiumnak tárhelyhozzáférésre van szüksége a fájlok letöltéséhez.</translation>
 <translation id="6637001341228460105">A Chromiumnak hozzáférésre van szüksége a mikrofonhoz, hogy megoszthassa azt a webhellyel.</translation>
 <translation id="6638567566961868659">Könyvjelzőit megtalálhatja a Chromium menüben vagy a könyvjelzősávban.</translation>
 <translation id="6676384891291319759">Internetelérés</translation>
@@ -205,6 +211,7 @@ A Chromium nem tudja visszaállítani a beállításait.</translation>
 <translation id="734373864078049451">Az Ön könyvjelzői, valamint az internetezéssel és a Chromiummal kapcsolatos egyéb dolgai vannak itt.</translation>
 <translation id="7419987137528340081">Ha meglévő Chromium-adatait külön szeretné tárolni, új Chromium-felhasználót hozhat létre <ph name="USER_NAME" /> számára.</translation>
 <translation id="7421823331379285070">A Chromium Windows XP-t vagy újabb operációs rendszert igényel. Lehet, hogy korábbi verziójú operációs rendszeren néhány funkció nem fog működni.</translation>
+<translation id="7437562785125777404">A Chromium operációs rendszer nem jeleníthető meg ezen a nyelven.</translation>
 <translation id="7463979740390522693">Chromium – Értesítések (<ph name="QUANTITY" /> olvasatlan)</translation>
 <translation id="7473891865547856676">Nem, köszönöm</translation>
 <translation id="7483335560992089831">Nem lehet ugyanazt a Chromium-verziót telepíteni, amely jelenleg is fut. Zárja be a Chromiumot, és próbálja újra.</translation>

@@ -71,7 +71,7 @@
           Faktor skaliranja mora biti 100% ili više.</translation>
 <translation id="131353325527891113">Prikaži korisnička imena na zaslonu prijave</translation>
 <translation id="1327466551276625742">Omogući odzivnu poruku za konfiguraciju mreže tijekom izvanmrežnog rada</translation>
-<translation id="1330145147221172764">Omogući tipkovnicu na zaslonu:</translation>
+<translation id="1330145147221172764">Omogući tipkovnicu na zaslonu</translation>
 <translation id="1330985749576490863">Onemogućuje Google disk putem mobilne veze u aplikaciji Datoteke za <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="13356285923490863">Naziv pravila</translation>
 <translation id="1353966721814789986">Početne stranice</translation>
@@ -118,6 +118,7 @@
 
       Ako je pravilo postavljeno na neistinito ili nije postavljeno, Jedinstvena radna
       površina bit će onemogućena. U tom slučaju korisnik ne može omogućiti značajku.</translation>
+<translation id="1474273443907024088">Onemogući TLS False Start</translation>
 <translation id="1477934438414550161">TLS 1.2</translation>
 <translation id="1492145937778428165">Određuje razdoblje u milisekundama u kojem se usluzi upravljanja uređajem postavlja upit za informacije o pravilima uređaja.
 
@@ -228,6 +229,18 @@
       Ako se pravilo HardwareAccelerationModeEnabled postavi na "netočno", Disable3DAPIs se zanemaruje i to je isto kao da se Disable3DAPIs postavi na "točno".</translation>
 <translation id="2168397434410358693">Odgoda neaktivnosti za vrijeme napajanja izmjeničnom strujom</translation>
 <translation id="2170233653554726857">Omogući WPAD optimizaciju</translation>
+<translation id="2175836933294053665">Konfigurira popis upravljanih oznaka.
+
+      Pravilo se sastoji od popisa oznaka, od kojih je svaka oznaka rječnik koji
+      sadrži ključeve "name" i "url" koji naznačuju naziv i cilj oznake.
+      Podmapa se može konfigurirati tako da se definira oznaka bez
+      ključa "url", ali s dodatnim ključem "children" koji u sebi sadrži
+      popis oznaka kako je prethodno definirano (podmape i same mogu
+      ponovo biti mape). <ph name="PRODUCT_NAME" />
+      dopunjuje nepotpune URL-ove kao da su poslani putem višenamjenskog
+      okvira, na primjer, "google.com" postat će "https://google.com/".
+
+      Te se oznake smještaju u mapu upravljanih oznaka koju korisnik ne može izmijeniti, ali je može sakriti s trake oznaka. Upravljane oznake ne sinkroniziraju se s korisničkim računom i proširenja ih ne mogu mijenjati.</translation>
 <translation id="2188979373208322108">Omogućuje traku oznaka u proizvodu <ph name="PRODUCT_NAME" />. Ako omogućite ovu postavku, usluga <ph name="PRODUCT_NAME" /> prikazivat će traku oznaka. Ako onemogućite ovu postavku, korisnicima nikad neće biti prikazana traka oznaka. Ako omogućite ili onemogućite ovu postavku, korisnici ju neće moći promijeniti niti poništiti u proizvodu <ph name="PRODUCT_NAME" />. Ako ova postavka nije postavljena, korisnici mogu odlučiti žele li upotrebljavati tu funkciju.</translation>
 <translation id="2201555246697292490">Konfiguriraj popis dopuštenih za lokalno slanje poruka</translation>
 <translation id="2204753382813641270">Kontroliraj automatsko skrivanje police</translation>
@@ -723,7 +736,7 @@
 <translation id="4088589230932595924">Anoniman način rada prisilno je uključen</translation>
 <translation id="4088983553732356374">Omogućuje vam da postavite je li web-lokacijama dopušteno postavljanje lokalnih podataka. Postavljanje lokalnih podataka može biti dopušteno za sve web-lokacije ili odbijeno za sve web-lokacije.
 
-          Ako se pravilo postavi na "Zadrži kolačiće za vrijeme trajanja sesije", kolačići će se izbrisati po završetku sesije. Ako se <ph name="PRODUCT_NAME" /> izvodi u pozadini, sesija se možda neće završiti dok se ne zatvori posljednji prozor. Više informacija o konfiguriranju tog ponašanja potražite u pravilu "BackgroundModeEnabled".
+         Ako se pravilo postavi na "Zadrži kolačiće za vrijeme trajanja sesije", kolačići će se izbrisati po završetku sesije. Ako se <ph name="PRODUCT_NAME" /> izvodi u pozadini, sesija se možda neće završiti dok se ne zatvori posljednji prozor. Više informacija o konfiguriranju tog ponašanja potražite u pravilu "BackgroundModeEnabled".
 
           Ako se to pravilo ne postavi, koristit će se pravilo "AllowCookies" i korisnik će ga moći promijeniti.</translation>
 <translation id="410478022164847452">Određuje koliko vremena treba proteći bez aktivnosti korisnika da bi se izvršila radnja neaktivnosti tijekom napajanja izmjeničnom strujom.
@@ -967,7 +980,7 @@
       Ako se to pravilo ne postavi, korisnik može odabrati sliku avatara koja ga predstavlja na zaslonu za prijavu.</translation>
 <translation id="5302612588919538756">To je pravilo obustavljeno i umjesto njega možete upotrijebiti "SyncDisabled".
 
-      Korisniku omogućuje prijavu na <ph name="PRODUCT_NAME" />.
+      Korisniku omogućuje prijavu u <ph name="PRODUCT_NAME" />.
 
       Ako postavite to pravilo, možete konfigurirati dopuštenje za prijavu korisnika u <ph name="PRODUCT_NAME" />. Ako pravilo postavite na "netočno", aplikacije i proširenja koje upotrebljavaju API chrome.identity prestat će funkcionirati, pa je zato bolje upotrijebiti pravilo "SyncDisabled".</translation>
 <translation id="5304269353650269372">Određuje koliko vremena treba proći od zadnjeg korisničkog unosa nakon kojeg se prikazuje dijaloški okvir upozorenja kada uređaj nije priključen na struju.
@@ -1483,7 +1496,7 @@
           Ako je <ph name="PRODUCT_NAME" /> pokrenut u "pozadinskom načinu", sesija se možda neće završiti kada se zatvori posljednji prozor, već će ostati aktivna dok se ne zatvori preglednik. Više informacija o konfiguriranju tog ponašanja potražite u pravilu "BackgroundModeEnabled".
 
           Ako se pravilo "RestoreOnStartup" postavi na vraćanje URL-ova iz prethodnih sesija, ovo se pravilo neće poštovati i za te će se web-lokacije kolačići trajno pohranjivati.</translation>
-<translation id="7207095846245296855">Prisilno primijeni Google sigurno pretraživanje</translation>
+<translation id="7207095846245296855">Nametni Google sigurno pretraživanje</translation>
 <translation id="7216442368414164495">Omogućivanje korisnicima da se uključe u prošireno izvješćivanje Sigurnog pregledavanja</translation>
 <translation id="7227967227357489766">Definira popis korisnika kojima je dopuštena prijava na uređaj. Unosi su u obliku <ph name="USER_WHITELIST_ENTRY_FORMAT" />, na primjer, <ph name="USER_WHITELIST_ENTRY_EXAMPLE" />. Da bi slučajnim korisnicima bio dopušten pristup domeni, upotrijebite unose u obliku <ph name="USER_WHITELIST_ENTRY_WILDCARD" />.
 
@@ -1742,7 +1755,7 @@
 
           Početna je stranica ona koja se otvara gumbom Početna. Stranicama koje se otvaraju prilikom pokretanja upravljaju pravila "RestoreOnStartup".
 
-          Za vrstu početne stranice možete postaviti URL koji navedete ovdje ili web-stranica nove kartice. Ako odaberete web-stranicu nove kartice, ovo pravilo nije na snazi.
+          Za vrstu početne stranice možete postaviti URL koji navedete ovdje ili web-stranicu nove kartice. Ako odaberete web-stranicu nove kartice, ovo pravilo nije na snazi.
 
           Ako omogućite tu postavku, korisnici neće moći promijeniti URL početne stranice u pregledniku <ph name="PRODUCT_NAME" />, ali će kao početnu stranicu moći odabrati web-stranicu nove kartice.
 
@@ -1808,6 +1821,9 @@
 <translation id="8544375438507658205">Zadani alat za prikazivanje HTML-a za <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Upozori kada se posjećuju web-lokacije izvan paketa sadržaja</translation>
 <translation id="8566842294717252664">Skrivanje web-trgovine na web-stranici nove kartice i pokretaču aplikacija</translation>
+<translation id="857925079934558818">Određuje treba li se onemogućiti optimizacija TLS False Starta. Iz povijesnih razloga to se pravilo zove DisableSSLRecordSplitting.
+
+      Ako se to pravilo ne postavi ili se postavi na "netočno", TLS False Start bit će omogućen. Ako se postavi na "točno", TLS False Start neće biti omogućen.</translation>
 <translation id="8587229956764455752">Dopusti stvaranje novih korisničkih računa</translation>
 <translation id="8614804915612153606">Onemogućuje automatsko ažuriranje</translation>
 <translation id="8631434304112909927">do verzije <ph name="UNTIL_VERSION" /></translation>

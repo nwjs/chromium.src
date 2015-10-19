@@ -34,6 +34,7 @@
 <translation id="1773601347087397504">Hilfe für Chrome OS aufrufen</translation>
 <translation id="1818142563254268765">Chrome konnte nicht automatisch auf die neueste Version aktualisiert werden. In Ihrer Version fehlen einige neue Funktionen und Sicherheitsmerkmale. Aktualisieren Sie Chrome manuell.</translation>
 <translation id="1877026089748256423">Chrome ist veraltet.</translation>
+<translation id="1924381329666691588">Google Chrome kann in dieser Sprache nicht angezeigt werden.</translation>
 <translation id="2077129598763517140">Hardwarebeschleunigung verwenden, falls verfügbar</translation>
 <translation id="2084710999043359739">Zu Chrome hinzufügen</translation>
 <translation id="2246246234298806438">Google Chrome kann ohne den integrierten PDF-Viewer keine Druckvorschau anzeigen.</translation>
@@ -62,6 +63,7 @@ Sollten Sie sich trotzdem anmelden, werden die Chrome-Daten wie Lesezeichen, Ver
 <translation id="2748463065602559597">Dies ist eine sichere Google Chrome-Seite.</translation>
 <translation id="2769762047821873045">Google Chrome ist nicht als Ihr Standardbrowser festgelegt.</translation>
 <translation id="2770231113462710648">Standardbrowser ändern in:</translation>
+<translation id="2847461019998147611">Google Chrome in dieser Sprache anzeigen</translation>
 <translation id="2871893339301912279">Sie sind in Chrome angemeldet.</translation>
 <translation id="2874156562296220396">Google Chrome wird durch das Open-Source-Projekt <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> und andere <ph name="BEGIN_LINK_OSS" />Open-Source-Software<ph name="END_LINK_OSS" /> ermöglicht.</translation>
 <translation id="3037838751736561277">Google Chrome wird im Hintergrundmodus ausgeführt.</translation>
@@ -140,8 +142,10 @@ Sollten Sie sich trotzdem anmelden, werden die Chrome-Daten wie Lesezeichen, Ver
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> schützt Ihre Daten in der Regel durch Verschlüsselung. Als Chrome dieses Mal versuchte, eine Verbindung zu <ph name="SITE" /> herzustellen, gab die Website ungewöhnliche und falsche Anmeldedaten zurück. Entweder versucht ein Angreifer, sich als <ph name="SITE" /> auszugeben, oder die Verbindung wurde durch eine WLAN-Anmeldeseite unterbrochen. Da Chrome die Verbindung vor dem Austausch von Daten unterbrochen hat, sind Ihre Daten weiterhin sicher.</translation>
 <translation id="5620765574781326016">Erfahren Sie mehr über Website-Themen, ohne die Seite zu verlassen.</translation>
+<translation id="5637867606963802593">Chrome OS kann in dieser Sprache nicht angezeigt werden.</translation>
 <translation id="568643307450491754">Ihre Lesezeichen finden Sie im Chrome-Menü oder in der Lesezeichenleiste.</translation>
 <translation id="573759479754913123">Über Chrome OS</translation>
+<translation id="5749068826913805084">Chrome benötigt Speicherzugriff, um Dateien herunterladen zu können.</translation>
 <translation id="5785746630574083988">Bei einem Neustart im Windows 8-Modus werden Ihre Chrome-Apps geschlossen und neu gestartet.</translation>
 <translation id="5799551393681493217">Aktiviert Iframe-basierte Anmeldevorgänge für Chrome. Dieses Flag überschreibt das Flag "enable-web-based-signin".</translation>
 <translation id="5855036575689098185">Auf Ihrem Computer befindet sich Software, die nicht mit Google Chrome kompatibel ist.</translation>
@@ -188,6 +192,7 @@ Sollten Sie sich trotzdem anmelden, werden die Chrome-Daten wie Lesezeichen, Ver
 <translation id="7164397146364144019">Helfen Sie mit, Chrome sicherer und nutzerfreundlicher zu machen, indem Sie Details zu möglichen sicherheitsrelevanten Zwischenfällen automatisch an Google senden.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> wurde zu Chrome hinzugefügt.</translation>
 <translation id="7191567847629796517">Google Chrome OS unterstützt keine externe Anwendung zur Verarbeitung von <ph name="SCHEME" />-Links. Der angeforderte Link ist <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome wird in dieser Sprache angezeigt.</translation>
 <translation id="7196020411877309443">Warum wird diese Meldung angezeigt?</translation>
 <translation id="7242029209006116544">Sie melden sich mit einem verwalteten Konto an und ermöglichen dessen Administrator Zugriff auf Ihr Google Chrome-Profil. Ihre Chrome-Daten, wie Apps, Lesezeichen, Verlauf, Passwörter und andere Einstellungen, werden dauerhaft mit <ph name="USER_NAME" /> verknüpft. Sie können diese Daten über das Google Konten-Dashboard löschen, aber nicht mit einem anderen Konto verknüpfen. Wenn Sie Ihre bestehenden Chrome-Daten getrennt verwenden möchten, können Sie ein neues Profil erstellen. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome – Benachrichtigungen (<ph name="QUANTITY" /> ungelesen)</translation>
@@ -202,6 +207,7 @@ Sollten Sie sich trotzdem anmelden, werden die Chrome-Daten wie Lesezeichen, Ver
 <translation id="7473136999113284234">Chrome wird automatisch aktualisiert, sodass Sie immer über die neueste Version verfügen.</translation>
 <translation id="7473891865547856676">Nein danke</translation>
 <translation id="7494905215383356681">Open-Source-Lizenzen für Chrome</translation>
+<translation id="7552219221109926349">Chrome OS in dieser Sprache anzeigen</translation>
 <translation id="7592736734348559088">Google Chrome konnte Ihre Daten nicht synchronisieren, da die Anmeldedaten Ihres Kontos nicht mehr aktuell sind.</translation>
 <translation id="7626032353295482388">Willkommen bei Chrome</translation>
 <translation id="7747138024166251722">Das Installationsprogramm konnte kein temporäres Verzeichnis erstellen. Überprüfen Sie, ob freier Speicherplatz und die Rechte zum Installieren von Software vorhanden sind.</translation>
@@ -215,6 +221,7 @@ Sollten Sie sich trotzdem anmelden, werden die Chrome-Daten wie Lesezeichen, Ver
 <translation id="7825851276765848807">Die Installation ist aufgrund eines unbekannten Fehlers fehlgeschlagen. Laden Sie Google Chrome erneut herunter.</translation>
 <translation id="7890208801193284374">Bei gemeinsam genutzten Computern können die verschiedenen Personen separat surfen und Chrome jeweils nach ihren Wünschen einrichten.</translation>
 <translation id="7908968924842975895">Für diesen Computer werden keine weiteren Google Chrome-Updates mehr bereitgestellt, da die Hardware des Geräts nicht mehr unterstützt wird.</translation>
+<translation id="7964230182933713106">Chrome OS wird in dieser Sprache angezeigt.</translation>
 <translation id="7984945080620862648">Sie können <ph name="SITE" /> zurzeit nicht aufrufen, weil die Website verschlüsselte Anmeldedaten gesendet hat, die von Chrome nicht verarbeitet werden können. Netzwerkfehler und Angriffe sind in der Regel nur vorübergehend, sodass die Seite wahrscheinlich später wieder funktioniert.</translation>
 <translation id="8000275528373650868">Für Google Chrome ist Windows Vista oder Windows XP SP2 oder höher erforderlich.</translation>
 <translation id="8005540215158006229">Chrome ist gleich bereit.</translation>

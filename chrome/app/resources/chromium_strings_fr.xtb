@@ -11,6 +11,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="1221340462641866827">Chromium OS ne permet pas le lancement d'une application externe pour gérer les liens <ph name="SCHEME" />. Le lien requis est <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">Une installation de Chromium incompatible a été détectée sur le système. Veuillez la désinstaller, puis réessayer.</translation>
 <translation id="1298199220304005244">Obtenir de l'aide sur l'utilisation de Chromium OS</translation>
+<translation id="1347507563453473396">Chromium ne peut pas être affiché dans cette langue.</translation>
 <translation id="1396446129537741364">Tentative d'affichage des mots de passe dans Chromium</translation>
 <translation id="1414495520565016063">Vous êtes connecté à Chromium.</translation>
 <translation id="1444754455097148408">Licences Chromium Open Source</translation>
@@ -61,6 +62,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="2801146392936645542">Le fichier "<ph name="FILE_NAME" />" a été bloqué dans Chromium, car son contenu est malveillant.</translation>
 <translation id="2847479871509788944">Supprimer de Chromium</translation>
 <translation id="2886012850691518054">Facultatif : aidez-nous à améliorer Chromium en envoyant automatiquement des statistiques d'utilisation et des rapports d'erreur à Google.</translation>
+<translation id="2905536371227304018">Chromium OS est affiché dans cette langue.</translation>
 <translation id="2910007522516064972">À propos de &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium nécessite le lancement d'une application externe pour gérer les liens <ph name="SCHEME" />. Le lien demandé est <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Ajout à Chromium en cours…</translation>
@@ -139,8 +141,11 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="5427571867875391349">Définir Chromium comme navigateur par défaut</translation>
 <translation id="5466153949126434691">Chromium est automatiquement mis à jour pour vous permettre de toujours disposer de la dernière version. Une fois le téléchargement terminé, Chromium redémarre et vous pouvez de nouveau l'utiliser.</translation>
 <translation id="549669000822060376">Veuillez patienter pendant que Chromium installe les dernières mises à jour du système.</translation>
+<translation id="556167189552180495">Chromium est affiché dans cette langue.</translation>
 <translation id="5563479599352954471">Rechercher en un clic</translation>
 <translation id="5620765574781326016">Pour en savoir plus sur des sujets évoqués sur des sites Web sans quitter la page.</translation>
+<translation id="5698481217667032250">Afficher Chromium dans cette langue</translation>
+<translation id="5768914737813585044">Afficher Chromium OS dans cette langue</translation>
 <translation id="5772805321386874569">(nécessite le <ph name="BEGIN_BUTTON" />redémarrage<ph name="END_BUTTON" /> de Chromium)</translation>
 <translation id="5796460469508169315">Chromium est presque prêt</translation>
 <translation id="580822234363523061">Accédez au
@@ -171,6 +176,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="6475912303565314141">Elle contrôle également la page qui s'affiche au démarrage de Chromium.</translation>
 <translation id="6485906693002546646">Vous utilisez le compte <ph name="PROFILE_EMAIL" /> pour synchroniser votre contenu dans Chromium. Pour mettre à jour vos préférences de synchronisation ou pour utiliser Chromium sans compte Google, accédez à la page <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Désinstaller Chromium</translation>
+<translation id="6526111688217511984">Pour télécharger des fichiers, Chromium a besoin d'accéder à l'espace de stockage.</translation>
 <translation id="6637001341228460105">Chromium doit accéder au micro pour le partager avec ce site.</translation>
 <translation id="6638567566961868659">Retrouvez vos favoris dans le menu Chromium ou dans la barre de favoris.</translation>
 <translation id="6676384891291319759">Accéder à Internet</translation>
@@ -208,6 +214,7 @@ Chromium ne peut pas récupérer vos paramètres.</translation>
 <translation id="734373864078049451">Votre contenu Web, vos favoris et toutes vos données Chromium sont conservés ici.</translation>
 <translation id="7419987137528340081">Si vous préférez conserver vos données Chromium à part, vous pouvez créer un utilisateur Chromium pour <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium requiert Windows XP ou une version ultérieure. Certaines fonctionnalités risquent de ne pas fonctionner.</translation>
+<translation id="7437562785125777404">Chromium OS ne peut pas être affiché dans cette langue.</translation>
 <translation id="7463979740390522693">Notifications – Chromium (<ph name="QUANTITY" /> non lues)</translation>
 <translation id="7473891865547856676">Non, merci</translation>
 <translation id="7483335560992089831">Impossible d'installer la même version de Chromium que celle qui est en cours d'exécution. Veuillez fermer Chromium, puis réessayer.</translation>

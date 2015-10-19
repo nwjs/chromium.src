@@ -11,6 +11,7 @@
 <translation id="1221340462641866827"><ph name="SCHEME" /> లింక్‌లను నిర్వహించడానికి బాహ్య అనువర్తనాన్ని ప్రారంభించడానికి Chromium OS మద్దతు ఇవ్వదు. అభ్యర్థించిన లింక్ <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">సిస్టమ్‌లో Chromium యొక్క వైరుధ్య ఇన్‌స్టాలేషన్ కనుగొనబడింది. దయచేసి దీన్ని అన్ఇన్‌స్టాల్ చేసి, మళ్లీ ప్రయత్నించండి.</translation>
 <translation id="1298199220304005244">Chromium OSని ఉపయోగించి సహాయాన్ని పొందండి</translation>
+<translation id="1347507563453473396">Chromium ఈ భాషలో ప్రదర్శించబడదు.</translation>
 <translation id="1396446129537741364">Chromium పాస్‌వర్డ్‌లను చూపడానికి ప్రయత్నిస్తోంది.</translation>
 <translation id="1414495520565016063">మీరు Chromiumకు సైన్ ఇన్ చేసారు!</translation>
 <translation id="1444754455097148408">Chromium ఓపెన్ సోర్స్ లైసెన్స్‌లు</translation>
@@ -61,6 +62,7 @@
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> హానికరమైనది మరియు దీన్ని Chromium బ్లాక్ చేసింది.</translation>
 <translation id="2847479871509788944">Chromium నుండి తీసివేయి...</translation>
 <translation id="2886012850691518054">ఐచ్ఛికం: Googleకు ఉపయోగకర గణాంకాలను మరియు క్రాష్ నివేదికలను స్వయంచాలకంగా పంపడం ద్వారా Chromiumను మరింత మెరుగుపరచడానికి సహాయం చేస్తుంది.</translation>
+<translation id="2905536371227304018">Chromium OS ఈ భాషలో ప్రదర్శించబడుతుంది.</translation>
 <translation id="2910007522516064972">&amp;Chromium గురించి</translation>
 <translation id="2966088006374919794"><ph name="SCHEME" /> లింక్‌లను నిర్వహించడానికి Chromium బాహ్య అనువర్తనాన్ని ప్రారంభించాలి. అభ్యర్థించిన లింక్ <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Chromiumకి జోడిస్తోంది...</translation>
@@ -136,8 +138,11 @@
 <translation id="5427571867875391349">Chromiumను మీ డిఫాల్ట్ బ్రౌజర్‌గా సెట్ చేయండి</translation>
 <translation id="5466153949126434691">Chromium స్వయంచాలకంగా నవీకరించబడుతుంది కనుక మీరు ఎల్లప్పుడూ తాజా సంస్కరణని కలిగి ఉంటారు. ఈ డౌన్‌లోడ్ పూర్తయినప్పుడు, Chromium పునఃప్రారంభించబడుతుంది మరియు మీరు మీ పనిని కొనసాగించవచ్చు.</translation>
 <translation id="549669000822060376">దయచేసి Chromium తాజా సిస్టమ్ నవీకరణలను ఇన్‌స్టాల్ చేస్తున్నప్పుడు వేచి ఉండండి.</translation>
+<translation id="556167189552180495">Chromium ఈ భాషలో ప్రదర్శించబడుతుంది.</translation>
 <translation id="5563479599352954471">ఒక టచ్‌తో శోధించండి</translation>
 <translation id="5620765574781326016">పేజీ నుండి నిష్క్రమించకుండానే వెబ్‌సైట్‌ల్లో విషయాల గురించి తెలుసుకోండి.</translation>
+<translation id="5698481217667032250">Chromiumను ఈ భాషలో ప్రదర్శించు</translation>
+<translation id="5768914737813585044">Chromium OSను ఈ భాషలో ప్రదర్శించు</translation>
 <translation id="5772805321386874569">(Chromium <ph name="BEGIN_BUTTON" />పునఃప్రారంభం<ph name="END_BUTTON" /> అవసరం)</translation>
 <translation id="5796460469508169315">Chromium దాదాపు సిద్ధంగా ఉంది.</translation>
 <translation id="580822234363523061">Chromium మెను &gt;
@@ -167,6 +172,7 @@
 <translation id="6475912303565314141">ఇది మీరు Chromiumని ప్రారంభించేటప్పుడు చూపబడే పేజీని కూడా నియంత్రిస్తుంది.</translation>
 <translation id="6485906693002546646">మీరు మీ Chromium అంశాలను సమకాలీకరించడానికి <ph name="PROFILE_EMAIL" />ని ఉపయోగిస్తున్నారు. మీ సమకాలీకరణ ప్రాధాన్యతను నవీకరించడానికి లేదా Google ఖాతా లేకుండా Chromiumని ఉపయోగించడానికి, <ph name="SETTINGS_LINK" />ను సందర్శించండి.</translation>
 <translation id="6510925080656968729">Chromiumని అన్ఇన్‌స్టాల్ చేయి</translation>
+<translation id="6526111688217511984">ఫైల్‌లను డౌన్‌లోడ్ చేయడానికి Chromiumకు నిల్వ ప్రాప్యత అవసరం.</translation>
 <translation id="6637001341228460105">ఈ సైట్‌కు మైక్రోఫోన్ సామర్థ్యాన్ని భాగస్వామ్యం చేయడానికి Chromiumకి మైక్రోఫోన్ ప్రాప్యతను మంజూరు చేయడం అవసరం.</translation>
 <translation id="6638567566961868659">మీ బుక్‌మార్క్‌లను Chromium మెనులో లేదా బుక్‌మార్క్‌ల బార్‌లో కనుగొనండి.</translation>
 <translation id="6676384891291319759">ఇంటర్నెట్‌ను ఆక్సెస్ చెయ్యండి</translation>
@@ -202,6 +208,7 @@
 <translation id="734373864078049451">మీ వెబ్, బుక్‌మార్క్‌లు మరియు ఇతర Chromium అంశాలు ఇక్కడ చూపబడతాయి.</translation>
 <translation id="7419987137528340081">మీరు ప్రస్తుతం ఉన్న మీ Chromium డేటాను వేరుగా ఉంచడానికి ప్రాధాన్యత ఇస్తే, <ph name="USER_NAME" /> కోసం క్రొత్త Chromium వినియోగదారును సృష్టించవచ్చు.</translation>
 <translation id="7421823331379285070">Chromiumకి Windows XP లేదా తర్వాతది అవసరం. కొన్ని లక్షణాలు పనిచేయకపోవచ్చు.</translation>
+<translation id="7437562785125777404">Chromium OS ఈ భాషలో ప్రదర్శించబడదు.</translation>
 <translation id="7463979740390522693">Chromium - నోటిఫికేషన్‌లు (<ph name="QUANTITY" /> చదవనివి)</translation>
 <translation id="7473891865547856676">వద్దు, ధన్యవాదాలు</translation>
 <translation id="7483335560992089831">ప్రస్తుతం అమలు చేయబడుతున్న అదే Chromium సంస్కరణని ఇన్‌స్టాల్ చేయలేరు. దయచేసి Chromiumని మూసివేసి, మళ్లీ ప్రయత్నించండి.</translation>

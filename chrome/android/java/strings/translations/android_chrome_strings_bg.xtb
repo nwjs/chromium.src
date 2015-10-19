@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Открита е бавна връзка.</translation>
 <translation id="2842985007712546952">Основна папка</translation>
 <translation id="2870560284913253234">Сайт</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL адрес в близост}other{# URL адреса в близост}}</translation>
 <translation id="2888126860611144412">Всичко за Chrome</translation>
 <translation id="2891154217021530873">Спиране на зареждането на страницата</translation>
 <translation id="2902702728133930130">Стартирането на Chrome не бе успешно поради неочаквана грешка.</translation>
@@ -315,6 +316,7 @@
 Сърфирането ви обаче не е невидимо. При преминаване в режим „инкогнито“ то не се скрива от работодателя ви и от доставчика ви на интернет услуги, нито от уебсайтовете, които посещавате.</translation>
 <translation id="572328651809341494">Скорошни раздели</translation>
 <translation id="5733727110006255111">Когато тази функция е активирана, Chrome ще използва сървърите на Google, за да компресира посещаваните от вас страници преди изтеглянето им. Страниците през SSL и тези в режим „инкогнито“ няма да бъдат включени.</translation>
+<translation id="5749068826913805084">Chrome се нуждае от достъп до хранилището, за да изтегля файлове.</translation>
 <translation id="5763382633136178763">Раздели в режим „инкогнито“</translation>
 <translation id="5765780083710877561">Описание:</translation>
 <translation id="5771382037724542929">Искате ли да замените съществуващия файл „<ph name="FILE_NAME" />“ в/ъв „<ph name="DIRECTORY_NAME" />“?</translation>
@@ -323,6 +325,7 @@
 <translation id="5817918615728894473">Сдвояване</translation>
 <translation id="5832934273103296195">Разгънато – Кликнете за свиване</translation>
 <translation id="583891442612896534">Chrome не може да установи връзка с компресиращите сървъри на Google. Икономията на данни може да е ограничена.</translation>
+<translation id="585027516397408832">Активирахте Икономия на данни</translation>
 <translation id="5860033963881614850">Изключено</translation>
 <translation id="5869522115854928033">Запазени пароли</translation>
 <translation id="588258955323874662">Цял екран</translation>
@@ -425,6 +428,7 @@
 <translation id="7096034533295549981">Клип: Зарежда се</translation>
 <translation id="7191430249889272776">Разделът е отворен на заден план.</translation>
 <translation id="7201341158316793215">Премахва се…</translation>
+<translation id="7208788139759694678">Деактивирахте Икономия на данни</translation>
 <translation id="7243308994586599757">Опциите са в долната част на екрана</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> използва местоположението ви, за да показва резултати от местното търсене</translation>
 <translation id="7299721129597238157">Изтриване на отметката</translation>

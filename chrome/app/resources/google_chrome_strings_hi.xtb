@@ -34,6 +34,7 @@
 <translation id="1773601347087397504">Chrome OS का उपयोग करने के बारे में सहायता प्राप्त करें</translation>
 <translation id="1818142563254268765">Chrome स्वयं को नवीनतम वर्शन में अपडेट नहीं कर सका, इसलिए आप शानदार नई सुविधाओं और सुरक्षा समाधानों का लाभ नहीं ले पा रहे हैं. आपको Chrome को अपडेट करना होगा.</translation>
 <translation id="1877026089748256423">Chrome पुराना हो गया है</translation>
+<translation id="1924381329666691588">Google Chrome इस भाषा में नहीं दिखाया जा सकता है.</translation>
 <translation id="2077129598763517140">उपलब्ध होने पर हार्डवेयर त्वरण का उपयोग करें</translation>
 <translation id="2084710999043359739">Chrome में जोड़ें</translation>
 <translation id="2246246234298806438">अंतर्निहित PDF व्‍यूअर गुम होने पर Google Chrome प्रिंट पूर्वावलोकन नहीं दिखा सकता.</translation>
@@ -62,6 +63,7 @@
 <translation id="2748463065602559597">आप एक सुरक्षि‍त Google Chrome पृष्‍ठ देख रहे हैं.</translation>
 <translation id="2769762047821873045">Google Chrome आपका सामान्य ब्राउज़र नहीं है.</translation>
 <translation id="2770231113462710648">डिफ़ॉल्ट ब्राउज़र को इसमें बदलें:</translation>
+<translation id="2847461019998147611">Google Chrome इस भाषा में दिखाएं</translation>
 <translation id="2871893339301912279">आप Chrome में प्रवेश हैं.</translation>
 <translation id="2874156562296220396">Google Chrome को <ph name="BEGIN_LINK_CHROMIUM" />क्रोमियम<ph name="END_LINK_CHROMIUM" /> ओपन सोर्स प्रोजेक्ट और अन्य <ph name="BEGIN_LINK_OSS" />ओपन सोर्स सॉफ्टवेयर<ph name="END_LINK_OSS" /> ने संभव बनाया है.</translation>
 <translation id="3037838751736561277">Google Chrome पृष्ठभूमि मोड में है.</translation>
@@ -143,8 +145,10 @@
 <translation id="5618769508111928343"><ph name="SITE" /> आपकी जानकारी की रक्षा करने के लिए आमतौर पर एन्‍क्रिप्‍शन का उपयोग करती है. इस बार जब Chrome ने <ph name="SITE" /> से कनेक्‍ट करने का प्रयास किया, तो वेबसाइट ने असामान्‍य
   और गलत क्रेडेंशियल भेजे. या तो कोई हमलावर <ph name="SITE" /> होने का दावा करने का प्रयास कर रहा है या फिर किसी वाई-फ़ाई प्रवेश स्‍क्रीन ने कनेक्‍शन को बाधित कर दिया है. आपकी जानकारी अभी भी सुरक्षित है क्‍योंकि किसी भी डेटा का आदान-प्रदान होने से पहले ही Chrome ने कनेक्‍शन को बंद कर दिया था.</translation>
 <translation id="5620765574781326016">पृष्ठ को छोड़े बिना वेबसाइटों पर दिए गए विषयों के बारे में जानें.</translation>
+<translation id="5637867606963802593">Chrome OS इस भाषा में नहीं दिखाया जा सकता है.</translation>
 <translation id="568643307450491754">Chrome मेनू में या बुकमार्क बार पर अपने बुकमार्क ढूंढें.</translation>
 <translation id="573759479754913123">Chrome OS के बारे में</translation>
+<translation id="5749068826913805084">फ़ाइलें डाउनलोड करने के लिए Chrome को मेमोरी ऐक्‍सेस की आवश्‍यकता होगी.</translation>
 <translation id="5785746630574083988">Windows 8 में पुन: लॉन्च करने से आपके Chrome ऐप्स बंद हो जाएंगे और पुन: लॉन्च हो जाएंगे.</translation>
 <translation id="5799551393681493217">iframe-आधारित Chrome प्रवेश प्रवाहों को सक्षम करता है. यह फ़्लैग --वेब-आधारित-प्रवेश-सक्षम करें को ओवरराइड करता है.</translation>
 <translation id="5855036575689098185">आपके कंप्यूटर पर चल रहा सॉफ़्टवेयर Google Chrome के साथ असंगत है.</translation>
@@ -207,6 +211,7 @@
 <translation id="7164397146364144019">आप Google को संभावित सुरक्षा घटनाओं के विवरणों की अपने आप रिपोर्ट करके Chrome को अधिक सुरक्षित और आसान बनाने में सहायता कर सकते हैं.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> को Chrome में जोड़ दिया गया है.</translation>
 <translation id="7191567847629796517">Google Chrome OS <ph name="SCHEME" /> लिंक प्रबंधित करने के लिए बाहरी ऐप्‍लिकेशन लॉन्‍च करने का समर्थन नहीं करता. अनुरोधित लिंक <ph name="PROTOLINK" /> है.</translation>
+<translation id="7193750696137290001">Google Chrome इस भाषा में दिखाया जा रहा है.</translation>
 <translation id="7196020411877309443">मैं यह क्यों देख रहा/रही हूं?</translation>
 <translation id="7242029209006116544">आप प्रबंधित खाते से प्रवेश कर रहे हैं और उसके व्यवस्थापक को अपनी Google Chrome प्रोफ़ाइल पर नियंत्रण दे रहे हैं. आपका Chrome डेटा, जैसे आपके ऐप्स , बुकमार्क, इतिहास, पासवर्ड, और अन्य सेटिंग <ph name="USER_NAME" /> से स्थायी रूप से जुड़ जाएंगी. आप Google खाता डैशबोर्ड से इस डेटा को हटा सकेंगे, लेकिन आप किसी अन्य खाते से इस डेटा को संबद्ध नहीं कर सकेंगे. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome - सूचनाएं (<ph name="QUANTITY" /> अपठित)</translation>
@@ -222,6 +227,7 @@
 <translation id="7473136999113284234">Chrome अपने आप अपडेट हो जाता है इसलिए आपके पास हमेशा नवीनतम वर्शन रहता है.</translation>
 <translation id="7473891865547856676">जी रहने दें</translation>
 <translation id="7494905215383356681">Chrome ओपन सोर्स लाइसेंस</translation>
+<translation id="7552219221109926349">Chrome OS इस भाषा में दिखाएं</translation>
 <translation id="7592736734348559088">Google Chrome आपका डेटा समन्‍वयित नहीं कर सका क्‍योंकि आपके खाते के प्रवेश विवरण पुराने हैं.</translation>
 <translation id="7626032353295482388">Chrome में आपका स्वागत है</translation>
 <translation id="7747138024166251722">इंस्टॉलर अस्थायी निर्देशिका नहीं बना सकता. कृपया डिस्क में खाली जगह और सॉफ़्टवेयर को इंस्‍टॉल करने की अनुमति की जांच करें.</translation>
@@ -235,6 +241,7 @@
 <translation id="7825851276765848807">अनिर्दिष्ट त्रुटि के कारण डाउनलोड विफल हुआ. कृपया Google Chrome पुन: डाउनलोड करें.</translation>
 <translation id="7890208801193284374">यदि आप कंप्यूटर साझा करते हैं, तो मित्र और परिवार अलग-अलग ब्राउज़ कर सकते हैं और Chrome को जैसा चाहें सेट कर सकते हैं.</translation>
 <translation id="7908968924842975895">यह कंप्यूटर अब Google Chrome अपडेट प्राप्त नहीं करेगा क्योंकि इसका हार्डवेयर अब समर्थित नहीं है.</translation>
+<translation id="7964230182933713106">Chrome OS इस भाषा में दिखाया जा रहा है.</translation>
 <translation id="7984945080620862648">आप इस समय <ph name="SITE" /> पर विज़िट नहीं कर सकते हैं क्योंकि वेबसाइट ने ऐसे अव्यवस्थित प्रमाणिकता भेजे हैं जिन्हें Chrome संसाधित नहीं कर सकता. नेटवर्क की त्रुटियां और हमले आमतौर पर अस्थायी होते हैं, इसलिए संभवत: यह पृष्ठ बाद में काम करेगा.</translation>
 <translation id="8000275528373650868">Google Chrome को Windows Vista या SP2 वाले Windows XP या इसके बाद के वर्शन की आवश्यकता है.</translation>
 <translation id="8005540215158006229">Chrome लगभग तैयार है.</translation>

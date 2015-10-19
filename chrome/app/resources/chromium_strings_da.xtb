@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">Chromium OS understøtter ikke start af en ekstern applikation til at håndtere <ph name="SCHEME" />-links. Det link, der er anmodet om, er <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">Der er registreret en modstridende installation af Chromium i dit system. Du skal afinstallere denne og prøve igen.</translation>
 <translation id="1298199220304005244">Få hjælp til at bruge Chromium OS</translation>
+<translation id="1347507563453473396">Chromium kan ikke vises på dette sprog.</translation>
 <translation id="1396446129537741364">Chromium forsøger at vise adgangskoder.</translation>
 <translation id="1414495520565016063">Du er logget ind på Chromium.</translation>
 <translation id="1444754455097148408">Chromium open source-licenser</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> er skadelig, og Chromium har blokeret den.</translation>
 <translation id="2847479871509788944">Fjern fra Chromium...</translation>
 <translation id="2886012850691518054">Valgfrit: Hjælp med at gøre Chromium bedre ved automatisk at sende forbrugsstatistik og nedbrudsrapporter til Google.</translation>
+<translation id="2905536371227304018">Chromium OS vises på dette sprog.</translation>
 <translation id="2910007522516064972">Om &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium skal starte en ekstern applikation for at håndtere <ph name="SCHEME" />-links. Det link, der er anmodet om, er <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Føjer til Chromium...</translation>
@@ -138,8 +140,11 @@
 <translation id="5427571867875391349">Angiv Chromium som din standardbrowser</translation>
 <translation id="5466153949126434691">Chromium opdateres automatisk, så du altid har den nyeste version. Når downloaden er fuldført, genstartes Chromium, og så er du godt på vej.</translation>
 <translation id="549669000822060376">Vent, mens Chromium installerer de nyeste systemopdateringer.</translation>
+<translation id="556167189552180495">Chromium vises på dette sprog.</translation>
 <translation id="5563479599352954471">Søg med én berøring</translation>
 <translation id="5620765574781326016">Læs om emner på websites uden at forlade siden.</translation>
+<translation id="5698481217667032250">Vis Chromium på dette sprog</translation>
+<translation id="5768914737813585044">Vis Chromium OS på dette sprog</translation>
 <translation id="5772805321386874569">(kræver en <ph name="BEGIN_BUTTON" />genstart<ph name="END_BUTTON" /> af Chromium)</translation>
 <translation id="5796460469508169315">Chromium er næsten klar.</translation>
 <translation id="580822234363523061">Gå til
@@ -170,6 +175,7 @@
 <translation id="6475912303565314141">Den styrer også, hvilken side der vises, når du åbner Chromium.</translation>
 <translation id="6485906693002546646">Du bruger <ph name="PROFILE_EMAIL" /> til at synkronisere dine Chromium-ting med. Gå til <ph name="SETTINGS_LINK" />, hvis du vil opdatere dine synkroniseringspræference eller bruge Chromium uden en Google-konto.</translation>
 <translation id="6510925080656968729">Afinstaller Chromium</translation>
+<translation id="6526111688217511984">Chromium skal have lageradgang for at kunne downloade filer.</translation>
 <translation id="6637001341228460105">Chromium skal have adgang til din mikrofon, før den kan deles med dette website.</translation>
 <translation id="6638567566961868659">Find dine bogmærker i Chromium-menuen eller på bogmærkelinjen.</translation>
 <translation id="6676384891291319759">Få adgang til internettet</translation>
@@ -207,6 +213,7 @@ Chromium kan ikke gendanne dine præferencer.</translation>
 <translation id="734373864078049451">Dit webindhold, dine bogmærker og andre Chromium-ting kan findes her.</translation>
 <translation id="7419987137528340081">Hvis du foretrækker at holde dine eksisterende Chromium-data adskilt, kan du oprette en ny Chromium-bruger for <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium kræver Windows XP eller nyere. Nogle funktioner virker muligvis ikke.</translation>
+<translation id="7437562785125777404">Chromium OS kan ikke vises på dette sprog.</translation>
 <translation id="7463979740390522693">Chromium – Underretninger (<ph name="QUANTITY" /> ulæste)</translation>
 <translation id="7473891865547856676">Nej tak</translation>
 <translation id="7483335560992089831">Kan ikke installere den samme version af Chromium som den, der kører i øjeblikket. Luk Chromium, og prøv igen.</translation>

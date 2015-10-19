@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">Sistemul de operare Chromium nu acceptă lansarea unei aplicații externe pentru a gestiona linkuri <ph name="SCHEME" />. Linkul solicitat este <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">În sistem a fost găsită o instalare Chromium care generează conflicte. Dezinstalați-o și încercați din nou.</translation>
 <translation id="1298199220304005244">Obțineți ajutor în legătură cu utilizarea sistemului de operare Chromium</translation>
+<translation id="1347507563453473396">Chromium nu poate fi afișat în această limbă.</translation>
 <translation id="1396446129537741364">Chromium încearcă să afișeze parolele.</translation>
 <translation id="1414495520565016063">V-ați conectat la Chromium!</translation>
 <translation id="1444754455097148408">Licențe open source Chromium</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">Fișierul <ph name="FILE_NAME" /> este rău-intenționat și a fost blocat de Chromium.</translation>
 <translation id="2847479871509788944">Elimină din Chromium...</translation>
 <translation id="2886012850691518054">Opțional: contribuie la îmbunătățirea Chromium prin trimiterea automată de statistici privind utilizarea și rapoarte de blocare la Google.</translation>
+<translation id="2905536371227304018">Sistemul de operare Chromium este afișat în această limbă.</translation>
 <translation id="2910007522516064972">Despre &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium necesită lansarea unei aplicații externe pentru a gestiona linkuri <ph name="SCHEME" />. Linkul solicitat este <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Se adaugă la Chromium...</translation>
@@ -138,8 +140,11 @@
 <translation id="5427571867875391349">Setați Chromium ca browser prestabilit</translation>
 <translation id="5466153949126434691">Chromium se actualizează automat, deci ai întotdeauna cea mai recentă versiune. După această descărcare, Chromium va reporni și va fi gata de utilizare.</translation>
 <translation id="549669000822060376">Așteaptă până când Chromium instalează cele mai recente actualizări de sistem.</translation>
+<translation id="556167189552180495">Chromium este afișat în această limbă.</translation>
 <translation id="5563479599352954471">Caută cu o atingere</translation>
 <translation id="5620765574781326016">Află despre subiectele de pe site-uri fără să părăsești pagina.</translation>
+<translation id="5698481217667032250">Afișează Chromium în această limbă</translation>
+<translation id="5768914737813585044">Afișează sistemul de operare Chromium în această limbă</translation>
 <translation id="5772805321386874569">(necesită <ph name="BEGIN_BUTTON" />repornirea<ph name="END_BUTTON" /> Chromium)</translation>
 <translation id="5796460469508169315">Chromium este aproape configurat.</translation>
 <translation id="580822234363523061">Accesați
@@ -170,6 +175,7 @@
 <translation id="6475912303565314141">Stabilește și ce pagină se afișează când porniți Chromium.</translation>
 <translation id="6485906693002546646">În prezent, folosiți <ph name="PROFILE_EMAIL" /> pentru a sincroniza datele Chromium. Pentru a actualiza preferințele de sincronizare sau pentru a folosi Chromium fără un Cont Google, accesați <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Dezinstalați Chromium</translation>
+<translation id="6526111688217511984">Pentru a descărca fișiere, Chromium necesită acces la stocare.</translation>
 <translation id="6637001341228460105">Chromium are nevoie de acces la microfon pentru a-l acorda acestui site.</translation>
 <translation id="6638567566961868659">Găsiți marcajele în meniul Chromium sau în bara de marcaje.</translation>
 <translation id="6676384891291319759">Accesează internetul</translation>
@@ -207,6 +213,7 @@ Chromium nu poate recupera setările.</translation>
 <translation id="734373864078049451">Experiența web personalizată, marcajele și celelalte date Chromium chiar aici.</translation>
 <translation id="7419987137528340081">Dacă preferați să păstrați separat datele Chromium existente, puteți crea un utilizator Chromium nou pentru <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium necesită Windows XP sau o versiune ulterioară. Este posibil ca unele funcții să nu fie disponibile.</translation>
+<translation id="7437562785125777404">Sistemul de operare Chromium nu poate fi afișat în această limbă.</translation>
 <translation id="7463979740390522693">Chromium – Notificări (<ph name="QUANTITY" /> necitite)</translation>
 <translation id="7473891865547856676">Nu, mulțumesc</translation>
 <translation id="7483335560992089831">Nu se poate instala aceeași versiune de Chromium care rulează în prezent. Închideți Chromium și încercați din nou.</translation>

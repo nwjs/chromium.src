@@ -13,6 +13,7 @@
 <translation id="1221340462641866827">Chromium ስርዓተ ክወና የ<ph name="SCHEME" /> አገናኞችን ለማስተናገድ የውጫዊ መተግበሪያዎችን ማስጀመር አይደግፍም። የተጠየቀው አገናኝ <ph name="PROTOLINK" /> ነው።</translation>
 <translation id="1293235220023151515">በስርዓቱ ላይ የሚጋጭ የChromium ጭነት ተገኝቷል። እባክዎ ያራግፉት እና እንደገና ይሞክሩ።</translation>
 <translation id="1298199220304005244">Chromium ስርዓተ ክወና መጠቀም ላይ እገዛ ያግኙ</translation>
+<translation id="1347507563453473396">Chromium በዚህ ቋንቋ እንዲታይ ሊደረግ አይችልም።</translation>
 <translation id="1396446129537741364">Chromium የይለፍ ቃላትን ለማሳየት እየሞከረ ነው።</translation>
 <translation id="1414495520565016063">ወደ Chromium ገብተዋል!</translation>
 <translation id="1444754455097148408">Chromium የክፍት ምንጭ ፈቃዶች</translation>
@@ -63,6 +64,7 @@
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> ተንኮል-አዘል ነው፣ እና Chromium አግዶታል።</translation>
 <translation id="2847479871509788944">ከChromium አስወግድ...</translation>
 <translation id="2886012850691518054">ከተፈለገ፦ የአጠቃቀም ስታትስቲክስ እና የብልሽት ሪፖርቶችን ወደ Google በራስ-ሰር በመላክ Chromium የተሻለ እንዲሆን ያግዙ።</translation>
+<translation id="2905536371227304018">Chromium OS በዚህ ቋንቋ እየታየ ነው።</translation>
 <translation id="2910007522516064972">ስለ &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium የ<ph name="SCHEME" /> አገናኞችን ለማስተናገድ አንድ ውጫዊ መተግበሪያ ማስጀመር አለበት። የተጠየቀው አገናኝ <ph name="PROTOLINK" /> ነው።</translation>
 <translation id="3032787606318309379">ወደ Chromium በማከል ላይ...</translation>
@@ -141,8 +143,11 @@
 <translation id="5427571867875391349">Chromium እንደ ነባሪ አሳሽዎ አድርገው ያዋቅሩት</translation>
 <translation id="5466153949126434691">Chromium በራስ-ሰር ስለሚዘምን ሁልጊዜ ትኩሱ ስሪት ነው የሚኖርዎ። ይህ ውርድ ሲጠናቀቅ Chromium ዳግም ይጀምርና እርስዎም ስራዎን ይቀጥላሉ።</translation>
 <translation id="549669000822060376">Chromium የቅርብ ጊዜዎቹ የስርዓቱ ዝማኔዎችን እስኪጭን ድረስ እባክዎ ይጠብቁ።</translation>
+<translation id="556167189552180495">Chromium በዚህ ቋንቋ እየታየ ነው።</translation>
 <translation id="5563479599352954471">በአንዲ ንክኪ ይፈልጉ</translation>
 <translation id="5620765574781326016">ከገጹ ሳይወጡ በድር ጣቢያዎች ላይ ስላሉ ስለርዕሶች ይወቁ</translation>
+<translation id="5698481217667032250">Chromiumን በዚህ ቋንቋ አሳይ</translation>
+<translation id="5768914737813585044">Chromium OS በዚህ ቋንቋ አሳይ</translation>
 <translation id="5772805321386874569">(የChromium <ph name="BEGIN_BUTTON" />ዳግም መጀመር<ph name="END_BUTTON" /> ያስፈልገዋል)</translation>
 <translation id="5796460469508169315">Chromium ዝግጁ ሊሆን ትንሽ ቀርቶታል።</translation>
 <translation id="580822234363523061">ወደ
@@ -173,6 +178,7 @@
 <translation id="6475912303565314141">እንዲሁም Chromiumን ሲጀምሩት የሚታየውን ገጽ ይቆጣጠራል።</translation>
 <translation id="6485906693002546646">የChromium ነገሮችዎን ለማመሳሰል <ph name="PROFILE_EMAIL" />ን እየተጠቀሙ ነው። የማመሳሰል ምርጫዎን ለማዘመን ወይም Chromium ያለGoogle መለያ መጠቀም የሚፈልጉ ከሆኑ <ph name="SETTINGS_LINK" />ን ይጎብኙ።</translation>
 <translation id="6510925080656968729">Chromiumን ያራግፉ</translation>
+<translation id="6526111688217511984">Chromium ፋይሎችን ለማውረድ የማከማቻ መዳረሻ ያስፈልገዋል።</translation>
 <translation id="6637001341228460105">Chromium ይህን ለዚህ ጣቢያ ለማጋራት የማይክሮፎን መዳረሻ ያስፈልገዋል።</translation>
 <translation id="6638567566961868659">ዕልባቶችዎን በChromium ምናሌ ውስጥ ወይም በዕልባቶች አሞሌው ላይ ይፈልጉ።</translation>
 <translation id="6676384891291319759">በይነመረብን ተዳረስ</translation>
@@ -210,6 +216,7 @@ Chromium ቅንብሮችዎን ማስመለስ አልቻለም።</translation>
 <translation id="734373864078049451">የእርስዎ ድር፣ ዕልባቶች እና ሌሎች የChromium ነገሮች እዚህ ይኖራሉ።</translation>
 <translation id="7419987137528340081">ነባሩ የChromium ውሂብዎን ለይተው ማስቀመጥ ከፈለጉ ለ<ph name="USER_NAME" /> አዲስ የChromium ተጠቃሚ መፍጠር ይችላሉ።</translation>
 <translation id="7421823331379285070">Chromium Windows XP ወይም ከዚያ በኋላ ይፈልጋል። አንዳንድ ባህሪያት ላይሰሩ ይችላሉ።</translation>
+<translation id="7437562785125777404">Chromium OS በዚህ ቋንቋ እንዲታይ ሊደረግ አይችልም።</translation>
 <translation id="7463979740390522693">Chromium - ማሳወቂያዎች (<ph name="QUANTITY" /> ያልተነበቡ)</translation>
 <translation id="7473891865547856676">አይ፣ አመሰግናለሁ</translation>
 <translation id="7483335560992089831">እየሄደ ያለውን ተመሳሳዩን የChromium ስሪት መጫን አይቻልም። እባክዎ Chromiumን ይዝጉና እንደገና ይሞክሩ።</translation>

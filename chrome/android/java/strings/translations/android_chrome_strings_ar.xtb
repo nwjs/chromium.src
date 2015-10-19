@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">تم اكتشاف اتصال بطيء بالإنترنت.</translation>
 <translation id="2842985007712546952">المجلد الرئيسي</translation>
 <translation id="2870560284913253234">الموقع</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{‏عنوان URL واحد في الجوار}zero{‏# عنوان URL في الجوار}two{‏عنوانان (#) URL في الجوار}few{‏# عناوين URL في الجوار}many{‏# عنوان URL في الجوار}other{‏# عنوان URL في الجوار}}</translation>
 <translation id="2888126860611144412">‏حول Chrome</translation>
 <translation id="2891154217021530873">إيقاف تحميل الصفحة</translation>
 <translation id="2902702728133930130">‏أخفق Chrome أثناء بدء التشغيل بسبب خطأ غير متوقع.</translation>
@@ -313,6 +314,7 @@
           لكنك لن تكون غير مرئي، فاستخدام وضع التصفح المتخفي لا يخفي تصفحك عن صاحب العمل أو مزود خدمة الإنترنت أو مواقع الويب التي تزورها.</translation>
 <translation id="572328651809341494">علامات التبويب الأخيرة</translation>
 <translation id="5733727110006255111">‏عند تشغيل هذه الميزة، سيستخدم Chrome خوادم Google لضغط الصفحات التي تزورها قبل تنزيلها. ولن يتضمن هذا صفحات وضعي SSL والتصفح المتخفي.</translation>
+<translation id="5749068826913805084">‏يحتاج Chrome الوصول إلى سعة التخزين لتنزيل الملفات.</translation>
 <translation id="5763382633136178763">علامات تبويب التصفح المتخفي</translation>
 <translation id="5765780083710877561">الوصف:</translation>
 <translation id="5771382037724542929">هل تريد استبدال <ph name="FILE_NAME" /> الموجود في <ph name="DIRECTORY_NAME" />؟</translation>
@@ -321,6 +323,7 @@
 <translation id="5817918615728894473">إقران</translation>
 <translation id="5832934273103296195">تم التوسيع - انقر للتصغير</translation>
 <translation id="583891442612896534">‏لا يمكن لمتصفح Chrome الوصول إلى خوادم Google لضغط البيانات. قد تكون خيارات توفير البيانات محدودة.</translation>
+<translation id="585027516397408832">تمكين توفير البيانات</translation>
 <translation id="5860033963881614850">إيقاف</translation>
 <translation id="5869522115854928033">كلمات المرور المحفوظة</translation>
 <translation id="588258955323874662">ملء الشاشة</translation>
@@ -423,6 +426,7 @@
 <translation id="7096034533295549981">تحميل الفيديو</translation>
 <translation id="7191430249889272776">تم فتح علامة التبويب في الخلفية.</translation>
 <translation id="7201341158316793215">جارٍ الإزالة…</translation>
+<translation id="7208788139759694678">تعطيل توفير البيانات</translation>
 <translation id="7243308994586599757">الخيارات المتاحة بالقرب من الجزء السفلي من الشاشة</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> يستخدم موقعك لعرض نتائج البحث المحلي</translation>
 <translation id="7299721129597238157">حذف الإشارة المرجعية</translation>

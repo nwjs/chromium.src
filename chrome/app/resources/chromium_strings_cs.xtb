@@ -12,6 +12,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="1221340462641866827">Chromium OS nepodporuje spouštění externích aplikací pro práci s odkazy typu <ph name="SCHEME" />. Požadovaný odkaz je <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">V systému byla nalezena konfliktní instalace prohlížeče Chromium. Odinstalujte ji prosím a zkuste to znovu.</translation>
 <translation id="1298199220304005244">Pomoc s používáním operačního systému Chromium OS</translation>
+<translation id="1347507563453473396">Chromium v tomto jazyce nelze zobrazit.</translation>
 <translation id="1396446129537741364">Chromium se pokouší zobrazit hesla.</translation>
 <translation id="1414495520565016063">Jste přihlášeni do prohlížeče Chromium.</translation>
 <translation id="1444754455097148408">Chromium – licence open source</translation>
@@ -62,6 +63,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="2801146392936645542">Soubor <ph name="FILE_NAME" /> je škodlivý a prohlížeč Chromium jej zablokoval.</translation>
 <translation id="2847479871509788944">Odstranit z prohlížeče Chromium...</translation>
 <translation id="2886012850691518054">Volitelné: Pomozte Chromium zlepšit – posílejte automaticky společnosti Google statistiky využití a zprávy o selhání aplikace.</translation>
+<translation id="2905536371227304018">Chromium OS se zobrazuje v tomto jazyce.</translation>
 <translation id="2910007522516064972">O prohlížeči &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium potřebuje spustit externí aplikaci pro práci s odkazy typu <ph name="SCHEME" />. Požadovaný odkaz je <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Přidávání do prohlížeče Chromium...</translation>
@@ -140,8 +142,11 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="5427571867875391349">Nastavit Chromium jako výchozí prohlížeč</translation>
 <translation id="5466153949126434691">Prohlížeč Chromium se automaticky aktualizuje, abyste vždy měli k dispozici nejnovější verzi. Až toto stahování skončí, Chromium se restartuje a budete moci pokračovat.</translation>
 <translation id="549669000822060376">Počkejte prosím, než Chromium nainstaluje nejnovější aktualizace systému.</translation>
+<translation id="556167189552180495">Chromium se zobrazuje v tomto jazyce.</translation>
 <translation id="5563479599352954471">Vyhledávání jedním klepnutím</translation>
 <translation id="5620765574781326016">Vyhledávejte informace o tématech zmíněných na stránce, aniž byste stránku museli opustit.</translation>
+<translation id="5698481217667032250">Zobrazit Chromium v tomto jazyce</translation>
+<translation id="5768914737813585044">Zobrazit Chromium OS v tomto jazyce</translation>
 <translation id="5772805321386874569">(vyžaduje <ph name="BEGIN_BUTTON" />restartování<ph name="END_BUTTON" /> prohlížeče Chromium)</translation>
 <translation id="5796460469508169315">Prohlížeč Chromium je téměř připraven.</translation>
 <translation id="580822234363523061">Přejděte do
@@ -172,6 +177,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="6475912303565314141">Také řídí, která stránka se zobrazí při spuštění prohlížeče Chromium.</translation>
 <translation id="6485906693002546646">Synchronizujete obsah a nastavení prohlížeče Chromium s účtem <ph name="PROFILE_EMAIL" />. Chcete-li možnosti synchronizace upravit nebo Chromium používat bez účtu Google, navštivte <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Odinstalovat Chromium</translation>
+<translation id="6526111688217511984">Aby bylo možné stahovat soubory, Chromium potřebuje přístup k úložišti.</translation>
 <translation id="6637001341228460105">Prohlížeč Chromium potřebuje přístup k mikrofonu, aby jej mohl sdílet s těmito stránkami.</translation>
 <translation id="6638567566961868659">Záložky naleznete v nabídce Chromium nebo na liště záložek.</translation>
 <translation id="6676384891291319759">Přístup k internetu</translation>
@@ -209,6 +215,7 @@ Chromium nemůže vaše nastavení obnovit.</translation>
 <translation id="734373864078049451">Zde jsou k dispozici vaše weby, záložky a další obsah prohlížeče Chromium.</translation>
 <translation id="7419987137528340081">Pokud chcete svá stávající data prohlížeče Chromium uchovávat odděleně, můžete pro účet <ph name="USER_NAME" /> vytvořit nového uživatele prohlížeče Chromium.</translation>
 <translation id="7421823331379285070">Chromium vyžaduje operační systém Windows XP nebo novější. Některé funkce možná nebudou dostupné.</translation>
+<translation id="7437562785125777404">Chromium OS v tomto jazyce nelze zobrazit.</translation>
 <translation id="7463979740390522693">Chromium – oznámení (nepřečtené: <ph name="QUANTITY" />)</translation>
 <translation id="7473891865547856676">Ne, děkuji</translation>
 <translation id="7483335560992089831">Nelze nainstalovat verzi prohlížeče Chromium, která je právě spuštěná. Ukončete prohlížeč Chromium a zkuste to znovu.</translation>

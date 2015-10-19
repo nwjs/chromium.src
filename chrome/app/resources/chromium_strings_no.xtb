@@ -11,6 +11,7 @@ og feil legitimasjon. Enten utgir en hacker seg for å være <ph name="SITE" />,
 <translation id="1221340462641866827">Chromium OS støtter ikke start av et eksternt program for å håndtere <ph name="SCHEME" />-linker. Den påkrevde linken er <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">Det ble funnet en konfliktskapende installasjon av Chromium på systemet. Avinstaller den og prøv på nytt.</translation>
 <translation id="1298199220304005244">Få hjelp med å bruke Chromium OS</translation>
+<translation id="1347507563453473396">Chromium kan ikke vises på dette språket.</translation>
 <translation id="1396446129537741364">Chromium prøver å vise passord.</translation>
 <translation id="1414495520565016063">Du er logget på Chromium.</translation>
 <translation id="1444754455097148408">Åpen kildekode-lisenser for Chromium</translation>
@@ -61,6 +62,7 @@ og feil legitimasjon. Enten utgir en hacker seg for å være <ph name="SITE" />,
 <translation id="2801146392936645542">Filen <ph name="FILE_NAME" /> er skadelig, og Chromium har blokkert den.</translation>
 <translation id="2847479871509788944">Fjern fra Chromium</translation>
 <translation id="2886012850691518054">Valgfritt: Bidra til å gjøre Chromium bedre ved å sende brukerstatistikk og krasjrapporter automatisk til Google.</translation>
+<translation id="2905536371227304018">Chromium OS vises på dette språket.</translation>
 <translation id="2910007522516064972">Om &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium må starte et eksternt program for å håndtere <ph name="SCHEME" />-linker. Den påkrevde linken er <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Legger til i Chromium …</translation>
@@ -139,8 +141,11 @@ og feil legitimasjon. Enten utgir en hacker seg for å være <ph name="SITE" />,
 <translation id="5427571867875391349">Bruk Chromium som standard nettleser</translation>
 <translation id="5466153949126434691">Chromium oppdateres automatisk, sånn at du alltid har den nyeste versjonen. Når denne nedlastingen er fullført, kommer Chromium til å starte på nytt, og du er i gang.</translation>
 <translation id="549669000822060376">Vent mens Chromium installerer de nyeste systemoppdateringene.</translation>
+<translation id="556167189552180495">Chromium vises på dette språket.</translation>
 <translation id="5563479599352954471">Søk med ett trykk</translation>
 <translation id="5620765574781326016">Finn ut mer om emner på nettsteder uten å forlate siden.</translation>
+<translation id="5698481217667032250">Vis Chromium på dette språket</translation>
+<translation id="5768914737813585044">Vis Chromium OS på dette språket</translation>
 <translation id="5772805321386874569">(krever at Chromium <ph name="BEGIN_BUTTON" />startes på nytt<ph name="END_BUTTON" />)</translation>
 <translation id="5796460469508169315">Chromium er nesten klar.</translation>
 <translation id="580822234363523061">Gå til
@@ -171,6 +176,7 @@ og feil legitimasjon. Enten utgir en hacker seg for å være <ph name="SITE" />,
 <translation id="6475912303565314141">Den styrer også hvilken side som vises når du starter Chromium.</translation>
 <translation id="6485906693002546646">Du bruker <ph name="PROFILE_EMAIL" /> for synkronisering av Chromium-tingene dine. For å oppdatere alternativene for synkronisering eller bruke Chromium uten Google-konto, kan du gå til <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Avinstaller Chromium</translation>
+<translation id="6526111688217511984">Chromium må ha lagringstilgang for å laste ned filer.</translation>
 <translation id="6637001341228460105">Chromium må ha tilgang til mikrofonen din for å kunne dele den med dette nettstedet.</translation>
 <translation id="6638567566961868659">Finn bokmerkene dine i Chromium-menyen eller på bokmerkeraden.</translation>
 <translation id="6676384891291319759">Gå til Internett</translation>
@@ -208,6 +214,7 @@ Chromium kan ikke gjenopprette innstillingen dine.</translation>
 <translation id="734373864078049451">Her finner du nettinnholdet, bokmerkene og de andre Chromium-tingene dine.</translation>
 <translation id="7419987137528340081">Hvis du foretrekker å holde eksisterende Chromium-data separat, kan du opprette en ny Chromium-bruker for <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium krever Windows XP eller nyere. Enkelte funksjoner vil kanskje ikke fungere.</translation>
+<translation id="7437562785125777404">Chromium OS kan ikke vises på dette språket.</translation>
 <translation id="7463979740390522693">Chromium – varsler (<ph name="QUANTITY" /> uleste)</translation>
 <translation id="7473891865547856676">Nei takk</translation>
 <translation id="7483335560992089831">Kan ikke installere den samme Chromium-versjonen som kjører. Lukk Chromium og prøv på nytt.</translation>

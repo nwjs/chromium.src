@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Низкая скорость сетевого подключения.</translation>
 <translation id="2842985007712546952">Родительская папка</translation>
 <translation id="2870560284913253234">Сайт</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL поблизости}one{# URL поблизости}few{# URL поблизости}many{# URL поблизости}other{# URL поблизости}}</translation>
 <translation id="2888126860611144412">О браузере Chrome</translation>
 <translation id="2891154217021530873">Остановить загрузку страницы</translation>
 <translation id="2902702728133930130">При запуске Chrome произошла непредвиденная ошибка.</translation>
@@ -316,6 +317,7 @@
 В режиме инкогнито ваши действия видны системному администратору и интернет-провайдеру, а также доступны веб-сайтам, которые вы посещаете.</translation>
 <translation id="572328651809341494">Недавние вкладки</translation>
 <translation id="5733727110006255111">Если вы включите эту функцию, серверы Google начнут сжимать данные перед показом веб-страниц в Chrome. Это не касается данных, полученных по протоколу SSL и в режиме инкогнито.</translation>
+<translation id="5749068826913805084">Для скачивания файлов браузеру Chrome требуется доступ к хранилищу.</translation>
 <translation id="5763382633136178763">Вкладки в режиме инкогнито</translation>
 <translation id="5765780083710877561">Описание:</translation>
 <translation id="5771382037724542929">Вы хотите заменить существующий файл "<ph name="FILE_NAME" />" в папке "<ph name="DIRECTORY_NAME" />"?</translation>
@@ -324,6 +326,7 @@
 <translation id="5817918615728894473">Подключить</translation>
 <translation id="5832934273103296195">Развернуто. Нажмите, чтобы свернуть.</translation>
 <translation id="583891442612896534">Не удалось подключиться к серверам Google для сжатия данных. Объем трафика может увеличиться.</translation>
+<translation id="585027516397408832">Расширение "Экономия трафика" включено</translation>
 <translation id="5860033963881614850">Выкл.</translation>
 <translation id="5869522115854928033">Сайты с сохраненными паролями</translation>
 <translation id="588258955323874662">Полноэкранный режим</translation>
@@ -426,6 +429,7 @@
 <translation id="7096034533295549981">Загрузка видео…</translation>
 <translation id="7191430249889272776">Вкладка открыта в фоновом режиме</translation>
 <translation id="7201341158316793215">Удаление…</translation>
+<translation id="7208788139759694678">Расширение "Экономия трафика" отключено</translation>
 <translation id="7243308994586599757">Доступные параметры указаны в нижней части экрана</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> использует ваше местоположение, чтобы показывать результаты поиска по адресам.</translation>
 <translation id="7299721129597238157">Удалить закладку</translation>

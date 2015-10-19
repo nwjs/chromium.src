@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Na-detect ang mabagal na koneksyon.</translation>
 <translation id="2842985007712546952">Pangunahing folder</translation>
 <translation id="2870560284913253234">Site</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL sa malapit}one{# URL sa malapit}other{# na URL sa malapit}}</translation>
 <translation id="2888126860611144412">Tungkol sa Chrome</translation>
 <translation id="2891154217021530873">Ihinto ang pag-load ng page</translation>
 <translation id="2902702728133930130">Nagkaroon ng hindi inaasahang error ang Chrome habang nagsasagawa ng pag-start up.</translation>
@@ -315,6 +316,7 @@ Kasama sa mga istatistika sa paggamit ang impormasyon tulad ng mga kagustuhan, p
 Gayunpaman, hindi ka invisible. Hindi tinatago ng pagiging incognito ang iyong pagba-browse sa iyong employer, iyong internet service provider o sa mga binibisita mong website.</translation>
 <translation id="572328651809341494">Mga kamakailang tab</translation>
 <translation id="5733727110006255111">Kapag naka-on ang feature na ito, gagamitin ng Chrome ang mga server ng Google para i-compress ang mga binibisita mong page bago sila i-download. Hindi isasama ang mga page na gumagamit ng SSL at incognito mode.</translation>
+<translation id="5749068826913805084">Kailangan ng Chrome ng access sa storage upang mag-download ng mga file.</translation>
 <translation id="5763382633136178763">Mga tab na incognito</translation>
 <translation id="5765780083710877561">Paglalarawan:</translation>
 <translation id="5771382037724542929">Gusto mo bang palitan ang umiiral nang <ph name="FILE_NAME" /> sa <ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@ Gayunpaman, hindi ka invisible. Hindi tinatago ng pagiging incognito ang iyong p
 <translation id="5817918615728894473">Ipares</translation>
 <translation id="5832934273103296195">Pinalawak - I-click upang i-collapse</translation>
 <translation id="583891442612896534">Hindi magawa ng Chrome na makipag-ugnayan sa mga server ng Google para sa pag-compress ng data. Maaaring limitado lang ang matipid mo sa data.</translation>
+<translation id="585027516397408832">Naka-enable ang Data Saver</translation>
 <translation id="5860033963881614850">Naka-off</translation>
 <translation id="5869522115854928033">Mga naka-save na password</translation>
 <translation id="588258955323874662">Fullscreen</translation>
@@ -425,6 +428,7 @@ Halimbawa, maaaring tumugon ang ilang website sa kahilingang ito sa pamamagitan 
 <translation id="7096034533295549981">Naglo-load</translation>
 <translation id="7191430249889272776">Binuksan ang tab sa background.</translation>
 <translation id="7201341158316793215">Inaalis…</translation>
+<translation id="7208788139759694678">Naka-disable ang Data Saver</translation>
 <translation id="7243308994586599757">May mga opsyon malapit sa ibaba ng screen</translation>
 <translation id="7244362611678346589">Ginagamit ng <ph name="SEARCH_ENGINE_URL" /> ang iyong lokasyon upang magpakita ng mga lokal na resulta ng paghahanap</translation>
 <translation id="7299721129597238157">Tanggalin ang bookmark</translation>

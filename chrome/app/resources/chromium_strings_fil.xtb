@@ -13,6 +13,7 @@ at maling kredensyal. Maaaring sinusubukan ng isang umaatake na magpanggap na <p
 <translation id="1221340462641866827">Hindi sinusuportahan ng Chromium OS ang paglulunsad ng panlabas na application upang mangasiwa ng mga <ph name="SCHEME" /> na link. Ang hinihiling na link ay <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">May nakitang sumasalungat na pag-install ng Chromium sa system. Paki-uninstall ito at subukang muli.</translation>
 <translation id="1298199220304005244">Kumuha ng tulong sa paggamit ng Chromium OS</translation>
+<translation id="1347507563453473396">Hindi maipapakita ang Chromium sa wikang ito.</translation>
 <translation id="1396446129537741364">Sinusubukan ng Chromium na magpakita ng mga password.</translation>
 <translation id="1414495520565016063">Naka-sign in ka sa Chromium!</translation>
 <translation id="1444754455097148408">Mga lisensya ng open source ng Chromium</translation>
@@ -63,6 +64,7 @@ at maling kredensyal. Maaaring sinusubukan ng isang umaatake na magpanggap na <p
 <translation id="2801146392936645542">Nakakahamak ang <ph name="FILE_NAME" />, at na-block ito ng Chromium.</translation>
 <translation id="2847479871509788944">Alisin sa Chromium...</translation>
 <translation id="2886012850691518054">Opsyonal: Tumulong na pahusayin ang Chromium sa pamamagitan ng awtomatikong pagpapadala sa Google ng mga istatistika ng paggamit at mga ulat ng pag-crash.</translation>
+<translation id="2905536371227304018">Ipinapakita ang Chromium OS sa wikang ito.</translation>
 <translation id="2910007522516064972">Tungkol sa &amp;Chromium</translation>
 <translation id="2966088006374919794">Kinakailangang maglunsad ng Chromium ng panlabas na application upang mangasiwa ng mga <ph name="SCHEME" /> na link. Ang hiniling na link ay <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Idinaragdag sa Chromium...</translation>
@@ -141,8 +143,11 @@ at maling kredensyal. Maaaring sinusubukan ng isang umaatake na magpanggap na <p
 <translation id="5427571867875391349">Itakda ang Chromium bilang iyong default na browser</translation>
 <translation id="5466153949126434691">Awtomatikong nag-a-update ang Chromium upang palagi kang may pinakabagong bersyon. Kapag nakumpleto ang pag-download na ito, magre-restart ang Chromium at makakapagpatuloy ka na.</translation>
 <translation id="549669000822060376">Mangyaring maghintay habang ini-install ng Chromium ang mga pinakabagong update sa system.</translation>
+<translation id="556167189552180495">Ipinapakita ang Chromium sa wikang ito.</translation>
 <translation id="5563479599352954471">Maghanap sa isang pagpindot lang</translation>
 <translation id="5620765574781326016">Matuto tungkol sa mga paksa sa mga website nang hindi umaalis sa page.</translation>
+<translation id="5698481217667032250">Ipakita ang Chromium sa wikang ito</translation>
+<translation id="5768914737813585044">Ipakita ang Chromium OS sa wikang ito</translation>
 <translation id="5772805321386874569">(kinakailangang <ph name="BEGIN_BUTTON" />i-restart<ph name="END_BUTTON" /> ang Chromium)</translation>
 <translation id="5796460469508169315">Halos handa na ang Chromium.</translation>
 <translation id="580822234363523061">Pumunta sa
@@ -173,6 +178,7 @@ at maling kredensyal. Maaaring sinusubukan ng isang umaatake na magpanggap na <p
 <translation id="6475912303565314141">Kinokontrol din nito kung anong pahina ang ipinapakita kapag sinimulan mo ang Chromium.</translation>
 <translation id="6485906693002546646">Ginagamit mo ang <ph name="PROFILE_EMAIL" /> upang i-sync ang iyong bagay sa Chromium. Upang ma-update ang iyong kagustuhan sa pag-sync o upang magamit ang Chromium nang walang Google account, bisitahin ang <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">I-uninstall ang Chromium</translation>
+<translation id="6526111688217511984">Kailangan ng Chromium ng access sa storage upang mag-download ng mga file.</translation>
 <translation id="6637001341228460105">Nangangailangan ang Chromium ng access sa mikropono upang maibahagi ito sa site na ito.</translation>
 <translation id="6638567566961868659">Hanapin ang iyong mga bookmark sa Chromium menu o sa bookmarks bar.</translation>
 <translation id="6676384891291319759">I-access ang Internet</translation>
@@ -210,6 +216,7 @@ Hindi mabawi ng Chromium ang iyong mga setting.</translation>
 <translation id="734373864078049451">Makikita dito ang iyong web, mga bookmark at iba pang mga bagay-bagay sa Chromium.</translation>
 <translation id="7419987137528340081">Kung gusto mong ihiwalay ang iyong umiiral nang data sa Chromium, maaari kang lumikha ng bagong user ng Chromium para kay <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Nangangailangan ang Chromium ng Windows XP o mas bago. Maaaring hindi gumana ang ilang tampok.</translation>
+<translation id="7437562785125777404">Hindi maipapakita ang Chromium OS sa wikang ito.</translation>
 <translation id="7463979740390522693">Chromium - Mga Notification (<ph name="QUANTITY" /> ang hindi pa nababasa)</translation>
 <translation id="7473891865547856676">Hindi, Salamat</translation>
 <translation id="7483335560992089831">Hindi ma-install ang parehong Bersyon ng Chromium na kasalukuyang tumatakbo. Pakisara ang Chromium at subukang muli.</translation>

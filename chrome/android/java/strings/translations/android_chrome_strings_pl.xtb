@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Wykryto wolne połączenie.</translation>
 <translation id="2842985007712546952">Folder nadrzędny</translation>
 <translation id="2870560284913253234">Witryna</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 adres URL w pobliżu}few{# adresy URL w pobliżu}many{# adresów URL w pobliżu}other{# adresu URL w pobliżu}}</translation>
 <translation id="2888126860611144412">Chrome – informacje</translation>
 <translation id="2891154217021530873">Zatrzymaj wczytywanie strony</translation>
 <translation id="2902702728133930130">Podczas uruchamiania Chrome wystąpił nieoczekiwany błąd.</translation>
@@ -315,6 +316,7 @@ Statystyki użytkowania obejmują np. dane o ustawieniach, kliknięciach przycis
 To jednak nie oznacza, że Cię nie widać. Nawet gdy przejdziesz w tryb incognito, Twój pracodawca, dostawca usług internetowych czy webmasterzy otwieranych stron mogą dowiedzieć się, co przeglądasz.</translation>
 <translation id="572328651809341494">Ostatnie karty</translation>
 <translation id="5733727110006255111">Kiedy ta funkcja jest włączona, Chrome korzysta z serwerów Google, by kompresować strony przed ich pobraniem. Nie dotyczy to stron SSL ani trybu incognito.</translation>
+<translation id="5749068826913805084">Chrome musi mieć dostęp do pamięci, by pobierać pliki.</translation>
 <translation id="5763382633136178763">Karty incognito</translation>
 <translation id="5765780083710877561">Opis:</translation>
 <translation id="5771382037724542929">Chcesz zastąpić istniejący plik <ph name="FILE_NAME" /> w folderze <ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@ To jednak nie oznacza, że Cię nie widać. Nawet gdy przejdziesz w tryb incogni
 <translation id="5817918615728894473">Sparuj</translation>
 <translation id="5832934273103296195">Rozwinięty – kliknij, by zwinąć</translation>
 <translation id="583891442612896534">Chrome nie może połączyć się z serwerami Google kompresującymi dane. Oszczędność użycia danych może być ograniczona.</translation>
+<translation id="585027516397408832">Oszczędzanie danych włączone</translation>
 <translation id="5860033963881614850">Wyłączone</translation>
 <translation id="5869522115854928033">Zapisane hasła</translation>
 <translation id="588258955323874662">Pełny ekran</translation>
@@ -425,6 +428,7 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="7096034533295549981">Wczytuję film</translation>
 <translation id="7191430249889272776">Karta otwarta w tle.</translation>
 <translation id="7201341158316793215">Usuwam…</translation>
+<translation id="7208788139759694678">Oszczędzanie danych wyłączone</translation>
 <translation id="7243308994586599757">Opcje dostępne u dołu ekranu</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> korzysta z danych o Twojej lokalizacji, by pokazywać wyniki wyszukiwania lokalnego</translation>
 <translation id="7299721129597238157">Usuń zakładkę</translation>

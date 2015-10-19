@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">低速な接続が見つかりました。</translation>
 <translation id="2842985007712546952">親フォルダ</translation>
 <translation id="2870560284913253234">サイト</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{近くに 1 件の URL}other{近くに # 件の URL}}</translation>
 <translation id="2888126860611144412">Chrome について</translation>
 <translation id="2891154217021530873">ページの読み込みを停止</translation>
 <translation id="2902702728133930130">Chrome の起動時に予期しないエラーが発生し、起動できませんでした。</translation>
@@ -315,6 +316,7 @@
 あらゆる場所に記録が一切残らないわけではありません。シークレット モードを使っても、雇用主、インターネット サービス プロバイダ、訪問先のウェブサイトに閲覧内容が知られる可能性はあります。</translation>
 <translation id="572328651809341494">最近使ったタブ</translation>
 <translation id="5733727110006255111">この機能が有効になっている場合、訪問先のページはダウンロード前に Google サーバーで圧縮されます。SSL 対応のページとシークレット モードのページは対象外です。</translation>
+<translation id="5749068826913805084">Chrome でファイルをダウンロードするにはストレージへのアクセス権が必要です。</translation>
 <translation id="5763382633136178763">シークレット タブ</translation>
 <translation id="5765780083710877561">説明:</translation>
 <translation id="5771382037724542929"><ph name="DIRECTORY_NAME" /> 内に既にある <ph name="FILE_NAME" /> を置き換えてもよろしいですか？</translation>
@@ -323,6 +325,7 @@
 <translation id="5817918615728894473">ペア設定</translation>
 <translation id="5832934273103296195">展開状態 - クリックして折りたたみ</translation>
 <translation id="583891442612896534">データ圧縮のために Chrome から Google サーバーにアクセスすることができません。データ使用量をあまり削減できない可能性があります。</translation>
+<translation id="585027516397408832">データセーバーが有効です</translation>
 <translation id="5860033963881614850">オフ</translation>
 <translation id="5869522115854928033">保存したパスワード</translation>
 <translation id="588258955323874662">全画面表示</translation>
@@ -425,6 +428,7 @@
 <translation id="7096034533295549981">動画を読み込み中</translation>
 <translation id="7191430249889272776">バックグラウンドでタブを開きました。</translation>
 <translation id="7201341158316793215">削除しています...</translation>
+<translation id="7208788139759694678">データセーバーは無効です</translation>
 <translation id="7243308994586599757">画面の下の方にオプションがあります</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> では地域の検索結果を表示するためにユーザーの位置情報が使用されます</translation>
 <translation id="7299721129597238157">ブックマークを削除</translation>

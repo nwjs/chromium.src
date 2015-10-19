@@ -11,6 +11,7 @@ ja valed mandaadid. Kas proovib ründaja teeselda, et on <ph name="SITE" />, võ
 <translation id="1221340462641866827">Chromium OS ei toeta rakenduse <ph name="SCHEME" /> linkide käsitlemiseks välisrakenduste käivitamist. Taotletud link on <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">Süsteemist tuvastati Chromiumi konfliktne install. Desinstallige see ja proovige uuesti.</translation>
 <translation id="1298199220304005244">Hangi abi Chromium OS-i kasutamise kohta</translation>
+<translation id="1347507563453473396">Chromiumi ei saa selles keeles kuvada.</translation>
 <translation id="1396446129537741364">Chromium püüab paroole kuvada.</translation>
 <translation id="1414495520565016063">Olete Chromiumi sisse logitud.</translation>
 <translation id="1444754455097148408">Chromiumi avatud lähtekoodi litsentsid</translation>
@@ -61,6 +62,7 @@ ja valed mandaadid. Kas proovib ründaja teeselda, et on <ph name="SITE" />, võ
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> on pahatahtlik ja Chromium on selle blokeerinud.</translation>
 <translation id="2847479871509788944">Chromiumist eemaldamine ...</translation>
 <translation id="2886012850691518054">Valikuline: aidake muuta Chromiumi paremaks, saates Google'ile automaatselt kasutusstatistikat ja krahhiaruandeid.</translation>
+<translation id="2905536371227304018">Chromium OS kuvatakse selles keeles.</translation>
 <translation id="2910007522516064972">Teave &amp;Chromiumi kohta</translation>
 <translation id="2966088006374919794">Chromium peab rakenduse <ph name="SCHEME" /> linkide käsitlemiseks käivitama välisrakenduse. Taotletud link on <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Chromiumi lisamine ...</translation>
@@ -139,8 +141,11 @@ ja valed mandaadid. Kas proovib ründaja teeselda, et on <ph name="SITE" />, võ
 <translation id="5427571867875391349">Määra Chromium vaikebrauseriks</translation>
 <translation id="5466153949126434691">Chromium teeb värskendused automaatselt, nii et kasutate alati uusimat versiooni. Kui allalaadimine on lõppenud, siis Chrome taaskäivitub ja võite alustada kasutamist.</translation>
 <translation id="549669000822060376">Oodake, kuni Chromium installib uusimad süsteemivärskendused.</translation>
+<translation id="556167189552180495">Chromium kuvatakse selles keeles.</translation>
 <translation id="5563479599352954471">Otsing ühe puudutusega</translation>
 <translation id="5620765574781326016">Lisateave veebisaitide teemade kohta ilma lehelt lahkumata.</translation>
+<translation id="5698481217667032250">Kuva Chromium selles keeles</translation>
+<translation id="5768914737813585044">Kuva Chromium OS selles keeles</translation>
 <translation id="5772805321386874569">(nõuab Chromiumi <ph name="BEGIN_BUTTON" />taaskäivitamist<ph name="END_BUTTON" />)</translation>
 <translation id="5796460469508169315">Chromium on peaaegu valmis.</translation>
 <translation id="580822234363523061">Minge
@@ -171,6 +176,7 @@ ja valed mandaadid. Kas proovib ründaja teeselda, et on <ph name="SITE" />, võ
 <translation id="6475912303565314141">Lisaks juhib see seda, mis leht kuvatakse Chromiumi käivitamisel.</translation>
 <translation id="6485906693002546646">Kasutate Chromiumi kraami sünkroonimiseks kontot <ph name="PROFILE_EMAIL" />. Sünkroonimiseelistuste värskendamiseks või Chromiumi kasutamiseks ilma Google'i kontota avage <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Desinstalli Chromium</translation>
+<translation id="6526111688217511984">Chromium vajab failide allalaadimiseks juurdepääsu salvestusruumile.</translation>
 <translation id="6637001341228460105">Chromiumil on vaja mikrofonile juurdepääsu selle jagamiseks saidiga.</translation>
 <translation id="6638567566961868659">Otsige oma järjehoidjaid Chromiumi menüüst või järjehoidjaribalt.</translation>
 <translation id="6676384891291319759">Pääs Internetti</translation>
@@ -208,6 +214,7 @@ Chromium ei saa teie seadeid taastada.</translation>
 <translation id="734373864078049451">Siin asuvad teie veeb, järjehoidjad ja ülejäänud Chromiumi kraam.</translation>
 <translation id="7419987137528340081">Kui soovite olemasolevad Chromiumi andmed eraldi hoida, võite kasutajale <ph name="USER_NAME" /> luua uue Chromiumi kasutaja.</translation>
 <translation id="7421823331379285070">Chromium nõuab Windows XP-d või uuemat operatsioonisüsteemi. Mõni funktsioon ei pruugi töötada.</translation>
+<translation id="7437562785125777404">Chromium OS-i ei saa selles keeles kuvada.</translation>
 <translation id="7463979740390522693">Chromium – märguanded (<ph name="QUANTITY" /> on lugemata)</translation>
 <translation id="7473891865547856676">Tänan, ei</translation>
 <translation id="7483335560992089831">Ei saa installida sama Chromiumi versiooni, mis praegu töötab. Sulgege Chromium ja proovige uuesti.</translation>

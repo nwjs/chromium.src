@@ -38,6 +38,7 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="1773601347087397504">Obtener ayuda de Chrome OS</translation>
 <translation id="1818142563254268765">Chrome no ha podido actualizarse automáticamente a la última versión, por lo que te estás perdiendo algunos magníficos parches de seguridad y fantásticas funciones nuevas. Tendrás que actualizar Chrome.</translation>
 <translation id="1877026089748256423">Chrome no está actualizado</translation>
+<translation id="1924381329666691588">Google Chrome no se puede mostrar en este idioma.</translation>
 <translation id="2077129598763517140">Utilizar aceleración por hardware cuando esté disponible</translation>
 <translation id="2084710999043359739">Añadir a Chrome</translation>
 <translation id="2246246234298806438">Google Chrome no puede mostrar la vista previa de impresión si falta el visor de PDF integrado.</translation>
@@ -66,6 +67,7 @@ Si decides iniciar sesión de todas formas, se fusionará la información de Chr
 <translation id="2748463065602559597">Estás viendo una página de Google Chrome segura.</translation>
 <translation id="2769762047821873045">Google Chrome no es tu navegador predeterminado.</translation>
 <translation id="2770231113462710648">Cambiar navegador predeterminado por:</translation>
+<translation id="2847461019998147611">Mostrar Google Chrome en este idioma</translation>
 <translation id="2871893339301912279">Has iniciado sesión en Chrome</translation>
 <translation id="2874156562296220396">Google Chrome es una realidad gracias al proyecto de software libre <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> y a otros <ph name="BEGIN_LINK_OSS" />programas de código abierto<ph name="END_LINK_OSS" />.</translation>
 <translation id="3037838751736561277">Google Chrome está en modo de segundo plano.</translation>
@@ -149,8 +151,10 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> utiliza normalmente el cifrado para proteger tu información. Cuando Chrome intentó establecer conexión con <ph name="SITE" />, el sitio web devolvió credenciales inusuales
   e incorrectas. Por tanto, es posible que un atacante esté intentando suplantar la identidad de <ph name="SITE" /> o que una pantalla de inicio de sesión Wi-Fi haya interrumpido la conexión. No obstante, tu información sigue estando protegida porque Chrome ha detenido la conexión antes de que se intercambiaran los datos.</translation>
 <translation id="5620765574781326016">Obtén información sobre los temas en sitios web sin salir de la página.</translation>
+<translation id="5637867606963802593">Chrome OS no se puede mostrar en este idioma.</translation>
 <translation id="568643307450491754">Busca tus marcadores en el menú de Chrome o en la barra de marcadores.</translation>
 <translation id="573759479754913123">Acerca de Chrome OS</translation>
+<translation id="5749068826913805084">Chrome necesita acceso de almacenamiento para descargar archivos.</translation>
 <translation id="5785746630574083988">Si vuelves a iniciar el navegador en el modo de Windows 8, todas tus aplicaciones de Chrome se cerrarán y volverán a iniciarse.</translation>
 <translation id="5799551393681493217">Habilita flujos de inicio de sesión en Chrome basados en marco flotante. Esta opción anula la habilitación de inicio de sesión basado en Web.</translation>
 <translation id="5855036575689098185">El software que se ejecuta en tu ordenador no es compatible con Google Chrome.</translation>
@@ -213,6 +217,7 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="7164397146364144019">Puedes ayudar a que Chrome sea más seguro y más fácil de utilizar enviando a Google automáticamente información sobre posibles incidentes de seguridad.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> se ha añadido a Chrome.</translation>
 <translation id="7191567847629796517">Google Chrome OS no puede ejecutar una aplicación externa para procesar enlaces <ph name="SCHEME" />. El enlace solicitado es <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome se muestra en este idioma.</translation>
 <translation id="7196020411877309443">¿Por qué aparece este mensaje?</translation>
 <translation id="7242029209006116544">Vas a iniciar sesión con una cuenta administrada, lo que significa que proporcionarás a su administrador control sobre tu perfil de Google Chrome. Tus datos de Chrome como, por ejemplo, tus aplicaciones, tus marcadores, tu historial, tus contraseñas y otras opciones se vincularán de forma permanente a la cuenta <ph name="USER_NAME" />. Podrás eliminar estos datos a través del Panel de control de cuentas de Google, pero no podrás asociar estos datos a otra cuenta. De forma opcional, puedes crear un nuevo perfil para mantener separados tus datos de Chrome. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome - Notificaciones (<ph name="QUANTITY" /> sin leer)</translation>
@@ -228,6 +233,7 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="7473136999113284234">Chrome se actualiza automáticamente para que siempre dispongas de la última versión.</translation>
 <translation id="7473891865547856676">No, gracias</translation>
 <translation id="7494905215383356681">Licencias de código abierto de Chrome</translation>
+<translation id="7552219221109926349">Mostrar Chrome OS en este idioma</translation>
 <translation id="7592736734348559088">Google Chrome no ha podido sincronizar los datos porque la información de inicio de sesión de tu cuenta está obsoleta.</translation>
 <translation id="7626032353295482388">Te damos la bienvenida a Chrome</translation>
 <translation id="7747138024166251722">El programa de instalación no ha podido crear un directorio temporal. Comprueba si hay espacio libre en el disco y si tienes autorización para instalar el software.</translation>
@@ -241,6 +247,7 @@ Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="7825851276765848807">La instalación no se ha podido realizar a causa de un error no especificado. Vuelve a descargar Google Chrome.</translation>
 <translation id="7890208801193284374">Si compartes un ordenador, tus amigos y familiares pueden navegar de forma independiente y configurar Chrome a su gusto.</translation>
 <translation id="7908968924842975895">Este ordenador no volverá a recibir actualizaciones de Google Chrome porque su hardware ya no es compatible.</translation>
+<translation id="7964230182933713106">Chrome OS se muestra en este idioma.</translation>
 <translation id="7984945080620862648">No puedes acceder a <ph name="SITE" /> en este momento porque el sitio web ha enviado credenciales codificadas que Chrome no puede procesar. Los ataques y los errores de red suelen ser temporales, por lo que es probable que esta página funcione más tarde.</translation>
 <translation id="8000275528373650868">Google Chrome está disponible para Windows Vista o Windows XP con SP2 o superior.</translation>
 <translation id="8005540215158006229">Chrome está casi listo</translation>

@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">检测到网速很慢。</translation>
 <translation id="2842985007712546952">父文件夹</translation>
 <translation id="2870560284913253234">网站</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{附近有 1 个网址}other{附近有 # 个网址}}</translation>
 <translation id="2888126860611144412">关于 Chrome</translation>
 <translation id="2891154217021530873">停止加载网页</translation>
 <translation id="2902702728133930130">由于出现意外错误，Chrome 启动失败。</translation>
@@ -315,6 +316,7 @@
 但是，这并不意味着您能完全隐身。即使您进入隐身模式，您的雇主、互联网服务提供商和您访问的网站仍然能看到您的浏览活动。</translation>
 <translation id="572328651809341494">最近打开的标签页</translation>
 <translation id="5733727110006255111">此功能处于开启状态时，Chrome 会在加载您要访问的网页之前使用 Google 服务器对其进行压缩。采用 SSL 加密的网页和以隐身模式浏览的网页不在此列。</translation>
+<translation id="5749068826913805084">Chrome 需要具备存储空间使用权限，才能下载文件。</translation>
 <translation id="5763382633136178763">隐身标签页</translation>
 <translation id="5765780083710877561">说明：</translation>
 <translation id="5771382037724542929">要替换“<ph name="DIRECTORY_NAME" />”目录中现有的 <ph name="FILE_NAME" /> 吗？</translation>
@@ -323,6 +325,7 @@
 <translation id="5817918615728894473">配对</translation>
 <translation id="5832934273103296195">已展开 - 点击即可折叠</translation>
 <translation id="583891442612896534">Chrome 无法连接到 Google 服务器来进行数据压缩，因此您节省的数据流量可能有限。</translation>
+<translation id="585027516397408832">流量节省程序已启用</translation>
 <translation id="5860033963881614850">关闭</translation>
 <translation id="5869522115854928033">已保存的密码</translation>
 <translation id="588258955323874662">全屏</translation>
@@ -425,6 +428,7 @@
 <translation id="7096034533295549981">加载视频</translation>
 <translation id="7191430249889272776">标签页已在后台打开。</translation>
 <translation id="7201341158316793215">正在移除…</translation>
+<translation id="7208788139759694678">流量节省程序已停用</translation>
 <translation id="7243308994586599757">选项在靠近屏幕底部的位置</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> 将根据您的位置信息显示本地搜索结果</translation>
 <translation id="7299721129597238157">删除书签</translation>

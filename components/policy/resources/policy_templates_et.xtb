@@ -139,6 +139,7 @@
 
       Kui reegel on määramata või seatud väärtusele Väär, on ühendatud töölaud
       keelatud. Sel juhul ei saa kasutaja funktsiooni lubada.</translation>
+<translation id="1474273443907024088">TLS-i valekäivitamise keelamine</translation>
 <translation id="1477934438414550161">TLS 1.2</translation>
 <translation id="1492145937778428165">Määrab millisekundites ajavahemiku, mille jooksul saadetakse seadmehaldusteenusesse päring seadme reeglite teabe kohta.
 
@@ -262,6 +263,18 @@
       Kui HardwareAccelerationModeEnabled on seatud väärtusele Väär, eiratakse atribuuti Disable3DAPIs, mis on võrdväärne atribuudi Disable3DAPIs seadmisega väärtusele Tõene.</translation>
 <translation id="2168397434410358693">Jõudeoleku viiteaeg võrgutoite kasutamisel</translation>
 <translation id="2170233653554726857">WPAD-optimeerimise lubamine</translation>
+<translation id="2175836933294053665">Seadistab hallatud järjehoidjate loendi.
+
+      Reegel koosneb järjehoidjate loendist, kusjuures iga järjehoidja on
+      sõnastik, mis sisaldab võtmeid „Nimi” ja „URL”, kus hoiustatakse järjehoidja
+      nime ja selle siht-URL-i. Alamkausta saab seadistada, määrates järjehoidja
+      ilma võtmeta „URL”, kuid täiendava võtmega „Lapsed”, mis sisaldab ise
+      järjehoidjate loendit, nagu on ülal määratud (millest mõned võivad olla
+      kaustad). <ph name="PRODUCT_NAME" />
+      täiendab poolikuid URL-e, nagu need oleksid edastatud omnikastikese kaudu,
+      nt „google.com-ist” saab „https://google.com/”.
+
+      Need järjehoidjad asuvad kaustas Hallatud järjehoidjad, mida kasutaja muuta ei saa, kuid kasutaja saab selle kausta soovi korral järjehoidjaribalt peita. Hallatud järjehoidjad ei ole kasutajakontoga sünkroonitud ja laiendid ei saa neid muuta.</translation>
 <translation id="2188979373208322108">Lubab järjehoidjariba rakenduses <ph name="PRODUCT_NAME" />.
 
       Seade lubamisel kuvab <ph name="PRODUCT_NAME" /> järjehoidjariba.
@@ -2050,6 +2063,9 @@
 <translation id="8544375438507658205">Rakenduse <ph name="PRODUCT_FRAME_NAME" /> HTML-i vaikerenderdaja</translation>
 <translation id="8549772397068118889">Hoiatamine sisupakettidest väljaspool olevate saitide külastamisel</translation>
 <translation id="8566842294717252664">Veebipoe peitmine uuel vahelehel ja rakenduste käivitajas</translation>
+<translation id="857925079934558818">Määrab, kas TLS-i valekäivitamise optimeerimine peaks olema keelatud. Ajaloolistel põhjustel on selle reegli nimi DisableSSLRecordSplitting.
+
+      Kui reegel on määramata või selle väärtuseks on määratud Väär, siis TLS-i valekäivitamine lubatakse. Kui väärtuseks on määratud Tõene, siis TLS-i valekäivitamine keelatakse.</translation>
 <translation id="8587229956764455752">Luba uute kasutajakontode loomine</translation>
 <translation id="8614804915612153606">Keelab automaatvärskenduse</translation>
 <translation id="8631434304112909927">versioonini <ph name="UNTIL_VERSION" /></translation>

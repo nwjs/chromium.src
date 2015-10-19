@@ -11,6 +11,7 @@
 <translation id="1221340462641866827">Chromium OS не поддържа стартирането на външно приложение, за да обработва връзки от тип <ph name="SCHEME" />. Заявената връзка е <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">В системата бе намерена несъвместима инсталация на Chromium. Моля, деинсталирайте я и опитайте отново.</translation>
 <translation id="1298199220304005244">Получаване на помощ за използването на Chromium OS</translation>
+<translation id="1347507563453473396">Chromium не може да се показва на този език.</translation>
 <translation id="1396446129537741364">Chromium опитва да покаже паролите.</translation>
 <translation id="1414495520565016063">Влязохте в Chromium!</translation>
 <translation id="1444754455097148408">Лицензи за отворен код за Chromium</translation>
@@ -61,6 +62,7 @@
 <translation id="2801146392936645542">Файлът „<ph name="FILE_NAME" />“ е злонамерен и е блокиран от Chromium.</translation>
 <translation id="2847479871509788944">Премахване от Chromium...</translation>
 <translation id="2886012850691518054">По избор: Помогнете ни да подобрим Chromium, като автоматично изпращате на Google статистически данни за използването му и сигнали за сривове.</translation>
+<translation id="2905536371227304018">Chromium OS се показва на този език.</translation>
 <translation id="2910007522516064972">Всичко за &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium трябва да стартира външно приложение, за да обработва връзки от тип <ph name="SCHEME" />. Заявената връзка е <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Добавя се към Chromium...</translation>
@@ -137,8 +139,11 @@
 <translation id="5427571867875391349">Задаване на Chromium като браузър по подразбиране</translation>
 <translation id="5466153949126434691">Chromium се актуализира автоматично, така че винаги да имате най-новата версия. Когато това изтегляне завърши, Chromium ще се рестартира и ще можете да започнете работа.</translation>
 <translation id="549669000822060376">Моля, изчакайте, докато Chromium инсталира най-новите системни актуализации.</translation>
+<translation id="556167189552180495">Chromium се показва на този език.</translation>
 <translation id="5563479599352954471">Търсене с едно докосване</translation>
 <translation id="5620765574781326016">Научете за темите в уебсайтовете, без да излизате от страницата.</translation>
+<translation id="5698481217667032250">Показване на Chromium на този език</translation>
+<translation id="5768914737813585044">Показване на Chromium OS на този език</translation>
 <translation id="5772805321386874569">(изисква <ph name="BEGIN_BUTTON" />рестартиране<ph name="END_BUTTON" /> на Chromium)</translation>
 <translation id="5796460469508169315">Chromium е почти готов.</translation>
 <translation id="580822234363523061">Отворете
@@ -169,6 +174,7 @@
 <translation id="6475912303565314141">То също контролира коя страница се показва при стартиране на Chromium.</translation>
 <translation id="6485906693002546646">Използвате <ph name="PROFILE_EMAIL" /> за синхронизиране на нещата си в Chromium. За да актуализирате съответното предпочитание или да ползвате браузъра без профил в Google, посетете <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Деинсталиране на Chromium</translation>
+<translation id="6526111688217511984">Chromium се нуждае от достъп до хранилището, за да изтегля файлове.</translation>
 <translation id="6637001341228460105">Chromium се нуждае от достъп до микрофона, за да го сподели с този сайт.</translation>
 <translation id="6638567566961868659">Намерете отметките си в менюто на Chromium или в лентата на отметките.</translation>
 <translation id="6676384891291319759">Достъп до интернет</translation>
@@ -202,6 +208,7 @@
 <translation id="734373864078049451">Тук ще намерите посещаваните от вас места в мрежата, отметките и другите си неща в Chromium.</translation>
 <translation id="7419987137528340081">Ако предпочитате да съхранявате отделно съществуващите си данни в Chromium, можете да създадете в браузъра нов потребител за <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium изисква Windows XP или по-нова версия. Някои функции може да не работят.</translation>
+<translation id="7437562785125777404">Chromium OS не може да се показва на този език.</translation>
 <translation id="7463979740390522693">Chromium – Известия (<ph name="QUANTITY" /> непрочетени)</translation>
 <translation id="7473891865547856676">Не, благодаря</translation>
 <translation id="7483335560992089831">Не може да се инсталира същата версия на Chromium, която се използва понастоящем. Моля, затворете браузъра и опитайте отново.</translation>

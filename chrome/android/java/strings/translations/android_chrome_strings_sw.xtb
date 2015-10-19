@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Kasi ya chini ya muunganisho imegunduliwa.</translation>
 <translation id="2842985007712546952">Folda kuu</translation>
 <translation id="2870560284913253234">Tovuti</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{URL 1 ya karibu}other{URL # za karibu}}</translation>
 <translation id="2888126860611144412">Kuhusu Chrome</translation>
 <translation id="2891154217021530873">Simamisha upakiaji wa ukurasa</translation>
 <translation id="2902702728133930130">Chrome haikufaulu wakati wa kuanza kutokana na hitilafu isiyotarajiwa.</translation>
@@ -315,6 +316,7 @@ Fungua Chrome kwenye kompyuta yako, nenda kwenye menyu, na uchague “Ingia kati
 Hata hivyo, huonekani. Kuvinjari katika hali fiche hakufichi kuvinjari kwako kusionekane kwa mwajiri, mtoa huduma wako wa intaneti, au tovuti unazotembelea.</translation>
 <translation id="572328651809341494">Vichupo vya hivi majuzi</translation>
 <translation id="5733727110006255111">Kipengele hiki kikiwashwa, Chrome itatumia seva za Google kushindilia kurasa unazotembelea kabla ya kuzipakua. Kurasa za SSL na za hali fiche hazitajumuishwa.</translation>
+<translation id="5749068826913805084">Chrome inahitaji idhini ya kufikia hifadhi ili ipakue faili.</translation>
 <translation id="5763382633136178763">Vichupo fiche</translation>
 <translation id="5765780083710877561">Maelezo:</translation>
 <translation id="5771382037724542929">Je, unataka kubadilisha <ph name="FILE_NAME" /> iliyopo katika <ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@ Hata hivyo, huonekani. Kuvinjari katika hali fiche hakufichi kuvinjari kwako kus
 <translation id="5817918615728894473">Oanisha</translation>
 <translation id="5832934273103296195">Kimepanuliwa - Bofya ili ukunje</translation>
 <translation id="583891442612896534">Chrome haiwezi kufikia seva za Google ili kushindilia data. Hifadhi zako za data zinaweza kuwa chache.</translation>
+<translation id="585027516397408832">Kiokoa Data kimewashwa</translation>
 <translation id="5860033963881614850">Kimezimwa</translation>
 <translation id="5869522115854928033">Manenosiri yaliyohifadhiwa</translation>
 <translation id="588258955323874662">Skrini nzima</translation>
@@ -425,6 +428,7 @@ Kwa mfano, baadhi ya tovuti zinaweza kujibu ombi hili kwa kukuonyesha matangazo 
 <translation id="7096034533295549981">Inapakia video</translation>
 <translation id="7191430249889272776">Kichupo kimefunguliwa chini chini.</translation>
 <translation id="7201341158316793215">Inaondoa...</translation>
+<translation id="7208788139759694678">Kiokoa Data kimezimwa</translation>
 <translation id="7243308994586599757">Chaguo zinapatikana karibu na sehemu ya chini ya skrini</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> hutumia mahali ulipo ili kuonyesha matokeo ya utafutaji wa karibu</translation>
 <translation id="7299721129597238157">Futa alamisho</translation>

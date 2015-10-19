@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">OS Chromium ne podržava pokretanje vanjske aplikacije za obradu veza <ph name="SCHEME" />. Zatražena je veza <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">U sustavu je pronađena konfliktna instalacija Chromiuma. Deinstalirajte je i pokušajte ponovo.</translation>
 <translation id="1298199220304005244">Pomoć za upotrebu OS-a Chromium</translation>
+<translation id="1347507563453473396">Chromium se ne može prikazati na tom jeziku.</translation>
 <translation id="1396446129537741364">Chromium pokušava prikazati zaporke.</translation>
 <translation id="1414495520565016063">Prijavljeni ste na Chromium!</translation>
 <translation id="1444754455097148408">Licence otvorenog izvornog koda Chromiuma</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">Datoteka <ph name="FILE_NAME" /> zlonamjerna je i Chromium ju je blokirao.</translation>
 <translation id="2847479871509788944">Ukloni iz Chromiuma...</translation>
 <translation id="2886012850691518054">Dodatno: pomognite nam da poboljšamo Chromium automatskim slanjem statistike o upotrebi i izvješća o padu programa Googleu.</translation>
+<translation id="2905536371227304018">OS Chromium prikazuje se na tom jeziku.</translation>
 <translation id="2910007522516064972">O pregledniku &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium mora pokrenuti vanjsku aplikaciju za obradu veza <ph name="SCHEME" />. Zatražena je veza <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Dodavanje u preglednik Chromium...</translation>
@@ -138,8 +140,11 @@
 <translation id="5427571867875391349">Postavite Chrome kao zadani preglednik</translation>
 <translation id="5466153949126434691">Chromium se ažurira automatski, pa uvijek imate najnoviju verziju. Kada se ovo preuzimanje dovrši, Chromium će se pokrenuti ponovo i moći ćete nastaviti.</translation>
 <translation id="549669000822060376">Pričekajte da Chromium instalira najnovija ažuriranja sustava.</translation>
+<translation id="556167189552180495">Chromium se prikazuje na tom jeziku</translation>
 <translation id="5563479599352954471">Pretraživanje jednim dodirom</translation>
 <translation id="5620765574781326016">Ne morate napustiti stranicu da biste saznali koje su teme web-lokacija.</translation>
+<translation id="5698481217667032250">Prikaži Chromium na tom jeziku</translation>
+<translation id="5768914737813585044">Prikaži OS Chromium na tom jeziku</translation>
 <translation id="5772805321386874569">(potrebno je <ph name="BEGIN_BUTTON" />ponovo pokrenuti<ph name="END_BUTTON" /> Chromium)</translation>
 <translation id="5796460469508169315">Chromium će uskoro biti spreman.</translation>
 <translation id="580822234363523061">Idite na
@@ -170,6 +175,7 @@
 <translation id="6475912303565314141">Upravlja i time koja se stranica prikazuje prilikom pokretanja Chromiuma.</translation>
 <translation id="6485906693002546646">Upotrebljavate <ph name="PROFILE_EMAIL" /> za sinkronizaciju sadržaja u Chromiumu. Za ažuriranje postavki sinkroniziranja ili upotrebu Chromiuma bez Google računa posjetite <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Deinstaliranje Chromiuma</translation>
+<translation id="6526111688217511984">Chromium treba pristup pohrani da bi preuzimao datoteke.</translation>
 <translation id="6637001341228460105">Chromium treba imati pristup mikrofonu da bi ga dijelio s ovom web-lokacijom.</translation>
 <translation id="6638567566961868659">Pronađite oznake u izborniku Chromium ili na traci oznaka.</translation>
 <translation id="6676384891291319759">Pristup Internetu</translation>
@@ -207,6 +213,7 @@ Chromium ne može oporaviti vaše postavke.</translation>
 <translation id="734373864078049451">Ovdje se nalaze vaš web, oznake i ostali sadržaji u Chromiumu.</translation>
 <translation id="7419987137528340081">Ako želite da vaši postojeći podaci Chromiuma budu zasebni, možete izraditi novog korisnika Chromiuma za korisnika <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Chromium zahtijeva Windows XP ili noviju verziju. Neke značajke možda neće raditi.</translation>
+<translation id="7437562785125777404">OS Chromium ne može se prikazati na tom jeziku</translation>
 <translation id="7463979740390522693">Chromium – obavijesti (nepročitane: <ph name="QUANTITY" />)</translation>
 <translation id="7473891865547856676">Ne, hvala</translation>
 <translation id="7483335560992089831">Ne možete instalirati istu verziju Chromiuma koja se trenutačno izvršava. Zatvorite Chromium i pokušajte ponovo.</translation>

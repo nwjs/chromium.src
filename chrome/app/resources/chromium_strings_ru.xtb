@@ -10,6 +10,7 @@
 <translation id="1221340462641866827">Chromium OS не поддерживает внешних приложений для обработки ссылок <ph name="SCHEME" />. Запрашиваемая ссылка: <ph name="PROTOLINK" />.</translation>
 <translation id="1293235220023151515">В системе установлена конфликтующая версия Chromium. Удалите ее и повторите попытку.</translation>
 <translation id="1298199220304005244">Помощь по использованию Chromium OS</translation>
+<translation id="1347507563453473396">Интерфейс Chromium невозможно отобразить на этом языке.</translation>
 <translation id="1396446129537741364">Вводимые пароли будут отображаться в Chromium.</translation>
 <translation id="1414495520565016063">Добро пожаловать в Chromium!</translation>
 <translation id="1444754455097148408">Лицензии Chromium на ПО с открытым исходным кодом</translation>
@@ -60,6 +61,7 @@
 <translation id="2801146392936645542">Chromium заблокировал файл <ph name="FILE_NAME" /> как вредоносный.</translation>
 <translation id="2847479871509788944">Удалить из Chromium</translation>
 <translation id="2886012850691518054">(Необязательно) Помогите сделать Chromium лучше, автоматически отправляя статистику использования и отчеты об ошибках в Google.</translation>
+<translation id="2905536371227304018">Chromium OS отображается на этом языке</translation>
 <translation id="2910007522516064972">О &amp;Chromium</translation>
 <translation id="2966088006374919794">Chromium требуется запустить внешнее приложение для обработки ссылок <ph name="SCHEME" />. Запрашиваемая ссылка: <ph name="PROTOLINK" />.</translation>
 <translation id="3032787606318309379">Добавление в Chromium...</translation>
@@ -136,8 +138,11 @@
 <translation id="5427571867875391349">Сделать Chromium браузером по умолчанию</translation>
 <translation id="5466153949126434691">Chromium обновляется автоматически, поэтому у вас всегда будет установлена последняя версия. После завершения скачивания и перезагрузки вы сможете продолжить работу.</translation>
 <translation id="549669000822060376">Подождите, пока Chromium устанавливает последние обновления системы</translation>
+<translation id="556167189552180495">Chrominum отображается на этом языке.</translation>
 <translation id="5563479599352954471">Поиск в одно касание</translation>
 <translation id="5620765574781326016">Теперь искать информацию в Интернете можно с любой страницы.</translation>
+<translation id="5698481217667032250">Отображать Chromium на этом языке</translation>
+<translation id="5768914737813585044">Отображать Chromium OS на этом языке</translation>
 <translation id="5772805321386874569">(необходимо <ph name="BEGIN_BUTTON" />перезапустить<ph name="END_BUTTON" /> Chromium)</translation>
 <translation id="5796460469508169315">Chromium почти готов к работе</translation>
 <translation id="580822234363523061">Выберите
@@ -168,6 +173,7 @@
 <translation id="6475912303565314141">Кроме того, расширение изменило стартовую страницу Chromium.</translation>
 <translation id="6485906693002546646">Для синхронизации данных Chromium используется аккаунт <ph name="PROFILE_EMAIL" />. Изменить параметры синхронизации или отключить аккаунт можно в <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Удаление Chromium</translation>
+<translation id="6526111688217511984">Для скачивания файлов браузеру Chromium требуется доступ к хранилищу.</translation>
 <translation id="6637001341228460105">Предоставьте браузеру Chromium доступ к микрофону, чтобы пользоваться им на этом сайте.</translation>
 <translation id="6638567566961868659">Закладки можно найти в меню Chromium или на панели закладок.</translation>
 <translation id="6676384891291319759">Доступ в Интернет</translation>
@@ -203,6 +209,7 @@
 <translation id="734373864078049451">Все веб-страницы, закладки и другие данные Chromium можно найти здесь.</translation>
 <translation id="7419987137528340081">Чтобы закрыть доступ к уже существующим данным Chromium, создайте новый профиль Chromium для <ph name="USER_NAME" />.</translation>
 <translation id="7421823331379285070">Для Chromium требуется ОС Windows XP или более поздней версии. Некоторые функции могут не работать.</translation>
+<translation id="7437562785125777404">Интерфейс Chromium OS невозможно отобразить на этом языке.</translation>
 <translation id="7463979740390522693">Chromium - Оповещения (новых: <ph name="QUANTITY" />)</translation>
 <translation id="7473891865547856676">Пропустить</translation>
 <translation id="7483335560992089831">Невозможно установить ту же версию Chromium, которая уже присутствует в системе. Закройте Chromium и повторите попытку.</translation>

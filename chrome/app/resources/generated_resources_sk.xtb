@@ -1458,7 +1458,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Vyberte položky na import:</translation>
 <translation id="3033332627063280038">Povoľte experimentálnu implementáciu funkcie Cache-Control: smernica typu stale-while-revalidate. Umožňuje serverom určiť, ktoré zdroje môžu byť opätovne overené na pozadí s cieľom zlepšiť latenciu.</translation>
-<translation id="3037605927509011580">Základy</translation>
+<translation id="3037605927509011580">Aj, chyba!</translation>
 <translation id="3039828483675273919">Prebieha presúvanie $1 položiek...</translation>
 <translation id="304009983491258911">Zmeňte kód PIN SIM karty</translation>
 <translation id="3041612393474885105">Informácie o certifikáte</translation>
@@ -3789,6 +3789,7 @@ Niektoré funkcie nemusia byť k dispozícii.  Skontrolujte, či profil existuje
 <translation id="6344783595350022745">Prehľadný text</translation>
 <translation id="6347003977836730270">Povoliť namiesto informačného panela novú bublinu používateľského prostredia služby Prekladač.</translation>
 <translation id="6348657800373377022">Pole s výberom</translation>
+<translation id="6349839454356033837">Android má problémy s prehrávaním médií.</translation>
 <translation id="6353618411602605519">chorvátska klávesnica</translation>
 <translation id="6356936121715252359">Nastavenia ukladacieho priestoru aplikácie Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Vítame vás do rodiny produktov <ph name="SHORT_PRODUCT_NAME" />. Toto nie je obyčajný počítač.</translation>

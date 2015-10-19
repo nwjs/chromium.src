@@ -118,6 +118,7 @@
 
       Jos tämä käytäntö ei ole voimassa tai sitä ei ole määritetty, yhtenäisen työpöydän tila
       poistetaan käytöstä. Tässä tapauksessa käyttäjä ei voi ottaa ominaisuutta käyttöön.</translation>
+<translation id="1474273443907024088">Poista TLS False Start käytöstä</translation>
 <translation id="1477934438414550161">TLS 1.2</translation>
 <translation id="1492145937778428165">Määrittää millisekunteina aikavälin, jolla laitteen hallintapalvelulta pyydetään laitekäytäntötietoja.
 
@@ -228,6 +229,18 @@ Jos tämä asetus ei ole käytössä, järjestelmäpalkissa ei näytetä suurta 
       Jos käytännön HardwareAccelerationModeEnabled arvoksi asetetaan Epätosi, Disable3DAPIs ohitetaan, jolloin lopputulos vastaa Disable3DAPIs-käytännön arvoa Tosi.</translation>
 <translation id="2168397434410358693">Käyttämättömyysaika käytettäessä laitetta verkkovirralla</translation>
 <translation id="2170233653554726857">Ota WPAD-optimointi käyttöön</translation>
+<translation id="2175836933294053665">Määrittää hallinnoitujen kirjanmerkkien listan.
+
+      Käytäntö koostuu kirjanmerkkilistasta. Jokainen kirjanmerkki lisätään
+      listaan sanastomerkintänä, joka sisältää avaimet name
+      (kirjanmerkin nimi) ja url (kohdeosoite). Kirjanmerkkinä voidaan käyttää alikansiota jättämällä
+      avain url pois mutta lisäämällä avain children,
+      johon kirjanmerkkilista määritellään yllä kuvatulla tavalla. Myös alikansion kirjanmerkit voivat olla
+      alikansioita. <ph name="PRODUCT_NAME" />
+      täydentää listan URL-osoitteet omniboxiin kirjoitettujen osoitteiden tavoin.
+      Esimerkiksi osoite google.com täydennetään muotoon https://google.com/.
+
+      Nämä kirjanmerkit lisätään Hallinnoidut kirjanmerkit -kansioon. Käyttäjä ei voi muokata niitä, mutta hän voi piilottaa kansion kirjanmerkkipalkista. Hallinnoituja kirjanmerkkejä ei synkronoida käyttäjän tiliin, eivätkä laajennukset voi muokata niitä.</translation>
 <translation id="2188979373208322108">Ottaa käyttöön kirjanmerkkipalkin tuotteessa <ph name="PRODUCT_NAME" />. Jos otat tämän asetuksen käyttöön, <ph name="PRODUCT_NAME" /> näyttää kirjanmerkkipalkin. Jos poistat asetuksen käytöstä, kirjanmerkkipalkkia ei näytetä. Valittuasi asetuksen käyttäjät eivät voi muuttaa tai ohittaa sitä tuotteessa <ph name="PRODUCT_NAME" />. Jos asetusta ei ole määritetty, käyttäjä voi käyttää toimintoa halutessaan.</translation>
 <translation id="2201555246697292490">Määritä sallittujen luettelo laitteen omalle viestijärjestelmälle</translation>
 <translation id="2204753382813641270">Hallinnoi hyllyn automaattista piilottamista</translation>
@@ -458,7 +471,7 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
       Jos tämä asetus ei ole käytössä tai sitä ei ole määritetty, käyttäjä voi halutessaan jatkaa varoitussivulta mahdollisesti haitalliseen sivustoon.</translation>
 <translation id="2812021780168085286">Voit määrittää URL-osoitteet, jotka saavat asentaa laajennuksia, sovelluksia ja teemoja.
 
-          <ph name="PRODUCT_NAME" /> 21:stä alkaen laajennusten, sovellusten ja käyttäjien komentosarjojen asentaminen muualta kuin Chrome Web Storesta vaikeutuu. Kun käyttäjät ennen klikkasivat linkkiä *.crx-tiedostoon, <ph name="PRODUCT_NAME" /> näytti muutaman varoituksen ja asensi sen jälkeen tiedoston. Tuotteen <ph name="PRODUCT_NAME" /> versio21 jälkeen tiedostot täytyy ladata tietokoneelle ja vetää tuotteen <ph name="PRODUCT_NAME" /> asetussivulle. Tämä asetus sallii vanhan, helpomman asennusmenetelmän käyttämisen tietyille URL-osoitteille.
+          <ph name="PRODUCT_NAME" /> 21:stä alkaen laajennusten, sovellusten ja käyttäjien komentosarjojen asentaminen muualta kuin Chrome Web Storesta vaikeutuu. Kun käyttäjät ennen klikkasivat linkkiä *.crx-tiedostoon, <ph name="PRODUCT_NAME" /> näytti muutaman varoituksen ja asensi sen jälkeen tiedoston. Tuotteen <ph name="PRODUCT_NAME" /> version 21 jälkeen tiedostot täytyy ladata tietokoneelle ja vetää tuotteen <ph name="PRODUCT_NAME" /> asetussivulle. Tämä asetus sallii vanhan, helpomman asennusmenetelmän käyttämisen tietyille URL-osoitteille.
 
           Luettelon jokainen kohde on laajennuksen kaltainen kohdistusmalli (lisätietoa osoitteessa http://code.google.com/chrome/extensions/match_patterns.html). Luettelon kohteita vastaavista URL-osoitteista voidaan asentaa kohteita helposti. Malleissa täytyy sallia sekä *.crx-tiedoston sijainti että latauksen käynnistyssivu (eli viittaaja).
 
@@ -729,7 +742,7 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 
           Jos tämän käytännön asetus on Säilytä evästeet käyttökerran ajan, evästeet poistetaan käyttökerran päätyttyä. Huom. Jos <ph name="PRODUCT_NAME" /> on käynnissä taustatilassa, käyttökerta ei välttämättä pääty viimeisen ikkunan sulkeutuessa. Katso käytäntö BackgroundModeEnabled, niin saat lisätietoja tämän toiminnallisuuden määrittämisestä.
 
-          Jos tätä käytäntöä ei aseteta, sen sijaan käytetään AllowCookies-käytäntöä, ja käyttäjä voi muuttaa asetusta.</translation>
+          Jos tätä käytäntöä ei aseteta, sen sijaan käytetään AllowCookies-käytäntöä ja käyttäjä voi muuttaa asetusta.</translation>
 <translation id="410478022164847452">Määrittää käyttämättömyysajan, jonka kuluttua suoritetaan käyttämättömyystoimenpide, kun laitetta käytetään verkkovirralla.
 
           Kun tämä käytäntö on asetettu, se määrittää käyttämättömyysajan, jonka kuluttua <ph name="PRODUCT_OS_NAME" /> suorittaa käyttämättömyystoimenpiteen, joka voidaan määrittää erikseen.
@@ -1039,7 +1052,7 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 
           Jos viiveitä ei aseteta, oletusarvoa käytetään niiden sijasta.
 
-          Huomaathan, että |ScreenDim|-arvojen on oltava pienempiä tai yhtä suuria kuin |ScreenOff|-arvo, |ScreenOff|- ja |IdleWarning|-arvojen on oltava pienempiä tai yhtä suuria kuin |Idle|-arvo.
+          Huomaathan, että |ScreenDim|-arvojen on oltava pienempiä tai yhtä suuria kuin |ScreenOff|-arvo ja |ScreenOff|- ja |IdleWarning|-arvojen on oltava pienempiä tai yhtä suuria kuin |Idle|-arvo.
 
           |IdleAction| voi olla jokin seuraavista:
           * |Suspend|
@@ -1201,7 +1214,7 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
 <translation id="6158324314836466367">Enterprise-verkkomyymälän nimi (ei enää käytössä)</translation>
 <translation id="6167074305866468481">Varoitus: <ph name="PRODUCT_NAME" /> ei tue SSLv3:a versiosta 43 (noin heinäkuusta 2015) lähtien, ja samassa yhteydessä myös tämä käytäntö poistetaan.
 
-      Jos tätä käytäntöä ei ole määritetty, <ph name="PRODUCT_NAME" /> käyttää oletuksena vähintään SSLv3:a versiossa <ph name="PRODUCT_NAME" /> 39 ja TLS 1.0:aa uudemmissa versiossa.
+      Jos tätä käytäntöä ei ole määritetty, <ph name="PRODUCT_NAME" /> käyttää oletuksena vähintään SSLv3:a versiossa <ph name="PRODUCT_NAME" /> 39 ja TLS 1.0:aa uudemmissa versioissa.
 
       Käytännölle voidaan asettaa seuraavat arvot: sslv3, tls1, tls1.1 tai tls1.2. Kun arvo on asetettu, <ph name="PRODUCT_NAME" /> ei käytä asetettua arvoa pienempiä SSL/TLS-versioita. Tunnistamattomat arvot ohitetaan.
 
@@ -1811,6 +1824,9 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
 <translation id="8544375438507658205">HTML-osoitteiden oletushahmonnin tuotteelle <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Varoita, kun sisältöpaketteihin kuulumaton sivusto avataan</translation>
 <translation id="8566842294717252664">Piilota verkkokauppa uusi välilehti -sivulla ja sovellusten käynnistysohjelmassa</translation>
+<translation id="857925079934558818">Määrittää, poistetaanko TLS False Start -optimointi käytöstä. Historiallisista seikoista johtuen tämän käytännön nimi on DisableSSLRecordSplitting.
+
+      Jos tätä käytäntöä ei aseteta tai jos sen arvo on Epätosi, TLS False Start otetaan käyttöön. Jos käytännön arvo on Tosi, TLS False Start poistetaan käytöstä.</translation>
 <translation id="8587229956764455752">Salli uusien käyttäjätilien luominen</translation>
 <translation id="8614804915612153606">Poistaa automaattisen päivityksen käytöstä</translation>
 <translation id="8631434304112909927">versioon <ph name="UNTIL_VERSION" /> saakka</translation>

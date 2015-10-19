@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">偵測到連線速度緩慢。</translation>
 <translation id="2842985007712546952">上層資料夾</translation>
 <translation id="2870560284913253234">網站</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{附近有 1 個網址}other{附近有 # 個網址}}</translation>
 <translation id="2888126860611144412">關於 Chrome</translation>
 <translation id="2891154217021530873">停止載入網頁</translation>
 <translation id="2902702728133930130">發生未預期的錯誤，Chrome 啟動失敗。</translation>
@@ -315,6 +316,7 @@
 然而，您並沒有因此隱形。使用無痕模式時，您的雇主和網際網路服務供應商仍然可以追蹤您的瀏覽紀錄，您所造訪的網站也可記錄您的瀏覽行為。</translation>
 <translation id="572328651809341494">最近開啟的分頁</translation>
 <translation id="5733727110006255111">啟用這項擴充功能後，Chrome 會先使用 Google 伺服器壓縮您要瀏覽的網頁，然後再下載這些網頁 (SSL 和無痕式網頁內容除外)。</translation>
+<translation id="5749068826913805084">Chrome 需要儲存空間的存取權才能下載檔案。</translation>
 <translation id="5763382633136178763">無痕式分頁</translation>
 <translation id="5765780083710877561">說明：</translation>
 <translation id="5771382037724542929">您要取代「<ph name="DIRECTORY_NAME" />」目錄中現有的 <ph name="FILE_NAME" /> 嗎？</translation>
@@ -323,6 +325,7 @@
 <translation id="5817918615728894473">配對</translation>
 <translation id="5832934273103296195">已展開 - 按一下即可收合</translation>
 <translation id="583891442612896534">Chrome 無法連上 Google 的伺服器進行資料壓縮，這可能會導致您無法節省某些數據流量。</translation>
+<translation id="585027516397408832">已啟用 Data Saver</translation>
 <translation id="5860033963881614850">關閉</translation>
 <translation id="5869522115854928033">已儲存的密碼</translation>
 <translation id="588258955323874662">全螢幕</translation>
@@ -425,6 +428,7 @@
 <translation id="7096034533295549981">正在載入影片</translation>
 <translation id="7191430249889272776">已在背景開啟分頁。</translation>
 <translation id="7201341158316793215">移除中…</translation>
+<translation id="7208788139759694678">已停用 Data Saver</translation>
 <translation id="7243308994586599757">選項在接近畫面底部的位置</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> 會使用您的位置資訊來顯示當地搜尋結果</translation>
 <translation id="7299721129597238157">刪除書籤</translation>

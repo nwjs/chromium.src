@@ -38,6 +38,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="1773601347087397504">Få hjälp med att använda Chrome OS</translation>
 <translation id="1818142563254268765">Chrome kunde inte uppdateras till den senaste versionen automatiskt. Därför missar du de senaste nya funktionerna och säkerhetsuppdateringarna. Du måste uppdatera Chrome.</translation>
 <translation id="1877026089748256423">Den här versionen av Chrome är inaktuell</translation>
+<translation id="1924381329666691588">Det går inte att visa Google Chrome på det här språket.</translation>
 <translation id="2077129598763517140">Använd maskinvaruacceleration när det är tillgängligt</translation>
 <translation id="2084710999043359739">Lägg till i Chrome</translation>
 <translation id="2246246234298806438">Förhandsgranskningen av utskriften kan inte visas i Google Chrome eftersom den inbyggda PDF-läsaren saknas.</translation>
@@ -66,6 +67,7 @@ Om du loggar in ändå synkroniseras din information i Chrome, till exempel bokm
 <translation id="2748463065602559597">Du tittar på en säker Google Chrome-sida.</translation>
 <translation id="2769762047821873045">Google Chrome är inte din standardwebbläsare.</translation>
 <translation id="2770231113462710648">Ändra standardwebbläsare till:</translation>
+<translation id="2847461019998147611">Visa Google Chrome på det här språket</translation>
 <translation id="2871893339301912279">Du är inloggad i Chrome.</translation>
 <translation id="2874156562296220396">Google Chrome fungerar tack vare det öppna källkodsprojektet <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> och andra <ph name="BEGIN_LINK_OSS" />program med öppen källkod<ph name="END_LINK_OSS" />.</translation>
 <translation id="3037838751736561277">Google Chrome körs i bakgrundsläge.</translation>
@@ -149,8 +151,10 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> använder normalt kryptering (SSL) för att skydda dina uppgifter. När Chrome försökte ansluta till <ph name="SITE" /> den här gången skickade webbplatsen tillbaka ovanliga
 och felaktiga uppgifter. Antingen utger sig en hackare för att vara <ph name="SITE" /> eller så har anslutningen avbrutits av en Wi-Fi-inloggningsskärm. Din information är fortfarande säker eftersom Chrome avbröt anslutningen innan någon data utbyttes.</translation>
 <translation id="5620765574781326016">Läs mer om vilka ämnen som webbplatser handlar om utan att lämna sidan.</translation>
+<translation id="5637867606963802593">Det går inte att visa Chrome OS på det här språket.</translation>
 <translation id="568643307450491754">Hitta dina bokmärken på Chrome-menyn eller i bokmärkesfältet.</translation>
 <translation id="573759479754913123">Om Chrome OS</translation>
+<translation id="5749068826913805084">Chrome måste ha åtkomst till lagringsutrymmet om det ska gå att ladda ned filer.</translation>
 <translation id="5785746630574083988">Om du startar om i Windows 8-läge stängs dina appar i Chrome och startas om.</translation>
 <translation id="5799551393681493217">Aktiverar iframe-baserade inloggningsflöden i Chrome. Den här flaggan åsidosätter --enable-web-based-signin.</translation>
 <translation id="5855036575689098185">Programmet som körs på datorn är inte kompatibelt med Google Chrome.</translation>
@@ -213,6 +217,7 @@ och felaktiga uppgifter. Antingen utger sig en hackare för att vara <ph name="S
 <translation id="7164397146364144019">Du kan bidra till att göra Chrome säkrare och enklare att använda genom att rapportera uppgifter om möjliga säkerhetsincidenter till Google automatiskt.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> har lagts till i Chrome.</translation>
 <translation id="7191567847629796517">Google Chrome OS stöder inte att ett externt program startas för att hantera <ph name="SCHEME" />-länkar. Den länk som efterfrågas är <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome visas på det här språket.</translation>
 <translation id="7196020411877309443">Varför visas det här?</translation>
 <translation id="7242029209006116544">Du loggar in med ett hanterat konto och ger dess administratör kontroll över din Google Chrome-profil. Dina Chrome-uppgifter, t.ex. dina appar, bokmärken, din historik, dina lösenord och andra inställningar, knyts permanent till <ph name="USER_NAME" />. Du kommer att kunna ta bort dessa uppgifter via instrumentpanelen i Google Konton, men du kommer inte att kunna koppla dessa uppgifter till ett annat konto. Du kan skapa en ny profil om du vill hålla dina befintliga Chrome-uppgifter separata. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome – meddelanden (<ph name="QUANTITY" /> olästa)</translation>
@@ -228,6 +233,7 @@ och felaktiga uppgifter. Antingen utger sig en hackare för att vara <ph name="S
 <translation id="7473136999113284234">Chrome uppdateras automatiskt så att du alltid har den senaste versionen.</translation>
 <translation id="7473891865547856676">Nej tack</translation>
 <translation id="7494905215383356681">Licenser för öppen källkod för Chrome</translation>
+<translation id="7552219221109926349">Visa Chrome OS på det här språket.</translation>
 <translation id="7592736734348559088">Google Chrome kunde inte synkronisera data eftersom inloggningsuppgifterna för kontot är inaktuella.</translation>
 <translation id="7626032353295482388">Välkommen till Chrome</translation>
 <translation id="7747138024166251722">Det gick inte att skapa en tillfällig katalog för installationsfilen. Kontrollera diskutrymmet och att du har behörighet att installera program.</translation>
@@ -241,6 +247,7 @@ och felaktiga uppgifter. Antingen utger sig en hackare för att vara <ph name="S
 <translation id="7825851276765848807">Installationen misslyckades på grund av ett okänt fel. Ladda ned Google Chrome igen.</translation>
 <translation id="7890208801193284374">Om du delar en dator med vänner och familj kan de konfigurera Chrome precis som de vill och surfa separat.</translation>
 <translation id="7908968924842975895">Den här datorn får inte längre uppdateringar för Google Chrome eftersom maskinvaran inte längre stöds.</translation>
+<translation id="7964230182933713106">Chrome OS visas på det här språket.</translation>
 <translation id="7984945080620862648">Det går inte att besöka <ph name="SITE" /> just nu på grund av att webbplatsen skickade röriga användaruppgifter som Chrome inte kan behandla. Nätverksfel och attacker är vanligtvis tillfälliga, så sidan fungerar troligen senare.</translation>
 <translation id="8000275528373650868">För Google Chrome krävs Windows Vista eller Windows XP med SP2 eller senare.</translation>
 <translation id="8005540215158006229">Chrome är nästan klar.</translation>

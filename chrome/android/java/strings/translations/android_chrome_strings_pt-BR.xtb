@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">Conexão lenta detectada.</translation>
 <translation id="2842985007712546952">Pasta mãe</translation>
 <translation id="2870560284913253234">Site</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 URL nas proximidades}one{# URLs nas proximidades}other{# URLs nas proximidades}}</translation>
 <translation id="2888126860611144412">Sobre o Google Chrome</translation>
 <translation id="2891154217021530873">Para de carregar a página</translation>
 <translation id="2902702728133930130">O Chrome falhou durante a inicialização devido a um erro inesperado.</translation>
@@ -314,6 +315,7 @@ Basta abrir o Chrome no computador, ir até o menu e selecionar “Fazer login n
          No entanto, você não fica invisível. O modo anônimo não oculta sua navegação do seu empregador, do seu provedor de acesso à Internet ou dos websites que você visita.</translation>
 <translation id="572328651809341494">Guias recentes</translation>
 <translation id="5733727110006255111">Quando este elemento está ativado, o Chrome usa os servidores do Google para compactar as páginas que você visita antes de fazer o download delas. Páginas no modo anônimo e em SSL não são incluídas.</translation>
+<translation id="5749068826913805084">O Chrome precisa de acesso de armazenamento para fazer o download de arquivos.</translation>
 <translation id="5763382633136178763">Guias anônimas</translation>
 <translation id="5765780083710877561">Descrição:</translation>
 <translation id="5771382037724542929">Deseja substituir o <ph name="FILE_NAME" /> existente em <ph name="DIRECTORY_NAME" />?</translation>
@@ -322,6 +324,7 @@ Basta abrir o Chrome no computador, ir até o menu e selecionar “Fazer login n
 <translation id="5817918615728894473">Parear</translation>
 <translation id="5832934273103296195">Visualização expandida: clique para recolher</translation>
 <translation id="583891442612896534">Não foi possível acessar os servidores do Google para realizar a compactação de dados a partir do Google Chrome. Seu espaço para salvar dados pode estar limitado.</translation>
+<translation id="585027516397408832">Economia de dados ativada</translation>
 <translation id="5860033963881614850">Desativado</translation>
 <translation id="5869522115854928033">Senhas salvas</translation>
 <translation id="588258955323874662">Tela inteira</translation>
@@ -424,6 +427,7 @@ Por exemplo, alguns websites podem responder a esta solicitação mostrando anú
 <translation id="7096034533295549981">Carregando vídeo</translation>
 <translation id="7191430249889272776">Guia aberta no plano de fundo.</translation>
 <translation id="7201341158316793215">Removendo...</translation>
+<translation id="7208788139759694678">Economia de dados desativada</translation>
 <translation id="7243308994586599757">Opções disponíveis perto da parte inferior da tela</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> usa sua localização para mostrar resultados de pesquisa locais</translation>
 <translation id="7299721129597238157">Excluir favorito</translation>

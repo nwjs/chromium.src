@@ -117,6 +117,7 @@
 <translation id="2816165854387457183">En treg tilkobling ble oppdaget.</translation>
 <translation id="2842985007712546952">Overordnet mappe</translation>
 <translation id="2870560284913253234">Nettsted</translation>
+<translation id="2873598956318269337">{NUM_URLS,plural, =1{1 nettadresse i nærheten}other{# nettadresser i nærheten}}</translation>
 <translation id="2888126860611144412">Om Chrome</translation>
 <translation id="2891154217021530873">Stopp innlastingen av siden</translation>
 <translation id="2902702728133930130">Kunne ikke starte Chrome på grunn av en uventet feil.</translation>
@@ -315,6 +316,7 @@ Bruksstatistikken inneholder informasjon om for eksempel innstillinger, knappekl
 Du er imidlertid ikke usynlig. Inkognito-modusen skjuler ikke surfingen din for arbeidsgiveren, nettleverandøren eller nettstedene du besøker.</translation>
 <translation id="572328651809341494">Nylige faner</translation>
 <translation id="5733727110006255111">Når denne funksjonen er slått på, brukes Google-tjenerne til å komprimere sider du besøker i Chrome, før de lastes ned. SSL- og inkognitosider inkluderes ikke.</translation>
+<translation id="5749068826913805084">Chrome må ha lagringstilgang for å laste ned filer.</translation>
 <translation id="5763382633136178763">Inkognitofaner</translation>
 <translation id="5765780083710877561">Beskrivelse:</translation>
 <translation id="5771382037724542929">Vil du erstatte den eksisterende filen <ph name="FILE_NAME" /> i <ph name="DIRECTORY_NAME" />?</translation>
@@ -323,6 +325,7 @@ Du er imidlertid ikke usynlig. Inkognito-modusen skjuler ikke surfingen din for 
 <translation id="5817918615728894473">Koble sammen</translation>
 <translation id="5832934273103296195">Utvidet – klikk for å skjule</translation>
 <translation id="583891442612896534">Chrome kunne ikke kontakte Google-tjenerne for datakomprimering. Det kan hende at du bare oppnår begrenset datasparing.</translation>
+<translation id="585027516397408832">Datasparing er slått på</translation>
 <translation id="5860033963881614850">Av</translation>
 <translation id="5869522115854928033">Lagrede passord</translation>
 <translation id="588258955323874662">Fullskjerm</translation>
@@ -425,6 +428,7 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="7096034533295549981">Laster inn videoen ...</translation>
 <translation id="7191430249889272776">En fane ble åpnet i bakgrunnen.</translation>
 <translation id="7201341158316793215">Fjerner …</translation>
+<translation id="7208788139759694678">Datasparing er slått av</translation>
 <translation id="7243308994586599757">Du finner alternativer ved bunnen av skjermen</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> bruker posisjonen din for å vise lokale søkeresultater</translation>
 <translation id="7299721129597238157">Slett bokmerket</translation>

@@ -38,6 +38,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1773601347087397504">Hulp bij het gebruik van Chrome OS</translation>
 <translation id="1818142563254268765">Chrome kan niet automatisch worden geüpdatet naar de nieuwste versie, waardoor je geweldige nieuwe functies en beveiligingsoplossingen misloopt. Je moet Chrome updaten.</translation>
 <translation id="1877026089748256423">Chrome is verouderd</translation>
+<translation id="1924381329666691588">Google Chrome kan niet worden weergegeven in deze taal.</translation>
 <translation id="2077129598763517140">Hardwareversnelling gebruiken indien beschikbaar</translation>
 <translation id="2084710999043359739">Toevoegen aan Chrome</translation>
 <translation id="2246246234298806438">Google Chrome kan het afdrukvoorbeeld niet weergeven wanneer de ingebouwde pdf-viewer ontbreekt.</translation>
@@ -66,6 +67,7 @@ Als je inlogt, worden Chrome-gegevens zoals bladwijzers, geschiedenis en andere 
 <translation id="2748463065602559597">Je bekijkt een veilige Google Chrome-pagina.</translation>
 <translation id="2769762047821873045">Google Chrome is niet je standaardbrowser.</translation>
 <translation id="2770231113462710648">Standaardbrowser wijzigen in:</translation>
+<translation id="2847461019998147611">Google Chrome weergegeven in deze taal</translation>
 <translation id="2871893339301912279">U bent ingelogd bij Chrome.</translation>
 <translation id="2874156562296220396">Google Chrome wordt mogelijk gemaakt door het open-source project <ph name="BEGIN_LINK_CHROMIUM" />Chromium<ph name="END_LINK_CHROMIUM" /> en andere <ph name="BEGIN_LINK_OSS" />open-source software<ph name="END_LINK_OSS" />.</translation>
 <translation id="3037838751736561277">Google Chrome bevindt zich in de achtergrondmodus.</translation>
@@ -146,8 +148,10 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5618769508111928343"><ph name="SITE" /> gebruikt gewoonlijk codering om je gegevens te beschermen. Toen Chrome deze keer probeerde een verbinding met <ph name="SITE" /> tot stand te brengen, retourneerde de website ongewone en onjuiste inloggegevens. Een aanvaller probeert zich voor te doen als <ph name="SITE" /> of een wifi-inlogscherm heeft de verbinding verbroken. Je gegevens zijn nog steeds veilig omdat Chrome de verbinding heeft beëindigd voordat er gegevens konden worden uitgewisseld.</translation>
 <translation id="5620765574781326016">Bekijk informatie over onderwerpen op websites zonder de pagina te verlaten.</translation>
+<translation id="5637867606963802593">Chrome OS kan niet worden weergegeven in deze taal.</translation>
 <translation id="568643307450491754">Je vindt je bladwijzers in het menu 'Chrome' of in de bladwijzerbalk.</translation>
 <translation id="573759479754913123">Over Chrome OS</translation>
+<translation id="5749068826913805084">Chrome heeft toegang tot de opslag nodig om deze bestanden te kunnen downloaden.</translation>
 <translation id="5785746630574083988">Als je opnieuw start in Windows 8-modus, worden je Chrome-apps gesloten en opnieuw gestart.</translation>
 <translation id="5799551393681493217">Hiermee worden Chrome-inlogprocedures op basis van iframes ingeschakeld. Deze markering overschrijft --enable-web-based-signin.</translation>
 <translation id="5855036575689098185">De software op je computer is niet compatibel met Google Chrome.</translation>
@@ -210,6 +214,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="7164397146364144019">Je kunt helpen Chrome veiliger en gebruiksvriendelijker te maken door automatisch informatie over mogelijke beveiligingsincidenten aan Google te melden.</translation>
 <translation id="7185038942300673794"><ph name="EXTENSION_NAME" /> is toegevoegd aan Chrome.</translation>
 <translation id="7191567847629796517">Google Chrome OS biedt geen ondersteuning voor het starten van een externe applicatie voor het verwerken van <ph name="SCHEME" />-links. De opgevraagde link is <ph name="PROTOLINK" />.</translation>
+<translation id="7193750696137290001">Google Chrome wordt weergegeven in deze taal.</translation>
 <translation id="7196020411877309443">Waarom zie ik dit venster?</translation>
 <translation id="7242029209006116544">Je logt in op een beheerd account waarmee de eigenaar van dat account beheer krijgt over je Google Chrome-profiel. Je Chrome-gegevens zoals je apps, bladwijzers, geschiedenis, wachtwoorden en andere instellingen worden permanent gekoppeld aan <ph name="USER_NAME" />. Je kunt deze gegevens verwijderen via het Google Accounts Dashboard, maar je kunt deze gegevens niet koppelen aan een ander account. Je kunt ook een nieuw profiel maken om je bestaande Chrome-gegevens gescheiden te houden. <ph name="LEARN_MORE" /></translation>
 <translation id="7282192067747128786">Chrome - Meldingen (<ph name="QUANTITY" /> ongelezen)</translation>
@@ -224,6 +229,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="7473136999113284234">Chrome wordt automatisch bijgewerkt, zodat je altijd beschikt over de nieuwste versie.</translation>
 <translation id="7473891865547856676">Nee, bedankt</translation>
 <translation id="7494905215383356681">Open-sourcelicenties van Chrome</translation>
+<translation id="7552219221109926349">Chrome OS weergeven in deze taal</translation>
 <translation id="7592736734348559088">Google Chrome kan je gegevens niet synchroniseren omdat de inloggegevens voor je account zijn verouderd.</translation>
 <translation id="7626032353295482388">Welkom bij Chrome</translation>
 <translation id="7747138024166251722">Het installatieprogramma kan geen tijdelijke directory maken. Controleer of je nog schijfruimte hebt en of je toestemming hebt om software te installeren.</translation>
@@ -237,6 +243,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="7825851276765848807">De installatie is mislukt vanwege een onbekende fout. Download Google Chrome opnieuw.</translation>
 <translation id="7890208801193284374">Als je een computer deelt, kunnen vrienden en familie afzonderlijk surfen en Chrome configureren zoals zij dat willen.</translation>
 <translation id="7908968924842975895">Deze computer ontvangt geen Google Chrome-updates meer omdat de hardware van de computer niet meer wordt ondersteund.</translation>
+<translation id="7964230182933713106">Chrome OS wordt weergegeven in deze taal.</translation>
 <translation id="7984945080620862648">Je kunt <ph name="SITE" /> op dit moment niet bezoeken, omdat de website gecodeerde verificatiegegevens heeft verzonden die niet door Chrome kunnen worden verwerkt. Netwerkfouten en aanvallen zijn doorgaans tijdelijk, dus deze pagina werkt later waarschijnlijk correct.</translation>
 <translation id="8000275528373650868">Voor Google Chrome is Windows Vista of Windows XP met SP2 of hoger vereist.</translation>
 <translation id="8005540215158006229">Chrome is bijna klaar.</translation>
