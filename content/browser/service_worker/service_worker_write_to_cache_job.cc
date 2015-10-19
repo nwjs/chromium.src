@@ -42,6 +42,15 @@ const char kServiceWorkerAllowed[] = "Service-Worker-Allowed";
 
 const int kBufferSize = 16 * 1024;
 
+// The net error code used when the job fails the update attempt because the new
+// script is byte-by-byte identical to the incumbent script. This error is shown
+// in DevTools and in netlog, so we want something obscure enough that it won't
+// conflict with a legitimate network error, and not too alarming if seen by
+// developers.
+// TODO(falken): Redesign this class so we don't have to fail at the network
+// stack layer just to cancel the update.
+const int kIdenticalScriptError = net::ERR_FILE_EXISTS;
+
 }  // namespace
 
 // Reads an existing resource and copies it via
@@ -750,9 +759,9 @@ void ServiceWorkerWriteToCacheJob::OnCompareComplete(int bytes_matched,
     // This version is identical to the incumbent, so discard it and fail this
     // job.
     version_->SetStartWorkerStatusCode(SERVICE_WORKER_ERROR_EXISTS);
-    AsyncNotifyDoneHelper(
-        net::URLRequestStatus(net::URLRequestStatus::FAILED, net::ERR_FAILED),
-        kFetchScriptError);
+    AsyncNotifyDoneHelper(net::URLRequestStatus(net::URLRequestStatus::FAILED,
+                                                kIdenticalScriptError),
+                          kFetchScriptError);
     return;
   }
 
