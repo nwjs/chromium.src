@@ -277,8 +277,11 @@ public class ContextualSearchPanel extends ContextualSearchPanelAnimation
 
     @Override
     protected void onClosed(StateChangeReason reason) {
-        destroy();
+        // Must be called before destroying Content because unseen visits should be removed from
+        // history, and if the Content gets destroyed there won't be a ContentViewCore to do that.
         mManagementDelegate.onCloseContextualSearch(reason);
+
+        destroy();
     }
 
     // ============================================================================================
