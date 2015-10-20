@@ -185,6 +185,12 @@ public interface ContextualSearchPanelDelegate {
     void notifyPanelTouched();
 
     /**
+     * Destroys the Content.
+     * TODO(pedrosimonetti): Fix for M47. Replace this with a better delayed load approach.
+     */
+    void destroyContent();
+
+    /**
      * Allows test cases to use a custom OverlayPanelContent in tests.
      * @param factory The OverlayPanelContentFactory that will create the OverlayPanelContent.
      */

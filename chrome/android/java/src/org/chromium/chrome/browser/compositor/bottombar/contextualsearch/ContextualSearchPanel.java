@@ -60,13 +60,6 @@ public class ContextualSearchPanel extends ContextualSearchPanelAnimation
     }
 
     /**
-     * The animation duration of a URL being promoted to a tab when triggered by an
-     * intercept navigation. This is faster than the standard tab promotion animation
-     * so that it completes before the navigation.
-     */
-    private static final long INTERCEPT_NAVIGATION_PROMOTION_ANIMATION_DURATION_MS = 40;
-
-    /**
      * The extra dp added around the close button touch target.
      */
     private static final int CLOSE_BUTTON_TOUCH_SLOP_DP = 5;
@@ -886,5 +879,10 @@ public class ContextualSearchPanel extends ContextualSearchPanelAnimation
     @VisibleForTesting
     public void setOverlayPanelContentFactory(OverlayPanelContentFactory factory) {
         mContentFactory = factory;
+    }
+
+    @Override
+    public void destroyContent() {
+        destroyOverlayPanelContent();
     }
 }
