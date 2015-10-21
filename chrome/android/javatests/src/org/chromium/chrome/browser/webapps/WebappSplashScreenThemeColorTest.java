@@ -22,7 +22,9 @@ public class WebappSplashScreenThemeColorTest extends WebappActivityTestBase {
     @Override
     protected Intent createIntent() {
         Intent intent = super.createIntent();
-        intent.putExtra(ShortcutHelper.EXTRA_THEME_COLOR, (long) Color.MAGENTA);
+        intent.putExtra(ShortcutHelper.EXTRA_URL, "http://localhost");
+        // This is setting Color.Magenta with 50% opacity.
+        intent.putExtra(ShortcutHelper.EXTRA_THEME_COLOR, (long) Color.argb(128, 255, 0, 255));
         return intent;
     }
 
