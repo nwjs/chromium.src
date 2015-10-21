@@ -90,11 +90,11 @@ void FuzzHeaderFieldValue(
   expected_altsvc->p = 1.0;
   if (i & 1 << 5) {
     expected_altsvc->p = 0.33;
-    header_field_value->append("; P=.33");
+    header_field_value->append("; P=\".33\"");
   }
   if (i & 1 << 6) {
     expected_altsvc->p = 0.0;
-    header_field_value->append("; p=0");
+    header_field_value->append("; p=\"0\"");
   }
   if (i & 1 << 7) {
     expected_altsvc->max_age = 999999999;
@@ -102,7 +102,7 @@ void FuzzHeaderFieldValue(
   }
   if (i & 1 << 8) {
     expected_altsvc->p = 0.0;
-    header_field_value->append("; P=0.");
+    header_field_value->append("; P=\"0.\"");
   }
   if (i & 1 << 9) {
     header_field_value->append(";");
@@ -140,7 +140,7 @@ void FuzzAlternativeService(int i,
   altsvc->p = 1.0;
   if (i & 1 << 2) {
     altsvc->p = 0.33;
-    expected_header_field_value->append("; p=0.33");
+    expected_header_field_value->append("; p=\"0.33\"");
   }
 }
 
@@ -247,8 +247,9 @@ TEST(SpdyAltSvcWireFormatTest, ParseHeaderFieldValueInvalid) {
       "a=", "a=\"", "a=\"b\"", "a=\":\"", "a=\"c:\"", "a=\"c:foo\"",
       "a=\"c:42foo\"", "a=\"b:42\"bar", "a=\"b:42\" ; m",
       "a=\"b:42\" ; min-age", "a=\"b:42\" ; ma", "a=\"b:42\" ; ma=",
-      "a=\"b:42\" ; ma=ma", "a=\"b:42\" ; ma=123bar", "a=\"b:42\" ; p=-2",
-      "a=\"b:42\" ; p=..", "a=\"b:42\" ; p=1.05"};
+      "a=\"b:42\" ; ma=ma", "a=\"b:42\" ; ma=123bar", "a=\"b:42\" ; p=\"-2\"",
+      "a=\"b:42\" ; p=\"..\"", "a=\"b:42\" ; p=\"1.05\"", "a=\"b:42\" ; p=0.4",
+      "a=\"b:42\" ; p=\" 1.0\""};
   for (const char* invalid_field_value : invalid_field_value_array) {
     EXPECT_FALSE(SpdyAltSvcWireFormat::ParseHeaderFieldValue(
         invalid_field_value, &altsvc_vector))
