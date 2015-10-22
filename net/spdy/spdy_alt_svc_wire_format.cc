@@ -38,7 +38,14 @@ bool ParsePositiveIntegerImpl(StringPiece::const_iterator c,
 bool SpdyAltSvcWireFormat::ParseHeaderFieldValue(
     StringPiece value,
     AlternativeServiceVector* altsvc_vector) {
+  // Empty value is invalid according to the specification.
+  if (value.empty()) {
+    return false;
+  }
   altsvc_vector->clear();
+  if (value == StringPiece("clear")) {
+    return true;
+  }
   StringPiece::const_iterator c = value.begin();
   while (c != value.end()) {
     // Parse protocol-id.
@@ -139,6 +146,9 @@ bool SpdyAltSvcWireFormat::ParseHeaderFieldValue(
 // static
 std::string SpdyAltSvcWireFormat::SerializeHeaderFieldValue(
     const AlternativeServiceVector& altsvc_vector) {
+  if (altsvc_vector.empty()) {
+    return std::string("clear");
+  }
   const char kNibbleToHex[] = "0123456789ABCDEF";
   std::string value;
   for (const AlternativeService& altsvc : altsvc_vector) {
