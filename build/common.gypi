@@ -1977,6 +1977,8 @@
         ],
       }],  # OS=="mac" or OS=="ios"
       ['OS=="win"', {
+        'clang%': 1,
+
         'conditions': [
           # This is the architecture convention used in WinSDK paths.
           ['target_arch=="ia32"', {
