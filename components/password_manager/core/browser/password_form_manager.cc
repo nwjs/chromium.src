@@ -113,7 +113,10 @@ PasswordFormManager::PasswordFormManager(
       user_action_(kUserActionNone),
       submit_result_(kSubmitResultNotSubmitted),
       form_type_(kFormTypeUnspecified) {
-  drivers_.push_back(driver);
+  DCHECK_EQ(observed_form.scheme == PasswordForm::SCHEME_HTML,
+            driver != nullptr);
+  if (driver)
+    drivers_.push_back(driver);
 }
 
 PasswordFormManager::~PasswordFormManager() {
@@ -497,6 +500,7 @@ void PasswordFormManager::OnRequestDone(
 
 void PasswordFormManager::ProcessFrame(
     const base::WeakPtr<PasswordManagerDriver>& driver) {
+  DCHECK_EQ(PasswordForm::SCHEME_HTML, observed_form_.scheme);
   if (state_ == POST_MATCHING_PHASE)
     ProcessFrameInternal(driver);
 
@@ -512,6 +516,7 @@ void PasswordFormManager::ProcessFrame(
 
 void PasswordFormManager::ProcessFrameInternal(
     const base::WeakPtr<PasswordManagerDriver>& driver) {
+  DCHECK_EQ(PasswordForm::SCHEME_HTML, observed_form_.scheme);
   if (!driver || manager_action_ == kManagerActionBlacklisted)
     return;
 
@@ -542,6 +547,15 @@ void PasswordFormManager::ProcessFrameInternal(
     manager_action_ = kManagerActionAutofilled;
   password_manager_->Autofill(driver.get(), observed_form_, best_matches_,
                               *preferred_match_, wait_for_username);
+}
+
+void PasswordFormManager::ProcessLoginPrompt() {
+  DCHECK_NE(PasswordForm::SCHEME_HTML, observed_form_.scheme);
+  if (!preferred_match_)
+    return;
+
+  manager_action_ = kManagerActionAutofilled;
+  password_manager_->AutofillHttpAuth(best_matches_, *preferred_match_);
 }
 
 void PasswordFormManager::OnGetPasswordStoreResults(
@@ -575,6 +589,8 @@ void PasswordFormManager::OnGetPasswordStoreResults(
   if (manager_action_ != kManagerActionBlacklisted) {
     for (auto const& driver : drivers_)
       ProcessFrameInternal(driver);
+    if (observed_form_.scheme != PasswordForm::SCHEME_HTML)
+      ProcessLoginPrompt();
   }
 }
 
