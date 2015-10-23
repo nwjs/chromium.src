@@ -196,8 +196,8 @@ public class WebappActivity extends FullScreenActivity {
     }
 
     private void initializeSplashScreen() {
-        final int backgroundColor = mWebappInfo.backgroundColor(
-                ApiCompatibilityUtils.getColor(getResources(), R.color.webapp_default_bg));
+        final int backgroundColor = ColorUtils.getOpaqueColor(mWebappInfo.backgroundColor(
+                ApiCompatibilityUtils.getColor(getResources(), R.color.webapp_default_bg)));
 
         ViewGroup contentView = (ViewGroup) findViewById(android.R.id.content);
         mSplashScreen = createSplashScreen(contentView);
