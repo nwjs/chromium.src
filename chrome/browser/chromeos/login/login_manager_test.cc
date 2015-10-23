@@ -122,6 +122,7 @@ void LoginManagerTest::SetUpInProcessBrowserTestFixture() {
 }
 
 void LoginManagerTest::SetUpOnMainThread() {
+  LoginDisplayHostImpl::DisableRestrictiveProxyCheckForTest();
   // Restart the thread as the sandbox host process has already been spawned.
   embedded_test_server()->RestartThreadAndListen();
 

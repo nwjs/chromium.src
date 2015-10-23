@@ -2189,6 +2189,8 @@ class KioskHiddenWebUITest : public KioskTest,
   }
 
   void SetUpOnMainThread() override {
+    LoginDisplayHostImpl::DisableRestrictiveProxyCheckForTest();
+
     KioskTest::SetUpOnMainThread();
     ash::Shell::GetInstance()->desktop_background_controller()
         ->AddObserver(this);

@@ -404,17 +404,14 @@ void GaiaScreenHandler::OnPortalDetectionCompleted(
     const NetworkPortalDetector::CaptivePortalState& state) {
   VLOG(1) << "OnPortalDetectionCompleted " << state.status;
 
-  NetworkPortalDetector::CaptivePortalStatus status = state.status;
-  if (status == captive_portal_status_)
+  const NetworkPortalDetector::CaptivePortalStatus status = state.status;
+  if (status == captive_portal_status_ ||
+      disable_restrictive_proxy_check_for_test_)
     return;
 
-  // Only consider online/portal status.
-  if (status == NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_ONLINE ||
-      status == NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL) {
-    captive_portal_status_ = status;
-    LoadAuthExtension(true /* force */, true /* silent_load */,
-                      false /* offline */);
-  }
+  captive_portal_status_ = status;
+  LoadAuthExtension(true /* force */, true /* silent_load */,
+                    false /* offline */);
 }
 
 void GaiaScreenHandler::HandleIdentifierEntered(
