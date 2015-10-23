@@ -183,7 +183,9 @@ class DrmDevice::IOWatcher
       : main_task_runner_(base::ThreadTaskRunnerHandle::Get()),
         io_task_runner_(io_task_runner),
         page_flip_manager_(page_flip_manager),
-        fd_(fd) {
+        fd_(fd) {}
+
+  void Initialize() {
     io_task_runner_->PostTask(FROM_HERE,
                               base::Bind(&IOWatcher::RegisterOnIO, this));
   }
@@ -286,6 +288,7 @@ void DrmDevice::InitializeTaskRunner(
   task_runner_ = task_runner;
   watcher_ =
       new IOWatcher(file_.GetPlatformFile(), task_runner_, page_flip_manager_);
+  watcher_->Initialize();
 }
 
 ScopedDrmCrtcPtr DrmDevice::GetCrtc(uint32_t crtc_id) {
