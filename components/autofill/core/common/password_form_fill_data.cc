@@ -58,7 +58,8 @@ void InitPasswordFormFillData(
   result->is_possible_change_password_form =
       form_on_page.IsPossibleChangePasswordForm();
 
-  if (preferred_match->is_public_suffix_match || preferred_match->is_affiliated)
+  if (preferred_match->is_public_suffix_match ||
+      preferred_match->is_affiliation_based_match)
     result->preferred_realm = preferred_match->signon_realm;
 
   // Copy additional username/value pairs.
@@ -67,7 +68,8 @@ void InitPasswordFormFillData(
     if (iter->second != preferred_match) {
       PasswordAndRealm value;
       value.password = iter->second->password_value;
-      if (iter->second->is_public_suffix_match)
+      if (iter->second->is_public_suffix_match ||
+          iter->second->is_affiliation_based_match)
         value.realm = iter->second->signon_realm;
       result->additional_logins[iter->first] = value;
     }
@@ -80,7 +82,8 @@ void InitPasswordFormFillData(
       UsernamesCollectionKey key;
       key.username = iter->first;
       key.password = iter->second->password_value;
-      if (iter->second->is_public_suffix_match)
+      if (iter->second->is_public_suffix_match ||
+          iter->second->is_affiliation_based_match)
         key.realm = iter->second->signon_realm;
       result->other_possible_usernames[key] =
           iter->second->other_possible_usernames;
