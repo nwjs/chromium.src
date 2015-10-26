@@ -207,6 +207,7 @@ GURL TranslateLanguageList::TranslateLanguageUrl() {
 }
 
 void TranslateLanguageList::RequestLanguageList() {
+#if 0
   // If resource requests are not allowed, we'll get a callback when they are.
   if (!resource_requests_allowed_) {
     request_pending_ = true;
@@ -233,6 +234,7 @@ void TranslateLanguageList::RequestLanguageList() {
     if (!result)
       NotifyEvent(__LINE__, "Request is omitted due to retry limit");
   }
+#endif
 }
 
 void TranslateLanguageList::SetResourceRequestsAllowed(bool allowed) {
