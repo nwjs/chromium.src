@@ -122,7 +122,7 @@ bool InputMethodController::confirmComposition()
 {
     if (!hasComposition())
         return false;
-    return confirmComposition(plainText(compositionEphemeralRange()));
+    return confirmComposition(composingText());
 }
 
 bool InputMethodController::confirmComposition(const String& text)
@@ -182,7 +182,7 @@ bool InputMethodController::finishComposition(const String& text, FinishComposit
 
     Editor::RevealSelectionScope revealSelectionScope(&editor());
 
-    bool dirty = m_isDirty || plainText(compositionEphemeralRange()) != text;
+    bool dirty = m_isDirty || composingText() != text;
 
     if (mode == CancelComposition) {
         ASSERT(text == emptyString());
@@ -374,6 +374,11 @@ EphemeralRange InputMethodController::compositionEphemeralRange() const
 PassRefPtrWillBeRawPtr<Range> InputMethodController::compositionRange() const
 {
     return hasComposition() ? m_compositionRange : nullptr;
+}
+
+String InputMethodController::composingText() const
+{
+    return plainText(compositionEphemeralRange(), TextIteratorEmitsOriginalText);
 }
 
 PlainTextRange InputMethodController::getSelectionOffsets() const
