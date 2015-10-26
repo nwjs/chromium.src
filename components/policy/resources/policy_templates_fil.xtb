@@ -528,7 +528,7 @@
 <translation id="2811293057593285123">Nagpapakita ang serbisyo ng Ligtas na Pagba-browse ng pahina ng babala kapag nag-navigate ang mga user sa mga site na naka-flag bilang potensyal na nakakahamak. Pinipigilan ng pag-enable ng setting na ito ang mga user sa pagtuloy mula sa pahina ng babala patungo sa nakakahamak na site.
 
       Kung naka-disable o hindi naka-configure ang setting na ito maaaring piliin ng mga user na tumuloy sa naka-flag na site pagkatapos ipakita ang babala.</translation>
-<translation id="2812021780168085286">Pinapayagan kang tukuyin kung aling mga URL ang pinapayagang mag-install ng mga extension, app at tema.
+<translation id="2812021780168085286">Binibigyan-daan kang tukuyin kung aling mga URL ang pinapayagang mag-install ng mga extension, app at tema.
 
           Simula sa <ph name="PRODUCT_NAME" /> 21, mas mahirap nang mag-install ng mga extenstion, app at user script mula sa labas ng Chrome Web Store. Dati, nakakapag-click ang mga user sa link sa isang *.crx file, at mag-aalok ang <ph name="PRODUCT_NAME" /> na i-install ang file pagkatapos ng ilang babala. Pagkatapos ng <ph name="PRODUCT_NAME" /> 21, dapat na i-download at i-drag ang mga ganoong file sa page ng mga setting ng <ph name="PRODUCT_NAME" />. Pinapayagan ng setting na ito na magkaroon ang mga partikular na URL ng mas luma at mas madaling daloy ng pag-install.
 
@@ -1345,9 +1345,9 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="602728333950205286">Instant na URL ng default na provider ng paghahanap</translation>
 <translation id="603410445099326293">Mga parameter para sa URL ng mungkahi na ginagamit ang POST</translation>
 <translation id="6036523166753287175">Paganahin ang firewall traversal mula sa host ng malayuang pag-access</translation>
-<translation id="6059543311891422586">Gamitni ang hardware acceleration kapag available.
+<translation id="6059543311891422586">Gamitin ang hardware acceleration kapag available.
 
-      Kung nakatakda sa true ang patakarang ito o hindi itinakda, ie-enable ang hardware acceleration maliban kung naka-blacklist ang ilang partikular feature ng GPU.
+      Kung nakatakda sa true ang patakarang ito o hindi itinakda, ie-enable ang hardware acceleration maliban kung naka-blacklist ang ilang partikular na feature ng GPU.
 
       Kung nakatakda sa false ang patakarang ito, idi-disable ang hardware acceleration.</translation>
 <translation id="6074963268421707432">Huwag payagan ang anumang site na magpakita ng mga notification sa desktop</translation>
@@ -1477,7 +1477,7 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
       Kung idi-disable mo ang setting na ito, hindi papayagan ang mga user na gamitin ang Smart Lock.
 
-      Kung hindi itatakda ang patakarang ito, ang default ay hindi ito pinapayagan para sa mga user na pinapamahalaan ng negosyo at pinapayagan ito para sa mga hindi pinamamahalaang user.</translation>
+      Kung hindi itatakda ang patakarang ito, ang default ay hindi pinapayagan para sa mga user na pinapamahalaan ng negosyo at pinapayagan ito para sa mga hindi pinamamahalaang user.</translation>
 <translation id="6513756852541213407">Binibigyang-daan kang tukuyin ang proxy server na ginagamit ng <ph name="PRODUCT_NAME" /> at pinipigilan ang mga user na baguhin ang mga setting ng proxy.
 
           Kung pinili mong hindi gumamit ng proxy server kailanman at palaging direktang kumonekta, binabalewala ang lahat ng iba pang pagpipilian.
@@ -1526,9 +1526,9 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
       Binibigyang-kakayahan ng patakaran na ito ang mga administrator na ma-enable muli ang mga hindi na ginagamit na feature ng web platform para sa limitadong panahon. Tinutukoy ang mga feature ng isang string tag at mae-enable muli ang mga feature na tumutugma sa mga tag na kasama sa listahang tinukoy ng patakaran na ito.
 
-      Kung maiiwang hindi nakatakda ang patakaran na ito, o walang laman ang listahan o hindi tumutugma sa isa sa mga  sinusuportahang string tag, mananatiling hindi na ginagamit ang lahat ng feature ng web platform.
+      Kung maiiwang hindi nakatakda ang patakaran na ito, o walang laman ang listahan o hindi tumutugma sa isa sa mga sinusuportahang string tag, mananatiling hindi na ginagamit ang lahat ng feature ng web platform.
 
-      Kahit ang mismong patakaran ay sinusuportahan sa mga platform sa itaas, maaaring available sa mas kaunting platform ang ine-enable nitong feature. Hindi lahat ng mga hindi na ginagamit na feature ng Web Platform ay maaaring i-enable muli. Sa mga feature lang na nakikitang nakalista sa ibaba ang maaaring gawin ito sa limitadong yugto ng panahon, na magkakaiba para sa bawat feature. Ang pangkalahatang format ng string tag ay magiging [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Bilang sanggunian, makikita mo ang layunin sa likod ng mga pagbabago ng feature ng Web Platform sa https://bit.ly/blinkintents.
+      Kahit ang mismong patakaran ay sinusuportahan sa mga platform sa itaas, maaaring available sa mas kaunting platform ang ine-enable nitong feature. Hindi lahat ng mga hindi na ginagamit na feature ng Web Platform ay maaaring i-enable muli. Sa mga feature lang na nakikitang nakalista sa ibaba ang maaaring maging sa limitadong yugto ng panahon, na magkakaiba para sa bawat feature. Ang pangkalahatang format ng string tag ay magiging [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Bilang sanggunian, makikita mo ang layunin sa likod ng mga pagbabago ng feature ng Web Platform sa https://bit.ly/blinkintents.
       </translation>
 <translation id="6641981670621198190">Huwag paganahin ang suporta para sa mga API ng mga 3D na graphic</translation>
 <translation id="6647965994887675196">Kung nakatakda sa true, maaaring gumawa at gumamit ng mga pinapangasiwaang user.
@@ -1803,7 +1803,7 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
       Kung hindi nakatakda ang patakarang ito, gagamitin ang default na laki at ma-o-override ito ng user gamit ang --disk-cache-size flag.</translation>
 <translation id="7612157962821894603">Mga flag sa buong system na ilalapat sa pag-start up ng <ph name="PRODUCT_NAME" /></translation>
 <translation id="7614663184588396421">Listahan ng hindi pinaganang mga scheme ng protocol</translation>
-<translation id="7615123397791876280">Uri ng Account para sa Pagpapatotoo sa Paghahanap ng Kompromiso</translation>
+<translation id="7615123397791876280">Uri ng Account para sa Negotiate Authentication</translation>
 <translation id="7625444193696794922">Tinutukoy ang channel ng paglabas kung saan dapat naka-lock ang device.</translation>
 <translation id="7632724434767231364">Pangalan ng GSSAPI library</translation>
 <translation id="7635471475589566552">Kino-configure ang lokal ng application sa <ph name="PRODUCT_NAME" /> at pinipigilan ang mga user na baguhin ang lokal.
@@ -1914,7 +1914,7 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
           Maaari ring ma-configure ang "installation_mode" para rin sa maraming extension, kabilang ang extension na "*" (bilang mga default na setting) at mga extension na may parehong URL. Tanging ang mga value na "allowed" at "blocked" ang magagamit sa kasong ito.
 
-          Kuyng nakatakda ang mode sa "force_installed" o "normal_installed," dapat na ma-configure din ang isang "update_url." Tandaan na ang update URL na nakatakda sa patakarang ito ay ginagamit lang para sa paunang pag-install; gagamitin ng mga kasunod na update ng extension ang update URL na nakasaad sa manifest ng extension. Dapat na tumuro ang update URL sa isang dokumento ng Update Manifest XML tulad ng nabanggit sa itaas.
+          Kung nakatakda ang mode sa "force_installed" o "normal_installed," dapat na ma-configure din ang isang "update_url." Tandaan na ang update URL na nakatakda sa patakarang ito ay ginagamit lang para sa paunang pag-install; gagamitin ng mga kasunod na update ng extension ang update URL na nakasaad sa manifest ng extension. Dapat na tumuro ang update URL sa isang dokumento ng Update Manifest XML tulad ng nabanggit sa itaas.
 
           "blocked_permissions": minamapa sa isang listahan ng mga string na nagsasaad sa mga na-block na pahintulot sa API para sa extension. Ang mga pangalan ng mga pahintulot ay pareho sa mga string ng pahintulot na nakasaad sa manifest ng extension tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC3" />. Maaari ring ma-configure ang setting na ito para sa extension na "*". Kung kailangan ng extension ng pahintulot na nasa blocklist, hindi ito papayagang mag-load. Kung naglalaman ito ng naka-block na pahintulot bilang opsyonal na kinakailangan, pangangasiwaan ito sa normal na paraan, ngunit ang paghiling ng mga nagsasalungat na pahintulot ay awtomatikong tatangihan sa runtime.
 
@@ -2054,9 +2054,9 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="8369602308428138533">Delay ng pag-off ng screen kapag tumatakbo habang nakasaksak sa kuryente</translation>
 <translation id="8382184662529825177">I-enable ang paggamit ng malayuang pagpapatotoo para sa pagprotekta sa nilalaman para sa device</translation>
 <translation id="838870586332499308">Payagan ang roaming ng data</translation>
-<translation id="8407759228138103300">Tinutukoy ang uri ng account ng mga account na ibinigay ng app sa pagpapatotoo ng Android na sumusuporta sa pagpapatotoo ng Paghahanap ng Kompromiso sa HTTP (hal. pagpapatotoo sa Kerberos). Dapat na available ang impormasyong ito mula sa supplier ng app sa Pagpapatotoo. Para sa higit pang mga detalye, tingnan ang https://goo.gl/hajyfN.
+<translation id="8407759228138103300">Tinutukoy ang uri ng account ng mga account na ibinigay ng app sa pagpapatotoo ng Android na sumusuporta sa pagpapatotoo na HTTP Negotiate (hal. pagpapatotoo sa Kerberos). Dapat na available ang impormasyong ito mula sa supplier ng app sa Pagpapatotoo. Para sa higit pang mga detalye, tingnan ang https://goo.gl/hajyfN.
 
-          Kung walang ibinigay na setting, madi-disable sa Android ang Pagpapatotoo sa Paghahanap ng Kompromiso.</translation>
+          Kung walang ibinigay na setting, madi-disable sa Android ang Negotiate Authentication.</translation>
 <translation id="8412312801707973447">Kung isinasagawa ang mga online na pagsusuri sa OCSP/CRL</translation>
 <translation id="8451988835943702790">Gamitin ang Pahina ng Bagong Tab bilang homepage</translation>
 <translation id="8465065632133292531">Mga parameter para sa instant na URL na ginagamit ang POST</translation>
@@ -2197,7 +2197,7 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
       TANDAAN: Hanggang sa bersyon 45, sinusuportahan lang ang patakarang ito sa Kiosk mode.</translation>
 <translation id="8965758116018152083">Kung nakatakda sa blangkong string o hindi naka-configure ang patakaran na ito, hindi magpapakita ang <ph name="PRODUCT_OS_NAME" /> ng isang opsyon sa pag-autocomplete sa flow ng pag-sign in ng user.
-      Kung ang patakaran na ito ay nakatakda sa string na kumakatawan sa isang domain name, magpapakita ang <ph name="PRODUCT_OS_NAME" /> ng opsyon sa pag-autocomplete sa pag-sign in ng user na nagbibigay-daan sa user na i-type lang ang kanyang user name nang wala ang extension ng domain name.  Magagawa ng user ng i-overwrite ang extension ng domain name na ito.</translation>
+      Kung ang patakaran na ito ay nakatakda sa string na kumakatawan sa isang domain name, magpapakita ang <ph name="PRODUCT_OS_NAME" /> ng opsyon sa pag-autocomplete sa pag-sign in ng user na nagbibigay-daan sa user na i-type lang ang kanyang user name nang wala ang extension ng domain name.  Magagawa ng user na i-overwrite ang extension ng domain name na ito.</translation>
 <translation id="8970205333161758602">Pigilan ang turndown prompt sa <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8971221018777092728">Timer ng awtomatikong pag-log in sa pampublikong session</translation>
 <translation id="8976248126101463034">Payagan ang pagpapatotoo ng gnubby para sa mga host ng malayuang pag-access</translation>

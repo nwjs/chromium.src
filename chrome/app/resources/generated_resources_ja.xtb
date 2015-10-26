@@ -5519,7 +5519,7 @@
 <translation id="8830796635868321089">現在のプロキシ設定を使用してアップデートをチェックできませんでした。<ph name="PROXY_SETTINGS_LINK_START" />プロキシ設定<ph name="PROXY_SETTINGS_LINK_END" />を調整してください。</translation>
 <translation id="8831623914872394308">ポインタの設定</translation>
 <translation id="8837103518490433332"><ph name="PASSWORD_MANAGER_BRAND" /> で <ph name="ORIGIN" /> のパスワードを保存しますか？</translation>
-<translation id="8841142799574815336">動作のないビジュアル ビューポート</translation>
+<translation id="8841142799574815336">停止中のビジュアル ビューポート</translation>
 <translation id="884264119367021077">配送先住所</translation>
 <translation id="8843709518995654957">このデバイスの<ph name="LINK_START" />監視対象ユーザーを作成する<ph name="LINK_END" />。</translation>
 <translation id="8846141544112579928">キーボードを探しています...</translation>

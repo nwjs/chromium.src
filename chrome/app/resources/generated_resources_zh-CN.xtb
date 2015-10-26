@@ -513,8 +513,8 @@
 <translation id="169515659049020177">Shift</translation>
 <translation id="1697068104427956555">在图片上选择一块方形区域。</translation>
 <translation id="1697532407822776718">搞定了！</translation>
-<translation id="1699274548822076330">此项需要与 trace-upload-url 结合使用。
-        警告：此项处于启用状态时，Chrome 将记录每次导航的性能数据，并将其上传到通过 trace-upload-url 指定的网址。跟踪内容可能包含个人身份信息 (PII)，例如您访问的网站的标题和网址。</translation>
+<translation id="1699274548822076330">此项需要与 trace-upload-url 标记结合使用。
+        警告：此项处于启用状态时，Chrome 将记录每次导航的性能数据，并将其上传到通过 trace-upload-url 标记指定的网址。跟踪内容可能包含个人身份信息 (PII)，例如您访问的网站的标题和网址。</translation>
 <translation id="1699395855685456105">硬件版本：</translation>
 <translation id="1701062906490865540">移除此用户</translation>
 <translation id="1702534956030472451">西欧语言</translation>
@@ -2093,7 +2093,7 @@
 <translation id="3869917919960562512">索引错误。</translation>
 <translation id="3872687746103784075">Native Client 基于 GDB 的调试</translation>
 <translation id="3878840326289104869">正在创建受监管用户</translation>
-<translation id="3887557525921873910">此项需要与 enable-navigation-tracing 结合使用。
+<translation id="3887557525921873910">此项需要与 enable-navigation-tracing 标记结合使用。
         请选择与记录的跟踪内容最相符的标签，这样即可选定跟踪内容将上传到的目标位置。如果您不确定该选择哪个标签，请选择“其他”。如果留空，系统将不会上传任何跟踪内容。</translation>
 <translation id="3888118750782905860">消费者管理</translation>
 <translation id="3893536212201235195">读取和更改您的无障碍设置</translation>

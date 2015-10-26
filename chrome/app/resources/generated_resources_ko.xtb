@@ -231,7 +231,7 @@
 <translation id="1336254985736398701">페이지 정보 보기(&amp;I)</translation>
 <translation id="1337036551624197047">체코어 키보드</translation>
 <translation id="1338950911836659113">삭제 중...</translation>
-<translation id="1339266338863469628">기본(나만 선택)</translation>
+<translation id="1339266338863469628">기본(내 소리만 감지)</translation>
 <translation id="1340527397989195812">파일 앱을 사용하여 기기의 미디어를 백업합니다.</translation>
 <translation id="1343517687228689568">이 페이지를 시작 화면에서 고정 해제...</translation>
 <translation id="1344519653668879001">하이퍼링크 검사 사용 중지</translation>
@@ -520,7 +520,7 @@
 <translation id="1697068104427956555">이미지의 정사각형 영역을 선택합니다.</translation>
 <translation id="1697532407822776718">설정 완료</translation>
 <translation id="1699274548822076330">이 플래그는 trace-upload-url 플래그와 함께 사용해야 합니다.
-        경고: 사용하도록 설정하면 Chrome에서는 모든 탐색에 대해 성능 데이터를 기록하고 이를 trace-upload-url 플래그에서 지정한 URL로 업로드합니다. 사용자가 방문하는 웹사이트의 제목 및 URL 등 PII(개인 식별 정보)가 이 추적에 포함될 수 있습니다.</translation>
+        경고: 사용하도록 설정하면 Chrome에서는 모든 탐색에 대해 성능 데이터를 기록하고 이를 trace-upload-url 플래그에서 지정한 URL로 업로드합니다. 사용자가 방문하는 웹사이트의 제목 및 URL 등 PII(개인 식별 정보)가 추적 내용에 포함될 수 있습니다.</translation>
 <translation id="1699395855685456105">하드웨어 개정:</translation>
 <translation id="1701062906490865540">이 사용자 삭제</translation>
 <translation id="1702534956030472451">서유럽어</translation>
@@ -676,7 +676,7 @@
 <translation id="1950295184970569138">* Google 프로필 사진(로드 중)</translation>
 <translation id="1951615167417147110">한 페이지 위로 스크롤</translation>
 <translation id="1956050014111002555">파일에 여러 인증서가 있지만 가져올 수 있는 인증서가 없습니다.</translation>
-<translation id="1957988341423158185">탐색 추적용 추적 레벨</translation>
+<translation id="1957988341423158185">탐색 추적용 추적 라벨</translation>
 <translation id="1958820272620550857">항목 차단</translation>
 <translation id="1962233722219655970">이 페이지에서 사용자 컴퓨터에서 작동하지 않는 Native Client 앱을 사용합니다.</translation>
 <translation id="1965328510789761112">개별 메모리</translation>
@@ -1859,7 +1859,7 @@
 <translation id="3574305903863751447"><ph name="COUNTRY" /> <ph name="STATE" />, <ph name="CITY" /></translation>
 <translation id="3574777678278664892">사용 설정된 경우 비밀번호 관리자가 동기화에 사용되는 사용자 인증 정보를 저장하도록 제안하지 않습니다.</translation>
 <translation id="357479282490346887">리투아니아어</translation>
-<translation id="3578331450833904042">기본(모두 선택)</translation>
+<translation id="3578331450833904042">기본(모든 소리 감지)</translation>
 <translation id="3578594933904494462">이 탭의 콘텐츠를 공유 중입니다.</translation>
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt;님이 내가 소유한 그룹(&lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;)과의 프린터(&lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt;) 공유를 요청했습니다. 동의하면 모든 그룹 회원이 해당 프린터로 인쇄할 수 있게 됩니다.</translation>
 <translation id="3581912141526548234">실행(해시를 가져 오려고 시도하며 가져오면 실행함)</translation>
@@ -2110,7 +2110,7 @@
 <translation id="3869917919960562512">잘못된 색인입니다.</translation>
 <translation id="3872687746103784075">기본 클라이언트 GDB 기반 디버깅</translation>
 <translation id="3878840326289104869">관리 대상 사용자 만들기</translation>
-<translation id="3887557525921873910">enable-navigation-tracing 플래그와 함께 사용되어야 합니다.
+<translation id="3887557525921873910">enable-navigation-tracing 플래그와 함께 사용해야 합니다.
         기록된 추적을 가장 잘 설명하는 라벨을 선택하세요. 그러면 추적이 업로드될 목적지가 선택됩니다. 잘 모르는 경우 다른 라벨을 선택하세요. 라벨을 선택하지 않으면 추적이 업로드되지 않습니다.</translation>
 <translation id="3888118750782905860">소비자 관리</translation>
 <translation id="3893536212201235195">접근성 설정 확인 및 변경</translation>
@@ -4903,7 +4903,7 @@
 <translation id="7957054228628133943">팝업 차단 관리...</translation>
 <translation id="7959074893852789871">파일에 여러 인증서가 있지만 그 중 일부를 가져올 수 없습니다.</translation>
 <translation id="7959874006162866942"><ph name="PLUGIN_NAME" />을(를) 설치하시겠습니까? 신뢰할 수 있는 플러그인만 설치해야 합니다.</translation>
-<translation id="7961015016161918242">완료되지 않음</translation>
+<translation id="7961015016161918242">사용하지 않음</translation>
 <translation id="7963675372086154214">UI 텍스트에 HarfBuzz 사용</translation>
 <translation id="7965010376480416255">공유 메모리</translation>
 <translation id="7966241909927244760">이미지 주소 복사(&amp;O)</translation>
@@ -5526,7 +5526,7 @@
 <translation id="8830796635868321089">현재 프록시 설정을 사용하여 업데이트를 확인하지 못했습니다. <ph name="PROXY_SETTINGS_LINK_START" />프록시 설정<ph name="PROXY_SETTINGS_LINK_END" />을 조정하세요.</translation>
 <translation id="8831623914872394308">포인터 설정</translation>
 <translation id="8837103518490433332"><ph name="PASSWORD_MANAGER_BRAND" />이(가) <ph name="ORIGIN" />의 비밀번호를 저장하도록 하시겠습니까?</translation>
-<translation id="8841142799574815336">비활성 시각 표시 영역</translation>
+<translation id="8841142799574815336">시각 표시 영역 비활성</translation>
 <translation id="884264119367021077">배송지 주소</translation>
 <translation id="8843709518995654957">이 기기의 <ph name="LINK_START" />관리 대상 사용자<ph name="LINK_END" /> 만들기</translation>
 <translation id="8846141544112579928">키보드 검색 중...</translation>

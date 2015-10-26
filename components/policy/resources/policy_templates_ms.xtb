@@ -139,7 +139,7 @@
 
       Jika dasar ini ditetapkan kepada salah atau tidak ditetapkan, Unified Desktop akan
       dilumpuhkan. Dalam keadaan ini, pengguna tidak dapat mendayakan ciri ini.</translation>
-<translation id="1474273443907024088">Matikan Mula Palsu TLS</translation>
+<translation id="1474273443907024088">Lumpuhkan Mula Palsu TLS</translation>
 <translation id="1477934438414550161">TLS 1.2</translation>
 <translation id="1492145937778428165">Menetapkan tempoh dalam milisaat apabila perkhidmatan pengurusan peranti disoal untuk mendapatkan maklumat dasar peranti.
 
@@ -267,7 +267,7 @@
       Jika HardwareAccelerationModeEnabled ditetapkan kepada palsu, Disable3DAPIs diabaikan dan keadaan itu sama seperti Disable3DAPIs ditetapkan kepada benar.</translation>
 <translation id="2168397434410358693">Kelewatan melahu apabila dijalankan dengan kuasa AC</translation>
 <translation id="2170233653554726857">Dayakan pengoptimuman WPAD</translation>
-<translation id="2175836933294053665">Mengkonfigurasikan senarai penanda halaman terurus.
+<translation id="2175836933294053665">Mengkonfigurasi senarai penanda halaman terurus.
 
       Dasar terdiri daripada senarai penanda halaman manakala setiap penanda
       halaman ialah kamus yang mengandungi kunci "nama" dan "url" yang
@@ -707,7 +707,7 @@ chrome.enterprise.platformKeysPrivate.challengeUserKey().
 <translation id="3627678165642179114">Dayakan atau lumpuhkan perkhidmatan web penyemakan ejaan</translation>
 <translation id="3646859102161347133">Tetapkan jenis penggadang skrin</translation>
 <translation id="3653237928288822292">Ikon pembekal carian lalai</translation>
-<translation id="3660562134618097814">Pindahkan kuki SAML IDP semasa log masuk</translation>
+<translation id="3660562134618097814">Pindahkan kuki IdP SAML semasa log masuk</translation>
 <translation id="3709266154059827597">Konfigurasi senarai hitam pemasangan sambungan</translation>
 <translation id="3711895659073496551">Gantung</translation>
 <translation id="3715448429089775791">Memaksa Mod Keselamatan YouTube diaktifkan dan menghalang pengguna daripada menukar tetapan ini.
@@ -1299,7 +1299,8 @@ chrome.enterprise.platformKeysPrivate.challengeUserKey().
 
           Dasar ini hanya berfungsi jika dasar 'RestoreOnStartup' ditetapkan kepada 'RestoreOnStartupIsURLs'.
 
-          Dasar ini tidak tersedia pada tika Windows yang tidak dihubungkan ke domain Direktori Aktif.</translation>
+          Dasar ini tidak tersedia pada tika Windows yang tidak dihubungkan
+          ke domain Direktori Aktif.</translation>
 <translation id="5887414688706570295">Mengkonfigurasi awalan TalkGadget yang akan digunakan oleh hos akses jauh dan menghalang pengguna daripada menukarnya.
 
           Jika ditetapkan, awalan ini dilampirkan pada permulaan nama TalkGadget asas untuk mencipta nama domain penuh bagi TalkGadget. Nama domain TalkGadget asas ialah '.talkgadget.google.com'.
@@ -1378,13 +1379,13 @@ chrome.enterprise.platformKeysPrivate.challengeUserKey().
 <translation id="6155936611791017817">Tetapkan keadaan lalai kursor besar pada skrin log masuk</translation>
 <translation id="6157537876488211233">Senarai diasingkan koma bagi peraturan memintas proksi</translation>
 <translation id="6158324314836466367">Nama kedai web perusahaan (tidak akan digunakan lagi)</translation>
-<translation id="6167074305866468481">Amaran: sokongan SSLv3 akan dialih keluar sepenuhnya daripada <ph name="PRODUCT_NAME" /> selepas versi 43 (sekitar Julai 2015) dan dasar ini akan dialih keluar pada masa yang sama.
+<translation id="6167074305866468481">Amaran: Sokongan SSLv3 akan dialih keluar sepenuhnya daripada <ph name="PRODUCT_NAME" /> selepas versi 43 (sekitar Julai 2015) dan dasar ini akan dialih keluar pada masa yang sama.
 
       Jika dasar ini tidak dikonfigurasi, maka <ph name="PRODUCT_NAME" /> akan menggunakan versi minimum lalai iaitu SSLv3 dalam <ph name="PRODUCT_NAME" /> 39 dan TLS 1.0 dalam versi yang lebih baharu.
 
       Jika tidak, produk mungkin ditetapkan kepada salah satu nilai berikut: "sslv3", "tls1", "tls1.1" atau "tls1.2". Apabila ditetapkan, <ph name="PRODUCT_NAME" /> tidak akan menggunakan versi SSL/TLS yang lebih rendah daripada versi yang dinyatakan. Nilai yang tidak dikenali akan diabaikan.
 
-      Ambil perhatian bahawa "sslv3" ialah versi yang lebih awal daripada "tls1" walaupun nombornya tidak menggambarkan begitu.</translation>
+      Ambil perhatian bahawa, "sslv3" ialah versi yang lebih awal daripada "tls1" walaupun nombornya tidak menggambarkan begitu.</translation>
 <translation id="6177482277304066047">Menetapkan versi sasaran untuk Kemas Kini Automatik.
 
       Menentukan awalan versi sasaran untuk mengemas kini <ph name="PRODUCT_OS_NAME" />. Jika peranti menjalankan versi sebelum awalan yang ditentukan, peranti akan mengemas kini kepada versi terkini dengan awalan yang dinyatakan. Jika peranti telah pun memasang versi yang lebih baharu, tiada apa-apa akan terjejas. (iaitu tiada turun taraf akan dilakukan) dan peranti akan kekal pada versi semasa. Format awalan berfungi dari segi komponen seperti yang ditunjukkan dalam contoh berikut:
@@ -1418,11 +1419,11 @@ chrome.enterprise.platformKeysPrivate.challengeUserKey().
           Jika anda mendayakan tetapan ini dan port tidak standard (iaitu, port selain 80 atau 443) dimasukkan, ia akan dimasukkan dalam Kerberos SPN yang dihasilkan.
 
           Jika anda melumpuhkan tetapan ini atau membiarkannya tanpa ditetapkan, Kerberos SPN yang dihasilkan tidak akan memasukkan port dalam sebarang keadaan.</translation>
-<translation id="6279809962528392889">Menentukan sama ada kuki pengesahan ditetapkan oleh SAML IdP semasa log masuk harus dipindahkan ke profil pengguna.
+<translation id="6279809962528392889">Menentukan sama ada kuki pengesahan ditetapkan oleh IdP SAML semasa log masuk harus dipindahkan ke profil pengguna.
 
-      Apabila pengguna mengesahkan melalui SAML IdP semasa log masuk, kuki yang ditetapkan oleh IdP akan ditulis pada profil sementara pada mulanya. Kuki ini boleh dipindahkan ke profil pengguna untuk membawa ke depan status pengesahan.
+      Apabila pengguna mengesahkan melalui IdP SAML semasa log masuk, kuki yang ditetapkan oleh IdP akan ditulis pada profil sementara pada mulanya. Kuki ini boleh dipindahkan ke profil pengguna untuk membawa ke depan status pengesahan.
 
-      Apabila dasar ini ditetapkan kepada benar, kuki yang ditetapkan oleh IdP akan dipindahkan ke profil pengguna setiap kali beliau membuat pengesahan terhadap SAML IdP semasa log masuk.
+      Apabila dasar ini ditetapkan kepada benar, kuki yang ditetapkan oleh IdP akan dipindahkan ke profil pengguna setiap kali beliau membuat pengesahan terhadap IdP SAML semasa log masuk.
 
       Apabila dasar ini ditetapkan kepada palsu atau tidak ditetapkan, kuki yang ditetapkan oleh IdP akan dipindahkan ke profil pengguna semasa log masuk beliau yang pertama pada peranti sahaja.
 
@@ -1432,7 +1433,6 @@ chrome.enterprise.platformKeysPrivate.challengeUserKey().
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Dayakan autolengkap nama domain semasa log masuk pengguna</translation>
 <translation id="6315673513957120120">Chrome memaparkan halaman amaran apabila pengguna menavigasi ke tapak yang mempunyai ralat SSL. Secara lalai atau apabila dasar ini ditetapkan kepada benar, pengguna dibenarkan mengklik lalu halaman amaran ini.
-
       Pengguna tidak dibenarkan mengklik lalu sebarang halaman amaran apabila dasar ini ditetapkan kepada palsu.</translation>
 <translation id="6353901068939575220">Menentukan parameter yang digunakan apabila mencari URL dengan POST. Parameter ini mengandungi pasangan nama/nilai yang dipisahkan koma. Jika nilai merupakan parameter templat, seperti {searchTerms} dalam contoh di atas, nilai ini akan digantikan dengan data istilah carian sebenar.
 
@@ -1476,11 +1476,11 @@ chrome.enterprise.platformKeysPrivate.challengeUserKey().
 <translation id="6467433935902485842">Membolehkan anda menetapkan senarai pola url yang menentukan tapak yang tidak dibenarkan untuk menjalankan pemalam.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, nilai lalai global akan digunakan untuk semua tapak sama ada dari dasar 'DefaultPluginsSetting' jika ia ditetapkan atau konfigurasi peribadi pengguna tersebut jika sebaliknya.</translation>
-<translation id="6473334971332473690">Membenarkan penggunaan Smart Lock pada <ph name="PRODUCT_OS_NAME" /> peranti.
+<translation id="6473334971332473690">Membenarkan penggunaan Smart Lock pada peranti <ph name="PRODUCT_OS_NAME" />.
 
-      Jika anda mendayakan tetapan ini, pengguna akan dibenarkan mengguna Smart Lock jika keperluan untuk ciri ini dipenuhi.
+      Jika anda mendayakan tetapan ini, pengguna akan dibenarkan menggunakan Smart Lock jika keperluan untuk ciri ini dipenuhi.
 
-      Jika anda melumpuhkan tetapan ini, pengguna tidak akan dibenarkan mengguna Smart Lock.
+      Jika anda melumpuhkan tetapan ini, pengguna tidak akan dibenarkan menggunakan Smart Lock.
 
       Jika dasar ini dibiarkan tanpa ditetapkan, tetapan lalai tidak dibenarkan untuk pengguna diurus perusahaan dan dibenarkan untuk pengguna tidak diurus.</translation>
 <translation id="6513756852541213407">Membenarkan anda untuk menentukan pelayan proksi yang digunakan oleh <ph name="PRODUCT_NAME" /> dan menghalang pengguna daripada menukar tetapan proksi.
@@ -1689,16 +1689,16 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
           Jika anda memilih 'Open New Tab Page', Halaman Tab Baharu akan sentiasa dibuka apabila anda memulakan <ph name="PRODUCT_NAME" />.
 
           Jika anda memilih 'Restore the last session', URL yang terbuka semasa kali terakhir <ph name="PRODUCT_NAME" /> ditutup akan dibuka semula dan sesi penyemakan imbas akan dipulihkan sebagaimana sesi itu ditinggalkan.
-
           Pemilihan pilihan ini akan melumpuhkan sesetengah tetapan yang bergantung kepada sesi atau yang melaksanakan tindakan semasa keluar (seperti Kosongkan data penyemakan imbas semasa keluar atau kuki sesi sahaja).
 
           Jika anda memilih 'Open a list of URLs', senarai 'URLs to open on startup' akan dibuka apabila pengguna memulakan <ph name="PRODUCT_NAME" />.
 
           Jika anda mendayakan tetapan ini, pengguna tidak dapat mengubah atau mengatasinya dalam <ph name="PRODUCT_NAME" />.
 
-          Pelumpuhan tetapan ini sama seperti membiarkannya tidak dikonfigurasikan. Pengguna masih dapat mengubahnya dalam <ph name="PRODUCT_NAME" />.
+          Pelumpuhan tetapan ini sama seperti membiarkannya tidak dikonfigurasi. Pengguna masih dapat mengubahnya dalam <ph name="PRODUCT_NAME" />.
 
-          Dasar ini tidak tersedia pada tika Windows yang tidak dihubungkan ke domain Direktori Aktif.</translation>
+          Dasar ini tidak tersedia pada tika Windows yang tidak dihubungkan 
+          ke domain Direktori Aktif.</translation>
 <translation id="7128918109610518786">Menyenaraikan pengecam aplikasi <ph name="PRODUCT_OS_NAME" /> yang dipaparkan sebagai apl berpin dalam bar pelancar.
 
       Jika dasar ini dikonfigurasi, set aplikasi akan ditetapkan dan tidak boleh diubah oleh pengguna.
@@ -1847,12 +1847,12 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 <translation id="7763311235717725977">Membenarkan anda menetapkan sama ada laman web yang dibenarkan untuk memaparkan imej. Memaparkan imej boleh dibenarkan untuk semua laman web atau dinafikan untuk semua laman web.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, 'AllowImages' yang akan digunakan dan pengguna akan dapat mengubahnya.</translation>
-<translation id="7766336524667238790">Laporkan maklumat tentang sesi kios yang aktif, seperti
-      ID dan versi aplikasi.
+<translation id="7766336524667238790">Laporkan maklumat tentang sesi kios yang aktif, seperti ID
+      dan versi aplikasi.
 
-      Jika dasar ini ditetapkan kepada palsu, maklumat sesi tidak akan
-      dilaporkan. Jika ditetapkan kepada benar atau dibiarkan tanpa ditetapkan,
-      maklumat sesi akan dilaporkan.</translation>
+      Jika dasar ini ditetapkan kepada palsu, maklumat sesi tidak
+      akan dilaporkan. Jika ditetapkan kepada benar atau dibiarkan
+      tanpa ditetapkan, maklumat sesi akan dilaporkan.</translation>
 <translation id="7774768074957326919">Gunakan tetapan sistem proksi</translation>
 <translation id="7788511847830146438">Setiap Profil</translation>
 <translation id="7796141075993499320">Membolehkan anda menentukan senarai pola url yang dibenarkan untuk menjalankan pemalam.
@@ -1884,9 +1884,9 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 
           Anda boleh menentukan penyediaan carian lalai yang hendak digunakan dengan menetapkan dasar carian lalai yang selebihnya. Jika dibiarkan kosong, pengguna boleh memilih penyedia lalai.
 
-Jika anda melumpuhkan tetapan ini, tiada carian dilaksanakan apabila pengguna memasukkan teks bukan URL dalam kotak omni.
+          Jika anda melumpuhkan tetapan ini, tiada carian dilaksanakan apabila pengguna memasukkan teks bukan URL dalam kotak omni.
 
-Jika anda mendayakan atau melumpuhkan tetapan ini, pengguna tidak dapat mengubah atau mengatasi tetapan ini dalam <ph name="PRODUCT_NAME" />.
+          Jika anda mendayakan atau melumpuhkan tetapan ini, pengguna tidak dapat mengubah atau mengatasi tetapan ini dalam <ph name="PRODUCT_NAME" />.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, penyedia carian lalai didayakan dan pengguna akan dapat menetapkan senarai penyedia carian.
 
@@ -2019,7 +2019,8 @@ Jika anda mendayakan atau melumpuhkan tetapan ini, pengguna tidak dapat mengubah
 
           Jika dasar ini dibiarkan tanpa ditetapkan, pengguna boleh memilih halaman utamanya sendiri jika HomepageIsNewTabPage turut tidak ditetapkan.
 
-          Dasar ini tidak tersedia pada pada tika Windows yang tidak dihubungkan ke domain Direktori Aktif.</translation>
+          Dasar ini tidak tersedia pada pada tika Windows yang tidak 
+          dihubungkan ke domain Direktori Aktif.</translation>
 <translation id="8244525275280476362">Kelewatan pengambilan maksimum selepas pentaksahan dasar</translation>
 <translation id="8256688113167012935">Mengawal nama akaun yang <ph name="PRODUCT_OS_NAME" /> paparkan pada skrin log masuk untuk akaun setempat peranti yang sepadan.
 
@@ -2173,9 +2174,9 @@ Jika dasar ini dibiarkan tidak ditetapkan mana-mana pemalam yang sepadan dengan 
 <translation id="8858642179038618439">Paksa Mod Keselamatan YouTube</translation>
 <translation id="8864975621965365890">Menyekat gesaan penolakan yang dipaparkan apabila tapak dipaparkan oleh <ph name="PRODUCT_FRAME_NAME" /> .</translation>
 <translation id="8870318296973696995">Halaman utama</translation>
-<translation id="8905426178924715309">Dasar ini ditamatkan, sebaliknya sila gunakan ForceGoogleSafeSearch dan ForceYouTubeSafetyMode. Dasar ini akan diabaikan jika ForceGoogleSafeSearch atau ForceYouTubeSafetyMode ditetapkan.
+<translation id="8905426178924715309">Dasar ini ditamatkan, sebaliknya sila gunakan ForceGoogleSafeSearch dan ForceYouTubeSafetyMode. Dasar ini akan diabaikan jika dasar ForceGoogleSafeSearch atau ForceYouTubeSafetyMode ditetapkan.
 
-      Memaksa pertanyaan dalam Carian Web Google dilakukan dengan SafeSearch ditetapkan kepada aktif dan menghalang pengguna daripada mengubah tetapan ini.
+      Memaksa pertanyaan dalam Carian Web Google dilakukan dengan SafeSearch ditetapkan kepada aktif dan menghalang pengguna daripada mengubah tetapan ini. Tetapan ini turut memaksa Mod Keselamatan di YouTube.
 
       Jika anda mendayakan tetapan ini, SafeSearch dalam Carian Google dan YouTube akan sentiasa diaktifkan.
 
@@ -2201,8 +2202,8 @@ Jika dasar ini dibiarkan tidak ditetapkan mana-mana pemalam yang sepadan dengan 
 <translation id="8951350807133946005">Tetapkan direktori cache cakera</translation>
 <translation id="8955719471735800169">Kembali ke atas</translation>
 <translation id="8960850473856121830">Pola dalam senarai ini akan dipadankan dengan keselamatan
-      asal URL yang meminta.  Jika padanan ditemui, akses kepada
-      peranti merakam audio akan diberi tanpa gesaan.
+      asal URL yang meminta.  Jika padanan ditemui, akses kepada peranti
+      merakam audio akan diberi tanpa gesaan.
 
       PERHATIAN: Dasar ini hanya disokong dalam mod Kios sehingga versi 45.</translation>
 <translation id="8965758116018152083">Jika dasar ini ditetapkan kepada rentetan kosong atau tidak dikonfigurasikan, <ph name="PRODUCT_OS_NAME" /> tidak akan memaparkan pilihan autolengkap semasa aliran log masuk pengguna.
@@ -2215,12 +2216,12 @@ Jika dasar ini dibiarkan tidak ditetapkan mana-mana pemalam yang sepadan dengan 
 <translation id="9042911395677044526">Membenarkan penolakan konfigurasi rangkaian digunakan untuk setiap pengguna pada peranti <ph name="PRODUCT_OS_NAME" />. Konfigurasi rangkaian ialah rentetan berformat JSON seperti yang ditakrifkan oleh format Konfigurasi Rangkaian Terbuka yang dihuraikan di <ph name="ONC_SPEC_URL" /></translation>
 <translation id="9084985621503260744">Menyatakan sama ada aktiviti video menjejaskan pengurusan kuasa</translation>
 <translation id="9096086085182305205">Senarai putih pelayan pengesahan</translation>
-<translation id="9104138886225968319">Hantar pemantauan degupan jantung ke pelayan pengurusan, untuk
-      membenarkan pelayan mengesan jika peranti itu di luar talian.
+<translation id="9104138886225968319">Hantar degupan jantung pemantauan ke pelayan pengurusan, untuk membenarkan
+      pelayan mengesan jika peranti itu di luar talian.
 
-      Jika dasar ini ditetapkan kepada benar, pemantauan degupan jantung
-      akan dihantar. Jika ditetapkan kepada palsu atau tidak ditetapkan,
-      maka tiada degupan jantung akan dihantar.</translation>
+      Jika dasar ini ditetapkan kepada benar, degupan jantung pemantauan akan 
+      dihantar. Jika ditetapkan kepada palsu atau tidak ditetapkan, maka tiada
+      degupan jantung akan dihantar.</translation>
 <translation id="9112897538922695510">Membolehkan anda mendaftar senarai pengendali protokol. Langkah ini hanya boleh menjadi dasar yang disyorkan. Sifat |protocol| hendaklah ditetapkan kepada skema seperti 'mailto' dan sifat |url| hendaklah ditetapkan kepada corak URL aplikasi yang mengendalikan skema. Corak boleh mengandungi '%s', di mana apabila disertakan akan digantikan oleh URL yang dikendalikan.
 
           Pengendali protokol yang didaftarkan oleh dasar digabungkan dengan protokol yang didaftarkan oleh pengguna dan kedua-duanya tersedia untuk digunakan. Pengguna boleh mengatasi pengendali protokol yang dipasang oleh dasar dengan memasang pengendali lalai baharu tetapi tidak boleh mengalih keluar pengendali protokol yang didaftarkan oleh dasar.</translation>

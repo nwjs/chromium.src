@@ -512,7 +512,7 @@
 <translation id="1697068104427956555">Selecciona una región cuadrada en la imagen.</translation>
 <translation id="1697532407822776718">¡Listo!</translation>
 <translation id="1699274548822076330">Esto se debe usar junto con la marca trace-upload-url.
-        ADVERTENCIA: En caso de estar habilitado, Chrome registrará los datos de rendimiento de cada navegación y los subirá a la URL especificada en la marca trace-upload-url. El seguimiento puede incluir información de identificación personal (PII por sus siglas en inglés) como los títulos y las URL de los sitios web que se visitan.</translation>
+        ADVERTENCIA: En caso de estar habilitado, Chrome registrará los datos de rendimiento de cada navegación y los subirá a la URL especificada en la marca trace-upload-url. El seguimiento puede incluir información de identificación personal (PII, por sus siglas en inglés), como los títulos y las URL de los sitios web que se visitan.</translation>
 <translation id="1699395855685456105">Revisión de hardware:</translation>
 <translation id="1701062906490865540">Eliminar a esta persona</translation>
 <translation id="1702534956030472451">Europa Occidental</translation>
@@ -955,7 +955,7 @@ Después de crear un usuario supervisado nuevo, puedes administrar las opciones 
 <translation id="2368075211218459617">Habilitar búsqueda contextual</translation>
 <translation id="2370882663124746154">Habilitar modo Doble pinyin</translation>
 <translation id="2371076942591664043">Abrir al &amp;finalizar</translation>
-<translation id="2372036074421194686">Chrome encontró un programa no deseado (<ph name="UWS_NAME" />) instalado en tu computadora. Para eliminarlo, ejecuta la Herramienta para limpiar Chrome.</translation>
+<translation id="2372036074421194686">Chrome encontró un programa no deseado (<ph name="UWS_NAME" />) que se instaló en tu computadora. Para eliminarlo, ejecuta la Herramienta para limpiar Chrome.</translation>
 <translation id="2375701438512326360">Fuerza la compatibilidad de pantalla táctil para que siempre esté habilitada o inhabilitada, o para que se habilite cuando se detecta una pantalla táctil al iniciar el sistema (la configuración predeterminada es Automática).</translation>
 <translation id="2377619091472055321">Restablecer configuración modificada de <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> archivos seleccionados</translation>
@@ -1922,7 +1922,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="3655670868607891010">Si este mensaje aparece con frecuencia, haz clic aquí: <ph name="HELP_LINK" />.</translation>
 <translation id="3655712721956801464">{NUM_FILES,plural, =1{Tiene acceso permanente a un archivo.}other{Tiene acceso permanente a # archivos.}}</translation>
 <translation id="3656059567098593256"><ph name="APP_NAME" /> desea compartir el contenido de la pantalla con <ph name="TARGET_NAME" />. Elige lo que quieras compartir.</translation>
-<translation id="3657468915905674858">Habilitar PPAPI Win32k Lockdown.</translation>
+<translation id="3657468915905674858">Habilitar bloqueo de Win32k para PPAPI</translation>
 <translation id="3658742229777143148">Revisión</translation>
 <translation id="3660127367837350905">Google Payments protege tu tarjeta</translation>
 <translation id="3660234220361471169">No es de confianza</translation>
@@ -2101,7 +2101,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="3872687746103784075">Depuración de Native Client basada en GDB</translation>
 <translation id="3878840326289104869">Creando usuario supervisado</translation>
 <translation id="3887557525921873910">Esto se debe utilizar junto con la marca enable-navigation-tracing.
-        Selecciona la etiqueta que mejor describe los seguimientos registrados. De esta forma, se elegirá el destino donde los seguimientos se subirán. Si no estás seguro, selecciona "other." Si no seleccionas nada, los seguimientos no se subirán.</translation>
+        Selecciona la etiqueta que mejor describe los seguimientos registrados. De esta forma, se elegirá el destino donde los seguimientos se subirán. Si no estás seguro, selecciona "otro". Si no seleccionas nada, los seguimientos no se subirán.</translation>
 <translation id="3888118750782905860">Administración de consumidores</translation>
 <translation id="3893536212201235195">Leer y cambiar la configuración de accesibilidad</translation>
 <translation id="3893630138897523026">ChromeVox (comentarios por voz)</translation>
@@ -3003,7 +3003,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="5234764350956374838">Rechazar</translation>
 <translation id="5238278114306905396">Se eliminó automáticamente la aplicación "<ph name="EXTENSION_NAME" />".</translation>
 <translation id="5238369540257804368">Ámbitos</translation>
-<translation id="5239691211406966873">Chrome encontró <ph name="NUMBER_OF_UWS_GREATER_THAN_ONE" /> programas no deseados (<ph name="IDS_SRT_BUBBLE_TEXT_2_UWS_NAMES" />) instalados en tu computadora. Para eliminar estos programas, ejecuta la Herramienta para limpiar Chrome.</translation>
+<translation id="5239691211406966873">Chrome encontró <ph name="NUMBER_OF_UWS_GREATER_THAN_ONE" /> programas no deseados (<ph name="IDS_SRT_BUBBLE_TEXT_2_UWS_NAMES" />) que se instalaron en tu computadora. Para eliminar estos programas, ejecuta la Herramienta para limpiar Chrome.</translation>
 <translation id="5241128660650683457">Leer todos los datos de los sitios web que visitas</translation>
 <translation id="5241298539944515331">Teclado vietnamita (VIQR)</translation>
 <translation id="5241364149922736632">Los comerciantes suelen necesitar esta información en caso de que haya algún problema con el envío del pedido.</translation>
@@ -3500,7 +3500,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
   Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
   <ph name="EXPONENT_HEX_DUMP" /></translation>
 <translation id="59174027418879706">Activado</translation>
-<translation id="592068147111860043">Especifica los complementos PPAPI que se ejecutarán en la política de zona de pruebas de Win32k lockdown.</translation>
+<translation id="592068147111860043">Especifica los complementos PPAPI que se ejecutarán en la política de zona de pruebas de bloqueo de Win32k.</translation>
 <translation id="5925147183566400388">Puntero de declaración de práctica de certificación</translation>
 <translation id="5930693802084567591">Tus datos se encriptaron con tu contraseña de Google desde el día <ph name="TIME" />. Debes ingresarla a continuación.</translation>
 <translation id="5931146425219109062">Leer y modificar todos los datos de los sitios web que visites</translation>
@@ -3736,7 +3736,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="6276301056778294989">Asegúrate de que el dispositivo muestre el mismo código.</translation>
 <translation id="6277105963844135994">Tiempo de espera de red agotado</translation>
 <translation id="6277518330158259200">Tomar captura de pantalla</translation>
-<translation id="6281743458679673853">Experimenta para que todas las API reflejen la ventana gráfica de diseño. Esto producirá propiedades window.scroll relacionadas con la ventana gráfica de diseño.</translation>
+<translation id="6281743458679673853">Experimenta para que todas las API reflejen la ventana gráfica de diseño. De esta forma, las propiedades window.scroll estarán relacionadas con la ventana gráfica de diseño.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nueva impresora en la red}other{Nuevas impresoras en la red}}</translation>
 <translation id="6285395082104474418">La bandeja de estado te muestra el estado actual de la red y de la batería, entre otras cosas.</translation>
 <translation id="6285905808004014074">Habilitar modo de volver a cargar páginas automáticamente sin conexión</translation>
@@ -4678,7 +4678,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="7658239707568436148">Cancelar</translation>
 <translation id="7659584679870740384">No tienes autorización para utilizar este dispositivo. Para obtener permiso de acceso, comunícate con el administrador.</translation>
 <translation id="7664620655576155379">Dispositivo Bluetooth no compatible: "<ph name="DEVICE_NAME" />"</translation>
-<translation id="766494940855677502">Habilitar <ph name="META_TAG_NAME" /> en el modo de fichas.</translation>
+<translation id="766494940855677502">Habilitar <ph name="META_TAG_NAME" /> en el modo de fichas</translation>
 <translation id="7665369617277396874">Agregar cuenta</translation>
 <translation id="766747607778166022">Administrar tarjetas de crédito...</translation>
 <translation id="7668654391829183341">Dispositivo desconocido</translation>
@@ -4928,7 +4928,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8009669262342650481">Habilita Web Bluetooth, que podría permitir a los sitios web conectarse a tus dispositivos Bluetooth y controlarlos, incluidos teclados, cámaras y micrófonos, entre otros.</translation>
 <translation id="8012382203418782830">Se tradujo esta página.</translation>
 <translation id="8012647001091218357">No pudimos comunicarnos con tus padres. Vuelve a intentarlo.</translation>
-<translation id="8014154204619229810">El actualizador se está ejecutando en este momento. Actualiza dentro de un minuto para verificar de vuelta.</translation>
+<translation id="8014154204619229810">El actualizador se está ejecutando en este momento. Actualiza dentro de un minuto para verificarlo de nuevo.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> no puede volver a la versión instalada previamente. Vuelve a intentarlo para utilizar la función Powerwash en el dispositivo.</translation>
 <translation id="8016174103774548813">Es probable que el servidor SSL esté obsoleto</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
@@ -5501,7 +5501,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8830796635868321089">La búsqueda de actualizaciones no pudo usar la configuración del servidor proxy actual. Ajusta tu <ph name="PROXY_SETTINGS_LINK_START" />configuración de proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8831623914872394308">Configuración del puntero</translation>
 <translation id="8837103518490433332">¿Quieres que <ph name="PASSWORD_MANAGER_BRAND" /> guarde tu contraseña para <ph name="ORIGIN" />?</translation>
-<translation id="8841142799574815336">Vista del puerto visual inerte.</translation>
+<translation id="8841142799574815336">Ventana gráfica visual inerte</translation>
 <translation id="884264119367021077">Dirección de envío</translation>
 <translation id="8843709518995654957"><ph name="LINK_START" />Crea un usuario supervisado<ph name="LINK_END" /> para este dispositivo.</translation>
 <translation id="8846141544112579928">Buscando teclado…</translation>

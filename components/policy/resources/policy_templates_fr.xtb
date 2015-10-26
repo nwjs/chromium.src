@@ -356,10 +356,10 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 
       Cette règle empêche l'utilisateur de charger des pages Web à partir d'URL figurant sur la liste noire. La liste noire contient une liste de formats d'URL qui définissent quelles URL sont ajoutées à la liste noire.
 
-      Chaque format d'URL peut être soit un format pour fichiers locaux, soit un format d'URL générique. Les fichiers locaux suivent le format "file://chemin". Le chemin spécifié doit alors correspondre au chemin absolu à bloquer. Toutes les adresses du système de fichiers ayant ce chemin pour préfixe seront bloquées.
+      Chaque format d'URL peut être soit un format pour fichiers locaux, soit un format d'URL générique. Les fichiers locaux suivent le format "file://path". Le chemin spécifié doit alors correspondre au chemin absolu à bloquer. Toutes les adresses du système de fichiers ayant ce chemin pour préfixe seront bloquées.
 
-      Le format pour une URL générique est "modèle://hôte:port/chemin".
-      Seul le schéma spécifié sera bloqué. Si le préfixe "schéma://" n'est pas spécifié, tous les schémas sont bloqués.
+      Le format pour une URL générique est "scheme://host:port/path".
+      Seul le schéma spécifié sera bloqué. Si le préfixe "scheme://" n'est pas spécifié, tous les schémas sont bloqués.
       L'hôte doit être précisé sous la forme d'un nom d'hôte ou d'une adresse IP. Les sous-domaines d'un nom d'hôte seront également bloqués. Afin d'éviter le blocage des sous-domaines, ajoutez un "." devant le nom d'hôte. Le nom d'hôte spécial "*" bloque tous les domaines. 
       Le port facultatif est un numéro de port valide de 1 à 65535. Si aucun port n'est spécifié, tous les ports sont bloqués. 
       Si le chemin facultatif est spécifié, seuls les chemins contenant ce préfixe sont bloqués.
@@ -472,7 +472,7 @@ Si cette règle n'est pas configurée, le paramètre "AskGeolocation" est utilis
 <translation id="2660846099862559570">Ne jamais utiliser de proxy</translation>
 <translation id="2665596266623707739">Avertissement : Le remplacement de la version TLS 1.0 sera supprimé du produit <ph name="PRODUCT_NAME" /> après la version 47 (aux environs du mois de janvier 2016), et l'option "tls1" cessera alors de fonctionner.
 
-      En cas d'échec d'une négociation TLS, <ph name="PRODUCT_NAME" /> tentera d'établir une nouvelle connexion avec une version inférieure de TLS afin de remédier aux bugs au niveau des serveurs HTTPS. Ce paramètre configure la version au niveau de laquelle le processus de remplacement cessera de fonctionner. Si un serveur effectue correctement une négociation de version (c'est-à-dire sans interrompre la connexion), ce paramètre ne s'applique pas. Quoi qu'il en soit, la connexion qui en résulte doit être conforme à SSLVersionMin.
+      En cas d'échec d'un handshake TLS, <ph name="PRODUCT_NAME" /> tentera d'établir une nouvelle connexion avec une version inférieure de TLS afin de remédier aux bugs au niveau des serveurs HTTPS. Ce paramètre configure la version au niveau de laquelle le processus de remplacement cessera de fonctionner. Si un serveur effectue correctement une négociation de version (c'est-à-dire sans interrompre la connexion), ce paramètre ne s'applique pas. Quoi qu'il en soit, la connexion qui en résulte doit être conforme à SSLVersionMin.
 
       Si cette règle n'est pas configurée, <ph name="PRODUCT_NAME" /> utilise une version minimale par défaut qui est TLS 1.0 dans <ph name="PRODUCT_NAME" /> 44 et TLS 1.1 dans les versions ultérieures. Notez que cela ne désactive pas la compatibilité avec TLS 1.0, mais affecte simplement l'aptitude du produit <ph name="PRODUCT_NAME" /> à contourner les serveurs qui comportent des bugs et qui sont incapables de négocier correctement les versions.
 
@@ -881,7 +881,7 @@ Si vous activez cette règle ou si vous ne la configurez pas, les utilisateurs p
       Remarque : Pour le moment, les redémarrages automatiques ne sont activés que lorsque l'écran de connexion est affiché ou qu'une session d'application de kiosque est en cours. Ce fonctionnement va changer prochainement : la règle s'appliquera toujours, qu'une session de n'importe quel type soit en cours ou non.
 
       La valeur de la règle doit être spécifiée en secondes. Les valeurs doivent être au minimum égales à 3 600 (une heure).</translation>
-<translation id="420512303455129789">URL de mappage de dictionnaire vers un indicateur booléen indiquant si l'accès à l'hôte doit être autorisés'il est associé à la valeur "True" (Vrai) ou bloqué s'il est associé à la valeur "False" (Faux).
+<translation id="420512303455129789">URL de mappage de dictionnaire vers un indicateur booléen indiquant si l'accès à l'hôte doit être autorisé s'il est associé à la valeur "True" (Vrai) ou bloqué s'il est associé à la valeur "False" (Faux).
 
           Il s'agit d'une règle utilisée en interne par <ph name="PRODUCT_NAME" />.</translation>
 <translation id="4224610387358583899">Délais de verrouillage de l'écran</translation>
@@ -893,7 +893,7 @@ Si vous activez cette règle ou si vous ne la configurez pas, les utilisateurs p
           Cette règle n'est respectée que si la règle "DefaultSearchProviderEnabled" est activée.</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 ou version ultérieure</translation>
 <translation id="4325690621216251241">Ajouter un bouton de déconnexion dans la barre d'état système</translation>
-<translation id="4337944790873898250">Si cette règle est définie sur "True" (Vrai), <ph name="PRODUCT_NAME" /> agrandira automatiquement la première fenêtre affichée lors de la première exécution.
+<translation id="4337944790873898250">Si cette règle est définie sur "True", <ph name="PRODUCT_NAME" /> agrandira automatiquement la première fenêtre affichée lors de la première exécution.
       Si cette règle est définie sur "False" ou si elle n'est pas configurée, une règle heuristique déterminera si la première fenêtre affichée doit être agrandie en fonction de la taille d'écran.</translation>
 <translation id="436581050240847513">Générer un rapport sur les interfaces réseau de l'appareil</translation>
 <translation id="4372704773119750918">Ne pas autoriser l'utilisateur d'entreprise à participer aux sessions à plusieurs profils, que ce soit en tant qu'utilisateur principal ou secondaire</translation>
@@ -1136,7 +1136,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 
       Permet à l'utilisateur de se connecter à <ph name="PRODUCT_NAME" />.
 
-      Si vous configurez cette règle, vous pouvez déterminer si un utilisateur est autorisé à se connecter à <ph name="PRODUCT_NAME" />. La définition de cette règle sur "False" (Faux) empêche les applications et les extensions qui utilisent l'API chrome.identity de fonctionner. Vous préférerez peut-être alors utiliser la règle SyncDisabled.</translation>
+      Si vous configurez cette règle, vous pouvez déterminer si un utilisateur est autorisé à se connecter à <ph name="PRODUCT_NAME" />. La définition de cette règle sur "False" empêche les applications et les extensions qui utilisent l'API chrome.identity de fonctionner. Vous préférerez peut-être alors utiliser la règle SyncDisabled.</translation>
 <translation id="5304269353650269372">Durée pendant laquelle l'utilisateur doit rester inactif avant qu'une boîte de dialogue d'avertissement ne s'affiche (en cas d'utilisation de la batterie).
 
           Lorsque cette règle est définie, elle spécifie la durée pendant laquelle l'utilisateur doit rester inactif avant que <ph name="PRODUCT_OS_NAME" /> n'affiche une boîte de dialogue l'avertissant que le délai d'inactivité va bientôt être dépassé.
@@ -1337,9 +1337,9 @@ Si l'option "Forcé" est sélectionnée, les pages peuvent être ouvertes UNIQUE
 
       Si vous désactivez ce paramètre ou ne définissez pas de valeur, SafeSearch n'est pas activé dans la recherche Google.</translation>
 <translation id="5946082169633555022">Version bêta</translation>
-<translation id="5950205771952201658">Les contrôles de révocation en ligne étant sujets à erreur, ils ne présentent aucun avantage concret en termes de sécurité, ils sont désactivés par défaut dans <ph name="PRODUCT_NAME" /> 19 ou version ultérieure. La définition de cette règle sur "True" (Vrai) restaure le comportement précédent. Des contrôles OCSP/CRL sont alors effectués.
+<translation id="5950205771952201658">Les contrôles de révocation en ligne étant sujets à erreur, ils ne présentent aucun avantage concret en termes de sécurité, ils sont désactivés par défaut dans <ph name="PRODUCT_NAME" /> 19 ou version ultérieure. La définition de cette règle sur "True" restaure le comportement précédent. Des contrôles OCSP/CRL sont alors effectués.
 
-      Si cette règle n'est pas définie ou si elle est définie sur "False" (Faux), aucun contrôle de révocation en ligne n'est effectué par <ph name="PRODUCT_NAME" /> dans <ph name="PRODUCT_NAME" /> 19 ou version ultérieure.</translation>
+      Si cette règle n'est pas définie ou si elle est définie sur "False", aucun contrôle de révocation en ligne n'est effectué par <ph name="PRODUCT_NAME" /> dans <ph name="PRODUCT_NAME" /> 19 ou version ultérieure.</translation>
 <translation id="5966615072639944554">Extensions autorisées à utiliser l'API d'attestation à distance</translation>
 <translation id="5983708779415553259">Comportement par défaut des sites ne figurant dans aucun pack de contenu</translation>
 <translation id="5997543603646547632">Utiliser le format d'horloge 24 h par défaut</translation>
@@ -1810,7 +1810,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
       Si cette règle n'est pas définie, la taille par défaut est utilisée, et l'utilisateur est en mesure de la remplacer à l'aide de l'indicateur "--disk-cache-size".</translation>
 <translation id="7612157962821894603">Options système à appliquer au démarrage de <ph name="PRODUCT_NAME" /></translation>
 <translation id="7614663184588396421">Liste des schémas de protocole désactivés</translation>
-<translation id="7615123397791876280">Type de compte pour négocier l'authentification</translation>
+<translation id="7615123397791876280">Type de compte pour l'authentification Negociate</translation>
 <translation id="7625444193696794922">Indique le canal de distribution sur lequel cet appareil devrait être verrouillé.</translation>
 <translation id="7632724434767231364">Nom de la bibliothèque GSSAPI</translation>
 <translation id="7635471475589566552">Configure les paramètres régionaux de l'application dans <ph name="PRODUCT_NAME" /> et empêche les utilisateurs de modifier ces paramètres. 
@@ -1911,7 +1911,7 @@ Si ce paramètre est désactivé et que les connexions UDP sortantes sont filtr�
 
           Cette règle contrôle plusieurs paramètres, y compris ceux contrôlés par des règles associées à une extension. Le cas échéant, elle remplace les anciennes règles.
 
-          Cette règle fait correspondre un ID d'extension ou une URL de mise à jour avec sa configuration. Avec un ID d'extension, la configuration n'est appliquée qu'à l'extension spécifiée. Une configuration par défaut peut être définie pour l'ID spécial ID "*", lequel s'applique à toutes les extensions dépourvues d'une configuration personnalisée dans cette règle. Avec une URL de mise à jour, la configuration est appliquée à l'ensemble des extensions avec l'URL de mise à jour telle qu'elle est indiquée dans le fichier manifeste de cette extension, comme indiqué sur la page <ph name="LINK_TO_EXTENSION_DOC1" />.
+          Cette règle fait correspondre un ID d'extension ou une URL de mise à jour avec sa configuration. Avec un ID d'extension, la configuration n'est appliquée qu'à l'extension spécifiée. Une configuration par défaut peut être définie pour l'ID spécial "*", lequel s'applique à toutes les extensions dépourvues d'une configuration personnalisée dans cette règle. Avec une URL de mise à jour, la configuration est appliquée à l'ensemble des extensions avec l'URL de mise à jour telle qu'elle est indiquée dans le fichier manifeste de cette extension, comme indiqué sur la page <ph name="LINK_TO_EXTENSION_DOC1" />.
 
           La configuration de chaque extension (ou des extensions ayant la même URL de mise à jour) constitue un autre dictionnaire pouvant contenir les champs documentés ci-dessous.
 
@@ -1921,7 +1921,7 @@ Si ce paramètre est désactivé et que les connexions UDP sortantes sont filtr�
           * "force_installed" : l'extension est installée automatiquement et ne peut pas être supprimée par l'utilisateur.
           * "normal_installed" : l'extension est installée automatiquement, mais elle peut être désactivée par l'utilisateur.
 
-          Le champ "installation_mode" peut également être configuré pour plusieurs extensions, dont "*" extension (comme paramètre par défaut) et les extensions ayant la même URL de mise à jour. Dans ce cas, seules les valeurs "allowed" et "blocked" peuvent être utilisées.
+          Le champ "installation_mode" peut également être configuré pour plusieurs extensions, dont l'extension "*" (comme paramètre par défaut) et les extensions ayant la même URL de mise à jour. Dans ce cas, seules les valeurs "allowed" et "blocked" peuvent être utilisées.
 
           Si le mode est défini sur "force_installed" ou "normal_installed", une URL de mise à jour ("update_url") doit également être configurée. Notez que l'URL de mise à jour définie dans cette règle est seulement utilisée pour l'installation initiale ; les mises à jour ultérieures de l'extension utiliseront l'URL qui est indiquée dans le fichier manifeste de l'extension. L'URL de mise à jour doit toujours pointer vers un document XML "Update Manifest", comme indiqué ci-dessus.
 
@@ -2064,7 +2064,7 @@ Si aucun paramètre n'est défini, <ph name="PRODUCT_NAME" /> utilise un nom de 
 <translation id="838870586332499308">Activer l'itinérance des données</translation>
 <translation id="8407759228138103300">Indique le type des comptes fournis par l'application d'authentification d'Android compatible avec la négociation d'authentification HTTP (négociation Kerberos, par exemple). Ces informations doivent être disponibles auprès du fournisseur de l'application d'authentification. Pour en savoir plus, rendez-vous à l'adresse suivante : https://goo.gl/hajyfN.
 
-          Si aucun paramètre n'est fourni, l'option de négociation de l'authentification est désactivée sur Android.</translation>
+          Si aucun paramètre n'est fourni, l'authentification Negociate est désactivée sur Android.</translation>
 <translation id="8412312801707973447">Si des contrôles OCSP/CRL en ligne sont effectués</translation>
 <translation id="8451988835943702790">Utiliser la page "Nouvel onglet" comme page d'accueil</translation>
 <translation id="8465065632133292531">Paramètres pour l'URL instantanée utilisant POST</translation>

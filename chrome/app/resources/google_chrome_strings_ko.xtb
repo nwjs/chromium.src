@@ -38,7 +38,7 @@
 <translation id="1773601347087397504">Chrome OS 사용에 대한 도움말</translation>
 <translation id="1818142563254268765">Chrome을 최신 버전으로 자동 업데이트할 수 없기 때문에 새로운 기능과 보안 수정사항 업데이트가 누락될 수 있습니다. Chrome을 업데이트해야 합니다.</translation>
 <translation id="1877026089748256423">Chrome이 이전 버전임</translation>
-<translation id="1924381329666691588">Chrome은 이 언어로 표시할 수 없습니다.</translation>
+<translation id="1924381329666691588">Chrome을 이 언어로 표시할 수 없습니다.</translation>
 <translation id="2077129598763517140">가능한 경우 하드웨어 가속 사용</translation>
 <translation id="2084710999043359739">Chrome에 추가</translation>
 <translation id="2246246234298806438">기본 제공되는 PDF 뷰어가 없는 경우 Chrome에서 인쇄 미리보기를 표시할 수 없습니다.</translation>
@@ -153,7 +153,7 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="5637867606963802593">Chrome OS를 이 언어로 표시할 수 없습니다.</translation>
 <translation id="568643307450491754">Chrome 메뉴 또는 북마크바에서 북마크를 검색합니다.</translation>
 <translation id="573759479754913123">Chrome OS 정보</translation>
-<translation id="5749068826913805084">Chrome에서 파일을 다운로드하려면 저장소에 액세스해야 합니다.</translation>
+<translation id="5749068826913805084">Chrome에서 파일을 다운로드하려면 저장소 액세스 권한이 있어야 합니다.</translation>
 <translation id="5785746630574083988">Windows 8 모드로 다시 실행하면 Chrome 앱이 닫혔다가 다시 실행됩니다.</translation>
 <translation id="5799551393681493217">iframe 기반 Chrome 로그인 절차 사용(이 플래그는 웹 기반 로그인 사용보다 우선함)</translation>
 <translation id="5855036575689098185">컴퓨터에서 실행 중인 소프트웨어가 Chrome과 호환되지 않습니다.</translation>

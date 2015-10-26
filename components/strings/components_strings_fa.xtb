@@ -156,8 +156,8 @@
 <translation id="4506176782989081258">خطای ارزیابی: <ph name="VALIDATION_ERROR" /></translation>
 <translation id="4587425331216688090">‏آدرس از Chrome پاک شود؟</translation>
 <translation id="4594403342090139922">&amp;واگرد حذف</translation>
-<translation id="4607653538520819196">این صفحه نمی‌تواند با «صرفه‌جویی در مصرف داده» پشتیبانی شود.</translation>
-<translation id="4668929960204016307">,</translation>
+<translation id="4607653538520819196">این صفحه نمی‌تواند با «صرفه‌جویی داده» پشتیبانی شود.</translation>
+<translation id="4668929960204016307">،</translation>
 <translation id="467662567472608290">این سرور نتوانست اثبات کند که این <ph name="DOMAIN" /> است؛ گواهی امنیتی آن خطاهایی دارد. ممکن است علت این موضوع پیکربندی اشتباه باشد یا مهاجمی اتصال شما را قطع کرده است.</translation>
 <translation id="4726672564094551039">تازه‌سازی خط مشی‌ها</translation>
 <translation id="4728558894243024398">پلت فورم</translation>
@@ -225,7 +225,7 @@
 <translation id="6512448926095770873">ترک کردن این صفحه</translation>
 <translation id="6529602333819889595">&amp;انجام مجدد حذف</translation>
 <translation id="6550675742724504774">گزینه‌ها</translation>
-<translation id="6597614308054261376">می‌خواهید به <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> دسترسی پیدا کنید. این صفحه نمی‌تواند در این زمان با «صرفه‌جویی در مصرف داده» پشتیبانی شود.</translation>
+<translation id="6597614308054261376">می‌خواهید به <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> دسترسی پیدا کنید. این صفحه نمی‌تواند در این زمان با «صرفه‌جویی داده» پشتیبانی شود.</translation>
 <translation id="6628463337424475685">جستجوی <ph name="ENGINE" /></translation>
 <translation id="6644283850729428850">این قانون قدیمی شده است.</translation>
 <translation id="6646897916597483132">‏کد تأیید چهار رقمی CVC را از روی کارت‌تان وارد کنید</translation>
@@ -258,7 +258,7 @@
 <translation id="7298195798382681320">توصیه می‌شود</translation>
 <translation id="7334320624316649418">&amp;انجام مجدد ترتیب‌بندی مجدد</translation>
 <translation id="7378627244592794276">نه</translation>
-<translation id="7400418766976504921">URL</translation>
+<translation id="7400418766976504921">نشانی وب</translation>
 <translation id="7441627299479586546">موضوع خط‌مشی اشتباه است</translation>
 <translation id="7485870689360869515">هیچ داده‌ای یافت نشد.</translation>
 <translation id="7521387064766892559">جاوا اسکریپت</translation>
@@ -272,7 +272,7 @@
 <translation id="7610193165460212391">مقدار خارج از محدوده <ph name="VALUE" /> است.</translation>
 <translation id="7674629440242451245">‏علاقه‌مند به قابلیت‌های جدید و جالب Chrome هستید؟ کانال برنامه‌نویسان ما را در chrome.com/dev امتحان کنید.</translation>
 <translation id="7752995774971033316">مدیریت نشده</translation>
-<translation id="7761701407923456692">‏گواهی سرور با URL مطابقت ندارد.</translation>
+<translation id="7761701407923456692">گواهی سرور با نشانی وب مطابقت ندارد.</translation>
 <translation id="777702478322588152">حوزه اداری</translation>
 <translation id="7791543448312431591">افزودن</translation>
 <translation id="7805768142964895445">وضعیت</translation>

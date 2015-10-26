@@ -514,7 +514,7 @@
 <translation id="169515659049020177">Shift</translation>
 <translation id="1697068104427956555">Odaberite kvadratno područje slike.</translation>
 <translation id="1697532407822776718">Potpuno ste spremni!</translation>
-<translation id="1699274548822076330">To se treba koristiti zajedno s oznakom "trace-upload-url".
+<translation id="1699274548822076330">Treba se koristiti zajedno s oznakom "trace-upload-url".
         UPOZORENJE: kada je omogućeno, Chrome će zapisivati podatke o izvedbi za svako kretanje i prenijeti ih na URL naveden oznakom "trace-upload-url". Praćenje može uključivati podatke koji otkrivaju identitet, primjerice, naslove i URL-ove web-lokacija koje posjećujete.</translation>
 <translation id="1699395855685456105">Hardverska revizija:</translation>
 <translation id="1701062906490865540">Ukloni ovu osobu</translation>
@@ -2099,7 +2099,7 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="3869917919960562512">Pogrešni indeks.</translation>
 <translation id="3872687746103784075">Uklanjanje bugova lokalnog klijenta na temelju GDB-a</translation>
 <translation id="3878840326289104869">Izrada nadziranog korisnika</translation>
-<translation id="3887557525921873910">To se treba koristiti zajedno s oznakom "enable-navigation-tracing".
+<translation id="3887557525921873910">Treba se koristiti zajedno s oznakom "enable-navigation-tracing".
         Odaberite oznaku koja najbolje opisuje zapisana praćenja. Time će se odabrati odredište za prijenos praćenja. Ako niste sigurni, odaberite ostalo. Ako se ostavi prazno, praćenja se neće prenositi.</translation>
 <translation id="3888118750782905860">Upravljanje potrošačima</translation>
 <translation id="3893536212201235195">čitati i mijenjati vaše postavke pristupačnosti</translation>

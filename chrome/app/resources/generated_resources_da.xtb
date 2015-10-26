@@ -2252,7 +2252,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4103763322291513355">Gå til &lt;strong&gt;chrome://policy&lt;/strong&gt; for at se listen over sortlistede webadresser og andre politikker, din systemadministrator har igangsat.</translation>
 <translation id="4104163789986725820">E&amp;ksporter...</translation>
 <translation id="4105563239298244027">Få 1 TB gratis plads med Google Drev</translation>
-<translation id="4106164762195622179">Når du har lukket <ph name="BEGIN_BOLD" />alle<ph name="END_BOLD" /> dine inkognitofaner, gemmes der hverken cookies, browser- eller søgehistorik for de sider, du får vist i inkognitotilstand. Alle de filer, du downloader, eller bogmærker, du opretter, vil blive gemt.</translation>
+<translation id="4106164762195622179">Når du har lukket <ph name="BEGIN_BOLD" />alle<ph name="END_BOLD" /> dine inkognitofaner, gemmes der hverken cookies, browser- eller søgehistorik for de sider, du besøger i inkognitotilstand. Dog gemmes alle de filer, du downloader, og bogmærker, du opretter.</translation>
 <translation id="4109135793348361820">Flyt vindue til <ph name="USER_NAME" /> (<ph name="USER_EMAIL" />)</translation>
 <translation id="4110342520124362335">Cookies fra <ph name="DOMAIN" /> er blokeret.</translation>
 <translation id="4110559665646603267">Fokushylde</translation>

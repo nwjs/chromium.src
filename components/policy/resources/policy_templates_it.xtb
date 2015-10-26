@@ -19,7 +19,7 @@
 
       Se questa norma non viene definita, l'impostazione verrà attivata ma l'utente sarà in grado di modificarla.</translation>
 <translation id="1062011392452772310">Attivazione dell'attestazione da remoto per il dispositivo</translation>
-<translation id="108735515923160176">Consente di configurare il tipo della pagina iniziale predefinita di <ph name="PRODUCT_NAME" /> e di impedire agli utenti di modificare le preferenze della pagina iniziale. Il tipo di Pagina iniziale può essere impostato sull'URL specificato oppure sulla pagina Nuova scheda.
+<translation id="108735515923160176">Consente di configurare il tipo della pagina iniziale predefinita di <ph name="PRODUCT_NAME" /> e di impedire agli utenti di modificare le preferenze della pagina iniziale. Il tipo di pagina iniziale può essere impostato sull'URL specificato oppure sulla pagina Nuova scheda.
 
           Se viene attivata questa impostazione, per la pagina iniziale viene sempre utilizzata la pagina Nuova scheda e la posizione dell'URL della pagina iniziale viene ignorata.
 
@@ -402,7 +402,7 @@ Se questa norma non viene impostata, l'utente potrà scegliere se utilizzare o m
 <translation id="2646290749315461919">Permette di stabilire se consentire o meno il monitoraggio della posizione fisica degli utenti da parte dei siti web. Il monitoraggio della posizione fisica degli utenti può essere consentito o negato per impostazione predefinita oppure l'utente può ricevere una richiesta ogni volta che un sito web desidera conoscere la posizione fisica. Se questa norma non viene impostata, verrà utilizzato il valore "AskGeolocation", che potrà essere modificato dagli utenti.</translation>
 <translation id="2650049181907741121">Azione da compiere quando l'utente chiude il coperchio</translation>
 <translation id="2660846099862559570">Non utilizzare mai un proxy</translation>
-<translation id="2665596266623707739">Avviso: il fallback della versione TLS 1.0 sarà rimosso da <ph name="PRODUCT_NAME" /> per le versioni successive alla 47 (circa nel mese di gennaio 2016) e l'opzione "tls1" smetterà di funzionare.
+<translation id="2665596266623707739">Avviso: il fallback della versione TLS 1.0 sarà rimosso da <ph name="PRODUCT_NAME" /> per le versioni successive alla 47 (da gennaio 2016) e l'opzione "tls1" smetterà di funzionare.
 
       Se non viene completato il processo di handshake TLS, <ph name="PRODUCT_NAME" /> proverà a stabilire una connessione con una versione precedente di TLS per risolvere i bug nei server HTTPS. Con questa impostazione viene configurata la versione in cui verrà interrotto questo processo di fallback. Se un server esegue correttamente la negoziazione della versione (ad esempio senza interrompere la connessione), questa impostazione non viene applicata. In ogni caso, la connessione risultante deve essere conforme a SSLVersionMin.
 
@@ -640,7 +640,7 @@ Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearch
 <translation id="3816312845600780067">Attivazione scorciatoia da tastiera bailout per accesso automatico</translation>
 <translation id="381807926299956806">Consente di impostare una o più impostazioni internazionali per una sessione pubblica, consentendo agli utenti di sceglierne facilmente una.
 
-      L'utente può scegliere un'impostazione internazionale e un layout tastiera prima di iniziare una sessione pubblica. Per impostazione predefinita, tutte le impostazioni internazionali supportate da <ph name="PRODUCT_OS_NAME" /> sono elencate in ordine alfabetico. È possibile utilizzare questa norma per spostare un set di impostazioni internazionali consigliata nella parte superiore dell'elenco.
+      L'utente può scegliere un'impostazione internazionale e un layout tastiera prima di iniziare una sessione pubblica. Per impostazione predefinita, tutte le impostazioni internazionali supportate da <ph name="PRODUCT_OS_NAME" /> sono elencate in ordine alfabetico. È possibile utilizzare questa norma per spostare un set di impostazioni internazionali consigliate nella parte superiore dell'elenco.
 
       Se questa norma non viene impostata, l'impostazione internazionale corrente per l'interfaccia utente viene preselezionata.
 
@@ -717,7 +717,7 @@ Per impostazione predefinita sono autorizzati tutti gli host di messaggi nativi 
 <translation id="4088589230932595924">Modalità di navigazione in incognito forzata</translation>
 <translation id="4088983553732356374">Consente di stabilire se consentire o meno ai siti web di impostare dati locali. L'impostazione dei dati locali può essere consentita o vietata per tutti i siti web.
 
-          Se questa norma viene impostata su "Conserva cookie per tutta la durata della sessione", i cookie vengono cancellati alla chiusura della sessione. Si tenga presente che, quando <ph name="PRODUCT_NAME" /> è in esecuzione in "modalità background", è possibile che la sessione non si chiuda quando viene chiusa l'ultima finestra. Leggere la norma "BackgroundModeEnabled" per avere ulteriori informazioni sulla configurazione di questo comportamento.
+          Se questa norma viene impostata su "Conserva cookie per tutta la durata della sessione", i cookie vengono cancellati alla chiusura della sessione. Quando <ph name="PRODUCT_NAME" /> è in esecuzione in "modalità background", è possibile che la sessione non si chiuda quando viene chiusa l'ultima finestra. Leggere la norma "BackgroundModeEnabled" per avere ulteriori informazioni sulla configurazione di questo comportamento.
 
           Se questa norma non viene impostata, verrà utilizzata la norma "AllowCookies", che potrà essere modificata dall'utente.</translation>
 <translation id="410478022164847452">Consente di specificare il periodo di tempo senza input dell'utente trascorso il quale viene compiuta l'azione stabilita per l'inattività quando viene utilizzata la corrente alternata.
@@ -1423,12 +1423,11 @@ Questa norma viene applicata per tutti i tipi di ingressi audio e non soltanto p
 
           Se viene selezionata l'opzione "Apri un elenco di URL", quando un utente avvia <ph name="PRODUCT_NAME" /> viene aperto l'elenco di "URL da aprire all'avvio".
 
-          Se questa impostazione viene attivata, gli utenti non potranno modificarla o sostituirla in <ph name="PRODUCT_NAME" />.
+          Se questa impostazione viene attivata, gli utenti non potranno modificarla o ignorarla in <ph name="PRODUCT_NAME" />.
 
           Disattivare questa impostazione equivale a non configurarla. Gli utenti potranno modificarla in <ph name="PRODUCT_NAME" />.
 
-          
-Questa norma non è disponibile su istanze di Windows che non fanno parte di un dominio Active Directory.</translation>
+          Questa norma non è disponibile su istanze di Windows che non fanno parte di un dominio Active Directory.</translation>
 <translation id="7128918109610518786">Consente di elencare gli ID delle applicazioni da visualizzare in <ph name="PRODUCT_OS_NAME" /> sotto forma di applicazioni bloccate nella barra Avvio applicazioni.
 
 Se questa norma viene configurata, il gruppo di applicazioni è fisso e non può essere modificato dagli utenti.
@@ -1530,7 +1529,7 @@ Se il valore di questa norma è 0, verranno utilizzate le dimensioni della cache
 Se questa norma non viene impostata, verranno utilizzate le dimensioni predefinite, che l'utente potrà sostituire con il flag --disk-cache-size.</translation>
 <translation id="7612157962821894603">Contrassegni a livello di sistema da applicare all'avvio di <ph name="PRODUCT_NAME" /></translation>
 <translation id="7614663184588396421">Elenco degli schemi di protocollo disabilitati</translation>
-<translation id="7615123397791876280">Tipo di account per l'autenticazione della negoziazione</translation>
+<translation id="7615123397791876280">Tipo di account per l'autenticazione Negotiate</translation>
 <translation id="7625444193696794922">Consente di specificare il canale di rilascio su cui deve essere bloccato questo dispositivo.</translation>
 <translation id="7632724434767231364">Nome della libreria GSSAPI</translation>
 <translation id="7635471475589566552">Consente di configurare in <ph name="PRODUCT_NAME" /> le impostazioni della lingua e di impedirne la modifica agli utenti. Se attivi questa impostazione, <ph name="PRODUCT_NAME" /> utilizzerà le impostazioni della lingua specificate. Se la lingua configurata non è supportata, verrà utilizzata la lingua "en-US". Se questa impostazione viene disattivata o non viene impostata, <ph name="PRODUCT_NAME" /> utilizzerà la lingua preferita specificata dall'utente (se configurata), quella del sistema o la lingua di fallback "en-US".</translation>
@@ -1596,7 +1595,7 @@ Se questa norma non viene impostata, <ph name="PRODUCT_NAME" /> utilizzerà il v
 
           Se questa impostazione viene disattivata, non viene eseguita alcuna ricerca quando l'utente inserisce testo diverso da un URL nella omnibox.
 
-          Se questa impostazione viene attivata o disattivata, gli utenti non potranno modificarla o sostituirla in <ph name="PRODUCT_NAME" />.
+          Se questa impostazione viene attivata o disattivata, gli utenti non potranno modificarla o ignorarla in <ph name="PRODUCT_NAME" />.
 
           Se questa norma non viene impostata, viene attivato il provider di ricerca predefinito e l'utente potrà impostare l'elenco di provider di ricerca.
 
@@ -1749,7 +1748,7 @@ Se questa norma non viene impostata, le pagine saranno sottoposte a scansione pe
 <translation id="8369602308428138533">Ritardo disattivazione schermo in caso di utilizzo di CA</translation>
 <translation id="8382184662529825177">Attiva l'utilizzo dell'attestazione remota per la protezione dei contenuti per il dispositivo</translation>
 <translation id="838870586332499308">Attiva roaming dati</translation>
-<translation id="8407759228138103300">Consente di specificare il tipo di account degli account forniti dall'applicazione di autenticazione di Android che supporta l'autenticazione della negoziazione HTTP (ad esempio, l'autenticazione Kerberos). Queste informazioni dovrebbero essere messe a disposizione dal fornitore dell'applicazione di autenticazione. Per ulteriori informazioni, visitare la pagina https://goo.gl/hajyfN.
+<translation id="8407759228138103300">Consente di specificare il tipo di account degli account forniti dall'applicazione di autenticazione di Android che supporta l'autenticazione Negotiate HTTP (ad esempio, l'autenticazione Kerberos). Queste informazioni dovrebbero essere messe a disposizione dal fornitore dell'applicazione di autenticazione. Per ulteriori informazioni, visitare la pagina https://goo.gl/hajyfN.
 
           Se non vengono fornite impostazioni, l'autenticazione della negoziazione è disattivata in Android.</translation>
 <translation id="8412312801707973447">Esecuzione dei controlli OCSP/CRL online</translation>
@@ -1867,7 +1866,7 @@ Il metodo consigliato per bloccare lo schermo in caso di inattività consiste ne
 Il valore della norma deve essere specificato in millisecondi. I valori devono essere inferiori al ritardo di inattività.</translation>
 <translation id="891435090623616439">codificato sotto forma di stringa JSON; per informazioni dettagliate, visita la pagina <ph name="COMPLEX_POLICIES_URL" /></translation>
 <translation id="8947415621777543415">Segnala posizione del dispositivo</translation>
-<translation id="89493502583189945">Consente di specificare i contrassegni da applicare all'avvio di <ph name="PRODUCT_NAME" />. I contrassegni specificati vengono applicati prima che <ph name="PRODUCT_NAME" /> venga avviato, anche per la schermata di acces</translation>
+<translation id="89493502583189945">Consente di specificare i contrassegni da applicare all'avvio di <ph name="PRODUCT_NAME" />. I contrassegni specificati vengono applicati prima che <ph name="PRODUCT_NAME" /> venga avviato, anche per la schermata di accesso.</translation>
 <translation id="8951350807133946005">Impostazione directory della cache su disco</translation>
 <translation id="8955719471735800169">Torna all'inizio</translation>
 <translation id="8960850473856121830">I pattern di questo elenco verranno confrontati con l'origine di sicurezza dell'URL richiedente. Se viene trovata una corrispondenza, l'accesso ai dispositivi di acquisizione audio viene concesso senza richieste.

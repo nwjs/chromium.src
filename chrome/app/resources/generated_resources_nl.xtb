@@ -956,7 +956,7 @@ Nadat je een nieuwe gebruiker met beperkte rechten hebt gemaakt, kun je zijn ins
 <translation id="2368075211218459617">Contextueel zoeken inschakelen.</translation>
 <translation id="2370882663124746154">Double-pinyinmethode inschakelen</translation>
 <translation id="2371076942591664043">Openen wanneer geree&amp;d</translation>
-<translation id="2372036074421194686">Chrome heeft een ongewenst programma (<ph name="UWS_NAME" />) gevonden die op je computer is geïnstalleerd. Je kunt dit programma verwijderen door de Chrome Cleanup Tool uit te voeren.</translation>
+<translation id="2372036074421194686">Chrome heeft een ongewenst programma (<ph name="UWS_NAME" />) gevonden dat op je computer is geïnstalleerd. Je kunt dit programma verwijderen door de Chrome Cleanup Tool uit te voeren.</translation>
 <translation id="2375701438512326360">Het altijd in- of uitschakelen van touchscreen-ondersteuning afdwingen of instellen dat deze wordt ingeschakeld wanneer er een touchscreen wordt gedetecteerd bij het opstarten (automatisch, standaard).</translation>
 <translation id="2377619091472055321">Gewijzigde instellingen voor <ph name="IDS_SHORT_PRODUCT_NAME" /> opnieuw instellen</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> bestanden geselecteerd</translation>
@@ -1199,7 +1199,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="271033894570825754">Nieuw</translation>
 <translation id="271083069174183365">Invoerinstellingen voor Japans</translation>
 <translation id="2712173769900027643">Toestemming vragen</translation>
-<translation id="2713008223070811050">Weergaven beheren</translation>
+<translation id="2713008223070811050">Beeldschermen beheren</translation>
 <translation id="2716448593772338513">Laadmodus cros-regions</translation>
 <translation id="2717703586989280043">Ingeschreven</translation>
 <translation id="2718998670920917754">De antivirussoftware heeft een virus gedetecteerd.</translation>

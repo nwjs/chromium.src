@@ -10,7 +10,7 @@
 <translation id="1221340462641866827">Chromium 作業系統不支援啟用外部應用程式以處理 <ph name="SCHEME" /> 連結。所要求的連結為 <ph name="PROTOLINK" />。</translation>
 <translation id="1293235220023151515">系統在安裝 Chromium 時發生衝突問題。請先解除安裝，然後再試一次。</translation>
 <translation id="1298199220304005244">前往 Chromium 作業系統說明頁面</translation>
-<translation id="1347507563453473396">Chromium 介面無法設為這種語言。</translation>
+<translation id="1347507563453473396">Chromium 的介面文字無法設為這種語言。</translation>
 <translation id="1396446129537741364">Chromium 即將顯示密碼。</translation>
 <translation id="1414495520565016063">您已登入 Chromium！</translation>
 <translation id="1444754455097148408">Chromium 開放原始碼授權</translation>
@@ -61,7 +61,7 @@
 <translation id="2801146392936645542"><ph name="FILE_NAME" /> 是惡意軟體，因此已遭到 Chromium 封鎖。</translation>
 <translation id="2847479871509788944">從 Chromium 中移除...</translation>
 <translation id="2886012850691518054">選用：將使用統計資料及當機報告自動傳送給 Google，助我們一臂之力，讓 Chromium 更臻完美。</translation>
-<translation id="2905536371227304018">Chromium 作業系統介面已設為這種語言。</translation>
+<translation id="2905536371227304018">Chromium 作業系統的介面文字已設為這種語言。</translation>
 <translation id="2910007522516064972">關於 Chromium(&amp;C)</translation>
 <translation id="2966088006374919794">Chromium 需要啟用外部應用程式才能處理 <ph name="SCHEME" /> 連結。所要求的連結為 <ph name="PROTOLINK" />。</translation>
 <translation id="3032787606318309379">正在新增至 Chromium...</translation>
@@ -140,11 +140,11 @@
 <translation id="5427571867875391349">將 Chromium 設為預設瀏覽器</translation>
 <translation id="5466153949126434691">Chromium 會自動更新，隨時讓您使用最新版本。完成這項下載作業後，Chromium 會重新啟動，自動為您進行更新。</translation>
 <translation id="549669000822060376">請稍候，Chromium 正在安裝最新的系統更新。</translation>
-<translation id="556167189552180495">Chromium 介面已設為這種語言。</translation>
+<translation id="556167189552180495">Chromium 的介面文字已設為這種語言。</translation>
 <translation id="5563479599352954471">輕觸即可搜尋</translation>
 <translation id="5620765574781326016">不必離開所在頁面即可瞭解網站上有哪些主題。</translation>
-<translation id="5698481217667032250">將 Chromium 介面設為這種語言</translation>
-<translation id="5768914737813585044">將 Chromium 作業系統介面設為這種語言</translation>
+<translation id="5698481217667032250">將 Chromium 的介面文字設為這種語言</translation>
+<translation id="5768914737813585044">將 Chromium 作業系統的介面文字設為這種語言</translation>
 <translation id="5772805321386874569">(必須<ph name="BEGIN_BUTTON" />重新啟動<ph name="END_BUTTON" /> Chromium)</translation>
 <translation id="5796460469508169315">Chromium 即將準備就緒。</translation>
 <translation id="580822234363523061">前往
@@ -175,7 +175,7 @@
 <translation id="6475912303565314141">這個擴充功能也會控管您啟動 Chromium 時所顯示的網頁。</translation>
 <translation id="6485906693002546646">您正使用 <ph name="PROFILE_EMAIL" /> 帳戶同步處理您的 Chromium 資料。如要更新您的偏好設定，或是在未登入 Google 帳戶的情況下使用 Chromium，請前往 [<ph name="SETTINGS_LINK" />]。</translation>
 <translation id="6510925080656968729">解除安裝 Chromium</translation>
-<translation id="6526111688217511984">Chromium 需要儲存空間的存取權才能下載檔案。</translation>
+<translation id="6526111688217511984">Chromium 必須取得儲存空間的存取權才能下載檔案。</translation>
 <translation id="6637001341228460105">Chromium 需要麥克風存取權，才能與這個網站分享。</translation>
 <translation id="6638567566961868659">您的書籤會顯示在 Chromium 選單中或書籤列上。</translation>
 <translation id="6676384891291319759">連線到網際網路</translation>
@@ -213,7 +213,7 @@ Chromium 無法復原您的設定。</translation>
 <translation id="734373864078049451">您瀏覽的網頁、書籤和其他 Chromium 設定都在這裡。</translation>
 <translation id="7419987137528340081">如果您想要另行保留現有的 Chromium 資料，可以為 <ph name="USER_NAME" /> 建立新的 Chromium 使用者。</translation>
 <translation id="7421823331379285070">Chromium 需要 Windows XP 或更新版本的作業系統，否則部分功能無法正確運作。</translation>
-<translation id="7437562785125777404">Chromium 作業系統介面無法設為這種語言。</translation>
+<translation id="7437562785125777404">Chromium 作業系統的介面文字無法設為這種語言。</translation>
 <translation id="7463979740390522693">Chromium - 通知 (<ph name="QUANTITY" /> 則未讀)</translation>
 <translation id="7473891865547856676">不用了，謝謝</translation>
 <translation id="7483335560992089831">無法安裝這個版本的 Chromium，因為目前正在執行相同版本。請關閉 Chromium，然後再試一次。</translation>

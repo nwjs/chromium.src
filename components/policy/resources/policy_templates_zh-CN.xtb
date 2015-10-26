@@ -950,7 +950,7 @@
 
       允许用户登录到 <ph name="PRODUCT_NAME" />。
 
-      如果您设置了此政策，则可以指定是否允许用户登录到 <ph name="PRODUCT_NAME" />。如果将此政策设为“False”，使用 chrome.identity API 的应用和扩展程序将无法正常运行，因此我们建议您改用 SyncDisabled。</translation>
+      如果您设置了此政策，则可以配置是否允许用户登录到 <ph name="PRODUCT_NAME" />。如果将此政策设为“False”，使用 chrome.identity API 的应用和扩展程序将无法正常运行，因此我们建议您改用 SyncDisabled。</translation>
 <translation id="5304269353650269372">指定在使用电池供电时用户停止输入后隔多久系统才显示警告对话框。
 
           如果设置了此政策，则只要机器闲置的时间达到了此处指定的时长，<ph name="PRODUCT_OS_NAME" />就会显示警告对话框，提示用户系统将会采取闲置操作。
@@ -1218,7 +1218,7 @@
 <translation id="6233173491898450179">设置下载目录</translation>
 <translation id="6244210204546589761">启动时打开的网址</translation>
 <translation id="6258193603492867656">指定生成的 Kerberos SPN 是否应包括非标准端口。如果您启用了此设置，并输入某个非标准端口（即除 80 或 443 以外的端口），该端口就会包括在生成的 Kerberos SPN 中。如果您停用或未配置此设置，生成的 Kerberos SPN 在任何情况下都不会包括端口。</translation>
-<translation id="6279809962528392889">指定在用户登录期间 SAML IdP 设置的身份验证 Cookie 是否转移到用户的个人资料中。
+<translation id="6279809962528392889">指定在用户登录期间 SAML IdP 设置的身份验证 Cookie 是否应转移到用户的个人资料中。
 
       当用户在登录期间通过 SAML IdP 进行身份验证时，IdP 设置的 Cookie 会先写入到临时的个人资料中。这些 Cookie 可以转移到用户的个人资料中，以便更新身份验证状态。
 

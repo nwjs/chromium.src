@@ -231,7 +231,7 @@
 <translation id="1336254985736398701">檢視網頁資訊(&amp;I)</translation>
 <translation id="1337036551624197047">捷克文鍵盤</translation>
 <translation id="1338950911836659113">刪除中...</translation>
-<translation id="1339266338863469628">預設 (只拾取您的聲音)</translation>
+<translation id="1339266338863469628">預設 (只擷取您的聲音)</translation>
 <translation id="1340527397989195812">使用「檔案」應用程式備份裝置上的媒體。</translation>
 <translation id="1343517687228689568">在開始畫面中解除固定這個網頁...</translation>
 <translation id="1344519653668879001">停用超連結稽核</translation>
@@ -2103,7 +2103,7 @@
 <translation id="3872687746103784075">Native Client GDB 偵錯</translation>
 <translation id="3878840326289104869">正在建立受監管的使用者</translation>
 <translation id="3887557525921873910">這會和 enable-navigation-tracing (啟用瀏覽追蹤) 標記一起使用。
-        請選取最能說明記錄的追蹤項目的標記。這將選擇追蹤內容的上傳目的地。如果不確定上傳目的地，請選取其他。如果保持空白，系統將不會上傳任何追蹤內容。</translation>
+        請選取最能說明記錄的追蹤項目的標記。這將選擇追蹤內容的上傳目的地。如果不確定上傳目的地，請選取其他。如果留空，系統將不會上傳任何追蹤紀錄。</translation>
 <translation id="3888118750782905860">使用者管理</translation>
 <translation id="3893536212201235195">讀取及變更您的協助工具設定</translation>
 <translation id="3893630138897523026">ChromeVox (互動朗讀)</translation>
@@ -4764,7 +4764,7 @@
 <translation id="7818135753970109980">已新增以下主題：<ph name="EXTENSION_NAME" /></translation>
 <translation id="78196818692136852">Google Payments 無法處理這筆交易款項。</translation>
 <translation id="7819857487979277519">PSK (WPA 或 RSN)</translation>
-<translation id="782057141565633384">複製影片位置(&amp;O)</translation>
+<translation id="782057141565633384">複製影片位址(&amp;O)</translation>
 <translation id="7821009361098626711"><ph name="DOMAIN" /> 伺服器要求提供使用者名稱和密碼，伺服器訊息：<ph name="REALM" />。</translation>
 <translation id="7825423931463735974">坦米爾文鍵盤 (Tamil99)</translation>
 <translation id="7825543042214876779">依據政策設定封鎖</translation>
@@ -4826,7 +4826,7 @@
 <translation id="7900476766547206086">一或多個使用者已開啟這項設定，因此登入的使用者需提供密碼。</translation>
 <translation id="7903070801626843743">啟用附有前置字串的 Encrypted Media Extensions。</translation>
 <translation id="7903128267494448252">刪除這個使用者</translation>
-<translation id="7903345046358933331">網頁無回應。您可以等待網頁回應，也可以關閉網頁。</translation>
+<translation id="7903345046358933331">網頁無回應。您可以等待網頁回應，或是直接關閉網頁。</translation>
 <translation id="7903925330883316394">公用程式：<ph name="UTILITY_TYPE" /></translation>
 <translation id="7903984238293908205">片假名</translation>
 <translation id="7904094684485781019">這個帳戶的管理員已禁止多重登入。</translation>
@@ -4854,7 +4854,7 @@
 <translation id="7945967575565699145">實驗性 QUIC 通訊協定。</translation>
 <translation id="7946068607136443002">在觸控檢視模式中，系統會以全螢幕顯示應用程式清單。這個標記在這個模式外沒有作用。</translation>
 <translation id="794676567536738329">確認權限</translation>
-<translation id="7947962633355574091">複製影片位置(&amp;O)</translation>
+<translation id="7947962633355574091">複製影片位址(&amp;O)</translation>
 <translation id="795025003224538582">不要重新啟動</translation>
 <translation id="7951415247503192394">(32 位元)</translation>
 <translation id="7953739707111622108">這個裝置所用的檔案系統無法識別，因此系統無法開啟這個裝置。</translation>
@@ -4914,7 +4914,7 @@
 <translation id="8009669262342650481">啟用網路藍牙，允許網站與附近的藍牙裝置連線並控制這些裝置，例如鍵盤、相機、麥克風等。</translation>
 <translation id="8012382203418782830">這個網頁的內容已經過翻譯。</translation>
 <translation id="8012647001091218357">我們暫時無法與您的家長聯絡，請再試一次。</translation>
-<translation id="8014154204619229810">正在執行更新程式。請隨即重新整理，再次查看。</translation>
+<translation id="8014154204619229810">正在執行更新程式。請稍後片刻，重新整理之後再試一次。</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> 無法還原至先前安裝的版本，請嘗試再次為您的裝置執行 Powerwash。</translation>
 <translation id="8016174103774548813">SSL 伺服器可能已過舊。</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>

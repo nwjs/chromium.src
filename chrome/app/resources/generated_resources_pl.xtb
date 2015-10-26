@@ -1206,7 +1206,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2716448593772338513">Tryb ładowania cros-regions</translation>
 <translation id="2717703586989280043">Rejestracja zakończona</translation>
 <translation id="2718998670920917754">Oprogramowanie antywirusowe wykryło wirusa.</translation>
-<translation id="2721037002783622288">&amp;Szukaj obrazka w <ph name="SEARCH_ENGINE" /></translation>
+<translation id="2721037002783622288">&amp;Szukaj obrazu w <ph name="SEARCH_ENGINE" /></translation>
 <translation id="2724841811573117416">Dzienniki WebRTC</translation>
 <translation id="2725200716980197196">Łączność z siecią przywrócona</translation>
 <translation id="2726306725839966998">Wyłącz ukrywanie przycisków zamykania nieaktywnych kart na stosie</translation>
@@ -1688,7 +1688,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="3345135638360864351">Nie udało się wysłać żądania dostępu do strony do <ph name="NAME" />. Spróbuj ponownie.</translation>
 <translation id="3345634697982520715">Włącz widok wbudowany opcji rozszerzenia.</translation>
 <translation id="3345886924813989455">Nie znaleziono obsługiwanej przeglądarki</translation>
-<translation id="3347086966102161372">K&amp;opiuj adres obrazka</translation>
+<translation id="3347086966102161372">K&amp;opiuj adres obrazu</translation>
 <translation id="3348038390189153836">Wykryto urządzenie wymienne</translation>
 <translation id="3348459612390503954">Gratulacje</translation>
 <translation id="3348643303702027858">Anulowano tworzenie nośnika odzyskiwania systemu operacyjnego.</translation>
@@ -2104,7 +2104,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="3872687746103784075">Debugowanie klienta natywnego oparte na GDB</translation>
 <translation id="3878840326289104869">Tworzenie użytkownika nadzorowanego</translation>
 <translation id="3887557525921873910">Musi być używana razem z flagą enable-navigation-tracing.
-        Wybierz etykietę najlepiej opisującą zarejestrowane dane śledzenia. Na jej podstawie zostanie wybrane miejsce, w które będą one wysyłane. Jeśli nie możesz zdecydować, wybierz other. Jeśli nic nie wybierzesz, dane nie będą wysyłane.</translation>
+        Wybierz etykietę najlepiej opisującą zarejestrowane dane śledzenia. Na jej podstawie zostanie wybrane miejsce, do którego będą one wysyłane. Jeśli nie możesz zdecydować, wybierz other. Jeśli nic nie wybierzesz, dane nie będą wysyłane.</translation>
 <translation id="3888118750782905860">Zarządzanie klientami</translation>
 <translation id="3893536212201235195">Odczytywać i zmieniać ustawienia ułatwień dostępu.</translation>
 <translation id="3893630138897523026">ChromeVox (potwierdzenia głosowe)</translation>
@@ -2155,7 +2155,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="3943857333388298514">Wklej</translation>
 <translation id="3944266449990965865">Cały ekran</translation>
 <translation id="3947376313153737208">Nie wybrano</translation>
-<translation id="3948116654032448504">&amp;Szukaj obrazka w <ph name="SEARCH_ENGINE" /></translation>
+<translation id="3948116654032448504">&amp;Szukaj obrazu w <ph name="SEARCH_ENGINE" /></translation>
 <translation id="394984172568887996">Importowane z IE</translation>
 <translation id="3950820424414687140">Zaloguj się</translation>
 <translation id="3950924596163729246">Nie można uzyskać dostępu do sieci.</translation>
@@ -3997,7 +3997,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6657585470893396449">Hasło</translation>
 <translation id="6659213950629089752">Powiększenie strony zostało zmienione przez rozszerzenie „<ph name="NAME" />”</translation>
 <translation id="6659594942844771486">Tab</translation>
-<translation id="6660753359158386737">Pozwala witrynom ustawiać kolor omniboksu w trybie kart (gdy opcja „Połącz aplikacje i karty” jest wyłączona) za pomocą metatagu <ph name="META_TAG_NAME" />.</translation>
+<translation id="6660753359158386737">Pozwala witrynom ustawiać kolor omniboksu w trybie kart (gdy opcja „Połącz karty i aplikacje” jest wyłączona) za pomocą metatagu <ph name="META_TAG_NAME" />.</translation>
 <translation id="6662016084451426657">Błąd synchronizacji: aby włączyć synchronizację, skontaktuj się z administratorem.</translation>
 <translation id="6663792236418322902">Wybrane hasło będzie wymagane później do odtworzenia tego pliku. Zapisz je w bezpiecznym miejscu.</translation>
 <translation id="6664237456442406323">Twój komputer jest skonfigurowany przy użyciu błędnie sformatowanego identyfikatora sprzętu. Ta sytuacja uniemożliwia zaktualizowanie systemu operacyjnego Chrome za pomocą najnowszych poprawek zabezpieczeń, a komputer <ph name="BEGIN_BOLD" />może być narażony na złośliwe ataki<ph name="END_BOLD" />.</translation>
@@ -4873,7 +4873,7 @@ Psst! Następnym razem możesz użyć trybu incognito <ph name="SHORTCUT_KEY" />
 <translation id="7961015016161918242">Nigdy</translation>
 <translation id="7963675372086154214">Włącz HarfBuzz dla tekstu interfejsu.</translation>
 <translation id="7965010376480416255">Pamięć współużytkowana</translation>
-<translation id="7966241909927244760">K&amp;opiuj adres obrazka</translation>
+<translation id="7966241909927244760">K&amp;opiuj adres obrazu</translation>
 <translation id="7967437925638594022">Rozszerzenia i aplikacje</translation>
 <translation id="7968728703861615399">Coś jest nie tak z Twoim kontem Google Payments.</translation>
 <translation id="7968796119156413760">Używaj Android Midi API dla WebMIDI (działa tylko na urządzeniach z Androidem M lub nowszym).</translation>
@@ -5614,7 +5614,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="9009299913548444929">Funkcja jest chwilowo niedostępna. <ph name="BEGIN_LINK" />Pomoc<ph name="END_LINK" /></translation>
 <translation id="9009369504041480176">Przesyłanie (<ph name="PROGRESS_PERCENT" />%)...</translation>
 <translation id="9011178328451474963">Ostatnia karta</translation>
-<translation id="9013284500811652791"><ph name="UWS_NAME" />, <ph name="UWS_NAME" /> i jeszcze jeden</translation>
+<translation id="9013284500811652791"><ph name="UWS_NAME" />, <ph name="UWS_NAME" /> i jeszcze 1</translation>
 <translation id="9013587737291179248">Ups! Nie udało się zaimportować użytkownika nadzorowanego. Sprawdź miejsce na dysku twardym i uprawnienia, a potem spróbuj ponownie.</translation>
 <translation id="9013589315497579992">Błędny certyfikat uwierzytelniania klienta SSL.</translation>
 <translation id="9014987600015527693">Pokaż inny telefon</translation>
