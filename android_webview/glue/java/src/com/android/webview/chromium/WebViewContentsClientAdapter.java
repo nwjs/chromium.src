@@ -38,6 +38,7 @@ import android.webkit.WebViewClient;
 
 import com.android.webview.chromium.WebViewDelegateFactory.WebViewDelegate;
 
+import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwContentsClient;
 import org.chromium.android_webview.AwContentsClientBridge;
 import org.chromium.android_webview.AwHttpAuthHandler;
@@ -48,9 +49,6 @@ import org.chromium.android_webview.permission.AwPermissionRequest;
 import org.chromium.android_webview.permission.Resource;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.content.browser.ContentView;
-import org.chromium.content.browser.ContentViewClient;
-import org.chromium.content.browser.ContentViewCore;
 
 import java.lang.ref.WeakReference;
 import java.security.Principal;
@@ -869,7 +867,7 @@ public class WebViewContentsClientAdapter extends AwContentsClient {
      */
     private boolean showDefaultJsDialog(JsPromptResult res, int jsDialogType, String defaultValue,
             String message, String url) {
-        Context activityContext = ContentViewCore.activityFromContext(mContext);
+        Context activityContext = AwContents.activityFromContext(mContext);
         if (activityContext == null) {
             return false;
         }
