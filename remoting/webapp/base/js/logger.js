@@ -28,17 +28,17 @@ remoting.Logger.prototype.setAuthTotalTime = function(totalTime) {};
 remoting.Logger.prototype.setHostVersion = function(hostVersion) {};
 
 /**
- * @param {remoting.ChromotingEvent.Os} hostOS Type of the OS the host
+ * @param {remoting.ChromotingEvent.Os} hostOs Type of the OS the host
  *        for the current session.
  * @return {void} Nothing.
  */
-remoting.Logger.prototype.setHostOS = function(hostOS) {};
+remoting.Logger.prototype.setHostOs = function(hostOs) {};
 
 /**
- * @param {string} hostOSVersion Version of the host Os for current session.
+ * @param {string} hostOsVersion Version of the host Os for current session.
  * @return {void} Nothing.
  */
-remoting.Logger.prototype.setHostOSVersion = function(hostOSVersion) {};
+remoting.Logger.prototype.setHostOsVersion = function(hostOsVersion) {};
 
 /**
  * @param {number} time Time in milliseconds since the last host status update.

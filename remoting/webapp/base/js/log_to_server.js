@@ -292,11 +292,11 @@ remoting.LogToServer.prototype.setHostVersion = function(hostVersion) {
 
 /**
  * Stub.
- * @param {remoting.ChromotingEvent.Os} hostOS Type of the host OS for
+ * @param {remoting.ChromotingEvent.Os} hostOs Type of the host OS for
           current session.
  * @return {void} Nothing.
  */
-remoting.LogToServer.prototype.setHostOS = function(hostOS) {};
+remoting.LogToServer.prototype.setHostOs = function(hostOs) {};
 
 /**
  * Stub
@@ -307,10 +307,10 @@ remoting.LogToServer.prototype.setHostStatusUpdateElapsedTime = function(time) {
 
 /**
  * Stub.
- * @param {string} hostOSVersion Version of the host OS for current session.
+ * @param {string} hostOsVersion Version of the host OS for current session.
  * @return {void} Nothing.
  */
-remoting.LogToServer.prototype.setHostOSVersion = function(hostOSVersion) {};
+remoting.LogToServer.prototype.setHostOsVersion = function(hostOsVersion) {};
 
 /**
  * Stub.
