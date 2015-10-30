@@ -1224,6 +1224,11 @@ void AwContents::GrantFileSchemeAccesstoChildProcess(JNIEnv* env, jobject obj) {
       web_contents_->GetRenderProcessHost()->GetID(), url::kFileScheme);
 }
 
+void AwContents::ResumeLoadingCreatedPopupWebContents(JNIEnv* env,
+                                                      jobject obj) {
+  web_contents_->ResumeLoadingCreatedWebContents();
+}
+
 void SetShouldDownloadFavicons(JNIEnv* env,
                                const JavaParamRef<jclass>& jclazz) {
   g_should_download_favicons = true;
