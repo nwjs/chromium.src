@@ -852,6 +852,10 @@ public class ContextualSearchPanel extends ContextualSearchPanelAnimation
      */
     private void setPromoVisibility(boolean isVisible) {
         mIsPromoVisible = isVisible;
+
+        if (mIsPromoVisible) {
+            createPromoView();
+        }
     }
 
     // ============================================================================================

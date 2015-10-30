@@ -512,12 +512,6 @@ public class ContextualSearchManager extends ContextualSearchObservable
 
         mWereSearchResultsSeen = false;
 
-        // TODO(donnd): although we are showing the bar here, we have not yet set the text!
-        // Refactor to show the bar and set the text at the same time!
-        // TODO(donnd): If there was a previously ongoing contextual search, we should ensure
-        // it's registered as closed.
-        mSearchPanelDelegate.peekPanel(stateChangeReason);
-
         // Note: now that the contextual search has properly started, set the promo involvement.
         if (mPolicy.isPromoAvailable()) {
             mIsShowingPromo = true;
@@ -525,6 +519,12 @@ public class ContextualSearchManager extends ContextualSearchObservable
             mSearchPanelDelegate.setIsPromoActive(true);
             mSearchPanelDelegate.setDidSearchInvolvePromo();
         }
+
+        // TODO(donnd): although we are showing the bar here, we have not yet set the text!
+        // Refactor to show the bar and set the text at the same time!
+        // TODO(donnd): If there was a previously ongoing contextual search, we should ensure
+        // it's registered as closed.
+        mSearchPanelDelegate.peekPanel(stateChangeReason);
 
         assert mSelectionController.getSelectionType() != SelectionType.UNDETERMINED;
         mWasActivatedByTap = mSelectionController.getSelectionType() == SelectionType.TAP;
