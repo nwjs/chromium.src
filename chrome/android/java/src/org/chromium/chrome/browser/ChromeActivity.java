@@ -699,7 +699,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @Override
     public void onPause() {
         super.onPause();
-        if (mSnackbarManager != null) mSnackbarManager.dismissSnackbar(false);
+        mSnackbarManager.dismissAllSnackbars(false);
     }
 
     @Override

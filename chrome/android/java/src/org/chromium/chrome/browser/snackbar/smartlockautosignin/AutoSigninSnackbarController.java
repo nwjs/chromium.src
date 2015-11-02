@@ -66,7 +66,7 @@ public class AutoSigninSnackbarController
      */
     public void dismissAutoSigninSnackbar() {
         if (mSnackbarManager.isShowing()) {
-            mSnackbarManager.removeMatchingSnackbars(this);
+            mSnackbarManager.dismissSnackbars(this);
         }
     }
 
