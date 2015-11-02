@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">ดูแท็บด้วยแอปล่าสุดอื่นๆ บนหน้าจอภาพรวมของโทรศัพท์</translation>
 <translation id="2079545284768500474">เลิกทำ</translation>
 <translation id="2082238445998314030">ผลลัพธ์ <ph name="RESULT_NUMBER" /> จาก <ph name="TOTAL_RESULTS" /> รายการ</translation>
+<translation id="2095887075102408547">เมื่อเปิดคุณลักษณะนี้ Chrome จะใช้เซิร์ฟเวอร์ของ Google ในการบีบอัดหน้าเว็บที่คุณเข้าชมก่อนที่จะดาวน์โหลดหน้าเหล่านั้น Google จะมองไม่เห็นและไม่เพิ่มประสิทธิภาพหน้าที่เข้าถึงโดยใช้การเชื่อมต่อส่วนตัว (HTTPS) หรือแท็บไม่ระบุตัวตน</translation>
 <translation id="2100273922101894616">ลงชื่อเข้าใช้อัตโนมัติ</translation>
 <translation id="2126426811489709554">สนับสนุนโดย Chrome</translation>
 <translation id="213279576345780926">ปิด <ph name="TAB_TITLE" /> แล้ว</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">บุ๊กมาร์กหน้านี้</translation>
 <translation id="326254929494722411">คุณยังไม่ได้ตั้งค่าบัญชี Google ในอุปกรณ์นี้</translation>
 <translation id="3269093882174072735">โหลดภาพ</translation>
+<translation id="3278850099957560514">ประหยัดข้อมูลโดยใช้ Google เพื่อเพิ่มประสิทธิภาพหน้าที่คุณเข้าชม Google จะมองไม่เห็นและไม่เพิ่มประสิทธิภาพหน้าที่เข้าถึงโดยใช้การเชื่อมต่อส่วนตัว (HTTPS) หรือแท็บไม่ระบุตัวตน</translation>
 <translation id="3282568296779691940">ลงชื่อเข้าใช้ Chrome</translation>
 <translation id="3287852534598822456">ไม่มีบุ๊กมาร์กแล้ว โปรดรีเฟรช</translation>
 <translation id="3303414029551471755">ต้องการดำเนินการดาวน์โหลดเนื้อหานี้ไหม</translation>

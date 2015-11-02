@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Peržiūrėkite skirtukus su kitomis naujausiomis programomis telefono „Apžvalgos“ ekrane.</translation>
 <translation id="2079545284768500474">Anuliuoti</translation>
 <translation id="2082238445998314030">Rezultatų: <ph name="RESULT_NUMBER" /> iš <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Kai ši funkcija įjungta, „Chrome“ naudoja „Google“ serverius, kad glaudintų puslapius, kuriuose lankotės, prieš juos atsisiųsdama. Puslapių, kurie buvo pasiekti naudojant privačius ryšius (HTTPS) ar inkognito skirtukų lapus, „Google“ neoptimizuos ir nematys.</translation>
 <translation id="2100273922101894616">Automatinis prisijungimas</translation>
 <translation id="2126426811489709554">Teikia „Chrome“</translation>
 <translation id="213279576345780926">„<ph name="TAB_TITLE" />“ uždaryta</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Įtraukti šį puslapį į žymes</translation>
 <translation id="326254929494722411">Šiame įrenginyje dar nenustatėte „Google“ paskyros</translation>
 <translation id="3269093882174072735">Įkelti vaizdą</translation>
+<translation id="3278850099957560514">Išeikvokite mažiau duomenų naudodami „Google“ puslapiams, kuriuose lankotės, optimizuoti. Puslapių, kurie buvo pasiekti naudojant privačius ryšius (HTTPS) ar inkognito skirtukų lapus, „Google“ neoptimizuos ir nematys.</translation>
 <translation id="3282568296779691940">Prisijungti prie „Chrome“</translation>
 <translation id="3287852534598822456">Žymės nebėra. Atnaujinkite.</translation>
 <translation id="3303414029551471755">Tęsti turinio atsisiuntimo procesą?</translation>

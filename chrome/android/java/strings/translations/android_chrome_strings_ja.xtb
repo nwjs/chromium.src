@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">スマートフォンの [概要] 画面で最近使ったアプリと一緒にタブを表示します。</translation>
 <translation id="2079545284768500474">取り消す</translation>
 <translation id="2082238445998314030">結果 <ph name="TOTAL_RESULTS" /> 件中 <ph name="RESULT_NUMBER" /> 件目</translation>
+<translation id="2095887075102408547">この機能が有効になっている場合、アクセスしたページはダウンロード前に Google サーバーで圧縮されます。プライベート接続（HTTPS）やシークレット タブでアクセスしたページには、Google による最適化や確認は行われません。</translation>
 <translation id="2100273922101894616">自動ログイン</translation>
 <translation id="2126426811489709554">Powered by Chrome</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> を閉じました</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">このページをブックマークに追加します</translation>
 <translation id="326254929494722411">このデバイスには Google アカウントがまだ設定されていません</translation>
 <translation id="3269093882174072735">画像を読み込む</translation>
+<translation id="3278850099957560514">アクセスしたページを Google で最適化することにより処理データを減らします。プライベート接続（HTTPS）やシークレット タブでアクセスしたページには、Google による最適化や確認は行われません。</translation>
 <translation id="3282568296779691940">Chrome にログイン</translation>
 <translation id="3287852534598822456">ブックマークがありません。更新してください。</translation>
 <translation id="3303414029551471755">コンテンツのダウンロードに進みますか？</translation>

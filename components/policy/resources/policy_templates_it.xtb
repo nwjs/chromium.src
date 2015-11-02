@@ -530,6 +530,38 @@ Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearch
 <translation id="3153348162326497318">Consente di specificare le estensioni che gli utenti NON possono installare. Se presenti nella blacklist, le estensioni precedentemente installate verranno rimosse. Un valore "*" riportato nella blacklist indica che tutte le estensioni sono state inserite nella blacklist a meno che non siano espressamente elencate nella whitelist. Se questa norma non viene impostata, gli utenti potranno installare qualsiasi estensione in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="316778957754360075">Questa impostazione non è più supportata a partire dalla versione 29 di <ph name="PRODUCT_NAME" />. Il metodo consigliato per la configurazione di raccolte di estensioni/app ospitate dall'organizzazione consiste nell'includere il sito che ospita i pacchetti CRX in ExtensionInstallSources e inserire link di download diretti per i pacchetti in una pagina web. È possibile creare una funzione Avvio applicazioni per la pagina web utilizzando la norma ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">a partire dalla versione <ph name="SINCE_VERSION" /></translation>
+<translation id="318812033927804102">Consente di configurare impostazioni di gestione delle estensioni per <ph name="PRODUCT_NAME" />.
+
+          Questa norma consente di controllare diverse impostazioni, incluse quelle controllate da norme esistenti correlate alle estensioni. Questa norma sostituisce tutte le norme precedenti se vengono impostate entrambe.
+
+          Questa norma consente di mappare un ID estensione o un URL di aggiornamento alla relativa configurazione. Con un ID estensione, la configurazione viene applicata solo all'estensione specificata. È possibile impostare una configurazione predefinita per l'ID speciale "*", che verrà applicato a tutte le estensioni per cui non è impostata una configurazione personalizzata in questa norma. Con un URL di aggiornamento, la configurazione verrà applicata a tutte le estensioni con l'esatto URL di aggiornamento indicato nel file manifest dell'estensione, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          La configurazione per ogni estensione (o per estensioni con lo stesso URL di aggiornamento) è un altro dizionario che può contenere i campi documentati di seguito.
+
+          "installation_mode": corrisponde a una stringa indicante la modalità di installazione per l'estensione. Le stringhe valide sono:
+          * "allowed": consente l'installazione dell'estensione da parte dell'utente. È il comportamento predefinito.
+          * "blocked": blocca l'installazione dell'estensione.
+          * "force_installed": l'estensione viene installata automaticamente e non può essere rimossa dall'utente.
+          * "normal_installed": l'estensione viene installata automaticamente, ma può essere disattivata dall'utente.
+
+          Il campo "installation_mode" può anche essere configurato per più estensioni, compresa l'estensione "*" (come impostazione predefinita) e le estensioni con lo stesso URL di aggiornamento. In questo caso possono essere utilizzati solo i valori "allowed" e "blocked".
+
+          Se la modalità è impostata su "force_installed" o "normal_installed" è necessario configurare anche un campo "update_url". L'URL di aggiornamento impostato in questa norma viene utilizzato solo per l'installazione iniziale. Per i successivi aggiornamenti dell'estensione verrà utilizzato l'URL di aggiornamento indicato nel file manifest del'estensione. L'URL di aggiornamento dovrebbe rimandare a un documento XML Manifest di aggiornamento come descritto in precedenza.
+
+          "blocked_permissions": corrisponde a un elenco di stringhe indicanti le autorizzazioni API per l'estensione. I nomi delle autorizzazioni corrispondono alle stringhe di autorizzazione indicate nel file manifest dell'estensione, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC3" />. Questa impostazione può essere configurata anche per l'estensione "*". Se per l'estensione è necessaria un'autorizzazione che è presente nell'elenco di quelle bloccate, non potrà essere caricata. Se contiene un'autorizzazione bloccata come requisito opzionale, verrà trattata normalmente, ma la richiesta di autorizzazioni in conflitto verrà declinata automaticamente in fase di runtime.
+
+          "allowed_permissions": simile a "blocked_permissions", ma, al contrario, consente esplicitamente alcune autorizzazioni che potrebbero essere bloccate da un elenco di autorizzazioni bloccate globale e quindi non possono essere configurate per l'estensione "*". Questa impostazione non assegna automaticamente le autorizzazioni concesse alle estensioni.
+
+          "minimum_version_required": corrisponde a una stringa della versione. Il formato della stringa della versione corrisponde a quello utilizzato nel file manifest delle estensioni, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC4" />. Un'estensione con una versione precedente rispetto alla versione minima specificata viene disattivata. Ciò vale anche per le estensioni con installazione imposta.
+
+          Le seguenti impostazioni possono essere utilizzate solo per la configurazione "*":
+
+          "install_sources": ogni voce presente in questo elenco è uno schema di corrispondenza in stile di estensione (vedere https://developer.chrome.com/extensions/match_patterns). Gli utenti potranno installare facilmente elementi dagli URL corrispondenti a una voce nell'elenco. Questi schemi devono consentire sia la posizione del file *.crx sia la pagina da cui viene avviato il download (il referrer).
+
+          "allowed_types": con questa impostazione vengono autorizzati i tipi consentiti di estensioni/applicazioni che possono essere installati in <ph name="PRODUCT_NAME" />.  Il valore è un elenco di stringhe, tra le seguenti: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app" e "platform_app". Leggere la documentazione sulle estensioni di <ph name="PRODUCT_NAME" />, per ulteriori informazioni su questi tipi.
+
+          Questa norma non è ancora pronta per essere utilizzata, pertanto non deve essere utilizzata.
+          </translation>
 <translation id="3205825995289802549">Ingrandisci la prima finestra del browser alla prima esecuzione</translation>
 <translation id="3206731874112238027">Disattiva anteprima di stampa (ritirata)</translation>
 <translation id="3213821784736959823">Controlla se il client DNS integrato è in uso in <ph name="PRODUCT_NAME" />.
@@ -638,22 +670,6 @@ Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearch
       Se questa impostazione viene impostata su true o non viene configurata, gli utenti potranno utilizzare tutte le uscite audio supportate sui loro dispositivi.</translation>
 <translation id="3808945828600697669">Specifica un elenco dei plug-in disattivati</translation>
 <translation id="3816312845600780067">Attivazione scorciatoia da tastiera bailout per accesso automatico</translation>
-<translation id="381807926299956806">Consente di impostare una o più impostazioni internazionali per una sessione pubblica, consentendo agli utenti di sceglierne facilmente una.
-
-      L'utente può scegliere un'impostazione internazionale e un layout tastiera prima di iniziare una sessione pubblica. Per impostazione predefinita, tutte le impostazioni internazionali supportate da <ph name="PRODUCT_OS_NAME" /> sono elencate in ordine alfabetico. È possibile utilizzare questa norma per spostare un set di impostazioni internazionali consigliate nella parte superiore dell'elenco.
-
-      Se questa norma non viene impostata, l'impostazione internazionale corrente per l'interfaccia utente viene preselezionata.
-
-      Se questa norma viene impostata, le impostazioni internazionali consigliate verranno spostate nella parte superiore dell'elenco e verranno separate visivamente dalle altre impostazioni internazionali. Le impostazioni internazionali consigliate saranno elencate nell'ordine in cui sono indicate nella norma. Viene preselezionata la prima impostazione internazionale consigliata.
-
-      Se sono presenti più impostazioni internazionali consigliate, si presuppone che gli utenti ne vogliano selezionare una. La selezione dell'impostazione internazionale e del layout tastiera verrà offerta in una posizione più visibile all'avvio di una sessione pubblica. In caso contrario, si presuppone che la maggior parte degli utenti desideri utilizzare l'impostazione internazionale preselezionata. La selezione dell'impostazione internazionale e del layout tastiera verrà offerta in una posizione meno visibile all'avvio di una sessione pubblica.
-
-      Quando questa norma è impostata ed è abilitato l'accesso automatico (vedere le norme |DeviceLocalAccountAutoLoginId| e |DeviceLocalAccountAutoLoginDelay|), la sessione pubblica avviata automaticamente utilizzerà la prima impostazione internazionale consigliata e il layout tastiera più popolare corrispondente a questa impostazione internazionale.
-
-      Il layout tastiera preselezionato sarà sempre il layout più popolare corrispondente all'impostazione internazionale preselezionata.
-
-      Questa norma può essere impostata solo come consigliata. È possibile utilizzare questa norma per spostare un set di impostazioni internazionali consigliate nella parte superiore, ma gli utenti possono sempre scegliere una qualsiasi impostazione internazionale supportata da <ph name="PRODUCT_OS_NAME" /> per la sessione.
-      </translation>
 <translation id="3820526221169548563">Attiva la funzione di accessibilità della tastiera sullo schermo.
 
           Se questa norma viene impostata su true, la tastiera sullo schermo sarà sempre attivata.
@@ -709,9 +725,6 @@ Per impostazione predefinita sono autorizzati tutti gli host di messaggi nativi 
 <translation id="402759845255257575">Non consentire ad alcun sito di eseguire JavaScript</translation>
 <translation id="4027608872760987929">Attiva il provider di ricerca predefinito</translation>
 <translation id="4039085364173654945">Consente di stabilire se per i contenuti secondari di terze parti presenti in una pagina è consentita la visualizzazione di una finestra di dialogo Autorizzazione di base HTTP. Generalmente questa norma non è attiva per tutela dal phishing. Se questa norma non viene impostata, l'impostazione verrà disattivata e per i contenuti secondari di terze parti non potrà essere visualizzata una finestra di dialogo Autorizzazione di base HTTP.</translation>
-<translation id="4043912146394966243"> I tipi di connessioni utilizzabili per aggiornamenti del sistema operativo. Gli aggiornamenti del sistema operativo possono mettere a dura prova la connessione a causa delle loro dimensioni e potrebbero generare costi aggiuntivi. Pertanto, per impostazione predefinita non sono abilitati per i tipi di connessione che sono considerati costosi, fra cui WiMax, Bluetooth e cellulare, al momento.
-
-      Gli identificatori dei tipi di connessione riconosciuti sono "ethernet", "wifi", "wimax", "bluetooth" e "cellulare".</translation>
 <translation id="4052765007567912447">Consente di stabilire se l'utente può visualizzare le password in testo non crittografato in Gestione password. Se disattivi questa impostazione, Gestione password impedisce la visualizzazione delle password memorizzate in testo non crittografato nella finestra Gestione password. Se attivi questa norma o non la imposti, gli utenti potranno visualizzare le loro password in testo non crittografato in Gestione password.</translation>
 <translation id="4056910949759281379">Disabilita protocollo SPDY</translation>
 <translation id="4088589230932595924">Modalità di navigazione in incognito forzata</translation>
@@ -769,6 +782,14 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="4423597592074154136">Specifica manualmente le impostazioni proxy</translation>
 <translation id="4429220551923452215">Attiva o disattiva la scorciatoia per le app nella barra dei Preferiti. Se questa norma non è impostata, l'utente può scegliere di mostrare o nascondere la scorciatoia per le app dal menu contestuale della barra dei Preferiti. Se la norma è configurata, l'utente non può modificarla e la scorciatoia per le app viene mostrata sempre oppure non viene mostrata mai.</translation>
 <translation id="443665821428652897">Cancella i dati del sito alla chiusura del browser (obsoleta)</translation>
+<translation id="4439336120285389675">Consente di specificare un elenco di funzioni ritirate della piattaforma web da riattivare temporaneamente.
+
+      Questa norma consente agli amministratori di riattivare funzioni ritirate della piattaforma web per un periodo di tempo limitato. Le funzioni sono identificate da un tag string e le funzioni corrispondenti ai tag inclusi nell'elenco specificato tramite questa norma verranno riattivate.
+
+      Se questa norma non viene impostata, se l'elenco è vuoto o non corrisponde a uno dei tag string supportati, rimarranno disattivate tutte le funzioni ritirate della piattaforma web.
+
+      La norma stessa è supportata sulle piattaforme precedenti, ma la funzione attivata dalla norma potrebbe essere disponibile su meno piattaforme. Non è possibile riattivare tutte le funzioni ritirate della piattaforma web, ma soltanto quelle elencate esplicitamente di seguito e soltanto per un periodo di tempo limitato, che è diverso per ogni funzione. Il formato generico del tag string sarà [NomeFunzioneRitirata]_EffectiveUntil[aaaammgg]. È possibile conoscere lo scopo delle modifiche alle funzioni della piattaforma web all'indirizzo https://bit.ly/blinkintents.
+      </translation>
 <translation id="4442582539341804154">Attiva il blocco quando lo stato del dispositivo diventa inattivo o sospeso</translation>
 <translation id="4445684791305970001">Consente di disattivare gli Strumenti per sviluppatori e la Console JavaScript. Se attivi questa impostazione, gli Strumenti per sviluppatori non saranno accessibili e non sarà più possibile eseguire un'ispezione degli elementi del sito web. Le scorciatoie da tastiera e le voci dei menu contestuali e di altri menu che consentono di aprire gli Strumenti per sviluppatori o la Console JavaScript verranno disattivate. Se disattivi questa opzione o non la imposti sarà possibile utilizzare gli Strumenti per sviluppatori e la Console JavaScript.</translation>
 <translation id="4467952432486360968">Blocca cookie di terze parti</translation>
@@ -1006,32 +1027,6 @@ Se questa impostazione viene disattivata o non viene impostata, sia gli utenti l
 
       Se questa norma non è impostata, non avverrà l'accesso automatico.</translation>
 <translation id="5535973522252703021">Whitelist server di delega Kerberos</translation>
-<translation id="553658564206262718">Consente di configurare le impostazioni di gestione dell'alimentazione quando l'utente diventa inattivo.
-
-Questa norma consente di controllare diverse impostazioni relative alla strategia di gestione dell'alimentazione quando l'utente diventa inattivo.
-
-Esistono quattro tipi di azioni:
-* Lo schermo viene oscurato se l'utente rimane inattivo per il tempo specificato da |ScreenDim|.
-* Lo schermo viene spento se l'utente rimane inattivo per il tempo specificato da |ScreenOff|.
-* Se l'utente rimane inattivo per il tempo specificato da |IdleWarning|, viene visualizzata una finestra di dialogo di avviso per indicare all'utente che sta per essere compiuta l'azione per inattività.
-* Se l'utente rimane inattivo per il tempo specificato da |Idle|, viene compiuta l'azione specificata da |IdleAction|.
-
-Per ognuna delle azioni precedenti, il ritardo deve essere specificato in millisecondi e deve essere impostato un valore maggiore di zero per poter attivare l'azione corrispondente. Se il ritardo viene impostato su zero, <ph name="PRODUCT_OS_NAME" /> non compie l'azione corrispondente.
-
-Se Per ogni ritardo sopra indicato non viene impostato il periodo di tempo viene utilizzato il valore predefinito.
-
-I valori |ScreenDim| devono essere inferiori o uguali al valore di |ScreenOff|, mentre i valori di |ScreenOff| e |IdleWarning| devono essere inferiori o uguali al valore di |Idle|.
-
-Il valore di |IdleAction| può essere una delle seguenti quattro azioni possibili:
-* |Suspend|
-* |Logout|
-* |Shutdown|
-* |DoNothing|
-
-Se il valore |IdleAction| non viene impostato, viene compiuta l'azione predefinita, vale a dire la sospensione.
-
-Esistono inoltre impostazioni separate per l'alimentazione CA e la batteria.
-          </translation>
 <translation id="5560039246134246593">Aggiungi un parametro al recupero del numero di inizializzazione delle varianti in <ph name="PRODUCT_NAME" />.
 
       Se specificata, questa norma aggiunge un parametro di query chiamato "restrict" all'URL utilizzato per recuperare il numero di inizializzazione delle varianti. Il valore del parametro sarà il valore specificato in questa norma.
@@ -1047,6 +1042,22 @@ Esistono inoltre impostazioni separate per l'alimentazione CA e la batteria.
       Se imposti questo criterio, gli utenti non potranno modificarlo o ignorarlo.
 
       Se il criterio non viene impostato, gli utenti possono scegliere la visualizzazione dello shelf.</translation>
+<translation id="5573397331902180200">Consente di impostare una o più impostazioni internazionali per una sessione pubblica, consentendo agli utenti di sceglierne facilmente una.
+
+      L'utente può scegliere un'impostazione internazionale e un layout tastiera prima di iniziare una sessione pubblica. Per impostazione predefinita, tutte le impostazioni internazionali supportate da <ph name="PRODUCT_OS_NAME" /> sono elencate in ordine alfabetico. È possibile utilizzare questa norma per spostare un set di impostazioni internazionali consigliate nella parte superiore dell'elenco.
+
+      Se questa norma non viene impostata, l'impostazione internazionale corrente per l'interfaccia utente viene preselezionata.
+
+      Se questa norma viene impostata, le impostazioni internazionali consigliate verranno spostate nella parte superiore dell'elenco e verranno separate visivamente dalle altre impostazioni internazionali. Le impostazioni internazionali consigliate saranno elencate nell'ordine in cui sono indicate nella norma. Viene preselezionata la prima impostazione internazionale consigliata.
+
+      Se sono presenti più impostazioni internazionali consigliate, si presuppone che gli utenti ne vogliano selezionare una. La selezione dell'impostazione internazionale e del layout tastiera verrà offerta in una posizione più visibile all'avvio di una sessione pubblica. In caso contrario, si presuppone che la maggior parte degli utenti desideri utilizzare l'impostazione internazionale preselezionata. La selezione dell'impostazione internazionale e del layout tastiera verrà offerta in una posizione meno visibile all'avvio di una sessione pubblica.
+
+      Quando questa norma è impostata ed è abilitato l'accesso automatico (vedere le norme |DeviceLocalAccountAutoLoginId| e |DeviceLocalAccountAutoLoginDelay|), la sessione pubblica avviata automaticamente utilizzerà la prima impostazione internazionale consigliata e il layout tastiera più popolare corrispondente a questa impostazione internazionale.
+
+      Il layout tastiera preselezionato sarà sempre il layout più popolare corrispondente all'impostazione internazionale preselezionata.
+
+      Questa norma può essere impostata solo come consigliata. È possibile utilizzare questa norma per spostare un set di impostazioni internazionali consigliate nella parte superiore, ma gli utenti possono sempre scegliere una qualsiasi impostazione internazionale supportata da <ph name="PRODUCT_OS_NAME" /> per la sessione.
+      </translation>
 <translation id="557658534286111200">Abilita o disabilita la modifica dei Preferiti</translation>
 <translation id="5586942249556966598">Non fare niente</translation>
 <translation id="5630352020869108293">Ripristina l'ultima sessione</translation>
@@ -1176,6 +1187,12 @@ La modalità di blocco dello schermo per inattività consigliata è l'attivazion
 Il valore della norma deve essere specificato in millisecondi. I valori devono essere minori del ritardo di inattività.</translation>
 <translation id="6114416803310251055">obsoleto</translation>
 <translation id="6145799962557135888">Consente di impostare un elenco di pattern URL che specificano i siti in cui è consentita l'esecuzione di JavaScript. Se questa norma non viene impostata, per tutti i siti verrà utilizzato il valore predefinito globale della norma "DefaultJavaScriptSetting", se è impostata, oppure verrà utilizzata la configurazione personale dell'utente.</translation>
+<translation id="6151775819333710697">
+          Quando questa impostazione è attiva, gli utenti possono impostare <ph name="PRODUCT_NAME" /> affinché memorizzi le password e le inserisca automaticamente al successivo accesso a un sito.
+
+          Se questa impostazione viene disattivata, gli utenti non potranno salvare nuove password ma potranno ancora utilizzare password già salvate.
+
+          Se questa norma viene attivata o disattivata, gli utenti non potranno modificarla o sostituirla in <ph name="PRODUCT_NAME" />. Se la norma non viene impostata, il salvataggio delle password è consentito (ma può essere disattivato dall'utente).</translation>
 <translation id="6155936611791017817">Impostazione stato predefinito del puntatore grande nella schermata di accesso</translation>
 <translation id="6157537876488211233">Elenco separato da virgole delle regole di bypass proxy</translation>
 <translation id="6158324314836466367">Nome del web store dell'azienda (obsoleta)</translation>
@@ -1233,12 +1250,6 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
 Questa norma è facoltativa. Se non viene impostata, la richiesta di ricerca verrà inviata utilizzando il metodo GET.
 
 Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled" è attiva.</translation>
-<translation id="6365608006609079612">
-          Quando questa impostazione è attiva, gli utenti possono impostare <ph name="PRODUCT_NAME" /> affinché memorizzi le password e le inserisca automaticamente al successivo accesso a un sito.
-
-          Se questa impostazione viene disattivata, gli utenti non potranno salvare nuove password ma potranno ancora utilizzare password già salvate.
-
-          Se questa norma viene attivata o disattivata, gli utenti non potranno modificarla o sostituirla in <ph name="PRODUCT_NAME" />. Se la norma non viene impostata, il salvataggio delle password è consentito (ma può essere disattivato dall'utente).</translation>
 <translation id="6367755442345892511">Eventuale configurazione del canale della versione da parte dell'utente</translation>
 <translation id="6368011194414932347">Configura l'URL della pagina iniziale</translation>
 <translation id="6368403635025849609">Consenti JavaScript su questi siti</translation>
@@ -1289,14 +1300,32 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
 
           Se questa norma non viene impostata, la tastiera sullo schermo è disattivata alla prima visualizzazione della schermata di accesso. Gli utenti possono attivare o disattivare la tastiera sullo schermo in qualsiasi momento e il relativo stato sulla schermata di accesso viene mantenuto tra utenti differenti.</translation>
 <translation id="6598235178374410284">Immagine avatar utente</translation>
-<translation id="6633160536638196468">Consente di specificare un elenco di funzioni ritirate della piattaforma web da riattivare temporaneamente.
+<translation id="6636268606788232221">Consente di configurare le impostazioni di gestione dell'alimentazione quando l'utente diventa inattivo.
 
-      Questa norma consente agli amministratori di riattivare funzioni ritirate della piattaforma web per un periodo di tempo limitato. Le funzioni sono identificate da un tag string e le funzioni corrispondenti ai tag inclusi nell'elenco specificato tramite questa norma verranno riattivate.
+Questa norma consente di controllare diverse impostazioni relative alla strategia di gestione dell'alimentazione quando l'utente diventa inattivo.
 
-      Se questa norma non viene impostata, se l'elenco è vuoto o non corrisponde a uno dei tag string supportati, rimarranno disattivate tutte le funzioni ritirate della piattaforma web.
+Esistono quattro tipi di azioni:
+* Lo schermo viene oscurato se l'utente rimane inattivo per il tempo specificato da |ScreenDim|.
+* Lo schermo viene spento se l'utente rimane inattivo per il tempo specificato da |ScreenOff|.
+* Se l'utente rimane inattivo per il tempo specificato da |IdleWarning|, viene visualizzata una finestra di dialogo di avviso per indicare all'utente che sta per essere compiuta l'azione per inattività.
+* Se l'utente rimane inattivo per il tempo specificato da |Idle|, viene compiuta l'azione specificata da |IdleAction|.
 
-      La norma stessa è supportata sulle piattaforme precedenti, ma la funzione attivata dalla norma potrebbe essere disponibile su meno piattaforme. Non è possibile riattivare tutte le funzioni ritirate della piattaforma web, ma soltanto quelle elencate esplicitamente di seguito e soltanto per un periodo di tempo limitato, che è diverso per ogni funzione. Il formato generico del tag string sarà [NomeFunzioneRitirata]_EffectiveUntil[aaaammgg]. È possibile conoscere lo scopo delle modifiche alle funzioni della piattaforma web all'indirizzo https://bit.ly/blinkintents.
-      </translation>
+Per ognuna delle azioni precedenti, il ritardo deve essere specificato in millisecondi e deve essere impostato un valore maggiore di zero per poter attivare l'azione corrispondente. Se il ritardo viene impostato su zero, <ph name="PRODUCT_OS_NAME" /> non compie l'azione corrispondente.
+
+Se Per ogni ritardo sopra indicato non viene impostato il periodo di tempo viene utilizzato il valore predefinito.
+
+I valori |ScreenDim| devono essere inferiori o uguali al valore di |ScreenOff|, mentre i valori di |ScreenOff| e |IdleWarning| devono essere inferiori o uguali al valore di |Idle|.
+
+Il valore di |IdleAction| può essere una delle seguenti quattro azioni possibili:
+* |Suspend|
+* |Logout|
+* |Shutdown|
+* |DoNothing|
+
+Se il valore |IdleAction| non viene impostato, viene compiuta l'azione predefinita, vale a dire la sospensione.
+
+Esistono inoltre impostazioni separate per l'alimentazione CA e la batteria.
+          </translation>
 <translation id="6641981670621198190">Disattiva supporto per le API grafiche 3D</translation>
 <translation id="6647965994887675196">Se questa norma è impostata su true, è possibile creare e utilizzare utenti supervisionati.
 
@@ -1565,6 +1594,9 @@ Nota. Attualmente i riavvii automatici vengono attivati soltanto durante la visu
           Se questa impostazione è disabilitata o non è impostata, l'autenticazione a due fattori non sarà attiva e verrà utilizzato il comportamento predefinito che prevede l'uso di un PIN definito dall'utente.</translation>
 <translation id="7750991880413385988">Apri pagina Nuova scheda</translation>
 <translation id="7763311235717725977">Permette di stabilire se consentire o meno la visualizzazione delle immagini nei siti web. La visualizzazione delle immagini può essere consentita o negata per tutti i siti web. Se questa norma non viene impostata, verrà utilizzato il valore "AllowImages", che potrà essere modificato dagli utenti.</translation>
+<translation id="7763479091692861127"> I tipi di connessioni utilizzabili per aggiornamenti del sistema operativo. Gli aggiornamenti del sistema operativo possono mettere a dura prova la connessione a causa delle loro dimensioni e potrebbero generare costi aggiuntivi. Pertanto, per impostazione predefinita non sono abilitati per i tipi di connessione che sono considerati costosi, fra cui WiMax, Bluetooth e cellulare, al momento.
+
+      Gli identificatori dei tipi di connessione riconosciuti sono "ethernet", "wifi", "wimax", "bluetooth" e "cellulare".</translation>
 <translation id="7766336524667238790">Consente di segnalare informazioni sulla sessione kiosk attiva, ad esempio l'ID e la versione dell'applicazione.
 
       Se la norma viene impostata su false, le informazioni relative alla sessione non vengono segnalate. Se viene impostata su true o non viene impostata, tali informazioni vengono segnalate.</translation>
@@ -1605,38 +1637,6 @@ Se questa norma non viene impostata, <ph name="PRODUCT_NAME" /> utilizzerà il v
 <translation id="7953256619080733119">Host delle eccezioni manuali per gli utenti gestiti</translation>
 <translation id="7971839631300653352">SSL 3.0</translation>
 <translation id="7974114691960514888">Questa norma non è più supportata. Consente di attivare l'utilizzo di server relay e STUN durante la connessione a un client remoto. Se questa impostazione viene attivata, questo computer potrà rilevare i computer host remoti e collegarsi a essi anche se sono separati da un firewall. Se questa impostazione viene disattivata e le connessioni UDP in uscita vengono filtrate dal firewall, questo computer potrà collegarsi ai computer host soltanto all'interno della rete locale.</translation>
-<translation id="8002229853067655250">Consente di configurare impostazioni di gestione delle estensioni per <ph name="PRODUCT_NAME" />.
-
-          Questa norma consente di controllare diverse impostazioni, incluse quelle controllate da norme esistenti correlate alle estensioni. Questa norma sostituisce tutte le norme precedenti se vengono impostate entrambe.
-
-          Questa norma consente di mappare un ID estensione o un URL di aggiornamento alla relativa configurazione. Con un ID estensione, la configurazione viene applicata solo all'estensione specificata. È possibile impostare una configurazione predefinita per l'ID speciale "*", che verrà applicato a tutte le estensioni per cui non è impostata una configurazione personalizzata in questa norma. Con un URL di aggiornamento, la configurazione verrà applicata a tutte le estensioni con l'esatto URL di aggiornamento indicato nel file manifest dell'estensione, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC1" />.
-
-          La configurazione per ogni estensione (o per estensioni con lo stesso URL di aggiornamento) è un altro dizionario che può contenere i campi documentati di seguito.
-
-          "installation_mode": corrisponde a una stringa indicante la modalità di installazione per l'estensione. Le stringhe valide sono:
-          * "allowed": consente l'installazione dell'estensione da parte dell'utente. È il comportamento predefinito.
-          * "blocked": blocca l'installazione dell'estensione.
-          * "force_installed": l'estensione viene installata automaticamente e non può essere rimossa dall'utente.
-          * "normal_installed": l'estensione viene installata automaticamente, ma può essere disattivata dall'utente.
-
-          Il campo "installation_mode" può anche essere configurato per più estensioni, compresa l'estensione "*" (come impostazione predefinita) e le estensioni con lo stesso URL di aggiornamento. In questo caso possono essere utilizzati solo i valori "allowed" e "blocked".
-
-          Se la modalità è impostata su "force_installed" o "normal_installed" è necessario configurare anche un campo "update_url". L'URL di aggiornamento impostato in questa norma viene utilizzato solo per l'installazione iniziale. Per i successivi aggiornamenti dell'estensione verrà utilizzato l'URL di aggiornamento indicato nel file manifest del'estensione. L'URL di aggiornamento dovrebbe rimandare a un documento XML Manifest di aggiornamento come descritto in precedenza.
-
-          "blocked_permissions": corrisponde a un elenco di stringhe indicanti le autorizzazioni API per l'estensione. I nomi delle autorizzazioni corrispondono alle stringhe di autorizzazione indicate nel file manifest dell'estensione, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC3" />. Questa impostazione può essere configurata anche per l'estensione "*". Se per l'estensione è necessaria un'autorizzazione che è presente nell'elenco di quelle bloccate, non potrà essere caricata. Se contiene un'autorizzazione bloccata come requisito opzionale, verrà trattata normalmente, ma la richiesta di autorizzazioni in conflitto verrà declinata automaticamente in fase di runtime.
-
-          "allowed_permissions": simile a "blocked_permissions", ma, al contrario, consente esplicitamente alcune autorizzazioni che potrebbero essere bloccate da un elenco di autorizzazioni bloccate globale e quindi non possono essere configurate per l'estensione "*". Questa impostazione non assegna automaticamente le autorizzazioni concesse alle estensioni.
-
-          "minimum_version_required": corrisponde a una stringa della versione. Il formato della stringa della versione corrisponde a quello utilizzato nel file manifest delle estensioni, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC4" />. Un'estensione con una versione precedente rispetto alla versione minima specificata viene disattivata. Ciò vale anche per le estensioni con installazione imposta.
-
-          Le seguenti impostazioni possono essere utilizzate solo per la configurazione "*":
-
-          "install_sources": ogni voce presente in questo elenco è uno schema di corrispondenza in stile di estensione (vedere https://developer.chrome.com/extensions/match_patterns). Gli utenti potranno installare facilmente elementi dagli URL corrispondenti a una voce nell'elenco. Questi schemi devono consentire sia la posizione del file *.crx sia la pagina da cui viene avviato il download (il referrer).
-
-          "allowed_types": con questa impostazione vengono autorizzati i tipi consentiti di estensioni/applicazioni che possono essere installati in <ph name="PRODUCT_NAME" />.  Il valore è un elenco di stringhe, tra le seguenti: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app" e "platform_app". Leggere la documentazione sulle estensioni di <ph name="PRODUCT_NAME" />, per ulteriori informazioni su questi tipi.
-
-          Questa norma non è ancora pronta per essere utilizzata, pertanto non deve essere utilizzata.
-          </translation>
 <translation id="8044493735196713914">Indicazione modalità di avvio dispositivo</translation>
 <translation id="8059164285174960932">URL su cui i client di accesso remoto dovrebbero ottenere il token di autenticazione</translation>
 <translation id="8071636581296916773">Consente l'utilizzo dei server relay quando i client remoti cercano di stabilire una connessione con il computer.

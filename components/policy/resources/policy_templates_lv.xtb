@@ -612,6 +612,38 @@
           Ja šī politika nav iestatīta, lietotājs var instalēt produktā <ph name="PRODUCT_NAME" /> jebkuru paplašinājumu.</translation>
 <translation id="316778957754360075">Šī iestatījuma darbība ir pārtraukta ar <ph name="PRODUCT_NAME" /> versiju 29. Uzņēmumu mitinātas paplašinājumu/lietotņu kolekcijas ieteicams iestatīt, ietverot vietnes mitināšanu CRX pakotnēs politikā ExtensionInstallSources un vietnē ievietojot tiešas saites uz pakotņu lejupielādēm. Lietojumprogrammu palaidēju attiecīgajai tīmekļa lapai var izveidot, izmantojot politiku ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">, sākot no <ph name="SINCE_VERSION" /> versijas</translation>
+<translation id="318812033927804102">Šī politika tiek izmantota, lai konfigurētu <ph name="PRODUCT_NAME" /> paplašinājumu pārvaldības iestatījumus.
+
+          Ar šo politiku tiek regulēti vairāki iestatījumi, tostarp iestatījumi, kas tiek regulēti esošās ar paplašinājumiem saistītās politikās. Ja šī politika ir iestatīta, ar to tiek ignorētas jebkādas iestatītās mantotās politikas.
+
+          Izmantojot šo politiku, paplašinājuma ID vai atjauninājuma vietrādis URL tiek kartēts tā konfigurācijā. Izmantojot paplašinājuma ID, konfigurācija tiek lietota tikai konkrētajam paplašinājumam. Īpašajam ID “*” var iestatīt noklusējuma konfigurāciju, kas tiks lietota visiem paplašinājumiem, kuriem šajā politikā nav iestatīta pielāgota konfigurācija. Izmantojot atjauninājuma vietrādi URL, konfigurācija tiek lietota visiem paplašinājumiem, kuru manifestā ir norādīts konkrētais atjauninājuma vietrādis URL (kā aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC1" />).
+
+          Katra paplašinājuma konfigurācija (vai paplašinājumi ar vienādu atjauninājuma vietrādi URL) ir atsevišķa vārdnīca, kurā var būt ietverti tālāk norādītie lauki.
+
+          “installation_mode”: veic kartēšanu uz virkni, kas norāda paplašinājuma instalēšanas režīmu. Derīgas ir šādas virknes:
+          * “allowed”: atļauj lietotājam instalēt paplašinājumus (noklusējuma darbība);
+          * “blocked”: bloķē paplašinājuma instalēšanu;
+          * “force_installed”: paplašinājums tiek instalēts automātiski, un lietotājs nevar to noņemt;
+          * “normal_installed”: paplašinājums tiek instalēts automātiski, taču lietotājs var to atspējot.
+
+          Lauku “installation_mode” var konfigurēt arī vairākiem paplašinājumiem, tostarp paplašinājumam ar apzīmējumu “*” (kā noklusējuma iestatījumiem) un paplašinājumiem ar vienādu atjauninājuma vietrādi URL. Šādā gadījumā var izmantot tikai vērtības “allowed” un “blocked”.
+
+          Ja režīms ir iestatīts uz “force_installed” vai “normal_installed”, ir jākongifurē arī lauks “update_url”. Ņemiet vērā, ka šajā politikā iestatītais atjauninājuma vietrādis URL tiek izmantots tikai sākotnējai instalēšanai; turpmākiem paplašinājuma atjauninājumiem tiek izmantots paplašinājuma manifestā norādītais atjauninājuma vietrādis URL. Atjauninājuma vietrādim URL ir jānorāda uz atjauninājuma manifesta XML dokumentu, kā aprakstīts iepriekš.
+
+          “blocked_permissions”: veic kartēšanu uz virkņu sarakstu, kas norāda bloķētās paplašinājuma API atļaujas. Atļauju nosaukumi ir tādi paši kā atļauju virknes, kas norādītas paplašinājuma manifestā (kā aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC3" />). Šo iestatījumu var konfigurēt arī paplašinājumam ar atzīmi “*”. Ja paplašinājumam ir nepieciešama atļauja, kas norādīta bloķēšanas sarakstā, tā ielāde netiks atļauta. Ja bloķēta atļauja tajā ir norādīta kā neobligāta prasība, tā tiks apstrādāta kā parasti, taču izpildlaikā tiks automātiski noraidīta konfliktējošu atļauju pieprasīšana.
+
+          “allowed_permissions”: darbojas kā iestatījums “blocked_permissions”, taču skaidri piešķir dažas atļaujas, kas var būt bloķētas vispārējā bloķēto atļauju sarakstā, tādēļ to nevar konfigurēt paplašinājumam, kas atzīmēts ar “*”. Ņemiet vērā, ka ar šo iestatījumu netiek automātiski sniegtas paplašinājumiem piešķirtās atļaujas.
+
+          “minimum_version_required”: veic kartēšanu uz versijas virkni. Versijas virknes formāts ir tāds pats kā paplašinājuma manifestā izmantotais formāts (aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC4" />). Paplašinājums, kura versija ir vecāka nekā norādītā minimālā versija, tiek atspējots. Tas attiecas arī uz piespiedu kārtā instalētiem paplašinājumiem.
+
+          Tālāk norādītos iestatījumus var izmantot tikai noklusējuma “*” konfigurācijai.
+
+          “install_sources”: katrs šī saraksta vienums ir paplašinājuma veida atbilstības modelis (skatiet vieni https://developer.chrome.com/extensions/match_patterns). Lietotāji var ērti instalēt vienumus no jebkura URL, kas atbilst kādam saraksta vienumam. Šiem modeļiem ir jāatļauj gan *.crx faila atrašanās vieta, gan lapa, no kuras tiek sākta lejupielāde (t.i., novirzītājs).
+
+          “allowed_types”: izmantojot šo iestatījumu, baltajā sarakstā tiek ievietoti atļauto paplašinājumu/lietotņu veidi, ko var instalēt pārlūkā <ph name="PRODUCT_NAME" />. Vērtība ir virkņu saraksts, un katrai virknei ir jābūt vienai no šīm: “extension”, “theme”, “user_script”, “hosted_app”, “legacy_packaged_app”, “platform_app”. Plašāku informāciju par šiem veidiem skatiet <ph name="PRODUCT_NAME" /> paplašinājumu dokumentācijā.
+
+          Šī politika vēl nav gatava lietošanai. Lūdzu, neizmantojiet to.
+          </translation>
 <translation id="3205825995289802549">Pirmā pārlūka loga maksimizēšana pirmajā palaišanas reizē</translation>
 <translation id="3206731874112238027">Drukas priekšskatījuma atspējošana (novecojusi)</translation>
 <translation id="3213821784736959823">Tiek noteikts, vai pārlūkā <ph name="PRODUCT_NAME" /> tiek lietots iebūvētais DNS klients.
@@ -730,22 +762,6 @@
       Ja ir iestatīta vērtība Patiesa vai iestatījums nav konfigurēts, lietotāji savā ierīcē var izmantot visas atbalstītās audio izvades iespējas.</translation>
 <translation id="3808945828600697669">Norāda atspējoto spraudņu sarakstu</translation>
 <translation id="3816312845600780067">Glābšanas īsinājumtaustiņa iespējošana automātiskās pieteikšanās darbībai</translation>
-<translation id="381807926299956806">Iestata vienu vai vairākas ieteiktās lokalizācijas publiskām sesijām, ļaujot lietotājiem ērti izvēlēties kādu no attiecīgajām lokalizācijām.
-
-      Pirms publiskas sesijas sākšanas lietotājs var izvēlēties lokalizāciju un tastatūras izkārtojumu. Pēc noklusējuma visas operētājsistēmā <ph name="PRODUCT_OS_NAME" /> atbalstītās lokalizācijas ir norādītas alfabēta secībā. Varat izmantot šo politiku, lai pārvietotu ieteikto lokalizāciju kopu uz saraksta augšdaļu.
-
-      Ja šī politika nav iestatīta, tiek priekšatlasīta pašreizējās lietotāja saskarnes lokalizācija.
-
-      Ja šī politika ir iestatīta, ieteiktās lokalizācijas tiek pārvietotas uz saraksta augšdaļu un vizuāli nodalītas no visām pārējām lokalizācijām. Ieteiktās lokalizācijas ir sakārtotas tādā secībā, kādā tās tiek rādītas politikā. Pirmā ieteiktā lokalizācija tiek priekšatlasīta.
-
-      Ja ir vairākas ieteiktās lokalizācijas, tiek pieņemts, ka lietotāji atlasīs kādu no tām. Uzsākot publisku sesiju, lokalizācijas un tastatūras izkārtojuma atlase tiek piedāvāta izceltā veidā. Pretējā gadījumā tiek pieņemts, ka lielākā daļa lietotāju vēlas izmantot priekšatlasīto lokalizāciju, un, uzsākot publisku sesiju, lokalizācijas un tastatūras izkārtojuma atlase tiek piedāvāta mazāk izceltā veidā.
-
-      Ja šī politika ir iestatīta un ir iespējota automātiska pieteikšanās (skatiet politikas |DeviceLocalAccountAutoLoginId| un |DeviceLocalAccountAutoLoginDelay|), automātiski uzsāktajā publiskajā sesijā tiek izmantota pirmā ieteiktā lokalizācija un visizplatītākais šai lokalizācijai atbilstošais tastatūras izkārtojums.
-
-      Vienmēr tiek priekšatlasīts visizplatītākais tastatūras izkārtojums, kas atbilst priekšatlasītajai lokalizācijai.
-
-      Šo politiku var iestatīt tikai kā ieteiktu. Varat izmantot šo politiku, lai pārvietotu ieteiktu lokalizāciju kopu uz saraksta augšdaļu, taču lietotājiem vienmēr ir atļauts izvēlēties jebkuru lokalizāciju, kas tiek atbalstīta sesijai operētājsistēmā <ph name="PRODUCT_OS_NAME" />.
-      </translation>
 <translation id="3820526221169548563">Iespējot ekrāna tastatūras pieejamības funkciju.
 
           Ja šai politikai ir iestatīta vērtība Patiesa, ekrāna tastatūra vienmēr būs iespējota.
@@ -822,9 +838,6 @@
 <translation id="4039085364173654945">Nosaka, vai lapā ietvertajam trešās puses sekundārajam saturam ir atļauts atvērt HTTP pamata autentifikācijas dialoglodziņu.
 
           Parasti šī iespēja ir atspējota kā aizsardzība pret pikšķerēšanu. Ja šī politika nav iestatīta, tā tiks atspējota un trešās puses sekundārajam saturam nebūs atļauts atvērt HTTP pamata autentifikācijas dialoglodziņu.</translation>
-<translation id="4043912146394966243"> Savienojumu veidi, kurus ir atļauts izmantot OS atjauninājumiem. OS atjauninājumi var ievērojami noslogot savienojumu sava lieluma dēļ, kā arī var radīt papildu izmaksas. Šī iemesla dēļ pēc noklusējuma tie nav iespējoti tiem savienojumu veidiem, kas tiek uzskatīti par dārgiem, tostarp WiMax, Bluetooth un mobilajam savienojumam (pašlaik).
-
-      Atpazītie savienojumu veidu identifikatori ir “ethernet”, “wifi”, “wimax”, “bluetooth” un “cellular”.</translation>
 <translation id="4052765007567912447">Nosaka, vai lietotājs var rādīt paroles paroļu pārvaldniekā atklātā tekstā.
 
           Ja šis iestatījums ir atspējots, paroļu pārvaldnieks neļauj rādīt saglabātās paroles paroļu pārvaldnieka logā atklātā tekstā.
@@ -890,6 +903,14 @@
 
       Ja šī politika ir konfigurēta, lietotājs to nevar mainīt un lietotņu saīsne vienmēr tiks rādīta vai nekad netiks rādīta.</translation>
 <translation id="443665821428652897">Notīrīt vietnes datus, aizverot pārlūku (novecojis)</translation>
+<translation id="4439336120285389675">Tiek norādīts saraksts ar novecojušām tīmekļa platformas funkcijām, kas īslaicīgi atkārtoti jāiespējo.
+
+      Šī politika ļauj administratoriem ierobežotu laiku atkārtoti iespējot novecojušas tīmekļa platformas funkcijas. Funkcijas apzīmē virknes tags, un tiks atkārtoti iespējotas funkcijas, kas atbilst šīs politikas sarakstā norādītajiem tagiem.
+
+      Ja šī politika netiks iestatīta, saraksts būs tukšs vai neatbildīs nevienam atbalstītajam virknes tagam, visas novecojušās platformas funkcijas paliks atspējotas.
+
+      Lai gan šī politika ir atbalstīta iepriekš minētajās platformās, ne visas iespējotās funkcijas var būt pieejamas visās platformās. Ne visas novecojušās tīmekļa platformas funkcijas var iespējot atkārtoti. Var iespējot tikai tālāk norādītās funkcijas, un katrai funkcijai ir atšķirīgs derīguma laiks. Virknes taga vispārīgais formāts ir [NovecojušāsFunkcijasNosaukums]_SpēkāLīdz[ggggmmdd]. Ja vēlaties uzzināt vairāk, vietnē https://bit.ly/blinkintents ir minēti iemesli, kādēļ tīmekļa platformas funkcijās ir veiktas izmaiņas.
+      </translation>
 <translation id="4442582539341804154">Bloķēšanas iespējošana, ja ierīce pāriet dīkstāvē vai tās darbība tiek apturēta</translation>
 <translation id="4445684791305970001">Atspējo izstrādātāju rīkus un JavaScript konsoli.
 
@@ -1183,32 +1204,6 @@
 
       Ja šī politika nav iestatīta, automātiska pieteikšanās netiks veikta.</translation>
 <translation id="5535973522252703021">Kerberos deleģējamo serveru baltais saraksts</translation>
-<translation id="553658564206262718">Konfigurējiet barošanas pārvaldības iestatījumus gadījumiem, kad lietotājs kļūst neaktīvs.
-
-          Šī politika nosaka vairākus iestatījumus barošanas pārvaldības stratēģijai, kura tiek iespējota pēc tam, kad lietotājs ir kļuvis neaktīvs.
-
-          Pastāv četri darbību veidi:
-          * Ekrāns tiks aptumšots, ja lietotājs būs neaktīvs tik ilgi, cik nosaka |ScreenDim|.
-          * Ekrāns tiks izslēgts, ja lietotājs būs neaktīvs tik ilgi, cik nosaka |ScreenOff|.
-          * Ja lietotājs būs neaktīvs tik ilgi, cik nosaka |IdleWarning|, tiks parādīts brīdinājuma dialogs ar paziņojumu, ka saistībā ar neaktivitāti tūlīt tiks veikta kāda no darbībām.
-          * |IdleAction| norādītā darbība tiks veikta, ja lietotājs būs neaktīvs tik ilgi, cik nosaka |Idle|.
-
-          Katrai iepriekš norādītajai darbībai atlikšana ir jānorāda milisekundēs, un, lai aktivizētu attiecīgo darbību, tai ir jāiestata par nulli lielāka vērtība. Šajā gadījumā atlikšana ir iestatīta uz nulli, un operētājsistēmā <ph name="PRODUCT_OS_NAME" /> netiks veikta attiecīgā darbība.
-
-          Neiestatot laiku iepriekš minētajiem atlikšanas iestatījumiem, tiks izmantots noklusējuma laiks.
-
-          Ņemiet vērā, ka |ScreenDim| vērtības vienmēr būs mazākas par |ScreenOff| vai vienādas ar to, savukārt |ScreenOff| un |IdleWarning| vērtība vienmēr būs mazāka par |Idle| vai vienāda ar to.
-
-          |IdleAction| var būt viena no četrām iespējamām darbībām:
-          * |Suspend|
-          * |Logout|
-          * |Shutdown|
-          * |DoNothing|
-
-          Ja |IdleAction| vērtība nav iestatīta, tiek izmantota noklusējuma darbība — apturēšana.
-
-          Ir pieejami arī atsevišķi iestatījumi maiņstrāvas barošanai un akumulatoram.
-          </translation>
 <translation id="5560039246134246593">Pievienot parametru attiecībā uz variantu sākotnējās vērtības iegūšanu pārlūkā <ph name="PRODUCT_NAME" />.
 
       Ja ir norādīta šīs politikas vērtība, vietrādim URL, kas tiek izmantots variantu sākotnējās vērtības iegūšanai, tiks pievienots vaicājuma parametrs “restrict”. Parametra vērtība būs šīs politikas norādītā vērtība.
@@ -1224,6 +1219,22 @@
       Ja iestatīsiet šo politiku, lietotāji to nevarēs mainīt vai ignorēt.
 
       Ja politika netiks iestatīta, lietotāji varēs izvēlēties, vai automātiski slēpt plauktu.</translation>
+<translation id="5573397331902180200">Iestata vienu vai vairākas ieteiktās lokalizācijas publiskām sesijām, ļaujot lietotājiem ērti izvēlēties kādu no attiecīgajām lokalizācijām.
+
+      Pirms publiskas sesijas sākšanas lietotājs var izvēlēties lokalizāciju un tastatūras izkārtojumu. Pēc noklusējuma visas operētājsistēmā <ph name="PRODUCT_OS_NAME" /> atbalstītās lokalizācijas ir norādītas alfabēta secībā. Varat izmantot šo politiku, lai pārvietotu ieteikto lokalizāciju kopu uz saraksta augšdaļu.
+
+      Ja šī politika nav iestatīta, tiek priekšatlasīta pašreizējās lietotāja saskarnes lokalizācija.
+
+      Ja šī politika ir iestatīta, ieteiktās lokalizācijas tiek pārvietotas uz saraksta augšdaļu un vizuāli nodalītas no visām pārējām lokalizācijām. Ieteiktās lokalizācijas ir sakārtotas tādā secībā, kādā tās tiek rādītas politikā. Pirmā ieteiktā lokalizācija tiek priekšatlasīta.
+
+      Ja ir vairākas ieteiktās lokalizācijas, tiek pieņemts, ka lietotāji atlasīs kādu no tām. Uzsākot publisku sesiju, lokalizācijas un tastatūras izkārtojuma atlase tiek piedāvāta izceltā veidā. Pretējā gadījumā tiek pieņemts, ka lielākā daļa lietotāju vēlas izmantot priekšatlasīto lokalizāciju, un, uzsākot publisku sesiju, lokalizācijas un tastatūras izkārtojuma atlase tiek piedāvāta mazāk izceltā veidā.
+
+      Ja šī politika ir iestatīta un ir iespējota automātiska pieteikšanās (skatiet politikas |DeviceLocalAccountAutoLoginId| un |DeviceLocalAccountAutoLoginDelay|), automātiski uzsāktajā publiskajā sesijā tiek izmantota pirmā ieteiktā lokalizācija un visizplatītākais šai lokalizācijai atbilstošais tastatūras izkārtojums.
+
+      Vienmēr tiek priekšatlasīts visizplatītākais tastatūras izkārtojums, kas atbilst priekšatlasītajai lokalizācijai.
+
+      Šo politiku var iestatīt tikai kā ieteiktu. Varat izmantot šo politiku, lai pārvietotu ieteiktu lokalizāciju kopu uz saraksta augšdaļu, taču lietotājiem vienmēr ir atļauts izvēlēties jebkuru lokalizāciju, kas tiek atbalstīta sesijai operētājsistēmā <ph name="PRODUCT_OS_NAME" />.
+      </translation>
 <translation id="557658534286111200">Iespējo vai atspējo grāmatzīmju rediģēšanu</translation>
 <translation id="5586942249556966598">Nedarīt neko</translation>
 <translation id="5630352020869108293">Atjaunot pēdējo sesiju</translation>
@@ -1364,6 +1375,17 @@
 <translation id="6145799962557135888">Ļauj iestatīt URL rakstu sarakstu, kurā ir norādītas vietnes, kurām ir atļauts izpildīt JavaScript.
 
           Ja šī politika nav iestatīta, visām vietnēm tiks izmantota globālā noklusējuma vērtība no politikas DefaultJavaScriptSetting (ja tā ir iestatīta) vai pretējā gadījumā no lietotāja personīgās konfigurācijas.</translation>
+<translation id="6151775819333710697">
+          Ja šis iestatījums ir iespējots, lietotāji var iestatīt, lai pārlūks <ph name="PRODUCT_NAME" /> iegaumētu paroles
+          un ievietotu tās automātiski nākamreiz, kad lietotājs pieteiksies vietnē.
+
+          Ja šis iestatījums ir atspējots, lietotāji nevar saglabāt jaunas paroles, 
+          taču joprojām var izmantot paroles, kuras iepriekš tika saglabātas.
+
+          Ja šī politika ir iespējota vai atspējota, lietotāji nevar to mainīt vai ignorēt
+          pārlūkā <ph name="PRODUCT_NAME" />. Ja šī politika
+          nav iestatīta, ir atļauts saglabāt paroles (taču saglabāšanu var izslēgt
+          lietotājs).</translation>
 <translation id="6155936611791017817">Lielā kursora noklusējuma stāvokļa iestatīšana pieteikšanās ekrānā</translation>
 <translation id="6157537876488211233">Ar komatu atdalītu starpniekserveru apiešanas kārtulu saraksts</translation>
 <translation id="6158324314836466367">Uzņēmuma interneta veikala nosaukums (darbība ir pārtraukta)</translation>
@@ -1423,17 +1445,6 @@
           Šī politika nav obligāta. Ja tā nav iestatīta, meklēšanas pieprasījums tiks nosūtīts, izmantojot metodi GET.
 
           Šī politika ir spēkā tikai tad, ja ir iespējota politika “DefaultSearchProviderEnabled”.</translation>
-<translation id="6365608006609079612">
-          Ja šis iestatījums ir iespējots, lietotāji var iestatīt, lai pārlūks <ph name="PRODUCT_NAME" /> iegaumētu paroles
-          un ievietotu tās automātiski nākamreiz, kad lietotājs pieteiksies vietnē.
-
-          Ja šis iestatījums ir atspējots, lietotāji nevar saglabāt jaunas paroles, 
-          taču joprojām var izmantot paroles, kuras iepriekš tika saglabātas.
-
-          Ja šī politika ir iespējota vai atspējota, lietotāji nevar to mainīt vai ignorēt
-          pārlūkā <ph name="PRODUCT_NAME" />. Ja šī politika
-          nav iestatīta, ir atļauts saglabāt paroles (taču saglabāšanu var izslēgt
-          lietotājs).</translation>
 <translation id="6367755442345892511">Vai lietotājam ir jābūt iespējai konfigurēt izlaišanas kanālu</translation>
 <translation id="6368011194414932347">Konfigurē sākumlapas URL</translation>
 <translation id="6368403635025849609">Atļauj izmantot JavaScript šajās vietnēs</translation>
@@ -1509,14 +1520,32 @@
 
           Ja šī politika netiek iestatīta, ekrāna tastatūra ir atspējota, pirmoreiz atverot pieteikšanās ekrānu. Lietotāji jebkurā laikā var iespējot vai atspējot ekrāna tastatūru, un tastatūras statuss pieteikšanās ekrānā tiek saglabāts arī citiem lietotājiem.</translation>
 <translation id="6598235178374410284">Lietotāja iemiesojuma attēls</translation>
-<translation id="6633160536638196468">Tiek norādīts saraksts ar novecojušām tīmekļa platformas funkcijām, kas īslaicīgi atkārtoti jāiespējo.
+<translation id="6636268606788232221">Konfigurējiet barošanas pārvaldības iestatījumus gadījumiem, kad lietotājs kļūst neaktīvs.
 
-      Šī politika ļauj administratoriem ierobežotu laiku atkārtoti iespējot novecojušas tīmekļa platformas funkcijas. Funkcijas apzīmē virknes tags, un tiks atkārtoti iespējotas funkcijas, kas atbilst šīs politikas sarakstā norādītajiem tagiem.
+          Šī politika nosaka vairākus iestatījumus barošanas pārvaldības stratēģijai, kura tiek iespējota pēc tam, kad lietotājs ir kļuvis neaktīvs.
 
-      Ja šī politika netiks iestatīta, saraksts būs tukšs vai neatbildīs nevienam atbalstītajam virknes tagam, visas novecojušās platformas funkcijas paliks atspējotas.
+          Pastāv četri darbību veidi:
+          * Ekrāns tiks aptumšots, ja lietotājs būs neaktīvs tik ilgi, cik nosaka |ScreenDim|.
+          * Ekrāns tiks izslēgts, ja lietotājs būs neaktīvs tik ilgi, cik nosaka |ScreenOff|.
+          * Ja lietotājs būs neaktīvs tik ilgi, cik nosaka |IdleWarning|, tiks parādīts brīdinājuma dialogs ar paziņojumu, ka saistībā ar neaktivitāti tūlīt tiks veikta kāda no darbībām.
+          * |IdleAction| norādītā darbība tiks veikta, ja lietotājs būs neaktīvs tik ilgi, cik nosaka |Idle|.
 
-      Lai gan šī politika ir atbalstīta iepriekš minētajās platformās, ne visas iespējotās funkcijas var būt pieejamas visās platformās. Ne visas novecojušās tīmekļa platformas funkcijas var iespējot atkārtoti. Var iespējot tikai tālāk norādītās funkcijas, un katrai funkcijai ir atšķirīgs derīguma laiks. Virknes taga vispārīgais formāts ir [NovecojušāsFunkcijasNosaukums]_SpēkāLīdz[ggggmmdd]. Ja vēlaties uzzināt vairāk, vietnē https://bit.ly/blinkintents ir minēti iemesli, kādēļ tīmekļa platformas funkcijās ir veiktas izmaiņas.
-      </translation>
+          Katrai iepriekš norādītajai darbībai atlikšana ir jānorāda milisekundēs, un, lai aktivizētu attiecīgo darbību, tai ir jāiestata par nulli lielāka vērtība. Šajā gadījumā atlikšana ir iestatīta uz nulli, un operētājsistēmā <ph name="PRODUCT_OS_NAME" /> netiks veikta attiecīgā darbība.
+
+          Neiestatot laiku iepriekš minētajiem atlikšanas iestatījumiem, tiks izmantots noklusējuma laiks.
+
+          Ņemiet vērā, ka |ScreenDim| vērtības vienmēr būs mazākas par |ScreenOff| vai vienādas ar to, savukārt |ScreenOff| un |IdleWarning| vērtība vienmēr būs mazāka par |Idle| vai vienāda ar to.
+
+          |IdleAction| var būt viena no četrām iespējamām darbībām:
+          * |Suspend|
+          * |Logout|
+          * |Shutdown|
+          * |DoNothing|
+
+          Ja |IdleAction| vērtība nav iestatīta, tiek izmantota noklusējuma darbība — apturēšana.
+
+          Ir pieejami arī atsevišķi iestatījumi maiņstrāvas barošanai un akumulatoram.
+          </translation>
 <translation id="6641981670621198190">Atspējo 3D grafikas API atbalstu</translation>
 <translation id="6647965994887675196">Iestatot vērtību uz “true”, var tikt veidoti un izmantoti uzraudzītie lietotāju konti.
 
@@ -1837,6 +1866,9 @@
 <translation id="7763311235717725977">Ļauj iestatīt, vai vietnēm ir atļauts attēlot attēlus. Attēlu attēlošana var tikt atļauta visām vietnēm vai noraidīta visām vietnēm.
 
           Ja šī politika nav iestatīta, tiks lietota politika AllowImages un lietotājs to varēs mainīt.</translation>
+<translation id="7763479091692861127"> Savienojumu veidi, kurus ir atļauts izmantot OS atjauninājumiem. OS atjauninājumi var ievērojami noslogot savienojumu sava lieluma dēļ, kā arī var radīt papildu izmaksas. Šī iemesla dēļ pēc noklusējuma tie nav iespējoti tiem savienojumu veidiem, kas tiek uzskatīti par dārgiem, tostarp WiMax, Bluetooth un mobilajam savienojumam (pašlaik).
+
+      Atpazītie savienojumu veidu identifikatori ir “ethernet”, “wifi”, “wimax”, “bluetooth” un “cellular”.</translation>
 <translation id="7766336524667238790">Tiek sniegta informācija par aktīvo kioska režīma sesiju,
       piemēram, lietojumprogrammas ID un versiju.
 
@@ -1892,38 +1924,6 @@
           Ja šis iestatījums ir iespējots, dators var atklāt attālus saimniekdatorus un izveidot ar tiem savienojumu, kaut arī tie ir šķirti ar ugunsmūri.
 
           Ja šis iestatījums ir atspējots un ugunsmūris filtrē izejošos UDP savienojumus, dators var izveidot savienojumus tikai ar lokālā tīkla saimniekdatoriem.</translation>
-<translation id="8002229853067655250">Šī politika tiek izmantota, lai konfigurētu <ph name="PRODUCT_NAME" /> paplašinājumu pārvaldības iestatījumus.
-
-          Ar šo politiku tiek regulēti vairāki iestatījumi, tostarp iestatījumi, kas tiek regulēti esošās ar paplašinājumiem saistītās politikās. Ja šī politika ir iestatīta, ar to tiek ignorētas jebkādas iestatītās mantotās politikas.
-
-          Izmantojot šo politiku, paplašinājuma ID vai atjauninājuma vietrādis URL tiek kartēts tā konfigurācijā. Izmantojot paplašinājuma ID, konfigurācija tiek lietota tikai konkrētajam paplašinājumam. Īpašajam ID “*” var iestatīt noklusējuma konfigurāciju, kas tiks lietota visiem paplašinājumiem, kuriem šajā politikā nav iestatīta pielāgota konfigurācija. Izmantojot atjauninājuma vietrādi URL, konfigurācija tiek lietota visiem paplašinājumiem, kuru manifestā ir norādīts konkrētais atjauninājuma vietrādis URL (kā aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC1" />).
-
-          Katra paplašinājuma konfigurācija (vai paplašinājumi ar vienādu atjauninājuma vietrādi URL) ir atsevišķa vārdnīca, kurā var būt ietverti tālāk norādītie lauki.
-
-          “installation_mode”: veic kartēšanu uz virkni, kas norāda paplašinājuma instalēšanas režīmu. Derīgas ir šādas virknes:
-          * “allowed”: atļauj lietotājam instalēt paplašinājumus (noklusējuma darbība);
-          * “blocked”: bloķē paplašinājuma instalēšanu;
-          * “force_installed”: paplašinājums tiek instalēts automātiski, un lietotājs nevar to noņemt;
-          * “normal_installed”: paplašinājums tiek instalēts automātiski, taču lietotājs var to atspējot.
-
-          Lauku “installation_mode” var konfigurēt arī vairākiem paplašinājumiem, tostarp paplašinājumam ar apzīmējumu “*” (kā noklusējuma iestatījumiem) un paplašinājumiem ar vienādu atjauninājuma vietrādi URL. Šādā gadījumā var izmantot tikai vērtības “allowed” un “blocked”.
-
-          Ja režīms ir iestatīts uz “force_installed” vai “normal_installed”, ir jākongifurē arī lauks “update_url”. Ņemiet vērā, ka šajā politikā iestatītais atjauninājuma vietrādis URL tiek izmantots tikai sākotnējai instalēšanai; turpmākiem paplašinājuma atjauninājumiem tiek izmantots paplašinājuma manifestā norādītais atjauninājuma vietrādis URL. Atjauninājuma vietrādim URL ir jānorāda uz atjauninājuma manifesta XML dokumentu, kā aprakstīts iepriekš.
-
-          “blocked_permissions”: veic kartēšanu uz virkņu sarakstu, kas norāda bloķētās paplašinājuma API atļaujas. Atļauju nosaukumi ir tādi paši kā atļauju virknes, kas norādītas paplašinājuma manifestā (kā aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC3" />). Šo iestatījumu var konfigurēt arī paplašinājumam ar atzīmi “*”. Ja paplašinājumam ir nepieciešama atļauja, kas norādīta bloķēšanas sarakstā, tā ielāde netiks atļauta. Ja bloķēta atļauja tajā ir norādīta kā neobligāta prasība, tā tiks apstrādāta kā parasti, taču izpildlaikā tiks automātiski noraidīta konfliktējošu atļauju pieprasīšana.
-
-          “allowed_permissions”: darbojas kā iestatījums “blocked_permissions”, taču skaidri piešķir dažas atļaujas, kas var būt bloķētas vispārējā bloķēto atļauju sarakstā, tādēļ to nevar konfigurēt paplašinājumam, kas atzīmēts ar “*”. Ņemiet vērā, ka ar šo iestatījumu netiek automātiski sniegtas paplašinājumiem piešķirtās atļaujas.
-
-          “minimum_version_required”: veic kartēšanu uz versijas virkni. Versijas virknes formāts ir tāds pats kā paplašinājuma manifestā izmantotais formāts (aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC4" />). Paplašinājums, kura versija ir vecāka nekā norādītā minimālā versija, tiek atspējots. Tas attiecas arī uz piespiedu kārtā instalētiem paplašinājumiem.
-
-          Tālāk norādītos iestatījumus var izmantot tikai noklusējuma “*” konfigurācijai.
-
-          “install_sources”: katrs šī saraksta vienums ir paplašinājuma veida atbilstības modelis (skatiet vieni https://developer.chrome.com/extensions/match_patterns). Lietotāji var ērti instalēt vienumus no jebkura URL, kas atbilst kādam saraksta vienumam. Šiem modeļiem ir jāatļauj gan *.crx faila atrašanās vieta, gan lapa, no kuras tiek sākta lejupielāde (t.i., novirzītājs).
-
-          “allowed_types”: izmantojot šo iestatījumu, baltajā sarakstā tiek ievietoti atļauto paplašinājumu/lietotņu veidi, ko var instalēt pārlūkā <ph name="PRODUCT_NAME" />. Vērtība ir virkņu saraksts, un katrai virknei ir jābūt vienai no šīm: “extension”, “theme”, “user_script”, “hosted_app”, “legacy_packaged_app”, “platform_app”. Plašāku informāciju par šiem veidiem skatiet <ph name="PRODUCT_NAME" /> paplašinājumu dokumentācijā.
-
-          Šī politika vēl nav gatava lietošanai. Lūdzu, neizmantojiet to.
-          </translation>
 <translation id="8044493735196713914">Ziņot par ierīces sāknēšanas režīmu</translation>
 <translation id="8059164285174960932">URL, kurā attālās piekļuves klientiem ir jāiegūst autentifikācijas pilnvara</translation>
 <translation id="8071636581296916773">Ļauj izmantot pārraides serverus, kad attālie klienti mēģina izveidot savienojumu ar šo ierīci.

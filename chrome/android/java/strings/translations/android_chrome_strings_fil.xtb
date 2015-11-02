@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Tingnan ang iyong mga tab sa iba pang mga kamakailang app sa screen ng Pangkalahatang-ideya ng iyong telepono.</translation>
 <translation id="2079545284768500474">I-undo</translation>
 <translation id="2082238445998314030">Resulta <ph name="RESULT_NUMBER" /> sa <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Kapag naka-on ang feature na ito, gagamitin ng Chrome ang mga server ng Google upang i-compress ang mga page na bibisitahin mo bago i-download ang mga ito. Ang mga page na ina-access gamit ang mga pribadong koneksyon (HTTPS) o sa mga tab na Incognito ay hindi mao-optimize o makikita ng Google.</translation>
 <translation id="2100273922101894616">Awtomatikong Mag-sign in</translation>
 <translation id="2126426811489709554">Pinapagana ng Chrome</translation>
 <translation id="213279576345780926">Isinarang <ph name="TAB_TITLE" /></translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">I-bookmark ang page na ito</translation>
 <translation id="326254929494722411">Hindi ka pa nakapag-set up ng Google Account sa device na ito</translation>
 <translation id="3269093882174072735">I-load ang larawan</translation>
+<translation id="3278850099957560514">Gumamit ng mas kaunting data sa pamamagitan ng paggamit sa Google upang i-optimize ang mga page na binibisita mo. Ang mga page na ina-access gamit ang mga pribadong koneksyon (HTTPS) o sa mga tab na Incognito ay hindi mao-optimize o makikita ng Google.</translation>
 <translation id="3282568296779691940">Mag-sign in sa Chrome</translation>
 <translation id="3287852534598822456">Wala na ang bookmark. Mangyaring i-refresh.</translation>
 <translation id="3303414029551471755">Magpatuloy na i-download ang content?</translation>

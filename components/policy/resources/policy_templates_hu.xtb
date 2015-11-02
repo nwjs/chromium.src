@@ -539,6 +539,38 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="3153348162326497318">Lehetővé teszi annak meghatározását, hogy melyek azok a bővítmények, amelyeket NEM telepíthetnek a felhasználók. A már telepített, de a tiltólistán szereplő bővítményeket a rendszer eltávolítja. A tiltólista "*" értéke azt jelenti, hogy az összes bővítmény tiltólistás, kivéve, ha az adott bővítményt az engedélyezőlista tartalmazza. Ha ez a házirend beállítatlanul marad, a felhasználó bármilyen bővítményt telepíthet a(z) <ph name="PRODUCT_NAME" /> alkalmazásban.</translation>
 <translation id="316778957754360075">Ez a házirend többé nincs jelen a <ph name="PRODUCT_NAME" /> 29-es verziójától kezdve. A szervezet által tárolt bővítmény- és alkalmazásgyűjtemények beállításához azt javasoljuk, hogy a CRX-csomagokat tartalmazó webhelyet vegye fel az ExtensionInstallSources házirendbe, és helyezzen el a csomagokra mutató közvetlen letöltési linkeket egy weboldalon. A weboldalhoz az ExtensionInstallForcelist házirend használatával lehet indítót létrehozni.</translation>
 <translation id="3185009703220253572">a(z) <ph name="SINCE_VERSION" /> verzió óta</translation>
+<translation id="318812033927804102">A <ph name="PRODUCT_NAME" /> bővítménykezelő beállításait konfigurálja.
+
+          Ez a házirend több beállítást is kezel, így például a bővítményekkel kapcsolatban esetleg meglévő házirendek által kezelt beállításokat. A házirend felülírja a régi házirendet, ha mindkettő be van állítva.
+
+          A házirend a bővítményazonosítót vagy frissítési URL-t társítja annak konfigurációjához. A bővítményazonosító esetében a rendszer a konfigurációt kizárólag a meghatározott bővítményre alkalmazza. A „*” speciális azonosítóra alapértelmezett konfiguráció állítható be, amely az összes olyan bővítményre vonatkozik majd, amelynél nincs egyéni konfiguráció beállítva a házirendben. A frissítési URL esetében a rendszer a konfigurációt az összes bővítményre alkalmazni fogja, amelynek pontosan az a frissítési URL-je, mint ami ennek a bővítménynek a jegyzékfájljában szerepel, az itt leírt módon: <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Mindegyik bővítménynek (vagy az ugyanazzal a frissítési URL-lel rendelkező bővítményeknek) egy másik könyvtár a konfigurációja, amely az alább ismertetett mezőket tartalmazhatja.
+
+          „installation_mode”: a bővítmény telepítési módját jelző karakterláncra irányít át. Az érvényes karakterláncok a következők:
+          * „allowed”: engedélyezi, hogy a bővítményt a felhasználó telepítse. Ez az alapértelmezett viselkedés.
+          * „blocked”: letiltja a bővítmény telepítését.
+          * „force_installed”: a bővítményt a rendszer automatikusan telepíti, a felhasználó nem tudja eltávolítani.
+          * „normal_installed”: a bővítményt a rendszer automatikusan telepíti, de a felhasználó le tudja tiltani.
+
+          Az „installation_mode” szintén beállítható több bővítményhez, így például a „*” bővítményhez (alapértelmezett beállításként) és a megegyező frissítési URL-lel rendelkező bővítményekhez. Ebben az esetben kizárólag az „allowed” és a „blocked” érték használható.
+
+          Ha a mód beállítása „force_installed" vagy „normal_installed”, „update_url” értéket is be kell állítani. Fontos, hogy az ebben a házirendben beállított frissítési URL-t a rendszer csak az első telepítéshez használja; a bővítmény azt követő frissítéséhez a rendszer a bővítmény jegyzékében szereplő frissítési URL-t használja. A frissítési URL-nek a korábban említett frissítési jegyzékfájl XML-dokumentumra kell mutatnia.
+
+          „blocked_permissions": A bővítményre vonatkozó letiltott API-engedélyeket jelző karakterláncok listájára irányít át. Az engedélyek nevei megegyeznek az itt: <ph name="LINK_TO_EXTENSION_DOC3" /> ismertetett bővítményjegyzékfájlban meghatározott engedély-karakterláncokkal. A beállítás megadható a „*” bővítményre is. Ha a bővítmény a tiltólistán szereplő engedélyt igényel, a rendszer nem engedi annak betöltését. Ha valamely letiltott engedélyt nem kötelező követelményként tartalmaz, a rendszer a megszokott módon kezeli azt, az ütköző engedélyek kérését azonban automatikusan, a futási idő alatt elutasítja.
+
+          „allowed_permissions”: Hasonló, mint a „blocked_permissions”, azonban kifejezetten engedélyez néhány olyan engedélyt, amelyeket a letiltott engedélyek globális listája esetleg letilthat, így ezért nem állítható be a „*” bővítményhez. Fontos, hogy ez a beállítás nem ad automatikusan biztosított engedélyeket a bővítményeknek.
+
+          „minimum_version_required”: Verzió-karakterlánchoz társít. A verzió-karakterlánc formátuma megegyezik a bővítmény-jegyzékfájlban alkalmazottéval, lásd itt: <ph name="LINK_TO_EXTENSION_DOC4" />. A rendszer letiltja a megadott legkisebb verziószámúnál régebbi verziójú bővítményeket. Ez a kényszerítetten telepített bővítményekre is vonatkozik.
+
+          A következő beállítások kizárólag csak az alapértelmezett „*” konfiguráció esetében használhatók:
+
+          „install_sources": A listában szereplő összes elem bővítmény jellegű egyezési minta (lásd: https://developer.chrome.com/extensions/match_patterns). A felhasználók a listában szereplő bármelyik elemmel egyező URL-ről a könnyű módszerrel telepíthetnek elemeket. A mintáknak a *.crx fájl helye mellett azt az oldalt is engedélyezniük kell, ahonnan a letöltés megkezdődik (azaz a hivatkozó oldalt).
+
+          „allowed_types": Ez a beállítás a bővítmények/alkalmazások azon megengedett típusait teszi engedélyezőlistára, amelyek telepíthetők a <ph name="PRODUCT_NAME" /> termékben.  Az érték karakterláncok listája, és mindegyik karakterláncnak a következők valamelyikének kell lennie: „extension”, „theme”, „user_script”, „hosted_app”, „legacy_packaged_app”, „platform_app”. Az ilyen típusokkal kapcsolatos további tájékoztatásért tekintse át a <ph name="PRODUCT_NAME" /> bővítményeinek dokumentációját.
+
+          Ez a házirend még nem áll készen a használatra – kérjük, ne használja.
+          </translation>
 <translation id="3205825995289802549">Az első böngészőablak nagy méretre állítása az első indításkor</translation>
 <translation id="3206731874112238027">Nyomtatási előnézet letiltása (elavult)</translation>
 <translation id="3213821784736959823">Azt szabályozza, hogy a beépített DNS-ügyfél van-e használatban a(z) <ph name="PRODUCT_NAME" /> termékben.
@@ -658,22 +690,6 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
       Ha a beállítás értéke igaz, vagy ha nincs konfigurálva, akkor a felhasználók az eszköz összes támogatott hangkimenetét használhatják.</translation>
 <translation id="3808945828600697669">Adja meg a tiltott bővítmények listáját</translation>
 <translation id="3816312845600780067">Kiváltó billentyűparancs engedélyezése az automatikus bejelentkezéshez</translation>
-<translation id="381807926299956806">Egy vagy több ajánlott nyelv- és országkódot és billentyűzet-kiosztást állít be, lehetővé téve a felhasználók számára a beállított nyelv- és országkódok egyszerű kiválasztását.
-
-      A felhasználónak lehetősége van arra, hogy a nyilvános munkamenet indítása előtt nyelv- és országkódot, valamint billentyűzetkiosztást válasszon. A <ph name="PRODUCT_OS_NAME" /> által támogatott nyelv- és országkódok alapértelmezés szerint betűrendbe szedve vannak felsorolva. Ezzel a házirenddel az ajánlott nyelv- és országkódok csoportját a lista elejére helyezheti át.
-
-      Ha a házirend nincs beállítva, a rendszer előre kiválasztja a felhasználói felület aktuális nyelv- és országkódját.
-
-      Ha be van állítva a házirend, a rendszer az ajánlott nyelv- és országkódokat a lista elejére helyezi át, és jól látható módon elválasztja őket a többi nyelv- és országkódtól. Az ajánlott nyelv- és országkódok abban a sorrendben felsorolva szerepelnek, amelyben a házirendben is. A rendszer előre kiválasztja az első ajánlott nyelv- és országkódot.
-
-      Ha egynél több ajánlott nyelv- és országkód van, a rendszer feltételezi, hogy a felhasználók e nyelv- és országkódok közül kívánnak majd választani. A rendszer a nyelv- és országkód, valamint a billentyűzetkiosztás kiválasztásának lehetőségét kiemelten kínálja fel a nyilvános munkamenet indításakor. Egyébként azt teszi fel, hogy a felhasználók többsége az előre kiválasztott nyelv- és országkódot szeretné használni. A nyelv- és országkód, továbbá a billentyűzet kiválasztásának lehetőségét kevésbé kiemelten ajánlja fel a rendszer a nyilvános munkamenet indításakor.
-
-      Ha a házirend be van állítva, és az automatikus bejelentkezés is engedélyezve van (lásd a |DeviceLocalAccountAutoLoginId| és a |DeviceLocalAccountAutoLoginDelay| házirendet), az automatikusan elinduló nyilvános munkamenet az első ajánlott nyelv- és országkódot, valamint az ennek az országkódnak megfelelő, legnépszerűbb billentyűzetkiosztást fogja használni.
-
-      Az előre kiválasztott billentyűzetkiosztás mindig az előre kiválasztott nyelv- és országkódnak megfelelő legnépszerűbb billentyűzetkiosztás lesz.
-
-      Ez a házirend kizárólag ajánlottként állítható be. A házirendet arra használhatja, hogy az ajánlott nyelv- és országkódok csoportját legfelülre helyezze át; mindazonáltal a felhasználók számára a rendszer mindig lehetővé teszi, hogy a <ph name="PRODUCT_OS_NAME" /> által támogatott bármelyik nyelv- és országkódot kiválasszák munkamenetükhöz.
-      </translation>
 <translation id="3820526221169548563">A képernyő-billentyűzet kisegítő lehetőség engedélyezése.
 
           Ha a házirend értéke igaz, a képernyő-billentyűzet mindig engedélyezett.
@@ -731,9 +747,6 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="402759845255257575">JavaScript futtatásának tiltása minden webhely számára</translation>
 <translation id="4027608872760987929">Alapértelmezett keresési szolgáltató engedélyezése</translation>
 <translation id="4039085364173654945">Azt szabályozza, hogy harmadik felek altartalma az oldalon megnyithat-e HTTP Basic Auth párbeszédpanelt. Ez általában le van tiltva az adathalászat elleni védelem miatt. Ha a házirend nincs beállítva, akkor ez a letiltás nincs konfigurálva, és a harmadik féltől származó altartalom számára nem lesz engedélyezve a HTTP Basic Auth párbeszédpanel megnyitása.</translation>
-<translation id="4043912146394966243"> Az operációs rendszer frissítéseihez használható kapcsolattípusok. Előfordulhat, hogy az operációs rendszer frissítései a méretük miatt nagyon megterhelik a kapcsolatot, és esetlegesen további költségeket eredményezhetnek. Ezért alapértelmezés szerint nincsenek engedélyezve a drágának tartott kapcsolattípusok, amelyek jelenleg a WiMax-, Bluetooth- és mobilkapcsolatokat jelentik.
-
-      A felismert kapcsolattípus-azonosítók a következők: Ethernet, Wi-Fi, WiMax, Bluetooth és mobil.</translation>
 <translation id="4052765007567912447">Azt szabályozza, hogy a felhasználók megjeleníthetik-e jelszavaikat egyszerű szövegként a jelszókezelőben. Ha kikapcsolja ezt a beállítást, a jelszókezelő nem engedi a tárolt jelszavak egyszerű szövegként való megjelenítését a jelszókezelő ablakában. Ha bekapcsolja vagy konfigurálatlanul hagyja ezt a beállítást, a felhasználók egyszerű szövegként tekinthetik meg a tárolt jelszavakat a jelszókezelőben.</translation>
 <translation id="4056910949759281379">SPDY protokoll letiltása</translation>
 <translation id="4088589230932595924">Inkognitómód kényszerítve</translation>
@@ -795,6 +808,14 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 
       Ha az irányelvet megadták, a felhasználó nem változtathatja meg azt, és az alkalmazások parancsikonja vagy mindig látszik, vagy sohasem.</translation>
 <translation id="443665821428652897">Webhelyadatok törlése a böngésző bezárásakor (elavult)</translation>
+<translation id="4439336120285389675">Elavult Web Platform-funkciók listájának megadása ideiglenes engedélyezéshez.
+
+      Ez a házirend lehetővé teszi a rendszergazdák számára elavult Web Platform-funkciók engedélyezését korlátozott időtartamra. A funkciókat egy karakterlánccímke azonosítja, és a házirend listáján szereplő címkéknek megfelelő funkciók újra aktiválásra kerülnek.
+
+      Ha nem állítja be a házirendet, illetve ha a lista üres, vagy annak egyik eleme sem felel meg a támogatott karakterlánccímkék valamelyikének, akkor letiltva marad az összes elavult Web Platform-funkció.
+
+      Bár magát a házirendet támogatja az összes fenti platform, előfordulhat, hogy maga az engedélyezett funkció kevesebb platformon áll rendelkezésre. Nem lehet újraengedélyezni az összes elavult Web Platform-funkciót. Kizárólag a lent felsoroltakat lehet engedélyezni korlátozott időtartamra, amely időtartam eltérő az egyes funkciók esetében. A karakterlánccímkék általános formátuma a következő: [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. A https://bit.ly/blinkintents webhelyen további információkat talál a Web Platform-funkciók módosításának hátterében álló szándékokról.
+      </translation>
 <translation id="4442582539341804154">Lezárás engedélyezése, ha az eszköz tétlen vagy felfüggesztett</translation>
 <translation id="4445684791305970001">Kikapcsolja a fejlesztői eszközöket és a JavaScript-konzolt. Ha engedélyezi ezt a beállítást, a fejlesztői eszközöket nem lehet elérni, és a webhelyek elemeit nem lehet ellenőrizni többé. Bármely billentyűparancs, menü vagy helyi menüpont le lesz tiltva, amely megnyitná a fejlesztői eszközöket vagy a JavaScript-konzolt. Ha letiltja ezt a beállítást, vagy konfigurálatlanul hagyja, akkor a felhasználó használhatja a felhasználói eszközöket és a JavaScript-konzolt.</translation>
 <translation id="4467952432486360968">Harmadik féltől származó cookie-k letiltása</translation>
@@ -1037,32 +1058,6 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 
       Ha nincs beállítva a házirend, nem lesz automatikus bejelentkezés.</translation>
 <translation id="5535973522252703021">Kerberos felhatalmazási szerver kivétellistája</translation>
-<translation id="553658564206262718">Az energiagazdálkodási beállítások konfigurálása olyankor, amikor a felhasználó tétlen.
-
-          Ez a házirend többféle, az energiagazdálkodási stratégiára vonatkozó beállítást vezérel arra vonatkozóan, amikor a felhasználó tétlenné válik.
-
-          Négyféle művelet választható:
-          * A képernyő elhomályosodik, miután a felhasználó tétlen marad a |ScreenDim| beállítás által meghatározott ideig.
-          * A képernyő kikapcsol, miután a felhasználó tétlen marad a |ScreenOff| beállítás által meghatározott ideig.
-          * Figyelmeztető párbeszédpanel jelenik meg, miután a felhasználó tétlen marad az |IdleWarning| beállítás által meghatározott ideig – ez a figyelmeztetés tájékoztatja a felhasználót arról a műveletről, amelyet a tétlenség következtében hajt majd végre a rendszer.
-          * Az |IdleAction| beállítás által meghatározott művelet következik be, amennyiben a felhasználó tétlen marad az |Idle| által meghatározott ideig.
-
-          A késleltetés idejét a fenti műveletek mindegyikénél milliszekundumokban kell megadni, és a megadott értéknek nullánál nagyobbnak kell lennie a kapcsolódó művelet elindításához. Ha a késleltetés értéke nulla, akkor a <ph name="PRODUCT_OS_NAME" /> nem hajtja végre a kapcsolódó műveletet.
-
-          A fenti késleltetések mindegyikénél igaz, hogy amennyiben az időtartam nincs beállítva, akkor a rendszer az alapértelmezett időtartamot alkalmazza.
-
-          Felhívjuk figyelmét arra, hogy a |ScreenDim| értéke rögzítetten alacsonyabb vagy egyenlő kell, hogy legyen, mint a |ScreenOff| értéke, a |ScreenOff| és az |IdleWarning| értékei pedig rögzítetten alacsonyabbak vagy egyenlők kell, hogy legyenek, mint az |Idle| értéke.
-
-          Az |IdleAction| beállítása a következő négy művelet valamelyike lehet:
-          * |Suspend|
-          * |Logout|
-          * |Shutdown|
-          * |DoNothing|
-
-          Ha az |IdleAction| beállítás értéke nincs megadva, akkor az alapértelmezett művelet, azaz a felfüggesztés következik be.
-
-          Külön beállítások adhatók meg a hálózati áramforrásra és az akkumulátorra vonatkozóan is.
-          </translation>
 <translation id="5560039246134246593">Paraméter hozzáadása a Variations seed lekéréséhez a(z) <ph name="PRODUCT_NAME" /> termékben.
 
       Ha meg van határozva, egy „restrict” nevű lekérdezési paramétert ad a Variations seed lekérdezésére használatos URL-hez. A paraméter értéke a házirendben meghatározott érték lesz.
@@ -1078,6 +1073,22 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
       Ha beállítja ezt az irányelvet, a felhasználók nem módosíthatják vagy bírálhatják felül.
 
       Ha az irányelvet beállítatlanul hagyja, akkor a felhasználók választhatnak, hogy a polc automatikusan el legyen-e rejtve vagy sem.</translation>
+<translation id="5573397331902180200">Egy vagy több ajánlott nyelv- és országkódot és billentyűzet-kiosztást állít be, lehetővé téve a felhasználók számára a beállított nyelv- és országkódok egyszerű kiválasztását.
+
+      A felhasználónak lehetősége van arra, hogy a nyilvános munkamenet indítása előtt nyelv- és országkódot, valamint billentyűzetkiosztást válasszon. A <ph name="PRODUCT_OS_NAME" /> által támogatott nyelv- és országkódok alapértelmezés szerint betűrendbe szedve vannak felsorolva. Ezzel a házirenddel az ajánlott nyelv- és országkódok csoportját a lista elejére helyezheti át.
+
+      Ha a házirend nincs beállítva, a rendszer előre kiválasztja a felhasználói felület aktuális nyelv- és országkódját.
+
+      Ha be van állítva a házirend, a rendszer az ajánlott nyelv- és országkódokat a lista elejére helyezi át, és jól látható módon elválasztja őket a többi nyelv- és országkódtól. Az ajánlott nyelv- és országkódok abban a sorrendben felsorolva szerepelnek, amelyben a házirendben is. A rendszer előre kiválasztja az első ajánlott nyelv- és országkódot.
+
+      Ha egynél több ajánlott nyelv- és országkód van, a rendszer feltételezi, hogy a felhasználók e nyelv- és országkódok közül kívánnak majd választani. A rendszer a nyelv- és országkód, valamint a billentyűzetkiosztás kiválasztásának lehetőségét kiemelten kínálja fel a nyilvános munkamenet indításakor. Egyébként azt teszi fel, hogy a felhasználók többsége az előre kiválasztott nyelv- és országkódot szeretné használni. A nyelv- és országkód, továbbá a billentyűzet kiválasztásának lehetőségét kevésbé kiemelten ajánlja fel a rendszer a nyilvános munkamenet indításakor.
+
+      Ha a házirend be van állítva, és az automatikus bejelentkezés is engedélyezve van (lásd a |DeviceLocalAccountAutoLoginId| és a |DeviceLocalAccountAutoLoginDelay| házirendet), az automatikusan elinduló nyilvános munkamenet az első ajánlott nyelv- és országkódot, valamint az ennek az országkódnak megfelelő, legnépszerűbb billentyűzetkiosztást fogja használni.
+
+      Az előre kiválasztott billentyűzetkiosztás mindig az előre kiválasztott nyelv- és országkódnak megfelelő legnépszerűbb billentyűzetkiosztás lesz.
+
+      Ez a házirend kizárólag ajánlottként állítható be. A házirendet arra használhatja, hogy az ajánlott nyelv- és országkódok csoportját legfelülre helyezze át; mindazonáltal a felhasználók számára a rendszer mindig lehetővé teszi, hogy a <ph name="PRODUCT_OS_NAME" /> által támogatott bármelyik nyelv- és országkódot kiválasszák munkamenetükhöz.
+      </translation>
 <translation id="557658534286111200">Engedélyezi vagy letiltja a könyvjelzők szerkesztését</translation>
 <translation id="5586942249556966598">Ne tegyen semmit</translation>
 <translation id="5630352020869108293">Utolsó munkamenet visszaállítása</translation>
@@ -1208,6 +1219,17 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
           A házirend értékét milliszekundumban kell megadni. Az értékeknek alacsonyabbnak kell lenniük a tétlenség késleltetésénél.</translation>
 <translation id="6114416803310251055">elavult</translation>
 <translation id="6145799962557135888">Lehetővé teszi, hogy megadja az URL-minták egy olyan listáját, amely meghatározza, mely webhelyek futtathatnak JavaScriptet. Ha ez a házirend beállítatlanul marad, akkor a globális alapértelmezett érték kerül felhasználásra valamennyi webhelyre vonatkozóan; vagy -- ha be van állítva -- a "DefaultImagesSetting" házirendből, vagy pedig a felhasználó személyes konfigurációjából.</translation>
+<translation id="6151775819333710697">
+          Ha ez a beállítás aktiválva van, a felhasználók tárolhatják jelszavaikat a(z) <ph name="PRODUCT_NAME" /> segítségével,
+          amely az adott webhelyre való következő bejelentkezéskor automatikusan felkínálja őket.
+
+          Ha kikapcsolja a beállítást, a felhasználók nem tudják menteni a jelszavakat,
+          de a korábban mentett jelszavakat használhatják.
+
+          Az irányelv aktiválása vagy kikapcsolása esetén a felhasználók ezt nem módosíthatják és nem bírálhatják felül
+          a(z) <ph name="PRODUCT_NAME" /> termékben. Ha az irányelv nincs beállítva,
+          a jelszavak mentése engedélyezett (de a felhasználó
+          kikapcsolhatja).</translation>
 <translation id="6155936611791017817">A nagy egérmutató alapértelmezett állapotának beállítása a bejelentkezési képernyőn</translation>
 <translation id="6157537876488211233">Proxy figyelmen kívül hagyásával kapcsolatos szabályok vesszővel elválasztott listája</translation>
 <translation id="6158324314836466367">Vállalati internetes áruház neve (megszűnt)</translation>
@@ -1267,17 +1289,6 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
           Ez egy opcionális házirend. Ha nincs beállítva, a keresési kérelmet a rendszer a GET metódus segítségével továbbítja.
 
           A házirend csak akkor érvényesül, ha a „DefaultSearchProviderEnabled” házirend engedélyezve van.</translation>
-<translation id="6365608006609079612">
-          Ha ez a beállítás aktiválva van, a felhasználók tárolhatják jelszavaikat a(z) <ph name="PRODUCT_NAME" /> segítségével,
-          amely az adott webhelyre való következő bejelentkezéskor automatikusan felkínálja őket.
-
-          Ha kikapcsolja a beállítást, a felhasználók nem tudják menteni a jelszavakat,
-          de a korábban mentett jelszavakat használhatják.
-
-          Az irányelv aktiválása vagy kikapcsolása esetén a felhasználók ezt nem módosíthatják és nem bírálhatják felül
-          a(z) <ph name="PRODUCT_NAME" /> termékben. Ha az irányelv nincs beállítva,
-          a jelszavak mentése engedélyezett (de a felhasználó
-          kikapcsolhatja).</translation>
 <translation id="6367755442345892511">A kiadási csatorna felhasználó által beállítható legyen-e.</translation>
 <translation id="6368011194414932347">Állítsa be a kezdőoldal URL-jét</translation>
 <translation id="6368403635025849609">JavaScript engedélyezése ezeken a webhelyeken</translation>
@@ -1330,14 +1341,32 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 
           Ha nem állítja be ezt a házirendet, akkor a képernyő-billentyűzet le lesz tiltva a bejelentkezési képernyő első megjelenítésekor. A felhasználók bármikor engedélyezhetik vagy letilthatják a képernyő-billentyűzetet, és annak állapota a bejelentkezési képernyőn megmarad a felhasználók között.</translation>
 <translation id="6598235178374410284">Felhasználó avatarképe</translation>
-<translation id="6633160536638196468">Elavult Web Platform-funkciók listájának megadása ideiglenes engedélyezéshez.
+<translation id="6636268606788232221">Az energiagazdálkodási beállítások konfigurálása olyankor, amikor a felhasználó tétlen.
 
-      Ez a házirend lehetővé teszi a rendszergazdák számára elavult Web Platform-funkciók engedélyezését korlátozott időtartamra. A funkciókat egy karakterlánccímke azonosítja, és a házirend listáján szereplő címkéknek megfelelő funkciók újra aktiválásra kerülnek.
+          Ez a házirend többféle, az energiagazdálkodási stratégiára vonatkozó beállítást vezérel arra vonatkozóan, amikor a felhasználó tétlenné válik.
 
-      Ha nem állítja be a házirendet, illetve ha a lista üres, vagy annak egyik eleme sem felel meg a támogatott karakterlánccímkék valamelyikének, akkor letiltva marad az összes elavult Web Platform-funkció.
+          Négyféle művelet választható:
+          * A képernyő elhomályosodik, miután a felhasználó tétlen marad a |ScreenDim| beállítás által meghatározott ideig.
+          * A képernyő kikapcsol, miután a felhasználó tétlen marad a |ScreenOff| beállítás által meghatározott ideig.
+          * Figyelmeztető párbeszédpanel jelenik meg, miután a felhasználó tétlen marad az |IdleWarning| beállítás által meghatározott ideig – ez a figyelmeztetés tájékoztatja a felhasználót arról a műveletről, amelyet a tétlenség következtében hajt majd végre a rendszer.
+          * Az |IdleAction| beállítás által meghatározott művelet következik be, amennyiben a felhasználó tétlen marad az |Idle| által meghatározott ideig.
 
-      Bár magát a házirendet támogatja az összes fenti platform, előfordulhat, hogy maga az engedélyezett funkció kevesebb platformon áll rendelkezésre. Nem lehet újraengedélyezni az összes elavult Web Platform-funkciót. Kizárólag a lent felsoroltakat lehet engedélyezni korlátozott időtartamra, amely időtartam eltérő az egyes funkciók esetében. A karakterlánccímkék általános formátuma a következő: [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. A https://bit.ly/blinkintents webhelyen további információkat talál a Web Platform-funkciók módosításának hátterében álló szándékokról.
-      </translation>
+          A késleltetés idejét a fenti műveletek mindegyikénél milliszekundumokban kell megadni, és a megadott értéknek nullánál nagyobbnak kell lennie a kapcsolódó művelet elindításához. Ha a késleltetés értéke nulla, akkor a <ph name="PRODUCT_OS_NAME" /> nem hajtja végre a kapcsolódó műveletet.
+
+          A fenti késleltetések mindegyikénél igaz, hogy amennyiben az időtartam nincs beállítva, akkor a rendszer az alapértelmezett időtartamot alkalmazza.
+
+          Felhívjuk figyelmét arra, hogy a |ScreenDim| értéke rögzítetten alacsonyabb vagy egyenlő kell, hogy legyen, mint a |ScreenOff| értéke, a |ScreenOff| és az |IdleWarning| értékei pedig rögzítetten alacsonyabbak vagy egyenlők kell, hogy legyenek, mint az |Idle| értéke.
+
+          Az |IdleAction| beállítása a következő négy művelet valamelyike lehet:
+          * |Suspend|
+          * |Logout|
+          * |Shutdown|
+          * |DoNothing|
+
+          Ha az |IdleAction| beállítás értéke nincs megadva, akkor az alapértelmezett művelet, azaz a felfüggesztés következik be.
+
+          Külön beállítások adhatók meg a hálózati áramforrásra és az akkumulátorra vonatkozóan is.
+          </translation>
 <translation id="6641981670621198190">3D grafikai API-k támogatásának tiltása</translation>
 <translation id="6647965994887675196">Ha „igaz” értékre van állítva, megengedett a felügyelt felhasználók létrehozása és használata.
 
@@ -1611,6 +1640,9 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
           Ha a beállítás le van tiltva vagy nincs megadva, akkor a kétlépcsős azonosítás nincs engedélyezve, és alapértelmezés szerint a felhasználó által megadott PIN kód szükséges.</translation>
 <translation id="7750991880413385988">Új lap oldal megnyitása</translation>
 <translation id="7763311235717725977">Lehetővé teszi annak meghatározását, hogy a webhelyek számára engedélyezett-e a képek megjelenítése. A képek megjelenítését engedélyezheti vagy tilthatja minden webhely számára. Ha ez a házirend beállítatlanul marad, akkor a rendszer az "AllowImages" értéket használja, és ezt a felhasználó módosíthatja.</translation>
+<translation id="7763479091692861127"> Az operációs rendszer frissítéseihez használható kapcsolattípusok. Előfordulhat, hogy az operációs rendszer frissítései a méretük miatt nagyon megterhelik a kapcsolatot, és esetlegesen további költségeket eredményezhetnek. Ezért alapértelmezés szerint nincsenek engedélyezve a drágának tartott kapcsolattípusok, amelyek jelenleg a WiMax-, Bluetooth- és mobilkapcsolatokat jelentik.
+
+      A felismert kapcsolattípus-azonosítók a következők: Ethernet, Wi-Fi, WiMax, Bluetooth és mobil.</translation>
 <translation id="7766336524667238790">Információk (például alkalmazásazonosító és -verzió) jelentése
       az aktív kioszkmunkamenetről.
 
@@ -1655,38 +1687,6 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="7953256619080733119">Felügyelt felhasználó manuális kivételi gazdagépei</translation>
 <translation id="7971839631300653352">SSL 3.0</translation>
 <translation id="7974114691960514888">Ez a házirend már nem támogatott. Távoli ügyfélhez való csatlakozáskor lehetővé teszi a STUN és továbbítószerverek használatát. Ha ez a beállítás engedélyezett, akkor ez a gép láthatja a távoli szervereket, és csatlakozni is tud hozzájuk, még akkor is, ha tűzfal választja el őket. Amennyiben ez a lehetőség ki van kapcsolva, és a tűzfal szűri a kimenő UDP-kapcsolatokat, akkor ez a gép csak a helyi hálózaton belül található szerverekhez tud csatlakozni.</translation>
-<translation id="8002229853067655250">A <ph name="PRODUCT_NAME" /> bővítménykezelő beállításait konfigurálja.
-
-          Ez a házirend több beállítást is kezel, így például a bővítményekkel kapcsolatban esetleg meglévő házirendek által kezelt beállításokat. A házirend felülírja a régi házirendet, ha mindkettő be van állítva.
-
-          A házirend a bővítményazonosítót vagy frissítési URL-t társítja annak konfigurációjához. A bővítményazonosító esetében a rendszer a konfigurációt kizárólag a meghatározott bővítményre alkalmazza. A „*” speciális azonosítóra alapértelmezett konfiguráció állítható be, amely az összes olyan bővítményre vonatkozik majd, amelynél nincs egyéni konfiguráció beállítva a házirendben. A frissítési URL esetében a rendszer a konfigurációt az összes bővítményre alkalmazni fogja, amelynek pontosan az a frissítési URL-je, mint ami ennek a bővítménynek a jegyzékfájljában szerepel, az itt leírt módon: <ph name="LINK_TO_EXTENSION_DOC1" />.
-
-          Mindegyik bővítménynek (vagy az ugyanazzal a frissítési URL-lel rendelkező bővítményeknek) egy másik könyvtár a konfigurációja, amely az alább ismertetett mezőket tartalmazhatja.
-
-          „installation_mode”: a bővítmény telepítési módját jelző karakterláncra irányít át. Az érvényes karakterláncok a következők:
-          * „allowed”: engedélyezi, hogy a bővítményt a felhasználó telepítse. Ez az alapértelmezett viselkedés.
-          * „blocked”: letiltja a bővítmény telepítését.
-          * „force_installed”: a bővítményt a rendszer automatikusan telepíti, a felhasználó nem tudja eltávolítani.
-          * „normal_installed”: a bővítményt a rendszer automatikusan telepíti, de a felhasználó le tudja tiltani.
-
-          Az „installation_mode” szintén beállítható több bővítményhez, így például a „*” bővítményhez (alapértelmezett beállításként) és a megegyező frissítési URL-lel rendelkező bővítményekhez. Ebben az esetben kizárólag az „allowed” és a „blocked” érték használható.
-
-          Ha a mód beállítása „force_installed" vagy „normal_installed”, „update_url” értéket is be kell állítani. Fontos, hogy az ebben a házirendben beállított frissítési URL-t a rendszer csak az első telepítéshez használja; a bővítmény azt követő frissítéséhez a rendszer a bővítmény jegyzékében szereplő frissítési URL-t használja. A frissítési URL-nek a korábban említett frissítési jegyzékfájl XML-dokumentumra kell mutatnia.
-
-          „blocked_permissions": A bővítményre vonatkozó letiltott API-engedélyeket jelző karakterláncok listájára irányít át. Az engedélyek nevei megegyeznek az itt: <ph name="LINK_TO_EXTENSION_DOC3" /> ismertetett bővítményjegyzékfájlban meghatározott engedély-karakterláncokkal. A beállítás megadható a „*” bővítményre is. Ha a bővítmény a tiltólistán szereplő engedélyt igényel, a rendszer nem engedi annak betöltését. Ha valamely letiltott engedélyt nem kötelező követelményként tartalmaz, a rendszer a megszokott módon kezeli azt, az ütköző engedélyek kérését azonban automatikusan, a futási idő alatt elutasítja.
-
-          „allowed_permissions”: Hasonló, mint a „blocked_permissions”, azonban kifejezetten engedélyez néhány olyan engedélyt, amelyeket a letiltott engedélyek globális listája esetleg letilthat, így ezért nem állítható be a „*” bővítményhez. Fontos, hogy ez a beállítás nem ad automatikusan biztosított engedélyeket a bővítményeknek.
-
-          „minimum_version_required”: Verzió-karakterlánchoz társít. A verzió-karakterlánc formátuma megegyezik a bővítmény-jegyzékfájlban alkalmazottéval, lásd itt: <ph name="LINK_TO_EXTENSION_DOC4" />. A rendszer letiltja a megadott legkisebb verziószámúnál régebbi verziójú bővítményeket. Ez a kényszerítetten telepített bővítményekre is vonatkozik.
-
-          A következő beállítások kizárólag csak az alapértelmezett „*” konfiguráció esetében használhatók:
-
-          „install_sources": A listában szereplő összes elem bővítmény jellegű egyezési minta (lásd: https://developer.chrome.com/extensions/match_patterns). A felhasználók a listában szereplő bármelyik elemmel egyező URL-ről a könnyű módszerrel telepíthetnek elemeket. A mintáknak a *.crx fájl helye mellett azt az oldalt is engedélyezniük kell, ahonnan a letöltés megkezdődik (azaz a hivatkozó oldalt).
-
-          „allowed_types": Ez a beállítás a bővítmények/alkalmazások azon megengedett típusait teszi engedélyezőlistára, amelyek telepíthetők a <ph name="PRODUCT_NAME" /> termékben.  Az érték karakterláncok listája, és mindegyik karakterláncnak a következők valamelyikének kell lennie: „extension”, „theme”, „user_script”, „hosted_app”, „legacy_packaged_app”, „platform_app”. Az ilyen típusokkal kapcsolatos további tájékoztatásért tekintse át a <ph name="PRODUCT_NAME" /> bővítményeinek dokumentációját.
-
-          Ez a házirend még nem áll készen a használatra – kérjük, ne használja.
-          </translation>
 <translation id="8044493735196713914">Az eszköz indítási módjának jelentése</translation>
 <translation id="8059164285174960932">Az URL, ahol a távoli hozzáférésű kliensnek be kell szereznie a hitelesítési tokent</translation>
 <translation id="8071636581296916773">Engedélyezi relay szerverek használatát, amikor a távoli ügyfelek megpróbálnak kapcsolatot létesíteni ezzel a számítógéppel.

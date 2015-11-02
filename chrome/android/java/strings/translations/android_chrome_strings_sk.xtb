@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Zobrazte si svoje karty spolu s ostatnými nedávnymi aplikáciami na telefóne na obrazovke Prehľad.</translation>
 <translation id="2079545284768500474">Späť</translation>
 <translation id="2082238445998314030">Výsledok <ph name="RESULT_NUMBER" /> z <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Keď je táto funkcia zapnutá, Chrome navštívené stránky pred stiahnutím komprimuje pomocou serverov Google. Stránky navštívené pomocou súkromných pripojení (HTTPS) alebo v rámci kariet inkognito nebudú optimalizované ani viditeľné pre Google.</translation>
 <translation id="2100273922101894616">Automaticky prihlásiť</translation>
 <translation id="2126426811489709554">Používa technológiu prehliadača Chrome</translation>
 <translation id="213279576345780926">Karta <ph name="TAB_TITLE" /> je zavretá</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Vytvoriť záložku pre túto stránku</translation>
 <translation id="326254929494722411">Na tomto zariadení ste zatiaľ účet Google nenastavili</translation>
 <translation id="3269093882174072735">Načítať obrázok</translation>
+<translation id="3278850099957560514">Využite službu Google na optimalizáciu navštívených stránok a ušetrite za dátové pripojenie. Stránky navštívené pomocou súkromných pripojení (HTTPS) alebo v rámci kariet inkognito nebudú optimalizované ani viditeľné pre Google.</translation>
 <translation id="3282568296779691940">Prihlásenie do prehliadača Chrome</translation>
 <translation id="3287852534598822456">Záložka už neexistuje. Obnovte stránku.</translation>
 <translation id="3303414029551471755">Pokračovať a stiahnuť obsah?</translation>

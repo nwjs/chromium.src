@@ -612,6 +612,38 @@
           Kung hinayaang hindi nakatakda ang patakarang ito makakapag-install ng anumang extension sa <ph name="PRODUCT_NAME" /> ang user.</translation>
 <translation id="316778957754360075">Hindi na ginagamit ang setting na ito simula sa <ph name="PRODUCT_NAME" /> bersyon 29. Ang inirerekumendang paraan upang mag-set up ng mga koleksyon ng extension/app na hino-host ng samahan ay ang pagsama sa pag-host sa site sa mga CRX package sa ExtensionInstallSources at paglagay ng direktang link sa pag-download sa mga package sa isang web page.Maaaring gawin ang isang launcher para sa web page na iyon gamit ang patakaran na ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">mula pa noong bersyon <ph name="SINCE_VERSION" /></translation>
+<translation id="318812033927804102">Kino-configure ang mga setting ng pamamahala ng extension para sa <ph name="PRODUCT_NAME" />.
+
+          Maraming setting ang kinokontrol ng patakarang ito, kabilang ang mga setting na kinokontrol ng anumang dati nang patakarang nauugnay sa extension. Io-override ng patakarang ito ang anumang mga dati nang patakaran kung parehong nakatakda.
+
+          Minamapa ng patakarang ito ang isang extension ID o isang update URL sa configuration nito. Sa isang extension ID, ilalapat ang configuration sa tinukoy na extension lang. Maaaring matakda ng default na configuration para sa espesyal na ID na "*", na malalapat sa lahat ng extension na walang nakatakdang custom na configuration sa patakarang ito. Sa isang update URL, ilalapat ang configuration sa lahat ng extension nang nakasaad ang eksaktong update URL sa manifest ng extension na ito, tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Ang configuration para sa bawat extension (o mga extension na may parehong update URL) ay isa pang diksyunaryo na maaaring maglaman ng mga field na nakadokumento sa ibaba.
+
+          "installation_mode": minamapa sa isang string na nagsasaad ng installation mode para sa extension. Ang mga wastong string ay:
+          * "allowed": pinapayagan ang extension na ma-install ng user. Ito ang default na gawi.
+          * "blocked": bina-block ang pag-install ng extension.
+          * "force_installed": awtomatikong ini-install ang extension at hindi maaalis ng user.
+          * "normal_installed": awtomatikong ini-install ang extension ngunit maaaring ma-disable ng user.
+
+          Maaari ring ma-configure ang "installation_mode" para rin sa maraming extension, kabilang ang extension na "*" (bilang mga default na setting) at mga extension na may parehong URL. Tanging ang mga value na "allowed" at "blocked" ang magagamit sa kasong ito.
+
+          Kung nakatakda ang mode sa "force_installed" o "normal_installed," dapat na ma-configure din ang isang "update_url." Tandaan na ang update URL na nakatakda sa patakarang ito ay ginagamit lang para sa paunang pag-install; gagamitin ng mga kasunod na update ng extension ang update URL na nakasaad sa manifest ng extension. Dapat na tumuro ang update URL sa isang dokumento ng Update Manifest XML tulad ng nabanggit sa itaas.
+
+          "blocked_permissions": minamapa sa isang listahan ng mga string na nagsasaad sa mga na-block na pahintulot sa API para sa extension. Ang mga pangalan ng mga pahintulot ay pareho sa mga string ng pahintulot na nakasaad sa manifest ng extension tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC3" />. Maaari ring ma-configure ang setting na ito para sa extension na "*". Kung kailangan ng extension ng pahintulot na nasa blocklist, hindi ito papayagang mag-load. Kung naglalaman ito ng naka-block na pahintulot bilang opsyonal na kinakailangan, pangangasiwaan ito sa normal na paraan, ngunit ang paghiling ng mga nagsasalungat na pahintulot ay awtomatikong tatangihan sa runtime.
+
+          "allowed_permissions": kapareho ng "blocked_permissions", ngunit sa halip, tahasang pinapayagan ang ilang pahintulot na maaaring ma-block ng global na listahan ng naka-block ang pahintulot, kung saan hindi mako-configure para sa extension na "*". Tandaan na hindi awtomatikong nagbibigay ang setting na ito ng mga pahintulot sa mga extension.
+
+          "minimum_version_required": minamapa sa isang string ng bersyon. Ang format ng string ng bersyon ay pareho sa ginamit sa manifest ng extension, tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC4" />. Idi-disable ang isang extension na may mas lumang bersyon kaysa sa tinukoy na minimum na bersyon. Nalalapat din ito sa mga puwersahang in-install na extension.
+
+          Magagamit lang ang mga sumusunod na setting para sa default na configuration na "*":
+
+          "install_sources": Ang bawat item sa listahang ito ay match pattern sa estilo ng extension (tingnan ang https://developer.chrome.com/extensions/match_patterns). Madaling makakapag-install ang mga user ng mga item mula sa anumang URL na tumutugma sa isang item sa listahan. Dapat na payagan ng mga pattern na ito ang parehong lokasyon ng *.crx file at ang page kung saan sinimulan ang download (ibig sabihin, ang nag-refer).
+
+          "allowed_types": Wina-whitelist ng setting na ito ang mga pinayagang uri ng mga extension/app na maaaring ma-install sa <ph name="PRODUCT_NAME" />.  Ang value ay isang listahan ng mga string, kung saan ang bawat isa dito ay dapat na isa sa sumusunod: "extension," "theme," "user_script," "hosted_app," "legacy_packaged_app," "platform_app." Tingnan ang dokumento ng mga extension na <ph name="PRODUCT_NAME" /> para sa higit pang impormasyon sa mga uring ito.
+
+          Hindi pa handang magamit ang patakarang ito, mangyaring huwag muna itong gamitin.
+          </translation>
 <translation id="3205825995289802549">I-maximize ang unang window ng browser sa unang pagtakbo</translation>
 <translation id="3206731874112238027">I-disable ang Preview ng Pag-print (hindi na ginagamit)</translation>
 <translation id="3213821784736959823">Kinokontrol kung gagamitin ang built-in na DNS client sa <ph name="PRODUCT_NAME" />.
@@ -740,22 +772,6 @@
       Kung itinakda sa true ang setting na ito o hindi naka-configure, magagamit ng mga user ang lahat ng sinusuportahang output ng audio sa kanilang device.</translation>
 <translation id="3808945828600697669">Tumukoy ng listahan ng mga hindi pinagang plugin</translation>
 <translation id="3816312845600780067">I-enable ang bailout keyboard shortcut para sa awtomatikong pag-log in</translation>
-<translation id="381807926299956806">Itinatakda ang isa o higit pang inirerekumendang lokal para sa mga pampublikong session, na nagbibigay-daan sa mga user na madaling pumili ng isa sa mga lokal na ito.
-
-      Maaaring pumili ang user ng lokal at layout ng keyboard bago magsimula ng pampublikong session. Bilang default, nakalista nang nakaayos ayon sa alpabeto ang lahat ng lokal na sinusuportahan ng <ph name="PRODUCT_OS_NAME" />. Maaari mong gamitin ang patakarang ito upang maglipat ng isang hanay ng mga inirerekumendang lokal sa itaas ng listahan.
-
-      Kung hindi nakatakda ang patakarang ito, paunang pipiliin ang kasalukuyang lokal ng UI.
-
-      Kung nakatakda ang patakarang ito, ililipat ang mga inirerekumendang lokal sa itaas ng listahan at makikitang hiwalay mula sa iba pang mga lokal. Ililista ang mga inirerekumendang lokal sa pagkakasunud-sunod kung paano lumalabas ang mga ito sa patakaran. Paunang pipiliin ang unang inirerekumendang lokal.
-
-      Kung mayroong mahigit sa isang inirerekumendang lokal, ipinagpalagay na gugustuhin ng mga user na pumili sa mga lokal na ito. Prominenteng iaalok ang pagpili ng lokal at layout ng keyboard kapag magsisimula ng pampublikong session. Kung hindi, ipinagpalagay na gugustuhin ng karamihan ng mga user na gamitin ang paunang piniling lokal. Hindi gaanong prominenteng iaalok ang lokal at layout ng keyboard kapag nag-aalok ng pampublikong session.
-
-      Kapag nakatakda ang patakarang ito at naka-enable ang awtomatikong pag-login (tingnan ang mga patakarang |DeviceLocalAccountAutoLoginId| at |DeviceLocalAccountAutoLoginDelay|), gagamitin ng awtomatikong sinimulang pampublikong session ang unang inirerekumendang lokal at ang pinakasikat na layout ng keyboard na tumutugma sa lokal na ito.
-
-      Ang paunang piniling layout ng keyboard ang palaging magiging pinakasikat na layout na tumutugma sa paunang piniling lokal.
-
-      Maaari lang itakda ang patakaran na ito bilang inirerekumenda. Maaari mong gamitin ang patakarang ito upang maglipat ng hanay ng mga inirerekumendang locale sa itaas ngunit pinapayagan ang mga user na pumili kailanman ng anumang lokal na sinusuportahan ng <ph name="PRODUCT_OS_NAME" /> para sa kanilang session.
-      </translation>
 <translation id="3820526221169548563">I-enable ang feature na pagiging naa-access ng on-screen na keyboard.
 
           Kung itinakda sa true ang patakarang ito, i-e-enable palagi ang on-screen na keyboard.
@@ -834,9 +850,6 @@
 <translation id="4039085364173654945">Kinokontrol kung papayagan ang sub-content ng third-party sa isang pahina na mag-pop-up ng isang dialog box ng HTTP Basic Auth.
 
           Karaniwang hindi ito pinapagana bilang isang depensa sa phishing. Kung hindi nakatakda ang patakarang ito, hindi ito pinapagana at hindi papayagan ang sub-content ng third-party na mag-pop up ng isang dialog box ng HTTP Basic Auth.</translation>
-<translation id="4043912146394966243"> Ang mga uri ng koneksyon na pinapayagang gamitin para sa mga pag-update sa OS. Potensyal na nakakapagpabagal ng koneksyon ang mga pag-update sa OS dahil sa laki ng mga ito at maaari itong makaipon ng karagdagang gastusin. Samakatuwid, hindi naka-enable ang mga ito bilang default para sa mga uri ng koneksyon na itinuturing na mahal, na kinabibilangan ng WiMax, Bluetooth at Cellular sa ngayon.
-
-      Ang mga kilalang identifier ng uri ng koneksyon ay "ethernet," "wifi," "wimax," "bluetooth" at "cellular."</translation>
 <translation id="4052765007567912447">Kinokontrol kung maaaring magpakita ang user o hindi ng mga password sa malinaw na teksto sa tagapamahala ng password.
 
           Kung hindi mo pinagana ang setting na ito, hindi pinapayagan ng tagapamahala ng password ang pagpapakita ng mga naka-imbak na password sa malinaw na teksto sa window ng tagapamahala ng password.
@@ -902,6 +915,14 @@
 
       Kung naka-configure ang patakarang ito, hindi ito mababago ng user at ang shortcut ng mga app ay palaging ipinapakita o hindi kailanman ipapakita.</translation>
 <translation id="443665821428652897">I-clear ang data ng site kapag na-shutdown ang browser (hindi ginamit)</translation>
+<translation id="4439336120285389675">Tumukoy ng listahan ng mga hindi na ginagamit na feature ng web platform upang pansamantalang ma-enable muli.
+
+      Binibigyang-kakayahan ng patakaran na ito ang mga administrator na ma-enable muli ang mga hindi na ginagamit na feature ng web platform para sa limitadong panahon. Tinutukoy ang mga feature ng isang string tag at mae-enable muli ang mga feature na tumutugma sa mga tag na kasama sa listahang tinukoy ng patakaran na ito.
+
+      Kung maiiwang hindi nakatakda ang patakaran na ito, o walang laman ang listahan o hindi tumutugma sa isa sa mga sinusuportahang string tag, mananatiling hindi na ginagamit ang lahat ng feature ng web platform.
+
+      Kahit ang mismong patakaran ay sinusuportahan sa mga platform sa itaas, maaaring available sa mas kaunting platform ang ine-enable nitong feature. Hindi lahat ng mga hindi na ginagamit na feature ng Web Platform ay maaaring i-enable muli. Sa mga feature lang na nakikitang nakalista sa ibaba ang maaaring maging sa limitadong yugto ng panahon, na magkakaiba para sa bawat feature. Ang pangkalahatang format ng string tag ay magiging [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Bilang sanggunian, makikita mo ang layunin sa likod ng mga pagbabago ng feature ng Web Platform sa https://bit.ly/blinkintents.
+      </translation>
 <translation id="4442582539341804154">Paganahin ang lock kapag naging idle o nasuspinde ang device.</translation>
 <translation id="4445684791305970001">Hindi pinapagana ang Mga Tool ng Developer at ang console ng JavaScript.
 
@@ -1192,32 +1213,6 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
       Kung hindi nakatakda ang patakarang ito, walang magaganap na awtomatikong pag-log in.</translation>
 <translation id="5535973522252703021">Whitelist ng server ng paglalaan ng Kerberos</translation>
-<translation id="553658564206262718">I-configure ang mga setting ng pamamahala ng power kapag naging idle ang user.
-
-          Maraming kinokontrol ang patakarang ito na mga setting ng diskarte sa pamamahala ng power kapag naging idle ang user.
-
-          May apat na uri ng pagkilos:
-          * Idi-dim ang screen kapag nanatiling idle ang user sa loob ng oras na tinukoy sa |ScreenDim|.
-          * I-o-off ang screen kapag nanatiling idle ang user sa loob ng oras na tinukoy sa |ScreenOff|.
-          * Ipapakita ang isang babalang dialog kapag nanatiling idle ang user sa loob ng oras na tinukoy sa |IdleWarning|, na nagsasabi sa user na magsasagawa na ng pagkilos bilang tugon sa pagiging idle.
-          * Isasagawa ang pagkilos na tinukoy sa |IdleAction| kung mananatiling idle ang user sa loob ng oras na tinukoy sa |Idle|.
-
-          Para sa bawat isa sa mga pagkilos sa itaas, dapat nakatukoy sa milliseconds ang itinakdang oras, at kailangang itong itakda sa value na mas malaki sa zero upang mapagana ang katumbas na pagkilos. Kung sakaling nakatakda sa zero ang itinakdang oras, hindi gagawin ng <ph name="PRODUCT_OS_NAME" /> ang katumbas na pagkilos.
-
-          Kapag hindi nakatakda ang haba ng oras para sa bawat isa sa mga itinakdang oras sa itaas, gagamitin ang isang default na value.
-
-          Tandaan na ang mga value ng |ScreenDim| ay itatakda upang maging mas mababa o kapantay nito ang |ScreenOff|, itatakda ang |ScreenOff| at |IdleWarning| upang maging mas mababa o kapantay ng mga ito ang |Idle|.
-
-          Ang |IdleAction| ay maaaring katumbas ng isa sa apat na posibleng pagkilos:
-          * |Suspend|
-          * |Logout|
-          * |Shutdown|
-          * |DoNothing|
-
-          Kapag hindi itinakda ang |IdleAction|, isasagawa ang default na pagkilos, ang pag-suspend.
-
-          May nakabukod ring mga setting para sa AC power at baterya.
-          </translation>
 <translation id="5560039246134246593">Magdagdag ng parameter sa pagkuha ng seed ng Mga Variation sa <ph name="PRODUCT_NAME" />.
 
       Kung tinukoy ito, magdaragdag ito ng parameter ng query na tinatawag na 'paghigpitan' sa URL na ginagamit upang kunin ang seed ng Mga Variation. Ang halaga ng parameter ay ang halagang tutukuyin sa patakarang ito.
@@ -1233,6 +1228,22 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
       Kung itatakda mo ang patakarang ito, hindi ito mababago o ma-o-override ng mga user.
 
       Kung hinayaan na hindi nakatakda ang patakaran, mapipili ng mga user kung dapat na awtomatikong itago ang shelf.</translation>
+<translation id="5573397331902180200">Itinatakda ang isa o higit pang inirerekumendang lokal para sa mga pampublikong session, na nagbibigay-daan sa mga user na madaling pumili ng isa sa mga lokal na ito.
+
+      Maaaring pumili ang user ng lokal at layout ng keyboard bago magsimula ng pampublikong session. Bilang default, nakalista nang nakaayos ayon sa alpabeto ang lahat ng lokal na sinusuportahan ng <ph name="PRODUCT_OS_NAME" />. Maaari mong gamitin ang patakarang ito upang maglipat ng isang hanay ng mga inirerekumendang lokal sa itaas ng listahan.
+
+      Kung hindi nakatakda ang patakarang ito, paunang pipiliin ang kasalukuyang lokal ng UI.
+
+      Kung nakatakda ang patakarang ito, ililipat ang mga inirerekumendang lokal sa itaas ng listahan at makikitang hiwalay mula sa iba pang mga lokal. Ililista ang mga inirerekumendang lokal sa pagkakasunud-sunod kung paano lumalabas ang mga ito sa patakaran. Paunang pipiliin ang unang inirerekumendang lokal.
+
+      Kung mayroong mahigit sa isang inirerekumendang lokal, ipinagpalagay na gugustuhin ng mga user na pumili sa mga lokal na ito. Prominenteng iaalok ang pagpili ng lokal at layout ng keyboard kapag magsisimula ng pampublikong session. Kung hindi, ipinagpalagay na gugustuhin ng karamihan ng mga user na gamitin ang paunang piniling lokal. Hindi gaanong prominenteng iaalok ang lokal at layout ng keyboard kapag nag-aalok ng pampublikong session.
+
+      Kapag nakatakda ang patakarang ito at naka-enable ang awtomatikong pag-login (tingnan ang mga patakarang |DeviceLocalAccountAutoLoginId| at |DeviceLocalAccountAutoLoginDelay|), gagamitin ng awtomatikong sinimulang pampublikong session ang unang inirerekumendang lokal at ang pinakasikat na layout ng keyboard na tumutugma sa lokal na ito.
+
+      Ang paunang piniling layout ng keyboard ang palaging magiging pinakasikat na layout na tumutugma sa paunang piniling lokal.
+
+      Maaari lang itakda ang patakaran na ito bilang inirerekumenda. Maaari mong gamitin ang patakarang ito upang maglipat ng hanay ng mga inirerekumendang locale sa itaas ngunit pinapayagan ang mga user na pumili kailanman ng anumang lokal na sinusuportahan ng <ph name="PRODUCT_OS_NAME" /> para sa kanilang session.
+      </translation>
 <translation id="557658534286111200">Pinapagana o hindi pinapagana ang pag-edit ng bookmark</translation>
 <translation id="5586942249556966598">Walang gawin</translation>
 <translation id="5630352020869108293">Ipanumbalik ang huling session</translation>
@@ -1373,6 +1384,17 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="6145799962557135888">Binibigyang-daan kang magtakda ng isang listahan ng mga pattern ng url na tumutukoy ng mga site na pinapayagang magpatakbo ng JavaScript.
 
           Kung hinayaang hindi nakatakda ang patakarang ito gagamitin ang global na default na halaga para sa lahat ng site mula sa patakarang 'DefaultJavaScriptSetting' kung nakatakda ito, o kung hindi man ay sa personal na configuration ng user.</translation>
+<translation id="6151775819333710697">
+          Kung naka-enable ang setting na ito, mabibigyang-daan ng mga user ang <ph name="PRODUCT_NAME" /> na tandaan ang mga password
+          at awtomatikong ibigay ang mga ito sa susunod na mag-log in sila sa isang site.
+
+          Kung naka-disable ang setting na ito, hindi makakapag-save ng mga bagong password ang mga user ngunit
+          maaari pa rin nilang gamitin ang mga password na dati nang na-save.
+
+          Kung naka-enable o naka-disable ang patakarang ito, hindi ito maaaring baguhin o i-override ng mga user
+          sa <ph name="PRODUCT_NAME" />. Kung
+          hindi nakatakda ang patakarang ito, pinapayagan ang pagse-save ng password (ngunit maaaring i-off
+          ng user).</translation>
 <translation id="6155936611791017817">Itakda ang default na katayuan ng malaking cursor sa screen ng pag-login</translation>
 <translation id="6157537876488211233">Listahang pinaghihiwalay ng kuwit ng mga panuntunan sa pag-bypass ng proxy</translation>
 <translation id="6158324314836466367">Pangalan ng web store na enterprise (hindi na ginagamit)</translation>
@@ -1436,17 +1458,6 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
           Opsyonal ang patakarang ito. Kung hindi nakatakda, ipapadala ang kahilingan sa paghahanap gamit ang GET na paraan.
 
           Iginagalang lang ang patakarang ito kung naka-enable ang patakarang 'DefaultSearchProviderEnabled.'</translation>
-<translation id="6365608006609079612">
-          Kung naka-enable ang setting na ito, mabibigyang-daan ng mga user ang <ph name="PRODUCT_NAME" /> na tandaan ang mga password
-          at awtomatikong ibigay ang mga ito sa susunod na mag-log in sila sa isang site.
-
-          Kung naka-disable ang setting na ito, hindi makakapag-save ng mga bagong password ang mga user ngunit
-          maaari pa rin nilang gamitin ang mga password na dati nang na-save.
-
-          Kung naka-enable o naka-disable ang patakarang ito, hindi ito maaaring baguhin o i-override ng mga user
-          sa <ph name="PRODUCT_NAME" />. Kung
-          hindi nakatakda ang patakarang ito, pinapayagan ang pagse-save ng password (ngunit maaaring i-off
-          ng user).</translation>
 <translation id="6367755442345892511">Kung maaaring i-configure ng user ang release channel</translation>
 <translation id="6368011194414932347">I-configure ang URL ng home page</translation>
 <translation id="6368403635025849609">Payagan ang JavaScript sa mga site na ito</translation>
@@ -1522,14 +1533,32 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
           Kung iniwang hindi nakatakda ang patakarang ito, naka-disable ang on-screen na keyboard kapag unang ipinakita ang screen sa pag-log in. Maaaring i-enable o i-disable ng mga user ang on-screen na keyboard anumang oras at magpapatuloy ang status nito sa screen sa pag-log in sa pagitan ng mga user.</translation>
 <translation id="6598235178374410284">Larawan ng avatar ng user</translation>
-<translation id="6633160536638196468">Tumukoy ng listahan ng mga hindi na ginagamit na feature ng web platform upang pansamantalang ma-enable muli.
+<translation id="6636268606788232221">I-configure ang mga setting ng pamamahala ng power kapag naging idle ang user.
 
-      Binibigyang-kakayahan ng patakaran na ito ang mga administrator na ma-enable muli ang mga hindi na ginagamit na feature ng web platform para sa limitadong panahon. Tinutukoy ang mga feature ng isang string tag at mae-enable muli ang mga feature na tumutugma sa mga tag na kasama sa listahang tinukoy ng patakaran na ito.
+          Maraming kinokontrol ang patakarang ito na mga setting ng diskarte sa pamamahala ng power kapag naging idle ang user.
 
-      Kung maiiwang hindi nakatakda ang patakaran na ito, o walang laman ang listahan o hindi tumutugma sa isa sa mga sinusuportahang string tag, mananatiling hindi na ginagamit ang lahat ng feature ng web platform.
+          May apat na uri ng pagkilos:
+          * Idi-dim ang screen kapag nanatiling idle ang user sa loob ng oras na tinukoy sa |ScreenDim|.
+          * I-o-off ang screen kapag nanatiling idle ang user sa loob ng oras na tinukoy sa |ScreenOff|.
+          * Ipapakita ang isang babalang dialog kapag nanatiling idle ang user sa loob ng oras na tinukoy sa |IdleWarning|, na nagsasabi sa user na magsasagawa na ng pagkilos bilang tugon sa pagiging idle.
+          * Isasagawa ang pagkilos na tinukoy sa |IdleAction| kung mananatiling idle ang user sa loob ng oras na tinukoy sa |Idle|.
 
-      Kahit ang mismong patakaran ay sinusuportahan sa mga platform sa itaas, maaaring available sa mas kaunting platform ang ine-enable nitong feature. Hindi lahat ng mga hindi na ginagamit na feature ng Web Platform ay maaaring i-enable muli. Sa mga feature lang na nakikitang nakalista sa ibaba ang maaaring maging sa limitadong yugto ng panahon, na magkakaiba para sa bawat feature. Ang pangkalahatang format ng string tag ay magiging [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Bilang sanggunian, makikita mo ang layunin sa likod ng mga pagbabago ng feature ng Web Platform sa https://bit.ly/blinkintents.
-      </translation>
+          Para sa bawat isa sa mga pagkilos sa itaas, dapat nakatukoy sa milliseconds ang itinakdang oras, at kailangang itong itakda sa value na mas malaki sa zero upang mapagana ang katumbas na pagkilos. Kung sakaling nakatakda sa zero ang itinakdang oras, hindi gagawin ng <ph name="PRODUCT_OS_NAME" /> ang katumbas na pagkilos.
+
+          Kapag hindi nakatakda ang haba ng oras para sa bawat isa sa mga itinakdang oras sa itaas, gagamitin ang isang default na value.
+
+          Tandaan na ang mga value ng |ScreenDim| ay itatakda upang maging mas mababa o kapantay nito ang |ScreenOff|, itatakda ang |ScreenOff| at |IdleWarning| upang maging mas mababa o kapantay ng mga ito ang |Idle|.
+
+          Ang |IdleAction| ay maaaring katumbas ng isa sa apat na posibleng pagkilos:
+          * |Suspend|
+          * |Logout|
+          * |Shutdown|
+          * |DoNothing|
+
+          Kapag hindi itinakda ang |IdleAction|, isasagawa ang default na pagkilos, ang pag-suspend.
+
+          May nakabukod ring mga setting para sa AC power at baterya.
+          </translation>
 <translation id="6641981670621198190">Huwag paganahin ang suporta para sa mga API ng mga 3D na graphic</translation>
 <translation id="6647965994887675196">Kung nakatakda sa true, maaaring gumawa at gumamit ng mga pinapangasiwaang user.
 
@@ -1845,6 +1874,9 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="7763311235717725977">Binibigyang-daan kang itakda kung pinapayagan o hindi ang mga website na magpakita ng mga larawan. Maaaring payagan para sa lahat ng website o tanggihan para sa lahat ng website ang pagpapakita ng mga larawan.
 
           Kung hinayaang hindi nakatakda ang patakarang ito, gagamitin ang 'AllowImages' at magagawa ng user na baguhin ito.</translation>
+<translation id="7763479091692861127"> Ang mga uri ng koneksyon na pinapayagang gamitin para sa mga pag-update sa OS. Potensyal na nakakapagpabagal ng koneksyon ang mga pag-update sa OS dahil sa laki ng mga ito at maaari itong makaipon ng karagdagang gastusin. Samakatuwid, hindi naka-enable ang mga ito bilang default para sa mga uri ng koneksyon na itinuturing na mahal, na kinabibilangan ng WiMax, Bluetooth at Cellular sa ngayon.
+
+      Ang mga kilalang identifier ng uri ng koneksyon ay "ethernet," "wifi," "wimax," "bluetooth" at "cellular."</translation>
 <translation id="7766336524667238790">Nag-uulat ng impormasyon tungkol sa aktibong session sa kiosk, gaya ng
       application ID at bersyon.
 
@@ -1898,38 +1930,6 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
           Kung pinagana ang setting na ito, matutuklasan at makakakonekta ang machine na ito sa mga malayuang host machine kahit na pinaghihiwalay ng firewall ang mga ito.
 
           Kung hindi pinagana ang setting na ito at ang mga papalabas na UDP na koneksyon ay pini-filter ng firewall, makakakonekta lamang ang machine na ito sa mga host machine sa loob ng lokal na network.</translation>
-<translation id="8002229853067655250">Kino-configure ang mga setting ng pamamahala ng extension para sa <ph name="PRODUCT_NAME" />.
-
-          Maraming setting ang kinokontrol ng patakarang ito, kabilang ang mga setting na kinokontrol ng anumang dati nang patakarang nauugnay sa extension. Io-override ng patakarang ito ang anumang mga dati nang patakaran kung parehong nakatakda.
-
-          Minamapa ng patakarang ito ang isang extension ID o isang update URL sa configuration nito. Sa isang extension ID, ilalapat ang configuration sa tinukoy na extension lang. Maaaring matakda ng default na configuration para sa espesyal na ID na "*", na malalapat sa lahat ng extension na walang nakatakdang custom na configuration sa patakarang ito. Sa isang update URL, ilalapat ang configuration sa lahat ng extension nang nakasaad ang eksaktong update URL sa manifest ng extension na ito, tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC1" />.
-
-          Ang configuration para sa bawat extension (o mga extension na may parehong update URL) ay isa pang diksyunaryo na maaaring maglaman ng mga field na nakadokumento sa ibaba.
-
-          "installation_mode": minamapa sa isang string na nagsasaad ng installation mode para sa extension. Ang mga wastong string ay:
-          * "allowed": pinapayagan ang extension na ma-install ng user. Ito ang default na gawi.
-          * "blocked": bina-block ang pag-install ng extension.
-          * "force_installed": awtomatikong ini-install ang extension at hindi maaalis ng user.
-          * "normal_installed": awtomatikong ini-install ang extension ngunit maaaring ma-disable ng user.
-
-          Maaari ring ma-configure ang "installation_mode" para rin sa maraming extension, kabilang ang extension na "*" (bilang mga default na setting) at mga extension na may parehong URL. Tanging ang mga value na "allowed" at "blocked" ang magagamit sa kasong ito.
-
-          Kung nakatakda ang mode sa "force_installed" o "normal_installed," dapat na ma-configure din ang isang "update_url." Tandaan na ang update URL na nakatakda sa patakarang ito ay ginagamit lang para sa paunang pag-install; gagamitin ng mga kasunod na update ng extension ang update URL na nakasaad sa manifest ng extension. Dapat na tumuro ang update URL sa isang dokumento ng Update Manifest XML tulad ng nabanggit sa itaas.
-
-          "blocked_permissions": minamapa sa isang listahan ng mga string na nagsasaad sa mga na-block na pahintulot sa API para sa extension. Ang mga pangalan ng mga pahintulot ay pareho sa mga string ng pahintulot na nakasaad sa manifest ng extension tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC3" />. Maaari ring ma-configure ang setting na ito para sa extension na "*". Kung kailangan ng extension ng pahintulot na nasa blocklist, hindi ito papayagang mag-load. Kung naglalaman ito ng naka-block na pahintulot bilang opsyonal na kinakailangan, pangangasiwaan ito sa normal na paraan, ngunit ang paghiling ng mga nagsasalungat na pahintulot ay awtomatikong tatangihan sa runtime.
-
-          "allowed_permissions": kapareho ng "blocked_permissions", ngunit sa halip, tahasang pinapayagan ang ilang pahintulot na maaaring ma-block ng global na listahan ng naka-block ang pahintulot, kung saan hindi mako-configure para sa extension na "*". Tandaan na hindi awtomatikong nagbibigay ang setting na ito ng mga pahintulot sa mga extension.
-
-          "minimum_version_required": minamapa sa isang string ng bersyon. Ang format ng string ng bersyon ay pareho sa ginamit sa manifest ng extension, tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC4" />. Idi-disable ang isang extension na may mas lumang bersyon kaysa sa tinukoy na minimum na bersyon. Nalalapat din ito sa mga puwersahang in-install na extension.
-
-          Magagamit lang ang mga sumusunod na setting para sa default na configuration na "*":
-
-          "install_sources": Ang bawat item sa listahang ito ay match pattern sa estilo ng extension (tingnan ang https://developer.chrome.com/extensions/match_patterns). Madaling makakapag-install ang mga user ng mga item mula sa anumang URL na tumutugma sa isang item sa listahan. Dapat na payagan ng mga pattern na ito ang parehong lokasyon ng *.crx file at ang page kung saan sinimulan ang download (ibig sabihin, ang nag-refer).
-
-          "allowed_types": Wina-whitelist ng setting na ito ang mga pinayagang uri ng mga extension/app na maaaring ma-install sa <ph name="PRODUCT_NAME" />.  Ang value ay isang listahan ng mga string, kung saan ang bawat isa dito ay dapat na isa sa sumusunod: "extension," "theme," "user_script," "hosted_app," "legacy_packaged_app," "platform_app." Tingnan ang dokumento ng mga extension na <ph name="PRODUCT_NAME" /> para sa higit pang impormasyon sa mga uring ito.
-
-          Hindi pa handang magamit ang patakarang ito, mangyaring huwag muna itong gamitin.
-          </translation>
 <translation id="8044493735196713914">Iulat ang boot mode ng device</translation>
 <translation id="8059164285174960932">URL kung saan dapat makuha ng mga client ng malayuang pag-access ang kanilang token sa pagpapatotoo</translation>
 <translation id="8071636581296916773">Ini-enable ang paggamit ng mga relay server kapag sinusubukan ng mga malayuang kliyente na magtatag ng koneksyon sa makinang ito.

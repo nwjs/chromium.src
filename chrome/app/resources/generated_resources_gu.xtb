@@ -9,7 +9,7 @@
 <translation id="1008557486741366299">હમણાં નહીં</translation>
 <translation id="1010366937854368312">વધારાની ઍક્સેસિબિલિટી સુવિધાઓ ઉમેરો</translation>
 <translation id="1010833424573920260">{NUM_PAGES,plural, =1{પૃષ્ઠ પ્રતિભાવવિહીન}one{પૃષ્ઠો પ્રતિભાવવિહીન}other{પૃષ્ઠો પ્રતિભાવવિહીન}}</translation>
-<translation id="1012794136286421601">તમારી દસ્તાવેજ, શીટ્સ, સ્લાઇડ્સ, અને રેખાંકન ફાઇલો સમન્વયિત થઈ રહી છે. ઓનલાઇન કે ઓફલાઇન તેમને વાપરવા માટે Google ડ્રાઇવ એપ્લિકેશન ખોલો.</translation>
+<translation id="1012794136286421601">તમારી દસ્તાવેજ, શીટ્સ, સ્લાઇડ્સ, અને રેખાંકન ફાઇલો સમન્વયિત થઈ રહી છે. ઓનલાઇન કે ઑફલાઇન તેમને વાપરવા માટે Google ડ્રાઇવ એપ્લિકેશન ખોલો.</translation>
 <translation id="1012876632442809908">USB-C ઉપકરણ (આગળનું પોર્ટ)</translation>
 <translation id="1013707859758800957">એક અનસેન્ડબૉક્સ્ડ પ્લગિનને આ પૃષ્ઠ પર ચાલવાની મંજૂરી આપવામાં આવી હતી.</translation>
 <translation id="1014321050861012327">પાસવર્ડ્સને આપમેળે સાચવો.</translation>
@@ -310,7 +310,7 @@
 <translation id="144518587530125858">થીમ માટે '<ph name="IMAGE_PATH" />' લોડ કરી શકાયું નથી.</translation>
 <translation id="1451375123200651445">વેબપૃષ્ઠ, એકલ ફાઇલ</translation>
 <translation id="1451917004835509682">નિરીક્ષિત વ્યક્તિ ઉમેરો</translation>
-<translation id="1454188386658974462">તમારા પાસવર્ડને ફરીથી દાખલ કરવું જ્યારે તમે ઓફલાઇન હોવ ત્યારે તમને સાઇન ઇન કરવાની મંજૂરી આપશે.</translation>
+<translation id="1454188386658974462">તમારા પાસવર્ડને ફરીથી દાખલ કરવું જ્યારે તમે ઑફલાઇન હોવ ત્યારે તમને સાઇન ઇન કરવાની મંજૂરી આપશે.</translation>
 <translation id="1454223536435069390">સ્ક્રીનશોટ &amp;લો</translation>
 <translation id="1455457703254877123">આ ઉપકરણ હવે માલિક (તમે) દ્વારા રીમોટલી સંચાલિત કરી શકાશે નહીં.</translation>
 <translation id="1455548678241328678">નોર્વેજીયન કીબોર્ડ</translation>
@@ -499,7 +499,7 @@
 <translation id="1681120471812444678">પ્રિન્ટર્સ ઉમેરવા માટે સેટ કરો…</translation>
 <translation id="1682324559341535203"><ph name="DEVICE_TYPE" /> ની નોંધણી કરો</translation>
 <translation id="1682548588986054654">નવી છુપી વિંડો</translation>
-<translation id="168282077338734107">'ઑકે Google' સુવિધાઓ માટેના સિમ્યૂલેટ કરેલ હાર્ડવેર સક્ષમ કરો.</translation>
+<translation id="168282077338734107">'Ok Google' સુવિધાઓ માટેના સિમ્યૂલેટ કરેલ હાર્ડવેર સક્ષમ કરો.</translation>
 <translation id="168328519870909584"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> પરનાં હુમલાખોરો તમારા ઉપકરણ પર તમારી માહિતી (ઉદાહરણ તરીકે, ફોટા, પાસવર્ડ્સ, સંદેશા અને ક્રેડિટ કાર્ડ્સ) ચોરી અથવા કાઢી નાખી શકે તેવી જોખમકારક એપ્લિકેશનો ઇન્સ્ટોલ કરવાનો પ્રયત્ન કરી શકે.</translation>
 <translation id="1685141618403317602">નોંધણીને રદ કરો</translation>
 <translation id="1685944703056982650">માઉસ કર્સર અપવાદો</translation>
@@ -650,7 +650,7 @@
 <translation id="192144045824434199">બ્રાઉઝર ફ્રેમની બહાર ખુલતી પેનલ વિંડોઝને સક્ષમ કરો. જો સક્ષમ નહીં હોય, તો કોઈ પેનલને ખોલવાના પ્રયાસો એક પૉપઅપ ખોલશે. પેનલ્સ હંમેશા dev અને કૅનેરી ચૅનલ્સ પર સક્ષમ હોય છે.</translation>
 <translation id="1921584744613111023"><ph name="DPI" /> dpi</translation>
 <translation id="1923786009776354244">WebRTC સ્ટન મૂળ હેડર માટે સમર્થન સક્ષમ કરો.</translation>
-<translation id="1926741348654461781">ઓફલાઇન પૃષ્ઠો સક્ષમ કરો</translation>
+<translation id="1926741348654461781">ઑફલાઇન પૃષ્ઠો સક્ષમ કરો</translation>
 <translation id="1929546189971853037">તમારા બધા સાઇન-ઇન કરેલ ઉપકરણો પર તમારા બ્રાઉઝિંગ ઇતિહાસને વાંચો</translation>
 <translation id="1931152874660185993">કોઈ ઘટકો ઇન્સ્ટોલ કર્યા નથી.</translation>
 <translation id="1932098463447129402">આની પહેલા નહીં</translation>
@@ -659,7 +659,7 @@
 <translation id="1934636348456381428">પ્રાયોગિક ઓવરલે સ્ક્રોલબાર્સ અમલીકરણને સક્ષમ કરો. સ્ક્રોલબાર્સ એનિમેટ થયેલી મેળવવા માટે તમારે થ્રેડેડ સંમિશ્રણ પણ સક્ષમ કરવું આવશ્યક છે.</translation>
 <translation id="1936157145127842922">ફોલ્ડરમાં બતાવો</translation>
 <translation id="1936717151811561466">ફિનિશ</translation>
-<translation id="1937256809970138538">જ્યારે તમારી સ્ક્રીન ચાલુ અને અનલૉક થાય ત્યારે કહો "ઑકે Google"</translation>
+<translation id="1937256809970138538">જ્યારે તમારી સ્ક્રીન ચાલુ અને અનલૉક થાય ત્યારે કહો "Ok Google"</translation>
 <translation id="1944921356641260203">અપડેટ મળ્યું</translation>
 <translation id="1947424002851288782">જર્મન કીબોર્ડ</translation>
 <translation id="1949433054743893124">છુપામાં જવું તમારા નિયોક્તા, તમારા ઇન્ટરનેટ સેવા પ્રદાતા અથવા તમે મુલાકાત લો છો તે વેબસાઇટથી તમારા બ્રાઉઝિંગને છુપાવતું નથી.</translation>
@@ -1361,7 +1361,7 @@
 <translation id="2890624088306605051">ફક્ત સમન્વયિત સેટિંગ્સ અને ડેટા પ્રાપ્ત કરો</translation>
 <translation id="2893168226686371498">ડિફૉલ્ટ બ્રાઉઝર</translation>
 <translation id="289426338439836048">અન્ય મોબાઇલ નેટવર્ક...</translation>
-<translation id="2894745200702272315">'ઑકે Google' પ્રચલિત શબ્દ શોધ સુવિધાનું પ્રાયોગિક સંસ્કરણ સક્ષમ કરે છે જેની પાસે હાર્ડવેર નિર્ભરતા છે.</translation>
+<translation id="2894745200702272315">'Ok Google' પ્રચલિત શબ્દ શોધ સુવિધાનું પ્રાયોગિક સંસ્કરણ સક્ષમ કરે છે જેની પાસે હાર્ડવેર નિર્ભરતા છે.</translation>
 <translation id="2896499918916051536">આ પ્લગિન સમર્થિત નથી.</translation>
 <translation id="289695669188700754">કી ID: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">શું તમે ખરેખર <ph name="TAB_COUNT" /> ટૅબ્સ ખોલવા માંગો છો?</translation>
@@ -1413,7 +1413,7 @@
 <translation id="2963783323012015985">ટર્કિશ કીબોર્ડ</translation>
 <translation id="2964193600955408481">Wi-Fi ને અક્ષમ કરો</translation>
 <translation id="2966459079597787514">સ્વીડિશ કીબોર્ડ</translation>
-<translation id="2966598748518102999">"ઑકે Google" અને થોડીવાર પહેલાંનો અવાજ Google ને મોકલીને વૉઇસ શોધને સુધારો.</translation>
+<translation id="2966598748518102999">"Ok Google" અને થોડીવાર પહેલાંનો અવાજ Google ને મોકલીને વૉઇસ શોધને સુધારો.</translation>
 <translation id="2967544384642772068">નષ્ટ કરો</translation>
 <translation id="2968792643335932010">ઓછી કૉપિઝ</translation>
 <translation id="2971213274238188218">તેજસ્વીતા ઘટાડો</translation>
@@ -1504,7 +1504,7 @@
 <translation id="3090819949319990166">બાહ્ય crx ફાઇલને <ph name="TEMP_CRX_FILE" /> પર કૉપિ કરી શકતાં નથી.</translation>
 <translation id="3090871774332213558">"<ph name="DEVICE_NAME" />"થી જોડી બનાવી</translation>
 <translation id="3092544800441494315">આ સ્ક્રીનશોટ શામેલ કરો:</translation>
-<translation id="3093245981617870298">તમે ઓફલાઇન છો</translation>
+<translation id="3093245981617870298">તમે ઑફલાઇન છો</translation>
 <translation id="3095995014811312755">સંસ્કરણ</translation>
 <translation id="3097628171361913691">ઝિપ ફાઇલ ઇન્સ્ટોલર</translation>
 <translation id="3100609564180505575">મોડ્યુલ્સ(<ph name="TOTAL_COUNT" />) - જાણીતા વિરોધાભાસો: <ph name="BAD_COUNT" />, શંકાસ્પદ: <ph name="SUSPICIOUS_COUNT" /></translation>
@@ -1554,7 +1554,7 @@
 <translation id="3162559335345991374">તમે ઉપયોગ કરી રહ્યાં છો તે Wi-Fi ને તેના લોગિન પૃષ્ઠની મુલાકાત લેવાની જરૂર હોઈ શકે છે.</translation>
 <translation id="316307797510303346"><ph name="CUSTODIAN_EMAIL" /> માંથી આ વ્યક્તિ મુલાકાત લે છે તે વેબસાઇટ્સ જુઓ અને નિયંત્રિત કરો.
   તમારી એકાઉન્ટ સાઇન-ઇન વિગતો જૂની થઈ ગઈ છે.</translation>
-<translation id="3166571619128686629">વૉઇસ શોધ પ્રારંભ કરવા માટે ક્લિક કરો અથવા "ઑકે Google" કહો</translation>
+<translation id="3166571619128686629">વૉઇસ શોધ પ્રારંભ કરવા માટે ક્લિક કરો અથવા "Ok Google" કહો</translation>
 <translation id="3170072451822350649">તમે સાઇન ઇન કરવાનું છોડી અને <ph name="LINK_START" />અતિથિ તરીકે બ્રાઉઝ<ph name="LINK_END" /> પણ કરી શકો છો.</translation>
 <translation id="3170544058711792988">મેગ્નિફાયરના ફોકસને સ્ક્રીન પર કેન્દ્રિત રાખો</translation>
 <translation id="3172213052701798825">પાસવર્ડ્સ માટે Google Smart Lock</translation>
@@ -1573,7 +1573,7 @@
 <translation id="3192478164181859944">સ્લિમિંગ પેઇન્ટ તબક્કો 2 સક્ષમ કરો.</translation>
 <translation id="3192947282887913208">ઑડિઓ ફાઇલો </translation>
 <translation id="3193734264051635522">ગતિ:</translation>
-<translation id="3195029830833421520">ઓફલાઇન ઉપયોગ માટે પૃષ્ઠોને સ્થાનિકપણે સંગ્રહિત કરવાને સક્ષમ કરો. સક્ષમ થવા માટે વિસ્તૃત બુકમાર્ક્સ જરૂરી છે.</translation>
+<translation id="3195029830833421520">ઑફલાઇન ઉપયોગ માટે પૃષ્ઠોને સ્થાનિકપણે સંગ્રહિત કરવાને સક્ષમ કરો. સક્ષમ થવા માટે વિસ્તૃત બુકમાર્ક્સ જરૂરી છે.</translation>
 <translation id="3195445837372719522">મીટિંગ સાથે Chromebox ને તે કયા ડોમેનથી સંબંધિત છે તે જાણવાની જરૂર છે. આ માટે તમારે તમારા એકાઉન્ટમાં સાઇન ઇન કરવાની જરૂર હશે.</translation>
 <translation id="3197563288998582412">યુકે ડ્વોરેક</translation>
 <translation id="3199127022143353223">સર્વર્સ</translation>
@@ -1608,7 +1608,7 @@
 <translation id="3241720467332021590">આઇરિશ</translation>
 <translation id="3242118113727675434">ટચ પોઇન્ટ્સ માટે HUD બતાવો</translation>
 <translation id="3242765319725186192">પૂર્વ-શેર કરેલી કી:</translation>
-<translation id="3244621381664913240">વૉઇસ શોધ પ્રારંભ કરવા માટે "ઑકે Google" સક્ષમ કરો.</translation>
+<translation id="3244621381664913240">વૉઇસ શોધ પ્રારંભ કરવા માટે "Ok Google" સક્ષમ કરો.</translation>
 <translation id="3245321423178950146">અજ્ઞાત કલાકાર</translation>
 <translation id="324533084080637716">લેખ સંરચના માર્કઅપ સાથે</translation>
 <translation id="324743268744517458">ચેતવણી: તમે ઉત્પાદન Google Payments સર્વર્સથી કનેક્ટ થયેલ નથી. રજૂ કરેલા કાર્ડ્સ અમાન્ય હશે.</translation>
@@ -1616,7 +1616,7 @@
 <translation id="3252266817569339921">ફ્રેન્ચ</translation>
 <translation id="3254409185687681395">આ પૃષ્ઠને બુકમાર્ક કરો</translation>
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ફાઇલો માટે ડિફૉલ્ટ એપ્લિકેશન પસંદ કરો:</translation>
-<translation id="3255228561559750854">શોધો અથવા "ઑકે Google" કહો</translation>
+<translation id="3255228561559750854">શોધો અથવા "Ok Google" કહો</translation>
 <translation id="3258281577757096226">3 સેટ (ફાયનલ)</translation>
 <translation id="3258924582848461629">જાપાનીઓ માટેની હસ્તાક્ષર ઇનપુટ પદ્ધતિ</translation>
 <translation id="3264544094376351444">Sans-Serif ફૉન્ટ</translation>
@@ -1805,7 +1805,7 @@
 <translation id="3511399794969432965">કનેક્ટ કરવામાં મુશ્કેલી?</translation>
 <translation id="351152300840026870">નિશ્ચિત-પહોળાઇ ફૉન્ટ</translation>
 <translation id="3511528412952710609">ટૂંકુ</translation>
-<translation id="3512284449647229026">બ્રાઉઝર ઓફલાઇન હોય તે વખતે લોડ થવામાં નિષ્ફળ થયેલાં પૃષ્ઠો જ્યારે બ્રાઉઝર ફરીથી ઓનલાઇન થશે ત્યારે સ્વતઃ ફરીથી લોડ કરવામાં આવશે.</translation>
+<translation id="3512284449647229026">બ્રાઉઝર ઑફલાઇન હોય તે વખતે લોડ થવામાં નિષ્ફળ થયેલાં પૃષ્ઠો જ્યારે બ્રાઉઝર ફરીથી ઓનલાઇન થશે ત્યારે સ્વતઃ ફરીથી લોડ કરવામાં આવશે.</translation>
 <translation id="3512307528596687562"><ph name="URL" /> પરનું વેબપૃષ્ઠ,
           ઘણાં બધા રીડાયરેક્ટ્સમાં પરિણમ્યું છે. આ સાઇટ માટેની તમારી કૂકીઝને સાફ કરવાથી અથવા તૃતીય-પક્ષ કૂકીઝને મંજૂરી આપવાથી સમસ્યા ઠીક થઈ શકે છે. જો આમ ન થાય, તો
           તે સંભવતઃ સર્વર ગોઠવણી સમસ્યા છે અને તમારા ઉપકરણ સાથેની કોઈ સમસ્યા નથી.</translation>
@@ -2035,7 +2035,7 @@
 <translation id="3783640748446814672">alt</translation>
 <translation id="3785308913036335955">એપ્લિકેશનો શોર્ટકટ બતાવો</translation>
 <translation id="3785852283863272759">પૃષ્ઠ સ્થાન ઇમેઇલ કરો</translation>
-<translation id="3786301125658655746">તમે ઓફલાઇન છો</translation>
+<translation id="3786301125658655746">તમે ઑફલાઇન છો</translation>
 <translation id="3788090790273268753">આ સાઇટ માટેનું પ્રમાણપત્ર 2016 માં સમાપ્ત થાય છે અને પ્રમાણપત્ર શ્રૃંખલા SHA-1 નો ઉપયોગ કરીને સહી કરેલ પ્રમાણપત્ર ધરાવે છે.</translation>
 <translation id="3788401245189148511">તે આ કરી શકે છે:</translation>
 <translation id="3789841737615482174">ઇન્સ્ટોલ કરો</translation>
@@ -2058,7 +2058,7 @@
 <translation id="3811328435734979057">નવી બુકમાર્ક એપ્લિકેશન સિસ્ટમને સક્ષમ કરો.</translation>
 <translation id="3812034401428455285"><ph name="UWS_NAME" /> અને <ph name="UWS_NAME" /></translation>
 <translation id="3812525830114410218">ખોટું પ્રમાણપત્ર</translation>
-<translation id="3813984289128269159">ઑકે Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">ઝુયિન ઇનપુટ પદ્ધતિ</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> નવા ફોટા મળ્યા
     <ph name="LINE_BREAK1" />
@@ -2522,7 +2522,7 @@
 <translation id="4532499992208253975">emloading</translation>
 <translation id="4533259260976001693">સંકોચો/વિસ્તૃત કરો</translation>
 <translation id="4534166495582787863">ટચપેડ થ્રી-ફિંગર-ક્લિકને મધ્યમ બટન તરીકે સક્ષમ કરે છે.</translation>
-<translation id="4534799089889278411">નવા ટેબમાં, google.com માં અને એપ્લિકેશન લૉન્ચરમાં "ઑકે Google" કહો</translation>
+<translation id="4534799089889278411">નવા ટેબમાં, google.com માં અને એપ્લિકેશન લૉન્ચરમાં "Ok Google" કહો</translation>
 <translation id="4535127706710932914">ડિફૉલ્ટ પ્રોફાઇલ</translation>
 <translation id="4535734014498033861">પ્રોક્સી સર્વર કનેક્શન નિષ્ફળ.</translation>
 <translation id="4538417792467843292">શબ્દ કાઢી નાખો</translation>
@@ -2582,7 +2582,7 @@
 <translation id="4622797390298627177">એપ્લિકેશન બેનર્સ પ્રદર્શિત કરવા માટે વપરાશકર્તા શામેલગીરી ચેક્સને બાયપાસ કરે છે, જેમ કે વપરાશકર્તાએ પહેલાં સાઇટની મુલાકાત લીધી હોય અને તે કે બેનર તાજેતરમાં દર્શાવ્યું ન હોય તેવી જરૂરિયાત. આ વિકાસકર્તાઓને એપ્લિકેશન બેનર્સ દર્શવવા માટેની અન્ય પાત્રતા આવશ્યકતાઓ પૂર્ણ થઈ છે તેના પરીક્ષણની મંજૂરી આપે છે, જેમ કે મેનિફેસ્ટ ધરાવવું.</translation>
 <translation id="4622830015832263832">માત્ર ધીમા કનેક્શન્સ</translation>
 <translation id="462288279674432182">પ્રતિબંધિત IP:</translation>
-<translation id="4623525071606576283">જ્યારે બ્રાઉઝર ઓફલાઇન હોય ત્યારે લોડ થવામાં નિષ્ફળ થયેલાં પૃષ્ઠો જ્યારે બ્રાઉઝર ફરીથી ઓનલાઇન થશે ત્યારે સ્વતઃ ફરીથી લોડ કરવામાં આવશે.</translation>
+<translation id="4623525071606576283">જ્યારે બ્રાઉઝર ઑફલાઇન હોય ત્યારે લોડ થવામાં નિષ્ફળ થયેલાં પૃષ્ઠો જ્યારે બ્રાઉઝર ફરીથી ઓનલાઇન થશે ત્યારે સ્વતઃ ફરીથી લોડ કરવામાં આવશે.</translation>
 <translation id="4623537843784569564">આ એક્સ્ટેન્શન ખોટી રીતે અપડેટ કરેલ હોઈ શકે છે. ફરીથી ઇન્સ્ટોલ કરવાનો પ્રયાસ કરો.</translation>
 <translation id="4624768044135598934">સફળતા!</translation>
 <translation id="4626106357471783850">અપડેટ્સને લાગુ કરવા માટે <ph name="PRODUCT_NAME" /> ને પુનઃપ્રારંભ કરવાની જરૂર છે.</translation>
@@ -3002,7 +3002,7 @@
 <translation id="5228309736894624122">SSL પ્રોટોકોલ ભૂલ.</translation>
 <translation id="5228962187251412618">માત્ર ઓનલાઇન તપાસ</translation>
 <translation id="5230516054153933099">વિંડો</translation>
-<translation id="5232178406098309195">જ્યારે તમે "ઑકે Google" અથવા માઇક્રોફોન આયકન ટચ કરવા જેવા ઑડિઓ સક્રિયકરણ આદેશોનો ઉપયોગ કરો, ત્યારે તમારી ગોપનીય વૉઇસ અને ઑડિઓ પ્રવૃત્તિ તમારા એકાઉન્ટ માટે કેટલોક અવાજ અને અન્ય ઑડિઓ સંગ્રહે છે. નીચેના અવાજ/ઑડિઓનું એક રેકોર્ડિગ, ઉપરાંત થોડી સેકન્ડ્સ પહેલાની, સંગ્રહવામાં આવશે.</translation>
+<translation id="5232178406098309195">જ્યારે તમે "Ok Google" અથવા માઇક્રોફોન આયકન ટચ કરવા જેવા ઑડિઓ સક્રિયકરણ આદેશોનો ઉપયોગ કરો, ત્યારે તમારી ગોપનીય વૉઇસ અને ઑડિઓ પ્રવૃત્તિ તમારા એકાઉન્ટ માટે કેટલોક અવાજ અને અન્ય ઑડિઓ સંગ્રહે છે. નીચેના અવાજ/ઑડિઓનું એક રેકોર્ડિગ, ઉપરાંત થોડી સેકન્ડ્સ પહેલાની, સંગ્રહવામાં આવશે.</translation>
 <translation id="523299859570409035">સૂચનો અપવાદો</translation>
 <translation id="5233019165164992427">NaCl ડીબગ પોર્ટ</translation>
 <translation id="5233231016133573565">પ્રક્રિયા ID</translation>
@@ -3023,7 +3023,7 @@
 <translation id="524759338601046922">નવો PIN ફરીથી લખો:</translation>
 <translation id="5249624017678798539">ડાઉનલોડ પૂર્ણ થતા પહેલાં બ્રાઉઝર ક્રેશ થયું.</translation>
 <translation id="5252456968953390977">રોમિંગ</translation>
-<translation id="5253753933804516447">જ્યારે તમારી સ્ક્રીન ચાલુ અને અનલૉક હોય ત્યારે વૉઇસ શોધ કરવા માટે "ઑકે Google"ને સક્ષમ કરો</translation>
+<translation id="5253753933804516447">જ્યારે તમારી સ્ક્રીન ચાલુ અને અનલૉક હોય ત્યારે વૉઇસ શોધ કરવા માટે "Ok Google"ને સક્ષમ કરો</translation>
 <translation id="52550593576409946">કિઓસ્ક એપ્લિકેશન લોંચ કરી શકાઈ નથી.</translation>
 <translation id="5255315797444241226">તમે દાખલ કરેલો પાસફ્રેઝ ખોટો છે.</translation>
 <translation id="5258266922137542658">PPAPI (પ્રક્રિયામાં છે)</translation>
@@ -3565,7 +3565,7 @@
 <translation id="6015796118275082299">વર્ષ</translation>
 <translation id="6016551720757758985">અગાઉના સંસ્કરણ પર પાછા ફરવાની સાથે Powerwash ની પુષ્ટિ કરો</translation>
 <translation id="6016640600871825812">Google Payments ને ઓછામાં ઓછા એક પ્રથમ નામ અને છેલ્લા નામની જરૂર છે.</translation>
-<translation id="6016809788585079594">એક છેલ્લી વાર "ઑકે Google" કહો</translation>
+<translation id="6016809788585079594">એક છેલ્લી વાર "Ok Google" કહો</translation>
 <translation id="6017225534417889107">બદલો...</translation>
 <translation id="6017981840202692187">એપ્લિકેશન્સમાં ઉમેરો</translation>
 <translation id="6019169947004469866">ક્રોપ</translation>
@@ -3640,7 +3640,7 @@
           <ph name="PRODUCT_NAME" />
           તેનાથી કનેક્ટ થઈ શકતું નથી.</translation>
 <translation id="6107012941649240045">આને રજૂ કરેલું</translation>
-<translation id="6107079717483424262">તમારો અવાજ ઓળખો જ્યારે તમે કહો છો "ઑકે Google"</translation>
+<translation id="6107079717483424262">તમારો અવાજ ઓળખો જ્યારે તમે કહો છો "Ok Google"</translation>
 <translation id="6110466548232134880"><ph name="LOCALITY" /> ખાતે <ph name="ORGANIZATION" /> ની ઓળખ <ph name="ISSUER" /> દ્વારા ચકાસવામાં આવી હતી. સર્વર દ્વારા કોઈ પ્રમાણપત્ર પારદર્શિતા માહિતી પૂરી પાડવામાં આવી ન હતી.</translation>
 <translation id="6111770213269631447">લિવ્યંતરણ (namaskar → নমস্কার)</translation>
 <translation id="6111974609785983504">ડિફોલ્ટ દ્વારા મંજૂર</translation>
@@ -3665,7 +3665,7 @@
 <translation id="6144890426075165477"><ph name="PRODUCT_NAME" /> હમણાં તમારું ડિફૉલ્ટ બ્રાઉઝર નથી.</translation>
 <translation id="6147020289383635445">પ્રિંટ પૂર્વાવલોકન નિષ્ફળ ગયું.</translation>
 <translation id="614998064310228828">ઉપકરણ મૉડેલ: </translation>
-<translation id="6150853954427645995">આ ફાઇલને ઓફલાઇન ઉપયોગ માટે સાચવવા, પાછા ઓનલાઇન થાવ, ફાઇલને રાઇટ-ક્લિક કરો અને <ph name="OFFLINE_CHECKBOX_NAME" /> વિકલ્પ પસંદ કરો.</translation>
+<translation id="6150853954427645995">આ ફાઇલને ઑફલાઇન ઉપયોગ માટે સાચવવા, પાછા ઓનલાઇન થાવ, ફાઇલને રાઇટ-ક્લિક કરો અને <ph name="OFFLINE_CHECKBOX_NAME" /> વિકલ્પ પસંદ કરો.</translation>
 <translation id="6151323131516309312"><ph name="SITE_NAME" /> ને શોધવા માટે <ph name="SEARCH_KEY" /> દબાવો</translation>
 <translation id="6151559892024914821">ટચથી શરૂ થતુ ખેંચો અને છોડો સક્ષમ કરો</translation>
 <translation id="615216289547575801">ક્ષણિક એપ્લિકેશનો સક્ષમ કરે છે, જે Chrome માં ઇન્સ્ટોલ કર્યાં વગર લોંચ થાય છે, Chrome વેબસ્ટોરમાંથી લોંચ કરવા માટે પ્રાયોગિક એપ્લિકેશન લોંચર સક્ષમ હોય તે જરૂરી છે.</translation>
@@ -3748,7 +3748,7 @@
 <translation id="6281743458679673853">તમામ API, લેઆઉટ વ્યૂપોર્ટને પ્રતિબિંબિત કરે તે માટેનો પ્રયોગ. આ window.scroll પ્રોપર્ટીઝને લેઆઉટ વ્યૂપોર્ટથી સંબંધિત બનાવશે.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{તમારા નેટવર્ક પર નવું પ્રિન્ટર}one{તમારા નેટવર્ક પર નવા પ્રિન્ટર્સ}other{તમારા નેટવર્ક પર નવા પ્રિન્ટર્સ}}</translation>
 <translation id="6285395082104474418">સ્થિતિ ટ્રે તમને તમારા નેટવર્ક, બેટરી અને વધુની વર્તમાન સ્થિતિ બતાવે છે.</translation>
-<translation id="6285905808004014074">ઓફલાઇન સ્વતઃ ફરીથી લોડ કરો મોડ સક્ષમ કરો</translation>
+<translation id="6285905808004014074">ઑફલાઇન સ્વતઃ ફરીથી લોડ કરો મોડ સક્ષમ કરો</translation>
 <translation id="6287852322318138013">આ ફાઇલ ખોલવા માટે એક એપ્લિકેશન પસંદ કરો</translation>
 <translation id="6291953229176937411">ફાઇન્ડર માં &amp;બતાવો</translation>
 <translation id="6292030868006209076">તમિળ ઇનપુટ પદ્ધતિ (itrans)</translation>
@@ -4238,7 +4238,7 @@
         ગોઠવાયેલું નહીં હોય.</translation>
 <translation id="7014174261166285193">ઇન્સ્ટોલેશન નિષ્ફળ થયું.</translation>
 <translation id="7015226785571892184">જો તમે આ વિનંતિનો સ્વીકાર કરશો તો નીચેની એપ્લિકેશન શરૂ થશે:<ph name="APPLICATION" /></translation>
-<translation id="7017004637493394352">ફરીથી "ઑકે Google" કહો</translation>
+<translation id="7017004637493394352">ફરીથી "Ok Google" કહો</translation>
 <translation id="7017219178341817193">નવું પૃષ્ઠ ઉમેરો</translation>
 <translation id="7017354871202642555">વિંડો સેટ થઈ જાય પછી મોડને સેટ કરી શકાતો નથી.</translation>
 <translation id="7017480957358237747">અમુક વેબસાઇટ્સને મંજૂરી આપો અથવા પ્રતિબંધિત કરો,</translation>
@@ -4324,7 +4324,7 @@
 <translation id="7136694880210472378">ડિફૉલ્ટ બનાવો</translation>
 <translation id="7136984461011502314"><ph name="PRODUCT_NAME" /> માં આપનું સ્વાગત છે</translation>
 <translation id="7138678301420049075">અન્ય</translation>
-<translation id="713888829801648570">માફ કરશો, તમારો પાસવર્ડ ચકાસી શકાયો નથી કારણ કે તમે ઓફલાઇન છો.</translation>
+<translation id="713888829801648570">માફ કરશો, તમારો પાસવર્ડ ચકાસી શકાયો નથી કારણ કે તમે ઑફલાઇન છો.</translation>
 <translation id="7140928199327930795">કોઈ અન્ય ઉપલબ્ધ ઉપકરણો નથી.</translation>
 <translation id="7141105143012495934">સાઇન-ઇન નિષ્ફળ થયું કારણ કે તમારી એકાઉન્ટ વિગતો પુનઃપ્રાપ્ત કરી શકાઈ નથી. કૃપા કરીને તમારા વ્યવસ્થાપકનો સંપર્ક કરો અથવા ફરી પ્રયાસ કરો.</translation>
 <translation id="7143207342074048698">કનેક્ટ કરી રહ્યું છે</translation>
@@ -4387,7 +4387,7 @@
 <translation id="7238585580608191973">SHA-256 ફિંગરપ્રિંટ</translation>
 <translation id="7240120331469437312">પ્રમાણપત્ર વિષય વૈકલ્પિક નામ</translation>
 <translation id="7241389281993241388">ક્લાયંટ પ્રમાણપત્ર આયાત કરવા માટે કૃપા કરીને <ph name="TOKEN_NAME" /> પર સાઇન ઇન કરો.</translation>
-<translation id="7243055093079293866">નવા ટૅબ અને google.com માં "ઑકે Google" કહો</translation>
+<translation id="7243055093079293866">નવા ટૅબ અને google.com માં "Ok Google" કહો</translation>
 <translation id="724691107663265825">સાઇટ આગળ મૉલવેર ધરાવે છે</translation>
 <translation id="725109152065019550">માફ કરશો, તમારા વ્યવસ્થાપકે તમારા એકાઉન્ટ પર બાહ્ય સ્ટોરેજને અક્ષમ કર્યું છે.</translation>
 <translation id="7252661675567922360">લોડ કરશો નહીં</translation>
@@ -4465,7 +4465,7 @@
 <translation id="7364796246159120393">ફાઇલ પસંદ કરો</translation>
 <translation id="7364926055040539546">કોઇપણ મૂળનાં WebUSB ને મંજૂરી આપો.</translation>
 <translation id="736515969993332243">નેટવર્ક્સ માટે સ્કેનિંગ.</translation>
-<translation id="7366762109661450129">જ્યારે સ્ક્રીન ચાલુ અને અનલૉક થયેલી હોય ત્યારે "ઑકે Google" કહો.</translation>
+<translation id="7366762109661450129">જ્યારે સ્ક્રીન ચાલુ અને અનલૉક થયેલી હોય ત્યારે "Ok Google" કહો.</translation>
 <translation id="7369521049655330548">આ પૃષ્ઠ પર નીચેના પ્લગિન્સ અવરોધિત હતા:</translation>
 <translation id="7371490661692457119">ડિફોલ્ટ ટાઇલ પહોળાઈ</translation>
 <translation id="7372527722222052179">શૂન્ય-કૉપિ રાસ્ટરાઇઝરને સક્ષમ કરો</translation>
@@ -4590,9 +4590,9 @@
 <translation id="7517786267097410259">એક પાસવર્ડ બનાવો -</translation>
 <translation id="7518003948725431193">વેબ સરનામાં માટે કોઈ વેબપેજ મળ્યું નથી: <ph name="URL" /></translation>
 <translation id="7518150891539970662">WebRTC લૉગ્સ (<ph name="WEBRTC_LOG_COUNT" />)</translation>
-<translation id="7518657099163789435">"ઑકે Google" નો ઉપયોગ કરવા માટે વૉઇસ અને ઑડિઓ સક્રિયતા જરૂરી છે</translation>
+<translation id="7518657099163789435">"Ok Google" નો ઉપયોગ કરવા માટે વૉઇસ અને ઑડિઓ સક્રિયતા જરૂરી છે</translation>
 <translation id="7521387064766892559">JavaScript</translation>
-<translation id="7522255036471229694">"ઑકે Google" કહો</translation>
+<translation id="7522255036471229694">"Ok Google" કહો</translation>
 <translation id="752397454622786805">નોંધણી રદ કરેલ</translation>
 <translation id="7525067979554623046">બનાવો</translation>
 <translation id="7529471622666797993"><ph name="BEGIN_LINK" />વિગતવાર ફોન્ટ સેટિંગ્સ<ph name="END_LINK" /> (એક્સ્ટેન્શનની જરૂર છે)</translation>
@@ -4766,8 +4766,8 @@
 <translation id="7786207843293321886">અતિથિને બહાર નીકાળો</translation>
 <translation id="7786889348652477777">એપ્લિકેશન &amp;ફરીથી લોડ કરો</translation>
 <translation id="7787129790495067395">તમે હાલમાં એક પાસફ્રેઝનો ઉપયોગ કરી રહ્યા છો. જો તમે તમારો પાસફ્રેઝ ભૂલી ગયા છો, તો તમે Google Dashboard નો ઉપયોગ કરીને Googleના સર્વર્સ પરથી તમારા ડેટાને સાફ કરવા માટે સમન્વયનને ફરીથી સેટ કરી શકો છો.</translation>
-<translation id="7788080748068240085">"<ph name="FILE_NAME" />" ને ઓફલાઇન સાચવવા માટે તમારે વધુ <ph name="TOTAL_FILE_SIZE" /> સ્થાન ખાલી કરવું આવશ્યક છે:<ph name="MARKUP_1" />
-        <ph name="MARKUP_2" />તમને હવે ઓફલાઇન ઍક્સેસ કરવાની જરૂર ન હોય તેવી ફાઇલોને અનપિન કરો<ph name="MARKUP_3" />
+<translation id="7788080748068240085">"<ph name="FILE_NAME" />" ને ઑફલાઇન સાચવવા માટે તમારે વધુ <ph name="TOTAL_FILE_SIZE" /> સ્થાન ખાલી કરવું આવશ્યક છે:<ph name="MARKUP_1" />
+        <ph name="MARKUP_2" />તમને હવે ઑફલાઇન ઍક્સેસ કરવાની જરૂર ન હોય તેવી ફાઇલોને અનપિન કરો<ph name="MARKUP_3" />
         <ph name="MARKUP_4" />તમારા ડાઉનલોડ્સ ફોલ્ડરમાંથી ફાઇલો કાઢી નાખો<ph name="MARKUP_5" /></translation>
 <translation id="7788444488075094252">ભાષાઓ અને ઇનપુટ</translation>
 <translation id="7788668840732459509">સ્થિતિ:</translation>
@@ -4838,7 +4838,7 @@
 <translation id="7880836220014399562">"<ph name="BUNDLE_NAME" />" આ એપ્લિકેશનો અને એક્સટેન્શન્સ ઉમેરે છે:</translation>
 <translation id="7885253890047913815">તાજેતરનાં ગંતવ્યો</translation>
 <translation id="7885283703487484916">ખૂબ જ ટૂંકો</translation>
-<translation id="7887192723714330082">જ્યારે સ્ક્રીન ચાલુ અને અનલૉક કરેલી હોય ત્યારે "ઑકે Google" સાથે જવાબ આપો</translation>
+<translation id="7887192723714330082">જ્યારે સ્ક્રીન ચાલુ અને અનલૉક કરેલી હોય ત્યારે "Ok Google" સાથે જવાબ આપો</translation>
 <translation id="7887334752153342268">ડુપ્લિકેટ</translation>
 <translation id="7887864092952184874">Bluetooth માઉસની જોડી બનાવી</translation>
 <translation id="7892100671754994880">આગલા વપરાશકર્તા</translation>
@@ -4977,7 +4977,7 @@
 <translation id="806705617346045388">અસામાન્ય વર્તન મળ્યું</translation>
 <translation id="806812017500012252">શીર્ષકથી પુનઃક્રમાંકિત કરો</translation>
 <translation id="8069615408251337349">Google મેઘ મુદ્રણ</translation>
-<translation id="8071942001314758122">માત્ર ત્રણ વખત "ઑકે Google" કહો</translation>
+<translation id="8071942001314758122">માત્ર ત્રણ વખત "Ok Google" કહો</translation>
 <translation id="8072988827236813198">ટૅબ્સ પિન કરો</translation>
 <translation id="8075539548641175231">તમારો ડેટા <ph name="TIME" /> ના રોજ તમારા સમન્વયન પાસફ્રેઝ સાથે એન્ક્રિપ્ટ કરાયો છે. કૃપા કરી તેને નીચે દાખલ કરો.</translation>
 <translation id="8083739373364455075">Google ડ્રાઇવ સાથે 100 GB મફત મેળવો</translation>
@@ -5086,7 +5086,7 @@
 <translation id="8217399928341212914">બહુવિધ ફાઇલો આપમેળે ડાઉનલોડ કરવું અવરોધિત કરવાનું ચાલુ રાખો</translation>
 <translation id="8221729492052686226">જો તમે આ વિનંતી કરી નહોતી, તો તે તમારા સિસ્ટમ પર હુમલાનો પ્રયાસ હોઈ શકે છે. જ્યાં સુધી તમે આ વિનંતી કરવા માટે કોઈ સ્પષ્ટ પગલું ન લો ત્યાં સુધી તમારે, 'કંઈ ન કરો' દબાવવું જોઈએ.</translation>
 <translation id="8222121761382682759">અનઇન્સ્ટોલ કરો...</translation>
-<translation id="8223479393428528563">ઓફલાઇન વપરાશ માટે આ ફાઇલો સાચવવા, પાછા ઓનલાઇન થાઓ, ફાઇલો પર જમણી ક્લિક કરો અને <ph name="OFFLINE_CHECKBOX_NAME" /> વિકલ્પ પસંદ કરો.</translation>
+<translation id="8223479393428528563">ઑફલાઇન વપરાશ માટે આ ફાઇલો સાચવવા, પાછા ઓનલાઇન થાઓ, ફાઇલો પર જમણી ક્લિક કરો અને <ph name="OFFLINE_CHECKBOX_NAME" /> વિકલ્પ પસંદ કરો.</translation>
 <translation id="82239625576146587">નવું કોરિયન IME અક્ષમ કરો.</translation>
 <translation id="8226222018808695353">પ્રતિબંધિત</translation>
 <translation id="8226742006292257240">નીચે રેંડમલી બનાવેલો TPM પાસવર્ડ છે જે તમારા કમ્પ્યુટરને અસાઇન કરવામાં આવ્યો છે:</translation>
@@ -5143,7 +5143,7 @@
 <translation id="8297222119869486204">'વિંડો-નિયંત્રણો' ઘટક સક્ષમ કરો</translation>
 <translation id="8298115750975731693">તમે ઉપયોગ કરી રહ્યાં છો તે Wi-Fi (<ph name="WIFI_NAME" />) ને <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> ની મુલાકાત લેવાની જરૂર પડી શકે છે.</translation>
 <translation id="8299269255470343364">જાપાનીઝ</translation>
-<translation id="8299319456683969623">તમે હાલમાં ઓફલાઇન છો.</translation>
+<translation id="8299319456683969623">તમે હાલમાં ઑફલાઇન છો.</translation>
 <translation id="8300259894948942413">ટચ ખેંચો અને છોડો એક ખેંચવાયોગ્ય તત્વ પર દબાવી રાખીને શરૂ કરી શકાય છે.</translation>
 <translation id="8300607741108698921">1-મિનિટ સેટઅપ</translation>
 <translation id="8302838426652833913">તમારા કનેક્શનને તપાસવા માટે 
@@ -5272,7 +5272,7 @@
 <translation id="8493236660459102203">માઇક્રોફોન:</translation>
 <translation id="8494214181322051417">નવું!</translation>
 <translation id="8494979374722910010">સર્વર સાથે કનેક્ટ થવાનો પ્રયાસ નિષ્ફળ થયો છે.</translation>
-<translation id="8495193314787127784">"ઑકે Google" સક્ષમ કરો</translation>
+<translation id="8495193314787127784">"Ok Google" સક્ષમ કરો</translation>
 <translation id="8496717697661868878">આ પ્લગિન ચલાવો</translation>
 <translation id="8497392509610708671">તમે કોઇપણ સમયે આને <ph name="BEGIN_LINK" />Chrome સેટિંગ્સ<ph name="END_LINK" />માં બદલાવી શકો છો.</translation>
 <translation id="8498716162437226120">Bluetooth ઉપકરણ ઉમેરો</translation>
@@ -5322,7 +5322,7 @@
 <translation id="8569764466147087991">ખોલવા માટે એક ફાઇલ પસંદ કરો</translation>
 <translation id="856992080682148">આ સાઇટ માટેનું પ્રમાણપત્ર 2017 માં સમાપ્ત થાય છે અને પ્રમાણપત્ર શ્રૃંખલા SHA-1 નો ઉપયોગ કરીને સહી કરેલ પ્રમાણપત્ર ધરાવે છે.</translation>
 <translation id="8570618730045879048">એક મેન્યુઅલ બ્લેકલિસ્ટ એન્ટ્રીને લીધે આ સાઇટ અવરોધિત કરી હતી.</translation>
-<translation id="8571032220281885258">જ્યારે તમે "ઑકે Google" કહો છો, ત્યારે તમે પછી જે કહો છો Chrome તેની શોધ કરશે.</translation>
+<translation id="8571032220281885258">જ્યારે તમે "Ok Google" કહો છો, ત્યારે તમે પછી જે કહો છો Chrome તેની શોધ કરશે.</translation>
 <translation id="8571108619753148184">સર્વર 4</translation>
 <translation id="8572832761467613633">માત્ર Flash</translation>
 <translation id="8572981282494768930">સાઇટ્સને તમારા કૅમેરા અને માઇક્રોફોનને ઍક્સેસ કરવાની મંજૂરી આપશો નહીં</translation>

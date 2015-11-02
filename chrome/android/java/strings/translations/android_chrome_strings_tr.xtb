@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Telefonunuzun Genel Bakış ekranında, son kullanılan diğer uygulamalarla birlikte sekmelerinizi görün.</translation>
 <translation id="2079545284768500474">Geri Al</translation>
 <translation id="2082238445998314030"><ph name="TOTAL_RESULTS" /> sonuçtan <ph name="RESULT_NUMBER" /> numaralı sonuç</translation>
+<translation id="2095887075102408547">Bu özellik açık olduğunda, Chrome, ziyaret ettiğiniz sayfaları indirmeden önce sıkıştırmak için Google sunucularını kullanır. Gizli bağlantılar (HTTPS) veya Gizli sekmeler kullanarak erişilen sayfalar Google tarafından optimize edilmez veya görülmez.</translation>
 <translation id="2100273922101894616">Otomatik Oturum Aç</translation>
 <translation id="2126426811489709554">Chrome tarafından desteklenmektedir</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> kapatıldı</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Bu sayfaya yer işareti koy</translation>
 <translation id="326254929494722411">Bu cihazda henüz bir Google Hesabı oluşturmadınız</translation>
 <translation id="3269093882174072735">Resim yükle</translation>
+<translation id="3278850099957560514">Ziyaret ettiğiniz sayfaları optimize etmek için Google'ı kullanarak daha az veri harcayın. Gizli bağlantılar (HTTPS) veya Gizli sekmeler kullanılarak erişilen sayfalar Google tarafından optimize edilmez veya görülmez.</translation>
 <translation id="3282568296779691940">Chrome'da oturum aç</translation>
 <translation id="3287852534598822456">Yer işareti artık yok. Lütfen yenileyin.</translation>
 <translation id="3303414029551471755">İçeriği indirme işlemine başlansın mı?</translation>

@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">A la pantalla Visió general del telèfon podeu veure les vostres pestanyes juntament amb altres aplicacions recents.</translation>
 <translation id="2079545284768500474">Desfés</translation>
 <translation id="2082238445998314030">Resultat <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Quan aquesta funció estigui activada, Chrome farà servir els servidors de Google per comprimir les pàgines que visiteu abans de baixar-les. Google no optimitzarà ni veurà les pàgines a les quals accediu mitjançant connexions privades (HTTPS) o pestanyes d'incògnit.</translation>
 <translation id="2100273922101894616">Inici de sessió automàtic</translation>
 <translation id="2126426811489709554">Amb tecnologia de Chrome</translation>
 <translation id="213279576345780926">Pestanya <ph name="TAB_TITLE" /> tancada</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Afegeix aquesta pàgina a les adreces d'interès</translation>
 <translation id="326254929494722411">Encara no heu configurat cap compte de Google al dispositiu.</translation>
 <translation id="3269093882174072735">Carrega la imatge</translation>
+<translation id="3278850099957560514">Utilitzeu Google per optimitzar les pàgines que visiteu i reduireu la vostra despesa en dades. Google no optimitzarà ni veurà les pàgines a les quals accediu mitjançant connexions privades (HTTPS) o pestanyes d'incògnit.</translation>
 <translation id="3282568296779691940">Inicia la sessió a Chrome</translation>
 <translation id="3287852534598822456">L'adreça d'interès ja no existeix. Cal que actualitzeu.</translation>
 <translation id="3303414029551471755">Voleu baixar el contingut?</translation>

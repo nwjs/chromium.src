@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Näet välilehdet ja viimeksi käytetyt sovellukset puhelimen Viimeisimmät-näkymässä.</translation>
 <translation id="2079545284768500474">Kumoa</translation>
 <translation id="2082238445998314030">Tulos <ph name="RESULT_NUMBER" />/<ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Kun tämä toiminto on käytössä, Chrome pakkaa lukemasi sivut Googlen palvelimilla ennen niiden lataamista. Suojattuja yhteyksiä (HTTPS) käyttäviä tai incognito-välilehdillä avattuja sivuja ei optimoida eikä Google näe niitä.</translation>
 <translation id="2100273922101894616">Automaattinen kirjautuminen</translation>
 <translation id="2126426811489709554">Palvelun tarjoaa Chrome</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> suljettiin</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Luo kirjanmerkki tälle sivulle</translation>
 <translation id="326254929494722411">Et ole vielä määrittänyt Google-tiliä tällä laitteella.</translation>
 <translation id="3269093882174072735">Lataa kuva</translation>
+<translation id="3278850099957560514">Säästä tiedonsiirrossa antamalla Googlen optimoida käyttämäsi sivut. Suojattuja yhteyksiä (HTTPS) käyttäviä tai incognito-välilehdillä avattuja sivuja ei optimoida eikä Google näe niitä.</translation>
 <translation id="3282568296779691940">Kirjaudu Chromeen</translation>
 <translation id="3287852534598822456">Kirjanmerkkiä ei enää ole. Päivitä.</translation>
 <translation id="3303414029551471755">Jatketaanko sisällön lataamiseen?</translation>

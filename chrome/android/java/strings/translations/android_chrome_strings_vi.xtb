@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Xem các tab của bạn với các ứng dụng gần đây khác trên màn hình Tổng quan của điện thoại.</translation>
 <translation id="2079545284768500474">Hoàn tác</translation>
 <translation id="2082238445998314030">Kết quả <ph name="RESULT_NUMBER" /> trong tổng số <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Khi bạn bật tính năng này, Chrome sẽ sử dụng máy chủ Google để nén các trang mà bạn truy cập trước khi tải trang xuống. Google sẽ không tối ưu hóa hoặc thấy các trang được truy cập bằng kết nối riêng tư (HTTPS) hoặc trong tab ẩn danh.</translation>
 <translation id="2100273922101894616">Tự động đăng nhập</translation>
 <translation id="2126426811489709554">Được hỗ trợ bởi Chrome</translation>
 <translation id="213279576345780926">Đã đóng <ph name="TAB_TITLE" /></translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Đánh dấu trang này</translation>
 <translation id="326254929494722411">Bạn chưa thiết lập tài khoản Google trên thiết bị này</translation>
 <translation id="3269093882174072735">Tải hình ảnh</translation>
+<translation id="3278850099957560514">Dùng ít dữ liệu hơn bằng cách sử dụng Google để tối ưu hóa các trang bạn truy cập. Google sẽ không tối ưu hóa hoặc thấy các trang được truy cập bằng kết nối riêng tư (HTTPS) hoặc trong tab ẩn danh.</translation>
 <translation id="3282568296779691940">Đăng nhập Chrome</translation>
 <translation id="3287852534598822456">Dấu trang không còn tồn tại. Vui lòng làm mới.</translation>
 <translation id="3303414029551471755">Tiếp tục tải xuống nội dung?</translation>

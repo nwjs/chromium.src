@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Veja os separadores com outras aplicações recentes no ecrã Vista geral do telemóvel.</translation>
 <translation id="2079545284768500474">Anular</translation>
 <translation id="2082238445998314030">Resultado <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Quando esta funcionalidade está ativada, o Chrome utiliza os servidores da Google para comprimir as páginas visitadas antes de as transferir. As páginas acedidas através de ligações privadas (HTTPS) ou em separadores de navegação anónima não são otimizadas ou vistas pela Google.</translation>
 <translation id="2100273922101894616">Início de sessão automático</translation>
 <translation id="2126426811489709554">Com tecnologia do Chrome</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> fechado</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Marcar esta página</translation>
 <translation id="326254929494722411">Ainda não configurou uma Conta Google neste dispositivo</translation>
 <translation id="3269093882174072735">Carregar imagem</translation>
+<translation id="3278850099957560514">Gaste menos em dados ao utilizar o Google para otimizar as páginas que visitar. As páginas acedidas através de ligações privadas (HTTPS) ou em separadores de navegação anónima não são otimizadas ou vistas pela Google.</translation>
 <translation id="3282568296779691940">Iniciar sessão no Chrome</translation>
 <translation id="3287852534598822456">O marcador já não existe. Atualize.</translation>
 <translation id="3303414029551471755">Pretende transferir o conteúdo?</translation>

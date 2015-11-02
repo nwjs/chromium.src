@@ -541,6 +541,38 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="3153348162326497318">Memungkinkan Anda menentukan ekstensi mana yang TIDAK dapat dipasang oleh pengguna. Ekstensi yang sudah terpasang akan dihapus jika masuk dalam daftar hitam. Nilai daftar hitam '*' berarti semua ekstensi tercantum dalam daftar hitam kecuali secara eksplisit tercantum dalam daftar putih. Jika kebijakan ini dibiarkan tanpa disetel, pengguna dapat memasang ekstensi apa pun di <ph name="PRODUCT_NAME" />.</translation>
 <translation id="316778957754360075">Setelan ini tidak lagi digunakan sejak <ph name="PRODUCT_NAME" /> versi 29. Cara yang disarankan untuk menyiapkan koleksi aplikasi/ekstensi yang dihosting organisasi adalah dengan menyertakan situs yang menghosting paket CRX di ExtensionInstallSources dan meletakkan tautan unduhan langsung di paket dalam laman web. Peluncur untuk laman web tersebut dapat dibuat menggunakan kebijakan ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">sejak versi <ph name="SINCE_VERSION" /></translation>
+<translation id="318812033927804102">Mengonfigurasi setelan pengelolaan ekstensi untuk <ph name="PRODUCT_NAME" />.
+
+          Kebijakan ini mengontrol beberapa setelan, termasuk setelan yang dikontrol oleh kebijakan terkait ekstensi yang sudah ada mana pun. Kebijakan ini akan menggantikan kebijakan lawas apa pun jika keduanya disetel.
+
+          Kebijakan ini memetakan ID ekstensi atau URL pembaruan ke konfigurasinya. Dengan ID ekstensi, konfigurasi akan diterapkan ke ekstensi yang ditentukan saja. Konfigurasi default dapat disetel untuk ID khusus "*", yang akan diterapkan untuk semua ekstensi yang tidak memiliki konfigurasi khusus yang disetel dalam kebijakan ini. Dengan URL pembaruan, konfigurasi akan diterapkan ke semua ekstensi dengan URL pembaruan akurat yang dinyatakan dalam manifes ekstensi ini, seperti yang dijelaskan dalam <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Konfigurasi untuk setiap ekstensi (atau ekstensi dengan URL pembaruan yang sama) adalah kamus lain yang dapat berisi bidang yang didokumentasikan di bawah.
+
+          "installation_mode": memetakan ke string yang menunjukkan mode pemasangan untuk ekstensi. String yang valid adalah:
+          * "allowed": memungkinkan pemasangan ekstensi oleh pengguna. Ini adalah perilaku defaultnya.
+          * "blocked": memblokir pemasangan ekstensi.
+          * "force_installed": ekstensi otomatis terpasang dan tidak dapat dihapus oleh pengguna.
+          * "normal_installed": ekstensi otomatis terpasang namun dapat dinonaktifkan oleh pengguna.
+
+          "installation_mode" juga dapat dikonfigurasikan untuk beberapa ekstensi, termasuk ekstensi "*" (sebagai setelan default) dan ekstensi dengan URL pembaruan yang sama. Dalam kasus ini. hanya nilai "allowed" dan "blocked" yang dapat digunakan.
+
+          Jika mode disetel ke "force_installed" atau "normal_installed", "update_url" juga harus dikonfigurasikan. Perhatikan bahwa URL pembaruan yang disetel dalam kebijakan ini hanya digunakan untuk pemasangan awal; pembaruan ekstensi selanjutnya akan menggunakan URL pembaruan yang ditunjukkan dalam manifes ekstensi. URL pembaruan seharusnya mengarah ke dokumen XML Manifes Pembaruan seperti yang dijelaskan di atas.
+
+          "blocked_permissions": memetakan ke daftar string yang menunjukkan izin API yang diblokir untuk ekstensi. Nama izin sama dengan string izin yang dinyatakan dalam manifes ekstensi seperti yang dijelaskan dalam <ph name="LINK_TO_EXTENSION_DOC3" />. Setelan ini juga dapat dikonfigurasikan untuk ekstensi "*". Jika ekstensi mewajibkan izin yang ada dalam daftar diblokir, ekstensi tidak akan diizinkan untuk dimuat. Jika ekstensi berisi izin yang diblokir sebagai persyaratan opsional, ekstensi akan ditangani dengan cara normal, namun permintaan izin yang menimbulkan bentrok akan ditolak secara otomatis saat waktu proses.
+
+          "allowed_permissions": mirip dengan "blocked_permissions", namun mengizinkan beberapa izin secara eksplisit yang mungkin diblokir oleh daftar global untuk izin yang diblokir, sehingga tidak dapat dikonfigurasi untuk ekstensi "*". Perhatikan bahwa setelan ini tidak memberikan izin yang dijamin ke ekstensi secara otomatis.
+
+          "minimum_version_required": memetakan ke string versi. Format string versi sama dengan format yang digunakan dalam manifes ekstensi, seperti yang dijelaskan dalam <ph name="LINK_TO_EXTENSION_DOC4" />. Ekstensi dengan versi yang lebih lawas dari versi minimum yang ditetapkan akan dinonaktifkan. Hal ini juga berlaku untuk ekstensi force-installed.
+
+          Setelan berikut hanya dapat digunakan untuk konfigurasi "*" default:
+
+          "install_sources": Setiap item dalam daftar ini adalah pola pencocokan gaya-ekstensi (lihat https://developer.chrome.com/extensions/match_patterns). Pengguna akan dapat memasang item dengan mudah dari URL apa pun yang cocok dengan item di dalam daftar ini. Lokasi file *.crx dan laman tempat unduhan dimulai (misalnya perujuk) harus diizinkan oleh pola ini.
+
+          "allowed_types": Setelan ini memasukkan jenis ekstensi/aplikasi yang diizinkan yang dapat dipasang di <ph name="PRODUCT_NAME" /> ke daftar putih.  Nilainya adalah daftar string, yang masing-masing terdiri dari: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app", atau "platform_app". Lihat <ph name="PRODUCT_NAME" /> dokumentasi ekstensi untuk informasi selengkapnya tentang jenis ini.
+
+          Kebijakan ini belum siap untuk digunakan. Harap tidak menggunakannya.
+          </translation>
 <translation id="3205825995289802549">Maksimalkan jendela browser pertama di percobaan pertama</translation>
 <translation id="3206731874112238027">Menonaktifkan Pratinjau Cetak (tak lagi digunakan)</translation>
 <translation id="3213821784736959823">Mengontrol apakah klien DNS di dalamnya digunakan di <ph name="PRODUCT_NAME" />.
@@ -660,22 +692,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       Jika kebijakan ini disetel ke true atau tidak dikonfigurasi, pengguna dapat menggunakan semua keluaran audio yang didukung pada perangkatnya.</translation>
 <translation id="3808945828600697669">Tentukan daftar plugin yang dinonaktifkan</translation>
 <translation id="3816312845600780067">Aktifkan pintasan keyboard penyelamatan untuk masuk otomatis</translation>
-<translation id="381807926299956806">Menyetel satu atau beberapa bahasa yang disarankan untuk sesi publik, memungkinkan pengguna memilih salah satu bahasa tersebut dengan mudah.
-
-      Pengguna dapat memilih bahasa dan tata letak keyboard sebelum memulai sesi publik. Secara default, semua bahasa yang didukung oleh <ph name="PRODUCT_OS_NAME" /> tercantum dalam urutan alfabet. Anda dapat menggunakan kebijakan ini untuk memindahkan rangkaian bahasa yang disarankan ke bagian atas daftar.
-
-      Jika kebijakan ini tidak disetel, bahasa UI saat inilah akan dipilih sebelumnya.
-
-      Jika kebijakan ini disetel, bahasa yang disarankan akan dipindahkan ke atas daftar dan secara visual akan dipisahkan dari semua bahasa yang lain. Bahasa yang disarankan akan dicantumkan dalam urutan seperti tampilannya dalam kebijakan. Bahasa yang pertama kali disarankan sebelumnya akan dipilih.
-
-      Jika ada lebih dari satu bahasa yang disarankan, akan dianggap bahwa pengguna ingin memilih di antara bahasa tersebut. Pilihan bahasa dan tata letak keyboard akan ditawarkan ketika memulai sesi publik. Jika tidak, akan dianggap bahwa sebagian besar pengguna ingin menggunakan bahasa yang dipilih sebelumnya. Pilihan bahasa dan tata letak keyboard akan ditawarkan dengan kurang mencolok ketika memulai sesi publik.
-
-      Jika kebijakan ini disetel dan proses masuk otomatis diaktifkan (lihat kebijakan |DeviceLocalAccountAutoLoginId| dan |DeviceLocalAccountAutoLoginDelay|), sesi publik yang dimulai secara otomatis akan menggunakan bahasa yang disarankan pertama kali, dan tata letak keyboard paling populer yang cocok dengan bahasa ini.
-
-      Tata letak keyboard yang dipilih sebelumnya akan selalu menjadi tata letak yang paling populer yang cocok dengan bahasa yang dipilih sebelumnya.
-
-      Kebijakan ini hanya dapat disetel sebagai yang disarankan. Anda tidak dapat menggunakan kebijakan ini untuk memindahkan rangkaian bahasa yang disarankan ke atas, namun pengguna selalu diizinkan untuk memilih bahasa apa pun yang didukung oleh <ph name="PRODUCT_OS_NAME" /> untuk sesi mereka.
-      </translation>
 <translation id="3820526221169548563">Mengaktifkan fitur aksesibilitas keyboard di layar.
 
           Jika kebijakan ini disetel ke true, keyboard di layar akan selalu diaktifkan.
@@ -733,9 +749,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="402759845255257575">Jangan izinkan situs apa pun menjalankan JavaScript</translation>
 <translation id="4027608872760987929">Aktifkan penyedia penelusuran default</translation>
 <translation id="4039085364173654945">Mengontrol apakah sub-konten pihak ketiga pada laman diizinkan untuk memunculkan kotak dialog HTTP Otorisasi Dasar. Biasanya, kebijakan ini dinonaktifkan sebagai pertahanan atas phishing. Jika tidak disetel, kebijakan ini akan dinonaktifkan dan sub-konten pihak ketiga tidak akan diizinkan untuk memunculkan kotak dialog HTTP Otorisasi Dasar.</translation>
-<translation id="4043912146394966243"> Jenis sambungan yang diizinkan penggunaannya untuk pembaruan OS. Pembaruan OS berpotensi memberikan beban berat pada koneksi Internet karena ukurannya dan mungkin mengakibatkan biaya tambahan. Oleh karena itu, koneksi secara default tidak aktif untuk jenis koneksi yang dianggap mahal, yang meliputi WiMax, Bluetooth, dan Seluler untuk saat ini.
-
-      Pengenal jenis koneksi yang diketahui saat ini adalah "ethernet", "wifi", "wimax", "bluetooth", dan "cellular".</translation>
 <translation id="4052765007567912447">Mengontrol apakah pengguna dapat menampilkan sandi dalam teks yang jelas di dalam pengelola sandi. Jika Anda menonaktifkan penyetelan ini, pengelola sandi tidak mengizinkan untuk menampilkan sandi yang disimpan dalam bentuk teks yang jelas pada jendela pengelola sandi. Jika Anda mengaktifkan atau tidak menyetel kebijakan ini, pengguna dapat melihat sandi mereka dalam teks yang jelas di dalam pengelola sandi.</translation>
 <translation id="4056910949759281379">Nonaktifkan protokol SPDY</translation>
 <translation id="4088589230932595924">Mode penyamaran dipaksakan</translation>
@@ -797,6 +810,14 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       Jika kebijakan ini dikonfigurasi, pengguna tidak dapat mengubahnya, dan pintasan aplikasi selalu ditampilkan atau tidak pernah ditampilkan.</translation>
 <translation id="443665821428652897">Hapus data situs saat browser ditutup (tidak digunakan lagi)</translation>
+<translation id="4439336120285389675">Menentukan daftar fitur platform web yang tak digunakan lagi untuk diaktifkan kembali secara sementara.
+
+      Kebijakan ini memberikan administrator kemampuan untuk mengaktifkan kembali fitur platform web yang tak digunakan lagi dalam waktu yang terbatas. Fitur diidentifikasi dengan tag string dan fitur yang sesuai dengan tag yang disertakan dalam daftar yang ditentukan oleh kebijakan ini akan diaktifkan kembali.
+
+      Jika kebijakan ini tidak disetel, daftar ini kosong, atau daftar tidak cocok dengan satu pun tag string yang didukung, semua fitur platform web yang tak lagi digunakan akan tetap dinonaktifkan.
+
+      Meski kebijakan ini sendiri didukung pada platform di atas, fitur yang diaktifkan mungkin tersedia pada lebih sedikit platform. Tidak semua fitur Platform Web yang tak digunakan lagi dapat diaktifkan kembali. Hanya yang dicantumkan secara eksplisit di bawah, yang dapat diaktifkan dalam jangka waktu terbatas, yang berbeda-beda per fitur. Format umum untuk tag string adalah [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Sebagai rujukan, Anda dapat menemukan maksud di balik perubahan fitur Platform Web di https://bit.ly/blinkintents.
+      </translation>
 <translation id="4442582539341804154">Aktifkan kunci bila perangkat menganggur atau ditangguhkan</translation>
 <translation id="4445684791305970001">Menonaktifkan Alat Pengembang dan konsol JavaScript. Jika Anda mengaktifkan setelan ini, alat Pengembang tidak dapat diakses dan elemen situs web tidak dapat diperiksa lagi. Setiap pintasan keyboard dan menu atau entri menu konteks untuk membuka Alat Pengembang atau Konsol JavaScript akan dinonaktifkan. Dengan menyetel opsi menjadi nonaktif atau membiarkannya tanpa disetel akan memungkinkan penggunaan konsol JavaScript dan Alat Pengembang.</translation>
 <translation id="4467952432486360968">Cekal cookie pihak ketiga</translation>
@@ -1039,32 +1060,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       Jika kebijakan ini tidak disetel, tidak akan ada masuk secara otomatis.</translation>
 <translation id="5535973522252703021">Daftar putih server delegasi Kerberos</translation>
-<translation id="553658564206262718">Mengonfigurasi setelan pengelolaan daya saat pengguna menganggur.
-
-          Kebijakan ini mengontrol beberapa setelan untuk strategi pengelolaan daya saat pengguna menganggur.
-
-          Ada empat macam tindakan:
-          * Layar akan diredupkan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |ScreenDim|.
-          * Layar akan dinonaktifkan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |ScreenOff|.
-          * Dialog peringatan akan ditampilkan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |IdleWarning|, yang memberitahukan kepada pengguna bahwa tindakan menganggur akan dilakukan.
-          * Tindakan yang ditentukan oleh |IdleAction| akan dilakukan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |Idle|.
-
-          Untuk setiap tindakan di atas, penundaan harus ditetapkan dalam milidetik, dan perlu disetel dalam nilai yang lebih besar dari nol agar memicu tindakan yang sesuai. Apabila penundaan disetel ke nol, <ph name="PRODUCT_OS_NAME" /> tidak akan melakukan tindakan yang sesuai.
-
-          Untuk setiap penundaan di atas, jika lamanya waktu tidak disetel, nilai default akan digunakan.
-
-          Perhatikan bahwa nilai |ScreenDim| akan dijepit kurang dari atau sama dengan |ScreenOff|, |ScreenOff| dan |IdleWarning| akan dijepit kurang dari atau sama dengan |Idle|.
-
-          |IdleAction| dapat merupakan salah satu dari empat tindakan berikut:
-          * |Suspend|
-          * |Logout|
-          * |Shutdown|
-          * |DoNothing|
-
-          Jika |IdleAction| tidak disetel, tindakan default (penangguhan) akan dilakukan.
-
-          Juga ada setelan terpisah untuk daya AC dan baterai.
-          </translation>
 <translation id="5560039246134246593">Menambahkan parameter ke pengambilan bibit Variasi di <ph name="PRODUCT_NAME" />.
 
       Jika ditentukan, akan menambahkan parameter kueri yang disebut 'bataso' ke URL yang digunakan untuk mengambil bibit Variasi. Nilai parameter akan menjadi nilai yang ditentukan dalam kebijakan ini.
@@ -1080,6 +1075,22 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       Jika Anda menyetel kebijakan ini, pengguna tidak dapat mengubah atau menggantinya.
 
       Jika kebijakan ini dibiarkan tidak disetel, pengguna dapat memilih apakah rak akan bersembunyi otomatis atau tidak.</translation>
+<translation id="5573397331902180200">Menyetel satu atau beberapa bahasa yang disarankan untuk sesi publik, memungkinkan pengguna memilih salah satu bahasa tersebut dengan mudah.
+
+      Pengguna dapat memilih bahasa dan tata letak keyboard sebelum memulai sesi publik. Secara default, semua bahasa yang didukung oleh <ph name="PRODUCT_OS_NAME" /> tercantum dalam urutan alfabet. Anda dapat menggunakan kebijakan ini untuk memindahkan rangkaian bahasa yang disarankan ke bagian atas daftar.
+
+      Jika kebijakan ini tidak disetel, bahasa UI saat inilah akan dipilih sebelumnya.
+
+      Jika kebijakan ini disetel, bahasa yang disarankan akan dipindahkan ke atas daftar dan secara visual akan dipisahkan dari semua bahasa yang lain. Bahasa yang disarankan akan dicantumkan dalam urutan seperti tampilannya dalam kebijakan. Bahasa yang pertama kali disarankan sebelumnya akan dipilih.
+
+      Jika ada lebih dari satu bahasa yang disarankan, akan dianggap bahwa pengguna ingin memilih di antara bahasa tersebut. Pilihan bahasa dan tata letak keyboard akan ditawarkan ketika memulai sesi publik. Jika tidak, akan dianggap bahwa sebagian besar pengguna ingin menggunakan bahasa yang dipilih sebelumnya. Pilihan bahasa dan tata letak keyboard akan ditawarkan dengan kurang mencolok ketika memulai sesi publik.
+
+      Jika kebijakan ini disetel dan proses masuk otomatis diaktifkan (lihat kebijakan |DeviceLocalAccountAutoLoginId| dan |DeviceLocalAccountAutoLoginDelay|), sesi publik yang dimulai secara otomatis akan menggunakan bahasa yang disarankan pertama kali, dan tata letak keyboard paling populer yang cocok dengan bahasa ini.
+
+      Tata letak keyboard yang dipilih sebelumnya akan selalu menjadi tata letak yang paling populer yang cocok dengan bahasa yang dipilih sebelumnya.
+
+      Kebijakan ini hanya dapat disetel sebagai yang disarankan. Anda tidak dapat menggunakan kebijakan ini untuk memindahkan rangkaian bahasa yang disarankan ke atas, namun pengguna selalu diizinkan untuk memilih bahasa apa pun yang didukung oleh <ph name="PRODUCT_OS_NAME" /> untuk sesi mereka.
+      </translation>
 <translation id="557658534286111200">Mengaktifkan atau menonaktifkan pengeditan bookmark</translation>
 <translation id="5586942249556966598">Tidak melakukan apa-apa</translation>
 <translation id="5630352020869108293">Mengembalikan sesi terakhir</translation>
@@ -1210,6 +1221,17 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Nilai kebijakan harus ditetapkan dalam milidetik. Nilai dijepit agar kurang dari penundaan waktu menganggur.</translation>
 <translation id="6114416803310251055">tak lagi digunakan</translation>
 <translation id="6145799962557135888">Memungkinkan Anda menyetel daftar pola url yang menentukan situs yang tidak diizinkan untuk menjalankan JavaScript. Jika kebijakan ini tidak disetel, nilai default global akan digunakan untuk semua situs, baik dari kebijakan 'DefaultJavaScriptSetting', jika disetel, ataupun dari konfigurasi pribadi pengguna.</translation>
+<translation id="6151775819333710697">
+          Jika setelan ini diaktifkan, pengguna dapat meminta <ph name="PRODUCT_NAME" /> mengingat sandi
+          dan sandi akan muncul otomatis saat pengguna masuk lagi ke situs.
+
+          Jika setelan ini dinonaktifkan, pengguna tidak dapat menyimpan sandi baru tetapi
+          masih dapat menggunakan sandi yang telah tersimpan sebelumnya.
+
+          Jika kebijakan ini diaktifkan atau dinonaktifkan, pengguna tidak dapat mengubah atau menggantinya
+          di <ph name="PRODUCT_NAME" />. Jika
+          kebijakan tidak disetel, penyimpanan sandi diizinkan (tetapi dapat dinonaktifkan oleh
+          pengguna).</translation>
 <translation id="6155936611791017817">Setel status default kursor besar di layar masuk</translation>
 <translation id="6157537876488211233">Peraturan mengabaikan proxy yang dipisahkan koma</translation>
 <translation id="6158324314836466367">Nama toko web perusahaan (tidak digunakan)</translation>
@@ -1269,17 +1291,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Kebijakan ini bersifat opsional. Jika tidak disetel, permintaan penelusuran instan akan dikirim menggunakan metode GET.
 
           Kebijakan ini hanya dikhususkan jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
-<translation id="6365608006609079612">
-          Jika setelan ini diaktifkan, pengguna dapat meminta <ph name="PRODUCT_NAME" /> mengingat sandi
-          dan sandi akan muncul otomatis saat pengguna masuk lagi ke situs.
-
-          Jika setelan ini dinonaktifkan, pengguna tidak dapat menyimpan sandi baru tetapi
-          masih dapat menggunakan sandi yang telah tersimpan sebelumnya.
-
-          Jika kebijakan ini diaktifkan atau dinonaktifkan, pengguna tidak dapat mengubah atau menggantinya
-          di <ph name="PRODUCT_NAME" />. Jika
-          kebijakan tidak disetel, penyimpanan sandi diizinkan (tetapi dapat dinonaktifkan oleh
-          pengguna).</translation>
 <translation id="6367755442345892511">Apakah saluran rilis dapat dikonfigurasi oleh pengguna atau tidak</translation>
 <translation id="6368011194414932347">Mengonfigurasi URL beranda</translation>
 <translation id="6368403635025849609">Izinkan JavaScript di situs ini</translation>
@@ -1332,14 +1343,32 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
           Jika kebijakan ini tidak disetel, keyboard di layar akan dinonaktifkan ketika layar masuk ditampilkan untuk pertama kali. Pengguna dapat mengaktifkan atau menonaktifkan keyboard di layar kapan saja dan statusnya pada layar masuk bersifat tetap antarpengguna.</translation>
 <translation id="6598235178374410284">Gambar avatar pengguna</translation>
-<translation id="6633160536638196468">Menentukan daftar fitur platform web yang tak digunakan lagi untuk diaktifkan kembali secara sementara.
+<translation id="6636268606788232221">Mengonfigurasi setelan pengelolaan daya saat pengguna menganggur.
 
-      Kebijakan ini memberikan administrator kemampuan untuk mengaktifkan kembali fitur platform web yang tak digunakan lagi dalam waktu yang terbatas. Fitur diidentifikasi dengan tag string dan fitur yang sesuai dengan tag yang disertakan dalam daftar yang ditentukan oleh kebijakan ini akan diaktifkan kembali.
+          Kebijakan ini mengontrol beberapa setelan untuk strategi pengelolaan daya saat pengguna menganggur.
 
-      Jika kebijakan ini tidak disetel, daftar ini kosong, atau daftar tidak cocok dengan satu pun tag string yang didukung, semua fitur platform web yang tak lagi digunakan akan tetap dinonaktifkan.
+          Ada empat macam tindakan:
+          * Layar akan diredupkan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |ScreenDim|.
+          * Layar akan dinonaktifkan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |ScreenOff|.
+          * Dialog peringatan akan ditampilkan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |IdleWarning|, yang memberitahukan kepada pengguna bahwa tindakan menganggur akan dilakukan.
+          * Tindakan yang ditentukan oleh |IdleAction| akan dilakukan apabila pengguna tetap menganggur selama waktu yang ditentukan oleh |Idle|.
 
-      Meski kebijakan ini sendiri didukung pada platform di atas, fitur yang diaktifkan mungkin tersedia pada lebih sedikit platform. Tidak semua fitur Platform Web yang tak digunakan lagi dapat diaktifkan kembali. Hanya yang dicantumkan secara eksplisit di bawah, yang dapat diaktifkan dalam jangka waktu terbatas, yang berbeda-beda per fitur. Format umum untuk tag string adalah [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Sebagai rujukan, Anda dapat menemukan maksud di balik perubahan fitur Platform Web di https://bit.ly/blinkintents.
-      </translation>
+          Untuk setiap tindakan di atas, penundaan harus ditetapkan dalam milidetik, dan perlu disetel dalam nilai yang lebih besar dari nol agar memicu tindakan yang sesuai. Apabila penundaan disetel ke nol, <ph name="PRODUCT_OS_NAME" /> tidak akan melakukan tindakan yang sesuai.
+
+          Untuk setiap penundaan di atas, jika lamanya waktu tidak disetel, nilai default akan digunakan.
+
+          Perhatikan bahwa nilai |ScreenDim| akan dijepit kurang dari atau sama dengan |ScreenOff|, |ScreenOff| dan |IdleWarning| akan dijepit kurang dari atau sama dengan |Idle|.
+
+          |IdleAction| dapat merupakan salah satu dari empat tindakan berikut:
+          * |Suspend|
+          * |Logout|
+          * |Shutdown|
+          * |DoNothing|
+
+          Jika |IdleAction| tidak disetel, tindakan default (penangguhan) akan dilakukan.
+
+          Juga ada setelan terpisah untuk daya AC dan baterai.
+          </translation>
 <translation id="6641981670621198190">Nonaktifkan dukungan untuk API grafis 3D</translation>
 <translation id="6647965994887675196">Jika disetel ke true, pengguna yang dilindungi dapat dibuat dan digunakan.
 
@@ -1613,6 +1642,9 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Jika setelan ini dinonaktifkan atau tidak disetel, maka dua faktor tidak akan diaktifkan dan perilaku default yaitu menggunakan PIN yang ditentukan pengguna, akan digunakan.</translation>
 <translation id="7750991880413385988">Buka Laman Tab Baru</translation>
 <translation id="7763311235717725977">Memungkinkan Anda menyetel apakah situs diizinkan untuk menampilkan gambar. Menampilkan gambar dapat diizinkan untuk semua situs web atau ditolak untuk semua situs web. Jika kebijakan ini dibiarkan tidak disetel, 'AllowImages' akan digunakan dan pengguna dapat mengubahnya.</translation>
+<translation id="7763479091692861127"> Jenis sambungan yang diizinkan penggunaannya untuk pembaruan OS. Pembaruan OS berpotensi memberikan beban berat pada koneksi Internet karena ukurannya dan mungkin mengakibatkan biaya tambahan. Oleh karena itu, koneksi secara default tidak aktif untuk jenis koneksi yang dianggap mahal, yang meliputi WiMax, Bluetooth, dan Seluler untuk saat ini.
+
+      Pengenal jenis koneksi yang diketahui saat ini adalah "ethernet", "wifi", "wimax", "bluetooth", dan "cellular".</translation>
 <translation id="7766336524667238790">Laporkan informasi tentang sesi kios aktif, misalnya
       ID dan versi aplikasi
 
@@ -1657,38 +1689,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="7953256619080733119">Hosting pengecualian manual pengguna yang dikelola</translation>
 <translation id="7971839631300653352">SSL 3.0</translation>
 <translation id="7974114691960514888">Kebijakan ini tidak lagi didukung. Mengaktifkan penggunaan STUN dan server relay saat menyambungkan ke klien jarak jauh. Jika setelan ini diaktifkan, maka komputer ini dapat menemukan dan tersambung ke komputer host jarak jauh bahkan jika dipisahkan oleh firewall. Jika setelan ini dinonaktifkan dan sambungan UDP keluar difilter oleh firewall, maka komputer ini hanya dapat tersambung ke komputer host dalam jaringan lokal.</translation>
-<translation id="8002229853067655250">Mengonfigurasi setelan pengelolaan ekstensi untuk <ph name="PRODUCT_NAME" />.
-
-          Kebijakan ini mengontrol beberapa setelan, termasuk setelan yang dikontrol oleh kebijakan terkait ekstensi yang sudah ada mana pun. Kebijakan ini akan menggantikan kebijakan lawas apa pun jika keduanya disetel.
-
-          Kebijakan ini memetakan ID ekstensi atau URL pembaruan ke konfigurasinya. Dengan ID ekstensi, konfigurasi akan diterapkan ke ekstensi yang ditentukan saja. Konfigurasi default dapat disetel untuk ID khusus "*", yang akan diterapkan untuk semua ekstensi yang tidak memiliki konfigurasi khusus yang disetel dalam kebijakan ini. Dengan URL pembaruan, konfigurasi akan diterapkan ke semua ekstensi dengan URL pembaruan akurat yang dinyatakan dalam manifes ekstensi ini, seperti yang dijelaskan dalam <ph name="LINK_TO_EXTENSION_DOC1" />.
-
-          Konfigurasi untuk setiap ekstensi (atau ekstensi dengan URL pembaruan yang sama) adalah kamus lain yang dapat berisi bidang yang didokumentasikan di bawah.
-
-          "installation_mode": memetakan ke string yang menunjukkan mode pemasangan untuk ekstensi. String yang valid adalah:
-          * "allowed": memungkinkan pemasangan ekstensi oleh pengguna. Ini adalah perilaku defaultnya.
-          * "blocked": memblokir pemasangan ekstensi.
-          * "force_installed": ekstensi otomatis terpasang dan tidak dapat dihapus oleh pengguna.
-          * "normal_installed": ekstensi otomatis terpasang namun dapat dinonaktifkan oleh pengguna.
-
-          "installation_mode" juga dapat dikonfigurasikan untuk beberapa ekstensi, termasuk ekstensi "*" (sebagai setelan default) dan ekstensi dengan URL pembaruan yang sama. Dalam kasus ini. hanya nilai "allowed" dan "blocked" yang dapat digunakan.
-
-          Jika mode disetel ke "force_installed" atau "normal_installed", "update_url" juga harus dikonfigurasikan. Perhatikan bahwa URL pembaruan yang disetel dalam kebijakan ini hanya digunakan untuk pemasangan awal; pembaruan ekstensi selanjutnya akan menggunakan URL pembaruan yang ditunjukkan dalam manifes ekstensi. URL pembaruan seharusnya mengarah ke dokumen XML Manifes Pembaruan seperti yang dijelaskan di atas.
-
-          "blocked_permissions": memetakan ke daftar string yang menunjukkan izin API yang diblokir untuk ekstensi. Nama izin sama dengan string izin yang dinyatakan dalam manifes ekstensi seperti yang dijelaskan dalam <ph name="LINK_TO_EXTENSION_DOC3" />. Setelan ini juga dapat dikonfigurasikan untuk ekstensi "*". Jika ekstensi mewajibkan izin yang ada dalam daftar diblokir, ekstensi tidak akan diizinkan untuk dimuat. Jika ekstensi berisi izin yang diblokir sebagai persyaratan opsional, ekstensi akan ditangani dengan cara normal, namun permintaan izin yang menimbulkan bentrok akan ditolak secara otomatis saat waktu proses.
-
-          "allowed_permissions": mirip dengan "blocked_permissions", namun mengizinkan beberapa izin secara eksplisit yang mungkin diblokir oleh daftar global untuk izin yang diblokir, sehingga tidak dapat dikonfigurasi untuk ekstensi "*". Perhatikan bahwa setelan ini tidak memberikan izin yang dijamin ke ekstensi secara otomatis.
-
-          "minimum_version_required": memetakan ke string versi. Format string versi sama dengan format yang digunakan dalam manifes ekstensi, seperti yang dijelaskan dalam <ph name="LINK_TO_EXTENSION_DOC4" />. Ekstensi dengan versi yang lebih lawas dari versi minimum yang ditetapkan akan dinonaktifkan. Hal ini juga berlaku untuk ekstensi force-installed.
-
-          Setelan berikut hanya dapat digunakan untuk konfigurasi "*" default:
-
-          "install_sources": Setiap item dalam daftar ini adalah pola pencocokan gaya-ekstensi (lihat https://developer.chrome.com/extensions/match_patterns). Pengguna akan dapat memasang item dengan mudah dari URL apa pun yang cocok dengan item di dalam daftar ini. Lokasi file *.crx dan laman tempat unduhan dimulai (misalnya perujuk) harus diizinkan oleh pola ini.
-
-          "allowed_types": Setelan ini memasukkan jenis ekstensi/aplikasi yang diizinkan yang dapat dipasang di <ph name="PRODUCT_NAME" /> ke daftar putih.  Nilainya adalah daftar string, yang masing-masing terdiri dari: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app", atau "platform_app". Lihat <ph name="PRODUCT_NAME" /> dokumentasi ekstensi untuk informasi selengkapnya tentang jenis ini.
-
-          Kebijakan ini belum siap untuk digunakan. Harap tidak menggunakannya.
-          </translation>
 <translation id="8044493735196713914">Laporkan mode boot perangkat</translation>
 <translation id="8059164285174960932">URL tempat klien akses jarak jauh seharusnya memperoleh token autentikasi mereka</translation>
 <translation id="8071636581296916773">Memungkinkan penggunaan server relay saat klien jarak jauh sedang mencoba membuat koneksi ke komputer ini.

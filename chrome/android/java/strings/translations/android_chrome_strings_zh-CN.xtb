@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">您目前打开的标签页和最近用过的其他应用都会显示在您手机的“概览”屏幕上。</translation>
 <translation id="2079545284768500474">撤消</translation>
 <translation id="2082238445998314030">第 <ph name="RESULT_NUMBER" /> 条结果，共 <ph name="TOTAL_RESULTS" /> 条</translation>
+<translation id="2095887075102408547">当此功能处于开启状态时，Chrome 会先使用 Google 服务器压缩您所访问的网页，然后再下载它们。Google 既不会优化也不会看到您通过私密连接 (HTTPS) 或在隐身标签页中访问的网页。</translation>
 <translation id="2100273922101894616">自动登录</translation>
 <translation id="2126426811489709554">由 Chrome 提供支持</translation>
 <translation id="213279576345780926">已关闭<ph name="TAB_TITLE" /></translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">为此页添加书签</translation>
 <translation id="326254929494722411">您尚未在此设备上设置 Google 帐户</translation>
 <translation id="3269093882174072735">加载图片</translation>
+<translation id="3278850099957560514">只需使用 Google 优化您所访问的网页，即可节省数据流量。Google 既不会优化也不会看到您通过私密连接 (HTTPS) 或在隐身标签页中访问的网页。</translation>
 <translation id="3282568296779691940">登录 Chrome</translation>
 <translation id="3287852534598822456">书签已不存在，请刷新。</translation>
 <translation id="3303414029551471755">要开始下载该内容吗？</translation>

@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Vezi filele împreună cu alte aplicații recente pe ecranul Recente de pe telefon.</translation>
 <translation id="2079545284768500474">Anulează</translation>
 <translation id="2082238445998314030">Rezultatul <ph name="RESULT_NUMBER" /> din <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Când această funcție este activată, Chrome va folosi serverele Google pentru a comprima paginile pe care le accesezi înainte de a le descărca. Paginile accesate folosind conexiuni private (HTTPS) sau în file incognito nu vor fi optimizate sau detectate de Google.</translation>
 <translation id="2100273922101894616">Conectare automată</translation>
 <translation id="2126426811489709554">Afișată de Chrome</translation>
 <translation id="213279576345780926">Fila <ph name="TAB_TITLE" /> a fost închisă</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Marcați această pagină</translation>
 <translation id="326254929494722411">Nu ai configurat încă un Cont Google pe acest dispozitiv</translation>
 <translation id="3269093882174072735">Încarcă imaginea</translation>
+<translation id="3278850099957560514">Reduce volumul de date transferat optimizând cu Google paginile accesate. Paginile accesate folosind conexiuni private (HTTPS) sau în file incognito nu vor fi optimizate sau detectate de Google.</translation>
 <translation id="3282568296779691940">Conectați-vă la Chrome</translation>
 <translation id="3287852534598822456">Marcajul nu mai există. Actualizează.</translation>
 <translation id="3303414029551471755">Continui pentru descărcarea conținutului?</translation>

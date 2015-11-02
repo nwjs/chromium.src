@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Skatiet cilnes ar citām jaunākajām lietotnēm tālruņa ekrānā Pārskats.</translation>
 <translation id="2079545284768500474">Atsaukt</translation>
 <translation id="2082238445998314030"><ph name="RESULT_NUMBER" />. rezultāts no <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Ja šī funkcija ir ieslēgta, Chrome izmanto Google serverus, lai saspiestu jūsu apmeklētās lapas pirms to lejupielādes. Ja lapu atvēršanai tiek izmantots privāts savienojums (HTTPS) vai inkognito režīms, tās netiek optimizētas un Google tās nevar skatīt.</translation>
 <translation id="2100273922101894616">Automātiski pierakstīties</translation>
 <translation id="2126426811489709554">Nodrošina Chrome</translation>
 <translation id="213279576345780926">Tika aizvērta cilne <ph name="TAB_TITLE" /></translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Grāmatot šo lapu</translation>
 <translation id="326254929494722411">Jūs vēl neesat iestatījis Google kontu šajā ierīcē.</translation>
 <translation id="3269093882174072735">Ielādēt attēlu</translation>
+<translation id="3278850099957560514">Tērējiet mazāk līdzekļu par datu pārraidi, ļaujot Google serveriem optimizēt apmeklētās lapas. Ja lapu atvēršanai tiek izmantots privāts savienojums (HTTPS) vai inkognito režīms, tās netiek optimizētas un Google tās nevar skatīt.</translation>
 <translation id="3282568296779691940">Pierakstīties pārlūkā Chrome</translation>
 <translation id="3287852534598822456">Grāmatzīme vairs nepastāv. Lūdzu, atsvaidziniet lapu.</translation>
 <translation id="3303414029551471755">Vai turpināt ar satura lejupielādi?</translation>

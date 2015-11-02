@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Telefonja Áttekintés képernyőjén a lapokat a legutóbbi alkalmazásokkal együtt találja.</translation>
 <translation id="2079545284768500474">Visszavonás</translation>
 <translation id="2082238445998314030">Eredmény: <ph name="RESULT_NUMBER" />/<ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Amikor ezt a funkciót bekapcsolja, a Chrome a Google-szerverek segítségével tömöríti az Ön által felkeresett oldalakat, mielőtt letöltené azokat. A privát kapcsolat (HTTPS) használatával, illetve az inkognitómódban megtekintett oldalakat a Google nem látja és nem optimalizálja.</translation>
 <translation id="2100273922101894616">Automatikus bejelentkezés</translation>
 <translation id="2126426811489709554">A Chrome erejével</translation>
 <translation id="213279576345780926">Bezárva: <ph name="TAB_TITLE" /></translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Könyvjelző hozzáadása ehhez az oldalhoz</translation>
 <translation id="326254929494722411">Ezen az eszközön még nem hozott létre Google-fiókot</translation>
 <translation id="3269093882174072735">Kép betöltése</translation>
+<translation id="3278850099957560514">Kevesebbet költhet adatforgalomra,  ha a Google optimalizálja a felkeresett oldalakat. A privát kapcsolat (HTTPS) használatával, illetve az inkognitómódban megtekintett oldalakat a Google nem látja és nem optimalizálja.</translation>
 <translation id="3282568296779691940">Bejelentkezés a Chrome-ba</translation>
 <translation id="3287852534598822456">A könyvjelző már nem létezik. Kérjük, frissítse.</translation>
 <translation id="3303414029551471755">Biztosan letölti a tartalmat?</translation>

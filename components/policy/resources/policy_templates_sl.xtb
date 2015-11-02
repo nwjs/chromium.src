@@ -615,6 +615,38 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
           Če ta pravilnik ni nastavljen, lahko uporabnik v <ph name="PRODUCT_NAME" /> namesti katero koli razširitev.</translation>
 <translation id="316778957754360075">Ta nastavitev se ne uporablja od uveljavitve različice brskalnika <ph name="PRODUCT_NAME" /> 29. Za nastavitev zbirk razširitev/aplikacij, ki gostujejo v organizaciji, se priporoča, da se spletno mesto, na katerem gostujejo paketi CRX, vključi na seznam ExtensionInstallSources in da se na spletno mesto dodajo povezave za neposreden prenos paketov. Zaganjalnik za to stran se lahko ustvari s pravilnikom ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">od različice <ph name="SINCE_VERSION" /></translation>
+<translation id="318812033927804102">Konfigurira nastavitve upravljanja razširitev za <ph name="PRODUCT_NAME" />.
+
+          Ta pravilnik nadzira več nastavitev, vključno za nastavitvami, ki jih nadzirajo morebitni obstoječi pravilniki, povezani z razširitvami. Ta pravilnik preglasi morebitne starejše pravilnike, če so nastavljeni oboji.
+
+          Ta pravilnik preslika ID razširitve ali URL za posodobitev v svojo konfiguracijo. Konfiguracija z ID-jem razširitve bo uporabljena samo za določeno razširitev. Za posebni ID »*« je mogoče nastaviti privzeto konfiguracijo, ki se bo uporabila za vse razširitve, ki v tem pravilniku nimajo nastavljene konfiguracije po meri. Konfiguracija z URL-jem za posodobitev bo uporabljena za vse nastavitve s točno določenim URL-jem za posodobitev, navedenim v manifestu te razširitve, kot je opisano na <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Konfiguracija za posamezno razširitev (ali razširitve z istim URL-jem za posodobitev) je drug slovar, ki lahko vsebuje spodaj dokumentirana polja.
+
+          »installation_mode« (način namestitve): preslika v niz, ki navaja način namestitve za razširitev. Veljavni nizi so:
+          * »allowed« (dovoljeno): uporabniku dovoli namestitev razširitve. To je privzeto delovanje.
+          * »blocked« (blokirano): blokira namestitev razširitve.
+          * »force_installed« (vsiljeno nameščeno): razširitev je samodejno nameščena in je uporabnik ne more odstraniti.
+          * »normal_installed« (običajno nameščeno): razširitev je samodejno nameščena, vendar jo lahko uporabnik onemogoči.
+
+          Vrednost »installation_mode« (način namestitve) je prav tako mogoče konfigurirati za več razširitev, vključno z razširitvijo »*« (kot privzeta nastavitev) in razširitvami z istim URL-jem za posodobitev. V tem primeru je mogoče uporabiti samo vrednosti »allowed« (dovoljeno) in »blocked« (blokirano).
+
+          Če je način nastavljen na vrednost »force_installed« (vsiljeno nameščeno) ali »normal_installed« (običajno nameščeno), mora biti konfigurirana tudi vrednost »update_url« (URL za posodobitev). URL za posodobitev, nastavljen v tem pravilniku, se uporabi samo pri začetni namestitvi; pri vseh nadaljnjih posodobitvah razširitve je uporabljen URL za posodobitev, naveden v manifestu razširitve. URL za posodobitev mora kazati na dokument XML manifesta za posodobitev, kot je opisano zgoraj.
+
+          Vrednost »blocked_permissions« (blokirana dovoljenja): preslika v seznam nizov, ki navajajo blokirana dovoljenja za API-je za razširitev. Imena dovoljenj so enaka kot nizi dovoljenj, navedeni v manifestu razširitve, kot je opisano na <ph name="LINK_TO_EXTENSION_DOC3" />. To nastavitev je prav tako mogoče konfigurirati za razširitev »*«. Če razširitev zahteva dovoljenje s seznama blokiranih, se ne bo smela naložiti. Če razširitev vsebuje blokirano dovoljenje kot izbirno zahtevo, se bo obravnavala običajno, vendar bo pri izvajanju zahtevanje dovoljenj, ki so v sporu, samodejno zavrnjeno.
+
+          Vrednost »allowed_permissions« (dovoljena dovoljenja): podobna vrednosti »blocked_permissions« (blokirana dovoljenja), razlikuje pa se po tem, da izrecno dovoljuje nekatera dovoljenja, ki jih globalni seznam blokiranih dovoljenj morda blokira, tako da je ni mogoče konfigurirati za razširitev »*«. Ta nastavitev razširitvam ne podeljuje dovoljenih dovoljenj samodejno.
+
+          Vrednost »minimum_version_required« (zahtevana najmanjša različica): preslika v niz z različico. Oblika niza z različico je enaka obliki niza v manifestu razširitve, kot je opisano na <ph name="LINK_TO_EXTENSION_DOC4" />. Razširitev z različico, starejšo od določene najmanjše različice, bo onemogočena. To velja tudi za vsiljeno nameščene razširitve.
+
+          Te nastavitve je mogoče uporabiti samo za privzeto konfiguracijo »*«:
+
+          Vrednost »install_sources« (viri za namestitev): vsak element na tem seznamu je vzorec ujemanja v slogu razširitve (glejte https://developer.chrome.com/extensions/match_patterns). Uporabniki bodo lahko preprosto namestili elemente s poljubnega URL-ja, ki se ujema z elementom na tem seznamu. Mesto datoteke *.crx in strani, na kateri se prenos začne (tj. napotitelj), morajo dovoljevati vzorci s tega seznama.
+
+          Vrednost »allowed_types« (dovoljene vrste): ta nastavitev uvršča na seznam dovoljenih dovoljene vrste razširitev/aplikacij, ki jih je mogoče namestiti v brskalniku <ph name="PRODUCT_NAME" />. Vrednost je seznam nizov, od katerih mora biti vsak nekaj od tega: »extension«, »theme«, »user_script«, »legacy_packaged_app«, »platform_app«. Če želite več informacij o teh vrstah, si oglejte dokumentacijo za razširitve za <ph name="PRODUCT_NAME" />.
+
+          Ta pravilnik še ni pripravljen za uporabo, zato ga ne uporabljajte.
+          </translation>
 <translation id="3205825995289802549">Povečaj prvo okno brskalnika pri prvem izvajanju</translation>
 <translation id="3206731874112238027">Onemogočanje predogleda tiskanja (zastarelo)</translation>
 <translation id="3213821784736959823">Določa, ali je v brskalniku <ph name="PRODUCT_NAME" /> uporabljen vgrajeni odjemalec DNS.
@@ -744,22 +776,6 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
       Če je ta nastavitev nastavljena na »true« ali ni določena, lahko uporabniki uporabljajo vse podprte izhodne zvočne funkcije v napravi.</translation>
 <translation id="3808945828600697669">Določi seznam onemogočenih vtičnikov</translation>
 <translation id="3816312845600780067">Omogočanje bližnjičnih tipk, da se zaobide samodejna prijava</translation>
-<translation id="381807926299956806">Nastavi enega ali več priporočenih jezikov za javne seje, kar uporabnikom omogoča preprosto izbiro enega od teh jezikov.
-
-      Uporabnik lahko izbere jezik in postavitev tipkovnice, preden začne javno sejo. Privzeto so vsi jeziki, ki jih podpira operacijski sistem <ph name="PRODUCT_OS_NAME" />, navedeni v abecednem vrstnem redu. Ta pravilnik lahko uporabite za premik niza priporočenih jezikov na vrh seznama.
-
-      Če ta pravilnik ni nastavljen, bo vnaprej izbran trenutni jezik uporabniškega vmesnika.
-
-      Če je ta pravilnik nastavljen, bodo priporočeni jeziki premaknjeni na vrh seznama in bodo vizualno ločeni od drugih jezikov. Priporočeni jeziki bodo navedeni v vrstnem redu, v katerem so prikazani v pravilniku. Prvi priporočen jezik bo vnaprej izbran.
-
-      Če je priporočenih jezikov več, se predvideva, da bodo uporabniki želeli izbirati med temi jeziki. Ob zagonu javne seje bo izbira jezika in postavitve tipkovnice ponujena na vidnem mestu. Sicer se predvideva, da bo večina uporabnikov želela uporabljati vnaprej izbran jezik. Ob zagonu javne seje bo izbira jezika in postavitve tipkovnice ponujena na manj vidnem mestu.
-
-      Če je ta pravilnik nastavljen in je omogočena samodejna prijava, (glejte pravilnika |DeviceLocalAccountAutoLoginId| in |DeviceLocalAccountAutoLoginDelay|), bo samodejno začeta javna seja uporabila prvi priporočen jezik in najbolj priljubljeno postavitev tipkovnice, ki se ujema s tem jezikom.
-
-      Vnaprej izbrana postavitev tipkovnice bo vedno najbolj priljubljena postavitev, ki se ujema z vnaprej izbranim jezikom.
-
-      Ta pravilnik je mogoče nastaviti samo kot priporočen. Z njim lahko premaknete niz priporočenih jezikov na vrh, vendar je uporabnikom za njihovo sejo vedno dovoljeno izbrati kateri koli jezik, ki ga podpira operacijski sistem <ph name="PRODUCT_OS_NAME" />.
-      </translation>
 <translation id="3820526221169548563">Omogoča funkcije za ljudi s posebnimi potrebami zaslonske tipkovnice.
 
           Če je ta pravilnik nastavljen na »true«, je zaslonska tipkovnica stalno omogočena.
@@ -838,9 +854,6 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 <translation id="4039085364173654945">Določa, ali lahko podvsebina drugega ponudnika na strani odpre pojavno pogovorno okno HTTP Basic Auth.
 
           Običajno je to onemogočeno kot zaščita pred lažnim predstavljanjem. Če ta pravilnik ni nastavljen, je to onemogočeno in podvsebina drugega ponudnika ne bo mogla odpreti pojavnega pogovornega okna HTTP Basic Auth.</translation>
-<translation id="4043912146394966243"> Vrste povezav, ki so dovoljene za uporabo za posodobitve operacijskega sistema. Posodobitve operacijskega sistema lahko zaradi svoje velikosti zelo obremenijo povezavo in lahko prinesejo dodatne stroške. Zato trenutno niso omogočene za vrste povezave, ki štejejo za drage; trenutno so to WiMax, Bluetooth in prenos podatkov v mobilnem omrežju.
-
-      Prepoznani identifikatorji vrste povezav so »ethernet«, »wifi«, »wimax«, »bluetooth« in »cellular«.</translation>
 <translation id="4052765007567912447">Nadzira, ali lahko uporabnik v upravitelju gesel prikaže gesla v besedilni obliki.
 
          Če to nastavitev onemogočite, upravitelj gesel v svojem oknu ne dovoli prikaza shranjenih gesel v besedilni obliki.
@@ -906,6 +919,14 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 
       Če je pravilnik nastavljen, ga uporabnik ne more spremeniti, bližnjica za aplikacije pa je vedno prikazana ali pa ni nikoli prikazana.</translation>
 <translation id="443665821428652897">Izbris podatkov mesta, ko se brskalnik zapre (zastarelo)</translation>
+<translation id="4439336120285389675">Določanje seznama zastarelih funkcij spletnega okolja za vnovično začasno omogočanje.
+
+      Ta pravilnik skrbnikom omogoča vnovično omogočanje zastarelih funkcij spletnega okolja za omejen čas. Funkcije določajo oznake nizov in funkcije, ki ustrezajo oznakam, vključenim na seznam, ki ga določa ta pravilnik, bodo znova omogočene.
+
+      Če ta pravilnik ni nastavljen ali je seznam prazen oziroma se ne ujema z nobeno od podprtih oznak nizov, bodo ostale vse zastarele funkcije spletnega okolja onemogočene.
+
+      Medtem ko je ta pravilnik podprt v zgornjih okoljih, je funkcija, ki jo omogoča, morda na voljo v manj okoljih. Vseh zastarelih funkcij spletnega okolja ni mogoče znova omogočiti; za omejen čas (različno od funkcije do funkcije) je mogoče samo tiste, ki so izrecno navedene spodaj. Splošna oblika zapisa oznake niza bo [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Če vas zanima referenčno gradivo in namen spremembe funkcij spletnega okolja, obiščite http://bit.ly/blinkintents.
+      </translation>
 <translation id="4442582539341804154">Omogoči zaklepanje, ko je naprava nedejavna ali preide v stanje pripravljenosti</translation>
 <translation id="4445684791305970001">Onemogoči orodja za razvijalce in konzolo JavaScript.
 
@@ -1197,32 +1218,6 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 
       Če ta pravilnik ni nastavljen, ni samodejne prijave.</translation>
 <translation id="5535973522252703021">Seznam dovoljenih delegacijskih strežnikov za Kerberos</translation>
-<translation id="553658564206262718">Konfigurira nastavitve upravljanja energije, ko uporabnik postane nedejaven.
-
-          Ta pravilnik nadzira različne nastavitve za strategijo upravljanja energije, ko uporabnik postane nedejaven.
-
-          Obstajajo štiri vrste dejanj:
-          * Če je uporabnik nedejaven toliko časa, kot določa |ScreenDim|, se zaslon zatemni.
-          * Če je uporabnik nedejaven toliko časa, kot določa |ScreenOff|, se zaslon izklopi.
-          * Če je uporabnik nedejaven toliko časa, kot določa |IdleWarning|, se prikaže opozorilno pogovorno okno, ki uporabnika obvesti, da se bo izvedlo dejanje zaradi nedejavnosti.
-          * Če je uporabnik nedejaven toliko časa, kot določa |Idle|, se bo izvedlo dejanje, ki ga določa |IdleAction|.
-
-          Za vsako od navedenih dejanj mora biti zakasnitev navedena v milisekundah, ustrezno dejanje pa se bo sprožilo samo, če je nastavljena vrednost, večja od nič. Če je zakasnitev nastavljena na nič, <ph name="PRODUCT_OS_NAME" /> ne bo izvedel ustreznega dejanja.
-
-          Če za navedene zakasnitve trajanje ni določeno, bo uporabljena privzeta vrednost.
-
-          Upoštevajte, da morajo biti vrednosti za |ScreenDim| manjše ali enake kot vrednosti za |ScreenOff|, vrednosti za |ScreenOff| in |IdleWarning| pa manjše ali enake kot za |Idle|.
-
-          |IdleAction| je lahko eno od štirih dejanj:
-          * |Suspend| (prekinitev)
-          * |Logout| (odjava)
-          * |Shutdown| (zaustavitev)
-          * |DoNothing| (ne naredi ničesar)
-
-          Če vrednost za |IdleAction| ni nastavljena, se bo izvedlo privzeto dejanje, ki je prekinitev.
-
-          Obstajajo tudi ločene nastavitve za napajanje iz električnega omrežja in akumulatorja.
-          </translation>
 <translation id="5560039246134246593">Dodajanje parametra prejemanju semen različic v izdelku <ph name="PRODUCT_NAME" />.
 
       Če je pravilnik določen, se URL-ju za prenos semen različic doda parameter poizvedbe »restrict«. Vrednost parametra je vrednost, določena v tem pravilniku.
@@ -1238,6 +1233,22 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
       Če ta pravilnik nastavite, ga uporabniki ne morejo spremeniti ali preglasiti.
 
       Če tega pravilnika ne nastavite, lahko uporabniki izberejo, ali naj se polica samodejno skrije.</translation>
+<translation id="5573397331902180200">Nastavi enega ali več priporočenih jezikov za javne seje, kar uporabnikom omogoča preprosto izbiro enega od teh jezikov.
+
+      Uporabnik lahko izbere jezik in postavitev tipkovnice, preden začne javno sejo. Privzeto so vsi jeziki, ki jih podpira operacijski sistem <ph name="PRODUCT_OS_NAME" />, navedeni v abecednem vrstnem redu. Ta pravilnik lahko uporabite za premik niza priporočenih jezikov na vrh seznama.
+
+      Če ta pravilnik ni nastavljen, bo vnaprej izbran trenutni jezik uporabniškega vmesnika.
+
+      Če je ta pravilnik nastavljen, bodo priporočeni jeziki premaknjeni na vrh seznama in bodo vizualno ločeni od drugih jezikov. Priporočeni jeziki bodo navedeni v vrstnem redu, v katerem so prikazani v pravilniku. Prvi priporočen jezik bo vnaprej izbran.
+
+      Če je priporočenih jezikov več, se predvideva, da bodo uporabniki želeli izbirati med temi jeziki. Ob zagonu javne seje bo izbira jezika in postavitve tipkovnice ponujena na vidnem mestu. Sicer se predvideva, da bo večina uporabnikov želela uporabljati vnaprej izbran jezik. Ob zagonu javne seje bo izbira jezika in postavitve tipkovnice ponujena na manj vidnem mestu.
+
+      Če je ta pravilnik nastavljen in je omogočena samodejna prijava, (glejte pravilnika |DeviceLocalAccountAutoLoginId| in |DeviceLocalAccountAutoLoginDelay|), bo samodejno začeta javna seja uporabila prvi priporočen jezik in najbolj priljubljeno postavitev tipkovnice, ki se ujema s tem jezikom.
+
+      Vnaprej izbrana postavitev tipkovnice bo vedno najbolj priljubljena postavitev, ki se ujema z vnaprej izbranim jezikom.
+
+      Ta pravilnik je mogoče nastaviti samo kot priporočen. Z njim lahko premaknete niz priporočenih jezikov na vrh, vendar je uporabnikom za njihovo sejo vedno dovoljeno izbrati kateri koli jezik, ki ga podpira operacijski sistem <ph name="PRODUCT_OS_NAME" />.
+      </translation>
 <translation id="557658534286111200">Omogoči ali onemogoči urejanje zaznamkov</translation>
 <translation id="5586942249556966598">Ne naredi nič</translation>
 <translation id="5630352020869108293">Obnovi zadnjo sejo</translation>
@@ -1380,6 +1391,17 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="6145799962557135888">Omogoča nastavitev seznama vzorcev URL-jev, s katerim so določena mesta, ki smejo izvajati JavaScript.
 
           Če ta pravilnik ni nastavljen, bo za vsa spletna mesta uporabljena splošna privzeta vrednost iz pravilnika »DefaultJavaScriptSetting«, kadar je ta nastavljen, ali iz uporabnikove osebne konfiguracije, kadar pravilnik »DefaultImagesSetting« ni nastavljen.</translation>
+<translation id="6151775819333710697">
+          Če je ta nastavitev omogočena, si lahko <ph name="PRODUCT_NAME" /> zapomni gesla
+          in jih samodejno ponudi uporabnikom, ko se naslednjič prijavijo na spletnem mestu.
+
+          Če je ta nastavitev onemogočena, uporabniki ne morejo shranjevati novih gesel,
+          vendar lahko še vedno uporabljajo že shranjena gesla.
+
+          Če je ta pravilnik omogočen ali onemogočen, ga uporabniki
+          v brskalniku <ph name="PRODUCT_NAME" /> ne morejo spremeniti ali preglasiti. Če ta
+          pravilnik ni nastavljen, je shranjevanje gesel dovoljeno (vendar ga lahko
+          uporabnik izklopi).</translation>
 <translation id="6155936611791017817">Nastavitev privzetega stanja velikega kazalca na prijavnem zaslonu</translation>
 <translation id="6157537876488211233">Seznam pravil za obvod proxyja, ločenih z vejico</translation>
 <translation id="6158324314836466367">Ime spletne trgovine podjetja (zastarelo)</translation>
@@ -1443,17 +1465,6 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
           Ta pravilnik je izbiren. Če ni nastavljen, bo zahteva za iskanje poslana z metodo GET.
 
           Ta pravilnik se upošteva samo, če je omogočen pravilnik »DefaultSearchProviderEnabled«.</translation>
-<translation id="6365608006609079612">
-          Če je ta nastavitev omogočena, si lahko <ph name="PRODUCT_NAME" /> zapomni gesla
-          in jih samodejno ponudi uporabnikom, ko se naslednjič prijavijo na spletnem mestu.
-
-          Če je ta nastavitev onemogočena, uporabniki ne morejo shranjevati novih gesel,
-          vendar lahko še vedno uporabljajo že shranjena gesla.
-
-          Če je ta pravilnik omogočen ali onemogočen, ga uporabniki
-          v brskalniku <ph name="PRODUCT_NAME" /> ne morejo spremeniti ali preglasiti. Če ta
-          pravilnik ni nastavljen, je shranjevanje gesel dovoljeno (vendar ga lahko
-          uporabnik izklopi).</translation>
 <translation id="6367755442345892511">Ali lahko distribucijski kanal za nove izdaje nastavi uporabnik</translation>
 <translation id="6368011194414932347">Konfiguracija URL-ja domače strani</translation>
 <translation id="6368403635025849609">Dovoli JavaScript na teh mestih</translation>
@@ -1529,14 +1540,32 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 
           Če ta pravilnik ni nastavljen, je zaslonska tipkovnica onemogočena pri prvem prikazu zaslona za prijavo. Uporabniki lahko zaslonsko tipkovnico kadar koli omogočijo ali onemogočijo in njeno stanje na zaslonu za prijavo velja za vse uporabnike.</translation>
 <translation id="6598235178374410284">Slika za avatar uporabnika</translation>
-<translation id="6633160536638196468">Določanje seznama zastarelih funkcij spletnega okolja za vnovično začasno omogočanje.
+<translation id="6636268606788232221">Konfigurira nastavitve upravljanja energije, ko uporabnik postane nedejaven.
 
-      Ta pravilnik skrbnikom omogoča vnovično omogočanje zastarelih funkcij spletnega okolja za omejen čas. Funkcije določajo oznake nizov in funkcije, ki ustrezajo oznakam, vključenim na seznam, ki ga določa ta pravilnik, bodo znova omogočene.
+          Ta pravilnik nadzira različne nastavitve za strategijo upravljanja energije, ko uporabnik postane nedejaven.
 
-      Če ta pravilnik ni nastavljen ali je seznam prazen oziroma se ne ujema z nobeno od podprtih oznak nizov, bodo ostale vse zastarele funkcije spletnega okolja onemogočene.
+          Obstajajo štiri vrste dejanj:
+          * Če je uporabnik nedejaven toliko časa, kot določa |ScreenDim|, se zaslon zatemni.
+          * Če je uporabnik nedejaven toliko časa, kot določa |ScreenOff|, se zaslon izklopi.
+          * Če je uporabnik nedejaven toliko časa, kot določa |IdleWarning|, se prikaže opozorilno pogovorno okno, ki uporabnika obvesti, da se bo izvedlo dejanje zaradi nedejavnosti.
+          * Če je uporabnik nedejaven toliko časa, kot določa |Idle|, se bo izvedlo dejanje, ki ga določa |IdleAction|.
 
-      Medtem ko je ta pravilnik podprt v zgornjih okoljih, je funkcija, ki jo omogoča, morda na voljo v manj okoljih. Vseh zastarelih funkcij spletnega okolja ni mogoče znova omogočiti; za omejen čas (različno od funkcije do funkcije) je mogoče samo tiste, ki so izrecno navedene spodaj. Splošna oblika zapisa oznake niza bo [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. Če vas zanima referenčno gradivo in namen spremembe funkcij spletnega okolja, obiščite http://bit.ly/blinkintents.
-      </translation>
+          Za vsako od navedenih dejanj mora biti zakasnitev navedena v milisekundah, ustrezno dejanje pa se bo sprožilo samo, če je nastavljena vrednost, večja od nič. Če je zakasnitev nastavljena na nič, <ph name="PRODUCT_OS_NAME" /> ne bo izvedel ustreznega dejanja.
+
+          Če za navedene zakasnitve trajanje ni določeno, bo uporabljena privzeta vrednost.
+
+          Upoštevajte, da morajo biti vrednosti za |ScreenDim| manjše ali enake kot vrednosti za |ScreenOff|, vrednosti za |ScreenOff| in |IdleWarning| pa manjše ali enake kot za |Idle|.
+
+          |IdleAction| je lahko eno od štirih dejanj:
+          * |Suspend| (prekinitev)
+          * |Logout| (odjava)
+          * |Shutdown| (zaustavitev)
+          * |DoNothing| (ne naredi ničesar)
+
+          Če vrednost za |IdleAction| ni nastavljena, se bo izvedlo privzeto dejanje, ki je prekinitev.
+
+          Obstajajo tudi ločene nastavitve za napajanje iz električnega omrežja in akumulatorja.
+          </translation>
 <translation id="6641981670621198190">Onemogoči podporo za vmesnike API za 3D-grafiko</translation>
 <translation id="6647965994887675196">Če je pravilnik vklopljen, je mogoče ustvariti in uporabiti nadzorovane uporabnike.
 
@@ -1857,6 +1886,9 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 <translation id="7763311235717725977">Omogoča nastavitev, ali lahko spletna mesta prikazujejo slike. Prikazovanje slik je lahko dovoljeno ali zavrnjeno za vsa spletna mesta.
 
           Če ta pravilnik ni nastavljen, bo uporabljen pravilnik »AllowImages« in uporabnik ga bo lahko spremenil.</translation>
+<translation id="7763479091692861127"> Vrste povezav, ki so dovoljene za uporabo za posodobitve operacijskega sistema. Posodobitve operacijskega sistema lahko zaradi svoje velikosti zelo obremenijo povezavo in lahko prinesejo dodatne stroške. Zato trenutno niso omogočene za vrste povezave, ki štejejo za drage; trenutno so to WiMax, Bluetooth in prenos podatkov v mobilnem omrežju.
+
+      Prepoznani identifikatorji vrste povezav so »ethernet«, »wifi«, »wimax«, »bluetooth« in »cellular«.</translation>
 <translation id="7766336524667238790">Poročanje podatkov o aktivni seji kioska, na primer
       ID-ja in različice aplikacije.
 
@@ -1909,38 +1941,6 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
           Če je ta nastavitev omogočena, lahko ta računalnik odkrije oddaljene gostiteljske računalnike in se poveže z njimi, tudi če jih ločuje požarni zid.
 
           Če je ta nastavitev onemogočena in izhodne povezave UDP filtrira požarni zid, se bo lahko ta računalnik povezal samo z gostiteljskimi računalniki znotraj lokalnega omrežja.</translation>
-<translation id="8002229853067655250">Konfigurira nastavitve upravljanja razširitev za <ph name="PRODUCT_NAME" />.
-
-          Ta pravilnik nadzira več nastavitev, vključno za nastavitvami, ki jih nadzirajo morebitni obstoječi pravilniki, povezani z razširitvami. Ta pravilnik preglasi morebitne starejše pravilnike, če so nastavljeni oboji.
-
-          Ta pravilnik preslika ID razširitve ali URL za posodobitev v svojo konfiguracijo. Konfiguracija z ID-jem razširitve bo uporabljena samo za določeno razširitev. Za posebni ID »*« je mogoče nastaviti privzeto konfiguracijo, ki se bo uporabila za vse razširitve, ki v tem pravilniku nimajo nastavljene konfiguracije po meri. Konfiguracija z URL-jem za posodobitev bo uporabljena za vse nastavitve s točno določenim URL-jem za posodobitev, navedenim v manifestu te razširitve, kot je opisano na <ph name="LINK_TO_EXTENSION_DOC1" />.
-
-          Konfiguracija za posamezno razširitev (ali razširitve z istim URL-jem za posodobitev) je drug slovar, ki lahko vsebuje spodaj dokumentirana polja.
-
-          »installation_mode« (način namestitve): preslika v niz, ki navaja način namestitve za razširitev. Veljavni nizi so:
-          * »allowed« (dovoljeno): uporabniku dovoli namestitev razširitve. To je privzeto delovanje.
-          * »blocked« (blokirano): blokira namestitev razširitve.
-          * »force_installed« (vsiljeno nameščeno): razširitev je samodejno nameščena in je uporabnik ne more odstraniti.
-          * »normal_installed« (običajno nameščeno): razširitev je samodejno nameščena, vendar jo lahko uporabnik onemogoči.
-
-          Vrednost »installation_mode« (način namestitve) je prav tako mogoče konfigurirati za več razširitev, vključno z razširitvijo »*« (kot privzeta nastavitev) in razširitvami z istim URL-jem za posodobitev. V tem primeru je mogoče uporabiti samo vrednosti »allowed« (dovoljeno) in »blocked« (blokirano).
-
-          Če je način nastavljen na vrednost »force_installed« (vsiljeno nameščeno) ali »normal_installed« (običajno nameščeno), mora biti konfigurirana tudi vrednost »update_url« (URL za posodobitev). URL za posodobitev, nastavljen v tem pravilniku, se uporabi samo pri začetni namestitvi; pri vseh nadaljnjih posodobitvah razširitve je uporabljen URL za posodobitev, naveden v manifestu razširitve. URL za posodobitev mora kazati na dokument XML manifesta za posodobitev, kot je opisano zgoraj.
-
-          Vrednost »blocked_permissions« (blokirana dovoljenja): preslika v seznam nizov, ki navajajo blokirana dovoljenja za API-je za razširitev. Imena dovoljenj so enaka kot nizi dovoljenj, navedeni v manifestu razširitve, kot je opisano na <ph name="LINK_TO_EXTENSION_DOC3" />. To nastavitev je prav tako mogoče konfigurirati za razširitev »*«. Če razširitev zahteva dovoljenje s seznama blokiranih, se ne bo smela naložiti. Če razširitev vsebuje blokirano dovoljenje kot izbirno zahtevo, se bo obravnavala običajno, vendar bo pri izvajanju zahtevanje dovoljenj, ki so v sporu, samodejno zavrnjeno.
-
-          Vrednost »allowed_permissions« (dovoljena dovoljenja): podobna vrednosti »blocked_permissions« (blokirana dovoljenja), razlikuje pa se po tem, da izrecno dovoljuje nekatera dovoljenja, ki jih globalni seznam blokiranih dovoljenj morda blokira, tako da je ni mogoče konfigurirati za razširitev »*«. Ta nastavitev razširitvam ne podeljuje dovoljenih dovoljenj samodejno.
-
-          Vrednost »minimum_version_required« (zahtevana najmanjša različica): preslika v niz z različico. Oblika niza z različico je enaka obliki niza v manifestu razširitve, kot je opisano na <ph name="LINK_TO_EXTENSION_DOC4" />. Razširitev z različico, starejšo od določene najmanjše različice, bo onemogočena. To velja tudi za vsiljeno nameščene razširitve.
-
-          Te nastavitve je mogoče uporabiti samo za privzeto konfiguracijo »*«:
-
-          Vrednost »install_sources« (viri za namestitev): vsak element na tem seznamu je vzorec ujemanja v slogu razširitve (glejte https://developer.chrome.com/extensions/match_patterns). Uporabniki bodo lahko preprosto namestili elemente s poljubnega URL-ja, ki se ujema z elementom na tem seznamu. Mesto datoteke *.crx in strani, na kateri se prenos začne (tj. napotitelj), morajo dovoljevati vzorci s tega seznama.
-
-          Vrednost »allowed_types« (dovoljene vrste): ta nastavitev uvršča na seznam dovoljenih dovoljene vrste razširitev/aplikacij, ki jih je mogoče namestiti v brskalniku <ph name="PRODUCT_NAME" />. Vrednost je seznam nizov, od katerih mora biti vsak nekaj od tega: »extension«, »theme«, »user_script«, »legacy_packaged_app«, »platform_app«. Če želite več informacij o teh vrstah, si oglejte dokumentacijo za razširitve za <ph name="PRODUCT_NAME" />.
-
-          Ta pravilnik še ni pripravljen za uporabo, zato ga ne uporabljajte.
-          </translation>
 <translation id="8044493735196713914">Pošiljanje podatkov o načinu zagona naprave</translation>
 <translation id="8059164285174960932">URL, na katerem morajo odjemalci za oddaljeni dostop pridobiti žeton za preverjanje pristnosti</translation>
 <translation id="8071636581296916773">Omogoča uporabo posredovalnih strežnikov, ko oddaljeni odjemalci poskušajo vzpostaviti povezavo s tem računalnikom.

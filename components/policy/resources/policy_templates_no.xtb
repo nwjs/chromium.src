@@ -589,6 +589,38 @@
          Hvis denne retningslinjen ikke er angitt, kan brukeren installere alle utvidelse i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="316778957754360075">Denne innstillingen ble trukket tilbake fra og med <ph name="PRODUCT_NAME" /> versjon 29. Den anbefalte måten å konfigurere utvidelses- og appsamlinger fra organisasjoner på, er å inkludere nettstedet som leverer CRX-pakkene i ExtensionInstallSources, og legge direktenedlastingslinkene til pakkene på en nettside. En appvelger for denne nettsiden kan opprettes ved hjelp av innstillingen for ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">siden versjon <ph name="SINCE_VERSION" /></translation>
+<translation id="318812033927804102">Konfigurerer innstillingene for administrasjon av utvidelser for <ph name="PRODUCT_NAME" />.
+
+          Denne regelen kontrollerer flere innstillinger, deriblant innstillinger som kontrolleres av eventuelle eksisterende utvidelsesrelaterte regler. Denne regelen overstyrer eventuelle eldre regler hvis begge deler er konfigurert.
+
+          Denne regelen legger til en utvidelses-ID eller oppdateringsnettadresse i konfigurasjonen. Med en utvidelses-ID blir konfigurasjonen bare brukt for den spesifiserte utvidelsen. Du kan spesifisere en standardkonfigurasjon for spesial-ID-en «*», og denne brukes i så fall for alle utvidelser som ikke har noen spesialtilpasset konfigurasjon i denne regelen. Hvis du legger inn en oppdateringsnettadresse, brukes konfigurasjonen for alle utvidelser med den nøyaktige oppdateringsnettadressen som er oppgitt i manifestet til denne utvidelsen. Dette er beskrevet her: <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Konfigurasjonen for hver av utvidelsene (eller utvidelser med samme oppdateringsnettadresse) er en annen katalog som kan inneholde feltene som er dokumentert nedenfor.
+
+          «installation_mode»: knyttes til en streng som indikerer installasjonsmodusen for utvidelsen. Disse strengene kan brukes:
+          * «allowed»: gjør det mulig for brukerne å installere utvidelsen. Dette er standardatferden.
+          * «blocked»: hindrer utvidelsen i å installeres.
+          * «force_installed»: gjør at utvidelsen installeres umiddelbart. Den kan ikke fjernes av brukerne.
+          * «normal_installed»: gjør at utvidelsen installeres automatisk. Den kan imidlertid fjernes av brukerne igjen.
+
+          «installation_mode» kan også konfigureres for flere utvidelser, deriblant «*»-utvidelsen (som standardinnstillinger) og utvidelser med samme oppdateringsnettadresse. I slike tilfeller kan du bare bruke verdiene «allowed» og «blocked».
+
+          Hvis du setter modusen til «force_installed» eller «normal_installed», må du også konfigurere en «update_url». Vær oppmerksom på oppdateringsnettadressen som spesifiseres i denne regelen, bare brukes i den innledende installasjonen. Ved senere oppdateringer av utvidelsen brukes oppdateringsnettadressen som er spesifisert i utvidelsesmanifestet. Oppdateringsnettadressen skal peke til et oppdateringsmanifest i XML-format, som nevnt ovenfor.
+
+          «blocked_permissions»: knyttes til en liste med strenger som indikerer de blokkerte API-tillatelsene til utvidelsen. Navnene på tillatelsene er de samme som tillatelsesstrengene som er spesifisert i utvidelsesmanifestet. Dette er beskrevet her: <ph name="LINK_TO_EXTENSION_DOC3" />. Du kan også konfigurere denne innstillingen for «*»-utvidelsen. Hvis utvidelsen krever tillatelser som er på blokkeringslisten, kan den ikke lastes inn. Hvis den har blokkerte tillatelser som alternative krav, håndteres den på vanlig måte, men forspørsler som er i konflikt med tillatelsene, avvises automatisk ved kjøring.
+
+          «allowed_permissions»: fungerer mer eller mindre som «blocked_permissions», men tillater i stedet uttrykkelig enkelte tillatelser som kan være blokkert av den globale listen over tillatelser som blokkeres. Den kan derfor ikke konfigureres for «*»-utvidelsen. Vær oppmerksom på at denne innstillingen ikke automatisk gir utvidelser tillatelser.
+
+          «minimum_version_required»: knyttes til en versjonsstreng. Formatet til versjonsstrengen er det samme som det som brukes i utvidelsesmanifestet, som beskrevet her: <ph name="LINK_TO_EXTENSION_DOC4" />. Eventuelle utvidelser med eldre versjonsnummer enn det som er spesifisert som minimumsversjon, blir slått av. Dette gjelder også «tvangsinstallerte» utvidelser.
+
+          Denne innstillingen kan bare brukes for standardkonfigurasjonen for «*»:
+
+          «install_sources»: Hvert av elementene på denne listen er et samsvarsmønster for utvidelsestyper (se https://developer.chrome.com/extensions/match_patterns). Brukerne kan enkelt installere elementer fra eventuelle nettadresser som stemmer overens med elementene på denne listen. Både plasseringen til *.crx-filen og siden nedlastingen startes fra (dvs. henvisningsadressen), må være tillatt av disse mønstrene.
+
+          «allowed_types»: Denne innstillingen brukes til å godkjenne tillatte typer utvidelser/apper som kan installeres i <ph name="PRODUCT_NAME" />. Verdien er en liste med strenger, og hver av dem bør være spesifisert som én av følgende: «extension», «theme», «user_script», «hosted_app», «legacy_packaged_app», «platform_app». Du finner mer informasjon om disse typene i dokumentasjonen for <ph name="PRODUCT_NAME" />-utvidelser.
+
+          Denne regelen er ikke klar til bruk ennå, så ikke bruk den.
+          </translation>
 <translation id="3205825995289802549">Maksimer det første nettleservinduet ved den første kjøringen</translation>
 <translation id="3206731874112238027">Slå av forhåndsvisning av utskrifter (avviklet)</translation>
 <translation id="3213821784736959823">Kontrollerer hvorvidt den innebygde DNS-klinten brukes i <ph name="PRODUCT_NAME" />.
@@ -706,22 +738,6 @@
       Hvis denne innstillingen angis som sann eller ikke konfigurert, kan brukerne bruke alle støttede lydutganger på enhet sin.</translation>
 <translation id="3808945828600697669">Angi en liste over deaktiverte programtillegg</translation>
 <translation id="3816312845600780067">Aktiver hurtigtasten for avbrytelse av automatisk pålogging</translation>
-<translation id="381807926299956806">Angir én eller flere anbefalte lokaliteter for offentlige økter, slik at brukerne enkelt kan velge én av disse lokalitetene.
-
-      Brukerne kan velge lokalitet og tastaturoppsett før de starter offentlige økter. Som standard vises alle lokaliteter som støttes i <ph name="PRODUCT_OS_NAME" />, i alfabetisk rekkefølge. Du kan bruke denne regelen for å flytte sett med anbefalte lokaliteter til toppen av listen.
-
-      Hvis du ikke spesifiserer denne regelen, forhåndsvelges den lokaliteten som for øyeblikket er valgt for brukergrensesnittet.
-
-      Hvis du spesifiserer denne regelen, flyttes de anbefalte lokalitetene til toppen av listen, og de skilles visuelt fra alle andre lokaliteter. De anbefalte lokalitetene listes opp i samme rekkefølge som i regelen. Den første av de anbefalte lokalitetene blir valgt som standard.
-
-      Hvis det finnes mer enn én anbefalt lokalitet, antas det at brukerne vil velge mellom dem. De blir derfor vist et tydelig alternativ for å velge lokalitet og tastaturoppsett når de starter offentlige økter. Ellers antas det at de fleste brukerne kommer til å bruke den lokaliteten som er valgt som standard. Brukerne kan likevel velge lokalitet og tastaturoppsett når de starter offentlige økter, men valget er ikke like iøynefallende.
-
-      Når denne regelen er spesifisert og automatisk pålogging er slått på (se reglene |DeviceLocalAccountAutoLoginId|- og |DeviceLocalAccountAutoLoginDelay|), blir den første av de anbefalte lokalitetene – og det mest populære tastaturoppsettet for denne lokaliteten – brukt i offentlige økter som startes automatisk.
-
-      Det mest populære tastaturoppsettet for standardlokaliteten brukes alltid som standardoppsett.
-
-      Denne regelen kan bare spesifiseres som en anbefaling. Du kan bruke den til å flytte sett med anbefalte lokaliteter til toppen av listen, men brukerne kan alltid velge blant alle lokalitetene som er støttet av <ph name="PRODUCT_OS_NAME" />, i øktene sine.
-      </translation>
 <translation id="3820526221169548563">Slå på tilgjengelighetsfunksjonen for skjermtastaturet.
 
           Hvis denne innstillingen angis som sann, aktiveres alltid skjermtastaturet.
@@ -792,9 +808,6 @@
 <translation id="4039085364173654945">Kontrollerer om tredjeparts underinnhold på en side kan åpne en HTTP Basic Auth-dialogrute som forgrunnsvindu.
 
           Dette deaktiveres vanligvis for å beskytte seg mot nettfisking. Hvis denne retningslinjen ikke er angitt, er den deaktivert, og tredjeparts underinnhold kan ikke åpne en HTTP Basic Auth-dialogrute som forgrunnsvindu.</translation>
-<translation id="4043912146394966243"> Tilkoblingstypene som tillates for oppdateringer av operativsystem. Oppdateringer av operativsystem legger potensielt beslag på store deler av kapasiteten som følge av at de er omfattende operasjoner, og det kan påløpe ekstra kostnader. Derfor er slike oppdateringer som standard ikke slått på for tilkoblingstyper som anses som kostbare, herunder WiMax, Bluetooth og mobilnettverk.
-
-      Identifikatorene som gjenkjennes for tilkoblingstyper er "ethernet", "wifi", "wimax", "bluetooth" og "cellular".</translation>
 <translation id="4052765007567912447">Kontrollerer om brukeren kan vise passord i klartekst i passordbehandlingen. Hvis du deaktiverer denne innstillingen, tillater ikke passordbehandlingen at lagrede passord vises i klartekst i vinduet til passordbehandlingen. Hvis du aktiverer eller ikke angir denne retningslinjen, kan brukerne se passordene i klartekst i passordbehandlingen.</translation>
 <translation id="4056910949759281379">Deaktiver SPDY-protokoll</translation>
 <translation id="4088589230932595924">Tvungen inkognitomodus</translation>
@@ -856,6 +869,14 @@
 
       Hvis denne innstillingen konfigureres, kan ikke brukeren endre den, og snarveien til appene vises enten alltid eller aldri.</translation>
 <translation id="443665821428652897">Tøm nettsteddata når nettleseren lukkes (foreldet)</translation>
+<translation id="4439336120285389675">Spesifiser en liste over avviklede nettplattformfunksjoner som skal slås på igjen midlertidig.
+
+      Med denne regelen kan administratorer slå på avviklede nettplattformfunksjoner på nytt for en begrenset periode. Funksjonene identifiseres av streng-tagger, og funksjonene som samsvarer med taggene i listen som spesifiseres av denne regelen, blir slått på igjen.
+
+      Hvis denne regelen ikke spesifiseres, eller hvis listen er tom eller ikke samsvarer med noen av de støttede streng-taggene, fortsetter alle avviklede nettplattformfunksjoner å være avslått.
+
+      Selv om selve regelen støttes på plattformene ovenfor, kan funksjonene som slås på, være tilgjengelige på færre plattformer. Ikke alle avviklede nettplattformfunksjoner kan slås på igjen. Bare funksjonene som uttrykkelig listes opp nedenfor, kan slås på igjen for en begrenset periode. Perioden varierer fra funksjon til funksjon. Det generelle formatet for streng-taggene er [NavnetPåDenAvvikledeFunksjonen]_EffectiveUntil[ååååmmdd]. Som referanse kan du gå til https://bit.ly/blinkintents for å se formålet med endringene av nettplattformfunksjonene.
+      </translation>
 <translation id="4442582539341804154">Aktiver lås når enheten blir inaktiv eller suspendert</translation>
 <translation id="4445684791305970001">Deaktiverer utviklerverktøyene og JavaScript-konsollen.
 
@@ -1137,32 +1158,6 @@
 
      Hvis denne innstillingen ikke angis, skjer det ingen automatisk pålogging.</translation>
 <translation id="5535973522252703021">Godkjenningsliste for delegasjonstjener for Kerberos</translation>
-<translation id="553658564206262718">Konfigurer innstillingene for strømstyring når brukeren er inaktiv.
-
-          Denne regelen kontrollerer flere innstillinger for strømstyring når brukeren er inaktiv.
-
-          Det finnes fire forskjellige typer handlinger:
-          * Skjermen dempes hvis brukeren er inaktiv lenger enn det som er spesifisert av |ScreenDim|.
-          * Skjermen slås av hvis brukeren er inaktiv lenger enn det som er spesifisert av |ScreenOff|.
-          * En advarsel vises hvis brukeren er inaktiv lenger enn det som er spesifisert av |IdleWarning|. Advarselen forteller brukeren om at handlingen |IdleAction| er i ferd med å begynne.
-          * Handlingen som spesifiseres av |IdleAction|, iverksettes hvis brukeren har vært inaktiv lenger enn det som er spesifisert av |Idle|.
-
-          Alle forsinkelsene ovenfor skal spesifiseres i millisekunder. Verdien må være større enn null for å utløse den aktuelle handlingen. Hvis forsinkelsen er satt til null, utfører ikke <ph name="PRODUCT_OS_NAME" /> den korresponderende handlingen.
-
-          Hvis ingen verdier spesifiseres for forsinkelsene ovenfor, brukes det en standardverdi.
-
-          Vær oppmerksom på at verdien for |ScreenDim| må være mindre enn eller lik |ScreenOff|, og verdiene for |ScreenOff| og |IdleWarning| må være mindre enn eller lik |Idle|.
-
-          |IdleAction| kan være én av følgende handlinger:
-          * |Suspend|
-          * |Logout|
-          * |Shutdown|
-          * |DoNothing|
-
-          Hvis |IdleAction| ikke er spesifisert, brukes standardhandlingen, som er dvalemodus (|Suspend|).
-
-          Det brukes også forskjellige innstillinger for nettstrøm og batteri.
-          </translation>
 <translation id="5560039246134246593">Legg til et parameter for hentingen av startverdien for variasjoner i <ph name="PRODUCT_NAME" />.
 
       Hvis angitt, legges et parameter kalt «begrenset» til nettadressen som brukes til å hente startverdien for variasjonene. Verdien av parameteret er verdien angitt i denne innstillingen.
@@ -1178,6 +1173,22 @@
       Hvis du angir denne innstillingen, kan ikke brukere endre eller ovekjøre den.
 
       Hvis innstillingen ikke angis, kan brukerne velge hvorvidt hyllen skal skjules automatisk eller ikke.</translation>
+<translation id="5573397331902180200">Angir én eller flere anbefalte lokaliteter for offentlige økter, slik at brukerne enkelt kan velge én av disse lokalitetene.
+
+      Brukerne kan velge lokalitet og tastaturoppsett før de starter offentlige økter. Som standard vises alle lokaliteter som støttes i <ph name="PRODUCT_OS_NAME" />, i alfabetisk rekkefølge. Du kan bruke denne regelen for å flytte sett med anbefalte lokaliteter til toppen av listen.
+
+      Hvis du ikke spesifiserer denne regelen, forhåndsvelges den lokaliteten som for øyeblikket er valgt for brukergrensesnittet.
+
+      Hvis du spesifiserer denne regelen, flyttes de anbefalte lokalitetene til toppen av listen, og de skilles visuelt fra alle andre lokaliteter. De anbefalte lokalitetene listes opp i samme rekkefølge som i regelen. Den første av de anbefalte lokalitetene blir valgt som standard.
+
+      Hvis det finnes mer enn én anbefalt lokalitet, antas det at brukerne vil velge mellom dem. De blir derfor vist et tydelig alternativ for å velge lokalitet og tastaturoppsett når de starter offentlige økter. Ellers antas det at de fleste brukerne kommer til å bruke den lokaliteten som er valgt som standard. Brukerne kan likevel velge lokalitet og tastaturoppsett når de starter offentlige økter, men valget er ikke like iøynefallende.
+
+      Når denne regelen er spesifisert og automatisk pålogging er slått på (se reglene |DeviceLocalAccountAutoLoginId|- og |DeviceLocalAccountAutoLoginDelay|), blir den første av de anbefalte lokalitetene – og det mest populære tastaturoppsettet for denne lokaliteten – brukt i offentlige økter som startes automatisk.
+
+      Det mest populære tastaturoppsettet for standardlokaliteten brukes alltid som standardoppsett.
+
+      Denne regelen kan bare spesifiseres som en anbefaling. Du kan bruke den til å flytte sett med anbefalte lokaliteter til toppen av listen, men brukerne kan alltid velge blant alle lokalitetene som er støttet av <ph name="PRODUCT_OS_NAME" />, i øktene sine.
+      </translation>
 <translation id="557658534286111200">Aktiverer eller deaktiverer bokmerkeredigering</translation>
 <translation id="5586942249556966598">Gjør ingenting</translation>
 <translation id="5630352020869108293">Gjenopprett den siste økten</translation>
@@ -1318,6 +1329,17 @@
 <translation id="6145799962557135888">Gjør at du kan angi en liste over nettadressemønstre som angir hvilke nettsteder som får kjøre JavaScript.
 
           Hvis denne retningslinjen ikke angis, brukes den globale standardverdien for alle nettsteder, enten fra retningslinjen DefaultJavaScriptSetting hvis denne er angitt, eller fra brukerens egen konfigurasjoner hvis den nevnte retningslinjen ikke er angitt.</translation>
+<translation id="6151775819333710697">
+          Hvis denne innstillingen er slått på, kan brukerne la <ph name="PRODUCT_NAME" /> huske passordene
+          og oppgi dem automatisk neste gang de logger på et nettsted.
+
+          Hvis denne innstillingen er slått av, kan ikke brukerne lagre nye passord,
+          men de kan fortsatt bruke passord som har blitt lagret tidligere.
+
+          Hvis disse retningslinjene slås på eller av, kan ikke brukerne endre eller overstyre
+          den i <ph name="PRODUCT_NAME" />. Hvis disse
+          retningslinjene ikke spesifiseres, er passordlagring tillatt (men brukeren 
+          kan slå det av).</translation>
 <translation id="6155936611791017817">Angi standard tilstand for stor musepeker på påloggingssiden</translation>
 <translation id="6157537876488211233">Kommadelt liste over regler for å omgå mellomtjener</translation>
 <translation id="6158324314836466367">Navn på bedriftens nettbutikk (avviklet)</translation>
@@ -1381,17 +1403,6 @@
           Denne innstillingen er valgfri. Hvis den ikke er angitt, blir forespørsler om søkeforslag sendt via GET-metoden.
 
           Denne innstillingen brukes bare hvis «DefaultSearchProviderEnabled»-innstillingen er aktivert.</translation>
-<translation id="6365608006609079612">
-          Hvis denne innstillingen er slått på, kan brukerne la <ph name="PRODUCT_NAME" /> huske passordene
-          og oppgi dem automatisk neste gang de logger på et nettsted.
-
-          Hvis denne innstillingen er slått av, kan ikke brukerne lagre nye passord,
-          men de kan fortsatt bruke passord som har blitt lagret tidligere.
-
-          Hvis disse retningslinjene slås på eller av, kan ikke brukerne endre eller overstyre
-          den i <ph name="PRODUCT_NAME" />. Hvis disse
-          retningslinjene ikke spesifiseres, er passordlagring tillatt (men brukeren 
-          kan slå det av).</translation>
 <translation id="6367755442345892511">Om lanseringskanalen skal kunne konfigureres av brukeren</translation>
 <translation id="6368011194414932347">Konfigurer nettadresse for startsiden</translation>
 <translation id="6368403635025849609">Tillat JavaScript på disse nettstedene</translation>
@@ -1461,14 +1472,32 @@
           Hvis denne innstillingen ikke angis, deaktiveres skjermtastaturet når påloggingsskjermen først vises. Brukere kan aktivere eller deaktivere
 skjermtastaturet når som helst og statusen den har på påloggingsskjermen er vedvarende mellom brukerne.</translation>
 <translation id="6598235178374410284">Brukerbilde</translation>
-<translation id="6633160536638196468">Spesifiser en liste over avviklede nettplattformfunksjoner som skal slås på igjen midlertidig.
+<translation id="6636268606788232221">Konfigurer innstillingene for strømstyring når brukeren er inaktiv.
 
-      Med denne regelen kan administratorer slå på avviklede nettplattformfunksjoner på nytt for en begrenset periode. Funksjonene identifiseres av streng-tagger, og funksjonene som samsvarer med taggene i listen som spesifiseres av denne regelen, blir slått på igjen.
+          Denne regelen kontrollerer flere innstillinger for strømstyring når brukeren er inaktiv.
 
-      Hvis denne regelen ikke spesifiseres, eller hvis listen er tom eller ikke samsvarer med noen av de støttede streng-taggene, fortsetter alle avviklede nettplattformfunksjoner å være avslått.
+          Det finnes fire forskjellige typer handlinger:
+          * Skjermen dempes hvis brukeren er inaktiv lenger enn det som er spesifisert av |ScreenDim|.
+          * Skjermen slås av hvis brukeren er inaktiv lenger enn det som er spesifisert av |ScreenOff|.
+          * En advarsel vises hvis brukeren er inaktiv lenger enn det som er spesifisert av |IdleWarning|. Advarselen forteller brukeren om at handlingen |IdleAction| er i ferd med å begynne.
+          * Handlingen som spesifiseres av |IdleAction|, iverksettes hvis brukeren har vært inaktiv lenger enn det som er spesifisert av |Idle|.
 
-      Selv om selve regelen støttes på plattformene ovenfor, kan funksjonene som slås på, være tilgjengelige på færre plattformer. Ikke alle avviklede nettplattformfunksjoner kan slås på igjen. Bare funksjonene som uttrykkelig listes opp nedenfor, kan slås på igjen for en begrenset periode. Perioden varierer fra funksjon til funksjon. Det generelle formatet for streng-taggene er [NavnetPåDenAvvikledeFunksjonen]_EffectiveUntil[ååååmmdd]. Som referanse kan du gå til https://bit.ly/blinkintents for å se formålet med endringene av nettplattformfunksjonene.
-      </translation>
+          Alle forsinkelsene ovenfor skal spesifiseres i millisekunder. Verdien må være større enn null for å utløse den aktuelle handlingen. Hvis forsinkelsen er satt til null, utfører ikke <ph name="PRODUCT_OS_NAME" /> den korresponderende handlingen.
+
+          Hvis ingen verdier spesifiseres for forsinkelsene ovenfor, brukes det en standardverdi.
+
+          Vær oppmerksom på at verdien for |ScreenDim| må være mindre enn eller lik |ScreenOff|, og verdiene for |ScreenOff| og |IdleWarning| må være mindre enn eller lik |Idle|.
+
+          |IdleAction| kan være én av følgende handlinger:
+          * |Suspend|
+          * |Logout|
+          * |Shutdown|
+          * |DoNothing|
+
+          Hvis |IdleAction| ikke er spesifisert, brukes standardhandlingen, som er dvalemodus (|Suspend|).
+
+          Det brukes også forskjellige innstillinger for nettstrøm og batteri.
+          </translation>
 <translation id="6641981670621198190">Deaktiver støtte for programmeringsgrensesnitt for 3D-grafikk</translation>
 <translation id="6647965994887675196">Hvis angitt til «true», kan administrerte brukere opprettes og brukes.
 
@@ -1780,6 +1809,9 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="7763311235717725977">Gjør at du kan angi om nettsteder kan vise bilder. Bildevisning kan enten tillates for alle nettsteder, eller nektes for alle nettsteder.
 
           Hvis denne retningslinjen ikke angis, brukes AllowImages, og brukeren kan endre dette.</translation>
+<translation id="7763479091692861127"> Tilkoblingstypene som tillates for oppdateringer av operativsystem. Oppdateringer av operativsystem legger potensielt beslag på store deler av kapasiteten som følge av at de er omfattende operasjoner, og det kan påløpe ekstra kostnader. Derfor er slike oppdateringer som standard ikke slått på for tilkoblingstyper som anses som kostbare, herunder WiMax, Bluetooth og mobilnettverk.
+
+      Identifikatorene som gjenkjennes for tilkoblingstyper er "ethernet", "wifi", "wimax", "bluetooth" og "cellular".</translation>
 <translation id="7766336524667238790">Rapportér informasjon om den aktive kioskøkten, for eksempel
       app-ID og -versjon.
 
@@ -1827,38 +1859,6 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="7953256619080733119">Verter for manuelle unntak for administrerte brukere</translation>
 <translation id="7971839631300653352">SSL 3.0</translation>
 <translation id="7974114691960514888">Denne retningslinjen støttes ikke lenger. Aktiverer bruk av STUN og relétjenere ved tilkobling til en ekstern klient. Hvis denne innstillingen er aktivert, kan maskinen oppdage og koble seg til eksterne vertsmaskiner selv om de er adskilt av en brannmur. Hvis denne innstillingen er deaktivert og utgående UDP-tilkoblinger filtreres av brannmuren, kan denne maskinen bare koble seg til vertsmaskiner i det lokale nettverket.</translation>
-<translation id="8002229853067655250">Konfigurerer innstillingene for administrasjon av utvidelser for <ph name="PRODUCT_NAME" />.
-
-          Denne regelen kontrollerer flere innstillinger, deriblant innstillinger som kontrolleres av eventuelle eksisterende utvidelsesrelaterte regler. Denne regelen overstyrer eventuelle eldre regler hvis begge deler er konfigurert.
-
-          Denne regelen legger til en utvidelses-ID eller oppdateringsnettadresse i konfigurasjonen. Med en utvidelses-ID blir konfigurasjonen bare brukt for den spesifiserte utvidelsen. Du kan spesifisere en standardkonfigurasjon for spesial-ID-en «*», og denne brukes i så fall for alle utvidelser som ikke har noen spesialtilpasset konfigurasjon i denne regelen. Hvis du legger inn en oppdateringsnettadresse, brukes konfigurasjonen for alle utvidelser med den nøyaktige oppdateringsnettadressen som er oppgitt i manifestet til denne utvidelsen. Dette er beskrevet her: <ph name="LINK_TO_EXTENSION_DOC1" />.
-
-          Konfigurasjonen for hver av utvidelsene (eller utvidelser med samme oppdateringsnettadresse) er en annen katalog som kan inneholde feltene som er dokumentert nedenfor.
-
-          «installation_mode»: knyttes til en streng som indikerer installasjonsmodusen for utvidelsen. Disse strengene kan brukes:
-          * «allowed»: gjør det mulig for brukerne å installere utvidelsen. Dette er standardatferden.
-          * «blocked»: hindrer utvidelsen i å installeres.
-          * «force_installed»: gjør at utvidelsen installeres umiddelbart. Den kan ikke fjernes av brukerne.
-          * «normal_installed»: gjør at utvidelsen installeres automatisk. Den kan imidlertid fjernes av brukerne igjen.
-
-          «installation_mode» kan også konfigureres for flere utvidelser, deriblant «*»-utvidelsen (som standardinnstillinger) og utvidelser med samme oppdateringsnettadresse. I slike tilfeller kan du bare bruke verdiene «allowed» og «blocked».
-
-          Hvis du setter modusen til «force_installed» eller «normal_installed», må du også konfigurere en «update_url». Vær oppmerksom på oppdateringsnettadressen som spesifiseres i denne regelen, bare brukes i den innledende installasjonen. Ved senere oppdateringer av utvidelsen brukes oppdateringsnettadressen som er spesifisert i utvidelsesmanifestet. Oppdateringsnettadressen skal peke til et oppdateringsmanifest i XML-format, som nevnt ovenfor.
-
-          «blocked_permissions»: knyttes til en liste med strenger som indikerer de blokkerte API-tillatelsene til utvidelsen. Navnene på tillatelsene er de samme som tillatelsesstrengene som er spesifisert i utvidelsesmanifestet. Dette er beskrevet her: <ph name="LINK_TO_EXTENSION_DOC3" />. Du kan også konfigurere denne innstillingen for «*»-utvidelsen. Hvis utvidelsen krever tillatelser som er på blokkeringslisten, kan den ikke lastes inn. Hvis den har blokkerte tillatelser som alternative krav, håndteres den på vanlig måte, men forspørsler som er i konflikt med tillatelsene, avvises automatisk ved kjøring.
-
-          «allowed_permissions»: fungerer mer eller mindre som «blocked_permissions», men tillater i stedet uttrykkelig enkelte tillatelser som kan være blokkert av den globale listen over tillatelser som blokkeres. Den kan derfor ikke konfigureres for «*»-utvidelsen. Vær oppmerksom på at denne innstillingen ikke automatisk gir utvidelser tillatelser.
-
-          «minimum_version_required»: knyttes til en versjonsstreng. Formatet til versjonsstrengen er det samme som det som brukes i utvidelsesmanifestet, som beskrevet her: <ph name="LINK_TO_EXTENSION_DOC4" />. Eventuelle utvidelser med eldre versjonsnummer enn det som er spesifisert som minimumsversjon, blir slått av. Dette gjelder også «tvangsinstallerte» utvidelser.
-
-          Denne innstillingen kan bare brukes for standardkonfigurasjonen for «*»:
-
-          «install_sources»: Hvert av elementene på denne listen er et samsvarsmønster for utvidelsestyper (se https://developer.chrome.com/extensions/match_patterns). Brukerne kan enkelt installere elementer fra eventuelle nettadresser som stemmer overens med elementene på denne listen. Både plasseringen til *.crx-filen og siden nedlastingen startes fra (dvs. henvisningsadressen), må være tillatt av disse mønstrene.
-
-          «allowed_types»: Denne innstillingen brukes til å godkjenne tillatte typer utvidelser/apper som kan installeres i <ph name="PRODUCT_NAME" />. Verdien er en liste med strenger, og hver av dem bør være spesifisert som én av følgende: «extension», «theme», «user_script», «hosted_app», «legacy_packaged_app», «platform_app». Du finner mer informasjon om disse typene i dokumentasjonen for <ph name="PRODUCT_NAME" />-utvidelser.
-
-          Denne regelen er ikke klar til bruk ennå, så ikke bruk den.
-          </translation>
 <translation id="8044493735196713914">Rapportering av oppstartsmodus for enhet</translation>
 <translation id="8059164285174960932">Nettadressen der klienter for ekstern tilgang skal hente autentiseringstokenet sitt fra</translation>
 <translation id="8071636581296916773">Aktiverer bruk av relétjenere når eksterne klienter prøver å opprette forbindelse til denne maskinen.

@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">Veja suas guias com outros apps recentes na tela "Visão geral" do seu smartphone.</translation>
 <translation id="2079545284768500474">Desfazer</translation>
 <translation id="2082238445998314030">Resultado <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
+<translation id="2095887075102408547">Quando este recurso está ativado, o Chrome usa os servidores do Google para compactar as páginas que você visita antes de fazer o download delas. Páginas acessadas usando conexões privadas (HTTPS) ou guias anônimas não são otimizadas ou vistas pelo Google.</translation>
 <translation id="2100273922101894616">Login automático</translation>
 <translation id="2126426811489709554">Em execução no Chrome</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> fechada</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">Adicionar esta página aos favoritos</translation>
 <translation id="326254929494722411">Você não configurou uma Conta do Google neste dispositivo</translation>
 <translation id="3269093882174072735">Carregar imagem</translation>
+<translation id="3278850099957560514">Gaste menos dados usando o Google para otimizar as páginas que você visita. Páginas acessadas usando conexões privadas (HTTPS) ou guias anônimas não são otimizadas ou vistas pelo Google.</translation>
 <translation id="3282568296779691940">Fazer login no Google Chrome</translation>
 <translation id="3287852534598822456">O favorito não existe mais. Atualize a página.</translation>
 <translation id="3303414029551471755">Continuar com o download do conteúdo?</translation>

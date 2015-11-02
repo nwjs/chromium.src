@@ -72,6 +72,7 @@
 <translation id="2077711166702792587">휴대전화의 최근 사용 화면에서 최근에 사용한 기타 앱이 포함된 탭을 확인할 수 있습니다.</translation>
 <translation id="2079545284768500474">실행 취소</translation>
 <translation id="2082238445998314030">전체 결과 <ph name="TOTAL_RESULTS" />개 중 <ph name="RESULT_NUMBER" />개</translation>
+<translation id="2095887075102408547">이 기능을 사용 설정하면 Chrome은 Google 서버를 이용해 방문한 페이지를 압축한 후 다운로드합니다. 비공개 연결(HTTPS)이나 시크릿 탭을 통해 액세스한 페이지는 Google에서 최적화하거나 볼 수 없습니다.</translation>
 <translation id="2100273922101894616">자동 로그인</translation>
 <translation id="2126426811489709554">Chrome에서 실행 중</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> 닫음</translation>
@@ -147,6 +148,7 @@
 <translation id="3254409185687681395">페이지 북마크</translation>
 <translation id="326254929494722411">아직 이 기기에 Google 계정을 설정하지 않았습니다.</translation>
 <translation id="3269093882174072735">이미지 로드</translation>
+<translation id="3278850099957560514">Google을 사용하여 방문한 페이지를 최적화함으로써 데이터 사용량을 줄일 수 있습니다. 비공개 연결(HTTPS)이나 시크릿 탭을 통해 액세스한 페이지는 Google에서 최적화하거나 볼 수 없습니다.</translation>
 <translation id="3282568296779691940">Chrome에 로그인</translation>
 <translation id="3287852534598822456">북마크가 더 이상 존재하지 않습니다. 새로고침하시기 바랍니다.</translation>
 <translation id="3303414029551471755">콘텐츠를 다운로드하시겠습니까?</translation>

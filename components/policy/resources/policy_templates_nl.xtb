@@ -604,6 +604,38 @@
           Als dit beleid niet wordt ingesteld, kan de gebruiker alle extensies installeren in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="316778957754360075">Deze instelling wordt niet meer gebruikt sinds <ph name="PRODUCT_NAME" /> versie 29. De aanbevolen manier om verzamelingen van extensies/apps die door de organisatie worden gehost in te stellen, is het opnemen van de site die de CRX-pakketten in ExtensionInstallSources host en het plaatsen van rechtstreekse downloadlinks naar de pakketten op een webpagina. Je kunt voor die webpagina een startprogramma maken met het beleid ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">sinds versie <ph name="SINCE_VERSION" /></translation>
+<translation id="318812033927804102">Hiermee worden extensiebeheerinstellingen voor <ph name="PRODUCT_NAME" /> geconfigureerd.
+
+          Met dit beleid worden meerdere instellingen beheerd, inclusief instellingen die worden beheerd door bestaande aan extensies gerelateerde beleidsregels. Dit beleid overschrijft alle oudere beleidsregels als beide zijn ingesteld.
+
+          Dit beleid koppelt een extensie-ID of update-URL aan de configuratie. Bij een extensie-ID wordt de configuratie uitsluitend op de opgegeven extensie toegepast. Er kan een standaardconfiguratie worden ingesteld voor de speciale ID '*'. Deze wordt vervolgens toegepast op alle extensies die geen aangepaste configuratie hebben ingesteld in dit beleid. Bij een update-URL wordt de configuratie toegepast op alle extensies met de exacte update-URL in het manifest van deze extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          De configuratie voor elke extensie (of extensies met dezelfde update-URL) is een woordenboek dat de onderstaande velden kan bevatten.
+
+          'installation_mode': is gekoppeld aan een tekenreeks die de installatiemodus voor de extensie aangeeft. De geldige tekenreeksen zijn:
+          * 'allowed': stelt de extensie in staat door de gebruiker te worden geïnstalleerd. Dit is het standaardgedrag.
+          * 'blocked': blokkeert de installatie van de extensie.
+          * 'force_installed': de extensie wordt automatisch geïnstalleerd en kan niet door de gebruiker worden verwijderd.
+          * 'normal_installed': de extensie wordt automatisch geïnstalleerd, maar kan door de gebruiker worden uitgeschakeld.
+
+          De 'installation_mode' kan ook worden geconfigureerd voor meerdere extensies, waaronder de extensie '*' (als standaardinstellingen) en extensies met dezelfde update-URL. Alleen de waarden 'allowed' en 'blocked' kunnen in dit geval worden gebruikt.
+
+          Als de modus is ingesteld op 'force_installed' of 'normal_installed', moet er ook een 'update_url' worden geconfigureerd. Let op: De in dit beleid ingestelde update-URL wordt alleen gebruikt voor de aanvankelijke installatie. Volgende updates van de extensie gebruiken de update-URL die in het manifest van de update-URL is opgenomen. De update-URL moet naar een XML-document met een updatemanifest verwijzen, zoals hierboven genoemd.
+
+          'blocked_permissions': is gekoppeld aan een lijst van tekenreeksen die de geblokkeerde API-rechten voor de extensie aangeven. De namen van de rechten zijn hetzelfde als de tekenreeksen voor rechten die zijn opgenomen in het manifest van de extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC3" />. Deze instelling kan ook worden geconfigureerd voor de extensie '*'. Als er rechten zijn vereist voor de extensie die op de blokkeerlijst staan, kan deze niet worden geladen. Als deze geblokkeerde rechten als optionele vereiste bevat, wordt deze als gebruikelijk behandeld, maar wordt de aanvraag van conflicterende rechten automatisch afgewezen tijdens de uitvoering.
+
+          'allowed_permissions': vergelijkbaar met 'blocked_permissions', maar in dit geval worden sommige rechten expliciet toegestaan die wellicht zijn geblokkeerd via lijsten met globaal geblokkeerde rechten. Deze instelling kan daarom niet worden geconfigureerd voor de extensie '*'. Let op: Deze instelling geeft niet automatisch goedgekeurde rechten af aan extensies.
+
+          'minimum_version_required': is gekoppeld aan een versiereeks. De opmaak van de versiereeks is hetzelfde als de opmaak in het manifest van de extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC4" />. Een extensie met een versie die ouder is dan de opgegeven minimumversie wordt uitgeschakeld. Dit is ook van toepassing op automatisch geïnstalleerde extensies.
+
+          De volgende instellingen kunnen alleen worden gebruikt voor de standaardconfiguratie '*':
+
+          'install_sources': elk item in deze lijst is een patroon van een extensie (zie https://developer.chrome.com/extensions/match_patterns). Gebruikers kunnen gemakkelijk items installeren vanaf elke URL die overeenkomt met een item in deze lijst. De locatie van het *.crx-bestand en de pagina waar de download wordt gestart (dat wil zeggen, de verwijzing), moeten beide zijn toegestaan op basis van deze patronen.
+
+          'allowed_types': met deze instelling worden de toegestane typen extensies/apps die in <ph name="PRODUCT_NAME" /> kunnen worden geïnstalleerd op een witte lijst gezet. De waarde is een lijst met tekenreeksen waarbij elke tekenreeks een van de volgende moet zijn: 'extension', 'theme', 'user_script', 'hosted_app', 'legacy_packaged_app', 'platform_app'. Raadpleeg de documentatie over <ph name="PRODUCT_NAME" />-extensies voor meer informatie over deze typen.
+
+          Dit beleid is nog niet klaar voor gebruik. Gebruik dit beleid niet.
+          </translation>
 <translation id="3205825995289802549">Het eerste browservenster maximaliseren bij eerste uitvoering</translation>
 <translation id="3206731874112238027">Afdrukvoorbeeld uitschakelen (verouderd)</translation>
 <translation id="3213821784736959823">Hiermee wordt bepaald of de ingebouwde DNS-client wordt gebruikt in <ph name="PRODUCT_NAME" />.
@@ -733,22 +765,6 @@
       Als deze instelling is ingesteld op 'true' (waar) of niet is geconfigureerd, kunnen gebruikers alle ondersteunde audio-uitvoer op hun apparaat gebruiken.</translation>
 <translation id="3808945828600697669">Een lijst met uitgeschakelde plug-ins specificeren</translation>
 <translation id="3816312845600780067">Sneltoets voor automatisch inloggen inschakelen</translation>
-<translation id="381807926299956806">Hiermee worden een of meer aanbevolen talen ingesteld voor een openbare sessie, zodat gebruikers gemakkelijk een van deze talen kunnen kiezen.
-
-      De gebruiker kan een taal en toetsenbordinstelling kiezen voordat de openbare sessie wordt begonnen. Alle talen die worden ondersteund door <ph name="PRODUCT_OS_NAME" />, worden standaard op alfabetische volgorde weergegeven. Je kunt dit beleid gebruiken om een set aanbevolen talen naar boven aan de lijst te verplaatsen.
-
-      Als dit beleid niet wordt ingesteld, wordt de huidige taal van de gebruikersinterface geselecteerd.
-
-      Als dit beleid wordt ingesteld, worden de aanbevolen talen naar boven aan de lijst verplaatst en worden deze visueel gescheiden van de andere talen. De aanbevolen talen worden weergegeven in de volgorde waarin deze in het beleid staan. De eerste aanbevolen taal wordt voorgeselecteerd.
-
-      Als er meer dan één aanbevolen taal is, wordt er aangenomen dat gebruikers een van deze talen willen selecteren. De selectie voor taal en toetsenbordinstelling wordt op prominente wijze gepresenteerd bij het starten van een openbare sessie. In andere gevallen wordt aangenomen dat de meeste gebruikers de voorgeselecteerde taal willen gebruiken. De selectie voor taal en toetsenbordinstelling wordt in dat geval minder prominent gepresenteerd bij het starten van een openbare sessie.
-
-      Wanneer dit beleid is ingesteld en automatische aanmelding is ingeschakeld (zie het beleid |DeviceLocalAccountAutoLoginId| en |DeviceLocalAccountAutoLoginDelay|), gebruikt de automatisch gestarte openbare sessie de eerste aanbevolen taal en de populairste toetsenbordinstelling die aan deze taal is gekoppeld.
-
-      De voorgeselecteerde toetsenbordinstelling is altijd de populairste instelling die aan de voorgeselecteerde taal is gekoppeld.
-
-      Dit beleid kan alleen worden ingesteld als aanbevolen. Je kunt dit beleid gebruiken om een aantal aanbevolen talen naar het bovenste deel van de lijst te verplaatsen, maar gebruikers kunnen altijd de gewenste taal die wordt ondersteund door <ph name="PRODUCT_OS_NAME" /> kiezen voor hun sessie.
-      </translation>
 <translation id="3820526221169548563">De toegankelijkheidsfunctie voor het schermtoetsenbord inschakelen.
 
           Als dit beleid is ingesteld op 'true' (waar), wordt het schermtoetsenbord altijd ingeschakeld.
@@ -827,9 +843,6 @@
 <translation id="4039085364173654945">Hiermee wordt bepaald of subinhoud van derden op een pagina een dialoogvenster voor algemene HTTP-authenticatie als pop-up mag weergeven.
 
           Deze optie is meestal uitgeschakeld als beveiliging tegen phishing. Als dit beleid niet wordt ingesteld, wordt de optie uitgeschakeld en mag subinhoud van derden geen dialoogvenster voor algemene HTTP-authenticatie als pop-up weergeven.</translation>
-<translation id="4043912146394966243"> De verbindingstypen die mogen worden gebruikt voor updates voor het besturingssysteem. Updates voor het besturingssysteem kunnen de verbinding zwaar belasten door hun grootte en kunnen extra kosten tot gevolg hebben. Updates voor het besturingssysteem zijn daarom standaard uitgeschakeld voor dure verbindingstypen. Dit omvat momenteel de verbindingstypen WiMax, Bluetooth en Mobiel.
-
-      De herkende verbindingstypen zijn 'ethernet', 'wifi', 'wimax', 'bluetooth' en 'mobiel'.</translation>
 <translation id="4052765007567912447">Hiermee wordt bepaald of de gebruiker wachtwoorden als leesbare tekst mag weergeven in Wachtwoordbeheer.
 
           Als je deze instelling uitschakelt, staat Wachtwoordbeheer de gebruiker niet toe opgeslagen wachtwoorden als leesbare tekst weer te geven in het venster van Wachtwoordbeheer.
@@ -895,6 +908,14 @@
 
       Als dit beleid is geconfigureerd, kan de gebruiker de instelling niet wijzigen en wordt de snelkoppeling voor apps altijd of nooit weergegeven.</translation>
 <translation id="443665821428652897">Sitegegevens wissen als de browser wordt gesloten (verouderd)</translation>
+<translation id="4439336120285389675">Een lijst met verouderde webplatformfuncties opgeven die tijdelijk kunnen worden ingeschakeld.
+
+      Dit beleid biedt beheerders de mogelijkheid om verouderde webplatformfuncties beperkte tijd opnieuw in te schakelen. De functies worden geïdentificeerd door een stringtag. De functies die horen bij de tags die zijn opgenomen in de lijst die dit beleid heeft aangegeven, worden opnieuw ingeschakeld.
+
+      Als dit beleid niet wordt ingesteld, of als de lijst leeg is of niet overeenkomt met een van de ondersteunde stringtags, blijven alle verouderde webplatformfuncties uitgeschakeld.
+
+      Hoewel het beleid zelf op de bovenstaande platforms wordt ondersteund, is de functie die ermee wordt ingeschakeld mogelijk op minder platforms beschikbaar. Niet alle verouderde webplatformfuncties kunnen opnieuw worden ingeschakeld. Alleen de webplatformfuncties die hieronder worden vermeld, kunnen tijdelijk opnieuw worden ingeschakeld, waarbij de periode per functie verschilt. De algemene indeling van de stringtag is [NaamVerouderdeFunctie]_EffectiveUntil[jjjjmmdd]. De reden voor de wijzigingen van webplatformfuncties vind je op https://bit.ly/blinkintents.
+      </translation>
 <translation id="4442582539341804154">Vergrendeling inschakelen wanneer het apparaat inactief wordt of overschakelt op de slaapstand</translation>
 <translation id="4445684791305970001">Hiermee worden de hulpprogramma's voor ontwikkelaars en de JavaScript-console uitgeschakeld.
 
@@ -1184,32 +1205,6 @@
 
       Als dit beleid niet is ingesteld, wordt er niet automatisch ingelogd.</translation>
 <translation id="5535973522252703021">Witte lijst voor Kerberos-delegatieserver</translation>
-<translation id="553658564206262718">Energiebeheer configureren wanneer de gebruiker inactief is.
-
-          Dit beleid beheert meerdere instellingen voor de energiebeheerstrategie wanneer de gebruiker inactief is.
-
-          Er zijn vier actietypen:
-          * Het scherm wordt gedimd als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |ScreenDim|.
-          * Het scherm wordt uitgeschakeld als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |ScreenOff|.
-          * Er wordt een waarschuwingsdialoogvenster weergegeven als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |IdleWarning|, waarin wordt gemeld dat de actie bij inactiviteit zal worden uitgevoerd.
-          * De actie die is gespecificeerd via |IdleAction|, wordt uitgevoerd als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |Idle|.
-
-          Voor elk van de bovenstaande acties moet de inactiviteitsdrempel worden gespecificeerd in milliseconden. Dit moet een waarde groter dan nul zijn om de bijbehorende actie te activeren. Als de inactiviteitsdrempel is ingesteld op nul, voert <ph name="PRODUCT_OS_NAME" /> de bijbehorende actie niet uit.
-
-          Voor elk van de bovenstaande drempels wordt een standaardwaarde gebruikt als de periode niet is ingesteld.
-
-          Houd er rekening mee dat waarden van |ScreenDim| worden vastgezet op waarden kleiner dan of gelijk aan |ScreenOff|, en dat |ScreenOff| en |IdleWarning| worden vastgezet op waarden kleiner dan of gelijk aan |Idle|.
-
-          |IdleAction| kan één van vier mogelijke acties zijn:
-          * |Suspend|
-          * |Logout|
-          * |Shutdown|
-          * |DoNothing|
-
-          Wanneer |IdleAction| niet is ingesteld, wordt de standaardactie uitgevoerd (tijdelijk blokkeren).
-
-          Er zijn ook afzonderlijke instellingen voor wanneer het apparaat op netstroom of op de accu werkt.
-          </translation>
 <translation id="5560039246134246593">Een parameter toevoegen aan het ophalen van de seed voor varianten in <ph name="PRODUCT_NAME" />.
 
       Als dit is gespecificeerd, wordt een queryparameter met de naam 'restrict' toegevoegd aan de URL die wordt gebruikt om de seed voor varianten op te halen. De waarde van de parameter is de waarde die wordt opgegeven in dit beleid.
@@ -1225,6 +1220,22 @@
       Als je dit beleid instelt, kunnen gebruikers het niet wijzigen of overschrijven.
 
       Als het beleid niet wordt ingesteld, kunnen gebruikers kiezen of het archief automatisch wordt verborgen.</translation>
+<translation id="5573397331902180200">Hiermee worden een of meer aanbevolen talen ingesteld voor een openbare sessie, zodat gebruikers gemakkelijk een van deze talen kunnen kiezen.
+
+      De gebruiker kan een taal en toetsenbordinstelling kiezen voordat de openbare sessie wordt begonnen. Alle talen die worden ondersteund door <ph name="PRODUCT_OS_NAME" />, worden standaard op alfabetische volgorde weergegeven. Je kunt dit beleid gebruiken om een set aanbevolen talen naar boven aan de lijst te verplaatsen.
+
+      Als dit beleid niet wordt ingesteld, wordt de huidige taal van de gebruikersinterface geselecteerd.
+
+      Als dit beleid wordt ingesteld, worden de aanbevolen talen naar boven aan de lijst verplaatst en worden deze visueel gescheiden van de andere talen. De aanbevolen talen worden weergegeven in de volgorde waarin deze in het beleid staan. De eerste aanbevolen taal wordt voorgeselecteerd.
+
+      Als er meer dan één aanbevolen taal is, wordt er aangenomen dat gebruikers een van deze talen willen selecteren. De selectie voor taal en toetsenbordinstelling wordt op prominente wijze gepresenteerd bij het starten van een openbare sessie. In andere gevallen wordt aangenomen dat de meeste gebruikers de voorgeselecteerde taal willen gebruiken. De selectie voor taal en toetsenbordinstelling wordt in dat geval minder prominent gepresenteerd bij het starten van een openbare sessie.
+
+      Wanneer dit beleid is ingesteld en automatische aanmelding is ingeschakeld (zie het beleid |DeviceLocalAccountAutoLoginId| en |DeviceLocalAccountAutoLoginDelay|), gebruikt de automatisch gestarte openbare sessie de eerste aanbevolen taal en de populairste toetsenbordinstelling die aan deze taal is gekoppeld.
+
+      De voorgeselecteerde toetsenbordinstelling is altijd de populairste instelling die aan de voorgeselecteerde taal is gekoppeld.
+
+      Dit beleid kan alleen worden ingesteld als aanbevolen. Je kunt dit beleid gebruiken om een aantal aanbevolen talen naar het bovenste deel van de lijst te verplaatsen, maar gebruikers kunnen altijd de gewenste taal die wordt ondersteund door <ph name="PRODUCT_OS_NAME" /> kiezen voor hun sessie.
+      </translation>
 <translation id="557658534286111200">Het bewerken van bladwijzers in- of uitschakelen</translation>
 <translation id="5586942249556966598">Niets doen</translation>
 <translation id="5630352020869108293">De laatste sessie herstellen</translation>
@@ -1365,6 +1376,12 @@
 <translation id="6145799962557135888">Hiermee kun je een lijst URL-patronen instellen waarmee sites worden gespecificeerd die JavaScript mogen uitvoeren.
 
           Als dit beleid niet wordt ingesteld, wordt de algemene standaardwaarde gebruikt voor alle sites op basis van het beleid 'DefaultJavaScriptSetting' (als dit is ingesteld) of anders op basis van de configuratie van de gebruiker.</translation>
+<translation id="6151775819333710697">
+          Als deze instelling is ingeschakeld, kunnen gebruikers <ph name="PRODUCT_NAME" /> wachtwoorden laten onthouden en deze wachtwoorden automatisch laten laden wanneer ze weer inloggen bij een site.
+
+          Als deze instelling is uitgeschakeld, kunnen gebruikers geen nieuwe wachtwoorden opslaan, maar kunnen ze nog steeds wachtwoorden gebruiken die eerder zijn opgeslagen.
+
+          Als dit beleid is ingeschakeld of uitgeschakeld, kunnen gebruikers dit niet wijzigen of overschrijven in <ph name="PRODUCT_NAME" />. Als dit beleid niet is ingesteld, is het opslaan van wachtwoorden toegestaan (maar kan dit worden uitgeschakeld door de gebruiker).</translation>
 <translation id="6155936611791017817">De standaardstatus van de grote muisaanwijzer op het inlogscherm instellen</translation>
 <translation id="6157537876488211233">Door komma's gescheiden lijst van regels voor proxyomzeiling</translation>
 <translation id="6158324314836466367">Naam van zakelijke webwinkel (verouderd)</translation>
@@ -1428,12 +1445,6 @@
           Dit beleid is optioneel. Als het beleid niet is ingesteld, wordt de zoekopdracht verzonden met de GET-methode.
 
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
-<translation id="6365608006609079612">
-          Als deze instelling is ingeschakeld, kunnen gebruikers <ph name="PRODUCT_NAME" /> wachtwoorden laten onthouden en deze wachtwoorden automatisch laten laden wanneer ze weer inloggen bij een site.
-
-          Als deze instelling is uitgeschakeld, kunnen gebruikers geen nieuwe wachtwoorden opslaan, maar kunnen ze nog steeds wachtwoorden gebruiken die eerder zijn opgeslagen.
-
-          Als dit beleid is ingeschakeld of uitgeschakeld, kunnen gebruikers dit niet wijzigen of overschrijven in <ph name="PRODUCT_NAME" />. Als dit beleid niet is ingesteld, is het opslaan van wachtwoorden toegestaan (maar kan dit worden uitgeschakeld door de gebruiker).</translation>
 <translation id="6367755442345892511">Of de gebruiker het releasekanaal moet configureren</translation>
 <translation id="6368011194414932347">De startpagina-URL configureren</translation>
 <translation id="6368403635025849609">JavaScript toestaan op deze sites</translation>
@@ -1509,14 +1520,32 @@
 
           Als dit beleid niet is ingesteld, wordt het schermtoetsenbord uitgeschakeld wanneer het inlogscherm voor de eerste keer wordt weergegeven. Gebruikers kunnen het schermtoetsenbord op elk moment in- of uitschakelen en de status op het inlogscherm is van toepassing op alle gebruikers.</translation>
 <translation id="6598235178374410284">Avatarafbeelding van gebruiker</translation>
-<translation id="6633160536638196468">Een lijst met verouderde webplatformfuncties opgeven die tijdelijk kunnen worden ingeschakeld.
+<translation id="6636268606788232221">Energiebeheer configureren wanneer de gebruiker inactief is.
 
-      Dit beleid biedt beheerders de mogelijkheid om verouderde webplatformfuncties beperkte tijd opnieuw in te schakelen. De functies worden geïdentificeerd door een stringtag. De functies die horen bij de tags die zijn opgenomen in de lijst die dit beleid heeft aangegeven, worden opnieuw ingeschakeld.
+          Dit beleid beheert meerdere instellingen voor de energiebeheerstrategie wanneer de gebruiker inactief is.
 
-      Als dit beleid niet wordt ingesteld, of als de lijst leeg is of niet overeenkomt met een van de ondersteunde stringtags, blijven alle verouderde webplatformfuncties uitgeschakeld.
+          Er zijn vier actietypen:
+          * Het scherm wordt gedimd als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |ScreenDim|.
+          * Het scherm wordt uitgeschakeld als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |ScreenOff|.
+          * Er wordt een waarschuwingsdialoogvenster weergegeven als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |IdleWarning|, waarin wordt gemeld dat de actie bij inactiviteit zal worden uitgevoerd.
+          * De actie die is gespecificeerd via |IdleAction|, wordt uitgevoerd als de gebruiker inactief is gedurende de periode die wordt gespecificeerd via |Idle|.
 
-      Hoewel het beleid zelf op de bovenstaande platforms wordt ondersteund, is de functie die ermee wordt ingeschakeld mogelijk op minder platforms beschikbaar. Niet alle verouderde webplatformfuncties kunnen opnieuw worden ingeschakeld. Alleen de webplatformfuncties die hieronder worden vermeld, kunnen tijdelijk opnieuw worden ingeschakeld, waarbij de periode per functie verschilt. De algemene indeling van de stringtag is [NaamVerouderdeFunctie]_EffectiveUntil[jjjjmmdd]. De reden voor de wijzigingen van webplatformfuncties vind je op https://bit.ly/blinkintents.
-      </translation>
+          Voor elk van de bovenstaande acties moet de inactiviteitsdrempel worden gespecificeerd in milliseconden. Dit moet een waarde groter dan nul zijn om de bijbehorende actie te activeren. Als de inactiviteitsdrempel is ingesteld op nul, voert <ph name="PRODUCT_OS_NAME" /> de bijbehorende actie niet uit.
+
+          Voor elk van de bovenstaande drempels wordt een standaardwaarde gebruikt als de periode niet is ingesteld.
+
+          Houd er rekening mee dat waarden van |ScreenDim| worden vastgezet op waarden kleiner dan of gelijk aan |ScreenOff|, en dat |ScreenOff| en |IdleWarning| worden vastgezet op waarden kleiner dan of gelijk aan |Idle|.
+
+          |IdleAction| kan één van vier mogelijke acties zijn:
+          * |Suspend|
+          * |Logout|
+          * |Shutdown|
+          * |DoNothing|
+
+          Wanneer |IdleAction| niet is ingesteld, wordt de standaardactie uitgevoerd (tijdelijk blokkeren).
+
+          Er zijn ook afzonderlijke instellingen voor wanneer het apparaat op netstroom of op de accu werkt.
+          </translation>
 <translation id="6641981670621198190">Ondersteuning voor API's voor 3D-beelden uitschakelen</translation>
 <translation id="6647965994887675196">Als dit wordt ingesteld op 'true' (waar), kunnen bewaakte gebruikers worden gemaakt en gebruikt.
 
@@ -1829,6 +1858,9 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="7763311235717725977">Hiermee kun je instellen of het websites is toegestaan afbeeldingen weer te geven. Het weergeven van afbeeldingen kan worden toegestaan voor alle websites of worden geweigerd voor alle websites.
 
           Als dit beleid niet wordt ingesteld, wordt 'AllowImages' gebruikt en kan dit door de gebruiker worden gewijzigd.</translation>
+<translation id="7763479091692861127"> De verbindingstypen die mogen worden gebruikt voor updates voor het besturingssysteem. Updates voor het besturingssysteem kunnen de verbinding zwaar belasten door hun grootte en kunnen extra kosten tot gevolg hebben. Updates voor het besturingssysteem zijn daarom standaard uitgeschakeld voor dure verbindingstypen. Dit omvat momenteel de verbindingstypen WiMax, Bluetooth en Mobiel.
+
+      De herkende verbindingstypen zijn 'ethernet', 'wifi', 'wimax', 'bluetooth' en 'mobiel'.</translation>
 <translation id="7766336524667238790">Informatie rapporteren over de actie kiosksessie, zoals
       de ID en versie van de app.
 
@@ -1884,38 +1916,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
           Als deze instelling is ingeschakeld, kan dit apparaat externe hosts zien en hier verbinding mee maken, zelfs als ze worden gescheiden door een firewall.
 
           Als deze instelling is uitgeschakeld en uitgaande UDP-verbindingen worden gefilterd door de firewall, kan dit apparaat alleen verbinding maken met hosts binnen het lokale netwerk.</translation>
-<translation id="8002229853067655250">Hiermee worden extensiebeheerinstellingen voor <ph name="PRODUCT_NAME" /> geconfigureerd.
-
-          Met dit beleid worden meerdere instellingen beheerd, inclusief instellingen die worden beheerd door bestaande aan extensies gerelateerde beleidsregels. Dit beleid overschrijft alle oudere beleidsregels als beide zijn ingesteld.
-
-          Dit beleid koppelt een extensie-ID of update-URL aan de configuratie. Bij een extensie-ID wordt de configuratie uitsluitend op de opgegeven extensie toegepast. Er kan een standaardconfiguratie worden ingesteld voor de speciale ID '*'. Deze wordt vervolgens toegepast op alle extensies die geen aangepaste configuratie hebben ingesteld in dit beleid. Bij een update-URL wordt de configuratie toegepast op alle extensies met de exacte update-URL in het manifest van deze extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC1" />.
-
-          De configuratie voor elke extensie (of extensies met dezelfde update-URL) is een woordenboek dat de onderstaande velden kan bevatten.
-
-          'installation_mode': is gekoppeld aan een tekenreeks die de installatiemodus voor de extensie aangeeft. De geldige tekenreeksen zijn:
-          * 'allowed': stelt de extensie in staat door de gebruiker te worden geïnstalleerd. Dit is het standaardgedrag.
-          * 'blocked': blokkeert de installatie van de extensie.
-          * 'force_installed': de extensie wordt automatisch geïnstalleerd en kan niet door de gebruiker worden verwijderd.
-          * 'normal_installed': de extensie wordt automatisch geïnstalleerd, maar kan door de gebruiker worden uitgeschakeld.
-
-          De 'installation_mode' kan ook worden geconfigureerd voor meerdere extensies, waaronder de extensie '*' (als standaardinstellingen) en extensies met dezelfde update-URL. Alleen de waarden 'allowed' en 'blocked' kunnen in dit geval worden gebruikt.
-
-          Als de modus is ingesteld op 'force_installed' of 'normal_installed', moet er ook een 'update_url' worden geconfigureerd. Let op: De in dit beleid ingestelde update-URL wordt alleen gebruikt voor de aanvankelijke installatie. Volgende updates van de extensie gebruiken de update-URL die in het manifest van de update-URL is opgenomen. De update-URL moet naar een XML-document met een updatemanifest verwijzen, zoals hierboven genoemd.
-
-          'blocked_permissions': is gekoppeld aan een lijst van tekenreeksen die de geblokkeerde API-rechten voor de extensie aangeven. De namen van de rechten zijn hetzelfde als de tekenreeksen voor rechten die zijn opgenomen in het manifest van de extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC3" />. Deze instelling kan ook worden geconfigureerd voor de extensie '*'. Als er rechten zijn vereist voor de extensie die op de blokkeerlijst staan, kan deze niet worden geladen. Als deze geblokkeerde rechten als optionele vereiste bevat, wordt deze als gebruikelijk behandeld, maar wordt de aanvraag van conflicterende rechten automatisch afgewezen tijdens de uitvoering.
-
-          'allowed_permissions': vergelijkbaar met 'blocked_permissions', maar in dit geval worden sommige rechten expliciet toegestaan die wellicht zijn geblokkeerd via lijsten met globaal geblokkeerde rechten. Deze instelling kan daarom niet worden geconfigureerd voor de extensie '*'. Let op: Deze instelling geeft niet automatisch goedgekeurde rechten af aan extensies.
-
-          'minimum_version_required': is gekoppeld aan een versiereeks. De opmaak van de versiereeks is hetzelfde als de opmaak in het manifest van de extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC4" />. Een extensie met een versie die ouder is dan de opgegeven minimumversie wordt uitgeschakeld. Dit is ook van toepassing op automatisch geïnstalleerde extensies.
-
-          De volgende instellingen kunnen alleen worden gebruikt voor de standaardconfiguratie '*':
-
-          'install_sources': elk item in deze lijst is een patroon van een extensie (zie https://developer.chrome.com/extensions/match_patterns). Gebruikers kunnen gemakkelijk items installeren vanaf elke URL die overeenkomt met een item in deze lijst. De locatie van het *.crx-bestand en de pagina waar de download wordt gestart (dat wil zeggen, de verwijzing), moeten beide zijn toegestaan op basis van deze patronen.
-
-          'allowed_types': met deze instelling worden de toegestane typen extensies/apps die in <ph name="PRODUCT_NAME" /> kunnen worden geïnstalleerd op een witte lijst gezet. De waarde is een lijst met tekenreeksen waarbij elke tekenreeks een van de volgende moet zijn: 'extension', 'theme', 'user_script', 'hosted_app', 'legacy_packaged_app', 'platform_app'. Raadpleeg de documentatie over <ph name="PRODUCT_NAME" />-extensies voor meer informatie over deze typen.
-
-          Dit beleid is nog niet klaar voor gebruik. Gebruik dit beleid niet.
-          </translation>
 <translation id="8044493735196713914">Opstartmodus van apparaat melden</translation>
 <translation id="8059164285174960932">URL waarbij clients met externe toegang hun verificatietoken moeten ophalen</translation>
 <translation id="8071636581296916773">Hiermee wordt het gebruik van relayservers ingeschakeld wanneer externe clients proberen een verbinding met dit apparaat tot stand te brengen.
