@@ -48,8 +48,6 @@ void MultiColumnFragmentainerGroup::resetColumnHeight()
 
     m_maxColumnHeight = calculateMaxColumnHeight();
 
-    LayoutUnit oldColumnHeight = m_columnHeight;
-
     LayoutMultiColumnFlowThread* flowThread = m_columnSet.multiColumnFlowThread();
     LayoutMultiColumnFlowThread* enclosingFlowThread = flowThread->enclosingFlowThread();
     if (enclosingFlowThread && enclosingFlowThread->isPageLogicalHeightKnown()) {
@@ -62,9 +60,6 @@ void MultiColumnFragmentainerGroup::resetColumnHeight()
     } else {
         setAndConstrainColumnHeight(heightAdjustedForRowOffset(flowThread->columnHeightAvailable()));
     }
-
-    if (m_columnHeight != oldColumnHeight)
-        m_columnSet.setChildNeedsLayout(MarkOnlyThis);
 
     // Content runs are only needed in the initial layout pass, in order to find an initial column
     // height, and should have been deleted afterwards. We're about to rebuild the content runs, so
