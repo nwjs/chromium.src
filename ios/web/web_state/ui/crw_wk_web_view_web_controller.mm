@@ -23,6 +23,7 @@
 #include "ios/web/public/cert_store.h"
 #include "ios/web/public/navigation_item.h"
 #include "ios/web/public/ssl_status.h"
+#include "ios/web/public/url_util.h"
 #include "ios/web/public/web_client.h"
 #import "ios/web/public/web_state/js/crw_js_injection_manager.h"
 #import "ios/web/public/web_state/ui/crw_native_content_provider.h"
@@ -266,9 +267,19 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
 // transition based on user interaction state.
 - (void)registerLoadRequest:(const GURL&)url;
 
+// Returns YES if a KVO change to |newURL| could be a 'navigation' within the
+// document (hash change, pushState/replaceState, etc.). This should only be
+// used in the context of a URL KVO callback firing, and only if |isLoading| is
+// YES for the web view (since if it's not, no guesswork is needed).
+- (BOOL)isKVOChangePotentialSameDocumentNavigationToURL:(const GURL&)newURL;
+
 // Called when a non-document-changing URL change occurs. Updates the
 // _documentURL, and informs the superclass of the change.
 - (void)URLDidChangeWithoutDocumentChange:(const GURL&)URL;
+
+// Returns YES if there is currently a requested but uncommitted load for
+// |targetURL|.
+- (BOOL)isLoadRequestPendingForURL:(const GURL&)targetURL;
 
 // Returns new autoreleased instance of WKUserContentController which has
 // early page script.
@@ -360,12 +371,6 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
   [super close];
 }
 
-- (void)touched:(BOOL)touched {
-  [super touched:touched];
-  if (touched)
-    _touchedSinceLastURLChange = YES;
-}
-
 #pragma mark -
 #pragma mark Testing-Only Methods
 
@@ -394,6 +399,13 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
 
 - (NSString*)currentReferrerString {
   return _currentReferrerString.get();
+}
+
+// Overridden to track interactions since URL change.
+- (void)setUserInteractionRegistered:(BOOL)flag {
+  [super setUserInteractionRegistered:flag];
+  if (flag)
+    _interactionRegisteredSinceLastURLChange = YES;
 }
 
 #pragma mark Protected method implementations
@@ -721,7 +733,7 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
 - (void)setDocumentURL:(const GURL&)newURL {
   if (newURL != _documentURL) {
     _documentURL = newURL;
-    _touchedSinceLastURLChange = NO;
+    _interactionRegisteredSinceLastURLChange = NO;
   }
 }
 
@@ -956,9 +968,9 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
     case WKNavigationTypeOther:
       // The "Other" type covers a variety of very different cases, which may
       // or may not be the result of user actions. For now, guess based on
-      // whether there's been a touch since the last URL change.
+      // whether there's been an interaction since the last URL change.
       // TODO(crbug.com/549301): See if this heuristic can be improved.
-      transition = _touchedSinceLastURLChange
+      transition = _interactionRegisteredSinceLastURLChange
                        ? ui::PAGE_TRANSITION_LINK
                        : ui::PAGE_TRANSITION_CLIENT_REDIRECT;
       break;
@@ -968,9 +980,27 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
   [self registerLoadRequest:url referrer:emptyReferrer transition:transition];
 }
 
+- (BOOL)isKVOChangePotentialSameDocumentNavigationToURL:(const GURL&)newURL {
+  DCHECK([_wkWebView isLoading]);
+  // If the origin changes, it can't be same-document.
+  if (_documentURL.GetOrigin().is_empty() ||
+      _documentURL.GetOrigin() != newURL.GetOrigin()) {
+    return NO;
+  }
+  if (self.loadPhase == web::LOAD_REQUESTED) {
+    // Normally LOAD_REQUESTED indicates that this is a regular, pending
+    // navigation, but it can also happen during a fast-back navigation across
+    // a hash change, so that case is potentially a same-document navigation.
+    return web::GURLByRemovingRefFromGURL(newURL) ==
+           web::GURLByRemovingRefFromGURL(_documentURL);
+  }
+  // If it passes all the checks above, it might be (but there's no guarantee
+  // that it is).
+  return YES;
+}
+
 - (void)URLDidChangeWithoutDocumentChange:(const GURL&)newURL {
   DCHECK(newURL == net::GURLWithNSURL([_wkWebView URL]));
-  [self setDocumentURL:newURL];
   // If called during window.history.pushState or window.history.replaceState
   // JavaScript evaluation, only update the document URL. This callback does not
   // have any information about the state object and cannot create (or edit) the
@@ -978,11 +1008,35 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
   // history changes when a window.history.didPushState or
   // window.history.didReplaceState message is received, which should happen in
   // the next runloop.
+  //
+  // Otherwise, simulate the whole delegate flow for a load (since the
+  // superclass currently doesn't have a clean separation between URL changes
+  // and document changes). Note that the order of these calls is important:
+  // registering a load request logically comes before updating the document
+  // URL, but also must come first since it uses state that is reset on URL
+  // changes.
   if (!_changingHistoryState) {
-    [self registerLoadRequest:_documentURL];
+    // If this wasn't a previously-expected load (e.g., certain back/forward
+    // navigations), register the load request.
+    if (![self isLoadRequestPendingForURL:newURL])
+      [self registerLoadRequest:newURL];
+  }
+
+  [self setDocumentURL:newURL];
+
+  if (!_changingHistoryState) {
     [self didStartLoadingURL:_documentURL updateHistory:YES];
     [self didFinishNavigation];
   }
+}
+
+- (BOOL)isLoadRequestPendingForURL:(const GURL&)targetURL {
+  if (self.loadPhase != web::LOAD_REQUESTED)
+    return NO;
+
+  web::NavigationItem* pendingItem =
+      self.webState->GetNavigationManager()->GetPendingItem();
+  return pendingItem && pendingItem->GetURL() == targetURL;
 }
 
 - (WKUserContentController*)createUserContentController {
@@ -1194,22 +1248,22 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
   // navigation failure and do nothing. If the URL does not match, assume it is
   // a non-document-changing URL change, and handle accordingly.
   //
-  // If |isLoading| is YES, then it could either be case 1 (if the load phase is
-  // web::LOAD_REQUESTED), or it could be case 2 on a page that hasn't finished
-  // loading yet. If the domain of the new URL matches the last committed URL,
-  // then check window.location.href, and if it matches, trust it. The domain
+  // If |isLoading| is YES, then it could either be case 1, or it could be case
+  // 2 on a page that hasn't finished loading yet. If it's possible that it
+  // could be a same-page navigation (in which case there may not be any other
+  // callback about the URL having changed), then check the actual page URL via
+  // JavaScript. If the origin of the new URL matches the last committed URL,
+  // then check window.location.href, and if it matches, trust it. The origin
   // check ensures that if a site somehow corrupts window.location.href it can't
   // do a redirect to a slow-loading target page while it is still loading to
-  // spoof the domain. On a document-changing URL change, the
+  // spoof the origin. On a document-changing URL change, the
   // window.location.href will match the previous URL at this stage, not the web
   // view's current URL.
   if (![_wkWebView isLoading]) {
     if (_documentURL == url)
       return;
     [self URLDidChangeWithoutDocumentChange:url];
-  } else if (!_documentURL.host().empty() &&
-             _documentURL.host() == url.host() &&
-             self.loadPhase != web::LOAD_REQUESTED) {
+  } else if ([self isKVOChangePotentialSameDocumentNavigationToURL:url]) {
     [_wkWebView evaluateJavaScript:@"window.location.href"
                  completionHandler:^(id result, NSError* error) {
                      // If the web view has gone away, or the location
@@ -1220,8 +1274,9 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
                      }
                      GURL jsURL([result UTF8String]);
                      // Make sure that the URL is as expected, and re-check
-                     // the host to prevent race conditions.
-                     if (jsURL == url && _documentURL.host() == url.host()) {
+                     // the origin to prevent race conditions.
+                     if (jsURL == url &&
+                         _documentURL.GetOrigin() == url.GetOrigin()) {
                        [self URLDidChangeWithoutDocumentChange:url];
                      }
                  }];
