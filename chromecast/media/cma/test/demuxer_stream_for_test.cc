@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/threading/thread.h"
 #include "chromecast/media/cma/test/demuxer_stream_for_test.h"
+
+#include "base/threading/thread.h"
+#include "media/base/media_util.h"
 
 namespace chromecast {
 namespace media {
@@ -55,7 +57,7 @@ void DemuxerStreamForTest::Read(const ReadCB& read_cb) {
   return ::media::VideoDecoderConfig(
       ::media::kCodecH264, ::media::VIDEO_CODEC_PROFILE_UNKNOWN,
       ::media::PIXEL_FORMAT_YV12, ::media::COLOR_SPACE_UNSPECIFIED, coded_size,
-      visible_rect, natural_size, NULL, 0, false);
+      visible_rect, natural_size, ::media::EmptyExtraData(), false);
 }
 
 ::media::DemuxerStream::Type DemuxerStreamForTest::type() const {
