@@ -175,7 +175,7 @@
 <translation id="1227507814927581609">Verificatie mislukt tijdens verbinden met '<ph name="DEVICE_NAME" />'.</translation>
 <translation id="1231728991993914119">Melding bij sluiten inschakelen voor gehoste apps.</translation>
 <translation id="1232569758102978740">Naamloos</translation>
-<translation id="1233721473400465416">Taal</translation>
+<translation id="1233721473400465416">Landinstelling</translation>
 <translation id="1234808891666923653">Service Workers</translation>
 <translation id="123578888592755962">Schijf is vol</translation>
 <translation id="1240892293903523606">DOM Inspector</translation>
@@ -927,6 +927,7 @@ Nadat je een nieuwe gebruiker met beperkte rechten hebt gemaakt, kun je zijn ins
 <translation id="2326606747676847821">Incognito gaan</translation>
 <translation id="2326931316514688470">App opnieuw &amp;laden</translation>
 <translation id="2327492829706409234">App inschakelen</translation>
+<translation id="2329597144923131178">Log in om je bladwijzers, geschiedenis, wachtwoorden en andere instellingen op al je apparaten te gebruiken.</translation>
 <translation id="2332131598580221120">Bekijken in de Web Store</translation>
 <translation id="2332742915001411729">Terugzetten naar standaardinstelling</translation>
 <translation id="2335122562899522968">Deze pagina stelt cookies in.</translation>

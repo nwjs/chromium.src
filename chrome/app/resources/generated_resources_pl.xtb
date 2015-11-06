@@ -929,6 +929,7 @@ Po utworzeniu nadzorowanego użytkownika możesz w dowolnym czasie i z dowolnego
 <translation id="2326606747676847821">Włącz tryb incognito</translation>
 <translation id="2326931316514688470">P&amp;rzeładuj aplikację</translation>
 <translation id="2327492829706409234">Włącz aplikację</translation>
+<translation id="2329597144923131178">Zaloguj się, by korzystać z zakładek, historii, haseł i innych ustawień na wszystkich swoich urządzeniach.</translation>
 <translation id="2332131598580221120">Wyświetl w sklepie</translation>
 <translation id="2332742915001411729">Przywróć domyślne</translation>
 <translation id="2335122562899522968">Ta strona ustawia pliki cookie.</translation>
@@ -1455,7 +1456,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="3031417829280473749">Agentka X</translation>
 <translation id="3031557471081358569">Wybierz elementy do zaimportowania:</translation>
 <translation id="3033332627063280038">Włącz eksperymentalną implementację dyrektywy stale-while-revalidate funkcji Cache-Control. Pozwala to serwerom na określenie, że w tle może być przeprowadzane przywracanie ważności w przypadku niektórych zasobów, by zmniejszyć czas oczekiwania.</translation>
-<translation id="3037605927509011580">Niedobrze!</translation>
+<translation id="3037605927509011580">Kurza twarz!</translation>
 <translation id="3039828483675273919">Przenoszę $1 elementy(ów)...</translation>
 <translation id="304009983491258911">Zmień PIN karty SIM</translation>
 <translation id="3041612393474885105">Informacje o certyfikacie</translation>

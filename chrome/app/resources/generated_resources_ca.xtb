@@ -284,7 +284,7 @@
 <translation id="1407489512183974736">Retallat al centre</translation>
 <translation id="1408789165795197664">Configuració avançada...</translation>
 <translation id="1408803555324839240">No s'ha pogut crear l'usuari supervisat nou. Assegureu-vos que heu iniciat la sessió correctament i torneu-ho a provar.</translation>
-<translation id="1409390508152595145">Creeu un usuari supervisat</translation>
+<translation id="1409390508152595145">Crea un usuari supervisat</translation>
 <translation id="1410616244180625362">Continua permetent que <ph name="HOST" /> accedeixi a la càmera</translation>
 <translation id="1413372529771027206">El telèfon que utilitzeu per a Smart Lock ha canviat. Escriviu la contrasenya per actualitzar Smart Lock per a Chromebook en aquest dispositiu. La propera vegada només caldrà que feu clic a la imatge per accedir-hi.</translation>
 <translation id="1413809658975081374">Error de privadesa</translation>
@@ -930,6 +930,7 @@ Quan hàgiu creat un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="2326606747676847821">Passa al mode d'incògnit</translation>
 <translation id="2326931316514688470">&amp;Tornar a carregar l'aplicació</translation>
 <translation id="2327492829706409234">Activa l'aplicació</translation>
+<translation id="2329597144923131178">Inicieu la sessió per tenir adreces d'interès, historial, contrasenyes i altres opcions de configuració en tots els dispositius.</translation>
 <translation id="2332131598580221120">Mostra a la botiga</translation>
 <translation id="2332742915001411729">Restableix als valors predeterminats</translation>
 <translation id="2335122562899522968">Aquesta pàgina emmagatzema galetes</translation>
@@ -1547,7 +1548,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="3160041952246459240">Teniu certificats arxivats que identifiquen els servidors següents:</translation>
 <translation id="316125635462764134">Suprimeix l'aplicació</translation>
 <translation id="3162559335345991374">És possible que la xarxa Wi-Fi que esteu fent servir requereixi que visiteu la seva pàgina d'inici de sessió.</translation>
-<translation id="316307797510303346">Controleu i consulteu els llocs web que aquesta persona visita des de <ph name="CUSTODIAN_EMAIL" />.
+<translation id="316307797510303346">Controla i consulta els llocs web que aquesta persona visita des de <ph name="CUSTODIAN_EMAIL" />.
     Les dades d'inici de sessió del compte no estan actualitzades.</translation>
 <translation id="3166571619128686629">Feu-hi clic o digueu "Ok Google" per començar la cerca per veu</translation>
 <translation id="3170072451822350649">També podeu <ph name="LINK_START" />navegar com a convidat<ph name="LINK_END" /> sense iniciar sessió.</translation>
@@ -3427,7 +3428,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5830410401012830739">Gestiona la configuració de la ubicació...</translation>
 <translation id="5830720307094128296">Anomena i desa la pà&amp;gina...</translation>
 <translation id="5832669303303483065">Afegeix una adreça postal nova...</translation>
-<translation id="5832805196449965646">Afegiu una persona</translation>
+<translation id="5832805196449965646">Afegeix una persona</translation>
 <translation id="583281660410589416">Desconegut</translation>
 <translation id="5832830184511718549">Utilitza un subprocés secundari per crear pàgines web. Això permet un desplaçament suau, fins i tot quan el subprocés principal no respon.
 </translation>
@@ -3504,7 +3505,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5934281776477898549">Cap actualització</translation>
 <translation id="5937843713457938680">Mode d'emmagatzematge en memòria cau per al motor V8 de JavaScript.</translation>
 <translation id="5939518447894949180">Restableix</translation>
-<translation id="5941153596444580863">Afegiu una persona...</translation>
+<translation id="5941153596444580863">Afegeix una persona...</translation>
 <translation id="5941343993301164315">Inicieu la sessió a <ph name="TOKEN_NAME" />.</translation>
 <translation id="5941711191222866238">Minimitza</translation>
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
@@ -3922,7 +3923,7 @@ Consulteu el vostre correu electrònic (<ph name="ACCOUNT_EMAIL" />) per obtenir
 <translation id="655384502888039633"><ph name="USER_COUNT" /> usuaris</translation>
 <translation id="6555432686520421228">Suprimeix tots els comptes d'usuari i restableix el dispositiu <ph name="IDS_SHORT_PRODUCT_NAME" />, com si fos nou.</translation>
 <translation id="6556866813142980365">Refés</translation>
-<translation id="6557565812667414268">Activat només per a visualitzacions PPP d'alt rendiment</translation>
+<translation id="6557565812667414268">Activat només per a visualitzacions ppp d'alt rendiment</translation>
 <translation id="6559580823502247193">(ja és en aquest dispositiu)</translation>
 <translation id="6561726789132298588">retorn</translation>
 <translation id="6562437808764959486">S'està extraient la imatge de recuperació...</translation>
@@ -4524,7 +4525,7 @@ El mode d'incògnit, <ph name="SHORTCUT_KEY" />, us pot resultar pràctic la pro
 <translation id="7458128457147328975">Permet activar la versió obsoleta de les extensions multimèdia encriptades en elements d'àudio i de vídeo.</translation>
 <translation id="7460898608667578234">Ucraïnès</translation>
 <translation id="7461924472993315131">Fixa</translation>
-<translation id="7463006580194749499">Afegiu una persona</translation>
+<translation id="7463006580194749499">Afegeix una persona</translation>
 <translation id="7464490149090366184">S'ha produït un error en la compressió; l'element existeix: "$1"</translation>
 <translation id="7465778193084373987">URL de revocació de certificats de Netscape</translation>
 <translation id="7466861475611330213">Estil de puntuació</translation>
@@ -5773,7 +5774,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="940425055435005472">Mida de la lletra:</translation>
 <translation id="941543339607623937">Clau privada no vàlida.</translation>
 <translation id="942954117721265519">No hi ha cap imatge en aquest directori.</translation>
-<translation id="945522503751344254">Envia comentaris</translation>
+<translation id="945522503751344254">Envia suggeriments</translation>
 <translation id="946810925362320585">Segueix la recomanació</translation>
 <translation id="949382280525592713"><ph name="LEGAL_DOC_AGREEMENT" /> Per protegir-vos de fraus, es compartirà informació sobre el vostre ordinador (inclosa la ubicació) amb Google Payments.</translation>
 <translation id="951981865514037445"><ph name="URL" /> vol fer servir la ubicació del dispositiu.</translation>
