@@ -1781,6 +1781,7 @@ const NSTimeInterval kSnapshotOverlayTransition = 0.5;
       _webStateImpl->GetCacheMode());
 
   [self restoreStateFromHistory];
+  [self loadCompletedForURL:currentURL];
   _webStateImpl->OnPageLoaded(currentURL, loadSuccess);
   _webStateImpl->SetIsLoading(false);
   // Inform the embedder the load completed.
