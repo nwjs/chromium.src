@@ -19,7 +19,7 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
 {
   "name": "gpu driver bug list",
   // Please update the version number whenever you change this file.
-  "version": "8.27",
+  "version": "8.28",
   "entries": [
     {
       "id": 1,
@@ -1564,6 +1564,20 @@ LONG_STRING_CONST(
       "gl_renderer": "Adreno.*",
       "features": [
         "max_copy_texture_chromium_size_1048576"
+      ]
+    },
+    {
+      "id": 134,
+      "description": "Screen flickers on 2009 iMacs",
+      "cr_bugs": [543324],
+      "os": {
+        "type": "macosx"
+      },
+      "vendor_id": "0x1002",
+      "device_id": ["0x9440", "0x944a"],
+      "features": [
+        "disable_overlay_ca_layers",
+        "disable_post_sub_buffers_for_onscreen_surfaces"
       ]
     }
   ]
