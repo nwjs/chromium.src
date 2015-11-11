@@ -89,7 +89,8 @@ public class MinidumpUploadCallable implements Callable<Boolean> {
         }
 
         boolean isLimited = mPermManager.isUploadLimited();
-        if (isLimited) {
+        long uploadFileSize = mFileToUpload.length();
+        if (isLimited && !isUploadSizeAndFrequencyAllowed(uploadFileSize)) {
             Log.i(TAG, "Minidump cannot currently be uploaded due to constraints.");
             return false;
         }
@@ -109,7 +110,10 @@ public class MinidumpUploadCallable implements Callable<Boolean> {
             streamCopy(minidumpInputStream, new GZIPOutputStream(connection.getOutputStream()));
             boolean success = handleExecutionResponse(connection);
 
-            return success ? UPLOAD_SUCCESS : UPLOAD_FAILURE;
+            // Need to save file size beforehand as |handleExecutionResponse| deletes the file if
+            // the upload was successful.
+            if (success && isLimited) updateUploadPrefs(uploadFileSize);
+            return success;
         } catch (IOException e) {
             // For now just log the stack trace.
             Log.w(TAG, "Error while uploading " + mFileToUpload.getName(), e);
