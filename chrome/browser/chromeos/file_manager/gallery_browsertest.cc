@@ -67,6 +67,20 @@ IN_PROC_BROWSER_TEST_F(GalleryBrowserTestInGuestMode,
   StartTest();
 }
 
+#if defined(DISABLE_SLOW_FILESAPP_TESTS)
+#define MAYBE_OpenMultipleImagesAndSwitchToSlideModeOnDownloads \
+  DISABLED_OpenMultipleImagesAndSwitchToSlideModeOnDownloads
+#else
+#define MAYBE_OpenMultipleImagesAndSwitchToSlideModeOnDownloads \
+  OpenMultipleImagesAndSwitchToSlideModeOnDownloads
+#endif
+IN_PROC_BROWSER_TEST_F(
+    GalleryBrowserTest,
+    MAYBE_OpenMultipleImagesAndSwitchToSlideModeOnDownloads) {
+  set_test_case_name("openMultipleImagesAndChangeToSlideModeOnDownloads");
+  StartTest();
+}
+
 IN_PROC_BROWSER_TEST_F(GalleryBrowserTest, OpenMultipleImagesOnDrive) {
   set_test_case_name("openMultipleImagesOnDrive");
   StartTest();

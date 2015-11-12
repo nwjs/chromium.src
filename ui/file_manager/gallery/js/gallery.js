@@ -400,6 +400,7 @@ Gallery.prototype.loadInternal_ = function(entries, selectedEntries) {
         // Do the initialization for each mode.
         if (shouldShowThumbnail) {
           self.thumbnailMode_.show();
+          self.thumbnailMode_.focus();
         } else {
           self.slideMode_.enter(
               null,
