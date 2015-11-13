@@ -960,7 +960,7 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
     }
   }
 
-  // Present SSL interstitial.
+  // Present SSL interstitial and inform everyone that the load is cancelled.
   [self.delegate presentSSLError:info
                     forSSLStatus:status
                      recoverable:recoverable
@@ -974,6 +974,7 @@ WKWebViewErrorSource WKWebViewErrorSourceFromError(NSError* error) {
                             [self loadCurrentURL];
                           }
                         }];
+  [self loadCancelled];
 }
 #endif  // #if !defined(ENABLE_CHROME_NET_STACK_FOR_WKWEBVIEW)
 
