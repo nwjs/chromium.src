@@ -38,6 +38,11 @@ function DimmableUIController(container) {
   /**
    * @private {boolean}
    */
+  this.renaming_ = false;
+
+  /**
+   * @private {boolean}
+   */
   this.spokenFeedbackEnabled_ = false;
 
   /**
@@ -249,6 +254,19 @@ DimmableUIController.prototype.onTimeout_ = function() {
 };
 
 /**
+ * Sets whether user is renaming an image or not.
+ * @param {boolean} renaming
+ * @private
+ */
+DimmableUIController.prototype.setRenaming = function(renaming) {
+  if (this.renaming_ === renaming)
+    return;
+
+  this.renaming_ = renaming;
+  this.updateAvailability_();
+};
+
+/**
  * Updates availability of this controller with spoken feedback configuration.
  * @param {Object} details
  * @private
@@ -292,7 +310,8 @@ DimmableUIController.prototype.kick = function(opt_timeout) {
  * @private
  */
 DimmableUIController.prototype.updateAvailability_ = function() {
-  var disabled = !this.isInAvailableMode_ || this.spokenFeedbackEnabled_;
+  var disabled = !this.isInAvailableMode_ || this.spokenFeedbackEnabled_ ||
+      this.renaming_;
 
   if (this.disabled_ === disabled)
     return;
