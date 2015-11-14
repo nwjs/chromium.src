@@ -1266,6 +1266,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableEncryptedMedia,
     switches::kDisableFeatures,
     switches::kDisableFileSystem,
+    switches::kDisableGestureRequirementForMediaPlayback,
     switches::kDisableGpuCompositing,
     switches::kDisableGpuMemoryBufferVideoFrames,
     switches::kDisableGpuVsync,
@@ -1415,7 +1416,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnableLowEndDeviceMode,
     switches::kDisableLowEndDeviceMode,
 #if defined(OS_ANDROID)
-    switches::kDisableGestureRequirementForMediaPlayback,
     switches::kDisableWebAudio,
     switches::kRendererWaitForJavaDebugger,
 #endif
