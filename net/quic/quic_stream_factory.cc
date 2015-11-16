@@ -711,13 +711,16 @@ int QuicStreamFactory::Create(const HostPortPair& host_port_pair,
                               const BoundNetLog& net_log,
                               QuicStreamRequest* request) {
   QuicServerId server_id(host_port_pair, is_https, privacy_mode);
-  SessionMap::iterator it = active_sessions_.find(server_id);
-  if (it != active_sessions_.end()) {
-    QuicChromiumClientSession* session = it->second;
-    if (!session->CanPool(origin_host.as_string(), privacy_mode))
-      return ERR_ALTERNATIVE_CERT_NOT_VALID_FOR_ORIGIN;
-    request->set_stream(CreateFromSession(session));
-    return OK;
+  // TODO(rtenneti): crbug.com/498823 - delete active_sessions_.empty() checks.
+  if (!active_sessions_.empty()) {
+    SessionMap::iterator it = active_sessions_.find(server_id);
+    if (it != active_sessions_.end()) {
+      QuicChromiumClientSession* session = it->second;
+      if (!session->CanPool(origin_host.as_string(), privacy_mode))
+        return ERR_ALTERNATIVE_CERT_NOT_VALID_FOR_ORIGIN;
+      request->set_stream(CreateFromSession(session));
+      return OK;
+    }
   }
 
   if (HasActiveJob(server_id)) {
@@ -764,8 +767,14 @@ int QuicStreamFactory::Create(const HostPortPair& host_port_pair,
     return rv;
   }
   if (rv == OK) {
-    it = active_sessions_.find(server_id);
+    // TODO(rtenneti): crbug.com/498823 - revert active_sessions_.empty()
+    // related changes.
+    if (active_sessions_.empty())
+      return ERR_QUIC_PROTOCOL_ERROR;
+    SessionMap::iterator it = active_sessions_.find(server_id);
     DCHECK(it != active_sessions_.end());
+    if (it == active_sessions_.end())
+      return ERR_QUIC_PROTOCOL_ERROR;
     QuicChromiumClientSession* session = it->second;
     if (!session->CanPool(origin_host.as_string(), privacy_mode))
       return ERR_ALTERNATIVE_CERT_NOT_VALID_FOR_ORIGIN;
@@ -1165,6 +1174,9 @@ void QuicStreamFactory::OnCACertChanged(const X509Certificate* cert) {
 
 bool QuicStreamFactory::HasActiveSession(
     const QuicServerId& server_id) const {
+  // TODO(rtenneti): crbug.com/498823 - delete active_sessions_.empty() check.
+  if (active_sessions_.empty())
+    return false;
   return ContainsKey(active_sessions_, server_id);
 }
 
