@@ -46,6 +46,7 @@
 <translation id="1643702317193804718">La pàgina s'està traduint a <ph name="SOURCE_LANGUAGE" />…</translation>
 <translation id="1644574205037202324">Historial</translation>
 <translation id="1647391597548383849">Accés a la càmera</translation>
+<translation id="1648687357130613845">Espai d'emmagatzematge</translation>
 <translation id="1657479659644194568">Configurar Chrome</translation>
 <translation id="1692118695553449118">Sincronització activada</translation>
 <translation id="1709438864123551175">Economitzador de dades</translation>
@@ -229,6 +230,7 @@ Per ajustar el terme de la cerca, manteniu-lo premut per seleccionar-lo. Per def
 <translation id="4690286298542128877">Les pestanyes es mouran a un selector de pestanyes a Chrome.</translation>
 <translation id="4698413471314543145">Falta una funcionalitat crítica necessària per executar Chrome; la vostra instal·lació de Chrome no està completa o bé no és compatible amb aquesta versió d'Android.</translation>
 <translation id="4720023427747327413">Obre a <ph name="PRODUCT_NAME" /></translation>
+<translation id="4726963856048758366">Espai d'emmagatzematge alliberat</translation>
 <translation id="473775607612524610">Actualitza</translation>
 <translation id="4761374747761474835">Seleccioneu un compte per tenir les adreces d'interès, l'historial, les contrasenyes i altres configuracions en tots els vostres dispositius.</translation>
 <translation id="4773299976671772492">Aturat</translation>
@@ -241,6 +243,7 @@ Per ajustar el terme de la cerca, manteniu-lo premut per seleccionar-lo. Per def
 <translation id="4871370605780490696">Afegeix una adreça d'interès</translation>
 <translation id="4881695831933465202">Obre</translation>
 <translation id="4885273946141277891">No s'admet aquest nombre d'instàncies de Chrome.</translation>
+<translation id="4927198283430892231">En aquests moments, les pàgines desades ocupen <ph name="TOTAL_OFFLINE_STORAGE_SIZE" />.</translation>
 <translation id="494334276486034338">Última sincronització: fa <ph name="HOURS" /> hores</translation>
 <translation id="4943872375798546930">No hi ha resultats</translation>
 <translation id="4970484396410298643">Accediu a les pestanyes que teniu obertes a l'ordinador des d'aquí mateix.
@@ -288,6 +291,7 @@ Per fer-ho, obriu Chrome a l'ordinador, aneu al menú i seleccioneu Inicia la se
 <translation id="5423934151118863508">Les pàgines més visitades es mostraran aquí</translation>
 <translation id="5424715742813396254">Editar el nom, la contrasenya o l'excepció desats</translation>
 <translation id="5435662027590074193"><ph name="SEARCH_ENGINE_NAME" /> (<ph name="SEARCH_ENGINE_DOMAIN" />)</translation>
+<translation id="5442257541162692417">Editeu la pàgina desada</translation>
 <translation id="544291274896356069">Si obriu aquest enllaç en una aplicació externa abandonareu el mode d'incògnit. Voleu continuar?</translation>
 <translation id="5487729733663684359">Aquesta versió d'Android ja no admet les actualitzacions de Chrome.</translation>
 <translation id="5511351932351731210">Envia sempre</translation>
@@ -389,6 +393,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="666268767214822976">Utilitza un servei de predicció per mostrar consultes relacionades i llocs web populars mentre escriviu a la barra d'adreces</translation>
 <translation id="666981079809192359">Avís de privadesa de Chrome</translation>
 <translation id="6671495933530132209">Copia la imatge</translation>
+<translation id="668087818636876709">Voleu suprimir <ph name="PAGES_NUMBER" /> pàgines que vau desar fa més d'un mes? Si ho feu, tindreu <ph name="TOTAL_PAGE_SIZE" /> d'espai lliure.</translation>
 <translation id="6697251040310467641">Pàgina desada sense connexió</translation>
 <translation id="6698801883190606802">Gestioneu les dades sincronitzades</translation>
 <translation id="6699351163704950317">Totes les pàgines desades</translation>
@@ -511,6 +516,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="8428213095426709021">Configuració</translation>
 <translation id="8429160401486700187">Suprimeix les pàgines desades</translation>
 <translation id="8481940801237642152">La vostra connexió amb aquest lloc és privada, però és possible que algun usuari de la xarxa pugui canviar l'aspecte de la pàgina.</translation>
+<translation id="8493948351860045254">Allibera espai</translation>
 <translation id="8497726226069778601">Aquí encara no hi ha contingut per mostrar</translation>
 <translation id="8514577642972634246">Entra al mode d'incògnit</translation>
 <translation id="8515416241041728525">Afeg. compte per a <ph name="ADD_ACCOUNT_USER_NAME" /></translation>

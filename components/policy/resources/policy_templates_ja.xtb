@@ -677,6 +677,13 @@
 <translation id="3780152581321609624">Kerberos SPN に非標準ポートを含める</translation>
 <translation id="3788662722837364290">ユーザーがアイドル状態になったときの電源管理設定</translation>
 <translation id="3793095274466276777"><ph name="PRODUCT_NAME" /> での既定のブラウザのチェックを設定し、ユーザーがこの設定を変更できないようにします。この設定を有効にすると、<ph name="PRODUCT_NAME" /> が既定のブラウザであるかどうかを常に起動時にチェックし、必要に応じて自動登録します。この設定を無効にすると、<ph name="PRODUCT_NAME" /> が既定のブラウザであるかどうかをチェックせずに、このオプションを設定するユーザー コントロールを無効にします。この設定を設定しないと、<ph name="PRODUCT_NAME" /> が既定のブラウザであるかどうか、既定でない場合にユーザー通知を表示すべきかどうかをユーザーが管理できます。</translation>
+<translation id="3800626789999016379">ファイルをダウンロードするときに <ph name="PRODUCT_NAME" /> が使用するディレクトリを設定します。
+
+      このポリシーを設定した場合は、ユーザーがディレクトリを指定していたり毎回ダウンロード先の場所を確認するよう指定していたりしても、ここで指定したディレクトリが <ph name="PRODUCT_NAME" /> で使用されます。
+
+      使用できる変数のリストについては、https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables をご覧ください。
+
+      このポリシーが未設定の場合は、デフォルトのダウンロード ディレクトリが使用されます。ユーザーはこのディレクトリを変更することもできます。</translation>
 <translation id="3805659594028420438">TLS ドメイン固定証明書の拡張機能を有効にする（サポート終了）</translation>
 <translation id="3806576699227917885">音声の再生を許可します。
 
@@ -794,6 +801,13 @@
 <translation id="4325690621216251241">システム トレイにログアウト ボタンを追加する</translation>
 <translation id="4337944790873898250">このポリシーが true に設定されている場合、<ph name="PRODUCT_NAME" /> では初回実行時に最初に表示されるウィンドウが無条件に最大化されます。
 このポリシーが false に設定されているか未設定の場合は、ヒューリスティックな方法により、最初に表示されるウィンドウを最大化するかどうかが画面のサイズに基づいて決定されます。</translation>
+<translation id="4349746760316962317">キャッシュされたファイルをディスクに保存するときに <ph name="PRODUCT_NAME" /> が使用するディレクトリを設定します。
+
+      このポリシーを設定した場合は、ユーザーが「--disk-cache-dir」フラグを指定していても、ここで指定したディレクトリが <ph name="PRODUCT_NAME" /> で使用されます。
+
+      使用できる変数のリストについては、https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables をご覧ください。
+
+      このポリシーが未設定の場合は、デフォルトのキャッシュ ディレクトリが使用されます。ユーザーは、「--disk-cache-dir」コマンドライン フラグを使って別のディレクトリを指定することもできます。</translation>
 <translation id="436581050240847513">デバイスのネットワーク インターフェースを報告する</translation>
 <translation id="4372704773119750918">マルチプロフィール（プライマリまたはセカンダリ）への参加を企業ユーザーに許可しない</translation>
 <translation id="4377599627073874279">すべてのサイトに対してすべての画像表示を許可する</translation>
@@ -859,6 +873,11 @@
 <translation id="4665897631924472251">拡張機能の管理設定</translation>
 <translation id="4668325077104657568">デフォルト画像設定</translation>
 <translation id="467236746355332046">サポートされる機能:</translation>
+<translation id="4674167212832291997">常に <ph name="PRODUCT_FRAME_NAME" /> でレンダリングする URL パターンのリストをカスタマイズします。
+
+          このポリシーが未設定の場合は、「ChromeFrameRendererSettings」ポリシーで指定されているデフォルトのレンダラがすべてのサイトで使用されます。
+
+          パターンの例については、https://www.chromium.org/developers/how-tos/chrome-frame-getting-started をご覧ください。</translation>
 <translation id="467449052039111439">URL のリストを開く</translation>
 <translation id="4680961954980851756">自動入力を有効にする</translation>
 <translation id="4723829699367336876">リモート アクセス クライアントからのファイアウォール トラバーサルを有効にする</translation>
@@ -946,6 +965,13 @@
           このポリシーを設定しない場合は、デフォルトの操作（停止）が行われます。
 
           操作が「停止」の場合は、停止の前に画面をロックするかどうか、<ph name="PRODUCT_OS_NAME" /> を別途設定できます。</translation>
+<translation id="5111712393799006197">ユーザーデータを保存するときに <ph name="PRODUCT_NAME" /> が使用するディレクトリを設定します。
+
+      このポリシーを設定した場合は、ユーザーが「--user-data-dir」フラグを指定していても、ここで指定したディレクトリが <ph name="PRODUCT_NAME" /> で使用されます。
+
+      使用できる変数のリストについては、https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables をご覧ください。
+
+      このポリシーが未設定の場合は、デフォルトのプロフィール パスが使用されます。ユーザーは、「--user-data-dir」コマンドライン フラグを使って別のディレクトリを指定することもできます。</translation>
 <translation id="5141670636904227950">ログイン画面で有効にする画面拡大鏡のデフォルトのタイプを設定する</translation>
 <translation id="5142301680741828703"><ph name="PRODUCT_FRAME_NAME" /> で次の URL パターンを常に表示する</translation>
 <translation id="5148753489738115745"><ph name="PRODUCT_FRAME_NAME" /> により <ph name="PRODUCT_NAME" /> が起動される際に使用される追加パラメータを指定することができます。
@@ -1126,6 +1152,20 @@
 <translation id="5809728392451418079">デバイスのローカル アカウントの表示名を設定する</translation>
 <translation id="5814301096961727113">ログイン画面での音声フィードバックのデフォルト状態を設定する</translation>
 <translation id="5815129011704381141">更新後に自動再起動</translation>
+<translation id="5815353477778354428">ユーザーデータを保存するときに <ph name="PRODUCT_FRAME_NAME" /> が使用するディレクトリを設定します。
+
+      このポリシーを設定した場合は、ここで指定したディレクトリが <ph name="PRODUCT_FRAME_NAME" /> で使用されます。
+
+      使用できる変数のリストについては、https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables をご覧ください。
+
+      この設定が未設定の場合は、デフォルトのプロフィール ディレクトリが使用されます。</translation>
+<translation id="5819660021114910752">デバイスで使用するタイムゾーンを指定します。ユーザーは現在のセッションに対して別のタイムゾーンを指定することもできます。ただしログアウトするとここで指定したタイムゾーンに戻ります。指定した値が無効な場合、ポリシーは有効になりますが、代わりに「GMT」が使用されます。空の文字列を指定した場合、このポリシーは無視されます。
+
+      このポリシーを使用しない場合は、現在有効なタイムゾーンがそのまま使用されます。ユーザーはタイムゾーンを変更することもできます。この変更は一時的なものではないため、1 人のユーザーが変更を加えると、その変更はログイン画面と他のすべてのユーザーにも適用されることになります。
+
+      新しいデバイスの場合、起動時のタイムゾーンは「太平洋標準時」に設定されます。
+
+      値の形式は、「IANA Time Zone Database」のタイムゾーンの名前に沿ったものとなります（「https://ja.wikipedia.org/wiki/Tz_database」をご覧ください）。ほとんどのタイムゾーンは、「continent/large_city」または「ocean/large_city」で表すことができます。</translation>
 <translation id="5826047473100157858">ユーザーが <ph name="PRODUCT_NAME" /> でシークレット モードを使用してページを開くことができるかどうかを指定します。[有効] が選択されている、またはポリシーが未設定の場合、シークレット モードでページを開くことができます。[無効] が選択されている場合、シークレット モードでページを開くことはできません。[強制] が選択されている場合、シークレット モードでのみページを開くことができます。</translation>
 <translation id="5836064773277134605">リモート アクセス ホストが使用する UDP ポートの範囲を制限する</translation>
 <translation id="5845159892130426052">ShowModalDialog API を 2015 年 4 月 30 日から有効にする</translation>
@@ -1806,6 +1846,11 @@ Active Directory ドメインに参加していない Windows インスタンス
 <translation id="8465065632133292531">POST を使用するインスタント検索 URL のパラメータ</translation>
 <translation id="847472800012384958">すべてのサイトに対してポップアップ表示を許可しない</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">常にホストブラウザでレンダリングする URL パターンのリストをカスタマイズします。
+
+          このポリシーが未設定の場合は、「ChromeFrameRendererSettings」ポリシーで指定されているデフォルトのレンダラがすべてのサイトで使用されます。
+
+          パターンの例については、https://www.chromium.org/developers/how-tos/chrome-frame-getting-started をご覧ください。</translation>
 <translation id="8493645415242333585">ブラウザの履歴の保存を無効にする</translation>
 <translation id="8499172469244085141">デフォルト設定（ユーザーによるオーバーライド可能）</translation>
 <translation id="8501011084242226370">ユーザーが <ph name="PRODUCT_NAME" /> で有効または無効にできるプラグインのリストを指定します。

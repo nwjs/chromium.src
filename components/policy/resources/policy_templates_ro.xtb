@@ -695,6 +695,13 @@
       Dacă această setare este dezactivată, <ph name="PRODUCT_NAME" /> nu va verifica niciodată dacă este browserul prestabilit și va dezactiva comenzile utilizatorului pentru setarea acestei opțiuni.
 
       Dacă această setare nu este configurată, <ph name="PRODUCT_NAME" /> va permite utilizatorului să stabilească dacă acesta este browserul prestabilit și dacă trebuie afișate notificări pentru utilizator atunci când nu este.</translation>
+<translation id="3800626789999016379">Configurează directorul pe care <ph name="PRODUCT_NAME" /> îl va folosi pentru a descărca fișierele.
+
+      Dacă configurezi această politică, <ph name="PRODUCT_NAME" /> va folosi directorul indicat, indiferent dacă utilizatorul a specificat unul sau a activat semnalizatorul care îi solicită locația de descărcare de fiecare dată.
+
+      Pentru a vedea o listă cu variabilele care pot fi folosite, accesează https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Dacă această politică nu este configurată, va fi folosit directorul prestabilit pentru descărcare, iar utilizatorul îl va putea modifica.</translation>
 <translation id="3805659594028420438">Activați extensia pentru certificatele TLS legate la domeniu (învechită)</translation>
 <translation id="3806576699227917885">Permite redarea audio.
 
@@ -812,6 +819,13 @@
 <translation id="4325690621216251241">Adăugați un buton de deconectare în bara de sistem</translation>
 <translation id="4337944790873898250">Dacă această politică este activată, <ph name="PRODUCT_NAME" /> va maximiza automat prima fereastră afișată la prima rulare.
       Dacă această politică este dezactivată sau nu este configurată, se va folosi o metodă euristică pentru a se decide dacă va fi maximizată prima fereastră afișată, pe baza dimensiunii ecranului.</translation>
+<translation id="4349746760316962317">Configurează directorul pe care <ph name="PRODUCT_NAME" /> îl va folosi pentru a stoca fișierele din memoria cache pe disc.
+
+      Dacă configurezi această politică, <ph name="PRODUCT_NAME" /> va folosi directorul indicat, indiferent dacă utilizatorul a specificat semnalizatorul „--disk-cache-dir”.
+
+      Pentru a vedea o listă cu variabilele care pot fi folosite, accesează https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Dacă această politică nu este configurată, va fi folosit directorul prestabilit pentru memoria cache, iar utilizatorul îl va putea modifica folosind semnalizatorul de linie de comandă „--disk-cache-dir”.</translation>
 <translation id="436581050240847513">Raportează interfețele de rețea pentru dispozitiv</translation>
 <translation id="4372704773119750918">Nu permite ca utilizatorul întreprindere să facă parte din profilul multiplu (principal sau secundar)</translation>
 <translation id="4377599627073874279">Permite tuturor site-urilor să afișeze toate imaginile</translation>
@@ -877,6 +891,11 @@
 <translation id="4665897631924472251">Setările de gestionare a extensiilor</translation>
 <translation id="4668325077104657568">Setare pentru imagini prestabilite</translation>
 <translation id="467236746355332046">Funcții acceptate:</translation>
+<translation id="4674167212832291997">Personalizează lista cu șabloane de adrese URL care trebuie redate întotdeauna de <ph name="PRODUCT_FRAME_NAME" />.
+
+           Dacă această politică nu este configurată, va fi folosit programul de redare prestabilit pentru toate site-urile, așa cum este indicat în politica „ChromeFrameRendererSettings”.
+
+           Pentru exemple de șabloane, accesează https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Deschide o listă de adrese URL</translation>
 <translation id="4680961954980851756">Activează completarea automată</translation>
 <translation id="4723829699367336876">Activează trecerea prin firewall de la clientul cu acces la distanță</translation>
@@ -964,6 +983,13 @@
           Dacă setarea politicii este anulată, este urmată acțiunea prestabilită, care este suspendarea.
 
           Dacă acțiunea este de suspendare, <ph name="PRODUCT_OS_NAME" /> poate fi configurat separat astfel încât să blocheze sau să nu blocheze ecranul înainte de suspendare.</translation>
+<translation id="5111712393799006197">Configurează directorul pe care <ph name="PRODUCT_NAME" /> îl va folosi pentru a stoca datele utilizatorului.
+
+      Dacă configurezi această politică, <ph name="PRODUCT_NAME" /> va folosi directorul indicat, indiferent dacă utilizatorul a specificat semnalizatorul „--user-data-dir”.
+
+     Pentru a vedea o listă cu variabilele care pot fi folosite, accesează https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Dacă această politică nu este configurată, va fi folosită calea prestabilită pentru profil, iar utilizatorul o va putea modifica folosind semnalizatorul de linie de comandă „--user-data-dir”.</translation>
 <translation id="5141670636904227950">Setați tipul prestabilit al lupei pentru ecran activate pe ecranul de conectare</translation>
 <translation id="5142301680741828703">Redă întotdeauna următoarele șabloane de adrese URL în <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Vă permite să specificați parametri suplimentari, care vor fi utilizați atunci când <ph name="PRODUCT_FRAME_NAME" /> lansează <ph name="PRODUCT_NAME" />.
@@ -1146,6 +1172,20 @@
 <translation id="5809728392451418079">Setați numele afișat pentru conturile locale de pe gadget</translation>
 <translation id="5814301096961727113">Setați starea prestabilită de feedback vocal pe ecranul de conectare.</translation>
 <translation id="5815129011704381141">Repornește automat după actualizare</translation>
+<translation id="5815353477778354428">Configurează directorul pe care <ph name="PRODUCT_FRAME_NAME" /> îl va folosi pentru a stoca datele utilizatorului.
+
+      Dacă configurezi această politică, <ph name="PRODUCT_FRAME_NAME" /> va folosi directorul indicat.
+
+      Pentru a vedea o listă cu variabilele care pot fi folosite, accesează https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Dacă această setare nu este configurată, va fi folosit directorul prestabilit al profilului.</translation>
+<translation id="5819660021114910752">Specifică fusul orar de utilizat pentru dispozitiv. Utilizatorii pot schimba fusul orar specificat pentru sesiunea actuală. Cu toate acestea, la deconectare, setarea revine la fusul orar specificat. Dacă se indică o valoare incorectă, politica este activată utilizând fusul orar „GMT”. Dacă este specificat un șir gol, politica este ignorată.
+
+      Dacă nu se utilizează această politică, se va utiliza în continuare fusul orar activ la momentul respectiv. Cu toate acestea, utilizatorii pot modifica fusul orar și această schimbare se va păstra. Prin urmare, schimbarea făcută de un utilizator afectează ecranul de conectare și pe toți ceilalți utilizatori.
+
+      Dispozitivele noi pornesc cu fusul orar setat la „S.U.A./Pacific”.
+
+      Formatul valorii respectă denumirile fusurilor orare din „Baza de date de fusuri orare IANA” (accesează „https://en.wikipedia.org/wiki/Tz_database”). Mai exact, majoritatea fusurilor orare sunt denumite după formatul „continent/oraș_mare” sau „ocean/oraș_mare”.</translation>
 <translation id="5826047473100157858">Specifică dacă utilizatorul poate deschide pagini în modul incognito în <ph name="PRODUCT_NAME" />. Dacă politica este activată sau nu este setată, paginile pot fi deschise în modul incognito. Dacă este dezactivată, paginile nu pot fi deschise în modul incognito. Dacă este selectat „Forțat”, paginile pot fi deschise NUMAI în modul incognito.</translation>
 <translation id="5836064773277134605">Limitați intervalul pentru portul UDP folosit de gazda de acces la distanță</translation>
 <translation id="5845159892130426052">Activează API-ul ShowModalDialog până la 30.04.2015</translation>
@@ -1831,6 +1871,11 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="8465065632133292531">Parametrii pentru adresa URL a căutării instant care utilizează POST</translation>
 <translation id="847472800012384958">Nu permite niciunui site să afișeze ferestre pop-up</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Personalizează lista cu șabloane de adrese URL care trebuie să fie redate întotdeauna de browserul gazdă.
+
+          Dacă această politică nu este configurată, va fi folosit programul de redare prestabilit pentru toate site-urile, așa cum este indicat în politica „ChromeFrameRendererSettings”.
+
+          Pentru exemple de șabloane, accesează https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Dezactivează salvarea istoricului browserului</translation>
 <translation id="8499172469244085141">Setări prestabilite (utilizatorii le pot ignora)</translation>
 <translation id="8501011084242226370">Specifică o listă de pluginuri pe care utilizatorul le poate activa sau dezactiva în <ph name="PRODUCT_NAME" />.

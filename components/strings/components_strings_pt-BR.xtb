@@ -24,6 +24,9 @@
 <translation id="1455235771979731432">Houve um problema na verificação do seu cartão. Verifique a conexão com a Internet e tente novamente.</translation>
 <translation id="1491151370853475546">Atualizar esta página</translation>
 <translation id="1549470594296187301">O JavaScript deve ser ativado para usar este recurso.</translation>
+<translation id="1559572115229829303">&lt;p&gt;Não é possível estabelecer uma conexão particular com <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> porque a data e hora do seu dispositivo (<ph name="DATE_AND_TIME" />) estão incorretas.&lt;/p&gt;
+
+      &lt;p&gt;Ajuste a data e hora na seção &lt;strong&gt;Geral&lt;/strong&gt; do aplicativo &lt;strong&gt;Config.&lt;/strong&gt;.&lt;/p&gt;</translation>
 <translation id="1640180200866533862">Políticas de usuário</translation>
 <translation id="1644184664548287040">A configuração de rede é inválida e não pôde ser importada.</translation>
 <translation id="1655462015569774233">{1,plural, =1{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o certificado de segurança dele expirou ontem. Isso pode ser causado por uma configuração incorreta ou pela interceptação da sua conexão por um invasor. O relógio do seu computador está definido para <ph name="CURRENT_DATE" />. Essa data está correta? Se não estiver, corrija o relógio do sistema e depois atualize esta página.}one{Este servidor não conseguiu provar que é <ph name="DOMAIN" />. O certificado de segurança dele expirou há # dias. Isso pode ser causado por uma configuração incorreta ou pela interceptação da sua conexão por um invasor. O relógio do seu computador está definido para <ph name="CURRENT_DATE" />. Essa data está correta? Se não estiver, corrija o relógio do sistema e depois atualize esta página.}other{Este servidor não conseguiu provar que é <ph name="DOMAIN" />. O certificado de segurança dele expirou há # dias. Isso pode ser causado por uma configuração incorreta ou pela interceptação da sua conexão por um invasor. O relógio do seu computador está definido para <ph name="CURRENT_DATE" />. Essa data está correta? Se não estiver, corrija o relógio do sistema e depois atualize esta página.}}</translation>
@@ -90,6 +93,7 @@
 <translation id="2922350208395188000">O certificado do servidor não pode ser verificado.</translation>
 <translation id="2941952326391522266">Este servidor não conseguiu provar que é <ph name="DOMAIN" />. O certificado de segurança é de <ph name="DOMAIN2" />. Isso pode ser causado por uma configuração incorreta ou pela interceptação da sua conexão por um invasor.</translation>
 <translation id="2958431318199492670">A configuração de rede não está de acordo com o padrão ONC. Partes da configuração podem não ser importadas.</translation>
+<translation id="2969319727213777354">Para estabelecer uma conexão segura, o relógio precisa estar configurado corretamente. Isso ocorre porque os certificados que os websites usam para se identificar são válidos apenas por períodos específicos. Como o relógio do seu dispositivo está incorreto, o Google Chrome não consegue verificar esses certificados.</translation>
 <translation id="2972581237482394796">&amp;Refazer</translation>
 <translation id="3010559122411665027">Entrada de lista "<ph name="ENTRY_INDEX" />": <ph name="ERROR" /></translation>
 <translation id="3024663005179499861">Tipo de política incorreto</translation>

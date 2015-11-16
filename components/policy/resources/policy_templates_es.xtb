@@ -759,6 +759,13 @@ Si se inhabilita o no se configura esta opción, los usuarios podrán decidir si
       Si inhabilitas esta opción, nunca se comprobará si <ph name="PRODUCT_NAME" /> es el navegador predeterminado y se inhabilitará el control de los usuarios sobre la configuración de esta opción.
 
       Si no se configura esta opción, los usuarios de <ph name="PRODUCT_NAME" /> podrán decidir si quieren que este sea el navegador predeterminado y si deben aparecer notificaciones cuando no lo sea.</translation>
+<translation id="3800626789999016379">Configura el directorio que <ph name="PRODUCT_NAME" /> utilizará para descargar archivos.
+
+      Si se establece esta política, <ph name="PRODUCT_NAME" /> utilizará el directorio proporcionado independientemente de que el usuario haya especificado un directorio o habilitado el indicador para seleccionar siempre la ubicación de la descarga.
+
+      Para consultar una lista de variables que se pueden utilizar, accede a la página https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Si no se establece esta política, se utilizará la ruta de descarga predeterminada, aunque el usuario podrá modificarla.</translation>
 <translation id="3805659594028420438">Habilita la extensión de certificados TLS limitados a dominios (obsoleta)</translation>
 <translation id="3806576699227917885">Permite la reproducción de audio.
 
@@ -899,6 +906,13 @@ Si esta política se establece en False, el usuario no podrá canjear ofertas.</
 <translation id="4325690621216251241">Añadir un botón para cerrar sesión en la bandeja del sistema</translation>
 <translation id="4337944790873898250">Si se asigna el valor true a esta política, <ph name="PRODUCT_NAME" /> ampliará de forma incondicional la primera ventana que se muestre al ejecutarse por primera vez.
       Si se asigna el valor false o si esta política no se configura, un método heurístico decidirá si se maximiza la primera ventana que se muestra en función del tamaño de la pantalla.</translation>
+<translation id="4349746760316962317">Configura el directorio que <ph name="PRODUCT_NAME" /> utilizará para guardar los archivos almacenados en la memoria caché en el disco.
+
+      Si se establece esta política, <ph name="PRODUCT_NAME" /> utilizará el directorio proporcionado independientemente de que el usuario haya especificado el indicador "--disk-cache-dir".
+
+      Para consultar una lista de variables que se pueden utilizar, accede a la página https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Si no se establece esta política, se utilizará la ruta predeterminada de almacenamiento de los archivos, aunque el usuario podrá anularla con el indicador de línea de comandos "--disk-cache-dir".</translation>
 <translation id="436581050240847513">Permite informar de interfaces de red del dispositivo</translation>
 <translation id="4372704773119750918">No permitir que el usuario de empresa forme parte de la función de varios perfiles (usuario principal o secundario)</translation>
 <translation id="4377599627073874279">Permitir que todos los sitios muestren todas las imágenes</translation>
@@ -982,6 +996,11 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 <translation id="4665897631924472251">Configuración de administración de extensiones</translation>
 <translation id="4668325077104657568">Configuración de imágenes predeterminada</translation>
 <translation id="467236746355332046">Funciones admitidas:</translation>
+<translation id="4674167212832291997">Personaliza la lista de patrones de URL que <ph name="PRODUCT_FRAME_NAME" /> debería procesar siempre.
+
+          Si no se establece esta política, se utilizará el procesador predeterminado para todos los sitios web, como se especifica en la política "ChromeFrameRendererSettings".
+
+          Puedes consultar ejemplos de patrones en la página https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Abrir una lista de URLs</translation>
 <translation id="4680961954980851756">Habilitar Autocompletar</translation>
 <translation id="4723829699367336876">Habilita que se pueda pasar a través de un cortafuegos desde un host de acceso remoto.</translation>
@@ -1077,6 +1096,13 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
           Si no se establece esta política, se lleva a cabo una acción predeterminada, es decir, la suspensión.
 
           Si la acción es la suspensión, <ph name="PRODUCT_OS_NAME" /> se puede configurar de forma independiente para que bloquee o no bloquee la pantalla antes de la suspensión.</translation>
+<translation id="5111712393799006197">Configura el directorio que <ph name="PRODUCT_NAME" /> utilizará para almacenar datos de usuario.
+
+      Si se establece esta política, <ph name="PRODUCT_NAME" /> utilizará el directorio proporcionado, independientemente de que el usuario haya especificado el indicador "--user-data-dir".
+
+      Para consultar una lista de variables que se pueden utilizar, accede a la página https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Si no se establece esta política, se utilizará la ruta de perfil predeterminada y el usuario podrá anularla con el indicador de línea de comando "--user-data-dir".</translation>
 <translation id="5141670636904227950">Establecer el tipo de aumento de pantalla predeterminado habilitado en la pantalla de inicio de sesión</translation>
 <translation id="5142301680741828703">Mostrar siempre los patrones de URL indicados a continuación en <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Te permite especificar los parámetros adicionales que se utilizan cuando <ph name="PRODUCT_FRAME_NAME" /> inicia <ph name="PRODUCT_NAME" />.
@@ -1280,6 +1306,20 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 <translation id="5809728392451418079">Establecer el nombre visible de cuentas locales del dispositivo</translation>
 <translation id="5814301096961727113">Establecer el estado predeterminado de los comentarios por voz en la pantalla de inicio de sesión</translation>
 <translation id="5815129011704381141">Reiniciar automáticamente después de la actualización</translation>
+<translation id="5815353477778354428">Configura el directorio que <ph name="PRODUCT_FRAME_NAME" /> utilizará para almacenar datos de usuario.
+
+      Si se establece esta política, <ph name="PRODUCT_FRAME_NAME" /> utilizará el directorio proporcionado.
+
+      Para consultar una lista de variables que se pueden utilizar, accede a la página https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Si no se establece esta opción, se utilizará el directorio de perfil predeterminado.</translation>
+<translation id="5819660021114910752">Especifica la zona horaria que se utilizará en el dispositivo. Los usuarios pueden anular la zona horaria especificada para la sesión en curso, pero esta se volverá a establecer al cerrar sesión. Si se proporciona un valor que no sea válido, esta política seguirá activa utilizando "GMT". Si se proporciona una cadena vacía, la política se ignorará.
+
+      Si no se utiliza esta política, se seguirá utilizando la zona horaria activa en ese momento. No obstante, los usuarios pueden cambiar la zona horaria y el cambio es permanente. Por tanto, si un usuario realiza un cambio, este afectará a la pantalla de inicio de sesión y al resto de usuarios.
+
+      Cuando se inician nuevos dispositivos, se establece la zona horaria "US/Pacific".
+
+      El formato del valor sigue los nombres de zonas horarias de la base de datos de zonas horarias (TimeZone Database o TZ Database) de IANA (https://es.wikipedia.org/wiki/TZ_Database). En concreto, la mayoría de las zonas horarias pueden corresponder a "continent/large_city" o "ocean/large_city".</translation>
 <translation id="5826047473100157858">Permite especificar si el usuario puede abrir páginas en modo incógnito en <ph name="PRODUCT_NAME" />.
 
       Si se habilita esta política o si no se establece, se podrán abrir páginas en modo incógnito.
@@ -2050,6 +2090,11 @@ Si la política está establecida en False, no se informará sobre la lista de i
 <translation id="8465065632133292531">Parámetros para URL instantánea que utiliza POST</translation>
 <translation id="847472800012384958">No permitir que ningún sitio muestre pop-ups</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Personaliza la lista de patrones de URL que debería procesar siempre el navegador del host.
+
+          Si no se establece esta política, se utilizará el procesador predeterminado para todos los sitios web, como se especifica en la política "ChromeFrameRendererSettings".
+
+          Puedes consultar ejemplos de patrones en la página https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Inhabilitar almacenamiento del historial de navegación</translation>
 <translation id="8499172469244085141">Configuración predeterminada (los usuarios pueden modificarla)</translation>
 <translation id="8501011084242226370">Especifica una lista de complementos que el usuario puede habilitar o inhabilitar en <ph name="PRODUCT_NAME" />.

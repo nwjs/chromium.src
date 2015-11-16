@@ -748,6 +748,13 @@
 <translation id="3780152581321609624">Kaasa Kerberose SPN-i mittestandardne port</translation>
 <translation id="3788662722837364290">Toitehalduse seaded, kui kasutaja on tegevusetu</translation>
 <translation id="3793095274466276777">Seadistab vaikebrauseri kontrolli rakenduses <ph name="PRODUCT_NAME" /> ja takistab kasutajaid neid muutmast. Kui lubate seade, kontrollib <ph name="PRODUCT_NAME" /> käivitamisel alati, kas ta on vaikebrauser, ja võimalusel registreerib end ise. Kui keelate seade, ei kontrolli <ph name="PRODUCT_NAME" /> kunagi, kas ta on vaikebrauser, ja kasutajal keelatakse valiku seadmine. Kui te ei määra seadet, võimaldab <ph name="PRODUCT_NAME" /> kasutajal valida, kas see on vaikebrauser ja kas vastasel korral näidatakse kasutajale teatist.</translation>
+<translation id="3800626789999016379">Seadistab kataloogi, mida <ph name="PRODUCT_NAME" /> kasutab failide allalaadimiseks.
+
+      Kui määrate selle reegli, kasutab <ph name="PRODUCT_NAME" /> kataloogi olenemata sellest, kas kasutaja on selle määranud või on lubanud märgistuse, mis küsib iga kord allalaadimise asukohta.
+
+      Saidilt http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables leiate muutujate loendi, mida saate kasutada.
+
+      Kui seda reeglit ei määrata, kasutatakse allalaadimise vaikekataloogi ja kasutaja saab seda muuta.</translation>
 <translation id="3805659594028420438">Luba TLS-i domeenisuunaliste sertifikaatide laiendus (pakkumine on peatatud)</translation>
 <translation id="3806576699227917885">Heli esitamise lubamine.
 
@@ -890,6 +897,13 @@
 <translation id="4325690621216251241">Lisa väljalogimisnupp süsteemisalve</translation>
 <translation id="4337944790873898250">Kui selle reegli väärtuseks määratakse Tõene, maksimeerib teenus <ph name="PRODUCT_NAME" /> tingimusteta esmasel käivitamisel kuvatava esimese akna.
       Kui selle reegli väärtuseks määratakse Väär või seda ei määrata, otsustab heuristika ekraani suuruse põhjal, kas esimene kuvatav aken maksimeerida.</translation>
+<translation id="4349746760316962317">Seadistab kataloogi, mida <ph name="PRODUCT_NAME" /> kasutab vahemällu talletatud failide kettale salvestamiseks.
+
+      Kui määrate reegli, kasutab <ph name="PRODUCT_NAME" /> sisestatud kataloogi olenemata sellest, kas kasutaja on määranud märgistuse „--disk-cache-dir” või mitte.
+
+      Saidilt https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables leiate leiate muutujate loendi, mida saate kasutada.
+
+      Kui seda reeglit ei määrata, kasutatakse vahemälu vaikekausta ja kasutaja saab selle alistada käsureamärgistusega „--disk-cache-dir”.</translation>
 <translation id="436581050240847513">Seadme võrguliidestest teatamine</translation>
 <translation id="4372704773119750918">Ärge lubage ettevõtte kasutajal olla osa multiprofiilist (esmane või teisene)</translation>
 <translation id="4377599627073874279">Luba kõikidel saitidel kõikide kujutiste kuvamine</translation>
@@ -973,6 +987,11 @@
 <translation id="4665897631924472251">Laienduse haldamise seaded</translation>
 <translation id="4668325077104657568">Kujutiste vaikeseaded</translation>
 <translation id="467236746355332046">Toetatud funktsioonid:</translation>
+<translation id="4674167212832291997">Kohandab loendit URL-i mustritest, mida renderdatakse alati rakendusega <ph name="PRODUCT_FRAME_NAME" />.
+
+          Kui jätate selle reegli määramata, kasutatakse kõikide saitide puhul vaikerenderdajat, mis on määratud reegliga „ChromeFrameRendererSettings”.
+
+          Vaadake näidismustreid aadressilt http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Ava URL-ide loend</translation>
 <translation id="4680961954980851756">Luba automaatne täitmine</translation>
 <translation id="4723829699367336876">Luba tulemüüri läbimine kaugjuurdepääsu kliendist</translation>
@@ -1070,6 +1089,13 @@
           Kui reegel on määramata, siis rakendub vaiketoiming, milleks on peatamine.
 
           Kui toiminguks on peatamine, saab operatsioonisüsteemi <ph name="PRODUCT_OS_NAME" /> seadistada ekraani enne peatamist lukustama või mitte lukustama.</translation>
+<translation id="5111712393799006197">Seadistab kataloogi, mida <ph name="PRODUCT_NAME" /> kasutab kasutajate andmete salvestamiseks.
+
+      Kui selle reegli määrate, kasutab <ph name="PRODUCT_NAME" /> antud kataloogi olenemata sellest, kas kasutaja on märgistuse „--user-data-dir” määranud või mitte.
+
+      Saidilt http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables leiate loendi muutujatest, mida saate kasutada.
+
+      Kui seda reeglit ei määrata, kasutatakse profiili vaiketeed ja kasutaja saab selle käsureamärgistusega „--user-data-dir” alistada.</translation>
 <translation id="5141670636904227950">Lubage ekraaniluubi vaiketüüp sisselogimisekraanil</translation>
 <translation id="5142301680741828703">Renderda alati rakenduses <ph name="PRODUCT_FRAME_NAME" /> järgmiste URL-ide mustrid</translation>
 <translation id="5148753489738115745">Võimaldab teil määrata täiendavad parameetrid, mida kasutatakse siis, kui <ph name="PRODUCT_FRAME_NAME" /> käivitab rakenduse <ph name="PRODUCT_NAME" />.
@@ -1267,6 +1293,20 @@
 <translation id="5809728392451418079">Määra seadmepõhiste kontode kuvatav nimi</translation>
 <translation id="5814301096961727113">Sisselogimisekraanil suulise tagasiside vaikeoleku määramine</translation>
 <translation id="5815129011704381141">Automaatne taaskäivitamine pärast värskendamist</translation>
+<translation id="5815353477778354428">Seadistab kataloogi, mida <ph name="PRODUCT_FRAME_NAME" /> kasutab kasutajate andmete salvestamiseks.
+
+      Kui selle reegli määrate, kasutab teenus <ph name="PRODUCT_FRAME_NAME" /> antud kataloogi.
+
+      Saidilt http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables leiate loendi muutujatest, mida saate kasutada.
+
+      Kui seda seadet ei määrata, kasutatakse profiili vaikekataloogi.</translation>
+<translation id="5819660021114910752">Määrab seadmes kasutatava ajavööndi. Kasutajad saavad määratud ajavööndi praeguse seansi ajaks alistada, ent pärast väljalogimist taastatakse määratud ajavöönd. Kui sisestate kehtetu väärtuse, aktiveeritakse reegel GMT-ga. Tühja stringi puhul eiratakse reeglit.
+
+      Kui reeglit ei kasutata, jääb praegune ajavöönd aktiivseks, ent kasutajad saavad ajavööndit jäädavalt muuta. See tähendab, et ühe kasutaja tehtud muudatus mõjutab sisselogimisekraani ja kõiki teisi kasutajaid.
+
+      Uutes seadmetes on ajavööndiks valitud USA Vaikse ookeani aeg.
+
+      Väärtuse vorming järgib IANA ajavööndite andmebaasi (vt https://en.wikipedia.org/wiki/Tz_database) nimesid. Täpsemalt saab enamiku ajavööndite puhul kasutada vormingut „kontinent/suurlinn” või „ookean/suurlinn”.</translation>
 <translation id="5826047473100157858">Määrab, kas kasutaja saab rakenduses <ph name="PRODUCT_NAME" /> avada lehti inkognito režiimis.
 
       Kui valite seade „Lubatud” või jätate reegli määramata, siis saab lehti inkognito režiimis avada.
@@ -2045,6 +2085,11 @@
 <translation id="8465065632133292531">Parameetrid Instant-URL-i jaoks, mis kasutab POST-meetodit</translation>
 <translation id="847472800012384958">Keela kõikidel saitidel hüpikakende näitamine</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Kohandab loendit URL-i mustritest, mille peab alati renderdama hostbrauser.
+
+          Kui seda reeglit ei määrata, kasutatakse kõikide saitide puhul vaikerenderdajat, mis on määratud reegliga „ChromeFrameRendererSettings”.
+
+          Vaadake näidismustreid aadressilt http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Keela brauseri ajaloo salvestamine</translation>
 <translation id="8499172469244085141">Vaikeseaded (kasutajad saavad alistada)</translation>
 <translation id="8501011084242226370">Määrab pistikprogrammide loendi, mille kasutaja saab rakenduses <ph name="PRODUCT_NAME" /> lubada või keelata.

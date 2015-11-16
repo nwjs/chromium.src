@@ -681,6 +681,13 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 <translation id="3780152581321609624">Lisää standardista poikkeava portti Kerberos-SPN:ään</translation>
 <translation id="3788662722837364290">Virransäästöasetukset laitteen ollessa käyttämättä</translation>
 <translation id="3793095274466276777">Määrittää oletusselaimen tarkistukset tuotteelle <ph name="PRODUCT_NAME" /> ja estää käyttäjiä muuttamasta niitä. Jos otat tämän asetuksen käyttöön, <ph name="PRODUCT_NAME" /> tarkistaa aina käynnistettäessä, onko se oletusselain, ja rekisteröi itsensä automaattisesti, jos mahdollista. Jos tämä asetus on pois käytöstä, <ph name="PRODUCT_NAME" /> ei koskaan tarkista, onko se oletusselain eikä anna käyttäjän muuttaa asetusta. Jos asetusta ei ole määritetty, <ph name="PRODUCT_NAME" /> antaa käyttäjän valita, onko tuote oletusselain ja näytetäänkö käyttäjälle ilmoitus, jos tuote ei ole oletusselain.</translation>
+<translation id="3800626789999016379">Määrittää hakemiston, johon <ph name="PRODUCT_NAME" /> tallentaa ladattuja tiedostoja.
+
+      Jos määrität tämän käytännön, <ph name="PRODUCT_NAME" /> käyttää annettua hakemistoa huolimatta siitä, onko käyttäjä määrittänyt hakemiston tai asettanut sovelluksen kysymään aina latausten tallennussijaintia.
+
+      Osoitteessa http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables näet luettelon muuttujista, joita voit käyttää.
+
+      Jos tätä käytäntöä ei ole määritetty, käytetään oletuslataushakemistoa, ja käyttäjä voi halutessaan vaihtaa hakemistoa.</translation>
 <translation id="3805659594028420438">Ota käyttöön TLS domain-bound -varmennelaajennus (vanhentunut)</translation>
 <translation id="3806576699227917885">Salli äänen toistaminen.
 
@@ -798,6 +805,15 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 <translation id="4325690621216251241">Lisää uloskirjautumispainike järjestelmäpalkkiin</translation>
 <translation id="4337944790873898250">Jos tämän käytännön arvoksi asetetaan Tosi, <ph name="PRODUCT_NAME" /> suurentaa aina ensimmäisen selainikkunan käynnistyksen yhteydessä.
       Jos käytännön arvoksi asetetaan Epätosi tai sitä ei määritetä, näytön koon perusteella määritetään, suurennetaanko ensimmäinen ikkuna.</translation>
+<translation id="4349746760316962317">Määrittää hakemiston, johon <ph name="PRODUCT_NAME" /> tallentaa välimuistiin tallennettavia tiedostoja levylle.
+
+
+      Jos määrität tämän käytännön, <ph name="PRODUCT_NAME" /> käyttää annettua hakemistoa huolimatta siitä, onko käyttäjä määrittänyt --disk-cache-dir-komennon.
+
+
+      Osoitteessa http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables näet luettelon muuttujista, joita voit käyttää.
+
+      Jos tätä käytäntöä ei ole määritetty, käytetään välimuistin oletushakemistoa, ja käyttäjä voi ohittaa sen komentorivin --disk-cache-dir-käskyn avulla.</translation>
 <translation id="436581050240847513">Ilmoita laitteen verkkokäyttöliittymät</translation>
 <translation id="4372704773119750918">Älä salli yrityskäyttäjän olla osa moniprofiilia (ensisijainen tai toissijainen)</translation>
 <translation id="4377599627073874279">Salli kaikkien sivustojen näyttää kaikki kuvat</translation>
@@ -863,6 +879,11 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 <translation id="4665897631924472251">Laajennusten hallinnan asetukset</translation>
 <translation id="4668325077104657568">Kuvien oletusasetus</translation>
 <translation id="467236746355332046">Tuetut ominaisuudet:</translation>
+<translation id="4674167212832291997">Muokkaa niiden URL-mallien luetteloa, jotka tuotteen <ph name="PRODUCT_FRAME_NAME" /> tulee aina piirtää näytölle.
+
+           Jos käytäntöä ei ole määritetty, kaikki sivustot piirretään näytölle ChromeFrameRendererSettings-käytännön näytölle piirtämisen oletusmäärityksien mukaan.
+
+          Esimerkkimalleja on osoitteessa http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Avaa seuraavat sivut:</translation>
 <translation id="4680961954980851756">Ota automaattinen täyttö käyttöön</translation>
 <translation id="4723829699367336876">Ota käyttöön palomuurin siirto etäasiakkaasta</translation>
@@ -950,6 +971,13 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
           Jos tätä käytäntöä ei ole asetettu, suoritetaan oletustoiminto (jäädyttäminen).
 
           Jos toiminto on jäädyttäminen, <ph name="PRODUCT_OS_NAME" /> voidaan määrittää erikseen joko lukitsemaan ruutu tai olemaan lukitsematta ruutua ennen jäädyttämistä.</translation>
+<translation id="5111712393799006197">Määrittää hakemiston, johon <ph name="PRODUCT_NAME" /> tallentaa käyttäjän tietoja.
+
+      Jos määrität tämän käytännön, <ph name="PRODUCT_NAME" /> käyttää määritettyä hakemistoa huolimatta siitä, onko käyttäjä määrittänyt --user-data-dir-komennon vai ei.
+
+      Osoitteessa http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables näet luettelon muuttujista, joita voit käyttää.
+
+      Jos tätä käytäntöä ei ole määritetty, käytetään oletusprofiilin polkua, ja käyttäjä voi ohittaa sen komentorivin --user-data-dir-komennolla.</translation>
 <translation id="5141670636904227950">Aseta näytön suurentajan oletustyyppi, jota käytetään kirjautumisnäytössä</translation>
 <translation id="5142301680741828703">Hahmonna aina seuraavat URL-mallit tuotteessa <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Voit määrittää muita parametreja, joita käytetään, kun <ph name="PRODUCT_FRAME_NAME" /> käynnistää tuotteen <ph name="PRODUCT_NAME" />.
@@ -1128,6 +1156,20 @@ Jos käytäntöä ei määritetä, käyttäjät voivat valita, tuleeko hylly pii
 <translation id="5809728392451418079">Määritä laitteeseen lisättyjen tilien näyttönimi</translation>
 <translation id="5814301096961727113">Aseta äänipalautteen oletustila kirjautumisnäytössä</translation>
 <translation id="5815129011704381141">Käynnistä automaattisesti uudelleen päivityksen jälkeen</translation>
+<translation id="5815353477778354428">Määrittää hakemiston, johon <ph name="PRODUCT_FRAME_NAME" /> tallentaa käyttäjän tietoja.
+
+      Jos määrität tämän käytännön, <ph name="PRODUCT_FRAME_NAME" /> käyttää annettua hakemistoa.
+
+      Osoitteessa http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables näet luettelon muuttujista, joita voit käyttää.
+
+      Jos tätä käytäntöä ei ole määritetty, käytetään oletusprofiilin hakemistoa.</translation>
+<translation id="5819660021114910752">Määrittää laitteessa käytettävän aikavyöhykkeen. Käyttäjät voivat ohittaa nykyisen istunnon määritetyn aikavyöhykkeen. Jos kirjaudut ulos, aikavyöhyke vaihdetaan takaisin määritettyyn aikavyöhykkeeseen. Jos virheellinen arvo syötetään, käytäntö on edelleen aktivoituna ja käyttää GMT-aikavyöhykettä sen sijaan. Jos merkkijono on tyhjä, käytäntö ohitetaan.
+
+      Jos tätä käytäntöä ei käytetä, kulloinkin aktiivinen aikavyöhyke pysyy käytössä. Käyttäjät voivat kuitenkin vaihtaa aikavyöhykettä, jolloin muutos on pysyvä. Tällöin käyttäjän tekemä muutos vaikuttaa kirjautumisruutuun ja kaikkiin muihin käyttäjiin.
+
+      Uusien laitteiden aikavyöhyke on aluksi "US/Pacific".
+
+      Arvon muoto noudattaa aikavyöhykkeiden nimiä IANA Time Zone Databasen mukaisesti (osoitteessa https://en.wikipedia.org/wiki/Tz_database). Useimpiin aikavyöhykkeisiin voidaan viitata seuraavasti: "maanosa/suuri_kaupunki" tai "valtameri/suuri_kaupunki".</translation>
 <translation id="5826047473100157858">Määrittää, voiko käyttäjä avata sivuja incognito-tilassa tuotteessa <ph name="PRODUCT_NAME" />. Jos "Käytössä" on valittu tai käytäntöä ei ole määritetty, sivuja voi avata incognito-tilassa. Jos "Ei käytössä" on valittu, sivuja ei voi avata incognito-tilassa. Jos "Pakotettu" on valittu, sivuja voidaan avata VAIN incognito-tilassa.</translation>
 <translation id="5836064773277134605">Rajoita etäkäytön isännän käyttämää UDP-porttialuetta</translation>
 <translation id="5845159892130426052">Pidä ShowModalDialog-sovellusliittymä käytössä versioon 2015.04.30 saakka</translation>
@@ -1807,6 +1849,11 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
 <translation id="8465065632133292531">POST-metodia käyttävän pikahaun URL-osoitteen parametrit</translation>
 <translation id="847472800012384958">Älä anna sivustojen näyttää ponnahdusikkunoita</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Muokkaa niiden URL-mallien luetteloa, jotka isäntäselaimen tulee aina piirtää näytölle.
+ 
+          Jos käytäntöä ei ole määritetty, kaikki sivustot piirretään näytölle ChromeFrameRendererSettings-käytännön näytölle piirtämisen oletusmäärityksien mukaan.
+ 
+          Esimerkkimalleja on osoitteessa http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Poista selainhistorian tallentaminen käytöstä</translation>
 <translation id="8499172469244085141">Oletusasetukset (käyttäjät voivat ohittaa)</translation>
 <translation id="8501011084242226370">Määrittää laajennukset, jotka käyttäjä voi ottaa käyttöön tai poistaa käytöstä tuotteessa <ph name="PRODUCT_NAME" />.

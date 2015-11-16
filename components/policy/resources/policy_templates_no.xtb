@@ -728,6 +728,13 @@
 <translation id="3780152581321609624">Inkluder ikke-standardisert port i SPN for Kerberos</translation>
 <translation id="3788662722837364290">Innstillinger for strømstyring når brukeren er inaktiv</translation>
 <translation id="3793095274466276777">Konfigurerer standard nettleserkontroller i <ph name="PRODUCT_NAME" /> og hindrer brukere i å endre dem. Hvis du aktiverer denne innstillingen, sjekker <ph name="PRODUCT_NAME" /> alltid ved oppstart om den er standardnettleser, og registrerer seg selv automatisk om mulig. Hvis denne innstillingen er deaktivert, sjekker <ph name="PRODUCT_NAME" /> aldri om den er standardnettleser, og deaktiverer brukerstyrt kontroll av dette alternativet. Hvis denne innstillingen ikke er angitt, lar <ph name="PRODUCT_NAME" /> brukeren kontrollere om den er standardnettleser, og hvorvidt brukervarslinger skal vises når den ikke er det.</translation>
+<translation id="3800626789999016379">Konfigurerer katalogen <ph name="PRODUCT_NAME" /> bruker for å laste ned filer. 
+
+      Hvis du angir denne regelen, bruker <ph name="PRODUCT_NAME" /> den oppgitte katalogen uansett om brukeren har angitt en annen katalog eller slått på flagget for å velge lagringsplass for hver nedlasting.
+
+      Gå til https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables for å se en liste over variabler som kan brukes.
+
+        Hvis du ikke angir denne regelen, brukes standardkatalogen for nedlasting. Brukeren kan i så fall endre denne katalogen.</translation>
 <translation id="3805659594028420438">Aktiver TLS-domenebetingede sertifikatutvidelser (foreldet)</translation>
 <translation id="3806576699227917885">Tillat avspilling av lyd.
 
@@ -858,6 +865,13 @@
 <translation id="4325690621216251241">Legg til en avloggingsknapp for systemstatusfeltet</translation>
 <translation id="4337944790873898250">Hvis denne regelen settes til true (sann), blir det første vinduet som vises ved den første kjøringen av <ph name="PRODUCT_NAME" />, alltid maksimert.
       Hvis denne innstillingen settes til false (usann) eller ikke spesifiseres, blir en heuristisk algoritme brukt for å bestemme om det første vinduet som vises, skal maksimeres, basert på skjermstørrelsen.</translation>
+<translation id="4349746760316962317">Konfigurerer katalogen <ph name="PRODUCT_NAME" /> bruker til å lagre bufrede filer på disken.
+
+Hvis du angir denne regelen, bruker <ph name="PRODUCT_NAME" /> den oppgitte katalogen uansett om brukeren har spesifisert «--disk-cache-dir»-flagget eller ikke.
+
+Gå til https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables for å se en liste over variabler som kan brukes.
+
+Hvis du ikke angir denne regelen, brukes standardkatalogen for bufring. Brukeren kan i så fall overstyre den med kommandolinjeflagget «--disk-cache-dir»</translation>
 <translation id="436581050240847513">Rapportér nettverksgrensesnitt for enheten</translation>
 <translation id="4372704773119750918">Ikke tilllat bedriftsbrukeren å være en del av flerprofilen (primær eller sekundær)</translation>
 <translation id="4377599627073874279">La alle nettsteder vise alle bilder</translation>
@@ -939,6 +953,11 @@
 <translation id="4665897631924472251">Innstillinger for administrasjon av utvidelser</translation>
 <translation id="4668325077104657568">Standardinnstilling for bilder</translation>
 <translation id="467236746355332046">Støttede funksjoner:</translation>
+<translation id="4674167212832291997">Tilpass listen over nettadressemønstre som alltid skal gjengis av <ph name="PRODUCT_FRAME_NAME" />.
+
+          Hvis denne regelen ikke er angitt, brukes standardgjengivelsen for alle nettsteder, som angitt i regelen «ChromeFrameRendererSettings».
+
+          Du finner eksempelmønstre på https://www.chromium.org/developers/how-tos/chrome-frame-getting-started</translation>
 <translation id="467449052039111439">Åpne en liste over nettadresser</translation>
 <translation id="4680961954980851756">Aktiver Autofyll</translation>
 <translation id="4723829699367336876">Aktiver kryssing av brannmur fra ekstern tilgangsklient</translation>
@@ -1031,6 +1050,13 @@
           Når denne innstillingen ikke er angitt, brukes standardhandlingen, som er å suspendere økten.
 
           Hvis handlingen er å suspendere økten, kan <ph name="PRODUCT_OS_NAME" /> konfigureres til å låse eller ikke låse skjermen før økten suspenderes.</translation>
+<translation id="5111712393799006197">Konfigurerer katalogen <ph name="PRODUCT_NAME" /> bruker til lagring av brukerdata.
+
+      Hvis du angir denne regelen, bruker <ph name="PRODUCT_NAME" /> den oppgitte katalogen uansett om brukeren har angitt «--user-data-dir»-flagget eller ikke. 
+
+      Gå til https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables for å se en liste over variabler som kan brukes.
+
+        Hvis du ikke angir denne regelen, brukes standardbanen for profiler. Brukeren kan i så fall overstyre den med kommandolinjeflagget «--user-data-dir».</translation>
 <translation id="5141670636904227950">Angi standard skjermforstørrelsestype som er aktivert på påloggingssiden</translation>
 <translation id="5142301680741828703">Alltid gjengi følgende nettadressemønstre i <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Lar deg spesifisere ytterligere parametere som brukes når <ph name="PRODUCT_FRAME_NAME" /> kjører <ph name="PRODUCT_NAME" />.
@@ -1227,6 +1253,20 @@
 <translation id="5809728392451418079">Angi skjermnavn for lokale kontoer på enheten</translation>
 <translation id="5814301096961727113">Angi standard tilstand for muntlig tilbakemelding på påloggingssiden</translation>
 <translation id="5815129011704381141">Start automatisk på nytt etter oppdatering</translation>
+<translation id="5815353477778354428">Konfigurerer katalogen <ph name="PRODUCT_FRAME_NAME" /> bruker til lagring av brukerdata. 
+
+       Hvis du angir denne regelen, bruker <ph name="PRODUCT_FRAME_NAME" /> den oppgitte katalogen.
+
+      Gå til https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables for å se en liste over variabler som kan brukes.
+
+     Hvis du ikke angir denne innstillingen, brukes standardkatalogen for profiler.</translation>
+<translation id="5819660021114910752">Spesifiserer tidssonen som skal brukes på enheten. Brukerne kan overstyre den angitte tidssonen for den gjeldende økten, men ved avlogging tilbakestilles den til den spesifiserte tidssonen. Hvis du angir en ugyldig verdi, slås regelen fortsatt på, men «GMT» brukes som tidssone. Hvis strengen er tom, ignoreres regelen.
+
+      Hvis du ikke bruker denne regelen, brukes fortsatt den aktive tidssonen. Brukerne kan imidlertid endre tidssonen, og endringen er varig. Endringer som gjøres av brukere, påvirker imidlertid påloggingssiden og alle andre brukere.
+
+      «US Pacific Time» (USA og Stillehavskysten) er konfigurert som tidssonen for nye enheter.
+
+      Formatet til verdien følger navnene på tidssonene i «IANA Time Zone Database» (se https://en.wikipedia.org/wiki/Tz_database). De fleste tidssonene kan refereres til som «continent/large_city» eller «ocean/large_city».</translation>
 <translation id="5826047473100157858">Angir om brukeren kan åpne sider i inkognitomodus i <ph name="PRODUCT_NAME" />.
 
       Hvis dette er aktivert, eller hvis retningslinjen ikke er angitt, kan sider åpnes i inkognitomodus.
@@ -1687,13 +1727,13 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 
       Hvis denne retningslinjen ikke er konfigurert, fins det ingen begrensninger for hvilke brukere som kan logge seg på. Vær oppmerksom på at oppretting av nye brukere fortsatt krever at <ph name="DEVICEALLOWNEWUSERS_POLICY_NAME" />-retningslinjen er konfigurert på korrekt måte.</translation>
 <translation id="7234280155140786597">Navnene på de forbudte innebygde meldingsvertene (eller * for alle)</translation>
-<translation id="7236775576470542603">Angi standard type skjermforsterker som aktiveres på påloggingssiden.
+<translation id="7236775576470542603">Angi standard type lupe som slås på fra påloggingssiden.
 
-          Hvis innstillingen angis, kontrollerer den type skjermforsterker som aktiveres når påloggingssiden vises. Hvis innstillingen angis til «None», deaktiveres skjermforsterkeren.
+          Hvis innstillingen angis, kontrollerer den hvilken type lupe som slås på når påloggingssiden vises. Hvis innstillingen settes til «Ingen», er lupen avslått.
 
-          Hvis du angir denne innstillingen, kan brukere midlertidig overstyre den ved å aktivere eller deaktivere skjermforsterkeren. Brukerens valg er imidlertid ikke permanent, og standardinnstillingen gjenopprettes når påloggingssiden vises på nytt, eller brukeren har vært inaktiv på påloggingssiden i ett minutt.
+          Hvis du angir denne innstillingen, kan brukere midlertidig overstyre den ved å slå lupen av eller på. Brukerens valg er imidlertid ikke permanent, og standardinnstillingen gjenopprettes når påloggingssiden vises på nytt, eller når brukeren har vært inaktiv på påloggingssiden i ett minutt.
 
-          Hvis innstillingen ikke angis, deaktiveres skjermforsterkeren når påloggingssiden vises for første gang. Brukere kan aktivere eller deaktivere skjermforsterkeren når som helst, og dens status på påloggingssiden forblir den samme mellom brukere.</translation>
+          Hvis innstillingen ikke angis, slås lupen av når påloggingssiden vises for første gang. Brukere kan slå lupen på eller av når som helst, og dens status på påloggingssiden forblir den samme mellom brukere.</translation>
 <translation id="7258823566580374486">Aktiver begrensning (curtaining) av verter for fjerntilgang</translation>
 <translation id="7260277299188117560">Automatisk oppdatering for p2p aktivert</translation>
 <translation id="7267809745244694722">Medietaster har standardfunksjon som funksjonstaster</translation>
@@ -1991,6 +2031,11 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="8465065632133292531">Parametere for Instant-nettadresser som bruker POST</translation>
 <translation id="847472800012384958">Ikke la noen nettsteder vise forgrunnsvinduer</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Tilpass listen over nettadressemønstre som alltid skal gjengis av vertsnettleseren.
+
+          Hvis denne regelen ikke er angitt, brukes standardgjengivelsen for alle nettsteder, som den er angitt i regelen «ChromeFrameRendererSettings».
+
+          Du finner eksempelmønstre på https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Deaktiver lagring av nettleserlogg</translation>
 <translation id="8499172469244085141">Standardinnstillinger (kan overstyres av brukere)</translation>
 <translation id="8501011084242226370">Angir en liste over programtillegg som brukeren kan aktivere eller deaktivere i <ph name="PRODUCT_NAME" />.

@@ -680,6 +680,13 @@ Hvis du aktiverer denne indstilling, tjekker <ph name="PRODUCT_NAME" /> altid ve
 Hvis denne indstilling deaktiveres, tjekker <ph name="PRODUCT_NAME" /> aldrig se om den er standardbrowseren, og deaktivere brugerens kontrol over denne indstilling. 
 
 Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade brugere at tjekke, om den er standardbrowseren, og om der skal vises underretninger til brugeren, når den ikke er det.</translation>
+<translation id="3800626789999016379">Konfigurerer den mappe, som <ph name="PRODUCT_NAME" /> bruger til at downloade filer.
+
+      Hvis du angiver denne politik, vil <ph name="PRODUCT_NAME" /> bruge den medfølgende mappe, uanset om brugeren har angivet en eller aktiveret flaget for at blive bedt om en downloadplacering hver gang.
+
+      Du kan se en liste over variabler, der kan anvendes, på http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Hvis denne politik ikke angives, anvendes standardmappen til downloads, og brugeren vil kunne ændre den.</translation>
 <translation id="3805659594028420438">Aktivér udvidelse af certifikater, der er bundet til TLS-domænet (udfaset)</translation>
 <translation id="3806576699227917885">Tillad lydafspilning.
 
@@ -795,6 +802,13 @@ Hvis denne politik ikke er indstillet, er standardfrekvensen 3 minutter. Minimum
 <translation id="4325690621216251241">Tilføj en log ud-knap til systembakken</translation>
 <translation id="4337944790873898250">Hvis denne politik er angivet til sand, maksimerer <ph name="PRODUCT_NAME" /> ubetinget det første vindue, der vises ved den første kørsel.
       Hvis denne politik er angivet til falsk eller ikke er konfigureret, afgør en heuristik ud fra skærmstørrelsen, om det første vindue, der vises, skal maksimeres.</translation>
+<translation id="4349746760316962317">Konfigurerer den mappe, som <ph name="PRODUCT_NAME" /> bruger til at gemme cachelagrede filer på disken.
+
+      Hvis du angiver denne politik, vil <ph name="PRODUCT_NAME" /> bruge den medfølgende mappe, uanset om brugeren har angivet flaget "--disk-cache-dir" eller ej.
+
+      Du kan se en liste over variabler, der kan anvendes, på https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Hvis denne politik ikke angives, anvendes standardcachemappen, og brugeren vil kunne tilsidesætte den med flaget "--disk-cache-dir" på kommandolinjen.</translation>
 <translation id="436581050240847513">Rapportér enhedens netværksgrænseflader</translation>
 <translation id="4372704773119750918">Tillad ikke, at virksomhedsbrugere er en del af en multiprofil (primær eller sekundær)</translation>
 <translation id="4377599627073874279">Tillad alle websites at vise alle billeder</translation>
@@ -864,6 +878,11 @@ Mens selve politikken understøttes på ovenstående platforme, kan den funktion
 <translation id="4665897631924472251">Indstillinger for administration af udvidelser</translation>
 <translation id="4668325077104657568">Standardindstilling for billeder</translation>
 <translation id="467236746355332046">Understøttede funktioner:</translation>
+<translation id="4674167212832291997">Tilpas listen over webadressemønstre, der altid skal gengives af <ph name="PRODUCT_FRAME_NAME" />.
+
+          Hvis denne politik ikke er angivet, anvendes standardgengivelsen på alle websites, sådan som det er angivet i politikken "ChromeFrameRendererSettings".
+
+          Du kan se eksempler på mønstre på https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Åbn en liste over webadresser</translation>
 <translation id="4680961954980851756">Aktiver AutoFyld</translation>
 <translation id="4723829699367336876">Aktiver gennemgang af firewall fra fjernklient</translation>
@@ -955,6 +974,12 @@ Mens selve politikken understøttes på ovenstående platforme, kan den funktion
           Når denne politik ikke er angivet, foretages standardhandlingen, hvilket er suspendering.
 
           Hvis handlingen er suspendering, kan <ph name="PRODUCT_OS_NAME" /> konfigureres særskilt til enten at låse eller ikke at låse skærmen før suspendering.</translation>
+<translation id="5111712393799006197">Konfigurerer den mappe, som <ph name="PRODUCT_NAME" /> bruger til at lagre brugerdata.
+      Hvis du angiver denne politik, vil <ph name="PRODUCT_NAME" /> bruge den medfølgende mappe, uanset om brugeren har angivet flaget "--user-data-dir" eller ej.
+
+      Du kan se en liste over variabler, der kan anvendes, på https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Hvis denne politik ikke angives, anvendes stien til standardprofilen, og brugeren vil kunne tilsidesætte den med flaget "--user-data-dir" på kommandolinjen.</translation>
 <translation id="5141670636904227950">Indstil standardtype for lup til aktiveret på loginskærmen</translation>
 <translation id="5142301680741828703">Gengiv altid følgende webadressemønstre i <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Giver dig mulighed for at angive yderligere parametre, som bruges, når <ph name="PRODUCT_FRAME_NAME" /> starter <ph name="PRODUCT_NAME" />.
@@ -1133,6 +1158,20 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 <translation id="5809728392451418079">Indstil det viste navn for enhedslokale konti</translation>
 <translation id="5814301096961727113">Indstil standardtilstanden for talefeedback på loginskærmen</translation>
 <translation id="5815129011704381141">Automatisk genstart efter opdatering</translation>
+<translation id="5815353477778354428">Konfigurerer den mappe, som <ph name="PRODUCT_FRAME_NAME" /> bruger til at lagre brugerdata.
+
+      Hvis du angiver denne politik, vil <ph name="PRODUCT_FRAME_NAME" /> bruge den angivne mappe.
+
+      Se kan se en liste over variabler, der kan anvendes, på http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Hvis denne indstilling ikke angives, anvendes standardprofilmappen.</translation>
+<translation id="5819660021114910752">Angiver den tidszone, der skal gælde for enheden. Brugerne kan tilsidesætte den angivne tidszone for den aktuelle session, men når der logges ud, anvendes den angivne tidszone igen. Hvis der angives en ugyldig værdi, aktiveres politikken med "GMT" i stedet. Hvis der angives en tom streng, ignoreres politikken.
+
+      Hvis denne politik ikke anvendes, benyttes den aktive tidszone, men brugerne kan dog skifte tidszone, og ændringen gemmes i så fald. En ændring, der foretages af én bruger, påvirker således loginskærmen og alle andre brugere.
+
+      Nye enheder er som udgangspunkt angivet med tidszonen "Pacific Standard Time".
+
+      Formatet for værdierne følger navnene på tidszonerne i "IANA Time Zone Database" (se "https://en.wikipedia.org/wiki/Tz_database"). De fleste tidszoner betegnes som "continent/large_city" eller "ocean/large_city".</translation>
 <translation id="5826047473100157858">Angiver, om brugeren kan åbne sider i inkognitotilstand i <ph name="PRODUCT_NAME" />. Hvis "Aktiveret" er valgt, eller hvis politikken ikke angives, kan siderne åbnes i inkognitotilstand. Hvis "Deaktiveret" er valgt, kan sider ikke åbnes i inkognitotilstand. Hvis "Tvunget" er valgt, kan siderne kun åbnes i inkognitotilstand.</translation>
 <translation id="5836064773277134605">Begræns rækkevidden for den UDP-port, der bruges af hosten for fjernadgang</translation>
 <translation id="5845159892130426052">Aktivér ShowModalDialog API v2015.04.30</translation>
@@ -1828,6 +1867,11 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
 <translation id="8465065632133292531">Parametre for direkte webadresse, som bruger POST</translation>
 <translation id="847472800012384958">Tillad ikke, at websites viser pop op-vinduer</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Tilpas listen over webstedsmønstre, der altid bør gengives af hostbrowseren.
+
+          Hvis denne politik ikke er angivet, anvendes standardgengivelsen på alle websites, sådan som det er angivet i politikken "ChromeFrameRendererSettings".
+
+          Se eksempler på mønstre på https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Deaktiver lagring af browserhistorik</translation>
 <translation id="8499172469244085141">Standardindstillinger (brugere kan tilsidesætte)</translation>
 <translation id="8501011084242226370">Angiver en liste over plugins, som brugeren kan aktivere eller deaktivere i <ph name="PRODUCT_NAME" />.

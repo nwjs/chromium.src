@@ -754,6 +754,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3780152581321609624">Bao gồm cổng không chuẩn trong  Kerberos SPN</translation>
 <translation id="3788662722837364290">Cài đặt quản lý nguồn khi người dùng không sử dụng</translation>
 <translation id="3793095274466276777">Định cấu hình kiểm tra trình duyệt mặc định trong <ph name="PRODUCT_NAME" /> và ngăn người dùng thay đổi cấu hình này. Nếu bạn bật cài đặt này, <ph name="PRODUCT_NAME" /> sẽ luôn kiểm tra khi khởi động để xem đó có phải là trình duyệt mặc định không và tự động đăng ký chính nó nếu có thể. Nếu bạn tắt cài đặt này, <ph name="PRODUCT_NAME" /> sẽ không bao giờ kiểm tra xem đó có phải là trình duyệt mặc định không và vô hiệu hóa kiểm soát của người dùng để đặt tùy chọn này. Nếu cài đặt này không được thiết lập, <ph name="PRODUCT_NAME" /> sẽ cho phép người dùng kiểm soát xem đó có phải là trình duyệt mặc định không và có nên hiển thị thông báo cho người dùng hay không khi không phải là trình duyệt mặc định.</translation>
+<translation id="3800626789999016379">Định cấu hình thư mục mà <ph name="PRODUCT_NAME" /> sẽ sử dụng để tải xuống tệp.
+
+      Nếu bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ sử dụng thư mục được cung cấp bất kể người dùng đã chỉ định một thư mục hay đã bật cờ để được nhắc vị trí cho mỗi lần tải xuống.
+
+      Truy cập http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables để xem danh sách các biến có thể được sử dụng.
+
+      Nếu bạn không đặt chính sách này, thư mục tải xuống mặc định sẽ được sử dụng và người dùng sẽ có thể thay đổi thư mục đó.</translation>
 <translation id="3805659594028420438">Bật tiện ích chứng chỉ giới hạn miền TLS (không được chấp thuận)</translation>
 <translation id="3806576699227917885">Cho phép phát âm thanh.
 
@@ -895,6 +902,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="4325690621216251241">Thêm một nút đăng xuất vào khay hệ thống</translation>
 <translation id="4337944790873898250">Nếu chính sách này được đặt thành true, <ph name="PRODUCT_NAME" /> sẽ mở tối đa vô điều kiện cửa sổ đầu tiên được hiển thị trong lần chạy đầu tiên.
       Nếu chính sách này được đặt thành false hoặc không được định cấu hình, kỹ thuật phỏng đoán sẽ xác định xem có mở tối đa cửa sổ đầu tiên được hiển thị hay không, dựa trên kích thước màn hình.</translation>
+<translation id="4349746760316962317">Định cấu hình thư mục mà <ph name="PRODUCT_NAME" /> sẽ sử dụng để lưu trữ tệp đã lưu vào bộ nhớ cache trên đĩa.
+
+      Nếu bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ sử dụng thư mục được cung cấp bất kể người dùng đã chỉ định cờ '--disk-cache-dir' hay chưa.
+
+      Truy cập https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables để xem danh sách các biến có thể được sử dụng.
+
+      Nếu bạn không đặt chính sách này, thư mục bộ nhớ cache mặc định sẽ được sử dụng và người dùng sẽ có thể ghi đè thư mục đó bằng cờ dòng lệnh '--disk-cache-dir'.</translation>
 <translation id="436581050240847513">Báo cáo giao diện mạng thiết bị</translation>
 <translation id="4372704773119750918">Không cho phép người dùng doanh nghiệp là một phần của đa cấu hình (chính hoặc phụ)</translation>
 <translation id="4377599627073874279">Cho phép tất cả các trang web hiển thị tất cả hình ảnh</translation>
@@ -978,6 +992,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="4665897631924472251">Cài đặt quản lý tiện ích</translation>
 <translation id="4668325077104657568">Cài đặt hình ảnh mặc định</translation>
 <translation id="467236746355332046">Các tính năng được hỗ trợ:</translation>
+<translation id="4674167212832291997">Tùy chỉnh danh sách các mẫu URL sẽ luôn được <ph name="PRODUCT_FRAME_NAME" /> hiển thị.
+
+          Nếu bạn không đặt chính sách này, kết xuất đồ họa mặc định sẽ được sử dụng cho tất cả các trang web được chỉ định theo chính sách 'ChromeFrameRendererSettings'.
+
+          Để biết các mẫu ví dụ, hãy xem http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Mở một danh sách URL</translation>
 <translation id="4680961954980851756">Bật Tự động điền</translation>
 <translation id="4723829699367336876">Bật tính năng chặn tường lửa từ máy khách truy cập từ xa</translation>
@@ -1073,6 +1092,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Khi không đặt chính sách này, tác vụ mặc định sẽ được thực hiện, tác vụ này bị tạm ngưng.
 
           Nếu tác vụ bị tạm ngưng, <ph name="PRODUCT_OS_NAME" /> có thể được định cấu hình riêng biệt để khóa hoặc không khóa màn hình trước khi tạm ngưng.</translation>
+<translation id="5111712393799006197">Định cấu hình thư mục mà <ph name="PRODUCT_NAME" /> sẽ sử dụng để lưu trữ dữ liệu người dùng.
+
+      Nếu bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ sử dụng thư mục được cung cấp bất kể người dùng đã chỉ định cờ '--user-data-dir' hay chưa.
+
+      Truy cập http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables để xem danh sách các biến có thể được sử dụng.
+
+      Nếu bạn không đặt chính sách này, đường dẫn hồ sơ mặc định sẽ được sử dụng và người dùng sẽ có thể ghi đè đường dẫn đó với cờ dòng lệnh '--user-data-dir'.</translation>
 <translation id="5141670636904227950">Đặt loại kính lúp màn hình mặc định được bật trên màn hình đăng nhập</translation>
 <translation id="5142301680741828703">Luôn hiển thị các mẫu URL sau đây trong <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Cho phép bạn chỉ định tham số bổ sung được sử dụng khi <ph name="PRODUCT_FRAME_NAME" /> chạy <ph name="PRODUCT_NAME" />.
@@ -1276,6 +1302,20 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="5809728392451418079">Đặt tên hiển thị cho tài khoản trong thiết bị</translation>
 <translation id="5814301096961727113">Đặt trạng thái phản hồi bằng giọng nói mặc định trên màn hình đăng nhập</translation>
 <translation id="5815129011704381141">Tự động khởi động lại sau khi cập nhật</translation>
+<translation id="5815353477778354428">Định cấu hình thư mục mà <ph name="PRODUCT_FRAME_NAME" /> sẽ sử dụng để lưu trữ dữ liệu người dùng.
+
+      Nếu bạn đặt chính sách này, <ph name="PRODUCT_FRAME_NAME" /> sẽ sử dụng thư mục được cung cấp.
+
+      Truy cập http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables để xem danh sách các biến có thể được sử dụng.
+
+      Nếu bạn không đặt cài đặt này, thư mục hồ sơ mặc định sẽ được sử dụng.</translation>
+<translation id="5819660021114910752">Chỉ định múi giờ được sử dụng cho thiết bị. Người dùng có thể ghi đè múi giờ đã chỉ định cho phiên hiện tại. Tuy nhiên, khi đăng xuất, phiên được đặt trở về múi giờ đã chỉ định. Nếu giá trị không hợp lệ được cung cấp, chính sách sẽ vẫn được kích hoạt bằng ''GMT". Nếu chuỗi trống được cung cấp, chính sách bị bỏ qua.
+
+      Nếu chính sách này không được sử dụng, múi giờ đang hoạt động sẽ vẫn được sử dụng. Tuy nhiên, người dùng có thể thay đổi múi giờ và thay đổi sẽ vẫn duy trì. Do đó, sự thay đổi do một người dùng thực hiện sẽ ảnh hưởng đến màn hình đăng nhập và tất cả người dùng khác.
+
+      Thiết bị mới khởi động với múi giờ được đặt thành "Hoa Kỳ/Thái Bình Dương".
+
+      Định dạng của giá trị tuân theo tên của múi giờ trong "Cơ sở dữ liệu múi giờ của IANA" (hãy xem "https://en.wikipedia.org/wiki/Tz_database"). Đặc biệt, bạn có thể tham chiếu hầu hết các múi giờ theo "continent/large_city" hoặc "ocean/large_city".</translation>
 <translation id="5826047473100157858">Chỉ định liệu người dùng có thể mở trang ở chế độ Ẩn danh trong <ph name="PRODUCT_NAME" /> hay không.
 
       Nếu chọn 'Bật' hoặc không thiết lập chính sách này, bạn có thể mở trang ở chế độ Ẩn danh.
@@ -2041,6 +2081,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="8465065632133292531">Tham số cho URL tức thì sử dụng POST</translation>
 <translation id="847472800012384958">Không cho phép bất kỳ trang web nào hiển thị cửa sổ bật lên</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Tùy chỉnh danh sách các mẫu URL sẽ luôn được trình duyệt chính hiển thị.
+
+          Nếu bạn không đặt chính sách này, kết xuất đồ họa mặc định sẽ được sử dụng cho tất cả các trang web được chỉ định theo chính sách 'ChromeFrameRendererSettings'.
+
+          Để biết các mẫu ví dụ, hãy xem http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Tắt lưu lịch sử trình duyệt</translation>
 <translation id="8499172469244085141">Cài đặt mặc định (người dùng có thể ghi đè)</translation>
 <translation id="8501011084242226370">Chỉ định danh sách plugin mà người dùng có thể bật hoặc tắt trong <ph name="PRODUCT_NAME" />.

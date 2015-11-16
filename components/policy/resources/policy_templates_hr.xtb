@@ -677,6 +677,13 @@
 <translation id="3780152581321609624">Uključi nestandardni port u Kerberos SPN-u</translation>
 <translation id="3788662722837364290">Postavke upravljanja napajanjem kada korisnik postane neaktivan</translation>
 <translation id="3793095274466276777">Konfigurira zadane provjere preglednika u proizvodu <ph name="PRODUCT_NAME" /> i sprječava korisnike da ih promijene. Ako omogućite ovu postavku, <ph name="PRODUCT_NAME" /> će prilikom svakog pokretanja provjeriti je li zadani preglednik i automatski se registrirati ako je moguće. Ako je ova postavka onemogućena, <ph name="PRODUCT_NAME" /> neće nikad provjeravati je li zadani preglednik i onemogućit će korisničke kontrole za postavljanje ove opcije. Ako ova postavka nije podešena, korisnik će moći odrediti je li <ph name="PRODUCT_NAME" /> zadani preglednik i trebaju li korisničke obavijesti biti prikazane kada to nije slučaj.</translation>
+<translation id="3800626789999016379">Konfigurira direktorij koji će <ph name="PRODUCT_NAME" /> upotrebljavati za preuzimanje datoteka.
+
+      Ako postavite to pravilo, preglednik <ph name="PRODUCT_NAME" /> upotrebljavat će navedeni direktorij bez obzira je li ga je korisnik naveo ili je označio okvir da se mjesto preuzimanja treba svaki put ponovo navesti.
+
+      Popis varijabli koje se mogu upotrijebiti potražite na http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Ako se to pravilo ne postavi, upotrebljavat će se zadani direktorij za preuzimanja i korisnik će ga moći promijeniti.</translation>
 <translation id="3805659594028420438">Omogući proširenje TLS certifikata vezanih uz domenu (zastarjelo)</translation>
 <translation id="3806576699227917885">Dopušta se reprodukcija zvuka.
 
@@ -794,6 +801,13 @@
 <translation id="4325690621216251241">Dodaj gumb za odjavu na programsku traku</translation>
 <translation id="4337944790873898250">Ako se pravilo postavi na "True", <ph name="PRODUCT_NAME" /> bezuvjetno će maksimizirati prvi prozor koji se prikazuje prilikom prvog pokretanja.
       Ako se pravilo postavi na "False" ili se ne konfigurira, odluka o maksimiziranju prvog prozora donijet će se heuristički na temelju veličine zaslona.</translation>
+<translation id="4349746760316962317">Konfigurira direktorij u koji će <ph name="PRODUCT_NAME" /> spremati predmemorirane datoteke na disku.
+
+      Ako postavite to pravilo, preglednik <ph name="PRODUCT_NAME" /> upotrebljavat će navedeni direktorij bez obzira je li korisnik naveo oznaku "--disk-cache-dir".
+
+      Popis varijabli koje se mogu upotrijebiti potražite na https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Ako se to pravilo ne postavi, upotrebljavat će se zadani direktorij za predmemoriju i korisnik će ga moći nadjačati oznakom naredbenog retka "--disk-cache-dir".</translation>
 <translation id="436581050240847513">Izvješća o mrežnim sučeljima uređaja</translation>
 <translation id="4372704773119750918">Ne dopusti poslovnom korisniku da bude dio višestrukog profila (primarnom ili sekundarnom)</translation>
 <translation id="4377599627073874279">Dopusti svim web-lokacijama prikazivanje svih slika</translation>
@@ -859,6 +873,11 @@
 <translation id="4665897631924472251">Postavke upravljanja proširenjima</translation>
 <translation id="4668325077104657568">Zadana postavka slika</translation>
 <translation id="467236746355332046">Podržane značajke:</translation>
+<translation id="4674167212832291997">Prilagođava popis uzoraka URL-ova koje bi <ph name="PRODUCT_FRAME_NAME" /> uvijek trebao generirati.
+
+          Ako se to pravilo ne postavi, zadani će se ispunjivač upotrebljavati za sve web-lokacije određene pravilom "ChromeFrameRendererSettings".
+
+          Primjere uzoraka pogledajte na https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Otvori popis URL-ova</translation>
 <translation id="4680961954980851756">Omogući Automatsko popunjavanje</translation>
 <translation id="4723829699367336876">Omogući prijelaz vatrozida iz klijenta za daljinski pristup</translation>
@@ -946,6 +965,13 @@
           Kada to pravilo nije postavljeno, poduzima se zadana radnja, a to je obustava.
 
           Ako je radnja obustava, <ph name="PRODUCT_OS_NAME" /> je moguće zasebno konfigurirati tako da zaključava ili ne zaključava zaslon prije obustavljanja.</translation>
+<translation id="5111712393799006197">Konfigurira direktorij koji će <ph name="PRODUCT_NAME" /> upotrebljavati za pohranjivanje korisničkih podataka.
+
+      Ako postavite to pravilo, preglednik <ph name="PRODUCT_NAME" /> upotrebljavat će navedeni direktorij bez obzira je li korisnik naveo oznaku "--user-data-dir".
+
+      Popis varijabli koje se mogu upotrijebiti potražite na http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Ako se to pravilo ne postavi, upotrebljavat će se zadani put profila i korisnik će ga moći nadjačati oznakom naredbenog retka "--user-data-dir".</translation>
 <translation id="5141670636904227950">Postavljanje zadane vrste povećala na "omogućeno" na zaslonu za prijavu</translation>
 <translation id="5142301680741828703">Uvijek prikaži sljedeće URL obrasce u okviru <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Omogućuje vam da odredite dodatne parametre koji se upotrebljavaju kada <ph name="PRODUCT_FRAME_NAME" /> pokreće uslugu <ph name="PRODUCT_NAME" />.
@@ -1128,6 +1154,20 @@
 <translation id="5809728392451418079">Postavlja naziv za prikaz za lokalne račune uređaja</translation>
 <translation id="5814301096961727113">Postavljanje zadanog stanja izgovaranja povratnih informacija na zaslonu za prijavu</translation>
 <translation id="5815129011704381141">Automatsko ponovno pokretanje nakon ažuriranja</translation>
+<translation id="5815353477778354428">Konfigurira direktorij koji će <ph name="PRODUCT_FRAME_NAME" /> upotrebljavati za pohranjivanje korisničkih podataka.
+
+      Ako postavite to pravilo, <ph name="PRODUCT_FRAME_NAME" /> upotrebljavat će navedeni direktorij.
+
+      Popis varijabli koje se mogu upotrijebiti potražite na http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Ako se ta postavka ne postavi, upotrebljavat će se zadani direktorij profila.</translation>
+<translation id="5819660021114910752">Određuje vremensku zonu koja će se upotrebljavati za uređaj. Korisnici mogu nadjačati navedenu vremensku zonu za trenutačnu sesiju, no ona će se nakon odjave vratiti na navedenu vremensku zonu. Ako se navede nevažeća vrijednost, pravilo se i dalje aktivira oznakom "GMT". Ako se navede prazan niz, pravilo se zanemaruje.
+
+      Ako se to pravilo ne upotrebljava, i dalje će se upotrebljavati trenutačno aktivna vremenska zona, no korisnici će je moći trajno promijeniti. Zato promjena koju izvrši jedan korisnik utječe na zaslon za prijavu i sve druge korisnike.
+
+      Na novim je uređajima početno postavljena vremenska zona "SAD/Pacifik".
+
+      Format vrijednosti slijedi nazive vremenskih zona navedenih u bazi podataka vremenskih zona organizacije IANA (pogledajte "https://en.wikipedia.org/wiki/Tz_database"). To konkretno znači da se većina vremenskih zona može navesti kao "kontinent/veliki_grad" ili "ocean/veliki_grad".</translation>
 <translation id="5826047473100157858">Određuje može li korisnik otvarati stranice u anonimnom načinu u proizvodu <ph name="PRODUCT_NAME" />. Ako je odabrano "Enabled" (omogućeno) ili pravilo nije postavljeno, stranice se mogu otvarati u anonimnom načinu. Ako je odabrano "Disabled" (onemogućeno), stranice se ne mogu otvarati u anonimnom načinu. Ako je odabrano "Forced" (prisilno), stranice se mogu otvarati SAMO u anonimnom načinu.</translation>
 <translation id="5836064773277134605">Ograniči raspon UDP priključaka koji upotrebljava host za daljinski pristup</translation>
 <translation id="5845159892130426052">Omogući ShowModalDialog API putem 2015.04.30</translation>
@@ -1804,6 +1844,11 @@
 <translation id="8465065632133292531">Parametri za URL usluge Instant koji upotrebljava POST</translation>
 <translation id="847472800012384958">Ne dopusti web-lokacijama prikazivanje skočnih prozora</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Prilagođava popis uzoraka URL-ova koje bi preglednik hosta trebao uvijek generirati.
+
+          Ako se to pravilo ne postavi, zadani će se ispunjivač upotrebljavati za sve web-lokacije određene pravilom "ChromeFrameRendererSettings".
+
+          Primjere uzoraka pogledajte na https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Onemogući pohranjivanje povijesti preglednika</translation>
 <translation id="8499172469244085141">Zadane postavke (korisnici ih mogu prebrisati)</translation>
 <translation id="8501011084242226370">Navodi popis dodataka koje korisnik može omogućiti ili onemogućiti na usluzi <ph name="PRODUCT_NAME" />.

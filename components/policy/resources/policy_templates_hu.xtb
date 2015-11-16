@@ -680,6 +680,13 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="3780152581321609624">A Kerberos SPN tartalmazza a nem szabványos portot</translation>
 <translation id="3788662722837364290">Energiagazdálkodási beállítások olyankor, amikor a felhasználó tétlen</translation>
 <translation id="3793095274466276777">Beállítja a <ph name="PRODUCT_NAME" /> alapértelmezett böngésző-ellenőrzéseit, és megakadályozza, hogy a felhasználók megváltoztassák ezeket. Ha engedélyezi ezt a beállítást, a <ph name="PRODUCT_NAME" /> mindig ellenőrzi induláskor, hogy alapértelmezett böngésző-e, és automatikusan regisztrálja magát, ha lehetséges. Ha ez a beállítás le van tiltva, a <ph name="PRODUCT_NAME" /> soha nem fogja ellenőrizni, hogy alapértelmezett böngésző-e, és letiltja a felhasználók számára a beállítás lehetőségét. Ha ez a beállítás nincs megadva, a <ph name="PRODUCT_NAME" /> elérhetővé teszi a választást a felhasználó számára, hogy ez legyen-e az alapértelmezett böngésző, és hogy mutasson-e felhasználói értesítéseket, ha nem az.</translation>
+<translation id="3800626789999016379">Beállítja a(z) <ph name="PRODUCT_NAME" /> által a fájlok letöltéséhez használt mappát.
+
+      Ha beállítja ezt a házirendet, a(z) <ph name="PRODUCT_NAME" /> a megadott mappát fogja használni attól függetlenül, hogy a felhasználó kiválasztott-e egyet, vagy engedélyezte-e azt a jelölőt, amely alapján a rendszer minden alkalommal megkérdezi a letöltés helyét.
+
+      A használható változók listáját lásd a https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables címen.
+
+      Ha nincs beállítva ez a házirend, akkor az alkalmazás az alapértelmezett letöltési mappát használja, de ezt a felhasználó módosítani tudja.</translation>
 <translation id="3805659594028420438">TLS-domainhez kötött tanúsítványbővítmények engedélyezése (elavult)</translation>
 <translation id="3806576699227917885">Hanglejátszás engedélyezése.
 
@@ -797,6 +804,13 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="4325690621216251241">Kijelentkezés gomb elhelyezése a tálcán</translation>
 <translation id="4337944790873898250">Ha ez a házirend igaz értékre van állítva, akkor a <ph name="PRODUCT_NAME" /> feltétel nélkül nagy méretűre állítja az első indításkor megjelenő első ablakot.
       Ha a házirend hamis értékre van állítva, illetve nincs beállítva, akkor a képernyő mérete alapján egy heurisztikus eljárás dönti el, hogy az első megjelenő ablakot nagy méretűre kell-e állítania a böngészőnek.</translation>
+<translation id="4349746760316962317">Beállítja a könyvtárat, amelyet a(z) <ph name="PRODUCT_NAME" /> a gyorsítótárazott fájlok tárolására fog használni a lemezen.
+
+      Ha beállítja ezt a házirendet, a(z) <ph name="PRODUCT_NAME" /> a megadott könyvtárat fogja használni függetlenül attól, hogy a felhasználó megadta-e a „--disk-cache-dir” jelölőt vagy sem.
+
+      A használható változók listáját lásd a https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables címet.
+
+      Ha a házirend beállítatlanul marad, a rendszer az alapértelmezés szerinti gyorsítótárkönyvtárat használja, a felhasználó pedig a „--disk-cache-dir” parancssori jelölővel tudja ezt felülbírálni.</translation>
 <translation id="436581050240847513">Hálózati eszközinterfészek bejelentése</translation>
 <translation id="4372704773119750918">A vállalati felhasználó ne használhassa a többprofilos módot (elsődleges vagy másodlagos)</translation>
 <translation id="4377599627073874279">Az összes kép megjelenítésének engedélyezése valamennyi webhely számára</translation>
@@ -862,6 +876,11 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="4665897631924472251">Bővítménykezelési beállítások</translation>
 <translation id="4668325077104657568">Képek alapértelmezett beállítása</translation>
 <translation id="467236746355332046">Támogatott funkciók:</translation>
+<translation id="4674167212832291997">Azon URL-minták listájának testreszabása, amelyeket minden esetben a(z) <ph name="PRODUCT_FRAME_NAME" /> segítségével kell megjeleníteni.
+
+          Ha a házirend nincs beállítva, akkor a rendszer a „ChromeFrameRendererSettings” házirendben meghatározott alapértelmezett megjelenítőt használja valamennyi webhely esetében.
+
+          Példamintákért lásd a következő címet: https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Nyisson meg egy URL-listát</translation>
 <translation id="4680961954980851756">Automatikus kitöltés engedélyezése</translation>
 <translation id="4723829699367336876">Engedélyezze a tűzfalon való átjárást a távoli ügyfelek felől</translation>
@@ -949,6 +968,13 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
           Ha a házirend nincs beállítva, az alapértelmezett művelet érvényesül, ami a felfüggesztés.
 
           Ha a művelet a felfüggesztés, a(z) <ph name="PRODUCT_OS_NAME" /> külön konfigurálható, hogy a felfüggesztés előtt zárolja-e a képernyőt.</translation>
+<translation id="5111712393799006197">Beállítja a(z) <ph name="PRODUCT_NAME" /> által a felhasználói adatok tárolására szolgáló mappát.
+
+      Ha beállítja ezt a házirendet, a(z) <ph name="PRODUCT_NAME" /> a megadott mappát fogja használni attól függetlenül, hogy a felhasználó megadta-e a „--user-data-dir” jelölőt vagy sem.
+
+      A használható változók listáját lásd: https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Ha nincs beállítva ez a házirend, akkor az alkalmazás a profil alapértelmezett elérési útját használja, a felhasználó pedig felül tudja írni ezt a „--user-data-dir” parancssori jelölővel.</translation>
 <translation id="5141670636904227950">A bejelentkezési képernyőn engedélyezett alapértelmezett nagyítótípus beállítása</translation>
 <translation id="5142301680741828703">Mindig a <ph name="PRODUCT_FRAME_NAME" /> segítségével jelenítse meg a következő URL-mintákat</translation>
 <translation id="5148753489738115745">Lehetővé teszi további paraméterek megadását, amelyeket a(z) <ph name="PRODUCT_FRAME_NAME" /> használ a(z) <ph name="PRODUCT_NAME" /> indításakor.
@@ -1127,6 +1153,20 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="5809728392451418079">Az eszközön található helyi fiókok megjelenített nevének beállítása</translation>
 <translation id="5814301096961727113">A hangos visszajelzés alapértelmezett állapotának beállítása a bejelentkezési képernyőn</translation>
 <translation id="5815129011704381141">Automatikus újraindítás frissítés után</translation>
+<translation id="5815353477778354428">Beállítja a(z) <ph name="PRODUCT_FRAME_NAME" /> által a felhasználói adatok tárolására szolgáló mappát.
+
+      Ha beállítja ezt a házirendet, a(z) <ph name="PRODUCT_FRAME_NAME" /> a megadott mappát fogja használni.
+
+      A használható változók listájáért lásd: https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Ha nincs megadva ez a beállítás, akkor az alkalmazás a profil alapértelmezett mappáját használja.</translation>
+<translation id="5819660021114910752">Meghatározza az eszköz által használandó időzónát. A felhasználók az aktuális munkamenet idejére felülbírálhatják a megadott időzónát. Kijelentkezéskor azonban visszaáll a megadott időzóna. Érvénytelen érték megadása esetén a házirend a „GMT” értékkel működik. Üres karakterlánc megadásakor a házirendet a rendszer figyelmen kívül hagyja.
+
+      Ha a házirend nincs használatban, akkor a jelenleg aktív időzóna marad érvényben, azonban a felhasználók megváltoztathatják az időzónát, és ez a módosítás így is marad. Így az egyik felhasználó által végrehajtott módosítás befolyással van a bejelentkezési képernyőre és az összes többi felhasználóra is.
+
+      Az új eszközöknél a kezdeti időzóna-beállítás „USA/Csendes-óceáni”.
+
+      Az érték formátuma megfelel az időzónák „IANA Time Zone Database” adatbázisban (lásd: „https://en.wikipedia.org/wiki/Tz_database”) található neveinek. A legtöbb időzónára lehetséges „földrész/nagyváros” vagy „óceán/nagyváros” formátumban hivatkozni.</translation>
 <translation id="5826047473100157858">Meghatározza, hogy a felhasználó megnyithat-e oldalakat inkognitó módban a(z) <ph name="PRODUCT_NAME" /> böngészőben. Ha az "Engedélyezve" lehetőség van kiválasztva, vagy ha a házirend beállítatlanul marad, az oldalakat meg lehet nyitni inkognitómódban. Ha a "Letiltva" lehetőség van kiválasztva, az oldalakat nem lehet megnyitni inkognitómódban. Ha a "Kényszerített" lehetőség van kiválasztva, az oldalakat CSAK inkognitómódban lehet megnyitni.</translation>
 <translation id="5836064773277134605">A távoli gazdagép által használt UDP porttartomány korlátozása</translation>
 <translation id="5845159892130426052">A ShowModalDialog API engedélyezése 2015.04.30-ig</translation>
@@ -1809,6 +1849,11 @@ Ennek a házirendnek a beállítása felülbírálja az alapértelmezett 3 órá
 <translation id="8465065632133292531">Paraméterek POST metódust használó azonnali URL-hez</translation>
 <translation id="847472800012384958">Előugró ablakok tiltása minden webhely esetén</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">A mindig a gazdagép böngészője segítségével megjelenítendő URL-minták listájának testreszabása.
+
+          Ha nincs konfigurálva ez a házirend, akkor a rendszer a „ChromeFrameRendererSettings” házirend által meghatározott alapértelmezett megjelenítőt használja valamennyi webhely esetében.
+
+          Példamintákat a következő helyen talál: https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Böngészési előzmények mentésének tiltása</translation>
 <translation id="8499172469244085141">Alapértelmezett beállítások (a felhasználók felülbírálhatják)</translation>
 <translation id="8501011084242226370">Megadja azon plug-inek listáját, amelyeket a felhasználó engedélyezhet vagy letilthat a <ph name="PRODUCT_NAME" /> böngészőben.

@@ -136,6 +136,8 @@
 <translation id="1178581264944972037">Sitisha</translation>
 <translation id="1179803038870941185"><ph name="URL" /> inataka kupata udhibiti kamili wa vifaa vyako vya MIDI.</translation>
 <translation id="1181037720776840403">Ondoa</translation>
+<translation id="11814323404622888">"&gt;
+    Kifaa cha USB-C (mlango wa kulia nyuma)</translation>
 <translation id="1183083053288481515">Kutumia cheti kilichotolewa cha msimamizi</translation>
 <translation id="1183237619868651138">Haiwezi kusakinisha <ph name="EXTERNAL_CRX_FILE" /> katika akiba ya ndani.</translation>
 <translation id="1185924365081634987">Pia unaweza kujaribu <ph name="GUEST_SIGNIN_LINK_START" />kuvinjari kama aliyealikwa<ph name="GUEST_SIGNIN_LINK_END" /> ili kurekebisha hitilafu hii ya mtandao.</translation>
@@ -329,6 +331,7 @@
 <translation id="1468038450257740950">WebGL haihimiliwi.</translation>
 <translation id="1470719357688513792">Mipangilio mipya ya kidakuzi itaanza kutumika baada ya kupakia upya ukurasa.</translation>
 <translation id="14720830734893704">Washa utumiaji wa kibodi isiyo bayana.</translation>
+<translation id="1474079335130556426">Washa kipengele cha hali ya chini chini ya API ya Push. Hii huruhusu Chrome kuendelea kutekeleza baada ya dirisha la mwisho kufungwa, na kufungua Mfumo wa Uendeshaji unapoanzishwa, ikiwa API ya Push inaihitaji.</translation>
 <translation id="1474339897586437869">"<ph name="FILENAME" />" haikupakiwa. Hakuna nafasi ya kutosha katika Hifadhi yako ya Google.</translation>
 <translation id="1476503841242751994">{COUNT,plural, =1{Nenosiri 1}other{Manenosiri #}}</translation>
 <translation id="1476949146811612304">Bainisha ni mtambo upi wa kutafuta unaotumika wakati wa kutafuta kutoka
@@ -651,6 +654,7 @@
 <translation id="1918141783557917887">&amp;Ndogo zaidi</translation>
 <translation id="192144045824434199">Washa vidirisha vinavyofungukia nje ya fremu ya kivinjari. Jaribio la kufungua Kidirisha, badala yake, litafungua kiibukizi iwapo hakijawashwa. Vidirisha vinawashwa mara kwa mara kwenye vituo vya usanidi na kanari.</translation>
 <translation id="1921584744613111023">Dpi <ph name="DPI" /></translation>
+<translation id="1921986354447415460">Kibodi ya Kituruki-F</translation>
 <translation id="1923786009776354244">Washa matumizi ya kijajuu asili cha WebRTC Stun.</translation>
 <translation id="1926741348654461781">Washa kurasa zilizo nje ya mtandao</translation>
 <translation id="1929546189971853037">Kusoma historia yako ya kuvinjari kwenye vifaa vyako vyote ambavyo umetumia kuingia katika akaunti</translation>
@@ -854,6 +858,7 @@ Imebakisha <ph name="HOUR" />:<ph name="MINUTE" /> ijae</translation>
 <translation id="2231990265377706070">Sehemu ya kuhisishi</translation>
 <translation id="2232876851878324699">Faili ilikuwa na cheti kimoja, ambacho hakikuwa kimeletwa:</translation>
 <translation id="2233502537820838181">&amp;Maelezo Zaidi</translation>
+<translation id="2233587473672843170">Onyesha tovuti maarufu kwenye ukurasa wa Kichupo Kipya</translation>
 <translation id="223714078860837942">Ikiwa ukurasa haujaweka sera ya rejeleo, kuweka ripoti hii kutapunguza kiwango cha maelezo katika kijajuu cha 'rejeleo' kwa maombi yenye asili mchanganyiko.</translation>
 <translation id="2238379619048995541">Data ya Hali ya Masafa</translation>
 <translation id="2239921694246509981">Ongeza mtu anayesimamiwa</translation>
@@ -1317,6 +1322,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2838379631617906747">Inasakinisha</translation>
 <translation id="2841837950101800123">Mtoa huduma</translation>
 <translation id="2843806747483486897">Badilisha chaguo-msingi...</translation>
+<translation id="2844169650293029770">Kifaa cha USB-C (mlango wa upande wa kushoto mbele)</translation>
 <translation id="2845382757467349449">Onyesha Upau wa Alamisho Kila Wakati</translation>
 <translation id="2846816712032308263">Huwasha ufungaji wa haraka wa kichupo/dirisha - huendesha vishikilizi vya onunload js vya kichupo kwa kujitegemea kando ya GUI.</translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
@@ -1382,6 +1388,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2923469375796950815">Zima ZIP unpacker mpya.</translation>
 <translation id="2924296707677495905">Unukuzi wa mfumo wa kuandika (namaskaram → ನಮಸ್ಕಾರ)</translation>
 <translation id="2925966894897775835">Majedwali</translation>
+<translation id="2927017729816812676">Hifadhi ya Akiba</translation>
 <translation id="2927657246008729253">Badilisha...</translation>
 <translation id="2928526264833629376">Nenda kwenye Hangouts</translation>
 <translation id="2930644991850369934">Kulikuwa na tatizo wakati wa kufufua picha ya upakuaji. Muunganisho wa mtandao umepotea.</translation>
@@ -1719,6 +1726,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="3396331542604645348">Printa iliyochaguliwa haipatikani au haijasakinishwa vizuri. Angalia printa yako au ujaribu kuchagua printa nyingine.</translation>
 <translation id="3399597614303179694">Kibodi ya Kimasedonia</translation>
 <translation id="340013220407300675">Huenda wavamizi wanajaribu kuiba maelezo yako kutoka <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> (kwa mfano, manenosiri, ujumbe, au kadi za malipo).</translation>
+<translation id="3401130144947259741">Ikiwashwa, matukio ya kufuatilia yatahamishwa hadi kwenye Ufuatiliaji wa Matukio ya Windows (ETW) kisha yanaweza kupigwa picha kwa zana kama vile UIForETW au Xperf.</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3406605057700382950">&amp;Onyesha upau alamisho</translation>
 <translation id="3412265149091626468">Ruka hadi Iliyochaguliwa</translation>
@@ -1875,6 +1883,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="3603385196401704894">Kifaransa cha Kanada</translation>
 <translation id="3603622770190368340">Pata cheti cha mtandao</translation>
 <translation id="3605780360466892872">Kitufechini</translation>
+<translation id="3606220979431771195">Kituruki-F</translation>
 <translation id="3608454375274108141">F10</translation>
 <translation id="3608576286259426129">Kihakiki cha picha ya mtumiaji</translation>
 <translation id="3609138628363401169">Seva haihimili kiendelezi cha TLS cha utambuaji.</translation>
@@ -2390,6 +2399,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4321136812570927563">{NUM_DOWNLOAD,plural, =1{Endeleza kipakuliwa}other{Endeleza vipakuliwa}}</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322394346347055525">Funga Vichupo Vingine</translation>
+<translation id="4325378361067528777">Washa kipengele cha hali ya chini chini ya API ya Push</translation>
 <translation id="4326952458285403282">Huwasha matumizi ya mfumo wa majaribio wa utekelezaji wa fonti ya DirectWrite.</translation>
 <translation id="4326999707196471878">Vidirisha vya Kivinjari cha Toolkit-Views.</translation>
 <translation id="4330406155931244378">Washa Kipengee cha Kikagua Maendelezo cha Lugha Nyingi</translation>
@@ -2928,6 +2938,8 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="5148652308299789060">Inalemaza rasterizer ya programu ya 3D</translation>
 <translation id="5150254825601720210">Jina la Seva ya SSL ya Cheti cha Netscape</translation>
 <translation id="5151034238407558331">Kwa bahati mbaya, Google Payments inaweza kutumiwa tu kwa muuzaji huyu na wanunuzi wenye anwani ya Marekani. Ikiwa wewe ni mkazi wa Marekani, tafadhali badilisha anwani yako ya nyumbani ukitumia Google Payments| au lipa bila kutumia Google Payments.</translation>
+<translation id="5151639798712723370">"&gt;
+    Kifaa cha USB-C (mlango wa upande wa kulia mbele)</translation>
 <translation id="5152451685298621771">(Akaunti ya watoto)</translation>
 <translation id="5154108062446123722">Mipangilio ya kina ya <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
@@ -3026,6 +3038,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="5271247532544265821">Togoa modi Iliyorahisishwa/Kichina cha Jadi</translation>
 <translation id="5271549068863921519">Hifadhi nenosiri</translation>
 <translation id="5273628206174272911">Uendeshaji wa historia ya jaribio katika kujibu utembezaji zaidi wa mlalo.</translation>
+<translation id="5275795814002959418"><ph name="COUNT" /> kutoka kwenye tovuti hii</translation>
 <translation id="5275973617553375938">Faili zilizorejeshwa kutoka Hifadhi ya Google</translation>
 <translation id="527605719918376753">Nyamazisha kichupo</translation>
 <translation id="527605982717517565">Ruhusu <ph name="HOST" /> iendeshe JavaScript kila wakati</translation>
@@ -3072,6 +3085,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="5328285148748012771">Pata programu zako zote kutoka kwenye Kifungua Programu hiki muhimu. Cheza michezo, piga gumzo la video, sikiliza muziki, hariri hati, au upate programu zaidi kutoka kwenye Duka la Chrome Wavutini.</translation>
 <translation id="5329858601952122676">&amp;Futa</translation>
 <translation id="5330145655348521461">Faili hizi zilifunguka kwenye eneo-kazi tofauti. Sogea kwenye <ph name="USER_NAME" /> ( <ph name="MAIL_ADDRESS" /> ) ili uzione.</translation>
+<translation id="5331975486040154427">Kifaa cha USB-C (mlango wa upande wa kushoto nyuma)</translation>
 <translation id="5332624210073556029">Saa za eneo:</translation>
 <translation id="5334142896108694079">Akiba ya Hati</translation>
 <translation id="533433379391851622">Toleo linalotarajiwa "<ph name="EXPECTED_VERSION" />", lakini toleo lilikuwa "<ph name="NEW_ID" />".</translation>
@@ -3118,6 +3132,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="539755880180803351">Ongezea maelezo fomu zilizo na utabiri wa aina ya uga Mjazo-otomatiki kama maandishi ya kishika nafasi.</translation>
 <translation id="5397578532367286026">Matumizi na historia ya mtumiaji huyu yanaweza kukaguliwa na msimamizi ( <ph name="MANAGER_EMAIL" /> ) kwenye chrome.com.</translation>
 <translation id="5397794290049113714">Wewe</translation>
+<translation id="5398824043967640339"><ph name="COUNT" /> kutoka kwenye tovuti nyingine</translation>
 <translation id="5399158067281117682">PIN hazioani!</translation>
 <translation id="5400640815024374115">Chipu ya Mfumo wa uendeshaji unaoaminika (TPM) imelemazwa au haipo.</translation>
 <translation id="5402367795255837559">Breli</translation>
@@ -3939,6 +3954,7 @@ Vipengee fulani huenda visipatikane, Tafadhali hakikisha kuwa wasifu upo na una 
 <translation id="6575251558004911012">Uliza wakati tovuti inahitaji kufikia kamera yako (inapendekezwa)</translation>
 <translation id="6581162200855843583">Kiungo cha Hifadhi ya Google</translation>
 <translation id="6583070985841601920">Uliingia kama <ph name="USER_EMAIL_ADDRESS" />. Usawazishaji umefungwa na msimamizi wako.</translation>
+<translation id="65832705307647870">Jaza ukurasa wa Kichupo Kipya mapema kwa tovuti maarufu.</translation>
 <translation id="6584878029876017575">Uwekaji Sahihi wa Maisha kutoka Microsoft</translation>
 <translation id="6585234750898046415">Chagua picha ya kuonyesha ya akaunti yako kwenye skrini ya kuingia.</translation>
 <translation id="6585283250473596934">Inaingia kipindi cha umma.</translation>
@@ -4285,6 +4301,7 @@ Vipengee fulani huenda visipatikane, Tafadhali hakikisha kuwa wasifu upo na una 
 <translation id="7092106376816104">Vighairi madirisha ibukizi</translation>
 <translation id="7093866338626856921">Badilisha data kwa vifaa viitwavyo: <ph name="HOSTNAMES" /></translation>
 <translation id="7096082900368329802">Je, unataka kugundua vipengee maridadi zaidi?</translation>
+<translation id="7098389117866926363">Kifaa cha USB-C (mlango wa kushoto nyuma)</translation>
 <translation id="7100897339030255923">Vipengee vilivyoteuliwa<ph name="COUNT" /></translation>
 <translation id="7106346894903675391">Nunua hifadhi zaidi...</translation>
 <translation id="7108338896283013870">Ficha</translation>
@@ -4384,7 +4401,7 @@ Vipengee fulani huenda visipatikane, Tafadhali hakikisha kuwa wasifu upo na una 
 <translation id="7255935316994522020">Tuma</translation>
 <translation id="7256710573727326513">Fungua katika kichupo</translation>
 <translation id="7257173066616499747">Mitandao ya Wi-Fi</translation>
-<translation id="7257666756905341374">Soma data unayonakili na kubandika</translation>
+<translation id="7257666756905341374">Kusoma data unayonakili na kubandika</translation>
 <translation id="7260002739296185724">Washa matumizi ya AVFoundation kwa ajili ya kuchukua picha za video na ufuatiliaji wa kifaa cha video kwenye OS X&gt; = 10.7. QTKit itatumika badala yake.</translation>
 <translation id="7262221505565121">Vighairi vya idhini ya kufikia programu-jalizi isiyo kwenye sandbox</translation>
 <translation id="7264275118036872269">Imeshindwa kuanzisha ugunduzi wa kifaa cha Bluetooth.</translation>
@@ -5063,6 +5080,7 @@ Inakokotoa muda unaosalia</translation>
 <translation id="8190193592390505034">Inaunganisha kwenye <ph name="PROVIDER_NAME" /></translation>
 <translation id="8191230140820435481">Kudhibiti programu, viendelezi na mandhari yako</translation>
 <translation id="8191453843330043793">Kitatuaji cha Seva Mbadala ya V8</translation>
+<translation id="8199491812735365610">Chagua akaunti ya kuingia</translation>
 <translation id="8200772114523450471">Endelea</translation>
 <translation id="8202160505685531999">Tafadhali andika tena nenosiri lako ili usasishe wasifu wako kwenye <ph name="DEVICE_TYPE" />.</translation>
 <translation id="8204086856545141093">Maombi kwenda kwa seva yamezuiwa na sera.</translation>
@@ -5194,6 +5212,7 @@ Inakokotoa muda wa kujaa</translation>
 <translation id="8381977081675353473">Kislovakia</translation>
 <translation id="8382645631174981738"><ph name="EXTENSION_NAME" /> kilisakinishwa kwa mbali</translation>
 <translation id="8382913212082956454">Nakili barua p&amp;epe</translation>
+<translation id="8384113940676655504">Huwasha mipangilio ya Smart Lock inayoruhusu Chromebook kugundua simu kupitia Bluetooth Low Energy ili kufungua Chromebook simu ikiwa karibu nayo.</translation>
 <translation id="8390029840652165810">Tafadhali hakikisha muunganisho wako wa mtandao unafanya kazi na ikiwa tatizo litaendelea, tafadhali ondoka na uingie tena ili kuonyesha upya stakabadhi zako.</translation>
 <translation id="8390445751804042000">Huwasha kuamsha kifaa kutegemea stakabadhi za pakiti za baadhi ya mitandao.</translation>
 <translation id="8390449457866780408">Seva haipatikani.</translation>
@@ -5280,6 +5299,7 @@ Inakokotoa muda wa kujaa</translation>
 <translation id="8509646642152301857">Upakuaji wa kamusi ya kukagua hijai umeshindwa.</translation>
 <translation id="8512476990829870887">Komesha Shughuli</translation>
 <translation id="851263357009351303">Ruhusu <ph name="HOST" /> ionyeshe picha kila wakati</translation>
+<translation id="8513191386157529469">"<ph name="CLIENT_NAME" />" inatatua kivinjari hiki.</translation>
 <translation id="8513974249124254369">ChromeVox (maoni yaliyotamkwa) yamewashwa. Bonyeza Ctrl+Alt+Z ili uzime.</translation>
 <translation id="8515737884867295000">Uthibitishaji unaolingana na cheti umeshindikana</translation>
 <translation id="8518865679229538285">Mbinu ingizo ya Kitamili (Typewriter)</translation>
@@ -5399,6 +5419,7 @@ Inakokotoa muda wa kujaa</translation>
 <translation id="8677039480012021122">Futa data na uondoe akaunti ya mtumiaji</translation>
 <translation id="8677212948402625567">Kunja zote...</translation>
 <translation id="8678648549315280022">Dhibiti mipangilio ya upakuaji...</translation>
+<translation id="8680251145628383637">Ingia katika akaunti ili upate alamisho, historia, manenosiri, na mipangilio yako mingine kwenye vifaa vyako vyote. Pia utaingia katika huduma zako kwenye Google kiotomatiki.</translation>
 <translation id="8680536109547170164"><ph name="QUERY" />, jibu, <ph name="ANSWER" /></translation>
 <translation id="8680787084697685621">Maelezo ya kuingia kwenye akaunti yamechina.</translation>
 <translation id="8684255857039823328">Nenosiri limehifadhiwa. Fikia manenosiri yako kutoka kifaa chochote kwenye <ph name="MANAGEMENT_LINK" />.</translation>
@@ -5454,6 +5475,7 @@ Inakokotoa muda wa kujaa</translation>
 <translation id="874420130893181774">Mbinu ya kuingiza data ya Pinyin ya Jadi</translation>
 <translation id="8744525654891896746">Chagua ishara kwa mtumiaji huyu anayesimamiwa</translation>
 <translation id="8744641000906923997">Romaji</translation>
+<translation id="8744959718895556609">Chagua akaunti kutoka kwenye <ph name="LINK_TEXT" /> yako</translation>
 <translation id="8749863574775030885">Fikia vifaa vya USB kutoka kwa mchuuzi asiyejulikana</translation>
 <translation id="8754200782896249056">&lt;p&gt;Unapotekeleza <ph name="PRODUCT_NAME" /> chini ya mazingira ya eneo-kazi yanayotumika, mipangilio ya mfumo ya proksi itatumiwa. Hata hivyo, huenda mfumo wako hautumiki au kulikuwa na tatizo wakati wa kufungua usanidi wako wa mfumo.&lt;/p&gt;
 
@@ -5571,6 +5593,7 @@ Inakokotoa muda wa kujaa</translation>
 <translation id="8933960630081805351">Onye&amp;sha katika Kipataji</translation>
 <translation id="8934732568177537184">Endelea</translation>
 <translation id="8938356204940892126">Ninasalimu amri</translation>
+<translation id="8938800817013097409">Kifaa cha USB-C (mlango wa kulia nyuma)</translation>
 <translation id="8940081510938872932">Kompyuta yako inafanya vitu vingi sana kwa wakati huu. Jaribu tena baadaye.</translation>
 <translation id="8941173171815156065">Batilisha ruhusa '<ph name="PERMISSION" />'</translation>
 <translation id="8941248009481596111">Muunganisho wako kwenye tovuti hii ni wa faragha.</translation>

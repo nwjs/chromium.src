@@ -755,6 +755,13 @@
       Als deze instelling is uitgeschakeld, controleert <ph name="PRODUCT_NAME" /> nooit of dit programma de standaardbrowser is en worden gebruikersopties voor het instellen van de standaardbrowser uitgeschakeld.
 
       Als deze instelling niet is ingeschakeld, kan de gebruiker in <ph name="PRODUCT_NAME" /> bepalen of dit programma de standaardbrowser is, en of er een melding aan de gebruiker moet worden weergegeven wanneer dit niet het geval is.</translation>
+<translation id="3800626789999016379">Hiermee configureer je de directory die <ph name="PRODUCT_NAME" /> gebruikt voor het downloaden van bestanden.
+
+      Als je dit beleid instelt, gebruikt <ph name="PRODUCT_NAME" /> deze directory, ongeacht of de gebruiker een directory heeft gespecificeerd of heeft aangegeven telkens te willen worden gevraagd wat de downloadlocatie moet zijn.
+
+      Ga naar https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables voor een lijst met variabelen die kunnen worden gebruikt.
+
+      Als dit beleid niet wordt ingesteld, wordt de directory voor het downloaden van bestanden gebruikt en kan de gebruiker deze wijzigen.</translation>
 <translation id="3805659594028420438">Extensie TLS-domeingebonden certificaten inschakelen (afgekeurd)</translation>
 <translation id="3806576699227917885">Het afspelen van audio toestaan.
 
@@ -897,6 +904,13 @@
 <translation id="4325690621216251241">Een afmeldknop toevoegen aan de systeembalk</translation>
 <translation id="4337944790873898250">Als dit beleid is ingesteld op 'waar', maximaliseert <ph name="PRODUCT_NAME" /> automatisch het eerste venster dat bij eerste uitvoering wordt weergegeven.
       Als dit beleid is ingesteld op 'onwaar' of niet is geconfigureerd, bepaalt een heuristiek of het eerst weergegeven venster moet worden gemaximaliseerd, op basis van de schermgrootte.</translation>
+<translation id="4349746760316962317">Hiermee configureer je de directory die <ph name="PRODUCT_NAME" /> gebruikt om gecachte bestanden op schijf op te slaan.
+
+      Als je dit beleid instelt, gebruikt <ph name="PRODUCT_NAME" /> de opgegeven directory, ongeacht of de gebruiker de markering '--disk-cache-dir' heeft ingesteld.
+
+      Ga naar https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables voor een lijst met variabelen die kunnen worden gebruikt.
+
+      Als dit beleid niet wordt ingesteld, wordt de standaard cachedirectory gebruikt en kan de gebruiker dit overschrijven met de opdrachtregelmarkering '--disk-cache-dir'.</translation>
 <translation id="436581050240847513">Apparaatnetwerkinterface rapporteren</translation>
 <translation id="4372704773119750918">Zakelijke gebruikers niet toestaan deel uit te maken van multiprofielen (primair of secundair)</translation>
 <translation id="4377599627073874279">Alle sites toestaan afbeeldingen weer te geven</translation>
@@ -980,6 +994,11 @@
 <translation id="4665897631924472251">Instellingen voor extensiebeheer</translation>
 <translation id="4668325077104657568">Standaardinstelling voor afbeeldingen</translation>
 <translation id="467236746355332046">Ondersteunde functies:</translation>
+<translation id="4674167212832291997">Hiermee kun je de lijst aanpassen van URL-patronen die altijd door <ph name="PRODUCT_FRAME_NAME" /> moeten worden verwerkt.
+
+          Als dit beleid niet wordt ingesteld, wordt het standaard weergaveprogramma gebruikt voor alle sites die door het beleid 'ChromeFrameRendererSettings' zijn opgegeven.
+
+          Ga voor voorbeeldpatronen naar https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Een lijst met URL's openen</translation>
 <translation id="4680961954980851756">Automatisch aanvullen inschakelen</translation>
 <translation id="4723829699367336876">Firewallpassage vanaf client voor externe toegang inschakelen</translation>
@@ -1073,6 +1092,13 @@
           Als het instellen van dit beleid ongedaan wordt gemaakt, wordt de standaardactie ondernomen, namelijk opschorten.
 
           Als de actie opschorten is, kan <ph name="PRODUCT_OS_NAME" /> afzonderlijk worden geconfigureerd om het scherm wel of niet te vergrendelen vóór het opschorten.</translation>
+<translation id="5111712393799006197">Hiermee configureer je de directory die <ph name="PRODUCT_NAME" /> gebruikt voor het opslaan van gebruikersgegevens.
+
+      Als je dit beleid instelt, gebruikt <ph name="PRODUCT_NAME" /> deze directory, ongeacht of de gebruiker de markering voor '--user-data-dir' heeft ingesteld.
+
+      Ga naar https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables voor een lijst met variabelen die kunnen worden gebruikt.
+
+      Als dit beleid niet wordt ingesteld, wordt het standaardprofielpad gebruikt en kan de gebruiker dit overschrijven met de opdrachtregelmarkering '--user-data-dir'.</translation>
 <translation id="5141670636904227950">Het standaardtype van vergrootglas instellen dat op het inlogscherm is ingeschakeld</translation>
 <translation id="5142301680741828703">De volgende URL-patronen altijd verwerken in <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Hiermee kun je extra parameters opgeven die worden gebruikt wanneer <ph name="PRODUCT_FRAME_NAME" /> <ph name="PRODUCT_NAME" /> start.
@@ -1274,6 +1300,20 @@
 <translation id="5809728392451418079">De weergavenaam voor lokale accounts van het apparaat instellen</translation>
 <translation id="5814301096961727113">De standaardstatus van gesproken feedback op het inlogscherm instellen</translation>
 <translation id="5815129011704381141">Automatisch opnieuw opstarten na update</translation>
+<translation id="5815353477778354428">Hiermee configureer je de directory die <ph name="PRODUCT_FRAME_NAME" /> gebruikt voor het opslaan van gebruikersgegevens.
+
+      Als je dit beleid instelt, gebruikt <ph name="PRODUCT_FRAME_NAME" /> deze directory.
+
+      Ga naar https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables voor een lijst met variabelen die kunnen worden gebruikt.
+
+      Als deze instelling niet wordt ingesteld, wordt de standaarddirectory voor het profiel gebruikt.</translation>
+<translation id="5819660021114910752">Hiermee specificeer je de tijdzone die voor het apparaat moet worden gebruikt. Gebruikers kunnen de gespecificeerde tijdzone overschrijven voor hun actieve sessie. Bij het uitloggen wordt de tijd echter teruggezet naar de gespecificeerde tijdzone. Als een ongeldige waarde wordt opgegeven, wordt het beleid nog steeds geactiveerd, maar wordt 'GMT' gebruikt. Als je een lege tekenreeks opgeeft, wordt het beleid genegeerd.
+
+      Als dit beleid niet wordt gebruikt, blijft de huidige actieve tijdzone in gebruik. Gebruikers kunnen de tijdzone echter wijzigen en de wijziging is blijvend. Een wijziging door één gebruiker is dus van invloed op het inlogscherm en op alle andere gebruikers.
+
+      Bij nieuwe apparaten is de tijdzone standaard ingesteld op 'US/Pacific'.
+
+      De notatie van de waarde volgt de naamgeving van tijdzones in de IANA Time Zone Database (zie https://en.wikipedia.org/wiki/Tz_database). Je kunt naar veel tijdzones verwijzen met de notatie 'continent/grote_stad' of 'oceaan/grote_stad'.</translation>
 <translation id="5826047473100157858">Geeft aan of de gebruiker pagina's in de incognitomodus mag openen in <ph name="PRODUCT_NAME" />.
 
       Als 'Ingeschakeld' is geselecteerd, mogen pagina's worden geopend in de incognitomodus.
@@ -2048,6 +2088,11 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="8465065632133292531">Parameters voor instant-URL die POST gebruikt</translation>
 <translation id="847472800012384958">Niet toestaan dat sites pop-ups weergeven</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Hiermee kun je de lijst aanpassen van URL-patronen die altijd door de hostbrowser moeten worden verwerkt.
+
+         Als dit beleid niet is ingesteld, wordt het standaard weergaveprogramma gebruikt voor alle sites die door het beleid 'ChromeFrameRendererSettings' zijn gespecificeerd.
+
+          Ga voor voorbeeldpatronen naar https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Opslaan van browsegeschiedenis uitschakelen</translation>
 <translation id="8499172469244085141">Standaardinstellingen (gebruikers kunnen overschrijven)</translation>
 <translation id="8501011084242226370">Een lijst met plug-ins opgeven die de gebruiker kan in- of uitschakelen in <ph name="PRODUCT_NAME" />.

@@ -682,6 +682,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="3780152581321609624">Sertakan port non-standar di SPN Kerberos</translation>
 <translation id="3788662722837364290">Setelan pengelolaan daya saat pengguna sedang menganggur</translation>
 <translation id="3793095274466276777">Mengonfigurasi pemeriksaan browser default di <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubahnya. Jika Anda mengaktifkan setelan ini, <ph name="PRODUCT_NAME" /> akan selalu memeriksa saat permulaan apakah itu browser default dan mendaftar sendiri secara otomatis jika memungkinkan. Jika setelan ini dinonaktifkan, <ph name="PRODUCT_NAME" /> tidak akan memeriksa apakah itu browser default dan akan menonaktifkan kontrol pengguna untuk setelan opsi ini. Jika setelan ini tidak disetel, <ph name="PRODUCT_NAME" /> akan mengizinkan pengguna mengontrol apakah itu browser default dan apakah pemberitahuan pengguna harus ditampilkan ketika tidak muncul.</translation>
+<translation id="3800626789999016379">Mengonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_NAME" /> untuk mengunduh file.
+
+      Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_NAME" /> akan menggunakan direktori yang diberikan terlepas apakah pengguna telah menetapkan satu tanda atau mengaktifkan tanda untuk dimintai lokasi unduhan setiap saat.
+
+      Buka https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables untuk melihat daftar variabel yang dapat digunakan.
+
+      Jika kebijakan ini tidak disetel, direktori unduhan default akan digunakan dan pengguna dapat mengubahnya.</translation>
 <translation id="3805659594028420438">Aktifkan ekstensi sertifikat terikat domain TLS (tidak lagi digunakan)</translation>
 <translation id="3806576699227917885">Mengizinkan pemutaran audio.
 
@@ -799,6 +806,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="4325690621216251241">Tambahkan tombol keluar di baki sistem</translation>
 <translation id="4337944790873898250">Jika kebijakan ini disetel ke True, <ph name="PRODUCT_NAME" /> akan memaksimalkan jendela pertama yang ditampilkan pada percobaan pertama tanpa syarat.
       Jika kebijakan ini disetel ke False atau tidak dikonfigurasi, heuristik akan menentukan untuk memaksimalkan jendela pertama yang ditampilkan atau tidak, berdasarkan ukuran layar.</translation>
+<translation id="4349746760316962317">Mengonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_NAME" /> untuk menyimpan file cache di disk.
+
+      Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_NAME" /> akan menggunakan direktori yang diberikan terlepas apakah pengguna telah menetapkan tanda '--disk-cache-dir' atau tidak.
+
+      Buka https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables untuk melihat daftar variabel yang dapat digunakan.
+
+      Jika kebijakan ini tidak disetel, direktori cache default akan digunakan dan pengguna dapat menggantinya dengan tanda baris perintah '--disk-cache-dir'.</translation>
 <translation id="436581050240847513">Melaporkan antarmuka jaringan perangkat</translation>
 <translation id="4372704773119750918">Jangan izinkan pengguna perusahaan untuk menjadi bagian dari multiprofil (primer atau sekunder)</translation>
 <translation id="4377599627073874279">Izinkan semua situs menampilkan semua gambar</translation>
@@ -864,6 +878,11 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="4665897631924472251">Setelan pengelolaan ekstensi</translation>
 <translation id="4668325077104657568">Setelan gambar default</translation>
 <translation id="467236746355332046">Fitur yang didukung:</translation>
+<translation id="4674167212832291997">Menyesuaikan daftar pola URL yang harus selalu dirender oleh <ph name="PRODUCT_FRAME_NAME" />.
+
+          Jika kebijakan ini tidak disetel, perender default akan digunakan untuk semua situs yang telah ditetapkan oleh kebijakan 'ChromeFrameRendererSettings'.
+
+          Untuk melihat contoh pola, buka https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Buka daftar URL</translation>
 <translation id="4680961954980851756">Aktifkan IsiOtomatis</translation>
 <translation id="4723829699367336876">Mengaktifkan firewall traversal dari klien akses jarak jauh</translation>
@@ -951,6 +970,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Saat kebijakan tidak disetel, tindakan default diambil, yaitu yang ditangguhkan
 
           Jika tindakan ditangguhkan, <ph name="PRODUCT_OS_NAME" /> dapat dikonfigurasikan secara terpisah baik layar terkunci atau pun tidak sebelum penangguhan.</translation>
+<translation id="5111712393799006197">Mengonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_NAME" /> untuk menyimpan data pengguna.
+
+      Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_NAME" /> akan menggunakan direktori yang diberikan terlepas apakah pengguna telah menetapkan tanda '--user-data-dir' atau tidak.
+
+      Buka http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables untuk melihat daftar variabel yang dapat digunakan.
+
+      Jika kebijakan ini tidak disetel, jalur profil default akan digunakan dan pengguna akan dapat menggantinya dengan tanda baris perintah '--user-data-dir'.</translation>
 <translation id="5141670636904227950">Menyetel jenis lup default yang diaktifkan di layar masuk</translation>
 <translation id="5142301680741828703">Selalu mengurai pola URL berikut di <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Memungkinkan Anda menentukan parameter tambahan yang digunakan saat <ph name="PRODUCT_FRAME_NAME" /> meluncurkan <ph name="PRODUCT_NAME" />.
@@ -1129,6 +1155,20 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="5809728392451418079">Setel nama tampilan untuk akun lokal perangkat</translation>
 <translation id="5814301096961727113">Menyetel status default masukan yang diucapkan di layar masuk</translation>
 <translation id="5815129011704381141">Booting ulang otomatis setelah pembaruan</translation>
+<translation id="5815353477778354428">Mengonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_FRAME_NAME" /> untuk menyimpan data pengguna.
+
+      Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_FRAME_NAME" /> akan menggunakan direktori yang diberikan.
+
+      Buka http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables untuk melihat daftar variabel yang dapat digunakan.
+
+      Jika setelan ini tidak disetel, direktori profil default akan digunakan.</translation>
+<translation id="5819660021114910752">Menetapkan zona waktu yang akan digunakan pada perangkat. Pengguna dapat mengganti zona waktu yang ditetapkan untuk sesi saat ini. Akan tetapi, hal ini akan disetel kembali ke zona waktu yang ditetapkan saat pengguna keluar. Jika pengguna memberikan nilai yang tidak valid, kebijakan akan tetap diaktifkan menggunakan "GMT". Jika pengguna memberikan string kosong, kebijakan ini akan diabaikan.
+
+      Jika kebijakan ini tidak digunakan, zona waktu yang saat ini aktif akan tetap digunakan, tapi pengguna dapat mengubah zona waktu dan perubahan ini bersifat tetap. Oleh karena itu, perubahan dari seorang pengguna akan memengaruhi layar masuk dan semua pengguna lain.
+
+      Perangkat baru akan dimulai dengan zona waktu yang disetel ke "AS/Pasifik".
+
+      Format nilai akan mengikuti nama zona waktu dalam "Basis Data Zona Waktu IANA" (lihat "https://en.wikipedia.org/wiki/Tz_database"). Secara khusus, sebagian besar zona waktu dapat dirujuk menurut "continent/large_city" atau "ocean/large_city".</translation>
 <translation id="5826047473100157858">Menentukan apakah pengguna dapat membuka laman dalam mode Penyamaran di <ph name="PRODUCT_NAME" />. Jika 'Aktifkan' dipilih atau kebijakan dibiarkan tidak disetel, laman dapat dibuka dalam mode Penyamaran. Jika 'Nonaktifkan' dipilih, laman tidak dapat dibuka dalam mode Penyamaran. Jika 'Paksa' dipilih, laman dapat dibuka HANYA dalam mode Penyamaran.</translation>
 <translation id="5836064773277134605">Batasi jangkauan port UDP yang digunakan oleh hosting akses jarak jauh</translation>
 <translation id="5845159892130426052">Mengaktifkan API ShowModalDialog sampai 30.04.2015</translation>
@@ -1811,6 +1851,11 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="8465065632133292531">Parameter untuk URL instan yang menggunakan POST</translation>
 <translation id="847472800012384958">Jangan izinkan situs mana pun menampilkan munculan</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Menyesuaikan daftar pola URL yang harus selalu dirender oleh browser host.
+
+          Jika kebijakan ini tidak disetel, perender default akan digunakan untuk semua situs yang telah ditetapkan oleh kebijakan 'ChromeFrameRendererSettings'.
+
+          Untuk melihat contoh pola, buka https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Menonaktifkan penyimpanan riwayat browser</translation>
 <translation id="8499172469244085141">Setelan Default (pengguna dapat menggantinya)</translation>
 <translation id="8501011084242226370">Menentukan daftar plugin yang dapat diaktifkan atau dinonaktifkan oleh pengguna di <ph name="PRODUCT_NAME" />.

@@ -664,6 +664,13 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="3780152581321609624">Incluir porta não padrão no SPN Kerberos</translation>
 <translation id="3788662722837364290">Configurações de gerenciamento de energia quando o usuário se torna inativo</translation>
 <translation id="3793095274466276777">Configura as verificações do navegador padrão no <ph name="PRODUCT_NAME" /> e impede que os usuários as modifiquem. Se você ativar essa configuração, o <ph name="PRODUCT_NAME" /> sempre verificará, na inicialização, se ele é o navegador padrão e automaticamente se registrará, se possível. Se essa configuração for desativada, o <ph name="PRODUCT_NAME" /> nunca verificará se ele é o navegador padrão e desativará controles do usuário para configurar essa opção. Se essa configuração não for definida, o <ph name="PRODUCT_NAME" /> permitirá ao usuário controlar se ele é o navegador padrão e se as notificações do usuário devem ser exibidas quando não forem exibidas.</translation>
+<translation id="3800626789999016379">Configura o diretório que o <ph name="PRODUCT_NAME" /> usará para fazer o download de arquivos.
+
+      Se você definir esta política, o <ph name="PRODUCT_NAME" /> usará o diretório fornecido, independentemente de o usuário ter especificado um ou ter definido que a sinalização deve ser sempre solicitada para o local do download.
+
+      Consulte https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables (link em inglês) para ver uma lista de variáveis que podem ser usadas. 
+
+      Se esta política não for definida, será usado o diretório de download padrão, e o usuário poderá alterá-lo.</translation>
 <translation id="3805659594028420438">Ativar extensão dos certificados vinculados ao domínio TLS (obsoleto)</translation>
 <translation id="3806576699227917885">Permite a reprodução de áudio.
 
@@ -781,6 +788,13 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="4325690621216251241">Adicionar um botão de logout à bandeja do sistema</translation>
 <translation id="4337944790873898250">Se esta política é definida como "true", o <ph name="PRODUCT_NAME" /> maximiza incondicionalmente a primeira janela mostrada na primeira execução.
       Se a política é definida como "false" ou não é configurada, uma heurística decide se haverá maximização da primeira janela exibida, com base no tamanho da tela.</translation>
+<translation id="4349746760316962317">Configura o diretório que o <ph name="PRODUCT_NAME" /> usará para armazenar arquivos em cache no disco.
+
+      Se você definir esta política, o <ph name="PRODUCT_NAME" /> usará o diretório fornecido, independentemente de o usuário ter especificado a sinalização "--disk-cache-dir" ou não.
+
+      Consulte https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables (link em inglês) para ver uma lista de variáveis que podem ser usadas.
+
+      Se esta política não for definida, será usado o diretório de cache padrão, e o usuário será capaz de substituí-lo com a sinalização de linha de comando "--disk-cache-dir".</translation>
 <translation id="436581050240847513">Relatar interfaces de redes de dispositivos</translation>
 <translation id="4372704773119750918">Não permitir que o usuário corporativo faça parte de diversos perfis (primários ou secundários)</translation>
 <translation id="4377599627073874279">Permitir que todos os sites exibam todas as imagens</translation>
@@ -846,6 +860,11 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="4665897631924472251">Configurações de gerenciamento de extensão</translation>
 <translation id="4668325077104657568">Configuração de imagens padrão</translation>
 <translation id="467236746355332046">Recursos compatíveis:</translation>
+<translation id="4674167212832291997">Personaliza a lista de padrões de URL que devem ser sempre renderizados por <ph name="PRODUCT_FRAME_NAME" />.
+
+          Se esta política não for definida, o renderizador padrão será utilizado para todos os sites conforme especificado pela política "ChromeFrameRendererSettings".
+
+          Para ver exemplos de padrões, consulte http://www.chromium.org/developers/how-tos/chrome-frame-getting-started (link em inglês).</translation>
 <translation id="467449052039111439">Abrir uma lista de URLs</translation>
 <translation id="4680961954980851756">Ativar Preenchimento automático</translation>
 <translation id="4723829699367336876">Habilitar passagem de firewall a partir do cliente de acesso remoto</translation>
@@ -930,6 +949,13 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
           Quando esta política não está definida, é executada a ação padrão, que é a suspensão.
 
           Se ação for suspensa, o <ph name="PRODUCT_OS_NAME" /> pode ser configurado separadamente para bloquear ou não a tela antes da suspensão.</translation>
+<translation id="5111712393799006197">Configura o diretório que o <ph name="PRODUCT_NAME" /> usará para armazenar dados do usuário.
+
+      Se você definir esta política, o <ph name="PRODUCT_NAME" /> usará o diretório fornecido, independentemente de o usuário ter ou não especificado a sinalização "--user-data-dir".
+
+      Consulte http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables (link em inglês) para ver uma lista de variáveis que podem ser usadas.
+
+      Se esta política não for definida, será usado o caminho padrão do perfil, e o usuário poderá substituí-lo pela sinalização de linha de comando "--user-data-dir".</translation>
 <translation id="5141670636904227950">Definir o tipo de lupa padrão ativada na tela de login</translation>
 <translation id="5142301680741828703">Sempre renderizar os seguintes padrões de URL no <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Permite especificar os parâmetros adicionais que são usados quando o <ph name="PRODUCT_FRAME_NAME" /> inicia o <ph name="PRODUCT_NAME" />. Se essa política não for configurada, será usada a linha de comando padrão.</translation>
@@ -1102,6 +1128,20 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="5809728392451418079">Definir o nome de exibição das contas locais de dispositivo</translation>
 <translation id="5814301096961727113">Definir estado padrão do feedback falado na tela de login</translation>
 <translation id="5815129011704381141">Reinicializar automaticamente após a atualização</translation>
+<translation id="5815353477778354428">Configura o diretório que o <ph name="PRODUCT_FRAME_NAME" /> usará para armazenar dados do usuário.
+
+      Se você definir esta política, o <ph name="PRODUCT_FRAME_NAME" /> usará o diretório fornecido.
+
+      Consulte http://www.chromium.org/administrators/policy-list-3/user-data-directory-variables (link em inglês) para ver uma lista de variáveis que podem ser usadas.
+
+      Se a política não for definida, será usado o diretório padrão do perfil.</translation>
+<translation id="5819660021114910752">Especifica o fuso horário a ser utilizado no dispositivo. Os usuários podem substituir o fuso horário especificado para a sessão atual. No entanto, quando o usuário sai, o fuso horário especificado é restaurado. Se um valor inválido for fornecido, a política ainda será ativada usando "GMT". Se uma string vazia for fornecida, a política será ignorada.
+
+      Se esta política não for usada, o fuso horário ativo no momento permanecerá em uso. No entanto, os usuários podem alterar o fuso horário, e a alteração é permanente. Assim, uma alteração feita por um usuário afeta a tela de login e todos os outros usuários.
+
+      Novos dispositivos são iniciados com o fuso horário definido como "EUA/Pacífico".
+
+      O formato do valor segue os nomes dos fusos horários do "IANA Time Zone Database" (consulte "https://en.wikipedia.org/wiki/Tz_database" - link em inglês). Em particular, a maioria dos fusos horários pode ser referida como "continente/cidade_grande" ou "oceano/cidade_grande".</translation>
 <translation id="5826047473100157858">Especifica se o usuário pode abrir páginas no Modo de navegação anônima em <ph name="PRODUCT_NAME" />. Se a opção "Ativado" for selecionada ou a política for deixada sem configuração, as páginas podem ser abertas no Modo de navegação anônima. Se a opção "Destivado" for selecionada, as páginas não poderão ser abertas no Modo de navegação anônima. Se a opção "Forçado" for selecionada, as páginas podem ser abertas somente no Modo de navegação anônima.</translation>
 <translation id="5836064773277134605">Restringir o intervalo de portas UDP usado pelo host de acesso remoto</translation>
 <translation id="5845159892130426052">Ativar a API ShowModalDialog por 2015.04.30</translation>
@@ -1778,6 +1818,11 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="8465065632133292531">Parâmetros para URL de instantâneos que usa POST</translation>
 <translation id="847472800012384958">Não permite que nenhum site exiba pop-ups</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Personaliza a lista de padrões de URL que deve sempre ser processada pelo navegador do host.
+
+          Se esta política não estiver definida, o renderizador padrão será usado para todos os sites, conforme especificado pela política "ChromeFrameRendererSettings".
+
+          Para ver exemplos de padrões, acesse http://www.chromium.org/developers/how-tos/chrome-frame-getting-started (link em inglês).</translation>
 <translation id="8493645415242333585">Desativar o salvamento do histórico do navegador</translation>
 <translation id="8499172469244085141">Configurações padrão (podem ser substituídas pelos usuários)</translation>
 <translation id="8501011084242226370">Especifica uma lista de plug-ins que o usuário pode ativar ou desativar no <ph name="PRODUCT_NAME" />.

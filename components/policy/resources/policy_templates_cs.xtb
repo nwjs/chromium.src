@@ -732,6 +732,13 @@ Pokud je toto nastavení ponecháno nenakonfigurované, nebudou ohledně přijat
       Pokud je toto nastavení deaktivováno, <ph name="PRODUCT_NAME" /> nebude kontrolovat, zda je výchozím prohlížečem, a deaktivuje uživatelské ovládací prvky pro nastavení této možnosti.
 
       Pokud toto nastavení není nakonfigurováno, může uživatel v prohlížeči <ph name="PRODUCT_NAME" /> určit, zda jej chce nastavit jako výchozí prohlížeč a zda se má zobrazit oznámení v případě, že jím není.</translation>
+<translation id="3800626789999016379">Slouží ke konfiguraci adresáře, do kterého bude prohlížeč <ph name="PRODUCT_NAME" /> stahovat soubory.
+
+      Pokud tuto zásadu nastavíte, použije <ph name="PRODUCT_NAME" /> zadaný adresář i v případě, že uživatel zadal jiný adresář nebo zvolil, že chce pokaždé zobrazit výzvu k zadání umístění stahovaného souboru.
+
+      Seznam proměnných, které můžete použít, naleznete na stránce https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Pokud tato zásada není nastavena, bude se používat výchozí adresář pro stažené soubory a uživatel jej bude moci změnit.</translation>
 <translation id="3805659594028420438">Povolit rozšíření certifikátů TLS vázaných na doménu (zastaralé)</translation>
 <translation id="3806576699227917885">Umožňuje přehrávat zvuky.
 
@@ -871,6 +878,13 @@ Tato zásada je určena k internímu použití prohlížečem <ph name="PRODUCT_
 <translation id="4325690621216251241">Přidat na hlavní panel systému tlačítko pro odhlášení</translation>
 <translation id="4337944790873898250">Pokud je tato zásada nastavena na hodnotu True, <ph name="PRODUCT_NAME" /> po prvním spuštění bezpodmínečně maximalizuje první zobrazené okno.
 Pokud je nastavena na hodnotu False nebo není nakonfigurována, o maximalizaci prvního zobrazeného okna bude rozhodnuto na základě heuristických pravidel.</translation>
+<translation id="4349746760316962317">Slouží ke konfiguraci adresáře, který bude <ph name="PRODUCT_NAME" /> používat k ukládání souborů do mezipaměti na disku.
+
+      Pokud tuto zásadu nastavíte, <ph name="PRODUCT_NAME" /> bude používat stanovený adresář bez ohledu na to, zda uživatel zadal příznak „--disk-cache-dir“.
+
+      Seznam proměnných, které můžete použít, naleznete na stránce https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Pokud tuto zásadu nenastavíte, bude použit výchozí adresář mezipaměti a uživatel jej bude moci přepsat pomocí příznaku příkazového řádku „--disk-cache-dir“.</translation>
 <translation id="436581050240847513">Odesílat informace o síťových rozhraních zařízení</translation>
 <translation id="4372704773119750918">Nepovolí podnikovým uživatelům být součástí multiprofilu (primárního či sekundárního)</translation>
 <translation id="4377599627073874279">Povolit všem webům zobrazování všech obrázků</translation>
@@ -954,6 +968,11 @@ Samotná zásada je na výše uvedených platformách podporována. Funkce, kter
 <translation id="4665897631924472251">Nastavení správy rozšíření</translation>
 <translation id="4668325077104657568">Výchozí nastavení obrázků</translation>
 <translation id="467236746355332046">Podporované funkce:</translation>
+<translation id="4674167212832291997">Umožňuje personalizovat seznam vzorů adres URL, které by měl vždy vykreslit plugin <ph name="PRODUCT_FRAME_NAME" />.
+
+          Pokud tato zásada není nastavena, použije se pro všechny weby výchozí modul vykreslení určený zásadou ChromeFrameRendererSettings.
+
+          Ukázkové vzory naleznete na stránce https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Otevřít seznam adres URL</translation>
 <translation id="4680961954980851756">Aktivovat Automatické vyplňování</translation>
 <translation id="4723829699367336876">Povolení přechodu přes bránu firewall z klienta vzdáleného připojení</translation>
@@ -1047,6 +1066,13 @@ Tato zásada ovlivňuje kromě integrované webové kamery i všechny ostatní v
           Není-li tato zásada nastavena, bude provedena výchozí akce (přechod do režimu spánku).
 
           Pokud je zvolenou akcí přechod do režimu spánku, můžete zvlášť nastavit, zda má systém <ph name="PRODUCT_OS_NAME" /> před přechodem do tohoto režimu uzamknout obrazovku, nebo ne.</translation>
+<translation id="5111712393799006197">Slouží ke konfiguraci adresáře, do kterého bude <ph name="PRODUCT_NAME" /> ukládat uživatelská data.
+
+      Pokud tuto zásadu nastavíte, <ph name="PRODUCT_NAME" /> bude používat stanovený adresář bez ohledu na to, zda uživatel zadal příznak „--user-data-dir“.
+
+      Seznam proměnných, které můžete použít, naleznete na stránce https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+      Pokud zásadu nenastavíte, použije se výchozí cesta profilu a uživatelé ji budou moci přepsat pomocí příznaku příkazového řádku „--user-data-dir“.</translation>
 <translation id="5141670636904227950">Nastavení výchozího typu lupy, který je aktivován na přihlašovací obrazovce</translation>
 <translation id="5142301680741828703">Následující vzory adres URL vykreslovat vždy v pluginu <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Umožňuje nastavit dodatečné parametry, které plugin <ph name="PRODUCT_FRAME_NAME" /> při spouštění aplikace <ph name="PRODUCT_NAME" /> použije.
@@ -1248,6 +1274,20 @@ Pokud tato zásada není nastavena nebo je nastavena na hodnotu false, prohlíž
 <translation id="5809728392451418079">Nastavit viditelný název pro místní účty v zařízení</translation>
 <translation id="5814301096961727113">Nastavení výchozího stavu hlasové odezvy na přihlašovací obrazovce</translation>
 <translation id="5815129011704381141">Automaticky restartovat po aktualizaci</translation>
+<translation id="5815353477778354428">Slouží ke konfiguraci adresáře, do kterého bude <ph name="PRODUCT_FRAME_NAME" /> ukládat uživatelská data.
+
+      Pokud tuto zásadu nastavíte, bude <ph name="PRODUCT_FRAME_NAME" /> používat zadaný adresář.
+
+      Seznam proměnných, které můžete použít, naleznete na stránce https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
+
+          Pokud tuto zásadu ponecháte nenastavenou, použije se výchozí adresář.</translation>
+<translation id="5819660021114910752">Udává časové pásmo, která se má pro zařízení použít. Uživatelé mohou zadané časové pásmo pro aktuální relaci přepsat. Při odhlášení se však nastaví zpět na zadané časové pásmo. Pokud zadáte neplatnou hodnotu, bude zásada aktivována s použitím hodnoty „GMT“. Pokud zadáte prázdný řetězec, bude tato zásada ignorována.
+
+      Pokud tato zásada není použita, bude i nadále používáno časové pásmo, které je aktuálně aktivní, ale uživatelé časové pásmo budou moci změnit a změna bude trvalá. Změna provedená jedním uživatelem tak bude mít dopad na přihlašovací obrazovku i na všechny ostatní uživatele.
+
+      V nových zařízeních je časové pásmo nastaveno na americký tichomořský čas („US/Pacific“).
+
+      Formát hodnot odpovídá názvům časových pásem v databázi IANA Time Zone Database (viz https://en.wikipedia.org/wiki/Tz_database). Název většiny časových pásem má tvar kontinent/velké_město nebo oceán/velké_město.</translation>
 <translation id="5826047473100157858">Určuje, zda uživatel může v aplikaci <ph name="PRODUCT_NAME" /> otevřít stránky v anonymním režimu. 
 
      Je-li zvolena možnost Povoleno, stránky lze otevřít v anonymním režimu.
@@ -2010,6 +2050,11 @@ Pokud nezadáte žádné nastavení, bude služba Negotiate Authentication v sys
 <translation id="8465065632133292531">Parametry pro adresu URL dynamického vyhledávání používající metodu POST</translation>
 <translation id="847472800012384958">Nepovolit zobrazení vyskakovacích oken žádným webovým stránkám</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
+<translation id="8484458986062090479">Umožňuje personalizovat seznam vzorů adres URL, které by měl vždy vykreslit hostitelský prohlížeč.
+
+          Pokud tato zásada není nastavena, použije se pro všechny weby výchozí modul vykreslení určený zásadou ChromeFrameRendererSettings.
+
+          Ukázkové vzory naleznete na stránce https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8493645415242333585">Deaktivovat ukládání historie prohlížeče</translation>
 <translation id="8499172469244085141">Výchozí nastavení (uživatelé mohou zásady přepsat)</translation>
 <translation id="8501011084242226370">Určuje seznam pluginů, které uživatel v <ph name="PRODUCT_NAME" /> může povolit nebo zakázat.
