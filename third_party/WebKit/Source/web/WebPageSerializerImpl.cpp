@@ -453,9 +453,9 @@ WebPageSerializerImpl::WebPageSerializerImpl(WebFrame* frame,
 bool WebPageSerializerImpl::serialize()
 {
     bool didSerialization = false;
-    KURL mainURL = m_specifiedWebLocalFrameImpl->frame()->document()->url();
 
     WebLocalFrameImpl* webFrame = m_specifiedWebLocalFrameImpl;
+    bool isMainFrame = webFrame->frame()->isMainFrame();
     Document* document = webFrame->frame()->document();
     const KURL& url = document->url();
 
@@ -463,7 +463,7 @@ bool WebPageSerializerImpl::serialize()
         didSerialization = true;
 
         const WTF::TextEncoding& textEncoding = document->encoding().isValid() ? document->encoding() : UTF8Encoding();
-        String directoryName = url == mainURL ? m_localDirectoryName : "";
+        String directoryName = isMainFrame ? m_localDirectoryName : "";
 
         SerializeDomParam param(url, textEncoding, document, directoryName);
 
