@@ -259,11 +259,10 @@ bool InitializeAccessibilityTreeSearch(
   NSDictionary* dictionary = parameter;
 
   id startElementParameter = [dictionary objectForKey:@"AXStartElement"];
-  BrowserAccessibility* startNode = nullptr;
   if ([startElementParameter isKindOfClass:[BrowserAccessibilityCocoa class]]) {
     BrowserAccessibilityCocoa* startNodeCocoa =
         (BrowserAccessibilityCocoa*)startElementParameter;
-    startNode = [startNodeCocoa browserAccessibility];
+    search->SetStartNode([startNodeCocoa browserAccessibility]);
   }
 
   bool immediateDescendantsOnly = false;
@@ -297,7 +296,6 @@ bool InitializeAccessibilityTreeSearch(
   if ([searchTextParameter isKindOfClass:[NSString class]])
     searchText = base::SysNSStringToUTF8(searchTextParameter);
 
-  search->SetStartNode(startNode);
   search->SetDirection(direction);
   search->SetImmediateDescendantsOnly(immediateDescendantsOnly);
   search->SetVisibleOnly(visibleOnly);
@@ -1511,14 +1509,14 @@ bool InitializeAccessibilityTreeSearch(
     return [NSValue valueWithRect:nsrect];
   }
   if ([attribute isEqualToString:@"AXUIElementCountForSearchPredicate"]) {
-    OneShotAccessibilityTreeSearch search(browserAccessibility_->manager());
+    OneShotAccessibilityTreeSearch search(browserAccessibility_);
     if (InitializeAccessibilityTreeSearch(&search, parameter))
       return [NSNumber numberWithInt:search.CountMatches()];
     return nil;
   }
 
   if ([attribute isEqualToString:@"AXUIElementsForSearchPredicate"]) {
-    OneShotAccessibilityTreeSearch search(browserAccessibility_->manager());
+    OneShotAccessibilityTreeSearch search(browserAccessibility_);
     if (InitializeAccessibilityTreeSearch(&search, parameter)) {
       size_t count = search.CountMatches();
       NSMutableArray* result = [NSMutableArray arrayWithCapacity:count];
