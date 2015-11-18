@@ -12,30 +12,17 @@ LoginInterstitialDelegate::LoginInterstitialDelegate(
     content::WebContents* web_contents,
     const GURL& request_url,
     base::Closure& callback)
-    : callback_(callback),
-      interstitial_page_(content::InterstitialPage::Create(web_contents,
-                                                           true,
-                                                           request_url,
-                                                           this)),
-      weak_ptr_factory_(this) {
-  // When shown, interstitial page takes ownership of |this|.
-  interstitial_page_->Show();
+    : callback_(callback) {
+  // The interstitial page owns us.
+  content::InterstitialPage* interstitial_page =
+      content::InterstitialPage::Create(web_contents,
+                                        true,
+                                        request_url,
+                                        this);
+  interstitial_page->Show();
 }
 
 LoginInterstitialDelegate::~LoginInterstitialDelegate() {
-}
-
-void LoginInterstitialDelegate::Proceed() {
-  interstitial_page_->Proceed();
-}
-
-void LoginInterstitialDelegate::DontProceed() {
-  interstitial_page_->DontProceed();
-}
-
-base::WeakPtr<LoginInterstitialDelegate>
-LoginInterstitialDelegate::GetWeakPtr() {
-  return weak_ptr_factory_.GetWeakPtr();
 }
 
 void LoginInterstitialDelegate::CommandReceived(const std::string& command) {

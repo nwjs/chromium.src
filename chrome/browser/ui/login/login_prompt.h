@@ -8,14 +8,12 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/memory/weak_ptr.h"
 #include "base/synchronization/lock.h"
 #include "components/password_manager/core/browser/password_manager.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/resource_dispatcher_host_login_delegate.h"
 
 class GURL;
-class LoginInterstitialDelegate;
 
 namespace content {
 class RenderViewHostDelegate;
@@ -61,11 +59,6 @@ class LoginHandler : public content::ResourceDispatcherHostLoginDelegate,
   // CreateLoginPrompt() which creates tasks.
   static LoginHandler* Create(net::AuthChallengeInfo* auth_info,
                               net::URLRequest* request);
-
-  void SetInterstitialDelegate(
-      const base::WeakPtr<LoginInterstitialDelegate> delegate) {
-    interstitial_delegate_ = delegate;
-  }
 
   // ResourceDispatcherHostLoginDelegate implementation:
   void OnRequestCancelled() override;
@@ -191,8 +184,6 @@ class LoginHandler : public content::ResourceDispatcherHostLoginDelegate,
   // Observes other login handlers so this login handler can respond.
   // This is only accessed on the UI thread.
   scoped_ptr<content::NotificationRegistrar> registrar_;
-
-  base::WeakPtr<LoginInterstitialDelegate> interstitial_delegate_;
 };
 
 // Details to provide the content::NotificationObserver.  Used by the automation
