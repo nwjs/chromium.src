@@ -48,7 +48,7 @@
     # through GYP_DEFINES.
     'variables': {
       # Enables the Oilpan garbage-collection infrastructure.
-      'enable_oilpan%': 0,
+      'enable_oilpan%': 1,
       'detailed_memory_infra%': 0,
       'blink_logging_always_on%': 0,
       'link_core_modules_separately%': 1,
