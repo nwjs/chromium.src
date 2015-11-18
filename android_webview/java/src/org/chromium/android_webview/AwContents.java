@@ -105,7 +105,7 @@ public class AwContents implements SmartClipProvider,
     private static final float ZOOM_CONTROLS_EPSILON = 0.007f;
 
     private static final boolean FORCE_AUXILIARY_BITMAP_RENDERING =
-            "goldfish".equals(Build.HARDWARE);
+            "goldfish".equals(Build.HARDWARE) || "ranchu".equals(Build.HARDWARE);
 
     // Matches kEnablePageVisibility.
     private static final String ENABLE_PAGE_VISIBILITY = "enable-page-visibility";
