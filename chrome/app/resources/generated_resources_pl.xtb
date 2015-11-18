@@ -855,7 +855,7 @@
 <translation id="2231990265377706070">Wykrzyknik</translation>
 <translation id="2232876851878324699">Plik zawierał jeden certyfikat, który nie został zaimportowany:</translation>
 <translation id="2233502537820838181">&amp;Więcej informacji</translation>
-<translation id="2233587473672843170">Pokaż popularne witryny na stronie Nowa karta</translation>
+<translation id="2233587473672843170">Pokazuj popularne witryny na stronie Nowa karta</translation>
 <translation id="223714078860837942">Jeśli strona nie ma określonych zasad dotyczących strony odsyłającej, ustawienie tej flagi spowoduje zmniejszenie ilości informacji zawartych w nagłówku „odnośnika” w przypadku żądań z innych witryn.</translation>
 <translation id="2238379619048995541">Dane o stanie częstotliwości</translation>
 <translation id="2239921694246509981">Dodaj nadzorowaną osobę</translation>
@@ -3964,7 +3964,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6575251558004911012">Pytaj, gdy strona żąda dostępu do kamery (zalecane)</translation>
 <translation id="6581162200855843583">Link Dysku Google</translation>
 <translation id="6583070985841601920">Zalogowany jako <ph name="USER_EMAIL_ADDRESS" />. Administrator wyłączył synchronizację.</translation>
-<translation id="65832705307647870">Umieszcza popularne witryny na stronie Nowa karta.</translation>
+<translation id="65832705307647870">Wyświetla popularne witryny na stronie Nowa karta.</translation>
 <translation id="6584878029876017575">Podpisywanie dożywotnie firmy Microsoft</translation>
 <translation id="6585234750898046415">Wybierz zdjęcie do Twojego konta, które pojawi się na ekranie logowania.</translation>
 <translation id="6585283250473596934">Uruchamianie sesji publicznej.</translation>
@@ -5066,7 +5066,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8190193592390505034">Łączenie z siecią <ph name="PROVIDER_NAME" /></translation>
 <translation id="8191230140820435481">Zarządzanie Twoimi aplikacjami, rozszerzeniami i motywami</translation>
 <translation id="8191453843330043793">Program do rozpoznawania serwera proxy V8</translation>
-<translation id="8199491812735365610">Wybierz konto, na które się zalogujesz</translation>
+<translation id="8199491812735365610">Wybierz konto, na które chcesz się zalogować</translation>
 <translation id="8200772114523450471">Wznów</translation>
 <translation id="8202160505685531999">Wpisz hasło ponownie, by zaktualizować swój profil na urządzeniu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="8204086856545141093">Żądania do serwera zostały zablokowane przez zasadę.</translation>

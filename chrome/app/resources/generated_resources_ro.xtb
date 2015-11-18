@@ -331,7 +331,7 @@
 <translation id="1468038450257740950">WebGL nu este acceptat.</translation>
 <translation id="1470719357688513792">Noile setări pentru cookie-uri se vor aplica după reîncărcarea paginii.</translation>
 <translation id="14720830734893704">Activați compatibilitatea cu tastatura virtuală.</translation>
-<translation id="1474079335130556426">Activează modul fundal pentru API-ul Push. Astfel, Chrome rulează în continuare după ce ultima fereastră este închisă și se lansează la pornirea sistemului de operare, daca API-ul Push o solicită.</translation>
+<translation id="1474079335130556426">Activează modul fundal pentru API-ul Push. Astfel, Chrome rulează în continuare după ce ultima fereastră este închisă și se lansează la pornirea sistemului de operare, dacă API-ul Push o solicită.</translation>
 <translation id="1474339897586437869">„<ph name="FILENAME" />” nu s-a încărcat. Nu există spațiu liber suficient în Google Drive.</translation>
 <translation id="1476503841242751994">{COUNT,plural, =1{O parolă}few{# parole}other{# de parole}}</translation>
 <translation id="1476949146811612304">Setați ce motor de căutare este utilizat atunci când se caută din <ph name="BEGIN_LINK" />caseta polivalentă<ph name="END_LINK" />.</translation>

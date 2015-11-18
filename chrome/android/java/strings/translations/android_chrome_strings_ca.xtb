@@ -393,7 +393,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="666268767214822976">Utilitza un servei de predicció per mostrar consultes relacionades i llocs web populars mentre escriviu a la barra d'adreces</translation>
 <translation id="666981079809192359">Avís de privadesa de Chrome</translation>
 <translation id="6671495933530132209">Copia la imatge</translation>
-<translation id="668087818636876709">Voleu suprimir <ph name="PAGES_NUMBER" /> pàgines que vau desar fa més d'un mes? Si ho feu, tindreu <ph name="TOTAL_PAGE_SIZE" /> d'espai lliure.</translation>
+<translation id="668087818636876709">Voleu suprimir <ph name="PAGES_NUMBER" /> pàgines desades de fa més d'un mes? Si ho feu, alliberareu <ph name="TOTAL_PAGE_SIZE" /> d'espai.</translation>
 <translation id="6697251040310467641">Pàgina desada sense connexió</translation>
 <translation id="6698801883190606802">Gestioneu les dades sincronitzades</translation>
 <translation id="6699351163704950317">Totes les pàgines desades</translation>

@@ -26,7 +26,7 @@
 <translation id="1549470594296187301">您必須啟用 JavaScript 才能使用這項功能。</translation>
 <translation id="1559572115229829303">&lt;p&gt;您裝置的日期和時間 (<ph name="DATE_AND_TIME" />) 不正確，因此無法與 <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> 建立私人連線。&lt;/p&gt;
 
-      &lt;p&gt;請前往「設定」應用程式的「一般設定」部分調整日期和時間。&lt;strong&gt;&lt;/strong&gt;&lt;strong&gt;&lt;/strong&gt;&lt;/p&gt;</translation>
+      &lt;p&gt;請前往「設定」應用程式的「一般設定」專區調整日期和時間。&lt;strong&gt;&lt;/strong&gt;&lt;strong&gt;&lt;/strong&gt;&lt;/p&gt;</translation>
 <translation id="1640180200866533862">使用者政策</translation>
 <translation id="1644184664548287040">網路設定無效，無法匯入。</translation>
 <translation id="1655462015569774233">{1,plural, =1{這個伺服器無法證明所在網域是 <ph name="DOMAIN" />；伺服器的安全性憑證已在昨天過期。這可能是因為設定錯誤，或是有攻擊者攔截您的連線。您電腦的時鐘目前設為 <ph name="CURRENT_DATE" />，這是正確的時間嗎？如果不是的話，請更新系統時鐘，然後重新整理這個網頁。}other{這個伺服器無法證明所在網域是 <ph name="DOMAIN" />；伺服器的安全性憑證已在 # 天前過期。這可能是因為設定錯誤，或是有攻擊者攔截您的連線。您電腦的時鐘目前設為 <ph name="CURRENT_DATE" />，這是正確的時間嗎？如果不是的話，請更新系統時鐘，然後重新整理這個網頁。}}</translation>

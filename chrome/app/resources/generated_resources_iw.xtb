@@ -330,7 +330,7 @@
 <translation id="1468038450257740950">‏WebGL אינו נתמך.</translation>
 <translation id="1470719357688513792">‏הגדרות חדשות של קובצי Cookie ייכנסו לתוקף לאחר הטעינה מחדש של הדף.</translation>
 <translation id="14720830734893704">הפעל תמיכה במקלדת וירטואלית.</translation>
-<translation id="1474079335130556426">‏הפעלת מצב רקע עבור Push API. פעולה זו מאפשרת ל-Chrome להמשיך לפעול לאחר סגירת החלון האחרון, ולהתחיל לפעול במהלך אתחול מערכת ההפעלה, אם API Push מחייב זאת.</translation>
+<translation id="1474079335130556426">‏הפעלת מצב רקע עבור Push API. פעולה זו מאפשרת ל-Chrome להמשיך לפעול לאחר סגירת החלון האחרון, ולהתחיל לפעול במהלך אתחול מערכת ההפעלה, אם Push API מחייב זאת.</translation>
 <translation id="1474339897586437869">‏הקובץ "<ph name="FILENAME" />" לא הועלה. אין לך מספיק שטח פנוי ב-Google Drive.</translation>
 <translation id="1476503841242751994">{COUNT,plural, =1{סיסמה אחת}two{# סיסמאות}many{# סיסמאות}other{# סיסמאות}}</translation>
 <translation id="1476949146811612304">הגדר איזה מנוע חיפוש יופעל בעת חיפוש ב<ph name="BEGIN_LINK" />‏סרגל הכתובות<ph name="END_LINK" />.</translation>
@@ -652,7 +652,7 @@
 <translation id="1918141783557917887">&amp;קטן יותר</translation>
 <translation id="192144045824434199">‏אפשר הפעלת חלונות מסוג 'חלונית', שנפתחים מחוץ למסגרת הדפדפן. אם לא יופעלו, נסיונות לפתוח 'חלונית' יפתחו חלון מוקפץ במקום. החלוניות תמיד מופעלות בערוצי הפיתוח ו-Canary‏.</translation>
 <translation id="1921584744613111023">‏dpi‏ <ph name="DPI" /></translation>
-<translation id="1921986354447415460">‏מקלדת Turkish-F</translation>
+<translation id="1921986354447415460">‏מקלדת טורקית-F</translation>
 <translation id="1923786009776354244">‏הפעל תמיכה בשביל כותרת מקור של WebRTC Stun.</translation>
 <translation id="1926741348654461781">אפשר דפים במצב לא מקוון</translation>
 <translation id="1929546189971853037">קרא את היסטוריית הגלישה שלך בכל המכשירים שאליהם נכנסת</translation>
@@ -1719,7 +1719,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3396331542604645348">המדפסת שנבחרה אינה זמינה או שאינה מותקנת כראוי. בדוק את המדפסת או נסה לבחור מדפסת אחרת.</translation>
 <translation id="3399597614303179694">מקלדת מקדונית</translation>
 <translation id="340013220407300675">ייתכן שתוקפים מנסים לגנוב את המידע שלך מ-<ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> (לדוגמה: סיסמאות, הודעות או כרטיסי אשראי).</translation>
-<translation id="3401130144947259741">‏אם התכונה מופעלת, אירועי מעקב מיוצאים אל ETW, מעקב אירועים ל-Windows, ואז ניתן לתעד אותם באמצעות כלים כמו UIForETW או Xperf.</translation>
+<translation id="3401130144947259741">‏אם התכונה מופעלת, מתבצע יצוא של אירועי מעקב אל 'מעקב אירועים עבור Windows'‏ (ETW). לאחר היצוא ניתן לתעד אותם באמצעות כלים כמו UIForETW או Xperf.</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3406605057700382950">&amp;הצג את סרגל הסימניות</translation>
 <translation id="3412265149091626468">עבור אל בחירה</translation>
@@ -5275,7 +5275,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8509646642152301857">הורדת המילון לבדיקת איות נכשלה.</translation>
 <translation id="8512476990829870887">סיים תהליך</translation>
 <translation id="851263357009351303">אפשר ל-<ph name="HOST" /> להציג תמונות תמיד</translation>
-<translation id="8513191386157529469">"<ph name="CLIENT_NAME" />" מנקה את הבאגים בדפדפן זה.</translation>
+<translation id="8513191386157529469">"<ph name="CLIENT_NAME" />" מנפה את הבאגים בדפדפן זה.</translation>
 <translation id="8513974249124254369">‏ChromeVox (משוב קולי) מופעל. הקש על Ctrl+Alt+Z כדי להשבית אותו.</translation>
 <translation id="8515737884867295000">אימות המבוסס על אישור נכשל</translation>
 <translation id="8518865679229538285">שיטת קלט טמילית (מכונת כתיבה)</translation>

@@ -1723,7 +1723,7 @@
 <translation id="3396331542604645348">所选打印机无法使用或未正确安装。请检查打印机，或尝试选择其他打印机。</translation>
 <translation id="3399597614303179694">马其顿语键盘</translation>
 <translation id="340013220407300675">攻击者可能会试图从<ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />窃取您的信息（例如：密码、通讯内容或信用卡信息）。</translation>
-<translation id="3401130144947259741">此项处于启用状态时，跟踪事件将被导出到 Event Tracing for Windows (ETW)，然后可被 UIForETW 或 Xperf 等工具捕获。</translation>
+<translation id="3401130144947259741">此项处于启用状态时，跟踪事件将被导出到 Event Tracing for Windows (ETW)，然后可使用 UIForETW 或 Xperf 等工具捕获。</translation>
 <translation id="340282674066624">已下载 <ph name="DOWNLOAD_RECEIVED" />，还需 <ph name="TIME_LEFT" /></translation>
 <translation id="3406605057700382950">显示书签栏(&amp;S)</translation>
 <translation id="3412265149091626468">跳到所选部分</translation>
@@ -5377,7 +5377,7 @@
 <translation id="8677039480012021122">清除数据并取消关联</translation>
 <translation id="8677212948402625567">全部折叠...</translation>
 <translation id="8678648549315280022">管理下载设置…</translation>
-<translation id="8680251145628383637">登录后可获取您所有设备上的书签、历史记录、密码和其他设置。此外，您还会自动登录到 Google 服务。</translation>
+<translation id="8680251145628383637">登录后即可在您的任何设备上获取自己的书签、历史记录、密码和其他设置。此外，您还会自动登录到 Google 服务。</translation>
 <translation id="8680536109547170164"><ph name="QUERY" />，答案，<ph name="ANSWER" /></translation>
 <translation id="8680787084697685621">帐户登录详细信息已过期。</translation>
 <translation id="8684255857039823328">密码已保存。您可以在任意设备上通过 <ph name="MANAGEMENT_LINK" /> 获取自己的密码。</translation>

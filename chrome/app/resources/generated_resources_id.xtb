@@ -1732,7 +1732,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="3396331542604645348">Printer yang dipilih tidak tersedia atau tidak dipasang dengan semestinya. Periksa printer Anda atau coba pilih printer lainnya.</translation>
 <translation id="3399597614303179694">Keyboard Makedonia</translation>
 <translation id="340013220407300675">Penyerang mungkin mencoba mencuri informasi Anda dari <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> (misalnya, sandi, pesan, atau kartu kredit).</translation>
-<translation id="3401130144947259741">Jika diaktifkan, peristiwa pelacakan akan diekspor ke Event Tracing for Windows (ETW) dan dapat dapat diambil oleh alat seperti UIForETW atau Xperf.</translation>
+<translation id="3401130144947259741">Jika diaktifkan, peristiwa pelacakan akan diekspor ke Event Tracing for Windows (ETW) dan dapat diambil oleh alat seperti UIForETW atau Xperf.</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3406605057700382950">&amp;Tampilkan bilah bookmark</translation>
 <translation id="3412265149091626468">Lompat ke Pilihan</translation>
@@ -3967,7 +3967,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="6575251558004911012">Tanyakan saat situs memerlukan akses ke kamera (disarankan)</translation>
 <translation id="6581162200855843583">Tautan Google Drive</translation>
 <translation id="6583070985841601920">Masuk sebagai <ph name="USER_EMAIL_ADDRESS" />. Sinkronisasi dinonaktifkan oleh administrator Anda.</translation>
-<translation id="65832705307647870">Mengisi laman Tab Baru terlebih dahulu dengan situs populer.</translation>
+<translation id="65832705307647870">Isi laman Tab Baru terlebih dahulu dengan situs populer.</translation>
 <translation id="6584878029876017575">Microsoft Lifetime Signing</translation>
 <translation id="6585234750898046415">Pilih gambar yang akan ditampilkan untuk akun Anda di layar masuk.</translation>
 <translation id="6585283250473596934">Memasuki sesi publik.</translation>
@@ -5208,7 +5208,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8381977081675353473">Slovak</translation>
 <translation id="8382645631174981738"><ph name="EXTENSION_NAME" /> dipasang dari jarak jauh</translation>
 <translation id="8382913212082956454">Salin alamat &amp;email</translation>
-<translation id="8384113940676655504">Mengaktifkan setelan Smart Lock agar Chromebook dapat menemukan ponsel melalui Bluetooth Hemat Energi untuk membuka kunci Chromebook, saat ponsel berada dalam jangkauan.</translation>
+<translation id="8384113940676655504">Aktifkan setelan Smart Lock agar Chromebook dapat menemukan ponsel melalui Bluetooth Hemat Energi untuk membuka kunci Chromebook, saat ponsel berada dalam jangkauan.</translation>
 <translation id="8390029840652165810">Pastikan sambungan jaringan Anda bekerja dan jika masalah tetap berlanjut, keluar dan masuk kembali untuk menyegarkan kredensial Anda.</translation>
 <translation id="8390445751804042000">Mengaktifkan fitur membangunkan perangkat berdasarkan tanda terima beberapa paket jaringan.</translation>
 <translation id="8390449457866780408">Server tidak tersedia.</translation>
@@ -5415,7 +5415,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8677039480012021122">Hapus data dan putuskan hubungan</translation>
 <translation id="8677212948402625567">Ciutkan semua...</translation>
 <translation id="8678648549315280022">Mengelola setelan unduhan...</translation>
-<translation id="8680251145628383637">Masuk untuk mendapatkan bookmark, riwayat, sandi, dan setelan lain di semua perangkat. Anda juga akan masuk otomatis ke layanan Google.</translation>
+<translation id="8680251145628383637">Masuk untuk mendapatkan bookmark, riwayat, sandi, dan setelan lain di semua perangkat. Anda juga akan otomatis masuk ke layanan Google.</translation>
 <translation id="8680536109547170164"><ph name="QUERY" />, dengan jawaban, <ph name="ANSWER" /></translation>
 <translation id="8680787084697685621">Detail proses masuk akun sudah usang.</translation>
 <translation id="8684255857039823328">Sandi disimpan. Akses sandi Anda bisa dilakukan di perangkat mana pun di <ph name="MANAGEMENT_LINK" />.</translation>

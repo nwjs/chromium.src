@@ -137,7 +137,7 @@
 <translation id="1179803038870941185"><ph name="URL" />에서 MIDI 기기를 완전히 제어하려고 합니다.</translation>
 <translation id="1181037720776840403">삭제</translation>
 <translation id="11814323404622888">"&gt;
-    USB-C 기기(오른쪽 후면 포트)</translation>
+    USB-C 기기(우측 후면 포트)</translation>
 <translation id="1183083053288481515">관리자 제공 인증서 사용</translation>
 <translation id="1183237619868651138">로컬 캐시에 <ph name="EXTERNAL_CRX_FILE" />을(를) 설치할 수 없습니다.</translation>
 <translation id="1185924365081634987"><ph name="GUEST_SIGNIN_LINK_START" />손님으로 로그인<ph name="GUEST_SIGNIN_LINK_END" />하여 네트워크 오류를 수정할 수도 있습니다.</translation>
@@ -332,7 +332,7 @@
 <translation id="1468038450257740950">WebGL이 지원되지 않습니다.</translation>
 <translation id="1470719357688513792">새 쿠키 설정은 페이지를 새로고침한 다음에 적용됩니다.</translation>
 <translation id="14720830734893704">가상 키보드 지원을 사용합니다.</translation>
-<translation id="1474079335130556426">푸시 API에 백그라운드 모드를 사용 설정합니다. 이렇게 하면 푸시 API에서 Chrome이 필요할 때 마지막 창이 닫힌 후에도 Chrome이 계속 실행되고 OS 시작 시 Chrome을 실행합니다.</translation>
+<translation id="1474079335130556426">Push API에 백그라운드 모드를 사용 설정합니다. 이렇게 하면 Push API에서 Chrome이 필요할 때 마지막 창이 닫힌 후에도 Chrome이 계속 실행되고 OS 시작 시 Chrome을 실행합니다.</translation>
 <translation id="1474339897586437869">'<ph name="FILENAME" />'이(가) 업로드되지 않았습니다. Google 드라이브에 충분한 여유 공간이 없습니다.</translation>
 <translation id="1476503841242751994">{COUNT,plural, =1{비밀번호 1개}other{비밀번호 #개}}</translation>
 <translation id="1476949146811612304"><ph name="BEGIN_LINK" />검색주소창<ph name="END_LINK" />에서 검색할 때 사용할 검색엔진을
@@ -1326,7 +1326,7 @@
 <translation id="2838379631617906747">설치 중</translation>
 <translation id="2841837950101800123">발급기관</translation>
 <translation id="2843806747483486897">기본값 변경...</translation>
-<translation id="2844169650293029770">USB-C 기기(왼쪽 전면 포트)</translation>
+<translation id="2844169650293029770">USB-C 기기(좌측 전면 포트)</translation>
 <translation id="2845382757467349449">북마크바 항상 표시</translation>
 <translation id="2846816712032308263">빠른 탭/창 닫기 사용 - 탭의 onunload js 핸들러를 GUI와 별도로 실행합니다.</translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" />(<ph name="UNICODE_NAME" />)</translation>
@@ -2417,7 +2417,7 @@
 <translation id="4321136812570927563">{NUM_DOWNLOAD,plural, =1{계속 다운로드}other{계속 다운로드}}</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322394346347055525">다른 탭 닫기</translation>
-<translation id="4325378361067528777">푸시 API 백그라운드 모드 사용</translation>
+<translation id="4325378361067528777">Push API 백그라운드 모드 사용</translation>
 <translation id="4326952458285403282">실험용 DirectWrite 글꼴 렌더링 시스템을 사용 중지합니다.</translation>
 <translation id="4326999707196471878">Toolkit-Views 브라우저 대화상자</translation>
 <translation id="4330406155931244378">다국어 맞춤법 검사기 사용</translation>
@@ -2959,7 +2959,7 @@
 <translation id="5150254825601720210">Netscape Certificate SSL Server Name</translation>
 <translation id="5151034238407558331">죄송하지만 미국 주소가 있는 구매자만 Google Payments를 사용하여 판매자로부터 구매할 수 있습니다. 미국 거주자인 경우 |Google Payments와 연결된 집 주소를 변경|하거나 Google Payments 이외의 방법으로 결제하세요.</translation>
 <translation id="5151639798712723370">"&gt;
-    USB-C 기기(오른쪽 전면 포트)</translation>
+    USB-C 기기(우측 전면 포트)</translation>
 <translation id="5152451685298621771">(어린이용 계정)</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" /> 고급 설정</translation>
 <translation id="5154176924561037127">F8</translation>
@@ -3105,7 +3105,7 @@
 <translation id="5328285148748012771">이 간편한 실행기를 사용하여 모든 앱에 액세스할 수 있습니다. 게임을 하고 화상 채팅을 하고 음악을 들으며 문서를 편집하거나 Chrome 웹 스토어에서 다른 앱을 다운로드해 보세요.</translation>
 <translation id="5329858601952122676">삭제(&amp;D)</translation>
 <translation id="5330145655348521461">파일이 다른 데스크톱에서 열려 있습니다. 파일을 보려면 <ph name="USER_NAME" />(<ph name="MAIL_ADDRESS" />)(으)로 이동하세요.</translation>
-<translation id="5331975486040154427">USB-C 기기(왼쪽 후면 포트)</translation>
+<translation id="5331975486040154427">USB-C 기기(좌측 후면 포트)</translation>
 <translation id="5332624210073556029">표준시간대:</translation>
 <translation id="5334142896108694079">스크립트 캐시</translation>
 <translation id="533433379391851622">'<ph name="EXPECTED_VERSION" />' 버전을 예상했으나 '<ph name="NEW_ID" />' 버전이 표시되었습니다.</translation>
@@ -4326,7 +4326,7 @@
 <translation id="7092106376816104">팝업 예외</translation>
 <translation id="7093866338626856921">이름이 <ph name="HOSTNAMES" />인 기기와 데이터 교환</translation>
 <translation id="7096082900368329802">더 놀라운 기능에 대해 알고 싶으세요?</translation>
-<translation id="7098389117866926363">USB-C 기기(왼쪽 후면 포트)</translation>
+<translation id="7098389117866926363">USB-C 기기(좌측 후면 포트)</translation>
 <translation id="7100897339030255923"><ph name="COUNT" />개의 항목이 선택됨</translation>
 <translation id="7106346894903675391">추가 저장용량 구입...</translation>
 <translation id="7108338896283013870">숨기기</translation>
@@ -5229,7 +5229,7 @@
 <translation id="8381977081675353473">슬로바키아어</translation>
 <translation id="8382645631174981738"><ph name="EXTENSION_NAME" />이(가) 원격으로 설치됨</translation>
 <translation id="8382913212082956454">이메일 주소 복사(&amp;E)</translation>
-<translation id="8384113940676655504">Chromebook 근처에 휴대전화가 있을 때 Chromebook을 잠금 해제하기 위해 Chromebook이 저전력 블루투스(BLE)를 통해 휴대전화를 찾도록 하는 Smart Lock을 사용 설정합니다.</translation>
+<translation id="8384113940676655504">Chromebook 근처에 휴대전화가 있을 때 Chromebook을 잠금 해제하기 위해 저전력 블루투스(BLE)를 통해 휴대전화를 찾도록 하는 Smart Lock을 사용 설정합니다.</translation>
 <translation id="8390029840652165810">네트워크 연결이 작동 중인지 확인하시기 바랍니다. 문제가 계속되면 로그아웃한 뒤 다시 로그인하여 자격증명 정보를 새로고침하세요.</translation>
 <translation id="8390445751804042000">네트워크 패킷 수신을 기반으로 기기 절전 모드 해제를 사용합니다.</translation>
 <translation id="8390449457866780408">서버를 사용할 수 없습니다.</translation>
@@ -5613,7 +5613,7 @@
 <translation id="8933960630081805351">Finder에서 보기(&amp;S)</translation>
 <translation id="8934732568177537184">계속</translation>
 <translation id="8938356204940892126">로드 취소</translation>
-<translation id="8938800817013097409">USB-C 기기(오른쪽 후면 포트)</translation>
+<translation id="8938800817013097409">USB-C 기기(우측 후면 포트)</translation>
 <translation id="8940081510938872932">현재 컴퓨터의 처리량이 너무 많습니다. 나중에 다시 시도해 주세요.</translation>
 <translation id="8941173171815156065">'<ph name="PERMISSION" />' 권한 취소</translation>
 <translation id="8941248009481596111">이 사이트에 대한 연결은 비공개입니다.</translation>

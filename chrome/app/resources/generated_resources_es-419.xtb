@@ -1727,7 +1727,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="3396331542604645348">La impresora seleccionada no está disponible o no está instalada correctamente.  Comprueba tu impresora o selecciona otra.</translation>
 <translation id="3399597614303179694">Teclado macedonio</translation>
 <translation id="340013220407300675">Es posible que usuarios no autorizados estén intentando robar tu información de <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> (por ejemplo, contraseñas, mensajes o tarjetas de crédito).</translation>
-<translation id="3401130144947259741">Si se habilita, los eventos de seguimiento se exportarán a Seguimiento de eventos para Windows (ETW) y se pueden capturar mediante herramientas como UIForETW o Xperf.</translation>
+<translation id="3401130144947259741">Si se habilita, los eventos de seguimiento se exportarán a Seguimiento de eventos para Windows (ETW) y se podrán capturar mediante herramientas como UIForETW o Xperf.</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3406605057700382950">Mo&amp;strar la barra de marcadores</translation>
 <translation id="3412265149091626468">Saltar a selección</translation>
@@ -3962,7 +3962,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="6575251558004911012">Preguntarme cuando un sitio quiera acceder a la cámara (recomendado)</translation>
 <translation id="6581162200855843583">Vínculo de Google Drive</translation>
 <translation id="6583070985841601920">Accediste como <ph name="USER_EMAIL_ADDRESS" />. Tu administrador inhabilitó la sincronización.</translation>
-<translation id="65832705307647870">Rellena automáticamente la página Nueva pestaña con sitios populares.</translation>
+<translation id="65832705307647870">Completa automáticamente la página Nueva pestaña con sitios populares.</translation>
 <translation id="6584878029876017575">Firma de vigencia de Microsoft</translation>
 <translation id="6585234750898046415">Selecciona una imagen para mostrar en tu cuenta, en la pantalla de inicio.</translation>
 <translation id="6585283250473596934">Accediendo a la sesión pública...</translation>

@@ -26,7 +26,7 @@
 <translation id="1549470594296187301">Tämän ominaisuuden käyttö edellyttää JavaScriptiä.</translation>
 <translation id="1559572115229829303">&lt;p&gt;Verkkotunnukseen <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> ei voi muodostaa salattua yhteyttä, koska laitteesi aika ja päivämäärä (<ph name="DATE_AND_TIME" />) ovat virheelliset.&lt;/p&gt;
 
-          &lt;p&gt;Muokkaa aikaa ja päivämäärää &lt;strong&gt;Asetukset&lt;/strong&gt;-sovelluksen  &lt;strong&gt;Yleistä&lt;/strong&gt;-osiossa.&lt;/p&gt;</translation>
+          &lt;p&gt;Muokkaa aikaa ja päivämäärää &lt;strong&gt;Asetukset&lt;/strong&gt;‑sovelluksen  &lt;strong&gt;Yleistä&lt;/strong&gt;‑osiossa.&lt;/p&gt;</translation>
 <translation id="1640180200866533862">Käyttäjäkäytännöt</translation>
 <translation id="1644184664548287040">Verkkoasetukset ovat virheelliset eikä niitä voi tuoda.</translation>
 <translation id="1655462015569774233">{1,plural, =1{Palvelin ei voinut todistaa olevansa <ph name="DOMAIN" />; sen suojausvarmenne vanhentui eilen. Tämä voi johtua määritysvirheestä tai verkkoyhteytesi siepanneesta hyökkääjästä. Tietokoneesi kellonaika on tällä hetkellä <ph name="CURRENT_DATE" />. Onko se oikein? Jos ei, korjaa järjestelmän kellonaika ja päivitä sivu.}other{Palvelin ei voinut todistaa olevansa <ph name="DOMAIN" />; sen suojausvarmenne vanhentui # päivää sitten. Tämä voi johtua määritysvirheestä tai verkkoyhteytesi siepanneesta hyökkääjästä. Tietokoneesi kellonaika on tällä hetkellä <ph name="CURRENT_DATE" />. Onko se oikein? Jos ei, korjaa järjestelmän kellonaika ja päivitä sivu.}}</translation>

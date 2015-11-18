@@ -1731,7 +1731,7 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="3396331542604645348">Seçilen yazıcı kullanılamıyor veya doğru yüklenmemiş. Yazıcınızı kontrol edin veya başka yazıcı seçmeyi deneyin.</translation>
 <translation id="3399597614303179694">Makedonca klavye</translation>
 <translation id="340013220407300675">Saldırganlar <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> sitesinden bilgilerinizi çalmaya çalışıyor olabilir (örneğin, şifreler, mesajlar veya kredi kartı bilgileri).</translation>
-<translation id="3401130144947259741">Etkinleştirilirse, izleme etkinlikleri Windows için Etkinlik İzleme'ye (ETW) aktırılır ve daha sonra, UIForETW veya Xperf tarafından yakalanabilir.</translation>
+<translation id="3401130144947259741">Etkinleştirilirse, izleme etkinlikleri Windows için Etkinlik İzleme'ye (ETW) aktırılır ve daha sonra, UIForETW veya Xperf gibi araçlar tarafından yakalanabilir.</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3406605057700382950">Yer işaretleri ç&amp;ubuğunu göster</translation>
 <translation id="3412265149091626468">Seçim'e Atla</translation>

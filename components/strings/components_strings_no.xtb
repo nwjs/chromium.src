@@ -26,7 +26,7 @@
 <translation id="1549470594296187301">Denne funksjonen kan ikke brukes når JavaScript er slått av.</translation>
 <translation id="1559572115229829303">&lt;p&gt;Vi kan ikke opprette noen privat tilkobling til <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />, fordi datoen og klokkeslettet (<ph name="DATE_AND_TIME" />) på enheten din er feil.&lt;/p&gt;
 
-          &lt;p&gt;Juster datoen og klokkeslettet i &lt;strong&gt;Generelt&lt;/strong&gt;-delen av &lt;strong&gt;Innstillinger&lt;/strong&gt;-appen.&lt;/p&gt;</translation>
+      &lt;p&gt;Juster datoen og klokkeslettet under &lt;strong&gt;Generelt&lt;/strong&gt; i &lt;strong&gt;Innstillinger&lt;/strong&gt;-appen.&lt;/p&gt;</translation>
 <translation id="1640180200866533862">Brukerretningslinjer</translation>
 <translation id="1644184664548287040">Nettverkskonfigurasjonen er ugyldig og kan ikke importeres.</translation>
 <translation id="1655462015569774233">{1,plural, =1{Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />, ettersom sikkerhetssertifikatet utløp i går. Dette kan skyldes en feilkonfigurasjon eller at en angriper avskjærer tilkoblingen mellom deg og nettstedet. Klokken på datamaskinen din er stilt til <ph name="CURRENT_DATE" />. Er det riktig? Hvis ikke bør du stille klokken på systemet og laste inn denne siden på nytt.}other{Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />, ettersom sikkerhetssertifikatet utløp for # dager siden. Dette kan skyldes en feilkonfigurasjon eller at en angriper avskjærer tilkoblingen mellom deg og nettstedet. Klokken på datamaskinen din er stilt til <ph name="CURRENT_DATE" />. Er det riktig? Hvis ikke bør du stille klokken på systemet og laste inn denne siden på nytt.}}</translation>
