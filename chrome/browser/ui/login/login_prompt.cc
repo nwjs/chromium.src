@@ -366,18 +366,13 @@ void LoginHandler::NotifyAuthCancelled(bool dismiss_navigation) {
   NavigationController* controller = NULL;
 
   WebContents* requesting_contents = GetWebContentsForLogin();
-  if (requesting_contents) {
+  if (requesting_contents)
     controller = &requesting_contents->GetController();
-    if (dismiss_navigation) {
-      content::InterstitialPage* interstitial_page =
-          requesting_contents->GetInterstitialPage();
-      if (interstitial_page)
-        interstitial_page->DontProceed();
-    }
-  }
+
+  if (dismiss_navigation && interstitial_delegate_)
+    interstitial_delegate_->DontProceed();
 
   LoginNotificationDetails details(this);
-
   service->Notify(chrome::NOTIFICATION_AUTH_CANCELLED,
                   content::Source<NavigationController>(controller),
                   content::Details<LoginNotificationDetails>(&details));
@@ -437,18 +432,9 @@ void LoginHandler::CancelAuthDeferred() {
 // Closes the view_contents from the UI loop.
 void LoginHandler::CloseContentsDeferred() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
   CloseDialog();
-
-  WebContents* requesting_contents = GetWebContentsForLogin();
-  if (!requesting_contents)
-    return;
-  // If a (blank) login interstitial was displayed, proceed so that the
-  // navigation is committed.
-  content::InterstitialPage* interstitial_page =
-      requesting_contents->GetInterstitialPage();
-  if (interstitial_page)
-    interstitial_page->Proceed();
+  if (interstitial_delegate_)
+    interstitial_delegate_->Proceed();
 }
 
 // Helper to create a PasswordForm for PasswordManager to start looking for
@@ -597,15 +583,13 @@ void LoginDialogCallback(const GURL& request_url,
                                         request_url,
                                         make_scoped_refptr(auth_info),
                                         make_scoped_refptr(handler));
-    // This is owned by the interstitial it creates. It cancels any existing
-    // interstitial.
-    new LoginInterstitialDelegate(parent_contents,
-                                  request_url,
-                                  callback);
+    // The interstitial delegate is owned by the interstitial that it creates.
+    // This cancels any existing interstitial.
+    handler->SetInterstitialDelegate(
+        (new LoginInterstitialDelegate(parent_contents, request_url, callback))
+            ->GetWeakPtr());
   } else {
-    ShowLoginPrompt(request_url,
-                    auth_info,
-                    handler);
+    ShowLoginPrompt(request_url, auth_info, handler);
   }
 }
 
