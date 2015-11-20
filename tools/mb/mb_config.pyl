@@ -292,7 +292,10 @@
       'gn_args': 'is_chrome_branded=true is_official_build=true is_debug=false',
       'gyp_defines': 'branding=Chrome buildtype=Official',
     },
-
+    'ozone': {
+      'gn_args': 'use_ozone=true',
+      'gyp_defines': 'use_ozone=1',
+    },
     'release': {
       'gn_args': 'is_debug=false',
     },
