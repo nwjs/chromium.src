@@ -9,6 +9,7 @@
 #include "base/android/jni_string.h"
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_macros.h"
 #include "chrome/browser/profiles/profile_android.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/sync/profile_sync_service_android.h"
@@ -126,6 +127,21 @@ std::string AndroidAccessTokenFetcher::CombineScopes(
     scope += *it;
   }
   return scope;
+}
+
+const char kSeedStateHistogramName[] = "OAuth2Login.SeedState";
+
+enum SeedState {
+  ACCOUNT_SEEDED_BEFORE_REVOKED = 0,
+  ACCOUNT_SEEDED_BEFORE_AVAILABLE,
+  ACCOUNT_NOT_SEEDED_BEFORE_REVOKED,
+  ACCOUNT_NOT_SEEDED_BEFORE_AVAILABLE,
+  MAX_SEED_STATES
+};
+
+void ReportSeedStateToUma(SeedState state) {
+  UMA_HISTOGRAM_ENUMERATION(kSeedStateHistogramName, state,
+                            SeedState::MAX_SEED_STATES);
 }
 
 }  // namespace
@@ -461,11 +477,18 @@ void OAuth2TokenServiceDelegateAndroid::FireRefreshTokenAvailable(
     const std::string& account_id) {
   DVLOG(1) << "OAuth2TokenServiceDelegateAndroid::FireRefreshTokenAvailable id="
            << account_id;
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jstring> account_name =
-      ConvertUTF8ToJavaString(env, MapAccountIdToAccountName(account_id));
-  Java_OAuth2TokenService_notifyRefreshTokenAvailable(env, java_ref_.obj(),
-                                                      account_name.obj());
+  std::string account_name = MapAccountIdToAccountName(account_id);
+  // Do not crash in case of missed information.
+  if (!account_name.empty()) {
+    JNIEnv* env = AttachCurrentThread();
+    ScopedJavaLocalRef<jstring> account =
+        ConvertUTF8ToJavaString(env, account_name);
+    Java_OAuth2TokenService_notifyRefreshTokenAvailable(env, java_ref_.obj(),
+                                                        account.obj());
+    ReportSeedStateToUma(SeedState::ACCOUNT_SEEDED_BEFORE_AVAILABLE);
+  } else {
+    ReportSeedStateToUma(SeedState::ACCOUNT_NOT_SEEDED_BEFORE_AVAILABLE);
+  }
   OAuth2TokenServiceDelegate::FireRefreshTokenAvailable(account_id);
 }
 
@@ -483,14 +506,17 @@ void OAuth2TokenServiceDelegateAndroid::FireRefreshTokenRevoked(
     const std::string& account_id) {
   DVLOG(1) << "OAuth2TokenServiceDelegateAndroid::FireRefreshTokenRevoked id="
            << account_id;
-  JNIEnv* env = AttachCurrentThread();
   std::string account_name = MapAccountIdToAccountName(account_id);
   // Do not crash in case of missed information.
   if (!account_name.empty()) {
+    JNIEnv* env = AttachCurrentThread();
     ScopedJavaLocalRef<jstring> account =
         ConvertUTF8ToJavaString(env, account_name);
     Java_OAuth2TokenService_notifyRefreshTokenRevoked(env, java_ref_.obj(),
                                                       account.obj());
+    ReportSeedStateToUma(SeedState::ACCOUNT_SEEDED_BEFORE_REVOKED);
+  } else {
+    ReportSeedStateToUma(SeedState::ACCOUNT_NOT_SEEDED_BEFORE_REVOKED);
   }
   OAuth2TokenServiceDelegate::FireRefreshTokenRevoked(account_id);
 }
