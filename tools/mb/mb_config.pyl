@@ -21,7 +21,7 @@
     'android_gyp_release_bot': ['android', 'gyp', 'release_bot'],
     'android_gyp_release_bot_minimal_symbols': ['android', 'gyp', 'release_bot', 'minimal_symbols'],
     'android_gyp_release_trybot': ['android', 'gyp', 'release_trybot'],
-    'blimp_gn_official': ['gn', 'official', 'debug', 'aura', 'ozone'],
+    'blimp_gn_official': ['gn', 'official', 'debug'],
     'cast_gyp_release_bot': ['cast', 'gyp', 'release_bot'],
     'cast_gyp_release_trybot': ['cast', 'gyp', 'release_trybot'],
     'chromeos_gn_debug_bot': ['chromeos', 'gn', 'debug_bot'],
