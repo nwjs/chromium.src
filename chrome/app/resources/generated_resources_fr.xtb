@@ -859,7 +859,7 @@
 <translation id="2231990265377706070">Point d'exclamation</translation>
 <translation id="2232876851878324699">Le fichier contenait un certificat, qui n'a pas été importé :</translation>
 <translation id="2233502537820838181">Plus d'informations</translation>
-<translation id="2233587473672843170">Afficher des sites populaires sur la page "Nouvel onglet"</translation>
+<translation id="2233587473672843170">Afficher des sites populaires sur la page Nouvel onglet</translation>
 <translation id="223714078860837942">Si une page ne définit aucune stratégie explicite en matière d'URL de provenance, le fait de définir cet indicateur réduit la quantité d'informations dans l'en-tête "referer" des requêtes multi-domaines.</translation>
 <translation id="2238379619048995541">Données sur l'état de fréquence</translation>
 <translation id="2239921694246509981">Ajouter une personne supervisée</translation>
@@ -3978,7 +3978,7 @@ Il est possible que certaines fonctionnalités ne soient pas disponibles. Veuill
 <translation id="6575251558004911012">Me demander lorsqu'un site demande l'accès à ma caméra (recommandé)</translation>
 <translation id="6581162200855843583">Lien Google Drive</translation>
 <translation id="6583070985841601920">Connecté avec l'adresse <ph name="USER_EMAIL_ADDRESS" />. Votre administrateur a désactivé la synchronisation.</translation>
-<translation id="65832705307647870">Préremplit la page "Nouvel onglet" avec des sites populaires.</translation>
+<translation id="65832705307647870">Préremplit la page Nouvel onglet avec des sites populaires.</translation>
 <translation id="6584878029876017575">Signature permanente Microsoft</translation>
 <translation id="6585234750898046415">Choisissez une image à associer à votre compte. Celle-ci s'affichera sur l'écran de connexion.</translation>
 <translation id="6585283250473596934">Ouverture d'une session publique en cours…</translation>
