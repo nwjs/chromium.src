@@ -291,6 +291,7 @@ bool partitionAllocShutdown(PartitionRoot* root)
 
 bool partitionAllocGenericShutdown(PartitionRootGeneric* root)
 {
+    spinLockLock(&root->lock);
     bool foundLeak = false;
     size_t i;
     for (i = 0; i < kGenericNumBuckets; ++i) {
@@ -298,6 +299,7 @@ bool partitionAllocGenericShutdown(PartitionRootGeneric* root)
         foundLeak |= partitionAllocShutdownBucket(bucket);
     }
     foundLeak |= partitionAllocBaseShutdown(root);
+    spinLockUnlock(&root->lock);
     return !foundLeak;
 }
 
