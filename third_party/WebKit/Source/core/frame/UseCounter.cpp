@@ -914,6 +914,9 @@ String UseCounter::deprecationMessage(Feature feature)
     case PrefixedMouseEventMovementY:
         return replacedBy("webkitMovementY", "movementY");
 
+    case SVGPathSegDOM:
+        return "SVGPathSeg is deprecated and will be removed in Chrome 48. See https://www.chromestatus.com/feature/5708851034718208."
+
     case SVGSMILElementInDocument:
     case SVGSMILAnimationInImageRegardlessOfCache:
         return "SVG's SMIL animations (<animate>, <set>, etc.) are deprecated and will be removed. Please use CSS animations or Web animations instead.";
