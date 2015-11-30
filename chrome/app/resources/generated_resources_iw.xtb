@@ -1296,7 +1296,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2815693974042551705">הוסף את התיקייה לסימניות</translation>
 <translation id="2816269189405906839">‏שטת קלט סינית (cangjie)</translation>
 <translation id="2817109084437064140">יבא וקשר להתקן...</translation>
-<translation id="2817861546829549432">הפעלת התכונה 'אל תעקוב' תגרום להכללת בקשה בתנועת הגלישה שלך. ההשפעה שלה תלויה בנכונות של אתר להגיב לבקשה, ובאופן שבו הבקשה תפורש. לדוגמה, אתרים מסוימים עשויים להגיב לבקשה זו על ידי הצגת מודעות שאינן מבוססות על אתרים אחרים שבהם ביקרת. אתרי אינטרנט רבים עדיין יאספו את נתוני הגלישה שלך וישתמשו בהם - למשל, כדי לשפר את האבטחה, לספק תוכן, שירותים, מודעות והמלצות באתרי האינטרנט שלהם ולהפיק סטטיסטיקת דיווח.</translation>
+<translation id="2817861546829549432">הפעלת התכונה 'ללא מעקב' תגרום להכללת בקשה בתנועת הגלישה שלך. ההשפעה שלה תלויה בנכונות של אתר להגיב לבקשה, ובאופן שבו הבקשה תפורש. לדוגמה, אתרים מסוימים עשויים להגיב לבקשה זו על ידי הצגת מודעות שאינן מבוססות על אתרים אחרים שבהם ביקרת. אתרי אינטרנט רבים עדיין יאספו את נתוני הגלישה שלך וישתמשו בהם - למשל, כדי לשפר את האבטחה, לספק תוכן, שירותים, מודעות והמלצות באתרי האינטרנט שלהם ולהפיק סטטיסטיקת דיווח.</translation>
 <translation id="2819994928625218237">&amp;אין הצעות לאיות</translation>
 <translation id="2822854841007275488">ערבית</translation>
 <translation id="2824036200576902014">מקלדת וירטואלית צפה.</translation>
@@ -3058,7 +3058,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5294529402252479912">‏עדכן את Adobe Reader עכשיו</translation>
 <translation id="5298219193514155779">נושא שנוצר על ידי</translation>
 <translation id="5298363578196989456">לא ניתן לייבא את התוסף "<ph name="IMPORT_NAME" />" מפני שהוא אינו מודול משותף.</translation>
-<translation id="5299109548848736476">אל תעקוב</translation>
+<translation id="5299109548848736476">ללא מעקב</translation>
 <translation id="5299682071747318445">כל הנתונים מסונכרנים באמצעות משפט הסיסמה שלך לסנכרון</translation>
 <translation id="5300589172476337783">הצג</translation>
 <translation id="5301751748813680278">נכנס כאורח.</translation>
@@ -3532,7 +3532,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5956585768868398362">האם זהו דף החיפוש שציפית לראות?</translation>
 <translation id="5957613098218939406">אפשרויות נוספות</translation>
 <translation id="5958529069007801266">משתמש בפיקוח</translation>
-<translation id="5958994127112619898">פשט את הדף</translation>
+<translation id="5958994127112619898">דף פשוט יותר</translation>
 <translation id="5959471481388474538">הרשת לא זמינה</translation>
 <translation id="5963026469094486319">ראה עיצובים</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (שיא של <ph name="NUM_KILOBYTES_LIVE" />)</translation>
@@ -5482,7 +5482,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8787254343425541995">‏אפשר שרתי proxy עבור רשתות משותפות</translation>
 <translation id="878763818693997570">השם הזה ארוך מדי</translation>
 <translation id="8787865569533773240">אפס הגדרות <ph name="IDS_SHORT_PRODUCT_NAME" /> שהשתנו</translation>
-<translation id="8791534160414513928">שלח בקשת 'אל תעקוב' יחד עם תנועת הגלישה שלך</translation>
+<translation id="8791534160414513928">שלח בקשת 'ללא מעקב' יחד עם תנועת הגלישה שלך</translation>
 <translation id="8795668016723474529">הוסף כרטיס אשראי</translation>
 <translation id="8795916974678578410">חלון חדש</translation>
 <translation id="8798099450830957504">ברירת מחדל</translation>

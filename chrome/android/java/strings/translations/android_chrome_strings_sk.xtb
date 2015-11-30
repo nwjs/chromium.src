@@ -255,7 +255,7 @@ Stačí otvoriť Chrome na počítači, prejsť do ponuky a vybrať možnosť Pr
 <translation id="5016205925109358554">Pätkové</translation>
 <translation id="5017989644593831205">Nie ste <ph name="NOT_YOU_USER_NAME" />?</translation>
 <translation id="5039804452771397117">Povoliť</translation>
-<translation id="5040262127954254034">Súkromie</translation>
+<translation id="5040262127954254034">Ochrana súkromia</translation>
 <translation id="5063480226653192405">Použitie</translation>
 <translation id="509605886816275399">Chcete túto stránku uložiť offline?</translation>
 <translation id="5100237604440890931">Zbalená (rozbalíte ju kliknutím)</translation>
@@ -283,7 +283,7 @@ Stačí otvoriť Chrome na počítači, prejsť do ponuky a vybrať možnosť Pr
 <translation id="5323972449344932352">Spustiť Chrome</translation>
 <translation id="5324858694974489420">Rodičovské nastavenia</translation>
 <translation id="5327248766486351172">Názov</translation>
-<translation id="5335200807405507442">Predbežné načítanie zdrojov stránky</translation>
+<translation id="5335200807405507442">Predbežne načítavať zdroje stránok</translation>
 <translation id="5345040418939504969">Záložka <ph name="BOOKMARK_TITLE" /> bola odstránená</translation>
 <translation id="5345083863238459644">Prístup k polohe je <ph name="BEGIN_LINK" />vypnutý aj v tomto zariadení<ph name="END_LINK" />.</translation>
 <translation id="5380554235172449987">Nikdy neodosielať</translation>
@@ -488,7 +488,7 @@ Niektoré webové stránky môžu napríklad na túto žiadosť reagovať tak, �
 <translation id="7998918019931843664">Znova otvoriť zavretú kartu</translation>
 <translation id="7999064672810608036">Naozaj chcete vymazať všetky miestne údaje (vrátane súborov cookie) a obnoviť všetky povolenia pre tieto webové stránky?</translation>
 <translation id="8007176423574883786">Vypnuté v tomto zariadení</translation>
-<translation id="8026334261755873520">Vymazať údaje prehliadania</translation>
+<translation id="8026334261755873520">Vymazať dáta prehliadania</translation>
 <translation id="8035133914807600019">Nový priečinok…</translation>
 <translation id="8050319187894766337">Uložené offline. Úložisko je takmer plné.</translation>
 <translation id="8068648041423924542">Nedá sa vybrať certifikát</translation>

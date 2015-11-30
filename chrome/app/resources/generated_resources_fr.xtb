@@ -160,7 +160,7 @@
 <translation id="1201402288615127009">Suivant</translation>
 <translation id="1201895884277373915">Plus de résultats pour ce site</translation>
 <translation id="1202290638211552064">Délai d'expiration atteint au niveau de la passerelle ou du serveur proxy en attente d'une réponse d'un serveur en amont.</translation>
-<translation id="1202596434010270079">L'application de kiosque a été mise à jour. Veuillez débrancher la clé USB.</translation>
+<translation id="1202596434010270079">L'application kiosque a été mise à jour. Veuillez débrancher la clé USB.</translation>
 <translation id="1204242529756846967">Cette langue est utilisée pour corriger l'orthographe.</translation>
 <translation id="1205489148908752564">Accéder aux comptes utilisateur sur liste blanche et les modifier</translation>
 <translation id="1208421848177517699">Translittération (namaste → નમસ્તે)</translation>
@@ -1081,7 +1081,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2521669435695685156">En cliquant sur "Continuer", vous acceptez les documents <ph name="LEGAL_DOC_LINK_TEXT_1" /> et <ph name="LEGAL_DOC_LINK_TEXT_2" />.</translation>
 <translation id="252219247728877310">Composant non mis à jour</translation>
 <translation id="2523966157338854187">Ouvrir une page ou un ensemble de pages spécifiques</translation>
-<translation id="2525250408503682495">Attention ! Impossible d'installer l'élément "cryptohome" pour l'application du kiosque.</translation>
+<translation id="2525250408503682495">Attention ! Impossible d'installer l'élément "cryptohome" pour l'application kiosque.</translation>
 <translation id="2526590354069164005">Bureau</translation>
 <translation id="2526619973349913024">Rechercher des mises à jour</translation>
 <translation id="2527167509808613699">Toutes sortes de connexions</translation>
@@ -1257,7 +1257,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2781645665747935084">Belge</translation>
 <translation id="2783298271312924866">Téléchargé</translation>
 <translation id="2783321960289401138">Créer un raccourci…</translation>
-<translation id="2783661497142353826">Gérer les applications du kiosque</translation>
+<translation id="2783661497142353826">Gérer les applications kiosque</translation>
 <translation id="2784407158394623927">Activation de votre service Internet mobile</translation>
 <translation id="2784556410206159845">Pour assurer la sécurité de votre <ph name="DEVICE_TYPE" />, Smart Lock pour Chromebook nécessite l'activation d'un verrouillage d'écran sur votre téléphone</translation>
 <translation id="2784949926578158345">La connexion a été réinitialisée.</translation>
@@ -1267,7 +1267,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2788135150614412178">+</translation>
 <translation id="2789486458103222910">OK</translation>
 <translation id="2790805296069989825">Clavier russe</translation>
-<translation id="2791952154587244007">Une erreur s'est produite. Impossible de lancer automatiquement l'application de kiosque sur cet appareil.</translation>
+<translation id="2791952154587244007">Une erreur s'est produite. Impossible de lancer automatiquement l'application kiosque sur cet appareil.</translation>
 <translation id="2794337001681772676">Activer le mode bureau unifié, qui permet à une fenêtre de couvrir plusieurs affichages</translation>
 <translation id="2796424461616874739">Expiration du délai d'authentification lors de la connexion à l'appareil "<ph name="DEVICE_NAME" />".</translation>
 <translation id="2796740370559399562">Continuer à autoriser les cookies</translation>
@@ -1854,7 +1854,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="3559661023937741623">Pour votre sécurité, veuillez valider les informations de votre carte de paiement.</translation>
 <translation id="3561204836318837461">BSSID :</translation>
 <translation id="3561217442734750519">Vous devez indiquer un chemin valide comme valeur de clé privée.</translation>
-<translation id="3563432852173030730">Impossible de télécharger l'application du kiosque.</translation>
+<translation id="3563432852173030730">Impossible de télécharger l'application kiosque.</translation>
 <translation id="3564334271939054422">Pour utiliser ce réseau Wi-Fi (<ph name="NETWORK_ID" />), vous devrez peut-être vous rendre sur la page de connexion correspondante.</translation>
 <translation id="3564708465992574908">Niveaux de zoom</translation>
 <translation id="356512994079769807">Paramètres d'installation système</translation>
@@ -3037,7 +3037,7 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5249624017678798539">Le navigateur a planté avant la fin du téléchargement.</translation>
 <translation id="5252456968953390977">Itinérance</translation>
 <translation id="5253753933804516447">Activez "Ok Google" pour effectuer des recherches vocales lorsque votre écran est actif et déverrouillé.</translation>
-<translation id="52550593576409946">Impossible de lancer l'application du kiosque.</translation>
+<translation id="52550593576409946">Impossible de lancer l'application kiosque.</translation>
 <translation id="5255315797444241226">La phrase secrète saisie est incorrecte.</translation>
 <translation id="5258266922137542658">PPAPI (dans le processus)</translation>
 <translation id="5260508466980570042">Adresse e-mail ou mot de passe incorrect. Veuillez réessayer.</translation>
@@ -3302,7 +3302,7 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5613695965848159202">Authentification anonyme :</translation>
 <translation id="5614190747811328134">Avertissement utilisateur</translation>
 <translation id="5617934323658610138">Activer la publicité BLE dans les applications Chrome</translation>
-<translation id="5618075537869101857">Impossible de lancer l'application du kiosque.</translation>
+<translation id="5618075537869101857">Impossible de lancer l'application kiosque.</translation>
 <translation id="5618333180342767515">Cela peut prendre quelques minutes.</translation>
 <translation id="5618972959246891967">Date du système</translation>
 <translation id="5620568081365989559">Un accès complet à <ph name="FOLDER_PATH" /> est requis pour DevTools.
@@ -3864,7 +3864,7 @@ Il est possible que certaines fonctionnalités ne soient pas disponibles. Veuill
           <ph name="TIME" /></translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> va configurer les mises à jour automatiques pour tous les utilisateurs de cet ordinateur.</translation>
 <translation id="6434309073475700221">Annuler</translation>
-<translation id="6435285122322546452">Gérer les applications de kiosque…</translation>
+<translation id="6435285122322546452">Gérer les applications kiosque…</translation>
 <translation id="6436164536244065364">Afficher dans le Web Store</translation>
 <translation id="6437213622978068772">Actualiser (Ctrl + R)</translation>
 <translation id="6438234780621650381">Réinitialiser les paramètres</translation>
@@ -4172,7 +4172,7 @@ Il est possible que certaines fonctionnalités ne soient pas disponibles. Veuill
 <translation id="6886871292305414135">Ouvrir le lien dans un nouvel ongle&amp;t</translation>
 <translation id="6896758677409633944">Copier</translation>
 <translation id="6897140037006041989">Agent utilisateur</translation>
-<translation id="6898440773573063262">Les applications de kiosque peuvent désormais être configurées pour se lancer automatiquement sur cet appareil.</translation>
+<translation id="6898440773573063262">Les applications kiosque peuvent désormais être configurées pour se lancer automatiquement sur cet appareil.</translation>
 <translation id="6898699227549475383">Organisation (O)</translation>
 <translation id="6900284862687837908">Application en arrière-plan : <ph name="BACKGROUND_APP_URL" /></translation>
 <translation id="6904344821472985372">Révoquer l'accès aux fichiers</translation>
@@ -4584,7 +4584,7 @@ Conseil : Le mode navigation privée (<ph name="SHORTCUT_KEY" />) pourra vous �
 <translation id="7474889694310679759">Clavier anglais canadien</translation>
 <translation id="7475671414023905704">URL de mot de passe perdu Netscape</translation>
 <translation id="7477347901712410606">Si vous avez oublié votre phrase secrète, interrompez la synchronisation, puis reconfigurez-la via <ph name="BEGIN_LINK" />Google Dashboard<ph name="END_LINK" />.</translation>
-<translation id="7478485216301680444">Impossible d'installer l'application du kiosque.</translation>
+<translation id="7478485216301680444">Impossible d'installer l'application kiosque.</translation>
 <translation id="7479479221494776793">Si vous restez inactif, vous allez être déconnecté dans <ph name="LOGOUT_TIME_LEFT" />.</translation>
 <translation id="7481312909269577407">Avancer</translation>
 <translation id="748138892655239008">Contraintes de base du certificat</translation>
@@ -4643,7 +4643,7 @@ Conseil : Le mode navigation privée (<ph name="SHORTCUT_KEY" />) pourra vous �
 <translation id="7556033326131260574">Smart Lock n'a pas pu valider votre compte. Veuillez saisir votre mot de passe pour accéder à l'appareil.</translation>
 <translation id="7556242789364317684">Malheureusement, il est impossible de récupérer vos paramètres <ph name="SHORT_PRODUCT_NAME" />. Pour corriger cette erreur, votre appareil doit être réinitialisé avec la fonctionnalité <ph name="SHORT_PRODUCT_NAME" /> Powerwash.</translation>
 <translation id="7558050486864662801">Me demander lorsqu'un site demande l'accès à mon micro (recommandé)</translation>
-<translation id="7559719679815339381">Veuillez patienter… L'application de kiosque est en cours de mise à jour. Ne débranchez pas la clé USB.</translation>
+<translation id="7559719679815339381">Veuillez patienter… L'application kiosque est en cours de mise à jour. Ne débranchez pas la clé USB.</translation>
 <translation id="7561196759112975576">Toujours</translation>
 <translation id="7563991800558061108">Pour résoudre cette erreur, vous devez vous connecter à votre compte Google
     sur l'écran de connexion, puis vous déconnecter de votre compte et
@@ -4700,7 +4700,7 @@ Conseil : Le mode navigation privée (<ph name="SHORTCUT_KEY" />) pourra vous �
 <translation id="7629536005696009600">Autoriser l'insertion des identifiants stockés pour les applications Android dans les sites Web correspondants</translation>
 <translation id="7629827748548208700">Onglet : <ph name="TAB_NAME" /></translation>
 <translation id="7631887513477658702">&amp;Toujours ouvrir les fichiers de ce type</translation>
-<translation id="7632948528260659758">Échec de la mise à jour des applications de kiosque suivantes :</translation>
+<translation id="7632948528260659758">Échec de la mise à jour des applications kiosque suivantes :</translation>
 <translation id="7634554953375732414">Votre connexion à ce site n'est pas privée.</translation>
 <translation id="7634566076839829401">Une erreur s'est produite. Veuillez réessayer.</translation>
 <translation id="7639178625568735185">OK</translation>
@@ -4856,7 +4856,7 @@ Conseil : Le mode navigation privée (<ph name="SHORTCUT_KEY" />) pourra vous �
 <translation id="7861215335140947162">&amp;Téléchargements</translation>
 <translation id="7863133010182113457">Effacer les économies de données obtenues via le proxy de réduction de données au démarrage de Chrome</translation>
 <translation id="7864539943188674973">Désactiver le Bluetooth</translation>
-<translation id="7870790288828963061">Aucune nouvelle version d'une application de kiosque n'a été trouvée. Aucune mise à jour n'est disponible. Veuillez débrancher la clé USB.</translation>
+<translation id="7870790288828963061">Aucune nouvelle version d'une application kiosque n'a été trouvée. Aucune mise à jour n'est disponible. Veuillez débrancher la clé USB.</translation>
 <translation id="787150342916295244">Lecture de cartes de paiement</translation>
 <translation id="7876243839304621966">Tout supprimer</translation>
 <translation id="7877451762676714207">Erreur serveur inconnue. Veuillez réessayer ou contacter l'administrateur du serveur.</translation>
@@ -4987,7 +4987,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8037117027592400564">Accéder à l'ensemble du texte énoncé à l'aide de la synthèse vocale</translation>
 <translation id="803771048473350947">Fichier</translation>
 <translation id="8038111231936746805">(par défaut)</translation>
-<translation id="8041535018532787664">Ajouter une application du kiosque :</translation>
+<translation id="8041535018532787664">Ajouter une application kiosque :</translation>
 <translation id="8041940743680923270">Utiliser le paramètre global par défaut ("Demander")</translation>
 <translation id="8044899503464538266">Lente</translation>
 <translation id="8045462269890919536">Roumain</translation>
@@ -5217,7 +5217,7 @@ Calcul de la durée restante</translation>
 <translation id="8358685469073206162">Restaurer les pages ?</translation>
 <translation id="8362900609631365882">Activer la fonctionnalité d'accessibilité pour le changement d'onglets</translation>
 <translation id="8363095875018065315">stable</translation>
-<translation id="8366396658833131068">Votre connexion réseau est rétablie. Veuillez sélectionner un autre réseau ou appuyer sur "Continuer" ci-dessous pour lancer votre application de kiosque.</translation>
+<translation id="8366396658833131068">Votre connexion réseau est rétablie. Veuillez sélectionner un autre réseau ou appuyer sur "Continuer" ci-dessous pour lancer votre application kiosque.</translation>
 <translation id="8366694425498033255">Touches de sélection</translation>
 <translation id="8368859634510605990">&amp;Ouvrir tous les favoris</translation>
 <translation id="836961001039546082">Activer l'interface utilisateur matérielle pour les PDF</translation>
@@ -5303,7 +5303,7 @@ Calcul de la durée restante</translation>
 <translation id="8487678622945914333">Zoom avant</translation>
 <translation id="8487693399751278191">Importer mes favoris maintenant...</translation>
 <translation id="8487700953926739672">Disponible hors connexion</translation>
-<translation id="8490896350101740396">Les applications de kiosque "<ph name="UPDATED_APPS" />" ont bien été mises à jour. Veuillez redémarrer l'appareil afin de terminer la procédure.</translation>
+<translation id="8490896350101740396">Les applications kiosque "<ph name="UPDATED_APPS" />" ont bien été mises à jour. Veuillez redémarrer l'appareil afin de terminer la procédure.</translation>
 <translation id="8493236660459102203">Micro :</translation>
 <translation id="8494214181322051417">Nouveau !</translation>
 <translation id="8494979374722910010">Échec de la tentative de connexion au serveur.</translation>
@@ -5484,7 +5484,7 @@ Calcul de la durée restante</translation>
 <translation id="8731332457891046104">Annuler l'enregistrement du <ph name="DEVICE_TYPE" /></translation>
 <translation id="8732030010853991079">Utilisez cette extension en cliquant sur cette icône</translation>
 <translation id="8732212173949624846">Consulter et modifier votre historique de navigation sur tous les appareils sur lesquels vous êtes connecté à votre compte</translation>
-<translation id="8734073480934656039">L'activation de ce paramètre entraîne le lancement automatique des applications de kiosque au démarrage.</translation>
+<translation id="8734073480934656039">L'activation de ce paramètre entraîne le lancement automatique des applications kiosque au démarrage.</translation>
 <translation id="8736288397686080465">Ce site a été mis à jour en arrière-plan.</translation>
 <translation id="8737260648576902897">Installer Adobe Reader</translation>
 <translation id="8737685506611670901">Ouvrir les liens "<ph name="PROTOCOL" />" à la place de "<ph name="REPLACED_HANDLER_TITLE" />"</translation>
@@ -5516,7 +5516,7 @@ Calcul de la durée restante</translation>
 <translation id="8777218413579204310">Détecter le contenu</translation>
 <translation id="8777628254805677039">mot de passe racine</translation>
 <translation id="878069093594050299">Ce certificat a été vérifié pour les utilisations suivantes :</translation>
-<translation id="8782565991310229362">Annulation du lancement de l'application du kiosque.</translation>
+<translation id="8782565991310229362">Annulation du lancement de l'application kiosque.</translation>
 <translation id="8783093612333542422">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; souhaite partager une imprimante &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; avec vous.</translation>
 <translation id="878431691778285679">Il semble que vous gérez déjà un utilisateur portant ce nom.<ph name="LINE_BREAK" />Voulez-vous <ph name="BEGIN_LINK" />importer <ph name="PROFILE_NAME" /> sur cet appareil<ph name="END_LINK" /> ?</translation>
 <translation id="8784626084144195648">Moyenne des éléments placés dans la corbeille</translation>
@@ -5569,7 +5569,7 @@ Calcul de la durée restante</translation>
 <translation id="8870413625673593573">Récemment fermés</translation>
 <translation id="8871696467337989339">Vous utilisez un indicateur de ligne de commande non pris en charge : <ph name="BAD_FLAG" />. La stabilité et la sécurité en seront affectées.</translation>
 <translation id="8871974300055371298">Paramètres du contenu</translation>
-<translation id="8872155268274985541">Fichier manifeste de mise à jour externe de kiosque non valide. Échec de la mise à jour de l'application de kiosque. Veuillez débrancher la clé USB.</translation>
+<translation id="8872155268274985541">Fichier manifeste de mise à jour externe de kiosque non valide. Échec de la mise à jour de l'application kiosque. Veuillez débrancher la clé USB.</translation>
 <translation id="8874184842967597500">Non connecté</translation>
 <translation id="8876215549894133151">Format :</translation>
 <translation id="8877448029301136595">[répertoire parent]</translation>

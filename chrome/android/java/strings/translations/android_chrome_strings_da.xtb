@@ -150,7 +150,7 @@
 <translation id="326254929494722411">Du har endnu ikke oprettet en Google-konto på denne enhed</translation>
 <translation id="3269093882174072735">Indlæs billede</translation>
 <translation id="3278850099957560514">Brug færre penge på data ved at bruge Google til at optimere de sider, du besøger. Google optimerer og ser ikke sider, der besøges via private forbindelser (HTTPS) eller inkognitofaner.</translation>
-<translation id="3282568296779691940">Log ind på Chrome</translation>
+<translation id="3282568296779691940">Log ind i Chrome</translation>
 <translation id="3287852534598822456">Bogmærket eksisterer ikke længere. Opdater.</translation>
 <translation id="3303414029551471755">Vil du fortsætte og downloade indholdet?</translation>
 <translation id="3328801116991980348">Webstedoplysninger</translation>
@@ -248,7 +248,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="4943872375798546930">Ingen resultater</translation>
 <translation id="4970484396410298643">Få adgang til de faner, der er åbne på din computer, lige her.
 
-Du skal bare åbne Chrome på din computer, gå til menuen og vælge "Log ind på Chrome..."</translation>
+Du skal bare åbne Chrome på din computer, gå til menuen og vælge "Log ind i Chrome..."</translation>
 <translation id="497421865427891073">Gå fremad</translation>
 <translation id="4996978546172906250">Del via</translation>
 <translation id="5000922062037820727">Blokeret (anbefales)</translation>
@@ -390,7 +390,7 @@ Nogle websites kan f.eks. reagere på denne anmodning ved at vise dig annoncer, 
 <translation id="6612856669344839356">Gem bogmærke</translation>
 <translation id="6627583120233659107">Rediger mappen</translation>
 <translation id="6643016212128521049">Ryd</translation>
-<translation id="666268767214822976">Brug en forudsigelsestjeneste til at få vist relaterede forespørgsler og populære websites, mens du skriver på adresselinjen</translation>
+<translation id="666268767214822976">Brug en forslagstjeneste til at få vist relaterede forespørgsler og populære websites, mens du skriver i adresselinjen</translation>
 <translation id="666981079809192359">Erklæring om privatliv for Google Chrome</translation>
 <translation id="6671495933530132209">Kopiér billede</translation>
 <translation id="668087818636876709">Vil du slette <ph name="PAGES_NUMBER" /> gemte sider, der er mere end en måned gamle? Det vil give dig <ph name="TOTAL_PAGE_SIZE" /> mere plads.</translation>
@@ -461,7 +461,7 @@ Nogle websites kan f.eks. reagere på denne anmodning ved at vise dig annoncer, 
 <translation id="7634554953375732414">Din forbindelse til dette website er ikke privat.</translation>
 <translation id="7638584964844754484">Forkert adgangssætning</translation>
 <translation id="764743049316168389">Mappen <ph name="FOLDER_NAME" /></translation>
-<translation id="7648120236428811856">Log ind på Chrome for at få adgang til dine bogmærker fra enhver enhed</translation>
+<translation id="7648120236428811856">Log ind i Chrome for at få adgang til dine bogmærker fra enhver enhed</translation>
 <translation id="7648422057306047504">Kryptér adgangskoder med Google-loginoplysninger</translation>
 <translation id="7658239707568436148">Annuller</translation>
 <translation id="7665369617277396874">Tilføj konto</translation>

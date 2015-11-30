@@ -2309,7 +2309,7 @@ Toți utilizatorii trebuie să se deconecteze pentru a continua.</translation>
 <translation id="4157869833395312646">Criptografie Microsoft bazată pe server</translation>
 <translation id="4159681666905192102">Acesta este un cont pentru copii gestionat de <ph name="CUSTODIAN_EMAIL" /> și de <ph name="SECOND_CUSTODIAN_EMAIL" />.</translation>
 <translation id="4163560723127662357">Tastatură necunoscută</translation>
-<translation id="4165986682804962316">Setări pentru site</translation>
+<translation id="4165986682804962316">Setări pentru site-uri</translation>
 <translation id="4166210099837486476">Monitorizează când acționezi în Chrome</translation>
 <translation id="4168015872538332605">Aveți acces la anumite setări care aparțin utilizatorului <ph name="PRIMARY_EMAIL" />. Aceste setări vă afectează contul numai când folosiți conectarea multiplă.</translation>
 <translation id="4172051516777682613">Afișați întotdeauna</translation>
@@ -5394,7 +5394,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8605503133013456784">Deconectarea de la și anularea împerecherii cu „<ph name="DEVICE_NAME" />” a eșuat.</translation>
 <translation id="8606726445206553943">Folosească dispozitive MIDI</translation>
 <translation id="8609432254184257462">Cardul tău a fost protejat cu ajutorul cardului virtual Google Payments (<ph name="FRONTING_CREDIT_CARD" />), iar acest număr va apărea pe chitanță. Costul acestei achiziții va fi debitat în continuare de pe cardul <ph name="BACKING_CREDIT_CARD" />.</translation>
-<translation id="8610892630019863050">Notifică-mă dacă un site vrea să afișeze notificări (recomandat)</translation>
+<translation id="8610892630019863050">Anunță-mă dacă un site vrea să afișeze notificări (recomandat)</translation>
 <translation id="8615618338313291042">Aplicație incognito: <ph name="APP_NAME" /></translation>
 <translation id="8616748524633185354">Anumite pagini web folosesc extensii JavaScript vechi sau non-standard care pot intra în conflict cu cele mai recente funcții JavaScript. Pentru compatibilitatea cu astfel de pagini, acest semnalizator dezactivează acceptarea acelor funcții.</translation>
 <translation id="8619892228487928601"><ph name="CERTIFICATE_NAME" />: <ph name="ERROR" /></translation>

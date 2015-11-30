@@ -755,7 +755,7 @@
 <translation id="2089090684895656482">Mindre</translation>
 <translation id="2090165459409185032">Du gendanner dine kontooplysninger ved at gå til: google.com/accounts/recovery</translation>
 <translation id="2090876986345970080">Indstillinger for systemsikkerhed</translation>
-<translation id="2097372108957554726">Du skal logge ind på Chrome for at registrere nye enheder</translation>
+<translation id="2097372108957554726">Du skal logge ind i Chrome for at registrere nye enheder</translation>
 <translation id="2098305189700762159">Blev ikke fundet</translation>
 <translation id="2099172618127234427">Du aktiverer Chrome OS-fejlfindingsfunktioner, som konfigurerer sshd daemon og aktiverer systemgenstart via USB-drev.</translation>
 <translation id="2099686503067610784">Slet servercertifikatet "<ph name="CERTIFICATE_NAME" />"?</translation>
@@ -1591,7 +1591,7 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="3216508313927987948">For at gøre det skal du oplære din <ph name="DEVICE_TYPE" /> via de følgende trin.</translation>
 <translation id="3220586366024592812">Behandlingen af forbindelsen til <ph name="CLOUD_PRINT_NAME" /> er gået ned. Vil du genstarte?</translation>
 <translation id="3221634914176615296">Udforsk enhedens indhold i appen Filer.</translation>
-<translation id="3222066309010235055">Forudgengivelse: <ph name="PRERENDER_CONTENTS_NAME" /></translation>
+<translation id="3222066309010235055">Forhåndsgengivelse: <ph name="PRERENDER_CONTENTS_NAME" /></translation>
 <translation id="3223445644493024689">Kontrolklik for at afspille <ph name="PLUGIN_NAME" />.</translation>
 <translation id="3224239078034945833">Canadisk (flere sprog)</translation>
 <translation id="3225319735946384299">Kodesignering</translation>
@@ -4116,7 +4116,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6820687829547641339">Gzip-komprimeret tar-arkiv</translation>
 <translation id="682123305478866682">Cast skrivebordet</translation>
-<translation id="6823506025919456619">Du skal logge ind på Chrome for at se dine enheder</translation>
+<translation id="6823506025919456619">Du skal logge ind i Chrome for at se dine enheder</translation>
 <translation id="6824564591481349393">Kopier &amp;e-mailadresse</translation>
 <translation id="6824725898506587159">Administrer sprog</translation>
 <translation id="6825883775269213504">Russisk</translation>
