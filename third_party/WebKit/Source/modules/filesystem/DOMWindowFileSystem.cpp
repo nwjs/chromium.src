@@ -42,6 +42,14 @@
 
 namespace blink {
 
+DOMWindowFileSystem::DOMWindowFileSystem()
+{
+}
+
+DOMWindowFileSystem::~DOMWindowFileSystem()
+{
+}
+
 void DOMWindowFileSystem::webkitRequestFileSystem(DOMWindow& windowArg, int type, long long size, FileSystemCallback* successCallback, ErrorCallback* errorCallback)
 {
     LocalDOMWindow& window = toLocalDOMWindow(windowArg);

@@ -15,7 +15,7 @@ class DOMException;
 class ScriptPromiseResolver;
 
 class CacheStorageError {
-    STATIC_ONLY(CacheStorageError);
+    WTF_MAKE_NONCOPYABLE(CacheStorageError);
 public:
     // For CallbackPromiseAdapter. Ownership of a given error is not
     // transferred.

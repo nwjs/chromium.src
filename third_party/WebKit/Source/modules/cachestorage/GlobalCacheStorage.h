@@ -5,8 +5,6 @@
 #ifndef GlobalCacheStorage_h
 #define GlobalCacheStorage_h
 
-#include "wtf/Allocator.h"
-
 namespace blink {
 
 class CacheStorage;
@@ -15,7 +13,6 @@ class ExceptionState;
 class WorkerGlobalScope;
 
 class GlobalCacheStorage {
-    STATIC_ONLY(GlobalCacheStorage);
 public:
     static CacheStorage* caches(DOMWindow&, ExceptionState&);
     static CacheStorage* caches(WorkerGlobalScope&, ExceptionState&);

@@ -36,7 +36,6 @@
 #include "public/platform/WebCrypto.h"
 #include "public/platform/WebCryptoAlgorithm.h"
 #include "public/platform/WebString.h"
-#include "wtf/Allocator.h"
 #include "wtf/Assertions.h"
 #include "wtf/Forward.h"
 
@@ -45,7 +44,6 @@ namespace blink {
 class Dictionary;
 
 struct AlgorithmError {
-    STACK_ALLOCATED();
     WebCryptoErrorType errorType;
     WebString errorDetails;
 };

@@ -8,7 +8,6 @@
 #include "modules/ModulesExport.h"
 #include "modules/fetch/FetchDataConsumerHandle.h"
 #include "public/platform/WebDataConsumerHandle.h"
-#include "wtf/Allocator.h"
 #include "wtf/PassOwnPtr.h"
 #include "wtf/WeakPtr.h"
 
@@ -34,7 +33,6 @@ MODULES_EXPORT PassOwnPtr<FetchDataConsumerHandle> createFetchDataConsumerHandle
 // NotifyOnReaderCreationHelper must be owned by a reader and
 // |client| must be the client of the reader.
 class NotifyOnReaderCreationHelper final {
-    DISALLOW_ALLOCATION();
 public:
     NotifyOnReaderCreationHelper(WebDataConsumerHandle::Client* /* client */);
 

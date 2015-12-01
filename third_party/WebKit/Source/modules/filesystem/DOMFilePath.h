@@ -31,14 +31,12 @@
 #ifndef DOMFilePath_h
 #define DOMFilePath_h
 
-#include "wtf/Allocator.h"
 #include "wtf/text/WTFString.h"
 
 namespace blink {
 
 // DOMFileSystem path utilities. All methods in this class are static.
 class DOMFilePath {
-    STATIC_ONLY(DOMFilePath);
 public:
     static const char separator;
     static const char root[];
@@ -76,6 +74,9 @@ public:
 
     // Checks if the given name follows the FileSystem API naming restrictions.
     static bool isValidName(const String& name);
+
+private:
+    DOMFilePath() { }
 };
 
 } // namespace blink

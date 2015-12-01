@@ -33,7 +33,6 @@
 
 #include "modules/ModulesExport.h"
 #include "platform/FileSystemType.h"
-#include "wtf/FastAllocBase.h"
 #include "wtf/Forward.h"
 #include "wtf/Noncopyable.h"
 
@@ -45,7 +44,6 @@ class ContentSettingCallbacks;
 class WorkerClients;
 
 class FileSystemClient {
-    WTF_MAKE_FAST_ALLOCATED(FileSystemClient);
     WTF_MAKE_NONCOPYABLE(FileSystemClient);
 public:
     FileSystemClient() { }

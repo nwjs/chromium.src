@@ -5,7 +5,6 @@
 #ifndef EventHitRegion_h
 #define EventHitRegion_h
 
-#include "wtf/Allocator.h"
 #include "wtf/text/WTFString.h"
 
 namespace blink {
@@ -14,7 +13,6 @@ class HTMLCanvasElement;
 class LayoutPoint;
 
 class EventHitRegion {
-    STATIC_ONLY(EventHitRegion);
 public:
     static String regionIdFromAbsoluteLocation(HTMLCanvasElement&, const LayoutPoint&);
 };

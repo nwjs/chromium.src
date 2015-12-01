@@ -8,7 +8,6 @@
 #include "modules/ModulesExport.h"
 #include "modules/fetch/FetchDataConsumerHandle.h"
 #include "public/platform/WebDataConsumerHandle.h"
-#include "wtf/Allocator.h"
 #include "wtf/OwnPtr.h"
 #include "wtf/PassOwnPtr.h"
 
@@ -17,7 +16,6 @@ namespace blink {
 class ExecutionContext;
 
 class MODULES_EXPORT DataConsumerTee {
-    STATIC_ONLY(DataConsumerTee);
 public:
     // Create two handles from one. |src| must be a valid unlocked handle.
     static void create(ExecutionContext*, PassOwnPtr<WebDataConsumerHandle> src, OwnPtr<WebDataConsumerHandle>* dest1, OwnPtr<WebDataConsumerHandle>* dest2);

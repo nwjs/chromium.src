@@ -6,14 +6,12 @@
 #define MouseEventHitRegion_h
 
 #include "modules/canvas2d/EventHitRegion.h"
-#include "wtf/Allocator.h"
 
 namespace blink {
 
 class MouseEvent;
 
 class MouseEventHitRegion : public EventHitRegion {
-    STATIC_ONLY(MouseEventHitRegion);
 public:
     static String region(MouseEvent&);
 };

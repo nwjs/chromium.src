@@ -421,7 +421,6 @@ public:
     typedef HeapVector<Member<AXObject>> AccessibilityChildrenVector;
 
     struct AXRange {
-        ALLOW_ONLY_INLINE_ALLOCATION();
         // The deepest descendant in which the range starts.
         // (nullptr means the current object.)
         Persistent<AXObject> anchorObject;

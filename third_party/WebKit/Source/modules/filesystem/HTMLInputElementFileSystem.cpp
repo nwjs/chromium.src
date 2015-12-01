@@ -76,4 +76,12 @@ EntryHeapVector HTMLInputElementFileSystem::webkitEntries(ExecutionContext* exec
     return entries;
 }
 
+HTMLInputElementFileSystem::HTMLInputElementFileSystem()
+{
+}
+
+HTMLInputElementFileSystem::~HTMLInputElementFileSystem()
+{
+}
+
 } // namespace blink

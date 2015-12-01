@@ -6,7 +6,6 @@
 #define DevToolsHostFileSystem_h
 
 #include "platform/heap/Handle.h"
-#include "wtf/Allocator.h"
 #include "wtf/text/WTFString.h"
 
 namespace blink {
@@ -15,10 +14,12 @@ class DOMFileSystem;
 class DevToolsHost;
 
 class DevToolsHostFileSystem {
-    STATIC_ONLY(DevToolsHostFileSystem);
 public:
     static DOMFileSystem* isolatedFileSystem(DevToolsHost&, const String& fileSystemName, const String& rootURL);
     static void upgradeDraggedFileSystemPermissions(DevToolsHost&, DOMFileSystem*);
+private:
+    DevToolsHostFileSystem();
+    ~DevToolsHostFileSystem();
 };
 
 } // namespace blink
