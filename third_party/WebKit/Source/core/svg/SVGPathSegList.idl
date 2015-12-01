@@ -31,7 +31,7 @@
     SetWrapperReferenceTo(SVGElement contextElement),
     ImplementedAs=SVGPathSegListTearOff,
     RuntimeEnabled=SVG1DOM,
-    DeprecateAs=SVGPathSegDOM,
+    MeasureAs=SVGPathSegDOM,
     WillBeGarbageCollected,
 ] interface SVGPathSegList {
     readonly attribute unsigned long length;

@@ -29,7 +29,7 @@
 [
     TypeChecking=Interface,
     RuntimeEnabled=SVG1DOM,
-    DeprecateAs=SVGPathSegDOM,
+    MeasureAs=SVGPathSegDOM,
 ] interface SVGPathSegCurvetoCubicRel : SVGPathSeg {
     attribute float x;
     attribute float y;

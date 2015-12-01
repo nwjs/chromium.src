@@ -29,7 +29,7 @@
 [
     DependentLifetime,
     RuntimeEnabled=SVG1DOM,
-    DeprecateAs=SVGPathSegDOM,
+    MeasureAs=SVGPathSegDOM,
     WillBeGarbageCollected,
 ] interface SVGPathSeg {
     // Path Segment Types
