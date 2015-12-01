@@ -629,7 +629,7 @@ BidiRun* LayoutBlockFlow::computeInlineDirectionPositionsForSegment(RootInlineBo
         previousObject = r->m_object;
     }
 
-    if (isAfterExpansion && expansionOpportunityCount) {
+    if (isAfterExpansion && expansionOpportunityCount && expansionOpportunities.last()) {
         expansionOpportunities.last()--;
         expansionOpportunityCount--;
     }
