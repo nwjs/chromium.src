@@ -29,7 +29,7 @@
 [
     TypeChecking=Interface,
     RuntimeEnabled=SVG1DOM,
-    MeasureAs=SVGPathSegDOM,
+    DeprecateAs=SVGPathSegDOM,
 ] interface SVGPathSegMovetoRel : SVGPathSeg {
     attribute float x;
     attribute float y;
