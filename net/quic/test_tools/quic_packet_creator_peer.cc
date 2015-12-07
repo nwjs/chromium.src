@@ -52,5 +52,11 @@ void QuicPacketCreatorPeer::SetPacketNumber(QuicPacketCreator* creator,
   creator->packet_number_ = s;
 }
 
+// static
+EncryptionLevel QuicPacketCreatorPeer::GetEncryptionLevel(
+    QuicPacketCreator* creator) {
+  return creator->encryption_level_;
+}
+
 }  // namespace test
 }  // namespace net

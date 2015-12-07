@@ -73,3 +73,7 @@ bool FLAGS_reset_cubic_epoch_when_app_limited = true;
 // If true, use an interval set as the internal representation of a packet queue
 // instead of a set.
 bool FLAGS_quic_packet_queue_use_interval_set = true;
+
+// If true, QUIC sessions will write block streams that attempt to write
+// unencrypted data.
+bool FLAGS_quic_block_unencrypted_writes = true;
