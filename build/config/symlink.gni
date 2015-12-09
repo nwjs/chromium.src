@@ -1,0 +1,79 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Creates a symlink.
+# Args:
+#   to: Path to link to.
+#   from: Path to link from (default=root_out_dir/target_name)
+template("symlink") {
+  action(target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "deps",
+                             "public_deps",
+                             "data_deps",
+                             "testonly",
+                             "visibility",
+                           ])
+    _to = invoker.to
+
+    if (defined(invoker.from)) {
+      _from = invoker.from
+    } else {
+      _from = "$root_out_dir/${invoker.target_name}"
+    }
+
+    # TODO(agrieve): Declaring the output as _from triggers a
+    # "multiple rules generate foo" warning in ninja when there is a target with
+    # the same name in a different toolchain
+    _stamp = "$target_gen_dir/$target_name.stamp"
+    outputs = [
+      _stamp,
+    ]
+    script = "//build/symlink.py"
+    args = [
+      "-f",
+      "--touch",
+      rebase_path(_stamp, root_build_dir),
+      rebase_path(_to, get_path_info(_from, "dir")),
+      rebase_path(_from, root_build_dir),
+    ]
+  }
+}
+
+# Creates a convenience symlink from root_build_dir/target_name to
+# host_tool_chain/target_name.
+# Note that for executables, using a copy (as opposed to a symlink) does not
+# work when is_component_build=true, since dependent libraries are found via
+# relative location.
+# Args:
+#   target_dep: Target that builds the file to symlink to
+#       (default=":${invoker.target_name}($host_toolchain)").
+#   to: File to symlink to (default="target_dep's out_dir/target_name")
+template("host_symlink") {
+  symlink(target_name) {
+    _target_dep = ":${invoker.target_name}($host_toolchain)"
+    if (defined(invoker.target_dep)) {
+      _target_dep = invoker.target_dep
+    }
+
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+
+    # The target doesn't need to be built before creating a symlink to it.
+    data_deps = [
+      _target_dep,
+    ]
+
+    if (defined(invoker.to)) {
+      to = invoker.to
+    } else {
+      _out_dir = get_label_info(_target_dep, "root_out_dir")
+      to = "$_out_dir/" + get_label_info(_target_dep, "name")
+    }
+  }
+}
