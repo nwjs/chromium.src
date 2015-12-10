@@ -35,6 +35,7 @@ public class ShortcutActivity extends AsyncInitializationActivity implements
 
     @Override
     public void postInflationStartup() {
+        super.postInflationStartup();
         setTitle(getResources().getString(R.string.bookmark_shortcut_choose_bookmark));
     }
 
