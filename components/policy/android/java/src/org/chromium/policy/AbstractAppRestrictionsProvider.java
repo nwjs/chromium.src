@@ -11,10 +11,12 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Parcel;
 import android.preference.PreferenceManager;
 import android.util.Base64;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 
@@ -69,8 +71,10 @@ public abstract class AbstractAppRestrictionsProvider extends PolicyProvider {
     public void startListeningForPolicyChanges() {
         String changeIntentAction = getRestrictionChangeIntentAction();
         if (changeIntentAction == null) return;
-        mContext.registerReceiver(
-                mAppRestrictionsChangedReceiver, new IntentFilter(changeIntentAction));
+
+        mContext.registerReceiver(mAppRestrictionsChangedReceiver,
+                new IntentFilter(changeIntentAction), null,
+                new Handler(ThreadUtils.getUiThreadLooper()));
     }
 
     /**
@@ -84,21 +88,22 @@ public abstract class AbstractAppRestrictionsProvider extends PolicyProvider {
             notifySettingsAvailable(cachedResult);
         }
 
-        new AsyncTask<Void, Void, Bundle>() {
+        mExecutor.execute(new Runnable() {
             @Override
-            protected Bundle doInBackground(Void... params) {
+            public void run() {
                 long startTime = System.currentTimeMillis();
-                Bundle bundle = getApplicationRestrictions(mContext.getPackageName());
+                final Bundle bundle = getApplicationRestrictions(mContext.getPackageName());
                 recordStartTimeHistogram(startTime);
-                return bundle;
-            }
 
-            @Override
-            protected void onPostExecute(Bundle result) {
-                cachePolicies(result);
-                notifySettingsAvailable(result);
+                ThreadUtils.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        cachePolicies(bundle);
+                        notifySettingsAvailable(bundle);
+                    }
+                });
             }
-        }.executeOnExecutor(mExecutor);
+        });
     }
 
     @Override
