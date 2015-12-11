@@ -363,7 +363,6 @@ TEST_P(QuicCryptoServerStreamTest, ZeroRTT) {
 }
 
 TEST_P(QuicCryptoServerStreamTest, MessageAfterHandshake) {
-  FLAGS_quic_require_fix = false;
   CompleteCryptoHandshake();
   EXPECT_CALL(
       *server_connection_,
@@ -376,7 +375,6 @@ TEST_P(QuicCryptoServerStreamTest, MessageAfterHandshake) {
 }
 
 TEST_P(QuicCryptoServerStreamTest, BadMessageType) {
-  FLAGS_quic_require_fix = false;
   message_.set_tag(kSHLO);
   ConstructHandshakeMessage();
   EXPECT_CALL(*server_connection_,
