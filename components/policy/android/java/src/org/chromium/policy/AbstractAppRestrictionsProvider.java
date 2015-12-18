@@ -85,7 +85,12 @@ public abstract class AbstractAppRestrictionsProvider extends PolicyProvider {
     public void refresh() {
         final Bundle cachedResult = getCachedPolicies();
         if (cachedResult != null) {
-            notifySettingsAvailable(cachedResult);
+            ThreadUtils.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    notifySettingsAvailable(cachedResult);
+                }
+            });
         }
 
         mExecutor.execute(new Runnable() {
