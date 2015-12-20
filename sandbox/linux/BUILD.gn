@@ -321,7 +321,7 @@ if (is_linux) {
       "-Wno-sign-compare",
     ]
 
-    ldflags = [ "-pie" ]
+    ldflags = [ "-pie", "-Wl,--no-keep-memory" ]
   }
 }
 
