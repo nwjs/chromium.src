@@ -64,7 +64,7 @@
 #include "content/child/runtime_features.h"
 #include "content/child/thread_safe_sender.h"
 #include "content/child/web_database_observer_impl.h"
-#include "content/child/worker_thread_registry.h"
+#include "content/child/worker_task_runner.h"
 #include "content/common/child_process_messages.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/database_messages.h"
@@ -418,7 +418,7 @@ class EmbeddedWorkerSetupImpl : public EmbeddedWorkerSetup {
       int32_t thread_id,
       mojo::InterfaceRequest<mojo::ServiceProvider> services,
       mojo::ServiceProviderPtr exposed_services) override {
-    WorkerThreadRegistry::Instance()->GetTaskRunnerFor(thread_id)->PostTask(
+    WorkerTaskRunner::Instance()->GetTaskRunnerFor(thread_id)->PostTask(
         FROM_HERE,
         base::Bind(&SetupEmbeddedWorkerOnWorkerThread, base::Passed(&services),
                    base::Passed(exposed_services.PassInterface())));
@@ -1405,7 +1405,7 @@ void RenderThreadImpl::UpdateHistograms(int sequence_number) {
 }
 
 int RenderThreadImpl::PostTaskToAllWebWorkers(const base::Closure& closure) {
-  return WorkerThreadRegistry::Instance()->PostTaskToAllThreads(closure);
+  return WorkerTaskRunner::Instance()->PostTaskToAllThreads(closure);
 }
 
 bool RenderThreadImpl::ResolveProxy(const GURL& url, std::string* proxy_list) {

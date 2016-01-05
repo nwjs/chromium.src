@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_CHILD_WORKER_THREAD_REGISTRY_H_
-#define CONTENT_CHILD_WORKER_THREAD_REGISTRY_H_
+#ifndef CONTENT_CHILD_WORKER_TASK_RUNNER_H_
+#define CONTENT_CHILD_WORKER_TASK_RUNNER_H_
 
 #include <map>
 
@@ -20,30 +20,25 @@ class TaskRunner;
 
 namespace content {
 
-class CONTENT_EXPORT WorkerThreadRegistry {
+class CONTENT_EXPORT WorkerTaskRunner {
  public:
-  WorkerThreadRegistry();
+  WorkerTaskRunner();
 
+  bool PostTask(int id, const base::Closure& task);
   int PostTaskToAllThreads(const base::Closure& task);
-  static WorkerThreadRegistry* Instance();
+  static WorkerTaskRunner* Instance();
 
-  void DidStartCurrentWorkerThread();
-  void WillStopCurrentWorkerThread();
+  void DidStartWorkerRunLoop();
+  void WillStopWorkerRunLoop();
 
-  // Always returns a non-null task runner regardless of whether the
-  // corresponding worker thread is gone or not. If the thread is already gone
-  // the tasks posted onto the task runner will be silently discarded.
   base::TaskRunner* GetTaskRunnerFor(int worker_id);
 
  private:
-  friend class WorkerThread;
-  friend class WorkerThreadRegistryTest;
-
-  bool PostTask(int id, const base::Closure& task);
+  friend class WorkerTaskRunnerTest;
 
   using IDToTaskRunnerMap = std::map<base::PlatformThreadId, base::TaskRunner*>;
 
-  ~WorkerThreadRegistry();
+  ~WorkerTaskRunner();
 
   // It is possible for an IPC message to arrive for a worker thread that has
   // already gone away. In such cases, it is still necessary to provide a
@@ -59,4 +54,4 @@ class CONTENT_EXPORT WorkerThreadRegistry {
 
 }  // namespace content
 
-#endif  // CONTENT_CHILD_WORKER_THREAD_REGISTRY_H_
+#endif  // CONTENT_CHILD_WORKER_TASK_RUNNER_H_
