@@ -160,6 +160,10 @@ Status PrepareCommandLine(uint16 port,
   if (status.IsError())
     return status;
   switches.AppendToCommandLine(&command);
+
+  for (size_t i = 0; i < capabilities.arguments.size(); i++)
+    command.AppendArg(capabilities.arguments[i]);
+
   *prepared_command = command;
   return Status(kOk);
 }
