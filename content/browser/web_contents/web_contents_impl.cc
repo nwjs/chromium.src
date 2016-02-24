@@ -133,6 +133,9 @@
 #include "base/mac/foundation_util.h"
 #endif
 
+
+#include "content/nw/src/nw_base.h"
+
 namespace content {
 namespace {
 
@@ -1836,10 +1839,11 @@ void WebContentsImpl::CreateNewWindow(
     AddDestructionObserver(new_contents);
   }
 
+  nw::SetCurrentNewWinManifest(params.nw_window_manifest);
   if (delegate_) {
     delegate_->WebContentsCreated(
         this, params.opener_render_frame_id, params.frame_name,
-        params.target_url, new_contents);
+        params.target_url, new_contents, params.nw_window_manifest);
   }
 
   if (params.opener_suppressed) {

@@ -9,6 +9,8 @@
 #include "wtf/Forward.h"
 #include "wtf/Noncopyable.h"
 
+#include "core/frame/LocalFrame.h"
+
 namespace blink {
 
 class LocalFrame;
@@ -32,7 +34,11 @@ public:
     };
 
     explicit InspectedFrames(LocalFrame* root);
-    LocalFrame* root() { return m_root; }
+    LocalFrame* root() {
+      LocalFrame* f = m_root;
+      LocalFrame* jail = (LocalFrame*)f->getDevtoolsJail();
+      return jail ? jail : f;
+    }
     bool contains(LocalFrame*) const;
     LocalFrame* frameWithSecurityOrigin(const String& originRawString);
     Iterator begin();

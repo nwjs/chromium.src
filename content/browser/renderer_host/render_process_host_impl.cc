@@ -227,6 +227,9 @@
 #define IntToStringType base::IntToString
 #endif
 
+#include "content/nw/src/common/shell_switches.h"
+#include "content/nw/src/nw_content.h"
+
 namespace content {
 namespace {
 
@@ -1279,6 +1282,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
   // Propagate the following switches to the renderer command line (along
   // with any associated values) if present in the browser command line.
   static const char* const kSwitchNames[] = {
+    switches::kEnableSpellChecking,
     switches::kAgcStartupMinVolume,
     switches::kAllowLoopbackInPeerConnection,
     switches::kAudioBufferSize,
@@ -2014,6 +2018,8 @@ void RenderProcessHostImpl::FilterURL(RenderProcessHost* rph,
     // If this renderer is not permitted to request this URL, we invalidate the
     // URL.  This prevents us from storing the blocked URL and becoming confused
     // later.
+    if (non_web_url_in_guest && nw::RphGuestFilterURLHook(rph, url))
+      return;
     VLOG(1) << "Blocked URL " << url->spec();
     *url = GURL(url::kAboutBlankURL);
   }

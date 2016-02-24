@@ -79,6 +79,7 @@ void TranslateBubbleView::ShowBubble(
     translate::TranslateStep step,
     translate::TranslateErrors::Type error_type,
     DisplayReason reason) {
+#if 0
   if (translate_bubble_view_) {
     // When the user reads the advanced setting panel, the bubble should not be
     // changed because they are focusing on the bubble.
@@ -104,6 +105,7 @@ void TranslateBubbleView::ShowBubble(
 
   std::string source_language;
   std::string target_language;
+
   ChromeTranslateClient::GetTranslateLanguages(
       web_contents, &source_language, &target_language);
 
@@ -121,6 +123,7 @@ void TranslateBubbleView::ShowBubble(
                                                       web_contents);
   views::BubbleDelegateView::CreateBubble(view);
   view->ShowForReason(reason);
+#endif
 }
 
 // static

@@ -49,6 +49,7 @@
     },
     {
       'target_name': 'chrome_watcher',
+      'product_name': 'nw_watcher',
       'type': 'loadable_module',
       'include_dirs': [
         '../..',

@@ -32,6 +32,8 @@
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #include "ui/views/win/hwnd_util.h"
 
+#include "ui/views/window/native_frame_view.h"
+
 ChromeNativeAppWindowViewsWin::ChromeNativeAppWindowViewsWin()
     : glass_frame_view_(NULL), is_translucent_(false), weak_ptr_factory_(this) {
 }
@@ -142,6 +144,12 @@ void ChromeNativeAppWindowViewsWin::InitializeDefaultWindow(
 views::NonClientFrameView*
 ChromeNativeAppWindowViewsWin::CreateStandardDesktopAppFrame() {
   glass_frame_view_ = NULL;
+
+  const extensions::Extension* extension = app_window()->GetExtension();
+  if (extension && extension->is_nwjs_app())
+    return ChromeNativeAppWindowViewsAura::CreateStandardDesktopAppFrame();
+  //return new views::NativeFrameView(widget());
+
   if (ui::win::IsAeroGlassEnabled()) {
     glass_frame_view_ = new GlassAppWindowFrameViewWin(this, widget());
     return glass_frame_view_;

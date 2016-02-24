@@ -665,13 +665,13 @@ void ResourceBundle::LoadChromeResources() {
   if (MaterialDesignController::IsModeMaterial()) {
     if (IsScaleFactorSupported(SCALE_FACTOR_100P)) {
       AddMaterialDesignDataPackFromPath(
-          GetResourcesPakFilePath("chrome_material_100_percent.pak"),
+          GetResourcesPakFilePath("nw_material_100_percent.pak"),
           SCALE_FACTOR_100P);
     }
 
     if (IsScaleFactorSupported(SCALE_FACTOR_200P)) {
       AddOptionalMaterialDesignDataPackFromPath(
-          GetResourcesPakFilePath("chrome_material_200_percent.pak"),
+          GetResourcesPakFilePath("nw_material_200_percent.pak"),
           SCALE_FACTOR_200P);
     }
   }
@@ -681,12 +681,12 @@ void ResourceBundle::LoadChromeResources() {
   // scale factor to gfx::ImageSkia::AddRepresentation.
   if (IsScaleFactorSupported(SCALE_FACTOR_100P)) {
     AddDataPackFromPath(GetResourcesPakFilePath(
-        "chrome_100_percent.pak"), SCALE_FACTOR_100P);
+        "nw_100_percent.pak"), SCALE_FACTOR_100P);
   }
 
   if (IsScaleFactorSupported(SCALE_FACTOR_200P)) {
     AddOptionalDataPackFromPath(GetResourcesPakFilePath(
-        "chrome_200_percent.pak"), SCALE_FACTOR_200P);
+        "nw_200_percent.pak"), SCALE_FACTOR_200P);
   }
 }
 

@@ -32,6 +32,7 @@
 #include "content/public/browser/resource_request_info.h"
 #include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
+#include "extensions/browser/component_extension_resource_manager.h"
 #include "extensions/browser/content_verifier.h"
 #include "extensions/browser/content_verify_job.h"
 #include "extensions/browser/extensions_browser_client.h"
@@ -185,6 +186,8 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
         resource_(extension_id, directory_path, relative_path),
         content_security_policy_(content_security_policy),
         send_cors_header_(send_cors_header),
+        can_start_(false),
+        started_(false),
         weak_factory_(this) {
     if (follow_symlinks_anywhere) {
       resource_.set_follow_symlinks_anywhere();
@@ -249,15 +252,27 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
                                   -result);
     if (result > 0) {
       bytes_read_ += result;
+#if 0
       if (verify_job_.get()) {
         verify_job_->BytesRead(result, buffer->data());
         if (!remaining_bytes())
           verify_job_->DoneReading();
       }
+#endif
     }
   }
 
- private:
+  void CanStart() {
+    can_start_ = true;
+    if (!started_) {
+      started_ = true;
+      URLRequestFileJob::Start();
+    }
+  }
+
+  void set_can_start(bool flag) { can_start_ = flag; }
+
+private:
   ~URLRequestExtensionJob() override {
     UMA_HISTOGRAM_COUNTS("ExtensionUrlRequest.TotalKbRead", bytes_read_ / 1024);
     UMA_HISTOGRAM_COUNTS("ExtensionUrlRequest.SeekPosition", seek_position_);
@@ -273,7 +288,10 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
         content_security_policy_,
         send_cors_header_,
         *last_modified_time);
-    URLRequestFileJob::Start();
+    if (can_start_) {
+      started_ = true;
+      URLRequestFileJob::Start();
+    }
   }
 
   scoped_refptr<ContentVerifyJob> verify_job_;
@@ -291,6 +309,7 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
   extensions::ExtensionResource resource_;
   std::string content_security_policy_;
   bool send_cors_header_;
+  bool can_start_, started_;
   base::WeakPtrFactory<URLRequestExtensionJob> weak_factory_;
 };
 
@@ -502,11 +521,9 @@ ExtensionProtocolHandler::MaybeCreateJob(
   if (verifier) {
     verify_job =
         verifier->CreateJobFor(extension_id, directory_path, relative_path);
-    if (verify_job)
-      verify_job->Start();
   }
 
-  return new URLRequestExtensionJob(request,
+  URLRequestExtensionJob* job = new URLRequestExtensionJob(request,
                                     network_delegate,
                                     extension_id,
                                     directory_path,
@@ -515,6 +532,13 @@ ExtensionProtocolHandler::MaybeCreateJob(
                                     send_cors_header,
                                     follow_symlinks_anywhere,
                                     verify_job);
+  if (verify_job) {
+    verify_job->SetSuccessCallback(base::Bind(&URLRequestExtensionJob::CanStart, base::Unretained(job)));
+    verify_job->Start();
+  } else {
+    job->set_can_start(true);
+  }
+  return job;
 }
 
 }  // namespace

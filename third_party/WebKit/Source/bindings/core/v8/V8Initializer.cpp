@@ -26,6 +26,8 @@
 #include "config.h"
 #include "bindings/core/v8/V8Initializer.h"
 
+#include "third_party/node/src/node_webkit.h"
+
 #include "bindings/core/v8/DOMWrapperWorld.h"
 #include "bindings/core/v8/RejectedPromises.h"
 #include "bindings/core/v8/RetainedDOMInfo.h"
@@ -65,6 +67,9 @@
 #include "wtf/text/WTFString.h"
 #include <v8-debug.h>
 #include <v8-profiler.h>
+
+VoidHookFn g_promise_reject_callback_fn = nullptr;
+
 
 namespace blink {
 
@@ -221,6 +226,9 @@ static void promiseRejectHandlerInMainThread(v8::PromiseRejectMessage data)
     LocalDOMWindow* window = currentDOMWindow(isolate);
     if (!window || !window->isCurrentlyDisplayedInFrame())
         return;
+
+    if (window->frame()->isNodeJS() && g_promise_reject_callback_fn)
+      g_promise_reject_callback_fn(&data);
 
     v8::Local<v8::Value> exception = data.GetValue();
     if (V8DOMWrapper::isWrapper(isolate, exception)) {

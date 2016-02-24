@@ -54,9 +54,16 @@ typedef void (*RelaunchChromeBrowserWithNewCommandLineIfNeededFunc)();
 base::LazyInstance<ChromeCrashReporterClient>::Leaky g_chrome_crash_client =
     LAZY_INSTANCE_INITIALIZER;
 
+#define BUFSIZE MAX_PATH
+
 // Loads |module| after setting the CWD to |module|'s directory. Returns a
 // reference to the loaded module on success, or null on error.
 HMODULE LoadModuleWithDirectory(const base::FilePath& module, bool pre_read) {
+  bool restore_directory = false;
+  TCHAR Buffer[BUFSIZE];
+  if (::GetCurrentDirectoryW(BUFSIZE, Buffer)) {
+    restore_directory = true;
+  }
   ::SetCurrentDirectoryW(module.DirName().value().c_str());
 
   if (pre_read) {
@@ -66,8 +73,12 @@ HMODULE LoadModuleWithDirectory(const base::FilePath& module, bool pre_read) {
     PreReadFile(module, kStepSize);
   }
 
-  return ::LoadLibraryExW(module.value().c_str(), nullptr,
+  HMODULE ret = ::LoadLibraryExW(module.value().c_str(), nullptr,
                           LOAD_WITH_ALTERED_SEARCH_PATH);
+  if (restore_directory)
+    ::SetCurrentDirectory(Buffer);
+
+  return ret;
 }
 
 void RecordDidRun(const base::FilePath& dll_path) {
@@ -128,7 +139,7 @@ HMODULE MainDllLoader::Load(base::string16* version, base::FilePath* module) {
   const bool pre_read = !metro_mode_;
   HMODULE dll = LoadModuleWithDirectory(*module, pre_read);
   if (!dll) {
-    PLOG(ERROR) << "Failed to load Chrome DLL from " << module->value();
+    PLOG(ERROR) << "Failed to load NW DLL from " << module->value();
     return nullptr;
   }
 

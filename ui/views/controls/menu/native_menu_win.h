@@ -32,6 +32,9 @@ class VIEWS_EXPORT NativeMenuWin : public MenuWrapper {
   NativeMenuWin(ui::MenuModel* model, HWND system_menu_for);
   ~NativeMenuWin() override;
 
+  void set_is_popup_menu(bool flag) { is_popup_menu_ = flag; }
+  HMENU menu() const { return menu_; }
+
   // Overridden from MenuWrapper:
   void RunMenuAt(const gfx::Point& point, int alignment) override;
   void CancelMenu() override;
@@ -149,6 +152,9 @@ class VIEWS_EXPORT NativeMenuWin : public MenuWrapper {
 
   // If we're a submenu, this is our parent.
   NativeMenuWin* parent_;
+
+  // A flag to indicate whether to create a menubar or popupmenu.
+  bool is_popup_menu_;
 
   // If non-null the destructor sets this to true. This is set to non-null while
   // the menu is showing. It is used to detect if the menu was deleted while

@@ -63,6 +63,7 @@ class VIEWS_EXPORT WidgetDelegate {
 
   // Returns true if the window can be activated.
   virtual bool CanActivate() const;
+  virtual bool NWCanClose() const;
 
   // Returns the modal type that applies to the widget. Default is
   // ui::MODAL_TYPE_NONE (not modal).
@@ -86,6 +87,8 @@ class VIEWS_EXPORT WidgetDelegate {
   // close, minimize, maximize.
   virtual bool ShouldHandleSystemCommands() const;
 
+  virtual bool ShouldHandleOnSize() const;
+
   // Returns the app icon for the window. On Windows, this is the ICON_BIG used
   // in Alt-Tab list and Win7's taskbar.
   virtual gfx::ImageSkia GetWindowAppIcon();
@@ -99,6 +102,10 @@ class VIEWS_EXPORT WidgetDelegate {
   // Execute a command in the window's controller. Returns true if the command
   // was handled, false if it was not.
   virtual bool ExecuteWindowsCommand(int command_id);
+
+  virtual bool ExecuteAppCommand(int command_id);
+
+  virtual bool HandleSize(unsigned int param, const gfx::Size& size);
 
   // Returns the window's name identifier. Used to identify this window for
   // state restoration.

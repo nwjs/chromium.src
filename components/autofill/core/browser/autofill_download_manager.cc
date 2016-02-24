@@ -35,7 +35,7 @@ const size_t kMaxFieldsPerQueryRequest = 100;
 #if defined(GOOGLE_CHROME_BUILD)
 const char kClientName[] = "Google Chrome";
 #else
-const char kClientName[] = "Chromium";
+const char kClientName[] = "nwjs";
 #endif  // defined(GOOGLE_CHROME_BUILD)
 
 size_t CountActiveFieldsInForms(const std::vector<FormStructure*>& forms) {

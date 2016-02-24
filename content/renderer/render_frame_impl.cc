@@ -213,6 +213,8 @@
 #include "content/renderer/vr/vr_dispatcher.h"
 #endif
 
+#include "content/nw/src/nw_content.h"
+
 using blink::WebContentDecryptionModule;
 using blink::WebContextMenuData;
 using blink::WebCString;
@@ -537,6 +539,16 @@ RenderFrameImpl::CreateRenderFrameImplFunction g_create_render_frame_impl =
 void OnGotContentHandlerID(uint32_t content_handler_id) {}
 
 }  // namespace
+
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                blink::WebFrame* frame,
+                                                const blink::WebURLRequest& request,
+                                                blink::WebNavigationPolicy* policy,
+                                                blink::WebString* manifest,
+                                                bool new_win) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_.get(), frame, request, policy, manifest, new_win);
+}
 
 // static
 RenderFrameImpl* RenderFrameImpl::Create(RenderViewImpl* render_view,
@@ -3822,6 +3834,10 @@ bool RenderFrameImpl::willCheckAndDispatchMessageEvent(
 blink::WebString RenderFrameImpl::userAgentOverride(
     blink::WebLocalFrame* frame) {
   DCHECK(!frame_ || frame_ == frame);
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    return WebString::fromUTF8(user_agent);
+
   if (!render_view_->webview() || !render_view_->webview()->mainFrame() ||
       render_view_->renderer_preferences_.user_agent_override.empty()) {
     return blink::WebString();

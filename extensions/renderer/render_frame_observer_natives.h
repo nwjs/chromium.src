@@ -21,6 +21,9 @@ class RenderFrameObserverNatives : public ObjectBackedNativeHandler {
   void OnDocumentElementCreated(
       const v8::FunctionCallbackInfo<v8::Value>& args);
 
+  void OnDestruct(
+      const v8::FunctionCallbackInfo<v8::Value>& args);
+
   DISALLOW_COPY_AND_ASSIGN(RenderFrameObserverNatives);
 };
 

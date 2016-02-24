@@ -19,6 +19,8 @@
 #include "chrome/installer/util/browser_distribution.h"
 #include "components/nacl/common/nacl_switches.h"
 
+#include "content/nw/src/nw_base.h"
+
 namespace chrome {
 
 namespace {
@@ -45,8 +47,8 @@ bool GetUserDirectory(int csidl_folder, base::FilePath* result) {
 bool GetDefaultUserDataDirectory(base::FilePath* result) {
   if (!PathService::Get(base::DIR_LOCAL_APP_DATA, result))
     return false;
-  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  *result = result->Append(dist->GetInstallSubDir());
+  //BrowserDistribution* dist = BrowserDistribution::GetDistribution();
+  *result = result->Append(base::FilePath::FromUTF8Unsafe(nw::package()->GetName()));
   *result = result->Append(chrome::kUserDataDirname);
   return true;
 }

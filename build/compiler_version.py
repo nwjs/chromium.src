@@ -58,7 +58,7 @@ def GetVersion(compiler, tool):
       # 4.6
       version_re = re.compile(r"(\d+)\.(\d+)")
     elif tool == "assembler":
-      compiler = compiler + " -Xassembler --version -x assembler -c /dev/null"
+      compiler = compiler + " --version -Xassembler -x assembler -c /dev/null"
       # Unmodified: GNU assembler (GNU Binutils) 2.24
       # Ubuntu: GNU assembler (GNU Binutils for Ubuntu) 2.22
       # Fedora: GNU assembler version 2.23.2

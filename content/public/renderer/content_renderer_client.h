@@ -31,6 +31,7 @@ class SingleThreadTaskRunner;
 
 namespace blink {
 class WebAppBannerClient;
+class WebString;
 class WebAudioDevice;
 class WebClipboard;
 class WebFrame;
@@ -73,6 +74,12 @@ struct WebPluginInfo;
 // Embedder API for participating in renderer logic.
 class CONTENT_EXPORT ContentRendererClient {
  public:
+  virtual void willHandleNavigationPolicy(RenderView* rv,
+                                          blink::WebFrame* frame,
+                                          const blink::WebURLRequest& request,
+                                          blink::WebNavigationPolicy* policy,
+                                          blink::WebString* manifest,
+                                          bool new_win) {}
   virtual ~ContentRendererClient() {}
 
   // Notifies us that the RenderThread has been created.

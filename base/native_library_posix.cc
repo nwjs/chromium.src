@@ -27,7 +27,7 @@ NativeLibrary LoadNativeLibrary(const FilePath& library_path,
   // refer to the bug tracker.  Some useful bug reports to read include:
   // http://crbug.com/17943, http://crbug.com/17557, http://crbug.com/36892,
   // and http://crbug.com/40794.
-  void* dl = dlopen(library_path.value().c_str(), RTLD_LAZY);
+  void* dl = dlopen(library_path.value().c_str(), RTLD_LAZY | RTLD_GLOBAL);
   if (!dl && error)
     error->message = dlerror();
 

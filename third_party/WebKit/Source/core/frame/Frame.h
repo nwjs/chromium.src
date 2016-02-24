@@ -62,9 +62,17 @@ enum class UserGestureStatus { Active, None };
 
 class CORE_EXPORT Frame : public RefCountedWillBeGarbageCollectedFinalized<Frame> {
 public:
+    void setNodeJS(bool node) { m_nodejs = node; }
+    bool isNodeJS() const { return m_nodejs; }
+    bool isNwDisabledChildFrame() const;
+    bool isNwFakeTop() const;
+
     virtual ~Frame();
 
     DECLARE_VIRTUAL_TRACE();
+
+    void setDevtoolsJail(Frame* iframe);
+    Frame* getDevtoolsJail() { return m_devtoolsJail; }
 
     virtual bool isLocalFrame() const { return false; }
     virtual bool isRemoteFrame() const { return false; }
@@ -142,6 +150,11 @@ protected:
 
 private:
     RawPtrWillBeMember<FrameClient> m_client;
+    RawPtrWillBeMember<Frame> m_devtoolsJail;
+    RawPtrWillBeMember<Frame> m_devJailOwner;
+
+    bool m_nodejs;
+
     // Needed to identify Frame Timing requests.
     int64_t m_frameID;
     bool m_isLoading;

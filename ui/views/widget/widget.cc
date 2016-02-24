@@ -582,7 +582,7 @@ void Widget::SetShape(SkRegion* shape) {
   native_widget_->SetShape(shape);
 }
 
-void Widget::Close() {
+void Widget::Close(bool force) {
   if (widget_closed_) {
     // It appears we can hit this code path if you close a modal dialog then
     // close the last browser before the destructor is hit, which triggers
@@ -593,6 +593,8 @@ void Widget::Close() {
   bool can_close = true;
   if (non_client_view_)
     can_close = non_client_view_->CanClose();
+  if (can_close && !force)
+    can_close = NWCanClose();
   if (can_close) {
     SaveWindowPlacement();
 
@@ -1039,6 +1041,10 @@ bool Widget::IsDialogBox() const {
 
 bool Widget::CanActivate() const {
   return widget_delegate_->CanActivate();
+}
+
+bool Widget::NWCanClose() const {
+  return widget_delegate_->NWCanClose();
 }
 
 bool Widget::IsInactiveRenderingDisabled() const {

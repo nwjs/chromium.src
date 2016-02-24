@@ -18,6 +18,8 @@
 #include "third_party/WebKit/public/web/WebDocument.h"
 #include "third_party/WebKit/public/web/WebLocalFrame.h"
 
+#include "content/nw/src/nw_content.h"
+
 namespace extensions {
 
 namespace {
@@ -37,7 +39,7 @@ bool RenderFrameMatches(const ExtensionFrameHelper* frame_helper,
   GURL url = frame_helper->render_frame()->GetWebFrame()->document().url();
   if (!url.SchemeIs(kExtensionScheme))
     return false;
-  if (url.host() != match_extension_id)
+  if (!match_extension_id.empty() && url.host() != match_extension_id)
     return false;
   if (match_window_id != extension_misc::kUnknownWindowId &&
       frame_helper->browser_window_id() != match_window_id)
@@ -104,6 +106,13 @@ void ExtensionFrameHelper::DidCreateDocumentElement() {
   did_create_current_document_element_ = true;
   extension_dispatcher_->DidCreateDocumentElement(
       render_frame()->GetWebFrame());
+  nw::DocumentHook2(true, render_frame(), extension_dispatcher_);
+}
+
+void ExtensionFrameHelper::DidFinishDocumentLoad() {
+  extension_dispatcher_->DidFinishDocumentLoad(
+      render_frame()->GetWebFrame());
+  nw::DocumentHook2(false, render_frame(), extension_dispatcher_);
 }
 
 void ExtensionFrameHelper::DidCreateNewDocument() {

@@ -12,6 +12,8 @@
 #include "base/path_service.h"
 #include "chrome/common/chrome_paths.h"
 
+#include "content/nw/src/nw_base.h"
+
 namespace chrome {
 
 using base::nix::GetXDGDirectory;
@@ -67,7 +69,7 @@ bool GetDefaultUserDataDirectory(base::FilePath* result) {
 #if defined(GOOGLE_CHROME_BUILD)
   *result = config_dir.Append("google-chrome");
 #else
-  *result = config_dir.Append("chromium");
+  *result = config_dir.Append(nw::package()->GetName());
 #endif
   return true;
 }

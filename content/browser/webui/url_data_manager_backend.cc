@@ -6,6 +6,8 @@
 
 #include <set>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/basictypes.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -407,6 +409,7 @@ void URLRequestChromeJob::CheckStoragePartitionMatches(
   std::vector<std::string> hosts;
   GetContentClient()->
       browser()->GetAdditionalWebUIHostsToIgnoreParititionCheck(&hosts);
+
   if (url.SchemeIs(kChromeUIScheme) &&
       (url.SchemeIs(kChromeUIScheme) ||
        std::find(hosts.begin(), hosts.end(), url.host()) != hosts.end())) {
@@ -422,6 +425,9 @@ void URLRequestChromeJob::CheckStoragePartitionMatches(
       allowed = partition == process->GetStoragePartition();
     }
   }
+
+  if (nw::CheckStoragePartitionMatches(render_process_id, url))
+    allowed = true;
 
   BrowserThread::PostTask(
       BrowserThread::IO,

@@ -209,6 +209,8 @@ class FileSelectHelper : public base::RefCountedThreadSafe<FileSelectHelper>,
   // Profile used to set/retrieve the last used directory.
   Profile* profile_;
 
+  bool extract_directory_;
+
   // The RenderViewHost and WebContents for the page showing a file dialog
   // (may only be one such dialog).
   content::RenderViewHost* render_view_host_;

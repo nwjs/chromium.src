@@ -634,7 +634,8 @@ void ExtensionAppShimHandler::OnShimQuit(Host* host) {
     const AppWindowList windows = delegate_->GetWindows(profile, app_id);
     for (AppWindowRegistry::const_iterator it = windows.begin();
          it != windows.end(); ++it) {
-      (*it)->GetBaseWindow()->Close();
+      if ((*it)->NWCanClose())
+        (*it)->GetBaseWindow()->Close();
     }
   }
   // Once the last window closes, flow will end up in OnAppDeactivated via

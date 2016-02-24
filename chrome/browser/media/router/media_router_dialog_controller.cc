@@ -24,8 +24,10 @@ MediaRouterDialogController::GetOrCreateForWebContents(
 #if defined(OS_ANDROID)
   return MediaRouterDialogControllerAndroid::GetOrCreateForWebContents(
       contents);
-#else
+#elif defined(NWJS_SDK)
   return MediaRouterDialogControllerImpl::GetOrCreateForWebContents(contents);
+#else
+  return nullptr;
 #endif
 }
 

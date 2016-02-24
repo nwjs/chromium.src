@@ -40,6 +40,10 @@
 #include "ui/wm/core/window_animations.h"
 #include "ui/wm/public/scoped_tooltip_disabler.h"
 
+namespace content {
+  extern bool g_force_cpu_draw;
+}
+
 DECLARE_WINDOW_PROPERTY_TYPE(views::DesktopWindowTreeHostWin*);
 
 namespace views {
@@ -685,8 +689,17 @@ bool DesktopWindowTreeHostWin::ShouldHandleSystemCommands() const {
   return GetWidget()->widget_delegate()->ShouldHandleSystemCommands();
 }
 
+bool DesktopWindowTreeHostWin::ShouldHandleOnSize() const {
+  return GetWidget()->widget_delegate()->ShouldHandleOnSize();
+}
+
 void DesktopWindowTreeHostWin::HandleAppDeactivated() {
   native_widget_delegate_->EnableInactiveRendering();
+}
+
+bool DesktopWindowTreeHostWin::HandleSize(UINT param, const gfx::Size& new_size) {
+  return GetWidget()->widget_delegate() &&
+      GetWidget()->widget_delegate()->HandleSize(param, new_size);
 }
 
 void DesktopWindowTreeHostWin::HandleActivationChanged(bool active) {
@@ -705,7 +718,7 @@ bool DesktopWindowTreeHostWin::HandleAppCommand(short command) {
   // We treat APPCOMMAND ids as an extension of our command namespace, and just
   // let the delegate figure out what to do...
   return GetWidget()->widget_delegate() &&
-      GetWidget()->widget_delegate()->ExecuteWindowsCommand(command);
+      GetWidget()->widget_delegate()->ExecuteAppCommand(command);
 }
 
 void DesktopWindowTreeHostWin::HandleCancelMode() {
@@ -858,6 +871,7 @@ void DesktopWindowTreeHostWin::HandleInputLanguageChange(
 
 void DesktopWindowTreeHostWin::HandlePaintAccelerated(
     const gfx::Rect& invalid_rect) {
+  if (content::g_force_cpu_draw) return;
   if (compositor())
     compositor()->ScheduleRedrawRect(invalid_rect);
 }

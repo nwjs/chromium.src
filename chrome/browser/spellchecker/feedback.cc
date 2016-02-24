@@ -26,7 +26,7 @@
 namespace spellcheck {
 
 Feedback::Feedback(size_t max_total_text_size)
-    : max_total_text_size_(max_total_text_size), total_text_size_(0) {
+    : empty_hash_collection_(), max_total_text_size_(max_total_text_size), total_text_size_(0) {
   DCHECK_GE(max_total_text_size, 1024U);
 }
 

@@ -463,7 +463,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void SetShape(SkRegion* shape);
 
   // Hides the widget then closes it after a return to the message loop.
-  virtual void Close();
+  virtual void Close(bool force = false);
 
   // TODO(beng): Move off public API.
   // Closes the widget immediately. Compare to |Close|. This will destroy the
@@ -768,6 +768,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   bool IsModal() const override;
   bool IsDialogBox() const override;
   bool CanActivate() const override;
+  bool NWCanClose() const override;
   bool IsInactiveRenderingDisabled() const override;
   void EnableInactiveRendering() override;
   void OnNativeWidgetActivationChanged(bool active) override;

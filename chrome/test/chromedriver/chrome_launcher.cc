@@ -56,6 +56,8 @@
 #include "chrome/test/chromedriver/keycode_text_conversion.h"
 #endif
 
+#include "base/strings/string_number_conversions.h"
+
 namespace {
 
 const char* const kCommonSwitches[] = {
@@ -64,6 +66,7 @@ const char* const kCommonSwitches[] = {
   "metrics-recording-only"
 };
 
+#if 0
 const char* const kDesktopSwitches[] = {
   "disable-hang-monitor",
   "disable-prompt-on-repost",
@@ -82,6 +85,7 @@ const char* const kDesktopSwitches[] = {
   "use-mock-keychain",
   "test-type=webdriver"
 };
+#endif
 
 const char* const kAndroidSwitches[] = {
   "disable-fre",
@@ -133,8 +137,10 @@ Status PrepareCommandLine(uint16 port,
 
   for (const auto& common_switch : kCommonSwitches)
     switches.SetUnparsedSwitch(common_switch);
+#if 0 //FIXME if enabled, chromedriver cannot find chrome on windows
   for (const auto& desktop_switch : kDesktopSwitches)
     switches.SetUnparsedSwitch(desktop_switch);
+#endif
   switches.SetSwitch("remote-debugging-port", base::UintToString(port));
   for (const auto& excluded_switch : capabilities.exclude_switches) {
     switches.RemoveSwitch(excluded_switch);
@@ -146,7 +152,7 @@ Status PrepareCommandLine(uint16 port,
     user_data_dir_path = base::FilePath(
         switches.GetSwitchValueNative("user-data-dir"));
   } else {
-    command.AppendArg("data:,");
+    //command.AppendArg("data:,");
     if (!user_data_dir->CreateUniqueTempDir())
       return Status(kUnknownError, "cannot create temp dir for user data dir");
     switches.SetSwitch("user-data-dir", user_data_dir->path().value());
@@ -171,6 +177,10 @@ Status PrepareCommandLine(uint16 port,
   if (status.IsError())
     return status;
   switches.AppendToCommandLine(&command);
+
+  for (size_t i = 0; i < capabilities.arguments.size(); i++)
+    command.AppendArg(capabilities.arguments[i]);
+
   *prepared_command = command;
   return Status(kOk);
 }
@@ -193,16 +203,21 @@ Status WaitForDevToolsAndCheckVersion(
     window_types.reset(new std::set<WebViewInfo::Type>());
   }
 
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  int timeout = 60;
+  if (cmd_line->HasSwitch("launch-timeout")) {
+    std::string s_timeout = cmd_line->GetSwitchValueASCII("launch-timeout");
+    base::StringToInt(s_timeout, &timeout);
+  }
   scoped_ptr<DevToolsHttpClient> client(
       new DevToolsHttpClient(address, context_getter, socket_factory,
                              device_metrics.Pass(), window_types.Pass()));
   base::TimeTicks deadline =
-      base::TimeTicks::Now() + base::TimeDelta::FromSeconds(60);
+      base::TimeTicks::Now() + base::TimeDelta::FromSeconds(timeout);
   Status status = client->Init(deadline - base::TimeTicks::Now());
   if (status.IsError())
     return status;
 
-  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (cmd_line->HasSwitch("disable-build-check")) {
     LOG(WARNING) << "You are using an unsupported command-line switch: "
                     "--disable-build-check. Please don't report bugs that "
@@ -217,7 +232,8 @@ Status WaitForDevToolsAndCheckVersion(
     WebViewsInfo views_info;
     client->GetWebViewsInfo(&views_info);
     for (size_t i = 0; i < views_info.GetSize(); ++i) {
-      if (views_info.Get(i).type == WebViewInfo::kPage) {
+      if (views_info.Get(i).type == WebViewInfo::kApp ||
+          views_info.Get(i).type == WebViewInfo::kOther) { //node-remote page
         *user_client = client.Pass();
         return Status(kOk);
       }

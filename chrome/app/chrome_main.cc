@@ -45,7 +45,7 @@ int ChromeMain(int argc, const char** argv) {
 
 #if defined(OS_WIN)
   // The process should crash when going through abnormal termination.
-  base::win::SetShouldCrashOnProcessDetach(true);
+  base::win::SetShouldCrashOnProcessDetach(false);
   base::win::SetAbortBehaviorForCrashReporting();
   params.instance = instance;
   params.sandbox_info = sandbox_info;

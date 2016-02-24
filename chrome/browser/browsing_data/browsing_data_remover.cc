@@ -494,6 +494,7 @@ void BrowsingDataRemover::RemoveImpl(int remove_mask,
     // doesn't make sense to apply the time period of deleting in the last X
     // hours/days to the safebrowsing cookies since they aren't the result of
     // any user action.
+#if 0
     if (delete_begin_ == base::Time()) {
       safe_browsing::SafeBrowsingService* sb_service =
           g_browser_process->safe_browsing_service();
@@ -507,7 +508,7 @@ void BrowsingDataRemover::RemoveImpl(int remove_mask,
                        base::Unretained(this), base::Unretained(sb_context)));
       }
     }
-
+#endif
     MediaDeviceIDSalt::Reset(profile_->GetPrefs());
 
     // TODO(mkwst): If we're not removing passwords, then clear the 'zero-click'

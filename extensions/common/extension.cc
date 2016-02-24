@@ -419,6 +419,10 @@ bool Extension::is_platform_app() const {
   return manifest()->is_platform_app();
 }
 
+bool Extension::is_nwjs_app() const {
+  return manifest()->is_nwjs_app();
+}
+
 bool Extension::is_hosted_app() const {
   return manifest()->is_hosted_app();
 }
@@ -468,6 +472,13 @@ bool Extension::InitExtensionID(extensions::Manifest* manifest,
     }
     std::string extension_id = crx_file::id_util::GenerateId(public_key_bytes);
     manifest->set_extension_id(extension_id);
+    return true;
+  }
+
+  if (manifest->HasKey(keys::kNWJSInternalFlag)) {
+    std::string name;
+    manifest->GetString(keys::kName, &name);
+    manifest->set_extension_id(crx_file::id_util::GenerateId(name));
     return true;
   }
 
@@ -572,6 +583,10 @@ bool Extension::LoadName(base::string16* error) {
 
 bool Extension::LoadVersion(base::string16* error) {
   std::string version_str;
+  if (manifest_->type() == Manifest::TYPE_NWJS_APP) {
+    version_.reset(new Version("0.1"));
+    return true;
+  }
   if (!manifest_->GetString(keys::kVersion, &version_str)) {
     *error = base::ASCIIToUTF16(errors::kInvalidVersion);
     return false;
@@ -650,6 +665,7 @@ bool Extension::LoadExtent(const char* key,
       return false;
     }
 
+#if 0
     // Do not allow authors to claim "<all_urls>".
     if (pattern.match_all_urls()) {
       *error = ErrorUtils::FormatErrorMessageUTF16(
@@ -673,6 +689,7 @@ bool Extension::LoadExtent(const char* key,
           value_error, base::SizeTToString(i), errors::kNoWildCardsInPaths);
       return false;
     }
+#endif
     pattern.SetPath(pattern.path() + '*');
 
     extent->AddPattern(pattern);
