@@ -145,11 +145,6 @@ views::NonClientFrameView*
 ChromeNativeAppWindowViewsWin::CreateStandardDesktopAppFrame() {
   glass_frame_view_ = NULL;
 
-  const extensions::Extension* extension = app_window()->GetExtension();
-  if (extension && extension->is_nwjs_app())
-    return ChromeNativeAppWindowViewsAura::CreateStandardDesktopAppFrame();
-  //return new views::NativeFrameView(widget());
-
   if (ui::win::IsAeroGlassEnabled()) {
     glass_frame_view_ = new GlassAppWindowFrameViewWin(this, widget());
     return glass_frame_view_;
