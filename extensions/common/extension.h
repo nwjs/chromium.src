@@ -348,6 +348,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // Type-related queries.
   bool is_app() const;
   bool is_platform_app() const;
+  bool is_nwjs_app() const;
   bool is_hosted_app() const;
   bool is_legacy_packaged_app() const;
   bool is_extension() const;

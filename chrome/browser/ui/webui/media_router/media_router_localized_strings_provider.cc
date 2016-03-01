@@ -38,8 +38,10 @@ void AddIssuesStrings(content::WebUIDataSource* html_source) {
 void AddMediaRouterContainerStrings(content::WebUIDataSource* html_source) {
   html_source->AddLocalizedString("firstRunFlowButton",
                                   IDS_MEDIA_ROUTER_FIRST_RUN_FLOW_BUTTON);
+#if 0 //FIXME
   html_source->AddLocalizedString("firstRunFlowLearnMore",
       IDS_MEDIA_ROUTER_FIRST_RUN_FLOW_CLOUD_LEARN_MORE);
+#endif
   html_source->AddLocalizedString("firstRunFlowText",
                                   IDS_MEDIA_ROUTER_FIRST_RUN_FLOW_TEXT);
   html_source->AddLocalizedString("firstRunFlowTitle",

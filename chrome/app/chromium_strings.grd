@@ -134,20 +134,20 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
   <release seq="1" allow_pseudo="false">
     <messages fallback_to_english="true">
       <message name="IDS_PROFILES_DISCONNECT_MANAGED_PROFILE_TEXT" desc="Message explaining to the user what will happen if they disconnect the managed profile.">
-        Disconnecting <ph name="USERNAME">$1<ex>someone@example.com</ex></ph> will clear your history, bookmarks, settings, and other Chromium data stored on this device. Data stored in your Google Account will not be cleared and can be managed on <ph name="GOOGLE_DASHBOARD_LINK">&lt;a target="_blank" href="$2"&gt;</ph>Google Dashboard<ph name="END_GOOGLE_DASHBOARD_LINK">&lt;/a&gt;</ph>.
+        Disconnecting <ph name="USERNAME">$1<ex>someone@example.com</ex></ph> will clear your history, bookmarks, settings, and other NW.js data stored on this device. Data stored in your Google Account will not be cleared and can be managed on <ph name="GOOGLE_DASHBOARD_LINK">&lt;a target="_blank" href="$2"&gt;</ph>Google Dashboard<ph name="END_GOOGLE_DASHBOARD_LINK">&lt;/a&gt;</ph>.
       </message>
       <message name="IDS_PRODUCT_NAME" desc="The Chrome application name">
-        Chromium
+        nwjs
       </message>
       <message name="IDS_SHORT_PRODUCT_NAME" desc="The Chrome application short name.">
-        Chromium
+        nwjs
       </message>
       <if expr="is_win">
         <message name="IDS_SXS_SHORTCUT_NAME" desc="The Chrome short cut name for SxS channel">
-          Chromium
+          nwjs
         </message>
         <message name="IDS_PRODUCT_DESCRIPTION" desc="Browser description">
-          Chromium is a web browser that runs webpages and applications with lightning speed. It's fast, stable, and easy to use. Browse the web more safely with malware and phishing protection built into Chromium.
+          nwjs runtime enables writing native application with Web technologies.
         </message>
       </if>
       <if expr="chromeos">
@@ -160,10 +160,10 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
       </if>
       <if expr="is_win">
         <message name="IDS_PRODUCT_APP_LAUNCHER_NAME" desc="The Chrome App Launcher application name">
-          Chromium App Launcher
+          nwjs App Launcher
         </message>
         <message name="IDS_PRODUCT_BINARIES_NAME" desc="The Chrome Binaries application name">
-          Chromium Binaries
+          nwjs Binaries
         </message>
         <message name="IDS_CHROME_FRAME_TURNDOWN_LEARN_MORE_URL" desc="Link to knowledge-base article about Chromium Frame's turndown">
           https://support.google.com/chrome/?p=ib_chromeframe
@@ -182,21 +182,21 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
         sign in to Chromium
       </message>
       <message name="IDS_TASK_MANAGER_TITLE" desc="The title of the Task Manager window">
-        Task Manager - Chromium
+        Task Manager - NW.js
       </message>
       <message name="IDS_SESSION_CRASHED_VIEW_MESSAGE" desc="Message shown when the last session didn't exit cleanly.">
-        Chromium didn't shut down correctly.
+        NW.js didn't shut down correctly.
       </message>
       <message name="IDS_SESSION_CRASHED_VIEW_UMA_OPTIN" desc="Text besides the checkbox to let users optin to UMA in the restore from previous crash bubble.">
-        Help make Chromium better by sending crash reports and <ph name="UMA_LINK">$1<ex>usage statistics</ex></ph> to Google
+        Help make NW.js better by sending crash reports and <ph name="UMA_LINK">$1<ex>usage statistics</ex></ph> to Google
       </message>
       <!-- Browser Window Title Format -->
       <message name="IDS_BROWSER_WINDOW_TITLE_FORMAT" desc="The format for titles displayed in tabs and popup windows">
-        <ph name="PAGE_TITLE">$1<ex>Google</ex></ph> - Chromium
+        <ph name="PAGE_TITLE">$1<ex>Google</ex></ph> - NW.js
       </message>
       <if expr="not chromeos">
         <message name="IDS_GET_HELP_USING_CHROME" desc="Text of the button which takes the user to the Chrome help page.">
-          Get help with using Chromium
+          Get help with using NW.js
         </message>
       </if>
       <if expr="chromeos">
@@ -205,10 +205,10 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
         </message>
       </if>
       <message name="IDS_ABOUT_VERSION_COMPANY_NAME" desc="Company name on the about pages">
-        The Chromium Authors
+        The NW.js Authors
       </message>
       <message name="IDS_ABOUT_VERSION_COPYRIGHT" desc="Copyright information on the about pages">
-        Copyright <ph name="YEAR">$1</ph> The Chromium Authors. All rights reserved.
+        Copyright <ph name="YEAR">$1</ph> NW.js contributors, Chromium Authors, IO.js. All rights reserved.
       </message>
       <if expr="chromeos">
         <message name="IDS_ABOUT_VERSION_LICENSE_EULA" desc="The label below the copyright message, containing the URLs.">
@@ -222,7 +222,7 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
         </message>
       </if>
       <message name="IDS_ABOUT_TERMS_OF_SERVICE" desc="The terms of service label in the About box.">
-        Not used in Chromium. Placeholder to keep resource maps in sync. It expects one argument: $1.
+        Not used in NW.js. Placeholder to keep resource maps in sync. It expects one argument: $1.
       </message>
       <if expr="is_linux and not chromeos">
         <!-- These messages are not actually used, but they are here as placeholders to match the Chrome messages. -->
@@ -241,22 +241,22 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
       </if>
       <if expr="is_macosx">
         <message name="IDS_MAC_10_678_OBSOLETE_SOON" desc="A message displayed on an at-launch infobar and About (Help) page warning the user that the OS version they are using is about to become unsupported.">
-          Future versions of Chromium will no longer support Mac OS X 10.6, 10.7, or 10.8.
+          Future versions of NW.js will no longer support Mac OS X 10.6, 10.7, or 10.8.
         </message>
         <message name="IDS_MAC_10_678_OBSOLETE_NOW" desc="A message displayed on an at-launch infobar and About (Help) page warning the user that the OS version they are using is no longer supported.">
-          Chromium may not function correctly because it is no longer supported on Mac OS X 10.6, 10.7, or 10.8.
+          NW.js may not function correctly because it is no longer supported on Mac OS X 10.6, 10.7, or 10.8.
         </message>
       </if>
       <if expr="is_win">
         <message name="IDS_WIN_XP_VISTA_OBSOLETE_SOON" desc="A message displayed on an at-launch infobar and about:help warning the user that the computer they are using is about to become unsupported.">
-          Future versions of Chromium will no longer support Windows XP or Windows Vista.
+          Future versions of NW.js will no longer support Windows XP or Windows Vista.
         </message>
         <message name="IDS_WIN_XP_VISTA_OBSOLETE_NOW" desc="A message displayed on an at-launch infobar and about:help warning the user that the computer they are using is no longer supported.">
-          Chromium may not function correctly because it is no longer supported on Windows XP or Windows Vista.
+          NW.js may not function correctly because it is no longer supported on Windows XP or Windows Vista.
         </message>
       </if>
       <message name="IDS_ACCNAME_APP" desc="The accessible name for the app menu.">
-        Chromium
+        NW.js
       </message>
       <message name="IDS_ACCNAME_TOOLBAR" desc="The accessible name for the application's toolbar.">
         main
@@ -264,32 +264,32 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
       <!-- Hung Browser Detector -->
       <if expr="is_win">
         <message name="IDS_BROWSER_HUNGBROWSER_MESSAGE" desc="Content of the dialog box shown when the browser is hung">
-          Chromium is unresponsive. Relaunch now?
+          NW.js is unresponsive. Relaunch now?
         </message>
       </if>
       <message name="IDS_IMPORT_FIND_YOUR_BOOKMARKS" desc="Helpful reminder for where to find imported bookmarks">
-        Find your bookmarks in the Chromium menu or on the bookmarks bar.
+        Find your bookmarks in the NW.js menu or on the bookmarks bar.
       </message>
       <message name="IDS_IMPORTER_LOCK_TEXT" desc="The message to be displayed on dialog">
-        Sadly, your Mozilla Firefox settings are not available while that browser is running. To import those settings to Chromium, save your work and close all Firefox windows. Then click Continue.
+        Sadly, your Mozilla Firefox settings are not available while that browser is running. To import those settings to NW.js, save your work and close all Firefox windows. Then click Continue.
       </message>
       <!-- Uninstall messages -->
       <if expr="is_win">
         <message name="IDS_UNINSTALL_CLOSE_APP" desc="Message to user when uninstall detects other app instance running">
-          Please close all Chromium windows and try again.
+          Please close all NW.js windows and try again.
         </message>
         <message name="IDS_UNINSTALL_CLOSE_APP_IMMERSIVE" desc="Message to user when uninstall detects other app instance running, possibly in the Windows 8 immersive mode">
-          Please close all Chromium windows (including those in Windows 8 mode) and try again.
+          Please close all NW.js windows (including those in Windows 8 mode) and try again.
         </message>
         <message name="IDS_UNINSTALL_VERIFY" desc="Message to confirm user wants to uninstall">
-          Are you sure you want to uninstall Chromium?
+          Are you sure you want to uninstall NW.js?
         </message>
         <message name="IDS_UNINSTALL_CHROME" desc="The title of the Chromium uninstall dialog.">
-          Uninstall Chromium
+          Uninstall NW.js
         </message>
       </if>
       <message name="IDS_FR_CUSTOMIZE_DEFAULT_BROWSER" desc="Default browser checkbox label">
-        Make Chromium the default browser
+        Make NW.js the default browser
       </message>
       <if expr="chromeos">
         <message name="IDS_NEW_TAB_CHROME_WELCOME_PAGE_TITLE"
@@ -306,12 +306,12 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
       <if expr="not chromeos and not is_ios">
         <message name="IDS_NEW_TAB_CHROME_WELCOME_PAGE_TITLE"
                  desc="Title for the hard-coded thumbnail that represents the Google Chrome Welcome page.  This is used on the NTP when there aren't enough thumbnails to show.">
-          Welcome to Chromium
+          Welcome to NW.js
         </message>
       </if>
       <if expr="not chromeos">
         <message name="IDS_EXTERNAL_PROTOCOL_INFORMATION" desc="General information about what Chrome is trying to do when opening this external protocol">
-          Chromium needs to launch an external application to handle <ph name="SCHEME">$1<ex>acrobat:</ex></ph> links. The link requested is <ph name="PROTOLINK">$2<ex>acrobat:yourpdf</ex></ph>.
+          NW.js needs to launch an external application to handle <ph name="SCHEME">$1<ex>acrobat:</ex></ph> links. The link requested is <ph name="PROTOLINK">$2<ex>acrobat:yourpdf</ex></ph>.
         </message>
       </if>
       <if expr="chromeos">
@@ -322,12 +322,12 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
       <!-- Strings used to warn that an OS is not supported -->
       <if expr="is_win">
         <message name="IDS_UNSUPPORTED_OS_PRE_WIN_XP" desc="The text used to warn the user that Windows pre-XP is not supported">
-          Chromium requires Windows XP or later. Some features may not work.
+          NW.js requires Windows XP or later. Some features may not work.
         </message>
       </if>
       <if expr="not chromeos">
         <message name="IDS_OPTIONS_RELAUNCH_REQUIRED" desc="The message displayed for an option that requires a relaunch to take effect. This appears in a message box if an option is changed that requires a relaunch.">
-          Please close all Chromium windows and relaunch Chromium for this change to take effect.
+          Please close all NW.js windows and relaunch NW.js for this change to take effect.
         </message>
       </if>
       <if expr="chromeos">
@@ -337,37 +337,37 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
       </if>
       <if expr="use_titlecase">
         <message name="IDS_STATUS_TRAY_KEEP_CHROME_RUNNING_IN_BACKGROUND" desc="In Title Case: The checkbox in the status tray context menu that controls whether chrome keeps running in the background after the last window is closed">
-          Let Chromium Run In The Background
+          Let NW.js Run In The Background
         </message>
       </if>
       <if expr="not use_titlecase">
         <message name="IDS_STATUS_TRAY_KEEP_CHROME_RUNNING_IN_BACKGROUND" desc="The checkbox in the status tray context menu that controls whether chrome keeps running in the background after the last window is closed">
-          Let Chromium run in the background
+          Let NW.js run in the background
         </message>
       </if>
       <message name="IDS_OPTIONS_SYSTEM_ENABLE_BACKGROUND_MODE" desc="The label of the check-box that enables background mode">
-        Continue running background apps when Chromium is closed
+        Continue running background apps when NW.js is closed
       </message>
       <message name="IDS_OPTIONS_SYSTEM_ENABLE_HARDWARE_ACCELERATION_MODE" desc="The label of the check-box that enables hardware acceleration mode">
         Use hardware acceleration when available
       </message>
       <message name="IDS_OPTIONS_SYSTEM_ENABLE_HARDWARE_ACCELERATION_MODE_RESTART" desc="The restart string after changing hardware acceleration mode">
-        (requires Chromium <ph name="BEGIN_BUTTON">&lt;a is="action-link" role="button" id="gpu-mode-reset-restart-button" class="standalone-action-link"&gt;</ph>restart<ph name="END_BUTTON">&lt;/a&gt;</ph>)
+        (requires NW.js <ph name="BEGIN_BUTTON">&lt;a is="action-link" role="button" id="gpu-mode-reset-restart-button" class="standalone-action-link"&gt;</ph>restart<ph name="END_BUTTON">&lt;/a&gt;</ph>)
       </message>
       <message name="IDS_CANT_WRITE_USER_DIRECTORY_SUMMARY" desc="Summary of problem displayed in dialog when we can't create a directory for this user.">
-Chromium cannot read and write to its data directory:
+NW.js cannot read and write to its data directory:
 
 <ph name="USER_DATA_DIRECTORY">$1<ex>C:\Documents and Settings\devint\Local Settings\Application Data\Google\Chrome</ex></ph>
       </message>
       <if expr="chromeos">
         <message name="IDS_EULA_CHECKBOX_ENABLE_LOGGING" desc="The label of the checkbox to enable/disable crash and user metrics logging">
-          Optional: Help make Chromium better by automatically sending usage statistics and crash reports to Google.
+          Optional: Help make NW.js better by automatically sending usage statistics and crash reports to Google.
         </message>
       </if>
       <message name="IDS_PROFILE_TOO_NEW_ERROR" desc="Error displayed on startup when the profile is from a newer version of the product and can not be read">
-Your profile can not be used because it is from a newer version of Chromium.
+Your profile can not be used because it is from a newer version of NW.js.
 
-Some features may be unavailable. Please specify a different profile directory or use a newer version of Chromium.
+Some features may be unavailable. Please specify a different profile directory or use a newer version of NW.js.
       </message>
       <message name="IDS_PREFERENCES_UNREADABLE_ERROR" desc="Error displayed on startup when user preferences file can not be read">
 Your preferences can not be read.
@@ -377,79 +377,79 @@ Some features may be unavailable and changes to preferences won't be saved.
       <message name="IDS_PREFERENCES_CORRUPT_ERROR" desc="Error displayed on startup when user preferences file can not be read">
 Your preferences file is corrupt or invalid.
 
-Chromium is unable to recover your settings.
+NW.js is unable to recover your settings.
       </message>
       <!-- Crash Recovery Dialog -->
       <message name="IDS_CRASH_RECOVERY_TITLE" desc="Title of dialog shown when the browser crashes.">
-        Chromium
+        NW.js
       </message>
       <if expr="is_win">
         <message name="IDS_CRASH_RECOVERY_CONTENT" desc="Text content telling the user the browser has crashed.">
-          Whoa! Chromium has crashed. Relaunch now?
+          Whoa! NW.js has crashed. Relaunch now?
         </message>
       </if>
       <!-- Password generation strings -->
       <message name="IDS_PASSWORD_GENERATION_PROMPT" desc="Autofill dropdown text describing password generation. The link text is a separate string in the translation console and appears here as placeholder text.">
-        Chromium will store this in your <ph name="SAVED_PASSWORD_LINK">$1<ex>Google saved passwords</ex></ph> and remember it the next time you need it.
+        NW.js will store this in your <ph name="SAVED_PASSWORD_LINK">$1<ex>Google saved passwords</ex></ph> and remember it the next time you need it.
       </message>
       <message name="IDS_PASSWORD_GENERATION_SMART_LOCK_PROMPT" desc="Autofill dropdown text describing password generation. Used when we change the branding to SmartLock.  The link text is a separate string in the translation console and appears here as placeholder text.">
-        Chromium will store this with <ph name="SAVED_PASSWORD_LINK">$1<ex>Google Smart Lock for Passwords</ex></ph> and remember it the next time you need it.
+        NW.js will store this with <ph name="SAVED_PASSWORD_LINK">$1<ex>Google Smart Lock for Passwords</ex></ph> and remember it the next time you need it.
       </message>
       <message name="IDS_PASSWORD_GENERATION_SUGGESTION" desc="Text shown next to a generated password describing it as a suggestion.">
-        Use password generated by Chromium
+        Use password generated by NW.js
       </message>
       <message name="IDS_PASSWORD_MANAGER_TITLE_BRAND" desc="The product name used in the title of the password bubble.">
-        Chromium
+        NW.js
       </message>
       <if expr="is_macosx">
         <message name="IDS_PASSWORDS_PAGE_AUTHENTICATION_PROMPT" desc="Text for the dialog box that prompts the user for their OS account password before revealing plaintext passwords on the password page.">
-          Chromium is trying to show passwords.
+          NW.js is trying to show passwords.
         </message>
       </if>
       <if expr="is_win">
         <message name="IDS_PASSWORDS_PAGE_AUTHENTICATION_PROMPT" desc="Text for the dialog box that prompts the user for their OS account password before revealing plaintext passwords on the password page.">
-          Chromium is trying to show passwords. Type your Windows password to allow this.
+          NW.js is trying to show passwords. Type your Windows password to allow this.
         </message>
         <message name="IDS_INSTALL_HIGHER_VERSION" desc="Error displayed when higher version already exists.">
-          This computer already has a more recent version of Chromium. If the software is not working, please uninstall Chromium and try again.
+          This computer already has a more recent version of NW.js. If the software is not working, please uninstall NW.js and try again.
         </message>
         <message name="IDS_INSTALL_FAILED" desc="Error displayed if installation fails due to some unknown error.">
-          Installation failed due to unspecified error. If Chromium is currently running, please close it and try again.
+          Installation failed due to unspecified error. If NW.js is currently running, please close it and try again.
         </message>
         <message name="IDS_SAME_VERSION_REPAIR_FAILED" desc="Error displayed if installation fails due to Chrome running.">
-          Can not install the same Chromium version that is currently running. Please close Chromium and try again.
+          Can not install the same NW.js version that is currently running. Please close NW.js and try again.
         </message>
         <message name="IDS_SETUP_PATCH_FAILED" desc="Error message when setup.exe fails to patch itself.">
-          Installation failed due to unspecified error. Please download Chromium again.
+          Installation failed due to unspecified error. Please download NW.js again.
         </message>
         <message name="IDS_INSTALL_OS_NOT_SUPPORTED" desc="Error displayed if OS is not supported">
-          Chromium requires Windows Vista or Windows XP with SP2 or higher.
+          NW.js requires Windows Vista or Windows XP with SP2 or higher.
         </message>
         <message name="IDS_INSTALL_OS_ERROR" desc="Error displayed when any Windows API call fails and we do not have more specific information.">
-          An operating system error occurred during installation. Please download Chromium again.
+          An operating system error occurred during installation. Please download NW.js again.
         </message>
         <message name="IDS_INSTALL_TEMP_DIR_FAILED" desc="Error displayed when we fail to create temporary directory during installation.">
           The installer couldn't create a temporary directory. Please check for free disk space and permission to install software.
         </message>
         <message name="IDS_INSTALL_UNCOMPRESSION_FAILED" desc="Error when when we can not uncompress installation archive.">
-          The installer failed to uncompress archive. Please download Chromium again.
+          The installer failed to uncompress archive. Please download NW.js again.
         </message>
         <message name="IDS_INSTALL_INVALID_ARCHIVE" desc="Error displayed when we can not open the installation archive.">
-          The installer archive is corrupted or invalid. Please download Chromium again.
+          The installer archive is corrupted or invalid. Please download NW.js again.
         </message>
         <message name="IDS_INSTALL_INSUFFICIENT_RIGHTS" desc="Error displayed when a non admin user tries to attempt system level install/uninstall.">
           You do not have appropriate rights for system-level install. Try running the installer again as Administrator.
         </message>
         <message name="IDS_INSTALL_NO_PRODUCTS_TO_UPDATE" desc="Error displayed if the installer is not provided one or more products to install/update.">
-          No installation of Chromium found to update.
+          No installation of NW.js found to update.
         </message>
         <message name="IDS_INSTALL_MULTI_INSTALLATION_EXISTS" desc="Error during install if a multi-install Chromium is present, thereby preventing the installation of a single-install Chromium.">
-          A conflicting installation of Chromium was found on the system. Please uninstall it and try again.
+          A conflicting installation of NW.js was found on the system. Please uninstall it and try again.
         </message>
       </if>
       <!-- Options Dialog -->
       <message name="IDS_OPTIONS_IMPROVE_BROWSING_EXPERIENCE" desc="The text in the options panel that describes how we use web services to improve browsing experience.">
-        Chromium may use web services to improve your browsing experience.
+        NW.js may use web services to improve your browsing experience.
       </message>
       <if expr="is_win">
         <message name="IDS_SHORTCUT_TOOLTIP" desc="Text for the hover-on tooltip for the Chromium shortcuts.">
@@ -458,7 +458,7 @@ Chromium is unable to recover your settings.
         <message name="IDS_UNINSTALL_DELETE_PROFILE" desc="Text to show user to ask whether to delete all the profile data also during uninstallation.">
           Also delete your browsing data?
         </message>
-        <message name="IDS_UNINSTALL_SET_DEFAULT_BROWSER" desc="Text to ask whether to set another browser as default when Chromium is uninstalled.">
+        <message name="IDS_UNINSTALL_SET_DEFAULT_BROWSER" desc="Text to ask whether to set another browser as default when NW.js is uninstalled.">
           Change default browser to:
         </message>
         <message name="IDS_UNINSTALL_BUTTON_TEXT" desc="Label for uninstall button on Uninstall confirmation dialog.">
@@ -466,7 +466,7 @@ Chromium is unable to recover your settings.
         </message>
       </if>
       <message name="IDS_DEFAULT_BROWSER_INFOBAR_SHORT_TEXT" desc="More compact text to show in the default browser query infobar.">
-        Chromium isn't your default browser.
+        NW.js isn't your default browser.
       </message>
       <if expr="chromeos">
         <message name="IDS_SYNC_OVERVIEW" desc="Chrome OS: The message that appears in the options dialog when sync has not been set up by the user.">
@@ -478,25 +478,25 @@ Chromium is unable to recover your settings.
       </if>
       <if expr="not chromeos">
         <message name="IDS_ABOUT_BUTTON" desc="The label for the button to open the about page.">
-          About Chromium
+          About NW.js
         </message>
       </if>
       <if expr="is_win">
         <!-- Try Chrome Toast Dialog -->
         <message name="IDS_TRY_TOAST_HEADING" desc="Top line of the try-chrome-again dialog">
-          There is a new version of Chromium available.
+          There is a new version of NW.js available.
         </message>
         <message name="IDS_TRY_TOAST_HEADING2" desc="Top line of the try-chrome-again dialog">
-          There's a new version of Chromium available, and it's faster than ever.
+          There's a new version of NW.js available, and it's faster than ever.
         </message>
         <message name="IDS_TRY_TOAST_HEADING3" desc="Top line of the try-chrome-again dialog">
-          There's a new, safer version of Chromium available.
+          There's a new, safer version of NW.js available.
         </message>
         <message name="IDS_TRY_TOAST_HEADING4" desc="Top line of the try-chrome-again dialog">
-          Chromium has been updated, but you haven't used it for at least 30 days.
+          NW.js has been updated, but you haven't used it for at least 30 days.
         </message>
         <message name="IDS_TRY_TOAST_HEADING_SKYPE" desc="Top line of the try-chrome-again dialog">
-          Chromium lets you click a phone number on the web and call it with Skype!
+          NW.js lets you click a phone number on the web and call it with Skype!
         </message>
         <message name="IDS_TRY_TOAST_TRY_OPT" desc="First option radio button on the dialog to try chrome">
           Try it out, it's already installed
@@ -509,94 +509,94 @@ Chromium is unable to recover your settings.
         </message>
         <!-- about:conflicts strings -->
         <message name="IDS_CONFLICTS_CHECK_PAGE_TITLE_LONG" desc="The long title on the compatibility page">
-          Modules loaded into Chromium
+          Modules loaded into NW.js
         </message>
         <message name="IDS_CONFLICTS_CHECK_WARNING_CONFIRMED" desc="Warning label on the compatibility page">
-          This module is known to conflict with Chromium.
+          This module is known to conflict with NW.js.
         </message>
         <message name="IDS_CONFLICTS_CHECK_WARNING_SUSPECTED" desc="Warning label on the compatibility page">
-          A module with the same name has been known to conflict with Chromium.
+          A module with the same name has been known to conflict with NW.js.
         </message>
       </if>
       <!-- Page Info bubble -->
       <message name="IDS_PAGE_INFO_INTERNAL_PAGE" desc="Message to display in the page info bubble when the page you are on is a chrome:// page or about:something.">
-        You are viewing a secure Chromium page.
+        You are viewing a secure NW.js page.
       </message>
 
       <!-- Print Preview -->
       <message name="IDS_PRINT_PREVIEW_NO_PLUGIN" desc="Message to display when the PDF viewer is missing.">
-        Chromium does not include the PDF viewer which is required for Print Preview to function.
+        NW.js does not include the PDF viewer which is required for Print Preview to function.
       </message>
 
       <!-- Download Shelf Items -->
       <message name="IDS_DOWNLOAD_STATUS_CRX_INSTALL_RUNNING"
                desc="Message shown when a CRX has been downloaded and is being unpacked.">
-        Adding to Chromium...
+        Adding to NW.js...
       </message>
 
       <message name="IDS_PROMPT_DOWNLOAD_CHANGES_SETTINGS"
                desc="Message shown on the download shelf when the download is known to change settings in the browser in a malicious way.">
-        <ph name="FILE_NAME">$1<ex>bla.exe</ex></ph> may harm your browsing experience, so Chromium has blocked it.
+        <ph name="FILE_NAME">$1<ex>bla.exe</ex></ph> may harm your browsing experience, so NW.js has blocked it.
       </message>
 
       <message name="IDS_PROMPT_MALICIOUS_DOWNLOAD_URL"
          desc="Message shown to the user to validate the download when the download url is classified to lead to malware by the safebrowsing database.">
-        This file is malicious, and Chromium has blocked it.
+        This file is malicious, and NW.js has blocked it.
       </message>
       <message name="IDS_PROMPT_MALICIOUS_DOWNLOAD_CONTENT"
          desc="Message shown to the user to validate the download when the download content is classified to lead to malware by safebrowsing.">
-        <ph name="FILE_NAME">$1<ex>malware.exe</ex></ph> is malicious, and Chromium has blocked it.
+        <ph name="FILE_NAME">$1<ex>malware.exe</ex></ph> is malicious, and NW.js has blocked it.
       </message>
 
       <!-- Remove in-progress downloads confirmation dialog -->
       <message name="IDS_DOWNLOAD_REMOVE_CONFIRM_EXPLANATION" desc="Explanation of the dialog asking for user confirmation to close the browser when one or more downloads are in progress. [ICU Syntax]">
       {NUM_DOWNLOAD, plural,
-        =1 {A download is currently in progress. Do you want to cancel the download and exit Chromium?}
-        other {# downloads are currently in progress. Do you want to cancel the downloads and exit Chromium?}}
+        =1 {A download is currently in progress. Do you want to cancel the download and exit NW.js?}
+        other {# downloads are currently in progress. Do you want to cancel the downloads and exit NW.js?}}
       </message>
 
       <!-- Quit all apps confirmation dialog -->
       <if expr="is_macosx">
         <message name="IDS_QUIT_WITH_APPS_TITLE" desc="Title for a notification explaining that Chrome is running in the background.">
-          Chromium is in background mode.
+          NW.js is in background mode.
         </message>
       </if>
 
       <!-- about:flags -->
       <message name="IDS_FLAGS_DEBUG_SHORTCUTS_DESCRIPTION" desc="Description of the 'Debugging keyboard shortcuts' lab.">
-        Enables additional keyboard shortcuts that are useful for debugging Chromium.
+        Enables additional keyboard shortcuts that are useful for debugging NW.js.
       </message>
 
       <!-- Obsolete System info bar -->
       <message name="IDS_SYSTEM_OBSOLETE_MESSAGE" desc="Message shown when your OS is no longer supported. This message is followed by a 'Learn more' link.">
-         Chromium has stopped updating and no longer supports this version of your operating system.
+         NW.js has stopped updating and no longer supports this version of your operating system.
       </message>
 
       <!-- Google API keys info bar -->
       <message name="IDS_MISSING_GOOGLE_API_KEYS" desc="Message shown when Google API keys are missing. This message is followed by a 'Learn more' link.">
-        Google API keys are missing. Some functionality of Chromium will be disabled.
+        Google API keys are missing. Some functionality of NW.js will be disabled.
       </message>
 
       <!-- about:memory -->
       <if expr="not is_android">
-        <message name="IDS_MEMORY_USAGE_SUMMARY_DESC" desc="Describes the browser summary table in the about memory page, which shows memory usage for Chromium and any other active browsers." translateable="false">
+        <message name="IDS_MEMORY_USAGE_SUMMARY_DESC" desc="Describes the browser summary table in the about memory page, which shows memory usage for NW.js and any other active browsers." translateable="false">
 Summary of memory used by currently active browsers. For browsers which use multiple processes, memory reflects aggregate memory used across all browser processes.
 
-For Chromium, processes used to display diagnostics information (such as this "about:memory") are excluded.
+For NW.js, processes used to display diagnostics information (such as this "about:memory") are excluded.
         </message>
       </if>
       <if expr="is_android">
         <message name="IDS_MEMORY_USAGE_SUMMARY_DESC" desc="Describes the browser summary table in the about memory page, which shows memory usage for Chromium." translateable="false">
-Summary of memory used by Chromium. Since Chromium uses multiple processes, memory reflects aggregate memory used across all browser processes.
+Summary of memory used by NW.js. Since NW.js uses multiple processes, memory reflects aggregate memory used across all browser processes.
 
-For Chromium, processes used to display diagnostics information (such as this "about:memory") are excluded.
+For NW.js, processes used to display diagnostics information (such as this "about:memory") are excluded.
         </message>
       </if>
 
       <!-- About Chrome page -->
       <if expr="not chromeos">
-        <message name="IDS_UPGRADE_SUCCESSFUL_RELAUNCH" desc="Status label: Successfully updated Chromium">
-          Nearly up-to-date! Relaunch Chromium to finish updating.
+        <message name="IDS_UPGRADE_SUCCESSFUL_RELAUNCH" desc="Status label: Successfully updated NW.js">
+          Nearly up-to-date! Relaunch NW.js to finish updating.
         </message>
       </if>
       <if expr="chromeos">
@@ -611,7 +611,7 @@ For Chromium, processes used to display diagnostics information (such as this "a
       </if>
       <if expr="not chromeos">
         <message name="IDS_UPGRADE_UP_TO_DATE" desc="Status label: Already up to date (Chromium)">
-          Chromium is up to date.
+          NW.js is up to date.
         </message>
       </if>
       <if expr="chromeos">
@@ -621,7 +621,7 @@ For Chromium, processes used to display diagnostics information (such as this "a
       </if>
       <if expr="not chromeos">
         <message name="IDS_UPGRADE_UPDATING" desc="Status label: Updating Chromium">
-          Updating Chromium...
+          Updating NW.js...
         </message>
       </if>
       <if expr="chromeos">
@@ -638,7 +638,7 @@ For Chromium, processes used to display diagnostics information (such as this "a
       <!-- iOS Upgrade available info bar-->
       <if expr="is_ios">
         <message name="IDS_UPGRADE_AVAILABLE" desc="Text to inform the user of the presence of a new version of the application">
-          Chromium just got better! A new version is available.
+          NW.js just got better! A new version is available.
         </message>
         <message name="IDS_UPGRADE_AVAILABLE_BUTTON" desc="Diplayed on a button the user can use to upgrade the a more recent version of the application. [Length: 10em]">
           Update
@@ -647,75 +647,75 @@ For Chromium, processes used to display diagnostics information (such as this "a
 
       <!-- Extension/App install prompt -->
       <message name="IDS_EXTENSION_INLINE_INSTALL_PROMPT_TITLE" desc="Titlebar of the extension or app inline installation prompt window">
-        Add to Chromium
+        Add to NW.js
       </message>
 
       <if expr="enable_extensions">
         <!-- Extension installed bubble -->
         <message name="IDS_EXTENSION_INSTALLED_HEADING" desc="First line in the content area of the extension installed bubble. Instructs that the extension was installed.">
-          <ph name="EXTENSION_NAME">$1<ex>Gmail Checker</ex></ph> has been added to Chromium.
+          <ph name="EXTENSION_NAME">$1<ex>Gmail Checker</ex></ph> has been added to NW.js.
         </message>
         <message name="IDS_EXTENSION_INSTALLED_SYNC_PROMO_LINK_NEW" desc="Text of the link to sign in to Chromium from the extension installed bubble. This will be converted to a link, with additional text around it.">
           sign in to Chromium
         </message>
         <message name="IDS_EXTENSION_INSTALLED_SIGNIN_PROMO_LINK" desc="The first part of the sign-in promo paragraph. This part will be converted to a link and will get more text appended to it (see IDS_EXTENSION_INSTALLED_SIGNIN_PROMO). Keep this text short.">
-          Sign in to Chromium
+          Sign in to NW.js
         </message>
 
         <!-- Extension context menu -->
         <if expr="not use_titlecase">
           <message name="IDS_EXTENSIONS_HIDE_BUTTON_IN_MENU" desc="The extension context menu item to hide the button in the application menu (sentence case).">
-            Hide in Chromium menu
+            Hide in NW.js menu
           </message>
         </if>
         <if expr="use_titlecase">
           <message name="IDS_EXTENSIONS_HIDE_BUTTON_IN_MENU" desc="The extension context menu item to hide the button in the application menu (title case).">
-            Hide in Chromium Menu
+            Hide in NW.js Menu
           </message>
         </if>
       </if>
 
       <!-- settings reset bubble messages -->
       <message name="IDS_REPORT_BUBBLE_TEXT" desc="Text for the settings reset bubble reporting checkbox.">
-        Help make Chromium better by reporting the current settings
+        Help make NW.js better by reporting the current settings
       </message>
 
       <!-- chrome://settings/extensions page -->
       <message name="IDS_EXTENSIONS_INCOGNITO_WARNING" desc="Warns the user that Chromium cannot prevent extensions from recording history in incognito mode. Displayed in extensions management UI after an extension is selected to be run in incognito mode.">
-        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Warning:<ph name="END_BOLD">&lt;/b&gt;</ph> Chromium cannot prevent extensions from recording your browsing history. To disable this extension in incognito mode, unselect this option.
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Warning:<ph name="END_BOLD">&lt;/b&gt;</ph> NW.js cannot prevent extensions from recording your browsing history. To disable this extension in incognito mode, unselect this option.
       </message>
       <message name="IDS_EXTENSIONS_UNINSTALL" desc="The link for uninstalling extensions.">
-        Remove from Chromium...
+        Remove from NW.js...
       </message>
 
       <if expr="enable_extensions">
         <message name="IDS_EXTENSIONS_MULTIPLE_UNSUPPORTED_DISABLED_BODY" desc="Body of the dialog shown when multiple unsupported extensions have been disabled.">
-          To make Chromium safer, we disabled some extensions that aren't listed in the <ph name="IDS_EXTENSION_WEB_STORE_TITLE">$1<ex>Chrome Web Store</ex></ph> and may have been added without your knowledge.
+          To make NW.js safer, we disabled some extensions that aren't listed in the <ph name="IDS_EXTENSION_WEB_STORE_TITLE">$1<ex>Chrome Web Store</ex></ph> and may have been added without your knowledge.
         </message>
         <message name="IDS_EXTENSIONS_SINGLE_UNSUPPORTED_DISABLED_BODY" desc="Body of the dialog shown when a single unsupported extension has been disabled.">
-          To make Chromium safer, we disabled the following extension that isn't listed in the <ph name="IDS_EXTENSION_WEB_STORE_TITLE">$1<ex>Chrome Web Store</ex></ph> and may have been added without your knowledge.
+          To make NW.js safer, we disabled the following extension that isn't listed in the <ph name="IDS_EXTENSION_WEB_STORE_TITLE">$1<ex>Chrome Web Store</ex></ph> and may have been added without your knowledge.
         </message>
       </if>
 
       <!-- Main Chrome menu -->
       <message name="IDS_APPMENU_TOOLTIP" desc="The tooltip to show for the browser menu">
-        Customize and control Chromium
+        Customize and control NW.js
       </message>
 
       <if expr="use_titlecase and not chromeos">
         <message name="IDS_ABOUT" desc="In Title Case: The text label of the About Chrome menu item">
-          About &amp;Chromium
+          About &amp;NW.js
         </message>
         <message name="IDS_UPDATE_NOW" desc="In Title Case: The text label of the Update Chrome Now menu item">
-          Update &amp;Chromium
+          Update &amp;NW.js
         </message>
       </if>
       <if expr="not use_titlecase and not chromeos">
         <message name="IDS_ABOUT" desc="The text label of the About Chrome menu item">
-          About &amp;Chromium
+          About &amp;NW.js
         </message>
         <message name="IDS_UPDATE_NOW" desc="The text label of the Update Chrome Now menu item">
-          Update &amp;Chromium
+          Update &amp;NW.js
         </message>
       </if>
       <if expr="chromeos">
@@ -729,80 +729,80 @@ For Chromium, processes used to display diagnostics information (such as this "a
 
       <if expr="is_macosx">
         <message name="IDS_APP_MENU_PRODUCT_NAME" desc="The application's short name, used for the Mac's application menu, activity monitor, etc. This should be less than 16 characters. Example: Chrome, not Google Chrome.">
-          Chromium
+          nwjs
         </message>
         <message name="IDS_HELPER_NAME" desc="The helper application's name.  Should contain the Chrome application name (IDS_PRODUCT_NAME). Example: Google Chrome Helper.">
-          Chromium Helper
+          nwjs Helper
         </message>
         <message name="IDS_SHORT_HELPER_NAME" desc="The helper application's short name, used for the Mac's application menu, activity monitor, etc. Example: Chrome Helper, not Google Chrome Helper.">
-          Chromium Helper
+          nwjs Helper
         </message>
       </if>
 
       <!-- Chrome sign-in page -->
       <message name="IDS_CHROME_SIGNIN_TITLE" desc="Title on the about:chrome-signin page">
-        Chromium
+        NW.js
       </message>
 
       <!-- Tutorial card in the avatar menu bubble -->
       <message name="IDS_PROFILES_CONFIRM_SIGNIN_TUTORIAL_TITLE" desc="The title of the tutorial card in the avatar menu bubble view shown when a user signs in to Chromium.">
-        You're now signed in to Chromium
+        You're now signed in to NW.js
       </message>
       <message name="IDS_PROFILES_WELCOME_UPGRADE_TUTORIAL_TITLE" desc="Title of the tutorial card in the avatar menu bubble view that introduces an upgrade user to the new profile management UI.">
-        This is your Chromium
+        This is your NW.js
       </message>
       <message name="IDS_PROFILES_WELCOME_UPGRADE_TUTORIAL_CONTENT_TEXT" desc="The main content of the tutorial card in the avatar menu bubble view that introduces an upgrade user to the new profile management UI.">
-        Share a computer? Now you can set up Chromium just the way you like it.
+        Share a computer? Now you can set up NW.js just the way you like it.
       </message>
 
       <!-- Account removal view in the avatar menu bubble -->
       <message name="IDS_PROFILES_ACCOUNT_REMOVAL_TEXT" desc="Main text of the account removal view when removing a secondary account.">
-        After removing your account from Chromium, you may need to reload your open tabs to take effect.
+        After removing your account from NW.js, you may need to reload your open tabs to take effect.
       </message>
       <message name="IDS_PROFILES_PRIMARY_ACCOUNT_REMOVAL_TEXT" desc="Main text of the account removal view when removing a primary account.">
-        You're using <ph name="PROFILE_EMAIL">$1<ex>jessica@gmail.com</ex></ph> to sync your Chromium stuff. To update your sync preference or to use Chromium without a Google account, visit <ph name="SETTINGS_LINK">$2<ex>settings</ex></ph>.
+        You're using <ph name="PROFILE_EMAIL">$1<ex>jessica@gmail.com</ex></ph> to sync your NW.js stuff. To update your sync preference or to use NW.js without a Google account, visit <ph name="SETTINGS_LINK">$2<ex>settings</ex></ph>.
       </message>
 
       <!-- Switch user view in the avatar menu bubble -->
       <message name="IDS_PROFILES_NOT_YOU_CONTENT_TEXT" desc="Main text of the switch user view. for an upgrade user">
-        If you share this computer with <ph name="PROFILE_NAME">$1<ex>Claire</ex></ph>, add yourself to Chromium to browse separately. Otherwise disconnect their Google Account.
+        If you share this computer with <ph name="PROFILE_NAME">$1<ex>Claire</ex></ph>, add yourself to NW.js to browse separately. Otherwise disconnect their Google Account.
       </message>
 
       <!-- One click sign-in infobar -->
       <if expr="not chromeos">
         <!-- New one-click sign-in dialog contents for SAML support -->
         <message name="IDS_ONE_CLICK_SIGNIN_DIALOG_TITLE_NEW" desc="The title of the modal dialog window that opens when the user chooses to use one click sign-in.">
-          You're signed in to Chromium!
+          You're signed in to NW.js!
         </message>
         <message name="IDS_ONE_CLICK_SIGNIN_DIALOG_MESSAGE_NEW" desc="The message of the one click sign-in dialog.">
           You're signed in as <ph name="USER_EMAIL_ADDRESS">$1<ex>foo@gmail.com</ex></ph>. Now you can access your bookmarks, history, and other settings on all your signed in devices.
         </message>
         <message name="IDS_ONE_CLICK_SIGNIN_BUBBLE_SYNC_DISABLED_MESSAGE" desc="The body of the sign-in bubble, when sync has been disabled.">
-          You're now signed in to Chromium! Sync is disabled by your administrator.
+          You're now signed in to NW.js! Sync is disabled by your administrator.
         </message>
         <message name="IDS_SYNC_WRONG_EMAIL" desc="Message shown when sync setup failed due to the user entering the wrong email address for sign-in.">
-          You were signed in to Chromium as <ph name="USER_EMAIL_ADDRESS">$1<ex>foo@gmail.com</ex></ph>. Please use the same account to sign in again.
+          You were signed in to NW.js as <ph name="USER_EMAIL_ADDRESS">$1<ex>foo@gmail.com</ex></ph>. Please use the same account to sign in again.
         </message>
         <message name="IDS_ONE_CLICK_SIGNIN_CONFIRM_EMAIL_DIALOG_MESSAGE" desc="Error message to display when setting up sync for a second time and the user name is different from the previous user name.">
-          Someone previously signed in to Chromium on this computer as <ph name="ACCOUNT_EMAIL_LAST">$1<ex>user@example.com</ex></ph>. If that isn't your account, create a new Chromium user to keep your information separate.
+          Someone previously signed in to NW.js on this computer as <ph name="ACCOUNT_EMAIL_LAST">$1<ex>user@example.com</ex></ph>. If that isn't your account, create a new NW.js user to keep your information separate.
 
-Signing in anyway will merge Chromium information like bookmarks, history, and other settings to <ph name="ACCOUNT_EMAIL_NEW">$2<ex>user@example.com</ex></ph>.
+Signing in anyway will merge NW.js information like bookmarks, history, and other settings to <ph name="ACCOUNT_EMAIL_NEW">$2<ex>user@example.com</ex></ph>.
         </message>
       </if>
 
       <!-- Enterprise sign-in profile linking -->
       <if expr="not is_android">
         <message name="IDS_ENTERPRISE_SIGNIN_TITLE" desc="The title of the dialog to confirm linking the browser profile with the signed-in enterprise account">
-          Important information regarding your Chromium data
+          Important information regarding your NW.js data
         </message>
         <message name="IDS_ENTERPRISE_SIGNIN_EXPLANATION" desc="The warning message displayed to an enterprise user about to link their profile to their Google account. This message is followed by a 'Learn more' link.">
-          You are signing in with a managed account and giving its administrator control over your Chromium profile. Your Chromium data, such as your apps, bookmarks, history, passwords, and other settings will become permanently tied to <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account.
+          You are signing in with a managed account and giving its administrator control over your NW.js profile. Your NW.js data, such as your apps, bookmarks, history, passwords, and other settings will become permanently tied to <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account.
         </message>
         <message name="IDS_ENTERPRISE_SIGNIN_CREATE_NEW_PROFILE_MESSAGE" desc="The text of the prompt to create a new profile after signing in to an enterprise account">
-          If you prefer to keep your existing Chromium data separate, you can create a new Chromium user for <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>.
+          If you prefer to keep your existing NW.js data separate, you can create a new NW.js user for <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>.
         </message>
         <message name="IDS_ENTERPRISE_SIGNIN_CONTINUE" desc="Text of the button to link the current profile with the signed-in enterprise account">
-          Link my Chromium data to this account
+          Link my NW.js data to this account
         </message>
       </if>
 
@@ -810,128 +810,128 @@ Signing in anyway will merge Chromium information like bookmarks, history, and o
       <!-- TODO(dconnelly): remove "new-style" once the old dialog is gone. -->
       <if expr="toolkit_views or is_macosx">
         <message name="IDS_ENTERPRISE_SIGNIN_TITLE_NEW_STYLE" desc="The title of the dialog to confirm linking the browser profile with the signed-in enterprise account">
-          Link your Chromium data to this account?
+          Link your NW.js data to this account?
         </message>
         <message name="IDS_ENTERPRISE_SIGNIN_EXPLANATION_WITHOUT_PROFILE_CREATION_NEW_STYLE" desc="The warning message displayed to an enterprise user about to link their profile to their Google account. This message is followed by a 'Learn more' link.">
-          You are signing in with a managed account and giving its administrator control over your Chromium profile. Your Chromium data, such as your apps, bookmarks, history, passwords, and other settings will become permanently tied to <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account. <ph name="LEARN_MORE">$2<ex>Learn more</ex></ph>
+          You are signing in with a managed account and giving its administrator control over your NW.js profile. Your NW.js data, such as your apps, bookmarks, history, passwords, and other settings will become permanently tied to <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account. <ph name="LEARN_MORE">$2<ex>Learn more</ex></ph>
         </message>
         <message name="IDS_ENTERPRISE_SIGNIN_EXPLANATION_WITH_PROFILE_CREATION_NEW_STYLE" desc="The warning message displayed to an enterprise user about to link their profile to their Google account. Additionally notifies the user that they can create a new profile instead. This message is followed by a 'Learn more' link.">
-          You are signing in with a managed account and giving its administrator control over your Chromium profile. Your Chromium data, such as your apps, bookmarks, history, passwords, and other settings will become permanently tied to <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account. You can optionally create a new profile to keep your existing Chromium data separate. <ph name="LEARN_MORE">$2<ex>Learn more</ex></ph>
+          You are signing in with a managed account and giving its administrator control over your NW.js profile. Your NW.js data, such as your apps, bookmarks, history, passwords, and other settings will become permanently tied to <ph name="USER_NAME">$1<ex>pat@example.com</ex></ph>. You will be able to delete this data via the Google Accounts Dashboard, but you will not be able to associate this data with another account. You can optionally create a new profile to keep your existing NW.js data separate. <ph name="LEARN_MORE">$2<ex>Learn more</ex></ph>
         </message>
       </if>
 
       <!-- SRT bubble messages -->
       <if expr="is_win">
         <message name="IDS_SRT_BUBBLE_TITLE" desc="Text for the title of the software removal tool bubble view.">
-            Chromium has detected unusual behavior
+            NW.js has detected unusual behavior
         </message>
       </if>
       <!-- Sync/sign-in error messages -->
       <if expr="not chromeos">
         <message name="IDS_SYNC_PASSPHRASE_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sync error bubble view when the user needs to update their sync passphrase.">
-          Chromium could not sync your data. Please update your Sync passphrase.
+          NW.js could not sync your data. Please update your Sync passphrase.
         </message>
         <message name="IDS_SYNC_SIGN_IN_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sign-in error bubble view when the user's sign-in credentials are out of date.">
-          Chromium could not sync your data because your account sign-in details are out of date.
+          NW.js could not sync your data because your account sign-in details are out of date.
         </message>
         <message name="IDS_SYNC_UNAVAILABLE_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sign-in error bubble view when sync is not available for their domain.">
-          Chromium could not sync your data because Sync is not available for your domain.
+          NW.js could not sync your data because Sync is not available for your domain.
         </message>
         <message name="IDS_SYNC_OTHER_SIGN_IN_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sign-in error bubble view when there's an error signing in.">
-          Chromium could not sync your data due to an error signing in.
+          NW.js could not sync your data due to an error signing in.
         </message>
       </if>
       <if expr="chromeos">
         <message name="IDS_SYNC_PASSPHRASE_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sync error notification when the user needs to update their sync passphrase.">
-          Chromium OS could not sync your data. Please update your Sync passphrase.
+          NW.js OS could not sync your data. Please update your Sync passphrase.
         </message>
         <message name="IDS_SYNC_SIGN_IN_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sign-in error notification when the user's sign-in credentials are out of date.">
-          Chromium OS could not sync your data because your account sign-in details are out of date.
+          NW.js OS could not sync your data because your account sign-in details are out of date.
         </message>
         <message name="IDS_SYNC_UNAVAILABLE_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sign-in error notification when sync is not available for their domain.">
-          Chromium OS could not sync your data because Sync is not available for your domain.
+          NW.js OS could not sync your data because Sync is not available for your domain.
         </message>
         <message name="IDS_SYNC_OTHER_SIGN_IN_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sign-in error notification when there's an error signing in.">
-          Chromium OS could not sync your data due to an error signing in.
+          NW.js OS could not sync your data due to an error signing in.
         </message>
       </if>
 
       <if expr="is_macosx">
         <message name="IDS_OPTIONS_PASSWORDS_MAC_WARNING" desc="The warning for OS X that passwords are shared across profiles in the keychain.">
-          On Mac, passwords may be saved to your Keychain and accessed or synced by other Chromium users sharing this OS X account.
+          On Mac, passwords may be saved to your Keychain and accessed or synced by other NW.js users sharing this OS X account.
         </message>
         <message name="IDS_AUTOFILL_ADDRESS_BOOK_PROMPT_DESCRIPTION" desc="Text to show in dialog requesting permission to access the user's Address Book contents.">
-          Details from your contacts can help you fill out forms more quickly in Chromium.
+          Details from your contacts can help you fill out forms more quickly in NW.js.
         </message>
       </if>
 
       <message name="IDS_AUTOFILL_DIALOG_SAVE_LOCALLY_CHECKBOX" desc="Checkbox that controls whether info the user types into the autofill dialog is saved by chrome.">
-        Save details in Chromium
+        Save details in NW.js
       </message>
       <message name="IDS_AUTOFILL_DIALOG_SAVE_LOCALLY_TOOLTIP" desc="Tooltip which explains function of checkbox that controls whether info the user types into the autofill dialog is saved by chrome.">
-        Chromium will securely store your information so you don't need to type it in again, but you will still need to verify your card's security code for future payments.
+        NW.js will securely store your information so you don't need to type it in again, but you will still need to verify your card's security code for future payments.
       </message>
       <message name="IDS_AUTOFILL_NEW_CREDIT_CARD_BUBBLE_TITLE" desc="Title text of the new credit card bubble informing a user their billing information has been saved in chrome.">
-        Your billing details have been saved in Chromium.
+        Your billing details have been saved in NW.js.
       </message>
       <message name="IDS_AUTOFILL_DESCRIBE_LOCAL_COPY" desc="Text label that described a Wallet credit card which has been copied to the local Chrome instance.">
-        Copied to Chromium
+        Copied to NW.js
       </message>
 
       <!-- Chrome OS keyboard overlay-->
       <if expr="chromeos">
         <message name="IDS_KEYBOARD_OVERLAY_SHOW_WRENCH_MENU" desc="The text in the keyboard overlay to explain the shortcut that opens the main Chrome menu.">
-          Show Chromium menu
+          Show NW.js menu
         </message>
       </if>
 
       <!-- App list -->
       <if expr="enable_app_list">
-        <message name="IDS_APP_LIST_SHORTCUT_NAME" desc="Name for the Chromium App List to appear in the taskbar and in any shortcuts to it.">
-          Chromium App Launcher
+        <message name="IDS_APP_LIST_SHORTCUT_NAME" desc="Name for the NW.js App List to appear in the taskbar and in any shortcuts to it.">
+          NW.js App Launcher
         </message>
         <if expr="is_win or is_macosx">
-          <message name="IDS_APP_LIST_SHORTCUT_NAME_CANARY" desc="Name for the Chromium App List to appear in the taskbar and in any shortcuts to it.">
-            Chromium App Launcher
+          <message name="IDS_APP_LIST_SHORTCUT_NAME_CANARY" desc="Name for the NW.js App List to appear in the taskbar and in any shortcuts to it.">
+            NW.js App Launcher
           </message>
         </if>
         <message name="IDS_APP_LIST_SIGNIN_HEADING" desc="Heading for when the launcher needs to sign in.">
-          Sign in to Chromium
+          Sign in to NW.js
         </message>
         <message name="IDS_APP_LIST_SIGNIN_TEXT" desc="Text for when the launcher needs to sign in.">
-          You need to be signed in to Chromium to use apps. This allows Chromium to sync your apps, bookmarks, history, passwords and other settings across devices.
+          You need to be signed in to NW.js to use apps. This allows NW.js to sync your apps, bookmarks, history, passwords and other settings across devices.
         </message>
         <if expr="not use_titlecase">
           <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="Title text for the context menu item of a non-platform-app app list item that removes the app.">
-            Remove from Chromium...
+            Remove from NW.js...
           </message>
         </if>
         <if expr="use_titlecase">
           <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="In Title Case: Title text for the context menu item of a non-platform-app app list item that removes the app.">
-            Remove From Chromium...
+            Remove From NW.js...
           </message>
         </if>
       </if>
 
       <!-- App shortcuts -->
-      <message name="IDS_APP_SHORTCUTS_SUBDIR_NAME" desc="Name for the Chromium Apps Start Menu folder name.">
-        Chromium Apps
+      <message name="IDS_APP_SHORTCUTS_SUBDIR_NAME" desc="Name for the NW.js Apps Start Menu folder name.">
+        NW.js Apps
       </message>
       <message name="IDS_APP_SHORTCUTS_SUBDIR_NAME_CANARY" desc="Name for the Chrome Apps Start Menu folder name.">
-        Chromium Apps
+        NW.js Apps
       </message>
 
       <!-- Chrome Conflicts bubble -->
       <if expr="is_win">
         <message name="IDS_OPTIONS_CONFLICTING_MODULE" desc="Shown in a bubble when a conflict has been detected.">
-          Software running on your computer is incompatible with Chromium.
+          Software running on your computer is incompatible with NW.js.
         </message>
       </if>
 
       <!-- Chrome OS OOBE Terms of Service screen-->
       <if expr="chromeos">
         <message name="IDS_TERMS_OF_SERVICE_SCREEN_SUBHEADING" desc="Subheading at the top of the Terms of Service screen.">
-          <ph name="DOMAIN">$1<ex>example.com</ex></ph> requires that you read and accept the following Terms of Service before using this device. These terms do not expand, modify or limit the Chromium OS Terms.
+          <ph name="DOMAIN">$1<ex>example.com</ex></ph> requires that you read and accept the following Terms of Service before using this device. These terms do not expand, modify or limit the NW.js OS Terms.
         </message>
       </if>
 
@@ -939,136 +939,136 @@ Signing in anyway will merge Chromium information like bookmarks, history, and o
       <if expr="enable_notifications">
         <if expr="is_win">
           <message name="IDS_MESSAGE_CENTER_BALLOON_TITLE" desc="Title of the first run notification ballon describing the notification center.">
-            Chromium Notification Center
+            NW.js Notification Center
           </message>
           <message name="IDS_MESSAGE_CENTER_BALLOON_TEXT" desc="Body text for the the first run notification ballon describing the notification center.">
-            You can see all your notifications from Chromium apps, extensions, and websites here.
+            You can see all your notifications here.
           </message>
         </if>
         <message name="IDS_MESSAGE_CENTER_TOOLTIP" desc="Tooltip for notification tray icon without unread notifications">
-          Chromium - Notifications
+          NW.js - Notifications
         </message>
         <message name="IDS_MESSAGE_CENTER_TOOLTIP_UNREAD" desc="Tooltip for notification tray icon with unread notifications">
-          Chromium - Notifications (<ph name="QUANTITY">$1<ex>3</ex></ph> unread)
+          NW.js - Notifications (<ph name="QUANTITY">$1<ex>3</ex></ph> unread)
         </message>
       </if>
 
       <!-- MediaStream capture status tray icon -->
       <message name="IDS_MEDIA_STREAM_STATUS_TRAY_TEXT_AUDIO_AND_VIDEO" desc="Tool tip for the capture status tray icon when microphone and camera are being used">
-        Chromium is using your camera and microphone.
+        NW.js is using your camera and microphone.
       </message>
       <message name="IDS_MEDIA_STREAM_STATUS_TRAY_TEXT_AUDIO_ONLY" desc="Tool tip for the capture status tray icon when microphone is being used">
-        Chromium is using your microphone.
+        NW.js is using your microphone.
       </message>
       <message name="IDS_MEDIA_STREAM_STATUS_TRAY_TEXT_VIDEO_ONLY" desc="Tool tip for the capture status tray icon when camera is being used">
-        Chromium is using your camera.
+        NW.js is using your camera.
       </message>
 
       <!-- ProcessSingleton -->
       <if expr="is_linux or is_macosx">
         <message name="IDS_PROFILE_IN_USE_POSIX" desc="Message shown when the browser cannot start because the profile is in use on a different host.">
-          The profile appears to be in use by another Chromium process (<ph name="PROCESS_ID">$1<ex>12345</ex></ph>) on another computer (<ph name="HOST_NAME">$2<ex>example.com</ex></ph>). Chromium has locked the profile so that it doesn't get corrupted. If you are sure no other processes are using this profile, you can unlock the profile and relaunch Chromium.
+          The profile appears to be in use by another NW.js process (<ph name="PROCESS_ID">$1<ex>12345</ex></ph>) on another computer (<ph name="HOST_NAME">$2<ex>example.com</ex></ph>). NW.js has locked the profile so that it doesn't get corrupted. If you are sure no other processes are using this profile, you can unlock the profile and relaunch NW.js.
         </message>
       </if>
 
       <!-- Mac First-run dialog messages -->
       <if expr="is_macosx">
         <message name="IDS_FIRSTRUN_DLG_MAC_SET_DEFAULT_BROWSER_LABEL" desc="Label for checkbox that sets the default browser">
-          Set Chromium as your default browser
+          Set NW.js as your default browser
         </message>
       </if>
 
       <!-- chrome://settings. Android uses native UI for settings -->
       <if expr="not is_android">
         <message name="IDS_OPTIONS_DEFAULTBROWSER_USEASDEFAULT" desc="The label of the 'Use Chromium as default' browser button">
-          Make Chromium the default browser
+          Make NW.js the default browser
         </message>
       </if>
 
       <!-- Toast experiment. -->
       <if expr="is_win">
-        <message name="IDS_TRY_TOAST_SET_DEFAULT" desc="Text of the checkbox to make Chromium the default browser">
-          Make Chromium the default browser
+        <message name="IDS_TRY_TOAST_SET_DEFAULT" desc="Text of the checkbox to make NW.js the default browser">
+          Make NW.js the default browser
         </message>
       </if>
 
       <!-- User manager tutorial -->
       <if expr="not is_android and not is_ios and not chromeos">
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_INTRO_TITLE" desc="Title of the tutorial introduction slide">
-          Chromium just got better
+          NW.js just got better
         </message>
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_INTRO_TEXT" desc="Main text of the tutorial introduction slide">
-          Now it's easier to use Chromium with your Google Account and on shared computers.
+          Now it's easier to use NW.js with your Google Account and on shared computers.
         </message>
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_YOUR_CHROME_TITLE" desc="Title of the slide about personalizing the browser">
-          This is your Chromium
+          This is your NW.js
         </message>
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_YOUR_CHROME_TEXT" desc="Main text of the slide about personalizing the browser">
-          Your web, bookmarks, and other Chromium stuff live here.
+          Your web, bookmarks, and other NW.js stuff live here.
         </message>
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_GUEST_TEXT" desc="Main text of the guest user slide">
-          Guests can use Chromium without leaving anything behind.
+          Guests can use NW.js without leaving anything behind.
         </message>
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_FRIENDS_TEXT" desc="Main text of the friends and family slide">
-          If you share a computer, friends and family can browse separately and set up Chromium just the way they want.
+          If you share a computer, friends and family can browse separately and set up NW.js just the way they want.
         </message>
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_OUTRO_TEXT" desc="Main text of the tutorial completion slide">
-          Click your name to open Chromium and start browsing.
+          Click your name to open NW.js and start browsing.
         </message>
         <message name="IDS_USER_MANAGER_TUTORIAL_SLIDE_OUTRO_ADD_USER" desc="Text of the add a new user button">
-          Add yourself to Chromium
+          Add yourself to NW.js
         </message>
       </if>
 
       <!-- Settings API bubble -->
       <message name="IDS_EXTENSIONS_SETTINGS_API_FIRST_LINE_START_PAGES_SPECIFIC" desc="Text displayed in the Settings API bubble as first line when an extension has changed the start pages, and we are pointing to its icon.">
-        This extension has changed what page is shown when you start Chromium.
+        This extension has changed what page is shown when you start NW.js.
       </message>
       <message name="IDS_EXTENSIONS_SETTINGS_API_FIRST_LINE_START_PAGES" desc="Text displayed in the Settings API bubble as first line when an extension has changed the start pages, and we are not pointing to its icon.">
-        The extension "<ph name="EXTENSION_NAME">$1<ex>AdBlock</ex></ph>" has changed what page is shown when you start Chromium.
+        The extension "<ph name="EXTENSION_NAME">$1<ex>AdBlock</ex></ph>" has changed what page is shown when you start NW.js.
       </message>
       <message name="IDS_EXTENSIONS_SETTINGS_API_SECOND_LINE_START_PAGES" desc="Second line in the Settings API bubble. Only shown if the secondary change by the extension was just the start pages. The triple single quotes are needed to preserve the space before and after the sentence which is needed when the language (Chrome is being translated to) uses space as word separator. Please preserve them, unless the language being translated to does not use space as word separator.">
-        ''' It also controls what page is shown when you start Chromium. '''
+        ''' It also controls what page is shown when you start NW.js. '''
       </message>
       <message name="IDS_EXTENSIONS_SETTINGS_API_SECOND_LINE_START_AND_HOME" desc="Second line in the Settings API bubble. Only shown if the secondary change by the extension was both the start page and the home page. See IDS_EXTENSIONS_SETTINGS_API_SECOND_LINE_START_PAGES for reason for triple quotes.">
-        ''' It also controls what page is shown when you start Chromium or click the Home button. '''
+        ''' It also controls what page is shown when you start NW.js or click the Home button. '''
       </message>
       <message name="IDS_EXTENSIONS_SETTINGS_API_SECOND_LINE_START_AND_SEARCH" desc="Second line in the Settings API bubble. Only shown if the secondary change by the extension was both the start page and the search engine. See IDS_EXTENSIONS_SETTINGS_API_SECOND_LINE_START_PAGES for reason for triple quotes.">
-        ''' It also controls what page is shown when you start Chromium or search from the Omnibox. '''
+        ''' It also controls what page is shown when you start NW.js or search from the Omnibox. '''
       </message>
 
       <!-- Website Settings bubble -->
       <message name="IDS_WEBSITE_SETTINGS_INTERNAL_PAGE" desc="Text that is displayed in the header of the Website Settings popup if the page was generated by Chrome itself.">
-        You are viewing a secure Chromium page.
+        You are viewing a secure NW.js page.
       </message>
 
       <!-- Webstore strings -->
       <message name="IDS_WEBSTORE_APP_DESCRIPTION" desc="Description for the WebStore app.">
-        Discover great apps, games, extensions and themes for Chromium.
+        Discover great apps, games, extensions and themes for NW.js.
       </message>
 
       <!-- Windows firewall rule strings. -->
       <if expr="is_win">
         <message name="IDS_INBOUND_MDNS_RULE_NAME" desc="The name of the firewall rule allowing inbound mDNS traffic.">
-          Chromium (mDNS-In)
+          NW.js (mDNS-In)
         </message>
         <message name="IDS_INBOUND_MDNS_RULE_NAME_CANARY" desc="The name of the firewall rule allowing inbound mDNS traffic for canary.">
-          Chromium (mDNS-In)
+          NW.js (mDNS-In)
         </message>
         <message name="IDS_INBOUND_MDNS_RULE_DESCRIPTION" desc="The description of the firewall rule allowing inbound mDNS traffic.">
-          Inbound rule for Chromium to allow mDNS traffic.
+          Inbound rule for NW.js to allow mDNS traffic.
         </message>
         <message name="IDS_INBOUND_MDNS_RULE_DESCRIPTION_CANARY" desc="The description of the firewall rule allowing inbound mDNS traffic canary.">
-          Inbound rule for Chromium to allow mDNS traffic.
+          Inbound rule for NW.js to allow mDNS traffic.
         </message>
       </if>
 
       <if expr="not is_android">
         <message name="IDS_CONTENT_CONTEXT_SPELLING_BUBBLE_TEXT" desc="The text of a bubble that confirms users allows integrating the spelling service of Google to Chrome.">
-          Chromium can provide smarter spell-checking by sending what you type in the browser to Google servers, allowing you to use the same spell-checking technology used by Google search.
+          NW.js can provide smarter spell-checking by sending what you type in the browser to Google servers, allowing you to use the same spell-checking technology used by Google search.
         </message>
         <message name="IDS_RESET_PROFILE_SETTINGS_FEEDBACK" desc="Feedback label in the Reset Profile Settings dialog">
-          Help make Chromium better by reporting the current settings
+          Help make NW.js better by reporting the current settings
         </message>
       </if>
 
@@ -1094,37 +1094,37 @@ Signing in anyway will merge Chromium information like bookmarks, history, and o
 
       <!-- Update bubble -->
       <message name="IDS_REINSTALL_APP" desc="Text for the button the user clicks to reinstall the app.">
-        Reinstall Chromium
+        Reinstall NW.js
       </message>
       <if expr="use_titlecase">
         <message name="IDS_UPGRADE_BUBBLE_MENU_ITEM" desc="In Title Case: Text for the Chrome menu option replacing Update required.">
-          Chromium is Out of Date
+          NW.js is Out of Date
         </message>
       </if>
       <if expr="not use_titlecase">
         <message name="IDS_UPGRADE_BUBBLE_MENU_ITEM" desc="Text for the Chrome menu option replacing Update required.">
-          Chromium is out of date
+          NW.js is out of date
         </message>
       </if>
       <message name="IDS_UPGRADE_BUBBLE_TITLE" desc="Text for the title of the upgrade bubble view.">
-        Chromium is out of date
+        NW.js is out of date
       </message>
       <message name="IDS_UPGRADE_BUBBLE_TEXT" desc="Text for the upgrade bubble view full description.">
-        Chromium could not update itself to the latest version, so you are missing out on awesome new features and security fixes. You need to manually reinstall Chromium.
+        NW.js could not update itself to the latest version, so you are missing out on awesome new features and security fixes. You need to manually reinstall NW.js.
       </message>
       <message name="IDS_UPGRADE_BUBBLE_REENABLE_TEXT" desc="Text for the upgrade bubble view full description.">
-        Chromium could not update itself to the latest version, so you are missing out on awesome new features and security fixes. You need to update Chromium.
+        NW.js could not update itself to the latest version, so you are missing out on awesome new features and security fixes. You need to update NW.js.
       </message>
 
       <!-- Upgrade recovery bubble -->
       <message name="IDS_RUN_RECOVERY" desc="Text for the button the user clicks to recover chromium and its updater.">
-        Update Chromium
+        Update NW.js
       </message>
       <message name="IDS_DECLINE_RECOVERY" desc="Text for the button the user clicks to decline recovery request.">
         No, thanks
       </message>
       <message name="IDS_RECOVERY_BUBBLE_TITLE" desc="Text for the title of the chrome recovery bubble view.">
-        Chromium is out of date
+        NW.js is out of date
       </message>
       <message name="IDS_RECOVERY_BUBBLE_TEXT" desc="Text for the chrome recovery bubble view full description.">
         Important security improvements and new features are available in the latest version.
@@ -1132,58 +1132,58 @@ Signing in anyway will merge Chromium information like bookmarks, history, and o
 
       <!-- Dialog that asks whether user wants to participate in Safe Browsing Extended Reporting -->
       <message name="IDS_FEEDBACK_SERVICE_DIALOG_TITLE" desc="Title of the dialog asking whether the user wants to upload suspected malicious files for analysis">
-        Help make Chromium better
+        Help make NW.js better
       </message>
       <message name="IDS_FEEDBACK_SERVICE_DIALOG_EXPLANATION" desc="Explanation of the dialog asking whether the user wants to upload suspected malicious files for analysis">
-        You can help make Chromium safer and easier to use by automatically reporting details of possible security incidents to Google.
+        You can help make NW.js safer and easier to use by automatically reporting details of possible security incidents to Google.
       </message>
 
       <!-- Page Information Window -->
       <message name="IDS_PAGE_INFO_SECURITY_TAB_SECURE_IDENTITY_NO_CT" desc="The text of the identity section when the page is secure and no Certificate Transparency information is present.">
-        Chromium verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server did not supply any Certificate Transparency information.
+        NW.js verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server did not supply any Certificate Transparency information.
       </message>
       <message name="IDS_PAGE_INFO_SECURITY_TAB_SECURE_IDENTITY_CT_VERIFIED" desc="The text of the identity section when the page is secure and a Signed Certificate Timestamp from a known Certificate Transparency log is present and valid.">
-        Chromium verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server supplied valid Certificate Transparency information.
+        NW.js verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server supplied valid Certificate Transparency information.
       </message>
       <message name="IDS_PAGE_INFO_SECURITY_TAB_SECURE_IDENTITY_CT_UNVERIFIED" desc="The text of the identity section when the page is secure and contains a Signed Certificate Timestamp from an unknown Certificate Transparency log.">
-        Chromium verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server supplied Certificate Transparency information, but Chromium did not recognize any of the Certificate Transparency logs.
+        NW.js verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server supplied Certificate Transparency information, but NW.js did not recognize any of the Certificate Transparency logs.
       </message>
       <message name="IDS_PAGE_INFO_SECURITY_TAB_SECURE_IDENTITY_CT_INVALID" desc="The text of the identity section when the page is secure, but it contains a Signed Certificate Timestamp from a known Certificate Transparency log that failed to verify.">
-        Chromium verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server supplied Certificate Transparency information, but it was invalid.
+        NW.js verified that <ph name="ISSUER">$1<ex>VeriSign</ex></ph> issued this website's certificate. The server supplied Certificate Transparency information, but it was invalid.
       </message>
 
       <!-- Runtime permission strings -->
       <if expr="is_android">
         <message name="IDS_INFOBAR_MISSING_CAMERA_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to the camera capabilities, but Chrome is missing the Android camera permission.">
-          Chromium needs camera access to share it with this site.
+          NW.js needs camera access to share it with this site.
         </message>
         <message name="IDS_INFOBAR_MISSING_MICROPHONE_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to the microphone capabilities, but Chrome is missing the Android microphone permission.">
-          Chromium needs microphone access to share it with this site.
+          NW.js needs microphone access to share it with this site.
         </message>
         <message name="IDS_INFOBAR_MISSING_LOCATION_PERMISSION_TEXT" desc="Text shown in an infobar when a website has requested access to the location capabilities, but Chrome is missing the Android location permission.">
-          Chromium needs location access to share it with this site.
+          NW.js needs location access to share it with this site.
         </message>
         <message name="IDS_INFOBAR_MISSING_MULTIPLE_PERMISSIONS_TEXT" desc="Text shown in an infobar when a website has requested access to the multiple restricted capabilities (e.g. location, camera, microphone), but Chrome is missing the corresponding Android permissions.">
-          Chromium needs permissions access to share them with this site.
+          NW.js needs permissions access to share them with this site.
         </message>
         <message name="IDS_MISSING_STORAGE_PERMISSION_DOWNLOAD_EDUCATION_TEXT" desc="Text shown educating the user that Chrome is missing the Android storage permission, which is required to download files.">
-          Chromium needs storage access to download files.
+          NW.js needs storage access to download files.
         </message>
       </if>
 
       <!-- OOBE -->
       <if expr="chromeos">
         <message name="IDS_INSTALLING_UPDATE" desc="Label shown on the updates installation screen during OOBE">
-          Please wait while Chromium installs the latest system updates.
+          Please wait while NW.js installs the latest system updates.
         </message>
         <message name="IDS_CHECKING_FOR_UPDATE_MSG" desc="Chrome OS OOBE: message shown during checking for update stage.">
-          Chromium updates automatically so you always have the freshest version.
+          NW.js updates automatically so you always have the freshest version.
         </message>
         <message name="IDS_UPDATE_MSG" desc="Chrome OS OOBE: message shown during update stage.">
-          Chromium updates automatically so you always have the freshest version. When this download completes, Chromium will restart and you'll be on your way.
+          NW.js updates automatically so you always have the freshest version. When this download completes, NW.js will restart and you'll be on your way.
         </message>
         <message name="IDS_EULA_SCREEN_ACCESSIBLE_TITLE" desc="Title to be spoken on opening the OOBE EULA screen">
-          Chromium OS terms
+          NW.js OS terms
         </message>
       </if>
 
@@ -1191,15 +1191,15 @@ Signing in anyway will merge Chromium information like bookmarks, history, and o
       <if expr="is_win">
         <message name="IDS_METRO_FLOW_TAB_TITLE"
                  desc="The dialog window title.">
-          Welcome to Chromium
+          Welcome to NW.js
         </message>
         <message name="IDS_METRO_FLOW_TITLE_SHORT"
                  desc="The title at the top of the window guiding user through making Chrome default in Metro.">
-          Chromium is almost ready.
+          NW.js is almost ready.
         </message>
         <message name="IDS_METRO_FLOW_LOGO_STRING_ALT"
                  desc="Alt text for the faded Chrome logo image.">
-          Chromium logo
+          NW.js logo
         </message>
       </if>
 

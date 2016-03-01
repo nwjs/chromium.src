@@ -135,6 +135,8 @@ bool CSPDirectiveList::checkAncestors(SourceListDirective* directive, LocalFrame
         return true;
 
     for (Frame* current = frame->tree().parent(); current; current = current->tree().parent()) {
+        if (current->isLocalFrame() && toLocalFrame(current)->document()->securityOrigin()->hasUniversalAccess())
+            return true;
         // FIXME: To make this work for out-of-process iframes, we need to propagate URL information of ancestor frames across processes.
         if (!current->isLocalFrame() || !directive->allows(toLocalFrame(current)->document()->url(), ContentSecurityPolicy::DidNotRedirect))
             return false;

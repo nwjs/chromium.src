@@ -4,6 +4,8 @@
 
 #include "content/browser/site_instance_impl.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include "content/browser/browsing_instance.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/frame_host/debug_urls.h"
@@ -83,7 +85,7 @@ RenderProcessHost* SiteInstanceImpl::GetProcess() {
     // given site), then look for an existing RenderProcessHost for the site.
     bool use_process_per_site = has_site_ &&
         RenderProcessHost::ShouldUseProcessPerSite(browser_context, site_);
-    if (use_process_per_site) {
+    if (use_process_per_site && nw::PinningRenderer()) {
       process_ = RenderProcessHostImpl::GetProcessHostForSite(browser_context,
                                                               site_);
     }

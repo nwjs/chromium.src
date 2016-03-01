@@ -27,6 +27,9 @@
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/switches.h"
 
+#include "components/ui/zoom/zoom_controller.h"
+#include "content/public/browser/web_contents.h"
+
 using content::BrowserContext;
 
 DEFINE_WEB_CONTENTS_USER_DATA_KEY(
@@ -36,7 +39,35 @@ namespace extensions {
 
 ChromeExtensionWebContentsObserver::ChromeExtensionWebContentsObserver(
     content::WebContents* web_contents)
-    : ExtensionWebContentsObserver(web_contents) {}
+    : ExtensionWebContentsObserver(web_contents) {
+  // Since ZoomController is also a WebContentsObserver, we need to be careful
+  // about disconnecting from it since the relative order of destruction of
+  // WebContentsObservers is not guaranteed. ZoomController silently clears
+  // its ZoomObserver list during WebContentsDestroyed() so there's no need
+  // to explicitly remove ourselves on destruction.
+  ui_zoom::ZoomController* zoom_controller =
+      ui_zoom::ZoomController::FromWebContents(web_contents);
+  // There may not always be a ZoomController, e.g. in tests.
+  if (zoom_controller)
+    zoom_controller->AddObserver(this);
+}
+
+void ChromeExtensionWebContentsObserver::OnZoomChanged(
+    const ui_zoom::ZoomController::ZoomChangedEventData& data) {
+  ProcessManager* const process_manager = ProcessManager::Get(browser_context());
+  const Extension* const extension =
+      process_manager->GetExtensionForWebContents(web_contents());
+  if (extension) {
+    base::ListValue args;
+    args.AppendDouble(data.old_zoom_level);
+    args.AppendDouble(data.new_zoom_level);
+
+    content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+    rfh->Send(new ExtensionMsg_MessageInvoke(
+      rfh->GetRoutingID(), extension->id(), "nw.Window",
+      "updateAppWindowZoom", args, false));
+  }
+}
 
 ChromeExtensionWebContentsObserver::~ChromeExtensionWebContentsObserver() {}
 
@@ -55,7 +86,8 @@ void ChromeExtensionWebContentsObserver::RenderViewCreated(
   // Components of chrome that are implemented as extensions or platform apps
   // are allowed to use chrome://resources/ and chrome://theme/ URLs.
   if ((extension->is_extension() || extension->is_platform_app()) &&
-      Manifest::IsComponentLocation(extension->location())) {
+      (Manifest::IsComponentLocation(extension->location()) ||
+       extension->is_nwjs_app())) {
     policy->GrantOrigin(process_id,
                         url::Origin(GURL(content::kChromeUIResourcesURL)));
     policy->GrantOrigin(process_id,
@@ -68,6 +100,7 @@ void ChromeExtensionWebContentsObserver::RenderViewCreated(
   // never given access to Chrome APIs).
   if (extension->is_extension() ||
       extension->is_legacy_packaged_app() ||
+      extension->is_nwjs_app() ||
       (extension->is_platform_app() &&
        Manifest::IsComponentLocation(extension->location()))) {
     policy->GrantOrigin(process_id,
