@@ -92,7 +92,7 @@ bool LibsecretLoader::LoadLibsecret() {
 
 namespace {
 
-const char kLibsecretAppString[] = "chrome";
+const char kLibsecretAppString[] = "nwjs";
 
 // Schema is analagous to the fields in PasswordForm.
 const SecretSchema kLibsecretSchema = {

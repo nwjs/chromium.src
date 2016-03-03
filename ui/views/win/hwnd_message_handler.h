@@ -390,6 +390,7 @@ class VIEWS_EXPORT HWNDMessageHandler :
     CR_MSG_WM_SETTEXT(OnSetText)
     CR_MSG_WM_SETTINGCHANGE(OnSettingChange)
     CR_MSG_WM_SIZE(OnSize)
+    CR_MSG_WM_STYLECHANGING(OnStyleChanging)
     CR_MSG_WM_SYSCOMMAND(OnSysCommand)
     CR_MSG_WM_THEMECHANGED(OnThemeChanged)
     CR_MSG_WM_WINDOWPOSCHANGED(OnWindowPosChanged)
@@ -444,6 +445,7 @@ class VIEWS_EXPORT HWNDMessageHandler :
   LRESULT OnSetText(const wchar_t* text);
   void OnSettingChange(UINT flags, const wchar_t* section);
   void OnSize(UINT param, const gfx::Size& size);
+  void OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct);
   void OnSysCommand(UINT notification_code, const gfx::Point& point);
   void OnThemeChanged();
   LRESULT OnTouchEvent(UINT message, WPARAM w_param, LPARAM l_param);
