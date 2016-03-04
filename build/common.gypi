@@ -850,7 +850,8 @@
         ['OS=="android" or branding=="Chrome" or chromecast==1', {
           'proprietary_codecs%': 1,
         }, {
-          'proprietary_codecs%': 0,
+          # This enables only the interface to proprietary codecs, not the codecs themselves
+          'proprietary_codecs%': 1,
         }],
 
         # Enable autofill dialog when not on iOS.
