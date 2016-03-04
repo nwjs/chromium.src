@@ -179,7 +179,6 @@ class ExtensionService
     : public ExtensionServiceInterface,
       public extensions::ExternalProviderInterface::VisitorInterface,
       public content::NotificationObserver,
-      public extensions::Blacklist::Observer,
       public extensions::ExtensionManagement::Observer {
  public:
   // Attempts to uninstall an extension from a given ExtensionService. Returns
@@ -483,7 +482,7 @@ class ExtensionService
                const content::NotificationDetails& details) override;
 
   // extensions::Blacklist::Observer implementation.
-  void OnBlacklistUpdated() override;
+  // void OnBlacklistUpdated() override;
 
   // Similar to FinishInstallation, but first checks if there still is an update
   // pending for the extension, and makes sure the extension is still idle.

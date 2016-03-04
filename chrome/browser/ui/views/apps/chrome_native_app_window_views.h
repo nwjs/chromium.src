@@ -55,6 +55,7 @@ class ChromeNativeAppWindowViews
       views::Widget* widget) override;
   bool WidgetHasHitTestMask() const override;
   void GetWidgetHitTestMask(gfx::Path* mask) const override;
+  bool NWCanClose() const override;
 
   // views::View implementation.
   gfx::Size GetPreferredSize() const override;

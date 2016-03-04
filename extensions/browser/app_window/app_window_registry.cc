@@ -117,7 +117,8 @@ void AppWindowRegistry::CloseAllAppWindowsForApp(const std::string& app_id) {
   for (AppWindowRegistry::const_iterator it = windows.begin();
        it != windows.end();
        ++it) {
-    (*it)->GetBaseWindow()->Close();
+    if ((*it)->NWCanClose())
+      (*it)->GetBaseWindow()->Close();
   }
 }
 

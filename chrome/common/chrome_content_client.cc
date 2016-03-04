@@ -296,7 +296,7 @@ bool GetComponentUpdatedPepperFlash(content::PepperPluginInfo* plugin) {
 #endif  // defined(OS_LINUX)
 
 bool GetBundledPepperFlash(content::PepperPluginInfo* plugin) {
-#if defined(FLAPPER_AVAILABLE)
+#if 1
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
   // Ignore bundled Pepper Flash if there is Pepper Flash specified from the
@@ -313,7 +313,7 @@ bool GetBundledPepperFlash(content::PepperPluginInfo* plugin) {
   if (!PathService::Get(chrome::FILE_PEPPER_FLASH_PLUGIN, &flash_path))
     return false;
 
-  *plugin = CreatePepperFlashInfo(flash_path, FLAPPER_VERSION_STRING, false);
+  *plugin = CreatePepperFlashInfo(flash_path, "20.0.0.286", false);
   return true;
 #else
   return false;

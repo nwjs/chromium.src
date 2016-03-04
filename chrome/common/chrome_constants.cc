@@ -9,11 +9,11 @@
 #define FPL FILE_PATH_LITERAL
 
 #if defined(OS_MACOSX)
-#define CHROMIUM_PRODUCT_STRING "Chromium"
+#define CHROMIUM_PRODUCT_STRING "nwjs"
 #if defined(GOOGLE_CHROME_BUILD)
 #define PRODUCT_STRING "Google Chrome"
 #elif defined(CHROMIUM_BUILD)
-#define PRODUCT_STRING "Chromium"
+#define PRODUCT_STRING "nwjs"
 #else
 #error Unknown branding
 #endif
@@ -46,13 +46,13 @@ const char kChromeVersionEnvVar[] = "CHROME_VERSION";
 
 #if defined(OS_WIN)
 const base::FilePath::CharType kBrowserProcessExecutableNameChromium[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 const base::FilePath::CharType kBrowserProcessExecutableName[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 const base::FilePath::CharType kHelperProcessExecutableNameChromium[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 const base::FilePath::CharType kHelperProcessExecutableName[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 #elif defined(OS_MACOSX)
 const base::FilePath::CharType kBrowserProcessExecutableNameChromium[] =
     FPL(CHROMIUM_PRODUCT_STRING);
@@ -72,8 +72,8 @@ const base::FilePath::CharType kHelperProcessExecutableName[] =
 const base::FilePath::CharType kHelperProcessExecutableNameChromium[] = FPL("");
 #elif defined(OS_POSIX)
 const base::FilePath::CharType kBrowserProcessExecutableNameChromium[] =
-    FPL("chrome");
-const base::FilePath::CharType kBrowserProcessExecutableName[] = FPL("chrome");
+    FPL("nw");
+const base::FilePath::CharType kBrowserProcessExecutableName[] = FPL("nw");
 // Helper processes end up with a name of "exe" due to execing via
 // /proc/self/exe.  See bug 22703.
 const base::FilePath::CharType kHelperProcessExecutableNameChromium[] =
@@ -83,13 +83,13 @@ const base::FilePath::CharType kHelperProcessExecutableName[] = FPL("exe");
 
 #if defined(OS_WIN)
 const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 const base::FilePath::CharType kBrowserProcessExecutablePath[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 const base::FilePath::CharType kHelperProcessExecutablePathChromium[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 const base::FilePath::CharType kHelperProcessExecutablePath[] =
-    FPL("chrome.exe");
+    FPL("nw.exe");
 #elif defined(OS_MACOSX)
 const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
     FPL(CHROMIUM_PRODUCT_STRING ".app/Contents/MacOS/" CHROMIUM_PRODUCT_STRING);
@@ -104,15 +104,15 @@ const base::FilePath::CharType kHelperProcessExecutablePath[] =
 const base::FilePath::CharType kBrowserProcessExecutablePath[] = FPL("chrome");
 const base::FilePath::CharType kHelperProcessExecutablePath[] = FPL("chrome");
 const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
-    FPL("chrome");
+    FPL("nw");
 const base::FilePath::CharType kHelperProcessExecutablePathChromium[] =
-    FPL("chrome");
+    FPL("nw");
 #elif defined(OS_POSIX)
 const base::FilePath::CharType kBrowserProcessExecutablePathChromium[] =
-    FPL("chrome");
+    FPL("nw");
 const base::FilePath::CharType kBrowserProcessExecutablePath[] = FPL("chrome");
 const base::FilePath::CharType kHelperProcessExecutablePathChromium[] =
-    FPL("chrome");
+    FPL("nw");
 const base::FilePath::CharType kHelperProcessExecutablePath[] = FPL("chrome");
 #endif  // OS_*
 
@@ -122,9 +122,9 @@ const base::FilePath::CharType kFrameworkName[] =
 #endif  // OS_MACOSX
 
 #if defined(OS_WIN)
-const base::FilePath::CharType kBrowserResourcesDll[] = FPL("chrome.dll");
+const base::FilePath::CharType kBrowserResourcesDll[] = FPL("nw.dll");
 const base::FilePath::CharType kStatusTrayWindowClass[] =
-    FPL("Chrome_StatusTrayWindow");
+    FPL("NWJS_StatusTrayWindow");
 #endif  // defined(OS_WIN)
 
 const char    kInitialProfile[] = "Default";

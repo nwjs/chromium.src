@@ -27,6 +27,8 @@ interface HTMLIFrameElement : HTMLElement {
     [PutForwards=value] readonly attribute DOMSettableTokenList sandbox;
     // Note: The seamless attribute was once supported, but was removed.
     [Reflect] attribute boolean allowFullscreen;
+    [Reflect] attribute boolean nwdisable;
+    [Reflect] attribute boolean nwfaketop;
     [Reflect] attribute DOMString width;
     [Reflect] attribute DOMString height;
     [CheckSecurity=ReturnValue] readonly attribute Document? contentDocument;
