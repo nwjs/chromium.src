@@ -57,7 +57,7 @@
 
 #logo-default,
 #logo-non-white {
-  background-image: url(../../../../ui/webui/resources/images/google_logo.svg);
+  background-image: url(../../../../ui/webui/resources/images/iridium_text.svg);
   background-repeat: no-repeat;
   bottom: var(--logo-margin-bottom);
   height: 92px;
