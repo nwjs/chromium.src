@@ -105,6 +105,16 @@
   },
   'postbuilds': [
     {
+      'postbuild_name': 'Fix Framework Link',
+      'action': [
+         'install_name_tool',
+         '-change',
+         '/usr/local/lib/libffmpeg.dylib',
+         '@loader_path/libffmpeg.dylib',
+         '${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}'
+      ],
+    },
+    {
       # Modify the Info.plist as needed.  The script explains why
       # this is needed.  This is also done in the chrome target.
       # The framework needs the Breakpad keys if this feature is
@@ -135,6 +145,12 @@
       'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Libraries',
       'files': [
         '<(PRODUCT_DIR)/exif.so',
+      ],
+    },
+    {
+      'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)',
+      'files': [
+        '<(PRODUCT_DIR)/libffmpeg.dylib',
       ],
     },
     {
