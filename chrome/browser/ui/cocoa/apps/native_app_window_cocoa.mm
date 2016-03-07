@@ -890,7 +890,8 @@ void NativeAppWindowCocoa::ShowWithApp() {
 
 void NativeAppWindowCocoa::HideWithApp() {
   is_hidden_with_app_ = true;
-  HideWithoutMarkingHidden();
+  [NSApp hide:nil];
+//  HideWithoutMarkingHidden();
 }
 
 gfx::Size NativeAppWindowCocoa::GetContentMinimumSize() const {
