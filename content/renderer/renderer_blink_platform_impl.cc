@@ -163,6 +163,14 @@ using blink::WebVector;
 
 namespace content {
 
+// Switch to enable / disable code for window's transparency
+extern bool g_support_transparency;
+bool g_support_transparency = true;
+
+// Switch to force cpu drawing, is used to enable click through on alpha pixels
+extern bool g_force_cpu_draw;
+bool g_force_cpu_draw = false;
+
 namespace {
 
 bool g_sandbox_enabled = true;

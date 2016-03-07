@@ -49,11 +49,17 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
 
     FAILURE_REASON_MAX
   };
-  typedef base::Callback<void(FailureReason)> FailureCallback;
+  typedef base::Callback<void(FailureReason, ContentVerifyJob*)> FailureCallback;
+  typedef base::Callback<void(ContentVerifyJob*)> ReadyCallback;
+  typedef base::Callback<void(void)> SuccessCallback;
 
   // The |failure_callback| will be called at most once if there was a failure.
   ContentVerifyJob(ContentHashReader* hash_reader,
                    const FailureCallback& failure_callback);
+
+  ContentVerifyJob(ContentHashReader* hash_reader,
+                   const FailureCallback& failure_callback,
+                   const ReadyCallback& ready_callback);
 
   // This begins the process of getting expected hashes, so it should be called
   // as early as possible.
@@ -69,6 +75,9 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
 
   // Call once when finished adding bytes via BytesRead.
   void DoneReading();
+
+  void SetSuccessCallback(const SuccessCallback& success_callback) { success_callback_ = success_callback; }
+  const SuccessCallback& success_callback() { return success_callback_; }
 
   class TestDelegate {
    public:
@@ -140,6 +149,8 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
 
   // Called once if verification fails.
   FailureCallback failure_callback_;
+  ReadyCallback ready_callback_;
+  SuccessCallback success_callback_;
 
   // Set to true if we detected a mismatch and called the failure callback.
   bool failed_;

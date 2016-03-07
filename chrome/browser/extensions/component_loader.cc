@@ -527,6 +527,7 @@ void ComponentLoader::EnableBackgroundExtensionsForTesting() {
 
 void ComponentLoader::AddDefaultComponentExtensions(
     bool skip_session_components) {
+#if 0
   // Do not add component extensions that have background pages here -- add them
   // to AddDefaultComponentExtensionsWithBackgroundPages.
 #if defined(OS_CHROMEOS)
@@ -566,6 +567,7 @@ void ComponentLoader::AddDefaultComponentExtensions(
   }
 
   AddKeyboardApp();
+#endif
 
   AddDefaultComponentExtensionsWithBackgroundPages(skip_session_components);
 
@@ -573,6 +575,27 @@ void ComponentLoader::AddDefaultComponentExtensions(
   Add(pdf_extension_util::GetManifest(),
       base::FilePath(FILE_PATH_LITERAL("pdf")));
 #endif
+
+  base::CommandLine& command_line(*base::CommandLine::ForCurrentProcess());
+
+  //match the condition in startup_browser_creator.cc
+  if (command_line.HasSwitch("nwapp") || command_line.GetArgs().size() > 0)
+    return;
+
+  std::string url;
+  if (command_line.HasSwitch("url")) {
+      url = command_line.GetSwitchValueASCII("url");
+  }
+  std::string manifest_contents =
+        ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST).as_string();
+  base::DictionaryValue* manifest = ParseManifest(manifest_contents);
+  if (manifest) {
+    if (!url.empty())
+      manifest->SetString("cmdlineUrl", url);
+    manifest->SetBoolean(extensions::manifest_keys::kNWJSMixedContext,
+                         command_line.HasSwitch("mixed-context"));
+    Add(manifest, base::FilePath(FILE_PATH_LITERAL("nwjs_default_app")), true);
+  }
 }
 
 void ComponentLoader::AddDefaultComponentExtensionsForKioskMode(
@@ -612,6 +635,7 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
     return;
   }
 
+#if 0 //nwjs
 #if defined(OS_CHROMEOS) && defined(GOOGLE_CHROME_BUILD)
   // Since this is a v2 app it has a background page.
   AddWithNameAndDescription(
@@ -690,8 +714,12 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
 
 #endif  // defined(GOOGLE_CHROME_BUILD)
 
+#endif //nwjs
+
+#if 0
   Add(IDR_CRYPTOTOKEN_MANIFEST,
       base::FilePath(FILE_PATH_LITERAL("cryptotoken")));
+#endif
 }
 
 void ComponentLoader::
