@@ -253,6 +253,10 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
   return frameRect;
 }
 
+- (BOOL)_isTitleHidden {
+  return YES;
+}
+
 @end
 
 @interface ControlRegionView : NSView
