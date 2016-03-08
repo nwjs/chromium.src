@@ -380,18 +380,17 @@ bool AppWindowCreateFunction::RunAsync() {
           break;
       }
     }
-  }
-
-  switch (options->position) {
-  case app_window::POSITION_NONE:
-    create_params.position = extensions::AppWindow::POS_NONE;
-    break;
-  case app_window::POSITION_CENTER:
-    create_params.position = extensions::AppWindow::POS_CENTER;
-    break;
-  case app_window::POSITION_MOUSE:
-    create_params.position = extensions::AppWindow::POS_MOUSE;
-    break;
+    switch (options->position) {
+      case app_window::POSITION_NONE:
+        create_params.position = extensions::AppWindow::POS_NONE;
+        break;
+      case app_window::POSITION_CENTER:
+        create_params.position = extensions::AppWindow::POS_CENTER;
+        break;
+      case app_window::POSITION_MOUSE:
+        create_params.position = extensions::AppWindow::POS_MOUSE;
+        break;
+    }
   }
 
   create_params.creator_process_id =
@@ -412,7 +411,7 @@ bool AppWindowCreateFunction::RunAsync() {
     app_window->ForcedFullscreen();
   }
 
-  if (options->kiosk.get())
+  if (options && options->kiosk.get())
     app_window->ForcedFullscreen();
   
   content::RenderFrameHost* created_frame =
