@@ -4,6 +4,8 @@
 
 #include "ui/base/resource/resource_bundle.h"
 
+#include "base/strings/string_util.h"
+
 #include <stdint.h>
 
 #include <limits>
@@ -78,6 +80,8 @@ const char kPakFileSuffix[] = ".pak";
 #endif
 
 ResourceBundle* g_shared_instance_ = NULL;
+
+base::string16 chromium_name, nwjs_name;
 
 #if defined(OS_ANDROID)
 // Returns the scale factor closest to |scale| from the full list of factors.
@@ -491,8 +495,10 @@ base::StringPiece ResourceBundle::GetRawDataResourceForScale(
 
 base::string16 ResourceBundle::GetLocalizedString(int message_id) {
   base::string16 string;
-  if (delegate_ && delegate_->GetLocalizedString(message_id, &string))
+  if (delegate_ && delegate_->GetLocalizedString(message_id, &string)) {
+    base::ReplaceSubstringsAfterOffset(&string, 0, chromium_name, nwjs_name);
     return string;
+  }
 
   // Ensure that ReloadLocaleResources() doesn't drop the resources while
   // we're using them.
@@ -536,6 +542,7 @@ base::string16 ResourceBundle::GetLocalizedString(int message_id) {
   } else if (encoding == ResourceHandle::UTF8) {
     msg = base::UTF8ToUTF16(data);
   }
+  base::ReplaceSubstringsAfterOffset(&msg, 0, chromium_name, nwjs_name);
   return msg;
 }
 
@@ -607,6 +614,8 @@ ResourceBundle::~ResourceBundle() {
 void ResourceBundle::InitSharedInstance(Delegate* delegate) {
   DCHECK(g_shared_instance_ == NULL) << "ResourceBundle initialized twice";
   g_shared_instance_ = new ResourceBundle(delegate);
+  chromium_name = base::ASCIIToUTF16("Chromium");
+  nwjs_name     = base::ASCIIToUTF16("NW.js");
   static std::vector<ScaleFactor> supported_scale_factors;
 #if !defined(OS_IOS) && !defined(OS_WIN)
   // On platforms other than iOS, 100P is always a supported scale factor.
@@ -670,13 +679,13 @@ void ResourceBundle::LoadChromeResources() {
   if (MaterialDesignController::IsModeMaterial()) {
     if (IsScaleFactorSupported(SCALE_FACTOR_100P)) {
       AddMaterialDesignDataPackFromPath(
-          GetResourcesPakFilePath("chrome_material_100_percent.pak"),
+          GetResourcesPakFilePath("nw_material_100_percent.pak"),
           SCALE_FACTOR_100P);
     }
 
     if (IsScaleFactorSupported(SCALE_FACTOR_200P)) {
       AddOptionalMaterialDesignDataPackFromPath(
-          GetResourcesPakFilePath("chrome_material_200_percent.pak"),
+          GetResourcesPakFilePath("nw_material_200_percent.pak"),
           SCALE_FACTOR_200P);
     }
   }
@@ -686,12 +695,12 @@ void ResourceBundle::LoadChromeResources() {
   // scale factor to gfx::ImageSkia::AddRepresentation.
   if (IsScaleFactorSupported(SCALE_FACTOR_100P)) {
     AddDataPackFromPath(GetResourcesPakFilePath(
-        "chrome_100_percent.pak"), SCALE_FACTOR_100P);
+        "nw_100_percent.pak"), SCALE_FACTOR_100P);
   }
 
   if (IsScaleFactorSupported(SCALE_FACTOR_200P)) {
     AddOptionalDataPackFromPath(GetResourcesPakFilePath(
-        "chrome_200_percent.pak"), SCALE_FACTOR_200P);
+        "nw_200_percent.pak"), SCALE_FACTOR_200P);
   }
 }
 

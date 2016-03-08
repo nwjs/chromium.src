@@ -691,7 +691,7 @@ void DevToolsUIBindings::AppendToFile(const std::string& url,
 }
 
 void DevToolsUIBindings::RequestFileSystems() {
-  CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
+  //CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
   std::vector<DevToolsFileHelper::FileSystem> file_systems =
       file_helper_->GetFileSystems();
   base::ListValue file_systems_value;
@@ -702,7 +702,7 @@ void DevToolsUIBindings::RequestFileSystems() {
 }
 
 void DevToolsUIBindings::AddFileSystem(const std::string& file_system_path) {
-  CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
+  //CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
   file_helper_->AddFileSystem(
       file_system_path,
       base::Bind(&DevToolsUIBindings::ShowDevToolsConfirmInfoBar,
@@ -710,13 +710,13 @@ void DevToolsUIBindings::AddFileSystem(const std::string& file_system_path) {
 }
 
 void DevToolsUIBindings::RemoveFileSystem(const std::string& file_system_path) {
-  CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
+  //CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
   file_helper_->RemoveFileSystem(file_system_path);
 }
 
 void DevToolsUIBindings::UpgradeDraggedFileSystemPermissions(
     const std::string& file_system_url) {
-  CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
+  //CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
   file_helper_->UpgradeDraggedFileSystemPermissions(
       file_system_url,
       base::Bind(&DevToolsUIBindings::ShowDevToolsConfirmInfoBar,
@@ -726,7 +726,7 @@ void DevToolsUIBindings::UpgradeDraggedFileSystemPermissions(
 void DevToolsUIBindings::IndexPath(int index_request_id,
                                    const std::string& file_system_path) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
+  //CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
   if (!file_helper_->IsFileSystemAdded(file_system_path)) {
     IndexingDone(index_request_id, file_system_path);
     return;
@@ -764,7 +764,7 @@ void DevToolsUIBindings::SearchInPath(int search_request_id,
                                       const std::string& file_system_path,
                                       const std::string& query) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
+  //CHECK(web_contents_->GetURL().SchemeIs(content::kChromeDevToolsScheme));
   if (!file_helper_->IsFileSystemAdded(file_system_path)) {
     SearchCompleted(search_request_id,
                     file_system_path,
