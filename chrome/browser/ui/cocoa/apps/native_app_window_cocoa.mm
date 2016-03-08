@@ -253,6 +253,10 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
   return frameRect;
 }
 
+- (BOOL)_isTitleHidden {
+  return YES;
+}
+
 @end
 
 @interface ControlRegionView : NSView
@@ -890,7 +894,8 @@ void NativeAppWindowCocoa::ShowWithApp() {
 
 void NativeAppWindowCocoa::HideWithApp() {
   is_hidden_with_app_ = true;
-  HideWithoutMarkingHidden();
+  [NSApp hide:nil];
+//  HideWithoutMarkingHidden();
 }
 
 gfx::Size NativeAppWindowCocoa::GetContentMinimumSize() const {

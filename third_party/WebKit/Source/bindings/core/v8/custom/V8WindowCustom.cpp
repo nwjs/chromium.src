@@ -72,8 +72,7 @@ void V8Window::parentAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Va
 {
   LocalDOMWindow* imp = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
   LocalFrame* frame = imp->frame();
-  ASSERT(frame);
-  if (frame->isNwFakeTop()) {
+  if (frame && frame->isNwFakeTop()) {
     v8SetReturnValue(info, toV8(imp, info.Holder(), info.GetIsolate()));
     return;
   }
@@ -84,11 +83,12 @@ void V8Window::topAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value
 {
   LocalDOMWindow* imp = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
   LocalFrame* frame = imp->frame();
-  ASSERT(frame);
-  for (LocalFrame* f = frame; f; f = toLocalFrame(f->tree().parent())) {
-    if (f->isNwFakeTop()) {
-      v8SetReturnValue(info, toV8(f->document()->domWindow(), info.Holder(), info.GetIsolate()));
-      return;
+  if (frame) {
+    for (LocalFrame* f = frame; f; f = toLocalFrame(f->tree().parent())) {
+      if (f->isNwFakeTop()) {
+        v8SetReturnValue(info, toV8(f->document()->domWindow(), info.Holder(), info.GetIsolate()));
+        return;
+      }
     }
   }
   v8SetReturnValue(info, toV8(imp->top(), info.Holder(), info.GetIsolate()));
