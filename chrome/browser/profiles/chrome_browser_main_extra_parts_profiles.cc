@@ -173,7 +173,7 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   extensions::EnsureBrowserContextKeyedServiceFactoriesBuilt();
   extensions::ExtensionManagementFactory::GetInstance();
   chrome_extensions::EnsureBrowserContextKeyedServiceFactoriesBuilt();
-  AppShortcutManagerFactory::GetInstance();
+  //AppShortcutManagerFactory::GetInstance();
 #endif
 
 #if defined(ENABLE_APP_LIST)

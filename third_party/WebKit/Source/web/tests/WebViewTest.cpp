@@ -1909,7 +1909,7 @@ public:
     }
 
     // WebViewClient methods
-    WebView* createView(WebLocalFrame*, const WebURLRequest&, const WebWindowFeatures&, const WebString& name, WebNavigationPolicy, bool) override
+    WebView* createView(WebLocalFrame*, const WebURLRequest&, const WebWindowFeatures&, const WebString& name, WebNavigationPolicy, bool, WebString*) override
     {
         return m_webViewHelper.initialize(true, 0, 0);
     }
