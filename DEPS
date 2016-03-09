@@ -68,11 +68,11 @@ deps = {
   'src/testing/gtest':
     (Var("chromium_git")) + '/external/github.com/google/googletest.git@6f8a66431cb592dad629028a50b3dd418a408c87',
   'src/third_party/angle':
-    (Var("chromium_git")) + '/angle/angle.git@5fc4e56dfa3fade0b683a7b42e691137bda5fed0',
+    (Var("chromium_git")) + '/angle/angle.git@83aec70b3d944fd0636073779e1e5a95e62dce3a',
   'src/third_party/bidichecker':
     (Var("chromium_git")) + '/external/bidichecker/lib.git@97f2aa645b74c28c57eca56992235c79850fa9e0',
   'src/third_party/boringssl/src':
-    'https://boringssl.googlesource.com/boringssl.git@ab441a3a3934a179878c9594cf179d908f0b9a27',
+    'https://boringssl.googlesource.com/boringssl.git@907ae62b9d81121cb86b604f83e6b811a43f7a87',
   'src/third_party/catapult':
     (Var("chromium_git")) + '/external/github.com/catapult-project/catapult.git@dc74f19fa849b17180f09cfdf3c5757a26e9a379',
   'src/third_party/cld_2/src':
@@ -154,7 +154,7 @@ deps = {
   'src/third_party/webpagereplay':
     (Var("chromium_git")) + '/external/github.com/chromium/web-page-replay.git@7564939bdf6482d57b9bd5e9c931679f96d8cf75',
   'src/third_party/webrtc':
-    (Var("chromium_git")) + '/external/webrtc/trunk/webrtc.git@c84f8fcf0c479fe40478f301e4dcbb1191013c96',
+    (Var("chromium_git")) + '/external/webrtc/trunk/webrtc.git@24a16656da7249c0d836247bc77dbc475f71f0af',
   'src/third_party/yasm/source/patched-yasm':
     (Var("chromium_git")) + '/chromium/deps/yasm/patched-yasm.git@4671120cd8558ce62ee8672ebf3eb6f5216f909b',
   'src/tools/gyp':
