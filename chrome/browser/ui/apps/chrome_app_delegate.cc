@@ -10,6 +10,8 @@
 
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
@@ -232,6 +234,10 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
       autofill::ChromeAutofillClient::FromWebContents(web_contents),
       g_browser_process->GetApplicationLocale(),
       autofill::AutofillManager::ENABLE_AUTOFILL_DOWNLOAD_MANAGER);
+  ChromePasswordManagerClient::CreateForWebContentsWithAutofillClient(
+      web_contents,
+      autofill::ChromeAutofillClient::FromWebContents(web_contents));
+  ManagePasswordsUIController::CreateForWebContents(web_contents);
 }
 
 void ChromeAppDelegate::RenderViewCreated(

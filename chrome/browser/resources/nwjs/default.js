@@ -1,8 +1,10 @@
 //console.log("NWJS/DEFAULT.JS");
 var manifest = chrome.runtime.getManifest();
-var options = {'id': '.main'};
+var options = {};
 var title = null;
 if (manifest.window) {
+  if (manifest.window.id)
+    options.id = manifest.window.id;
   options.innerBounds = {};
   if (manifest.window.frame === false)
     options.frame = 'none';

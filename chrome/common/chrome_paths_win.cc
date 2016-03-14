@@ -127,7 +127,7 @@ bool GetDefaultCrashDumpLocation(base::FilePath* crash_dir) {
   // Windows. See https://crbug.com/564398.
   if (!GetDefaultUserDataDirectory(crash_dir))
     return false;
-  *crash_dir = crash_dir->Append(FILE_PATH_LITERAL("Crashpad"));
+  *crash_dir = crash_dir->DirName().Append(FILE_PATH_LITERAL("Crashpad"));
   return true;
 }
 

@@ -260,11 +260,11 @@ base::string16 NativeAppWindowViews::GetWindowTitle() const {
 }
 
 bool NativeAppWindowViews::ShouldShowWindowTitle() const {
-  return app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
+  return true; // app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
 }
 
 bool NativeAppWindowViews::ShouldShowWindowIcon() const {
-  return app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
+  return true; //app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
 }
 
 void NativeAppWindowViews::SaveWindowPlacement(const gfx::Rect& bounds,

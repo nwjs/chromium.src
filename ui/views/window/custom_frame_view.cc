@@ -114,7 +114,10 @@ void CustomFrameView::Init(Widget* frame) {
       IDR_RESTORE, IDR_RESTORE_H, IDR_RESTORE_P);
 
   if (frame_->widget_delegate()->ShouldShowWindowIcon()) {
+    gfx::ImageSkia icon;
     window_icon_ = new ImageButton(this);
+    icon = frame_->widget_delegate()->GetWindowAppIcon();
+    window_icon_->SetImage(CustomButton::STATE_NORMAL, &icon);
     AddChildView(window_icon_);
   }
 }
@@ -194,8 +197,12 @@ void CustomFrameView::ResetWindowControls() {
 }
 
 void CustomFrameView::UpdateWindowIcon() {
-  if (window_icon_)
+  if (window_icon_) {
+    gfx::ImageSkia icon;
+    icon = frame_->widget_delegate()->GetWindowAppIcon();
+    window_icon_->SetImage(CustomButton::STATE_NORMAL, &icon);
     window_icon_->SchedulePaint();
+  }
 }
 
 void CustomFrameView::UpdateWindowTitle() {

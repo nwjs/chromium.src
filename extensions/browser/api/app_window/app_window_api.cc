@@ -412,7 +412,7 @@ bool AppWindowCreateFunction::RunAsync() {
     app_window->ForcedFullscreen();
   }
 
-  if (options->kiosk.get())
+  if (options && options->kiosk.get())
     app_window->ForcedFullscreen();
   
   content::RenderFrameHost* created_frame =
