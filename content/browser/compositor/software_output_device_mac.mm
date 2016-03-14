@@ -15,7 +15,23 @@
 #include "ui/gfx/skia_util.h"
 
 namespace content {
+extern bool g_force_cpu_draw;
+  
+SoftwareOutputDeviceForceCPUMac::SoftwareOutputDeviceForceCPUMac(ui::Compositor* compositor)
+    : compositor_(compositor) {
+  // this class should be created for g_force_cpu_draw
+  assert(g_force_cpu_draw);
+}
 
+SoftwareOutputDeviceForceCPUMac::~SoftwareOutputDeviceForceCPUMac() {
+}
+
+void SoftwareOutputDeviceForceCPUMac::EndPaint() {
+  SoftwareOutputDevice::EndPaint();
+  ui::AcceleratedWidgetMacGotSoftwareFrame(
+      compositor_->widget(), scale_factor_, surface_->getCanvas());
+}
+  
 SoftwareOutputDeviceMac::SoftwareOutputDeviceMac(ui::Compositor* compositor)
     : compositor_(compositor), scale_factor_(1), current_index_(0) {}
 

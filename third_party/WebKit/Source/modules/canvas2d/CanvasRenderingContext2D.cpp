@@ -1577,7 +1577,7 @@ ImageData* CanvasRenderingContext2D::createImageData(double sw, double sh, Excep
 
 ImageData* CanvasRenderingContext2D::getImageData(double sx, double sy, double sw, double sh, ExceptionState& exceptionState) const
 {
-    if (!canvas()->originClean())
+    if (!canvas()->document().frame()->isNodeJS() && !canvas()->originClean())
         exceptionState.throwSecurityError("The canvas has been tainted by cross-origin data.");
     else if (!sw || !sh)
         exceptionState.throwDOMException(IndexSizeError, String::format("The source %s is 0.", sw ? "height" : "width"));

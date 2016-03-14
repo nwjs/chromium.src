@@ -579,6 +579,12 @@ IPC_MESSAGE_CONTROL1(ExtensionMsg_SetWebViewPartitionID,
 IPC_MESSAGE_ROUTED1(ExtensionHostMsg_Request,
                     ExtensionHostMsg_Request_Params)
 
+IPC_SYNC_MESSAGE_ROUTED1_3(ExtensionHostMsg_RequestSync,
+                           ExtensionHostMsg_Request_Params,
+                           bool /* success */,
+                           base::ListValue /* response wrapper (see comment above) */,
+                           std::string /* error */)
+
 // A renderer sends this message when an extension process starts an API
 // request. The browser will always respond with a ExtensionMsg_Response.
 IPC_MESSAGE_CONTROL2(ExtensionHostMsg_RequestForIOThread,

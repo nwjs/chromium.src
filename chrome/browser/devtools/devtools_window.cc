@@ -608,6 +608,8 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
   bool should_show_window =
       !browser_ || (action.type() != DevToolsToggleAction::kInspect);
 
+  should_show_window = should_show_window && !headless_;
+
   if (!browser_)
     CreateDevToolsBrowser();
 
@@ -694,7 +696,8 @@ DevToolsWindow::DevToolsWindow(Profile* profile,
                                WebContents* main_web_contents,
                                DevToolsUIBindings* bindings,
                                WebContents* inspected_web_contents,
-                               bool can_dock)
+                               bool can_dock,
+                               bool headless)
     : profile_(profile),
       main_web_contents_(main_web_contents),
       toolbox_web_contents_(nullptr),
@@ -702,6 +705,7 @@ DevToolsWindow::DevToolsWindow(Profile* profile,
       browser_(nullptr),
       is_docked_(true),
       can_dock_(can_dock),
+      headless_(headless),
       // This initialization allows external front-end to work without changes.
       // We don't wait for docking call, but instead immediately show undocked.
       // Passing "dockSide=undocked" parameter ensures proper UI.
@@ -752,7 +756,8 @@ DevToolsWindow* DevToolsWindow::Create(
     bool shared_worker_frontend,
     const std::string& remote_frontend,
     bool can_dock,
-    const std::string& settings) {
+    const std::string& settings,
+    content::WebContents* cdt_web_contents) {
   if (profile->GetPrefs()->GetBoolean(prefs::kDevToolsDisabled) ||
       base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kKioskMode))
     return nullptr;
@@ -773,6 +778,19 @@ DevToolsWindow* DevToolsWindow::Create(
                           shared_worker_frontend,
                           remote_frontend,
                           can_dock, settings));
+
+  if (cdt_web_contents) {
+    cdt_web_contents->GetController().LoadURL(
+      DecorateFrontendURL(url), content::Referrer(),
+      ui::PAGE_TRANSITION_AUTO_TOPLEVEL, std::string());
+    DevToolsUIBindings* bindings =
+      DevToolsUIBindings::ForWebContents(cdt_web_contents);
+    if (!bindings)
+      return nullptr;
+
+    return new DevToolsWindow(profile, cdt_web_contents, bindings,
+                              inspected_web_contents, can_dock, true);
+  }
   scoped_ptr<WebContents> main_web_contents(
       WebContents::Create(WebContents::CreateParams(profile)));
   main_web_contents->GetController().LoadURL(
@@ -918,7 +936,8 @@ void DevToolsWindow::WebContentsCreated(WebContents* source_contents,
                                         int opener_render_frame_id,
                                         const std::string& frame_name,
                                         const GURL& target_url,
-                                        WebContents* new_contents) {
+                                        WebContents* new_contents,
+                                        const base::string16& nw_window_manifest) {
   if (target_url.SchemeIs(content::kChromeDevToolsScheme) &&
       target_url.path().rfind("toolbox.html") != std::string::npos) {
     CHECK(can_dock_);
@@ -1027,7 +1046,7 @@ bool DevToolsWindow::PreHandleGestureEvent(
 }
 
 void DevToolsWindow::ActivateWindow() {
-  if (life_stage_ != kLoadCompleted)
+  if (life_stage_ != kLoadCompleted || headless_)
     return;
   if (is_docked_ && GetInspectedBrowserWindow())
     main_web_contents_->Focus();
@@ -1135,6 +1154,10 @@ void DevToolsWindow::RenderProcessGone(bool crashed) {
   } else if (browser_ && crashed) {
     browser_->window()->Close();
   }
+}
+
+void DevToolsWindow::Close() {
+  browser_->window()->Close();
 }
 
 void DevToolsWindow::OnLoadCompleted() {
