@@ -452,13 +452,14 @@ ProfileImpl::ProfileImpl(
       path_, sequenced_task_runner, create_mode == CREATE_MODE_SYNCHRONOUS);
 #endif
 
+#if 0
   scoped_refptr<safe_browsing::SafeBrowsingService> safe_browsing_service(
       g_browser_process->safe_browsing_service());
   if (safe_browsing_service.get()) {
     pref_validation_delegate_ =
         safe_browsing_service->CreatePreferenceValidationDelegate(this);
   }
-
+#endif
   {
     prefs_ = chrome_prefs::CreateProfilePrefs(
         path_, sequenced_task_runner, pref_validation_delegate_.get(),

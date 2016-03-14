@@ -98,6 +98,7 @@ PRUNE_DIRS = (VCS_METADATA_DIRS +
                'layout_tests'))            # lots of subdirs
 
 ADDITIONAL_PATHS = (
+    os.path.join('content', 'nw'),
     os.path.join('breakpad'),
     os.path.join('chrome', 'common', 'extensions', 'docs', 'examples'),
     os.path.join('chrome', 'test', 'chromeos', 'autotest'),
@@ -121,6 +122,16 @@ ADDITIONAL_PATHS = (
 # can't provide a README.chromium.  Please prefer a README.chromium
 # wherever possible.
 SPECIAL_CASES = {
+    os.path.join('content', 'nw'): {
+        "Name": "NW.js",
+        "URL": "http://nwjs.io",
+        "License": "MIT",
+    },
+    os.path.join('third_party', 'node'): {
+        "Name": "IO.js",
+        "URL": "https://iojs.org",
+        "License": "MIT",
+    },
     os.path.join('native_client'): {
         "Name": "native client",
         "URL": "http://code.google.com/p/nativeclient",

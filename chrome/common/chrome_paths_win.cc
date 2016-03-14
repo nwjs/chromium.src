@@ -18,6 +18,8 @@
 #include "chrome/installer/util/browser_distribution.h"
 #include "components/nacl/common/nacl_switches.h"
 
+#include "content/nw/src/nw_base.h"
+
 namespace chrome {
 
 namespace {
@@ -44,8 +46,9 @@ bool GetUserDirectory(int csidl_folder, base::FilePath* result) {
 bool GetDefaultUserDataDirectory(base::FilePath* result) {
   if (!PathService::Get(base::DIR_LOCAL_APP_DATA, result))
     return false;
-  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  *result = result->Append(dist->GetInstallSubDir());
+  //BrowserDistribution* dist = BrowserDistribution::GetDistribution();
+  if (nw::package()) //FIXME: crashpad initialized early in cr49
+    *result = result->Append(base::FilePath::FromUTF8Unsafe(nw::package()->GetName()));
   *result = result->Append(chrome::kUserDataDirname);
   return true;
 }
@@ -124,7 +127,7 @@ bool GetDefaultCrashDumpLocation(base::FilePath* crash_dir) {
   // Windows. See https://crbug.com/564398.
   if (!GetDefaultUserDataDirectory(crash_dir))
     return false;
-  *crash_dir = crash_dir->Append(FILE_PATH_LITERAL("Crashpad"));
+  *crash_dir = crash_dir->DirName().Append(FILE_PATH_LITERAL("Crashpad"));
   return true;
 }
 

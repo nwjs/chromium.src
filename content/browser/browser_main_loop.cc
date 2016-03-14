@@ -197,7 +197,7 @@ void SetupSandbox(const base::CommandLine& parsed_command_line) {
   scoped_ptr<sandbox::SetuidSandboxHost> setuid_sandbox_host(
       sandbox::SetuidSandboxHost::Create());
 
-  const bool want_setuid_sandbox =
+  const bool want_setuid_sandbox = false &&
       !parsed_command_line.HasSwitch(switches::kNoSandbox) &&
       !parsed_command_line.HasSwitch(switches::kDisableSetuidSandbox) &&
       !setuid_sandbox_host->IsDisabledViaEnvironment();
@@ -214,7 +214,7 @@ void SetupSandbox(const base::CommandLine& parsed_command_line) {
       LOG(FATAL) << no_suid_error;
     }
   } else {
-    LOG(ERROR) << no_suid_error;
+    //LOG(ERROR) << no_suid_error;
   }
 
   // Tickle the sandbox host and zygote host so they fork now.
