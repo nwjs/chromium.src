@@ -456,7 +456,7 @@
 
       # Use dsymutil to generate real .dSYM files on Mac. The default is 0 for
       # regular builds and 1 for ASan builds.
-      'mac_want_real_dsym%': 'default',
+      'mac_want_real_dsym%': 1,
 
       # If this is set, the clang plugins used on the buildbot will be used.
       # Run tools/clang/scripts/update.py to make sure they are compiled.
