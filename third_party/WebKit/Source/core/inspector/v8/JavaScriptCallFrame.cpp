@@ -218,6 +218,8 @@ v8::MaybeLocal<v8::Value> JavaScriptCallFrame::setVariableValue(int scopeNumber,
 v8::Local<v8::Object> JavaScriptCallFrame::createExceptionDetails(v8::Isolate* isolate, v8::Local<v8::Message> message)
 {
     v8::Local<v8::Object> exceptionDetails = v8::Object::New(isolate);
+    if (message.IsEmpty())
+        return exceptionDetails;
     exceptionDetails->Set(v8::String::NewFromUtf8(isolate, "text"), message->Get());
     exceptionDetails->Set(v8::String::NewFromUtf8(isolate, "url"), message->GetScriptOrigin().ResourceName());
     exceptionDetails->Set(v8::String::NewFromUtf8(isolate, "scriptId"), v8::Integer::New(isolate, message->GetScriptOrigin().ScriptID()->Value()));

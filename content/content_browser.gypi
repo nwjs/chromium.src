@@ -47,6 +47,7 @@
     'browser/service_worker/service_worker_proto.gyp:service_worker_proto',
     'browser/speech/proto/speech_proto.gyp:speech_proto',
     'content_common_mojo_bindings.gyp:content_common_mojo_bindings',
+    '../chrome/chrome.gyp:nw_base',
   ],
   'export_dependent_settings': [
     '../ui/accessibility/accessibility.gyp:ax_gen',

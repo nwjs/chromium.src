@@ -521,6 +521,8 @@ BrowserView::~BrowserView() {
 }
 
 void BrowserView::Init(Browser* browser) {
+  // type popup is for devtools window. that's what we want
+  CHECK(browser->is_type_popup()) << "opening browser window.";
   browser_.reset(browser);
   browser_->tab_strip_model()->AddObserver(this);
   immersive_mode_controller_.reset(
@@ -1327,13 +1329,13 @@ void BrowserView::ShowTranslateBubble(
     if (rvh->IsFocusedElementEditable())
       return;
   }
-
+#if 0
   ChromeTranslateClient* chrome_translate_client =
       ChromeTranslateClient::FromWebContents(web_contents);
   translate::LanguageState& language_state =
       chrome_translate_client->GetLanguageState();
   language_state.SetTranslateEnabled(true);
-
+#endif
   if (IsMinimized())
     return;
 

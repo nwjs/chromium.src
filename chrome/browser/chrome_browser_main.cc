@@ -6,6 +6,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
+#include "content/nw/src/nw_content.h"
+
 #include <set>
 #include <string>
 #include <utility>
@@ -437,6 +440,7 @@ OSStatus KeychainCallback(SecKeychainEvent keychain_event,
 }
 #endif  // defined(OS_MACOSX)
 
+#if 0
 void RegisterComponentsForUpdate() {
   component_updater::ComponentUpdateService* cus =
       g_browser_process->component_updater();
@@ -494,6 +498,7 @@ void RegisterComponentsForUpdate() {
   RegisterCAPSComponent(cus);
 #endif  // defined(OS_WIN)
 }
+#endif // disable component updater
 
 #if !defined(OS_ANDROID)
 bool ProcessSingletonNotificationCallback(
@@ -503,6 +508,9 @@ bool ProcessSingletonNotificationCallback(
   if (!g_browser_process || g_browser_process->IsShuttingDown())
     return false;
 
+  if (!nw::ProcessSingletonNotificationCallbackHook(command_line, current_directory))
+    return false;
+  
   if (command_line.HasSwitch(switches::kOriginalProcessStartTime)) {
     std::string start_time_string =
         command_line.GetSwitchValueASCII(switches::kOriginalProcessStartTime);
@@ -860,9 +868,13 @@ void ChromeBrowserMainParts::PostMainMessageLoopStart() {
 
 int ChromeBrowserMainParts::PreCreateThreads() {
   TRACE_EVENT0("startup", "ChromeBrowserMainParts::PreCreateThreads");
+
   result_code_ = PreCreateThreadsImpl();
 
   if (result_code_ == content::RESULT_CODE_NORMAL_EXIT) {
+    result_code_ = nw::MainPartsPreCreateThreadsHook();
+    if (result_code_ != content::RESULT_CODE_NORMAL_EXIT)
+      return result_code_;
 #if !defined(OS_ANDROID)
     // These members must be initialized before exiting this function normally.
     DCHECK(master_prefs_.get());
@@ -1453,7 +1465,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 #endif  // defined(ENABLE_BACKGROUND)
   // Post-profile init ---------------------------------------------------------
 
-  TranslateService::Initialize();
+  //TranslateService::Initialize();
 
   // Needs to be done before PostProfileInit, since login manager on CrOS is
   // called inside PostProfileInit.
@@ -1644,11 +1656,11 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 
   // This must be called prior to RegisterComponentsForUpdate, in case the CLD
   // data source is based on the Component Updater.
-  translate::BrowserCldUtils::ConfigureDefaultDataProvider();
-
+  //translate::BrowserCldUtils::ConfigureDefaultDataProvider();
+#if 0
   if (!parsed_command_line().HasSwitch(switches::kDisableComponentUpdate))
     RegisterComponentsForUpdate();
-
+#endif
 #if defined(OS_ANDROID)
   variations::VariationsService* variations_service =
       browser_process_->variations_service();
@@ -1831,7 +1843,7 @@ void ChromeBrowserMainParts::PostMainMessageLoopRun() {
   // Some tests don't set parameters.ui_task, so they started translate
   // language fetch that was never completed so we need to cleanup here
   // otherwise it will be done by the destructor in a wrong thread.
-  TranslateService::Shutdown(parameters().ui_task == NULL);
+  //TranslateService::Shutdown(parameters().ui_task == NULL);
 
   if (notify_result_ == ProcessSingleton::PROCESS_NONE)
     process_singleton_->Cleanup();
@@ -1861,6 +1873,7 @@ void ChromeBrowserMainParts::PostDestroyThreads() {
   process_singleton_.reset();
   device_event_log::Shutdown();
 
+  nw::MainPartsPostDestroyThreadsHook();
   // We need to do this check as late as possible, but due to modularity, this
   // may be the last point in Chrome.  This would be more effective if done at
   // a higher level on the stack, so that it is impossible for an early return

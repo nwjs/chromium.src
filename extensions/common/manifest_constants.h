@@ -11,6 +11,13 @@ namespace extensions {
 
 // Keys used in JSON representation of extensions.
 namespace manifest_keys {
+extern const char kNWJSInternalFlag[];
+extern const char kNWJSInternalMainFilename[];
+extern const char kNWJSInternalManifest[];
+extern const char kNWJSContentVerifyFlag[];
+extern const char kNWJSMain[];
+extern const char kNWJSMixedContext[];
+extern const char kNWJSEnableNode[];
 
 extern const char kAboutPage[];
 extern const char kAllFrames[];
@@ -89,6 +96,7 @@ extern const char kLinkedAppIconURL[];
 extern const char kLinkedAppIconSize[];
 extern const char kManifestVersion[];
 extern const char kMatchAboutBlank[];
+extern const char kInMainWorld[];
 extern const char kMatches[];
 extern const char kMIMETypes[];
 extern const char kMimeTypesHandler[];
@@ -369,6 +377,7 @@ extern const char kInvalidManifestVersion[];
 extern const char kInvalidManifestVersionOld[];
 extern const char kInvalidMatch[];
 extern const char kInvalidMatchAboutBlank[];
+extern const char kInvalidInMainWorld[];
 extern const char kInvalidMatchCount[];
 extern const char kInvalidMatches[];
 extern const char kInvalidMIMETypes[];
