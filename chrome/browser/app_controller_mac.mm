@@ -497,7 +497,7 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
     return NSTerminateNow;
   }
 
-  if (!AppWindowRegistryUtil::CloseAllAppWindows())
+  if (!AppWindowRegistryUtil::CloseAllAppWindows(true))
     return NSTerminateCancel;
 
   // Check if the preference is turned on.

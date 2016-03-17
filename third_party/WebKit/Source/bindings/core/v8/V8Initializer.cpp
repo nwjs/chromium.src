@@ -220,9 +220,11 @@ static void promiseRejectHandler(v8::PromiseRejectMessage data, RejectedPromises
     v8::Isolate* isolate = promise->GetIsolate();
     ScriptState* scriptState = ScriptState::current(isolate);
 
+#if 0 //FIXME (#4577)
     LocalDOMWindow* window = currentDOMWindow(isolate);
     if (window->frame()->isNodeJS() && g_promise_reject_callback_fn)
       g_promise_reject_callback_fn(&data);
+#endif
 
     v8::Local<v8::Value> exception = data.GetValue();
     if (V8DOMWrapper::isWrapper(isolate, exception)) {

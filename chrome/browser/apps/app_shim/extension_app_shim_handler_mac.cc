@@ -319,7 +319,7 @@ const Extension* ExtensionAppShimHandler::MaybeGetAppForBrowser(
 }
 
 // static
-void ExtensionAppShimHandler::QuitAppForWindow(AppWindow* app_window) {
+void ExtensionAppShimHandler::QuitAppForWindow(AppWindow* app_window, bool user_force) {
   ExtensionAppShimHandler* handler = GetInstance();
   Host* host = handler->FindHost(
       Profile::FromBrowserContext(app_window->browser_context()),
@@ -330,7 +330,7 @@ void ExtensionAppShimHandler::QuitAppForWindow(AppWindow* app_window) {
     // App shims might be disabled or the shim is still starting up.
     AppWindowRegistry::Get(
         Profile::FromBrowserContext(app_window->browser_context()))
-        ->CloseAllAppWindowsForApp(app_window->extension_id());
+      ->CloseAllAppWindowsForApp(app_window->extension_id(), user_force);
   }
 }
 

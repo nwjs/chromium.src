@@ -792,8 +792,8 @@ void NativeAppWindowCocoa::WindowWillClose() {
   app_window_->OnNativeClose();
 }
 
-bool NativeAppWindowCocoa::NWCanClose() {
-  return app_window_->NWCanClose();
+bool NativeAppWindowCocoa::NWCanClose(bool user_force) {
+  return app_window_->NWCanClose(user_force);
 }
 
 void NativeAppWindowCocoa::WindowDidBecomeKey() {
