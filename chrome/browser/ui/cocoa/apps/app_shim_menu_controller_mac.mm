@@ -662,7 +662,7 @@ void SetChromeCyclesWindows(int sequence_number) {
       AppWindowRegistryUtil::GetAppWindowForNativeWindowAnyProfile(
           [NSApp keyWindow]);
   if (appWindow) {
-    apps::ExtensionAppShimHandler::QuitAppForWindow(appWindow);
+    apps::ExtensionAppShimHandler::QuitAppForWindow(appWindow, true);
   } else {
     Browser* browser = chrome::FindBrowserWithWindow([NSApp keyWindow]);
     const Extension* extension =

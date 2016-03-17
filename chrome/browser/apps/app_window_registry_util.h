@@ -24,7 +24,7 @@ class AppWindowRegistryUtil {
   static bool IsAppWindowVisibleInAnyProfile(int window_type_mask, bool check_visible = true);
 
   // Close all app windows in all profiles.
-  static bool CloseAllAppWindows();
+  static bool CloseAllAppWindows(bool user_force = false);
 };
 
 #endif  // CHROME_BROWSER_APPS_APP_WINDOW_REGISTRY_UTIL_H_

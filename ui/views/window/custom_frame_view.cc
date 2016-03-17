@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <vector>
+#include "ui/gfx/image/image_skia_operations.h"
 
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -200,7 +201,11 @@ void CustomFrameView::UpdateWindowIcon() {
   if (window_icon_) {
     gfx::ImageSkia icon;
     icon = frame_->widget_delegate()->GetWindowAppIcon();
-    window_icon_->SetImage(CustomButton::STATE_NORMAL, &icon);
+    int size = IconSize();
+    gfx::ImageSkia icon2 = gfx::ImageSkiaOperations::CreateResizedImage(icon,
+                               skia::ImageOperations::RESIZE_BEST,
+                               gfx::Size(size, size));
+    window_icon_->SetImage(CustomButton::STATE_NORMAL, &icon2);
     window_icon_->SchedulePaint();
   }
 }

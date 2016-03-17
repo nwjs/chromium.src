@@ -550,7 +550,7 @@ void AppWindow::OnReadyToCommitFirstNavigation() {
       FROM_HERE, base::ResetAndReturn(&on_first_commit_callback_));
 }
 
-bool AppWindow::NWCanClose() const {
+bool AppWindow::NWCanClose(bool user_force) const {
   const Extension* extension = GetExtension();
   if (!extension)
     return true;
@@ -561,9 +561,10 @@ bool AppWindow::NWCanClose() const {
     ExtensionHasEventListener(extension->id(), "nw.Window.onClose",
                               rfh->GetRenderViewHost()->GetRoutingID(),
                               &listener_extension_id);
-                                
   if (listening_to_close) {
     base::ListValue args;
+    if (user_force)
+      args.AppendString("quit");
     rfh->Send(new ExtensionMsg_MessageInvoke(
       rfh->GetRoutingID(), listener_extension_id, "nw.Window",
       "onClose", args, false));

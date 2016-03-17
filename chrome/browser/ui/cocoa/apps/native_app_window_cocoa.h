@@ -81,7 +81,7 @@ class NativeAppWindowCocoa : public extensions::NativeAppWindow,
   // Called when the window is about to be closed.
   void WindowWillClose();
 
-  bool NWCanClose();
+  bool NWCanClose(bool user_force = false);
 
   // Called when the window is focused.
   void WindowDidBecomeKey();
