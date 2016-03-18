@@ -8,6 +8,11 @@
 
 #include <utility>
 
+#include "content/nw/src/nw_content.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/common/manifest_handlers/webview_info.h"
+
+
 #include "base/message_loop/message_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -1319,7 +1324,8 @@ void WebViewGuest::WebContentsCreated(WebContents* source_contents,
                                       int opener_render_frame_id,
                                       const std::string& frame_name,
                                       const GURL& target_url,
-                                      WebContents* new_contents) {
+                                      WebContents* new_contents,
+                                      const base::string16& nw_window_manifest) {
   auto guest = WebViewGuest::FromWebContents(new_contents);
   CHECK(guest);
   guest->SetOpener(this);
@@ -1375,6 +1381,16 @@ void WebViewGuest::LoadURLWithParams(
        !url.SchemeIs(url::kAboutScheme)) ||
       url.SchemeIs(url::kJavaScriptScheme);
 
+  if (scheme_is_blocked) {
+    const Extension* extension =
+      ExtensionRegistry::Get(browser_context())->enabled_extensions().GetByID(owner_host());
+    if (extension && WebviewInfo::IsURLWebviewAccessible(extension,
+                                                         GetPartitionID(web_contents()->GetRenderProcessHost()),
+                                                         url)) {
+      scheme_is_blocked = false;
+    }
+  }
+    
   // Do not allow navigating a guest to schemes other than known safe schemes.
   // This will block the embedder trying to load unwanted schemes, e.g.
   // chrome://.
@@ -1479,6 +1495,17 @@ void WebViewGuest::OnFullscreenPermissionDecided(
     const std::string& user_input) {
   last_fullscreen_permission_was_allowed_by_embedder_ = allowed;
   SetFullscreenState(allowed);
+}
+
+void WebViewGuest::ShowDevTools(bool show, int proc_id, int guest_id) {
+  if (proc_id > 0 && guest_id >= 0) {
+    auto that =
+      WebViewGuest::From(owner_web_contents()->GetRenderProcessHost()->GetID(),
+                         guest_id);
+    nw::ShowDevtools(show, web_contents(), that->web_contents());
+    return;
+  }
+  nw::ShowDevtools(show, web_contents());
 }
 
 bool WebViewGuest::GuestMadeEmbedderFullscreen() const {

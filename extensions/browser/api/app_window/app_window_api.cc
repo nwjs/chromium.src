@@ -35,9 +35,15 @@
 #include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
 
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_content.h"
+
 namespace app_window = extensions::api::app_window;
 namespace Create = app_window::Create;
 
+namespace content {
+  extern bool g_support_transparency;
+}
 namespace extensions {
 
 namespace app_window_constants {
@@ -52,8 +58,8 @@ const char kConflictingBoundsOptions[] =
     "The $1 property cannot be specified for both inner and outer bounds.";
 const char kAlwaysOnTopPermission[] =
     "The \"app.window.alwaysOnTop\" permission is required.";
-const char kInvalidUrlParameter[] =
-    "The URL used for window creation must be local for security reasons.";
+// const char kInvalidUrlParameter[] =
+//     "The URL used for window creation must be local for security reasons.";
 const char kAlphaEnabledWrongChannel[] =
     "The alphaEnabled option requires dev channel or newer.";
 const char kAlphaEnabledMissingPermission[] =
@@ -140,6 +146,10 @@ bool AppWindowCreateFunction::RunAsync() {
   // path.
   // TODO(devlin): Investigate if this is still used. If not, kill it dead!
   GURL absolute = GURL(params->url);
+
+  if (absolute.has_scheme())
+    url = absolute;
+#if 0
   if (absolute.has_scheme()) {
     if (extension()->location() == Manifest::COMPONENT) {
       url = absolute;
@@ -149,13 +159,27 @@ bool AppWindowCreateFunction::RunAsync() {
       return false;
     }
   }
-
+#endif
   // TODO(jeremya): figure out a way to pass the opening WebContents through to
   // AppWindow::Create so we can set the opener at create time rather than
   // with a hack in AppWindowCustomBindings::GetView().
   AppWindow::CreateParams create_params;
   app_window::CreateWindowOptions* options = params->options.get();
   if (options) {
+    if (options->title.get())
+      create_params.title = *options->title;
+
+    if (options->icon.get()) {
+      base::ThreadRestrictions::ScopedAllowIO allow_io;
+      gfx::Image app_icon;
+      nw::Package* package = nw::package();
+      if (nw::GetPackageImage(package,
+                              base::FilePath::FromUTF8Unsafe(*options->icon),
+                              &app_icon)) {
+        create_params.icon = app_icon;
+      }
+    }
+
     if (options->id.get()) {
       // TODO(mek): use URL if no id specified?
       // Limit length of id to 256 characters.
@@ -294,6 +318,8 @@ bool AppWindowCreateFunction::RunAsync() {
 #else
       // Transparency is only supported on Aura.
       // Fallback to creating an opaque window (by ignoring alphaEnabled).
+      if (content::g_support_transparency)
+        create_params.alpha_enabled = *options->alpha_enabled;
 #endif
     }
 
@@ -322,6 +348,22 @@ bool AppWindowCreateFunction::RunAsync() {
           *options->visible_on_all_workspaces.get();
     }
 
+    if (options->show_in_taskbar.get()) {
+      create_params.show_in_taskbar = *options->show_in_taskbar.get();
+    }
+
+    if (options->new_instance.get()) {
+      create_params.new_instance = *options->new_instance.get();
+    }
+    
+    if (options->inject_js_start.get()) {
+      create_params.inject_js_start =
+          *options->inject_js_start.get();
+    }
+    if (options->inject_js_end.get()) {
+      create_params.inject_js_end =
+          *options->inject_js_end.get();
+    }
     if (options->type != app_window::WINDOW_TYPE_PANEL) {
       switch (options->state) {
         case app_window::STATE_NONE:
@@ -340,18 +382,39 @@ bool AppWindowCreateFunction::RunAsync() {
     }
   }
 
+  switch (options->position) {
+  case app_window::POSITION_NONE:
+    create_params.position = extensions::AppWindow::POS_NONE;
+    break;
+  case app_window::POSITION_CENTER:
+    create_params.position = extensions::AppWindow::POS_CENTER;
+    break;
+  case app_window::POSITION_MOUSE:
+    create_params.position = extensions::AppWindow::POS_MOUSE;
+    break;
+  }
+
   create_params.creator_process_id =
       render_frame_host()->GetProcess()->GetID();
+
+  if (create_params.new_instance)
+    nw::SetPinningRenderer(false);
 
   AppWindow* app_window =
       AppWindowClient::Get()->CreateAppWindow(browser_context(), extension());
   app_window->Init(url, new AppWindowContentsImpl(app_window), create_params);
+
+  if (create_params.new_instance)
+    nw::SetPinningRenderer(true);
 
   if (ExtensionsBrowserClient::Get()->IsRunningInForcedAppMode() &&
       !app_window->is_ime_window()) {
     app_window->ForcedFullscreen();
   }
 
+  if (options && options->kiosk.get())
+    app_window->ForcedFullscreen();
+  
   content::RenderFrameHost* created_frame =
       app_window->web_contents()->GetMainFrame();
   int frame_id = MSG_ROUTING_NONE;

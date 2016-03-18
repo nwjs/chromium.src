@@ -30,6 +30,9 @@ GlassAppWindowFrameViewWin::~GlassAppWindowFrameViewWin() {
 }
 
 gfx::Insets GlassAppWindowFrameViewWin::GetGlassInsets() const {
+#if 1
+  return gfx::Insets();
+#else
   int caption_height = gfx::win::GetSystemMetricsInDIP(SM_CYSIZEFRAME) +
                        gfx::win::GetSystemMetricsInDIP(SM_CYCAPTION);
 
@@ -38,6 +41,7 @@ gfx::Insets GlassAppWindowFrameViewWin::GetGlassInsets() const {
                        : 0;
 
   return gfx::Insets(caption_height, frame_size, frame_size, frame_size);
+#endif
 }
 
 gfx::Rect GlassAppWindowFrameViewWin::GetBoundsForClientView() const {

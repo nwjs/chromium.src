@@ -53,6 +53,8 @@
 #include "third_party/tcmalloc/chromium/src/gperftools/heap-profiler.h"
 #endif
 
+#include "content/nw/src/common/shell_switches.h"
+
 namespace content {
 
 namespace {
@@ -131,6 +133,7 @@ void ZygoteHostImpl::Init(const std::string& sandbox_cmd) {
   // to the zygote/renderers.
   // Should this list be obtained from browser_render_process_host.cc?
   static const char* kForwardSwitches[] = {
+    switches::kEnableSpellChecking,
     switches::kAllowSandboxDebugging,
     switches::kDisableSeccompFilterSandbox,
     switches::kEnableHeapProfiling,
