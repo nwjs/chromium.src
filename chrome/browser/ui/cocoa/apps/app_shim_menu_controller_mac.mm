@@ -24,6 +24,10 @@
 
 using extensions::Extension;
 
+#include "chrome/browser/devtools/devtools_window.h"
+
+#include "content/nw/src/api/menu/menu.h"
+
 namespace {
 
 // When an app window loses main status, AppKit may make another app window main
@@ -75,6 +79,7 @@ void AddDuplicateItem(NSMenuItem* top_level_item,
   [[top_level_item submenu] addItem:item];
 }
 
+#if 0
 // Finds an item with |item_tag| and removes it from the submenu of
 // |top_level_item|.
 void RemoveMenuItemWithTag(NSMenuItem* top_level_item,
@@ -132,6 +137,7 @@ void SetItemWithTagVisible(NSMenuItem* top_level_item,
   [alternate_item setHidden:!visible];
   [menu_item setHidden:!visible];
 }
+#endif
 
 // Return the Extension (if any) associated with the given window. If it is not
 // a platform app nor hosted app, but it is a browser, |is_browser| will be set
@@ -211,6 +217,7 @@ void SetAppCyclesWindows(const std::string& app_id, int sequence_number) {
     [[NSApp keyWindow] makeKeyAndOrderFront:nil];
 }
 
+#if 0
 // Sets the window cycle list to Chrome browser windows only.
 void SetChromeCyclesWindows(int sequence_number) {
   if (g_window_cycle_sequence_number != sequence_number)
@@ -226,6 +233,7 @@ void SetChromeCyclesWindows(int sequence_number) {
   if (any_change)
     [[NSApp keyWindow] makeKeyAndOrderFront:nil];
 }
+#endif
 
 }  // namespace
 
@@ -354,6 +362,7 @@ void SetChromeCyclesWindows(int sequence_number) {
 - (void)hideCurrentPlatformApp;
 // If the currently focused window belongs to a platform app, focus the app.
 - (void)focusCurrentPlatformApp;
+- (void)showDevtools;
 @end
 
 @implementation AppShimMenuController
@@ -393,6 +402,7 @@ void SetChromeCyclesWindows(int sequence_number) {
               resourceId:IDS_EXIT_MAC
                   action:@selector(quitCurrentPlatformApp)
            keyEquivalent:@"q"]);
+#if 0
   newDoppelganger_.reset([[DoppelgangerMenuItem alloc]
       initWithController:self
                  menuTag:IDC_FILE_MENU
@@ -417,6 +427,7 @@ void SetChromeCyclesWindows(int sequence_number) {
               resourceId:0
                   action:nil
            keyEquivalent:@"o"]);
+#endif
   allToFrontDoppelganger_.reset([[DoppelgangerMenuItem alloc]
       initWithController:self
                  menuTag:IDC_WINDOW_MENU
@@ -440,18 +451,21 @@ void SetChromeCyclesWindows(int sequence_number) {
   [appMenu addItem:[NSMenuItem separatorItem]];
   [appMenu addItem:[quitDoppelganger_ menuItem]];
 
+#if 0
   // File menu.
   fileMenuItem_.reset([NewTopLevelItemFrom(IDC_FILE_MENU) retain]);
   [[fileMenuItem_ submenu] addItem:[newDoppelganger_ menuItem]];
   [[fileMenuItem_ submenu] addItem:[openDoppelganger_ menuItem]];
   [[fileMenuItem_ submenu] addItem:[NSMenuItem separatorItem]];
   [[fileMenuItem_ submenu] addItem:[closeWindowDoppelganger_ menuItem]];
+#endif
 
   // Edit menu. We copy the menu because the last two items, "Start Dictation"
   // and "Special Characters" are added by OSX, so we can't copy them
   // explicitly.
   editMenuItem_.reset([[[NSApp mainMenu] itemWithTag:IDC_EDIT_MENU] copy]);
 
+#if 0
   // View menu. Remove "Always Show Bookmark Bar" and separator.
   viewMenuItem_.reset([[[NSApp mainMenu] itemWithTag:IDC_VIEW_MENU] copy]);
   RemoveMenuItemWithTag(viewMenuItem_, IDC_SHOW_BOOKMARK_BAR, YES);
@@ -461,12 +475,25 @@ void SetChromeCyclesWindows(int sequence_number) {
   AddDuplicateItem(historyMenuItem_, IDC_HISTORY_MENU, IDC_BACK);
   AddDuplicateItem(historyMenuItem_, IDC_HISTORY_MENU, IDC_FORWARD);
 
+#endif
   // Window menu.
   windowMenuItem_.reset([NewTopLevelItemFrom(IDC_WINDOW_MENU) retain]);
   AddDuplicateItem(windowMenuItem_, IDC_WINDOW_MENU, IDC_MINIMIZE_WINDOW);
   AddDuplicateItem(windowMenuItem_, IDC_WINDOW_MENU, IDC_MAXIMIZE_WINDOW);
   [[windowMenuItem_ submenu] addItem:[NSMenuItem separatorItem]];
   [[windowMenuItem_ submenu] addItem:[allToFrontDoppelganger_ menuItem]];
+#if defined(NWJS_SDK)
+  [[windowMenuItem_ submenu] setAutoenablesItems:NO];
+  NSMenuItem* item = [[NSMenuItem alloc]
+		      initWithTitle:@"Devtools"
+		      action:@selector(showDevtools)
+                      keyEquivalent:@"i"];
+  [item setTag:IDC_DEV_TOOLS_CONSOLE];
+  [item setTarget:self];
+  [item setEnabled:YES];
+  [item setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask];
+  [[windowMenuItem_ submenu] addItem:item];
+#endif
 }
 
 - (void)registerEventHandlers {
@@ -498,8 +525,17 @@ void SetChromeCyclesWindows(int sequence_number) {
     const Extension* extension = GetExtensionForNSWindow(window, &is_browser);
     // Ignore is_browser: if a window becomes main that does not belong to an
     // extension or browser, treat it the same as switching to a browser.
-    if (extension)
+
+    extensions::AppWindow* appWindow =
+        AppWindowRegistryUtil::GetAppWindowForNativeWindowAnyProfile(
+            window);
+    if (extension) {
+      if (appWindow->menu_) {
+        [NSApp setMainMenu:appWindow->menu_->menu_];
+        return;
+      }
       [self appBecameMain:extension];
+    }
     else
       [self chromeBecameMain];
   } else if ([name isEqualToString:NSWindowDidResignMainNotification]) {
@@ -530,7 +566,12 @@ void SetChromeCyclesWindows(int sequence_number) {
     return;
 
   if (!appId_.empty())
-    [self removeMenuItems];
+    return;
+    // #4591: when app sets menubar and launch another chrome app,
+    // removeMenuItems will try to remove appmenuitem which isn't
+    // in the main menu; then app will crash.
+    // so after this function runs once, we just do nothing and return here
+    //[self removeMenuItems];
 
   appId_ = app->id();
   [self addMenuItems:app];
@@ -542,6 +583,7 @@ void SetChromeCyclesWindows(int sequence_number) {
 }
 
 - (void)chromeBecameMain {
+#if 0
   if (appId_.empty())
     return;
 
@@ -552,6 +594,7 @@ void SetChromeCyclesWindows(int sequence_number) {
         FROM_HERE,
         base::Bind(&SetChromeCyclesWindows, ++g_window_cycle_sequence_number));
   }
+#endif
 }
 
 - (void)addMenuItems:(const Extension*)app {
@@ -566,14 +609,15 @@ void SetChromeCyclesWindows(int sequence_number) {
   [aboutDoppelganger_ enableForApp:app];
   [hideDoppelganger_ enableForApp:app];
   [quitDoppelganger_ enableForApp:app];
-  [newDoppelganger_ enableForApp:app];
-  [openDoppelganger_ enableForApp:app];
-  [closeWindowDoppelganger_ enableForApp:app];
+  //[newDoppelganger_ enableForApp:app];
+  //[openDoppelganger_ enableForApp:app];
+  //[closeWindowDoppelganger_ enableForApp:app];
 
   [appMenuItem_ setTitle:base::SysUTF8ToNSString(appId_)];
   [[appMenuItem_ submenu] setTitle:title];
 
   [mainMenu addItem:appMenuItem_];
+#if 0
   [mainMenu addItem:fileMenuItem_];
 
   SetItemWithTagVisible(editMenuItem_,
@@ -581,23 +625,28 @@ void SetChromeCyclesWindows(int sequence_number) {
                         app->is_hosted_app(), true);
   SetItemWithTagVisible(editMenuItem_, IDC_FIND_MENU, app->is_hosted_app(),
                         false);
+#endif
   [mainMenu addItem:editMenuItem_];
 
+#if 0
   if (app->is_hosted_app()) {
     [mainMenu addItem:viewMenuItem_];
     [mainMenu addItem:historyMenuItem_];
   }
+#endif
   [mainMenu addItem:windowMenuItem_];
 }
 
 - (void)removeMenuItems {
   NSMenu* mainMenu = [NSApp mainMenu];
   [mainMenu removeItem:appMenuItem_];
-  [mainMenu removeItem:fileMenuItem_];
+  //[mainMenu removeItem:fileMenuItem_];
+#if 0
   if ([mainMenu indexOfItem:viewMenuItem_] >= 0)
     [mainMenu removeItem:viewMenuItem_];
   if ([mainMenu indexOfItem:historyMenuItem_] >= 0)
     [mainMenu removeItem:historyMenuItem_];
+#endif
   [mainMenu removeItem:editMenuItem_];
   [mainMenu removeItem:windowMenuItem_];
 
@@ -608,9 +657,9 @@ void SetChromeCyclesWindows(int sequence_number) {
   [aboutDoppelganger_ disable];
   [hideDoppelganger_ disable];
   [quitDoppelganger_ disable];
-  [newDoppelganger_ disable];
-  [openDoppelganger_ disable];
-  [closeWindowDoppelganger_ disable];
+  //[newDoppelganger_ disable];
+  //[openDoppelganger_ disable];
+  //[closeWindowDoppelganger_ disable];
 }
 
 - (void)quitCurrentPlatformApp {
@@ -618,7 +667,7 @@ void SetChromeCyclesWindows(int sequence_number) {
       AppWindowRegistryUtil::GetAppWindowForNativeWindowAnyProfile(
           [NSApp keyWindow]);
   if (appWindow) {
-    apps::ExtensionAppShimHandler::QuitAppForWindow(appWindow);
+    apps::ExtensionAppShimHandler::QuitAppForWindow(appWindow, true);
   } else {
     Browser* browser = chrome::FindBrowserWithWindow([NSApp keyWindow]);
     const Extension* extension =
@@ -651,6 +700,14 @@ void SetChromeCyclesWindows(int sequence_number) {
           [NSApp keyWindow]);
   if (appWindow)
     apps::ExtensionAppShimHandler::FocusAppForWindow(appWindow);
+}
+
+- (void)showDevtools {
+  extensions::AppWindow* appWindow =
+      AppWindowRegistryUtil::GetAppWindowForNativeWindowAnyProfile(
+          [NSApp keyWindow]);
+  if (appWindow)
+    DevToolsWindow::OpenDevToolsWindow(appWindow->web_contents());
 }
 
 @end

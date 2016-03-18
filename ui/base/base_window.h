@@ -65,6 +65,7 @@ class UI_BASE_EXPORT BaseWindow {
   // Closes the window as soon as possible. The close action may be delayed
   // if an operation is in progress (e.g. a drag operation).
   virtual void Close() = 0;
+  virtual void ForceClose();
 
   // Activates (brings to front) the window. Restores the window from minimized
   // state if necessary.

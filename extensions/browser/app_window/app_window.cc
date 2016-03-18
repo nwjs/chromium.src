@@ -60,11 +60,31 @@
 #include "extensions/browser/pref_names.h"
 #endif
 
+#include "extensions/browser/extension_host.h"
+#include "extensions/common/extension_messages.h"
+
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/common/renderer_preferences.h"
+
+#include "extensions/browser/process_manager.h"
+#include "extensions/browser/app_window/app_window_contents.h"
+#include "extensions/browser/event_router.h"
+
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/common/shell_switches.h"
+
+
 using content::BrowserContext;
 using content::ConsoleMessageLevel;
 using content::WebContents;
 using web_modal::WebContentsModalDialogHost;
 using web_modal::WebContentsModalDialogManager;
+
+namespace content {
+  extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
+}
 
 namespace extensions {
 
@@ -170,7 +190,10 @@ AppWindow::CreateParams::CreateParams()
       resizable(true),
       focused(true),
       always_on_top(false),
-      visible_on_all_workspaces(false) {
+      visible_on_all_workspaces(false),
+      skip_load(false),
+      show_in_taskbar(true),
+      new_instance(false) {
 }
 
 AppWindow::CreateParams::~CreateParams() {}
@@ -236,7 +259,7 @@ gfx::Size AppWindow::CreateParams::GetWindowMaximumSize(
 AppWindow::AppWindow(BrowserContext* context,
                      AppDelegate* app_delegate,
                      const Extension* extension)
-    : browser_context_(context),
+    : menu_(nullptr), browser_context_(context),
       extension_id_(extension->id()),
       window_type_(WINDOW_TYPE_DEFAULT),
       app_delegate_(app_delegate),
@@ -256,12 +279,38 @@ AppWindow::AppWindow(BrowserContext* context,
       << "Only off the record window may be opened in the guest mode.";
 }
 
+void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_different_document) {
+  base::ListValue args;
+  if (source->IsLoading())
+    args.AppendString("loading");
+  else
+    args.AppendString("loaded");
+  content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+  rfh->Send(new ExtensionMsg_MessageInvoke(rfh->GetRoutingID(),
+                                           extension_id(),
+                                           "nw.Window",
+                                           "LoadingStateChanged",
+                                           args,
+                                           false));
+}
+
 void AppWindow::Init(const GURL& url,
                      AppWindowContents* app_window_contents,
                      const CreateParams& params) {
   // Initialize the render interface and web contents
   app_window_contents_.reset(app_window_contents);
-  app_window_contents_->Initialize(browser_context(), url);
+  app_window_contents_->Initialize(browser_context(), url, GetExtension());
+
+  nw::Package* package = nw::package();
+  std::string js_doc_start(params.inject_js_start), js_doc_end(params.inject_js_end);
+  if (js_doc_start.empty())
+    package->root()->GetString(::switches::kmInjectJSDocStart, &js_doc_start);
+  web_contents()->GetMutableRendererPrefs()->nw_inject_js_doc_start = js_doc_start;
+  if (js_doc_end.empty())
+    package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
+  web_contents()->GetMutableRendererPrefs()->nw_inject_js_doc_end = js_doc_end;
+  if (!js_doc_start.empty() || !js_doc_end.empty())
+    web_contents()->GetRenderViewHost()->SyncRendererPrefs();
 
   initial_url_ = url;
 
@@ -287,6 +336,20 @@ void AppWindow::Init(const GURL& url,
   cached_always_on_top_ = new_params.always_on_top;
   if (new_params.state == ui::SHOW_STATE_FULLSCREEN)
     new_params.always_on_top = false;
+
+  title_override_ = new_params.title;
+  app_icon_ = new_params.icon;
+
+  content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
+  if (content::g_support_transparency) {
+    content::g_force_cpu_draw = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kForceCpuDraw);
+    if (content::g_force_cpu_draw) {
+      if (!base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableGpu)) {
+        content::g_force_cpu_draw = false;
+        LOG(WARNING) << "switch " << ::switches::kForceCpuDraw << " must be used with switch " << ::switches::kDisableGpu;
+      }
+    }
+  }
 
   requested_alpha_enabled_ = new_params.alpha_enabled;
 
@@ -321,6 +384,9 @@ void AppWindow::Init(const GURL& url,
       Minimize();
   }
 
+  if (!new_params.show_in_taskbar)
+    SetShowInTaskbar(false);
+
   OnNativeWindowChanged();
 
   ExtensionRegistry::Get(browser_context_)->AddObserver(this);
@@ -330,7 +396,8 @@ void AppWindow::Init(const GURL& url,
       base::Bind(&NativeAppWindow::Close,
                  base::Unretained(native_app_window_.get())));
 
-  app_window_contents_->LoadContents(new_params.creator_process_id);
+  if (!params.skip_load)
+    app_window_contents_->LoadContents(new_params.creator_process_id);
 
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           extensions::switches::kEnableAppsShowOnFirstPaint)) {
@@ -376,12 +443,24 @@ void AppWindow::AddNewContents(WebContents* source,
                                bool user_gesture,
                                bool* was_blocked) {
   DCHECK(new_contents->GetBrowserContext() == browser_context_);
-  app_delegate_->AddNewContents(browser_context_,
-                                new_contents,
-                                disposition,
-                                initial_rect,
-                                user_gesture,
-                                was_blocked);
+  const extensions::Extension* extension = GetExtension();
+  extensions::AppWindow* app_window =
+      extensions::AppWindowClient::Get()->CreateAppWindow(browser_context_, extension);
+
+  extensions::AppWindow::CreateParams params;
+  std::string js_doc_start, js_doc_end;
+  nw::CalcNewWinParams(new_contents, &params, &js_doc_start, &js_doc_end);
+  nw::SetCurrentNewWinManifest(base::string16());
+  new_contents->GetMutableRendererPrefs()->
+    nw_inject_js_doc_start = js_doc_start;
+  new_contents->GetMutableRendererPrefs()->
+    nw_inject_js_doc_end = js_doc_end;
+  new_contents->GetRenderViewHost()->SyncRendererPrefs();
+
+  params.skip_load = true;
+  app_window->Init(new_contents->GetURL(),
+                   new extensions::AppWindowContentsImpl(app_window, new_contents),
+                   params);
 }
 
 bool AppWindow::PreHandleKeyboardEvent(
@@ -414,6 +493,7 @@ bool AppWindow::PreHandleKeyboardEvent(
 void AppWindow::HandleKeyboardEvent(
     WebContents* source,
     const content::NativeWebKeyboardEvent& event) {
+#if 0
   // If the window is currently fullscreen and not forced, ESC should leave
   // fullscreen.  If this code is being called for ESC, that means that the
   // KeyEvent's default behavior was not prevented by the content.
@@ -422,7 +502,7 @@ void AppWindow::HandleKeyboardEvent(
     Restore();
     return;
   }
-
+#endif
   native_app_window_->HandleKeyboardEvent(event);
 }
 
@@ -468,6 +548,29 @@ void AppWindow::OnReadyToCommitFirstNavigation() {
   // hence the use of PostTask.
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::ResetAndReturn(&on_first_commit_callback_));
+}
+
+bool AppWindow::NWCanClose(bool user_force) const {
+  const Extension* extension = GetExtension();
+  if (!extension)
+    return true;
+  content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+  EventRouter* event_router = EventRouter::Get(browser_context());
+  std::string listener_extension_id;
+  bool listening_to_close = event_router->
+    ExtensionHasEventListener(extension->id(), "nw.Window.onClose",
+                              rfh->GetRenderViewHost()->GetRoutingID(),
+                              &listener_extension_id);
+  if (listening_to_close) {
+    base::ListValue args;
+    if (user_force)
+      args.AppendString("quit");
+    rfh->Send(new ExtensionMsg_MessageInvoke(
+      rfh->GetRoutingID(), listener_extension_id, "nw.Window",
+      "onClose", args, false));
+    return false;
+  }
+  return true;
 }
 
 void AppWindow::OnNativeClose() {
@@ -541,9 +644,11 @@ gfx::Rect AppWindow::GetClientBounds() const {
 }
 
 base::string16 AppWindow::GetTitle() const {
+  base::string16 override = base::UTF8ToUTF16(title_override_);
+
   const Extension* extension = GetExtension();
   if (!extension)
-    return base::string16();
+    return override;
 
   // WebContents::GetTitle() will return the page's URL if there's no <title>
   // specified. However, we'd prefer to show the name of the extension in that
@@ -552,12 +657,14 @@ base::string16 AppWindow::GetTitle() const {
   content::NavigationEntry* entry = web_contents() ?
       web_contents()->GetController().GetLastCommittedEntry() : nullptr;
   if (!entry || entry->GetTitle().empty()) {
-    title = base::UTF8ToUTF16(extension->name());
+    title = override.empty() ? base::UTF8ToUTF16(extension->name()) : override;
   } else {
     title = web_contents()->GetTitle();
   }
   base::RemoveChars(title, base::ASCIIToUTF16("\n"), &title);
-  return title;
+  if (!title.empty())
+    return title;
+  return override;
 }
 
 void AppWindow::SetAppIconUrl(const GURL& url) {
@@ -644,6 +751,10 @@ void AppWindow::Restore() {
   } else {
     GetBaseWindow()->Restore();
   }
+}
+
+void AppWindow::SetShowInTaskbar(bool show) {
+  GetBaseWindow()->SetShowInTaskbar(show);
 }
 
 void AppWindow::OSFullscreen() {
@@ -746,6 +857,8 @@ void AppWindow::NotifyRenderViewReady() {
 void AppWindow::GetSerializedState(base::DictionaryValue* properties) const {
   DCHECK(properties);
 
+  properties->SetBoolean("resizable",
+                         native_app_window_->IsResizable());
   properties->SetBoolean("fullscreen",
                          native_app_window_->IsFullscreenOrPending());
   properties->SetBoolean("minimized", native_app_window_->IsMinimized());
@@ -903,7 +1016,7 @@ void AppWindow::CloseContents(WebContents* contents) {
 }
 
 bool AppWindow::ShouldSuppressDialogs(WebContents* source) {
-  return true;
+  return false;
 }
 
 content::ColorChooser* AppWindow::OpenColorChooser(
@@ -1115,6 +1228,13 @@ SkRegion* AppWindow::RawDraggableRegionsToSkRegion(
         region.draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
   }
   return sk_region;
+}
+
+content::JavaScriptDialogManager* AppWindow::GetJavaScriptDialogManager(
+    WebContents* source) {
+  ExtensionHost* host = ProcessManager::Get(browser_context())
+                            ->GetBackgroundHostForExtension(extension_id());
+  return host->GetJavaScriptDialogManager(source);
 }
 
 }  // namespace extensions
