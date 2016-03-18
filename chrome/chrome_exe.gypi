@@ -250,10 +250,9 @@
                       'postbuild_name': 'Dump Symbols',
                       'variables': {
                         'dump_product_syms_path':
-                            'tools/build/mac/dump_product_syms',
+                            '<(DEPTH)/content/nw/tools/dump_mac_syms',
                       },
-                      'action': ['<(dump_product_syms_path)',
-                                 '<(branding)'],
+                      'action': ['<(dump_product_syms_path)']
                     },
                   ],
                 }],

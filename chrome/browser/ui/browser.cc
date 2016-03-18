@@ -293,7 +293,7 @@ content::SecurityStyle SecurityLevelToSecurityStyle(
 
 Browser::CreateParams::CreateParams(Profile* profile,
                                     chrome::HostDesktopType host_desktop_type)
-    : type(TYPE_TABBED),
+    : type(TYPE_POPUP),
       profile(profile),
       host_desktop_type(host_desktop_type),
       trusted_source(false),
@@ -305,7 +305,7 @@ Browser::CreateParams::CreateParams(Profile* profile,
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
                                     chrome::HostDesktopType host_desktop_type)
-    : type(type),
+    : type(TYPE_POPUP),
       profile(profile),
       host_desktop_type(host_desktop_type),
       trusted_source(false),
