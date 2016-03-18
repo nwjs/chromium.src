@@ -566,7 +566,12 @@ void SetChromeCyclesWindows(int sequence_number) {
     return;
 
   if (!appId_.empty())
-    [self removeMenuItems];
+    return;
+    // #4591: when app sets menubar and launch another chrome app,
+    // removeMenuItems will try to remove appmenuitem which isn't
+    // in the main menu; then app will crash.
+    // so after this function runs once, we just do nothing and return here
+    //[self removeMenuItems];
 
   appId_ = app->id();
   [self addMenuItems:app];
