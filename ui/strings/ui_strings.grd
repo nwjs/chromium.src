@@ -552,6 +552,12 @@ need to be translated for each locale.-->
       <message name="IDS_APP_SEARCH_MODIFIER" desc="Search key shortcut modifier">
         Search+<ph name="KEY_COMBO_NAME">$1<ex>C</ex></ph>
       </message>
+      <message name="IDS_APP_WINDOWS_MODIFIER" desc="Command key shortcut modifier">
+        Win+<ph name="KEY_COMBO_NAME">$1<ex>C</ex></ph>
+      </message>
+      <message name="IDS_APP_SUPER_MODIFIER" desc="Command key shortcut modifier">
+        Super+<ph name="KEY_COMBO_NAME">$1<ex>C</ex></ph>
+      </message>
 
       <!-- Byte size units -->
       <message name="IDS_APP_BYTES" desc="Units tag indicating a quantity of bytes">

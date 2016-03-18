@@ -101,10 +101,10 @@ namespace {
 
 // Timeout for the current browser process to respond. 20 seconds should be
 // enough.
-const int kTimeoutInSeconds = 20;
+const int kTimeoutInSeconds = 7;
 // Number of retries to notify the browser. 20 retries over 20 seconds = 1 try
 // per second.
-const int kRetryAttempts = 20;
+const int kRetryAttempts = 7;
 static bool g_disable_prompt;
 const char kStartToken[] = "START";
 const char kACKToken[] = "ACK";

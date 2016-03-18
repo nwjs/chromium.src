@@ -93,7 +93,10 @@
                                  kBrowserFrameViewPaintHeight)]);
     [tabStripBackgroundView_
         setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
-    [self insertTabStripBackgroundViewIntoWindow:window];
+
+    //fix warning when opening devtools: #4312
+    if (hasTabStrip)
+      [self insertTabStripBackgroundViewIntoWindow:window];
 
     tabStripView_.reset([[TabStripView alloc]
         initWithFrame:NSMakeRect(

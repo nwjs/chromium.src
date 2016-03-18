@@ -70,6 +70,9 @@ class ACCELERATED_WIDGET_MAC_EXPORT AcceleratedWidgetMac {
                 base::ScopedCFTypeRef<IOSurfaceRef> io_surface,
                 const gfx::Size& pixel_size,
                 float scale_factor);
+  
+  void GotSoftwareFrame(float scale_factor,
+                        SkCanvas* canvas);
 
  private:
   void GotCAContextFrame(CAContextID ca_context_id,
@@ -123,6 +126,9 @@ class ACCELERATED_WIDGET_MAC_EXPORT AcceleratedWidgetMac {
 #endif  // __OBJC__
 
 ACCELERATED_WIDGET_MAC_EXPORT
+void AcceleratedWidgetMacGotSoftwareFrame(
+    gfx::AcceleratedWidget widget, float scale_factor, SkCanvas* canvas);
+
 void AcceleratedWidgetMacGotFrame(
     gfx::AcceleratedWidget widget,
     CAContextID ca_context_id,

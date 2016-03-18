@@ -21,10 +21,37 @@
 #include "ui/aura/window.h"
 #endif
 
+#include "content/nw/src/browser/browser_view_layout.h"
+#include "content/nw/src/nw_content.h"
+
+#if defined(OS_WIN)
+#include <shobjidl.h>
+#include <dwmapi.h>
+
+#include "base/win/windows_version.h"
+#include "ui/base/win/hidden_window.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/icon_util.h"
+#include "ui/gfx/font_list.h"
+#include "ui/gfx/platform_font.h"
+#include "ui/gfx/win/dpi.h"
+#include "ui/views/win/hwnd_util.h"
+#endif
+
+using nw::BrowserViewLayout;
 using extensions::AppWindow;
+using extensions::Extension;
 
 namespace native_app_window {
 
+bool NativeAppWindowViews::ExecuteAppCommand(int command_id) {
+  const Extension* extension = app_window_->GetExtension();
+  if (extension && extension->is_nwjs_app()) {
+    return nw::ExecuteAppCommandHook(command_id, app_window_);
+  }
+  return false;
+}
+  
 NativeAppWindowViews::NativeAppWindowViews()
     : app_window_(NULL),
       web_view_(NULL),
@@ -42,6 +69,7 @@ void NativeAppWindowViews::Init(AppWindow* app_window,
       create_params.GetContentMinimumSize(gfx::Insets()));
   size_constraints_.set_maximum_size(
       create_params.GetContentMaximumSize(gfx::Insets()));
+  saved_size_constraints_ = size_constraints_;
   Observe(app_window_->web_contents());
 
   widget_ = new views::Widget;
@@ -131,6 +159,10 @@ void NativeAppWindowViews::Hide() {
 
 void NativeAppWindowViews::Close() {
   widget_->Close();
+}
+
+void NativeAppWindowViews::ForceClose() {
+  widget_->Close(true);
 }
 
 void NativeAppWindowViews::Activate() {
@@ -228,11 +260,11 @@ base::string16 NativeAppWindowViews::GetWindowTitle() const {
 }
 
 bool NativeAppWindowViews::ShouldShowWindowTitle() const {
-  return app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
+  return true; // app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
 }
 
 bool NativeAppWindowViews::ShouldShowWindowIcon() const {
-  return app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
+  return true; //app_window_->window_type() == AppWindow::WINDOW_TYPE_V1_PANEL;
 }
 
 void NativeAppWindowViews::SaveWindowPlacement(const gfx::Rect& bounds,
@@ -314,6 +346,13 @@ void NativeAppWindowViews::RenderViewHostChanged(
 // views::View implementation.
 
 void NativeAppWindowViews::Layout() {
+#if defined(OS_LINUX) || defined(OS_WIN)
+  const extensions::Extension* extension = app_window_->GetExtension();
+  if (extension && extension->is_nwjs_app()) {
+    views::WidgetDelegateView::Layout();
+    return;
+  }
+#endif
   DCHECK(web_view_);
   web_view_->SetBounds(0, 0, width(), height());
   OnViewWasResized();
@@ -322,9 +361,22 @@ void NativeAppWindowViews::Layout() {
 void NativeAppWindowViews::ViewHierarchyChanged(
     const ViewHierarchyChangedDetails& details) {
   if (details.is_add && details.child == this) {
+#if defined(OS_LINUX) || defined(OS_WIN)
+    BrowserViewLayout* layout = NULL;
+    const extensions::Extension* extension = app_window_->GetExtension();
+    if (extension && extension->is_nwjs_app()) {
+      layout = new BrowserViewLayout();
+      SetLayoutManager(layout);
+    }
+#endif
     web_view_ = new views::WebView(NULL);
     AddChildView(web_view_);
     web_view_->SetWebContents(app_window_->web_contents());
+#if defined(OS_LINUX) || defined(OS_WIN)
+    if (extension && extension->is_nwjs_app()) {
+      layout->set_web_view(web_view_);
+    }
+#endif
   }
 }
 
@@ -341,6 +393,28 @@ void NativeAppWindowViews::OnFocus() {
 }
 
 // NativeAppWindow implementation.
+
+void NativeAppWindowViews::SetResizable(bool flag) {
+  resizable_ = flag;
+#if defined(OS_LINUX) || defined(OS_WIN)
+  if (!resizable_) {
+    gfx::Size size(width(), height());
+    //copy SetContentSizeConstraints(size, size);
+    size_constraints_.set_minimum_size(size);
+    size_constraints_.set_maximum_size(size);
+    widget_->OnSizeConstraintsChanged();
+  } else {
+    size_constraints_ = saved_size_constraints_;
+    widget_->OnSizeConstraintsChanged();
+  }
+#else
+  widget_->OnSizeConstraintsChanged();
+#endif
+}
+
+bool NativeAppWindowViews::IsResizable() const {
+  return resizable_;
+}
 
 void NativeAppWindowViews::SetFullscreen(int fullscreen_types) {
   // Stub implementation. See also ChromeNativeAppWindowViews.
@@ -392,6 +466,43 @@ bool NativeAppWindowViews::HasFrameColor() const {
   return false;
 }
 
+void NativeAppWindowViews::SetShowInTaskbar(bool show) {
+#if defined(OS_WIN)
+  views::Widget* widget = widget_->GetTopLevelWidget();
+
+  if (show == false && base::win::GetVersion() < base::win::VERSION_VISTA) {
+    // Change the owner of native window. Only needed on Windows XP.
+    ::SetWindowLong(views::HWNDForWidget(widget),
+                    GWLP_HWNDPARENT,
+                    (LONG)ui::GetHiddenWindow());
+  }
+
+  base::win::ScopedComPtr<ITaskbarList> taskbar;
+  HRESULT result = taskbar.CreateInstance(CLSID_TaskbarList, NULL,
+                                          CLSCTX_INPROC_SERVER);
+  if (FAILED(result)) {
+    VLOG(1) << "Failed creating a TaskbarList object: " << result;
+    return;
+  }
+
+  result = taskbar->HrInit();
+  if (FAILED(result)) {
+    LOG(ERROR) << "Failed initializing an ITaskbarList interface.";
+    return;
+  }
+
+  if (show)
+    result = taskbar->AddTab(views::HWNDForWidget(widget));
+  else
+    result = taskbar->DeleteTab(views::HWNDForWidget(widget));
+
+  if (FAILED(result)) {
+    LOG(ERROR) << "Failed to change the show in taskbar attribute";
+    return;
+  }
+#endif
+}
+
 SkColor NativeAppWindowViews::ActiveFrameColor() const {
   return SK_ColorBLACK;
 }
@@ -434,6 +545,7 @@ void NativeAppWindowViews::SetContentSizeConstraints(
     const gfx::Size& max_size) {
   size_constraints_.set_minimum_size(min_size);
   size_constraints_.set_maximum_size(max_size);
+  saved_size_constraints_ = size_constraints_;
   widget_->OnSizeConstraintsChanged();
 }
 

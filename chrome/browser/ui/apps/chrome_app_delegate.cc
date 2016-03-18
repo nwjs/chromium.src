@@ -7,6 +7,12 @@
 #include <utility>
 
 #include "base/macros.h"
+
+#include "chrome/browser/sessions/session_tab_helper.h"
+#include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
+
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
@@ -50,10 +56,16 @@
 #endif  // defined(ENABLE_PRINT_PREVIEW)
 #endif  // defined(ENABLE_PRINTING)
 
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
+#include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/autofill/core/browser/autofill_manager.h"
+
+
 namespace {
 
 // Time to wait for an app window to show before allowing Chrome to quit.
-int kAppWindowFirstShowTimeoutSeconds = 10;
+//int kAppWindowFirstShowTimeoutSeconds = 10;
 
 bool disable_external_open_for_testing_ = false;
 
@@ -68,7 +80,7 @@ content::WebContents* OpenURLFromTabInternal(
   if (params.disposition == NEW_BACKGROUND_TAB) {
     new_tab_params.disposition = NEW_BACKGROUND_TAB;
   } else {
-    new_tab_params.disposition = NEW_FOREGROUND_TAB;
+    new_tab_params.disposition = NEW_POPUP;
     new_tab_params.window_action = chrome::NavigateParams::SHOW_WINDOW;
   }
 
@@ -173,6 +185,7 @@ ChromeAppDelegate::ChromeAppDelegate(scoped_ptr<ScopedKeepAlive> keep_alive)
       is_hidden_(true),
       keep_alive_(std::move(keep_alive)),
       new_window_contents_delegate_(new NewWindowContentsDelegate()),
+      web_contents_(nullptr),
       weak_factory_(this) {
   registrar_.Add(this,
                  chrome::NOTIFICATION_APP_TERMINATING,
@@ -189,6 +202,8 @@ void ChromeAppDelegate::DisableExternalOpenForTesting() {
 }
 
 void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
+  web_contents_ = web_contents;
+
   favicon::CreateContentFaviconDriverForWebContents(web_contents);
 
 #if defined(ENABLE_PRINTING)
@@ -199,12 +214,30 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
   printing::PrintViewManagerBasic::CreateForWebContents(web_contents);
 #endif  // defined(ENABLE_PRINT_PREVIEW)
 #endif  // defined(ENABLE_PRINTING)
+  // Kiosk app supports zooming.
+  //if (chrome::IsRunningInForcedAppMode())
+  // ZoomController comes before common tab helpers since ChromeExtensionWebContentsObserver
+  // may want to register as a ZoomObserver with it.
+  ui_zoom::ZoomController::CreateForWebContents(web_contents);
+
+#if 1
+  extensions::TabHelper::CreateForWebContents(web_contents);
+#else
+  SessionTabHelper::CreateForWebContents(web_contents);
+  
   extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
       web_contents);
-
-  // Kiosk app supports zooming.
-  if (chrome::IsRunningInForcedAppMode())
-    ui_zoom::ZoomController::CreateForWebContents(web_contents);
+#endif
+  autofill::ChromeAutofillClient::CreateForWebContents(web_contents);
+  autofill::ContentAutofillDriverFactory::CreateForWebContentsAndDelegate(
+      web_contents,
+      autofill::ChromeAutofillClient::FromWebContents(web_contents),
+      g_browser_process->GetApplicationLocale(),
+      autofill::AutofillManager::ENABLE_AUTOFILL_DOWNLOAD_MANAGER);
+  ChromePasswordManagerClient::CreateForWebContentsWithAutofillClient(
+      web_contents,
+      autofill::ChromeAutofillClient::FromWebContents(web_contents));
+  ManagePasswordsUIController::CreateForWebContents(web_contents);
 }
 
 void ChromeAppDelegate::RenderViewCreated(
@@ -244,11 +277,13 @@ void ChromeAppDelegate::AddNewContents(content::BrowserContext* context,
                                        bool user_gesture,
                                        bool* was_blocked) {
   if (!disable_external_open_for_testing_) {
+#if 0
     // We don't really want to open a window for |new_contents|, but we need to
     // capture its intended navigation. Here we give ownership to the
     // NewWindowContentsDelegate, which will dispose of the contents once
     // a navigation is captured.
     new_contents->SetDelegate(new_window_contents_delegate_.get());
+#endif
     return;
   }
   chrome::ScopedTabbedBrowserDisplayer displayer(
@@ -329,6 +364,7 @@ void ChromeAppDelegate::SetTerminatingCallback(const base::Closure& callback) {
 
 void ChromeAppDelegate::OnHide() {
   is_hidden_ = true;
+#if 0
   if (has_been_shown_) {
     keep_alive_.reset();
     return;
@@ -341,12 +377,15 @@ void ChromeAppDelegate::OnHide() {
       base::Bind(&ChromeAppDelegate::RelinquishKeepAliveAfterTimeout,
                  weak_factory_.GetWeakPtr()),
       base::TimeDelta::FromSeconds(kAppWindowFirstShowTimeoutSeconds));
+#endif
 }
 
 void ChromeAppDelegate::OnShow() {
   has_been_shown_ = true;
   is_hidden_ = false;
+#if 0
   keep_alive_.reset(new ScopedKeepAlive);
+#endif
 }
 
 void ChromeAppDelegate::Observe(int type,
