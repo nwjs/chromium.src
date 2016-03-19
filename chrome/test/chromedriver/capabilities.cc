@@ -194,6 +194,20 @@ Status ParseSwitches(const base::Value& option,
   return Status(kOk);
 }
 
+Status ParseArguments(const base::Value& option,
+                     Capabilities* capabilities) {
+  const base::ListValue* arg_list = NULL;
+  if (!option.GetAsList(&arg_list))
+    return Status(kUnknownError, "must be a list");
+  for (size_t i = 0; i < arg_list->GetSize(); ++i) {
+    std::string arg_string;
+    if (!arg_list->GetString(i, &arg_string))
+      return Status(kUnknownError, "each argument must be a string");
+    capabilities->arguments.push_back(arg_string);
+  }
+  return Status(kOk);
+}
+
 Status ParseExtensions(const base::Value& option, Capabilities* capabilities) {
   const base::ListValue* extensions = NULL;
   if (!option.GetAsList(&extensions))
@@ -435,6 +449,7 @@ Status ParseChromeOptions(
     parser_map["debuggerAddress"] = base::Bind(&ParseUseRemoteBrowser);
   } else {
     parser_map["args"] = base::Bind(&ParseSwitches);
+    parser_map["nwargs"] = base::Bind(&ParseArguments);
     parser_map["binary"] = base::Bind(&ParseFilePath, &capabilities->binary);
     parser_map["detach"] = base::Bind(&ParseBoolean, &capabilities->detach);
     parser_map["excludeSwitches"] = base::Bind(&ParseExcludeSwitches);

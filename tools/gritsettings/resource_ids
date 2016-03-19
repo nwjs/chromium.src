@@ -307,4 +307,8 @@
   },
 
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
+  "chrome/browser/nwjs_resources.grd": {
+    "includes": [32000],
+    "structures": [32350],
+  },
 }

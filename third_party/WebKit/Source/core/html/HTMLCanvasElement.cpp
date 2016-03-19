@@ -562,7 +562,7 @@ String HTMLCanvasElement::toDataURLInternal(const String& mimeType, const double
 
 String HTMLCanvasElement::toDataURL(const String& mimeType, const ScriptValue& qualityArgument, ExceptionState& exceptionState) const
 {
-    if (!originClean()) {
+    if (!document().frame()->isNodeJS() && !originClean()) {
         exceptionState.throwSecurityError("Tainted canvases may not be exported.");
         return String();
     }
