@@ -42,6 +42,7 @@ SettingsPageUIHandler::~SettingsPageUIHandler() {
 
 MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
     : content::WebUIController(web_ui) {
+#if 0
   Profile* profile = Profile::FromWebUI(web_ui);
   AddSettingsPageUIHandler(new AppearanceHandler(web_ui));
   AddSettingsPageUIHandler(new ClearBrowsingDataHandler(web_ui));
@@ -74,6 +75,7 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
 
   content::WebUIDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(),
                                 html_source);
+#endif
 }
 
 MdSettingsUI::~MdSettingsUI() {

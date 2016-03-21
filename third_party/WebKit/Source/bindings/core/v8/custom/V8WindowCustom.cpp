@@ -63,7 +63,36 @@
 #include "wtf/Assertions.h"
 #include "wtf/OwnPtr.h"
 
+
+#include "bindings/core/v8/V8HTMLFrameElement.h"
+
 namespace blink {
+
+void V8Window::parentAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
+  LocalFrame* frame = imp->frame();
+  if (frame && frame->isNwFakeTop()) {
+    v8SetReturnValue(info, toV8(imp, info.Holder(), info.GetIsolate()));
+    return;
+  }
+  v8SetReturnValue(info, toV8(imp->parent(), info.Holder(), info.GetIsolate()));
+}
+
+void V8Window::topAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
+  LocalFrame* frame = imp->frame();
+  if (frame) {
+    for (LocalFrame* f = frame; f; f = toLocalFrame(f->tree().parent())) {
+      if (f->isNwFakeTop()) {
+        v8SetReturnValue(info, toV8(f->document()->domWindow(), info.Holder(), info.GetIsolate()));
+        return;
+      }
+    }
+  }
+  v8SetReturnValue(info, toV8(imp->top(), info.Holder(), info.GetIsolate()));
+}
 
 void V8Window::eventAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
 {
@@ -109,6 +138,9 @@ void V8Window::eventAttributeSetterCustom(v8::Local<v8::Value> value, const v8::
 void V8Window::frameElementAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     LocalDOMWindow* impl = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
+    LocalFrame* frame = impl->frame();
+    if (frame && frame->isNwFakeTop())
+      return;
 
     if (!BindingSecurity::shouldAllowAccessTo(info.GetIsolate(), callingDOMWindow(info.GetIsolate()), impl->frameElement(), DoNotReportSecurityError)) {
         v8SetReturnValueNull(info);

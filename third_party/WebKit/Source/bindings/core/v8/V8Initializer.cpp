@@ -25,6 +25,8 @@
 
 #include "bindings/core/v8/V8Initializer.h"
 
+#include "third_party/node/src/node_webkit.h"
+
 #include "bindings/core/v8/DOMWrapperWorld.h"
 #include "bindings/core/v8/RejectedPromises.h"
 #include "bindings/core/v8/RetainedDOMInfo.h"
@@ -64,6 +66,9 @@
 #include "wtf/text/WTFString.h"
 #include <v8-debug.h>
 #include <v8-profiler.h>
+
+VoidHookFn g_promise_reject_callback_fn = nullptr;
+
 
 namespace blink {
 
@@ -214,6 +219,12 @@ static void promiseRejectHandler(v8::PromiseRejectMessage data, RejectedPromises
     v8::Local<v8::Promise> promise = data.GetPromise();
     v8::Isolate* isolate = promise->GetIsolate();
     ScriptState* scriptState = ScriptState::current(isolate);
+
+#if 0 //FIXME (#4577)
+    LocalDOMWindow* window = currentDOMWindow(isolate);
+    if (window->frame()->isNodeJS() && g_promise_reject_callback_fn)
+      g_promise_reject_callback_fn(&data);
+#endif
 
     v8::Local<v8::Value> exception = data.GetValue();
     if (V8DOMWrapper::isWrapper(isolate, exception)) {

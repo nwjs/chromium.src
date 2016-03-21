@@ -576,12 +576,15 @@ std::vector<base::FilePath> GetDataSearchLocations(base::Environment* env) {
 }
 
 std::string GetProgramClassName() {
+  return "nwjs";
+#if 0
   scoped_ptr<base::Environment> env(base::Environment::Create());
   std::string desktop_file(GetDesktopName(env.get()));
   std::size_t last = desktop_file.find(".desktop");
   if (last != std::string::npos)
     return desktop_file.substr(0, last);
   return desktop_file;
+#endif
 }
 
 std::string GetDesktopName(base::Environment* env) {

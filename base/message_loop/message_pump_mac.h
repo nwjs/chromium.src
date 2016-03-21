@@ -123,7 +123,8 @@ class MessagePumpCFRunLoopBase : public MessagePump {
   // the instance method; the instance method returns true if it resignalled
   // work_source_ to be called again from the loop.
   static void RunWorkSource(void* info);
-  bool RunWork();
+ protected:
+  virtual bool RunWork();
 
   // Perform idle-priority work.  This is normally called by PreWaitObserver,
   // but is also associated with idle_work_source_.  When this function
@@ -131,7 +132,8 @@ class MessagePumpCFRunLoopBase : public MessagePump {
   // static method calls the instance method; the instance method returns
   // true if idle work was done.
   static void RunIdleWorkSource(void* info);
-  bool RunIdleWork();
+  virtual bool RunIdleWork();
+  virtual void PreWaitObserverHook();
 
   // Perform work that may have been deferred because it was not runnable
   // within a nested run loop.  This is associated with

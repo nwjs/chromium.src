@@ -45,7 +45,7 @@
 @end
 
 namespace {
-static NSArray* const kSnapshotCacheDirectory = @[ @"Chromium", @"Snapshots" ];
+static NSArray* const kSnapshotCacheDirectory = @[ @"nwjs", @"Snapshots" ];
 
 const NSUInteger kCacheInitialCapacity = 100;
 const NSUInteger kGreyInitialCapacity = 8;

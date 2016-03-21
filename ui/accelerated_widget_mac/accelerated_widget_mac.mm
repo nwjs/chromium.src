@@ -21,6 +21,10 @@
 - (void)setContentsChanged;
 @end
 
+namespace content {
+  extern bool g_force_cpu_draw;
+}
+
 namespace ui {
 namespace {
 
@@ -182,6 +186,8 @@ void AcceleratedWidgetMac::EnsureLocalLayer() {
     [local_layer_ setContentsGravity:kCAGravityTopLeft];
     [local_layer_ setAnchorPoint:CGPointMake(0, 0)];
     [flipped_layer_ addSublayer:local_layer_];
+    if (content::g_force_cpu_draw)
+      [local_layer_.get() setBackgroundColor:[flipped_layer_.get() backgroundColor]];
   }
 }
 
@@ -230,6 +236,78 @@ void AcceleratedWidgetMac::DestroyLocalLayer() {
     return;
   [local_layer_ removeFromSuperlayer];
   local_layer_.reset();
+}
+
+void AcceleratedWidgetMac::GotSoftwareFrame(float scale_factor,
+                                            SkCanvas* canvas) {
+  assert(content::g_force_cpu_draw);
+  if (!canvas || !view_)
+    return;
+
+  // Disable the fade-in or fade-out effect if we create or remove layers.
+  ScopedCAActionDisabler disabler;
+
+  // If there is not a layer for local frames, create one.
+  EnsureLocalLayer();
+
+  // Set the software layer to draw the provided canvas.
+  SkImageInfo info;
+  size_t row_bytes;
+  const void* pixels = canvas->peekPixels(&info, &row_bytes);
+  gfx::Size pixel_size(info.width(), info.height());
+
+  TRACE_EVENT0("browser", "-[AcceleratedWidgetMac GotSoftwareFrame]");
+
+  // Set the contents of the software CALayer to be a CGImage with the provided
+  // pixel data. Make a copy of the data before backing the image with them,
+  // because the same buffer will be reused for the next frame.
+  base::ScopedCFTypeRef<CFDataRef> dataCopy(
+      CFDataCreate(NULL,
+                   static_cast<const UInt8 *>(pixels),
+                   row_bytes * pixel_size.height()));
+  base::ScopedCFTypeRef<CGDataProviderRef> dataProvider(
+      CGDataProviderCreateWithCFData(dataCopy));
+  base::ScopedCFTypeRef<CGImageRef> image(
+      CGImageCreate(pixel_size.width(),
+                    pixel_size.height(),
+                    8,
+                    32,
+                    row_bytes,
+                    base::mac::GetSystemColorSpace(),
+                    kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
+                    dataProvider,
+                    NULL,
+                    false,
+                    kCGRenderingIntentDefault));
+  [local_layer_ setContents:(id)image.get()];
+  [local_layer_ setBounds:CGRectMake(
+      0, 0, pixel_size.width() / scale_factor, pixel_size.height() / scale_factor)];
+
+  // Set the contents scale of the software CALayer.
+  if ([local_layer_ respondsToSelector:(@selector(contentsScale))] &&
+      [local_layer_ respondsToSelector:(@selector(setContentsScale:))] &&
+      [local_layer_ contentsScale] != scale_factor) {
+    [local_layer_ setContentsScale:scale_factor];
+  }
+
+  last_swap_size_dip_ = gfx::ConvertSizeToDIP(scale_factor, pixel_size);
+
+  if (content::g_force_cpu_draw) {
+    // this is to tell parent window, that the window content has been updated
+    [[view_->AcceleratedWidgetGetNSView() superview]setNeedsDisplay:YES];
+  }
+  // Remove any different-type layers that this is replacing.
+  DestroyCAContextLayer(ca_context_layer_);
+}
+
+void AcceleratedWidgetMacGotSoftwareFrame(
+    gfx::AcceleratedWidget widget, float scale_factor, SkCanvas* canvas) {
+  assert(content::g_force_cpu_draw);
+
+  AcceleratedWidgetMac* accelerated_widget_mac =
+  GetHelperFromAcceleratedWidget(widget);
+  if (accelerated_widget_mac)
+    accelerated_widget_mac->GotSoftwareFrame(scale_factor, canvas);
 }
 
 void AcceleratedWidgetMacGotFrame(
