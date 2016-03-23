@@ -46,6 +46,7 @@ const char kEventResponsive[] = "webViewInternal.onResponsive";
 const char kEventSizeChanged[] = "webViewInternal.onSizeChanged";
 const char kEventUnresponsive[] = "webViewInternal.onUnresponsive";
 const char kEventZoomChange[] = "webViewInternal.onZoomChange";
+const char kEventSSLChange[] = "webViewInternal.onSSLChange";
 
 // WebRequest API events.
 const char kEventAuthRequired[] = "webViewInternal.onAuthRequired";

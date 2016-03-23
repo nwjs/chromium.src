@@ -411,6 +411,7 @@ enum HistogramValue {
   EASY_UNLOCK_PRIVATE_ON_DATA_RECEIVED,
   EASY_UNLOCK_PRIVATE_ON_SEND_COMPLETED,
   DISPLAY_SOURCE_ON_SINKS_UPDATED,
+  WEB_VIEW_INTERNAL_ON_SSL_CHANGE,
   // Last entry: Add new entries above, then run:
   // python tools/metrics/histograms/update_extension_histograms.py
   ENUM_BOUNDARY

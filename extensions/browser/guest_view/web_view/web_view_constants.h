@@ -52,6 +52,7 @@ extern const char kEventResponsive[];
 extern const char kEventSizeChanged[];
 extern const char kEventUnresponsive[];
 extern const char kEventZoomChange[];
+extern const char kEventSSLChange[];
 
 // WebRequest API events.
 extern const char kEventAuthRequired[];

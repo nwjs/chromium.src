@@ -67,6 +67,9 @@
 #include "ui/base/models/simple_menu_model.h"
 #include "url/url_constants.h"
 
+#include "content/browser/cert_store_impl.h"
+#include "net/cert/x509_certificate.h"
+
 using base::UserMetricsAction;
 using content::GlobalRequestID;
 using content::RenderFrameHost;
@@ -1361,6 +1364,51 @@ void WebViewGuest::ExitFullscreenModeForTab(WebContents* web_contents) {
 bool WebViewGuest::IsFullscreenForTabOrPending(
     const WebContents* web_contents) const {
   return is_guest_fullscreen_;
+}
+
+static base::ListValue *ListValue_FromStringArray(const std::vector<std::string> &arr) {
+  base::ListValue *v = new base::ListValue();
+  for (std::vector<std::string>::const_iterator iter = arr.begin(); iter != arr.end(); ++iter) {
+    v->AppendString(*iter);
+  }
+  return v;
+}
+
+void WebViewGuest::VisibleSSLStateChanged(const content::WebContents* source) {
+  base::DictionaryValue* dict = new base::DictionaryValue;
+  dict->SetString("url", web_contents()->GetController().GetActiveEntry()->GetURL().spec());
+
+    int certId = web_contents()->GetController().GetActiveEntry()->GetSSL().cert_id;
+    if (certId) {
+      dict->SetInteger("status", web_contents()->GetController().GetActiveEntry()->GetSSL().cert_status);
+      dict->SetInteger("security_style", web_contents()->GetController().GetActiveEntry()->GetSSL().security_style);
+
+      content::CertStoreImpl* certStore = content::CertStoreImpl::GetInstance();
+      scoped_refptr<net::X509Certificate> cert;
+      certStore->RetrieveCert(certId, &cert);
+
+      dict->SetString("issuer.common_name", cert->issuer().common_name);
+      dict->SetString("issuer.country_name", cert->issuer().country_name);
+      dict->SetString("issuer.locality_name", cert->issuer().locality_name);
+      dict->Set("issuer.street_addresses", ListValue_FromStringArray(cert->issuer().street_addresses));
+      dict->Set("issuer.domain_components", ListValue_FromStringArray(cert->issuer().domain_components));
+      dict->Set("issuer.organization_names", ListValue_FromStringArray(cert->issuer().organization_names));
+      dict->Set("issuer.organization_unit_names", ListValue_FromStringArray(cert->issuer().organization_unit_names));
+      dict->SetString("subject.common_name", cert->subject().common_name);
+      dict->SetString("subject.country_name", cert->subject().country_name);
+      dict->SetString("subject.locality_name", cert->subject().locality_name);
+      dict->Set("subject.street_addresses", ListValue_FromStringArray(cert->subject().street_addresses));
+      dict->Set("subject.domain_components", ListValue_FromStringArray(cert->subject().domain_components));
+      dict->Set("subject.organization_names", ListValue_FromStringArray(cert->subject().organization_names));
+      dict->Set("subject.organization_unit_names", ListValue_FromStringArray(cert->subject().organization_unit_names));
+      dict->SetString("fingerprint", base::HexEncode(cert->fingerprint().data, sizeof(net::SHA1HashValue)));
+    }
+
+    base::ListValue* certificateInfo = new base::ListValue();
+    certificateInfo->Append(dict);
+    scoped_ptr<base::DictionaryValue> args(new base::DictionaryValue());
+    args->Set(webview::kCertificate, certificateInfo);
+    DispatchEventToView(new GuestViewEvent(webview::kEventSSLChange, args.Pass()));
 }
 
 void WebViewGuest::LoadURLWithParams(
