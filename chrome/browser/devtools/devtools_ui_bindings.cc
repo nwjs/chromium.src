@@ -1097,6 +1097,9 @@ void DevToolsUIBindings::SearchCompleted(
 void DevToolsUIBindings::ShowDevToolsConfirmInfoBar(
     const base::string16& message,
     const InfoBarCallback& callback) {
+#if 1
+  callback.Run(true); // #4602
+#else
   if (!delegate_->GetInfoBarService()) {
     callback.Run(false);
     return;
@@ -1104,6 +1107,7 @@ void DevToolsUIBindings::ShowDevToolsConfirmInfoBar(
   scoped_ptr<DevToolsConfirmInfoBarDelegate> delegate(
       new DevToolsConfirmInfoBarDelegate(callback, message));
   GlobalConfirmInfoBar::Show(std::move(delegate));
+#endif
 }
 
 void DevToolsUIBindings::AddDevToolsExtensionsToClient() {

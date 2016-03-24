@@ -170,6 +170,11 @@
               },
             },
           },
+          'dependencies': [
+           'trace_event/etw_manifest/etw_manifest.gyp:etw_manifest',
+          ],
+        }],
+        ['OS == "win" and target_arch=="ia32"', {
           'copies': [
             {
               'destination': '<(PRODUCT_DIR)/',
@@ -178,8 +183,15 @@
               ],
             },
           ],
-          'dependencies': [
-           'trace_event/etw_manifest/etw_manifest.gyp:etw_manifest',
+        }],
+        [ 'OS == "win" and target_arch == "x64"', {
+          'copies': [
+            {
+              'destination': '<(PRODUCT_DIR)/',
+              'files': [
+                '../build/win/dbghelp_xp/x64/dbghelp.dll',
+              ],
+            },
           ],
         }],
         ['OS == "mac" or (OS == "ios" and _toolset == "host")', {
