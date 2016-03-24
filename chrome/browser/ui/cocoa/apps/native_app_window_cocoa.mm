@@ -199,6 +199,7 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
   return NO;
 }
 
+// this function is for createMacBuiltin only
 - (void)closeAllWindowsQuit:(id)sender {
   if (!appWindow_)
     return;
@@ -210,7 +211,8 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
     registry->GetAppWindowsForApp(appWindow_->app_window_->GetExtension()->id());
 
   for (AppWindow* window : windows) {
-    if (window->NWCanClose())
+  // passing true for createMacBuiltin: https://github.com/nwjs/nw.js/issues/4580#issuecomment-199236153
+    if (window->NWCanClose(true))
       window->GetBaseWindow()->Close();
   }
 }
