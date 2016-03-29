@@ -6,6 +6,8 @@
 
 #include <stddef.h>
 
+#include "content/nw/src/common/shell_switches.h"
+
 #include <algorithm>
 #include <set>
 #include <utility>
@@ -746,6 +748,7 @@ void RenderViewContextMenu::InitMenu() {
     AppendCurrentExtensionItems();
   }
 
+#if defined(NWJS_SDK)
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_DEVELOPER)) {
     AppendDeveloperItems();
@@ -755,6 +758,7 @@ void RenderViewContextMenu::InitMenu() {
           ContextMenuContentType::ITEM_GROUP_DEVTOOLS_UNPACKED_EXT)) {
     AppendDevtoolsForUnpackedExtensions();
   }
+#endif
 
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PRINT_PREVIEW)) {
@@ -1090,6 +1094,7 @@ void RenderViewContextMenu::AppendPageItems() {
   menu_model_.AddItemWithStringId(IDC_PRINT, IDS_CONTENT_CONTEXT_PRINT);
   AppendMediaRouterItem();
 
+#if 0
   if (TranslateService::IsTranslatableURL(params_.page_url)) {
     std::string locale = g_browser_process->GetApplicationLocale();
     locale = translate::TranslateDownloadManager::GetLanguageCode(locale);
@@ -1099,6 +1104,7 @@ void RenderViewContextMenu::AppendPageItems() {
         IDC_CONTENT_CONTEXT_TRANSLATE,
         l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_TRANSLATE, language));
   }
+#endif
 }
 
 void RenderViewContextMenu::AppendCopyItem() {
@@ -1184,7 +1190,11 @@ void RenderViewContextMenu::AppendSearchProvider() {
 }
 
 void RenderViewContextMenu::AppendEditableItems() {
-  const bool use_spellcheck_and_search = !chrome::IsRunningInForcedAppMode();
+  bool use_spellcheck_and_search = !chrome::IsRunningInForcedAppMode();
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(switches::kEnableSpellChecking))
+    use_spellcheck_and_search = false;
 
   if (use_spellcheck_and_search)
     AppendSpellingSuggestionsSubMenu();
@@ -1224,11 +1234,13 @@ void RenderViewContextMenu::AppendEditableItems() {
 }
 
 void RenderViewContextMenu::AppendLanguageSettings() {
+#if 0
   const bool use_spellcheck_and_search = !chrome::IsRunningInForcedAppMode();
 
   if (use_spellcheck_and_search)
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_LANGUAGE_SETTINGS,
                                     IDS_CONTENT_CONTEXT_LANGUAGE_SETTINGS);
+#endif
 }
 
 void RenderViewContextMenu::AppendSpellingSuggestionsSubMenu() {
@@ -1358,6 +1370,8 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return true;
 
     case IDC_CONTENT_CONTEXT_TRANSLATE: {
+      return false;
+#if 0
       ChromeTranslateClient* chrome_translate_client =
           ChromeTranslateClient::FromWebContents(embedder_web_contents_);
       // If no |chrome_translate_client| attached with this WebContents or we're
@@ -1386,6 +1400,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
                  target_lang) &&
              // Disable on the Instant Extended NTP.
              !search::IsInstantNTP(embedder_web_contents_);
+#endif
     }
 
     case IDC_CONTENT_CONTEXT_OPENLINKNEWTAB:
@@ -1973,8 +1988,8 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
                                   security_model_client->GetSecurityInfo());
       break;
     }
-
     case IDC_CONTENT_CONTEXT_TRANSLATE: {
+#if 0
       // A translation might have been triggered by the time the menu got
       // selected, do nothing in that case.
       ChromeTranslateClient* chrome_translate_client =
@@ -2000,9 +2015,9 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
           chrome_translate_client->GetTranslateManager();
       DCHECK(manager);
       manager->TranslatePage(original_lang, target_lang, true);
+#endif
       break;
     }
-
     case IDC_CONTENT_CONTEXT_RELOADFRAME:
       // We always obey the cache here.
       // TODO(evanm): Perhaps we could allow shift-clicking the menu item to do

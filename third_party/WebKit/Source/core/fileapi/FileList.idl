@@ -26,9 +26,12 @@
 // https://w3c.github.io/FileAPI/#filelist-section
 
 [
+    CustomConstructor,
     Exposed=(Window,Worker),
     GarbageCollected
 ] interface FileList {
     getter File? item(unsigned long index);
     readonly attribute unsigned long length;
+    void clear();
+    void append(File item);
 };

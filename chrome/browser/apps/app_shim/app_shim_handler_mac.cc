@@ -19,13 +19,15 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 
+#include "content/nw/src/nw_content.h"
+
 namespace apps {
 
 namespace {
 
 void TerminateIfNoAppWindows() {
   bool app_windows_left =
-      AppWindowRegistryUtil::IsAppWindowVisibleInAnyProfile(0);
+    AppWindowRegistryUtil::IsAppWindowVisibleInAnyProfile(0, false);
   if (!app_windows_left &&
       !AppListService::Get(chrome::HOST_DESKTOP_TYPE_NATIVE)
            ->IsAppListVisible()) {
@@ -63,7 +65,8 @@ class AppShimHandlerRegistry : public content::NotificationObserver {
   }
 
   void MaybeTerminate() {
-    if (!browser_session_running_) {
+    if (!nw::IsReloadingApp()) {
+      //NW: #4164. browser_session_running_ never set to false
       // Post this to give AppWindows a chance to remove themselves from the
       // registry.
       base::MessageLoop::current()->PostTask(

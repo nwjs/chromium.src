@@ -145,7 +145,7 @@ void JavaScriptDialogManager::RunJavaScriptDialog(
       message_type,
       message_text,
       default_prompt_text,
-      ShouldDisplaySuppressCheckbox(extra_data),
+      false, //ShouldDisplaySuppressCheckbox(extra_data),
       false,  // is_before_unload_dialog
       false,  // is_reload
       base::Bind(&JavaScriptDialogManager::OnDialogClosed,
@@ -224,6 +224,8 @@ base::string16 JavaScriptDialogManager::GetTitle(
     const GURL& origin_url,
     const std::string& accept_lang,
     bool is_alert) {
+  return base::string16();
+#if 0
   // For extensions, show the extension name, but only if the origin of
   // the alert matches the top-level WebContents.
   std::string name;
@@ -248,6 +250,7 @@ base::string16 JavaScriptDialogManager::GetTitle(
       is_same_origin_as_main_frame
           ? IDS_JAVASCRIPT_MESSAGEBOX_TITLE_NONSTANDARD_URL
           : IDS_JAVASCRIPT_MESSAGEBOX_TITLE_NONSTANDARD_URL_IFRAME);
+#endif
 }
 
 void JavaScriptDialogManager::CancelActiveAndPendingDialogs(
