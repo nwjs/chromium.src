@@ -748,6 +748,7 @@ void RenderViewContextMenu::InitMenu() {
     AppendCurrentExtensionItems();
   }
 
+#if defined(NWJS_SDK)
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_DEVELOPER)) {
     AppendDeveloperItems();
@@ -757,6 +758,7 @@ void RenderViewContextMenu::InitMenu() {
           ContextMenuContentType::ITEM_GROUP_DEVTOOLS_UNPACKED_EXT)) {
     AppendDevtoolsForUnpackedExtensions();
   }
+#endif
 
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PRINT_PREVIEW)) {

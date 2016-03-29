@@ -2187,6 +2187,22 @@ TEST_F(WebViewTest, SmartClipReturnsEmptyStringsWhenUserSelectIsNone)
     EXPECT_STREQ("", clipHtml.utf8().c_str());
 }
 
+TEST_F(WebViewTest, SmartClipDoesNotCrashPositionReversed)
+{
+    WebString clipText;
+    WebString clipHtml;
+    WebRect clipRect;
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("Ahem.ttf"));
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("smartclip_reversed_positions.html"));
+    WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "smartclip_reversed_positions.html");
+    webView->resize(WebSize(500, 500));
+    webView->updateAllLifecyclePhases();
+    // Left upper corner of the rect will be end position in the DOM hierarchy.
+    WebRect cropRect(30, 110, 400, 250);
+    // This should not still crash. See crbug.com/589082 for more details.
+    webView->extractSmartClipData(cropRect, clipText, clipHtml, clipRect);
+}
+
 class CreateChildCounterFrameClient : public FrameTestHelpers::TestWebFrameClient {
 public:
     CreateChildCounterFrameClient() : m_count(0) { }
@@ -3215,5 +3231,20 @@ TEST_F(WebViewTest, WebSubstringUtil)
     ASSERT_TRUE(!!result);
 }
 #endif
+
+TEST_F(WebViewTest, PasswordFieldEditingIsUserGesture)
+{
+    URLTestHelpers::registerMockedURLFromBaseURL(WebString::fromUTF8(m_baseURL.c_str()), WebString::fromUTF8("input_field_password.html"));
+    MockAutofillClient client;
+    WebView* webView = m_webViewHelper.initializeAndLoad(m_baseURL + "input_field_password.html", true);
+    WebLocalFrameImpl* frame = toWebLocalFrameImpl(webView->mainFrame());
+    frame->setAutofillClient(&client);
+    webView->setInitialFocus(false);
+
+    EXPECT_TRUE(webView->confirmComposition(WebString::fromUTF8(std::string("hello").c_str())));
+    EXPECT_EQ(1, client.textChangesFromUserGesture());
+    EXPECT_FALSE(UserGestureIndicator::processingUserGesture());
+    frame->setAutofillClient(0);
+}
 
 } // namespace blink

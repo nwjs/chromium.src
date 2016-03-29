@@ -458,7 +458,8 @@ void FileSelectHelper::GetSanitizedFilenameOnUIThread(
       GetSanitizedFileName(params->default_file_name));
 
   if (!params->initial_path.empty())
-    default_file_path = params->initial_path;
+    default_file_path = params->initial_path.Append(
+      GetSanitizedFileName(params->default_file_name));
 
 #if defined(FULL_SAFE_BROWSING)
   std::vector<base::FilePath::StringType> alternate_extensions;

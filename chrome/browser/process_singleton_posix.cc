@@ -99,6 +99,37 @@ using content::BrowserThread;
 
 namespace {
 
+// XXX:
+class SanitizedSocketPath {
+ public:
+  explicit SanitizedSocketPath(const base::FilePath& socket_path)
+      : socket_path_(socket_path) {
+    if (socket_path.value().length() >= arraysize(sockaddr_un::sun_path)) {
+      bool found_current_dir = GetCurrentDirectory(&old_path_);
+      CHECK(found_current_dir) << "Failed to determine the current directory.";
+      changed_directory_ = SetCurrentDirectory(socket_path.DirName());
+      CHECK(changed_directory_) << "Failed to change directory: " <<
+          socket_path.DirName().value();
+    }
+  }
+
+  ~SanitizedSocketPath() {
+    if (changed_directory_)
+      SetCurrentDirectory(old_path_);
+  }
+
+  base::FilePath SocketPath() const {
+    return changed_directory_ ? socket_path_.BaseName() : socket_path_;
+  }
+
+ private:
+  bool changed_directory_ = false;
+  base::FilePath socket_path_;
+  base::FilePath old_path_;
+
+  DISALLOW_COPY_AND_ASSIGN(SanitizedSocketPath);
+};
+
 // Timeout for the current browser process to respond. 20 seconds should be
 // enough.
 const int kTimeoutInSeconds = 7;
@@ -379,13 +410,16 @@ bool ConnectSocket(ScopedSocket* socket,
       return false;
     // Now we know the directory was (at that point) created by the profile
     // owner. Try to connect.
-    sockaddr_un addr;
-    SetupSockAddr(socket_target.value(), &addr);
-    int ret = HANDLE_EINTR(connect(socket->fd(),
-                                   reinterpret_cast<sockaddr*>(&addr),
-                                   sizeof(addr)));
-    if (ret != 0)
-      return false;
+    {
+      SanitizedSocketPath sanitized_socket_target(socket_target);
+      sockaddr_un addr;
+      SetupSockAddr(sanitized_socket_target.SocketPath().value(), &addr);
+      int ret = HANDLE_EINTR(connect(socket->fd(),
+                                     reinterpret_cast<sockaddr*>(&addr),
+                                     sizeof(addr)));
+      if (ret != 0)
+        return false;
+    }
     // Check the cookie again. We only link in /tmp, which is sticky, so, if the
     // directory is still correct, it must have been correct in-between when we
     // connected. POSIX, sadly, lacks a connectat().
@@ -398,8 +432,9 @@ bool ConnectSocket(ScopedSocket* socket,
   } else if (errno == EINVAL) {
     // It exists, but is not a symlink (or some other error we detect
     // later). Just connect to it directly; this is an older version of Chrome.
+    SanitizedSocketPath sanitized_socket_path(socket_path);
     sockaddr_un addr;
-    SetupSockAddr(socket_path.value(), &addr);
+    SetupSockAddr(sanitized_socket_path.SocketPath().value(), &addr);
     int ret = HANDLE_EINTR(connect(socket->fd(),
                                    reinterpret_cast<sockaddr*>(&addr),
                                    sizeof(addr)));
@@ -992,12 +1027,15 @@ bool ProcessSingleton::Create() {
     return false;
   }
 
-  SetupSocket(socket_target_path.value(), &sock, &addr);
+  {
+    SanitizedSocketPath sanitized_socket_target(socket_target_path);
+    SetupSocket(sanitized_socket_target.SocketPath().value(), &sock, &addr);
 
-  if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-    PLOG(ERROR) << "Failed to bind() " << socket_target_path.value();
-    CloseSocket(sock);
-    return false;
+    if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+      PLOG(ERROR) << "Failed to bind() " << socket_target_path.value();
+      CloseSocket(sock);
+      return false;
+    }
   }
 
   if (listen(sock, 5) < 0)

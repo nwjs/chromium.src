@@ -46,7 +46,7 @@ class TestSerializationPictureLayer : public PictureLayer {
   }
 
   void set_invalidation(const Region& invalidation) {
-    *invalidation_.region() = invalidation;
+    last_updated_invalidation_ = invalidation;
   }
 
   void set_last_updated_visible_layer_rect(const gfx::Rect& rect) {

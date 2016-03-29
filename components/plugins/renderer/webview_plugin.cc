@@ -131,8 +131,8 @@ bool WebViewPlugin::initialize(WebPluginContainer* container) {
     // scheduleAnimation, but due to timers controlling widget update,
     // scheduleAnimation may be invoked before this initialize call (which
     // comes through the widget update process). It doesn't hurt to mark
-    // for layout again, and it does help us in the race-condition situation.
-    container_->setNeedsLayout();
+    // for animation again, and it does help us in the race-condition situation.
+    container_->scheduleAnimation();
 
     old_title_ = container_->element().getAttribute("title");
 
@@ -161,9 +161,7 @@ v8::Local<v8::Object> WebViewPlugin::v8ScriptableObject(v8::Isolate* isolate) {
   return delegate_->GetV8ScriptableObject(isolate);
 }
 
-// TODO(wkorman): Look into renaming this to something more in line with
-// either the Blink lifecycle or Compositor layer tree host nomenclature.
-void WebViewPlugin::layoutIfNeeded() {
+void WebViewPlugin::updateAllLifecyclePhases() {
   web_view_->updateAllLifecyclePhases();
 }
 
@@ -285,7 +283,7 @@ void WebViewPlugin::didInvalidateRect(const WebRect& rect) {
 
 void WebViewPlugin::didUpdateLayoutSize(const WebSize&) {
   if (container_)
-    container_->setNeedsLayout();
+    container_->scheduleAnimation();
 }
 
 void WebViewPlugin::didChangeCursor(const WebCursorInfo& cursor) {
@@ -293,8 +291,15 @@ void WebViewPlugin::didChangeCursor(const WebCursorInfo& cursor) {
 }
 
 void WebViewPlugin::scheduleAnimation() {
-  if (container_)
-    container_->setNeedsLayout();
+  // Resizes must be self-contained: any lifecycle updating must
+  // be triggerd from within the WebView or this WebViewPlugin.
+  // This is because this WebViewPlugin is contained in another
+  // Web View which may be in the middle of updating its lifecycle,
+  // but after layout is done, and it is illegal to dirty earlier
+  // lifecycle stages during later ones.
+  if (container_) {
+    container_->scheduleAnimation();
+  }
 }
 
 void WebViewPlugin::didClearWindowObject(WebLocalFrame* frame) {
