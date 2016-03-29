@@ -139,6 +139,10 @@ WebViewEvents.EVENTS = {
     fields: ['oldHeight', 'oldWidth', 'newHeight', 'newWidth'],
     handler: 'handleSizeChangedEvent'
   },
+  'sslchange': {
+      evt: CreateEvent('webViewInternal.onSSLChange'),
+      fields: ['certificate']
+  },
   'unresponsive': {
     evt: CreateEvent('webViewInternal.onUnresponsive'),
     fields: ['processId']
