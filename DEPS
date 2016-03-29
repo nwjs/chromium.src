@@ -68,7 +68,7 @@ deps = {
   'src/testing/gtest':
     (Var("chromium_git")) + '/external/github.com/google/googletest.git@6f8a66431cb592dad629028a50b3dd418a408c87',
   'src/third_party/angle':
-    (Var("chromium_git")) + '/angle/angle.git@83aec70b3d944fd0636073779e1e5a95e62dce3a',
+    (Var("chromium_git")) + '/angle/angle.git@4e9536d0f612dab15dd6722975155b78b92ca0ae',
   'src/third_party/bidichecker':
     (Var("chromium_git")) + '/external/bidichecker/lib.git@97f2aa645b74c28c57eca56992235c79850fa9e0',
   'src/third_party/boringssl/src':
@@ -164,7 +164,7 @@ deps = {
   'src/tools/swarming_client':
     (Var("chromium_git")) + '/external/swarming.client.git@9cdd76171e517a430a72dcd7d66ade67e109aa00',
   'src/v8':
-    #(Var("chromium_git")) + '/v8/v8.git@163a909154febf5498ee60efe0f4aab09be21515'
+    #(Var("chromium_git")) + '/v8/v8.git@1c998eae01e53610a852e6b2d9b7d2822eefe8f3'
     (Var("nwjs_git")) + '/v8.git@origin/nw13',
   'src/content/nw':
     (Var("nwjs_git")) + '/nw.js.git@origin/nw13',

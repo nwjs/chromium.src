@@ -75,7 +75,7 @@ class CloseWatcher : public content::RenderFrameObserver {
 
  private:
   void CallbackAndDie(int routing_id) {
-    if (context_) {
+    if (context_ && context_->is_valid()) {
       // context_ was deleted when running
       // issue4007-reload-lost-app-window in test framework
       v8::Isolate* isolate = context_->isolate();
