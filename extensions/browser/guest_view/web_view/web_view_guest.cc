@@ -1377,12 +1377,11 @@ static base::ListValue *ListValue_FromStringArray(const std::vector<std::string>
 void WebViewGuest::VisibleSSLStateChanged(const content::WebContents* source) {
   base::DictionaryValue* dict = new base::DictionaryValue;
   dict->SetString("url", web_contents()->GetController().GetActiveEntry()->GetURL().spec());
+  dict->SetInteger("status", web_contents()->GetController().GetActiveEntry()->GetSSL().cert_status);
+  dict->SetInteger("security_style", web_contents()->GetController().GetActiveEntry()->GetSSL().security_style);
 
-    int certId = web_contents()->GetController().GetActiveEntry()->GetSSL().cert_id;
+  int certId = web_contents()->GetController().GetActiveEntry()->GetSSL().cert_id;
     if (certId) {
-      dict->SetInteger("status", web_contents()->GetController().GetActiveEntry()->GetSSL().cert_status);
-      dict->SetInteger("security_style", web_contents()->GetController().GetActiveEntry()->GetSSL().security_style);
-
       content::CertStoreImpl* certStore = content::CertStoreImpl::GetInstance();
       scoped_refptr<net::X509Certificate> cert;
       certStore->RetrieveCert(certId, &cert);
