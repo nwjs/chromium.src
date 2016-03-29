@@ -16,6 +16,7 @@ var WebViewConstants = {
   ATTRIBUTE_MINWIDTH: 'minwidth',
   ATTRIBUTE_NAME: 'name',
   ATTRIBUTE_PARTITION: 'partition',
+  ATTRIBUTE_USENEWPROCESS: 'usenewprocess',
   ATTRIBUTE_SRC: 'src',
 
   // Error/warning messages.
