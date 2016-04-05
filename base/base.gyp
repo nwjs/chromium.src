@@ -170,6 +170,11 @@
               },
             },
           },
+          'dependencies': [
+           'trace_event/etw_manifest/etw_manifest.gyp:etw_manifest',
+          ],
+        }],
+        ['OS == "win" and target_arch=="ia32"', {
           'copies': [
             {
               'destination': '<(PRODUCT_DIR)/',
@@ -178,8 +183,15 @@
               ],
             },
           ],
-          'dependencies': [
-           'trace_event/etw_manifest/etw_manifest.gyp:etw_manifest',
+        }],
+        [ 'OS == "win" and target_arch == "x64"', {
+          'copies': [
+            {
+              'destination': '<(PRODUCT_DIR)/',
+              'files': [
+                '../build/win/dbghelp_xp/x64/dbghelp.dll',
+              ],
+            },
           ],
         }],
         ['OS == "mac" or (OS == "ios" and _toolset == "host")', {
@@ -239,6 +251,8 @@
         'message_loop/message_pump_libevent.h',
         'message_loop/message_pump_mac.h',
         'message_loop/message_pump_mac.mm',
+        #'message_loop/message_pump_uv.cc',
+        #'message_loop/message_pump_uv.h',
         'metrics/field_trial.cc',
         'metrics/field_trial.h',
         'posix/file_descriptor_shuffle.cc',

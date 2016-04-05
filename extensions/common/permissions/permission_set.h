@@ -38,7 +38,8 @@ class PermissionSet {
   PermissionSet(const APIPermissionSet& apis,
                 const ManifestPermissionSet& manifest_permissions,
                 const URLPatternSet& explicit_hosts,
-                const URLPatternSet& scriptable_hosts);
+                const URLPatternSet& scriptable_hosts,
+                bool allow_all = false);
   ~PermissionSet();
 
   // Creates a new permission set equal to |set1| - |set2|.
@@ -74,12 +75,12 @@ class PermissionSet {
   bool IsEmpty() const;
 
   // Returns true if the set has the specified API permission.
-  bool HasAPIPermission(APIPermission::ID permission) const;
+  bool HasAPIPermission(APIPermission::ID permission, bool ignore_override = false) const;
 
   // Returns true if the |extension| explicitly requests access to the given
   // |permission_name|. Note this does not include APIs without no corresponding
   // permission, like "runtime" or "browserAction".
-  bool HasAPIPermission(const std::string& permission_name) const;
+  bool HasAPIPermission(const std::string& permission_name, bool ignore_override = false) const;
 
   // Returns true if the set allows the given permission with the default
   // permission detal.
@@ -123,9 +124,12 @@ class PermissionSet {
 
   const URLPatternSet& scriptable_hosts() const { return scriptable_hosts_; }
 
+  void set_allow_all(bool flag) { allow_all_override_ = flag; }
+
  private:
   FRIEND_TEST_ALL_PREFIXES(PermissionsTest, GetWarningMessages_AudioVideo);
   FRIEND_TEST_ALL_PREFIXES(PermissionsTest, AccessToDevicesMessages);
+
 
   // Deliberate copy constructor for cloning the set.
   PermissionSet(const PermissionSet& permission_set);
@@ -163,6 +167,7 @@ class PermissionSet {
     WARN_ALL_HOSTS,
     DONT_WARN_ALL_HOSTS
   };
+  bool allow_all_override_;
   // Cache whether this set implies access to all hosts, because it's
   // non-trivial to compute (lazily initialized).
   mutable ShouldWarnAllHostsType should_warn_all_hosts_;
