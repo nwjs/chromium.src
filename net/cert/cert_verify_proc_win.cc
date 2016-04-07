@@ -558,7 +558,7 @@ CertVerifyProcWin::CertVerifyProcWin() {}
 CertVerifyProcWin::~CertVerifyProcWin() {}
 
 bool CertVerifyProcWin::SupportsAdditionalTrustAnchors() const {
-  return false;
+  return true;
 }
 
 bool CertVerifyProcWin::SupportsOCSPStapling() const {
@@ -758,8 +758,34 @@ int CertVerifyProcWin::VerifyInternal(
 
   ScopedPCCERT_CHAIN_CONTEXT scoped_chain_context(chain_context);
 
+  DWORD errorStatus = chain_context->TrustStatus.dwErrorStatus;
+  bool skipPolicyCheck = false;
+  if ((errorStatus & CERT_TRUST_IS_UNTRUSTED_ROOT) &&
+      !additional_trust_anchors.empty()) {
+    // check if the (untrusted) validated root is in the list of
+    // additional trust anchors
+    PCERT_SIMPLE_CHAIN first_chain = chain_context->rgpChain[0];
+    DWORD num_elements = first_chain->cElement;
+    if (num_elements >= 1) {
+      PCERT_CHAIN_ELEMENT* element = first_chain->rgpElement;
+      PCCERT_CONTEXT cert = element[num_elements - 1]->pCertContext;
+      for (size_t i=0; i<additional_trust_anchors.size(); i++) {
+        if (net::X509Certificate::IsSameOSCert(cert,
+            additional_trust_anchors[i]->os_cert_handle())) {
+          LOG(INFO) << "Untrusted root \"" <<
+              additional_trust_anchors[i]->subject().GetDisplayName() <<
+              "\" found in additional anchors, assuming trusted.";
+          verify_result->is_issued_by_additional_trust_anchor = true;
+          errorStatus &= ~CERT_TRUST_IS_UNTRUSTED_ROOT;
+          skipPolicyCheck = true;
+          break;
+        }
+      }
+    }
+  }
+
   verify_result->cert_status |= MapCertChainErrorStatusToCertStatus(
-      chain_context->TrustStatus.dwErrorStatus);
+      errorStatus);
 
   // Flag certificates that have a Subject common name with a NULL character.
   if (CertSubjectCommonNameHasNull(cert_handle))
@@ -767,6 +793,7 @@ int CertVerifyProcWin::VerifyInternal(
 
   base::string16 hostname16 = base::ASCIIToUTF16(hostname);
 
+  if (!skipPolicyCheck) {
   SSL_EXTRA_CERT_CHAIN_POLICY_PARA extra_policy_para;
   memset(&extra_policy_para, 0, sizeof(extra_policy_para));
   extra_policy_para.cbSize = sizeof(extra_policy_para);
@@ -800,7 +827,7 @@ int CertVerifyProcWin::VerifyInternal(
     verify_result->cert_status |= MapNetErrorToCertStatus(
         MapSecurityError(policy_status.dwError));
   }
-
+  }
   // TODO(wtc): Suppress CERT_STATUS_NO_REVOCATION_MECHANISM for now to be
   // compatible with WinHTTP, which doesn't report this error (bug 3004).
   verify_result->cert_status &= ~CERT_STATUS_NO_REVOCATION_MECHANISM;

@@ -57,9 +57,16 @@ typedef int (*DLL_MAIN)(HINSTANCE, sandbox::SandboxInterfaceInfo*);
 
 typedef void (*RelaunchChromeBrowserWithNewCommandLineIfNeededFunc)();
 
+#define BUFSIZE MAX_PATH
+
 // Loads |module| after setting the CWD to |module|'s directory. Returns a
 // reference to the loaded module on success, or null on error.
 HMODULE LoadModuleWithDirectory(const base::FilePath& module) {
+  bool restore_directory = false;
+  TCHAR Buffer[BUFSIZE];
+  if (::GetCurrentDirectoryW(BUFSIZE, Buffer)) {
+    restore_directory = true;
+  }
   ::SetCurrentDirectoryW(module.DirName().value().c_str());
 
   // Get pre-read options from the PreRead field trial.
@@ -88,8 +95,12 @@ HMODULE LoadModuleWithDirectory(const base::FilePath& module) {
       base::PlatformThread::SetCurrentThreadPriority(previous_priority);
   }
 
-  return ::LoadLibraryExW(module.value().c_str(), nullptr,
+  HMODULE ret = ::LoadLibraryExW(module.value().c_str(), nullptr,
                           LOAD_WITH_ALTERED_SEARCH_PATH);
+  if (restore_directory)
+    ::SetCurrentDirectory(Buffer);
+
+  return ret;
 }
 
 void RecordDidRun(const base::FilePath& dll_path) {
@@ -181,7 +192,7 @@ HMODULE MainDllLoader::Load(base::string16* version, base::FilePath* module) {
   }
   HMODULE dll = LoadModuleWithDirectory(*module);
   if (!dll) {
-    PLOG(ERROR) << "Failed to load Chrome DLL from " << module->value();
+    PLOG(ERROR) << "Failed to load NW DLL from " << module->value();
     return nullptr;
   }
 

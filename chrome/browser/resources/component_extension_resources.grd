@@ -25,6 +25,7 @@
       </if>
     </structures>
     <includes>
+      <include name="IDR_NWJS_DEFAULT_JS" file="nwjs/default.js" type="BINDATA" />
       <include name="IDR_NETWORK_SPEECH_SYNTHESIS_JS" file="network_speech_synthesis/tts_extension.js" type="BINDATA" />
 
       <if expr="chromeos">
@@ -32,6 +33,7 @@
         <include name="IDR_BRAILLE_IME_MAIN_JS" file="chromeos/braille_ime/main.js" type="BINDATA" />
       </if>
 
+      <if expr="nwjs_sdk">
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_MANAGER_SEARCH" file="bookmark_manager/images/bookmark_manager_search.png" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_MANAGER_SEARCH_RTL" file="bookmark_manager/images/bookmark_manager_search_rtl.png" type="BINDATA" />
       <include name="IDR_BOOKMARK_MANAGER_BOOKMARK_MAIN_JS" file="bookmark_manager/js/main.js" type="BINDATA" />
@@ -148,6 +150,9 @@
       <if expr="enable_settings_app">
         <include name="IDR_SETTINGS_APP_JS" file="settings_app/settings_app.js" type="BINDATA" />
       </if>
+      </if> <!-- nwjs sdk -->
+      <include name="IDR_NWJS_DEFAPP_INDEX_HTML" file="nwjs_default_app/nw_blank.html" allowexternalscript="true" type="BINDATA" />
+      <include name="IDR_NWJS_DEFAPP_MAIN_JS"    file="nwjs_default_app/main.js" type="BINDATA" />
       <if expr="enable_plugins">
         <include name="IDR_PDF_INDEX_CSS" file="pdf/index.css" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_PDF_INDEX_HTML" file="pdf/index.html" allowexternalscript="true" type="BINDATA" />
@@ -193,6 +198,8 @@
         <include name="IDR_PDF_VIEWER_ZOOM_SELECTOR_HTML" file="pdf/elements/viewer-zoom-toolbar/viewer-zoom-toolbar.html" type="BINDATA" />
         <include name="IDR_PDF_VIEWER_ZOOM_SELECTOR_JS" file="pdf/elements/viewer-zoom-toolbar/viewer-zoom-toolbar.js" type="BINDATA" />
       </if>
+      
+      <if expr="nwjs_sdk">
       <include name="IDR_CRYPTOTOKEN_UTIL_JS" file="cryptotoken/util.js" type="BINDATA" />
       <include name="IDR_CRYPTOTOKEN_B64_JS" file="cryptotoken/b64.js" type="BINDATA" />
       <include name="IDR_CRYPTOTOKEN_CLOSEABLE_JS" file="cryptotoken/closeable.js" type="BINDATA" />
@@ -251,6 +258,7 @@
            to be the only viable option at the moment. -->
       <include name="IDR_WHISPERNET_PROXY_WHISPERNET_PROXY_PROXY_NMF" file="whispernet_proxy/whispernet_proxy.nmf.png" type="BINDATA" />
       <include name="IDR_WHISPERNET_PROXY_WHISPERNET_PROXY_PROXY_PEXE" file="whispernet_proxy/whispernet_proxy_pnacl.pexe.png" type="BINDATA" />
+      </if> <!-- nwjs_sdk -->
     </includes>
   </release>
 </grit>
