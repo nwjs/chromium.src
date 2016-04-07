@@ -837,13 +837,15 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
   if (!window_icon.isNull()) {
     base::win::ScopedHICON previous_icon = window_icon_.Pass();
     window_icon_ =
-        IconUtil::CreateHICONFromSkBitmap(*window_icon.bitmap()).Pass();
+        IconUtil::CreateHICONFromSkBitmapSizedTo(*window_icon.bitmap(),
+          GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON)).Pass();
     SendMessage(hwnd(), WM_SETICON, ICON_SMALL,
                 reinterpret_cast<LPARAM>(window_icon_.get()));
   }
   if (!app_icon.isNull()) {
     base::win::ScopedHICON previous_icon = app_icon_.Pass();
-    app_icon_ = IconUtil::CreateHICONFromSkBitmap(*app_icon.bitmap()).Pass();
+    app_icon_ = IconUtil::CreateHICONFromSkBitmapSizedTo(*app_icon.bitmap(),
+      GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON)).Pass();
     SendMessage(hwnd(), WM_SETICON, ICON_BIG,
                 reinterpret_cast<LPARAM>(app_icon_.get()));
   }
