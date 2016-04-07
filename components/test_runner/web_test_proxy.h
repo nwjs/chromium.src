@@ -338,7 +338,7 @@ class WebTestProxy : public Base, public WebTestProxyBase {
             creator, request, features, frame_name, policy, suppress_opener))
       return 0;
     return Base::createView(
-        creator, request, features, frame_name, policy, suppress_opener);
+                            creator, request, features, frame_name, policy, suppress_opener, NULL);
   }
   virtual void setStatusText(const blink::WebString& text) {
     WebTestProxyBase::SetStatusText(text);

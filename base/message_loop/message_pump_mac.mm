@@ -458,7 +458,11 @@ void MessagePumpCFRunLoopBase::PreWaitObserver(CFRunLoopObserverRef observer,
     // nesting-deferred work may have accumulated.  Schedule it for processing
     // if appropriate.
     self->MaybeScheduleNestingDeferredWork();
+    self->PreWaitObserverHook();
   });
+}
+
+void MessagePumpCFRunLoopBase::PreWaitObserverHook() {
 }
 
 // Called from the run loop.
