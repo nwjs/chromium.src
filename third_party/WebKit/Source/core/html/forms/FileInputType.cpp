@@ -132,8 +132,9 @@ void FileInputType::handleDOMActivateEvent(Event* event)
 {
     if (element().isDisabledFormControl())
         return;
-
-    if (!UserGestureIndicator::processingUserGesture())
+    
+    HTMLInputElement& input = element();
+    if (!UserGestureIndicator::processingUserGesture() && !input.document().frame()->isNodeJS())
         return;
 
     if (ChromeClient* chromeClient = this->chromeClient()) {
@@ -145,6 +146,10 @@ void FileInputType::handleDOMActivateEvent(Event* event)
         settings.acceptFileExtensions = input.acceptFileExtensions();
         settings.selectedFiles = m_fileList->pathsForUserVisibleFiles();
         settings.useMediaCapture = RuntimeEnabledFeatures::mediaCaptureEnabled() && input.fastHasAttribute(captureAttr);
+        settings.initialPath = input.nwworkingdir();
+        settings.directoryChooser = input.fastHasAttribute(nwdirectoryAttr);
+        settings.saveAs = input.fastHasAttribute(nwsaveasAttr);
+        settings.initialValue = input.nwsaveas();
         chromeClient->openFileChooser(input.document().frame(), newFileChooser(settings));
     }
     event->setDefaultHandled();
@@ -187,7 +192,11 @@ bool FileInputType::getTypeSpecificValue(String& value)
     // decided to try to parse the value by looking for backslashes
     // (because that's what Windows file paths use). To be compatible
     // with that code, we make up a fake path for the file.
-    value = "C:\\fakepath\\" + m_fileList->item(0)->name();
+    //value = "C:\\fakepath\\" + m_fileList->item(0)->name();
+    unsigned numFiles = m_fileList->length();
+    value = m_fileList->item(0)->path();
+    for (unsigned i = 1; i < numFiles; ++i)
+      value.append(String(";") + m_fileList->item(i)->path());
     return true;
 }
 

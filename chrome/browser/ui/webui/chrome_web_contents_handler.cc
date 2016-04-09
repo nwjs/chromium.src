@@ -99,7 +99,7 @@ void ChromeWebContentsHandler::AddNewContents(
   const bool browser_created = !browser;
   if (!browser)
     browser = new Browser(
-        Browser::CreateParams(Browser::TYPE_TABBED, profile, desktop_type));
+        Browser::CreateParams(Browser::TYPE_POPUP, profile, desktop_type));
   chrome::NavigateParams params(browser, new_contents);
   params.source_contents = source;
   params.disposition = disposition;
