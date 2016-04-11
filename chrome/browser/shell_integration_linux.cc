@@ -48,6 +48,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_package.h"
 #include "grit/chrome_unscaled_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_family.h"
@@ -576,7 +578,7 @@ std::vector<base::FilePath> GetDataSearchLocations(base::Environment* env) {
 }
 
 std::string GetProgramClassName() {
-  return "nwjs";
+  return nw::package()->GetName();
 #if 0
   scoped_ptr<base::Environment> env(base::Environment::Create());
   std::string desktop_file(GetDesktopName(env.get()));
