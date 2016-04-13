@@ -21,6 +21,12 @@
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/widget/widget.h"
 
+#if defined(NWJS_SDK)
+#include "chrome/browser/devtools/devtools_window.h"
+#endif
+
+#include "ui/gfx/screen.h"
+
 using extensions::AppWindow;
 
 namespace {
@@ -37,9 +43,12 @@ struct AcceleratorMapping {
 };
 
 const AcceleratorMapping kAppWindowAcceleratorMap[] = {
-  { ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
-  { ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
+  //  { ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
+  //  { ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
   { ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW },
+#if defined(NWJS_SDK)
+  { ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS_TOGGLE },
+#endif
 };
 
 // These accelerators will only be available in kiosk mode. These allow the
@@ -110,6 +119,10 @@ void ChromeNativeAppWindowViews::OnBeforeWidgetInit(
     views::Widget* widget) {
 }
 
+bool ChromeNativeAppWindowViews::NWCanClose(bool user_force) const {
+  return app_window()->NWCanClose(user_force);
+}
+
 void ChromeNativeAppWindowViews::OnBeforePanelWidgetInit(
     bool use_default_bounds,
     views::Widget::InitParams* init_params,
@@ -150,10 +163,23 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
     bool position_specified =
         window_bounds.x() != BoundsSpecification::kUnspecifiedPosition &&
         window_bounds.y() != BoundsSpecification::kUnspecifiedPosition;
+    position_specified |= create_params.position == AppWindow::POS_MOUSE;
     if (!position_specified)
       widget()->CenterWindow(window_bounds.size());
-    else
+    else if (create_params.position == AppWindow::POS_MOUSE) {
+      gfx::Point cursor_pos(gfx::Screen::GetNativeScreen()->GetCursorScreenPoint());
+      window_bounds.set_origin(cursor_pos);
       widget()->SetBounds(window_bounds);
+    }else
+      widget()->SetBounds(window_bounds);
+  } else {
+    if (create_params.position == AppWindow::POS_CENTER)
+      widget()->CenterWindow(gfx::Size(640, 480));
+    else if (create_params.position == extensions::AppWindow::POS_MOUSE) {
+      gfx::Point cursor_pos(gfx::Screen::GetNativeScreen()->GetCursorScreenPoint());
+      gfx::Rect bounds(cursor_pos, gfx::Size(640, 480));
+      widget()->SetBounds(bounds);
+    }
   }
 
 #if defined(OS_CHROMEOS)
@@ -307,6 +333,9 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
       accelerator_table.find(accelerator);
   DCHECK(iter != accelerator_table.end());
   int command_id = iter->second;
+#if defined(NWJS_SDK)
+  content::WebContents* web_contents;
+#endif
   switch (command_id) {
     case IDC_CLOSE_WINDOW:
       Close();
@@ -323,7 +352,21 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
       ui_zoom::PageZoom::Zoom(web_view()->GetWebContents(),
                               content::PAGE_ZOOM_IN);
       return true;
-    default:
+#if defined(NWJS_SDK)
+    case IDC_DEV_TOOLS:
+      web_contents = app_window()->web_contents();
+      if (web_contents) {
+        DevToolsWindow::OpenDevToolsWindow(web_contents);
+      }
+      return true;
+    case IDC_DEV_TOOLS_TOGGLE:
+      web_contents = app_window()->web_contents();
+      if (web_contents) {
+        DevToolsWindow::OpenDevToolsWindow(web_contents, DevToolsToggleAction::Toggle());
+      }
+      return true;
+#endif
+  default:
       NOTREACHED() << "Unknown accelerator sent to app window.";
   }
   return NativeAppWindowViews::AcceleratorPressed(accelerator);

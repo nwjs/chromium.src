@@ -85,13 +85,16 @@ bool ParseStoreContext(ChromeAsyncExtensionFunction* function,
   } else {
     // The store ID was not specified; use the current execution context's
     // cookie store by default.
-    // GetCurrentBrowser() already takes into account incognito settings.
+    // GetCurrentBrowser() already takes into account incognito
+    // settings.
+#if 0
     Browser* current_browser = function->GetCurrentBrowser();
     if (!current_browser) {
       function->SetError(keys::kNoCookieStoreFoundError);
       return false;
     }
-    store_profile = current_browser->profile();
+#endif
+    store_profile = function->GetProfile();
     *store_id = cookies_helpers::GetStoreIdFromProfile(store_profile);
   }
 

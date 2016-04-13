@@ -18,7 +18,7 @@
 #if defined(GOOGLE_CHROME_BUILD)
 #define PRODUCT_STRING_PATH L"Google\\Chrome"
 #elif defined(CHROMIUM_BUILD)
-#define PRODUCT_STRING_PATH L"Chromium"
+#define PRODUCT_STRING_PATH L"NWJS"
 #else
 #error Unknown branding
 #endif

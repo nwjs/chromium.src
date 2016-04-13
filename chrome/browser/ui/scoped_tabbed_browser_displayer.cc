@@ -15,7 +15,7 @@ ScopedTabbedBrowserDisplayer::ScopedTabbedBrowserDisplayer(
     HostDesktopType type) {
   browser_ = FindTabbedBrowser(profile, false, type);
   if (!browser_)
-    browser_ = new Browser(Browser::CreateParams(profile, type));
+    browser_ = new Browser(Browser::CreateParams(Browser::TYPE_POPUP, profile, type));
 }
 
 ScopedTabbedBrowserDisplayer::~ScopedTabbedBrowserDisplayer() {

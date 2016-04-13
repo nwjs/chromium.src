@@ -419,7 +419,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   enhanced_bookmarks::BookmarkServerClusterService::RegisterPrefs(registry);
   HostContentSettingsMap::RegisterProfilePrefs(registry);
   IncognitoModePrefs::RegisterProfilePrefs(registry);
-  InstantUI::RegisterProfilePrefs(registry);
+  //InstantUI::RegisterProfilePrefs(registry);
   NavigationCorrectionTabObserver::RegisterProfilePrefs(registry);
   MediaCaptureDevicesDispatcher::RegisterProfilePrefs(registry);
   MediaDeviceIDSalt::RegisterProfilePrefs(registry);

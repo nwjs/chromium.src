@@ -250,8 +250,10 @@ int main() {
   if (base::win::GetVersion() >= base::win::VERSION_WIN7)
     EnableHighDPISupport();
 
+#if 0 //FIXME(nwjs)
   if (AttemptFastNotify(*command_line))
     return 0;
+#endif
 
   // Load and launch the chrome dll. *Everything* happens inside.
   VLOG(1) << "About to load main DLL.";

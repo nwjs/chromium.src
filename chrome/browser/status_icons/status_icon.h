@@ -71,11 +71,11 @@ class StatusIcon {
   // thread to do it.  Use sparingly.
   virtual void ForceVisible();
 
- protected:
+ public:
   // Invoked after a call to SetContextMenu() to let the platform-specific
   // subclass update the native context menu based on the new model. If NULL is
   // passed, subclass should destroy the native context menu.
-  virtual void UpdatePlatformContextMenu(StatusIconMenuModel* model) = 0;
+  virtual void UpdatePlatformContextMenu(ui::MenuModel* model) = 0;
 
  private:
   base::ObserverList<StatusIconObserver> observers_;

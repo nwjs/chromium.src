@@ -248,6 +248,7 @@ void AppendComponentUpdaterThrottles(
     content::ResourceContext* resource_context,
     ResourceType resource_type,
     ScopedVector<content::ResourceThrottle>* throttles) {
+#if 0
   const char* crx_id = NULL;
   component_updater::ComponentUpdateService* cus =
       g_browser_process->component_updater();
@@ -270,6 +271,7 @@ void AppendComponentUpdaterThrottles(
     throttles->push_back(
         component_updater::GetOnDemandResourceThrottle(cus, crx_id));
   }
+#endif
 }
 #endif  // !defined(DISABLE_NACL)
 
@@ -322,8 +324,10 @@ void ChromeResourceDispatcherHostDelegate::RequestBeginning(
     content::AppCacheService* appcache_service,
     ResourceType resource_type,
     ScopedVector<content::ResourceThrottle>* throttles) {
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   if (safe_browsing_.get())
     safe_browsing_->OnResourceRequest(request);
+#endif
 
   const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
   bool is_prerendering =

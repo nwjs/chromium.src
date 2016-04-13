@@ -565,7 +565,7 @@ void MessageCenterView::AddNotificationAt(const Notification& notification,
                                           int index) {
   NotificationView* view =
       NotificationView::Create(this, notification, false);  // Not top-level.
-  view->set_context_menu_controller(context_menu_controller_.get());
+  //view->set_context_menu_controller(context_menu_controller_.get());
   notification_views_[notification.id()] = view;
   view->set_scroller(scroller_);
   message_list_view_->AddNotificationAt(view, index);

@@ -36,6 +36,11 @@
 #include "third_party/skia/include/core/SkGraphics.h"
 #include "ui/base/ui_base_switches.h"
 
+
+#include "base/native_library.h"
+#include "base/strings/utf_string_conversions.h"
+#include "third_party/node/src/node_webkit.h"
+
 #if defined(OS_ANDROID)
 #include "base/android/library_loader/library_loader_hooks.h"
 #endif  // OS_ANDROID
@@ -47,7 +52,9 @@
 
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "base/message_loop/message_pump_mac.h"
+#include "base/message_loop/message_pumpuv_mac.h"
 #include "third_party/WebKit/public/web/WebView.h"
+#include "base/mac/bundle_locations.h"
 #endif  // OS_MACOSX
 
 #if defined(ENABLE_PLUGINS)
@@ -64,6 +71,38 @@
 
 #if defined(MOJO_SHELL_CLIENT)
 #include "content/common/mojo/mojo_shell_connection_impl.h"
+#endif
+
+extern VoidHookFn g_msg_pump_ctor_fn;
+extern VoidHookFn g_msg_pump_dtor_fn;
+extern VoidHookFn g_msg_pump_sched_work_fn, g_msg_pump_nest_leave_fn, g_msg_pump_need_work_fn;
+extern VoidHookFn g_msg_pump_did_work_fn, g_msg_pump_pre_loop_fn, g_msg_pump_nest_enter_fn;
+extern VoidIntHookFn g_msg_pump_delay_work_fn;
+extern VoidHookFn g_msg_pump_clean_ctx_fn;
+extern GetPointerFn g_uv_default_loop_fn;
+extern NodeStartFn g_node_start_fn;
+extern UVRunFn g_uv_run_fn;
+extern SetUVRunFn g_set_uv_run_fn;
+
+extern CallTickCallbackFn g_call_tick_callback_fn;
+extern SetupNWNodeFn g_setup_nwnode_fn;
+extern IsNodeInitializedFn g_is_node_initialized_fn;
+extern SetNWTickCallbackFn g_set_nw_tick_callback_fn;
+extern StartNWInstanceFn g_start_nw_instance_fn;
+extern GetNodeContextFn g_get_node_context_fn;
+extern SetNodeContextFn g_set_node_context_fn;
+extern GetNodeEnvFn g_get_node_env_fn;
+extern GetCurrentEnvironmentFn g_get_current_env_fn;
+extern EmitExitFn g_emit_exit_fn;
+extern RunAtExitFn g_run_at_exit_fn;
+extern VoidHookFn g_promise_reject_callback_fn;
+
+#if defined(OS_MACOSX)
+extern VoidHookFn g_msg_pump_dtor_osx_fn, g_uv_sem_post_fn, g_uv_sem_wait_fn;
+extern VoidPtr4Fn g_msg_pump_ctor_osx_fn;
+extern IntVoidFn g_nw_uvrun_nowait_fn, g_uv_runloop_once_fn;
+extern IntVoidFn g_uv_backend_timeout_fn;
+extern IntVoidFn g_uv_backend_fd_fn;
 #endif
 
 namespace content {
@@ -105,6 +144,71 @@ int RendererMain(const MainFunctionParams& parameters) {
     MojoShellConnectionImpl::Create();
 #endif
 
+  bool nwjs = parsed_command_line.HasSwitch(switches::kNWJS);
+
+  struct SymbolDefinition {
+    const char* name;
+    VoidHookFn* fn;
+  };
+  const SymbolDefinition kSymbols[] = {
+#if defined(OS_MACOSX)
+    {"g_msg_pump_dtor_osx", &g_msg_pump_dtor_osx_fn },
+    {"g_uv_sem_post", &g_uv_sem_post_fn },
+    {"g_uv_sem_wait", &g_uv_sem_wait_fn },
+#endif
+    { "g_msg_pump_ctor", &g_msg_pump_ctor_fn },
+    { "g_msg_pump_dtor", &g_msg_pump_dtor_fn },
+    { "g_msg_pump_sched_work", &g_msg_pump_sched_work_fn },
+    { "g_msg_pump_nest_leave", &g_msg_pump_nest_leave_fn },
+    { "g_msg_pump_nest_enter", &g_msg_pump_nest_enter_fn },
+    { "g_msg_pump_need_work", &g_msg_pump_need_work_fn },
+    { "g_msg_pump_did_work", &g_msg_pump_did_work_fn },
+    { "g_msg_pump_pre_loop", &g_msg_pump_pre_loop_fn },
+    { "g_msg_pump_clean_ctx", &g_msg_pump_clean_ctx_fn },
+    { "g_promise_reject_callback", &g_promise_reject_callback_fn}
+  };
+  if (nwjs) {
+    base::NativeLibraryLoadError error;
+#if defined(OS_MACOSX)
+    base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF16Unsafe(base::GetNativeLibraryName(base::UTF8ToUTF16("libnode"))));
+#else
+    base::FilePath node_dll_path = base::FilePath::FromUTF16Unsafe(base::GetNativeLibraryName(base::UTF8ToUTF16("node")));
+#endif
+    base::NativeLibrary node_dll = base::LoadNativeLibrary(node_dll_path, &error);
+    if(!node_dll)
+      LOG(FATAL) << "Failed to load node library (error: " << error.ToString() << ")";
+    else {
+      for (size_t i = 0; i < sizeof(kSymbols) / sizeof(kSymbols[0]); ++i) {
+        *(kSymbols[i].fn) = (VoidHookFn)base::GetFunctionPointerFromNativeLibrary(node_dll, kSymbols[i].name);
+        DCHECK(*kSymbols[i].fn) << "Unable to find symbol for "
+                                << kSymbols[i].name;
+      }
+      g_msg_pump_delay_work_fn = (VoidIntHookFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_msg_pump_delay_work");
+      g_node_start_fn = (NodeStartFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_node_start");
+      g_uv_run_fn = (UVRunFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_uv_run");
+      g_set_uv_run_fn = (SetUVRunFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_set_uv_run");
+      g_uv_default_loop_fn = (GetPointerFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_uv_default_loop");
+
+      g_call_tick_callback_fn = (CallTickCallbackFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_call_tick_callback");
+      g_setup_nwnode_fn = (SetupNWNodeFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_setup_nwnode");
+      g_is_node_initialized_fn = (IsNodeInitializedFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_is_node_initialized");
+      g_set_nw_tick_callback_fn = (SetNWTickCallbackFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_set_nw_tick_callback");
+      g_start_nw_instance_fn = (StartNWInstanceFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_start_nw_instance");
+      g_get_node_context_fn = (GetNodeContextFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_get_node_context");
+      g_set_node_context_fn = (SetNodeContextFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_set_node_context");
+      g_get_node_env_fn = (GetNodeEnvFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_get_node_env");
+      g_get_current_env_fn = (GetCurrentEnvironmentFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_get_current_env");
+      g_emit_exit_fn = (EmitExitFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_emit_exit");
+      g_run_at_exit_fn = (RunAtExitFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_run_at_exit");
+#if defined(OS_MACOSX)
+      g_msg_pump_ctor_osx_fn = (VoidPtr4Fn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_msg_pump_ctor_osx");
+      g_nw_uvrun_nowait_fn = (IntVoidFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_nw_uvrun_nowait");
+      g_uv_runloop_once_fn = (IntVoidFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_uv_runloop_once");
+      g_uv_backend_timeout_fn = (IntVoidFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_uv_backend_timeout");
+      g_uv_backend_fd_fn = (IntVoidFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_uv_backend_fd");
+#endif
+    }
+  }
 #if defined(OS_MACOSX)
   base::mac::ScopedNSAutoreleasePool* pool = parameters.autorelease_pool;
 #endif  // OS_MACOSX
@@ -145,12 +249,25 @@ int RendererMain(const MainFunctionParams& parameters) {
   // As long as scrollbars on Mac are painted with Cocoa, the message pump
   // needs to be backed by a Foundation-level loop to process NSTimers. See
   // http://crbug.com/306348#c24 for details.
-  scoped_ptr<base::MessagePump> pump(new base::MessagePumpNSRunLoop());
+  base::MessagePump* p;
+  if (nwjs) {
+    p = new base::MessagePumpUVNSRunLoop();
+  } else
+    p = new base::MessagePumpNSRunLoop();
+  scoped_ptr<base::MessagePump> pump(p);
   scoped_ptr<base::MessageLoop> main_message_loop(
       new base::MessageLoop(std::move(pump)));
 #else
-  // The main message loop of the renderer services doesn't have IO or UI tasks.
-  scoped_ptr<base::MessageLoop> main_message_loop(new base::MessageLoop());
+  // The main message loop of the renderer services doesn't have IO or
+  // UI tasks.
+  base::MessageLoop* msg_loop;
+  if (nwjs) {
+    scoped_ptr<base::MessagePump> pump_uv(new base::MessagePumpUV());
+    msg_loop = new base::MessageLoop(std::move(pump_uv));
+  } else
+    msg_loop = new base::MessageLoop(base::MessageLoop::TYPE_DEFAULT);
+
+  scoped_ptr<base::MessageLoop> main_message_loop(msg_loop);
 #endif
 
   base::PlatformThread::SetName("CrRendererMain");

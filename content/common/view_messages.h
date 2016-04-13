@@ -226,6 +226,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::FileChooserParams)
   IPC_STRUCT_TRAITS_MEMBER(capture)
 #endif
   IPC_STRUCT_TRAITS_MEMBER(requestor)
+  IPC_STRUCT_TRAITS_MEMBER(initial_path)
+IPC_STRUCT_TRAITS_MEMBER(extract_directory)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
@@ -277,6 +279,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(arrow_bitmap_width_horizontal_scroll_bar_in_dips)
 #endif
   IPC_STRUCT_TRAITS_MEMBER(default_font_size)
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_start)
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_end)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::WebPluginGeometry)
@@ -346,6 +350,8 @@ IPC_STRUCT_BEGIN(ViewHostMsg_CreateWindow_Params)
   // separately from |features| above because we cannot serialize WebStrings
   // over IPC.
   IPC_STRUCT_MEMBER(std::vector<base::string16>, additional_features)
+
+  IPC_STRUCT_MEMBER(base::string16, nw_window_manifest)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_CreateWindow_Reply)

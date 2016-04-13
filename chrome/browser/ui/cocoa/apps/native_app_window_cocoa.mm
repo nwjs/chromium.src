@@ -18,6 +18,8 @@
 #include "chrome/browser/ui/cocoa/extensions/extension_view_mac.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/native_web_keyboard_event.h"
+#include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension.h"
@@ -25,6 +27,9 @@
 #include "third_party/skia/include/core/SkRegion.h"
 #import "ui/gfx/mac/nswindow_frame_controls.h"
 #include "ui/gfx/skia_util.h"
+
+#include "ui/gfx/screen.h"
+#include "content/nw/src/nw_content_mac.h"
 
 // NOTE: State Before Update.
 //
@@ -44,11 +49,17 @@
 // desired size.
 
 using extensions::AppWindow;
+using extensions::AppWindowRegistry;
 
 @interface NSWindow (NSPrivateApis)
 - (void)setBottomCornerRounded:(BOOL)rounded;
 - (BOOL)_isTitleHidden;
 @end
+
+namespace content {
+  extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
+}
 
 namespace {
 
@@ -101,6 +112,12 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
 
 - (void)setTitlebarBackgroundView:(NSView*)view {
   titlebar_background_view_.reset([view retain]);
+}
+
+- (BOOL)windowShouldClose:(id)sender {
+  if (appWindow_ && !appWindow_->NWCanClose())
+    return NO;
+  return YES;
 }
 
 - (void)windowWillClose:(NSNotification*)notification {
@@ -182,6 +199,24 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
   return NO;
 }
 
+// this function is for createMacBuiltin only
+- (void)closeAllWindowsQuit:(id)sender {
+  if (!appWindow_)
+    return;
+  AppWindowRegistry* registry = AppWindowRegistry::Get(appWindow_->app_window_->browser_context());
+  if (!registry)
+    return;
+
+  AppWindowRegistry::AppWindowList windows =
+    registry->GetAppWindowsForApp(appWindow_->app_window_->GetExtension()->id());
+
+  for (AppWindow* window : windows) {
+  // passing true for createMacBuiltin: https://github.com/nwjs/nw.js/issues/4580#issuecomment-199236153
+    if (window->NWCanClose(true))
+      window->GetBaseWindow()->Close();
+  }
+}
+
 @end
 
 @interface AppNSWindow : ChromeEventProcessingWindow
@@ -192,7 +227,7 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
 // Similar to ChromeBrowserWindow, don't draw the title, but allow it to be seen
 // in menus, Expose, etc.
 - (BOOL)_isTitleHidden {
-  return YES;
+  return NO;
 }
 
 @end
@@ -218,6 +253,10 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
 
 - (NSRect)contentRectForFrameRect:(NSRect)frameRect {
   return frameRect;
+}
+
+- (BOOL)_isTitleHidden {
+  return YES;
 }
 
 @end
@@ -275,7 +314,7 @@ NativeAppWindowCocoa::NativeAppWindowCocoa(
   if (extension)
     name = extension->name();
   [window setTitle:base::SysUTF8ToNSString(name)];
-  [[window contentView] setWantsLayer:YES];
+  [[window contentView] setWantsLayer:!content::g_force_cpu_draw];
 
   if (base::mac::IsOSSnowLeopard() &&
       [window respondsToSelector:@selector(setBottomCornerRounded:)])
@@ -289,6 +328,12 @@ NativeAppWindowCocoa::NativeAppWindowCocoa(
 
   window_controller_.reset(
       [[NativeAppWindowController alloc] initWithWindow:window]);
+        
+  if (content::g_support_transparency && params.alpha_enabled) {
+    [window setHasShadow: NO];
+    [window setOpaque: NO];
+    [window setBackgroundColor: [NSColor clearColor]];
+  }
 
   if (has_frame_ && has_frame_color_) {
     TitlebarBackgroundView* view =
@@ -308,7 +353,12 @@ NativeAppWindowCocoa::NativeAppWindowCocoa(
 
   // We can now compute the precise window bounds and constraints.
   gfx::Insets insets = GetFrameInsets();
-  SetBounds(params.GetInitialWindowBounds(insets));
+  gfx::Rect bounds = params.GetInitialWindowBounds(insets);
+  if (params.position == AppWindow::POS_MOUSE) {
+      gfx::Point cursor_pos(gfx::Screen::GetNativeScreen()->GetCursorScreenPoint());
+      bounds.set_origin(cursor_pos);
+  }
+  SetBounds(bounds);
   SetContentSizeConstraints(params.GetContentMinimumSize(insets),
                             params.GetContentMaximumSize(insets));
 
@@ -383,6 +433,10 @@ bool NativeAppWindowCocoa::IsMinimized() const {
 
 bool NativeAppWindowCocoa::IsFullscreen() const {
   return is_fullscreen_;
+}
+
+void NativeAppWindowCocoa::SetShowInTaskbar(bool show) {
+  NWSetNSWindowShowInTaskbar(this, show);
 }
 
 void NativeAppWindowCocoa::SetFullscreen(int fullscreen_types) {
@@ -663,6 +717,12 @@ bool NativeAppWindowCocoa::IsAlwaysOnTop() const {
 void NativeAppWindowCocoa::RenderViewCreated(content::RenderViewHost* rvh) {
   if (IsActive())
     WebContents()->RestoreFocus();
+  if (content::g_support_transparency &&
+      app_window_->requested_alpha_enabled() && CanHaveAlphaEnabled()) {
+    content::RenderWidgetHostView* view = rvh->GetWidget()->GetView();
+    DCHECK(view);
+    view->SetBackgroundColor(SK_ColorTRANSPARENT);
+  }
 }
 
 bool NativeAppWindowCocoa::IsFrameless() const {
@@ -701,7 +761,7 @@ gfx::Insets NativeAppWindowCocoa::GetFrameInsets() const {
 }
 
 bool NativeAppWindowCocoa::CanHaveAlphaEnabled() const {
-  return false;
+  return content::g_support_transparency ? [window() isOpaque] == NO : false;
 }
 
 gfx::NativeView NativeAppWindowCocoa::GetHostView() const {
@@ -732,6 +792,10 @@ void NativeAppWindowCocoa::WindowWillClose() {
   [window_controller_ setAppWindow:NULL];
   app_window_->OnNativeWindowChanged();
   app_window_->OnNativeClose();
+}
+
+bool NativeAppWindowCocoa::NWCanClose(bool user_force) {
+  return app_window_->NWCanClose(user_force);
 }
 
 void NativeAppWindowCocoa::WindowDidBecomeKey() {
@@ -832,7 +896,8 @@ void NativeAppWindowCocoa::ShowWithApp() {
 
 void NativeAppWindowCocoa::HideWithApp() {
   is_hidden_with_app_ = true;
-  HideWithoutMarkingHidden();
+  [NSApp hide:nil];
+//  HideWithoutMarkingHidden();
 }
 
 gfx::Size NativeAppWindowCocoa::GetContentMinimumSize() const {
@@ -841,6 +906,25 @@ gfx::Size NativeAppWindowCocoa::GetContentMinimumSize() const {
 
 gfx::Size NativeAppWindowCocoa::GetContentMaximumSize() const {
   return size_constraints_.GetMaximumSize();
+}
+
+void NativeAppWindowCocoa::SetResizable(bool flag) {
+  is_resizable_ = flag;
+  gfx::Size min_size = size_constraints_.GetMinimumSize();
+  gfx::Size max_size = size_constraints_.GetMaximumSize();
+
+  shows_resize_controls_ =
+      is_resizable_ && !size_constraints_.HasFixedSize();
+  shows_fullscreen_controls_ =
+      is_resizable_ && !size_constraints_.HasMaximumSize() && has_frame_;
+
+  gfx::ApplyNSWindowSizeConstraints(window(), min_size, max_size,
+                                    shows_resize_controls_,
+                                    shows_fullscreen_controls_);
+}
+
+bool NativeAppWindowCocoa::IsResizable() const {
+  return is_resizable_;
 }
 
 void NativeAppWindowCocoa::SetContentSizeConstraints(

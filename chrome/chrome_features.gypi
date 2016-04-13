@@ -18,7 +18,7 @@
         ['OS=="android" or OS=="ios"', {
           'enable_google_now%': 0,
         }, {
-          'enable_google_now%': 1,
+          'enable_google_now%': 0,
         }]
       ],
 

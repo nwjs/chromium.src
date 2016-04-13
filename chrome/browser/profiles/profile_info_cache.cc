@@ -1015,7 +1015,7 @@ void ProfileInfoCache::DownloadHighResAvatarIfNeeded(
     size_t icon_index,
     const base::FilePath& profile_path) {
   // Downloading is only supported on desktop.
-#if defined(OS_ANDROID) || defined(OS_IOS) || defined(OS_CHROMEOS)
+#if 1
   return;
 #endif
   DCHECK(!disable_avatar_download_for_testing_);

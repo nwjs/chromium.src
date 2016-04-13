@@ -30,6 +30,9 @@
 
 #include "core/inspector/PageRuntimeAgent.h"
 
+#include "core/frame/LocalDOMWindow.h"
+#include "core/frame/LocalFrame.h"
+
 #include "bindings/core/v8/DOMWrapperWorld.h"
 #include "bindings/core/v8/ScriptController.h"
 #include "bindings/core/v8/ScriptState.h"
@@ -163,6 +166,28 @@ void PageRuntimeAgent::reportExecutionContextCreation()
 
 void PageRuntimeAgent::reportExecutionContext(ScriptState* scriptState, bool isPageContext, const String& origin, const String& frameId)
 {
+    // for case issue3780-jailed: empty item in the frame switcher in
+    // console tab
+    LocalDOMWindow* domWindow = scriptState->domWindow();
+    LocalFrame* frame = domWindow ? domWindow->frame() : 0;
+    if (frame && frame->page() && frame->page()->mainFrame()) {
+        Frame* main_frame = frame->page()->mainFrame();
+        Frame* jail_frame = main_frame->getDevtoolsJail();
+        if (jail_frame) {
+            bool in_jail_frame = false;
+            Frame* f = frame;
+            while (f) {
+                if (f == jail_frame) {
+                    in_jail_frame = true;
+                    break;
+                }
+                f = f->tree().parent();
+            }
+            if (!in_jail_frame)
+                return;
+        }
+    }
+
     DOMWrapperWorld& world = scriptState->world();
     String humanReadableName = world.isIsolatedWorld() ? world.isolatedWorldHumanReadableName() : "";
     String type = isPageContext ? "" : "Extension";

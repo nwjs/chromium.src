@@ -626,11 +626,13 @@ void PeopleHandler::HandleStopSyncing(const base::ListValue* args) {
   SigninManagerFactory::GetForProfile(profile_)
       ->SignOut(signin_metrics::USER_CLICKED_SIGNOUT_SETTINGS);
 
+#if 0
   bool delete_profile = false;
   if (args->GetBoolean(0, &delete_profile) && delete_profile) {
     // Do as BrowserOptionsHandler::DeleteProfile().
     options::helper::DeleteProfileAtPath(profile_->GetPath(), web_ui());
   }
+#endif
 }
 #endif
 

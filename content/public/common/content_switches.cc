@@ -137,8 +137,15 @@ const char kDisableGestureRequirementForMediaPlayback[] =
 // then the GPU process won't launch.
 const char kDisableGpu[]                    = "disable-gpu";
 
+// Disable apps transparency support
+const char kDisableTransparency[]           = "disable-transparency";
+
+// Force CPU drawing, needed to enable click through on transparent window
+const char kForceCpuDraw[]                  = "force-cpu-draw";
+
 // Prevent the compositor from using its GPU implementation.
 const char kDisableGpuCompositing[]         = "disable-gpu-compositing";
+const char kDisableRAFThrottling[]          = "disable-raf-throttling";
 
 // Disable proactive early init of GPU process.
 const char kDisableGpuEarlyInit[]           = "disable-gpu-early-init";

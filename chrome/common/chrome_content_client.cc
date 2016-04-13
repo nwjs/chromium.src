@@ -296,7 +296,7 @@ bool GetComponentUpdatedPepperFlash(content::PepperPluginInfo* plugin) {
 #endif  // defined(OS_LINUX)
 
 bool GetBundledPepperFlash(content::PepperPluginInfo* plugin) {
-#if defined(FLAPPER_AVAILABLE)
+#if 1
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
   // Ignore bundled Pepper Flash if there is Pepper Flash specified from the
@@ -310,10 +310,31 @@ bool GetBundledPepperFlash(content::PepperPluginInfo* plugin) {
     return false;
 
   base::FilePath flash_path;
-  if (!PathService::Get(chrome::FILE_PEPPER_FLASH_PLUGIN, &flash_path))
+  if (!PathService::Get(chrome::DIR_PEPPER_FLASH_PLUGIN, &flash_path))
+    return false;
+  base::FilePath flash_filename;
+  if (!PathService::Get(chrome::FILE_PEPPER_FLASH_PLUGIN, &flash_filename))
+    return false;
+  base::FilePath manifest_path(
+      flash_path.AppendASCII("manifest.json"));
+
+  std::string manifest_data;
+  if (!base::ReadFileToString(manifest_path, &manifest_data))
+    return false;
+  scoped_ptr<base::Value> manifest_value(
+      base::JSONReader::Read(manifest_data, base::JSON_ALLOW_TRAILING_COMMAS));
+  if (!manifest_value.get())
+    return false;
+  base::DictionaryValue* manifest = NULL;
+  if (!manifest_value->GetAsDictionary(&manifest))
     return false;
 
-  *plugin = CreatePepperFlashInfo(flash_path, FLAPPER_VERSION_STRING, false);
+  Version version;
+  if (!chrome::CheckPepperFlashManifest(*manifest, &version))
+    return false;
+
+  *plugin = CreatePepperFlashInfo(flash_filename, version.GetString(),
+                                  false);
   return true;
 #else
   return false;

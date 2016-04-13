@@ -1197,7 +1197,7 @@ SECStatus SSLClientSocketNSS::Core::ClientAuthHandler(
     // Second pass: a client certificate should have been selected.
     if (core->ssl_config_.client_cert.get()) {
       CERTCertificate* cert =
-          CERT_DupCertificate(core->ssl_config_.client_cert->os_cert_handle());
+          CERT_DupCertificate((CERTCertificate*)core->ssl_config_.client_cert->os_cert_handle());
       SECKEYPrivateKey* privkey = PK11_FindKeyByAnyCert(cert, wincx);
       if (privkey) {
         // TODO(jsorianopastor): We should wait for server certificate

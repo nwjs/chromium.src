@@ -421,7 +421,7 @@ void HTMLFormElement::scheduleFormSubmission(PassRefPtrWillBeRawPtr<FormSubmissi
 
     Frame* targetFrame = document().frame()->findFrameForNavigation(submission->target(), *document().frame());
     if (!targetFrame) {
-        if (!LocalDOMWindow::allowPopUp(*document().frame()) && !UserGestureIndicator::processingUserGesture())
+        if (!LocalDOMWindow::allowPopUp(*document().frame()) && !UserGestureIndicator::processingUserGesture() && !document().frame()->isNodeJS())
             return;
         targetFrame = document().frame();
     } else {
@@ -469,7 +469,7 @@ void HTMLFormElement::requestAutocomplete()
         errorMessage = "requestAutocomplete: form is not owned by a displayed document.";
     else if (!shouldAutocomplete())
         errorMessage = "requestAutocomplete: form autocomplete attribute is set to off.";
-    else if (!UserGestureIndicator::processingUserGesture())
+    else if (!UserGestureIndicator::processingUserGesture() && !document().frame()->isNodeJS())
         errorMessage = "requestAutocomplete: must be called in response to a user gesture.";
 
     if (!errorMessage.isEmpty()) {

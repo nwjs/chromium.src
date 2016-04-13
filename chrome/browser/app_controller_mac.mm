@@ -102,6 +102,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
+#include "content/nw/src/nw_content.h"
+
 using apps::AppShimHandler;
 using apps::ExtensionAppShimHandler;
 using base::UserMetricsAction;
@@ -144,7 +146,7 @@ Browser* CreateBrowser(Profile* profile) {
   }
 
   Browser* browser = chrome::GetLastActiveBrowser();
-  CHECK(browser);
+  //CHECK(browser);
   return browser;
 }
 
@@ -389,7 +391,7 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
   [self initMenuState];
 
   // Initialize the Profile menu.
-  [self initProfileMenu];
+  //[self initProfileMenu];
 }
 
 - (void)unregisterEventHandlers {
@@ -494,6 +496,9 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
       !AppWindowRegistryUtil::IsAppWindowVisibleInAnyProfile(0)) {
     return NSTerminateNow;
   }
+
+  if (!AppWindowRegistryUtil::CloseAllAppWindows(true))
+    return NSTerminateCancel;
 
   // Check if the preference is turned on.
   const PrefService* prefs = g_browser_process->local_state();
@@ -681,7 +686,11 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
 
 - (void)openStartupUrls {
   DCHECK(startupComplete_);
-  [self openUrlsReplacingNTP:startupUrls_];
+  if (startupUrls_.size()) {
+    base::CommandLine::ForCurrentProcess()->AppendArg(startupUrls_[0].spec());
+    base::CommandLine::ForCurrentProcess()->FixOrigArgv4Finder(startupUrls_[0].spec());
+  }
+  //[self openUrlsReplacingNTP:startupUrls_];
   startupUrls_.clear();
 }
 
@@ -743,7 +752,7 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
 
   // If enabled, keep Chrome alive when apps are open instead of quitting all
   // apps.
-  quitWithAppsController_ = new QuitWithAppsController();
+  // quitWithAppsController_ = new QuitWithAppsController();
 
   // Dynamically update shortcuts for "Close Window" and "Close Tab" menu items.
   [[closeTabMenuItem_ menu] setDelegate:self];
@@ -1188,6 +1197,8 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
 // browser windows.
 - (BOOL)applicationShouldHandleReopen:(NSApplication*)theApplication
                     hasVisibleWindows:(BOOL)hasVisibleWindows {
+  return nw::ApplicationShouldHandleReopenHook(hasVisibleWindows) ? YES : NO;
+#if 0
   // If the browser is currently trying to quit, don't do anything and return NO
   // to prevent AppKit from doing anything.
   // TODO(rohitrao): Remove this code when http://crbug.com/40861 is resolved.
@@ -1278,6 +1289,7 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
   // We've handled the reopen event, so return NO to tell AppKit not
   // to do anything.
   return NO;
+#endif
 }
 
 - (void)initMenuState {
@@ -1387,6 +1399,9 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
     return;
   }
 
+  nw::OSXOpenURLsHook(urls);
+
+#if 0
   Browser* browser = chrome::GetLastActiveBrowser();
   // if no browser window exists then create one with no tabs to be filled in
   if (!browser) {
@@ -1400,6 +1415,7 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
       chrome::startup::IS_FIRST_RUN : chrome::startup::IS_NOT_FIRST_RUN;
   StartupBrowserCreatorImpl launch(base::FilePath(), dummy, first_run);
   launch.OpenURLsInBrowser(browser, false, urls, browser->host_desktop_type());
+#endif
 }
 
 - (void)getUrl:(NSAppleEventDescriptor*)event
@@ -1483,6 +1499,7 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
   if (profilesAdded)
     [dockMenu addItem:[NSMenuItem separatorItem]];
 
+#if 0
   NSString* titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_WINDOW_MAC);
   base::scoped_nsobject<NSMenuItem> item(
       [[NSMenuItem alloc] initWithTitle:titleStr
@@ -1507,6 +1524,7 @@ class AppControllerProfileObserver : public ProfileInfoCacheObserver {
     [item setEnabled:[self validateUserInterfaceItem:item]];
     [dockMenu addItem:item];
   }
+#endif
 
   // TODO(rickcam): Mock out BackgroundApplicationListModel, then add unit
   // tests which use the mock in place of the profile-initialized model.

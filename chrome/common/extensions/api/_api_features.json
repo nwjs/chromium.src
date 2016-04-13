@@ -788,6 +788,7 @@
   }, {
     "channel": "trunk",
     "contexts": ["webui"],
+    "dependencies": ["permission:usersPrivate"],
     "matches": [
       "chrome://md-settings/*",
       "chrome://settings/*",

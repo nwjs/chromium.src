@@ -131,6 +131,9 @@
 #include "chromeos/network/host_resolver_impl_chromeos.h"
 #endif
 
+
+#include "content/nw/src/policy_cert_verifier.h"
+
 using content::BrowserThread;
 
 class SafeBrowsingURLRequestContext;
@@ -706,8 +709,8 @@ void IOThread::Init() {
   globals_->cert_verifier.reset(new net::MultiThreadedCertVerifier(
       new chromeos::CertVerifyProcChromeOS()));
 #else
-  globals_->cert_verifier.reset(new net::MultiThreadedCertVerifier(
-      net::CertVerifyProc::CreateDefault()));
+  globals_->cert_verifier.reset(new nw::PolicyCertVerifier());
+
 #endif
 
   globals_->transport_security_state.reset(new net::TransportSecurityState());

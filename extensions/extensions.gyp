@@ -206,6 +206,7 @@
         '../gin/gin.gyp:gin',
         '../third_party/WebKit/public/blink.gyp:blink',
         '../third_party/mojo/mojo_public.gyp:mojo_js_bindings',
+        #'../third_party/node/node.gyp:node',
       ],
       'include_dirs': [
         '..',

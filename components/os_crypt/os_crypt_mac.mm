@@ -34,7 +34,7 @@ const size_t kDerivedKeySizeInBits = 128;
 const size_t kEncryptionIterations = 1003;
 
 // TODO(dhollowa): Refactor to allow dependency injection of Keychain.
-static bool use_mock_keychain = false;
+static bool use_mock_keychain = true;
 
 // Prefix for cypher text returned by current encryption version.  We prefix
 // the cypher text with this string so that future data migration can detect

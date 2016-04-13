@@ -161,6 +161,9 @@ class UserScript {
   bool emulate_greasemonkey() const { return emulate_greasemonkey_; }
   void set_emulate_greasemonkey(bool val) { emulate_greasemonkey_ = val; }
 
+  bool in_main_world() const { return in_main_world_; }
+  void set_in_main_world(bool val) { in_main_world_ = val; }
+
   // Whether to match all frames, or only the top one.
   bool match_all_frames() const { return match_all_frames_; }
   void set_match_all_frames(bool val) { match_all_frames_ = val; }
@@ -304,6 +307,8 @@ class UserScript {
   // Whether we should try to emulate Greasemonkey's APIs when running this
   // script.
   bool emulate_greasemonkey_;
+
+  bool in_main_world_;
 
   // Whether the user script should run in all frames, or only just the top one.
   // Defaults to false.

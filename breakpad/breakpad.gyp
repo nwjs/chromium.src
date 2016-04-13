@@ -436,7 +436,7 @@
           # GN version: //breakpad:dump_syms
           'target_name': 'dump_syms',
           'type': 'executable',
-          'toolsets': ['host'],
+          'toolsets': ['host', 'target'],
 
           # dwarf2reader.cc uses dynamic_cast. Because we don't typically
           # don't support RTTI, we enable it for this single target. Since

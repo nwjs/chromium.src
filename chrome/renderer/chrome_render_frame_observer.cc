@@ -123,9 +123,11 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
       *base::CommandLine::ForCurrentProcess();
   if (!command_line.HasSwitch(switches::kDisableClientSidePhishingDetection))
     OnSetClientSidePhishingDetection(true);
+#if 0
   translate_helper_ = new translate::TranslateHelper(
       render_frame, chrome::ISOLATED_WORLD_ID_TRANSLATE, 0,
       extensions::kExtensionScheme);
+#endif
 }
 
 ChromeRenderFrameObserver::~ChromeRenderFrameObserver() {
@@ -320,12 +322,14 @@ void ChromeRenderFrameObserver::DidFinishLoad() {
 }
 
 void ChromeRenderFrameObserver::DidStartProvisionalLoad() {
+#if 0
   // Let translate_helper do any preparatory work for loading a URL.
   if (!translate_helper_)
     return;
 
   translate_helper_->PrepareForUrl(
       render_frame()->GetWebFrame()->document().url());
+#endif
 }
 
 void ChromeRenderFrameObserver::DidCommitProvisionalLoad(
@@ -377,8 +381,10 @@ void ChromeRenderFrameObserver::CapturePageText(TextCaptureType capture_type) {
   UMA_HISTOGRAM_TIMES(kTranslateCaptureText,
                       base::TimeTicks::Now() - capture_begin_time);
 
+#if 0
   if (translate_helper_)
     translate_helper_->PageCaptured(contents);
+#endif
 
   TRACE_EVENT0("renderer", "ChromeRenderFrameObserver::CapturePageText");
 

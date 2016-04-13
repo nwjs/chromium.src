@@ -85,6 +85,7 @@ using gpu::gles2::GLES2Interface;
 static const int kNumRetriesBeforeSoftwareFallback = 4;
 
 namespace content {
+extern bool g_force_cpu_draw;
 
 struct GpuProcessTransportFactory::PerCompositorData {
   int surface_id;
@@ -153,8 +154,10 @@ GpuProcessTransportFactory::CreateSoftwareOutputDevice(
   return scoped_ptr<cc::SoftwareOutputDevice>(new SoftwareOutputDeviceX11(
       compositor));
 #elif defined(OS_MACOSX)
-  return scoped_ptr<cc::SoftwareOutputDevice>(
-      new SoftwareOutputDeviceMac(compositor));
+  if (g_force_cpu_draw)
+    return scoped_ptr<cc::SoftwareOutputDevice>(new SoftwareOutputDeviceForceCPUMac(compositor));
+  else
+    return scoped_ptr<cc::SoftwareOutputDevice>(new SoftwareOutputDeviceMac(compositor));
 #else
   NOTREACHED();
   return scoped_ptr<cc::SoftwareOutputDevice>();
