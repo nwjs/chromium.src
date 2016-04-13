@@ -51,6 +51,8 @@ class VIEWS_EXPORT NativeWidgetDelegate {
   // Returns true if the window can be activated.
   virtual bool CanActivate() const = 0;
 
+  virtual bool NWCanClose(bool user_force = false) const = 0;
+
   virtual bool IsInactiveRenderingDisabled() const = 0;
   virtual void EnableInactiveRendering() = 0;
 

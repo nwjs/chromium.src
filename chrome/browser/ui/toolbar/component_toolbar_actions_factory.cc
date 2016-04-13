@@ -63,9 +63,11 @@ ComponentToolbarActionsFactory::GetComponentToolbarActionForId(
   // should be okay. If this changes, we should rethink this design to have,
   // e.g., RegisterChromeAction().
 #if defined(ENABLE_MEDIA_ROUTER)
+#if defined(NWJS_SDK)
   if (id == kMediaRouterActionId)
     return scoped_ptr<ToolbarActionViewController>(
         new MediaRouterAction(browser, bar));
+#endif
 #endif  // defined(ENABLE_MEDIA_ROUTER)
 
   NOTREACHED();

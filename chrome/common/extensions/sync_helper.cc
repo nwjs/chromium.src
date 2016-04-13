@@ -59,6 +59,7 @@ bool IsSyncable(const Extension* extension) {
     case Manifest::TYPE_HOSTED_APP:
     case Manifest::TYPE_LEGACY_PACKAGED_APP:
     case Manifest::TYPE_PLATFORM_APP:
+    case Manifest::TYPE_NWJS_APP:
     case Manifest::TYPE_THEME:
       return true;
 

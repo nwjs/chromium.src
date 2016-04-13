@@ -30,14 +30,16 @@ GlassAppWindowFrameViewWin::~GlassAppWindowFrameViewWin() {
 }
 
 gfx::Insets GlassAppWindowFrameViewWin::GetGlassInsets() const {
+#if 0
+  return gfx::Insets();
+#else
   int caption_height = gfx::win::GetSystemMetricsInDIP(SM_CYSIZEFRAME) +
                        gfx::win::GetSystemMetricsInDIP(SM_CYCAPTION);
 
-  int frame_size = base::win::GetVersion() < base::win::VERSION_WIN10
-                       ? gfx::win::GetSystemMetricsInDIP(SM_CXSIZEFRAME)
-                       : 0;
+  int frame_size = gfx::win::GetSystemMetricsInDIP(SM_CXSIZEFRAME);
 
   return gfx::Insets(caption_height, frame_size, frame_size, frame_size);
+#endif
 }
 
 gfx::Insets GlassAppWindowFrameViewWin::GetClientAreaInsets() const {
@@ -62,6 +64,9 @@ gfx::Insets GlassAppWindowFrameViewWin::GetClientAreaInsets() const {
 }
 
 gfx::Rect GlassAppWindowFrameViewWin::GetBoundsForClientView() const {
+#if 1
+  return bounds();
+#else
   if (widget_->IsFullscreen())
     return bounds();
 
@@ -70,6 +75,7 @@ gfx::Rect GlassAppWindowFrameViewWin::GetBoundsForClientView() const {
                    insets.top(),
                    std::max(0, width() - insets.left() - insets.right()),
                    std::max(0, height() - insets.top() - insets.bottom()));
+#endif
 }
 
 gfx::Rect GlassAppWindowFrameViewWin::GetWindowBoundsForClientBounds(

@@ -87,6 +87,10 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // implementing them on non-aura windows. http://crbug.com/189112.
   virtual bool ShouldHandleSystemCommands() const = 0;
 
+  // on windows, maximizing sometime is sent through WM_SIZE, not
+  // WM_SYSCOMMAND, see node-webkit#753
+  virtual bool ShouldHandleOnSize() const = 0;
+
   // TODO(beng): Investigate migrating these methods to On* prefixes once
   // HWNDMessageHandler is the WindowImpl.
 
@@ -113,6 +117,8 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // Called when a command defined by the application was performed. Returns
   // true if the command was handled.
   virtual bool HandleCommand(int command) = 0;
+
+  virtual bool HandleSize(UINT param, const gfx::Size& size) = 0;
 
   // Called when an accelerator is invoked.
   virtual void HandleAccelerator(const ui::Accelerator& accelerator) = 0;

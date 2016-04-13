@@ -77,6 +77,16 @@ class RequestSender {
                     bool for_io_thread,
                     base::ListValue* value_args);
 
+  void StartRequestSync(Source* source,
+                        const std::string& name,
+                        int request_id,
+                        bool has_callback,
+                        bool for_io_thread,
+                        base::ListValue* value_args,
+                        bool* success,
+                        base::ListValue* response,
+                        std::string* error);
+
   // Handles responses from the extension host to calls made by StartRequest().
   void HandleResponse(int request_id,
                       bool success,

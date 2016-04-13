@@ -1104,6 +1104,9 @@
       'weborigin/SecurityOriginHash.h',
       'weborigin/SecurityPolicy.cpp',
       'weborigin/SecurityPolicy.h',
+      'win/HWndDC.h',
+      'win/SystemInfo.cpp',
+      'win/SystemInfo.h',
     ],
     'platform_test_files': [
       'DecimalTest.cpp',

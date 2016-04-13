@@ -63,7 +63,7 @@ public:
     void focusedNodeChanged(Node* fromNode, Node* toNode) override;
     bool hadFormInteraction() const override;
     Page* createWindow(
-        LocalFrame*, const FrameLoadRequest&, const WindowFeatures&, NavigationPolicy, ShouldSetOpener) override;
+        LocalFrame*, const FrameLoadRequest&, const WindowFeatures&, NavigationPolicy, ShouldSetOpener, WebString*) override;
     void show(NavigationPolicy) override;
     void didOverscroll(const FloatSize&, const FloatSize&, const FloatPoint&, const FloatSize&) override;
     void setToolbarsVisible(bool) override;

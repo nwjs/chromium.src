@@ -1074,6 +1074,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
       prefs.default_minimum_page_scale_factor,
       prefs.default_maximum_page_scale_factor);
 
+  settings->setDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
 #if defined(OS_ANDROID)
   settings->setAllowCustomScrollbarInMainFrame(false);
   settings->setTextAutosizingEnabled(prefs.text_autosizing_enabled);
@@ -1082,7 +1083,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->setFullscreenSupported(prefs.fullscreen_supported);
   web_view->setIgnoreViewportTagScaleLimits(prefs.force_enable_zoom);
   settings->setAutoZoomFocusedNodeToLegibleScale(true);
-  settings->setDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
   settings->setMediaControlsOverlayPlayButtonEnabled(true);
   settings->setMediaPlaybackRequiresUserGesture(
       prefs.user_gesture_required_for_media_playback);
@@ -1130,7 +1130,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->setShowContextMenuOnMouseUp(prefs.context_menu_on_mouse_up);
 
 #if defined(OS_MACOSX)
-  settings->setDoubleTapToZoomEnabled(true);
+  //settings->setDoubleTapToZoomEnabled(true);
   web_view->setMaximumLegibleScale(prefs.default_maximum_page_scale_factor);
 #endif
 }
@@ -1605,7 +1605,8 @@ WebView* RenderViewImpl::createView(WebLocalFrame* creator,
                                     const WebWindowFeatures& features,
                                     const WebString& frame_name,
                                     WebNavigationPolicy policy,
-                                    bool suppress_opener) {
+                                    bool suppress_opener,
+                                    WebString* manifest) {
   ViewHostMsg_CreateWindow_Params params;
   params.opener_id = routing_id();
   params.user_gesture = WebUserGestureIndicator::isProcessingUserGesture();
@@ -1647,6 +1648,7 @@ WebView* RenderViewImpl::createView(WebLocalFrame* creator,
     params.referrer = GetReferrerFromRequest(creator, request);
   }
   params.features = features;
+  params.nw_window_manifest = *manifest;
 
   for (size_t i = 0; i < features.additionalFeatures.size(); ++i)
     params.additional_features.push_back(features.additionalFeatures[i]);
@@ -1829,6 +1831,8 @@ bool RenderViewImpl::runFileChooser(
   ipc_params.capture = params.useMediaCapture;
 #endif
   ipc_params.requestor = params.requestor;
+  ipc_params.initial_path = blink::WebStringToFilePath(params.initialPath);
+  ipc_params.extract_directory = params.extractDirectory;
 
   return ScheduleFileChooser(ipc_params, chooser_completion);
 }

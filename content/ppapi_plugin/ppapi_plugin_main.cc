@@ -130,7 +130,7 @@ int PpapiPluginMain(const MainFunctionParams& parameters) {
     GetContentClient()->plugin()->PreSandboxInitialization();
 
 #if defined(OS_LINUX)
-  LinuxSandbox::InitializeSandbox();
+  //LinuxSandbox::InitializeSandbox();
 #endif
 
   ChildProcess ppapi_process;
