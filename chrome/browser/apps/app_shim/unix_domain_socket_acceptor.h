@@ -47,6 +47,7 @@ class UnixDomainSocketAcceptor : public base::MessageLoopForIO::Watcher {
   base::MessageLoopForIO::FileDescriptorWatcher
       server_listen_connection_watcher_;
   base::FilePath path_;
+  base::FilePath absolute_path_;
   Delegate* delegate_;
   int listen_fd_;
 
