@@ -49,6 +49,7 @@ class UnixDomainSocketAcceptor : public base::MessageLoopForIO::Watcher {
   mojo::edk::NamedPlatformHandle named_pipe_;
   Delegate* delegate_;
   mojo::edk::ScopedPlatformHandle listen_handle_;
+  base::FilePath absolute_path_;
 
   DISALLOW_COPY_AND_ASSIGN(UnixDomainSocketAcceptor);
 };

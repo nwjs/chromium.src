@@ -22,5 +22,13 @@ void SetUpBundleOverrides() {
   base::mac::SetOverrideFrameworkBundlePath(chrome::GetFrameworkBundlePath());
 
   NSBundle* base_bundle = chrome::OuterAppBundle();
-  base::mac::SetBaseBundleID([[base_bundle bundleIdentifier] UTF8String]);
+
+  NSString* base_bundle_id = [base_bundle bundleIdentifier];
+
+  NSString* team_id = [base_bundle objectForInfoDictionaryKey:@"NWTeamID"];
+  if (team_id) {
+    base_bundle_id = [NSString stringWithFormat:@"%@.%@", team_id, base_bundle_id];
+  }
+
+  base::mac::SetBaseBundleID([base_bundle_id UTF8String]);
 }
