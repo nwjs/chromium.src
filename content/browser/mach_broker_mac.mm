@@ -149,6 +149,16 @@ void MachBroker::Observe(int type,
 
 // static
 std::string MachBroker::GetMachPortName() {
+#if defined(NWJS_MAS)
+  // MAS fix
+  // You can't entitle dynamic mach global name for MAS. Changing it to a constant
+  // name fixes it.
+  // Note: there was an entitlement `com.apple.security.temporary-exception.sbpl`
+  // to match mach global name with patterns. However it's undocumented and subject
+  // to change without notice. Therefore it's higher risk to be rejected using
+  // it.
+  return base::StringPrintf("%s.rohitfork", base::mac::BaseBundleID());
+#else
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
   const bool is_child = command_line->HasSwitch(switches::kProcessType);
@@ -156,6 +166,7 @@ std::string MachBroker::GetMachPortName() {
   // In non-browser (child) processes, use the parent's pid.
   const pid_t pid = is_child ? getppid() : getpid();
   return base::StringPrintf("%s.rohitfork.%d", base::mac::BaseBundleID(), pid);
+#endif
 }
 
 MachBroker::MachBroker() : initialized_(false) {

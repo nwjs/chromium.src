@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "base/logging.h"
+#include "base/mac/foundation_util.h"
 #include "base/mac/mach_logging.h"
 #include "base/mac/scoped_mach_port.h"
 #include "base/posix/eintr_wrapper.h"
@@ -93,6 +94,18 @@ mach_port_t ChildPortHandshakeServer::RunServer(
     return MACH_PORT_NULL;
   }
 
+#if defined(NWJS_MAS)
+  // MAS fix
+  // You can't entitle dynamic mach global name for MAS. Changing it to a constant
+  // name fixes it.
+  // Note: there was an entitlement `com.apple.security.temporary-exception.sbpl`
+  // to match mach global name with patterns. However it's undocumented and subject
+  // to change without notice. Therefore it's higher risk to be rejected using
+  // it.
+  std::string service_name = base::StringPrintf(
+    "%s.crashpad.child_port_handshake",
+    crashpad::GetOuterBundleId());
+#else
   // Create a unique name for the bootstrap service mapping. Make it unguessable
   // to prevent outsiders from grabbing the name first, which would cause
   // bootstrap_check_in() to fail.
@@ -104,6 +117,7 @@ mach_port_t ChildPortHandshakeServer::RunServer(
       getpid(),
       thread_id,
       RandomString().c_str());
+#endif
 
   // Check the new service in with the bootstrap server, obtaining a receive
   // right for it.
