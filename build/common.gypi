@@ -103,6 +103,9 @@
           'buildtype%': 'Dev',
           'nwjs_sdk%': 0,
 
+          # Override for MAS compatible build.
+          'nwjs_mas%': 0,
+
           # Override branding to select the desired branding flavor.
           'branding%': 'Chromium',
 
@@ -176,6 +179,7 @@
         'enable_wifi_display%': '<(enable_wifi_display)',
         'buildtype%': '<(buildtype)',
         'nwjs_sdk%': '<(nwjs_sdk)',
+        'nwjs_mas%': '<(nwjs_mas)',
         'branding%': '<(branding)',
         'branding_path_component%': '<(branding)',
         'host_arch%': '<(host_arch)',
@@ -369,6 +373,7 @@
       'use_default_render_theme%': '<(use_default_render_theme)',
       'buildtype%': '<(buildtype)',
       'nwjs_sdk%': '<(nwjs_sdk)',
+      'nwjs_mas%': '<(nwjs_mas)',
       'branding%': '<(branding)',
       'branding_path_component%': '<(branding_path_component)',
       'arm_version%': '<(arm_version)',
@@ -1122,6 +1127,7 @@
 
     # Copy conditionally-set variables out one scope.
     'nwjs_sdk%': '<(nwjs_sdk)',
+    'nwjs_mas%': '<(nwjs_mas)',
     'branding%': '<(branding)',
     'branding_path_component%': '<(branding_path_component)',
     'buildtype%': '<(buildtype)',
@@ -3004,6 +3010,12 @@
           'SAFE_BROWSING_DB_REMOTE',
         ],
       }],
+      ['OS=="mac" and nwjs_mas==1', {
+        'defines': [
+          'NWJS_MAS',
+        ]
+      }
+      ],
     ],  # conditions for 'target_defaults'
     'target_conditions': [
       ['<(use_libpci)==1', {
