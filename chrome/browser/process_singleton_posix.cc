@@ -102,37 +102,6 @@ using content::BrowserThread;
 
 namespace {
 
-// XXX:
-class SanitizedSocketPath {
- public:
-  explicit SanitizedSocketPath(const base::FilePath& socket_path)
-      : socket_path_(socket_path) {
-    if (socket_path.value().length() >= arraysize(sockaddr_un::sun_path)) {
-      bool found_current_dir = GetCurrentDirectory(&old_path_);
-      CHECK(found_current_dir) << "Failed to determine the current directory.";
-      changed_directory_ = SetCurrentDirectory(socket_path.DirName());
-      CHECK(changed_directory_) << "Failed to change directory: " <<
-          socket_path.DirName().value();
-    }
-  }
-
-  ~SanitizedSocketPath() {
-    if (changed_directory_)
-      SetCurrentDirectory(old_path_);
-  }
-
-  base::FilePath SocketPath() const {
-    return changed_directory_ ? socket_path_.BaseName() : socket_path_;
-  }
-
- private:
-  bool changed_directory_ = false;
-  base::FilePath socket_path_;
-  base::FilePath old_path_;
-
-  DISALLOW_COPY_AND_ASSIGN(SanitizedSocketPath);
-};
-
 // Timeout for the current browser process to respond. 20 seconds should be
 // enough.
 const int kTimeoutInSeconds = 7;
@@ -414,7 +383,7 @@ bool ConnectSocket(ScopedSocket* socket,
     // Now we know the directory was (at that point) created by the profile
     // owner. Try to connect.
     {
-      SanitizedSocketPath sanitized_socket_target(socket_target);
+      base::SanitizedSocketPath sanitized_socket_target(socket_target);
       sockaddr_un addr;
       SetupSockAddr(sanitized_socket_target.SocketPath().value(), &addr);
       int ret = HANDLE_EINTR(connect(socket->fd(),
@@ -435,7 +404,7 @@ bool ConnectSocket(ScopedSocket* socket,
   } else if (errno == EINVAL) {
     // It exists, but is not a symlink (or some other error we detect
     // later). Just connect to it directly; this is an older version of Chrome.
-    SanitizedSocketPath sanitized_socket_path(socket_path);
+    base::SanitizedSocketPath sanitized_socket_path(socket_path);
     sockaddr_un addr;
     SetupSockAddr(sanitized_socket_path.SocketPath().value(), &addr);
     int ret = HANDLE_EINTR(connect(socket->fd(),
@@ -1008,15 +977,23 @@ bool ProcessSingleton::Create() {
         dir_mode == base::FILE_PERMISSION_USER_MASK)
       << "Temp directory mode is not 700: " << std::oct << dir_mode;
 
+#if defined(NWJS_MAS)
+  base::FilePath socket_target_path = socket_path_;
+#else
   // Setup the socket symlink and the two cookies.
   base::FilePath socket_target_path =
       socket_dir_.GetPath().Append(chrome::kSingletonSocketFilename);
+#endif
   base::FilePath cookie(GenerateCookie());
   base::FilePath remote_cookie_path =
       socket_dir_.GetPath().Append(chrome::kSingletonCookieFilename);
   UnlinkPath(socket_path_);
   UnlinkPath(cookie_path_);
+#if defined(NWJS_MAS)
+  if (
+#else
   if (!SymlinkPath(socket_target_path, socket_path_) ||
+#endif
       !SymlinkPath(cookie, cookie_path_) ||
       !SymlinkPath(cookie, remote_cookie_path)) {
     // We've already locked things, so we can't have lost the startup race,
@@ -1028,7 +1005,7 @@ bool ProcessSingleton::Create() {
   }
 
   {
-    SanitizedSocketPath sanitized_socket_target(socket_target_path);
+    base::SanitizedSocketPath sanitized_socket_target(socket_target_path);
     SetupSocket(sanitized_socket_target.SocketPath().value(), &sock, &addr);
 
     if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {

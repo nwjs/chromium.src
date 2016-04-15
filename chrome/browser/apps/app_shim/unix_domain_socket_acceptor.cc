@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "mojo/edk/embedder/named_platform_handle_utils.h"
 #include "mojo/edk/embedder/platform_channel_utils_posix.h"
@@ -18,6 +19,7 @@ UnixDomainSocketAcceptor::UnixDomainSocketAcceptor(const base::FilePath& path,
       delegate_(delegate),
       listen_handle_(mojo::edk::CreateServerHandle(named_pipe_, false)) {
   DCHECK(delegate_);
+  absolute_path_ = base::MakeAbsoluteFilePath(path);
 }
 
 UnixDomainSocketAcceptor::~UnixDomainSocketAcceptor() {
@@ -64,7 +66,7 @@ void UnixDomainSocketAcceptor::Close() {
   if (!listen_handle_.is_valid())
     return;
   listen_handle_.reset();
-  if (unlink(named_pipe_.name.c_str()) < 0)
+  if (unlink(absolute_path_.value().c_str()) < 0)
     PLOG(ERROR) << "unlink";
 
   // Unregister libevent for the listening socket and close it.

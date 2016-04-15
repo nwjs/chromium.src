@@ -405,7 +405,11 @@ SelectFileDialog* CreateSelectFileDialog(SelectFileDialog::Listener* listener,
         index = 1;
       }
     } else {
+#if !defined(NWJS_MAS)
+      // MAS fix
+      // This check magically fails in sandboxed app.
       CHECK([panel isKindOfClass:[NSOpenPanel class]]);
+#endif
       NSArray* urls = [static_cast<NSOpenPanel*>(panel) URLs];
       for (NSURL* url in urls)
         if ([url isFileURL])

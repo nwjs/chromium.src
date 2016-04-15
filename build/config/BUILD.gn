@@ -245,6 +245,9 @@ config("feature_flags") {
   if (nwjs_sdk) {
     defines += [ "NWJS_SDK" ]
   }
+  if (nwjs_mas && is_mac) {
+    defines += [ "NWJS_MAS" ]
+  }
   if (is_chrome_branded) {
     defines += [ "GOOGLE_CHROME_BUILD" ]
   } else {

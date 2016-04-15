@@ -5,6 +5,7 @@
 #include "base/files/file_util.h"
 
 #include <copyfile.h>
+#include <sys/un.h>
 #import <Foundation/Foundation.h>
 
 #include "base/files/file_path.h"
@@ -46,5 +47,29 @@ FilePath GetHomeDir() {
   // Last resort.
   return FilePath("/tmp");
 }
+
+#if defined(OS_MACOSX)
+
+SanitizedSocketPath::SanitizedSocketPath (const base::FilePath& socket_path)
+    : socket_path_(socket_path) {
+  if (socket_path.value().length() >= arraysize(sockaddr_un::sun_path)) {
+    bool found_current_dir = GetCurrentDirectory(&old_path_);
+    CHECK(found_current_dir) << "Failed to determine the current directory.";
+    changed_directory_ = SetCurrentDirectory(socket_path.DirName());
+    CHECK(changed_directory_) << "Failed to change directory: " <<
+        socket_path.DirName().value();
+  }
+}
+
+SanitizedSocketPath::~SanitizedSocketPath() {
+  if (changed_directory_)
+    SetCurrentDirectory(old_path_);
+}
+
+base::FilePath SanitizedSocketPath::SocketPath() const {
+  return changed_directory_ ? socket_path_.BaseName() : socket_path_;
+}
+
+#endif // NWJS_MAS
 
 }  // namespace base

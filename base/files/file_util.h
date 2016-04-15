@@ -422,6 +422,22 @@ BASE_EXPORT bool GetFileSystemType(const FilePath& path, FileSystemType* type);
 BASE_EXPORT bool GetShmemTempDir(bool executable, FilePath* path);
 #endif
 
+#if defined(OS_MACOSX)
+BASE_EXPORT class SanitizedSocketPath {
+ public:
+  explicit SanitizedSocketPath(const base::FilePath& socket_path);
+  ~SanitizedSocketPath();
+  base::FilePath SocketPath() const;
+
+ private:
+  bool changed_directory_ = false;
+  base::FilePath socket_path_;
+  base::FilePath old_path_;
+
+  DISALLOW_COPY_AND_ASSIGN(SanitizedSocketPath);
+};
+#endif
+
 // Internal --------------------------------------------------------------------
 
 namespace internal {
