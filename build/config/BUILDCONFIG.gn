@@ -135,6 +135,8 @@ declare_args() {
 
   nwjs_sdk = true
 
+  nwjs_mas = false
+
   # Whether we're a traditional desktop unix.
   is_desktop_linux = current_os == "linux"
 

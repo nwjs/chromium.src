@@ -22,5 +22,23 @@ void SetUpBundleOverrides() {
   base::mac::SetOverrideFrameworkBundlePath(chrome::GetFrameworkBundlePath());
 
   NSBundle* base_bundle = chrome::OuterAppBundle();
-  base::mac::SetBaseBundleID([[base_bundle bundleIdentifier] UTF8String]);
+
+  NSString* base_bundle_id = [base_bundle bundleIdentifier];
+
+  // MAS: bundle id is used as the name of mach IPC.
+  // The original implementation requires the app to be entitled with 
+  // [Global Mach Service Temporary Exception][1], which might be rejected by the
+  // reviewer.
+  // So we made use of an custom `NWTeamID` property in Info.plist and
+  // `com.apple.security.application-groups` entitlement to workaround.
+  // See [IPC and POSIX Semaphores and Shared Memory][2] for details.
+  // 
+  // [1]: https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AppSandboxTemporaryExceptionEntitlements.html#//apple_ref/doc/uid/TP40011195-CH5-SW6
+  // [2]: https://developer.apple.com/library/content/documentation/Security/Conceptual/AppSandboxDesignGuide/AppSandboxInDepth/AppSandboxInDepth.html#//apple_ref/doc/uid/TP40011183-CH3-SW24
+  NSString* team_id = [base_bundle objectForInfoDictionaryKey:@"NWTeamID"];
+  if (team_id) {
+    base_bundle_id = [NSString stringWithFormat:@"%@.%@", team_id, base_bundle_id];
+  }
+
+  base::mac::SetBaseBundleID([base_bundle_id UTF8String]);
 }

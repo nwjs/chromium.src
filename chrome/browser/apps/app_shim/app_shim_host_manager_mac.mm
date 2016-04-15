@@ -33,6 +33,7 @@ void CreateAppShimHost(mojo::edk::ScopedPlatformHandle handle) {
   (new AppShimHost)->ServeChannel(std::move(handle));
 }
 
+#if !defined(NWJS_MAS)
 base::FilePath GetDirectoryInTmpTemplate(const base::FilePath& user_data_dir) {
   base::FilePath temp_dir;
   CHECK(PathService::Get(base::DIR_TEMP, &temp_dir));
@@ -41,6 +42,7 @@ base::FilePath GetDirectoryInTmpTemplate(const base::FilePath& user_data_dir) {
   DCHECK_GT(83u, temp_dir.value().length());
   return temp_dir.Append("chrome-XXXXXX");
 }
+#endif
 
 void DeleteSocketFiles(const base::FilePath& directory_in_tmp,
                        const base::FilePath& symlink_path,
@@ -100,6 +102,18 @@ void AppShimHostManager::InitOnFileThread() {
   if (!PathService::Get(chrome::DIR_USER_DATA, &user_data_dir))
     return;
 
+#if defined(NWJS_MAS)
+  // MAS fix
+  // Mac sandbox will deny bind to socket file under /tmp folder.
+  // Changing to use socket file inside container fixes it.
+  {
+  // UnixDomainSocketAcceptor creates the socket immediately.
+  base::FilePath socket_path =
+      user_data_dir.Append(app_mode::kAppShimSocketSymlinkName);
+  base::SanitizedSocketPath sanitized_socket_path(socket_path);
+  acceptor_.reset(new apps::UnixDomainSocketAcceptor(sanitized_socket_path.SocketPath(), this));
+  }
+#else
   // The socket path must be shorter than 104 chars (IPC::kMaxSocketNameLength).
   // To accommodate this, we use a short path in /tmp/ that is generated from a
   // hash of the user data dir.
@@ -124,7 +138,10 @@ void AppShimHostManager::InitOnFileThread() {
   // UnixDomainSocketAcceptor creates the socket immediately.
   base::FilePath socket_path =
       directory_in_tmp_.Append(app_mode::kAppShimSocketShortName);
-  acceptor_.reset(new apps::UnixDomainSocketAcceptor(socket_path, this));
+  {
+  base::SanitizedSocketPath sanitized_socket_path(socket_path);
+  acceptor_.reset(new apps::UnixDomainSocketAcceptor(sanitized_socket_path.SocketPath(), this));
+  }
 
   // Create a symlink to the socket in the user data dir. This lets the shim
   // process started from Finder find the actual socket path by following the
@@ -133,6 +150,7 @@ void AppShimHostManager::InitOnFileThread() {
       user_data_dir.Append(app_mode::kAppShimSocketSymlinkName);
   base::DeleteFile(symlink_path, false);
   base::CreateSymbolicLink(socket_path, symlink_path);
+#endif
 
   // Create a symlink containing the current version string. This allows the
   // shim to load the same framework version as the currently running Chrome
