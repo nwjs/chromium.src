@@ -956,9 +956,16 @@
               '$(SDKROOT)/System/Library/Frameworks/CoreAudio.framework',
               '$(SDKROOT)/System/Library/Frameworks/CoreVideo.framework',
               '$(SDKROOT)/System/Library/Frameworks/OpenGL.framework',
-              '$(SDKROOT)/System/Library/Frameworks/QTKit.framework',
+#              '$(SDKROOT)/System/Library/Frameworks/QTKit.framework',
             ],
           },
+        }],
+        ['OS=="mac" and nwjs_mas!=1', {
+          'link_settings': {
+            'libraries': [
+              '$(SDKROOT)/System/Library/Frameworks/QTKit.framework',
+            ]
+          }
         }],
         ['OS=="win"', {
           'link_settings':  {
