@@ -86,6 +86,12 @@
             },
           ],
         }],
+        ['nwjs_mas==1', {
+          'sources!': [
+            'xpc_message_server.cc',
+            'xpc_message_server.h',
+          ],
+        }],
       ],
     },
     {

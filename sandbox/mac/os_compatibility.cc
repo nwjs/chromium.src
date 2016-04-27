@@ -145,7 +145,7 @@ class OSCompatibility_10_7 : public OSCompatibility_10_6 {
     return GetRequestName<look_up2_request_10_7>(message);
   }
 };
-
+#if !defined(NWJS_MAS)
 class OSCompatibility_10_10 : public OSCompatibility {
  public:
   OSCompatibility_10_10() {}
@@ -193,6 +193,7 @@ class OSCompatibility_10_10 : public OSCompatibility {
            xpc_dictionary_get_int64(message.xpc, "in") == 0;
   }
 };
+#endif
 
 }  // namespace
 
@@ -200,10 +201,14 @@ class OSCompatibility_10_10 : public OSCompatibility {
 scoped_ptr<OSCompatibility> OSCompatibility::CreateForPlatform() {
   if (base::mac::IsOSSnowLeopard())
     return make_scoped_ptr(new OSCompatibility_10_6());
+#if defined(NWJS_MAS)
+  return make_scoped_ptr(new OSCompatibility_10_7());
+#else
   else if (base::mac::IsOSLionOrLater() && base::mac::IsOSMavericksOrEarlier())
     return make_scoped_ptr(new OSCompatibility_10_7());
   else
     return make_scoped_ptr(new OSCompatibility_10_10());
+#endif
 }
 
 OSCompatibility::~OSCompatibility() {}

@@ -7,7 +7,6 @@
 
 #include <mach/mach.h>
 #include <unistd.h>
-
 #include "sandbox/mac/xpc.h"
 
 namespace sandbox {
