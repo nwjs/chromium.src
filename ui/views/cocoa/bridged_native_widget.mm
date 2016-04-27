@@ -35,15 +35,18 @@
 #include "ui/views/widget/widget_aura_utils.h"
 #include "ui/views/widget/widget_delegate.h"
 
+#if !defined(NWJS_MAS)
 extern "C" {
 
 typedef int32_t CGSConnection;
+
 CGSConnection _CGSDefaultConnection();
 CGError CGSSetWindowBackgroundBlurRadius(CGSConnection connection,
                                          NSInteger windowNumber,
                                          int radius);
 
 }
+#endif
 
 // The NSView that hosts the composited CALayer drawing the UI. It fills the
 // window but is not hittable so that accessibility hit tests always go to the
@@ -85,7 +88,9 @@ namespace {
 
 const CGFloat kMavericksMenuOpacity = 251.0 / 255.0;
 const CGFloat kYosemiteMenuOpacity = 194.0 / 255.0;
+#if !defined(NWJS_MAS)
 const int kYosemiteMenuBlur = 80;
+#endif
 
 // Margin at edge and corners of the window that trigger resizing. These match
 // actual Cocoa resize margins.
@@ -1145,8 +1150,10 @@ void BridgedNativeWidget::AddCompositorSuperview() {
     // solid background, but make the CALayer transparent.
     if (base::mac::IsOSYosemiteOrLater()) {
       [background_layer setOpacity:kYosemiteMenuOpacity];
+#if !defined(NWJS_MAS)
       CGSSetWindowBackgroundBlurRadius(
           _CGSDefaultConnection(), [window_ windowNumber], kYosemiteMenuBlur);
+#endif
       // The blur effect does not occur with a fully transparent (or fully
       // layer-backed) window. Setting a window background will use square
       // corners, so ask the contentView to draw one instead.

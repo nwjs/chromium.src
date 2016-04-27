@@ -82,6 +82,7 @@ struct AXTextMarkerData {
 // VoiceOver uses -1 to mean "no limit" for AXResultsLimit.
 const int kAXResultsLimitNoLimit = -1;
 
+#if !defined(NWJS_MAS)
 extern "C" {
 
 // See http://openradar.appspot.com/9896491. This SPI has been tested on 10.5,
@@ -195,6 +196,7 @@ NSString* GetTextForTextMarkerRange(AXTextMarkerRangeRef marker_range) {
   return base::SysUTF16ToNSString(BrowserAccessibilityManager::GetTextForRange(
       *start_object, start_offset, *end_object, end_offset));
 }
+#endif
 
 // Returns an autoreleased copy of the AXNodeData's attribute.
 NSString* NSStringForStringAttribute(
@@ -415,7 +417,9 @@ bool InitializeAccessibilityTreeSearch(
       {NSAccessibilityDisclosureLevelAttribute, @"disclosureLevel"},
       {NSAccessibilityDisclosedRowsAttribute, @"disclosedRows"},
       {NSAccessibilityEnabledAttribute, @"enabled"},
+#if !defined(NWJS_MAS)
       {NSAccessibilityEndTextMarkerAttribute, @"endTextMarker"},
+#endif
       {NSAccessibilityExpandedAttribute, @"expanded"},
       {NSAccessibilityFocusedAttribute, @"focused"},
       {NSAccessibilityHeaderAttribute, @"header"},
@@ -438,10 +442,14 @@ bool InitializeAccessibilityTreeSearch(
       {NSAccessibilityRowsAttribute, @"rows"},
       // TODO(aboxhall): expose
       // NSAccessibilityServesAsTitleForUIElementsAttribute
+#if !defined(NWJS_MAS)
       {NSAccessibilityStartTextMarkerAttribute, @"startTextMarker"},
+#endif
       {NSAccessibilitySelectedChildrenAttribute, @"selectedChildren"},
+#if !defined(NWJS_MAS)
       {NSAccessibilitySelectedTextMarkerRangeAttribute,
        @"selectedTextMarkerRange"},
+#endif
       {NSAccessibilitySizeAttribute, @"size"},
       {NSAccessibilitySortDirectionAttribute, @"sortDirection"},
       {NSAccessibilitySubroleAttribute, @"subrole"},
@@ -489,10 +497,12 @@ bool InitializeAccessibilityTreeSearch(
 }
 
 - (void)detach {
+#if !defined(NWJS_MAS)
   if (browserAccessibility_) {
     NSAccessibilityUnregisterUniqueIdForUIElement(self);
     browserAccessibility_ = NULL;
   }
+#endif
 }
 
 - (NSString*)accessKey {
@@ -740,6 +750,7 @@ bool InitializeAccessibilityTreeSearch(
       GetState(browserAccessibility_, ui::AX_STATE_ENABLED)];
 }
 
+#if !defined(NWJS_MAS)
 // Returns a text marker that points to the last character in the document that
 // can be selected with VoiceOver.
 - (id)endTextMarker {
@@ -767,6 +778,7 @@ bool InitializeAccessibilityTreeSearch(
   return CreateTextMarker(*last_text_object,
                           last_text_object->GetText().length());
 }
+#endif
 
 - (NSNumber*)expanded {
   return [NSNumber numberWithBool:
@@ -1280,6 +1292,7 @@ bool InitializeAccessibilityTreeSearch(
   return ret;
 }
 
+#if !defined(NWJS_MAS)
 - (id)selectedTextMarkerRange {
   if (!browserAccessibility_)
     return nil;
@@ -1306,6 +1319,7 @@ bool InitializeAccessibilityTreeSearch(
   return CreateTextMarkerRange(*anchorObject, anchorOffset, *focusObject,
                                focusOffset);
 }
+#endif
 
 - (NSValue*)size {
   gfx::Rect bounds = browserAccessibility_->GetLocalBoundsRect();
@@ -1337,6 +1351,7 @@ bool InitializeAccessibilityTreeSearch(
   return nil;
 }
 
+#if !defined(NWJS_MAS)
 // Returns a text marker that points to the first character in the document that
 // can be selected with VoiceOver.
 - (id)startTextMarker {
@@ -1363,6 +1378,7 @@ bool InitializeAccessibilityTreeSearch(
 
   return CreateTextMarker(*first_text_object, 0);
 }
+#endif
 
 // Returns a subrole based upon the role.
 - (NSString*) subrole {
@@ -1745,6 +1761,7 @@ bool InitializeAccessibilityTreeSearch(
     return nil;
   }
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXUIElementForTextMarker"]) {
     BrowserAccessibility* object;
     int offset;
@@ -1834,6 +1851,7 @@ bool InitializeAccessibilityTreeSearch(
     NSString* text = GetTextForTextMarkerRange(parameter);
     return [NSNumber numberWithInt:[text length]];
   }
+#endif
 
   if ([attribute isEqualToString:
       NSAccessibilityBoundsForRangeParameterizedAttribute]) {
