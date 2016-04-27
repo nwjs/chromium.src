@@ -14,8 +14,9 @@
 #include "sandbox/mac/bootstrap_sandbox.h"
 #include "sandbox/mac/mach_message_server.h"
 #include "sandbox/mac/os_compatibility.h"
+#if !defined(NWJS_MAS)
 #include "sandbox/mac/xpc_message_server.h"
-
+#endif
 namespace sandbox {
 
 // The buffer size for all launchd messages. This comes from
@@ -54,6 +55,10 @@ bool LaunchdInterceptionServer::Initialize(mach_port_t server_receive_right) {
   }
   sandbox_send_port_.reset(sandbox_port_.get());
 
+#if defined(NWJS_MAS)
+  message_server_.reset(
+      new MachMessageServer(this, server_receive_right, kBufferSize));
+#else
   if (base::mac::IsAtLeastOS10_10()) {
     message_server_.reset(new XPCMessageServer(this, server_receive_right));
     xpc_launchd_ = true;
@@ -61,6 +66,7 @@ bool LaunchdInterceptionServer::Initialize(mach_port_t server_receive_right) {
     message_server_.reset(
         new MachMessageServer(this, server_receive_right, kBufferSize));
   }
+#endif
   return message_server_->Initialize();
 }
 
@@ -171,11 +177,12 @@ void LaunchdInterceptionServer::ForwardMessage(IPCMessage request) {
   // original bootstrap as the domain port, so launchd services the request
   // as if it were coming from the sandbox host process (this).
   if (xpc_launchd_) {
+#if !defined(NWJS_MAS)
     // xpc_dictionary_set_mach_send increments the send right count.
     xpc_dictionary_set_mach_send(request.xpc, "domain-port",
                                  sandbox_->real_bootstrap_port());
+#endif
   }
-
   message_server_->ForwardMessage(request, sandbox_->real_bootstrap_port());
 }
 

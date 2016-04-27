@@ -74,7 +74,9 @@
 #include "chrome/app/chrome_main_mac.h"
 #include "chrome/browser/mac/relauncher.h"
 #include "chrome/browser/shell_integration.h"
+#if !defined(NWJS_MAS)
 #include "chrome/common/mac/cfbundle_blocker.h"
+#endif
 #include "components/crash/content/app/crashpad.h"
 #include "components/crash/core/common/objc_zombie.h"
 #include "ui/base/l10n/l10n_util_mac.h"
@@ -518,7 +520,9 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   ObjcEvilDoers::ZombieEnable(true, is_browser ? 10000 : 1000);
 
   SetUpBundleOverrides();
+#if !defined(NWJS_MAS)
   chrome::common::mac::EnableCFBundleBlocker();
+#endif
 #endif
 
   const base::CommandLine::StringVector& args = command_line.GetArgs();

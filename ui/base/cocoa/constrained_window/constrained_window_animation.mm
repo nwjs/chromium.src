@@ -23,6 +23,7 @@
 // Length of the animation in seconds.
 const NSTimeInterval kAnimationDuration = 0.18;
 
+#if !defined(NWJS_MAS)
 // The number of pixels above the final destination to animate from.
 const CGFloat kShowHideVerticalOffset = 20;
 
@@ -190,6 +191,7 @@ void UpdateWindowShowHideAnimationState(NSWindow* window, CGFloat value) {
 }
 
 }  // namespace
+#endif
 
 @interface ConstrainedWindowAnimationBase ()
 // Subclasses should override these to update the window state for the current
@@ -243,8 +245,10 @@ void UpdateWindowShowHideAnimationState(NSWindow* window, CGFloat value) {
 }
 
 - (void)setWindowStateForValue:(float)value {
+#if !defined(NWJS_MAS)
   // Subclasses must override this method.
   NOTREACHED();
+#endif
 }
 
 - (void)setWindowStateForEnd {
@@ -252,7 +256,7 @@ void UpdateWindowShowHideAnimationState(NSWindow* window, CGFloat value) {
 }
 
 @end
-
+#if !defined(NWJS_MAS)
 @implementation ConstrainedWindowAnimationShow
 
 - (void)setWindowStateForStart {
@@ -310,3 +314,16 @@ void UpdateWindowShowHideAnimationState(NSWindow* window, CGFloat value) {
 }
 
 @end
+#else
+@implementation ConstrainedWindowAnimationShow
+
+@end
+
+@implementation ConstrainedWindowAnimationHide
+
+@end
+
+@implementation ConstrainedWindowAnimationPulse
+
+@end
+#endif

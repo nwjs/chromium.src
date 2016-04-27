@@ -128,7 +128,7 @@ class OSCompatibility_10_7 : public OSCompatibility {
     return name;
   }
 };
-
+#if !defined(NWJS_MAS)
 class OSCompatibility_10_10 : public OSCompatibility {
  public:
   OSCompatibility_10_10() {}
@@ -176,15 +176,20 @@ class OSCompatibility_10_10 : public OSCompatibility {
            xpc_dictionary_get_int64(message.xpc, "in") == 0;
   }
 };
+#endif
 
 }  // namespace
 
 // static
 std::unique_ptr<OSCompatibility> OSCompatibility::CreateForPlatform() {
+#if defined(NWJS_MAS)
+  return base::WrapUnique(new OSCompatibility_10_7());
+#else
   if (base::mac::IsOS10_9())
     return base::WrapUnique(new OSCompatibility_10_7());
   else
     return base::WrapUnique(new OSCompatibility_10_10());
+#endif
 }
 
 OSCompatibility::~OSCompatibility() {}

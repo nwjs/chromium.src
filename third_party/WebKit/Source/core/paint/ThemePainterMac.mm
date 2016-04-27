@@ -41,7 +41,7 @@
 #import <math.h>
 
 // The methods in this file are specific to the Mac OS X platform.
-
+#if !defined(NWJS_MAS)
 // Forward declare Mac SPIs.
 extern "C" {
 void _NSDrawCarbonThemeBezel(NSRect frame, BOOL enabled, BOOL flipped);
@@ -51,6 +51,7 @@ void _NSDrawCarbonThemeListBox(NSRect frame,
                                BOOL flipped,
                                BOOL always_yes);
 }
+#endif
 
 namespace blink {
 
@@ -62,6 +63,7 @@ bool ThemePainterMac::paintTextField(const LayoutObject& o,
                                      const IntRect& r) {
   LocalCurrentGraphicsContext localContext(paintInfo.context, r);
 
+#if !defined(NWJS_MAS)
 #if __MAC_OS_X_VERSION_MIN_REQUIRED <= 1070
   bool useNSTextFieldCell = o.styleRef().hasAppearance() &&
                             o.styleRef().visitedDependentColor(
@@ -79,6 +81,7 @@ bool ThemePainterMac::paintTextField(const LayoutObject& o,
         YES);
     return false;
   }
+#endif
 #endif
 
   NSTextFieldCell* textField = m_layoutTheme.textField();
@@ -162,9 +165,11 @@ bool ThemePainterMac::paintTextArea(const LayoutObject& o,
                                     const PaintInfo& paintInfo,
                                     const IntRect& r) {
   LocalCurrentGraphicsContext localContext(paintInfo.context, r);
+#if !defined(NWJS_MAS)
   _NSDrawCarbonThemeListBox(
       r, LayoutTheme::isEnabled(o) && !LayoutTheme::isReadOnlyControl(o), YES,
       YES);
+#endif
   return false;
 }
 

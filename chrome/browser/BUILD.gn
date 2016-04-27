@@ -3382,6 +3382,11 @@ split_static_library("browser") {
     ]
   }
 
+  if (is_mac && nwjs_mas) {
+    sources -= [ "mac/dock.mm" ]
+    sources += [ "mac/dock_mas.mm" ]
+  }
+
   if (enable_rlz) {
     deps += [ ":rlz" ]
   }

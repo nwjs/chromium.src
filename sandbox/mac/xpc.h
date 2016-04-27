@@ -46,6 +46,7 @@ char* xpc_copy_description(xpc_object_t object);
 }  // extern "C"
 #endif
 
+#if !defined(NWJS_MAS)
 // Signatures for private XPC functions.
 extern "C" {
 // Dictionary manipulation.
@@ -68,5 +69,6 @@ int xpc_pipe_routine_reply(xpc_object_t reply);
 int xpc_pipe_simpleroutine(xpc_pipe_t pipe, xpc_object_t message);
 int xpc_pipe_routine_forward(xpc_pipe_t forward_to, xpc_object_t request);
 }  // extern "C"
+#endif
 
 #endif  // SANDBOX_MAC_XPC_H_
