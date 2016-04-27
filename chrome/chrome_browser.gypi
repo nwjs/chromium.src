@@ -3459,6 +3459,14 @@
           ],
           'sources': [ '<@(chrome_browser_mac_sources)' ]
         }],
+        ['OS=="mac" and nwjs_mas==1', {
+          'sources!': [
+            'browser/mac/dock.mm',
+          ],
+          'sources': [
+            'browser/mac/dock_mas.mm',
+          ],
+        }],
         ['OS=="win"', {
           'dependencies': [
             'file_pre_reader',
