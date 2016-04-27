@@ -525,6 +525,12 @@
             'common/channel_info_posix.cc',
           ],
         }],
+        ['OS=="mac" and nwjs_mas==1', {
+          'sources!': [
+            'common/mac/cfbundle_blocker.h',
+            'common/mac/cfbundle_blocker.mm',
+          ],
+        }],
         ['enable_webrtc==0', {
           'sources!': [
             'common/media/webrtc_logging_messages.h',

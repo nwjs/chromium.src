@@ -3955,6 +3955,14 @@
         ['OS=="win" and chromium_win_pch==0', {
           'msvs_shard': 4,
         }],
+        ['OS=="mac" and nwjs_mas==1', {
+          'sources!': [
+            'browser/mac/dock.mm',
+          ],
+          'sources': [
+            'browser/mac/dock_mas.mm',
+          ],
+        }],
         ['OS=="win"', {
           'sources': [ '<@(chrome_browser_win_sources)' ],
           'include_dirs': [

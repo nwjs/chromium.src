@@ -313,6 +313,14 @@
           ['include', 'geometry/cg/IntRectCG\\.cpp$'],
           ['include', 'geometry/cg/IntSizeCG\\.cpp$'],
         ],
+        'conditions': [
+          ['nwjs_mas==1', {
+            'sources/': [
+              ['include', 'KillRingNone\\.cpp$'],
+              ['exclude', 'mac/KillRingMac\\.mm$'],
+            ],
+          }],
+        ],
       }, { # OS!="mac"
         'sources/': [
           ['exclude', 'mac/'],

@@ -433,6 +433,10 @@ split_static_library("browser") {
       "//chrome/browser/apps/app_shim",
     ]
   }
+  if (is_mac && nwjs_mas) {
+    sources -= [ "mac/dock.mm" ]
+    sources += [ "mac/dock_mas.mm" ]
+  }
   if (enable_extensions) {
     public_deps += [ "//chrome/browser/extensions" ]
     allow_circular_includes_from += [ "//chrome/browser/extensions" ]
