@@ -42,8 +42,10 @@
 #include "ui/gl/init/gl_factory.h"
 
 extern "C" {
+#if !defined(NWJS_MAS)
 void CGSSetDenyWindowServerConnections(bool);
 void CGSShutdownServerConnections();
+#endif
 };
 
 namespace content {
@@ -346,8 +348,10 @@ void Sandbox::SandboxWarmup(int sandbox_type) {
     // Shutting down the connection requires connecting to WindowServer,
     // so do this before actually engaging the sandbox. This may cause two log
     // messages to be printed to the system logger on certain OS versions.
+#if !defined(NWJS_MAS)
     CGSSetDenyWindowServerConnections(true);
     CGSShutdownServerConnections();
+#endif
   }
 }
 

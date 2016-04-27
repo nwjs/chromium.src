@@ -43,7 +43,7 @@ void PreExecDelegate::RunAsyncSafe() {
   kr = task_set_bootstrap_port(mach_task_self(), new_bootstrap_port);
   if (kr != KERN_SUCCESS)
     RAW_LOG(FATAL, "Failed to replace bootstrap port.");
-
+#if !defined(NWJS_MAS)
   // On OS X 10.10 and higher, libxpc uses the port stash to transfer the
   // XPC root port. This is effectively the same connection as the Mach
   // bootstrap port, but not transferred using the task special port.
@@ -55,9 +55,11 @@ void PreExecDelegate::RunAsyncSafe() {
     if (kr != KERN_SUCCESS)
       RAW_LOG(ERROR, "Failed to register replacement bootstrap port.");
   }
+#endif
 }
 
 xpc_object_t PreExecDelegate::CreateBootstrapLookUpMessage() {
+#if !defined(NWJS_MAS)
   if (is_yosemite_or_later_) {
     xpc_object_t dictionary = xpc_dictionary_create(nullptr, nullptr, 0);
     xpc_dictionary_set_uint64(dictionary, "type", 7);
@@ -73,11 +75,17 @@ xpc_object_t PreExecDelegate::CreateBootstrapLookUpMessage() {
     xpc_dictionary_set_mach_send(dictionary, "domain-port", MACH_PORT_NULL);
     return dictionary;
   }
-
+#endif
   return nullptr;
 }
 
 kern_return_t PreExecDelegate::DoBootstrapLookUp(mach_port_t* out_port) {
+#if defined(NWJS_MAS)
+  // On non-XPC launchd systems, bootstrap_look_up() is MIG-based and
+  // generally safe.
+  return bootstrap_look_up(bootstrap_port,
+      sandbox_server_bootstrap_name_ptr_, out_port);
+#else
   if (is_yosemite_or_later_) {
     xpc_dictionary_set_mach_send(look_up_message_, "domain-port",
         bootstrap_port);
@@ -100,6 +108,7 @@ kern_return_t PreExecDelegate::DoBootstrapLookUp(mach_port_t* out_port) {
     return bootstrap_look_up(bootstrap_port,
         sandbox_server_bootstrap_name_ptr_, out_port);
   }
+#endif
 }
 
 }  // namespace sandbox
