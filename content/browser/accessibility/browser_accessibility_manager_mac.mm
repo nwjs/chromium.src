@@ -438,6 +438,7 @@ NSDictionary* BrowserAccessibilityManagerMac::
       [user_info setObject:native_focus_object
                     forKey:NSAccessibilityTextChangeElement];
 
+#if !defined(NWJS_MAS)
       id selected_text = [native_focus_object selectedTextMarkerRange];
       if (selected_text) {
         NSString* const NSAccessibilitySelectedTextMarkerRangeAttribute =
@@ -445,6 +446,7 @@ NSDictionary* BrowserAccessibilityManagerMac::
         [user_info setObject:selected_text
                       forKey:NSAccessibilitySelectedTextMarkerRangeAttribute];
       }
+#endif
     }
   }
 

@@ -1529,6 +1529,17 @@ jumbo_component("platform") {
       "text/LocaleICU.h",
     ]
 
+    if (is_mac && nwjs_mas) {
+      sources -= [
+        "mac/KillRingMac.mm"
+      ]
+      sources += [
+        "KillRingNone.cpp"
+      ]
+    }
+
+    configs += [ "//third_party/WebKit/Source:mac_precompiled_headers" ]
+    
     libs = [
       "AppKit.framework",
       "Accelerate.framework",

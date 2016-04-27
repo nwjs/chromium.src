@@ -84,6 +84,7 @@ NSString* const
 NSString* const NSAccessibilityVisitedAttribute = @"AXVisited";
 
 // Private attributes for text markers.
+#if !defined(NWJS_MAS)
 NSString* const NSAccessibilityStartTextMarkerAttribute = @"AXStartTextMarker";
 NSString* const NSAccessibilityEndTextMarkerAttribute = @"AXEndTextMarker";
 NSString* const NSAccessibilitySelectedTextMarkerRangeAttribute =
@@ -101,12 +102,15 @@ NSString* const NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute =
 NSString* const
     NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute =
         @"AXLineTextMarkerRangeForTextMarker";
+#endif
 NSString* const NSAccessibilitySelectTextWithCriteriaParameterizedAttribute =
     @"AXSelectTextWithCriteria";
+#if !defined(NWJS_MAS)
 NSString* const NSAccessibilityBoundsForTextMarkerRangeParameterizedAttribute =
     @"AXBoundsForTextMarkerRange";
 NSString* const NSAccessibilityTextMarkerRangeForUnorderedTextMarkersParameterizedAttribute =
     @"AXTextMarkerRangeForUnorderedTextMarkers";
+#endif
 NSString* const NSAccessibilityIndexForChildUIElementParameterizedAttribute =
     @"AXIndexForChildUIElement";
 
@@ -119,6 +123,7 @@ NSDictionary* attributeToMethodNameMap = nil;
 // VoiceOver uses -1 to mean "no limit" for AXResultsLimit.
 const int kAXResultsLimitNoLimit = -1;
 
+#if !defined(NWJS_MAS)
 extern "C" {
 
 // The following are private accessibility APIs required for cursor navigation
@@ -147,7 +152,9 @@ AXTextMarkerRef AXTextMarkerRangeCopyEndMarker(
 #endif  // MAC_OS_X_VERSION_10_11
 
 }  // extern "C"
+#endif
 
+#if !defined(NWJS_MAS)
 // AXTextMarkerCreate copies from data buffer given to it.
 id CreateTextMarker(BrowserAccessibilityPositionInstance position) {
   AXTextMarkerRef text_marker = AXTextMarkerCreate(
@@ -156,7 +163,9 @@ id CreateTextMarker(BrowserAccessibilityPositionInstance position) {
   return static_cast<id>(
       base::mac::CFTypeRefToNSObjectAutorelease(text_marker));
 }
+#endif
 
+#if !defined(NWJS_MAS)
 // |range| is destructed at the end of this method. |anchor| and |focus| are
 // copied into the individual text markers.
 id CreateTextMarkerRange(const AXPlatformRange range) {
@@ -171,7 +180,9 @@ id CreateTextMarkerRange(const AXPlatformRange range) {
   return static_cast<id>(
       base::mac::CFTypeRefToNSObjectAutorelease(marker_range));
 }
+#endif
 
+#if !defined(NWJS_MAS)
 BrowserAccessibilityPositionInstance CreatePositionFromTextMarker(
     AXTextMarkerRef text_marker) {
   DCHECK(text_marker);
@@ -192,7 +203,9 @@ BrowserAccessibilityPositionInstance CreatePositionFromTextMarker(
     return BrowserAccessibilityPosition::CreateNullPosition();
   return position;
 }
+#endif
 
+#if !defined(NWJS_MAS)
 AXPlatformRange CreateRangeFromTextMarkerRange(
     AXTextMarkerRangeRef marker_range) {
   DCHECK(marker_range);
@@ -210,7 +223,9 @@ AXPlatformRange CreateRangeFromTextMarkerRange(
   // |AXPlatformRange| takes ownership of its anchor and focus.
   return AXPlatformRange(std::move(anchor), std::move(focus));
 }
+#endif
 
+#if !defined(NWJS_MAS)
 BrowserAccessibilityPositionInstance CreateTextPosition(
     const BrowserAccessibility& object,
     int offset,
@@ -223,7 +238,9 @@ BrowserAccessibilityPositionInstance CreateTextPosition(
   return BrowserAccessibilityPosition::CreateTextPosition(
       manager->ax_tree_id(), object.GetId(), offset, affinity);
 }
+#endif
 
+#if !defined(NWJS_MAS)
 AXPlatformRange CreateTextRange(const BrowserAccessibility& start_object,
                                 int start_offset,
                                 ui::AXTextAffinity start_affinity,
@@ -237,6 +254,7 @@ AXPlatformRange CreateTextRange(const BrowserAccessibility& start_object,
   // |AXPlatformRange| takes ownership of its anchor and focus.
   return AXPlatformRange(std::move(anchor), std::move(focus));
 }
+#endif
 
 void AddMisspelledTextAttributes(
     const std::vector<const BrowserAccessibility*>& text_only_objects,
@@ -268,13 +286,16 @@ void AddMisspelledTextAttributes(
   [attributed_string endEditing];
 }
 
+#if !defined(NWJS_MAS)
 NSString* GetTextForTextMarkerRange(AXTextMarkerRangeRef marker_range) {
   AXPlatformRange range = CreateRangeFromTextMarkerRange(marker_range);
   if (range.IsNull())
     return nil;
   return base::SysUTF16ToNSString(range.GetText());
 }
+#endif
 
+#if !defined(NWJS_MAS)
 NSAttributedString* GetAttributedTextForTextMarkerRange(
     AXTextMarkerRangeRef marker_range) {
   BrowserAccessibility* start_object;
@@ -325,6 +346,7 @@ NSAttributedString* GetAttributedTextForTextMarkerRange(
   AddMisspelledTextAttributes(text_only_objects, attributed_text);
   return [attributed_text attributedSubstringFromRange:range];
 }
+#endif
 
 // Returns an autoreleased copy of the AXNodeData's attribute.
 NSString* NSStringForStringAttribute(
@@ -578,7 +600,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
       {NSAccessibilityDOMIdentifierAttribute, @"domIdentifier"},
       {NSAccessibilityEditableAncestorAttribute, @"editableAncestor"},
       {NSAccessibilityEnabledAttribute, @"enabled"},
+#if !defined(NWJS_MAS)
       {NSAccessibilityEndTextMarkerAttribute, @"endTextMarker"},
+#endif
       {NSAccessibilityExpandedAttribute, @"expanded"},
       {NSAccessibilityFocusedAttribute, @"focused"},
       {NSAccessibilityGrabbedAttribute, @"grabbed"},
@@ -609,13 +633,17 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
       {NSAccessibilityRowsAttribute, @"rows"},
       // TODO(aboxhall): expose
       // NSAccessibilityServesAsTitleForUIElementsAttribute
+#if !defined(NWJS_MAS)
       {NSAccessibilityStartTextMarkerAttribute, @"startTextMarker"},
+#endif
       {NSAccessibilitySelectedAttribute, @"selected"},
       {NSAccessibilitySelectedChildrenAttribute, @"selectedChildren"},
       {NSAccessibilitySelectedTextAttribute, @"selectedText"},
       {NSAccessibilitySelectedTextRangeAttribute, @"selectedTextRange"},
+#if !defined(NWJS_MAS)
       {NSAccessibilitySelectedTextMarkerRangeAttribute,
        @"selectedTextMarkerRange"},
+#endif
       {NSAccessibilitySizeAttribute, @"size"},
       {NSAccessibilitySortDirectionAttribute, @"sortDirection"},
       {NSAccessibilitySubroleAttribute, @"subrole"},
@@ -1066,6 +1094,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
                                   ui::AX_RESTRICTION_DISABLED];
 }
 
+#if !defined(NWJS_MAS)
 // Returns a text marker that points to the last character in the document that
 // can be selected with VoiceOver.
 - (id)endTextMarker {
@@ -1077,6 +1106,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   BrowserAccessibilityPositionInstance position = root->CreatePositionAt(0);
   return CreateTextMarker(position->CreatePositionAtEndOfAnchor());
 }
+#endif
 
 - (NSNumber*)expanded {
   if (![self instanceActive])
@@ -1876,6 +1906,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   return [NSValue valueWithRange:NSMakeRange(selStart, selLength)];
 }
 
+#if !defined(NWJS_MAS)
 - (id)selectedTextMarkerRange {
   if (![self instanceActive])
     return nil;
@@ -1907,6 +1938,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
                                                anchorAffinity, *focusObject,
                                                focusOffset, focusAffinity));
 }
+#endif
 
 - (NSValue*)size {
   if (![self instanceActive])
@@ -1939,6 +1971,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   return nil;
 }
 
+#if !defined(NWJS_MAS)
 // Returns a text marker that points to the first character in the document that
 // can be selected with VoiceOver.
 - (id)startTextMarker {
@@ -1950,6 +1983,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   BrowserAccessibilityPositionInstance position = root->CreatePositionAt(0);
   return CreateTextMarker(position->CreatePositionAtStartOfAnchor());
 }
+#endif
 
 // Returns a subrole based upon the role.
 - (NSString*) subrole {
@@ -2346,6 +2380,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return nil;
   }
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXUIElementForTextMarker"]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
@@ -2354,7 +2389,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
 
     return nil;
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXTextMarkerRangeForUIElement"]) {
     BrowserAccessibilityPositionInstance startPosition =
         browserAccessibility_->CreatePositionAt(0);
@@ -2364,13 +2401,19 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
         AXPlatformRange(std::move(startPosition), std::move(endPosition));
     return CreateTextMarkerRange(std::move(range));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXStringForTextMarkerRange"])
     return GetTextForTextMarkerRange(parameter);
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXAttributedStringForTextMarkerRange"])
     return GetAttributedTextForTextMarkerRange(parameter);
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXNextTextMarkerForTextMarker"]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
@@ -2379,7 +2422,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarker(position->CreateNextCharacterPosition(
         ui::AXBoundaryBehavior::CrossBoundary));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXPreviousTextMarkerForTextMarker"]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
@@ -2388,7 +2433,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarker(position->CreatePreviousCharacterPosition(
         ui::AXBoundaryBehavior::CrossBoundary));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXLeftWordTextMarkerRangeForTextMarker"]) {
     BrowserAccessibilityPositionInstance endPosition =
         CreatePositionFromTextMarker(parameter);
@@ -2407,7 +2454,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     AXPlatformRange range(std::move(startPosition), std::move(endPosition));
     return CreateTextMarkerRange(std::move(range));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXRightWordTextMarkerRangeForTextMarker"]) {
     BrowserAccessibilityPositionInstance startPosition =
         CreatePositionFromTextMarker(parameter);
@@ -2426,7 +2475,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     AXPlatformRange range(std::move(startPosition), std::move(endPosition));
     return CreateTextMarkerRange(std::move(range));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXNextWordEndTextMarkerForTextMarker"]) {
     BrowserAccessibilityPositionInstance position =
         CreatePositionFromTextMarker(parameter);
@@ -2435,7 +2486,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarker(position->CreateNextWordEndPosition(
         ui::AXBoundaryBehavior::CrossBoundary));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute
           isEqualToString:@"AXPreviousWordStartTextMarkerForTextMarker"]) {
     BrowserAccessibilityPositionInstance position =
@@ -2461,7 +2514,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     AXPlatformRange range(std::move(startPosition), std::move(endPosition));
     return CreateTextMarkerRange(std::move(range));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXLeftLineTextMarkerRangeForTextMarker"]) {
     BrowserAccessibilityPositionInstance endPosition =
         CreatePositionFromTextMarker(parameter);
@@ -2508,7 +2563,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarker(position->CreateNextLineEndPosition(
         ui::AXBoundaryBehavior::CrossBoundary));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute
           isEqualToString:@"AXPreviousLineStartTextMarkerForTextMarker"]) {
     BrowserAccessibilityPositionInstance position =
@@ -2518,11 +2575,14 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return CreateTextMarker(position->CreatePreviousLineStartPosition(
         ui::AXBoundaryBehavior::CrossBoundary));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:@"AXLengthForTextMarkerRange"]) {
     NSString* text = GetTextForTextMarkerRange(parameter);
     return [NSNumber numberWithInt:[text length]];
   }
+#endif
 
   if ([attribute isEqualToString:
       NSAccessibilityBoundsForRangeParameterizedAttribute]) {
@@ -2560,6 +2620,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     return nil;
   }
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:
            NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute]) {
     BrowserAccessibilityPositionInstance position =
@@ -2573,7 +2634,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
                               ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary));
     return CreateTextMarkerRange(std::move(range));
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:
            NSAccessibilityBoundsForTextMarkerRangeParameterizedAttribute]) {
     BrowserAccessibility* startObject;
@@ -2600,7 +2663,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
         pointInScreen.x, pointInScreen.y, rect.width(), rect.height());
     return [NSValue valueWithRect:nsrect];
   }
+#endif
 
+#if !defined(NWJS_MAS)
   if ([attribute isEqualToString:
            NSAccessibilityTextMarkerRangeForUnorderedTextMarkersParameterizedAttribute]) {
     if (![parameter isKindOfClass:[NSArray class]])
@@ -2622,6 +2687,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
           AXPlatformRange(std::move(endPosition), std::move(startPosition)));
     }
   }
+#endif
 
   if ([attribute isEqualToString:
            NSAccessibilityIndexForChildUIElementParameterizedAttribute]) {
@@ -2652,6 +2718,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   // General attributes.
   NSMutableArray* ret = [NSMutableArray
       arrayWithObjects:
+#if !defined(NWJS_MAS)
           @"AXUIElementForTextMarker", @"AXTextMarkerRangeForUIElement",
           @"AXLineForTextMarker", @"AXTextMarkerRangeForLine",
           @"AXStringForTextMarkerRange", @"AXTextMarkerForPosition",
@@ -2675,14 +2742,17 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
           @"AXStyleTextMarkerRangeForTextMarker", @"AXLengthForTextMarkerRange",
           NSAccessibilityBoundsForTextMarkerRangeParameterizedAttribute,
           NSAccessibilityTextMarkerRangeForUnorderedTextMarkersParameterizedAttribute,
+#endif
           NSAccessibilityIndexForChildUIElementParameterizedAttribute,
           NSAccessibilityBoundsForRangeParameterizedAttribute,
           NSAccessibilityStringForRangeParameterizedAttribute,
           NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute,
           NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute,
+#if !defined(NWJS_MAS)
           NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute,
           NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute,
           NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute,
+#endif
           NSAccessibilitySelectTextWithCriteriaParameterizedAttribute, nil];
 
   if ([[self role] isEqualToString:NSAccessibilityTableRole] ||
@@ -2712,6 +2782,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     ]];
   }
 
+#if !defined(NWJS_MAS)
   if ([self internalRole] == ui::AX_ROLE_ROOT_WEB_AREA ||
       [self internalRole] == ui::AX_ROLE_WEB_AREA) {
     [ret addObjectsFromArray: @[
@@ -2719,6 +2790,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
                      NSAccessibilityIndexForTextMarkerParameterizedAttribute,
                      NSAccessibilityTextMarkerForIndexParameterizedAttribute]];
   }
+#endif
 
   return ret;
 }
@@ -2797,7 +2869,9 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
                        NSAccessibilityDOMIdentifierAttribute,
                        NSAccessibilityEditableAncestorAttribute,
                        NSAccessibilityEnabledAttribute,
+#if !defined(NWJS_MAS)
                        NSAccessibilityEndTextMarkerAttribute,
+#endif
                        NSAccessibilityFocusedAttribute,
                        NSAccessibilityHelpAttribute,
                        NSAccessibilityHighestEditableAncestorAttribute,
@@ -2807,9 +2881,13 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
                        NSAccessibilityPositionAttribute,
                        NSAccessibilityRoleAttribute,
                        NSAccessibilityRoleDescriptionAttribute,
+#if !defined(NWJS_MAS)
                        NSAccessibilitySelectedTextMarkerRangeAttribute,
+#endif
                        NSAccessibilitySizeAttribute,
+#if !defined(NWJS_MAS)
                        NSAccessibilityStartTextMarkerAttribute,
+#endif
                        NSAccessibilitySubroleAttribute,
                        NSAccessibilityTitleAttribute,
                        NSAccessibilityTitleUIElementAttribute,

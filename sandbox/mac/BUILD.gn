@@ -11,6 +11,13 @@ proto_library("seatbelt_proto") {
   sources = [
     "seatbelt.proto",
   ]
+
+  if (is_mac && nwjs_mas) {
+    sources -= [
+      "xpc_message_server.cc",
+      "xpc_message_server.h",
+    ]
+  }
 }
 
 component("seatbelt") {
@@ -47,6 +54,10 @@ component("seatbelt_extension") {
     "//base",
   ]
   defines = [ "SEATBELT_IMPLEMENTATION" ]
+  if (nwjs_mas) {
+    sources -= [ "seatbelt.cc" ]
+    sources += [ "seatbelt_mas.cc" ]
+  }
 }
 
 test("sandbox_mac_unittests") {
