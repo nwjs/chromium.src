@@ -251,6 +251,15 @@
                 }],
               ],
             }],  # mac_breakpad
+            ['nwjs_mas==1', {
+              'variables': {
+                'copy_framework_script%': '../build/mac/copy_framework.sh',
+              },
+            }, { # nwjs_mas != 1
+              'variables': {
+                'copy_framework_script%': '../build/mac/copy_framework_unversioned.sh',
+              },
+            }],  # nwjs_mas
           ],
           'product_name': '<(mac_product_name)',
           'xcode_settings': {
@@ -324,7 +333,7 @@
             {
               'postbuild_name': 'Copy <(mac_product_name) Framework.framework',
               'action': [
-                '../build/mac/copy_framework_unversioned.sh',
+                '<(copy_framework_script)',
                 '${BUILT_PRODUCTS_DIR}/<(mac_product_name) Framework.framework',
                 '${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Versions/<(version_full)',
               ],
