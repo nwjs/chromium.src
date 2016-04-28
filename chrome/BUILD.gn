@@ -804,6 +804,11 @@ if (is_win || (is_linux && !is_component_build)) {
       "//chrome/app_shim:app_mode_loader",
     ]
 
+    if (is_mac && nwjs_mas) {
+      public_deps -= [ "//chrome/app_shim:app_mode_loader" ]
+      sources -= [ "$root_out_dir/app_mode_loader.app" ]
+    }
+
     if (enable_mac_keystone) {
       sources += [
         "browser/mac/keystone_promote_postflight.sh",
@@ -996,6 +1001,10 @@ if (is_win || (is_linux && !is_component_build)) {
       ":chrome_framework_shared_library",
     ]
 
+    if (is_mac && nwjs_mas) {
+      visibility += [ ":chrome_framework_create_bundle" ]
+    }
+
     output_name = "nw"
 
     sources = [
@@ -1096,6 +1105,14 @@ if (is_win || (is_linux && !is_component_build)) {
         ":chrome_dll",
       ]
     }
+
+    if (is_mac && nwjs_mas) {
+      deps -= [
+        ":chrome_framework_helpers"
+      ]
+
+      framework_version = "A"
+    }
   }
 
   if (!is_asan && !is_component_build && false) {
@@ -1147,6 +1164,17 @@ if (is_win || (is_linux && !is_component_build)) {
       "$root_out_dir/crashpad_handler",
     ]
 
+    if (is_mac && nwjs_mas) {
+      _chrome_symbols_sources -= [
+        "$root_out_dir/$chrome_framework_name.framework/$chrome_framework_name",
+        "$root_out_dir/crashpad_handler"
+      ]
+
+      _chrome_symbols_sources += [
+        "$root_out_dir/$chrome_framework_name.framework/Versions/A/$chrome_framework_name"
+      ]
+    }
+
     # It is possible to run dump_syms on unstripped products without dSYMs,
     # but doing so isn't logical and won't happen in practice.
     action_foreach("chrome_dump_syms") {
@@ -1176,17 +1204,29 @@ if (is_win || (is_linux && !is_component_build)) {
         "//breakpad:dump_syms",
         "//third_party/crashpad/crashpad/handler:crashpad_handler",
       ]
+
+      if (is_mac && nwjs_mas) {
+        deps -= [ "//third_party/crashpad/crashpad/handler:crashpad_handler" ]
+      }
     }
 
     action("nw_sym_archive") {
       script = "//content/nw/tools/archive_symbols.py"
 
+      if (is_mac && nwjs_mas) {
+      _syms = [
+        "$root_out_dir/$chrome_framework_name-$chrome_version_full.breakpad",
+        "$root_out_dir/$chrome_helper_name-$chrome_version_full.breakpad",
+        "$root_out_dir/$chrome_product_full_name-$chrome_version_full.breakpad"
+      ]
+      } else {
       _syms = [
         "$root_out_dir/$chrome_framework_name-$chrome_version_full.breakpad",
         "$root_out_dir/$chrome_helper_name-$chrome_version_full.breakpad",
         "$root_out_dir/$chrome_product_full_name-$chrome_version_full.breakpad",
         "$root_out_dir/crashpad_handler-$chrome_version_full.breakpad",
       ]
+      }
 
       sources = _chrome_symbols_sources
 
@@ -1206,6 +1246,10 @@ if (is_win || (is_linux && !is_component_build)) {
         ":chrome_helper_app",
         "//third_party/crashpad/crashpad/handler:crashpad_handler",
       ]
+
+      if (is_mac && nwjs_mas) {
+        deps -= [ "//third_party/crashpad/crashpad/handler:crashpad_handler" ]
+      }
     }
 
     action("chrome_dsym_archive") {
@@ -1215,12 +1259,20 @@ if (is_win || (is_linux && !is_component_build)) {
       # the target outputs that correspond to the dSYMs (since a dSYM is a
       # directory it cannot be listed as a source file). The targets that
       # generate both the dSYM and binary image are listed in deps.
+      if (nwjs_mas) {
+      _dsyms = [
+        "$root_out_dir/$chrome_framework_name.dSYM",
+        "$root_out_dir/$chrome_helper_name.dSYM",
+        "$root_out_dir/$chrome_product_full_name.dSYM",
+      ]
+      } else {
       _dsyms = [
         "$root_out_dir/$chrome_framework_name.dSYM",
         "$root_out_dir/$chrome_helper_name.dSYM",
         "$root_out_dir/$chrome_product_full_name.dSYM",
         "$root_out_dir/crashpad_handler.dSYM",
       ]
+      }
 
       sources = _chrome_symbols_sources
 
@@ -1239,6 +1291,10 @@ if (is_win || (is_linux && !is_component_build)) {
         ":chrome_helper_app",
         "//third_party/crashpad/crashpad/handler:crashpad_handler",
       ]
+
+      if (is_mac && nwjs_mas) {
+        deps -= [ "//third_party/crashpad/crashpad/handler:crashpad_handler" ]
+      }      
     }
   } else {
     group("chrome_dump_syms") {
