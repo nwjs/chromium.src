@@ -456,6 +456,7 @@ bool CrashpadClient::StartHandler(
     const std::vector<std::string>& arguments,
     bool restartable,
     bool asynchronous_start) {
+#if !defined(NWJS_MAS)
   // The “restartable” behavior can only be selected on OS X 10.10 and later. In
   // previous OS versions, if the initial client were to crash while attempting
   // to restart the handler, it would become an unkillable process.
@@ -473,6 +474,9 @@ bool CrashpadClient::StartHandler(
 
   SetHandlerMachPort(std::move(exception_port));
   return true;
+#else
+  return false;
+#endif
 }
 
 bool CrashpadClient::SetHandlerMachService(const std::string& service_name) {
