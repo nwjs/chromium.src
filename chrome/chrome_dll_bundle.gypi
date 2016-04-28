@@ -130,6 +130,51 @@
                  '--scm=1',
                  '--branding=<(branding)'],
     },
+    {
+      'postbuild_name': 'Symlink Libraries',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/Libraries',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Libraries'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink Helpers',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/Helpers',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Helpers'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink libnode.dylib',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/libnode.dylib',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/libnode.dylib'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink libffmpeg.dylib',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/libffmpeg.dylib',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/libffmpeg.dylib'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink Internet Plug-Ins',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/Internet Plug-Ins',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Internet Plug-Ins'
+      ],
+    },
   ],
   'copies': [
     {
