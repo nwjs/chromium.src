@@ -72,7 +72,7 @@
     'app/framework-Info.plist',
   ],
   'dependencies': [
-    'app_mode_app',
+    # 'app_mode_app',
     # Bring in pdfsqueeze and run it on all pdfs
     '../build/temp_gyp/pdfsqueeze.gyp:pdfsqueeze',
     '../crypto/crypto.gyp:crypto',
@@ -239,13 +239,13 @@
           '<(SHARED_INTERMEDIATE_DIR)/<(pseudo_locales).pak'
       ],
     },
-    {
-      'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
-      'files': [
-        # Loader bundle for platform apps.
-        '<(PRODUCT_DIR)/app_mode_loader.app',
-      ],
-    },
+    # {
+    #   'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
+    #   'files': [
+    #     # Loader bundle for platform apps.
+    #     '<(PRODUCT_DIR)/app_mode_loader.app',
+    #   ],
+    # },
   ],
   'conditions': [
     ['branding=="Chrome"', {
