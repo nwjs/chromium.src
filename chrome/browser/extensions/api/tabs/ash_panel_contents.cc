@@ -33,7 +33,8 @@ AshPanelContents::~AshPanelContents() {
 }
 
 void AshPanelContents::Initialize(content::BrowserContext* context,
-                                  const GURL& url) {
+                                  const GURL& url,
+                                  const extensions::Extension* extension) {
   url_ = url;
 
   web_contents_.reset(

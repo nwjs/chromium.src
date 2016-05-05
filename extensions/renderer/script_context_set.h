@@ -120,7 +120,9 @@ class ScriptContextSet {
       const Extension* extension,
       int extension_group,
       const GURL& url,
-      const blink::WebSecurityOrigin& origin);
+      const blink::WebSecurityOrigin& origin,
+      const blink::WebLocalFrame* frame = nullptr
+                                             );
 
   // Helper for OnExtensionUnloaded().
   void RecordAndRemove(std::set<ScriptContext*>* removed,
