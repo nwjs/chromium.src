@@ -31,13 +31,17 @@ const char* GetOuterBundleId() {
   base::FilePath outer_app_dir;
   PathService::Get(base::FILE_EXE, &outer_app_dir);
 
-  // Contents/Versions/<ChromiumVersion>/nwjs Framework.framework/Versions/A/Helpers/crashpad_handler
-  outer_app_dir = outer_app_dir.DirName().DirName().DirName().DirName().DirName().DirName().DirName();
+  // Contents/Versions/<ChromiumVersion>/nwjs Framework.framework/
+  // Versions/A/Helpers/crashpad_handler
+  outer_app_dir = outer_app_dir
+    .DirName().DirName().DirName().DirName() // nwjs Framework.framework
+    .DirName().DirName().DirName(); // Contents
   DCHECK_EQ(outer_app_dir.BaseName().value(), "Contents");
 
-  const char* outer_app_dir_c = outer_app_dir.DirName().value().c_str();
-  NSString* outer_app_dir_ns = [NSString stringWithUTF8String:outer_app_dir_c];
+  NSString* outer_app_dir_ns = 
+    [NSString stringWithUTF8String:outer_app_dir.DirName().value().c_str()];
   NSBundle* base_bundle = [[NSBundle bundleWithPath:outer_app_dir_ns] retain];
+  CHECK(base_bundle);
   return [[base_bundle bundleIdentifier] UTF8String];
 }
 
