@@ -694,7 +694,8 @@ base::Process StartSandboxedProcess(
     base::Process process = base::LaunchProcess(*cmd_line, options);
 
     // TODO(rvargas) crbug.com/417532: Don't share a raw handle.
-    g_broker_services->AddTargetPeer(process.Handle());
+    if (g_broker_services)
+      g_broker_services->AddTargetPeer(process.Handle());
     return process;
   }
 

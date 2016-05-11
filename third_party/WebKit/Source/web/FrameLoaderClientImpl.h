@@ -55,6 +55,7 @@ public:
     // FrameLoaderClient ----------------------------------------------
 
     void didCreateNewDocument() override;
+    void willHandleNavigationPolicy(const blink::ResourceRequest& request, blink::NavigationPolicy* policy, WebString* manifest = NULL, bool new_win = true) override;
     // Notifies the WebView delegate that the JS window object has been cleared,
     // giving it a chance to bind native objects to the window before script
     // parsing begins.

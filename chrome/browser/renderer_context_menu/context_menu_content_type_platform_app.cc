@@ -46,12 +46,10 @@ bool ContextMenuContentTypePlatformApp::SupportsGroup(int group) {
       return ContextMenuContentType::SupportsGroup(group);
     case ITEM_GROUP_CURRENT_EXTENSION:
       return true;
+#if defined(NWJS_SDK)
     case ITEM_GROUP_DEVTOOLS_UNPACKED_EXT:
-      // Add dev tools for unpacked extensions.
-      return extensions::Manifest::IsUnpackedLocation(
-                 platform_app->location()) ||
-             base::CommandLine::ForCurrentProcess()->HasSwitch(
-                 switches::kDebugPackedApps);
+      return true;
+#endif
     default:
       return false;
   }

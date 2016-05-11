@@ -237,6 +237,9 @@
 #define IntToStringType base::IntToString
 #endif
 
+#include "content/nw/src/common/shell_switches.h"
+#include "content/nw/src/nw_content.h"
+
 namespace content {
 namespace {
 
@@ -1368,6 +1371,8 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
   // Propagate the following switches to the renderer command line (along
   // with any associated values) if present in the browser command line.
   static const char* const kSwitchNames[] = {
+    switches::kDisableRAFThrottling,
+    switches::kEnableSpellChecking,
     switches::kAgcStartupMinVolume,
     switches::kAecRefinedAdaptiveFilter,
     switches::kAllowLoopbackInPeerConnection,
@@ -2151,6 +2156,8 @@ void RenderProcessHostImpl::FilterURL(RenderProcessHost* rph,
     // If this renderer is not permitted to request this URL, we invalidate the
     // URL.  This prevents us from storing the blocked URL and becoming confused
     // later.
+    if (non_web_url_in_guest && nw::RphGuestFilterURLHook(rph, url))
+      return;
     VLOG(1) << "Blocked URL " << url->spec();
     *url = GURL(url::kAboutBlankURL);
   }
@@ -2279,9 +2286,11 @@ RenderProcessHost* RenderProcessHost::GetExistingProcessHost(
 
   // Now pick a random suitable renderer, if we have any.
   if (!suitable_renderers.empty()) {
-    int suitable_count = static_cast<int>(suitable_renderers.size());
-    int random_index = base::RandInt(0, suitable_count - 1);
-    return suitable_renderers[random_index];
+    //int suitable_count = static_cast<int>(suitable_renderers.size());
+    //int random_index = base::RandInt(0, suitable_count - 1);
+    //NWJS: reuse first renderer, the main process for valid nw.Window.open
+    //callback value. see also app_window_api.cc:416
+    return suitable_renderers[0];
   }
 
   return NULL;
@@ -2350,7 +2359,10 @@ void RenderProcessHostImpl::RegisterProcessHostForSite(
   // appropriate bindings here, because the bindings have not yet been granted.
   std::string site =
       SiteInstance::GetSiteForURL(browser_context, url).possibly_invalid_spec();
-  if (!site.empty())
+  // don't register process when we're opening new_instance window, or
+  // the map slot will be took over and following same-instance window
+  // opening will return null; NWJS#4691
+  if (!site.empty() && nw::PinningRenderer())
     map->RegisterProcess(site, process);
 }
 

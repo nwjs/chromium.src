@@ -70,6 +70,8 @@
 #include "components/user_manager/user_manager.h"
 #endif
 
+#include "content/nw/src/nw_content_verifier_delegate.h"
+
 using content::BrowserThread;
 
 namespace extensions {
@@ -153,7 +155,7 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   ExtensionErrorReporter::Init(allow_noisy_errors);
 
   content_verifier_ = new ContentVerifier(
-      profile_, new ChromeContentVerifierDelegate(profile_));
+      profile_, new NWContentVerifierDelegate(profile_));
 
   service_worker_manager_.reset(new ServiceWorkerManager(profile_));
 
@@ -171,7 +173,7 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   extension_service_.reset(new ExtensionService(
       profile_, base::CommandLine::ForCurrentProcess(),
       profile_->GetPath().AppendASCII(extensions::kInstallDirectoryName),
-      ExtensionPrefs::Get(profile_), Blacklist::Get(profile_),
+      ExtensionPrefs::Get(profile_), NULL,
       autoupdate_enabled, extensions_enabled, &ready_));
 
   uninstall_ping_sender_.reset(new UninstallPingSender(
@@ -182,7 +184,7 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   {
     InstallVerifier::Get(profile_)->Init();
     ContentVerifierDelegate::Mode mode =
-        ChromeContentVerifierDelegate::GetDefaultMode();
+        NWContentVerifierDelegate::GetDefaultMode();
 #if defined(OS_CHROMEOS)
     mode = std::max(mode, ContentVerifierDelegate::BOOTSTRAP);
 #endif  // defined(OS_CHROMEOS)

@@ -2041,7 +2041,7 @@ Nullable<ExceptionCode> HTMLMediaElement::play()
 
     m_autoplayHelper->playMethodCalled();
 
-    if (!UserGestureIndicator::processingUserGesture()) {
+    if (!UserGestureIndicator::processingUserGesture() && !document().frame()->isNodeJS()) {
         if (m_userGestureRequiredForPlay) {
             recordAutoplayMetric(PlayMethodFailed);
             String message = ExceptionMessages::failedToExecute("play", "HTMLMediaElement", "API can only be initiated by a user gesture.");
