@@ -322,6 +322,12 @@ class ChildPortHandshake {
   DISALLOW_COPY_AND_ASSIGN(ChildPortHandshake);
 };
 
+#if defined(NWJS_MAS)
+
+const char* GetOuterBundleId();
+
+#endif
+
 }  // namespace crashpad
 
 #endif  // CRASHPAD_UTIL_MACH_CHILD_PORT_HANDSHAKE_H_

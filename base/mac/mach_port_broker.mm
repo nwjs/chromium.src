@@ -71,10 +71,15 @@ bool MachPortBroker::ChildSendTaskPortToParent(const std::string& name) {
 // static
 std::string MachPortBroker::GetMachPortName(const std::string& name,
                                             bool is_child) {
+#if defined(NWJS_MAS)
+  return base::StringPrintf(
+      "%s.%s", base::mac::BaseBundleID(), name.c_str());
+#else
   // In child processes, use the parent's pid.
   const pid_t pid = is_child ? getppid() : getpid();
   return base::StringPrintf(
       "%s.%s.%d", base::mac::BaseBundleID(), name.c_str(), pid);
+#endif
 }
 
 mach_port_t MachPortBroker::TaskForPid(base::ProcessHandle pid) const {

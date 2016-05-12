@@ -72,7 +72,7 @@
     'app/framework-Info.plist',
   ],
   'dependencies': [
-    'app_mode_app',
+    # 'app_mode_app',
     # Bring in pdfsqueeze and run it on all pdfs
     '../build/temp_gyp/pdfsqueeze.gyp:pdfsqueeze',
     '../crypto/crypto.gyp:crypto',
@@ -129,6 +129,51 @@
                  '--keystone=0',
                  '--scm=1',
                  '--branding=<(branding)'],
+    },
+    {
+      'postbuild_name': 'Symlink Libraries',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/Libraries',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Libraries'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink Helpers',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/Helpers',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Helpers'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink libnode.dylib',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/libnode.dylib',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/libnode.dylib'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink libffmpeg.dylib',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/libffmpeg.dylib',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/libffmpeg.dylib'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink Internet Plug-Ins',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/Internet Plug-Ins',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Internet Plug-Ins'
+      ],
     },
   ],
   'copies': [
@@ -194,13 +239,13 @@
           '<(SHARED_INTERMEDIATE_DIR)/<(pseudo_locales).pak'
       ],
     },
-    {
-      'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
-      'files': [
-        # Loader bundle for platform apps.
-        '<(PRODUCT_DIR)/app_mode_loader.app',
-      ],
-    },
+    # {
+    #   'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
+    #   'files': [
+    #     # Loader bundle for platform apps.
+    #     '<(PRODUCT_DIR)/app_mode_loader.app',
+    #   ],
+    # },
   ],
   'conditions': [
     ['branding=="Chrome"', {

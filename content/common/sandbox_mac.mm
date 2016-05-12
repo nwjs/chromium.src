@@ -44,9 +44,10 @@ extern "C" {
 #include "ui/gl/gl_surface.h"
 
 extern "C" {
+#if !defined(NWJS_MAS)
 void CGSSetDenyWindowServerConnections(bool);
 void CGSShutdownServerConnections();
-
+#endif
 int sandbox_init_with_parameters(const char* profile,
                                  uint64_t flags,
                                  const char* const parameters[],
@@ -359,8 +360,10 @@ void Sandbox::SandboxWarmup(int sandbox_type) {
     // 10.8 and higher because doing it on earlier OSes causes layout tests to
     // fail <http://crbug.com/397642#c48>. This may cause two log messages to
     // be printed to the system logger on certain OS versions.
+#if !defined(NWJS_MAS)
     CGSSetDenyWindowServerConnections(true);
     CGSShutdownServerConnections();
+#endif
   }
 }
 

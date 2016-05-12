@@ -16,6 +16,7 @@ UnixDomainSocketAcceptor::UnixDomainSocketAcceptor(const base::FilePath& path,
     : path_(path), delegate_(delegate), listen_fd_(-1) {
   DCHECK(delegate_);
   CreateSocket();
+  absolute_path_ = base::MakeAbsoluteFilePath(path);
 }
 
 UnixDomainSocketAcceptor::~UnixDomainSocketAcceptor() {
@@ -80,7 +81,7 @@ void UnixDomainSocketAcceptor::Close() {
   if (IGNORE_EINTR(close(listen_fd_)) < 0)
     PLOG(ERROR) << "close";
   listen_fd_ = -1;
-  if (unlink(path_.value().c_str()) < 0)
+  if (unlink(absolute_path_.value().c_str()) < 0)
     PLOG(ERROR) << "unlink";
 
   // Unregister libevent for the listening socket and close it.

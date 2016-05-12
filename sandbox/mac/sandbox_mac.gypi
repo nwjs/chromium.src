@@ -40,6 +40,14 @@
           '$(SDKROOT)/usr/lib/libbsm.dylib',
         ],
       },
+      'conditions': [
+        ['nwjs_mas==1', {
+          'sources!': [
+            'xpc_message_server.cc',
+            'xpc_message_server.h',
+          ],
+        }],
+      ],
     },
     {
       'target_name': 'sandbox_mac_unittests',

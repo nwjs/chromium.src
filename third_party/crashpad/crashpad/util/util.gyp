@@ -224,6 +224,11 @@
                 '$(SDKROOT)/usr/include/mach/notify.defs',
               ],
             }],
+            ['nwjs_mas==1', {
+              'sources': [
+                'mach/child_port_handshake_mac.mm'
+              ],
+            }],
           ],
           'rules': [
             {
