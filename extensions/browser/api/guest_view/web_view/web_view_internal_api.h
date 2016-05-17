@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "base/macros.h"
+#include "chrome/browser/extensions/api/cookies/cookies_api.h"
 #include "extensions/browser/api/execute_code_function.h"
 #include "extensions/browser/api/web_contents_capture_client.h"
 #include "extensions/browser/extension_function.h"
@@ -473,6 +474,72 @@ class WebViewInternalClearDataFunction
   bool bad_message_;
 
   DISALLOW_COPY_AND_ASSIGN(WebViewInternalClearDataFunction);
+};
+
+class WebViewInternalCookiesGetFunction : public extensions::CookiesGetFunction {
+public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.cookiesGet", WEBVIEWINTERNAL_COOKIESGET);
+
+  WebViewInternalCookiesGetFunction();
+
+protected:
+  ~WebViewInternalCookiesGetFunction() override;
+
+private:
+  std::unique_ptr<api::cookies::Get::Params> GetParsedArgs() override;
+  bool SetStoreBrowserContext() override;
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalCookiesGetFunction);
+};
+
+class WebViewInternalCookiesGetAllFunction : public extensions::CookiesGetAllFunction {
+public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.cookiesGetAll", WEBVIEWINTERNAL_COOKIESGETALL);
+
+  WebViewInternalCookiesGetAllFunction();
+
+protected:
+  ~WebViewInternalCookiesGetAllFunction() override;
+
+private:
+  std::unique_ptr<api::cookies::GetAll::Params> GetParsedArgs() override;
+  bool SetStoreBrowserContext() override;
+
+  void GetAllCookiesCallback(const net::CookieList& cookie_list);
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalCookiesGetAllFunction);
+};
+
+class WebViewInternalCookiesSetFunction : public extensions::CookiesSetFunction {
+public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.cookiesSet", WEBVIEWINTERNAL_COOKIESSET);
+
+  WebViewInternalCookiesSetFunction();
+
+protected:
+  ~WebViewInternalCookiesSetFunction() override;
+
+private:
+  std::unique_ptr<api::cookies::Set::Params> GetParsedArgs() override;
+  bool SetStoreBrowserContext() override;
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalCookiesSetFunction);
+};
+
+class WebViewInternalCookiesRemoveFunction : public extensions::CookiesRemoveFunction {
+public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.cookiesRemove", WEBVIEWINTERNAL_COOKIESREMOVE);
+
+  WebViewInternalCookiesRemoveFunction();
+
+protected:
+  ~WebViewInternalCookiesRemoveFunction() override;
+
+private:
+  std::unique_ptr<api::cookies::Remove::Params> GetParsedArgs() override;
+  bool SetStoreBrowserContext() override;
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalCookiesRemoveFunction);
 };
 
 }  // namespace extensions
