@@ -658,6 +658,13 @@ void NativeAppWindowCocoa::HandleKeyboardEvent(
       event.type == content::NativeWebKeyboardEvent::Char) {
     return;
   }
+
+  NSEvent* nsEvent = event.os_event;
+  if ([nsEvent type] == NSKeyDown) {
+    if ([[NSApp mainMenu] performKeyEquivalent:nsEvent])
+      return;
+  }
+
   [window() redispatchKeyEvent:event.os_event];
 }
 
