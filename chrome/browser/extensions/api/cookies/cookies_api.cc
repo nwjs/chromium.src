@@ -106,6 +106,24 @@ bool ParseStoreContext(ChromeAsyncExtensionFunction* function,
   return true;
 }
 
+template <typename TParams>
+bool SetStoreBrowserContext(ChromeAsyncExtensionFunction* function,
+  std::unique_ptr<TParams>& parsedArgs,
+  scoped_refptr<net::URLRequestContextGetter>& storeBrowserContext) {
+
+  std::string store_id =
+    parsedArgs->details.store_id.get() ? *parsedArgs->details.store_id
+    : std::string();
+  net::URLRequestContextGetter* store_context = NULL;
+  if (!ParseStoreContext(function, &store_id, &store_context))
+    return false;
+  storeBrowserContext = store_context;
+  if (!parsedArgs->details.store_id.get())
+    parsedArgs->details.store_id.reset(new std::string(store_id));
+
+  return true;
+}
+
 }  // namespace
 
 CookiesEventRouter::CookiesEventRouter(content::BrowserContext* context)
@@ -204,25 +222,25 @@ CookiesGetFunction::CookiesGetFunction() {
 CookiesGetFunction::~CookiesGetFunction() {
 }
 
+std::unique_ptr<api::cookies::Get::Params> CookiesGetFunction::GetParsedArgs() {
+  return Get::Params::Create(*args_);
+}
+
+bool CookiesGetFunction::SetStoreBrowserContext() {
+  return extensions::SetStoreBrowserContext(this, parsed_args_, 
+    store_browser_context_);
+}
+
 bool CookiesGetFunction::RunAsync() {
-  parsed_args_ = Get::Params::Create(*args_);
+  parsed_args_ = GetParsedArgs();
   EXTENSION_FUNCTION_VALIDATE(parsed_args_.get());
 
   // Read/validate input parameters.
   if (!ParseUrl(this, parsed_args_->details.url, &url_, true))
     return false;
 
-  std::string store_id =
-      parsed_args_->details.store_id.get() ? *parsed_args_->details.store_id
-                                           : std::string();
-  net::URLRequestContextGetter* store_context = NULL;
-  if (!ParseStoreContext(this, &store_id, &store_context))
+  if (!SetStoreBrowserContext())
     return false;
-  store_browser_context_ = store_context;
-  if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
-
-  store_browser_context_ = store_context;
 
   bool rv = BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -276,8 +294,18 @@ CookiesGetAllFunction::CookiesGetAllFunction() {
 CookiesGetAllFunction::~CookiesGetAllFunction() {
 }
 
+std::unique_ptr<api::cookies::GetAll::Params> CookiesGetAllFunction::GetParsedArgs()
+{
+  return GetAll::Params::Create(*args_);
+}
+
+bool CookiesGetAllFunction::SetStoreBrowserContext() {
+  return extensions::SetStoreBrowserContext(this, parsed_args_, 
+    store_browser_context_);
+}
+
 bool CookiesGetAllFunction::RunAsync() {
-  parsed_args_ = GetAll::Params::Create(*args_);
+  parsed_args_ = GetParsedArgs();
   EXTENSION_FUNCTION_VALIDATE(parsed_args_.get());
 
   if (parsed_args_->details.url.get() &&
@@ -285,15 +313,8 @@ bool CookiesGetAllFunction::RunAsync() {
     return false;
   }
 
-  std::string store_id =
-      parsed_args_->details.store_id.get() ? *parsed_args_->details.store_id
-                                           : std::string();
-  net::URLRequestContextGetter* store_context = NULL;
-  if (!ParseStoreContext(this, &store_id, &store_context))
+  if (!SetStoreBrowserContext())
     return false;
-  store_browser_context_ = store_context;
-  if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
 
   bool rv = BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -339,23 +360,25 @@ CookiesSetFunction::CookiesSetFunction() : success_(false) {
 CookiesSetFunction::~CookiesSetFunction() {
 }
 
+std::unique_ptr<api::cookies::Set::Params> CookiesSetFunction::GetParsedArgs() {
+  return Set::Params::Create(*args_);
+}
+
+bool CookiesSetFunction::SetStoreBrowserContext() {
+  return extensions::SetStoreBrowserContext(this, parsed_args_, 
+    store_browser_context_);
+}
+
 bool CookiesSetFunction::RunAsync() {
-  parsed_args_ = Set::Params::Create(*args_);
+  parsed_args_ = GetParsedArgs();
   EXTENSION_FUNCTION_VALIDATE(parsed_args_.get());
 
   // Read/validate input parameters.
   if (!ParseUrl(this, parsed_args_->details.url, &url_, true))
       return false;
 
-  std::string store_id =
-      parsed_args_->details.store_id.get() ? *parsed_args_->details.store_id
-                                           : std::string();
-  net::URLRequestContextGetter* store_context = NULL;
-  if (!ParseStoreContext(this, &store_id, &store_context))
+  if (!SetStoreBrowserContext())
     return false;
-  store_browser_context_ = store_context;
-  if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
 
   bool rv = BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -473,25 +496,27 @@ CookiesRemoveFunction::CookiesRemoveFunction() {
 CookiesRemoveFunction::~CookiesRemoveFunction() {
 }
 
+std::unique_ptr<api::cookies::Remove::Params> CookiesRemoveFunction::GetParsedArgs()
+{
+  return Remove::Params::Create(*args_);
+}
+
+bool CookiesRemoveFunction::SetStoreBrowserContext() {
+  return extensions::SetStoreBrowserContext(this, parsed_args_, 
+    store_browser_context_);
+}
+
 bool CookiesRemoveFunction::RunAsync() {
-  parsed_args_ = Remove::Params::Create(*args_);
+  parsed_args_ = GetParsedArgs();
   EXTENSION_FUNCTION_VALIDATE(parsed_args_.get());
 
   // Read/validate input parameters.
   if (!ParseUrl(this, parsed_args_->details.url, &url_, true))
     return false;
 
-  std::string store_id =
-      parsed_args_->details.store_id.get() ? *parsed_args_->details.store_id
-                                           : std::string();
-  net::URLRequestContextGetter* store_context = NULL;
-  if (!ParseStoreContext(this, &store_id, &store_context))
+  if (!SetStoreBrowserContext())
     return false;
-  store_browser_context_ = store_context;
-  if (!parsed_args_->details.store_id.get())
-    parsed_args_->details.store_id.reset(new std::string(store_id));
 
-  // Pass the work off to the IO thread.
   bool rv = BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
       base::Bind(&CookiesRemoveFunction::RemoveCookieOnIOThread, this));

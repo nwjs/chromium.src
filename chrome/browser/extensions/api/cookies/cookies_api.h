@@ -75,14 +75,17 @@ class CookiesGetFunction : public ChromeAsyncExtensionFunction {
   // ExtensionFunction:
   bool RunAsync() override;
 
+  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
+  std::unique_ptr<api::cookies::Get::Params> parsed_args_;
+
  private:
+  virtual std::unique_ptr<api::cookies::Get::Params> GetParsedArgs();
+  virtual bool SetStoreBrowserContext();
   void GetCookieOnIOThread();
   void RespondOnUIThread();
   void GetCookieCallback(const net::CookieList& cookie_list);
 
   GURL url_;
-  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
-  std::unique_ptr<api::cookies::Get::Params> parsed_args_;
 };
 
 // Implements the cookies.getAll() extension function.
@@ -98,14 +101,17 @@ class CookiesGetAllFunction : public ChromeAsyncExtensionFunction {
   // ExtensionFunction:
   bool RunAsync() override;
 
+  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
+  std::unique_ptr<api::cookies::GetAll::Params> parsed_args_;
+
  private:
+  virtual std::unique_ptr<api::cookies::GetAll::Params> GetParsedArgs();
+  virtual bool SetStoreBrowserContext();
   void GetAllCookiesOnIOThread();
   void RespondOnUIThread();
   void GetAllCookiesCallback(const net::CookieList& cookie_list);
 
   GURL url_;
-  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
-  std::unique_ptr<api::cookies::GetAll::Params> parsed_args_;
 };
 
 // Implements the cookies.set() extension function.
@@ -119,7 +125,12 @@ class CookiesSetFunction : public ChromeAsyncExtensionFunction {
   ~CookiesSetFunction() override;
   bool RunAsync() override;
 
+  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
+  std::unique_ptr<api::cookies::Set::Params> parsed_args_;
+
  private:
+  virtual std::unique_ptr<api::cookies::Set::Params> GetParsedArgs();
+  virtual bool SetStoreBrowserContext();
   void SetCookieOnIOThread();
   void RespondOnUIThread();
   void PullCookie(bool set_cookie_);
@@ -127,8 +138,6 @@ class CookiesSetFunction : public ChromeAsyncExtensionFunction {
 
   GURL url_;
   bool success_;
-  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
-  std::unique_ptr<api::cookies::Set::Params> parsed_args_;
 };
 
 // Implements the cookies.remove() extension function.
@@ -144,14 +153,17 @@ class CookiesRemoveFunction : public ChromeAsyncExtensionFunction {
   // ExtensionFunction:
   bool RunAsync() override;
 
- private:
+  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
+  std::unique_ptr<api::cookies::Remove::Params> parsed_args_;
+
+ private: 
+  virtual std::unique_ptr<api::cookies::Remove::Params> GetParsedArgs();
+  virtual bool SetStoreBrowserContext();
   void RemoveCookieOnIOThread();
   void RespondOnUIThread();
   void RemoveCookieCallback();
 
   GURL url_;
-  scoped_refptr<net::URLRequestContextGetter> store_browser_context_;
-  std::unique_ptr<api::cookies::Remove::Params> parsed_args_;
 };
 
 // Implements the cookies.getAllCookieStores() extension function.

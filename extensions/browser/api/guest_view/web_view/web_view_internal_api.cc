@@ -11,10 +11,12 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/common/extensions/api/cookies.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/stop_find_action.h"
 #include "content/public/common/url_fetcher.h"
@@ -25,6 +27,8 @@
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/user_script.h"
+#include "net/url_request/url_request_context_getter.h"
+#include "net/url_request/url_request_context.h"
 #include "third_party/WebKit/public/web/WebFindOptions.h"
 
 using content::WebContents;
@@ -253,6 +257,44 @@ std::unique_ptr<extensions::UserScriptList> ParseContentScripts(
     result->push_back(std::move(script));
   }
   return result;
+}
+
+template <typename TParams>
+std::unique_ptr<TParams> GetAdjustedParsedArgs(std::unique_ptr<base::ListValue>& args) {
+  // First argument contains Webview guest id. We need to change it for cookies API
+  base::ListValue listValue;
+  if (args->GetSize() == 2) {
+    base::Value* value;
+    if (args->Get(1, &value))
+      listValue.Append(value->DeepCopy());
+  }
+  return TParams::Create(listValue);
+}
+
+template <typename TParams>
+bool SetStoreBrowserContext(const UIThreadExtensionFunction* function,
+  const std::unique_ptr<base::ListValue>& args,
+  std::unique_ptr<TParams>& parsedArgs,
+  scoped_refptr<net::URLRequestContextGetter>& storeBrowserContext) {
+
+  int instance_id = 0;
+  if (!args->GetInteger(0, &instance_id))
+    return false;
+
+  extensions::WebViewGuest* guest = extensions::WebViewGuest::From(
+    function->render_frame_host()->GetProcess()->GetID(), instance_id);
+
+  content::StoragePartition* partition = 
+    content::BrowserContext::GetStoragePartition(
+    guest->web_contents()->GetBrowserContext(), 
+      guest->web_contents()->GetSiteInstance());
+
+  storeBrowserContext = partition->GetURLRequestContext();
+
+  if (!parsedArgs->details.store_id.get())
+    parsedArgs->details.store_id.reset(new std::string());
+
+  return true;
 }
 
 }  // namespace
@@ -1000,6 +1042,66 @@ bool WebViewInternalClearDataFunction::RunAsyncSafe(WebViewGuest* guest) {
 void WebViewInternalClearDataFunction::ClearDataDone() {
   Release();  // Balanced in RunAsync().
   SendResponse(true);
+}
+
+WebViewInternalCookiesGetFunction::WebViewInternalCookiesGetFunction() {
+}
+
+WebViewInternalCookiesGetFunction::~WebViewInternalCookiesGetFunction() {
+}
+
+std::unique_ptr<api::cookies::Get::Params> WebViewInternalCookiesGetFunction::GetParsedArgs() {
+  return ::GetAdjustedParsedArgs<api::cookies::Get::Params>(args_);
+}
+
+bool WebViewInternalCookiesGetFunction::SetStoreBrowserContext() {
+  return ::SetStoreBrowserContext(this, args_, parsed_args_, 
+    store_browser_context_);
+}
+
+WebViewInternalCookiesGetAllFunction::WebViewInternalCookiesGetAllFunction() {
+}
+
+WebViewInternalCookiesGetAllFunction::~WebViewInternalCookiesGetAllFunction() {
+}
+
+std::unique_ptr<api::cookies::GetAll::Params> WebViewInternalCookiesGetAllFunction::GetParsedArgs() {
+  return ::GetAdjustedParsedArgs<api::cookies::GetAll::Params>(args_);
+}
+
+bool WebViewInternalCookiesGetAllFunction::SetStoreBrowserContext() {
+  return ::SetStoreBrowserContext(this, args_, parsed_args_,
+    store_browser_context_);
+}
+
+WebViewInternalCookiesSetFunction::WebViewInternalCookiesSetFunction() {
+}
+
+WebViewInternalCookiesSetFunction::~WebViewInternalCookiesSetFunction() {
+}
+
+std::unique_ptr<api::cookies::Set::Params> WebViewInternalCookiesSetFunction::GetParsedArgs() {
+  return ::GetAdjustedParsedArgs<api::cookies::Set::Params>(args_);
+}
+
+bool WebViewInternalCookiesSetFunction::SetStoreBrowserContext() {
+  return ::SetStoreBrowserContext(this, args_, parsed_args_,
+    store_browser_context_);
+}
+
+WebViewInternalCookiesRemoveFunction::WebViewInternalCookiesRemoveFunction() {
+}
+
+WebViewInternalCookiesRemoveFunction::~WebViewInternalCookiesRemoveFunction() {
+}
+
+std::unique_ptr<api::cookies::Remove::Params> WebViewInternalCookiesRemoveFunction::GetParsedArgs() {
+  return ::GetAdjustedParsedArgs<api::cookies::Remove::Params>(args_);
+}
+
+bool WebViewInternalCookiesRemoveFunction::SetStoreBrowserContext() {
+  return ::SetStoreBrowserContext(this, args_, parsed_args_,
+    store_browser_context_);
 }
 
 }  // namespace extensions
