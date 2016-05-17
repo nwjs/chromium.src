@@ -127,6 +127,17 @@ Manifest::Manifest(Location location, scoped_ptr<base::DictionaryValue> value)
   } else {
     type_ = TYPE_EXTENSION;
   }
+
+  if (value_->HasKey(keys::kNWJSInternalFlag)) {
+    type_ = TYPE_NWJS_APP;
+  }else if (value_->HasKey(keys::kPermissions)) {
+    base::ListValue* perm;
+    value_->GetList(keys::kPermissions, &perm);
+    base::StringValue node("node");
+    if (perm->Find(node) != perm->end())
+      type_ = TYPE_NWJS_APP;
+  }
+
   CHECK_NE(type_, TYPE_UNKNOWN);
 }
 
@@ -233,7 +244,7 @@ bool Manifest::Equals(const Manifest* other) const {
 int Manifest::GetManifestVersion() const {
   // Platform apps were launched after manifest version 2 was the preferred
   // version, so they default to that.
-  int manifest_version = type_ == TYPE_PLATFORM_APP ? 2 : 1;
+  int manifest_version = type_ == TYPE_PLATFORM_APP || type_ == TYPE_NWJS_APP ? 2 : 1;
   value_->GetInteger(keys::kManifestVersion, &manifest_version);
   return manifest_version;
 }

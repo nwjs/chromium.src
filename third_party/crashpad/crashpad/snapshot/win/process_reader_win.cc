@@ -151,10 +151,15 @@ bool FillThreadContextAndSuspendCount(HANDLE thread_handle,
 #if defined(ARCH_CPU_32_BITS)
     const bool is_native = true;
 #elif defined(ARCH_CPU_64_BITS)
-    const bool is_native = !is_64_reading_32;
-    if (is_64_reading_32) {
+    bool is_native = !is_64_reading_32;
+    typedef BOOL (WINAPI* Wow64GetThreadContextFunc)(HANDLE, PVOID);
+    Wow64GetThreadContextFunc wow64_get_thread_context = reinterpret_cast<Wow64GetThreadContextFunc>(
+              GetProcAddress(GetModuleHandle(L"kernel32.dll"), "Wow64GetThreadContext"));
+    if (!wow64_get_thread_context)
+      is_native = true;
+    if (is_64_reading_32 && wow64_get_thread_context) {
       thread->context.wow64.ContextFlags = CONTEXT_ALL;
-      if (!Wow64GetThreadContext(thread_handle, &thread->context.wow64)) {
+      if (!(*wow64_get_thread_context)(thread_handle, &thread->context.wow64)) {
         PLOG(ERROR) << "Wow64GetThreadContext";
         return false;
       }

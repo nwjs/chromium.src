@@ -150,6 +150,8 @@ bool CSPDirectiveList::checkAncestors(SourceListDirective* directive, LocalFrame
         return true;
 
     for (Frame* current = frame->tree().parent(); current; current = current->tree().parent()) {
+        if (current->isLocalFrame() && toLocalFrame(current)->document()->securityOrigin()->hasUniversalAccess())
+            return true;
         // The |current| frame might be a remote frame which has no URL, so use
         // its origin instead.  This should suffice for this check since it
         // doesn't do path comparisons.  See https://crbug.com/582544.

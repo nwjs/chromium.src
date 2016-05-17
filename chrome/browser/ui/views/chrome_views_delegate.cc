@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/chrome_views_delegate.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -297,6 +299,9 @@ HICON ChromeViewsDelegate::GetSmallWindowIcon() const {
 
 #elif defined(OS_LINUX) && !defined(OS_CHROMEOS)
 gfx::ImageSkia* ChromeViewsDelegate::GetDefaultWindowIcon() const {
+  gfx::ImageSkia* ret = nw::GetAppIcon();
+  if (ret)
+    return ret;
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.GetImageSkiaNamed(IDR_PRODUCT_LOGO_64);
 }
