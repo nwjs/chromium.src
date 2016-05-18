@@ -1164,7 +1164,7 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
   if ((window_ex_style() & WS_EX_COMPOSITED) == 0 &&
       !custom_window_region_.is_valid() &&
       (!delegate_->IsUsingCustomFrame() || !delegate_->IsWidgetWindow())) {
-    if (force)
+    if (force || content::g_force_cpu_draw)
       SetWindowRgn(hwnd(), NULL, redraw);
     return;
   }
