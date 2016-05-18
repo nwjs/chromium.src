@@ -264,9 +264,15 @@ Status WebViewImpl::CallFunction(const std::string& frame,
                                  const base::ListValue& args,
                                  scoped_ptr<base::Value>* result) {
   std::string json;
+  bool skip_result = false;
   base::JSONWriter::Write(args, &json);
   // TODO(zachconrad): Second null should be array of shadow host ids.
-  std::string expression = base::StringPrintf(
+  std::string expression;
+  if (base::StartsWith(function.c_str(), "rawscript:", base::CompareCase::SENSITIVE)) {
+    expression = function.substr(10);
+    skip_result = true;
+  } else
+    expression = base::StringPrintf(
       "(%s).apply(null, [null, %s, %s])",
       kCallFunctionScript,
       function.c_str(),
@@ -276,6 +282,8 @@ Status WebViewImpl::CallFunction(const std::string& frame,
   if (status.IsError())
     return status;
 
+  if (skip_result)
+    return Status(kOk);
   return internal::ParseCallFunctionResult(*temp_result, result);
 }
 

@@ -264,7 +264,7 @@ void ChromeCrashReporterClient::GetProductNameAndVersion(
   *product_name = "Chrome_ChromeOS";
 #else  // OS_LINUX
 #if !defined(ADDRESS_SANITIZER)
-  *product_name = "Chrome_Linux";
+  *product_name = "NWJS";
 #else
   *product_name = "Chrome_Linux_ASan";
 #endif
@@ -304,8 +304,9 @@ size_t ChromeCrashReporterClient::RegisterCrashKeys() {
 }
 
 bool ChromeCrashReporterClient::IsRunningUnattended() {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  return env->HasVar(env_vars::kHeadless);
+  // scoped_ptr<base::Environment> env(base::Environment::Create());
+  // return env->HasVar(env_vars::kHeadless);
+  return true;
 }
 
 bool ChromeCrashReporterClient::GetCollectStatsConsent() {
