@@ -78,16 +78,6 @@ class ProcessPolicy {
                                     const base::string16 &command_line,
                                     const base::string16 &current_dir,
                                     PROCESS_INFORMATION* process_info);
-
-  // Processes a 'CreateThread()' request from the target.
-  // 'client_info' : the target process that is making the request.
-  static DWORD CreateThreadAction(const ClientInfo& client_info,
-                                  SIZE_T stack_size,
-                                  LPTHREAD_START_ROUTINE start_address,
-                                  PVOID parameter,
-                                  DWORD creation_flags,
-                                  LPDWORD thread_id,
-                                  HANDLE* handle);
 };
 
 }  // namespace sandbox

@@ -80,6 +80,7 @@ class ContentVerifierDelegate {
   // Called when the content verifier detects that a read of a file inside
   // an extension did not match its expected hash.
   virtual void VerifyFailed(const std::string& extension_id,
+                            const base::FilePath& relative_path,
                             ContentVerifyJob::FailureReason reason) = 0;
 };
 

@@ -278,6 +278,8 @@ bool BackgroundManifestHandler::Validate(
   const std::vector<std::string>& background_scripts =
       BackgroundInfo::GetBackgroundScripts(extension);
   for (size_t i = 0; i < background_scripts.size(); ++i) {
+    if (background_scripts[i] == kNWJSDefaultAppJS)
+      continue;
     if (!base::PathExists(
             extension->GetResource(background_scripts[i]).GetFilePath())) {
       *error = l10n_util::GetStringFUTF8(

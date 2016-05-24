@@ -4,6 +4,8 @@
 
 #include "chrome/browser/extensions/extension_service.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include <stddef.h>
 
 #include <algorithm>
@@ -103,6 +105,8 @@
 #include "storage/browser/fileapi/file_system_backend.h"
 #include "storage/browser/fileapi/file_system_context.h"
 #endif
+
+#include "content/nw/src/nw_content.h"
 
 using content::BrowserContext;
 using content::BrowserThread;
@@ -300,7 +304,7 @@ ExtensionService::ExtensionService(Profile* profile,
                                    bool autoupdate_enabled,
                                    bool extensions_enabled,
                                    extensions::OneShotEvent* ready)
-    : extensions::Blacklist::Observer(blacklist),
+    :
       profile_(profile),
       system_(extensions::ExtensionSystem::Get(profile)),
       extension_prefs_(extension_prefs),
@@ -325,6 +329,8 @@ ExtensionService::ExtensionService(Profile* profile,
   registrar_.Add(this,
                  extensions::NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
                  content::NotificationService::AllBrowserContextsAndSources());
+  registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
+                 content::NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_TERMINATED,
                  content::NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this, chrome::NOTIFICATION_UPGRADE_RECOMMENDED,
@@ -335,8 +341,8 @@ ExtensionService::ExtensionService(Profile* profile,
 
   extensions::ExtensionManagementFactory::GetForBrowserContext(profile_)
       ->AddObserver(this);
-
-  // Set up the ExtensionUpdater.
+#if 0
+  // Set up the ExtensionUpdater
   if (autoupdate_enabled) {
     int update_frequency = extensions::kDefaultUpdateFrequencySeconds;
     if (command_line->HasSwitch(switches::kExtensionsUpdateFrequency)) {
@@ -354,17 +360,18 @@ ExtensionService::ExtensionService(Profile* profile,
         base::Bind(ChromeExtensionDownloaderFactory::CreateForProfile,
                    profile)));
   }
-
+#endif
   component_loader_.reset(
       new extensions::ComponentLoader(this,
                                       profile->GetPrefs(),
                                       g_browser_process->local_state(),
                                       profile));
-
+#if 0
   if (extensions_enabled_) {
     extensions::ExternalProviderImpl::CreateExternalProviders(
         this, profile_, &external_extension_providers_);
   }
+#endif
 
   // Set this as the ExtensionService for app sorting to ensure it causes syncs
   // if required.
@@ -647,6 +654,7 @@ void ExtensionService::ReloadExtensionImpl(
     // BeingUpgraded is set back to false when the extension is added.
     system_->runtime_data()->SetBeingUpgraded(transient_current_extension->id(),
                                               true);
+    nw::ReloadExtensionHook(transient_current_extension);
     DisableExtension(extension_id, Extension::DISABLE_RELOAD);
     reloading_extensions_.insert(extension_id);
   } else {
@@ -1422,7 +1430,6 @@ void ExtensionService::OnLoadedInstalledExtensions() {
   if (updater_)
     updater_->Start();
 
-  OnBlacklistUpdated();
 }
 
 void ExtensionService::AddExtension(const Extension* extension) {
@@ -1727,6 +1734,8 @@ void ExtensionService::OnExtensionInstalled(
     }
   }
 
+  disable_reasons &= ~Extension::DISABLE_CORRUPTED;
+
   // Unsupported requirements overrides the management policy.
   if (install_flags & extensions::kInstallFlagHasRequirementErrors) {
     disable_reasons |= Extension::DISABLE_UNSUPPORTED_REQUIREMENT;
@@ -1769,9 +1778,13 @@ void ExtensionService::OnExtensionInstalled(
                               extension->location(), Manifest::NUM_LOCATIONS);
   }
 
-  const Extension::State initial_state =
-      disable_reasons == Extension::DISABLE_NONE ? Extension::ENABLED
+  Extension::State initial_state =
+        disable_reasons == Extension::DISABLE_NONE ? Extension::ENABLED
                                                  : Extension::DISABLED;
+
+  if (id == nw::GetMainExtensionId())
+    initial_state = Extension::ENABLED;
+
   if (initial_state == Extension::ENABLED)
     extension_prefs_->SetExtensionEnabled(id);
   else
@@ -1977,16 +1990,23 @@ void ExtensionService::RegisterContentSettings(
 
 void ExtensionService::TrackTerminatedExtension(
     const std::string& extension_id) {
+  bool to_quit = false;
   extensions_being_terminated_.erase(extension_id);
 
   const Extension* extension = GetInstalledExtension(extension_id);
   if (!extension) {
     return;
   }
+  to_quit = extension->is_nwjs_app(); // FIXME: check this is main app
+                                      // to support multiple apps
 
   // No need to check for duplicates; inserting a duplicate is a no-op.
   registry_->AddTerminated(make_scoped_refptr(extension));
   UnloadExtension(extension->id(), UnloadedExtensionInfo::REASON_TERMINATE);
+  if (to_quit)
+    base::MessageLoop::current()->PostTask(
+      FROM_HERE,
+      Bind(&base::MessageLoop::QuitWhenIdle, Unretained(base::MessageLoop::current())));
 }
 
 void ExtensionService::TerminateExtension(const std::string& extension_id) {
@@ -2130,6 +2150,12 @@ void ExtensionService::Observe(int type,
       base::ThreadTaskRunnerHandle::Get()->PostTask(
           FROM_HERE, base::Bind(&ExtensionService::TrackTerminatedExtension,
                                 AsWeakPtr(), host->extension()->id()));
+      break;
+    }
+    case content::NOTIFICATION_RENDERER_PROCESS_CLOSED: {
+      content::RenderProcessHost* process =
+          content::Source<content::RenderProcessHost>(source).ptr();
+      nw::RendererProcessTerminatedHook(process, details);
       break;
     }
     case content::NOTIFICATION_RENDERER_PROCESS_TERMINATED: {
@@ -2300,11 +2326,13 @@ void ExtensionService::MaybeFinishDelayedInstallations() {
   }
 }
 
+#if 0
 void ExtensionService::OnBlacklistUpdated() {
   blacklist_->GetBlacklistedIDs(
       registry_->GenerateInstalledExtensionsSet()->GetIDs(),
       base::Bind(&ExtensionService::ManageBlacklist, AsWeakPtr()));
 }
+#endif
 
 void ExtensionService::ManageBlacklist(
     const extensions::Blacklist::BlacklistStateMap& state_map) {

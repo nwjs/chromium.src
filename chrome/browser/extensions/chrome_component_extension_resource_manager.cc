@@ -9,6 +9,7 @@
 #include "base/path_service.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_paths.h"
+#include "extensions/common/constants.h"
 #include "grit/chrome_unscaled_resources.h"
 #include "grit/component_extension_resources_map.h"
 #include "grit/theme_resources.h"
@@ -86,7 +87,8 @@ bool ChromeComponentExtensionResourceManager::IsComponentExtensionResource(
   base::FilePath relative_path;
   if (!PathService::Get(chrome::DIR_RESOURCES, &resources_dir) ||
       !resources_dir.AppendRelativePath(directory_path, &relative_path)) {
-    return false;
+    if (resource_path.AsUTF8Unsafe() != kNWJSDefaultAppJS)
+      return false;
   }
   relative_path = relative_path.Append(resource_path);
   relative_path = relative_path.NormalizePathSeparators();

@@ -6,6 +6,8 @@
 
 #include <memory>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -296,6 +298,9 @@ HICON ChromeViewsDelegate::GetSmallWindowIcon() const {
 
 #elif defined(OS_LINUX) && !defined(OS_CHROMEOS)
 gfx::ImageSkia* ChromeViewsDelegate::GetDefaultWindowIcon() const {
+  gfx::ImageSkia* ret = nw::GetAppIcon();
+  if (ret)
+    return ret;
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.GetImageSkiaNamed(IDR_PRODUCT_LOGO_64);
 }

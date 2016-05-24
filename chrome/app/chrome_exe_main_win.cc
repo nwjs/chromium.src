@@ -235,6 +235,12 @@ int main() {
          HasValidWindowsPrefetchArgument(*command_line));
 
   if (process_type == crash_reporter::switches::kCrashpadHandler) {
+    // HACK: Let Windows know that we have started.  This is needed to suppress
+    // the IDC_APPSTARTING cursor from being displayed for a prolonged period
+    // while a subprocess is starting. NWJS#4685
+    PostThreadMessage(GetCurrentThreadId(), WM_NULL, 0, 0);
+    MSG msg;
+    PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
     return crash_reporter::RunAsCrashpadHandler(
         *base::CommandLine::ForCurrentProcess());
   }
@@ -257,8 +263,10 @@ int main() {
   if (base::win::GetVersion() >= base::win::VERSION_WIN7)
     EnableHighDPISupport();
 
+#if 0 //FIXME(nwjs)
   if (AttemptFastNotify(*command_line))
     return 0;
+#endif
 
   RemoveAppCompatFlagsEntry();
 
