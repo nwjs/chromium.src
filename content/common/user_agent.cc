@@ -171,6 +171,16 @@ std::string BuildUserAgentFromProduct(const std::string& product) {
   return BuildUserAgentFromOSAndProduct(os_info, product);
 }
 
+std::string BuildOSInfo() {
+  std::string os_info;
+  base::StringAppendF(
+      &os_info,
+      "%s%s",
+      getUserAgentPlatform().c_str(),
+      BuildOSCpuInfo().c_str());
+  return os_info;
+}
+
 std::string BuildUserAgentFromProductAndExtraOSInfo(
     const std::string& product,
     const std::string& extra_os_info) {

@@ -35,6 +35,18 @@ void V8ContextNativeHandler::GetAvailability(
   v8::Isolate* isolate = args.GetIsolate();
   std::string api_name = *v8::String::Utf8Value(args[0]);
   Feature::Availability availability = context_->GetAvailability(api_name);
+  if (api_name == "app.window" || api_name == "nw.Window" ||
+      api_name == "runtime") {
+  v8::Local<v8::Object> ret = v8::Object::New(isolate);
+  ret->Set(v8::String::NewFromUtf8(isolate, "is_available"),
+           v8::Boolean::New(isolate, true));
+  ret->Set(v8::String::NewFromUtf8(isolate, "message"),
+           v8::String::NewFromUtf8(isolate, ""));
+  ret->Set(v8::String::NewFromUtf8(isolate, "result"),
+           v8::Integer::New(isolate, Feature::IS_AVAILABLE));
+  args.GetReturnValue().Set(ret);
+  return;
+  }
 
   v8::Local<v8::Object> ret = v8::Object::New(isolate);
   ret->Set(v8::String::NewFromUtf8(isolate, "is_available"),
