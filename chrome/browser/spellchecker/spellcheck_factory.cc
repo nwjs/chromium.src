@@ -75,7 +75,7 @@ void SpellcheckServiceFactory::RegisterProfilePrefs(
   user_prefs->RegisterStringPref(
       prefs::kSpellCheckDictionary,
       l10n_util::GetStringUTF8(IDS_SPELLCHECK_DICTIONARY));
-  user_prefs->RegisterBooleanPref(prefs::kSpellCheckUseSpellingService, false);
+  user_prefs->RegisterBooleanPref(prefs::kSpellCheckUseSpellingService, true);
   user_prefs->RegisterBooleanPref(
       prefs::kEnableContinuousSpellcheck,
       true,
