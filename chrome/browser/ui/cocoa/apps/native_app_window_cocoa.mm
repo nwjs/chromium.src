@@ -618,6 +618,16 @@ void NativeAppWindowCocoa::HandleKeyboardEvent(
       event.type == content::NativeWebKeyboardEvent::Char) {
     return;
   }
+
+  // NW fix
+  // Simple key press events without modifiers should be sent to the menu.
+  // See https://github.com/nwjs/nw.js/issues/4837
+  NSEvent* nsEvent = event.os_event;
+  if ([nsEvent type] == NSKeyDown) {
+    if ([[NSApp mainMenu] performKeyEquivalent:nsEvent])
+      return;
+  }
+
   [window() redispatchKeyEvent:event.os_event];
 }
 
