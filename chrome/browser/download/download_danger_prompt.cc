@@ -19,8 +19,9 @@ using safe_browsing::ClientSafeBrowsingReportRequest;
 
 namespace {
 
-const char kDownloadDangerPromptPrefix[] = "Download.DownloadDangerPrompt";
+//const char kDownloadDangerPromptPrefix[] = "Download.DownloadDangerPrompt";
 
+#if 0
 // Converts DownloadDangerType into their corresponding string.
 const char* GetDangerTypeString(
     const content::DownloadDangerType& danger_type) {
@@ -46,6 +47,7 @@ const char* GetDangerTypeString(
   NOTREACHED();
   return nullptr;
 }
+#endif
 
 }  // namespace
 
@@ -86,6 +88,7 @@ void DownloadDangerPrompt::SendSafeBrowsingDownloadRecoveryReport(
 void DownloadDangerPrompt::RecordDownloadDangerPrompt(
     bool did_proceed,
     const content::DownloadItem& download) {
+#if 0
   int64_t file_type_uma_value =
       safe_browsing::FileTypePolicies::GetInstance()->UmaValueForFile(
           download.GetTargetFilePath());
@@ -101,4 +104,5 @@ void DownloadDangerPrompt::RecordDownloadDangerPrompt(
                            GetDangerTypeString(danger_type)),
         file_type_uma_value);
   }
+#endif
 }

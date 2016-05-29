@@ -237,8 +237,13 @@
 #define IntToStringType base::IntToString
 #endif
 
+#include "content/nw/src/common/shell_switches.h"
+#include "content/nw/src/nw_content.h"
+
 namespace content {
 namespace {
+
+RenderProcessHost* g_first_host = nullptr;
 
 const char kSiteProcessMapKeyName[] = "content_site_process_map";
 
@@ -1326,6 +1331,8 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
   // Propagate the following switches to the renderer command line (along
   // with any associated values) if present in the browser command line.
   static const char* const kSwitchNames[] = {
+    switches::kDisableRAFThrottling,
+    switches::kEnableSpellChecking,
     switches::kAgcStartupMinVolume,
     switches::kAecRefinedAdaptiveFilter,
     switches::kAllowLoopbackInPeerConnection,
@@ -2050,6 +2057,8 @@ bool RenderProcessHostImpl::FastShutdownStarted() const {
 // static
 void RenderProcessHostImpl::RegisterHost(int host_id, RenderProcessHost* host) {
   g_all_hosts.Get().AddWithID(host, host_id);
+  if (g_all_hosts.Get().size() == 1)
+    g_first_host = host;
 }
 
 // static
@@ -2060,6 +2069,8 @@ void RenderProcessHostImpl::UnregisterHost(int host_id) {
 
   g_all_hosts.Get().Remove(host_id);
 
+  if (g_first_host == host)
+    g_first_host = nullptr;
   // Look up the map of site to process for the given browser_context,
   // in case we need to remove this process from it.  It will be registered
   // under any sites it rendered that use process-per-site mode.
@@ -2103,6 +2114,8 @@ void RenderProcessHostImpl::FilterURL(RenderProcessHost* rph,
     // If this renderer is not permitted to request this URL, we invalidate the
     // URL.  This prevents us from storing the blocked URL and becoming confused
     // later.
+    if (non_web_url_in_guest && nw::RphGuestFilterURLHook(rph, url))
+      return;
     VLOG(1) << "Blocked URL " << url->spec();
     *url = GURL(url::kAboutBlankURL);
   }
@@ -2227,6 +2240,8 @@ RenderProcessHost* RenderProcessHost::GetExistingProcessHost(
     if (GetContentClient()->browser()->MayReuseHost(iter.GetCurrentValue()) &&
         RenderProcessHostImpl::IsSuitableHost(iter.GetCurrentValue(),
                                               browser_context, site_url)) {
+      if (iter.GetCurrentValue() == g_first_host)
+        return g_first_host;
       suitable_renderers.push_back(iter.GetCurrentValue());
     }
     iter.Advance();
@@ -2234,9 +2249,11 @@ RenderProcessHost* RenderProcessHost::GetExistingProcessHost(
 
   // Now pick a random suitable renderer, if we have any.
   if (!suitable_renderers.empty()) {
-    int suitable_count = static_cast<int>(suitable_renderers.size());
-    int random_index = base::RandInt(0, suitable_count - 1);
-    return suitable_renderers[random_index];
+    //int suitable_count = static_cast<int>(suitable_renderers.size());
+    //int random_index = base::RandInt(0, suitable_count - 1);
+    //NWJS: reuse first renderer, the main process for valid nw.Window.open
+    //callback value. see also app_window_api.cc:416
+    return suitable_renderers[0];
   }
 
   return NULL;
@@ -2305,7 +2322,10 @@ void RenderProcessHostImpl::RegisterProcessHostForSite(
   // appropriate bindings here, because the bindings have not yet been granted.
   std::string site =
       SiteInstance::GetSiteForURL(browser_context, url).possibly_invalid_spec();
-  if (!site.empty())
+  // don't register process when we're opening new_instance window, or
+  // the map slot will be took over and following same-instance window
+  // opening will return null; NWJS#4691
+  if (!site.empty() && nw::PinningRenderer())
     map->RegisterProcess(site, process);
 }
 

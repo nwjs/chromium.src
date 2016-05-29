@@ -620,6 +620,12 @@ class CONTENT_EXPORT RenderFrameImpl
       const blink::WebCString& data,
       blink::WebFrameSerializerClient::FrameSerializationStatus status)
       override;
+  void willHandleNavigationPolicy(
+                                          blink::WebFrame*,
+                                          const blink::WebURLRequest&,
+                                          blink::WebNavigationPolicy*,
+                                          blink::WebString* manifest = NULL,
+                                          bool new_win = true) override;
 
   // Binds this render frame's service registry.
   void BindServiceRegistry(shell::mojom::InterfaceProviderRequest services,

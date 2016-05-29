@@ -404,7 +404,7 @@ void HTMLFormElement::scheduleFormSubmission(FormSubmission* submission)
 
     Frame* targetFrame = document().frame()->findFrameForNavigation(submission->target(), *document().frame());
     if (!targetFrame) {
-        if (!LocalDOMWindow::allowPopUp(*document().frame()) && !UserGestureIndicator::utilizeUserGesture())
+        if (!LocalDOMWindow::allowPopUp(*document().frame()) && !UserGestureIndicator::utilizeUserGesture() && !document().frame()->isNodeJS())
             return;
         targetFrame = document().frame();
     } else {

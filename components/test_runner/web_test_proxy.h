@@ -219,7 +219,7 @@ class WebTestProxy : public Base, public WebTestProxyBase {
                                         policy, suppress_opener))
       return nullptr;
     return Base::createView(
-        creator, request, features, frame_name, policy, suppress_opener);
+                            creator, request, features, frame_name, policy, suppress_opener, NULL);
   }
   void setStatusText(const blink::WebString& text) override {
     view_test_client()->setStatusText(text);

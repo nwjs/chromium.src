@@ -30,6 +30,9 @@
 
 #include "core/inspector/WorkerConsoleAgent.h"
 
+#include "core/frame/LocalDOMWindow.h"
+#include "core/frame/LocalFrame.h"
+
 #include "bindings/core/v8/ScriptController.h"
 #include "core/inspector/ConsoleMessageStorage.h"
 #include "core/workers/WorkerGlobalScope.h"

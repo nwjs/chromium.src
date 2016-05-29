@@ -163,10 +163,12 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
     }
   }
 
+#if 0
   // If required, register to display the notification for stream capture.
   if (!display_notification) {
     return ui;
   }
+#endif
 
   ui = ScreenCaptureNotificationUI::Create(GetStopSharingUIString(
       application_title, registered_extension_name, capture_audio,

@@ -205,7 +205,7 @@ std::string NotificationConversionHelper::MapTypeToString(
     case message_center::NOTIFICATION_TYPE_CUSTOM:
       return "custom";
     default:
-      NOTREACHED();
+      //NOTREACHED();
       return "";
   }
 }

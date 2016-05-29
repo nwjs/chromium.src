@@ -4,6 +4,8 @@
 
 #include "ui/views/accessibility/native_view_accessibility_auralinux.h"
 
+#include "content/public/browser/browser_thread.h"
+
 #include <algorithm>
 #include <vector>
 
@@ -131,7 +133,7 @@ class AuraLinuxApplication
       // This should be on the a blocking pool thread so that we can open
       // libatk-bridge.so without blocking this thread.
       scoped_refptr<base::TaskRunner> init_task_runner =
-          ViewsDelegate::GetInstance()->GetBlockingPoolTaskRunner();
+        content::BrowserThread::GetBlockingPool()->GetTaskRunnerWithShutdownBehavior(base::SequencedWorkerPool::CONTINUE_ON_SHUTDOWN);
       if (init_task_runner)
         ui::AXPlatformNodeAuraLinux::StaticInitialize(init_task_runner);
     }

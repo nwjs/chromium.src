@@ -50,6 +50,7 @@
     '../url/ipc/url_ipc.gyp:url_ipc',
     '../v8/src/v8.gyp:v8',
     'content_common_mojo_bindings.gyp:content_common_mojo_bindings',
+    #'../third_party/node/node.gyp:node',
   ],
   'include_dirs': [
     '..',
@@ -99,6 +100,10 @@
       'public/renderer/plugin_instance_throttler.h',
     ],
     'private_renderer_sources': [
+      '<(DEPTH)/base/message_loop/message_pump_uv.cc',
+      '<(DEPTH)/base/message_loop/message_pump_uv.h',
+      '<(DEPTH)/base/message_loop/message_pumpuv_mac.mm',
+      '<(DEPTH)/base/message_loop/message_pumpuv_mac.h',
       'renderer/accessibility/blink_ax_enum_conversion.cc',
       'renderer/accessibility/blink_ax_enum_conversion.h',
       'renderer/accessibility/blink_ax_tree_source.cc',
@@ -792,6 +797,8 @@
         'common/process_watcher_posix.cc',
         'renderer/webscrollbarbehavior_impl_gtkoraura.cc',
         'renderer/webscrollbarbehavior_impl_gtkoraura.h',
+        '<(DEPTH)/base/message_loop/message_pump_uv.cc',
+        '<(DEPTH)/base/message_loop/message_pump_uv.h',
       ],
       'sources': [
         'renderer/external_popup_menu.cc',

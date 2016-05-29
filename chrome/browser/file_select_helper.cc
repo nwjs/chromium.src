@@ -150,7 +150,7 @@ void FileSelectHelper::FileSelectedWithExtraInfo(
   }
 
   const base::FilePath& path = file.local_path;
-  if (dialog_type_ == ui::SelectFileDialog::SELECT_UPLOAD_FOLDER) {
+  if (dialog_type_ == ui::SelectFileDialog::SELECT_UPLOAD_FOLDER && extract_directory_) {
     StartNewEnumeration(path, kFileSelectEnumerationId, render_view_host_);
     return;
   }
@@ -394,6 +394,7 @@ void FileSelectHelper::RunFileChooser(content::WebContents* tab,
   // FileSelectHelper will keep itself alive until it sends the result message.
   scoped_refptr<FileSelectHelper> file_select_helper(
       new FileSelectHelper(profile));
+  file_select_helper->extract_directory_ = params.extract_directory;
   file_select_helper->RunFileChooser(
       tab->GetRenderViewHost(), tab,
       base::WrapUnique(new content::FileChooserParams(params)));
@@ -461,6 +462,10 @@ void FileSelectHelper::GetFileTypesOnFileThread(
 void FileSelectHelper::GetSanitizedFilenameOnUIThread(
     std::unique_ptr<FileChooserParams> params) {
   base::FilePath default_file_path = profile_->last_selected_directory().Append(
+      GetSanitizedFileName(params->default_file_name));
+
+  if (!params->initial_path.empty())
+    default_file_path = params->initial_path.Append(
       GetSanitizedFileName(params->default_file_name));
 
 #if defined(FULL_SAFE_BROWSING)
