@@ -281,7 +281,6 @@ void AcceleratedWidgetMac::DestroyLocalLayer() {
 
 void AcceleratedWidgetMac::GotSoftwareFrame(float scale_factor,
                                             SkCanvas* canvas) {
-#if 0
   assert(content::g_force_cpu_draw);
   if (!canvas || !view_)
     return;
@@ -293,9 +292,11 @@ void AcceleratedWidgetMac::GotSoftwareFrame(float scale_factor,
   EnsureLocalLayer();
 
   // Set the software layer to draw the provided canvas.
-  SkImageInfo info;
-  size_t row_bytes;
-  const void* pixels = canvas->peekPixels(&info, &row_bytes);
+  SkPixmap pixmap;
+  canvas->peekPixels(&pixmap);
+  const SkImageInfo& info = pixmap.info();
+  const size_t row_bytes = pixmap.rowBytes();
+  const void* pixels = pixmap.addr();
   gfx::Size pixel_size(info.width(), info.height());
 
   TRACE_EVENT0("browser", "-[AcceleratedWidgetMac GotSoftwareFrame]");
@@ -340,7 +341,6 @@ void AcceleratedWidgetMac::GotSoftwareFrame(float scale_factor,
   }
   // Remove any different-type layers that this is replacing.
   DestroyCAContextLayer(ca_context_layer_);
-#endif
 }
 
 void AcceleratedWidgetMacGotSoftwareFrame(
