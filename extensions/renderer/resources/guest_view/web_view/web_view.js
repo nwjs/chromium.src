@@ -148,11 +148,12 @@ WebViewImpl.prototype.onFrameNameChanged = function(name) {
 // Updates state upon loadcommit.
 WebViewImpl.prototype.onLoadCommit = function(
     baseUrlForDataUrl, currentEntryIndex, entryCount,
-    processId, url, isTopLevel) {
+    processId, url, isTopLevel, pagesHistory) {
   this.baseUrlForDataUrl = baseUrlForDataUrl;
   this.currentEntryIndex = currentEntryIndex;
   this.entryCount = entryCount;
   this.processId = processId;
+  this.pagesHistory = pagesHistory;
   if (isTopLevel) {
     // Touching the src attribute triggers a navigation. To avoid
     // triggering a page reload on every guest-initiated navigation,

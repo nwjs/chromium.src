@@ -52,6 +52,12 @@ var WEB_VIEW_API_METHODS = [
   // Navigates to the subsequent history entry.
   'forward',
 
+  // Get current history index
+  'getCurrentHistoryIndex',
+
+  // Get array with history of URLs titles and favicons
+  'getPagesHistory',
+
   // Returns Chrome's internal process ID for the guest web page's current
   // process.
   'getProcessId',
@@ -82,6 +88,7 @@ var WEB_VIEW_API_METHODS = [
   'loadDataWithBaseUrl',
 
   'showDevTools',
+
   // Prints the contents of the webview.
   'print',
 
@@ -149,6 +156,14 @@ WebViewImpl.prototype.getGuestId = function() {
 
 WebViewImpl.prototype.getUserAgent = function() {
   return this.userAgentOverride || navigator.userAgent;
+};
+
+WebViewImpl.prototype.getCurrentHistoryIndex = function () {
+    return this.currentEntryIndex;
+};
+
+WebViewImpl.prototype.getPagesHistory = function() {
+    return this.pagesHistory;
 };
 
 WebViewImpl.prototype.insertCSS = function(var_args) {

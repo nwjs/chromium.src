@@ -249,7 +249,8 @@ WebViewEvents.prototype.handleLoadCommitEvent = function(event, eventName) {
                          event.entryCount,
                          event.processId,
                          event.url,
-                         event.isTopLevel);
+                         event.isTopLevel,
+                         event.pagesHistory);
   var webViewEvent = this.makeDomEvent(event, eventName);
   this.view.dispatchEvent(webViewEvent);
 };
