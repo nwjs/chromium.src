@@ -12,8 +12,12 @@
 #include "ui/compositor/compositor.h"
 #include "ui/gfx/gdi_util.h"
 #include "ui/gfx/skia_util.h"
+#include "ui/gfx/win/hwnd_util.h"
+#include "ui/views/win/hwnd_message_handler.h"
+#include "ui/views/win/hwnd_message_handler_delegate.h"
 
 namespace content {
+extern bool g_force_cpu_draw;
 
 // If a window is larger than this in bytes, don't even try to create a
 // backing bitmap for it.
@@ -166,6 +170,13 @@ void SoftwareOutputDeviceWin::EndPaint() {
   rect.Intersect(gfx::Rect(viewport_pixel_size_));
   if (rect.IsEmpty())
     return;
+
+  if (g_force_cpu_draw) {
+    LONG style = GetWindowLong(hwnd_, GWL_EXSTYLE);
+    is_hwnd_composited_ = !!(style & (WS_EX_COMPOSITED | WS_EX_LAYERED));
+    views::HWNDMessageHandler* window = reinterpret_cast<views::HWNDMessageHandler*>(gfx::GetWindowUserData(hwnd_));
+    is_hwnd_composited_ &= !(window->delegate_->HasFrame());
+  }
 
   if (is_hwnd_composited_) {
     RECT wr;

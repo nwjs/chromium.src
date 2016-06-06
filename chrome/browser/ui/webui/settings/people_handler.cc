@@ -634,6 +634,7 @@ void PeopleHandler::HandleStopSyncing(const base::ListValue* args) {
   if (GetSyncService())
     ProfileSyncService::SyncEvent(ProfileSyncService::STOP_FROM_OPTIONS);
 
+#if 0
   bool delete_profile = false;
   args->GetBoolean(0, &delete_profile);
   signin_metrics::SignoutDelete delete_metric =
@@ -646,6 +647,7 @@ void PeopleHandler::HandleStopSyncing(const base::ListValue* args) {
     // Do as BrowserOptionsHandler::DeleteProfile().
     webui::DeleteProfileAtPath(profile_->GetPath(), web_ui());
   }
+#endif
 }
 #endif
 

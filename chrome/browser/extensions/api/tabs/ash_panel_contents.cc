@@ -36,7 +36,8 @@ AshPanelContents::~AshPanelContents() {
 
 void AshPanelContents::Initialize(content::BrowserContext* context,
                                   content::RenderFrameHost* creator_frame,
-                                  const GURL& url) {
+                                  const GURL& url,
+                                  const extensions::Extension* extension) {
   url_ = url;
 
   content::WebContents::CreateParams create_params(

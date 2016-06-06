@@ -19,6 +19,8 @@
 #include "build/build_config.h"
 #include "chrome/common/chrome_constants.h"
 
+#include "content/nw/src/nw_base.h"
+
 namespace {
 
 #if !defined(OS_IOS)
@@ -66,7 +68,7 @@ char* ProductDirNameForBundle(NSBundle* chrome_bundle) {
 #if defined(GOOGLE_CHROME_BUILD)
     product_dir_name = "Google/Chrome";
 #else
-    product_dir_name = "Chromium";
+    product_dir_name = "nwjs";
 #endif
   }
 
@@ -75,6 +77,7 @@ char* ProductDirNameForBundle(NSBundle* chrome_bundle) {
   return strdup(product_dir_name);
 }
 
+#if 0
 // ProductDirName returns the name of the directory inside
 // ~/Library/Application Support that should hold the product application
 // data. This can be overridden by setting the CrProductDirName key in the
@@ -100,6 +103,7 @@ std::string ProductDirName() {
 #endif
   return std::string(product_dir_name);
 }
+#endif
 
 bool GetDefaultUserDataDirectoryForProduct(const std::string& product_dir,
                                            base::FilePath* result) {
@@ -116,7 +120,7 @@ bool GetDefaultUserDataDirectoryForProduct(const std::string& product_dir,
 namespace chrome {
 
 bool GetDefaultUserDataDirectory(base::FilePath* result) {
-  return GetDefaultUserDataDirectoryForProduct(ProductDirName(), result);
+  return GetDefaultUserDataDirectoryForProduct(nw::package()->GetName(), result);
 }
 
 bool GetUserDocumentsDirectory(base::FilePath* result) {

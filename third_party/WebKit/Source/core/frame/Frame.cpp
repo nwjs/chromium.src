@@ -73,6 +73,8 @@ DEFINE_TRACE(Frame)
     visitor->trace(m_host);
     visitor->trace(m_owner);
     visitor->trace(m_client);
+    visitor->trace(m_devJailOwner);
+    visitor->trace(m_devtoolsJail);
 }
 
 void Frame::detach(FrameDetachType type)
@@ -86,6 +88,10 @@ void Frame::detach(FrameDetachType type)
     m_client->detached(type);
     m_client = nullptr;
     m_host = nullptr;
+    if (m_devJailOwner) {
+        m_devJailOwner->setDevtoolsJail(NULL);
+        m_devJailOwner = nullptr;
+    }
 }
 
 void Frame::detachChildren()
@@ -285,6 +291,9 @@ Frame::Frame(FrameClient* client, FrameHost* host, FrameOwner* owner)
     , m_host(host)
     , m_owner(owner)
     , m_client(client)
+    , m_devtoolsJail(nullptr)
+    , m_devJailOwner(nullptr)
+    , m_nodejs(false)
     , m_frameID(generateFrameID())
     , m_isLoading(false)
 {
@@ -297,5 +306,35 @@ Frame::Frame(FrameClient* client, FrameHost* host, FrameOwner* owner)
     else
         page()->setMainFrame(this);
 }
+
+bool Frame::isNwDisabledChildFrame() const
+{
+    if (m_owner) {
+        if (m_owner->isLocal())
+            if (toHTMLFrameOwnerElement(m_owner)->fastHasAttribute(nwdisableAttr))
+                return true;
+    }
+    return false;
+}
+
+void Frame::setDevtoolsJail(Frame* iframe)
+{
+    m_devtoolsJail = iframe;
+    if (iframe)
+        iframe->m_devJailOwner = this;
+    else if (m_devtoolsJail)
+        m_devtoolsJail->m_devJailOwner = NULL;
+}
+
+bool Frame::isNwFakeTop() const
+{
+    if (m_owner) {
+        if (m_owner->isLocal())
+            if (toHTMLFrameOwnerElement(m_owner)->fastHasAttribute(nwfaketopAttr))
+                return true;
+    }
+    return false;
+}
+
 
 } // namespace blink

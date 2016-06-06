@@ -210,7 +210,7 @@ void GpuWatchdogThread::OnCheck(bool after_suspend) {
 #if defined(OS_WIN)
   arm_cpu_time_ = GetWatchedThreadTime();
 
-  QueryUnbiasedInterruptTime(&arm_interrupt_time_);
+  //QueryUnbiasedInterruptTime(&arm_interrupt_time_);
 #endif
 
   check_time_ = base::Time::Now();
@@ -339,7 +339,7 @@ void GpuWatchdogThread::DeliberatelyTerminateToRecoverFromHang() {
 
 // Store variables so they're available in crash dumps to help determine the
 // cause of any hang.
-#if defined(OS_WIN)
+#if 0
   ULONGLONG fire_interrupt_time;
   QueryUnbiasedInterruptTime(&fire_interrupt_time);
 

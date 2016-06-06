@@ -31,6 +31,7 @@
 #include "base/files/file_path.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/win_util.h"
+#include "base/win/windows_version.h"
 #include "content/common/sandbox_win.h"
 #include "content/public/common/sandbox_init.h"
 #elif defined(OS_MACOSX)
@@ -144,10 +145,16 @@ void LaunchOnLauncherThread(const NotifyCallback& callback,
     process = base::LaunchElevatedProcess(*cmd_line, options);
   } else {
     base::HandlesToInheritVector handles;
+#if defined(OS_WIN)
+    if (base::win::GetVersion() >= base::win::VERSION_WIN7) {
+#endif
     handles.push_back(client_handle.get().handle);
     cmd_line->AppendSwitchASCII(
         mojo::edk::PlatformChannelPair::kMojoPlatformChannelHandleSwitch,
         base::UintToString(base::win::HandleToUint32(handles[0])));
+#if defined(OS_WIN)
+    }
+#endif
     process = StartSandboxedProcess(delegate, cmd_line, handles);
   }
 #elif defined(OS_POSIX)

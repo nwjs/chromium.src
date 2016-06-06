@@ -23,11 +23,11 @@
               'action_name': 'reorder_imports',
               'inputs': [
                 '<(reorder_py_path)',
-                '$(OutDir)\\initialexe\\chrome.exe',
+                '$(OutDir)\\initialexe\\nw.exe',
               ],
               'outputs': [
-                '<(PRODUCT_DIR)\\chrome.exe',
-                '<(PRODUCT_DIR)\\chrome.exe.pdb',
+                '<(PRODUCT_DIR)\\nw.exe',
+                '<(PRODUCT_DIR)\\nw.exe.pdb',
               ],
               'action': [
                 'python',
@@ -51,7 +51,7 @@
         '../chrome/chrome_features.gyp:chrome_common_features',
       ],
       # Name the exe chrome.exe, not chrome_initial.exe.
-      'product_name': 'chrome',
+      'product_name': 'nw',
       'mac_bundle': 1,
       'variables': {
         'use_system_xdg_utils%': 0,
@@ -182,29 +182,30 @@
                 '../build/linux/system.gyp:xext',
               ],
             }],
-            ['OS=="linux" and enable_plugins==1', {
-              'dependencies': [
-                '../pdf/pdf.gyp:pdf',
-              ],
-            }],
+            #['OS=="linux" and enable_plugins==1', {
+            #  'dependencies': [
+            #    '../pdf/pdf.gyp:pdf',
+            #  ],
+            #}],
           ],
-          'sources': [
-            'app/chrome_dll_resource.h',
-            'app/chrome_main.cc',
-            'app/chrome_main_delegate.cc',
-            'app/chrome_main_delegate.h',
-          ],
+          #'sources': [
+          #  'app/chrome_dll_resource.h',
+          #  'app/chrome_main.cc',
+          #  'app/chrome_main_delegate.cc',
+          #  'app/chrome_main_delegate.h',
+          #],
           'dependencies': [
-            # On Linux, link the dependencies (libraries) that make up actual
-            # Chromium functionality directly into the executable.
-            '<@(chromium_browser_dependencies)',
-            '<@(chromium_child_dependencies)',
-            '../content/content.gyp:content_app_both',
-            # Needed for chrome_main.cc initialization of libraries.
-            '../build/linux/system.gyp:pangocairo',
-            'chrome_features.gyp:chrome_common_features',
-            # Needed to use the master_preferences functions
-            'installer_util',
+            ## On Linux, link the dependencies (libraries) that make up actual
+            ## Chromium functionality directly into the executable.
+            #'<@(chromium_browser_dependencies)',
+            #'<@(chromium_child_dependencies)',
+            #'../content/content.gyp:content_app_both',
+            ## Needed for chrome_main.cc initialization of libraries.
+            #'../build/linux/system.gyp:pangocairo',
+            #'chrome_features.gyp:chrome_common_features',
+            ## Needed to use the master_preferences functions
+            #'installer_util',
+            'chrome_dll',
           ],
         }],
         ['OS=="mac"', {
@@ -242,10 +243,9 @@
                       'postbuild_name': 'Dump Symbols',
                       'variables': {
                         'dump_product_syms_path':
-                            'tools/build/mac/dump_product_syms',
+                            '<(DEPTH)/content/nw/tools/dump_mac_syms',
                       },
-                      'action': ['<(dump_product_syms_path)',
-                                 '<(branding)'],
+                      'action': ['<(dump_product_syms_path)']
                     },
                   ],
                 }],
@@ -399,18 +399,18 @@
             }],
           ],
           'dependencies': [
-            '../sandbox/sandbox.gyp:sandbox',
+            #'../sandbox/sandbox.gyp:sandbox',
           ],
         }],
         ['OS=="win"', {
           'dependencies': [
             'chrome_dll',
-            'chrome_nacl_win64',
             'chrome_process_finder',
             'chrome_version_resources',
             'installer_util',
             'file_pre_reader',
             '../base/base.gyp:base',
+            'nw_base',
             '../crypto/crypto.gyp:crypto',
             '../breakpad/breakpad.gyp:breakpad_handler',
             '../breakpad/breakpad.gyp:breakpad_sender',
@@ -420,7 +420,7 @@
             '../components/components.gyp:flags_ui_switches',
             '../components/components.gyp:policy',
             '../components/components.gyp:startup_metric_utils_common',
-            '../sandbox/sandbox.gyp:sandbox',
+            #'../sandbox/sandbox.gyp:sandbox',
             '../third_party/kasko/kasko.gyp:kasko_features',
             '../ui/gfx/gfx.gyp:gfx',
             '../win8/win8.gyp:visual_elements_resources',
@@ -437,7 +437,7 @@
           ],
           'msvs_settings': {
             'VCLinkerTool': {
-              'OutputFile': '$(OutDir)\\initialexe\\chrome.exe',
+              'OutputFile': '$(OutDir)\\initialexe\\nw.exe',
               'DelayLoadDLLs': [
                 'dbghelp.dll',
                 'dwmapi.dll',
@@ -455,8 +455,8 @@
             },
             'VCManifestTool': {
               'AdditionalManifestFiles': [
-                '$(ProjectDir)\\app\\chrome.exe.manifest',
-                '<(SHARED_INTERMEDIATE_DIR)/chrome/app/version_assembly/version_assembly.manifest',
+                '$(ProjectDir)\\app\\nw.exe.manifest',
+                #'<(SHARED_INTERMEDIATE_DIR)/chrome/app/version_assembly/version_assembly.manifest',
               ],
             },
           },
@@ -545,7 +545,7 @@
                 '../components/nacl.gyp:nacl_win64',
                 '../crypto/crypto.gyp:crypto_nacl_win64',
                 '../ipc/ipc.gyp:ipc_win64',
-                '../sandbox/sandbox.gyp:sandbox_win64',
+                #'../sandbox/sandbox.gyp:sandbox_win64',
                 '../third_party/kasko/kasko.gyp:kasko_features',
               ],
               'defines': [
