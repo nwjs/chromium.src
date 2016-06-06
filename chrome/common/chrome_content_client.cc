@@ -6,6 +6,8 @@
 
 #include <stdint.h>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
 #include "base/files/file_util.h"
@@ -423,6 +425,10 @@ std::string GetUserAgent() {
       return ua;
     LOG(WARNING) << "Ignored invalid value for flag --" << switches::kUserAgent;
   }
+
+  std::string ua;
+  if (nw::GetUserAgentFromManifest(&ua))
+    return ua;
 
   std::string product = GetProduct();
 #if defined(OS_ANDROID)
