@@ -126,6 +126,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   void OnWindowHidingAnimationCompleted() override;
 
   // Overridden from HWNDMessageHandlerDelegate:
+  bool ShouldHandleOnSize() const override;
+  bool HandleSize(UINT param, const gfx::Size& new_size) override;
   bool IsWidgetWindow() const override;
   bool IsUsingCustomFrame() const override;
   void SchedulePaint() override;

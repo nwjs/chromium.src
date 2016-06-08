@@ -66,6 +66,8 @@ class UI_BASE_EXPORT SimpleMenuModel : public MenuModel {
 
     // Notifies the delegate that the menu has closed.
     virtual void MenuClosed(SimpleMenuModel* source);
+
+    virtual bool HasIcon(int command_id);
   };
 
   // The Delegate can be NULL, though if it is items can't be checked or

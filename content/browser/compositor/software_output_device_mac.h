@@ -23,6 +23,19 @@ class Compositor;
 
 namespace content {
 
+class SoftwareOutputDeviceForceCPUMac : public cc::SoftwareOutputDevice {
+ public:
+  explicit SoftwareOutputDeviceForceCPUMac(ui::Compositor* compositor);
+  ~SoftwareOutputDeviceForceCPUMac() override;
+
+  void EndPaint() override;
+
+ private:
+  ui::Compositor* compositor_;
+
+  DISALLOW_COPY_AND_ASSIGN(SoftwareOutputDeviceForceCPUMac);
+};
+  
 class SoftwareOutputDeviceMac :
     public cc::SoftwareOutputDevice,
     public gfx::VSyncProvider {

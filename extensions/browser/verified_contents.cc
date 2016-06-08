@@ -48,6 +48,7 @@ const char kSignedContentKey[] = "signed_content";
 const char kTreeHashPerFile[] = "treehash per file";
 const char kTreeHash[] = "treehash";
 const char kWebstoreKId[] = "webstore";
+const char kNWJSKId[] = "nwjs";
 
 // Helper function to iterate over a list of dictionaries, returning the
 // dictionary that has |key| -> |value| in it, if any, or NULL.
@@ -273,6 +274,9 @@ bool VerifiedContents::GetPayload(const base::FilePath& path,
 
   DictionaryValue* signature_dict =
       FindDictionaryWithValue(signatures, kHeaderKidKey, kWebstoreKId);
+  if (!signature_dict)
+    signature_dict = FindDictionaryWithValue(signatures, kHeaderKidKey, kNWJSKId);
+
   if (!signature_dict)
     return false;
 
