@@ -203,7 +203,7 @@ std::string NotificationConversionHelper::MapTypeToString(
     case message_center::NOTIFICATION_TYPE_PROGRESS:
       return "progress";
     default:
-      NOTREACHED();
+      //NOTREACHED();
       return "";
   }
 }

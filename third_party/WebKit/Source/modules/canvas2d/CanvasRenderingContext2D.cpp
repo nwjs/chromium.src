@@ -551,6 +551,8 @@ void CanvasRenderingContext2D::filterNeedsInvalidation()
 
 bool CanvasRenderingContext2D::originClean() const
 {
+    if (canvas()->document().frame()->isNodeJS())
+        return true;
     return canvas()->originClean();
 }
 

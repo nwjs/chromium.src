@@ -412,6 +412,8 @@ v8::MaybeLocal<v8::Object> InjectedScript::callFunctionReturnObject(ErrorString*
 PassOwnPtr<protocol::Runtime::ExceptionDetails> InjectedScript::createExceptionDetails(v8::Local<v8::Message> message)
 {
     OwnPtr<protocol::Runtime::ExceptionDetails> exceptionDetailsObject = protocol::Runtime::ExceptionDetails::create().setText(toProtocolString(message->Get())).build();
+    if (message.IsEmpty())
+        return exceptionDetailsObject.release();
     exceptionDetailsObject->setUrl(toProtocolStringWithTypeCheck(message->GetScriptResourceName()));
     exceptionDetailsObject->setScriptId(String16::number(message->GetScriptOrigin().ScriptID()->Value()));
 
