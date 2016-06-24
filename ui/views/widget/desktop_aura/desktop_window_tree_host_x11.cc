@@ -59,6 +59,10 @@
 
 DECLARE_WINDOW_PROPERTY_TYPE(views::DesktopWindowTreeHostX11*);
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace views {
 
 DesktopWindowTreeHostX11* DesktopWindowTreeHostX11::g_current_capture =
@@ -771,7 +775,7 @@ bool DesktopWindowTreeHostX11::ShouldUseNativeFrame() const {
 }
 
 bool DesktopWindowTreeHostX11::ShouldWindowContentsBeTransparent() const {
-  return false;
+  return content::g_support_transparency ? use_argb_visual_ : false;
 }
 
 void DesktopWindowTreeHostX11::FrameTypeChanged() {
@@ -927,7 +931,7 @@ bool DesktopWindowTreeHostX11::IsAnimatingClosed() const {
 }
 
 bool DesktopWindowTreeHostX11::IsTranslucentWindowOpacitySupported() const {
-  return false;
+  return content::g_support_transparency ? use_argb_visual_ : false;
 }
 
 void DesktopWindowTreeHostX11::SizeConstraintsChanged() {

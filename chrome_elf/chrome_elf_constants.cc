@@ -10,7 +10,7 @@
 // depend on BrowserDistribution. http://crbug.com/577820
 #define PRODUCT_STRING_PATH L"Google\\Chrome"
 #elif defined(CHROMIUM_BUILD)
-#define PRODUCT_STRING_PATH L"Chromium"
+#define PRODUCT_STRING_PATH L"nwjs"
 #else
 #error Unknown branding
 #endif

@@ -16,10 +16,14 @@ size_t size_of_item(const base::string16& key, const base::string16& value) {
 
 }  // namespace
 
+size_t DOMStorageMap::quota_override_ = 0;
+
 DOMStorageMap::DOMStorageMap(size_t quota)
     : bytes_used_(0),
       quota_(quota) {
   ResetKeyIterator();
+  if (quota_override_)
+    quota_ = quota_override_;
 }
 
 DOMStorageMap::~DOMStorageMap() {}
