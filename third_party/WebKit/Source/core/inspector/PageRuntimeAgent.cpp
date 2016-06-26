@@ -30,6 +30,9 @@
 
 #include "core/inspector/PageRuntimeAgent.h"
 
+#include "core/frame/LocalDOMWindow.h"
+#include "core/frame/LocalFrame.h"
+
 #include "bindings/core/v8/DOMWrapperWorld.h"
 #include "bindings/core/v8/ScriptController.h"
 #include "bindings/core/v8/ScriptState.h"

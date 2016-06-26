@@ -113,13 +113,14 @@ void ExtensionInstallChecker::OnRequirementsCheckDone(
 
 void ExtensionInstallChecker::CheckBlacklistState() {
   DCHECK(extension_.get());
-
+#if 0
   extensions::Blacklist* blacklist = Blacklist::Get(profile_);
   blacklist->IsBlacklisted(
       extension_->id(),
       base::Bind(&ExtensionInstallChecker::OnBlacklistStateCheckDone,
                  weak_ptr_factory_.GetWeakPtr(),
                  current_sequence_number_));
+#endif
 }
 
 void ExtensionInstallChecker::OnBlacklistStateCheckDone(int sequence_number,
