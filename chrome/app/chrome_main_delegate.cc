@@ -54,6 +54,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_switches.h"
 
+#include "content/nw/src/nw_base.h"
 #if defined(OS_WIN)
 #include <atlbase.h>
 #include <malloc.h>
@@ -141,6 +142,16 @@
 #if !defined(CHROME_MULTIPLE_DLL_BROWSER)
 #include "chrome/child/pdf_child_init.h"
 
+
+#include "third_party/node/src/node_webkit.h"
+#include "third_party/zlib/google/zip_reader.h"
+#include "base/native_library.h"
+#include "base/strings/utf_string_conversions.h"
+#if defined(OS_MACOSX)
+#include "base/mac/bundle_locations.h"
+#include "base/strings/sys_string_conversions.h"
+#endif
+
 base::LazyInstance<ChromeContentRendererClient>
     g_chrome_content_renderer_client = LAZY_INSTANCE_INITIALIZER;
 base::LazyInstance<ChromeContentUtilityClient>
@@ -161,6 +172,9 @@ base::LazyInstance<ChromeCrashReporterClient>::Leaky g_chrome_crash_client =
 
 extern int NaClMain(const content::MainFunctionParams&);
 extern int ServiceProcessMain(const content::MainFunctionParams&);
+
+NodeStartFn g_node_start_fn = nullptr;
+SetBlobPathFn g_set_blob_path_fn = nullptr;
 
 namespace {
 
@@ -414,7 +428,7 @@ void InitializeUserDataDir() {
 
   // Append the fallback user data directory to the commandline. Otherwise,
   // child or service processes will attempt to use the invalid directory.
-  if (specified_directory_was_invalid)
+  //if (specified_directory_was_invalid)
     command_line->AppendSwitchPath(switches::kUserDataDir, user_data_dir);
 }
 
@@ -470,7 +484,7 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   chromeos::BootTimesRecorder::Get()->SaveChromeMainStats();
 #endif
 
-  const base::CommandLine& command_line =
+  base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
 
 #if defined(OS_WIN)
@@ -491,6 +505,35 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   SetUpBundleOverrides();
   chrome::common::mac::EnableCFBundleBlocker();
 #endif
+
+  const base::CommandLine::StringVector& args = command_line.GetArgs();
+  if (args.size() > 0) {
+    zip::ZipReader reader;
+    base::FilePath fp(args[0]);
+    if (!command_line.HasSwitch(switches::kProcessType) &&
+        base::PathExists(fp) && !base::DirectoryExists(fp) && !reader.Open(fp)) {
+      base::NativeLibraryLoadError error;
+#if defined(OS_MACOSX)
+      base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF16Unsafe(base::GetNativeLibraryName(base::UTF8ToUTF16("libnode"))));
+      base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef("natives_blob.bin"));
+      std::string blob_path = base::mac::PathForFrameworkBundleResource(natives_file_name).AsUTF8Unsafe();
+#else
+      base::FilePath node_dll_path = base::FilePath::FromUTF16Unsafe(base::GetNativeLibraryName(base::UTF8ToUTF16("node")));
+#endif
+      base::NativeLibrary node_dll = base::LoadNativeLibrary(node_dll_path, &error);
+      if(!node_dll)
+        LOG(FATAL) << "Failed to load node library (error: " << error.ToString() << ")";
+      else {
+#if defined(OS_MACOSX)
+        g_set_blob_path_fn = (SetBlobPathFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_set_blob_path");
+        g_set_blob_path_fn(blob_path.c_str());
+#endif
+        g_node_start_fn = (NodeStartFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_node_start");
+        *exit_code = g_node_start_fn(command_line.argc0(), command_line.argv0());
+      }
+      return true;
+    }
+  }
 
   Profiling::ProcessStarted();
 
@@ -697,6 +740,8 @@ void ChromeMainDelegate::PreSandboxStartup() {
   crash_reporter::SetCrashReporterClient(g_chrome_crash_client.Pointer());
 #endif
 
+  if (process_type.empty())
+    nw::InitNWPackage();
 #if defined(OS_MACOSX)
   // On the Mac, the child executable lives at a predefined location within
   // the app bundle's versioned directory.
@@ -719,11 +764,11 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // Initialize the user data dir for any process type that needs it.
   if (chrome::ProcessNeedsProfileDir(process_type))
     InitializeUserDataDir();
-
+#if 0
   // Register component_updater PathProvider after DIR_USER_DATA overidden by
   // command line flags. Maybe move the chrome PathProvider down here also?
   component_updater::RegisterPathProvider(chrome::DIR_USER_DATA);
-
+#endif
   // Enable Message Loop related state asap.
   if (command_line.HasSwitch(switches::kMessageLoopHistogrammer))
     base::MessageLoop::EnableHistogrammer(true);

@@ -61,7 +61,8 @@
     "noparent": true,
     "internal": true,
     "channel": "stable",
-    "contexts": ["blessed_extension"]
+    "matches": ["<all_urls>"],
+    "contexts": ["blessed_extension", "web_page"]
   },
   "app.currentWindowInternal.setShape": {
     "dependencies": ["permission:app.window.shape"],
@@ -287,7 +288,8 @@
   "runtime": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app", "platform_app"],
-    "contexts": ["blessed_extension"]
+    "matches": ["<all_urls>"],
+    "contexts": ["blessed_extension", "web_page"]
   },
   "runtime.getManifest": {
     "contexts": ["blessed_extension", "unblessed_extension", "content_script"]

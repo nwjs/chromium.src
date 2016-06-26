@@ -56,10 +56,10 @@
     // other browsing contexts
     [Replaceable, DoNotCheckSecurity] readonly attribute Window frames;
     [Replaceable, DoNotCheckSecurity] readonly attribute unsigned long length;
-    [Unforgeable, DoNotCheckSecurity] readonly attribute Window top;
+    [Unforgeable, DoNotCheckSecurity, Custom=Getter] readonly attribute Window top;
     // FIXME: opener should be of type any.
     [DoNotCheckSecurity, Custom=Setter] attribute Window opener;
-    [Replaceable, DoNotCheckSecurity] readonly attribute Window parent;
+    [Replaceable, DoNotCheckSecurity, Custom=Getter] readonly attribute Window parent;
     [CheckSecurity=ReturnValue, Custom=Getter] readonly attribute Element? frameElement;
     // FIXME: open() should have 4 optional arguments with defaults.
     [Custom] Window? open(DOMString url, DOMString target, optional DOMString features);

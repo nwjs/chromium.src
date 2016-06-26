@@ -187,12 +187,21 @@
         'chrome_internal_resources_gen',
         'chrome_web_ui_mojo_bindings.gyp:web_ui_mojo_bindings',
       ],
+      'variables': {
+        'conditions': [
+          ['nwjs_sdk==1', {
+            'browser_resources_grd_file': 'browser/browser_resources.grd',
+          }, {
+            'browser_resources_grd_file': 'browser/nwjs_resources.grd',
+          }],
+        ],  # conditions
+      },  # variables
       'actions': [
         {
           # GN version: //chrome/browser:resources
           'action_name': 'generate_browser_resources',
           'variables': {
-            'grit_grd_file': 'browser/browser_resources.grd',
+            'grit_grd_file': '<(browser_resources_grd_file)',
             'grit_additional_defines': [
               '-E', 'additional_modules_list_file=<(additional_modules_list_file)',
               '-E', 'root_gen_dir=<(SHARED_INTERMEDIATE_DIR)',
@@ -563,7 +572,7 @@
             {
               'destination': '<(PRODUCT_DIR)',
               'files': [
-                '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_100_percent.pak'
+                '<(SHARED_INTERMEDIATE_DIR)/repack/nw_100_percent.pak'
               ],
             },
             {
@@ -598,7 +607,7 @@
                 {
                   'destination': '<(PRODUCT_DIR)',
                   'files': [
-                    '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_200_percent.pak',
+                    '<(SHARED_INTERMEDIATE_DIR)/repack/nw_200_percent.pak',
                   ],
                 },
               ],
@@ -608,7 +617,7 @@
                 {
                   'destination': '<(PRODUCT_DIR)',
                   'files': [
-                    '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_material_100_percent.pak',
+                    '<(SHARED_INTERMEDIATE_DIR)/repack/nw_material_100_percent.pak',
                   ],
                 },
               ],
@@ -618,7 +627,7 @@
                 {
                   'destination': '<(PRODUCT_DIR)',
                   'files': [
-                    '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_material_200_percent.pak',
+                    '<(SHARED_INTERMEDIATE_DIR)/repack/nw_material_200_percent.pak',
                   ],
                 },
               ],

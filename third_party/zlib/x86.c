@@ -56,21 +56,43 @@ static void _x86_check_features(void)
 #else
 #include <intrin.h>
 #include <windows.h>
+#include <stdint.h>
 
-static BOOL CALLBACK _x86_check_features(PINIT_ONCE once,
-                                         PVOID param,
-                                         PVOID *context);
-static INIT_ONCE cpu_check_inited_once = INIT_ONCE_STATIC_INIT;
+static volatile int32_t once_control = 0;
+static void _x86_check_features(void);
+static int fake_pthread_once(volatile int32_t *once_control,
+                             void (*init_routine)(void));
 
 void x86_check_features(void)
 {
-    InitOnceExecuteOnce(&cpu_check_inited_once, _x86_check_features,
-                        NULL, NULL);
+    fake_pthread_once(&once_control, _x86_check_features);
 }
 
-static BOOL CALLBACK _x86_check_features(PINIT_ONCE once,
-                                         PVOID param,
-                                         PVOID *context)
+/* Copied from "perftools_pthread_once" in tcmalloc */
+static int fake_pthread_once(volatile int32_t *once_control,
+                             void (*init_routine)(void)) {
+    // Try for a fast path first. Note: this should be an acquire semantics read
+    // It is on x86 and x64, where Windows runs.
+    if (*once_control != 1) {
+        while (1) {
+            switch (InterlockedCompareExchange(once_control, 2, 0)) {
+                case 0:
+                    init_routine();
+                    InterlockedExchange(once_control, 1);
+                    return 0;
+                case 1:
+                    // The initializer has already been executed
+                    return 0;
+                default:
+                    // The initializer is being processed by another thread
+                    SwitchToThread();
+            }
+        }
+    }
+    return 0;
+}
+
+static void _x86_check_features(void)
 {
     int x86_cpu_has_sse2;
     int x86_cpu_has_sse42;
@@ -86,6 +108,5 @@ static BOOL CALLBACK _x86_check_features(PINIT_ONCE once,
     x86_cpu_enable_simd = x86_cpu_has_sse2 &&
                           x86_cpu_has_sse42 &&
                           x86_cpu_has_pclmulqdq;
-    return TRUE;
 }
 #endif  /* _MSC_VER */

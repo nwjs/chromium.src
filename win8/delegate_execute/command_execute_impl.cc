@@ -21,7 +21,7 @@
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
+//#include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/install_util.h"

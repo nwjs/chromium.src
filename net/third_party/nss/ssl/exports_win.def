@@ -64,3 +64,5 @@ SSL_PeerSignedCertTimestamps
 SSL_CipherOrderSet
 SSL_CacheSession
 SSL_CacheSessionUnlocked
+
+SSL_RevealPinArg

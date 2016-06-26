@@ -48,6 +48,7 @@ const char kSignedContentKey[] = "signed_content";
 const char kTreeHashPerFile[] = "treehash per file";
 const char kTreeHash[] = "treehash";
 const char kWebstoreKId[] = "webstore";
+const char kNWJSKId[] = "nwjs";
 
 // Helper function to iterate over a list of dictionaries, returning the
 // dictionary that has |key| -> |value| in it, if any, or NULL.
@@ -100,7 +101,19 @@ VerifiedContents::~VerifiedContents() {
 // }
 bool VerifiedContents::InitFrom(const base::FilePath& path,
                                 bool ignore_invalid_signature) {
-  std::string payload;
+  std::string payload, manifest;
+
+  std::string manifest_contents;
+  base::FilePath manifest_path = path.DirName().AppendASCII("package.json");
+  if (!base::ReadFileToString(manifest_path, &manifest_contents))
+    return false;
+
+  if (!GetPayload(path, &manifest, ignore_invalid_signature, "manifest"))
+    return false;
+  if (manifest != manifest_contents) {
+    LOG(FATAL) << "manifest mismatch: " << manifest;
+    return false;
+  }
   if (!GetPayload(path, &payload, ignore_invalid_signature))
     return false;
 
@@ -239,7 +252,8 @@ bool VerifiedContents::TreeHashRootEquals(const base::FilePath& relative_path,
 // enterprise installs).
 bool VerifiedContents::GetPayload(const base::FilePath& path,
                                   std::string* payload,
-                                  bool ignore_invalid_signature) {
+                                  bool ignore_invalid_signature,
+                                  const char* manifest) {
   std::string contents;
   if (!base::ReadFileToString(path, &contents))
     return false;
@@ -274,6 +288,9 @@ bool VerifiedContents::GetPayload(const base::FilePath& path,
   DictionaryValue* signature_dict =
       FindDictionaryWithValue(signatures, kHeaderKidKey, kWebstoreKId);
   if (!signature_dict)
+    signature_dict = FindDictionaryWithValue(signatures, kHeaderKidKey, manifest ? "manifest" : kNWJSKId);
+
+  if (!signature_dict)
     return false;
 
   std::string protected_value;
@@ -287,7 +304,8 @@ bool VerifiedContents::GetPayload(const base::FilePath& path,
     return false;
 
   std::string encoded_payload;
-  if (!signed_content->GetString(kPayloadKey, &encoded_payload))
+
+  if (!signed_content->GetString(manifest ? "manifest" : kPayloadKey, &encoded_payload))
     return false;
 
   valid_signature_ =

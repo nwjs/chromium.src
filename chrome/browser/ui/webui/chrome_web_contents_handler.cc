@@ -83,7 +83,7 @@ void ChromeWebContentsHandler::AddNewContents(
   Browser* browser = chrome::FindTabbedBrowser(profile, false);
   const bool browser_created = !browser;
   if (!browser)
-    browser = new Browser(Browser::CreateParams(Browser::TYPE_TABBED, profile));
+    browser = new Browser(Browser::CreateParams(Browser::TYPE_POPUP, profile));
   chrome::NavigateParams params(browser, new_contents);
   params.source_contents = source;
   params.disposition = disposition;

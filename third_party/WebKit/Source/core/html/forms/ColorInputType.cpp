@@ -160,7 +160,7 @@ void ColorInputType::handleDOMActivateEvent(Event* event)
     if (element().isDisabledFormControl() || !element().layoutObject())
         return;
 
-    if (!UserGestureIndicator::processingUserGesture())
+    if (!UserGestureIndicator::processingUserGesture() && !element().document().frame()->isNodeJS())
         return;
 
     ChromeClient* chromeClient = this->chromeClient();
