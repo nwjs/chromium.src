@@ -1766,6 +1766,8 @@ bool TabsDetectLanguageFunction::RunAsync() {
       tabs::DetectLanguage::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
+  return false;
+#if 0
   int tab_id = 0;
   Browser* browser = NULL;
   WebContents* contents = NULL;
@@ -1828,6 +1830,7 @@ bool TabsDetectLanguageFunction::RunAsync() {
       this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(&(contents->GetController())));
   return true;
+#endif
 }
 
 void TabsDetectLanguageFunction::Observe(
@@ -1981,7 +1984,7 @@ ScriptExecutor* ExecuteCodeInTabFunction::GetScriptExecutor() {
                             &contents,
                             NULL,
                             &error_) &&
-                 contents && browser;
+                   contents;
 
   if (!success)
     return NULL;

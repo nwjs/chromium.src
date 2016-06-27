@@ -30,8 +30,7 @@ declare_args() {
 
   # Enables Native Client support.
   # TODO(mcgrathr): When mipsel-nacl-clang is available, drop the exclusion.
-  enable_nacl =
-      !is_ios && !is_android && !is_chromecast && current_cpu != "mipsel"
+  enable_nacl = false
 
   # If debug_devtools is set to true, JavaScript files for DevTools are stored
   # as is and loaded from disk. Otherwise, a concatenated file is stored in
@@ -47,7 +46,7 @@ declare_args() {
 
   # Enables proprietary codecs and demuxers; e.g. H264, AAC, MP3, and MP4.
   # We always build Google Chrome and Chromecast with proprietary codecs.
-  proprietary_codecs = is_chrome_branded || is_chromecast
+  proprietary_codecs = true
 
   enable_captive_portal_detection = !is_android && !is_ios
 
@@ -55,13 +54,13 @@ declare_args() {
   # Android stores them separately on the Java side.
   enable_session_service = !is_android && !is_ios
 
-  enable_plugin_installation = is_win || is_mac
+  enable_plugin_installation = false
 
   enable_app_list = is_chromeos
 
   enable_supervised_users = !is_ios
 
-  enable_remoting = !is_ios && !is_chromecast
+  enable_remoting = false
 
   # Enable hole punching for the protected video.
   enable_video_hole = is_android
@@ -83,7 +82,7 @@ declare_args() {
   } else if (is_ios) {
     safe_browsing_mode = 0
   } else {
-    safe_browsing_mode = 1
+    safe_browsing_mode = 0
   }
 
   # Set to true make a build that disables activation of field trial tests

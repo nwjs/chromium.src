@@ -195,6 +195,9 @@ bool ScriptController::shouldBypassMainWorldCSP()
 {
     v8::HandleScope handleScope(isolate());
     v8::Local<v8::Context> context = isolate()->GetCurrentContext();
+    if (frame() && frame()->document() &&
+        frame()->document()->getSecurityOrigin()->hasUniversalAccess())
+        return true;
     if (context.IsEmpty() || !toDOMWindow(context))
         return false;
     DOMWrapperWorld& world = DOMWrapperWorld::current(isolate());

@@ -46,9 +46,10 @@ void LoadFileTypesFromDisk(const base::FilePath& pb_path) {
     VLOG(1) << "Failed reading from " << pb_path.value();
     return;
   }
-
+#if 0
   safe_browsing::FileTypePolicies::GetInstance()->PopulateFromDynamicUpdate(
       binary_pb);
+#endif
 }
 
 }  // namespace

@@ -204,8 +204,10 @@ GpuProcessTransportFactory::CreateSoftwareOutputDevice(
   return std::unique_ptr<cc::SoftwareOutputDevice>(
       new SoftwareOutputDeviceX11(compositor));
 #elif defined(OS_MACOSX)
-  return std::unique_ptr<cc::SoftwareOutputDevice>(
-      new SoftwareOutputDeviceMac(compositor));
+  if (g_force_cpu_draw)
+    return std::unique_ptr<cc::SoftwareOutputDevice>(new SoftwareOutputDeviceForceCPUMac(compositor));
+  else
+    return std::unique_ptr<cc::SoftwareOutputDevice>(new SoftwareOutputDeviceMac(compositor));
 #else
   NOTREACHED();
   return std::unique_ptr<cc::SoftwareOutputDevice>();

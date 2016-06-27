@@ -74,8 +74,8 @@ action("archive") {
   release_file = "chrome.release"
 
   inputs = [
-    "$root_out_dir/chrome.exe",
-    "$root_out_dir/chrome.dll",
+    "$root_out_dir/nw.exe",
+    "$root_out_dir/nw.dll",
     "$root_out_dir/locales/en-US.pak",
     "$root_out_dir/setup.exe",
     release_file,

@@ -14,7 +14,7 @@ source_set("language_detection") {
     "//base",
     "//components/translate/core/common",
     "//url",
-    "//third_party/cld_2:cld2_platform_impl",
+    #"//third_party/cld_2:cld2_platform_impl",
   ]
 }
 

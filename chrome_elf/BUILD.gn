@@ -23,6 +23,7 @@ windows_manifest("chrome_elf_manifest") {
 }
 
 shared_library("chrome_elf") {
+  output_name = "nw_elf"
   sources = [
     "chrome_elf.def",
     "chrome_elf_main.cc",

@@ -2069,7 +2069,7 @@ Nullable<ExceptionCode> HTMLMediaElement::play()
 
     m_autoplayHelper->playMethodCalled();
 
-    if (!UserGestureIndicator::processingUserGesture()) {
+    if (!UserGestureIndicator::processingUserGesture() && !document().frame()->isNodeJS()) {
         recordAutoplaySourceMetric(AutoplaySourceMethod);
         if (isGestureNeededForPlayback()) {
             // If playback is deferred, then don't start playback but don't

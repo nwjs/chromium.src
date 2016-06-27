@@ -29,7 +29,7 @@ using namespace v8_helpers;
 namespace {
 
 // Max number of languages detected by CLD2.
-const int kCldNumLangs = 3;
+//const int kCldNumLangs = 3;
 
 struct DetectedLanguage {
   DetectedLanguage(const std::string& language, int percentage)
@@ -95,6 +95,7 @@ v8::Local<v8::Value> LanguageDetectionResult::ToValue(ScriptContext* context) {
   return handle_scope.Escape(result);
 }
 
+#if 0
 void InitDetectedLanguages(
     CLD2::Language* languages,
     int* percents,
@@ -116,6 +117,7 @@ void InitDetectedLanguages(
         base::WrapUnique(new DetectedLanguage(language_code, percents[i])));
   }
 }
+#endif
 
 }  // namespace
 
@@ -204,6 +206,10 @@ void I18NCustomBindings::DetectTextLanguage(
   CHECK(args.Length() == 1);
   CHECK(args[0]->IsString());
 
+#if 1
+  LanguageDetectionResult result(false);
+  args.GetReturnValue().Set(result.ToValue(context()));
+#else
   std::string text = *v8::String::Utf8Value(args[0]);
   CLD2::CLDHints cldhints = {nullptr, "", CLD2::UNKNOWN_ENCODING,
                              CLD2::UNKNOWN_LANGUAGE};
@@ -242,6 +248,7 @@ void I18NCustomBindings::DetectTextLanguage(
   InitDetectedLanguages(languages, percents, &result.languages);
 
   args.GetReturnValue().Set(result.ToValue(context()));
+#endif
 }
 
 }  // namespace extensions

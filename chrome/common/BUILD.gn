@@ -70,7 +70,7 @@ static_library("common") {
     "//chrome:strings",
     "//chrome/app/theme:theme_resources",
     "//chrome/common:constants",
-    "//chrome/common/safe_browsing:proto",
+    #"//chrome/common/safe_browsing:proto",
     "//chrome/common/variations:fieldtrial_testing_config",
     "//chrome/installer/util:with_no_strings",
     "//components/cast_certificate",
@@ -146,7 +146,7 @@ static_library("common") {
       "//components/password_manager/content/public/interfaces",
       "//components/password_manager/core/common",
       "//components/signin/core/common",
-      "//components/translate/content/common",
+      #"//components/translate/content/common",
       "//components/visitedlink/common",
       "//ipc",
       "//media",
@@ -161,6 +161,7 @@ static_library("common") {
                            ".",
                            "//chrome")
     public_deps += [
+      "//content/nw/src/api:nw_api",
       "//chrome/common/extensions/api",
       "//device/usb",
       "//extensions:extensions_resources",
