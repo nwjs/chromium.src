@@ -244,6 +244,8 @@
 #include "content/renderer/vr/vr_dispatcher.h"
 #endif
 
+#include "content/nw/src/nw_content.h"
+
 using blink::WebCachePolicy;
 using blink::WebContentDecryptionModule;
 using blink::WebContextMenuData;
@@ -790,6 +792,16 @@ bool UseMojoCdm() {
 #endif  // defined(ENABLE_MOJO_CDM)
 
 }  // namespace
+
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                blink::WebFrame* frame,
+                                                const blink::WebURLRequest& request,
+                                                blink::WebNavigationPolicy* policy,
+                                                blink::WebString* manifest,
+                                                bool new_win) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_.get(), frame, request, policy, manifest, new_win);
+}
 
 // static
 RenderFrameImpl* RenderFrameImpl::Create(RenderViewImpl* render_view,
@@ -4134,6 +4146,10 @@ bool RenderFrameImpl::willCheckAndDispatchMessageEvent(
 }
 
 blink::WebString RenderFrameImpl::userAgentOverride() {
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    return WebString::fromUTF8(user_agent);
+
   if (!render_view_->webview() || !render_view_->webview()->mainFrame() ||
       render_view_->renderer_preferences_.user_agent_override.empty()) {
     return blink::WebString();

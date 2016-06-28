@@ -165,7 +165,9 @@ class EventRouter : public KeyedService,
 
   // Returns true if the extension is listening to the given event.
   bool ExtensionHasEventListener(const std::string& extension_id,
-                                 const std::string& event_name);
+                                 const std::string& event_name,
+                                 int instance_id = -1,
+                                 std::string* out_extension_id = nullptr);
 
   // Return or set the list of events for which the given extension has
   // registered.

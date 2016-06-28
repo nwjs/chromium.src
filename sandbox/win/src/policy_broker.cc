@@ -96,8 +96,7 @@ bool SetupNtdllImports(TargetProcess *child) {
 #undef INIT_GLOBAL_NT
 #undef INIT_GLOBAL_RTL
 
-bool SetupBasicInterceptions(InterceptionManager* manager,
-                             bool is_csrss_connected) {
+bool SetupBasicInterceptions(InterceptionManager* manager) {
   // Interceptions provided by process_thread_policy, without actual policy.
   if (!INTERCEPT_NT(manager, NtOpenThread, OPEN_THREAD_ID, 20) ||
       !INTERCEPT_NT(manager, NtOpenProcess, OPEN_PROCESS_ID, 20) ||
@@ -115,15 +114,8 @@ bool SetupBasicInterceptions(InterceptionManager* manager,
                     20))
     return false;
 
-  if (!INTERCEPT_NT(manager, NtOpenThreadTokenEx, OPEN_THREAD_TOKEN_EX_ID,
-                    24))
-    return false;
-
-  if (!is_csrss_connected) {
-    if (!INTERCEPT_EAT(manager, kKerneldllName, CreateThread, CREATE_THREAD_ID,
-                       28))
-      return false;
-  }
+  return INTERCEPT_NT(manager, NtOpenThreadTokenEx, OPEN_THREAD_TOKEN_EX_ID,
+                        24);
 
   return true;
 }

@@ -63,6 +63,10 @@ bool WidgetDelegate::CanActivate() const {
   return can_activate_;
 }
 
+bool WidgetDelegate::NWCanClose(bool user_force) const {
+  return true;
+}
+
 ui::ModalType WidgetDelegate::GetModalType() const {
   return ui::MODAL_TYPE_NONE;
 }
@@ -99,6 +103,10 @@ bool WidgetDelegate::ShouldHandleSystemCommands() const {
   return widget->non_client_view() != NULL;
 }
 
+bool WidgetDelegate::ShouldHandleOnSize() const {
+  return false;
+}
+
 gfx::ImageSkia WidgetDelegate::GetWindowAppIcon() {
   // Use the window icon as app icon by default.
   return GetWindowIcon();
@@ -114,6 +122,14 @@ bool WidgetDelegate::ShouldShowWindowIcon() const {
 }
 
 bool WidgetDelegate::ExecuteWindowsCommand(int command_id) {
+  return false;
+}
+
+bool WidgetDelegate::ExecuteAppCommand(int command_id) {
+  return ExecuteWindowsCommand(command_id);
+}
+
+bool WidgetDelegate::HandleSize(unsigned int param, const gfx::Size& size) {
   return false;
 }
 

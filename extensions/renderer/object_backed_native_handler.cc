@@ -159,11 +159,13 @@ bool ObjectBackedNativeHandler::ContextCanAccessObject(
     return true;
   if (context == object->CreationContext())
     return true;
+  ScriptContext* script_context = ScriptContextSet::GetContextByV8Context(context);
+  if (script_context && script_context->extension() && script_context->extension()->is_nwjs_app())
+    return true;
   ScriptContext* other_script_context =
       ScriptContextSet::GetContextByObject(object);
   if (!other_script_context || !other_script_context->web_frame())
     return allow_null_context;
-
   return blink::WebFrame::scriptCanAccess(other_script_context->web_frame());
 }
 

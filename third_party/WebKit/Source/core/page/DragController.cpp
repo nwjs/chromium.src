@@ -215,7 +215,7 @@ void DragController::dragExited(DragData* dragData)
 
     FrameView* frameView(mainFrame->view());
     if (frameView) {
-        DataTransferAccessPolicy policy = (!m_documentUnderMouse || m_documentUnderMouse->getSecurityOrigin()->isLocal()) ? DataTransferReadable : DataTransferTypesReadable;
+        DataTransferAccessPolicy policy = (!m_documentUnderMouse || m_documentUnderMouse->getSecurityOrigin()->isLocal() || m_documentUnderMouse->getSecurityOrigin()->hasUniversalAccess()) ? DataTransferReadable : DataTransferTypesReadable;
         DataTransfer* dataTransfer = createDraggingDataTransfer(policy, dragData);
         dataTransfer->setSourceOperation(dragData->draggingSourceOperationMask());
         mainFrame->eventHandler().cancelDragAndDrop(createMouseEvent(dragData), dataTransfer);
@@ -596,7 +596,7 @@ bool DragController::tryDHTMLDrag(DragData* dragData, DragOperation& operation)
     if (!mainFrame->view())
         return false;
 
-    DataTransferAccessPolicy policy = m_documentUnderMouse->getSecurityOrigin()->isLocal() ? DataTransferReadable : DataTransferTypesReadable;
+    DataTransferAccessPolicy policy = m_documentUnderMouse->getSecurityOrigin()->isLocal() || m_documentUnderMouse->getSecurityOrigin()->hasUniversalAccess() ? DataTransferReadable : DataTransferTypesReadable;
     DataTransfer* dataTransfer = createDraggingDataTransfer(policy, dragData);
     DragOperation srcOpMask = dragData->draggingSourceOperationMask();
     dataTransfer->setSourceOperation(srcOpMask);
