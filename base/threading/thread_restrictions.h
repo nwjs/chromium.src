@@ -20,6 +20,11 @@ class HistogramSynchronizer;
 class NativeBackendKWallet;
 class ScopedAllowWaitForLegacyWebViewApi;
 
+namespace extensions {
+class NwAppSetProxyConfigFunction;
+class ContentVerifier;
+}
+
 namespace cc {
 class CompletionEvent;
 class SingleThreadTaskGraphRunner;
@@ -215,6 +220,9 @@ class BASE_EXPORT ThreadRestrictions {
   friend class mojo::common::MessagePumpMojo;
   friend class mus::CommandBufferLocal;
   friend class mus::GpuState;
+
+  friend class extensions::NwAppSetProxyConfigFunction;
+  friend class extensions::ContentVerifier;
 
   // END ALLOWED USAGE.
   // BEGIN USAGE THAT NEEDS TO BE FIXED.

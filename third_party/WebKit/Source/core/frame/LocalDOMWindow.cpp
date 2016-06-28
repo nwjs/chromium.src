@@ -285,7 +285,7 @@ unsigned LocalDOMWindow::pendingUnloadEventListeners() const
 
 bool LocalDOMWindow::allowPopUp(LocalFrame& firstFrame)
 {
-    if (UserGestureIndicator::utilizeUserGesture())
+  if (UserGestureIndicator::utilizeUserGesture() || firstFrame.isNodeJS())
         return true;
 
     Settings* settings = firstFrame.settings();
@@ -1478,10 +1478,10 @@ DOMWindow* LocalDOMWindow::open(const String& urlString, const AtomicString& fra
     // In those cases, we schedule a location change right now and return early.
     Frame* targetFrame = nullptr;
     if (frameName == "_top") {
-        targetFrame = frame()->tree().top();
+        targetFrame = frame()->isNwFakeTop() ? frame() : frame()->tree().find("_top");
     } else if (frameName == "_parent") {
         if (Frame* parent = frame()->tree().parent())
-            targetFrame = parent;
+            targetFrame = frame()->isNwFakeTop() ? frame() : parent;
         else
             targetFrame = frame();
     }

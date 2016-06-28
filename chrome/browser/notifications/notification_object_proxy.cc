@@ -53,7 +53,7 @@ void NotificationObjectProxy::SettingsClick() {
 }
 
 bool NotificationObjectProxy::ShouldDisplaySettingsButton() {
-  return true;
+  return false;
 }
 
 std::string NotificationObjectProxy::id() const {
