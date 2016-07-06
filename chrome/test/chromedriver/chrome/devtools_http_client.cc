@@ -156,6 +156,8 @@ bool DevToolsHttpClient::IsBrowserWindow(const WebViewInfo& view) const {
   return window_types_->find(view.type) != window_types_->end() ||
       (view.type == WebViewInfo::kOther &&
         (view.url.find("chrome-extension://") == 0 ||
+         view.url.find("http://") == 0 ||
+         view.url.find("https://") == 0 ||
          view.url == "chrome://print/" ||
          view.url == "chrome://media-router/"));
 }

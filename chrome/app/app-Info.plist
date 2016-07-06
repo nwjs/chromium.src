@@ -336,7 +336,7 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Chromium Extra</string>
+			<string>NWJS Extra</string>
 			<key>UTTypeIdentifier</key>
 			<string>org.chromium.extension</string>
 			<key>UTTypeTagSpecification</key>

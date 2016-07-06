@@ -35,7 +35,7 @@ const int kMaxPossibleTimeTValue = std::numeric_limits<int>::max();
 
 namespace {
 
-const char kLibsecretAppString[] = "chrome";
+const char kLibsecretAppString[] = "nwjs";
 
 // Schema is analagous to the fields in PasswordForm.
 const SecretSchema kLibsecretSchema = {
