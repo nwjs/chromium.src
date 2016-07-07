@@ -458,6 +458,7 @@ class AppWindow : public content::WebContentsDelegate,
                           bool last_unlocked_by_target) override;
   bool PreHandleGestureEvent(content::WebContents* source,
                              const blink::WebGestureEvent& event) override;
+  void ActivateContents(content::WebContents* contents) override;
 
   // content::WebContentsObserver implementation.
   void RenderViewCreated(content::RenderViewHost* render_view_host) override;
