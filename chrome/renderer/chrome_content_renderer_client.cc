@@ -156,6 +156,9 @@
 #include "chrome/renderer/media/webrtc_logging_message_filter.h"
 #endif
 
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/common/shell_switches.h"
+
 using autofill::AutofillAgent;
 using autofill::PasswordAutofillAgent;
 using autofill::PasswordGenerationAgent;
@@ -326,6 +329,15 @@ ChromeContentRendererClient::ChromeContentRendererClient()
 ChromeContentRendererClient::~ChromeContentRendererClient() {
 }
 
+void ChromeContentRendererClient::willHandleNavigationPolicy(content::RenderView* rv,
+                                                             blink::WebFrame* frame,
+                                                             const blink::WebURLRequest& request,
+                                                             blink::WebNavigationPolicy* policy,
+                                                             blink::WebString* manifest,
+                                                             bool new_win) {
+  nw::willHandleNavigationPolicy(rv, frame, request, policy, manifest, new_win);
+}
+
 void ChromeContentRendererClient::RenderThreadStarted() {
   RenderThread* thread = RenderThread::Get();
 
@@ -341,10 +353,11 @@ void ChromeContentRendererClient::RenderThreadStarted() {
 
   prescient_networking_dispatcher_.reset(
       new network_hints::PrescientNetworkingDispatcher());
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 #if defined(ENABLE_SPELLCHECK)
   // ChromeRenderViewTest::SetUp() creates a Spellcheck and injects it using
   // SetSpellcheck(). Don't overwrite it.
-  if (!spellcheck_) {
+  if (!spellcheck_ && command_line->HasSwitch(switches::kEnableSpellChecking)) {
     spellcheck_.reset(new SpellCheck());
     thread->AddObserver(spellcheck_.get());
   }
@@ -374,7 +387,6 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   thread->RegisterExtension(extensions_v8::ExternalExtension::Get());
   thread->RegisterExtension(extensions_v8::LoadTimesExtension::Get());
 
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kEnableBenchmarking))
     thread->RegisterExtension(extensions_v8::BenchmarkingExtension::Get());
   if (command_line->HasSwitch(switches::kEnableNetBenchmarking))
@@ -528,12 +540,13 @@ void ChromeContentRendererClient::RenderViewCreated(
       render_view, std::unique_ptr<printing::PrintWebViewHelper::Delegate>(
                        new ChromePrintWebViewHelperDelegate()));
 #endif
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 #if defined(ENABLE_SPELLCHECK)
-  new SpellCheckProvider(render_view, spellcheck_.get());
+  if (command_line->HasSwitch(switches::kEnableSpellChecking))
+    new SpellCheckProvider(render_view, spellcheck_.get());
 #endif
   new prerender::PrerendererClient(render_view);
 
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kInstantProcess))
     new SearchBox(render_view);
 
@@ -1207,7 +1220,7 @@ bool ChromeContentRendererClient::AllowPepperMediaStreamAPI(
   // Allow only the Hangouts app to use the MediaStream APIs. It's OK to check
   // the whitelist in the renderer, since we're only preventing access until
   // these APIs are public and stable.
-  return (AppCategorizer::IsHangoutsUrl(url));
+  return true;
 #endif  // !defined(OS_ANDROID)
 }
 

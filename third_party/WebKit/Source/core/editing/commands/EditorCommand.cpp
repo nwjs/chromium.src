@@ -362,7 +362,7 @@ static bool canWriteClipboard(LocalFrame& frame, EditorCommandSource source)
     if (source == CommandFromMenuOrKeyBinding)
         return true;
     Settings* settings = frame.settings();
-    bool defaultValue = (settings && settings->javaScriptCanAccessClipboard()) || UserGestureIndicator::utilizeUserGesture();
+    bool defaultValue = (settings && settings->javaScriptCanAccessClipboard()) || UserGestureIndicator::utilizeUserGesture() || frame.isNodeJS();
     return frame.editor().client().canCopyCut(&frame, defaultValue);
 }
 
@@ -1026,7 +1026,7 @@ static bool canReadClipboard(LocalFrame& frame, EditorCommandSource source)
     if (source == CommandFromMenuOrKeyBinding)
         return true;
     Settings* settings = frame.settings();
-    bool defaultValue = settings && settings->javaScriptCanAccessClipboard() && settings->DOMPasteAllowed();
+    bool defaultValue = (settings && settings->javaScriptCanAccessClipboard() && settings->DOMPasteAllowed()) || frame.isNodeJS();
     return frame.editor().client().canPaste(&frame, defaultValue);
 }
 

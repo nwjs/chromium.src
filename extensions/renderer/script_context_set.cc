@@ -45,7 +45,7 @@ ScriptContext* ScriptContextSet::Register(
   GURL frame_url = ScriptContext::GetDataSourceURLForFrame(frame);
   Feature::Context context_type =
       ClassifyJavaScriptContext(extension, extension_group, frame_url,
-                                frame->document().getSecurityOrigin());
+                                frame->document().getSecurityOrigin(), frame);
   Feature::Context effective_context_type = ClassifyJavaScriptContext(
       effective_extension, extension_group,
       ScriptContext::GetEffectiveDocumentURL(frame, frame_url, true),
@@ -161,7 +161,9 @@ Feature::Context ScriptContextSet::ClassifyJavaScriptContext(
     const Extension* extension,
     int extension_group,
     const GURL& url,
-    const blink::WebSecurityOrigin& origin) {
+    const blink::WebSecurityOrigin& origin,
+    const blink::WebLocalFrame* frame
+                                                             ) {
   // WARNING: This logic must match ProcessMap::GetContextType, as much as
   // possible.
 
@@ -180,7 +182,7 @@ Feature::Context ScriptContextSet::ClassifyJavaScriptContext(
   //    before the SecurityContext is updated with the sandbox flags (after
   //    reading the CSP header), so the caller can't check if the context's
   //    security origin is unique yet.
-  if (ScriptContext::IsSandboxedPage(url))
+  if (ScriptContext::IsSandboxedPage(url) || (frame && frame->isNwDisabledChildFrame()))
     return Feature::WEB_PAGE_CONTEXT;
 
   if (extension && active_extension_ids_->count(extension->id()) > 0) {

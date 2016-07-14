@@ -101,4 +101,5 @@ const char kEnableCrashReporterForTesting[] =
     "enable-crash-reporter-for-testing";
 #endif
 
+const char kNWJS[] = "nwjs";
 }  // namespace switches

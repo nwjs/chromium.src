@@ -65,7 +65,7 @@ content::WebUIDataSource* CreateTranslateInternalsHTMLSource() {
   // The version string is hardcoded here to avoid linking with the CLD
   // library, see http://crbug.com/297777.
   cld_version = "2";
-  cld_data_source = translate::CldDataSource::Get()->GetName();
+  //cld_data_source = translate::CldDataSource::Get()->GetName();
   source->AddString("cld-version", cld_version);
   source->AddString("cld-data-source", cld_data_source);
 

@@ -32,6 +32,7 @@
 #include "content/renderer/renderer_main_platform_delegate.h"
 #include "third_party/skia/include/core/SkGraphics.h"
 #include "ui/base/ui_base_switches.h"
+#include "content/nw/src/nw_content.h"
 
 #if defined(OS_ANDROID)
 #include "base/android/library_loader/library_loader_hooks.h"
@@ -44,6 +45,7 @@
 
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "base/message_loop/message_pump_mac.h"
+#include "base/message_loop/message_pumpuv_mac.h"
 #include "third_party/WebKit/public/web/WebView.h"
 #endif  // OS_MACOSX
 
@@ -93,6 +95,11 @@ int RendererMain(const MainFunctionParams& parameters) {
 
   MojoShellConnectionImpl::Create();
 
+  bool nwjs = parsed_command_line.HasSwitch(switches::kNWJS);
+
+  if (nwjs)
+    nw::LoadNodeSymbols();
+
 #if defined(OS_MACOSX)
   base::mac::ScopedNSAutoreleasePool* pool = parameters.autorelease_pool;
 #endif  // OS_MACOSX
@@ -133,12 +140,25 @@ int RendererMain(const MainFunctionParams& parameters) {
   // As long as scrollbars on Mac are painted with Cocoa, the message pump
   // needs to be backed by a Foundation-level loop to process NSTimers. See
   // http://crbug.com/306348#c24 for details.
-  std::unique_ptr<base::MessagePump> pump(new base::MessagePumpNSRunLoop());
+  base::MessagePump* p;
+  if (nwjs) {
+    p = new base::MessagePumpUVNSRunLoop();
+  } else
+    p = new base::MessagePumpNSRunLoop();
+  std::unique_ptr<base::MessagePump> pump(p);
   std::unique_ptr<base::MessageLoop> main_message_loop(
       new base::MessageLoop(std::move(pump)));
 #else
-  // The main message loop of the renderer services doesn't have IO or UI tasks.
-  std::unique_ptr<base::MessageLoop> main_message_loop(new base::MessageLoop());
+  // The main message loop of the renderer services doesn't have IO or
+  // UI tasks.
+  base::MessageLoop* msg_loop;
+  if (nwjs) {
+    std::unique_ptr<base::MessagePump> pump_uv(new base::MessagePumpUV());
+    msg_loop = new base::MessageLoop(std::move(pump_uv));
+  } else
+    msg_loop = new base::MessageLoop(base::MessageLoop::TYPE_DEFAULT);
+
+  std::unique_ptr<base::MessageLoop> main_message_loop(msg_loop);
 #endif
 
   base::PlatformThread::SetName("CrRendererMain");

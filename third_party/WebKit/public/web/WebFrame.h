@@ -115,6 +115,14 @@ public:
         TextGranularityLast = WordGranularity,
     };
 
+    virtual void setNodeJS(bool) {}
+    virtual bool isNodeJS() const {return false;}
+    virtual bool isNwDisabledChildFrame() const {return false;}
+    virtual bool isNwFakeTop() const {return false;}
+
+    virtual void setDevtoolsJail(WebFrame*) {}
+    virtual WebFrame* getDevtoolsJail() {return NULL;}
+
     // Returns the number of live WebFrame objects, used for leak checking.
     BLINK_EXPORT static int instanceCount();
 
@@ -553,8 +561,9 @@ public:
     // the given element is not a frame, iframe or if the frame is empty.
     BLINK_EXPORT static WebFrame* fromFrameOwnerElement(const WebElement&);
 
-#if BLINK_IMPLEMENTATION
     static WebFrame* fromFrame(Frame*);
+
+#if BLINK_IMPLEMENTATION
 
     bool inShadowTree() const { return m_scope == WebTreeScopeType::Shadow; }
 

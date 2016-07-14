@@ -154,6 +154,8 @@ std::string GetDisplayName(Manifest::Type type) {
       return "user script";
     case Manifest::TYPE_SHARED_MODULE:
       return "shared module";
+    case Manifest::TYPE_NWJS_APP:
+      return "NW.js app";
     case Manifest::NUM_LOAD_TYPES:
       NOTREACHED();
   }
@@ -372,6 +374,15 @@ Feature::Availability SimpleFeature::IsAvailableToManifest(
   // when we compile feature files.
   Manifest::Type type_to_check = (type == Manifest::TYPE_USER_SCRIPT) ?
       Manifest::TYPE_EXTENSION : type;
+  if (type == Manifest::TYPE_NWJS_APP) {
+    if (!platforms_.empty() && !ContainsValue(platforms_, platform))
+      return CreateAvailability(INVALID_PLATFORM, type);
+    if (!extension_types_.empty() && name_ == "devtools_page" && //NWJS#4959
+        !ContainsValue(extension_types_, type_to_check)) {
+      return CreateAvailability(INVALID_TYPE, type);
+    }
+  } else {
+
   if (!extension_types_.empty() &&
       !ContainsValue(extension_types_, type_to_check)) {
     return CreateAvailability(INVALID_TYPE, type);
@@ -416,6 +427,7 @@ Feature::Availability SimpleFeature::IsAvailableToManifest(
       return availability;
   }
 
+  } // is nwjs app
   return CheckDependencies(base::Bind(&IsAvailableToManifestForBind,
                                       extension_id,
                                       type,
@@ -439,6 +451,8 @@ Feature::Availability SimpleFeature::IsAvailableToContext(
       return result;
   }
 
+  if (!(extension && extension->is_nwjs_app() && context != WEB_PAGE_CONTEXT)) {
+
   if (!contexts_.empty() && !ContainsValue(contexts_, context))
     return CreateAvailability(INVALID_CONTEXT, context);
 
@@ -456,6 +470,8 @@ Feature::Availability SimpleFeature::IsAvailableToContext(
     if (!availability.is_available())
       return availability;
   }
+
+  } // nwjs app
 
   // TODO(kalman): Assert that if the context was a webpage or WebUI context
   // then at some point a "matches" restriction was checked.
