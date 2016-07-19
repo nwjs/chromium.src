@@ -27,12 +27,12 @@ class SoftwareOutputDeviceForceCPUMac : public cc::SoftwareOutputDevice {
   explicit SoftwareOutputDeviceForceCPUMac(ui::Compositor* compositor);
   ~SoftwareOutputDeviceForceCPUMac() override;
 
+  void Resize(const gfx::Size& pixel_size, float scale_factor) override;
   void EndPaint() override;
 
  private:
-#if 0
   ui::Compositor* compositor_;
-#endif
+  float scale_factor_;
 
   DISALLOW_COPY_AND_ASSIGN(SoftwareOutputDeviceForceCPUMac);
 };
