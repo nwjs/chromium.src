@@ -696,10 +696,14 @@ bool GetLoadedModulesSnapshot(HANDLE process, std::vector<HMODULE>* snapshot) {
 }
 
 void EnableFlicks(HWND hwnd) {
+  if (base::win::GetVersion() < base::win::VERSION_WIN7)
+    return;
   ::RemoveProp(hwnd, MICROSOFT_TABLETPENSERVICE_PROPERTY);
 }
 
 void DisableFlicks(HWND hwnd) {
+  if (base::win::GetVersion() < base::win::VERSION_WIN7)
+    return;
   ::SetProp(hwnd, MICROSOFT_TABLETPENSERVICE_PROPERTY,
       reinterpret_cast<HANDLE>(TABLET_DISABLE_FLICKS |
           TABLET_DISABLE_FLICKFALLBACKKEYS));

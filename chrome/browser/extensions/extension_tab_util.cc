@@ -141,7 +141,7 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(
     if (!browser)
       return NULL;
   }
-
+#if 0
   // Ensure the selected browser is tabbed.
   if (!browser->is_type_tabbed() && browser->IsAttemptingToCloseBrowser())
     browser = chrome::FindTabbedBrowser(function->GetProfile(),
@@ -151,7 +151,7 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(
       *error = keys::kNoCurrentWindowError;
     return NULL;
   }
-
+#endif
   // TODO(jstritar): Add a constant, chrome.tabs.TAB_ID_ACTIVE, that
   // represents the active tab.
   WebContents* opener = NULL;
@@ -513,6 +513,15 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
   Profile* incognito_profile =
       include_incognito && profile->HasOffTheRecordProfile() ?
           profile->GetOffTheRecordProfile() : NULL;
+  AppWindowRegistry* registry = AppWindowRegistry::Get(profile);
+  for (AppWindow* app_window : registry->app_windows()) {
+    WebContents* target_contents = app_window->web_contents();
+    if (SessionTabHelper::IdForTab(target_contents) == tab_id) {
+      if (contents)
+        *contents = target_contents;
+      return true;
+    }
+  }
   for (auto* target_browser : *BrowserList::GetInstance()) {
     if (target_browser->profile() == profile ||
         target_browser->profile() == incognito_profile) {

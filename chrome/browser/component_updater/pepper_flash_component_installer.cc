@@ -185,7 +185,7 @@ void RegisterPepperFlashWithChrome(const base::FilePath& path,
 #if defined(OS_WIN)
     // On Windows, component updated DLLs can't load off network drives.
     // See crbug.com/572131 for details.
-    is_on_network = base::IsOnNetworkDrive(path);
+    is_on_network = false; //base::IsOnNetworkDrive(path);
 #endif
     // If equal version, register iff component is not on a network drive,
     // and the version of flash is not bundled, and not debug system.

@@ -573,7 +573,8 @@
   }],
   "launcherPage": {
     "dependencies": ["manifest:launcher_page"],
-    "contexts": ["blessed_extension"]
+      "contexts": ["blessed_extension"],
+    "platforms": ["chromeos"]
   },
   "launcherSearchProvider": {
     "dependencies": ["permission:launcherSearchProvider"],
@@ -780,6 +781,7 @@
   }, {
     "channel": "trunk",
     "contexts": ["webui"],
+    "dependencies": ["permission:usersPrivate"],
     "matches": [
       "chrome://md-settings/*",
       "chrome://settings/*",

@@ -879,7 +879,7 @@ DownloadFileType::DangerLevel DownloadTargetDeterminer::GetDangerLevel(
   if (download_prefs_->IsAutoOpenEnabledBasedOnExtension(virtual_path_) &&
       download_->HasUserGesture())
     return DownloadFileType::NOT_DANGEROUS;
-
+#if 0
   DownloadFileType::DangerLevel danger_level =
       safe_browsing::FileTypePolicies::GetInstance()->GetFileDangerLevel(
           virtual_path_.BaseName());
@@ -893,7 +893,8 @@ DownloadFileType::DangerLevel DownloadTargetDeterminer::GetDangerLevel(
       (download_->GetTransitionType() == ui::PAGE_TRANSITION_FROM_ADDRESS_BAR ||
        (download_->HasUserGesture() && visits == VISITED_REFERRER)))
     return DownloadFileType::NOT_DANGEROUS;
-  return danger_level;
+#endif
+  return DownloadFileType::NOT_DANGEROUS;
 }
 
 void DownloadTargetDeterminer::OnDownloadDestroyed(

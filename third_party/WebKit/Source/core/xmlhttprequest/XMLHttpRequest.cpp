@@ -606,8 +606,10 @@ void XMLHttpRequest::open(const AtomicString& method, const KURL& url, bool asyn
         // Eventually sync xhr will be deprecated and an "InvalidAccessError" exception thrown.
         // Refer : https://xhr.spec.whatwg.org/#sync-warning
         // Use count for XHR synchronous requests on main thread only.
+#if 0
         if (!document()->processingBeforeUnload())
             Deprecation::countDeprecation(getExecutionContext(), UseCounter::XMLHttpRequestSynchronousInNonWorkerOutsideBeforeUnload);
+#endif
     }
 
     m_method = FetchUtils::normalizeMethod(method);

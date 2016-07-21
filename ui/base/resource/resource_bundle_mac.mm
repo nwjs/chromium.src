@@ -49,13 +49,13 @@ base::FilePath GetResourcesPakFilePath(NSString* name, NSString* mac_locale) {
 }  // namespace
 
 void ResourceBundle::LoadCommonResources() {
-  AddDataPackFromPath(GetResourcesPakFilePath(@"chrome_100_percent",
+  AddDataPackFromPath(GetResourcesPakFilePath(@"nw_100_percent",
                         nil), SCALE_FACTOR_100P);
 
   // On Mac we load 1x and 2x resources and we let the UI framework decide
   // which one to use.
   if (IsScaleFactorSupported(SCALE_FACTOR_200P)) {
-    AddDataPackFromPath(GetResourcesPakFilePath(@"chrome_200_percent", nil),
+    AddDataPackFromPath(GetResourcesPakFilePath(@"nw_200_percent", nil),
                         SCALE_FACTOR_200P);
   }
 }
@@ -81,11 +81,11 @@ void ResourceBundle::LoadMaterialDesignResources() {
   data_packs_.weak_clear();
 
   AddMaterialDesignDataPackFromPath(
-      GetResourcesPakFilePath(@"chrome_material_100_percent", nil),
+      GetResourcesPakFilePath(@"nw_material_100_percent", nil),
       SCALE_FACTOR_100P);
 
   AddOptionalMaterialDesignDataPackFromPath(
-      GetResourcesPakFilePath(@"chrome_material_200_percent", nil),
+      GetResourcesPakFilePath(@"nw_material_200_percent", nil),
       SCALE_FACTOR_200P);
 
   // Add back the non-Material Design packs so that they serve as a fallback.

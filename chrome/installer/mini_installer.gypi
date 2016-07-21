@@ -204,7 +204,7 @@
       ],
       'inputs': [
         '<(create_installer_archive_py_path)',
-        '<(PRODUCT_DIR)/chrome.exe',
+        '<(PRODUCT_DIR)/nw.exe',
         '<@(chrome_dll_path)',
         '<(PRODUCT_DIR)/nacl64.exe',
         '<(PRODUCT_DIR)/nacl_irt_x86_32.nexe',
