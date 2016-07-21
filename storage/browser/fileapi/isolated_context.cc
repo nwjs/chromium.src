@@ -160,6 +160,7 @@ IsolatedContext::Instance::Instance(FileSystemType type,
       filesystem_id_(filesystem_id),
       file_info_(file_info),
       path_type_(path_type),
+      files_(),
       ref_counts_(0) {
   DCHECK(IsSinglePathIsolatedFileSystem(type_));
 }

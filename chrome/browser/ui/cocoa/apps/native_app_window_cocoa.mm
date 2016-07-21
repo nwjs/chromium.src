@@ -25,6 +25,9 @@
 #import "ui/gfx/mac/nswindow_frame_controls.h"
 #include "ui/gfx/skia_util.h"
 
+#include "ui/display/screen.h"
+#include "content/nw/src/nw_content_mac.h"
+
 // NOTE: State Before Update.
 //
 // Internal state, such as |is_maximized_|, must be set before the window
@@ -43,6 +46,7 @@
 // desired size.
 
 using extensions::AppWindow;
+using extensions::AppWindowRegistry;
 
 @interface NSWindow (NSPrivateApis)
 - (void)setBottomCornerRounded:(BOOL)rounded;
@@ -100,6 +104,12 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
 
 - (void)setTitlebarBackgroundView:(NSView*)view {
   titlebar_background_view_.reset([view retain]);
+}
+
+- (BOOL)windowShouldClose:(id)sender {
+  if (appWindow_ && !appWindow_->NWCanClose())
+    return NO;
+  return YES;
 }
 
 - (void)windowWillClose:(NSNotification*)notification {
@@ -181,6 +191,24 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
   return NO;
 }
 
+// this function is for createMacBuiltin only
+- (void)closeAllWindowsQuit:(id)sender {
+  if (!appWindow_)
+    return;
+  AppWindowRegistry* registry = AppWindowRegistry::Get(appWindow_->app_window_->browser_context());
+  if (!registry)
+    return;
+
+  AppWindowRegistry::AppWindowList windows =
+    registry->GetAppWindowsForApp(appWindow_->app_window_->GetExtension()->id());
+
+  for (AppWindow* window : windows) {
+  // passing true for createMacBuiltin: https://github.com/nwjs/nw.js/issues/4580#issuecomment-199236153
+    if (window->NWCanClose(true))
+      window->GetBaseWindow()->Close();
+  }
+}
+
 @end
 
 @interface AppNSWindow : ChromeEventProcessingWindow
@@ -191,7 +219,7 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
 // Similar to ChromeBrowserWindow, don't draw the title, but allow it to be seen
 // in menus, Expose, etc.
 - (BOOL)_isTitleHidden {
-  return YES;
+  return NO;
 }
 
 @end
@@ -217,6 +245,10 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
 
 - (NSRect)contentRectForFrameRect:(NSRect)frameRect {
   return frameRect;
+}
+
+- (BOOL)_isTitleHidden {
+  return YES;
 }
 
 @end
@@ -303,7 +335,12 @@ NativeAppWindowCocoa::NativeAppWindowCocoa(
 
   // We can now compute the precise window bounds and constraints.
   gfx::Insets insets = GetFrameInsets();
-  SetBounds(params.GetInitialWindowBounds(insets));
+  gfx::Rect bounds = params.GetInitialWindowBounds(insets);
+  if (params.position == AppWindow::POS_MOUSE) {
+      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      bounds.set_origin(cursor_pos);
+  }
+  SetBounds(bounds);
   SetContentSizeConstraints(params.GetContentMinimumSize(insets),
                             params.GetContentMaximumSize(insets));
 
@@ -378,6 +415,10 @@ bool NativeAppWindowCocoa::IsMinimized() const {
 
 bool NativeAppWindowCocoa::IsFullscreen() const {
   return is_fullscreen_;
+}
+
+void NativeAppWindowCocoa::SetShowInTaskbar(bool show) {
+  NWSetNSWindowShowInTaskbar(this, show);
 }
 
 void NativeAppWindowCocoa::SetFullscreen(int fullscreen_types) {
@@ -563,6 +604,16 @@ void NativeAppWindowCocoa::HandleKeyboardEvent(
       event.type == content::NativeWebKeyboardEvent::Char) {
     return;
   }
+
+  // NW fix
+  // Simple key press events without modifiers should be sent to the menu.
+  // See https://github.com/nwjs/nw.js/issues/4837
+  NSEvent* nsEvent = event.os_event;
+  if ([nsEvent type] == NSKeyDown) {
+    if ([[NSApp mainMenu] performKeyEquivalent:nsEvent])
+      return;
+  }
+
   [window() redispatchKeyEvent:event.os_event];
 }
 
@@ -693,6 +744,10 @@ void NativeAppWindowCocoa::WindowWillClose() {
   app_window_->OnNativeClose();
 }
 
+bool NativeAppWindowCocoa::NWCanClose(bool user_force) {
+  return app_window_->NWCanClose(user_force);
+}
+
 void NativeAppWindowCocoa::WindowDidBecomeKey() {
   app_window_->OnNativeWindowActivated();
 
@@ -782,7 +837,8 @@ void NativeAppWindowCocoa::ShowWithApp() {
 
 void NativeAppWindowCocoa::HideWithApp() {
   is_hidden_with_app_ = true;
-  HideWithoutMarkingHidden();
+  [NSApp hide:nil];
+//  HideWithoutMarkingHidden();
 }
 
 gfx::Size NativeAppWindowCocoa::GetContentMinimumSize() const {
@@ -791,6 +847,25 @@ gfx::Size NativeAppWindowCocoa::GetContentMinimumSize() const {
 
 gfx::Size NativeAppWindowCocoa::GetContentMaximumSize() const {
   return size_constraints_.GetMaximumSize();
+}
+
+void NativeAppWindowCocoa::SetResizable(bool flag) {
+  is_resizable_ = flag;
+  gfx::Size min_size = size_constraints_.GetMinimumSize();
+  gfx::Size max_size = size_constraints_.GetMaximumSize();
+
+  shows_resize_controls_ =
+      is_resizable_ && !size_constraints_.HasFixedSize();
+  shows_fullscreen_controls_ =
+      is_resizable_ && !size_constraints_.HasMaximumSize() && has_frame_;
+
+  gfx::ApplyNSWindowSizeConstraints(window(), min_size, max_size,
+                                    shows_resize_controls_,
+                                    shows_fullscreen_controls_);
+}
+
+bool NativeAppWindowCocoa::IsResizable() const {
+  return is_resizable_;
 }
 
 void NativeAppWindowCocoa::SetContentSizeConstraints(

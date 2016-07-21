@@ -75,7 +75,7 @@ void SpellcheckServiceFactory::RegisterProfilePrefs(
   user_prefs->RegisterStringPref(
       prefs::kSpellCheckDictionary,
       l10n_util::GetStringUTF8(IDS_SPELLCHECK_DICTIONARY));
-  user_prefs->RegisterBooleanPref(prefs::kSpellCheckUseSpellingService, false);
+  user_prefs->RegisterBooleanPref(prefs::kSpellCheckUseSpellingService, true);
 #if defined(OS_IOS) || defined(OS_ANDROID)
   uint32_t flags = PrefRegistry::NO_REGISTRATION_FLAGS;
 #else
