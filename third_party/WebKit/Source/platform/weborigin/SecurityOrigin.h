@@ -79,6 +79,8 @@ public:
     String domain() const { return m_domain; }
     unsigned short port() const { return m_port; }
 
+    bool hasUniversalAccess() const { return m_universalAccess; }
+
     // |port()| will return 0 if the port is the default for an origin. This
     // method instead returns the effective port, even if it is the default port
     // (e.g. "http" => 80).

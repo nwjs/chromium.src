@@ -252,6 +252,9 @@
       dispatchArgs(args);
   }
 
+  EventImpl.prototype.getListeners = function() {
+    return this.listeners;
+  };
   // Registers a callback to be called when this event is dispatched.
   EventImpl.prototype.addListener = function(cb, filters) {
     if (!this.eventOptions.supportsListeners)
@@ -491,6 +494,7 @@
   }
 
   var Event = utils.expose('Event', EventImpl, { functions: [
+    'getListeners',
     'addListener',
     'removeListener',
     'hasListener',

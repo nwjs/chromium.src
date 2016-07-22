@@ -16,10 +16,6 @@
 #include <sys/mman.h>
 #endif
 
-#if defined(OS_WIN)
-#include <Psapi.h>
-#endif
-
 namespace base {
 namespace trace_event {
 
@@ -79,7 +75,7 @@ size_t ProcessMemoryDump::CountResidentBytes(void* start_address,
         !!mincore(reinterpret_cast<void*>(chunk_start), chunk_size, vec.get());
     for (size_t i = 0; i < page_count; i++)
       resident_page_count += vec[i] & MINCORE_INCORE ? 1 : 0;
-#elif defined(OS_WIN)
+#elif defined(OS_WIN_DISABLE)
     for (size_t i = 0; i < page_count; i++) {
       vec[i].VirtualAddress =
           reinterpret_cast<void*>(chunk_start + i * page_size);

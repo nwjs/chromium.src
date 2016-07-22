@@ -7,6 +7,8 @@
 #include "base/memory/scoped_ptr.h"
 #include "content/public/app/content_main_runner.h"
 
+#include "content/nw/src/nw_base.h"
+
 namespace content {
 
 int ContentMain(const ContentMainParams& params) {
@@ -17,6 +19,8 @@ int ContentMain(const ContentMainParams& params) {
     return exit_code;
 
   exit_code = main_runner->Run();
+
+  exit_code = nw::ExitCodeHook();
 
   main_runner->Shutdown();
 

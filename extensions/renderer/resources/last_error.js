@@ -97,7 +97,7 @@ function assertRuntimeIsAvailable() {
     throw new Error('runtime.lastError is not available: ' +
                     runtimeAvailability.message);
   }
-  if (!chrome.runtime)
+  if (!chrome.runtime && !privates(window).chrome.runtime)
     throw new Error('runtime namespace is null or undefined');
 }
 

@@ -76,7 +76,7 @@ private:
     String defaultToolTip() const override;
 
     // FileChooserClient implementation.
-    void filesChosen(const Vector<FileChooserFileInfo>&) override;
+    void filesChosen(const Vector<FileChooserFileInfo>&, bool canceled = false) override;
 
     void receiveDropForDirectoryUpload(const Vector<String>&);
 

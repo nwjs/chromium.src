@@ -35,7 +35,7 @@ using safe_browsing::download_protection_util::
 
 namespace {
 
-const char kDownloadDangerPromptPrefix[] = "Download.DownloadDangerPrompt";
+//const char kDownloadDangerPromptPrefix[] = "Download.DownloadDangerPrompt";
 
 // TODO(wittman): Create a native web contents modal dialog implementation of
 // this dialog for non-Views platforms, to support bold formatting of the
@@ -270,6 +270,7 @@ void DownloadDangerPromptImpl::RunDone(Action action) {
     done.Run(action);
 }
 
+#if 0
 // Converts DownloadDangerType into their corresponding string.
 const char* GetDangerTypeString(
     const content::DownloadDangerType& danger_type) {
@@ -295,6 +296,7 @@ const char* GetDangerTypeString(
   NOTREACHED();
   return nullptr;
 }
+#endif
 
 }  // namespace
 
@@ -350,6 +352,7 @@ void DownloadDangerPrompt::SendSafeBrowsingDownloadRecoveryReport(
 void DownloadDangerPrompt::RecordDownloadDangerPrompt(
     bool did_proceed,
     const content::DownloadItem& download) {
+#if 0
   int dangerous_file_type =
       GetSBClientDownloadExtensionValueForUMA(download.GetTargetFilePath());
   content::DownloadDangerType danger_type = download.GetDangerType();
@@ -364,4 +367,5 @@ void DownloadDangerPrompt::RecordDownloadDangerPrompt(
                            GetDangerTypeString(danger_type)),
         dangerous_file_type);
   }
+#endif
 }

@@ -50,6 +50,7 @@ class ObjectBackedNativeHandler : public NativeHandler {
 
   void Invalidate() override;
 
+ public:
   // The following methods are convenience wrappers for methods on v8::Object
   // with the corresponding names.
   void SetPrivate(v8::Local<v8::Object> obj,

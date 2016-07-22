@@ -16,6 +16,7 @@
     '../ui/gfx/gfx.gyp:gfx',
     '../ui/gfx/gfx.gyp:gfx_geometry',
     'content_common_mojo_bindings.gyp:content_common_mojo_bindings',
+    '../chrome/chrome.gyp:nw_base',
   ],
   'sources': [
     'app/android/app_jni_registrar.cc',

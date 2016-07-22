@@ -23,8 +23,10 @@ namespace settings {
 FontHandler::FontHandler(content::WebUI* webui)
     : weak_ptr_factory_(this) {
   // Perform validation for saved fonts.
+#if 0
   PrefService* pref_service = Profile::FromWebUI(webui)->GetPrefs();
   options::FontSettingsUtilities::ValidateSavedFonts(pref_service);
+#endif
 }
 
 FontHandler::~FontHandler() {}

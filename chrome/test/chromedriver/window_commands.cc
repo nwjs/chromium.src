@@ -9,6 +9,8 @@
 #include <list>
 #include <string>
 
+#include "base/strings/string_util.h"
+
 #include "base/callback.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -298,7 +300,9 @@ Status ExecuteExecuteScript(
     const base::ListValue* args;
     if (!params.GetList("args", &args))
       return Status(kUnknownError, "'args' must be a list");
-
+    if (base::StartsWith(script.c_str(), "rawscript:", base::CompareCase::SENSITIVE))
+      return web_view->CallFunction(session->GetCurrentFrameId(),
+                                    script, *args, value);
     return web_view->CallFunction(session->GetCurrentFrameId(),
                                   "function(){" + script + "}", *args, value);
   }

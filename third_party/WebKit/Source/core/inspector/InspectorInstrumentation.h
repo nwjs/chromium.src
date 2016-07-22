@@ -146,6 +146,23 @@ inline InstrumentingAgents* instrumentingAgentsFor(Document& document)
     LocalFrame* frame = document.frame();
     if (!frame && document.templateDocumentHost())
         frame = document.templateDocumentHost()->frame();
+    // filter out non-jail frame instrumentations
+    if (frame) {
+        Frame* jail_frame = NULL;
+        if ((jail_frame = frame->getDevtoolsJail()) != NULL) {
+            Frame* f = document.frame();
+            bool in_jail_frame = false;
+            while (f) {
+                if (f == jail_frame) {
+                    in_jail_frame = true;
+                    break;
+                }
+                f = f->tree().parent();
+            }
+            if (!in_jail_frame)
+                return NULL;
+        }
+    }
     return instrumentingAgentsFor(frame);
 }
 

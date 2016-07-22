@@ -151,43 +151,83 @@ string16 QuoteForCommandLineToArgvW(const string16& arg,
 
 CommandLine::CommandLine(NoProgram no_program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
 }
 
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   SetProgram(program);
 }
 
 CommandLine::CommandLine(int argc, const CommandLine::CharType* const* argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argc, argv);
 }
 
 CommandLine::CommandLine(const StringVector& argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argv);
 }
 
 CommandLine::CommandLine(const CommandLine& other)
     : argv_(other.argv_),
+      original_argv_(other.original_argv_),
       switches_(other.switches_),
-      begin_args_(other.begin_args_) {
+      begin_args_(other.begin_args_),
+      argc0_(other.argc0_), argv0_(NULL) {
+
+#if defined(OS_WIN)
+  if (other.argv0_) {
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+#else
+  argv0_ = other.argv0_;
+#endif
   ResetStringPieces();
 }
 
 CommandLine& CommandLine::operator=(const CommandLine& other) {
   argv_ = other.argv_;
+  original_argv_ = other.original_argv_;
   switches_ = other.switches_;
   begin_args_ = other.begin_args_;
+#if defined(OS_WIN)
+  if (other.argv0_) {
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+#else
+  argv0_ = other.argv0_;
+#endif
   ResetStringPieces();
   return *this;
 }
 
 CommandLine::~CommandLine() {
+#if defined(OS_WIN)
+  if (!argv0_)
+    return;
+  for (int i = 0; i < argc0_; i++) {
+    delete[] argv0_[i];
+  }
+  delete[] argv0_;
+#endif
 }
 
 #if defined(OS_WIN)
@@ -248,12 +288,34 @@ CommandLine CommandLine::FromString(const string16& command_line) {
 void CommandLine::InitFromArgv(int argc,
                                const CommandLine::CharType* const* argv) {
   StringVector new_argv;
+  argc0_ = argc;
+#if !defined(OS_WIN)
+  argv0_ = (char**)argv;
+#else
+  argv0_ = new char*[argc + 1];
+  for (int i = 0; i < argc; ++i) {
+    std::string str(base::WideToUTF8(argv[i]));
+    argv0_[i] = new char[str.length() + 1];
+    strcpy(argv0_[i], str.c_str());
+  }
+  argv0_[argc] = NULL;
+#endif
   for (int i = 0; i < argc; ++i)
     new_argv.push_back(argv[i]);
   InitFromArgv(new_argv);
 }
 
 void CommandLine::InitFromArgv(const StringVector& argv) {
+#if !defined(OS_MACOSX)
+  original_argv_ = argv;
+#else
+  for (size_t index = 0; index < argv.size(); ++index) {
+    if (argv[index].compare(0, strlen("--psn_"), "--psn_") != 0 &&
+        argv[index].compare(0, strlen("-psn_"), "-psn_") != 0) {
+      original_argv_.push_back(argv[index]);
+    }
+  }
+#endif
   argv_ = StringVector(1);
   switches_.clear();
   switches_by_stringpiece_.clear();
@@ -389,6 +451,12 @@ void CommandLine::AppendArgPath(const FilePath& path) {
 void CommandLine::AppendArgNative(const CommandLine::StringType& value) {
   argv_.push_back(value);
 }
+
+#if defined(OS_MACOSX)
+void CommandLine::FixOrigArgv4Finder(const CommandLine::StringType& value) {
+  original_argv_.push_back(value);
+}
+#endif
 
 void CommandLine::AppendArguments(const CommandLine& other,
                                   bool include_program) {

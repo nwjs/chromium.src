@@ -67,6 +67,7 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   void set_window_for_testing(views::Widget* window) { widget_ = window; }
   void set_web_view_for_testing(views::WebView* view) { web_view_ = view; }
 
+  void layout_() { Layout(); }
  protected:
   // Initializes |widget_| for |app_window|.
   virtual void InitializeWindow(
@@ -86,6 +87,7 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   void ShowInactive() override;
   void Hide() override;
   void Close() override;
+  void ForceClose() override;
   void Activate() override;
   void Deactivate() override;
   void Maximize() override;
@@ -97,6 +99,7 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   void SetAlwaysOnTop(bool always_on_top) override;
 
   // WidgetDelegate implementation.
+  bool ExecuteAppCommand(int command_id) override;
   void OnWidgetMove() override;
   views::View* GetInitiallyFocusedView() override;
   bool CanResize() const override;
@@ -135,6 +138,8 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
 
   // NativeAppWindow implementation.
   void SetFullscreen(int fullscreen_types) override;
+  void SetResizable(bool flag) override;
+  bool IsResizable() const override;
   bool IsFullscreenOrPending() const override;
   void UpdateWindowIcon() override;
   void UpdateWindowTitle() override;
@@ -157,6 +162,7 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
                                  const gfx::Size& max_size) override;
   bool CanHaveAlphaEnabled() const override;
   void SetVisibleOnAllWorkspaces(bool always_visible) override;
+  void SetShowInTaskbar(bool show) override;
 
   // web_modal::WebContentsModalDialogHost implementation.
   gfx::NativeView GetHostView() const override;
@@ -178,6 +184,7 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   bool frameless_;
   bool resizable_;
   extensions::SizeConstraints size_constraints_;
+  extensions::SizeConstraints saved_size_constraints_;
 
   views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 

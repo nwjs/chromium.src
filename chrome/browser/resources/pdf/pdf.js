@@ -629,7 +629,7 @@ PDFViewer.prototype = {
         if (this.isPrintPreview_)
           this.navigator_.navigate(message.data.url, true);
         else
-          this.navigator_.navigate(message.data.url, message.data.newTab);
+          this.navigator_.navigate(message.data.url, true); //message.data.newTab);
         break;
       case 'setScrollPosition':
         var position = this.viewport_.position;

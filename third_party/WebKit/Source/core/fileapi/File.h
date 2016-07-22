@@ -56,6 +56,10 @@ public:
     enum UserVisibility { IsUserVisible, IsNotUserVisible };
 
     // Constructor in File.idl
+    static File* create(const String& path, const String& name, ExceptionState&)
+    {
+      return createForUserProvidedFile(path, name);
+    }
     static File* create(const HeapVector<BlobOrStringOrArrayBufferViewOrArrayBuffer>&, const String& fileName, const FilePropertyBag&, ExceptionState&);
 
     static File* create(const String& path, ContentTypeLookupPolicy policy = WellKnownContentTypes)

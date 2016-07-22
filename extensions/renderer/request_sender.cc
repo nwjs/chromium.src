@@ -68,6 +68,55 @@ int RequestSender::GetNextRequestId() const {
   return next_request_id++;
 }
 
+void RequestSender::StartRequestSync(Source* source,
+                                     const std::string& name,
+                                     int request_id,
+                                     bool has_callback,
+                                     bool for_io_thread,
+                                     base::ListValue* value_args,
+                                     bool* success,
+                                     base::ListValue* response,
+                                     std::string* error) {
+  ScriptContext* context = source->GetContext();
+  if (!context)
+    return;
+
+  // Get the current RenderView so that we can send a routed IPC message from
+  // the correct source.
+  content::RenderFrame* renderframe = context->GetRenderFrame();
+  if (!renderframe)
+    return;
+
+  // TODO(koz): See if we can make this a CHECK.
+  if (!context->HasAccessOrThrowError(name))
+    return;
+
+  GURL source_url;
+  if (blink::WebLocalFrame* webframe = context->web_frame())
+    source_url = webframe->document().url();
+
+  // InsertRequest(request_id, new PendingRequest(name, source,
+  //     blink::WebUserGestureIndicator::currentUserGestureToken()));
+
+  ExtensionHostMsg_Request_Params params;
+  params.name = name;
+  params.arguments.Swap(value_args);
+  params.extension_id = context->GetExtensionID();
+  params.source_url = source_url;
+  params.source_tab_id = source_tab_id_;
+  params.request_id = request_id;
+  params.has_callback = has_callback;
+  params.user_gesture =
+      blink::WebUserGestureIndicator::isProcessingUserGesture();
+  if (for_io_thread) {
+    NOTREACHED() << "not implemented";
+  } else {
+    renderframe->Send(
+                     new ExtensionHostMsg_RequestSync(renderframe->GetRoutingID(), params,
+                                                      success, response, error));
+  }
+}
+
 void RequestSender::StartRequest(Source* source,
                                  const std::string& name,
                                  int request_id,

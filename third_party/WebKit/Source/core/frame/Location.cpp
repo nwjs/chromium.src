@@ -120,10 +120,13 @@ String Location::origin() const
 PassRefPtrWillBeRawPtr<DOMStringList> Location::ancestorOrigins() const
 {
     RefPtrWillBeRawPtr<DOMStringList> origins = DOMStringList::create(DOMStringList::Location);
-    if (!m_frame)
+    if (!m_frame || m_frame->isNwFakeTop())
         return origins.release();
-    for (Frame* frame = m_frame->tree().parent(); frame; frame = frame->tree().parent())
+    for (Frame* frame = m_frame->tree().parent(); frame; frame = frame->tree().parent()) {
         origins->append(frame->securityContext()->securityOrigin()->toString());
+        if (frame->isNwFakeTop())
+            break;
+    }
     return origins.release();
 }
 

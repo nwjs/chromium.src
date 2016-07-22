@@ -6,6 +6,8 @@
 
 #include <utility>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
@@ -140,6 +142,7 @@ void ChromeExtensionsRendererClient::RenderThreadStarted() {
   if (!extension_dispatcher_) {
     extension_dispatcher_.reset(
         new extensions::Dispatcher(extension_dispatcher_delegate_.get()));
+    nw::ExtensionDispatcherCreated(extension_dispatcher_.get());
   }
   permissions_policy_delegate_.reset(
       new extensions::RendererPermissionsPolicyDelegate(
