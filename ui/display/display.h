@@ -11,6 +11,11 @@
 #include "ui/display/display_export.h"
 #include "ui/gfx/geometry/rect.h"
 
+namespace content {
+  DISPLAY_EXPORT extern bool g_support_transparency;
+  DISPLAY_EXPORT extern bool g_force_cpu_draw;
+}
+
 namespace display {
 
 // This class typically, but does not always, correspond to a physical display

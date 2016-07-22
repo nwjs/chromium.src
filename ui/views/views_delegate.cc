@@ -117,7 +117,7 @@ int ViewsDelegate::GetAppbarAutohideEdges(HMONITOR monitor,
 }
 #endif
 
-scoped_refptr<base::TaskRunner> ViewsDelegate::GetBlockingPoolTaskRunner() {
+scoped_refptr<base::TaskRunner> ViewsDelegate::GetBlockingPoolTaskRunner(bool continue_on_shutdown) {
   return nullptr;
 }
 
