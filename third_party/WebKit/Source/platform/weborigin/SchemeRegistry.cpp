@@ -51,8 +51,10 @@ static URLSchemesSet& localURLSchemes()
 {
     DEFINE_STATIC_LOCAL_WITH_LOCK(URLSchemesSet, localSchemes, ());
 
-    if (localSchemes.isEmpty())
+    if (localSchemes.isEmpty()) {
         localSchemes.add("file");
+        localSchemes.add("chrome-extension");
+    }
 
     return localSchemes;
 }
