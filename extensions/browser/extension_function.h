@@ -201,6 +201,7 @@ class ExtensionFunction
   // but this is deprecated. ExtensionFunction implementations are encouraged
   // to just implement Run.
   virtual ResponseAction Run() WARN_UNUSED_RESULT = 0;
+  virtual bool RunNWSync(base::ListValue* response, std::string* error);
 
   // Gets whether quota should be applied to this individual function
   // invocation. This is different to GetQuotaLimitHeuristics which is only
@@ -465,6 +466,7 @@ class ExtensionFunction
   int source_process_id_;
 
   // Whether this function has responded.
+ public:
   bool did_respond_;
 
  private:
@@ -698,6 +700,18 @@ class SyncExtensionFunction : public UIThreadExtensionFunction {
   ResponseAction Run() final;
 
   DISALLOW_COPY_AND_ASSIGN(SyncExtensionFunction);
+};
+
+class NWSyncExtensionFunction : public UIThreadExtensionFunction {
+ public:
+  NWSyncExtensionFunction();
+
+ protected:
+  ~NWSyncExtensionFunction() override;
+  static bool ValidationFailure(NWSyncExtensionFunction* function);
+ private:
+  ResponseAction Run() final;
+
 };
 
 class SyncIOThreadExtensionFunction : public IOThreadExtensionFunction {

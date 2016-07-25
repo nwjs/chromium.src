@@ -260,12 +260,13 @@ LanguageSettingsPrivateSetLanguageListFunction::Run() {
       parameters =
           language_settings_private::SetLanguageList::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(parameters.get());
+#if 0
 
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
       ChromeTranslateClient::CreateTranslatePrefs(
           chrome_details_.GetProfile()->GetPrefs());
   translate_prefs->UpdateLanguageList(parameters->language_codes);
-
+#endif
   return RespondNow(NoArguments());
 }
 
@@ -398,9 +399,11 @@ LanguageSettingsPrivateGetTranslateTargetLanguageFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetTranslateTargetLanguageFunction::Run() {
-  return RespondNow(OneArgument(
-      base::MakeUnique<base::StringValue>(TranslateService::GetTargetLanguage(
+  return RespondNow(NoArguments());
+#if 0  
+      TranslateService::GetTargetLanguage(
           chrome_details_.GetProfile()->GetPrefs()))));
+#endif
 }
 
 #if defined(OS_CHROMEOS)
