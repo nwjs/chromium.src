@@ -13,7 +13,7 @@ source_set("language_detection") {
   deps = [
     "//base",
     "//components/translate/core/common",
-    "//third_party/cld_2",
+    #"//third_party/cld_2",
     "//url",
   ]
 }

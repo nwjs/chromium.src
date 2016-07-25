@@ -55,8 +55,8 @@ std::string KeychainPassword::GetPassword() const {
   const std::string service_name = "Chrome Safe Storage";
   const std::string account_name = "Chrome";
 #else
-  const std::string service_name = "Chromium Safe Storage";
-  const std::string account_name = "Chromium";
+  const std::string service_name = "NWJS Safe Storage";
+  const std::string account_name = "nwjs";
 #endif
 
   UInt32 password_length = 0;

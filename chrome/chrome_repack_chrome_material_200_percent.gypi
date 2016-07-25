@@ -8,7 +8,7 @@
     'pak_inputs': [
       '<(grit_out_dir)/theme_resources_material_200_percent.pak',
     ],
-    'pak_output': '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_material_200_percent.pak',
+    'pak_output': '<(SHARED_INTERMEDIATE_DIR)/repack/nw_material_200_percent.pak',
   },
   'includes': [ '../build/repack_action.gypi' ],
 }
