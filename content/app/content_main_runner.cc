@@ -233,14 +233,14 @@ void CommonSubprocessInit(const std::string& process_type) {
   setlocale(LC_NUMERIC, "C");
 #endif
 
-#if !defined(OFFICIAL_BUILD)
+#if 0
   // Print stack traces to stderr when crashes occur. This opens up security
   // holes so it should never be enabled for official builds.
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableInProcessStackTraces)) {
     base::debug::EnableInProcessStackDumping();
   }
-#if defined(OS_WIN)
+#if 0
   base::RouteStdioToConsole(false);
   LoadLibraryA("dbghelp.dll");
 #endif
@@ -548,7 +548,7 @@ class ContentMainRunnerImpl : public ContentMainRunner {
     if (delegate_ && delegate_->ShouldEnableProfilerRecording())
       tracked_objects::ScopedTracker::Enable();
 
-    SetProcessTitleFromCommandLine(argv);
+    //SetProcessTitleFromCommandLine(argv);
 #endif  // !OS_ANDROID
 
     int exit_code = 0;
@@ -763,7 +763,7 @@ class ContentMainRunnerImpl : public ContentMainRunner {
   int Run() override {
     DCHECK(is_initialized_);
     DCHECK(!is_shutdown_);
-    const base::CommandLine& command_line =
+    base::CommandLine& command_line =
         *base::CommandLine::ForCurrentProcess();
     std::string process_type =
         command_line.GetSwitchValueASCII(switches::kProcessType);
@@ -775,6 +775,9 @@ class ContentMainRunnerImpl : public ContentMainRunner {
       InitializeFieldTrialAndFeatureList(&field_trial_list);
 
     base::HistogramBase::EnableActivityReportHistogram(process_type);
+
+    if (process_type.empty())
+      command_line.AppendSwitch(switches::kNoSandbox);
 
     MainFunctionParams main_params(command_line);
     main_params.ui_task = ui_task_;

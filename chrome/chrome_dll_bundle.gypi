@@ -57,7 +57,7 @@
     'app/framework-Info.plist',
     '<@(mac_all_xibs)',
     'browser/mac/install.sh',
-    '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_100_percent.pak',
+    '<(SHARED_INTERMEDIATE_DIR)/repack/nw_100_percent.pak',
     '<(SHARED_INTERMEDIATE_DIR)/repack/resources.pak',
     '<!@pymod_do_main(repack_locales -o -p <(OS) -g <(grit_out_dir) -s <(SHARED_INTERMEDIATE_DIR) -x <(SHARED_INTERMEDIATE_DIR) <(locales))',
     # Note: pseudo_locales are generated via the packed_resources
@@ -85,6 +85,16 @@
   },
   'postbuilds': [
     {
+      'postbuild_name': 'Fix Framework Link',
+      'action': [
+         'install_name_tool',
+         '-change',
+         '/usr/local/lib/libffmpeg.dylib',
+         '@loader_path/libffmpeg.dylib',
+         '${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}'
+      ],
+    },
+    {
       # Modify the Info.plist as needed.  The script explains why
       # this is needed.  This is also done in the chrome target.
       # The framework needs the Breakpad keys if this feature is
@@ -104,6 +114,12 @@
   ],
   'copies': [
     {
+      'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)',
+      'files': [
+        '<(PRODUCT_DIR)/libffmpeg.dylib',
+      ],
+    },
+    {
       'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers',
       'files': [
         '<(PRODUCT_DIR)/crashpad_handler',
@@ -116,6 +132,7 @@
         ['disable_nacl!=1', {
           'files': [
             '<(PRODUCT_DIR)/nacl_irt_x86_64.nexe',
+            '<(PRODUCT_DIR)/pnacl',
           ],
         }],
       ],
@@ -229,22 +246,27 @@
     }],
     ['enable_hidpi==1', {
       'mac_bundle_resources': [
-        '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_200_percent.pak',
+        '<(SHARED_INTERMEDIATE_DIR)/repack/nw_200_percent.pak',
       ],
     }],
     ['enable_topchrome_md==1', {
       'mac_bundle_resources': [
-      '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_material_100_percent.pak',
+      '<(SHARED_INTERMEDIATE_DIR)/repack/nw_material_100_percent.pak',
       ],
     }],
     ['enable_topchrome_md==1 and enable_hidpi==1', {
       'mac_bundle_resources': [
-        '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_material_200_percent.pak',
+        '<(SHARED_INTERMEDIATE_DIR)/repack/nw_material_200_percent.pak',
       ],
     }],
-    ['icu_use_data_file_flag==1', {
+    ['icu_use_data_file_flag==1 and nwjs_sdk==1', {
       'mac_bundle_resources': [
         '<(PRODUCT_DIR)/icudtl.dat',
+      ],
+    }],
+    ['icu_use_data_file_flag==1 and nwjs_sdk==0', {
+      'mac_bundle_resources': [
+        '<(DEPTH)/third_party/icu/android/icudtl.dat',
       ],
     }],
     ['v8_use_external_startup_data==1', {

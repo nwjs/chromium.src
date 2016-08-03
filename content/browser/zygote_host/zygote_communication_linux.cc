@@ -4,6 +4,7 @@
 
 #include "content/browser/zygote_host/zygote_communication_linux.h"
 
+#include "content/nw/src/common/shell_switches.h"
 #include <string.h>
 #include <sys/socket.h>
 
@@ -282,6 +283,7 @@ void ZygoteCommunication::Init() {
   // to the zygote/renderers.
   // Should this list be obtained from browser_render_process_host.cc?
   static const char* const kForwardSwitches[] = {
+      switches::kEnableSpellChecking,
       switches::kAllowSandboxDebugging, switches::kAndroidFontsPath,
       switches::kDisableSeccompFilterSandbox,
       switches::kEnableHeapProfiling,
