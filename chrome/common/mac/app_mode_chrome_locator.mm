@@ -79,6 +79,7 @@ bool GetChromeBundleInfo(const base::FilePath& chrome_bundle,
   // However, we want the shims to be agnostic to distribution and operate based
   // on the data in their plist, so encode the framework names here.
   NSDictionary* framework_for_exe = @{
+    @"nwjs": @"nwjs",
     @"Chromium": @"Chromium",
     @"Google Chrome": @"Google Chrome",
     @"Google Chrome Canary": @"Google Chrome",
