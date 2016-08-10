@@ -588,6 +588,10 @@ component("views") {
           "widget/desktop_aura/x11_whole_screen_move_loop.h",
           "widget/desktop_aura/x11_window_event_filter.cc",
           "widget/desktop_aura/x11_window_event_filter.h",
+          "../../content/nw/src/browser/global_menu_bar_registrar_x11.cc",
+          "../../content/nw/src/browser/global_menu_bar_registrar_x11.h",
+          "../../content/nw/src/browser/global_menu_bar_x11.cc",
+          "../../content/nw/src/browser/global_menu_bar_x11.h",
         ]
         if (use_atk) {
           sources += [
@@ -595,6 +599,7 @@ component("views") {
             "accessibility/native_view_accessibility_auralinux.h",
           ]
           configs += [ "//build/config/linux/atk" ]
+          deps += [ "//build/linux/libgio:libgio" ]
         }
       } else if (is_win) {
         sources += [

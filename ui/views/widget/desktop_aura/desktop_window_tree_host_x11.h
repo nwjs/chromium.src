@@ -34,6 +34,11 @@ class ImageSkiaRep;
 namespace ui {
 class EventHandler;
 class XScopedEventSelector;
+class MenuModel;
+}
+
+namespace nw {
+class GlobalMenuBarX11;
 }
 
 namespace views {
@@ -90,6 +95,11 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // Returns XID of dialog currently displayed. When it returns 0,
   // there is no dialog on the host window.
   XID GetModalDialog();
+
+  void SetGlobalMenu(ui::MenuModel *model);
+
+  // NW fix: expose GetAccleratedWidget
+  gfx::AcceleratedWidget GetAcceleratedWidget() override;
 
  protected:
   // Overridden from DesktopWindowTreeHost:
@@ -158,7 +168,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // Overridden from aura::WindowTreeHost:
   gfx::Transform GetRootTransform() const override;
   ui::EventSource* GetEventSource() override;
-  gfx::AcceleratedWidget GetAcceleratedWidget() override;
   void ShowImpl() override;
   void HideImpl() override;
   gfx::Rect GetBounds() const override;
@@ -426,6 +435,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   std::unique_ptr<aura::ScopedWindowTargeter> targeter_for_modal_;
 
   XID modal_dialog_xid_;
+
+  std::unique_ptr<nw::GlobalMenuBarX11> global_menu_bar_x11_;
 
   base::WeakPtrFactory<DesktopWindowTreeHostX11> close_widget_factory_;
   base::WeakPtrFactory<DesktopWindowTreeHostX11> weak_factory_;
