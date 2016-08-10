@@ -32,6 +32,11 @@ class ImageSkiaRep;
 
 namespace ui {
 class EventHandler;
+class MenuModel;
+}
+
+namespace nw {
+class GlobalMenuBarX11;
 }
 
 namespace views {
@@ -85,6 +90,11 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // Runs the |func| callback for each content-window, and deallocates the
   // internal list of open windows.
   static void CleanUpWindowList(void (*func)(aura::Window* window));
+
+  void SetGlobalMenu(ui::MenuModel *model);
+
+  // NW fix: expose GetAccleratedWidget
+  gfx::AcceleratedWidget GetAcceleratedWidget() override;
 
  protected:
   // Overridden from DesktopWindowTreeHost:
@@ -153,7 +163,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // Overridden from aura::WindowTreeHost:
   gfx::Transform GetRootTransform() const override;
   ui::EventSource* GetEventSource() override;
-  gfx::AcceleratedWidget GetAcceleratedWidget() override;
   void ShowImpl() override;
   void HideImpl() override;
   gfx::Rect GetBounds() const override;
@@ -359,6 +368,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   bool activatable_;
 
   base::CancelableCallback<void()> delayed_resize_task_;
+
+  std::unique_ptr<nw::GlobalMenuBarX11> global_menu_bar_x11_;
 
   base::WeakPtrFactory<DesktopWindowTreeHostX11> close_widget_factory_;
 

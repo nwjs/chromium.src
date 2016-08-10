@@ -7,7 +7,9 @@
 
 #include "base/macros.h"
 #include "chrome/browser/ui/views/frame/browser_desktop_window_tree_host.h"
+#if 0
 #include "chrome/browser/ui/views/frame/global_menu_bar_x11.h"
+#endif
 #include "ui/views/widget/desktop_aura/desktop_window_tree_host_x11.h"
 
 class BrowserFrame;
@@ -38,14 +40,14 @@ class BrowserDesktopWindowTreeHostX11
   void Init(aura::Window* content_window,
             const views::Widget::InitParams& params) override;
   void CloseNow() override;
-
+#if 0
   BrowserView* browser_view_;
 
   // Each browser frame maintains its own menu bar object because the lower
   // level dbus protocol associates a xid to a menu bar; we can't map multiple
   // xids to the same menu bar.
   std::unique_ptr<GlobalMenuBarX11> global_menu_bar_x11_;
-
+#endif
   DISALLOW_COPY_AND_ASSIGN(BrowserDesktopWindowTreeHostX11);
 };
 

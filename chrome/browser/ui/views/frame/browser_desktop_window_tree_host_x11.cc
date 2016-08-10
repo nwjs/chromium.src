@@ -21,8 +21,7 @@ BrowserDesktopWindowTreeHostX11::BrowserDesktopWindowTreeHostX11(
     BrowserView* browser_view,
     BrowserFrame* browser_frame)
     : DesktopWindowTreeHostX11(native_widget_delegate,
-                               desktop_native_widget_aura),
-      browser_view_(browser_view) {
+                               desktop_native_widget_aura) {
   browser_frame->set_frame_type(
       browser_frame->UseCustomFrame() ? views::Widget::FRAME_TYPE_FORCE_CUSTOM
                                       : views::Widget::FRAME_TYPE_FORCE_NATIVE);
@@ -56,14 +55,17 @@ void BrowserDesktopWindowTreeHostX11::Init(
     aura::Window* content_window,
     const views::Widget::InitParams& params) {
   views::DesktopWindowTreeHostX11::Init(content_window, params);
-
+#if 0
   // We have now created our backing X11 window. We now need to (possibly)
   // alert Unity that there's a menu bar attached to it.
   global_menu_bar_x11_.reset(new GlobalMenuBarX11(browser_view_, this));
+#endif
 }
 
 void BrowserDesktopWindowTreeHostX11::CloseNow() {
+#if 0
   global_menu_bar_x11_.reset();
+#endif
   DesktopWindowTreeHostX11::CloseNow();
 }
 

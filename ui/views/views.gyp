@@ -475,6 +475,10 @@
       'widget/desktop_aura/x11_whole_screen_move_loop.h',
       'widget/desktop_aura/x11_window_event_filter.cc',
       'widget/desktop_aura/x11_window_event_filter.h',
+      '../../content/nw/src/browser/global_menu_bar_registrar_x11.cc',
+      '../../content/nw/src/browser/global_menu_bar_registrar_x11.h',
+      '../../content/nw/src/browser/global_menu_bar_x11.cc',
+      '../../content/nw/src/browser/global_menu_bar_x11.h',
     ],
     'views_desktop_aura_win_sources': [
       'widget/desktop_aura/desktop_cursor_loader_updater_aurawin.cc',
@@ -806,6 +810,7 @@
             ['use_x11 == 1', {
               'sources': [ '<@(views_desktop_aura_x11_sources)' ],
               'dependencies': [
+                '../../build/linux/system.gyp:gio',
                 '../../build/linux/system.gyp:xext',
                 '../../ui/base/x/ui_base_x.gyp:ui_base_x',
               ],
