@@ -28,7 +28,15 @@
 #include "core/CSSValueKeywords.h"
 #include "platform/fonts/FontCache.h"
 #include "platform/fonts/FontDescription.h"
+#include "platform/win/HWndDC.h"
+#include "platform/win/SystemInfo.h"
 #include "wtf/text/WTFString.h"
+
+#define SIZEOF_STRUCT_WITH_SPECIFIED_LAST_MEMBER(structName, member) \
+    offsetof(structName, member) + \
+    (sizeof static_cast<structName*>(nullptr)->member)
+#define NONCLIENTMETRICS_SIZE_PRE_VISTA \
+    SIZEOF_STRUCT_WITH_SPECIFIED_LAST_MEMBER(NONCLIENTMETRICS, lfMessageFont)
 
 namespace blink {
 
@@ -38,6 +46,49 @@ static float pointsToPixels(float points)
     float pixelsPerInch = 96.0f * FontCache::deviceScaleFactor();
     static const float pointsPerInch = 72.0f;
     return points / pointsPerInch * pixelsPerInch;
+}
+
+static bool getNonClientMetrics(NONCLIENTMETRICS* metrics)
+{
+    static UINT size = isWindowsVistaOrGreater() ?
+        sizeof(NONCLIENTMETRICS) : NONCLIENTMETRICS_SIZE_PRE_VISTA;
+    metrics->cbSize = size;
+    bool success = !!SystemParametersInfo(SPI_GETNONCLIENTMETRICS, size, metrics, 0);
+    ASSERT_UNUSED(success, success);
+    return success;
+}
+
+// Return the height of system font |font| in pixels. We use this size by
+// default for some non-form-control elements.
+static float systemFontSize(const LOGFONT& font)
+{
+    float size = -font.lfHeight;
+    if (size < 0) {
+        HFONT hFont = CreateFontIndirect(&font);
+        if (hFont) {
+            HWndDC hdc(0); // What about printing? Is this the right DC?
+            if (hdc) {
+                HGDIOBJ hObject = SelectObject(hdc, hFont);
+                TEXTMETRIC tm;
+                GetTextMetrics(hdc, &tm);
+                SelectObject(hdc, hObject);
+                size = tm.tmAscent;
+            }
+            DeleteObject(hFont);
+        }
+    }
+
+    // The "codepage 936" bit here is from Gecko; apparently this helps make
+    // fonts more legible in Simplified Chinese where the default font size is
+    // too small.
+    //
+    // FIXME: http://b/1119883 Since this is only used for "small caption",
+    // "menu", and "status bar" objects, I'm not sure how much this even
+    // matters. Plus the Gecko patch went in back in 2002, and maybe this
+    // isn't even relevant anymore. We should investigate whether this should
+    // be removed, or perhaps broadened to be "any CJK locale".
+    //
+    return ((size < 12.0f) && (GetACP() == 936)) ? 12.0f : size;
 }
 
 // static
