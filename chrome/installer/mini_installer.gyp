@@ -19,7 +19,7 @@
               '../chrome.gyp:chrome_dll',
             ],
             'chrome_dll_path': [
-              '<(PRODUCT_DIR)/chrome.dll',
+              '<(PRODUCT_DIR)/nw.dll',
             ],
             'output_dir': '<(PRODUCT_DIR)',
           },
