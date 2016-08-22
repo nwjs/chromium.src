@@ -4,6 +4,8 @@
 
 #include "apps/app_load_service.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include "apps/app_load_service_factory.h"
 #include "apps/app_restore_service.h"
 #include "apps/launcher.h"
@@ -68,6 +70,8 @@ bool AppLoadService::LoadAndLaunch(const base::FilePath& extension_path,
           LoadFromCommandLine(base::FilePath(extension_path), &extension_id)) {
     return false;
   }
+
+  nw::SetMainExtensionId(extension_id);
 
   // Schedule the app to be launched once loaded.
   PostReloadAction& action = post_reload_actions_[extension_id];

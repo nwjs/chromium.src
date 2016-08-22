@@ -52,7 +52,7 @@ var WEB_VIEW_API_METHODS = [
   // Returns Chrome's internal process ID for the guest web page's current
   // process.
   'getProcessId',
-
+  'getGuestId',
   // Returns the user agent string used by the webview for guest page requests.
   'getUserAgent',
 
@@ -78,6 +78,7 @@ var WEB_VIEW_API_METHODS = [
   // of the data URL.
   'loadDataWithBaseUrl',
 
+  'showDevTools',
   // Prints the contents of the webview.
   'print',
 
@@ -139,6 +140,10 @@ WebViewImpl.prototype.getProcessId = function() {
   return this.processId;
 };
 
+WebViewImpl.prototype.getGuestId = function() {
+  return this.guest.getId();
+};
+
 WebViewImpl.prototype.getUserAgent = function() {
   return this.userAgentOverride || navigator.userAgent;
 };
@@ -166,6 +171,16 @@ WebViewImpl.prototype.loadDataWithBaseUrl = function(
                   chrome.runtime.lastError.message);
         }
       });
+};
+
+WebViewImpl.prototype.showDevTools = function(show, container) {
+  if (!this.guest.getId()) {
+    return;
+  }
+  if (container)
+    WebViewInternal.showDevTools(this.guest.getId(), show, container.getProcessId(), container.getGuestId());
+  else
+    WebViewInternal.showDevTools(this.guest.getId(), show);
 };
 
 WebViewImpl.prototype.print = function() {
