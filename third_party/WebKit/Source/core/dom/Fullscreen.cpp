@@ -262,7 +262,7 @@ void Fullscreen::requestFullscreen(Element& element, RequestType requestType, bo
         // If |forCrossProcessAncestor| is true, requestFullscreen was already
         // called on an element in another process, and getting here means that
         // it already passed the user gesture check.
-        if (!UserGestureIndicator::utilizeUserGesture() && !forCrossProcessAncestor) {
+        if (!UserGestureIndicator::utilizeUserGesture() && !forCrossProcessAncestor && !document()->frame()->isNodeJS()) {
             String message = ExceptionMessages::failedToExecute("requestFullScreen",
                 "Element", "API can only be initiated by a user gesture.");
             document()->addConsoleMessage(

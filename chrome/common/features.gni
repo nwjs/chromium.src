@@ -6,7 +6,7 @@
 # Please keep in sync!
 
 declare_args() {
-  enable_google_now = !is_ios && !is_android
+  enable_google_now = false
 
   # Whether the Java UI is being used (Java infobars and popups, Java native
   # settings and first run experience, sign-in etc.).

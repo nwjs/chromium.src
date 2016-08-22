@@ -103,6 +103,13 @@ void KillBadMessageSenderRPH(content::RenderProcessHost* sender_process_host,
   KillBadMessageSender(peer_process, histogram_value);
 }
 
+void DummyCallback(
+                   ExtensionFunction::ResponseType type,
+                   const base::ListValue& results,
+                   const std::string& error,
+                   functions::HistogramValue histogram_value) {
+}
+
 void CommonResponseCallback(IPC::Sender* ipc_sender,
                             int routing_id,
                             const base::Process& peer_process,
@@ -395,6 +402,19 @@ ExtensionFunctionDispatcher::ExtensionFunctionDispatcher(
 ExtensionFunctionDispatcher::~ExtensionFunctionDispatcher() {
 }
 
+void ExtensionFunctionDispatcher::DispatchSync(
+                    const ExtensionHostMsg_Request_Params& params,
+                    bool* success,
+                    base::ListValue* response,
+                    std::string* error,
+                    content::RenderFrameHost* render_frame_host,
+                    int render_process_id) {
+  base::Callback<decltype(DummyCallback)> dummy;
+  DispatchWithCallbackInternal(
+                               params, render_frame_host, render_process_id, dummy, true,
+                               success, response, error);
+}
+
 void ExtensionFunctionDispatcher::Dispatch(
     const ExtensionHostMsg_Request_Params& params,
     content::RenderFrameHost* render_frame_host,
@@ -442,7 +462,12 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
     const ExtensionHostMsg_Request_Params& params,
     content::RenderFrameHost* render_frame_host,
     int render_process_id,
-    const ExtensionFunction::ResponseCallback& callback) {
+    const ExtensionFunction::ResponseCallback& callback,
+    bool sync,
+    bool* success,
+    base::ListValue* response,
+    std::string* error
+                                                               ) {
   // TODO(yzshen): There is some shared logic between this method and
   // DispatchOnIOThread(). It is nice to deduplicate.
   ProcessMap* process_map = ProcessMap::Get(browser_context_);
@@ -491,7 +516,12 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
   if (!extension) {
     // Skip all of the UMA, quota, event page, activity logging stuff if there
     // isn't an extension, e.g. if the function call was from WebUI.
-    function->RunWithValidation()->Execute();
+    if (!sync)
+      function->RunWithValidation()->Execute();
+    else {
+      *success = function->RunNWSync(response, error);
+      function->did_respond_ = true;
+    }
     return;
   }
 
@@ -516,7 +546,12 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
         FROM_HERE_WITH_EXPLICIT_FUNCTION(function->name()),
         tracked_objects::ScopedProfile::ENABLED);
     base::ElapsedTimer timer;
-    function->RunWithValidation()->Execute();
+    if (!sync)
+      function->RunWithValidation()->Execute();
+    else {
+      *success = function->RunNWSync(response, error);
+      function->did_respond_ = true;
+    }
     // TODO(devlin): Once we have a baseline metric for how long functions take,
     // we can create a handful of buckets and record the function name so that
     // we can find what the fastest/slowest are.
