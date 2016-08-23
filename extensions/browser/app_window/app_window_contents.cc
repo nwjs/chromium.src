@@ -35,7 +35,7 @@ void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
   url_ = url;
 
   content::WebContents::CreateParams create_params(
-      context, creator_frame->GetSiteInstance());
+      context, nw::PinningRenderer() ? creator_frame->GetSiteInstance() : content::SiteInstance::CreateForURL(context, url_));
   create_params.opener_render_process_id = creator_frame->GetProcess()->GetID();
   create_params.opener_render_frame_id = creator_frame->GetRoutingID();
   if (!web_contents_)
