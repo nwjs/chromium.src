@@ -15,6 +15,7 @@
     '../ui/gfx/gfx.gyp:gfx',
     '../ui/gfx/gfx.gyp:gfx_geometry',
     'content_common_mojo_bindings.gyp:content_common_mojo_bindings',
+    '../chrome/chrome.gyp:nw_base',
   ],
   'export_dependent_settings': [
     'content_common_mojo_bindings.gyp:content_common_mojo_bindings',
