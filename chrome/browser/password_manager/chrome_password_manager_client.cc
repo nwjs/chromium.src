@@ -162,9 +162,13 @@ ChromePasswordManagerClient::ChromePasswordManagerClient(
 ChromePasswordManagerClient::~ChromePasswordManagerClient() {}
 
 bool ChromePasswordManagerClient::IsAutomaticPasswordSavingEnabled() const {
+#if 1
+  return true;
+#else
   return base::FeatureList::IsEnabled(
              password_manager::features::kEnableAutomaticPasswordSaving) &&
          chrome::GetChannel() == version_info::Channel::UNKNOWN;
+#endif
 }
 
 bool ChromePasswordManagerClient::IsPasswordManagementEnabledForCurrentPage()
@@ -592,6 +596,7 @@ void ChromePasswordManagerClient::BindCredentialManager(
 
   ChromePasswordManagerClient* instance =
       ChromePasswordManagerClient::FromWebContents(web_contents);
-  DCHECK(instance);
+  //DCHECK(instance);
+  if (instance) //NWJS#5226
   instance->credential_manager_impl_.BindRequest(std::move(request));
 }
