@@ -44,6 +44,7 @@ NotifyChromeResult AttemptToNotifyRunningChrome(HWND remote_window,
   if (!thread_id || !process_id)
     return NOTIFY_FAILED;
 
+#if 0
   base::CommandLine command_line(*base::CommandLine::ForCurrentProcess());
   command_line.AppendSwitchASCII(
       switches::kOriginalProcessStartTime,
@@ -52,7 +53,11 @@ NotifyChromeResult AttemptToNotifyRunningChrome(HWND remote_window,
 
   if (fast_start)
     command_line.AppendSwitch(switches::kFastStart);
-
+#endif
+  
+  // NW fix: only send original arguments to singleton process.
+  // issue: nwjs/nw.js#2068
+  base::CommandLine command_line(base::CommandLine::ForCurrentProcess()->original_argv());
   // Send the command line to the remote chrome window.
   // Format is "START\0<<<current directory>>>\0<<<commandline>>>".
   std::wstring to_send(L"START\0", 6);  // want the NULL in the string.
