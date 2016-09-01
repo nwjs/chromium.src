@@ -868,8 +868,10 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessWithTimeout(
   if (!PathService::Get(base::DIR_CURRENT, &current_dir))
     return PROCESS_NONE;
   to_send.append(current_dir.value());
-
-  const std::vector<std::string>& argv = cmd_line.argv();
+  
+  // NW fix: only send original arguments to singleton process.
+  // issue: nwjs/nw.js#2068
+  const std::vector<std::string>& argv = cmd_line.original_argv();
   for (std::vector<std::string>::const_iterator it = argv.begin();
       it != argv.end(); ++it) {
     to_send.push_back(kTokenDelimiter);
