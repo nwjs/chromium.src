@@ -250,7 +250,8 @@ base::string16 Accelerator::GetShortcutText() const {
   // more information.
   if (IsCtrlDown())
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_CONTROL_MODIFIER, shortcut);
-  else if (IsAltDown())
+  
+  if (IsAltDown())
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_ALT_MODIFIER, shortcut);
 
   if (IsCmdDown()) {
@@ -258,6 +259,10 @@ base::string16 Accelerator::GetShortcutText() const {
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_COMMAND_MODIFIER, shortcut);
 #elif defined(OS_CHROMEOS)
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_SEARCH_MODIFIER, shortcut);
+#elif defined(OS_WIN)
+    shortcut = l10n_util::GetStringFUTF16(IDS_APP_WINDOWS_MODIFIER, shortcut);
+#elif defined(OS_LINUX)
+    shortcut = l10n_util::GetStringFUTF16(IDS_APP_SUPER_MODIFIER, shortcut);
 #else
     NOTREACHED();
 #endif
