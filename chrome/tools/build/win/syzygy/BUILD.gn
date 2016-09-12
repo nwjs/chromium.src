@@ -15,7 +15,7 @@ syzygy_dest_dir = "$root_out_dir/syzygy"
 
 if (syzygy_optimize) {
   syzygy_optimize("chrome_dll_syzygy") {
-    binary_name = "chrome.dll"
+    binary_name = "nw.dll"
     deps = [
       "//chrome:main_dll",
     ]
@@ -28,7 +28,7 @@ if (syzygy_optimize) {
   if (is_multi_dll_chrome) {
     # Also instrument chrome_child.dll.
     syzygy_optimize("chrome_child_dll_syzygy") {
-      binary_name = "chrome_child.dll"
+      binary_name = "nw_child.dll"
       deps = [
         "//chrome:chrome_child",
       ]
@@ -36,7 +36,7 @@ if (syzygy_optimize) {
   }
 } else if (is_syzyasan) {
   syzygy_asan("chrome_dll_syzygy") {
-    binary_name = "chrome.dll"
+    binary_name = "nw.dll"
     dest_dir = syzygy_dest_dir
     deps = [
       "//chrome:main_dll",
@@ -56,7 +56,7 @@ if (syzygy_optimize) {
     # uninstrumented. Otherwise, chrome_child is also instrumented to the
     # normal place.
     syzygy_asan("chrome_child_dll_syzygy") {
-      binary_name = "chrome_child.dll"
+      binary_name = "nw_child.dll"
       deps = [
         "//chrome:chrome_child",
       ]

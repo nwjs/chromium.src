@@ -19,6 +19,7 @@
           'enable_background%': 0,
         }, {
           'enable_background%': 1,
+          'enable_google_now%': 0,
         }]
       ],
 

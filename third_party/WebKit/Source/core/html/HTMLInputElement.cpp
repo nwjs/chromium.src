@@ -1693,6 +1693,26 @@ bool HTMLInputElement::shouldAppearIndeterminate() const
     return m_inputType->shouldAppearIndeterminate();
 }
 
+const AtomicString& HTMLInputElement::nwworkingdir() const
+{
+    return fastGetAttribute(nwworkingdirAttr);
+}
+
+void HTMLInputElement::setNwworkingdir(const AtomicString& value)
+{
+    setAttribute(nwworkingdirAttr, value);
+}
+
+String HTMLInputElement::nwsaveas() const
+{
+    return fastGetAttribute(nwsaveasAttr);
+}
+
+void HTMLInputElement::setNwsaveas(const String& value)
+{
+    setAttribute(nwsaveasAttr, AtomicString(value));
+}
+
 bool HTMLInputElement::isInRequiredRadioButtonGroup()
 {
     // TODO(tkent): Remove type check.

@@ -65,12 +65,20 @@ enum class UserGestureStatus { Active, None };
 // input, layout, or painting probably belongs on LocalFrame.
 class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
 public:
+    void setNodeJS(bool node) { m_nodejs = node; }
+    bool isNodeJS() const { return m_nodejs; }
+    bool isNwDisabledChildFrame() const;
+    bool isNwFakeTop() const;
+
     virtual ~Frame();
 
     DECLARE_VIRTUAL_TRACE();
 
     virtual bool isLocalFrame() const = 0;
     virtual bool isRemoteFrame() const = 0;
+
+    void setDevtoolsJail(Frame* iframe);
+    Frame* getDevtoolsJail() { return m_devtoolsJail; }
 
     virtual DOMWindow* domWindow() const = 0;
     virtual WindowProxy* windowProxy(DOMWrapperWorld&) = 0;
@@ -150,6 +158,11 @@ private:
     bool canNavigateWithoutFramebusting(const Frame&, String& errorReason);
 
     Member<FrameClient> m_client;
+    Member<Frame> m_devtoolsJail;
+    Member<Frame> m_devJailOwner;
+
+    bool m_nodejs;
+
     bool m_isLoading;
 };
 

@@ -1211,6 +1211,9 @@
       'weborigin/SecurityPolicy.h',
       'weborigin/Suborigin.cpp',
       'weborigin/Suborigin.h',
+      'win/HWndDC.h',
+      'win/SystemInfo.cpp',
+      'win/SystemInfo.h',
     ],
     'platform_test_files': [
       'ScopedOrientationChangeIndicatorTest.cpp',

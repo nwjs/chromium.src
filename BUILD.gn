@@ -203,6 +203,7 @@ group("both_gn_and_gyp") {
 
   if (!is_ios && !is_android && !is_chromecast) {
     deps += [
+      "//content/nw:nwjs",
       "//chrome",
       "//chrome/test:browser_tests",
       "//chrome/test:interactive_ui_tests",

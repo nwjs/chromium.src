@@ -144,6 +144,7 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
     }
   }
 
+#if 1
   // Now load the nib (from the right bundle).
   base::scoped_nsobject<NSNib> nib(
       [[NSNib alloc] initWithNibNamed:@"MainMenu"
@@ -154,6 +155,11 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
   [nib instantiateWithOwner:NSApp topLevelObjects:&top_level_objects];
   for (NSObject* object : top_level_objects)
     [object retain];
+#else
+  AppController* delegate = [AppController alloc];
+  [NSApp setDelegate:delegate];
+#endif
+
   // Make sure the app controller has been created.
   DCHECK([NSApp delegate]);
 }
