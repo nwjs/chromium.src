@@ -49,8 +49,10 @@ void Statement::Clear() {
 bool Statement::CheckValid() const {
   // Allow operations to fail silently if a statement was invalidated
   // because the database was closed by an error handler.
+#if 0
   DLOG_IF(FATAL, !ref_->was_valid())
       << "Cannot call mutating statements on an invalid statement.";
+#endif
   return is_valid();
 }
 
