@@ -56,6 +56,7 @@ process_version("chrome_watcher_resources") {
 }
 
 shared_library("chrome_watcher") {
+  output_name = "nw_watcher"
   sources = [
     "chrome_watcher_main.cc",
   ]
