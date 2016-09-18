@@ -197,7 +197,7 @@ AtkUtilAuraLinux::AtkUtilAuraLinux() {
 
 void AtkUtilAuraLinux::Initialize(
     scoped_refptr<base::TaskRunner> init_task_runner) {
-
+#if 0
   // Register our util class.
   g_type_class_unref(g_type_class_ref(ATK_UTIL_AURALINUX_TYPE));
 
@@ -212,6 +212,7 @@ void AtkUtilAuraLinux::Initialize(
       base::Bind(
           &AtkUtilAuraLinux::FinishAccessibilityInitOnUIThread,
           base::Unretained(this)));
+#endif
 }
 
 AtkUtilAuraLinux::~AtkUtilAuraLinux() {

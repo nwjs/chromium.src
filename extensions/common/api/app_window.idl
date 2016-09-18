@@ -135,6 +135,8 @@ namespace app.window {
   // State of a window: normal, fullscreen, maximized, minimized.
   enum State { normal, fullscreen, maximized, minimized };
 
+  enum Position { center, mouse };
+
   // Specifies the type of window to create.
   enum WindowType { 
     // Default window type.
@@ -278,6 +280,16 @@ namespace app.window {
     // If true, and supported by the platform, the window will be visible on all
     // workspaces.
     boolean? visibleOnAllWorkspaces;
+
+    boolean? kiosk;
+
+    Position? position;
+    DOMString? title;
+    DOMString? icon;
+    boolean? show_in_taskbar;
+    boolean? new_instance;
+    DOMString? inject_js_start;
+    DOMString? inject_js_end;
   };
 
   // Called in the creating window (parent) before the load event is called in
@@ -320,6 +332,9 @@ namespace app.window {
     // <code>AppWindow</code> or HTML5 fullscreen APIs.
     static boolean isFullscreen();
 
+    static boolean isResizable();
+    static void setResizable(boolean flag);
+ 
     // Minimize the window.
     static void minimize();
 
@@ -455,6 +470,8 @@ namespace app.window {
   interface Events {
     // Fired when the window is resized.
     [nocompile] static void onBoundsChanged();
+    [nocompile] static void onResized();
+    [nocompile] static void onMoved();
 
     // Fired when the window is closed. Note, this should be listened to from
     // a window other than the window being closed, for example from the

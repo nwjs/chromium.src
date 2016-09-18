@@ -16,6 +16,7 @@ gypi_values = exec_script("//build/gypi_to_gn.py",
 visibility = [
   "//mojo/public/cpp/bindings/*",
   "//third_party/WebKit/*",
+  "//content/nw/*",
 ]
 
 config("wtf_config") {
