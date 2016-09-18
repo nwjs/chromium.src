@@ -123,6 +123,7 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
   // The framework is only distributed with branded Google Chrome builds.
   [[KeystoneGlue defaultKeystoneGlue] registerWithKeystone];
 
+#if 0
   // Disk image installation is sort of a first-run task, so it shares the
   // no first run switches.
   //
@@ -142,6 +143,7 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
       exit(0);
     }
   }
+#endif
 
 #if 1
   // Now load the nib (from the right bundle).
