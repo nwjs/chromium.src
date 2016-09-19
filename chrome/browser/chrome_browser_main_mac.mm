@@ -123,6 +123,7 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
   // The framework is only distributed with branded Google Chrome builds.
   [[KeystoneGlue defaultKeystoneGlue] registerWithKeystone];
 
+#if 0
   // Disk image installation is sort of a first-run task, so it shares the
   // no first run switches.
   //
@@ -142,7 +143,9 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
       exit(0);
     }
   }
+#endif
 
+#if 1
   // Now load the nib (from the right bundle).
   base::scoped_nsobject<NSNib> nib(
       [[NSNib alloc] initWithNibNamed:@"MainMenu"
@@ -150,6 +153,11 @@ void ChromeBrowserMainPartsMac::PreMainMessageLoopStart() {
   // TODO(viettrungluu): crbug.com/20504 - This currently leaks, so if you
   // change this, you'll probably need to change the Valgrind suppression.
   [nib instantiateNibWithOwner:NSApp topLevelObjects:nil];
+#else
+  AppController* delegate = [AppController alloc];
+  [NSApp setDelegate:delegate];
+#endif
+
   // Make sure the app controller has been created.
   DCHECK([NSApp delegate]);
 }

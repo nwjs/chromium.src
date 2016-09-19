@@ -41,6 +41,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   static ChildProcessSecurityPolicyImpl* GetInstance();
 
   // ChildProcessSecurityPolicy implementation.
+  void GrantAll(int child_id) override;
   void RegisterWebSafeScheme(const std::string& scheme) override;
   bool IsWebSafeScheme(const std::string& scheme) override;
   void GrantReadFile(int child_id, const base::FilePath& file) override;
