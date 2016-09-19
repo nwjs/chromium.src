@@ -51,7 +51,7 @@ ExtensionSystemSharedFactory::ExtensionSystemSharedFactory()
   DependsOn(policy::ProfilePolicyConnectorFactory::GetInstance());
   DependsOn(ProcessManagerFactory::GetInstance());
   DependsOn(RendererStartupHelperFactory::GetInstance());
-  DependsOn(BlacklistFactory::GetInstance());
+  //DependsOn(BlacklistFactory::GetInstance());
   DependsOn(DeclarativeUserScriptManagerFactory::GetInstance());
   DependsOn(EventRouterFactory::GetInstance());
   // This depends on ExtensionDownloader which depends on
