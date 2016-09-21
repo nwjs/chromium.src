@@ -38,7 +38,7 @@ using namespace v8_helpers;
 namespace {
 
 // Max number of languages to detect.
-const int kCldNumLangs = 3;
+//const int kCldNumLangs = 3;
 
 struct DetectedLanguage {
   DetectedLanguage(const std::string& language, int percentage)
@@ -105,7 +105,7 @@ v8::Local<v8::Value> LanguageDetectionResult::ToValue(ScriptContext* context) {
   return handle_scope.Escape(result);
 }
 
-#if BUILDFLAG(CLD_VERSION) == 2
+#if 0
 void InitDetectedLanguages(
     CLD2::Language* languages,
     int* percents,
@@ -127,8 +127,9 @@ void InitDetectedLanguages(
         base::MakeUnique<DetectedLanguage>(language_code, percents[i]));
   }
 }
+#endif
 
-#elif BUILDFLAG(CLD_VERSION) == 3
+#if 0
 void InitDetectedLanguages(
     const std::vector<chrome_lang_id::NNetLanguageIdentifier::Result>&
         lang_results,
@@ -160,7 +161,7 @@ void InitDetectedLanguages(
   }
 }
 #else
-# error "CLD_VERSION must be 2 or 3"
+//# error "CLD_VERSION must be 2 or 3"
 #endif
 
 }  // namespace
@@ -253,6 +254,11 @@ void I18NCustomBindings::DetectTextLanguage(
   CHECK(args.Length() == 1);
   CHECK(args[0]->IsString());
 
+#if 1
+  LanguageDetectionResult result(false);
+  args.GetReturnValue().Set(result.ToValue(context()));
+#endif
+#if 0
   std::string text = *v8::String::Utf8Value(args[0]);
 #if BUILDFLAG(CLD_VERSION) == 2
   CLD2::CLDHints cldhints = {nullptr, "", CLD2::UNKNOWN_ENCODING,
@@ -304,7 +310,8 @@ void I18NCustomBindings::DetectTextLanguage(
   InitDetectedLanguages(lang_results, &result);
   args.GetReturnValue().Set(result.ToValue(context()));
 #else
-# error "CLD_VERSION must be 2 or 3"
+  //# error "CLD_VERSION must be 2 or 3"
+#endif
 #endif
 }
 

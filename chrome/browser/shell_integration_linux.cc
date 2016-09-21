@@ -49,6 +49,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_package.h"
 #include "grit/chrome_unscaled_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_family.h"
@@ -624,9 +626,12 @@ std::string GetProgramClassClass(const base::CommandLine& command_line,
 }  // namespace internal
 
 std::string GetProgramClassName() {
+  return nw::package()->GetName();
+#if 0
   std::unique_ptr<base::Environment> env(base::Environment::Create());
   return internal::GetProgramClassName(*base::CommandLine::ForCurrentProcess(),
                                        GetDesktopName(env.get()));
+#endif
 }
 
 std::string GetProgramClassClass() {

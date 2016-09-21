@@ -30,7 +30,7 @@ namespace storage_monitor {
 namespace {
 
 // Name of the client application that communicates with the MTP device.
-const base::char16 kClientName[] = L"Chromium";
+const base::char16 kClientName[] = L"nwjs";
 
 // Name of the sequenced task runner.
 const char kMediaTaskRunnerName[] = "media-task-runner";

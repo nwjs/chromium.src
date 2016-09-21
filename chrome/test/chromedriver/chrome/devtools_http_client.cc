@@ -162,6 +162,10 @@ bool DevToolsHttpClient::IsBrowserWindow(const WebViewInfo& view) const {
          (view.type == WebViewInfo::kOther &&
           (base::StartsWith(view.url, "chrome-extension://",
                             base::CompareCase::SENSITIVE) ||
+           base::StartsWith(view.url, "http://",
+                            base::CompareCase::SENSITIVE) ||
+           base::StartsWith(view.url, "https://",
+                            base::CompareCase::SENSITIVE) ||
            view.url == "chrome://print/" ||
            view.url == "chrome://media-router/"));
 }

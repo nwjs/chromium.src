@@ -95,6 +95,7 @@ UserScript::UserScript()
       consumer_instance_type_(TAB),
       user_script_id_(-1),
       emulate_greasemonkey_(false),
+      in_main_world_(false),
       match_all_frames_(false),
       match_about_blank_(false),
       incognito_enabled_(false) {}
@@ -187,6 +188,7 @@ void UserScript::Pickle(base::Pickle* pickle) const {
   pickle->WriteInt(run_location());
   pickle->WriteInt(user_script_id_);
   pickle->WriteBool(emulate_greasemonkey());
+  pickle->WriteBool(in_main_world());
   pickle->WriteBool(match_all_frames());
   pickle->WriteBool(match_about_blank());
   pickle->WriteBool(is_incognito_enabled());
@@ -243,6 +245,7 @@ void UserScript::Unpickle(const base::Pickle& pickle,
 
   CHECK(iter->ReadInt(&user_script_id_));
   CHECK(iter->ReadBool(&emulate_greasemonkey_));
+  CHECK(iter->ReadBool(&in_main_world_));
   CHECK(iter->ReadBool(&match_all_frames_));
   CHECK(iter->ReadBool(&match_about_blank_));
   CHECK(iter->ReadBool(&incognito_enabled_));

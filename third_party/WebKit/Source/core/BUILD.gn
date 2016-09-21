@@ -171,7 +171,7 @@ component("core") {
   output_name = "blink_core"
 
   visibility = []  # Allow re-assignment of list.
-  visibility = [ "//third_party/WebKit/*" ]
+  visibility = [ "//third_party/WebKit/*", "//content/nw/*" ]
 
   configs -= core_config_remove
   configs += core_config_add
