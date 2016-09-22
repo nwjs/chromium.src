@@ -559,6 +559,7 @@ bool NormalizeToNativeFilePath(const FilePath& path, FilePath* nt_path) {
   return success;
 }
 
+#if 0
 bool IsOnNetworkDrive(const base::FilePath& path) {
   win::ScopedHandle handle(
       ::CreateFileW(path.value().c_str(),
@@ -578,6 +579,7 @@ bool IsOnNetworkDrive(const base::FilePath& path) {
                                           &remote_proto_info,
                                           sizeof(remote_proto_info));
 }
+#endif
 
 // TODO(rkc): Work out if we want to handle NTFS junctions here or not, handle
 // them if we do decide to.
