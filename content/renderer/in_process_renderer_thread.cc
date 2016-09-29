@@ -9,6 +9,8 @@
 #include "content/renderer/render_process_impl.h"
 #include "content/renderer/render_thread_impl.h"
 
+#include "content/nw/src/nw_content.h"
+
 #if defined(OS_ANDROID)
 #include "base/android/jni_android.h"
 #endif
@@ -47,6 +49,7 @@ void InProcessRendererThread::Init() {
   CHECK(!render_process_);
 #endif
   render_process_.reset(new RenderProcessImpl());
+  nw::LoadNodeSymbols();
   RenderThreadImpl::Create(params_);
 }
 

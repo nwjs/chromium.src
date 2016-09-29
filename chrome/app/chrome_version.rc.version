@@ -10,8 +10,6 @@
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION @MAJOR@,@MINOR@,@BUILD@,@PATCH@
- PRODUCTVERSION @MAJOR@,@MINOR@,@BUILD@,@PATCH@
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -28,16 +26,13 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "@COMPANY_FULLNAME@"
             VALUE "FileDescription", "@PRODUCT_FULLNAME@"
-            VALUE "FileVersion", "@MAJOR@.@MINOR@.@BUILD@.@PATCH@"
             VALUE "InternalName", "@INTERNAL_NAME@"
             VALUE "LegalCopyright", "@COPYRIGHT@"
             VALUE "OriginalFilename", "@ORIGINAL_FILENAME@"
             VALUE "ProductName", "@PRODUCT_FULLNAME@"
-            VALUE "ProductVersion", "@MAJOR@.@MINOR@.@BUILD@.@PATCH@"
             VALUE "CompanyShortName", "@COMPANY_SHORTNAME@"
             VALUE "ProductShortName", "@PRODUCT_SHORTNAME@"
             VALUE "LastChange", "@LASTCHANGE@"
-            VALUE "Official Build", "@OFFICIAL_BUILD@"
         END
     END
     BLOCK "VarFileInfo"
