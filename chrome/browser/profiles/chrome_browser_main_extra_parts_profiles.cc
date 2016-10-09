@@ -224,7 +224,14 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   domain_reliability::DomainReliabilityServiceFactory::GetInstance();
   DownloadServiceFactory::GetInstance();
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#if !defined(NWJS_MAS)
+  // MAS: avoid being rejected for unused entitlements or sandbox violations.
+  // If app doesn't use BT and it wasn't entitled with BT functions, this will
+  // lead to a sandbox violation.
+  // If app doesn't use BT and it's entitled with BT functions, reviewer will
+  // reject for unused entitlements.
   EasyUnlockServiceFactory::GetInstance();
+#endif
   EnhancedBookmarkKeyServiceFactory::GetInstance();
 #endif
 #if defined(OS_CHROMEOS)

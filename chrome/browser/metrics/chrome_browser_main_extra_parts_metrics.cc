@@ -160,11 +160,18 @@ void RecordStartupMetricsOnBlockingPool() {
 #endif  // defined(OS_WIN)
 
 #if defined(OS_MACOSX)
+#if !defined(NWJS_MAS)
+  // MAS: avoid being rejected for unused entitlements or sandbox violations.
+  // If app doesn't use BT and it wasn't entitled with BT functions, this will
+  // lead to a sandbox violation.
+  // If app doesn't use BT and it's entitled with BT functions, reviewer will
+  // reject for unused entitlements.
   bluetooth_utility::BluetoothAvailability availability =
       bluetooth_utility::GetBluetoothAvailability();
   UMA_HISTOGRAM_ENUMERATION("OSX.BluetoothAvailability",
                             availability,
                             bluetooth_utility::BLUETOOTH_AVAILABILITY_COUNT);
+#endif
 #endif   // defined(OS_MACOSX)
 
   // Record whether Chrome is the default browser or not.
