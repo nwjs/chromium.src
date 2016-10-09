@@ -221,7 +221,9 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   domain_reliability::DomainReliabilityServiceFactory::GetInstance();
   DownloadServiceFactory::GetInstance();
 #if defined(ENABLE_EXTENSIONS)
+#if !defined(NWJS_MAS)
   EasyUnlockServiceFactory::GetInstance();
+#endif
   EnhancedBookmarkKeyServiceFactory::GetInstance();
 #endif
 #if defined(OS_CHROMEOS)

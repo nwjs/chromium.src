@@ -158,11 +158,13 @@ void RecordStartupMetricsOnBlockingPool() {
 #endif  // defined(OS_WIN)
 
 #if defined(OS_MACOSX)
+#if !defined(NWJS_MAS)
   bluetooth_utility::BluetoothAvailability availability =
       bluetooth_utility::GetBluetoothAvailability();
   UMA_HISTOGRAM_ENUMERATION("OSX.BluetoothAvailability",
                             availability,
                             bluetooth_utility::BLUETOOTH_AVAILABILITY_COUNT);
+#endif
 #endif   // defined(OS_MACOSX)
 
   // Record whether Chrome is the default browser or not.
