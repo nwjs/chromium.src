@@ -240,7 +240,9 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   DownloadCoreServiceFactory::GetInstance();
   DownloadServiceFactory::GetInstance();
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#if !defined(NWJS_MAS)
   EasyUnlockServiceFactory::GetInstance();
+#endif
   EnhancedBookmarkKeyServiceFactory::GetInstance();
 #endif
 #if defined(OS_CHROMEOS)
