@@ -279,6 +279,7 @@ class SelectFileDialogImpl : public ui::SelectFileDialog,
   bool RunOpenMultiFileDialog(const std::wstring& title,
                               const std::wstring& filter,
                               HWND owner,
+                              base::FilePath* path,
                               std::vector<base::FilePath>* paths);
 
   // The callback function for when the select folder dialog is opened.
@@ -387,7 +388,7 @@ void SelectFileDialogImpl::ExecuteSelectFile(
   } else if (params.type == SELECT_OPEN_MULTI_FILE) {
     std::vector<base::FilePath> paths;
     if (RunOpenMultiFileDialog(params.title, filter,
-                               params.run_state.owner, &paths)) {
+                               params.run_state.owner, &path, &paths)) {
       params.ui_task_runner->PostTask(
           FROM_HERE, base::Bind(&SelectFileDialogImpl::MultiFilesSelected, this,
                                 paths, params.params, params.run_state));
@@ -601,6 +602,7 @@ bool SelectFileDialogImpl::RunOpenMultiFileDialog(
     const std::wstring& title,
     const std::wstring& filter,
     HWND owner,
+    base::FilePath* path,
     std::vector<base::FilePath>* paths) {
   // We use OFN_NOCHANGEDIR so that the user can rename or delete the directory
   // without having to close Chrome first.
@@ -608,6 +610,13 @@ bool SelectFileDialogImpl::RunOpenMultiFileDialog(
                             OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST |
                                 OFN_EXPLORER | OFN_HIDEREADONLY |
                                 OFN_ALLOWMULTISELECT | OFN_NOCHANGEDIR);
+  
+  if (!path->empty()) {
+    if (IsDirectory(*path))
+      ofn.SetInitialSelection(*path, base::FilePath());
+    else
+      ofn.SetInitialSelection(path->DirName(), path->BaseName());
+  }
 
   if (!filter.empty())
     ofn.GetOPENFILENAME()->lpstrFilter = filter.c_str();
