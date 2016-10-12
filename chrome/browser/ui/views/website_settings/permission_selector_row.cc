@@ -227,9 +227,10 @@ void PermissionCombobox::OnPerformAction(Combobox* combobox) {
 ///////////////////////////////////////////////////////////////////////////////
 
 PermissionSelectorRow::PermissionSelectorRow(
+    Profile* profile,
     const GURL& url,
     const WebsiteSettingsUI::PermissionInfo& permission)
-    : icon_(NULL), menu_button_(NULL), combobox_(NULL) {
+    : profile_(profile), icon_(NULL), menu_button_(NULL), combobox_(NULL) {
   views::GridLayout* layout = new views::GridLayout(this);
   SetLayoutManager(layout);
   const int column_set_id = 0;
@@ -275,8 +276,7 @@ PermissionSelectorRow::PermissionSelectorRow(
                   views::GridLayout::CENTER);
   // Create the menu model.
   menu_model_.reset(new PermissionMenuModel(
-      url,
-      permission,
+      profile, url, permission,
       base::Bind(&PermissionSelectorRow::PermissionChanged,
                  base::Unretained(this))));
 
@@ -329,8 +329,8 @@ void PermissionSelectorRow::InitializeMenuButtonView(
       permission.source == content_settings::SETTING_SOURCE_USER;
   menu_button_ = new internal::PermissionMenuButton(
       WebsiteSettingsUI::PermissionActionToUIString(
-          permission.type, permission.setting, permission.default_setting,
-          permission.source),
+          profile_, permission.type, permission.setting,
+          permission.default_setting, permission.source),
       menu_model_.get(), button_enabled);
   menu_button_->SetEnabled(button_enabled);
   menu_button_->SetAccessibleName(
@@ -347,10 +347,9 @@ void PermissionSelectorRow::InitializeComboboxView(
       new internal::ComboboxModelAdapter(menu_model_.get()));
   combobox_ = new internal::PermissionCombobox(
       WebsiteSettingsUI::PermissionActionToUIString(
-          permission.type, permission.setting, permission.default_setting,
-          permission.source),
-      combobox_model_adapter_.get(), button_enabled,
-      true);
+          profile_, permission.type, permission.setting,
+          permission.default_setting, permission.source),
+      combobox_model_adapter_.get(), button_enabled, true);
   combobox_->SetEnabled(button_enabled);
   combobox_->SetAccessibleName(
       WebsiteSettingsUI::PermissionTypeToUIString(permission.type));
@@ -366,8 +365,8 @@ void PermissionSelectorRow::PermissionChanged(
   // Update the menu button text to reflect the new setting.
   if (menu_button_) {
     menu_button_->SetText(WebsiteSettingsUI::PermissionActionToUIString(
-        permission.type, permission.setting, permission.default_setting,
-        content_settings::SETTING_SOURCE_USER));
+        profile_, permission.type, permission.setting,
+        permission.default_setting, content_settings::SETTING_SOURCE_USER));
     menu_button_->SizeToPreferredSize();
   } else if (combobox_) {
     bool use_default = permission.setting == CONTENT_SETTING_DEFAULT;
