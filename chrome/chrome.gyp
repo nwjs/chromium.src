@@ -21,6 +21,7 @@
     'chromium_child_dependencies': [
       'common',
       '../components/sync.gyp:sync',
+      #'../third_party/node/node.gyp:node',
     ],
     'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/chrome',
     'protoc_out_dir': '<(SHARED_INTERMEDIATE_DIR)/protoc_out',
@@ -84,6 +85,7 @@
     ],  # conditions
   },  # variables
   'includes': [
+    '../content/nw/nw.gypi',
     # Place some targets in gypi files to reduce contention on this file.
     # By using an include, we keep everything in a single xcodeproj file.
     # Note on Win64 targets: targets that end with win64 be used
@@ -347,7 +349,7 @@
                   'inputs': [
                     '<(DEPTH)/build/linux/dump_app_syms.py',
                     '<(PRODUCT_DIR)/dump_syms',
-                    '<(PRODUCT_DIR)/chrome',
+                    '<(PRODUCT_DIR)/nw',
                   ],
                   'outputs': [
                     '<(PRODUCT_DIR)/chrome.breakpad.<(target_arch)',
@@ -356,7 +358,7 @@
                              '<(DEPTH)/build/linux/dump_app_syms.py',
                              '<(PRODUCT_DIR)/dump_syms',
                              '<(linux_strip_binary)',
-                             '<(PRODUCT_DIR)/chrome',
+                             '<(PRODUCT_DIR)/nw',
                              '<@(_outputs)'],
                   'message': 'Dumping breakpad symbols to <(_outputs)',
                   'process_outputs_as_sources': 1,

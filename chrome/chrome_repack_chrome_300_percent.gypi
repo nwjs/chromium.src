@@ -14,7 +14,7 @@
       '<(grit_out_dir)/renderer_resources_300_percent.pak',
       '<(grit_out_dir)/theme_resources_300_percent.pak',
     ],
-    'pak_output': '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_300_percent.pak',
+    'pak_output': '<(SHARED_INTERMEDIATE_DIR)/repack/nw_300_percent.pak',
   },
   'includes': [ '../build/repack_action.gypi' ],
 }

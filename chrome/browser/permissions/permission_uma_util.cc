@@ -599,6 +599,7 @@ void PermissionUmaUtil::RecordPermissionAction(
     PermissionRequestGestureType gesture_type,
     const GURL& requesting_origin,
     Profile* profile) {
+#if 0
   if (IsOptedIntoPermissionActionReporting(profile)) {
     // TODO(kcarattini): Pass in the actual persist decision when it becomes
     // available.
@@ -611,7 +612,7 @@ void PermissionUmaUtil::RecordPermissionAction(
     g_browser_process->safe_browsing_service()
         ->ui_manager()->ReportPermissionAction(report_info);
   }
-
+#endif
   bool secure_origin = content::IsOriginSecure(requesting_origin);
 
   switch (permission) {
