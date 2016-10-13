@@ -27,15 +27,19 @@
 extern "C" {
 // Signatures for XPC public functions that are loaded by xpc_stubs.h.
 #include "sandbox/mac/xpc_stubs.sig"
+#if !defined(NWJS_MAS)
 // Signatures for private XPC functions.
 #include "sandbox/mac/xpc_private_stubs.sig"
+#endif
 }  // extern "C"
 
 #else
 
 // Signatures for private XPC functions.
 extern "C" {
+#if !defined(NWJS_MAS)
 #include "sandbox/mac/xpc_private_stubs.sig"
+#endif
 }  // extern "C"
 
 #endif

@@ -3,9 +3,9 @@
 // found in the LICENSE file.
 
 #include "media/capture/device_monitor_mac.h"
-
+#if !defined(NWJS_MAS)
 #import <QTKit/QTKit.h>
-
+#endif
 #include <set>
 
 #include "base/bind_helpers.h"
@@ -126,7 +126,7 @@ void DeviceMonitorMacImpl::ConsolidateDevicesListAndNotify(
   if (audio_device_added || audio_device_removed)
     monitor_->NotifyDeviceChanged(base::SystemMonitor::DEVTYPE_AUDIO_CAPTURE);
 }
-
+#if !defined(NWJS_MAS)
 class QTKitMonitorImpl : public DeviceMonitorMacImpl {
  public:
   explicit QTKitMonitorImpl(media::DeviceMonitorMac* monitor);
@@ -207,7 +207,7 @@ void QTKitMonitorImpl::OnDeviceChanged() {
   }
   ConsolidateDevicesListAndNotify(snapshot_devices);
 }
-
+#endif
 // Forward declaration for use by CrAVFoundationDeviceObserver.
 class SuspendObserverDelegate;
 
@@ -551,6 +551,7 @@ void DeviceMonitorMac::StartMonitoring(
     device_monitor_impl_.reset(
         new AVFoundationMonitorImpl(this, device_task_runner));
   } else {
+#if !defined(NWJS_MAS)
     // TODO(erikchen): Remove ScopedTracker below once http://crbug.com/458404
     // is fixed.
     tracked_objects::ScopedTracker tracking_profile(
@@ -558,6 +559,7 @@ void DeviceMonitorMac::StartMonitoring(
             "458404 DeviceMonitorMac::StartMonitoring::QTKit"));
     DVLOG(1) << "Monitoring via QTKit";
     device_monitor_impl_.reset(new QTKitMonitorImpl(this));
+#endif
   }
 }
 

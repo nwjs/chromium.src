@@ -40,13 +40,14 @@
 #import <math.h>
 
 // The methods in this file are specific to the Mac OS X platform.
-
+#if !defined(NWJS_MAS)
 // Forward declare Mac SPIs.
 extern "C" {
 void _NSDrawCarbonThemeBezel(NSRect frame, BOOL enabled, BOOL flipped);
 // Request for public API: rdar://13787640
 void _NSDrawCarbonThemeListBox(NSRect frame, BOOL enabled, BOOL flipped, BOOL always_yes);
 }
+#endif
 
 namespace blink {
 
@@ -71,7 +72,9 @@ bool ThemePainterMac::paintTextField(const LayoutObject& o, const PaintInfo& pai
     // background. We need WebCore to paint styled backgrounds, so we'll use
     // this AppKit SPI function instead.
     if (!useNSTextFieldCell) {
+#if !defined(NWJS_MAS)
         _NSDrawCarbonThemeBezel(r, LayoutTheme::isEnabled(o) && !LayoutTheme::isReadOnlyControl(o), YES);
+#endif
         return false;
     }
 #endif
@@ -152,7 +155,9 @@ bool ThemePainterMac::paintCapsLockIndicator(const LayoutObject&, const PaintInf
 bool ThemePainterMac::paintTextArea(const LayoutObject& o, const PaintInfo& paintInfo, const IntRect& r)
 {
     LocalCurrentGraphicsContext localContext(paintInfo.context, &paintInfo.cullRect().m_rect, r);
+#if !defined(NWJS_MAS)
     _NSDrawCarbonThemeListBox(r, LayoutTheme::isEnabled(o) && !LayoutTheme::isReadOnlyControl(o), YES, YES);
+#endif
     return false;
 }
 

@@ -2920,6 +2920,7 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
 // Since this implementation doesn't have to wait any IPC calls, this doesn't
 // make any key-typing jank. --hbono 7/23/09
 //
+#if !defined(NWJS_MAS)
 extern "C" {
 extern NSString *NSTextInputReplacementRangeAttributeName;
 }
@@ -2936,6 +2937,11 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
   }
   return validAttributesForMarkedText_.get();
 }
+#else
+- (NSArray *)validAttributesForMarkedText {
+  return @[];
+}
+#endif
 
 - (NSUInteger)characterIndexForPoint:(NSPoint)thePoint {
   DCHECK([self window]);

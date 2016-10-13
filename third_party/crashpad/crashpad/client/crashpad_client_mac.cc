@@ -525,6 +525,7 @@ bool CrashpadClient::StartHandler(
     const std::map<std::string, std::string>& annotations,
     const std::vector<std::string>& arguments,
     bool restartable) {
+#if !defined(NWJS_MAS)
   DCHECK(!exception_port_.is_valid());
 
   // The “restartable” behavior can only be selected on OS X 10.10 and later. In
@@ -543,6 +544,9 @@ bool CrashpadClient::StartHandler(
 
   SetHandlerMachPort(std::move(exception_port));
   return true;
+#else
+  return false;
+#endif
 }
 
 bool CrashpadClient::SetHandlerMachService(const std::string& service_name) {

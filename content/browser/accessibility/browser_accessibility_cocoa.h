@@ -84,7 +84,9 @@
 @property(nonatomic, readonly) NSNumber* enabled;
 // Returns a text marker that points to the last character in the document that
 // can be selected with Voiceover.
+#if !defined(NWJS_MAS)
 @property(nonatomic, readonly) id endTextMarker;
+#endif
 @property(nonatomic, readonly) NSNumber* expanded;
 @property(nonatomic, readonly) NSNumber* focused;
 @property(nonatomic, readonly) NSString* help;
@@ -112,11 +114,15 @@
 @property(nonatomic, readonly) NSValue* rowIndexRange;
 @property(nonatomic, readonly) NSArray* rows;
 @property(nonatomic, readonly) NSArray* selectedChildren;
+#if !defined(NWJS_MAS)
 @property(nonatomic, readonly) id selectedTextMarkerRange;
+#endif
 @property(nonatomic, readonly) NSValue* size;
+#if !defined(NWJS_MAS)
 // Returns a text marker that points to the first character in the document that
 // can be selected with Voiceover.
 @property(nonatomic, readonly) id startTextMarker;
+#endif
 // A string indicating the subrole of this object as far as accessibility
 // is concerned.
 @property(nonatomic, readonly) NSString* subrole;

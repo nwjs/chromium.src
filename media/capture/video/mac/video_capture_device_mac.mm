@@ -27,7 +27,9 @@
 #include "media/base/timestamp_constants.h"
 #import "media/capture/video/mac/platform_video_capturing_mac.h"
 #import "media/capture/video/mac/video_capture_device_avfoundation_mac.h"
+#if !defined(NWJS_MAS)
 #import "media/capture/video/mac/video_capture_device_qtkit_mac.h"
+#endif
 #include "ui/gfx/geometry/size.h"
 
 @implementation DeviceNameAndTransportType
@@ -456,9 +458,11 @@ bool VideoCaptureDeviceMac::Init(
   if (capture_api_type == Name::AVFOUNDATION) {
     capture_device_ =
         [[VideoCaptureDeviceAVFoundation alloc] initWithFrameReceiver:this];
+#if !defined(NWJS_MAS)
   } else {
     capture_device_ =
         [[VideoCaptureDeviceQTKit alloc] initWithFrameReceiver:this];
+#endif
   }
 
   if (!capture_device_)

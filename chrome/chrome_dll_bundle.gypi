@@ -72,7 +72,7 @@
     'app/framework-Info.plist',
   ],
   'dependencies': [
-    'app_mode_app',
+    # 'app_mode_app',
     # Bring in pdfsqueeze and run it on all pdfs
     '../build/temp_gyp/pdfsqueeze.gyp:pdfsqueeze',
     '../crypto/crypto.gyp:crypto',
@@ -139,6 +139,24 @@
         '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Libraries'
       ],
     },
+    {
+      'postbuild_name': 'Symlink libnode.dylib',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/libnode.dylib',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/libnode.dylib'
+      ],
+    },
+    {
+      'postbuild_name': 'Symlink libffmpeg.dylib',
+      'action': [
+        'ln',
+        '-fns',
+        'Versions/Current/libffmpeg.dylib',
+        '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/libffmpeg.dylib'
+      ],
+    },
   ],
   'copies': [
     {
@@ -151,12 +169,6 @@
       'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)',
       'files': [
         '<(PRODUCT_DIR)/libffmpeg.dylib',
-      ],
-    },
-    {
-      'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers',
-      'files': [
-        '<(PRODUCT_DIR)/crashpad_handler',
       ],
     },
     {
@@ -209,13 +221,13 @@
           '<(SHARED_INTERMEDIATE_DIR)/<(pseudo_locales).pak'
       ],
     },
-    {
-      'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
-      'files': [
-        # Loader bundle for platform apps.
-        '<(PRODUCT_DIR)/app_mode_loader.app',
-      ],
-    },
+    # {
+    #   'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
+    #   'files': [
+    #     # Loader bundle for platform apps.
+    #     '<(PRODUCT_DIR)/app_mode_loader.app',
+    #   ],
+    # },
   ],
   'conditions': [
     ['branding=="Chrome"', {
@@ -315,6 +327,16 @@
         '<(PRODUCT_DIR)/natives_blob.bin',
         '<(PRODUCT_DIR)/snapshot_blob.bin',
       ],
+    }],
+    ['nwjs_mas!=1', {
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers',
+          'files': [
+            '<(PRODUCT_DIR)/crashpad_handler',
+          ],
+        },
+      ]
     }],
   ],  # conditions
 }

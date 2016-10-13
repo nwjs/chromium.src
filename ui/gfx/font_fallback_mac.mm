@@ -14,10 +14,12 @@
 #import "base/strings/sys_string_conversions.h"
 #include "ui/gfx/font.h"
 
+#if !defined(NWJS_MAS)
 // CTFontCopyDefaultCascadeListForLanguages() doesn't exist in the 10.6 SDK.
 // There is only the following. It doesn't exist in the public header files,
 // but is an exported symbol so should always link.
 extern "C" CFArrayRef CTFontCopyDefaultCascadeList(CTFontRef font_ref);
+#endif
 
 namespace {
 
@@ -31,12 +33,16 @@ CFArrayRef CTFontCopyDefaultCascadeListForLanguagesWrapper(
   static const MountainLionPrototype cascade_with_languages_function =
       reinterpret_cast<MountainLionPrototype>(
           dlsym(RTLD_DEFAULT, "CTFontCopyDefaultCascadeListForLanguages"));
+#if !defined(NWJS_MAS)
   if (cascade_with_languages_function)
     return cascade_with_languages_function(font_ref, language_pref_list);
 
   // Fallback to the 10.6 Private API.
   DCHECK(base::mac::IsOSLionOrEarlier());
   return CTFontCopyDefaultCascadeList(font_ref);
+#else
+  return cascade_with_languages_function(font_ref, language_pref_list);
+#endif
 }
 
 }  // namespace
