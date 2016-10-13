@@ -174,7 +174,7 @@ void SecurityStateBubbleDecoration::DrawInFrame(NSRect frame,
 
     // Transform the coordinate system to adjust the baseline on Retina.
     // This is the only way to get fractional adjustments.
-    // gfx::ScopedNSGraphicsContextSaveGState save_graphics_state;
+    gfx::ScopedNSGraphicsContextSaveGState save_graphics_state;
     CGFloat line_width = [control_view cr_lineWidth];
     if (line_width < 1) {
       NSAffineTransform* transform = [NSAffineTransform transform];
@@ -233,10 +233,6 @@ void SecurityStateBubbleDecoration::DrawInFrame(NSRect frame,
     divider_color = [divider_color colorWithAlphaComponent:divider_alpha];
     [divider_color set];
     [line stroke];
-
-    // Revert the transformation.
-    [transform invert];
-    [transform concat];
   }
 }
 
