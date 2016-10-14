@@ -51,8 +51,7 @@ public class DisplayAndroid {
     // Internal implementation. Should not be called outside of UI.
     public static DisplayAndroid get(Context context) {
         Display display = DisplayAndroidManager.getDisplayFromContext(context);
-        int id = display.getDisplayId();
-        return getManager().getDisplayAndroid(id);
+        return getManager().getDisplayAndroid(display);
     }
 
     /**
