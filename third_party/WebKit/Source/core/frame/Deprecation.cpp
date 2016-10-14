@@ -15,7 +15,6 @@
 namespace {
 
 enum Milestone {
-  M55,
   M56,
   M57,
   M58,
@@ -27,8 +26,6 @@ const char* milestoneString(Milestone milestone) {
   // https://www.chromium.org/developers/calendar
 
   switch (milestone) {
-    case M55:
-      return "M55, around December 2016";
     case M56:
       return "M56, around January 2017";
     case M57:
@@ -294,19 +291,19 @@ String Deprecation::deprecationMessage(UseCounter::Feature feature) {
              "https://code.google.com/p/chromium/issues/detail?id=437569#c2";
 
     case UseCounter::AudioListenerDopplerFactor:
-      return dopplerWillBeRemoved("'AudioListener.dopplerFactor'", M55,
+      return dopplerWillBeRemoved("'AudioListener.dopplerFactor'", M56,
                                   "5238926818148352");
 
     case UseCounter::AudioListenerSpeedOfSound:
-      return dopplerWillBeRemoved("'AudioListener.speedOfSound'", M55,
+      return dopplerWillBeRemoved("'AudioListener.speedOfSound'", M56,
                                   "5238926818148352");
 
     case UseCounter::AudioListenerSetVelocity:
-      return dopplerWillBeRemoved("'AudioListener.setVelocity()'", M55,
+      return dopplerWillBeRemoved("'AudioListener.setVelocity()'", M56,
                                   "5238926818148352");
 
     case UseCounter::PannerNodeSetVelocity:
-      return dopplerWillBeRemoved("'PannerNode.setVelocity()'", M55,
+      return dopplerWillBeRemoved("'PannerNode.setVelocity()'", M56,
                                   "5238926818148352");
 
     case UseCounter::PrefixedWindowURL:
@@ -443,19 +440,19 @@ String Deprecation::deprecationMessage(UseCounter::Feature feature) {
       return willBeRemoved(
           "Performing operations that require explicit user interaction on "
           "touchstart events",
-          M55, "5649871251963904");
+          M56, "5649871251963904");
 
     case UseCounter::TouchMoveUserGestureUtilized:
       return willBeRemoved(
           "Performing operations that require explicit user interaction on "
           "touchmove events",
-          M55, "5649871251963904");
+          M56, "5649871251963904");
 
     case UseCounter::TouchEndDuringScrollUserGestureUtilized:
       return willBeRemoved(
           "Performing operations that require explicit user interaction on "
           "touchend events that occur as part of a scroll",
-          M55, "5649871251963904");
+          M56, "5649871251963904");
 
     case UseCounter::MIDIMessageEventReceivedTime:
       return willBeRemoved("MIDIMessageEvent.receivedTime", M56,
