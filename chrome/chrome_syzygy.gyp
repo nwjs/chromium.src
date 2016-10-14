@@ -38,7 +38,8 @@
       'conditions': [
         ['syzygy_optimize==1 or syzyasan==1', {
           'variables': {
-            'dll_name': 'chrome',
+            'dll_name': 'nw',
+            'dll_target_name': 'chrome',
           },
           'targets': [
             # GN version: //chrome/tools/build/win/syzygy:chrome_dll_syzygy
@@ -56,7 +57,8 @@
           'conditions': [
             ['syzyasan==1 or syzygy_optimize==1', {
               'variables': {
-                'dll_name': 'chrome_child',
+                'dll_name': 'nw_child',
+                'dll_target_name': 'chrome_child',
               },
               'targets': [
                 # GN version: //chrome/tools/build/win/syzygy:chrome_child_dll_syzygy

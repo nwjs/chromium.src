@@ -44,8 +44,9 @@ base::string16 GetExeName() {
 
 void InitializeCrashReportingForProcess() {
   // We want to initialize crash reporting only in chrome.exe
-  if (GetExeName() != L"chrome.exe")
-    return;
+  // NWJS#5362: support renaming exe
+  //if (GetExeName() != L"nw.exe")
+  //  return;
   ChromeCrashReporterClient::InitializeCrashReportingForProcess();
 }
 

@@ -11,7 +11,7 @@
   # subdirectory.
   # This target won't build in fastbuild, since there are no PDBs.
   'dependencies': [
-    '<(DEPTH)/chrome/chrome.gyp:<(dll_name)_dll',
+    '<(DEPTH)/chrome/chrome.gyp:<(dll_target_name)_dll',
   ],
   'conditions': [
     ['syzyasan==0 and syzygy_optimize==1', {
