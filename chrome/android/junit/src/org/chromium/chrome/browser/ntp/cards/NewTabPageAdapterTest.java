@@ -753,6 +753,7 @@ public class NewTabPageAdapterTest {
     @Test
     @Feature({"Ntp"})
     public void testSigninPromo() {
+        when(mMockSigninManager.isSignInAllowed()).thenReturn(true);
         when(mMockSigninManager.isSignedInOnNative()).thenReturn(false);
         MockNewTabPageManager ntpManager = new MockNewTabPageManager(mSource);
         NewTabPageAdapter adapter = NewTabPageAdapter.create(ntpManager, null, null);
@@ -785,6 +786,7 @@ public class NewTabPageAdapterTest {
     @Test
     @Feature({"Ntp"})
     public void testSigninPromoDismissal() {
+        when(mMockSigninManager.isSignInAllowed()).thenReturn(true);
         when(mMockSigninManager.isSignedInOnNative()).thenReturn(false);
         ChromePreferenceManager.getInstance(RuntimeEnvironment.application)
                 .setNewTabPageSigninPromoDismissed(false);
