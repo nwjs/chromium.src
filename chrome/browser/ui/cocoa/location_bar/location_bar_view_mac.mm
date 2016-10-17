@@ -122,7 +122,7 @@ LocationBarViewMac::LocationBarViewMac(AutocompleteTextField* field,
       browser_(browser),
       location_bar_visible_(true),
       should_show_secure_verbose_(true),
-      should_animate_security_verbose_(true),
+      should_animate_security_verbose_(false),
       is_width_available_for_security_verbose_(false),
       weak_ptr_factory_(this) {
   ScopedVector<ContentSettingImageModel> models =
@@ -527,6 +527,9 @@ void LocationBarViewMac::Layout() {
     }
   }
 
+  if (!security_state_bubble_decoration_->IsVisible())
+    security_state_bubble_decoration_->ResetAnimation();
+
   // These need to change anytime the layout changes.
   // TODO(shess): Anytime the field editor might have changed, the
   // cursor rects almost certainly should have changed.  The tooltips
@@ -881,7 +884,7 @@ void LocationBarViewMac::UpdateSecurityState(bool tab_changed) {
   // animate the decoration if animation is enabled and the state changed is
   // not from a tab switch.
   if (is_width_available_for_security_verbose_) {
-    if (security_state_bubble_decoration_->HasAnimatedOut())
+    if (!tab_changed && security_state_bubble_decoration_->HasAnimatedOut())
       security_state_bubble_decoration_->AnimateIn(false);
     else if (!should_animate_security_verbose_ || tab_changed)
       security_state_bubble_decoration_->ShowWithoutAnimation();
