@@ -1548,8 +1548,11 @@ public class Tab implements ViewGroup.OnHierarchyChangeListener,
                     new TabReparentingParams(this, intent, finalizeCallback));
 
             tabModelSelector.getModel(mIncognito).removeTab(this);
-
-            updateWindowAndroid(null);
+            
+            // We can't call updateWindowAndroid here and set mWindowAndroid to null because the tab
+            // may navigate while being reparented and cause a crash.
+            // TODO(mthiesse): File a bug when crbug isn't down.
+            if (mContentViewCore != null) mContentViewCore.updateWindowAndroid(null);
             attachTabContentManager(null);
         }
 
