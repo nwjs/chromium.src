@@ -73,8 +73,12 @@ void ChromeNativeAppWindowViewsWin::InitializeDefaultWindow(
   HWND hwnd = GetNativeAppWindowHWND();
   Profile* profile =
       Profile::FromBrowserContext(app_window()->browser_context());
+  if (!create_params.app_user_model_id.empty()) {
+    app_model_id_ = base::UTF8ToWide(create_params.app_user_model_id);
+  } else {
   app_model_id_ = shell_integration::win::GetAppModelIdForProfile(
       app_name_wide, profile->GetPath());
+  }
   ui::win::SetAppIdForWindow(app_model_id_, hwnd);
   web_app::UpdateRelaunchDetailsForApp(profile, extension, hwnd);
 
@@ -97,4 +101,10 @@ bool ChromeNativeAppWindowViewsWin::CanMinimize() const {
   // See http://crbug.com/417947.
   return ChromeNativeAppWindowViewsAura::CanMinimize() &&
          !(WidgetHasHitTestMask() && is_translucent_);
+}
+
+void ChromeNativeAppWindowViewsWin::SetAppModelId(base::string16 app_model_id) {
+  app_model_id_ = app_model_id;
+  HWND hwnd = GetNativeAppWindowHWND();
+  ui::win::SetAppIdForWindow(app_model_id_, hwnd);
 }

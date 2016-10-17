@@ -25,6 +25,10 @@ class ChromeNativeAppWindowViewsWin : public ChromeNativeAppWindowViewsAura {
     return glass_frame_view_;
   }
 
+  void SetAppModelId(base::string16 app_model_id);
+
+  base::string16 app_model_id() { return app_model_id_; }
+
  private:
   void OnShortcutInfoLoaded(
       const web_app::ShortcutInfo& shortcut_info);
