@@ -589,6 +589,8 @@ void HTMLMediaElement::parseAttribute(const QualifiedName& name,
     setPlayerPreload();
   } else if (name == disableremoteplaybackAttr) {
     UseCounter::count(document(), UseCounter::DisableRemotePlaybackAttribute);
+    if (mediaControls() && (oldValue != value))
+      mediaControls()->refreshCastButtonVisibility();
   } else {
     HTMLElement::parseAttribute(name, oldValue, value);
   }
