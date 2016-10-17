@@ -101,6 +101,7 @@
 <translation id="1128591060186966949">検索エンジンの編集</translation>
 <translation id="1128987120443782698">このストレージ デバイスの容量は <ph name="DEVICE_CAPACITY" /> です。容量が 4 GB 以上の SD カードまたは USB メモリ スティックを挿入してください。</translation>
 <translation id="1137135726305341424">domContentLoaded と、domContentLoaded より前に開始したすべてのリソースの読み込み（メインフレームと、同じ発生元の iframe）。</translation>
+<translation id="1138663153846032155">Flash より HTML を優先する</translation>
 <translation id="1140351953533677694">Bluetooth デバイスとシリアル デバイスへのアクセス</translation>
 <translation id="114140604515785785">拡張機能のルート ディレクトリ:</translation>
 <translation id="1143142264369994168">証明書の署名者</translation>
@@ -252,6 +253,7 @@
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> 件のファイルをインポートしています...</translation>
 <translation id="1352103415082130575">タイ語キーボード（Pattachote）</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
+<translation id="1353946958707294039">マテリアル デザインのストレージ マネージャ</translation>
 <translation id="1353966721814789986">起動ページ</translation>
 <translation id="1354868058853714482">Adobe Reader のバージョンが古いため安全でない可能性があります。</translation>
 <translation id="1355408554203439639">3D ソフトウェア ラスタライザ</translation>
@@ -424,7 +426,6 @@
 <translation id="1533920822694388968">テレビの配置</translation>
 <translation id="15373452373711364">大きいマウス カーソル</translation>
 <translation id="1543284117603151572">Edge からインポート</translation>
-<translation id="1544350195767834591">{NUM_COOKIES,plural, =1{他サイトから 1 個}other{他サイトから # 個}}</translation>
 <translation id="1545177026077493356">自動キオスク モード</translation>
 <translation id="1545786162090505744">URL（%s=検索語句）</translation>
 <translation id="1546280085599573572">この拡張機能により、ホームボタンをクリックしたときに表示されるページが変更されました。</translation>
@@ -873,6 +874,7 @@
 <translation id="218492098606937156">タッチ イベントを有効にする</translation>
 <translation id="2187317261103489799">検出（デフォルト）</translation>
 <translation id="2187895286714876935">サーバー証明書インポート エラー</translation>
+<translation id="2188881192257509750"><ph name="APPLICATION" /> を開く</translation>
 <translation id="2190069059097339078">WiFi 認証情報の取得機能</translation>
 <translation id="219008588003277019">ネイティブ クライアント モジュール: <ph name="NEXE_NAME" /></translation>
 <translation id="2190355936436201913">(なし)</translation>
@@ -1982,6 +1984,7 @@
 <translation id="3574210789297084292">ログイン</translation>
 <translation id="3574305903863751447"><ph name="COUNTRY" /> <ph name="STATE" /> <ph name="CITY" /></translation>
 <translation id="357479282490346887">リトアニア語</translation>
+<translation id="3575927481544652747">WebMIDI で Windows Runtime MIDI API を無効にします（Windows 10 以降ではデフォルトで有効です）。</translation>
 <translation id="3576324189521867626">インストールが完了しました</translation>
 <translation id="3578331450833904042">既定（広範囲の音声を検出）</translation>
 <translation id="3578594933904494462">このタブのコンテンツは共有されています。</translation>
@@ -2036,7 +2039,6 @@
 <translation id="3627588569887975815">シークレット ウィンドウで開く(&amp;G)</translation>
 <translation id="3627671146180677314">Netscape 証明書更新時間</translation>
 <translation id="3629326610814700057">ローカル ストレージを管理するストレージ管理者を有効にします。</translation>
-<translation id="3630337581925712713"><ph name="PERMISSION_TYPE_LABEL" />:</translation>
 <translation id="3631337165634322335">以下の例外は、このシークレット モード セッションにのみ適用されます。</translation>
 <translation id="3633586230741134985">アプリ ランチャーの設定</translation>
 <translation id="3633997706330212530">これらのサービスを無効にすることもできます。</translation>
@@ -2060,6 +2062,8 @@
 <translation id="3654092442379740616">同期エラー: <ph name="PRODUCT_NAME" /> が最新ではないため、更新する必要があります。</translation>
 <translation id="3655712721956801464">{NUM_FILES,plural, =1{1 個のファイルに永続的にアクセスできます。}other{# 個のファイルに永続的にアクセスできます。}}</translation>
 <translation id="3657468915905674858">PPAPI Win32k のロックダウンを有効にする</translation>
+<translation id="365793796291733849"><ph name="BEGIN_PARAGRAPH1" />自動バックアップをオンにすると、端末とアプリのデータは定期的に Google ドライブの非公開フォルダに保存されます。アプリのデータとは、デベロッパーの設定に基づいてアプリが保存したデータのことです。これには連絡先、メッセージ、写真など機密情報になり得るデータも含まれます。<ph name="END_PARAGRAPH1" />
+    <ph name="BEGIN_PARAGRAPH2" />バックアップ データは Google ドライブの保存容量にはカウントされません。大容量のファイルや、デベロッパーがサービスから除外することを選択したファイルはバックアップされません。<ph name="END_PARAGRAPH2" /></translation>
 <translation id="3660234220361471169">信頼されていない</translation>
 <translation id="3665589677786828986">設定の一部が別のプログラムによって変更されていたため、元のデフォルト設定に戻しました。</translation>
 <translation id="3665842570601375360">セキュリティ:</translation>
@@ -2114,6 +2118,7 @@
 <translation id="3733127536501031542">International Step-UP 対応の SSL サーバー</translation>
 <translation id="3736520371357197498">危険なプログラムが削除されるより前に<ph name="BEGIN_LINK" />この安全でないサイトにアクセスする<ph name="END_LINK" />場合は、セキュリティ上のリスクについてご承知おきください。</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
+<translation id="3739254215541673094"><ph name="APPLICATION" /> を開きますか？</translation>
 <translation id="3739798227959604811">リピートまでの時間:</translation>
 <translation id="3741158646617793859"><ph name="DEVICE_NAME" /> は管理コンソールに表示されます</translation>
 <translation id="3741243925913727067">メディア デバイスの写真や動画を Google ドライブにバックアップします。</translation>
@@ -2442,6 +2447,7 @@
 <translation id="418179967336296930">ロシア語表音（YaZHert）キーボード</translation>
 <translation id="4181841719683918333">言語</translation>
 <translation id="4187248015940562149">ウェブ Bluetooth を有効にします。ウェブ Bluetooth により、ウェブサイトはユーザーの近くにある Bluetooth デバイスに接続し、そのデバイスを制御することができます。</translation>
+<translation id="4188447344915957833">マテリアル デザインの設定でストレージ マネージャを有効にします。</translation>
 <translation id="4189406272289638749">拡張機能 &lt;b&gt;<ph name="EXTENSION_NAME" />&lt;/b&gt; がこの設定を制御しています。</translation>
 <translation id="4193154014135846272">Google ドキュメント</translation>
 <translation id="4193182321948161343">マテリアル デザイン ユーザー マネージャを有効にする</translation>
@@ -2815,6 +2821,7 @@
 <translation id="4749157430980974800">グルジア語キーボード</translation>
 <translation id="4750394297954878236">候補</translation>
 <translation id="475088594373173692">最初のユーザー</translation>
+<translation id="4750892496809949692">プラグインのリストで Flash を非表示にして、HTML コンテンツを優先します。</translation>
 <translation id="4750917950439032686">お客様がこのサイトに送信した情報（パスワード、クレジット カード番号など）が第三者に見られることはありません。</translation>
 <translation id="4753602155423695878">Android スマートフォンのページ読み込み状況バーのアニメーション</translation>
 <translation id="4755240240651974342">フィンランド語のキーボード</translation>
@@ -3089,6 +3096,7 @@
 <translation id="5119450342834678097">設定メニューの [タブレット サイトのリクエスト] オプション</translation>
 <translation id="5120068803556741301">サードパーティによる入力方法</translation>
 <translation id="5120421890733714118">ウェブサイトの身元を特定するこの証明書を信頼します。</translation>
+<translation id="5120516977819314347">PIN またはパスワードが正しくありません。</translation>
 <translation id="5121130586824819730">ハード ディスクがいっぱいです。別の場所に保存するか、ハード ディスクの空き容量を増やしてください。</translation>
 <translation id="5125751979347152379">URL が無効です。</translation>
 <translation id="5127881134400491887">ネットワーク接続の管理</translation>
@@ -3096,6 +3104,7 @@
 <translation id="512903556749061217">接続</translation>
 <translation id="5129301143853688736">このサイトへの接続はプライベート接続ではありません。悪意のあるユーザーが <ph name="DOMAIN" /> 上のあなたの情報（写真、パスワード、メッセージ、クレジット カード番号など）を不正に取得しようとしている可能性があります。</translation>
 <translation id="5129662217315786329">ポーランド語</translation>
+<translation id="5131347545782851480">PDF ドキュメント</translation>
 <translation id="5134856901811723984">Chrome OS システムの画面のマテリアル デザイン</translation>
 <translation id="5135533361271311778">ブックマークの項目を作成できませんでした。</translation>
 <translation id="5136529877787728692">F7</translation>
@@ -3264,6 +3273,7 @@
 <translation id="5328031682234198929">8</translation>
 <translation id="5329858601952122676">削除(&amp;D)</translation>
 <translation id="5330145655348521461">これらのファイルは別のデスクトップで開かれます。表示するには <ph name="USER_NAME" />（<ph name="MAIL_ADDRESS" />）に移動してください。</translation>
+<translation id="5330512191124428349">情報を見る</translation>
 <translation id="5332624210073556029">タイムゾーン:</translation>
 <translation id="5333807720589685258">正しい PIN ロック解除キーが入力されないと、
       SIM カードは永久的に無効になります。</translation>
@@ -3751,6 +3761,8 @@
 <translation id="5984222099446776634">最近のアクセス</translation>
 <translation id="5984814259619230127">Smart Lock での Bluetooth Low Energy による検出</translation>
 <translation id="5986245990306121338">有効にした場合、設定で [タブとアプリを統合] オプションがオンになっていてもタブ切り替えが表示されます。</translation>
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />お使いの端末とその使用方法に関する全般情報です。電池残量、アプリの使用頻度、ネットワーク接続（Wi-Fi、Bluetooth など）の品質と接続時間、正常な動作が行われなかったときの障害レポートなどが含まれます。この情報は Google のサービス品質の向上に使用され、一部の統計情報はパートナー（Android デベロッパーなど）のアプリやサービスの向上にも役立てられます。<ph name="END_PARAGRAPH1" />
+    <ph name="BEGIN_PARAGRAPH2" />Android アプリの設定でいつでもこの機能のオンとオフを切り替えることができます。この機能をオフにしても、端末でシステム アップデートやセキュリティなどの基本的なサービスを受けるために必要な情報の送信は行われます。<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">chrome:// URL での拡張機能</translation>
 <translation id="5990814808592353318">パスワードを手動で生成する</translation>
 <translation id="5991049340509704927">拡大表示</translation>
@@ -4205,6 +4217,7 @@
 <translation id="6607272825297743757">ファイル情報</translation>
 <translation id="6607831829715835317">その他のツール(&amp;L)</translation>
 <translation id="6608140561353073361">すべての Cookie とサイト データ...</translation>
+<translation id="6610183966322615106">プリンタの追加中にエラーが発生しました</translation>
 <translation id="6610610633807698299">URL を入力...</translation>
 <translation id="6612358246767739896">保護されたコンテンツ</translation>
 <translation id="6615455863669487791">表示</translation>
@@ -4583,6 +4596,7 @@
 <translation id="715118844758971915">従来のプリンタ</translation>
 <translation id="7154130902455071009">スタート ページを次に変更します: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">カメラやファイルに保存されている写真</translation>
+<translation id="7155226869555939647">常に <ph name="APPLICATION" /> でリンクを開く</translation>
 <translation id="715568033737470079">Win32k のロックダウン サンドボックス ポリシー内で実行される PPAPI プラグインを指定します（Windows 10 以上のみ）。</translation>
 <translation id="7156235233373189579">このファイルは Windows ソフトウェアを使用する PC 向けのもので、Chrome OS を実行するデバイスとは互換性がありません。<ph name="BEGIN_LINK" />Chrome ウェブストア<ph name="END_LINK" />で、このデバイスで使用できる代わりのアプリをお探しください。<ph name="BEGIN_LINK_HELP" />詳細<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">[続行] をクリックすると、<ph name="LEGAL_DOC_LINK_TEXT_1" />、<ph name="LEGAL_DOC_LINK_TEXT_2" />、<ph name="LEGAL_DOC_LINK_TEXT_3" />、<ph name="LEGAL_DOC_LINK_TEXT_4" />に同意したことになります。</translation>
@@ -4764,7 +4778,6 @@
 <translation id="7409233648990234464">再起動と Powerwash</translation>
 <translation id="7409836189476010449">Flash の実行</translation>
 <translation id="7410344089573941623"><ph name="HOST" /> がカメラやマイクへのアクセスを要求しているか確認する</translation>
-<translation id="7411343637221933631">{NUM_COOKIES,plural, =1{このサイトから 1 個}other{このサイトから # 個}}</translation>
 <translation id="7412226954991670867">GPU メモリ</translation>
 <translation id="7416362041876611053">不明なネットワーク エラーが発生しました。</translation>
 <translation id="7417453074306512035">エチオピア語キーボード</translation>
@@ -4926,6 +4939,7 @@
 <translation id="7626009897377900107">パスワードの生成</translation>
 <translation id="7627262197844840899">このサイトでは MasterCard は使用できません。</translation>
 <translation id="7627790789328695202"><ph name="FILE_NAME" /> は既に存在しています。名前を変更してもう一度お試しください。</translation>
+<translation id="7628127343934101653">PDF ファイルをデフォルトの PDF ビューア アプリで開く。</translation>
 <translation id="762917759028004464">既定のブラウザは <ph name="BROWSER_NAME" /> に設定されています。</translation>
 <translation id="7629536005696009600">Android アプリケーション用に保存されている認証情報を、対応するウェブサイトに入力できるようにします。</translation>
 <translation id="7629827748548208700">タブ:<ph name="TAB_NAME" /></translation>
@@ -5154,6 +5168,7 @@
 <translation id="7957513156576779045">ペア設定するには Bluetooth を有効にします</translation>
 <translation id="7957615753207896812">キーボードのデバイス設定を開く</translation>
 <translation id="7959074893852789871">ファイルに含まれる複数の証明書のうち、一部をインポートできませんでした:</translation>
+<translation id="7959700692661109221"><ph name="BEGIN_PARAGRAPH" />Google の位置情報サービスは、Wi-Fi などのソースを使用して、よりすばやく正確に端末の現在地を推定します。Google の位置情報サービスをオンにした場合、端末は Wi‑Fi を使用して現在地を推定するモードになります。このサービスは位置情報の設定でいつでもオフにできます。<ph name="END_PARAGRAPH" /></translation>
 <translation id="7961015016161918242">使用しない</translation>
 <translation id="7964089325405904043">パスワードのインポートとエクスポート</translation>
 <translation id="7965010376480416255">共有メモリ</translation>
@@ -5304,6 +5319,7 @@
 <translation id="8146793085009540321">ログインできませんでした。管理者にお問い合わせいただくか、もう一度お試しください。</translation>
 <translation id="8148264977957212129">Pinyin 入力方法</translation>
 <translation id="8148913456785123871">ランチャーで Google Now カードを利用する</translation>
+<translation id="8150391391298684512">Windows Runtime MIDI API を無効にする</translation>
 <translation id="8151185429379586178">デベロッパー ツール</translation>
 <translation id="8151638057146502721">設定</translation>
 <translation id="8151639108075998630">ゲストのブラウジングを許可する</translation>
@@ -5584,6 +5600,7 @@
 <translation id="8532294913309524834">言語を任意の順序に並べます。</translation>
 <translation id="8535005006684281994">Netscape 証明書更新 URL</translation>
 <translation id="8539727552378197395">いいえ（HTTP のみ）</translation>
+<translation id="8541084862688000575">Android アプリを自動的に読み込む</translation>
 <translation id="8543181531796978784"><ph name="BEGIN_ERROR_LINK" />検出の問題をご報告<ph name="END_ERROR_LINK" />ください。<ph name="BEGIN_LINK" />安全でないこのサイトにアクセス<ph name="END_LINK" />する場合は、セキュリティ上のリスクがあることをご承知おきください。</translation>
 <translation id="8545107379349809705">情報を表示しない...</translation>
 <translation id="8545211332741562162">ウェブページで JavaScript の試験運用機能を使用できるようにします。</translation>
@@ -5633,6 +5650,7 @@
 <translation id="8600929685092827187">パケットを受信したらスリープから復帰する</translation>
 <translation id="8601206103050338563">TLS WWW クライアント認証</translation>
 <translation id="8602851771975208551">パソコン上の別のプログラムにより、Chrome の動作方法を変更する可能性のあるアプリが追加されました。</translation>
+<translation id="8603912787021349466">ログイン後に Android アプリが自動起動することを許可します。</translation>
 <translation id="8605428685123651449">SQLite メモリ</translation>
 <translation id="8605503133013456784">「<ph name="DEVICE_NAME" />」との接続を切断してペア設定を解除できませんでした。</translation>
 <translation id="8606726445206553943">MIDI デバイスの使用</translation>
@@ -5985,6 +6003,7 @@
 <translation id="9053965862400494292">同期の設定中にエラーが発生しました。</translation>
 <translation id="9056034633062863292">Chromebox を更新中...</translation>
 <translation id="9056810968620647706">一致する項目が見つかりません。</translation>
+<translation id="9057119625587205566">近くにプリンタはありません</translation>
 <translation id="9059868303873565140">ステータス メニュー</translation>
 <translation id="9064142312330104323">Google プロフィール写真（読み込み中）</translation>
 <translation id="9064275926664971810">フォームにワンクリックで自動入力できるようにします</translation>
@@ -6028,6 +6047,7 @@
 <translation id="9112614144067920641">新しい PIN を選択してください。</translation>
 <translation id="9112748030372401671">壁紙を変更する</translation>
 <translation id="9112987648460918699">検索...</translation>
+<translation id="9114663181201435112">簡単にログイン</translation>
 <translation id="9115487443206954631">キャスト デバイスを管理</translation>
 <translation id="9115675100829699941">ブックマーク(&amp;B)</translation>
 <translation id="9121814364785106365">固定されたタブとして開く</translation>

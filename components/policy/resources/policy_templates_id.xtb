@@ -819,11 +819,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="3660562134618097814">Transfer cookie SAML IdP saat proses masuk.</translation>
 <translation id="3709266154059827597">Konfigurasikan daftar hitam pemasangan ekstensi</translation>
 <translation id="3711895659073496551">Tangguhkan</translation>
-<translation id="3715448429089775791">Memaksakan Mode Perlindungan YouTube untuk mengaktifkan dan mencegah pengguna mengubah setelan ini.
-
-      Jika Anda mengaktifkan setelan ini, Mode Perlindungan di YouTube selalu aktif.
-
-      Jika Anda menonaktifkan setelan ini atau tidak menyetel nilai, Mode Perlindungan di YouTube tidak akan diterapkan.</translation>
 <translation id="3750220015372671395">Blokir pembuatan kunci di situs ini</translation>
 <translation id="3756011779061588474">Blokir mode pengembang</translation>
 <translation id="3758089716224084329">Memungkinkan Anda menentukan server proxy yang digunakan oleh <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubah setelan proxy.
@@ -2215,6 +2210,10 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="8369602308428138533">Penundaan mematikan layar saat menggunakan daya AC</translation>
 <translation id="8382184662529825177">Mengaktifkan penggunaan pengesahan jarak jauh untuk perlindungan konten bagi perangkat</translation>
 <translation id="838870586332499308">Aktifkan roaming data</translation>
+<translation id="8390049129576938611">Menonaktifkan penampil PDF internal di <ph name="PRODUCT_NAME" />. Bukan memperlakukannya sebagai download dan mengizinkan membuka file PDF menggunakan aplikasi default.
+
+      Jika kebijakan ini tidak disetel atau dinonaktifkan, plugin PDF akan digunakan untuk membuka file PDF kecuali pengguna menonaktifkannya.</translation>
+<translation id="8402079500086185021">Selalu Buka file PDF menggunakan secara eksternal</translation>
 <translation id="8412312801707973447">Apakah pemeriksaan OCSP/CRL online dilakukan atau tidak</translation>
 <translation id="8413348101535146315">Memungkinkan proses diakhiri di Pengelola Tugas <ph name="PRODUCT_NAME" />.
 
@@ -2374,13 +2373,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       otomatis menghubungi Quirks Server dan mengunduh file konfigurasi,
       jika tersedia, dan menyimpannya di perangkat.  File tersebut dapat,
       misalnya, digunakan untuk meningkatkan kualitas tampilan monitor yang terpasang.</translation>
-<translation id="8905426178924715309">Kebijakan ini tidak digunakan lagi, gunakan ForceGoogleSafeSearch dan ForceYouTubeSafetyMode sebagai gantinya. Kebijakan ini akan diabaikan jika kebijakan ForceGoogleSafeSearch atau ForceYouTubeSafetyMode disetel.
-
-      Memaksa kueri di Google Penelusuran Web untuk dilakukan dengan TelusurAman yang diaktifkan, dan mencegah pengguna mengubah setelan ini. Setelan ini juga memaksa Mode Perlindungan di YouTube.
-
-      Jika Anda mengaktifkan setelan ini, TelusurAman di Google Penelusuran dan YouTube akan selalu aktif.
-
-      Jika Anda menonaktifkan setelan ini atau tidak menyetel nilai, TelusurAman di Google Penelusuran dan YouTube tidak akan diberlakukan.</translation>
 <translation id="8906768759089290519">Aktifkan mode tamu</translation>
 <translation id="8908294717014659003">Memungkinkan Anda menyetel apakah situs web diizinkan untuk mengakses perangkat tangkap media. Akses ke perangkat tangkap media dapat diizinkan secara default, atau dapat ditanyakan pada pengguna setiap saat situs web ingin mendapatkan akses ke perangkat tangkap media.
 

@@ -818,11 +818,6 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 <translation id="3660562134618097814">Transferir cookies SAML IdP durante o início de sessão</translation>
 <translation id="3709266154059827597">Configurar lista negra de instalação de extensões</translation>
 <translation id="3711895659073496551">Suspenso</translation>
-<translation id="3715448429089775791">Força a ativação do Modo de segurança do YouTube e impede os utilizadores de alterar esta definição.
-
-      Se ativar esta definição, o Modo de segurança do YouTube está sempre ativo.
-
-      Se desativar esta definição ou não definir um valor, o Modo de segurança do YouTube não é aplicado.</translation>
 <translation id="3750220015372671395">Bloquear a geração de chaves nestes sites</translation>
 <translation id="3756011779061588474">Bloquear modo de programador</translation>
 <translation id="3758089716224084329">Permite-lhe especificar o servidor proxy utilizado pelo <ph name="PRODUCT_NAME" /> e impede os utilizadores de alterarem as definições de proxy.
@@ -2214,6 +2209,10 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="8369602308428138533">Atraso para desligar o ecrã quando o dispositivo está ligado à eletricidade</translation>
 <translation id="8382184662529825177">Ativar a utilização da comprovação remota para proteção de conteúdo no dispositivo</translation>
 <translation id="838870586332499308">Ativar roaming de dados</translation>
+<translation id="8390049129576938611">Desativa o visualizador de PDF interno no <ph name="PRODUCT_NAME" />. Em vez disso, trata-o como uma transferência e permite ao utilizador abrir ficheiros PDF com a aplicação predefinida.
+
+      Se esta política não for definida ou for desativada, é utilizado o plug-in de PDF para abrir ficheiros PDF, a menos que o utilizador o desative.</translation>
+<translation id="8402079500086185021">Abrir sempre ficheiros PDF externamente</translation>
 <translation id="8412312801707973447">Se são ou não efetuadas verificações OCSP/CRL on-line</translation>
 <translation id="8413348101535146315">Ativa a conclusão de processos no Gestor de tarefas do <ph name="PRODUCT_NAME" />.
 
@@ -2373,13 +2372,6 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
       contacta automaticamente o Quirks Server, transfere os ficheiros de configuração,
       se estiverem disponíveis, e armazena-os no dispositivo. Estes ficheiros podem
       ser utilizados, por exemplo, para melhorar a qualidade de visualização dos monitores ligados.</translation>
-<translation id="8905426178924715309">Esta política foi descontinuada. Utilize ForceGoogleSafeSearch e ForceYouTubeSafetyMode em alternativa. Esta política é ignorada se as políticas ForceGoogleSafeSearch ou ForceYouTubeSafetyMode forem definidas.
-
-      Força a execução de consultas na Pesquisa Web do Google através da Pesquisa segura definida como ativa e impede os utilizadores de alterar esta definição. Esta definição também força o Modo de segurança no YouTube.
-
-      Se ativar esta definição, a Pesquisa segura na Pesquisa Google está sempre ativa.
-
-      Se desativar esta definição ou não definir um valor, a Pesquisa segura na Pesquisa Google e no YouTube não é aplicada.</translation>
 <translation id="8906768759089290519">Ativar o modo de convidado</translation>
 <translation id="8908294717014659003">Permite-lhe definir se os Websites podem aceder a dispositivos de captura de multimédia. O acesso a dispositivos de captura de multimédia pode ser autorizado por predefinição ou o utilizador pode ser consultado sempre que um Website pretenda obter acesso a dispositivos de captura de multimédia.
 

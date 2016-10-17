@@ -371,7 +371,6 @@
 <translation id="495170559598752135">Toiminnot</translation>
 <translation id="4958444002117714549">Laajenna luettelo</translation>
 <translation id="4962322354953122629">Palvelin ei voinut todistaa olevansa <ph name="DOMAIN" />, sillä Chrome ei luota sen suojausvarmenteeseen. Tämä voi johtua määritysvirheestä tai hyökkäyksestä, jonka tavoitteena on verkkoyhteytesi sieppaaminen. <ph name="BEGIN_LEARN_MORE_LINK" />Lisätietoja<ph name="END_LEARN_MORE_LINK" /></translation>
-<translation id="4986920000862467124">Kaikki luettu</translation>
 <translation id="498957508165411911">Käännetäänkö kielestä <ph name="ORIGINAL_LANGUAGE" /> kielelle <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="4989809363548539747">Tätä laajennusta ei tueta.</translation>
 <translation id="5002932099480077015">Kun tämä vaihtoehto on käytössä, Chrome nopeuttaa lomakkeiden täyttämistä tallentamalla kortin tiedot tälle laittelle.</translation>
@@ -395,6 +394,7 @@
 <translation id="5190835502935405962">Kirjanmerkkipalkki</translation>
 <translation id="5199729219167945352">Kokeilut</translation>
 <translation id="5251803541071282808">Pilvi</translation>
+<translation id="5277279256032773186">Käytätkö Chromea töissä? Yritykset voivat hallita Chromen asetuksia työntekijöidensä puolesta. Lisätietoja</translation>
 <translation id="5299298092464848405">Virhe jäsennettäessä käytäntöä</translation>
 <translation id="5300589172476337783">Näytä</translation>
 <translation id="5308689395849655368">Kaatumisraportit on poistettu käytöstä.</translation>

@@ -839,11 +839,6 @@
 <translation id="3660562134618097814">Overfør SAML IdP-informasjonskapsler ved pålogging</translation>
 <translation id="3709266154059827597">Konfigurer installasjonssperrelisten for utvidelser</translation>
 <translation id="3711895659073496551">Suspender</translation>
-<translation id="3715448429089775791">Tvinger gjennom bruk av sikkerhetsmodusen for YouTube og hindrer brukerne i å endre denne innstillingen.
-
-      Hvis du slår på denne innstillingen, er sikkerhetsmodusen for YouTube alltid på.
-
-      Hvis du slår av denne innstillingen eller ikke spesifiserer noen verdi, blir ikke sikkerhetsmodusen for YouTube slått på ved tvang.</translation>
 <translation id="3750220015372671395">Blokkér nøkkelgenerering på disse nettstedene</translation>
 <translation id="3756011779061588474">Blokkering av utviklermodus</translation>
 <translation id="3758089716224084329">Lar deg spesifisere hvilken proxy-tjener som brukes av <ph name="PRODUCT_NAME" />, og hindrer brukerne i å endre proxy-innstillingene.
@@ -2315,6 +2310,9 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="8369602308428138533">Forsinkelse for avslått skjerm når du bruker strømadapteren</translation>
 <translation id="8382184662529825177">Slå på bruken av ekstern attestasjon for innholdsbeskyttelse på enheten</translation>
 <translation id="838870586332499308">Aktiver datastreifing</translation>
+<translation id="8390049129576938611">Slår av den interne appen for visning av PDF-filer på <ph name="PRODUCT_NAME" />. PDF-filer blir i stedet lastet ned, og brukeren kan åpne dem med standardappen.
+    Hvis disse retningslinjene slås av eller ikke angis, åpnes PDF-filer i PDF-programtillegget frem til brukeren eventuelt slår det av.</translation>
+<translation id="8402079500086185021">Åpne alltid PDF-filer eksternt</translation>
 <translation id="8412312801707973447">Angir om OCSP/CRL-kontroller utføres på nettet</translation>
 <translation id="8413348101535146315">Slår på muligheten for å avslutte prosesser i oppgavebehandlingen i <ph name="PRODUCT_NAME" />.
 
@@ -2493,13 +2491,6 @@ programtillegg. Shockwave Flash-programtillegget tilhører for eksempel Adobe Fl
       Quirks Server automatisk, laster ned eventuelle tilgjengelige
       konfigurasjonsfiler og lagrer dem på enheten. Slike filer kan for eksempel
       brukes for å forbedre visningskvaliteten på tilkoblede skjermer.</translation>
-<translation id="8905426178924715309">Denne regelen er avviklet. Bruk ForceGoogleSafeSearch og ForceYouTubeSafetyMode i stedet. Denne regelen ignoreres hvis ForceGoogleSafeSearch eller ForceYouTubeSafetyMode er spesifisert.
-
-      Tvinger søkene i Google Nettsøk til å gjøres med Sikkert Søk slått på, og hindrer brukerne i å endre denne innstillingen. Denne regelen tvinger også frem bruk av sikkerhetsmodus i YouTube.
-
-      Hvis du slår på denne regelen, er Sikkert Søk i Google Søk og YouTube alltid aktivt.
-
-      Hvis du slår av denne regelen eller ikke angir noen verdi, er Sikkert Søk valgfritt i Google Søk og YouTube.</translation>
 <translation id="8906768759089290519">Aktiver gjestemodus</translation>
 <translation id="8908294717014659003">Lar deg angi om nettsteder skal gis tillatelse til å bruke digitaliseringsenhetene dine. Bruk av digitaliseringsenheter kan tillates som standard, eller angis slik at brukeren blir spurt om tillatelse hver gang et nettsted ønsker å bruke slike enheter.
 

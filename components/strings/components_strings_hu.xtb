@@ -368,7 +368,6 @@
 <translation id="495170559598752135">Műveletek</translation>
 <translation id="4958444002117714549">Lista részletes nézete</translation>
 <translation id="4962322354953122629">A szerver nem tudta bizonyítani, hogy valóban a(z) <ph name="DOMAIN" /> domainbe tartozik; biztonsági tanúsítványa a Chrome szerint nem megbízható. Ennek oka lehet konfigurációs hiba, vagy hogy támadó térítette el az Ön kapcsolódását. <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Minden elolvasva</translation>
 <translation id="498957508165411911">Lefordítja <ph name="ORIGINAL_LANGUAGE" /> nyelvről <ph name="TARGET_LANGUAGE" /> nyelvre?</translation>
 <translation id="4989809363548539747">Ez a beépülő modul nem támogatott</translation>
 <translation id="5002932099480077015">Ha engedélyezi, a Chrome megőrzi a kártya másolatát ezen az eszközön a gyorsabb űrlapkitöltés érdekében.</translation>
@@ -392,6 +391,7 @@
 <translation id="5190835502935405962">Könyvjelzősáv</translation>
 <translation id="5199729219167945352">Kísérletek</translation>
 <translation id="5251803541071282808">Felhő</translation>
+<translation id="5277279256032773186">A munkahelyén használja a Chrome-ot? A cégek kezelhetik a Chrome-beállításokat alkalmazottaik számára. További információ.</translation>
 <translation id="5299298092464848405">Irányelv-előfeldolgozási hiba</translation>
 <translation id="5300589172476337783">Megjelenítés</translation>
 <translation id="5308689395849655368">A hibabejelentés ki van kapcsolva.</translation>

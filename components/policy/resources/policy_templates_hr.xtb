@@ -814,11 +814,6 @@
 <translation id="3660562134618097814">Prenesi kolačiće SAML IdP-a tijekom prijave</translation>
 <translation id="3709266154059827597">Konfiguriraj crnu listu instalacije proširenja</translation>
 <translation id="3711895659073496551">Obustavi</translation>
-<translation id="3715448429089775791">Nameće aktiviranje Sigurnog načina rada na YouTubeu i korisnicima onemogućuje promjenu te postavke.
-
-      Ako omogućite tu postavku, Siguran način rada na YouTubeu uvijek je aktivan.
-
-      Ako onemogućite tu postavku ili ne postavite vrijednost, Siguran način rada na YouTubeu neće se primijeniti.</translation>
 <translation id="3750220015372671395">Blokiraj generiranje ključeva na ovim web-lokacijama</translation>
 <translation id="3756011779061588474">Blokiraj način rada razvojnog programera</translation>
 <translation id="3758089716224084329">Omogućuje vam da odredite proxy poslužitelj kojim se koristi <ph name="PRODUCT_NAME" /> i onemogućuje korisnicima da mijenjaju postavke proxyja.
@@ -2208,6 +2203,10 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="8369602308428138533">Odgoda isključivanja zaslona za vrijeme napajanja izmjeničnom strujom</translation>
 <translation id="8382184662529825177">Omogući upotrebu daljinske ovjere za zaštitu sadržaja za uređaj</translation>
 <translation id="838870586332499308">Omogući roaming podataka</translation>
+<translation id="8390049129576938611">Onemogućuje interni preglednik PDF-ova na usluzi <ph name="PRODUCT_NAME" />. Tretira ga kao preuzimanje i omogućuje uređaju da otvara PDF datoteke zadanom aplikacijom.
+
+      Ako se to pravilo ne postavi ili se onemogući, a korisnik nije onemogućio dodatak za PDF-ove, za otvaranje PDF datoteka upotrebljavat će se dodatak za PDF-ove.</translation>
+<translation id="8402079500086185021">Uvijek otvaraj PDF datoteke vanjski</translation>
 <translation id="8412312801707973447">Izvršavaju li se mrežne provjere OCSP/CRL</translation>
 <translation id="8413348101535146315">Omogućuje završavanje postupaka u Upravitelju zadataka usluge <ph name="PRODUCT_NAME" />.
 
@@ -2359,13 +2358,6 @@ Svaka stavka na popisu jest niz koji sadrži ID proširenja i URL za ažuriranje
       automatski će kontaktirati Quirks Server i preuzeti konfiguracijske datoteke
       ako su dostupne i pohraniti ih na uređaj. Pomoću tih se datoteka, na primjer,
       može poboljšati kvaliteta prikaza priključenih monitora.</translation>
-<translation id="8905426178924715309">To je pravilo obustavljeno, pa umjesto njega upotrijebite "ForceGoogleSafeSearch" i "ForceYouTubeSafetyMode". Pravilo će se zanemariti ako se postave pravila "ForceGoogleSafeSearch" ili "ForceYouTubeSafetyMode".
-
-      Nameće da se upiti u Google pretraživanju weba provode uz aktivirano Sigurno pretraživanje i korisnicima sprječava promjenu te postavke. Ta postavka nameće i Siguran način rada na YouTubeu.
-
-      Ako omogućite tu postavku, Sigurno pretraživanje u Google pretraživanju i na YouTubeu uvijek će biti aktivno.
-
-      Ako onemogućite tu postavku ili ne postavite neku vrijednost, Sigurno pretraživanje u Google pretraživanju i na YouTubeu neće se primjenjivati.</translation>
 <translation id="8906768759089290519">Omogući način gosta</translation>
 <translation id="8908294717014659003">Omogućuje vam da postavite hoće li web-lokacijama biti dopušten pristup medijskim uređajima za snimanje. Pristup medijskim uređajima za snimanje može biti dopušten prema zadanim postavkama ili se korisniku može postaviti pitanje svaki put kada web-lokacija želi pristupiti tim uređajima.
 

@@ -371,7 +371,6 @@
 <translation id="495170559598752135">ক্রিয়াসমূহ</translation>
 <translation id="4958444002117714549">তালিকা প্রসারিত করুন</translation>
 <translation id="4962322354953122629">এই সার্ভার প্রমাণ করতে পারেনি যে এটা <ph name="DOMAIN" />; Chrome এর নিরাপত্তা শংসাপত্রটিকে বিশ্বাস করে না। কোনো ভুল কনফিগারেশনের কারণে অথবা কোনো আক্রমণকারী আপনার সংযোগ মাঝপথে আটকে দিচ্ছে বলে এমনটা হতে পারে। <ph name="BEGIN_LEARN_MORE_LINK" />আরো জানুন<ph name="END_LEARN_MORE_LINK" />।</translation>
-<translation id="4986920000862467124">সব পড়া হয়েছে</translation>
 <translation id="498957508165411911"><ph name="ORIGINAL_LANGUAGE" /> থেকে <ph name="TARGET_LANGUAGE" /> তে অনুবাদ করবেন?</translation>
 <translation id="4989809363548539747">এই প্লাগ ইন সমর্থিত নয়</translation>
 <translation id="5002932099480077015">সক্রিয় করা হলে, ফর্ম পূরনের কাজ দ্রুত করতে Chrome এই ডিভাইসে আপনার কার্ডের একটি প্রতিলিপি সংরক্ষণ করবে।</translation>
@@ -395,6 +394,7 @@
 <translation id="5190835502935405962">বুকমার্ক দণ্ড</translation>
 <translation id="5199729219167945352">পরীক্ষাদি</translation>
 <translation id="5251803541071282808">ক্লাউড</translation>
+<translation id="5277279256032773186">কর্মক্ষেত্রে Chrome ব্যবহার করছেন? ব্যবসাগুলো তাদের কর্মচারীদের জন্য Chrome সেটিংস পরিচালনা করতে পারে। আরো জানুন</translation>
 <translation id="5299298092464848405">নীতি বিশ্লেষণ করার সময় ত্রুটি</translation>
 <translation id="5300589172476337783">দেখান</translation>
 <translation id="5308689395849655368">ক্র্যাশ প্রতিবেদন অক্ষম আছে৷</translation>

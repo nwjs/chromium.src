@@ -101,6 +101,7 @@
 <translation id="1128591060186966949">Edit search engine</translation>
 <translation id="1128987120443782698">The storage device has a capacity of <ph name="DEVICE_CAPACITY" />. Please insert an SD card or USB memory stick with at least 4 GB of capacity.</translation>
 <translation id="1137135726305341424">domContentLoaded and all resources loads started before domContentLoaded (main frame and same origin iframes).</translation>
+<translation id="1138663153846032155">Prefer HTML over Flash</translation>
 <translation id="1140351953533677694">Access your Bluetooth and Serial devices</translation>
 <translation id="114140604515785785">Extension root directory:</translation>
 <translation id="1143142264369994168">Certificate Signer</translation>
@@ -252,6 +253,7 @@
 <translation id="1351692861129622852">Importing <ph name="FILE_COUNT" /> files...</translation>
 <translation id="1352103415082130575">Thai keyboard (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
+<translation id="1353946958707294039">Material Design storage manager</translation>
 <translation id="1353966721814789986">Startup pages:</translation>
 <translation id="1354868058853714482">Adobe Reader is out of date and may be insecure.</translation>
 <translation id="1355408554203439639">3D software rasteriser</translation>
@@ -424,7 +426,6 @@
 <translation id="1533920822694388968">TV alignment</translation>
 <translation id="15373452373711364">Large mouse cursor</translation>
 <translation id="1543284117603151572">Imported From Edge</translation>
-<translation id="1544350195767834591">{NUM_COOKIES,plural, =1{1 from other sites}other{# from other sites}}</translation>
 <translation id="1545177026077493356">Automatic Kiosk Mode</translation>
 <translation id="1545786162090505744">URL with %s in place of query</translation>
 <translation id="1546280085599573572">This extension has changed the page that is shown when you click the Home button.</translation>
@@ -874,6 +875,7 @@
 <translation id="218492098606937156">Enable touch events</translation>
 <translation id="2187317261103489799">Detect (default)</translation>
 <translation id="2187895286714876935">Server Certificate Import Error</translation>
+<translation id="2188881192257509750">Open <ph name="APPLICATION" /></translation>
 <translation id="2190069059097339078">Wi-Fi Credentials Getter</translation>
 <translation id="219008588003277019">Native Client module: <ph name="NEXE_NAME" /></translation>
 <translation id="2190355936436201913">(empty)</translation>
@@ -1982,6 +1984,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3574210789297084292">sign in</translation>
 <translation id="3574305903863751447"><ph name="CITY" />, <ph name="STATE" /> <ph name="COUNTRY" /></translation>
 <translation id="357479282490346887">Lithuanian</translation>
+<translation id="3575927481544652747">Disable Windows Runtime MIDI API for WebMIDI, which is enabled by default on Windows 10 or later.</translation>
 <translation id="3576324189521867626">Successfully installed</translation>
 <translation id="3578331450833904042">Default (pick up everything)</translation>
 <translation id="3578594933904494462">This tab's content is being shared.</translation>
@@ -2036,7 +2039,6 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3627588569887975815">Open link in inco&amp;gnito window</translation>
 <translation id="3627671146180677314">Netscape Certificate Renewal Time</translation>
 <translation id="3629326610814700057">Enables storage manager to manage local storage.</translation>
-<translation id="3630337581925712713"><ph name="PERMISSION_TYPE_LABEL" />:</translation>
 <translation id="3631337165634322335">Exceptions below only apply to the current incognito session.</translation>
 <translation id="3633586230741134985">App Launcher Settings</translation>
 <translation id="3633997706330212530">You may optionally disable these services.</translation>
@@ -2060,6 +2062,8 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3654092442379740616">Sync Error:  <ph name="PRODUCT_NAME" /> is out of date and needs to be updated.</translation>
 <translation id="3655712721956801464">{NUM_FILES,plural, =1{It has permanent access to one file.}other{It has permanent access to # files.}}</translation>
 <translation id="3657468915905674858">Enable PPAPI Win32k Lockdown.</translation>
+<translation id="365793796291733849"><ph name="BEGIN_PARAGRAPH1" />When you turn on automatic backup, device and app data is periodically saved to a private folder in Google Drive. App data can be any data that an app has saved (based on developer settings), including potentially sensitive data such as contacts, messages and photos.<ph name="END_PARAGRAPH1" />
+    <ph name="BEGIN_PARAGRAPH2" />Backup data will not count towards your Drive storage quota. Large files, or files developers have chosen to exclude from the service, will not be backed up.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="3660234220361471169">Untrusted</translation>
 <translation id="3665589677786828986">Chrome detected that some of your settings were corrupted by another program and reset them to their original defaults.</translation>
 <translation id="3665842570601375360">Security:</translation>
@@ -2114,6 +2118,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3733127536501031542">SSL Server with Step-up</translation>
 <translation id="3736520371357197498">If you understand the risks to your security, you may <ph name="BEGIN_LINK" />visit this unsafe site<ph name="END_LINK" /> before the dangerous programs have been removed.</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
+<translation id="3739254215541673094">Open <ph name="APPLICATION" />?</translation>
 <translation id="3739798227959604811">Delay before repeat:</translation>
 <translation id="3741158646617793859"><ph name="DEVICE_NAME" /> will now appear in the Admin Console</translation>
 <translation id="3741243925913727067">Back up your media device’s photos and videos to Google Drive.</translation>
@@ -2442,6 +2447,7 @@ All users must sign out to continue.</translation>
 <translation id="418179967336296930">Russian Phonetic (YaZHert) keyboard</translation>
 <translation id="4181841719683918333">Languages</translation>
 <translation id="4187248015940562149">Enables Web Bluetooth which could allow websites to connect to and control Bluetooth devices around you.</translation>
+<translation id="4188447344915957833">Enables storage manager in Material Design Settings.</translation>
 <translation id="4189406272289638749">An extension, &lt;b&gt;<ph name="EXTENSION_NAME" />&lt;/b&gt;, is controlling this setting.</translation>
 <translation id="4193154014135846272">Google document</translation>
 <translation id="4193182321948161343">Enable Material Design User Manager</translation>
@@ -2815,6 +2821,7 @@ Press any key to continue exploring.</translation>
 <translation id="4749157430980974800">Georgian keyboard</translation>
 <translation id="4750394297954878236">Suggestions</translation>
 <translation id="475088594373173692">First user</translation>
+<translation id="4750892496809949692">Prefer HTML content by hiding Flash from the list of plug-ins.</translation>
 <translation id="4750917950439032686">Your information (for example, passwords or credit card numbers) is private when it is sent to this site.</translation>
 <translation id="4753602155423695878">Android phone page loading progress bar animation</translation>
 <translation id="4755240240651974342">Finnish keyboard</translation>
@@ -3089,6 +3096,7 @@ Press any key to continue exploring.</translation>
 <translation id="5119450342834678097">Request tablet site option in the settings menu</translation>
 <translation id="5120068803556741301">Third-party input method</translation>
 <translation id="5120421890733714118">Trust this certificate for identifying websites.</translation>
+<translation id="5120516977819314347">PIN or password incorrect.</translation>
 <translation id="5121130586824819730">Your hard disk is full.  Please save to another location or make more room on the hard disk.</translation>
 <translation id="5125751979347152379">Invalid URL.</translation>
 <translation id="5127881134400491887">Manage network connections</translation>
@@ -3096,6 +3104,7 @@ Press any key to continue exploring.</translation>
 <translation id="512903556749061217">attached</translation>
 <translation id="5129301143853688736">Your connection to this site is not private. Attackers might be trying to steal your information (for example, photos, passwords, messages and credit cards) from <ph name="DOMAIN" />.</translation>
 <translation id="5129662217315786329">Polish</translation>
+<translation id="5131347545782851480">PDF Documents</translation>
 <translation id="5134856901811723984">Material Design in Chrome OS system UI</translation>
 <translation id="5135533361271311778">Could not create bookmark item.</translation>
 <translation id="5136529877787728692">F7</translation>
@@ -3264,6 +3273,7 @@ Press any key to continue exploring.</translation>
 <translation id="5328031682234198929">8</translation>
 <translation id="5329858601952122676">&amp;Delete</translation>
 <translation id="5330145655348521461">These files opened on a different desktop. Move to <ph name="USER_NAME" /> (<ph name="MAIL_ADDRESS" />) to view it.</translation>
+<translation id="5330512191124428349">Get info</translation>
 <translation id="5332624210073556029">Time zone:</translation>
 <translation id="5333807720589685258">Your SIM card will be permanently disabled if you cannot enter the correct PIN Unlock Key.</translation>
 <translation id="5333958554630697967">Enables experimental Web Platform features that are in development.</translation>
@@ -3750,6 +3760,8 @@ Press any key to continue exploring.</translation>
 <translation id="5984222099446776634">Recently Visited</translation>
 <translation id="5984814259619230127">Smart Lock Bluetooth Low Energy Discovery</translation>
 <translation id="5986245990306121338">If enabled, a tab switcher will show even when 'merge tabs and apps' option is on in the settings.</translation>
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />This is general information about your device and how you use it, such as battery level, how often you use your apps, the quality and duration of your network connections (like Wi-Fi and Bluetooth) and crash reports when things aren’t working the way they should. It will be used to improve Google’s products and services for everyone. Some aggregated information will help partners, such as Android developers, make their apps and products better too.<ph name="END_PARAGRAPH1" />
+    <ph name="BEGIN_PARAGRAPH2" />You can turn this on or off at any time in the Android apps Settings. This doesn’t affect your device’s ability to send the information it needs to receive essential services such as system updates and security.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">Extensions on chrome:// URLs</translation>
 <translation id="5990814808592353318">Manual password generation.</translation>
 <translation id="5991049340509704927">Magnify</translation>
@@ -4204,6 +4216,7 @@ Press any key to continue exploring.</translation>
 <translation id="6607272825297743757">File info</translation>
 <translation id="6607831829715835317">More too&amp;ls</translation>
 <translation id="6608140561353073361">All cookies and site data...</translation>
+<translation id="6610183966322615106">Error adding printer</translation>
 <translation id="6610610633807698299">Enter URL...</translation>
 <translation id="6612358246767739896">Protected content</translation>
 <translation id="6615455863669487791">Show me</translation>
@@ -4582,6 +4595,7 @@ Press any key to continue exploring.</translation>
 <translation id="715118844758971915">Classic printers</translation>
 <translation id="7154130902455071009">Change your start page to: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Existing photo from camera or file</translation>
+<translation id="7155226869555939647">Always open links for <ph name="APPLICATION" /></translation>
 <translation id="715568033737470079">Specify the PPAPI plug-ins which will be run within the Win32k lockdown sandbox policy (Windows 10 and above only).</translation>
 <translation id="7156235233373189579">This file is designed for a PC using Windows software. This is not compatible with your device which runs Chrome OS. Please search the <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" /> for a suitable replacement app.<ph name="BEGIN_LINK_HELP" />Learn More<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">By clicking Continue you agree to the <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> and <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
@@ -4761,7 +4775,6 @@ Press any key to continue exploring.</translation>
 <translation id="7409233648990234464">Relaunch and Powerwash</translation>
 <translation id="7409836189476010449">Run Flash</translation>
 <translation id="7410344089573941623">Ask if <ph name="HOST" /> wants to access your camera and microphone</translation>
-<translation id="7411343637221933631">{NUM_COOKIES,plural, =1{1 from this site}other{# from this site}}</translation>
 <translation id="7412226954991670867">GPU Memory</translation>
 <translation id="7416362041876611053">Unknown network error</translation>
 <translation id="7417453074306512035">Ethiopic keyboard</translation>
@@ -4923,6 +4936,7 @@ Press any key to continue exploring.</translation>
 <translation id="7626009897377900107">Password generation</translation>
 <translation id="7627262197844840899">This site doesn't accept MasterCard.</translation>
 <translation id="7627790789328695202">Whoops, <ph name="FILE_NAME" /> already exists. Rename it and try again.</translation>
+<translation id="7628127343934101653">Open PDF files in the default PDF viewer application.</translation>
 <translation id="762917759028004464">The default browser is currently <ph name="BROWSER_NAME" />.</translation>
 <translation id="7629536005696009600">Allow credentials stored for Android applications to be filled into corresponding websites.</translation>
 <translation id="7629827748548208700">Tab: <ph name="TAB_NAME" /></translation>
@@ -5151,6 +5165,7 @@ Press any key to continue exploring.</translation>
 <translation id="7957513156576779045">Turn on Bluetooth to allow pairing</translation>
 <translation id="7957615753207896812">Open keyboard device settings</translation>
 <translation id="7959074893852789871">The file contained multiple certificates, some of which were not imported:</translation>
+<translation id="7959700692661109221"><ph name="BEGIN_PARAGRAPH" />Google’s location service uses sources like Wi-Fi to help estimate your device’s location faster and more accurately. When you turn on Google’s location services, your device enters a mode that uses Wi-Fi to provide location information. You can turn this off in location settings at any time.<ph name="END_PARAGRAPH" /></translation>
 <translation id="7961015016161918242">Never</translation>
 <translation id="7964089325405904043">Password import and export</translation>
 <translation id="7965010376480416255">Shared Memory</translation>
@@ -5301,6 +5316,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8146793085009540321">Sign-in failed. Please contact your administrator or try again.</translation>
 <translation id="8148264977957212129">Pinyin input method</translation>
 <translation id="8148913456785123871">Show Google Now cards in the launcher</translation>
+<translation id="8150391391298684512">Disable Windows Runtime MIDI API</translation>
 <translation id="8151185429379586178">Developer tools</translation>
 <translation id="8151638057146502721">Configure</translation>
 <translation id="8151639108075998630">Enable guest browsing</translation>
@@ -5583,6 +5599,7 @@ Calculating time until full</translation>
 <translation id="8532294913309524834">Order languages based on your preference.</translation>
 <translation id="8535005006684281994">Netscape Certificate Renewal URL</translation>
 <translation id="8539727552378197395">No (HttpOnly)</translation>
+<translation id="8541084862688000575">Load Android apps automatically</translation>
 <translation id="8543181531796978784">You can <ph name="BEGIN_ERROR_LINK" />report a detection problem<ph name="END_ERROR_LINK" /> or, if you understand the risks to your security, <ph name="BEGIN_LINK" />visit this unsafe site<ph name="END_LINK" />.</translation>
 <translation id="8545107379349809705">Hide info ...</translation>
 <translation id="8545211332741562162">Enable web pages to use experimental JavaScript features.</translation>
@@ -5632,6 +5649,7 @@ Calculating time until full</translation>
 <translation id="8600929685092827187">Wake On Packets</translation>
 <translation id="8601206103050338563">TLS WWW Client Authentication</translation>
 <translation id="8602851771975208551">Another programme on your computer added an app that may change the way Chrome works.</translation>
+<translation id="8603912787021349466">Allow Android apps to start automatically after signing in.</translation>
 <translation id="8605428685123651449">SQLite Memory</translation>
 <translation id="8605503133013456784">Failed to disconnect and unpair from "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8606726445206553943">Use your MIDI devices</translation>
@@ -5984,6 +6002,7 @@ Calculating time until full</translation>
 <translation id="9053965862400494292">An error occurred while trying to set up sync.</translation>
 <translation id="9056034633062863292">Updating Chromebox</translation>
 <translation id="9056810968620647706">No matches were found.</translation>
+<translation id="9057119625587205566">No printers nearby</translation>
 <translation id="9059868303873565140">Status menu</translation>
 <translation id="9064142312330104323">Google Profile photo (loading)</translation>
 <translation id="9064275926664971810">Enable Autofill to fill out forms in a single click</translation>
@@ -6028,6 +6047,7 @@ Calculating time until full</translation>
 <translation id="9112614144067920641">Please choose a new PIN.</translation>
 <translation id="9112748030372401671">Change your wallpaper</translation>
 <translation id="9112987648460918699">Find...</translation>
+<translation id="9114663181201435112">Sign in easily</translation>
 <translation id="9115487443206954631">Manage Cast devices</translation>
 <translation id="9115675100829699941">&amp;Bookmarks</translation>
 <translation id="9121814364785106365">Open as pinned tab</translation>

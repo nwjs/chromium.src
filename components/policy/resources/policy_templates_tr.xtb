@@ -867,11 +867,6 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
 <translation id="3660562134618097814">Giriş sırasında SAML IdP çerezlerini aktar</translation>
 <translation id="3709266154059827597">Uzantı kurulum kara listesini yapılandır</translation>
 <translation id="3711895659073496551">Askıya al</translation>
-<translation id="3715448429089775791">YouTube Güvenlik Modu'nu etkin olmaya zorlar ve kullanıcıların bu ayarı değiştirmesini önler.
-
-      Bu ayarı etkinleştirirseniz YouTube'da Güvenlik Modu her zaman etkin olur.
-
-      Bu ayarı devre dışı bırakırsanız veya bir değer ayarlamazsanız YouTube'da Güvenlik Modu zorlanmaz.</translation>
 <translation id="3750220015372671395">Bu sitelerde anahtar oluşturmayı engelle</translation>
 <translation id="3756011779061588474">Geliştirici modunu engelle</translation>
 <translation id="3758089716224084329"><ph name="PRODUCT_NAME" /> tarafından kullanılan proxy sunucuyu belirtmenize olanak tanır ve kullanıcıların proxy ayarlarını değiştirmelerini önler.
@@ -2373,6 +2368,10 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 <translation id="8369602308428138533">AC güçle çalışırken ekran kapatma gecikmesi</translation>
 <translation id="8382184662529825177">Cihazda içerik koruma için uzak onay kullanımını etkinleştir</translation>
 <translation id="838870586332499308">Veri dolaşımını etkinleştir</translation>
+<translation id="8390049129576938611"><ph name="PRODUCT_NAME" /> içindeki dahili PDF görüntüleyiciyi devre dışı bırakır. Bunun yerine, dosyayı indirilecek dosya olarak ele alır ve kullanıcının PDF dosyalarını varsayılan uygulamayla açmasına olanak tanır.
+
+      Bu politika ayarlanmaz veya devre dışı bırakılırsa, kullanıcı devre dışı bırakmadıkça PDF dosyalarını açmak için PDF eklentisi kullanılır.</translation>
+<translation id="8402079500086185021">PDF dosyalarını her zaman harici olarak aç</translation>
 <translation id="8412312801707973447">Çevrimiçi OCSP/CRL denetimlerinin yapılıp yapılmayacağı</translation>
 <translation id="8413348101535146315"><ph name="PRODUCT_NAME" /> Görev Yöneticisi'ndeki işlemlerin sona erdirilebilmesini sağlar.
 
@@ -2547,13 +2546,6 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
       <ph name="PRODUCT_OS_NAME" />, Quirks Server ile otomatik olarak iletişim kurar
       ve varsa yapılandırma dosyalarını indirip cihaza kaydeder. Bu tür dosyalar,
       örneğin bağlı monitörlerin görüntü kalitesini iyileştirmek için kullanılabilir.</translation>
-<translation id="8905426178924715309">Bu politika kullanımdan kaldırılmıştır. Bunun yerine lütfen ForceGoogleSafeSearch'ü ve ForceYouTubeSafetyMode'u kullanın. ForceGoogleSafeSearch veya ForceYouTubeSafetyMode politikası ayarlanırsa bu politika yoksayılır.
-
-      Google Web Araması'ndaki sorguların Güvenli Arama etkin olarak ayarlanmış halde yapılmasını sağlar ve kullanıcıların bu ayarı değiştirmesini önler. Bu ayar aynı zamanda YouTube'da da Güvenli Mod'un kullanılmasını sağlar.
-
-      Bu ayarı etkinleştirirseniz, Google Arama'da ve YouTube'da Güvenli Arama her zaman etkin olur.
-
-      Bu ayarı devre dışı bırakırsanız veya bir değer ayarlamazsanız, Google Arama'da ve YouTube'da Güvenli Arama uygulanmaz.</translation>
 <translation id="8906768759089290519">Misafir modunu etkinleştir</translation>
 <translation id="8908294717014659003">Web sitelerinin medya yakalama cihazlarına erişmelerine izin verilip verilmeyeceğini ayarlamanıza olanak sağlar. Medya yakalama cihazlarına erişime varsayılan olarak izin verilebilir veya bir web sitesinin medya yakalama cihazlarına erişmek istediği her defasında kullanıcıya sorulabilir.
 

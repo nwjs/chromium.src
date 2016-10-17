@@ -862,11 +862,6 @@ Si se inhabilita o no se configura esta opción, los usuarios podrán decidir si
 <translation id="3660562134618097814">Transferir las cookies del proveedor de identidad SAML durante el inicio de sesión</translation>
 <translation id="3709266154059827597">Configurar lista negra de instalación de extensiones</translation>
 <translation id="3711895659073496551">Suspender</translation>
-<translation id="3715448429089775791">Activa el modo de seguridad de YouTube y evita que los usuarios modifiquen esta opción.
-
-      Si habilitas esta opción, el modo de seguridad de YouTube siempre estará activado.
-
-      Si la inhabilitas o no se le asigna ningún valor, no se aplicará el modo de seguridad de YouTube.</translation>
 <translation id="3750220015372671395">Bloquear la generación de claves en estos sitios web</translation>
 <translation id="3756011779061588474">Bloquear el modo de desarrollador</translation>
 <translation id="3758089716224084329">Permite especificar el servidor proxy que utiliza <ph name="PRODUCT_NAME" /> e impide que los usuarios cambien la configuración del proxy.
@@ -2358,6 +2353,10 @@ Si la política está establecida en False, no se informará sobre la lista de i
 <translation id="8369602308428138533">Retraso de desconexión de la pantalla cuando el dispositivo está conectado a la red</translation>
 <translation id="8382184662529825177">Habilitar el uso de la confirmación remota para la protección del contenido del dispositivo</translation>
 <translation id="838870586332499308">Habilitar la itinerancia de datos</translation>
+<translation id="8390049129576938611">Inhabilita el visor de PDF interno en <ph name="PRODUCT_NAME" />. En su lugar, trata el archivo PDF como una descarga y permite al usuario abrir archivos PDF con la aplicación predeterminada.
+
+      Si esta política no se establece o se inhabilita, el complemento de PDF se usará para abrir archivos PDF a menos que el usuario lo inhabilite.</translation>
+<translation id="8402079500086185021">Abrir siempre los archivos PDF de forma externa</translation>
 <translation id="8412312801707973447">Se realizan comprobaciones OCSP/CRL si estás online</translation>
 <translation id="8413348101535146315">Permite finalizar procesos en el administrador de tareas de <ph name="PRODUCT_NAME" />.
 
@@ -2540,13 +2539,6 @@ En todas las plataformas, salvo en <ph name="PRODUCT_OS_NAME" />, el modo kiosco
       automáticamente con Quirks Server, descargará los archivos de configuración
       si están disponibles y los almacenará en el dispositivo. Estos archivos
       pueden utilizarse, por ejemplo, para mejorar la calidad de la pantalla de los monitores conectados.</translation>
-<translation id="8905426178924715309">Esta política está obsoleta, utiliza ForceGoogleSafeSearch y ForceYouTubeSafetyMode en su lugar. Esta política se ignorará si están establecidas ForceGoogleSafeSearch o ForceYouTubeSafetyMode.
-
-      Fuerza las consultas en la Búsqueda web de Google para que se realicen con SafeSearch activado e impide que los usuarios modifiquen esta configuración. Además, esta opción fuerza el modo de seguridad en YouTube.
-
-      Si habilitas esta opción, SafeSearch estará siempre activo en la Búsqueda de Google y en YouTube.
-
-      Si esta opción se inhabilita o no se establece un valor, SafeSearch no se aplicará en la Búsqueda de Google ni en YouTube.</translation>
 <translation id="8906768759089290519">Habilitar el modo de invitado</translation>
 <translation id="8908294717014659003">Te permite establecer si los sitios web pueden acceder a los dispositivos de captura multimedia. El acceso a los dispositivos de captura multimedia se puede establecer de forma predeterminada o se puede configurar para que el usuario reciba un mensaje cada vez que un sitio web quiera acceder a estos dispositivos.
 

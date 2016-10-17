@@ -367,7 +367,6 @@
 <translation id="495170559598752135">操作</translation>
 <translation id="4958444002117714549">展开列表</translation>
 <translation id="4962322354953122629">此服务器无法证明其所在网域是 <ph name="DOMAIN" />；Chrome 不信任服务器的安全证书。出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。</translation>
-<translation id="4986920000862467124">全部已读</translation>
 <translation id="498957508165411911">是否将<ph name="ORIGINAL_LANGUAGE" />翻译成<ph name="TARGET_LANGUAGE" />？</translation>
 <translation id="4989809363548539747">该插件不受支持</translation>
 <translation id="5002932099480077015">如果您选中此项，Chrome 会将您的卡的副本存储在此设备上，以加快表单填写速度。</translation>
@@ -391,6 +390,7 @@
 <translation id="5190835502935405962">书签栏</translation>
 <translation id="5199729219167945352">实验</translation>
 <translation id="5251803541071282808">云端</translation>
+<translation id="5277279256032773186">使用 Chrome 办公？企业可以为其员工管理 Chrome 设置。了解详情</translation>
 <translation id="5299298092464848405">解析策略时出错</translation>
 <translation id="5300589172476337783">显示</translation>
 <translation id="5308689395849655368">已停用崩溃报告。</translation>

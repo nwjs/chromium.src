@@ -370,7 +370,6 @@
 <translation id="495170559598752135">Åtgärder</translation>
 <translation id="4958444002117714549">Expandera lista</translation>
 <translation id="4962322354953122629">Det gick inte att bevisa att serverns identitet är <ph name="DOMAIN" /> eftersom Chrome inte litar på dess säkerhetscertifikat. Det kan bero på att servern är felkonfigurerad eller att anslutningen har blivit kapad. <ph name="BEGIN_LEARN_MORE_LINK" />Läs mer<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Alla lästa</translation>
 <translation id="498957508165411911">Vill du översätta från <ph name="ORIGINAL_LANGUAGE" /> till <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="4989809363548539747">Det här pluginprogrammet stöds inte</translation>
 <translation id="5002932099480077015">Om alternativet är aktiverat sparar Chrome en kopia av kortet på enheten så att det går snabbare att fylla i formulär.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">Bokmärkesfältet</translation>
 <translation id="5199729219167945352">Experiment</translation>
 <translation id="5251803541071282808">Moln</translation>
+<translation id="5277279256032773186">Använder du Chrome på jobbet? Företag kan hantera de anställdas inställningar i Chrome. Läs mer</translation>
 <translation id="5299298092464848405">Det uppstod ett fel när policyn analyserades</translation>
 <translation id="5300589172476337783">Visa</translation>
 <translation id="5308689395849655368">Krashrapportering har  inaktiverats.</translation>

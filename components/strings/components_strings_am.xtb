@@ -369,7 +369,6 @@
 <translation id="495170559598752135">እርምጃዎች</translation>
 <translation id="4958444002117714549">ዝርዝሩን ዘርጋ</translation>
 <translation id="4962322354953122629">ይህ አገልጋይ <ph name="DOMAIN" /> መሆኑን ማረጋገጥ አልቻለም፤ የዕውቅና ማረጋገጫው በChrome የታመነ አይደለም። ይህ በተሳሳተ ውቅረት ወይም የእርስዎን ግንኙነት በሚጠልፍ አጥቂ ምክንያት የተፈጠረ ሊሆን ይችላል። <ph name="BEGIN_LEARN_MORE_LINK" />የበለጠ ለመረዳት<ph name="END_LEARN_MORE_LINK" />።</translation>
-<translation id="4986920000862467124">ሁሉንም ያንብቡ</translation>
 <translation id="498957508165411911">ከ<ph name="ORIGINAL_LANGUAGE" /> ወደ <ph name="TARGET_LANGUAGE" /> ይተርጎም?</translation>
 <translation id="4989809363548539747">ይህ ተሰኪ አይደገፍም</translation>
 <translation id="5002932099480077015">የነቃ እንደሆነ Chrome ለበለጠ ፈጣን ቅጽ አሞላል ሲባል በዚህ መሳሪያ ላይ ያለው የካርድዎን ቅጂ ያከማቻል።</translation>
@@ -393,6 +392,7 @@
 <translation id="5190835502935405962">የዕልባቶች አሞሌ</translation>
 <translation id="5199729219167945352">ሙከራዎች</translation>
 <translation id="5251803541071282808">ደመና</translation>
+<translation id="5277279256032773186">በሥራ ላይ Chrome እየተጠቀሙ ነዎት? ንግድ ሥራዎች ለሠራተኞቻቸው የChrome ቅንብሮችን ማስተዳደር ይችላሉ። የበለጠ ይረዱ</translation>
 <translation id="5299298092464848405">መምሪያን መተንተን ላይ ስህተት</translation>
 <translation id="5300589172476337783">አሳይ</translation>
 <translation id="5308689395849655368">የብልሽት ሪፖርት ማድረግ ተሰናክሏል።</translation>

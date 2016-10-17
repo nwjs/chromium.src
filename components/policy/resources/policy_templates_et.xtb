@@ -853,11 +853,6 @@
 <translation id="3660562134618097814">SAML IdP küpsisefailide ülekandmine sisselogimisel</translation>
 <translation id="3709266154059827597">Laienduste installimise musta nimekirja seadistamine</translation>
 <translation id="3711895659073496551">Peata</translation>
-<translation id="3715448429089775791">Jõustab YouTube’i ohutu režiimi ja takistab kasutajaid seadet muutmast.
-
-      Kui lubate seade, on YouTube’i ohutu režiim alati aktiivne.
-
-      Kui keelate seade või jätate väärtuse määramata, ei jõustata YouTube’i ohutut režiimi.</translation>
 <translation id="3750220015372671395">Blokeeri võtmete loomine nendel saitidel</translation>
 <translation id="3756011779061588474">Arendaja režiimi blokeerimine</translation>
 <translation id="3758089716224084329">Võimaldab määrata rakenduse <ph name="PRODUCT_NAME" /> kasutatava puhverserveri ega lase kasutajatel puhverserveri seadeid muuta.
@@ -2361,6 +2356,10 @@
 <translation id="8369602308428138533">Ekraani väljalülitamise viiteaeg võrgutoite kasutamisel</translation>
 <translation id="8382184662529825177">Kaugatesteerimise lubamine seadme sisu kaitsmiseks</translation>
 <translation id="838870586332499308">Luba andmeside rändlusteenus</translation>
+<translation id="8390049129576938611">Keelab sisemise PDF-vaaturi rakenduses <ph name="PRODUCT_NAME" />. Selle asemel koheldakse seda allalaadimisena ja kasutaja saab PDF-faile vaikerakendusega avada.
+
+      Kui keelate reegli või jätate selle määramata, kasutatakse PDF-failide avamiseks PDF-i pistikprogrammi, välja arvatud juhul, kui kasutaja selle keelab.</translation>
+<translation id="8402079500086185021">Ava PDF-failid alati väliselt</translation>
 <translation id="8412312801707973447">Kontrolli võrgus OCSP-d/CRL-i</translation>
 <translation id="8413348101535146315">Lubab protsessid brauseri <ph name="PRODUCT_NAME" /> tegumihalduris lõpetada.
 
@@ -2535,13 +2534,6 @@
       Quirks Serveriga automaatselt ühendust, laadib konfiguratsioonifailid alla,
       kui need on saadaval, ja salvestab need seadmesse. Neid faile võib
       näiteks kasutada ühendatud monitoride pildikvaliteedi parandamiseks.</translation>
-<translation id="8905426178924715309">Selle reegli tugi on katkestatud, kasutage selle asemel reegleid ForceGoogleSafeSearch ja ForceYouTubeSafetyMode. Seda reeglit eiratakse, kui reegel ForceGoogleSafeSearch või ForceYouTubeSafetyMode on määratud.
-
-      Sunnib Google'i veebiotsingute tegemisel kasutama SafeSearchi ja takistab kasutajatel seade muutmist. See seade jõustab turvarežiimi ka YouTube'is.
-
-      Seade lubamisel on funktsioon SafeSearch Google'i otsingus ja YouTube'is alati aktiivne.
-
-      Kui keelate seade või ei määra väärtust, ei jõustata Google'i otsingus ja YouTube'is SafeSearchi kasutamist.</translation>
 <translation id="8906768759089290519">Luba külastajarežiim</translation>
 <translation id="8908294717014659003">Võimaldab määrata veebisaitidele juurdepääsu meediahõiveseadmetele. Juurdepääsu meediahõiveseadmetele saab lubada vaikimisi või lasta iga kord kasutajalt küsida, kui mõni veebisait neile juurdepääsu soovib.
 

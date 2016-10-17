@@ -371,7 +371,6 @@
 <translation id="495170559598752135">Veiksmai</translation>
 <translation id="4958444002117714549">Išskleisti sąrašą</translation>
 <translation id="4962322354953122629">Šiam serveriui nepavyko patvirtinti, kad tai yra <ph name="DOMAIN" />; „Chrome“ negali pasitikėti jo saugos sertifikatu. Taip galėjo būti dėl netinkamos konfigūracijos ar dėl ryšį pertraukusio užpuoliko. <ph name="BEGIN_LEARN_MORE_LINK" />Sužinokite daugiau<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Viskas perskaityta</translation>
 <translation id="498957508165411911">Versti iš <ph name="ORIGINAL_LANGUAGE" /> į <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="4989809363548539747">Šis papildinys nepalaikomas</translation>
 <translation id="5002932099480077015">Jei šis nustatymas įgalintas, „Chrome“ saugos kortelės kopiją šiame įrenginyje, kad būtų galima greičiau užpildyti formas.</translation>
@@ -395,6 +394,7 @@
 <translation id="5190835502935405962">Žymių juosta</translation>
 <translation id="5199729219167945352">Bandymai</translation>
 <translation id="5251803541071282808">Debesis</translation>
+<translation id="5277279256032773186">Naudojate „Chrome“ darbe? Įmonės gali tvarkyti darbuotojų „Chrome“ nustatymus. Sužinokite daugiau</translation>
 <translation id="5299298092464848405">Analizuojant politiką įvyko klaida</translation>
 <translation id="5300589172476337783">Rodyti</translation>
 <translation id="5308689395849655368">Strigčių ataskaitų teikimas neleidžiamas.</translation>

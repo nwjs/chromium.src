@@ -370,7 +370,6 @@
 <translation id="495170559598752135">Handlinger</translation>
 <translation id="4958444002117714549">Utvid liste</translation>
 <translation id="4962322354953122629">Denne tjeneren kunne ikke bevise at den er <ph name="DOMAIN" />, ettersom skkerhetssertifikatet ikke er regnet som pålitelig av Chrome. Dette kan skyldes en feilkonfigurasjon eller at en angriper avskjærer tilkoblingen din. <ph name="BEGIN_LEARN_MORE_LINK" />Finn ut mer<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Alt er lest</translation>
 <translation id="498957508165411911">Vil du oversette fra <ph name="ORIGINAL_LANGUAGE" /> til <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="4989809363548539747">Dette programtillegget støttes ikke</translation>
 <translation id="5002932099480077015">Hvis du slår på dette alternativet, lagrer Chrome en kopi av kortet ditt på denne enheten, slik at det blir raskere å fylle ut skjemaer i fremtiden.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">Bokmerkerad</translation>
 <translation id="5199729219167945352">Eksperimenter</translation>
 <translation id="5251803541071282808">Nettsky</translation>
+<translation id="5277279256032773186">Bruker du Chrome på jobben? Bedrifter kan administrere Chrome-innstillingene for de ansatte. Finn ut mer</translation>
 <translation id="5299298092464848405">Feil under analysen av enhetsinnstillingene</translation>
 <translation id="5300589172476337783">Vis</translation>
 <translation id="5308689395849655368">Rapportering av programstopp er deaktivert.</translation>

@@ -802,11 +802,6 @@ Falls die Richtlinie auf "false" gesetzt oder nicht festgelegt wird, treten bei 
 <translation id="3660562134618097814">SAML-IdP-Cookies bei der Anmeldung übertragen</translation>
 <translation id="3709266154059827597">Schwarze Liste für Installation von Erweiterungen konfigurieren</translation>
 <translation id="3711895659073496551">Suspend-Modus</translation>
-<translation id="3715448429089775791">Erzwingt die Aktivierung des YouTube-Sicherheitsmodus und verhindert, dass diese Einstellung von den Nutzern geändert werden kann
-
-      Wenn Sie diese Einstellung aktivieren, ist der Sicherheitsmodus auf YouTube immer aktiv.
-
-      Wenn Sie diese Einstellung deaktivieren oder keinen Wert festlegen, wird der Sicherheitsmodus auf YouTube nicht erzwungen.</translation>
 <translation id="3750220015372671395">Schlüsselgenerierung auf diesen Websites blockieren</translation>
 <translation id="3756011779061588474">Entwicklermodus blockieren</translation>
 <translation id="3758089716224084329">Ermöglicht Ihnen, den von <ph name="PRODUCT_NAME" /> verwendeten Proxy-Server anzugeben, und verhindert, dass Nutzer die Proxy-Einstellungen ändern.
@@ -1807,7 +1802,7 @@ Wird diese Richtlinie nicht konfiguriert, wird der standardmäßige Profilpfad v
 <translation id="7260277299188117560">P2P für automatische Updates aktivieren</translation>
 <translation id="7267809745244694722">Medientasten standardmäßig als Funktionstasten verwenden</translation>
 <translation id="7271085005502526897">Startseite bei erster Ausführung aus Standardbrowser importieren</translation>
-<translation id="7273823081800296768">Wenn diese Einstellung aktiviert oder nicht konfiguriert ist, kann der Nutzer beim Herstellen der Verbindung ein Pairing von Clients und Hosts durchführen. Dadurch braucht nicht jedes Mal eine PIN eingegeben zu werden.
+<translation id="7273823081800296768">Wenn diese Einstellung aktiviert oder nicht konfiguriert ist, kann der Nutzer beim Herstellen der Verbindung Clients und Hosts koppeln. Dadurch braucht nicht jedes Mal eine PIN eingegeben zu werden.
 
           Bei Deaktivierung dieser Einstellung ist diese Funktion nicht verfügbar.</translation>
 <translation id="7275334191706090484">Verwaltete Lesezeichen</translation>
@@ -2184,6 +2179,10 @@ Diese Außerkraftsetzung soll in Zukunft beseitigt werden.</translation>
 <translation id="8369602308428138533">Verzögerung für die Bildschirmabschaltung im Netzbetrieb</translation>
 <translation id="8382184662529825177">Verwendung von Remote-Bescheinigung (Remote Attestation) zum Schutz von Inhalten für das Gerät aktivieren</translation>
 <translation id="838870586332499308">Daten-Roaming aktivieren</translation>
+<translation id="8390049129576938611">Deaktiviert den internen PDF-Viewer in <ph name="PRODUCT_NAME" />. Stattdessen werden PDF-Dateien als Download behandelt und der Nutzer kann sie mit der Standard-Anwendung öffnen.
+
+      Wenn diese Richtlinie deaktiviert oder nicht eingestellt ist, wird zum Öffnen von PDF-Dateien das PDF-Plug-in genutzt, sofern der Nutzer es nicht deaktiviert.</translation>
+<translation id="8402079500086185021">PDF-Dateien immer extern öffnen</translation>
 <translation id="8412312801707973447">Ob online OCSP-/CRL-Prüfungen durchgeführt werden</translation>
 <translation id="8413348101535146315">Ermöglicht das Beenden von Prozessen im Task-Manager von <ph name="PRODUCT_NAME" />.
 
@@ -2343,13 +2342,6 @@ Diese Außerkraftsetzung soll in Zukunft beseitigt werden.</translation>
       automatisch den Quirks-Server und lädt Konfigurationsdateien herunter,
       sofern welche vorhanden sind, und speichert sie auf dem Gerät. Solche Dateien können beispielsweise verwendet werden,
       um die Displayqualität angeschlossener Monitore zu verbessern.</translation>
-<translation id="8905426178924715309">Diese Richtlinie wird nicht mehr angeboten. Verwenden Sie stattdessen "ForceGoogleSafeSearch" und "ForceYouTubeSafetyMode". Die Richtlinie wird ignoriert, wenn entweder "ForceGoogleSafeSearch" oder "ForceYouTubeSafetyMode" festgelegt ist.
-
-      Durch diese Richtlinie wird die Ausführung der Google Websuche mit aktivierter SafeSearch-Funktion erzwungen und verhindert, dass Nutzer die Einstellung ändern. Darüber hinaus wird die Verwendung des sicheren Modus bei YouTube erzwungen.
-
-      Wenn diese Einstellung aktiviert ist, ist SafeSearch in der Google-Suche und bei YouTube immer aktiviert.
-
-      Wenn diese Einstellung deaktiviert ist oder kein Wert festgelegt wurde, wird SafeSearch in der Google-Suche und bei YouTube nicht erzwungen.</translation>
 <translation id="8906768759089290519">Gastmodus aktivieren</translation>
 <translation id="8908294717014659003">Hier können Sie festlegen, ob Websites der Zugriff auf Medienaufnahmegeräte erlaubt werden soll. Der Zugriff auf Medienaufnahmegeräte kann standardmäßig zugelassen werden oder Sie können einstellen, dass der Nutzer jedes Mal gefragt wird, wenn eine Website auf Medienaufnahmegeräte zugreifen möchte.
 

@@ -865,11 +865,6 @@ Ja politikai ir iestatīta vērtība Aplama vai politika nav konfigurēta, lieto
 <translation id="3660562134618097814">SAML identitātes nodrošinātāja sīkfailu pārsūtīšana pieteikšanās laikā</translation>
 <translation id="3709266154059827597">Konfigurē paplašinājumu instalēšanas melno sarakstu</translation>
 <translation id="3711895659073496551">Darbības apturēšana</translation>
-<translation id="3715448429089775791">Šī politika tiek izmantota, lai piespiedu kārtā iestatītu YouTube drošības režīmu kā aktīvu un neļautu lietotājiem mainīt šo iestatījumu.
-
-      Ja iespējojat šo iestatījumu, drošības režīms pakalpojumā YouTube vienmēr ir aktīvs.
-
-      Ja atspējojat šo iestatījumu vai neiestatāt vērtību, drošības režīms pakalpojumā YouTube netiek izmantots piespiedu kārtā.</translation>
 <translation id="3750220015372671395">Bloķēt atslēgu ģenerēšanu šajās vietnēs</translation>
 <translation id="3756011779061588474">Bloķēt izstrādātāja režīmu</translation>
 <translation id="3758089716224084329">Ļauj norādīt <ph name="PRODUCT_NAME" /> izmantoto starpniekserveri un neļauj lietotājiem mainīt starpniekserveru iestatījumus.
@@ -2369,6 +2364,10 @@ Ja politikai ir iestatīta vērtība Aplama vai politika nav konfigurēta, lieto
 <translation id="8369602308428138533">Aizkave līdz ekrāna izslēgšanai, ja ierīce darbojas ar maiņstrāvu</translation>
 <translation id="8382184662529825177">Iespējot attālās apstiprināšanas lietošanu ierīces satura aizsardzībai</translation>
 <translation id="838870586332499308">Iespējot datu viesabonēšanu</translation>
+<translation id="8390049129576938611">Atspējo <ph name="PRODUCT_NAME" /> iekšējo PDF skatītāju. Tā vietā PDF faili tiek apstrādāti kā lejupielādes, un lietotājs tos var atvērt noklusējuma lietojumprogrammā.
+
+      Ja šī politika nav iestatīta vai ir atspējota, PDF failu atvēršanai tiek lietots PDF spraudnis, ja vien lietotājs to neatspējo.</translation>
+<translation id="8402079500086185021">Vienmēr atvērt PDF failus ārēji</translation>
 <translation id="8412312801707973447">Vai tiek veiktas OCSP/CRL pārbaudes tiešsaistē</translation>
 <translation id="8413348101535146315">Iespējo procesu beigšanu <ph name="PRODUCT_NAME" /> uzdevumu pārvaldniekā.
 
@@ -2552,13 +2551,6 @@ Ja politikai ir iestatīta vērtība Aplama vai politika nav konfigurēta, lieto
       automātiski sazināsies ar Quirks serveri, lejupielādēs konfigurācijas failus
       (ja pieejami) un saglabās tos ierīcē. Šādi faili, piemēram, var tikt izmantoti
       pievienoto monitoru attēlojuma kvalitātes uzlabošanai.</translation>
-<translation id="8905426178924715309">Šī politika ir novecojusi. Lūdzu, tās vietā izmantojiet politikas ForceGoogleSafeSearch un ForceYouTubeSafetyMode. Ja ir iestatīta politika ForceGoogleSafeSearch vai ForceYouTubeSafetyMode, šī politika tiek ignorēta.
-
-      Ja ir iestatīta šī politika, pakalpojumā “Google meklēšana tīmeklī” ievadītajiem vaicājumiem vienmēr tiek aktivizēts filtrs Droša meklēšana un lietotāji nevar mainīt šo iestatījumu, savukārt pakalpojumā YouTube tiek veikta drošā režīma piespiedu iespējošana.
-
-      Ja iespējosiet šo iestatījumu, pakalpojumos “Google meklēšana” un YouTube vienmēr būs aktīvs filtrs Droša meklēšana.
-
-      Ja atspējosiet šo iestatījumu vai neiestatīsiet nekādu vērtību, filtrs Droša meklēšana netiks izmantots piespiedu kārtā pakalpojumā “Google meklēšana” un YouTube.</translation>
 <translation id="8906768759089290519">Iespējot viesa režīmu</translation>
 <translation id="8908294717014659003">Ļauj iestatīt, vai vietnēm ir atļauts iegūt piekļuvi multivides tveršanas ierīcēm. Piekļuve multivides tveršanas ierīcēm var būt atļauta pēc noklusējuma, vai lietotājam var tikt parādīts atbilstošs jautājums katru reizi, kad vietne vēlas iegūt piekļuvi multivides tveršanas ierīcēm.
 

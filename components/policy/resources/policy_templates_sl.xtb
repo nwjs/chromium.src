@@ -862,11 +862,6 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 <translation id="3660562134618097814">Prenesi piškotke SAML IdP pri prijavi</translation>
 <translation id="3709266154059827597">Nastavi seznam razširitev, katerih namestitev je prepovedana</translation>
 <translation id="3711895659073496551">Prekinitev</translation>
-<translation id="3715448429089775791">Vsili izvajanje varnega načina v YouTubu in uporabnikom prepreči spreminjanje te nastavitve.
-
-      Če to nastavitev omogočite, je varni način v YouTubu vedno aktiven.
-
-      Če to nastavitev onemogočite ali ne nastavite vrednosti, varni način v YouTubu ni uveljavljen.</translation>
 <translation id="3750220015372671395">Blokiraj ustvarjanje ključev na teh spletnih mestih</translation>
 <translation id="3756011779061588474">Blokiranje načina za razvijalce</translation>
 <translation id="3758089716224084329">Omogoča nastavitev strežnika proxy, ki ga uporablja <ph name="PRODUCT_NAME" />, in preprečuje uporabnikom spreminjanje nastavitev strežnika proxy.
@@ -2374,6 +2369,10 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 <translation id="8369602308428138533">Časovni zamik izklopa zaslona, če se napaja iz električnega omrežja</translation>
 <translation id="8382184662529825177">Omogoči uporabo oddaljenega potrjevanja za zaščito vsebine za napravo</translation>
 <translation id="838870586332499308">Omogoči podatkovno gostovanje</translation>
+<translation id="8390049129576938611">V brskalniku <ph name="PRODUCT_NAME" /> onemogoči notranji pregledovalnik PDF-jev. Namesto tega ga obravnava kot prenos in uporabniku omogoča odpiranje datotek PDF s privzeto aplikacijo.
+
+      Če ta pravilnik ni nastavljen ali je onemogočen, se bo za odpiranje datotek PDF uporabljal vtičnik za PDF-je, razen če ga uporabnik onemogoči.</translation>
+<translation id="8402079500086185021">Vedno odpri datoteke PDF na zunanjem mestu</translation>
 <translation id="8412312801707973447">Ali se izvaja spletni pregled OCSP/CRL</translation>
 <translation id="8413348101535146315">Omogoča procese prekinitve v upravitelju opravil izdelka <ph name="PRODUCT_NAME" />.
 
@@ -2557,13 +2556,6 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
       samodejno vzpostavil stik s strežnikom Quirks Server in prenesel konfiguracijske
       datoteke, če so na voljo, ter jih shranil v napravi. Te datoteke je mogoče
       na primer uporabiti za izboljšanje kakovosti prikaza priključenih monitorjev.</translation>
-<translation id="8905426178924715309">Ta pravilnik je zastarel, uporabite ForceGoogleSafeSearch in ForceYouTubeSafetyMode. Ta pravilnik bo prezrt, če je nastavljen pravilnik ForceGoogleSafeSearch ali ForceYouTubeSafetyMode.
-
-      Uveljavi izvajanje poizvedb v Google Spletnem iskanju z aktiviranim Varnim iskanjem in uporabnikom prepreči spreminjanje te nastavitve. Ta nastavitev uveljavi tudi varni način v YouTubu.
-
-      Če to nastavitev omogočite, je Google Varno iskanje v Iskanju Google in YouTubu vedno aktivno.
-
-      Če to nastavitev onemogočite ali ne nastavite vrednosti, Varno iskanje v Iskanju Google in YouTubu ni uveljavljeno.</translation>
 <translation id="8906768759089290519">Omogoči način gosta</translation>
 <translation id="8908294717014659003">Omogoča nastavitev, ali je spletnim mestom dovoljen dostop do naprav za snemanje predstavnosti. Dostop do naprav za snemanje predstavnosti je lahko privzeto dovoljen ali pa uporabnik dobi poziv, kadar koli spletno mesto želi dostop do naprav za snemanje predstavnosti.
 

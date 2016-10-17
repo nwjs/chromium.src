@@ -370,7 +370,6 @@
 <translation id="495170559598752135">क्रियाएं</translation>
 <translation id="4958444002117714549">सूची विस्तृत करें</translation>
 <translation id="4962322354953122629">यह सर्वर प्रमाणित नहीं कर सका कि यह <ph name="DOMAIN" /> है; इसका सुरक्षा प्रमाणपत्र Chrome द्वारा विश्वसनीय नहीं है. ऐसा गलत कॉन्फ़िगरेशन के कारण या किसी हमलावर द्वारा आपके कनेक्शन में बाधा डालने के कारण हो सकता है. <ph name="BEGIN_LEARN_MORE_LINK" />अधिक जानें<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">सभी पढ़ी गई</translation>
 <translation id="498957508165411911"><ph name="ORIGINAL_LANGUAGE" /> से <ph name="TARGET_LANGUAGE" /> में अनुवाद करें?</translation>
 <translation id="4989809363548539747">यह प्लग इन समर्थित नहीं है</translation>
 <translation id="5002932099480077015">यदि सक्षम किया हुआ हो, तो Chrome फ़ॉर्म को तेज़ी से भरने के लिए इस डिवाइस पर आपके कार्ड की एक प्रति संग्रहीत करेगा.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">बुकमार्क बार</translation>
 <translation id="5199729219167945352">प्रयोग</translation>
 <translation id="5251803541071282808">क्लाउड</translation>
+<translation id="5277279256032773186">कार्यस्थल पर Chrome का उपयोग कर रहे हैं? कंपनियां अपने कर्मचारियों के लिए Chrome सेटिंग प्रबंधित कर सकती हैं. और जानें</translation>
 <translation id="5299298092464848405">नीति पार्स करने में त्रुटि</translation>
 <translation id="5300589172476337783">दिखाएं</translation>
 <translation id="5308689395849655368">क्रैश की रिपोर्ट करना अक्षम कर दिया गया है.</translation>

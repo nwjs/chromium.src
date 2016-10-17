@@ -818,11 +818,6 @@
 <translation id="3660562134618097814">SAML IdP cookie-k átadása a bejelentkezés során</translation>
 <translation id="3709266154059827597">Bővítménytelepítési feketelista beállítása</translation>
 <translation id="3711895659073496551">Felfüggesztés</translation>
-<translation id="3715448429089775791">Aktív állapotúra kényszeríti a YouTube Biztonságos módot, és megakadályozza, hogy a felhasználók módosítsák ezt a beállítást.
-
-      Ha engedélyezi ezt a beállítást, a YouTube-on mindig aktív lesz a Biztonságos mód.
-
-      Ha kikapcsolja a beállítást, illetve nem ad meg neki értéket, a rendszer nem kényszeríti a Biztonságos módot a YouTube-on.</translation>
 <translation id="3750220015372671395">Kulcslétrehozás letiltása a következő webhelyeken</translation>
 <translation id="3756011779061588474">Fejlesztői mód letiltása</translation>
 <translation id="3758089716224084329">Lehetővé teszi a(z) <ph name="PRODUCT_NAME" /> által használt proxyszerver meghatározását, és megakadályozza, hogy a felhasználók megváltoztassák a proxybeállításokat.
@@ -2213,6 +2208,10 @@
 <translation id="8369602308428138533">Képernyő kikapcsolásának késleltetése hálózati áramról való működés során</translation>
 <translation id="8382184662529825177">Távoli hitelesítés engedélyezése az eszközön lévő tartalmak védelme érdekében</translation>
 <translation id="838870586332499308">Adatbarangolás engedélyezése</translation>
+<translation id="8390049129576938611">Kikapcsolja a belső PDF-olvasót a(z) <ph name="PRODUCT_NAME" /> termékben. Ehelyett letöltésként kezeli, és engedélyezi a felhasználó számára PDF-fájlok megnyitását az alapértelmezett alkalmazással.
+
+      Ha a házirend nincs megadva vagy ki van kapcsolva, a rendszer a PDF beépülő modult használja a PDF-fájlok megnyitásához, kivéve, ha a felhasználó letiltja ezt.</translation>
+<translation id="8402079500086185021">A PDF-fájlok megnyitása mindig külsőleg történjen</translation>
 <translation id="8412312801707973447">Végbemenjenek-e online OCSP-/CRL-ellenőrzések</translation>
 <translation id="8413348101535146315">Lehetővé teszi a folyamatok befejezését a <ph name="PRODUCT_NAME" /> Folyamatkezelőjében.
 
@@ -2374,13 +2373,6 @@
       a kapcsolatot a Quirks Serverrel, és letölti a konfigurációs fájlokat
       (ha rendelkezésre állnak), majd az eszközön tárolja őket. Az ilyen fájlok
       használhatók például arra, hogy javítsák a csatlakozó monitorok képminőségét.</translation>
-<translation id="8905426178924715309">Ez a házirend elavult, kérjük, használja helyette a ForceGoogleSafeSearch és a ForceYouTubeSafetyMode házirendet. Ha a ForceGoogleSafeSearch vagy a ForceYouTubeSafetyMode be van állítva, akkor ezt a házirendet figyelmen kívül hagyja a böngésző.
-
-      Hatására a Google Internetes Kereső bekapcsolt Biztonságos Keresés mellett végez lekérdezéseket, és megakadályozza, hogy a felhasználók módosítsák ezt a beállítást. Ezenkívül a YouTube-on is aktiválja a Biztonságos módot.
-
-      Ha engedélyezi a beállítást, akkor a Google Keresésben és a YouTube-on a Biztonságos Keresés mindig aktív.
-
-      Ha letiltja ezt a beállítást, vagy ha nem állít be hozzá értéket, akkor a Biztonságos Keresést sem a Google Keresésben, sem a YouTube-on nem kényszeríti ki a böngésző.</translation>
 <translation id="8906768759089290519">Vendég mód bekapcsolása</translation>
 <translation id="8908294717014659003">Lehetővé teszi annak beállítását, hogy a webhelyek hozzáférhetnek-e a felvevőeszközökhöz. A felvevőeszközökhöz való hozzáférés engedélyezhető alapértelmezés szerint, vagy a rendszer rákérdezhet minden alkalommal, amikor egy webhely megpróbál hozzájuk férni.
 

@@ -747,7 +747,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="3322771899429619102">Te permite configurar una lista de patrones de URL que especifican los sitios que están autorizados a utilizar la generación de claves. Si un patrón de URL tiene configurada la política "KeygenBlockedForUrls", se anulan estas excepciones.
 
           Si esta política no se configura, se usará el valor global predeterminado para todos los sitios, ya sea de la política "DefaultKeygenSetting" si está configurada o de otro tipo de configuración personal del usuario.</translation>
-<translation id="3322902067538988734">Si esta política se establece como verdadera, el usuario deberá acceder a <ph name="PRODUCT_NAME" /> con su perfil antes de usar el navegador. El valor predeterminado BrowserGuestModeEnabled se establecerá como verdadero.
+<translation id="3322902067538988734">Si esta política se establece como verdadera, el usuario deberá acceder a <ph name="PRODUCT_NAME" /> con su perfil antes de usar el navegador. El valor predeterminado BrowserGuestModeEnabled se establecerá como falso.
 
       Si esta política se establece como falsa o no se configura, el usuario podrá usar el navegador sin acceder a <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3381968327636295719">Utilizar el navegador del host de manera predeterminada</translation>
@@ -805,11 +805,6 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="3660562134618097814">Transferir cookies del IdP de SAML durante el acceso</translation>
 <translation id="3709266154059827597">Configurar la lista negra de instalación de extensiones</translation>
 <translation id="3711895659073496551">Suspender</translation>
-<translation id="3715448429089775791">Fuerza el modo de seguridad de YouTube como activo e impide que los usuarios modifiquen esta configuración.
-
-      Si se habilita esta configuración, el modo de seguridad en YouTube siempre está activo.
-
-      Si se inhabilita esta configuración o no se establece un valor, el modo de seguridad en YouTube no se fuerza.</translation>
 <translation id="3750220015372671395">Bloquear generación de claves en estos sitios</translation>
 <translation id="3756011779061588474">Bloquear modo de programador</translation>
 <translation id="3758089716224084329">Te permite establecer el servidor proxy que usa <ph name="PRODUCT_NAME" /> y evita que los usuarios cambien la configuración del proxy.
@@ -2197,6 +2192,10 @@ desactivarlo).</translation>
 <translation id="8369602308428138533">Demora de pantalla apagada con alimentación de CA</translation>
 <translation id="8382184662529825177">Habilita el uso de la atestación remota para la protección de contenido del dispositivo.</translation>
 <translation id="838870586332499308">Activar la itinerancia de datos</translation>
+<translation id="8390049129576938611">Inhabilita la app interna para ver archivos PDF <ph name="PRODUCT_NAME" />. Los considera archivos de descarga y le permite al usuario abrirlos con la aplicación predeterminada.
+
+      Si esta política no se establece o se inhabilita, el complemento de PDF se usará para abrir archivos PDF a menos que el usuario lo inhabilite.</translation>
+<translation id="8402079500086185021">Abrir siempre archivos PDF de forma externa</translation>
 <translation id="8412312801707973447">Se realizan comprobaciones OCSP/CRL si estás conectado.</translation>
 <translation id="8413348101535146315">Permite finalizar procesos en el Administrador de tareas de <ph name="PRODUCT_NAME" />.
 
@@ -2348,13 +2347,6 @@ desactivarlo).</translation>
       si están disponibles, y los guardará en el dispositivo. Estos
       archivos pueden usarse, por ejemplo, para mejorar la calidad de
       visualización de los monitores conectados.</translation>
-<translation id="8905426178924715309">Esta política dejó de estar disponible; se deben usar ForceGoogleSafeSearch y ForceYouTubeSafetyMode en su lugar. Esta política se ignorará si se establecen las políticas ForceGoogleSafeSearch o ForceYouTubeSafetyMode.
-
-      Permite forzar las consultas en la Búsqueda web de Google para que se realicen con SafeSearch activado y evitar que los usuarios modifiquen esta configuración. Esta configuración también fuerza el modo de seguridad en YouTube.
-
-      Si se habilita esta opción, SafeSearch está siempre activado en la Búsqueda de Google y en YouTube.
-
-      Si se inhabilita esta opción o no se establece un valor, no se aplicará SafeSearch en la Búsqueda de Google ni en YouTube.</translation>
 <translation id="8906768759089290519">Activar el modo de invitado</translation>
 <translation id="8908294717014659003">Te permite establecer si se autoriza que los sitios web tengan acceso a dispositivos de captura de contenido multimedia. El acceso a estos dispositivos puede permitirse de manera predeterminada, o se puede preguntar al usuario cada vez que un sitio web quiera acceder a dispositivos de captura de contenido multimedia.
 

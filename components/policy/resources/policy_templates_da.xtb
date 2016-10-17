@@ -822,11 +822,6 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="3660562134618097814">Overfør SAML-IdP-cookies ved login</translation>
 <translation id="3709266154059827597">Konfigurer sortliste for installation af udvidelser</translation>
 <translation id="3711895659073496551">Suspender</translation>
-<translation id="3715448429089775791">Gennemtvinger aktivering af Beskyttet tilstand på YouTube og forhindrer, at brugerne kan ændre denne indstilling.
-
-      Hvis du aktiverer denne indstilling, er Beskyttet tilstand på YouTube altid aktiveret.
-
-      Hvis du deaktiverer denne indstilling eller ikke indstiller en værdi, gennemtvinges Beskyttet tilstand på YouTube ikke.</translation>
 <translation id="3750220015372671395">Bloker nøglegenerering på disse websites</translation>
 <translation id="3756011779061588474">Bloker udviklertilstand</translation>
 <translation id="3758089716224084329">Giver dig mulighed for at angive den proxyserver, der anvendes af <ph name="PRODUCT_NAME" />, og forhindrer brugerne i at ændre proxyindstillingerne.
@@ -2220,6 +2215,10 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
 <translation id="8369602308428138533">Skærmslukforsinkelse, når strømforsyning er tilsluttet</translation>
 <translation id="8382184662529825177">Aktivér brug af fjernattestering til indholdsbeskyttelse for enheden.</translation>
 <translation id="838870586332499308">Aktivér dataroaming</translation>
+<translation id="8390049129576938611">Deaktiverer den interne PDF-fremviser i <ph name="PRODUCT_NAME" />. Behandler den i stedet som download og gør det muligt for brugeren at åbne PDF-filer via standardapplikationen.
+
+      Hvis politikken ikke angives, eller hvis den deaktiveres, anvendes PDF-pluginnet til at åbne PDF-filer, medmindre brugeren deaktiverer pluginnet.</translation>
+<translation id="8402079500086185021">Åbn altid PDF-filer eksternt</translation>
 <translation id="8412312801707973447">Om der udføres online kontrol af OCSP/CRL</translation>
 <translation id="8413348101535146315">Aktiverer mulighed for at afslutte processer i Jobliste for <ph name="PRODUCT_NAME" />.
 
@@ -2385,13 +2384,6 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
       automatisk Quirks Server og downloader konfigurationsfiler,
       hvis de er tilgængelige, som derefter gemmes på enheden.  Sådanne filer
       kan f.eks. anvendes til at forbedre kvaliteten af visningen af tilsluttede skærme.</translation>
-<translation id="8905426178924715309">Denne politik er udfaset. Brug ForceGoogleSafeSearch og ForceYouTubeSafetyMode i stedet. Denne politik ignoreres, hvis en af politikkerne ForceGoogleSafeSearch eller ForceYouTubeSafetyMode er angivet.
-
-      Gennemtvinger, at forespørgsler i Google Websøgning udføres med Beskyttet søgning slået til, og forhindrer brugere i at ændre denne indstilling. Denne indstilling gennemtvinger også Beskyttet tilstand på YouTube.
-
-      Hvis du aktiverer denne indstilling, vil Beskyttet søgning i Google Søgning og på YouTube altid være aktiv.
-
-      Hvis du deaktiverer denne indstilling eller ikke angiver en værdi, håndhæves Beskyttet søgning i Google Søgning og på YouTube ikke.</translation>
 <translation id="8906768759089290519">Aktivér gæstetilstand</translation>
 <translation id="8908294717014659003">Giver dig mulighed for at angive, om websites skal have adgang til optageenheder. Der kan gives adgang til optageenheder som standard, eller brugeren kan blive spurgt, hver gang et website ønsker at få adgang til optageenheder.
 

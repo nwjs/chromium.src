@@ -370,7 +370,6 @@
 <translation id="495170559598752135">Действия</translation>
 <translation id="4958444002117714549">Разгъване на списъка</translation>
 <translation id="4962322354953122629">Сървърът не можа да докаже, че е <ph name="DOMAIN" />. Сертификатът му за сигурност не се счита за надежден от Chrome. Това може да се дължи на неправилно конфигуриране или на прехващане на връзката ви от извършител на атака. <ph name="BEGIN_LEARN_MORE_LINK" />Научете повече<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Всичко е прочетено</translation>
 <translation id="498957508165411911">Да се преведе ли от <ph name="ORIGINAL_LANGUAGE" /> на <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="4989809363548539747">Тази приставка не се поддържа</translation>
 <translation id="5002932099480077015">Ако настройката е активирана, копие на картата ви ще се съхранява в Chrome на това устройство с цел по-бързо попълване на формуляри.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">Лента на отметките</translation>
 <translation id="5199729219167945352">Експерименти</translation>
 <translation id="5251803541071282808">Облак</translation>
+<translation id="5277279256032773186">Използвате Chrome на работното си място? Бизнесите могат да управляват настройките на браузъра за служителите си. Научете повече</translation>
 <translation id="5299298092464848405">Грешка при синтактичния анализ на правилото</translation>
 <translation id="5300589172476337783">Показване</translation>
 <translation id="5308689395849655368">Изпращането на сигнали за сривове е деактивирано.</translation>

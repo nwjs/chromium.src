@@ -857,11 +857,6 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3660562134618097814">Chuyển cookie SAML IdP trong khi đăng nhập</translation>
 <translation id="3709266154059827597">Định cấu hình danh sách đen cài đặt tiện ích</translation>
 <translation id="3711895659073496551">Tạm ngừng</translation>
-<translation id="3715448429089775791">Bắt buộc bật Chế độ an toàn trên YouTube và ngăn người dùng thay đổi cài đặt này.
-
-      Nếu bạn bật cài đặt này, Chế độ an toàn trên YouTube sẽ luôn bật.
-
-      Nếu bạn tắt cài đặt này hoặc không đặt giá trị, Chế độ an toàn trên YouTube sẽ không được thực thi.</translation>
 <translation id="3750220015372671395">Chặn tạo khóa trên các trang web này</translation>
 <translation id="3756011779061588474">Chặn chế độ của nhà phát triển</translation>
 <translation id="3758089716224084329">Cho phép bạn chỉ định máy chủ proxy mà <ph name="PRODUCT_NAME" /> sử dụng và không cho người dùng thay đổi cài đặt proxy.
@@ -2347,6 +2342,10 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="8369602308428138533">Độ trễ tắt màn hình khi chạy trên nguồn AC</translation>
 <translation id="8382184662529825177">Cho phép sử dụng chứng thực từ xa để bảo vệ nội dung cho thiết bị</translation>
 <translation id="838870586332499308">Bật chuyển vùng dữ liệu</translation>
+<translation id="8390049129576938611">Tắt trình xem PDF nội bộ trong <ph name="PRODUCT_NAME" />. Thay vào đó, thiết bị sẽ coi các tệp PDF là nội dung tải xuống và cho phép người dùng mở các tệp PDF này bằng ứng dụng mặc định.
+
+      Nếu chính sách này không được đặt hoặc đã bị tắt, plugin PDF sẽ được sử dụng để mở các tệp PDF trừ khi người dùng tắt plugin này.</translation>
+<translation id="8402079500086185021">Luôn mở các tệp PDF từ bên ngoài</translation>
 <translation id="8412312801707973447">Liệu các kiểm tra OCSP/CRL trực tuyến có được thực hiện hay không</translation>
 <translation id="8413348101535146315">Bật kết thúc quá trình trong Trình quản lý tác vụ của <ph name="PRODUCT_NAME" />.
 
@@ -2520,13 +2519,6 @@ Khi chính sách này được đặt thành false hoặc không được địn
       tự động liên hệ với Máy chủ Quirks và tải xuống các tệp cấu hình,
       nếu có, rồi lưu trữ các tệp này trên thiết bị. Các tệp này có thể
       được sử dụng để cải thiện chất lượng hiển thị của màn hình gắn vào chẳng hạn.</translation>
-<translation id="8905426178924715309">Chính sách này không được dùng nữa, vui lòng sử dụng ForceGoogleSafeSearch và ForceYouTubeSafetyMode. Chính sách này sẽ bị bỏ qua nếu bạn đặt chính sách ForceGoogleSafeSearch hoặc ForceYouTubeSafetyMode.
-
-      Buộc hoàn tất các truy vấn trong Google Web Search bằng cách đặt Tìm kiếm an toàn thành hiện hoạt và ngăn người dùng thay đổi cài đặt này. Cài đặt này cũng bắt buộc bật Chế độ an toàn trên YouTube.
-
-      Nếu bạn bật cài đặt này, Tìm kiếm an toàn trong Google Tìm kiếm và YouTube luôn hoạt động.
-
-      Nếu bạn tắt cài đặt này hoặc không đặt một giá trị, Tìm kiếm an toàn trong Google Tìm kiếm và YouTube sẽ không hoạt động.</translation>
 <translation id="8906768759089290519">Bật chế độ khách</translation>
 <translation id="8908294717014659003">Cho phép bạn đặt liệu trang web có được phép truy cập vào thiết bị thu dữ liệu truyền thông hay không. Quyền truy cập vào thiết bị thu dữ liệu truyền thông có thể được phép theo mặc định hoặc người dùng có thể được hỏi mỗi lần trang web muốn có quyền truy cập vào thiết bị thu dữ liệu truyền thông.
 

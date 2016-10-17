@@ -371,7 +371,6 @@
 <translation id="495170559598752135">Acciones</translation>
 <translation id="4958444002117714549">Mostrar lista</translation>
 <translation id="4962322354953122629">Este servidor no pudo probar que su dominio es <ph name="DOMAIN" />; Chrome no confía en el certificado de seguridad. Es posible que se deba a una configuración incorrecta o a que un atacante haya interceptado tu conexión. <ph name="BEGIN_LEARN_MORE_LINK" />Más información<ph name="END_LEARN_MORE_LINK" /></translation>
-<translation id="4986920000862467124">Todo leído</translation>
 <translation id="498957508165411911">¿Quieres traducir del <ph name="ORIGINAL_LANGUAGE" /> al <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="4989809363548539747">Este complemento no es compatible</translation>
 <translation id="5002932099480077015">Si se habilita esta opción, Chrome almacenará una copia de la tarjeta en el dispositivo para llenar más rápidamente los formularios.</translation>
@@ -395,6 +394,7 @@
 <translation id="5190835502935405962">Barra de marcadores</translation>
 <translation id="5199729219167945352">Experimentos</translation>
 <translation id="5251803541071282808">Nube</translation>
+<translation id="5277279256032773186">¿Usas Chrome en el trabajo? Las empresas pueden administrar la configuración de Chrome para sus empleados. Más información</translation>
 <translation id="5299298092464848405">Error al analizar la política</translation>
 <translation id="5300589172476337783">Mostrar</translation>
 <translation id="5308689395849655368">Notificación de fallas desactivada.</translation>

@@ -370,7 +370,6 @@
 <translation id="495170559598752135">Ενέργειες</translation>
 <translation id="4958444002117714549">Ανάπτυξη λίστας</translation>
 <translation id="4962322354953122629">Αυτός ο διακομιστής δεν μπόρεσε να αποδείξει ότι είναι το <ph name="DOMAIN" />. Το πιστοποιητικό ασφαλείας του δεν θεωρείται έμπιστο από το Chrome. Αυτό μπορεί να οφείλεται σε εσφαλμένη ρύθμιση ή σε κάποιον εισβολέα που παρεμβαίνει στη σύνδεσή σας. <ph name="BEGIN_LEARN_MORE_LINK" />Μάθετε περισσότερα<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Όλα αναγνωσμένα</translation>
 <translation id="498957508165411911">Μετάφραση των <ph name="ORIGINAL_LANGUAGE" /> στα <ph name="TARGET_LANGUAGE" />;</translation>
 <translation id="4989809363548539747">Αυτή η προσθήκη δεν υποστηρίζεται</translation>
 <translation id="5002932099480077015">Εάν ενεργοποιηθεί, το Chrome θα αποθηκεύσει ένα αντίγραφο της κάρτας σας σε αυτήν τη συσκευή για ταχύτερη συμπλήρωση φορμών.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">Γραμμή σελιδοδεικτών</translation>
 <translation id="5199729219167945352">Πειράματα</translation>
 <translation id="5251803541071282808">Cloud</translation>
+<translation id="5277279256032773186">Χρησιμοποιείτε το Chrome στη δουλειά σας; Οι επιχειρήσεις μπορούν να διαχειρίζονται τις ρυθμίσεις του Chrome για τους εργαζόμενούς τους. Μάθετε περισσότερα</translation>
 <translation id="5299298092464848405">Σφάλμα ανάλυσης πολιτικής</translation>
 <translation id="5300589172476337783">Εμφάνιση</translation>
 <translation id="5308689395849655368">Η αναφορά σφαλμάτων είναι απενεργοποιημένη.</translation>

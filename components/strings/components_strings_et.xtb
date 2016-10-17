@@ -370,7 +370,6 @@
 <translation id="495170559598752135">Toimingud</translation>
 <translation id="4958444002117714549">Laienda loendit</translation>
 <translation id="4962322354953122629">Server ei suutnud tõestada, et tegemist on domeeniga <ph name="DOMAIN" />. Chrome ei usalda selle turvasertifikaati. Selle põhjuseks võib olla vale seadistus või teie ühendust segav ründaja. <ph name="BEGIN_LEARN_MORE_LINK" />Vaadake lisateavet<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Kõik on loetud</translation>
 <translation id="498957508165411911">Kas tõlkida <ph name="ORIGINAL_LANGUAGE" /> keelest <ph name="TARGET_LANGUAGE" /> keelde?</translation>
 <translation id="4989809363548539747">Seda pistikprogrammi ei toetata</translation>
 <translation id="5002932099480077015">Kui see on lubatud, salvestab Chrome teie kaardi koopia vormide kiiremini täitmiseks sellesse seadmesse.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">Järjehoidjariba</translation>
 <translation id="5199729219167945352">Katsed</translation>
 <translation id="5251803541071282808">Pilv</translation>
+<translation id="5277279256032773186">Kas kasutate Chrome'i tööl? Ettevõtted võivad hallata töötajate Chrome'i seadeid. Lisateave</translation>
 <translation id="5299298092464848405">Reegli sõelumisel ilmnes viga</translation>
 <translation id="5300589172476337783">Kuva</translation>
 <translation id="5308689395849655368">Krahhide aruandlus on keelatud.</translation>

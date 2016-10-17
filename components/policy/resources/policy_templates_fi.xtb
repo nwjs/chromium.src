@@ -814,11 +814,6 @@ Käytännön arvot tulee määrittää millisekunteina. Arvoja voi valita välil
 <translation id="3660562134618097814">SAML-tunnistuspalvelun evästeiden siirto kirjautumisen aikana</translation>
 <translation id="3709266154059827597">Määritä, mitä laajennuksia ei saa asentaa</translation>
 <translation id="3711895659073496551">Keskeytä</translation>
-<translation id="3715448429089775791">Pakottaa YouTuben rajoitetun tilan käyttöön ja estää käyttäjiä muokkaamasta tätä asetusta.
-
-      Jos tämä asetus on käytössä, YouTuben rajoitettu tila on aina aktiivisena.
-
-      Jos tämä asetus on pois käytöstä tai sille ei aseteta arvoa, YouTuben rajoitettua tilaa ei pakoteta käyttöön.</translation>
 <translation id="3750220015372671395">Estä avainten luominen näillä sivustoilla</translation>
 <translation id="3756011779061588474">Estä kehittäjätila</translation>
 <translation id="3758089716224084329">Voit määrittää välityspalvelimen, jota <ph name="PRODUCT_NAME" /> käyttää, ja estää käyttäjiä muokkaamasta välityspalvelinasetuksia.
@@ -2208,6 +2203,10 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
 <translation id="8369602308428138533">Ruudun sammutuksen viive käytettäessä laitetta verkkovirralla</translation>
 <translation id="8382184662529825177">Poista käytöstä etävahvistuksen käyttö laitteen sisällön suojauksen vuoksi</translation>
 <translation id="838870586332499308">Ota mobiilitiedonsiirto käyttöön roaming-tilassa</translation>
+<translation id="8390049129576938611">Poista käytöstä tuotteen <ph name="PRODUCT_NAME" /> sisäinen PDF-katseluohjelma. Tuote kohtelee PDF-tiedostoja latauksina ja sallii niiden avaamisen käyttäjän valitsemalla oletussovelluksella.
+
+      Jos tätä käytäntöä ei määritetä tai se poistetaan käytöstä, PDF-tiedostot avataan käyttämällä PDF-laajennusta, ellei käyttäjä poista laajennusta käytöstä.</translation>
+<translation id="8402079500086185021">Avaa PDF-tiedostot aina ulkoisella sovelluksella</translation>
 <translation id="8412312801707973447">OCSP-/CRL-tarkistusten suorittaminen</translation>
 <translation id="8413348101535146315">Tämä käytäntö sallii prosessien lopettamisen <ph name="PRODUCT_NAME" />n tehtävänhallinnassa.
 
@@ -2367,13 +2366,6 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
       automaattisesti yhteyttä Quirks Serveriin ja lataa määritystiedostot,
       jos ne ovat saatavilla, ja tallentaa ne laitteelle. Näitä tiedostoja voidaan 
       käyttää esimerkiksi liitettyjen näyttöjen laadun parantamiseen.</translation>
-<translation id="8905426178924715309">Tämä käytäntö on vanhentunut, ja sen tilalla tulee käyttää käytäntöjä ForceGoogleSafeSearch ja ForceYouTubeSafetyMode. Tämä käytäntö ohitetaan, jos joko ForceGoogleSafeSearch tai ForceYouTubeSafetyMode on asetettu.
-
-      Pakottaa SafeSearch-tilan käyttöön Google-haun kyselyissä ja estää käyttäjiä muuttamasta asetusta. Lisäksi tämä käytäntö pakottaa rajoitetun tilan käyttöön YouTubessa.
-
-      Jos tämä asetus on käytössä, Google-haun SafeSearch ja YouTuben rajoitettu tila ovat aina käytössä.
-
-      Jos tämä asetus poistetaan käytöstä tai jos sille ei aseteta mitään arvoa, Google-haun SafeSearchia ja YouTuben rajoitettua tilaa ei pakoteta käyttöön.</translation>
 <translation id="8906768759089290519">Ota vierastila käyttöön</translation>
 <translation id="8908294717014659003">Voit määrittää, mitkä sivut saavat käyttää mediantallennuslaitteita. Mediantallennuslaitteiden käyttö voidaan sallia oletuksena, tai käyttäjältä voidaan kysyä aina, kun sivusto haluaa käyttää tallennuslaitteita.
 

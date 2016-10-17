@@ -816,11 +816,6 @@ El valor de la política s'ha d'especificar en mil·lisegons. Els valors s'estab
 <translation id="3660562134618097814">Transfereix les galetes del proveïdor d'identitat SAML durant l'inici de sessió</translation>
 <translation id="3709266154059827597">Configura la llista negra d'instal·lació d'extensions</translation>
 <translation id="3711895659073496551">Suspèn</translation>
-<translation id="3715448429089775791">Força l'activació del mode de seguretat de YouTube i impedeix que els usuaris canviïn aquesta opció de configuració.
-
-      Si activeu aquesta opció, el mode de seguretat de YouTube està sempre activat.
-
-      Si la desactiveu o no hi establiu cap valor, el mode de seguretat de YouTube no s'aplica.</translation>
 <translation id="3750220015372671395">Bloqueja la generació de claus en aquests llocs web</translation>
 <translation id="3756011779061588474">Bloquejar el mode de desenvolupador</translation>
 <translation id="3758089716224084329">Et permet especificar el servidor intermediari que <ph name="PRODUCT_NAME" /> utilitza i impedeix que els usuaris en canviïn la configuració.
@@ -2204,6 +2199,10 @@ Aquesta política s'ignora en els comptes d'usuari normals.</translation>
 <translation id="8369602308428138533">Retard de la desactivació de pantalla quan s'utilitza alimentació</translation>
 <translation id="8382184662529825177">Activa l'ús del testimoni remot del contingut protegit al dispositiu.</translation>
 <translation id="838870586332499308">Activa la itinerància de dades</translation>
+<translation id="8390049129576938611">Desactiva el lector de PDF intern a <ph name="PRODUCT_NAME" />. En el seu lloc, tracta els fitxers PDF com una baixada i permet que l'usuari els obri amb l'aplicació predeterminada.
+
+      Si aquesta política es deixa sense establir o es desactiva, s'utilitzarà el connector de PDF per obrir aquest tipus de fitxers (tret que l'usuari el desactivi).</translation>
+<translation id="8402079500086185021">Obre sempre els fitxers PDF amb una altra aplicació</translation>
 <translation id="8412312801707973447">Si es realitzen comprovacions OCSP/CRL en línia</translation>
 <translation id="8413348101535146315">Permet finalitzar processos al gestor de tasques de <ph name="PRODUCT_NAME" />.
 
@@ -2351,13 +2350,6 @@ Aquesta política s'ignora en els comptes d'usuari normals.</translation>
       Si aquesta política s'estableix en "false", el dispositiu no prova de contactar amb Quirks Server per baixar els fitxers de configuració.
 
       Si s'estableix en "true" o no s'estableix, <ph name="PRODUCT_OS_NAME" /> contacta automàticament amb el Quirks Server, baixa els fitxers de configuració, si estan disponibles, i els emmagatzema al dispositiu. Aquests fitxers es poden utilitzar, per exemple, per millorar la qualitat dels monitors connectats.</translation>
-<translation id="8905426178924715309">Aquesta política està obsoleta; substituïu-la per ForceGoogleSafeSearch i per ForceYouTubeSafetyMode. S'ignorarà si ForceGoogleSafeSearch o ForceYouTubeSafetyMode estan establertes.
-
-      Força que les consultes de la Cerca web de Google es facin amb la funció SafeSearch activada i impedeix que els usuaris canviïn aquesta opció de configuració. Aquesta opció també força el mode de seguretat a YouTube.
-
-      Si activeu aquesta opció, SafeSearch estarà sempre activa a la Cerca de Google i a YouTube.
-
-      Si desactiveu aquesta opció o si no hi establiu cap valor, SafeSearch no s'aplicarà a la Cerca de Google ni a YouTube.</translation>
 <translation id="8906768759089290519">Activa el mode de convidat</translation>
 <translation id="8908294717014659003">Us permet decidir si els llocs web poden accedir als vostres dispositius de captura multimèdia. Es pot proporcionar accés als dispositius de captura multimèdia de manera predeterminada o demanar permís a l'usuari cada vegada que un lloc web vol accedir als dispositius de captura multimèdia.
 

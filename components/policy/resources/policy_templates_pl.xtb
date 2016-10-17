@@ -814,11 +814,6 @@
 <translation id="3660562134618097814">Prześlij pliki cookie dostawcy tożsamości SAML podczas logowania</translation>
 <translation id="3709266154059827597">Konfiguruj czarną listę instalacji rozszerzeń</translation>
 <translation id="3711895659073496551">Wstrzymaj</translation>
-<translation id="3715448429089775791">Wymusza włączenie trybu bezpiecznego w YouTube i uniemożliwia zmianę tego ustawienia przez użytkowników.
-
-      Jeśli włączysz to ustawienie, tryb bezpieczny w YouTube będzie zawsze aktywny.
-
-      Jeśli wyłączysz to ustawienie lub nie ustawisz wartości, tryb bezpieczny w YouTube nie będzie wymuszany.</translation>
 <translation id="3750220015372671395">Blokuj generowanie kluczy w tych witrynach</translation>
 <translation id="3756011779061588474">Zablokuj tryb programisty</translation>
 <translation id="3758089716224084329">Pozwala określić serwer proxy używany przez <ph name="PRODUCT_NAME" /> i uniemożliwia użytkownikom zmianę ustawień serwera proxy.
@@ -2205,6 +2200,10 @@ Więcej opcji i szczegółowych przykładów znajdziesz na:
 <translation id="8369602308428138533">Opóźnienie wyłączenia ekranu przy zasilaniu sieciowym</translation>
 <translation id="8382184662529825177">Włącz używanie zaświadczania zdalnego do ochrony treści na urządzeniu</translation>
 <translation id="838870586332499308">Włącz dane w roamingu</translation>
+<translation id="8390049129576938611">Wyłącza wewnętrzną przeglądarkę plików PDF w <ph name="PRODUCT_NAME" />. Pliki PDF będą traktowane jako pobrane i użytkownik będzie mógł je otwierać w aplikacji domyślnej.
+
+      Jeśli ta zasada nie zostanie ustawiona lub zostanie wyłączona, do otwierania plików PDF będzie używana wtyczka PDF, chyba że użytkownik ją wyłączy.</translation>
+<translation id="8402079500086185021">Zawsze otwieraj pliki PDF zewnętrznie</translation>
 <translation id="8412312801707973447">Czy wykonywane jest sprawdzanie OCSP/CRL online</translation>
 <translation id="8413348101535146315">Umożliwia kończenie procesów w Menedżerze zadań <ph name="PRODUCT_NAME" />.
 
@@ -2361,13 +2360,6 @@ Więcej opcji i szczegółowych przykładów znajdziesz na:
       automatycznie pobierać pliki konfiguracyjne z Quirks Server
       (jeśli będą dostępne) i zapisywać je na urządzeniu. Takie pliki mogą
       na przykład poprawiać jakość obrazu na podłączonych monitorach.</translation>
-<translation id="8905426178924715309">Ta zasada została wycofana. Zamiast niej użyj ForceGoogleSafeSearch lub ForceYouTubeSafetyMode. Zasada zostanie zignorowana, jeśli ustawiona zostanie zasada ForceGoogleSafeSearch lub ForceYouTubeSafetyMode.
-
-      Wymusza realizację zapytań w wyszukiwarce Google przy użyciu filtra SafeSearch i uniemożliwia użytkownikom zmianę tego ustawienia. To ustawienie wymusza też włączenie Trybu bezpiecznego w YouTube.
-
-      Jeśli włączysz to ustawienie, filtr SafeSearch w wyszukiwarce Google i YouTube będzie zawsze aktywny.
-
-      Jeśli je wyłączysz albo nie podasz wartości, stosowanie filtra SafeSearch w wyszukiwarce Google i YouTube nie będzie wymuszane.</translation>
 <translation id="8906768759089290519">Włącz tryb gościa</translation>
 <translation id="8908294717014659003">Pozwala określić, czy strony mogą korzystać z urządzeń do rejestrowania multimediów. Dostęp do tych urządzeń może być dozwolony domyślnie lub użytkownik może być pytany za każdym razem, gdy strona chce użyć urządzenia do rejestrowania multimediów.
 

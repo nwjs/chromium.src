@@ -857,11 +857,6 @@
 <translation id="3660562134618097814">Ilipat ang cookies ng SAML IdP sa pag-log in</translation>
 <translation id="3709266154059827597">I-configure ang blacklist ng pag-install ng extension</translation>
 <translation id="3711895659073496551">Suspendihin</translation>
-<translation id="3715448429089775791">Pinupuwersang maging aktibo ang YouTube Safety Mode at pinipigilan ang mga user sa pagbabago sa setting na ito.
-
-      Kung i-enable mo ang setting na ito, palaging aktibo ang Safety Mode sa YouTube.
-
-      Kung i-disable mo ang setting na ito o hindi nagtakda ng value, hindi ipapatupad ang Safety Mode sa YouTube.</translation>
 <translation id="3750220015372671395">I-block ang pagbuo ng key sa mga site na ito</translation>
 <translation id="3756011779061588474">I-block ang mode ng developer</translation>
 <translation id="3758089716224084329">Binibigyang-daan kang tukuyin ang proxy server na ginamit ng <ph name="PRODUCT_NAME" /> at pinipigilan ang mga user na baguhin ang mga setting ng proxy.
@@ -2364,6 +2359,10 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="8369602308428138533">Delay ng pag-off ng screen kapag tumatakbo habang nakasaksak sa kuryente</translation>
 <translation id="8382184662529825177">I-enable ang paggamit ng malayuang pagpapatotoo para sa pagprotekta sa nilalaman para sa device</translation>
 <translation id="838870586332499308">Payagan ang roaming ng data</translation>
+<translation id="8390049129576938611">Dini-disable ang internal PDF viewer sa <ph name="PRODUCT_NAME" />. Sa halip, itinuturing nito ito bilang download at pinapayagan ang user na magbukas ng mga PDF na file gamit ang default na application.
+
+      Kung iiwanang hindi nakatakda o naka-disable ang patakarang ito, gagamitin ang PDF plugin upang magbukas ng mga PDF file maliban na lang kung idi-disable ito ng user.</translation>
+<translation id="8402079500086185021">Palaging Magbukas ng mga PDF file nang external</translation>
 <translation id="8412312801707973447">Kung isinasagawa ang mga online na pagsusuri sa OCSP/CRL</translation>
 <translation id="8413348101535146315">Ine-enable ang pagwawakas ng mga proseso sa Task Manager ng <ph name="PRODUCT_NAME" />.
 
@@ -2542,13 +2541,6 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
       sa Quirks Server at ida-download nito ang mga configuration file,
       kung available, at iiimbak ang mga ito sa device.  Ang mga naturang file, halimbawa,
       ay maaaring gamitin upang pagandahin ang kalidad ng display ng mga naka-attach na monitor.</translation>
-<translation id="8905426178924715309">Hindi na ginagamit ang patakarang ito, pakigamit na lang ang ForceGoogleSafeSearch at ForceYouTubeSafetyMode. Babalewalain ang patakarang ito kung itatakda ang alinman sa mga patakarang ForceGoogleSafeSearch o ForceYouTubeSafetyMode.
-
-      Pinupuwersang isagawa ang mga query sa Google Web Search nang nakatakda ang SafeSearch sa aktibo at pinipigilan ang mga user na baguhin ang setting na ito. Ipinapatupad din ng setting na ito ang Safety Mode sa YouTube.
-
-      Kung ie-enable mo ang setting na ito, palaging aktibo ang SafeSearch sa Google Search at YouTube.
-
-      Kung idi-disable mo ang setting na ito o kung hindi ka magtatakda ng value, hindi ipapatupad ang SafeSearch sa Google Search at YouTube.</translation>
 <translation id="8906768759089290519">Payagan ang mode ng bisita</translation>
 <translation id="8908294717014659003">Binibigyang-daan kang itakda kung papayagan ang mga website na makakuha ng access sa mga media capture na device. Maaaring payagan bilang default ang access sa mga media capture na device, o maaaring tanungin ang user sa tuwing may website na nagnanais na mag-access sa mga media capture na device.
 

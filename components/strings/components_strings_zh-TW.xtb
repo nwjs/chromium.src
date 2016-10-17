@@ -370,7 +370,6 @@
 <translation id="495170559598752135">動作</translation>
 <translation id="4958444002117714549">展開清單</translation>
 <translation id="4962322354953122629">這個伺服器無法證明所在網域是 <ph name="DOMAIN" />；Chrome 不信任伺服器的安全性憑證。這可能是因為設定錯誤，或是有攻擊者攔截你的連線。<ph name="BEGIN_LEARN_MORE_LINK" />瞭解詳情<ph name="END_LEARN_MORE_LINK" /></translation>
-<translation id="4986920000862467124">全都讀過了</translation>
 <translation id="498957508165411911">將網頁內容由<ph name="ORIGINAL_LANGUAGE" />翻譯成<ph name="TARGET_LANGUAGE" />？</translation>
 <translation id="4989809363548539747">這是不支援的外掛程式</translation>
 <translation id="5002932099480077015">啟用後，Chrome 會將您的信用卡複本儲存在這個裝置上，以加快表單填寫速度。</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">書籤列</translation>
 <translation id="5199729219167945352">實驗性功能</translation>
 <translation id="5251803541071282808">雲端</translation>
+<translation id="5277279256032773186">在工作環境使用 Chrome 嗎？企業可以管理員工的 Chrome 設定。瞭解詳情</translation>
 <translation id="5299298092464848405">解析政策時發生錯誤</translation>
 <translation id="5300589172476337783">顯示</translation>
 <translation id="5308689395849655368">當機報告功能已停用。</translation>

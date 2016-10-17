@@ -370,7 +370,6 @@
 <translation id="495170559598752135">عملکردها</translation>
 <translation id="4958444002117714549">بزرگ کردن فهرست</translation>
 <translation id="4962322354953122629">‏این سرور نتوانست ثابت کند <ph name="DOMAIN" /> است؛ گواهینامه امنیتی آن مورداعتماد Chrome نیست. ممکن است پیکربندی اشتباهی علت آن باشد یا مهاجمی اتصالتان را قطع کرده باشد. <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">همه خوانده شده‌اند</translation>
 <translation id="498957508165411911">از <ph name="ORIGINAL_LANGUAGE" /> به <ph name="TARGET_LANGUAGE" /> ترجمه شود؟</translation>
 <translation id="4989809363548539747">این افزایه پشتیبانی نمی‌شود</translation>
 <translation id="5002932099480077015">‏اگر فعال شود، Chrome یک کپی از کارت شما را برای پرکردن سریع‌تر فرم در این دستگاه ذخیره می‌کند.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">نوار نشانک‌ها</translation>
 <translation id="5199729219167945352">آزمایشات</translation>
 <translation id="5251803541071282808">Cloud</translation>
+<translation id="5277279256032773186">‏از Chrome در محل کار استفاده می‌کنید؟ کسب و کارها می‌توانند تنظیمات Chrome را برای کارمندانشان مدیریت کنند. بیشتر بدانید</translation>
 <translation id="5299298092464848405">خطا در تجزیه خط‌‌مشی</translation>
 <translation id="5300589172476337783">نمایش</translation>
 <translation id="5308689395849655368">گزارش خرابی غیر فعال است.</translation>

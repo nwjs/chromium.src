@@ -813,11 +813,6 @@
 <translation id="3660562134618097814">ログイン時に SAML IdP Cookie を転送する</translation>
 <translation id="3709266154059827597">拡張機能インストールのブラックリストを設定する</translation>
 <translation id="3711895659073496551">停止する</translation>
-<translation id="3715448429089775791">YouTube のセーフモードを強制的に有効にして、ユーザーがこの設定を変更できないようにします。
-
-      この設定を有効にすると、YouTube のセーフモードは常に有効になります。
-
-      この設定を無効にした場合、または値を設定しない場合、YouTube のセーフモードは有効になりません。</translation>
 <translation id="3750220015372671395">指定サイトでのキー生成をブロックする</translation>
 <translation id="3756011779061588474">デベロッパー モードをブロックする</translation>
 <translation id="3758089716224084329"><ph name="PRODUCT_NAME" /> が使用するプロキシ サーバーを指定できます。この場合、ユーザーがプロキシ設定を変更することはできません。
@@ -2201,6 +2196,10 @@ Active Directory ドメインに参加していない Windows インスタンス
 <translation id="8369602308428138533">画面がオフになるまでの時間（AC 電源での実行時）</translation>
 <translation id="8382184662529825177">デバイスのコンテンツ保護に関するリモート認証の使用を有効にする</translation>
 <translation id="838870586332499308">データ ローミングを有効にする</translation>
+<translation id="8390049129576938611"><ph name="PRODUCT_NAME" /> で内部 PDF ビューアを無効にします。この場合、ユーザーはダウンロードしたファイルと同じように、PDF ファイルをデフォルトのアプリで開くことができます。
+
+      このポリシーを未設定のままにするか無効にした場合は、ユーザーが PDF プラグインを無効にしない限り、PDF ファイルは PDF プラグインで開かれます。</translation>
+<translation id="8402079500086185021">PDF ファイルを常に外部アプリで開く</translation>
 <translation id="8412312801707973447">オンライン OCSP/CRL チェックを実行するかどうかを指定する</translation>
 <translation id="8413348101535146315"><ph name="PRODUCT_NAME" /> のタスク マネージャでプロセスを終了できるようにします。
 
@@ -2360,13 +2359,6 @@ Active Directory ドメインに参加していない Windows インスタンス
       設定ファイルがある場合はダウンロードされて端末に保存されます。
       こうした設定ファイルは、接続しているモニターの画質向上などの
       目的で使用されます。</translation>
-<translation id="8905426178924715309">このポリシーはサポート終了となりました。代わりに ForceGoogleSafeSearch と ForceYouTubeSafetyMode を使用してください。ForceGoogleSafeSearch ポリシーまたは ForceYouTubeSafetyMode ポリシーのいずれかが設定されている場合、このポリシーは無視されます。
-
-Google ウェブ検索のクエリの実行時に SafeSearch を強制適用するとともに、ユーザーによるこの設定の変更を禁止します。この設定により、YouTube でもセーフモードが強制適用されます。
-
-この設定を有効にした場合、Google 検索と YouTube では SafeSearch が常時有効になります。
-
-この設定を無効にするか値を設定していない場合、Google 検索と YouTube で SafeSearch は強制適用されません。</translation>
 <translation id="8906768759089290519">ゲスト モードを有効にする</translation>
 <translation id="8908294717014659003">メディア キャプチャ デバイスのアクセスをウェブサイトに許可するかどうかを設定できます。デフォルトでメディア キャプチャ デバイスへのアクセスを許可するか、メディア キャプチャ デバイスへのアクセス要求がウェブサイトからあるたびにユーザーに確認することができます。
 

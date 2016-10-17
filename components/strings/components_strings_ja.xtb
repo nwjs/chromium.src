@@ -370,7 +370,6 @@
 <translation id="495170559598752135">操作</translation>
 <translation id="4958444002117714549">リストを展開する</translation>
 <translation id="4962322354953122629">このサーバーが <ph name="DOMAIN" /> であることを確認できませんでした。このサーバーのセキュリティ証明書は Chrome によって信頼されているものではありません。原因として、設定が不適切であるか、悪意のあるユーザーが接続を妨害していることが考えられます。<ph name="BEGIN_LEARN_MORE_LINK" />詳細<ph name="END_LEARN_MORE_LINK" /></translation>
-<translation id="4986920000862467124">すべて既読</translation>
 <translation id="498957508165411911"><ph name="ORIGINAL_LANGUAGE" />から<ph name="TARGET_LANGUAGE" />に翻訳しますか？</translation>
 <translation id="4989809363548539747">このプラグインはサポートされていません</translation>
 <translation id="5002932099480077015">有効にすると、Chrome ではこの端末にカードのコピーが保存されます。これにより、フォームにすばやく入力できるようになります。</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">ブックマーク バー</translation>
 <translation id="5199729219167945352">試験運用機能</translation>
 <translation id="5251803541071282808">クラウド</translation>
+<translation id="5277279256032773186">会社で Chrome を使用する場合は、従業員用に Chrome の設定を管理できます。詳細</translation>
 <translation id="5299298092464848405">ポリシーの解析中にエラーが発生しました</translation>
 <translation id="5300589172476337783">表示</translation>
 <translation id="5308689395849655368">障害レポートが無効になっています。</translation>

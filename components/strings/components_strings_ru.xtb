@@ -369,7 +369,6 @@
 <translation id="495170559598752135">Действия</translation>
 <translation id="4958444002117714549">Развернуть список</translation>
 <translation id="4962322354953122629">Сервер не может подтвердить связь с доменом <ph name="DOMAIN" />. Chrome не считает его сертификат безопасности надежным. Возможно, проблема связана с настройками сервера или действиями злоумышленников, которые пытаются перехватить соединение. <ph name="BEGIN_LEARN_MORE_LINK" />Подробнее…<ph name="END_LEARN_MORE_LINK" /></translation>
-<translation id="4986920000862467124">Все просмотрено</translation>
 <translation id="498957508165411911">Выполнить перевод (<ph name="ORIGINAL_LANGUAGE" /> &gt; <ph name="TARGET_LANGUAGE" />)?</translation>
 <translation id="4989809363548539747">Плагин не поддерживается</translation>
 <translation id="5002932099480077015">Chrome будет хранить на этом устройстве данные карты для быстрого заполнения форм.</translation>
@@ -393,6 +392,7 @@
 <translation id="5190835502935405962">Панель закладок</translation>
 <translation id="5199729219167945352">Экспериментальные функции</translation>
 <translation id="5251803541071282808">Облако</translation>
+<translation id="5277279256032773186">Используете Chrome на работе? Узнайте, как компании могут управлять настройками Chrome на корпоративных устройствах.</translation>
 <translation id="5299298092464848405">Не удалось выполнить анализ политики</translation>
 <translation id="5300589172476337783">Показать</translation>
 <translation id="5308689395849655368">Отчеты о сбоях отключены.</translation>

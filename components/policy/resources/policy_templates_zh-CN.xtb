@@ -791,11 +791,6 @@
 <translation id="3660562134618097814">在用户登录期间转移 SAML IdP Cookie</translation>
 <translation id="3709266154059827597">配置扩展程序安装黑名单</translation>
 <translation id="3711895659073496551">暂停</translation>
-<translation id="3715448429089775791">强制启用 YouTube 安全模式，并禁止用户更改此设置。
-
-      如果您启用了此设置，YouTube 中将始终启用安全模式。
-
-      如果您停用了此设置或未指定值，YouTube 中将不会强制启用安全模式。</translation>
 <translation id="3750220015372671395">禁止在这些网站上使用密钥生成功能</translation>
 <translation id="3756011779061588474">禁止开发者模式</translation>
 <translation id="3758089716224084329">可让您指定 <ph name="PRODUCT_NAME" /> 使用的代理服务器，并禁止用户更改代理设置。
@@ -2144,6 +2139,10 @@
 <translation id="8369602308428138533">使用交流电源供电时的屏幕关闭延迟时间</translation>
 <translation id="8382184662529825177">允许为设备使用远程认证来保护内容</translation>
 <translation id="838870586332499308">启用数据漫游</translation>
+<translation id="8390049129576938611">在 <ph name="PRODUCT_NAME" /> 中停用内部 PDF 查看器。否则，Google Chrome 会将其视为下载内容并允许用户使用默认应用打开 PDF 文件。
+
+      如果此政策未设置或已停用，系统将使用 PDF 插件打开 PDF 文件，除非用户已停用此插件。</translation>
+<translation id="8402079500086185021">始终使用外部应用打开 PDF 文件</translation>
 <translation id="8412312801707973447">是否执行在线 OCSP/CRL 检查</translation>
 <translation id="8413348101535146315">允许在 <ph name="PRODUCT_NAME" /> 的任务管理器中结束进程。
 
@@ -2265,13 +2264,6 @@
       如果此政策设为 false，设备将不会尝试联系 Quirks Server 来下载配置文件。
 
      如果此政策设为 true 或未设置，<ph name="PRODUCT_OS_NAME" />将自动联系 Quirks Server 并下载配置文件（如果有），然后将这些文件存储在设备上。此类文件可能会用于多种目的，例如改善所连接的显示器的显示质量。</translation>
-<translation id="8905426178924715309">此政策已弃用，请改用 ForceGoogleSafeSearch 和 ForceYouTubeSafetyMode。如果设置了 ForceGoogleSafeSearch 或 ForceYouTubeSafetyMode 政策，此政策将被忽略。
-
-      强制启用安全搜索功能来处理 Google 网页搜索中的查询，并禁止用户更改此设置。此设置还会强制在 YouTube 中启用安全模式。
-
-      如果您启用了此设置，Google 搜索和 YouTube 中的安全搜索功能将始终处于启用状态。
-
-      如果您停用了此设置或未设置值，系统将不会在 Google 搜索和 YouTube 中强制启用安全搜索功能。</translation>
 <translation id="8906768759089290519">启用访客模式</translation>
 <translation id="8908294717014659003">允许您设置是否允许网站访问媒体捕获设备。系统默认为允许访问媒体捕获设备，否则，每次有网站要访问媒体捕获设备时都要征询用户同意。
 

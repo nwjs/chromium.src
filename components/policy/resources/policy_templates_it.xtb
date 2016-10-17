@@ -797,11 +797,6 @@ Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearch
 <translation id="3660562134618097814">Trasferisci i cookie dell'IdP SAML durante l'accesso</translation>
 <translation id="3709266154059827597">Configura blacklist per l'installazione delle estensioni</translation>
 <translation id="3711895659073496551">Sospensione</translation>
-<translation id="3715448429089775791">Forza l'attivazione della Modalità di protezione di YouTube e impedisce agli utenti di cambiare questa impostazione.
-
-      Se viene attivata questa impostazione, la Modalità di protezione di YouTube è sempre attiva.
-
-      Se viene disattivata questa impostazione o se non viene impostato un valore, non viene applicata la Modalità di protezione di YouTube.</translation>
 <translation id="3750220015372671395">Blocca la generazione di chiavi su questi siti</translation>
 <translation id="3756011779061588474">Blocca modalità sviluppatore</translation>
 <translation id="3758089716224084329">Consente di specificare il server proxy utilizzato da <ph name="PRODUCT_NAME" /> e impedisce agli utenti di modificare le impostazioni proxy.
@@ -2143,6 +2138,10 @@ Se questa norma non viene impostata, le pagine saranno sottoposte a scansione pe
 <translation id="8369602308428138533">Ritardo disattivazione schermo in caso di utilizzo di CA</translation>
 <translation id="8382184662529825177">Attiva l'utilizzo dell'attestazione remota per la protezione dei contenuti per il dispositivo</translation>
 <translation id="838870586332499308">Attiva roaming dati</translation>
+<translation id="8390049129576938611">Consente di disattivare il visualizzatore di PDF interno di <ph name="PRODUCT_NAME" />. I file PDF vengono gestiti come download che l'utente può aprire con l'applicazione predefinita.
+
+      Se questa norma non viene impostata o viene disattivata, per aprire i file PDF verrà utilizzato il plug-in di PDF, se l'utente non lo disattiva.</translation>
+<translation id="8402079500086185021">Apri sempre file PDF esternamente</translation>
 <translation id="8412312801707973447">Esecuzione dei controlli OCSP/CRL online</translation>
 <translation id="8413348101535146315">Consente di terminare i processi nella funzione Task Manager di <ph name="PRODUCT_NAME" />.
 
@@ -2271,13 +2270,6 @@ Se la norma non viene impostata o viene impostata su false, la posizione non vie
       Se questa norma viene impostata su false, il dispositivo non tenterà di contattare Quirks Server per scaricare i file di configurazione.
 
       Se la norma viene impostata su true o non viene configurata, <ph name="PRODUCT_OS_NAME" /> contatterà automaticamente Quirks Server, scaricherà i file di configurazione, se disponibili, e li memorizzerà sul dispositivo. Tali file potrebbero essere utilizzati, ad esempio, per migliorare la qualità del display dei monitor collegati.</translation>
-<translation id="8905426178924715309">Questa norma è stata ritirata; utilizzare le norme ForceGoogleSafeSearch e ForceYouTubeSafetyMode. Questa norma viene ignorata se viene impostata la norma ForceGoogleSafeSearch o ForceYouTubeSafetyMode.
-
-      Consente di forzare l'esecuzione delle query nella Ricerca Google con l'opzione SafeSearch attiva e di impedire agli utenti di modificare l'impostazione. Questa impostazione forza inoltre l'attivazione della Modalità di protezione su YouTube.
-
-      Se questa impostazione viene attivata, il filtro SafeSearch nella Ricerca Google e su YouTube è sempre attivo.
-
-      Se l'impostazione viene disattivata o non viene impostato un valore, il filtro SafeSearch nella Ricerca Google e su YouTube non viene applicato.</translation>
 <translation id="8906768759089290519">Attiva modalità ospite</translation>
 <translation id="8908294717014659003">Consente di stabilire se i siti web possono accedere ai dispositivi di acquisizione dei contenuti multimediali. L'accesso ai dispositivi di acquisizione dei contenuti multimediali può essere consentito per impostazione predefinita oppure l'utente può visualizzare una richiesta ogni volta che un sito web vuole accedere ai dispositivi di acquisizione dei contenuti multimediali.
 

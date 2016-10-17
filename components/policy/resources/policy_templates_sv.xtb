@@ -867,11 +867,6 @@
 <translation id="3660562134618097814">Överför SAML-cookies från identitetsleverantörer vid inloggning</translation>
 <translation id="3709266154059827597">Konfigurera svartlista för tilläggsinstallation</translation>
 <translation id="3711895659073496551">Stäng av</translation>
-<translation id="3715448429089775791">Tvingar fram aktivering av Säkert läge på YouTube och förhindrar att användare ändrar inställningen.
-
-      Om du aktiverar den här inställningen är funktionen Säkert läge på YouTube alltid aktiv.
-
-      Om du inaktiverar den här inställningen eller inte anger något värde tvingas inte användningen av Säkert läge på YouTube fram.</translation>
 <translation id="3750220015372671395">Blockera nyckelgenerering på dessa webbplatser</translation>
 <translation id="3756011779061588474">Blockera utvecklarläget</translation>
 <translation id="3758089716224084329">Med den här principen kan du ange vilken proxyserver som används av <ph name="PRODUCT_NAME" /> och förhindra att användare ändrar sina proxyinställningar.
@@ -2382,6 +2377,10 @@
 <translation id="8369602308428138533">Skärmavstängningstid när enheten är ansluten till elnätet</translation>
 <translation id="8382184662529825177">Aktivera användning av fjärrattestering för innehållsskydd för enheten</translation>
 <translation id="838870586332499308">Aktivera dataroaming</translation>
+<translation id="8390049129576938611">Inaktiverar den interna PDF-läsaren i <ph name="PRODUCT_NAME" />. PDF-filer behandlas i stället som nedladdningar så att användaren kan öppna dem med standardappen.
+
+      Om den här principen inte anges eller är inaktiverad öppnas PDF-filer med PDF-pluginprogrammet såvida användaren inte inaktiverar det.</translation>
+<translation id="8402079500086185021">Öppna alltid PDF-filer med en extern app</translation>
 <translation id="8412312801707973447">Anger huruvida OCSP/CRL-onlinekontroller ska utföras</translation>
 <translation id="8413348101535146315">Gör det möjligt att avsluta aktiviteter i Aktivitetshanteraren i <ph name="PRODUCT_NAME" />.
 
@@ -2566,13 +2565,6 @@
       automatiskt att kontakta Quirks-servern och ladda ned konfigurationsfiler
       (i mån av tillgång) och spara dem på enheten. Sådana filer kan till
       exempel användas för att förbättra visningskvaliteten på anslutna skärmar.</translation>
-<translation id="8905426178924715309">Den här principen har fasats ut. Använd ForceGoogleSafeSearch och ForceYouTubeSafetyMode i stället. Principen ignoreras om antingen ForceGoogleSafeSearch eller ForceYouTubeSafetyMode har angetts.
-
-      Sökfrågor i Googles webbsökning görs obligatoriskt med SafeSearch aktiverat och användarna förhindras att ändra inställningen. Med den här inställningen blir även Säkert läge obligatoriskt på YouTube.
-
-      Om du aktiverar den här inställningen är funktionen SafeSearch i Sök på Google och YouTube alltid aktiv.
-
-      Om du inaktiverar inställningen eller inte anger något värde blir det inte obligatoriskt att använda SafeSearch i Sök på Google eller på YouTube.</translation>
 <translation id="8906768759089290519">Aktivera gästläge</translation>
 <translation id="8908294717014659003">Gör att du kan ange om webbplatser ska kunna komma åt medieenheter. Åtkomst till medieenheter kan tillåtas som standard eller så kan användaren få en fråga varje gång en webbplats vill komma åt dem.
 

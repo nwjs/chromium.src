@@ -866,11 +866,6 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 <translation id="3660562134618097814">Transférer des cookies de fournisseurs d'identité SAML lors de la connexion</translation>
 <translation id="3709266154059827597">Configurer la liste noire d'installation des extensions</translation>
 <translation id="3711895659073496551">Arrêter</translation>
-<translation id="3715448429089775791">Force l'activation du mode sécurisé de YouTube et empêche les utilisateurs de modifier ce paramètre.
-
-      Si vous activez ce paramètre, le mode sécurisé de YouTube est toujours actif.
-
-      Si vous le désactivez ou ne définissez aucune valeur, le mode sécurisé de YouTube n'est pas appliqué.</translation>
 <translation id="3750220015372671395">Bloquer la génération de clé sur ces sites</translation>
 <translation id="3756011779061588474">Bloquer le mode développeur</translation>
 <translation id="3758089716224084329">Permet de préciser le serveur proxy utilisé par <ph name="PRODUCT_NAME" /> et d'empêcher les utilisateurs de modifier les paramètres de proxy.
@@ -2387,6 +2382,10 @@ Si ce paramètre n'est pas défini, l'utilisateur peut décider d'utiliser cette
 <translation id="8369602308428138533">Délai d'arrêt de l'écran (secteur)</translation>
 <translation id="8382184662529825177">Autoriser l'utilisation de l'attestation à distance pour assurer la protection du contenu de l'appareil</translation>
 <translation id="838870586332499308">Activer l'itinérance des données</translation>
+<translation id="8390049129576938611">Désactive la visionneuse de documents PDF intégrée dans <ph name="PRODUCT_NAME" />. Les fichiers PDF sont alors traités comme des téléchargements que l'utilisateur peut ouvrir avec l'application par défaut.
+
+      Si cette règle n'est pas définie ou si elle est désactivée, le plug-in PDF est utilisé pour ouvrir les fichiers PDF, sauf si l'utilisateur le désactive.</translation>
+<translation id="8402079500086185021">Toujours ouvrir les fichiers PDF en externe</translation>
 <translation id="8412312801707973447">Si des contrôles OCSP/CRL en ligne sont effectués</translation>
 <translation id="8413348101535146315">Permet de mettre fin aux processus dans le gestionnaire des tâches de <ph name="PRODUCT_NAME" />.
 
@@ -2569,13 +2568,6 @@ Si vous désactivez ce paramètre ou s'il n'est pas défini, le nom canonique du
       automatiquement contacter Quirks Server et télécharger les fichiers de configuration,
       s'ils sont disponibles, et les enregistrer sur l'appareil.  Ces fichiers pourront, par
       exemple, être utilisés pour améliorer la qualité d'affichage des moniteurs connectés.</translation>
-<translation id="8905426178924715309">Cette règle est abandonnée. Veuillez utiliser ForceGoogleSafeSearch et ForceYouTubeSafetyMode de préférence. Cette règle sera ignorée si des règles ForceGoogleSafeSearch ou ForceYouTubeSafetyMode sont configurées.
-
-      Cette règle entraîne l'activation obligatoire de SafeSearch pour les recherches sur le Web Google. Ce paramètre ne peut pas être modifié par l'utilisateur. Le mode sécurisé de YouTube est également activé.
-
-      Si vous activez ce paramètre, SafeSearch est toujours actif dans la recherche Google et sur YouTube.
-
-      Si vous désactivez ce paramètre ou si vous ne le configurez pas, SafeSearch ne s'appliquera pas à la recherche Google ni à YouTube.</translation>
 <translation id="8906768759089290519">Activer le mode invité</translation>
 <translation id="8908294717014659003">Vous permet de définir si les sites Web sont autorisés à accéder aux périphériques de capture multimédia. L'accès aux périphériques de capture multimédia peut être autorisé par défaut, ou l'utilisateur doit confirmer son autorisation chaque fois qu'un site Web souhaite accéder à ceux-ci.
 

@@ -825,11 +825,6 @@
 <translation id="3660562134618097814">Transferă cookie-urile unui furnizor de identitate SAML în timpul conectării</translation>
 <translation id="3709266154059827597">Configurează lista neagră pentru instalarea extensiilor</translation>
 <translation id="3711895659073496551">Suspendați</translation>
-<translation id="3715448429089775791">Forțează activarea Modului sigur pe YouTube și împiedică utilizatorii să schimbe această setare.
-
-      Dacă activezi această setare, Modul sigur pe YouTube este activ întotdeauna.
-
-      Dacă această setare este dezactivată sau nu este configurată, nu se impune Modul sigur pe YouTube.</translation>
 <translation id="3750220015372671395">Blochează generarea cheilor pe aceste site-uri</translation>
 <translation id="3756011779061588474">Blocați modul pentru dezvoltatori</translation>
 <translation id="3758089716224084329">Îți permite să specifici serverul proxy folosit de <ph name="PRODUCT_NAME" /> și împiedică utilizatorii să modifice setările de proxy.
@@ -2232,6 +2227,10 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="8369602308428138533">Interval până la oprirea ecranului la funcționarea pe c.a.</translation>
 <translation id="8382184662529825177">Permiteți utilizarea atestării la distanță pentru protejarea conținutului pe dispozitiv</translation>
 <translation id="838870586332499308">Activează roamingul de date</translation>
+<translation id="8390049129576938611">Dezactivează vizualizatorul PDF intern în <ph name="PRODUCT_NAME" />. Îl tratează ca pe o descărcare și permite utilizatorului să deschidă fișierele PDF folosind aplicația prestabilită.
+
+      Dacă această politică nu este configurată sau este dezactivată, pluginul PDF va fi folosit pentru a deschide fișierele PDF, dacă utilizatorul nu îl dezactivează.</translation>
+<translation id="8402079500086185021">Deschide întotdeauna fișierele PDF extern</translation>
 <translation id="8412312801707973447">Această politică stabilește dacă sunt efectuate verificări OCSP/CRL online</translation>
 <translation id="8413348101535146315">Activează oprirea proceselor în Managerul de activități din <ph name="PRODUCT_NAME" />.
 
@@ -2396,13 +2395,6 @@ nu poate fi stabilit de utilizator din setările browserului.
       contacta automat Quirks Server și va descărca fișierele de configurare,
       dacă sunt disponibile, apoi le va stoca pe dispozitiv. Astfel de fișiere pot, de
       exemplu, să fie folosite pentru a îmbunătăți calitatea afișării de pe monitoarele atașate.</translation>
-<translation id="8905426178924715309">Această politică este învechită. Folosește ForceGoogleSafeSearch și ForceYouTubeSafetyMode. Această politică va fi ignorată dacă sunt configurate politicile ForceGoogleSafeSearch sau ForceYouTubeSafetyMode.
-
-      Forțează activarea Căutării sigure pentru interogările de pe Căutarea Google pe web și nu permite utilizatorilor să modifice această setare. De asemenea, această setare impune Modul sigur pe YouTube.
-
-      Dacă activezi această setare, Căutarea sigură va fi întotdeauna activă pentru Căutarea Google și YouTube.
-
-      Dacă dezactivezi această setare sau nu configurezi nicio valoare, nu se va impune Căutarea sigură pentru Căutarea Google și YouTube.</translation>
 <translation id="8906768759089290519">Activați modul pentru invitați</translation>
 <translation id="8908294717014659003">Vă permite să stabiliți dacă site-urile web au acces la dispozitivele de captură media. Accesul la dispozitivele de captură media poate fi permis în mod prestabilit sau se poate solicita confirmarea utilizatorului de fiecare dată când un site web dorește acces la dispozitivele de captură media.
 

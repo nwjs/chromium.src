@@ -855,11 +855,6 @@ Ak toto nastavenie zakážete, v okne správcu hesiel nebude možné zobraziť 
 <translation id="3660562134618097814">Preniesť súbory cookie poskytovateľa identity SAML počas prihlásenia</translation>
 <translation id="3709266154059827597">Konfigurovať zoznam rozšírení, ktorých inštalácia je zakázaná</translation>
 <translation id="3711895659073496551">Režim spánku</translation>
-<translation id="3715448429089775791">Vynúti aktiváciu Bezpečnostného režimu v službe YouTube a zabráni používateľom meniť toto nastavenie.
-
-      Ak toto nastavenie povolíte, Bezpečnostný režim v službe YouTube bude vždy aktívny.
-
-      Ak toto nastavenie zakážete alebo nenastavíte žiadnu hodnotu, Bezpečnostný režim v službe YouTube nebude vynucovaný.</translation>
 <translation id="3750220015372671395">Blokovať generovanie kľúčov na týchto weboch</translation>
 <translation id="3756011779061588474">Blokovať režim pre vývojárov</translation>
 <translation id="3758089716224084329">Umožňuje špecifikovať proxy server, ktorý bude <ph name="PRODUCT_NAME" /> používať, a bráni používateľom zmeniť nastavenia proxy servera.
@@ -2360,6 +2355,10 @@ Pozrite si tiež pravidlo RemoteAccessHostClientDomain.</translation>
 <translation id="8369602308428138533">Oneskorenie vypnutia obrazovky pri používaní napájacieho zdroja</translation>
 <translation id="8382184662529825177">Povoliť použitie vzdialeného overenia na ochranu obsahu pre zariadenie</translation>
 <translation id="838870586332499308">Povoliť roaming pre dátové prenosy</translation>
+<translation id="8390049129576938611">Zakáže v prehliadači <ph name="PRODUCT_NAME" /> interný zobrazovač súborov PDF. Súbory PDF sa budú sťahovať a používateľ ich bude môcť otvoriť v predvolenej aplikácii.
+
+      Ak toto pravidlo ponecháte nenastavené alebo deaktivované, súbory PDF sa budú otvárať pomocou doplnku PDF (ak ho používateľ nezakáže).</translation>
+<translation id="8402079500086185021">Vždy otvárať súbory PDF externe</translation>
 <translation id="8412312801707973447">Či sa majú vykonávať kontroly OCSP/CRL online</translation>
 <translation id="8413348101535146315">Umožňuje ukončiť procesy v Správcovi úloh prehliadača <ph name="PRODUCT_NAME" />.
 
@@ -2512,13 +2511,6 @@ Každá položka zoznamu v pravidlách predstavuje reťazec, ktorý obsahuje ID
       automaticky kontaktuje server Quirks a stiahne konfiguračné súbory,
       ak budú k dispozícii, a uloží ich na zariadení. Tieto súbory je možné
       použiť napríklad na vylepšenie kvality zobrazenia na pripojených monitoroch.</translation>
-<translation id="8905426178924715309">Podpora tohto pravidla je ukončená. Použite namiesto neho pravidlá ForceGoogleSafeSearch a ForceYouTubeSafetyMode. Ak nastavíte pravidlo ForceGoogleSafeSearch alebo ForceYouTubeSafetyMode, pôvodné pravidlo sa bude ignorovať.
-
-      Vynucuje vyhľadávanie dopytov vo Vyhľadávaní Google na webe pomocou aktívneho Bezpečného vyhľadávania a zabraňuje používateľom toto nastavenie zmeniť. Toto nastavenie tiež vynucuje použitie Bezpečného režimu v službe YouTube.
-
-      Ak toto nastavenie povolíte, Bezpečné vyhľadávanie bude vo Vyhľadávaní Google a službe YouTube vždy aktívne.
-
-      Ak toto nastavenie zakážete alebo nenastavíte žiadnu hodnotu, Bezpečné vyhľadávanie vo Vyhľadávaní Google a službe YouTube vynucované nebude.</translation>
 <translation id="8906768759089290519">Povoliť režim hosťa</translation>
 <translation id="8908294717014659003">Umožňuje nastaviť, či webové stránky budú môcť používať zariadenia na zaznamenávanie médií. Prístup k zariadeniam na zaznamenávanie médií môže byť povolený v predvolenom nastavení alebo sa používateľovi môže zobraziť dopyt zakaždým, keď nejaké webové stránky budú chcieť použiť zariadenie na zaznamenávanie médií.
 

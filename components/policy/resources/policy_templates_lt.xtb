@@ -862,11 +862,6 @@ Jei nustatyta kaip „Netiesa“ arba nenustatyta, kreipiantis į API įvyks kla
 <translation id="3660562134618097814">„SAML IdP“ slapukų perkėlimas prisijungiant</translation>
 <translation id="3709266154059827597">Konfigūruoti plėtinių diegimo juodąjį sąrašą</translation>
 <translation id="3711895659073496551">Laikinai sustabdyti</translation>
-<translation id="3715448429089775791">Priverstinai suaktyvinamas „YouTube“ saugos režimas; naudotojams neleidžiama keisti šio nustatymo.
-
-      Jei įgalinsite šį nustatymą, „YouTube“ saugos režimas bus visada aktyvus.
-
-      Jei šį nustatymą išjungsite arba nenustatysite vertės, „YouTube“ saugos režimas nebus vykdomas.</translation>
 <translation id="3750220015372671395">Blokuoti rakto generavimą šiose svetainėse</translation>
 <translation id="3756011779061588474">Blokuoti kūrėjo režimą</translation>
 <translation id="3758089716224084329">Leidžiama nurodyti „<ph name="PRODUCT_NAME" />“ naudojamą tarpinį serverį ir neleidžiama naudotojams keisti tarpinio serverio nustatymų.
@@ -2376,6 +2371,10 @@ Jei plėtinio nėra sąraše arba sąrašas nenustatytas, kreipiantis į API įv
 <translation id="8369602308428138533">Ekrano išjungimo delsa, kai naudojama kintamosios srovės energija</translation>
 <translation id="8382184662529825177">Įgalinti nuotolinio patvirtinimo naudojimą siekiant apsaugoti įrenginio turinį</translation>
 <translation id="838870586332499308">Įgalinti duomenų tarptinklinį ryšį</translation>
+<translation id="8390049129576938611">Išjungiama vidinė PDF peržiūros priemonė „<ph name="PRODUCT_NAME" />“. Failai laikomi atsisiuntimu ir naudotojui leidžiama atidaryti PDF failus naudojant numatytąją programą.
+
+      Jei ši politika nenustatyta ar išjungta, PDF failams atidaryti bus naudojamas PDF papildinys (jei naudotojas jo neišjungė).</translation>
+<translation id="8402079500086185021">Visada atidaryti PDF failus už programos ribų</translation>
 <translation id="8412312801707973447">Ar atliekami OCSP / CRL patikrinimai prisijungus</translation>
 <translation id="8413348101535146315">Leidžiama užbaigti procesus „<ph name="PRODUCT_NAME" />“ užduočių tvarkytuvėje.
 
@@ -2558,13 +2557,6 @@ Jei plėtinio nėra sąraše arba sąrašas nenustatytas, kreipiantis į API įv
       automatiškai susisieks su „Quirks Server“ ir atsisiųs konfigūracijos failus
       (jei įmanoma) ir saugos juos įrenginyje.  Pvz., tokie failai gali
       būti naudojami siekiant pagerinti prijungtų monitorių vaizdo kokybę.</translation>
-<translation id="8905426178924715309">Ši politika nebenaudojama. Vietoje jos naudokite „ForceGoogleSafeSearch“ ir „ForceYouTubeSafetyMode“. Šios politikos nepaisoma, jei nustatyta politika „ForceGoogleSafeSearch“ arba „ForceYouTubeSafetyMode“.
-
-      „Google“ žiniatinklio paieškos užklausos priverstinai vykdomos naudojant suaktyvintą Saugią paiešką, o naudotojams neleidžiama keisti šio nustatymo. Pasirinkus šį nustatymą taip pat priverstinai įjungiamas saugos režimas sistemoje „YouTube“.
-
-      Jei įgalinsite šį nustatymą, Saugi paieška „Google“ paieškoje ir sistemoje „YouTube“ bus visada aktyvi.
-
-      Jei šį nustatymą išjungsite arba nenustatysite vertės, Saugi paieška „Google“ paieškoje ir sistemoje „YouTube“ nebus priverstinai vykdoma.</translation>
 <translation id="8906768759089290519">Įgalinti svečio režimą</translation>
 <translation id="8908294717014659003">Leidžiama jums nustatyti, ar svetainėms leidžiama prieiga prie medijos vaizdų įvedimo įrenginių. Medijos vaizdų įvedimo įrenginių prieiga gali būti leidžiama pagal numatytuosius nustatymus arba naudotojo (-os) gali būti klausiama kiekvieną kartą, kai svetainė nori gauti prieigą prie medijos vaizdų įvedimo įrenginių.
 

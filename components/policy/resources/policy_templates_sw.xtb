@@ -847,11 +847,6 @@ Sera hii inatumika tu kama sera ya 'DefaultSearchProviderEnabled' imewashwa.</tr
 <translation id="3660562134618097814">Hamisha vidakuzi vya SAML IdP wakati wa kuingia katika akaunti</translation>
 <translation id="3709266154059827597">Sanidi orodha inayotiliwa shaka ya usakinishaji wa kiendelezi</translation>
 <translation id="3711895659073496551">Sitisha</translation>
-<translation id="3715448429089775791">Hulazimisha Hali Salama ya YouTube kutumika na kuzuia watumiaji kubadilisha mipangilio hii.
-
-      Ukiwasha mipangilio hii, Hali Salama kwenye YouTube itatumika kila wakati.
-
-      Ukizima mipangilio hii au usiiweke kama thamani, Hali Salama kwenye YouTube haitatekelezwa.</translation>
 <translation id="3750220015372671395">Zuia uundaji ufunguo kwenye tovuti hizi</translation>
 <translation id="3756011779061588474">Zuia hali ya wasanidi programu</translation>
 <translation id="3758089716224084329">Hukuwezesha kubainisha seva mbadala iliyotumiwa na <ph name="PRODUCT_NAME" /> na huwazuia watumiaji kubadilisha mipangilio ya seva mbadala.
@@ -2324,6 +2319,10 @@ Kama sera hii haitawekwa, hali ya juu ya utofautishaji itazimwa mwanzoni lakini 
 <translation id="8369602308428138533">Kuchelewa kwa kuzima skirini wakati nishati ya AC inapotumika</translation>
 <translation id="8382184662529825177">Washa matumizi ya usahihishaji wa mbali wa kulinda maudhui ya kifaa</translation>
 <translation id="838870586332499308">Wezesha utumiaji wa data nje ya mtandao wako wa kawaida</translation>
+<translation id="8390049129576938611">Huzima programu ya mtazamaji wa ndani wa PDF katika <ph name="PRODUCT_NAME" />. Badala yake huichukulia kama kupakuliwa na huruhusu mtumiaji kufungua faili za PDF kwa kutumia programu chaguo-msingi.
+
+      Sera hii ikiachwa bila kuwekwa au ikizimwa programu-jalizi ya PDF itatumiwa kufungua faili za PDF isipokuwa mtumiaji awe ameizima.</translation>
+<translation id="8402079500086185021">Fungulia faili za PDF nje kila wakati</translation>
 <translation id="8412312801707973447">Ikiwa ukaguzi wa mtandaoni wa OCSP/CRL umeatekelezwa</translation>
 <translation id="8413348101535146315">Huwasha kipengele cha kutamatisha shughuli katika Kidhibiti cha Shughuli kwenye <ph name="PRODUCT_NAME" />.
 
@@ -2493,13 +2492,6 @@ Mfumo wa kipimo  lazima uwe 100% au zaidi. Thamani zitakazofupisha kuchelewa kwa
       <ph name="PRODUCT_OS_NAME" /> itawasiliana na
      Seva ya Quirks kiotomatiki na kupakua faili za kusanidi,
      kama zipo, na kuzihifadhi kwenye kifaa.  Kwa mfano, faili kama hizo zinaweza kutumiwa kuimarisha ubora wa onyesho la viwambo vilivyoambatishwa.</translation>
-<translation id="8905426178924715309">Sera hii imeacha kuendesha huduma, tafadhali tumia ForceGoogleSafeSearch na ForceYouTubeSafetyMode. Sera hii itapuuzwa ikiwa sera za ForceGoogleSafeSearch au ForceYouTubeSafetyMode zitawekwa.
-
-     Hulazimisha hoja katika Utafutaji wa Wavuti wa Google kufanywa SafeSearch ikiwa imewashwa na huzuia watumiaji kubadilisha mipangilio hii. Mipangilio hii pia hulazimisha Hali Salama kwenye YouTube.
-
-     Ukiwasha mipangilio hii, SafeSearch katika Tafuta na Google na YouTube huwa imewashwa.
-
-      Ukizima mipangilio hii au usipoweka thamani, SafeSearch katika Tafuta na Google na YouTube haitekelezwi.</translation>
 <translation id="8906768759089290519">Wezesha modi ya wageni</translation>
 <translation id="8908294717014659003">Inakuruhusu kuweka ikiwa tovuti zinaruhusiwa kufikia vifaa vya media vya kunasa. Ufikivu wa vifaa vya media vya kunasa unaweza kuruhusiwa kwa chaguo-msingi, au mtumiaji anaweza kuulizwa kila wakati  tovuti inapotaka kufikia vifaa vya media vya kunasa.
 

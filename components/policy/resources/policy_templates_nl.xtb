@@ -857,11 +857,6 @@
 <translation id="3660562134618097814">SAML IdP-cookies overdragen tijdens het inloggen</translation>
 <translation id="3709266154059827597">Zwarte lijst voor het installeren van extensies configureren</translation>
 <translation id="3711895659073496551">Onderbreken</translation>
-<translation id="3715448429089775791">Hiermee wordt afgedwongen dat de beperkte modus van YouTube wordt ingesteld op 'actief' en wordt voorkomen dat gebruikers deze instelling kunnen wijzigen.
-
-      Als je deze instelling inschakelt, is de beperkte modus op YouTube altijd actief.
-
-      Als je deze instelling uitschakelt of geen waarde instelt, wordt de beperkte modus op YouTube niet afgedwongen.</translation>
 <translation id="3750220015372671395">Het genereren van sleutels op deze sites blokkeren</translation>
 <translation id="3756011779061588474">Ontwikkelaarsmodus blokkeren</translation>
 <translation id="3758089716224084329">Hiermee kun je de proxyserver specificeren die door <ph name="PRODUCT_NAME" /> wordt gebruikt en wordt voorkomen dat gebruikers proxyinstellingen kunnen aanpassen.
@@ -2358,6 +2353,10 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="8369602308428138533">Vertraging van scherm uitschakelen wanneer op netstroom wordt gewerkt</translation>
 <translation id="8382184662529825177">Het gebruik van externe verificatie inschakelen voor het beveiligen van content voor het apparaat</translation>
 <translation id="838870586332499308">Gegevensroaming inschakelen</translation>
+<translation id="8390049129576938611">Hiermee wordt de interne pdf-viewer in <ph name="PRODUCT_NAME" /> uitgeschakeld. In plaats daarvan wordt dit beschouwd als download. De gebruiker kan pdf-bestanden openen met de standaard-app.
+
+      Als dit beleid niet wordt ingesteld of wordt uitgeschakeld, wordt de pdf-plug-in gebruikt om pdf-bestanden te openen, tenzij de gebruiker deze uitschakelt.</translation>
+<translation id="8402079500086185021">Pdf-bestanden altijd extern openen</translation>
 <translation id="8412312801707973447">Uitvoer van online OCSP/CRL-controles</translation>
 <translation id="8413348101535146315">Hiermee wordt het beëindigen van processen in Taakbeheer van <ph name="PRODUCT_NAME" /> mogelijk gemaakt.
 
@@ -2519,13 +2518,6 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als dit beleid is ingesteld op 'false', maakt het apparaat geen verbinding met de Quirks Server om configuratiebestanden te downloaden.
 
       Als dit beleid is ingesteld op 'true' of niet is geconfigureerd, maakt <ph name="PRODUCT_OS_NAME" /> automatisch verbinding met de Quirks Server en worden configuratiebestanden (indien beschikbaar) gedownload en opslagen op het apparaat. Dergelijke bestanden kunnen bijvoorbeeld worden gebruikt om de weergavekwaliteit van aangesloten beeldschermen te verbeteren.</translation>
-<translation id="8905426178924715309">Dit beleid is verouderd. Gebruik in plaats hiervan ForceGoogleSafeSearch en ForceYouTubeSafetyMode. Dit beleid wordt genegeerd als het beleid ForceGoogleSafeSearch of ForceYouTubeSafetyMode is ingesteld.
-
-      Hiermee wordt afgedwongen dat zoekopdrachten in Google Zoeken worden uitgevoerd wanneer SafeSearch is ingesteld op 'actief', en wordt voorkomen dat gebruikers deze instelling kunnen wijzigen. Met deze instelling wordt ook de Beperkte modus op YouTube afgedwongen.
-
-      Als je deze instelling inschakelt, is SafeSearch in Google Zoeken en YouTube altijd actief.
-
-      Als je deze instelling uitschakelt of er geen waarde voor instelt, wordt SafeSearch niet afgedwongen in Google Zoeken en YouTube.</translation>
 <translation id="8906768759089290519">Gastmodus inschakelen</translation>
 <translation id="8908294717014659003">Hiermee kun je instellen of websites toegang mogen krijgen tot media-opnameapparaten. Toegang tot media-opnameapparaten kan standaard worden toegestaan of de gebruiker kan elke keer om toestemming worden gevraagd wanneer een website toegang wil hebben tot media-opnameapparaten.
 

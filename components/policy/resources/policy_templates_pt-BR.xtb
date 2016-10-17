@@ -808,11 +808,6 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="3660562134618097814">Transferir cookies do IDP de SAML durante o login</translation>
 <translation id="3709266154059827597">Configurar a lista negra de instalação da extensão</translation>
 <translation id="3711895659073496551">Suspender</translation>
-<translation id="3715448429089775791">Força o modo de segurança do YouTube a ser ativado e impede que os usuários mudem esta configuração.
-
-      Se esta configuração é ativada, o modo de segurança do YouTube fica sempre ativo.
-
-      Se esta configuração é desativada ou se nenhum valor é definido, o modo de segurança do YouTube não é aplicado.</translation>
 <translation id="3750220015372671395">Bloquear a geração de chaves nesses sites</translation>
 <translation id="3756011779061588474">Bloquear modo de desenvolvedor</translation>
 <translation id="3758089716224084329">Permite que você especifique o servidor proxy usado pelo <ph name="PRODUCT_NAME" /> e impede que os usuários alterem as configurações de proxy.
@@ -2185,6 +2180,10 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="8369602308428138533">Intervalo de desligamento da tela no funcionamento com alimentação CA</translation>
 <translation id="8382184662529825177">Permitir o uso de declaração remota para proteção de conteúdo no dispositivo</translation>
 <translation id="838870586332499308">Ativa roaming de dados</translation>
+<translation id="8390049129576938611">Desativa o visualizador de PDF interno no <ph name="PRODUCT_NAME" />. Em vez disso, ela o trata como um download e permite que o usuário abra os arquivos em PDF com o aplicativo padrão.
+
+      Se esta política for deixada sem definição ou for desativada, o plug-in de PDF será usado para abrir arquivos em PDF, a menos que o usuário o desative.</translation>
+<translation id="8402079500086185021">Sempre abrir arquivos em PDF externamente</translation>
 <translation id="8412312801707973447">Define se as verificações on-line de OCSP/CRL devem ser executadas</translation>
 <translation id="8413348101535146315">Permite o encerramento de processos no Gerenciador de tarefas do <ph name="PRODUCT_NAME" />.
 
@@ -2343,13 +2342,6 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
       em contato com o Servidor Quirks automaticamente e faz o download dos arquivos de configuração,
       se eles estão disponíveis, e os armazena no dispositivo. Esses arquivos podem ser usados,
       por exemplo, para melhorar a qualidade de exibição dos monitores acoplados.</translation>
-<translation id="8905426178924715309">O uso desta política está suspenso. Use ForceGoogleSafeSearch e ForceYouTubeSafetyMode em vez dela. Esta política é ignorada se a política ForceGoogleSafeSearch ou a ForceYouTubeSafetyMode estão configuradas.
-
-      Força as consultas no Google Web Search a serem feitas com o SafeSearch ativado e impede que os usuários alterem essa configuração, a qual também força o Modo de segurança do YouTube.
-
-      Se você ativa esta configuração, o SafeSearch fica sempre ativo na Pesquisa Google e no YouTube.
-
-      Se você desativa esta configuração ou não define nenhum valor, o SafeSearch não é aplicado na Pesquisa Google e no YouTube.</translation>
 <translation id="8906768759089290519">Ativa o modo de visitante</translation>
 <translation id="8908294717014659003">Permite definir se os sites podem ter acesso a dispositivos de captura de mídia. O acesso a dispositivos de captura de mídia pode ser permitido por padrão, ou uma pergunta será feita ao usuário cada vez que um site quiser ter acesso a dispositivos de captura de mídia.
 

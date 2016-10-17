@@ -860,11 +860,6 @@
 <translation id="3660562134618097814">로그인 중 SAML IdP 쿠키 전송</translation>
 <translation id="3709266154059827597">확장 프로그램 설치 차단목록 설정</translation>
 <translation id="3711895659073496551">일시중지</translation>
-<translation id="3715448429089775791">YouTube 안전 모드를 강제로 활성화하고 사용자가 이 설정을 변경할 수 없도록 합니다.
-
-      이 설정을 사용하도록 설정하면 YouTube의 안전 모드가 항상 활성화됩니다.
-
-      이 설정을 사용 중지하거나 값을 설정하지 않으면 YouTube의 안전 모드가 강제로 실행되지 않습니다.</translation>
 <translation id="3750220015372671395">이 사이트에서 키 생성 차단</translation>
 <translation id="3756011779061588474">개발자 모드 차단</translation>
 <translation id="3758089716224084329"><ph name="PRODUCT_NAME" />에서사용하는 프록시 서버를 지정하도록 하며 사용자가 프록시 설정을 변경하지 못하게 합니다.
@@ -2365,6 +2360,10 @@
 <translation id="8369602308428138533">AC 전원으로 실행할 때 화면 꺼짐 지연</translation>
 <translation id="8382184662529825177">기기의 콘텐츠 보호에 원격 인증을 사용합니다.</translation>
 <translation id="838870586332499308">데이터 로밍 사용</translation>
+<translation id="8390049129576938611"><ph name="PRODUCT_NAME" />의 내부 PDF 뷰어를 사용 중지합니다. 대신 이를 다운로드로 처리하며 사용자가 기본 애플리케이션으로 PDF 파일을 열 수 있습니다.
+
+      이 정책이 설정되어 있지 않거나 사용 중지되어 있으면 사용자가 사용 중지하지 않는 한 PDF 플러그인을 사용하여 PDF 파일이 열립니다.</translation>
+<translation id="8402079500086185021">항상 외부에서 PDF 파일 열기</translation>
 <translation id="8412312801707973447">온라인 OCSP/CRL 확인 수행 여부</translation>
 <translation id="8413348101535146315"><ph name="PRODUCT_NAME" />의 작업 관리자에서 종료 프로세스를 사용 설정합니다.
 
@@ -2539,13 +2538,6 @@
       자동으로 Quirks 서버에 연결하고 구성 파일을 다운로드하며
       가능한 경우 기기에 파일을 저장합니다. 이러한 파일은
       연결된 모니터의 디스플레이 품질 개선 등에 사용될 수 있습니다.</translation>
-<translation id="8905426178924715309">이 정책은 지원 중단되었으므로 대신 ForceGoogleSafeSearch 및 ForceYouTubeSafetyMode를 사용하시기 바랍니다. ForceGoogleSafeSearch 또는 ForceYouTubeSafetyMode 정책이 설정된 경우 이 정책이 무시됩니다.
-
-      세이프서치가 활성화되도록 설정된 상태에서 Google 웹 검색이 이루어지며 사용자가 이 설정을 바꾸지 못하도록 합니다. 또한 이 설정은 YouTube에서 안전 모드를 사용하도록 합니다.
-
-      이 설정을 사용하면 Google 검색 및 YouTube에서 세이프서치가 항상 활성화됩니다.
-
-      이 설정을 사용 중지하거나 값을 설정하지 않으면 Google 검색 및 YouTube에 세이프서치가 적용되지 않습니다.</translation>
 <translation id="8906768759089290519">손님 모드 사용</translation>
 <translation id="8908294717014659003">미디어 캡쳐 장치에 대한 웹사이트의 액세스 허용 여부를 설정할 수 있습니다. 미디어 캡쳐 장치에 대해 액세스를 기본적으로 허용하거나 웹사이트가 액세스하려고 할 때마다 확인하도록 설정할 수도 있습니다.
 

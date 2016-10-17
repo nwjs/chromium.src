@@ -370,7 +370,6 @@
 <translation id="495170559598752135">Tác vụ</translation>
 <translation id="4958444002117714549">Mở rộng danh sách</translation>
 <translation id="4962322354953122629">Máy chủ này không chứng minh được rằng đó là <ph name="DOMAIN" />; chứng chỉ bảo mật của máy chủ này không được Chrome tin tưởng. Điều này có thể do cấu hình sai hoặc có kẻ tấn công chặn kết nối của bạn. <ph name="BEGIN_LEARN_MORE_LINK" />Tìm hiểu thêm<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">Đã đọc tất cả</translation>
 <translation id="498957508165411911">Dịch từ <ph name="ORIGINAL_LANGUAGE" /> sang <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="4989809363548539747">Plugin này không được hỗ trợ</translation>
 <translation id="5002932099480077015">Nếu được bật, Chrome sẽ lưu trữ bản sao thẻ của bạn trên thiết bị này để điền vào biểu mẫu nhanh hơn.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">Thanh Dấu trang</translation>
 <translation id="5199729219167945352">Thử nghiệm</translation>
 <translation id="5251803541071282808">Đám mây</translation>
+<translation id="5277279256032773186">Sử dụng Chrome ở cơ quan? Các doanh nghiệp có thể quản lý cài đặt Chrome cho nhân viên của họ. Tìm hiểu thêm</translation>
 <translation id="5299298092464848405">Lỗi phân tích cú pháp chính sách</translation>
 <translation id="5300589172476337783">Hiển thị</translation>
 <translation id="5308689395849655368">Báo cáo sự cố bị tắt.</translation>

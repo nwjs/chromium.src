@@ -370,7 +370,6 @@
 <translation id="495170559598752135">చర్యలు</translation>
 <translation id="4958444002117714549">జాబితాను విస్తరించు</translation>
 <translation id="4962322354953122629">ఈ సర్వర్ ఇది ఒక <ph name="DOMAIN" /> అని నిరూపించుకోలేకపోయింది; దీని భద్రతా ప్రమాణపత్రాన్ని Chrome విశ్వసించలేదు. తప్పుగా కాన్ఫిగర్ చేయడం వలన లేదా దాడిచేసే వ్యక్తి మీ కనెక్షన్‌కి అంతరాయం కలిగించడం వలన ఇలా జరిగి ఉండవచ్చు. <ph name="BEGIN_LEARN_MORE_LINK" />మరింత తెలుసుకోండి<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4986920000862467124">అన్ని చదవబడ్డాయి</translation>
 <translation id="498957508165411911"><ph name="ORIGINAL_LANGUAGE" /> నుండి <ph name="TARGET_LANGUAGE" />కి అనువదించాలా?</translation>
 <translation id="4989809363548539747">ఈ ప్లగిన్‌కు మద్దతు లేదు</translation>
 <translation id="5002932099480077015">ప్రారంభిస్తే, వేగవంతమైన ఫారమ్ పూరింపు కోసం Chrome ఈ పరికరంలో మీ కార్డ్ కాపీని నిల్వ చేస్తుంది.</translation>
@@ -394,6 +393,7 @@
 <translation id="5190835502935405962">బుక్‌మార్క్‌ల బార్</translation>
 <translation id="5199729219167945352">ప్రయోగాలు</translation>
 <translation id="5251803541071282808">క్లౌడ్</translation>
+<translation id="5277279256032773186">కార్యాలయంలో Chrome ఉపయోగిస్తున్నారా? వ్యాపార సంస్థలు తమ ఉద్యోగుల కోసం Chrome సెట్టింగ్‌లను నిర్వహించగలవు. మరింత తెలుసుకోండి</translation>
 <translation id="5299298092464848405">విధానాన్ని అన్వయించడంలో లోపం</translation>
 <translation id="5300589172476337783">చూపించు</translation>
 <translation id="5308689395849655368">క్రాష్ నివేదిక నిలిపివెయ్యబడింది.</translation>
