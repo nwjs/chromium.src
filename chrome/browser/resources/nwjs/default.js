@@ -40,6 +40,8 @@ if (manifest.window) {
     options.position = manifest.window.position;
   if (manifest.window.title)
     options.title = manifest.window.title;
+  if (manifest.window.app_user_model_id)
+    options.app_user_model_id = manifest.window.app_user_model_id;
 }
 
 chrome.app.window.create(manifest.main, options, function(win) {

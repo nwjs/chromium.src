@@ -1269,6 +1269,11 @@ AppWindow::CreateParams AppWindow::LoadDefaults(CreateParams params)
     }
   }
 
+  // app_user_model_id
+  nw::Package* package = nw::package();
+  if (params.app_user_model_id.empty())
+    package->root()->GetString(::switches::kmAppUserModelID, &(params.app_user_model_id));
+
   return params;
 }
 

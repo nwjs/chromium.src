@@ -300,6 +300,7 @@ namespace app.window {
     boolean? new_instance;
     DOMString? inject_js_start;
     DOMString? inject_js_end;
+    DOMString? app_user_model_id;
   };
 
   // Called in the creating window (parent) before the load event is called in
