@@ -482,6 +482,7 @@ Resource* ResourceFetcher::requestResource(
   if (request.resourceRequest().httpHeaderField("Upgrade-Insecure-Requests") !=
       AtomicString("1"))
     context().upgradeInsecureRequest(request.mutableResourceRequest());
+
   context().addClientHintsIfNecessary(request);
   context().addCSPHeaderIfNecessary(factory.type(), request);
 
@@ -491,6 +492,12 @@ Resource* ResourceFetcher::requestResource(
   if (!request.url().isValid())
     return nullptr;
 
+  unsigned long identifier = createUniqueIdentifier();
+  request.mutableResourceRequest().setPriority(computeLoadPriority(
+      factory.type(), request, ResourcePriority::NotVisible));
+  initializeResourceRequest(request.mutableResourceRequest(), factory.type(),
+                            request.defer());
+
   if (!context().canRequest(
           factory.type(), request.resourceRequest(),
           MemoryCache::removeFragmentIdentifierIfNeeded(request.url()),
@@ -498,11 +505,6 @@ Resource* ResourceFetcher::requestResource(
           request.getOriginRestriction()))
     return nullptr;
 
-  unsigned long identifier = createUniqueIdentifier();
-  request.mutableResourceRequest().setPriority(computeLoadPriority(
-      factory.type(), request, ResourcePriority::NotVisible));
-  initializeResourceRequest(request.mutableResourceRequest(), factory.type(),
-                            request.defer());
   context().willStartLoadingResource(
       identifier, request.mutableResourceRequest(), factory.type());
   if (!request.url().isValid())
