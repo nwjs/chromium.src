@@ -96,7 +96,9 @@ class V4LocalDatabaseManagerTest : public PlatformTest {
   }
 
   void StopLocalDatabaseManager() {
-    v4_local_database_manager_->StopOnIOThread(true);
+    if (v4_local_database_manager_) {
+      v4_local_database_manager_->StopOnIOThread(true);
+    }
 
     // Force destruction of the database.
     task_runner_->RunPendingTasks();

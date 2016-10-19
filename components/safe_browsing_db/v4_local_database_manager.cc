@@ -77,7 +77,10 @@ scoped_refptr<V4LocalDatabaseManager> V4LocalDatabaseManager::Create(
 }
 
 V4LocalDatabaseManager::V4LocalDatabaseManager(const base::FilePath& base_path)
-    : base_path_(base_path), enabled_(false), list_infos_(GetListInfos()) {
+    : base_path_(base_path),
+      enabled_(false),
+      list_infos_(GetListInfos()),
+      weak_factory_(this) {
   DCHECK(!base_path_.empty());
   DCHECK(!list_infos_.empty());
 
@@ -237,7 +240,7 @@ void V4LocalDatabaseManager::StartOnIOThread(
   SafeBrowsingDatabaseManager::StartOnIOThread(request_context_getter, config);
 
   db_updated_callback_ = base::Bind(&V4LocalDatabaseManager::DatabaseUpdated,
-                                    base::Unretained(this));
+                                    weak_factory_.GetWeakPtr());
 
   SetupUpdateProtocolManager(request_context_getter, config);
   SetupDatabase();
@@ -407,7 +410,7 @@ void V4LocalDatabaseManager::PerformFullHashCheck(
   v4_get_hash_protocol_manager_->GetFullHashes(
       full_hash_to_store_and_hash_prefixes,
       base::Bind(&V4LocalDatabaseManager::OnFullHashResponse,
-                 base::Unretained(this), base::Passed(std::move(check))));
+                 weak_factory_.GetWeakPtr(), base::Passed(std::move(check))));
 }
 
 void V4LocalDatabaseManager::ProcessQueuedChecks() {
@@ -456,15 +459,16 @@ void V4LocalDatabaseManager::SetupDatabase() {
   // operation. Instead, do that on the task_runner and when the new database
   // has been created, swap it out on the IO thread.
   NewDatabaseReadyCallback db_ready_callback = base::Bind(
-      &V4LocalDatabaseManager::DatabaseReady, base::Unretained(this));
+      &V4LocalDatabaseManager::DatabaseReady, weak_factory_.GetWeakPtr());
   V4Database::Create(task_runner_, base_path_, list_infos_, db_ready_callback);
 }
 
 void V4LocalDatabaseManager::SetupUpdateProtocolManager(
     net::URLRequestContextGetter* request_context_getter,
     const V4ProtocolConfig& config) {
-  V4UpdateCallback callback = base::Bind(
-      &V4LocalDatabaseManager::UpdateRequestCompleted, base::Unretained(this));
+  V4UpdateCallback callback =
+      base::Bind(&V4LocalDatabaseManager::UpdateRequestCompleted,
+                 weak_factory_.GetWeakPtr());
 
   v4_update_protocol_manager_ =
       V4UpdateProtocolManager::Create(request_context_getter, config, callback);
