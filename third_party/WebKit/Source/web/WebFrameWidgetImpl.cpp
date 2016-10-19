@@ -1182,6 +1182,7 @@ WebInputEventResult WebFrameWidgetImpl::keyEventDefault(
         return scrollViewWithKeyboard(keyCode, event.modifiers);
       }
       break;
+    case WebInputEvent::KeyDown:
     case WebInputEvent::RawKeyDown:
       if (event.modifiers == WebInputEvent::ControlKey) {
         switch (event.windowsKeyCode) {
