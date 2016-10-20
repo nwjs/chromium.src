@@ -322,7 +322,6 @@ class LocationBarView : public LocationBar,
   base::string16 GetSecurityText() const;
 
   bool ShouldShowKeywordBubble() const;
-  bool ShouldShowEVBubble() const;
 
   // Returns true when the current page is explicitly secure or insecure.
   // In these cases, we should show the state of the security chip.
@@ -479,6 +478,7 @@ class LocationBarView : public LocationBar,
 
   // These allow toggling the verbose security state behavior via flags.
   bool should_show_secure_state_;
+  bool should_show_nonsecure_state_;
   bool should_animate_secure_state_;
 
   DISALLOW_COPY_AND_ASSIGN(LocationBarView);

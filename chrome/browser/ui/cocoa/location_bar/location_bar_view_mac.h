@@ -319,6 +319,10 @@ class LocationBarViewMac : public LocationBar,
   // state decoration.
   bool should_show_secure_verbose_;
 
+  // True if the non-secure state should be displayed on the security state
+  // decoration.
+  bool should_show_nonsecure_verbose_;
+
   // True if the security state decoration should be animated for changes in
   // the security level.
   bool should_animate_security_verbose_;
