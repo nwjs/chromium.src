@@ -240,7 +240,7 @@ void DOMStorageContextWrapper::MojoState::BindLocalStorage(
   // To avoid excessive IO we apply limits to the amount of data being written
   // and the frequency of writes.
   const int kMaxBytesPerHour = kPerStorageAreaQuota;
-  const int kMaxCommitsPerHour = 60;
+  const int kMaxCommitsPerHour = std::numeric_limits<int32_t>::max();
 
   auto found = level_db_wrappers_.find(origin);
   if (found == level_db_wrappers_.end()) {

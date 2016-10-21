@@ -128,6 +128,18 @@ std::unique_ptr<UserScript> LoadUserScriptFromDictionary(
     result->set_match_about_blank(match_about_blank);
   }
 
+  // in main world
+  if (content_script->HasKey(keys::kInMainWorld)) {
+    bool in_main_world = false;
+    if (!content_script->GetBoolean(keys::kInMainWorld,
+                                    &in_main_world)) {
+      *error = ErrorUtils::FormatErrorMessageUTF16(
+          errors::kInvalidInMainWorld, base::IntToString(definition_index));
+      return std::unique_ptr<UserScript>();
+    }
+    result->set_in_main_world(in_main_world);
+  }
+
   // matches (required)
   const base::ListValue* matches = NULL;
   if (!content_script->GetList(keys::kMatches, &matches)) {
